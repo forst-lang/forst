@@ -45,13 +45,17 @@ We acknowledge that TypeScript is the de facto standard for frontend development
 
 ### OOP vs. Functional Programming
 
-We like the idea of simple value objects that have functions naturally associated with them. This is where OOP shines.
+We like the idea of simple value objects that have functions naturally associated with them. We also think that hiding data structure specific implementation details makes sense. This is where OOP shines.
 
-- So we want to offer the ability to connect types with methods.
+- So we want to allow attaching methods to nominal types, as well as making properties and methods private.
 
 But it is simply not feasible for all procedures to have a single receiver. In practice, they often involve multiple objects, collections, and other data structures working together in complex ways.
 
 - So we want to offer parameters that allow passing arbitrary and nested data structures to a procedure.
+
+It is also not necessary for types to inherit code from other types.
+
+- So we do not support inheritance, and we encourage composition of functions instead.
 
 ### Metaprogramming
 
@@ -71,7 +75,7 @@ We want to be able to trace where a runtime error originates. But we don't want 
 
 We love type inference and type narrowing, but we accept that we need to give up some syntax sugar in return.
 
-- We don't mind giving hints to the compiler to help it work, including the use of extra keywords to signal intent.
+- So don't mind giving hints to the compiler to help it work, including the use of extra syntax to signal intent.
 
 ### Inspirations
 
@@ -118,7 +122,7 @@ module Routers
   end
 end
 
-fn handle_http_request(req: HTTP::Request)
+def handle_http_request(req: HTTP::Request)
   Routers.trpc.handle(req)
 end
 ```
@@ -129,12 +133,12 @@ end
 type PhoneNumber = String.Min(10).Max(15)
 
 class Routers::UserRouter
-  fn createUser!(input: {
+  def createUser!(input: {
     id: UUID,
     name: String.Min(3).Max(10),
     phoneNumbers: Array(PhoneNumber),
   })
-    log("Creating user with id: #{input.id}")
+    puts "Creating user with id: #{input.id}"
   end
 end
 ```
@@ -143,9 +147,7 @@ Metaprogramming such as macros is impossible, and re-opening classes is not allo
 
 ```cr
 class A; end
-class A; end # Syntax error: Class A has been closed
+class A; end # Syntax error: Class A is already defined
 ```
 
 This will fail to compile, which should make it easier for the compiler to infer types.
-
-Traits from Rust instead of classes? Allow any objects that satisfy the trait to be used in place of the trait.
