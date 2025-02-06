@@ -70,21 +70,17 @@ class Routers::UserRouter
 end
 
 module Routers
-  @t : TRPC::Router
+  @@trpc = TRPC::Router.from_routes({
+    user: UserRouter.new,
+  })
 
-  fn new
-    @t = TRPC::Router.from_routes({
-      user: UserRouter.new,
-    })
-  end
-
-  fn t
-    @t
+  fn self.trpc
+    @@trpc
   end
 end
 
 fn handle_http_request(req: HTTP::Request)
-  t.handle(req)
+  Routers.trpc.handle(req)
 end
 ```
 
