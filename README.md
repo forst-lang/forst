@@ -45,7 +45,7 @@ We acknowledge that TypeScript is the de facto standard for frontend development
 
 ### OOP vs. Functional Programming
 
-We like the idea of simple value types that have functions. This is where OOP shines.
+We like the idea of simple value objects that have functions naturally associated with them. This is where OOP shines.
 
 - So we want to offer the ability to connect types with methods.
 
