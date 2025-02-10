@@ -42,7 +42,7 @@ class Lexer
       /\}/                     => TokenType::StructEnd,
       /:/                      => TokenType::Colon,
       /,/                      => TokenType::Comma,
-      /->/                     => TokenType::Arrow,
+      /=>/                     => TokenType::Arrow,
       /\(/                     => TokenType::LParen,
       /\)/                     => TokenType::RParen,
       /return/                 => TokenType::Return,

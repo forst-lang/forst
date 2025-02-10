@@ -1,5 +1,5 @@
 type User = { id: int, name: string }
 
 fn validate(user: User) -> bool {
-    return user.id > 0 && user.name != ""
+    return user.id > 0
 }

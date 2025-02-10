@@ -1,0 +1,116 @@
+import "core/trpc"
+
+[trpc]
+def createUser!(input: {
+  id: UUID,
+  name: String.Min(3).Max(10),
+  phoneNumbers: Array(PhoneNumber),
+  bankAccount: {
+    iban: String.Min(10).Max(34),
+  },
+})
+  puts "Creating user with id: #{input.id}"
+  300.3f
+end
+
+x: Float32 = createUser!(...)
+x # Float32
+
+# trpc mutation: createUser
+# trpc query
+
+class BankAccount
+  iban: String.Min(10).Max(34)
+end
+
+---
+
+class User
+  id: UUID
+  name: String.Min(3).Max(10)
+  phoneNumbers: Array(PhoneNumber)
+end
+
+class UserWithBankAccount < User
+  bankAccount: BankAccount
+end
+
+class UserWithSocialSecurityNumber < User
+  socialSecurityNumber: String.Min(9).Max(10)
+end
+
+class UserWithBankAccountAndSocialSecurityNumber < UserWithBankAccount & UserWithSocialSecurityNumber
+
+end
+
+---
+
+class User
+  id: UUID
+  name: String.Min(3).Max(10)
+  phoneNumbers: Array(PhoneNumber)
+
+  bankAccount: BankAccount?
+end
+
+---
+
+def bankTransfer!(input: {
+  amount: Float32,
+  from: User,
+  to: BankAccount
+})
+
+end
+
+type UserAbleToTransferMoney =
+  | User.WithBankAccount()
+  | User.WithSocialSecurityNumber()
+
+type UserAbleToTransferMoney =
+  | { bankAccount: NonNullable<User["bankAccount"]> }
+  | { socialSecurityNumber: NonNullable<User["socialSecurityNumber"]> }
+
+type Min10 = Float32.Min(10)
+type Max1000 = Float32.Max(1000)
+
+def bankTransfer!(input: {
+  amount: Min10.Max(1000),
+  from: UserAbleToTransferMoney,
+  to: User.WithBankAccount(),
+})
+  return unless input.from.bankAccount
+  ...
+end
+
+class Float32
+  @value: Byte[]
+
+  typefn Min(min: Float32)
+    assert @value >= min
+
+    self & { __min: min} # tagged union
+  end
+end
+
+type UserId = string
+type BankAccountId = string
+
+function bankTransfer(
+  from: UserId,
+  to: BankAccountId
+) {}
+
+bankTransfer(userId, bankAccountId)
+bankTransfer(bankAccountId, userId)
+
+# typescript is purely structurally typed, no nominal typing
+type UserId = string & { __userId: true }
+
+typeof userId === "string"
+
+function makeUserId(userId: string): UserId
+  userId
+end
+
+bankTransfer(makeUserId(userId), bankAccountId)

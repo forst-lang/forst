@@ -1,0 +1,37 @@
+def readUsers(path : String) : Result(String, EMPTY_CONTENT)
+  content = File.read(path)
+  if content.empty?
+    return Error.new(EMPTY_CONTENT, {
+        path
+    })
+  end
+
+  content
+end
+
+const x = {}
+const x = Object()
+
+def setup
+  users = readUsers("users.json")
+  users.match do
+    case .ok(users)
+      puts users
+    case .error(EMPTY_CONTENT) do |error|
+      puts "No users found, path: #{error.path}"
+      return Error.new(EMPTY_CONTENT)
+    end
+  end
+end
+
+def main
+  setup.match do
+    ok(users) do
+      puts users
+    end
+
+    error(error) do
+      puts error
+    end
+  end
+end
