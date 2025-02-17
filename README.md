@@ -1,6 +1,6 @@
-# Crysma
+# Forst
 
-Crysma is a programming language for backend development.
+Forst is a programming language for backend development.
 
 Its primary goal is to make it easy to stop using TypeScript on the backend:
 
@@ -15,7 +15,7 @@ We love Ruby's efficiency in expressing logic.
 
 We love TypeScript's efficiency in structuring data.
 
-We love Go's efficiency in compiler and runtime performance.
+We love Zig's efficiency at compile and runtime.
 
 We want the best of all three worlds.
 
