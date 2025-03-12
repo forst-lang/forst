@@ -36,10 +36,12 @@ func (p *Parser) expect(tokenType string) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
 		panic(fmt.Sprintf(`
-Parse error in %s at line %d, column %d:
+Parse error in %s:%d:%d (line %d, column %d):
 Expected token type '%s' but got '%s'
 Token value: '%s'`,
 			token.Path,
+			token.Line,
+			token.Column,
 			token.Line,
 			token.Column,
 			tokenType,
@@ -78,10 +80,12 @@ func (p *Parser) parseFunc() ast.FuncNode {
 		} else {
 			token := p.current()
 			panic(fmt.Sprintf(
-				"\nParse error in %s at line %d, column %d:\n"+
+				"\nParse error in %s:%d:%d at line %d, column %d:\n"+
 					"Unexpected token in function body: '%s'\n"+
 					"Token value: '%s'",
 				token.Path,
+				token.Line,
+				token.Column,
 				token.Line,
 				token.Column,
 				token.Type,

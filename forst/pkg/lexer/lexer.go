@@ -9,10 +9,14 @@ import (
 )
 
 // Lexer: Converts Forst code into tokens
-func Lexer(input []byte) []ast.Token {
+type Context struct {
+	FilePath string
+}
+
+func Lexer(input []byte, ctx Context) []ast.Token {
 	tokens := []ast.Token{}
 	reader := bufio.NewReader(bytes.NewReader(input))
-	path := "input.forst" // Default filepath
+	path := ctx.FilePath
 	lineNum := 0
 
 	for {

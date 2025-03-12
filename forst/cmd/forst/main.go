@@ -22,15 +22,15 @@ func main() {
 	}
 
 	// Read the Forst file
-	filename := args[0]
-	source, err := os.ReadFile(filename)
+	filePath := args[0]
+	source, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Error reading file: %v\n", err)
 		return
 	}
 
 	// Compilation pipeline
-	tokens := lexer.Lexer(source)
+	tokens := lexer.Lexer(source, lexer.Context{FilePath: filePath})
 	
 	if *debug {
 		fmt.Println("\n=== Tokens ===")
