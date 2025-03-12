@@ -2,26 +2,26 @@ package lexer
 
 import (
 	"bufio"
-	"strings"
+	"bytes"
 	"unicode"
 
 	"forst/pkg/ast"
 )
 
 // Lexer: Converts Forst code into tokens
-func Lexer(input string) []ast.Token {
+func Lexer(input []byte) []ast.Token {
 	tokens := []ast.Token{}
-	reader := bufio.NewReader(strings.NewReader(input))
-	filename := "input.forst" // Default filename
+	reader := bufio.NewReader(bytes.NewReader(input))
+	path := "input.forst" // Default filepath
 	lineNum := 0
 
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadBytes('\n')
 		if err != nil && len(line) == 0 {
 			break
 		}
 		lineNum++
-		line = strings.TrimRight(line, "\n")
+		line = bytes.TrimRight(line, "\n")
 		column := 0
 
 		// Process each word in the line
@@ -44,13 +44,13 @@ func Lexer(input string) []ast.Token {
 				if column < len(line) {
 					column++ // Move past closing quote
 				}
-				word := line[wordStart:column]
+				word := string(line[wordStart:column])
 				token := ast.Token{
-					Filename: filename,
-					Line:     lineNum,
-					Column:   wordStart + 1,
-					Value:    word,
-					Type:     ast.TokenString,
+					Path:   path,
+					Line:   lineNum,
+					Column: wordStart + 1,
+					Value:  word,
+					Type:   ast.TokenString,
 				}
 				tokens = append(tokens, token)
 				continue
@@ -61,13 +61,13 @@ func Lexer(input string) []ast.Token {
 			for column < len(line) && !unicode.IsSpace(rune(line[column])) {
 				column++
 			}
-			word := line[wordStart:column]
+			word := string(line[wordStart:column])
 
 			token := ast.Token{
-				Filename: filename,
-				Line:     lineNum,
-				Column:   wordStart + 1,
-				Value:    word,
+				Path:   path,
+				Line:   lineNum,
+				Column: wordStart + 1,
+				Value:  word,
 			}
 
 			switch word {
@@ -132,11 +132,11 @@ func Lexer(input string) []ast.Token {
 	// End of file token with final line/column position
 	lastCol := 1
 	tokens = append(tokens, ast.Token{
-		Type:     ast.TokenEOF,
-		Value:    "",
-		Filename: filename,
-		Line:     lineNum,
-		Column:   lastCol,
+		Type:   ast.TokenEOF,
+		Value:  "",
+		Path:   path,
+		Line:   lineNum,
+		Column: lastCol,
 	})
 
 	return tokens

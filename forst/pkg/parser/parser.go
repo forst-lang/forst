@@ -35,11 +35,11 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType string) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		panic(fmt.Sprintf(
-			"\nParse error in %s at line %d, column %d:\n"+
-				"Expected token type '%s' but got '%s'\n"+
-				"Token value: '%s'",
-			token.Filename,
+		panic(fmt.Sprintf(`
+Parse error in %s at line %d, column %d:
+Expected token type '%s' but got '%s'
+Token value: '%s'`,
+			token.Path,
 			token.Line,
 			token.Column,
 			tokenType,
@@ -81,7 +81,7 @@ func (p *Parser) parseFunc() ast.FuncNode {
 				"\nParse error in %s at line %d, column %d:\n"+
 					"Unexpected token in function body: '%s'\n"+
 					"Token value: '%s'",
-				token.Filename,
+				token.Path,
 				token.Line,
 				token.Column,
 				token.Type,

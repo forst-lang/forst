@@ -39,7 +39,7 @@ const (
 type Token struct {
 	Type     string
 	Value    string
-	Filename string
+	Path 	 string
 	Line     int
 	Column   int
 }

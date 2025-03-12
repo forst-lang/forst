@@ -8,27 +8,36 @@ import (
 	"forst/pkg/lexer"
 	"forst/pkg/parser"
 	"forst/pkg/transformers"
+	"os"
 )
-
 func main() {
 	// Parse command line flags
 	debug := flag.Bool("debug", false, "Enable debug output")
 	flag.Parse()
 
-	// Example Forst function with an assertion
-	forstCode := `fn greet -> String { 
-		assert true or ValidationError
-		return "Hello, Forst!"
-	}`
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Usage: forst <filename>.ft")
+		return
+	}
+
+	// Read the Forst file
+	filename := args[0]
+	source, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Printf("Error reading file: %v\n", err)
+		return
+	}
 
 	// Compilation pipeline
-	tokens := lexer.Lexer(forstCode)
+	tokens := lexer.Lexer(source)
 	
 	if *debug {
 		fmt.Println("\n=== Tokens ===")
 		for _, t := range tokens {
-			fmt.Printf("%s[%s] at line %d, col %d: '%s'\n",
-				t.Type, t.Filename, t.Line, t.Column, t.Value)
+			fmt.Printf("%s:%d:%d: %-12s '%s'\n",
+				t.Path, t.Line, t.Column,
+				t.Type, t.Value)
 		}
 	}
 
