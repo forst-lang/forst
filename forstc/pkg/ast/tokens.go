@@ -1,4 +1,4 @@
-package main
+package ast
 
 const (
 	TokenFunc      = "FUNC"

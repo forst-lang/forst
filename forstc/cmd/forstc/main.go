@@ -1,6 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"forstc/pkg/generators"
+	"forstc/pkg/lexer"
+	"forstc/pkg/parser"
+	"forstc/pkg/transformers"
+)
 
 func main() {
 	// Example Forst function with an assertion
@@ -10,11 +16,11 @@ func main() {
 	}`
 
 	// Compilation pipeline
-	tokens := Lexer(forstCode)
-	parser := NewParser(tokens)
+	tokens := lexer.Lexer(forstCode)
+	parser := parser.NewParser(tokens)
 	forstAST := parser.Parse()
-	goAST := TransformForstToGo(forstAST)
-	goCode := GenerateGoCode(goAST)
+	goAST := transformers.TransformForstToGo(forstAST)
+	goCode := generators.GenerateGoCode(goAST)
 
 	// Output generated Go code
 	fmt.Println(goCode)

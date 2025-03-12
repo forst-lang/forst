@@ -1,14 +1,17 @@
-package main
+package generators
 
-import "fmt"
+import (
+	"fmt"
+	"forstc/pkg/ast"
+)
 
-func GenerateGoCode(goAST FuncNode) string {
+func GenerateGoCode(goAST ast.FuncNode) string {
 	body := ""
 	for _, node := range goAST.Body {
 		switch n := node.(type) {
-		case AssertNode:
+		case ast.AssertNode:
 			body += fmt.Sprintf("    %s\n", n.Condition)
-		case ReturnNode:
+		case ast.ReturnNode:
 			body += fmt.Sprintf("    %s\n", n.Value)
 		}
 	}
