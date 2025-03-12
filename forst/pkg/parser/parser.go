@@ -8,7 +8,7 @@ import (
 
 // Parser struct to keep track of tokens
 type Parser struct {
-	tokens  []ast.Token
+	tokens       []ast.Token
 	currentIndex int
 }
 
@@ -35,7 +35,17 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType string) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		panic(fmt.Sprintf("Expected %s but got %s", tokenType, token.Type))
+		panic(fmt.Sprintf(
+			"\nParse error in %s at line %d, column %d:\n"+
+				"Expected token type '%s' but got '%s'\n"+
+				"Token value: '%s'",
+			token.Filename,
+			token.Line,
+			token.Column,
+			tokenType,
+			token.Type,
+			token.Value,
+		))
 	}
 	p.advance()
 	return token
@@ -43,9 +53,9 @@ func (p *Parser) expect(tokenType string) ast.Token {
 
 // Parse a function definition
 func (p *Parser) parseFunc() ast.FuncNode {
-	p.expect(ast.TokenFunc)            // Expect `fn`
-	name := p.expect(ast.TokenIdent)   // Function name
-	p.expect(ast.TokenArrow)           // Expect `->`
+	p.expect(ast.TokenFunc)                     // Expect `fn`
+	name := p.expect(ast.TokenIdent)            // Function name
+	p.expect(ast.TokenArrow)                    // Expect `->`
 	returnType := p.expect(ast.TokenIdent).Value // Return type
 
 	p.expect(ast.TokenLBrace) // Expect `{`
@@ -66,7 +76,17 @@ func (p *Parser) parseFunc() ast.FuncNode {
 			value := p.expect(ast.TokenString).Value
 			body = append(body, ast.ReturnNode{Value: value})
 		} else {
-			panic(fmt.Sprintf("Unexpected token: %s", token.Value))
+			token := p.current()
+			panic(fmt.Sprintf(
+				"\nParse error in %s at line %d, column %d:\n"+
+					"Unexpected token in function body: '%s'\n"+
+					"Token value: '%s'",
+				token.Filename,
+				token.Line,
+				token.Column,
+				token.Type,
+				token.Value,
+			))
 		}
 	}
 

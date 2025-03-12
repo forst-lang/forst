@@ -37,6 +37,9 @@ const (
 
 // Token structure
 type Token struct {
-	Type  string
-	Value string
+	Type     string
+	Value    string
+	Filename string
+	Line     int
+	Column   int
 }
