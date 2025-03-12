@@ -1,0 +1,3 @@
+class BankAccount
+  iban: String.Min(10).Max(34)
+end

@@ -1,0 +1,3 @@
+sum = Fn(a: Int32, b: Int32)
+    a + b
+end
