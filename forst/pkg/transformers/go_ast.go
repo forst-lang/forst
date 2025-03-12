@@ -2,7 +2,7 @@ package transformers
 
 import (
 	"fmt"
-	"forstc/pkg/ast"
+	"forst/pkg/ast"
 )
 
 // Transforms Forst AST to Go AST

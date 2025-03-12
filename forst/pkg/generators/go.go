@@ -2,7 +2,7 @@ package generators
 
 import (
 	"fmt"
-	"forstc/pkg/ast"
+	"forst/pkg/ast"
 )
 
 func GenerateGoCode(goAST ast.FuncNode) string {

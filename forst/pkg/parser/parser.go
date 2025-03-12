@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"forstc/pkg/ast"
+	"forst/pkg/ast"
 )
 
 // Parser struct to keep track of tokens

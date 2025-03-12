@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"forstc/pkg/ast"
+	"forst/pkg/ast"
 )
 
 // Lexer: Converts Forst code into tokens
