@@ -11,16 +11,24 @@ import (
 	"os"
 )
 
-func parseFlags() (string, bool) {
+type ProgramArgs struct {
+	filePath string
+	debug    bool
+}
+
+func parseArgs() ProgramArgs {
 	debug := flag.Bool("debug", false, "Enable debug output")
 	flag.Parse()
 
 	args := flag.Args()
 	if len(args) < 1 {
 		fmt.Println("Usage: forst <filename>.ft")
-		return "", false
+		return ProgramArgs{}
 	}
-	return args[0], *debug
+	return ProgramArgs{
+		filePath: args[0],
+		debug:    *debug,
+	}
 }
 
 func readSourceFile(filePath string) ([]byte, error) {
@@ -69,36 +77,36 @@ func debugPrintGoAST(goAST ast.FuncNode) {
 }
 
 func main() {
-	filePath, debug := parseFlags()
-	if filePath == "" {
+	args := parseArgs()
+	if args.filePath == "" {
 		return
 	}
 
-	source, err := readSourceFile(filePath)
+	source, err := readSourceFile(args.filePath)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	// Compilation pipeline
-	tokens := lexer.Lexer(source, lexer.Context{FilePath: filePath})
-	if debug {
+	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
+	if args.debug {
 		debugPrintTokens(tokens)
 	}
 
 	forstAST := parser.NewParser(tokens).Parse()
-	if debug {
+	if args.debug {
 		debugPrintForstAST(forstAST)
 	}
 
 	goAST := transformers.TransformForstToGo(forstAST)
-	if debug {
+	if args.debug {
 		debugPrintGoAST(goAST)
 	}
 
 	goCode := generators.GenerateGoCode(goAST)
 
-	if debug {
+	if args.debug {
 		fmt.Println("\n=== Generated Go Code ===")
 	}
 	fmt.Println(goCode)
