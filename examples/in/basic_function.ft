@@ -1,3 +1,6 @@
-sum = Fn(a: Int32, b: Int32)
-    a + b
+fn sum(a: Int32, b: Int32): Int32 do
+  a + b
 end
+
+const x: Int32 = sum(1, 2)
+x # Int32

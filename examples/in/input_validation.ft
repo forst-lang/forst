@@ -6,28 +6,29 @@ type PhoneNumber =
     | (String.StartsWith("0"))
   )
 
-createUser = Trpc::Mutation.Fn(input: {
+const createUser = Trpc::Mutation.Fn(input: {
   id: UUID.V4,
   name: String.Min(3).Max(10),
   phoneNumbers: Array(PhoneNumber),
   bankAccount: {
     iban: String.Min(10).Max(34),
   },
-})
+}) {
   puts "Creating user with id: #{input.id}"
   300.3f
-end
+}
 
-x: Float32 = createUser(input: {
+const x: Float32 = createUser(input: {
   id: 'abcdef-abc1234-abc1234-abc1234',
   name: "Joe",
   phoneNumbers: ["+491241234132"],
-
+  bankAccount: {
+    iban: "DE12345678901234567890",
+  },
 })
 x # Float32
 
 # trpc mutation: createUser
-# trpc query
 
 export userRouter = Trpc::Router(routes: {
   createUser
