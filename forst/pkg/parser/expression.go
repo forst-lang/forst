@@ -7,8 +7,8 @@ func (p *Parser) parseExpression() ast.ExpressionNode {
 }
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
-	if level > 100 {
-		panic("Expression level too deep")
+	if level > 20 {
+		panic("Expression level too deep - maximum nesting depth is 20")
 	}
 
 	var expr ast.ExpressionNode
