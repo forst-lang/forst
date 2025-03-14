@@ -8,6 +8,41 @@ import (
 	"strconv"
 )
 
+func transformOperator(op ast.TokenType) token.Token {
+	switch op {
+	case ast.TokenPlus:
+		return token.ADD
+	case ast.TokenMinus:
+		return token.SUB
+	case ast.TokenMultiply:
+		return token.MUL
+	case ast.TokenDivide:
+		return token.QUO
+	case ast.TokenModulo:
+		return token.REM
+	case ast.TokenEquals:
+		return token.EQL
+	case ast.TokenNotEquals:
+		return token.NEQ
+	case ast.TokenGreater:
+		return token.GTR
+	case ast.TokenLess:
+		return token.LSS
+	case ast.TokenGreaterEqual:
+		return token.GEQ
+	case ast.TokenLessEqual:
+		return token.LEQ
+	case ast.TokenLogicalAnd:
+		return token.LAND
+	case ast.TokenLogicalOr:
+		return token.LOR
+	case ast.TokenLogicalNot:
+		return token.NOT
+	}
+
+	panic("Unsupported operator: " + op)
+}
+
 func transformExpression(expr ast.ExpressionNode) goast.Expr {
 	switch e := expr.(type) {
 	case ast.IntLiteralNode:
@@ -30,6 +65,17 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 			return goast.NewIdent("true")
 		}
 		return goast.NewIdent("false")
+	case ast.UnaryExpressionNode:
+		return &goast.UnaryExpr{
+			Op: transformOperator(e.Operator),
+			X:  transformExpression(e.Operand),
+		}
+	case ast.BinaryExpressionNode:
+		return &goast.BinaryExpr{
+			X:  transformExpression(e.Left),
+			Op: transformOperator(e.Operator),
+			Y:  transformExpression(e.Right),
+		}
 	}
 
 	panic("Unsupported expression type: " + reflect.TypeOf(expr).String())

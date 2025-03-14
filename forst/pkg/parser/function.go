@@ -45,9 +45,11 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	name := p.expect(ast.TokenIdentifier) // Function name
 
 	params := p.parseFunctionSignature() // Parse function parameters
-
-	p.expect(ast.TokenColon)    // Expect `:` separating return type
-	returnType := p.parseType() // Return type
+	var returnType ast.TypeNode
+	if p.current().Type == ast.TokenColon {
+		p.advance() // Consume the colon
+		returnType = p.parseType()
+	}
 
 	p.expect(ast.TokenLBrace) // Expect `{`
 	body := []ast.Node{}
