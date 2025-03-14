@@ -8,4 +8,4 @@ type PackageNode struct {
 // NodeType returns the type of this AST node
 func (p PackageNode) NodeType() string {
 	return "Package"
-} 
+}

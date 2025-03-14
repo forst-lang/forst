@@ -22,7 +22,7 @@ func processStringLiteral(line []byte, startCol int, path string, lineNum int) (
 		Line:   lineNum,
 		Column: startCol + 1,
 		Value:  word,
-		Type:   ast.TokenString,
+		Type:   ast.TokenStringLiteral,
 	}, column
 }
 

@@ -11,4 +11,4 @@ type FunctionNode struct {
 // NodeType returns the type of this AST node
 func (f FunctionNode) NodeType() string {
 	return "Function"
-} 
+}

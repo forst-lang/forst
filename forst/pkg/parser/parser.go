@@ -54,7 +54,7 @@ Token value: '%s'`,
 }
 
 // Parse function parameters
-func (p *Parser) parseFuncSignature() []ast.ParamNode {
+func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	p.expect(ast.TokenLParen)
 	params := []ast.ParamNode{}
 
@@ -66,9 +66,9 @@ func (p *Parser) parseFuncSignature() []ast.ParamNode {
 
 	// Parse parameters
 	for {
-		name := p.expect(ast.TokenIdent)
+		name := p.expect(ast.TokenIdentifier)
 		p.expect(ast.TokenColon)
-		paramType := p.expect(ast.TokenIdent)
+		paramType := p.expect(ast.TokenIdentifier)
 
 		params = append(params, ast.ParamNode{
 			Name: name.Value,
@@ -87,29 +87,28 @@ func (p *Parser) parseFuncSignature() []ast.ParamNode {
 	return params
 }
 
-
 // Parse a function definition
-func (p *Parser) parseFunc() ast.FunctionNode {
-	p.expect(ast.TokenFunc)                     // Expect `fn`
-	name := p.expect(ast.TokenIdent)            // Function name
-	
-	params := p.parseFuncSignature()            // Parse function parameters
-	
-	p.expect(ast.TokenColon)                    // Expect `:` separating return type
-	returnType := p.expect(ast.TokenIdent).Value // Return type
+func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
+	p.expect(ast.TokenFunction)           // Expect `fn`
+	name := p.expect(ast.TokenIdentifier) // Function name
+
+	params := p.parseFunctionSignature() // Parse function parameters
+
+	p.expect(ast.TokenColon)                          // Expect `:` separating return type
+	returnType := p.expect(ast.TokenIdentifier).Value // Return type
 
 	p.expect(ast.TokenLBrace) // Expect `{`
 	body := []ast.Node{}
 
-	// Parse function body dynamically 
+	// Parse function body dynamically
 	for p.current().Type != ast.TokenRBrace && p.current().Type != ast.TokenEOF {
 		token := p.current()
 
 		if token.Type == ast.TokenEnsure {
 			p.advance() // Move past `ensure`
-			condition := p.expect(ast.TokenIdent).Value
+			condition := p.expect(ast.TokenIdentifier).Value
 			p.expect(ast.TokenOr) // Expect `or`
-			errorType := p.expect(ast.TokenIdent).Value
+			errorType := p.expect(ast.TokenIdentifier).Value
 			body = append(body, ast.EnsureNode{Condition: condition, ErrorType: errorType})
 		} else if token.Type == ast.TokenReturn {
 			p.advance() // Move past `return`
@@ -117,7 +116,7 @@ func (p *Parser) parseFunc() ast.FunctionNode {
 			value := p.expect(ast.TokenString).Value
 			returnNode := ast.ReturnNode{Value: value, Type: ast.TypeNode{Name: "string"}}
 			body = append(body, returnNode)
-		}else {
+		} else {
 			token := p.current()
 			panic(fmt.Sprintf(
 				"\nParse error in %s:%d:%d at line %d, column %d:\n"+
@@ -138,10 +137,10 @@ func (p *Parser) parseFunc() ast.FunctionNode {
 
 	returnTypeNode := ast.TypeNode{Name: returnType}
 	return ast.FunctionNode{
-		Name: name.Value,
+		Name:       name.Value,
 		ReturnType: returnTypeNode,
-		Params: params,
-		Body: body,
+		Params:     params,
+		Body:       body,
 	}
 }
 
@@ -152,31 +151,33 @@ func (p *Parser) Parse() []ast.Node {
 	for p.current().Type != ast.TokenEOF {
 		if p.current().Type == ast.TokenPackage {
 			p.advance() // Move past `package`
-			packageName := p.expect(ast.TokenIdent).Value
+			packageName := p.expect(ast.TokenIdentifier).Value
 			nodes = append(nodes, ast.PackageNode{Value: packageName})
 		} else if p.current().Type == ast.TokenImport {
 			p.advance() // Move past `import`
-			
+
 			// Check if this is a grouped import with parentheses
 			if p.current().Type == ast.TokenLParen {
 				p.advance() // Move past '('
 				imports := []ast.ImportNode{}
-				
+
 				// Parse imports until we hit the closing paren
 				for p.current().Type != ast.TokenRParen {
-					importName := p.expect(ast.TokenIdent).Value
+					importName := p.expect(ast.TokenIdentifier).Value
 					imports = append(imports, ast.ImportNode{Path: importName})
 				}
-				
+
 				p.expect(ast.TokenRParen)
 				nodes = append(nodes, ast.ImportGroupNode{Imports: imports})
 			} else {
 				// Single import
-				importName := p.expect(ast.TokenIdent).Value
+				importName := p.expect(ast.TokenIdentifier).Value
 				nodes = append(nodes, ast.ImportNode{Path: importName})
 			}
+		} else if p.current().Type == ast.TokenFunction {
+			nodes = append(nodes, p.parseFunctionDefinition())
 		} else {
-			nodes = append(nodes, p.parseFunc())
+			panic(fmt.Sprintf("Unexpected token in file: %s", p.current().Value))
 		}
 	}
 

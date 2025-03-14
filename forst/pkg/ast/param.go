@@ -9,4 +9,4 @@ type ParamNode struct {
 // NodeType returns the type of this AST node
 func (p ParamNode) NodeType() string {
 	return "Param"
-} 
+}

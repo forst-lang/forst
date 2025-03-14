@@ -4,40 +4,46 @@ type TokenType string
 
 const (
 	// Namespacing
-	TokenImport    TokenType = "IMPORT"
-	TokenPackage   TokenType = "PACKAGE"
+	TokenImport  TokenType = "IMPORT"
+	TokenPackage TokenType = "PACKAGE"
 
 	// User-defined identifiers
-	TokenIdent     TokenType = "IDENT"
+	TokenIdentifier TokenType = "IDENTIFIER"
 
 	// Language keywords
-	TokenFunc      TokenType = "FUNC"
+	TokenFunction TokenType = "FUNCTION"
 
 	// Built-in types
-	TokenInt       TokenType = "INT"
-	TokenFloat     TokenType = "FLOAT"
-	TokenString    TokenType = "STRING"
-	TokenBool      TokenType = "BOOL"
-	TokenArray     TokenType = "ARRAY"
-	TokenStruct    TokenType = "STRUCT"
+	TokenInt    TokenType = "INT"
+	TokenFloat  TokenType = "FLOAT"
+	TokenString TokenType = "STRING"
+	TokenBool   TokenType = "BOOL"
+	TokenArray  TokenType = "ARRAY"
+	TokenStruct TokenType = "STRUCT"
+
+	// Literals
+	TokenIntLiteral    TokenType = "INT_LITERAL"
+	TokenFloatLiteral  TokenType = "FLOAT_LITERAL"
+	TokenStringLiteral TokenType = "STRING_LITERAL"
+	TokenBoolLiteral   TokenType = "BOOL_LITERAL"
 
 	// Punctuation
-	TokenLParen    TokenType = "LPAREN"
-	TokenRParen    TokenType = "RPAREN"
-	TokenLBrace    TokenType = "LBRACE"
-	TokenRBrace    TokenType = "RBRACE"
-	TokenReturn    TokenType = "RETURN"
-	TokenEnsure    TokenType = "ENSURE"
-	TokenEOF       TokenType = "EOF"
-	TokenColon     TokenType = "COLON"
-	TokenComma     TokenType = "COMMA"
+	TokenLParen TokenType = "LPAREN"
+	TokenRParen TokenType = "RPAREN"
+	TokenLBrace TokenType = "LBRACE"
+	TokenRBrace TokenType = "RBRACE"
+	TokenReturn TokenType = "RETURN"
+	TokenEnsure TokenType = "ENSURE"
+	TokenEOF    TokenType = "EOF"
+	TokenColon  TokenType = "COLON"
+	TokenComma  TokenType = "COMMA"
 
 	// Arithmetic operators
-	TokenPlus     TokenType = "PLUS"      // +
-	TokenMinus    TokenType = "MINUS"     // -
-	TokenMultiply TokenType = "MULTIPLY"  // *
-	TokenDivide   TokenType = "DIVIDE"    // /
-	TokenModulo   TokenType = "MODULO"    // %
+	TokenPlus     TokenType = "PLUS"     // +
+	TokenMinus    TokenType = "MINUS"    // -
+	TokenMultiply TokenType = "MULTIPLY" // *
+	TokenDivide   TokenType = "DIVIDE"   // /
+	TokenModulo   TokenType = "MODULO"   // %
 
 	// Comparison operators
 	TokenEquals       TokenType = "EQUALS"        // ==
@@ -55,9 +61,9 @@ const (
 
 // Token structure
 type Token struct {
-	Type     TokenType
-	Value    string
-	Path     string
-	Line     int
-	Column   int
+	Type   TokenType
+	Value  string
+	Path   string
+	Line   int
+	Column int
 }

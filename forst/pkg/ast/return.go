@@ -9,4 +9,4 @@ type ReturnNode struct {
 // NodeType returns the type of this AST node
 func (r ReturnNode) NodeType() string {
 	return "Return"
-} 
+}

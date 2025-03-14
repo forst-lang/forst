@@ -2,17 +2,32 @@ package lexer
 
 import (
 	"forst/pkg/ast"
-	"unicode"
 )
 
 func GetTokenType(word string) ast.TokenType {
 	switch word {
 	case "fn":
-		return ast.TokenFunc
+		return ast.TokenFunction
 	case "import":
 		return ast.TokenImport
 	case "package":
 		return ast.TokenPackage
+	case "String":
+		return ast.TokenString
+	case "Int":
+		return ast.TokenInt
+	case "Float":
+		return ast.TokenFloat
+	case "Bool":
+		return ast.TokenBool
+	case "Array":
+		return ast.TokenArray
+	case "return":
+		return ast.TokenReturn
+	case "ensure":
+		return ast.TokenEnsure
+	case "or":
+		return ast.TokenOr
 	case "(":
 		return ast.TokenLParen
 	case ")":
@@ -21,12 +36,6 @@ func GetTokenType(word string) ast.TokenType {
 		return ast.TokenLBrace
 	case "}":
 		return ast.TokenRBrace
-	case "return":
-		return ast.TokenReturn
-	case "ensure":
-		return ast.TokenEnsure
-	case "or":
-		return ast.TokenOr
 	case "+":
 		return ast.TokenPlus
 	case "-":
@@ -60,9 +69,13 @@ func GetTokenType(word string) ast.TokenType {
 	case ",":
 		return ast.TokenComma
 	default:
-		if unicode.IsDigit(rune(word[0])) {
-			return ast.TokenInt
+		if isDigit(word[0]) {
+			lastChar := word[len(word)-1]
+			if lastChar == 'f' {
+				return ast.TokenFloatLiteral
+			}
+			return ast.TokenIntLiteral
 		}
-		return ast.TokenIdent
+		return ast.TokenIdentifier
 	}
 }
