@@ -69,3 +69,33 @@ type Token struct {
 	Line   int
 	Column int
 }
+
+func (t TokenType) IsBinaryOperator() bool {
+	return t == TokenPlus || t == TokenMinus ||
+		t == TokenMultiply || t == TokenDivide ||
+		t == TokenModulo || t == TokenEquals ||
+		t == TokenNotEquals || t == TokenGreater ||
+		t == TokenLess || t == TokenGreaterEqual ||
+		t == TokenLessEqual || t == TokenLogicalAnd ||
+		t == TokenLogicalOr
+}
+
+func (t TokenType) IsUnaryOperator() bool {
+	return t == TokenLogicalNot
+}
+
+func (t TokenType) IsLiteral() bool {
+	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenTrue || t == TokenFalse
+}
+
+func (t TokenType) IsArithmeticBinaryOperator() bool {
+	return t == TokenPlus || t == TokenMinus || t == TokenMultiply || t == TokenDivide || t == TokenModulo
+}
+
+func (t TokenType) IsComparisonBinaryOperator() bool {
+	return t == TokenEquals || t == TokenNotEquals || t == TokenGreater || t == TokenLess || t == TokenGreaterEqual || t == TokenLessEqual
+}
+
+func (t TokenType) IsLogicalBinaryOperator() bool {
+	return t == TokenLogicalAnd || t == TokenLogicalOr
+}
