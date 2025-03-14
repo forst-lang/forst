@@ -34,6 +34,7 @@ const (
 	TokenRBrace TokenType = "RBRACE"
 	TokenReturn TokenType = "RETURN"
 	TokenEnsure TokenType = "ENSURE"
+	TokenOr     TokenType = "OR"
 	TokenEOF    TokenType = "EOF"
 	TokenColon  TokenType = "COLON"
 	TokenComma  TokenType = "COMMA"
@@ -54,9 +55,9 @@ const (
 	TokenLessEqual    TokenType = "LESS_EQUAL"    // <=
 
 	// Logical operators
-	TokenAnd TokenType = "AND" // &&
-	TokenOr  TokenType = "OR"  // ||
-	TokenNot TokenType = "NOT" // !
+	TokenLogicalAnd TokenType = "LOGICAL_AND" // &&
+	TokenLogicalOr  TokenType = "LOGICAL_OR"  // ||
+	TokenLogicalNot TokenType = "LOGICAL_NOT" // !
 )
 
 // Token structure

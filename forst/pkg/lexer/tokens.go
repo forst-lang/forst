@@ -59,11 +59,11 @@ func GetTokenType(word string) ast.TokenType {
 	case "<=":
 		return ast.TokenLessEqual
 	case "&&":
-		return ast.TokenAnd
+		return ast.TokenLogicalAnd
 	case "||":
-		return ast.TokenOr
+		return ast.TokenLogicalOr
 	case "!":
-		return ast.TokenNot
+		return ast.TokenLogicalNot
 	case ":":
 		return ast.TokenColon
 	case ",":
