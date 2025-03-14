@@ -7,7 +7,7 @@ import (
 	"forst/pkg/generators"
 	"forst/pkg/lexer"
 	"forst/pkg/parser"
-	"forst/pkg/transformer"
+	transformer_go "forst/pkg/transformer/go"
 	goast "go/ast"
 	"os"
 )
@@ -72,7 +72,7 @@ func debugPrintForstAST(forstAST []ast.Node) {
 func debugPrintGoAST(goFile *goast.File) {
 	fmt.Println("\n=== Go AST ===")
 	fmt.Printf("  Package: %s\n", goFile.Name)
-	
+
 	fmt.Println("  Imports:")
 	for _, imp := range goFile.Imports {
 		fmt.Printf("    %s\n", imp.Path.Value)
@@ -112,7 +112,7 @@ func main() {
 		debugPrintForstAST(forstAST)
 	}
 
-	goAST := transformer.TransformForstFileToGo(forstAST)
+	goAST := transformer_go.TransformForstFileToGo(forstAST)
 	if args.debug {
 		debugPrintGoAST(goAST)
 	}

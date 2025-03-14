@@ -20,11 +20,11 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	for {
 		name := p.expect(ast.TokenIdentifier)
 		p.expect(ast.TokenColon)
-		paramType := p.expect(ast.TokenIdentifier)
+		paramType := p.parseType()
 
 		params = append(params, ast.ParamNode{
 			Name: name.Value,
-			Type: paramType.Value,
+			Type: paramType,
 		})
 
 		// Check if there are more parameters
@@ -46,8 +46,8 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	params := p.parseFunctionSignature() // Parse function parameters
 
-	p.expect(ast.TokenColon)                          // Expect `:` separating return type
-	returnType := p.expect(ast.TokenIdentifier).Value // Return type
+	p.expect(ast.TokenColon)    // Expect `:` separating return type
+	returnType := p.parseType() // Return type
 
 	p.expect(ast.TokenLBrace) // Expect `{`
 	body := []ast.Node{}
@@ -64,9 +64,8 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 			body = append(body, ast.EnsureNode{Condition: condition, ErrorType: errorType})
 		} else if token.Type == ast.TokenReturn {
 			p.advance() // Move past `return`
-			// TODO: Handle other return types
-			value := p.expect(ast.TokenString).Value
-			returnNode := ast.ReturnNode{Value: value, Type: ast.TypeNode{Name: "string"}}
+			returnExpression := p.parseExpression()
+			returnNode := ast.ReturnNode{Value: returnExpression, Type: returnType}
 			body = append(body, returnNode)
 		} else {
 			token := p.current()
@@ -87,10 +86,9 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	p.expect(ast.TokenRBrace) // Expect `}`
 
-	returnTypeNode := ast.TypeNode{Name: returnType}
 	return ast.FunctionNode{
 		Name:       name.Value,
-		ReturnType: returnTypeNode,
+		ReturnType: returnType,
 		Params:     params,
 		Body:       body,
 	}

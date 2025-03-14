@@ -14,18 +14,19 @@ const (
 	TokenFunction TokenType = "FUNCTION"
 
 	// Built-in types
-	TokenInt    TokenType = "INT"
-	TokenFloat  TokenType = "FLOAT"
-	TokenString TokenType = "STRING"
-	TokenBool   TokenType = "BOOL"
-	TokenArray  TokenType = "ARRAY"
-	TokenStruct TokenType = "STRUCT"
+	TokenInt    TokenType = "TYPE_INT"
+	TokenFloat  TokenType = "TYPE_FLOAT"
+	TokenString TokenType = "TYPE_STRING"
+	TokenBool   TokenType = "TYPE_BOOL"
+	TokenArray  TokenType = "TYPE_ARRAY"
+	TokenStruct TokenType = "TYPE_STRUCT"
 
 	// Literals
 	TokenIntLiteral    TokenType = "INT_LITERAL"
 	TokenFloatLiteral  TokenType = "FLOAT_LITERAL"
 	TokenStringLiteral TokenType = "STRING_LITERAL"
-	TokenBoolLiteral   TokenType = "BOOL_LITERAL"
+	TokenTrue          TokenType = "TRUE_LITERAL"
+	TokenFalse         TokenType = "FALSE_LITERAL"
 
 	// Punctuation
 	TokenLParen TokenType = "LPAREN"

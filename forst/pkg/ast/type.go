@@ -7,12 +7,12 @@ type TypeNode struct {
 
 // Built-in types
 const (
-	TypeInt      = "INT"
-	TypeFloat    = "FLOAT"
-	TypeString   = "STRING"
-	TypeBool     = "BOOL"
-	TypeVoid     = "VOID"
-	TypeImplicit = "IMPLICIT"
+	TypeInt      = "TYPE_INT"
+	TypeFloat    = "TYPE_FLOAT"
+	TypeString   = "TYPE_STRING"
+	TypeBool     = "TYPE_BOOL"
+	TypeVoid     = "TYPE_VOID"
+	TypeImplicit = "TYPE_IMPLICIT"
 )
 
 // IsImplicit returns true if the type has not been specified explicitly

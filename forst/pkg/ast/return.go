@@ -2,7 +2,7 @@ package ast
 
 // Return Node
 type ReturnNode struct {
-	Value string
+	Value ExpressionNode
 	Type  TypeNode
 }
 
