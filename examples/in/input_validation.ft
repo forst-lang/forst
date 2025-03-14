@@ -1,4 +1,6 @@
-require "trpc"
+import forst (
+  "trpc"
+)
 
 type PhoneNumber =
   String.Min(3).Max(10) & (
@@ -6,19 +8,19 @@ type PhoneNumber =
     | (String.StartsWith("0"))
   )
 
-const createUser = Trpc::Mutation.Fn(input: {
+fn createUser(input: Trpc::Arg.Input({
   id: UUID.V4,
   name: String.Min(3).Max(10),
   phoneNumbers: Array(PhoneNumber),
   bankAccount: {
     iban: String.Min(10).Max(34),
   },
-}) {
+})) {
   puts "Creating user with id: #{input.id}"
   300.3f
 }
 
-const x: Float32 = createUser(input: {
+const x = createUser(input: {
   id: 'abcdef-abc1234-abc1234-abc1234',
   name: "Joe",
   phoneNumbers: ["+491241234132"],

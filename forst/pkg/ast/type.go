@@ -19,3 +19,8 @@ func (t TypeNode) IsImplicit() bool {
 	return t.Name == TypeImplicit
 }
 
+// NodeType returns the type of this AST node
+func (t TypeNode) NodeType() string {
+	return "Type"
+} 
+

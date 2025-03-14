@@ -3,16 +3,30 @@ package ast
 type TokenType string
 
 const (
-	TokenFunc      TokenType = "FUNC"
+	// Namespacing
+	TokenImport    TokenType = "IMPORT"
+	TokenPackage   TokenType = "PACKAGE"
+
+	// User-defined identifiers
 	TokenIdent     TokenType = "IDENT"
-	TokenArrow     TokenType = "ARROW"
+
+	// Language keywords
+	TokenFunc      TokenType = "FUNC"
+
+	// Built-in types
+	TokenInt       TokenType = "INT"
+	TokenFloat     TokenType = "FLOAT"
+	TokenString    TokenType = "STRING"
+	TokenBool      TokenType = "BOOL"
+	TokenArray     TokenType = "ARRAY"
+	TokenStruct    TokenType = "STRUCT"
+
+	// Punctuation
 	TokenLParen    TokenType = "LPAREN"
 	TokenRParen    TokenType = "RPAREN"
 	TokenLBrace    TokenType = "LBRACE"
 	TokenRBrace    TokenType = "RBRACE"
 	TokenReturn    TokenType = "RETURN"
-	TokenString    TokenType = "STRING"
-	TokenInt       TokenType = "INT"
 	TokenEnsure    TokenType = "ENSURE"
 	TokenEOF       TokenType = "EOF"
 	TokenColon     TokenType = "COLON"

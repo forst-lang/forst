@@ -49,12 +49,18 @@ func debugPrintTokens(tokens []ast.Token) {
 	}
 }
 
-func debugPrintForstAST(forstAST ast.FunctionNode) {
+func debugPrintForstAST(forstAST []ast.Node) {
 	fmt.Println("\n=== Forst AST ===")
-	fmt.Printf("Function: %s -> %s\n", forstAST.Name, forstAST.ReturnType)
-	fmt.Println("Body:")
-	for _, node := range forstAST.Body {
+	for _, node := range forstAST {
 		switch n := node.(type) {
+		case ast.PackageNode:
+			fmt.Printf("  Package: %s\n", n.Value)
+		case ast.ImportNode:
+			fmt.Printf("  Import: %s\n", n.Path)
+		case ast.ImportGroupNode:
+			fmt.Printf("  ImportGroup: %v\n", n.Imports)
+		case ast.FunctionNode:
+			fmt.Printf("  Function: %s -> %s\n", n.Name, n.ReturnType)
 		case ast.EnsureNode:
 			fmt.Printf("  Ensure: %s or %s\n", n.Condition, n.ErrorType)
 		case ast.ReturnNode:
@@ -63,19 +69,23 @@ func debugPrintForstAST(forstAST ast.FunctionNode) {
 	}
 }
 
-func debugPrintGoAST(goAST *goast.FuncDecl) {
+func debugPrintGoAST(goFile *goast.File) {
 	fmt.Println("\n=== Go AST ===")
-	fmt.Printf("Function: %s\n", goAST.Name.Name)
+	fmt.Printf("  Package: %s\n", goFile.Name)
 	
-	// Print return type if exists
-	if goAST.Type.Results != nil && len(goAST.Type.Results.List) > 0 {
-		returnType := goAST.Type.Results.List[0].Type
-		fmt.Printf("Return Type: %s\n", returnType)
+	fmt.Println("  Imports:")
+	for _, imp := range goFile.Imports {
+		fmt.Printf("    %s\n", imp.Path.Value)
 	}
-	
-	fmt.Println("Body:")
-	for _, stmt := range goAST.Body.List {
-		fmt.Printf("  %T\n", stmt)
+
+	fmt.Println("  Declarations:")
+	for _, decl := range goFile.Decls {
+		switch d := decl.(type) {
+		case *goast.FuncDecl:
+			fmt.Printf("    Function: %s\n", d.Name.Name)
+		case *goast.GenDecl:
+			fmt.Printf("    GenDecl: %s\n", d.Tok)
+		}
 	}
 }
 
@@ -102,7 +112,7 @@ func main() {
 		debugPrintForstAST(forstAST)
 	}
 
-	goAST := transformer.TransformForstToGo(forstAST)
+	goAST := transformer.TransformForstFileToGo(forstAST)
 	if args.debug {
 		debugPrintGoAST(goAST)
 	}

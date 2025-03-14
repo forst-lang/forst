@@ -7,3 +7,8 @@ type FunctionNode struct {
 	ReturnType TypeNode
 	Body       []Node
 }
+
+// NodeType returns the type of this AST node
+func (f FunctionNode) NodeType() string {
+	return "Function"
+} 

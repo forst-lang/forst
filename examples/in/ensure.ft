@@ -1,5 +1,25 @@
-fn assertion(name: String) {
-    ensure name.len() > 0 or {
-        TooShort("Name must be at least 1 character long")
-    }
+package ensure
+
+fn mustBeARealName(name: String) {
+    ensure name is Min(1)
+        or TooShort("Name must be at least 1 character long")
+}
+
+fn mustNotExceedSpeedLimit(speed: Int) {
+    ensure speed is LessThan(100)
+        or TooFast("Speed must not exceed 100 km/h")
+}
+
+fn checkConditions() {
+    _, err = mustBeARealName("John")
+    ensure !err or err
+    _, err = mustNotExceedSpeedLimit(101)
+    ensure !err or err
+}
+
+fn main() {
+    _, err := checkConditions()
+    ensure !err {
+        println("#{err.code}: #{err.message}")
+    } or Exit(1)
 }

@@ -9,8 +9,10 @@ func GetTokenType(word string) ast.TokenType {
 	switch word {
 	case "fn":
 		return ast.TokenFunc
-	case "->":
-		return ast.TokenArrow
+	case "import":
+		return ast.TokenImport
+	case "package":
+		return ast.TokenPackage
 	case "(":
 		return ast.TokenLParen
 	case ")":

@@ -22,13 +22,3 @@ func isTwoCharOperator(s string) bool {
 func isDigit(c byte) bool {
 	return unicode.IsDigit(rune(c))
 }
-
-// isWhitespace checks if a character is whitespace
-func isWhitespace(c byte) bool {
-	return unicode.IsSpace(rune(c))
-}
-
-// isStringDelimiter checks if a character is a string delimiter
-func isStringDelimiter(c byte) bool {
-	return c == '"'
-}
