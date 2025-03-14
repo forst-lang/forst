@@ -5,13 +5,15 @@ type TypeNode struct {
 	Name string
 }
 
-// Built-in types
 const (
-	TypeInt      = "TYPE_INT"
-	TypeFloat    = "TYPE_FLOAT"
-	TypeString   = "TYPE_STRING"
-	TypeBool     = "TYPE_BOOL"
-	TypeVoid     = "TYPE_VOID"
+	// Built-in types
+	TypeInt    = "TYPE_INT"
+	TypeFloat  = "TYPE_FLOAT"
+	TypeString = "TYPE_STRING"
+	TypeBool   = "TYPE_BOOL"
+	TypeVoid   = "TYPE_VOID"
+
+	// Placeholder for an implicit type
 	TypeImplicit = "TYPE_IMPLICIT"
 )
 
@@ -23,4 +25,23 @@ func (t TypeNode) IsImplicit() bool {
 // NodeType returns the type of this AST node
 func (t TypeNode) NodeType() string {
 	return "Type"
+}
+
+func (t TypeNode) String() string {
+	switch t.Name {
+	case TypeInt:
+		return "Int"
+	case TypeFloat:
+		return "Float"
+	case TypeString:
+		return "String"
+	case TypeBool:
+		return "Bool"
+	case TypeVoid:
+		return "Void"
+	case TypeImplicit:
+		return "(implicit)"
+	default:
+		return t.Name
+	}
 }
