@@ -15,7 +15,7 @@ func transformFunction(n ast.FunctionNode) *goast.FuncDecl {
 	for _, param := range n.Params {
 		params.List = append(params.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(param.Name)},
-			Type:  goast.NewIdent(param.Type.Name),
+			Type:  transformType(param.Type),
 		})
 	}
 
@@ -25,7 +25,7 @@ func transformFunction(n ast.FunctionNode) *goast.FuncDecl {
 		results = &goast.FieldList{
 			List: []*goast.Field{
 				{
-					Type: goast.NewIdent(n.ReturnType.Name),
+					Type: transformType(n.ReturnType),
 				},
 			},
 		}

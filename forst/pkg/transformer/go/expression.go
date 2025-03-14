@@ -23,7 +23,7 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 	case ast.StringLiteralNode:
 		return &goast.BasicLit{
 			Kind:  token.STRING,
-			Value: e.Value,
+			Value: strconv.Quote(e.Value),
 		}
 	case ast.BoolLiteralNode:
 		if e.Value {
