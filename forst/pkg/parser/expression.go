@@ -1,14 +1,19 @@
 package parser
 
-import "forst/pkg/ast"
+import (
+	"forst/pkg/ast"
+	"strconv"
+)
+
+const MAX_EXPRESSION_DEPTH = 20
 
 func (p *Parser) parseExpression() ast.ExpressionNode {
 	return p.parseExpressionLevel(0)
 }
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
-	if level > 20 {
-		panic("Expression level too deep - maximum nesting depth is 20")
+	if level > MAX_EXPRESSION_DEPTH {
+		panic("Expression level too deep - maximum nesting depth is " + strconv.Itoa(MAX_EXPRESSION_DEPTH))
 	}
 
 	var expr ast.ExpressionNode
