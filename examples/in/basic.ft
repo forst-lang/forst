@@ -1,4 +1,3 @@
-fn greet -> String { 
-    assert true or ValidationError
-    return "Hello, Forst!"
+fn greet(name: String): String {
+    return "Hello, #{name}!"
 }

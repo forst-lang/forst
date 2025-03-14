@@ -1,45 +1,49 @@
 package ast
 
+type TokenType string
+
 const (
-	TokenFunc      = "FUNC"
-	TokenIdent     = "IDENT"
-	TokenArrow     = "ARROW"
-	TokenLParen    = "LPAREN"
-	TokenRParen    = "RPAREN"
-	TokenLBrace    = "LBRACE"
-	TokenRBrace    = "RBRACE"
-	TokenReturn    = "RETURN"
-	TokenString    = "STRING"
-	TokenInt       = "INT"
-	TokenAssert    = "ASSERT"
-	TokenEOF       = "EOF"
+	TokenFunc      TokenType = "FUNC"
+	TokenIdent     TokenType = "IDENT"
+	TokenArrow     TokenType = "ARROW"
+	TokenLParen    TokenType = "LPAREN"
+	TokenRParen    TokenType = "RPAREN"
+	TokenLBrace    TokenType = "LBRACE"
+	TokenRBrace    TokenType = "RBRACE"
+	TokenReturn    TokenType = "RETURN"
+	TokenString    TokenType = "STRING"
+	TokenInt       TokenType = "INT"
+	TokenEnsure    TokenType = "ENSURE"
+	TokenEOF       TokenType = "EOF"
+	TokenColon     TokenType = "COLON"
+	TokenComma     TokenType = "COMMA"
 
 	// Arithmetic operators
-	TokenPlus     = "PLUS"      // +
-	TokenMinus    = "MINUS"     // -
-	TokenMultiply = "MULTIPLY"  // *
-	TokenDivide   = "DIVIDE"    // /
-	TokenModulo   = "MODULO"    // %
+	TokenPlus     TokenType = "PLUS"      // +
+	TokenMinus    TokenType = "MINUS"     // -
+	TokenMultiply TokenType = "MULTIPLY"  // *
+	TokenDivide   TokenType = "DIVIDE"    // /
+	TokenModulo   TokenType = "MODULO"    // %
 
 	// Comparison operators
-	TokenEquals       = "EQUALS"        // ==
-	TokenNotEquals    = "NOT_EQUALS"    // !=
-	TokenGreater      = "GREATER"       // >
-	TokenLess         = "LESS"          // <
-	TokenGreaterEqual = "GREATER_EQUAL" // >=
-	TokenLessEqual    = "LESS_EQUAL"    // <=
+	TokenEquals       TokenType = "EQUALS"        // ==
+	TokenNotEquals    TokenType = "NOT_EQUALS"    // !=
+	TokenGreater      TokenType = "GREATER"       // >
+	TokenLess         TokenType = "LESS"          // <
+	TokenGreaterEqual TokenType = "GREATER_EQUAL" // >=
+	TokenLessEqual    TokenType = "LESS_EQUAL"    // <=
 
 	// Logical operators
-	TokenAnd = "AND" // &&
-	TokenOr  = "OR"  // ||
-	TokenNot = "NOT" // !
+	TokenAnd TokenType = "AND" // &&
+	TokenOr  TokenType = "OR"  // ||
+	TokenNot TokenType = "NOT" // !
 )
 
 // Token structure
 type Token struct {
-	Type     string
+	Type     TokenType
 	Value    string
-	Path 	 string
+	Path     string
 	Line     int
 	Column   int
 }

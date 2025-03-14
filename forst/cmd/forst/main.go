@@ -7,7 +7,8 @@ import (
 	"forst/pkg/generators"
 	"forst/pkg/lexer"
 	"forst/pkg/parser"
-	"forst/pkg/transformers"
+	"forst/pkg/transformer"
+	goast "go/ast"
 	"os"
 )
 
@@ -48,31 +49,33 @@ func debugPrintTokens(tokens []ast.Token) {
 	}
 }
 
-func debugPrintForstAST(forstAST ast.FuncNode) {
+func debugPrintForstAST(forstAST ast.FunctionNode) {
 	fmt.Println("\n=== Forst AST ===")
 	fmt.Printf("Function: %s -> %s\n", forstAST.Name, forstAST.ReturnType)
 	fmt.Println("Body:")
 	for _, node := range forstAST.Body {
 		switch n := node.(type) {
-		case ast.AssertNode:
-			fmt.Printf("  Assert: %s or %s\n", n.Condition, n.ErrorType)
+		case ast.EnsureNode:
+			fmt.Printf("  Ensure: %s or %s\n", n.Condition, n.ErrorType)
 		case ast.ReturnNode:
 			fmt.Printf("  Return: %s\n", n.Value)
 		}
 	}
 }
 
-func debugPrintGoAST(goAST ast.FuncNode) {
+func debugPrintGoAST(goAST *goast.FuncDecl) {
 	fmt.Println("\n=== Go AST ===")
-	fmt.Printf("Function: %s -> %s\n", goAST.Name, goAST.ReturnType)
+	fmt.Printf("Function: %s\n", goAST.Name.Name)
+	
+	// Print return type if exists
+	if goAST.Type.Results != nil && len(goAST.Type.Results.List) > 0 {
+		returnType := goAST.Type.Results.List[0].Type
+		fmt.Printf("Return Type: %s\n", returnType)
+	}
+	
 	fmt.Println("Body:")
-	for _, node := range goAST.Body {
-		switch n := node.(type) {
-		case ast.AssertNode:
-			fmt.Printf("  Assert: %s\n", n.Condition)
-		case ast.ReturnNode:
-			fmt.Printf("  Return: %s\n", n.Value)
-		}
+	for _, stmt := range goAST.Body.List {
+		fmt.Printf("  %T\n", stmt)
 	}
 }
 
@@ -99,7 +102,7 @@ func main() {
 		debugPrintForstAST(forstAST)
 	}
 
-	goAST := transformers.TransformForstToGo(forstAST)
+	goAST := transformer.TransformForstToGo(forstAST)
 	if args.debug {
 		debugPrintGoAST(goAST)
 	}

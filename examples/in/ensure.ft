@@ -1,0 +1,5 @@
+fn assertion(name: String) {
+    ensure name.len() > 0 or {
+        TooShort("Name must be at least 1 character long")
+    }
+}

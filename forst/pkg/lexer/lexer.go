@@ -60,9 +60,31 @@ func Lexer(input []byte, ctx Context) []ast.Token {
 				continue
 			}
 
+			// Check for special characters that should be separate tokens
+			if isSpecialChar(line[column]) {
+				wordStart := column
+				column++
+				// Handle two-character operators
+				if column < len(line) && isTwoCharOperator(string(line[wordStart:column+1])) {
+					column++
+				}
+				word := string(line[wordStart:column])
+
+				token := ast.Token{
+					Path:   path,
+					Line:   lineNum,
+					Column: wordStart + 1,
+					Value:  word,
+				}
+
+				token.Type = getTokenType(word)
+				tokens = append(tokens, token)
+				continue
+			}
+
 			// Find next word
 			wordStart := column
-			for column < len(line) && !unicode.IsSpace(rune(line[column])) {
+			for column < len(line) && !unicode.IsSpace(rune(line[column])) && !isSpecialChar(line[column]) {
 				column++
 			}
 			word := string(line[wordStart:column])
@@ -74,61 +96,7 @@ func Lexer(input []byte, ctx Context) []ast.Token {
 				Value:  word,
 			}
 
-			switch word {
-			case "fn":
-				token.Type = ast.TokenFunc
-			case "->":
-				token.Type = ast.TokenArrow
-			case "(":
-				token.Type = ast.TokenLParen
-			case ")":
-				token.Type = ast.TokenRParen
-			case "{":
-				token.Type = ast.TokenLBrace
-			case "}":
-				token.Type = ast.TokenRBrace
-			case "return":
-				token.Type = ast.TokenReturn
-			case "assert":
-				token.Type = ast.TokenAssert
-			case "or":
-				token.Type = ast.TokenOr
-			case "+":
-				token.Type = ast.TokenPlus
-			case "-":
-				token.Type = ast.TokenMinus
-			case "*":
-				token.Type = ast.TokenMultiply
-			case "/":
-				token.Type = ast.TokenDivide
-			case "%":
-				token.Type = ast.TokenModulo
-			case "==":
-				token.Type = ast.TokenEquals
-			case "!=":
-				token.Type = ast.TokenNotEquals
-			case ">":
-				token.Type = ast.TokenGreater
-			case "<":
-				token.Type = ast.TokenLess
-			case ">=":
-				token.Type = ast.TokenGreaterEqual
-			case "<=":
-				token.Type = ast.TokenLessEqual
-			case "&&":
-				token.Type = ast.TokenAnd
-			case "||":
-				token.Type = ast.TokenOr
-			case "!":
-				token.Type = ast.TokenNot
-			default:
-				if unicode.IsDigit(rune(word[0])) {
-					token.Type = ast.TokenInt
-				} else {
-					token.Type = ast.TokenIdent
-				}
-			}
-
+			token.Type = getTokenType(word)
 			tokens = append(tokens, token)
 		}
 	}
@@ -144,4 +112,74 @@ func Lexer(input []byte, ctx Context) []ast.Token {
 	})
 
 	return tokens
+}
+
+func isSpecialChar(c byte) bool {
+	return c == '(' || c == ')' || c == '{' || c == '}' || c == ':' || c == ',' ||
+		c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' ||
+		c == '!' || c == '>' || c == '<' || c == '&' || c == '|'
+}
+
+func isTwoCharOperator(s string) bool {
+	return s == "->" || s == "==" || s == "!=" || s == ">=" || s == "<=" || s == "&&" || s == "||"
+}
+
+func getTokenType(word string) ast.TokenType {
+	switch word {
+	case "fn":
+		return ast.TokenFunc
+	case "->":
+		return ast.TokenArrow
+	case "(":
+		return ast.TokenLParen
+	case ")":
+		return ast.TokenRParen
+	case "{":
+		return ast.TokenLBrace
+	case "}":
+		return ast.TokenRBrace
+	case "return":
+		return ast.TokenReturn
+	case "ensure":
+		return ast.TokenEnsure
+	case "or":
+		return ast.TokenOr
+	case "+":
+		return ast.TokenPlus
+	case "-":
+		return ast.TokenMinus
+	case "*":
+		return ast.TokenMultiply
+	case "/":
+		return ast.TokenDivide
+	case "%":
+		return ast.TokenModulo
+	case "==":
+		return ast.TokenEquals
+	case "!=":
+		return ast.TokenNotEquals
+	case ">":
+		return ast.TokenGreater
+	case "<":
+		return ast.TokenLess
+	case ">=":
+		return ast.TokenGreaterEqual
+	case "<=":
+		return ast.TokenLessEqual
+	case "&&":
+		return ast.TokenAnd
+	case "||":
+		return ast.TokenOr
+	case "!":
+		return ast.TokenNot
+	case ":":
+		return ast.TokenColon
+	case ",":
+		return ast.TokenComma
+	default:
+		if unicode.IsDigit(rune(word[0])) {
+			return ast.TokenInt
+		}
+		return ast.TokenIdent
+	}
 }

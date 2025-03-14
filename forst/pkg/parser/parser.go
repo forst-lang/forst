@@ -32,7 +32,7 @@ func (p *Parser) advance() ast.Token {
 }
 
 // Expect a token and advance
-func (p *Parser) expect(tokenType string) ast.Token {
+func (p *Parser) expect(tokenType ast.TokenType) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
 		panic(fmt.Sprintf(`
@@ -53,30 +53,70 @@ Token value: '%s'`,
 	return token
 }
 
+// Parse function parameters
+func (p *Parser) parseFuncSignature() []ast.ParamNode {
+	p.expect(ast.TokenLParen)
+	params := []ast.ParamNode{}
+
+	// Handle empty parameter list
+	if p.current().Type == ast.TokenRParen {
+		p.advance()
+		return params
+	}
+
+	// Parse parameters
+	for {
+		name := p.expect(ast.TokenIdent)
+		p.expect(ast.TokenColon)
+		paramType := p.expect(ast.TokenIdent)
+
+		params = append(params, ast.ParamNode{
+			Name: name.Value,
+			Type: paramType.Value,
+		})
+
+		// Check if there are more parameters
+		if p.current().Type == ast.TokenComma {
+			p.advance()
+		} else {
+			break
+		}
+	}
+
+	p.expect(ast.TokenRParen)
+	return params
+}
+
+
 // Parse a function definition
-func (p *Parser) parseFunc() ast.FuncNode {
+func (p *Parser) parseFunc() ast.FunctionNode {
 	p.expect(ast.TokenFunc)                     // Expect `fn`
 	name := p.expect(ast.TokenIdent)            // Function name
-	p.expect(ast.TokenArrow)                    // Expect `->`
+	
+	params := p.parseFuncSignature()            // Parse function parameters
+	
+	p.expect(ast.TokenColon)                    // Expect `:` separating return type
 	returnType := p.expect(ast.TokenIdent).Value // Return type
 
 	p.expect(ast.TokenLBrace) // Expect `{`
 	body := []ast.Node{}
 
-	// Parse function body dynamically
+	// Parse function body dynamically 
 	for p.current().Type != ast.TokenRBrace && p.current().Type != ast.TokenEOF {
 		token := p.current()
 
-		if token.Type == ast.TokenAssert {
-			p.advance() // Move past `assert`
+		if token.Type == ast.TokenEnsure {
+			p.advance() // Move past `ensure`
 			condition := p.expect(ast.TokenIdent).Value
 			p.expect(ast.TokenOr) // Expect `or`
 			errorType := p.expect(ast.TokenIdent).Value
-			body = append(body, ast.AssertNode{Condition: condition, ErrorType: errorType})
+			body = append(body, ast.EnsureNode{Condition: condition, ErrorType: errorType})
 		} else if token.Type == ast.TokenReturn {
 			p.advance() // Move past `return`
+			// TODO: Handle other return types
 			value := p.expect(ast.TokenString).Value
-			body = append(body, ast.ReturnNode{Value: value})
+			returnNode := ast.ReturnNode{Value: value, Type: ast.TypeNode{Name: "string"}}
+			body = append(body, returnNode)
 		} else {
 			token := p.current()
 			panic(fmt.Sprintf(
@@ -95,10 +135,17 @@ func (p *Parser) parseFunc() ast.FuncNode {
 	}
 
 	p.expect(ast.TokenRBrace) // Expect `}`
-	return ast.FuncNode{Name: name.Value, ReturnType: returnType, Body: body}
+
+	returnTypeNode := ast.TypeNode{Name: returnType}
+	return ast.FunctionNode{
+		Name: name.Value,
+		ReturnType: returnTypeNode,
+		Params: params,
+		Body: body,
+	}
 }
 
 // Parse the tokens into an AST
-func (p *Parser) Parse() ast.FuncNode {
+func (p *Parser) Parse() ast.FunctionNode {
 	return p.parseFunc()
 }
