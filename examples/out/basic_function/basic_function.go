@@ -1,6 +1,6 @@
 package basic_function
 
-func expression() {
+func compare() bool {
 	return "a" == "b"
 }
 

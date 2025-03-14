@@ -20,15 +20,12 @@ func transformFunction(n ast.FunctionNode) *goast.FuncDecl {
 	}
 
 	// Create function return type
-	var results *goast.FieldList
-	if !n.ReturnType.IsImplicit() {
-		results = &goast.FieldList{
-			List: []*goast.Field{
-				{
-					Type: transformType(n.ReturnType),
-				},
+	results := &goast.FieldList{
+		List: []*goast.Field{
+			{
+				Type: transformType(n.ImplicitReturnType),
 			},
-		}
+		},
 	}
 
 	// Create function body statements

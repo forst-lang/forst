@@ -60,7 +60,7 @@ func debugPrintForstAST(forstAST []ast.Node) {
 		case ast.ImportGroupNode:
 			fmt.Printf("  ImportGroup: %v\n", n.Imports)
 		case ast.FunctionNode:
-			fmt.Printf("  Function: %s -> %s\n", n.Name, n.ReturnType)
+			fmt.Printf("  Function: %s -> %s (explicit) / %s (implicit)\n", n.Name, n.ExplicitReturnType, n.ImplicitReturnType)
 		case ast.EnsureNode:
 			fmt.Printf("  Ensure: %s or %s\n", n.Condition, n.ErrorType)
 		case ast.ReturnNode:
