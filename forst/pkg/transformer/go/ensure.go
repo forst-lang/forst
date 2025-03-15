@@ -13,8 +13,23 @@ func negateCondition(condition goast.Expr) goast.Expr {
 	}
 }
 
+func any(conditions []goast.Expr) goast.Expr {
+	if len(conditions) == 0 {
+		return &goast.Ident{Name: "false"}
+	}
+	combined := conditions[0]
+	for i := 1; i < len(conditions); i++ {
+		combined = &goast.BinaryExpr{
+			X:  combined,
+			Op: token.LOR,
+			Y:  conditions[i],
+		}
+	}
+	return combined
+}
+
 func transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result goast.Expr = &goast.Ident{Name: "true"}
+	var result []goast.Expr = []goast.Expr{}
 
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -65,32 +80,36 @@ func transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
 			panic("Unknown String constraint: " + constraint.Name)
 		}
 
-		result = &goast.BinaryExpr{
-			X:  result,
-			Op: token.LAND,
-			Y:  expr,
-		}
+		result = append(result, expr)
 	}
-	return result
+	return any(result)
 }
 
 func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
-	return &goast.Ident{Name: "true"}
+	// TODO: Implement int assertion
+	var result []goast.Expr = []goast.Expr{}
+	return any(result)
 }
 
 func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
-	return &goast.Ident{Name: "true"}
+	// TODO: Implement float assertion
+	var result []goast.Expr = []goast.Expr{}
+	return any(result)
 }
 
 func transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
-	return &goast.Ident{Name: "true"}
+	// TODO: Implement bool assertion
+	var result []goast.Expr = []goast.Expr{}
+	return any(result)
 }
 
 func transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
+	var result []goast.Expr = []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
+		var expr goast.Expr
 		switch constraint.Name {
 		case "Nil":
-			return &goast.BinaryExpr{
+			expr = &goast.BinaryExpr{
 				X:  goast.NewIdent(ensure.Variable),
 				Op: token.NEQ,
 				Y:  goast.NewIdent("nil"),
@@ -98,8 +117,9 @@ func transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
 		default:
 			panic("Unknown Error constraint: " + constraint.Name)
 		}
+		result = append(result, expr)
 	}
-	panic("No valid constraints found for error assertion")
+	return any(result)
 }
 
 // transformEnsure converts a Forst ensure to a Go expression
@@ -107,7 +127,7 @@ func transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
 	// TODO: If BaseType is nil we need to infer it from the variable under test
 	if ensure.Assertion.BaseType == nil {
 		// TODO: Implement base type inference for ensure
-		return &goast.Ident{Name: "true"}
+		return &goast.Ident{Name: "false"}
 	}
 
 	switch *ensure.Assertion.BaseType {
