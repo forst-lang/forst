@@ -13,10 +13,6 @@ func transformStatement(stmt ast.Node) goast.Stmt {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
 		condition := transformEnsureCondition(s)
-		notCondition := &goast.UnaryExpr{
-			Op: token.NOT,
-			X:  condition,
-		}
 
 		errorMsg := "assertion failed: " + s.Assertion.String()
 		if s.Error != nil {
@@ -24,7 +20,7 @@ func transformStatement(stmt ast.Node) goast.Stmt {
 		}
 
 		return &goast.IfStmt{
-			Cond: notCondition,
+			Cond: condition,
 			Body: &goast.BlockStmt{
 				List: []goast.Stmt{
 					&goast.ExprStmt{
