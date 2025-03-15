@@ -64,10 +64,10 @@ func GetTokenType(word string) ast.TokenType {
 		return ast.TokenLogicalAnd
 	case "||":
 		return ast.TokenLogicalOr
-	case "!":
-		return ast.TokenLogicalNot
 	case ":=":
 		return ast.TokenColonEquals
+	case "!":
+		return ast.TokenLogicalNot
 	case ":":
 		return ast.TokenColon
 	case ",":

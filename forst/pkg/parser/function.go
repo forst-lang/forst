@@ -62,14 +62,39 @@ func (p *Parser) parseReturnStatement(context *Context) ast.ReturnNode {
 func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 	p.advance() // Move past `ensure`
 
-	variable := p.expect(ast.TokenIdentifier).Value
+	var variable string
+	var assertion ast.AssertionNode
 
-	p.expect(ast.TokenIs)
+	// Handle special case for negated variable check
+	if p.current().Type == ast.TokenLogicalNot && p.peek().Type == ast.TokenIdentifier {
+		p.advance() // Move past !
+		if p.peek().Type == ast.TokenLParen {
+			panic(parseErrorWithValue(p.current(), "Expected variable after ensure !"))
+		}
+		variable = p.current().Value
+		p.advance() // Move past variable
+		// Create implicit Nil() assertion
+		errorType := ast.TypeError
+		assertion = ast.AssertionNode{
+			BaseType: &errorType,
+			Constraints: []ast.ConstraintNode{
+				{
+					Name: "Nil",
+					Args: []ast.ValueNode{},
+				},
+			},
+		}
+	} else {
+		variable = p.expect(ast.TokenIdentifier).Value
 
-	condition := p.parseAssertionChain(context)
+		p.expect(ast.TokenIs)
+
+		assertion = p.parseAssertionChain(context)
+	}
 
 	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
+
 		errorType := p.expect(ast.TokenIdentifier).Value
 		var err ast.EnsureErrorNode
 		if p.current().Type == ast.TokenLParen {
@@ -86,10 +111,10 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 		} else {
 			err = ast.EnsureErrorVar(errorType)
 		}
-		return ast.EnsureNode{Variable: variable, Assertion: condition, Error: &err}
+		return ast.EnsureNode{Variable: variable, Assertion: assertion, Error: &err}
 	}
 
-	return ast.EnsureNode{Variable: variable, Assertion: condition}
+	return ast.EnsureNode{Variable: variable, Assertion: assertion}
 }
 
 func (p *Parser) parseFunctionBody(context *Context) []ast.Node {
