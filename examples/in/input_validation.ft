@@ -24,8 +24,8 @@ fn createUser(input: Trpc::Arg.Input({
   300.3f
 }
 
-fn main() {
-    userRouter := Trpc::Router(routes: {
+fn CreateRouter() {
+    return Trpc::Router(routes: {
         createUser
     })
 }
