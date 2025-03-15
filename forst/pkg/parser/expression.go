@@ -37,7 +37,27 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 	if p.current().Type == ast.TokenLParen {
 		p.advance() // Consume the left parenthesis
 		expr = p.parseExpressionLevel(level+1, context)
+		// Check for function call
 		p.expect(ast.TokenRParen) // Consume the right parenthesis
+	} else if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLParen {
+		ident := p.expect(ast.TokenIdentifier)
+		p.expect(ast.TokenLParen)
+
+		var args []ast.ExpressionNode
+		for p.current().Type != ast.TokenRParen {
+			args = append(args, p.parseExpression(context))
+			if p.current().Type == ast.TokenComma {
+				p.advance()
+			}
+		}
+		p.expect(ast.TokenRParen)
+
+		expr = ast.FunctionCallNode{
+			Function:  ident.Value,
+			Arguments: args,
+			Type:      ast.TypeNode{Name: ast.TypeImplicit},
+		}
+		return expr
 	} else {
 		expr = p.parseValue(context) // parseValue should advance the token internally
 	}
