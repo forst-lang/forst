@@ -4,6 +4,19 @@ import (
 	"forst/pkg/ast"
 )
 
+func (p *Parser) parseEnsureBlock(context *Context) *ast.EnsureBlockNode {
+	body := []ast.Node{}
+
+	// Ensure block is always optional
+	if p.current().Type != ast.TokenLBrace {
+		return nil
+	}
+
+	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false}, context)...)
+
+	return &ast.EnsureBlockNode{Body: body}
+}
+
 func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 	p.advance() // Move past `ensure`
 
@@ -37,6 +50,8 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 		assertion = p.parseAssertionChain(context)
 	}
 
+	block := p.parseEnsureBlock(context)
+
 	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
 
@@ -56,8 +71,17 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 		} else {
 			err = ast.EnsureErrorVar(errorType)
 		}
-		return ast.EnsureNode{Variable: variable, Assertion: assertion, Error: &err}
+		return ast.EnsureNode{
+			Variable:  variable,
+			Assertion: assertion,
+			Block:     block,
+			Error:     &err,
+		}
 	}
 
-	return ast.EnsureNode{Variable: variable, Assertion: assertion}
+	return ast.EnsureNode{
+		Variable:  variable,
+		Assertion: assertion,
+		Block:     block,
+	}
 }

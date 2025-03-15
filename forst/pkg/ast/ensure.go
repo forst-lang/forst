@@ -8,6 +8,11 @@ type EnsureNode struct {
 	Assertion AssertionNode
 	/// Is optional if we're in the main function of the main package
 	Error *EnsureErrorNode
+	Block *EnsureBlockNode
+}
+
+type EnsureBlockNode struct {
+	Body []Node
 }
 
 // EnsureErrorNode can be either a full error node with type and args,
