@@ -71,21 +71,25 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
 		errorType := p.expect(ast.TokenIdentifier).Value
-		// Parse error arguments
-		p.expect(ast.TokenLParen)
-		var args []ast.ExpressionNode
-		for p.current().Type != ast.TokenRParen {
-			args = append(args, p.parseExpression(context))
-			if p.current().Type == ast.TokenComma {
-				p.advance()
+		var err ast.EnsureErrorNode
+		if p.current().Type == ast.TokenLParen {
+			p.advance() // Consume left paren
+			var args []ast.ExpressionNode
+			for p.current().Type != ast.TokenRParen {
+				args = append(args, p.parseExpression(context))
+				if p.current().Type == ast.TokenComma {
+					p.advance()
+				}
 			}
+			p.expect(ast.TokenRParen)
+			err = ast.EnsureErrorCall{ErrorType: errorType, ErrorArgs: args}
+		} else {
+			err = ast.EnsureErrorVar(errorType)
 		}
-		p.expect(ast.TokenRParen)
-		return ast.EnsureNode{Variable: variable, Assertion: condition, ErrorType: &errorType, ErrorArgs: args}
+		return ast.EnsureNode{Variable: variable, Assertion: condition, Error: &err}
 	}
 
-	errorType := p.expect(ast.TokenIdentifier).Value
-	return ast.EnsureNode{Variable: variable, Assertion: condition, ErrorType: &errorType}
+	return ast.EnsureNode{Variable: variable, Assertion: condition}
 }
 
 func (p *Parser) parseFunctionBody(context *Context) []ast.Node {

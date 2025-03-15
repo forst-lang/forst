@@ -66,8 +66,8 @@ func debugPrintForstAST(forstAST []ast.Node) {
 				fmt.Printf("  Function: %s -> %s (explicit)\n", n.Name, n.ExplicitReturnType)
 			}
 		case ast.EnsureNode:
-			if n.ErrorType != nil {
-				fmt.Printf("  Ensure: %s or %s\n", n.Assertion, *n.ErrorType)
+			if n.Error != nil {
+				fmt.Printf("  Ensure: %s or %s\n", n.Assertion, (*n.Error).String())
 			} else {
 				fmt.Printf("  Ensure: %s\n", n.Assertion)
 			}

@@ -19,8 +19,8 @@ func transformStatement(stmt ast.Node) goast.Stmt {
 		}
 
 		errorMsg := "assertion failed: " + s.Assertion.String()
-		if s.ErrorType != nil {
-			errorMsg = *s.ErrorType
+		if s.Error != nil {
+			errorMsg = (*s.Error).String()
 		}
 
 		return &goast.IfStmt{
