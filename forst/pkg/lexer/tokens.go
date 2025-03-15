@@ -26,6 +26,8 @@ func GetTokenType(word string) ast.TokenType {
 		return ast.TokenReturn
 	case "ensure":
 		return ast.TokenEnsure
+	case "is":
+		return ast.TokenIs
 	case "or":
 		return ast.TokenOr
 	case "(":
@@ -68,6 +70,8 @@ func GetTokenType(word string) ast.TokenType {
 		return ast.TokenColon
 	case ",":
 		return ast.TokenComma
+	case ".":
+		return ast.TokenDot
 	default:
 		if isDigit(word[0]) {
 			lastChar := word[len(word)-1]

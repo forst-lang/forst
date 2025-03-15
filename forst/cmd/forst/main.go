@@ -66,7 +66,11 @@ func debugPrintForstAST(forstAST []ast.Node) {
 				fmt.Printf("  Function: %s -> %s (explicit)\n", n.Name, n.ExplicitReturnType)
 			}
 		case ast.EnsureNode:
-			fmt.Printf("  Ensure: %s or %s\n", n.Condition, n.ErrorType)
+			if n.ErrorType != nil {
+				fmt.Printf("  Ensure: %s or %s\n", n.Assertion, *n.ErrorType)
+			} else {
+				fmt.Printf("  Ensure: %s\n", n.Assertion)
+			}
 		case ast.ReturnNode:
 			fmt.Printf("  Return: %s\n", n.Value)
 		}
@@ -111,12 +115,12 @@ func main() {
 		debugPrintTokens(tokens)
 	}
 
-	forstAST := parser.NewParser(tokens).Parse()
+	forstNodes := parser.NewParser(tokens).ParseFile()
 	if args.debug {
-		debugPrintForstAST(forstAST)
+		debugPrintForstAST(forstNodes)
 	}
 
-	goAST := transformer_go.TransformForstFileToGo(forstAST)
+	goAST := transformer_go.TransformForstFileToGo(forstNodes)
 	if args.debug {
 		debugPrintGoAST(goAST)
 	}

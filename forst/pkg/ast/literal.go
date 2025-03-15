@@ -1,7 +1,9 @@
 package ast
 
+import "fmt"
+
 type LiteralNode interface {
-	ExpressionNode
+	ValueNode
 	isLiteral() // Marker method to identify literal nodes
 }
 
@@ -47,3 +49,25 @@ func (i IntLiteralNode) isLiteral()    {}
 func (f FloatLiteralNode) isLiteral()  {}
 func (s StringLiteralNode) isLiteral() {}
 func (b BoolLiteralNode) isLiteral()   {}
+
+// Implement ValueNode interface for all literal nodes
+func (i IntLiteralNode) isValue()    {}
+func (f FloatLiteralNode) isValue()  {}
+func (s StringLiteralNode) isValue() {}
+func (b BoolLiteralNode) isValue()   {}
+
+func (i IntLiteralNode) String() string {
+	return fmt.Sprintf("%d", i.Value)
+}
+
+func (f FloatLiteralNode) String() string {
+	return fmt.Sprintf("%f", f.Value)
+}
+
+func (s StringLiteralNode) String() string {
+	return fmt.Sprintf("\"%s\"", s.Value)
+}
+
+func (b BoolLiteralNode) String() string {
+	return fmt.Sprintf("%t", b.Value)
+}

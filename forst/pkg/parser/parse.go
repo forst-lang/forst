@@ -6,42 +6,49 @@ import (
 	"forst/pkg/ast"
 )
 
-// Parse the tokens into an AST
-func (p *Parser) Parse() []ast.Node {
+type Scope struct {
+	// All variables defined in the scope
+	Variables map[string]ast.TypeNode
+	// The name of the function currently being parsed
+	FunctionName *string
+}
+
+// Mutable context for the parser to track the current state
+type Context struct {
+	IsMainPackage bool
+	Scope         *Scope
+}
+
+// Parse the tokens in a Forst file into a list of Forst AST nodes
+func (p *Parser) ParseFile() []ast.Node {
 	nodes := []ast.Node{}
+
+	context := Context{
+		IsMainPackage: false,
+	}
 
 	for p.current().Type != ast.TokenEOF {
 		if p.current().Type == ast.TokenPackage {
-			p.advance() // Move past `package`
-			packageName := p.expect(ast.TokenIdentifier).Value
-			nodes = append(nodes, ast.PackageNode{Value: packageName})
+			nodes = append(nodes, p.parsePackage(&context))
 		} else if p.current().Type == ast.TokenImport {
-			p.advance() // Move past `import`
-
-			// Check if this is a grouped import with parentheses
-			if p.current().Type == ast.TokenLParen {
-				p.advance() // Move past '('
-				imports := []ast.ImportNode{}
-
-				// Parse imports until we hit the closing paren
-				for p.current().Type != ast.TokenRParen {
-					importName := p.expect(ast.TokenIdentifier).Value
-					imports = append(imports, ast.ImportNode{Path: importName})
-				}
-
-				p.expect(ast.TokenRParen)
-				nodes = append(nodes, ast.ImportGroupNode{Imports: imports})
-			} else {
-				// Single import
-				importName := p.expect(ast.TokenIdentifier).Value
-				nodes = append(nodes, ast.ImportNode{Path: importName})
-			}
+			nodes = append(nodes, p.parseImports())
 		} else if p.current().Type == ast.TokenFunction {
-			nodes = append(nodes, p.parseFunctionDefinition())
+			context.Scope = &Scope{
+				Variables: make(map[string]ast.TypeNode),
+			}
+			nodes = append(nodes, p.parseFunctionDefinition(&context))
 		} else {
 			panic(fmt.Sprintf("Unexpected token in file: %s", p.current().Value))
 		}
 	}
 
 	return nodes
+}
+
+func (c *Context) IsMainFunction() bool {
+	return c.IsMainPackage && c.Scope.FunctionName != nil && *c.Scope.FunctionName == "main"
+}
+
+func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {
+	s.Variables[name] = typeNode
 }

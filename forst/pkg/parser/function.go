@@ -48,7 +48,47 @@ func (p *Parser) parseReturnType() ast.TypeNode {
 	return returnType
 }
 
-func (p *Parser) parseFunctionBody(explicitReturnType ast.TypeNode) []ast.Node {
+func (p *Parser) parseReturnStatement() ast.ReturnNode {
+	p.advance() // Move past `return`
+
+	returnExpression := p.parseExpression()
+
+	return ast.ReturnNode{
+		Value: returnExpression,
+		Type:  returnExpression.ImplicitType(),
+	}
+}
+
+func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
+	p.advance() // Move past `ensure`
+
+	variable := p.expect(ast.TokenIdentifier).Value
+
+	p.expect(ast.TokenIs)
+
+	condition := p.parseAssertionChain(context)
+
+	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
+		p.expect(ast.TokenOr) // Expect `or`
+		errorType := p.expect(ast.TokenIdentifier).Value
+		// Parse error arguments
+		p.expect(ast.TokenLParen)
+		var args []ast.ExpressionNode
+		for p.current().Type != ast.TokenRParen {
+			args = append(args, p.parseExpression())
+			if p.current().Type == ast.TokenComma {
+				p.advance()
+			}
+		}
+		p.expect(ast.TokenRParen)
+		return ast.EnsureNode{Variable: variable, Assertion: condition, ErrorType: &errorType, ErrorArgs: args}
+	}
+
+	errorType := p.expect(ast.TokenIdentifier).Value
+	return ast.EnsureNode{Variable: variable, Assertion: condition, ErrorType: &errorType}
+}
+
+func (p *Parser) parseFunctionBody(context *Context) []ast.Node {
 	body := []ast.Node{}
 
 	p.expect(ast.TokenLBrace) // Expect `{`
@@ -58,20 +98,9 @@ func (p *Parser) parseFunctionBody(explicitReturnType ast.TypeNode) []ast.Node {
 		token := p.current()
 
 		if token.Type == ast.TokenEnsure {
-			p.advance() // Move past `ensure`
-			condition := p.expect(ast.TokenIdentifier).Value
-			p.expect(ast.TokenOr) // Expect `or`
-			errorType := p.expect(ast.TokenIdentifier).Value
-			body = append(body, ast.EnsureNode{Condition: condition, ErrorType: errorType})
+			body = append(body, p.parseEnsureStatement(context))
 		} else if token.Type == ast.TokenReturn {
-			p.advance() // Move past `return`
-			returnExpression := p.parseExpression()
-			/**
-			 * TODO: Check if return expression is of the same type as the explicit return type
-			 * This should probably be done in a separate type checking pass
-			 */
-			returnNode := ast.ReturnNode{Value: returnExpression, Type: returnExpression.ImplicitType()}
-			body = append(body, returnNode)
+			body = append(body, p.parseReturnStatement())
 		} else {
 			token := p.current()
 			panic(fmt.Sprintf(
@@ -95,15 +124,17 @@ func (p *Parser) parseFunctionBody(explicitReturnType ast.TypeNode) []ast.Node {
 }
 
 // Parse a function definition
-func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
+func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
 	p.expect(ast.TokenFunction)           // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
+
+	context.Scope.FunctionName = &name.Value
 
 	params := p.parseFunctionSignature() // Parse function parameters
 
 	explicitReturnType := p.parseReturnType()
 
-	body := p.parseFunctionBody(explicitReturnType)
+	body := p.parseFunctionBody(context)
 
 	implicitReturnType := ast.TypeNode{Name: ast.TypeVoid}
 	for _, node := range body {

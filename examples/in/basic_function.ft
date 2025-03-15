@@ -1,3 +1,5 @@
+package basic_function
+
 fn compare() {
   return "a" == "b"
 }

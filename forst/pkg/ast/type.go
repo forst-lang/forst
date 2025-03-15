@@ -13,6 +13,9 @@ const (
 	TypeBool   = "TYPE_BOOL"
 	TypeVoid   = "TYPE_VOID"
 
+	// Placeholder for a type assertion
+	TypeAssertion = "TYPE_ASSERTION"
+
 	// Placeholder for an implicit type
 	TypeImplicit = "TYPE_IMPLICIT"
 )
@@ -39,6 +42,8 @@ func (t TypeNode) String() string {
 		return "Bool"
 	case TypeVoid:
 		return "Void"
+	case TypeAssertion:
+		return "Assertion"
 	case TypeImplicit:
 		return "(implicit)"
 	default:

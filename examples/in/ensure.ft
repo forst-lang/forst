@@ -1,4 +1,9 @@
-package ensure
+package main
+
+import (
+	"fmt"
+	"os"
+)
 
 fn mustBeARealName(name: String) {
     ensure name is Min(1)
@@ -20,6 +25,7 @@ fn checkConditions() {
 fn main() {
     _, err := checkConditions()
     ensure !err {
-        println("#{err.code}: #{err.message}")
-    } or Exit(1)
+        fmt.Println("#{err.code}: #{err.message}")
+        os.Exit(1)
+    } or err
 }

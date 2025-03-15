@@ -24,6 +24,14 @@ func (p *Parser) current() ast.Token {
 	return ast.Token{Type: ast.TokenEOF, Value: ""}
 }
 
+// Get the next token
+func (p *Parser) peek() ast.Token {
+	if p.currentIndex+1 < len(p.tokens) {
+		return p.tokens[p.currentIndex+1]
+	}
+	return ast.Token{Type: ast.TokenEOF, Value: ""}
+}
+
 func (p *Parser) previous() *ast.Token {
 	if p.currentIndex > 0 {
 		return &p.tokens[p.currentIndex-1]

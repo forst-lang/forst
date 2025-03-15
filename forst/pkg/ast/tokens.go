@@ -35,10 +35,12 @@ const (
 	TokenRBrace TokenType = "RBRACE"
 	TokenReturn TokenType = "RETURN"
 	TokenEnsure TokenType = "ENSURE"
+	TokenIs     TokenType = "IS"
 	TokenOr     TokenType = "OR"
 	TokenEOF    TokenType = "EOF"
 	TokenColon  TokenType = "COLON"
 	TokenComma  TokenType = "COMMA"
+	TokenDot    TokenType = "DOT"
 
 	// Arithmetic operators
 	TokenPlus     TokenType = "PLUS"     // +
