@@ -8,8 +8,8 @@ import (
 // ExpressionNode represents any expression in the AST
 type ExpressionNode interface {
 	Node
-	isExpression() // Marker method to identify expression nodes
-	ImplicitType() TypeNode
+
+	isExpression()
 	String() string
 }
 
@@ -17,8 +17,6 @@ type ExpressionNode interface {
 type UnaryExpressionNode struct {
 	Operator TokenType
 	Operand  ExpressionNode
-	// The type of the expression
-	Type TypeNode
 }
 
 // BinaryExpressionNode represents a binary expression in the AST
@@ -26,14 +24,11 @@ type BinaryExpressionNode struct {
 	Left     ExpressionNode
 	Operator TokenType
 	Right    ExpressionNode
-	// The type of the expression
-	Type TypeNode
 }
 
 type FunctionCallNode struct {
-	Function  string
+	Function  Ident
 	Arguments []ExpressionNode
-	Type      TypeNode
 }
 
 // Ensure LiteralNode implements ExpressionNode
@@ -44,14 +39,6 @@ func (b BoolLiteralNode) isExpression()      {}
 func (u UnaryExpressionNode) isExpression()  {}
 func (b BinaryExpressionNode) isExpression() {}
 func (f FunctionCallNode) isExpression()     {}
-
-func (i IntLiteralNode) ImplicitType() TypeNode       { return TypeNode{Name: TypeInt} }
-func (f FloatLiteralNode) ImplicitType() TypeNode     { return TypeNode{Name: TypeFloat} }
-func (s StringLiteralNode) ImplicitType() TypeNode    { return TypeNode{Name: TypeString} }
-func (b BoolLiteralNode) ImplicitType() TypeNode      { return TypeNode{Name: TypeBool} }
-func (u UnaryExpressionNode) ImplicitType() TypeNode  { return u.Type }
-func (b BinaryExpressionNode) ImplicitType() TypeNode { return b.Type }
-func (f FunctionCallNode) ImplicitType() TypeNode     { return f.Type }
 
 func (u UnaryExpressionNode) String() string {
 	return fmt.Sprintf("%s %s", u.Operator, u.Operand.String())

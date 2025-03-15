@@ -53,7 +53,10 @@ func (p *Parser) parseBlock(blockContext *BlockContext, context *Context) []ast.
 				}
 
 				body = append(body, ast.AssignmentNode{
-					Names:         []string{firstIdent.Value, secondIdent.Value},
+					Idents: []ast.Ident{
+						{Name: firstIdent.Value},
+						{Name: secondIdent.Value},
+					},
 					Values:        exprs,
 					ExplicitTypes: []*ast.TypeNode{nil, nil},
 					IsShort:       assignToken.Type == ast.TokenColonEquals,

@@ -10,21 +10,25 @@ type LiteralNode interface {
 // IntLiteralNode represents an integer literal
 type IntLiteralNode struct {
 	Value int64
+	Type  TypeNode
 }
 
 // FloatLiteralNode represents a float literal
 type FloatLiteralNode struct {
 	Value float64
+	Type  TypeNode
 }
 
 // StringLiteralNode represents a string literal
 type StringLiteralNode struct {
 	Value string
+	Type  TypeNode
 }
 
 // BoolLiteralNode represents a boolean literal
 type BoolLiteralNode struct {
 	Value bool
+	Type  TypeNode
 }
 
 // NodeType returns the type of this AST node

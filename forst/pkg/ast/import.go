@@ -7,7 +7,7 @@ type ImportNode struct {
 
 	// Alias is the optional local name for the import (e.g., "f" in `import f "fmt"`)
 	// If nil, no alias is specified
-	Alias *string
+	Alias *Ident
 
 	// SideEffectOnly indicates if this is a blank import (import _ "pkg")
 	// used only for its initialization side effects

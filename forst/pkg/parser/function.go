@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"forst/pkg/ast"
 )
 
@@ -23,8 +22,8 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 		paramType := p.parseType()
 
 		params = append(params, ast.ParamNode{
-			Name: name.Value,
-			Type: paramType,
+			Ident: ast.Ident{Name: name.Value},
+			Type:  paramType,
 		})
 
 		// Check if there are more parameters
@@ -55,7 +54,7 @@ func (p *Parser) parseReturnStatement(context *Context) ast.ReturnNode {
 
 	return ast.ReturnNode{
 		Value: returnExpression,
-		Type:  returnExpression.ImplicitType(),
+		Type:  ast.TypeNode{Name: ast.TypeImplicit},
 	}
 }
 
@@ -76,27 +75,9 @@ func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
 
 	body := p.parseFunctionBody(context)
 
-	implicitReturnType := ast.TypeNode{Name: ast.TypeVoid}
-	for _, node := range body {
-		if returnNode, ok := node.(ast.ReturnNode); ok {
-			implicitReturnType = returnNode.Type
-			break
-		}
-	}
-
-	if !explicitReturnType.IsImplicit() && implicitReturnType.Name != explicitReturnType.Name {
-		panic(fmt.Sprintf(
-			"\nParse error in %s:%d:%d at line %d, column %d:\n"+
-				"Function '%s' has return type mismatch: %s != %s",
-			name.Path, name.Line, name.Column, name.Line, name.Column, name.Value,
-			implicitReturnType.Name, explicitReturnType.Name,
-		))
-	}
-
 	return ast.FunctionNode{
-		Name:               name.Value,
+		Ident:              ast.Ident{Name: name.Value},
 		ExplicitReturnType: explicitReturnType,
-		ImplicitReturnType: implicitReturnType,
 		Params:             params,
 		Body:               body,
 	}

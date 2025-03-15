@@ -10,7 +10,7 @@ fn mustBeARealName(name: String) {
         or TooShort("Name must be at least 1 character long")
 }
 
-fn mustNotExceedSpeedLimit(speed: Int) {
+fn mustNotExceedSpeedLimit(speed: Int): Void {
     ensure speed is LessThan(100)
         or TooFast("Speed must not exceed 100 km/h")
 }

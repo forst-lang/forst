@@ -21,6 +21,11 @@ const (
 	TypeImplicit = "TYPE_IMPLICIT"
 )
 
+// IsExplicit returns true if the type has been specified explicitly
+func (t TypeNode) IsExplicit() bool {
+	return t.Name != TypeImplicit
+}
+
 // IsImplicit returns true if the type has not been specified explicitly
 func (t TypeNode) IsImplicit() bool {
 	return t.Name == TypeImplicit

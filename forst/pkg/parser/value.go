@@ -10,8 +10,7 @@ func (p *Parser) parseValue(context *Context) ast.ValueNode {
 	if token.Type == ast.TokenIdentifier {
 		p.advance() // Consume identifier
 		return ast.VariableNode{
-			Name: token.Value,
-			Type: ast.TypeNode{Name: ast.TypeInt},
+			Ident: ast.Ident{Name: token.Value},
 		}
 	}
 

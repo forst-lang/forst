@@ -2,7 +2,7 @@ package ast
 
 // AssignmentNode represents a variable assignment in the AST
 type AssignmentNode struct {
-	Names         []string         // Names being assigned to
+	Idents        []Ident          // Names being assigned to
 	Values        []ExpressionNode // Values being assigned
 	ExplicitTypes []*TypeNode      // Optional explicit types for each name
 	IsShort       bool             // Whether this is a short := assignment
@@ -18,11 +18,11 @@ func (n AssignmentNode) String() string {
 	var result string
 
 	// Build comma-separated list of names and types
-	for i, name := range n.Names {
+	for i, ident := range n.Idents {
 		if i > 0 {
 			result += ", "
 		}
-		result += name
+		result += ident.String()
 		if len(n.ExplicitTypes) > i && n.ExplicitTypes[i] != nil {
 			result += ": " + n.ExplicitTypes[i].String()
 		}

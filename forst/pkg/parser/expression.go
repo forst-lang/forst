@@ -28,7 +28,6 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 		expr = ast.UnaryExpressionNode{
 			Operator: ast.TokenLogicalNot,
 			Operand:  operand,
-			Type:     ast.TypeNode{Name: ast.TypeBool},
 		}
 		return expr
 	}
@@ -53,9 +52,8 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 		p.expect(ast.TokenRParen)
 
 		expr = ast.FunctionCallNode{
-			Function:  ident.Value,
+			Function:  ast.Ident{Name: ident.Value},
 			Arguments: args,
-			Type:      ast.TypeNode{Name: ast.TypeImplicit},
 		}
 		return expr
 	} else {
@@ -68,73 +66,11 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 		p.advance() // Consume the operator
 
 		right := p.parseExpressionLevel(level+1, context)
-		// Get the types of the left and right expressions
-		var leftType ast.TypeNode
-		var rightType ast.TypeNode
-
-		switch l := expr.(type) {
-		case ast.BinaryExpressionNode:
-			leftType = l.Type
-		case ast.UnaryExpressionNode:
-			leftType = l.Type
-		case ast.IntLiteralNode:
-			leftType = ast.TypeNode{Name: ast.TypeInt}
-		case ast.FloatLiteralNode:
-			leftType = ast.TypeNode{Name: ast.TypeFloat}
-		case ast.StringLiteralNode:
-			leftType = ast.TypeNode{Name: ast.TypeString}
-		case ast.BoolLiteralNode:
-			leftType = ast.TypeNode{Name: ast.TypeBool}
-		}
-
-		switch r := right.(type) {
-		case ast.BinaryExpressionNode:
-			rightType = r.Type
-		case ast.UnaryExpressionNode:
-			rightType = r.Type
-		case ast.IntLiteralNode:
-			rightType = ast.TypeNode{Name: ast.TypeInt}
-		case ast.FloatLiteralNode:
-			rightType = ast.TypeNode{Name: ast.TypeFloat}
-		case ast.StringLiteralNode:
-			rightType = ast.TypeNode{Name: ast.TypeString}
-		case ast.BoolLiteralNode:
-			rightType = ast.TypeNode{Name: ast.TypeBool}
-		}
-
-		// Check type compatibility and set result type
-		var resultType ast.TypeNode
-		if operator.IsArithmeticBinaryOperator() {
-			if leftType.Name != rightType.Name {
-				panic(parseErrorWithValue(
-					p.current(),
-					"Type mismatch in arithmetic expression",
-				))
-			}
-			resultType = leftType
-		} else if operator.IsComparisonBinaryOperator() {
-			if leftType.Name != rightType.Name {
-				panic(parseErrorWithValue(
-					p.current(),
-					"Type mismatch in comparison expression",
-				))
-			}
-			resultType = ast.TypeNode{Name: ast.TypeBool}
-		} else if operator.IsLogicalBinaryOperator() {
-			if leftType.Name != rightType.Name {
-				panic(parseErrorWithValue(
-					p.current(),
-					"Type mismatch in logical expression",
-				))
-			}
-			resultType = ast.TypeNode{Name: ast.TypeBool}
-		}
 
 		expr = ast.BinaryExpressionNode{
 			Left:     expr,
 			Operator: operator,
 			Right:    right,
-			Type:     resultType,
 		}
 	}
 

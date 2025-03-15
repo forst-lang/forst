@@ -8,6 +8,7 @@ import (
 	"forst/pkg/lexer"
 	"forst/pkg/parser"
 	transformer_go "forst/pkg/transformer/go"
+	"forst/pkg/typechecker"
 	goast "go/ast"
 	"os"
 )
@@ -54,16 +55,16 @@ func debugPrintForstAST(forstAST []ast.Node) {
 	for _, node := range forstAST {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			fmt.Printf("  Package: %s\n", n.Value)
+			fmt.Printf("  Package: %s\n", n.Ident)
 		case ast.ImportNode:
 			fmt.Printf("  Import: %s\n", n.Path)
 		case ast.ImportGroupNode:
 			fmt.Printf("  ImportGroup: %v\n", n.Imports)
 		case ast.FunctionNode:
-			if n.ExplicitReturnType.IsImplicit() {
-				fmt.Printf("  Function: %s -> %s (implicit)\n", n.Name, n.ImplicitReturnType)
+			if n.HasExplicitReturnType() {
+				fmt.Printf("  Function: %s -> %s (explicit)\n", n.Ident.Name, n.ExplicitReturnType)
 			} else {
-				fmt.Printf("  Function: %s -> %s (explicit)\n", n.Name, n.ExplicitReturnType)
+				fmt.Printf("  Function: %s -> (implicit return type)\n", n.Ident.Name)
 			}
 		case ast.EnsureNode:
 			if n.Error != nil {
@@ -97,6 +98,27 @@ func debugPrintGoAST(goFile *goast.File) {
 	}
 }
 
+func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
+	fmt.Println("\n=== Type Information ===")
+
+	fmt.Println("\nFunctions:")
+	for ident, sig := range tc.Functions {
+		fmt.Printf("  %s(", ident.Name)
+		for i, param := range sig.Parameters {
+			if i > 0 {
+				fmt.Print(", ")
+			}
+			fmt.Printf("%s: %s", param.Ident.Name, param.Type)
+		}
+		fmt.Printf(") -> %s\n", sig.ReturnType)
+	}
+
+	fmt.Println("\nDefinitions:")
+	for ident, def := range tc.Defs {
+		fmt.Printf("  %s -> %T\n", ident.Name, def)
+	}
+}
+
 func main() {
 	args := parseArgs()
 	if args.filePath == "" {
@@ -109,22 +131,50 @@ func main() {
 		return
 	}
 
-	// Compilation pipeline
+	// Lexical analysis
 	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
 	if args.debug {
 		debugPrintTokens(tokens)
 	}
 
+	// Parsing
 	forstNodes := parser.NewParser(tokens).ParseFile()
 	if args.debug {
 		debugPrintForstAST(forstNodes)
 	}
 
-	goAST := transformer_go.TransformForstFileToGo(forstNodes)
+	// Type checking
+	checker := typechecker.New()
+
+	// First pass: collect type declarations and signatures
+	if err := checker.CollectTypes(forstNodes); err != nil {
+		fmt.Printf("Type collection error: %v\n", err)
+		return
+	}
+
+	// Second pass: check and infer types
+	if err := checker.CheckTypes(forstNodes); err != nil {
+		fmt.Printf("Type checking error: %v\n", err)
+		return
+	}
+
+	if args.debug {
+		debugPrintTypeInfo(checker)
+	}
+
+	// Transform to Go AST with type information
+	transformer := transformer_go.New()
+	goAST, err := transformer.TransformForstFileToGo(forstNodes, checker)
+	if err != nil {
+		fmt.Printf("Transformation error: %v\n", err)
+		return
+	}
+
 	if args.debug {
 		debugPrintGoAST(goAST)
 	}
 
+	// Generate Go code
 	goCode := generators.GenerateGoCode(goAST)
 
 	if args.debug {
