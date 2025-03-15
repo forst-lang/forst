@@ -86,20 +86,89 @@ func transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
 }
 
 func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
-	// TODO: Implement int assertion
 	var result []goast.Expr = []goast.Expr{}
+	for _, constraint := range ensure.Assertion.Constraints {
+		var expr goast.Expr
+		switch constraint.Name {
+		case "Min":
+			if len(constraint.Args) != 1 {
+				panic("Min constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.LSS,
+				Y:  transformExpression(constraint.Args[0]),
+			}
+		case "Max":
+			if len(constraint.Args) != 1 {
+				panic("Max constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.GTR,
+				Y:  transformExpression(constraint.Args[0]),
+			}
+		default:
+			panic("Unknown Int constraint: " + constraint.Name)
+		}
+		result = append(result, expr)
+	}
 	return any(result)
 }
 
 func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
-	// TODO: Implement float assertion
 	var result []goast.Expr = []goast.Expr{}
+	for _, constraint := range ensure.Assertion.Constraints {
+		var expr goast.Expr
+		switch constraint.Name {
+		case "Min":
+			if len(constraint.Args) != 1 {
+				panic("Min constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.LSS,
+				Y:  transformExpression(constraint.Args[0]),
+			}
+		case "Max":
+			if len(constraint.Args) != 1 {
+				panic("Max constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.GTR,
+				Y:  transformExpression(constraint.Args[0]),
+			}
+		default:
+			panic("Unknown Float constraint: " + constraint.Name)
+		}
+		result = append(result, expr)
+	}
 	return any(result)
 }
 
 func transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
-	// TODO: Implement bool assertion
 	var result []goast.Expr = []goast.Expr{}
+	for _, constraint := range ensure.Assertion.Constraints {
+		var expr goast.Expr
+		switch constraint.Name {
+		case "True":
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.EQL,
+				Y:  goast.NewIdent("false"),
+			}
+		case "False":
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable),
+				Op: token.EQL,
+				Y:  goast.NewIdent("true"),
+			}
+		default:
+			panic("Unknown Bool constraint: " + constraint.Name)
+		}
+		result = append(result, expr)
+	}
 	return any(result)
 }
 
