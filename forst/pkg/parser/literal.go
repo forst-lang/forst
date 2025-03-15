@@ -35,11 +35,11 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 
 			floatVal, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				panic("Invalid float literal: " + token.Value)
+				panic(parseErrorWithValue(token, "Invalid float literal"))
 			}
 
 			if isFloat32 {
-				panic("Float32 literals are not supported")
+				panic(parseErrorWithValue(token, "Float32 literals are not supported"))
 			}
 
 			return ast.FloatLiteralNode{
@@ -50,7 +50,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		// It's an integer
 		intVal, err := strconv.ParseInt(token.Value, 10, 64)
 		if err != nil {
-			panic("Invalid integer literal: " + token.Value)
+			panic(parseErrorWithValue(token, "Invalid integer literal"))
 		}
 		return ast.IntLiteralNode{
 			Value: intVal,
@@ -67,6 +67,6 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 
 	default:
-		panic("Expected literal but got: " + token.Value)
+		panic(unexpectedTokenMessage(token, "a literal"))
 	}
 }

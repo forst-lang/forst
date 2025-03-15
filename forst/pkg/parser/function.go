@@ -48,10 +48,10 @@ func (p *Parser) parseReturnType() ast.TypeNode {
 	return returnType
 }
 
-func (p *Parser) parseReturnStatement() ast.ReturnNode {
+func (p *Parser) parseReturnStatement(context *Context) ast.ReturnNode {
 	p.advance() // Move past `return`
 
-	returnExpression := p.parseExpression()
+	returnExpression := p.parseExpression(context)
 
 	return ast.ReturnNode{
 		Value: returnExpression,
@@ -75,7 +75,7 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 		p.expect(ast.TokenLParen)
 		var args []ast.ExpressionNode
 		for p.current().Type != ast.TokenRParen {
-			args = append(args, p.parseExpression())
+			args = append(args, p.parseExpression(context))
 			if p.current().Type == ast.TokenComma {
 				p.advance()
 			}
@@ -100,21 +100,46 @@ func (p *Parser) parseFunctionBody(context *Context) []ast.Node {
 		if token.Type == ast.TokenEnsure {
 			body = append(body, p.parseEnsureStatement(context))
 		} else if token.Type == ast.TokenReturn {
-			body = append(body, p.parseReturnStatement())
+			body = append(body, p.parseReturnStatement(context))
+		} else if token.Type == ast.TokenIdentifier {
+			// Look ahead to see if this is a function call or assignment
+			if p.peek().Type == ast.TokenLParen {
+				// Function call
+				body = append(body, p.parseExpression(context))
+			} else if p.peek().Type == ast.TokenComma {
+				// Multiple assignment
+				firstIdent := p.expect(ast.TokenIdentifier)
+				p.expect(ast.TokenComma)
+				secondIdent := p.expect(ast.TokenIdentifier)
+
+				// Expect assignment operator
+				assignToken := p.current()
+				if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
+					panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+				}
+				p.advance()
+
+				// Parse comma-separated expressions
+				var exprs []ast.ExpressionNode
+				for {
+					exprs = append(exprs, p.parseExpression(context))
+					if p.current().Type != ast.TokenComma {
+						break
+					}
+					p.advance() // Skip comma
+				}
+
+				body = append(body, ast.AssignmentNode{
+					Names:         []string{firstIdent.Value, secondIdent.Value},
+					Values:        exprs,
+					ExplicitTypes: []*ast.TypeNode{nil, nil},
+					IsShort:       assignToken.Type == ast.TokenColonEquals,
+				})
+			} else {
+				panic(parseErrorWithValue(token, "Expected function call or assignment after identifier"))
+			}
 		} else {
-			token := p.current()
-			panic(fmt.Sprintf(
-				"\nParse error in %s:%d:%d at line %d, column %d:\n"+
-					"Unexpected token in function body: '%s'\n"+
-					"Token value: '%s'",
-				token.Path,
-				token.Line,
-				token.Column,
-				token.Line,
-				token.Column,
-				token.Type,
-				token.Value,
-			))
+			panic(parseErrorWithValue(token, "Unexpected token in function body"))
 		}
 	}
 

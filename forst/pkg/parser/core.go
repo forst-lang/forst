@@ -32,13 +32,6 @@ func (p *Parser) peek() ast.Token {
 	return ast.Token{Type: ast.TokenEOF, Value: ""}
 }
 
-func (p *Parser) previous() *ast.Token {
-	if p.currentIndex > 0 {
-		return &p.tokens[p.currentIndex-1]
-	}
-	return nil
-}
-
 // Advance to the next token
 func (p *Parser) advance() ast.Token {
 	p.currentIndex++
@@ -49,19 +42,7 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType ast.TokenType) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		panic(fmt.Sprintf(`
-Parse error in %s:%d:%d (line %d, column %d):
-Expected token type '%s' but got '%s'
-Token value: '%s'`,
-			token.Path,
-			token.Line,
-			token.Column,
-			token.Line,
-			token.Column,
-			tokenType,
-			token.Type,
-			token.Value,
-		))
+		panic(parseErrorWithValue(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type)))
 	}
 	p.advance()
 	return token

@@ -13,7 +13,7 @@ type PhoneNumber =
   )
 
 fn createUser(input: Trpc::Arg.Input({
-  id: UUID.V4,
+  id: UUID.V4(),
   name: String.Min(3).Max(10),
   phoneNumbers: Array(PhoneNumber),
   bankAccount: {

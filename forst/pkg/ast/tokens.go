@@ -29,18 +29,19 @@ const (
 	TokenFalse         TokenType = "FALSE_LITERAL"
 
 	// Punctuation
-	TokenLParen TokenType = "LPAREN"
-	TokenRParen TokenType = "RPAREN"
-	TokenLBrace TokenType = "LBRACE"
-	TokenRBrace TokenType = "RBRACE"
-	TokenReturn TokenType = "RETURN"
-	TokenEnsure TokenType = "ENSURE"
-	TokenIs     TokenType = "IS"
-	TokenOr     TokenType = "OR"
-	TokenEOF    TokenType = "EOF"
-	TokenColon  TokenType = "COLON"
-	TokenComma  TokenType = "COMMA"
-	TokenDot    TokenType = "DOT"
+	TokenLParen      TokenType = "LPAREN"
+	TokenRParen      TokenType = "RPAREN"
+	TokenLBrace      TokenType = "LBRACE"
+	TokenRBrace      TokenType = "RBRACE"
+	TokenReturn      TokenType = "RETURN"
+	TokenEnsure      TokenType = "ENSURE"
+	TokenIs          TokenType = "IS"
+	TokenOr          TokenType = "OR"
+	TokenEOF         TokenType = "EOF"
+	TokenColon       TokenType = "COLON"
+	TokenComma       TokenType = "COMMA"
+	TokenDot         TokenType = "DOT"
+	TokenColonEquals TokenType = "COLON_EQUALS"
 
 	// Arithmetic operators
 	TokenPlus     TokenType = "PLUS"     // +
