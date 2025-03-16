@@ -89,11 +89,10 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) (ast.TypeNod
 func findAlreadyInferredType(tc *TypeChecker, node ast.Node) (*ast.TypeNode, error) {
 	hash := tc.hasher.Hash(node)
 	if existingType, exists := tc.Types[hash]; exists {
-		// Ignore types that are still marked as implicit
+		// Ignore types that are still marked as implicit, as they are not yet inferred
 		if existingType.IsImplicit() {
 			return nil, nil
 		}
-		fmt.Printf("Found already inferred type %s for node %s\n", existingType.String(), node.String())
 		return &existingType, nil
 	}
 	return nil, nil
