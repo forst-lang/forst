@@ -20,6 +20,8 @@ func GetTokenType(word string) ast.TokenType {
 		return ast.TokenFloat
 	case "Bool":
 		return ast.TokenBool
+	case "Void":
+		return ast.TokenVoid
 	case "Array":
 		return ast.TokenArray
 	case "return":

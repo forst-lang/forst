@@ -20,6 +20,7 @@ const (
 	TokenBool   TokenType = "TYPE_BOOL"
 	TokenArray  TokenType = "TYPE_ARRAY"
 	TokenStruct TokenType = "TYPE_STRUCT"
+	TokenVoid   TokenType = "TYPE_VOID"
 
 	// Literals
 	TokenIntLiteral    TokenType = "INT_LITERAL"

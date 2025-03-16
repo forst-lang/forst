@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/pkg/ast"
 )
 
@@ -49,7 +48,6 @@ func New() *TypeChecker {
 // First pass: collect all type information
 func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 	for _, node := range nodes {
-		fmt.Printf("Collecting types for node %s\n", node.String())
 		switch n := node.(type) {
 		case ast.FunctionNode:
 			tc.registerFunction(n)
@@ -91,7 +89,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 	tc.Functions[fn.Id()] = FunctionSignature{
 		Ident:      fn.Ident,
 		Parameters: params,
-		ReturnType: fn.ExplicitReturnType,
+		ReturnType: fn.ReturnType,
 	}
 }
 

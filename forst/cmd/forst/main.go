@@ -62,7 +62,7 @@ func debugPrintForstAST(forstAST []ast.Node) {
 			fmt.Printf("  ImportGroup: %v\n", n.Imports)
 		case ast.FunctionNode:
 			if n.HasExplicitReturnType() {
-				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ExplicitReturnType)
+				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ReturnType)
 			} else {
 				fmt.Printf("  Function: %s -> (?)\n", n.Ident.Id)
 			}
@@ -146,7 +146,7 @@ func main() {
 	// Semantic Analysis
 	checker := typechecker.New()
 
-	// Collect, infer and check types
+	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		fmt.Printf("Type checking error: %v\n", err)
 		return

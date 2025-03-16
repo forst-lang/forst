@@ -5,32 +5,32 @@ import (
 	"forst/pkg/ast"
 )
 
-func failWithTypeMismatch(inferredType ast.TypeNode, explicitReturnType ast.TypeNode) error {
-	return fmt.Errorf("inferred return type %s does not match explicit return type %s", inferredType.String(), explicitReturnType.String())
+func failWithTypeMismatch(fn ast.FunctionNode, inferred ast.TypeNode, parsed ast.TypeNode) error {
+	return fmt.Errorf("inferred return type %s of function %s does not match parsed return type %s", inferred.String(), fn.Id(), parsed.String())
 }
 
 // Ensures that the first type matches the expected type, otherwise returns an error
-func ensureMatching(typ ast.TypeNode, expectedType ast.TypeNode) (ast.TypeNode, error) {
-	if expectedType.IsImplicit() {
+func ensureMatching(fn ast.FunctionNode, actual ast.TypeNode, expected ast.TypeNode) (ast.TypeNode, error) {
+	if expected.IsImplicit() {
 		// If the expected type is implicit, we have nothing to check against
-		return typ, nil
+		return actual, nil
 	}
 
-	if typ.Name != expectedType.Name {
-		return typ, failWithTypeMismatch(typ, expectedType)
+	if actual.Name != expected.Name {
+		return actual, failWithTypeMismatch(fn, actual, expected)
 	}
 
-	return typ, nil
+	return actual, nil
 }
 
 // inferFunctionReturnType infers the return type of a function from its body
 func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) (ast.TypeNode, error) {
-	explicitReturnType := fn.ExplicitReturnType
+	parsedType := fn.ReturnType
 	inferredType := ast.TypeNode{Name: ast.TypeVoid}
 
 	// For empty functions, default to void return type
 	if len(fn.Body) == 0 {
-		return ensureMatching(inferredType, explicitReturnType)
+		return ensureMatching(fn, inferredType, parsedType)
 	}
 
 	// Find all return statements and collect their types
@@ -51,7 +51,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) (ast.TypeNod
 		firstType := returnStmtTypes[0]
 		for _, retType := range returnStmtTypes[1:] {
 			if retType.Name != firstType.Name {
-				return inferredType, failWithTypeMismatch(inferredType, firstType)
+				return inferredType, failWithTypeMismatch(fn, inferredType, firstType)
 			}
 		}
 	}
@@ -70,20 +70,20 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) (ast.TypeNod
 
 		// If we found return statements, verify the expression type matches
 		if len(returnStmtTypes) > 0 && exprType.Name != returnStmtTypes[0].Name {
-			return inferredType, failWithTypeMismatch(inferredType, exprType)
+			return inferredType, failWithTypeMismatch(fn, inferredType, exprType)
 		}
 
-		return ensureMatching(inferredType, explicitReturnType)
+		return ensureMatching(fn, inferredType, parsedType)
 	}
 
 	// If we found return statements, use the first return type
 	if len(returnStmtTypes) > 0 {
 		inferredType = returnStmtTypes[0]
 
-		return ensureMatching(inferredType, explicitReturnType)
+		return ensureMatching(fn, inferredType, parsedType)
 	}
 
-	return ensureMatching(inferredType, explicitReturnType)
+	return ensureMatching(fn, inferredType, parsedType)
 }
 
 func findAlreadyInferredType(tc *TypeChecker, node ast.Node) (*ast.TypeNode, error) {
@@ -117,7 +117,6 @@ func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		fmt.Printf("Inferring function return type %s\n", n.Id())
 		inferredType, err := tc.inferFunctionReturnType(n)
 		if err != nil {
 			return nil, err

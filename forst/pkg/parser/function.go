@@ -71,14 +71,14 @@ func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
 
 	params := p.parseFunctionSignature() // Parse function parameters
 
-	explicitReturnType := p.parseReturnType()
+	returnType := p.parseReturnType()
 
 	body := p.parseFunctionBody(context)
 
 	return ast.FunctionNode{
-		Ident:              ast.Ident{Id: ast.Identifier(name.Value)},
-		ExplicitReturnType: explicitReturnType,
-		Params:             params,
-		Body:               body,
+		Ident:      ast.Ident{Id: ast.Identifier(name.Value)},
+		ReturnType: returnType,
+		Params:     params,
+		Body:       body,
 	}
 }
