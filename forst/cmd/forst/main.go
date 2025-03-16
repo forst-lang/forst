@@ -40,13 +40,38 @@ func readSourceFile(filePath string) ([]byte, error) {
 	}
 	return source, nil
 }
-
 func debugPrintTokens(tokens []ast.Token) {
+	type tokenPrint struct {
+		location string
+		tokType  string
+		value    string
+	}
+
+	prints := make([]tokenPrint, len(tokens))
+	maxLocWidth := 0
+	maxTypeWidth := 0
+	for i, t := range tokens {
+		loc := fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column)
+		tokType := string(t.Type)
+		if len(loc) > maxLocWidth {
+			maxLocWidth = len(loc)
+		}
+		if len(tokType) > maxTypeWidth {
+			maxTypeWidth = len(tokType)
+		}
+		prints[i] = tokenPrint{
+			location: loc,
+			tokType:  tokType,
+			value:    t.Value,
+		}
+	}
+
 	fmt.Println("\n=== Tokens ===")
-	for _, t := range tokens {
-		fmt.Printf("%s:%d:%d: %-12s '%s'\n",
-			t.Path, t.Line, t.Column,
-			t.Type, t.Value)
+	for _, p := range prints {
+		fmt.Printf("%-*s   %-*s '%s'\n",
+			maxLocWidth, p.location,
+			maxTypeWidth, p.tokType,
+			p.value)
 	}
 }
 
@@ -111,6 +136,17 @@ func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 			fmt.Printf("%s: %s", param.Id(), param.Type)
 		}
 		fmt.Printf(") -> %s\n", sig.ReturnType)
+
+		// Print symbols in function's scope
+		for _, scope := range tc.Scopes {
+			if funcNode, isFuncNode := scope.Node.(ast.FunctionNode); isFuncNode && funcNode.Id() == id {
+				fmt.Printf("      Scope symbols:\n")
+				for symId, symbol := range scope.Symbols {
+					fmt.Printf("        %s: %s (%v)\n", symId, symbol.Type, symbol.Kind)
+				}
+			}
+		}
+
 	}
 
 	fmt.Println("  Definitions:")
@@ -131,10 +167,18 @@ func main() {
 		return
 	}
 
+	if args.debug {
+		fmt.Println("\nPerforming lexical analysis...")
+	}
+
 	// Lexical Analysis
 	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
 	if args.debug {
 		debugPrintTokens(tokens)
+	}
+
+	if args.debug {
+		fmt.Println("\nPerforming syntax analysis...")
 	}
 
 	// Parsing
@@ -143,12 +187,18 @@ func main() {
 		debugPrintForstAST(forstNodes)
 	}
 
+	if args.debug {
+		fmt.Println("\nPerforming semantic analysis...")
+	}
+
 	// Semantic Analysis
 	checker := typechecker.New()
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
-		fmt.Printf("Type checking error: %v\n", err)
+		fmt.Printf("\nType checking error: %v\n", err)
+		fmt.Print("  ")
+		checker.DebugPrintCurrentScope()
 		return
 	}
 
@@ -156,9 +206,13 @@ func main() {
 		debugPrintTypeInfo(checker)
 	}
 
+	if args.debug {
+		fmt.Println("\nPerforming code generation...")
+	}
+
 	// Transform to Go AST with type information
-	transformer := transformer_go.New()
-	goAST, err := transformer.TransformForstFileToGo(forstNodes, checker)
+	transformer := transformer_go.New(checker)
+	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		fmt.Printf("Transformation error: %v\n", err)
 		return

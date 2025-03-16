@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/pkg/ast"
 )
 
@@ -12,36 +13,25 @@ type TypeChecker struct {
 	Functions    map[ast.Identifier]FunctionSignature
 	hasher       *StructuralHasher
 	currentScope *Scope
-}
-
-type Scope struct {
-	// Parent scope for looking up variables in outer scopes
-	// nil for global scope
-	parent *Scope
-
-	// Maps variable names to their identifier nodes in this scope
-	// Example: "x" -> &ast.Ident{Name: "x"}
-	Variables map[string]ast.Ident
-
-	// Maps type names to their identifier nodes in this scope
-	// Example: "MyCustomType" -> &ast.Ident{Name: "MyCustomType"}
-	Types map[string]ast.Ident
-
-	// Maps function names to their identifier nodes in this scope
-	// Example: "myFunc" -> &ast.Ident{Name: "myFunc"}
-	Functions map[string]ast.Ident
+	Scopes       map[ast.Node]*Scope // Map AST nodes to their scopes
+	path         NodePath            // Track current position in AST
 }
 
 func New() *TypeChecker {
+	globalScope := &Scope{
+		Parent:  nil,
+		Symbols: make(map[ast.Identifier]Symbol),
+	}
+
 	return &TypeChecker{
-		Types:     make(map[NodeHash]ast.TypeNode),
-		Defs:      make(map[ast.Identifier]ast.Node),
-		Uses:      make(map[ast.Identifier][]ast.Node),
-		Functions: make(map[ast.Identifier]FunctionSignature),
-		currentScope: &Scope{
-			Variables: make(map[string]ast.Ident),
-			Types:     make(map[string]ast.Ident),
-		},
+		Types:        make(map[NodeHash]ast.TypeNode),
+		Defs:         make(map[ast.Identifier]ast.Node),
+		Uses:         make(map[ast.Identifier][]ast.Node),
+		Functions:    make(map[ast.Identifier]FunctionSignature),
+		hasher:       &StructuralHasher{},
+		currentScope: globalScope,
+		Scopes:       make(map[ast.Node]*Scope),
+		path:         make(NodePath, 0),
 	}
 }
 
@@ -62,41 +52,24 @@ func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	// First pass: collect function signatures and explicit types
 	for _, node := range nodes {
+		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
 			return err
 		}
+		tc.path = tc.path[:len(tc.path)-1]
 	}
 
-	// Second pass: infer implicit types and store in Types map
+	// Second pass: infer implicit types
 	for _, node := range nodes {
-		if _, err := tc.inferTypes(node); err != nil {
+		tc.path = append(tc.path, node)
+		if _, err := tc.inferNodeType(node); err != nil {
 			return err
 		}
+		tc.path = tc.path[:len(tc.path)-1]
 	}
 
 	return nil
 }
-
-// registerFunction adds a function's signature to the type checker
-func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
-	params := make([]ParameterSignature, len(fn.Params))
-	for i, param := range fn.Params {
-		params[i] = ParameterSignature{
-			Ident: param.Ident,
-			Type:  param.Type,
-		}
-	}
-	tc.Functions[fn.Id()] = FunctionSignature{
-		Ident:      fn.Ident,
-		Parameters: params,
-		ReturnType: fn.ReturnType,
-	}
-}
-
-// registerType adds a type declaration to the type checker
-// func (tc *TypeChecker) registerType(typeDecl ast.TypeDeclarationNode) {
-// 	tc.types[typeDecl.Name] = typeDecl.Type
-// }
 
 // collectExplicitTypes collects explicitly declared types from nodes
 func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
@@ -104,14 +77,21 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.FunctionNode:
 		// Create new scope for function
 		functionScope := &Scope{
-			parent:    tc.currentScope,
-			Variables: make(map[string]ast.Ident),
-			Types:     make(map[string]ast.Ident),
+			Parent:   tc.currentScope,
+			Node:     n,
+			Symbols:  make(map[ast.Identifier]Symbol),
+			Children: make([]*Scope, 0),
 		}
 
 		// Register parameter types in the function scope
 		for _, param := range n.Params {
-			functionScope.Variables[param.Ident.String()] = param.Ident
+			functionScope.Symbols[param.Ident.Id] = Symbol{
+				Identifier: param.Ident.Id,
+				Type:       param.Type,
+				Kind:       SymbolParameter,
+				Scope:      functionScope,
+				Position:   tc.path,
+			}
 		}
 
 		tc.currentScope = functionScope
@@ -123,7 +103,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			}
 		}
 
-		tc.currentScope = functionScope.parent
+		tc.currentScope = functionScope.Parent
 
 		// case ast.VariableDeclarationNode:
 		// 	if !n.Type.IsImplicit() {
@@ -143,26 +123,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	return nil
 }
 
-// // pushScope creates a new scope
-// func (tc *TypeChecker) pushScope() {
-// 	tc.currentScope = &Scope{
-// 		parent:    tc.currentScope,
-// 		Variables: make(map[string]ast.Ident),
-// 		Types:     make(map[string]ast.Ident),
-// 	}
-// }
-
-// // popScope returns to the parent scope
-// func (tc *TypeChecker) popScope() error {
-// 	if tc.currentScope.parent == nil {
-// 		return fmt.Errorf("cannot pop global scope")
-// 	}
-// 	tc.currentScope = tc.currentScope.parent
-// 	return nil
-// }
-
-// storeType associates a type with a node by storing its structural hash
-func (tc *TypeChecker) storeType(node ast.Node, typ ast.TypeNode) {
+// storeInferredType associates a type with a node by storing its structural hash
+func (tc *TypeChecker) storeInferredType(node ast.Node, typ ast.TypeNode) {
 	hash := tc.hasher.Hash(node)
 	tc.Types[hash] = typ
 }
@@ -171,4 +133,12 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, typ
 	sig := tc.Functions[fn.Id()]
 	sig.ReturnType = typ
 	tc.Functions[fn.Id()] = sig
+}
+
+func (tc *TypeChecker) DebugPrintCurrentScope() {
+	fmt.Printf("Current scope: %s\n", tc.currentScope.Node.String())
+	fmt.Printf("  Defined symbols (total: %d)\n", len(tc.currentScope.Symbols))
+	for _, symbol := range tc.currentScope.Symbols {
+		fmt.Printf("    %s: %s\n", symbol.Identifier, symbol.Type)
+	}
 }

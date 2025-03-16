@@ -2,12 +2,11 @@ package transformer_go
 
 import (
 	"forst/pkg/ast"
-	"forst/pkg/typechecker"
 	goast "go/ast"
 )
 
 // transformFunction converts a Forst function node to a Go function declaration
-func (t *Transformer) transformFunction(n ast.FunctionNode, tc *typechecker.TypeChecker) (*goast.FuncDecl, error) {
+func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
 	// Create function parameters
 	params := &goast.FieldList{
 		List: []*goast.Field{},
@@ -21,7 +20,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode, tc *typechecker.Type
 	}
 
 	// Create function return type
-	returnType, err := tc.LookupFunctionReturnType(&n)
+	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +36,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode, tc *typechecker.Type
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		stmts = append(stmts, transformStatement(stmt))
+		stmts = append(stmts, t.transformStatement(stmt))
 	}
 
 	// Create the function declaration

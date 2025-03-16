@@ -7,15 +7,19 @@ import (
 	goast "go/ast"
 )
 
-type Transformer struct{}
+type Transformer struct {
+	TypeChecker *typechecker.TypeChecker
+}
 
-func New() *Transformer {
-	return &Transformer{}
+func New(tc *typechecker.TypeChecker) *Transformer {
+	return &Transformer{
+		TypeChecker: tc,
+	}
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
-func (t *Transformer) TransformForstFileToGo(nodes []ast.Node, tc *typechecker.TypeChecker) (*goast.File, error) {
+func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
 	var packageName string
 	var decls []goast.Decl
 
@@ -30,7 +34,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node, tc *typechecker.T
 			decl := t.transformImportGroup(n)
 			decls = append(decls, decl)
 		case ast.FunctionNode:
-			decl, err := t.transformFunction(n, tc)
+			decl, err := t.transformFunction(n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Id, err)
 			}

@@ -43,7 +43,7 @@ func any(conditions []goast.Expr) goast.Expr {
 	return combined
 }
 
-func transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 
 	for _, constraint := range ensure.Assertion.Constraints {
@@ -100,7 +100,7 @@ func transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
 	return any(result)
 }
 
-func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -110,7 +110,7 @@ func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Min constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.LSS,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -119,7 +119,7 @@ func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Max constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.GTR,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -131,7 +131,7 @@ func transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 	return any(result)
 }
 
-func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -141,7 +141,7 @@ func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Min constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.LSS,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -150,7 +150,7 @@ func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Max constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.GTR,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -162,20 +162,20 @@ func transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
 	return any(result)
 }
 
-func transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
 		case "True":
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.EQL,
 				Y:  goast.NewIdent(BOOL_CONSTANT_TRUE),
 			}
 		case "False":
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.EQL,
 				Y:  goast.NewIdent(BOOL_CONSTANT_FALSE),
 			}
@@ -187,14 +187,14 @@ func transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 	return any(result)
 }
 
-func transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
 		case NIL_CONSTRAINT:
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable),
+				X:  goast.NewIdent(ensure.Variable.Id()),
 				Op: token.NEQ,
 				Y:  goast.NewIdent(NIL_CONSTANT),
 			}
@@ -206,26 +206,34 @@ func transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
 	return any(result)
 }
 
-// transformEnsure converts a Forst ensure to a Go expression
-func transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
-	// TODO: If BaseType is nil we need to infer it from the variable under test
-	if ensure.Assertion.BaseType == nil {
-		// TODO: Implement base type inference for ensure
-		return &goast.Ident{Name: BOOL_CONSTANT_FALSE}
+func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
+	if ensure.Assertion.BaseType != nil {
+		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
 	}
 
-	switch *ensure.Assertion.BaseType {
+	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure.Assertion)
+	if err != nil {
+		panic(err)
+	}
+	return assertionType
+}
+
+// transformEnsure converts a Forst ensure to a Go expression
+func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
+	baseType := t.getAssertionBaseType(ensure)
+
+	switch baseType.Name {
 	case ast.TypeString:
-		return transformStringAssertion(ensure)
+		return t.transformStringAssertion(ensure)
 	case ast.TypeInt:
-		return transformIntAssertion(ensure)
+		return t.transformIntAssertion(ensure)
 	case ast.TypeFloat:
-		return transformFloatAssertion(ensure)
+		return t.transformFloatAssertion(ensure)
 	case ast.TypeBool:
-		return transformBoolAssertion(ensure)
+		return t.transformBoolAssertion(ensure)
 	case ast.TypeError:
-		return transformErrorAssertion(ensure)
+		return t.transformErrorAssertion(ensure)
 	default:
-		panic("Unknown base type: " + *ensure.Assertion.BaseType)
+		panic("Unknown base type: " + baseType.Name)
 	}
 }

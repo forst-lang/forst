@@ -98,8 +98,38 @@ func findAlreadyInferredType(tc *TypeChecker, node ast.Node) (*ast.TypeNode, err
 	return nil, nil
 }
 
-// inferTypes handles type inference for a single node
-func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
+func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (*ast.TypeNode, error) {
+	variableType, err := tc.LookupVariableType(&ensure.Variable)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the base type of the assertion's variable
+	tc.storeInferredType(ensure.Assertion, variableType)
+
+	if ensure.Error != nil {
+		return nil, nil
+	}
+
+	return nil, nil
+}
+
+// inferNodeTypes handles type inference for a list of nodes
+func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([]*ast.TypeNode, error) {
+	inferredTypes := make([]*ast.TypeNode, len(nodes))
+	for i, node := range nodes {
+		inferredType, err := tc.inferNodeType(node)
+		if err != nil {
+			return nil, err
+		}
+
+		inferredTypes[i] = inferredType
+	}
+	return inferredTypes, nil
+}
+
+// inferNodeType handles type inference for a single node
+func (tc *TypeChecker) inferNodeType(node ast.Node) (*ast.TypeNode, error) {
 	// Check if we've already inferred this node's type
 	alreadyInferredType, err := findAlreadyInferredType(tc, node)
 	if err != nil {
@@ -117,48 +147,104 @@ func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
+		tc.pushScope(&n)
+
 		inferredType, err := tc.inferFunctionReturnType(n)
 		if err != nil {
 			return nil, err
 		}
 		tc.storeInferredFunctionReturnType(&n, inferredType)
+
+		_, err = tc.inferNodeTypes(n.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		tc.popScope()
+
 		return &inferredType, nil
 	case ast.ExpressionNode:
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
 			return nil, err
 		}
-		tc.storeType(node, inferredType)
+		tc.storeInferredType(node, inferredType)
 		return &inferredType, nil
+	case ast.EnsureNode:
+		inferredType, err := tc.inferEnsureType(n)
+		if err != nil {
+			return nil, err
+		}
+
+		if n.Block != nil {
+			tc.pushScope(n.Block)
+			_, err = tc.inferNodeTypes(n.Block.Body)
+			if err != nil {
+				return nil, err
+			}
+			tc.popScope()
+		}
+
+		return inferredType, nil
+	case ast.AssignmentNode:
+		if err := tc.inferAssignmentTypes(n); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
-	panic(typecheckErrorMessageWithNode(&node, "unsupported node type"))
+	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))
 }
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) (ast.TypeNode, error) {
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
-		return tc.unifyTypes(e.Left, e.Right, e.Operator)
+		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
+		if err != nil {
+			return ast.TypeNode{}, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
 
 	case ast.UnaryExpressionNode:
-		return tc.unifyTypes(e.Operand, nil, e.Operator)
+		inferredType, err := tc.unifyTypes(e.Operand, nil, e.Operator)
+		if err != nil {
+			return ast.TypeNode{}, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
 
 	case ast.IntLiteralNode:
-		return ast.TypeNode{Name: ast.TypeInt}, nil
+		typ := ast.TypeNode{Name: ast.TypeInt}
+		tc.storeInferredType(e, typ)
+		return typ, nil
 
 	case ast.FloatLiteralNode:
-		return ast.TypeNode{Name: ast.TypeFloat}, nil
+		typ := ast.TypeNode{Name: ast.TypeFloat}
+		tc.storeInferredType(e, typ)
+		return typ, nil
 
 	case ast.StringLiteralNode:
-		return ast.TypeNode{Name: ast.TypeString}, nil
+		typ := ast.TypeNode{Name: ast.TypeString}
+		tc.storeInferredType(e, typ)
+		return typ, nil
 
 	case ast.BoolLiteralNode:
-		return ast.TypeNode{Name: ast.TypeBool}, nil
+		typ := ast.TypeNode{Name: ast.TypeBool}
+		tc.storeInferredType(e, typ)
+		return typ, nil
 
 	case ast.VariableNode:
-		return tc.LookupVariableType(&e)
+		// Look up the variable's type and store it for this node
+		typ, err := tc.LookupVariableType(&e)
+		if err != nil {
+			return ast.TypeNode{}, err
+		}
+		tc.storeInferredType(e, typ)
+		return typ, nil
 
 	case ast.FunctionCallNode:
 		if signature, exists := tc.Functions[e.Function.Id]; exists {
+			tc.storeInferredType(e, signature.ReturnType)
 			return signature.ReturnType, nil
 		}
 		return ast.TypeNode{}, fmt.Errorf("undefined function: %s", e.Function)
@@ -204,4 +290,51 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 	}
 
 	panic(typecheckError("unsupported operator"))
+}
+
+func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ ast.TypeNode) {
+	tc.storeSymbol(variable.Ident.Id, typ, SymbolVariable)
+	tc.storeInferredType(variable, typ)
+}
+
+func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
+	// Store function signature
+	params := make([]ParameterSignature, len(fn.Params))
+	for i, param := range fn.Params {
+		params[i] = ParameterSignature{
+			Ident: param.Ident,
+			Type:  param.Type,
+		}
+	}
+	tc.Functions[fn.Id()] = FunctionSignature{
+		Ident:      fn.Ident,
+		Parameters: params,
+		ReturnType: fn.ReturnType,
+	}
+
+	// Store function symbol
+	tc.storeSymbol(fn.Ident.Id, fn.ReturnType, SymbolFunction)
+
+	// Store parameter symbols
+	for _, param := range fn.Params {
+		tc.storeSymbol(param.Ident.Id, param.Type, SymbolParameter)
+	}
+}
+
+func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
+	for i, value := range assign.RValues {
+		inferredType, err := tc.inferExpressionType(value)
+		if err != nil {
+			return err
+		}
+
+		// Store the inferred type for each identifier
+		if i < len(assign.LValues) {
+			variableNode := assign.LValues[i]
+			tc.storeInferredVariableType(variableNode, inferredType)
+			// Also store the type for the variable node itself
+			tc.storeInferredType(variableNode, inferredType)
+		}
+	}
+	return nil
 }

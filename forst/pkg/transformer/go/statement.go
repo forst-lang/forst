@@ -8,11 +8,11 @@ import (
 )
 
 // transformStatement converts a Forst statement to a Go statement
-func transformStatement(stmt ast.Node) goast.Stmt {
+func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
-		condition := transformEnsureCondition(s)
+		condition := t.transformEnsureCondition(s)
 
 		errorMsg := "assertion failed: " + s.Assertion.String()
 		if s.Error != nil {
