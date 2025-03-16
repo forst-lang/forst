@@ -22,7 +22,7 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 		paramType := p.parseType()
 
 		params = append(params, ast.ParamNode{
-			Ident: ast.Ident{Name: name.Value},
+			Ident: ast.Ident{Id: ast.Identifier(name.Value)},
 			Type:  paramType,
 		})
 
@@ -76,7 +76,7 @@ func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
 	body := p.parseFunctionBody(context)
 
 	return ast.FunctionNode{
-		Ident:              ast.Ident{Name: name.Value},
+		Ident:              ast.Ident{Id: ast.Identifier(name.Value)},
 		ExplicitReturnType: explicitReturnType,
 		Params:             params,
 		Body:               body,

@@ -54,8 +54,8 @@ func (p *Parser) parseBlock(blockContext *BlockContext, context *Context) []ast.
 
 				body = append(body, ast.AssignmentNode{
 					Idents: []ast.Ident{
-						{Name: firstIdent.Value},
-						{Name: secondIdent.Value},
+						{Id: ast.Identifier(firstIdent.Value)},
+						{Id: ast.Identifier(secondIdent.Value)},
 					},
 					Values:        exprs,
 					ExplicitTypes: []*ast.TypeNode{nil, nil},

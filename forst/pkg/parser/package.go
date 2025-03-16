@@ -13,5 +13,5 @@ func (p *Parser) parsePackage(context *Context) ast.PackageNode {
 		context.IsMainPackage = true
 	}
 
-	return ast.PackageNode{Ident: ast.Ident{Name: packageName}}
+	return ast.PackageNode{Ident: ast.Ident{Id: ast.Identifier(packageName)}}
 }

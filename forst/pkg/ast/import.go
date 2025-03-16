@@ -1,5 +1,7 @@
 package ast
 
+import "fmt"
+
 // ImportNode represents a single Go-style import statement
 type ImportNode struct {
 	// Path is the import path (e.g., "fmt", "github.com/user/repo")
@@ -19,6 +21,10 @@ func (i ImportNode) NodeType() string {
 	return "Import"
 }
 
+func (i ImportNode) String() string {
+	return fmt.Sprintf("Import(%s)", i.Path)
+}
+
 // ImportGroupNode represents a group of imports in parentheses
 // like: import (
 //
@@ -33,6 +39,10 @@ type ImportGroupNode struct {
 // NodeType returns the type of this AST node
 func (g ImportGroupNode) NodeType() string {
 	return "ImportGroup"
+}
+
+func (g ImportGroupNode) String() string {
+	return fmt.Sprintf("ImportGroup(%v)", g.Imports)
 }
 
 // IsGrouped returns whether an import is part of a group

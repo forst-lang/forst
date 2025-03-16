@@ -31,7 +31,7 @@ func (p *Parser) ParseFile() []ast.Node {
 		if p.current().Type == ast.TokenPackage {
 			nodes = append(nodes, p.parsePackage(&context))
 		} else if p.current().Type == ast.TokenImport {
-			nodes = append(nodes, p.parseImports())
+			nodes = append(nodes, p.parseImports()...)
 		} else if p.current().Type == ast.TokenFunction {
 			context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),

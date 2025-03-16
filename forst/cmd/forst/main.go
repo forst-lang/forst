@@ -62,9 +62,9 @@ func debugPrintForstAST(forstAST []ast.Node) {
 			fmt.Printf("  ImportGroup: %v\n", n.Imports)
 		case ast.FunctionNode:
 			if n.HasExplicitReturnType() {
-				fmt.Printf("  Function: %s -> %s (explicit)\n", n.Ident.Name, n.ExplicitReturnType)
+				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ExplicitReturnType)
 			} else {
-				fmt.Printf("  Function: %s -> (implicit return type)\n", n.Ident.Name)
+				fmt.Printf("  Function: %s -> (?)\n", n.Ident.Id)
 			}
 		case ast.EnsureNode:
 			if n.Error != nil {
@@ -99,23 +99,23 @@ func debugPrintGoAST(goFile *goast.File) {
 }
 
 func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
-	fmt.Println("\n=== Type Information ===")
+	fmt.Println("\n=== Type Check Results ===")
 
 	fmt.Println("\nFunctions:")
-	for ident, sig := range tc.Functions {
-		fmt.Printf("  %s(", ident.Name)
+	for id, sig := range tc.Functions {
+		fmt.Printf("  %s(", id)
 		for i, param := range sig.Parameters {
 			if i > 0 {
 				fmt.Print(", ")
 			}
-			fmt.Printf("%s: %s", param.Ident.Name, param.Type)
+			fmt.Printf("%s: %s", param.Id(), param.Type)
 		}
 		fmt.Printf(") -> %s\n", sig.ReturnType)
 	}
 
 	fmt.Println("\nDefinitions:")
-	for ident, def := range tc.Defs {
-		fmt.Printf("  %s -> %T\n", ident.Name, def)
+	for id, def := range tc.Defs {
+		fmt.Printf("  %s -> %T\n", id, def)
 	}
 }
 
@@ -131,7 +131,7 @@ func main() {
 		return
 	}
 
-	// Lexical analysis
+	// Lexical Analysis
 	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
 	if args.debug {
 		debugPrintTokens(tokens)
@@ -143,16 +143,10 @@ func main() {
 		debugPrintForstAST(forstNodes)
 	}
 
-	// Type checking
+	// Semantic Analysis
 	checker := typechecker.New()
 
-	// First pass: collect type declarations and signatures
-	if err := checker.CollectTypes(forstNodes); err != nil {
-		fmt.Printf("Type collection error: %v\n", err)
-		return
-	}
-
-	// Second pass: check and infer types
+	// Collect, infer and check types
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		fmt.Printf("Type checking error: %v\n", err)
 		return

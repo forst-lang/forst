@@ -6,11 +6,11 @@ import (
 )
 
 type TypeChecker struct {
-	// Use 64-bit hashes for type mapping
+	// Use value-based Ident keys instead of pointers
 	Types        map[NodeHash]ast.TypeNode
-	Defs         map[*ast.Ident]ast.Node
-	Uses         map[*ast.Ident][]ast.Node
-	Functions    map[*ast.Ident]FunctionSignature
+	Defs         map[ast.Identifier]ast.Node
+	Uses         map[ast.Identifier][]ast.Node
+	Functions    map[ast.Identifier]FunctionSignature
 	hasher       *StructuralHasher
 	currentScope *Scope
 }
@@ -22,26 +22,26 @@ type Scope struct {
 
 	// Maps variable names to their identifier nodes in this scope
 	// Example: "x" -> &ast.Ident{Name: "x"}
-	Variables map[string]*ast.Ident
+	Variables map[string]ast.Ident
 
 	// Maps type names to their identifier nodes in this scope
 	// Example: "MyCustomType" -> &ast.Ident{Name: "MyCustomType"}
-	Types map[string]*ast.Ident
+	Types map[string]ast.Ident
 
 	// Maps function names to their identifier nodes in this scope
 	// Example: "myFunc" -> &ast.Ident{Name: "myFunc"}
-	Functions map[string]*ast.Ident
+	Functions map[string]ast.Ident
 }
 
 func New() *TypeChecker {
 	return &TypeChecker{
 		Types:     make(map[NodeHash]ast.TypeNode),
-		Defs:      make(map[*ast.Ident]ast.Node),
-		Uses:      make(map[*ast.Ident][]ast.Node),
-		Functions: make(map[*ast.Ident]FunctionSignature),
+		Defs:      make(map[ast.Identifier]ast.Node),
+		Uses:      make(map[ast.Identifier][]ast.Node),
+		Functions: make(map[ast.Identifier]FunctionSignature),
 		currentScope: &Scope{
-			Variables: make(map[string]*ast.Ident),
-			Types:     make(map[string]*ast.Ident),
+			Variables: make(map[string]ast.Ident),
+			Types:     make(map[string]ast.Ident),
 		},
 	}
 }
@@ -49,6 +49,7 @@ func New() *TypeChecker {
 // First pass: collect all type information
 func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 	for _, node := range nodes {
+		fmt.Printf("Collecting types for node %s\n", node.String())
 		switch n := node.(type) {
 		case ast.FunctionNode:
 			tc.registerFunction(n)
@@ -70,19 +71,8 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 
 	// Second pass: infer implicit types and store in Types map
 	for _, node := range nodes {
-		// Get structural hash for the node
-		hash := tc.hasher.Hash(node)
-
-		// Check if we've already inferred this structure's type
-		if _, exists := tc.Types[hash]; exists {
-			continue
-		}
-
-		if inferredType, err := tc.inferTypes(node); err != nil {
+		if _, err := tc.inferTypes(node); err != nil {
 			return err
-		} else {
-			// Store inferred type in type checker's Types map
-			tc.storeType(node, *inferredType)
 		}
 	}
 
@@ -91,7 +81,6 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 
 // registerFunction adds a function's signature to the type checker
 func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
-	ident := fn.Ident
 	params := make([]ParameterSignature, len(fn.Params))
 	for i, param := range fn.Params {
 		params[i] = ParameterSignature{
@@ -99,11 +88,10 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 			Type:  param.Type,
 		}
 	}
-	tc.Functions[&ident] = FunctionSignature{
-		Ident:          fn.Ident,
-		Parameters:     params,
-		ReturnType:     fn.ExplicitReturnType,
-		IsTypeInferred: fn.ExplicitReturnType.IsImplicit(),
+	tc.Functions[fn.Id()] = FunctionSignature{
+		Ident:      fn.Ident,
+		Parameters: params,
+		ReturnType: fn.ExplicitReturnType,
 	}
 }
 
@@ -119,20 +107,22 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		// Create new scope for function
 		functionScope := &Scope{
 			parent:    tc.currentScope,
-			Variables: make(map[string]*ast.Ident),
-			Types:     make(map[string]*ast.Ident),
+			Variables: make(map[string]ast.Ident),
+			Types:     make(map[string]ast.Ident),
 		}
 
 		// Register parameter types in the function scope
 		for _, param := range n.Params {
-			functionScope.Variables[param.Ident.Name] = &param.Ident
+			functionScope.Variables[param.Ident.String()] = param.Ident
 		}
 
 		tc.currentScope = functionScope
 
 		// Process function body
-		if err := tc.collectExplicitTypes(n.Body); err != nil {
-			return err
+		for _, node := range n.Body {
+			if err := tc.collectExplicitTypes(node); err != nil {
+				return err
+			}
 		}
 
 		tc.currentScope = functionScope.parent
@@ -148,31 +138,38 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		// 			return err
 		// 		}
 		// 	}
+		tc.registerFunction(n)
 	}
 
 	return nil
 }
 
-// pushScope creates a new scope
-func (tc *TypeChecker) pushScope() {
-	tc.currentScope = &Scope{
-		parent:    tc.currentScope,
-		Variables: make(map[string]*ast.Ident),
-		Types:     make(map[string]*ast.Ident),
-	}
-}
+// // pushScope creates a new scope
+// func (tc *TypeChecker) pushScope() {
+// 	tc.currentScope = &Scope{
+// 		parent:    tc.currentScope,
+// 		Variables: make(map[string]ast.Ident),
+// 		Types:     make(map[string]ast.Ident),
+// 	}
+// }
 
-// popScope returns to the parent scope
-func (tc *TypeChecker) popScope() error {
-	if tc.currentScope.parent == nil {
-		return fmt.Errorf("cannot pop global scope")
-	}
-	tc.currentScope = tc.currentScope.parent
-	return nil
-}
+// // popScope returns to the parent scope
+// func (tc *TypeChecker) popScope() error {
+// 	if tc.currentScope.parent == nil {
+// 		return fmt.Errorf("cannot pop global scope")
+// 	}
+// 	tc.currentScope = tc.currentScope.parent
+// 	return nil
+// }
 
 // storeType associates a type with a node by storing its structural hash
 func (tc *TypeChecker) storeType(node ast.Node, typ ast.TypeNode) {
 	hash := tc.hasher.Hash(node)
 	tc.Types[hash] = typ
+}
+
+func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, typ ast.TypeNode) {
+	sig := tc.Functions[fn.Id()]
+	sig.ReturnType = typ
+	tc.Functions[fn.Id()] = sig
 }

@@ -26,24 +26,40 @@ func (tc *TypeChecker) inferFunctionReturnType(body []ast.Node) (ast.TypeNode, e
 
 // inferTypes handles type inference for a single node
 func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
+	// Check if we've already inferred this node's type
+	hash := tc.hasher.Hash(node)
+	if existingType, exists := tc.Types[hash]; exists {
+		return &existingType, nil
+	}
+
 	switch n := node.(type) {
+	case ast.ImportNode:
+		return nil, nil
+	case ast.ImportGroupNode:
+		return nil, nil
+	case ast.PackageNode:
+		return nil, nil
 	case ast.FunctionNode:
 		if n.ExplicitReturnType.IsExplicit() {
+			tc.storeType(node, n.ExplicitReturnType)
 			return &n.ExplicitReturnType, nil
 		}
 		inferredType, err := tc.inferFunctionReturnType(n.Body)
 		if err != nil {
 			return nil, err
 		}
+		tc.storeType(node, inferredType)
+		tc.storeInferredFunctionReturnType(&n, inferredType)
 		return &inferredType, nil
 	case ast.ExpressionNode:
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
 			return nil, err
 		}
+		tc.storeType(node, inferredType)
 		return &inferredType, nil
 	}
-	return nil, fmt.Errorf("unsupported node type: %T", node)
+	panic(typecheckErrorMessageWithNode(&node, "unsupported node type"))
 }
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) (ast.TypeNode, error) {
@@ -67,7 +83,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) (ast.TypeNode, error) 
 		return tc.LookupVariableType(&e)
 
 	case ast.FunctionCallNode:
-		if signature, exists := tc.Functions[&e.Function]; exists {
+		if signature, exists := tc.Functions[e.Function.Id]; exists {
 			return signature.ReturnType, nil
 		}
 		return ast.TypeNode{}, fmt.Errorf("undefined function: %s", e.Function)
@@ -112,5 +128,5 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		return ast.TypeNode{Name: ast.TypeBool}, nil
 	}
 
-	return ast.TypeNode{}, fmt.Errorf("unsupported operator: %v", operator)
+	panic(typecheckError("unsupported operator"))
 }

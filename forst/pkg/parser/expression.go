@@ -52,7 +52,7 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 		p.expect(ast.TokenRParen)
 
 		expr = ast.FunctionCallNode{
-			Function:  ast.Ident{Name: ident.Value},
+			Function:  ast.Ident{Id: ast.Identifier(ident.Value)},
 			Arguments: args,
 		}
 		return expr

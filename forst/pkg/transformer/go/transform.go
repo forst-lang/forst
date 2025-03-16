@@ -22,11 +22,11 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node, tc *typechecker.T
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			packageName = n.Ident.Name
+			packageName = string(n.Ident.Id)
 		case ast.FunctionNode:
 			decl, err := t.transformFunction(n, tc)
 			if err != nil {
-				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Name, err)
+				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Id, err)
 			}
 			decls = append(decls, decl)
 		}

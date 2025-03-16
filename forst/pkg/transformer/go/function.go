@@ -15,7 +15,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode, tc *typechecker.Type
 
 	for _, param := range n.Params {
 		params.List = append(params.List, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(param.Ident.Name)},
+			Names: []*goast.Ident{goast.NewIdent(param.Ident.String())},
 			Type:  transformType(param.Type),
 		})
 	}
@@ -42,7 +42,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode, tc *typechecker.Type
 
 	// Create the function declaration
 	return &goast.FuncDecl{
-		Name: goast.NewIdent(n.Ident.Name),
+		Name: goast.NewIdent(n.Ident.String()),
 		Type: &goast.FuncType{
 			Params:  params,
 			Results: results,

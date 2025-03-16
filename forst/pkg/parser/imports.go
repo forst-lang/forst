@@ -22,7 +22,7 @@ func (p *Parser) parseImports() []ast.Node {
 				p.advance() // Skip alias
 			}
 			path := p.expect(ast.TokenStringLiteral).Value
-			imports = append(imports, ast.ImportNode{Path: path, Alias: &ast.Ident{Name: alias}})
+			imports = append(imports, ast.ImportNode{Path: path, Alias: &ast.Ident{Id: ast.Identifier(alias)}})
 		}
 
 		p.expect(ast.TokenRParen)

@@ -1,5 +1,7 @@
 package ast
 
+import "fmt"
+
 // Function Node represents a function definition with optional parameters and an optional return type
 type FunctionNode struct {
 	Ident              Ident
@@ -15,4 +17,12 @@ func (f FunctionNode) NodeType() string {
 
 func (f FunctionNode) HasExplicitReturnType() bool {
 	return f.ExplicitReturnType.IsExplicit()
+}
+
+func (f FunctionNode) String() string {
+	return fmt.Sprintf("Function(%s)", f.Ident.Id)
+}
+
+func (f FunctionNode) Id() Identifier {
+	return f.Ident.Id
 }
