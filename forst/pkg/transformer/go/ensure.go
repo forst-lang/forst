@@ -123,6 +123,24 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				Op: token.GTR,
 				Y:  transformExpression(constraint.Args[0]),
 			}
+		case "LessThan":
+			if len(constraint.Args) != 1 {
+				panic("LessThan constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable.Id()),
+				Op: token.GEQ,
+				Y:  transformExpression(constraint.Args[0]),
+			}
+		case "GreaterThan":
+			if len(constraint.Args) != 1 {
+				panic("GreaterThan constraint requires 1 argument")
+			}
+			expr = &goast.BinaryExpr{
+				X:  goast.NewIdent(ensure.Variable.Id()),
+				Op: token.LEQ,
+				Y:  transformExpression(constraint.Args[0]),
+			}
 		default:
 			panic("Unknown Int constraint: " + constraint.Name)
 		}
@@ -211,7 +229,7 @@ func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
 		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
 	}
 
-	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure.Assertion)
+	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure)
 	if err != nil {
 		panic(err)
 	}

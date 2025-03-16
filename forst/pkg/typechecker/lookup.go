@@ -6,16 +6,6 @@ import (
 	"forst/pkg/ast"
 )
 
-// Enhanced variable lookup that can find where a variable was defined
-func (tc *TypeChecker) lookupVariableDefinition(variable *ast.VariableNode) (*Symbol, *Scope, error) {
-	for scope := tc.currentScope; scope != nil; scope = scope.Parent {
-		if sym, exists := scope.Symbols[variable.Ident.Id]; exists {
-			return &sym, scope, nil
-		}
-	}
-	return nil, nil, fmt.Errorf("undefined variable: %s", variable.Ident.String())
-}
-
 // lookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode) (ast.TypeNode, error) {
 	symbol, err := tc.lookupSymbol(variable.Ident.Id)
@@ -48,10 +38,10 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]a
 	return symbol.Types, nil
 }
 
-func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
-	baseType := tc.Types[tc.hasher.Hash(assertion)]
-	if len(baseType) != 1 {
-		return nil, fmt.Errorf("expected single type for assertion %s but got %d types", assertion.String(), len(baseType))
+func (tc *TypeChecker) LookupAssertionType(ensure *ast.EnsureNode) (*ast.TypeNode, error) {
+	baseType, err := tc.LookupVariableType(&ensure.Variable)
+	if err != nil {
+		return nil, err
 	}
-	return &baseType[0], nil
+	return &baseType, nil
 }
