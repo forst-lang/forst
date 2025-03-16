@@ -19,6 +19,8 @@ type Context struct {
 	Scope         *Scope
 }
 
+const MAIN_FUNCTION_NAME = "main"
+
 // Parse the tokens in a Forst file into a list of Forst AST nodes
 func (p *Parser) ParseFile() []ast.Node {
 	nodes := []ast.Node{}
@@ -46,7 +48,7 @@ func (p *Parser) ParseFile() []ast.Node {
 }
 
 func (c *Context) IsMainFunction() bool {
-	return c.IsMainPackage && c.Scope.FunctionName != nil && *c.Scope.FunctionName == "main"
+	return c.IsMainPackage && c.Scope.FunctionName != nil && *c.Scope.FunctionName == MAIN_FUNCTION_NAME
 }
 
 func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {

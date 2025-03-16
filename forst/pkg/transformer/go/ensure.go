@@ -6,6 +6,21 @@ import (
 	"go/token"
 )
 
+const (
+	MIN_CONSTRAINT        = "Min"
+	MAX_CONSTRAINT        = "Max"
+	HAS_PREFIX_CONSTRAINT = "HasPrefix"
+	TRUE_CONSTRAINT       = "True"
+	FALSE_CONSTRAINT      = "False"
+	NIL_CONSTRAINT        = "Nil"
+)
+
+const (
+	BOOL_CONSTANT_TRUE  = "true"
+	BOOL_CONSTANT_FALSE = "false"
+	NIL_CONSTANT        = "nil"
+)
+
 func negateCondition(condition goast.Expr) goast.Expr {
 	return &goast.UnaryExpr{
 		Op: token.NOT,
@@ -15,7 +30,7 @@ func negateCondition(condition goast.Expr) goast.Expr {
 
 func any(conditions []goast.Expr) goast.Expr {
 	if len(conditions) == 0 {
-		return &goast.Ident{Name: "false"}
+		return &goast.Ident{Name: BOOL_CONSTANT_FALSE}
 	}
 	combined := conditions[0]
 	for i := 1; i < len(conditions); i++ {
@@ -156,13 +171,13 @@ func transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 			expr = &goast.BinaryExpr{
 				X:  goast.NewIdent(ensure.Variable),
 				Op: token.EQL,
-				Y:  goast.NewIdent("false"),
+				Y:  goast.NewIdent(BOOL_CONSTANT_TRUE),
 			}
 		case "False":
 			expr = &goast.BinaryExpr{
 				X:  goast.NewIdent(ensure.Variable),
 				Op: token.EQL,
-				Y:  goast.NewIdent("true"),
+				Y:  goast.NewIdent(BOOL_CONSTANT_FALSE),
 			}
 		default:
 			panic("Unknown Bool constraint: " + constraint.Name)
@@ -177,11 +192,11 @@ func transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
-		case "Nil":
+		case NIL_CONSTRAINT:
 			expr = &goast.BinaryExpr{
 				X:  goast.NewIdent(ensure.Variable),
 				Op: token.NEQ,
-				Y:  goast.NewIdent("nil"),
+				Y:  goast.NewIdent(NIL_CONSTANT),
 			}
 		default:
 			panic("Unknown Error constraint: " + constraint.Name)
@@ -196,7 +211,7 @@ func transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
 	// TODO: If BaseType is nil we need to infer it from the variable under test
 	if ensure.Assertion.BaseType == nil {
 		// TODO: Implement base type inference for ensure
-		return &goast.Ident{Name: "false"}
+		return &goast.Ident{Name: BOOL_CONSTANT_FALSE}
 	}
 
 	switch *ensure.Assertion.BaseType {
