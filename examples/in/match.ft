@@ -1,0 +1,18 @@
+package match
+
+error TooShort(String)
+error TooLong(String)
+
+fn checkInput(input: String | TooShort(String) | TooLong(String)) {
+    match input {
+        case String {
+            println("Input is abc")
+        }
+        case TooShort(message) {
+            println("Input is def")
+        }
+        case TooLong(message) {
+            println("Input is ghi")
+        }
+    }
+}

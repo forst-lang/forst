@@ -15,19 +15,20 @@ We love Ruby's efficiency in expressing logic.
 
 We love TypeScript's efficiency in structuring data.
 
-We love Zig's efficiency at compile and runtime.
+We love Go's efficiency at compile and runtime.
 
 We want the best of all three worlds.
 
-We want to be for TypeScript what Crystal is to Ruby.
+We want to be to Go what TypeScript is to JavaScript.
 
 ## Features
 
 - Static typing
 - Strong type inference
-- Seamless TypeScript type generation inspired by tRPC – making types of API endpoints available should be the default
+- Backwards compatibility with Go
+- Seamless TypeScript type generation inspired by tRPC – publishing types of API endpoints should be easy
 - Structural typing for function parameters and return values
-- Type-based assertions that allow complex type narrowing
+- Type-based assertions that allow complex type narrowing in function parameters
 - First-class scoped errors including stack traces, avoiding exceptions
 - No class or module reopening
 
@@ -42,6 +43,14 @@ All APIs are meant for consumption.
 We acknowledge that TypeScript is the de facto standard for frontend development.
 
 - So we should focus on interoperability with TypeScript clients.
+
+### Adoption
+
+We want maximum chances for adoption, given that our main goal is to replace TypeScript on the backend.
+
+So we want to rely on a large existing ecosystem of libraries, and we also want the language to compile quickly to allow for fast iteration. This essentially only leaves Go as a compilation target at the moment.
+
+So our language will transpile both to Go (for the backend code) and to TypeScript (for client types).
 
 ### OOP vs. Functional Programming
 

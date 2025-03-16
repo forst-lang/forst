@@ -1,0 +1,31 @@
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+fn mustBeARealName(name: String) {
+    ensure name is Min(1)
+        or TooShort("Name must be at least 1 character long")
+}
+
+fn mustNotExceedSpeedLimit(speed: Int): Void {
+    ensure speed is LessThan(100)
+        or TooFast("Speed must not exceed 100 km/h")
+}
+
+fn checkConditions() {
+    _, err = mustBeARealName("John")
+    ensure err is Nil() or err
+    _, err = mustNotExceedSpeedLimit(101)
+    ensure !err or err
+}
+
+fn main() {
+    _, err := checkConditions()
+    ensure !err {
+        fmt.Println("#{err.code}: #{err.message}")
+        os.Exit(1)
+    } or err
+}

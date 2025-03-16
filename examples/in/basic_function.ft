@@ -1,0 +1,9 @@
+package basic_function
+
+fn compare() {
+  return "a" == "b"
+}
+
+fn diff(a: Int, b: Int) {
+  return 3 - 2
+}
