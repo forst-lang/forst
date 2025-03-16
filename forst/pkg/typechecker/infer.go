@@ -187,6 +187,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) (*ast.TypeNode, error) {
 
 		return inferredType, nil
 	case ast.AssignmentNode:
+		fmt.Println("inferAssignmentTypes", n)
 		if err := tc.inferAssignmentTypes(n); err != nil {
 			return nil, err
 		}
@@ -325,6 +326,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 }
 
 func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
+	fmt.Println("inferAssignmentTypes", assign)
 	for i, value := range assign.RValues {
 		inferredType, err := tc.inferExpressionType(value)
 		if err != nil {

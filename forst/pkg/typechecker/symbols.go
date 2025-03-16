@@ -1,6 +1,9 @@
 package typechecker
 
-import "forst/pkg/ast"
+import (
+	"forst/pkg/ast"
+	"slices"
+)
 
 type Scope struct {
 	Parent   *Scope
@@ -35,7 +38,7 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ ast.TypeNode, kind 
 		Type:       typ,
 		Kind:       kind,
 		Scope:      tc.currentScope,
-		Position:   append(NodePath(nil), tc.path...), // Copy current path
+		Position:   slices.Clone(tc.path), // Copy current path
 	}
 	tc.currentScope.Symbols[ident] = symbol
 }
@@ -58,5 +61,7 @@ func (tc *TypeChecker) pushScope(node ast.Node) {
 func (tc *TypeChecker) popScope() {
 	if tc.currentScope.Parent != nil {
 		tc.currentScope = tc.currentScope.Parent
+	} else {
+		panic("no parent scope to pop from, we are already in the global scope")
 	}
 }

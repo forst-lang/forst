@@ -16,7 +16,7 @@ fn mustNotExceedSpeedLimit(speed: Int): Void {
 }
 
 fn checkConditions() {
-    _, err = mustBeARealName("John")
+    _, err := mustBeARealName("John")
     ensure err is Nil() or err
     _, err = mustNotExceedSpeedLimit(101)
     ensure !err or err

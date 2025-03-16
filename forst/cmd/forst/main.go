@@ -81,24 +81,23 @@ func debugPrintForstAST(forstAST []ast.Node) {
 		switch n := node.(type) {
 		case ast.PackageNode:
 			fmt.Printf("  Package: %s\n", n.Ident)
+			fmt.Println()
 		case ast.ImportNode:
 			fmt.Printf("  Import: %s\n", n.Path)
+			fmt.Println()
 		case ast.ImportGroupNode:
 			fmt.Printf("  ImportGroup: %v\n", n.Imports)
+			fmt.Println()
 		case ast.FunctionNode:
 			if n.HasExplicitReturnType() {
 				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ReturnType)
 			} else {
 				fmt.Printf("  Function: %s -> (?)\n", n.Ident.Id)
 			}
-		case ast.EnsureNode:
-			if n.Error != nil {
-				fmt.Printf("  Ensure: %s or %s\n", n.Assertion, (*n.Error).String())
-			} else {
-				fmt.Printf("  Ensure: %s\n", n.Assertion)
+			for _, stmt := range n.Body {
+				fmt.Printf("      %s\n", stmt)
 			}
-		case ast.ReturnNode:
-			fmt.Printf("  Return: %s\n", n.Value)
+			fmt.Println()
 		}
 	}
 }
