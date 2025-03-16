@@ -101,9 +101,9 @@ func debugPrintGoAST(goFile *goast.File) {
 func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 	fmt.Println("\n=== Type Check Results ===")
 
-	fmt.Println("\nFunctions:")
+	fmt.Println("  Functions:")
 	for id, sig := range tc.Functions {
-		fmt.Printf("  %s(", id)
+		fmt.Printf("    %s(", id)
 		for i, param := range sig.Parameters {
 			if i > 0 {
 				fmt.Print(", ")
@@ -113,7 +113,7 @@ func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 		fmt.Printf(") -> %s\n", sig.ReturnType)
 	}
 
-	fmt.Println("\nDefinitions:")
+	fmt.Println("  Definitions:")
 	for id, def := range tc.Defs {
 		fmt.Printf("  %s -> %T\n", id, def)
 	}

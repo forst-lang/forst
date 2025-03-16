@@ -23,6 +23,12 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node, tc *typechecker.T
 		switch n := node.(type) {
 		case ast.PackageNode:
 			packageName = string(n.Ident.Id)
+		case ast.ImportNode:
+			decl := t.transformImport(n)
+			decls = append(decls, decl)
+		case ast.ImportGroupNode:
+			decl := t.transformImportGroup(n)
+			decls = append(decls, decl)
 		case ast.FunctionNode:
 			decl, err := t.transformFunction(n, tc)
 			if err != nil {
