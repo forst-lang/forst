@@ -5,31 +5,109 @@ import (
 	"forst/pkg/ast"
 )
 
+func failWithTypeMismatch(inferredType ast.TypeNode, explicitReturnType ast.TypeNode) error {
+	return fmt.Errorf("inferred return type %s does not match explicit return type %s", inferredType.String(), explicitReturnType.String())
+}
+
+// Ensures that the first type matches the expected type, otherwise returns an error
+func ensureMatching(typ ast.TypeNode, expectedType ast.TypeNode) (ast.TypeNode, error) {
+	if expectedType.IsImplicit() {
+		// If the expected type is implicit, we have nothing to check against
+		return typ, nil
+	}
+
+	if typ.Name != expectedType.Name {
+		return typ, failWithTypeMismatch(typ, expectedType)
+	}
+
+	return typ, nil
+}
+
 // inferFunctionReturnType infers the return type of a function from its body
-func (tc *TypeChecker) inferFunctionReturnType(body []ast.Node) (ast.TypeNode, error) {
+func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) (ast.TypeNode, error) {
+	explicitReturnType := fn.ExplicitReturnType
+	inferredType := ast.TypeNode{Name: ast.TypeVoid}
+
 	// For empty functions, default to void return type
-	if len(body) == 0 {
-		return ast.TypeNode{Name: ast.TypeVoid}, nil
+	if len(fn.Body) == 0 {
+		return ensureMatching(inferredType, explicitReturnType)
+	}
+
+	// Find all return statements and collect their types
+	returnStmtTypes := make([]ast.TypeNode, 0)
+	for _, stmt := range fn.Body {
+		if retStmt, ok := stmt.(ast.ReturnNode); ok {
+			// Get type of return expression
+			retType, err := tc.inferExpressionType(retStmt.Value)
+			if err != nil {
+				return inferredType, err
+			}
+			returnStmtTypes = append(returnStmtTypes, retType)
+		}
+	}
+
+	// If we found return statements, verify they all have the same type
+	if len(returnStmtTypes) > 0 {
+		firstType := returnStmtTypes[0]
+		for _, retType := range returnStmtTypes[1:] {
+			if retType.Name != firstType.Name {
+				return inferredType, failWithTypeMismatch(inferredType, firstType)
+			}
+		}
 	}
 
 	// Get last statement which should be the implicit return value
-	lastStmt := body[len(body)-1]
+	lastStmt := fn.Body[len(fn.Body)-1]
 
 	// If last statement is an expression, its type is the return type
 	if expr, ok := lastStmt.(ast.ExpressionNode); ok {
-		return tc.inferExpressionType(expr)
+		exprType, err := tc.inferExpressionType(expr)
+		if err != nil {
+			return ast.TypeNode{}, err
+		}
+
+		inferredType = exprType
+
+		// If we found return statements, verify the expression type matches
+		if len(returnStmtTypes) > 0 && exprType.Name != returnStmtTypes[0].Name {
+			return inferredType, failWithTypeMismatch(inferredType, exprType)
+		}
+
+		return ensureMatching(inferredType, explicitReturnType)
 	}
 
-	// If no expression found, default to void
-	return ast.TypeNode{Name: ast.TypeVoid}, nil
+	// If we found return statements, use the first return type
+	if len(returnStmtTypes) > 0 {
+		inferredType = returnStmtTypes[0]
+
+		return ensureMatching(inferredType, explicitReturnType)
+	}
+
+	return ensureMatching(inferredType, explicitReturnType)
+}
+
+func findAlreadyInferredType(tc *TypeChecker, node ast.Node) (*ast.TypeNode, error) {
+	hash := tc.hasher.Hash(node)
+	if existingType, exists := tc.Types[hash]; exists {
+		// Ignore types that are still marked as implicit
+		if existingType.IsImplicit() {
+			return nil, nil
+		}
+		fmt.Printf("Found already inferred type %s for node %s\n", existingType.String(), node.String())
+		return &existingType, nil
+	}
+	return nil, nil
 }
 
 // inferTypes handles type inference for a single node
 func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
 	// Check if we've already inferred this node's type
-	hash := tc.hasher.Hash(node)
-	if existingType, exists := tc.Types[hash]; exists {
-		return &existingType, nil
+	alreadyInferredType, err := findAlreadyInferredType(tc, node)
+	if err != nil {
+		return nil, err
+	}
+	if alreadyInferredType != nil {
+		return alreadyInferredType, nil
 	}
 
 	switch n := node.(type) {
@@ -40,15 +118,11 @@ func (tc *TypeChecker) inferTypes(node ast.Node) (*ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		if n.ExplicitReturnType.IsExplicit() {
-			tc.storeType(node, n.ExplicitReturnType)
-			return &n.ExplicitReturnType, nil
-		}
-		inferredType, err := tc.inferFunctionReturnType(n.Body)
+		fmt.Printf("Inferring function return type %s\n", n.Id())
+		inferredType, err := tc.inferFunctionReturnType(n)
 		if err != nil {
 			return nil, err
 		}
-		tc.storeType(node, inferredType)
 		tc.storeInferredFunctionReturnType(&n, inferredType)
 		return &inferredType, nil
 	case ast.ExpressionNode:
@@ -66,6 +140,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) (ast.TypeNode, error) 
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		return tc.unifyTypes(e.Left, e.Right, e.Operator)
+
+	case ast.UnaryExpressionNode:
+		return tc.unifyTypes(e.Operand, nil, e.Operator)
 
 	case ast.IntLiteralNode:
 		return ast.TypeNode{Name: ast.TypeInt}, nil

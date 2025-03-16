@@ -4,6 +4,6 @@ fn compare() {
   return "a" == "b"
 }
 
-fn diff(a: Int, b: Int): Int {
+fn diff(a: Int, b: Int) {
   return 3 - 2
 }

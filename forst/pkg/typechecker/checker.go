@@ -138,6 +138,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		// 			return err
 		// 		}
 		// 	}
+
 		tc.registerFunction(n)
 	}
 
