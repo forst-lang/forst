@@ -21,3 +21,15 @@ func transformType(n ast.TypeNode) *goast.Ident {
 	}
 	return goast.NewIdent(n.Name)
 }
+
+func transformTypes(types []ast.TypeNode) *goast.FieldList {
+	fields := make([]*goast.Field, len(types))
+	for i, typ := range types {
+		fields[i] = &goast.Field{
+			Type: transformType(typ),
+		}
+	}
+	return &goast.FieldList{
+		List: fields,
+	}
+}

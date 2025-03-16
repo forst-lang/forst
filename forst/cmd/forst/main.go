@@ -11,6 +11,7 @@ import (
 	"forst/pkg/typechecker"
 	goast "go/ast"
 	"os"
+	"strings"
 )
 
 type ProgramArgs struct {
@@ -90,7 +91,11 @@ func debugPrintForstAST(forstAST []ast.Node) {
 			fmt.Println()
 		case ast.FunctionNode:
 			if n.HasExplicitReturnType() {
-				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ReturnType)
+				returnTypes := make([]string, len(n.ReturnTypes))
+				for i, rt := range n.ReturnTypes {
+					returnTypes[i] = rt.String()
+				}
+				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, strings.Join(returnTypes, ", "))
 			} else {
 				fmt.Printf("  Function: %s -> (?)\n", n.Ident.Id)
 			}
@@ -134,14 +139,18 @@ func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 			}
 			fmt.Printf("%s: %s", param.Id(), param.Type)
 		}
-		fmt.Printf(") -> %s\n", sig.ReturnType)
+		returnTypes := make([]string, len(sig.ReturnTypes))
+		for i, rt := range sig.ReturnTypes {
+			returnTypes[i] = rt.String()
+		}
+		fmt.Printf(") -> %s\n", strings.Join(returnTypes, ", "))
 
 		// Print symbols in function's scope
 		for _, scope := range tc.Scopes {
 			if funcNode, isFuncNode := scope.Node.(ast.FunctionNode); isFuncNode && funcNode.Id() == id {
 				fmt.Printf("      Scope symbols:\n")
 				for symId, symbol := range scope.Symbols {
-					fmt.Printf("        %s: %s (%v)\n", symId, symbol.Type, symbol.Kind)
+					fmt.Printf("        %s: %s (%v)\n", symId, symbol.Types, symbol.Kind)
 				}
 			}
 		}

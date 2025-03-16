@@ -215,7 +215,7 @@ func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	if err != nil {
 		panic(err)
 	}
-	return assertionType
+	return *assertionType
 }
 
 // transformEnsure converts a Forst ensure to a Go expression

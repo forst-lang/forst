@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/pkg/ast"
 	"slices"
 )
@@ -14,7 +15,7 @@ type Scope struct {
 
 type Symbol struct {
 	Identifier ast.Identifier
-	Type       ast.TypeNode
+	Types      []ast.TypeNode
 	Kind       SymbolKind // Variable, Function, Type, etc
 	Scope      *Scope     // Where this symbol is defined
 	Position   NodePath   // Precise location in AST where symbol is valid
@@ -32,10 +33,10 @@ const (
 )
 
 // Add these methods to manage symbols
-func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ ast.TypeNode, kind SymbolKind) {
+func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ []ast.TypeNode, kind SymbolKind) {
 	symbol := Symbol{
 		Identifier: ident,
-		Type:       typ,
+		Types:      typ,
 		Kind:       kind,
 		Scope:      tc.currentScope,
 		Position:   slices.Clone(tc.path), // Copy current path
@@ -44,6 +45,7 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ ast.TypeNode, kind 
 }
 
 func (tc *TypeChecker) pushScope(node ast.Node) {
+	fmt.Println("pushScope", node)
 	newScope := &Scope{
 		Parent:   tc.currentScope,
 		Node:     node,
@@ -59,6 +61,7 @@ func (tc *TypeChecker) pushScope(node ast.Node) {
 }
 
 func (tc *TypeChecker) popScope() {
+	fmt.Println("popScope")
 	if tc.currentScope.Parent != nil {
 		tc.currentScope = tc.currentScope.Parent
 	} else {

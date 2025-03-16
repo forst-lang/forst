@@ -9,9 +9,9 @@ import (
 
 // FunctionSignature represents a function's type information
 type FunctionSignature struct {
-	Ident      ast.Ident
-	Parameters []ParameterSignature
-	ReturnType ast.TypeNode
+	Ident       ast.Ident
+	Parameters  []ParameterSignature
+	ReturnTypes []ast.TypeNode
 }
 
 type ParameterSignature struct {
@@ -32,7 +32,11 @@ func (f FunctionSignature) String() string {
 	for i, param := range f.Parameters {
 		paramStrings[i] = param.String()
 	}
-	return fmt.Sprintf("%s(%s) -> %s", f.Ident.Id, strings.Join(paramStrings, ", "), f.ReturnType.String())
+	returnStrings := make([]string, len(f.ReturnTypes))
+	for i, ret := range f.ReturnTypes {
+		returnStrings[i] = ret.String()
+	}
+	return fmt.Sprintf("%s(%s) -> %s", f.Ident.Id, strings.Join(paramStrings, ", "), strings.Join(returnStrings, ", "))
 }
 
 func (f FunctionSignature) Id() ast.Identifier {

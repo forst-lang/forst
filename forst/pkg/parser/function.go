@@ -38,11 +38,11 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	return params
 }
 
-func (p *Parser) parseReturnType() ast.TypeNode {
-	returnType := ast.TypeNode{Name: ast.TypeImplicit}
+func (p *Parser) parseReturnType() []ast.TypeNode {
+	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		returnType = p.parseType()
+		returnType = append(returnType, p.parseType())
 	}
 	return returnType
 }
@@ -76,9 +76,9 @@ func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
 	body := p.parseFunctionBody(context)
 
 	return ast.FunctionNode{
-		Ident:      ast.Ident{Id: ast.Identifier(name.Value)},
-		ReturnType: returnType,
-		Params:     params,
-		Body:       body,
+		Ident:       ast.Ident{Id: ast.Identifier(name.Value)},
+		ReturnTypes: returnType,
+		Params:      params,
+		Body:        body,
 	}
 }

@@ -24,13 +24,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	if err != nil {
 		return nil, err
 	}
-	results := &goast.FieldList{
-		List: []*goast.Field{
-			{
-				Type: transformType(returnType),
-			},
-		},
-	}
+	results := transformTypes(returnType)
 
 	// Create function body statements
 	stmts := []goast.Stmt{}

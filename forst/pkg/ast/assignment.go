@@ -15,7 +15,7 @@ func (n AssignmentNode) NodeType() string {
 
 // String returns a string representation of the assignment
 func (n AssignmentNode) String() string {
-	var result string
+	var result string = "Assignment("
 
 	// Build comma-separated list of names and types
 	for i, ident := range n.LValues {
@@ -43,5 +43,5 @@ func (n AssignmentNode) String() string {
 		result += val.String()
 	}
 
-	return result
+	return result + ")"
 }

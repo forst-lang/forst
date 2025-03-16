@@ -7,7 +7,7 @@ import (
 
 type TypeChecker struct {
 	// Use value-based Ident keys instead of pointers
-	Types        map[NodeHash]ast.TypeNode
+	Types        map[NodeHash][]ast.TypeNode
 	Defs         map[ast.Identifier]ast.Node
 	Uses         map[ast.Identifier][]ast.Node
 	Functions    map[ast.Identifier]FunctionSignature
@@ -24,7 +24,7 @@ func New() *TypeChecker {
 	}
 
 	return &TypeChecker{
-		Types:        make(map[NodeHash]ast.TypeNode),
+		Types:        make(map[NodeHash][]ast.TypeNode),
 		Defs:         make(map[ast.Identifier]ast.Node),
 		Uses:         make(map[ast.Identifier][]ast.Node),
 		Functions:    make(map[ast.Identifier]FunctionSignature),
@@ -87,7 +87,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		for _, param := range n.Params {
 			functionScope.Symbols[param.Ident.Id] = Symbol{
 				Identifier: param.Ident.Id,
-				Type:       param.Type,
+				Types:      []ast.TypeNode{param.Type},
 				Kind:       SymbolParameter,
 				Scope:      functionScope,
 				Position:   tc.path,
@@ -124,14 +124,14 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 }
 
 // storeInferredType associates a type with a node by storing its structural hash
-func (tc *TypeChecker) storeInferredType(node ast.Node, typ ast.TypeNode) {
+func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash := tc.hasher.Hash(node)
-	tc.Types[hash] = typ
+	tc.Types[hash] = types
 }
 
-func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, typ ast.TypeNode) {
+func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Id()]
-	sig.ReturnType = typ
+	sig.ReturnTypes = returnTypes
 	tc.Functions[fn.Id()] = sig
 }
 
@@ -139,6 +139,6 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	fmt.Printf("Current scope: %s\n", tc.currentScope.Node.String())
 	fmt.Printf("  Defined symbols (total: %d)\n", len(tc.currentScope.Symbols))
 	for _, symbol := range tc.currentScope.Symbols {
-		fmt.Printf("    %s: %s\n", symbol.Identifier, symbol.Type)
+		fmt.Printf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
 }
