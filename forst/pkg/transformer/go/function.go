@@ -40,6 +40,24 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		stmts = append(stmts, goStmt)
 	}
 
+	// Make sure that functions return nil if they return an error
+	if !isMainFunc && len(returnType) > 0 {
+		lastReturnType := returnType[len(returnType)-1]
+		if lastReturnType.IsError() {
+			var lastStmt ast.Node
+			if len(n.Body) > 0 {
+				lastStmt = n.Body[len(n.Body)-1]
+			}
+			if lastStmt == nil || lastStmt.NodeType() != ast.NodeTypeReturn {
+				stmts = append(stmts, &goast.ReturnStmt{
+					Results: []goast.Expr{
+						goast.NewIdent("nil"),
+					},
+				})
+			}
+		}
+	}
+
 	t.popScope()
 
 	// Create the function declaration

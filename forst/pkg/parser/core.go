@@ -51,10 +51,6 @@ func (p *Parser) advance() ast.Token {
 	return p.current()
 }
 
-func (p *Parser) rewind() {
-	p.currentIndex--
-}
-
 // Expect a token and advance
 func (p *Parser) expect(tokenType ast.TokenType) ast.Token {
 	token := p.current()

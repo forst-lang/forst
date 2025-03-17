@@ -27,7 +27,7 @@ type Scope struct {
 	// All variables defined in the scope
 	Variables map[string]ast.TypeNode
 	// The function currently being parsed
-	Function *ast.FunctionNode
+	functionName string
 }
 
 // Parse the tokens in a Forst file into a list of Forst AST nodes
@@ -57,18 +57,18 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 	return nodes, nil
 }
 
+func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {
+	s.Variables[name] = typeNode
+}
+
 func (c *Context) IsMainFunction() bool {
 	if c.Package == nil || !c.Package.IsMainPackage() {
 		return false
 	}
 
-	if c.Scope.Function == nil || !c.Scope.Function.HasMainFunctionName() {
-		return false
+	if c.Scope.functionName != "main" {
+		return true
 	}
 
 	return true
-}
-
-func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {
-	s.Variables[name] = typeNode
 }

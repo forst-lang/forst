@@ -37,6 +37,10 @@ func (t TypeNode) NodeType() NodeType {
 	return NodeTypeType
 }
 
+func (t TypeNode) IsError() bool {
+	return t.Name == TypeError
+}
+
 func (t TypeNode) String() string {
 	switch t.Name {
 	case TypeInt:

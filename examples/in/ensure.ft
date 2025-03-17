@@ -18,14 +18,14 @@ fn mustNotExceedSpeedLimit(speed: Int) {
 fn checkConditions() {
     err := mustBeARealName("John")
     ensure err is Nil() or err
-    err = mustNotExceedSpeedLimit(101)
+    err = mustNotExceedSpeedLimit(99)
     ensure !err or err
 }
 
 fn main() {
     err := checkConditions()
     ensure !err {
-        fmt.Println("#{err.code}: #{err.message}")
+        fmt.Println("Conditions not met")
         os.Exit(1)
-    } or err
+    }
 }

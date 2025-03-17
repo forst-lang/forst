@@ -67,6 +67,8 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.expect(ast.TokenFunction)           // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
 
+	p.context.Scope.functionName = name.Value
+
 	params := p.parseFunctionSignature() // Parse function parameters
 
 	returnType := p.parseReturnType()
@@ -79,8 +81,6 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 		Params:      params,
 		Body:        body,
 	}
-
-	p.context.Scope.Function = &node
 
 	return node
 }
