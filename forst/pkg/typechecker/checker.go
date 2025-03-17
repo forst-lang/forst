@@ -1,8 +1,9 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/pkg/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type TypeChecker struct {
@@ -138,10 +139,10 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 }
 
 func (tc *TypeChecker) DebugPrintCurrentScope() {
-	fmt.Printf("Current scope: %s\n", tc.currentScope.Node.String())
-	fmt.Printf("  Defined symbols (total: %d)\n", len(tc.currentScope.Symbols))
+	log.Debugf("Current scope: %s\n", tc.currentScope.Node.String())
+	log.Debugf("  Defined symbols (total: %d)\n", len(tc.currentScope.Symbols))
 	for _, symbol := range tc.currentScope.Symbols {
-		fmt.Printf("    %s: %s\n", symbol.Identifier, symbol.Types)
+		log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
 }
 

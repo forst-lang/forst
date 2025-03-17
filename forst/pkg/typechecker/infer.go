@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"forst/pkg/ast"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func formatTypeList(types []ast.TypeNode) string {
@@ -158,7 +160,7 @@ func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
 
 // inferNodeTypes handles type inference for a list of nodes
 func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error) {
-	fmt.Println("inferNodeTypes", nodes)
+	log.Trace("inferNodeTypes", nodes)
 	inferredTypes := make([][]ast.TypeNode, len(nodes))
 	for i, node := range nodes {
 		inferredType, err := tc.inferNodeType(node)
@@ -173,7 +175,7 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	fmt.Println("inferNodeType", node)
+	log.Trace("inferNodeType", node)
 	// Check if we've already inferred this node's type
 	alreadyInferredType, err := findAlreadyInferredType(tc, node)
 	if err != nil {

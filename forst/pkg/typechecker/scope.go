@@ -1,9 +1,10 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/pkg/ast"
 	"slices"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Scope struct {
@@ -50,7 +51,7 @@ func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
 }
 
 func (tc *TypeChecker) pushScope(node ast.Node) {
-	fmt.Printf("pushScope %v (hash: %d)\n", node, tc.Hasher.Hash(node))
+	log.Tracef("pushScope %v (hash: %d)\n", node, tc.Hasher.Hash(node))
 	newScope := &Scope{
 		Parent:   tc.currentScope,
 		Node:     node,
@@ -67,7 +68,7 @@ func (tc *TypeChecker) pushScope(node ast.Node) {
 }
 
 func (tc *TypeChecker) popScope() {
-	fmt.Println("popScope")
+	log.Trace("popScope")
 	if tc.currentScope.Parent != nil {
 		tc.currentScope = tc.currentScope.Parent
 	} else {
