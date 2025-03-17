@@ -9,53 +9,42 @@ import (
 
 type Transformer struct {
 	TypeChecker  *typechecker.TypeChecker
-	packageName  string
 	currentScope *typechecker.Scope
+
+	Output *TransformerOutput
 }
 
 func New(tc *typechecker.TypeChecker) *Transformer {
 	return &Transformer{
 		TypeChecker:  tc,
 		currentScope: tc.GlobalScope(),
+		Output:       &TransformerOutput{},
 	}
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
-	var decls []goast.Decl
-
-	// TODO: If we are calling ensure anywhere, import the errors package
-
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			t.packageName = string(n.Ident.Id)
+			t.Output.SetPackageName(string(n.Ident.Id))
 		case ast.ImportNode:
 			decl := t.transformImport(n)
-			decls = append(decls, decl)
+			t.Output.AddImport(decl)
 		case ast.ImportGroupNode:
 			decl := t.transformImportGroup(n)
-			decls = append(decls, decl)
+			t.Output.AddImportGroup(decl)
 		case ast.FunctionNode:
 			decl, err := t.transformFunction(n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Id, err)
 			}
-			decls = append(decls, decl)
+			t.Output.AddFunction(decl)
 		}
 	}
 
-	if t.packageName == "" {
-		t.packageName = "main"
-	}
-
-	file := &goast.File{
-		Name:  goast.NewIdent(t.packageName),
-		Decls: decls,
-	}
-
-	return file, nil
+	return t.Output.GenerateFile()
 }
 
 func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
@@ -70,7 +59,7 @@ func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
 }
 
 func (t *Transformer) isMainPackage() bool {
-	return t.packageName == "main"
+	return t.Output.PackageName() == "main"
 }
 
 func (t *Transformer) isMainFunction() bool {
