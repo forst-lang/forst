@@ -7,7 +7,7 @@ import (
 
 fn mustBeARealName(name: String) {
     ensure name is Min(1)
-        or TooShort("Name must be at least 1 character long")
+        or TooShort("Name must be at least 1 character longg")
 }
 
 fn mustNotExceedSpeedLimit(speed: Int) {
@@ -16,7 +16,7 @@ fn mustNotExceedSpeedLimit(speed: Int) {
 }
 
 fn checkConditions() {
-    err := mustBeARealName("John")
+    err := mustBeARealName("John") 
     ensure err is Nil() or err
     err = mustNotExceedSpeedLimit(99)
     ensure !err or err
