@@ -17,8 +17,8 @@ type ImportNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (i ImportNode) NodeType() string {
-	return "Import"
+func (i ImportNode) NodeType() NodeType {
+	return NodeTypeImport
 }
 
 func (i ImportNode) String() string {
@@ -37,8 +37,8 @@ type ImportGroupNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (g ImportGroupNode) NodeType() string {
-	return "ImportGroup"
+func (g ImportGroupNode) NodeType() NodeType {
+	return NodeTypeImportGroup
 }
 
 func (g ImportGroupNode) String() string {

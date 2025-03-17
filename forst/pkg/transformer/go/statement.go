@@ -14,9 +14,28 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		// Convert ensure to if statement with panic
 		condition := t.transformEnsureCondition(s)
 
-		errorMsg := "assertion failed: " + s.Assertion.String()
+		var errorExpr goast.Expr = &goast.BinaryExpr{
+			X: &goast.BasicLit{
+				Kind:  token.STRING,
+				Value: strconv.Quote("assertion failed: "),
+			},
+			Op: token.ADD,
+			Y: &goast.BasicLit{
+				Kind:  token.STRING,
+				Value: strconv.Quote(s.Assertion.String()),
+			},
+		}
 		if s.Error != nil {
-			errorMsg = (*s.Error).String()
+			if errVar, ok := (*s.Error).(ast.EnsureErrorVar); ok {
+				errorExpr = &goast.Ident{
+					Name: string(errVar),
+				}
+			} else {
+				errorExpr = &goast.BasicLit{
+					Kind:  token.STRING,
+					Value: strconv.Quote((*s.Error).String()),
+				}
+			}
 		}
 
 		finallyStmts := []goast.Stmt{}
@@ -30,6 +49,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			t.popScope()
 		}
 
+		isMainFunction := t.isMainFunction()
+
+		if isMainFunction {
+			return &goast.IfStmt{
+				Cond: condition,
+				Body: &goast.BlockStmt{
+					List: append(finallyStmts, &goast.ExprStmt{
+						X: &goast.CallExpr{
+							Fun: goast.NewIdent("panic"),
+							Args: []goast.Expr{
+								errorExpr,
+							},
+						},
+					}),
+				},
+			}
+		}
+
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
@@ -41,10 +78,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 								Sel: goast.NewIdent("New"),
 							},
 							Args: []goast.Expr{
-								&goast.BasicLit{
-									Kind:  token.STRING,
-									Value: strconv.Quote(errorMsg),
-								},
+								errorExpr,
 							},
 						},
 					},

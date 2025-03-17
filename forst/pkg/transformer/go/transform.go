@@ -9,6 +9,7 @@ import (
 
 type Transformer struct {
 	TypeChecker  *typechecker.TypeChecker
+	packageName  string
 	currentScope *typechecker.Scope
 }
 
@@ -22,7 +23,6 @@ func New(tc *typechecker.TypeChecker) *Transformer {
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
-	var packageName string
 	var decls []goast.Decl
 
 	// TODO: If we are calling ensure anywhere, import the errors package
@@ -30,7 +30,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			packageName = string(n.Ident.Id)
+			t.packageName = string(n.Ident.Id)
 		case ast.ImportNode:
 			decl := t.transformImport(n)
 			decls = append(decls, decl)
@@ -46,14 +46,37 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		}
 	}
 
-	if packageName == "" {
-		packageName = "main"
+	if t.packageName == "nil" {
+		t.packageName = "main"
 	}
 
 	file := &goast.File{
-		Name:  goast.NewIdent(packageName),
+		Name:  goast.NewIdent(t.packageName),
 		Decls: decls,
 	}
 
 	return file, nil
+}
+
+func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
+	scope := t.currentScope
+	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
+		scope = scope.Parent
+	}
+	if scope.Node == nil {
+		return ast.FunctionNode{}, fmt.Errorf("no function found")
+	}
+	return scope.Node.(ast.FunctionNode), nil
+}
+
+func (t *Transformer) isMainFunction() bool {
+	if t.packageName != "main" {
+		return false
+	}
+
+	currentFunction, err := t.currentFunction()
+	if err != nil {
+		return false
+	}
+	return currentFunction.Ident.Id == "main"
 }

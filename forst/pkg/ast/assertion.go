@@ -37,6 +37,6 @@ func (a AssertionNode) String() string {
 	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)
 }
 
-func (a AssertionNode) NodeType() string {
-	return "Assertion"
+func (a AssertionNode) NodeType() NodeType {
+	return NodeTypeAssertion
 }

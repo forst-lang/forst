@@ -75,3 +75,7 @@ func (tc *TypeChecker) popScope() {
 		panic("no parent scope to pop from, we are already in the global scope")
 	}
 }
+
+func (s *Scope) IsFunction() bool {
+	return s.Node != nil && s.Node.NodeType() == ast.NodeTypeFunction
+}

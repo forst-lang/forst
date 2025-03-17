@@ -11,8 +11,8 @@ func (v VariableNode) String() string {
 	return v.Ident.String()
 }
 
-func (v VariableNode) NodeType() string {
-	return "Variable"
+func (v VariableNode) NodeType() NodeType {
+	return NodeTypeVariable
 }
 
 func (v VariableNode) Id() string {
