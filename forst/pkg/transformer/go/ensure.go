@@ -57,7 +57,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						goast.NewIdent(ensure.Variable.Id()),
+						transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.LSS,
@@ -71,7 +71,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						goast.NewIdent(ensure.Variable.Id()),
+						transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.GTR,
@@ -87,7 +87,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 					Sel: goast.NewIdent("HasPrefix"),
 				},
 				Args: []goast.Expr{
-					goast.NewIdent(ensure.Variable.Id()),
+					transformExpression(ensure.Variable),
 					transformExpression(constraint.Args[0]),
 				},
 			})
@@ -110,7 +110,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Min constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.LSS,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -119,7 +119,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("Max constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.GTR,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -128,7 +128,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("LessThan constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.GEQ,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -137,7 +137,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 				panic("GreaterThan constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.LEQ,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -159,7 +159,7 @@ func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr 
 				panic("Min constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.LSS,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -168,7 +168,7 @@ func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr 
 				panic("Max constraint requires 1 argument")
 			}
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.GTR,
 				Y:  transformExpression(constraint.Args[0]),
 			}
@@ -187,13 +187,13 @@ func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 		switch constraint.Name {
 		case "True":
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.EQL,
 				Y:  goast.NewIdent(BOOL_CONSTANT_TRUE),
 			}
 		case "False":
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.EQL,
 				Y:  goast.NewIdent(BOOL_CONSTANT_FALSE),
 			}
@@ -212,7 +212,7 @@ func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr 
 		switch constraint.Name {
 		case NIL_CONSTRAINT:
 			expr = &goast.BinaryExpr{
-				X:  goast.NewIdent(ensure.Variable.Id()),
+				X:  transformExpression(ensure.Variable),
 				Op: token.NEQ,
 				Y:  goast.NewIdent(NIL_CONSTANT),
 			}

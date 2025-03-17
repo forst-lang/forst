@@ -10,50 +10,66 @@ import (
 type Transformer struct {
 	TypeChecker  *typechecker.TypeChecker
 	currentScope *typechecker.Scope
+
+	Output *TransformerOutput
 }
 
 func New(tc *typechecker.TypeChecker) *Transformer {
 	return &Transformer{
 		TypeChecker:  tc,
 		currentScope: tc.GlobalScope(),
+		Output:       &TransformerOutput{},
 	}
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
-	var packageName string
-	var decls []goast.Decl
-
-	// TODO: If we are calling ensure anywhere, import the errors package
-
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			packageName = string(n.Ident.Id)
+			t.Output.SetPackageName(string(n.Ident.Id))
 		case ast.ImportNode:
 			decl := t.transformImport(n)
-			decls = append(decls, decl)
+			t.Output.AddImport(decl)
 		case ast.ImportGroupNode:
 			decl := t.transformImportGroup(n)
-			decls = append(decls, decl)
+			t.Output.AddImportGroup(decl)
 		case ast.FunctionNode:
 			decl, err := t.transformFunction(n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Id, err)
 			}
-			decls = append(decls, decl)
+			t.Output.AddFunction(decl)
 		}
 	}
 
-	if packageName == "" {
-		packageName = "main"
+	return t.Output.GenerateFile()
+}
+
+func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
+	scope := t.currentScope
+	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
+		scope = scope.Parent
+	}
+	if scope.Node == nil {
+		return ast.FunctionNode{}, fmt.Errorf("no function found")
+	}
+	return scope.Node.(ast.FunctionNode), nil
+}
+
+func (t *Transformer) isMainPackage() bool {
+	return t.Output.PackageName() == "main"
+}
+
+func (t *Transformer) isMainFunction() bool {
+	if !t.isMainPackage() {
+		return false
 	}
 
-	file := &goast.File{
-		Name:  goast.NewIdent(packageName),
-		Decls: decls,
+	currentFunction, err := t.currentFunction()
+	if err != nil {
+		return false
 	}
-
-	return file, nil
+	return currentFunction.HasMainFunctionName()
 }

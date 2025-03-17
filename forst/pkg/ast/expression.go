@@ -40,6 +40,16 @@ func (u UnaryExpressionNode) isExpression()  {}
 func (b BinaryExpressionNode) isExpression() {}
 func (f FunctionCallNode) isExpression()     {}
 
+func (u UnaryExpressionNode) NodeType() NodeType {
+	return NodeTypeUnaryExpression
+}
+func (b BinaryExpressionNode) NodeType() NodeType {
+	return NodeTypeBinaryExpression
+}
+func (f FunctionCallNode) NodeType() NodeType {
+	return NodeTypeFunctionCall
+}
+
 func (u UnaryExpressionNode) String() string {
 	return fmt.Sprintf("%s %s", u.Operator, u.Operand.String())
 }

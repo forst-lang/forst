@@ -31,21 +31,17 @@ type BoolLiteralNode struct {
 	Type  TypeNode
 }
 
-// NodeType returns the type of this AST node
-func (i IntLiteralNode) NodeType() string {
-	return "IntLiteral"
+func (i IntLiteralNode) NodeType() NodeType {
+	return NodeTypeIntLiteral
 }
-
-func (f FloatLiteralNode) NodeType() string {
-	return "FloatLiteral"
+func (f FloatLiteralNode) NodeType() NodeType {
+	return NodeTypeFloatLiteral
 }
-
-func (s StringLiteralNode) NodeType() string {
-	return "StringLiteral"
+func (s StringLiteralNode) NodeType() NodeType {
+	return NodeTypeStringLiteral
 }
-
-func (b BoolLiteralNode) NodeType() string {
-	return "BoolLiteral"
+func (b BoolLiteralNode) NodeType() NodeType {
+	return NodeTypeBoolLiteral
 }
 
 // Marker methods to satisfy LiteralNode interface

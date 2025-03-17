@@ -116,6 +116,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))
 				}
 
+				// TODO: If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
 				if inferredType[len(inferredType)-1].Name != ast.TypeError {
 					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Name)
 				}

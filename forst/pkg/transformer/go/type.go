@@ -18,6 +18,8 @@ func transformType(n ast.TypeNode) *goast.Ident {
 		return goast.NewIdent("bool")
 	case ast.TypeVoid:
 		return goast.NewIdent("void")
+	case ast.TypeError:
+		return goast.NewIdent("error")
 	}
 	return goast.NewIdent(n.Name)
 }

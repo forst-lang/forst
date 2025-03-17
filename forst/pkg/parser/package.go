@@ -9,9 +9,8 @@ func (p *Parser) parsePackage() ast.PackageNode {
 
 	packageName := p.expect(ast.TokenIdentifier).Value
 
-	if packageName == "main" {
-		p.context.IsMainPackage = true
-	}
+	node := ast.PackageNode{Ident: ast.Ident{Id: ast.Identifier(packageName)}}
+	p.context.Package = &node
 
-	return ast.PackageNode{Ident: ast.Ident{Id: ast.Identifier(packageName)}}
+	return node
 }

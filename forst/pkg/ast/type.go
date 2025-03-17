@@ -2,6 +2,7 @@ package ast
 
 // TypeNode represents a type in the Forst language
 type TypeNode struct {
+	Node
 	Name string
 }
 
@@ -32,8 +33,8 @@ func (t TypeNode) IsImplicit() bool {
 }
 
 // NodeType returns the type of this AST node
-func (t TypeNode) NodeType() string {
-	return "Type"
+func (t TypeNode) NodeType() NodeType {
+	return NodeTypeType
 }
 
 func (t TypeNode) String() string {

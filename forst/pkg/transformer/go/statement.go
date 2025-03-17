@@ -7,17 +7,83 @@ import (
 	"strconv"
 )
 
+// Returns an expression that represents an error when evaluated
+func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
+	if stmt.Error != nil {
+		if errVar, ok := (*stmt.Error).(ast.EnsureErrorVar); ok {
+			return &goast.Ident{
+				Name: string(errVar),
+			}
+		}
+
+		t.Output.EnsureImport("errors")
+
+		return &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("errors"),
+				Sel: goast.NewIdent("New"),
+			},
+			Args: []goast.Expr{
+				&goast.BasicLit{
+					Kind:  token.STRING,
+					Value: strconv.Quote((*stmt.Error).String()),
+				},
+			},
+		}
+	}
+
+	errorMessage := &goast.BinaryExpr{
+		X: &goast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote("assertion failed: "),
+		},
+		Op: token.ADD,
+		Y: &goast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(stmt.Assertion.String()),
+		},
+	}
+
+	t.Output.EnsureImport("errors")
+
+	return &goast.CallExpr{
+		Fun: &goast.SelectorExpr{
+			X:   goast.NewIdent("errors"),
+			Sel: goast.NewIdent("New"),
+		},
+		Args: []goast.Expr{
+			errorMessage,
+		},
+	}
+}
+
+func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
+	errorExpr := t.transformErrorExpression(stmt)
+
+	if t.isMainFunction() {
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun: goast.NewIdent("panic"),
+				Args: []goast.Expr{
+					errorExpr,
+				},
+			},
+		}
+	}
+
+	return &goast.ReturnStmt{
+		Results: []goast.Expr{
+			errorExpr,
+		},
+	}
+}
+
 // transformStatement converts a Forst statement to a Go statement
 func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
 		condition := t.transformEnsureCondition(s)
-
-		errorMsg := "assertion failed: " + s.Assertion.String()
-		if s.Error != nil {
-			errorMsg = (*s.Error).String()
-		}
 
 		finallyStmts := []goast.Stmt{}
 
@@ -30,25 +96,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			t.popScope()
 		}
 
+		errorStmt := t.transformErrorStatement(s)
+
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
-				List: append(finallyStmts, &goast.ReturnStmt{
-					Results: []goast.Expr{
-						&goast.CallExpr{
-							Fun: &goast.SelectorExpr{
-								X:   goast.NewIdent("errors"),
-								Sel: goast.NewIdent("New"),
-							},
-							Args: []goast.Expr{
-								&goast.BasicLit{
-									Kind:  token.STRING,
-									Value: strconv.Quote(errorMsg),
-								},
-							},
-						},
-					},
-				}),
+				List: append(finallyStmts, errorStmt),
 			},
 		}
 	case ast.ReturnNode:
@@ -68,6 +121,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 				Fun:  goast.NewIdent(s.Function.String()),
 				Args: args,
 			},
+		}
+	case ast.AssignmentNode:
+		lhs := make([]goast.Expr, len(s.LValues))
+		for i, lval := range s.LValues {
+			lhs[i] = transformExpression(lval)
+		}
+		rhs := make([]goast.Expr, len(s.RValues))
+		for i, rval := range s.RValues {
+			rhs[i] = transformExpression(rval)
+		}
+		operator := token.ASSIGN
+		if s.IsShort {
+			operator = token.DEFINE
+		}
+		return &goast.AssignStmt{
+			Lhs: lhs,
+			Tok: operator,
+			Rhs: rhs,
 		}
 	default:
 		return &goast.EmptyStmt{}
