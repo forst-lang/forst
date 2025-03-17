@@ -55,9 +55,9 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 			}
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
-					Fun: &goast.SelectorExpr{
-						X:   goast.NewIdent("len"),
-						Sel: goast.NewIdent("s"),
+					Fun: goast.NewIdent("len"),
+					Args: []goast.Expr{
+						goast.NewIdent(ensure.Variable.Id()),
 					},
 				},
 				Op: token.LSS,
@@ -69,9 +69,9 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 			}
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
-					Fun: &goast.SelectorExpr{
-						X:   goast.NewIdent("len"),
-						Sel: goast.NewIdent("s"),
+					Fun: goast.NewIdent("len"),
+					Args: []goast.Expr{
+						goast.NewIdent(ensure.Variable.Id()),
 					},
 				},
 				Op: token.GTR,
@@ -87,7 +87,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 					Sel: goast.NewIdent("HasPrefix"),
 				},
 				Args: []goast.Expr{
-					goast.NewIdent("s"),
+					goast.NewIdent(ensure.Variable.Id()),
 					transformExpression(constraint.Args[0]),
 				},
 			})
