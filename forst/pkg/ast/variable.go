@@ -15,5 +15,9 @@ func (v VariableNode) NodeType() string {
 	return "Variable"
 }
 
+func (v VariableNode) Id() string {
+	return string(v.Ident.Id)
+}
+
 // Implement ValueNode interface for VariableNode
 func (v VariableNode) isValue() {}

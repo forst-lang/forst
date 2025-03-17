@@ -53,12 +53,33 @@ func (p *Parser) parseBlock(blockContext *BlockContext, context *Context) []ast.
 				}
 
 				body = append(body, ast.AssignmentNode{
-					Idents: []ast.Ident{
-						{Id: ast.Identifier(firstIdent.Value)},
-						{Id: ast.Identifier(secondIdent.Value)},
+					LValues: []ast.VariableNode{
+						{Ident: ast.Ident{Id: ast.Identifier(firstIdent.Value)}},
+						{Ident: ast.Ident{Id: ast.Identifier(secondIdent.Value)}},
 					},
-					Values:        exprs,
+					RValues:       exprs,
 					ExplicitTypes: []*ast.TypeNode{nil, nil},
+					IsShort:       assignToken.Type == ast.TokenColonEquals,
+				})
+			} else if p.peek().Type == ast.TokenColonEquals || p.peek().Type == ast.TokenEquals {
+				// Multiple assignment
+				ident := p.expect(ast.TokenIdentifier)
+
+				// Expect assignment operator
+				assignToken := p.current()
+				if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
+					panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+				}
+				p.advance()
+
+				expr := p.parseExpression(context)
+
+				body = append(body, ast.AssignmentNode{
+					LValues: []ast.VariableNode{
+						{Ident: ast.Ident{Id: ast.Identifier(ident.Value)}},
+					},
+					RValues:       []ast.ExpressionNode{expr},
+					ExplicitTypes: []*ast.TypeNode{nil},
 					IsShort:       assignToken.Type == ast.TokenColonEquals,
 				})
 			} else {

@@ -6,6 +6,23 @@ import (
 	"forst/pkg/ast"
 )
 
+type ParseError struct {
+	Token   ast.Token
+	Context *Context
+	Msg     string
+}
+
+func (e *ParseError) Location() string {
+	if e.Context != nil {
+		return fmt.Sprintf("%s:%d:%d", e.Context.FilePath, e.Token.Line, e.Token.Column)
+	}
+	return fmt.Sprintf("line %d, column %d", e.Token.Line, e.Token.Column)
+}
+
+func (e *ParseError) Error() string {
+	return fmt.Sprintf("Parse error at %s: %s", e.Location(), e.Msg)
+}
+
 type Scope struct {
 	// All variables defined in the scope
 	Variables map[string]ast.TypeNode
@@ -13,38 +30,33 @@ type Scope struct {
 	FunctionName *string
 }
 
-// Mutable context for the parser to track the current state
-type Context struct {
-	IsMainPackage bool
-	Scope         *Scope
-}
-
 const MAIN_FUNCTION_NAME = "main"
 
 // Parse the tokens in a Forst file into a list of Forst AST nodes
-func (p *Parser) ParseFile() []ast.Node {
+func (p *Parser) ParseFile() ([]ast.Node, error) {
 	nodes := []ast.Node{}
-
-	context := Context{
-		IsMainPackage: false,
-	}
 
 	for p.current().Type != ast.TokenEOF {
 		if p.current().Type == ast.TokenPackage {
-			nodes = append(nodes, p.parsePackage(&context))
+			nodes = append(nodes, p.parsePackage())
 		} else if p.current().Type == ast.TokenImport {
 			nodes = append(nodes, p.parseImports()...)
 		} else if p.current().Type == ast.TokenFunction {
-			context.Scope = &Scope{
+			p.context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),
 			}
-			nodes = append(nodes, p.parseFunctionDefinition(&context))
+			nodes = append(nodes, p.parseFunctionDefinition())
 		} else {
-			panic(fmt.Sprintf("Unexpected token in file: %s", p.current().Value))
+			currentToken := p.current()
+			return nil, &ParseError{
+				Token:   currentToken,
+				Context: p.context,
+				Msg:     fmt.Sprintf("unexpected token: %s", currentToken.Value),
+			}
 		}
 	}
 
-	return nodes
+	return nodes, nil
 }
 
 func (c *Context) IsMainFunction() bool {

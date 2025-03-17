@@ -4,7 +4,7 @@ import "fmt"
 
 // Ensure Node
 type EnsureNode struct {
-	Variable  string
+	Variable  VariableNode
 	Assertion AssertionNode
 	/// Is optional if we're in the main function of the main package
 	Error *EnsureErrorNode
@@ -46,4 +46,12 @@ func (e EnsureNode) String() string {
 		return fmt.Sprintf("Ensure(%s, %s)", e.Variable, e.Assertion)
 	}
 	return fmt.Sprintf("Ensure(%s, %s, %s)", e.Variable, e.Assertion, (*e.Error).String())
+}
+
+func (e EnsureBlockNode) String() string {
+	return "EnsureBlock"
+}
+
+func (e EnsureBlockNode) NodeType() string {
+	return "EnsureBlock"
 }

@@ -11,15 +11,21 @@ import (
 	"forst/pkg/typechecker"
 	goast "go/ast"
 	"os"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type ProgramArgs struct {
 	filePath string
 	debug    bool
+	trace    bool
 }
 
 func parseArgs() ProgramArgs {
 	debug := flag.Bool("debug", false, "Enable debug output")
+	trace := flag.Bool("trace", false, "Enable trace output")
+
 	flag.Parse()
 
 	args := flag.Args()
@@ -30,6 +36,7 @@ func parseArgs() ProgramArgs {
 	return ProgramArgs{
 		filePath: args[0],
 		debug:    *debug,
+		trace:    *trace,
 	}
 }
 
@@ -42,80 +49,92 @@ func readSourceFile(filePath string) ([]byte, error) {
 }
 
 func debugPrintTokens(tokens []ast.Token) {
-	fmt.Println("\n=== Tokens ===")
+	log.Debug("=== Tokens ===")
 	for _, t := range tokens {
-		fmt.Printf("%s:%d:%d: %-12s '%s'\n",
-			t.Path, t.Line, t.Column,
-			t.Type, t.Value)
+		log.WithFields(log.Fields{
+			"location": fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column),
+			"type":     string(t.Type),
+			"value":    t.Value,
+		}).Debug("Token")
 	}
 }
-
 func debugPrintForstAST(forstAST []ast.Node) {
-	fmt.Println("\n=== Forst AST ===")
+	log.Debug("=== Forst AST ===")
 	for _, node := range forstAST {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			fmt.Printf("  Package: %s\n", n.Ident)
+			log.WithField("package", n.Ident).Debug("Package declaration")
 		case ast.ImportNode:
-			fmt.Printf("  Import: %s\n", n.Path)
+			log.WithField("path", n.Path).Debug("Import")
 		case ast.ImportGroupNode:
-			fmt.Printf("  ImportGroup: %v\n", n.Imports)
+			log.WithField("imports", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
+			fields := log.Fields{
+				"name": n.Ident.Id,
+				"body": n.Body,
+			}
 			if n.HasExplicitReturnType() {
-				fmt.Printf("  Function: %s -> %s\n", n.Ident.Id, n.ReturnType)
+				returnTypes := make([]string, len(n.ReturnTypes))
+				for i, rt := range n.ReturnTypes {
+					returnTypes[i] = rt.String()
+				}
+				fields["returnTypes"] = strings.Join(returnTypes, ", ")
 			} else {
-				fmt.Printf("  Function: %s -> (?)\n", n.Ident.Id)
+				fields["returnTypes"] = "(?)"
 			}
-		case ast.EnsureNode:
-			if n.Error != nil {
-				fmt.Printf("  Ensure: %s or %s\n", n.Assertion, (*n.Error).String())
-			} else {
-				fmt.Printf("  Ensure: %s\n", n.Assertion)
-			}
-		case ast.ReturnNode:
-			fmt.Printf("  Return: %s\n", n.Value)
+			log.WithFields(fields).Debug("Function declaration")
 		}
 	}
 }
 
 func debugPrintGoAST(goFile *goast.File) {
-	fmt.Println("\n=== Go AST ===")
-	fmt.Printf("  Package: %s\n", goFile.Name)
+	log.Debug("=== Go AST ===")
+	log.WithField("package", goFile.Name).Debug("Package")
 
-	fmt.Println("  Imports:")
+	log.Debug("Imports")
 	for _, imp := range goFile.Imports {
-		fmt.Printf("    %s\n", imp.Path.Value)
+		log.WithField("path", imp.Path.Value).Debug("Import")
 	}
 
-	fmt.Println("  Declarations:")
+	log.Debug("Declarations")
 	for _, decl := range goFile.Decls {
 		switch d := decl.(type) {
 		case *goast.FuncDecl:
-			fmt.Printf("    Function: %s\n", d.Name.Name)
+			log.WithField("name", d.Name.Name).Debug("Function")
 		case *goast.GenDecl:
-			fmt.Printf("    GenDecl: %s\n", d.Tok)
+			log.WithField("token", d.Tok).Debug("GenDecl")
 		}
 	}
 }
 
 func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
-	fmt.Println("\n=== Type Check Results ===")
+	log.Debug("\n=== Type Check Results ===")
 
-	fmt.Println("  Functions:")
+	log.Debug("Functions:")
 	for id, sig := range tc.Functions {
-		fmt.Printf("    %s(", id)
+		params := make([]string, len(sig.Parameters))
 		for i, param := range sig.Parameters {
-			if i > 0 {
-				fmt.Print(", ")
-			}
-			fmt.Printf("%s: %s", param.Id(), param.Type)
+			params[i] = fmt.Sprintf("%s: %s", param.Id(), param.Type)
 		}
-		fmt.Printf(") -> %s\n", sig.ReturnType)
+
+		returnTypes := make([]string, len(sig.ReturnTypes))
+		for i, rt := range sig.ReturnTypes {
+			returnTypes[i] = rt.String()
+		}
+
+		log.WithFields(log.Fields{
+			"function":    id,
+			"parameters":  params,
+			"returnTypes": returnTypes,
+		}).Debug("function signature")
 	}
 
-	fmt.Println("  Definitions:")
+	log.Debug("Definitions:")
 	for id, def := range tc.Defs {
-		fmt.Printf("  %s -> %T\n", id, def)
+		log.WithFields(log.Fields{
+			"definition": id,
+			"type":       fmt.Sprintf("%T", def),
+		}).Debug("definition")
 	}
 }
 
@@ -125,11 +144,24 @@ func main() {
 		return
 	}
 
+	if args.trace {
+		log.SetLevel(log.TraceLevel)
+	} else if args.debug {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	log.SetFormatter(&log.TextFormatter{
+		DisableTimestamp: true,
+		DisableQuote:     true,
+	})
+
 	source, err := readSourceFile(args.filePath)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	log.Info("Performing lexical analysis...")
 
 	// Lexical Analysis
 	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
@@ -137,31 +169,43 @@ func main() {
 		debugPrintTokens(tokens)
 	}
 
+	log.Info("Performing syntax analysis...")
+
 	// Parsing
-	forstNodes := parser.NewParser(tokens).ParseFile()
+	forstNodes, err := parser.NewParser(tokens, args.filePath).ParseFile()
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
 	if args.debug {
 		debugPrintForstAST(forstNodes)
 	}
+
+	log.Info("Performing semantic analysis...")
 
 	// Semantic Analysis
 	checker := typechecker.New()
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
-		fmt.Printf("Type checking error: %v\n", err)
-		return
+		log.Errorf("Type checking error: %v\n", err)
+		log.Debug("  ")
+		checker.DebugPrintCurrentScope()
+		os.Exit(1)
 	}
 
 	if args.debug {
 		debugPrintTypeInfo(checker)
 	}
 
+	log.Info("Performing code generation...")
+
 	// Transform to Go AST with type information
-	transformer := transformer_go.New()
-	goAST, err := transformer.TransformForstFileToGo(forstNodes, checker)
+	transformer := transformer_go.New(checker)
+	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
-		fmt.Printf("Transformation error: %v\n", err)
-		return
+		log.Errorf("Transformation error: %v\n", err)
+		os.Exit(1)
 	}
 
 	if args.debug {
@@ -172,7 +216,8 @@ func main() {
 	goCode := generators.GenerateGoCode(goAST)
 
 	if args.debug {
-		fmt.Println("\n=== Generated Go Code ===")
+		log.Debug("=== Generated Go Code ===")
 	}
+
 	fmt.Println(goCode)
 }

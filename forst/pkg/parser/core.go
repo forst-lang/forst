@@ -6,14 +6,26 @@ import (
 	"forst/pkg/ast"
 )
 
+// Mutable context for the parser to track the current state
+type Context struct {
+	IsMainPackage bool
+	Scope         *Scope
+	FilePath      string
+}
+
 type Parser struct {
 	tokens       []ast.Token
 	currentIndex int
+	context      *Context
 }
 
 // Create a new parser instance
-func NewParser(tokens []ast.Token) *Parser {
-	return &Parser{tokens: tokens, currentIndex: 0}
+func NewParser(tokens []ast.Token, filePath string) *Parser {
+	return &Parser{
+		tokens:       tokens,
+		currentIndex: 0,
+		context:      &Context{FilePath: filePath},
+	}
 }
 
 // Get the current token

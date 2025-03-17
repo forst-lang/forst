@@ -38,11 +38,11 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	return params
 }
 
-func (p *Parser) parseReturnType() ast.TypeNode {
-	returnType := ast.TypeNode{Name: ast.TypeImplicit}
+func (p *Parser) parseReturnType() []ast.TypeNode {
+	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		returnType = p.parseType()
+		returnType = append(returnType, p.parseType())
 	}
 	return returnType
 }
@@ -63,22 +63,22 @@ func (p *Parser) parseFunctionBody(context *Context) []ast.Node {
 }
 
 // Parse a function definition
-func (p *Parser) parseFunctionDefinition(context *Context) ast.FunctionNode {
+func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.expect(ast.TokenFunction)           // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
 
-	context.Scope.FunctionName = &name.Value
+	p.context.Scope.FunctionName = &name.Value
 
 	params := p.parseFunctionSignature() // Parse function parameters
 
 	returnType := p.parseReturnType()
 
-	body := p.parseFunctionBody(context)
+	body := p.parseFunctionBody(p.context)
 
 	return ast.FunctionNode{
-		Ident:      ast.Ident{Id: ast.Identifier(name.Value)},
-		ReturnType: returnType,
-		Params:     params,
-		Body:       body,
+		Ident:       ast.Ident{Id: ast.Identifier(name.Value)},
+		ReturnTypes: returnType,
+		Params:      params,
+		Body:        body,
 	}
 }

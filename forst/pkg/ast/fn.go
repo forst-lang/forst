@@ -4,10 +4,10 @@ import "fmt"
 
 // Function Node represents a function definition with optional parameters and an optional return type
 type FunctionNode struct {
-	Ident      Ident
-	Params     []ParamNode
-	ReturnType TypeNode
-	Body       []Node
+	Ident       Ident
+	Params      []ParamNode
+	ReturnTypes []TypeNode
+	Body        []Node
 }
 
 // NodeType returns the type of this AST node
@@ -16,7 +16,7 @@ func (f FunctionNode) NodeType() string {
 }
 
 func (f FunctionNode) HasExplicitReturnType() bool {
-	return f.ReturnType.IsExplicit()
+	return len(f.ReturnTypes) > 0
 }
 
 func (f FunctionNode) String() string {
