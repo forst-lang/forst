@@ -24,10 +24,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		if s.Block != nil {
 			t.pushScope(s.Block)
 			for _, stmt := range s.Block.Body {
-				finallyStmts = append(finallyStmts, t.transformStatement(stmt))
+				goStmt := t.transformStatement(stmt)
+				finallyStmts = append(finallyStmts, goStmt)
 			}
 			t.popScope()
 		}
+
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
@@ -49,6 +51,17 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
 				transformExpression(s.Value),
+			},
+		}
+	case ast.FunctionCallNode:
+		args := make([]goast.Expr, len(s.Arguments))
+		for i, arg := range s.Arguments {
+			args[i] = transformExpression(arg)
+		}
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun:  goast.NewIdent(s.Function.String()),
+				Args: args,
 			},
 		}
 	default:

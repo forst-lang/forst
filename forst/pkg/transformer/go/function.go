@@ -32,7 +32,8 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		stmts = append(stmts, t.transformStatement(stmt))
+		goStmt := t.transformStatement(stmt)
+		stmts = append(stmts, goStmt)
 	}
 
 	t.popScope()
