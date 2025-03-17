@@ -16,6 +16,8 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 			}
 		}
 
+		t.Output.EnsureImport("errors")
+
 		return &goast.CallExpr{
 			Fun: &goast.SelectorExpr{
 				X:   goast.NewIdent("errors"),
@@ -41,6 +43,8 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 			Value: strconv.Quote(stmt.Assertion.String()),
 		},
 	}
+
+	t.Output.EnsureImport("errors")
 
 	return &goast.CallExpr{
 		Fun: &goast.SelectorExpr{

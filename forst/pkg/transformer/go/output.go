@@ -1,6 +1,10 @@
 package transformer_go
 
-import goast "go/ast"
+import (
+	goast "go/ast"
+	"go/token"
+	"strings"
+)
 
 type TransformerOutput struct {
 	packageName  string
@@ -16,6 +20,29 @@ func (t *TransformerOutput) SetPackageName(name string) {
 
 func (t *TransformerOutput) AddImport(imp *goast.GenDecl) {
 	t.imports = append(t.imports, imp)
+}
+
+func (t *TransformerOutput) EnsureImport(name string) {
+	for _, imp := range t.imports {
+		if imp.Specs[0].(*goast.ImportSpec).Name.String() == name {
+			return
+		}
+	}
+
+	t.imports = append(t.imports, &goast.GenDecl{
+		Tok: token.IMPORT,
+		Specs: []goast.Spec{
+			&goast.ImportSpec{
+				Name: &goast.Ident{
+					Name: name,
+				},
+				Path: &goast.BasicLit{
+					Kind:  token.STRING,
+					Value: `"` + strings.Trim(name, `"`) + `"`,
+				},
+			},
+		},
+	})
 }
 
 func (t *TransformerOutput) AddImportGroup(importGroup *goast.GenDecl) {
@@ -39,13 +66,35 @@ func (t *TransformerOutput) PackageName() string {
 
 func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 	var decls []goast.Decl
+	var imports []*goast.ImportSpec
+	seenImports := make(map[string]bool)
 
+	// Process individual imports
 	for _, imp := range t.imports {
-		decls = append(decls, goast.Decl(imp))
+		importSpec := imp.Specs[0].(*goast.ImportSpec)
+		importPath := importSpec.Path.Value
+		if !seenImports[importPath] {
+			imports = append(imports, importSpec)
+			decls = append(decls, goast.Decl(imp))
+			seenImports[importPath] = true
+		}
 	}
+
+	// Process import groups
 	for _, imp := range t.importGroups {
-		decls = append(decls, goast.Decl(imp))
+		for _, spec := range imp.Specs {
+			importSpec := spec.(*goast.ImportSpec)
+			importPath := importSpec.Path.Value
+			if !seenImports[importPath] {
+				imports = append(imports, importSpec)
+				seenImports[importPath] = true
+			}
+		}
+		if len(imp.Specs) > 0 {
+			decls = append(decls, goast.Decl(imp))
+		}
 	}
+
 	for _, fn := range t.functions {
 		decls = append(decls, goast.Decl(fn))
 	}
@@ -54,8 +103,9 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 	}
 
 	file := &goast.File{
-		Name:  goast.NewIdent(t.PackageName()),
-		Decls: decls,
+		Name:    goast.NewIdent(t.PackageName()),
+		Decls:   decls,
+		Imports: imports,
 	}
 
 	return file, nil

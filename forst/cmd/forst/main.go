@@ -67,7 +67,7 @@ func debugPrintForstAST(forstAST []ast.Node) {
 		case ast.ImportNode:
 			log.WithField("path", n.Path).Debug("Import")
 		case ast.ImportGroupNode:
-			log.WithField("imports", n.Imports).Debug("Import group")
+			log.WithField("importGroup", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
 			fields := log.Fields{
 				"name": n.Ident.Id,
