@@ -7,7 +7,7 @@ import (
 
 fn mustBeARealName(name: String) {
     ensure name is Min(1)
-        or TooShort("Name must be at least 1 character longg")
+        or TooShort("Name must be at least 1 character long")
 }
 
 fn mustNotExceedSpeedLimit(speed: Int) {
@@ -25,7 +25,8 @@ fn checkConditions() {
 fn main() {
     err := checkConditions()
     ensure !err {
-        fmt.Println("Conditions not met")
+        fmt.Printf("Conditions not met: %s", err.Error())
+        fmt.Println()
         os.Exit(1)
     }
 }

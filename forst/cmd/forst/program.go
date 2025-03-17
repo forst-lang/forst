@@ -122,6 +122,12 @@ func (p *Program) compileFile() error {
 		fmt.Println(goCode)
 	}
 
+	if p.Args.command == "run" {
+		if err := runGoProgram(p.Args.outputPath); err != nil {
+			return fmt.Errorf("error running program: %v", err)
+		}
+	}
+
 	return nil
 }
 
