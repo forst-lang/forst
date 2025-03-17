@@ -172,7 +172,11 @@ func main() {
 	log.Info("Performing syntax analysis...")
 
 	// Parsing
-	forstNodes := parser.NewParser(tokens).ParseFile()
+	forstNodes, err := parser.NewParser(tokens, args.filePath).ParseFile()
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
 	if args.debug {
 		debugPrintForstAST(forstNodes)
 	}
@@ -187,7 +191,7 @@ func main() {
 		log.Errorf("Type checking error: %v\n", err)
 		log.Debug("  ")
 		checker.DebugPrintCurrentScope()
-		return
+		os.Exit(1)
 	}
 
 	if args.debug {
@@ -201,7 +205,7 @@ func main() {
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		log.Errorf("Transformation error: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	if args.debug {
