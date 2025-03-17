@@ -20,11 +20,13 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 
 	// Create function return type
-	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n)
+	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n, t.currentScope)
 	if err != nil {
 		return nil, err
 	}
 	results := transformTypes(returnType)
+
+	t.pushScope(n)
 
 	// Create function body statements
 	stmts := []goast.Stmt{}
@@ -32,6 +34,8 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	for _, stmt := range n.Body {
 		stmts = append(stmts, t.transformStatement(stmt))
 	}
+
+	t.popScope()
 
 	// Create the function declaration
 	return &goast.FuncDecl{

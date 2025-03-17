@@ -11,9 +11,10 @@ type TypeChecker struct {
 	Defs         map[ast.Identifier]ast.Node
 	Uses         map[ast.Identifier][]ast.Node
 	Functions    map[ast.Identifier]FunctionSignature
-	hasher       *StructuralHasher
+	Hasher       *StructuralHasher
 	currentScope *Scope
-	Scopes       map[ast.Node]*Scope // Map AST nodes to their scopes
+	globalScope  *Scope
+	scopes       map[NodeHash]*Scope // Map AST nodes to their scopes
 	path         NodePath            // Track current position in AST
 }
 
@@ -28,9 +29,10 @@ func New() *TypeChecker {
 		Defs:         make(map[ast.Identifier]ast.Node),
 		Uses:         make(map[ast.Identifier][]ast.Node),
 		Functions:    make(map[ast.Identifier]FunctionSignature),
-		hasher:       &StructuralHasher{},
+		Hasher:       &StructuralHasher{},
 		currentScope: globalScope,
-		Scopes:       make(map[ast.Node]*Scope),
+		globalScope:  globalScope,
+		scopes:       make(map[NodeHash]*Scope),
 		path:         make(NodePath, 0),
 	}
 }
@@ -125,7 +127,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 // storeInferredType associates a type with a node by storing its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
-	hash := tc.hasher.Hash(node)
+	hash := tc.Hasher.Hash(node)
 	tc.Types[hash] = types
 }
 
@@ -141,4 +143,8 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	for _, symbol := range tc.currentScope.Symbols {
 		fmt.Printf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
+}
+
+func (tc *TypeChecker) GlobalScope() *Scope {
+	return tc.globalScope
 }

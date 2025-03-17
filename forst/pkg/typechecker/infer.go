@@ -129,7 +129,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 }
 
 func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, error) {
-	hash := tc.hasher.Hash(node)
+	hash := tc.Hasher.Hash(node)
 	if existingType, exists := tc.Types[hash]; exists {
 		// Ignore types that are still marked as implicit, as they are not yet inferred
 		if len(existingType) > 0 {
@@ -141,7 +141,7 @@ func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, er
 }
 
 func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
-	variableType, err := tc.LookupVariableType(&ensure.Variable)
+	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.currentScope)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		tc.pushScope(&n)
+		tc.pushScope(n)
 
 		_, err = tc.inferNodeTypes(n.Body)
 		if err != nil {
@@ -283,7 +283,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 	case ast.VariableNode:
 		// Look up the variable's type and store it for this node
-		typ, err := tc.LookupVariableType(&e)
+		typ, err := tc.LookupVariableType(&e, tc.currentScope)
 		if err != nil {
 			return nil, err
 		}

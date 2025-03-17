@@ -19,22 +19,29 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			errorMsg = (*s.Error).String()
 		}
 
+		finallyStmts := []goast.Stmt{}
+
+		if s.Block != nil {
+			t.pushScope(s.Block)
+			for _, stmt := range s.Block.Body {
+				finallyStmts = append(finallyStmts, t.transformStatement(stmt))
+			}
+			t.popScope()
+		}
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
-				List: []goast.Stmt{
-					&goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: goast.NewIdent("panic"),
-							Args: []goast.Expr{
-								&goast.BasicLit{
-									Kind:  token.STRING,
-									Value: strconv.Quote(errorMsg),
-								},
+				List: append(finallyStmts, &goast.ExprStmt{
+					X: &goast.CallExpr{
+						Fun: goast.NewIdent("panic"),
+						Args: []goast.Expr{
+							&goast.BasicLit{
+								Kind:  token.STRING,
+								Value: strconv.Quote(errorMsg),
 							},
 						},
 					},
-				},
+				}),
 			},
 		}
 	case ast.ReturnNode:

@@ -8,12 +8,14 @@ import (
 )
 
 type Transformer struct {
-	TypeChecker *typechecker.TypeChecker
+	TypeChecker  *typechecker.TypeChecker
+	currentScope *typechecker.Scope
 }
 
 func New(tc *typechecker.TypeChecker) *Transformer {
 	return &Transformer{
-		TypeChecker: tc,
+		TypeChecker:  tc,
+		currentScope: tc.GlobalScope(),
 	}
 }
 

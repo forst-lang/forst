@@ -145,16 +145,15 @@ func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 		}
 		fmt.Printf(") -> %s\n", strings.Join(returnTypes, ", "))
 
-		// Print symbols in function's scope
-		for _, scope := range tc.Scopes {
-			if funcNode, isFuncNode := scope.Node.(ast.FunctionNode); isFuncNode && funcNode.Id() == id {
-				fmt.Printf("      Scope symbols:\n")
-				for symId, symbol := range scope.Symbols {
-					fmt.Printf("        %s: %s (%v)\n", symId, symbol.Types, symbol.Kind)
-				}
-			}
-		}
-
+		// // Print symbols in function's scope
+		// for _, scope := range tc.Scopes {
+		// 	if funcNode, isFuncNode := scope.Node.(ast.FunctionNode); isFuncNode && funcNode.Id() == id {
+		// 		fmt.Printf("      Scope symbols:\n")
+		// 		for symId, symbol := range scope.Symbols {
+		// 			fmt.Printf("        %s: %s (%v)\n", symId, symbol.Types, symbol.Kind)
+		// 		}
+		// 	}
+		// }
 	}
 
 	fmt.Println("  Definitions:")

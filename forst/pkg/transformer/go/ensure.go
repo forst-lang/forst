@@ -229,7 +229,7 @@ func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
 		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
 	}
 
-	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure)
+	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure, t.currentScope)
 	if err != nil {
 		panic(err)
 	}

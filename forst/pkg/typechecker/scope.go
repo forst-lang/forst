@@ -44,8 +44,13 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ []ast.TypeNode, kin
 	tc.currentScope.Symbols[ident] = symbol
 }
 
+func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
+	hash := tc.Hasher.Hash(node)
+	return tc.scopes[hash]
+}
+
 func (tc *TypeChecker) pushScope(node ast.Node) {
-	fmt.Println("pushScope", node)
+	fmt.Printf("pushScope %v (hash: %d)\n", node, tc.Hasher.Hash(node))
 	newScope := &Scope{
 		Parent:   tc.currentScope,
 		Node:     node,
@@ -56,7 +61,8 @@ func (tc *TypeChecker) pushScope(node ast.Node) {
 	if tc.currentScope != nil {
 		tc.currentScope.Children = append(tc.currentScope.Children, newScope)
 	}
-	tc.Scopes[node] = newScope
+	hash := tc.Hasher.Hash(node)
+	tc.scopes[hash] = newScope
 	tc.currentScope = newScope
 }
 

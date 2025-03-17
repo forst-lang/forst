@@ -7,8 +7,8 @@ import (
 )
 
 // lookupVariableType finds a variable's type in the current scope chain
-func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode) (ast.TypeNode, error) {
-	symbol, err := tc.lookupSymbol(variable.Ident.Id)
+func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentScope *Scope) (ast.TypeNode, error) {
+	symbol, err := tc.lookupSymbol(variable.Ident.Id, currentScope)
 	if err != nil {
 		return ast.TypeNode{}, err
 	}
@@ -18,8 +18,8 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode) (ast.TypeN
 	return symbol.Types[0], nil
 }
 
-func (tc *TypeChecker) lookupSymbol(ident ast.Identifier) (*Symbol, error) {
-	for scope := tc.currentScope; scope != nil; scope = scope.Parent {
+func (tc *TypeChecker) lookupSymbol(ident ast.Identifier, currentScope *Scope) (*Symbol, error) {
+	for scope := currentScope; scope != nil; scope = scope.Parent {
 		if sym, exists := scope.Symbols[ident]; exists {
 			return &sym, nil
 		}
@@ -27,8 +27,8 @@ func (tc *TypeChecker) lookupSymbol(ident ast.Identifier) (*Symbol, error) {
 	return nil, fmt.Errorf("undefined symbol: %s", ident)
 }
 
-func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]ast.TypeNode, error) {
-	symbol, err := tc.lookupSymbol(function.Ident.Id)
+func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {
+	symbol, err := tc.lookupSymbol(function.Ident.Id, currentScope)
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +38,8 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]a
 	return symbol.Types, nil
 }
 
-func (tc *TypeChecker) LookupAssertionType(ensure *ast.EnsureNode) (*ast.TypeNode, error) {
-	baseType, err := tc.LookupVariableType(&ensure.Variable)
+func (tc *TypeChecker) LookupAssertionType(ensure *ast.EnsureNode, currentScope *Scope) (*ast.TypeNode, error) {
+	baseType, err := tc.LookupVariableType(&ensure.Variable, currentScope)
 	if err != nil {
 		return nil, err
 	}
