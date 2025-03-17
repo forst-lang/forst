@@ -76,6 +76,19 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 			Op: transformOperator(e.Operator),
 			Y:  transformExpression(e.Right),
 		}
+	case ast.VariableNode:
+		return &goast.Ident{
+			Name: e.Id(),
+		}
+	case ast.FunctionCallNode:
+		args := make([]goast.Expr, len(e.Arguments))
+		for i, arg := range e.Arguments {
+			args[i] = transformExpression(arg)
+		}
+		return &goast.CallExpr{
+			Fun:  goast.NewIdent(string(e.Function.Id)),
+			Args: args,
+		}
 	}
 
 	panic("Unsupported expression type: " + reflect.TypeOf(expr).String())

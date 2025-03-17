@@ -103,6 +103,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 				Args: args,
 			},
 		}
+	case ast.AssignmentNode:
+		lhs := make([]goast.Expr, len(s.LValues))
+		for i, lval := range s.LValues {
+			lhs[i] = transformExpression(lval)
+		}
+		rhs := make([]goast.Expr, len(s.RValues))
+		for i, rval := range s.RValues {
+			rhs[i] = transformExpression(rval)
+		}
+		operator := token.ASSIGN
+		if s.IsShort {
+			operator = token.DEFINE
+		}
+		return &goast.AssignStmt{
+			Lhs: lhs,
+			Tok: operator,
+			Rhs: rhs,
+		}
 	default:
 		return &goast.EmptyStmt{}
 	}
