@@ -7,8 +7,30 @@ import (
 	"strconv"
 )
 
-func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
-	var errorExpr goast.Expr = &goast.BinaryExpr{
+// Returns an expression that represents an error when evaluated
+func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
+	if stmt.Error != nil {
+		if errVar, ok := (*stmt.Error).(ast.EnsureErrorVar); ok {
+			return &goast.Ident{
+				Name: string(errVar),
+			}
+		}
+
+		return &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("errors"),
+				Sel: goast.NewIdent("New"),
+			},
+			Args: []goast.Expr{
+				&goast.BasicLit{
+					Kind:  token.STRING,
+					Value: strconv.Quote((*stmt.Error).String()),
+				},
+			},
+		}
+	}
+
+	errorMessage := &goast.BinaryExpr{
 		X: &goast.BasicLit{
 			Kind:  token.STRING,
 			Value: strconv.Quote("assertion failed: "),
@@ -19,18 +41,20 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 			Value: strconv.Quote(stmt.Assertion.String()),
 		},
 	}
-	if stmt.Error != nil {
-		if errVar, ok := (*stmt.Error).(ast.EnsureErrorVar); ok {
-			errorExpr = &goast.Ident{
-				Name: string(errVar),
-			}
-		} else {
-			errorExpr = &goast.BasicLit{
-				Kind:  token.STRING,
-				Value: strconv.Quote((*stmt.Error).String()),
-			}
-		}
+
+	return &goast.CallExpr{
+		Fun: &goast.SelectorExpr{
+			X:   goast.NewIdent("errors"),
+			Sel: goast.NewIdent("New"),
+		},
+		Args: []goast.Expr{
+			errorMessage,
+		},
 	}
+}
+
+func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
+	errorExpr := t.transformErrorExpression(stmt)
 
 	if t.isMainFunction() {
 		return &goast.ExprStmt{
@@ -45,15 +69,7 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 
 	return &goast.ReturnStmt{
 		Results: []goast.Expr{
-			&goast.CallExpr{
-				Fun: &goast.SelectorExpr{
-					X:   goast.NewIdent("errors"),
-					Sel: goast.NewIdent("New"),
-				},
-				Args: []goast.Expr{
-					errorExpr,
-				},
-			},
+			errorExpr,
 		},
 	}
 }
