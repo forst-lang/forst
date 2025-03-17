@@ -11,6 +11,7 @@ import (
 	"forst/pkg/typechecker"
 	goast "go/ast"
 	"os"
+	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -138,6 +139,23 @@ func debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 	}
 }
 
+func getMemStats() runtime.MemStats {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	return mem
+}
+
+func logMemUsage(phase string, before, after runtime.MemStats) {
+	allocDelta := after.TotalAlloc - before.TotalAlloc
+	heapDelta := after.HeapAlloc - before.HeapAlloc
+
+	log.WithFields(log.Fields{
+		"phase":          phase,
+		"allocatedBytes": allocDelta,
+		"heapBytes":      heapDelta,
+	}).Info("Memory usage")
+}
+
 func main() {
 	args := parseArgs()
 	if args.filePath == "" {
@@ -162,14 +180,18 @@ func main() {
 	}
 
 	log.Info("Performing lexical analysis...")
+	memBefore := getMemStats()
 
 	// Lexical Analysis
 	tokens := lexer.Lexer(source, lexer.Context{FilePath: args.filePath})
-	if args.debug {
-		debugPrintTokens(tokens)
-	}
+
+	memAfter := getMemStats()
+	logMemUsage("lexical analysis", memBefore, memAfter)
+
+	debugPrintTokens(tokens)
 
 	log.Info("Performing syntax analysis...")
+	memBefore = getMemStats()
 
 	// Parsing
 	forstNodes, err := parser.NewParser(tokens, args.filePath).ParseFile()
@@ -177,11 +199,14 @@ func main() {
 		log.Error(err)
 		os.Exit(1)
 	}
-	if args.debug {
-		debugPrintForstAST(forstNodes)
-	}
+
+	memAfter = getMemStats()
+	logMemUsage("syntax analysis", memBefore, memAfter)
+
+	debugPrintForstAST(forstNodes)
 
 	log.Info("Performing semantic analysis...")
+	memBefore = getMemStats()
 
 	// Semantic Analysis
 	checker := typechecker.New()
@@ -189,16 +214,17 @@ func main() {
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		log.Errorf("Type checking error: %v\n", err)
-		log.Debug("  ")
 		checker.DebugPrintCurrentScope()
 		os.Exit(1)
 	}
 
-	if args.debug {
-		debugPrintTypeInfo(checker)
-	}
+	memAfter = getMemStats()
+	logMemUsage("semantic analysis", memBefore, memAfter)
+
+	debugPrintTypeInfo(checker)
 
 	log.Info("Performing code generation...")
+	memBefore = getMemStats()
 
 	// Transform to Go AST with type information
 	transformer := transformer_go.New(checker)
@@ -208,16 +234,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args.debug {
-		debugPrintGoAST(goAST)
-	}
-
 	// Generate Go code
 	goCode := generators.GenerateGoCode(goAST)
 
-	if args.debug {
-		log.Debug("=== Generated Go Code ===")
-	}
+	debugPrintGoAST(goAST)
+
+	memAfter = getMemStats()
+	logMemUsage("code generation", memBefore, memAfter)
+
+	log.Debug("=== Generated Go Code ===")
 
 	fmt.Println(goCode)
 }

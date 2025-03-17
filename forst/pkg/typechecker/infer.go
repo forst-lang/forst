@@ -403,8 +403,6 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		}
 	}
 
-	fmt.Println("resolvedTypes", resolvedTypes)
-
 	// Check if number of LValues matches total resolved types
 	if len(assign.LValues) != len(resolvedTypes) {
 		return fmt.Errorf("assignment mismatch: %d variables but got %d values",
