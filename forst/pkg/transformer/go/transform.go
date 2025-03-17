@@ -25,6 +25,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	var packageName string
 	var decls []goast.Decl
 
+	// TODO: If we are calling ensure anywhere, import the errors package
+
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:

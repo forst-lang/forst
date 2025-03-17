@@ -33,13 +33,18 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
-				List: append(finallyStmts, &goast.ExprStmt{
-					X: &goast.CallExpr{
-						Fun: goast.NewIdent("panic"),
-						Args: []goast.Expr{
-							&goast.BasicLit{
-								Kind:  token.STRING,
-								Value: strconv.Quote(errorMsg),
+				List: append(finallyStmts, &goast.ReturnStmt{
+					Results: []goast.Expr{
+						&goast.CallExpr{
+							Fun: &goast.SelectorExpr{
+								X:   goast.NewIdent("errors"),
+								Sel: goast.NewIdent("New"),
+							},
+							Args: []goast.Expr{
+								&goast.BasicLit{
+									Kind:  token.STRING,
+									Value: strconv.Quote(errorMsg),
+								},
 							},
 						},
 					},
