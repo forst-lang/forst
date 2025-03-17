@@ -7,36 +7,63 @@ import (
 	"strconv"
 )
 
+func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
+	var errorExpr goast.Expr = &goast.BinaryExpr{
+		X: &goast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote("assertion failed: "),
+		},
+		Op: token.ADD,
+		Y: &goast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(stmt.Assertion.String()),
+		},
+	}
+	if stmt.Error != nil {
+		if errVar, ok := (*stmt.Error).(ast.EnsureErrorVar); ok {
+			errorExpr = &goast.Ident{
+				Name: string(errVar),
+			}
+		} else {
+			errorExpr = &goast.BasicLit{
+				Kind:  token.STRING,
+				Value: strconv.Quote((*stmt.Error).String()),
+			}
+		}
+	}
+
+	if t.isMainFunction() {
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun: goast.NewIdent("panic"),
+				Args: []goast.Expr{
+					errorExpr,
+				},
+			},
+		}
+	}
+
+	return &goast.ReturnStmt{
+		Results: []goast.Expr{
+			&goast.CallExpr{
+				Fun: &goast.SelectorExpr{
+					X:   goast.NewIdent("errors"),
+					Sel: goast.NewIdent("New"),
+				},
+				Args: []goast.Expr{
+					errorExpr,
+				},
+			},
+		},
+	}
+}
+
 // transformStatement converts a Forst statement to a Go statement
 func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
 		condition := t.transformEnsureCondition(s)
-
-		var errorExpr goast.Expr = &goast.BinaryExpr{
-			X: &goast.BasicLit{
-				Kind:  token.STRING,
-				Value: strconv.Quote("assertion failed: "),
-			},
-			Op: token.ADD,
-			Y: &goast.BasicLit{
-				Kind:  token.STRING,
-				Value: strconv.Quote(s.Assertion.String()),
-			},
-		}
-		if s.Error != nil {
-			if errVar, ok := (*s.Error).(ast.EnsureErrorVar); ok {
-				errorExpr = &goast.Ident{
-					Name: string(errVar),
-				}
-			} else {
-				errorExpr = &goast.BasicLit{
-					Kind:  token.STRING,
-					Value: strconv.Quote((*s.Error).String()),
-				}
-			}
-		}
 
 		finallyStmts := []goast.Stmt{}
 
@@ -49,40 +76,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			t.popScope()
 		}
 
-		isMainFunction := t.isMainFunction()
-
-		if isMainFunction {
-			return &goast.IfStmt{
-				Cond: condition,
-				Body: &goast.BlockStmt{
-					List: append(finallyStmts, &goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: goast.NewIdent("panic"),
-							Args: []goast.Expr{
-								errorExpr,
-							},
-						},
-					}),
-				},
-			}
-		}
+		errorStmt := t.transformErrorStatement(s)
 
 		return &goast.IfStmt{
 			Cond: condition,
 			Body: &goast.BlockStmt{
-				List: append(finallyStmts, &goast.ReturnStmt{
-					Results: []goast.Expr{
-						&goast.CallExpr{
-							Fun: &goast.SelectorExpr{
-								X:   goast.NewIdent("errors"),
-								Sel: goast.NewIdent("New"),
-							},
-							Args: []goast.Expr{
-								errorExpr,
-							},
-						},
-					},
-				}),
+				List: append(finallyStmts, errorStmt),
 			},
 		}
 	case ast.ReturnNode:

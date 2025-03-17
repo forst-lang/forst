@@ -13,3 +13,11 @@ func (p PackageNode) NodeType() NodeType {
 func (p PackageNode) String() string {
 	return p.Ident.String()
 }
+
+func (p PackageNode) Id() Identifier {
+	return p.Ident.Id
+}
+
+func (p PackageNode) IsMainPackage() bool {
+	return p.Id() == "main"
+}

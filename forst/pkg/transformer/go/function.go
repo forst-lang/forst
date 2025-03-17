@@ -24,7 +24,11 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	if err != nil {
 		return nil, err
 	}
-	results := transformTypes(returnType)
+	var results *goast.FieldList = nil
+	isMainFunc := t.isMainPackage() && n.HasMainFunctionName()
+	if !isMainFunc {
+		results = transformTypes(returnType)
+	}
 
 	t.pushScope(n)
 

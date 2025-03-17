@@ -26,11 +26,9 @@ func (e *ParseError) Error() string {
 type Scope struct {
 	// All variables defined in the scope
 	Variables map[string]ast.TypeNode
-	// The name of the function currently being parsed
-	FunctionName *string
+	// The function currently being parsed
+	Function *ast.FunctionNode
 }
-
-const MAIN_FUNCTION_NAME = "main"
 
 // Parse the tokens in a Forst file into a list of Forst AST nodes
 func (p *Parser) ParseFile() ([]ast.Node, error) {
@@ -60,7 +58,15 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 }
 
 func (c *Context) IsMainFunction() bool {
-	return c.IsMainPackage && c.Scope.FunctionName != nil && *c.Scope.FunctionName == MAIN_FUNCTION_NAME
+	if c.Package == nil || !c.Package.IsMainPackage() {
+		return false
+	}
+
+	if c.Scope.Function == nil || !c.Scope.Function.HasMainFunctionName() {
+		return false
+	}
+
+	return true
 }
 
 func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {

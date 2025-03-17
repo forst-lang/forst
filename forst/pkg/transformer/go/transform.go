@@ -46,7 +46,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		}
 	}
 
-	if t.packageName == "nil" {
+	if t.packageName == "" {
 		t.packageName = "main"
 	}
 
@@ -69,8 +69,12 @@ func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
 	return scope.Node.(ast.FunctionNode), nil
 }
 
+func (t *Transformer) isMainPackage() bool {
+	return t.packageName == "main"
+}
+
 func (t *Transformer) isMainFunction() bool {
-	if t.packageName != "main" {
+	if !t.isMainPackage() {
 		return false
 	}
 
@@ -78,5 +82,5 @@ func (t *Transformer) isMainFunction() bool {
 	if err != nil {
 		return false
 	}
-	return currentFunction.Ident.Id == "main"
+	return currentFunction.HasMainFunctionName()
 }

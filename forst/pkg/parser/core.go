@@ -8,9 +8,10 @@ import (
 
 // Mutable context for the parser to track the current state
 type Context struct {
-	IsMainPackage bool
-	Scope         *Scope
-	FilePath      string
+	Package  *ast.PackageNode
+	Function *ast.FunctionNode
+	Scope    *Scope
+	FilePath string
 }
 
 type Parser struct {

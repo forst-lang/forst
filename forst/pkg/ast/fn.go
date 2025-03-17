@@ -26,3 +26,7 @@ func (f FunctionNode) String() string {
 func (f FunctionNode) Id() Identifier {
 	return f.Ident.Id
 }
+
+func (f FunctionNode) HasMainFunctionName() bool {
+	return f.Ident.Id == "main"
+}

@@ -28,14 +28,11 @@ func (tc *TypeChecker) lookupSymbol(ident ast.Identifier, currentScope *Scope) (
 }
 
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {
-	symbol, err := tc.lookupSymbol(function.Ident.Id, currentScope)
-	if err != nil {
-		return nil, err
+	sig, exists := tc.Functions[function.Id()]
+	if !exists {
+		return nil, fmt.Errorf("undefined function: %s", function.Ident)
 	}
-	if symbol.Kind != SymbolFunction {
-		return nil, fmt.Errorf("%s is not a function", function.Ident)
-	}
-	return symbol.Types, nil
+	return sig.ReturnTypes, nil
 }
 
 func (tc *TypeChecker) LookupAssertionType(ensure *ast.EnsureNode, currentScope *Scope) (*ast.TypeNode, error) {
