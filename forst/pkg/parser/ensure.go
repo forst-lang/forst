@@ -12,12 +12,12 @@ func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
 		return nil
 	}
 
-	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false}, p.context)...)
+	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false})...)
 
 	return &ast.EnsureBlockNode{Body: body}
 }
 
-func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
+func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	p.advance() // Move past `ensure`
 
 	var variable string
@@ -52,7 +52,7 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 
 	block := p.parseEnsureBlock()
 
-	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
+	if !p.context.IsMainFunction() || p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
 
 		errorType := p.expect(ast.TokenIdentifier).Value
@@ -61,7 +61,7 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 			p.advance() // Consume left paren
 			var args []ast.ExpressionNode
 			for p.current().Type != ast.TokenRParen {
-				args = append(args, p.parseExpression(context))
+				args = append(args, p.parseExpression())
 				if p.current().Type == ast.TokenComma {
 					p.advance()
 				}

@@ -2,6 +2,7 @@ package ast
 
 // AssignmentNode represents a variable assignment in the AST
 type AssignmentNode struct {
+	Node
 	LValues       []VariableNode   // Variables being assigned to (targets of the assignment)
 	RValues       []ExpressionNode // Values being assigned
 	ExplicitTypes []*TypeNode      // Optional explicit types for each name

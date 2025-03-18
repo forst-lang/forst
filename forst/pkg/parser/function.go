@@ -47,10 +47,10 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	return returnType
 }
 
-func (p *Parser) parseReturnStatement(context *Context) ast.ReturnNode {
+func (p *Parser) parseReturnStatement() ast.ReturnNode {
 	p.advance() // Move past `return`
 
-	returnExpression := p.parseExpression(context)
+	returnExpression := p.parseExpression()
 
 	return ast.ReturnNode{
 		Value: returnExpression,
@@ -58,8 +58,8 @@ func (p *Parser) parseReturnStatement(context *Context) ast.ReturnNode {
 	}
 }
 
-func (p *Parser) parseFunctionBody(context *Context) []ast.Node {
-	return p.parseBlock(&BlockContext{AllowReturn: true}, context)
+func (p *Parser) parseFunctionBody() []ast.Node {
+	return p.parseBlock(&BlockContext{AllowReturn: true})
 }
 
 // Parse a function definition
@@ -73,7 +73,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	returnType := p.parseReturnType()
 
-	body := p.parseFunctionBody(p.context)
+	body := p.parseFunctionBody()
 
 	node := ast.FunctionNode{
 		Ident:       ast.Ident{Id: ast.Identifier(name.Value)},
@@ -81,6 +81,8 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 		Params:      params,
 		Body:        body,
 	}
+
+	logParsedNode(node)
 
 	return node
 }
