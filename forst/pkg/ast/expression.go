@@ -15,14 +15,14 @@ type ExpressionNode interface {
 
 // UnaryExpressionNode represents a unary expression in the AST
 type UnaryExpressionNode struct {
-	Operator TokenType
+	Operator TokenIdent
 	Operand  ExpressionNode
 }
 
 // BinaryExpressionNode represents a binary expression in the AST
 type BinaryExpressionNode struct {
 	Left     ExpressionNode
-	Operator TokenType
+	Operator TokenIdent
 	Right    ExpressionNode
 }
 
@@ -40,14 +40,14 @@ func (u UnaryExpressionNode) isExpression()  {}
 func (b BinaryExpressionNode) isExpression() {}
 func (f FunctionCallNode) isExpression()     {}
 
-func (u UnaryExpressionNode) NodeType() NodeType {
-	return NodeTypeUnaryExpression
+func (u UnaryExpressionNode) Kind() NodeKind {
+	return NodeKindUnaryExpression
 }
-func (b BinaryExpressionNode) NodeType() NodeType {
-	return NodeTypeBinaryExpression
+func (b BinaryExpressionNode) Kind() NodeKind {
+	return NodeKindBinaryExpression
 }
-func (f FunctionCallNode) NodeType() NodeType {
-	return NodeTypeFunctionCall
+func (f FunctionCallNode) Kind() NodeKind {
+	return NodeKindFunctionCall
 }
 
 func (u UnaryExpressionNode) String() string {

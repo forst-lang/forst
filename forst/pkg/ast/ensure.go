@@ -37,8 +37,8 @@ func (e EnsureErrorVar) String() string {
 }
 
 // NodeType returns the type of this AST node
-func (e EnsureNode) NodeType() NodeType {
-	return NodeTypeEnsure
+func (e EnsureNode) Kind() NodeKind {
+	return NodeKindEnsure
 }
 
 func (e EnsureNode) String() string {
@@ -52,6 +52,6 @@ func (e EnsureBlockNode) String() string {
 	return "EnsureBlock"
 }
 
-func (e EnsureBlockNode) NodeType() NodeType {
-	return NodeTypeEnsureBlock
+func (e EnsureBlockNode) Kind() NodeKind {
+	return NodeKindEnsureBlock
 }

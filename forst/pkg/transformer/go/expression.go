@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func transformOperator(op ast.TokenType) token.Token {
+func transformOperator(op ast.TokenIdent) token.Token {
 	switch op {
 	case ast.TokenPlus:
 		return token.ADD

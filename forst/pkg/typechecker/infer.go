@@ -308,7 +308,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 }
 
 // unifyTypes attempts to unify two types based on the operator and operand types
-func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.TokenType) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.TokenIdent) (ast.TypeNode, error) {
 	leftTypes, err := tc.inferExpressionType(left)
 	if err != nil {
 		return ast.TypeNode{}, err

@@ -11,6 +11,6 @@ func (i *Ident) String() string {
 	return string(i.Id)
 }
 
-func (i *Ident) NodeType() NodeType {
-	return NodeTypeIdentifier
+func (i *Ident) Kind() NodeKind {
+	return NodeKindIdentifier
 }

@@ -11,8 +11,8 @@ type FunctionNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (f FunctionNode) NodeType() NodeType {
-	return NodeTypeFunction
+func (f FunctionNode) Kind() NodeKind {
+	return NodeKindFunction
 }
 
 func (f FunctionNode) HasExplicitReturnType() bool {

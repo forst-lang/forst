@@ -48,7 +48,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			if len(n.Body) > 0 {
 				lastStmt = n.Body[len(n.Body)-1]
 			}
-			if lastStmt == nil || lastStmt.NodeType() != ast.NodeTypeReturn {
+			if lastStmt == nil || lastStmt.Kind() != ast.NodeKindReturn {
 				stmts = append(stmts, &goast.ReturnStmt{
 					Results: []goast.Expr{
 						goast.NewIdent("nil"),

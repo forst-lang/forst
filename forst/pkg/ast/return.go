@@ -9,8 +9,8 @@ type ReturnNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (r ReturnNode) NodeType() NodeType {
-	return NodeTypeReturn
+func (r ReturnNode) Kind() NodeKind {
+	return NodeKindReturn
 }
 
 func (r ReturnNode) String() string {

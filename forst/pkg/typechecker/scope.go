@@ -77,5 +77,5 @@ func (tc *TypeChecker) popScope() {
 }
 
 func (s *Scope) IsFunction() bool {
-	return s.Node != nil && s.Node.NodeType() == ast.NodeTypeFunction
+	return s.Node != nil && s.Node.Kind() == ast.NodeKindFunction
 }

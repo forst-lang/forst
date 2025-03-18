@@ -1,80 +1,81 @@
 package ast
 
-type TokenType string
+type TokenIdent string
 
 const (
 	// Namespacing
-	TokenImport  TokenType = "IMPORT"
-	TokenPackage TokenType = "PACKAGE"
+	TokenImport  TokenIdent = "IMPORT"
+	TokenPackage TokenIdent = "PACKAGE"
 
 	// User-defined identifiers
-	TokenIdentifier TokenType = "IDENTIFIER"
+	TokenIdentifier TokenIdent = "IDENTIFIER"
 
 	// Language keywords
-	TokenFunction TokenType = "FUNCTION"
+	TokenFunction TokenIdent = "FUNCTION"
+	TokenType     TokenIdent = "TYPE"
 
 	// Built-in types
-	TokenInt    TokenType = "TYPE_INT"
-	TokenFloat  TokenType = "TYPE_FLOAT"
-	TokenString TokenType = "TYPE_STRING"
-	TokenBool   TokenType = "TYPE_BOOL"
-	TokenArray  TokenType = "TYPE_ARRAY"
-	TokenStruct TokenType = "TYPE_STRUCT"
-	TokenVoid   TokenType = "TYPE_VOID"
+	TokenInt    TokenIdent = "TYPE_INT"
+	TokenFloat  TokenIdent = "TYPE_FLOAT"
+	TokenString TokenIdent = "TYPE_STRING"
+	TokenBool   TokenIdent = "TYPE_BOOL"
+	TokenArray  TokenIdent = "TYPE_ARRAY"
+	TokenStruct TokenIdent = "TYPE_STRUCT"
+	TokenVoid   TokenIdent = "TYPE_VOID"
 
 	// Literals
-	TokenIntLiteral    TokenType = "INT_LITERAL"
-	TokenFloatLiteral  TokenType = "FLOAT_LITERAL"
-	TokenStringLiteral TokenType = "STRING_LITERAL"
-	TokenTrue          TokenType = "TRUE_LITERAL"
-	TokenFalse         TokenType = "FALSE_LITERAL"
+	TokenIntLiteral    TokenIdent = "INT_LITERAL"
+	TokenFloatLiteral  TokenIdent = "FLOAT_LITERAL"
+	TokenStringLiteral TokenIdent = "STRING_LITERAL"
+	TokenTrue          TokenIdent = "TRUE_LITERAL"
+	TokenFalse         TokenIdent = "FALSE_LITERAL"
 
 	// Punctuation
-	TokenLParen      TokenType = "LPAREN"
-	TokenRParen      TokenType = "RPAREN"
-	TokenLBrace      TokenType = "LBRACE"
-	TokenRBrace      TokenType = "RBRACE"
-	TokenReturn      TokenType = "RETURN"
-	TokenEnsure      TokenType = "ENSURE"
-	TokenIs          TokenType = "IS"
-	TokenOr          TokenType = "OR"
-	TokenEOF         TokenType = "EOF"
-	TokenColon       TokenType = "COLON"
-	TokenComma       TokenType = "COMMA"
-	TokenDot         TokenType = "DOT"
-	TokenColonEquals TokenType = "COLON_EQUALS"
+	TokenLParen      TokenIdent = "LPAREN"
+	TokenRParen      TokenIdent = "RPAREN"
+	TokenLBrace      TokenIdent = "LBRACE"
+	TokenRBrace      TokenIdent = "RBRACE"
+	TokenReturn      TokenIdent = "RETURN"
+	TokenEnsure      TokenIdent = "ENSURE"
+	TokenIs          TokenIdent = "IS"
+	TokenOr          TokenIdent = "OR"
+	TokenEOF         TokenIdent = "EOF"
+	TokenColon       TokenIdent = "COLON"
+	TokenComma       TokenIdent = "COMMA"
+	TokenDot         TokenIdent = "DOT"
+	TokenColonEquals TokenIdent = "COLON_EQUALS"
 
 	// Arithmetic operators
-	TokenPlus     TokenType = "PLUS"     // +
-	TokenMinus    TokenType = "MINUS"    // -
-	TokenMultiply TokenType = "MULTIPLY" // *
-	TokenDivide   TokenType = "DIVIDE"   // /
-	TokenModulo   TokenType = "MODULO"   // %
+	TokenPlus     TokenIdent = "PLUS"     // +
+	TokenMinus    TokenIdent = "MINUS"    // -
+	TokenMultiply TokenIdent = "MULTIPLY" // *
+	TokenDivide   TokenIdent = "DIVIDE"   // /
+	TokenModulo   TokenIdent = "MODULO"   // %
 
 	// Comparison operators
-	TokenEquals       TokenType = "EQUALS"        // ==
-	TokenNotEquals    TokenType = "NOT_EQUALS"    // !=
-	TokenGreater      TokenType = "GREATER"       // >
-	TokenLess         TokenType = "LESS"          // <
-	TokenGreaterEqual TokenType = "GREATER_EQUAL" // >=
-	TokenLessEqual    TokenType = "LESS_EQUAL"    // <=
+	TokenEquals       TokenIdent = "EQUALS"        // ==
+	TokenNotEquals    TokenIdent = "NOT_EQUALS"    // !=
+	TokenGreater      TokenIdent = "GREATER"       // >
+	TokenLess         TokenIdent = "LESS"          // <
+	TokenGreaterEqual TokenIdent = "GREATER_EQUAL" // >=
+	TokenLessEqual    TokenIdent = "LESS_EQUAL"    // <=
 
 	// Logical operators
-	TokenLogicalAnd TokenType = "LOGICAL_AND" // &&
-	TokenLogicalOr  TokenType = "LOGICAL_OR"  // ||
-	TokenLogicalNot TokenType = "LOGICAL_NOT" // !
+	TokenLogicalAnd TokenIdent = "LOGICAL_AND" // &&
+	TokenLogicalOr  TokenIdent = "LOGICAL_OR"  // ||
+	TokenLogicalNot TokenIdent = "LOGICAL_NOT" // !
 )
 
 // Token structure
 type Token struct {
-	Type   TokenType
+	Type   TokenIdent
 	Value  string
 	Path   string
 	Line   int
 	Column int
 }
 
-func (t TokenType) IsBinaryOperator() bool {
+func (t TokenIdent) IsBinaryOperator() bool {
 	return t == TokenPlus || t == TokenMinus ||
 		t == TokenMultiply || t == TokenDivide ||
 		t == TokenModulo || t == TokenEquals ||
@@ -84,22 +85,22 @@ func (t TokenType) IsBinaryOperator() bool {
 		t == TokenLogicalOr
 }
 
-func (t TokenType) IsUnaryOperator() bool {
+func (t TokenIdent) IsUnaryOperator() bool {
 	return t == TokenLogicalNot
 }
 
-func (t TokenType) IsLiteral() bool {
+func (t TokenIdent) IsLiteral() bool {
 	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenTrue || t == TokenFalse
 }
 
-func (t TokenType) IsArithmeticBinaryOperator() bool {
+func (t TokenIdent) IsArithmeticBinaryOperator() bool {
 	return t == TokenPlus || t == TokenMinus || t == TokenMultiply || t == TokenDivide || t == TokenModulo
 }
 
-func (t TokenType) IsComparisonBinaryOperator() bool {
+func (t TokenIdent) IsComparisonBinaryOperator() bool {
 	return t == TokenEquals || t == TokenNotEquals || t == TokenGreater || t == TokenLess || t == TokenGreaterEqual || t == TokenLessEqual
 }
 
-func (t TokenType) IsLogicalBinaryOperator() bool {
+func (t TokenIdent) IsLogicalBinaryOperator() bool {
 	return t == TokenLogicalAnd || t == TokenLogicalOr
 }

@@ -6,8 +6,8 @@ type PackageNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (p PackageNode) NodeType() NodeType {
-	return NodeTypePackage
+func (p PackageNode) Kind() NodeKind {
+	return NodeKindPackage
 }
 
 func (p PackageNode) String() string {

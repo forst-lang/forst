@@ -4,7 +4,7 @@ import (
 	"forst/pkg/ast"
 )
 
-func GetTokenType(word string) ast.TokenType {
+func GetTokenType(word string) ast.TokenIdent {
 	switch word {
 	case "fn":
 		return ast.TokenFunction

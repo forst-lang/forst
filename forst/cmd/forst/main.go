@@ -39,5 +39,12 @@ func main() {
 			log.Error(err)
 			os.Exit(1)
 		}
+
+		if args.command == "run" {
+			if err := runGoProgram(args.outputPath); err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+		}
 	}
 }

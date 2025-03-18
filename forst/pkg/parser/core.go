@@ -52,7 +52,7 @@ func (p *Parser) advance() ast.Token {
 }
 
 // Expect a token and advance
-func (p *Parser) expect(tokenType ast.TokenType) ast.Token {
+func (p *Parser) expect(tokenType ast.TokenIdent) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
 		panic(parseErrorWithValue(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type)))

@@ -106,7 +106,7 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 }
 
 // HashTokenType generates a structural hash for a token type
-func (h *StructuralHasher) HashTokenType(tokenType ast.TokenType) NodeHash {
+func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 	hasher := fnv.New64a()
 	hasher.Write([]byte(string(tokenType)))
 	return NodeHash(hasher.Sum64())

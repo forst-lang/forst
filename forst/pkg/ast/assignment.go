@@ -9,8 +9,8 @@ type AssignmentNode struct {
 }
 
 // NodeType returns the type of this AST node
-func (n AssignmentNode) NodeType() NodeType {
-	return NodeTypeAssignment
+func (n AssignmentNode) Kind() NodeKind {
+	return NodeKindAssignment
 }
 
 // String returns a string representation of the assignment

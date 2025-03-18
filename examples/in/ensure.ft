@@ -18,7 +18,8 @@ fn mustNotExceedSpeedLimit(speed: Int) {
 fn checkConditions() {
     err := mustBeARealName("John") 
     ensure err is Nil() or err
-    err = mustNotExceedSpeedLimit(99)
+    speed := 80
+    err = mustNotExceedSpeedLimit(speed)
     ensure !err or err
 }
 
@@ -29,4 +30,5 @@ fn main() {
         fmt.Println()
         os.Exit(1)
     }
+    fmt.Println("Conditions met, program exiting successfully")
 }

@@ -31,17 +31,17 @@ type BoolLiteralNode struct {
 	Type  TypeNode
 }
 
-func (i IntLiteralNode) NodeType() NodeType {
-	return NodeTypeIntLiteral
+func (i IntLiteralNode) Kind() NodeKind {
+	return NodeKindIntLiteral
 }
-func (f FloatLiteralNode) NodeType() NodeType {
-	return NodeTypeFloatLiteral
+func (f FloatLiteralNode) Kind() NodeKind {
+	return NodeKindFloatLiteral
 }
-func (s StringLiteralNode) NodeType() NodeType {
-	return NodeTypeStringLiteral
+func (s StringLiteralNode) Kind() NodeKind {
+	return NodeKindStringLiteral
 }
-func (b BoolLiteralNode) NodeType() NodeType {
-	return NodeTypeBoolLiteral
+func (b BoolLiteralNode) Kind() NodeKind {
+	return NodeKindBoolLiteral
 }
 
 // Marker methods to satisfy LiteralNode interface
