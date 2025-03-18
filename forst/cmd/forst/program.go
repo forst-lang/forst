@@ -143,11 +143,12 @@ func (p *Program) watchFile() error {
 	// Initial compilation
 	if err := p.compileFile(); err != nil {
 		log.Error(err)
-	}
-
-	// Run the compiled program
-	if err := runGoProgram(p.Args.outputPath); err != nil {
-		log.Error(err)
+		log.Warn("Not running program because of errors during compilation")
+	} else {
+		// Run the compiled program
+		if err := runGoProgram(p.Args.outputPath); err != nil {
+			log.Error(err)
+		}
 	}
 
 	// Debounce timer to avoid multiple compilations for rapid changes
@@ -163,11 +164,12 @@ func (p *Program) watchFile() error {
 					log.Info("File changed, recompiling...")
 					if err := p.compileFile(); err != nil {
 						log.Error(err)
-					}
-
-					// Run the compiled program
-					if err := runGoProgram(p.Args.outputPath); err != nil {
-						log.Error(err)
+						log.Warn("Not running program because of errors during compilation")
+					} else {
+						// Run the compiled program
+						if err := runGoProgram(p.Args.outputPath); err != nil {
+							log.Error(err)
+						}
 					}
 				})
 			}

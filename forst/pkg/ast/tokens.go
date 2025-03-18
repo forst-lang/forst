@@ -64,6 +64,10 @@ const (
 	TokenLogicalAnd TokenIdent = "LOGICAL_AND" // &&
 	TokenLogicalOr  TokenIdent = "LOGICAL_OR"  // ||
 	TokenLogicalNot TokenIdent = "LOGICAL_NOT" // !
+
+	// Bitwise operators
+	TokenBitwiseAnd TokenIdent = "BITWISE_AND" // &
+	TokenBitwiseOr  TokenIdent = "BITWISE_OR"  // |
 )
 
 // Token structure

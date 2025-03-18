@@ -25,7 +25,7 @@ func (p *Parser) parseType() ast.TypeNode {
 		p.advance()
 		return ast.TypeNode{Name: ast.TypeVoid}
 	default:
-		typeName := p.expect(ast.TokenIdentifier).Value
-		return ast.TypeNode{Name: typeName}
+		typeName := p.expectTypeIdentifier().Value
+		return ast.TypeNode{Name: ast.TypeIdent(typeName)}
 	}
 }

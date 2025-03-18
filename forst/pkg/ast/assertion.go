@@ -7,7 +7,7 @@ import (
 
 type AssertionNode struct {
 	// Base type is optional as the type can be inferred from the value being checked
-	BaseType    *string
+	BaseType    *TypeIdent
 	Constraints []ConstraintNode
 }
 

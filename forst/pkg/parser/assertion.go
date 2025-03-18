@@ -7,7 +7,7 @@ import (
 	"forst/pkg/ast"
 )
 
-func (p *Parser) parseConstraint(context *Context) ast.ConstraintNode {
+func (p *Parser) parseConstraint() ast.ConstraintNode {
 	// Each assertion must start with capital letter
 	assertion := p.expect(ast.TokenIdentifier)
 	if !unicode.IsUpper(rune(assertion.Value[0])) {
@@ -25,7 +25,7 @@ func (p *Parser) parseConstraint(context *Context) ast.ConstraintNode {
 
 	// Parse arguments until closing parenthesis
 	for p.current().Type != ast.TokenRParen {
-		value := p.parseValue(context)
+		value := p.parseValue()
 		args = append(args, value)
 
 		if p.current().Type == ast.TokenComma {
@@ -40,20 +40,20 @@ func (p *Parser) parseConstraint(context *Context) ast.ConstraintNode {
 	}
 }
 
-func (p *Parser) parseAssertionChain(context *Context) ast.AssertionNode {
+func (p *Parser) parseAssertionChain() ast.AssertionNode {
 	var constraints []ast.ConstraintNode
-	var baseType *string
+	var baseType *ast.TypeIdent
 
 	// Parse optional base type (must start with capital letter)
 	if p.current().Type == ast.TokenIdentifier && unicode.IsUpper(rune(p.current().Value[0])) {
 		// If next token is not a parenthesis, this is a base type
 		if p.peek().Type != ast.TokenLParen {
-			value := p.current().Value
-			baseType = &value
+			typeIdent := ast.TypeIdent(p.current().Value)
+			baseType = &typeIdent
 			p.advance()
 		} else {
 			// Otherwise it's a constraint
-			constraint := p.parseConstraint(context)
+			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
 		}
 	}
@@ -61,7 +61,7 @@ func (p *Parser) parseAssertionChain(context *Context) ast.AssertionNode {
 	// Parse chain of assertions
 	for p.current().Type == ast.TokenDot {
 		p.advance() // Consume dot
-		constraint := p.parseConstraint(context)
+		constraint := p.parseConstraint()
 		constraints = append(constraints, constraint)
 	}
 

@@ -57,7 +57,7 @@ func (p *Parser) parseExpressionLevel(level int, context *Context) ast.Expressio
 		}
 		return expr
 	} else {
-		expr = p.parseValue(context) // parseValue should advance the token internally
+		expr = p.parseValue() // parseValue should advance the token internally
 	}
 
 	// Handle binary operators

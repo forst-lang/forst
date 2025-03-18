@@ -1,6 +1,7 @@
 package transformer_go
 
 import (
+	"fmt"
 	"forst/pkg/ast"
 	goast "go/ast"
 )
@@ -20,8 +21,11 @@ func transformType(n ast.TypeNode) *goast.Ident {
 		return goast.NewIdent("void")
 	case ast.TypeError:
 		return goast.NewIdent("error")
+	case ast.TypeAssertion:
+		// TODO: Look up the type assertion in the type registry
+		return goast.NewIdent(string(n.Name))
 	}
-	return goast.NewIdent(n.Name)
+	panic(fmt.Sprintf("Unknown type: %s", n.Name))
 }
 
 func transformTypes(types []ast.TypeNode) *goast.FieldList {

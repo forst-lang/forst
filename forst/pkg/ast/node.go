@@ -35,26 +35,28 @@ const (
 	NodeKindAssignment       NodeKind = "Assignment"
 )
 
+type TypeIdent string
+
 // TypeNode represents a type in the Forst language
 type TypeNode struct {
 	Node
-	Name string
+	Name TypeIdent
 }
 
 const (
 	// Built-in types
-	TypeInt    = "TYPE_INT"
-	TypeFloat  = "TYPE_FLOAT"
-	TypeString = "TYPE_STRING"
-	TypeBool   = "TYPE_BOOL"
-	TypeVoid   = "TYPE_VOID"
-	TypeError  = "TYPE_ERROR"
+	TypeInt    TypeIdent = "TYPE_INT"
+	TypeFloat  TypeIdent = "TYPE_FLOAT"
+	TypeString TypeIdent = "TYPE_STRING"
+	TypeBool   TypeIdent = "TYPE_BOOL"
+	TypeVoid   TypeIdent = "TYPE_VOID"
+	TypeError  TypeIdent = "TYPE_ERROR"
 
 	// Placeholder for a type assertion
-	TypeAssertion = "TYPE_ASSERTION"
+	TypeAssertion TypeIdent = "TYPE_ASSERTION"
 
 	// Placeholder for an implicit type
-	TypeImplicit = "TYPE_IMPLICIT"
+	TypeImplicit TypeIdent = "TYPE_IMPLICIT"
 )
 
 // IsExplicit returns true if the type has been specified explicitly
@@ -95,6 +97,6 @@ func (t TypeNode) String() string {
 	case TypeImplicit:
 		return "(implicit)"
 	default:
-		return t.Name
+		return string(t.Name)
 	}
 }

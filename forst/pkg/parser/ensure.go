@@ -4,7 +4,7 @@ import (
 	"forst/pkg/ast"
 )
 
-func (p *Parser) parseEnsureBlock(context *Context) *ast.EnsureBlockNode {
+func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
 	body := []ast.Node{}
 
 	// Ensure block is always optional
@@ -12,7 +12,7 @@ func (p *Parser) parseEnsureBlock(context *Context) *ast.EnsureBlockNode {
 		return nil
 	}
 
-	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false}, context)...)
+	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false}, p.context)...)
 
 	return &ast.EnsureBlockNode{Body: body}
 }
@@ -47,10 +47,10 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 
 		p.expect(ast.TokenIs)
 
-		assertion = p.parseAssertionChain(context)
+		assertion = p.parseAssertionChain()
 	}
 
-	block := p.parseEnsureBlock(context)
+	block := p.parseEnsureBlock()
 
 	if !context.IsMainFunction() || p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`

@@ -1,6 +1,6 @@
 package input_validation
 
-import forst (
+import (
   "trpc"
 )
 

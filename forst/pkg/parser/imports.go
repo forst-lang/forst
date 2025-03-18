@@ -28,9 +28,18 @@ func (p *Parser) parseImports() []ast.Node {
 		p.expect(ast.TokenRParen)
 		nodes = append(nodes, ast.ImportGroupNode{Imports: imports})
 	} else {
-		// Single import
-		importName := p.expect(ast.TokenIdentifier).Value
-		nodes = append(nodes, ast.ImportNode{Path: importName})
+		// Single import with optional alias
+		var alias string
+		if p.current().Type == ast.TokenIdentifier {
+			alias = p.current().Value
+			p.advance() // Skip alias
+		}
+		path := p.expect(ast.TokenStringLiteral).Value
+		node := ast.ImportNode{Path: path}
+		if alias != "" {
+			node.Alias = &ast.Ident{Id: ast.Identifier(alias)}
+		}
+		nodes = append(nodes, node)
 	}
 
 	return nodes
