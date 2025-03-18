@@ -2,27 +2,27 @@ package parser
 
 import (
 	"forst/pkg/ast"
-	"unicode"
 )
 
-func (p *Parser) expectTypeIdentifier() ast.Token {
-	token := p.expect(ast.TokenType)
-	if !unicode.IsUpper(rune(token.Value[0])) {
+func (p *Parser) expectCustomTypeIdentifier() ast.Token {
+	token := p.expect(ast.TokenIdentifier)
+	if !isPossibleTypeIdentifier(token) {
 		panic(parseErrorWithValue(token, "Expected type identifier to start with an uppercase letter"))
 	}
 	return token
 }
 
-func (p *Parser) parseTypeDef() ast.TypeDefNode {
-	name := p.expectTypeIdentifier()
+func (p *Parser) parseTypeDef() *ast.TypeDefNode {
+	p.expect(ast.TokenType)
+
+	name := p.expectCustomTypeIdentifier()
 	typeIdent := ast.TypeIdent(name.Value)
 
-	p.expect(ast.TokenIs)
-	p.advance()
+	p.expect(ast.TokenEquals)
 
 	expr := p.parseTypeDefExpr()
 
-	return ast.TypeDefNode{
+	return &ast.TypeDefNode{
 		Ident: typeIdent,
 		Expr:  expr,
 	}
@@ -38,33 +38,33 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 	}
 
 	var left ast.TypeDefExpr
-	token := p.expectTypeIdentifier()
 	if p.peek().Type == ast.TokenDot {
-		assertion := p.parseAssertionChain()
+		assertion := p.parseAssertionChain(true)
 		left = ast.TypeDefAssertionExpr{
 			Assertion: &assertion,
 		}
 	} else {
-		typeIdent := ast.TypeIdent(token.Value)
+		typ := p.parseType()
+
 		return &ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
-				BaseType: &typeIdent,
+				BaseType: &typ.Name,
 			},
 		}
 	}
 
-	if p.current().Type != ast.TokenBitwiseAnd && p.current().Type != ast.TokenBitwiseOr {
+	operator := p.current()
+	if operator.Type != ast.TokenBitwiseAnd && operator.Type != ast.TokenBitwiseOr {
 		return left
 	}
 
-	op := p.current().Type
 	p.advance()
 
 	right := p.parseTypeDefExpr()
 
 	return ast.TypeDefBinaryExpr{
 		Left:  left,
-		Op:    op,
+		Op:    operator.Type,
 		Right: right,
 	}
 }

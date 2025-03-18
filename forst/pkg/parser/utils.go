@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"forst/pkg/ast"
+	"unicode"
 )
 
 func unexpectedTokenMessage(token ast.Token, expected string) string {
@@ -19,4 +20,8 @@ func parseErrorMessage(token ast.Token, message string) string {
 			"%s",
 		token.Path, token.Line, token.Column, token.Line, token.Column, message,
 	)
+}
+
+func isCapitalCase(value string) bool {
+	return unicode.IsUpper(rune(value[0]))
 }

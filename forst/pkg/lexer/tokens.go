@@ -32,6 +32,8 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenIs
 	case "or":
 		return ast.TokenOr
+	case "type":
+		return ast.TokenType
 	case "(":
 		return ast.TokenLParen
 	case ")":

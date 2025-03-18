@@ -47,7 +47,7 @@ func (p *Parser) parseEnsureStatement(context *Context) ast.EnsureNode {
 
 		p.expect(ast.TokenIs)
 
-		assertion = p.parseAssertionChain()
+		assertion = p.parseAssertionChain(false)
 	}
 
 	block := p.parseEnsureBlock()

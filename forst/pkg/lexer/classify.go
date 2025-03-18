@@ -10,7 +10,7 @@ import (
 func isSpecialChar(c byte) bool {
 	return c == '(' || c == ')' || c == '{' || c == '}' || c == ':' || c == ',' ||
 		c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' ||
-		c == '!' || c == '>' || c == '<' || c == '&' || c == '|'
+		c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '.'
 }
 
 // isTwoCharOperator checks if a string is a two-character operator

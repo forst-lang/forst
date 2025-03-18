@@ -25,7 +25,19 @@ func (p *Parser) parseType() ast.TypeNode {
 		p.advance()
 		return ast.TypeNode{Name: ast.TypeVoid}
 	default:
-		typeName := p.expectTypeIdentifier().Value
+		typeName := p.expectCustomTypeIdentifier().Value
 		return ast.TypeNode{Name: ast.TypeIdent(typeName)}
 	}
+}
+
+func isPossibleTypeIdentifier(token ast.Token) bool {
+	if token.Type == ast.TokenIdentifier {
+		return isCapitalCase(token.Value)
+	}
+
+	return token.Type == ast.TokenString ||
+		token.Type == ast.TokenInt ||
+		token.Type == ast.TokenFloat ||
+		token.Type == ast.TokenBool ||
+		token.Type == ast.TokenVoid
 }

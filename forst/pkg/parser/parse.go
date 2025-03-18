@@ -35,21 +35,25 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 	nodes := []ast.Node{}
 
 	for p.current().Type != ast.TokenEOF {
-		if p.current().Type == ast.TokenPackage {
+		token := p.current()
+
+		switch token.Type {
+		case ast.TokenPackage:
 			nodes = append(nodes, p.parsePackage())
-		} else if p.current().Type == ast.TokenImport {
+		case ast.TokenImport:
 			nodes = append(nodes, p.parseImports()...)
-		} else if p.current().Type == ast.TokenFunction {
+		case ast.TokenType:
+			nodes = append(nodes, p.parseTypeDef())
+		case ast.TokenFunction:
 			p.context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),
 			}
 			nodes = append(nodes, p.parseFunctionDefinition())
-		} else {
-			currentToken := p.current()
+		default:
 			return nil, &ParseError{
-				Token:   currentToken,
+				Token:   token,
 				Context: p.context,
-				Msg:     fmt.Sprintf("unexpected token: %s", currentToken.Value),
+				Msg:     fmt.Sprintf("unexpected token: %s", token.Value),
 			}
 		}
 	}

@@ -1,24 +1,31 @@
 package parser
 
 import (
-	"fmt"
-	"unicode"
-
 	"forst/pkg/ast"
 )
 
-func (p *Parser) parseConstraint() ast.ConstraintNode {
-	// Each assertion must start with capital letter
-	assertion := p.expect(ast.TokenIdentifier)
-	if !unicode.IsUpper(rune(assertion.Value[0])) {
-		panic(fmt.Sprintf("Assertion must start with capital letter: %s", assertion.Value))
+func isPossibleConstraintIdentifier(token ast.Token) bool {
+	return isCapitalCase(token.Value)
+}
+
+func (p *Parser) expectConstraintIdentifier() ast.Token {
+	token := p.expect(ast.TokenIdentifier)
+	if !isPossibleConstraintIdentifier(token) {
+		panic(parseErrorMessage(token, "Constraint must start with capital letter"))
 	}
+	return token
+}
+
+func (p *Parser) parseConstraint() ast.ConstraintNode {
+	// Each constraint must start with capital letter
+	constraint := p.expectConstraintIdentifier()
 
 	var args []ast.ValueNode
 
+	token := p.current()
 	// Constraints must have parentheses
-	if p.current().Type != ast.TokenLParen {
-		panic(fmt.Sprintf("Constraint must have parentheses: %s", assertion.Value))
+	if token.Type != ast.TokenLParen {
+		panic(parseErrorMessage(constraint, "Constraint must have parentheses"))
 	}
 
 	p.advance() // Consume (
@@ -35,23 +42,26 @@ func (p *Parser) parseConstraint() ast.ConstraintNode {
 	p.expect(ast.TokenRParen)
 
 	return ast.ConstraintNode{
-		Name: assertion.Value,
+		Name: constraint.Value,
 		Args: args,
 	}
 }
 
-func (p *Parser) parseAssertionChain() ast.AssertionNode {
+func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 	var constraints []ast.ConstraintNode
 	var baseType *ast.TypeIdent
 
 	// Parse optional base type (must start with capital letter)
-	if p.current().Type == ast.TokenIdentifier && unicode.IsUpper(rune(p.current().Value[0])) {
+	token := p.current()
+	if isPossibleTypeIdentifier(token) || isPossibleConstraintIdentifier(token) {
 		// If next token is not a parenthesis, this is a base type
-		if p.peek().Type != ast.TokenLParen {
-			typeIdent := ast.TypeIdent(p.current().Value)
-			baseType = &typeIdent
-			p.advance()
+		if isPossibleTypeIdentifier(token) && p.peek().Type != ast.TokenLParen {
+			typ := p.parseType()
+			baseType = &typ.Name
 		} else {
+			if requireBaseType {
+				panic(parseErrorMessage(token, "Expected base type for assertion"))
+			}
 			// Otherwise it's a constraint
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
