@@ -56,6 +56,19 @@ func expectNumberLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
 	return arg.Value
 }
 
+func expectIntLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
+	if arg == nil {
+		panic("Expected an argument")
+	}
+	if arg.Value == nil {
+		panic("Expected argument to be a value")
+	}
+	if (*arg.Value).Kind() != ast.NodeKindIntLiteral {
+		panic("Expected value to be an int literal")
+	}
+	return arg.Value
+}
+
 func expectStringLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
 	if arg == nil {
 		panic("Expected an argument")
@@ -79,7 +92,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 			if len(constraint.Args) != 1 {
 				panic("Min constraint requires 1 argument")
 			}
-			arg := expectStringLiteral(&constraint.Args[0])
+			arg := expectIntLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
@@ -94,7 +107,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 			if len(constraint.Args) != 1 {
 				panic("Max constraint requires 1 argument")
 			}
-			arg := expectStringLiteral(&constraint.Args[0])
+			arg := expectIntLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
