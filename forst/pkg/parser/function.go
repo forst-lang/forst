@@ -19,12 +19,21 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	for {
 		name := p.expect(ast.TokenIdentifier)
 		p.expect(ast.TokenColon)
-		paramType := p.parseType()
 
-		params = append(params, ast.ParamNode{
+		var paramType ast.TypeNode
+		if p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen {
+			assertion := p.parseAssertionChain(false)
+			paramType = ast.TypeNode{Name: ast.TypeAssertion, Assertion: &assertion}
+		} else {
+			paramType = p.parseType()
+		}
+
+		param := ast.ParamNode{
 			Ident: ast.Ident{Id: ast.Identifier(name.Value)},
 			Type:  paramType,
-		})
+		}
+		logParsedNodeWithMessage(param, "Parsed function param")
+		params = append(params, param)
 
 		// Check if there are more parameters
 		if p.current().Type == ast.TokenComma {

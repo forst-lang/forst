@@ -39,16 +39,22 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 
 		switch token.Type {
 		case ast.TokenPackage:
-			nodes = append(nodes, p.parsePackage())
+			packageDef := p.parsePackage()
+			logParsedNodeWithMessage(packageDef, "Parsed package")
+			nodes = append(nodes, packageDef)
 		case ast.TokenImport:
 			nodes = append(nodes, p.parseImports()...)
 		case ast.TokenType:
-			nodes = append(nodes, p.parseTypeDef())
+			typeDef := p.parseTypeDef()
+			logParsedNodeWithMessage(typeDef, "Parsed type def")
+			nodes = append(nodes, typeDef)
 		case ast.TokenFunction:
 			p.context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),
 			}
-			nodes = append(nodes, p.parseFunctionDefinition())
+			function := p.parseFunctionDefinition()
+			logParsedNodeWithMessage(function, "Parsed function")
+			nodes = append(nodes, function)
 		default:
 			return nil, &ParseError{
 				Token:   token,

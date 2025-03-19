@@ -41,13 +41,13 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	} else if p.current().Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenLParen || p.peek().Type == ast.TokenDot) {
 		// Parse the function identifier, allowing for dot chaining
 		ident := p.expect(ast.TokenIdentifier)
-		var functionId ast.Identifier = ast.Identifier(ident.Value)
+		var curIdent ast.Identifier = ast.Identifier(ident.Value)
 
 		// Keep chaining identifiers with dots until we hit something else
 		for p.current().Type == ast.TokenDot {
 			p.advance() // Consume dot
 			nextIdent := p.expect(ast.TokenIdentifier)
-			functionId = ast.Identifier(string(functionId) + "." + nextIdent.Value)
+			curIdent = ast.Identifier(string(curIdent) + "." + nextIdent.Value)
 		}
 
 		// If we hit a left paren, this is a function call
@@ -64,14 +64,16 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 			p.expect(ast.TokenRParen)
 
 			expr = ast.FunctionCallNode{
-				Function:  ast.Ident{Id: functionId},
+				Function:  ast.Ident{Id: curIdent},
 				Arguments: args,
 			}
 			return expr
 		}
 
-		// Otherwise treat as a value
-		expr = p.parseValue()
+		// Otherwise treat as a field access
+		expr = ast.VariableNode{
+			Ident: ast.Ident{Id: curIdent},
+		}
 	} else {
 		expr = p.parseValue() // parseValue should advance the token internally
 	}

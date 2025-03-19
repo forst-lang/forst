@@ -1,45 +1,69 @@
 package ast
 
-import "fmt"
+type TypeIdent string
 
-type TypeDefExpr interface {
-	isTypeDefExpr()
-}
-
-type TypeDefAssertionExpr struct {
+// TypeNode represents a type in the Forst language
+type TypeNode struct {
+	Node
+	Name      TypeIdent
 	Assertion *AssertionNode
 }
 
-func (t TypeDefAssertionExpr) isTypeDefExpr() {}
+const (
+	// Built-in types
+	TypeInt    TypeIdent = "TYPE_INT"
+	TypeFloat  TypeIdent = "TYPE_FLOAT"
+	TypeString TypeIdent = "TYPE_STRING"
+	TypeBool   TypeIdent = "TYPE_BOOL"
+	TypeVoid   TypeIdent = "TYPE_VOID"
+	TypeError  TypeIdent = "TYPE_ERROR"
+	TypeObject TypeIdent = "TYPE_OBJECT"
 
-type TypeDefBinaryExpr struct {
-	Left  TypeDefExpr
-	Op    TokenIdent // TokenBitwiseAnd or TokenBitwiseOr (& or |)
-	Right TypeDefExpr
+	// Placeholder for a type assertion
+	TypeAssertion TypeIdent = "TYPE_ASSERTION"
+
+	// Placeholder for an implicit type
+	TypeImplicit TypeIdent = "TYPE_IMPLICIT"
+)
+
+// IsExplicit returns true if the type has been specified explicitly
+func (t TypeNode) IsExplicit() bool {
+	return t.Name != TypeImplicit
 }
 
-func (t TypeDefBinaryExpr) isTypeDefExpr() {}
-
-func (t TypeDefBinaryExpr) IsConjunction() bool {
-	return t.Op == TokenBitwiseAnd
+// IsImplicit returns true if the type has not been specified explicitly
+func (t TypeNode) IsImplicit() bool {
+	return t.Name == TypeImplicit
 }
 
-func (t TypeDefBinaryExpr) IsDisjunction() bool {
-	return t.Op == TokenBitwiseOr
-}
-
-type TypeDefNode struct {
-	Node
-	// Name of the type being defined
-	Ident TypeIdent
-	// Expression defining the type
-	Expr TypeDefExpr
-}
-
-func (t TypeDefNode) Kind() NodeKind {
+// NodeType returns the type of this AST node
+func (t TypeNode) Kind() NodeKind {
 	return NodeKindType
 }
 
-func (t TypeDefNode) String() string {
-	return fmt.Sprintf("TypeDefNode(%s)", t.Ident)
+func (t TypeNode) IsError() bool {
+	return t.Name == TypeError
+}
+
+func (t TypeNode) String() string {
+	switch t.Name {
+	case TypeInt:
+		return "Int"
+	case TypeFloat:
+		return "Float"
+	case TypeString:
+		return "String"
+	case TypeBool:
+		return "Bool"
+	case TypeVoid:
+		return "Void"
+	case TypeError:
+		return "Error"
+	case TypeAssertion:
+		return "Assertion"
+	case TypeImplicit:
+		return "(implicit)"
+	default:
+		return string(t.Name)
+	}
 }

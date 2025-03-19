@@ -13,7 +13,26 @@ type AssertionNode struct {
 
 type ConstraintNode struct {
 	Name string
-	Args []ValueNode
+	Args []ConstraintArgumentNode
+}
+
+type ConstraintArgumentNode struct {
+	Value *ValueNode
+	Shape *ShapeNode
+}
+
+func (c ConstraintArgumentNode) String() string {
+	if c.Value != nil {
+		return (*c.Value).String()
+	}
+	return c.Shape.String()
+}
+
+func (c ConstraintArgumentNode) Kind() NodeKind {
+	if c.Value != nil {
+		return (*c.Value).Kind()
+	}
+	return c.Shape.Kind()
 }
 
 func (a AssertionNode) String() string {

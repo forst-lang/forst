@@ -33,7 +33,6 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		p.advance()
 		expr := p.parseTypeDefExpr()
 		p.expect(ast.TokenRParen)
-		p.advance()
 		return expr
 	}
 

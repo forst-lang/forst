@@ -80,6 +80,10 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenDot
 	case "=":
 		return ast.TokenEquals
+	case "&":
+		return ast.TokenBitwiseAnd
+	case "|":
+		return ast.TokenBitwiseOr
 	default:
 		if isDigit(word[0]) {
 			lastChar := word[len(word)-1]

@@ -239,7 +239,19 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			return nil, err
 		}
 		return nil, nil
+
+	case ast.TypeNode:
+		return nil, nil
+
+	case ast.TypeDefNode:
+		return nil, nil
+
 	case ast.ReturnNode:
+		return nil, nil
+	}
+
+	// Hotfix, for some reason the typedef node is not detected above
+	if node.Kind() == ast.NodeKindTypeDef {
 		return nil, nil
 	}
 

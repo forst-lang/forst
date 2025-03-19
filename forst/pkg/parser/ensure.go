@@ -38,7 +38,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			Constraints: []ast.ConstraintNode{
 				{
 					Name: "Nil",
-					Args: []ast.ValueNode{},
+					Args: []ast.ConstraintArgumentNode{},
 				},
 			},
 		}

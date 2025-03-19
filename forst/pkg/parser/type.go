@@ -8,6 +8,8 @@ import (
 func (p *Parser) parseType() ast.TypeNode {
 	token := p.current()
 
+	// TODO: Support slices and maps
+
 	switch token.Type {
 	case ast.TokenString:
 		p.advance()

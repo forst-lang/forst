@@ -25,7 +25,11 @@ func parseErrorMessage(token ast.Token, message string) string {
 }
 
 func logParsedNode(node ast.Node) {
-	log.WithField("node", node).Trace("Parsed node")
+	logParsedNodeWithMessage(node, "Parsed node")
+}
+
+func logParsedNodeWithMessage(node ast.Node, message string) {
+	log.WithField("node", node).Trace(message)
 }
 
 func isCapitalCase(value string) bool {

@@ -16,24 +16,73 @@ func (p *Parser) expectConstraintIdentifier() ast.Token {
 	return token
 }
 
-func (p *Parser) parseConstraint() ast.ConstraintNode {
-	// Each constraint must start with capital letter
-	constraint := p.expectConstraintIdentifier()
-
-	var args []ast.ValueNode
-
-	token := p.current()
-	// Constraints must have parentheses
-	if token.Type != ast.TokenLParen {
-		panic(parseErrorMessage(constraint, "Constraint must have parentheses"))
+func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
+	// Check if this is a shape literal
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		return ast.ConstraintArgumentNode{
+			Shape: &shape,
+		}
 	}
 
-	p.advance() // Consume (
+	// Otherwise parse as a regular value or type assertion
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		return ast.ConstraintArgumentNode{
+			Shape: &shape,
+		}
+	}
+	value := p.parseValue()
+	return ast.ConstraintArgumentNode{
+		Value: &value,
+	}
+}
 
-	// Parse arguments until closing parenthesis
+func (p *Parser) parseShape() ast.ShapeNode {
+	p.expect(ast.TokenLBrace)
+
+	fields := make(map[string]ast.ShapeFieldNode)
+	// Parse fields until closing brace
+	for p.current().Type != ast.TokenRBrace {
+		// Parse field name
+		name := p.expect(ast.TokenIdentifier).Value
+		p.expect(ast.TokenColon)
+
+		// Parse field value (can be another shape or a type assertion)
+		var value ast.ShapeFieldNode
+		if p.current().Type == ast.TokenLBrace {
+			shape := p.parseShape()
+			value = ast.ShapeFieldNode{
+				Shape: &shape,
+			}
+		} else {
+			assertion := p.parseAssertionChain(true)
+			value = ast.ShapeFieldNode{
+				Assertion: &assertion,
+			}
+		}
+
+		fields[name] = value
+
+		// Handle commas between fields
+		if p.current().Type != ast.TokenRBrace {
+			p.expect(ast.TokenComma)
+		}
+	}
+
+	p.expect(ast.TokenRBrace)
+
+	return ast.ShapeNode{Fields: fields}
+}
+
+func (p *Parser) parseConstraint() ast.ConstraintNode {
+	constraint := p.expectConstraintIdentifier()
+	p.expect(ast.TokenLParen)
+
+	var args []ast.ConstraintArgumentNode
 	for p.current().Type != ast.TokenRParen {
-		value := p.parseValue()
-		args = append(args, value)
+		arg := p.parseConstraintArgument()
+		args = append(args, arg)
 
 		if p.current().Type == ast.TokenComma {
 			p.advance()
