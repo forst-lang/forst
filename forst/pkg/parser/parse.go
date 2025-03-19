@@ -47,7 +47,7 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 		case ast.TokenType:
 			typeDef := p.parseTypeDef()
 			logParsedNodeWithMessage(typeDef, "Parsed type def")
-			nodes = append(nodes, typeDef)
+			nodes = append(nodes, *typeDef)
 		case ast.TokenFunction:
 			p.context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),

@@ -250,11 +250,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 	}
 
-	// Hotfix, for some reason the typedef node is not detected above
-	if node.Kind() == ast.NodeKindTypeDef {
-		return nil, nil
-	}
-
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))
 }
 
