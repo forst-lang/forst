@@ -23,7 +23,13 @@ func (n ShapeNode) Kind() NodeKind {
 func (n ShapeNode) String() string {
 	var fields []string
 	for name, field := range n.Fields {
-		fields = append(fields, fmt.Sprintf("%s: %s", name, field.String()))
+		var fieldStr string
+		if field.Shape != nil {
+			fieldStr = field.Shape.String()
+		} else if field.Assertion != nil {
+			fieldStr = field.Assertion.String()
+		}
+		fields = append(fields, fmt.Sprintf("%s: %s", name, fieldStr))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(fields, ", "))
 }

@@ -17,21 +17,15 @@ func (p *Parser) expectConstraintIdentifier() ast.Token {
 }
 
 func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
-	// Check if this is a shape literal
+	// Check if this is a shape definition
 	if p.current().Type == ast.TokenLBrace {
 		shape := p.parseShape()
+		logParsedNodeWithMessage(shape, "Parsed shape")
 		return ast.ConstraintArgumentNode{
 			Shape: &shape,
 		}
 	}
 
-	// Otherwise parse as a regular value or type assertion
-	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShape()
-		return ast.ConstraintArgumentNode{
-			Shape: &shape,
-		}
-	}
 	value := p.parseValue()
 	return ast.ConstraintArgumentNode{
 		Value: &value,

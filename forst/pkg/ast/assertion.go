@@ -38,20 +38,19 @@ func (c ConstraintArgumentNode) Kind() NodeKind {
 func (a AssertionNode) String() string {
 	constraints := make([]string, len(a.Constraints))
 	for i, c := range a.Constraints {
-		if len(c.Args) > 0 {
-			argStrings := make([]string, len(c.Args))
-			for j, arg := range c.Args {
-				argStrings[j] = arg.String()
-			}
-			constraints[i] = fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
-		} else {
-			constraints[i] = c.Name
+		argStrings := make([]string, len(c.Args))
+		for j, arg := range c.Args {
+			argStrings[j] = arg.String()
 		}
+		constraints[i] = fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
 	}
 
 	constraintsString := strings.Join(constraints, ".")
 	if a.BaseType == nil {
 		return constraintsString
+	}
+	if constraintsString == "" {
+		return string(*a.BaseType)
 	}
 	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)
 }

@@ -61,7 +61,7 @@ func (i IntLiteralNode) String() string {
 }
 
 func (f FloatLiteralNode) String() string {
-	return fmt.Sprintf("%f", f.Value)
+	return fmt.Sprintf("%g", f.Value)
 }
 
 func (s StringLiteralNode) String() string {
