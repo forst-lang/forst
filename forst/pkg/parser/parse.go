@@ -38,6 +38,10 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 		token := p.current()
 
 		switch token.Type {
+		case ast.TokenComment:
+			// Comments are ignored
+			p.advance()
+			continue
 		case ast.TokenPackage:
 			packageDef := p.parsePackage()
 			logParsedNodeWithMessage(packageDef, "Parsed package")

@@ -12,6 +12,13 @@ func (p *Parser) expectCustomTypeIdentifier() ast.Token {
 	return token
 }
 
+func (p *Parser) expectCustomTypeIdentifierOrPackageName() ast.Token {
+	if p.peek().Type == ast.TokenDot && isPossibleTypeIdentifier(p.peek(2)) && p.peek(3).Type != ast.TokenLParen {
+		return p.expect(ast.TokenIdentifier)
+	}
+	return p.expectCustomTypeIdentifier()
+}
+
 func (p *Parser) parseTypeDef() *ast.TypeDefNode {
 	p.expect(ast.TokenType)
 

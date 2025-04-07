@@ -15,7 +15,7 @@ func isSpecialChar(c byte) bool {
 
 // isTwoCharOperator checks if a string is a two-character operator
 func isTwoCharOperator(s string) bool {
-	return s == "->" || s == "==" || s == "!=" || s == ">=" || s == "<=" || s == "&&" || s == "||" || s == ":="
+	return s == "->" || s == "==" || s == "!=" || s == ">=" || s == "<=" || s == "&&" || s == "||" || s == ":=" || s == "//"
 }
 
 // isDigit checks if a character is a digit

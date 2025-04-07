@@ -37,10 +37,14 @@ func (p *Parser) current() ast.Token {
 	return ast.Token{Type: ast.TokenEOF, Value: ""}
 }
 
-// Get the next token
-func (p *Parser) peek() ast.Token {
-	if p.currentIndex+1 < len(p.tokens) {
-		return p.tokens[p.currentIndex+1]
+// Get the token n positions ahead (defaults to next token if n not specified)
+func (p *Parser) peek(n ...int) ast.Token {
+	offset := 1
+	if len(n) > 0 {
+		offset = n[0]
+	}
+	if p.currentIndex+offset < len(p.tokens) {
+		return p.tokens[p.currentIndex+offset]
 	}
 	return ast.Token{Type: ast.TokenEOF, Value: ""}
 }

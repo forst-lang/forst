@@ -27,8 +27,18 @@ func (p *Parser) parseType() ast.TypeNode {
 		p.advance()
 		return ast.TypeNode{Name: ast.TypeVoid}
 	default:
-		typeName := p.expectCustomTypeIdentifier().Value
-		return ast.TypeNode{Name: ast.TypeIdent(typeName)}
+		// Parse first segment (could be package name or type)
+		firstSegment := p.expectCustomTypeIdentifierOrPackageName().Value
+
+		// Check if it's a package name
+		if p.current().Type == ast.TokenDot && p.peek(2).Type != ast.TokenLParen {
+			p.advance() // Consume dot
+			typeName := p.expectCustomTypeIdentifier().Value
+			qualifiedName := firstSegment + "." + typeName
+			return ast.TypeNode{Name: ast.TypeIdent(qualifiedName)}
+		}
+
+		return ast.TypeNode{Name: ast.TypeIdent(firstSegment)}
 	}
 }
 

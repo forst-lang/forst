@@ -85,12 +85,18 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		// Register parameter types in the function scope
 		for _, param := range n.Params {
-			functionScope.Symbols[param.Ident.Id] = Symbol{
-				Identifier: param.Ident.Id,
-				Types:      []ast.TypeNode{param.Type},
-				Kind:       SymbolParameter,
-				Scope:      functionScope,
-				Position:   tc.path,
+			switch p := param.(type) {
+			case ast.SimpleParamNode:
+				functionScope.Symbols[p.Ident.Id] = Symbol{
+					Identifier: p.Ident.Id,
+					Types:      []ast.TypeNode{p.Type},
+					Kind:       SymbolParameter,
+					Scope:      functionScope,
+					Position:   tc.path,
+				}
+			case ast.DestructuredParamNode:
+				// Handle destructured params if needed
+				continue
 			}
 		}
 

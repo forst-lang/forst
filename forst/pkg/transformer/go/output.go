@@ -11,7 +11,7 @@ type TransformerOutput struct {
 	imports      []*goast.GenDecl
 	importGroups []*goast.GenDecl
 	functions    []*goast.FuncDecl
-	types        []*goast.Decl
+	types        []*goast.GenDecl
 }
 
 func (t *TransformerOutput) SetPackageName(name string) {
@@ -53,7 +53,7 @@ func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 	t.functions = append(t.functions, function)
 }
 
-func (t *TransformerOutput) AddType(typeDecl *goast.Decl) {
+func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
 	t.types = append(t.types, typeDecl)
 }
 
@@ -99,7 +99,7 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 		decls = append(decls, goast.Decl(fn))
 	}
 	for _, t := range t.types {
-		decls = append(decls, *t)
+		decls = append(decls, goast.Decl(t))
 	}
 
 	file := &goast.File{

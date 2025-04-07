@@ -29,6 +29,10 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		switch n := node.(type) {
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.Id))
+		case ast.TypeDefNode:
+			decl := t.transformTypeDef(n)
+			t.Output.AddType(decl)
+		
 		case ast.ImportNode:
 			decl := t.transformImport(n)
 			t.Output.AddImport(decl)

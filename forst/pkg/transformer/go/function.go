@@ -13,9 +13,21 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 
 	for _, param := range n.Params {
+		var paramName string
+		var paramType ast.TypeNode
+
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			paramName = string(p.Ident.Id)
+			paramType = p.Type
+		case ast.DestructuredParamNode:
+			// Handle destructured params if needed
+			continue
+		}
+
 		params.List = append(params.List, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(param.Ident.String())},
-			Type:  transformType(param.Type),
+			Names: []*goast.Ident{goast.NewIdent(paramName)},
+			Type:  t.transformType(paramType),
 		})
 	}
 
@@ -27,7 +39,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	var results *goast.FieldList = nil
 	isMainFunc := t.isMainPackage() && n.HasMainFunctionName()
 	if !isMainFunc {
-		results = transformTypes(returnType)
+		results = t.transformTypes(returnType)
 	}
 
 	t.pushScope(n)

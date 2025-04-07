@@ -7,7 +7,7 @@ import (
 )
 
 // transformType converts a Forst type node to a Go type declaration
-func transformType(n ast.TypeNode) *goast.Ident {
+func (t *Transformer) transformType(n ast.TypeNode) *goast.Ident {
 	switch n.Name {
 	case ast.TypeInt:
 		return goast.NewIdent("int")
@@ -22,17 +22,20 @@ func transformType(n ast.TypeNode) *goast.Ident {
 	case ast.TypeError:
 		return goast.NewIdent("error")
 	case ast.TypeAssertion:
-		// TODO: Look up the type assertion in the type registry
-		return goast.NewIdent(string(n.Name))
+		ident, err := t.TypeChecker.LookupAssertionType(n.Assertion, t.currentScope)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to lookup assertion type: %s", err))
+		}
+		return goast.NewIdent(string(ident.Name))
 	}
 	panic(fmt.Sprintf("Unknown type: %s", n.Name))
 }
 
-func transformTypes(types []ast.TypeNode) *goast.FieldList {
+func (t *Transformer) transformTypes(types []ast.TypeNode) *goast.FieldList {
 	fields := make([]*goast.Field, len(types))
 	for i, typ := range types {
 		fields[i] = &goast.Field{
-			Type: transformType(typ),
+			Type: t.transformType(typ),
 		}
 	}
 	return &goast.FieldList{

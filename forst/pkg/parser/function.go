@@ -2,7 +2,73 @@ package parser
 
 import (
 	"forst/pkg/ast"
+	"log"
 )
+
+func (p *Parser) parseParameterType() ast.TypeNode {
+	next := p.peek()
+	// TODO: Even if the next token is a dot this could be a type without any constraints
+	if next.Type == ast.TokenDot || next.Type == ast.TokenLParen {
+		assertion := p.parseAssertionChain(true)
+		return ast.TypeNode{
+			Name:      ast.TypeAssertion,
+			Assertion: &assertion,
+		}
+	}
+	return p.parseType()
+}
+
+func (p *Parser) parseDestructuredParameter() ast.ParamNode {
+	p.expect(ast.TokenLBrace)
+	fields := []string{}
+
+	// Parse fields until we hit closing brace
+	for p.current().Type != ast.TokenRBrace {
+		name := p.expect(ast.TokenIdentifier)
+		fields = append(fields, name.Value)
+
+		// Handle comma between fields
+		if p.current().Type == ast.TokenComma {
+			p.advance()
+		}
+	}
+
+	p.expect(ast.TokenRBrace)
+	p.expect(ast.TokenColon)
+
+	paramType := p.parseParameterType()
+
+	return ast.DestructuredParamNode{
+		Fields: fields,
+		Type:   paramType,
+	}
+}
+
+func (p *Parser) parseSimpleParameter() ast.ParamNode {
+	name := p.expect(ast.TokenIdentifier)
+	p.expect(ast.TokenColon)
+
+	paramType := p.parseParameterType()
+	log.Println("parsed param type", paramType)
+
+	param := ast.SimpleParamNode{
+		Ident: ast.Ident{Id: ast.Identifier(name.Value)},
+		Type:  paramType,
+	}
+
+	return param
+}
+
+func (p *Parser) parseParameter() ast.ParamNode {
+	switch p.current().Type {
+	case ast.TokenIdentifier:
+		return p.parseSimpleParameter()
+	case ast.TokenLBrace:
+		return p.parseDestructuredParameter()
+	default:
+		panic(parseErrorMessage(p.current(), "Expected parameter"))
+	}
+}
 
 // Parse function parameters
 func (p *Parser) parseFunctionSignature() []ast.ParamNode {
@@ -17,22 +83,13 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 
 	// Parse parameters
 	for {
-		name := p.expect(ast.TokenIdentifier)
-		p.expect(ast.TokenColon)
-
-		var paramType ast.TypeNode
-		if p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen {
-			assertion := p.parseAssertionChain(false)
-			paramType = ast.TypeNode{Name: ast.TypeAssertion, Assertion: &assertion}
-		} else {
-			paramType = p.parseType()
+		param := p.parseParameter()
+		switch param.(type) {
+		case ast.DestructuredParamNode:
+			logParsedNodeWithMessage(param, "Parsed destructured function param")
+		default:
+			logParsedNodeWithMessage(param, "Parsed function param")
 		}
-
-		param := ast.ParamNode{
-			Ident: ast.Ident{Id: ast.Identifier(name.Value)},
-			Type:  paramType,
-		}
-		logParsedNodeWithMessage(param, "Parsed function param")
 		params = append(params, param)
 
 		// Check if there are more parameters
@@ -90,8 +147,6 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 		Params:      params,
 		Body:        body,
 	}
-
-	logParsedNode(node)
 
 	return node
 }

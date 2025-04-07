@@ -68,6 +68,8 @@ const (
 	// Bitwise operators
 	TokenBitwiseAnd TokenIdent = "BITWISE_AND" // &
 	TokenBitwiseOr  TokenIdent = "BITWISE_OR"  // |
+
+	TokenComment TokenIdent = "COMMENT" // //
 )
 
 // Token structure

@@ -52,6 +52,11 @@ func Lexer(input []byte, ctx Context) []ast.Token {
 				token, newColumn := processSpecialChar(line, column, path, lineNum)
 				tokens = append(tokens, token)
 				column = newColumn
+
+				if token.Type == ast.TokenComment {
+					break
+				}
+
 				continue
 			}
 

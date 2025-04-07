@@ -6,7 +6,9 @@ import (
 
 func GetTokenType(word string) ast.TokenIdent {
 	switch word {
-	case "fn":
+	case "//":
+		return ast.TokenComment
+	case "func":
 		return ast.TokenFunction
 	case "import":
 		return ast.TokenImport

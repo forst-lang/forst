@@ -62,6 +62,44 @@ func createUser(input CreateUserInput) (*CreateUserOutput, error) {
 	return &CreateUserOutput{Value: 300.3}, nil
 }
 
+type T_uuidv4 string
+type T_stringmin3max10 string
+type T_stringmin10max34 string
+
+type TrpcMutation_Input_b7YoEumE2Zz struct {
+  id T_uuidv4
+  name T_stringmin3max10
+  phoneNumber T_phoneNumber
+  bankAccount struct {
+    iban T_stringmin10max34
+  }
+}
+
+func (op TrpcMutation_Input_struct) Validate() {
+  op.id.Validate()
+  op.name.Validate()
+  op.phoneNumber.Validate()
+  op.bankAccount.iban.Validate()
+}
+
+type TrpcMutation_b7YoEumE2Zz interface {
+  trpc.Mutation
+  Input TrpcMutation_Input_b7YoEumE2Zz
+}
+
+func createUser(op TrpcMutation_b7YoEumE2Zz) {
+  ctx := op.Ctx
+  if !ctx.IsLoggedIn() {
+    ctx.Error("Not logged in")
+  }
+  input := op.Input
+  _, err := input.Validate()
+  if err != nil {
+    return fmt.Errorf("invalid input: %w", err)
+  }
+  return createUserDatabase(input.id, input.name, input.phoneNumber, input.bankAccount.iban)
+}
+
 func main() {
 	input := CreateUserInput{
 		ID:           "abcdef-abc1234-abc1234-abc1234",

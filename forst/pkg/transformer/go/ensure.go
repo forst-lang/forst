@@ -272,21 +272,21 @@ func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr 
 	return any(result)
 }
 
-func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
+func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	if ensure.Assertion.BaseType != nil {
 		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
 	}
 
-	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure, t.currentScope)
+	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
 	if err != nil {
 		panic(err)
 	}
-	return *assertionType
+	return *ensureBaseType
 }
 
 // transformEnsure converts a Forst ensure to a Go expression
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
-	baseType := t.getAssertionBaseType(ensure)
+	baseType := t.getEnsureBaseType(ensure)
 
 	switch baseType.Name {
 	case ast.TypeString:

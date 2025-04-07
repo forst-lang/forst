@@ -32,43 +32,6 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 	}
 }
 
-func (p *Parser) parseShape() ast.ShapeNode {
-	p.expect(ast.TokenLBrace)
-
-	fields := make(map[string]ast.ShapeFieldNode)
-	// Parse fields until closing brace
-	for p.current().Type != ast.TokenRBrace {
-		// Parse field name
-		name := p.expect(ast.TokenIdentifier).Value
-		p.expect(ast.TokenColon)
-
-		// Parse field value (can be another shape or a type assertion)
-		var value ast.ShapeFieldNode
-		if p.current().Type == ast.TokenLBrace {
-			shape := p.parseShape()
-			value = ast.ShapeFieldNode{
-				Shape: &shape,
-			}
-		} else {
-			assertion := p.parseAssertionChain(true)
-			value = ast.ShapeFieldNode{
-				Assertion: &assertion,
-			}
-		}
-
-		fields[name] = value
-
-		// Handle commas between fields
-		if p.current().Type != ast.TokenRBrace {
-			p.expect(ast.TokenComma)
-		}
-	}
-
-	p.expect(ast.TokenRBrace)
-
-	return ast.ShapeNode{Fields: fields}
-}
-
 func (p *Parser) parseConstraint() ast.ConstraintNode {
 	constraint := p.expectConstraintIdentifier()
 	p.expect(ast.TokenLParen)
@@ -94,26 +57,42 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 	var constraints []ast.ConstraintNode
 	var baseType *ast.TypeIdent
 
-	// Parse optional base type (must start with capital letter)
 	token := p.current()
-	if isPossibleTypeIdentifier(token) || isPossibleConstraintIdentifier(token) {
-		// If next token is not a parenthesis, this is a base type
-		if isPossibleTypeIdentifier(token) && p.peek().Type != ast.TokenLParen {
-			typ := p.parseType()
-			baseType = &typ.Name
-		} else {
+	isIdentOrConstraint := token.Type == ast.TokenIdentifier || isPossibleConstraintIdentifier(token)
+
+	if isIdentOrConstraint {
+		isConstraintWithoutBaseType := p.peek().Type == ast.TokenLParen
+
+		if isConstraintWithoutBaseType {
 			if requireBaseType {
 				panic(parseErrorMessage(token, "Expected base type for assertion"))
 			}
-			// Otherwise it's a constraint
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
+		} else {
+			// Parse first segment (could be package name or type)
+			typ := p.parseType()
+			baseType = &typ.Name
+
+			// Check if it's a package name
+			if p.current().Type == ast.TokenDot {
+				nextToken := p.peek()
+				isQualifiedType := isPossibleTypeIdentifier(nextToken) &&
+					p.peek(2).Type != ast.TokenLParen
+
+				if isQualifiedType {
+					p.advance() // Consume dot
+					pkgType := p.parseType()
+					qualifiedName := ast.TypeIdent(string(*baseType) + "." + string(pkgType.Name))
+					baseType = &qualifiedName
+				}
+			}
 		}
 	}
 
-	// Parse chain of assertions
+	// Parse constraint chain
 	for p.current().Type == ast.TokenDot {
-		p.advance() // Consume dot
+		p.advance()
 		constraint := p.parseConstraint()
 		constraints = append(constraints, constraint)
 	}

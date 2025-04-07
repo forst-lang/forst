@@ -1,5 +1,7 @@
 package ast
 
+import "fmt"
+
 type TypeIdent string
 
 // TypeNode represents a type in the Forst language
@@ -60,7 +62,7 @@ func (t TypeNode) String() string {
 	case TypeError:
 		return "Error"
 	case TypeAssertion:
-		return "Assertion"
+		return fmt.Sprintf("Assertion(%s)", t.Assertion.String())
 	case TypeImplicit:
 		return "(implicit)"
 	default:

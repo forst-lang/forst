@@ -1,9 +1,9 @@
 package basic_function
 
-fn compare() {
+func compare() {
   return "a" == "b"
 }
 
-fn diff(a: Int, b: Int) {
+func diff(a: Int, b: Int) {
   return 3 - 2
 }

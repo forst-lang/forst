@@ -6,6 +6,18 @@ import (
 	"forst/pkg/ast"
 )
 
+func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, error) {
+	hash := tc.Hasher.Hash(node)
+	if existingType, exists := tc.Types[hash]; exists {
+		// Ignore types that are still marked as implicit, as they are not yet inferred
+		if len(existingType) > 0 {
+			return nil, nil
+		}
+		return existingType, nil
+	}
+	return nil, nil
+}
+
 // lookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentScope *Scope) (ast.TypeNode, error) {
 	symbol, err := tc.lookupSymbol(variable.Ident.Id, currentScope)
@@ -35,10 +47,24 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, curr
 	return sig.ReturnTypes, nil
 }
 
-func (tc *TypeChecker) LookupAssertionType(ensure *ast.EnsureNode, currentScope *Scope) (*ast.TypeNode, error) {
+func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, currentScope *Scope) (*ast.TypeNode, error) {
 	baseType, err := tc.LookupVariableType(&ensure.Variable, currentScope)
 	if err != nil {
 		return nil, err
 	}
 	return &baseType, nil
+}
+
+func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode, currentScope *Scope) (*ast.TypeNode, error) {
+	hash := tc.Hasher.Hash(assertion)
+	if existingType, exists := tc.Types[hash]; exists {
+		if len(existingType) != 1 {
+			return nil, fmt.Errorf("expected single type for assertion %s but got %d types", typeIdent(hash), len(existingType))
+		}
+		return &existingType[0], nil
+	}
+	return &ast.TypeNode{
+		Name:      typeIdent(hash),
+		Assertion: assertion,
+	}, nil
 }

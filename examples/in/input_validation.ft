@@ -8,7 +8,7 @@ type PhoneNumber =
     | String.HasPrefix("0")
   )
 
-fn createUser(input: Input({
+func createUser(op: trpc.Mutation.Input({
   id: UUID.V4(),
   name: String.Min(3).Max(10),
   phoneNumber: PhoneNumber,
@@ -16,10 +16,18 @@ fn createUser(input: Input({
     iban: String.Min(10).Max(34),
   },
 })) {
-  fmt.Println("Creating user with id: %s", input.id)
+  fmt.Println("Creating user with id: %s", op.input.id)
   return 300.3f
 }
 
-fn CreateRouter() {
-    return createUser()
-}
+// func createUser({ input, ctx }: trpc.Mutation.Input({
+//   id: UUID.V4(),
+//   name: String.Min(3).Max(10),
+//   phoneNumber: PhoneNumber,
+//   bankAccount: {
+//     iban: String.Min(10).Max(34),
+//   },
+// })) {
+//   ensure ctx is trpc.Context.LoggedIn()
+//   return createUserDatabase(input.id, input.name, input.phoneNumber, input.bankAccount.iban)
+// }
