@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"encoding/binary"
+	"fmt"
 	"forst/pkg/ast"
 	"hash/fnv"
 )
@@ -110,4 +111,10 @@ func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 	hasher := fnv.New64a()
 	hasher.Write([]byte(string(tokenType)))
 	return NodeHash(hasher.Sum64())
+}
+
+// TypeNameFromHash generates a string name for a type based on its hash value
+func TypeNameFromHash(hash NodeHash) string {
+	// Use first 12 characters of hash for readability
+	return fmt.Sprintf("T_%x", uint64(hash))[0:12]
 }

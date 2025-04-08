@@ -98,23 +98,55 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
-func (tc *TypeChecker) inferAssertionType(assertion ast.AssertionNode) (*ast.TypeNode, error) {
+func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.TypeNode, error) {
 	// Check if we've already inferred this assertion's type
-	existingTypes, err := findAlreadyInferredType(tc, &assertion)
+	existingTypes, err := findAlreadyInferredType(tc, assertion)
 	if err != nil {
 		return nil, err
 	}
-	if len(existingTypes) != 1 {
-		hash := tc.Hasher.Hash(&assertion)
-		typeNode := ast.TypeNode{
-			Name:      typeIdent(hash),
-			Assertion: &assertion,
+
+	if existingTypes != nil {
+		return existingTypes, nil
+	}
+
+	hash := tc.Hasher.Hash(assertion)
+	typeNode := ast.TypeNode{
+		Name:      ast.TypeIdent(TypeNameFromHash(hash)),
+		Assertion: assertion,
+	}
+	inferredType := []ast.TypeNode{typeNode}
+	tc.storeInferredType(assertion, inferredType)
+
+	// Process each constraint in the assertion
+	for _, constraint := range assertion.Constraints {
+		for _, arg := range constraint.Args {
+			// If the argument is a shape, register it as a type definition
+			if arg.Shape != nil {
+				hash := tc.Hasher.Hash(arg.Shape)
+				typeIdent := ast.TypeIdent(TypeNameFromHash(hash))
+				tc.registerType(ast.TypeDefNode{
+					Ident: typeIdent,
+					Expr: ast.TypeDefAssertionExpr{
+						Assertion: &ast.AssertionNode{
+							BaseType: &typeIdent,
+							Constraints: []ast.ConstraintNode{
+								{
+									Name: "shape",
+									Args: []ast.ConstraintArgumentNode{
+										{
+											Shape: arg.Shape,
+										},
+									},
+								},
+							},
+						},
+					},
+				})
+			}
 		}
-		tc.storeInferredType(&assertion, []ast.TypeNode{typeNode})
 	}
 
 	return nil, nil
-
 }
 
 func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
@@ -150,7 +182,7 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	log.Trace("inferNodeType", node)
+	log.Tracef("inferNodeType: %s", node.String())
 	// Check if we've already inferred this node's type
 	alreadyInferredType, err := findAlreadyInferredType(tc, node)
 	if err != nil {
@@ -171,6 +203,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.FunctionNode:
 		tc.pushScope(n)
 
+		// Convert []ParamNode to []Node
+		params := make([]ast.Node, len(n.Params))
+		for i, param := range n.Params {
+			params[i] = param
+		}
+
+		_, err = tc.inferNodeTypes(params)
+		if err != nil {
+			return nil, err
+		}
+
 		_, err = tc.inferNodeTypes(n.Body)
 		if err != nil {
 			return nil, err
@@ -185,6 +228,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		tc.popScope()
 
 		return inferredType, nil
+	case ast.SimpleParamNode:
+		if n.Type.Assertion != nil {
+			inferredType, err := tc.inferAssertionType(n.Type.Assertion)
+			if err != nil {
+				return nil, err
+			}
+			return inferredType, nil
+		}
+		return []ast.TypeNode{n.Type}, nil
+	case ast.DestructuredParamNode:
+		return nil, nil
 	case ast.ExpressionNode:
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
@@ -215,7 +269,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.AssertionNode:
-		_, err := tc.inferAssertionType(n)
+		_, err := tc.inferAssertionType(&n)
 		if err != nil {
 			return nil, err
 		}
