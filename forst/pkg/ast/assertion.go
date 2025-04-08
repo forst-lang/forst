@@ -6,12 +6,13 @@ import (
 )
 
 type AssertionNode struct {
-	// Base type is optional as the type can be inferred from the value being checked
+	// Base type is optional when the type can be inferred from the value being checked
 	BaseType    *TypeIdent
 	Constraints []ConstraintNode
 }
 
 type ConstraintNode struct {
+	Node
 	Name string
 	Args []ConstraintArgumentNode
 }

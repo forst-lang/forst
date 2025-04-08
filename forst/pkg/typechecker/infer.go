@@ -98,6 +98,57 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
+func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, error) {
+	hash := tc.Hasher.Hash(shape)
+	typeIdent := ast.TypeIdent(hash.ToTypeName())
+	shapeType := []ast.TypeNode{
+		{
+			Name: typeIdent,
+		},
+	}
+	for name, field := range shape.Fields {
+		if field.Shape != nil {
+			fieldType, err := tc.inferShapeType(field.Shape)
+			if err != nil {
+				return nil, err
+			}
+
+			fieldHash := tc.Hasher.Hash(field)
+			fieldTypeIdent := ast.TypeIdent(fieldHash.ToTypeName())
+			log.Tracef("Inferred type of shape field %s: %s, field: %s", name, fieldTypeIdent, field)
+			tc.registerType(ast.TypeDefNode{
+				Ident: fieldTypeIdent,
+				Expr: ast.TypeDefAssertionExpr{
+					Assertion: &ast.AssertionNode{
+						BaseType: &fieldType[0].Name,
+					},
+				},
+			})
+		} else if field.Assertion != nil {
+			assertionTypes, err := tc.inferAssertionType(field.Assertion)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(field.Assertion, assertionTypes)
+
+			fieldHash := tc.Hasher.Hash(field)
+			fieldTypeIdent := ast.TypeIdent(fieldHash.ToTypeName())
+			log.Tracef("Inferred type of assertion field %s: %s", name, fieldTypeIdent)
+			tc.registerType(ast.TypeDefNode{
+				Ident: fieldTypeIdent,
+				Expr: ast.TypeDefAssertionExpr{
+					Assertion: field.Assertion,
+				},
+			})
+		} else {
+			panic(fmt.Sprintf("Shape field has neither assertion nor shape: %T", field))
+		}
+	}
+
+	tc.storeInferredType(shape, shapeType)
+	return shapeType, nil
+}
+
 func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.TypeNode, error) {
 	// Check if we've already inferred this assertion's type
 	existingTypes, err := findAlreadyInferredType(tc, assertion)
@@ -125,6 +176,21 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.T
 			Assertion: assertion,
 		},
 	})
+
+	if assertion.BaseType != nil && (*assertion.BaseType == "trpc.Mutation" || *assertion.BaseType == "trpc.Query") {
+		for _, constraint := range assertion.Constraints {
+			switch constraint.Name {
+			case "Input":
+				if len(constraint.Args) != 1 {
+					return nil, fmt.Errorf("input constraint must have exactly one argument")
+				}
+				arg := constraint.Args[0]
+				if arg.Shape != nil {
+					tc.inferShapeType(arg.Shape)
+				}
+			}
+		}
+	}
 
 	return nil, nil
 }

@@ -101,6 +101,55 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 		if n.Block != nil {
 			binary.Write(hasher, binary.LittleEndian, h.HashNodes(n.Block.Body))
 		}
+
+	case ast.ShapeNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Shape"])
+		// Convert map to slice of nodes
+		fields := make([]ast.Node, 0, len(n.Fields))
+		for _, field := range n.Fields {
+			fields = append(fields, field)
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNodes(fields))
+
+	case ast.ShapeFieldNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["ShapeField"])
+		if n.Assertion != nil {
+			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Assertion))
+		}
+		if n.Shape != nil {
+			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Shape))
+		}
+
+	case ast.AssertionNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Assertion"])
+		if n.BaseType != nil {
+			binary.Write(hasher, binary.LittleEndian, []byte(*n.BaseType))
+		}
+		// Convert constraints to []ast.Node
+		nodes := make([]ast.Node, len(n.Constraints))
+		for i, constraint := range n.Constraints {
+			nodes[i] = constraint
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+
+	case ast.ConstraintNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Constraint"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Name))
+		// Convert args to []ast.Node
+		nodes := make([]ast.Node, len(n.Args))
+		for i, arg := range n.Args {
+			nodes[i] = arg
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+
+	case ast.ConstraintArgumentNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["ConstraintArgument"])
+		if n.Value != nil {
+			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Value))
+		}
+		if n.Shape != nil {
+			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Shape))
+		}
 	}
 
 	return NodeHash(hasher.Sum64())

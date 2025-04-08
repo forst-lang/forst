@@ -20,6 +20,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) *goast.GenDecl {
 		},
 	}
 }
+
 func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) *goast.Expr {
 	result := goast.StructType{
 		Fields: &goast.FieldList{
@@ -34,9 +35,11 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) *goas
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) *goast.Expr {
 	if field.Assertion != nil {
+		println(fmt.Sprintf("transformShapeFieldType, assertion: %s", *field.Assertion))
 		return t.transformAssertionType(field.Assertion)
 	}
 	if field.Shape != nil {
+		println(fmt.Sprintf("transformShapeFieldType, shape: %s", *field.Shape))
 		return t.transformShapeType(field.Shape)
 	}
 	panic(fmt.Sprintf("Shape field has neither assertion nor shape: %T", field))
@@ -45,7 +48,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) *goast.E
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) *goast.Expr {
 	fields := []*goast.Field{}
 	for name, field := range shape.Fields {
-		fieldType := *t.transformAssertionType(field.Assertion)
+		fieldType := *t.transformShapeFieldType(field)
 		fields = append(fields, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(name)},
 			Type:  fieldType,

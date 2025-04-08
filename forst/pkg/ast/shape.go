@@ -33,3 +33,10 @@ func (n ShapeNode) String() string {
 	}
 	return fmt.Sprintf("{%s}", strings.Join(fields, ", "))
 }
+
+func (n ShapeFieldNode) String() string {
+	if n.Shape != nil {
+		return n.Shape.String()
+	}
+	return n.Assertion.String()
+}

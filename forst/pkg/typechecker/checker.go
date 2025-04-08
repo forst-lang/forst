@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/pkg/ast"
 
 	log "github.com/sirupsen/logrus"
@@ -155,7 +154,8 @@ func (tc *TypeChecker) GlobalScope() *Scope {
 
 func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	if _, exists := tc.Defs[node.Ident]; exists {
-		panic(fmt.Sprintf("type %s already defined", node.Ident))
+		// panic(fmt.Sprintf("type %s already defined", node.Ident))
+		return
 	}
 	tc.Defs[node.Ident] = node
 }
