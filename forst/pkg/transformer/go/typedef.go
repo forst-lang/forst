@@ -20,6 +20,45 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) *goast.GenDecl {
 		},
 	}
 }
+func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) *goast.Expr {
+	result := goast.StructType{
+		Fields: &goast.FieldList{
+			List: []*goast.Field{
+				// t.transformAssertion(assertion),
+			},
+		},
+	}
+	var expr goast.Expr = &result
+	return &expr
+}
+
+func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) *goast.Expr {
+	if field.Assertion != nil {
+		return t.transformAssertionType(field.Assertion)
+	}
+	if field.Shape != nil {
+		return t.transformShapeType(field.Shape)
+	}
+	panic(fmt.Sprintf("Shape field has neither assertion nor shape: %T", field))
+}
+
+func (t *Transformer) transformShapeType(shape *ast.ShapeNode) *goast.Expr {
+	fields := []*goast.Field{}
+	for name, field := range shape.Fields {
+		fieldType := *t.transformAssertionType(field.Assertion)
+		fields = append(fields, &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(name)},
+			Type:  fieldType,
+		})
+	}
+	result := goast.StructType{
+		Fields: &goast.FieldList{
+			List: fields,
+		},
+	}
+	var expr goast.Expr = &result
+	return &expr
+}
 
 func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) *goast.Expr {
 	switch e := expr.(type) {
@@ -28,6 +67,37 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) *goast.Expr {
 		if e.Assertion.BaseType != nil {
 			baseType = string(*e.Assertion.BaseType)
 		}
+
+		if baseType == "trpc.Mutation" || baseType == "trpc.Query" {
+			fields := []*goast.Field{
+				{
+					Names: []*goast.Ident{goast.NewIdent("ctx")},
+					Type:  &goast.StructType{Fields: &goast.FieldList{}},
+				},
+			}
+
+			for _, constraint := range e.Assertion.Constraints {
+				if constraint.Name == "Input" && len(constraint.Args) > 0 {
+					arg := constraint.Args[0]
+					if shape := arg.Shape; shape != nil {
+						inputField := goast.Field{
+							Names: []*goast.Ident{goast.NewIdent("input")},
+							Type:  *t.transformShapeType(shape),
+						}
+						fields = append(fields, &inputField)
+					}
+				}
+			}
+
+			result := goast.StructType{
+				Fields: &goast.FieldList{
+					List: fields,
+				},
+			}
+			var expr goast.Expr = &result
+			return &expr
+		}
+
 		ident := goast.NewIdent(baseType)
 		var result goast.Expr = ident
 		return &result

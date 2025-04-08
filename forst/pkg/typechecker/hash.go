@@ -106,15 +106,15 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 	return NodeHash(hasher.Sum64())
 }
 
-// HashTokenType generates a structural hash for a token type
+// Generates a structural hash for a token type
 func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 	hasher := fnv.New64a()
 	hasher.Write([]byte(string(tokenType)))
 	return NodeHash(hasher.Sum64())
 }
 
-// TypeNameFromHash generates a string name for a type based on its hash value
-func TypeNameFromHash(hash NodeHash) string {
+// Generates a string name for a type based on its hash value
+func (h NodeHash) ToTypeName() string {
 	// Use first 12 characters of hash for readability
-	return fmt.Sprintf("T_%x", uint64(hash))[0:12]
+	return fmt.Sprintf("T_%x", uint64(h))[0:12]
 }

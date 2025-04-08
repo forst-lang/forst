@@ -110,41 +110,21 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.T
 	}
 
 	hash := tc.Hasher.Hash(assertion)
+	typeIdent := ast.TypeIdent(hash.ToTypeName())
 	typeNode := ast.TypeNode{
-		Name:      ast.TypeIdent(TypeNameFromHash(hash)),
+		Name:      typeIdent,
 		Assertion: assertion,
 	}
 	inferredType := []ast.TypeNode{typeNode}
 	tc.storeInferredType(assertion, inferredType)
 
 	// Process each constraint in the assertion
-	for _, constraint := range assertion.Constraints {
-		for _, arg := range constraint.Args {
-			// If the argument is a shape, register it as a type definition
-			if arg.Shape != nil {
-				hash := tc.Hasher.Hash(arg.Shape)
-				typeIdent := ast.TypeIdent(TypeNameFromHash(hash))
-				tc.registerType(ast.TypeDefNode{
-					Ident: typeIdent,
-					Expr: ast.TypeDefAssertionExpr{
-						Assertion: &ast.AssertionNode{
-							BaseType: &typeIdent,
-							Constraints: []ast.ConstraintNode{
-								{
-									Name: "shape",
-									Args: []ast.ConstraintArgumentNode{
-										{
-											Shape: arg.Shape,
-										},
-									},
-								},
-							},
-						},
-					},
-				})
-			}
-		}
-	}
+	tc.registerType(ast.TypeDefNode{
+		Ident: typeIdent,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: assertion,
+		},
+	})
 
 	return nil, nil
 }
