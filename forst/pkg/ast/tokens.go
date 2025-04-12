@@ -110,3 +110,17 @@ func (t TokenIdent) IsComparisonBinaryOperator() bool {
 func (t TokenIdent) IsLogicalBinaryOperator() bool {
 	return t == TokenLogicalAnd || t == TokenLogicalOr
 }
+
+func (t TokenIdent) String() string {
+	switch t {
+	case TokenBitwiseAnd:
+		return "&"
+	case TokenBitwiseOr:
+		return "|"
+	case TokenLogicalAnd:
+		return "&&"
+	case TokenLogicalOr:
+		return "||"
+	}
+	return string(t)
+}

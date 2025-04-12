@@ -25,6 +25,13 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 				Type: *expr,
 			},
 		},
+		Doc: &goast.CommentGroup{
+			List: []*goast.Comment{
+				{
+					Text: fmt.Sprintf("// %s", node.Expr.String()),
+				},
+			},
+		},
 	}, nil
 }
 
