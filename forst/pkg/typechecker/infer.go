@@ -125,11 +125,12 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 				},
 			})
 		} else if field.Assertion != nil {
-			assertionTypes, err := tc.inferAssertionType(field.Assertion)
+			_, err := tc.inferAssertionType(field.Assertion)
 			if err != nil {
 				return nil, err
 			}
-			tc.storeInferredType(field.Assertion, assertionTypes)
+			// this is empty here, probably should be removed
+			// tc.storeInferredType(field.Assertion, assertionTypes)
 
 			fieldHash := tc.Hasher.HashNode(field)
 			fieldTypeIdent := fieldHash.ToTypeIdent()

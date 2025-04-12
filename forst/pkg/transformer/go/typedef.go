@@ -29,7 +29,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 }
 
 func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goast.Expr, error) {
-	log.Debug(fmt.Sprintf("transformAssertionType, assertion: %s", *assertion))
+	log.Tracef("transformAssertionType, assertion: %s", *assertion)
 	assertionType, err := t.TypeChecker.LookupAssertionType(assertion, t.currentScope)
 	if assertionType == nil {
 		log.Trace("assertionType: nil")

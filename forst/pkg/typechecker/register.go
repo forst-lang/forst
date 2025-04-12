@@ -2,9 +2,12 @@ package typechecker
 
 import (
 	"forst/pkg/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ ast.TypeNode) {
+	log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.Id, typ)
 	tc.storeSymbol(variable.Ident.Id, []ast.TypeNode{typ}, SymbolVariable)
 	tc.storeInferredType(variable, []ast.TypeNode{typ})
 }

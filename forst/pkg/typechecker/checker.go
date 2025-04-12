@@ -131,12 +131,14 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 // storeInferredType associates a type with a node by storing its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash := tc.Hasher.HashNode(node)
+	log.Tracef("Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 	tc.Types[hash] = types
 }
 
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Id()]
 	sig.ReturnTypes = returnTypes
+	log.Tracef("Storing inferred function return type for function %s: %s", fn.Id(), returnTypes)
 	tc.Functions[fn.Id()] = sig
 }
 

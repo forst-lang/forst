@@ -1,6 +1,8 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // TypeIdent is a unique identifier for a type
 type TypeIdent string
@@ -67,6 +69,9 @@ func (t TypeNode) String() string {
 	case TypeImplicit:
 		return "(implicit)"
 	default:
+		if t.Assertion != nil {
+			return fmt.Sprintf("%s(%s)", t.Ident, t.Assertion.String())
+		}
 		return string(t.Ident)
 	}
 }
