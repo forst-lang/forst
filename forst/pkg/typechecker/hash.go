@@ -39,13 +39,13 @@ var NodeKind = map[string]uint8{
 func (h *StructuralHasher) HashNodes(nodes []ast.Node) NodeHash {
 	hasher := fnv.New64a()
 	for _, node := range nodes {
-		binary.Write(hasher, binary.LittleEndian, h.Hash(node))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(node))
 	}
 	return NodeHash(hasher.Sum64())
 }
 
-// Hash generates a structural hash for an AST node
-func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
+// HashNode generates a structural hash for an AST node
+func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	hasher := fnv.New64a()
 
 	switch n := node.(type) {
@@ -55,13 +55,13 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 		// Hash the operator
 		binary.Write(hasher, binary.LittleEndian, h.HashTokenType(n.Operator))
 		// Hash the operands recursively
-		binary.Write(hasher, binary.LittleEndian, h.Hash(n.Left))
-		binary.Write(hasher, binary.LittleEndian, h.Hash(n.Right))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Left))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Right))
 
 	case ast.UnaryExpressionNode:
 		binary.Write(hasher, binary.LittleEndian, NodeKind["UnaryExpression"])
 		binary.Write(hasher, binary.LittleEndian, h.HashTokenType(n.Operator))
-		binary.Write(hasher, binary.LittleEndian, h.Hash(n.Operand))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Operand))
 
 	case ast.IntLiteralNode:
 		binary.Write(hasher, binary.LittleEndian, NodeKind["IntLiteral"])
@@ -94,7 +94,7 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 
 	case ast.EnsureNode:
 		binary.Write(hasher, binary.LittleEndian, NodeKind["Ensure"])
-		binary.Write(hasher, binary.LittleEndian, h.Hash(n.Assertion))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Assertion))
 		if n.Error != nil {
 			binary.Write(hasher, binary.LittleEndian, []byte((*n.Error).String()))
 		}
@@ -114,10 +114,10 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 	case ast.ShapeFieldNode:
 		binary.Write(hasher, binary.LittleEndian, NodeKind["ShapeField"])
 		if n.Assertion != nil {
-			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Assertion))
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Assertion))
 		}
 		if n.Shape != nil {
-			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Shape))
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
 		}
 
 	case ast.AssertionNode:
@@ -145,11 +145,67 @@ func (h *StructuralHasher) Hash(node ast.Node) NodeHash {
 	case ast.ConstraintArgumentNode:
 		binary.Write(hasher, binary.LittleEndian, NodeKind["ConstraintArgument"])
 		if n.Value != nil {
-			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Value))
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Value))
 		}
 		if n.Shape != nil {
-			binary.Write(hasher, binary.LittleEndian, h.Hash(*n.Shape))
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
 		}
+	case ast.PackageNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Package"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident.Id))
+	case ast.ImportNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Import"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Path))
+		if n.Alias != nil {
+			binary.Write(hasher, binary.LittleEndian, []byte(n.Alias.Id))
+		}
+	case ast.TypeDefNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["TypeDef"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Expr.String()))
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident))
+	case ast.ReturnNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Return"])
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Value))
+	case ast.TypeNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Type"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident))
+	case ast.SimpleParamNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["SimpleParam"])
+		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident.Id))
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Type))
+	case ast.DestructuredParamNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["DestructuredParam"])
+		for _, field := range n.Fields {
+			binary.Write(hasher, binary.LittleEndian, []byte(field))
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Type))
+	case *ast.AssertionNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Assertion"])
+		if n.BaseType != nil {
+			binary.Write(hasher, binary.LittleEndian, []byte(*n.BaseType))
+		}
+		nodes := make([]ast.Node, len(n.Constraints))
+		for i, constraint := range n.Constraints {
+			nodes[i] = constraint
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+	case *ast.ShapeNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Shape"])
+		fields := make([]ast.Node, 0, len(n.Fields))
+		for _, field := range n.Fields {
+			fields = append(fields, field)
+		}
+		binary.Write(hasher, binary.LittleEndian, h.HashNodes(fields))
+	case *ast.ShapeFieldNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["ShapeField"])
+		if n.Assertion != nil {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Assertion))
+		}
+		if n.Shape != nil {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
+		}
+	default:
+		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}
 
 	return NodeHash(hasher.Sum64())
@@ -162,8 +218,30 @@ func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 	return NodeHash(hasher.Sum64())
 }
 
+// This is the initial hash value from fnv.New64a() when no data is written
+// It represents a nil/empty hash, so we give it a special type name
+const NIL_HASH = uint64(14695981039346656037)
+
 // Generates a string name for a type based on its hash value
-func (h NodeHash) ToTypeName() string {
-	// Use first 12 characters of hash for readability
-	return fmt.Sprintf("T_%x", uint64(h))[0:12]
+func (h NodeHash) ToTypeIdent() ast.TypeIdent {
+	// Convert hash to base58 string
+	const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	num := uint64(h)
+	b58 := ""
+
+	if num == NIL_HASH {
+		return ast.TypeIdent("T_Invalid")
+	}
+
+	for num > 0 {
+		remainder := num % 58
+		b58 = string(alphabet[remainder]) + b58
+		num = num / 58
+	}
+
+	if b58 == "" {
+		b58 = string(alphabet[0])
+	}
+
+	return ast.TypeIdent("T_" + b58)
 }

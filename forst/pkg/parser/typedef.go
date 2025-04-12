@@ -54,7 +54,7 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 
 		return &ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
-				BaseType: &typ.Name,
+				BaseType: &typ.Ident,
 			},
 		}
 	}

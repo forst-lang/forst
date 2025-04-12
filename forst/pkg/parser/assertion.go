@@ -72,7 +72,7 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 		} else {
 			// Parse first segment (could be package name or type)
 			typ := p.parseType()
-			baseType = &typ.Name
+			baseType = &typ.Ident
 
 			// Check if it's a package name
 			if p.current().Type == ast.TokenDot {
@@ -83,7 +83,7 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 				if isQualifiedType {
 					p.advance() // Consume dot
 					pkgType := p.parseType()
-					qualifiedName := ast.TypeIdent(string(*baseType) + "." + string(pkgType.Name))
+					qualifiedName := ast.TypeIdent(string(*baseType) + "." + string(pkgType.Ident))
 					baseType = &qualifiedName
 				}
 			}

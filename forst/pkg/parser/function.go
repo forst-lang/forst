@@ -2,7 +2,8 @@ package parser
 
 import (
 	"forst/pkg/ast"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseParameterType() ast.TypeNode {
@@ -11,7 +12,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 	if next.Type == ast.TokenDot || next.Type == ast.TokenLParen {
 		assertion := p.parseAssertionChain(true)
 		return ast.TypeNode{
-			Name:      ast.TypeAssertion,
+			Ident:     ast.TypeAssertion,
 			Assertion: &assertion,
 		}
 	}
@@ -49,7 +50,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	p.expect(ast.TokenColon)
 
 	paramType := p.parseParameterType()
-	log.Println("parsed param type", paramType)
+	log.Trace("parsed param type", paramType)
 
 	param := ast.SimpleParamNode{
 		Ident: ast.Ident{Id: ast.Identifier(name.Value)},
@@ -120,7 +121,7 @@ func (p *Parser) parseReturnStatement() ast.ReturnNode {
 
 	return ast.ReturnNode{
 		Value: returnExpression,
-		Type:  ast.TypeNode{Name: ast.TypeImplicit},
+		Type:  ast.TypeNode{Ident: ast.TypeImplicit},
 	}
 }
 

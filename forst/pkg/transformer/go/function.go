@@ -1,6 +1,7 @@
 package transformer_go
 
 import (
+	"fmt"
 	"forst/pkg/ast"
 	goast "go/ast"
 )
@@ -25,9 +26,13 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			continue
 		}
 
+		ident, err := t.transformType(paramType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform type: %s", err)
+		}
 		params.List = append(params.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  t.transformType(paramType),
+			Type:  ident,
 		})
 	}
 
@@ -39,7 +44,10 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	var results *goast.FieldList = nil
 	isMainFunc := t.isMainPackage() && n.HasMainFunctionName()
 	if !isMainFunc {
-		results = t.transformTypes(returnType)
+		results, err = t.transformTypes(returnType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform types: %s", err)
+		}
 	}
 
 	t.pushScope(n)

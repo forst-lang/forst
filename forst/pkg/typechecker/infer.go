@@ -35,7 +35,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		firstType := returnStmtTypes[0]
 		for _, retTypes := range returnStmtTypes[1:] {
 			for _, retType := range retTypes {
-				if retType.Name != firstType[0].Name {
+				if retType.Ident != firstType[0].Ident {
 					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
 				}
 			}
@@ -57,7 +57,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		// If we found return statements, verify the expression type matches
 		if len(returnStmtTypes) > 0 {
 			for i, exprType := range exprTypes {
-				if exprType.Name != returnStmtTypes[0][i].Name {
+				if exprType.Ident != returnStmtTypes[0][i].Ident {
 					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
 				}
 			}
@@ -76,7 +76,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		if _, ok := stmt.(ast.EnsureNode); ok {
 			if len(inferredType) == 0 {
 				inferredType = []ast.TypeNode{
-					{Name: ast.TypeError},
+					{Ident: ast.TypeError},
 				}
 			} else {
 				if len(inferredType) != 1 && len(inferredType) != 2 {
@@ -84,26 +84,26 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 				}
 
 				// TODO: If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
-				if inferredType[len(inferredType)-1].Name != ast.TypeError {
-					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Name)
+				if inferredType[len(inferredType)-1].Ident != ast.TypeError {
+					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Ident)
 				}
 			}
 		}
 	}
 
 	if len(inferredType) == 0 {
-		inferredType = []ast.TypeNode{{Name: ast.TypeVoid}}
+		inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
 	}
 
 	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
 func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.Hash(shape)
-	typeIdent := ast.TypeIdent(hash.ToTypeName())
+	hash := tc.Hasher.HashNode(shape)
+	typeIdent := hash.ToTypeIdent()
 	shapeType := []ast.TypeNode{
 		{
-			Name: typeIdent,
+			Ident: typeIdent,
 		},
 	}
 	for name, field := range shape.Fields {
@@ -113,14 +113,14 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 				return nil, err
 			}
 
-			fieldHash := tc.Hasher.Hash(field)
-			fieldTypeIdent := ast.TypeIdent(fieldHash.ToTypeName())
+			fieldHash := tc.Hasher.HashNode(field)
+			fieldTypeIdent := fieldHash.ToTypeIdent()
 			log.Tracef("Inferred type of shape field %s: %s, field: %s", name, fieldTypeIdent, field)
 			tc.registerType(ast.TypeDefNode{
 				Ident: fieldTypeIdent,
 				Expr: ast.TypeDefAssertionExpr{
 					Assertion: &ast.AssertionNode{
-						BaseType: &fieldType[0].Name,
+						BaseType: &fieldType[0].Ident,
 					},
 				},
 			})
@@ -131,8 +131,8 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 			}
 			tc.storeInferredType(field.Assertion, assertionTypes)
 
-			fieldHash := tc.Hasher.Hash(field)
-			fieldTypeIdent := ast.TypeIdent(fieldHash.ToTypeName())
+			fieldHash := tc.Hasher.HashNode(field)
+			fieldTypeIdent := fieldHash.ToTypeIdent()
 			log.Tracef("Inferred type of assertion field %s: %s", name, fieldTypeIdent)
 			tc.registerType(ast.TypeDefNode{
 				Ident: fieldTypeIdent,
@@ -160,10 +160,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.T
 		return existingTypes, nil
 	}
 
-	hash := tc.Hasher.Hash(assertion)
-	typeIdent := ast.TypeIdent(hash.ToTypeName())
+	hash := tc.Hasher.HashNode(assertion)
+	typeIdent := hash.ToTypeIdent()
 	typeNode := ast.TypeNode{
-		Name:      typeIdent,
+		Ident:     typeIdent,
 		Assertion: assertion,
 	}
 	inferredType := []ast.TypeNode{typeNode}
@@ -353,22 +353,22 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{inferredType}, nil
 
 	case ast.IntLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeInt}
+		typ := ast.TypeNode{Ident: ast.TypeInt}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FloatLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeFloat}
+		typ := ast.TypeNode{Ident: ast.TypeFloat}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.StringLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeString}
+		typ := ast.TypeNode{Ident: ast.TypeString}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.BoolLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeBool}
+		typ := ast.TypeNode{Ident: ast.TypeBool}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
@@ -417,25 +417,25 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 
 	// Check type compatibility and determine result type
 	if operator.IsArithmeticBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in arithmetic expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
 		return leftType, nil
 
 	} else if operator.IsComparisonBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in comparison expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
-		return ast.TypeNode{Name: ast.TypeBool}, nil
+		return ast.TypeNode{Ident: ast.TypeBool}, nil
 
 	} else if operator.IsLogicalBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in logical expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
-		return ast.TypeNode{Name: ast.TypeBool}, nil
+		return ast.TypeNode{Ident: ast.TypeBool}, nil
 	}
 
 	panic(typecheckError("unsupported operator"))

@@ -3,6 +3,8 @@ package parser
 import (
 	"fmt"
 	"forst/pkg/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseShape() ast.ShapeNode {
@@ -24,7 +26,7 @@ func (p *Parser) parseShape() ast.ShapeNode {
 			}
 		} else {
 			assertion := p.parseAssertionChain(true)
-			println(fmt.Sprintf("Parsed assertion chain: %s", assertion))
+			log.Trace(fmt.Sprintf("Parsed assertion chain: %s", assertion))
 			value = ast.ShapeFieldNode{
 				Assertion: &assertion,
 			}

@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"forst/pkg/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.Hash(node)
+	hash := tc.Hasher.HashNode(node)
 	if existingType, exists := tc.Types[hash]; exists {
 		// Ignore types that are still marked as implicit, as they are not yet inferred
 		if len(existingType) > 0 {
@@ -25,7 +27,9 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentSco
 		return ast.TypeNode{}, err
 	}
 	if len(symbol.Types) != 1 {
-		return ast.TypeNode{}, fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.String(), len(symbol.Types))
+		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.String(), len(symbol.Types))
+		log.WithError(err).Error("lookup variable type failed")
+		return ast.TypeNode{}, err
 	}
 	return symbol.Types[0], nil
 }
@@ -36,13 +40,17 @@ func (tc *TypeChecker) lookupSymbol(ident ast.Identifier, currentScope *Scope) (
 			return &sym, nil
 		}
 	}
-	return nil, fmt.Errorf("undefined symbol: %s", ident)
+	err := fmt.Errorf("undefined symbol: %s", ident)
+	log.WithError(err).Error("lookup symbol failed")
+	return nil, err
 }
 
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {
 	sig, exists := tc.Functions[function.Id()]
 	if !exists {
-		return nil, fmt.Errorf("undefined function: %s", function.Ident)
+		err := fmt.Errorf("undefined function: %s", function.Ident)
+		log.WithError(err).Error("lookup function return type failed")
+		return nil, err
 	}
 	return sig.ReturnTypes, nil
 }
@@ -56,15 +64,21 @@ func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, currentScope
 }
 
 func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode, currentScope *Scope) (*ast.TypeNode, error) {
-	hash := tc.Hasher.Hash(assertion)
+	hash := tc.Hasher.HashNode(assertion)
 	if existingType, exists := tc.Types[hash]; exists {
 		if len(existingType) != 1 {
-			return nil, fmt.Errorf("expected single type for assertion %s but got %d types", typeIdent(hash), len(existingType))
+			err := fmt.Errorf("expected single type for assertion %s but got %d types", hash.ToTypeIdent(), len(existingType))
+			log.WithError(err).Error("lookup assertion type failed")
+			return nil, err
 		}
+		log.Trace(fmt.Sprintf("existingType: %s", existingType))
 		return &existingType[0], nil
 	}
-	return &ast.TypeNode{
-		Name:      typeIdent(hash),
+	typeNode := &ast.TypeNode{
+		Ident:     hash.ToTypeIdent(),
 		Assertion: assertion,
-	}, nil
+	}
+	log.Trace(fmt.Sprintf("Storing new looked up assertion type: %s", typeNode.Ident))
+	tc.storeInferredType(assertion, []ast.TypeNode{*typeNode})
+	return typeNode, nil
 }

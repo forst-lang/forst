@@ -28,7 +28,10 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	for _, def := range t.TypeChecker.Defs {
 		switch def := def.(type) {
 		case ast.TypeDefNode:
-			decl := t.transformTypeDef(def)
+			decl, err := t.transformTypeDef(def)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform type def %s: %w", def.Ident, err)
+			}
 			t.Output.AddType(decl)
 		}
 	}
@@ -37,9 +40,6 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		switch n := node.(type) {
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.Id))
-		case ast.TypeDefNode:
-			// decl := t.transformTypeDef(n)
-			// t.Output.AddType(decl)
 		case ast.ImportNode:
 			decl := t.transformImport(n)
 			t.Output.AddImport(decl)

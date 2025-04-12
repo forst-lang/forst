@@ -6,6 +6,7 @@ import (
 
 type TypeDefExpr interface {
 	isTypeDefExpr()
+	String() string
 }
 
 type TypeDefAssertionExpr struct {
@@ -44,4 +45,12 @@ func (t TypeDefNode) Kind() NodeKind {
 
 func (t TypeDefNode) String() string {
 	return fmt.Sprintf("TypeDefNode(%s)", t.Ident)
+}
+
+func (e TypeDefBinaryExpr) String() string {
+	return fmt.Sprintf("TypeDefBinaryExpr(%s %s %s)", e.Left, e.Op, e.Right)
+}
+
+func (e TypeDefAssertionExpr) String() string {
+	return fmt.Sprintf("TypeDefAssertionExpr(%s)", e.Assertion)
 }

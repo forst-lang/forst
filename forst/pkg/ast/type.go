@@ -2,12 +2,13 @@ package ast
 
 import "fmt"
 
+// TypeIdent is a unique identifier for a type
 type TypeIdent string
 
 // TypeNode represents a type in the Forst language
 type TypeNode struct {
 	Node
-	Name      TypeIdent
+	Ident     TypeIdent
 	Assertion *AssertionNode
 }
 
@@ -30,12 +31,12 @@ const (
 
 // IsExplicit returns true if the type has been specified explicitly
 func (t TypeNode) IsExplicit() bool {
-	return t.Name != TypeImplicit
+	return t.Ident != TypeImplicit
 }
 
 // IsImplicit returns true if the type has not been specified explicitly
 func (t TypeNode) IsImplicit() bool {
-	return t.Name == TypeImplicit
+	return t.Ident == TypeImplicit
 }
 
 // NodeType returns the type of this AST node
@@ -44,11 +45,11 @@ func (t TypeNode) Kind() NodeKind {
 }
 
 func (t TypeNode) IsError() bool {
-	return t.Name == TypeError
+	return t.Ident == TypeError
 }
 
 func (t TypeNode) String() string {
-	switch t.Name {
+	switch t.Ident {
 	case TypeInt:
 		return "Int"
 	case TypeFloat:
@@ -66,6 +67,6 @@ func (t TypeNode) String() string {
 	case TypeImplicit:
 		return "(implicit)"
 	default:
-		return string(t.Name)
+		return string(t.Ident)
 	}
 }

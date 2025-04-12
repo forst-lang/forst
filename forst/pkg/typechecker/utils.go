@@ -34,7 +34,7 @@ func ensureMatching(fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.T
 	}
 
 	for i := range expected {
-		if actual[i].Name != expected[i].Name {
+		if actual[i].Ident != expected[i].Ident {
 			return actual, failWithTypeMismatch(fn, actual, expected, fmt.Sprintf("%s: Type mismatch", prefix))
 		}
 	}
@@ -55,23 +55,4 @@ func typecheckError(message string) string {
 		"\nTypecheck error:\n%s",
 		message,
 	)
-}
-
-func typeIdent(h NodeHash) ast.TypeIdent {
-	// Convert hash to base58 string
-	const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-	num := uint64(h)
-	b58 := ""
-
-	for num > 0 {
-		remainder := num % 58
-		b58 = string(alphabet[remainder]) + b58
-		num = num / 58
-	}
-
-	if b58 == "" {
-		b58 = string(alphabet[0])
-	}
-
-	return ast.TypeIdent("T_" + b58)
 }

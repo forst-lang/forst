@@ -274,7 +274,7 @@ func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr 
 
 func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	if ensure.Assertion.BaseType != nil {
-		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
+		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
 	}
 
 	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
@@ -288,7 +288,7 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
 	baseType := t.getEnsureBaseType(ensure)
 
-	switch baseType.Name {
+	switch baseType.Ident {
 	case ast.TypeString:
 		return t.transformStringAssertion(ensure)
 	case ast.TypeInt:
@@ -300,6 +300,6 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 	case ast.TypeError:
 		return t.transformErrorAssertion(ensure)
 	default:
-		panic("Unknown base type: " + baseType.Name)
+		panic("Unknown base type: " + baseType.Ident)
 	}
 }

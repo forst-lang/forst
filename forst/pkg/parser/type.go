@@ -13,19 +13,19 @@ func (p *Parser) parseType() ast.TypeNode {
 	switch token.Type {
 	case ast.TokenString:
 		p.advance()
-		return ast.TypeNode{Name: ast.TypeString}
+		return ast.TypeNode{Ident: ast.TypeString}
 	case ast.TokenInt:
 		p.advance()
-		return ast.TypeNode{Name: ast.TypeInt}
+		return ast.TypeNode{Ident: ast.TypeInt}
 	case ast.TokenFloat:
 		p.advance()
-		return ast.TypeNode{Name: ast.TypeFloat}
+		return ast.TypeNode{Ident: ast.TypeFloat}
 	case ast.TokenBool:
 		p.advance()
-		return ast.TypeNode{Name: ast.TypeBool}
+		return ast.TypeNode{Ident: ast.TypeBool}
 	case ast.TokenVoid:
 		p.advance()
-		return ast.TypeNode{Name: ast.TypeVoid}
+		return ast.TypeNode{Ident: ast.TypeVoid}
 	default:
 		// Parse first segment (could be package name or type)
 		firstSegment := p.expectCustomTypeIdentifierOrPackageName().Value
@@ -35,10 +35,10 @@ func (p *Parser) parseType() ast.TypeNode {
 			p.advance() // Consume dot
 			typeName := p.expectCustomTypeIdentifier().Value
 			qualifiedName := firstSegment + "." + typeName
-			return ast.TypeNode{Name: ast.TypeIdent(qualifiedName)}
+			return ast.TypeNode{Ident: ast.TypeIdent(qualifiedName)}
 		}
 
-		return ast.TypeNode{Name: ast.TypeIdent(firstSegment)}
+		return ast.TypeNode{Ident: ast.TypeIdent(firstSegment)}
 	}
 }
 
