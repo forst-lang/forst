@@ -26,11 +26,12 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('forst/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
       - name: Install dependencies
+        working-directory: forst
         run: go mod download
 
       - name: Run linter
@@ -38,8 +39,10 @@ jobs:
         with:
           version: latest
           args: --timeout=5m
+          working-directory: forst
 
       - name: Run tests with coverage
+        working-directory: forst
         run: |
           go test -v -race -coverprofile=coverage.txt -covermode=atomic ./cmd/forst/...
           go tool cover -func=coverage.txt
@@ -47,5 +50,5 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.txt
+          file: forst/coverage.txt
           fail_ci_if_error: true
