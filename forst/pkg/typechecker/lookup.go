@@ -8,14 +8,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) ([]ast.TypeNode, error) {
 	hash := tc.Hasher.HashNode(node)
 	if existingType, exists := tc.Types[hash]; exists {
 		// Ignore types that are still marked as implicit, as they are not yet inferred
-		if len(existingType) > 0 {
+		if len(existingType) == 0 {
+			if requireInferred {
+				return nil, fmt.Errorf("expected type of node to have been inferred, found: implicit type")
+			}
 			return nil, nil
 		}
 		return existingType, nil
+	}
+	if requireInferred {
+		return nil, fmt.Errorf("expected type of node to have been inferred, found: no registered type")
 	}
 	return nil, nil
 }

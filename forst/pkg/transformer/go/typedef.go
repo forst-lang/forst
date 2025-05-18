@@ -65,13 +65,17 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 	}
 	if field.Shape != nil {
 		log.Trace(fmt.Sprintf("transformShapeFieldType, shape: %s", *field.Shape))
-		expr, err := t.transformShapeType(field.Shape)
+		lookupType, err := t.TypeChecker.LookupInferredType(field.Shape, true)
 		if err != nil {
-			err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
-			log.WithError(err).Error("transforming shape type failed")
+			err = fmt.Errorf("failed to lookup type during transformation: %w (key: %s)", err, t.TypeChecker.Hasher.HashNode(field.Shape).ToTypeIdent())
+			log.WithError(err).Error("transforming type failed")
 			return nil, err
 		}
-		return expr, nil
+		log.Trace(fmt.Sprintf("transformShapeFieldType, lookupType: %s", lookupType[0]))
+		shapeType := lookupType[0]
+		result := transformTypeIdent(shapeType.Ident)
+		var expr goast.Expr = result
+		return &expr, nil
 	}
 	return nil, fmt.Errorf("shape field has neither assertion nor shape: %T", field)
 }

@@ -124,13 +124,13 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 					},
 				},
 			})
+			tc.storeInferredType(field.Shape, fieldType)
 		} else if field.Assertion != nil {
-			_, err := tc.inferAssertionType(field.Assertion)
-			if err != nil {
-				return nil, err
+			// Skip if the assertion type has already been inferred
+			inferredType, _ := tc.inferAssertionType(field.Assertion, false)
+			if inferredType != nil {
+				continue
 			}
-			// this is empty here, probably should be removed
-			// tc.storeInferredType(field.Assertion, assertionTypes)
 
 			fieldHash := tc.Hasher.HashNode(field)
 			fieldTypeIdent := fieldHash.ToTypeIdent()
@@ -150,9 +150,9 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 	return shapeType, nil
 }
 
-func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireInferred bool) ([]ast.TypeNode, error) {
 	// Check if we've already inferred this assertion's type
-	existingTypes, err := findAlreadyInferredType(tc, assertion)
+	existingTypes, err := tc.LookupInferredType(assertion, requireInferred)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	log.Tracef("inferNodeType: %s", node.String())
 	// Check if we've already inferred this node's type
-	alreadyInferredType, err := findAlreadyInferredType(tc, node)
+	alreadyInferredType, err := tc.LookupInferredType(node, false)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return inferredType, nil
 	case ast.SimpleParamNode:
 		if n.Type.Assertion != nil {
-			inferredType, err := tc.inferAssertionType(n.Type.Assertion)
+			inferredType, err := tc.inferAssertionType(n.Type.Assertion, false)
 			if err != nil {
 				return nil, err
 			}
@@ -316,7 +316,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.AssertionNode:
-		_, err := tc.inferAssertionType(&n)
+		_, err := tc.inferAssertionType(&n, false)
 		if err != nil {
 			return nil, err
 		}
