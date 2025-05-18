@@ -48,8 +48,8 @@ jobs:
           go test -v -race -coverprofile=coverage.txt -covermode=atomic ./cmd/forst/...
           go tool cover -func=coverage.txt
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: forst/coverage.txt
-          fail_ci_if_error: true
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     file: forst/coverage.txt
+      #     fail_ci_if_error: true
