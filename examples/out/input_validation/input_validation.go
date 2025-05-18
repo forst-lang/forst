@@ -1,60 +1,48 @@
 package input_validation
 
 import fmt "fmt"
-
-// TypeDefAssertionExpr(Shape({iban: TYPE_STRING.Min(10).Max(34)}))
-type T_F22VkNXdy8p struct {
-	iban T_hK5bA1s8g6u
-}
-
-// TypeDefAssertionExpr(Shape({name: TYPE_STRING.Min(3).Max(10), phoneNumber: PhoneNumber, bankAccount: {iban: TYPE_STRING.Min(10).Max(34)}, id: UUID.V4()}))
-type T_3MopQmWpjaX struct {
-	phoneNumber T_TVaWFGLH1EY
-	bankAccount T_F22VkNXdy8p
-	id          T_eYQHwKxPtJU
-	name        T_duDtN9av3sv
-}
-
-// TypeDefAssertionExpr(PhoneNumber)
-type T_YMCMSbyueZo PhoneNumber
-
-// TypeDefAssertionExpr(TYPE_STRING.Min(10).Max(34))
-type T_hK5bA1s8g6u string
-
-// TypeDefAssertionExpr(TYPE_STRING.Min(10).Max(34))
-type T_Sc5Sb6v9EnC string
-
 // TypeDefBinaryExpr(TypeDefAssertionExpr(TYPE_STRING.Min(3).Max(10)) & TypeDefBinaryExpr(TypeDefAssertionExpr(TYPE_STRING.HasPrefix("+")) | TypeDefAssertionExpr(TYPE_STRING.HasPrefix("0"))))
 type PhoneNumber string
-
-// TypeDefAssertionExpr(trpc.Mutation.Input({bankAccount: {iban: TYPE_STRING.Min(10).Max(34)}, id: UUID.V4(), name: TYPE_STRING.Min(3).Max(10), phoneNumber: PhoneNumber}))
-type T_KS693MHKmJw struct {
+// TypeDefAssertionExpr(Shape({iban: TYPE_STRING.Min(10).Max(34)}))
+type T_2o2q3CRbwEC struct {
+	iban T_MZjxvVSFAUF
+}
+// TypeDefAssertionExpr(Shape({name: TYPE_STRING.Min(3).Max(10), phoneNumber: PhoneNumber, bankAccount: {iban: TYPE_STRING.Min(10).Max(34)}, id: UUID.V4()}))
+type T_3z5Q2xHXNiR struct {
+	bankAccount T_2o2q3CRbwEC
+	id          T_e63jpC4qrag
+	name        T_FBmkfDvDYKk
+	phoneNumber T_BFj1JD17i2B
+}
+// TypeDefAssertionExpr(PhoneNumber)
+type T_BFj1JD17i2B PhoneNumber
+// TypeDefAssertionExpr(TYPE_STRING.Min(3).Max(10))
+type T_FBmkfDvDYKk string
+// TypeDefAssertionExpr(trpc.Mutation.Input({id: UUID.V4(), name: TYPE_STRING.Min(3).Max(10), phoneNumber: PhoneNumber, bankAccount: {iban: TYPE_STRING.Min(10).Max(34)}}))
+type T_M8WRQEPuLtT struct {
 	ctx struct {
 	}
 	input struct {
-		id          T_eYQHwKxPtJU
-		name        T_duDtN9av3sv
-		phoneNumber T_TVaWFGLH1EY
-		bankAccount T_F22VkNXdy8p
+		bankAccount T_2o2q3CRbwEC
+		id          T_e63jpC4qrag
+		name        T_FBmkfDvDYKk
+		phoneNumber T_BFj1JD17i2B
 	}
 }
-
 // TypeDefAssertionExpr(PhoneNumber)
-type T_TVaWFGLH1EY PhoneNumber
-
+type T_MTvkfV8KyPY PhoneNumber
+// TypeDefAssertionExpr(TYPE_STRING.Min(10).Max(34))
+type T_MZjxvVSFAUF string
 // TypeDefAssertionExpr(UUID.V4())
-type T_eYQHwKxPtJU string
-
+type T_ReagKMhcoCm string
+// TypeDefAssertionExpr(TYPE_STRING.Min(3).Max(10))
+type T_TfaC5mZgieD string
+// TypeDefAssertionExpr(TYPE_STRING.Min(10).Max(34))
+type T_dsCvswfU8Jb string
 // TypeDefAssertionExpr(UUID.V4())
-type T_2jb6kBbD7Nn string
+type T_e63jpC4qrag string
 
-// TypeDefAssertionExpr(TYPE_STRING.Min(3).Max(10))
-type T_duDtN9av3sv string
-
-// TypeDefAssertionExpr(TYPE_STRING.Min(3).Max(10))
-type T_WtzqCu9trFG string
-
-func createUser(op T_T41S7Ud4yaM) float64 {
+func createUser(op T_M8WRQEPuLtT) float64 {
 	fmt.Println("Creating user with id: %s", op.input.id)
 	return 300.3
 }

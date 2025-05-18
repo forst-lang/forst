@@ -6,6 +6,7 @@ import (
 	"forst/pkg/ast"
 	"hash/fnv"
 	"io"
+	"sort"
 )
 
 // StructuralHasher generates and tracks structural hashes
@@ -112,12 +113,25 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 
 	case ast.ShapeNode:
 		writeHash(hasher, NodeKind["Shape"])
-		// Convert map to slice of nodes
-		fields := make([]ast.Node, 0, len(n.Fields))
-		for _, field := range n.Fields {
-			fields = append(fields, field)
+		// Convert map to sorted slice of fields for deterministic ordering
+		fields := make([]struct {
+			name  string
+			field ast.ShapeFieldNode
+		}, 0, len(n.Fields))
+		for name, field := range n.Fields {
+			fields = append(fields, struct {
+				name  string
+				field ast.ShapeFieldNode
+			}{name, field})
 		}
-		writeHash(hasher, h.HashNodes(fields))
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].name < fields[j].name
+		})
+		// Hash each field in sorted order
+		for _, f := range fields {
+			writeHash(hasher, []byte(f.name))
+			writeHash(hasher, h.HashNode(f.field))
+		}
 
 	case ast.ShapeFieldNode:
 		writeHash(hasher, NodeKind["ShapeField"])
@@ -133,17 +147,20 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		if n.BaseType != nil {
 			writeHash(hasher, []byte(*n.BaseType))
 		}
-		// Convert constraints to []ast.Node
-		nodes := make([]ast.Node, len(n.Constraints))
-		for i, constraint := range n.Constraints {
-			nodes[i] = constraint
+		// Sort constraints for deterministic ordering
+		constraints := make([]ast.ConstraintNode, len(n.Constraints))
+		copy(constraints, n.Constraints)
+		sort.Slice(constraints, func(i, j int) bool {
+			return constraints[i].Name < constraints[j].Name
+		})
+		// Hash each constraint in sorted order
+		for _, constraint := range constraints {
+			writeHash(hasher, h.HashNode(constraint))
 		}
-		writeHash(hasher, h.HashNodes(nodes))
 
 	case ast.ConstraintNode:
 		writeHash(hasher, NodeKind["Constraint"])
 		writeHash(hasher, []byte(n.Name))
-		// Convert args to []ast.Node
 		nodes := make([]ast.Node, len(n.Args))
 		for i, arg := range n.Args {
 			nodes[i] = arg
@@ -183,7 +200,11 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		writeHash(hasher, h.HashNode(n.Type))
 	case ast.DestructuredParamNode:
 		writeHash(hasher, NodeKind["DestructuredParam"])
-		for _, field := range n.Fields {
+		// Sort fields for deterministic ordering
+		fields := make([]string, len(n.Fields))
+		copy(fields, n.Fields)
+		sort.Strings(fields)
+		for _, field := range fields {
 			writeHash(hasher, []byte(field))
 		}
 		writeHash(hasher, h.HashNode(n.Type))
@@ -192,18 +213,37 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		if n.BaseType != nil {
 			writeHash(hasher, []byte(*n.BaseType))
 		}
-		nodes := make([]ast.Node, len(n.Constraints))
-		for i, constraint := range n.Constraints {
-			nodes[i] = constraint
+		// Sort constraints for deterministic ordering
+		constraints := make([]ast.ConstraintNode, len(n.Constraints))
+		copy(constraints, n.Constraints)
+		sort.Slice(constraints, func(i, j int) bool {
+			return constraints[i].Name < constraints[j].Name
+		})
+		// Hash each constraint in sorted order
+		for _, constraint := range constraints {
+			writeHash(hasher, h.HashNode(constraint))
 		}
-		writeHash(hasher, h.HashNodes(nodes))
 	case *ast.ShapeNode:
 		writeHash(hasher, NodeKind["Shape"])
-		fields := make([]ast.Node, 0, len(n.Fields))
-		for _, field := range n.Fields {
-			fields = append(fields, field)
+		// Convert map to sorted slice of fields for deterministic ordering
+		fields := make([]struct {
+			name  string
+			field ast.ShapeFieldNode
+		}, 0, len(n.Fields))
+		for name, field := range n.Fields {
+			fields = append(fields, struct {
+				name  string
+				field ast.ShapeFieldNode
+			}{name, field})
 		}
-		writeHash(hasher, h.HashNodes(fields))
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].name < fields[j].name
+		})
+		// Hash each field in sorted order
+		for _, f := range fields {
+			writeHash(hasher, []byte(f.name))
+			writeHash(hasher, h.HashNode(f.field))
+		}
 	case *ast.ShapeFieldNode:
 		writeHash(hasher, NodeKind["ShapeField"])
 		if n.Assertion != nil {
@@ -214,7 +254,13 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		}
 	case ast.ImportGroupNode:
 		writeHash(hasher, NodeKind["ImportGroup"])
-		for _, importNode := range n.Imports {
+		// Sort imports for deterministic ordering
+		imports := make([]ast.ImportNode, len(n.Imports))
+		copy(imports, n.Imports)
+		sort.Slice(imports, func(i, j int) bool {
+			return imports[i].Path < imports[j].Path
+		})
+		for _, importNode := range imports {
 			writeHash(hasher, h.HashNode(importNode))
 		}
 	case ast.AssignmentNode:
