@@ -184,7 +184,9 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireI
 				}
 				arg := constraint.Args[0]
 				if arg.Shape != nil {
-					tc.inferShapeType(arg.Shape)
+					if _, err := tc.inferShapeType(arg.Shape); err != nil {
+						return nil, fmt.Errorf("failed to infer shape type: %w", err)
+					}
 				}
 			}
 		}

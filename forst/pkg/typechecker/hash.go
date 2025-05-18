@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"forst/pkg/ast"
 	"hash/fnv"
+	"io"
 )
 
 // StructuralHasher generates and tracks structural hashes
@@ -44,6 +45,13 @@ func (h *StructuralHasher) HashNodes(nodes []ast.Node) NodeHash {
 	return NodeHash(hasher.Sum64())
 }
 
+// writeHash is a helper function to handle binary.Write errors
+func writeHash(w io.Writer, data interface{}) {
+	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
+		panic(fmt.Sprintf("failed to write hash: %v", err))
+	}
+}
+
 // HashNode generates a structural hash for an AST node
 func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	hasher := fnv.New64a()
@@ -51,176 +59,176 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	switch n := node.(type) {
 	case ast.BinaryExpressionNode:
 		// Hash the kind
-		binary.Write(hasher, binary.LittleEndian, NodeKind["BinaryExpression"])
+		writeHash(hasher, NodeKind["BinaryExpression"])
 		// Hash the operator
-		binary.Write(hasher, binary.LittleEndian, h.HashTokenType(n.Operator))
+		writeHash(hasher, h.HashTokenType(n.Operator))
 		// Hash the operands recursively
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Left))
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Right))
+		writeHash(hasher, h.HashNode(n.Left))
+		writeHash(hasher, h.HashNode(n.Right))
 
 	case ast.UnaryExpressionNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["UnaryExpression"])
-		binary.Write(hasher, binary.LittleEndian, h.HashTokenType(n.Operator))
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Operand))
+		writeHash(hasher, NodeKind["UnaryExpression"])
+		writeHash(hasher, h.HashTokenType(n.Operator))
+		writeHash(hasher, h.HashNode(n.Operand))
 
 	case ast.IntLiteralNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["IntLiteral"])
-		binary.Write(hasher, binary.LittleEndian, n.Value)
+		writeHash(hasher, NodeKind["IntLiteral"])
+		writeHash(hasher, n.Value)
 
 	case ast.FloatLiteralNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["FloatLiteral"])
-		binary.Write(hasher, binary.LittleEndian, n.Value)
+		writeHash(hasher, NodeKind["FloatLiteral"])
+		writeHash(hasher, n.Value)
 
 	case ast.StringLiteralNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["StringLiteral"])
-		hasher.Write([]byte(n.Value))
+		writeHash(hasher, NodeKind["StringLiteral"])
+		writeHash(hasher, []byte(n.Value))
 
 	case ast.VariableNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Variable"])
-		hasher.Write([]byte(n.Ident.Id))
+		writeHash(hasher, NodeKind["Variable"])
+		writeHash(hasher, []byte(n.Ident.Id))
 
 	case ast.FunctionNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Function"])
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(n.Body))
+		writeHash(hasher, NodeKind["Function"])
+		writeHash(hasher, h.HashNodes(n.Body))
 
 	case ast.FunctionCallNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["FunctionCall"])
-		hasher.Write([]byte(n.Function.Id))
+		writeHash(hasher, NodeKind["FunctionCall"])
+		writeHash(hasher, []byte(n.Function.Id))
 		nodes := make([]ast.Node, len(n.Arguments))
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+		writeHash(hasher, h.HashNodes(nodes))
 
 	case ast.EnsureNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Ensure"])
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Assertion))
+		writeHash(hasher, NodeKind["Ensure"])
+		writeHash(hasher, h.HashNode(n.Assertion))
 		if n.Error != nil {
-			binary.Write(hasher, binary.LittleEndian, []byte((*n.Error).String()))
+			writeHash(hasher, []byte((*n.Error).String()))
 		}
 		if n.Block != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNodes(n.Block.Body))
+			writeHash(hasher, h.HashNodes(n.Block.Body))
 		}
 
 	case ast.ShapeNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Shape"])
+		writeHash(hasher, NodeKind["Shape"])
 		// Convert map to slice of nodes
 		fields := make([]ast.Node, 0, len(n.Fields))
 		for _, field := range n.Fields {
 			fields = append(fields, field)
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(fields))
+		writeHash(hasher, h.HashNodes(fields))
 
 	case ast.ShapeFieldNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["ShapeField"])
+		writeHash(hasher, NodeKind["ShapeField"])
 		if n.Assertion != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Assertion))
+			writeHash(hasher, h.HashNode(*n.Assertion))
 		}
 		if n.Shape != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
+			writeHash(hasher, h.HashNode(*n.Shape))
 		}
 
 	case ast.AssertionNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Assertion"])
+		writeHash(hasher, NodeKind["Assertion"])
 		if n.BaseType != nil {
-			binary.Write(hasher, binary.LittleEndian, []byte(*n.BaseType))
+			writeHash(hasher, []byte(*n.BaseType))
 		}
 		// Convert constraints to []ast.Node
 		nodes := make([]ast.Node, len(n.Constraints))
 		for i, constraint := range n.Constraints {
 			nodes[i] = constraint
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+		writeHash(hasher, h.HashNodes(nodes))
 
 	case ast.ConstraintNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Constraint"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Name))
+		writeHash(hasher, NodeKind["Constraint"])
+		writeHash(hasher, []byte(n.Name))
 		// Convert args to []ast.Node
 		nodes := make([]ast.Node, len(n.Args))
 		for i, arg := range n.Args {
 			nodes[i] = arg
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+		writeHash(hasher, h.HashNodes(nodes))
 
 	case ast.ConstraintArgumentNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["ConstraintArgument"])
+		writeHash(hasher, NodeKind["ConstraintArgument"])
 		if n.Value != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Value))
+			writeHash(hasher, h.HashNode(*n.Value))
 		}
 		if n.Shape != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
+			writeHash(hasher, h.HashNode(*n.Shape))
 		}
 	case ast.PackageNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Package"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident.Id))
+		writeHash(hasher, NodeKind["Package"])
+		writeHash(hasher, []byte(n.Ident.Id))
 	case ast.ImportNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Import"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Path))
+		writeHash(hasher, NodeKind["Import"])
+		writeHash(hasher, []byte(n.Path))
 		if n.Alias != nil {
-			binary.Write(hasher, binary.LittleEndian, []byte(n.Alias.Id))
+			writeHash(hasher, []byte(n.Alias.Id))
 		}
 	case ast.TypeDefNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["TypeDef"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Expr.String()))
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident))
+		writeHash(hasher, NodeKind["TypeDef"])
+		writeHash(hasher, []byte(n.Expr.String()))
+		writeHash(hasher, []byte(n.Ident))
 	case ast.ReturnNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Return"])
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Value))
+		writeHash(hasher, NodeKind["Return"])
+		writeHash(hasher, h.HashNode(n.Value))
 	case ast.TypeNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Type"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident))
+		writeHash(hasher, NodeKind["Type"])
+		writeHash(hasher, []byte(n.Ident))
 	case ast.SimpleParamNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["SimpleParam"])
-		binary.Write(hasher, binary.LittleEndian, []byte(n.Ident.Id))
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Type))
+		writeHash(hasher, NodeKind["SimpleParam"])
+		writeHash(hasher, []byte(n.Ident.Id))
+		writeHash(hasher, h.HashNode(n.Type))
 	case ast.DestructuredParamNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["DestructuredParam"])
+		writeHash(hasher, NodeKind["DestructuredParam"])
 		for _, field := range n.Fields {
-			binary.Write(hasher, binary.LittleEndian, []byte(field))
+			writeHash(hasher, []byte(field))
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(n.Type))
+		writeHash(hasher, h.HashNode(n.Type))
 	case *ast.AssertionNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Assertion"])
+		writeHash(hasher, NodeKind["Assertion"])
 		if n.BaseType != nil {
-			binary.Write(hasher, binary.LittleEndian, []byte(*n.BaseType))
+			writeHash(hasher, []byte(*n.BaseType))
 		}
 		nodes := make([]ast.Node, len(n.Constraints))
 		for i, constraint := range n.Constraints {
 			nodes[i] = constraint
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(nodes))
+		writeHash(hasher, h.HashNodes(nodes))
 	case *ast.ShapeNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Shape"])
+		writeHash(hasher, NodeKind["Shape"])
 		fields := make([]ast.Node, 0, len(n.Fields))
 		for _, field := range n.Fields {
 			fields = append(fields, field)
 		}
-		binary.Write(hasher, binary.LittleEndian, h.HashNodes(fields))
+		writeHash(hasher, h.HashNodes(fields))
 	case *ast.ShapeFieldNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["ShapeField"])
+		writeHash(hasher, NodeKind["ShapeField"])
 		if n.Assertion != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Assertion))
+			writeHash(hasher, h.HashNode(*n.Assertion))
 		}
 		if n.Shape != nil {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
+			writeHash(hasher, h.HashNode(*n.Shape))
 		}
 	case ast.ImportGroupNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["ImportGroup"])
+		writeHash(hasher, NodeKind["ImportGroup"])
 		for _, importNode := range n.Imports {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(importNode))
+			writeHash(hasher, h.HashNode(importNode))
 		}
 	case ast.AssignmentNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["Assignment"])
+		writeHash(hasher, NodeKind["Assignment"])
 		for _, lValue := range n.LValues {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(lValue))
+			writeHash(hasher, h.HashNode(lValue))
 		}
 		for _, rValue := range n.RValues {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(rValue))
+			writeHash(hasher, h.HashNode(rValue))
 		}
 	case *ast.EnsureBlockNode:
-		binary.Write(hasher, binary.LittleEndian, NodeKind["EnsureBlock"])
+		writeHash(hasher, NodeKind["EnsureBlock"])
 		for _, node := range n.Body {
-			binary.Write(hasher, binary.LittleEndian, h.HashNode(node))
+			writeHash(hasher, h.HashNode(node))
 		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))

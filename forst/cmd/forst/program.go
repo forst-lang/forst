@@ -107,9 +107,11 @@ func (p *Program) compileFile() error {
 	}
 
 	p.debugPrintGoAST(goAST)
-
 	// Generate Go code
-	goCode := generators.GenerateGoCode(goAST)
+	goCode, err := generators.GenerateGoCode(goAST)
+	if err != nil {
+		return err
+	}
 
 	memAfter = getMemStats()
 	p.logMemUsage("code generation", memBefore, memAfter)

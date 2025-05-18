@@ -63,7 +63,9 @@ func TestExamples(t *testing.T) {
 			os.Stdout = oldStdout
 
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatalf("failed to copy output: %v", err)
+			}
 			actualOutput := buf.String()
 
 			// For basic example, compare with the first expected file
