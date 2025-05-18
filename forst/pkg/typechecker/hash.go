@@ -204,6 +204,24 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		if n.Shape != nil {
 			binary.Write(hasher, binary.LittleEndian, h.HashNode(*n.Shape))
 		}
+	case ast.ImportGroupNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["ImportGroup"])
+		for _, importNode := range n.Imports {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(importNode))
+		}
+	case ast.AssignmentNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["Assignment"])
+		for _, lValue := range n.LValues {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(lValue))
+		}
+		for _, rValue := range n.RValues {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(rValue))
+		}
+	case *ast.EnsureBlockNode:
+		binary.Write(hasher, binary.LittleEndian, NodeKind["EnsureBlock"])
+		for _, node := range n.Body {
+			binary.Write(hasher, binary.LittleEndian, h.HashNode(node))
+		}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}

@@ -1,53 +1,42 @@
 package main
 
 import (
+	errors "errors"
 	"fmt"
 	"os"
 )
 
-type TooShort struct {
-	message string
-}
-
-func (e TooShort) Error() string {
-	return e.message
-}
-
-type TooFast struct {
-	message string
-}
-
-func (e TooFast) Error() string {
-	return e.message
-}
-
-func MustBeARealName(name string) error {
+func mustBeARealName(name string) error {
 	if len(name) < 1 {
-		return TooShort{"Name must be at least 1 character long"}
+		return errors.New("TooShort([\"Name must be at least 1 character long\"])")
 	}
 	return nil
 }
-
-func MustNotExceedSpeedLimit(speed int) error {
+func mustNotExceedSpeedLimit(speed int) error {
 	if speed >= 100 {
-		return TooFast{"Speed must not exceed 100 km/h"}
+		return errors.New("TooFast([\"Speed must not exceed 100 km/h\"])")
 	}
 	return nil
 }
-
-func CheckConditions() error {
-	if err := MustBeARealName("John"); err != nil {
+func checkConditions() error {
+	err := mustBeARealName("John")
+	if err != nil {
 		return err
 	}
-	if err := MustNotExceedSpeedLimit(101); err != nil {
+	speed := 80
+	err = mustNotExceedSpeedLimit(speed)
+	if err != nil {
 		return err
 	}
 	return nil
 }
-
-func Main() {
-	if err := CheckConditions(); err != nil {
-		fmt.Println(err.Error())
+func main() {
+	err := checkConditions()
+	if err != nil {
+		fmt.Printf("Conditions not met: %s", err.Error())
+		fmt.Println()
 		os.Exit(1)
+		panic(errors.New("assertion failed: " + "TYPE_ERROR.Nil()"))
 	}
+	fmt.Println("Conditions met, program exiting successfully")
 }

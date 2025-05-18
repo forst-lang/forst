@@ -170,6 +170,5 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 		// panic(fmt.Sprintf("type %s already defined", node.Ident))
 		return
 	}
-	log.Warnf("registering type %s", node.Ident)
 	tc.Defs[node.Ident] = node
 }

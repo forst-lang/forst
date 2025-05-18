@@ -25,6 +25,11 @@ func TestExamples(t *testing.T) {
 		}
 
 		t.Run(file.Name(), func(t *testing.T) {
+			if strings.HasSuffix(file.Name(), ".skip.ft") {
+				t.Skip("Skipping test file", file.Name())
+				return
+			}
+
 			// Get base name without extension
 			baseName := strings.TrimSuffix(file.Name(), ".ft")
 
@@ -119,12 +124,16 @@ func findExpectedOutputFiles(basePath string) ([]string, error) {
 	return files, nil
 }
 
-// runCompiler executes the compiler on the given input file
-func runCompiler(inputPath string) {
-	// Create a mock args array and call the main function
-	// This simulates running the compiler from the command line
-	os.Args = []string{"forst", inputPath}
-	main()
+// runCompiler executes the compiler on the given input file and returns any error
+func runCompiler(inputPath string) error {
+	// Create a program instance with args
+	args := ProgramArgs{
+		command:  "run",
+		filePath: inputPath,
+	}
+
+	program := &Program{Args: args}
+	return program.compileFile()
 }
 
 // compareOutput compares the expected and actual output
