@@ -56,10 +56,13 @@ func TestExamples(t *testing.T) {
 			os.Stdout = w
 
 			// Run the compiler on the input file
-			runCompiler(inputPath)
-
-			// Restore stdout and get the output
-			w.Close()
+			if err := runCompiler(inputPath); err != nil {
+				t.Fatalf("Failed to run compiler: %v", err)
+			}
+			if err := w.Close(); err != nil {
+				t.Fatalf("Failed to close writer: %v", err)
+			}
+			// Restore stdout
 			os.Stdout = oldStdout
 
 			var buf bytes.Buffer

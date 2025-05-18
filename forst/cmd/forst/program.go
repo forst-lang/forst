@@ -132,7 +132,11 @@ func (p *Program) watchFile() error {
 	if err != nil {
 		return err
 	}
-	defer watcher.Close()
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			log.Printf("Error closing watcher: %v", err)
+		}
+	}()
 
 	// Watch the directory containing the file to catch renames
 	dir := filepath.Dir(p.Args.filePath)
