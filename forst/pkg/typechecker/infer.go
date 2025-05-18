@@ -116,14 +116,6 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 			fieldHash := tc.Hasher.HashNode(field)
 			fieldTypeIdent := fieldHash.ToTypeIdent()
 			log.Tracef("Inferred type of shape field %s: %s, field: %s", name, fieldTypeIdent, field)
-			tc.registerType(ast.TypeDefNode{
-				Ident: fieldTypeIdent,
-				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{
-						BaseType: &fieldType[0].Ident,
-					},
-				},
-			})
 			tc.storeInferredType(field.Shape, fieldType)
 		} else if field.Assertion != nil {
 			// Skip if the assertion type has already been inferred
@@ -147,6 +139,11 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 	}
 
 	tc.storeInferredType(shape, shapeType)
+	log.Tracef("Inferred shape type: %s", shapeType)
+
+	// The type is not registered here as the specific type implementation
+	// depends on the target language and will be determined in the transformer.
+
 	return shapeType, nil
 }
 

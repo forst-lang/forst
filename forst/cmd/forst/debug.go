@@ -110,9 +110,14 @@ func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 
 	log.Debug("Definitions:")
 	for id, def := range tc.Defs {
+		expr := ""
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			expr = typeDef.Expr.String()
+		}
 		log.WithFields(log.Fields{
 			"definition": id,
 			"type":       fmt.Sprintf("%T", def),
+			"expr":       expr,
 		}).Debug("definition")
 	}
 }

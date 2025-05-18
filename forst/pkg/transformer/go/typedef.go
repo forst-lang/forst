@@ -212,3 +212,107 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		return nil, err
 	}
 }
+
+// defineShapeType creates and registers a type definition for a shape
+func (t *Transformer) defineShapeType(shape *ast.ShapeNode) error {
+	// First register all nested shape fields
+	if err := t.defineShapeFields(shape); err != nil {
+		return err
+	}
+
+	// Then register the shape itself
+	typeIdent := t.TypeChecker.Hasher.HashNode(shape).ToTypeIdent()
+
+	// Create struct type for the shape
+	structType, err := t.transformShapeType(shape)
+	if err != nil {
+		return fmt.Errorf("failed to transform shape type %s: %w", typeIdent, err)
+	}
+
+	decl, err := t.transformTypeDef(ast.TypeDefNode{
+		Ident: typeIdent,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: nil,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Shape",
+					Args: []ast.ConstraintArgumentNode{{
+						Shape: shape,
+					}},
+				}},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to transform shape type %s: %w", typeIdent, err)
+	}
+
+	// Override the type with our struct type
+	decl.Specs[0].(*goast.TypeSpec).Type = *structType
+	t.Output.AddType(decl)
+	return nil
+}
+
+// defineShapeFields recursively registers type definitions for all shape fields
+func (t *Transformer) defineShapeFields(shape *ast.ShapeNode) error {
+	for _, field := range shape.Fields {
+		if field.Shape != nil {
+			// Recursively register nested shapes
+			if err := t.defineShapeFields(field.Shape); err != nil {
+				return err
+			}
+
+			// Register the shape field type
+			typeIdent := t.TypeChecker.Hasher.HashNode(field.Shape).ToTypeIdent()
+
+			// Create struct type for the shape field
+			structType, err := t.transformShapeType(field.Shape)
+			if err != nil {
+				return fmt.Errorf("failed to transform shape field type %s: %w", typeIdent, err)
+			}
+
+			decl, err := t.transformTypeDef(ast.TypeDefNode{
+				Ident: typeIdent,
+				Expr: ast.TypeDefAssertionExpr{
+					Assertion: &ast.AssertionNode{
+						BaseType: nil,
+						Constraints: []ast.ConstraintNode{{
+							Name: "Shape",
+							Args: []ast.ConstraintArgumentNode{{
+								Shape: field.Shape,
+							}},
+						}},
+					},
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to transform shape field type %s: %w", typeIdent, err)
+			}
+
+			// Override the type with our struct type
+			decl.Specs[0].(*goast.TypeSpec).Type = *structType
+			t.Output.AddType(decl)
+		}
+	}
+	return nil
+}
+
+// defineShapeTypes finds all shapes in type definitions and registers them
+func (t *Transformer) defineShapeTypes() error {
+	for _, def := range t.TypeChecker.Defs {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+				if assertionExpr.Assertion != nil {
+					for _, constraint := range assertionExpr.Assertion.Constraints {
+						if len(constraint.Args) > 0 && constraint.Args[0].Shape != nil {
+							if err := t.defineShapeType(constraint.Args[0].Shape); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}

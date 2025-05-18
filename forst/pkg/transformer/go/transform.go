@@ -25,6 +25,11 @@ func New(tc *typechecker.TypeChecker) *Transformer {
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
+	// First, collect and register shape types from type definitions
+	if err := t.defineShapeTypes(); err != nil {
+		return nil, err
+	}
+
 	for _, def := range t.TypeChecker.Defs {
 		switch def := def.(type) {
 		case ast.TypeDefNode:

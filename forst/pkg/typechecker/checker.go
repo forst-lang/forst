@@ -154,10 +154,22 @@ func (tc *TypeChecker) GlobalScope() *Scope {
 	return tc.globalScope
 }
 
+// registerType stores a type definition in the TypeChecker's Defs map.
+//
+// The type definition will be used by code generators to create corresponding
+// type definitions in the target language. For example, a Forst type definition
+// like `type PhoneNumber = String.Min(3)` may be transformed into a TypeScript
+// type with validation decorators.
+//
+// Parameters:
+//   - node: The TypeDefNode containing the type definition to register
+//
+// The function silently returns if the type is already registered.
 func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	if _, exists := tc.Defs[node.Ident]; exists {
 		// panic(fmt.Sprintf("type %s already defined", node.Ident))
 		return
 	}
+	log.Warnf("registering type %s", node.Ident)
 	tc.Defs[node.Ident] = node
 }
