@@ -1,12 +1,12 @@
 # Forst
 
-Forst is a programming language for backend development.
-
 [![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
 [![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/forst-lang/forst)](https://github.com/forst-lang/forst/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/forst-lang/forst)](https://github.com/forst-lang/forst/issues)
 [![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions)
+
+Forst is a programming language for backend development.
 
 Its primary goal is to make it easy to stop using TypeScript on the backend:
 
