@@ -2,12 +2,20 @@
 
 Forst is a programming language for backend development.
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
+[![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/forst-lang/forst)](https://github.com/forst-lang/forst/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/forst-lang/forst)](https://github.com/forst-lang/forst/issues)
+[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions)
+
 Its primary goal is to make it easy to stop using TypeScript on the backend:
 
 - Support inferring TypeScript types from backend endpoints.
 - Value types for primitive data to avoid memory heavy heap allocations.
 - Statically type-checked, but inferring and narrowing types as much as possible.
 - Allow nested type definitions to validate and narrow down input data.
+
+See also [ROADMAP.md](./ROADMAP.md) for details on what we are planning.
 
 ## Why?
 
