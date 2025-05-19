@@ -1,10 +1,7 @@
 # Forst
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
+[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions)[![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
 [![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/forst-lang/forst)](https://github.com/forst-lang/forst/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/forst-lang/forst)](https://github.com/forst-lang/forst/issues)
-[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions)
 
 Forst is a programming language for backend development.
 
@@ -96,75 +93,58 @@ We love type inference and type narrowing, but we accept that we need to give up
 
 ### Inspirations
 
-This language was heavily inspired by Crystal. We also draw some inspiration from Rust.
+Our primary inspiration is TypeScript's structural type system and its success in making JavaScript development more ergonomical and robust. We aim to bring similar benefits to Go development.
+
+We also draw inspiration from:
+
+- Go's simplicity and performance
+- Rust's approach to error handling and type safety
+- tRPC's type-safe API design
+- Zod's runtime type validation and schema composition
 
 ## Hello World
 
-Our "Hello World" program works exactly like in Ruby and in Crystal:
+Forst aims to be backwards-compatible with Go:
 
-```cr
-def main
-  puts "Hello, World!"
-end
-```
+```go
+package main
+import fmt "fmt"
 
-## In Practice
-
-```cr
-type Input = {
-  name: String.Min(3).Max(10),
+func main() {
+  fmt.Println("Hello World!")
 }
-
-class Routers::UserRouter
-  def users
-    DB::Client.pool.query do |q|
-      q.selectFrom(User)
-        .select([
-          User.id,
-          User.name,
-        ])
-        .where(User.deletedAt.null())
-        .execute()
-    end
-  end
-end
-
-module Routers
-  @@trpc = TRPC::Router.from_routes({
-    user: UserRouter.new,
-  })
-
-  def self.trpc
-    @@trpc
-  end
-end
-
-def handle_http_request(req: HTTP::Request)
-  Routers.trpc.handle(req)
-end
 ```
 
-`select` above will fail when given wrong types. Its argument type is `Array(User.Column)`. The precise typing of SQL queries is still to be defined, depending on how we want the query builder to work.
+## Function
 
-```cr
-type PhoneNumber = String.Min(10).Max(15)
-
-class Routers::UserRouter
-  def createUser!(input: {
-    id: UUID,
-    name: String.Min(3).Max(10),
-    phoneNumbers: Array(PhoneNumber),
-  })
-    puts "Creating user with id: #{input.id}"
-  end
-end
+```go
+func diff(a: Int, b: Int) Bool {
+  return 3 - 2
+}
 ```
 
-Metaprogramming such as macros is impossible, and re-opening classes is not allowed:
+Specifying the return type is optional. It will be inferred automatically.
 
-```cr
-class A; end
-class A; end # Syntax error: Class A is already defined
+## Input Validation
+
+Define types and validate inputs both at compile time and at runtime.
+
+```go
+type PhoneNumber =
+  String.Min(3).Max(10) & (
+    String.HasPrefix("+")
+    | String.HasPrefix("0")
+  )
+
+func createUser(op: trpc.Mutation.Input({
+  id: UUID.V4(),
+  name: String.Min(3).Max(10),
+  phoneNumber: PhoneNumber,
+  bankAccount: {
+    iban: String.Min(10).Max(34),
+  },
+})) {
+  fmt.Println("Creating user with id: %s", op.input.id)
+  return 300.3f
+}
 ```
-
-This will fail to compile, which should make it easier for the compiler to infer types.
