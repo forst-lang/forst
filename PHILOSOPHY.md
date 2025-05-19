@@ -52,7 +52,7 @@ We acknowledge that TypeScript is the de facto standard for frontend development
 
 These are patterns that we deliberately choose not to support in the language because they would work against our core principles and goals.
 
-## No unpredictable behavior
+### No unpredictable behavior
 
 In order to be reliable, a system must be predictable.
 
@@ -62,7 +62,7 @@ We do not like implicit control flows that require going on wild goose chases to
 
 - So we do not support macros, and when control flow is changed, we require this to be done using English keywords.
 
-### No surprising errors
+#### No surprising errors
 
 We want to be able to trace where a runtime error originates. But we don't want to be surprised by an exception, or even to handle all possible errors at every level of the call stack.
 
@@ -72,9 +72,9 @@ We love type inference and type narrowing, but we accept that we need to give up
 
 - So we don't mind giving hints to the compiler to help it work, including the use of extra syntax to signal intent.
 
-## No metaprogramming
+### No metaprogramming
 
-### No complex type inference
+#### No complex type inference
 
 We want to be compiler-friendly. If it is hard for the compiler to infer types, then it is also hard for the programmer to reason about them. It is a doubly dangerous game to play.
 
@@ -95,7 +95,7 @@ We require explicit type annotations in all other cases, particularly:
 
 When in doubt, we require being explicit with types.
 
-### No needless object orientation
+#### No needless object orientation
 
 We like the idea of simple value objects that have functions naturally associated with them. We also think that hiding data structure specific implementation details makes sense. This is where OOP shines.
 
@@ -105,25 +105,25 @@ But it is simply not feasible for all procedures to have a single receiver. In p
 
 - So we want to offer parameters that allow passing arbitrary and nested data structures to a procedure.
 
-### No side effects in type system
+#### No side effects in type system
 
 Side effects in the type system add unnecessary complexity that we want to avoid. They can make type checking behavior unpredictable and debugging more difficult. Our type system focuses on clear, straightforward validation of data shapes without hidden interactions between types.
 
-#### No implicit type conversions
+##### No implicit type conversions
 
 While other languages may silently convert numbers between int and float, we require explicit conversion to make type changes visible.
 
 We reject implicit type coercion. It is a dangerous pattern that can lead to data corruption and hard-to-find bugs. Backend systems need strong type safety to prevent unintended type conversions that could compromise data integrity.
 
-#### No dependent Types
+##### No dependent Types
 
 Some languages allow types to depend on runtime values, but we keep type checking separate from runtime behavior.
 
-#### No type-level computation
+##### No type-level computation
 
 No template metaprogramming like in C++, no type families or type-level functions. While we support type assertions and constraints for type checking and inference, we do not allow arbitrary functions or computations at the type level. Types are validated during compilation but not "executed" like programs.
 
-#### No runtime type modifications
+##### No runtime type modifications
 
 No monkey patching or extending types at runtime - type definitions are fixed at compile time.
 
