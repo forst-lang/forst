@@ -1,6 +1,6 @@
 # Forst Roadmap
 
-For our guiding principles including anti-features see [ROADMAP.md](./ROADMAP.md).
+For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSOPHY.md).
 
 ## 1. Features & Progress
 
