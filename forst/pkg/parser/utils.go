@@ -3,6 +3,9 @@ package parser
 import (
 	"fmt"
 	"forst/pkg/ast"
+	"unicode"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func unexpectedTokenMessage(token ast.Token, expected string) string {
@@ -19,4 +22,20 @@ func parseErrorMessage(token ast.Token, message string) string {
 			"%s",
 		token.Path, token.Line, token.Column, token.Line, token.Column, message,
 	)
+}
+
+func logParsedNode(node ast.Node) {
+	logParsedNodeWithMessage(node, "Parsed node")
+}
+
+func logParsedNodeWithMessage(node ast.Node, message string) {
+	log.WithField("node", node).Trace(message)
+}
+
+func isCapitalCase(value string) bool {
+	return unicode.IsUpper(rune(value[0]))
+}
+
+func isParenthesis(token ast.Token) bool {
+	return token.Type == ast.TokenLParen || token.Type == ast.TokenRParen
 }

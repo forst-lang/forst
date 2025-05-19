@@ -22,6 +22,9 @@ func (i ImportNode) Kind() NodeKind {
 }
 
 func (i ImportNode) String() string {
+	if i.Alias != nil {
+		return fmt.Sprintf("Import(%s, %s)", i.Path, i.Alias.Id)
+	}
 	return fmt.Sprintf("Import(%s)", i.Path)
 }
 

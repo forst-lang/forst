@@ -1,32 +1,45 @@
 package parser
 
 import (
-	"fmt"
-	"unicode"
-
 	"forst/pkg/ast"
 )
 
-func (p *Parser) parseConstraint(context *Context) ast.ConstraintNode {
-	// Each assertion must start with capital letter
-	assertion := p.expect(ast.TokenIdentifier)
-	if !unicode.IsUpper(rune(assertion.Value[0])) {
-		panic(fmt.Sprintf("Assertion must start with capital letter: %s", assertion.Value))
+func isPossibleConstraintIdentifier(token ast.Token) bool {
+	return isCapitalCase(token.Value)
+}
+
+func (p *Parser) expectConstraintIdentifier() ast.Token {
+	token := p.expect(ast.TokenIdentifier)
+	if !isPossibleConstraintIdentifier(token) {
+		panic(parseErrorMessage(token, "Constraint must start with capital letter"))
+	}
+	return token
+}
+
+func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
+	// Check if this is a shape definition
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		logParsedNodeWithMessage(shape, "Parsed shape")
+		return ast.ConstraintArgumentNode{
+			Shape: &shape,
+		}
 	}
 
-	var args []ast.ValueNode
-
-	// Constraints must have parentheses
-	if p.current().Type != ast.TokenLParen {
-		panic(fmt.Sprintf("Constraint must have parentheses: %s", assertion.Value))
+	value := p.parseValue()
+	return ast.ConstraintArgumentNode{
+		Value: &value,
 	}
+}
 
-	p.advance() // Consume (
+func (p *Parser) parseConstraint() ast.ConstraintNode {
+	constraint := p.expectConstraintIdentifier()
+	p.expect(ast.TokenLParen)
 
-	// Parse arguments until closing parenthesis
+	var args []ast.ConstraintArgumentNode
 	for p.current().Type != ast.TokenRParen {
-		value := p.parseValue(context)
-		args = append(args, value)
+		arg := p.parseConstraintArgument()
+		args = append(args, arg)
 
 		if p.current().Type == ast.TokenComma {
 			p.advance()
@@ -35,33 +48,52 @@ func (p *Parser) parseConstraint(context *Context) ast.ConstraintNode {
 	p.expect(ast.TokenRParen)
 
 	return ast.ConstraintNode{
-		Name: assertion.Value,
+		Name: constraint.Value,
 		Args: args,
 	}
 }
 
-func (p *Parser) parseAssertionChain(context *Context) ast.AssertionNode {
+func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 	var constraints []ast.ConstraintNode
-	var baseType *string
+	var baseType *ast.TypeIdent
 
-	// Parse optional base type (must start with capital letter)
-	if p.current().Type == ast.TokenIdentifier && unicode.IsUpper(rune(p.current().Value[0])) {
-		// If next token is not a parenthesis, this is a base type
-		if p.peek().Type != ast.TokenLParen {
-			value := p.current().Value
-			baseType = &value
-			p.advance()
-		} else {
-			// Otherwise it's a constraint
-			constraint := p.parseConstraint(context)
+	token := p.current()
+	isIdentOrConstraint := token.Type == ast.TokenIdentifier || isPossibleConstraintIdentifier(token)
+
+	if isIdentOrConstraint {
+		isConstraintWithoutBaseType := p.peek().Type == ast.TokenLParen
+
+		if isConstraintWithoutBaseType {
+			if requireBaseType {
+				panic(parseErrorMessage(token, "Expected base type for assertion"))
+			}
+			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
+		} else {
+			// Parse first segment (could be package name or type)
+			typ := p.parseType()
+			baseType = &typ.Ident
+
+			// Check if it's a package name
+			if p.current().Type == ast.TokenDot {
+				nextToken := p.peek()
+				isQualifiedType := isPossibleTypeIdentifier(nextToken) &&
+					p.peek(2).Type != ast.TokenLParen
+
+				if isQualifiedType {
+					p.advance() // Consume dot
+					pkgType := p.parseType()
+					qualifiedName := ast.TypeIdent(string(*baseType) + "." + string(pkgType.Ident))
+					baseType = &qualifiedName
+				}
+			}
 		}
 	}
 
-	// Parse chain of assertions
+	// Parse constraint chain
 	for p.current().Type == ast.TokenDot {
-		p.advance() // Consume dot
-		constraint := p.parseConstraint(context)
+		p.advance()
+		constraint := p.parseConstraint()
 		constraints = append(constraints, constraint)
 	}
 

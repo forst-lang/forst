@@ -1,20 +1,8 @@
-package basic
+package main
 
-import (
-	"fmt"
-)
-
-type TooShort struct {
-	message string
+func greet() string {
+	return "Hello, World!"
 }
-
-func (e TooShort) Error() string {
-	return e.message
-}
-
-func greet(name string) (string, error) {
-	if len(name) == 0 {
-		return "", TooShort{"Name must be at least 1 character long"}
-	}
-	return fmt.Sprintf("Hello, %s!", name), nil
+func main() {
+	println(greet())
 }

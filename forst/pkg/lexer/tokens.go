@@ -6,7 +6,9 @@ import (
 
 func GetTokenType(word string) ast.TokenIdent {
 	switch word {
-	case "fn":
+	case "//":
+		return ast.TokenComment
+	case "func":
 		return ast.TokenFunction
 	case "import":
 		return ast.TokenImport
@@ -32,6 +34,8 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenIs
 	case "or":
 		return ast.TokenOr
+	case "type":
+		return ast.TokenType
 	case "(":
 		return ast.TokenLParen
 	case ")":
@@ -78,6 +82,10 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenDot
 	case "=":
 		return ast.TokenEquals
+	case "&":
+		return ast.TokenBitwiseAnd
+	case "|":
+		return ast.TokenBitwiseOr
 	default:
 		if isDigit(word[0]) {
 			lastChar := word[len(word)-1]

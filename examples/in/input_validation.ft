@@ -1,31 +1,33 @@
 package input_validation
 
-import forst (
-  "trpc"
-)
-
 import fmt "fmt"
 
 type PhoneNumber =
   String.Min(3).Max(10) & (
-    | (String.HasPrefix("+"))
-    | (String.HasPrefix("0"))
+    String.HasPrefix("+")
+    | String.HasPrefix("0")
   )
 
-fn createUser(input: Trpc::Arg.Input({
+func createUser(op: trpc.Mutation.Input({
   id: UUID.V4(),
   name: String.Min(3).Max(10),
-  phoneNumbers: Array(PhoneNumber),
+  phoneNumber: PhoneNumber,
   bankAccount: {
     iban: String.Min(10).Max(34),
   },
 })) {
-  fmt.Println("Creating user with id: %s", input.id)
-  300.3f
+  fmt.Println("Creating user with id: %s", op.input.id)
+  return 300.3f
 }
 
-fn CreateRouter() {
-    return Trpc::Router(routes: {
-        createUser
-    })
-}
+// func createUser({ input, ctx }: trpc.Mutation.Input({
+//   id: UUID.V4(),
+//   name: String.Min(3).Max(10),
+//   phoneNumber: PhoneNumber,
+//   bankAccount: {
+//     iban: String.Min(10).Max(34),
+//   },
+// })) {
+//   ensure ctx is trpc.Context.LoggedIn()
+//   return createUserDatabase(input.id, input.name, input.phoneNumber, input.bankAccount.iban)
+// }

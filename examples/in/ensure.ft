@@ -5,17 +5,17 @@ import (
 	"os"
 )
 
-fn mustBeARealName(name: String) {
+func mustBeARealName(name: String) {
     ensure name is Min(1)
         or TooShort("Name must be at least 1 character long")
 }
 
-fn mustNotExceedSpeedLimit(speed: Int) {
+func mustNotExceedSpeedLimit(speed: Int) {
     ensure speed is LessThan(100)
         or TooFast("Speed must not exceed 100 km/h")
 }
 
-fn checkConditions() {
+func checkConditions() {
     err := mustBeARealName("John") 
     ensure err is Nil() or err
     speed := 80
@@ -23,7 +23,7 @@ fn checkConditions() {
     ensure !err or err
 }
 
-fn main() {
+func main() {
     err := checkConditions()
     ensure !err {
         fmt.Printf("Conditions not met: %s", err.Error())

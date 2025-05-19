@@ -3,42 +3,9 @@ package typechecker
 import (
 	"fmt"
 	"forst/pkg/ast"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
-
-func formatTypeList(types []ast.TypeNode) string {
-	formatted := make([]string, len(types))
-	for i, typ := range types {
-		formatted[i] = typ.String()
-	}
-	return strings.Join(formatted, ", ")
-}
-
-func failWithTypeMismatch(fn ast.FunctionNode, inferred []ast.TypeNode, parsed []ast.TypeNode) error {
-	return fmt.Errorf("inferred return type %v of function %s does not match parsed return type %v", formatTypeList(inferred), fn.Id(), formatTypeList(parsed))
-}
-
-// Ensures that the first type matches the expected type, otherwise returns an error
-func ensureMatching(fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode) ([]ast.TypeNode, error) {
-	if len(expected) == 0 {
-		// If the expected type is implicit, we have nothing to check against
-		return actual, nil
-	}
-
-	if len(actual) != len(expected) {
-		return actual, failWithTypeMismatch(fn, actual, expected)
-	}
-
-	for i := range expected {
-		if actual[i].Name != expected[i].Name {
-			return actual, failWithTypeMismatch(fn, actual, expected)
-		}
-	}
-
-	return actual, nil
-}
 
 // inferFunctionReturnType infers the return type of a function from its body
 func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeNode, error) {
@@ -47,7 +14,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	// For empty functions, default to void return type
 	if len(fn.Body) == 0 {
-		return ensureMatching(fn, inferredType, parsedType)
+		return ensureMatching(fn, inferredType, parsedType, "Empty function is not void")
 	}
 
 	// Find all return statements and collect their types
@@ -68,8 +35,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		firstType := returnStmtTypes[0]
 		for _, retTypes := range returnStmtTypes[1:] {
 			for _, retType := range retTypes {
-				if retType.Name != firstType[0].Name {
-					return nil, failWithTypeMismatch(fn, inferredType, firstType)
+				if retType.Ident != firstType[0].Ident {
+					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
 				}
 			}
 		}
@@ -90,13 +57,13 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		// If we found return statements, verify the expression type matches
 		if len(returnStmtTypes) > 0 {
 			for i, exprType := range exprTypes {
-				if exprType.Name != returnStmtTypes[0][i].Name {
-					return nil, failWithTypeMismatch(fn, inferredType, exprTypes)
+				if exprType.Ident != returnStmtTypes[0][i].Ident {
+					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
 				}
 			}
 		}
 
-		return ensureMatching(fn, inferredType, parsedType)
+		return ensureMatching(fn, inferredType, parsedType, "Invalid return expression type")
 	}
 
 	// If we found return statements, use the first return type
@@ -109,7 +76,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		if _, ok := stmt.(ast.EnsureNode); ok {
 			if len(inferredType) == 0 {
 				inferredType = []ast.TypeNode{
-					{Name: ast.TypeError},
+					{Ident: ast.TypeError},
 				}
 			} else {
 				if len(inferredType) != 1 && len(inferredType) != 2 {
@@ -117,29 +84,126 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 				}
 
 				// TODO: If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
-				if inferredType[len(inferredType)-1].Name != ast.TypeError {
-					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Name)
+				if inferredType[len(inferredType)-1].Ident != ast.TypeError {
+					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Ident)
 				}
 			}
 		}
 	}
 
 	if len(inferredType) == 0 {
-		inferredType = []ast.TypeNode{{Name: ast.TypeVoid}}
+		inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
 	}
 
-	return ensureMatching(fn, inferredType, parsedType)
+	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
-func findAlreadyInferredType(tc *TypeChecker, node ast.Node) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.Hash(node)
-	if existingType, exists := tc.Types[hash]; exists {
-		// Ignore types that are still marked as implicit, as they are not yet inferred
-		if len(existingType) > 0 {
-			return nil, nil
-		}
-		return existingType, nil
+// TODO: Improve type inference for complex types
+// This should handle:
+// 1. Binary type expressions
+// 2. Nested shapes
+// 3. Type aliases
+// 4. Generic types
+func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, error) {
+	hash := tc.Hasher.HashNode(shape)
+	typeIdent := hash.ToTypeIdent()
+	shapeType := []ast.TypeNode{
+		{
+			Ident: typeIdent,
+		},
 	}
+	for name, field := range shape.Fields {
+		if field.Shape != nil {
+			fieldType, err := tc.inferShapeType(field.Shape)
+			if err != nil {
+				return nil, err
+			}
+
+			fieldHash := tc.Hasher.HashNode(field)
+			fieldTypeIdent := fieldHash.ToTypeIdent()
+			log.Tracef("Inferred type of shape field %s: %s, field: %s", name, fieldTypeIdent, field)
+			tc.storeInferredType(field.Shape, fieldType)
+		} else if field.Assertion != nil {
+			// Skip if the assertion type has already been inferred
+			inferredType, _ := tc.inferAssertionType(field.Assertion, false)
+			if inferredType != nil {
+				continue
+			}
+
+			fieldHash := tc.Hasher.HashNode(field)
+			fieldTypeIdent := fieldHash.ToTypeIdent()
+			log.Tracef("Inferred type of assertion field %s: %s", name, fieldTypeIdent)
+			tc.registerType(ast.TypeDefNode{
+				Ident: fieldTypeIdent,
+				Expr: ast.TypeDefAssertionExpr{
+					Assertion: field.Assertion,
+				},
+			})
+		} else {
+			panic(fmt.Sprintf("Shape field has neither assertion nor shape: %T", field))
+		}
+	}
+
+	tc.storeInferredType(shape, shapeType)
+	log.Tracef("Inferred shape type: %s", shapeType)
+
+	// The type is not registered here as the specific type implementation
+	// depends on the target language and will be determined in the transformer.
+
+	return shapeType, nil
+}
+
+// TODO: Improve assertion type inference
+// This should handle:
+// 1. Complex constraints
+// 2. Nested assertions
+// 3. Type aliases
+// 4. Generic types
+func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireInferred bool) ([]ast.TypeNode, error) {
+	// Check if we've already inferred this assertion's type
+	existingTypes, err := tc.LookupInferredType(assertion, requireInferred)
+	if err != nil {
+		return nil, err
+	}
+
+	if existingTypes != nil {
+		return existingTypes, nil
+	}
+
+	hash := tc.Hasher.HashNode(assertion)
+	typeIdent := hash.ToTypeIdent()
+	typeNode := ast.TypeNode{
+		Ident:     typeIdent,
+		Assertion: assertion,
+	}
+	inferredType := []ast.TypeNode{typeNode}
+	tc.storeInferredType(assertion, inferredType)
+
+	// Process each constraint in the assertion
+	tc.registerType(ast.TypeDefNode{
+		Ident: typeIdent,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: assertion,
+		},
+	})
+
+	if assertion.BaseType != nil && (*assertion.BaseType == "trpc.Mutation" || *assertion.BaseType == "trpc.Query") {
+		for _, constraint := range assertion.Constraints {
+			switch constraint.Name {
+			case "Input":
+				if len(constraint.Args) != 1 {
+					return nil, fmt.Errorf("input constraint must have exactly one argument")
+				}
+				arg := constraint.Args[0]
+				if arg.Shape != nil {
+					if _, err := tc.inferShapeType(arg.Shape); err != nil {
+						return nil, fmt.Errorf("failed to infer shape type: %w", err)
+					}
+				}
+			}
+		}
+	}
+
 	return nil, nil
 }
 
@@ -176,9 +240,9 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	log.Trace("inferNodeType", node)
+	log.Tracef("inferNodeType: %s", node.String())
 	// Check if we've already inferred this node's type
-	alreadyInferredType, err := findAlreadyInferredType(tc, node)
+	alreadyInferredType, err := tc.LookupInferredType(node, false)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +261,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.FunctionNode:
 		tc.pushScope(n)
 
+		// Convert []ParamNode to []Node
+		params := make([]ast.Node, len(n.Params))
+		for i, param := range n.Params {
+			params[i] = param
+		}
+
+		_, err = tc.inferNodeTypes(params)
+		if err != nil {
+			return nil, err
+		}
+
 		_, err = tc.inferNodeTypes(n.Body)
 		if err != nil {
 			return nil, err
@@ -211,6 +286,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		tc.popScope()
 
 		return inferredType, nil
+	case ast.SimpleParamNode:
+		if n.Type.Assertion != nil {
+			inferredType, err := tc.inferAssertionType(n.Type.Assertion, false)
+			if err != nil {
+				return nil, err
+			}
+			return inferredType, nil
+		}
+		return []ast.TypeNode{n.Type}, nil
+	case ast.DestructuredParamNode:
+		return nil, nil
 	case ast.ExpressionNode:
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
@@ -239,6 +325,20 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			return nil, err
 		}
 		return nil, nil
+
+	case ast.AssertionNode:
+		_, err := tc.inferAssertionType(&n, false)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+
+	case ast.TypeNode:
+		return nil, nil
+
+	case ast.TypeDefNode:
+		return nil, nil
+
 	case ast.ReturnNode:
 		return nil, nil
 	}
@@ -265,22 +365,22 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{inferredType}, nil
 
 	case ast.IntLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeInt}
+		typ := ast.TypeNode{Ident: ast.TypeInt}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FloatLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeFloat}
+		typ := ast.TypeNode{Ident: ast.TypeFloat}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.StringLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeString}
+		typ := ast.TypeNode{Ident: ast.TypeString}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
 	case ast.BoolLiteralNode:
-		typ := ast.TypeNode{Name: ast.TypeBool}
+		typ := ast.TypeNode{Ident: ast.TypeBool}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
@@ -329,57 +429,28 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 
 	// Check type compatibility and determine result type
 	if operator.IsArithmeticBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in arithmetic expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
 		return leftType, nil
 
 	} else if operator.IsComparisonBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in comparison expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
-		return ast.TypeNode{Name: ast.TypeBool}, nil
+		return ast.TypeNode{Ident: ast.TypeBool}, nil
 
 	} else if operator.IsLogicalBinaryOperator() {
-		if leftType.Name != rightType.Name {
+		if leftType.Ident != rightType.Ident {
 			return ast.TypeNode{}, fmt.Errorf("type mismatch in logical expression: %s and %s",
-				leftType.Name, rightType.Name)
+				leftType.Ident, rightType.Ident)
 		}
-		return ast.TypeNode{Name: ast.TypeBool}, nil
+		return ast.TypeNode{Ident: ast.TypeBool}, nil
 	}
 
 	panic(typecheckError("unsupported operator"))
-}
-
-func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ ast.TypeNode) {
-	tc.storeSymbol(variable.Ident.Id, []ast.TypeNode{typ}, SymbolVariable)
-	tc.storeInferredType(variable, []ast.TypeNode{typ})
-}
-
-func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
-	// Store function signature
-	params := make([]ParameterSignature, len(fn.Params))
-	for i, param := range fn.Params {
-		params[i] = ParameterSignature{
-			Ident: param.Ident,
-			Type:  param.Type,
-		}
-	}
-	tc.Functions[fn.Id()] = FunctionSignature{
-		Ident:       fn.Ident,
-		Parameters:  params,
-		ReturnTypes: fn.ReturnTypes,
-	}
-
-	// Store function symbol
-	tc.storeSymbol(fn.Ident.Id, fn.ReturnTypes, SymbolFunction)
-
-	// Store parameter symbols
-	for _, param := range fn.Params {
-		tc.storeSymbol(param.Ident.Id, []ast.TypeNode{param.Type}, SymbolParameter)
-	}
 }
 
 func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {

@@ -12,7 +12,7 @@ func (t *Transformer) transformImport(node ast.ImportNode) *goast.GenDecl {
 		Tok: token.IMPORT,
 		Specs: []goast.Spec{
 			&goast.ImportSpec{
-				Name: nameFromAlias(node.Alias.Id),
+				Name: nameFromAlias(node.Alias),
 				Path: &goast.BasicLit{
 					Kind:  token.STRING,
 					Value: `"` + strings.Trim(node.Path, `"`) + `"`,
@@ -26,7 +26,7 @@ func (t *Transformer) transformImportGroup(node ast.ImportGroupNode) *goast.GenD
 	specs := make([]goast.Spec, len(node.Imports))
 	for i, imp := range node.Imports {
 		specs[i] = &goast.ImportSpec{
-			Name: nameFromAlias(imp.Alias.Id),
+			Name: nameFromAlias(imp.Alias),
 			Path: &goast.BasicLit{
 				Kind:  token.STRING,
 				Value: `"` + strings.Trim(imp.Path, `"`) + `"`,
@@ -39,9 +39,9 @@ func (t *Transformer) transformImportGroup(node ast.ImportGroupNode) *goast.GenD
 	}
 }
 
-func nameFromAlias(alias ast.Identifier) *goast.Ident {
-	if alias == "" {
+func nameFromAlias(alias *ast.Ident) *goast.Ident {
+	if alias == nil {
 		return nil
 	}
-	return goast.NewIdent(string(alias))
+	return goast.NewIdent(string(alias.Id))
 }

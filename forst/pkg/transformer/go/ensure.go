@@ -43,6 +43,45 @@ func any(conditions []goast.Expr) goast.Expr {
 	return combined
 }
 
+func expectNumberLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
+	if arg == nil {
+		panic("Expected an argument")
+	}
+	if arg.Value == nil {
+		panic("Expected argument to be a value")
+	}
+	if (*arg.Value).Kind() != ast.NodeKindIntLiteral && (*arg.Value).Kind() != ast.NodeKindFloatLiteral {
+		panic("Expected value to be a number literal")
+	}
+	return arg.Value
+}
+
+func expectIntLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
+	if arg == nil {
+		panic("Expected an argument")
+	}
+	if arg.Value == nil {
+		panic("Expected argument to be a value")
+	}
+	if (*arg.Value).Kind() != ast.NodeKindIntLiteral {
+		panic("Expected value to be an int literal")
+	}
+	return arg.Value
+}
+
+func expectStringLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
+	if arg == nil {
+		panic("Expected an argument")
+	}
+	if arg.Value == nil {
+		panic("Expected argument to be a value")
+	}
+	if (*arg.Value).Kind() != ast.NodeKindStringLiteral {
+		panic("Expected value to be a string literal")
+	}
+	return arg.Value
+}
+
 func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
 	var result []goast.Expr = []goast.Expr{}
 
@@ -53,6 +92,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 			if len(constraint.Args) != 1 {
 				panic("Min constraint requires 1 argument")
 			}
+			arg := expectIntLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
@@ -61,12 +101,13 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 					},
 				},
 				Op: token.LSS,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "Max":
 			if len(constraint.Args) != 1 {
 				panic("Max constraint requires 1 argument")
 			}
+			arg := expectIntLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
@@ -75,12 +116,13 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 					},
 				},
 				Op: token.GTR,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "HasPrefix":
 			if len(constraint.Args) != 1 {
 				panic("HasPrefix constraint requires 1 argument")
 			}
+			arg := expectStringLiteral(&constraint.Args[0])
 			expr = negateCondition(&goast.CallExpr{
 				Fun: &goast.SelectorExpr{
 					X:   goast.NewIdent("strings"),
@@ -88,7 +130,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 				},
 				Args: []goast.Expr{
 					transformExpression(ensure.Variable),
-					transformExpression(constraint.Args[0]),
+					transformExpression(*arg),
 				},
 			})
 		default:
@@ -109,37 +151,41 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 			if len(constraint.Args) != 1 {
 				panic("Min constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "Max":
 			if len(constraint.Args) != 1 {
 				panic("Max constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "LessThan":
 			if len(constraint.Args) != 1 {
 				panic("LessThan constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.GEQ,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "GreaterThan":
 			if len(constraint.Args) != 1 {
 				panic("GreaterThan constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.LEQ,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		default:
 			panic("Unknown Int constraint: " + constraint.Name)
@@ -158,19 +204,21 @@ func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr 
 			if len(constraint.Args) != 1 {
 				panic("Min constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		case "Max":
 			if len(constraint.Args) != 1 {
 				panic("Max constraint requires 1 argument")
 			}
+			arg := expectNumberLiteral(&constraint.Args[0])
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(constraint.Args[0]),
+				Y:  transformExpression(*arg),
 			}
 		default:
 			panic("Unknown Float constraint: " + constraint.Name)
@@ -224,23 +272,23 @@ func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr 
 	return any(result)
 }
 
-func (t *Transformer) getAssertionBaseType(ensure ast.EnsureNode) ast.TypeNode {
+func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	if ensure.Assertion.BaseType != nil {
-		return ast.TypeNode{Name: *ensure.Assertion.BaseType}
+		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
 	}
 
-	assertionType, err := t.TypeChecker.LookupAssertionType(&ensure, t.currentScope)
+	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
 	if err != nil {
 		panic(err)
 	}
-	return *assertionType
+	return *ensureBaseType
 }
 
 // transformEnsure converts a Forst ensure to a Go expression
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
-	baseType := t.getAssertionBaseType(ensure)
+	baseType := t.getEnsureBaseType(ensure)
 
-	switch baseType.Name {
+	switch baseType.Ident {
 	case ast.TypeString:
 		return t.transformStringAssertion(ensure)
 	case ast.TypeInt:
@@ -252,6 +300,6 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 	case ast.TypeError:
 		return t.transformErrorAssertion(ensure)
 	default:
-		panic("Unknown base type: " + baseType.Name)
+		panic("Unknown base type: " + baseType.Ident)
 	}
 }

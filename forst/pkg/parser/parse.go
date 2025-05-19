@@ -35,21 +35,35 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 	nodes := []ast.Node{}
 
 	for p.current().Type != ast.TokenEOF {
-		if p.current().Type == ast.TokenPackage {
-			nodes = append(nodes, p.parsePackage())
-		} else if p.current().Type == ast.TokenImport {
+		token := p.current()
+
+		switch token.Type {
+		case ast.TokenComment:
+			// Comments are ignored
+			p.advance()
+			continue
+		case ast.TokenPackage:
+			packageDef := p.parsePackage()
+			logParsedNodeWithMessage(packageDef, "Parsed package")
+			nodes = append(nodes, packageDef)
+		case ast.TokenImport:
 			nodes = append(nodes, p.parseImports()...)
-		} else if p.current().Type == ast.TokenFunction {
+		case ast.TokenType:
+			typeDef := p.parseTypeDef()
+			logParsedNodeWithMessage(typeDef, "Parsed type def")
+			nodes = append(nodes, *typeDef)
+		case ast.TokenFunction:
 			p.context.Scope = &Scope{
 				Variables: make(map[string]ast.TypeNode),
 			}
-			nodes = append(nodes, p.parseFunctionDefinition())
-		} else {
-			currentToken := p.current()
+			function := p.parseFunctionDefinition()
+			logParsedNodeWithMessage(function, "Parsed function")
+			nodes = append(nodes, function)
+		default:
 			return nil, &ParseError{
-				Token:   currentToken,
+				Token:   token,
 				Context: p.context,
-				Msg:     fmt.Sprintf("unexpected token: %s", currentToken.Value),
+				Msg:     fmt.Sprintf("unexpected token: %s", token.Value),
 			}
 		}
 	}

@@ -4,6 +4,37 @@ import (
 	"forst/pkg/ast"
 )
 
+func (p *Parser) parseImport() ast.ImportNode {
+	var alias string
+	if p.current().Type == ast.TokenIdentifier {
+		alias = p.current().Value
+		p.advance() // Skip alias
+	}
+	path := p.expect(ast.TokenStringLiteral).Value
+
+	node := ast.ImportNode{
+		Path: path,
+	}
+	if alias != "" {
+		node.Alias = &ast.Ident{Id: ast.Identifier(alias)}
+	}
+
+	return node
+}
+
+func (p *Parser) parseImportGroup() ast.ImportGroupNode {
+	p.advance() // Move past '('
+	imports := []ast.ImportNode{}
+
+	// Parse imports until we hit the closing paren
+	for p.current().Type != ast.TokenRParen {
+		imports = append(imports, p.parseImport())
+	}
+
+	p.expect(ast.TokenRParen)
+	return ast.ImportGroupNode{Imports: imports}
+}
+
 func (p *Parser) parseImports() []ast.Node {
 	nodes := []ast.Node{}
 
@@ -11,26 +42,13 @@ func (p *Parser) parseImports() []ast.Node {
 
 	// Check if this is a grouped import with parentheses
 	if p.current().Type == ast.TokenLParen {
-		p.advance() // Move past '('
-		imports := []ast.ImportNode{}
-
-		// Parse imports until we hit the closing paren
-		for p.current().Type != ast.TokenRParen {
-			var alias string
-			if p.current().Type == ast.TokenIdentifier {
-				alias = p.current().Value
-				p.advance() // Skip alias
-			}
-			path := p.expect(ast.TokenStringLiteral).Value
-			imports = append(imports, ast.ImportNode{Path: path, Alias: &ast.Ident{Id: ast.Identifier(alias)}})
-		}
-
-		p.expect(ast.TokenRParen)
-		nodes = append(nodes, ast.ImportGroupNode{Imports: imports})
+		importGroup := p.parseImportGroup()
+		logParsedNodeWithMessage(importGroup, "Parsed import group")
+		nodes = append(nodes, importGroup)
 	} else {
-		// Single import
-		importName := p.expect(ast.TokenIdentifier).Value
-		nodes = append(nodes, ast.ImportNode{Path: importName})
+		importNode := p.parseImport()
+		logParsedNodeWithMessage(importNode, "Parsed import")
+		nodes = append(nodes, importNode)
 	}
 
 	return nodes

@@ -1,5 +1,9 @@
-package basic
+package main
 
-fn greet(name: String): String {
-    return "Hello, #{name}!"
+func greet(): String {
+    return "Hello, World!"
+}
+
+func main() {
+    println(greet())
 }

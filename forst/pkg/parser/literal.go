@@ -23,25 +23,19 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 
 	case ast.TokenIntLiteral:
-		// Check if it's a float (contains a decimal point)
-		if strings.Contains(token.Value, ".") {
-			// Check if it's a float32 (ends with 'f')
-			isFloat32 := false
-			value := token.Value
-			if strings.HasSuffix(value, "f") {
-				isFloat32 = true
-				value = value[:len(value)-1] // Remove the 'f' suffix
-			}
+		value := token.Value
 
-			floatVal, err := strconv.ParseFloat(value, 64)
+		// Check if it's a float (has a dot token after)
+		if p.current().Type == ast.TokenDot {
+			p.advance() // Consume dot
+
+			floatSuffix := p.expect(ast.TokenFloatLiteral)
+			decimalVal := value
+			mantissa := strings.TrimSuffix(floatSuffix.Value, "f")
+			floatVal, err := strconv.ParseFloat(decimalVal+"."+mantissa, 64)
 			if err != nil {
 				panic(parseErrorWithValue(token, "Invalid float literal"))
 			}
-
-			if isFloat32 {
-				panic(parseErrorWithValue(token, "Float32 literals are not supported"))
-			}
-
 			return ast.FloatLiteralNode{
 				Value: floatVal,
 			}

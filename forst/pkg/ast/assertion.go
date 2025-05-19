@@ -6,33 +6,52 @@ import (
 )
 
 type AssertionNode struct {
-	// Base type is optional as the type can be inferred from the value being checked
-	BaseType    *string
+	// Base type is optional when the type can be inferred from the value being checked
+	BaseType    *TypeIdent
 	Constraints []ConstraintNode
 }
 
 type ConstraintNode struct {
+	Node
 	Name string
-	Args []ValueNode
+	Args []ConstraintArgumentNode
+}
+
+type ConstraintArgumentNode struct {
+	Value *ValueNode
+	Shape *ShapeNode
+}
+
+func (c ConstraintArgumentNode) String() string {
+	if c.Value != nil {
+		return (*c.Value).String()
+	}
+	return c.Shape.String()
+}
+
+func (c ConstraintArgumentNode) Kind() NodeKind {
+	if c.Value != nil {
+		return (*c.Value).Kind()
+	}
+	return c.Shape.Kind()
 }
 
 func (a AssertionNode) String() string {
 	constraints := make([]string, len(a.Constraints))
 	for i, c := range a.Constraints {
-		if len(c.Args) > 0 {
-			argStrings := make([]string, len(c.Args))
-			for j, arg := range c.Args {
-				argStrings[j] = arg.String()
-			}
-			constraints[i] = fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
-		} else {
-			constraints[i] = c.Name
+		argStrings := make([]string, len(c.Args))
+		for j, arg := range c.Args {
+			argStrings[j] = arg.String()
 		}
+		constraints[i] = fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
 	}
 
 	constraintsString := strings.Join(constraints, ".")
 	if a.BaseType == nil {
 		return constraintsString
+	}
+	if constraintsString == "" {
+		return string(*a.BaseType)
 	}
 	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)
 }
