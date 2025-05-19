@@ -9,6 +9,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: Refactor to use a clear type model instead of direct AST transformation
+// This will make it easier to:
+// 1. Handle binary type expressions
+// 2. Generate validation code
+// 3. Support more type constraints
+// 4. Improve type inference
 func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, error) {
 	expr, err := t.transformTypeDefExpr(node.Expr)
 	if err != nil {
@@ -135,6 +141,9 @@ func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*
 	return transformTypeIdent(typeNode.Ident), nil
 }
 
+// TODO: Implement binary type expressions
+// This should handle both conjunction (&) and disjunction (|) operators
+// and generate appropriate validation code
 func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, error) {
 	switch e := expr.(type) {
 	case ast.TypeDefAssertionExpr:
@@ -213,7 +222,8 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 	}
 }
 
-// defineShapeType creates and registers a type definition for a shape
+// TODO: Improve shape type registration
+// This should handle nested shapes better and generate appropriate validation code
 func (t *Transformer) defineShapeType(shape *ast.ShapeNode) error {
 	// First register all nested shape fields
 	if err := t.defineShapeFields(shape); err != nil {

@@ -98,6 +98,12 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
+// TODO: Improve type inference for complex types
+// This should handle:
+// 1. Binary type expressions
+// 2. Nested shapes
+// 3. Type aliases
+// 4. Generic types
 func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, error) {
 	hash := tc.Hasher.HashNode(shape)
 	typeIdent := hash.ToTypeIdent()
@@ -147,6 +153,12 @@ func (tc *TypeChecker) inferShapeType(shape *ast.ShapeNode) ([]ast.TypeNode, err
 	return shapeType, nil
 }
 
+// TODO: Improve assertion type inference
+// This should handle:
+// 1. Complex constraints
+// 2. Nested assertions
+// 3. Type aliases
+// 4. Generic types
 func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireInferred bool) ([]ast.TypeNode, error) {
 	// Check if we've already inferred this assertion's type
 	existingTypes, err := tc.LookupInferredType(assertion, requireInferred)
