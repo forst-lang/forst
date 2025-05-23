@@ -109,6 +109,15 @@ func (sm *ScopeManager) FindScope(node ast.Node) *Scope {
 	return sm.scopes[hash]
 }
 
+// GlobalScope returns the global scope (root scope)
+func (sm *ScopeManager) GlobalScope() *Scope {
+	scope := sm.current
+	for scope.Parent != nil {
+		scope = scope.Parent
+	}
+	return scope
+}
+
 type Symbol struct {
 	Identifier ast.Identifier
 	Types      []ast.TypeNode

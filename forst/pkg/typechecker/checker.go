@@ -17,30 +17,18 @@ type TypeChecker struct {
 	Functions map[ast.Identifier]FunctionSignature
 	// Hasher for structural hashing of AST nodes
 	Hasher *StructuralHasher
-	// Current scope
-	currentScope *Scope
-	globalScope  *Scope
-	scopes       map[NodeHash]*Scope // Map AST nodes to their scopes
-	path         NodePath            // Track current position in AST
+	path   NodePath // Track current position in AST
 	// Scope manager for modular scope handling
 	scopeManager *ScopeManager
 }
 
 func New() *TypeChecker {
-	globalScope := &Scope{
-		Parent:  nil,
-		Symbols: make(map[ast.Identifier]Symbol),
-	}
-
 	return &TypeChecker{
 		Types:        make(map[NodeHash][]ast.TypeNode),
 		Defs:         make(map[ast.TypeIdent]ast.Node),
 		Uses:         make(map[ast.TypeIdent][]ast.Node),
 		Functions:    make(map[ast.Identifier]FunctionSignature),
 		Hasher:       &StructuralHasher{},
-		currentScope: globalScope,
-		globalScope:  globalScope,
-		scopes:       make(map[NodeHash]*Scope),
 		path:         make(NodePath, 0),
 		scopeManager: NewScopeManager(),
 	}
@@ -77,32 +65,19 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.TypeDefNode:
 		tc.registerType(n)
 	case ast.FunctionNode:
-		// Create new scope for function
-		functionScope := &Scope{
-			Parent:   tc.currentScope,
-			Node:     n,
-			Symbols:  make(map[ast.Identifier]Symbol),
-			Children: make([]*Scope, 0),
-		}
+		// Push new scope for function
+		tc.pushScope(n)
 
 		// Register parameter types in the function scope
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				functionScope.Symbols[p.Ident.Id] = Symbol{
-					Identifier: p.Ident.Id,
-					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolVariable,
-					Scope:      functionScope,
-					Position:   tc.path,
-				}
+				tc.storeSymbol(p.Ident.Id, []ast.TypeNode{p.Type}, SymbolVariable)
 			case ast.DestructuredParamNode:
 				// Handle destructured params if needed
 				continue
 			}
 		}
-
-		tc.currentScope = functionScope
 
 		// Process function body
 		for _, node := range n.Body {
@@ -111,19 +86,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			}
 		}
 
-		tc.currentScope = functionScope.Parent
-
-		// case ast.VariableDeclarationNode:
-		// 	if !n.Type.IsImplicit() {
-		// 		tc.currentScope.variables[n.Name] = n.Type
-		// 	}
-
-		// case ast.BlockNode:
-		// 	for _, stmt := range n.Statements {
-		// 		if err := tc.collectExplicitTypes(stmt); err != nil {
-		// 			return err
-		// 		}
-		// 	}
+		// Pop function scope
+		tc.popScope()
 
 		tc.registerFunction(n)
 	}
@@ -146,15 +110,16 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 }
 
 func (tc *TypeChecker) DebugPrintCurrentScope() {
-	log.Debugf("Current scope: %s\n", tc.currentScope.Node.String())
-	log.Debugf("  Defined symbols (total: %d)\n", len(tc.currentScope.Symbols))
-	for _, symbol := range tc.currentScope.Symbols {
+	currentScope := tc.scopeManager.CurrentScope()
+	log.Debugf("Current scope: %s\n", currentScope.Node.String())
+	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
+	for _, symbol := range currentScope.Symbols {
 		log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
 }
 
 func (tc *TypeChecker) GlobalScope() *Scope {
-	return tc.globalScope
+	return tc.scopeManager.GlobalScope()
 }
 
 // registerType stores a type definition in the TypeChecker's Defs map.
@@ -179,22 +144,21 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 // pushScope delegates to the ScopeManager
 func (tc *TypeChecker) pushScope(node ast.Node) {
 	tc.scopeManager.PushScope(node)
-	tc.currentScope = tc.scopeManager.CurrentScope()
 }
 
 // popScope delegates to the ScopeManager
 func (tc *TypeChecker) popScope() {
 	tc.scopeManager.PopScope()
-	tc.currentScope = tc.scopeManager.CurrentScope()
 }
 
 // storeSymbol stores a symbol in the current scope
 func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	tc.currentScope.Symbols[ident] = Symbol{
+	currentScope := tc.scopeManager.CurrentScope()
+	currentScope.Symbols[ident] = Symbol{
 		Identifier: ident,
 		Types:      types,
 		Kind:       kind,
-		Scope:      tc.currentScope,
+		Scope:      currentScope,
 		Position:   tc.path,
 	}
 }
