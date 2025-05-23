@@ -22,6 +22,8 @@ type TypeChecker struct {
 	globalScope  *Scope
 	scopes       map[NodeHash]*Scope // Map AST nodes to their scopes
 	path         NodePath            // Track current position in AST
+	// Scope manager for modular scope handling
+	scopeManager *ScopeManager
 }
 
 func New() *TypeChecker {
@@ -40,6 +42,7 @@ func New() *TypeChecker {
 		globalScope:  globalScope,
 		scopes:       make(map[NodeHash]*Scope),
 		path:         make(NodePath, 0),
+		scopeManager: NewScopeManager(),
 	}
 }
 
@@ -89,7 +92,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 				functionScope.Symbols[p.Ident.Id] = Symbol{
 					Identifier: p.Ident.Id,
 					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolParameter,
+					Kind:       SymbolVariable,
 					Scope:      functionScope,
 					Position:   tc.path,
 				}
@@ -171,4 +174,32 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 		return
 	}
 	tc.Defs[node.Ident] = node
+}
+
+// pushScope delegates to the ScopeManager
+func (tc *TypeChecker) pushScope(node ast.Node) {
+	tc.scopeManager.PushScope(node)
+	tc.currentScope = tc.scopeManager.CurrentScope()
+}
+
+// popScope delegates to the ScopeManager
+func (tc *TypeChecker) popScope() {
+	tc.scopeManager.PopScope()
+	tc.currentScope = tc.scopeManager.CurrentScope()
+}
+
+// storeSymbol stores a symbol in the current scope
+func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
+	tc.currentScope.Symbols[ident] = Symbol{
+		Identifier: ident,
+		Types:      types,
+		Kind:       kind,
+		Scope:      tc.currentScope,
+		Position:   tc.path,
+	}
+}
+
+// FindScope delegates to the ScopeManager
+func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
+	return tc.scopeManager.FindScope(node)
 }
