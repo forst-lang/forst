@@ -261,6 +261,23 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.FunctionNode:
 		tc.pushScope(n)
 
+		// Register parameters in the current scope
+		for _, param := range n.Params {
+			switch p := param.(type) {
+			case ast.SimpleParamNode:
+				tc.currentScope.Symbols[p.Ident.Id] = Symbol{
+					Identifier: p.Ident.Id,
+					Types:      []ast.TypeNode{p.Type},
+					Kind:       SymbolVariable,
+					Scope:      tc.currentScope,
+					Position:   tc.path,
+				}
+			case ast.DestructuredParamNode:
+				// Handle destructured params if needed
+				continue
+			}
+		}
+
 		// Convert []ParamNode to []Node
 		params := make([]ast.Node, len(n.Params))
 		for i, param := range n.Params {
