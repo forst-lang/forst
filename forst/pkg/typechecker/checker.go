@@ -19,18 +19,20 @@ type TypeChecker struct {
 	Hasher *StructuralHasher
 	path   NodePath // Track current position in AST
 	// Scope manager for modular scope handling
-	scopeManager *ScopeManager
+	scopeStack    *ScopeStack
+	inferredTypes map[ast.Node][]ast.TypeNode
 }
 
 func New() *TypeChecker {
 	return &TypeChecker{
-		Types:        make(map[NodeHash][]ast.TypeNode),
-		Defs:         make(map[ast.TypeIdent]ast.Node),
-		Uses:         make(map[ast.TypeIdent][]ast.Node),
-		Functions:    make(map[ast.Identifier]FunctionSignature),
-		Hasher:       &StructuralHasher{},
-		path:         make(NodePath, 0),
-		scopeManager: NewScopeManager(),
+		Types:         make(map[NodeHash][]ast.TypeNode),
+		Defs:          make(map[ast.TypeIdent]ast.Node),
+		Uses:          make(map[ast.TypeIdent][]ast.Node),
+		Functions:     make(map[ast.Identifier]FunctionSignature),
+		Hasher:        &StructuralHasher{},
+		path:          make(NodePath, 0),
+		scopeStack:    NewScopeStack(NewStructuralHasher()),
+		inferredTypes: make(map[ast.Node][]ast.TypeNode),
 	}
 }
 
@@ -109,8 +111,9 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 	tc.Functions[fn.Id()] = sig
 }
 
+// DebugPrintCurrentScope prints the current scope for debugging
 func (tc *TypeChecker) DebugPrintCurrentScope() {
-	currentScope := tc.scopeManager.CurrentScope()
+	currentScope := tc.scopeStack.CurrentScope()
 	log.Debugf("Current scope: %s\n", currentScope.Node.String())
 	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
 	for _, symbol := range currentScope.Symbols {
@@ -118,8 +121,9 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	}
 }
 
+// GlobalScope returns the global scope
 func (tc *TypeChecker) GlobalScope() *Scope {
-	return tc.scopeManager.GlobalScope()
+	return tc.scopeStack.GlobalScope()
 }
 
 // registerType stores a type definition in the TypeChecker's Defs map.
@@ -143,17 +147,17 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 
 // pushScope delegates to the ScopeManager
 func (tc *TypeChecker) pushScope(node ast.Node) {
-	tc.scopeManager.PushScope(node)
+	tc.scopeStack.PushScope(node)
 }
 
 // popScope delegates to the ScopeManager
 func (tc *TypeChecker) popScope() {
-	tc.scopeManager.PopScope()
+	tc.scopeStack.PopScope()
 }
 
 // storeSymbol stores a symbol in the current scope
 func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	currentScope := tc.scopeManager.CurrentScope()
+	currentScope := tc.scopeStack.CurrentScope()
 	currentScope.Symbols[ident] = Symbol{
 		Identifier: ident,
 		Types:      types,
@@ -165,5 +169,5 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 
 // FindScope delegates to the ScopeManager
 func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
-	return tc.scopeManager.FindScope(node)
+	return tc.scopeStack.FindScope(node)
 }

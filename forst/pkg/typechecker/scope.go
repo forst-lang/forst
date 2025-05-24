@@ -64,54 +64,60 @@ func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
 	return Symbol{}, false
 }
 
-// ScopeManager manages the scope stack for type checking
-type ScopeManager struct {
-	current *Scope
+// ScopeStack manages the stack of scopes during type checking
+type ScopeStack struct {
 	scopes  map[NodeHash]*Scope
+	current *Scope
 	Hasher  *StructuralHasher
 }
 
-// NewScopeManager creates a new scope manager
-func NewScopeManager() *ScopeManager {
-	return &ScopeManager{
-		current: NewScope(nil, nil),
+// NewScopeStack creates a new scope stack with a global scope
+func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
+	globalScope := &Scope{
+		Symbols: make(map[ast.Identifier]Symbol),
+	}
+	return &ScopeStack{
 		scopes:  make(map[NodeHash]*Scope),
-		Hasher:  NewStructuralHasher(),
+		current: globalScope,
+		Hasher:  hasher,
 	}
 }
 
 // PushScope pushes a new scope onto the stack
-func (sm *ScopeManager) PushScope(node ast.Node) {
-	newScope := NewScope(sm.current, node)
-	sm.current.Children = append(sm.current.Children, newScope)
-	if node != nil {
-		hash := sm.Hasher.HashNode(node)
-		sm.scopes[hash] = newScope
+func (ss *ScopeStack) PushScope(node ast.Node) {
+	hash := ss.Hasher.HashNode(node)
+	scope := &Scope{
+		Parent:   ss.current,
+		Node:     node,
+		Symbols:  make(map[ast.Identifier]Symbol),
+		Children: make([]*Scope, 0),
 	}
-	sm.current = newScope
+	ss.current.Children = append(ss.current.Children, scope)
+	ss.current = scope
+	ss.scopes[hash] = scope
 }
 
 // PopScope pops the current scope from the stack
-func (sm *ScopeManager) PopScope() {
-	if sm.current.Parent != nil {
-		sm.current = sm.current.Parent
+func (ss *ScopeStack) PopScope() {
+	if ss.current.Parent != nil {
+		ss.current = ss.current.Parent
 	}
 }
 
 // CurrentScope returns the current scope
-func (sm *ScopeManager) CurrentScope() *Scope {
-	return sm.current
+func (ss *ScopeStack) CurrentScope() *Scope {
+	return ss.current
 }
 
 // FindScope finds a scope by its node
-func (sm *ScopeManager) FindScope(node ast.Node) *Scope {
-	hash := sm.Hasher.HashNode(node)
-	return sm.scopes[hash]
+func (ss *ScopeStack) FindScope(node ast.Node) *Scope {
+	hash := ss.Hasher.HashNode(node)
+	return ss.scopes[hash]
 }
 
 // GlobalScope returns the global scope (root scope)
-func (sm *ScopeManager) GlobalScope() *Scope {
-	scope := sm.current
+func (ss *ScopeStack) GlobalScope() *Scope {
+	scope := ss.current
 	for scope.Parent != nil {
 		scope = scope.Parent
 	}
