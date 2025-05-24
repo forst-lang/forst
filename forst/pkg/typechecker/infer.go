@@ -208,7 +208,7 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireI
 }
 
 func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
-	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.currentScope)
+	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.scopeStack.CurrentScope())
 	if err != nil {
 		return nil, err
 	}
@@ -260,6 +260,23 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 	case ast.FunctionNode:
 		tc.pushScope(n)
+
+		// Register parameters in the current scope
+		for _, param := range n.Params {
+			switch p := param.(type) {
+			case ast.SimpleParamNode:
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
+					Identifier: p.Ident.Id,
+					Types:      []ast.TypeNode{p.Type},
+					Kind:       SymbolVariable,
+					Scope:      tc.scopeStack.CurrentScope(),
+					Position:   tc.path,
+				}
+			case ast.DestructuredParamNode:
+				// Handle destructured params if needed
+				continue
+			}
+		}
 
 		// Convert []ParamNode to []Node
 		params := make([]ast.Node, len(n.Params))
@@ -386,7 +403,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 	case ast.VariableNode:
 		// Look up the variable's type and store it for this node
-		typ, err := tc.LookupVariableType(&e, tc.currentScope)
+		typ, err := tc.LookupVariableType(&e, tc.scopeStack.CurrentScope())
 		if err != nil {
 			return nil, err
 		}

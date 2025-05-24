@@ -6,7 +6,8 @@ error TooLong(String)
 func checkInput(input: String | TooShort(String) | TooLong(String)) {
     match input {
         case String {
-            println("Input is abc")
+            
+            ("Input is abc")
         }
         case TooShort(message) {
             println("Input is def")

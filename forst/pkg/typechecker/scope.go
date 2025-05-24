@@ -2,16 +2,63 @@ package typechecker
 
 import (
 	"forst/pkg/ast"
-	"slices"
-
-	log "github.com/sirupsen/logrus"
 )
 
+// Represents a lexical scope in the program, containing symbols and their definitions
 type Scope struct {
 	Parent   *Scope
-	Node     ast.Node                  // The AST node that created this scope (function, block, if, etc)
-	Symbols  map[ast.Identifier]Symbol // All symbols defined in this scope
-	Children []*Scope                  // Child scopes (blocks, branches)
+	Node     ast.Node
+	Symbols  map[ast.Identifier]Symbol
+	Children []*Scope
+}
+
+func NewScope(parent *Scope, node ast.Node) *Scope {
+	return &Scope{
+		Parent:   parent,
+		Node:     node,
+		Symbols:  make(map[ast.Identifier]Symbol),
+		Children: make([]*Scope, 0),
+	}
+}
+
+func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
+	s.Symbols[name] = Symbol{
+		Identifier: name,
+		Types:      []ast.TypeNode{typ},
+		Kind:       SymbolVariable,
+		Scope:      s,
+	}
+}
+
+// Recursively searches for a variable in the current scope and its ancestors
+func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
+	if symbol, ok := s.Symbols[name]; ok {
+		return symbol, true
+	}
+	if s.Parent != nil {
+		return s.Parent.LookupVariable(name)
+	}
+	return Symbol{}, false
+}
+
+func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
+	s.Symbols[name] = Symbol{
+		Identifier: name,
+		Types:      []ast.TypeNode{typ},
+		Kind:       SymbolType,
+		Scope:      s,
+	}
+}
+
+// Recursively searches for a type definition in the current scope and its ancestors
+func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
+	if symbol, ok := s.Symbols[name]; ok && symbol.Kind == SymbolType {
+		return symbol, true
+	}
+	if s.Parent != nil {
+		return s.Parent.LookupType(name)
+	}
+	return Symbol{}, false
 }
 
 type Symbol struct {
@@ -33,49 +80,7 @@ const (
 	SymbolParameter
 )
 
-// Add these methods to manage symbols
-func (tc *TypeChecker) storeSymbol(ident ast.Identifier, typ []ast.TypeNode, kind SymbolKind) {
-	symbol := Symbol{
-		Identifier: ident,
-		Types:      typ,
-		Kind:       kind,
-		Scope:      tc.currentScope,
-		Position:   slices.Clone(tc.path), // Copy current path
-	}
-	tc.currentScope.Symbols[ident] = symbol
-}
-
-func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
-	hash := tc.Hasher.HashNode(node)
-	return tc.scopes[hash]
-}
-
-func (tc *TypeChecker) pushScope(node ast.Node) {
-	log.Tracef("pushScope %v (hash: %d)\n", node, tc.Hasher.HashNode(node))
-	newScope := &Scope{
-		Parent:   tc.currentScope,
-		Node:     node,
-		Symbols:  make(map[ast.Identifier]Symbol),
-		Children: make([]*Scope, 0),
-	}
-
-	if tc.currentScope != nil {
-		tc.currentScope.Children = append(tc.currentScope.Children, newScope)
-	}
-	hash := tc.Hasher.HashNode(node)
-	tc.scopes[hash] = newScope
-	tc.currentScope = newScope
-}
-
-func (tc *TypeChecker) popScope() {
-	log.Trace("popScope")
-	if tc.currentScope.Parent != nil {
-		tc.currentScope = tc.currentScope.Parent
-	} else {
-		panic("no parent scope to pop from, we are already in the global scope")
-	}
-}
-
 func (s *Scope) IsFunction() bool {
-	return s.Node != nil && s.Node.Kind() == ast.NodeKindFunction
+	_, ok := s.Node.(ast.FunctionNode)
+	return ok
 }
