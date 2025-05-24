@@ -1,0 +1,120 @@
+# Forst Language Development Rules
+
+# Language Design Philosophy
+rule "explicit-control-flow" {
+  description = "Control flow must be explicit and easy to follow"
+  pattern = "if|for|switch|select|goto|break|continue|return|defer"
+  message = "Control flow statements must be explicit and easy to reason about"
+}
+
+rule "no-implicit-control-flow" {
+  description = "Avoid implicit control flow changes that make code hard to follow"
+  pattern = "panic|recover"
+  message = "Prefer explicit error handling over implicit control flow changes"
+}
+
+rule "syntax-sugar-clarity" {
+  description = "Syntax sugar should improve ergonomics without obscuring intent"
+  pattern = "=>|\\?\\."
+  message = "Syntax sugar must make code more readable, not less"
+}
+
+# Type System
+rule "go-compatible-types" {
+  description = "Types must be compatible with Go's type system for seamless interoperability"
+  pattern = "type\\s+\\w+\\s+[^=]+="
+  message = "Type definitions must be compatible with Go's type system"
+}
+
+rule "explicit-type-annotations" {
+  description = "Type annotations should be explicit where they add clarity"
+  pattern = "func\\s+\\w+\\s*\\([^)]*\\)\\s*(?:\\w+\\s*)?\\{"
+  message = "Function parameters must have explicit type annotations"
+}
+
+rule "no-implicit-conversions" {
+  description = "Type conversions must be explicit to prevent bugs"
+  pattern = "\\w+\\s*=\\s*\\w+\\s*\\("
+  message = "Type conversions must be explicit"
+}
+
+# Error Handling
+rule "explicit-error-handling" {
+  description = "Errors must be explicitly handled or propagated"
+  pattern = "if\\s+err\\s*!=\\s*nil"
+  message = "Errors must be explicitly handled or propagated"
+}
+
+rule "clear-error-messages" {
+  description = "Error messages should be clear and actionable"
+  pattern = "errors\\.New\\("
+  message = "Error messages must be clear and actionable"
+}
+
+# Code Organization
+rule "descriptive-names" {
+  description = "Names should be descriptive but concise"
+  pattern = "var\\s+[a-z]\\w*\\s*="
+  message = "Variable names should be descriptive but concise"
+}
+
+rule "interface-naming" {
+  description = "Interface names should clearly describe their purpose"
+  pattern = "type\\s+\\w+\\s+interface\\s*\\{"
+  message = "Interface names should clearly describe their purpose"
+}
+
+# Documentation
+rule "public-api-docs" {
+  description = "Public APIs must be well-documented"
+  pattern = "func\\s+\\w+\\s*\\([^)]*\\)\\s*(?:\\w+\\s*)?\\{"
+  message = "Public functions must have clear documentation"
+}
+
+# Code Style
+rule "no-magic-numbers" {
+  description = "Avoid magic numbers in favor of named constants"
+  pattern = "\\b\\d+\\b"
+  message = "Use named constants instead of magic numbers"
+}
+
+rule "struct-field-order" {
+  description = "Struct fields should be ordered logically"
+  pattern = "type\\s+\\w+\\s+struct\\s*\\{"
+  message = "Struct fields should be ordered logically"
+}
+
+# Testing
+rule "test-coverage" {
+  description = "Public APIs must have corresponding tests"
+  pattern = "func\\s+Test\\w+\\s*\\([^)]*\\)\\s*\\{"
+  message = "Public APIs should have corresponding tests"
+}
+
+# Dependencies
+rule "explicit-imports" {
+  description = "Imports should be explicit and organized"
+  pattern = "import\\s*\\("
+  message = "Imports should be explicit and organized"
+}
+
+# Comments
+rule "code-comments" {
+  description = "Complex code should have explanatory comments"
+  pattern = "// TODO|FIXME|XXX"
+  message = "Complex code should have explanatory comments"
+}
+
+# Performance
+rule "no-unnecessary-allocations" {
+  description = "Avoid unnecessary allocations"
+  pattern = "make\\(\\[\\]\\w+,\\s*0\\)"
+  message = "Consider pre-allocating slices with known capacity"
+}
+
+# Security
+rule "no-hardcoded-secrets" {
+  description = "Prohibit hardcoded secrets"
+  pattern = "password|secret|key|token\\s*=\\s*[\"'].*[\"']"
+  message = "Do not hardcode secrets in source code"
+} 
