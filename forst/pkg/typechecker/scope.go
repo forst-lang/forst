@@ -4,7 +4,7 @@ import (
 	"forst/pkg/ast"
 )
 
-// Scope represents a lexical scope in the program
+// Represents a lexical scope in the program, containing symbols and their definitions
 type Scope struct {
 	Parent   *Scope
 	Node     ast.Node
@@ -12,7 +12,6 @@ type Scope struct {
 	Children []*Scope
 }
 
-// NewScope creates a new scope
 func NewScope(parent *Scope, node ast.Node) *Scope {
 	return &Scope{
 		Parent:   parent,
@@ -22,7 +21,6 @@ func NewScope(parent *Scope, node ast.Node) *Scope {
 	}
 }
 
-// DefineVariable defines a variable in the current scope
 func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
 	s.Symbols[name] = Symbol{
 		Identifier: name,
@@ -32,7 +30,7 @@ func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
 	}
 }
 
-// LookupVariable looks up a variable in the current scope and its parents
+// Recursively searches for a variable in the current scope and its ancestors
 func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok {
 		return symbol, true
@@ -43,7 +41,6 @@ func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
 	return Symbol{}, false
 }
 
-// DefineType defines a type in the current scope
 func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
 	s.Symbols[name] = Symbol{
 		Identifier: name,
@@ -53,7 +50,7 @@ func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
 	}
 }
 
-// LookupType looks up a type in the current scope and its parents
+// Recursively searches for a type definition in the current scope and its ancestors
 func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok && symbol.Kind == SymbolType {
 		return symbol, true
@@ -64,14 +61,13 @@ func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
 	return Symbol{}, false
 }
 
-// ScopeStack manages the stack of scopes during type checking
+// Manages scopes during type checking, maintaining a tree of nested scopes
 type ScopeStack struct {
 	scopes  map[NodeHash]*Scope
 	current *Scope
 	Hasher  *StructuralHasher
 }
 
-// NewScopeStack creates a new scope stack with a global scope
 func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 	globalScope := &Scope{
 		Symbols: make(map[ast.Identifier]Symbol),
@@ -83,7 +79,6 @@ func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 	}
 }
 
-// PushScope pushes a new scope onto the stack
 func (ss *ScopeStack) PushScope(node ast.Node) {
 	hash := ss.Hasher.HashNode(node)
 	scope := &Scope{
@@ -97,25 +92,22 @@ func (ss *ScopeStack) PushScope(node ast.Node) {
 	ss.scopes[hash] = scope
 }
 
-// PopScope pops the current scope from the stack
 func (ss *ScopeStack) PopScope() {
 	if ss.current.Parent != nil {
 		ss.current = ss.current.Parent
 	}
 }
 
-// CurrentScope returns the current scope
 func (ss *ScopeStack) CurrentScope() *Scope {
 	return ss.current
 }
 
-// FindScope finds a scope by its node
 func (ss *ScopeStack) FindScope(node ast.Node) *Scope {
 	hash := ss.Hasher.HashNode(node)
 	return ss.scopes[hash]
 }
 
-// GlobalScope returns the global scope (root scope)
+// GlobalScope returns the root scope by traversing up the scope tree
 func (ss *ScopeStack) GlobalScope() *Scope {
 	scope := ss.current
 	for scope.Parent != nil {
@@ -143,7 +135,6 @@ const (
 	SymbolParameter
 )
 
-// IsFunction returns true if this scope is for a function
 func (s *Scope) IsFunction() bool {
 	_, ok := s.Node.(ast.FunctionNode)
 	return ok
