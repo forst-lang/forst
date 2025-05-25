@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"forst/pkg/ast"
-	"forst/pkg/typechecker"
+	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 	"runtime"
 	"strings"

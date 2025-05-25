@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"forst/pkg/generators"
-	"forst/pkg/lexer"
-	"forst/pkg/parser"
-	transformer_go "forst/pkg/transformer/go"
-	"forst/pkg/typechecker"
+	"forst/internal/generators"
+	"forst/internal/lexer"
+	"forst/internal/parser"
+	transformer_go "forst/internal/transformer/go"
+	"forst/internal/typechecker"
 	"os"
 	"os/exec"
 	"path/filepath"
