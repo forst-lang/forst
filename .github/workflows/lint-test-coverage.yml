@@ -45,11 +45,13 @@ jobs:
       - name: Run tests with coverage
         working-directory: forst
         run: |
-          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./cmd/forst/... ./internal/...
+          go test -v -race -covermode atomic -coverprofile=covprofile ./cmd/forst/... ./internal/...
           go tool cover -func=coverage.txt
 
-      # - name: Upload coverage to Codecov
-      #   uses: codecov/codecov-action@v4
-      #   with:
-      #     file: forst/coverage.txt
-      #     fail_ci_if_error: true
+      - name: Install goveralls
+        run: go install github.com/mattn/goveralls@latest
+
+      - name: Send coverage
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goveralls -coverprofile=covprofile -service=github
