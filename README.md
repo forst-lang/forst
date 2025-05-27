@@ -1,7 +1,7 @@
 # Forst
 
-[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions)[![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
-[![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
+[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
+[![Coverage Status](https://coveralls.io/repos/github/forst-lang/forst/badge.svg?branch=main)](https://coveralls.io/github/forst-lang/forst?branch=main) [![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
 
 Forst is a programming language for backend development.
 
