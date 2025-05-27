@@ -41,12 +41,10 @@ jobs:
           args: --timeout=5m
           working-directory: forst
         continue-on-error: true
-
       - name: Run tests with coverage
         working-directory: forst
         run: |
           go test -v -race -covermode atomic -coverprofile=covprofile ./cmd/forst/... ./internal/...
-          go tool cover -func=coverage.txt
 
       - name: Install goveralls
         run: go install github.com/mattn/goveralls@latest
