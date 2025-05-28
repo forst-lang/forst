@@ -2,7 +2,7 @@
 
 For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSOPHY.md).
 
-## 1. Features & Progress
+## 1. Core Features
 
 ### Type System
 
@@ -17,8 +17,8 @@ For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSO
 ### Code Generation
 
 - [x] Basic Go code generation
+- [ ] Generate validation from type constraints
 - [ ] TypeScript type generation
-- [ ] Validation code generation
 - [ ] Better error messages
 
 ### Language Features
@@ -33,8 +33,8 @@ For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSO
 ### Development
 
 - [ ] Improve error messages with line numbers and suggestions
-- [ ] Add more real-world examples showing common use cases
-- [ ] Create basic VS Code extension for syntax highlighting
+- [ ] Add more real-world examples
+- [ ] Create basic VS Code extension
 
 ### Community
 
@@ -47,3 +47,4 @@ For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSO
 - [x] Set up CI with tests and linting
 - [ ] Add code coverage reporting
 - [ ] Create release automation script
+- [ ] Add validation code coverage reporting
