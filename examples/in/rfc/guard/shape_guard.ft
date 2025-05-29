@@ -1,0 +1,27 @@
+type MutationArg = Shape
+
+is (m MutationArg) Input(input Shape) {
+  // Note how we can use the `input` variable in the type guard below
+  // which actually inserts a **type** into the shape (not a value)
+  return m is Shape({ input })
+}
+
+is (m MutationArg) Context(ctx Shape) {
+  return m is Shape({ ctx })
+}
+
+type AppContext = Shape({
+  sessionId: Maybe(String)
+})
+
+type AppMutation = trpc.Mutation.Context(AppContext)
+
+func createUser(op: AppMutation.Input({
+  input: Shape({
+    name: String
+  })
+})
+
+is (ctx AppContext) LoggedIn() {
+  return ctx.sessionId is String()
+}

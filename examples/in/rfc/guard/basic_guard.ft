@@ -1,0 +1,5 @@
+type Password = String
+
+is (password Password) Strong {
+    return len(password) >= 12
+}
