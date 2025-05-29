@@ -17,7 +17,22 @@ This RFC defines the semantics, constraints, and compiler behavior for type guar
 
 ## Motivation
 
-Currently, Forst provides built-in `ensure` statements with an `is` operator for runtime validation and error handling:
+Currently, Forst provides built-in `ensure` statements with an `is` operator for runtime validation and error handling.
+
+### Status Quo
+
+The `ensure` keyword combined with the `is` operator is used to perform type checks that are run both at compile time and at runtime. The basic syntax is:
+
+```go
+func MaybeReadInt(str: String) {
+    x, err := strconv.Atoi(str)
+    ensure x is Int() or err
+}
+```
+
+This ensures that `x` is of type `Int` before proceeding, or returns the error if the type check fails. The compiler can then guarantee type safety for `x` in the rest of the function. The `ensure` statement automatically makes the function return a tuple of `(Int, error)` when the type check fails.
+
+Such assertions can also be used to enforce more complex and parametrized validation rules and throw custom errors. When transpiled to Go, these assertions shall eventually become well-structured error types that implement the `error` interface, with proper error wrapping using `fmt.Errorf` and `errors.Is`/`errors.As` for error handling.
 
 ```go
 func mustNotExceedSpeedLimit(speed: Int) {
@@ -25,6 +40,8 @@ func mustNotExceedSpeedLimit(speed: Int) {
         or TooFast("Speed must not exceed 100 km/h")
 }
 ```
+
+### Desired State
 
 However, Forst currently lacks a way for users to define their own assertions like `LessThan`. The `is` operator only works with built-in assertions, requiring developers to write custom validation functions that don't integrate with the type system.
 
@@ -50,17 +67,19 @@ While inheritance can help model some type relationships, it often leads to rigi
 
 ## Definitions
 
-**Type guard**: A predicate function with signature `is (x T) Guard(...) -> Bool`, used with the `ensure` keyword to narrow the type of `x` at runtime.
+**Type Guard**: A pure predicate function with signature `is (x T) Guard(...) -> Bool`, used with the `ensure` keyword to narrow the type of `x` at runtime.
 
-**Base type**: In the above scenario, the base type of `Guard` is `T`. We can write `T.Guard(...)` to refer to a subtype of `T` where the type guard predicate holds.
+**Base Type**: In the above scenario, the base type of `Guard` is `T`. We can write `T.Guard(...)` to refer to a subtype of `T` where the type guard predicate holds.
 
 **Shape**: A structural object defined via `Shape({ ... })`, used for validating and refining types.
 
 **Refinement**: A narrowing of a type, e.g., `x is Shape({ ... })`, which adds constraints or fields to the original shape.
 
+**Ensure**: A statement that validates a condition at runtime and narrows types in the success branch, e.g. `ensure x is Guard() or err`.
+
 ## Guide-level explanation
 
-Type guards are predicates that narrow types at compile time. They are defined using the `is` keyword and can be used to refine types in conditional blocks. Here's a simple example:
+Type guards are pure (side-effect free) predicates that narrow types at compile time. They are defined using a top-level `is` keyword and can be used to refine types in conditional blocks. Here's a simple example:
 
 ```go
 type Password = string
@@ -71,10 +90,10 @@ is (password: Password) Strong {
 
 func validatePassword(password: Password) {
     if password is Strong() {
-        // pwd is now narrowed to Password.Strong()
+        // password is now narrowed to Password.Strong()
         // Can safely use it in contexts requiring strong passwords
     }
-    // More verbose syntax:
+    // More verbose syntax including the base type:
     if password is Password.Strong() {
         // ...
     }
@@ -82,6 +101,9 @@ func validatePassword(password: Password) {
 ```
 
 ### Type Guard Composition
+
+> **Warning**
+> This section is a work in progress and subject to change. The examples and details provided here are for illustration purposes and may not reflect the final implementation.
 
 Type guards can be composed to create more complex predicates:
 
@@ -103,6 +125,9 @@ is (password: Password) VeryStrong {
 
 ### Generic Type Guards
 
+> **Warning**
+> This section is a work in progress and subject to change. The examples and details provided here are for illustration purposes and may not reflect the final implementation.
+
 Type guards work with generic types:
 
 ```go
@@ -121,6 +146,9 @@ func <T> unwrap(result: Result<T>): T {
 ```
 
 ### Module Boundaries
+
+> **Warning**
+> This section is a work in progress and subject to change. The examples and details provided here are for illustration purposes and may not reflect the final implementation.
 
 Type guards can be exported and imported like other declarations:
 
@@ -141,6 +169,9 @@ func validateUser(password: Password) {
 ```
 
 ## Type Guard Rules
+
+> **Warning**
+> This section is a work in progress and subject to change. The examples and details provided here are for illustration purposes and may not reflect the final implementation.
 
 ### TG-1: Boolean Return Only
 
@@ -259,21 +290,6 @@ is (password: Password) Strong {
 // Invalid: Non-deterministic
 is (password: Password) Strong {
     return random() > 0.5 // Error: Must be deterministic
-}
-```
-
-### Usage in ensure statements
-
-Here's an example using type guards with ensure:
-
-```go
-is (value: Int) LessThan(other: Int) {
-    return value < other
-}
-
-func mustNotExceedSpeedLimit(speed: Int) {
-    ensure speed is LessThan(100)
-        or TooFast("Speed must not exceed 100 km/h")
 }
 ```
 
