@@ -9,6 +9,12 @@ Start Date: 2025-05-28
 
 Introduce first-class type guards as a language feature to enable type narrowing without requiring type assertions or branded types. Type guards will allow developers to define predicates that narrow types at compile time, making type-safe code more ergonomic and maintainable.
 
+This RFC defines the semantics, constraints, and compiler behavior for type guards in Forst. It ensures that type guards are:
+
+- Predictable and composable
+- Efficient to analyze statically
+- Safe for use in type narrowing, Go code generation, and `.d.ts` emission
+
 ## Motivation
 
 Currently, Forst provides built-in `ensure` statements with an `is` operator for runtime validation and error handling:
@@ -42,6 +48,16 @@ Go's approaches include:
 
 While inheritance can help model some type relationships, it often leads to rigid hierarchies that don't adapt well to changing requirements. These workarounds in both languages make code harder to read and maintain, while potentially introducing runtime overhead or safety issues. By making type guards a first-class feature, we can provide a more elegant and type-safe solution that works naturally with the type system.
 
+## Definitions
+
+**Type guard**: A predicate function with signature `is (x T) Guard(...) -> Bool`, used with the `ensure` keyword to narrow the type of `x` at runtime.
+
+**Base type**: In the above scenario, the base type of `Guard` is `T`. We can write `T.Guard(...)` to refer to a subtype of `T` where the type guard predicate holds.
+
+**Shape**: A structural object defined via `Shape({ ... })`, used for validating and refining types.
+
+**Refinement**: A narrowing of a type, e.g., `x is Shape({ ... })`, which adds constraints or fields to the original shape.
+
 ## Guide-level explanation
 
 Type guards are predicates that narrow types at compile time. They are defined using the `is` keyword and can be used to refine types in conditional blocks. Here's a simple example:
@@ -53,7 +69,7 @@ is (password: Password) Strong {
     return len(password) >= 12
 }
 
-fun validatePassword(password: Password) {
+func validatePassword(password: Password) {
     if password is Strong() {
         // pwd is now narrowed to Password.Strong()
         // Can safely use it in contexts requiring strong passwords
@@ -64,65 +80,6 @@ fun validatePassword(password: Password) {
     }
 }
 ```
-
-### Input Validation with Type Guards
-
-Type guards are particularly powerful for implementing input validation in API systems like tRPC. They allow for declarative validation rules that are enforced at compile time while still providing runtime validation. Here's an example:
-
-```go
-// Define validation rules using type guards
-type PhoneNumber =
-  String.Min(3).Max(10) & (
-    String.HasPrefix("+")
-    | String.HasPrefix("0")
-  )
-
-// Use in tRPC-like mutation
-func createUser(op: trpc.Mutation.Input({
-  id: UUID.V4(),
-  name: String.Min(3).Max(10),
-  phoneNumber: PhoneNumber,
-  bankAccount: {
-    iban: String.Min(10).Max(34),
-  },
-})) {
-  // The type system ensures all validation rules have been checked
-  // before this function is called
-  fmt.Println("Creating user with id: %s", op.input.id)
-  return 300.3f
-}
-```
-
-In this example:
-
-1. The `trpc.Mutation.Input` type guard ensures that:
-
-   - All required fields are present
-   - Each field satisfies its validation rules
-   - Nested objects are properly validated
-   - The validation happens before the function is called
-
-2. The type system guarantees that:
-
-   - Invalid inputs cannot reach the function body
-   - Validation rules are enforced at compile time
-   - Runtime validation is automatically generated
-   - Type information is preserved throughout the call chain
-
-3. Benefits:
-   - Declarative validation rules
-   - Type-safe API boundaries
-   - Automatic runtime validation
-   - Clear error messages
-   - Reusable validation rules
-
-This pattern can be extended to support:
-
-- Custom validation rules
-- Complex nested structures
-- Optional fields
-- Default values
-- Cross-field validation
 
 ### Type Guard Composition
 
@@ -168,18 +125,94 @@ func <T> unwrap(result: Result<T>): T {
 Type guards can be exported and imported like other declarations:
 
 ```go
-// auth.guards.forst
-export is (password: Password) Strong {
+// internal/auth/guards.ft
+is (password: Password) Strong {
     return len(password) >= 12
 }
 
-// main.forst
-import auth.guards
+// main.ft
+import "internal/auth/guards"
 
-fun validateUser(password: Password) {
-    if password is auth.guards.Strong() {
+func validateUser(password: Password) {
+    if password is guards.Strong() {
         // ...
     }
+}
+```
+
+## Type Guard Rules
+
+### TG-1: Boolean Return Only
+
+> All type guards must return a `Bool`.
+
+- ✅ Valid: `return x is Shape({...})`
+- ❌ Invalid: `return Shape({...})`
+
+### TG-2: Shape Guards Must Preserve or Refine
+
+> If the guard operates on a `Shape` or a subtype, it must either:
+>
+> - Preserve the shape (`x is Shape({ ...x })`)
+> - Conjoin fields (`x is Shape({ ...x, field: Type })`)
+
+- ❌ Removing or expanding field types is forbidden.
+
+### TG-3: No Destructive Modifications
+
+> Shape guards must not **remove**, **replace**, or **exclude** existing fields.
+
+- ✅ Allowed: Add or constrain fields
+- ❌ Disallowed: Remove or override structural keys
+
+### TG-4: Local Field-Only Conditions
+
+> All conditions inside a type guard must reference the parameter `x` or its fields directly.
+
+- ❌ External functions, global vars, computed fields are disallowed
+- ✅ Comparisons like `x.role == "admin"` or `x.age is Int.Min(18)` are allowed
+
+### TG-5: At Most One Shape Refinement Per Return Branch
+
+> Each return branch may contain **at most one** `x is Shape(...)` assertion.
+
+- Prevents exponential refinement inference
+- Compiler must reject multiple chained shape refinements in one return statement
+
+### TG-6: Return Branches Must Be Clear
+
+> All return branches must return either:
+>
+> - A boolean constant (`true` / `false`)
+> - A single shape assertion (`x is Shape({ ... })`)
+
+- Enables path-wise refinement tracking
+
+### TG-7: Shape Refinement Only on Shape Types
+
+> Type guards may only refine `Shape` or subtypes of `Shape`.
+
+- ❌ Invalid: `x is Shape({ ... })` if `x: Int`
+
+### TG-8: No Nested Shape Disjunctions
+
+> Disjunctions (`|`) between `Shape({ ... })` types are only allowed at the **top level**.
+
+- ✅ `ShapeA | ShapeB`
+- ❌ `Shape({ field: ShapeA | ShapeB })`
+
+## Shape Expression Refinement (SXR) Rules
+
+### SXR-1: Shape Expressions May Reference Bound Shape Variables as Field Types
+
+In a `Shape({ ... })` expression, a field key may refer to a bound variable of type `Shape`, in which case it is interpreted as a field definition with the variable's shape as its type.
+
+#### ✅ Example
+
+```go
+is (m Mutation) Input(input Shape) {
+  // desugars to: Shape({ input: input })
+  return m is Shape({ input })
 }
 ```
 
@@ -362,7 +395,7 @@ Drawbacks of TypeScript's approach:
 - Type predicates are verbose
 - No first-class type guard support
 
-### Forst's Solution
+## Use Cases
 
 We aim to provide a type-safe solution that makes typical development tasks more ergonomic to accomplish. Type guards directly address common pain points in modern development:
 
@@ -371,6 +404,71 @@ We aim to provide a type-safe solution that makes typical development tasks more
 - **Error Handling**: By moving validation into the type system, error cases are caught earlier and handled more consistently
 - **Refactoring**: Type guards make it safer to refactor code by ensuring validation rules are maintained across changes
 - **Documentation**: The type system itself documents validation requirements, reducing the need for separate documentation
+
+For example, defining a tRPC server context with proper validation becomes much simpler.
+
+### Example: Input Validation with Type Guards
+
+Type guards are particularly powerful for implementing input validation in API systems like tRPC. They allow for declarative validation rules that are enforced at compile time while still providing runtime validation. Here's an example:
+
+```go
+// trpc package
+is (m Mutation) Input(input Shape) {
+  return m is Shape({ input })
+}
+
+is (m Mutation) Context(ctx Shape) {
+  return m is Shape({ ctx })
+}
+
+// app.ft
+type AppContext = Shape({
+  sessionId: String.Nullable()
+})
+
+type AppMutation = trpc.Mutation.Context(AppContext)
+
+is (ctx AppContext) LoggedIn() {
+  return ctx.userId != nil
+}
+
+// validate.ft
+
+// Define validation rules using type guards
+type PhoneNumber =
+  String.Min(3).Max(10) & (
+    String.HasPrefix("+")
+    | String.HasPrefix("0")
+  )
+
+// Use in tRPC-like mutation
+func createUser({ ctx, input }: AppMutation.Input({
+  id: UUID.V4(),
+  name: String.Min(3).Max(10),
+  phoneNumber: PhoneNumber,
+  bankAccount: {
+    iban: String.Min(10).Max(34),
+  },
+})) {
+  // The type system ensures all validation rules have been checked
+  // before this function is called
+  ensure ctx is trpc.Context.LoggedIn()
+  return createUserDatabase(
+    input.id,
+    input.name,
+    input.phoneNumber,
+    input.bankAccount.iban
+  )
+}
+```
+
+This approach:
+
+- Makes authentication requirements explicit in the type system
+- Automatically validates context before handler execution
+- Provides clear error messages when requirements aren't met
+- Reduces boilerplate in handler implementations
+- Makes it impossible to forget authentication checks
 
 #### Clear Intent
 
