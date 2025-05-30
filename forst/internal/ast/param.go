@@ -21,7 +21,6 @@ type DestructuredParamNode struct {
 	Type   TypeNode // Parameter type
 }
 
-// NodeType returns the type of this AST node
 func (p SimpleParamNode) Kind() NodeKind {
 	return NodeKindSimpleParam
 }

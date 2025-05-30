@@ -108,7 +108,7 @@ func TestExamples(t *testing.T) {
 	}
 }
 
-// findExpectedOutputFiles returns all .go files in the output directory for a given example
+// Returns all .go files in the output directory for a given example
 func findExpectedOutputFiles(basePath string) ([]string, error) {
 	var files []string
 
@@ -137,7 +137,7 @@ func findExpectedOutputFiles(basePath string) ([]string, error) {
 	return files, nil
 }
 
-// runCompiler executes the compiler on the given input file and returns any error
+// Executes the compiler on the given input file and returns any error
 func runCompiler(inputPath string) error {
 	// Create a program instance with args
 	args := ProgramArgs{
@@ -150,7 +150,7 @@ func runCompiler(inputPath string) error {
 	return err
 }
 
-// compareOutput compares the expected and actual output
+// Compares the expected and actual output
 func compareOutput(t *testing.T, expected, actual string) {
 	// Normalize whitespace and line endings
 	expected = normalizeString(expected)
@@ -161,7 +161,7 @@ func compareOutput(t *testing.T, expected, actual string) {
 	}
 }
 
-// verifyOutputContainsExpectedElements checks if the actual output contains key elements from expected
+// Checks if the actual output contains key elements from expected
 func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePath string) {
 	// Extract key elements from the expected output
 	keyElements := extractKeyElements(expected)
@@ -173,7 +173,7 @@ func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePa
 	}
 }
 
-// extractKeyElements extracts key code elements from Go code
+// Extracts key code elements from Go code
 func extractKeyElements(code string) []string {
 	var elements []string
 
@@ -202,7 +202,7 @@ func extractKeyElements(code string) []string {
 	return elements
 }
 
-// normalizeString normalizes whitespace and line endings
+// Normalizes whitespace and line endings
 func normalizeString(s string) string {
 	// Replace all whitespace sequences with a single space
 	s = strings.Join(strings.Fields(s), " ")

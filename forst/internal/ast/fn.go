@@ -10,7 +10,6 @@ type FunctionNode struct {
 	Body        []Node
 }
 
-// NodeType returns the type of this AST node
 func (f FunctionNode) Kind() NodeKind {
 	return NodeKindFunction
 }

@@ -47,7 +47,7 @@ func (p *Program) reportPhase(phase string) {
 	}
 }
 
-// createTempOutputFile creates a temporary directory and file for the output
+// Creates a temporary directory and file for the output
 func createTempOutputFile(code string) (string, error) {
 	tempDir, err := os.MkdirTemp("", "forst-*")
 	if err != nil {

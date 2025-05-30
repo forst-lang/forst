@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// ExpressionNode represents any expression in the AST
+// Represents any expression in the AST
 type ExpressionNode interface {
 	Node
 
@@ -13,13 +13,13 @@ type ExpressionNode interface {
 	String() string
 }
 
-// UnaryExpressionNode represents a unary expression in the AST
+// Represents a unary expression in the AST
 type UnaryExpressionNode struct {
 	Operator TokenIdent
 	Operand  ExpressionNode
 }
 
-// BinaryExpressionNode represents a binary expression in the AST
+// Represents a binary expression in the AST
 type BinaryExpressionNode struct {
 	Left     ExpressionNode
 	Operator TokenIdent
@@ -31,7 +31,7 @@ type FunctionCallNode struct {
 	Arguments []ExpressionNode
 }
 
-// Ensure LiteralNode implements ExpressionNode
+// Ensures LiteralNode implements ExpressionNode
 func (i IntLiteralNode) isExpression()       {}
 func (f FloatLiteralNode) isExpression()     {}
 func (s StringLiteralNode) isExpression()    {}

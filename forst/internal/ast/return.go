@@ -8,7 +8,6 @@ type ReturnNode struct {
 	Type  TypeNode
 }
 
-// NodeType returns the type of this AST node
 func (r ReturnNode) Kind() NodeKind {
 	return NodeKindReturn
 }
