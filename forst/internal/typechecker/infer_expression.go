@@ -49,7 +49,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 	case ast.VariableNode:
 		// Look up the variable's type and store it for this node
-		typ, err := tc.LookupVariableType(&e)
+		typ, err := tc.LookupVariableType(&e, tc.CurrentScope())
 		if err != nil {
 			return nil, err
 		}

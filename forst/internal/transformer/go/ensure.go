@@ -287,7 +287,7 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
 	}
 
-	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure)
+	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
 	if err != nil {
 		panic(err)
 	}
