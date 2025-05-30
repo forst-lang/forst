@@ -61,51 +61,15 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 	errorExpr := t.transformErrorExpression(stmt)
 
 	if t.isMainFunction() {
-		// Check if error is nil before calling Error()
-		return &goast.IfStmt{
-			Cond: &goast.BinaryExpr{
-				X:  errorExpr,
-				Op: token.NEQ,
-				Y:  goast.NewIdent("nil"),
-			},
-			Body: &goast.BlockStmt{
-				List: []goast.Stmt{
-					&goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: goast.NewIdent("fmt.Printf"),
-							Args: []goast.Expr{
-								&goast.BasicLit{
-									Kind:  token.STRING,
-									Value: `"Conditions not met: %s"`,
-								},
-								&goast.CallExpr{
-									Fun: &goast.SelectorExpr{
-										X:   errorExpr,
-										Sel: goast.NewIdent("Error"),
-									},
-								},
-							},
-						},
-					},
-					&goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: goast.NewIdent("fmt.Println"),
-						},
-					},
-					&goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: goast.NewIdent("os.Exit"),
-							Args: []goast.Expr{
-								&goast.BasicLit{
-									Kind:  token.INT,
-									Value: "1",
-								},
-							},
-						},
-					},
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun: goast.NewIdent("panic"),
+				Args: []goast.Expr{
+					errorExpr,
 				},
 			},
 		}
+
 	}
 
 	return &goast.ReturnStmt{
