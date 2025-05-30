@@ -35,6 +35,8 @@ var NodeKind = map[string]uint8{
 	"BoolLiteral":      8,
 	"Function":         9,
 	"Ensure":           10,
+	"TypeGuard":        11,
+	"TypeDefAssertion": 12,
 }
 
 // HashNodes generates a structural hash for multiple AST nodes
@@ -58,6 +60,19 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	hasher := fnv.New64a()
 
 	switch n := node.(type) {
+	case ast.TypeDefAssertionExpr:
+		writeHash(hasher, NodeKind["TypeDefAssertion"])
+		writeHash(hasher, h.HashNode(n.Assertion))
+
+	case *ast.TypeDefAssertionExpr:
+		return h.HashNode(*n)
+
+	case ast.TypeDefBinaryExpr:
+		writeHash(hasher, NodeKind["TypeDefBinaryExpr"])
+		writeHash(hasher, h.HashTokenType(n.Op))
+		writeHash(hasher, h.HashNode(n.Left.(ast.Node)))
+		writeHash(hasher, h.HashNode(n.Right.(ast.Node)))
+
 	case ast.BinaryExpressionNode:
 		// Hash the kind
 		writeHash(hasher, NodeKind["BinaryExpression"])
@@ -74,6 +89,10 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 
 	case ast.IntLiteralNode:
 		writeHash(hasher, NodeKind["IntLiteral"])
+		writeHash(hasher, n.Value)
+
+	case ast.BoolLiteralNode:
+		writeHash(hasher, NodeKind["BoolLiteral"])
 		writeHash(hasher, n.Value)
 
 	case ast.FloatLiteralNode:
@@ -276,6 +295,34 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		for _, node := range n.Body {
 			writeHash(hasher, h.HashNode(node))
 		}
+	case ast.TypeGuardNode:
+		writeHash(hasher, NodeKind["TypeGuard"])
+		writeHash(hasher, []byte(n.Ident))
+		// Sort parameters for deterministic ordering
+		params := make([]ast.ParamNode, len(n.Parameters()))
+		copy(params, n.Parameters())
+		sort.Slice(params, func(i, j int) bool {
+			var iName, jName string
+			switch p := params[i].(type) {
+			case ast.SimpleParamNode:
+				iName = string(p.Ident.Id)
+			case ast.DestructuredParamNode:
+				iName = p.Fields[0] // Use first field name for sorting
+			}
+			switch p := params[j].(type) {
+			case ast.SimpleParamNode:
+				jName = string(p.Ident.Id)
+			case ast.DestructuredParamNode:
+				jName = p.Fields[0] // Use first field name for sorting
+			}
+			return iName < jName
+		})
+		for _, param := range params {
+			writeHash(hasher, h.HashNode(param))
+		}
+		writeHash(hasher, h.HashNodes(n.Body))
+	case *ast.TypeGuardNode:
+		return h.HashNode(*n)
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}
@@ -294,16 +341,11 @@ func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 // It represents a nil/empty hash, so we give it a special type name
 const NIL_HASH = uint64(14695981039346656037)
 
-// Generates a string name for a type based on its hash value
-func (h NodeHash) ToTypeIdent() ast.TypeIdent {
-	// Convert hash to base58 string
+// Converts a NodeHash to a base58 string
+func (h NodeHash) toBase58() string {
 	const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 	num := uint64(h)
 	b58 := ""
-
-	if num == NIL_HASH {
-		return ast.TypeIdent("T_Invalid")
-	}
 
 	for num > 0 {
 		remainder := num % 58
@@ -314,6 +356,21 @@ func (h NodeHash) ToTypeIdent() ast.TypeIdent {
 	if b58 == "" {
 		b58 = string(alphabet[0])
 	}
+	return b58
+}
 
-	return ast.TypeIdent("T_" + b58)
+// Generates a string name for a type based on its hash value
+func (h NodeHash) ToTypeIdent() ast.TypeIdent {
+	if uint64(h) == NIL_HASH {
+		return ast.TypeIdent("T_Invalid")
+	}
+	return ast.TypeIdent("T_" + h.toBase58())
+}
+
+// Generates a string name for a guard function based on its hash value
+func (h NodeHash) ToGuardIdent() ast.TypeIdent {
+	if uint64(h) == NIL_HASH {
+		return ast.TypeIdent("G_Invalid")
+	}
+	return ast.TypeIdent("G_" + h.toBase58())
 }

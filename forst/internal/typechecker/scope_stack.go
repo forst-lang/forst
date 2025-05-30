@@ -62,3 +62,16 @@ func (ss *ScopeStack) GlobalScope() *Scope {
 	}
 	return scope
 }
+
+// LookupVariableType looks up a variable's type in the current scope stack
+func (ss *ScopeStack) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
+	// Start from the current scope and work up through parents
+	scope := ss.current
+	for scope != nil {
+		if types, exists := scope.LookupVariableType(name); exists {
+			return types, true
+		}
+		scope = scope.Parent
+	}
+	return nil, false
+}

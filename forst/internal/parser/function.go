@@ -2,8 +2,6 @@ package parser
 
 import (
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseParameterType() ast.TypeNode {
@@ -46,18 +44,16 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 }
 
 func (p *Parser) parseSimpleParameter() ast.ParamNode {
-	name := p.expect(ast.TokenIdentifier)
-	p.expect(ast.TokenColon)
-
-	paramType := p.parseParameterType()
-	log.Trace("parsed param type", paramType)
-
-	param := ast.SimpleParamNode{
-		Ident: ast.Ident{Id: ast.Identifier(name.Value)},
-		Type:  paramType,
+	ident := p.expect(ast.TokenIdentifier)
+	// If the next token is a colon, consume it; otherwise, assume the next token is the type
+	if p.current().Type == ast.TokenColon {
+		p.advance()
 	}
-
-	return param
+	typ := p.parseParameterType()
+	return ast.SimpleParamNode{
+		Ident: ast.Ident{Id: ast.Identifier(ident.Value)},
+		Type:  typ,
+	}
 }
 
 func (p *Parser) parseParameter() ast.ParamNode {

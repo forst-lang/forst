@@ -19,18 +19,29 @@ type TypeChecker struct {
 	path          NodePath // Tracks current position while traversing AST
 	scopeStack    *ScopeStack
 	inferredTypes map[ast.Node][]ast.TypeNode
+	// Map of inferred types for nodes
+	InferredTypes map[NodeHash][]ast.TypeNode
+	// Map of inferred variable types
+	VariableTypes map[ast.Identifier][]ast.TypeNode
+	// Map of inferred function return types
+	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
+	// List of imported packages
+	imports []ast.ImportNode
 }
 
 func New() *TypeChecker {
 	return &TypeChecker{
-		Types:         make(map[NodeHash][]ast.TypeNode),
-		Defs:          make(map[ast.TypeIdent]ast.Node),
-		Uses:          make(map[ast.TypeIdent][]ast.Node),
-		Functions:     make(map[ast.Identifier]FunctionSignature),
-		Hasher:        &StructuralHasher{},
-		path:          make(NodePath, 0),
-		scopeStack:    NewScopeStack(NewStructuralHasher()),
-		inferredTypes: make(map[ast.Node][]ast.TypeNode),
+		Types:               make(map[NodeHash][]ast.TypeNode),
+		Defs:                make(map[ast.TypeIdent]ast.Node),
+		Uses:                make(map[ast.TypeIdent][]ast.Node),
+		Functions:           make(map[ast.Identifier]FunctionSignature),
+		Hasher:              &StructuralHasher{},
+		path:                make(NodePath, 0),
+		scopeStack:          NewScopeStack(NewStructuralHasher()),
+		inferredTypes:       make(map[ast.Node][]ast.TypeNode),
+		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
+		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
+		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),
 	}
 }
 
@@ -47,6 +58,8 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		tc.path = tc.path[:len(tc.path)-1]
 	}
 
+	log.Debugf("Collected imports: %v", tc.imports)
+
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if _, err := tc.inferNodeType(node); err != nil {
@@ -62,6 +75,12 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	log.Tracef("Collecting explicit types for type %s", node.String())
 	switch n := node.(type) {
+	case ast.ImportNode:
+		log.Debugf("Collecting import: %v", n)
+		tc.imports = append(tc.imports, n)
+	case ast.ImportGroupNode:
+		log.Debugf("Collecting import group: %v", n)
+		tc.imports = append(tc.imports, n.Imports...)
 	case ast.TypeDefNode:
 		tc.registerType(n)
 	case ast.FunctionNode:
@@ -85,6 +104,15 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 		tc.registerFunction(n)
+	case *ast.TypeGuardNode:
+		// Register type guard in Defs
+		if _, exists := tc.Defs[ast.TypeIdent(n.Ident)]; !exists {
+			tc.Defs[ast.TypeIdent(n.Ident)] = n
+		}
+		tc.registerFunction(ast.FunctionNode{
+			Ident:       ast.Ident{Id: n.Ident},
+			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeBool}},
+		})
 	}
 
 	return nil
@@ -108,7 +136,15 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 // Prints details about symbols defined in the current scope
 func (tc *TypeChecker) DebugPrintCurrentScope() {
 	currentScope := tc.scopeStack.CurrentScope()
-	log.Debugf("Current scope: %s\n", currentScope.Node.String())
+	if currentScope == nil {
+		log.Debug("Current scope is nil")
+		return
+	}
+	if currentScope.Node == nil {
+		log.Debug("Current scope node is nil")
+	} else {
+		log.Debugf("Current scope: %s\n", currentScope.Node.String())
+	}
 	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
 	for _, symbol := range currentScope.Symbols {
 		log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)

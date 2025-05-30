@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,11 +57,6 @@ func TestExamples(t *testing.T) {
 				return
 			}
 
-			// Capture stdout to compare with expected output
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// Run the compiler on the input file
 			if err := runCompiler(path); err != nil {
 				if strings.HasPrefix(relPath, "rfc/") {
@@ -72,17 +65,14 @@ func TestExamples(t *testing.T) {
 				}
 				t.Fatalf("Failed to run compiler: %v", err)
 			}
-			if err := w.Close(); err != nil {
-				t.Fatalf("Failed to close writer: %v", err)
-			}
-			// Restore stdout
-			os.Stdout = oldStdout
 
-			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, r); err != nil {
-				t.Fatalf("failed to copy output: %v", err)
+			// Read the generated code from the temporary file
+			program := &Program{Args: ProgramArgs{command: "run", filePath: path}}
+			code, err := program.compileFile()
+			if err != nil {
+				t.Fatalf("Failed to compile file: %v", err)
 			}
-			actualOutput := buf.String()
+			actualOutput := *code
 
 			// For basic example, compare with the first expected file
 			if baseName == "basic" {
@@ -118,7 +108,7 @@ func TestExamples(t *testing.T) {
 	}
 }
 
-// findExpectedOutputFiles returns all .go files in the output directory for a given example
+// Returns all .go files in the output directory for a given example
 func findExpectedOutputFiles(basePath string) ([]string, error) {
 	var files []string
 
@@ -147,7 +137,7 @@ func findExpectedOutputFiles(basePath string) ([]string, error) {
 	return files, nil
 }
 
-// runCompiler executes the compiler on the given input file and returns any error
+// Executes the compiler on the given input file and returns any error
 func runCompiler(inputPath string) error {
 	// Create a program instance with args
 	args := ProgramArgs{
@@ -156,10 +146,11 @@ func runCompiler(inputPath string) error {
 	}
 
 	program := &Program{Args: args}
-	return program.compileFile()
+	_, err := program.compileFile()
+	return err
 }
 
-// compareOutput compares the expected and actual output
+// Compares the expected and actual output
 func compareOutput(t *testing.T, expected, actual string) {
 	// Normalize whitespace and line endings
 	expected = normalizeString(expected)
@@ -170,7 +161,7 @@ func compareOutput(t *testing.T, expected, actual string) {
 	}
 }
 
-// verifyOutputContainsExpectedElements checks if the actual output contains key elements from expected
+// Checks if the actual output contains key elements from expected
 func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePath string) {
 	// Extract key elements from the expected output
 	keyElements := extractKeyElements(expected)
@@ -182,7 +173,7 @@ func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePa
 	}
 }
 
-// extractKeyElements extracts key code elements from Go code
+// Extracts key code elements from Go code
 func extractKeyElements(code string) []string {
 	var elements []string
 
@@ -211,7 +202,7 @@ func extractKeyElements(code string) []string {
 	return elements
 }
 
-// normalizeString normalizes whitespace and line endings
+// Normalizes whitespace and line endings
 func normalizeString(s string) string {
 	// Replace all whitespace sequences with a single space
 	s = strings.Join(strings.Fields(s), " ")

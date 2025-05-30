@@ -69,6 +69,7 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 				},
 			},
 		}
+
 	}
 
 	return &goast.ReturnStmt{
@@ -85,6 +86,32 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		// Convert ensure to if statement with panic
 		condition := t.transformEnsureCondition(s)
 
+		// Negate for variable assertions and type guards, but not for other constraints
+		var finalCondition goast.Expr = condition
+		shouldNegate := false
+
+		// Case 1: assertion is just a variable (no constraints)
+		if len(s.Assertion.Constraints) == 0 {
+			shouldNegate = true
+		}
+
+		// Case 2: assertion is a type guard
+		for _, constraint := range s.Assertion.Constraints {
+			for _, def := range t.TypeChecker.Defs {
+				if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+					shouldNegate = true
+					break
+				}
+			}
+		}
+
+		if shouldNegate {
+			finalCondition = &goast.UnaryExpr{
+				Op: token.NOT,
+				X:  condition,
+			}
+		}
+
 		finallyStmts := []goast.Stmt{}
 
 		if s.Block != nil {
@@ -99,7 +126,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		errorStmt := t.transformErrorStatement(s)
 
 		return &goast.IfStmt{
-			Cond: condition,
+			Cond: finalCondition,
 			Body: &goast.BlockStmt{
 				List: append(finallyStmts, errorStmt),
 			},
@@ -123,6 +150,36 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			},
 		}
 	case ast.AssignmentNode:
+		// Check for explicit type annotation
+		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
+			// Only support single variable assignment for now
+			varName := s.LValues[0].Ident.String()
+			// Look up the type alias hash for the type
+			var typeName string
+			if t != nil {
+				name, err := t.getTypeAliasNameForTypeNode(*s.ExplicitTypes[0])
+				if err != nil {
+					typeName = string(s.ExplicitTypes[0].Ident)
+				} else {
+					typeName = name
+				}
+			} else {
+				typeName = string(s.ExplicitTypes[0].Ident)
+			}
+			rhs := transformExpression(s.RValues[0])
+			return &goast.DeclStmt{
+				Decl: &goast.GenDecl{
+					Tok: token.VAR,
+					Specs: []goast.Spec{
+						&goast.ValueSpec{
+							Names:  []*goast.Ident{goast.NewIdent(varName)},
+							Type:   goast.NewIdent(typeName),
+							Values: []goast.Expr{rhs},
+						},
+					},
+				},
+			}
+		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
 			lhs[i] = transformExpression(lval)

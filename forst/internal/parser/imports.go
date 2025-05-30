@@ -2,6 +2,7 @@ package parser
 
 import (
 	"forst/internal/ast"
+	"strconv"
 )
 
 func (p *Parser) parseImport() ast.ImportNode {
@@ -10,7 +11,12 @@ func (p *Parser) parseImport() ast.ImportNode {
 		alias = p.current().Value
 		p.advance() // Skip alias
 	}
-	path := p.expect(ast.TokenStringLiteral).Value
+	pathToken := p.expect(ast.TokenStringLiteral)
+	rawPath := pathToken.Value
+	path := rawPath
+	if unquoted, err := strconv.Unquote(rawPath); err == nil {
+		path = unquoted
+	}
 
 	node := ast.ImportNode{
 		Path: path,

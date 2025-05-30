@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 func mustBeARealName(name: String) {
     ensure name is Min(1)
@@ -28,7 +25,6 @@ func main() {
     ensure !err {
         fmt.Printf("Conditions not met: %s", err.Error())
         fmt.Println()
-        os.Exit(1)
     }
     fmt.Println("Conditions met, program exiting successfully")
 }

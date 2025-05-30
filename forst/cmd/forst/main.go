@@ -35,13 +35,24 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		if err := program.compileFile(); err != nil {
+		code, err := program.compileFile()
+		if err != nil {
 			log.Error(err)
 			os.Exit(1)
 		}
 
+		outputPath := args.outputPath
+		if outputPath == "" {
+			var err error
+			outputPath, err = createTempOutputFile(*code)
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+		}
+
 		if args.command == "run" {
-			if err := runGoProgram(args.outputPath); err != nil {
+			if err := runGoProgram(outputPath); err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}

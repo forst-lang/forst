@@ -2,7 +2,7 @@ package ast
 
 import "fmt"
 
-// Ensure Node
+// Represents an ensure statement in the AST
 type EnsureNode struct {
 	Variable  VariableNode
 	Assertion AssertionNode
@@ -15,7 +15,7 @@ type EnsureBlockNode struct {
 	Body []Node
 }
 
-// EnsureErrorNode can be either a full error node with type and args,
+// Can be either a full error node with type and args,
 // or just a variable reference
 type EnsureErrorNode interface {
 	String() string
@@ -36,7 +36,6 @@ func (e EnsureErrorVar) String() string {
 	return string(e)
 }
 
-// NodeType returns the type of this AST node
 func (e EnsureNode) Kind() NodeKind {
 	return NodeKindEnsure
 }

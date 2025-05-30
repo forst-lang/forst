@@ -33,7 +33,10 @@ const (
 	NodeKindReturn            NodeKind = "Return"
 	NodeKindType              NodeKind = "Type"
 	NodeKindTypeDef           NodeKind = "TypeDef"
+	NodeKindTypeDefAssertion  NodeKind = "TypeDefAssertion"
+	NodeKindTypeDefBinaryExpr NodeKind = "TypeDefBinaryExpr"
 	NodeKindEnsureBlock       NodeKind = "EnsureBlock"
 	NodeKindAssignment        NodeKind = "Assignment"
 	NodeKindShape             NodeKind = "Shape"
+	NodeKindTypeGuard         NodeKind = "TYPE_GUARD"
 )
