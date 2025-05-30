@@ -16,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Program represents the Forst compiler and its arguments.
 type Program struct {
 	Args ProgramArgs
 }
@@ -145,7 +146,11 @@ func (p *Program) watchFile() error {
 	if err != nil {
 		return fmt.Errorf("error creating watcher: %v", err)
 	}
-	defer watcher.Close()
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			log.Errorf("Error closing watcher: %v", err)
+		}
+	}()
 
 	// Start watching the file
 	if err := watcher.Add(p.Args.filePath); err != nil {

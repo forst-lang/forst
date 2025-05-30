@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"forst/internal/ast"
@@ -78,7 +78,7 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 		}
 	case ast.VariableNode:
 		return &goast.Ident{
-			Name: e.Id(),
+			Name: e.GetIdent(),
 		}
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(e.Arguments))
@@ -86,7 +86,7 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 			args[i] = transformExpression(arg)
 		}
 		return &goast.CallExpr{
-			Fun:  goast.NewIdent(string(e.Function.Id)),
+			Fun:  goast.NewIdent(string(e.Function.ID)),
 			Args: args,
 		}
 	}

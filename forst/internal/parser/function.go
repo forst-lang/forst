@@ -51,7 +51,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	}
 	typ := p.parseParameterType()
 	return ast.SimpleParamNode{
-		Ident: ast.Ident{Id: ast.Identifier(ident.Value)},
+		Ident: ast.Ident{ID: ast.Identifier(ident.Value)},
 		Type:  typ,
 	}
 }
@@ -139,7 +139,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	body := p.parseFunctionBody()
 
 	node := ast.FunctionNode{
-		Ident:       ast.Ident{Id: ast.Identifier(name.Value)},
+		Ident:       ast.Ident{ID: ast.Identifier(name.Value)},
 		ReturnTypes: returnType,
 		Params:      params,
 		Body:        body,

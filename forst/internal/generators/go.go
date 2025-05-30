@@ -1,3 +1,4 @@
+// Package generators provides code generation for Go.
 package generators
 
 import (

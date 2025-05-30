@@ -22,7 +22,7 @@ func (p *Parser) parseImport() ast.ImportNode {
 		Path: path,
 	}
 	if alias != "" {
-		node.Alias = &ast.Ident{Id: ast.Identifier(alias)}
+		node.Alias = &ast.Ident{ID: ast.Identifier(alias)}
 	}
 
 	return node

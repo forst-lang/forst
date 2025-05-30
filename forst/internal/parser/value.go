@@ -9,7 +9,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 
 	if token.Type == ast.TokenIdentifier {
 		p.advance() // Consume identifier
-		var identifier ast.Identifier = ast.Identifier(token.Value)
+		identifier := ast.Identifier(token.Value)
 
 		// Keep chaining identifiers with dots until we hit something else
 		for p.current().Type == ast.TokenDot {
@@ -19,7 +19,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 		}
 
 		return ast.VariableNode{
-			Ident: ast.Ident{Id: identifier},
+			Ident: ast.Ident{ID: identifier},
 		}
 	}
 

@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 // Helper to check if a type name is a Go built-in type
 func isGoBuiltinType(typeName string) bool {

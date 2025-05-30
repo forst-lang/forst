@@ -1,5 +1,9 @@
 package ast
 
+import (
+	"fmt"
+)
+
 // VariableNode represents a variable in the AST
 type VariableNode struct {
 	ValueNode
@@ -8,15 +12,17 @@ type VariableNode struct {
 }
 
 func (v VariableNode) String() string {
-	return v.Ident.String()
+	return fmt.Sprintf("Variable(%s)", v.Ident.ID)
 }
 
+// Kind returns the node kind for a variable
 func (v VariableNode) Kind() NodeKind {
 	return NodeKindVariable
 }
 
-func (v VariableNode) Id() string {
-	return string(v.Ident.Id)
+// GetIdent returns the variable identifier as a string
+func (v VariableNode) GetIdent() string {
+	return string(v.Ident.ID)
 }
 
 // Implement ValueNode interface for VariableNode

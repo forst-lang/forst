@@ -5,7 +5,7 @@ import (
 )
 
 func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
-	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.scopeStack.CurrentScope())
+	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.CurrentScope())
 	if err != nil {
 		return nil, err
 	}

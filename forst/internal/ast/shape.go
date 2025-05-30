@@ -5,17 +5,20 @@ import (
 	"strings"
 )
 
+// ShapeNode represents a shape (object type) in the AST
 type ShapeNode struct {
 	Node
 	Fields map[string]ShapeFieldNode
 }
 
+// ShapeFieldNode represents a field in a shape
 type ShapeFieldNode struct {
 	Node
 	Assertion *AssertionNode
 	Shape     *ShapeNode
 }
 
+// Kind returns the node kind for a shape
 func (n ShapeNode) Kind() NodeKind {
 	return NodeKindShape
 }

@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// LookupInferredType looks up the inferred type of a node in the current scope
 func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) ([]ast.TypeNode, error) {
 	hash := tc.Hasher.HashNode(node)
 	if existingType, exists := tc.Types[hash]; exists {
@@ -26,25 +27,26 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 	return nil, nil
 }
 
-// lookupVariableType finds a variable's type in the current scope chain
-func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentScope *Scope) (ast.TypeNode, error) {
-	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.Id, currentScope.Node)
-	symbol, exists := currentScope.LookupVariable(variable.Ident.Id)
+// LookupVariableType finds a variable's type in the current scope chain
+func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, error) {
+	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.Node)
+	symbol, exists := scope.LookupVariable(variable.Ident.ID)
 	if !exists {
-		err := fmt.Errorf("undefined symbol: %s", variable.Ident.Id)
+		err := fmt.Errorf("undefined symbol: %s", variable.Ident.ID)
 		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
 	if len(symbol.Types) != 1 {
-		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.Id, len(symbol.Types))
+		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.ID, len(symbol.Types))
 		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
 	return symbol.Types[0], nil
 }
 
-func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {
-	sig, exists := tc.Functions[function.Id()]
+// LookupFunctionReturnType looks up the return type of a function node
+func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]ast.TypeNode, error) {
+	sig, exists := tc.Functions[function.Ident.ID]
 	if !exists {
 		err := fmt.Errorf("undefined function: %s", function.Ident)
 		log.WithError(err).Error("lookup function return type failed")
@@ -53,15 +55,17 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, curr
 	return sig.ReturnTypes, nil
 }
 
-func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, currentScope *Scope) (*ast.TypeNode, error) {
-	baseType, err := tc.LookupVariableType(&ensure.Variable, currentScope)
+// LookupEnsureBaseType looks up the base type of an ensure node in a given scope
+func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, scope *Scope) (*ast.TypeNode, error) {
+	baseType, err := tc.LookupVariableType(&ensure.Variable, scope)
 	if err != nil {
 		return nil, err
 	}
 	return &baseType, nil
 }
 
-func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode, currentScope *Scope) (*ast.TypeNode, error) {
+// LookupAssertionType looks up the type of an assertion node
+func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
 	hash := tc.Hasher.HashNode(assertion)
 	if existingType, exists := tc.Types[hash]; exists {
 		if len(existingType) != 1 {

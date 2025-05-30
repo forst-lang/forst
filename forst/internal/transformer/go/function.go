@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			paramName = string(p.Ident.Id)
+			paramName = string(p.Ident.ID)
 			paramType = p.Type
 		case ast.DestructuredParamNode:
 			// Handle destructured params if needed
@@ -43,11 +43,11 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 
 	// Create function return type
-	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n, t.currentScope)
+	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n)
 	if err != nil {
 		return nil, err
 	}
-	var results *goast.FieldList = nil
+	var results *goast.FieldList
 	isMainFunc := t.isMainPackage() && n.HasMainFunctionName()
 	if !isMainFunc {
 		results, err = t.transformTypes(returnType)

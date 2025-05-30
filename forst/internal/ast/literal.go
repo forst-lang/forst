@@ -2,6 +2,7 @@ package ast
 
 import "fmt"
 
+// LiteralNode represents a literal value in the AST
 type LiteralNode interface {
 	ValueNode
 	isLiteral() // Marker method to identify literal nodes
@@ -31,15 +32,22 @@ type BoolLiteralNode struct {
 	Type  TypeNode
 }
 
+// Kind returns the node kind for an integer literal
 func (i IntLiteralNode) Kind() NodeKind {
 	return NodeKindIntLiteral
 }
+
+// Kind returns the node kind for a float literal
 func (f FloatLiteralNode) Kind() NodeKind {
 	return NodeKindFloatLiteral
 }
+
+// Kind returns the node kind for a string literal
 func (s StringLiteralNode) Kind() NodeKind {
 	return NodeKindStringLiteral
 }
+
+// Kind returns the node kind for a boolean literal
 func (b BoolLiteralNode) Kind() NodeKind {
 	return NodeKindBoolLiteral
 }

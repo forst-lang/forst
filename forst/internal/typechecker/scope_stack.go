@@ -4,14 +4,14 @@ import (
 	"forst/internal/ast"
 )
 
-// Manages a stack of scopes during type checking
+// ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {
 	scopes  map[NodeHash]*Scope
 	current *Scope
 	Hasher  *StructuralHasher
 }
 
-// Creates a new stack with a global scope
+// NewScopeStack creates a new stack with a global scope
 func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 	globalScope := &Scope{
 		Symbols: make(map[ast.Identifier]Symbol),
@@ -23,7 +23,7 @@ func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 	}
 }
 
-// Creates and pushes a new scope for the given AST node
+// PushScope creates and pushes a new scope for the given AST node
 func (ss *ScopeStack) PushScope(node ast.Node) {
 	hash := ss.Hasher.HashNode(node)
 	scope := &Scope{
@@ -37,24 +37,25 @@ func (ss *ScopeStack) PushScope(node ast.Node) {
 	ss.scopes[hash] = scope
 }
 
-// Returns to the parent scope if one exists
+// PopScope returns to the parent scope if one exists
 func (ss *ScopeStack) PopScope() {
 	if ss.current.Parent != nil {
 		ss.current = ss.current.Parent
 	}
 }
 
+// CurrentScope returns the current scope
 func (ss *ScopeStack) CurrentScope() *Scope {
 	return ss.current
 }
 
-// Looks up a scope by its AST node
+// FindScope looks up a scope by its AST node
 func (ss *ScopeStack) FindScope(node ast.Node) *Scope {
 	hash := ss.Hasher.HashNode(node)
 	return ss.scopes[hash]
 }
 
-// Returns the root scope
+// GlobalScope returns the root scope
 func (ss *ScopeStack) GlobalScope() *Scope {
 	scope := ss.current
 	for scope.Parent != nil {

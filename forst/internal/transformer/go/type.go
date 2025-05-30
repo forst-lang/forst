@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 	}
 	switch n.Ident {
 	case ast.TypeAssertion:
-		ident, err := t.TypeChecker.LookupAssertionType(n.Assertion, t.currentScope)
+		ident, err := t.TypeChecker.LookupAssertionType(n.Assertion)
 		if err != nil {
 			return nil, fmt.Errorf("failed to lookup assertion type: %s", err)
 		}

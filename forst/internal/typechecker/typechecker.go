@@ -1,3 +1,4 @@
+// Package typechecker performs type inference and type checking on the AST
 package typechecker
 
 import (
@@ -6,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TypeChecker performs type inference and type checking on the AST
 type TypeChecker struct {
 	// Maps structural hashes of AST nodes to their inferred or declared types
 	Types map[NodeHash][]ast.TypeNode
@@ -29,6 +31,7 @@ type TypeChecker struct {
 	imports []ast.ImportNode
 }
 
+// New creates a new TypeChecker
 func New() *TypeChecker {
 	return &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
@@ -45,7 +48,7 @@ func New() *TypeChecker {
 	}
 }
 
-// Performs type inference in two passes:
+// CheckTypes performs type inference in two passes:
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
@@ -89,7 +92,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.storeSymbol(p.Ident.Id, []ast.TypeNode{p.Type}, SymbolVariable)
+				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
 			case ast.DestructuredParamNode:
 				// TODO: Handle destructured params
 				continue
@@ -110,7 +113,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			tc.Defs[ast.TypeIdent(n.Ident)] = n
 		}
 		tc.registerFunction(ast.FunctionNode{
-			Ident:       ast.Ident{Id: n.Ident},
+			Ident:       ast.Ident{ID: n.Ident},
 			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeBool}},
 		})
 	}
@@ -127,13 +130,13 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
-	sig := tc.Functions[fn.Id()]
+	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	log.Tracef("Storing inferred function return type for function %s: %s", fn.Id(), returnTypes)
-	tc.Functions[fn.Id()] = sig
+	log.Tracef("Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
+	tc.Functions[fn.Ident.ID] = sig
 }
 
-// Prints details about symbols defined in the current scope
+// DebugPrintCurrentScope prints details about symbols defined in the current scope
 func (tc *TypeChecker) DebugPrintCurrentScope() {
 	currentScope := tc.scopeStack.CurrentScope()
 	if currentScope == nil {
@@ -151,6 +154,7 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	}
 }
 
+// GlobalScope returns the root scope
 func (tc *TypeChecker) GlobalScope() *Scope {
 	return tc.scopeStack.GlobalScope()
 }
@@ -186,6 +190,12 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 	}
 }
 
+// FindScope finds the scope for a given node
 func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
 	return tc.scopeStack.FindScope(node)
+}
+
+// CurrentScope returns the current scope
+func (tc *TypeChecker) CurrentScope() *Scope {
+	return tc.scopeStack.CurrentScope()
 }

@@ -25,15 +25,6 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	log.Tracef("inferNodeType: %s", node.String())
-	// Check if we've already inferred this node's type
-	alreadyInferredType, err := tc.LookupInferredType(node, false)
-	if err != nil {
-		return nil, err
-	}
-	if alreadyInferredType != nil {
-		// fmt.Println("inferNodeType", node, "already inferred", alreadyInferredType)
-		// return alreadyInferredType, nil
-	}
 
 	switch n := node.(type) {
 	case ast.PackageNode:
@@ -45,8 +36,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
-					Identifier: p.Ident.Id,
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
+					Identifier: p.Ident.ID,
 					Types:      []ast.TypeNode{p.Type},
 					Kind:       SymbolVariable,
 					Scope:      tc.scopeStack.CurrentScope(),
@@ -64,7 +55,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			params[i] = param
 		}
 
-		_, err = tc.inferNodeTypes(params)
+		_, err := tc.inferNodeTypes(params)
 		if err != nil {
 			return nil, err
 		}
@@ -156,8 +147,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
-					Identifier: p.Ident.Id,
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
+					Identifier: p.Ident.ID,
 					Types:      []ast.TypeNode{p.Type},
 					Kind:       SymbolVariable,
 					Scope:      tc.scopeStack.CurrentScope(),
@@ -197,7 +188,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 		// Store the type guard in the Functions map for easier lookup
 		tc.Functions[n.Ident] = FunctionSignature{
-			Ident:       ast.Ident{Id: n.Ident},
+			Ident:       ast.Ident{ID: n.Ident},
 			ReturnTypes: returnType,
 		}
 

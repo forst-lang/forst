@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 
 func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goast.Expr, error) {
 	log.Tracef("transformAssertionType, assertion: %s", *assertion)
-	assertionType, err := t.TypeChecker.LookupAssertionType(assertion, t.currentScope)
+	assertionType, err := t.TypeChecker.LookupAssertionType(assertion)
 	if assertionType == nil {
 		log.Trace("assertionType: nil")
 	} else {

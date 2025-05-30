@@ -1,3 +1,4 @@
+// Package main is the main package for the forst compiler.
 package main
 
 import (

@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"forst/internal/ast"
@@ -25,7 +25,7 @@ func (t *Transformer) transformTypeGuard(n ast.TypeGuardNode) (*goast.FuncDecl, 
 			typeName = string(p.Type.Ident)
 		}
 		params = append(params, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(string(p.Ident.Id))},
+			Names: []*goast.Ident{goast.NewIdent(p.GetIdent())},
 			Type:  goast.NewIdent(typeName),
 		})
 	case ast.DestructuredParamNode:
@@ -48,7 +48,7 @@ func (t *Transformer) transformTypeGuard(n ast.TypeGuardNode) (*goast.FuncDecl, 
 				typeName = string(p.Type.Ident)
 			}
 			params = append(params, &goast.Field{
-				Names: []*goast.Ident{goast.NewIdent(string(p.Ident.Id))},
+				Names: []*goast.Ident{goast.NewIdent(p.GetIdent())},
 				Type:  goast.NewIdent(typeName),
 			})
 		case ast.DestructuredParamNode:

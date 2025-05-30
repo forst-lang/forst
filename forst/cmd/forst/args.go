@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// ProgramArgs represents the arguments for the Forst compiler.
 type ProgramArgs struct {
 	command           string
 	filePath          string
@@ -17,6 +18,7 @@ type ProgramArgs struct {
 	reportPhases      bool
 }
 
+// ParseArgs parses the command line arguments and returns a ProgramArgs struct.
 func ParseArgs() ProgramArgs {
 	if len(os.Args) < 2 {
 		printUsage()

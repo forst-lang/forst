@@ -1,3 +1,4 @@
+// Package parser converts tokens into Forst AST nodes.
 package parser
 
 import (
@@ -6,12 +7,14 @@ import (
 	"forst/internal/ast"
 )
 
+// ParseError represents a parse error
 type ParseError struct {
 	Token   ast.Token
 	Context *Context
 	Msg     string
 }
 
+// Location returns the location of the parse error
 func (e *ParseError) Location() string {
 	if e.Context != nil {
 		return fmt.Sprintf("%s:%d:%d", e.Context.FilePath, e.Token.Line, e.Token.Column)
@@ -19,10 +22,12 @@ func (e *ParseError) Location() string {
 	return fmt.Sprintf("line %d, column %d", e.Token.Line, e.Token.Column)
 }
 
+// Error returns the message of the parse error
 func (e *ParseError) Error() string {
 	return fmt.Sprintf("Parse error at %s: %s", e.Location(), e.Msg)
 }
 
+// Scope represents a scope in the parsed program
 type Scope struct {
 	// All variables defined in the scope
 	Variables map[string]ast.TypeNode
@@ -30,7 +35,7 @@ type Scope struct {
 	functionName string
 }
 
-// Parse the tokens in a Forst file into a list of Forst AST nodes
+// ParseFile parses the tokens in a Forst file into a list of Forst AST nodes
 func (p *Parser) ParseFile() ([]ast.Node, error) {
 	nodes := []ast.Node{}
 
@@ -75,10 +80,12 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 	return nodes, nil
 }
 
+// DefineVariable defines a variable in the scope
 func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {
 	s.Variables[name] = typeNode
 }
 
+// IsMainFunction checks if the current function is the main function
 func (c *Context) IsMainFunction() bool {
 	if c.Package == nil || !c.Package.IsMainPackage() {
 		return false

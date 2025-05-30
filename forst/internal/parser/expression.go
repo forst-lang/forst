@@ -5,17 +5,19 @@ import (
 	"forst/internal/ast"
 )
 
-const MAX_EXPRESSION_DEPTH = 20
+// MaxExpressionDepth is the maximum depth of nested expressions
+const MaxExpressionDepth = 20
 
+// parseExpression parses an expression at the current level
 func (p *Parser) parseExpression() ast.ExpressionNode {
 	return p.parseExpressionLevel(0)
 }
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
-	if level > MAX_EXPRESSION_DEPTH {
+	if level > MaxExpressionDepth {
 		panic(parseErrorWithValue(
 			p.current(),
-			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MAX_EXPRESSION_DEPTH),
+			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth),
 		))
 	}
 
@@ -41,7 +43,8 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	} else if p.current().Type == ast.TokenIdentifier {
 		// Parse the identifier, allowing for dot chaining
 		ident := p.expect(ast.TokenIdentifier)
-		var curIdent ast.Identifier = ast.Identifier(ident.Value)
+		// Create a new identifier node
+		curIdent := ast.Identifier(ident.Value)
 
 		// Keep chaining identifiers with dots until we hit something else
 		for p.current().Type == ast.TokenDot {
@@ -64,13 +67,13 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 			p.expect(ast.TokenRParen)
 
 			expr = ast.FunctionCallNode{
-				Function:  ast.Ident{Id: curIdent},
+				Function:  ast.Ident{ID: curIdent},
 				Arguments: args,
 			}
 		} else {
 			// Otherwise treat as a variable
 			expr = ast.VariableNode{
-				Ident: ast.Ident{Id: curIdent},
+				Ident: ast.Ident{ID: curIdent},
 			}
 		}
 	} else {

@@ -72,7 +72,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 			err = ast.EnsureErrorVar(errorType)
 		}
 		return ast.EnsureNode{
-			Variable:  ast.VariableNode{Ident: ast.Ident{Id: ast.Identifier(variable)}},
+			Variable:  ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(variable)}},
 			Assertion: assertion,
 			Block:     block,
 			Error:     &err,
@@ -80,7 +80,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	}
 
 	return ast.EnsureNode{
-		Variable:  ast.VariableNode{Ident: ast.Ident{Id: ast.Identifier(variable)}},
+		Variable:  ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(variable)}},
 		Assertion: assertion,
 		Block:     block,
 	}

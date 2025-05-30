@@ -6,7 +6,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 	ident := p.expect(ast.TokenIdentifier)
 
 	// Check for optional type annotation
-	var explicitType *ast.TypeNode = nil
+	var explicitType *ast.TypeNode
 	if p.current().Type == ast.TokenColon {
 		p.advance() // consume ':'
 		typeNode := p.parseType()
@@ -24,7 +24,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 
 	return ast.AssignmentNode{
 		LValues: []ast.VariableNode{
-			{Ident: ast.Ident{Id: ast.Identifier(ident.Value)}},
+			{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}},
 		},
 		RValues:       []ast.ExpressionNode{expr},
 		ExplicitTypes: []*ast.TypeNode{explicitType},
@@ -56,8 +56,8 @@ func (p *Parser) parseMultipleAssignment() ast.AssignmentNode {
 
 	return ast.AssignmentNode{
 		LValues: []ast.VariableNode{
-			{Ident: ast.Ident{Id: ast.Identifier(firstIdent.Value)}},
-			{Ident: ast.Ident{Id: ast.Identifier(secondIdent.Value)}},
+			{Ident: ast.Ident{ID: ast.Identifier(firstIdent.Value)}},
+			{Ident: ast.Ident{ID: ast.Identifier(secondIdent.Value)}},
 		},
 		RValues:       exprs,
 		ExplicitTypes: []*ast.TypeNode{nil, nil},

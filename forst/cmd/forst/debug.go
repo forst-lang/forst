@@ -49,7 +49,7 @@ func (p *Program) debugPrintForstAST(forstAST []ast.Node) {
 			log.WithField("importGroup", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
 			fields := log.Fields{
-				"name": n.Ident.Id,
+				"name": n.GetIdent(),
 				"body": n.Body,
 			}
 			if n.HasExplicitReturnType() {
@@ -93,7 +93,7 @@ func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 	for id, sig := range tc.Functions {
 		params := make([]string, len(sig.Parameters))
 		for i, param := range sig.Parameters {
-			params[i] = fmt.Sprintf("%s: %s", param.Id(), param.Type)
+			params[i] = fmt.Sprintf("%s: %s", param.GetIdent(), param.Type)
 		}
 
 		returnTypes := make([]string, len(sig.ReturnTypes))
