@@ -26,9 +26,15 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			continue
 		}
 
-		ident, err := t.transformType(paramType)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform type: %s", err)
+		var ident *goast.Ident
+		if t != nil {
+			name, err := t.getTypeAliasNameForTypeNode(paramType)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get type alias name: %s", err)
+			}
+			ident = goast.NewIdent(name)
+		} else {
+			ident = goast.NewIdent(string(paramType.Ident))
 		}
 		params.List = append(params.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},

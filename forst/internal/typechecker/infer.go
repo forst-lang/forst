@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -170,6 +171,22 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireI
 		return existingTypes, nil
 	}
 
+	// If this is a reference to an existing type, use that type's hash
+	if assertion.BaseType != nil {
+		if typeDef, exists := tc.Defs[ast.TypeIdent(*assertion.BaseType)]; exists {
+			hash := tc.Hasher.HashNode(typeDef)
+			typeIdent := hash.ToTypeIdent()
+			typeNode := ast.TypeNode{
+				Ident:     typeIdent,
+				Assertion: assertion,
+			}
+			inferredType := []ast.TypeNode{typeNode}
+			tc.storeInferredType(assertion, inferredType)
+			return inferredType, nil
+		}
+	}
+
+	// Otherwise create a new type alias
 	hash := tc.Hasher.HashNode(assertion)
 	typeIdent := hash.ToTypeIdent()
 	typeNode := ast.TypeNode{
@@ -204,7 +221,7 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireI
 		}
 	}
 
-	return nil, nil
+	return inferredType, nil
 }
 
 func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
@@ -252,10 +269,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	}
 
 	switch n := node.(type) {
-	case ast.ImportNode:
-		return nil, nil
-	case ast.ImportGroupNode:
-		return nil, nil
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
@@ -303,6 +316,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		tc.popScope()
 
 		return inferredType, nil
+
 	case ast.SimpleParamNode:
 		if n.Type.Assertion != nil {
 			inferredType, err := tc.inferAssertionType(n.Type.Assertion, false)
@@ -312,14 +326,16 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			return inferredType, nil
 		}
 		return []ast.TypeNode{n.Type}, nil
+
 	case ast.DestructuredParamNode:
 		return nil, nil
+
 	case ast.ExpressionNode:
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
 			return nil, err
 		}
-		tc.storeInferredType(node, inferredType)
+		tc.storeInferredType(n, inferredType)
 		return inferredType, nil
 	case ast.EnsureNode:
 		_, err := tc.inferEnsureType(n)
@@ -359,14 +375,74 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.ReturnNode:
 		return nil, nil
 
-	case *ast.TypeGuardNode:
+	case ast.ImportNode:
 		return nil, nil
+
+	case ast.ImportGroupNode:
+		return nil, nil
+
+	case *ast.TypeGuardNode:
+		// Push a new scope for the type guard's body
+		tc.pushScope(n)
+
+		// Register parameters in the current scope
+		for _, param := range n.Parameters() {
+			switch p := param.(type) {
+			case ast.SimpleParamNode:
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
+					Identifier: p.Ident.Id,
+					Types:      []ast.TypeNode{p.Type},
+					Kind:       SymbolVariable,
+					Scope:      tc.scopeStack.CurrentScope(),
+					Position:   tc.path,
+				}
+			case ast.DestructuredParamNode:
+				// Handle destructured params if needed
+				continue
+			}
+		}
+
+		// Type guards must return a boolean value
+		if len(n.Body) == 0 {
+			tc.popScope()
+			return nil, fmt.Errorf("type guard must have a return statement")
+		}
+		returnNode, ok := n.Body[0].(ast.ReturnNode)
+		if !ok {
+			tc.popScope()
+			return nil, fmt.Errorf("type guard must have a return statement")
+		}
+		returnType, err := tc.inferExpressionType(returnNode.Value)
+		if err != nil {
+			tc.popScope()
+			return nil, err
+		}
+		if len(returnType) != 1 || returnType[0].Ident != ast.TypeBool {
+			tc.popScope()
+			return nil, fmt.Errorf("type guard must return a boolean value, got %s", formatTypeList(returnType))
+		}
+
+		// Store type guard in global scope with the inferred return type
+		tc.storeSymbol(ast.Identifier(n.Ident), returnType, SymbolFunction)
+
+		// Store the inferred type for the type guard itself
+		tc.storeInferredType(n, returnType)
+
+		// Store the type guard in the Functions map for easier lookup
+		tc.Functions[n.Ident] = FunctionSignature{
+			Ident:       ast.Ident{Id: n.Ident},
+			ReturnTypes: returnType,
+		}
+
+		tc.popScope()
+		return returnType, nil
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))
 }
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
+	log.Tracef("inferExpressionType: %T", expr)
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
@@ -414,15 +490,71 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FunctionCallNode:
+		log.Tracef("Checking function call: %s with %d arguments", e.Function.Id, len(e.Arguments))
 		if signature, exists := tc.Functions[e.Function.Id]; exists {
+			log.Tracef("Found function signature for %s: %v", e.Function.Id, signature.ReturnTypes)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
-		// TODO: Support built-in functions and other functions that are not defined in the current file
-		// return nil, fmt.Errorf("undefined function: %s", e.Function)
-		return nil, nil
+		// For type guards, we need to ensure they return boolean
+		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.Id]; exists && typeGuard.Kind == SymbolFunction {
+			log.Tracef("Found type guard %s with types: %v", e.Function.Id, typeGuard.Types)
+			return typeGuard.Types, nil
+		}
+
+		// First check if this is a local variable or method call
+		if varType, exists := tc.scopeStack.LookupVariableType(e.Function.Id); exists {
+			log.Tracef("Found local variable %s with type: %v", e.Function.Id, varType)
+			return varType, nil
+		}
+
+		// Then check if this is a package-qualified function call
+		parts := strings.Split(string(e.Function.Id), ".")
+		if len(parts) == 2 {
+			pkgName := parts[0]
+			funcName := parts[1]
+
+			// First check if pkgName is a local variable
+			if varType, exists := tc.scopeStack.LookupVariableType(ast.Identifier(pkgName)); exists {
+				log.Tracef("Found local variable %s with type: %v", pkgName, varType)
+				// Check if the method is valid for this type
+				returnType, err := tc.inferMethodCallType(varType, funcName, e.Arguments)
+				if err != nil {
+					return nil, err
+				}
+				tc.storeInferredType(e, returnType)
+				return returnType, nil
+			}
+
+			// If not a local variable, check for built-in functions
+			qualifiedName := pkgName + "." + funcName
+			if builtin, exists := BuiltinFunctions[qualifiedName]; exists {
+				log.Tracef("Found built-in function %s", qualifiedName)
+				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
+				if err != nil {
+					return nil, err
+				}
+				tc.storeInferredType(e, returnType)
+				return returnType, nil
+			}
+		} else {
+			// Check for unqualified built-in functions (like len)
+			if builtin, exists := BuiltinFunctions[string(e.Function.Id)]; exists {
+				log.Tracef("Found built-in function %s", e.Function.Id)
+				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
+				if err != nil {
+					return nil, err
+				}
+				tc.storeInferredType(e, returnType)
+				return returnType, nil
+			}
+		}
+
+		log.Tracef("No function found for %s", e.Function.Id)
+		return nil, fmt.Errorf("unknown identifier: %s", e.Function.Id)
 
 	default:
+		log.Tracef("Unhandled expression type: %T", expr)
 		return nil, fmt.Errorf("cannot infer type for expression: %T", expr)
 	}
 }
@@ -507,4 +639,23 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 	}
 
 	return nil
+}
+
+// Checks if a method call is valid for a given type and returns its return type
+func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+	log.Tracef("inferMethodCallType: varType=%v, methodName=%s, args=%v", varType, methodName, args)
+
+	if len(varType) != 1 {
+		log.Tracef("Method calls are only valid on single types, got %s", formatTypeList(varType))
+		return nil, fmt.Errorf("method calls are only valid on single types, got %s", formatTypeList(varType))
+	}
+
+	returnType, err := CheckBuiltinMethod(varType[0], methodName, args)
+	if err != nil {
+		log.Tracef("Error checking built-in method: %v", err)
+		return nil, err
+	}
+
+	log.Tracef("Successfully inferred method call type: %v", returnType)
+	return returnType, nil
 }

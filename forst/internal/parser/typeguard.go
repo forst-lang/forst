@@ -9,15 +9,23 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	p.expect(ast.TokenIs)
 	p.expect(ast.TokenLParen)
 
-	// Parse parameters
-	var params []ast.ParamNode
-	for p.current().Type != ast.TokenRParen {
-		param := p.parseParameter()
-		params = append(params, param)
+	// Parse subject parameter (required)
+	if p.current().Type == ast.TokenRParen {
+		panic(parseErrorMessage(p.current(), "type guard requires a subject parameter"))
+	}
+	subjectParam := p.parseParameter()
 
+	// Parse additional parameters if any
+	var additionalParams []ast.ParamNode
+	for p.current().Type != ast.TokenRParen {
 		if p.current().Type == ast.TokenComma {
 			p.advance()
+			if p.current().Type == ast.TokenRParen {
+				panic(parseErrorMessage(p.current(), "trailing comma in type guard parameters"))
+			}
 		}
+		param := p.parseParameter()
+		additionalParams = append(additionalParams, param)
 	}
 	p.expect(ast.TokenRParen)
 
@@ -28,8 +36,9 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	body := p.parseBlock(&BlockContext{AllowReturn: true})
 
 	return &ast.TypeGuardNode{
-		Ident:      ast.Identifier(name.Value),
-		Parameters: params,
-		Body:       body,
+		Ident:            ast.Identifier(name.Value),
+		SubjectParam:     subjectParam,
+		AdditionalParams: additionalParams,
+		Body:             body,
 	}
 }

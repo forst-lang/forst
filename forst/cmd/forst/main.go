@@ -43,14 +43,9 @@ func main() {
 
 		outputPath := args.outputPath
 		if outputPath == "" {
-			// Create temp directory if needed
-			tempDir, err := os.MkdirTemp("", "forst-*")
+			var err error
+			outputPath, err = createTempOutputFile(*code)
 			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-			outputPath = fmt.Sprintf("%s/main.go", tempDir)
-			if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}

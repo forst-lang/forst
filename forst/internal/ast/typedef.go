@@ -15,6 +15,10 @@ type TypeDefAssertionExpr struct {
 
 func (t TypeDefAssertionExpr) isTypeDefExpr() {}
 
+func (e TypeDefAssertionExpr) Kind() NodeKind {
+	return NodeKindTypeDefAssertion
+}
+
 type TypeDefBinaryExpr struct {
 	Left  TypeDefExpr
 	Op    TokenIdent // TokenBitwiseAnd or TokenBitwiseOr (& or |)
@@ -29,6 +33,10 @@ func (t TypeDefBinaryExpr) IsConjunction() bool {
 
 func (t TypeDefBinaryExpr) IsDisjunction() bool {
 	return t.Op == TokenBitwiseOr
+}
+
+func (t TypeDefBinaryExpr) Kind() NodeKind {
+	return NodeKindTypeDefBinaryExpr
 }
 
 type TypeDefNode struct {

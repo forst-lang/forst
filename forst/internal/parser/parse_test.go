@@ -274,12 +274,12 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 				if typeGuardNode.Id() != "Strong" {
 					t.Errorf("Expected type guard name 'Strong', got %s", typeGuardNode.Id())
 				}
-				if len(typeGuardNode.Parameters) != 1 {
-					t.Errorf("Expected 1 parameter, got %d", len(typeGuardNode.Parameters))
+				if len(typeGuardNode.Parameters()) != 1 {
+					t.Errorf("Expected 1 parameter, got %d", len(typeGuardNode.Parameters()))
 				}
-				param, ok := typeGuardNode.Parameters[0].(ast.SimpleParamNode)
+				param, ok := typeGuardNode.Parameters()[0].(ast.SimpleParamNode)
 				if !ok {
-					t.Fatalf("Expected SimpleParamNode, got %T", typeGuardNode.Parameters[0])
+					t.Fatalf("Expected SimpleParamNode, got %T", typeGuardNode.Parameters()[0])
 				}
 				if param.Ident.Id != "password" {
 					t.Errorf("Expected parameter name 'password', got %s", param.Ident.Id)

@@ -9,24 +9,33 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TODO: Refactor to use a clear type model instead of direct AST transformation
-// This will make it easier to:
-// 1. Handle binary type expressions
-// 2. Generate validation code
-// 3. Support more type constraints
-// 4. Improve type inference
 func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, error) {
 	expr, err := t.transformTypeDefExpr(node.Expr)
 	if err != nil {
 		log.Error(fmt.Errorf("failed to transform type def expr during transformation: %s", err))
 		return nil, err
 	}
+
+	// Always use hash-based names for types, but hash only the expression part
+	hashNode, ok := node.Expr.(ast.Node)
+	if !ok {
+		return nil, fmt.Errorf("type expression is not a Node: %T", node.Expr)
+	}
+	hash := t.TypeChecker.Hasher.HashNode(hashNode)
+	typeName := string(hash.ToTypeIdent())
+
+	// Use original name in comment for documentation
+	commentName := string(node.Ident)
+	if commentName == "" {
+		commentName = typeName
+	}
+
 	return &goast.GenDecl{
 		Tok: token.TYPE,
 		Specs: []goast.Spec{
 			&goast.TypeSpec{
 				Name: &goast.Ident{
-					Name: string(node.Ident),
+					Name: typeName,
 				},
 				Type: *expr,
 			},
@@ -34,7 +43,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		Doc: &goast.CommentGroup{
 			List: []*goast.Comment{
 				{
-					Text: fmt.Sprintf("// %s", node.Expr.String()),
+					Text: fmt.Sprintf("// %s: %s", commentName, node.Expr.String()),
 				},
 			},
 		},
@@ -121,11 +130,20 @@ func transformTypeIdent(ident ast.TypeIdent) *goast.Ident {
 		return &goast.Ident{Name: "bool"}
 	case ast.TypeVoid:
 		return &goast.Ident{Name: "void"}
-	// Special case for now
+	case ast.TypeError:
+		return &goast.Ident{Name: "error"}
+	// TODO: This should be a user-defined type and parsed as such
 	case "UUID":
 		return &goast.Ident{Name: "string"}
+	case ast.TypeObject:
+		panic("transformTypeIdent: TypeObject should not be used as a Go type")
+	case ast.TypeAssertion:
+		panic("transformTypeIdent: TypeAssertion should not be used as a Go type")
+	case ast.TypeImplicit:
+		panic("transformTypeIdent: TypeImplicit should not be used as a Go type")
+	default:
+		return goast.NewIdent(string(ident))
 	}
-	return goast.NewIdent(string(ident))
 }
 
 func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*goast.Ident, error) {
@@ -189,7 +207,16 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			return &expr, nil
 		}
 
-		var result goast.Expr = baseTypeIdent
+		// For primitive types, use them directly
+		if isGoBuiltinType(baseTypeIdent.Name) {
+			var result goast.Expr = baseTypeIdent
+			return &result, nil
+		}
+
+		// Use hash-based type alias for user-defined types
+		hash := t.TypeChecker.Hasher.HashNode(e)
+		typeAliasName := hash.ToTypeIdent()
+		var result goast.Expr = goast.NewIdent(string(typeAliasName))
 		return &result, nil
 	case *ast.TypeDefAssertionExpr:
 		// Handle pointer by dereferencing and reusing value logic
@@ -328,4 +355,42 @@ func (t *Transformer) defineShapeTypes() error {
 		}
 	}
 	return nil
+}
+
+// getTypeAliasNameForTypeNode returns the hash-based type alias name for a given TypeNode.
+// It finds the corresponding TypeDefNode in the type checker and hashes its Expr.
+func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
+	// If the type is a built-in, return its Go name
+	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid {
+		ident := transformTypeIdent(typeNode.Ident)
+		if ident != nil {
+			return ident.Name, nil
+		}
+		return string(typeNode.Ident), nil
+	}
+	// Find the type definition by identifier
+	for _, def := range t.TypeChecker.Defs {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			if typeDef.Ident == typeNode.Ident {
+				hashNode, ok := typeDef.Expr.(ast.Node)
+				if !ok {
+					// fallback: use ident directly
+					return string(typeNode.Ident), nil
+				}
+				hash := t.TypeChecker.Hasher.HashNode(hashNode)
+				return string(hash.ToTypeIdent()), nil
+			}
+		}
+	}
+
+	if typeNode.Ident == ast.TypeAssertion {
+		assertionType, err := t.TypeChecker.LookupAssertionType(typeNode.Assertion, t.currentScope)
+		if err != nil {
+			// fallback: use ident directly
+			return string(typeNode.Ident), nil
+		}
+		return string(assertionType.Ident), nil
+	}
+	// fallback: use ident directly
+	return string(typeNode.Ident), nil
 }

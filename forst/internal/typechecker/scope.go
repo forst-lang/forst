@@ -84,3 +84,14 @@ func (s *Scope) IsFunction() bool {
 	_, ok := s.Node.(ast.FunctionNode)
 	return ok
 }
+
+// LookupVariableType looks up a variable's type in the current scope
+func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
+	// Start from the current scope and work up
+	for i := len(s.Symbols) - 1; i >= 0; i-- {
+		if sym, exists := s.Symbols[name]; exists {
+			return sym.Types, true
+		}
+	}
+	return nil, false
+}

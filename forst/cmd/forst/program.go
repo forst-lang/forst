@@ -9,7 +9,6 @@ import (
 	"forst/internal/typechecker"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -46,6 +45,19 @@ func (p *Program) reportPhase(phase string) {
 	if p.Args.reportPhases {
 		log.Info(phase)
 	}
+}
+
+// createTempOutputFile creates a temporary directory and file for the output
+func createTempOutputFile(code string) (string, error) {
+	tempDir, err := os.MkdirTemp("", "forst-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	outputPath := fmt.Sprintf("%s/main.go", tempDir)
+	if err := os.WriteFile(outputPath, []byte(code), 0644); err != nil {
+		return "", fmt.Errorf("failed to write temp file: %v", err)
+	}
+	return outputPath, nil
 }
 
 func (p *Program) compileFile() (*string, error) {
@@ -128,20 +140,16 @@ func (p *Program) compileFile() (*string, error) {
 }
 
 func (p *Program) watchFile() error {
+	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating watcher: %v", err)
 	}
-	defer func() {
-		if err := watcher.Close(); err != nil {
-			log.Printf("Error closing watcher: %v", err)
-		}
-	}()
+	defer watcher.Close()
 
-	// Watch the directory containing the file to catch renames
-	dir := filepath.Dir(p.Args.filePath)
-	if err := watcher.Add(dir); err != nil {
-		return err
+	// Start watching the file
+	if err := watcher.Add(p.Args.filePath); err != nil {
+		return fmt.Errorf("error watching file: %v", err)
 	}
 
 	log.Infof("Watching %s for changes...", p.Args.filePath)
@@ -153,14 +161,9 @@ func (p *Program) watchFile() error {
 	} else {
 		outputPath := p.Args.outputPath
 		if outputPath == "" {
-			// Create temp directory if needed
-			tempDir, err := os.MkdirTemp("", "forst-*")
+			var err error
+			outputPath, err = createTempOutputFile(*code)
 			if err != nil {
-				log.Error(err)
-				os.Exit(1)
-			}
-			outputPath = fmt.Sprintf("%s/main.go", tempDir)
-			if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}
@@ -172,45 +175,44 @@ func (p *Program) watchFile() error {
 		}
 	}
 
-	// Debounce timer to avoid multiple compilations for rapid changes
+	// Create a debounce timer
 	var debounceTimer *time.Timer
+
+	// Watch for changes
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Name == p.Args.filePath {
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				// Cancel any existing timer
 				if debounceTimer != nil {
 					debounceTimer.Stop()
 				}
+
+				// Create a new timer
 				debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
 					log.Info("File changed, recompiling...")
-					code, err := p.compileFile()
-					if err != nil {
+					if code, err := p.compileFile(); err != nil {
 						log.Error(err)
 						log.Warn("Not running program because of errors during compilation")
 					} else {
 						outputPath := p.Args.outputPath
 						if outputPath == "" {
-							// Create temp directory if needed
-							tempDir, err := os.MkdirTemp("", "forst-*")
+							var err error
+							outputPath, err = createTempOutputFile(*code)
 							if err != nil {
-								log.Error(err)
-								os.Exit(1)
-							}
-							outputPath = fmt.Sprintf("%s/main.go", tempDir)
-							if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
 								log.Error(err)
 								os.Exit(1)
 							}
 						}
 						// Run the compiled program
-						if err := runGoProgram(p.Args.outputPath); err != nil {
+						if err := runGoProgram(outputPath); err != nil {
 							log.Error(err)
 						}
 					}
 				})
 			}
 		case err := <-watcher.Errors:
-			return err
+			log.Error("Error watching file:", err)
 		}
 	}
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,11 +57,6 @@ func TestExamples(t *testing.T) {
 				return
 			}
 
-			// Capture stdout to compare with expected output
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
 			// Run the compiler on the input file
 			if err := runCompiler(path); err != nil {
 				if strings.HasPrefix(relPath, "rfc/") {
@@ -72,17 +65,14 @@ func TestExamples(t *testing.T) {
 				}
 				t.Fatalf("Failed to run compiler: %v", err)
 			}
-			if err := w.Close(); err != nil {
-				t.Fatalf("Failed to close writer: %v", err)
-			}
-			// Restore stdout
-			os.Stdout = oldStdout
 
-			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, r); err != nil {
-				t.Fatalf("failed to copy output: %v", err)
+			// Read the generated code from the temporary file
+			program := &Program{Args: ProgramArgs{command: "run", filePath: path}}
+			code, err := program.compileFile()
+			if err != nil {
+				t.Fatalf("Failed to compile file: %v", err)
 			}
-			actualOutput := buf.String()
+			actualOutput := *code
 
 			// For basic example, compare with the first expected file
 			if baseName == "basic" {

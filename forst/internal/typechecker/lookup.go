@@ -28,27 +28,19 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // lookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentScope *Scope) (ast.TypeNode, error) {
-	symbol, err := tc.lookupSymbol(variable.Ident.Id, currentScope)
-	if err != nil {
+	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.Id, currentScope.Node)
+	symbol, exists := currentScope.LookupVariable(variable.Ident.Id)
+	if !exists {
+		err := fmt.Errorf("undefined symbol: %s", variable.Ident.Id)
+		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
 	if len(symbol.Types) != 1 {
-		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.String(), len(symbol.Types))
-		log.WithError(err).Error("lookup variable type failed")
+		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.Id, len(symbol.Types))
+		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
 	return symbol.Types[0], nil
-}
-
-func (tc *TypeChecker) lookupSymbol(ident ast.Identifier, currentScope *Scope) (*Symbol, error) {
-	for scope := currentScope; scope != nil; scope = scope.Parent {
-		if sym, exists := scope.Symbols[ident]; exists {
-			return &sym, nil
-		}
-	}
-	err := fmt.Errorf("undefined symbol: %s", ident)
-	log.WithError(err).Error("lookup symbol failed")
-	return nil, err
 }
 
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {

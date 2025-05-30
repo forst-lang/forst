@@ -4,9 +4,8 @@ import "fmt"
 
 // ImportNode represents a single Go-style import statement
 type ImportNode struct {
-	// Path is the import path (e.g., "fmt", "github.com/user/repo")
+	// Path is the canonical import path (e.g., fmt, github.com/user/repo)
 	Path string
-
 	// Alias is the optional local name for the import (e.g., "f" in `import f "fmt"`)
 	// If nil, no alias is specified
 	Alias *Ident

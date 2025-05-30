@@ -284,26 +284,29 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	return *ensureBaseType
 }
 
-func (t *Transformer) transformTypeGuardAssertion(ensure ast.EnsureNode) goast.Expr {
-	// Get the type guard function name
-	guardName := ensure.Assertion.Constraints[0].Name
-	// Call the type guard function with the variable
-	return &goast.CallExpr{
-		Fun: goast.NewIdent(guardName),
-		Args: []goast.Expr{
-			transformExpression(ensure.Variable),
-		},
+// Helper to look up a TypeGuardNode by name
+func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
+	for _, def := range t.TypeChecker.Defs {
+		if tg, ok := def.(*ast.TypeGuardNode); ok {
+			if string(tg.Ident) == name {
+				return tg
+			}
+		}
 	}
+	panic("Type guard not found: " + name)
 }
 
-// transformEnsure converts a Forst ensure to a Go expression
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
-	baseType := t.getEnsureBaseType(ensure)
-
-	// Check if this is a type guard assertion
-	if len(ensure.Assertion.Constraints) == 1 && ensure.Assertion.Constraints[0].Name != "" {
-		return t.transformTypeGuardAssertion(ensure)
+	// If any constraint name matches a type guard node, treat as a type guard assertion
+	for _, constraint := range ensure.Assertion.Constraints {
+		for _, def := range t.TypeChecker.Defs {
+			if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+				return t.transformTypeGuardAssertion(ensure)
+			}
+		}
 	}
+
+	baseType := t.getEnsureBaseType(ensure)
 
 	switch baseType.Ident {
 	case ast.TypeString:
@@ -318,5 +321,38 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 		return t.transformErrorAssertion(ensure)
 	default:
 		panic("Unknown base type: " + baseType.Ident)
+	}
+}
+
+func (t *Transformer) transformTypeGuardAssertion(ensure ast.EnsureNode) goast.Expr {
+	// Look up the real type guard node by name
+	guardName := ensure.Assertion.Constraints[0].Name
+	typeGuardNode := t.lookupTypeGuardNode(guardName)
+
+	// Use hash-based guard function name
+	hash := t.TypeChecker.Hasher.HashNode(*typeGuardNode)
+	guardFuncName := hash.ToGuardIdent()
+
+	if len(typeGuardNode.Parameters()) > 0 {
+		switch typeGuardNode.Parameters()[0].(type) {
+		case ast.SimpleParamNode:
+			return &goast.CallExpr{
+				Fun: goast.NewIdent(string(guardFuncName)),
+				Args: []goast.Expr{
+					transformExpression(ensure.Variable),
+				},
+			}
+		case ast.DestructuredParamNode:
+			panic("DestructuredParamNode not supported in type guard assertion")
+		}
+	} else {
+		panic("Type guard has no parameters")
+	}
+
+	return &goast.CallExpr{
+		Fun: goast.NewIdent(string(guardFuncName)),
+		Args: []goast.Expr{
+			transformExpression(ensure.Variable),
+		},
 	}
 }
