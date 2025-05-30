@@ -11,7 +11,7 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "IsPositive",
 		SubjectParam: ast.SimpleParamNode{
-			Ident: ast.Ident{Id: "x"},
+			Ident: ast.Ident{ID: "x"},
 			Type:  ast.TypeNode{Ident: ast.TypeInt},
 		},
 		Body: []ast.Node{
@@ -45,7 +45,7 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "IsString",
 		SubjectParam: ast.SimpleParamNode{
-			Ident: ast.Ident{Id: "s"},
+			Ident: ast.Ident{ID: "s"},
 			Type:  ast.TypeNode{Ident: ast.TypeString},
 		},
 		Body: []ast.Node{
@@ -94,12 +94,12 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "DivisibleBy",
 		SubjectParam: ast.SimpleParamNode{
-			Ident: ast.Ident{Id: "i"},
+			Ident: ast.Ident{ID: "i"},
 			Type:  ast.TypeNode{Ident: "Prime"},
 		},
 		AdditionalParams: []ast.ParamNode{
 			ast.SimpleParamNode{
-				Ident: ast.Ident{Id: "other"},
+				Ident: ast.Ident{ID: "other"},
 				Type:  ast.TypeNode{Ident: ast.TypeInt},
 			},
 		},
@@ -108,17 +108,17 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 				Value: ast.BinaryExpressionNode{
 					Left: ast.BinaryExpressionNode{
 						Left: ast.VariableNode{
-							Ident: ast.Ident{Id: "i"},
+							Ident: ast.Ident{ID: "i"},
 						},
 						Operator: ast.TokenEquals,
 						Right: ast.VariableNode{
-							Ident: ast.Ident{Id: "other"},
+							Ident: ast.Ident{ID: "other"},
 						},
 					},
 					Operator: ast.TokenLogicalOr,
 					Right: ast.BinaryExpressionNode{
 						Left: ast.VariableNode{
-							Ident: ast.Ident{Id: "other"},
+							Ident: ast.Ident{ID: "other"},
 						},
 						Operator: ast.TokenEquals,
 						Right: ast.IntLiteralNode{

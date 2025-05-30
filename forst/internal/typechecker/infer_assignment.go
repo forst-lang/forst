@@ -12,10 +12,10 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 	for _, value := range assign.RValues {
 		if callExpr, isCall := value.(ast.FunctionCallNode); isCall {
 			// Get function signature and check return types
-			if sig, exists := tc.Functions[callExpr.Function.Id]; exists {
+			if sig, exists := tc.Functions[callExpr.Function.ID]; exists {
 				resolvedTypes = append(resolvedTypes, sig.ReturnTypes...)
 			} else {
-				return fmt.Errorf("undefined function: %s", callExpr.Function.Id)
+				return fmt.Errorf("undefined function: %s", callExpr.Function.ID)
 			}
 		} else {
 			inferredType, err := tc.inferExpressionType(value)

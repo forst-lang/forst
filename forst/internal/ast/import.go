@@ -2,7 +2,7 @@ package ast
 
 import "fmt"
 
-// Represents a single Go-style import statement
+// ImportNode represents a single Go-style import statement
 type ImportNode struct {
 	// The canonical import path (e.g., fmt, github.com/user/repo)
 	Path string
@@ -15,18 +15,19 @@ type ImportNode struct {
 	SideEffectOnly bool
 }
 
+// Kind returns the node kind for imports
 func (i ImportNode) Kind() NodeKind {
 	return NodeKindImport
 }
 
 func (i ImportNode) String() string {
 	if i.Alias != nil {
-		return fmt.Sprintf("Import(%s, %s)", i.Path, i.Alias.Id)
+		return fmt.Sprintf("import %s as %s", i.Path, i.Alias.ID)
 	}
-	return fmt.Sprintf("Import(%s)", i.Path)
+	return fmt.Sprintf("import %s", i.Path)
 }
 
-// Represents a group of imports in parentheses
+// ImportGroupNode represents a group of imports in parentheses
 // like: import (
 //
 //	   "fmt"
@@ -37,7 +38,7 @@ type ImportGroupNode struct {
 	Imports []ImportNode
 }
 
-// Returns the type of this AST node
+// Kind returns the node kind for import groups
 func (g ImportGroupNode) Kind() NodeKind {
 	return NodeKindImportGroup
 }
@@ -46,7 +47,7 @@ func (g ImportGroupNode) String() string {
 	return fmt.Sprintf("ImportGroup(%v)", g.Imports)
 }
 
-// Returns whether an import is part of a group
+// IsGrouped returns whether an import is part of a group
 func (i ImportNode) IsGrouped() bool {
 	// This can be determined by the parser and set on each ImportNode
 	// For now, we'll return false as a placeholder

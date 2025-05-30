@@ -19,7 +19,7 @@ func formatTypeList(types []ast.TypeNode) string {
 }
 
 func failWithTypeMismatch(fn ast.FunctionNode, inferred []ast.TypeNode, parsed []ast.TypeNode, prefix string) error {
-	return fmt.Errorf("%s: inferred return type %v of function %s does not match parsed return type %v", prefix, formatTypeList(inferred), fn.Id(), formatTypeList(parsed))
+	return fmt.Errorf("%s: inferred return type %v of function %s does not match parsed return type %v", prefix, formatTypeList(inferred), fn.Ident.ID, formatTypeList(parsed))
 }
 
 // Ensures that the first type matches the expected type, otherwise returns an error

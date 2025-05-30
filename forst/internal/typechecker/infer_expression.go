@@ -57,26 +57,26 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FunctionCallNode:
-		log.Tracef("Checking function call: %s with %d arguments", e.Function.Id, len(e.Arguments))
-		if signature, exists := tc.Functions[e.Function.Id]; exists {
-			log.Tracef("Found function signature for %s: %v", e.Function.Id, signature.ReturnTypes)
+		log.Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
+		if signature, exists := tc.Functions[e.Function.ID]; exists {
+			log.Tracef("Found function signature for %s: %v", e.Function.ID, signature.ReturnTypes)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
 		// For type guards, we need to ensure they return boolean
-		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.Id]; exists && typeGuard.Kind == SymbolFunction {
-			log.Tracef("Found type guard %s with types: %v", e.Function.Id, typeGuard.Types)
+		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolFunction {
+			log.Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
 			return typeGuard.Types, nil
 		}
 
 		// First check if this is a local variable or method call
-		if varType, exists := tc.scopeStack.LookupVariableType(e.Function.Id); exists {
-			log.Tracef("Found local variable %s with type: %v", e.Function.Id, varType)
+		if varType, exists := tc.scopeStack.LookupVariableType(e.Function.ID); exists {
+			log.Tracef("Found local variable %s with type: %v", e.Function.ID, varType)
 			return varType, nil
 		}
 
 		// Then check if this is a package-qualified function call
-		parts := strings.Split(string(e.Function.Id), ".")
+		parts := strings.Split(string(e.Function.ID), ".")
 		if len(parts) == 2 {
 			pkgName := parts[0]
 			funcName := parts[1]
@@ -106,8 +106,8 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			}
 		} else {
 			// Check for unqualified built-in functions (like len)
-			if builtin, exists := BuiltinFunctions[string(e.Function.Id)]; exists {
-				log.Tracef("Found built-in function %s", e.Function.Id)
+			if builtin, exists := BuiltinFunctions[string(e.Function.ID)]; exists {
+				log.Tracef("Found built-in function %s", e.Function.ID)
 				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
 				if err != nil {
 					return nil, err
@@ -117,8 +117,8 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			}
 		}
 
-		log.Tracef("No function found for %s", e.Function.Id)
-		return nil, fmt.Errorf("unknown identifier: %s", e.Function.Id)
+		log.Tracef("No function found for %s", e.Function.ID)
+		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
 
 	default:
 		log.Tracef("Unhandled expression type: %T", expr)

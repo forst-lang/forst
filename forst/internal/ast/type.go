@@ -15,19 +15,25 @@ type TypeNode struct {
 }
 
 const (
-	// Built-in types
-	TypeInt    TypeIdent = "TYPE_INT"
-	TypeFloat  TypeIdent = "TYPE_FLOAT"
+	// TypeInt is the built-in int type
+	TypeInt TypeIdent = "TYPE_INT"
+	// TypeFloat is the built-in float type
+	TypeFloat TypeIdent = "TYPE_FLOAT"
+	// TypeString is the built-in string type
 	TypeString TypeIdent = "TYPE_STRING"
-	TypeBool   TypeIdent = "TYPE_BOOL"
-	TypeVoid   TypeIdent = "TYPE_VOID"
-	TypeError  TypeIdent = "TYPE_ERROR"
+	// TypeBool is the built-in bool type
+	TypeBool TypeIdent = "TYPE_BOOL"
+	// TypeVoid is the built-in void type
+	TypeVoid TypeIdent = "TYPE_VOID"
+	// TypeError is the built-in error type
+	TypeError TypeIdent = "TYPE_ERROR"
+	// TypeObject is the built-in object type
 	TypeObject TypeIdent = "TYPE_OBJECT"
 
-	// Placeholder for a type assertion
+	// TypeAssertion is a placeholder for a type assertion
 	TypeAssertion TypeIdent = "TYPE_ASSERTION"
 
-	// Placeholder for an implicit type
+	// TypeImplicit is a placeholder for an implicit type
 	TypeImplicit TypeIdent = "TYPE_IMPLICIT"
 )
 

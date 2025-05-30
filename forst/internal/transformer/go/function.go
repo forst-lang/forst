@@ -19,7 +19,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			paramName = string(p.Ident.Id)
+			paramName = string(p.Ident.ID)
 			paramType = p.Type
 		case ast.DestructuredParamNode:
 			// Handle destructured params if needed

@@ -11,16 +11,17 @@ type EnsureNode struct {
 	Block *EnsureBlockNode
 }
 
+// Block of statements for ensure
 type EnsureBlockNode struct {
 	Body []Node
 }
 
-// Can be either a full error node with type and args,
-// or just a variable reference
+// Error node for ensure, can be a call or a variable
 type EnsureErrorNode interface {
 	String() string
 }
 
+// Error call for ensure
 type EnsureErrorCall struct {
 	ErrorType string
 	ErrorArgs []ExpressionNode
@@ -30,6 +31,7 @@ func (e EnsureErrorCall) String() string {
 	return fmt.Sprintf("%s(%v)", e.ErrorType, e.ErrorArgs)
 }
 
+// Error variable for ensure
 type EnsureErrorVar string
 
 func (e EnsureErrorVar) String() string {

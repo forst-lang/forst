@@ -21,18 +21,25 @@ type DestructuredParamNode struct {
 	Type   TypeNode // Parameter type
 }
 
+// Kind returns the node kind for a simple parameter
 func (p SimpleParamNode) Kind() NodeKind {
 	return NodeKindSimpleParam
 }
 
 func (p SimpleParamNode) String() string {
-	return fmt.Sprintf("%s: %s", p.Ident.Id, p.Type.String())
+	return fmt.Sprintf("%s: %s", p.Ident.ID, p.Type.String())
+}
+
+// GetIdent returns the identifier for the simple parameter
+func (p SimpleParamNode) GetIdent() string {
+	return string(p.Ident.ID)
 }
 
 func (p DestructuredParamNode) String() string {
 	return fmt.Sprintf("{%v}: %s", p.Fields, p.Type.String())
 }
 
+// Kind returns the node kind for a destructured parameter
 func (p DestructuredParamNode) Kind() NodeKind {
 	return NodeKindDestructuredParam
 }

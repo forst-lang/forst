@@ -9,7 +9,7 @@ func (p *Parser) parsePackage() ast.PackageNode {
 
 	packageName := p.expect(ast.TokenIdentifier).Value
 
-	node := ast.PackageNode{Ident: ast.Ident{Id: ast.Identifier(packageName)}}
+	node := ast.PackageNode{Ident: ast.Ident{ID: ast.Identifier(packageName)}}
 	p.context.Package = &node
 
 	return node

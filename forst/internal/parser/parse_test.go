@@ -41,8 +41,8 @@ func TestParseFile_WithPackageDeclaration(t *testing.T) {
 					t.Fatalf("Expected 1 node, got %d", len(nodes))
 				}
 				packageNode := assertNodeType[ast.PackageNode](t, nodes[0], "ast.PackageNode")
-				if packageNode.Id() != "main" {
-					t.Errorf("Expected package name 'main', got %s", packageNode.Id())
+				if packageNode.GetIdent() != "main" {
+					t.Errorf("Expected package name 'main', got '%s'", packageNode.GetIdent())
 				}
 			},
 		},
@@ -148,8 +148,8 @@ func TestParseFile_WithFunctions(t *testing.T) {
 					t.Fatalf("Expected 1 node, got %d", len(nodes))
 				}
 				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if functionNode.Id() != "main" {
-					t.Errorf("Expected function name 'main', got %s", functionNode.Id())
+				if functionNode.GetIdent() != "main" {
+					t.Errorf("Expected function name 'main', got %s", functionNode.Ident.ID)
 				}
 				if len(functionNode.Body) != 1 {
 					t.Errorf("Expected 1 statement in function body, got %d", len(functionNode.Body))
@@ -189,16 +189,16 @@ func TestParseFile_WithFunctions(t *testing.T) {
 					t.Fatalf("Expected 1 node, got %d", len(nodes))
 				}
 				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if functionNode.Id() != "main" {
-					t.Errorf("Expected function name 'main', got %s", functionNode.Id())
+				if functionNode.GetIdent() != "main" {
+					t.Errorf("Expected function name 'main', got %s", functionNode.GetIdent())
 				}
 				if len(functionNode.Body) != 1 {
 					t.Errorf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 
 				ensureNode := assertNodeType[ast.EnsureNode](t, functionNode.Body[0], "ast.EnsureNode")
-				if ensureNode.Variable.Id() != "x" {
-					t.Errorf("Expected variable 'x', got %s", ensureNode.Variable.Id())
+				if ensureNode.Variable.GetIdent() != "x" {
+					t.Errorf("Expected variable name 'x', got '%s'", ensureNode.Variable.GetIdent())
 				}
 
 				if len(ensureNode.Assertion.Constraints) != 1 {
@@ -271,8 +271,8 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 					t.Fatalf("Expected 1 node, got %d", len(nodes))
 				}
 				typeGuardNode := assertNodeType[*ast.TypeGuardNode](t, nodes[0], "*ast.TypeGuardNode")
-				if typeGuardNode.Id() != "Strong" {
-					t.Errorf("Expected type guard name 'Strong', got %s", typeGuardNode.Id())
+				if typeGuardNode.GetIdent() != "Strong" {
+					t.Errorf("Expected type guard name 'Strong', got %s", typeGuardNode.GetIdent())
 				}
 				if len(typeGuardNode.Parameters()) != 1 {
 					t.Errorf("Expected 1 parameter, got %d", len(typeGuardNode.Parameters()))
@@ -281,8 +281,8 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 				if !ok {
 					t.Fatalf("Expected SimpleParamNode, got %T", typeGuardNode.Parameters()[0])
 				}
-				if param.Ident.Id != "password" {
-					t.Errorf("Expected parameter name 'password', got %s", param.Ident.Id)
+				if param.GetIdent() != "password" {
+					t.Errorf("Expected parameter name 'password', got %s", param.Ident.ID)
 				}
 				if param.Type.Ident != "Password" {
 					t.Errorf("Expected parameter type 'Password', got %s", param.Type.Ident)
@@ -331,8 +331,8 @@ func TestParseFile_WithBinaryExpressionInFunction(t *testing.T) {
 			t.Fatalf("Expected 1 node, got %d", len(nodes))
 		}
 		functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-		if functionNode.Id() != "passwordStrength" {
-			t.Errorf("Expected function name 'isStrong', got %s", functionNode.Id())
+		if functionNode.GetIdent() != "passwordStrength" {
+			t.Errorf("Expected function name 'isStrong', got %s", functionNode.GetIdent())
 		}
 		if len(functionNode.Body) != 1 {
 			t.Errorf("Expected 1 statement in function body, got %d", len(functionNode.Body))

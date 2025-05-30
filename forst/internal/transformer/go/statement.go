@@ -87,7 +87,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		condition := t.transformEnsureCondition(s)
 
 		// Negate for variable assertions and type guards, but not for other constraints
-		var finalCondition goast.Expr = condition
+		finalCondition := condition
 		shouldNegate := false
 
 		// Case 1: assertion is just a variable (no constraints)

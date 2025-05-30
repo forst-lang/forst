@@ -1,6 +1,6 @@
 package ast
 
-// Represents a variable assignment in the AST
+// AssignmentNode represents a variable assignment in the AST
 type AssignmentNode struct {
 	Node
 	LValues       []VariableNode   // Variables being assigned to (targets of the assignment)
@@ -9,12 +9,14 @@ type AssignmentNode struct {
 	IsShort       bool             // Whether this is a short := assignment
 }
 
+// Kind returns the node kind for an assignment
 func (n AssignmentNode) Kind() NodeKind {
 	return NodeKindAssignment
 }
 
+// String returns a string representation of the assignment
 func (n AssignmentNode) String() string {
-	var result string = "Assignment("
+	result := "Assignment("
 
 	// Build comma-separated list of names and types
 	for i, ident := range n.LValues {

@@ -35,13 +35,13 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		case ast.TypeDefNode:
 			decl, err := t.transformTypeDef(def)
 			if err != nil {
-				return nil, fmt.Errorf("failed to transform type def %s: %w", def.Ident, err)
+				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(decl)
 		case *ast.TypeGuardNode:
 			decl, err := t.transformTypeGuard(*def)
 			if err != nil {
-				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.Ident, err)
+				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddFunction(decl)
 		}
@@ -50,7 +50,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			t.Output.SetPackageName(string(n.Ident.Id))
+			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.ImportNode:
 			decl := t.transformImport(n)
 			t.Output.AddImport(decl)
@@ -60,7 +60,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		case ast.FunctionNode:
 			decl, err := t.transformFunction(n)
 			if err != nil {
-				return nil, fmt.Errorf("failed to transform function %s: %w", n.Ident.Id, err)
+				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
 			}
 			t.Output.AddFunction(decl)
 		}

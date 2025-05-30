@@ -17,14 +17,17 @@ type TypeGuardNode struct {
 	Body []Node
 }
 
+// Kind returns the node kind for a type guard
 func (t TypeGuardNode) Kind() NodeKind {
 	return NodeKindTypeGuard
 }
 
-func (t TypeGuardNode) Id() string {
+// GetIdent returns the identifier for the type guard
+func (t TypeGuardNode) GetIdent() string {
 	return string(t.Ident)
 }
 
+// String returns a string representation of the type guard
 func (t TypeGuardNode) String() string {
 	return fmt.Sprintf("TypeGuardNode(%s)", t.Ident)
 }

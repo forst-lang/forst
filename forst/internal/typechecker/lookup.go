@@ -28,15 +28,15 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // lookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentScope *Scope) (ast.TypeNode, error) {
-	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.Id, currentScope.Node)
-	symbol, exists := currentScope.LookupVariable(variable.Ident.Id)
+	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, currentScope.Node)
+	symbol, exists := currentScope.LookupVariable(variable.Ident.ID)
 	if !exists {
-		err := fmt.Errorf("undefined symbol: %s", variable.Ident.Id)
+		err := fmt.Errorf("undefined symbol: %s", variable.Ident.ID)
 		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
 	if len(symbol.Types) != 1 {
-		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.Id, len(symbol.Types))
+		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.ID, len(symbol.Types))
 		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
@@ -44,7 +44,7 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, currentSco
 }
 
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode, currentScope *Scope) ([]ast.TypeNode, error) {
-	sig, exists := tc.Functions[function.Id()]
+	sig, exists := tc.Functions[function.Ident.ID]
 	if !exists {
 		err := fmt.Errorf("undefined function: %s", function.Ident)
 		log.WithError(err).Error("lookup function return type failed")

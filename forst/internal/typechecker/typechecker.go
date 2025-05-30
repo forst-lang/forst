@@ -89,7 +89,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.storeSymbol(p.Ident.Id, []ast.TypeNode{p.Type}, SymbolVariable)
+				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
 			case ast.DestructuredParamNode:
 				// TODO: Handle destructured params
 				continue
@@ -110,7 +110,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			tc.Defs[ast.TypeIdent(n.Ident)] = n
 		}
 		tc.registerFunction(ast.FunctionNode{
-			Ident:       ast.Ident{Id: n.Ident},
+			Ident:       ast.Ident{ID: n.Ident},
 			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeBool}},
 		})
 	}
@@ -127,10 +127,10 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
-	sig := tc.Functions[fn.Id()]
+	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	log.Tracef("Storing inferred function return type for function %s: %s", fn.Id(), returnTypes)
-	tc.Functions[fn.Id()] = sig
+	log.Tracef("Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
+	tc.Functions[fn.Ident.ID] = sig
 }
 
 // Prints details about symbols defined in the current scope

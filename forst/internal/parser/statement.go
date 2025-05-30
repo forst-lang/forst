@@ -9,18 +9,19 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 
 	token := p.current()
 
-	if token.Type == ast.TokenEnsure {
+	switch token.Type {
+	case ast.TokenEnsure:
 		ensureStatement := p.parseEnsureStatement()
 		logParsedNode(ensureStatement)
 		body = append(body, ensureStatement)
-	} else if token.Type == ast.TokenReturn {
+	case ast.TokenReturn:
 		if !blockContext.AllowReturn {
 			panic(parseErrorWithValue(token, "Return statement not allowed in this context"))
 		}
 		returnStatement := p.parseReturnStatement()
 		logParsedNode(returnStatement)
 		body = append(body, returnStatement)
-	} else if token.Type == ast.TokenIdentifier {
+	case ast.TokenIdentifier:
 		next := p.peek()
 		if next.Type == ast.TokenComma {
 			assignment := p.parseMultipleAssignment()
@@ -40,7 +41,7 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 			logParsedNode(expr)
 			body = append(body, expr)
 		}
-	} else {
+	default:
 		expr := p.parseExpression()
 		logParsedNode(expr)
 		body = append(body, expr)

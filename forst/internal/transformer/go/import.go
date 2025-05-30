@@ -43,5 +43,5 @@ func nameFromAlias(alias *ast.Ident) *goast.Ident {
 	if alias == nil {
 		return nil
 	}
-	return goast.NewIdent(string(alias.Id))
+	return goast.NewIdent(string(alias.ID))
 }

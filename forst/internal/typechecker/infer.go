@@ -45,8 +45,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
-					Identifier: p.Ident.Id,
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
+					Identifier: p.Ident.ID,
 					Types:      []ast.TypeNode{p.Type},
 					Kind:       SymbolVariable,
 					Scope:      tc.scopeStack.CurrentScope(),
@@ -156,8 +156,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.Id] = Symbol{
-					Identifier: p.Ident.Id,
+				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
+					Identifier: p.Ident.ID,
 					Types:      []ast.TypeNode{p.Type},
 					Kind:       SymbolVariable,
 					Scope:      tc.scopeStack.CurrentScope(),
@@ -197,7 +197,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 		// Store the type guard in the Functions map for easier lookup
 		tc.Functions[n.Ident] = FunctionSignature{
-			Ident:       ast.Ident{Id: n.Ident},
+			Ident:       ast.Ident{ID: n.Ident},
 			ReturnTypes: returnType,
 		}
 

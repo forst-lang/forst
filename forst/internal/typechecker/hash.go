@@ -43,7 +43,7 @@ var NodeKind = map[string]uint8{
 func (h *StructuralHasher) HashNodes(nodes []ast.Node) NodeHash {
 	hasher := fnv.New64a()
 	for _, node := range nodes {
-		binary.Write(hasher, binary.LittleEndian, h.HashNode(node))
+		writeHash(hasher, h.HashNode(node))
 	}
 	return NodeHash(hasher.Sum64())
 }
@@ -105,7 +105,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 
 	case ast.VariableNode:
 		writeHash(hasher, NodeKind["Variable"])
-		writeHash(hasher, []byte(n.Ident.Id))
+		writeHash(hasher, []byte(n.Ident.ID))
 
 	case ast.FunctionNode:
 		writeHash(hasher, NodeKind["Function"])
@@ -113,7 +113,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 
 	case ast.FunctionCallNode:
 		writeHash(hasher, NodeKind["FunctionCall"])
-		writeHash(hasher, []byte(n.Function.Id))
+		writeHash(hasher, []byte(n.Function.ID))
 		nodes := make([]ast.Node, len(n.Arguments))
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
@@ -196,12 +196,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		}
 	case ast.PackageNode:
 		writeHash(hasher, NodeKind["Package"])
-		writeHash(hasher, []byte(n.Ident.Id))
+		writeHash(hasher, []byte(n.Ident.ID))
 	case ast.ImportNode:
 		writeHash(hasher, NodeKind["Import"])
 		writeHash(hasher, []byte(n.Path))
 		if n.Alias != nil {
-			writeHash(hasher, []byte(n.Alias.Id))
+			writeHash(hasher, []byte(n.Alias.ID))
 		}
 	case ast.TypeDefNode:
 		writeHash(hasher, NodeKind["TypeDef"])
@@ -215,7 +215,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		writeHash(hasher, []byte(n.Ident))
 	case ast.SimpleParamNode:
 		writeHash(hasher, NodeKind["SimpleParam"])
-		writeHash(hasher, []byte(n.Ident.Id))
+		writeHash(hasher, []byte(n.Ident.ID))
 		writeHash(hasher, h.HashNode(n.Type))
 	case ast.DestructuredParamNode:
 		writeHash(hasher, NodeKind["DestructuredParam"])
@@ -305,13 +305,13 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 			var iName, jName string
 			switch p := params[i].(type) {
 			case ast.SimpleParamNode:
-				iName = string(p.Ident.Id)
+				iName = string(p.Ident.ID)
 			case ast.DestructuredParamNode:
 				iName = p.Fields[0] // Use first field name for sorting
 			}
 			switch p := params[j].(type) {
 			case ast.SimpleParamNode:
-				jName = string(p.Ident.Id)
+				jName = string(p.Ident.ID)
 			case ast.DestructuredParamNode:
 				jName = p.Fields[0] // Use first field name for sorting
 			}

@@ -19,12 +19,14 @@ type ParameterSignature struct {
 	Type  ast.TypeNode
 }
 
+// String returns a string representation of the parameter signature
 func (p ParameterSignature) String() string {
-	return fmt.Sprintf("%s: %s", p.Ident.Id, p.Type.String())
+	return fmt.Sprintf("%s: %s", p.Ident.ID, p.Type.String())
 }
 
-func (p ParameterSignature) Id() ast.Identifier {
-	return p.Ident.Id
+// GetIdent returns the parameter identifier as a string
+func (p ParameterSignature) GetIdent() string {
+	return string(p.Ident.ID)
 }
 
 func (f FunctionSignature) String() string {
@@ -36,9 +38,10 @@ func (f FunctionSignature) String() string {
 	for i, ret := range f.ReturnTypes {
 		returnStrings[i] = ret.String()
 	}
-	return fmt.Sprintf("%s(%s) -> %s", f.Ident.Id, strings.Join(paramStrings, ", "), strings.Join(returnStrings, ", "))
+	return fmt.Sprintf("%s(%s) -> %s", f.Ident.ID, strings.Join(paramStrings, ", "), strings.Join(returnStrings, ", "))
 }
 
-func (f FunctionSignature) Id() ast.Identifier {
-	return f.Ident.Id
+// GetIdent returns the function identifier as a string
+func (f FunctionSignature) GetIdent() string {
+	return string(f.Ident.ID)
 }

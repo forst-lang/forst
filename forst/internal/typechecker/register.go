@@ -7,8 +7,8 @@ import (
 )
 
 func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ ast.TypeNode) {
-	log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.Id, typ)
-	tc.storeSymbol(variable.Ident.Id, []ast.TypeNode{typ}, SymbolVariable)
+	log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.ID, typ)
+	tc.storeSymbol(variable.Ident.ID, []ast.TypeNode{typ}, SymbolVariable)
 	tc.storeInferredType(variable, []ast.TypeNode{typ})
 }
 
@@ -27,20 +27,20 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 			continue
 		}
 	}
-	tc.Functions[fn.Id()] = FunctionSignature{
+	tc.Functions[fn.Ident.ID] = FunctionSignature{
 		Ident:       fn.Ident,
 		Parameters:  params,
 		ReturnTypes: fn.ReturnTypes,
 	}
 
 	// Store function symbol
-	tc.storeSymbol(fn.Ident.Id, fn.ReturnTypes, SymbolFunction)
+	tc.storeSymbol(fn.Ident.ID, fn.ReturnTypes, SymbolFunction)
 
 	// Store parameter symbols
 	for _, param := range fn.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			tc.storeSymbol(p.Ident.Id, []ast.TypeNode{p.Type}, SymbolParameter)
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
 		case ast.DestructuredParamNode:
 			// Handle destructured params if needed
 			continue

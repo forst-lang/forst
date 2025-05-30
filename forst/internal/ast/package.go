@@ -1,22 +1,29 @@
 package ast
 
-// Package Node
+import (
+	"fmt"
+)
+
+// PackageNode represents a package declaration
 type PackageNode struct {
 	Ident Ident
 }
 
+// Kind returns the node kind for packages
 func (p PackageNode) Kind() NodeKind {
 	return NodeKindPackage
 }
 
 func (p PackageNode) String() string {
-	return p.Ident.String()
+	return fmt.Sprintf("package %s", p.Ident.ID)
 }
 
-func (p PackageNode) Id() Identifier {
-	return p.Ident.Id
+// GetIdent returns the package identifier
+func (p PackageNode) GetIdent() string {
+	return string(p.Ident.ID)
 }
 
+// IsMainPackage returns whether this is the main package
 func (p PackageNode) IsMainPackage() bool {
-	return p.Id() == "main"
+	return p.GetIdent() == "main"
 }

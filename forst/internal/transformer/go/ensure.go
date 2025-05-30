@@ -83,7 +83,7 @@ func expectStringLiteral(arg *ast.ConstraintArgumentNode) *ast.ValueNode {
 }
 
 func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result []goast.Expr = []goast.Expr{}
+	result := []goast.Expr{}
 
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -143,7 +143,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 }
 
 func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result []goast.Expr = []goast.Expr{}
+	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
@@ -196,7 +196,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 }
 
 func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result []goast.Expr = []goast.Expr{}
+	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
@@ -229,7 +229,7 @@ func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr 
 }
 
 func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result []goast.Expr = []goast.Expr{}
+	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
@@ -254,7 +254,7 @@ func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 }
 
 func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
-	var result []goast.Expr = []goast.Expr{}
+	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
