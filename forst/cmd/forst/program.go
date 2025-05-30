@@ -16,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Program represents the Forst compiler and its arguments.
 type Program struct {
 	Args ProgramArgs
 }

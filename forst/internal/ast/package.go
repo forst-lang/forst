@@ -15,7 +15,7 @@ func (p PackageNode) Kind() NodeKind {
 }
 
 func (p PackageNode) String() string {
-	return fmt.Sprintf("package %s", p.Ident.ID)
+	return fmt.Sprintf("Package(%s)", p.Ident.ID)
 }
 
 // GetIdent returns the package identifier

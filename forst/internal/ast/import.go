@@ -22,9 +22,9 @@ func (i ImportNode) Kind() NodeKind {
 
 func (i ImportNode) String() string {
 	if i.Alias != nil {
-		return fmt.Sprintf("import %s as %s", i.Path, i.Alias.ID)
+		return fmt.Sprintf("Import(%s as %s)", i.Path, i.Alias.ID)
 	}
-	return fmt.Sprintf("import %s", i.Path)
+	return fmt.Sprintf("Import(%s)", i.Path)
 }
 
 // ImportGroupNode represents a group of imports in parentheses
