@@ -156,7 +156,8 @@ func runCompiler(inputPath string) error {
 	}
 
 	program := &Program{Args: args}
-	return program.compileFile()
+	_, err := program.compileFile()
+	return err
 }
 
 // compareOutput compares the expected and actual output
