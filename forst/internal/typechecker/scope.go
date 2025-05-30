@@ -4,7 +4,7 @@ import (
 	"forst/internal/ast"
 )
 
-// Represents a lexical scope in the program, containing symbols and their definitions
+// Scope represents a lexical scope in the program, containing symbols and their definitions
 type Scope struct {
 	Parent   *Scope
 	Node     ast.Node
@@ -12,6 +12,7 @@ type Scope struct {
 	Children []*Scope
 }
 
+// NewScope creates a new scope
 func NewScope(parent *Scope, node ast.Node) *Scope {
 	return &Scope{
 		Parent:   parent,
@@ -21,6 +22,7 @@ func NewScope(parent *Scope, node ast.Node) *Scope {
 	}
 }
 
+// DefineVariable defines a variable in the scope
 func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
 	s.Symbols[name] = Symbol{
 		Identifier: name,
@@ -30,7 +32,7 @@ func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
 	}
 }
 
-// Recursively searches for a variable in the current scope and its ancestors
+// LookupVariable recursively searches for a variable in the current scope and its ancestors
 func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok {
 		return symbol, true
@@ -41,6 +43,7 @@ func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
 	return Symbol{}, false
 }
 
+// DefineType defines a type in the scope
 func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
 	s.Symbols[name] = Symbol{
 		Identifier: name,
@@ -50,7 +53,7 @@ func (s *Scope) DefineType(name ast.Identifier, typ ast.TypeNode) {
 	}
 }
 
-// Recursively searches for a type definition in the current scope and its ancestors
+// LookupType recursively searches for a type definition in the current scope and its ancestors
 func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok && symbol.Kind == SymbolType {
 		return symbol, true
@@ -61,6 +64,7 @@ func (s *Scope) LookupType(name ast.Identifier) (Symbol, bool) {
 	return Symbol{}, false
 }
 
+// Symbol represents a symbol in the scope
 type Symbol struct {
 	Identifier ast.Identifier
 	Types      []ast.TypeNode
@@ -69,17 +73,28 @@ type Symbol struct {
 	Position   NodePath   // Precise location in AST where symbol is valid
 }
 
+// NodePath represents the path from the root to the current node
 type NodePath []ast.Node // Path from root to current node
 
+// SymbolKind represents the kind of symbol
 type SymbolKind int
 
 const (
+	// SymbolVariable represents a variable symbol
 	SymbolVariable SymbolKind = iota
+	// SymbolFunction represents a function symbol
 	SymbolFunction
+	// SymbolType represents a type symbol
 	SymbolType
+	// SymbolParameter represents a parameter symbol
 	SymbolParameter
+	// SymbolStruct represents a struct symbol
+	SymbolStruct
+	// SymbolEnum represents an enum symbol
+	SymbolEnum
 )
 
+// IsFunction checks if the scope is a function
 func (s *Scope) IsFunction() bool {
 	_, ok := s.Node.(ast.FunctionNode)
 	return ok

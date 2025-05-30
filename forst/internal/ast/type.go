@@ -47,10 +47,12 @@ func (t TypeNode) IsImplicit() bool {
 	return t.Ident == TypeImplicit
 }
 
+// Kind returns the node kind for a type
 func (t TypeNode) Kind() NodeKind {
 	return NodeKindType
 }
 
+// IsError returns true if the type is an error type
 func (t TypeNode) IsError() bool {
 	return t.Ident == TypeError
 }

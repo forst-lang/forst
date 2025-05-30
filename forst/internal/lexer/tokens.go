@@ -4,6 +4,7 @@ import (
 	"forst/internal/ast"
 )
 
+// GetTokenType returns the token type for a given word
 func GetTokenType(word string) ast.TokenIdent {
 	switch word {
 	case "//":

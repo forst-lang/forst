@@ -1,3 +1,4 @@
+// Package lexer converts Forst code into tokens.
 package lexer
 
 import (
@@ -8,12 +9,12 @@ import (
 	"forst/internal/ast"
 )
 
-// Lexer context for tracking file information
+// Context for tracking file information
 type Context struct {
 	FilePath string
 }
 
-// Lexer: Converts Forst code into tokens
+// Lexer converts Forst code into tokens
 func Lexer(input []byte, ctx Context) []ast.Token {
 	tokens := []ast.Token{}
 	reader := bufio.NewReader(bytes.NewReader(input))

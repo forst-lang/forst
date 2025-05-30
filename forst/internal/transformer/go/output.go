@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	goast "go/ast"
@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// TransformerOutput represents the output of the Transformer
 type TransformerOutput struct {
 	packageName  string
 	imports      []*goast.GenDecl
@@ -14,14 +15,17 @@ type TransformerOutput struct {
 	types        []*goast.GenDecl
 }
 
+// SetPackageName sets the package name for the TransformerOutput
 func (t *TransformerOutput) SetPackageName(name string) {
 	t.packageName = name
 }
 
+// AddImport adds an import to the TransformerOutput
 func (t *TransformerOutput) AddImport(imp *goast.GenDecl) {
 	t.imports = append(t.imports, imp)
 }
 
+// EnsureImport ensures that an import is added to the TransformerOutput
 func (t *TransformerOutput) EnsureImport(name string) {
 	for _, imp := range t.imports {
 		if imp.Specs[0].(*goast.ImportSpec).Name.String() == name {
@@ -45,18 +49,22 @@ func (t *TransformerOutput) EnsureImport(name string) {
 	})
 }
 
+// AddImportGroup adds an import group to the TransformerOutput
 func (t *TransformerOutput) AddImportGroup(importGroup *goast.GenDecl) {
 	t.importGroups = append(t.importGroups, importGroup)
 }
 
+// AddFunction adds a function declaration to the TransformerOutput
 func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 	t.functions = append(t.functions, function)
 }
 
+// AddType adds a type declaration to the TransformerOutput
 func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
 	t.types = append(t.types, typeDecl)
 }
 
+// PackageName returns the package name for the TransformerOutput
 func (t *TransformerOutput) PackageName() string {
 	if t.packageName == "" {
 		return "main"
@@ -64,6 +72,7 @@ func (t *TransformerOutput) PackageName() string {
 	return t.packageName
 }
 
+// GenerateFile generates a Go file from the TransformerOutput
 func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 	var decls []goast.Decl
 	var imports []*goast.ImportSpec

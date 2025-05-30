@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"forst/internal/ast"
@@ -7,18 +7,27 @@ import (
 )
 
 const (
-	MIN_CONSTRAINT        = "Min"
-	MAX_CONSTRAINT        = "Max"
-	HAS_PREFIX_CONSTRAINT = "HasPrefix"
-	TRUE_CONSTRAINT       = "True"
-	FALSE_CONSTRAINT      = "False"
-	NIL_CONSTRAINT        = "Nil"
+	// MinConstraint is the built-in Min constraint in Forst
+	MinConstraint = "Min"
+	// MaxConstraint is the built-in Max constraint in Forst
+	MaxConstraint = "Max"
+	// HasPrefixConstraint is the built-in HasPrefix constraint in Forst
+	HasPrefixConstraint = "HasPrefix"
+	// TrueConstraint is the built-in True constraint in Forst
+	TrueConstraint = "True"
+	// FalseConstraint is the built-in False constraint in Forst
+	FalseConstraint = "False"
+	// NilConstraint is the built-in Nil constraint in Forst
+	NilConstraint = "Nil"
 )
 
 const (
-	BOOL_CONSTANT_TRUE  = "true"
-	BOOL_CONSTANT_FALSE = "false"
-	NIL_CONSTANT        = "nil"
+	// BoolConstantTrue is the true constant in Go
+	BoolConstantTrue = "true"
+	// BoolConstantFalse is the false constant in Go
+	BoolConstantFalse = "false"
+	// NilConstant is the nil constant in Go
+	NilConstant = "nil"
 )
 
 func negateCondition(condition goast.Expr) goast.Expr {
@@ -28,9 +37,10 @@ func negateCondition(condition goast.Expr) goast.Expr {
 	}
 }
 
-func any(conditions []goast.Expr) goast.Expr {
+// disjoin joins a list of conditions with OR ("any condition must match")
+func disjoin(conditions []goast.Expr) goast.Expr {
 	if len(conditions) == 0 {
-		return &goast.Ident{Name: BOOL_CONSTANT_FALSE}
+		return &goast.Ident{Name: BoolConstantFalse}
 	}
 	combined := conditions[0]
 	for i := 1; i < len(conditions); i++ {
@@ -139,7 +149,7 @@ func (t *Transformer) transformStringAssertion(ensure ast.EnsureNode) goast.Expr
 
 		result = append(result, expr)
 	}
-	return any(result)
+	return disjoin(result)
 }
 
 func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
@@ -192,7 +202,7 @@ func (t *Transformer) transformIntAssertion(ensure ast.EnsureNode) goast.Expr {
 		}
 		result = append(result, expr)
 	}
-	return any(result)
+	return disjoin(result)
 }
 
 func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr {
@@ -225,7 +235,7 @@ func (t *Transformer) transformFloatAssertion(ensure ast.EnsureNode) goast.Expr 
 		}
 		result = append(result, expr)
 	}
-	return any(result)
+	return disjoin(result)
 }
 
 func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
@@ -237,20 +247,20 @@ func (t *Transformer) transformBoolAssertion(ensure ast.EnsureNode) goast.Expr {
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.EQL,
-				Y:  goast.NewIdent(BOOL_CONSTANT_TRUE),
+				Y:  goast.NewIdent(BoolConstantTrue),
 			}
 		case "False":
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.EQL,
-				Y:  goast.NewIdent(BOOL_CONSTANT_FALSE),
+				Y:  goast.NewIdent(BoolConstantFalse),
 			}
 		default:
 			panic("Unknown Bool constraint: " + constraint.Name)
 		}
 		result = append(result, expr)
 	}
-	return any(result)
+	return disjoin(result)
 }
 
 func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr {
@@ -258,18 +268,18 @@ func (t *Transformer) transformErrorAssertion(ensure ast.EnsureNode) goast.Expr 
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
 		switch constraint.Name {
-		case NIL_CONSTRAINT:
+		case NilConstraint:
 			expr = &goast.BinaryExpr{
 				X:  transformExpression(ensure.Variable),
 				Op: token.NEQ,
-				Y:  goast.NewIdent(NIL_CONSTANT),
+				Y:  goast.NewIdent(NilConstant),
 			}
 		default:
 			panic("Unknown Error constraint: " + constraint.Name)
 		}
 		result = append(result, expr)
 	}
-	return any(result)
+	return disjoin(result)
 }
 
 func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
@@ -277,7 +287,7 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
 	}
 
-	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
+	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure)
 	if err != nil {
 		panic(err)
 	}

@@ -1,3 +1,4 @@
+// Package typechecker performs type inference and type checking on the AST
 package typechecker
 
 import (
@@ -6,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TypeChecker performs type inference and type checking on the AST
 type TypeChecker struct {
 	// Maps structural hashes of AST nodes to their inferred or declared types
 	Types map[NodeHash][]ast.TypeNode
@@ -29,6 +31,7 @@ type TypeChecker struct {
 	imports []ast.ImportNode
 }
 
+// New creates a new TypeChecker
 func New() *TypeChecker {
 	return &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
@@ -45,7 +48,7 @@ func New() *TypeChecker {
 	}
 }
 
-// Performs type inference in two passes:
+// CheckTypes performs type inference in two passes:
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
@@ -133,7 +136,7 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 	tc.Functions[fn.Ident.ID] = sig
 }
 
-// Prints details about symbols defined in the current scope
+// DebugPrintCurrentScope prints details about symbols defined in the current scope
 func (tc *TypeChecker) DebugPrintCurrentScope() {
 	currentScope := tc.scopeStack.CurrentScope()
 	if currentScope == nil {
@@ -151,6 +154,7 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	}
 }
 
+// GlobalScope returns the root scope
 func (tc *TypeChecker) GlobalScope() *Scope {
 	return tc.scopeStack.GlobalScope()
 }
@@ -186,6 +190,12 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 	}
 }
 
+// FindScope finds the scope for a given node
 func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
 	return tc.scopeStack.FindScope(node)
+}
+
+// CurrentScope returns the current scope
+func (tc *TypeChecker) CurrentScope() *Scope {
+	return tc.scopeStack.CurrentScope()
 }

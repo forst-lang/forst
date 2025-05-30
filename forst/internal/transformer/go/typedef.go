@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"fmt"
@@ -54,7 +54,7 @@ func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*
 	if assertion.BaseType != nil {
 		return transformTypeIdent(*assertion.BaseType), nil
 	}
-	typeNode, err := t.TypeChecker.LookupAssertionType(assertion, t.currentScope)
+	typeNode, err := t.TypeChecker.LookupAssertionType(assertion)
 	if err != nil {
 		err = fmt.Errorf("failed to lookup assertion type during getAssertionBaseTypeIdent: %w", err)
 		log.WithError(err).Error("transforming assertion base type ident failed")
@@ -195,7 +195,7 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 	}
 
 	if typeNode.Ident == ast.TypeAssertion {
-		assertionType, err := t.TypeChecker.LookupAssertionType(typeNode.Assertion, t.currentScope)
+		assertionType, err := t.TypeChecker.LookupAssertionType(typeNode.Assertion)
 		if err != nil {
 			// fallback: use ident directly
 			return string(typeNode.Ident), nil

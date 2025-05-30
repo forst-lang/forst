@@ -14,6 +14,7 @@ type FunctionSignature struct {
 	ReturnTypes []ast.TypeNode
 }
 
+// ParameterSignature represents a function parameter's type information
 type ParameterSignature struct {
 	Ident ast.Ident
 	Type  ast.TypeNode

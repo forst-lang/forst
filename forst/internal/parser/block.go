@@ -4,6 +4,7 @@ import (
 	"forst/internal/ast"
 )
 
+// BlockContext represents the context for a block of statements
 type BlockContext struct {
 	AllowReturn bool
 }

@@ -1,4 +1,5 @@
-package transformer_go
+// Package transformergo converts a Forst AST to a Go AST
+package transformergo
 
 import (
 	"fmt"
@@ -7,6 +8,7 @@ import (
 	goast "go/ast"
 )
 
+// Transformer converts a Forst AST to a Go AST
 type Transformer struct {
 	TypeChecker  *typechecker.TypeChecker
 	currentScope *typechecker.Scope
@@ -14,6 +16,7 @@ type Transformer struct {
 	Output *TransformerOutput
 }
 
+// New creates a new Transformer
 func New(tc *typechecker.TypeChecker) *Transformer {
 	return &Transformer{
 		TypeChecker:  tc,

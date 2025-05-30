@@ -5,17 +5,19 @@ import (
 	"forst/internal/ast"
 )
 
-const MAX_EXPRESSION_DEPTH = 20
+// MaxExpressionDepth is the maximum depth of nested expressions
+const MaxExpressionDepth = 20
 
+// parseExpression parses an expression at the current level
 func (p *Parser) parseExpression() ast.ExpressionNode {
 	return p.parseExpressionLevel(0)
 }
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
-	if level > MAX_EXPRESSION_DEPTH {
+	if level > MaxExpressionDepth {
 		panic(parseErrorWithValue(
 			p.current(),
-			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MAX_EXPRESSION_DEPTH),
+			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth),
 		))
 	}
 

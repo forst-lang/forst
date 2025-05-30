@@ -6,7 +6,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 	ident := p.expect(ast.TokenIdentifier)
 
 	// Check for optional type annotation
-	var explicitType *ast.TypeNode = nil
+	var explicitType *ast.TypeNode
 	if p.current().Type == ast.TokenColon {
 		p.advance() // consume ':'
 		typeNode := p.parseType()

@@ -15,12 +15,14 @@ type StructuralHasher struct {
 	hashes map[uint64]ast.TypeNode
 }
 
+// NewStructuralHasher creates a new StructuralHasher
 func NewStructuralHasher() *StructuralHasher {
 	return &StructuralHasher{
 		hashes: make(map[uint64]ast.TypeNode),
 	}
 }
 
+// NodeHash is a unique identifier for an AST node
 type NodeHash uint64
 
 // NodeKind maps AST node types to unique uint8 identifiers for hashing
@@ -330,18 +332,18 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	return NodeHash(hasher.Sum64())
 }
 
-// Generates a structural hash for a token type
+// HashTokenType generates a structural hash for a token type
 func (h *StructuralHasher) HashTokenType(tokenType ast.TokenIdent) NodeHash {
 	hasher := fnv.New64a()
 	hasher.Write([]byte(string(tokenType)))
 	return NodeHash(hasher.Sum64())
 }
 
-// This is the initial hash value from fnv.New64a() when no data is written
+// NilHash is the initial hash value from fnv.New64a() when no data is written
 // It represents a nil/empty hash, so we give it a special type name
-const NIL_HASH = uint64(14695981039346656037)
+const NilHash = uint64(14695981039346656037)
 
-// Converts a NodeHash to a base58 string
+// toBase58 converts a NodeHash to a base58 string
 func (h NodeHash) toBase58() string {
 	const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 	num := uint64(h)
@@ -359,17 +361,17 @@ func (h NodeHash) toBase58() string {
 	return b58
 }
 
-// Generates a string name for a type based on its hash value
+// ToTypeIdent generates a string name for a type based on its hash value
 func (h NodeHash) ToTypeIdent() ast.TypeIdent {
-	if uint64(h) == NIL_HASH {
+	if uint64(h) == NilHash {
 		return ast.TypeIdent("T_Invalid")
 	}
 	return ast.TypeIdent("T_" + h.toBase58())
 }
 
-// Generates a string name for a guard function based on its hash value
+// ToGuardIdent generates a string name for a guard function based on its hash value
 func (h NodeHash) ToGuardIdent() ast.TypeIdent {
-	if uint64(h) == NIL_HASH {
+	if uint64(h) == NilHash {
 		return ast.TypeIdent("G_Invalid")
 	}
 	return ast.TypeIdent("G_" + h.toBase58())

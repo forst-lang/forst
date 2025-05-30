@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"fmt"

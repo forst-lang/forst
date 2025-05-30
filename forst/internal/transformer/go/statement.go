@@ -1,4 +1,4 @@
-package transformer_go
+package transformergo
 
 import (
 	"forst/internal/ast"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-// Returns an expression that represents an error when evaluated
+// transformErrorExpression returns an expression that represents an error when evaluated
 func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 	if stmt.Error != nil {
 		if errVar, ok := (*stmt.Error).(ast.EnsureErrorVar); ok {
