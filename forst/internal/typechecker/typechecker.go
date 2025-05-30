@@ -85,6 +85,11 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 		tc.registerFunction(n)
+	case *ast.TypeGuardNode:
+		// Register type guard in Defs
+		if _, exists := tc.Defs[ast.TypeIdent(n.Ident)]; !exists {
+			tc.Defs[ast.TypeIdent(n.Ident)] = n
+		}
 	}
 
 	return nil

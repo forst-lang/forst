@@ -38,8 +38,8 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		expr = p.parseExpressionLevel(level + 1)
 		// Check for function call
 		p.expect(ast.TokenRParen) // Consume the right parenthesis
-	} else if p.current().Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenLParen || p.peek().Type == ast.TokenDot) {
-		// Parse the function identifier, allowing for dot chaining
+	} else if p.current().Type == ast.TokenIdentifier {
+		// Parse the identifier, allowing for dot chaining
 		ident := p.expect(ast.TokenIdentifier)
 		var curIdent ast.Identifier = ast.Identifier(ident.Value)
 
@@ -67,12 +67,11 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 				Function:  ast.Ident{Id: curIdent},
 				Arguments: args,
 			}
-			return expr
-		}
-
-		// Otherwise treat as a field access
-		expr = ast.VariableNode{
-			Ident: ast.Ident{Id: curIdent},
+		} else {
+			// Otherwise treat as a variable
+			expr = ast.VariableNode{
+				Ident: ast.Ident{Id: curIdent},
+			}
 		}
 	} else {
 		expr = p.parseValue() // parseValue should advance the token internally

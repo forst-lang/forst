@@ -123,6 +123,28 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			},
 		}
 	case ast.AssignmentNode:
+		// Check for explicit type annotation
+		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
+			// Only support single variable assignment for now
+			varName := s.LValues[0].Ident.String()
+			goType, err := t.transformType(*s.ExplicitTypes[0])
+			if err != nil {
+				return &goast.EmptyStmt{}
+			}
+			rhs := transformExpression(s.RValues[0])
+			return &goast.DeclStmt{
+				Decl: &goast.GenDecl{
+					Tok: token.VAR,
+					Specs: []goast.Spec{
+						&goast.ValueSpec{
+							Names:  []*goast.Ident{goast.NewIdent(varName)},
+							Type:   goType,
+							Values: []goast.Expr{rhs},
+						},
+					},
+				},
+			}
+		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
 			lhs[i] = transformExpression(lval)

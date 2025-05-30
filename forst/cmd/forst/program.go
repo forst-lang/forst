@@ -48,10 +48,10 @@ func (p *Program) reportPhase(phase string) {
 	}
 }
 
-func (p *Program) compileFile() error {
+func (p *Program) compileFile() (*string, error) {
 	source, err := p.readSourceFile()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p.reportPhase("Performing lexical analysis...")
@@ -71,7 +71,7 @@ func (p *Program) compileFile() error {
 	// Parsing
 	forstNodes, err := parser.NewParser(tokens, p.Args.filePath).ParseFile()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	memAfter = getMemStats()
@@ -88,7 +88,7 @@ func (p *Program) compileFile() error {
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		checker.DebugPrintCurrentScope()
-		return err
+		return nil, err
 	}
 
 	memAfter = getMemStats()
@@ -103,14 +103,14 @@ func (p *Program) compileFile() error {
 	transformer := transformer_go.New(checker)
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p.debugPrintGoAST(goAST)
 	// Generate Go code
 	goCode, err := generators.GenerateGoCode(goAST)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	memAfter = getMemStats()
@@ -118,13 +118,13 @@ func (p *Program) compileFile() error {
 
 	if p.Args.outputPath != "" {
 		if err := os.WriteFile(p.Args.outputPath, []byte(goCode), 0644); err != nil {
-			return fmt.Errorf("error writing output file: %v", err)
+			return nil, fmt.Errorf("error writing output file: %v", err)
 		}
-	} else {
+	} else if p.Args.trace {
 		fmt.Println(goCode)
 	}
 
-	return nil
+	return &goCode, nil
 }
 
 func (p *Program) watchFile() error {
@@ -147,12 +147,27 @@ func (p *Program) watchFile() error {
 	log.Infof("Watching %s for changes...", p.Args.filePath)
 
 	// Initial compilation
-	if err := p.compileFile(); err != nil {
+	if code, err := p.compileFile(); err != nil {
 		log.Error(err)
 		log.Warn("Not running program because of errors during compilation")
 	} else {
+		outputPath := p.Args.outputPath
+		if outputPath == "" {
+			// Create temp directory if needed
+			tempDir, err := os.MkdirTemp("", "forst-*")
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+			outputPath = fmt.Sprintf("%s/main.go", tempDir)
+			if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+		}
+
 		// Run the compiled program
-		if err := runGoProgram(p.Args.outputPath); err != nil {
+		if err := runGoProgram(outputPath); err != nil {
 			log.Error(err)
 		}
 	}
@@ -168,10 +183,25 @@ func (p *Program) watchFile() error {
 				}
 				debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
 					log.Info("File changed, recompiling...")
-					if err := p.compileFile(); err != nil {
+					code, err := p.compileFile()
+					if err != nil {
 						log.Error(err)
 						log.Warn("Not running program because of errors during compilation")
 					} else {
+						outputPath := p.Args.outputPath
+						if outputPath == "" {
+							// Create temp directory if needed
+							tempDir, err := os.MkdirTemp("", "forst-*")
+							if err != nil {
+								log.Error(err)
+								os.Exit(1)
+							}
+							outputPath = fmt.Sprintf("%s/main.go", tempDir)
+							if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
+								log.Error(err)
+								os.Exit(1)
+							}
+						}
 						// Run the compiled program
 						if err := runGoProgram(p.Args.outputPath); err != nil {
 							log.Error(err)

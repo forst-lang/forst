@@ -191,6 +191,9 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 
 		var result goast.Expr = baseTypeIdent
 		return &result, nil
+	case *ast.TypeDefAssertionExpr:
+		// Handle pointer by dereferencing and reusing value logic
+		return t.transformTypeDefExpr(*e)
 	case ast.TypeDefBinaryExpr:
 		// binaryExpr := expr.(ast.TypeDefBinaryExpr)
 		// if binaryExpr.IsConjunction() {

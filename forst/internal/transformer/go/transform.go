@@ -38,6 +38,12 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.Ident, err)
 			}
 			t.Output.AddType(decl)
+		case *ast.TypeGuardNode:
+			decl, err := t.transformTypeGuard(*def)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.Ident, err)
+			}
+			t.Output.AddFunction(decl)
 		}
 	}
 
@@ -88,4 +94,55 @@ func (t *Transformer) isMainFunction() bool {
 		return false
 	}
 	return currentFunction.HasMainFunctionName()
+}
+
+func (t *Transformer) transformTypeGuard(n ast.TypeGuardNode) (*goast.FuncDecl, error) {
+	// Create function parameters
+	params := &goast.FieldList{
+		List: []*goast.Field{},
+	}
+
+	for _, param := range n.Parameters {
+		var paramName string
+		var paramType ast.TypeNode
+
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			paramName = string(p.Ident.Id)
+			paramType = p.Type
+		case ast.DestructuredParamNode:
+			// Handle destructured params if needed
+			continue
+		}
+
+		ident, err := t.transformType(paramType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform type: %s", err)
+		}
+		params.List = append(params.List, &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(paramName)},
+			Type:  ident,
+		})
+	}
+
+	// Create function body statements
+	stmts := []goast.Stmt{}
+
+	for _, stmt := range n.Body {
+		goStmt := t.transformStatement(stmt)
+		stmts = append(stmts, goStmt)
+	}
+
+	// Create the function declaration
+	return &goast.FuncDecl{
+		Recv: nil,
+		Name: goast.NewIdent(string(n.Ident)),
+		Type: &goast.FuncType{
+			Params:  params,
+			Results: &goast.FieldList{List: []*goast.Field{{Type: goast.NewIdent("bool")}}},
+		},
+		Body: &goast.BlockStmt{
+			List: stmts,
+		},
+	}, nil
 }

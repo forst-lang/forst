@@ -22,27 +22,28 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 		body = append(body, returnStatement)
 	} else if token.Type == ast.TokenIdentifier {
 		next := p.peek()
-		// Look ahead to see if this is a function call or assignment
-		if next.Type == ast.TokenLParen || next.Type == ast.TokenDot {
-			// Function call
-			expr := p.parseExpression()
-			logParsedNode(expr)
-			body = append(body, expr)
-		} else if next.Type == ast.TokenComma {
-			// Multiple assignment
+		if next.Type == ast.TokenComma {
 			assignment := p.parseMultipleAssignment()
 			logParsedNode(assignment)
 			body = append(body, assignment)
 		} else if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
-			// Single assignment
+			assignment := p.parseAssignment()
+			logParsedNode(assignment)
+			body = append(body, assignment)
+		} else if next.Type == ast.TokenColon && (p.peek(2).Type == ast.TokenIdentifier || p.peek(2).Type == ast.TokenString || p.peek(2).Type == ast.TokenInt || p.peek(2).Type == ast.TokenFloat || p.peek(2).Type == ast.TokenBool || p.peek(2).Type == ast.TokenVoid) && (p.peek(3).Type == ast.TokenColonEquals || p.peek(3).Type == ast.TokenEquals) {
+			// identifier: Type := ...
 			assignment := p.parseAssignment()
 			logParsedNode(assignment)
 			body = append(body, assignment)
 		} else {
-			panic(parseErrorWithValue(token, "Expected function call or assignment after identifier"))
+			expr := p.parseExpression()
+			logParsedNode(expr)
+			body = append(body, expr)
 		}
 	} else {
-		panic(parseErrorWithValue(token, "Unexpected token in function body"))
+		expr := p.parseExpression()
+		logParsedNode(expr)
+		body = append(body, expr)
 	}
 
 	return body

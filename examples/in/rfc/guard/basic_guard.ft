@@ -1,5 +1,25 @@
+package main
+
+import "os"
+
 type Password = String
 
 is (password Password) Strong {
     return len(password) >= 12
 }
+
+func main() {
+	password: Password = "1234567890123"
+	ensure password is Strong() {
+		os.Exit(1)
+	}
+}
+
+// func main() {
+// 	password := "1234567890123"
+// 	if password is Strong() {
+// 		os.Exit(0)
+// 	} else {
+// 		os.Exit(1)
+// 	}
+// }

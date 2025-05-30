@@ -4,6 +4,15 @@ import "forst/internal/ast"
 
 func (p *Parser) parseAssignment() ast.AssignmentNode {
 	ident := p.expect(ast.TokenIdentifier)
+
+	// Check for optional type annotation
+	var explicitType *ast.TypeNode = nil
+	if p.current().Type == ast.TokenColon {
+		p.advance() // consume ':'
+		typeNode := p.parseType()
+		explicitType = &typeNode
+	}
+
 	// Expect assignment operator
 	assignToken := p.current()
 	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
@@ -18,7 +27,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 			{Ident: ast.Ident{Id: ast.Identifier(ident.Value)}},
 		},
 		RValues:       []ast.ExpressionNode{expr},
-		ExplicitTypes: []*ast.TypeNode{nil},
+		ExplicitTypes: []*ast.TypeNode{explicitType},
 		IsShort:       assignToken.Type == ast.TokenColonEquals,
 	}
 }

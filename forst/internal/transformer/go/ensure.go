@@ -284,9 +284,26 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 	return *ensureBaseType
 }
 
+func (t *Transformer) transformTypeGuardAssertion(ensure ast.EnsureNode) goast.Expr {
+	// Get the type guard function name
+	guardName := ensure.Assertion.Constraints[0].Name
+	// Call the type guard function with the variable
+	return &goast.CallExpr{
+		Fun: goast.NewIdent(guardName),
+		Args: []goast.Expr{
+			transformExpression(ensure.Variable),
+		},
+	}
+}
+
 // transformEnsure converts a Forst ensure to a Go expression
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
 	baseType := t.getEnsureBaseType(ensure)
+
+	// Check if this is a type guard assertion
+	if len(ensure.Assertion.Constraints) == 1 && ensure.Assertion.Constraints[0].Name != "" {
+		return t.transformTypeGuardAssertion(ensure)
+	}
 
 	switch baseType.Ident {
 	case ast.TypeString:

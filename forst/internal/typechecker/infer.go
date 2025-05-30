@@ -358,6 +358,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case ast.ReturnNode:
 		return nil, nil
+
+	case *ast.TypeGuardNode:
+		return nil, nil
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))

@@ -35,6 +35,7 @@ var NodeKind = map[string]uint8{
 	"BoolLiteral":      8,
 	"Function":         9,
 	"Ensure":           10,
+	"TYPE_GUARD":       11,
 }
 
 // HashNodes generates a structural hash for multiple AST nodes
@@ -276,6 +277,20 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		for _, node := range n.Body {
 			writeHash(hasher, h.HashNode(node))
 		}
+	case ast.TypeGuardNode:
+		writeHash(hasher, NodeKind["TYPE_GUARD"])
+		writeHash(hasher, []byte(n.Ident))
+		for _, param := range n.Parameters {
+			writeHash(hasher, h.HashNode(param))
+		}
+		writeHash(hasher, h.HashNodes(n.Body))
+	case *ast.TypeGuardNode:
+		writeHash(hasher, NodeKind["TYPE_GUARD"])
+		writeHash(hasher, []byte(n.Ident))
+		for _, param := range n.Parameters {
+			writeHash(hasher, h.HashNode(param))
+		}
+		writeHash(hasher, h.HashNodes(n.Body))
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}

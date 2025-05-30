@@ -35,13 +35,29 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		if err := program.compileFile(); err != nil {
+		code, err := program.compileFile()
+		if err != nil {
 			log.Error(err)
 			os.Exit(1)
 		}
 
+		outputPath := args.outputPath
+		if outputPath == "" {
+			// Create temp directory if needed
+			tempDir, err := os.MkdirTemp("", "forst-*")
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+			outputPath = fmt.Sprintf("%s/main.go", tempDir)
+			if err := os.WriteFile(outputPath, []byte(*code), 0644); err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+		}
+
 		if args.command == "run" {
-			if err := runGoProgram(args.outputPath); err != nil {
+			if err := runGoProgram(outputPath); err != nil {
 				log.Error(err)
 				os.Exit(1)
 			}

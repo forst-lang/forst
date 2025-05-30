@@ -59,6 +59,10 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			function := p.parseFunctionDefinition()
 			logParsedNodeWithMessage(function, "Parsed function")
 			nodes = append(nodes, function)
+		case ast.TokenIs:
+			typeGuard := p.parseTypeGuard()
+			logParsedNodeWithMessage(typeGuard, "Parsed type guard")
+			nodes = append(nodes, typeGuard)
 		default:
 			return nil, &ParseError{
 				Token:   token,

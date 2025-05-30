@@ -8,6 +8,9 @@ import (
 
 // transformType converts a Forst type node to a Go type declaration
 func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
+	if n.Ident == "" {
+		return nil, fmt.Errorf("TypeNode is missing an identifier: %+v", n)
+	}
 	switch n.Ident {
 	case ast.TypeInt:
 		return goast.NewIdent("int"), nil
@@ -27,8 +30,10 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 			return nil, fmt.Errorf("failed to lookup assertion type: %s", err)
 		}
 		return goast.NewIdent(string(ident.Ident)), nil
+	default:
+		// For user-defined types (aliases, shapes, etc.), just use the type name
+		return goast.NewIdent(string(n.Ident)), nil
 	}
-	return nil, fmt.Errorf("unknown type: %s", n.Ident)
 }
 
 func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, error) {

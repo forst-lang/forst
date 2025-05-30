@@ -36,4 +36,5 @@ const (
 	NodeKindEnsureBlock       NodeKind = "EnsureBlock"
 	NodeKindAssignment        NodeKind = "Assignment"
 	NodeKindShape             NodeKind = "Shape"
+	NodeKindTypeGuard         NodeKind = "TYPE_GUARD"
 )
