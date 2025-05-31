@@ -58,21 +58,21 @@ func NewAssertionTransformer(t *Transformer) *AssertionTransformer {
 	return &AssertionTransformer{transformer: t}
 }
 
-// transformAssertion transforms an assertion based on its type
-func (at *AssertionTransformer) transformAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformEnsure transforms an ensure node based on its type
+func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	baseType := at.transformer.getEnsureBaseType(ensure)
 
 	switch baseType.Ident {
 	case ast.TypeString:
-		return at.transformStringAssertion(ensure)
+		return at.transformStringEnsure(ensure)
 	case ast.TypeInt:
-		return at.transformIntAssertion(ensure)
+		return at.transformIntEnsure(ensure)
 	case ast.TypeFloat:
-		return at.transformFloatAssertion(ensure)
+		return at.transformFloatEnsure(ensure)
 	case ast.TypeBool:
 		return at.transformBoolAssertion(ensure)
 	case ast.TypeError:
-		return at.transformErrorAssertion(ensure)
+		return at.transformErrorEnsure(ensure)
 	default:
 		return nil, fmt.Errorf("unsupported assertion type: %v", baseType.Ident)
 	}
@@ -86,8 +86,8 @@ func (at *AssertionTransformer) validateConstraintArgs(constraint ast.Constraint
 	return nil
 }
 
-// transformStringAssertion transforms a string assertion
-func (at *AssertionTransformer) transformStringAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformStringEnsure transforms a string ensure
+func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	result := []goast.Expr{}
 
 	for _, constraint := range ensure.Assertion.Constraints {
@@ -169,8 +169,8 @@ func (at *AssertionTransformer) transformStringAssertion(ensure ast.EnsureNode) 
 	return disjoin(result), nil
 }
 
-// transformIntAssertion transforms an integer assertion
-func (at *AssertionTransformer) transformIntAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformIntEnsure transforms an integer assertion
+func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -253,8 +253,8 @@ func (at *AssertionTransformer) transformIntAssertion(ensure ast.EnsureNode) (go
 	return disjoin(result), nil
 }
 
-// transformFloatAssertion transforms a float assertion
-func (at *AssertionTransformer) transformFloatAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformFloatEnsure transforms a float assertion
+func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -329,8 +329,8 @@ func (at *AssertionTransformer) transformBoolAssertion(ensure ast.EnsureNode) (g
 	return disjoin(result), nil
 }
 
-// transformErrorAssertion transforms an error assertion
-func (at *AssertionTransformer) transformErrorAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformErrorEnsure transforms an error assertion
+func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -376,22 +376,29 @@ func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
 	// If any constraint name matches a type guard node, treat as a type guard assertion
+	// Look up the variable type first
+	_, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope)
+	if err != nil {
+		panic(fmt.Errorf("failed to lookup ensure variable type: %w", err))
+	}
+
 	for _, constraint := range ensure.Assertion.Constraints {
 		for _, def := range t.TypeChecker.Defs {
 			if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
-				return t.transformTypeGuardAssertion(ensure)
+				// TODO: Also validate that the variable is a subtype of the type guard's subject type
+				return t.transformTypeGuardEnsure(ensure)
 			}
 		}
 	}
 
-	expr, err := t.assertionTransformer.transformAssertion(ensure)
+	expr, err := t.assertionTransformer.transformEnsure(ensure)
 	if err != nil {
 		panic(err)
 	}
 	return expr
 }
 
-func (t *Transformer) transformTypeGuardAssertion(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr {
 	// Look up the real type guard node by name
 	guardName := ensure.Assertion.Constraints[0].Name
 	typeGuardNode := t.lookupTypeGuardNode(guardName)
