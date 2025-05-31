@@ -70,7 +70,7 @@ func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Ex
 	case ast.TypeFloat:
 		return at.transformFloatEnsure(ensure)
 	case ast.TypeBool:
-		return at.transformBoolAssertion(ensure)
+		return at.transformBoolEnsure(ensure)
 	case ast.TypeError:
 		return at.transformErrorEnsure(ensure)
 	default:
@@ -320,8 +320,8 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 	return disjoin(result), nil
 }
 
-// transformBoolAssertion transforms a boolean assertion
-func (at *AssertionTransformer) transformBoolAssertion(ensure ast.EnsureNode) (goast.Expr, error) {
+// transformBoolEnsure transforms a boolean assertion
+func (at *AssertionTransformer) transformBoolEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	result := []goast.Expr{}
 	for _, constraint := range ensure.Assertion.Constraints {
 		var expr goast.Expr
@@ -357,7 +357,11 @@ func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goa
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			expr = transformExpression(ensure.Variable)
+			expr = &goast.BinaryExpr{
+				X:  transformExpression(ensure.Variable),
+				Op: token.NEQ,
+				Y:  goast.NewIdent(NilConstant),
+			}
 		default:
 			return nil, fmt.Errorf("unknown Error constraint: %s", constraint.Name)
 		}

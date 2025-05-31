@@ -26,10 +26,3 @@ func expectStringLiteral(arg ast.ValueNode) (ast.ValueNode, error) {
 	}
 	return arg, nil
 }
-
-func expectBoolLiteral(arg ast.ValueNode) (ast.ValueNode, error) {
-	if arg.Kind() != ast.NodeKindBoolLiteral {
-		return nil, fmt.Errorf("expected value to be a bool literal, got %s", arg.Kind())
-	}
-	return arg, nil
-}

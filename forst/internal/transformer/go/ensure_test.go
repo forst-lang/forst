@@ -3,6 +3,8 @@ package transformergo
 import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
+	goast "go/ast"
+	"go/token"
 	"strings"
 	"testing"
 )
@@ -22,6 +24,7 @@ func TestAssertionTransformer(t *testing.T) {
 		baseType    ast.TypeNode
 		wantErr     bool
 		errContains string
+		validate    func(t *testing.T, expr goast.Expr)
 	}{
 		{
 			name: "string min length",
@@ -39,6 +42,24 @@ func TestAssertionTransformer(t *testing.T) {
 				},
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeString},
+			validate: func(t *testing.T, expr goast.Expr) {
+				binExpr, ok := expr.(*goast.BinaryExpr)
+				if !ok {
+					t.Errorf("expected BinaryExpr, got %T", expr)
+					return
+				}
+				if binExpr.Op != token.LSS {
+					t.Errorf("expected LSS operator, got %v", binExpr.Op)
+				}
+				callExpr, ok := binExpr.X.(*goast.CallExpr)
+				if !ok {
+					t.Errorf("expected CallExpr for len(), got %T", binExpr.X)
+					return
+				}
+				if len(callExpr.Args) != 1 {
+					t.Errorf("expected 1 argument to len(), got %d", len(callExpr.Args))
+				}
+			},
 		},
 		{
 			name: "int less than",
@@ -56,6 +77,16 @@ func TestAssertionTransformer(t *testing.T) {
 				},
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeInt},
+			validate: func(t *testing.T, expr goast.Expr) {
+				binExpr, ok := expr.(*goast.BinaryExpr)
+				if !ok {
+					t.Errorf("expected BinaryExpr, got %T", expr)
+					return
+				}
+				if binExpr.Op != token.GEQ {
+					t.Errorf("expected GEQ operator, got %v", binExpr.Op)
+				}
+			},
 		},
 		{
 			name: "float greater than",
@@ -73,6 +104,16 @@ func TestAssertionTransformer(t *testing.T) {
 				},
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeFloat},
+			validate: func(t *testing.T, expr goast.Expr) {
+				binExpr, ok := expr.(*goast.BinaryExpr)
+				if !ok {
+					t.Errorf("expected BinaryExpr, got %T", expr)
+					return
+				}
+				if binExpr.Op != token.LEQ {
+					t.Errorf("expected LEQ operator, got %v", binExpr.Op)
+				}
+			},
 		},
 		{
 			name: "bool true",
@@ -87,6 +128,48 @@ func TestAssertionTransformer(t *testing.T) {
 				},
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeBool},
+			validate: func(t *testing.T, expr goast.Expr) {
+				unaryExpr, ok := expr.(*goast.UnaryExpr)
+				if !ok {
+					t.Errorf("expected UnaryExpr, got %T", expr)
+					return
+				}
+				if unaryExpr.Op != token.NOT {
+					t.Errorf("expected NOT operator, got %v", unaryExpr.Op)
+				}
+				ident, ok := unaryExpr.X.(*goast.Ident)
+				if !ok {
+					t.Errorf("expected Ident for variable, got %T", unaryExpr.X)
+					return
+				}
+				if ident.Name != "isValid" {
+					t.Errorf("expected variable name 'isValid', got %s", ident.Name)
+				}
+			},
+		},
+		{
+			name: "bool false",
+			ensure: ast.EnsureNode{
+				Variable: ast.VariableNode{Ident: ast.Ident{ID: "isInvalid"}},
+				Assertion: ast.AssertionNode{
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: FalseConstraint,
+						},
+					},
+				},
+			},
+			baseType: ast.TypeNode{Ident: ast.TypeBool},
+			validate: func(t *testing.T, expr goast.Expr) {
+				ident, ok := expr.(*goast.Ident)
+				if !ok {
+					t.Errorf("expected Ident, got %T", expr)
+					return
+				}
+				if ident.Name != "isInvalid" {
+					t.Errorf("expected variable name 'isInvalid', got %s", ident.Name)
+				}
+			},
 		},
 		{
 			name: "error nil",
@@ -101,6 +184,24 @@ func TestAssertionTransformer(t *testing.T) {
 				},
 			},
 			baseType: ast.TypeNode{Ident: ast.TypeError},
+			validate: func(t *testing.T, expr goast.Expr) {
+				binExpr, ok := expr.(*goast.BinaryExpr)
+				if !ok {
+					t.Errorf("expected BinaryExpr, got %T", expr)
+					return
+				}
+				if binExpr.Op != token.NEQ {
+					t.Errorf("expected NEQ operator, got %v", binExpr.Op)
+				}
+				ident, ok := binExpr.Y.(*goast.Ident)
+				if !ok {
+					t.Errorf("expected Ident for nil, got %T", binExpr.Y)
+					return
+				}
+				if ident.Name != NilConstant {
+					t.Errorf("expected %s, got %s", NilConstant, ident.Name)
+				}
+			},
 		},
 		{
 			name: "invalid constraint",
@@ -178,6 +279,11 @@ func TestAssertionTransformer(t *testing.T) {
 			}
 			if expr == nil {
 				t.Error("expected non-nil expression")
+				return
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, expr)
 			}
 		})
 	}
