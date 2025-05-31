@@ -8,6 +8,30 @@ import (
 	"strconv"
 )
 
+// negateCondition negates a condition
+func negateCondition(condition goast.Expr) goast.Expr {
+	return &goast.UnaryExpr{
+		Op: token.NOT,
+		X:  condition,
+	}
+}
+
+// disjoin joins a list of conditions with OR ("any condition must match")
+func disjoin(conditions []goast.Expr) goast.Expr {
+	if len(conditions) == 0 {
+		return &goast.Ident{Name: BoolConstantFalse}
+	}
+	combined := conditions[0]
+	for i := 1; i < len(conditions); i++ {
+		combined = &goast.BinaryExpr{
+			X:  combined,
+			Op: token.LOR,
+			Y:  conditions[i],
+		}
+	}
+	return combined
+}
+
 func transformOperator(op ast.TokenIdent) token.Token {
 	switch op {
 	case ast.TokenPlus:
