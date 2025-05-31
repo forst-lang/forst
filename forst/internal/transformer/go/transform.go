@@ -10,19 +10,21 @@ import (
 
 // Transformer converts a Forst AST to a Go AST
 type Transformer struct {
-	TypeChecker  *typechecker.TypeChecker
-	currentScope *typechecker.Scope
-
-	Output *TransformerOutput
+	TypeChecker          *typechecker.TypeChecker
+	currentScope         *typechecker.Scope
+	Output               *TransformerOutput
+	assertionTransformer *AssertionTransformer
 }
 
 // New creates a new Transformer
 func New(tc *typechecker.TypeChecker) *Transformer {
-	return &Transformer{
+	t := &Transformer{
 		TypeChecker:  tc,
 		currentScope: tc.GlobalScope(),
 		Output:       &TransformerOutput{},
 	}
+	t.assertionTransformer = NewAssertionTransformer(t)
+	return t
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST
