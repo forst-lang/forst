@@ -294,6 +294,23 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				Op: token.GTR,
 				Y:  transformExpression(arg),
 			}
+		case GreaterThanConstraint:
+			if err := at.validateConstraintArgs(constraint, 1); err != nil {
+				return nil, err
+			}
+			arg, err := at.expectValue(&constraint.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			arg, err = expectNumberLiteral(arg)
+			if err != nil {
+				return nil, err
+			}
+			expr = &goast.BinaryExpr{
+				X:  transformExpression(ensure.Variable),
+				Op: token.LEQ,
+				Y:  transformExpression(arg),
+			}
 		default:
 			return nil, fmt.Errorf("unknown Float constraint: %s", constraint.Name)
 		}
