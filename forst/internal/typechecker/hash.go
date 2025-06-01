@@ -6,6 +6,7 @@ import (
 	"forst/internal/ast"
 	"hash/fnv"
 	"io"
+	"reflect"
 	"sort"
 )
 
@@ -63,6 +64,11 @@ func writeHash(w io.Writer, data interface{}) {
 // HashNode generates a structural hash for an AST node
 func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 	hasher := fnv.New64a()
+
+	// Handle nil and typed nils
+	if node == nil || (isNilPointer(node)) {
+		return NodeHash(NilHash)
+	}
 
 	switch n := node.(type) {
 	case ast.TypeDefAssertionExpr:
@@ -372,6 +378,28 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		}
 	case *ast.MapLiteralNode:
 		return h.HashNode(*n)
+	case *ast.VariableNode:
+		return h.HashNode(*n)
+	case *ast.BinaryExpressionNode:
+		return h.HashNode(*n)
+	case *ast.UnaryExpressionNode:
+		return h.HashNode(*n)
+	case *ast.IntLiteralNode:
+		return h.HashNode(*n)
+	case *ast.FloatLiteralNode:
+		return h.HashNode(*n)
+	case *ast.StringLiteralNode:
+		return h.HashNode(*n)
+	case *ast.BoolLiteralNode:
+		return h.HashNode(*n)
+	case *ast.FunctionNode:
+		return h.HashNode(*n)
+	case *ast.FunctionCallNode:
+		return h.HashNode(*n)
+	case *ast.EnsureNode:
+		return h.HashNode(*n)
+	case *ast.ReferenceNode:
+		return h.HashNode(*n)
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}
@@ -422,4 +450,15 @@ func (h NodeHash) ToGuardIdent() ast.TypeIdent {
 		return ast.TypeIdent("G_Invalid")
 	}
 	return ast.TypeIdent("G_" + h.toBase58())
+}
+
+// Helper to check for typed nil pointers
+func isNilPointer(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	// Use reflection to check for nil pointer
+	// (avoiding import cycle by not using ast.Node directly)
+	v := reflect.ValueOf(i)
+	return v.Kind() == reflect.Ptr && v.IsNil()
 }
