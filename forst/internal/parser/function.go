@@ -14,7 +14,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 			Assertion: &assertion,
 		}
 	}
-	return p.parseType()
+	return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 }
 
 func (p *Parser) parseDestructuredParameter() ast.ParamNode {
@@ -105,7 +105,7 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		returnType = append(returnType, p.parseType())
+		returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
 	}
 	return returnType
 }

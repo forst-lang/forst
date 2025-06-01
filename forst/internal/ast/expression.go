@@ -32,11 +32,6 @@ type FunctionCallNode struct {
 	Arguments []ExpressionNode
 }
 
-// Ensures LiteralNode implements ExpressionNode
-func (i IntLiteralNode) isExpression()       {}
-func (f FloatLiteralNode) isExpression()     {}
-func (s StringLiteralNode) isExpression()    {}
-func (b BoolLiteralNode) isExpression()      {}
 func (u UnaryExpressionNode) isExpression()  {}
 func (b BinaryExpressionNode) isExpression() {}
 func (f FunctionCallNode) isExpression()     {}
@@ -69,5 +64,5 @@ func (f FunctionCallNode) String() string {
 	for i, arg := range f.Arguments {
 		args[i] = arg.String()
 	}
-	return fmt.Sprintf("%s(%s)", f.Function, strings.Join(args, ", "))
+	return fmt.Sprintf("{%s}(%s)", f.Function.ID, strings.Join(args, ", "))
 }

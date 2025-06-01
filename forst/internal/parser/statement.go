@@ -10,6 +10,10 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 	token := p.current()
 
 	switch token.Type {
+	case ast.TokenVar:
+		varStatement := p.parseVarStatement()
+		logParsedNode(varStatement)
+		body = append(body, varStatement)
 	case ast.TokenEnsure:
 		ensureStatement := p.parseEnsureStatement()
 		logParsedNode(ensureStatement)
@@ -41,6 +45,18 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 			logParsedNode(expr)
 			body = append(body, expr)
 		}
+	case ast.TokenIf:
+		ifStatement := p.parseIfStatement()
+		logParsedNode(ifStatement)
+		body = append(body, ifStatement)
+	// case ast.TokenFor:
+	// 	forStatement := p.parseForStatement()
+	// 	logParsedNode(forStatement)
+	// 	body = append(body, forStatement)
+	// case ast.TokenSwitch:
+	// 	switchStatement := p.parseSwitchStatement()
+	// 	logParsedNode(switchStatement)
+	// 	body = append(body, switchStatement)
 	default:
 		expr := p.parseExpression()
 		logParsedNode(expr)

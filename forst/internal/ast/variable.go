@@ -12,6 +12,9 @@ type VariableNode struct {
 }
 
 func (v VariableNode) String() string {
+	if v.ExplicitType.Ident != "" {
+		return fmt.Sprintf("Variable(%s: %s)", v.Ident.ID, v.ExplicitType.Ident)
+	}
 	return fmt.Sprintf("Variable(%s)", v.Ident.ID)
 }
 

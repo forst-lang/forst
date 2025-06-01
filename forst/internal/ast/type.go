@@ -10,8 +10,9 @@ type TypeIdent string
 // TypeNode represents a type in the Forst language
 type TypeNode struct {
 	Node
-	Ident     TypeIdent
-	Assertion *AssertionNode
+	Ident      TypeIdent
+	Assertion  *AssertionNode
+	TypeParams []TypeNode // Generic type parameters
 }
 
 const (
@@ -29,6 +30,10 @@ const (
 	TypeError TypeIdent = "TYPE_ERROR"
 	// TypeObject is the built-in object type
 	TypeObject TypeIdent = "TYPE_OBJECT"
+	// TypeArray is the built-in array type
+	TypeArray TypeIdent = "TYPE_ARRAY"
+	// TypeMap is the built-in map type
+	TypeMap TypeIdent = "TYPE_MAP"
 
 	// TypeAssertion is a placeholder for a type assertion
 	TypeAssertion TypeIdent = "TYPE_ASSERTION"
@@ -71,6 +76,12 @@ func (t TypeNode) String() string {
 		return "Void"
 	case TypeError:
 		return "Error"
+	case TypeObject:
+		return "Object"
+	case TypeArray:
+		return fmt.Sprintf("Array(%s)", t.TypeParams[0].String())
+	case TypeMap:
+		return fmt.Sprintf("Map(%s, %s)", t.TypeParams[0].String(), t.TypeParams[1].String())
 	case TypeAssertion:
 		return fmt.Sprintf("Assertion(%s)", t.Assertion.String())
 	case TypeImplicit:

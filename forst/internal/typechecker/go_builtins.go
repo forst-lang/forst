@@ -308,6 +308,44 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeBool}}, // b
 		AcceptSubtypes: false,
 	},
+
+	// errors package functions
+	"errors.New": {
+		Name:           "New",
+		Package:        "errors",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeError},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // text
+		AcceptSubtypes: false,
+	},
+	"errors.Unwrap": {
+		Name:           "Unwrap",
+		Package:        "errors",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeError},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeError}}, // err
+		AcceptSubtypes: true,
+	},
+	"errors.Is": {
+		Name:           "Is",
+		Package:        "errors",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeBool},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeError}, {Ident: ast.TypeError}}, // err, target
+		AcceptSubtypes: true,
+	},
+	"errors.As": {
+		Name:           "As",
+		Package:        "errors",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeBool},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeError}, {Ident: ast.TypeError}}, // err, target
+		AcceptSubtypes: true,
+	},
+	"errors.Join": {
+		Name:           "Join",
+		Package:        "errors",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeError},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeError}}, // errs
+		IsVarArgs:      true,
+		AcceptSubtypes: true,
+	},
 }
 
 // isTypeCompatible checks if a type is compatible with an expected type,

@@ -45,6 +45,10 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenLBrace
 	case "}":
 		return ast.TokenRBrace
+	case "[":
+		return ast.TokenLBracket
+	case "]":
+		return ast.TokenRBracket
 	case "+":
 		return ast.TokenPlus
 	case "-":
@@ -81,12 +85,46 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenComma
 	case ".":
 		return ast.TokenDot
+	case ";":
+		return ast.TokenSemicolon
 	case "=":
 		return ast.TokenEquals
 	case "&":
 		return ast.TokenBitwiseAnd
 	case "|":
 		return ast.TokenBitwiseOr
+	case "if":
+		return ast.TokenIf
+	case "else if":
+		return ast.TokenElseIf
+	case "else":
+		return ast.TokenElse
+	case "for":
+		return ast.TokenFor
+	case "break":
+		return ast.TokenBreak
+	case "continue":
+		return ast.TokenContinue
+	case "switch":
+		return ast.TokenSwitch
+	case "case":
+		return ast.TokenCase
+	case "default":
+		return ast.TokenDefault
+	case "fallthrough":
+		return ast.TokenFallthrough
+	case "var":
+		return ast.TokenVar
+	case "map":
+		return ast.TokenMap
+	case "chan":
+		return ast.TokenChan
+	case "->":
+		return ast.TokenArrow
+	case "interface":
+		return ast.TokenInterface
+	case "struct":
+		return ast.TokenStruct
 	default:
 		if isDigit(word[0]) {
 			lastChar := word[len(word)-1]

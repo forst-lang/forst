@@ -60,6 +60,33 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			Value: false,
 		}
 
+	case ast.TokenLBracket:
+		items := []ast.LiteralNode{}
+		for p.current().Type != ast.TokenRBracket {
+			items = append(items, p.parseLiteral())
+
+			if p.current().Type == ast.TokenComma {
+				p.advance() // Consume comma
+			}
+		}
+		p.expect(ast.TokenRBracket)
+
+		var arrayType ast.TypeNode
+		if p.current().Type == ast.TokenIdentifier {
+			// Parse array type annotation
+			arrayType = ast.TypeNode{
+				Ident: ast.TypeIdent(p.current().Value),
+			}
+			p.advance() // Consume type identifier
+		} else {
+			arrayType = ast.TypeNode{Ident: ast.TypeImplicit}
+		}
+
+		return ast.ArrayLiteralNode{
+			Value: items,
+			Type:  arrayType,
+		}
+
 	default:
 		panic(unexpectedTokenMessage(token, "a literal"))
 	}

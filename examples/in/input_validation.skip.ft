@@ -1,6 +1,10 @@
 package input_validation
 
-import fmt "fmt"
+import (
+  "fmt"
+  "io"
+  "os"
+)
 
 type PhoneNumber =
   String.Min(3).Max(10) & (
@@ -31,3 +35,35 @@ func createUser(op: trpc.Mutation.Input({
 //   ensure ctx is trpc.Context.LoggedIn()
 //   return createUserDatabase(input.id, input.name, input.phoneNumber, input.bankAccount.iban)
 // }
+
+func main() {
+  body, err := io.ReadAll(os.Stdin)
+  if err != nil {
+      fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
+      os.Exit(1)
+  }
+
+  var data map[string]interface{}
+  if err := json.Unmarshal(body, &data); err != nil {
+      fmt.Fprintf(os.Stderr, "Error parsing JSON: %v\n", err)
+      os.Exit(1)
+  }
+
+  if err := createUser(data); err != nil {
+    fmt.Fprintf(os.Stderr, "Error creating user: %v\n", err)
+    os.Exit(1)
+  }
+
+  result := map[string]interface{}{
+      "success": true,
+      "data":    data,
+  }
+  
+  output, err := json.Marshal(result)
+  if err != nil {
+      fmt.Fprintf(os.Stderr, "Error marshaling result: %v\n", err)
+      os.Exit(1)
+  }
+  
+  fmt.Println(string(output))
+}

@@ -20,7 +20,15 @@ func createUser(op: AppMutation.Input({
   input: Shape({
     name: String
   })
-})
+} (Shape({name: String}), error) {
+  ensure op.ctx.LoggedIn() or NotLoggedIn()
+
+  op.ctx.sessionId[0]
+
+  return {
+    name: op.input.name
+  }, nil
+}
 
 is (ctx AppContext) LoggedIn() {
   return ctx.sessionId is String()
