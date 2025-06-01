@@ -130,7 +130,7 @@ func TestParseFile_WithFunctions(t *testing.T) {
 		{
 			name: "basic function with parameter",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 10},
@@ -159,7 +159,7 @@ func TestParseFile_WithFunctions(t *testing.T) {
 		{
 			name: "function with ensure statement",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 10},
@@ -305,7 +305,7 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 
 func TestParseFile_WithBinaryExpressionInFunction(t *testing.T) {
 	tokens := []ast.Token{
-		{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+		{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 		{Type: ast.TokenIdentifier, Value: "passwordStrength", Line: 1, Column: 6},
 		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 14},
 		{Type: ast.TokenIdentifier, Value: "password", Line: 1, Column: 15},
@@ -356,7 +356,7 @@ func TestParseFile_WithMapLiterals(t *testing.T) {
 		{
 			name: "basic map literal",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
@@ -416,7 +416,7 @@ func TestParseFile_WithMapLiterals(t *testing.T) {
 		{
 			name: "empty map literal",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
@@ -481,7 +481,7 @@ func TestParseFile_WithReferences(t *testing.T) {
 		{
 			name: "reference to variable",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
@@ -545,7 +545,7 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 		{
 			name: "if statement with init",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
@@ -604,7 +604,7 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 		{
 			name: "if statement with else-if and else",
 			tokens: []ast.Token{
-				{Type: ast.TokenFunction, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},

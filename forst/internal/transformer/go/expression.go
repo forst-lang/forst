@@ -38,7 +38,7 @@ func transformOperator(op ast.TokenIdent) token.Token {
 		return token.ADD
 	case ast.TokenMinus:
 		return token.SUB
-	case ast.TokenMultiply:
+	case ast.TokenStar:
 		return token.MUL
 	case ast.TokenDivide:
 		return token.QUO

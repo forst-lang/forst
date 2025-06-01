@@ -10,7 +10,7 @@ func GetTokenType(word string) ast.TokenIdent {
 	case "//":
 		return ast.TokenComment
 	case "func":
-		return ast.TokenFunction
+		return ast.TokenFunc
 	case "import":
 		return ast.TokenImport
 	case "package":
@@ -54,7 +54,7 @@ func GetTokenType(word string) ast.TokenIdent {
 	case "-":
 		return ast.TokenMinus
 	case "*":
-		return ast.TokenMultiply
+		return ast.TokenStar
 	case "/":
 		return ast.TokenDivide
 	case "%":
@@ -101,6 +101,8 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenElse
 	case "for":
 		return ast.TokenFor
+	case "range":
+		return ast.TokenRange
 	case "break":
 		return ast.TokenBreak
 	case "continue":
@@ -115,6 +117,8 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenFallthrough
 	case "var":
 		return ast.TokenVar
+	case "const":
+		return ast.TokenConst
 	case "map":
 		return ast.TokenMap
 	case "chan":
@@ -125,11 +129,19 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenInterface
 	case "struct":
 		return ast.TokenStruct
+	case "go":
+		return ast.TokenGo
+	case "defer":
+		return ast.TokenDefer
+	case "goto":
+		return ast.TokenGoto
 	default:
 		if isDigit(word[0]) {
-			lastChar := word[len(word)-1]
-			if lastChar == 'f' {
-				return ast.TokenFloatLiteral
+			// Check for float literals
+			for i := 0; i < len(word); i++ {
+				if word[i] == '.' || word[i] == 'e' || word[i] == 'E' || word[i] == 'i' {
+					return ast.TokenFloatLiteral
+				}
 			}
 			return ast.TokenIntLiteral
 		}

@@ -12,8 +12,8 @@ const (
 	// TokenIdentifier is the token for user-defined identifiers
 	TokenIdentifier TokenIdent = "IDENTIFIER"
 
-	// TokenFunction is the token for function keyword
-	TokenFunction TokenIdent = "FUNCTION"
+	// TokenFunc is the token for function keyword
+	TokenFunc TokenIdent = "FUNCTION"
 	// TokenType is the token for type keyword
 	TokenType TokenIdent = "TYPE"
 
@@ -84,8 +84,8 @@ const (
 	TokenPlus TokenIdent = "PLUS" // +
 	// TokenMinus is the token for minus operator
 	TokenMinus TokenIdent = "MINUS" // -
-	// TokenMultiply is the token for multiply operator
-	TokenMultiply TokenIdent = "MULTIPLY" // *
+	// TokenStar is the token for multiply operator, also used for pointer dereference
+	TokenStar TokenIdent = "STAR" // *
 	// TokenDivide is the token for divide operator
 	TokenDivide TokenIdent = "DIVIDE" // /
 	// TokenModulo is the token for modulo operator
@@ -127,6 +127,8 @@ const (
 	TokenElse TokenIdent = "ELSE"
 	// TokenFor is the token for for loop
 	TokenFor TokenIdent = "FOR"
+	// TokenRange is the token for range keyword
+	TokenRange TokenIdent = "RANGE"
 	// TokenBreak is the token for break statement
 	TokenBreak TokenIdent = "BREAK"
 	// TokenContinue is the token for continue statement
@@ -142,6 +144,8 @@ const (
 
 	// TokenVar is the token for var keyword
 	TokenVar TokenIdent = "VAR"
+	// TokenConst is the token for const keyword
+	TokenConst TokenIdent = "CONST"
 	// TokenMap is the token for map keyword
 	TokenMap TokenIdent = "MAP"
 	// TokenChan is the token for chan keyword
@@ -150,6 +154,12 @@ const (
 	TokenArrow TokenIdent = "ARROW"
 	// TokenInterface is the token for interface keyword
 	TokenInterface TokenIdent = "INTERFACE"
+	// TokenGo is the token for go keyword
+	TokenGo TokenIdent = "GO"
+	// TokenDefer is the token for defer keyword
+	TokenDefer TokenIdent = "DEFER"
+	// TokenGoto is the token for goto keyword
+	TokenGoto TokenIdent = "GOTO"
 )
 
 // Token structure
@@ -164,7 +174,7 @@ type Token struct {
 // IsBinaryOperator returns true if the token is a binary operator
 func (t TokenIdent) IsBinaryOperator() bool {
 	return t == TokenPlus || t == TokenMinus ||
-		t == TokenMultiply || t == TokenDivide ||
+		t == TokenStar || t == TokenDivide ||
 		t == TokenModulo || t == TokenEquals ||
 		t == TokenNotEquals || t == TokenGreater ||
 		t == TokenLess || t == TokenGreaterEqual ||
@@ -184,7 +194,7 @@ func (t TokenIdent) IsLiteral() bool {
 
 // IsArithmeticBinaryOperator returns true if the token is an arithmetic binary operator
 func (t TokenIdent) IsArithmeticBinaryOperator() bool {
-	return t == TokenPlus || t == TokenMinus || t == TokenMultiply || t == TokenDivide || t == TokenModulo
+	return t == TokenPlus || t == TokenMinus || t == TokenStar || t == TokenDivide || t == TokenModulo
 }
 
 // IsComparisonBinaryOperator returns true if the token is a comparison binary operator
