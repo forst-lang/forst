@@ -71,18 +71,18 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 			constraints = append(constraints, constraint)
 		} else {
 			// Parse first segment (could be package name or type)
-			typ := p.parseType()
+			typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 			baseType = &typ.Ident
 
 			// Check if it's a package name
 			if p.current().Type == ast.TokenDot {
 				nextToken := p.peek()
-				isQualifiedType := isPossibleTypeIdentifier(nextToken) &&
+				isQualifiedType := isPossibleTypeIdentifier(nextToken, TypeIdentOpts{AllowLowercaseTypes: false}) &&
 					p.peek(2).Type != ast.TokenLParen
 
 				if isQualifiedType {
 					p.advance() // Consume dot
-					pkgType := p.parseType()
+					pkgType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 					qualifiedName := ast.TypeIdent(string(*baseType) + "." + string(pkgType.Ident))
 					baseType = &qualifiedName
 				}

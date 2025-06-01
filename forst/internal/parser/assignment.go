@@ -9,7 +9,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 	var explicitType *ast.TypeNode
 	if p.current().Type == ast.TokenColon {
 		p.advance() // consume ':'
-		typeNode := p.parseType()
+		typeNode := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 		explicitType = &typeNode
 	}
 

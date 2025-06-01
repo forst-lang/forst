@@ -51,6 +51,10 @@ const (
 	TokenLBrace TokenIdent = "LBRACE"
 	// TokenRBrace is the token for right brace
 	TokenRBrace TokenIdent = "RBRACE"
+	// TokenLBracket is the token for left bracket
+	TokenLBracket TokenIdent = "LBRACKET"
+	// TokenRBracket is the token for right bracket
+	TokenRBracket TokenIdent = "RBRACKET"
 	// TokenReturn is the token for return keyword
 	TokenReturn TokenIdent = "RETURN"
 	// TokenEnsure is the token for ensure keyword
@@ -69,6 +73,12 @@ const (
 	TokenDot TokenIdent = "DOT"
 	// TokenColonEquals is the token for :=
 	TokenColonEquals TokenIdent = "COLON_EQUALS"
+	// TokenSemicolon is the token for semicolon
+	TokenSemicolon TokenIdent = "SEMICOLON"
+	// TokenPlusPlus is the token for increment operator
+	TokenPlusPlus TokenIdent = "PLUS_PLUS" // ++
+	// TokenMinusMinus is the token for decrement operator
+	TokenMinusMinus TokenIdent = "MINUS_MINUS" // --
 
 	// TokenPlus is the token for plus operator
 	TokenPlus TokenIdent = "PLUS" // +
@@ -108,6 +118,38 @@ const (
 
 	// TokenComment is the token for comments
 	TokenComment TokenIdent = "COMMENT" // //
+
+	// TokenIf is the token for if statement
+	TokenIf TokenIdent = "IF"
+	// TokenElseIf is the token for else-if statement
+	TokenElseIf TokenIdent = "ELSE_IF"
+	// TokenElse is the token for else statement
+	TokenElse TokenIdent = "ELSE"
+	// TokenFor is the token for for loop
+	TokenFor TokenIdent = "FOR"
+	// TokenBreak is the token for break statement
+	TokenBreak TokenIdent = "BREAK"
+	// TokenContinue is the token for continue statement
+	TokenContinue TokenIdent = "CONTINUE"
+	// TokenSwitch is the token for switch statement
+	TokenSwitch TokenIdent = "SWITCH"
+	// TokenCase is the token for case statement
+	TokenCase TokenIdent = "CASE"
+	// TokenDefault is the token for default case
+	TokenDefault TokenIdent = "DEFAULT"
+	// TokenFallthrough is the token for fallthrough statement
+	TokenFallthrough TokenIdent = "FALLTHROUGH"
+
+	// TokenVar is the token for var keyword
+	TokenVar TokenIdent = "VAR"
+	// TokenMap is the token for map keyword
+	TokenMap TokenIdent = "MAP"
+	// TokenChan is the token for chan keyword
+	TokenChan TokenIdent = "CHAN"
+	// TokenArrow is the token for arrow operator
+	TokenArrow TokenIdent = "ARROW"
+	// TokenInterface is the token for interface keyword
+	TokenInterface TokenIdent = "INTERFACE"
 )
 
 // Token structure

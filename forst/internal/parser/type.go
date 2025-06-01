@@ -5,10 +5,8 @@ import (
 )
 
 // Parse a type definition
-func (p *Parser) parseType() ast.TypeNode {
+func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 	token := p.current()
-
-	// TODO: Support slices and maps
 
 	switch token.Type {
 	case ast.TokenString:
@@ -26,14 +24,84 @@ func (p *Parser) parseType() ast.TypeNode {
 	case ast.TokenVoid:
 		p.advance()
 		return ast.TypeNode{Ident: ast.TypeVoid}
+	case ast.TokenLBracket:
+		// Parse slice type
+		p.advance()                 // consume [
+		p.expect(ast.TokenRBracket) // expect ]
+		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		return ast.TypeNode{
+			Ident:      ast.TypeArray,
+			TypeParams: []ast.TypeNode{elementType},
+		}
+	case ast.TokenMap:
+		// Parse map type
+		p.advance()                 // consume map
+		p.expect(ast.TokenLBracket) // expect [
+		keyType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		p.expect(ast.TokenRBracket) // expect ]
+		valueType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		return ast.TypeNode{
+			Ident:      ast.TypeMap,
+			TypeParams: []ast.TypeNode{keyType, valueType},
+		}
+	case ast.TokenInterface:
+		// Parse interface type
+		p.advance() // consume interface keyword
+
+		// Check if it's an empty interface
+		if p.current().Type == ast.TokenLBrace {
+			p.advance()               // consume {
+			p.expect(ast.TokenRBrace) // expect }
+			return ast.TypeNode{Ident: ast.TypeObject}
+		}
+
+		// Parse interface fields until closing brace
+		p.expect(ast.TokenLBrace) // require opening brace
+		for p.current().Type != ast.TokenRBrace {
+			// Expect field name
+			_ = p.expect(ast.TokenIdentifier)
+
+			// Check if it's a method (has parentheses) or a field
+			if p.current().Type == ast.TokenLParen {
+				// Parse method parameters
+				p.expect(ast.TokenLParen)
+
+				// Parse parameters until closing parenthesis
+				for p.current().Type != ast.TokenRParen {
+					// Parse parameter name
+					_ = p.expect(ast.TokenIdentifier)
+
+					// Expect type annotation
+					p.expect(ast.TokenColon)
+					_ = p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+
+					// Handle comma between parameters
+					if p.current().Type == ast.TokenComma {
+						p.advance()
+					}
+				}
+				p.expect(ast.TokenRParen)
+
+				// Expect return type
+				p.expect(ast.TokenColon)
+				_ = p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+			} else {
+				// Regular field - expect type annotation
+				p.expect(ast.TokenColon)
+				_ = p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+			}
+		}
+
+		p.expect(ast.TokenRBrace) // require closing brace
+		return ast.TypeNode{Ident: ast.TypeObject}
 	default:
 		// Parse first segment (could be package name or type)
-		firstSegment := p.expectCustomTypeIdentifierOrPackageName().Value
+		firstSegment := p.expectCustomTypeIdentifierOrPackageName(opts).Value
 
 		// Check if it's a package name
 		if p.current().Type == ast.TokenDot && p.peek(2).Type != ast.TokenLParen {
 			p.advance() // Consume dot
-			typeName := p.expectCustomTypeIdentifier().Value
+			typeName := p.expectCustomTypeIdentifier(opts).Value
 			qualifiedName := firstSegment + "." + typeName
 			return ast.TypeNode{Ident: ast.TypeIdent(qualifiedName)}
 		}
@@ -42,14 +110,16 @@ func (p *Parser) parseType() ast.TypeNode {
 	}
 }
 
-func isPossibleTypeIdentifier(token ast.Token) bool {
+func isPossibleTypeIdentifier(token ast.Token, opts TypeIdentOpts) bool {
 	if token.Type == ast.TokenIdentifier {
-		return isCapitalCase(token.Value)
+		return opts.AllowLowercaseTypes || isCapitalCase(token.Value)
 	}
 
 	return token.Type == ast.TokenString ||
 		token.Type == ast.TokenInt ||
 		token.Type == ast.TokenFloat ||
 		token.Type == ast.TokenBool ||
-		token.Type == ast.TokenVoid
+		token.Type == ast.TokenVoid ||
+		token.Type == ast.TokenLBracket ||
+		token.Type == ast.TokenMap
 }

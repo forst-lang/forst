@@ -6,11 +6,12 @@ import (
 
 // Character classification utilities
 
-// isSpecialChar checks if a character is a special token character
+// isSpecialChar checks if a character should become a separate token
 func isSpecialChar(c byte) bool {
 	return c == '(' || c == ')' || c == '{' || c == '}' || c == ':' || c == ',' ||
 		c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' ||
-		c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '.'
+		c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '.' ||
+		c == '[' || c == ']'
 }
 
 // isTwoCharOperator checks if a string is a two-character operator

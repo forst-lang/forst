@@ -6,7 +6,14 @@ import (
 
 // BlockContext represents the context for a block of statements
 type BlockContext struct {
-	AllowReturn bool
+	AllowEnsure      bool
+	AllowReturn      bool
+	AllowBreak       bool
+	AllowContinue    bool
+	AllowSwitch      bool
+	AllowCase        bool
+	AllowDefault     bool
+	AllowFallthrough bool
 }
 
 func (p *Parser) parseBlock(blockContext *BlockContext) []ast.Node {

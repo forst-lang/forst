@@ -7,7 +7,7 @@ import (
 
 // ShapeNode represents a shape (object type) in the AST
 type ShapeNode struct {
-	Node
+	ValueNode
 	Fields map[string]ShapeFieldNode
 }
 
@@ -22,6 +22,8 @@ type ShapeFieldNode struct {
 func (n ShapeNode) Kind() NodeKind {
 	return NodeKindShape
 }
+
+func (n ShapeNode) isExpression() {}
 
 func (n ShapeNode) String() string {
 	var fields []string
