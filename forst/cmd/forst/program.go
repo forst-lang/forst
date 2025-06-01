@@ -71,7 +71,8 @@ func (p *Program) compileFile() (*string, error) {
 	memBefore := getMemStats()
 
 	// Lexical Analysis
-	tokens := lexer.Lexer(source, lexer.Context{FilePath: p.Args.filePath})
+	l := lexer.NewLexer(source, p.Args.filePath)
+	tokens := l.Lex()
 
 	memAfter := getMemStats()
 	p.logMemUsage("lexical analysis", memBefore, memAfter)
