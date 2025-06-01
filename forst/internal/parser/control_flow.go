@@ -11,7 +11,16 @@ func (p *Parser) parseIfStatement() ast.Node {
 	var init ast.Node
 	var condition ast.ExpressionNode
 
-	if p.current().Type == ast.TokenIdentifier {
+	if p.current().Type == ast.TokenVar {
+		// Handle var declaration
+		p.advance() // consume var
+		init = p.parseVarDeclaration()
+		if p.current().Type == ast.TokenSemicolon {
+			p.advance() // Consume semicolon
+		} else {
+			panic(parseErrorWithValue(p.current(), "Expected semicolon after var declaration"))
+		}
+	} else if p.current().Type == ast.TokenIdentifier {
 		next := p.peek()
 		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
 			// Handle assignment or short var decl
@@ -53,41 +62,46 @@ func (p *Parser) parseIfStatement() ast.Node {
 	})
 
 	elseIfs := []ast.ElseIfNode{}
-
-	for p.current().Type == ast.TokenElseIf {
-		p.advance()
-		condition = p.parseExpression()
-		elseIfBody := p.parseBlock(&BlockContext{
-			AllowEnsure:      true,
-			AllowReturn:      true,
-			AllowBreak:       true,
-			AllowContinue:    true,
-			AllowSwitch:      true,
-			AllowCase:        false,
-			AllowDefault:     false,
-			AllowFallthrough: false,
-		})
-		elseIfs = append(elseIfs, ast.ElseIfNode{
-			Condition: condition,
-			Body:      elseIfBody,
-		})
-	}
-
 	var elseNode *ast.ElseBlockNode
-	if p.current().Type == ast.TokenElse {
-		p.advance()
-		elseBlock := p.parseBlock(&BlockContext{
-			AllowEnsure:      true,
-			AllowReturn:      true,
-			AllowBreak:       true,
-			AllowContinue:    true,
-			AllowSwitch:      true,
-			AllowCase:        false,
-			AllowDefault:     false,
-			AllowFallthrough: false,
-		})
-		elseNode = &ast.ElseBlockNode{
-			Body: elseBlock,
+
+	for p.current().Type == ast.TokenElse {
+		p.advance() // consume else
+		if p.current().Type == ast.TokenIf {
+			p.advance() // consume if
+			elseIfCondition := p.parseExpression()
+			if p.current().Type != ast.TokenLBrace {
+				panic(parseErrorWithValue(p.current(), "Expected { after else-if condition"))
+			}
+			elseIfBody := p.parseBlock(&BlockContext{
+				AllowEnsure:      true,
+				AllowReturn:      true,
+				AllowBreak:       true,
+				AllowContinue:    true,
+				AllowSwitch:      true,
+				AllowCase:        false,
+				AllowDefault:     false,
+				AllowFallthrough: false,
+			})
+			elseIfs = append(elseIfs, ast.ElseIfNode{
+				Condition: elseIfCondition,
+				Body:      elseIfBody,
+			})
+		} else {
+			// This is a regular else block
+			elseBlock := p.parseBlock(&BlockContext{
+				AllowEnsure:      true,
+				AllowReturn:      true,
+				AllowBreak:       true,
+				AllowContinue:    true,
+				AllowSwitch:      true,
+				AllowCase:        false,
+				AllowDefault:     false,
+				AllowFallthrough: false,
+			})
+			elseNode = &ast.ElseBlockNode{
+				Body: elseBlock,
+			}
+			break // Exit the loop after finding an else block
 		}
 	}
 
