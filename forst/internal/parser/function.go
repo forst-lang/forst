@@ -127,7 +127,7 @@ func (p *Parser) parseFunctionBody() []ast.Node {
 
 // Parse a function definition
 func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
-	p.expect(ast.TokenFunction)           // Expect `fn`
+	p.expect(ast.TokenFunc)               // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
 
 	p.context.Scope.functionName = name.Value
