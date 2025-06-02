@@ -53,7 +53,13 @@ func TestTempOutputFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempOutputFile() error = %v", err)
 	}
-	defer os.RemoveAll(filepath.Dir(outputPath))
+
+	defer func() {
+		err := os.RemoveAll(filepath.Dir(outputPath))
+		if err != nil {
+			t.Errorf("Failed to remove temporary output file: %v", err)
+		}
+	}()
 
 	// Verify the file exists
 	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
@@ -78,7 +84,13 @@ func TestRunGoProgram(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test program: %v", err)
 	}
-	defer os.RemoveAll(filepath.Dir(outputPath))
+
+	defer func() {
+		err := os.RemoveAll(filepath.Dir(outputPath))
+		if err != nil {
+			t.Errorf("Failed to remove temporary output file: %v", err)
+		}
+	}()
 
 	// Test running the program
 	err = runGoProgram(outputPath)
