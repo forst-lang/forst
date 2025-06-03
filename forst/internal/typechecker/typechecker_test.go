@@ -123,3 +123,59 @@ func TestTypeGuardReturnType(t *testing.T) {
 		})
 	}
 }
+
+func TestIsOperationWithShapeWrapper(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        ast.BinaryExpressionNode
+		expectError bool
+	}{
+		{
+			name: "valid shape wrapper",
+			expr: func() ast.BinaryExpressionNode {
+				baseType := ast.TypeString
+				return ast.BinaryExpressionNode{
+					Left:     ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+					Operator: ast.TokenIs,
+					Right: ast.ShapeNode{
+						Fields: map[string]ast.ShapeFieldNode{
+							"field1": {
+								Assertion: &ast.AssertionNode{
+									BaseType: &baseType,
+								},
+							},
+						},
+					},
+				}
+			}(),
+			expectError: false,
+		},
+		{
+			name: "invalid shape wrapper",
+			expr: ast.BinaryExpressionNode{
+				Left:     ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+				Operator: ast.TokenIs,
+				Right:    ast.IntLiteralNode{Value: 42},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := New()
+			// Register 's' as a Shape type variable in the current scope
+			tc.storeSymbol(ast.Identifier("s"), []ast.TypeNode{{Ident: ast.TypeShape}}, SymbolVariable)
+			_, err := tc.unifyTypes(tt.expr.Left, tt.expr.Right, tt.expr.Operator)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error for invalid shape wrapper, got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for valid shape wrapper: %v", err)
+				}
+			}
+		})
+	}
+}

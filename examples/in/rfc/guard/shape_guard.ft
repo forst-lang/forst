@@ -3,33 +3,31 @@ type MutationArg = Shape
 is (m MutationArg) Input(input Shape) {
   // Note how we can use the `input` variable in the type guard below
   // which actually inserts a **type** into the shape (not a value)
-  return m is Shape({ input })
+  return m is { input }
 }
 
 is (m MutationArg) Context(ctx Shape) {
-  return m is Shape({ ctx })
+  return m is { ctx }
 }
 
-type AppContext = Shape({
-  sessionId: Maybe(String)
-})
-
-type AppMutation = trpc.Mutation.Context(AppContext)
-
-func createUser(op: AppMutation.Input({
-  input: Shape({
-    name: String
-  })
-} (Shape({name: String}), error) {
-  ensure op.ctx.LoggedIn() or NotLoggedIn()
-
-  op.ctx.sessionId[0]
-
-  return {
-    name: op.input.name
-  }, nil
+type AppContext = {
+  sessionId: *String
 }
+
+type AppMutation = MutationArg.Context(AppContext)
 
 is (ctx AppContext) LoggedIn() {
-  return ctx.sessionId is String()
+  return ctx.sessionId is NotNil()
+}
+
+func createUser(op AppMutation.Input({
+  input: {
+    name: String
+  }
+})) {
+  ensure op.ctx is LoggedIn() or NotLoggedIn()
+
+  println(op.ctx.sessionId)
+
+  return op.input.name
 }

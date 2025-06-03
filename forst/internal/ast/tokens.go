@@ -179,7 +179,7 @@ func (t TokenIdent) IsBinaryOperator() bool {
 		t == TokenNotEquals || t == TokenGreater ||
 		t == TokenLess || t == TokenGreaterEqual ||
 		t == TokenLessEqual || t == TokenLogicalAnd ||
-		t == TokenLogicalOr
+		t == TokenLogicalOr || t == TokenIs
 }
 
 // IsUnaryOperator returns true if the token is a unary operator

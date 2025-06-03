@@ -1,9 +1,9 @@
 package basic_function
 
 func compare() {
-  return "a" == "b"
+	return "a" == "b"
 }
 
-func diff(a: Int, b: Int) {
-  return 3 - 2
+func diff(a Int, b Int) {
+	return 3 - 2
 }

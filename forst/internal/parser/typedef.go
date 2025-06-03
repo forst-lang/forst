@@ -52,6 +52,11 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		return expr
 	}
 
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		return ast.TypeDefShapeExpr{Shape: shape}
+	}
+
 	var left ast.TypeDefExpr
 	if p.peek().Type == ast.TokenDot {
 		assertion := p.parseAssertionChain(true)

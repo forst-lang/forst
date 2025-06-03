@@ -100,6 +100,12 @@ func (s *Scope) IsFunction() bool {
 	return ok
 }
 
+// IsTypeGuard checks if the scope is a type guard
+func (s *Scope) IsTypeGuard() bool {
+	_, ok := s.Node.(ast.TypeGuardNode)
+	return ok
+}
+
 // LookupVariableType looks up a variable's type in the current scope
 func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
 	// Start from the current scope and work up

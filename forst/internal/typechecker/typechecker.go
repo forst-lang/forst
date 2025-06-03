@@ -167,7 +167,48 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	if _, exists := tc.Defs[node.Ident]; exists {
 		return
 	}
+	// Store the type definition node
 	tc.Defs[node.Ident] = node
+
+	// If this is a shape type, also store the underlying ShapeNode for field access
+	if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
+		if assertionExpr.Assertion != nil {
+			// If this is a direct shape alias (e.g. type AppContext = { ... })
+			if assertionExpr.Assertion.BaseType != nil && *assertionExpr.Assertion.BaseType == ast.TypeShape {
+				// If there are no constraints, check if the assertion has a Match constraint with a shape
+				if len(assertionExpr.Assertion.Constraints) == 0 && assertionExpr.Assertion.BaseType != nil {
+					// See if the assertion itself has a shape (Match constraint)
+					if assertionExpr.Assertion != nil && assertionExpr.Assertion.Constraints != nil {
+						for _, constraint := range assertionExpr.Assertion.Constraints {
+							for _, arg := range constraint.Args {
+								if arg.Shape != nil {
+									tc.registerShapeType(node.Ident, *arg.Shape)
+								}
+							}
+						}
+					}
+				}
+				// Try to extract from constraints if present (existing logic)
+				for _, constraint := range assertionExpr.Assertion.Constraints {
+					for _, arg := range constraint.Args {
+						if arg.Shape != nil {
+							tc.registerShapeType(node.Ident, *arg.Shape)
+						}
+					}
+				}
+			}
+		}
+	} else if shapeExpr, ok := node.Expr.(ast.TypeDefShapeExpr); ok {
+		// If the type definition is directly a shape, store it with a special key
+		tc.registerShapeType(node.Ident, shapeExpr.Shape)
+	}
+}
+
+// registerShapeType registers a shape type with its fields
+func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
+	// Store the shape node with a special key
+	shapeKey := ast.TypeIdent(string(ident) + "_shape")
+	tc.Defs[shapeKey] = shape
 }
 
 func (tc *TypeChecker) pushScope(node ast.Node) {

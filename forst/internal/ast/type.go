@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"strings"
 )
 
 // TypeIdent is a unique identifier for a type
@@ -40,6 +41,12 @@ const (
 
 	// TypeImplicit is a placeholder for an implicit type
 	TypeImplicit TypeIdent = "TYPE_IMPLICIT"
+
+	// TypeShape is a new type added
+	TypeShape TypeIdent = "TYPE_SHAPE"
+
+	// TypePointer is a new type added
+	TypePointer TypeIdent = "TYPE_POINTER"
 )
 
 // IsExplicit returns true if the type has been specified explicitly
@@ -79,16 +86,42 @@ func (t TypeNode) String() string {
 	case TypeObject:
 		return "Object"
 	case TypeArray:
-		return fmt.Sprintf("Array(%s)", t.TypeParams[0].String())
+		if len(t.TypeParams) > 0 {
+			return fmt.Sprintf("Array(%s)", t.TypeParams[0].String())
+		}
+		return "Array(?)"
 	case TypeMap:
-		return fmt.Sprintf("Map(%s, %s)", t.TypeParams[0].String(), t.TypeParams[1].String())
+		if len(t.TypeParams) >= 2 {
+			return fmt.Sprintf("Map(%s, %s)", t.TypeParams[0].String(), t.TypeParams[1].String())
+		}
+		return "Map(?, ?)"
 	case TypeAssertion:
-		return fmt.Sprintf("Assertion(%s)", t.Assertion.String())
+		if t.Assertion != nil {
+			return fmt.Sprintf("Assertion(%s)", t.Assertion.String())
+		}
+		return "Assertion(?)"
 	case TypeImplicit:
 		return "(implicit)"
+	case TypeShape:
+		if len(t.TypeParams) > 0 {
+			return fmt.Sprintf("Shape(%s)", t.TypeParams[0].String())
+		}
+		return "Shape"
+	case TypePointer:
+		if len(t.TypeParams) > 0 {
+			return fmt.Sprintf("Pointer(%s)", t.TypeParams[0].String())
+		}
+		return "Pointer"
 	default:
 		if t.Assertion != nil {
 			return fmt.Sprintf("%s(%s)", t.Ident, t.Assertion.String())
+		}
+		if len(t.TypeParams) > 0 {
+			params := make([]string, len(t.TypeParams))
+			for i, param := range t.TypeParams {
+				params[i] = param.String()
+			}
+			return fmt.Sprintf("%s<%s>", t.Ident, strings.Join(params, ", "))
 		}
 		return string(t.Ident)
 	}

@@ -120,6 +120,19 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		log.Tracef("No function found for %s", e.Function.ID)
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
 
+	case ast.ShapeNode:
+		typ := ast.TypeNode{Ident: ast.TypeShape}
+		tc.storeInferredType(e, []ast.TypeNode{typ})
+		return []ast.TypeNode{typ}, nil
+
+	case ast.AssertionNode:
+		inferredType, err := tc.inferAssertionType(&e, false)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
+
 	default:
 		log.Tracef("Unhandled expression type: %T", expr)
 		return nil, fmt.Errorf("cannot infer type for expression: %T", expr)

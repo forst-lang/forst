@@ -26,6 +26,15 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 		}
 	}
 
+	// If this is a type (identifier, shape, etc), parse as TypeNode
+	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenLBracket || p.current().Type == ast.TokenMap || p.current().Type == ast.TokenStar {
+		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		return ast.ConstraintArgumentNode{
+			Type: &typ,
+		}
+	}
+
+	// Otherwise, parse as value
 	value := p.parseValue()
 	return ast.ConstraintArgumentNode{
 		Value: &value,

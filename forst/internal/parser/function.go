@@ -14,6 +14,33 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 			Assertion: &assertion,
 		}
 	}
+	// Disallow Shape({...}) wrapper for shape types
+	if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
+		ident := p.expect(ast.TokenIdentifier)
+		if p.current().Type == ast.TokenLParen {
+			panic(parseErrorMessage(p.current(), "Shape({...}) wrapper is not allowed. Use {...} directly for shape types."))
+		}
+		return ast.TypeNode{
+			Ident: ast.TypeIdent(ident.Value),
+		}
+	}
+	// Allow direct {...} for shape types
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		baseType := ast.TypeIdent(ast.TypeShape)
+		return ast.TypeNode{
+			Ident: ast.TypeShape,
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseType,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{
+						Shape: &shape,
+					}},
+				}},
+			},
+		}
+	}
 	return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 }
 
@@ -44,14 +71,58 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 }
 
 func (p *Parser) parseSimpleParameter() ast.ParamNode {
-	ident := p.expect(ast.TokenIdentifier)
-	// If the next token is a colon, consume it; otherwise, assume the next token is the type
-	if p.current().Type == ast.TokenColon {
-		p.advance()
+	name := p.expect(ast.TokenIdentifier).Value
+	// Remove colon requirement - use Go-style parameter declarations
+
+	tok := p.current()
+	if tok.Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen) {
+		assertion := p.parseAssertionChain(true)
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type: ast.TypeNode{
+				Ident:     ast.TypeAssertion,
+				Assertion: &assertion,
+			},
+		}
 	}
-	typ := p.parseParameterType()
+
+	if tok.Type == ast.TokenIdentifier && tok.Value == "Shape" {
+		// Check if this is Shape({...})
+		if p.peek().Type == ast.TokenLParen {
+			panic(parseErrorMessage(tok, "Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }."))
+		}
+		// Allow direct usage of Shape as a type name
+		p.advance()
+		typeIdent := ast.TypeIdent("Shape")
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type:  ast.TypeNode{Ident: typeIdent},
+		}
+	}
+	if tok.Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		baseType := ast.TypeIdent(ast.TypeShape)
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type: ast.TypeNode{
+				Ident: ast.TypeShape,
+				Assertion: &ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Match",
+						Args: []ast.ConstraintArgumentNode{{
+							Shape: &shape,
+						}},
+					}},
+				},
+			},
+		}
+	}
+	// Parse the type, which may include dots (e.g. AppMutation.Input)
+	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+	logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
 	return ast.SimpleParamNode{
-		Ident: ast.Ident{ID: ast.Identifier(ident.Value)},
+		Ident: ast.Ident{ID: ast.Identifier(name)},
 		Type:  typ,
 	}
 }
