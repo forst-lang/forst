@@ -12,7 +12,7 @@ func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
 		return nil
 	}
 
-	body = append(body, p.parseBlock(&BlockContext{AllowReturn: false})...)
+	body = append(body, p.parseBlock()...)
 
 	return &ast.EnsureBlockNode{Body: body}
 }
@@ -64,7 +64,25 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 
 	block := p.parseEnsureBlock()
 
-	if !p.context.IsMainFunction() || p.current().Type == ast.TokenOr {
+	if p.context.IsTypeGuard() {
+		if p.current().Type == ast.TokenOr {
+			panic(parseErrorWithValue(p.current(), "Ensure statement not allowed in type guards"))
+		}
+		return ast.EnsureNode{
+			Variable:  variable,
+			Assertion: assertion,
+			Block:     block,
+		}
+	}
+
+	if p.context.IsMainFunction() {
+		if p.current().Type == ast.TokenOr {
+			panic(parseErrorWithValue(p.current(), "Ensure statement not allowed in main function"))
+		}
+	}
+
+	// Only require 'or' clause if not in main function and not in a type guard context
+	if !p.context.IsMainFunction() && p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
 
 		errorType := p.expect(ast.TokenIdentifier).Value

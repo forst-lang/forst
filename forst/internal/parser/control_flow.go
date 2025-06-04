@@ -50,16 +50,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 	}
 
 	// Parse then block
-	body := p.parseBlock(&BlockContext{
-		AllowEnsure:      true,
-		AllowReturn:      true,
-		AllowBreak:       true,
-		AllowContinue:    true,
-		AllowSwitch:      true,
-		AllowCase:        false,
-		AllowDefault:     false,
-		AllowFallthrough: false,
-	})
+	body := p.parseBlock()
 
 	elseIfs := []ast.ElseIfNode{}
 	var elseNode *ast.ElseBlockNode
@@ -72,32 +63,14 @@ func (p *Parser) parseIfStatement() ast.Node {
 			if p.current().Type != ast.TokenLBrace {
 				panic(parseErrorWithValue(p.current(), "Expected { after else-if condition"))
 			}
-			elseIfBody := p.parseBlock(&BlockContext{
-				AllowEnsure:      true,
-				AllowReturn:      true,
-				AllowBreak:       true,
-				AllowContinue:    true,
-				AllowSwitch:      true,
-				AllowCase:        false,
-				AllowDefault:     false,
-				AllowFallthrough: false,
-			})
+			elseIfBody := p.parseBlock()
 			elseIfs = append(elseIfs, ast.ElseIfNode{
 				Condition: elseIfCondition,
 				Body:      elseIfBody,
 			})
 		} else {
 			// This is a regular else block
-			elseBlock := p.parseBlock(&BlockContext{
-				AllowEnsure:      true,
-				AllowReturn:      true,
-				AllowBreak:       true,
-				AllowContinue:    true,
-				AllowSwitch:      true,
-				AllowCase:        false,
-				AllowDefault:     false,
-				AllowFallthrough: false,
-			})
+			elseBlock := p.parseBlock()
 			elseNode = &ast.ElseBlockNode{
 				Body: elseBlock,
 			}

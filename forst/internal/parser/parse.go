@@ -27,14 +27,6 @@ func (e *ParseError) Error() string {
 	return fmt.Sprintf("Parse error at %s: %s", e.Location(), e.Msg)
 }
 
-// Scope represents a scope in the parsed program
-type Scope struct {
-	// All variables defined in the scope
-	Variables map[string]ast.TypeNode
-	// The function currently being parsed
-	functionName string
-}
-
 // ParseFile parses the tokens in a Forst file into a list of Forst AST nodes
 func (p *Parser) ParseFile() ([]ast.Node, error) {
 	nodes := []ast.Node{}
@@ -58,13 +50,18 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			logParsedNodeWithMessage(typeDef, "Parsed type def")
 			nodes = append(nodes, *typeDef)
 		case ast.TokenFunc:
-			p.context.Scope = &Scope{
-				Variables: make(map[string]ast.TypeNode),
-			}
+			p.context.ScopeStack.PushScope(&Scope{
+				Variables:   make(map[string]ast.TypeNode),
+				IsTypeGuard: false,
+			})
 			function := p.parseFunctionDefinition()
 			logParsedNodeWithMessage(function, "Parsed function")
 			nodes = append(nodes, function)
 		case ast.TokenIs:
+			p.context.ScopeStack.PushScope(&Scope{
+				Variables:   make(map[string]ast.TypeNode),
+				IsTypeGuard: true,
+			})
 			typeGuard := p.parseTypeGuard()
 			logParsedNodeWithMessage(typeGuard, "Parsed type guard")
 			nodes = append(nodes, typeGuard)
@@ -78,22 +75,4 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 	}
 
 	return nodes, nil
-}
-
-// DefineVariable defines a variable in the scope
-func (s *Scope) DefineVariable(name string, typeNode ast.TypeNode) {
-	s.Variables[name] = typeNode
-}
-
-// IsMainFunction checks if the current function is the main function
-func (c *Context) IsMainFunction() bool {
-	if c.Package == nil || !c.Package.IsMainPackage() {
-		return false
-	}
-
-	if c.Scope.functionName != "main" {
-		return true
-	}
-
-	return true
 }

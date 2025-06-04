@@ -4,13 +4,16 @@ import (
 	"forst/internal/ast"
 )
 
-func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
+func (p *Parser) parseBlockStatement() []ast.Node {
 	body := []ast.Node{}
 
 	token := p.current()
 
 	switch token.Type {
 	case ast.TokenVar:
+		if p.context.IsTypeGuard() {
+			panic(parseErrorWithValue(token, "Variable declaration not allowed in type guards"))
+		}
 		varStatement := p.parseVarStatement()
 		logParsedNode(varStatement)
 		body = append(body, varStatement)
@@ -19,8 +22,8 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 		logParsedNode(ensureStatement)
 		body = append(body, ensureStatement)
 	case ast.TokenReturn:
-		if !blockContext.AllowReturn {
-			panic(parseErrorWithValue(token, "Return statement not allowed in this context"))
+		if p.context.IsTypeGuard() {
+			panic(parseErrorWithValue(token, "Return statement not allowed in type guards"))
 		}
 		returnStatement := p.parseReturnStatement()
 		logParsedNode(returnStatement)

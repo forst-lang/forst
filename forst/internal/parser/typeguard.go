@@ -48,7 +48,7 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	// Parse body - can be either a block or a single expression
 	var body []ast.Node
 	if p.current().Type == ast.TokenLBrace {
-		body = p.parseBlock(&BlockContext{AllowReturn: true})
+		body = p.parseBlock()
 	} else {
 		// Single expression body
 		expr := p.parseExpression()

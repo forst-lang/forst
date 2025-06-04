@@ -36,13 +36,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
-					Identifier: p.Ident.ID,
-					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolVariable,
-					Scope:      tc.scopeStack.CurrentScope(),
-					Position:   tc.path,
-				}
+				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
 				// Also store in tc.VariableTypes for structural lookup
 				tc.VariableTypes[p.Ident.ID] = []ast.TypeNode{p.Type}
 			case ast.DestructuredParamNode:
@@ -143,53 +137,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
-					Identifier: p.Ident.ID,
-					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolVariable,
-					Scope:      tc.scopeStack.CurrentScope(),
-					Position:   tc.path,
-				}
+				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
 			case ast.DestructuredParamNode:
-				// Handle destructured params if needed
 				continue
 			}
 		}
 
-		// Type guards must return a boolean value
-		if len(n.Body) == 0 {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must have a return statement")
-		}
-		returnNode, ok := n.Body[0].(ast.ReturnNode)
-		if !ok {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must have a return statement")
-		}
-		returnType, err := tc.inferExpressionType(returnNode.Value)
-		if err != nil {
-			tc.popScope()
-			return nil, err
-		}
-		if len(returnType) != 1 || returnType[0].Ident != ast.TypeBool {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must return a boolean value, got %s", formatTypeList(returnType))
-		}
-
 		// Store type guard in global scope with the inferred return type
-		tc.storeSymbol(ast.Identifier(n.Ident), returnType, SymbolFunction)
-
-		// Store the inferred type for the type guard itself
-		tc.storeInferredType(n, returnType)
-
-		// Store the type guard in the Functions map for easier lookup
-		tc.Functions[n.Ident] = FunctionSignature{
-			Ident:       ast.Ident{ID: n.Ident},
-			ReturnTypes: returnType,
-		}
+		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{}, SymbolFunction)
 
 		tc.popScope()
-		return returnType, nil
+		return nil, nil
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))

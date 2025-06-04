@@ -193,7 +193,7 @@ func (p *Parser) parseReturnStatement() ast.ReturnNode {
 }
 
 func (p *Parser) parseFunctionBody() []ast.Node {
-	return p.parseBlock(&BlockContext{AllowReturn: true})
+	return p.parseBlock()
 }
 
 // Parse a function definition
@@ -201,7 +201,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.expect(ast.TokenFunc)               // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
 
-	p.context.Scope.functionName = name.Value
+	p.context.ScopeStack.CurrentScope().FunctionName = name.Value
 
 	params := p.parseFunctionSignature() // Parse function parameters
 

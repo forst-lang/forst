@@ -10,15 +10,8 @@ is (m MutationArg) Context(ctx Shape) {
   ensure m is { ctx }
 }
 
-type UserType = (
-  Admin = "admin",
-  User = "user",
-  Anonymous = "anonymous",
-)
-
 type AppContext = {
   sessionId: *String
-  userType: *UserType
 }
 
 type AppMutation = MutationArg.Context(AppContext)
@@ -26,16 +19,6 @@ type AppMutation = MutationArg.Context(AppContext)
 // Manual type assertion on a field in a shape guard via accessor
 is (ctx AppContext) LoggedIn() {
   ensure ctx.sessionId is NotNil()
-}
-
-// Manual type assertion on a field in a shape guard
-is (ctx AppContext) Admin() {
-  ensure ctx is { userType: Admin }
-}
-
-// Non-pointer parameter refining the pointer field
-is (ctx AppContext) UserType(userType UserType) {
-  ensure ctx is { userType }
 }
 
 func createUser(op AppMutation.Input({

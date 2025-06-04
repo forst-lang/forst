@@ -4,25 +4,13 @@ import (
 	"forst/internal/ast"
 )
 
-// BlockContext represents the context for a block of statements
-type BlockContext struct {
-	AllowEnsure      bool
-	AllowReturn      bool
-	AllowBreak       bool
-	AllowContinue    bool
-	AllowSwitch      bool
-	AllowCase        bool
-	AllowDefault     bool
-	AllowFallthrough bool
-}
-
 func (p *Parser) skipComments() {
 	for p.current().Type == ast.TokenComment {
 		p.advance()
 	}
 }
 
-func (p *Parser) parseBlock(blockContext *BlockContext) []ast.Node {
+func (p *Parser) parseBlock() []ast.Node {
 	body := []ast.Node{}
 
 	p.expect(ast.TokenLBrace) // Expect `{`
@@ -31,7 +19,7 @@ func (p *Parser) parseBlock(blockContext *BlockContext) []ast.Node {
 
 	// Parse function body dynamically
 	for p.current().Type != ast.TokenRBrace && p.current().Type != ast.TokenEOF {
-		body = append(body, p.parseBlockStatement(blockContext)...)
+		body = append(body, p.parseBlockStatement()...)
 		p.skipComments() // Skip comments between statements
 	}
 

@@ -8,10 +8,10 @@ import (
 
 // Context is a mutable context for the parser to track the current state
 type Context struct {
-	Package  *ast.PackageNode
-	Function *ast.FunctionNode
-	Scope    *Scope
-	FilePath string
+	Package    *ast.PackageNode
+	Function   *ast.FunctionNode
+	ScopeStack *ScopeStack
+	FilePath   string
 }
 
 // Parser represents the parser for the Forst language
@@ -23,10 +23,15 @@ type Parser struct {
 
 // NewParser creates a new parser instance
 func NewParser(tokens []ast.Token, filePath string) *Parser {
+	scopeStack := NewScopeStack()
+	context := Context{
+		FilePath:   filePath,
+		ScopeStack: scopeStack,
+	}
 	return &Parser{
 		tokens:       tokens,
 		currentIndex: 0,
-		context:      &Context{FilePath: filePath},
+		context:      &context,
 	}
 }
 
