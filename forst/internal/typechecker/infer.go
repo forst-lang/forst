@@ -120,13 +120,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		return nil, nil
 
-	case ast.AssertionNode:
-		_, err := tc.inferAssertionType(&n, false)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
-
 	case ast.TypeNode:
 		return nil, nil
 

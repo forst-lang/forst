@@ -5,7 +5,7 @@ import "os"
 type Password = String
 
 is (password Password) Strong {
-    return len(password) >= 12
+    ensure len(password) is Min(12)
 }
 
 func main() {

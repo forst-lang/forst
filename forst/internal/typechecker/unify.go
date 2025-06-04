@@ -147,6 +147,8 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				}
 			}
 		}
+		// Process type guard fields
+		tc.processTypeGuardFields(&ast.ShapeNode{}, assertionNode)
 	} else if shapeNode, ok := right.(ast.ShapeNode); ok {
 		// For ShapeNode, check that each field's assertion base type is compatible with the corresponding field in the left-hand shape
 		underlyingType := varLeftType
