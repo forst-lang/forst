@@ -1,16 +1,20 @@
-# Forst
+# Forst &emsp; [![CI]][actions] [![Go Report Card]][goreport] [![Coverage Status]][coveralls] [![License]][license]
 
-[![CI](https://github.com/forst-lang/forst/actions/workflows/lint-test-coverage.yml/badge.svg)](https://github.com/forst-lang/forst/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/forst-lang/forst)](https://goreportcard.com/report/github.com/forst-lang/forst)
-[![Coverage Status](https://coveralls.io/repos/github/forst-lang/forst/badge.svg?branch=main)](https://coveralls.io/github/forst-lang/forst?branch=main) [![License](https://img.shields.io/github/license/forst-lang/forst)](https://github.com/forst-lang/forst/blob/main/LICENSE)
+[CI]: https://img.shields.io/github/actions/workflow/status/forst-lang/forst/lint-test-coverage.yml
+[actions]: https://github.com/forst-lang/forst/actions
+[Go Report Card]: https://goreportcard.com/badge/github.com/forst-lang/forst
+[goreport]: https://goreportcard.com/report/github.com/forst-lang/forst
+[Coverage Status]: https://coveralls.io/repos/github/forst-lang/forst/badge.svg?branch=main
+[coveralls]: https://coveralls.io/github/forst-lang/forst?branch=main
+[License]: https://img.shields.io/github/license/forst-lang/forst
 
-Forst is a programming language for backend development.
+**Forst is a programming language that brings TypeScript's type safety and developer experience to Go.**
 
-Its primary goal is to make it easy to stop using TypeScript on the backend:
+Its primary goal is to help you move away from TypeScript on the backend:
 
-- Support inferring TypeScript types from backend endpoints.
-- Value types for primitive data to avoid memory heavy heap allocations.
-- Statically type-checked, but inferring and narrowing types as much as possible.
-- Allow nested type definitions to validate and narrow down input data.
+- Generate instantly usable TypeScript types from backend endpoints – enabling full-stack development without build steps.
+- Strong static typing with aggressive inference and smart narrowing – so you move fast while staying safe.
+- Data schemas acting as guards, automatically validating deeply nested input data through type definitions – to keep untrusted user input out of your application logic.
 
 See also [ROADMAP.md](./ROADMAP.md) for details on what we are planning.
 
@@ -75,7 +79,7 @@ type PhoneNumber =
     | String.HasPrefix("0")
   )
 
-func createUser(op: trpc.Mutation.Input({
+func createUser(op: Mutation.Input({
   id: UUID.V4(),
   name: String.Min(3).Max(10),
   phoneNumber: PhoneNumber,
@@ -90,11 +94,10 @@ func createUser(op: trpc.Mutation.Input({
 
 ## Inspirations
 
-Our primary inspiration is TypeScript's structural type system and its success in making JavaScript development more ergonomical and robust. We aim to bring similar benefits to Go development.
+Our primary inspiration is TypeScript's structural type system and its enormous success in making JavaScript development more ergonomic, robust and gradually typeable. We aim to bring similar benefits to Go development, insofar as they are not already present.
 
 We also draw inspiration from:
 
-- Go's simplicity and performance
 - Rust's approach to error handling and type safety
 - tRPC's type-safe API design
 - Zod's runtime type validation and schema composition
