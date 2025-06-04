@@ -53,10 +53,16 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		logParsedNode(ifStatement)
 		body = append(body, ifStatement)
 	// case ast.TokenFor:
+	// if p.context.IsTypeGuard() {
+	// 	panic(parseErrorWithValue(token, "For loop not allowed in type guards"))
+	// }
 	// 	forStatement := p.parseForStatement()
 	// 	logParsedNode(forStatement)
 	// 	body = append(body, forStatement)
 	// case ast.TokenSwitch:
+	// if p.context.IsTypeGuard() {
+	// 	panic(parseErrorWithValue(token, "Switch statement not allowed in type guards"))
+	// }
 	// 	switchStatement := p.parseSwitchStatement()
 	// 	logParsedNode(switchStatement)
 	// 	body = append(body, switchStatement)

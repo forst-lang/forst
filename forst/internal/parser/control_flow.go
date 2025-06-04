@@ -7,11 +7,11 @@ import (
 func (p *Parser) parseIfStatement() ast.Node {
 	p.advance() // consume if
 
-	// Parse initialization statement if present
+	// Parse (optional) initialization statement
 	var init ast.Node
 	var condition ast.ExpressionNode
-
-	if p.current().Type == ast.TokenVar {
+	switch p.current().Type {
+	case ast.TokenVar:
 		// Handle var declaration
 		p.advance() // consume var
 		init = p.parseVarDeclaration()
@@ -20,7 +20,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 		} else {
 			panic(parseErrorWithValue(p.current(), "Expected semicolon after var declaration"))
 		}
-	} else if p.current().Type == ast.TokenIdentifier {
+	case ast.TokenIdentifier:
 		next := p.peek()
 		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
 			// Handle assignment or short var decl
@@ -43,6 +43,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 		}
 	}
 
+	// Parse required condition expression
 	condition = p.parseExpression()
 
 	if p.current().Type != ast.TokenLBrace {

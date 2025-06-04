@@ -6,6 +6,25 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func (p *Parser) parseInlineTypeGuardBody(subjectParam ast.ParamNode) []ast.Node {
+	// If the body is inline, parse it as an ensure statement
+	ensure := p.parseEnsureStatement()
+	if ensure.Variable.GetIdent() != subjectParam.GetIdent() {
+		panic(parseErrorMessage(p.current(), "inline type guard must refine the subject parameter"))
+	}
+	return []ast.Node{ensure}
+}
+
+// parseTypeGuardBody parses the body of a type guard
+func (p *Parser) parseTypeGuardBody(subjectParam ast.ParamNode) []ast.Node {
+	// If the body is a block, parse it
+	if p.current().Type == ast.TokenLBrace {
+		return p.parseBlock()
+	}
+
+	return p.parseInlineTypeGuardBody(subjectParam)
+}
+
 // parseTypeGuard parses a type guard declaration
 func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	p.expect(ast.TokenIs)
@@ -46,14 +65,7 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	}
 
 	// Parse body - can be either a block or a single expression
-	var body []ast.Node
-	if p.current().Type == ast.TokenLBrace {
-		body = p.parseBlock()
-	} else {
-		// Single expression body
-		expr := p.parseExpression()
-		body = []ast.Node{ast.ReturnNode{Value: expr}}
-	}
+	body := p.parseTypeGuardBody(subjectParam)
 
 	return &ast.TypeGuardNode{
 		Ident:            guardName,
