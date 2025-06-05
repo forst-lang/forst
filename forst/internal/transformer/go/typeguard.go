@@ -46,6 +46,44 @@ func (t *Transformer) transformBlock(block []ast.Node) *goast.BlockStmt {
 	}
 }
 
+func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.FieldList, error) {
+
+	fields := &goast.FieldList{
+		List: []*goast.Field{},
+	}
+
+	for _, param := range params {
+		var paramName string
+		var paramType ast.TypeNode
+
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			paramName = string(p.Ident.ID)
+			paramType = p.Type
+		case ast.DestructuredParamNode:
+			// Handle destructured params if needed
+			continue
+		}
+
+		var ident *goast.Ident
+		if t != nil {
+			name, err := t.getTypeAliasNameForTypeNode(paramType)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get type alias name: %s", err)
+			}
+			ident = goast.NewIdent(name)
+		} else {
+			ident = goast.NewIdent(string(paramType.Ident))
+		}
+		fields.List = append(fields.List, &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(paramName)},
+			Type:  ident,
+		})
+	}
+
+	return fields, nil
+}
+
 // transformTypeGuard transforms a type guard into a Go function
 func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDecl, error) {
 	t.pushScope(guard)
@@ -53,44 +91,21 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	// Create function name
 	guardIdent := t.TypeChecker.Hasher.HashNode(guard).ToGuardIdent()
 
-	// Create parameter list
-	var params []*goast.Field
-
 	// Transform subject parameter
-	switch p := guard.Subject.(type) {
-	case ast.SimpleParamNode:
-		ident, err := t.transformType(p.GetType())
-		if err != nil {
-			t.popScope()
-			return nil, fmt.Errorf("failed to transform subject parameter type: %s", err)
-		}
-		params = append(params, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(p.GetIdent())},
-			Type:  ident,
-		})
-	case ast.DestructuredParamNode:
+	subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
+	if err != nil {
 		t.popScope()
-		return nil, fmt.Errorf("destructured parameters not supported in type guard")
+		return nil, fmt.Errorf("failed to transform subject parameter: %s", err)
 	}
 
-	// Transform additional parameters
-	for _, param := range guard.Params {
-		switch p := param.(type) {
-		case ast.SimpleParamNode:
-			ident, err := t.transformType(p.GetType())
-			if err != nil {
-				t.popScope()
-				return nil, fmt.Errorf("failed to transform additional parameter type: %s", err)
-			}
-			params = append(params, &goast.Field{
-				Names: []*goast.Ident{goast.NewIdent(p.GetIdent())},
-				Type:  ident,
-			})
-		case ast.DestructuredParamNode:
-			t.popScope()
-			return nil, fmt.Errorf("destructured parameters not supported in type guard")
-		}
+	// Create parameter list
+	additionalParams, err := t.transformTypeGuardParams(guard.Params)
+	if err != nil {
+		t.popScope()
+		return nil, fmt.Errorf("failed to transform type guard parameters: %s", err)
 	}
+
+	params := append(subjectParam.List, additionalParams.List...)
 
 	// Transform the body into a series of if-else blocks
 	var bodyStmts []goast.Stmt

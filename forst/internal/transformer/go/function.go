@@ -6,14 +6,13 @@ import (
 	goast "go/ast"
 )
 
-// transformFunction converts a Forst function node to a Go function declaration
-func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
-	// Create function parameters
-	params := &goast.FieldList{
+func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
+
+	fields := &goast.FieldList{
 		List: []*goast.Field{},
 	}
 
-	for _, param := range n.Params {
+	for _, param := range params {
 		var paramName string
 		var paramType ast.TypeNode
 
@@ -36,10 +35,20 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		} else {
 			ident = goast.NewIdent(string(paramType.Ident))
 		}
-		params.List = append(params.List, &goast.Field{
+		fields.List = append(fields.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
 			Type:  ident,
 		})
+	}
+
+	return fields, nil
+}
+
+// transformFunction converts a Forst function node to a Go function declaration
+func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
+	// Create function parameters
+	params := &goast.FieldList{
+		List: []*goast.Field{},
 	}
 
 	// Create function return type

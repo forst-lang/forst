@@ -251,7 +251,6 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 				{Type: ast.TokenIs, Value: "is", Line: 1, Column: 1},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 4},
 				{Type: ast.TokenIdentifier, Value: "password", Line: 1, Column: 5},
-				{Type: ast.TokenColon, Value: ":", Line: 1, Column: 13},
 				{Type: ast.TokenIdentifier, Value: "Password", Line: 1, Column: 15},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 22},
 				{Type: ast.TokenIdentifier, Value: "Strong", Line: 1, Column: 24},

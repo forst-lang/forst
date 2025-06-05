@@ -98,7 +98,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		// Case 2: assertion is a type guard
 		for _, constraint := range s.Assertion.Constraints {
 			for _, def := range t.TypeChecker.Defs {
-				if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+				if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
 					shouldNegate = true
 					break
 				}

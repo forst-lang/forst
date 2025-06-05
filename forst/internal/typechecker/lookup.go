@@ -150,7 +150,7 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 			// Look up the type guard definition to get its return value
 			if def, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 				log.Tracef("[resolveMergedShapeFields] Found type guard definition: %v", def)
-				if guardNode, ok := def.(*ast.TypeGuardNode); ok {
+				if guardNode, ok := def.(ast.TypeGuardNode); ok {
 					log.Tracef("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
 					// Process all nodes in the type guard body
 					tc.processNodes(merged, guardNode.Body)
