@@ -48,6 +48,8 @@ func (t *Transformer) transformBlock(block []ast.Node) *goast.BlockStmt {
 
 // transformTypeGuard transforms a type guard into a Go function
 func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDecl, error) {
+	t.pushScope(guard)
+
 	// Create function name
 	guardFuncName := ast.TypeIdent(guard.Ident)
 
@@ -59,6 +61,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	case ast.SimpleParamNode:
 		ident, err := t.transformType(p.GetType())
 		if err != nil {
+			t.popScope()
 			return nil, fmt.Errorf("failed to transform subject parameter type: %s", err)
 		}
 		params = append(params, &goast.Field{
@@ -66,6 +69,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			Type:  ident,
 		})
 	case ast.DestructuredParamNode:
+		t.popScope()
 		return nil, fmt.Errorf("destructured parameters not supported in type guard")
 	}
 
@@ -75,6 +79,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		case ast.SimpleParamNode:
 			ident, err := t.transformType(p.GetType())
 			if err != nil {
+				t.popScope()
 				return nil, fmt.Errorf("failed to transform additional parameter type: %s", err)
 			}
 			params = append(params, &goast.Field{
@@ -82,6 +87,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 				Type:  ident,
 			})
 		case ast.DestructuredParamNode:
+			t.popScope()
 			return nil, fmt.Errorf("destructured parameters not supported in type guard")
 		}
 	}
@@ -94,6 +100,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			// Transform if condition (must be an is assertion)
 			cond, ok := n.Condition.(ast.ExpressionNode)
 			if !ok {
+				t.popScope()
 				return nil, fmt.Errorf("if condition must be an expression")
 			}
 
@@ -105,6 +112,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			for _, elseIf := range n.ElseIfs {
 				elseIfCond, ok := elseIf.Condition.(ast.ExpressionNode)
 				if !ok {
+					t.popScope()
 					return nil, fmt.Errorf("else-if condition must be an expression")
 				}
 				elseIfs = append(elseIfs, &goast.IfStmt{
@@ -155,6 +163,8 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			goast.NewIdent("true"),
 		},
 	})
+
+	t.popScope()
 
 	// Create function declaration
 	return &goast.FuncDecl{

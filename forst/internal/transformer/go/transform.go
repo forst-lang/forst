@@ -43,8 +43,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(decl)
-		case *ast.TypeGuardNode:
-			decl, err := t.transformTypeGuard(*def)
+		case ast.TypeGuardNode:
+			decl, err := t.transformTypeGuard(def)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}

@@ -51,6 +51,7 @@ func (p SimpleParamNode) GetType() TypeNode {
 	return p.Type
 }
 
+// GetType returns the type of the destructured parameter
 func (p DestructuredParamNode) GetType() TypeNode {
 	return p.Type
 }

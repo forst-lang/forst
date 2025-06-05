@@ -5,6 +5,8 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -74,7 +76,11 @@ func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Ex
 	case ast.TypeError:
 		return at.transformErrorEnsure(ensure)
 	default:
-		return nil, fmt.Errorf("unsupported assertion type: %v", baseType.Ident)
+		ident, err := at.transformer.TypeChecker.LookupAssertionType(&ensure.Assertion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup assertion type: %s", err)
+		}
+		return goast.NewIdent(string(ident.Ident)), nil
 	}
 }
 
@@ -386,9 +392,9 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
 // Helper to look up a TypeGuardNode by name
 func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 	for _, def := range t.TypeChecker.Defs {
-		if tg, ok := def.(*ast.TypeGuardNode); ok {
-			if string(tg.Ident) == name {
-				return tg
+		if tg, ok := def.(ast.TypeGuardNode); ok {
+			if tg.GetIdent() == name {
+				return &tg
 			}
 		}
 	}
@@ -406,12 +412,16 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 	var typeGuardExprs []goast.Expr
 	for _, constraint := range ensure.Assertion.Constraints {
 		for _, def := range t.TypeChecker.Defs {
-			if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+			log.Tracef("Checking def: %+v, %s, %s", def, def.Kind(), def.String())
+
+			if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
+				log.Tracef("Found type guard node: %s", tg.Ident)
 				// TODO: Also validate that the variable is a subtype of the type guard's subject type
 				typeGuardExprs = append(typeGuardExprs, t.transformTypeGuardEnsure(ensure))
 			}
 		}
 	}
+
 	if len(typeGuardExprs) > 0 {
 		return conjoin(typeGuardExprs)
 	}
