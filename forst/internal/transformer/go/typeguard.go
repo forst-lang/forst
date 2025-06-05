@@ -5,6 +5,8 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // transformType transforms a Forst type node into a Go type
@@ -152,6 +154,10 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			})
 
 		case ast.EnsureNode:
+
+			condExpr := t.transformEnsureCondition(n)
+			log.Tracef("Transformed ensure condition: %+v (go expr: %s)", n, condExpr)
+
 			// Transform ensure statement into a guard
 			// If the assertion fails, return false
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
