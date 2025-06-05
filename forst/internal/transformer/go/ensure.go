@@ -428,8 +428,7 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 		return conjoin(typeGuardExprs)
 	}
 
-	// TODO: Variable could be a subtype of a built-in type, so we need to check that as well
-	// TODO: If the variable is a subtype of a built-in type, we need to transform the ensure condition into a type guard expression
+	// Variable could be a subtype of a built-in type, so we need to check that as well
 	if len(ensure.Assertion.Constraints) > 0 {
 		log.Tracef("No type guard found, transforming ensure condition, var type: %+v", variableType)
 
@@ -440,7 +439,7 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 			if typeDef, ok := bt.(ast.TypeDefNode); ok {
 				log.Tracef("Found type definition for base type %s: %+v", baseType.Ident, typeDef)
 				if typeDefExpr, ok := typeDef.Expr.(*ast.TypeDefAssertionExpr); ok {
-					log.Tracef("Found type definition assertion for base type %s: %+v", baseType.Ident, typeDefExpr)
+					log.Tracef("Transforming super type ensure condition for base type %s: %+v", baseType.Ident, typeDefExpr)
 					superTypeEnsureNode := ast.EnsureNode{
 						Variable: ensure.Variable,
 						Assertion: ast.AssertionNode{
@@ -449,7 +448,6 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 						},
 					}
 					condition := t.transformEnsureCondition(superTypeEnsureNode)
-					log.Tracef("Transformed super type ensure condition: %+v", condition)
 					return condition
 				}
 			}

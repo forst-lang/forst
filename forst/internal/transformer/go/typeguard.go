@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
-	"go/token"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -154,17 +153,13 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			})
 
 		case ast.EnsureNode:
-
 			condExpr := t.transformEnsureCondition(n)
 			log.Tracef("Transformed ensure condition: %+v (go expr: %s)", n, condExpr)
 
 			// Transform ensure statement into a guard
 			// If the assertion fails, return false
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
-				Cond: &goast.UnaryExpr{
-					Op: token.NOT,
-					X:  t.transformEnsureCondition(n),
-				},
+				Cond: t.transformEnsureCondition(n),
 				Body: &goast.BlockStmt{
 					List: []goast.Stmt{
 						&goast.ReturnStmt{
