@@ -51,7 +51,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	t.pushScope(guard)
 
 	// Create function name
-	guardFuncName := ast.TypeIdent(guard.Ident)
+	guardIdent := t.TypeChecker.Hasher.HashNode(guard).ToGuardIdent()
 
 	// Create parameter list
 	var params []*goast.Field
@@ -169,7 +169,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	// Create function declaration
 	return &goast.FuncDecl{
 		Recv: nil,
-		Name: goast.NewIdent(string(guardFuncName)),
+		Name: goast.NewIdent(string(guardIdent)),
 		Type: &goast.FuncType{
 			Params: &goast.FieldList{
 				List: params,
