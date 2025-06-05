@@ -37,8 +37,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
 				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
-				// Also store in tc.VariableTypes for structural lookup
-				tc.VariableTypes[p.Ident.ID] = []ast.TypeNode{p.Type}
 			case ast.DestructuredParamNode:
 				// Handle destructured params if needed
 				continue
@@ -51,9 +49,16 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			params[i] = param
 		}
 
-		_, err := tc.inferNodeTypes(params)
+		paramTypes, err := tc.inferNodeTypes(params)
 		if err != nil {
 			return nil, err
+		}
+
+		for i, paramTypes := range paramTypes {
+			param := n.Params[i]
+			// Also store in tc.VariableTypes for structural lookup
+			log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
+			tc.VariableTypes[ast.Identifier(param.GetIdent())] = paramTypes
 		}
 
 		_, err = tc.inferNodeTypes(n.Body)

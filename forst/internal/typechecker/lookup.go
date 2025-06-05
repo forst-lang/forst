@@ -67,6 +67,51 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 	return currentType, nil
 }
 
+// mergeShapeFields merges fields from a shape into the target map
+func (tc *TypeChecker) mergeShapeFields(target map[string]ast.ShapeFieldNode, shape ast.ShapeNode) {
+	for fieldName, field := range shape.Fields {
+		target[fieldName] = field
+		log.Tracef("[mergeShapeFields] Added field %s: %+v", fieldName, field)
+	}
+}
+
+// processNodes recursively processes nodes to find and merge shape fields
+func (tc *TypeChecker) processNodes(target map[string]ast.ShapeFieldNode, nodes []ast.Node) {
+	for _, node := range nodes {
+		log.Tracef("[processNodes] Processing node: %T %+v", node, node)
+
+		// Process ensure statements
+		if ensureNode, ok := node.(ast.EnsureNode); ok {
+			log.Tracef("[processNodes] Found ensure statement: %+v", ensureNode)
+			for _, constraint := range ensureNode.Assertion.Constraints {
+				if len(constraint.Args) > 0 && constraint.Args[0].Shape != nil {
+					tc.mergeShapeFields(target, *constraint.Args[0].Shape)
+				}
+			}
+			continue
+		}
+
+		// Process if statements
+		if ifNode, ok := node.(*ast.IfNode); ok {
+			log.Tracef("[processNodes] Found if statement: %+v", ifNode)
+			// Process if block
+			tc.processNodes(target, ifNode.Body)
+			// Process else-if blocks
+			for _, elseIf := range ifNode.ElseIfs {
+				tc.processNodes(target, elseIf.Body)
+			}
+			// Process else block
+			if ifNode.Else != nil {
+				tc.processNodes(target, ifNode.Else.Body)
+			}
+			continue
+		}
+
+		// Skip other node types
+		log.Tracef("[processNodes] Skipping node of type %T: %+v", node, node)
+	}
+}
+
 // resolveMergedShapeFields recursively merges all shape fields from an assertion chain
 func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) map[string]ast.ShapeFieldNode {
 	merged := make(map[string]ast.ShapeFieldNode)
@@ -105,97 +150,8 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 				log.Tracef("[resolveMergedShapeFields] Found type guard definition: %v", def)
 				if guardNode, ok := def.(*ast.TypeGuardNode); ok {
 					log.Tracef("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
-					// Get the parameter name from the type guard
-					paramName := guardNode.SubjectParam.GetIdent()
-					log.Tracef("[resolveMergedShapeFields] Type guard parameter name: %s", paramName)
-
-					// Look for is operations in the body
-					for i, node := range guardNode.Body {
-						log.Tracef("[resolveMergedShapeFields] Processing body node %d: %T %+v", i, node, node)
-						var binExpr ast.BinaryExpressionNode
-						if retNode, ok := node.(ast.ReturnNode); ok {
-							log.Tracef("[resolveMergedShapeFields] Body node is a ReturnNode, checking its Value: %T %+v", retNode.Value, retNode.Value)
-							if be, ok := retNode.Value.(ast.BinaryExpressionNode); ok {
-								binExpr = be
-								log.Tracef("[resolveMergedShapeFields] Found binary expression in ReturnNode.Value: %+v", binExpr)
-							} else {
-								log.Tracef("[resolveMergedShapeFields] ReturnNode.Value is not a BinaryExpressionNode: %T %+v", retNode.Value, retNode.Value)
-								continue
-							}
-						} else if be, ok := node.(ast.BinaryExpressionNode); ok {
-							binExpr = be
-							log.Tracef("[resolveMergedShapeFields] Found binary expression directly: %+v", binExpr)
-						} else {
-							log.Tracef("[resolveMergedShapeFields] Body node is not a ReturnNode or BinaryExpressionNode: %T %+v", node, node)
-							continue
-						}
-						log.Tracef("[resolveMergedShapeFields] Found binary expression with operator: %v", binExpr.Operator)
-						if binExpr.Operator == ast.TokenIs {
-							log.Tracef("[resolveMergedShapeFields] Found is operation. Left: %+v, Right: %+v", binExpr.Left, binExpr.Right)
-							if shapeNode, ok := binExpr.Right.(ast.ShapeNode); ok {
-								log.Tracef("[resolveMergedShapeFields] Found shape in is operation: %+v", shapeNode)
-								log.Tracef("[resolveMergedShapeFields] Type guard parameter name: %s", guardNode.SubjectParam.GetIdent())
-								log.Tracef("[resolveMergedShapeFields] Processing %d fields in shape", len(shapeNode.Fields))
-								for fieldName, field := range shapeNode.Fields {
-									log.Tracef("[resolveMergedShapeFields] Processing field %s: %+v", fieldName, field)
-									// If the field name matches the type guard's shape field, create a nested shape
-									if arg := constraint.Args[0]; arg.Type != nil || arg.Shape != nil {
-										log.Tracef("[resolveMergedShapeFields] Found argument: %+v", arg)
-										// Recursively merge fields for the argument type
-										mergedFields := map[string]ast.ShapeFieldNode{}
-										if arg.Type != nil {
-											if def, exists := tc.Defs[arg.Type.Ident]; exists {
-												log.Tracef("[resolveMergedShapeFields] Found type definition: %T %+v", def, def)
-												if typeDef, ok := def.(ast.TypeDefNode); ok {
-													log.Tracef("[resolveMergedShapeFields] Type definition is TypeDefNode: %+v", typeDef)
-													if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-														log.Tracef("[resolveMergedShapeFields] Type definition has shape expression: %+v", shapeExpr)
-														for k, v := range shapeExpr.Shape.Fields {
-															mergedFields[k] = v
-															log.Tracef("[resolveMergedShapeFields] Added merged field %s: %+v", k, v)
-														}
-													} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-														log.Tracef("[resolveMergedShapeFields] Type definition has assertion expression: %+v", assertionExpr)
-														for k, v := range tc.resolveMergedShapeFields(assertionExpr.Assertion) {
-															mergedFields[k] = v
-															log.Tracef("[resolveMergedShapeFields] Added merged field %s: %+v", k, v)
-														}
-													} else {
-														log.Tracef("[resolveMergedShapeFields] Type definition expression is neither shape nor assertion: %T %+v", typeDef.Expr, typeDef.Expr)
-													}
-												} else {
-													log.Tracef("[resolveMergedShapeFields] Definition is not a TypeDefNode: %T %+v", def, def)
-												}
-											} else {
-												log.Tracef("[resolveMergedShapeFields] No type definition found for %v", arg.Type.Ident)
-											}
-										} else if arg.Shape != nil {
-											log.Tracef("[resolveMergedShapeFields] Using shape fields directly: %+v", arg.Shape.Fields)
-											for k, v := range arg.Shape.Fields {
-												mergedFields[k] = v
-												log.Tracef("[resolveMergedShapeFields] Added shape field %s: %+v", k, v)
-											}
-										}
-										log.Tracef("[resolveMergedShapeFields] Creating nested shape for field %s with %d fields", fieldName, len(mergedFields))
-										// Create a nested shape with the merged fields
-										nestedShape := &ast.ShapeNode{Fields: mergedFields}
-										// Just store the nested shape directly, no type ID
-										merged[fieldName] = ast.ShapeFieldNode{
-											Shape: nestedShape,
-										}
-										continue
-									} else {
-										log.Tracef("[resolveMergedShapeFields] Constraint argument has no type or shape: %+v", arg)
-									}
-									// Otherwise, just add the field as is
-									merged[fieldName] = field
-									log.Tracef("[resolveMergedShapeFields] Added field %s as is: %+v", fieldName, field)
-								}
-							} else {
-								log.Tracef("[resolveMergedShapeFields] Right side of is operation is not a shape: %T %+v", binExpr.Right, binExpr.Right)
-							}
-						}
-					}
+					// Process all nodes in the type guard body
+					tc.processNodes(merged, guardNode.Body)
 				} else {
 					log.Tracef("[resolveMergedShapeFields] Definition is not a TypeGuardNode: %T %+v", def, def)
 				}
@@ -212,10 +168,7 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 				if def, exists := tc.Defs[arg.Type.Ident]; exists {
 					if typeDef, ok := def.(ast.TypeDefNode); ok {
 						if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-							log.Tracef("[resolveMergedShapeFields] Merging fields from shape: %v", shapeExpr.Shape)
-							for k, v := range shapeExpr.Shape.Fields {
-								merged[k] = v
-							}
+							tc.mergeShapeFields(merged, shapeExpr.Shape)
 						} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
 							if assertionExpr.Assertion != nil {
 								log.Tracef("[resolveMergedShapeFields] Recursively merging fields from assertion: %v", assertionExpr.Assertion)
@@ -229,10 +182,7 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 			}
 			// If the argument is a shape, merge its fields
 			if arg.Shape != nil {
-				log.Tracef("[resolveMergedShapeFields] Merging fields from shape: %v", arg.Shape)
-				for k, v := range arg.Shape.Fields {
-					merged[k] = v
-				}
+				tc.mergeShapeFields(merged, *arg.Shape)
 			}
 			// If the argument is an assertion, recursively merge its fields
 			if arg.Type != nil && arg.Type.Assertion != nil {
@@ -291,7 +241,8 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 	if baseType.Assertion != nil && baseType.Assertion.BaseType != nil {
 		log.Tracef("[lookupFieldType] Checking assertion base type: %s", *baseType.Assertion.BaseType)
 		// Look for the base type in VariableTypes
-		if varTypes, exists := tc.VariableTypes[ast.Identifier(*baseType.Assertion.BaseType)]; exists {
+		var baseTypeIdent = ast.Identifier(*baseType.Assertion.BaseType)
+		if varTypes, exists := tc.VariableTypes[baseTypeIdent]; exists {
 			log.Tracef("[lookupFieldType] Found %d types for base type %s: %v", len(varTypes), *baseType.Assertion.BaseType, varTypes)
 			// Look for a shape type in the variable's types
 			for _, varType := range varTypes {
@@ -321,7 +272,7 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 
 		// If we didn't find it in VariableTypes, try to resolve the base type's definition
 		if def, exists := tc.Defs[*baseType.Assertion.BaseType]; exists {
-			log.Tracef("[lookupFieldType] Found type definition for base type %s: %v", *baseType.Assertion.BaseType, def)
+			log.Tracef("[lookupFieldType] Found type definition for base type %s: %v", baseTypeIdent, def)
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
 				log.Tracef("[lookupFieldType] Type definition is TypeDefNode: %v", typeDef)
 				// Try both value and pointer types for TypeDefAssertionExpr
@@ -375,8 +326,9 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 	}
 
 	// First try to get the shape type from VariableTypes
+	log.Tracef("[lookupFieldType] Looking up variable type for %s", baseType.Ident)
 	if varTypes, exists := tc.VariableTypes[fieldName.ID]; exists {
-		log.Tracef("[lookupFieldType] Found %d types for variable %s: %v", len(varTypes), fieldName.ID, varTypes)
+		log.Tracef("[lookupFieldType] Found %d types for variable %s: %v", len(varTypes), baseType.Ident, varTypes)
 		// Look for a shape type in the variable's types
 		for _, varType := range varTypes {
 			log.Tracef("[lookupFieldType] Checking variable type: %v", varType)
@@ -406,57 +358,59 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 	}
 
 	// If we didn't find the field in VariableTypes, try to look it up in the type definition
-	if def, exists := tc.Defs[baseType.Ident]; exists {
-		log.Tracef("[lookupFieldType] Found type definition for %s: %v", baseType.Ident, def)
-		if typeDef, ok := def.(ast.TypeDefNode); ok {
-			log.Tracef("[lookupFieldType] Type definition is TypeDefNode: %v", typeDef)
-			// Try both value and pointer types for TypeDefAssertionExpr
-			var typeDefExpr ast.TypeDefAssertionExpr
-			if expr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-				typeDefExpr = expr
-			} else if expr, ok := typeDef.Expr.(*ast.TypeDefAssertionExpr); ok {
-				typeDefExpr = *expr
-			} else if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				// Handle direct shape definition
-				log.Tracef("[lookupFieldType] Processing direct shape definition: %v", shapeExpr.Shape)
-				if field, exists := shapeExpr.Shape.Fields[string(fieldName.ID)]; exists {
-					log.Tracef("[lookupFieldType] Found field %s in shape: %v", fieldName.ID, field)
-					if field.Assertion != nil && field.Assertion.BaseType != nil {
-						return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
-					}
-				} else {
-					log.Tracef("[lookupFieldType] Field %s not found in shape", fieldName.ID)
-				}
-				return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName, baseType.Ident)
-			} else {
-				log.Tracef("[lookupFieldType] Type definition expression is not TypeDefAssertionExpr or TypeDefShapeExpr: %T", typeDef.Expr)
-				return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName, baseType.Ident)
-			}
+	def, exists := tc.Defs[baseType.Ident]
+	if !exists {
+		log.Tracef("[lookupFieldType] No type definition found for %s", baseType.Ident)
+		return ast.TypeNode{}, fmt.Errorf("base type %s for field %s not found", baseType.Ident, fieldName.ID)
+	}
+	log.Tracef("[lookupFieldType] Found type definition for %s: %v", baseType.Ident, def)
 
-			log.Tracef("[lookupFieldType] Type definition expression is TypeDefAssertionExpr: %v", typeDefExpr)
-			if typeDefExpr.Assertion != nil {
-				log.Tracef("[lookupFieldType] Processing %d constraints from type definition: %v",
-					len(typeDefExpr.Assertion.Constraints), typeDefExpr.Assertion.Constraints)
-				// Collect fields from constraints
-				mergedFields := MergeShapeFieldsFromConstraints(typeDefExpr.Assertion.Constraints)
-				log.Tracef("[lookupFieldType] Merged fields from constraints: %v", mergedFields)
-				if field, exists := mergedFields[string(fieldName.ID)]; exists {
-					log.Tracef("[lookupFieldType] Found field %s in merged fields: %v", fieldName.ID, field)
-					if field.Assertion != nil && field.Assertion.BaseType != nil {
-						return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
-					}
-				} else {
-					log.Tracef("[lookupFieldType] Field %s not found in merged fields", fieldName.ID)
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		log.Tracef("[lookupFieldType] Type definition is TypeDefNode: %v", typeDef)
+		// Try both value and pointer types for TypeDefAssertionExpr
+		var typeDefExpr ast.TypeDefAssertionExpr
+		if expr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			typeDefExpr = expr
+		} else if expr, ok := typeDef.Expr.(*ast.TypeDefAssertionExpr); ok {
+			typeDefExpr = *expr
+		} else if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+			// Handle direct shape definition
+			log.Tracef("[lookupFieldType] Processing direct shape definition: %v", shapeExpr.Shape)
+			if field, exists := shapeExpr.Shape.Fields[string(fieldName.ID)]; exists {
+				log.Tracef("[lookupFieldType] Found field %s in shape: %v", fieldName.ID, field)
+				if field.Assertion != nil && field.Assertion.BaseType != nil {
+					return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
 				}
+			} else {
+				log.Tracef("[lookupFieldType] Field %s not found in shape", fieldName.ID)
 			}
+			return ast.TypeNode{}, fmt.Errorf("field %s not found in shape def type %s", fieldName, baseType.Ident)
 		} else {
-			log.Tracef("[lookupFieldType] Type definition is not TypeDefNode: %T", def)
+			log.Tracef("[lookupFieldType] Type definition expression is not TypeDefAssertionExpr or TypeDefShapeExpr: %T", typeDef.Expr)
+			return ast.TypeNode{}, fmt.Errorf("field %s not found in unknown type %s", fieldName, baseType.Ident)
+		}
+
+		log.Tracef("[lookupFieldType] Type definition expression is TypeDefAssertionExpr: %v", typeDefExpr)
+		if typeDefExpr.Assertion != nil {
+			log.Tracef("[lookupFieldType] Processing %d constraints from type definition: %v",
+				len(typeDefExpr.Assertion.Constraints), typeDefExpr.Assertion.Constraints)
+			// Collect fields from constraints
+			mergedFields := MergeShapeFieldsFromConstraints(typeDefExpr.Assertion.Constraints)
+			log.Tracef("[lookupFieldType] Merged fields from constraints: %v", mergedFields)
+			if field, exists := mergedFields[string(fieldName.ID)]; exists {
+				log.Tracef("[lookupFieldType] Found field %s in merged fields: %v", fieldName.ID, field)
+				if field.Assertion != nil && field.Assertion.BaseType != nil {
+					return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
+				}
+			} else {
+				log.Tracef("[lookupFieldType] Field %s not found in merged fields", fieldName.ID)
+			}
 		}
 	} else {
-		log.Tracef("[lookupFieldType] No type definition found for %s", baseType.Ident)
+		log.Tracef("[lookupFieldType] Type definition is not TypeDefNode: %T", def)
 	}
 
-	return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName, baseType.Ident)
+	return ast.TypeNode{}, fmt.Errorf("field %s not found in unresolveable type %s", fieldName, baseType.Ident)
 }
 
 // LookupFunctionReturnType looks up the return type of a function node
