@@ -16,7 +16,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 			name: "valid boolean return",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "IsValid",
-				SubjectParam: ast.SimpleParamNode{
+				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},
@@ -32,7 +32,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 			name: "invalid int return",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "InvalidReturn",
-				SubjectParam: ast.SimpleParamNode{
+				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},
@@ -48,7 +48,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 			name: "invalid string return",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "InvalidReturn",
-				SubjectParam: ast.SimpleParamNode{
+				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},
@@ -64,7 +64,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 			name: "no return statement",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "NoReturn",
-				SubjectParam: ast.SimpleParamNode{
+				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},
@@ -76,7 +76,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 			name: "valid boolean expression return",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "IsValid",
-				SubjectParam: ast.SimpleParamNode{
+				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},

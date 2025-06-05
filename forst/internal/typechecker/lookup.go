@@ -34,14 +34,16 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 
 	// Split the identifier on dots to handle field access
 	parts := strings.Split(string(variable.Ident.ID), ".")
+	baseIdent := ast.Identifier(parts[0])
 
 	// Look up the base variable
-	symbol, exists := scope.LookupVariable(ast.Identifier(parts[0]))
+	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
 		err := fmt.Errorf("undefined symbol: %s", parts[0])
 		log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}
+
 	if len(symbol.Types) != 1 {
 		err := fmt.Errorf("expected single type for variable %s but got %d types", parts[0], len(symbol.Types))
 		log.WithError(err).Error("lookup symbol failed")

@@ -68,9 +68,9 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	body := p.parseTypeGuardBody(subjectParam)
 
 	return &ast.TypeGuardNode{
-		Ident:            guardName,
-		SubjectParam:     subjectParam,
-		AdditionalParams: additionalParams,
-		Body:             body,
+		Ident:   guardName,
+		Subject: subjectParam,
+		Params:  additionalParams,
+		Body:    body,
 	}
 }

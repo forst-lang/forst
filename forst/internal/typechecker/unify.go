@@ -56,10 +56,10 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 		if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 			log.Tracef("[processTypeGuardFields] Found type guard definition for '%s'", constraint.Name)
 			if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
-				log.Tracef("[processTypeGuardFields] Type guard has %d additional params", len(guardNode.AdditionalParams))
+				log.Tracef("[processTypeGuardFields] Type guard has %d additional params", len(guardNode.Params))
 				// Get the parameter name and type from the type guard
-				if len(guardNode.AdditionalParams) > 0 && len(constraint.Args) > 0 {
-					param := guardNode.AdditionalParams[0]
+				if len(guardNode.Params) > 0 && len(constraint.Args) > 0 {
+					param := guardNode.Params[0]
 					paramName := param.GetIdent()
 					// Use the actual argument type from the constraint application
 					argType := constraint.Args[0]
@@ -78,7 +78,7 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 					}
 				} else {
 					log.Tracef("[processTypeGuardFields] Type guard '%s' has insufficient params/args: %d params, %d args",
-						constraint.Name, len(guardNode.AdditionalParams), len(constraint.Args))
+						constraint.Name, len(guardNode.Params), len(constraint.Args))
 				}
 			} else {
 				log.Tracef("[processTypeGuardFields] Definition for '%s' is not a TypeGuardNode: %T", constraint.Name, guardDef)
@@ -139,7 +139,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 			if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 				if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
 					// Check that the leftmost variable's type matches the guard's subject type
-					subjectType := guardNode.SubjectParam.GetType()
+					subjectType := guardNode.Subject.GetType()
 					if !tc.isTypeCompatible(varLeftType, subjectType) {
 						return ast.TypeNode{}, fmt.Errorf("type guard '%s' requires subject type %s, but got %s",
 							constraint.Name, subjectType.Ident, varLeftType.Ident)
@@ -332,7 +332,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				// Check type guard subject type for other constraints
 				if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 					if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
-						subjectType := guardNode.SubjectParam.GetType()
+						subjectType := guardNode.Subject.GetType()
 						if !tc.isTypeCompatible(varLeftType, subjectType) {
 							return ast.TypeNode{}, fmt.Errorf("type guard '%s' requires subject type %s, but got %s",
 								constraint.Name, subjectType.Ident, varLeftType.Ident)

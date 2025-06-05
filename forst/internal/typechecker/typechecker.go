@@ -108,14 +108,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		tc.popScope()
 		tc.registerFunction(n)
 	case *ast.TypeGuardNode:
-		// Register type guard in Defs
-		if _, exists := tc.Defs[ast.TypeIdent(n.Ident)]; !exists {
-			tc.Defs[ast.TypeIdent(n.Ident)] = n
-		}
-		tc.registerFunction(ast.FunctionNode{
-			Ident:       ast.Ident{ID: n.Ident},
-			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeBool}},
-		})
+		tc.pushScope(n)
+
+		tc.registerTypeGuard(*n)
+		tc.popScope()
 	}
 
 	return nil
@@ -206,9 +202,12 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 
 // registerShapeType registers a shape type with its fields
 func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
-	// Store the shape node with a special key
-	shapeKey := ast.TypeIdent(string(ident) + "_shape")
-	tc.Defs[shapeKey] = shape
+	tc.Defs[ident] = ast.TypeDefNode{
+		Ident: ident,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: shape,
+		},
+	}
 }
 
 func (tc *TypeChecker) pushScope(node ast.Node) {

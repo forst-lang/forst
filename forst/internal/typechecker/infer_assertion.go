@@ -33,8 +33,8 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, requireI
 				for _, constraint := range assertion.Constraints {
 					if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 						if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
-							if len(guardNode.AdditionalParams) > 0 && len(constraint.Args) > 0 {
-								param := guardNode.AdditionalParams[0]
+							if len(guardNode.Params) > 0 && len(constraint.Args) > 0 {
+								param := guardNode.Params[0]
 								paramName := param.GetIdent()
 								argType := constraint.Args[0]
 								if argType.Type != nil {

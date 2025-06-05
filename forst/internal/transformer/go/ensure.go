@@ -110,11 +110,11 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						transformExpression(ensure.Variable),
+						at.transformer.transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -132,11 +132,11 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						transformExpression(ensure.Variable),
+						at.transformer.transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case HasPrefixConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -156,8 +156,8 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 					Sel: goast.NewIdent("HasPrefix"),
 				},
 				Args: []goast.Expr{
-					transformExpression(ensure.Variable),
-					transformExpression(arg),
+					at.transformer.transformExpression(ensure.Variable),
+					at.transformer.transformExpression(arg),
 				},
 			})
 		default:
@@ -189,9 +189,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -206,9 +206,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case LessThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -223,9 +223,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case GreaterThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -240,9 +240,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		default:
 			return nil, fmt.Errorf("unknown Int constraint: %s", constraint.Name)
@@ -273,9 +273,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -290,9 +290,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case GreaterThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -307,9 +307,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		default:
 			return nil, fmt.Errorf("unknown Float constraint: %s", constraint.Name)
@@ -331,12 +331,12 @@ func (at *AssertionTransformer) transformBoolEnsure(ensure ast.EnsureNode) (goas
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			expr = negateCondition(transformExpression(ensure.Variable))
+			expr = negateCondition(at.transformer.transformExpression(ensure.Variable))
 		case FalseConstraint:
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			expr = transformExpression(ensure.Variable)
+			expr = at.transformer.transformExpression(ensure.Variable)
 		default:
 			return nil, fmt.Errorf("unknown Bool constraint: %s", constraint.Name)
 		}
@@ -358,7 +358,7 @@ func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.NEQ,
 				Y:  goast.NewIdent(NilConstant),
 			}
@@ -403,13 +403,17 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 		panic(fmt.Errorf("failed to lookup ensure variable type: %w", err))
 	}
 
+	var typeGuardExprs []goast.Expr
 	for _, constraint := range ensure.Assertion.Constraints {
 		for _, def := range t.TypeChecker.Defs {
 			if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
 				// TODO: Also validate that the variable is a subtype of the type guard's subject type
-				return t.transformTypeGuardEnsure(ensure)
+				typeGuardExprs = append(typeGuardExprs, t.transformTypeGuardEnsure(ensure))
 			}
 		}
+	}
+	if len(typeGuardExprs) > 0 {
+		return conjoin(typeGuardExprs)
 	}
 
 	expr, err := t.assertionTransformer.transformEnsure(ensure)
@@ -434,7 +438,7 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 			return &goast.CallExpr{
 				Fun: goast.NewIdent(string(guardFuncName)),
 				Args: []goast.Expr{
-					transformExpression(ensure.Variable),
+					t.transformExpression(ensure.Variable),
 				},
 			}
 		case ast.DestructuredParamNode:
@@ -447,7 +451,7 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 	return &goast.CallExpr{
 		Fun: goast.NewIdent(string(guardFuncName)),
 		Args: []goast.Expr{
-			transformExpression(ensure.Variable),
+			t.transformExpression(ensure.Variable),
 		},
 	}
 }

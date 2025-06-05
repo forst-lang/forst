@@ -135,13 +135,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		// Convert return statement
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
-				transformExpression(s.Value),
+				t.transformExpression(s.Value),
 			},
 		}
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
-			args[i] = transformExpression(arg)
+			args[i] = t.transformExpression(arg)
 		}
 		return &goast.ExprStmt{
 			X: &goast.CallExpr{
@@ -166,7 +166,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			} else {
 				typeName = string(s.ExplicitTypes[0].Ident)
 			}
-			rhs := transformExpression(s.RValues[0])
+			rhs := t.transformExpression(s.RValues[0])
 			return &goast.DeclStmt{
 				Decl: &goast.GenDecl{
 					Tok: token.VAR,
@@ -182,11 +182,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
-			lhs[i] = transformExpression(lval)
+			lhs[i] = t.transformExpression(lval)
 		}
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
-			rhs[i] = transformExpression(rval)
+			rhs[i] = t.transformExpression(rval)
 		}
 		operator := token.ASSIGN
 		if s.IsShort {

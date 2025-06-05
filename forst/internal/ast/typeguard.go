@@ -9,10 +9,10 @@ type TypeGuardNode struct {
 	Node
 	// Name of the type guard
 	Ident Identifier
-	// Subject parameter - the value being validated
-	SubjectParam ParamNode
+	// Subject / Receiver parameter - the value being validated
+	Subject ParamNode
 	// Additional parameters used in validation
-	AdditionalParams []ParamNode
+	Params []ParamNode
 	// Body of the type guard
 	Body []Node
 }
@@ -34,9 +34,9 @@ func (t TypeGuardNode) String() string {
 
 // Parameters returns all parameters in order (subject first, then additional)
 func (t TypeGuardNode) Parameters() []ParamNode {
-	params := make([]ParamNode, 0, 1+len(t.AdditionalParams))
-	params = append(params, t.SubjectParam)
-	params = append(params, t.AdditionalParams...)
+	params := make([]ParamNode, 0, 1+len(t.Params))
+	params = append(params, t.Subject)
+	params = append(params, t.Params...)
 	return params
 }
 
@@ -62,8 +62,8 @@ func (s ShapeGuardNode) String() string {
 // ValidateShapeGuard validates that a type guard is a valid shape guard
 func ValidateShapeGuard(node TypeGuardNode) error {
 	// Check if the receiver type is a Shape type
-	if !isShapeType(node.SubjectParam.GetType()) {
-		return fmt.Errorf("shape guard can only be used on Shape types, got %s", node.SubjectParam.GetType())
+	if !isShapeType(node.Subject.GetType()) {
+		return fmt.Errorf("shape guard can only be used on Shape types, got %s", node.Subject.GetType())
 	}
 
 	// Check if the body contains exactly one return statement

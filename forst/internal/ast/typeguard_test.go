@@ -19,7 +19,7 @@ func TestValidateShapeGuard(t *testing.T) {
 			name: "valid shape guard",
 			node: TypeGuardNode{
 				Ident: "HasField",
-				SubjectParam: SimpleParamNode{
+				Subject: SimpleParamNode{
 					Ident: Ident{ID: "s"},
 					Type:  TypeNode{Ident: "Shape"},
 				},
@@ -47,7 +47,7 @@ func TestValidateShapeGuard(t *testing.T) {
 			name: "invalid receiver type",
 			node: TypeGuardNode{
 				Ident: "HasField",
-				SubjectParam: SimpleParamNode{
+				Subject: SimpleParamNode{
 					Ident: Ident{ID: "s"},
 					Type:  TypeNode{Ident: "Int"},
 				},
@@ -75,7 +75,7 @@ func TestValidateShapeGuard(t *testing.T) {
 			name: "invalid body - no return",
 			node: TypeGuardNode{
 				Ident: "HasField",
-				SubjectParam: SimpleParamNode{
+				Subject: SimpleParamNode{
 					Ident: Ident{ID: "s"},
 					Type:  TypeNode{Ident: "Shape"},
 				},
@@ -87,7 +87,7 @@ func TestValidateShapeGuard(t *testing.T) {
 			name: "invalid body - not a shape refinement",
 			node: TypeGuardNode{
 				Ident: "HasField",
-				SubjectParam: SimpleParamNode{
+				Subject: SimpleParamNode{
 					Ident: Ident{ID: "s"},
 					Type:  TypeNode{Ident: "Shape"},
 				},

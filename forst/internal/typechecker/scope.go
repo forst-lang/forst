@@ -92,6 +92,8 @@ const (
 	SymbolStruct
 	// SymbolEnum represents an enum symbol
 	SymbolEnum
+	// SymbolTypeGuard represents a type guard symbol
+	SymbolTypeGuard
 )
 
 // IsFunction checks if the scope is a function
