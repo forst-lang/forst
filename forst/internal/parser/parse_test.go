@@ -7,10 +7,7 @@ import (
 
 // setupParser creates a new parser with the given tokens
 func setupParser(tokens []ast.Token) *Parser {
-	return &Parser{
-		tokens:  tokens,
-		context: &Context{},
-	}
+	return NewParser(tokens, "")
 }
 
 // assertNodeType checks if a node is of the expected type
@@ -131,10 +128,9 @@ func TestParseFile_WithFunctions(t *testing.T) {
 			name: "basic function with parameter",
 			tokens: []ast.Token{
 				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
-				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenIdentifier, Value: "abc123", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 10},
-				{Type: ast.TokenColon, Value: ":", Line: 1, Column: 12},
 				{Type: ast.TokenInt, Value: "int", Line: 1, Column: 14},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 17},
 				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 19},
@@ -148,8 +144,8 @@ func TestParseFile_WithFunctions(t *testing.T) {
 					t.Fatalf("Expected 1 node, got %d", len(nodes))
 				}
 				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if functionNode.GetIdent() != "main" {
-					t.Errorf("Expected function name 'main', got %s", functionNode.Ident.ID)
+				if functionNode.GetIdent() != "abc123" {
+					t.Errorf("Expected function name 'abc123', got %s", functionNode.Ident.ID)
 				}
 				if len(functionNode.Body) != 1 {
 					t.Errorf("Expected 1 statement in function body, got %d", len(functionNode.Body))
@@ -163,7 +159,6 @@ func TestParseFile_WithFunctions(t *testing.T) {
 				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
 				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
 				{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 10},
-				{Type: ast.TokenColon, Value: ":", Line: 1, Column: 12},
 				{Type: ast.TokenInt, Value: "int", Line: 1, Column: 14},
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 17},
 				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 19},
@@ -255,13 +250,13 @@ func TestParseFile_WithTypeGuards(t *testing.T) {
 				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 22},
 				{Type: ast.TokenIdentifier, Value: "Strong", Line: 1, Column: 24},
 				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 30},
-				{Type: ast.TokenReturn, Value: "return", Line: 2, Column: 4},
-				{Type: ast.TokenIdentifier, Value: "len", Line: 2, Column: 11},
-				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 14},
-				{Type: ast.TokenIdentifier, Value: "password", Line: 2, Column: 15},
+				{Type: ast.TokenEnsure, Value: "ensure", Line: 2, Column: 4},
+				{Type: ast.TokenIdentifier, Value: "password", Line: 2, Column: 11},
+				{Type: ast.TokenIs, Value: "is", Line: 2, Column: 14},
+				{Type: ast.TokenIdentifier, Value: "Min", Line: 2, Column: 15},
+				{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 18},
+				{Type: ast.TokenIntLiteral, Value: "12", Line: 2, Column: 19},
 				{Type: ast.TokenRParen, Value: ")", Line: 2, Column: 22},
-				{Type: ast.TokenGreaterEqual, Value: ">=", Line: 2, Column: 24},
-				{Type: ast.TokenIntLiteral, Value: "12", Line: 2, Column: 27},
 				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
 				{Type: ast.TokenEOF, Value: "", Line: 3, Column: 2},
 			},
@@ -308,10 +303,9 @@ func TestParseFile_WithBinaryExpressionInFunction(t *testing.T) {
 		{Type: ast.TokenIdentifier, Value: "passwordStrength", Line: 1, Column: 6},
 		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 14},
 		{Type: ast.TokenIdentifier, Value: "password", Line: 1, Column: 15},
-		{Type: ast.TokenColon, Value: ":", Line: 1, Column: 23},
 		{Type: ast.TokenIdentifier, Value: "Password", Line: 1, Column: 25},
 		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 32},
-		{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 34},
+		{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 33},
 		{Type: ast.TokenReturn, Value: "return", Line: 2, Column: 4},
 		{Type: ast.TokenIdentifier, Value: "len", Line: 2, Column: 11},
 		{Type: ast.TokenLParen, Value: "(", Line: 2, Column: 14},

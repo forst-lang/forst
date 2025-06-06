@@ -195,7 +195,29 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := New()
 			// Register 's' as a Shape type variable in the current scope
-			tc.storeSymbol(ast.Identifier("s"), []ast.TypeNode{{Ident: ast.TypeShape}}, SymbolVariable)
+			baseType := ast.TypeIdent(ast.TypeShape)
+			shape := ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"field": {
+						Assertion: &ast.AssertionNode{
+							BaseType: typeIdentPtr(string(ast.TypeString)),
+						},
+					},
+				},
+			}
+			shapeType := ast.TypeNode{
+				Ident: ast.TypeShape,
+				Assertion: &ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Match",
+						Args: []ast.ConstraintArgumentNode{{
+							Shape: &shape,
+						}},
+					}},
+				},
+			}
+			tc.storeSymbol(ast.Identifier("s"), []ast.TypeNode{shapeType}, SymbolVariable)
 			_, err := tc.unifyTypes(tt.expr.Left, tt.expr.Right, tt.expr.Operator)
 			if tt.expectError {
 				if err == nil {

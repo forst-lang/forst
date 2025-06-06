@@ -1,6 +1,8 @@
 package parser
 
-import "forst/internal/ast"
+import (
+	"forst/internal/ast"
+)
 
 // ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {

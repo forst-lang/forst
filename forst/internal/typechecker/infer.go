@@ -56,9 +56,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 		for i, paramTypes := range paramTypes {
 			param := n.Params[i]
-			// Also store in tc.VariableTypes for structural lookup
+			// Store in scope for structural lookup
 			log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
-			tc.VariableTypes[ast.Identifier(param.GetIdent())] = paramTypes
+			tc.scopeStack.CurrentScope().DefineVariable(ast.Identifier(param.GetIdent()), paramTypes[0])
 		}
 
 		_, err = tc.inferNodeTypes(n.Body)

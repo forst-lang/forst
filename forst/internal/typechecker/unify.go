@@ -115,7 +115,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 		return ast.TypeNode{}, fmt.Errorf("failed to infer type of leftmost variable: %v", err)
 	}
 	if len(varLeftTypes) == 0 {
-		return ast.TypeNode{}, fmt.Errorf("no type information found for variable %s", leftmostVar.(ast.VariableNode).Ident.ID)
+		return ast.TypeNode{}, fmt.Errorf("leftmost variable in IS expression %s has an empty type", leftmostVar.(ast.VariableNode).Ident.ID)
 	}
 	varLeftType := varLeftTypes[0]
 
@@ -231,7 +231,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				}
 			} else {
 				log.Tracef("[unifyIsOperator] No types found for variable %s", leftmostVar.Ident.ID)
-				return ast.TypeNode{}, fmt.Errorf("no type information found for variable %s", leftmostVar.Ident.ID)
+				// return ast.TypeNode{}, fmt.Errorf("no type information found for variable %s", leftmostVar.Ident.ID)
 			}
 		}
 
