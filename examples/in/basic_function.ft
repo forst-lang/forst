@@ -1,4 +1,4 @@
-package basic_function
+package main
 
 func compare() {
 	return "a" == "b"
@@ -6,4 +6,7 @@ func compare() {
 
 func diff(a Int, b Int) {
 	return 3 - 2
+}
+
+func main() {
 }
