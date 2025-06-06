@@ -78,6 +78,10 @@ func (p *Parser) parseValue() ast.ValueNode {
 				TypeParams: []ast.TypeNode{keyType, valueType},
 			},
 		}
+	case ast.TokenLBrace:
+		// Handle shape literal
+		shape := p.parseShape()
+		return shape
 	default:
 		return p.parseLiteral()
 	}

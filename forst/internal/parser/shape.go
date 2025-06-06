@@ -1,10 +1,7 @@
 package parser
 
 import (
-	"fmt"
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseShape() ast.ShapeNode {
@@ -20,56 +17,49 @@ func (p *Parser) parseShape() ast.ShapeNode {
 		if p.current().Type == ast.TokenColon {
 			p.advance() // Consume the colon
 
-			// Parse field value (can be another shape, a type assertion, or a variable reference)
-			var value ast.ShapeFieldNode
-			if p.current().Type == ast.TokenLBrace {
-				shape := p.parseShape()
-				value = ast.ShapeFieldNode{
-					Shape: &shape,
-				}
-			} else if p.current().Type == ast.TokenStar {
-				// Handle pointer type
-				p.advance() // consume *
-				baseType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-				pointerType := ast.TypeIdent(ast.TypePointer)
-				value = ast.ShapeFieldNode{
-					Assertion: &ast.AssertionNode{
-						BaseType: &pointerType,
-						Constraints: []ast.ConstraintNode{{
-							Name: "Pointer",
-							Args: []ast.ConstraintArgumentNode{{
-								Shape: &ast.ShapeNode{
-									Fields: map[string]ast.ShapeFieldNode{
-										"type": {
-											Assertion: &ast.AssertionNode{
-												BaseType: &baseType.Ident,
-											},
-										},
-									},
-								},
-							}},
-						}},
-					},
-				}
-			} else if p.current().Type == ast.TokenIdentifier {
-				// Handle variable reference
-				ident := p.expect(ast.TokenIdentifier)
-				typeIdent := ast.TypeIdent(ident.Value)
-				value = ast.ShapeFieldNode{
+			// If the next token is a type, parse as a type annotation
+			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenStar {
+				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+				typeIdent := typ.Ident
+				fields[name] = ast.ShapeFieldNode{
 					Assertion: &ast.AssertionNode{
 						BaseType: &typeIdent,
 					},
 				}
 			} else {
-				assertion := p.parseAssertionChain(true)
-				log.Trace(fmt.Sprintf("Parsed assertion chain: %s", assertion))
-				value = ast.ShapeFieldNode{
-					Assertion: &assertion,
+				// Otherwise, parse as a value
+				val := p.parseValue()
+				var field ast.ShapeFieldNode
+				switch v := val.(type) {
+				case ast.ShapeNode:
+					field = ast.ShapeFieldNode{Shape: &v}
+				default:
+					// For all other value types, wrap in an AssertionNode as a constraint argument
+					field = ast.ShapeFieldNode{
+						Assertion: &ast.AssertionNode{
+							BaseType: nil,
+							Constraints: []ast.ConstraintNode{{
+								Name: "Value",
+								Args: []ast.ConstraintArgumentNode{{
+									Value: &val,
+								}},
+							}},
+						},
+					}
 				}
+				fields[name] = field
 			}
-			fields[name] = value
+		} else if p.current().Type == ast.TokenStar {
+			// Handle pointer types (legacy, for robustness)
+			fieldType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+			typeIdent := fieldType.Ident
+			fields[name] = ast.ShapeFieldNode{
+				Assertion: &ast.AssertionNode{
+					BaseType: &typeIdent,
+				},
+			}
 		} else {
-			// If no colon, use the field name as both key and value
+			// If no colon, use the field name as both key and value (type assertion)
 			typeIdent := ast.TypeIdent(name)
 			fields[name] = ast.ShapeFieldNode{
 				Assertion: &ast.AssertionNode{
@@ -92,4 +82,15 @@ func (p *Parser) parseShape() ast.ShapeNode {
 	}
 
 	return ast.ShapeNode{Fields: fields}
+}
+
+// parseTypeIdent parses a type identifier
+func (p *Parser) parseTypeIdent() *ast.TypeIdent {
+	if p.current().Type != ast.TokenIdentifier {
+		panic(parseErrorMessage(p.current(), "expected identifier"))
+	}
+	name := p.current().Value
+	p.advance()
+	typeIdent := ast.TypeIdent(name)
+	return &typeIdent
 }
