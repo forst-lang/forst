@@ -1,7 +1,5 @@
 package main
 
-import "os"
-
 type Password = String
 
 is (password Password) Strong {
@@ -9,17 +7,9 @@ is (password Password) Strong {
 }
 
 func main() {
-	password: Password = "1234567890123"
+	password: Password = "12345abc"
 	ensure password is Strong() {
-		os.Exit(1)
+		println("Detected password as too weak, exiting...")
 	}
+	println("We have a strong password, continuing...")
 }
-
-// func main() {
-// 	password := "1234567890123"
-// 	if password is Strong() {
-// 		os.Exit(0)
-// 	} else {
-// 		os.Exit(1)
-// 	}
-// }

@@ -148,8 +148,27 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 
-		// Store type guard in global scope with the inferred return type
-		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{}, SymbolFunction)
+		// Validate type guard body
+		for _, node := range n.Body {
+			switch stmt := node.(type) {
+			case ast.IfNode:
+				// Check that condition uses is operator
+				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
+					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
+				}
+			case ast.EnsureNode:
+				// Ensure statements are valid
+			case ast.ReturnNode:
+				// Return statements are not allowed in type guards
+				return nil, fmt.Errorf("type guards must not have return statements")
+			default:
+				// Only if, else if, else, and ensure statements are allowed
+				return nil, fmt.Errorf("type guards may only contain if, else if, else, and ensure statements")
+			}
+		}
+
+		// Store type guard in global scope with void return type
+		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		tc.popScope()
 		return nil, nil

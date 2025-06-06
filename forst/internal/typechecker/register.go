@@ -49,39 +49,24 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 }
 
 func (tc *TypeChecker) registerTypeGuard(guard ast.TypeGuardNode) {
-	// Store function signature
-	params := make([]ParameterSignature, len(guard.Params))
-	for i, param := range guard.Params {
-		switch p := param.(type) {
-		case ast.SimpleParamNode:
-			params[i] = ParameterSignature{
-				Ident: p.Ident,
-				Type:  p.Type,
-			}
-		case ast.DestructuredParamNode:
-			// TODO: Handle destructured params
-			continue
-		}
-	}
-
-	// tc.Functions[ast.Identifier(guard.Ident)] = FunctionSignature{
-	// 	Ident:       ast.Ident{ID: ast.Identifier(guard.Ident)},
-	// 	Parameters:  params,
-	// 	ReturnTypes: []ast.TypeNode{{Ident: ast.TypeVoid}},
-	// }
-
-	// Register type guard in Defs
+	// Store type guard in Defs
 	if _, exists := tc.Defs[ast.TypeIdent(guard.Ident)]; !exists {
 		tc.Defs[ast.TypeIdent(guard.Ident)] = guard
 	}
 
-	// Store function symbol
-	tc.storeSymbol(guard.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+	// Store type guard symbol with SymbolTypeGuard kind and void return type in the global scope
+	globalScope := tc.scopeStack.GlobalScope()
+	globalScope.Symbols[guard.Ident] = Symbol{
+		Identifier: guard.Ident,
+		Types:      []ast.TypeNode{{Ident: ast.TypeVoid}},
+		Kind:       SymbolTypeGuard,
+		Scope:      globalScope,
+	}
 
-	// Store receiver symbol
-	tc.storeSymbol(ast.Identifier(guard.Subject.GetIdent()), guard.Subject.GetType().TypeParams, SymbolParameter)
+	// Store subject symbol in the current scope
+	tc.storeSymbol(ast.Identifier(guard.Subject.GetIdent()), []ast.TypeNode{guard.Subject.GetType()}, SymbolParameter)
 
-	// Store parameter symbols
+	// Store parameter symbols in the current scope
 	for _, param := range guard.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:

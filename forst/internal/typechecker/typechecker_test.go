@@ -6,6 +6,11 @@ import (
 	"forst/internal/ast"
 )
 
+func typeIdentPtr(s string) *ast.TypeIdent {
+	ti := ast.TypeIdent(s)
+	return &ti
+}
+
 func TestTypeGuardReturnType(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -13,9 +18,32 @@ func TestTypeGuardReturnType(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "valid boolean return",
+			name: "valid type guard with if statement",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "IsValid",
+				Subject: ast.SimpleParamNode{
+					Ident: ast.Ident{ID: "x"},
+					Type:  ast.TypeNode{Ident: ast.TypeInt},
+				},
+				Body: []ast.Node{
+					ast.IfNode{
+						Condition: ast.BinaryExpressionNode{
+							Left:     ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+							Operator: ast.TokenIs,
+							Right: ast.AssertionNode{
+								BaseType: typeIdentPtr(string(ast.TypeInt)),
+							},
+						},
+						Body: []ast.Node{},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid - has return statement",
+			typeGuard: &ast.TypeGuardNode{
+				Ident: "InvalidReturn",
 				Subject: ast.SimpleParamNode{
 					Ident: ast.Ident{ID: "x"},
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
@@ -26,54 +54,50 @@ func TestTypeGuardReturnType(t *testing.T) {
 					},
 				},
 			},
+			expectError: true,
+		},
+		{
+			name: "invalid - condition not using is operator",
+			typeGuard: &ast.TypeGuardNode{
+				Ident: "InvalidCondition",
+				Subject: ast.SimpleParamNode{
+					Ident: ast.Ident{ID: "x"},
+					Type:  ast.TypeNode{Ident: ast.TypeInt},
+				},
+				Body: []ast.Node{
+					ast.IfNode{
+						Condition: ast.BinaryExpressionNode{
+							Left:     ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+							Operator: ast.TokenGreater,
+							Right:    ast.IntLiteralNode{Value: 0},
+						},
+						Body: []ast.Node{},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "valid type guard with ensure statement",
+			typeGuard: &ast.TypeGuardNode{
+				Ident: "HasField",
+				Subject: ast.SimpleParamNode{
+					Ident: ast.Ident{ID: "s"},
+					Type:  ast.TypeNode{Ident: ast.TypeShape},
+				},
+				Body: []ast.Node{
+					ast.EnsureNode{
+						Variable: ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+						Assertion: ast.AssertionNode{
+							BaseType: typeIdentPtr(string(ast.TypeShape)),
+						},
+					},
+				},
+			},
 			expectError: false,
 		},
 		{
-			name: "invalid int return",
-			typeGuard: &ast.TypeGuardNode{
-				Ident: "InvalidReturn",
-				Subject: ast.SimpleParamNode{
-					Ident: ast.Ident{ID: "x"},
-					Type:  ast.TypeNode{Ident: ast.TypeInt},
-				},
-				Body: []ast.Node{
-					ast.ReturnNode{
-						Value: ast.IntLiteralNode{Value: 42},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "invalid string return",
-			typeGuard: &ast.TypeGuardNode{
-				Ident: "InvalidReturn",
-				Subject: ast.SimpleParamNode{
-					Ident: ast.Ident{ID: "x"},
-					Type:  ast.TypeNode{Ident: ast.TypeInt},
-				},
-				Body: []ast.Node{
-					ast.ReturnNode{
-						Value: ast.StringLiteralNode{Value: "invalid"},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "no return statement",
-			typeGuard: &ast.TypeGuardNode{
-				Ident: "NoReturn",
-				Subject: ast.SimpleParamNode{
-					Ident: ast.Ident{ID: "x"},
-					Type:  ast.TypeNode{Ident: ast.TypeInt},
-				},
-				Body: []ast.Node{},
-			},
-			expectError: true,
-		},
-		{
-			name: "valid boolean expression return",
+			name: "valid type guard with if-else",
 			typeGuard: &ast.TypeGuardNode{
 				Ident: "IsValid",
 				Subject: ast.SimpleParamNode{
@@ -81,11 +105,17 @@ func TestTypeGuardReturnType(t *testing.T) {
 					Type:  ast.TypeNode{Ident: ast.TypeInt},
 				},
 				Body: []ast.Node{
-					ast.ReturnNode{
-						Value: ast.BinaryExpressionNode{
+					ast.IfNode{
+						Condition: ast.BinaryExpressionNode{
 							Left:     ast.VariableNode{Ident: ast.Ident{ID: "x"}},
-							Operator: ast.TokenGreater,
-							Right:    ast.IntLiteralNode{Value: 0},
+							Operator: ast.TokenIs,
+							Right: ast.AssertionNode{
+								BaseType: typeIdentPtr(string(ast.TypeInt)),
+							},
+						},
+						Body: []ast.Node{},
+						Else: &ast.ElseBlockNode{
+							Body: []ast.Node{},
 						},
 					},
 				},
@@ -100,11 +130,11 @@ func TestTypeGuardReturnType(t *testing.T) {
 			err := tc.CheckTypes([]ast.Node{tt.typeGuard})
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error for invalid type guard return type, got none")
+					t.Errorf("expected error for invalid type guard, got none")
 				}
 			} else {
 				if err != nil {
-					t.Errorf("unexpected error for valid type guard return type: %v", err)
+					t.Errorf("unexpected error for valid type guard: %v", err)
 				}
 
 				// Verify type guard is stored in global scope
@@ -113,11 +143,11 @@ func TestTypeGuardReturnType(t *testing.T) {
 				if !exists {
 					t.Errorf("type guard %s not found in global scope", tt.typeGuard.Ident)
 				}
-				if symbol.Kind != SymbolFunction {
-					t.Errorf("type guard %s stored with wrong kind, got %v want %v", tt.typeGuard.Ident, symbol.Kind, SymbolFunction)
+				if symbol.Kind != SymbolTypeGuard {
+					t.Errorf("type guard %s stored with wrong kind, got %v want %v", tt.typeGuard.Ident, symbol.Kind, SymbolTypeGuard)
 				}
-				if len(symbol.Types) != 1 || symbol.Types[0].Ident != ast.TypeBool {
-					t.Errorf("type guard %s stored with wrong type, got %v want bool", tt.typeGuard.Ident, symbol.Types)
+				if len(symbol.Types) != 1 || symbol.Types[0].Ident != ast.TypeVoid {
+					t.Errorf("type guard %s stored with wrong type, got %v want void", tt.typeGuard.Ident, symbol.Types)
 				}
 			}
 		})
