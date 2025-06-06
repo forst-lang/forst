@@ -3,6 +3,8 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Scope represents a lexical scope in the program, containing symbols and their definitions
@@ -127,8 +129,11 @@ func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
 }
 
 func (s *Scope) String() string {
+	if s.Parent == nil {
+		return "GlobalScope"
+	}
 	if s.Node == nil {
-		return fmt.Sprintf("GlobalScope")
+		log.Fatalf("Scope node is nil in non-global scope")
 	}
 	return fmt.Sprintf("Scope(%v)", (*s.Node).String())
 }

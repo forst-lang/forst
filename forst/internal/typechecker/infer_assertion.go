@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -14,151 +15,129 @@ import (
 // 3. Type aliases
 // 4. Generic types
 func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGuard bool) ([]ast.TypeNode, error) {
-	log.Tracef("[inferAssertionType] Inferring type for assertion: %+v", assertion)
-
-	// Check if we've already inferred this assertion's type
-	existingTypes, err := tc.LookupInferredType(assertion, isTypeGuard)
-	if err != nil {
-		return nil, err
+	if assertion == nil {
+		return nil, nil
 	}
 
-	if existingTypes != nil {
-		return existingTypes, nil
+	log.Debugf("[inferAssertionType] Inferring type for assertion: %+v", assertion)
+
+	// First, get the base type if it exists
+	var baseType ast.TypeIdent
+	if assertion.BaseType != nil {
+		baseType = *assertion.BaseType
+		log.Debugf("[inferAssertionType] Base type: %s", baseType)
 	}
 
-	// If this is a type guard application (i.e., constraints present)
-	if len(assertion.Constraints) > 0 {
-		// Start with an empty shape
-		fields := map[string]ast.ShapeFieldNode{}
+	// Create a new shape type to hold the merged fields
+	mergedFields := make(map[string]ast.ShapeFieldNode)
 
-		// First, if there's a base type, get its fields
-		if assertion.BaseType != nil {
-			if def, exists := tc.Defs[*assertion.BaseType]; exists {
-				if typeDef, ok := def.(ast.TypeDefNode); ok {
-					if baseAssertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-						if baseAssertionExpr.Assertion != nil {
-							// Recursively get fields from base type
-							baseFields := tc.resolveMergedShapeFields(baseAssertionExpr.Assertion)
-							for k, v := range baseFields {
-								fields[k] = v
+	// If we have a base type, get its fields first
+	if baseType != "" {
+		if def, exists := tc.Defs[baseType]; exists {
+			if typeDef, ok := def.(ast.TypeDefNode); ok {
+				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					for k, v := range shapeExpr.Shape.Fields {
+						mergedFields[k] = v
+						log.Debugf("[inferAssertionType] Added field from base type: %s => %+v", k, v)
+					}
+				}
+			}
+		}
+	}
+
+	// Process each constraint
+	for _, constraint := range assertion.Constraints {
+		log.Debugf("[inferAssertionType] Processing constraint: %s", constraint.Name)
+
+		// Get the type guard definition
+		guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]
+		if !exists {
+			return nil, fmt.Errorf("type guard %s not found", constraint.Name)
+		}
+
+		guardNode, ok := guardDef.(ast.TypeGuardNode)
+		if !ok {
+			return nil, fmt.Errorf("expected type guard node for %s, got %T", constraint.Name, guardDef)
+		}
+
+		log.Debugf("[inferAssertionType] Subject parameter: %s: %s", guardNode.Subject.GetIdent(), guardNode.Subject.GetType().Ident)
+		log.Debugf("[inferAssertionType] Additional parameters: %+v", guardNode.Parameters())
+
+		// Map constraint arguments to parameters
+		argMap := make(map[string]ast.Node)
+		for i, arg := range constraint.Args {
+			if i+1 < len(guardNode.Parameters()) {
+				param := guardNode.Parameters()[i+1] // +1 to skip subject parameter
+				argMap[param.GetIdent()] = arg
+				log.Debugf("[inferAssertionType] Mapping parameter %s to argument %+v", param.GetIdent(), arg)
+			}
+		}
+
+		// Special handling for mutation types
+		if baseType == "trpc.Mutation" || baseType == "trpc.Query" || baseType == "MutationArg" {
+			if constraint.Name == "Input" {
+				// For Input constraint, we want to keep existing fields and add the input field
+				if len(constraint.Args) > 0 {
+					arg := constraint.Args[0]
+					if arg.Shape != nil {
+						for k, v := range arg.Shape.Fields {
+							mergedFields[k] = v
+							log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+						}
+					}
+				}
+				continue
+			}
+		}
+
+		// Add fields from type guard parameters
+		for _, param := range guardNode.Parameters() {
+			if param.GetIdent() != guardNode.Subject.GetIdent() {
+				if arg, exists := argMap[param.GetIdent()]; exists {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							for k, v := range argNode.Shape.Fields {
+								mergedFields[k] = v
+								log.Debugf("[inferAssertionType] Added field from shape argument: %s => %+v", k, v)
+							}
+						} else if argNode.Type != nil {
+							if def, exists := tc.Defs[argNode.Type.Ident]; exists {
+								if typeDef, ok := def.(ast.TypeDefNode); ok {
+									if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+										for k, v := range shapeExpr.Shape.Fields {
+											mergedFields[k] = v
+											log.Debugf("[inferAssertionType] Added field from type argument: %s => %+v", k, v)
+										}
+									}
+								}
 							}
 						}
 					}
 				}
 			}
 		}
-
-		// Then process each constraint in order
-		for _, constraint := range assertion.Constraints {
-			if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
-				if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
-					if len(guardNode.Params) > 0 && len(constraint.Args) > 0 {
-						param := guardNode.Params[0]
-						paramName := param.GetIdent()
-						argType := constraint.Args[0]
-						if argType.Type != nil {
-							fields[paramName] = ast.ShapeFieldNode{
-								Assertion: &ast.AssertionNode{
-									BaseType: &argType.Type.Ident,
-								},
-							}
-						} else if argType.Shape != nil {
-							// Handle shape arguments
-							fields[paramName] = ast.ShapeFieldNode{
-								Shape: argType.Shape,
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Store the shape in tc.Defs under a unique type identifier
-		shape := ast.ShapeNode{Fields: fields}
-		hash := tc.Hasher.HashNode(assertion)
-		typeIdent := hash.ToTypeIdent()
-		tc.Defs[typeIdent] = shape
-		log.WithFields(log.Fields{
-			"typeIdent": typeIdent,
-			"assertion": assertion.String(),
-			"fields":    fields,
-		}).Debugf("[inferAssertionType] Stored shape type with fields")
-		shapeType := ast.TypeNode{Ident: typeIdent}
-		tc.storeInferredType(assertion, []ast.TypeNode{shapeType})
-		return []ast.TypeNode{shapeType}, nil
 	}
 
-	// If this is a type guard definition
-	if isTypeGuard {
-		// For type guards, we need to store the shape type with its fields
-		if len(assertion.Constraints) > 0 {
-			fields := map[string]ast.ShapeFieldNode{}
-			for _, constraint := range assertion.Constraints {
-				if constraint.Name == "Match" && len(constraint.Args) > 0 {
-					if shapeArg := constraint.Args[0].Shape; shapeArg != nil {
-						for name, field := range shapeArg.Fields {
-							fields[name] = field
-						}
-					}
-				}
-			}
-			shape := ast.ShapeNode{Fields: fields}
-			hash := tc.Hasher.HashNode(assertion)
-			typeIdent := hash.ToTypeIdent()
-			tc.Defs[typeIdent] = shape
-			log.WithFields(log.Fields{
-				"typeIdent": typeIdent,
-				"assertion": assertion.String(),
-				"fields":    fields,
-			}).Debugf("[inferAssertionType] Stored shape type for type guard")
-			shapeType := ast.TypeNode{Ident: typeIdent}
-			tc.storeInferredType(assertion, []ast.TypeNode{shapeType})
-			return []ast.TypeNode{shapeType}, nil
-		}
-	}
+	// Create a unique type identifier for this shape
+	typeIdent := ast.TypeIdent(fmt.Sprintf("T_%s", generateUniqueID()))
+	log.Debugf("[inferAssertionType] Stored shape type with fields assertion=%+v fields=%+v typeIdent=%s",
+		assertion, mergedFields, typeIdent)
 
-	// Otherwise, use the type's hash as before
-	hash := tc.Hasher.HashNode(assertion)
-	typeIdent := hash.ToTypeIdent()
-	typeNode := ast.TypeNode{
-		Ident:     typeIdent,
-		Assertion: assertion,
-	}
-	inferredType := []ast.TypeNode{typeNode}
-	tc.storeInferredType(assertion, inferredType)
-
-	// Process each constraint in the assertion
-	tc.registerType(ast.TypeDefNode{
+	// Store the shape type
+	tc.Defs[typeIdent] = ast.TypeDefNode{
 		Ident: typeIdent,
-		Expr: ast.TypeDefAssertionExpr{
-			Assertion: assertion,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: mergedFields,
+			},
 		},
-	})
-
-	if assertion.BaseType != nil && (*assertion.BaseType == "trpc.Mutation" || *assertion.BaseType == "trpc.Query") {
-		for _, constraint := range assertion.Constraints {
-			switch constraint.Name {
-			case "Input":
-				if len(constraint.Args) != 1 {
-					return nil, fmt.Errorf("input constraint must have exactly one argument")
-				}
-				arg := constraint.Args[0]
-				if arg.Shape != nil {
-					if _, err := tc.inferShapeType(arg.Shape); err != nil {
-						return nil, fmt.Errorf("failed to infer shape type: %w", err)
-					}
-				} else if arg.Type != nil {
-					// If the argument is a type, just check that it exists
-					if _, exists := tc.Defs[arg.Type.Ident]; !exists {
-						return nil, fmt.Errorf("type argument %s not defined", arg.Type.Ident)
-					}
-				} else if arg.Value != nil {
-					// Optionally handle value arguments if needed
-					// (not expected for shape guards)
-				}
-			}
-		}
 	}
 
-	return inferredType, nil
+	shapeType := ast.TypeNode{Ident: typeIdent}
+	tc.storeInferredType(assertion, []ast.TypeNode{shapeType})
+	return []ast.TypeNode{shapeType}, nil
+}
+
+func generateUniqueID() string {
+	return fmt.Sprintf("%x", time.Now().UnixNano())
 }

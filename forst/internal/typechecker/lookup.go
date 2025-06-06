@@ -30,7 +30,7 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // LookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, error) {
-	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.Node)
+	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.String())
 
 	// Split the identifier on dots to handle field access
 	parts := strings.Split(string(variable.Ident.ID), ".")
@@ -71,132 +71,166 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 
 // mergeShapeFields merges fields from a shape into the target map
 func (tc *TypeChecker) mergeShapeFields(target map[string]ast.ShapeFieldNode, shape ast.ShapeNode) {
+	log.Debugf("[mergeShapeFields] Starting merge with target: %+v", target)
+	log.Debugf("[mergeShapeFields] Merging shape fields: %+v", shape.Fields)
+
 	for fieldName, field := range shape.Fields {
-		target[fieldName] = field
-		log.Tracef("[mergeShapeFields] Added field %s: %+v", fieldName, field)
-	}
-}
-
-// processNodes recursively processes nodes to find and merge shape fields
-func (tc *TypeChecker) processNodes(target map[string]ast.ShapeFieldNode, nodes []ast.Node) {
-	for _, node := range nodes {
-		log.Tracef("[processNodes] Processing node: %T %+v", node, node)
-
-		// Process ensure statements
-		if ensureNode, ok := node.(ast.EnsureNode); ok {
-			log.Tracef("[processNodes] Found ensure statement: %+v", ensureNode)
-			for _, constraint := range ensureNode.Assertion.Constraints {
-				if len(constraint.Args) > 0 && constraint.Args[0].Shape != nil {
-					tc.mergeShapeFields(target, *constraint.Args[0].Shape)
+		log.Debugf("[mergeShapeFields] Processing field %s: %+v", fieldName, field)
+		if existingField, exists := target[fieldName]; exists {
+			log.Debugf("[mergeShapeFields] Field %s already exists with value: %+v", fieldName, existingField)
+			// If both fields have assertions, merge them
+			if field.Assertion != nil && existingField.Assertion != nil {
+				log.Debugf("[mergeShapeFields] Both fields have assertions, merging...")
+				log.Debugf("[mergeShapeFields] Existing assertion: %+v", existingField.Assertion)
+				log.Debugf("[mergeShapeFields] New assertion: %+v", field.Assertion)
+				// Create a new assertion that combines both
+				mergedAssertion := &ast.AssertionNode{
+					BaseType:    existingField.Assertion.BaseType,
+					Constraints: append(existingField.Assertion.Constraints, field.Assertion.Constraints...),
+				}
+				target[fieldName] = ast.ShapeFieldNode{
+					Assertion: mergedAssertion,
+				}
+				log.Debugf("[mergeShapeFields] Merged field %s with new assertion: %+v", fieldName, mergedAssertion)
+			} else {
+				// If one has an assertion and the other has a shape, prefer the assertion
+				if field.Assertion != nil {
+					log.Debugf("[mergeShapeFields] Using new field with assertion for %s", fieldName)
+					target[fieldName] = field
+				} else if existingField.Assertion != nil {
+					log.Debugf("[mergeShapeFields] Keeping existing field with assertion for %s", fieldName)
+					// Keep existing field
+				} else {
+					// If both are shapes, merge them recursively
+					if field.Shape != nil && existingField.Shape != nil {
+						log.Debugf("[mergeShapeFields] Both fields are shapes, merging recursively")
+						tc.mergeShapeFields(target, *field.Shape)
+					} else {
+						log.Debugf("[mergeShapeFields] Using new field for %s", fieldName)
+						target[fieldName] = field
+					}
 				}
 			}
-			continue
+		} else {
+			log.Debugf("[mergeShapeFields] Adding new field %s: %+v", fieldName, field)
+			target[fieldName] = field
 		}
-
-		// Process if statements
-		if ifNode, ok := node.(*ast.IfNode); ok {
-			log.Tracef("[processNodes] Found if statement: %+v", ifNode)
-			// Process if block
-			tc.processNodes(target, ifNode.Body)
-			// Process else-if blocks
-			for _, elseIf := range ifNode.ElseIfs {
-				tc.processNodes(target, elseIf.Body)
-			}
-			// Process else block
-			if ifNode.Else != nil {
-				tc.processNodes(target, ifNode.Else.Body)
-			}
-			continue
-		}
-
-		// Skip other node types
-		log.Tracef("[processNodes] Skipping node of type %T: %+v", node, node)
 	}
+	log.Debugf("[mergeShapeFields] Final target after merge: %+v", target)
 }
 
 // resolveMergedShapeFields recursively merges all shape fields from an assertion chain
 func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) map[string]ast.ShapeFieldNode {
 	merged := make(map[string]ast.ShapeFieldNode)
 	if assertion == nil {
+		log.Debugf("[resolveMergedShapeFields] Assertion is nil, returning empty map")
 		return merged
 	}
 
-	log.Tracef("[resolveMergedShapeFields] Processing assertion: %v", assertion)
+	log.Debugf("[resolveMergedShapeFields] Starting with assertion: %+v", assertion)
+	log.Debugf("[resolveMergedShapeFields] BaseType: %v, Constraints: %+v", assertion.BaseType, assertion.Constraints)
 
-	// Recursively merge fields from the base type if it's an assertion
+	// First, handle the base type if it exists
 	if assertion.BaseType != nil {
-		log.Tracef("[resolveMergedShapeFields] Checking base type: %s", *assertion.BaseType)
+		log.Debugf("[resolveMergedShapeFields] Processing base type: %s", *assertion.BaseType)
 		if def, exists := tc.Defs[*assertion.BaseType]; exists {
+			log.Debugf("[resolveMergedShapeFields] Found base type definition: %T %+v", def, def)
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if baseAssertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-					if baseAssertionExpr.Assertion != nil {
-						log.Tracef("[resolveMergedShapeFields] Recursively merging fields from base assertion: %v", baseAssertionExpr.Assertion)
-						for k, v := range tc.resolveMergedShapeFields(baseAssertionExpr.Assertion) {
-							merged[k] = v
-						}
+				log.Debugf("[resolveMergedShapeFields] Base type is TypeDefNode: %s, Expr: %T %+v",
+					typeDef.Ident, typeDef.Expr, typeDef.Expr)
+
+				// Handle both value and pointer types for TypeDefAssertionExpr
+				var baseAssertionExpr ast.TypeDefAssertionExpr
+				if expr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+					baseAssertionExpr = expr
+				} else if expr, ok := typeDef.Expr.(*ast.TypeDefAssertionExpr); ok {
+					baseAssertionExpr = *expr
+				}
+
+				if baseAssertionExpr.Assertion != nil {
+					log.Debugf("[resolveMergedShapeFields] Recursively merging fields from base assertion: %+v",
+						baseAssertionExpr.Assertion)
+					baseFields := tc.resolveMergedShapeFields(baseAssertionExpr.Assertion)
+					log.Debugf("[resolveMergedShapeFields] Got base fields: %+v", baseFields)
+					for k, v := range baseFields {
+						merged[k] = v
+						log.Debugf("[resolveMergedShapeFields] Added field from base: %s => %+v", k, v)
 					}
 				}
 			}
 		}
 	}
 
-	// Merge fields from all constraints and their arguments
-	for _, constraint := range assertion.Constraints {
-		log.Tracef("[resolveMergedShapeFields] Processing constraint: %s with %d args", constraint.Name, len(constraint.Args))
+	// Then process each constraint
+	for i, constraint := range assertion.Constraints {
+		log.Debugf("[resolveMergedShapeFields] Processing constraint %d: %s with args: %+v", i, constraint.Name, constraint.Args)
 
-		// If the constraint is a type guard (e.g., Context), merge the field it adds
-		if len(constraint.Args) > 0 {
-			log.Tracef("[resolveMergedShapeFields] Processing type guard constraint: %s with args: %v", constraint.Name, constraint.Args)
-			// Look up the type guard definition to get its return value
-			if def, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
-				log.Tracef("[resolveMergedShapeFields] Found type guard definition: %v", def)
-				if guardNode, ok := def.(ast.TypeGuardNode); ok {
-					log.Tracef("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
-					// Process all nodes in the type guard body
-					tc.processNodes(merged, guardNode.Body)
-				} else {
-					log.Tracef("[resolveMergedShapeFields] Definition is not a TypeGuardNode: %T %+v", def, def)
+		// Special handling for mutation types
+		if assertion.BaseType != nil && (*assertion.BaseType == "trpc.Mutation" || *assertion.BaseType == "trpc.Query") {
+			if constraint.Name == "Input" && len(constraint.Args) > 0 {
+				if arg := constraint.Args[0]; arg.Shape != nil {
+					log.Debugf("[resolveMergedShapeFields] Processing mutation input shape: %+v", arg.Shape)
+					for k, v := range arg.Shape.Fields {
+						merged[k] = v
+						log.Debugf("[resolveMergedShapeFields] Added field from mutation input: %s => %+v", k, v)
+					}
 				}
-			} else {
-				log.Tracef("[resolveMergedShapeFields] No definition found for type guard: %s", constraint.Name)
+				continue
 			}
 		}
 
-		// Recursively merge fields from all constraint arguments
-		for _, arg := range constraint.Args {
-			// If the argument is a type, look up its definition and merge its fields if it's a shape or assertion
-			if arg.Type != nil {
-				log.Tracef("[resolveMergedShapeFields] Checking type argument: %v", arg.Type)
-				if def, exists := tc.Defs[arg.Type.Ident]; exists {
-					if typeDef, ok := def.(ast.TypeDefNode); ok {
-						if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-							tc.mergeShapeFields(merged, shapeExpr.Shape)
-						} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-							if assertionExpr.Assertion != nil {
-								log.Tracef("[resolveMergedShapeFields] Recursively merging fields from assertion: %v", assertionExpr.Assertion)
-								for k, v := range tc.resolveMergedShapeFields(assertionExpr.Assertion) {
-									merged[k] = v
+		if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
+			if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
+				log.Debugf("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
+				log.Debugf("[resolveMergedShapeFields] Type guard parameters: %+v", guardNode.Parameters())
+
+				// Add fields from type guard parameters
+				for _, param := range guardNode.Parameters() {
+					if param.GetIdent() != guardNode.Subject.GetIdent() {
+						log.Debugf("[resolveMergedShapeFields] Adding field from parameter: %s", param.GetIdent())
+						typeIdent := param.GetType().Ident
+						if _, exists := merged[param.GetIdent()]; !exists {
+							merged[param.GetIdent()] = ast.ShapeFieldNode{
+								Assertion: &ast.AssertionNode{
+									BaseType: &typeIdent,
+								},
+							}
+							log.Debugf("[resolveMergedShapeFields] Added new field from parameter: %s => %+v", param.GetIdent(), merged[param.GetIdent()])
+						} else {
+							log.Debugf("[resolveMergedShapeFields] Field already exists from parameter: %s", param.GetIdent())
+						}
+					}
+				}
+
+				// Process type guard arguments
+				for j, arg := range constraint.Args {
+					log.Debugf("[resolveMergedShapeFields] Processing type guard arg %d: %+v", j, arg)
+
+					if arg.Shape != nil {
+						log.Debugf("[resolveMergedShapeFields] Processing shape argument: %+v", arg.Shape)
+						for k, v := range arg.Shape.Fields {
+							merged[k] = v
+							log.Debugf("[resolveMergedShapeFields] Added field from shape argument: %s => %+v", k, v)
+						}
+					} else if arg.Type != nil {
+						log.Debugf("[resolveMergedShapeFields] Processing type argument: %+v", arg.Type)
+						if def, exists := tc.Defs[arg.Type.Ident]; exists {
+							if typeDef, ok := def.(ast.TypeDefNode); ok {
+								if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+									for k, v := range shapeExpr.Shape.Fields {
+										merged[k] = v
+										log.Debugf("[resolveMergedShapeFields] Added field from type argument shape: %s => %+v", k, v)
+									}
 								}
 							}
 						}
 					}
 				}
 			}
-			// If the argument is a shape, merge its fields
-			if arg.Shape != nil {
-				tc.mergeShapeFields(merged, *arg.Shape)
-			}
-			// If the argument is an assertion, recursively merge its fields
-			if arg.Type != nil && arg.Type.Assertion != nil {
-				log.Tracef("[resolveMergedShapeFields] Recursively merging fields from assertion: %v", arg.Type.Assertion)
-				for k, v := range tc.resolveMergedShapeFields(arg.Type.Assertion) {
-					merged[k] = v
-				}
-			}
 		}
 	}
 
-	log.Tracef("[resolveMergedShapeFields] Final merged fields: %v", merged)
+	log.Debugf("[resolveMergedShapeFields] Final merged fields: %+v", merged)
 	return merged
 }
 
