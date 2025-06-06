@@ -82,7 +82,7 @@ func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
 	if scope.Node == nil {
 		return ast.FunctionNode{}, fmt.Errorf("no function found")
 	}
-	return scope.Node.(ast.FunctionNode), nil
+	return (*scope.Node).(ast.FunctionNode), nil
 }
 
 func (t *Transformer) isMainPackage() bool {

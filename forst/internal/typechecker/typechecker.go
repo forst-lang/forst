@@ -142,7 +142,7 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	if currentScope.Node == nil {
 		log.Debug("Current scope node is nil")
 	} else {
-		log.Debugf("Current scope: %s\n", currentScope.Node.String())
+		log.Debugf("Current scope: %s\n", (*currentScope.Node).String())
 	}
 	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
 	for _, symbol := range currentScope.Symbols {
@@ -165,6 +165,7 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	}
 	// Store the type definition node
 	tc.Defs[node.Ident] = node
+	log.Tracef("[registerType] Registered type %s: %+v", node.Ident, node)
 
 	// If this is a shape type, also store the underlying ShapeNode for field access
 	if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
@@ -208,14 +209,17 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 			Shape: shape,
 		},
 	}
+	log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
 }
 
 func (tc *TypeChecker) pushScope(node ast.Node) {
 	tc.scopeStack.PushScope(node)
+	log.Tracef("[pushScope] Pushed scope: %+v", node)
 }
 
 func (tc *TypeChecker) popScope() {
 	tc.scopeStack.PopScope()
+	log.Tracef("[popScope] Popped scope, now in scope %+v", tc.scopeStack.CurrentScope())
 }
 
 // Stores a symbol definition in the current scope

@@ -1,19 +1,20 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
 )
 
 // Scope represents a lexical scope in the program, containing symbols and their definitions
 type Scope struct {
 	Parent   *Scope
-	Node     ast.Node
+	Node     *ast.Node
 	Symbols  map[ast.Identifier]Symbol
 	Children []*Scope
 }
 
 // NewScope creates a new scope
-func NewScope(parent *Scope, node ast.Node) *Scope {
+func NewScope(parent *Scope, node *ast.Node) *Scope {
 	return &Scope{
 		Parent:   parent,
 		Node:     node,
@@ -98,13 +99,19 @@ const (
 
 // IsFunction checks if the scope is a function
 func (s *Scope) IsFunction() bool {
-	_, ok := s.Node.(ast.FunctionNode)
+	if s.Node == nil {
+		panic("Cannot call IsFunction on global scope")
+	}
+	_, ok := (*s.Node).(ast.FunctionNode)
 	return ok
 }
 
 // IsTypeGuard checks if the scope is a type guard
 func (s *Scope) IsTypeGuard() bool {
-	_, ok := s.Node.(ast.TypeGuardNode)
+	if s.Node == nil {
+		panic("Cannot call IsTypeGuard on global scope")
+	}
+	_, ok := (*s.Node).(ast.TypeGuardNode)
 	return ok
 }
 
@@ -117,4 +124,11 @@ func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (s *Scope) String() string {
+	if s.Node == nil {
+		return fmt.Sprintf("GlobalScope")
+	}
+	return fmt.Sprintf("Scope(%v)", (*s.Node).String())
 }
