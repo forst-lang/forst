@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Forst Project Rules
+
+## Test Commands
+Run tests for different packages in the project:
+
+```bash
+# Run all tests
+go test -v ./internal/...
+
+# Run specific test packages
+go test -v ./internal/typechecker/...
+go test -v ./internal/parser/...
+go test -v ./internal/ast/...
+```
+
+## Example Compilations
+Run example compilations with tracing enabled:
+
+```bash
+# Run example compilations
+go run ./cmd/forst run -trace -- ../../../examples/in/rfc/guard/shape_guard.ft
+go run ./cmd/forst run -trace -- ../../../examples/in/rfc/guard/basic_guard.ft
+go run ./cmd/forst run -trace -- ../../../examples/in/basic.ft
+go run ./cmd/forst run -trace -- ../../../examples/in/basic_function.ft
+go run ./cmd/forst run -trace -- ../../../examples/in/ensure.ft
+```
+
+## Project Structure
+The project follows this structure:
+- `cmd/forst/`: Main compiler executable
+- `internal/`: Core packages
+  - `typechecker/`: Type checking implementation
+  - `parser/`: Parser implementation
+  - `ast/`: Abstract Syntax Tree definitions
+- `examples/in/`: Example Forst source files
+  - `rfc/guard/`: Guard-related examples
+  - `basic.ft`: Basic language examples
+  - `basic_function.ft`: Function examples
+  - `ensure.ft`: Ensure statement examples
