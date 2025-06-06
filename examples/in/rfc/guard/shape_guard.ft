@@ -26,9 +26,24 @@ func createUser(op AppMutation.Input({
     name: String
   }
 })) {
-  ensure op.ctx is LoggedIn() or NotLoggedIn()
+  ensure op.ctx is LoggedIn() {
+    println("Not logged in")
+  }
 
   println(op.ctx.sessionId)
 
   return op.input.name
+}
+
+func main() {
+  sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
+  op := AppMutation{
+    ctx: {
+      sessionId: &sessionId,
+    },
+    input: {
+      name: "Alice",
+    },
+  }
+  createUser(op)
 }
