@@ -9,24 +9,30 @@ For our guiding principles including anti-features see [PHILOSOPHY.md](./PHILOSO
 - [x] Basic type system
 - [x] Shape-based types
 - [x] Type definitions
+- [x] `ensure` statements
+  - [x] Basic type assertions
+  - [ ] `is` operator for conditions
+- [ ] Type guards
+  - [x] Shape guards for struct refinement
+- [ ] Immutability guarantees
+  - [ ] For `ensure` based scopes
+  - [ ] Unsafe mode for Go interop
 - [ ] Binary type expressions
-- [ ] Type constraints
 - [ ] Type aliases
 - [ ] Generic types
 
-### Code Generation
+### Go Interop
 
 - [x] Basic Go code generation
-- [ ] Generate validation from type constraints
-- [ ] TypeScript type generation
-- [ ] Better error messages
+- [x] Generate validation from type constraints
+- [ ] Parse imported Go code
+- [ ] Check argument types
 
-### Language Features
+### TypeScript Interop
 
-- [ ] Better Go interop
-- [ ] More type constraints
-- [ ] Advanced type features
-- [ ] Better error handling
+- [x] Basic TS type generation
+- [ ] Publish NPM package for compiler
+- [ ] Allow running Forst code from NodeJS
 
 ## 2. Organization
 
