@@ -19,7 +19,7 @@ func (p *Program) logMemUsage(phase string, before, after runtime.MemStats) {
 	allocDelta := after.TotalAlloc - before.TotalAlloc
 	heapDelta := after.HeapAlloc - before.HeapAlloc
 
-	log.WithFields(log.Fields{
+	p.logger.WithFields(log.Fields{
 		"phase":          phase,
 		"allocatedBytes": allocDelta,
 		"heapBytes":      heapDelta,
@@ -27,9 +27,9 @@ func (p *Program) logMemUsage(phase string, before, after runtime.MemStats) {
 }
 
 func (p *Program) debugPrintTokens(tokens []ast.Token) {
-	log.Debug("=== Tokens ===")
+	p.logger.Debug("=== Tokens ===")
 	for _, t := range tokens {
-		log.WithFields(log.Fields{
+		p.logger.WithFields(log.Fields{
 			"location": fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column),
 			"type":     string(t.Type),
 			"value":    t.Value,
@@ -38,15 +38,15 @@ func (p *Program) debugPrintTokens(tokens []ast.Token) {
 }
 
 func (p *Program) debugPrintForstAST(forstAST []ast.Node) {
-	log.Debug("=== Forst AST ===")
+	p.logger.Debug("=== Forst AST ===")
 	for _, node := range forstAST {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			log.WithField("package", n.Ident).Debug("Package declaration")
+			p.logger.WithField("package", n.Ident).Debug("Package declaration")
 		case ast.ImportNode:
-			log.WithField("path", n.Path).Debug("Import")
+			p.logger.WithField("path", n.Path).Debug("Import")
 		case ast.ImportGroupNode:
-			log.WithField("importGroup", n.Imports).Debug("Import group")
+			p.logger.WithField("importGroup", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
 			fields := log.Fields{
 				"name": n.GetIdent(),
@@ -61,7 +61,7 @@ func (p *Program) debugPrintForstAST(forstAST []ast.Node) {
 			} else {
 				fields["returnTypes"] = "(?)"
 			}
-			log.WithFields(fields).Debug("Function declaration")
+			p.logger.WithFields(fields).Debug("Function declaration")
 		}
 	}
 }
@@ -87,9 +87,9 @@ func (p *Program) debugPrintGoAST(goFile *goast.File) {
 }
 
 func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
-	log.Debug("\n=== Type Check Results ===")
+	p.logger.Debug("\n=== Type Check Results ===")
 
-	log.Debug("Functions:")
+	p.logger.Debug("Functions:")
 	for id, sig := range tc.Functions {
 		params := make([]string, len(sig.Parameters))
 		for i, param := range sig.Parameters {
@@ -101,20 +101,20 @@ func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 			returnTypes[i] = rt.String()
 		}
 
-		log.WithFields(log.Fields{
+		p.logger.WithFields(log.Fields{
 			"function":    id,
 			"parameters":  params,
 			"returnTypes": returnTypes,
 		}).Debug("function signature")
 	}
 
-	log.Debug("Definitions:")
+	p.logger.Debug("Definitions:")
 	for id, def := range tc.Defs {
 		expr := ""
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			expr = typeDef.Expr.String()
 		}
-		log.WithFields(log.Fields{
+		p.logger.WithFields(log.Fields{
 			"definition": id,
 			"type":       fmt.Sprintf("%T", def),
 			"expr":       expr,

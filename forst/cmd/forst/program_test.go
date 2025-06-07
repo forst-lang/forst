@@ -26,12 +26,10 @@ func TestProgramCompilation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			program := &Program{
-				Args: ProgramArgs{
-					command:  "run",
-					filePath: tt.filePath,
-				},
-			}
+			program := NewProgram(ProgramArgs{
+				command:  "run",
+				filePath: tt.filePath,
+			})
 
 			code, err := program.compileFile()
 			if (err != nil) != tt.wantErr {

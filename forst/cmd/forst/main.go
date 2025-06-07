@@ -10,9 +10,7 @@ import (
 
 func main() {
 	args := ParseArgs()
-	program := Program{
-		Args: args,
-	}
+	program := NewProgram(args)
 
 	if args.filePath == "" {
 		log.Error(fmt.Errorf("no input file path provided"))
@@ -32,13 +30,13 @@ func main() {
 
 	if args.watch {
 		if err := program.watchFile(); err != nil {
-			log.Error(err)
+			program.logger.Error(err)
 			os.Exit(1)
 		}
 	} else {
 		code, err := program.compileFile()
 		if err != nil {
-			log.Error(err)
+			program.logger.Error(err)
 			os.Exit(1)
 		}
 
@@ -47,14 +45,14 @@ func main() {
 			var err error
 			outputPath, err = createTempOutputFile(*code)
 			if err != nil {
-				log.Error(err)
+				program.logger.Error(err)
 				os.Exit(1)
 			}
 		}
 
 		if args.command == "run" {
 			if err := runGoProgram(outputPath); err != nil {
-				log.Error(err)
+				program.logger.Error(err)
 				os.Exit(1)
 			}
 		}

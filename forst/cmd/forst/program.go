@@ -13,12 +13,20 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Program represents the Forst compiler and its arguments.
 type Program struct {
-	Args ProgramArgs
+	Args   ProgramArgs
+	logger *logrus.Logger
+}
+
+func NewProgram(args ProgramArgs) *Program {
+	return &Program{
+		Args:   args,
+		logger: createLogger(),
+	}
 }
 
 func (p *Program) readSourceFile() ([]byte, error) {
@@ -44,7 +52,7 @@ func runGoProgram(outputPath string) error {
 
 func (p *Program) reportPhase(phase string) {
 	if p.Args.reportPhases {
-		log.Info(phase)
+		p.logger.Info(phase)
 	}
 }
 
@@ -83,7 +91,8 @@ func (p *Program) compileFile() (*string, error) {
 	memBefore = getMemStats()
 
 	// Parsing
-	forstNodes, err := parser.NewParser(tokens, p.Args.filePath).ParseFile()
+	psr := parser.NewParser(tokens, p.Args.filePath, p.logger)
+	forstNodes, err := psr.ParseFile()
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +110,7 @@ func (p *Program) compileFile() (*string, error) {
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
-		log.Error("Encountered error checking types: ", err)
+		p.logger.Error("Encountered error checking types: ", err)
 		checker.DebugPrintCurrentScope()
 		return nil, err
 	}
@@ -136,6 +145,7 @@ func (p *Program) compileFile() (*string, error) {
 			return nil, fmt.Errorf("error writing output file: %v", err)
 		}
 	} else if p.Args.trace {
+		p.logger.Info("Generated Go code:")
 		fmt.Println(goCode)
 	}
 
@@ -150,7 +160,7 @@ func (p *Program) watchFile() error {
 	}
 	defer func() {
 		if err := watcher.Close(); err != nil {
-			log.Errorf("Error closing watcher: %v", err)
+			p.logger.Errorf("Error closing watcher: %v", err)
 		}
 	}()
 
@@ -159,26 +169,26 @@ func (p *Program) watchFile() error {
 		return fmt.Errorf("error watching file: %v", err)
 	}
 
-	log.Infof("Watching %s for changes...", p.Args.filePath)
+	p.logger.Infof("Watching %s for changes...", p.Args.filePath)
 
 	// Initial compilation
 	if code, err := p.compileFile(); err != nil {
-		log.Error(err)
-		log.Warn("Not running program because of errors during compilation")
+		p.logger.Error(err)
+		p.logger.Warn("Not running program because of errors during compilation")
 	} else {
 		outputPath := p.Args.outputPath
 		if outputPath == "" {
 			var err error
 			outputPath, err = createTempOutputFile(*code)
 			if err != nil {
-				log.Error(err)
+				p.logger.Error(err)
 				os.Exit(1)
 			}
 		}
 
 		// Run the compiled program
 		if err := runGoProgram(outputPath); err != nil {
-			log.Error(err)
+			p.logger.Error(err)
 		}
 	}
 
@@ -197,29 +207,39 @@ func (p *Program) watchFile() error {
 
 				// Create a new timer
 				debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
-					log.Info("File changed, recompiling...")
+					p.logger.Info("File changed, recompiling...")
 					if code, err := p.compileFile(); err != nil {
-						log.Error(err)
-						log.Warn("Not running program because of errors during compilation")
+						p.logger.Error(err)
+						p.logger.Warn("Not running program because of errors during compilation")
 					} else {
 						outputPath := p.Args.outputPath
 						if outputPath == "" {
 							var err error
 							outputPath, err = createTempOutputFile(*code)
 							if err != nil {
-								log.Error(err)
+								p.logger.Error(err)
 								os.Exit(1)
 							}
 						}
 						// Run the compiled program
 						if err := runGoProgram(outputPath); err != nil {
-							log.Error(err)
+							p.logger.Error(err)
 						}
 					}
 				})
 			}
 		case err := <-watcher.Errors:
-			log.Error("Error watching file:", err)
+			p.logger.Error("Error watching file:", err)
 		}
 	}
+}
+
+func createLogger() *logrus.Logger {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "15:04:05.000",
+	})
+	return logger
 }

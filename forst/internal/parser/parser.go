@@ -5,7 +5,7 @@ import (
 
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Context is a mutable context for the parser to track the current state
@@ -21,19 +21,25 @@ type Parser struct {
 	tokens       []ast.Token
 	currentIndex int
 	context      *Context
+	logger       *logrus.Logger
 }
 
 // NewParser creates a new parser instance
-func NewParser(tokens []ast.Token, filePath string) *Parser {
+func NewParser(tokens []ast.Token, filePath string, logger *logrus.Logger) *Parser {
 	scopeStack := NewScopeStack()
 	context := Context{
 		FilePath:   filePath,
 		ScopeStack: scopeStack,
 	}
+	if logger == nil {
+		logger = logrus.New()
+		logger.Warnf("No logger provided, using default logger")
+	}
 	return &Parser{
 		tokens:       tokens,
 		currentIndex: 0,
 		context:      &context,
+		logger:       logger,
 	}
 }
 
@@ -78,5 +84,5 @@ func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
 }
 
 func (p *Parser) FailWithParseError(token ast.Token, message string) {
-	log.Fatalf("%s", parseErrorMessage(token, message))
+	p.logger.Fatalf("%s", parseErrorMessage(token, message))
 }

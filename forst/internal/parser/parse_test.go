@@ -3,11 +3,19 @@ package parser
 import (
 	"forst/internal/ast"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 // setupParser creates a new parser with the given tokens
 func setupParser(tokens []ast.Token) *Parser {
-	return NewParser(tokens, "")
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "15:04:05.000",
+	})
+	return NewParser(tokens, "", logger)
 }
 
 // assertNodeType checks if a node is of the expected type
