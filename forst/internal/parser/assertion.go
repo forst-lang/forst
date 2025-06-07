@@ -2,6 +2,8 @@ package parser
 
 import (
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func isPossibleConstraintIdentifier(token ast.Token) bool {
@@ -11,7 +13,7 @@ func isPossibleConstraintIdentifier(token ast.Token) bool {
 func (p *Parser) expectConstraintIdentifier() ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleConstraintIdentifier(token) {
-		panic(parseErrorMessage(token, "Constraint must start with capital letter"))
+		log.Fatalf("%s", parseErrorMessage(token, "Constraint must start with capital letter"))
 	}
 	return token
 }
@@ -74,7 +76,7 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 
 		if isConstraintWithoutBaseType {
 			if requireBaseType {
-				panic(parseErrorMessage(token, "Expected base type for assertion"))
+				p.FailWithParseError(token, "Expected base type for assertion")
 			}
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)

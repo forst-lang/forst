@@ -18,7 +18,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 	if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
 		ident := p.expect(ast.TokenIdentifier)
 		if p.current().Type == ast.TokenLParen {
-			panic(parseErrorMessage(p.current(), "Shape({...}) wrapper is not allowed. Use {...} directly for shape types."))
+			p.FailWithParseError(p.current(), "Shape({...}) wrapper is not allowed. Use {...} directly for shape types.")
 		}
 		return ast.TypeNode{
 			Ident: ast.TypeIdent(ident.Value),
@@ -89,7 +89,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	if tok.Type == ast.TokenIdentifier && tok.Value == "Shape" {
 		// Check if this is Shape({...})
 		if p.peek().Type == ast.TokenLParen {
-			panic(parseErrorMessage(tok, "Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }."))
+			p.FailWithParseError(tok, "Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }.")
 		}
 		// Allow direct usage of Shape as a type name
 		p.advance()
@@ -134,7 +134,8 @@ func (p *Parser) parseParameter() ast.ParamNode {
 	case ast.TokenLBrace:
 		return p.parseDestructuredParameter()
 	default:
-		panic(parseErrorMessage(p.current(), "Expected parameter"))
+		p.FailWithParseError(p.current(), "Expected parameter")
+		panic("Reached unreachable path")
 	}
 }
 

@@ -16,7 +16,7 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 	// Expect assignment operator
 	assignToken := p.current()
 	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
-		panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+		p.FailWithParseError(assignToken, "Expected assignment or short assignment operator")
 	}
 	p.advance()
 
@@ -40,7 +40,7 @@ func (p *Parser) parseMultipleAssignment() ast.AssignmentNode {
 	// Expect assignment operator
 	assignToken := p.current()
 	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
-		panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+		p.FailWithParseError(assignToken, "Expected assignment or short assignment operator")
 	}
 	p.advance()
 

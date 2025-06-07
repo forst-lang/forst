@@ -18,7 +18,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 		if p.current().Type == ast.TokenSemicolon {
 			p.advance() // Consume semicolon
 		} else {
-			panic(parseErrorWithValue(p.current(), "Expected semicolon after var declaration"))
+			p.FailWithParseError(p.current(), "Expected semicolon after var declaration")
 		}
 	case ast.TokenIdentifier:
 		next := p.peek()
@@ -38,7 +38,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 			if p.current().Type == ast.TokenSemicolon {
 				p.advance() // Consume semicolon
 			} else {
-				panic(parseErrorWithValue(p.current(), "Expected semicolon after initialization statement"))
+				p.FailWithParseError(p.current(), "Expected semicolon after initialization statement")
 			}
 		}
 	}
@@ -47,7 +47,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 	condition = p.parseExpression()
 
 	if p.current().Type != ast.TokenLBrace {
-		panic(parseErrorWithValue(p.current(), "Expected { after if condition"))
+		p.FailWithParseError(p.current(), "Expected { after if condition")
 	}
 
 	// Parse then block
@@ -62,7 +62,7 @@ func (p *Parser) parseIfStatement() ast.Node {
 			p.advance() // consume if
 			elseIfCondition := p.parseExpression()
 			if p.current().Type != ast.TokenLBrace {
-				panic(parseErrorWithValue(p.current(), "Expected { after else-if condition"))
+				p.FailWithParseError(p.current(), "Expected { after else-if condition")
 			}
 			elseIfBody := p.parseBlock()
 			elseIfs = append(elseIfs, ast.ElseIfNode{
@@ -93,7 +93,7 @@ func (p *Parser) parseIncDecStmt() ast.Node {
 	ident := p.expect(ast.TokenIdentifier)
 	op := p.current()
 	if op.Type != ast.TokenPlusPlus && op.Type != ast.TokenMinusMinus {
-		panic(parseErrorWithValue(op, "Expected ++ or --"))
+		p.FailWithParseError(op, "Expected ++ or --")
 	}
 	p.advance() // Consume operator
 

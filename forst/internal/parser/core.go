@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Context is a mutable context for the parser to track the current state
@@ -65,8 +67,16 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType ast.TokenIdent) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		panic(parseErrorWithValue(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type)))
+		p.FailWithParseError(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type))
 	}
 	p.advance()
 	return token
+}
+
+func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
+	p.FailWithParseError(token, unexpectedTokenMessage(token, message))
+}
+
+func (p *Parser) FailWithParseError(token ast.Token, message string) {
+	log.Fatalf("%s", parseErrorMessage(token, message))
 }

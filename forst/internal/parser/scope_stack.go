@@ -2,6 +2,8 @@ package parser
 
 import (
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ScopeStack manages a stack of scopes during type checking
@@ -28,7 +30,7 @@ func NewScopeStack() *ScopeStack {
 // PushScope creates and pushes a new scope for the given AST node
 func (ss *ScopeStack) PushScope(scope *Scope) {
 	if scope.IsGlobal {
-		panic("Cannot push global scope")
+		log.Fatalf("Cannot push global scope")
 	}
 	ss.scopes = append(ss.scopes, *scope)
 	ss.current = scope
@@ -36,7 +38,7 @@ func (ss *ScopeStack) PushScope(scope *Scope) {
 
 func (ss *ScopeStack) PopScope() {
 	if ss.current.IsGlobal {
-		panic("Cannot pop global scope")
+		log.Fatalf("Cannot pop global scope")
 	}
 	ss.scopes = ss.scopes[:len(ss.scopes)-1]
 	ss.current = &ss.scopes[len(ss.scopes)-1]

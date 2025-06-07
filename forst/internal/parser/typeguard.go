@@ -10,7 +10,7 @@ func (p *Parser) parseInlineTypeGuardBody(subjectParam ast.ParamNode) []ast.Node
 	// If the body is inline, parse it as an ensure statement
 	ensure := p.parseEnsureStatement()
 	if ensure.Variable.GetIdent() != subjectParam.GetIdent() {
-		panic(parseErrorMessage(p.current(), "inline type guard must refine the subject parameter"))
+		p.FailWithParseError(p.current(), "inline type guard must refine the subject parameter")
 	}
 	return []ast.Node{ensure}
 }
@@ -32,7 +32,7 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 
 	// Parse subject parameter (required)
 	if p.current().Type == ast.TokenRParen {
-		panic(parseErrorMessage(p.current(), "type guard requires a subject parameter"))
+		p.FailWithParseError(p.current(), "type guard requires a subject parameter")
 	}
 	log.Tracef("[parseTypeGuard] Parsing subject parameter, current token: %+v", p.current())
 	subjectParam := p.parseParameter()
@@ -61,7 +61,7 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 			p.expect(ast.TokenRParen)
 		}
 	} else {
-		panic(parseErrorMessage(p.current(), "expected guard name"))
+		p.FailWithParseError(p.current(), "expected guard name")
 	}
 
 	// Parse body - can be either a block or a single expression

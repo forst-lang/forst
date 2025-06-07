@@ -15,10 +15,7 @@ func (p *Parser) parseExpression() ast.ExpressionNode {
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	if level > MaxExpressionDepth {
-		panic(parseErrorWithValue(
-			p.current(),
-			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth),
-		))
+		p.FailWithParseError(p.current(), fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth))
 	}
 
 	var expr ast.ExpressionNode

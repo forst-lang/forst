@@ -78,7 +78,7 @@ func (p *Parser) parseShape() ast.ShapeNode {
 
 	// Require at least one field in shape definitions
 	if len(fields) == 0 {
-		panic(parseErrorMessage(p.current(), "Shape type must have at least one field. Empty shapes are not allowed."))
+		p.FailWithParseError(p.current(), "Shape type must have at least one field. Empty shapes are not allowed.")
 	}
 
 	return ast.ShapeNode{Fields: fields}
@@ -87,7 +87,7 @@ func (p *Parser) parseShape() ast.ShapeNode {
 // parseTypeIdent parses a type identifier
 func (p *Parser) parseTypeIdent() *ast.TypeIdent {
 	if p.current().Type != ast.TokenIdentifier {
-		panic(parseErrorMessage(p.current(), "expected identifier"))
+		p.FailWithParseError(p.current(), "expected identifier")
 	}
 	name := p.current().Value
 	p.advance()

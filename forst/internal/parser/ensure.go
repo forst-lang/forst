@@ -27,7 +27,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	if p.current().Type == ast.TokenLogicalNot && p.peek().Type == ast.TokenIdentifier {
 		p.advance() // Move past !
 		if p.peek().Type == ast.TokenLParen {
-			panic(parseErrorWithValue(p.current(), "Expected variable after ensure !"))
+			p.FailWithParseError(p.current(), "Expected variable after ensure !")
 		}
 		variable = ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(p.current().Value)}}
 		p.advance() // Move past variable
@@ -66,7 +66,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 
 	if p.context.IsTypeGuard() {
 		if p.current().Type == ast.TokenOr {
-			panic(parseErrorWithValue(p.current(), "Ensure statement not allowed in type guards"))
+			p.FailWithParseError(p.current(), "Ensure statement not allowed in type guards")
 		}
 		return ast.EnsureNode{
 			Variable:  variable,
@@ -77,7 +77,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 
 	if p.context.IsMainFunction() {
 		if p.current().Type == ast.TokenOr {
-			panic(parseErrorWithValue(p.current(), "Ensure statement not allowed in main function"))
+			p.FailWithParseError(p.current(), "Ensure statement not allowed in main function")
 		}
 	}
 

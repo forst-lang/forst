@@ -25,7 +25,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 				Value: structLit,
 			}
 		}
-		panic(parseErrorWithValue(nextToken, "Expected identifier or struct literal after &"))
+		p.FailWithParseError(nextToken, "Expected identifier or struct literal after &")
 	case ast.TokenIdentifier:
 		p.advance() // Consume identifier
 		identifier := ast.Identifier(token.Value)
@@ -85,6 +85,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 	default:
 		return p.parseLiteral()
 	}
+	panic("Reached unreachable path")
 }
 
 // parseStructLiteral parses a struct literal value
