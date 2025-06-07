@@ -4,7 +4,7 @@ package typechecker
 import (
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // TypeChecker performs type inference and type checking on the AST
@@ -29,10 +29,16 @@ type TypeChecker struct {
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
 	imports []ast.ImportNode
+	// Logger for the type checker
+	log *logrus.Logger
 }
 
 // New creates a new TypeChecker
-func New() *TypeChecker {
+func New(log *logrus.Logger) *TypeChecker {
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
 	return &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
 		Defs:                make(map[ast.TypeIdent]ast.Node),
@@ -45,6 +51,7 @@ func New() *TypeChecker {
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
 		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),
+		log:                 log,
 	}
 }
 
@@ -52,7 +59,7 @@ func New() *TypeChecker {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
-	log.Trace("[CheckTypes] First pass: collecting explicit types and function signatures")
+	tc.log.Trace("[CheckTypes] First pass: collecting explicit types and function signatures")
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
@@ -61,7 +68,7 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		tc.path = tc.path[:len(tc.path)-1]
 	}
 
-	log.Debugf("Collected imports: %v", tc.imports)
+	tc.log.Debugf("Collected imports: %v", tc.imports)
 
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
@@ -76,13 +83,13 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 
 // Traverses the AST to gather type definitions and function signatures
 func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
-	log.Tracef("[collectExplicitTypes] Collecting explicit types for type %s", node.String())
+	tc.log.Tracef("[collectExplicitTypes] Collecting explicit types for type %s", node.String())
 	switch n := node.(type) {
 	case ast.ImportNode:
-		log.Debugf("[collectExplicitTypes] Collecting import: %v", n)
+		tc.log.Debugf("[collectExplicitTypes] Collecting import: %v", n)
 		tc.imports = append(tc.imports, n)
 	case ast.ImportGroupNode:
-		log.Debugf("[collectExplicitTypes] Collecting import group: %v", n)
+		tc.log.Debugf("[collectExplicitTypes] Collecting import group: %v", n)
 		tc.imports = append(tc.imports, n.Imports...)
 	case ast.TypeDefNode:
 		tc.registerType(n)
@@ -120,7 +127,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 // Associates inferred types with an AST node using its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash := tc.Hasher.HashNode(node)
-	log.Tracef("[storeInferredType] Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
+	tc.log.Tracef("[storeInferredType] Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 	tc.Types[hash] = types
 }
 
@@ -128,7 +135,7 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	log.Tracef("[storeInferredFunctionReturnType] Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
+	tc.log.Tracef("[storeInferredFunctionReturnType] Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
 	tc.Functions[fn.Ident.ID] = sig
 }
 
@@ -136,17 +143,17 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 func (tc *TypeChecker) DebugPrintCurrentScope() {
 	currentScope := tc.scopeStack.CurrentScope()
 	if currentScope == nil {
-		log.Debug("Current scope is nil")
+		tc.log.Debug("Current scope is nil")
 		return
 	}
 	if currentScope.Node == nil {
-		log.Debug("Current scope node is nil")
+		tc.log.Debug("Current scope node is nil")
 	} else {
-		log.Debugf("Current scope: %s\n", (*currentScope.Node).String())
+		tc.log.Debugf("Current scope: %s\n", (*currentScope.Node).String())
 	}
-	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
+	tc.log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
 	for _, symbol := range currentScope.Symbols {
-		log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
+		tc.log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
 }
 
@@ -165,7 +172,7 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	}
 	// Store the type definition node
 	tc.Defs[node.Ident] = node
-	log.Tracef("[registerType] Registered type %s: %+v", node.Ident, node)
+	tc.log.Tracef("[registerType] Registered type %s: %+v", node.Ident, node)
 
 	// If this is a shape type, also store the underlying ShapeNode for field access
 	if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
@@ -209,7 +216,7 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 			Shape: shape,
 		},
 	}
-	log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
+	tc.log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
 }
 
 // PushScope creates a new scope for the given node

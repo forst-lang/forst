@@ -67,7 +67,7 @@ func TestExamples(t *testing.T) {
 			}
 
 			// Read the generated code from the temporary file
-			program := NewProgram(ProgramArgs{
+			program := New(ProgramArgs{
 				command:  "run",
 				filePath: path,
 			})
@@ -135,7 +135,7 @@ func runCompiler(inputPath string) error {
 		filePath: inputPath,
 	}
 
-	program := NewProgram(args)
+	program := New(args)
 	_, err := program.compileFile()
 	return err
 }

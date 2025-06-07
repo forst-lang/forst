@@ -6,7 +6,8 @@ import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
-	"log"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Transformer converts a Forst AST to a Go AST
@@ -15,14 +16,20 @@ type Transformer struct {
 	currentScope         *typechecker.Scope
 	Output               *TransformerOutput
 	assertionTransformer *AssertionTransformer
+	log                  *logrus.Logger
 }
 
 // New creates a new Transformer
-func New(tc *typechecker.TypeChecker) *Transformer {
+func New(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
 	t := &Transformer{
 		TypeChecker:  tc,
 		currentScope: tc.GlobalScope(),
 		Output:       &TransformerOutput{},
+		log:          log,
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	return t
@@ -103,7 +110,7 @@ func (t *Transformer) isMainFunction() bool {
 	}
 
 	if t.currentScope.IsGlobal() {
-		log.Fatalf("isMainFunction called in global scope")
+		t.log.Fatalf("isMainFunction called in global scope")
 	}
 
 	function, err := t.closestFunction()

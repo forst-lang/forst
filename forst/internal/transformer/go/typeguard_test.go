@@ -2,7 +2,6 @@ package transformergo
 
 import (
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"testing"
 )
@@ -20,9 +19,9 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: typechecker.New(),
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -54,9 +53,9 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: typechecker.New(),
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -84,9 +83,9 @@ func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: typechecker.New(),
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	_, _ = tr.transformTypeGuard(tg)
 }
 
@@ -130,9 +129,9 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: typechecker.New(),
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

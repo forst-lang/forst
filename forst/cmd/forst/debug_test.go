@@ -58,7 +58,7 @@ func TestLogMemUsage(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with memory reporting enabled
-	program := NewProgram(ProgramArgs{
+	program := New(ProgramArgs{
 		reportMemoryUsage: true,
 	})
 
@@ -89,7 +89,7 @@ func TestDebugPrintTokens(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := NewProgram(ProgramArgs{
+	program := New(ProgramArgs{
 		debug: true,
 	})
 
@@ -127,7 +127,7 @@ func TestDebugPrintForstAST(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := NewProgram(ProgramArgs{
+	program := New(ProgramArgs{
 		debug: true,
 	})
 
@@ -158,12 +158,13 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := NewProgram(ProgramArgs{
+	program := New(ProgramArgs{
 		debug: true,
 	})
 
 	// Create a type checker with some test data
-	tc := typechecker.New()
+	log := setupTestLogger()
+	tc := typechecker.New(log)
 	tc.Functions["main"] = typechecker.FunctionSignature{
 		Ident: ast.Ident{ID: "main"},
 		Parameters: []typechecker.ParameterSignature{

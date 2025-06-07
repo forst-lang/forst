@@ -15,7 +15,7 @@ func setupParser(tokens []ast.Token) *Parser {
 		FullTimestamp:   true,
 		TimestampFormat: "15:04:05.000",
 	})
-	return NewParser(tokens, "", logger)
+	return New(tokens, "", logger)
 }
 
 // assertNodeType checks if a node is of the expected type

@@ -2,7 +2,6 @@ package transformergo
 
 import (
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 	"strings"
@@ -14,8 +13,9 @@ func newValueNode(v ast.ValueNode) *ast.ValueNode {
 }
 
 func TestAssertionTransformer(t *testing.T) {
-	tc := typechecker.New()
-	transformer := New(tc)
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
 	at := NewAssertionTransformer(transformer)
 
 	tests := []struct {

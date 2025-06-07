@@ -26,7 +26,7 @@ func TestProgramCompilation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			program := NewProgram(ProgramArgs{
+			program := New(ProgramArgs{
 				command:  "run",
 				filePath: tt.filePath,
 			})

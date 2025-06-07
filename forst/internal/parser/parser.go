@@ -21,25 +21,25 @@ type Parser struct {
 	tokens       []ast.Token
 	currentIndex int
 	context      *Context
-	logger       *logrus.Logger
+	log          *logrus.Logger
 }
 
-// NewParser creates a new parser instance
-func NewParser(tokens []ast.Token, filePath string, logger *logrus.Logger) *Parser {
+// New creates a new parser instance
+func New(tokens []ast.Token, filePath string, log *logrus.Logger) *Parser {
 	scopeStack := NewScopeStack()
 	context := Context{
 		FilePath:   filePath,
 		ScopeStack: scopeStack,
 	}
-	if logger == nil {
-		logger = logrus.New()
-		logger.Warnf("No logger provided, using default logger")
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
 	}
 	return &Parser{
 		tokens:       tokens,
 		currentIndex: 0,
 		context:      &context,
-		logger:       logger,
+		log:          log,
 	}
 }
 
@@ -84,5 +84,5 @@ func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
 }
 
 func (p *Parser) FailWithParseError(token ast.Token, message string) {
-	p.logger.Fatalf("%s", parseErrorMessage(token, message))
+	p.log.Fatalf("%s", parseErrorMessage(token, message))
 }

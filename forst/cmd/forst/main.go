@@ -10,33 +10,33 @@ import (
 
 func main() {
 	args := ParseArgs()
-	program := NewProgram(args)
+	p := New(args)
 
 	if args.filePath == "" {
-		log.Error(fmt.Errorf("no input file path provided"))
+		p.log.Error(fmt.Errorf("no input file path provided"))
 		os.Exit(1)
 	}
 
 	if args.trace {
-		log.SetLevel(log.TraceLevel)
+		p.log.SetLevel(log.TraceLevel)
 	} else if args.debug {
-		log.SetLevel(log.DebugLevel)
+		p.log.SetLevel(log.DebugLevel)
 	}
 
-	log.SetFormatter(&log.TextFormatter{
+	p.log.SetFormatter(&log.TextFormatter{
 		DisableTimestamp: false,
 		DisableQuote:     true,
 	})
 
 	if args.watch {
-		if err := program.watchFile(); err != nil {
-			program.logger.Error(err)
+		if err := p.watchFile(); err != nil {
+			p.log.Error(err)
 			os.Exit(1)
 		}
 	} else {
-		code, err := program.compileFile()
+		code, err := p.compileFile()
 		if err != nil {
-			program.logger.Error(err)
+			p.log.Error(err)
 			os.Exit(1)
 		}
 
@@ -45,14 +45,14 @@ func main() {
 			var err error
 			outputPath, err = createTempOutputFile(*code)
 			if err != nil {
-				program.logger.Error(err)
+				p.log.Error(err)
 				os.Exit(1)
 			}
 		}
 
 		if args.command == "run" {
 			if err := runGoProgram(outputPath); err != nil {
-				program.logger.Error(err)
+				p.log.Error(err)
 				os.Exit(1)
 			}
 		}

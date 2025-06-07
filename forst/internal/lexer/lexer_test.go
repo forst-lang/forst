@@ -556,7 +556,8 @@ func testLexerTokens(t *testing.T, tt struct {
 	input    string
 	expected []ast.Token
 }) {
-	l := NewLexer([]byte(tt.input), "test.forst")
+	log := setupTestLogger()
+	l := New([]byte(tt.input), "test.forst", log)
 	tokens := l.Lex()
 
 	if len(tokens) != len(tt.expected) {
