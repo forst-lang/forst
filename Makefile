@@ -14,6 +14,16 @@ test-parser:
 test-ast:
 	cd forst && go test -v ./internal/ast/...
 
+test-lexer:
+	cd forst && go test -v ./internal/lexer/...
+
+test-transformer:
+	cd forst && go test -v ./internal/transformer/...
+
+# Run specific example
+run-example:
+	cd forst/cmd/forst && go run . run -trace -- $(FILE)
+
 # Run example compilations
 run-example-shape-guard:
 	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/rfc/guard/shape_guard.ft
@@ -30,9 +40,5 @@ run-example-basic-function:
 run-example-ensure:
 	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/ensure.ft
 
-# Run all examples
-run-examples: run-example-shape-guard run-example-basic-guard run-example-basic run-example-basic-function run-example-ensure
-
-# Run specific example
-run-example:
-	cd forst/cmd/forst && go run . run -trace -- $(FILE)
+test-examples:
+	cd forst/cmd/forst && go test .

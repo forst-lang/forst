@@ -21,7 +21,7 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 		},
 	}
 	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+		TypeChecker: typechecker.New(),
 	}
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 		},
 	}
 	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+		TypeChecker: typechecker.New(),
 	}
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
 		},
 	}
 	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+		TypeChecker: typechecker.New(),
 	}
 	_, _ = tr.transformTypeGuard(tg)
 }
@@ -131,7 +131,7 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 		},
 	}
 	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+		TypeChecker: typechecker.New(),
 	}
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {

@@ -30,7 +30,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		tc.pushScope(n)
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
 
 		// Register parameters in the current scope
 		for _, param := range n.Params {
@@ -72,7 +77,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		tc.storeInferredFunctionReturnType(&n, inferredType)
 
-		tc.popScope()
+		tc.PopScope()
 
 		return inferredType, nil
 
@@ -104,12 +109,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		if n.Block != nil {
-			tc.pushScope(n.Block)
+			tc.PushScope(n.Block)
 			_, err = tc.inferNodeTypes(n.Block.Body)
 			if err != nil {
 				return nil, err
 			}
-			tc.popScope()
+			tc.PopScope()
 		}
 
 		return nil, nil
@@ -146,7 +151,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case *ast.TypeGuardNode:
 		// Push a new scope for the type guard's body
-		tc.pushScope(n)
+		tc.PushScope(n)
 
 		// Register parameters in the current scope
 		for _, param := range n.Parameters() {
@@ -180,8 +185,26 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		// Store type guard in global scope with void return type
 		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
-		tc.popScope()
+		tc.PopScope()
 		return nil, nil
+
+	case ast.IfNode:
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
+		tc.PopScope()
+
+	case ast.ElseBlockNode:
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
+		tc.PopScope()
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))

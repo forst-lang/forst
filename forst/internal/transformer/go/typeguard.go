@@ -62,8 +62,7 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 			paramName = string(p.Ident.ID)
 			paramType = p.Type
 		case ast.DestructuredParamNode:
-			// Handle destructured params if needed
-			continue
+			panic("DestructuredParamNode not supported in transformTypeGuardParams")
 		}
 
 		var ident *goast.Ident

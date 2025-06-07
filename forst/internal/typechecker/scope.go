@@ -129,11 +129,15 @@ func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
 }
 
 func (s *Scope) String() string {
-	if s.Parent == nil {
+	if s.IsGlobal() {
 		return "GlobalScope"
 	}
 	if s.Node == nil {
 		log.Fatalf("Scope node is nil in non-global scope")
 	}
 	return fmt.Sprintf("Scope(%v)", (*s.Node).String())
+}
+
+func (s *Scope) IsGlobal() bool {
+	return s.Parent == nil
 }

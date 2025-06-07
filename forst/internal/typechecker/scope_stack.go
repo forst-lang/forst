@@ -25,7 +25,7 @@ func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 }
 
 // PushScope creates and pushes a new scope for the given AST node
-func (ss *ScopeStack) PushScope(node ast.Node) {
+func (ss *ScopeStack) PushScope(node ast.Node) *Scope {
 	hash := ss.Hasher.HashNode(node)
 	scope := &Scope{
 		Parent:   ss.current,
@@ -36,6 +36,7 @@ func (ss *ScopeStack) PushScope(node ast.Node) {
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope
+	return scope
 }
 
 // PopScope returns to the parent scope if one exists

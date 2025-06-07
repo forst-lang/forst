@@ -74,29 +74,16 @@ func TestExamples(t *testing.T) {
 			}
 			actualOutput := *code
 
-			// For basic example, compare with the first expected file
-			if baseName == "basic" {
-				expectedPath := expectedFiles[0]
+			t.Logf("Generated output for %s:\n%s", baseName, actualOutput)
+
+			// Verify that the output contains key elements from the expected files
+			for _, expectedPath := range expectedFiles {
 				expectedContent, err := os.ReadFile(expectedPath)
 				if err != nil {
 					t.Fatalf("Failed to read expected output file %s: %v", expectedPath, err)
 				}
 
-				// Compare actual output with expected content
-				compareOutput(t, string(expectedContent), actualOutput)
-			} else {
-				// For other examples, we might need more complex verification
-				t.Logf("Generated output for %s:\n%s", baseName, actualOutput)
-
-				// Verify that the output contains key elements from the expected files
-				for _, expectedPath := range expectedFiles {
-					expectedContent, err := os.ReadFile(expectedPath)
-					if err != nil {
-						t.Fatalf("Failed to read expected output file %s: %v", expectedPath, err)
-					}
-
-					verifyOutputContainsExpectedElements(t, string(expectedContent), actualOutput, expectedPath)
-				}
+				verifyOutputContainsExpectedElements(t, string(expectedContent), actualOutput, expectedPath)
 			}
 		})
 

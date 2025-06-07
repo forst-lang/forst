@@ -87,7 +87,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.TypeDefNode:
 		tc.registerType(n)
 	case ast.FunctionNode:
-		tc.pushScope(n)
+		tc.PushScope(n)
 
 		for _, param := range n.Params {
 			switch p := param.(type) {
@@ -105,13 +105,13 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			}
 		}
 
-		tc.popScope()
+		tc.PopScope()
 		tc.registerFunction(n)
 	case *ast.TypeGuardNode:
-		tc.pushScope(n)
+		tc.PushScope(n)
 
+		tc.PopScope()
 		tc.registerTypeGuard(*n)
-		tc.popScope()
 	}
 
 	return nil
@@ -212,14 +212,14 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 	log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
 }
 
-func (tc *TypeChecker) pushScope(node ast.Node) {
-	tc.scopeStack.PushScope(node)
-	log.Tracef("[pushScope] Pushed scope: %+v", node)
+// PushScope creates a new scope for the given node
+func (tc *TypeChecker) PushScope(node ast.Node) *Scope {
+	return tc.scopeStack.PushScope(node)
 }
 
-func (tc *TypeChecker) popScope() {
+// PopScope removes the current scope and returns to the parent scope
+func (tc *TypeChecker) PopScope() {
 	tc.scopeStack.PopScope()
-	log.Tracef("[popScope] Popped scope, now in scope %+v", tc.scopeStack.CurrentScope())
 }
 
 // Stores a symbol definition in the current scope

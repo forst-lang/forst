@@ -6,6 +6,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
+	"log"
 )
 
 // Transformer converts a Forst AST to a Go AST
@@ -94,9 +95,15 @@ func (t *Transformer) isMainFunction() bool {
 		return false
 	}
 
-	currentFunction, err := t.currentFunction()
-	if err != nil {
-		return false
+	if t.currentScope.IsGlobal() {
+		log.Fatalf("isMainFunction called in global scope")
 	}
-	return currentFunction.HasMainFunctionName()
+
+	for functionScope := t.currentScope; !functionScope.IsGlobal() && !functionScope.IsFunction(); functionScope = functionScope.Parent {
+		if functionScope.Node != nil && (*functionScope.Node).(ast.FunctionNode).HasMainFunctionName() {
+			return true
+		}
+	}
+
+	return false
 }
