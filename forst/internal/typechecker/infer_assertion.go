@@ -74,43 +74,57 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		}
 
 		// Special handling for mutation types
-		if baseType == "trpc.Mutation" || baseType == "trpc.Query" || baseType == "MutationArg" {
-			if constraint.Name == "Input" {
-				// For Input constraint, we want to keep existing fields and add the input field
-				if len(constraint.Args) > 0 {
-					arg := constraint.Args[0]
-					if arg.Shape != nil {
-						for k, v := range arg.Shape.Fields {
+		if constraint.Name == "Input" {
+			// For Input constraint, we want to keep existing fields and add new input fields
+			for field, fieldType := range mergedFields {
+				if field != "input" { // Don't overwrite input field
+					mergedFields[field] = fieldType
+				}
+			}
+
+			// Add the input field from the argument
+			if arg, ok := argMap["input"]; ok {
+				if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+					if argNode.Shape != nil {
+						for k, v := range argNode.Shape.Fields {
 							mergedFields[k] = v
 							log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
 						}
 					}
 				}
-				continue
 			}
+			continue
 		}
 
-		// Add fields from type guard parameters
+		// For other constraints, process each parameter
 		for _, param := range guardNode.Parameters() {
 			if param.GetIdent() != guardNode.Subject.GetIdent() {
-				if arg, exists := argMap[param.GetIdent()]; exists {
+				// Add the field from the parameter
+				paramType := param.GetType().Ident
+				mergedFields[param.GetIdent()] = ast.ShapeFieldNode{
+					Assertion: &ast.AssertionNode{
+						BaseType: &paramType,
+					},
+				}
+
+				// If we have an argument for this parameter, use its concrete type
+				if arg, ok := argMap[param.GetIdent()]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
+							// If it's a shape, merge its fields
 							for k, v := range argNode.Shape.Fields {
 								mergedFields[k] = v
 								log.Debugf("[inferAssertionType] Added field from shape argument: %s => %+v", k, v)
 							}
 						} else if argNode.Type != nil {
-							if def, exists := tc.Defs[argNode.Type.Ident]; exists {
-								if typeDef, ok := def.(ast.TypeDefNode); ok {
-									if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-										for k, v := range shapeExpr.Shape.Fields {
-											mergedFields[k] = v
-											log.Debugf("[inferAssertionType] Added field from type argument: %s => %+v", k, v)
-										}
-									}
-								}
+							// Use the concrete type from the argument instead of the generic Shape
+							argType := argNode.Type.Ident
+							mergedFields[param.GetIdent()] = ast.ShapeFieldNode{
+								Assertion: &ast.AssertionNode{
+									BaseType: &argType,
+								},
 							}
+							log.Debugf("[inferAssertionType] Added field with concrete type: %s => %s", param.GetIdent(), argNode.Type.Ident)
 						}
 					}
 				}

@@ -198,7 +198,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 			baseType := ast.TypeIdent(ast.TypeShape)
 			shape := ast.ShapeNode{
 				Fields: map[string]ast.ShapeFieldNode{
-					"field": {
+					"field1": {
 						Assertion: &ast.AssertionNode{
 							BaseType: typeIdentPtr(string(ast.TypeString)),
 						},

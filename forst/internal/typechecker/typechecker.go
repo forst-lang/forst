@@ -52,7 +52,7 @@ func New() *TypeChecker {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
-	log.Trace("First pass: collecting explicit types and function signatures")
+	log.Trace("[CheckTypes] First pass: collecting explicit types and function signatures")
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
@@ -76,13 +76,13 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 
 // Traverses the AST to gather type definitions and function signatures
 func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
-	log.Tracef("Collecting explicit types for type %s", node.String())
+	log.Tracef("[collectExplicitTypes] Collecting explicit types for type %s", node.String())
 	switch n := node.(type) {
 	case ast.ImportNode:
-		log.Debugf("Collecting import: %v", n)
+		log.Debugf("[collectExplicitTypes] Collecting import: %v", n)
 		tc.imports = append(tc.imports, n)
 	case ast.ImportGroupNode:
-		log.Debugf("Collecting import group: %v", n)
+		log.Debugf("[collectExplicitTypes] Collecting import group: %v", n)
 		tc.imports = append(tc.imports, n.Imports...)
 	case ast.TypeDefNode:
 		tc.registerType(n)
@@ -120,7 +120,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 // Associates inferred types with an AST node using its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash := tc.Hasher.HashNode(node)
-	log.Tracef("Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
+	log.Tracef("[storeInferredType] Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 	tc.Types[hash] = types
 }
 
@@ -128,7 +128,7 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	log.Tracef("Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
+	log.Tracef("[storeInferredFunctionReturnType] Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
 	tc.Functions[fn.Ident.ID] = sig
 }
 

@@ -1,34 +1,32 @@
 ---
 description: 
-globs: 
+globs: *.go,*.ft
 alwaysApply: false
 ---
-# Forst Project Rules
+# How to compile example files
 
-## Test Commands
-Run tests for different packages in the project:
+See @Makefile for all commands, e.g.:
 
 ```bash
-# Run all tests
-go test -v ./internal/...
-
-# Run specific test packages
-go test -v ./internal/typechecker/...
-go test -v ./internal/parser/...
-go test -v ./internal/ast/...
+make run-example basic-function
 ```
 
-## Example Compilations
+or
+```bash
+make run-example-shape-guard
+```
+
 Run example compilations with tracing enabled:
 
-```bash
-# Run example compilations
-go run ./cmd/forst run -trace -- ../../../examples/in/rfc/guard/shape_guard.ft
-go run ./cmd/forst run -trace -- ../../../examples/in/rfc/guard/basic_guard.ft
-go run ./cmd/forst run -trace -- ../../../examples/in/basic.ft
-go run ./cmd/forst run -trace -- ../../../examples/in/basic_function.ft
-go run ./cmd/forst run -trace -- ../../../examples/in/ensure.ft
-```
+### Example files that can be compiled
+
+examples/in/rfc/guard/shape_guard.ft
+examples/in/rfc/guard/basic_guard.ft
+examples/in/basic.ft
+examples/in/basic_function.ft
+examples/in/ensure.ft
+
+There should be corresponding outputs in the same paths just with `in` replaced by `out`.
 
 ## Project Structure
 The project follows this structure:
@@ -42,3 +40,4 @@ The project follows this structure:
   - `basic.ft`: Basic language examples
   - `basic_function.ft`: Function examples
   - `ensure.ft`: Ensure statement examples
+- `examples/out/`: Example expected Go files after transpilation

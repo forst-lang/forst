@@ -101,6 +101,7 @@ func (p *Program) compileFile() (*string, error) {
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
+		log.Error("Encountered error checking types: ", err)
 		checker.DebugPrintCurrentScope()
 		return nil, err
 	}

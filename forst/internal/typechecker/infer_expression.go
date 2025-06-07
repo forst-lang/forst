@@ -9,7 +9,7 @@ import (
 )
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
-	log.Tracef("inferExpressionType: %T", expr)
+	log.Debugf("[inferExpressionType] Starting type inference for expression: %+v", expr)
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
