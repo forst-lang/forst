@@ -30,19 +30,18 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		tc.pushScope(n)
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
 
 		// Register parameters in the current scope
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
-					Identifier: p.Ident.ID,
-					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolVariable,
-					Scope:      tc.scopeStack.CurrentScope(),
-					Position:   tc.path,
-				}
+				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
 			case ast.DestructuredParamNode:
 				// Handle destructured params if needed
 				continue
@@ -55,9 +54,16 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			params[i] = param
 		}
 
-		_, err := tc.inferNodeTypes(params)
+		paramTypes, err := tc.inferNodeTypes(params)
 		if err != nil {
 			return nil, err
+		}
+
+		for i, paramTypes := range paramTypes {
+			param := n.Params[i]
+			// Store in scope for structural lookup
+			log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
+			tc.scopeStack.CurrentScope().DefineVariable(ast.Identifier(param.GetIdent()), paramTypes[0])
 		}
 
 		_, err = tc.inferNodeTypes(n.Body)
@@ -71,7 +77,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		tc.storeInferredFunctionReturnType(&n, inferredType)
 
-		tc.popScope()
+		tc.PopScope()
 
 		return inferredType, nil
 
@@ -95,6 +101,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		tc.storeInferredType(n, inferredType)
 		return inferredType, nil
+
 	case ast.EnsureNode:
 		_, err := tc.inferEnsureType(n)
 		if err != nil {
@@ -102,12 +109,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		if n.Block != nil {
-			tc.pushScope(n.Block)
+			tc.PushScope(n.Block)
 			_, err = tc.inferNodeTypes(n.Block.Body)
 			if err != nil {
 				return nil, err
 			}
-			tc.popScope()
+			tc.PopScope()
 		}
 
 		return nil, nil
@@ -117,17 +124,20 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		return nil, nil
 
-	case ast.AssertionNode:
-		_, err := tc.inferAssertionType(&n, false)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
-
 	case ast.TypeNode:
 		return nil, nil
 
 	case ast.TypeDefNode:
+		if assertionExpr, ok := n.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
+			log.Debugf("[TypeDefNode] Merging fields for type %s", n.Ident)
+			mergedFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
+			log.Debugf("[TypeDefNode] Merged fields for %s: %v", n.Ident, mergedFields)
+			shape := ast.ShapeNode{
+				Fields: mergedFields,
+			}
+			log.Debugf("[TypeDefNode] Registering merged shape for %s: %+v", n.Ident, shape)
+			tc.registerShapeType(n.Ident, shape)
+		}
 		return nil, nil
 
 	case ast.ReturnNode:
@@ -141,59 +151,60 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case *ast.TypeGuardNode:
 		// Push a new scope for the type guard's body
-		tc.pushScope(n)
+		tc.PushScope(n)
 
 		// Register parameters in the current scope
 		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().Symbols[p.Ident.ID] = Symbol{
-					Identifier: p.Ident.ID,
-					Types:      []ast.TypeNode{p.Type},
-					Kind:       SymbolVariable,
-					Scope:      tc.scopeStack.CurrentScope(),
-					Position:   tc.path,
-				}
+				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
 			case ast.DestructuredParamNode:
-				// Handle destructured params if needed
 				continue
 			}
 		}
 
-		// Type guards must return a boolean value
-		if len(n.Body) == 0 {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must have a return statement")
-		}
-		returnNode, ok := n.Body[0].(ast.ReturnNode)
-		if !ok {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must have a return statement")
-		}
-		returnType, err := tc.inferExpressionType(returnNode.Value)
-		if err != nil {
-			tc.popScope()
-			return nil, err
-		}
-		if len(returnType) != 1 || returnType[0].Ident != ast.TypeBool {
-			tc.popScope()
-			return nil, fmt.Errorf("type guard must return a boolean value, got %s", formatTypeList(returnType))
-		}
-
-		// Store type guard in global scope with the inferred return type
-		tc.storeSymbol(ast.Identifier(n.Ident), returnType, SymbolFunction)
-
-		// Store the inferred type for the type guard itself
-		tc.storeInferredType(n, returnType)
-
-		// Store the type guard in the Functions map for easier lookup
-		tc.Functions[n.Ident] = FunctionSignature{
-			Ident:       ast.Ident{ID: n.Ident},
-			ReturnTypes: returnType,
+		// Validate type guard body
+		for _, node := range n.Body {
+			switch stmt := node.(type) {
+			case ast.IfNode:
+				// Check that condition uses is operator
+				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
+					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
+				}
+			case ast.EnsureNode:
+				// Ensure statements are valid
+			case ast.ReturnNode:
+				// Return statements are not allowed in type guards
+				return nil, fmt.Errorf("type guards must not have return statements")
+			default:
+				// Only if, else if, else, and ensure statements are allowed
+				return nil, fmt.Errorf("type guards may only contain if, else if, else, and ensure statements")
+			}
 		}
 
-		tc.popScope()
-		return returnType, nil
+		// Store type guard in global scope with void return type
+		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+
+		tc.PopScope()
+		return nil, nil
+
+	case ast.IfNode:
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
+		tc.PopScope()
+
+	case ast.ElseBlockNode:
+		tc.PushScope(n)
+		for _, node := range n.Body {
+			if _, err := tc.inferNodeType(node); err != nil {
+				return nil, err
+			}
+		}
+		tc.PopScope()
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))

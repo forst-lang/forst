@@ -15,6 +15,7 @@ type ScopeStack struct {
 func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 	globalScope := &Scope{
 		Symbols: make(map[ast.Identifier]Symbol),
+		Node:    nil,
 	}
 	return &ScopeStack{
 		scopes:  make(map[NodeHash]*Scope),
@@ -24,17 +25,18 @@ func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
 }
 
 // PushScope creates and pushes a new scope for the given AST node
-func (ss *ScopeStack) PushScope(node ast.Node) {
+func (ss *ScopeStack) PushScope(node ast.Node) *Scope {
 	hash := ss.Hasher.HashNode(node)
 	scope := &Scope{
 		Parent:   ss.current,
-		Node:     node,
+		Node:     &node,
 		Symbols:  make(map[ast.Identifier]Symbol),
 		Children: make([]*Scope, 0),
 	}
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope
+	return scope
 }
 
 // PopScope returns to the parent scope if one exists

@@ -6,6 +6,8 @@ import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Transformer converts a Forst AST to a Go AST
@@ -14,14 +16,20 @@ type Transformer struct {
 	currentScope         *typechecker.Scope
 	Output               *TransformerOutput
 	assertionTransformer *AssertionTransformer
+	log                  *logrus.Logger
 }
 
 // New creates a new Transformer
-func New(tc *typechecker.TypeChecker) *Transformer {
+func New(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
 	t := &Transformer{
 		TypeChecker:  tc,
 		currentScope: tc.GlobalScope(),
 		Output:       &TransformerOutput{},
+		log:          log,
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	return t
@@ -43,8 +51,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(decl)
-		case *ast.TypeGuardNode:
-			decl, err := t.transformTypeGuard(*def)
+		case ast.TypeGuardNode:
+			decl, err := t.transformTypeGuard(def)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
@@ -74,7 +82,18 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	return t.Output.GenerateFile()
 }
 
-func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
+func (t *Transformer) isMainPackage() bool {
+	return t.Output.PackageName() == "main"
+}
+
+// closestFunction returns either the node corresponding to the current scope's function
+// or, if the current scope is not a function, the next highest function node in the scope stack
+// It returns an error if no function is found
+func (t *Transformer) closestFunction() (ast.Node, error) {
+	if t.currentScope.IsFunction() {
+		return *t.currentScope.Node, nil
+	}
+
 	scope := t.currentScope
 	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
 		scope = scope.Parent
@@ -82,11 +101,7 @@ func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
 	if scope.Node == nil {
 		return ast.FunctionNode{}, fmt.Errorf("no function found")
 	}
-	return scope.Node.(ast.FunctionNode), nil
-}
-
-func (t *Transformer) isMainPackage() bool {
-	return t.Output.PackageName() == "main"
+	return (*scope.Node).(ast.FunctionNode), nil
 }
 
 func (t *Transformer) isMainFunction() bool {
@@ -94,9 +109,17 @@ func (t *Transformer) isMainFunction() bool {
 		return false
 	}
 
-	currentFunction, err := t.currentFunction()
+	if t.currentScope.IsGlobal() {
+		t.log.Fatalf("isMainFunction called in global scope")
+	}
+
+	function, err := t.closestFunction()
 	if err != nil {
 		return false
 	}
-	return currentFunction.HasMainFunctionName()
+	if function, ok := function.(ast.FunctionNode); ok && function.HasMainFunctionName() {
+		return true
+	}
+
+	return false
 }

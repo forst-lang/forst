@@ -16,7 +16,7 @@ type TypeIdentOpts struct {
 func (p *Parser) expectCustomTypeIdentifier(opts TypeIdentOpts) ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleTypeIdentifier(token, opts) {
-		panic(parseErrorWithValue(token, "Expected type identifier to start with an uppercase letter"))
+		p.FailWithParseError(token, "Expected type identifier to start with an uppercase letter")
 	}
 	return token
 }
@@ -50,6 +50,11 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		expr := p.parseTypeDefExpr()
 		p.expect(ast.TokenRParen)
 		return expr
+	}
+
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape()
+		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 
 	var left ast.TypeDefExpr

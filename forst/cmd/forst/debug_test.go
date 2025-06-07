@@ -58,11 +58,9 @@ func TestLogMemUsage(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with memory reporting enabled
-	program := &Program{
-		Args: ProgramArgs{
-			reportMemoryUsage: true,
-		},
-	}
+	program := New(ProgramArgs{
+		reportMemoryUsage: true,
+	})
 
 	// Get initial memory stats
 	before := runtime.MemStats{}
@@ -91,11 +89,9 @@ func TestDebugPrintTokens(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	program := New(ProgramArgs{
+		debug: true,
+	})
 
 	// Create test tokens
 	tokens := []ast.Token{
@@ -131,11 +127,9 @@ func TestDebugPrintForstAST(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	program := New(ProgramArgs{
+		debug: true,
+	})
 
 	// Create test AST nodes
 	nodes := []ast.Node{
@@ -164,14 +158,13 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 	testHook.Reset()
 
 	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	program := New(ProgramArgs{
+		debug: true,
+	})
 
 	// Create a type checker with some test data
-	tc := typechecker.New()
+	log := setupTestLogger()
+	tc := typechecker.New(log)
 	tc.Functions["main"] = typechecker.FunctionSignature{
 		Ident: ast.Ident{ID: "main"},
 		Parameters: []typechecker.ParameterSignature{

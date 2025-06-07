@@ -92,6 +92,24 @@ func createUser(op: Mutation.Input({
 }
 ```
 
+## Development
+
+Run tests:
+
+```bash
+make test              # Run all tests
+make test-typechecker  # Run typechecker tests
+make test-parser      # Run parser tests
+make test-ast         # Run AST tests
+```
+
+Run examples:
+
+```bash
+make run-examples     # Run all examples
+make run-example FILE=path/to/example.ft  # Run specific example
+```
+
 ## Inspirations
 
 Our primary inspiration is TypeScript's structural type system and its enormous success in making JavaScript development more ergonomic, robust and gradually typeable. We aim to bring similar benefits to Go development, insofar as they are not already present.

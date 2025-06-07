@@ -32,7 +32,23 @@ func disjoin(conditions []goast.Expr) goast.Expr {
 	return combined
 }
 
-func transformOperator(op ast.TokenIdent) token.Token {
+// conjoin joins a list of conditions with AND ("all conditions must match")
+func conjoin(conditions []goast.Expr) goast.Expr {
+	if len(conditions) == 0 {
+		return &goast.Ident{Name: BoolConstantFalse}
+	}
+	combined := conditions[0]
+	for i := 1; i < len(conditions); i++ {
+		combined = &goast.BinaryExpr{
+			X:  combined,
+			Op: token.LAND,
+			Y:  conditions[i],
+		}
+	}
+	return combined
+}
+
+func (t *Transformer) transformOperator(op ast.TokenIdent) token.Token {
 	switch op {
 	case ast.TokenPlus:
 		return token.ADD
@@ -67,7 +83,7 @@ func transformOperator(op ast.TokenIdent) token.Token {
 	panic("Unsupported operator: " + op)
 }
 
-func transformExpression(expr ast.ExpressionNode) goast.Expr {
+func (t *Transformer) transformExpression(expr ast.ExpressionNode) goast.Expr {
 	switch e := expr.(type) {
 	case ast.IntLiteralNode:
 		return &goast.BasicLit{
@@ -91,14 +107,14 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 		return goast.NewIdent("false")
 	case ast.UnaryExpressionNode:
 		return &goast.UnaryExpr{
-			Op: transformOperator(e.Operator),
-			X:  transformExpression(e.Operand),
+			Op: t.transformOperator(e.Operator),
+			X:  t.transformExpression(e.Operand),
 		}
 	case ast.BinaryExpressionNode:
 		return &goast.BinaryExpr{
-			X:  transformExpression(e.Left),
-			Op: transformOperator(e.Operator),
-			Y:  transformExpression(e.Right),
+			X:  t.transformExpression(e.Left),
+			Op: t.transformOperator(e.Operator),
+			Y:  t.transformExpression(e.Right),
 		}
 	case ast.VariableNode:
 		return &goast.Ident{
@@ -107,7 +123,7 @@ func transformExpression(expr ast.ExpressionNode) goast.Expr {
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(e.Arguments))
 		for i, arg := range e.Arguments {
-			args[i] = transformExpression(arg)
+			args[i] = t.transformExpression(arg)
 		}
 		return &goast.CallExpr{
 			Fun:  goast.NewIdent(string(e.Function.ID)),

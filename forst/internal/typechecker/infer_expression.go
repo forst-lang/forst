@@ -9,7 +9,7 @@ import (
 )
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
-	log.Tracef("inferExpressionType: %T", expr)
+	log.Debugf("[inferExpressionType] Starting type inference for expression: %+v", expr)
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
@@ -64,9 +64,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return signature.ReturnTypes, nil
 		}
 		// For type guards, we need to ensure they return boolean
-		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolFunction {
+		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolTypeGuard {
 			log.Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
-			return typeGuard.Types, nil
+			// Type guards return boolean when called
+			return []ast.TypeNode{{Ident: ast.TypeBool}}, nil
 		}
 
 		// First check if this is a local variable or method call
@@ -119,6 +120,19 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 		log.Tracef("No function found for %s", e.Function.ID)
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
+
+	case ast.ShapeNode:
+		typ := ast.TypeNode{Ident: ast.TypeShape}
+		tc.storeInferredType(e, []ast.TypeNode{typ})
+		return []ast.TypeNode{typ}, nil
+
+	case ast.AssertionNode:
+		inferredType, err := tc.inferAssertionType(&e, false)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
 
 	default:
 		log.Tracef("Unhandled expression type: %T", expr)

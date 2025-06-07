@@ -2,6 +2,8 @@ package parser
 
 import (
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func isPossibleConstraintIdentifier(token ast.Token) bool {
@@ -11,7 +13,7 @@ func isPossibleConstraintIdentifier(token ast.Token) bool {
 func (p *Parser) expectConstraintIdentifier() ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleConstraintIdentifier(token) {
-		panic(parseErrorMessage(token, "Constraint must start with capital letter"))
+		log.Fatalf("%s", parseErrorMessage(token, "Constraint must start with capital letter"))
 	}
 	return token
 }
@@ -26,6 +28,15 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 		}
 	}
 
+	// If this is a type (identifier, shape, etc), parse as TypeNode
+	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenLBracket || p.current().Type == ast.TokenMap || p.current().Type == ast.TokenStar {
+		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		return ast.ConstraintArgumentNode{
+			Type: &typ,
+		}
+	}
+
+	// Otherwise, parse as value
 	value := p.parseValue()
 	return ast.ConstraintArgumentNode{
 		Value: &value,
@@ -65,7 +76,7 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 
 		if isConstraintWithoutBaseType {
 			if requireBaseType {
-				panic(parseErrorMessage(token, "Expected base type for assertion"))
+				p.FailWithParseError(token, "Expected base type for assertion")
 			}
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)

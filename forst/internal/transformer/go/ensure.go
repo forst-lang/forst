@@ -5,6 +5,8 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -60,7 +62,10 @@ func NewAssertionTransformer(t *Transformer) *AssertionTransformer {
 
 // transformEnsure transforms an ensure node based on its type
 func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
-	baseType := at.transformer.getEnsureBaseType(ensure)
+	baseType, err := at.transformer.getEnsureBaseType(ensure)
+	if err != nil {
+		return nil, err
+	}
 
 	switch baseType.Ident {
 	case ast.TypeString:
@@ -74,7 +79,12 @@ func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Ex
 	case ast.TypeError:
 		return at.transformErrorEnsure(ensure)
 	default:
-		return nil, fmt.Errorf("unsupported assertion type: %v", baseType.Ident)
+		ident, err := at.transformer.TypeChecker.LookupAssertionType(&ensure.Assertion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup assertion type: %s", err)
+		}
+		log.Errorf("No type guard found, using assertion identifier: %s", string(ident.Ident))
+		return goast.NewIdent(string(ident.Ident)), nil
 	}
 }
 
@@ -110,11 +120,11 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						transformExpression(ensure.Variable),
+						at.transformer.transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -132,11 +142,11 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 				X: &goast.CallExpr{
 					Fun: goast.NewIdent("len"),
 					Args: []goast.Expr{
-						transformExpression(ensure.Variable),
+						at.transformer.transformExpression(ensure.Variable),
 					},
 				},
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case HasPrefixConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -156,8 +166,8 @@ func (at *AssertionTransformer) transformStringEnsure(ensure ast.EnsureNode) (go
 					Sel: goast.NewIdent("HasPrefix"),
 				},
 				Args: []goast.Expr{
-					transformExpression(ensure.Variable),
-					transformExpression(arg),
+					at.transformer.transformExpression(ensure.Variable),
+					at.transformer.transformExpression(arg),
 				},
 			})
 		default:
@@ -189,9 +199,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -206,9 +216,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case LessThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -223,9 +233,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case GreaterThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -240,9 +250,9 @@ func (at *AssertionTransformer) transformIntEnsure(ensure ast.EnsureNode) (goast
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		default:
 			return nil, fmt.Errorf("unknown Int constraint: %s", constraint.Name)
@@ -273,9 +283,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LSS,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case MaxConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -290,9 +300,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.GTR,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		case GreaterThanConstraint:
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
@@ -307,9 +317,9 @@ func (at *AssertionTransformer) transformFloatEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.LEQ,
-				Y:  transformExpression(arg),
+				Y:  at.transformer.transformExpression(arg),
 			}
 		default:
 			return nil, fmt.Errorf("unknown Float constraint: %s", constraint.Name)
@@ -331,12 +341,12 @@ func (at *AssertionTransformer) transformBoolEnsure(ensure ast.EnsureNode) (goas
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			expr = negateCondition(transformExpression(ensure.Variable))
+			expr = negateCondition(at.transformer.transformExpression(ensure.Variable))
 		case FalseConstraint:
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			expr = transformExpression(ensure.Variable)
+			expr = at.transformer.transformExpression(ensure.Variable)
 		default:
 			return nil, fmt.Errorf("unknown Bool constraint: %s", constraint.Name)
 		}
@@ -358,7 +368,7 @@ func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goa
 				return nil, err
 			}
 			expr = &goast.BinaryExpr{
-				X:  transformExpression(ensure.Variable),
+				X:  at.transformer.transformExpression(ensure.Variable),
 				Op: token.NEQ,
 				Y:  goast.NewIdent(NilConstant),
 			}
@@ -371,52 +381,95 @@ func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goa
 	return disjoin(result), nil
 }
 
-func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
+func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) (ast.TypeNode, error) {
 	if ensure.Assertion.BaseType != nil {
-		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
+		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}, nil
 	}
 
 	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
 	if err != nil {
-		panic(err)
+		return ast.TypeNode{}, err
 	}
-	return *ensureBaseType
+	return *ensureBaseType, nil
 }
 
 // Helper to look up a TypeGuardNode by name
 func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 	for _, def := range t.TypeChecker.Defs {
-		if tg, ok := def.(*ast.TypeGuardNode); ok {
-			if string(tg.Ident) == name {
-				return tg
+		if tg, ok := def.(ast.TypeGuardNode); ok {
+			if tg.GetIdent() == name {
+				return &tg
 			}
 		}
 	}
 	panic("Type guard not found: " + name)
 }
 
-func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Expr, error) {
 	// If any constraint name matches a type guard node, treat as a type guard assertion
 	// Look up the variable type first
-	_, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope)
+	variableType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope)
 	if err != nil {
-		panic(fmt.Errorf("failed to lookup ensure variable type: %w", err))
+		return nil, fmt.Errorf("failed to lookup ensure variable type: %w", err)
 	}
 
+	var typeGuardExprs []goast.Expr
 	for _, constraint := range ensure.Assertion.Constraints {
 		for _, def := range t.TypeChecker.Defs {
-			if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+			log.Tracef("Checking def: %+v, %s, %s", def, def.Kind(), def.String())
+
+			if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
+				log.Tracef("Found type guard node: %s", tg.Ident)
 				// TODO: Also validate that the variable is a subtype of the type guard's subject type
-				return t.transformTypeGuardEnsure(ensure)
+				typeGuardExprs = append(typeGuardExprs, t.transformTypeGuardEnsure(ensure))
 			}
 		}
 	}
 
+	if len(typeGuardExprs) > 0 {
+		log.Tracef("Type guard found, transformed all constraints into type guard expressions: %+v", typeGuardExprs)
+		return conjoin(typeGuardExprs), nil
+	}
+
+	// Variable could be a subtype of a built-in type, so we need to check that as well
+	if len(ensure.Assertion.Constraints) > 0 {
+		log.Tracef("No type guard found, transforming ensure condition, var type: %+v", variableType)
+
+		baseType, err := t.getEnsureBaseType(ensure)
+		if err != nil {
+			return nil, err
+		}
+		// Look up the type definition for the base type
+		if bt, exists := t.TypeChecker.Defs[baseType.Ident]; exists {
+			log.Tracef("Found type definition for base type %s: %+v", baseType.Ident, bt)
+			if typeDef, ok := bt.(ast.TypeDefNode); ok {
+				log.Tracef("Found type definition for base type %s: %+v", baseType.Ident, typeDef)
+				if typeDefExpr, ok := typeDef.Expr.(*ast.TypeDefAssertionExpr); ok {
+					log.Tracef("Transforming super type ensure condition for base type %s: %+v", baseType.Ident, typeDefExpr)
+					superTypeEnsureNode := ast.EnsureNode{
+						Variable: ensure.Variable,
+						Assertion: ast.AssertionNode{
+							BaseType:    (*typeDefExpr).Assertion.BaseType,
+							Constraints: ensure.Assertion.Constraints,
+						},
+					}
+					condition, err := t.transformEnsureCondition(superTypeEnsureNode)
+					if err != nil {
+						return nil, err
+					}
+					return condition, nil
+				}
+			}
+		}
+		log.Tracef("Base type: %+v", baseType)
+	}
+
+	log.Tracef("No type guard found, transforming ensure condition, var type %+v, assertion: %+v", variableType, ensure.Assertion)
 	expr, err := t.assertionTransformer.transformEnsure(ensure)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return expr
+	return expr, nil
 }
 
 func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr {
@@ -434,7 +487,7 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 			return &goast.CallExpr{
 				Fun: goast.NewIdent(string(guardFuncName)),
 				Args: []goast.Expr{
-					transformExpression(ensure.Variable),
+					t.transformExpression(ensure.Variable),
 				},
 			}
 		case ast.DestructuredParamNode:
@@ -447,7 +500,7 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 	return &goast.CallExpr{
 		Fun: goast.NewIdent(string(guardFuncName)),
 		Args: []goast.Expr{
-			transformExpression(ensure.Variable),
+			t.transformExpression(ensure.Variable),
 		},
 	}
 }

@@ -80,11 +80,14 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 }
 
 // transformStatement converts a Forst statement to a Go statement
-func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
+func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
-		condition := t.transformEnsureCondition(s)
+		condition, err := t.transformEnsureCondition(s)
+		if err != nil {
+			return nil, err
+		}
 
 		// Negate for variable assertions and type guards, but not for other constraints
 		finalCondition := condition
@@ -98,7 +101,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		// Case 2: assertion is a type guard
 		for _, constraint := range s.Assertion.Constraints {
 			for _, def := range t.TypeChecker.Defs {
-				if tg, ok := def.(*ast.TypeGuardNode); ok && string(tg.Ident) == constraint.Name {
+				if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
 					shouldNegate = true
 					break
 				}
@@ -117,7 +120,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		if s.Block != nil {
 			t.pushScope(s.Block)
 			for _, stmt := range s.Block.Body {
-				goStmt := t.transformStatement(stmt)
+				goStmt, err := t.transformStatement(stmt)
+				if err != nil {
+					return nil, err
+				}
 				finallyStmts = append(finallyStmts, goStmt)
 			}
 			t.popScope()
@@ -130,25 +136,25 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			Body: &goast.BlockStmt{
 				List: append(finallyStmts, errorStmt),
 			},
-		}
+		}, nil
 	case ast.ReturnNode:
 		// Convert return statement
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
-				transformExpression(s.Value),
+				t.transformExpression(s.Value),
 			},
-		}
+		}, nil
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
-			args[i] = transformExpression(arg)
+			args[i] = t.transformExpression(arg)
 		}
 		return &goast.ExprStmt{
 			X: &goast.CallExpr{
 				Fun:  goast.NewIdent(s.Function.String()),
 				Args: args,
 			},
-		}
+		}, nil
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
@@ -166,7 +172,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			} else {
 				typeName = string(s.ExplicitTypes[0].Ident)
 			}
-			rhs := transformExpression(s.RValues[0])
+			rhs := t.transformExpression(s.RValues[0])
 			return &goast.DeclStmt{
 				Decl: &goast.GenDecl{
 					Tok: token.VAR,
@@ -178,15 +184,15 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 						},
 					},
 				},
-			}
+			}, nil
 		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
-			lhs[i] = transformExpression(lval)
+			lhs[i] = t.transformExpression(lval)
 		}
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
-			rhs[i] = transformExpression(rval)
+			rhs[i] = t.transformExpression(rval)
 		}
 		operator := token.ASSIGN
 		if s.IsShort {
@@ -196,8 +202,8 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			Lhs: lhs,
 			Tok: operator,
 			Rhs: rhs,
-		}
+		}, nil
 	default:
-		return &goast.EmptyStmt{}
+		return &goast.EmptyStmt{}, nil
 	}
 }

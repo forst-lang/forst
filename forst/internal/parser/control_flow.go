@@ -7,20 +7,20 @@ import (
 func (p *Parser) parseIfStatement() ast.Node {
 	p.advance() // consume if
 
-	// Parse initialization statement if present
+	// Parse (optional) initialization statement
 	var init ast.Node
 	var condition ast.ExpressionNode
-
-	if p.current().Type == ast.TokenVar {
+	switch p.current().Type {
+	case ast.TokenVar:
 		// Handle var declaration
 		p.advance() // consume var
 		init = p.parseVarDeclaration()
 		if p.current().Type == ast.TokenSemicolon {
 			p.advance() // Consume semicolon
 		} else {
-			panic(parseErrorWithValue(p.current(), "Expected semicolon after var declaration"))
+			p.FailWithParseError(p.current(), "Expected semicolon after var declaration")
 		}
-	} else if p.current().Type == ast.TokenIdentifier {
+	case ast.TokenIdentifier:
 		next := p.peek()
 		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
 			// Handle assignment or short var decl
@@ -38,28 +38,20 @@ func (p *Parser) parseIfStatement() ast.Node {
 			if p.current().Type == ast.TokenSemicolon {
 				p.advance() // Consume semicolon
 			} else {
-				panic(parseErrorWithValue(p.current(), "Expected semicolon after initialization statement"))
+				p.FailWithParseError(p.current(), "Expected semicolon after initialization statement")
 			}
 		}
 	}
 
+	// Parse required condition expression
 	condition = p.parseExpression()
 
 	if p.current().Type != ast.TokenLBrace {
-		panic(parseErrorWithValue(p.current(), "Expected { after if condition"))
+		p.FailWithParseError(p.current(), "Expected { after if condition")
 	}
 
 	// Parse then block
-	body := p.parseBlock(&BlockContext{
-		AllowEnsure:      true,
-		AllowReturn:      true,
-		AllowBreak:       true,
-		AllowContinue:    true,
-		AllowSwitch:      true,
-		AllowCase:        false,
-		AllowDefault:     false,
-		AllowFallthrough: false,
-	})
+	body := p.parseBlock()
 
 	elseIfs := []ast.ElseIfNode{}
 	var elseNode *ast.ElseBlockNode
@@ -70,34 +62,16 @@ func (p *Parser) parseIfStatement() ast.Node {
 			p.advance() // consume if
 			elseIfCondition := p.parseExpression()
 			if p.current().Type != ast.TokenLBrace {
-				panic(parseErrorWithValue(p.current(), "Expected { after else-if condition"))
+				p.FailWithParseError(p.current(), "Expected { after else-if condition")
 			}
-			elseIfBody := p.parseBlock(&BlockContext{
-				AllowEnsure:      true,
-				AllowReturn:      true,
-				AllowBreak:       true,
-				AllowContinue:    true,
-				AllowSwitch:      true,
-				AllowCase:        false,
-				AllowDefault:     false,
-				AllowFallthrough: false,
-			})
+			elseIfBody := p.parseBlock()
 			elseIfs = append(elseIfs, ast.ElseIfNode{
 				Condition: elseIfCondition,
 				Body:      elseIfBody,
 			})
 		} else {
 			// This is a regular else block
-			elseBlock := p.parseBlock(&BlockContext{
-				AllowEnsure:      true,
-				AllowReturn:      true,
-				AllowBreak:       true,
-				AllowContinue:    true,
-				AllowSwitch:      true,
-				AllowCase:        false,
-				AllowDefault:     false,
-				AllowFallthrough: false,
-			})
+			elseBlock := p.parseBlock()
 			elseNode = &ast.ElseBlockNode{
 				Body: elseBlock,
 			}
@@ -119,7 +93,7 @@ func (p *Parser) parseIncDecStmt() ast.Node {
 	ident := p.expect(ast.TokenIdentifier)
 	op := p.current()
 	if op.Type != ast.TokenPlusPlus && op.Type != ast.TokenMinusMinus {
-		panic(parseErrorWithValue(op, "Expected ++ or --"))
+		p.FailWithParseError(op, "Expected ++ or --")
 	}
 	p.advance() // Consume operator
 

@@ -1,19 +1,22 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Scope represents a lexical scope in the program, containing symbols and their definitions
 type Scope struct {
 	Parent   *Scope
-	Node     ast.Node
+	Node     *ast.Node
 	Symbols  map[ast.Identifier]Symbol
 	Children []*Scope
 }
 
 // NewScope creates a new scope
-func NewScope(parent *Scope, node ast.Node) *Scope {
+func NewScope(parent *Scope, node *ast.Node) *Scope {
 	return &Scope{
 		Parent:   parent,
 		Node:     node,
@@ -92,11 +95,25 @@ const (
 	SymbolStruct
 	// SymbolEnum represents an enum symbol
 	SymbolEnum
+	// SymbolTypeGuard represents a type guard symbol
+	SymbolTypeGuard
 )
 
 // IsFunction checks if the scope is a function
 func (s *Scope) IsFunction() bool {
-	_, ok := s.Node.(ast.FunctionNode)
+	if s.Node == nil {
+		panic("Cannot call IsFunction on global scope")
+	}
+	_, ok := (*s.Node).(ast.FunctionNode)
+	return ok
+}
+
+// IsTypeGuard checks if the scope is a type guard
+func (s *Scope) IsTypeGuard() bool {
+	if s.Node == nil {
+		panic("Cannot call IsTypeGuard on global scope")
+	}
+	_, ok := (*s.Node).(ast.TypeGuardNode)
 	return ok
 }
 
@@ -109,4 +126,18 @@ func (s *Scope) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (s *Scope) String() string {
+	if s.IsGlobal() {
+		return "GlobalScope"
+	}
+	if s.Node == nil {
+		log.Fatalf("Scope node is nil in non-global scope")
+	}
+	return fmt.Sprintf("Scope(%v)", (*s.Node).String())
+}
+
+func (s *Scope) IsGlobal() bool {
+	return s.Parent == nil
 }

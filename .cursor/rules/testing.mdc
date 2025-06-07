@@ -1,0 +1,43 @@
+---
+description: 
+globs: *.go,*.ft
+alwaysApply: false
+---
+# How to compile example files
+
+See @Makefile for all commands, e.g.:
+
+```bash
+make run-example basic-function
+```
+
+or
+```bash
+make run-example-shape-guard
+```
+
+Run example compilations with tracing enabled:
+
+### Example files that can be compiled
+
+examples/in/rfc/guard/shape_guard.ft
+examples/in/rfc/guard/basic_guard.ft
+examples/in/basic.ft
+examples/in/basic_function.ft
+examples/in/ensure.ft
+
+There should be corresponding outputs in the same paths just with `in` replaced by `out`.
+
+## Project Structure
+The project follows this structure:
+- `cmd/forst/`: Main compiler executable
+- `internal/`: Core packages
+  - `typechecker/`: Type checking implementation
+  - `parser/`: Parser implementation
+  - `ast/`: Abstract Syntax Tree definitions
+- `examples/in/`: Example Forst source files
+  - `rfc/guard/`: Guard-related examples
+  - `basic.ft`: Basic language examples
+  - `basic_function.ft`: Function examples
+  - `ensure.ft`: Ensure statement examples
+- `examples/out/`: Example expected Go files after transpilation

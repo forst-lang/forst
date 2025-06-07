@@ -4,13 +4,16 @@ import (
 	"forst/internal/ast"
 )
 
-func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
+func (p *Parser) parseBlockStatement() []ast.Node {
 	body := []ast.Node{}
 
 	token := p.current()
 
 	switch token.Type {
 	case ast.TokenVar:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "Variable declaration not allowed in type guards")
+		}
 		varStatement := p.parseVarStatement()
 		logParsedNode(varStatement)
 		body = append(body, varStatement)
@@ -19,8 +22,8 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 		logParsedNode(ensureStatement)
 		body = append(body, ensureStatement)
 	case ast.TokenReturn:
-		if !blockContext.AllowReturn {
-			panic(parseErrorWithValue(token, "Return statement not allowed in this context"))
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "Return statement not allowed in type guards")
 		}
 		returnStatement := p.parseReturnStatement()
 		logParsedNode(returnStatement)
@@ -50,10 +53,16 @@ func (p *Parser) parseBlockStatement(blockContext *BlockContext) []ast.Node {
 		logParsedNode(ifStatement)
 		body = append(body, ifStatement)
 	// case ast.TokenFor:
+	// if p.context.IsTypeGuard() {
+	// 	p.FailWithParseError(token, "For loop not allowed in type guards")
+	// }
 	// 	forStatement := p.parseForStatement()
 	// 	logParsedNode(forStatement)
 	// 	body = append(body, forStatement)
 	// case ast.TokenSwitch:
+	// if p.context.IsTypeGuard() {
+	// 	p.FailWithParseError(token, "Switch statement not allowed in type guards")
+	// }
 	// 	switchStatement := p.parseSwitchStatement()
 	// 	logParsedNode(switchStatement)
 	// 	body = append(body, switchStatement)

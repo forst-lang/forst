@@ -47,3 +47,33 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 		}
 	}
 }
+
+func (tc *TypeChecker) registerTypeGuard(guard ast.TypeGuardNode) {
+	// Store type guard in Defs
+	if _, exists := tc.Defs[ast.TypeIdent(guard.Ident)]; !exists {
+		tc.Defs[ast.TypeIdent(guard.Ident)] = guard
+	}
+
+	// Store type guard symbol with SymbolTypeGuard kind and void return type in the global scope
+	globalScope := tc.scopeStack.GlobalScope()
+	globalScope.Symbols[guard.Ident] = Symbol{
+		Identifier: guard.Ident,
+		Types:      []ast.TypeNode{{Ident: ast.TypeVoid}},
+		Kind:       SymbolTypeGuard,
+		Scope:      globalScope,
+	}
+
+	// Store subject symbol in the current scope
+	tc.storeSymbol(ast.Identifier(guard.Subject.GetIdent()), []ast.TypeNode{guard.Subject.GetType()}, SymbolParameter)
+
+	// Store parameter symbols in the current scope
+	for _, param := range guard.Params {
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
+		case ast.DestructuredParamNode:
+			// Handle destructured params if needed
+			continue
+		}
+	}
+}
