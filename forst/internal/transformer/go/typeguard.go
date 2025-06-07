@@ -152,13 +152,17 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			})
 
 		case ast.EnsureNode:
-			condExpr := t.transformEnsureCondition(n)
+			condExpr, err := t.transformEnsureCondition(n)
+			if err != nil {
+				t.popScope()
+				return nil, fmt.Errorf("failed to transform ensure condition: %s", err)
+			}
 			log.Tracef("Transformed ensure condition: %+v (go expr: %s)", n, condExpr)
 
 			// Transform ensure statement into a guard
 			// If the assertion fails, return false
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
-				Cond: t.transformEnsureCondition(n),
+				Cond: condExpr,
 				Body: &goast.BlockStmt{
 					List: []goast.Stmt{
 						&goast.ReturnStmt{

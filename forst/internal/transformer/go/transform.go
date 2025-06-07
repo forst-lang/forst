@@ -75,7 +75,18 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	return t.Output.GenerateFile()
 }
 
-func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
+func (t *Transformer) isMainPackage() bool {
+	return t.Output.PackageName() == "main"
+}
+
+// closestFunction returns either the node corresponding to the current scope's function
+// or, if the current scope is not a function, the next highest function node in the scope stack
+// It returns an error if no function is found
+func (t *Transformer) closestFunction() (ast.Node, error) {
+	if t.currentScope.IsFunction() {
+		return *t.currentScope.Node, nil
+	}
+
 	scope := t.currentScope
 	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
 		scope = scope.Parent
@@ -84,10 +95,6 @@ func (t *Transformer) currentFunction() (ast.FunctionNode, error) {
 		return ast.FunctionNode{}, fmt.Errorf("no function found")
 	}
 	return (*scope.Node).(ast.FunctionNode), nil
-}
-
-func (t *Transformer) isMainPackage() bool {
-	return t.Output.PackageName() == "main"
 }
 
 func (t *Transformer) isMainFunction() bool {
@@ -99,10 +106,12 @@ func (t *Transformer) isMainFunction() bool {
 		log.Fatalf("isMainFunction called in global scope")
 	}
 
-	for functionScope := t.currentScope; !functionScope.IsGlobal() && !functionScope.IsFunction(); functionScope = functionScope.Parent {
-		if functionScope.Node != nil && (*functionScope.Node).(ast.FunctionNode).HasMainFunctionName() {
-			return true
-		}
+	function, err := t.closestFunction()
+	if err != nil {
+		return false
+	}
+	if function, ok := function.(ast.FunctionNode); ok && function.HasMainFunctionName() {
+		return true
 	}
 
 	return false

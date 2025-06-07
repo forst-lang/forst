@@ -62,7 +62,10 @@ func NewAssertionTransformer(t *Transformer) *AssertionTransformer {
 
 // transformEnsure transforms an ensure node based on its type
 func (at *AssertionTransformer) transformEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
-	baseType := at.transformer.getEnsureBaseType(ensure)
+	baseType, err := at.transformer.getEnsureBaseType(ensure)
+	if err != nil {
+		return nil, err
+	}
 
 	switch baseType.Ident {
 	case ast.TypeString:
@@ -378,16 +381,16 @@ func (at *AssertionTransformer) transformErrorEnsure(ensure ast.EnsureNode) (goa
 	return disjoin(result), nil
 }
 
-func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) ast.TypeNode {
+func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) (ast.TypeNode, error) {
 	if ensure.Assertion.BaseType != nil {
-		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}
+		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}, nil
 	}
 
 	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
 	if err != nil {
-		panic(err)
+		return ast.TypeNode{}, err
 	}
-	return *ensureBaseType
+	return *ensureBaseType, nil
 }
 
 // Helper to look up a TypeGuardNode by name
@@ -402,12 +405,12 @@ func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 	panic("Type guard not found: " + name)
 }
 
-func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Expr, error) {
 	// If any constraint name matches a type guard node, treat as a type guard assertion
 	// Look up the variable type first
 	variableType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope)
 	if err != nil {
-		panic(fmt.Errorf("failed to lookup ensure variable type: %w", err))
+		return nil, fmt.Errorf("failed to lookup ensure variable type: %w", err)
 	}
 
 	var typeGuardExprs []goast.Expr
@@ -425,14 +428,17 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 
 	if len(typeGuardExprs) > 0 {
 		log.Tracef("Type guard found, transformed all constraints into type guard expressions: %+v", typeGuardExprs)
-		return conjoin(typeGuardExprs)
+		return conjoin(typeGuardExprs), nil
 	}
 
 	// Variable could be a subtype of a built-in type, so we need to check that as well
 	if len(ensure.Assertion.Constraints) > 0 {
 		log.Tracef("No type guard found, transforming ensure condition, var type: %+v", variableType)
 
-		baseType := t.getEnsureBaseType(ensure)
+		baseType, err := t.getEnsureBaseType(ensure)
+		if err != nil {
+			return nil, err
+		}
 		// Look up the type definition for the base type
 		if bt, exists := t.TypeChecker.Defs[baseType.Ident]; exists {
 			log.Tracef("Found type definition for base type %s: %+v", baseType.Ident, bt)
@@ -447,8 +453,11 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 							Constraints: ensure.Assertion.Constraints,
 						},
 					}
-					condition := t.transformEnsureCondition(superTypeEnsureNode)
-					return condition
+					condition, err := t.transformEnsureCondition(superTypeEnsureNode)
+					if err != nil {
+						return nil, err
+					}
+					return condition, nil
 				}
 			}
 		}
@@ -458,9 +467,9 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) goast.Expr
 	log.Tracef("No type guard found, transforming ensure condition, var type %+v, assertion: %+v", variableType, ensure.Assertion)
 	expr, err := t.assertionTransformer.transformEnsure(ensure)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return expr
+	return expr, nil
 }
 
 func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr {

@@ -80,11 +80,14 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 }
 
 // transformStatement converts a Forst statement to a Go statement
-func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
+func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
 		// Convert ensure to if statement with panic
-		condition := t.transformEnsureCondition(s)
+		condition, err := t.transformEnsureCondition(s)
+		if err != nil {
+			return nil, err
+		}
 
 		// Negate for variable assertions and type guards, but not for other constraints
 		finalCondition := condition
@@ -117,7 +120,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 		if s.Block != nil {
 			t.pushScope(s.Block)
 			for _, stmt := range s.Block.Body {
-				goStmt := t.transformStatement(stmt)
+				goStmt, err := t.transformStatement(stmt)
+				if err != nil {
+					return nil, err
+				}
 				finallyStmts = append(finallyStmts, goStmt)
 			}
 			t.popScope()
@@ -130,14 +136,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			Body: &goast.BlockStmt{
 				List: append(finallyStmts, errorStmt),
 			},
-		}
+		}, nil
 	case ast.ReturnNode:
 		// Convert return statement
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
 				t.transformExpression(s.Value),
 			},
-		}
+		}, nil
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
@@ -148,7 +154,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 				Fun:  goast.NewIdent(s.Function.String()),
 				Args: args,
 			},
-		}
+		}, nil
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
@@ -178,7 +184,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 						},
 					},
 				},
-			}
+			}, nil
 		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
@@ -196,8 +202,8 @@ func (t *Transformer) transformStatement(stmt ast.Node) goast.Stmt {
 			Lhs: lhs,
 			Tok: operator,
 			Rhs: rhs,
-		}
+		}, nil
 	default:
-		return &goast.EmptyStmt{}
+		return &goast.EmptyStmt{}, nil
 	}
 }

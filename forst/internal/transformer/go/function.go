@@ -71,7 +71,10 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		goStmt := t.transformStatement(stmt)
+		goStmt, err := t.transformStatement(stmt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform statement: %s", err)
+		}
 		stmts = append(stmts, goStmt)
 	}
 
