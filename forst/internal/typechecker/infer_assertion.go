@@ -40,6 +40,14 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 						mergedFields[k] = v
 						log.Debugf("[inferAssertionType] Added field from base type: %s => %+v", k, v)
 					}
+				} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+					if assertionExpr.Assertion != nil {
+						baseFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
+						for k, v := range baseFields {
+							mergedFields[k] = v
+							log.Debugf("[inferAssertionType] Added field from base assertion: %s => %+v", k, v)
+						}
+					}
 				}
 			}
 		}
@@ -55,9 +63,12 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 			return nil, fmt.Errorf("type guard %s not found", constraint.Name)
 		}
 
-		guardNode, ok := guardDef.(ast.TypeGuardNode)
-		if !ok {
-			return nil, fmt.Errorf("expected type guard node for %s, got %T", constraint.Name, guardDef)
+		// Push a new scope for the type guard's body
+		var guardNode ast.TypeGuardNode
+		if ptr, ok := guardDef.(*ast.TypeGuardNode); ok {
+			guardNode = *ptr
+		} else {
+			guardNode = guardDef.(ast.TypeGuardNode)
 		}
 
 		log.Debugf("[inferAssertionType] Subject parameter: %s: %s", guardNode.Subject.GetIdent(), guardNode.Subject.GetType().Ident)
@@ -76,19 +87,35 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		// Special handling for mutation types
 		if constraint.Name == "Input" {
 			// For Input constraint, we want to keep existing fields and add new input fields
-			for field, fieldType := range mergedFields {
-				if field != "input" { // Don't overwrite input field
-					mergedFields[field] = fieldType
-				}
-			}
+			// First, preserve the ctx field if it exists
+			if ctxField, hasCtx := mergedFields["ctx"]; hasCtx {
+				// Create a temporary map to store fields
+				tempFields := make(map[string]ast.ShapeFieldNode)
+				tempFields["ctx"] = ctxField
 
-			// Add the input field from the argument
-			if arg, ok := argMap["input"]; ok {
-				if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
-					if argNode.Shape != nil {
-						for k, v := range argNode.Shape.Fields {
-							mergedFields[k] = v
-							log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+				// Add the input field from the argument
+				if arg, ok := argMap["input"]; ok {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							for k, v := range argNode.Shape.Fields {
+								tempFields[k] = v
+								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+							}
+						}
+					}
+				}
+
+				// Replace mergedFields with our new map that preserves ctx
+				mergedFields = tempFields
+			} else {
+				// If no ctx field exists, just add the input fields
+				if arg, ok := argMap["input"]; ok {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							for k, v := range argNode.Shape.Fields {
+								mergedFields[k] = v
+								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+							}
 						}
 					}
 				}

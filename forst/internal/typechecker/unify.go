@@ -129,7 +129,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 		// Check that the assertion's base type matches the left-hand side type or is a subtype
 		if assertionNode.BaseType != nil {
 			baseType := ast.TypeNode{Ident: *assertionNode.BaseType}
-			if !tc.isTypeCompatible(varLeftType, baseType) {
+			if !tc.IsTypeCompatible(varLeftType, baseType) {
 				return ast.TypeNode{}, fmt.Errorf("assertion base type %s is not compatible with left-hand side type %s", baseType.Ident, varLeftType.Ident)
 			}
 		}
@@ -140,7 +140,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
 					// Check that the leftmost variable's type matches the guard's subject type
 					subjectType := guardNode.Subject.GetType()
-					if !tc.isTypeCompatible(varLeftType, subjectType) {
+					if !tc.IsTypeCompatible(varLeftType, subjectType) {
 						return ast.TypeNode{}, fmt.Errorf("type guard '%s' requires subject type %s, but got %s",
 							constraint.Name, subjectType.Ident, varLeftType.Ident)
 					}
@@ -230,7 +230,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				if rightField.Assertion.BaseType != nil && leftField.Assertion.BaseType != nil {
 					rightType := ast.TypeNode{Ident: *rightField.Assertion.BaseType}
 					leftType := ast.TypeNode{Ident: *leftField.Assertion.BaseType}
-					if !tc.isTypeCompatible(leftType, rightType) {
+					if !tc.IsTypeCompatible(leftType, rightType) {
 						return ast.TypeNode{}, fmt.Errorf("field %s type mismatch: %s vs %s",
 							fieldName, leftType.Ident, rightType.Ident)
 					}
@@ -253,7 +253,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 				if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
 					if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
 						subjectType := guardNode.Subject.GetType()
-						if !tc.isTypeCompatible(varLeftType, subjectType) {
+						if !tc.IsTypeCompatible(varLeftType, subjectType) {
 							return ast.TypeNode{}, fmt.Errorf("type guard '%s' requires subject type %s, but got %s",
 								constraint.Name, subjectType.Ident, varLeftType.Ident)
 						}

@@ -350,9 +350,9 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 	},
 }
 
-// isTypeCompatible checks if a type is compatible with an expected type,
+// IsTypeCompatible checks if a type is compatible with an expected type,
 // taking into account subtypes and type guards
-func (tc *TypeChecker) isTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
+func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
 	// Direct type match
 	if actual.Ident == expected.Ident {
 		return true
@@ -398,7 +398,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		}
 		log.Debugf("[checkBuiltinFunctionCall] Arg %d expected type: %+v", i+1, expectedType)
 
-		if !tc.isTypeCompatible(argType[0], expectedType) {
+		if !tc.IsTypeCompatible(argType[0], expectedType) {
 			log.Errorf("[checkBuiltinFunctionCall] %s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 			return nil, fmt.Errorf("%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)

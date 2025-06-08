@@ -73,7 +73,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		if err := t.restoreScope(stmt); err != nil {
+		if err := t.restoreScope(n); err != nil {
 			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
 		}
 

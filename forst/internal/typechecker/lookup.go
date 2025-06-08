@@ -156,6 +156,12 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 						merged[k] = v
 						tc.log.Debugf("[resolveMergedShapeFields] Added field from base: %s => %+v", k, v)
 					}
+				} else if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					// If the base type is a shape, add its fields directly
+					for k, v := range shapeExpr.Shape.Fields {
+						merged[k] = v
+						tc.log.Debugf("[resolveMergedShapeFields] Added field from base shape: %s => %+v", k, v)
+					}
 				}
 			}
 		}
@@ -165,75 +171,102 @@ func (tc *TypeChecker) resolveMergedShapeFields(assertion *ast.AssertionNode) ma
 	for i, constraint := range assertion.Constraints {
 		tc.log.Debugf("[resolveMergedShapeFields] Processing constraint %d: %s with args: %+v", i, constraint.Name, constraint.Args)
 
-		// Special handling for mutation types
-		if assertion.BaseType != nil && (*assertion.BaseType == "trpc.Mutation" || *assertion.BaseType == "trpc.Query") {
-			if constraint.Name == "Input" && len(constraint.Args) > 0 {
-				if arg := constraint.Args[0]; arg.Shape != nil {
-					tc.log.Debugf("[resolveMergedShapeFields] Processing mutation input shape: %+v", arg.Shape)
-					for k, v := range arg.Shape.Fields {
-						merged[k] = v
-						tc.log.Debugf("[resolveMergedShapeFields] Added field from mutation input: %s => %+v", k, v)
-					}
-				}
-				continue
+		// Get the type guard definition
+		guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]
+		if !exists {
+			tc.log.Debugf("[resolveMergedShapeFields] Type guard %s not found", constraint.Name)
+			continue
+		}
+
+		// Push a new scope for the type guard's body
+		var guardNode ast.TypeGuardNode
+		if ptr, ok := guardDef.(*ast.TypeGuardNode); ok {
+			guardNode = *ptr
+		} else {
+			guardNode = guardDef.(ast.TypeGuardNode)
+		}
+
+		tc.log.Debugf("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
+		tc.log.Debugf("[resolveMergedShapeFields] Type guard parameters: %+v", guardNode.Parameters())
+
+		// Map constraint arguments to parameters
+		argMap := make(map[string]ast.Node)
+		for i, arg := range constraint.Args {
+			if i+1 < len(guardNode.Parameters()) {
+				param := guardNode.Parameters()[i+1] // +1 to skip subject parameter
+				argMap[param.GetIdent()] = arg
+				tc.log.Debugf("[resolveMergedShapeFields] Mapping parameter %s to argument %+v", param.GetIdent(), arg)
 			}
 		}
 
-		if guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]; exists {
-			if guardNode, ok := guardDef.(ast.TypeGuardNode); ok {
-				tc.log.Debugf("[resolveMergedShapeFields] Type guard node: %+v", guardNode)
-				tc.log.Debugf("[resolveMergedShapeFields] Type guard parameters: %+v", guardNode.Parameters())
+		// Special handling for mutation types
+		if constraint.Name == "Input" {
+			// For Input constraint, we want to keep existing fields and add new input fields
+			// First, preserve the ctx field if it exists
+			if ctxField, hasCtx := merged["ctx"]; hasCtx {
+				// Create a temporary map to store fields
+				tempFields := make(map[string]ast.ShapeFieldNode)
+				tempFields["ctx"] = ctxField
 
-				// Add fields from type guard parameters
-				for _, param := range guardNode.Parameters() {
-					if param.GetIdent() != guardNode.Subject.GetIdent() {
-						tc.log.Debugf("[resolveMergedShapeFields] Adding field from parameter: %s", param.GetIdent())
-						typeIdent := param.GetType().Ident
-						if _, exists := merged[param.GetIdent()]; !exists {
-							merged[param.GetIdent()] = ast.ShapeFieldNode{
-								Assertion: &ast.AssertionNode{
-									BaseType: &typeIdent,
-								},
+				// Add the input field from the argument
+				if arg, ok := argMap["input"]; ok {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							for k, v := range argNode.Shape.Fields {
+								tempFields[k] = v
+								tc.log.Debugf("[resolveMergedShapeFields] Added field from mutation input: %s => %+v", k, v)
 							}
-							tc.log.Debugf("[resolveMergedShapeFields] Added new field from parameter: %s => %+v", param.GetIdent(), merged[param.GetIdent()])
-						} else {
-							tc.log.Debugf("[resolveMergedShapeFields] Field already exists from parameter: %s", param.GetIdent())
 						}
 					}
 				}
 
-				// Process type guard arguments
-				for j, arg := range constraint.Args {
-					tc.log.Debugf("[resolveMergedShapeFields] Processing type guard arg %d: %+v", j, arg)
-
-					if arg.Shape != nil {
-						tc.log.Debugf("[resolveMergedShapeFields] Processing shape argument: %+v", arg.Shape)
-						for k, v := range arg.Shape.Fields {
-							merged[k] = v
-							tc.log.Debugf("[resolveMergedShapeFields] Added field from shape argument: %s => %+v", k, v)
-						}
-					} else if arg.Type != nil {
-						tc.log.Debugf("[resolveMergedShapeFields] Processing type argument: %+v", arg.Type)
-						if def, exists := tc.Defs[arg.Type.Ident]; exists {
-							if typeDef, ok := def.(ast.TypeDefNode); ok {
-								if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-									tc.log.Debugf("[resolveMergedShapeFields] Found TypeDefShapeExpr for %s with fields: %+v", arg.Type.Ident, shapeExpr.Shape.Fields)
-									for k, v := range shapeExpr.Shape.Fields {
-										merged[k] = v
-										tc.log.Debugf("[resolveMergedShapeFields] Added field from type argument shape: %s => %+v", k, v)
-									}
-								} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
-									tc.log.Debugf("[resolveMergedShapeFields] Found TypeDefAssertionExpr for %s", arg.Type.Ident)
-									if assertionExpr.Assertion != nil && assertionExpr.Assertion.BaseType != nil && *assertionExpr.Assertion.BaseType == ast.TypeShape {
-										tc.log.Debugf("[resolveMergedShapeFields] Recursively merging fields from assertion-based shape alias: %s", arg.Type.Ident)
-										baseFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
-										for k, v := range baseFields {
-											merged[k] = v
-											tc.log.Debugf("[resolveMergedShapeFields] Added field from type argument assertion: %s => %+v", k, v)
-										}
-									}
-								}
+				// Replace mergedFields with our new map that preserves ctx
+				merged = tempFields
+			} else {
+				// If no ctx field exists, just add the input fields
+				if arg, ok := argMap["input"]; ok {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							for k, v := range argNode.Shape.Fields {
+								merged[k] = v
+								tc.log.Debugf("[resolveMergedShapeFields] Added field from mutation input: %s => %+v", k, v)
 							}
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		// For other constraints, process each parameter
+		for _, param := range guardNode.Parameters() {
+			if param.GetIdent() != guardNode.Subject.GetIdent() {
+				// Add the field from the parameter
+				paramType := param.GetType().Ident
+				merged[param.GetIdent()] = ast.ShapeFieldNode{
+					Assertion: &ast.AssertionNode{
+						BaseType: &paramType,
+					},
+				}
+
+				// If we have an argument for this parameter, use its concrete type
+				if arg, ok := argMap[param.GetIdent()]; ok {
+					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
+						if argNode.Shape != nil {
+							// If it's a shape, merge its fields
+							for k, v := range argNode.Shape.Fields {
+								merged[k] = v
+								tc.log.Debugf("[resolveMergedShapeFields] Added field from shape argument: %s => %+v", k, v)
+							}
+						} else if argNode.Type != nil {
+							// Use the concrete type from the argument instead of the generic Shape
+							argType := argNode.Type.Ident
+							merged[param.GetIdent()] = ast.ShapeFieldNode{
+								Assertion: &ast.AssertionNode{
+									BaseType: &argType,
+								},
+							}
+							tc.log.Debugf("[resolveMergedShapeFields] Added field with concrete type: %s => %s", param.GetIdent(), argNode.Type.Ident)
 						}
 					}
 				}

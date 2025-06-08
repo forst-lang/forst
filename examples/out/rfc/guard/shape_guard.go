@@ -34,7 +34,7 @@ func createUser(op T_bzeMYgDed7q) string {
 		println("Not logged in")
 		panic(errors.New("assertion failed: LoggedIn()"))
 	}
-	fmt.Println(op.Ctx.SessionId)
+	fmt.Println(*op.Ctx.SessionId)
 	return op.Input.Name
 }
 

@@ -30,7 +30,7 @@ func createUser(op AppMutation.Input({
     println("Not logged in")
   }
 
-  println(op.ctx.sessionId)
+  println(*op.ctx.sessionId)
 
   return op.input.name
 }

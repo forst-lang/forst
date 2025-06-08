@@ -261,7 +261,7 @@ func TestAssertionTransformer(t *testing.T) {
 			// Set the base type for the test
 			tt.ensure.Assertion.BaseType = &tt.baseType.Ident
 
-			expr, err := at.transformEnsure(tt.ensure)
+			expr, err := at.transformEnsureConstraints(tt.ensure)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errContains)

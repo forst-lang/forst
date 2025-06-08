@@ -34,8 +34,14 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 
 	// Store types for each LValue
 	for i, variableNode := range assign.LValues {
-		tc.storeInferredVariableType(variableNode, resolvedTypes[i])
-		tc.storeInferredType(variableNode, []ast.TypeNode{resolvedTypes[i]})
+		// If the variable has an explicit type annotation, use it
+		if variableNode.ExplicitType.Ident != "" && variableNode.ExplicitType.Ident != ast.TypeImplicit {
+			tc.storeInferredVariableType(variableNode, variableNode.ExplicitType)
+			tc.storeInferredType(variableNode, []ast.TypeNode{variableNode.ExplicitType})
+		} else {
+			tc.storeInferredVariableType(variableNode, resolvedTypes[i])
+			tc.storeInferredType(variableNode, []ast.TypeNode{resolvedTypes[i]})
+		}
 	}
 
 	return nil

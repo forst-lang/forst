@@ -150,12 +150,18 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.ImportGroupNode:
 		return nil, nil
 
-	case *ast.TypeGuardNode:
+	case ast.TypeGuardNode, *ast.TypeGuardNode:
 		// Push a new scope for the type guard's body
-		tc.pushScope(n)
+		var guardNode ast.TypeGuardNode
+		if ptr, ok := n.(*ast.TypeGuardNode); ok {
+			guardNode = *ptr
+		} else {
+			guardNode = n.(ast.TypeGuardNode)
+		}
+		tc.pushScope(&guardNode)
 
 		// Register parameters in the current scope
-		for _, param := range n.Parameters() {
+		for _, param := range guardNode.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
 				tc.scopeStack.currentScope().RegisterSymbol(
@@ -167,7 +173,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		// Validate type guard body
-		for _, node := range n.Body {
+		for _, node := range guardNode.Body {
 			switch stmt := node.(type) {
 			case ast.IfNode:
 				// Check that condition uses is operator
@@ -186,7 +192,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		// Store type guard in global scope with void return type
-		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+		tc.storeSymbol(ast.Identifier(guardNode.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		tc.popScope()
 		return nil, nil
