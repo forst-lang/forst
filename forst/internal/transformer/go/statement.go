@@ -84,7 +84,7 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
-		if err := t.RestoreScope(stmt); err != nil {
+		if err := t.restoreScope(stmt); err != nil {
 			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
 		}
 
@@ -123,7 +123,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		finallyStmts := []goast.Stmt{}
 
 		if s.Block != nil {
-			if err := t.RestoreScope(s.Block); err != nil {
+			if err := t.restoreScope(s.Block); err != nil {
 				return nil, fmt.Errorf("failed to restore ensure statement block scope: %s", err)
 			}
 
@@ -136,7 +136,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 		}
 
-		if err := t.RestoreScope(s); err != nil {
+		if err := t.restoreScope(s); err != nil {
 			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
 		}
 

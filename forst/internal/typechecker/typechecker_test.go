@@ -139,7 +139,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 				}
 
 				// Verify type guard is stored in global scope
-				globalScope := tc.GlobalScope()
+				globalScope := tc.globalScope()
 				symbol, exists := globalScope.Symbols[ast.Identifier(tt.typeGuard.Ident)]
 				if !exists {
 					t.Errorf("type guard %s not found in global scope", tt.typeGuard.Ident)

@@ -43,13 +43,13 @@ func (ss *ScopeStack) popScope() {
 	}
 }
 
-// CurrentScope returns the current scope
-func (ss *ScopeStack) CurrentScope() *Scope {
+// currentScope returns the current scope
+func (ss *ScopeStack) currentScope() *Scope {
 	return ss.current
 }
 
-// RestoreScope restores a scope by its AST node
-func (ss *ScopeStack) RestoreScope(node ast.Node) error {
+// restoreScope restores a scope by its AST node
+func (ss *ScopeStack) restoreScope(node ast.Node) error {
 	scope, exists := ss.findScope(node)
 	if !exists {
 		return fmt.Errorf("scope not found for node %s", node.String())
@@ -65,8 +65,8 @@ func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
 	return scope, exists
 }
 
-// GlobalScope returns the root scope
-func (ss *ScopeStack) GlobalScope() *Scope {
+// globalScope returns the root scope
+func (ss *ScopeStack) globalScope() *Scope {
 	scope := ss.current
 	for scope.Parent != nil {
 		scope = scope.Parent

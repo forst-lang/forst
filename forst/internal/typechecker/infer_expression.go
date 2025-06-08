@@ -65,7 +65,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 
 		// For type guards, we need to ensure they return boolean
-		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolTypeGuard {
+		if typeGuard, exists := tc.scopeStack.globalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolTypeGuard {
 			log.Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
 			// Type guards return boolean when called
 			return []ast.TypeNode{{Ident: ast.TypeBool}}, nil

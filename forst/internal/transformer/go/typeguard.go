@@ -108,7 +108,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	for _, node := range guard.Body {
 		switch n := node.(type) {
 		case *ast.IfNode:
-			if err := t.RestoreScope(*n); err != nil {
+			if err := t.restoreScope(*n); err != nil {
 				return nil, fmt.Errorf("failed to restore if scope in type guard: %s", err)
 			}
 
@@ -124,7 +124,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			// Transform else-if blocks
 			var elseIfs []goast.Stmt
 			for _, elseIf := range n.ElseIfs {
-				if err := t.RestoreScope(elseIf); err != nil {
+				if err := t.restoreScope(elseIf); err != nil {
 					return nil, fmt.Errorf("failed to restore else-if scope in type guard: %s", err)
 				}
 
@@ -141,7 +141,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			// Transform else block
 			var elseBody *goast.BlockStmt
 			if n.Else != nil {
-				if err := t.RestoreScope(*n.Else); err != nil {
+				if err := t.restoreScope(*n.Else); err != nil {
 					return nil, fmt.Errorf("failed to restore else scope in type guard: %s", err)
 				}
 
@@ -158,7 +158,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			})
 
 		case ast.EnsureNode:
-			if err := t.RestoreScope(n); err != nil {
+			if err := t.restoreScope(n); err != nil {
 				return nil, fmt.Errorf("failed to restore ensure statement scope in type guard: %s", err)
 			}
 

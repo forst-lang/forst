@@ -99,7 +99,7 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 
 // DebugPrintCurrentScope prints details about symbols defined in the current scope
 func (tc *TypeChecker) DebugPrintCurrentScope() {
-	currentScope := tc.scopeStack.CurrentScope()
+	currentScope := tc.scopeStack.currentScope()
 	if currentScope == nil {
 		tc.log.Debug("Current scope is nil")
 		return
@@ -115,9 +115,9 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	}
 }
 
-// GlobalScope returns the root scope
-func (tc *TypeChecker) GlobalScope() *Scope {
-	return tc.scopeStack.GlobalScope()
+// globalScope returns the root scope
+func (tc *TypeChecker) globalScope() *Scope {
+	return tc.scopeStack.globalScope()
 }
 
 // pushScope creates a new scope for the given node
@@ -133,13 +133,13 @@ func (tc *TypeChecker) pushScope(node ast.Node) *Scope {
 func (tc *TypeChecker) popScope() {
 	currentScope := tc.CurrentScope()
 	tc.scopeStack.popScope()
-	tc.log.Debugf("[PopScope] Popped scope %s (%p)", currentScope.String(), currentScope)
+	tc.log.Debugf("[popScope] Popped scope %s (%p)", currentScope.String(), currentScope)
 }
 
 // RestoreScope restores the scope for a given node
 // Intended for use after the collection pass of the typechecker has completed
 func (tc *TypeChecker) RestoreScope(node ast.Node) error {
-	return tc.scopeStack.RestoreScope(node)
+	return tc.scopeStack.restoreScope(node)
 }
 
 // Stores a symbol definition in the current scope
@@ -157,5 +157,5 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 
 // CurrentScope returns the current scope
 func (tc *TypeChecker) CurrentScope() *Scope {
-	return tc.scopeStack.CurrentScope()
+	return tc.scopeStack.currentScope()
 }

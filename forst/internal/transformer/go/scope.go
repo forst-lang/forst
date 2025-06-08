@@ -5,8 +5,8 @@ import (
 	"forst/internal/typechecker"
 )
 
-// RestoreScope restores the scope for a given node
-func (t *Transformer) RestoreScope(node ast.Node) error {
+// restoreScope restores the scope for a given node
+func (t *Transformer) restoreScope(node ast.Node) error {
 	return t.TypeChecker.RestoreScope(node)
 }
 
