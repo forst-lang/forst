@@ -1,4 +1,4 @@
-package main
+package compiler
 
 import (
 	"fmt"
@@ -11,25 +11,26 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (p *Program) logMemUsage(phase string, before, after runtime.MemStats) {
-	if !p.Args.reportMemoryUsage {
+// LogMemUsage logs the memory usage of the compiler
+func (c *Compiler) LogMemUsage(phase string, before, after runtime.MemStats) {
+	if !c.Args.ReportMemoryUsage {
 		return
 	}
 
 	allocDelta := after.TotalAlloc - before.TotalAlloc
 	heapDelta := after.HeapAlloc - before.HeapAlloc
 
-	p.log.WithFields(log.Fields{
+	c.log.WithFields(log.Fields{
 		"phase":          phase,
 		"allocatedBytes": allocDelta,
 		"heapBytes":      heapDelta,
 	}).Info("Memory usage")
 }
 
-func (p *Program) debugPrintTokens(tokens []ast.Token) {
-	p.log.Debug("=== Tokens ===")
+func (c *Compiler) DebugPrintTokens(tokens []ast.Token) {
+	c.log.Debug("=== Tokens ===")
 	for _, t := range tokens {
-		p.log.WithFields(log.Fields{
+		c.log.WithFields(log.Fields{
 			"location": fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column),
 			"type":     string(t.Type),
 			"value":    t.Value,
@@ -37,16 +38,16 @@ func (p *Program) debugPrintTokens(tokens []ast.Token) {
 	}
 }
 
-func (p *Program) debugPrintForstAST(forstAST []ast.Node) {
-	p.log.Debug("=== Forst AST ===")
+func (c *Compiler) DebugPrintForstAST(forstAST []ast.Node) {
+	c.log.Debug("=== Forst AST ===")
 	for _, node := range forstAST {
 		switch n := node.(type) {
 		case ast.PackageNode:
-			p.log.WithField("package", n.Ident).Debug("Package declaration")
+			c.log.WithField("package", n.Ident).Debug("Package declaration")
 		case ast.ImportNode:
-			p.log.WithField("path", n.Path).Debug("Import")
+			c.log.WithField("path", n.Path).Debug("Import")
 		case ast.ImportGroupNode:
-			p.log.WithField("importGroup", n.Imports).Debug("Import group")
+			c.log.WithField("importGroup", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
 			fields := log.Fields{
 				"name": n.GetIdent(),
@@ -61,35 +62,35 @@ func (p *Program) debugPrintForstAST(forstAST []ast.Node) {
 			} else {
 				fields["returnTypes"] = "(?)"
 			}
-			p.log.WithFields(fields).Debug("Function declaration")
+			c.log.WithFields(fields).Debug("Function declaration")
 		}
 	}
 }
 
-func (p *Program) debugPrintGoAST(goFile *goast.File) {
-	p.log.Debug("=== Go AST ===")
-	p.log.WithField("package", goFile.Name).Debug("Package")
+func (c *Compiler) debugPrintGoAST(goFile *goast.File) {
+	c.log.Debug("=== Go AST ===")
+	c.log.WithField("package", goFile.Name).Debug("Package")
 
-	p.log.Debug("Imports")
+	c.log.Debug("Imports")
 	for _, imp := range goFile.Imports {
-		p.log.WithField("path", imp.Path.Value).Debug("Import")
+		c.log.WithField("path", imp.Path.Value).Debug("Import")
 	}
 
-	p.log.Debug("Declarations")
+	c.log.Debug("Declarations")
 	for _, decl := range goFile.Decls {
 		switch d := decl.(type) {
 		case *goast.FuncDecl:
-			p.log.WithField("name", d.Name.Name).Debug("Function")
+			c.log.WithField("name", d.Name.Name).Debug("Function")
 		case *goast.GenDecl:
-			p.log.WithField("token", d.Tok).Debug("GenDecl")
+			c.log.WithField("token", d.Tok).Debug("GenDecl")
 		}
 	}
 }
 
-func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
-	p.log.Debug("\n=== Type Check Results ===")
+func (c *Compiler) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
+	c.log.Debug("\n=== Type Check Results ===")
 
-	p.log.Debug("Functions:")
+	c.log.Debug("Functions:")
 	for id, sig := range tc.Functions {
 		params := make([]string, len(sig.Parameters))
 		for i, param := range sig.Parameters {
@@ -101,20 +102,20 @@ func (p *Program) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 			returnTypes[i] = rt.String()
 		}
 
-		p.log.WithFields(log.Fields{
+		c.log.WithFields(log.Fields{
 			"function":    id,
 			"parameters":  params,
 			"returnTypes": returnTypes,
 		}).Debug("function signature")
 	}
 
-	p.log.Debug("Definitions:")
+	c.log.Debug("Definitions:")
 	for id, def := range tc.Defs {
 		expr := ""
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			expr = typeDef.Expr.String()
 		}
-		p.log.WithFields(log.Fields{
+		c.log.WithFields(log.Fields{
 			"definition": id,
 			"type":       fmt.Sprintf("%T", def),
 			"expr":       expr,

@@ -41,4 +41,4 @@ run-example-ensure:
 	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/ensure.ft
 
 test-examples:
-	cd forst/cmd/forst && go test .
+	cd forst && go test ./cmd/forst/...

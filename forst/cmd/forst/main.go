@@ -3,56 +3,61 @@ package main
 
 import (
 	"fmt"
+	"forst/cmd/forst/compiler"
+	"forst/internal/logger"
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func main() {
-	args := ParseArgs()
-	p := New(args)
+	log := logger.New()
 
-	if args.filePath == "" {
-		p.log.Error(fmt.Errorf("no input file path provided"))
+	args := compiler.ParseArgs(log)
+
+	p := compiler.New(args, log)
+
+	if args.FilePath == "" {
+		log.Error(fmt.Errorf("no input file path provided"))
 		os.Exit(1)
 	}
 
-	if args.trace {
-		p.log.SetLevel(log.TraceLevel)
-	} else if args.debug {
-		p.log.SetLevel(log.DebugLevel)
+	if args.Trace {
+		log.SetLevel(logrus.TraceLevel)
+	} else if args.Debug {
+		log.SetLevel(logrus.DebugLevel)
 	}
 
-	p.log.SetFormatter(&log.TextFormatter{
+	log.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: false,
 		DisableQuote:     true,
 	})
 
-	if args.watch {
-		if err := p.watchFile(); err != nil {
-			p.log.Error(err)
+	if args.Watch {
+		if err := p.WatchFile(); err != nil {
+			log.Error(err)
 			os.Exit(1)
 		}
 	} else {
-		code, err := p.compileFile()
+		code, err := p.CompileFile()
 		if err != nil {
-			p.log.Error(err)
+			log.Error(err)
 			os.Exit(1)
 		}
 
-		outputPath := args.outputPath
+		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFile(*code)
+			outputPath, err = compiler.CreateTempOutputFile(*code)
 			if err != nil {
-				p.log.Error(err)
+				log.Error(err)
 				os.Exit(1)
 			}
 		}
 
-		if args.command == "run" {
-			if err := runGoProgram(outputPath); err != nil {
-				p.log.Error(err)
+		if args.Command == "run" {
+			if err := compiler.RunGoProgram(outputPath); err != nil {
+				log.Error(err)
 				os.Exit(1)
 			}
 		}
