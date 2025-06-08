@@ -1,47 +1,42 @@
 package parser
 
 import (
-	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {
-	scopes  []Scope
+	scopes  []*Scope
 	current *Scope
+	log     *logrus.Logger
 }
 
 // NewScopeStack creates a new stack with a global scope
-func NewScopeStack() *ScopeStack {
-	globalScope := Scope{
-		Variables:    make(map[string]ast.TypeNode),
-		FunctionName: "",
-		IsTypeGuard:  false,
-		IsGlobal:     true,
-	}
-	scopes := []Scope{globalScope}
+func NewScopeStack(log *logrus.Logger) *ScopeStack {
+	globalScope := NewScope("", true, false, log)
+	scopes := []*Scope{globalScope}
 	return &ScopeStack{
 		scopes:  scopes,
-		current: &globalScope,
+		current: globalScope,
+		log:     log,
 	}
 }
 
 // PushScope creates and pushes a new scope for the given AST node
 func (ss *ScopeStack) PushScope(scope *Scope) {
 	if scope.IsGlobal {
-		log.Fatalf("Cannot push global scope")
+		ss.log.Fatalf("Cannot push global scope")
 	}
-	ss.scopes = append(ss.scopes, *scope)
+	ss.scopes = append(ss.scopes, scope)
 	ss.current = scope
 }
 
 func (ss *ScopeStack) PopScope() {
 	if ss.current.IsGlobal {
-		log.Fatalf("Cannot pop global scope")
+		ss.log.Fatalf("Cannot pop global scope")
 	}
 	ss.scopes = ss.scopes[:len(ss.scopes)-1]
-	ss.current = &ss.scopes[len(ss.scopes)-1]
+	ss.current = ss.scopes[len(ss.scopes)-1]
 }
 
 func (ss *ScopeStack) CurrentScope() *Scope {
@@ -49,5 +44,5 @@ func (ss *ScopeStack) CurrentScope() *Scope {
 }
 
 func (ss *ScopeStack) GlobalScope() *Scope {
-	return &ss.scopes[0]
+	return ss.scopes[0]
 }

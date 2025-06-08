@@ -46,7 +46,7 @@ func New(log *logrus.Logger) *TypeChecker {
 		Functions:           make(map[ast.Identifier]FunctionSignature),
 		Hasher:              &StructuralHasher{},
 		path:                make(NodePath, 0),
-		scopeStack:          NewScopeStack(NewStructuralHasher()),
+		scopeStack:          NewScopeStack(NewStructuralHasher(), log),
 		inferredTypes:       make(map[ast.Node][]ast.TypeNode),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
@@ -59,7 +59,7 @@ func New(log *logrus.Logger) *TypeChecker {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
-	tc.log.Trace("[CheckTypes] First pass: collecting explicit types and function signatures")
+	tc.log.Info("[CheckTypes] First pass: collecting explicit types and function signatures")
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
@@ -67,8 +67,9 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}
 		tc.path = tc.path[:len(tc.path)-1]
 	}
-
-	tc.log.Debugf("Collected imports: %v", tc.imports)
+	tc.log.Infof("[CheckTypes] Collected %d imports, %d type defs, %d functions, %d type guards",
+		len(tc.imports), len(tc.Defs), len(tc.Functions), len(tc.Uses))
+	tc.log.Infof("[CheckTypes] Starting second pass: inferring types")
 
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
@@ -81,62 +82,19 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	return nil
 }
 
-// Traverses the AST to gather type definitions and function signatures
-func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
-	tc.log.Tracef("[collectExplicitTypes] Collecting explicit types for type %s", node.String())
-	switch n := node.(type) {
-	case ast.ImportNode:
-		tc.log.Debugf("[collectExplicitTypes] Collecting import: %v", n)
-		tc.imports = append(tc.imports, n)
-	case ast.ImportGroupNode:
-		tc.log.Debugf("[collectExplicitTypes] Collecting import group: %v", n)
-		tc.imports = append(tc.imports, n.Imports...)
-	case ast.TypeDefNode:
-		tc.registerType(n)
-	case ast.FunctionNode:
-		tc.PushScope(n)
-
-		for _, param := range n.Params {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
-			case ast.DestructuredParamNode:
-				// TODO: Handle destructured params
-				continue
-			}
-		}
-
-		for _, node := range n.Body {
-			if err := tc.collectExplicitTypes(node); err != nil {
-				return err
-			}
-		}
-
-		tc.PopScope()
-		tc.registerFunction(n)
-	case *ast.TypeGuardNode:
-		tc.PushScope(n)
-
-		tc.PopScope()
-		tc.registerTypeGuard(*n)
-	}
-
-	return nil
-}
-
 // Associates inferred types with an AST node using its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash := tc.Hasher.HashNode(node)
-	tc.log.Tracef("[storeInferredType] Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 	tc.Types[hash] = types
+	tc.log.Tracef("[storeInferredType] Stored inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 }
 
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	tc.log.Tracef("[storeInferredFunctionReturnType] Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
 	tc.Functions[fn.Ident.ID] = sig
+	tc.log.Tracef("[storeInferredFunctionReturnType] Stored inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
 }
 
 // DebugPrintCurrentScope prints details about symbols defined in the current scope
@@ -149,7 +107,7 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 	if currentScope.Node == nil {
 		tc.log.Debug("Current scope node is nil")
 	} else {
-		tc.log.Debugf("Current scope: %s\n", (*currentScope.Node).String())
+		tc.log.Debugf("Current scope: %s (%p)\n", currentScope.String(), currentScope)
 	}
 	tc.log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
 	for _, symbol := range currentScope.Symbols {
@@ -162,76 +120,31 @@ func (tc *TypeChecker) GlobalScope() *Scope {
 	return tc.scopeStack.GlobalScope()
 }
 
-// Stores a type definition that will be used by code generators
-// to create corresponding type definitions in the target language.
-// For example, a Forst type definition like `type PhoneNumber = String.Min(3)`
-// may be transformed into a TypeScript type with validation decorators.
-func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
-	if _, exists := tc.Defs[node.Ident]; exists {
-		return
-	}
-	// Store the type definition node
-	tc.Defs[node.Ident] = node
-	tc.log.Tracef("[registerType] Registered type %s: %+v", node.Ident, node)
-
-	// If this is a shape type, also store the underlying ShapeNode for field access
-	if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
-		if assertionExpr.Assertion != nil {
-			// If this is a direct shape alias (e.g. type AppContext = { ... })
-			if assertionExpr.Assertion.BaseType != nil && *assertionExpr.Assertion.BaseType == ast.TypeShape {
-				// If there are no constraints, check if the assertion has a Match constraint with a shape
-				if len(assertionExpr.Assertion.Constraints) == 0 && assertionExpr.Assertion.BaseType != nil {
-					// See if the assertion itself has a shape (Match constraint)
-					if assertionExpr.Assertion != nil && assertionExpr.Assertion.Constraints != nil {
-						for _, constraint := range assertionExpr.Assertion.Constraints {
-							for _, arg := range constraint.Args {
-								if arg.Shape != nil {
-									tc.registerShapeType(node.Ident, *arg.Shape)
-								}
-							}
-						}
-					}
-				}
-				// Try to extract from constraints if present (existing logic)
-				for _, constraint := range assertionExpr.Assertion.Constraints {
-					for _, arg := range constraint.Args {
-						if arg.Shape != nil {
-							tc.registerShapeType(node.Ident, *arg.Shape)
-						}
-					}
-				}
-			}
-		}
-	} else if shapeExpr, ok := node.Expr.(ast.TypeDefShapeExpr); ok {
-		// If the type definition is directly a shape, store it with a special key
-		tc.registerShapeType(node.Ident, shapeExpr.Shape)
-	}
+// pushScope creates a new scope for the given node
+// Intended for use in the collection pass of the typechecker, not the transformer
+func (tc *TypeChecker) pushScope(node ast.Node) *Scope {
+	scope := tc.scopeStack.pushScope(node)
+	tc.log.Debugf("[pushScope] Pushed scope %s (%p)", scope.String(), scope)
+	return scope
 }
 
-// registerShapeType registers a shape type with its fields
-func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
-	tc.Defs[ident] = ast.TypeDefNode{
-		Ident: ident,
-		Expr: ast.TypeDefShapeExpr{
-			Shape: shape,
-		},
-	}
-	tc.log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
+// popScope removes the current scope and returns to the parent scope
+// Intended for use in the collection pass of the typechecker, not the transformer
+func (tc *TypeChecker) popScope() {
+	currentScope := tc.CurrentScope()
+	tc.scopeStack.popScope()
+	tc.log.Debugf("[PopScope] Popped scope %s (%p)", currentScope.String(), currentScope)
 }
 
-// PushScope creates a new scope for the given node
-func (tc *TypeChecker) PushScope(node ast.Node) *Scope {
-	return tc.scopeStack.PushScope(node)
-}
-
-// PopScope removes the current scope and returns to the parent scope
-func (tc *TypeChecker) PopScope() {
-	tc.scopeStack.PopScope()
+// RestoreScope restores the scope for a given node
+// Intended for use after the collection pass of the typechecker has completed
+func (tc *TypeChecker) RestoreScope(node ast.Node) error {
+	return tc.scopeStack.RestoreScope(node)
 }
 
 // Stores a symbol definition in the current scope
 func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	currentScope := tc.scopeStack.CurrentScope()
+	currentScope := tc.CurrentScope()
 	currentScope.Symbols[ident] = Symbol{
 		Identifier: ident,
 		Types:      types,
@@ -239,11 +152,7 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 		Scope:      currentScope,
 		Position:   tc.path,
 	}
-}
-
-// FindScope finds the scope for a given node
-func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
-	return tc.scopeStack.FindScope(node)
+	tc.log.Tracef("[storeSymbol] Stored symbol '%s' with types %v in scope %s (%p)", ident, types, currentScope.String(), currentScope)
 }
 
 // CurrentScope returns the current scope

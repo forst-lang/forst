@@ -3,13 +3,10 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // inferNodeTypes handles type inference for a list of nodes
 func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error) {
-	log.Trace("inferNodeTypes", nodes)
 	inferredTypes := make([][]ast.TypeNode, len(nodes))
 	for i, node := range nodes {
 		inferredType, err := tc.inferNodeType(node)
@@ -24,24 +21,23 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	log.Tracef("inferNodeType: %s", node.String())
+	tc.log.Tracef("[inferNodeType] %s", node.String())
 
 	switch n := node.(type) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		tc.PushScope(n)
-		for _, node := range n.Body {
-			if _, err := tc.inferNodeType(node); err != nil {
-				return nil, err
-			}
+		if err := tc.RestoreScope(n); err != nil {
+			return nil, err
 		}
-
 		// Register parameters in the current scope
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
+				tc.scopeStack.CurrentScope().RegisterSymbol(
+					p.Ident.ID,
+					[]ast.TypeNode{p.Type},
+					SymbolVariable)
 			case ast.DestructuredParamNode:
 				// Handle destructured params if needed
 				continue
@@ -62,8 +58,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for i, paramTypes := range paramTypes {
 			param := n.Params[i]
 			// Store in scope for structural lookup
-			log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
-			tc.scopeStack.CurrentScope().DefineVariable(ast.Identifier(param.GetIdent()), paramTypes[0])
+			tc.log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
+			tc.scopeStack.CurrentScope().RegisterSymbol(
+				ast.Identifier(param.GetIdent()),
+				paramTypes,
+				SymbolVariable)
 		}
 
 		_, err = tc.inferNodeTypes(n.Body)
@@ -77,7 +76,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		tc.storeInferredFunctionReturnType(&n, inferredType)
 
-		tc.PopScope()
+		tc.popScope()
 
 		return inferredType, nil
 
@@ -109,12 +108,14 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		if n.Block != nil {
-			tc.PushScope(n.Block)
+			if err := tc.RestoreScope(n.Block); err != nil {
+				return nil, err
+			}
+
 			_, err = tc.inferNodeTypes(n.Block.Body)
 			if err != nil {
 				return nil, err
 			}
-			tc.PopScope()
 		}
 
 		return nil, nil
@@ -129,13 +130,13 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case ast.TypeDefNode:
 		if assertionExpr, ok := n.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
-			log.Debugf("[TypeDefNode] Merging fields for type %s", n.Ident)
+			tc.log.Debugf("[TypeDefNode] Merging fields for type %s", n.Ident)
 			mergedFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
-			log.Debugf("[TypeDefNode] Merged fields for %s: %v", n.Ident, mergedFields)
+			tc.log.Debugf("[TypeDefNode] Merged fields for %s: %v", n.Ident, mergedFields)
 			shape := ast.ShapeNode{
 				Fields: mergedFields,
 			}
-			log.Debugf("[TypeDefNode] Registering merged shape for %s: %+v", n.Ident, shape)
+			tc.log.Debugf("[TypeDefNode] Registering merged shape for %s: %+v", n.Ident, shape)
 			tc.registerShapeType(n.Ident, shape)
 		}
 		return nil, nil
@@ -151,13 +152,15 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case *ast.TypeGuardNode:
 		// Push a new scope for the type guard's body
-		tc.PushScope(n)
+		tc.pushScope(n)
 
 		// Register parameters in the current scope
 		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
-				tc.scopeStack.CurrentScope().DefineVariable(p.Ident.ID, p.Type)
+				tc.scopeStack.CurrentScope().RegisterSymbol(
+					p.Ident.ID,
+					[]ast.TypeNode{p.Type}, SymbolVariable)
 			case ast.DestructuredParamNode:
 				continue
 			}
@@ -185,26 +188,26 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		// Store type guard in global scope with void return type
 		tc.storeSymbol(ast.Identifier(n.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
-		tc.PopScope()
+		tc.popScope()
 		return nil, nil
 
 	case ast.IfNode:
-		tc.PushScope(n)
+		tc.pushScope(n)
 		for _, node := range n.Body {
 			if _, err := tc.inferNodeType(node); err != nil {
 				return nil, err
 			}
 		}
-		tc.PopScope()
+		tc.popScope()
 
 	case ast.ElseBlockNode:
-		tc.PushScope(n)
+		tc.pushScope(n)
 		for _, node := range n.Body {
 			if _, err := tc.inferNodeType(node); err != nil {
 				return nil, err
 			}
 		}
-		tc.PopScope()
+		tc.popScope()
 	}
 
 	panic(typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))

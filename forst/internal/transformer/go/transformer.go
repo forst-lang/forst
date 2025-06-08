@@ -13,7 +13,6 @@ import (
 // Transformer converts a Forst AST to a Go AST
 type Transformer struct {
 	TypeChecker          *typechecker.TypeChecker
-	currentScope         *typechecker.Scope
 	Output               *TransformerOutput
 	assertionTransformer *AssertionTransformer
 	log                  *logrus.Logger
@@ -26,10 +25,9 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {
 		log.Warnf("No logger provided, using default logger")
 	}
 	t := &Transformer{
-		TypeChecker:  tc,
-		currentScope: tc.GlobalScope(),
-		Output:       &TransformerOutput{},
-		log:          log,
+		TypeChecker: tc,
+		Output:      &TransformerOutput{},
+		log:         log,
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	return t
@@ -90,11 +88,11 @@ func (t *Transformer) isMainPackage() bool {
 // or, if the current scope is not a function, the next highest function node in the scope stack
 // It returns an error if no function is found
 func (t *Transformer) closestFunction() (ast.Node, error) {
-	if t.currentScope.IsFunction() {
-		return *t.currentScope.Node, nil
+	scope := t.currentScope()
+	if scope.IsFunction() {
+		return *scope.Node, nil
 	}
 
-	scope := t.currentScope
 	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
 		scope = scope.Parent
 	}
@@ -109,7 +107,8 @@ func (t *Transformer) isMainFunction() bool {
 		return false
 	}
 
-	if t.currentScope.IsGlobal() {
+	scope := t.currentScope()
+	if scope.IsGlobal() {
 		t.log.Fatalf("isMainFunction called in global scope")
 	}
 

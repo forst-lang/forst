@@ -26,7 +26,7 @@ type Parser struct {
 
 // New creates a new parser instance
 func New(tokens []ast.Token, filePath string, log *logrus.Logger) *Parser {
-	scopeStack := NewScopeStack()
+	scopeStack := NewScopeStack(log)
 	context := Context{
 		FilePath:   filePath,
 		ScopeStack: scopeStack,

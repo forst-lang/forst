@@ -86,22 +86,18 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 
 // transformTypeGuard transforms a type guard into a Go function
 func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDecl, error) {
-	t.pushScope(guard)
-
 	// Create function name
 	guardIdent := t.TypeChecker.Hasher.HashNode(guard).ToGuardIdent()
 
 	// Transform subject parameter
 	subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
 	if err != nil {
-		t.popScope()
 		return nil, fmt.Errorf("failed to transform subject parameter: %s", err)
 	}
 
 	// Create parameter list
 	additionalParams, err := t.transformTypeGuardParams(guard.Params)
 	if err != nil {
-		t.popScope()
 		return nil, fmt.Errorf("failed to transform type guard parameters: %s", err)
 	}
 
@@ -112,10 +108,13 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	for _, node := range guard.Body {
 		switch n := node.(type) {
 		case *ast.IfNode:
+			if err := t.RestoreScope(*n); err != nil {
+				return nil, fmt.Errorf("failed to restore if scope in type guard: %s", err)
+			}
+
 			// Transform if condition (must be an is assertion)
 			cond, ok := n.Condition.(ast.ExpressionNode)
 			if !ok {
-				t.popScope()
 				return nil, fmt.Errorf("if condition must be an expression")
 			}
 
@@ -125,9 +124,12 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			// Transform else-if blocks
 			var elseIfs []goast.Stmt
 			for _, elseIf := range n.ElseIfs {
+				if err := t.RestoreScope(elseIf); err != nil {
+					return nil, fmt.Errorf("failed to restore else-if scope in type guard: %s", err)
+				}
+
 				elseIfCond, ok := elseIf.Condition.(ast.ExpressionNode)
 				if !ok {
-					t.popScope()
 					return nil, fmt.Errorf("else-if condition must be an expression")
 				}
 				elseIfs = append(elseIfs, &goast.IfStmt{
@@ -139,6 +141,10 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			// Transform else block
 			var elseBody *goast.BlockStmt
 			if n.Else != nil {
+				if err := t.RestoreScope(*n.Else); err != nil {
+					return nil, fmt.Errorf("failed to restore else scope in type guard: %s", err)
+				}
+
 				elseBody = t.transformBlock(n.Else.Body)
 			}
 
@@ -152,10 +158,13 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			})
 
 		case ast.EnsureNode:
+			if err := t.RestoreScope(n); err != nil {
+				return nil, fmt.Errorf("failed to restore ensure statement scope in type guard: %s", err)
+			}
+
 			condExpr, err := t.transformEnsureCondition(n)
 			if err != nil {
-				t.popScope()
-				return nil, fmt.Errorf("failed to transform ensure condition: %s", err)
+				return nil, fmt.Errorf("failed to transform ensure condition in type guard: %s", err)
 			}
 			log.Tracef("Transformed ensure condition: %+v (go expr: %s)", n, condExpr)
 
@@ -182,8 +191,6 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			goast.NewIdent("true"),
 		},
 	})
-
-	t.popScope()
 
 	// Create function declaration
 	return &goast.FuncDecl{

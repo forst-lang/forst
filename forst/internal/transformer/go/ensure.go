@@ -386,7 +386,7 @@ func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) (ast.TypeNode, er
 		return ast.TypeNode{Ident: *ensure.Assertion.BaseType}, nil
 	}
 
-	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope)
+	ensureBaseType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope())
 	if err != nil {
 		return ast.TypeNode{}, err
 	}
@@ -408,9 +408,9 @@ func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Expr, error) {
 	// If any constraint name matches a type guard node, treat as a type guard assertion
 	// Look up the variable type first
-	variableType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope)
+	variableType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope())
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup ensure variable type: %w", err)
+		return nil, fmt.Errorf("failed to lookup ensure variable type: %w, scope: %s", err, t.currentScope().String())
 	}
 
 	var typeGuardExprs []goast.Expr

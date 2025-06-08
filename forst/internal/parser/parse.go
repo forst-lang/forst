@@ -50,20 +50,18 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			logParsedNodeWithMessage(typeDef, "Parsed type def")
 			nodes = append(nodes, *typeDef)
 		case ast.TokenFunc:
-			p.context.ScopeStack.PushScope(&Scope{
-				Variables:   make(map[string]ast.TypeNode),
-				IsTypeGuard: false,
-			})
+			scope := NewScope("", false, false, p.log)
+			p.context.ScopeStack.PushScope(scope)
 			function := p.parseFunctionDefinition()
 			logParsedNodeWithMessage(function, "Parsed function")
+			scope.FunctionName = string(function.Ident.ID)
 			nodes = append(nodes, function)
 		case ast.TokenIs:
-			p.context.ScopeStack.PushScope(&Scope{
-				Variables:   make(map[string]ast.TypeNode),
-				IsTypeGuard: true,
-			})
+			scope := NewScope("", false, true, p.log)
+			p.context.ScopeStack.PushScope(scope)
 			typeGuard := p.parseTypeGuard()
 			logParsedNodeWithMessage(typeGuard, "Parsed type guard")
+			scope.FunctionName = string(typeGuard.Ident)
 			nodes = append(nodes, typeGuard)
 		default:
 			return nil, &ParseError{

@@ -3,8 +3,9 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"log"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Scope represents a lexical scope in the program, containing symbols and their definitions
@@ -13,35 +14,46 @@ type Scope struct {
 	Node     *ast.Node
 	Symbols  map[ast.Identifier]Symbol
 	Children []*Scope
+	log      *logrus.Logger
 }
 
 // NewScope creates a new scope
-func NewScope(parent *Scope, node *ast.Node) *Scope {
+func NewScope(parent *Scope, node *ast.Node, log *logrus.Logger) *Scope {
 	return &Scope{
 		Parent:   parent,
 		Node:     node,
 		Symbols:  make(map[ast.Identifier]Symbol),
 		Children: make([]*Scope, 0),
+		log:      log,
 	}
 }
 
-// DefineVariable defines a variable in the scope
-func (s *Scope) DefineVariable(name ast.Identifier, typ ast.TypeNode) {
+// RegisterSymbol registers a symbol in the scope
+func (s *Scope) RegisterSymbol(name ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
+	s.log.Tracef("[RegisterSymbol] Registering symbol %s with types %v in scope %s", name, types, s.String())
 	s.Symbols[name] = Symbol{
 		Identifier: name,
-		Types:      []ast.TypeNode{typ},
-		Kind:       SymbolVariable,
+		Types:      types,
+		Kind:       kind,
 		Scope:      s,
 	}
 }
 
 // LookupVariable recursively searches for a variable in the current scope and its ancestors
-func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
+func (s *Scope) LookupVariable(name ast.Identifier, allowParameter bool) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok {
-		return symbol, true
+		if symbol.Kind == SymbolVariable {
+			return symbol, true
+		}
+		if symbol.Kind == SymbolParameter {
+			if allowParameter {
+				return symbol, true
+			}
+			s.log.Debugf("LookupVariable: found parameter %s in scope %s but parameters are ignored", name, s.String())
+		}
 	}
 	if s.Parent != nil {
-		return s.Parent.LookupVariable(name)
+		return s.Parent.LookupVariable(name, false)
 	}
 	return Symbol{}, false
 }

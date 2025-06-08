@@ -1,6 +1,7 @@
 package transformergo
 
 import (
+	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
@@ -83,6 +84,10 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
+		if err := t.RestoreScope(stmt); err != nil {
+			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
+		}
+
 		// Convert ensure to if statement with panic
 		condition, err := t.transformEnsureCondition(s)
 		if err != nil {
@@ -118,7 +123,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		finallyStmts := []goast.Stmt{}
 
 		if s.Block != nil {
-			t.pushScope(s.Block)
+			if err := t.RestoreScope(s.Block); err != nil {
+				return nil, fmt.Errorf("failed to restore ensure statement block scope: %s", err)
+			}
+
 			for _, stmt := range s.Block.Body {
 				goStmt, err := t.transformStatement(stmt)
 				if err != nil {
@@ -126,7 +134,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				}
 				finallyStmts = append(finallyStmts, goStmt)
 			}
-			t.popScope()
+		}
+
+		if err := t.RestoreScope(s); err != nil {
+			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
 		}
 
 		errorStmt := t.transformErrorStatement(s)

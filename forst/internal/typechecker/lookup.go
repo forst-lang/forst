@@ -35,9 +35,9 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 	baseIdent := ast.Identifier(parts[0])
 
 	// Look up the base variable
-	symbol, exists := scope.LookupVariable(baseIdent)
+	symbol, exists := scope.LookupVariable(baseIdent, true)
 	if !exists {
-		err := fmt.Errorf("undefined symbol: %s", parts[0])
+		err := fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
 		tc.log.WithError(err).Error("lookup symbol failed")
 		return ast.TypeNode{}, err
 	}

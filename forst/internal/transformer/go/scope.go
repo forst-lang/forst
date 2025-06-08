@@ -2,15 +2,15 @@ package transformergo
 
 import (
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 )
 
-// pushScope creates a new scope for the given node
-func (t *Transformer) pushScope(node ast.Node) {
-	t.currentScope = t.TypeChecker.PushScope(node)
+// RestoreScope restores the scope for a given node
+func (t *Transformer) RestoreScope(node ast.Node) error {
+	return t.TypeChecker.RestoreScope(node)
 }
 
-// popScope removes the current scope and returns to the parent scope
-func (t *Transformer) popScope() {
-	t.TypeChecker.PopScope()
-	t.currentScope = t.TypeChecker.CurrentScope()
+// currentScope returns the current scope from the type checker
+func (t *Transformer) currentScope() *typechecker.Scope {
+	return t.TypeChecker.CurrentScope()
 }
