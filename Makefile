@@ -22,23 +22,23 @@ test-transformer:
 
 # Run specific example
 run-example:
-	cd forst/cmd/forst && go run . run -trace -- $(FILE)
+	cd forst/cmd/forst && go run . run -trace -report-phases -- $(FILE)
 
 # Run example compilations
 run-example-shape-guard:
-	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/rfc/guard/shape_guard.ft
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/rfc/guard/shape_guard.ft
 
 run-example-basic-guard:
-	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/rfc/guard/basic_guard.ft
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/rfc/guard/basic_guard.ft
 
 run-example-basic:
-	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/basic.ft
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/basic.ft
 
 run-example-basic-function:
-	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/basic_function.ft
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/basic_function.ft
 
 run-example-ensure:
-	cd forst/cmd/forst && go run . run -trace -- ../../../examples/in/ensure.ft
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/ensure.ft
 
 test-examples:
 	cd forst && go test ./cmd/forst/...
