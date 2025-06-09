@@ -31,13 +31,23 @@ func (t *Transformer) transformBlock(block []ast.Node) *goast.BlockStmt {
 	for _, node := range block {
 		switch n := node.(type) {
 		case ast.ExpressionNode:
+			expr, err := t.transformExpression(n)
+			if err != nil {
+				t.log.WithError(err).Error("Failed to transform expression")
+				continue
+			}
 			stmts = append(stmts, &goast.ExprStmt{
-				X: t.transformExpression(n),
+				X: expr,
 			})
 		case ast.ReturnNode:
+			expr, err := t.transformExpression(n.Value)
+			if err != nil {
+				t.log.WithError(err).Error("Failed to transform expression")
+				continue
+			}
 			stmts = append(stmts, &goast.ReturnStmt{
 				Results: []goast.Expr{
-					t.transformExpression(n.Value),
+					expr,
 				},
 			})
 		}
@@ -62,7 +72,7 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 			paramName = string(p.Ident.ID)
 			paramType = p.Type
 		case ast.DestructuredParamNode:
-			panic("DestructuredParamNode not supported in transformTypeGuardParams")
+			return nil, fmt.Errorf("DestructuredParamNode not supported in transformTypeGuardParams")
 		}
 
 		var ident *goast.Ident
@@ -87,7 +97,11 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 // transformTypeGuard transforms a type guard into a Go function
 func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDecl, error) {
 	// Create function name
-	guardIdent := t.TypeChecker.Hasher.HashNode(guard).ToGuardIdent()
+	guardHash, err := t.TypeChecker.Hasher.HashNode(guard)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash guard: %s", err)
+	}
+	guardIdent := guardHash.ToGuardIdent()
 
 	// Transform subject parameter
 	subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
@@ -132,8 +146,12 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 				if !ok {
 					return nil, fmt.Errorf("else-if condition must be an expression")
 				}
+				elseIfCondExpr, err := t.transformExpression(elseIfCond)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform else-if condition: %s", err)
+				}
 				elseIfs = append(elseIfs, &goast.IfStmt{
-					Cond: t.transformExpression(elseIfCond),
+					Cond: elseIfCondExpr,
 					Body: t.transformBlock(elseIf.Body),
 				})
 			}
@@ -149,8 +167,12 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			}
 
 			// Add if statement to body
+			condExpr, err := t.transformExpression(cond)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform if condition: %s", err)
+			}
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
-				Cond: t.transformExpression(cond),
+				Cond: condExpr,
 				Body: ifBody,
 				Else: &goast.BlockStmt{
 					List: append(elseIfs, elseBody),

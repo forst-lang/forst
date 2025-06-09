@@ -172,7 +172,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 	}
 
 	// Use the structural hash for this assertion node
-	hash := tc.Hasher.HashNode(assertion)
+	hash, err := tc.Hasher.HashNode(assertion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash assertion during inferAssertionType: %s", err)
+	}
 	typeIdent := hash.ToTypeIdent()
 	log.Debugf("[inferAssertionType] Stored shape type with fields assertion=%+v fields=%+v typeIdent=%s",
 		assertion, mergedFields, typeIdent)

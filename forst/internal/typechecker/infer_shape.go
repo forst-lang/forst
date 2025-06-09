@@ -12,7 +12,10 @@ import (
 // 3. Type aliases
 // 4. Generic types
 func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.HashNode(shape)
+	hash, err := tc.Hasher.HashNode(shape)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash shape: %w", err)
+	}
 	typeIdent := hash.ToTypeIdent()
 	shapeType := []ast.TypeNode{
 		{
@@ -37,7 +40,10 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 			}
 
 			// Register the nested shape type
-			fieldHash := tc.Hasher.HashNode(field.Shape)
+			fieldHash, err := tc.Hasher.HashNode(field.Shape)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash field shape: %w", err)
+			}
 			fieldTypeIdent := fieldHash.ToTypeIdent()
 			tc.log.Tracef("Inferred type of shape field %s: %s, field: %s", name, fieldTypeIdent, field)
 			tc.storeInferredType(field.Shape, fieldType)
@@ -64,7 +70,10 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 				continue
 			}
 
-			fieldHash := tc.Hasher.HashNode(field)
+			fieldHash, err := tc.Hasher.HashNode(field)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash field: %w", err)
+			}
 			fieldTypeIdent := fieldHash.ToTypeIdent()
 			tc.log.Tracef("Inferred type of assertion field %s: %s", name, fieldTypeIdent)
 			tc.registerType(ast.TypeDefNode{
@@ -79,7 +88,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 			// Optionally, could register a typedef for user types here if not present
 			continue
 		} else {
-			panic(fmt.Sprintf("Shape field has neither assertion, shape, nor type: %T", field))
+			return nil, fmt.Errorf("shape field has neither assertion, shape, nor type: %T", field)
 		}
 	}
 

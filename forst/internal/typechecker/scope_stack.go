@@ -23,7 +23,12 @@ type ScopeStack struct {
 func NewScopeStack(hasher *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
 	globalScope := NewScope(nil, nil, log)
 	scopes := make(map[NodeHash]*Scope)
-	scopes[hasher.HashNode(nil)] = globalScope
+	hash, err := hasher.HashNode(nil)
+	if err != nil {
+		log.WithError(err).Error("failed to hash nil node during NewScopeStack")
+		return nil
+	}
+	scopes[hash] = globalScope
 
 	return &ScopeStack{
 		scopes:  scopes,
@@ -35,7 +40,11 @@ func NewScopeStack(hasher *hasher.StructuralHasher, log *logrus.Logger) *ScopeSt
 
 // pushScope creates and pushes a new scope for the given AST node
 func (ss *ScopeStack) pushScope(node ast.Node) *Scope {
-	hash := ss.Hasher.HashNode(node)
+	hash, err := ss.Hasher.HashNode(node)
+	if err != nil {
+		ss.log.WithError(err).Error("failed to hash node during pushScope")
+		return nil
+	}
 	scope := NewScope(ss.current, &node, ss.log)
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
@@ -67,7 +76,11 @@ func (ss *ScopeStack) restoreScope(node ast.Node) error {
 
 // findScope looks up a scope by its AST node
 func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
-	hash := ss.Hasher.HashNode(node)
+	hash, err := ss.Hasher.HashNode(node)
+	if err != nil {
+		ss.log.WithError(err).Error("failed to hash node during findScope")
+		return nil, false
+	}
 	scope, exists := ss.scopes[hash]
 	return scope, exists
 }

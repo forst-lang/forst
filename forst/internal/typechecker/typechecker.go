@@ -86,7 +86,11 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 
 // Associates inferred types with an AST node using its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
-	hash := tc.Hasher.HashNode(node)
+	hash, err := tc.Hasher.HashNode(node)
+	if err != nil {
+		tc.log.WithError(err).Error("failed to hash node during storeInferredType")
+		return
+	}
 	tc.Types[hash] = types
 	tc.log.Tracef("[storeInferredType] Stored inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
 }

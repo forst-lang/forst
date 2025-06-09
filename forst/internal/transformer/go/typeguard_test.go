@@ -65,12 +65,7 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 	}
 }
 
-func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected panic for DestructuredParamNode, got none")
-		}
-	}()
+func TestTransformTypeGuard_DestructuredParamFails(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "Destructured",
 		Subject: ast.DestructuredParamNode{
@@ -86,7 +81,10 @@ func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
 	log := setupTestLogger()
 	tc := setupTypeChecker(log)
 	tr := setupTransformer(tc, log)
-	_, _ = tr.transformTypeGuard(tg)
+	_, err := tr.transformTypeGuard(tg)
+	if err == nil {
+		t.Errorf("expected error for DestructuredParamNode, got none")
+	}
 }
 
 func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {

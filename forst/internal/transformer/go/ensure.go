@@ -144,10 +144,14 @@ func (t *AssertionTransformer) transformEnsureCondition(ensure *ast.EnsureNode) 
 	}
 
 	// Log variable type information
+	variableHash, err := t.transformer.TypeChecker.Hasher.HashNode(ensure.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash variable: %w", err)
+	}
 	t.transformer.log.WithFields(logrus.Fields{
 		"variable":     ensure.Variable.GetIdent(),
 		"declaredType": varType.Ident,
-		"inferredType": t.transformer.TypeChecker.InferredTypes[t.transformer.TypeChecker.Hasher.HashNode(ensure.Variable)][0].Ident,
+		"inferredType": t.transformer.TypeChecker.InferredTypes[variableHash][0].Ident,
 	}).Trace("[transformEnsureCondition] Variable type information")
 
 	// Transform each constraint

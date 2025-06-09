@@ -9,7 +9,10 @@ import (
 
 // LookupInferredType looks up the inferred type of a node in the current scope
 func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.HashNode(node)
+	hash, err := tc.Hasher.HashNode(node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash node during LookupInferredType: %s", err)
+	}
 	if existingType, exists := tc.Types[hash]; exists {
 		if len(existingType) == 0 {
 			if requireInferred {
@@ -211,7 +214,10 @@ func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, scope *Scope
 
 // LookupAssertionType looks up the type of an assertion node
 func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
-	hash := tc.Hasher.HashNode(assertion)
+	hash, err := tc.Hasher.HashNode(assertion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash assertion during LookupAssertionType: %s", err)
+	}
 	if existingType, exists := tc.Types[hash]; exists {
 		if len(existingType) != 1 {
 			return nil, fmt.Errorf("expected single type for assertion %s but got %d types", hash.ToTypeIdent(), len(existingType))

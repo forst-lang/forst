@@ -63,7 +63,12 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 
 		// Use hash-based type alias for user-defined types
-		hash := t.TypeChecker.Hasher.HashNode(e)
+		hash, err := t.TypeChecker.Hasher.HashNode(e)
+		if err != nil {
+			err = fmt.Errorf("failed to hash type def expr during transformation: %w", err)
+			log.WithError(err).Error("transforming type def expr failed")
+			return nil, err
+		}
 		typeAliasName := hash.ToTypeIdent()
 		var result goast.Expr = goast.NewIdent(string(typeAliasName))
 		return &result, nil

@@ -150,15 +150,23 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 	case ast.ReturnNode:
 		// Convert return statement
+		valueExpr, err := t.transformExpression(s.Value)
+		if err != nil {
+			return nil, err
+		}
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
-				t.transformExpression(s.Value),
+				valueExpr,
 			},
 		}, nil
 	case ast.FunctionCallNode:
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
-			args[i] = t.transformExpression(arg)
+			argExpr, err := t.transformExpression(arg)
+			if err != nil {
+				return nil, err
+			}
+			args[i] = argExpr
 		}
 		return &goast.ExprStmt{
 			X: &goast.CallExpr{
@@ -183,7 +191,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			} else {
 				typeName = string(s.ExplicitTypes[0].Ident)
 			}
-			rhs := t.transformExpression(s.RValues[0])
+			rhs, err := t.transformExpression(s.RValues[0])
+			if err != nil {
+				return nil, err
+			}
 			return &goast.DeclStmt{
 				Decl: &goast.GenDecl{
 					Tok: token.VAR,
@@ -199,11 +210,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
-			lhs[i] = t.transformExpression(lval)
+			lhsExpr, err := t.transformExpression(lval)
+			if err != nil {
+				return nil, err
+			}
+			lhs[i] = lhsExpr
 		}
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
-			rhs[i] = t.transformExpression(rval)
+			rhsExpr, err := t.transformExpression(rval)
+			if err != nil {
+				return nil, err
+			}
+			rhs[i] = rhsExpr
 		}
 		operator := token.ASSIGN
 		if s.IsShort {

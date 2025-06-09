@@ -21,7 +21,10 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 	if !ok {
 		return nil, fmt.Errorf("type expression is not a Node: %T", node.Expr)
 	}
-	hash := t.TypeChecker.Hasher.HashNode(hashNode)
+	hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash type def expr during transformation: %s", err)
+	}
 	typeName := string(hash.ToTypeIdent())
 
 	// Use original name in comment for documentation
@@ -52,15 +55,29 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 
 func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*goast.Ident, error) {
 	if assertion.BaseType != nil {
-		return transformTypeIdent(*assertion.BaseType), nil
+		ident, err := transformTypeIdent(*assertion.BaseType)
+		if err != nil {
+			err = fmt.Errorf("failed to transform type ident during getAssertionBaseTypeIdent: %w", err)
+			log.WithError(err).Error("transforming assertion base type ident failed")
+			return nil, err
+		}
+		return ident, nil
 	}
+
 	typeNode, err := t.TypeChecker.LookupAssertionType(assertion)
 	if err != nil {
 		err = fmt.Errorf("failed to lookup assertion type during getAssertionBaseTypeIdent: %w", err)
 		log.WithError(err).Error("transforming assertion base type ident failed")
 		return nil, err
 	}
-	return transformTypeIdent(typeNode.Ident), nil
+
+	ident, err := transformTypeIdent(typeNode.Ident)
+	if err != nil {
+		err = fmt.Errorf("failed to transform type ident during getAssertionBaseTypeIdent: %w", err)
+		log.WithError(err).Error("transforming assertion base type ident failed")
+		return nil, err
+	}
+	return ident, nil
 }
 
 // TODO: Improve shape type registration
@@ -72,7 +89,11 @@ func (t *Transformer) defineShapeType(shape *ast.ShapeNode) error {
 	}
 
 	// Then register the shape itself
-	typeIdent := t.TypeChecker.Hasher.HashNode(shape).ToTypeIdent()
+	hash, err := t.TypeChecker.Hasher.HashNode(shape)
+	if err != nil {
+		return fmt.Errorf("failed to hash shape during defineShapeType: %w", err)
+	}
+	typeIdent := hash.ToTypeIdent()
 
 	// Create struct type for the shape
 	structType, err := t.transformShapeType(shape)
@@ -114,7 +135,11 @@ func (t *Transformer) defineShapeFields(shape *ast.ShapeNode) error {
 			}
 
 			// Register the shape field type
-			typeIdent := t.TypeChecker.Hasher.HashNode(field.Shape).ToTypeIdent()
+			hash, err := t.TypeChecker.Hasher.HashNode(field.Shape)
+			if err != nil {
+				return fmt.Errorf("failed to hash shape field type %s: %w", field.Shape.String(), err)
+			}
+			typeIdent := hash.ToTypeIdent()
 
 			// Create struct type for the shape field
 			structType, err := t.transformShapeType(field.Shape)
@@ -173,7 +198,12 @@ func (t *Transformer) defineShapeTypes() error {
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	// If the type is a built-in, return its Go name
 	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid {
-		ident := transformTypeIdent(typeNode.Ident)
+		ident, err := transformTypeIdent(typeNode.Ident)
+		if err != nil {
+			err = fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
+			log.WithError(err).Error("transforming type ident failed")
+			return "", err
+		}
 		if ident != nil {
 			return ident.Name, nil
 		}
@@ -188,7 +218,12 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 					// fallback: use ident directly
 					return string(typeNode.Ident), nil
 				}
-				hash := t.TypeChecker.Hasher.HashNode(hashNode)
+				hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
+				if err != nil {
+					err = fmt.Errorf("failed to hash type alias name for type node %s: %w", typeNode.Ident, err)
+					log.WithError(err).Error("transforming type alias name failed")
+					return "", err
+				}
 				return string(hash.ToTypeIdent()), nil
 			}
 		}

@@ -18,16 +18,24 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) (goast.Exp
 	}
 
 	// Use hash-based guard function name
-	hash := t.TypeChecker.Hasher.HashNode(*typeGuardNode)
+	hash, err := t.TypeChecker.Hasher.HashNode(*typeGuardNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash type guard node: %w", err)
+	}
 	guardFuncName := hash.ToGuardIdent()
 
 	if len(typeGuardNode.Parameters()) > 0 {
 		switch typeGuardNode.Parameters()[0].(type) {
 		case ast.SimpleParamNode:
+			expr, err := t.transformExpression(ensure.Variable)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform expression: %w", err)
+			}
+
 			return &goast.CallExpr{
 				Fun: goast.NewIdent(string(guardFuncName)),
 				Args: []goast.Expr{
-					t.transformExpression(ensure.Variable),
+					expr,
 				},
 			}, nil
 		case ast.DestructuredParamNode:
@@ -37,10 +45,15 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) (goast.Exp
 		return nil, fmt.Errorf("type guard has no parameters")
 	}
 
+	expr, err := t.transformExpression(ensure.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform expression: %w", err)
+	}
+
 	return &goast.CallExpr{
 		Fun: goast.NewIdent(string(guardFuncName)),
 		Args: []goast.Expr{
-			t.transformExpression(ensure.Variable),
+			expr,
 		},
 	}, nil
 }
