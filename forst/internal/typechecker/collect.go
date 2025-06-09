@@ -63,7 +63,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		tc.Defs[ast.TypeIdent(n.Ident)] = n
 
 		// Register type guard symbol in global scope
-		tc.storeSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+		tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		// Register parameters in the current scope
 		for _, param := range n.Parameters() {

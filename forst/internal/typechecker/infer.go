@@ -211,14 +211,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 
-		// Store type guard in global scope with void return type
-		tc.log.WithFields(logrus.Fields{
-			"ident":    guardNode.Ident,
-			"params":   guardNode.Parameters(),
-			"function": "inferNodeType",
-		}).Trace("Storing TypeGuardNode symbol in global scope")
-		tc.storeSymbol(ast.Identifier(guardNode.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
-
 		tc.popScope()
 		return nil, nil
 

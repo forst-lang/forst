@@ -17,6 +17,11 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]a
 
 // LookupAssertionType looks up the type of an assertion node
 func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
+	// If the assertion is just a base type (e.g., a type guard), return that type directly
+	if assertion != nil && assertion.BaseType != nil && len(assertion.Constraints) == 0 {
+		return &ast.TypeNode{Ident: *assertion.BaseType}, nil
+	}
+
 	hash, err := tc.Hasher.HashNode(assertion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash assertion during LookupAssertionType: %s", err)

@@ -55,7 +55,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 	}
 
 	// Try all base types in the alias chain
-	aliasChain := t.getTypeAliasChain(varType)
+	aliasChain := t.TypeChecker.GetTypeAliasChain(varType)
 	t.log.WithFields(map[string]interface{}{
 		"aliasChain": aliasChain,
 		"function":   "transformEnsureConstraint",
