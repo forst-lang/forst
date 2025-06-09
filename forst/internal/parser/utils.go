@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"unicode"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func unexpectedTokenMessage(token ast.Token, expected string) string {
@@ -20,12 +18,12 @@ func parseErrorMessage(token ast.Token, message string) string {
 	)
 }
 
-func logParsedNode(node ast.Node) {
-	logParsedNodeWithMessage(node, "Parsed node")
+func (p *Parser) logParsedNode(node ast.Node) {
+	p.logParsedNodeWithMessage(node, "Parsed node")
 }
 
-func logParsedNodeWithMessage(node ast.Node, message string) {
-	log.WithField("node", node).Trace(message)
+func (p *Parser) logParsedNodeWithMessage(node ast.Node, message string) {
+	p.log.WithField("node", node).Trace(message)
 }
 
 func isCapitalCase(value string) bool {

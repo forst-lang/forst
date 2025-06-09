@@ -84,5 +84,5 @@ func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
 }
 
 func (p *Parser) FailWithParseError(token ast.Token, message string) {
-	p.log.Fatalf("%s", parseErrorMessage(token, message))
+	panic(parseErrorMessage(token, message))
 }

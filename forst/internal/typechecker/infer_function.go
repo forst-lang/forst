@@ -29,7 +29,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	}
 
 	// If we found return statements, verify they all have the same type
-	if len(returnStmtTypes) > 0 {
+	if len(returnStmtTypes) > 1 {
 		firstType := returnStmtTypes[0]
 		for _, retTypes := range returnStmtTypes[1:] {
 			for _, retType := range retTypes {
@@ -77,13 +77,18 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					{Ident: ast.TypeError},
 				}
 			} else {
-				if len(inferredType) != 1 && len(inferredType) != 2 {
+				if len(inferredType) < 1 || len(inferredType) > 2 {
 					return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))
 				}
 
-				// TODO: If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
+				// If the inferred type is a single (non-error) return type, just append the error type to the inferred return type
+				if len(inferredType) == 1 && inferredType[0].Ident != ast.TypeError {
+					inferredType = append(inferredType, ast.TypeNode{Ident: ast.TypeError})
+				}
+
+				// If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
 				if inferredType[len(inferredType)-1].Ident != ast.TypeError {
-					return nil, fmt.Errorf("ensure statements require the function to an error as the second return type, got %s", inferredType[1].Ident)
+					return nil, fmt.Errorf("ensure statements require the function to an error as the last return type, got %s", formatTypeList(inferredType))
 				}
 			}
 		}

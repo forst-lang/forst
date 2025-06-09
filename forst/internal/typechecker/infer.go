@@ -6,9 +6,10 @@ import (
 )
 
 // inferNodeTypes handles type inference for a list of nodes
-func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node) ([][]ast.TypeNode, error) {
+func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node, scopeNode ast.Node) ([][]ast.TypeNode, error) {
 	inferredTypes := make([][]ast.TypeNode, len(nodes))
 	for i, node := range nodes {
+		tc.RestoreScope(scopeNode)
 		inferredType, err := tc.inferNodeType(node)
 		if err != nil {
 			return nil, err
@@ -50,7 +51,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			params[i] = param
 		}
 
-		paramTypes, err := tc.inferNodeTypes(params)
+		paramTypes, err := tc.inferNodeTypes(params, n)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +66,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				SymbolVariable)
 		}
 
-		_, err = tc.inferNodeTypes(n.Body)
+		_, err = tc.inferNodeTypes(n.Body, n)
 		if err != nil {
 			return nil, err
 		}
@@ -108,11 +109,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		if n.Block != nil {
-			if err := tc.RestoreScope(n.Block); err != nil {
-				return nil, err
-			}
-
-			_, err = tc.inferNodeTypes(n.Block.Body)
+			_, err = tc.inferNodeTypes(n.Block.Body, n.Block)
 			if err != nil {
 				return nil, err
 			}

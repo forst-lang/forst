@@ -6,6 +6,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
+	goasttoken "go/token"
 
 	"github.com/sirupsen/logrus"
 )
@@ -55,6 +56,20 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddFunction(decl)
+		case ast.TypeDefShapeExpr:
+			decl, err := t.transformShapeType(&def.Shape)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform type def shape: %w", err)
+			}
+			t.Output.AddType(&goast.GenDecl{
+				Tok: goasttoken.TYPE,
+				Specs: []goast.Spec{
+					&goast.TypeSpec{
+						Name: goast.NewIdent(string(*def.Shape.BaseType)), // TODO: fix this
+						Type: *decl,
+					},
+				},
+			})
 		}
 	}
 

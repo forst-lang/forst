@@ -97,6 +97,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 				if arg, ok := argMap["input"]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
+							// Ensure the shape type is inferred and registered
+							if _, err := tc.inferShapeType(*argNode.Shape); err != nil {
+								return nil, err
+							}
 							for k, v := range argNode.Shape.Fields {
 								tempFields[k] = v
 								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
@@ -112,6 +116,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 				if arg, ok := argMap["input"]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
+							// Ensure the shape type is inferred and registered
+							if _, err := tc.inferShapeType(*argNode.Shape); err != nil {
+								return nil, err
+							}
 							for k, v := range argNode.Shape.Fields {
 								mergedFields[k] = v
 								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
@@ -138,6 +146,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 				if arg, ok := argMap[param.GetIdent()]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
+							// Ensure the shape type is inferred and registered
+							if _, err := tc.inferShapeType(*argNode.Shape); err != nil {
+								return nil, err
+							}
 							// If it's a shape, merge its fields
 							for k, v := range argNode.Shape.Fields {
 								mergedFields[k] = v
@@ -159,8 +171,9 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		}
 	}
 
-	// Create a unique type identifier for this shape
-	typeIdent := ast.TypeIdent(fmt.Sprintf("T_%s", generateUniqueID()))
+	// Use the structural hash for this assertion node
+	hash := tc.Hasher.HashNode(assertion)
+	typeIdent := hash.ToTypeIdent()
 	log.Debugf("[inferAssertionType] Stored shape type with fields assertion=%+v fields=%+v typeIdent=%s",
 		assertion, mergedFields, typeIdent)
 

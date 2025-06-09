@@ -50,6 +50,7 @@ type NodeKind string
 // NodeKindDefault is the kind for default statement nodes
 // NodeKindFallthrough is the kind for fallthrough statement nodes
 // NodeKindReference is the kind for reference nodes
+// NodeKindDereference is the kind for dereference nodes
 // NodeKindShapeGuard is the kind for shape guard nodes
 const (
 	NodeKindFunction          NodeKind = "Function"
@@ -92,6 +93,7 @@ const (
 	NodeKindDefault           NodeKind = "Default"
 	NodeKindFallthrough       NodeKind = "Fallthrough"
 	NodeKindReference         NodeKind = "Reference"
+	NodeKindDereference       NodeKind = "Dereference"
 	NodeKindMapLiteral        NodeKind = "MapLiteral"
 	NodeKindShapeGuard        NodeKind = "ShapeGuard"
 )

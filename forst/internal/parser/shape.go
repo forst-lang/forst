@@ -1,10 +1,12 @@
 package parser
 
 import (
+	"fmt"
 	"forst/internal/ast"
 )
 
-func (p *Parser) parseShape() ast.ShapeNode {
+// parseShape parses a shape literal value
+func (p *Parser) parseShape(baseType *ast.TypeIdent) ast.ShapeNode {
 	p.expect(ast.TokenLBrace)
 
 	fields := make(map[string]ast.ShapeFieldNode)
@@ -21,10 +23,9 @@ func (p *Parser) parseShape() ast.ShapeNode {
 			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenStar {
 				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 				typeIdent := typ.Ident
+				p.logParsedNodeWithMessage(typ, fmt.Sprintf("Parsed type for shape field %s and type ident %s (type: %+v)", name, typeIdent, typ))
 				fields[name] = ast.ShapeFieldNode{
-					Assertion: &ast.AssertionNode{
-						BaseType: &typeIdent,
-					},
+					Type: &typ,
 				}
 			} else {
 				// Otherwise, parse as a value
@@ -52,18 +53,15 @@ func (p *Parser) parseShape() ast.ShapeNode {
 		} else if p.current().Type == ast.TokenStar {
 			// Handle pointer types (legacy, for robustness)
 			fieldType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-			typeIdent := fieldType.Ident
 			fields[name] = ast.ShapeFieldNode{
-				Assertion: &ast.AssertionNode{
-					BaseType: &typeIdent,
-				},
+				Type: &fieldType,
 			}
 		} else {
 			// If no colon, use the field name as both key and value (type assertion)
 			typeIdent := ast.TypeIdent(name)
 			fields[name] = ast.ShapeFieldNode{
-				Assertion: &ast.AssertionNode{
-					BaseType: &typeIdent,
+				Type: &ast.TypeNode{
+					Ident: typeIdent,
 				},
 			}
 		}
@@ -81,16 +79,8 @@ func (p *Parser) parseShape() ast.ShapeNode {
 		p.FailWithParseError(p.current(), "Shape type must have at least one field. Empty shapes are not allowed.")
 	}
 
-	return ast.ShapeNode{Fields: fields}
-}
-
-// parseTypeIdent parses a type identifier
-func (p *Parser) parseTypeIdent() *ast.TypeIdent {
-	if p.current().Type != ast.TokenIdentifier {
-		p.FailWithParseError(p.current(), "expected identifier")
+	return ast.ShapeNode{
+		Fields:   fields,
+		BaseType: baseType,
 	}
-	name := p.current().Value
-	p.advance()
-	typeIdent := ast.TypeIdent(name)
-	return &typeIdent
 }

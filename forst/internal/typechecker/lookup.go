@@ -298,113 +298,49 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 
 // lookupFieldType looks up a field's type in a given type
 func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Ident, parentAssertion *ast.AssertionNode) (ast.TypeNode, error) {
-	tc.log.Debugf("[lookupFieldType] Starting lookup for field {%s} in type %s", fieldName, baseType.Ident)
+	tc.log.Debugf("[lookupFieldType] Looking up field %s in type %s", fieldName, baseType.Ident)
 
-	// Get the type definition
-	def, exists := tc.Defs[baseType.Ident]
-	if !exists {
-		tc.log.Debugf("[lookupFieldType] No type definition found for %s", baseType.Ident)
-		// Don't throw error for Shape type
-		if baseType.Ident == "Shape" {
-			// Try to look up the field in the merged fields from the assertion chain
-			assertion := baseType.Assertion
-			if assertion == nil {
-				assertion = parentAssertion
-			}
-			if assertion != nil {
-				mergedFields := tc.resolveMergedShapeFields(assertion)
-				if field, exists := mergedFields[string(fieldName.ID)]; exists {
-					tc.log.Debugf("[lookupFieldType] Found field %s in merged fields for Shape: %+v", fieldName.ID, field)
+	// First check if we have a type definition for this type
+	if def, exists := tc.Defs[baseType.Ident]; exists {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				if field, exists := shapeExpr.Shape.Fields[string(fieldName.ID)]; exists {
+					tc.log.Debugf("[lookupFieldType] Found field %s in shape: %+v", fieldName.ID, field)
+
+					if field.Type != nil {
+						return *field.Type, nil
+					}
+
 					if field.Assertion != nil && field.Assertion.BaseType != nil {
 						return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
 					}
+
 					if field.Shape != nil {
-						return tc.lookupNestedField(field.Shape, fieldName)
+						tc.log.Debugf("[lookupFieldType] Field has nested shape: %+v", field.Shape)
+						// For nested shapes, we need to look up the field in the nested shape
+						if nestedField, exists := field.Shape.Fields[string(fieldName.ID)]; exists {
+							if nestedField.Type != nil {
+								return *nestedField.Type, nil
+							}
+							if nestedField.Assertion != nil && nestedField.Assertion.BaseType != nil {
+								return ast.TypeNode{Ident: *nestedField.Assertion.BaseType}, nil
+							}
+							if nestedField.Shape != nil {
+								return tc.lookupNestedField(nestedField.Shape, fieldName)
+							}
+						}
+						// If field not found in nested shape, return Shape type
+						return ast.TypeNode{Ident: ast.TypeShape}, nil
 					}
+
 					return ast.TypeNode{Ident: ast.TypeShape}, nil
 				}
-			}
-			return ast.TypeNode{}, nil
-		}
-		return ast.TypeNode{}, fmt.Errorf("base type %s for field %s not found", baseType.Ident, fieldName)
-	}
-
-	tc.log.Debugf("[lookupFieldType] Base type details: %+v", baseType)
-
-	// If the base type is an assertion type, recursively merge all fields from the assertion chain
-	if baseType.Assertion != nil {
-		tc.log.Debugf("[lookupFieldType] Base type has assertion: %+v", baseType.Assertion)
-		mergedFields := tc.resolveMergedShapeFields(baseType.Assertion)
-		tc.log.Debugf("[lookupFieldType] Merged fields from assertion chain: %+v", mergedFields)
-		if field, exists := mergedFields[string(fieldName.ID)]; exists {
-			tc.log.Debugf("[lookupFieldType] Found field %s in merged fields: %+v", fieldName.ID, field)
-			if field.Assertion != nil && field.Assertion.BaseType != nil {
-				// Handle pointer types
-				if *field.Assertion.BaseType == ast.TypePointer {
-					if len(field.Assertion.Constraints) > 0 {
-						for _, constraint := range field.Assertion.Constraints {
-							if constraint.Name == "Value" && len(constraint.Args) > 0 {
-								if arg := constraint.Args[0]; arg.Type != nil {
-									return ast.TypeNode{Ident: arg.Type.Ident}, nil
-								}
-							}
-						}
-					}
-				}
-				return ast.TypeNode{Ident: *field.Assertion.BaseType, Assertion: field.Assertion}, nil
-			}
-			if field.Shape != nil {
-				tc.log.Debugf("[lookupFieldType] Field has nested shape: %+v", field.Shape)
-				// Always propagate the assertion chain from the parent if the current type is Shape
-				var assertion *ast.AssertionNode = baseType.Assertion
-				if baseType.Ident == ast.TypeShape && baseType.Assertion == nil {
-					assertion = parentAssertion
-				}
-				return tc.lookupFieldType(ast.TypeNode{Ident: ast.TypeShape, Assertion: assertion}, fieldName, assertion)
-			}
-			return ast.TypeNode{Ident: ast.TypeShape, Assertion: baseType.Assertion}, nil
-		}
-		tc.log.Debugf("[lookupFieldType] Field %s not found in merged fields", fieldName.ID)
-	}
-
-	// If we have a shape type definition, look up the field in the shape
-	if shapeDef, ok := def.(ast.TypeDefNode); ok {
-		if shapeExpr, ok := shapeDef.Expr.(ast.TypeDefShapeExpr); ok {
-			tc.log.Debugf("[lookupFieldType] Processing direct shape definition: %+v", shapeExpr)
-			if field, exists := shapeExpr.Shape.Fields[string(fieldName.ID)]; exists {
-				tc.log.Debugf("[lookupFieldType] Found field %s in shape: %+v", fieldName.ID, field)
-				if field.Assertion != nil && field.Assertion.BaseType != nil {
-					// Handle pointer types
-					if *field.Assertion.BaseType == ast.TypePointer {
-						// For pointer types, we need to look up the base type
-						if len(field.Assertion.Constraints) > 0 {
-							for _, constraint := range field.Assertion.Constraints {
-								if constraint.Name == "Value" && len(constraint.Args) > 0 {
-									if arg := constraint.Args[0]; arg.Type != nil {
-										return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
-									}
-								}
-							}
-						}
-					}
-					return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
-				}
-				if field.Shape != nil {
-					tc.log.Debugf("[lookupFieldType] Field has nested shape: %+v", field.Shape)
-					// Always propagate the assertion chain from the parent if the current type is Shape
-					var assertion *ast.AssertionNode = baseType.Assertion
-					if baseType.Ident == ast.TypeShape && baseType.Assertion == nil {
-						assertion = parentAssertion
-					}
-					return tc.lookupFieldType(ast.TypeNode{Ident: ast.TypeShape, Assertion: assertion}, fieldName, assertion)
-				}
-				return ast.TypeNode{Ident: ast.TypeShape}, nil
 			}
 		}
 	}
 
 	// If we have a type guard, look up the field in the type guard's parameter
-	if guardDef, ok := def.(ast.TypeGuardNode); ok {
+	if guardDef, ok := tc.Defs[baseType.Ident].(ast.TypeGuardNode); ok {
 		tc.log.Debugf("[lookupFieldType] Found type guard: %+v", guardDef)
 		for _, param := range guardDef.Parameters() {
 			if param.GetIdent() == string(fieldName.ID) {
@@ -412,6 +348,46 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 				return param.GetType(), nil
 			}
 		}
+	}
+
+	// Try to look up the field in the merged fields from the assertion chain
+	assertion := baseType.Assertion
+	if assertion == nil {
+		assertion = parentAssertion
+	}
+	if assertion != nil {
+		mergedFields := tc.resolveMergedShapeFields(assertion)
+		if field, exists := mergedFields[string(fieldName.ID)]; exists {
+			tc.log.Debugf("[lookupFieldType] Found field %s in merged fields: %+v", fieldName.ID, field)
+			if field.Type != nil {
+				return *field.Type, nil
+			}
+			if field.Assertion != nil && field.Assertion.BaseType != nil {
+				return ast.TypeNode{Ident: *field.Assertion.BaseType}, nil
+			}
+			if field.Shape != nil {
+				// For nested shapes, we need to look up the field in the nested shape
+				if nestedField, exists := field.Shape.Fields[string(fieldName.ID)]; exists {
+					if nestedField.Type != nil {
+						return *nestedField.Type, nil
+					}
+					if nestedField.Assertion != nil && nestedField.Assertion.BaseType != nil {
+						return ast.TypeNode{Ident: *nestedField.Assertion.BaseType}, nil
+					}
+					if nestedField.Shape != nil {
+						return tc.lookupNestedField(nestedField.Shape, fieldName)
+					}
+				}
+				// If field not found in nested shape, return Shape type
+				return ast.TypeNode{Ident: ast.TypeShape}, nil
+			}
+			return ast.TypeNode{Ident: ast.TypeShape}, nil
+		}
+	}
+
+	// Don't throw error for Shape type
+	if baseType.Ident == ast.TypeShape {
+		return ast.TypeNode{Ident: ast.TypeShape}, nil
 	}
 
 	return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName, baseType.Ident)

@@ -1,3 +1,5 @@
+package main
+
 type MutationArg = Shape
 
 is (m MutationArg) Input(input Shape) {

@@ -2,8 +2,6 @@ package parser
 
 import (
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func isPossibleConstraintIdentifier(token ast.Token) bool {
@@ -13,23 +11,27 @@ func isPossibleConstraintIdentifier(token ast.Token) bool {
 func (p *Parser) expectConstraintIdentifier() ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleConstraintIdentifier(token) {
-		log.Fatalf("%s", parseErrorMessage(token, "Constraint must start with capital letter"))
+		p.log.Fatalf("%s", parseErrorMessage(token, "Constraint must start with capital letter"))
 	}
 	return token
 }
 
 func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
+	token := p.current()
 	// Check if this is a shape definition
-	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShape()
-		logParsedNodeWithMessage(shape, "Parsed shape")
+	if token.Type == ast.TokenLBrace {
+		shape := p.parseShape(nil)
+		p.logParsedNodeWithMessage(shape, "Parsed shape")
 		return ast.ConstraintArgumentNode{
 			Shape: &shape,
 		}
 	}
 
 	// If this is a type (identifier, shape, etc), parse as TypeNode
-	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenLBracket || p.current().Type == ast.TokenMap || p.current().Type == ast.TokenStar {
+	if isPossibleTypeIdentifier(token, TypeIdentOpts{AllowLowercaseTypes: true}) ||
+		token.Type == ast.TokenLBracket ||
+		token.Type == ast.TokenMap ||
+		token.Type == ast.TokenStar {
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		return ast.ConstraintArgumentNode{
 			Type: &typ,

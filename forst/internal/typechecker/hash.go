@@ -408,6 +408,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) NodeHash {
 		}
 	case *ast.ArrayLiteralNode:
 		return h.HashNode(*n)
+	case ast.DereferenceNode:
+		writeHash(hasher, NodeKind["Dereference"])
+		writeHash(hasher, h.HashNode(n.Value))
+	case ast.TypeDefShapeExpr:
+		writeHash(hasher, NodeKind["TypeDefShapeExpr"])
+		writeHash(hasher, h.HashNode(n.Shape))
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", n))
 	}

@@ -41,26 +41,26 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			continue
 		case ast.TokenPackage:
 			packageDef := p.parsePackage()
-			logParsedNodeWithMessage(packageDef, "Parsed package")
+			p.logParsedNodeWithMessage(packageDef, "Parsed package")
 			nodes = append(nodes, packageDef)
 		case ast.TokenImport:
 			nodes = append(nodes, p.parseImports()...)
 		case ast.TokenType:
 			typeDef := p.parseTypeDef()
-			logParsedNodeWithMessage(typeDef, "Parsed type def")
+			p.logParsedNodeWithMessage(typeDef, "Parsed type def")
 			nodes = append(nodes, *typeDef)
 		case ast.TokenFunc:
 			scope := NewScope("", false, false, p.log)
 			p.context.ScopeStack.PushScope(scope)
 			function := p.parseFunctionDefinition()
-			logParsedNodeWithMessage(function, "Parsed function")
+			p.logParsedNodeWithMessage(function, "Parsed function")
 			scope.FunctionName = string(function.Ident.ID)
 			nodes = append(nodes, function)
 		case ast.TokenIs:
 			scope := NewScope("", false, true, p.log)
 			p.context.ScopeStack.PushScope(scope)
 			typeGuard := p.parseTypeGuard()
-			logParsedNodeWithMessage(typeGuard, "Parsed type guard")
+			p.logParsedNodeWithMessage(typeGuard, "Parsed type guard")
 			scope.FunctionName = string(typeGuard.Ident)
 			nodes = append(nodes, typeGuard)
 		default:

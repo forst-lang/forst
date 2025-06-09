@@ -59,16 +59,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		}
 	} else if p.current().Type == ast.TokenIdentifier {
 		// Parse the identifier, allowing for dot chaining
-		ident := p.expect(ast.TokenIdentifier)
-		// Create a new identifier node
-		curIdent := ast.Identifier(ident.Value)
-
-		// Keep chaining identifiers with dots until we hit something else
-		for p.current().Type == ast.TokenDot {
-			p.advance() // Consume dot
-			nextIdent := p.expect(ast.TokenIdentifier)
-			curIdent = ast.Identifier(string(curIdent) + "." + nextIdent.Value)
-		}
+		ident := p.parseIdentifier()
 
 		// If we hit a left paren, this is a function call
 		if p.current().Type == ast.TokenLParen {
@@ -84,13 +75,16 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 			p.expect(ast.TokenRParen)
 
 			expr = ast.FunctionCallNode{
-				Function:  ast.Ident{ID: curIdent},
+				Function:  ast.Ident{ID: ident},
 				Arguments: args,
 			}
+		} else if p.current().Type == ast.TokenLBrace {
+			typeIdent := ast.TypeIdent(string(ident))
+			return p.parseShape(&typeIdent)
 		} else {
 			// Otherwise treat as a variable
 			expr = ast.VariableNode{
-				Ident: ast.Ident{ID: curIdent},
+				Ident: ast.Ident{ID: ident},
 			}
 		}
 	} else {
@@ -106,7 +100,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		if operator == ast.TokenIs {
 			// Check if the right-hand side is a shape literal or Shape(...) call
 			if p.current().Type == ast.TokenLBrace {
-				right := p.parseShape() // Parse the shape literal directly
+				right := p.parseShape(nil) // Parse the shape literal directly
 				expr = ast.BinaryExpressionNode{
 					Left:     expr,
 					Operator: operator,
@@ -116,7 +110,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 				p.advance() // Consume 'Shape'
 				p.expect(ast.TokenLParen)
 				if p.current().Type == ast.TokenLBrace {
-					right := p.parseShape() // Parse the shape literal directly
+					right := p.parseShape(nil) // Parse the shape literal directly
 					p.expect(ast.TokenRParen)
 					expr = ast.BinaryExpressionNode{
 						Left:     expr,

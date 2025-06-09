@@ -9,6 +9,13 @@ import (
 )
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
+	if field.Type != nil {
+		log.Trace(fmt.Sprintf("transformShapeFieldType, type: %s", field.Type.Ident))
+		ident := transformTypeIdent(field.Type.Ident)
+		var expr goast.Expr = ident
+		return &expr, nil
+	}
+
 	if field.Assertion != nil {
 		log.Trace(fmt.Sprintf("transformShapeFieldType, assertion: %s", *field.Assertion))
 		expr, err := t.transformAssertionType(field.Assertion)
@@ -19,6 +26,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		}
 		return expr, nil
 	}
+
 	if field.Shape != nil {
 		log.Trace(fmt.Sprintf("transformShapeFieldType, shape: %s", *field.Shape))
 		lookupType, err := t.TypeChecker.LookupInferredType(field.Shape, true)
@@ -33,7 +41,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		var expr goast.Expr = result
 		return &expr, nil
 	}
-	return nil, fmt.Errorf("shape field has neither assertion nor shape: %T", field)
+	return nil, fmt.Errorf("shape field has neither explicit type nor assertion nor shape: %T", field)
 }
 
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {

@@ -2,8 +2,6 @@ package parser
 
 import (
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseInlineTypeGuardBody(subjectParam ast.ParamNode) []ast.Node {
@@ -34,9 +32,9 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	if p.current().Type == ast.TokenRParen {
 		p.FailWithParseError(p.current(), "type guard requires a subject parameter")
 	}
-	log.Tracef("[parseTypeGuard] Parsing subject parameter, current token: %+v", p.current())
+	p.log.Tracef("[parseTypeGuard] Parsing subject parameter, current token: %+v", p.current())
 	subjectParam := p.parseParameter()
-	log.Tracef("[parseTypeGuard] Parsed subject parameter: %+v, next token: %+v", subjectParam, p.current())
+	p.log.Tracef("[parseTypeGuard] Parsed subject parameter: %+v, next token: %+v", subjectParam, p.current())
 	p.expect(ast.TokenRParen)
 
 	// Parse guard name and additional parameters if present
@@ -45,14 +43,14 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	if p.current().Type == ast.TokenIdentifier {
 		guardName = ast.Identifier(p.current().Value)
 		p.advance()
-		log.Tracef("[parseTypeGuard] Parsed guard name: %s, current token: %+v", guardName, p.current())
+		p.log.Tracef("[parseTypeGuard] Parsed guard name: %s, current token: %+v", guardName, p.current())
 		if p.current().Type == ast.TokenLParen {
 			p.advance()
 			// Parse additional parameters
 			for p.current().Type != ast.TokenRParen {
-				log.Tracef("[parseTypeGuard] Parsing additional parameter, current token: %+v", p.current())
+				p.log.Tracef("[parseTypeGuard] Parsing additional parameter, current token: %+v", p.current())
 				param := p.parseParameter()
-				log.Tracef("[parseTypeGuard] Parsed additional parameter: %+v, next token: %+v", param, p.current())
+				p.log.Tracef("[parseTypeGuard] Parsed additional parameter: %+v, next token: %+v", param, p.current())
 				additionalParams = append(additionalParams, param)
 				if p.current().Type == ast.TokenComma {
 					p.advance()

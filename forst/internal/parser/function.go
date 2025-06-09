@@ -26,7 +26,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 	}
 	// Allow direct {...} for shape types
 	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShape()
+		shape := p.parseShape(nil)
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.TypeNode{
 			Ident: ast.TypeShape,
@@ -100,7 +100,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		}
 	}
 	if tok.Type == ast.TokenLBrace {
-		shape := p.parseShape()
+		shape := p.parseShape(nil)
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.SimpleParamNode{
 			Ident: ast.Ident{ID: ast.Identifier(name)},
@@ -120,7 +120,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	}
 	// Parse the type, which may include dots (e.g. AppMutation.Input)
 	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
-	logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
+	p.logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
 	return ast.SimpleParamNode{
 		Ident: ast.Ident{ID: ast.Identifier(name)},
 		Type:  typ,
@@ -155,9 +155,9 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 		param := p.parseParameter()
 		switch param.(type) {
 		case ast.DestructuredParamNode:
-			logParsedNodeWithMessage(param, "Parsed destructured function param")
+			p.logParsedNodeWithMessage(param, "Parsed destructured function param")
 		default:
-			logParsedNodeWithMessage(param, "Parsed function param")
+			p.logParsedNodeWithMessage(param, "Parsed function param")
 		}
 		params = append(params, param)
 

@@ -53,6 +53,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if err != nil {
 			return nil, err
 		}
+		tc.log.Tracef("Variable type: %+v, node: %+v, type params: %+v, (original: %+v of type %T)", typ, typ.Node, typ.TypeParams, e, e.ExplicitType)
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
@@ -123,9 +124,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
 
 	case ast.ShapeNode:
-		typ := ast.TypeNode{Ident: ast.TypeShape}
-		tc.storeInferredType(e, []ast.TypeNode{typ})
-		return []ast.TypeNode{typ}, nil
+		inferredType, err := tc.inferShapeType(e)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
 
 	case ast.AssertionNode:
 		inferredType, err := tc.inferAssertionType(&e, false)
@@ -134,6 +138,34 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 		tc.storeInferredType(e, inferredType)
 		return inferredType, nil
+
+	case ast.ReferenceNode:
+		valueType, err := tc.inferExpressionType(e.Value)
+		if err != nil {
+			return nil, err
+		}
+		referenceType := ast.TypeNode{
+			Ident:      ast.TypePointer,
+			TypeParams: valueType,
+		}
+		tc.storeInferredType(e, []ast.TypeNode{referenceType})
+		return []ast.TypeNode{referenceType}, nil
+
+	case ast.DereferenceNode:
+		valueType, err := tc.inferExpressionType(e.Value)
+		if err != nil {
+			return nil, err
+		}
+		if len(valueType) != 1 {
+			return nil, fmt.Errorf("dereference is only valid on single types, got %s", formatTypeList(valueType))
+		}
+		tc.log.Tracef("Dereference type identifier: %+v", valueType[0].Node)
+		if valueType[0].Ident != ast.TypePointer {
+			return nil, fmt.Errorf("dereference is only valid on pointer types, got %s", valueType[0].Ident)
+		}
+		tc.log.Tracef("Dereference type: %+v", valueType[0].TypeParams)
+		tc.storeInferredType(e, valueType[0].TypeParams)
+		return valueType[0].TypeParams, nil
 
 	default:
 		log.Tracef("Unhandled expression type: %T", expr)

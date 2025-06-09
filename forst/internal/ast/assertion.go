@@ -74,6 +74,9 @@ func (a AssertionNode) String() string {
 		return constraintsString
 	}
 	if constraintsString == "" {
+		if *a.BaseType == TypePointer {
+			return "*" + fmt.Sprintf("%+v", *a.BaseType)
+		}
 		return string(*a.BaseType)
 	}
 	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)

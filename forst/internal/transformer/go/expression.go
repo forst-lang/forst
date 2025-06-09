@@ -129,6 +129,22 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) goast.Expr {
 			Fun:  goast.NewIdent(string(e.Function.ID)),
 			Args: args,
 		}
+	case ast.ReferenceNode:
+		return &goast.UnaryExpr{
+			Op: token.AND,
+			X:  t.transformExpression(e.Value),
+		}
+	case ast.DereferenceNode:
+		return &goast.UnaryExpr{
+			Op: token.MUL,
+			X:  t.transformExpression(e.Value),
+		}
+	case ast.ShapeNode:
+		expr, err := t.transformShapeType(&e)
+		if err != nil {
+			panic("Failed to transform ShapeNode: " + err.Error())
+		}
+		return *expr
 	}
 
 	panic("Unsupported expression type: " + reflect.TypeOf(expr).String())

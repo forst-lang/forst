@@ -40,5 +40,8 @@ run-example-basic-function:
 run-example-ensure:
 	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/ensure.ft
 
+run-example-pointers:
+	cd forst/cmd/forst && go run . run -trace -report-phases -- ../../../examples/in/pointers.ft
+
 test-examples:
 	cd forst && go test ./cmd/forst/...
