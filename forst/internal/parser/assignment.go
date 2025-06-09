@@ -22,10 +22,22 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 
 	expr := p.parseExpression()
 
+	varIdent := ast.Ident{ID: ast.Identifier(ident.Value)}
+
+	var lvalue ast.VariableNode
+	if explicitType != nil {
+		lvalue = ast.VariableNode{
+			Ident:        varIdent,
+			ExplicitType: *explicitType,
+		}
+	} else {
+		lvalue = ast.VariableNode{
+			Ident: varIdent,
+		}
+	}
+
 	return ast.AssignmentNode{
-		LValues: []ast.VariableNode{
-			{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}},
-		},
+		LValues:       []ast.VariableNode{lvalue},
 		RValues:       []ast.ExpressionNode{expr},
 		ExplicitTypes: []*ast.TypeNode{explicitType},
 		IsShort:       assignToken.Type == ast.TokenColonEquals,
