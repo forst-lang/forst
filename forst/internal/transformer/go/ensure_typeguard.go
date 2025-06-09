@@ -1,6 +1,7 @@
 package transformergo
 
 import (
+	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
 
@@ -8,10 +9,13 @@ import (
 )
 
 // transformTypeGuardEnsure transforms a type guard ensure
-func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr {
+func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
 	// Look up the real type guard node by name
 	guardName := ensure.Assertion.Constraints[0].Name
-	typeGuardNode := t.lookupTypeGuardNode(guardName)
+	typeGuardNode, err := t.lookupTypeGuardNode(guardName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup type guard node: %w", err)
+	}
 
 	// Use hash-based guard function name
 	hash := t.TypeChecker.Hasher.HashNode(*typeGuardNode)
@@ -25,12 +29,12 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 				Args: []goast.Expr{
 					t.transformExpression(ensure.Variable),
 				},
-			}
+			}, nil
 		case ast.DestructuredParamNode:
-			panic("DestructuredParamNode not supported in type guard assertion")
+			return nil, fmt.Errorf("destructured param node not supported in type guard assertion")
 		}
 	} else {
-		panic("Type guard has no parameters")
+		return nil, fmt.Errorf("type guard has no parameters")
 	}
 
 	return &goast.CallExpr{
@@ -38,11 +42,11 @@ func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) goast.Expr
 		Args: []goast.Expr{
 			t.transformExpression(ensure.Variable),
 		},
-	}
+	}, nil
 }
 
 // Helper to look up a TypeGuardNode by name
-func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
+func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, error) {
 	for _, def := range t.TypeChecker.Defs {
 		if tg, ok := def.(ast.TypeGuardNode); ok {
 			t.log.WithFields(logrus.Fields{
@@ -54,15 +58,16 @@ func (t *Transformer) lookupTypeGuardNode(name string) *ast.TypeGuardNode {
 					"requested": name,
 					"found":     true,
 				}).Trace("lookupTypeGuardNode: found match")
-				return &tg
+				return &tg, nil
 			}
 		}
 	}
+
 	t.log.WithFields(logrus.Fields{
 		"requested": name,
 		"found":     false,
 	}).Trace("lookupTypeGuardNode: not found")
-	panic("Type guard not found: " + name)
+	return nil, fmt.Errorf("type guard not found: %s", name)
 }
 
 func (t *AssertionTransformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast.TypeGuardNode) bool {

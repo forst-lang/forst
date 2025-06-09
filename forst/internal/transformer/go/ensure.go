@@ -85,7 +85,10 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Exp
 					subjectType := tg.Subject.GetType()
 					if t.TypeChecker.IsTypeCompatible(declaredType, subjectType) {
 						t.log.Tracef("[transformEnsureCondition] [Alias] Type guard '%s' is compatible with declared variable type '%s' (subject type: '%s')", tg.Ident, declaredType.Ident, subjectType.Ident)
-						typeGuardExpr := t.transformTypeGuardEnsure(ensure)
+						typeGuardExpr, err := t.transformTypeGuardEnsure(ensure)
+						if err != nil {
+							return nil, fmt.Errorf("failed to transform type guard ensure: %w", err)
+						}
 						typeGuardExprs = append(typeGuardExprs, typeGuardExpr)
 						break // Found a matching type guard for this constraint
 					}
@@ -108,7 +111,10 @@ func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Exp
 						subjectType := tg.Subject.GetType()
 						if t.TypeChecker.IsTypeCompatible(baseType, subjectType) {
 							t.log.Tracef("[transformEnsureCondition] [Base] Type guard '%s' is compatible with base variable type '%s' (subject type: '%s')", tg.Ident, baseType.Ident, subjectType.Ident)
-							typeGuardExpr := t.transformTypeGuardEnsure(ensure)
+							typeGuardExpr, err := t.transformTypeGuardEnsure(ensure)
+							if err != nil {
+								return nil, fmt.Errorf("failed to transform type guard ensure: %w", err)
+							}
 							typeGuardExprs = append(typeGuardExprs, typeGuardExpr)
 							break // Found a matching type guard for this constraint
 						}
@@ -154,7 +160,10 @@ func (t *AssertionTransformer) transformEnsureCondition(ensure *ast.EnsureNode) 
 		}).Trace("[transformEnsureCondition] Processing constraint")
 
 		// Check if this constraint name matches a registered type guard
-		typeGuardDef := t.transformer.lookupTypeGuardNode(constraint.Name)
+		typeGuardDef, err := t.transformer.lookupTypeGuardNode(constraint.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup type guard node: %w", err)
+		}
 		if typeGuardDef != nil {
 			t.transformer.log.WithFields(logrus.Fields{
 				"typeGuard":     constraint.Name,
@@ -170,10 +179,13 @@ func (t *AssertionTransformer) transformEnsureCondition(ensure *ast.EnsureNode) 
 				}).Trace("[transformEnsureCondition] Type guard is compatible")
 
 				// Transform the type guard into a function call
-				transformed := t.transformer.transformTypeGuardEnsure(ast.EnsureNode{
+				transformed, err := t.transformer.transformTypeGuardEnsure(ast.EnsureNode{
 					Variable:  ensure.Variable,
 					Assertion: ast.AssertionNode{Constraints: []ast.ConstraintNode{constraint}},
 				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform type guard ensure: %w", err)
+				}
 				transformedStmts = append(transformedStmts, &goast.ExprStmt{X: transformed})
 				continue
 			}
