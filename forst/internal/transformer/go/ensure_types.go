@@ -59,11 +59,3 @@ func (at *AssertionTransformer) expectValue(arg *ast.ConstraintArgumentNode) (as
 
 	return *arg.Value, nil
 }
-
-// validateConstraintArgs validates the number of arguments for a constraint
-func (at *AssertionTransformer) validateConstraintArgs(constraint ast.ConstraintNode, expectedArgs int) error {
-	if len(constraint.Args) != expectedArgs {
-		return fmt.Errorf("%s constraint requires %d argument(s)", constraint.Name, expectedArgs)
-	}
-	return nil
-}
