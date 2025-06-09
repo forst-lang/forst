@@ -2,6 +2,8 @@ package parser
 
 import (
 	"forst/internal/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseInlineTypeGuardBody(subjectParam ast.ParamNode) []ast.Node {
@@ -32,9 +34,16 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	if p.current().Type == ast.TokenRParen {
 		p.FailWithParseError(p.current(), "type guard requires a subject parameter")
 	}
-	p.log.Tracef("[parseTypeGuard] Parsing subject parameter, current token: %+v", p.current())
+	p.log.WithFields(logrus.Fields{
+		"function": "parseTypeGuard",
+		"token":    p.current(),
+	}).Trace("Parsing subject parameter")
 	subjectParam := p.parseParameter()
-	p.log.Tracef("[parseTypeGuard] Parsed subject parameter: %+v, next token: %+v", subjectParam, p.current())
+	p.log.WithFields(logrus.Fields{
+		"function":     "parseTypeGuard",
+		"subjectParam": subjectParam,
+		"token":        p.current(),
+	}).Trace("Parsed subject parameter")
 	p.expect(ast.TokenRParen)
 
 	// Parse guard name and additional parameters if present
@@ -43,14 +52,25 @@ func (p *Parser) parseTypeGuard() *ast.TypeGuardNode {
 	if p.current().Type == ast.TokenIdentifier {
 		guardName = ast.Identifier(p.current().Value)
 		p.advance()
-		p.log.Tracef("[parseTypeGuard] Parsed guard name: %s, current token: %+v", guardName, p.current())
+		p.log.WithFields(logrus.Fields{
+			"function":  "parseTypeGuard",
+			"guardName": guardName,
+			"token":     p.current(),
+		}).Trace("Parsed guard name")
 		if p.current().Type == ast.TokenLParen {
 			p.advance()
 			// Parse additional parameters
 			for p.current().Type != ast.TokenRParen {
-				p.log.Tracef("[parseTypeGuard] Parsing additional parameter, current token: %+v", p.current())
+				p.log.WithFields(logrus.Fields{
+					"function": "parseTypeGuard",
+					"token":    p.current(),
+				}).Trace("Parsing additional parameter")
 				param := p.parseParameter()
-				p.log.Tracef("[parseTypeGuard] Parsed additional parameter: %+v, next token: %+v", param, p.current())
+				p.log.WithFields(logrus.Fields{
+					"function": "parseTypeGuard",
+					"param":    param,
+					"token":    p.current(),
+				}).Trace("Parsed additional parameter")
 				additionalParams = append(additionalParams, param)
 				if p.current().Type == ast.TokenComma {
 					p.advance()

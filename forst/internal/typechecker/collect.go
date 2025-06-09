@@ -1,19 +1,36 @@
 package typechecker
 
-import "forst/internal/ast"
+import (
+	"forst/internal/ast"
+
+	logrus "github.com/sirupsen/logrus"
+)
 
 // Traverses the AST to gather type definitions and function signatures
 func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
-	tc.log.Tracef("[collectExplicitTypes] Collecting explicit types for type %s", node.String())
+	tc.log.WithFields(logrus.Fields{
+		"node":     node.String(),
+		"function": "collectExplicitTypes",
+	}).Trace("Collecting explicit types")
+
 	switch n := node.(type) {
 	case ast.ImportNode:
-		tc.log.Debugf("[collectExplicitTypes] Collecting import: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Collecting import")
 		tc.imports = append(tc.imports, n)
 	case ast.ImportGroupNode:
-		tc.log.Debugf("[collectExplicitTypes] Collecting import group: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Collecting import group")
 		tc.imports = append(tc.imports, n.Imports...)
 	case ast.TypeDefNode:
-		tc.log.Debugf("[collectExplicitTypes] Collecting type definition: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Collecting type definition")
 		tc.registerType(n)
 	case ast.FunctionNode:
 		tc.pushScope(n)
@@ -49,7 +66,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		// Store type guard symbol in global scope
 		tc.storeSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 	case ast.EnsureNode:
-		tc.log.Debugf("[collectExplicitTypes] Storing scope for ensure: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Storing scope for ensure")
 		tc.pushScope(n)
 
 		if n.Block != nil {
@@ -64,7 +84,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 	case ast.IfNode:
-		tc.log.Debugf("[collectExplicitTypes] Storing scope for if: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Storing scope for if")
 		tc.pushScope(n)
 
 		for _, node := range n.Body {
@@ -87,7 +110,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 	case ast.ElseIfNode:
-		tc.log.Debugf("[collectExplicitTypes] Storing scope for else if: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Storing scope for else if")
 		tc.pushScope(n)
 
 		for _, node := range n.Body {
@@ -98,7 +124,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 	case ast.ElseBlockNode:
-		tc.log.Debugf("[collectExplicitTypes] Storing scope for else block: %v", n)
+		tc.log.WithFields(logrus.Fields{
+			"node":     n.String(),
+			"function": "collectExplicitTypes",
+		}).Debug("Storing scope for else block")
 		tc.pushScope(n)
 
 		for _, node := range n.Body {

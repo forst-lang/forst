@@ -17,7 +17,7 @@ func setupTestLogger() *logrus.Logger {
 }
 
 func setupTypeChecker(log *logrus.Logger) *typechecker.TypeChecker {
-	return typechecker.New(log)
+	return typechecker.New(log, false)
 }
 
 func setupTransformer(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {

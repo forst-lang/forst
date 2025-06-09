@@ -127,7 +127,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := setupTestLogger()
-			tc := New(log)
+			tc := New(log, false)
 			err := tc.CheckTypes([]ast.Node{tt.typeGuard})
 			if tt.expectError {
 				if err == nil {
@@ -195,7 +195,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := setupTestLogger()
-			tc := New(log)
+			tc := New(log, false)
 			// Register 's' as a Shape type variable in the current scope
 			baseType := ast.TypeIdent(ast.TypeShape)
 			shape := ast.ShapeNode{

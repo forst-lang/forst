@@ -165,7 +165,7 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 	}, log)
 
 	// Create a type checker with some test data
-	tc := typechecker.New(log)
+	tc := typechecker.New(log, false)
 	tc.Functions["main"] = typechecker.FunctionSignature{
 		Ident: ast.Ident{ID: "main"},
 		Parameters: []typechecker.ParameterSignature{

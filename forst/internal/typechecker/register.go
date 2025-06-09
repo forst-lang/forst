@@ -3,11 +3,11 @@ package typechecker
 import (
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ []ast.TypeNode) {
-	log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.ID, typ)
+	tc.log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.ID, typ)
 	tc.storeSymbol(variable.Ident.ID, typ, SymbolVariable)
 	tc.storeInferredType(variable, typ)
 }
@@ -22,7 +22,10 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	}
 	// Store the type definition node
 	tc.Defs[node.Ident] = node
-	tc.log.Tracef("[registerType] Registered type %s: %+v", node.Ident, node)
+	tc.log.WithFields(logrus.Fields{
+		"node":     node.String(),
+		"function": "registerType",
+	}).Trace("Registered type")
 
 	// If this is a shape type, also store the underlying ShapeNode for field access
 	if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
@@ -36,7 +39,11 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 						for _, constraint := range assertionExpr.Assertion.Constraints {
 							for _, arg := range constraint.Args {
 								if arg.Shape != nil {
-									tc.log.Tracef("[registerType] Registering shape type %s from assertion: %+v", node.Ident, arg.Shape)
+									tc.log.WithFields(logrus.Fields{
+										"node":     node.String(),
+										"function": "registerType",
+										"shape":    arg.Shape,
+									}).Trace("Registering shape type from assertion")
 									tc.registerShapeType(node.Ident, *arg.Shape)
 								}
 							}
@@ -47,7 +54,11 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 				for _, constraint := range assertionExpr.Assertion.Constraints {
 					for _, arg := range constraint.Args {
 						if arg.Shape != nil {
-							tc.log.Tracef("[registerType] Registering shape type %s from constraints: %+v", node.Ident, arg.Shape)
+							tc.log.WithFields(logrus.Fields{
+								"node":     node.String(),
+								"function": "registerType",
+								"shape":    arg.Shape,
+							}).Trace("Registering shape type from constraints")
 							tc.registerShapeType(node.Ident, *arg.Shape)
 						}
 					}
@@ -56,7 +67,12 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 		}
 	} else if shapeExpr, ok := node.Expr.(ast.TypeDefShapeExpr); ok {
 		// If the type definition is directly a shape, store it with a special key
-		tc.log.Tracef("[registerType] Registering shape type %s from type definition: %+v", node.Ident, shapeExpr.Shape)
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"function": "registerType",
+			"shape":    shapeExpr.Shape,
+		}).Trace("Registering shape type from type definition")
+
 		tc.registerShapeType(node.Ident, shapeExpr.Shape)
 	}
 }
@@ -69,7 +85,12 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 			Shape: shape,
 		},
 	}
-	tc.log.Tracef("[registerShapeType] Registered shape type %s: %+v", ident, shape)
+
+	tc.log.WithFields(logrus.Fields{
+		"ident":    ident,
+		"shape":    shape,
+		"function": "registerShapeType",
+	}).Trace("Registered shape type")
 }
 
 func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {

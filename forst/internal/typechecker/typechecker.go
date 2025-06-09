@@ -2,6 +2,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
 	"forst/internal/hasher"
 
@@ -32,10 +33,12 @@ type TypeChecker struct {
 	imports []ast.ImportNode
 	// Logger for the type checker
 	log *logrus.Logger
+	// Whether to report phases
+	reportPhases bool
 }
 
 // New creates a new TypeChecker
-func New(log *logrus.Logger) *TypeChecker {
+func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 	if log == nil {
 		log = logrus.New()
 		log.Warnf("No logger provided, using default logger")
@@ -54,6 +57,7 @@ func New(log *logrus.Logger) *TypeChecker {
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
 		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),
 		log:                 log,
+		reportPhases:        reportPhases,
 	}
 }
 
@@ -61,7 +65,12 @@ func New(log *logrus.Logger) *TypeChecker {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
-	tc.log.Info("[CheckTypes] First pass: collecting explicit types and function signatures")
+	if tc.reportPhases {
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckTypes",
+		}).Info("First pass: collecting explicit types and function signatures")
+	}
+
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
@@ -69,9 +78,20 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}
 		tc.path = tc.path[:len(tc.path)-1]
 	}
-	tc.log.Infof("[CheckTypes] Collected %d imports, %d type defs, %d functions, %d type guards",
-		len(tc.imports), len(tc.Defs), len(tc.Functions), len(tc.Uses))
-	tc.log.Infof("[CheckTypes] Starting second pass: inferring types")
+
+	tc.log.WithFields(logrus.Fields{
+		"imports":    len(tc.imports),
+		"typeDefs":   len(tc.Defs),
+		"functions":  len(tc.Functions),
+		"typeGuards": len(tc.Uses),
+		"function":   "CheckTypes",
+	}).Debug("Collected types and function signatures")
+
+	if tc.reportPhases {
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckTypes",
+		}).Info("Starting second pass: inferring types")
+	}
 
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
@@ -88,11 +108,20 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	hash, err := tc.Hasher.HashNode(node)
 	if err != nil {
-		tc.log.WithError(err).Error("failed to hash node during storeInferredType")
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"function": "storeInferredType",
+		}).WithError(err).Error("failed to hash node during storeInferredType")
 		return
 	}
 	tc.Types[hash] = types
-	tc.log.Tracef("[storeInferredType] Stored inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
+	tc.log.WithFields(logrus.Fields{
+		"node":     node.String(),
+		"key":      hash.ToTypeIdent(),
+		"types":    types,
+		"function": "storeInferredType",
+		"hash":     fmt.Sprintf("%x", uint64(hash)),
+	}).Trace("Stored inferred type for node")
 }
 
 // Stores the return types for a function in its signature
@@ -100,7 +129,12 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
 	tc.Functions[fn.Ident.ID] = sig
-	tc.log.Tracef("[storeInferredFunctionReturnType] Stored inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
+	tc.log.WithFields(logrus.Fields{
+		"fn":          fn.Ident.ID,
+		"returnTypes": returnTypes,
+		"sig":         sig,
+		"function":    "storeInferredFunctionReturnType",
+	}).Trace("Stored inferred function return type")
 }
 
 // DebugPrintCurrentScope prints details about symbols defined in the current scope
@@ -110,12 +144,20 @@ func (tc *TypeChecker) DebugPrintCurrentScope() {
 		tc.log.Debug("Current scope is nil")
 		return
 	}
+
 	if currentScope.Node == nil {
 		tc.log.Debug("Current scope node is nil")
 	} else {
-		tc.log.Debugf("Current scope: %s (%p)\n", currentScope.String(), currentScope)
+		tc.log.WithFields(logrus.Fields{
+			"scope": currentScope.String(),
+			"addr":  fmt.Sprintf("%p", currentScope),
+		}).Debug("Current scope")
 	}
-	tc.log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
+
+	tc.log.WithFields(logrus.Fields{
+		"total": len(currentScope.Symbols),
+	}).Debug("Defined symbols")
+
 	for _, symbol := range currentScope.Symbols {
 		tc.log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
@@ -130,7 +172,12 @@ func (tc *TypeChecker) globalScope() *Scope {
 // Intended for use in the collection pass of the typechecker, not the transformer
 func (tc *TypeChecker) pushScope(node ast.Node) *Scope {
 	scope := tc.scopeStack.pushScope(node)
-	tc.log.Debugf("[pushScope] Pushed scope %s (%p)", scope.String(), scope)
+
+	tc.log.WithFields(logrus.Fields{
+		"scope":    scope.String(),
+		"addr":     fmt.Sprintf("%p", scope),
+		"function": "pushScope",
+	}).Debug("Pushed scope")
 	return scope
 }
 
@@ -139,7 +186,12 @@ func (tc *TypeChecker) pushScope(node ast.Node) *Scope {
 func (tc *TypeChecker) popScope() {
 	currentScope := tc.CurrentScope()
 	tc.scopeStack.popScope()
-	tc.log.Debugf("[popScope] Popped scope %s (%p)", currentScope.String(), currentScope)
+
+	tc.log.WithFields(logrus.Fields{
+		"scope":    currentScope.String(),
+		"addr":     fmt.Sprintf("%p", currentScope),
+		"function": "popScope",
+	}).Debug("Popped scope")
 }
 
 // RestoreScope restores the scope for a given node
@@ -158,7 +210,14 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 		Scope:      currentScope,
 		Position:   tc.path,
 	}
-	tc.log.Tracef("[storeSymbol] Stored symbol '%s' with types %v in scope %s (%p)", ident, types, currentScope.String(), currentScope)
+
+	tc.log.WithFields(logrus.Fields{
+		"ident":    ident,
+		"types":    types,
+		"scope":    currentScope.String(),
+		"addr":     fmt.Sprintf("%p", currentScope),
+		"function": "storeSymbol",
+	}).Trace("Stored symbol")
 }
 
 // CurrentScope returns the current scope

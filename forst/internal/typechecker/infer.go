@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // inferNodeTypes handles type inference for a list of nodes
@@ -24,7 +24,10 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node, scopeNode ast.Node) ([][
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	tc.log.Tracef("[inferNodeType] %s", node.String())
+	tc.log.WithFields(logrus.Fields{
+		"node":     node.String(),
+		"function": "inferNodeType",
+	}).Trace("Inferring node type")
 
 	switch n := node.(type) {
 	case ast.PackageNode:
@@ -61,7 +64,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for i, paramTypes := range paramTypes {
 			param := n.Params[i]
 			// Store in scope for structural lookup
-			tc.log.Tracef("inferNodeType: storing param variable type %v for %s", paramTypes, param.GetIdent())
+			tc.log.WithFields(logrus.Fields{
+				"paramTypes": paramTypes,
+				"param":      param.GetIdent(),
+				"function":   "inferNodeType",
+			}).Trace("Storing param variable type")
+
 			tc.scopeStack.currentScope().RegisterSymbol(
 				ast.Identifier(param.GetIdent()),
 				paramTypes,
@@ -129,13 +137,26 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case ast.TypeDefNode:
 		if assertionExpr, ok := n.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
-			tc.log.Debugf("[TypeDefNode] Merging fields for type %s", n.Ident)
+			tc.log.WithFields(logrus.Fields{
+				"ident":    n.Ident,
+				"function": "inferNodeType",
+			}).Debug("Merging fields for type")
+
 			mergedFields := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
-			tc.log.Debugf("[TypeDefNode] Merged fields for %s: %v", n.Ident, mergedFields)
+			tc.log.WithFields(logrus.Fields{
+				"ident":        n.Ident,
+				"mergedFields": mergedFields,
+			}).Debug("Merged fields for type")
+
 			shape := ast.ShapeNode{
 				Fields: mergedFields,
 			}
-			tc.log.Debugf("[TypeDefNode] Registering merged shape for %s: %+v", n.Ident, shape)
+			tc.log.WithFields(logrus.Fields{
+				"ident":    n.Ident,
+				"shape":    shape,
+				"function": "inferNodeType",
+			}).Debug("Registering merged shape for type")
+
 			tc.registerShapeType(n.Ident, shape)
 		}
 		return nil, nil
@@ -191,10 +212,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		// Store type guard in global scope with void return type
-		tc.log.WithFields(log.Fields{
-			"ident":  guardNode.Ident,
-			"params": guardNode.Parameters(),
-		}).Trace("inferNodeType: TypeGuardNode symbol registration")
+		tc.log.WithFields(logrus.Fields{
+			"ident":    guardNode.Ident,
+			"params":   guardNode.Parameters(),
+			"function": "inferNodeType",
+		}).Trace("Storing TypeGuardNode symbol in global scope")
 		tc.storeSymbol(ast.Identifier(guardNode.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		tc.popScope()

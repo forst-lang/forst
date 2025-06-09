@@ -112,7 +112,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memBefore = getMemStats()
 
 	// Semantic Analysis
-	checker := typechecker.New(c.log)
+	checker := typechecker.New(c.log, c.Args.ReportPhases)
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
