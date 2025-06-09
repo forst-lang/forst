@@ -63,13 +63,27 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 
 		// Use hash-based type alias for user-defined types
-		hash := t.TypeChecker.Hasher.HashNode(e)
+		hash, err := t.TypeChecker.Hasher.HashNode(e)
+		if err != nil {
+			err = fmt.Errorf("failed to hash type def expr during transformation: %w", err)
+			log.WithError(err).Error("transforming type def expr failed")
+			return nil, err
+		}
 		typeAliasName := hash.ToTypeIdent()
 		var result goast.Expr = goast.NewIdent(string(typeAliasName))
 		return &result, nil
 	case *ast.TypeDefAssertionExpr:
 		// Handle pointer by dereferencing and reusing value logic
 		return t.transformTypeDefExpr(*e)
+	case ast.TypeDefShapeExpr:
+		shape := e.Shape
+		expr, err := t.transformShapeType(&shape)
+		if err != nil {
+			err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
+			log.WithError(err).Error("transforming shape type failed")
+			return nil, err
+		}
+		return expr, nil
 	case ast.TypeDefBinaryExpr:
 		// binaryExpr := expr.(ast.TypeDefBinaryExpr)
 		// if binaryExpr.IsConjunction() {

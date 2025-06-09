@@ -1,6 +1,7 @@
-package main
+package compiler
 
 import (
+	"forst/internal/logger"
 	"os"
 	"testing"
 )
@@ -9,58 +10,58 @@ func TestParseArgs(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     []string
-		want     ProgramArgs
+		want     Args
 		wantHelp bool
 	}{
 		{
 			name: "run command with file",
 			args: []string{"forst", "run", "test.ft"},
-			want: ProgramArgs{
-				command:  "run",
-				filePath: "test.ft",
+			want: Args{
+				Command:  "run",
+				FilePath: "test.ft",
 			},
 			wantHelp: false,
 		},
 		{
 			name: "build command with file",
 			args: []string{"forst", "build", "test.ft"},
-			want: ProgramArgs{
-				command:  "build",
-				filePath: "test.ft",
+			want: Args{
+				Command:  "build",
+				FilePath: "test.ft",
 			},
 			wantHelp: false,
 		},
 		{
 			name: "run with debug flag",
 			args: []string{"forst", "run", "-debug", "test.ft"},
-			want: ProgramArgs{
-				command:  "run",
-				filePath: "test.ft",
-				debug:    true,
+			want: Args{
+				Command:  "run",
+				FilePath: "test.ft",
+				Debug:    true,
 			},
 			wantHelp: false,
 		},
 		{
 			name: "run with watch and output",
 			args: []string{"forst", "run", "-watch", "-o", "output.go", "test.ft"},
-			want: ProgramArgs{
-				command:    "run",
-				filePath:   "test.ft",
-				watch:      true,
-				outputPath: "output.go",
+			want: Args{
+				Command:    "run",
+				FilePath:   "test.ft",
+				Watch:      true,
+				OutputPath: "output.go",
 			},
 			wantHelp: false,
 		},
 		{
 			name:     "help flag",
 			args:     []string{"forst", "--help"},
-			want:     ProgramArgs{},
+			want:     Args{},
 			wantHelp: true,
 		},
 		{
 			name:     "invalid command",
 			args:     []string{"forst", "invalid", "test.ft"},
-			want:     ProgramArgs{},
+			want:     Args{},
 			wantHelp: false,
 		},
 	}
@@ -82,23 +83,24 @@ func TestParseArgs(t *testing.T) {
 				}()
 			}
 
-			got := ParseArgs()
+			log := logger.New()
+			got := ParseArgs(log)
 
 			// Compare fields
-			if got.command != tt.want.command {
-				t.Errorf("ParseArgs().command = %v, want %v", got.command, tt.want.command)
+			if got.Command != tt.want.Command {
+				t.Errorf("ParseArgs().command = %v, want %v", got.Command, tt.want.Command)
 			}
-			if got.filePath != tt.want.filePath {
-				t.Errorf("ParseArgs().filePath = %v, want %v", got.filePath, tt.want.filePath)
+			if got.FilePath != tt.want.FilePath {
+				t.Errorf("ParseArgs().filePath = %v, want %v", got.FilePath, tt.want.FilePath)
 			}
-			if got.debug != tt.want.debug {
-				t.Errorf("ParseArgs().debug = %v, want %v", got.debug, tt.want.debug)
+			if got.Debug != tt.want.Debug {
+				t.Errorf("ParseArgs().debug = %v, want %v", got.Debug, tt.want.Debug)
 			}
-			if got.watch != tt.want.watch {
-				t.Errorf("ParseArgs().watch = %v, want %v", got.watch, tt.want.watch)
+			if got.Watch != tt.want.Watch {
+				t.Errorf("ParseArgs().watch = %v, want %v", got.Watch, tt.want.Watch)
 			}
-			if got.outputPath != tt.want.outputPath {
-				t.Errorf("ParseArgs().outputPath = %v, want %v", got.outputPath, tt.want.outputPath)
+			if got.OutputPath != tt.want.OutputPath {
+				t.Errorf("ParseArgs().outputPath = %v, want %v", got.OutputPath, tt.want.OutputPath)
 			}
 		})
 	}
@@ -134,9 +136,10 @@ func TestInvalidArgs(t *testing.T) {
 			defer func() { os.Args = origArgs }()
 
 			os.Args = tt.args
-			got := ParseArgs()
+			log := logger.New()
+			got := ParseArgs(log)
 
-			if got != (ProgramArgs{}) {
+			if got != (Args{}) {
 				t.Errorf("ParseArgs() = %v, want empty ProgramArgs for invalid args", got)
 			}
 		})

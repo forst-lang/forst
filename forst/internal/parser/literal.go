@@ -34,7 +34,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			mantissa := strings.TrimSuffix(floatSuffix.Value, "f")
 			floatVal, err := strconv.ParseFloat(decimalVal+"."+mantissa, 64)
 			if err != nil {
-				panic(parseErrorWithValue(token, "Invalid float literal"))
+				p.FailWithParseError(token, "Invalid float literal")
 			}
 			return ast.FloatLiteralNode{
 				Value: floatVal,
@@ -44,7 +44,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		// It's an integer
 		intVal, err := strconv.ParseInt(token.Value, 10, 64)
 		if err != nil {
-			panic(parseErrorWithValue(token, "Invalid integer literal"))
+			p.FailWithParseError(token, "Invalid integer literal")
 		}
 		return ast.IntLiteralNode{
 			Value: intVal,
@@ -88,6 +88,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 
 	default:
-		panic(unexpectedTokenMessage(token, "a literal"))
+		p.FailWithUnexpectedToken(token, "a literal")
 	}
+	panic("Reached unreachable path")
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
-	log.Tracef("inferExpressionType: %T", expr)
+	log.Debugf("[inferExpressionType] Starting type inference for expression: %+v", expr)
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
@@ -53,6 +53,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if err != nil {
 			return nil, err
 		}
+		tc.log.Tracef("Variable type: %+v, node: %+v, type params: %+v, (original: %+v of type %T)", typ, typ.Node, typ.TypeParams, e, e.ExplicitType)
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
@@ -63,10 +64,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
+
 		// For type guards, we need to ensure they return boolean
-		if typeGuard, exists := tc.scopeStack.GlobalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolFunction {
+		if typeGuard, exists := tc.scopeStack.globalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolTypeGuard {
 			log.Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
-			return typeGuard.Types, nil
+			// Type guards return boolean when called
+			return []ast.TypeNode{{Ident: ast.TypeBool}}, nil
 		}
 
 		// First check if this is a local variable or method call
@@ -119,6 +122,50 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 		log.Tracef("No function found for %s", e.Function.ID)
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
+
+	case ast.ShapeNode:
+		inferredType, err := tc.inferShapeType(e)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
+
+	case ast.AssertionNode:
+		inferredType, err := tc.inferAssertionType(&e, false)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, inferredType)
+		return inferredType, nil
+
+	case ast.ReferenceNode:
+		valueType, err := tc.inferExpressionType(e.Value)
+		if err != nil {
+			return nil, err
+		}
+		referenceType := ast.TypeNode{
+			Ident:      ast.TypePointer,
+			TypeParams: valueType,
+		}
+		tc.storeInferredType(e, []ast.TypeNode{referenceType})
+		return []ast.TypeNode{referenceType}, nil
+
+	case ast.DereferenceNode:
+		valueType, err := tc.inferExpressionType(e.Value)
+		if err != nil {
+			return nil, err
+		}
+		if len(valueType) != 1 {
+			return nil, fmt.Errorf("dereference is only valid on single types, got %s", formatTypeList(valueType))
+		}
+		tc.log.Tracef("Dereference type identifier: %+v", valueType[0].Node)
+		if valueType[0].Ident != ast.TypePointer {
+			return nil, fmt.Errorf("dereference is only valid on pointer types, got %s", valueType[0].Ident)
+		}
+		tc.log.Tracef("Dereference type: %+v", valueType[0].TypeParams)
+		tc.storeInferredType(e, valueType[0].TypeParams)
+		return valueType[0].TypeParams, nil
 
 	default:
 		log.Tracef("Unhandled expression type: %T", expr)

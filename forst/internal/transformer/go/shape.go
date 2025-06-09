@@ -9,6 +9,18 @@ import (
 )
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
+	if field.Type != nil {
+		log.Trace(fmt.Sprintf("transformShapeFieldType, type: %s", field.Type.Ident))
+		ident, err := transformTypeIdent(field.Type.Ident)
+		if err != nil {
+			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
+			log.WithError(err).Error("transforming type ident failed")
+			return nil, err
+		}
+		var expr goast.Expr = ident
+		return &expr, nil
+	}
+
 	if field.Assertion != nil {
 		log.Trace(fmt.Sprintf("transformShapeFieldType, assertion: %s", *field.Assertion))
 		expr, err := t.transformAssertionType(field.Assertion)
@@ -19,21 +31,33 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		}
 		return expr, nil
 	}
+
 	if field.Shape != nil {
 		log.Trace(fmt.Sprintf("transformShapeFieldType, shape: %s", *field.Shape))
 		lookupType, err := t.TypeChecker.LookupInferredType(field.Shape, true)
 		if err != nil {
-			err = fmt.Errorf("failed to lookup type during transformation: %w (key: %s)", err, t.TypeChecker.Hasher.HashNode(field.Shape).ToTypeIdent())
+			hash, err := t.TypeChecker.Hasher.HashNode(field.Shape)
+			if err != nil {
+				err = fmt.Errorf("failed to hash shape during transformation: %w", err)
+				log.WithError(err).Error("transforming shape failed")
+				return nil, err
+			}
+			err = fmt.Errorf("failed to lookup type during transformation: %w (key: %s)", err, hash.ToTypeIdent())
 			log.WithError(err).Error("transforming type failed")
 			return nil, err
 		}
 		log.Trace(fmt.Sprintf("transformShapeFieldType, lookupType: %s", lookupType[0]))
 		shapeType := lookupType[0]
-		result := transformTypeIdent(shapeType.Ident)
+		result, err := transformTypeIdent(shapeType.Ident)
+		if err != nil {
+			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
+			log.WithError(err).Error("transforming type ident failed")
+			return nil, err
+		}
 		var expr goast.Expr = result
 		return &expr, nil
 	}
-	return nil, fmt.Errorf("shape field has neither assertion nor shape: %T", field)
+	return nil, fmt.Errorf("shape field has neither explicit type nor assertion nor shape: %T", field)
 }
 
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {

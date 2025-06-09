@@ -1,22 +1,16 @@
 package transformergo
 
 import (
-	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 )
 
-func (t *Transformer) pushScope(node ast.Node) {
-	newScope := t.TypeChecker.FindScope(node)
-	if newScope == nil {
-		panic(fmt.Sprintf("no scope found for node %v", node))
-	}
-	t.currentScope = newScope
+// restoreScope restores the scope for a given node
+func (t *Transformer) restoreScope(node ast.Node) error {
+	return t.TypeChecker.RestoreScope(node)
 }
 
-func (t *Transformer) popScope() {
-	if t.currentScope != nil {
-		t.currentScope = t.currentScope.Parent
-	} else {
-		panic("no scope to pop from, we are already in the global scope")
-	}
+// currentScope returns the current scope from the type checker
+func (t *Transformer) currentScope() *typechecker.Scope {
+	return t.TypeChecker.CurrentScope()
 }

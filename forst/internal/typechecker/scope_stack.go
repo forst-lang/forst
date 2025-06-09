@@ -1,62 +1,92 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
+	"forst/internal/hasher"
+
+	"github.com/sirupsen/logrus"
 )
+
+// NodeHash is an alias for hasher.NodeHash
+type NodeHash = hasher.NodeHash
 
 // ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {
 	scopes  map[NodeHash]*Scope
 	current *Scope
-	Hasher  *StructuralHasher
+	Hasher  *hasher.StructuralHasher
+	log     *logrus.Logger
 }
 
 // NewScopeStack creates a new stack with a global scope
-func NewScopeStack(hasher *StructuralHasher) *ScopeStack {
-	globalScope := &Scope{
-		Symbols: make(map[ast.Identifier]Symbol),
+func NewScopeStack(hasher *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
+	globalScope := NewScope(nil, nil, log)
+	scopes := make(map[NodeHash]*Scope)
+	hash, err := hasher.HashNode(nil)
+	if err != nil {
+		log.WithError(err).Error("failed to hash nil node during NewScopeStack")
+		return nil
 	}
+	scopes[hash] = globalScope
+
 	return &ScopeStack{
-		scopes:  make(map[NodeHash]*Scope),
+		scopes:  scopes,
 		current: globalScope,
 		Hasher:  hasher,
+		log:     log,
 	}
 }
 
-// PushScope creates and pushes a new scope for the given AST node
-func (ss *ScopeStack) PushScope(node ast.Node) {
-	hash := ss.Hasher.HashNode(node)
-	scope := &Scope{
-		Parent:   ss.current,
-		Node:     node,
-		Symbols:  make(map[ast.Identifier]Symbol),
-		Children: make([]*Scope, 0),
+// pushScope creates and pushes a new scope for the given AST node
+func (ss *ScopeStack) pushScope(node ast.Node) *Scope {
+	hash, err := ss.Hasher.HashNode(node)
+	if err != nil {
+		ss.log.WithError(err).Error("failed to hash node during pushScope")
+		return nil
 	}
+	scope := NewScope(ss.current, &node, ss.log)
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope
+	return scope
 }
 
-// PopScope returns to the parent scope if one exists
-func (ss *ScopeStack) PopScope() {
+// popScope returns to the parent scope if one exists
+func (ss *ScopeStack) popScope() {
 	if ss.current.Parent != nil {
 		ss.current = ss.current.Parent
 	}
 }
 
-// CurrentScope returns the current scope
-func (ss *ScopeStack) CurrentScope() *Scope {
+// currentScope returns the current scope
+func (ss *ScopeStack) currentScope() *Scope {
 	return ss.current
 }
 
-// FindScope looks up a scope by its AST node
-func (ss *ScopeStack) FindScope(node ast.Node) *Scope {
-	hash := ss.Hasher.HashNode(node)
-	return ss.scopes[hash]
+// restoreScope restores a scope by its AST node
+func (ss *ScopeStack) restoreScope(node ast.Node) error {
+	scope, exists := ss.findScope(node)
+	if !exists {
+		return fmt.Errorf("scope not found for node %s", node.String())
+	}
+	ss.current = scope
+	return nil
 }
 
-// GlobalScope returns the root scope
-func (ss *ScopeStack) GlobalScope() *Scope {
+// findScope looks up a scope by its AST node
+func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
+	hash, err := ss.Hasher.HashNode(node)
+	if err != nil {
+		ss.log.WithError(err).Error("failed to hash node during findScope")
+		return nil, false
+	}
+	scope, exists := ss.scopes[hash]
+	return scope, exists
+}
+
+// globalScope returns the root scope
+func (ss *ScopeStack) globalScope() *Scope {
 	scope := ss.current
 	for scope.Parent != nil {
 		scope = scope.Parent

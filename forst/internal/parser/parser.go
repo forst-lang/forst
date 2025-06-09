@@ -4,14 +4,16 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Context is a mutable context for the parser to track the current state
 type Context struct {
-	Package  *ast.PackageNode
-	Function *ast.FunctionNode
-	Scope    *Scope
-	FilePath string
+	Package    *ast.PackageNode
+	Function   *ast.FunctionNode
+	ScopeStack *ScopeStack
+	FilePath   string
 }
 
 // Parser represents the parser for the Forst language
@@ -19,14 +21,25 @@ type Parser struct {
 	tokens       []ast.Token
 	currentIndex int
 	context      *Context
+	log          *logrus.Logger
 }
 
-// NewParser creates a new parser instance
-func NewParser(tokens []ast.Token, filePath string) *Parser {
+// New creates a new parser instance
+func New(tokens []ast.Token, filePath string, log *logrus.Logger) *Parser {
+	scopeStack := NewScopeStack(log)
+	context := Context{
+		FilePath:   filePath,
+		ScopeStack: scopeStack,
+	}
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
 	return &Parser{
 		tokens:       tokens,
 		currentIndex: 0,
-		context:      &Context{FilePath: filePath},
+		context:      &context,
+		log:          log,
 	}
 }
 
@@ -60,8 +73,16 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType ast.TokenIdent) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		panic(parseErrorWithValue(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type)))
+		p.FailWithParseError(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type))
 	}
 	p.advance()
 	return token
+}
+
+func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
+	p.FailWithParseError(token, unexpectedTokenMessage(token, message))
+}
+
+func (p *Parser) FailWithParseError(token ast.Token, message string) {
+	panic(parseErrorMessage(token, message))
 }

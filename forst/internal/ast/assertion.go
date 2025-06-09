@@ -21,10 +21,19 @@ type ConstraintNode struct {
 	Args []ConstraintArgumentNode
 }
 
-// ConstraintArgumentNode is an argument to a constraint, can be a value or a shape
+func (c ConstraintNode) String() string {
+	argStrings := make([]string, len(c.Args))
+	for i, arg := range c.Args {
+		argStrings[i] = arg.String()
+	}
+	return fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
+}
+
+// ConstraintArgumentNode is an argument to a constraint, can be a value, a shape, or a type
 type ConstraintArgumentNode struct {
 	Value *ValueNode
 	Shape *ShapeNode
+	Type  *TypeNode
 }
 
 // Kind returns the node kind for a constraint argument
@@ -40,7 +49,13 @@ func (c ConstraintArgumentNode) String() string {
 	if c.Value != nil {
 		return (*c.Value).String()
 	}
-	return c.Shape.String()
+	if c.Shape != nil {
+		return c.Shape.String()
+	}
+	if c.Type != nil {
+		return c.Type.String()
+	}
+	return "?"
 }
 
 // String returns a string representation of the assertion
@@ -59,6 +74,9 @@ func (a AssertionNode) String() string {
 		return constraintsString
 	}
 	if constraintsString == "" {
+		if *a.BaseType == TypePointer {
+			return "*" + fmt.Sprintf("%+v", *a.BaseType)
+		}
 		return string(*a.BaseType)
 	}
 	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)
@@ -68,3 +86,5 @@ func (a AssertionNode) String() string {
 func (a AssertionNode) Kind() NodeKind {
 	return NodeKindAssertion
 }
+
+func (a AssertionNode) isExpression() {}

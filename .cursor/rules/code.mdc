@@ -1,0 +1,6 @@
+---
+description: 
+globs: *.go
+alwaysApply: false
+---
+Prefer composition over inheritance. Prefer immutability over mutability. When mutation is helpful, always have an interface to contain the state and use function calls to change it. Change existing structs and interfaces if necessary. Don't create new ones unless asked to.

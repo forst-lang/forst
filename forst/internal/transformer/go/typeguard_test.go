@@ -2,7 +2,6 @@ package transformergo
 
 import (
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"testing"
 )
@@ -10,7 +9,7 @@ import (
 func TestTransformTypeGuard_Simple(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "IsPositive",
-		SubjectParam: ast.SimpleParamNode{
+		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "x"},
 			Type:  ast.TypeNode{Ident: ast.TypeInt},
 		},
@@ -20,9 +19,9 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -44,7 +43,7 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "IsString",
-		SubjectParam: ast.SimpleParamNode{
+		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "s"},
 			Type:  ast.TypeNode{Ident: ast.TypeString},
 		},
@@ -54,9 +53,9 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -66,15 +65,10 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 	}
 }
 
-func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected panic for DestructuredParamNode, got none")
-		}
-	}()
+func TestTransformTypeGuard_DestructuredParamFails(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "Destructured",
-		SubjectParam: ast.DestructuredParamNode{
+		Subject: ast.DestructuredParamNode{
 			Fields: []string{"a", "b"},
 			Type:   ast.TypeNode{Ident: ast.TypeInt},
 		},
@@ -84,20 +78,23 @@ func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	_, err := tr.transformTypeGuard(tg)
+	if err == nil {
+		t.Errorf("expected error for DestructuredParamNode, got none")
 	}
-	_, _ = tr.transformTypeGuard(tg)
 }
 
 func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 	tg := ast.TypeGuardNode{
 		Ident: "DivisibleBy",
-		SubjectParam: ast.SimpleParamNode{
+		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "i"},
 			Type:  ast.TypeNode{Ident: "Prime"},
 		},
-		AdditionalParams: []ast.ParamNode{
+		Params: []ast.ParamNode{
 			ast.SimpleParamNode{
 				Ident: ast.Ident{ID: "other"},
 				Type:  ast.TypeNode{Ident: ast.TypeInt},
@@ -130,9 +127,9 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
-	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

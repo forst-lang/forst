@@ -23,7 +23,11 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 	case ast.TypeObject:
 		return nil, fmt.Errorf("TypeObject should not be used as a Go type")
 	default:
-		return transformTypeIdent(n.Ident), nil
+		ident, err := transformTypeIdent(n.Ident)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform type ident: %s", err)
+		}
+		return ident, nil
 	}
 }
 
@@ -45,28 +49,28 @@ func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, er
 	}, nil
 }
 
-func transformTypeIdent(ident ast.TypeIdent) *goast.Ident {
+func transformTypeIdent(ident ast.TypeIdent) (*goast.Ident, error) {
 	switch ident {
 	case ast.TypeString:
-		return &goast.Ident{Name: "string"}
+		return &goast.Ident{Name: "string"}, nil
 	case ast.TypeInt:
-		return &goast.Ident{Name: "int"}
+		return &goast.Ident{Name: "int"}, nil
 	case ast.TypeFloat:
-		return &goast.Ident{Name: "float64"}
+		return &goast.Ident{Name: "float64"}, nil
 	case ast.TypeBool:
-		return &goast.Ident{Name: "bool"}
+		return &goast.Ident{Name: "bool"}, nil
 	case ast.TypeVoid:
-		return &goast.Ident{Name: "void"}
+		return &goast.Ident{Name: "void"}, nil
 	case ast.TypeError:
-		return &goast.Ident{Name: "error"}
+		return &goast.Ident{Name: "error"}, nil
 	case ast.TypeObject:
-		panic("transformTypeIdent: TypeObject should not be used as a Go type")
+		return nil, fmt.Errorf("TypeObject should not be used as a Go type")
 	case ast.TypeAssertion:
-		panic("transformTypeIdent: TypeAssertion should not be used as a Go type")
+		return nil, fmt.Errorf("TypeAssertion should not be used as a Go type")
 	case ast.TypeImplicit:
-		panic("transformTypeIdent: TypeImplicit should not be used as a Go type")
+		return nil, fmt.Errorf("TypeImplicit should not be used as a Go type")
 	default:
 		// For user-defined types (aliases, shapes, etc.), just use the type name
-		return goast.NewIdent(string(ident))
+		return goast.NewIdent(string(ident)), nil
 	}
 }

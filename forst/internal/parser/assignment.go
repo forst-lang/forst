@@ -16,16 +16,28 @@ func (p *Parser) parseAssignment() ast.AssignmentNode {
 	// Expect assignment operator
 	assignToken := p.current()
 	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
-		panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+		p.FailWithParseError(assignToken, "Expected assignment or short assignment operator")
 	}
 	p.advance()
 
 	expr := p.parseExpression()
 
+	varIdent := ast.Ident{ID: ast.Identifier(ident.Value)}
+
+	var lvalue ast.VariableNode
+	if explicitType != nil {
+		lvalue = ast.VariableNode{
+			Ident:        varIdent,
+			ExplicitType: *explicitType,
+		}
+	} else {
+		lvalue = ast.VariableNode{
+			Ident: varIdent,
+		}
+	}
+
 	return ast.AssignmentNode{
-		LValues: []ast.VariableNode{
-			{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}},
-		},
+		LValues:       []ast.VariableNode{lvalue},
 		RValues:       []ast.ExpressionNode{expr},
 		ExplicitTypes: []*ast.TypeNode{explicitType},
 		IsShort:       assignToken.Type == ast.TokenColonEquals,
@@ -40,7 +52,7 @@ func (p *Parser) parseMultipleAssignment() ast.AssignmentNode {
 	// Expect assignment operator
 	assignToken := p.current()
 	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
-		panic(parseErrorWithValue(assignToken, "Expected assignment or short assignment operator"))
+		p.FailWithParseError(assignToken, "Expected assignment or short assignment operator")
 	}
 	p.advance()
 
