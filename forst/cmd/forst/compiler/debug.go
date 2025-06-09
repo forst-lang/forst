@@ -11,8 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// LogMemUsage logs the memory usage of the compiler
-func (c *Compiler) LogMemUsage(phase string, before, after runtime.MemStats) {
+// logMemUsage logs the memory usage of the compiler
+func (c *Compiler) logMemUsage(phase string, before, after runtime.MemStats) {
 	if !c.Args.ReportMemoryUsage {
 		return
 	}
@@ -27,7 +27,7 @@ func (c *Compiler) LogMemUsage(phase string, before, after runtime.MemStats) {
 	}).Info("Memory usage")
 }
 
-func (c *Compiler) DebugPrintTokens(tokens []ast.Token) {
+func (c *Compiler) debugPrintTokens(tokens []ast.Token) {
 	c.log.Debug("=== Tokens ===")
 	for _, t := range tokens {
 		c.log.WithFields(log.Fields{
@@ -38,7 +38,7 @@ func (c *Compiler) DebugPrintTokens(tokens []ast.Token) {
 	}
 }
 
-func (c *Compiler) DebugPrintForstAST(forstAST []ast.Node) {
+func (c *Compiler) debugPrintForstAST(forstAST []ast.Node) {
 	c.log.Debug("=== Forst AST ===")
 	for _, node := range forstAST {
 		switch n := node.(type) {

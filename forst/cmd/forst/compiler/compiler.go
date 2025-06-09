@@ -89,9 +89,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	tokens := l.Lex()
 
 	memAfter := getMemStats()
-	c.LogMemUsage("lexical analysis", memBefore, memAfter)
+	c.logMemUsage("lexical analysis", memBefore, memAfter)
 
-	c.DebugPrintTokens(tokens)
+	c.debugPrintTokens(tokens)
 
 	c.reportPhase("Performing syntax analysis...")
 	memBefore = getMemStats()
@@ -104,9 +104,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	}
 
 	memAfter = getMemStats()
-	c.LogMemUsage("syntax analysis", memBefore, memAfter)
+	c.logMemUsage("syntax analysis", memBefore, memAfter)
 
-	c.DebugPrintForstAST(forstNodes)
+	c.debugPrintForstAST(forstNodes)
 
 	c.reportPhase("Performing semantic analysis...")
 	memBefore = getMemStats()
@@ -122,7 +122,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	}
 
 	memAfter = getMemStats()
-	c.LogMemUsage("semantic analysis", memBefore, memAfter)
+	c.logMemUsage("semantic analysis", memBefore, memAfter)
 
 	c.debugPrintTypeInfo(checker)
 
@@ -144,7 +144,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	}
 
 	memAfter = getMemStats()
-	c.LogMemUsage("code generation", memBefore, memAfter)
+	c.logMemUsage("code generation", memBefore, memAfter)
 
 	if c.Args.OutputPath != "" {
 		if err := os.WriteFile(c.Args.OutputPath, []byte(goCode), 0644); err != nil {

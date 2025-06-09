@@ -67,7 +67,7 @@ func TestLogMemUsage(t *testing.T) {
 	runtime.ReadMemStats(&after)
 
 	// Test memory usage logging
-	c.LogMemUsage("test_phase", before, after)
+	c.logMemUsage("test_phase", before, after)
 
 	// Verify that memory usage was logged
 	if !testHook.ContainsMessage("test_phase") {
@@ -108,7 +108,7 @@ func TestDebugPrintTokens(t *testing.T) {
 	}
 
 	// Test token printing
-	c.DebugPrintTokens(tokens)
+	c.debugPrintTokens(tokens)
 
 	// Verify that tokens were logged
 	if !testHook.ContainsMessage("IDENTIFIER") {
@@ -142,7 +142,7 @@ func TestDebugPrintForstAST(t *testing.T) {
 	}
 
 	// Test AST printing
-	c.DebugPrintForstAST(nodes)
+	c.debugPrintForstAST(nodes)
 
 	// Verify that AST nodes were logged
 	if !testHook.ContainsMessage("Package declaration") {
