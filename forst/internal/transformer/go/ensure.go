@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
-	"strings"
-
-	"github.com/sirupsen/logrus"
+	gotoken "go/token"
 )
 
 // transformEnsureConstraints transforms an ensure node based on its type
@@ -15,26 +13,11 @@ func (at *AssertionTransformer) transformEnsureConstraints(ensure ast.EnsureNode
 	if err != nil {
 		return nil, err
 	}
-
-	switch baseType.Ident {
-	case ast.TypeString:
-		return at.transformStringEnsure(ensure)
-	case ast.TypeInt:
-		return at.transformIntEnsure(ensure)
-	case ast.TypeFloat:
-		return at.transformFloatEnsure(ensure)
-	case ast.TypeBool:
-		return at.transformBoolEnsure(ensure)
-	case ast.TypeError:
-		return at.transformErrorEnsure(ensure)
-	default:
-		ident, err := at.transformer.TypeChecker.LookupAssertionType(&ensure.Assertion)
-		if err != nil {
-			return nil, fmt.Errorf("failed to lookup assertion type: %s", err)
-		}
-		at.transformer.log.Errorf("No type guard found, using assertion identifier: %s", string(ident.Ident))
-		return goast.NewIdent(string(ident.Ident)), nil
+	transformed, err := at.TransformBuiltinConstraint(baseType.Ident, ensure.Variable, ensure.Assertion.Constraints[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform ensure conditions constraints: %w", err)
 	}
+	return transformed, nil
 }
 
 func (t *Transformer) getEnsureBaseType(ensure ast.EnsureNode) (ast.TypeNode, error) {
@@ -54,229 +37,219 @@ func (t *Transformer) getTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 	chain := []ast.TypeNode{typeNode}
 	visited := map[ast.TypeIdent]bool{typeNode.Ident: true}
 	current := typeNode
+	t.log.WithFields(map[string]interface{}{
+		"typeNode": current.Ident,
+		"function": "getTypeAliasChain",
+	}).Debug("Starting type alias chain resolution")
 	for {
 		def, exists := t.TypeChecker.Defs[current.Ident]
 		if !exists {
+			// Try inferred types if no explicit alias is found
+			hash, err := t.TypeChecker.Hasher.HashNode(current)
+			if err == nil {
+				if inferred, ok := t.TypeChecker.Types[hash]; ok && len(inferred) > 0 {
+					inferredType := inferred[0]
+					if !visited[inferredType.Ident] {
+						t.log.WithFields(map[string]interface{}{
+							"typeNode": inferredType.Ident,
+							"function": "getTypeAliasChain",
+						}).Debug("Following inferred type in alias chain")
+						chain = append(chain, inferredType)
+						visited[inferredType.Ident] = true
+						current = inferredType
+						continue
+					}
+				}
+			}
+			t.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "getTypeAliasChain",
+			}).Debug("No definition or inferred type found for type")
 			break
 		}
 		typeDef, ok := def.(ast.TypeDefNode)
 		if !ok {
+			t.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "getTypeAliasChain",
+			}).Debug("Definition is not a TypeDefNode")
 			break
 		}
-		assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr)
-		if !ok || assertionExpr.Assertion == nil || assertionExpr.Assertion.BaseType == nil {
+		// Accept both value and pointer types for TypeDefAssertionExpr
+		var assertionExpr *ast.TypeDefAssertionExpr
+		switch expr := typeDef.Expr.(type) {
+		case ast.TypeDefAssertionExpr:
+			assertionExpr = &expr
+		case *ast.TypeDefAssertionExpr:
+			assertionExpr = expr
+		}
+		if assertionExpr == nil || assertionExpr.Assertion == nil || assertionExpr.Assertion.BaseType == nil {
+			t.log.WithFields(map[string]interface{}{
+				"typeNode":  current.Ident,
+				"exprType":  fmt.Sprintf("%T", typeDef.Expr),
+				"exprValue": fmt.Sprintf("%#v", typeDef.Expr),
+				"function":  "getTypeAliasChain",
+			}).Debug("Definition is not a valid type alias")
 			break
 		}
 		baseIdent := *assertionExpr.Assertion.BaseType
 		if visited[baseIdent] {
+			t.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "getTypeAliasChain",
+			}).Debug("Cycle detected in type alias chain")
 			break // prevent cycles
 		}
 		baseType := ast.TypeNode{Ident: baseIdent}
 		chain = append(chain, baseType)
 		visited[baseIdent] = true
 		current = baseType
+		t.log.WithFields(map[string]interface{}{
+			"typeNode": current.Ident,
+			"function": "getTypeAliasChain",
+		}).Debug("Added base type to alias chain")
 	}
 	return chain
 }
 
-func (t *Transformer) transformEnsureCondition(ensure ast.EnsureNode) (goast.Expr, error) {
-	// Look up the variable type first (inferred)
-	variableType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope())
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup ensure variable type: %w, scope: %s", err, t.currentScope().String())
+// transformEnsureConstraint transforms a single constraint in an ensure statement
+func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constraint ast.ConstraintNode, varType ast.TypeNode) (goast.Expr, error) {
+	// First try built-in constraints
+	transformed, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, ensure.Variable, constraint)
+	if err == nil {
+		return transformed, nil
 	}
 
-	// Look up the declared type from the symbol table
-	declaredType := variableType
-	parts := strings.Split(string(ensure.Variable.Ident.ID), ".")
-	baseIdent := ast.Identifier(parts[0])
-	var symbolTypes []ast.TypeNode
-	if symbol, exists := t.currentScope().LookupVariable(baseIdent, true); exists {
-		if len(symbol.Types) > 0 {
-			declaredType = symbol.Types[0]
-			symbolTypes = symbol.Types
-		}
-	}
-
-	aliasChain := t.getTypeAliasChain(declaredType)
-	aliasChainStrs := make([]string, len(aliasChain))
-	for i, tn := range aliasChain {
-		aliasChainStrs[i] = string(tn.Ident)
-	}
-
-	t.log.WithFields(logrus.Fields{
-		"variable":     ensure.Variable.Ident.ID,
-		"declaredType": declaredType.Ident,
-		"inferredType": variableType.Ident,
-		"symbolTypes":  symbolTypes,
-		"aliasChain":   aliasChainStrs,
-		"assertion":    ensure.Assertion,
-	}).Debug("transformEnsureCondition: TypeGuardLookup (diagnostic)")
-
-	// --- Type Guard Lookup: Try all aliases and base type ---
-	var typeGuardExprs []goast.Expr
-	aliasChain = t.getTypeAliasChain(declaredType)
-	tried := map[ast.TypeIdent]bool{}
-	for _, typeToCheck := range aliasChain {
-		tried[typeToCheck.Ident] = true
-		for _, constraint := range ensure.Assertion.Constraints {
-			t.log.WithFields(logrus.Fields{
-				"constraint": constraint.Name,
-				"args":       constraint.Args,
-				"type":       typeToCheck.Ident,
-				"function":   "transformEnsureCondition",
-			}).Tracef("[AliasChain] Checking constraint")
-			for _, def := range t.TypeChecker.Defs {
-				if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
-					subjectType := tg.Subject.GetType()
-					if t.TypeChecker.IsTypeCompatible(typeToCheck, subjectType) {
-						t.log.WithFields(logrus.Fields{
-							"typeGuard": tg.Ident,
-							"type":      typeToCheck.Ident,
-							"subject":   subjectType.Ident,
-							"function":  "transformEnsureCondition",
-						}).Tracef("[AliasChain] Type guard is compatible")
-						typeGuardExpr, err := t.transformTypeGuardEnsure(ensure)
-						if err != nil {
-							t.log.Errorf("Failed to transform type guard ensure: %v", err)
-							return nil, err
-						}
-						typeGuardExprs = append(typeGuardExprs, typeGuardExpr)
-						break // Found a matching type guard for this constraint
-					}
-				}
+	// Then try type guards
+	typeGuardDef, err := t.lookupTypeGuardNode(constraint.Name)
+	if err == nil && typeGuardDef != nil {
+		// Check if the type guard is compatible with the variable type
+		if t.isTypeGuardCompatible(varType, typeGuardDef) {
+			// Transform the type guard into a function call using the hash-based name
+			hash, err := t.TypeChecker.Hasher.HashNode(*typeGuardDef)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash type guard node: %w", err)
 			}
-		}
-	}
-	// Also try the inferred type if not already tried
-	if !tried[variableType.Ident] {
-		for _, constraint := range ensure.Assertion.Constraints {
-			t.log.WithFields(logrus.Fields{
-				"constraint": constraint.Name,
-				"args":       constraint.Args,
-				"type":       variableType.Ident,
-				"function":   "transformEnsureCondition",
-			}).Tracef("[Inferred] Checking constraint")
-			for _, def := range t.TypeChecker.Defs {
-				if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
-					subjectType := tg.Subject.GetType()
-					if t.TypeChecker.IsTypeCompatible(variableType, subjectType) {
-						t.log.WithFields(logrus.Fields{
-							"typeGuard": tg.Ident,
-							"type":      variableType.Ident,
-							"subject":   subjectType.Ident,
-							"function":  "transformEnsureCondition",
-						}).Tracef("[Inferred] Type guard is compatible")
-						typeGuardExpr, err := t.transformTypeGuardEnsure(ensure)
-						if err != nil {
-							t.log.WithFields(logrus.Fields{
-								"error":    err,
-								"function": "transformEnsureCondition",
-							}).Errorf("Failed to transform type guard ensure")
-							return nil, err
-						}
-						typeGuardExprs = append(typeGuardExprs, typeGuardExpr)
-						break // Found a matching type guard for this constraint
-					}
-				}
+			guardFuncName := hash.ToGuardIdent()
+
+			// Transform the variable expression
+			expr, err := t.transformExpression(ensure.Variable)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform expression: %w", err)
 			}
+
+			// Build arguments list starting with the variable
+			args := []goast.Expr{expr}
+			for _, arg := range constraint.Args {
+				var argExpr goast.Expr
+				if arg.Type != nil {
+					argExpr = goast.NewIdent(string(arg.Type.Ident))
+				} else if arg.Shape != nil {
+					argExpr = goast.NewIdent("struct{}")
+				} else if arg.Value != nil {
+					switch v := (*arg.Value).(type) {
+					case ast.IntLiteralNode:
+						argExpr = &goast.BasicLit{
+							Kind:  gotoken.INT,
+							Value: fmt.Sprintf("%d", v.Value),
+						}
+					case ast.StringLiteralNode:
+						argExpr = &goast.BasicLit{
+							Kind:  gotoken.STRING,
+							Value: fmt.Sprintf("%q", v.Value),
+						}
+					case ast.BoolLiteralNode:
+						argExpr = goast.NewIdent(fmt.Sprintf("%v", v.Value))
+					case ast.FloatLiteralNode:
+						argExpr = &goast.BasicLit{
+							Kind:  gotoken.FLOAT,
+							Value: fmt.Sprintf("%f", v.Value),
+						}
+					default:
+						return nil, fmt.Errorf("unsupported value type in constraint argument: %T", v)
+					}
+				} else {
+					return nil, fmt.Errorf("unsupported constraint argument type")
+				}
+				args = append(args, argExpr)
+			}
+
+			// Build the type guard function call
+			callExpr := &goast.CallExpr{
+				Fun:  goast.NewIdent(string(guardFuncName)),
+				Args: args,
+			}
+			// Negate the call expression
+			return &goast.UnaryExpr{
+				Op: gotoken.NOT,
+				X:  callExpr,
+			}, nil
 		}
-	}
-	if len(typeGuardExprs) > 0 {
-		t.log.WithFields(logrus.Fields{
-			"typeGuardExprs": typeGuardExprs,
-			"function":       "transformEnsureCondition",
-		}).Tracef("Returning conjoined type guard expressions (alias chain)")
-		return conjoin(typeGuardExprs), nil
 	}
 
-	t.log.WithFields(logrus.Fields{
-		"variableType": variableType,
-		"assertion":    ensure.Assertion,
-		"function":     "transformEnsureCondition",
-	}).Tracef("No type guard found, transforming ensure condition")
-	expr, err := t.assertionTransformer.transformEnsureConstraints(ensure)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transform ensure conditions constraints: %w", err)
+	// If not found, try all base types in the alias chain
+	aliasChain := t.getTypeAliasChain(varType)
+	t.log.WithFields(map[string]interface{}{
+		"aliasChain": aliasChain,
+		"function":   "transformEnsureConstraint",
+	}).Debug("Alias chain for type alias")
+	for _, baseType := range aliasChain[1:] {
+		t.log.WithFields(map[string]interface{}{
+			"baseType":   baseType.Ident,
+			"constraint": constraint.Name,
+			"function":   "transformEnsureConstraint",
+		}).Debug("Trying type guard lookup for base type in alias chain")
+		guard, err := t.lookupTypeGuardNode(constraint.Name)
+		if err == nil && guard != nil && t.isTypeGuardCompatible(baseType, guard) {
+			// Construct a call expression using the guard's function name and the ensure variable
+			expr, err := t.transformExpression(ensure.Variable)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform expression: %w", err)
+			}
+			hash, err := t.TypeChecker.Hasher.HashNode(*guard)
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash type guard node: %w", err)
+			}
+			guardFuncName := hash.ToGuardIdent()
+			callExpr := &goast.CallExpr{
+				Fun:  goast.NewIdent(string(guardFuncName)),
+				Args: []goast.Expr{expr},
+			}
+			// Negate the call expression
+			return &goast.UnaryExpr{
+				Op: gotoken.NOT,
+				X:  callExpr,
+			}, nil
+		}
+		// Retry built-in constraint for base type
+		t.log.WithFields(map[string]interface{}{
+			"baseType":   baseType.Ident,
+			"constraint": constraint.Name,
+			"function":   "transformEnsureConstraint",
+		}).Debug("Retrying built-in constraint for base type in alias chain")
+		typeIdent := ast.TypeIdent(baseType.Ident)
+		if result, err := t.assertionTransformer.TransformBuiltinConstraint(typeIdent, ensure.Variable, constraint); err == nil {
+			return result, nil
+		}
 	}
-	return expr, nil
+
+	return nil, fmt.Errorf("no valid transformation found for constraint: %s", constraint.Name)
 }
 
-func (t *AssertionTransformer) transformEnsureCondition(ensure *ast.EnsureNode) ([]goast.Stmt, error) {
+// transformEnsureCondition transforms an ensure node into Go statements
+func (t *Transformer) transformEnsureCondition(ensure *ast.EnsureNode) ([]goast.Stmt, error) {
 	// Get the variable type from the symbol table
-	varType, err := t.transformer.TypeChecker.LookupVariableType(&ensure.Variable, t.transformer.currentScope())
+	varType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope())
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup variable type: %w", err)
 	}
 
-	// Log variable type information
-	variableHash, err := t.transformer.TypeChecker.Hasher.HashNode(ensure.Variable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash variable: %w", err)
-	}
-	t.transformer.log.WithFields(logrus.Fields{
-		"variable":     ensure.Variable.GetIdent(),
-		"declaredType": varType.Ident,
-		"inferredType": t.transformer.TypeChecker.InferredTypes[variableHash][0].Ident,
-	}).Trace("[transformEnsureCondition] Variable type information")
-
 	// Transform each constraint
 	var transformedStmts []goast.Stmt
 	for _, constraint := range ensure.Assertion.Constraints {
-		// Log constraint details
-		t.transformer.log.WithFields(logrus.Fields{
-			"constraint":     constraint.String(),
-			"constraintType": fmt.Sprintf("%T", constraint),
-		}).Trace("[transformEnsureCondition] Processing constraint")
-
-		// Check if this constraint name matches a registered type guard
-		typeGuardDef, err := t.transformer.lookupTypeGuardNode(constraint.Name)
+		transformed, err := t.transformEnsureConstraint(*ensure, constraint, varType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to lookup type guard node: %w", err)
-		}
-		if typeGuardDef != nil {
-			t.transformer.log.WithFields(logrus.Fields{
-				"typeGuard":     constraint.Name,
-				"typeGuardDef":  typeGuardDef,
-				"typeGuardType": fmt.Sprintf("%T", typeGuardDef),
-			}).Trace("[transformEnsureCondition] Found type guard constraint by name")
-
-			// Check if the type guard is compatible with the variable type
-			if t.isTypeGuardCompatible(varType, typeGuardDef) {
-				t.transformer.log.WithFields(logrus.Fields{
-					"typeGuard": constraint.Name,
-					"varType":   varType.Ident,
-				}).Trace("[transformEnsureCondition] Type guard is compatible")
-
-				// Transform the type guard into a function call
-				transformed, err := t.transformer.transformTypeGuardEnsure(ast.EnsureNode{
-					Variable:  ensure.Variable,
-					Assertion: ast.AssertionNode{Constraints: []ast.ConstraintNode{constraint}},
-				})
-				if err != nil {
-					return nil, fmt.Errorf("failed to transform type guard ensure: %w", err)
-				}
-				transformedStmts = append(transformedStmts, &goast.ExprStmt{X: transformed})
-				continue
-			}
-
-			t.transformer.log.WithFields(logrus.Fields{
-				"typeGuard": constraint.Name,
-				"varType":   varType.Ident,
-			}).Trace("[transformEnsureCondition] Type guard is not compatible")
-		}
-
-		// If not a type guard or not compatible, try to transform as a regular constraint
-		t.transformer.log.WithFields(logrus.Fields{
-			"constraint": constraint.String(),
-		}).Trace("[transformEnsureCondition] Attempting to transform as regular constraint")
-
-		transformed, err := t.transformer.assertionTransformer.transformEnsureConstraints(ast.EnsureNode{
-			Variable:  ensure.Variable,
-			Assertion: ast.AssertionNode{Constraints: []ast.ConstraintNode{constraint}},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform ensure conditions constraints: %w", err)
+			return nil, fmt.Errorf("failed to transform constraint: %w", err)
 		}
 		transformedStmts = append(transformedStmts, &goast.ExprStmt{X: transformed})
 	}

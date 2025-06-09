@@ -59,12 +59,34 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case *ast.TypeGuardNode:
 		tc.pushScope(n)
 
+		// Register type guard in Defs
+		tc.Defs[ast.TypeIdent(n.Ident)] = n
+
+		// Register type guard symbol in global scope
+		tc.storeSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+
+		// Register parameters in the current scope
+		for _, param := range n.Parameters() {
+			switch p := param.(type) {
+			case ast.SimpleParamNode:
+				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
+			case ast.DestructuredParamNode:
+				// Handle destructured params if needed
+				continue
+			}
+		}
+
+		// Recursively collect explicit types for each node in the body
+		for _, node := range n.Body {
+			if err := tc.collectExplicitTypes(node); err != nil {
+				return err
+			}
+		}
+
+		// Register the type guard in the type checker
 		tc.registerTypeGuard(n)
 
 		tc.popScope()
-
-		// Store type guard symbol in global scope
-		tc.storeSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 	case ast.EnsureNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
@@ -135,6 +157,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 				return err
 			}
 		}
+
 		tc.popScope()
 	}
 

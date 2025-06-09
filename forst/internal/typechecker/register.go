@@ -131,6 +131,10 @@ func (tc *TypeChecker) registerTypeGuard(guard *ast.TypeGuardNode) {
 	// Store type guard in Defs
 	if _, exists := tc.Defs[ast.TypeIdent(guard.Ident)]; !exists {
 		tc.Defs[ast.TypeIdent(guard.Ident)] = guard
+		tc.log.WithFields(logrus.Fields{
+			"guard":    guard.Ident,
+			"function": "registerTypeGuard",
+		}).Trace("Registered type guard")
 	}
 
 	// Store subject symbol in the current scope

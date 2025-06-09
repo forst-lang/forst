@@ -9,53 +9,24 @@ import (
 )
 
 // transformTypeGuardEnsure transforms a type guard ensure
-func (t *Transformer) transformTypeGuardEnsure(ensure ast.EnsureNode) (goast.Expr, error) {
-	// Look up the real type guard node by name
-	guardName := ensure.Assertion.Constraints[0].Name
-	typeGuardNode, err := t.lookupTypeGuardNode(guardName)
+func (t *Transformer) transformTypeGuardEnsure(ensure *ast.EnsureNode) ([]goast.Stmt, error) {
+	// Get the variable type from the symbol table
+	varType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope())
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup type guard node: %w", err)
+		return nil, fmt.Errorf("failed to lookup variable type: %w", err)
 	}
 
-	// Use hash-based guard function name
-	hash, err := t.TypeChecker.Hasher.HashNode(*typeGuardNode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash type guard node: %w", err)
-	}
-	guardFuncName := hash.ToGuardIdent()
-
-	if len(typeGuardNode.Parameters()) > 0 {
-		switch typeGuardNode.Parameters()[0].(type) {
-		case ast.SimpleParamNode:
-			expr, err := t.transformExpression(ensure.Variable)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform expression: %w", err)
-			}
-
-			return &goast.CallExpr{
-				Fun: goast.NewIdent(string(guardFuncName)),
-				Args: []goast.Expr{
-					expr,
-				},
-			}, nil
-		case ast.DestructuredParamNode:
-			return nil, fmt.Errorf("destructured param node not supported in type guard assertion")
+	// Transform each constraint
+	var transformedStmts []goast.Stmt
+	for _, constraint := range ensure.Assertion.Constraints {
+		transformed, err := t.transformEnsureConstraint(*ensure, constraint, varType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform constraint: %w", err)
 		}
-	} else {
-		return nil, fmt.Errorf("type guard has no parameters")
+		transformedStmts = append(transformedStmts, &goast.ExprStmt{X: transformed})
 	}
 
-	expr, err := t.transformExpression(ensure.Variable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transform expression: %w", err)
-	}
-
-	return &goast.CallExpr{
-		Fun: goast.NewIdent(string(guardFuncName)),
-		Args: []goast.Expr{
-			expr,
-		},
-	}, nil
+	return transformedStmts, nil
 }
 
 // Helper to look up a TypeGuardNode by name
@@ -65,13 +36,29 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 			t.log.WithFields(logrus.Fields{
 				"requested": name,
 				"candidate": tg.GetIdent(),
-			}).Trace("lookupTypeGuardNode: candidate check")
+				"function":  "lookupTypeGuardNode",
+			}).Trace("candidate check (value)")
 			if tg.GetIdent() == name {
 				t.log.WithFields(logrus.Fields{
 					"requested": name,
 					"found":     true,
-				}).Trace("lookupTypeGuardNode: found match")
+				}).Trace("lookupTypeGuardNode: found match (value)")
 				return &tg, nil
+			}
+		}
+		if tgp, ok := def.(*ast.TypeGuardNode); ok {
+			t.log.WithFields(logrus.Fields{
+				"requested": name,
+				"candidate": tgp.GetIdent(),
+				"function":  "lookupTypeGuardNode",
+			}).Trace("candidate check (pointer)")
+			if tgp.GetIdent() == name {
+				t.log.WithFields(logrus.Fields{
+					"requested": name,
+					"found":     true,
+					"function":  "lookupTypeGuardNode",
+				}).Trace("found match (pointer)")
+				return tgp, nil
 			}
 		}
 	}
@@ -79,45 +66,47 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 	t.log.WithFields(logrus.Fields{
 		"requested": name,
 		"found":     false,
-	}).Trace("lookupTypeGuardNode: not found")
+		"function":  "lookupTypeGuardNode",
+	}).Trace("not found")
 	return nil, fmt.Errorf("type guard not found: %s", name)
 }
 
-func (t *AssertionTransformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast.TypeGuardNode) bool {
-	t.transformer.log.WithFields(logrus.Fields{
+func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast.TypeGuardNode) bool {
+	t.log.WithFields(logrus.Fields{
 		"varType":   varType.Ident,
 		"typeGuard": typeGuard.GetIdent(),
-	}).Trace("[isTypeGuardCompatible] Checking type guard compatibility")
+		"function":  "isTypeGuardCompatible",
+	}).Trace("Checking type guard compatibility")
 
-	// Get the base type of the variable
-	baseType, err := t.transformer.getEnsureBaseType(ast.EnsureNode{Variable: ast.VariableNode{ExplicitType: varType}})
-	if err != nil {
-		t.transformer.log.WithError(err).Error("[isTypeGuardCompatible] Failed to get base type")
-		return false
-	}
-	t.transformer.log.WithFields(logrus.Fields{
+	// Use varType directly as the base type
+	baseType := varType
+	t.log.WithFields(logrus.Fields{
 		"baseType": baseType.Ident,
-	}).Trace("[isTypeGuardCompatible] Base type")
+		"function": "isTypeGuardCompatible",
+	}).Trace("Expected base type of type guard identified based on variable type")
 
 	// Check if the type guard is defined for the base type
 	for _, param := range typeGuard.Parameters() {
-		t.transformer.log.WithFields(logrus.Fields{
+		t.log.WithFields(logrus.Fields{
 			"paramType": param.GetType().Ident,
 			"baseType":  baseType.Ident,
-		}).Trace("[isTypeGuardCompatible] Checking parameter type")
+			"function":  "isTypeGuardCompatible",
+		}).Trace("Checking parameter type")
 
 		if param.GetType().Ident == baseType.Ident {
-			t.transformer.log.WithFields(logrus.Fields{
+			t.log.WithFields(logrus.Fields{
 				"typeGuard": typeGuard.GetIdent(),
 				"baseType":  baseType.Ident,
-			}).Trace("[isTypeGuardCompatible] Found compatible type guard")
+				"function":  "isTypeGuardCompatible",
+			}).Trace("Found compatible type guard")
 			return true
 		}
 	}
 
-	t.transformer.log.WithFields(logrus.Fields{
+	t.log.WithFields(logrus.Fields{
 		"typeGuard": typeGuard.GetIdent(),
 		"baseType":  baseType.Ident,
-	}).Trace("[isTypeGuardCompatible] No compatible type guard found")
+		"function":  "isTypeGuardCompatible",
+	}).Trace("No compatible type guard found")
 	return false
 }

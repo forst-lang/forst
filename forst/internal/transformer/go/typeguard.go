@@ -96,12 +96,18 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 
 // transformTypeGuard transforms a type guard into a Go function
 func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDecl, error) {
-	// Create function name
+	// Create function name with G_ prefix
 	guardHash, err := t.TypeChecker.Hasher.HashNode(guard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash guard: %s", err)
 	}
 	guardIdent := guardHash.ToGuardIdent()
+
+	t.log.WithFields(log.Fields{
+		"guard":      guard.Ident,
+		"function":   "transformTypeGuard",
+		"guardIdent": guardIdent,
+	}).Debug("Transforming type guard")
 
 	// Transform subject parameter
 	subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
@@ -120,6 +126,10 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	// Transform the body into a series of if-else blocks
 	var bodyStmts []goast.Stmt
 	for _, node := range guard.Body {
+		// Ensure the type guard parameter scope is active
+		if err := t.restoreScope(guard); err != nil {
+			return nil, fmt.Errorf("failed to restore type guard parameter scope: %s", err)
+		}
 		switch n := node.(type) {
 		case *ast.IfNode:
 			if err := t.restoreScope(*n); err != nil {
@@ -184,16 +194,30 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 				return nil, fmt.Errorf("failed to restore ensure statement scope in type guard: %s", err)
 			}
 
-			condExpr, err := t.transformEnsureCondition(n)
+			// Transform ensure statement into a boolean expression
+			// For type guards, we want to return true if the condition is met
+			condStmts, err := t.transformTypeGuardEnsure(&n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform ensure condition in type guard: %s", err)
 			}
-			log.Tracef("Transformed ensure condition: %+v (go expr: %s)", n, condExpr)
+			t.log.WithFields(log.Fields{
+				"ensure":   n,
+				"stmts":    condStmts,
+				"function": "transformTypeGuard",
+			}).Trace("Transformed ensure condition")
 
-			// Transform ensure statement into a guard
-			// If the assertion fails, return false
+			// If the condition is not met, return false
+			// Use the first statement's expression as the condition
+			if len(condStmts) == 0 {
+				return nil, fmt.Errorf("no statements generated from ensure condition")
+			}
+			exprStmt, ok := condStmts[0].(*goast.ExprStmt)
+			if !ok {
+				return nil, fmt.Errorf("first statement is not an expression statement")
+			}
+
 			bodyStmts = append(bodyStmts, &goast.IfStmt{
-				Cond: condExpr,
+				Cond: exprStmt.X,
 				Body: &goast.BlockStmt{
 					List: []goast.Stmt{
 						&goast.ReturnStmt{
@@ -207,15 +231,15 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		}
 	}
 
-	// Add final return true if all ensures passed
+	// Add default return true at the end
 	bodyStmts = append(bodyStmts, &goast.ReturnStmt{
 		Results: []goast.Expr{
 			goast.NewIdent("true"),
 		},
 	})
 
-	// Create function declaration
-	return &goast.FuncDecl{
+	// Create the function declaration
+	decl := &goast.FuncDecl{
 		Recv: nil,
 		Name: goast.NewIdent(string(guardIdent)),
 		Type: &goast.FuncType{
@@ -233,5 +257,16 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		Body: &goast.BlockStmt{
 			List: bodyStmts,
 		},
-	}, nil
+	}
+
+	t.log.WithFields(log.Fields{
+		"guard":      guard.Ident,
+		"function":   "transformTypeGuard",
+		"guardIdent": guardIdent,
+		"declName":   decl.Name.Name,
+		"params":     len(params),
+		"bodyStmts":  len(bodyStmts),
+	}).Debug("Created type guard function declaration")
+
+	return decl, nil
 }

@@ -33,7 +33,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: MinConstraint,
+							Name: string(MinConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.IntLiteralNode{Value: 5, Type: ast.TypeNode{Ident: ast.TypeInt}})},
 							},
@@ -68,7 +68,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.IntLiteralNode{Value: 20, Type: ast.TypeNode{Ident: ast.TypeInt}})},
 							},
@@ -95,7 +95,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: GreaterThanConstraint,
+							Name: string(GreaterThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.FloatLiteralNode{Value: 5.0, Type: ast.TypeNode{Ident: ast.TypeFloat}})},
 							},
@@ -122,7 +122,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: TrueConstraint,
+							Name: string(TrueConstraint),
 						},
 					},
 				},
@@ -154,7 +154,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: FalseConstraint,
+							Name: string(FalseConstraint),
 						},
 					},
 				},
@@ -178,7 +178,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: NilConstraint,
+							Name: string(NilConstraint),
 						},
 					},
 				},
@@ -226,7 +226,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.StringLiteralNode{Value: "20", Type: ast.TypeNode{Ident: ast.TypeString}})},
 							},
@@ -245,7 +245,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 						},
 					},
 				},

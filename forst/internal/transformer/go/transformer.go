@@ -42,6 +42,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		return nil, err
 	}
 
+	// Process all definitions first
 	for _, def := range t.TypeChecker.Defs {
 		switch def := def.(type) {
 		case ast.TypeDefNode:
@@ -51,7 +52,21 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			}
 			t.Output.AddType(decl)
 		case ast.TypeGuardNode:
+			t.log.WithFields(logrus.Fields{
+				"guard":    def.GetIdent(),
+				"function": "TransformForstFileToGo",
+			}).Debug("Processing type guard definition (value)")
 			decl, err := t.transformTypeGuard(def)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
+			}
+			t.Output.AddFunction(decl)
+		case *ast.TypeGuardNode:
+			t.log.WithFields(logrus.Fields{
+				"guard":    def.GetIdent(),
+				"function": "TransformForstFileToGo",
+			}).Debug("Processing type guard definition (pointer)")
+			decl, err := t.transformTypeGuard(*def)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
@@ -73,6 +88,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		}
 	}
 
+	// Then process the rest of the nodes
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case ast.PackageNode:
@@ -91,6 +107,13 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			t.Output.AddFunction(decl)
 		}
 	}
+
+	// Log the final output
+	t.log.WithFields(logrus.Fields{
+		"function": "TransformForstFileToGo",
+		"types":    len(t.Output.types),
+		"funcs":    len(t.Output.functions),
+	}).Debug("Generated Go file")
 
 	return t.Output.GenerateFile()
 }

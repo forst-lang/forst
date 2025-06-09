@@ -5,23 +5,27 @@ import (
 	"forst/internal/ast"
 )
 
+type BuiltinConstraint string
+
 const (
 	// MinConstraint is the built-in Min constraint in Forst
-	MinConstraint = "Min"
+	MinConstraint BuiltinConstraint = "Min"
 	// MaxConstraint is the built-in Max constraint in Forst
-	MaxConstraint = "Max"
+	MaxConstraint BuiltinConstraint = "Max"
 	// LessThanConstraint is the built-in LessThan constraint in Forst
-	LessThanConstraint = "LessThan"
+	LessThanConstraint BuiltinConstraint = "LessThan"
 	// GreaterThanConstraint is the built-in GreaterThan constraint in Forst
-	GreaterThanConstraint = "GreaterThan"
+	GreaterThanConstraint BuiltinConstraint = "GreaterThan"
 	// HasPrefixConstraint is the built-in HasPrefix constraint in Forst
-	HasPrefixConstraint = "HasPrefix"
+	HasPrefixConstraint BuiltinConstraint = "HasPrefix"
 	// TrueConstraint is the built-in True constraint in Forst
-	TrueConstraint = "True"
+	TrueConstraint BuiltinConstraint = "True"
 	// FalseConstraint is the built-in False constraint in Forst
-	FalseConstraint = "False"
+	FalseConstraint BuiltinConstraint = "False"
 	// NilConstraint is the built-in Nil constraint in Forst
-	NilConstraint = "Nil"
+	NilConstraint BuiltinConstraint = "Nil"
+	// NotNilConstraint is the built-in NotNil constraint in Forst
+	NotNilConstraint BuiltinConstraint = "NotNil"
 )
 
 const (

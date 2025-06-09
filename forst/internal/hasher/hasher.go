@@ -711,6 +711,7 @@ func (h NodeHash) toBase58() string {
 }
 
 // ToTypeIdent generates a string name for a type based on its hash value
+// with T_ prefix
 func (h NodeHash) ToTypeIdent() ast.TypeIdent {
 	if uint64(h) == NilHash {
 		return ast.TypeIdent("T_Invalid")
@@ -719,6 +720,7 @@ func (h NodeHash) ToTypeIdent() ast.TypeIdent {
 }
 
 // ToGuardIdent generates a string name for a guard function based on its hash value
+// with G_ prefix
 func (h NodeHash) ToGuardIdent() ast.TypeIdent {
 	if uint64(h) == NilHash {
 		return ast.TypeIdent("G_Invalid")

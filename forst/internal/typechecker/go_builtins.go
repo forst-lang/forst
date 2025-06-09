@@ -358,13 +358,34 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		return true
 	}
 
-	// Check if actual type is a subtype of expected type
-	// This would involve checking type definitions and assertions
-	// For now, we'll just check if the actual type is defined in our type system
-	if _, exists := tc.Defs[actual.Ident]; exists {
-		// TODO: Implement proper subtype checking
-		// For now, we'll assume any defined type is compatible with its base type
-		return true
+	// Check if actual type is an alias of expected type
+	actualDef, actualExists := tc.Defs[actual.Ident]
+	if actualExists {
+		if typeDef, ok := actualDef.(ast.TypeDefNode); ok {
+			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
+					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
+					if tc.IsTypeCompatible(baseType, expected) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// Check if expected type is an alias of actual type
+	expectedDef, expectedExists := tc.Defs[expected.Ident]
+	if expectedExists {
+		if typeDef, ok := expectedDef.(ast.TypeDefNode); ok {
+			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
+					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
+					if tc.IsTypeCompatible(actual, baseType) {
+						return true
+					}
+				}
+			}
+		}
 	}
 
 	return false

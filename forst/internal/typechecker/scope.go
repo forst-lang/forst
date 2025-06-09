@@ -40,20 +40,25 @@ func (s *Scope) RegisterSymbol(name ast.Identifier, types []ast.TypeNode, kind S
 }
 
 // LookupVariable recursively searches for a variable in the current scope and its ancestors
-func (s *Scope) LookupVariable(name ast.Identifier, allowParameter bool) (Symbol, bool) {
+func (s *Scope) LookupVariable(name ast.Identifier) (Symbol, bool) {
 	if symbol, ok := s.Symbols[name]; ok {
 		if symbol.Kind == SymbolVariable {
 			return symbol, true
 		}
 		if symbol.Kind == SymbolParameter {
-			if allowParameter {
+			if s.IsFunction() || s.IsTypeGuard() {
 				return symbol, true
 			}
-			s.log.Debugf("LookupVariable: found parameter %s in scope %s but parameters are ignored", name, s.String())
+			s.log.WithFields(logrus.Fields{
+				"name":     name,
+				"scope":    s.String(),
+				"kind":     symbol.Kind,
+				"function": "LookupVariable",
+			}).Debug("Found parameter but parameters are ignored")
 		}
 	}
 	if s.Parent != nil {
-		return s.Parent.LookupVariable(name, false)
+		return s.Parent.LookupVariable(name)
 	}
 	return Symbol{}, false
 }
@@ -126,6 +131,9 @@ func (s *Scope) IsTypeGuard() bool {
 		panic("Cannot call IsTypeGuard on global scope")
 	}
 	_, ok := (*s.Node).(ast.TypeGuardNode)
+	if !ok {
+		_, ok = (*s.Node).(*ast.TypeGuardNode)
+	}
 	return ok
 }
 

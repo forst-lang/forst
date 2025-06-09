@@ -89,9 +89,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Convert ensure to if statement with panic
-		condition, err := t.transformEnsureCondition(s)
+		stmts, err := t.transformEnsureCondition(&s)
 		if err != nil {
 			return nil, err
+		}
+		var condition goast.Expr
+		if len(stmts) > 0 {
+			if exprStmt, ok := stmts[0].(*goast.ExprStmt); ok {
+				condition = exprStmt.X
+			} else {
+				return nil, fmt.Errorf("expected ExprStmt from transformEnsureCondition, got %T", stmts[0])
+			}
+		} else {
+			return nil, fmt.Errorf("transformEnsureCondition returned no statements")
 		}
 
 		// Negate for variable assertions and type guards, but not for other constraints
