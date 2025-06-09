@@ -1,4 +1,4 @@
-.PHONY: test run-examples
+.PHONY: test test-typechecker test-parser test-ast test-lexer test-transformer run-example run-example-shape-guard run-example-basic-guard run-example-basic run-example-basic-function run-example-ensure run-example-pointers test-examples
 
 # Run all tests
 test:
