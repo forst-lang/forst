@@ -1,4 +1,4 @@
-package typechecker
+package hasher
 
 import (
 	"forst/internal/ast"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestStructuralHasher_Consistency(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 
 	// Test that same structures produce same hashes
 	t.Run("same structures produce same hashes", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 }
 
 func TestNodeHash_ToTypeIdent(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 	node := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 	hash := hasher.HashNode(node)
 
@@ -159,7 +159,7 @@ func TestNodeHash_ToTypeIdent(t *testing.T) {
 }
 
 func TestNodeHash_ToGuardIdent(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 	node := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 	hash := hasher.HashNode(node)
 

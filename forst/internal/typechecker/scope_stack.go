@@ -3,23 +3,30 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/hasher"
 
 	"github.com/sirupsen/logrus"
 )
+
+// NodeHash is an alias for hasher.NodeHash
+type NodeHash = hasher.NodeHash
 
 // ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {
 	scopes  map[NodeHash]*Scope
 	current *Scope
-	Hasher  *StructuralHasher
+	Hasher  *hasher.StructuralHasher
 	log     *logrus.Logger
 }
 
 // NewScopeStack creates a new stack with a global scope
-func NewScopeStack(hasher *StructuralHasher, log *logrus.Logger) *ScopeStack {
+func NewScopeStack(hasher *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
 	globalScope := NewScope(nil, nil, log)
+	scopes := make(map[NodeHash]*Scope)
+	scopes[hasher.HashNode(nil)] = globalScope
+
 	return &ScopeStack{
-		scopes:  make(map[NodeHash]*Scope),
+		scopes:  scopes,
 		current: globalScope,
 		Hasher:  hasher,
 		log:     log,

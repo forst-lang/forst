@@ -3,6 +3,7 @@ package typechecker
 
 import (
 	"forst/internal/ast"
+	"forst/internal/hasher"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +18,7 @@ type TypeChecker struct {
 	Uses map[ast.TypeIdent][]ast.Node
 	// Maps function identifiers to their parameter and return type signatures
 	Functions     map[ast.Identifier]FunctionSignature
-	Hasher        *StructuralHasher
+	Hasher        *hasher.StructuralHasher
 	path          NodePath // Tracks current position while traversing AST
 	scopeStack    *ScopeStack
 	inferredTypes map[ast.Node][]ast.TypeNode
@@ -39,14 +40,15 @@ func New(log *logrus.Logger) *TypeChecker {
 		log = logrus.New()
 		log.Warnf("No logger provided, using default logger")
 	}
+	h := hasher.New()
 	return &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
 		Defs:                make(map[ast.TypeIdent]ast.Node),
 		Uses:                make(map[ast.TypeIdent][]ast.Node),
 		Functions:           make(map[ast.Identifier]FunctionSignature),
-		Hasher:              &StructuralHasher{},
+		Hasher:              h,
 		path:                make(NodePath, 0),
-		scopeStack:          NewScopeStack(NewStructuralHasher(), log),
+		scopeStack:          NewScopeStack(h, log),
 		inferredTypes:       make(map[ast.Node][]ast.TypeNode),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),

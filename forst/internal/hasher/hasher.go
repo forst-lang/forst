@@ -1,4 +1,4 @@
-package typechecker
+package hasher
 
 import (
 	"encoding/binary"
@@ -10,21 +10,21 @@ import (
 	"sort"
 )
 
+// NodeHash is a unique identifier for an AST node
+type NodeHash uint64
+
 // StructuralHasher generates and tracks structural hashes
 type StructuralHasher struct {
 	// Map from hash to type (uint64 is the FNV-1a 64-bit hash)
-	hashes map[uint64]ast.TypeNode
+	hashes map[NodeHash]ast.TypeNode
 }
 
-// NewStructuralHasher creates a new StructuralHasher
-func NewStructuralHasher() *StructuralHasher {
+// New creates a new StructuralHasher
+func New() *StructuralHasher {
 	return &StructuralHasher{
-		hashes: make(map[uint64]ast.TypeNode),
+		hashes: make(map[NodeHash]ast.TypeNode),
 	}
 }
-
-// NodeHash is a unique identifier for an AST node
-type NodeHash uint64
 
 // NodeKind maps AST node types to unique uint8 identifiers for hashing
 var NodeKind = map[string]uint8{
