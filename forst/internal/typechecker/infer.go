@@ -130,7 +130,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.TypeDefNode:
 		if assertionExpr, ok := n.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
 			tc.log.Debugf("[TypeDefNode] Merging fields for type %s", n.Ident)
-			mergedFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
+			mergedFields := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
 			tc.log.Debugf("[TypeDefNode] Merged fields for %s: %v", n.Ident, mergedFields)
 			shape := ast.ShapeNode{
 				Fields: mergedFields,

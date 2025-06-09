@@ -44,7 +44,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 
 			// If the field has an assertion, we need to merge it with the shape type
 			if field.Assertion != nil {
-				mergedFields := tc.resolveMergedShapeFields(field.Assertion)
+				mergedFields := tc.resolveShapeFieldsFromAssertion(field.Assertion)
 				for k, v := range mergedFields {
 					field.Shape.Fields[k] = v
 				}

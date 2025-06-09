@@ -42,7 +42,7 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 					}
 				} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
 					if assertionExpr.Assertion != nil {
-						baseFields := tc.resolveMergedShapeFields(assertionExpr.Assertion)
+						baseFields := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
 						for k, v := range baseFields {
 							mergedFields[k] = v
 							log.Debugf("[inferAssertionType] Added field from base assertion: %s => %+v", k, v)

@@ -148,7 +148,7 @@ func (tc *TypeChecker) lookupFieldInAssertion(baseType ast.TypeNode, fieldName a
 		return ast.TypeNode{}, fmt.Errorf("no assertion found")
 	}
 
-	mergedFields := tc.resolveMergedShapeFields(assertion)
+	mergedFields := tc.resolveShapeFieldsFromAssertion(assertion)
 	field, exists := mergedFields[string(fieldName.ID)]
 	if !exists {
 		return ast.TypeNode{}, fmt.Errorf("field not found in assertion")
