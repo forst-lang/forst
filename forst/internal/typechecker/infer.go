@@ -3,6 +3,8 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // inferNodeTypes handles type inference for a list of nodes
@@ -189,6 +191,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 
 		// Store type guard in global scope with void return type
+		tc.log.WithFields(log.Fields{
+			"ident":  guardNode.Ident,
+			"params": guardNode.Parameters(),
+		}).Trace("inferNodeType: TypeGuardNode symbol registration")
 		tc.storeSymbol(ast.Identifier(guardNode.Ident), []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		tc.popScope()
