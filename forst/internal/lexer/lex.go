@@ -8,7 +8,7 @@ import (
 
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // Lex converts the input into a slice of tokens
@@ -27,7 +27,10 @@ func (l *Lexer) Lex() []ast.Token {
 		line = bytes.TrimRight(line, "\n")
 		l.location.Column = 0
 
-		l.log.Tracef("Processing line %d: %q\n", l.location.LineNum, line)
+		l.log.WithFields(logrus.Fields{
+			"function": "Lex",
+			"line":     l.location.LineNum,
+		}).Tracef("Processing line")
 
 		// Handle accumulating block comment
 		if l.accumulatingBlockComment {
@@ -221,6 +224,12 @@ func (l *Lexer) Lex() []ast.Token {
 
 // storeToken adds a token to the lexer's token list
 func (l *Lexer) storeToken(token ast.Token) {
-	log.Tracef("Storing token: Type=%q, Value=%q, Line=%d, Column=%d\n", token.Type, token.Value, token.Line, token.Column)
+	l.log.WithFields(logrus.Fields{
+		"function": "storeToken",
+		"value":    token.Value,
+		"type":     token.Type,
+		"line":     token.Line,
+		"column":   token.Column,
+	}).Tracef("Storing token")
 	l.tokens = append(l.tokens, token)
 }

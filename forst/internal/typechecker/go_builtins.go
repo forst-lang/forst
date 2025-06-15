@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // BuiltinFunction represents a built-in function with its type signature
@@ -393,10 +393,16 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 
 // checkBuiltinFunctionCall validates a call to a built-in function
 func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
-	log.Debugf("[checkBuiltinFunctionCall] Checking call to %s with %d args", fn.Name, len(args))
+	tc.log.WithFields(logrus.Fields{
+		"function":   "checkBuiltinFunctionCall",
+		"calledFn":   fn.Name,
+		"argsLength": len(args),
+	}).Debugf("Validating builtin function call")
 	// Check argument count
 	if !fn.IsVarArgs && len(args) != len(fn.ParamTypes) {
-		log.Errorf("[checkBuiltinFunctionCall] %s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 		return nil, fmt.Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 	}
 
@@ -404,12 +410,18 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 	for i, arg := range args {
 		argType, err := tc.inferExpressionType(arg)
 		if err != nil {
-			log.Errorf("[checkBuiltinFunctionCall] Error inferring type for argument %d: %v", i+1, err)
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("Error inferring type for argument %d: %v", i+1, err)
 			return nil, err
 		}
-		log.Debugf("[checkBuiltinFunctionCall] Arg %d inferred type: %+v", i+1, argType)
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Debugf("Arg %d inferred type: %+v", i+1, argType)
 		if len(argType) != 1 {
-			log.Errorf("[checkBuiltinFunctionCall] %s() argument %d must have a single type, got %d", fn.Name, i+1, len(argType))
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("%s() argument %d must have a single type, got %d", fn.Name, i+1, len(argType))
 			return nil, fmt.Errorf("%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
@@ -417,10 +429,14 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		if !fn.IsVarArgs {
 			expectedType = fn.ParamTypes[i]
 		}
-		log.Debugf("[checkBuiltinFunctionCall] Arg %d expected type: %+v", i+1, expectedType)
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Debugf("Arg %d expected type: %+v", i+1, expectedType)
 
 		if !tc.IsTypeCompatible(argType[0], expectedType) {
-			log.Errorf("[checkBuiltinFunctionCall] %s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 			return nil, fmt.Errorf("%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 		}

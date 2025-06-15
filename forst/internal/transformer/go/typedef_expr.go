@@ -5,7 +5,7 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // TODO: Implement binary type expressions
@@ -17,7 +17,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		baseTypeIdent, err := t.getAssertionBaseTypeIdent(e.Assertion)
 		if err != nil {
 			err = fmt.Errorf("failed to get assertion base type ident during transformation: %w", err)
-			log.WithError(err).Error("transforming assertion base type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming assertion base type ident failed")
 			return nil, err
 		}
 		if baseTypeIdent.Name == "trpc.Mutation" || baseTypeIdent.Name == "trpc.Query" {
@@ -35,7 +38,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 						expr, err := t.transformShapeType(shape)
 						if err != nil {
 							err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
-							log.WithError(err).Error("transforming shape type failed")
+							t.log.WithFields(logrus.Fields{
+								"function": "transformTypeDefExpr",
+								"expr":     expr,
+							}).WithError(err).Error("transforming shape type failed")
 							return nil, err
 						}
 						inputField := goast.Field{
@@ -66,7 +72,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		hash, err := t.TypeChecker.Hasher.HashNode(e)
 		if err != nil {
 			err = fmt.Errorf("failed to hash type def expr during transformation: %w", err)
-			log.WithError(err).Error("transforming type def expr failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming type def expr failed")
 			return nil, err
 		}
 		typeAliasName := hash.ToTypeIdent()
@@ -80,7 +89,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		expr, err := t.transformShapeType(&shape)
 		if err != nil {
 			err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
-			log.WithError(err).Error("transforming shape type failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming shape type failed")
 			return nil, err
 		}
 		return expr, nil
@@ -110,7 +122,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		return &result, nil
 	default:
 		err := fmt.Errorf("unknown type def expr: %T", expr)
-		log.WithError(err).Error("transforming type def expr failed")
+		t.log.WithFields(logrus.Fields{
+			"function": "transformTypeDefExpr",
+			"expr":     expr,
+		}).WithError(err).Error("transforming type def expr failed")
 		return nil, err
 	}
 }

@@ -6,13 +6,15 @@ import (
 	goast "go/ast"
 	"go/token"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, error) {
 	expr, err := t.transformTypeDefExpr(node.Expr)
 	if err != nil {
-		log.Error(fmt.Errorf("failed to transform type def expr during transformation: %s", err))
+		t.log.WithFields(logrus.Fields{
+			"function": "transformTypeDef",
+		}).WithError(err).Error("failed to transform type def expr during transformation")
 		return nil, err
 	}
 
@@ -58,7 +60,9 @@ func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*
 		ident, err := transformTypeIdent(*assertion.BaseType)
 		if err != nil {
 			err = fmt.Errorf("failed to transform type ident during getAssertionBaseTypeIdent: %w", err)
-			log.WithError(err).Error("transforming assertion base type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "getAssertionBaseTypeIdent",
+			}).WithError(err).Error("transforming assertion base type ident failed")
 			return nil, err
 		}
 		return ident, nil
@@ -67,14 +71,18 @@ func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*
 	typeNode, err := t.TypeChecker.LookupAssertionType(assertion)
 	if err != nil {
 		err = fmt.Errorf("failed to lookup assertion type during getAssertionBaseTypeIdent: %w", err)
-		log.WithError(err).Error("transforming assertion base type ident failed")
+		t.log.WithFields(logrus.Fields{
+			"function": "getAssertionBaseTypeIdent",
+		}).WithError(err).Error("transforming assertion base type ident failed")
 		return nil, err
 	}
 
 	ident, err := transformTypeIdent(typeNode.Ident)
 	if err != nil {
 		err = fmt.Errorf("failed to transform type ident during getAssertionBaseTypeIdent: %w", err)
-		log.WithError(err).Error("transforming assertion base type ident failed")
+		t.log.WithFields(logrus.Fields{
+			"function": "getAssertionBaseTypeIdent",
+		}).WithError(err).Error("transforming assertion base type ident failed")
 		return nil, err
 	}
 	return ident, nil
@@ -201,7 +209,9 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		ident, err := transformTypeIdent(typeNode.Ident)
 		if err != nil {
 			err = fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
-			log.WithError(err).Error("transforming type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "getTypeAliasNameForTypeNode",
+			}).WithError(err).Error("transforming type ident failed")
 			return "", err
 		}
 		if ident != nil {
@@ -221,7 +231,9 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 				hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
 				if err != nil {
 					err = fmt.Errorf("failed to hash type alias name for type node %s: %w", typeNode.Ident, err)
-					log.WithError(err).Error("transforming type alias name failed")
+					t.log.WithFields(logrus.Fields{
+						"function": "getTypeAliasNameForTypeNode",
+					}).WithError(err).Error("transforming type alias name failed")
 					return "", err
 				}
 				return string(hash.ToTypeIdent()), nil

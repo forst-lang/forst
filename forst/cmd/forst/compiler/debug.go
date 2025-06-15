@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // logMemUsage logs the memory usage of the compiler
@@ -20,7 +20,7 @@ func (c *Compiler) logMemUsage(phase string, before, after runtime.MemStats) {
 	allocDelta := after.TotalAlloc - before.TotalAlloc
 	heapDelta := after.HeapAlloc - before.HeapAlloc
 
-	c.log.WithFields(log.Fields{
+	c.log.WithFields(logrus.Fields{
 		"phase":          phase,
 		"allocatedBytes": allocDelta,
 		"heapBytes":      heapDelta,
@@ -30,7 +30,7 @@ func (c *Compiler) logMemUsage(phase string, before, after runtime.MemStats) {
 func (c *Compiler) debugPrintTokens(tokens []ast.Token) {
 	c.log.Debug("=== Tokens ===")
 	for _, t := range tokens {
-		c.log.WithFields(log.Fields{
+		c.log.WithFields(logrus.Fields{
 			"location": fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column),
 			"type":     string(t.Type),
 			"value":    t.Value,
@@ -49,7 +49,7 @@ func (c *Compiler) debugPrintForstAST(forstAST []ast.Node) {
 		case ast.ImportGroupNode:
 			c.log.WithField("importGroup", n.Imports).Debug("Import group")
 		case ast.FunctionNode:
-			fields := log.Fields{
+			fields := logrus.Fields{
 				"name": n.GetIdent(),
 				"body": n.Body,
 			}
@@ -102,7 +102,7 @@ func (c *Compiler) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 			returnTypes[i] = rt.String()
 		}
 
-		c.log.WithFields(log.Fields{
+		c.log.WithFields(logrus.Fields{
 			"function":    id,
 			"parameters":  params,
 			"returnTypes": returnTypes,
@@ -115,7 +115,7 @@ func (c *Compiler) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			expr = typeDef.Expr.String()
 		}
-		c.log.WithFields(log.Fields{
+		c.log.WithFields(logrus.Fields{
 			"definition": id,
 			"type":       fmt.Sprintf("%T", def),
 			"expr":       expr,

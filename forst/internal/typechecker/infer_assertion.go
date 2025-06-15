@@ -5,7 +5,7 @@ import (
 	"forst/internal/ast"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // TODO: Improve assertion type inference
@@ -19,13 +19,19 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		return nil, nil
 	}
 
-	log.Debugf("[inferAssertionType] Inferring type for assertion: %+v", assertion)
+	tc.log.WithFields(logrus.Fields{
+		"function":  "inferAssertionType",
+		"assertion": assertion,
+	}).Tracef("Inferring type for assertion")
 
 	// First, get the base type if it exists
 	var baseType ast.TypeIdent
 	if assertion.BaseType != nil {
 		baseType = *assertion.BaseType
-		log.Debugf("[inferAssertionType] Base type: %s", baseType)
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferAssertionType",
+			"baseType": baseType,
+		}).Tracef("Assertion has base type")
 	}
 
 	// Create a new shape type to hold the merged fields
@@ -38,14 +44,22 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
 					for k, v := range shapeExpr.Shape.Fields {
 						mergedFields[k] = v
-						log.Debugf("[inferAssertionType] Added field from base type: %s => %+v", k, v)
+						tc.log.WithFields(logrus.Fields{
+							"function": "inferAssertionType",
+							"field":    k,
+							"value":    v,
+						}).Tracef("Added field from base type")
 					}
 				} else if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
 					if assertionExpr.Assertion != nil {
 						baseFields := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
 						for k, v := range baseFields {
 							mergedFields[k] = v
-							log.Debugf("[inferAssertionType] Added field from base assertion: %s => %+v", k, v)
+							tc.log.WithFields(logrus.Fields{
+								"function": "inferAssertionType",
+								"field":    k,
+								"value":    v,
+							}).Tracef("Added field from base assertion")
 						}
 					}
 				}
@@ -55,7 +69,10 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 
 	// Process each constraint
 	for _, constraint := range assertion.Constraints {
-		log.Debugf("[inferAssertionType] Processing constraint: %s", constraint.Name)
+		tc.log.WithFields(logrus.Fields{
+			"function":   "inferAssertionType",
+			"constraint": constraint.Name,
+		}).Tracef("Processing constraint")
 
 		// Get the type guard definition
 		guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]
@@ -71,8 +88,12 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 			guardNode = guardDef.(ast.TypeGuardNode)
 		}
 
-		log.Debugf("[inferAssertionType] Subject parameter: %s: %s", guardNode.Subject.GetIdent(), guardNode.Subject.GetType().Ident)
-		log.Debugf("[inferAssertionType] Additional parameters: %+v", guardNode.Parameters())
+		tc.log.WithFields(logrus.Fields{
+			"function":    "inferAssertionType",
+			"subject":     guardNode.Subject.GetIdent(),
+			"subjectType": guardNode.Subject.GetType().Ident,
+			"parameters":  guardNode.Parameters(),
+		}).Tracef("Subject parameter and additional parameters")
 
 		// Map constraint arguments to parameters
 		argMap := make(map[string]ast.Node)
@@ -80,20 +101,27 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 			if i+1 < len(guardNode.Parameters()) {
 				param := guardNode.Parameters()[i+1] // +1 to skip subject parameter
 				argMap[param.GetIdent()] = arg
-				log.Debugf("[inferAssertionType] Mapping parameter %s to argument %+v", param.GetIdent(), arg)
+				tc.log.WithFields(logrus.Fields{
+					"function": "inferAssertionType",
+					"param":    param.GetIdent(),
+					"arg":      fmt.Sprintf("%+v", arg),
+				}).Tracef("Mapping parameter to argument")
 			}
 		}
 
-		// Special handling for mutation types
+		// TODO: Fix this hardcoded Input constraint
 		if constraint.Name == "Input" {
 			// For Input constraint, we want to keep existing fields and add new input fields
 			// First, preserve the ctx field if it exists
+			// TODO: Fix this hardcoded ctx field
 			if ctxField, hasCtx := mergedFields["ctx"]; hasCtx {
 				// Create a temporary map to store fields
 				tempFields := make(map[string]ast.ShapeFieldNode)
+				// TODO: Fix this hardcoded ctx field
 				tempFields["ctx"] = ctxField
 
 				// Add the input field from the argument
+				// TODO: Fix this hardcoded input field
 				if arg, ok := argMap["input"]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
@@ -103,7 +131,11 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 							}
 							for k, v := range argNode.Shape.Fields {
 								tempFields[k] = v
-								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+								tc.log.WithFields(logrus.Fields{
+									"function": "inferAssertionType",
+									"field":    k,
+									"value":    v,
+								}).Tracef("Added field from mutation input")
 							}
 						}
 					}
@@ -113,6 +145,7 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 				mergedFields = tempFields
 			} else {
 				// If no ctx field exists, just add the input fields
+				// TODO: Fix this hardcoded input field
 				if arg, ok := argMap["input"]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
@@ -122,7 +155,11 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 							}
 							for k, v := range argNode.Shape.Fields {
 								mergedFields[k] = v
-								log.Debugf("[inferAssertionType] Added field from mutation input: %s => %+v", k, v)
+								tc.log.WithFields(logrus.Fields{
+									"function": "inferAssertionType",
+									"field":    k,
+									"value":    v,
+								}).Tracef("Added field from mutation input")
 							}
 						}
 					}
@@ -153,7 +190,11 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 							// If it's a shape, merge its fields
 							for k, v := range argNode.Shape.Fields {
 								mergedFields[k] = v
-								log.Debugf("[inferAssertionType] Added field from shape argument: %s => %+v", k, v)
+								tc.log.WithFields(logrus.Fields{
+									"function": "inferAssertionType",
+									"field":    k,
+									"value":    v,
+								}).Tracef("Added field from shape argument")
 							}
 						} else if argNode.Type != nil {
 							// Use the concrete type from the argument instead of the generic Shape
@@ -163,7 +204,11 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 									BaseType: &argType,
 								},
 							}
-							log.Debugf("[inferAssertionType] Added field with concrete type: %s => %s", param.GetIdent(), argNode.Type.Ident)
+							tc.log.WithFields(logrus.Fields{
+								"function": "inferAssertionType",
+								"field":    param.GetIdent(),
+								"value":    argNode.Type.Ident,
+							}).Tracef("Added field with concrete type")
 						}
 					}
 				}
@@ -177,8 +222,12 @@ func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		return nil, fmt.Errorf("failed to hash assertion during inferAssertionType: %s", err)
 	}
 	typeIdent := hash.ToTypeIdent()
-	log.Debugf("[inferAssertionType] Stored shape type with fields assertion=%+v fields=%+v typeIdent=%s",
-		assertion, mergedFields, typeIdent)
+	tc.log.WithFields(logrus.Fields{
+		"function":  "inferAssertionType",
+		"assertion": assertion,
+		"fields":    mergedFields,
+		"typeIdent": typeIdent,
+	}).Tracef("Stored shape type with fields")
 
 	// Store the shape type
 	tc.Defs[typeIdent] = ast.TypeDefNode{

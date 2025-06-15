@@ -5,7 +5,7 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // transformType transforms a Forst type node into a Go type
@@ -103,7 +103,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	}
 	guardIdent := guardHash.ToGuardIdent()
 
-	t.log.WithFields(log.Fields{
+	t.log.WithFields(logrus.Fields{
 		"guard":      guard.Ident,
 		"function":   "transformTypeGuard",
 		"guardIdent": guardIdent,
@@ -200,7 +200,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform ensure condition in type guard: %s", err)
 			}
-			t.log.WithFields(log.Fields{
+			t.log.WithFields(logrus.Fields{
 				"ensure":   n,
 				"stmts":    condStmts,
 				"function": "transformTypeGuard",
@@ -259,7 +259,7 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		},
 	}
 
-	t.log.WithFields(log.Fields{
+	t.log.WithFields(logrus.Fields{
 		"guard":      guard.Ident,
 		"function":   "transformTypeGuard",
 		"guardIdent": guardIdent,

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // BuiltinType represents a built-in type and its available methods
@@ -63,27 +63,52 @@ var BuiltinTypes = map[ast.TypeIdent]BuiltinType{
 }
 
 // CheckBuiltinMethod checks if a method call is valid for a built-in type and returns its return type
-func CheckBuiltinMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
-	log.Tracef("Checking built-in method %s on type %s with %d args", methodName, typ.Ident, len(args))
+func (tc *TypeChecker) CheckBuiltinMethod(typ ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+	tc.log.WithFields(logrus.Fields{
+		"function": "CheckBuiltinMethod",
+		"method":   methodName,
+		"type":     typ.Ident,
+		"args":     args,
+	}).Tracef("Checking built-in method")
 
 	builtinType, exists := BuiltinTypes[typ.Ident]
 	if !exists {
-		log.Tracef("Type %s is not a built-in type", typ.Ident)
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckBuiltinMethod",
+			"method":   methodName,
+			"type":     typ.Ident,
+			"args":     args,
+		}).Tracef("Type is not a built-in type: %s", typ.Ident)
 		return nil, fmt.Errorf("type %s is not a built-in type", typ.Ident)
 	}
 
 	method, exists := builtinType.Methods[methodName]
 	if !exists {
-		log.Tracef("Method %s is not valid on type %s", methodName, typ.Ident)
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckBuiltinMethod",
+			"method":   methodName,
+			"type":     typ.Ident,
+			"args":     args,
+		}).Tracef("Method %s is not valid on type %s", methodName, typ.Ident)
 		return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, typ.Ident)
 	}
 
 	// Check argument count
 	if len(args) != len(method.ArgTypes) {
-		log.Tracef("Method %s expects %d arguments, got %d", methodName, len(method.ArgTypes), len(args))
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckBuiltinMethod",
+			"method":   methodName,
+			"type":     typ.Ident,
+			"args":     args,
+		}).Tracef("Method %s expects %d arguments, got %d", methodName, len(method.ArgTypes), len(args))
 		return nil, fmt.Errorf("method %s() expects %d arguments, got %d", methodName, len(method.ArgTypes), len(args))
 	}
 
-	log.Tracef("Method %s is valid, returning type %s", methodName, method.ReturnType.Ident)
+	tc.log.WithFields(logrus.Fields{
+		"function": "CheckBuiltinMethod",
+		"method":   methodName,
+		"type":     typ.Ident,
+		"args":     args,
+	}).Tracef("Method %s is valid, returning type %s", methodName, method.ReturnType.Ident)
 	return []ast.TypeNode{method.ReturnType}, nil
 }

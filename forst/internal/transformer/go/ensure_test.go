@@ -217,7 +217,7 @@ func TestAssertionTransformer(t *testing.T) {
 			},
 			baseType:    ast.TypeNode{Ident: ast.TypeInt},
 			wantErr:     true,
-			errContains: "unknown Int constraint",
+			errContains: "unknown constraint: InvalidConstraint",
 		},
 		{
 			name: "invalid argument type",

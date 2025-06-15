@@ -5,11 +5,14 @@ import (
 	"forst/internal/ast"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
-	log.Debugf("[inferExpressionType] Starting type inference for expression: %+v", expr)
+	tc.log.WithFields(logrus.Fields{
+		"function": "inferExpressionType",
+		"expr":     expr,
+	}).Debugf("Starting type inference for expression")
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)
@@ -58,23 +61,35 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FunctionCallNode:
-		log.Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferExpressionType",
+			"expr":     expr,
+		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
-			log.Tracef("Found function signature for %s: %v", e.Function.ID, signature.ReturnTypes)
+			tc.log.WithFields(logrus.Fields{
+				"function": "inferExpressionType",
+				"expr":     expr,
+			}).Tracef("Found function signature for %s: %v", e.Function.ID, signature.ReturnTypes)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
 
 		// For type guards, we need to ensure they return boolean
 		if typeGuard, exists := tc.scopeStack.globalScope().Symbols[e.Function.ID]; exists && typeGuard.Kind == SymbolTypeGuard {
-			log.Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
+			tc.log.WithFields(logrus.Fields{
+				"function": "inferExpressionType",
+				"expr":     expr,
+			}).Tracef("Found type guard %s with types: %v", e.Function.ID, typeGuard.Types)
 			// Type guards return boolean when called
 			return []ast.TypeNode{{Ident: ast.TypeBool}}, nil
 		}
 
 		// First check if this is a local variable or method call
 		if varType, exists := tc.scopeStack.LookupVariableType(e.Function.ID); exists {
-			log.Tracef("Found local variable %s with type: %v", e.Function.ID, varType)
+			tc.log.WithFields(logrus.Fields{
+				"function": "inferExpressionType",
+				"expr":     expr,
+			}).Tracef("Found local variable %s with type: %v", e.Function.ID, varType)
 			return varType, nil
 		}
 
@@ -86,7 +101,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 			// First check if pkgName is a local variable
 			if varType, exists := tc.scopeStack.LookupVariableType(ast.Identifier(pkgName)); exists {
-				log.Tracef("Found local variable %s with type: %v", pkgName, varType)
+				tc.log.WithFields(logrus.Fields{
+					"function": "inferExpressionType",
+					"expr":     expr,
+				}).Tracef("Found local variable %s with type: %v", pkgName, varType)
 				// Check if the method is valid for this type
 				returnType, err := tc.inferMethodCallType(varType, funcName, e.Arguments)
 				if err != nil {
@@ -99,7 +117,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			// If not a local variable, check for built-in functions
 			qualifiedName := pkgName + "." + funcName
 			if builtin, exists := BuiltinFunctions[qualifiedName]; exists {
-				log.Tracef("Found built-in function %s", qualifiedName)
+				tc.log.WithFields(logrus.Fields{
+					"function": "inferExpressionType",
+					"expr":     expr,
+				}).Tracef("Found built-in function %s", qualifiedName)
 				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
 				if err != nil {
 					return nil, err
@@ -110,7 +131,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		} else {
 			// Check for unqualified built-in functions (like len)
 			if builtin, exists := BuiltinFunctions[string(e.Function.ID)]; exists {
-				log.Tracef("Found built-in function %s", e.Function.ID)
+				tc.log.WithFields(logrus.Fields{
+					"function": "inferExpressionType",
+					"expr":     expr,
+				}).Tracef("Found built-in function %s", e.Function.ID)
 				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
 				if err != nil {
 					return nil, err
@@ -120,7 +144,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			}
 		}
 
-		log.Tracef("No function found for %s", e.Function.ID)
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferExpressionType",
+			"expr":     expr,
+		}).Tracef("No function found for %s", e.Function.ID)
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
 
 	case ast.ShapeNode:
@@ -168,26 +195,44 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return valueType[0].TypeParams, nil
 
 	default:
-		log.Tracef("Unhandled expression type: %T", expr)
+		tc.log.Tracef("Unhandled expression type: %T", expr)
 		return nil, fmt.Errorf("cannot infer type for expression: %T", expr)
 	}
 }
 
 // Checks if a method call is valid for a given type and returns its return type
 func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
-	log.Tracef("inferMethodCallType: varType=%v, methodName=%s, args=%v", varType, methodName, args)
+	tc.log.WithFields(logrus.Fields{
+		"function":   "inferMethodCallType",
+		"varType":    varType,
+		"methodName": methodName,
+		"args":       args,
+	}).Tracef("inferMethodCallType")
 
 	if len(varType) != 1 {
-		log.Tracef("Method calls are only valid on single types, got %s", formatTypeList(varType))
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferMethodCallType",
+			"varType":  varType,
+		}).Tracef("Method calls are only valid on single types, got %s", formatTypeList(varType))
 		return nil, fmt.Errorf("method calls are only valid on single types, got %s", formatTypeList(varType))
 	}
 
-	returnType, err := CheckBuiltinMethod(varType[0], methodName, args)
+	returnType, err := tc.CheckBuiltinMethod(varType[0], methodName, args)
 	if err != nil {
-		log.Tracef("Error checking built-in method: %v", err)
+		tc.log.WithFields(logrus.Fields{
+			"function":   "inferMethodCallType",
+			"varType":    varType,
+			"methodName": methodName,
+			"args":       args,
+		}).Tracef("Error checking built-in method: %v", err)
 		return nil, err
 	}
 
-	log.Tracef("Successfully inferred method call type: %v", returnType)
+	tc.log.WithFields(logrus.Fields{
+		"function":   "inferMethodCallType",
+		"varType":    varType,
+		"methodName": methodName,
+		"args":       args,
+	}).Tracef("Successfully inferred method call type: %v", returnType)
 	return returnType, nil
 }

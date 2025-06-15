@@ -317,3 +317,257 @@ func TestGetTypeAliasChain(t *testing.T) {
 		})
 	}
 }
+
+func TestShapeRefinementLookup(t *testing.T) {
+	tc := New(logrus.New(), false)
+
+	// Create base shape type
+	baseShapeType := ast.TypeIdent("BaseShape")
+	baseShape := ast.TypeDefNode{
+		Ident: baseShapeType,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: typeIdentPtr(string(ast.TypeShape)),
+			},
+		},
+	}
+	tc.Defs[baseShapeType] = baseShape
+
+	// Create a type guard that refines the shape with a field
+	guard := ast.TypeGuardNode{
+		Ident: ast.Identifier("HasName"),
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier("s")},
+			Type:  ast.TypeNode{Ident: baseShapeType},
+		},
+		Body: []ast.Node{
+			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident: ast.Ident{ID: ast.Identifier("s")},
+				},
+				Assertion: ast.AssertionNode{
+					BaseType: typeIdentPtr(string(ast.TypeShape)),
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "HasField",
+							Args: []ast.ConstraintArgumentNode{
+								{
+									Value: func() *ast.ValueNode { v := ast.StringLiteralNode{Value: "name"}; var n ast.ValueNode = v; return &n }(),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Register the type guard in the global scope
+	globalScope := tc.scopeStack.globalScope()
+	globalScope.RegisterSymbol(guard.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+
+	// Also register it in Defs for type lookup
+	tc.Defs[ast.TypeIdent(guard.Ident)] = guard
+
+	// Create a type alias that uses the type guard
+	refinedShapeType := ast.TypeIdent("RefinedShape")
+	refinedShape := ast.TypeDefNode{
+		Ident: refinedShapeType,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseShapeType,
+				Constraints: []ast.ConstraintNode{
+					{
+						Name: string(guard.Ident),
+					},
+				},
+			},
+		},
+	}
+	tc.Defs[refinedShapeType] = refinedShape
+
+	// Register the shape type with the name field
+	shapeType := ast.TypeDefNode{
+		Ident: refinedShapeType,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"name": {
+						Type: &ast.TypeNode{Ident: ast.TypeString},
+					},
+				},
+			},
+		},
+	}
+	tc.Defs[refinedShapeType] = shapeType
+
+	// Simulate a function scope and declare variable s of type RefinedShape
+	scope := NewScope(nil, nil, logrus.New())
+	sVar := ast.VariableNode{
+		Ident:        ast.Ident{ID: ast.Identifier("s")},
+		ExplicitType: ast.TypeNode{Ident: refinedShapeType},
+	}
+	scope.RegisterSymbol(sVar.Ident.ID, []ast.TypeNode{sVar.ExplicitType}, SymbolVariable)
+
+	// Lookup s.name in this scope
+	sNameVar := ast.VariableNode{
+		Ident: ast.Ident{ID: ast.Identifier("s.name")},
+	}
+	lookedUpType, err := tc.LookupVariableType(&sNameVar, scope)
+	if err != nil {
+		t.Errorf("unexpected error looking up s.name: %v", err)
+	}
+	if lookedUpType.Ident != ast.TypeString {
+		t.Errorf("expected s.name to be String, got %s", lookedUpType.Ident)
+	}
+}
+
+func TestShapeRefinementWithArgLookup(t *testing.T) {
+	tc := New(logrus.New(), false)
+
+	// Create base shape type
+	baseShapeType := ast.TypeIdent("BaseShape")
+	baseShape := ast.TypeDefNode{
+		Ident: baseShapeType,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: typeIdentPtr(string(ast.TypeShape)),
+			},
+		},
+	}
+	tc.Defs[baseShapeType] = baseShape
+
+	// Create a type guard that refines the shape with a shape argument
+	guard := ast.TypeGuardNode{
+		Ident: ast.Identifier("WithPerimeter"),
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier("s")},
+			Type:  ast.TypeNode{Ident: baseShapeType},
+		},
+		Params: []ast.ParamNode{
+			ast.SimpleParamNode{
+				Ident: ast.Ident{ID: ast.Identifier("perimeter")},
+				Type:  ast.TypeNode{Ident: ast.TypeShape},
+			},
+		},
+		Body: []ast.Node{
+			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident: ast.Ident{ID: ast.Identifier("s")},
+				},
+				Assertion: ast.AssertionNode{
+					BaseType: typeIdentPtr(string(ast.TypeShape)),
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "HasField",
+							Args: []ast.ConstraintArgumentNode{
+								{
+									Value: func() *ast.ValueNode {
+										v := ast.StringLiteralNode{Value: "perimeter"}
+										var n ast.ValueNode = v
+										return &n
+									}(),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Register the type guard in the global scope
+	globalScope := tc.scopeStack.globalScope()
+	globalScope.RegisterSymbol(guard.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+
+	// Also register it in Defs for type lookup
+	tc.Defs[ast.TypeIdent(guard.Ident)] = guard
+
+	// Create a type alias that uses the type guard with a shape argument
+	refinedShapeType := ast.TypeIdent("RefinedShape")
+	refinedShape := ast.TypeDefNode{
+		Ident: refinedShapeType,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseShapeType,
+				Constraints: []ast.ConstraintNode{
+					{
+						Name: string(guard.Ident),
+						Args: []ast.ConstraintArgumentNode{
+							{
+								Value: func() *ast.ValueNode {
+									shape := ast.ShapeNode{
+										Fields: map[string]ast.ShapeFieldNode{
+											"width": {
+												Type: &ast.TypeNode{Ident: ast.TypeInt},
+											},
+											"height": {
+												Type: &ast.TypeNode{Ident: ast.TypeInt},
+											},
+										},
+									}
+									var n ast.ValueNode = shape
+									return &n
+								}(),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	tc.Defs[refinedShapeType] = refinedShape
+
+	// Register the shape type with the merged fields
+	shapeType := ast.TypeDefNode{
+		Ident: refinedShapeType,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"perimeter": {
+						Type: &ast.TypeNode{Ident: ast.TypeShape},
+					},
+					"type": {
+						Type: &ast.TypeNode{Ident: ast.TypeString},
+					},
+				},
+			},
+		},
+	}
+	tc.Defs[refinedShapeType] = shapeType
+
+	// Simulate a function scope and declare variable s of type RefinedShape
+	scope := NewScope(nil, nil, logrus.New())
+	sVar := ast.VariableNode{
+		Ident:        ast.Ident{ID: ast.Identifier("s")},
+		ExplicitType: ast.TypeNode{Ident: refinedShapeType},
+	}
+	scope.RegisterSymbol(sVar.Ident.ID, []ast.TypeNode{sVar.ExplicitType}, SymbolVariable)
+
+	// Test accessing fields from both the base shape and the merged shape
+	tests := []struct {
+		name     string
+		field    string
+		expected ast.TypeIdent
+	}{
+		{"access perimeter", "s.perimeter", ast.TypeShape},
+		{"access type", "s.type", ast.TypeString},
+		{"access perimeter.width", "s.perimeter.width", ast.TypeShape},
+		{"access perimeter.height", "s.perimeter.height", ast.TypeShape},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldVar := ast.VariableNode{
+				Ident: ast.Ident{ID: ast.Identifier(tt.field)},
+			}
+			lookedUpType, err := tc.LookupVariableType(&fieldVar, scope)
+			if err != nil {
+				t.Errorf("unexpected error looking up %s: %v", tt.field, err)
+			}
+			if lookedUpType.Ident != tt.expected {
+				t.Errorf("expected %s to be %s, got %s", tt.field, tt.expected, lookedUpType.Ident)
+			}
+		})
+	}
+}

@@ -5,16 +5,21 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
 	if field.Type != nil {
-		log.Trace(fmt.Sprintf("transformShapeFieldType, type: %s", field.Type.Ident))
+		t.log.WithFields(logrus.Fields{
+			"function": "transformShapeFieldType",
+			"type":     field.Type.Ident,
+		}).Tracef("transformShapeFieldType, type: %s", field.Type.Ident)
 		ident, err := transformTypeIdent(field.Type.Ident)
 		if err != nil {
 			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
-			log.WithError(err).Error("transforming type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformShapeFieldType",
+			}).WithError(err).Error("transforming type ident failed")
 			return nil, err
 		}
 		var expr goast.Expr = ident
@@ -22,36 +27,55 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 	}
 
 	if field.Assertion != nil {
-		log.Trace(fmt.Sprintf("transformShapeFieldType, assertion: %s", *field.Assertion))
+		t.log.WithFields(logrus.Fields{
+			"function":  "transformShapeFieldType",
+			"assertion": fmt.Sprintf("%+v", *field.Assertion),
+		}).Tracef("Transforming shape field with assertion")
 		expr, err := t.transformAssertionType(field.Assertion)
 		if err != nil {
 			err = fmt.Errorf("failed to transform assertion type during transformation: %w", err)
-			log.WithError(err).Error("transforming assertion type failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformShapeFieldType",
+				"error":    err,
+			}).WithError(err).Error("transforming assertion type failed")
 			return nil, err
 		}
 		return expr, nil
 	}
 
 	if field.Shape != nil {
-		log.Trace(fmt.Sprintf("transformShapeFieldType, shape: %s", *field.Shape))
+		t.log.WithFields(logrus.Fields{
+			"function": "transformShapeFieldType",
+			"shape":    fmt.Sprintf("%+v", *field.Shape),
+		}).Tracef("Transforming shape field with shape")
 		lookupType, err := t.TypeChecker.LookupInferredType(field.Shape, true)
 		if err != nil {
 			hash, err := t.TypeChecker.Hasher.HashNode(field.Shape)
 			if err != nil {
 				err = fmt.Errorf("failed to hash shape during transformation: %w", err)
-				log.WithError(err).Error("transforming shape failed")
+				t.log.WithFields(logrus.Fields{
+					"function": "transformShapeFieldType",
+				}).WithError(err).Error("transforming shape failed")
 				return nil, err
 			}
 			err = fmt.Errorf("failed to lookup type during transformation: %w (key: %s)", err, hash.ToTypeIdent())
-			log.WithError(err).Error("transforming type failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformShapeFieldType",
+			}).WithError(err).Error("transforming type failed")
 			return nil, err
 		}
-		log.Trace(fmt.Sprintf("transformShapeFieldType, lookupType: %s", lookupType[0]))
+		t.log.WithFields(logrus.Fields{
+			"function": "transformShapeFieldType",
+			"shape":    fmt.Sprintf("%+v", lookupType[0]),
+		}).Tracef("Found inferred type of field of shape")
 		shapeType := lookupType[0]
 		result, err := transformTypeIdent(shapeType.Ident)
 		if err != nil {
 			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
-			log.WithError(err).Error("transforming type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformShapeFieldType",
+				"error":    err,
+			}).WithError(err).Error("transforming type ident failed")
 			return nil, err
 		}
 		var expr goast.Expr = result
@@ -66,7 +90,9 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 		fieldType, err := t.transformShapeFieldType(field)
 		if err != nil {
 			err = fmt.Errorf("failed to transform shape field type during transformation: %w", err)
-			log.WithError(err).Error("transforming shape field type failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformShapeType",
+			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
 		fields = append(fields, &goast.Field{

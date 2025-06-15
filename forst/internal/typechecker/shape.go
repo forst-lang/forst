@@ -84,46 +84,7 @@ func (tc *TypeChecker) resolveShapeFieldsFromAssertion(assertion *ast.AssertionN
 			}
 		}
 
-		// Special handling for mutation types
-		if constraint.Name == "Input" {
-			// For Input constraint, we want to keep existing fields and add new input fields
-			// First, preserve the ctx field if it exists
-			if ctxField, hasCtx := merged["ctx"]; hasCtx {
-				// Create a temporary map to store fields
-				tempFields := make(map[string]ast.ShapeFieldNode)
-				tempFields["ctx"] = ctxField
-
-				// Add the input field from the argument
-				if arg, ok := argMap["input"]; ok {
-					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
-						if argNode.Shape != nil {
-							for k, v := range argNode.Shape.Fields {
-								tempFields[k] = v
-								tc.log.Debugf("[resolveShapeFieldsFromAssertion] Added field from mutation input: %s => %+v", k, v)
-							}
-						}
-					}
-				}
-
-				// Replace mergedFields with our new map that preserves ctx
-				merged = tempFields
-			} else {
-				// If no ctx field exists, just add the input fields
-				if arg, ok := argMap["input"]; ok {
-					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
-						if argNode.Shape != nil {
-							for k, v := range argNode.Shape.Fields {
-								merged[k] = v
-								tc.log.Debugf("[resolveShapeFieldsFromAssertion] Added field from mutation input: %s => %+v", k, v)
-							}
-						}
-					}
-				}
-			}
-			continue
-		}
-
-		// For other constraints, process each parameter
+		// For each parameter in the type guard (except the subject), merge fields from argument shapes
 		for _, param := range guardNode.Parameters() {
 			if param.GetIdent() != guardNode.Subject.GetIdent() {
 				// Add the field from the parameter
@@ -134,11 +95,11 @@ func (tc *TypeChecker) resolveShapeFieldsFromAssertion(assertion *ast.AssertionN
 					},
 				}
 
-				// If we have an argument for this parameter, use its concrete type
+				// If we have an argument for this parameter, use its concrete type or merge its shape fields
 				if arg, ok := argMap[param.GetIdent()]; ok {
 					if argNode, ok := arg.(ast.ConstraintArgumentNode); ok {
 						if argNode.Shape != nil {
-							// If it's a shape, merge its fields
+							// Merge all fields from the argument shape
 							for k, v := range argNode.Shape.Fields {
 								merged[k] = v
 								tc.log.Debugf("[resolveShapeFieldsFromAssertion] Added field from shape argument: %s => %+v", k, v)
