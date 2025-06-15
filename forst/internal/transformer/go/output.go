@@ -104,10 +104,12 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 		}
 	}
 
-	for _, t := range t.types {
-		decls = append(decls, goast.Decl(t))
+	// Add type declarations
+	for _, typeDecl := range t.types {
+		decls = append(decls, goast.Decl(typeDecl))
 	}
 
+	// Add function declarations
 	for _, fn := range t.functions {
 		decls = append(decls, goast.Decl(fn))
 	}

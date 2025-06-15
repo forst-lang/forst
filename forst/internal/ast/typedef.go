@@ -23,7 +23,10 @@ func (t TypeDefAssertionExpr) Kind() NodeKind {
 }
 
 func (t TypeDefAssertionExpr) String() string {
-	return fmt.Sprintf("TypeDefAssertionExpr(%s)", t.Assertion)
+	if t.Assertion != nil {
+		return fmt.Sprintf("TypeDefAssertionExpr(%s)", t.Assertion)
+	}
+	return "TypeDefAssertionExpr(?)"
 }
 
 // TypeDefBinaryExpr represents a binary expression in a type definition
@@ -54,6 +57,22 @@ func (t TypeDefBinaryExpr) String() string {
 
 // isTypeDefExpr marks TypeDefBinaryExpr as implementing TypeDefExpr
 func (t TypeDefBinaryExpr) isTypeDefExpr() {}
+
+// TypeDefShapeExpr represents a shape definition in a type definition
+type TypeDefShapeExpr struct {
+	Shape ShapeNode
+}
+
+func (t TypeDefShapeExpr) isTypeDefExpr() {}
+
+// Kind returns the node kind for a type definition shape expression
+func (t TypeDefShapeExpr) Kind() NodeKind {
+	return NodeKindTypeDefShape
+}
+
+func (t TypeDefShapeExpr) String() string {
+	return fmt.Sprintf("TypeDefShapeExpr(%s)", t.Shape)
+}
 
 // TypeDefNode represents a type definition node
 type TypeDefNode struct {

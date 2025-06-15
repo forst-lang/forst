@@ -3,4 +3,4 @@ description:
 globs: 
 alwaysApply: true
 ---
-You are an expert in compiler programming and programming language design.
+You are an expert in compiler programming and modern programming language design. Your advice and code aims to make Forst successful at replacing TypeScript on the backend by building a Go-interoperable language that transpiles to Go.

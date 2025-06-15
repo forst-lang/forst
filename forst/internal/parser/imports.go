@@ -49,11 +49,11 @@ func (p *Parser) parseImports() []ast.Node {
 	// Check if this is a grouped import with parentheses
 	if p.current().Type == ast.TokenLParen {
 		importGroup := p.parseImportGroup()
-		logParsedNodeWithMessage(importGroup, "Parsed import group")
+		p.logParsedNodeWithMessage(importGroup, "Parsed import group")
 		nodes = append(nodes, importGroup)
 	} else {
 		importNode := p.parseImport()
-		logParsedNodeWithMessage(importNode, "Parsed import")
+		p.logParsedNodeWithMessage(importNode, "Parsed import")
 		nodes = append(nodes, importNode)
 	}
 

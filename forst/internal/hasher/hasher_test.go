@@ -1,4 +1,4 @@
-package typechecker
+package hasher
 
 import (
 	"forst/internal/ast"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestStructuralHasher_Consistency(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 
 	// Test that same structures produce same hashes
 	t.Run("same structures produce same hashes", func(t *testing.T) {
@@ -14,8 +14,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 		node1 := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 		node2 := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 
-		hash1 := hasher.HashNode(node1)
-		hash2 := hasher.HashNode(node2)
+		hash1, err := hasher.HashNode(node1)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(node2)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 != hash2 {
 			t.Errorf("Expected identical nodes to produce same hash, got %v and %v", hash1, hash2)
@@ -27,8 +33,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 		node1 := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 		node2 := ast.VariableNode{Ident: ast.Ident{ID: "y"}}
 
-		hash1 := hasher.HashNode(node1)
-		hash2 := hasher.HashNode(node2)
+		hash1, err := hasher.HashNode(node1)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(node2)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 == hash2 {
 			t.Errorf("Expected different nodes to produce different hashes")
@@ -50,8 +62,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 			},
 		}
 
-		hash1 := hasher.HashNode(map1)
-		hash2 := hasher.HashNode(map2)
+		hash1, err := hasher.HashNode(map1)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(map2)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 != hash2 {
 			t.Errorf("Expected maps with same fields in different order to produce same hash")
@@ -63,8 +81,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 		valueNode := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
 		ptrNode := &valueNode
 
-		hash1 := hasher.HashNode(valueNode)
-		hash2 := hasher.HashNode(ptrNode)
+		hash1, err := hasher.HashNode(valueNode)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(ptrNode)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 != hash2 {
 			t.Errorf("Expected pointer and value types to produce same hash")
@@ -74,7 +98,10 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 	t.Run("nil values handled correctly", func(t *testing.T) {
 		// Test nil pointer
 		var nilNode *ast.VariableNode
-		hash1 := hasher.HashNode(nilNode)
+		hash1, err := hasher.HashNode(nilNode)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		// Test node with nil fields
 		node := ast.EnsureNode{
@@ -83,7 +110,10 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 			Error:     nil,
 			Block:     nil,
 		}
-		hash2 := hasher.HashNode(node)
+		hash2, err := hasher.HashNode(node)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		// Both should be valid hashes (not panic)
 		if hash1 == 0 || hash2 == 0 {
@@ -104,7 +134,10 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 			Right:    ast.IntLiteralNode{Value: 3},
 		}
 
-		hash := hasher.HashNode(outer)
+		hash, err := hasher.HashNode(outer)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 		if hash == 0 {
 			t.Errorf("Expected non-zero hash for nested structure")
 		}
@@ -115,8 +148,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 		type1 := ast.TypeNode{Ident: "int"}
 		type2 := ast.TypeNode{Ident: "string"}
 
-		hash1 := hasher.HashNode(type1)
-		hash2 := hasher.HashNode(type2)
+		hash1, err := hasher.HashNode(type1)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(type2)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 == hash2 {
 			t.Errorf("Expected different type identifiers to produce different hashes")
@@ -134,8 +173,14 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 			Type:  ast.TypeNode{Ident: "int"},
 		}
 
-		hash1 := hasher.HashNode(param1)
-		hash2 := hasher.HashNode(param2)
+		hash1, err := hasher.HashNode(param1)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		hash2, err := hasher.HashNode(param2)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
 
 		if hash1 == hash2 {
 			t.Errorf("Expected different parameters to produce different hashes")
@@ -144,9 +189,12 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 }
 
 func TestNodeHash_ToTypeIdent(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 	node := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
-	hash := hasher.HashNode(node)
+	hash, err := hasher.HashNode(node)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 
 	// Test that ToTypeIdent produces a valid type identifier
 	typeIdent := hash.ToTypeIdent()
@@ -159,9 +207,12 @@ func TestNodeHash_ToTypeIdent(t *testing.T) {
 }
 
 func TestNodeHash_ToGuardIdent(t *testing.T) {
-	hasher := NewStructuralHasher()
+	hasher := New()
 	node := ast.VariableNode{Ident: ast.Ident{ID: "x"}}
-	hash := hasher.HashNode(node)
+	hash, err := hasher.HashNode(node)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 
 	// Test that ToGuardIdent produces a valid guard identifier
 	guardIdent := hash.ToGuardIdent()

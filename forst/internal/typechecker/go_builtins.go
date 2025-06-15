@@ -3,6 +3,8 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+
+	logrus "github.com/sirupsen/logrus"
 )
 
 // BuiltinFunction represents a built-in function with its type signature
@@ -348,21 +350,42 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 	},
 }
 
-// isTypeCompatible checks if a type is compatible with an expected type,
+// IsTypeCompatible checks if a type is compatible with an expected type,
 // taking into account subtypes and type guards
-func (tc *TypeChecker) isTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
+func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
 	// Direct type match
 	if actual.Ident == expected.Ident {
 		return true
 	}
 
-	// Check if actual type is a subtype of expected type
-	// This would involve checking type definitions and assertions
-	// For now, we'll just check if the actual type is defined in our type system
-	if _, exists := tc.Defs[actual.Ident]; exists {
-		// TODO: Implement proper subtype checking
-		// For now, we'll assume any defined type is compatible with its base type
-		return true
+	// Check if actual type is an alias of expected type
+	actualDef, actualExists := tc.Defs[actual.Ident]
+	if actualExists {
+		if typeDef, ok := actualDef.(ast.TypeDefNode); ok {
+			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
+					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
+					if tc.IsTypeCompatible(baseType, expected) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// Check if expected type is an alias of actual type
+	expectedDef, expectedExists := tc.Defs[expected.Ident]
+	if expectedExists {
+		if typeDef, ok := expectedDef.(ast.TypeDefNode); ok {
+			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
+					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
+					if tc.IsTypeCompatible(actual, baseType) {
+						return true
+					}
+				}
+			}
+		}
 	}
 
 	return false
@@ -370,8 +393,16 @@ func (tc *TypeChecker) isTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 
 // checkBuiltinFunctionCall validates a call to a built-in function
 func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+	tc.log.WithFields(logrus.Fields{
+		"function":   "checkBuiltinFunctionCall",
+		"calledFn":   fn.Name,
+		"argsLength": len(args),
+	}).Debugf("Validating builtin function call")
 	// Check argument count
 	if !fn.IsVarArgs && len(args) != len(fn.ParamTypes) {
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 		return nil, fmt.Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 	}
 
@@ -379,9 +410,18 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 	for i, arg := range args {
 		argType, err := tc.inferExpressionType(arg)
 		if err != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("Error inferring type for argument %d: %v", i+1, err)
 			return nil, err
 		}
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Debugf("Arg %d inferred type: %+v", i+1, argType)
 		if len(argType) != 1 {
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("%s() argument %d must have a single type, got %d", fn.Name, i+1, len(argType))
 			return nil, fmt.Errorf("%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
@@ -389,8 +429,14 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		if !fn.IsVarArgs {
 			expectedType = fn.ParamTypes[i]
 		}
+		tc.log.WithFields(logrus.Fields{
+			"function": "checkBuiltinFunctionCall",
+		}).Debugf("Arg %d expected type: %+v", i+1, expectedType)
 
-		if !tc.isTypeCompatible(argType[0], expectedType) {
+		if !tc.IsTypeCompatible(argType[0], expectedType) {
+			tc.log.WithFields(logrus.Fields{
+				"function": "checkBuiltinFunctionCall",
+			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 			return nil, fmt.Errorf("%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 		}

@@ -2,7 +2,6 @@ package transformergo
 
 import (
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 	"strings"
@@ -14,8 +13,9 @@ func newValueNode(v ast.ValueNode) *ast.ValueNode {
 }
 
 func TestAssertionTransformer(t *testing.T) {
-	tc := typechecker.New()
-	transformer := New(tc)
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
 	at := NewAssertionTransformer(transformer)
 
 	tests := []struct {
@@ -33,7 +33,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: MinConstraint,
+							Name: string(MinConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.IntLiteralNode{Value: 5, Type: ast.TypeNode{Ident: ast.TypeInt}})},
 							},
@@ -68,7 +68,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.IntLiteralNode{Value: 20, Type: ast.TypeNode{Ident: ast.TypeInt}})},
 							},
@@ -95,7 +95,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: GreaterThanConstraint,
+							Name: string(GreaterThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.FloatLiteralNode{Value: 5.0, Type: ast.TypeNode{Ident: ast.TypeFloat}})},
 							},
@@ -122,7 +122,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: TrueConstraint,
+							Name: string(TrueConstraint),
 						},
 					},
 				},
@@ -154,7 +154,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: FalseConstraint,
+							Name: string(FalseConstraint),
 						},
 					},
 				},
@@ -178,7 +178,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: NilConstraint,
+							Name: string(NilConstraint),
 						},
 					},
 				},
@@ -217,7 +217,7 @@ func TestAssertionTransformer(t *testing.T) {
 			},
 			baseType:    ast.TypeNode{Ident: ast.TypeInt},
 			wantErr:     true,
-			errContains: "unknown Int constraint",
+			errContains: "unknown constraint: InvalidConstraint",
 		},
 		{
 			name: "invalid argument type",
@@ -226,7 +226,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
 								{Value: newValueNode(ast.StringLiteralNode{Value: "20", Type: ast.TypeNode{Ident: ast.TypeString}})},
 							},
@@ -245,7 +245,7 @@ func TestAssertionTransformer(t *testing.T) {
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
 						{
-							Name: LessThanConstraint,
+							Name: string(LessThanConstraint),
 						},
 					},
 				},
@@ -261,7 +261,7 @@ func TestAssertionTransformer(t *testing.T) {
 			// Set the base type for the test
 			tt.ensure.Assertion.BaseType = &tt.baseType.Ident
 
-			expr, err := at.transformEnsure(tt.ensure)
+			expr, err := at.transformEnsureConstraints(tt.ensure)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errContains)

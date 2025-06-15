@@ -2,27 +2,50 @@ package transformergo
 
 import (
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 	"testing"
 )
 
 func TestTransformTypeGuard_Simple(t *testing.T) {
+	baseType := ast.TypeInt
+	intLit := ast.IntLiteralNode{
+		Value: 0,
+		Type:  ast.TypeNode{Ident: ast.TypeInt},
+	}
+	var valueNode ast.ValueNode = intLit
 	tg := ast.TypeGuardNode{
 		Ident: "IsPositive",
-		SubjectParam: ast.SimpleParamNode{
+		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "x"},
 			Type:  ast.TypeNode{Ident: ast.TypeInt},
 		},
 		Body: []ast.Node{
-			ast.ReturnNode{
-				Value: ast.BoolLiteralNode{Value: true, Type: ast.TypeNode{Ident: ast.TypeBool}},
+			ast.EnsureNode{
+				Assertion: ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "GreaterThan",
+							Args: []ast.ConstraintArgumentNode{
+								{
+									Value: &valueNode,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	// Register the type guard in the type checker
+	if err := tc.CheckTypes([]ast.Node{&tg}); err != nil {
+		t.Fatalf("failed to check types: %v", err)
 	}
+
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -42,21 +65,35 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 }
 
 func TestTransformTypeGuard_ParamTypes(t *testing.T) {
+	baseType := ast.TypeString
 	tg := ast.TypeGuardNode{
 		Ident: "IsString",
-		SubjectParam: ast.SimpleParamNode{
+		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: "s"},
 			Type:  ast.TypeNode{Ident: ast.TypeString},
 		},
 		Body: []ast.Node{
-			ast.ReturnNode{
-				Value: ast.BoolLiteralNode{Value: true, Type: ast.TypeNode{Ident: ast.TypeBool}},
+			ast.EnsureNode{
+				Assertion: ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "IsString",
+						},
+					},
+				},
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	// Register the type guard in the type checker
+	if err := tc.CheckTypes([]ast.Node{&tg}); err != nil {
+		t.Fatalf("failed to check types: %v", err)
 	}
+
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -66,73 +103,89 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 	}
 }
 
-func TestTransformTypeGuard_DestructuredParamPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expected panic for DestructuredParamNode, got none")
-		}
-	}()
+func TestTransformTypeGuard_DestructuredParamFails(t *testing.T) {
+	baseType := ast.TypeInt
 	tg := ast.TypeGuardNode{
 		Ident: "Destructured",
-		SubjectParam: ast.DestructuredParamNode{
-			Fields: []string{"a", "b"},
-			Type:   ast.TypeNode{Ident: ast.TypeInt},
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "x"},
+			Type:  ast.TypeNode{Ident: ast.TypeInt},
 		},
 		Body: []ast.Node{
-			ast.ReturnNode{
-				Value: ast.BoolLiteralNode{Value: false, Type: ast.TypeNode{Ident: ast.TypeBool}},
-			},
-		},
-	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
-	}
-	_, _ = tr.transformTypeGuard(tg)
-}
-
-func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
-	tg := ast.TypeGuardNode{
-		Ident: "DivisibleBy",
-		SubjectParam: ast.SimpleParamNode{
-			Ident: ast.Ident{ID: "i"},
-			Type:  ast.TypeNode{Ident: "Prime"},
-		},
-		AdditionalParams: []ast.ParamNode{
-			ast.SimpleParamNode{
-				Ident: ast.Ident{ID: "other"},
-				Type:  ast.TypeNode{Ident: ast.TypeInt},
-			},
-		},
-		Body: []ast.Node{
-			ast.ReturnNode{
-				Value: ast.BinaryExpressionNode{
-					Left: ast.BinaryExpressionNode{
-						Left: ast.VariableNode{
-							Ident: ast.Ident{ID: "i"},
-						},
-						Operator: ast.TokenEquals,
-						Right: ast.VariableNode{
-							Ident: ast.Ident{ID: "other"},
-						},
-					},
-					Operator: ast.TokenLogicalOr,
-					Right: ast.BinaryExpressionNode{
-						Left: ast.VariableNode{
-							Ident: ast.Ident{ID: "other"},
-						},
-						Operator: ast.TokenEquals,
-						Right: ast.IntLiteralNode{
-							Value: 1,
-							Type:  ast.TypeNode{Ident: ast.TypeInt},
+			ast.EnsureNode{
+				Assertion: ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "IsInt",
 						},
 					},
 				},
 			},
 		},
 	}
-	tr := &Transformer{
-		TypeChecker: &typechecker.TypeChecker{},
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	// Register the type guard in the type checker
+	if err := tc.CheckTypes([]ast.Node{&tg}); err != nil {
+		t.Fatalf("failed to check types: %v", err)
 	}
+
+	_, err := tr.transformTypeGuard(tg)
+	if err == nil {
+		t.Errorf("expected error for DestructuredParamNode, got none")
+	}
+}
+
+func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
+	baseType := ast.TypeInt
+	other := ast.Ident{ID: "other"}
+	otherVar := ast.VariableNode{
+		Ident:        other,
+		ExplicitType: ast.TypeNode{Ident: ast.TypeInt},
+	}
+	var valueNode ast.ValueNode = otherVar
+	tg := ast.TypeGuardNode{
+		Ident: "DivisibleBy",
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "i"},
+			Type:  ast.TypeNode{Ident: "Prime"},
+		},
+		Params: []ast.ParamNode{
+			ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "other"},
+				Type:  ast.TypeNode{Ident: ast.TypeInt},
+			},
+		},
+		Body: []ast.Node{
+			ast.EnsureNode{
+				Assertion: ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: "DivisibleBy",
+							Args: []ast.ConstraintArgumentNode{
+								{
+									Value: &valueNode,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	// Register the type guard in the type checker
+	if err := tc.CheckTypes([]ast.Node{&tg}); err != nil {
+		t.Fatalf("failed to check types: %v", err)
+	}
+
 	decl, err := tr.transformTypeGuard(tg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

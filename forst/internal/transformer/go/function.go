@@ -6,14 +6,12 @@ import (
 	goast "go/ast"
 )
 
-// transformFunction converts a Forst function node to a Go function declaration
-func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
-	// Create function parameters
-	params := &goast.FieldList{
+func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
+	fields := &goast.FieldList{
 		List: []*goast.Field{},
 	}
 
-	for _, param := range n.Params {
+	for _, param := range params {
 		var paramName string
 		var paramType ast.TypeNode
 
@@ -36,10 +34,25 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		} else {
 			ident = goast.NewIdent(string(paramType.Ident))
 		}
-		params.List = append(params.List, &goast.Field{
+		fields.List = append(fields.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
 			Type:  ident,
 		})
+	}
+
+	return fields, nil
+}
+
+// transformFunction converts a Forst function node to a Go function declaration
+func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
+	if err := t.restoreScope(n); err != nil {
+		return nil, fmt.Errorf("failed to restore function scope: %s", err)
+	}
+
+	// Create function parameters
+	params, err := t.transformFunctionParams(n.Params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform function parameters: %s", err)
 	}
 
 	// Create function return type
@@ -56,13 +69,18 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		}
 	}
 
-	t.pushScope(n)
-
 	// Create function body statements
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		goStmt := t.transformStatement(stmt)
+		if err := t.restoreScope(n); err != nil {
+			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
+		}
+
+		goStmt, err := t.transformStatement(stmt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform statement: %s", err)
+		}
 		stmts = append(stmts, goStmt)
 	}
 
@@ -83,8 +101,6 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			}
 		}
 	}
-
-	t.popScope()
 
 	// Create the function declaration
 	return &goast.FuncDecl{
