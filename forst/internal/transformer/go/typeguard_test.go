@@ -21,6 +21,10 @@ func TestTransformTypeGuard_Simple(t *testing.T) {
 		},
 		Body: []ast.Node{
 			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident:        ast.Ident{ID: "x"},
+					ExplicitType: ast.TypeNode{Ident: ast.TypeInt},
+				},
 				Assertion: ast.AssertionNode{
 					BaseType: &baseType,
 					Constraints: []ast.ConstraintNode{
@@ -74,6 +78,10 @@ func TestTransformTypeGuard_ParamTypes(t *testing.T) {
 		},
 		Body: []ast.Node{
 			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident:        ast.Ident{ID: "s"},
+					ExplicitType: ast.TypeNode{Ident: ast.TypeString},
+				},
 				Assertion: ast.AssertionNode{
 					BaseType: &baseType,
 					Constraints: []ast.ConstraintNode{
@@ -113,6 +121,10 @@ func TestTransformTypeGuard_DestructuredParamFails(t *testing.T) {
 		},
 		Body: []ast.Node{
 			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident:        ast.Ident{ID: "x"},
+					ExplicitType: ast.TypeNode{Ident: ast.TypeInt},
+				},
 				Assertion: ast.AssertionNode{
 					BaseType: &baseType,
 					Constraints: []ast.ConstraintNode{
@@ -161,6 +173,10 @@ func TestTransformTypeGuard_WithAdditionalParams(t *testing.T) {
 		},
 		Body: []ast.Node{
 			ast.EnsureNode{
+				Variable: ast.VariableNode{
+					Ident:        ast.Ident{ID: "i"},
+					ExplicitType: ast.TypeNode{Ident: "Prime"},
+				},
 				Assertion: ast.AssertionNode{
 					BaseType: &baseType,
 					Constraints: []ast.ConstraintNode{

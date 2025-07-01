@@ -114,6 +114,8 @@ func transformConstraintArg(arg ast.ConstraintArgumentNode) (goast.Expr, error) 
 			return goast.NewIdent(fmt.Sprintf("%v", v.Value)), nil
 		case ast.FloatLiteralNode:
 			return &goast.BasicLit{Kind: gotoken.FLOAT, Value: fmt.Sprintf("%f", v.Value)}, nil
+		case ast.VariableNode:
+			return &goast.Ident{Name: string(v.Ident.ID)}, nil
 		default:
 			return nil, fmt.Errorf("unsupported value type in constraint argument: %T", v)
 		}

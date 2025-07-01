@@ -80,11 +80,11 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	}
 
 	tc.log.WithFields(logrus.Fields{
-		"imports":    len(tc.imports),
-		"typeDefs":   len(tc.Defs),
-		"functions":  len(tc.Functions),
-		"typeGuards": len(tc.Uses),
-		"function":   "CheckTypes",
+		"imports":   len(tc.imports),
+		"typeDefs":  len(tc.Defs),
+		"functions": len(tc.Functions),
+		"uses":      len(tc.Uses),
+		"function":  "CheckTypes",
 	}).Debug("Collected types and function signatures")
 
 	if tc.reportPhases {

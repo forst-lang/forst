@@ -50,10 +50,13 @@ var testHook = &TestHook{}
 func TestLogMemUsage(t *testing.T) {
 	testHook.Reset()
 
+	log := setupTestLogger()
+	log.AddHook(testHook)
+
 	// Create a compiler with memory reporting enabled
 	c := New(Args{
 		ReportMemoryUsage: true,
-	}, nil)
+	}, log)
 
 	// Get initial memory stats
 	before := runtime.MemStats{}
