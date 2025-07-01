@@ -6,11 +6,6 @@ import (
 	"forst/internal/ast"
 )
 
-func typeIdentPtr(s string) *ast.TypeIdent {
-	ti := ast.TypeIdent(s)
-	return &ti
-}
-
 func TestTypeGuardReturnType(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -164,17 +159,12 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 		{
 			name: "valid shape wrapper",
 			expr: func() ast.BinaryExpressionNode {
-				baseType := ast.TypeString
 				return ast.BinaryExpressionNode{
 					Left:     ast.VariableNode{Ident: ast.Ident{ID: "s"}},
 					Operator: ast.TokenIs,
 					Right: ast.ShapeNode{
 						Fields: map[string]ast.ShapeFieldNode{
-							"field1": {
-								Assertion: &ast.AssertionNode{
-									BaseType: &baseType,
-								},
-							},
+							"field1": makeAssertionField(ast.TypeString),
 						},
 					},
 				}
@@ -198,25 +188,16 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 			tc := New(log, false)
 			// Register 's' as a Shape type variable in the current scope
 			baseType := ast.TypeIdent(ast.TypeShape)
-			shape := ast.ShapeNode{
-				Fields: map[string]ast.ShapeFieldNode{
-					"field1": {
-						Assertion: &ast.AssertionNode{
-							BaseType: typeIdentPtr(string(ast.TypeString)),
-						},
-					},
-				},
-			}
+			shape := makeShape(map[string]ast.ShapeFieldNode{
+				"field1": makeAssertionField(ast.TypeString),
+			})
 			shapeType := ast.TypeNode{
 				Ident: ast.TypeShape,
 				Assertion: &ast.AssertionNode{
 					BaseType: &baseType,
-					Constraints: []ast.ConstraintNode{{
-						Name: "Match",
-						Args: []ast.ConstraintArgumentNode{{
-							Shape: &shape,
-						}},
-					}},
+					Constraints: []ast.ConstraintNode{
+						makeConstraint("Match", shape),
+					},
 				},
 			}
 			tc.storeSymbol(ast.Identifier("s"), []ast.TypeNode{shapeType}, SymbolVariable)
