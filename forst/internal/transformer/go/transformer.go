@@ -60,7 +60,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
-			t.Output.AddFunction(decl)
+			if decl != nil {
+				t.Output.AddFunction(decl)
+			}
 		case *ast.TypeGuardNode:
 			t.log.WithFields(logrus.Fields{
 				"guard":    def.GetIdent(),
@@ -70,7 +72,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 			}
-			t.Output.AddFunction(decl)
+			if decl != nil {
+				t.Output.AddFunction(decl)
+			}
 		case ast.TypeDefShapeExpr:
 			decl, err := t.transformShapeType(&def.Shape)
 			if err != nil {

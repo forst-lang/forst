@@ -279,10 +279,15 @@ func (tc *TypeChecker) lookupFieldPathOnMergedFields(fields map[string]ast.Shape
 		return ast.TypeNode{}, fmt.Errorf("field %s not found in assertion fields", fieldPath[0])
 	}
 	if field.Type != nil && len(fieldPath) == 1 {
-		return *field.Type, nil
+		// Resolve type aliases even for single-segment paths
+		return tc.resolveTypeAliasChain(*field.Type), nil
 	}
 	if field.Shape != nil && len(fieldPath) > 1 {
 		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
+	}
+	if field.Shape != nil && len(fieldPath) == 1 {
+		// Single-segment path with shape field - return shape type
+		return ast.TypeNode{Ident: ast.TypeShape}, nil
 	}
 	if field.Type != nil {
 		return *field.Type, nil
@@ -364,6 +369,41 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is empty (no type, shape, or assertion)", fieldName)
 }
 
+// resolveTypeAliasChain follows type aliases until it reaches a non-alias (base) type
+func (tc *TypeChecker) resolveTypeAliasChain(typeNode ast.TypeNode) ast.TypeNode {
+	visited := map[ast.TypeIdent]bool{}
+	current := typeNode
+	for {
+		def, exists := tc.Defs[current.Ident]
+		if !exists {
+			break
+		}
+		typeDef, ok := def.(ast.TypeDefNode)
+		if !ok {
+			break
+		}
+		switch expr := typeDef.Expr.(type) {
+		case ast.TypeDefShapeExpr:
+			// This is a shape, stop here
+			return current
+		case ast.TypeDefAssertionExpr:
+			// Alias to another type (e.g. type Foo = Bar)
+			if expr.Assertion != nil && expr.Assertion.BaseType != nil {
+				if visited[*expr.Assertion.BaseType] {
+					break // cycle
+				}
+				visited[*expr.Assertion.BaseType] = true
+				current = ast.TypeNode{Ident: *expr.Assertion.BaseType}
+				continue
+			}
+			// If no BaseType, treat as non-alias
+			return current
+		}
+		break
+	}
+	return current
+}
+
 // lookupFieldPath recursively looks up a field path (e.g., ["input", "name"]) in a type or shape
 func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string) (ast.TypeNode, error) {
 	if len(fieldPath) == 0 {
@@ -371,25 +411,99 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 	}
 	fieldName := ast.Ident{ID: ast.Identifier(fieldPath[0])}
 
+	tc.log.WithFields(logrus.Fields{
+		"function":  "lookupFieldPath",
+		"baseType":  baseType.Ident,
+		"fieldName": fieldName.ID,
+		"fieldPath": fieldPath,
+	}).Debugf("Looking up field path")
+
+	// Resolve type aliases before lookup
+	resolvedType := tc.resolveTypeAliasChain(baseType)
+
+	tc.log.WithFields(logrus.Fields{
+		"function":     "lookupFieldPath",
+		"baseType":     baseType.Ident,
+		"resolvedType": resolvedType.Ident,
+		"fieldName":    fieldName.ID,
+	}).Debugf("Resolved type alias")
+
 	// Try type definition lookup
-	if def, exists := tc.Defs[baseType.Ident]; exists {
+	if def, exists := tc.Defs[resolvedType.Ident]; exists {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			switch expr := typeDef.Expr.(type) {
 			case ast.TypeDefShapeExpr:
+				tc.log.WithFields(logrus.Fields{
+					"function":  "lookupFieldPath",
+					"baseType":  baseType.Ident,
+					"fieldName": fieldName.ID,
+					"shape":     fmt.Sprintf("%+v", expr.Shape),
+				}).Debugf("Looking up field in shape expression")
+
 				field, exists := expr.Shape.Fields[string(fieldName.ID)]
 				if !exists {
 					return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
 				}
+
+				tc.log.WithFields(logrus.Fields{
+					"function":     "lookupFieldPath",
+					"baseType":     baseType.Ident,
+					"fieldName":    fieldName.ID,
+					"field":        fmt.Sprintf("%+v", field),
+					"fieldType":    fmt.Sprintf("%T", field),
+					"hasType":      field.Type != nil,
+					"hasShape":     field.Shape != nil,
+					"hasAssertion": field.Assertion != nil,
+				}).Debugf("Found field in shape")
+
 				if field.Type != nil && len(fieldPath) == 1 {
-					return *field.Type, nil
+					// Resolve type aliases even for single-segment paths
+					resolvedFieldType := tc.resolveTypeAliasChain(*field.Type)
+					tc.log.WithFields(logrus.Fields{
+						"function":          "lookupFieldPath",
+						"baseType":          baseType.Ident,
+						"fieldName":         fieldName.ID,
+						"fieldType":         field.Type.Ident,
+						"resolvedFieldType": resolvedFieldType.Ident,
+					}).Debugf("Resolved field type alias")
+					return resolvedFieldType, nil
 				}
 				if field.Shape != nil && len(fieldPath) > 1 {
-					// Recurse into the nested shape
 					return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
 				}
-				if field.Type != nil {
-					return *field.Type, nil
+				if field.Shape != nil && len(fieldPath) == 1 {
+					return ast.TypeNode{Ident: ast.TypeShape}, nil
 				}
+				if field.Type != nil && len(fieldPath) > 1 {
+					// If the field is a type alias, resolve and continue
+					return tc.lookupFieldPath(*field.Type, fieldPath[1:])
+				}
+				if field.Assertion != nil && len(fieldPath) == 1 {
+					// Resolve assertion to get the underlying type
+					if field.Assertion.BaseType != nil {
+						resolvedType := tc.resolveTypeAliasChain(ast.TypeNode{Ident: *field.Assertion.BaseType})
+						tc.log.WithFields(logrus.Fields{
+							"function":          "lookupFieldPath",
+							"baseType":          baseType.Ident,
+							"fieldName":         fieldName.ID,
+							"assertionBaseType": *field.Assertion.BaseType,
+							"resolvedType":      resolvedType.Ident,
+						}).Debugf("Resolved assertion field")
+						return resolvedType, nil
+					}
+				}
+				if field.Assertion != nil && len(fieldPath) > 1 {
+					// If the field is an assertion, resolve and continue
+					if field.Assertion.BaseType != nil {
+						return tc.lookupFieldPath(ast.TypeNode{Ident: *field.Assertion.BaseType}, fieldPath[1:])
+					}
+				}
+				tc.log.WithFields(logrus.Fields{
+					"function":  "lookupFieldPath",
+					"baseType":  baseType.Ident,
+					"fieldName": fieldName.ID,
+					"field":     fmt.Sprintf("%+v", field),
+				}).Debugf("Field exists but is not a type or shape")
 				return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
 			}
 		}
@@ -408,10 +522,18 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 		return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
 	}
 	if field.Type != nil && len(fieldPath) == 1 {
-		return *field.Type, nil
+		// Resolve type aliases even for single-segment paths
+		return tc.resolveTypeAliasChain(*field.Type), nil
 	}
 	if field.Shape != nil && len(fieldPath) > 1 {
 		return tc.lookupFieldPathOnShape(field.Shape, fieldPath[1:])
+	}
+	if field.Shape != nil && len(fieldPath) == 1 {
+		return ast.TypeNode{Ident: ast.TypeShape}, nil
+	}
+	if field.Type != nil && len(fieldPath) > 1 {
+		// If the field is a type alias, resolve and continue
+		return tc.lookupFieldPath(*field.Type, fieldPath[1:])
 	}
 	if field.Type != nil {
 		return *field.Type, nil

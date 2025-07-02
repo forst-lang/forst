@@ -254,3 +254,191 @@ func TestLookupFieldPath_NestedShape(t *testing.T) {
 		t.Errorf("Expected TypeString, got %s", result.Ident)
 	}
 }
+
+func TestLookupFieldInAssertionType_FieldExistsButNotType(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Create the nested shape: {name: String}
+	nameShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		},
+	}
+
+	// Create the full shape: {ctx: AppContext, input: {name: String}}
+	fullShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"ctx":   {Type: &ast.TypeNode{Ident: "AppContext"}},
+			"input": {Shape: nameShape},
+		},
+	}
+
+	// Register the type definition
+	typeDef := ast.TypeDefNode{
+		Ident: "T_488eVThFocF",
+		Expr:  ast.TypeDefShapeExpr{Shape: *fullShape},
+	}
+	tc.Defs["T_488eVThFocF"] = typeDef
+
+	// Register the AppContext type
+	appContextShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"sessionId": {Type: &ast.TypeNode{Ident: ast.TypePointer}},
+		},
+	}
+	appContextDef := ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr:  ast.TypeDefShapeExpr{Shape: *appContextShape},
+	}
+	tc.Defs["AppContext"] = appContextDef
+
+	// Test: Look up "ctx" field in the assertion type
+	fieldName := ast.Ident{ID: "ctx"}
+	result, err := tc.lookupFieldInTypeDef(ast.TypeNode{Ident: "T_488eVThFocF"}, fieldName)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+
+	// Should return AppContext type
+	if result.Ident != "AppContext" {
+		t.Errorf("Expected AppContext, got: %s", result.Ident)
+	}
+}
+
+func TestLookupFieldInAssertionType_FromInferredType(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Register the base types that would be created during inference
+	// AppContext type
+	appContextShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"sessionId": {Type: &ast.TypeNode{Ident: ast.TypePointer}},
+		},
+	}
+	appContextDef := ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr:  ast.TypeDefShapeExpr{Shape: *appContextShape},
+	}
+	tc.Defs["AppContext"] = appContextDef
+
+	// The inferred assertion type T_488eVThFocF
+	inferredShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"ctx": {Type: &ast.TypeNode{Ident: "AppContext"}},
+			"input": {Shape: &ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			}},
+		},
+	}
+	inferredDef := ast.TypeDefNode{
+		Ident: "T_488eVThFocF",
+		Expr:  ast.TypeDefShapeExpr{Shape: *inferredShape},
+	}
+	tc.Defs["T_488eVThFocF"] = inferredDef
+
+	// Test: Look up "ctx" field in the inferred assertion type
+	fieldName := ast.Ident{ID: "ctx"}
+	result, err := tc.lookupFieldInTypeDef(ast.TypeNode{Ident: "T_488eVThFocF"}, fieldName)
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+
+	// Should return AppContext type
+	if result.Ident != "AppContext" {
+		t.Errorf("Expected AppContext, got: %s", result.Ident)
+	}
+}
+
+func TestLookupFieldPath_SingleSegmentShapeField(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Create a shape with a field that is itself a shape
+	innerShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		},
+	}
+
+	outerShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"input": {Shape: innerShape}, // This field is a shape, not a type
+		},
+	}
+
+	// Register the type definition
+	typeDef := ast.TypeDefNode{
+		Ident: "T_488eVThFocF",
+		Expr:  ast.TypeDefShapeExpr{Shape: *outerShape},
+	}
+	tc.Defs["T_488eVThFocF"] = typeDef
+
+	// Test: Look up "input" field (single segment) in the type
+	// This should return a shape type, not fail with "field exists but is not a type or shape"
+	result, err := tc.lookupFieldPath(ast.TypeNode{Ident: "T_488eVThFocF"}, []string{"input"})
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+
+	// Should return a shape type
+	if result.Ident != ast.TypeShape {
+		t.Errorf("Expected Shape type, got: %s", result.Ident)
+	}
+}
+
+func TestLookupFieldPath_TypeAliasToShape(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Register AppContext as a shape with a field sessionId
+	appContextShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"sessionId": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		},
+	}
+	appContextDef := ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr:  ast.TypeDefShapeExpr{Shape: *appContextShape},
+	}
+	tc.Defs["AppContext"] = appContextDef
+
+	// Register outer shape with a field ctx: AppContext
+	outerShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"ctx": {Type: &ast.TypeNode{Ident: "AppContext"}},
+		},
+	}
+	outerDef := ast.TypeDefNode{
+		Ident: "Outer",
+		Expr:  ast.TypeDefShapeExpr{Shape: *outerShape},
+	}
+	tc.Defs["Outer"] = outerDef
+
+	// Try to look up ctx.sessionId on Outer
+	result, err := tc.lookupFieldPath(ast.TypeNode{Ident: "Outer"}, []string{"ctx", "sessionId"})
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+	if result.Ident != ast.TypeString {
+		t.Errorf("Expected String type, got: %s", result.Ident)
+	}
+}

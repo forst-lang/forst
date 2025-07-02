@@ -525,7 +525,16 @@ func TestShapeRefinementWithArgLookup(t *testing.T) {
 			Shape: ast.ShapeNode{
 				Fields: map[string]ast.ShapeFieldNode{
 					"perimeter": {
-						Type: &ast.TypeNode{Ident: ast.TypeShape},
+						Shape: &ast.ShapeNode{
+							Fields: map[string]ast.ShapeFieldNode{
+								"width": {
+									Type: &ast.TypeNode{Ident: ast.TypeInt},
+								},
+								"height": {
+									Type: &ast.TypeNode{Ident: ast.TypeInt},
+								},
+							},
+						},
 					},
 					"type": {
 						Type: &ast.TypeNode{Ident: ast.TypeString},
@@ -552,8 +561,8 @@ func TestShapeRefinementWithArgLookup(t *testing.T) {
 	}{
 		{"access perimeter", "s.perimeter", ast.TypeShape},
 		{"access type", "s.type", ast.TypeString},
-		{"access perimeter.width", "s.perimeter.width", ast.TypeShape},
-		{"access perimeter.height", "s.perimeter.height", ast.TypeShape},
+		{"access perimeter.width", "s.perimeter.width", ast.TypeInt},
+		{"access perimeter.height", "s.perimeter.height", ast.TypeInt},
 	}
 
 	for _, tt := range tests {

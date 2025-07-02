@@ -109,6 +109,15 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		"guardIdent": guardIdent,
 	}).Debug("Transforming type guard")
 
+	// Check if this is a type-level type guard (only contains type-level assertions)
+	if t.isTypeLevelTypeGuard(guard) {
+		t.log.WithFields(logrus.Fields{
+			"guard":    guard.Ident,
+			"function": "transformTypeGuard",
+		}).Debug("Skipping function generation for type-level type guard")
+		return nil, nil // Return nil to indicate no function should be generated
+	}
+
 	// Transform subject parameter
 	subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
 	if err != nil {
@@ -269,4 +278,30 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 	}).Debug("Created type guard function declaration")
 
 	return decl, nil
+}
+
+// isTypeLevelTypeGuard checks if a type guard contains only type-level assertions
+func (t *Transformer) isTypeLevelTypeGuard(guard ast.TypeGuardNode) bool {
+	for _, node := range guard.Body {
+		switch n := node.(type) {
+		case ast.EnsureNode:
+			// Check if all constraints in the ensure statement are type-level
+			for _, constraint := range n.Assertion.Constraints {
+				if !t.isTypeLevelConstraint(constraint) {
+					return false
+				}
+			}
+		default:
+			// If there are any non-ensure nodes, it's not purely type-level
+			return false
+		}
+	}
+	return true
+}
+
+// isTypeLevelConstraint checks if a constraint is type-level (like "is" operator)
+func (t *Transformer) isTypeLevelConstraint(constraint ast.ConstraintNode) bool {
+	// Type-level constraints are those that can't be transformed into runtime code
+	// Currently, this includes the "is" operator for shape field assertions
+	return constraint.Name == "is"
 }
