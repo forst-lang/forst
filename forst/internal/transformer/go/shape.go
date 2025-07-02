@@ -14,14 +14,15 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			"function": "transformShapeFieldType",
 			"type":     field.Type.Ident,
 		}).Tracef("transformShapeFieldType, type: %s", field.Type.Ident)
-		ident, err := transformTypeIdent(field.Type.Ident)
+		name, err := t.getTypeAliasNameForTypeNode(*field.Type)
 		if err != nil {
-			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
+			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
 			t.log.WithFields(logrus.Fields{
 				"function": "transformShapeFieldType",
-			}).WithError(err).Error("transforming type ident failed")
+			}).WithError(err).Error("getting type alias name failed")
 			return nil, err
 		}
+		ident := goast.NewIdent(name)
 		var expr goast.Expr = ident
 		return &expr, nil
 	}
@@ -69,16 +70,17 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			"shape":    fmt.Sprintf("%+v", lookupType[0]),
 		}).Tracef("Found inferred type of field of shape")
 		shapeType := lookupType[0]
-		result, err := transformTypeIdent(shapeType.Ident)
+		name, err := t.getTypeAliasNameForTypeNode(shapeType)
 		if err != nil {
-			err = fmt.Errorf("failed to transform type ident during transformation: %w", err)
+			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
 			t.log.WithFields(logrus.Fields{
 				"function": "transformShapeFieldType",
 				"error":    err,
-			}).WithError(err).Error("transforming type ident failed")
+			}).WithError(err).Error("getting type alias name failed")
 			return nil, err
 		}
-		var expr goast.Expr = result
+		ident := goast.NewIdent(name)
+		var expr goast.Expr = ident
 		return &expr, nil
 	}
 	return nil, fmt.Errorf("shape field has neither explicit type nor assertion nor shape: %T", field)

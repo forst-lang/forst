@@ -22,12 +22,22 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 		return nil, fmt.Errorf("TypeImplicit is not a valid Go type")
 	case ast.TypeObject:
 		return nil, fmt.Errorf("TypeObject should not be used as a Go type")
-	default:
-		ident, err := transformTypeIdent(n.Ident)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform type ident: %s", err)
+	case ast.TypePointer:
+		if len(n.TypeParams) == 0 {
+			return nil, fmt.Errorf("pointer type must have a base type parameter")
 		}
-		return ident, nil
+		baseType, err := t.transformType(n.TypeParams[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform pointer base type: %s", err)
+		}
+		return &goast.Ident{Name: "*" + baseType.Name}, nil
+	default:
+		// Use getTypeAliasNameForTypeNode for user-defined types
+		name, err := t.getTypeAliasNameForTypeNode(n)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get type alias name: %s", err)
+		}
+		return goast.NewIdent(name), nil
 	}
 }
 

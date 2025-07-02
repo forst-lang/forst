@@ -35,6 +35,18 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		commentName = typeName
 	}
 
+	// Fix: Avoid recursive type aliasing for assertion types
+	if aliasIdent, ok := (*expr).(*goast.Ident); ok && aliasIdent.Name == typeName {
+		if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
+			if assertionExpr.Assertion.BaseType != nil {
+				underlying := string(*assertionExpr.Assertion.BaseType)
+				if underlying != typeName {
+					aliasIdent.Name = underlying
+				}
+			}
+		}
+	}
+
 	return &goast.GenDecl{
 		Tok: token.TYPE,
 		Specs: []goast.Spec{
@@ -219,6 +231,19 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		}
 		return string(typeNode.Ident), nil
 	}
+
+	// Handle pointer types
+	if typeNode.Ident == ast.TypePointer {
+		if len(typeNode.TypeParams) == 0 {
+			return "", fmt.Errorf("pointer type must have a base type parameter")
+		}
+		baseTypeName, err := t.getTypeAliasNameForTypeNode(typeNode.TypeParams[0])
+		if err != nil {
+			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
+		}
+		return "*" + baseTypeName, nil
+	}
+
 	// Find the type definition by identifier
 	for _, def := range t.TypeChecker.Defs {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {

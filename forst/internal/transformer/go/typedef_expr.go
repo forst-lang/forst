@@ -68,6 +68,18 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			return &result, nil
 		}
 
+		// For assertion types without concrete base types, generate a struct type
+		if baseTypeIdent.Name == "Shape" || baseTypeIdent.Name == "TYPE_VOID" {
+			// Generate an empty struct for abstract types
+			result := goast.StructType{
+				Fields: &goast.FieldList{
+					List: []*goast.Field{},
+				},
+			}
+			var expr goast.Expr = &result
+			return &expr, nil
+		}
+
 		// Use hash-based type alias for user-defined types
 		hash, err := t.TypeChecker.Hasher.HashNode(e)
 		if err != nil {
@@ -83,7 +95,7 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		return &result, nil
 	case *ast.TypeDefAssertionExpr:
 		// Handle pointer by dereferencing and reusing value logic
-		return t.transformTypeDefExpr(*e)
+		return t.transformTypeDefExpr(ast.TypeDefAssertionExpr(*e))
 	case ast.TypeDefShapeExpr:
 		shape := e.Shape
 		expr, err := t.transformShapeType(&shape)

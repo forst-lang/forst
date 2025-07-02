@@ -64,6 +64,20 @@ func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
 	t.types = append(t.types, typeDecl)
 }
 
+// HasType returns true if a type with the given name is already defined
+func (t *TransformerOutput) HasType(name string) bool {
+	for _, typeDecl := range t.types {
+		if len(typeDecl.Specs) > 0 {
+			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+				if spec.Name.Name == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // PackageName returns the package name for the TransformerOutput
 func (t *TransformerOutput) PackageName() string {
 	if t.packageName == "" {
