@@ -46,11 +46,19 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	for _, def := range t.TypeChecker.Defs {
 		switch def := def.(type) {
 		case ast.TypeDefNode:
+			t.log.WithFields(logrus.Fields{
+				"typeDef":  def.GetIdent(),
+				"function": "TransformForstFileToGo",
+			}).Debug("Processing type definition")
 			decl, err := t.transformTypeDef(def)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(decl)
+			t.log.WithFields(logrus.Fields{
+				"typeDef":  def.GetIdent(),
+				"function": "TransformForstFileToGo",
+			}).Debug("Added type definition to output")
 		case ast.TypeGuardNode:
 			t.log.WithFields(logrus.Fields{
 				"guard":    def.GetIdent(),

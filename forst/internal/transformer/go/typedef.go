@@ -18,16 +18,23 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		return nil, err
 	}
 
-	// Always use hash-based names for types, but hash only the expression part
-	hashNode, ok := node.Expr.(ast.Node)
-	if !ok {
-		return nil, fmt.Errorf("type expression is not a Node: %T", node.Expr)
+	// Use original name for explicitly named types, hash-based names for anonymous types
+	var typeName string
+	if string(node.Ident)[0] == 'T' && string(node.Ident)[1] == '_' {
+		// This is a hash-based type, use hash name
+		hashNode, ok := node.Expr.(ast.Node)
+		if !ok {
+			return nil, fmt.Errorf("type expression is not a Node: %T", node.Expr)
+		}
+		hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash type def expr during transformation: %s", err)
+		}
+		typeName = string(hash.ToTypeIdent())
+	} else {
+		// This is an explicitly named type, use the original name
+		typeName = string(node.Ident)
 	}
-	hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash type def expr during transformation: %s", err)
-	}
-	typeName := string(hash.ToTypeIdent())
 
 	// Use original name in comment for documentation
 	commentName := string(node.Ident)
@@ -248,20 +255,28 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 	for _, def := range t.TypeChecker.Defs {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			if typeDef.Ident == typeNode.Ident {
-				hashNode, ok := typeDef.Expr.(ast.Node)
-				if !ok {
-					// fallback: use ident directly
+				// For explicitly named types (like AppContext), use the original name
+				// For hash-based types (like T_488eVThFocF), use the hash name
+				if string(typeNode.Ident)[0] == 'T' && string(typeNode.Ident)[1] == '_' {
+					// This is a hash-based type, use hash name
+					hashNode, ok := typeDef.Expr.(ast.Node)
+					if !ok {
+						// fallback: use ident directly
+						return string(typeNode.Ident), nil
+					}
+					hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
+					if err != nil {
+						err = fmt.Errorf("failed to hash type alias name for type node %s: %w", typeNode.Ident, err)
+						t.log.WithFields(logrus.Fields{
+							"function": "getTypeAliasNameForTypeNode",
+						}).WithError(err).Error("transforming type alias name failed")
+						return "", err
+					}
+					return string(hash.ToTypeIdent()), nil
+				} else {
+					// This is an explicitly named type, use the original name
 					return string(typeNode.Ident), nil
 				}
-				hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
-				if err != nil {
-					err = fmt.Errorf("failed to hash type alias name for type node %s: %w", typeNode.Ident, err)
-					t.log.WithFields(logrus.Fields{
-						"function": "getTypeAliasNameForTypeNode",
-					}).WithError(err).Error("transforming type alias name failed")
-					return "", err
-				}
-				return string(hash.ToTypeIdent()), nil
 			}
 		}
 	}
