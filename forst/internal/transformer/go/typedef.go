@@ -21,16 +21,31 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 	// Simple rule: use the original identifier name for all types
 	typeName := string(node.Ident)
 
+	originalName := typeName
 	// Fix: Avoid recursive type aliasing for assertion types
-	if aliasIdent, ok := (*expr).(*goast.Ident); ok && aliasIdent.Name == typeName {
-		if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
-			if assertionExpr.Assertion.BaseType != nil {
-				underlying := string(*assertionExpr.Assertion.BaseType)
-				if underlying != typeName {
-					aliasIdent.Name = underlying
+	if aliasIdent, ok := (*expr).(*goast.Ident); ok {
+		if aliasIdent.Name == typeName {
+			if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
+				if assertionExpr.Assertion.BaseType != nil {
+					underlying := string(*assertionExpr.Assertion.BaseType)
+					if underlying != typeName {
+						aliasIdent.Name = underlying
+					}
 				}
 			}
 		}
+		originalName = aliasIdent.Name
+	}
+
+	comments := []*goast.Comment{}
+	if originalName != typeName {
+		comments = append(comments, &goast.Comment{
+			Text: fmt.Sprintf("// %s: %s", originalName, node.Expr.String()),
+		})
+	} else {
+		comments = append(comments, &goast.Comment{
+			Text: fmt.Sprintf("// %s", node.Expr.String()),
+		})
 	}
 
 	return &goast.GenDecl{
@@ -44,11 +59,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 			},
 		},
 		Doc: &goast.CommentGroup{
-			List: []*goast.Comment{
-				{
-					Text: fmt.Sprintf("// %s: %s", typeName, node.Expr.String()),
-				},
-			},
+			List: comments,
 		},
 	}, nil
 }
