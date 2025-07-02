@@ -70,3 +70,23 @@ func TestUndefinedUserTypesBug(t *testing.T) {
 	// The actual fix will be implemented in the type emission logic
 	t.Log("Bug documented: user-defined types are referenced but not emitted in generated Go code")
 }
+
+func TestMissingReturnValuesBug(t *testing.T) {
+	// Test that functions return the expected values
+	// This test reproduces the bug where functions are missing return values
+
+	// The bug is visible in the shape guard example output where we see:
+	// not enough return values
+	//   have (error)
+	//   want (string, error)
+	//
+	// The createUser function is missing the string return value
+
+	// The issue is in the function transformation logic where return
+	// statements are not being properly transformed to return all
+	// expected values
+
+	// For now, this test just documents the bug
+	// The actual fix will be implemented in the function transformer
+	t.Log("Bug documented: functions are missing return values in generated Go code")
+}
