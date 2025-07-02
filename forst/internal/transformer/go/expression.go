@@ -173,11 +173,94 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			X:  expr,
 		}, nil
 	case ast.ShapeNode:
-		expr, err := t.transformShapeType(&e)
+		// For shape nodes, we need to generate a struct literal with initialization values
+		// First, get the struct type
+		structType, err := t.transformShapeType(&e)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform ShapeNode: %w", err)
 		}
-		return *expr, nil
+
+		// Then create a composite literal with initialization values
+		elts := make([]goast.Expr, 0, len(e.Fields))
+		for name, field := range e.Fields {
+			// Transform the field value
+			var fieldValue goast.Expr
+			if field.Type != nil {
+				// For typed fields, we need to create a value of that type
+				// This is a simplified approach - in practice, we'd need to handle
+				// different field types more carefully
+				fieldValue = goast.NewIdent("nil") // Placeholder
+			} else if field.Shape != nil {
+				// For nested shapes, recursively transform them as struct literals
+				nestedStructType, err := t.transformShapeType(field.Shape)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform nested shape type for field %s: %w", name, err)
+				}
+
+				// Create a composite literal for the nested shape
+				nestedElts := make([]goast.Expr, 0, len(field.Shape.Fields))
+				for nestedName, nestedField := range field.Shape.Fields {
+					var nestedFieldValue goast.Expr
+					if nestedField.Type != nil {
+						nestedFieldValue = goast.NewIdent("nil") // Placeholder
+					} else if nestedField.Shape != nil {
+						// Recursively handle deeply nested shapes
+						deepNestedStructType, err := t.transformShapeType(nestedField.Shape)
+						if err != nil {
+							return nil, fmt.Errorf("failed to transform deeply nested shape for field %s.%s: %w", name, nestedName, err)
+						}
+						deepNestedElts := make([]goast.Expr, 0, len(nestedField.Shape.Fields))
+						for deepName, deepField := range nestedField.Shape.Fields {
+							if deepField.Type != nil {
+								deepNestedElts = append(deepNestedElts, &goast.KeyValueExpr{
+									Key:   goast.NewIdent(deepName),
+									Value: goast.NewIdent("nil"), // Placeholder
+								})
+							} else {
+								return nil, fmt.Errorf("unsupported deeply nested field type in shape literal: %T", deepField)
+							}
+						}
+						nestedFieldValue = &goast.CompositeLit{
+							Type: *deepNestedStructType,
+							Elts: deepNestedElts,
+						}
+					} else if nestedField.Assertion != nil {
+						nestedFieldValue = goast.NewIdent("nil") // Placeholder
+					} else {
+						return nil, fmt.Errorf("unsupported nested field type in shape literal: %T", nestedField)
+					}
+
+					nestedElts = append(nestedElts, &goast.KeyValueExpr{
+						Key:   goast.NewIdent(nestedName),
+						Value: nestedFieldValue,
+					})
+				}
+
+				fieldValue = &goast.CompositeLit{
+					Type: *nestedStructType,
+					Elts: nestedElts,
+				}
+			} else if field.Assertion != nil {
+				// For assertion fields, we need to handle them appropriately
+				// This is complex and depends on the assertion type
+				fieldValue = goast.NewIdent("nil") // Placeholder
+			} else {
+				return nil, fmt.Errorf("unsupported field type in shape literal: %T", field)
+			}
+
+			// Create a key-value expression
+			keyValue := &goast.KeyValueExpr{
+				Key:   goast.NewIdent(name),
+				Value: fieldValue,
+			}
+			elts = append(elts, keyValue)
+		}
+
+		// Create the composite literal
+		return &goast.CompositeLit{
+			Type: *structType,
+			Elts: elts,
+		}, nil
 	}
 
 	return nil, fmt.Errorf("unsupported expression type: %s", reflect.TypeOf(expr).String())
