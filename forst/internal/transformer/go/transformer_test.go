@@ -51,3 +51,22 @@ func TestRecursiveTypeAliasBug(t *testing.T) {
 	// The actual fix will be implemented in the assertion transformer
 	t.Log("Bug documented: assertion types are generated as recursive aliases instead of proper Go types")
 }
+
+func TestUndefinedUserTypesBug(t *testing.T) {
+	// Test that user-defined types are properly emitted in the output
+	// This test reproduces the bug where user-defined types are referenced
+	// but not defined in the generated Go code
+
+	// The bug is visible in the shape guard example output where we see:
+	// undefined: AppContext
+	// undefined: T_488eVThFocF
+	//
+	// These are user-defined types that are referenced but not emitted
+
+	// The issue is in the type emission logic where some user-defined types
+	// are not being added to the output, causing compilation errors
+
+	// For now, this test just documents the bug
+	// The actual fix will be implemented in the type emission logic
+	t.Log("Bug documented: user-defined types are referenced but not emitted in generated Go code")
+}
