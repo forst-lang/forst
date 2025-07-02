@@ -367,6 +367,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			h.writeHashes(hasher, []byte(n.Alias.ID))
 		}
 	case ast.TypeDefNode:
+		if n.Ident != "" {
+			// For named types, hash only the identifier
+			h.writeHashes(hasher, NodeKind["TypeDef"])
+			h.writeHashes(hasher, []byte(n.Ident))
+			break
+		}
 		h.writeHashes(hasher, NodeKind["TypeDef"])
 		h.writeHashes(hasher, []byte(n.Expr.String()))
 		h.writeHashes(hasher, []byte(n.Ident))
@@ -378,6 +384,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 		h.writeHashes(hasher, hash)
 	case ast.TypeNode:
+		if n.Ident != "" {
+			// For named types, hash only the identifier
+			h.writeHashes(hasher, NodeKind["Type"])
+			h.writeHashes(hasher, []byte(n.Ident))
+			break
+		}
 		h.writeHashes(hasher, NodeKind["Type"])
 		h.writeHashes(hasher, []byte(n.Ident))
 	case ast.SimpleParamNode:

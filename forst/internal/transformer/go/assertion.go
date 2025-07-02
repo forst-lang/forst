@@ -90,6 +90,16 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 		return &expr, nil
 	}
 
-	var expr goast.Expr = goast.NewIdent(string(assertionType.Ident))
+	// Use getTypeAliasNameForTypeNode to get the hash-based name
+	name, err := t.getTypeAliasNameForTypeNode(*assertionType)
+	if err != nil {
+		err = fmt.Errorf("failed to get type alias name for assertion type: %w", err)
+		t.log.WithFields(logrus.Fields{
+			"function": "transformAssertionType",
+			"error":    err,
+		}).WithError(err).Error("getting type alias name failed")
+		return nil, err
+	}
+	var expr goast.Expr = goast.NewIdent(name)
 	return &expr, nil
 }

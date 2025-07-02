@@ -221,6 +221,14 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 	var structType goast.Expr
 	var fieldTypes map[string]string
 
+	if expectedTypeName == "" {
+		// Try to get the hash-based type name for this shape
+		hash, err := t.TypeChecker.Hasher.HashNode(*shape)
+		if err == nil {
+			expectedTypeName = string(hash.ToTypeIdent())
+		}
+	}
+
 	if expectedTypeName != "" {
 		// Try to find the named type in the output
 		for _, decl := range t.Output.types {

@@ -10,6 +10,12 @@ import (
 )
 
 func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, error) {
+	hash, err := t.TypeChecker.Hasher.HashNode(node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash type node: %w", err)
+	}
+	hashTypeName := hash.ToTypeIdent()
+
 	expr, err := t.transformTypeDefExpr(node.Expr)
 	if err != nil {
 		t.log.WithFields(logrus.Fields{
@@ -18,34 +24,16 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		return nil, err
 	}
 
-	// Simple rule: use the original identifier name for all types
-	typeName := string(node.Ident)
+	// Always use the hash-based name for the Go type
+	typeName := hashTypeName
 
-	originalName := typeName
-	// Fix: Avoid recursive type aliasing for assertion types
-	if aliasIdent, ok := (*expr).(*goast.Ident); ok {
-		if aliasIdent.Name == typeName {
-			if assertionExpr, ok := node.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
-				if assertionExpr.Assertion.BaseType != nil {
-					underlying := string(*assertionExpr.Assertion.BaseType)
-					if underlying != typeName {
-						aliasIdent.Name = underlying
-					}
-				}
-			}
-		}
-		originalName = aliasIdent.Name
-	}
+	// For comments, always use the original Forst type name
+	commentName := string(node.Ident)
 
-	comments := []*goast.Comment{}
-	if originalName != typeName {
-		comments = append(comments, &goast.Comment{
-			Text: fmt.Sprintf("// %s: %s", originalName, node.Expr.String()),
-		})
-	} else {
-		comments = append(comments, &goast.Comment{
-			Text: fmt.Sprintf("// %s", node.Expr.String()),
-		})
+	comments := []*goast.Comment{
+		{
+			Text: fmt.Sprintf("// %s: %s", commentName, node.Expr.String()),
+		},
 	}
 
 	return &goast.GenDecl{
@@ -53,7 +41,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		Specs: []goast.Spec{
 			&goast.TypeSpec{
 				Name: &goast.Ident{
-					Name: typeName,
+					Name: string(typeName),
 				},
 				Type: *expr,
 			},
@@ -241,7 +229,10 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		return "*" + baseTypeName, nil
 	}
 
-	// For all other types, use the original identifier name
-	// This includes both explicitly named types (like AppContext) and hash-based types (like T_488eVThFocF)
-	return string(typeNode.Ident), nil
+	// For all user-defined types (including named types), return the hash-based name
+	hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
+	if err != nil {
+		return string(hash.ToTypeIdent()), nil
+	}
+	return string(hash.ToTypeIdent()), nil
 }
