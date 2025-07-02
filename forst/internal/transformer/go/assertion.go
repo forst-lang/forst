@@ -35,7 +35,17 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 	}
 
 	// Handle value assertions by generating concrete Go types instead of recursive aliases
-	if len(assertion.Constraints) == 1 && assertion.Constraints[0].Name == "Value" {
+	constraintName := ""
+	if len(assertion.Constraints) > 0 {
+		constraintName = assertion.Constraints[0].Name
+	}
+	t.log.WithFields(logrus.Fields{
+		"function":          "transformAssertionType",
+		"constraintsLength": len(assertion.Constraints),
+		"constraintName":    constraintName,
+		"isValueAssertion":  len(assertion.Constraints) == 1 && constraintName == "Value",
+	}).Debugf("Checking value assertion")
+	if len(assertion.Constraints) == 1 && constraintName == "Value" {
 		// For value assertions, we need to determine the concrete Go type based on the value
 		if len(assertion.Constraints[0].Args) > 0 {
 			arg := assertion.Constraints[0].Args[0]
@@ -61,6 +71,12 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 					// Variable references should use the variable's type
 					// For now, assume string for variable references
 					var expr goast.Expr = goast.NewIdent("string")
+					return &expr, nil
+				case ast.ReferenceNode:
+					// Reference expressions (Ref(Variable(x))) should use a pointer to the variable's type
+					// For now, assume *string for reference expressions
+					starExpr := &goast.StarExpr{X: goast.NewIdent("string")}
+					var expr goast.Expr = starExpr
 					return &expr, nil
 				default:
 					// Default to string for unknown value types

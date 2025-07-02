@@ -61,6 +61,14 @@ func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 
 // AddType adds a type declaration to the TransformerOutput
 func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
+	// Check if this type is already defined
+	if len(typeDecl.Specs) > 0 {
+		if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+			if t.HasType(spec.Name.Name) {
+				return // Skip duplicate type definitions
+			}
+		}
+	}
 	t.types = append(t.types, typeDecl)
 }
 

@@ -14,7 +14,7 @@ import (
 // 2. Nested assertions
 // 3. Type aliases
 // 4. Generic types
-func (tc *TypeChecker) inferAssertionType(assertion *ast.AssertionNode, isTypeGuard bool) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isTypeGuard bool) ([]ast.TypeNode, error) {
 	if assertion == nil {
 		return nil, nil
 	}

@@ -184,169 +184,71 @@ func (t *Transformer) ensureAllReferencedTypesEmitted() error {
 		"function": "ensureAllReferencedTypesEmitted",
 	}).Debug("Starting ensureAllReferencedTypesEmitted")
 
-	// Collect all defined type names
-	defined := map[string]bool{}
-	for _, typeDecl := range t.Output.types {
-		if len(typeDecl.Specs) > 0 {
-			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
-				defined[spec.Name.Name] = true
-			}
-		}
-	}
-
-	// Collect all referenced type names from the output
-	referenced := map[string]bool{}
-	for _, typeDecl := range t.Output.types {
-		if len(typeDecl.Specs) > 0 {
-			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
-				// Scan the type definition for referenced types
-				t.scanForReferencedTypes(spec.Type, referenced)
-			}
-		}
-	}
-
-	// Also scan function signatures and bodies for referenced types
-	for _, funcDecl := range t.Output.functions {
-		if funcDecl.Type != nil {
-			// Scan function parameters
-			if funcDecl.Type.Params != nil {
-				for _, param := range funcDecl.Type.Params.List {
-					if param.Type != nil {
-						t.scanForReferencedTypes(param.Type, referenced)
-					}
-				}
-			}
-			// Scan function return types
-			if funcDecl.Type.Results != nil {
-				for _, result := range funcDecl.Type.Results.List {
-					if result.Type != nil {
-						t.scanForReferencedTypes(result.Type, referenced)
+	// Simple rule: emit all types that are explicitly defined in the type checker
+	for typeIdent, def := range t.TypeChecker.Defs {
+		// Skip if already emitted
+		alreadyEmitted := false
+		for _, typeDecl := range t.Output.types {
+			if len(typeDecl.Specs) > 0 {
+				if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+					if spec.Name.Name == string(typeIdent) {
+						alreadyEmitted = true
+						break
 					}
 				}
 			}
 		}
-		// Scan function body for composite literals
-		if funcDecl.Body != nil {
-			t.scanFunctionBodyForReferencedTypes(funcDecl.Body, referenced)
+
+		if alreadyEmitted {
+			continue
 		}
-	}
 
-	t.log.WithFields(logrus.Fields{
-		"function":   "ensureAllReferencedTypesEmitted",
-		"defined":    len(defined),
-		"referenced": len(referenced),
-	}).Debug("Collected type information")
-
-	// Emit any missing referenced types
-	for name := range referenced {
-		if !defined[name] {
-			t.log.WithFields(logrus.Fields{
-				"function":    "ensureAllReferencedTypesEmitted",
-				"missingType": name,
-			}).Debug("Found missing referenced type")
-
-			// Try to find the type definition in the type checker
-			if def, ok := t.TypeChecker.Defs[ast.TypeIdent(name)]; ok {
-				if typeDef, ok := def.(ast.TypeDefNode); ok {
-					decl, err := t.transformTypeDef(typeDef)
-					if err != nil {
-						return err
-					}
-					if decl != nil {
-						t.Output.AddType(decl)
-						// Mark this type as defined to prevent duplicates
-						defined[name] = true
-					}
-				}
-			} else {
-				// Try to synthesize a type definition from inferred types
-				if synthesized := t.synthesizeTypeDefFromInferred(name); synthesized != nil {
-					decl, err := t.transformTypeDef(*synthesized)
-					if err != nil {
-						return err
-					}
-					if decl != nil {
-						t.Output.AddType(decl)
-					}
-				}
+		// Transform and emit the type definition
+		switch def := def.(type) {
+		case ast.TypeDefNode:
+			decl, err := t.transformTypeDef(def)
+			if err != nil {
+				t.log.WithFields(logrus.Fields{
+					"function": "ensureAllReferencedTypesEmitted",
+					"type":     string(typeIdent),
+					"error":    err,
+				}).Warn("Failed to transform type definition")
+				continue
+			}
+			if decl != nil {
+				t.Output.AddType(decl)
+				t.log.WithFields(logrus.Fields{
+					"function": "ensureAllReferencedTypesEmitted",
+					"type":     string(typeIdent),
+				}).Debug("Emitted type definition")
+			}
+		case ast.TypeDefShapeExpr:
+			decl, err := t.transformShapeType(&def.Shape)
+			if err != nil {
+				t.log.WithFields(logrus.Fields{
+					"function": "ensureAllReferencedTypesEmitted",
+					"type":     string(typeIdent),
+					"error":    err,
+				}).Warn("Failed to transform shape type")
+				continue
+			}
+			if decl != nil {
+				t.Output.AddType(&goast.GenDecl{
+					Tok: goasttoken.TYPE,
+					Specs: []goast.Spec{
+						&goast.TypeSpec{
+							Name: goast.NewIdent(string(typeIdent)),
+							Type: *decl,
+						},
+					},
+				})
+				t.log.WithFields(logrus.Fields{
+					"function": "ensureAllReferencedTypesEmitted",
+					"type":     string(typeIdent),
+				}).Debug("Emitted shape type definition")
 			}
 		}
 	}
 
-	return nil
-}
-
-// scanForReferencedTypes recursively scans a Go AST expression for referenced type names
-func (t *Transformer) scanForReferencedTypes(expr goast.Expr, referenced map[string]bool) {
-	switch e := expr.(type) {
-	case *goast.Ident:
-		// Check if this looks like a hash-based type name (starts with T_)
-		if len(e.Name) > 2 && e.Name[:2] == "T_" {
-			referenced[e.Name] = true
-		}
-	case *goast.StarExpr:
-		t.scanForReferencedTypes(e.X, referenced)
-	case *goast.ArrayType:
-		t.scanForReferencedTypes(e.Elt, referenced)
-	case *goast.SelectorExpr:
-		t.scanForReferencedTypes(e.X, referenced)
-		t.scanForReferencedTypes(e.Sel, referenced)
-	case *goast.CompositeLit:
-		t.scanForReferencedTypes(e.Type, referenced)
-		for _, elt := range e.Elts {
-			if keyValue, ok := elt.(*goast.KeyValueExpr); ok {
-				t.scanForReferencedTypes(keyValue.Key, referenced)
-				t.scanForReferencedTypes(keyValue.Value, referenced)
-			} else {
-				t.scanForReferencedTypes(elt, referenced)
-			}
-		}
-	}
-}
-
-// scanFunctionBodyForReferencedTypes scans a function body for composite literals that reference types
-func (t *Transformer) scanFunctionBodyForReferencedTypes(body *goast.BlockStmt, referenced map[string]bool) {
-	for _, stmt := range body.List {
-		switch s := stmt.(type) {
-		case *goast.AssignStmt:
-			for _, rhs := range s.Rhs {
-				t.scanForReferencedTypes(rhs, referenced)
-			}
-		case *goast.DeclStmt:
-			if genDecl, ok := s.Decl.(*goast.GenDecl); ok {
-				for _, spec := range genDecl.Specs {
-					if valueSpec, ok := spec.(*goast.ValueSpec); ok {
-						for _, value := range valueSpec.Values {
-							t.scanForReferencedTypes(value, referenced)
-						}
-					}
-				}
-			}
-		case *goast.ExprStmt:
-			t.scanForReferencedTypes(s.X, referenced)
-		case *goast.ReturnStmt:
-			for _, result := range s.Results {
-				t.scanForReferencedTypes(result, referenced)
-			}
-		}
-	}
-}
-
-// synthesizeTypeDefFromInferred attempts to synthesize a type definition from inferred types
-func (t *Transformer) synthesizeTypeDefFromInferred(name string) *ast.TypeDefNode {
-	// Look for the type in the type checker's inferred types
-	for _, types := range t.TypeChecker.InferredTypes {
-		if len(types) > 0 {
-			// Check if any of the inferred types match our hash-based name
-			for _, inferredType := range types {
-				if inferredType.String() == name {
-					// Found a match, synthesize a type definition
-					// For now, just return nil since we can't easily synthesize from TypeNode
-					// The type should already be defined in the type checker's Defs
-					return nil
-				}
-			}
-		}
-	}
 	return nil
 }

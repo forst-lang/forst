@@ -99,6 +99,10 @@ func TestUndefinedTypeForValueAssertion(t *testing.T) {
 	}
 	// Assert every referenced type is defined and not a recursive alias
 	for name := range referenced {
+		// Skip built-in Go types
+		if name == "string" || name == "int" || name == "float64" || name == "bool" || name == "error" {
+			continue
+		}
 		if !defined[name] {
 			t.Errorf("Field references an undefined type: %s", name)
 		}
@@ -261,6 +265,10 @@ func TestUndefinedTypeForPointerAssertionType(t *testing.T) {
 	}
 	if referenced == "" {
 		t.Fatalf("Pointer field did not reference a type")
+	}
+	// Skip built-in Go types
+	if referenced == "string" || referenced == "int" || referenced == "float64" || referenced == "bool" || referenced == "error" {
+		return
 	}
 	if !defined[referenced] {
 		t.Errorf("Pointer field references an undefined type: %s", referenced)

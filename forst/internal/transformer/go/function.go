@@ -24,19 +24,35 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 			continue
 		}
 
-		var ident *goast.Ident
-		if t != nil {
-			name, err := t.getTypeAliasNameForTypeNode(paramType)
+		// Look up the inferred type from the type checker
+		var inferredTypes []ast.TypeNode
+		var err error
+
+		if paramType.Assertion != nil {
+			// For assertion types, use the inferred type from the type checker
+			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get type alias name: %s", err)
+				return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
 			}
-			ident = goast.NewIdent(name)
 		} else {
-			ident = goast.NewIdent(string(paramType.Ident))
+			// For non-assertion types, use the original type
+			inferredTypes = []ast.TypeNode{paramType}
 		}
+
+		// Use the first inferred type (should be only one for parameters)
+		if len(inferredTypes) == 0 {
+			return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
+		}
+
+		actualType := inferredTypes[0]
+		name, err := t.getTypeAliasNameForTypeNode(actualType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get type alias name for parameter %s: %w", paramName, err)
+		}
+
 		fields.List = append(fields.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  ident,
+			Type:  goast.NewIdent(name),
 		})
 	}
 

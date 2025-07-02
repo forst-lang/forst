@@ -93,7 +93,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case ast.SimpleParamNode:
 		if n.Type.Assertion != nil {
-			inferredType, err := tc.inferAssertionType(n.Type.Assertion, false)
+			inferredType, err := tc.InferAssertionType(n.Type.Assertion, false)
 			if err != nil {
 				return nil, err
 			}

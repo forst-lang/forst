@@ -159,7 +159,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return inferredType, nil
 
 	case ast.AssertionNode:
-		inferredType, err := tc.inferAssertionType(&e, false)
+		inferredType, err := tc.InferAssertionType(&e, false)
 		if err != nil {
 			return nil, err
 		}

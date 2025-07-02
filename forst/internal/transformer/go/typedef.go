@@ -18,29 +18,8 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		return nil, err
 	}
 
-	// Use original name for explicitly named types, hash-based names for anonymous types
-	var typeName string
-	if string(node.Ident)[0] == 'T' && string(node.Ident)[1] == '_' {
-		// This is a hash-based type, use hash name
-		hashNode, ok := node.Expr.(ast.Node)
-		if !ok {
-			return nil, fmt.Errorf("type expression is not a Node: %T", node.Expr)
-		}
-		hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
-		if err != nil {
-			return nil, fmt.Errorf("failed to hash type def expr during transformation: %s", err)
-		}
-		typeName = string(hash.ToTypeIdent())
-	} else {
-		// This is an explicitly named type, use the original name
-		typeName = string(node.Ident)
-	}
-
-	// Use original name in comment for documentation
-	commentName := string(node.Ident)
-	if commentName == "" {
-		commentName = typeName
-	}
+	// Simple rule: use the original identifier name for all types
+	typeName := string(node.Ident)
 
 	// Fix: Avoid recursive type aliasing for assertion types
 	if aliasIdent, ok := (*expr).(*goast.Ident); ok && aliasIdent.Name == typeName {
@@ -67,7 +46,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		Doc: &goast.CommentGroup{
 			List: []*goast.Comment{
 				{
-					Text: fmt.Sprintf("// %s: %s", commentName, node.Expr.String()),
+					Text: fmt.Sprintf("// %s: %s", typeName, node.Expr.String()),
 				},
 			},
 		},
@@ -220,8 +199,8 @@ func (t *Transformer) defineShapeTypes() error {
 	return nil
 }
 
-// getTypeAliasNameForTypeNode returns the hash-based type alias name for a given TypeNode.
-// It finds the corresponding TypeDefNode in the type checker and hashes its Expr.
+// getTypeAliasNameForTypeNode returns the type name for a given TypeNode.
+// Simple rule: use hash-based names consistently for all types except built-ins.
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	// If the type is a built-in, return its Go name
 	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
@@ -251,44 +230,7 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		return "*" + baseTypeName, nil
 	}
 
-	// Find the type definition by identifier
-	for _, def := range t.TypeChecker.Defs {
-		if typeDef, ok := def.(ast.TypeDefNode); ok {
-			if typeDef.Ident == typeNode.Ident {
-				// For explicitly named types (like AppContext), use the original name
-				// For hash-based types (like T_488eVThFocF), use the hash name
-				if string(typeNode.Ident)[0] == 'T' && string(typeNode.Ident)[1] == '_' {
-					// This is a hash-based type, use hash name
-					hashNode, ok := typeDef.Expr.(ast.Node)
-					if !ok {
-						// fallback: use ident directly
-						return string(typeNode.Ident), nil
-					}
-					hash, err := t.TypeChecker.Hasher.HashNode(hashNode)
-					if err != nil {
-						err = fmt.Errorf("failed to hash type alias name for type node %s: %w", typeNode.Ident, err)
-						t.log.WithFields(logrus.Fields{
-							"function": "getTypeAliasNameForTypeNode",
-						}).WithError(err).Error("transforming type alias name failed")
-						return "", err
-					}
-					return string(hash.ToTypeIdent()), nil
-				} else {
-					// This is an explicitly named type, use the original name
-					return string(typeNode.Ident), nil
-				}
-			}
-		}
-	}
-
-	if typeNode.Ident == ast.TypeAssertion {
-		assertionType, err := t.TypeChecker.LookupAssertionType(typeNode.Assertion)
-		if err != nil {
-			// fallback: use ident directly
-			return string(typeNode.Ident), nil
-		}
-		return string(assertionType.Ident), nil
-	}
-	// fallback: use ident directly
+	// For all other types, use the original identifier name
+	// This includes both explicitly named types (like AppContext) and hash-based types (like T_488eVThFocF)
 	return string(typeNode.Ident), nil
 }

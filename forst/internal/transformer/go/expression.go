@@ -173,95 +173,138 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			X:  expr,
 		}, nil
 	case ast.ShapeNode:
-		// For shape nodes, we need to generate a struct literal with initialization values
-		// First, get the struct type
-		structType, err := t.transformShapeType(&e)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform ShapeNode: %w", err)
-		}
-
-		// Then create a composite literal with initialization values
-		elts := make([]goast.Expr, 0, len(e.Fields))
-		for name, field := range e.Fields {
-			// Transform the field value
-			var fieldValue goast.Expr
-			if field.Type != nil {
-				// For typed fields, we need to create a value of that type
-				// This is a simplified approach - in practice, we'd need to handle
-				// different field types more carefully
-				fieldValue = goast.NewIdent("nil") // Placeholder
-			} else if field.Shape != nil {
-				// For nested shapes, recursively transform them as struct literals
-				nestedStructType, err := t.transformShapeType(field.Shape)
-				if err != nil {
-					return nil, fmt.Errorf("failed to transform nested shape type for field %s: %w", name, err)
-				}
-
-				// Create a composite literal for the nested shape
-				nestedElts := make([]goast.Expr, 0, len(field.Shape.Fields))
-				for nestedName, nestedField := range field.Shape.Fields {
-					var nestedFieldValue goast.Expr
-					if nestedField.Type != nil {
-						nestedFieldValue = goast.NewIdent("nil") // Placeholder
-					} else if nestedField.Shape != nil {
-						// Recursively handle deeply nested shapes
-						deepNestedStructType, err := t.transformShapeType(nestedField.Shape)
-						if err != nil {
-							return nil, fmt.Errorf("failed to transform deeply nested shape for field %s.%s: %w", name, nestedName, err)
-						}
-						deepNestedElts := make([]goast.Expr, 0, len(nestedField.Shape.Fields))
-						for deepName, deepField := range nestedField.Shape.Fields {
-							if deepField.Type != nil {
-								deepNestedElts = append(deepNestedElts, &goast.KeyValueExpr{
-									Key:   goast.NewIdent(deepName),
-									Value: goast.NewIdent("nil"), // Placeholder
-								})
-							} else {
-								return nil, fmt.Errorf("unsupported deeply nested field type in shape literal: %T", deepField)
-							}
-						}
-						nestedFieldValue = &goast.CompositeLit{
-							Type: *deepNestedStructType,
-							Elts: deepNestedElts,
-						}
-					} else if nestedField.Assertion != nil {
-						nestedFieldValue = goast.NewIdent("nil") // Placeholder
-					} else {
-						return nil, fmt.Errorf("unsupported nested field type in shape literal: %T", nestedField)
-					}
-
-					nestedElts = append(nestedElts, &goast.KeyValueExpr{
-						Key:   goast.NewIdent(nestedName),
-						Value: nestedFieldValue,
-					})
-				}
-
-				fieldValue = &goast.CompositeLit{
-					Type: *nestedStructType,
-					Elts: nestedElts,
-				}
-			} else if field.Assertion != nil {
-				// For assertion fields, we need to handle them appropriately
-				// This is complex and depends on the assertion type
-				fieldValue = goast.NewIdent("nil") // Placeholder
-			} else {
-				return nil, fmt.Errorf("unsupported field type in shape literal: %T", field)
-			}
-
-			// Create a key-value expression
-			keyValue := &goast.KeyValueExpr{
-				Key:   goast.NewIdent(name),
-				Value: fieldValue,
-			}
-			elts = append(elts, keyValue)
-		}
-
-		// Create the composite literal
-		return &goast.CompositeLit{
-			Type: *structType,
-			Elts: elts,
-		}, nil
+		// Try to use expected type if available (from assignment or function param)
+		// For now, try to guess from context: if this is an assignment or argument, use the variable/param type
+		// (This requires further integration with assignment/call transformation logic)
+		return t.transformShapeNodeWithExpectedType(&e, "")
 	}
 
 	return nil, fmt.Errorf("unsupported expression type: %s", reflect.TypeOf(expr).String())
+}
+
+// transformAssertionValue transforms an assertion value to a Go expression
+func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode) (goast.Expr, error) {
+	// Check if this is a Value assertion with a value argument
+	if len(assertion.Constraints) > 0 {
+		constraint := assertion.Constraints[0]
+		if constraint.Name == "Value" && len(constraint.Args) > 0 {
+			arg := constraint.Args[0]
+			if arg.Value != nil {
+				// For Value assertions, we need to handle the value appropriately
+				switch v := (*arg.Value).(type) {
+				case ast.ReferenceNode:
+					// For Value(Ref(x)), we want a pointer to x when used in a pointer context
+					// So we transform the inner value and take its address
+					innerExpr, err := t.transformExpression(v.Value)
+					if err != nil {
+						return nil, err
+					}
+					return &goast.UnaryExpr{
+						Op: token.AND,
+						X:  innerExpr,
+					}, nil
+				default:
+					// For other value types, transform normally
+					return t.transformExpression(*arg.Value)
+				}
+			}
+		}
+	}
+
+	// For other assertion types, return a zero value based on the expected type
+	// This is a fallback - in practice, we should handle more assertion types
+	return goast.NewIdent("nil"), nil
+}
+
+// transformShapeNodeWithExpectedType generates a struct literal using the expected type if possible
+func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedTypeName string) (goast.Expr, error) {
+	var structType goast.Expr
+	var fieldTypes map[string]string
+
+	if expectedTypeName != "" {
+		// Try to find the named type in the output
+		for _, decl := range t.Output.types {
+			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+				if typeSpec.Name.Name == expectedTypeName {
+					structType = goast.NewIdent(expectedTypeName)
+					// Try to extract field types from the struct
+					if structTypeSpec, ok := typeSpec.Type.(*goast.StructType); ok {
+						fieldTypes = make(map[string]string)
+						for _, f := range structTypeSpec.Fields.List {
+							if len(f.Names) > 0 {
+								fieldTypes[f.Names[0].Name] = t.exprToTypeName(f.Type)
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	if structType == nil {
+		// Fallback: use anonymous struct type
+		var err error
+		structTypePtr, err := t.transformShapeType(shape)
+		if err != nil {
+			return nil, err
+		}
+		structType = *structTypePtr
+	}
+
+	// Build the struct literal fields, recursively using expected field types
+	fields := []goast.Expr{}
+	for name, field := range shape.Fields {
+		var fieldValue goast.Expr
+		var err error
+		// If we have an expected field type, use it recursively
+		expectedFieldType := ""
+		if fieldTypes != nil {
+			expectedFieldType = fieldTypes[name]
+		}
+		if field.Shape != nil {
+			fieldValue, err = t.transformShapeNodeWithExpectedType(field.Shape, expectedFieldType)
+			if err != nil {
+				return nil, err
+			}
+		} else if field.Assertion != nil {
+			fieldValue, err = t.transformAssertionValue(field.Assertion)
+			if err != nil {
+				return nil, err
+			}
+		} else if field.Type != nil {
+			// If the field has a type, use the zero value for that type
+			goType, err := t.transformType(*field.Type)
+			if err != nil {
+				return nil, err
+			}
+			fieldValue = getZeroValue(goType)
+		} else {
+			fieldValue = goast.NewIdent("nil")
+		}
+		fields = append(fields, &goast.KeyValueExpr{
+			Key:   goast.NewIdent(name),
+			Value: fieldValue,
+		})
+	}
+
+	return &goast.CompositeLit{
+		Type: structType,
+		Elts: fields,
+	}, nil
+}
+
+// exprToTypeName extracts the type name from a go/ast.Expr
+func (t *Transformer) exprToTypeName(expr goast.Expr) string {
+	switch e := expr.(type) {
+	case *goast.Ident:
+		return e.Name
+	case *goast.StarExpr:
+		return "*" + t.exprToTypeName(e.X)
+	case *goast.SelectorExpr:
+		return e.Sel.Name
+	case *goast.StructType:
+		return "struct" // anonymous
+	default:
+		return "" // unknown
+	}
 }

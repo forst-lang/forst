@@ -235,13 +235,31 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.FunctionCallNode:
+		// Look up parameter types for the function
+		paramTypeNames := make([]string, len(s.Arguments))
+		if sig, ok := t.TypeChecker.Functions[s.Function.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
+			for i, param := range sig.Parameters {
+				name, err := t.getTypeAliasNameForTypeNode(param.Type)
+				if err == nil {
+					paramTypeNames[i] = name
+				}
+			}
+		}
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
-			argExpr, err := t.transformExpression(arg)
-			if err != nil {
-				return nil, err
+			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypeNames[i] != "" {
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, paramTypeNames[i])
+				if err != nil {
+					return nil, err
+				}
+				args[i] = argExpr
+			} else {
+				argExpr, err := t.transformExpression(arg)
+				if err != nil {
+					return nil, err
+				}
+				args[i] = argExpr
 			}
-			args[i] = argExpr
 		}
 		return &goast.ExprStmt{
 			X: &goast.CallExpr{
@@ -265,6 +283,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				}
 			} else {
 				typeName = string(s.ExplicitTypes[0].Ident)
+			}
+			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
+				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, typeName)
+				if err != nil {
+					return nil, err
+				}
+				return &goast.DeclStmt{
+					Decl: &goast.GenDecl{
+						Tok: token.VAR,
+						Specs: []goast.Spec{
+							&goast.ValueSpec{
+								Names:  []*goast.Ident{goast.NewIdent(varName)},
+								Type:   goast.NewIdent(typeName),
+								Values: []goast.Expr{rhs},
+							},
+						},
+					},
+				}, nil
 			}
 			rhs, err := t.transformExpression(s.RValues[0])
 			if err != nil {
@@ -293,11 +329,37 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
-			rhsExpr, err := t.transformExpression(rval)
-			if err != nil {
-				return nil, err
+			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
+				// Try to get the type of the LHS variable
+				var typeName string
+				if t != nil {
+					varName := s.LValues[0].Ident.String()
+					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varName)]; ok && len(types) > 0 {
+						typeName, _ = t.getTypeAliasNameForTypeNode(types[0])
+					}
+					// For short var declarations, try to infer the type from the assignment context
+					if typeName == "" && s.IsShort {
+						// Try to infer from the RValue's inferred type
+						hash, err := t.TypeChecker.Hasher.HashNode(rval)
+						if err == nil {
+							if inferredTypes, ok := t.TypeChecker.InferredTypes[hash]; ok && len(inferredTypes) > 0 {
+								typeName, _ = t.getTypeAliasNameForTypeNode(inferredTypes[0])
+							}
+						}
+					}
+				}
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, typeName)
+				if err != nil {
+					return nil, err
+				}
+				rhs[i] = rhsExpr
+			} else {
+				rhsExpr, err := t.transformExpression(rval)
+				if err != nil {
+					return nil, err
+				}
+				rhs[i] = rhsExpr
 			}
-			rhs[i] = rhsExpr
 		}
 		operator := token.ASSIGN
 		if s.IsShort {

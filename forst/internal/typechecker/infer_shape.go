@@ -65,7 +65,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 			})
 		} else if field.Assertion != nil {
 			// Skip if the assertion type has already been inferred
-			inferredType, _ := tc.inferAssertionType(field.Assertion, false)
+			inferredType, _ := tc.InferAssertionType(field.Assertion, false)
 			if inferredType != nil {
 				continue
 			}
