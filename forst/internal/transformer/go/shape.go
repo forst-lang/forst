@@ -41,6 +41,35 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			}
 		}
 
+		// Handle pointer types specially
+		if field.Type.Ident == ast.TypePointer {
+			if len(field.Type.TypeParams) == 0 {
+				return nil, fmt.Errorf("pointer type must have a base type parameter")
+			}
+			// Ensure the base type definition is emitted (especially for value assertions)
+			baseType := field.Type.TypeParams[0]
+			if baseType.Ident == ast.TypeAssertion && baseType.Assertion != nil {
+				// Handle assertion types directly
+				baseTypeExpr, err := t.transformAssertionType(baseType.Assertion)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform pointer base assertion type: %w", err)
+				}
+				starExpr := &goast.StarExpr{X: *baseTypeExpr}
+				var expr goast.Expr = starExpr
+				return &expr, nil
+			} else {
+				// Handle other base types
+				baseTypeField := ast.ShapeFieldNode{Type: &baseType}
+				baseTypeExpr, err := t.transformShapeFieldType(baseTypeField)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform pointer base type: %w", err)
+				}
+				starExpr := &goast.StarExpr{X: *baseTypeExpr}
+				var expr goast.Expr = starExpr
+				return &expr, nil
+			}
+		}
+
 		name, err := t.getTypeAliasNameForTypeNode(*field.Type)
 		if err != nil {
 			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)

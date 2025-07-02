@@ -205,6 +205,68 @@ func TestTypeErrorTransformation(t *testing.T) {
 	}
 }
 
+func TestUndefinedTypeForPointerAssertionType(t *testing.T) {
+	// Minimal reproduction: shape with a pointer field type whose base is a value assertion
+	baseAssertion := &ast.AssertionNode{
+		BaseType:    nil,
+		Constraints: []ast.ConstraintNode{{Name: "Value", Args: []ast.ConstraintArgumentNode{{}}}},
+	}
+	pointerType := ast.TypeNode{
+		Ident:      ast.TypePointer,
+		TypeParams: []ast.TypeNode{{Assertion: baseAssertion, Ident: ast.TypeAssertion}},
+	}
+	shape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"ptr": {Type: &pointerType},
+		},
+	}
+	typeDef := ast.TypeDefNode{
+		Ident: "T_ShapeWithPointer",
+		Expr:  ast.TypeDefShapeExpr{Shape: shape},
+	}
+
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	decl, err := tr.transformTypeDef(typeDef)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Collect all defined type names from the transformer's output
+	defined := map[string]bool{}
+	if gen, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+		defined[gen.Name.Name] = true
+	}
+	for _, typeDecl := range tr.Output.types {
+		if len(typeDecl.Specs) > 0 {
+			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+				defined[spec.Name.Name] = true
+			}
+		}
+	}
+	// Find the referenced type name in the pointer field
+	var referenced string
+	if gen, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+		if structType, ok := gen.Type.(*goast.StructType); ok {
+			for _, field := range structType.Fields.List {
+				if starExpr, isStar := field.Type.(*goast.StarExpr); isStar {
+					if ident, isIdent := starExpr.X.(*goast.Ident); isIdent {
+						referenced = ident.Name
+					}
+				}
+			}
+		}
+	}
+	if referenced == "" {
+		t.Fatalf("Pointer field did not reference a type")
+	}
+	if !defined[referenced] {
+		t.Errorf("Pointer field references an undefined type: %s", referenced)
+	}
+}
+
 // TODO: Add tests for:
 // 4. Undefined types for pointer/value assertion types
 // 5. Undefined error type
