@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
-	"go/token"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -35,22 +34,44 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 		return nil, err
 	}
 
-	// Emit a Go type definition for value assertions
+	// Handle value assertions by generating concrete Go types instead of recursive aliases
 	if len(assertion.Constraints) == 1 && assertion.Constraints[0].Name == "Value" {
-		hashName := string(assertionType.Ident)
-		// Only emit if not already present
-		if !t.Output.HasType(hashName) {
-			decl := &goast.GenDecl{
-				Tok: token.TYPE,
-				Specs: []goast.Spec{
-					&goast.TypeSpec{
-						Name: goast.NewIdent(hashName),
-						Type: goast.NewIdent("string"),
-					},
-				},
+		// For value assertions, we need to determine the concrete Go type based on the value
+		if len(assertion.Constraints[0].Args) > 0 {
+			arg := assertion.Constraints[0].Args[0]
+			if arg.Value != nil {
+				switch (*arg.Value).(type) {
+				case ast.StringLiteralNode:
+					// String literals should be typed as string
+					var expr goast.Expr = goast.NewIdent("string")
+					return &expr, nil
+				case ast.IntLiteralNode:
+					// Int literals should be typed as int
+					var expr goast.Expr = goast.NewIdent("int")
+					return &expr, nil
+				case ast.FloatLiteralNode:
+					// Float literals should be typed as float64
+					var expr goast.Expr = goast.NewIdent("float64")
+					return &expr, nil
+				case ast.BoolLiteralNode:
+					// Bool literals should be typed as bool
+					var expr goast.Expr = goast.NewIdent("bool")
+					return &expr, nil
+				case ast.VariableNode:
+					// Variable references should use the variable's type
+					// For now, assume string for variable references
+					var expr goast.Expr = goast.NewIdent("string")
+					return &expr, nil
+				default:
+					// Default to string for unknown value types
+					var expr goast.Expr = goast.NewIdent("string")
+					return &expr, nil
+				}
 			}
-			t.Output.AddType(decl)
 		}
+		// If no value or unknown value type, default to string
+		var expr goast.Expr = goast.NewIdent("string")
+		return &expr, nil
 	}
 
 	var expr goast.Expr = goast.NewIdent(string(assertionType.Ident))

@@ -80,6 +80,46 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			return &expr, nil
 		}
 
+		// Handle value assertions by generating concrete Go types instead of recursive aliases
+		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == "Value" {
+			// For value assertions, we need to determine the concrete Go type based on the value
+			if len(e.Assertion.Constraints[0].Args) > 0 {
+				arg := e.Assertion.Constraints[0].Args[0]
+				if arg.Value != nil {
+					switch (*arg.Value).(type) {
+					case ast.StringLiteralNode:
+						// String literals should be typed as string
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					case ast.IntLiteralNode:
+						// Int literals should be typed as int
+						var result goast.Expr = goast.NewIdent("int")
+						return &result, nil
+					case ast.FloatLiteralNode:
+						// Float literals should be typed as float64
+						var result goast.Expr = goast.NewIdent("float64")
+						return &result, nil
+					case ast.BoolLiteralNode:
+						// Bool literals should be typed as bool
+						var result goast.Expr = goast.NewIdent("bool")
+						return &result, nil
+					case ast.VariableNode:
+						// Variable references should use the variable's type
+						// For now, assume string for variable references
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					default:
+						// Default to string for unknown value types
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					}
+				}
+			}
+			// If no value or unknown value type, default to string
+			var result goast.Expr = goast.NewIdent("string")
+			return &result, nil
+		}
+
 		// Use hash-based type alias for user-defined types
 		hash, err := t.TypeChecker.Hasher.HashNode(e)
 		if err != nil {
