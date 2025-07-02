@@ -217,7 +217,7 @@ func (t *Transformer) defineShapeTypes() error {
 // It finds the corresponding TypeDefNode in the type checker and hashes its Expr.
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	// If the type is a built-in, return its Go name
-	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid {
+	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		ident, err := transformTypeIdent(typeNode.Ident)
 		if err != nil {
 			err = fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)

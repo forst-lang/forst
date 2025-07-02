@@ -190,9 +190,22 @@ func TestUndefinedTypeForReferencedUserType(t *testing.T) {
 	}
 }
 
+func TestTypeErrorTransformation(t *testing.T) {
+	// Minimal reproduction: transform ast.TypeError to Go type
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	goType, err := tr.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeError})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if goType != "error" {
+		t.Errorf("Expected error type, got: %s", goType)
+	}
+}
+
 // TODO: Add tests for:
-// 2. Undefined types for value assertions
-// 3. Undefined types for referenced user types
 // 4. Undefined types for pointer/value assertion types
 // 5. Undefined error type
 // 6. Invalid Go struct literal in main
