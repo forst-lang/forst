@@ -58,6 +58,32 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 	}
 }
 
+// getZeroValue returns the zero value for a Go type
+func getZeroValue(goType goast.Expr) goast.Expr {
+	switch t := goType.(type) {
+	case *goast.Ident:
+		switch t.Name {
+		case "string":
+			return &goast.BasicLit{Kind: token.STRING, Value: "\"\""}
+		case "int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "uintptr", "float64", "float32", "complex64", "complex128", "rune", "byte":
+			return &goast.BasicLit{Kind: token.INT, Value: "0"}
+		case "bool":
+			return goast.NewIdent("false")
+		case "error":
+			return goast.NewIdent("nil")
+		default:
+			// For structs and user types, use T{}
+			return &goast.CompositeLit{Type: t}
+		}
+	case *goast.StarExpr:
+		return goast.NewIdent("nil")
+	case *goast.ArrayType:
+		return goast.NewIdent("nil")
+	default:
+		return goast.NewIdent("nil")
+	}
+}
+
 func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 	errorExpr := t.transformErrorExpression(stmt)
 
@@ -70,9 +96,28 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 				},
 			},
 		}
-
 	}
 
+	// Look up the function's return types
+	returnTypes := []goast.Expr{}
+	fnNode, err := t.closestFunction()
+	if err == nil {
+		if fn, ok := fnNode.(ast.FunctionNode); ok {
+			// Use the type checker to get the Go return types
+			goReturnTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn)
+			if err == nil && len(goReturnTypes) > 0 {
+				// For all but the last (error), emit zero value
+				for i := 0; i < len(goReturnTypes)-1; i++ {
+					goType, _ := t.transformType(goReturnTypes[i])
+					returnTypes = append(returnTypes, getZeroValue(goType))
+				}
+				// Last value is the error
+				returnTypes = append(returnTypes, errorExpr)
+				return &goast.ReturnStmt{Results: returnTypes}
+			}
+		}
+	}
+	// Fallback: just return the error
 	return &goast.ReturnStmt{
 		Results: []goast.Expr{
 			errorExpr,
@@ -164,6 +209,26 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Check if we need to return multiple values (e.g., (string, error))
+		fnNode, err := t.closestFunction()
+		if err == nil {
+			if fn, ok := fnNode.(ast.FunctionNode); ok {
+				// Use the type checker to get the Go return types
+				goReturnTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn)
+				if err == nil && len(goReturnTypes) > 1 {
+					// Function returns multiple values, need to add nil for error
+					results := []goast.Expr{valueExpr}
+					// Add nil for error (last return type)
+					results = append(results, goast.NewIdent("nil"))
+					return &goast.ReturnStmt{
+						Results: results,
+					}, nil
+				}
+			}
+		}
+
+		// Single return value
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{
 				valueExpr,
