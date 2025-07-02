@@ -50,5 +50,11 @@ func (n ShapeFieldNode) String() string {
 	if n.Shape != nil {
 		return n.Shape.String()
 	}
-	return n.Assertion.String()
+	if n.Assertion != nil {
+		return n.Assertion.String()
+	}
+	if n.Type != nil {
+		return n.Type.String()
+	}
+	return "?"
 }

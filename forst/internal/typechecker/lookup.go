@@ -48,17 +48,8 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 		return symbol.Types[0], nil
 	}
 
-	currentType := symbol.Types[0]
-	originalAssertion := currentType.Assertion
-	for i := 1; i < len(parts); i++ {
-		fieldType, err := tc.lookupFieldType(currentType, ast.Ident{ID: ast.Identifier(parts[i])}, originalAssertion)
-		if err != nil {
-			return ast.TypeNode{}, err
-		}
-		currentType = fieldType
-	}
-
-	return currentType, nil
+	// Use lookupFieldPath for multi-segment field access
+	return tc.lookupFieldPath(symbol.Types[0], parts[1:])
 }
 
 // LookupEnsureBaseType looks up the base type of an ensure node in a given scope
