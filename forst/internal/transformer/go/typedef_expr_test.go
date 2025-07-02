@@ -108,6 +108,88 @@ func TestUndefinedTypeForValueAssertion(t *testing.T) {
 	}
 }
 
+func TestUndefinedTypeForReferencedUserType(t *testing.T) {
+	// Minimal reproduction: shape with a field that references a user-defined type
+	// This should fail if the referenced type (e.g., AppContext) is not defined
+
+	// First, create the AppContext type definition
+	appContextShape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"user": {
+				Type: &ast.TypeNode{
+					Ident: ast.TypeString,
+				},
+			},
+		},
+	}
+	appContextDef := ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr:  ast.TypeDefShapeExpr{Shape: appContextShape},
+	}
+
+	// Create a shape that references the user-defined type
+	shape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"ctx": {
+				Type: &ast.TypeNode{
+					Ident: ast.TypeIdent("AppContext"),
+				},
+			},
+		},
+	}
+	typeDef := ast.TypeDefNode{
+		Ident: "T_ShapeWithUserType",
+		Expr:  ast.TypeDefShapeExpr{Shape: shape},
+	}
+
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+
+	// Register the AppContext type definition in the type checker
+	tc.Defs[ast.TypeIdent("AppContext")] = appContextDef
+
+	tr := setupTransformer(tc, log)
+
+	decl, err := tr.transformTypeDef(typeDef)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Collect all defined type names from the transformer's output
+	defined := map[string]bool{}
+	// Add the main type definition
+	if gen, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+		defined[gen.Name.Name] = true
+	}
+	// Add all types from the transformer's output
+	for _, typeDecl := range tr.Output.types {
+		if len(typeDecl.Specs) > 0 {
+			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+				defined[spec.Name.Name] = true
+			}
+		}
+	}
+
+	// Collect all referenced type names in struct fields
+	referenced := map[string]bool{}
+	if gen, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+		if structType, ok := gen.Type.(*goast.StructType); ok {
+			for _, field := range structType.Fields.List {
+				if ident, isIdent := field.Type.(*goast.Ident); isIdent {
+					referenced[ident.Name] = true
+				}
+			}
+		}
+	}
+
+	// Assert every referenced type is defined
+	for name := range referenced {
+		if !defined[name] {
+			t.Errorf("Field references an undefined type: %s", name)
+		}
+	}
+}
+
 // TODO: Add tests for:
 // 2. Undefined types for value assertions
 // 3. Undefined types for referenced user types

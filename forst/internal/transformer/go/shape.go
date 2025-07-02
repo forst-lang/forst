@@ -14,6 +14,33 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			"function": "transformShapeFieldType",
 			"type":     field.Type.Ident,
 		}).Tracef("transformShapeFieldType, type: %s", field.Type.Ident)
+
+		// For user-defined types, ensure the type definition is emitted
+		if !isGoBuiltinType(string(field.Type.Ident)) && field.Type.Ident != ast.TypeString && field.Type.Ident != ast.TypeInt && field.Type.Ident != ast.TypeFloat && field.Type.Ident != ast.TypeBool && field.Type.Ident != ast.TypeVoid {
+			// Find the type definition and emit it
+			for _, def := range t.TypeChecker.Defs {
+				if typeDef, ok := def.(ast.TypeDefNode); ok {
+					if typeDef.Ident == field.Type.Ident {
+						// Transform the type definition and add it to output
+						decl, err := t.transformTypeDef(typeDef)
+						if err != nil {
+							err = fmt.Errorf("failed to transform referenced type definition during transformation: %w", err)
+							t.log.WithFields(logrus.Fields{
+								"function": "transformShapeFieldType",
+								"type":     field.Type.Ident,
+							}).WithError(err).Error("transforming referenced type definition failed")
+							return nil, err
+						}
+						// Only add if not already present
+						if !t.Output.HasType(decl.Specs[0].(*goast.TypeSpec).Name.Name) {
+							t.Output.AddType(decl)
+						}
+						break
+					}
+				}
+			}
+		}
+
 		name, err := t.getTypeAliasNameForTypeNode(*field.Type)
 		if err != nil {
 			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
