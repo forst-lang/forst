@@ -256,6 +256,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isTypeGu
 			},
 		},
 	}
+	tc.log.Debugf("InferAssertionType: registered type %q for assertion", typeIdent)
 
 	shapeType := ast.TypeNode{Ident: typeIdent}
 	tc.storeInferredType(assertion, []ast.TypeNode{shapeType})

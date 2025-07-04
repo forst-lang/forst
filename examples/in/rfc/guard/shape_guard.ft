@@ -39,13 +39,12 @@ func createUser(op AppMutation.Input({
 
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-  op := AppMutation{
+  createUser({
     ctx: {
       sessionId: &sessionId,
     },
     input: {
       name: "Alice",
     },
-  }
-  createUser(op)
+  })
 }

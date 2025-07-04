@@ -214,3 +214,54 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeChecker_RegistersInferredParameterTypeForAssertion(t *testing.T) {
+	tc := New(nil, false)
+
+	// Register a minimal type guard for "Input"
+	inputGuard := &ast.TypeGuardNode{
+		Ident: "Input",
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier("m")},
+			Type:  ast.TypeNode{Ident: ast.TypeIdent("MutationArg")},
+		},
+		Params: []ast.ParamNode{
+			ast.SimpleParamNode{
+				Ident: ast.Ident{ID: ast.Identifier("input")},
+				Type:  ast.TypeNode{Ident: ast.TypeIdent("Shape")},
+			},
+		},
+		Body: nil,
+	}
+	tc.Defs[ast.TypeIdent("Input")] = inputGuard
+
+	// Simulate a type assertion like AppMutation.Input({input: {name: String}})
+	assertion := &ast.AssertionNode{
+		BaseType: (*ast.TypeIdent)(typeIdentPtr("AppMutation")),
+		Constraints: []ast.ConstraintNode{{
+			Name: "Input",
+			Args: []ast.ConstraintArgumentNode{{
+				Shape: &ast.ShapeNode{
+					Fields: map[string]ast.ShapeFieldNode{
+						"input": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+					},
+				},
+			}},
+		}},
+	}
+
+	// Infer the type as the typechecker would
+	inferredTypes, err := tc.InferAssertionType(assertion, false)
+	if err != nil || len(inferredTypes) == 0 {
+		t.Fatalf("Failed to infer assertion type: %v", err)
+	}
+	paramType := inferredTypes[0]
+	paramTypeName := string(paramType.Ident)
+
+	// The typechecker should register the inferred type in tc.Defs
+	if _, exists := tc.Defs[ast.TypeIdent(paramTypeName)]; !exists {
+		t.Errorf("Typechecker did NOT register inferred parameter type %q in tc.Defs (core bug)", paramTypeName)
+	} else {
+		t.Logf("Typechecker registered inferred parameter type %q in tc.Defs", paramTypeName)
+	}
+}

@@ -7,11 +7,13 @@ import (
 )
 
 func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
+	t.log.Debugf("transformFunctionParams: processing %d parameters", len(params))
+
 	fields := &goast.FieldList{
 		List: []*goast.Field{},
 	}
 
-	for _, param := range params {
+	for i, param := range params {
 		var paramName string
 		var paramType ast.TypeNode
 
@@ -23,6 +25,9 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 			// Handle destructured params if needed
 			continue
 		}
+
+		// Add debug output for parameter type
+		t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, param.GetIdent(), paramType.Ident)
 
 		// Look up the inferred type from the type checker
 		var inferredTypes []ast.TypeNode

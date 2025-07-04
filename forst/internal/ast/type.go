@@ -8,15 +8,19 @@ import (
 // TypeIdent is a unique identifier for a type
 type TypeIdent string
 
-// TypeNode represents a type in the Forst language
-type TypeNode struct {
-	Node
-	Ident      TypeIdent
-	Assertion  *AssertionNode
-	TypeParams []TypeNode // Generic type parameters
-}
+// TypeKind represents the origin/kind of a type
+// Used for reliable type emission and reasoning
+//
+//	Builtin: Go/Forst built-in types (string, int, etc.)
+//	UserDefined: Named types defined by the user (AppContext, etc.)
+//	HashBased: Structural/anonymous types (T_xxx...)
+type TypeKind int
 
 const (
+	TypeKindBuiltin TypeKind = iota
+	TypeKindUserDefined
+	TypeKindHashBased
+
 	// TypeInt is the built-in int type
 	TypeInt TypeIdent = "TYPE_INT"
 	// TypeFloat is the built-in float type
@@ -48,6 +52,16 @@ const (
 	// TypePointer is a new type added
 	TypePointer TypeIdent = "TYPE_POINTER"
 )
+
+// TypeNode represents a type in the Forst language
+// Kind must be set at construction time and never guessed from Ident
+type TypeNode struct {
+	Node
+	Ident      TypeIdent
+	Assertion  *AssertionNode
+	TypeParams []TypeNode // Generic type parameters
+	TypeKind   TypeKind   // Use TypeKind instead of Kind to avoid conflict
+}
 
 // IsExplicit returns true if the type has been specified explicitly
 func (t TypeNode) IsExplicit() bool {
@@ -125,4 +139,19 @@ func (t TypeNode) String() string {
 		}
 		return string(t.Ident)
 	}
+}
+
+// IsGoBuiltinType returns true if the type node is a Go builtin type
+func IsGoBuiltinType(node TypeNode) bool {
+	return node.TypeKind == TypeKindBuiltin
+}
+
+// IsHashBasedType returns true if the type node is a hash-based/structural type
+func IsHashBasedType(node TypeNode) bool {
+	return node.TypeKind == TypeKindHashBased
+}
+
+// IsUserDefinedType returns true if the type node is a user-defined named type
+func IsUserDefinedType(node TypeNode) bool {
+	return node.TypeKind == TypeKindUserDefined
 }

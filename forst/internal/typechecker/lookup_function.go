@@ -19,7 +19,23 @@ func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]a
 func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
 	// If the assertion is just a base type (e.g., a type guard), return that type directly
 	if assertion != nil && assertion.BaseType != nil && len(assertion.Constraints) == 0 {
-		return &ast.TypeNode{Ident: *assertion.BaseType}, nil
+		baseType := *assertion.BaseType
+
+		// For user-defined types, return the original name
+		// For hash-based types, return the hash-based name
+		if ast.IsHashBasedType(ast.TypeNode{Ident: baseType}) {
+			// For hash-based types, get the hash-based name
+			if def, exists := tc.Defs[baseType]; exists {
+				hash, err := tc.Hasher.HashNode(def)
+				if err != nil {
+					return nil, fmt.Errorf("failed to hash type definition during LookupAssertionType: %s", err)
+				}
+				return &ast.TypeNode{Ident: hash.ToTypeIdent()}, nil
+			}
+		}
+
+		// For user-defined types and built-in types, return the original name
+		return &ast.TypeNode{Ident: baseType}, nil
 	}
 
 	hash, err := tc.Hasher.HashNode(assertion)
@@ -30,7 +46,8 @@ func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.T
 		if len(existingType) != 1 {
 			return nil, fmt.Errorf("expected single type for assertion %s but got %d types", hash.ToTypeIdent(), len(existingType))
 		}
-		return &existingType[0], nil
+		// Always return the hash-based name for structural types
+		return &ast.TypeNode{Ident: hash.ToTypeIdent()}, nil
 	}
 
 	typeNode := &ast.TypeNode{

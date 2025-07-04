@@ -24,8 +24,15 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		return nil, err
 	}
 
-	// Always use the hash-based name for the Go type
-	typeName := hashTypeName
+	// Use original name for user-defined types, hash-based name for structural types
+	var typeName ast.TypeIdent
+	if ast.IsHashBasedType(ast.TypeNode{Ident: node.Ident}) {
+		// For hash-based types, use the hash-based name
+		typeName = hashTypeName
+	} else {
+		// For user-defined types, use the original name
+		typeName = node.Ident
+	}
 
 	// For comments, always use the original Forst type name
 	commentName := string(node.Ident)
@@ -198,17 +205,63 @@ func (t *Transformer) defineShapeTypes() error {
 	return nil
 }
 
-// getTypeAliasNameForTypeNode returns the type name for a given TypeNode.
-// Simple rule: use hash-based names consistently for all types except built-ins.
+// IMPORTANT FORST-GO TYPE EMISSION RULE:
+// Never generate or reference Go type definitions using the original Forst type name (e.g., AppContext).
+// Always use the hash-based name for all user-defined types, and never double-hash a type that is already a hash-based name.
+// If you see a Go type emitted or referenced as the original Forst name, it is a bug.
+//
+// This rule is enforced below:
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	// If the type is a built-in, return its Go name
+	t.log.Debugf("getTypeAliasNameForTypeNode: input type %q, typeKind %v", typeNode.Ident, typeNode.TypeKind)
+
+	// Ensure the type is registered before emitting
+	if typeNode.TypeKind == ast.TypeKindHashBased || typeNode.TypeKind == ast.TypeKindUserDefined {
+		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; !exists {
+			t.log.Warnf("Type %q not registered in Defs; synthesizing minimal definition", typeNode.Ident)
+			// Synthesize a minimal struct type
+			minimal := ast.TypeDefNode{
+				Ident: typeNode.Ident,
+				Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+			}
+			t.TypeChecker.RegisterTypeIfMissing(typeNode.Ident, minimal)
+		}
+	}
+
+	switch typeNode.TypeKind {
+	case ast.TypeKindBuiltin:
+		ident, err := transformTypeIdent(typeNode.Ident)
+		if err != nil {
+			return "", fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
+		}
+		if ident != nil {
+			result := ident.Name
+			t.log.Debugf("getTypeAliasNameForTypeNode: builtin type %q -> alias %q", typeNode.Ident, result)
+			return result, nil
+		}
+		return string(typeNode.Ident), nil
+	case ast.TypeKindHashBased:
+		return string(typeNode.Ident), nil
+	case ast.TypeKindUserDefined:
+		// Always emit the hash-based name for user-defined types
+		hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
+		if err != nil {
+			return "", fmt.Errorf("failed to hash type node: %w", err)
+		}
+		result := string(hash.ToTypeIdent())
+		t.log.Debugf("getTypeAliasNameForTypeNode: user-defined type %q -> hash-based alias %q", typeNode.Ident, result)
+		return result, nil
+	default:
+		return string(typeNode.Ident), nil
+	}
+}
+
+// getGeneratedTypeNameForTypeNode looks up the generated type name for a TypeNode
+// by checking if it's already defined in the typechecker's Defs
+func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
+	// For built-in types, return their Go names
 	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		ident, err := transformTypeIdent(typeNode.Ident)
 		if err != nil {
-			err = fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
-			t.log.WithFields(logrus.Fields{
-				"function": "getTypeAliasNameForTypeNode",
-			}).WithError(err).Error("transforming type ident failed")
 			return "", err
 		}
 		if ident != nil {
@@ -222,17 +275,26 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		if len(typeNode.TypeParams) == 0 {
 			return "", fmt.Errorf("pointer type must have a base type parameter")
 		}
-		baseTypeName, err := t.getTypeAliasNameForTypeNode(typeNode.TypeParams[0])
+		baseTypeName, err := t.getGeneratedTypeNameForTypeNode(typeNode.TypeParams[0])
 		if err != nil {
 			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
 		}
 		return "*" + baseTypeName, nil
 	}
 
-	// For all user-defined types (including named types), return the hash-based name
+	// For user-defined types, check if they're already defined in the typechecker
+	if typeNode.Ident != "" {
+		// Check if this type is already defined in the typechecker's Defs
+		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; exists {
+			// Return the type name as-is since it's already defined
+			return string(typeNode.Ident), nil
+		}
+	}
+
+	// If not found in Defs, fall back to hash-based name
 	hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
 	if err != nil {
-		return string(hash.ToTypeIdent()), nil
+		return "", fmt.Errorf("failed to hash type node: %w", err)
 	}
 	return string(hash.ToTypeIdent()), nil
 }

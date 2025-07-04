@@ -239,9 +239,32 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		paramTypeNames := make([]string, len(s.Arguments))
 		if sig, ok := t.TypeChecker.Functions[s.Function.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
 			for i, param := range sig.Parameters {
-				name, err := t.getTypeAliasNameForTypeNode(param.Type)
-				if err == nil {
-					paramTypeNames[i] = name
+				// For assertion types, we need to look up the inferred type
+				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
+					// Look up the inferred type for this assertion
+					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
+					if err == nil && len(inferredTypes) > 0 {
+						// Use the inferred type name
+						paramTypeNames[i] = string(inferredTypes[0].Ident)
+					} else {
+						// Fallback to hash-based name
+						name, err := t.getTypeAliasNameForTypeNode(param.Type)
+						if err == nil {
+							paramTypeNames[i] = name
+						}
+					}
+				} else {
+					// Look up the generated type for this parameter
+					generatedTypeName, err := t.getGeneratedTypeNameForTypeNode(param.Type)
+					if err == nil {
+						paramTypeNames[i] = generatedTypeName
+					} else {
+						// Fallback to hash-based name
+						name, err := t.getTypeAliasNameForTypeNode(param.Type)
+						if err == nil {
+							paramTypeNames[i] = name
+						}
+					}
 				}
 			}
 		}

@@ -218,6 +218,8 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode) (goa
 
 // transformShapeNodeWithExpectedType generates a struct literal using the expected type if possible
 func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedTypeName string) (goast.Expr, error) {
+	t.log.Debugf("transformShapeNodeWithExpectedType: shape with %d fields, expectedTypeName=%q", len(shape.Fields), expectedTypeName)
+
 	var structType goast.Expr
 	var fieldTypes map[string]string
 
@@ -226,16 +228,42 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		hash, err := t.TypeChecker.Hasher.HashNode(*shape)
 		if err == nil {
 			expectedTypeName = string(hash.ToTypeIdent())
+			t.log.Debugf("transformShapeNodeWithExpectedType: using hash-based type name %q", expectedTypeName)
 		}
 	}
 
 	if expectedTypeName != "" {
-		// Try to find the named type in the output
+		// Get the correct alias name for this type
+		aliasName, err := t.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeIdent(expectedTypeName)})
+		if err != nil {
+			t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedTypeName, err)
+			// Fallback to original name
+			aliasName = expectedTypeName
+		}
+
+		// Use the alias name as the composite literal type
+		structType = goast.NewIdent(aliasName)
+		t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q (alias of %q)", aliasName, expectedTypeName)
+
+		// Check if this type is actually emitted
+		typeExists := false
 		for _, decl := range t.Output.types {
 			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
-				if typeSpec.Name.Name == expectedTypeName {
-					structType = goast.NewIdent(expectedTypeName)
-					// Try to extract field types from the struct
+				if typeSpec.Name.Name == aliasName {
+					typeExists = true
+					t.log.Debugf("transformShapeNodeWithExpectedType: found type %q in output", aliasName)
+					break
+				}
+			}
+		}
+		if !typeExists {
+			t.log.Debugf("transformShapeNodeWithExpectedType: WARNING - type %q not found in output!", aliasName)
+		}
+
+		// Optionally, try to extract field types from the struct if available
+		for _, decl := range t.Output.types {
+			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
+				if typeSpec.Name.Name == aliasName {
 					if structTypeSpec, ok := typeSpec.Type.(*goast.StructType); ok {
 						fieldTypes = make(map[string]string)
 						for _, f := range structTypeSpec.Fields.List {

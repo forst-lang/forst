@@ -65,6 +65,15 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			"function": "inferExpressionType",
 			"expr":     expr,
 		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
+
+		// First, process all arguments to ensure they are type-checked
+		for _, arg := range e.Arguments {
+			_, err := tc.inferExpressionType(arg)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
 			tc.log.WithFields(logrus.Fields{
 				"function": "inferExpressionType",
