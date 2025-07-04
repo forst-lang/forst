@@ -1,13 +1,11 @@
 package main
 
-import (
-	errors "errors"
-)
+import errors "errors"
 
 // Password: TypeDefAssertionExpr(TYPE_STRING)
-type T_gDwvuEDhp1U string
+type Password string
 
-func G_H5qf3FeqdN3(password T_gDwvuEDhp1U) bool {
+func G_H5qf3FeqdN3(password Password) bool {
 	if len(password) < 12 {
 		return false
 	}
@@ -15,7 +13,7 @@ func G_H5qf3FeqdN3(password T_gDwvuEDhp1U) bool {
 }
 
 func main() {
-	var password T_gDwvuEDhp1U = "12345abc"
+	var password Password = "12345abc"
 	if !G_H5qf3FeqdN3(password) {
 		println("Detected password as too weak, exiting...")
 		panic(errors.New("assertion failed: " + "Strong()"))
