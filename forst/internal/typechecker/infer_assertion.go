@@ -229,24 +229,6 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		"typeIdent": typeIdent,
 	}).Tracef("Stored shape type with fields")
 
-	// Add detailed debugging for field storage
-	tc.log.WithFields(logrus.Fields{
-		"function":  "inferAssertionType",
-		"typeIdent": typeIdent,
-	}).Debugf("=== DETAILED FIELD DEBUG ===")
-	for fieldName, field := range mergedFields {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "inferAssertionType",
-			"typeIdent": typeIdent,
-			"fieldName": fieldName,
-			"field":     fmt.Sprintf("%+v", field),
-		}).Debugf("Field: %s", fieldName)
-	}
-	tc.log.WithFields(logrus.Fields{
-		"function":  "inferAssertionType",
-		"typeIdent": typeIdent,
-	}).Debugf("=== END FIELD DEBUG ===")
-
 	// Store the shape type
 	tc.Defs[typeIdent] = ast.TypeDefNode{
 		Ident: typeIdent,
@@ -256,7 +238,6 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isTypeGu
 			},
 		},
 	}
-	tc.log.Debugf("InferAssertionType: registered type %q for assertion", typeIdent)
 
 	shapeType := ast.TypeNode{Ident: typeIdent}
 	tc.storeInferredType(assertion, []ast.TypeNode{shapeType})

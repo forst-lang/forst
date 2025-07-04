@@ -42,13 +42,6 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		return nil, err
 	}
 
-	// Add debug output for type emission
-	t.log.Debugf("=== TRANSFORMER TYPE EMISSION DEBUG ===")
-	for typeIdent, def := range t.TypeChecker.Defs {
-		t.log.Debugf("Type in tc.Defs: %q => %T", typeIdent, def)
-	}
-	t.log.Debugf("=== END TYPE EMISSION DEBUG ===")
-
 	// Process all definitions first
 	for _, def := range t.TypeChecker.Defs {
 		switch def := def.(type) {
@@ -196,15 +189,6 @@ func (t *Transformer) ensureAllReferencedTypesEmitted() error {
 	for typeIdent, def := range t.TypeChecker.Defs {
 		if err := t.emitTypeAndReferencedTypes(typeIdent, def, processed); err != nil {
 			return fmt.Errorf("failed to emit type %s: %w", typeIdent, err)
-		}
-	}
-
-	// Log all emitted types for debugging
-	for _, typeDef := range t.Output.types {
-		if len(typeDef.Specs) > 0 {
-			if spec, ok := typeDef.Specs[0].(*goast.TypeSpec); ok {
-				t.log.Debugf("ensureAllReferencedTypesEmitted: emitting type %q", spec.Name.Name)
-			}
 		}
 	}
 

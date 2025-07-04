@@ -87,11 +87,6 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		"function":  "CheckTypes",
 	}).Debug("Collected types and function signatures")
 
-	// Debug: Log all type registrations
-	for key, value := range tc.Defs {
-		tc.log.Debugf("tc.Defs registration: %q => %T", key, value)
-	}
-
 	if tc.reportPhases {
 		tc.log.WithFields(logrus.Fields{
 			"function": "CheckTypes",
