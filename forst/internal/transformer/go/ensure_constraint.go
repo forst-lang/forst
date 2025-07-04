@@ -51,7 +51,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 			Fun:  goast.NewIdent(string(guardFuncName)),
 			Args: args,
 		}
-		return &goast.UnaryExpr{Op: gotoken.NOT, X: callExpr}, nil
+		return callExpr, nil
 	}
 
 	// Try all base types in the alias chain
@@ -81,7 +81,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 				Fun:  goast.NewIdent(string(guardFuncName)),
 				Args: []goast.Expr{expr},
 			}
-			return &goast.UnaryExpr{Op: gotoken.NOT, X: callExpr}, nil
+			return callExpr, nil
 		}
 		// Retry built-in constraint for base type
 		t.log.WithFields(map[string]interface{}{

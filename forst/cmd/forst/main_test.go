@@ -153,6 +153,9 @@ func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePa
 			t.Errorf("Output missing expected element from %s: %s", filePath, element)
 		}
 	}
+
+	// Check if statement conditions
+	checkIfStatementConditions(t, actual, filePath)
 }
 
 // Extracts key code elements from Go code
@@ -179,7 +182,36 @@ func extractKeyElements(code string) []string {
 			strings.Contains(line, " float") || strings.Contains(line, " bool") {
 			elements = append(elements, line)
 		}
+
+		// If statements - check for conditions
+		if strings.HasPrefix(line, "if ") && strings.Contains(line, "(") {
+			elements = append(elements, line)
+		}
 	}
 
 	return elements
+}
+
+// Checks if statement conditions match expected conditions
+func checkIfStatementConditions(t *testing.T, code, filePath string) {
+	lines := strings.Split(code, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Extract if statement conditions
+		if strings.HasPrefix(line, "if ") && strings.Contains(line, "(") {
+			// Extract condition between "if " and " {"
+			start := strings.Index(line, "if ") + 3
+			end := strings.Index(line, " {")
+			if end == -1 {
+				continue // Skip if no opening brace found
+			}
+
+			actualCondition := strings.TrimSpace(line[start:end])
+
+			// For now, just log the condition for debugging
+			// In the future, we could compare against expected conditions from output files
+			t.Logf("If statement condition in %s at line %d: %s", filePath, i+1, actualCondition)
+		}
+	}
 }
