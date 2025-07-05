@@ -18,11 +18,10 @@ type TypeChecker struct {
 	// Maps type identifiers to nodes where they are referenced
 	Uses map[ast.TypeIdent][]ast.Node
 	// Maps function identifiers to their parameter and return type signatures
-	Functions     map[ast.Identifier]FunctionSignature
-	Hasher        *hasher.StructuralHasher
-	path          NodePath // Tracks current position while traversing AST
-	scopeStack    *ScopeStack
-	inferredTypes map[ast.Node][]ast.TypeNode
+	Functions  map[ast.Identifier]FunctionSignature
+	Hasher     *hasher.StructuralHasher
+	path       NodePath // Tracks current position while traversing AST
+	scopeStack *ScopeStack
 	// Map of inferred types for nodes
 	InferredTypes map[NodeHash][]ast.TypeNode
 	// Map of inferred variable types
@@ -52,7 +51,6 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		Hasher:              h,
 		path:                make(NodePath, 0),
 		scopeStack:          NewScopeStack(h, log),
-		inferredTypes:       make(map[ast.Node][]ast.TypeNode),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
 		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),

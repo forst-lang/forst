@@ -432,6 +432,20 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 	if def, exists := tc.Defs[resolvedType.Ident]; exists {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			switch expr := typeDef.Expr.(type) {
+			case ast.TypeDefAssertionExpr:
+				// Handle assertion types by resolving the assertion
+				if expr.Assertion != nil {
+					tc.log.WithFields(logrus.Fields{
+						"function":  "lookupFieldPath",
+						"baseType":  baseType.Ident,
+						"fieldName": fieldName.ID,
+						"assertion": fmt.Sprintf("%+v", expr.Assertion),
+					}).Debugf("Looking up field in assertion expression")
+
+					// Use lookupFieldInAssertion to resolve the assertion
+					return tc.lookupFieldInAssertion(resolvedType, fieldName, expr.Assertion)
+				}
+				return ast.TypeNode{}, fmt.Errorf("assertion has no constraints")
 			case ast.TypeDefShapeExpr:
 				tc.log.WithFields(logrus.Fields{
 					"function":  "lookupFieldPath",

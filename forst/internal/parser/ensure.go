@@ -2,6 +2,7 @@ package parser
 
 import (
 	"forst/internal/ast"
+	"strings"
 )
 
 func (p *Parser) parseEnsureBlock() *ast.EnsureBlockNode {
@@ -60,6 +61,20 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 
 		p.expect(ast.TokenIs)
 		assertion = p.parseAssertionChain(false)
+
+		// Try to set the base type from the current scope if not set
+		if assertion.BaseType == nil && p.context != nil && p.context.ScopeStack != nil {
+			scope := p.context.ScopeStack.CurrentScope()
+			if scope != nil {
+				// Use the existing variable lookup logic that handles compound identifiers
+				parts := strings.Split(string(curIdent), ".")
+				baseIdent := parts[0]
+				if typeNode, ok := scope.Variables[baseIdent]; ok {
+					baseType := typeNode.Ident
+					assertion.BaseType = &baseType
+				}
+			}
+		}
 	}
 
 	block := p.parseEnsureBlock()

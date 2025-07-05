@@ -113,8 +113,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			}
 			tc.popScope()
 		}
-
 		tc.popScope()
+		return nil
 	case ast.IfNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

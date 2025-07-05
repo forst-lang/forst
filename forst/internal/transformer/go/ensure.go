@@ -8,6 +8,12 @@ import (
 
 // transformEnsureCondition transforms an ensure node into Go statements
 func (t *Transformer) transformEnsureCondition(ensure *ast.EnsureNode) ([]goast.Stmt, error) {
+	if ensure.Assertion.BaseType == nil {
+		t.log.Warnf("[transformEnsureCondition] Assertion.BaseType is nil for assertion: %v", ensure.Assertion)
+	} else {
+		t.log.Debugf("[transformEnsureCondition] Assertion.BaseType: %v", *ensure.Assertion.BaseType)
+	}
+
 	varType, err := t.TypeChecker.LookupVariableType(&ensure.Variable, t.currentScope())
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup variable type: %w", err)

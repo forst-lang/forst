@@ -33,6 +33,9 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 		}
 	}
 
+	// Get the proper base type for the assertion from inferred types
+	assertionString := t.getAssertionStringForError(&stmt.Assertion)
+
 	errorMessage := &goast.BinaryExpr{
 		X: &goast.BasicLit{
 			Kind:  token.STRING,
@@ -41,7 +44,7 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 		Op: token.ADD,
 		Y: &goast.BasicLit{
 			Kind:  token.STRING,
-			Value: strconv.Quote(stmt.Assertion.String()),
+			Value: strconv.Quote(assertionString),
 		},
 	}
 
@@ -56,6 +59,27 @@ func (t *Transformer) transformErrorExpression(stmt ast.EnsureNode) goast.Expr {
 			errorMessage,
 		},
 	}
+}
+
+// getAssertionStringForError returns a properly qualified assertion string for error messages
+func (t *Transformer) getAssertionStringForError(assertion *ast.AssertionNode) string {
+	// If BaseType is set, use it with the constraint name
+	if assertion.BaseType != nil {
+		return assertion.ToString(assertion.BaseType)
+	}
+
+	// Otherwise, try to get the inferred type from the typechecker
+	if inferredType, err := t.TypeChecker.LookupInferredType(assertion, false); err == nil && len(inferredType) > 0 {
+		// Get the original type name by following the alias chain
+		chain := t.TypeChecker.GetTypeAliasChain(inferredType[0])
+		if len(chain) > 0 {
+			return assertion.ToString(&chain[len(chain)-1].Ident)
+		}
+		return assertion.ToString(&inferredType[0].Ident)
+	}
+
+	// Fallback to the original string representation
+	return assertion.String()
 }
 
 // getZeroValue returns the zero value for a Go type
