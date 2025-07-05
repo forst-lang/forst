@@ -23,14 +23,8 @@ type T_488eVThFocF struct {
 	input T_azh9nsqmxaF
 }
 
-// T_4jjqhYo1BLN: TypeDefAssertionExpr(Value("Charlie"))
-type T_4jjqhYo1BLN string
-
-// T_5cA53Q8Mmbo: TypeDefAssertionExpr(Value("Bob"))
-type T_5cA53Q8Mmbo string
-
-// T_76s5BSD9SUz: TypeDefShapeExpr({name: Value("Charlie")})
-type T_76s5BSD9SUz struct {
+// T_6zoTdTHCbdb: TypeDefShapeExpr({name: Value("Fix memory leak in Node.js")})
+type T_6zoTdTHCbdb struct {
 	name string
 }
 
@@ -39,36 +33,28 @@ type T_7zywpPhwVhj struct {
 	name string
 }
 
-// T_8fV3pHKb2Vw: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Charlie")}})
-type T_8fV3pHKb2Vw struct {
-	ctx   T_X86jJwVQ4mH
-	input T_76s5BSD9SUz
-}
-
-// T_AkitGn3xqxS: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Bob")}})
-type T_AkitGn3xqxS struct {
-	ctx   T_LYQafBLM8TQ
-	input T_E86CFGh7pHJ
-}
-
-// T_E86CFGh7pHJ: TypeDefShapeExpr({name: Value("Bob")})
-type T_E86CFGh7pHJ struct {
-	name string
-}
-
 // T_EMV7npYWLDn: TypeDefAssertionExpr(Value("Alice"))
 type T_EMV7npYWLDn string
+
+// T_Ed5m4HjrcyC: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js")}})
+type T_Ed5m4HjrcyC struct {
+	ctx   T_LYQafBLM8TQ
+	input T_6zoTdTHCbdb
+}
 
 // T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
 type T_F1jpghi8Uyp struct {
 	input T_azh9nsqmxaF
 }
 
-// T_LYQafBLM8TQ: TypeDefShapeExpr({user: {name: Value("Alice")}, sessionId: Value(Ref(Variable(sessionId)))})
+// T_LYQafBLM8TQ: TypeDefShapeExpr({sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}})
 type T_LYQafBLM8TQ struct {
 	sessionId *string
 	user      T_7zywpPhwVhj
 }
+
+// T_TXQAXucYgEs: TypeDefAssertionExpr(Value("Fix memory leak in Node.js"))
+type T_TXQAXucYgEs string
 
 // T_X86jJwVQ4mH: TypeDefShapeExpr({sessionId: Value(nil)})
 type T_X86jJwVQ4mH struct {
@@ -80,8 +66,22 @@ type T_azh9nsqmxaF struct {
 	name string
 }
 
+// T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
+type T_b7WdLNpLZoy struct {
+	ctx   T_X86jJwVQ4mH
+	input T_goedQ5siUEo
+}
+
 // T_bN37LzcUYJ8: TypeDefAssertionExpr(Value(nil))
 type T_bN37LzcUYJ8 string
+
+// T_dkBec8dUP47: TypeDefAssertionExpr(Value("Go to the gym"))
+type T_dkBec8dUP47 string
+
+// T_goedQ5siUEo: TypeDefShapeExpr({name: Value("Go to the gym")})
+type T_goedQ5siUEo struct {
+	name string
+}
 
 // T_jhkroyier29: TypeDefAssertionExpr(Value(Ref(Variable(sessionId))))
 type T_jhkroyier29 string
@@ -100,27 +100,25 @@ func G_W5HnAr5D9X1(ctx AppContext) bool {
 	}
 	return true
 }
-
-func createUser(op T_488eVThFocF) (string, error) {
+func createTask(op T_488eVThFocF) (string, error) {
 	if !G_W5HnAr5D9X1(op.ctx) {
 		return "", errors.New("assertion failed: " + "AppContext.LoggedIn()")
 	}
-	println("Creating user, logged in with sessionId: " + *op.ctx.sessionId)
+	println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 	return op.input.name, nil
 }
-
 func main() {
 	sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-	name, err := createUser(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: T_azh9nsqmxaF{name: "Bob"}})
+	name, err := createTask(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: T_azh9nsqmxaF{name: "Fix memory leak in Node.js app"}})
 	if err != nil {
 		println(err.Error())
 		panic(errors.New("assertion failed: " + "Error.Nil()"))
 	}
-	println("Created user: " + name)
-	name, err = createUser(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Charlie"}})
+	println("Correctly created task: " + name)
+	name, err = createTask(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Go to the gym"}})
 	if err == nil {
-		println("Expected error but user Charlie was created")
+		println("Expected error but gym task was created")
 		panic(errors.New("assertion failed: " + "Error.Present()"))
 	}
-	println("Correctly avoided creating user Charlie")
+	println("Correctly avoided creating gym task as user was not logged in")
 }

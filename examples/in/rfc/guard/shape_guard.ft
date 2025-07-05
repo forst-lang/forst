@@ -29,21 +29,21 @@ is (ctx AppContext) LoggedIn() {
   ensure ctx.user is Present()
 }
 
-func createUser(op AppMutation.Input({
+func createTask(op AppMutation.Input({
   input: {
     name: String
   }
 })) {
   ensure op.ctx is LoggedIn()
 
-  println("Creating user, logged in with sessionId: " + *op.ctx.sessionId)
+  println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 
   return op.input.name, nil
 }
 
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-  name, err := createUser({
+  name, err := createTask({
     ctx: {
       sessionId: &sessionId,
       user: {
@@ -51,24 +51,24 @@ func main() {
       },
     },
     input: {
-      name: "Bob",
+      name: "Fix memory leak in Node.js app",
     },
   })
   ensure !err {
     println(err.Error())
   }
-  println("Created user: " + name)
+  println("Correctly created task: " + name)
 
-  name, err = createUser({
+  name, err = createTask({
     ctx: {
       sessionId: nil,
     },
     input: {
-      name: "Charlie",
+      name: "Go to the gym",
     },
   })
   ensure err is Present() {
-    println("Expected error but user Charlie was created")
+    println("Expected error but gym task was created")
   }
-  println("Correctly avoided creating user Charlie")
+  println("Correctly avoided creating gym task as user was not logged in")
 }
