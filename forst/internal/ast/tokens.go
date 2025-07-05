@@ -42,6 +42,8 @@ const (
 	TokenTrue TokenIdent = "TRUE_LITERAL"
 	// TokenFalse is the token for false boolean literal
 	TokenFalse TokenIdent = "FALSE_LITERAL"
+	// TokenNil is the token for nil literal
+	TokenNil TokenIdent = "NIL_LITERAL"
 
 	// TokenLParen is the token for left parenthesis
 	TokenLParen TokenIdent = "LPAREN"
@@ -160,8 +162,6 @@ const (
 	TokenDefer TokenIdent = "DEFER"
 	// TokenGoto is the token for goto keyword
 	TokenGoto TokenIdent = "GOTO"
-	// TokenNil is the token for nil literal
-	TokenNil TokenIdent = "NIL"
 )
 
 // Token structure
@@ -191,7 +191,7 @@ func (t TokenIdent) IsUnaryOperator() bool {
 
 // IsLiteral returns true if the token is a literal
 func (t TokenIdent) IsLiteral() bool {
-	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenTrue || t == TokenFalse
+	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenTrue || t == TokenFalse || t == TokenNil
 }
 
 // IsArithmeticBinaryOperator returns true if the token is an arithmetic binary operator

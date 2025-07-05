@@ -11,14 +11,15 @@ func (p *Parser) parseValue() ast.ValueNode {
 	case ast.TokenBitwiseAnd:
 		p.advance() // Consume &
 		nextToken := p.current()
-		if nextToken.Type == ast.TokenIdentifier {
+		switch nextToken.Type {
+		case ast.TokenIdentifier:
 			ref := p.expect(ast.TokenIdentifier)
 			return ast.ReferenceNode{
 				Value: ast.VariableNode{
 					Ident: ast.Ident{ID: ast.Identifier(ref.Value)},
 				},
 			}
-		} else if nextToken.Type == ast.TokenLBrace {
+		case ast.TokenLBrace:
 			// Handle struct literal reference
 			// Check for identifier before left brace (e.g., MyShape { ... })
 			baseTypeIdent := p.parseTypeIdent()
@@ -26,8 +27,9 @@ func (p *Parser) parseValue() ast.ValueNode {
 			return ast.ReferenceNode{
 				Value: shapeLiteral,
 			}
+		default:
+			p.FailWithParseError(nextToken, "Expected identifier or shape literal after &")
 		}
-		p.FailWithParseError(nextToken, "Expected identifier or shape literal after &")
 	case ast.TokenIdentifier:
 		identifier := p.parseIdentifier()
 

@@ -278,7 +278,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
 			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypeNames[i] != "" {
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, paramTypeNames[i])
+				// Convert string type name to TypeNode structure
+				expectedType := t.stringToTypeNode(paramTypeNames[i])
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedType)
 				if err != nil {
 					return nil, err
 				}
@@ -320,7 +322,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				typeName = string(s.ExplicitTypes[0].Ident)
 			}
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
-				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, typeName)
+				// Convert string type name to TypeNode structure
+				expectedType := t.stringToTypeNode(typeName)
+				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
 				if err != nil {
 					return nil, err
 				}
@@ -383,7 +387,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						}
 					}
 				}
-				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, typeName)
+				// Convert string type name to TypeNode structure
+				var expectedType *ast.TypeNode
+				if typeName != "" {
+					expectedType = t.stringToTypeNode(typeName)
+				}
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
 				if err != nil {
 					return nil, err
 				}

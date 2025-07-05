@@ -88,7 +88,6 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 
 	case ast.TokenNil:
-		p.advance()
 		return ast.NilLiteralNode{}
 
 	default:

@@ -51,7 +51,7 @@ func (p *Parser) parseShape(baseType *ast.TypeIdent) ast.ShapeNode {
 				fields[name] = field
 			}
 		} else if p.current().Type == ast.TokenStar {
-			// Handle pointer types (legacy, for robustness)
+			// Handle pointer types
 			fieldType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 			fields[name] = ast.ShapeFieldNode{
 				Type: &fieldType,

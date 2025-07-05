@@ -12,8 +12,13 @@ is (m MutationArg) Context(ctx Shape) {
   ensure m is { ctx }
 }
 
+type User = {
+  name: String
+}
+
 type AppContext = {
-  sessionId: *String
+  sessionId: *String,
+  user: *User,
 }
 
 type AppMutation = MutationArg.Context(AppContext)
@@ -21,6 +26,7 @@ type AppMutation = MutationArg.Context(AppContext)
 // Manual type assertion on a field in a shape guard via accessor
 is (ctx AppContext) LoggedIn() {
   ensure ctx.sessionId is Present()
+  ensure ctx.user is Present()
 }
 
 func createUser(op AppMutation.Input({
@@ -40,9 +46,12 @@ func main() {
   name, err := createUser({
     ctx: {
       sessionId: &sessionId,
+      user: {
+        name: "Alice",
+      },
     },
     input: {
-      name: "Alice",
+      name: "Bob",
     },
   })
   ensure !err {
@@ -55,11 +64,11 @@ func main() {
       sessionId: nil,
     },
     input: {
-      name: "Bob",
+      name: "Charlie",
     },
   })
   ensure err is Present() {
-    println("Expected error but user Bob was created")
+    println("Expected error but user Charlie was created")
   }
-  println("Correctly avoided creating user Bob")
+  println("Correctly avoided creating user Charlie")
 }

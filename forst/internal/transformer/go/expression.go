@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 // negateCondition negates a condition
@@ -145,36 +146,25 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		}, nil
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
-		paramTypeNames := make([]string, len(e.Arguments))
+		paramTypes := make([]ast.TypeNode, len(e.Arguments))
 		if sig, ok := t.TypeChecker.Functions[e.Function.ID]; ok && len(sig.Parameters) == len(e.Arguments) {
 			for i, param := range sig.Parameters {
 				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
 					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
 					if err == nil && len(inferredTypes) > 0 {
-						paramTypeNames[i] = string(inferredTypes[0].Ident)
+						paramTypes[i] = inferredTypes[0]
 					} else {
-						name, err := t.getTypeAliasNameForTypeNode(param.Type)
-						if err == nil {
-							paramTypeNames[i] = name
-						}
+						paramTypes[i] = param.Type
 					}
 				} else {
-					generatedTypeName, err := t.getGeneratedTypeNameForTypeNode(param.Type)
-					if err == nil {
-						paramTypeNames[i] = generatedTypeName
-					} else {
-						name, err := t.getTypeAliasNameForTypeNode(param.Type)
-						if err == nil {
-							paramTypeNames[i] = name
-						}
-					}
+					paramTypes[i] = param.Type
 				}
 			}
 		}
 		args := make([]goast.Expr, len(e.Arguments))
 		for i, arg := range e.Arguments {
-			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypeNames[i] != "" {
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, paramTypeNames[i])
+			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, &paramTypes[i])
 				if err != nil {
 					return nil, err
 				}
@@ -213,7 +203,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		// Try to use expected type if available (from assignment or function param)
 		// For now, try to guess from context: if this is an assignment or argument, use the variable/param type
 		// (This requires further integration with assignment/call transformation logic)
-		return t.transformShapeNodeWithExpectedType(&e, "")
+		return t.transformShapeNodeWithExpectedType(&e, nil)
 	}
 
 	return nil, fmt.Errorf("unsupported expression type: %s", reflect.TypeOf(expr).String())
@@ -254,53 +244,88 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode) (goa
 }
 
 // transformShapeNodeWithExpectedType generates a struct literal using the expected type if possible
-func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedTypeName string) (goast.Expr, error) {
-	t.log.Debugf("transformShapeNodeWithExpectedType: shape with %d fields, expectedTypeName=%q", len(shape.Fields), expectedTypeName)
+func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, expectedType *ast.TypeNode) (goast.Expr, error) {
+	t.log.Debugf("transformShapeNodeWithExpectedType: shape with %d fields, expectedType=%v", len(shape.Fields), expectedType)
 
 	var structType goast.Expr
 	var fieldTypes map[string]string
+	var isPointerType bool
 
-	if expectedTypeName == "" {
+	if expectedType == nil {
 		// Try to get the hash-based type name for this shape
 		hash, err := t.TypeChecker.Hasher.HashNode(*shape)
 		if err == nil {
-			expectedTypeName = string(hash.ToTypeIdent())
+			expectedTypeName := string(hash.ToTypeIdent())
 			t.log.Debugf("transformShapeNodeWithExpectedType: using hash-based type name %q", expectedTypeName)
-		}
-	}
 
-	if expectedTypeName != "" {
-		// Get the correct alias name for this type
-		aliasName, err := t.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeIdent(expectedTypeName)})
-		if err != nil {
-			t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedTypeName, err)
-			// Fallback to original name
-			aliasName = expectedTypeName
-		}
+			// Get the correct alias name for this type
+			aliasName, err := t.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeIdent(expectedTypeName)})
+			if err != nil {
+				t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedTypeName, err)
+				// Fallback to original name
+				aliasName = expectedTypeName
+			}
 
-		// Use the alias name as the composite literal type
-		structType = goast.NewIdent(aliasName)
-		t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q (alias of %q)", aliasName, expectedTypeName)
+			// Use the alias name as the composite literal type
+			structType = goast.NewIdent(aliasName)
+			t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q (alias of %q)", aliasName, expectedTypeName)
+		}
+	} else {
+		// Check if this is a pointer type by examining the type structure
+		if expectedType.Ident == ast.TypePointer {
+			isPointerType = true
+			t.log.Debugf("transformShapeNodeWithExpectedType: detected pointer type")
+
+			// Get the base type (the type being pointed to) from TypeParams
+			if len(expectedType.TypeParams) == 0 {
+				return nil, fmt.Errorf("pointer type missing base type in TypeParams")
+			}
+			baseType := &expectedType.TypeParams[0]
+
+			// Get the correct alias name for the base type
+			aliasName, err := t.getTypeAliasNameForTypeNode(*baseType)
+			if err != nil {
+				t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for base type: %v", err)
+				// Fallback to original name
+				aliasName = string(baseType.Ident)
+			}
+
+			// Use the base type as the composite literal type
+			structType = goast.NewIdent(aliasName)
+			t.log.Debugf("transformShapeNodeWithExpectedType: using base type %q for pointer", aliasName)
+		} else {
+			// Regular type (not a pointer)
+			aliasName, err := t.getTypeAliasNameForTypeNode(*expectedType)
+			if err != nil {
+				t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedType.Ident, err)
+				// Fallback to original name
+				aliasName = string(expectedType.Ident)
+			}
+
+			// Use the alias name as the composite literal type
+			structType = goast.NewIdent(aliasName)
+			t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q", aliasName)
+		}
 
 		// Check if this type is actually emitted
 		typeExists := false
 		for _, decl := range t.Output.types {
 			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
-				if typeSpec.Name.Name == aliasName {
+				if typeSpec.Name.Name == structType.(*goast.Ident).Name {
 					typeExists = true
-					t.log.Debugf("transformShapeNodeWithExpectedType: found type %q in output", aliasName)
+					t.log.Debugf("transformShapeNodeWithExpectedType: found type %q in output", structType.(*goast.Ident).Name)
 					break
 				}
 			}
 		}
 		if !typeExists {
-			t.log.Debugf("transformShapeNodeWithExpectedType: WARNING - type %q not found in output!", aliasName)
+			t.log.Debugf("transformShapeNodeWithExpectedType: WARNING - type %q not found in output!", structType.(*goast.Ident).Name)
 		}
 
 		// Optionally, try to extract field types from the struct if available
 		for _, decl := range t.Output.types {
 			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
-				if typeSpec.Name.Name == aliasName {
+				if typeSpec.Name.Name == structType.(*goast.Ident).Name {
 					if structTypeSpec, ok := typeSpec.Type.(*goast.StructType); ok {
 						fieldTypes = make(map[string]string)
 						for _, f := range structTypeSpec.Fields.List {
@@ -314,6 +339,7 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 			}
 		}
 	}
+
 	if structType == nil {
 		// Fallback: use anonymous struct type
 		var err error
@@ -330,9 +356,20 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		var fieldValue goast.Expr
 		var err error
 		// If we have an expected field type, use it recursively
-		expectedFieldType := ""
+		var expectedFieldType *ast.TypeNode
 		if fieldTypes != nil {
-			expectedFieldType = fieldTypes[name]
+			fieldTypeName := fieldTypes[name]
+			// Convert field type name back to TypeNode for recursive calls
+			// This is a simplified approach - in a more complete implementation,
+			// we'd want to preserve the full type structure
+			if strings.HasPrefix(fieldTypeName, "*") {
+				expectedFieldType = &ast.TypeNode{
+					Ident:      ast.TypePointer,
+					TypeParams: []ast.TypeNode{{Ident: ast.TypeIdent(fieldTypeName[1:])}},
+				}
+			} else {
+				expectedFieldType = &ast.TypeNode{Ident: ast.TypeIdent(fieldTypeName)}
+			}
 		}
 		if field.Shape != nil {
 			fieldValue, err = t.transformShapeNodeWithExpectedType(field.Shape, expectedFieldType)
@@ -360,10 +397,22 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		})
 	}
 
-	return &goast.CompositeLit{
+	// Create the struct literal
+	structLiteral := &goast.CompositeLit{
 		Type: structType,
 		Elts: fields,
-	}, nil
+	}
+
+	// If this is a pointer type, wrap the struct literal with an address-of operator
+	if isPointerType {
+		t.log.Debugf("transformShapeNodeWithExpectedType: wrapping struct literal with address-of operator")
+		return &goast.UnaryExpr{
+			Op: token.AND,
+			X:  structLiteral,
+		}, nil
+	}
+
+	return structLiteral, nil
 }
 
 // exprToTypeName extracts the type name from a go/ast.Expr
@@ -380,4 +429,18 @@ func (t *Transformer) exprToTypeName(expr goast.Expr) string {
 	default:
 		return "" // unknown
 	}
+}
+
+// stringToTypeNode converts a string type name to a TypeNode structure
+func (t *Transformer) stringToTypeNode(typeName string) *ast.TypeNode {
+	if strings.HasPrefix(typeName, "*") {
+		// Pointer type
+		baseTypeName := typeName[1:] // Remove the '*' prefix
+		return &ast.TypeNode{
+			Ident:      ast.TypePointer,
+			TypeParams: []ast.TypeNode{{Ident: ast.TypeIdent(baseTypeName)}},
+		}
+	}
+	// Regular type
+	return &ast.TypeNode{Ident: ast.TypeIdent(typeName)}
 }
