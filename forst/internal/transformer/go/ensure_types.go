@@ -24,8 +24,8 @@ const (
 	FalseConstraint BuiltinConstraint = "False"
 	// NilConstraint is the built-in Nil constraint in Forst
 	NilConstraint BuiltinConstraint = "Nil"
-	// NotNilConstraint is the built-in NotNil constraint in Forst
-	NotNilConstraint BuiltinConstraint = "NotNil"
+	// PresentConstraint is the built-in NotNil constraint in Forst
+	PresentConstraint BuiltinConstraint = "Present"
 )
 
 const (

@@ -27,7 +27,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 				Y:  goast.NewIdent(NilConstant),
 			}, nil
 		},
-		NotNilConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		PresentConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
@@ -357,6 +357,20 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			return &goast.BinaryExpr{
 				X:  variableExpr,
 				Op: token.NEQ,
+				Y:  goast.NewIdent(NilConstant),
+			}, nil
+		},
+		PresentConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+			if err := at.validateConstraintArgs(constraint, 0); err != nil {
+				return nil, err
+			}
+			variableExpr, err := at.transformer.transformExpression(variable)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.BinaryExpr{
+				X:  variableExpr,
+				Op: token.EQL,
 				Y:  goast.NewIdent(NilConstant),
 			}, nil
 		},

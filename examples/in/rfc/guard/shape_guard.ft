@@ -20,7 +20,7 @@ type AppMutation = MutationArg.Context(AppContext)
 
 // Manual type assertion on a field in a shape guard via accessor
 is (ctx AppContext) LoggedIn() {
-  ensure ctx.sessionId is NotNil()
+  ensure ctx.sessionId is Present()
 }
 
 func createUser(op AppMutation.Input({
@@ -30,7 +30,7 @@ func createUser(op AppMutation.Input({
 })) {
   ensure op.ctx is LoggedIn()
 
-  println(*op.ctx.sessionId)
+  println("Creating user, logged in with sessionId: " + *op.ctx.sessionId)
 
   return op.input.name, nil
 }
@@ -58,7 +58,8 @@ func main() {
       name: "Bob",
     },
   })
-  ensure err is Nil() {
+  ensure !err {
     println("Expected error but user Bob was created")
   }
+  println("Correctly avoided creating user Bob")
 }

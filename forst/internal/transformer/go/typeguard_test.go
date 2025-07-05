@@ -76,8 +76,8 @@ func TestTransformEnsureConstraintWithValidConstraint(t *testing.T) {
 		Assertion: ast.AssertionNode{
 			BaseType: typeIdentPtr("*String"),
 			Constraints: []ast.ConstraintNode{
-				ast.ConstraintNode{
-					Name: "NotNil",
+				{
+					Name: "Present",
 					Args: []ast.ConstraintArgumentNode{},
 				},
 			},
@@ -91,10 +91,10 @@ func TestTransformEnsureConstraintWithValidConstraint(t *testing.T) {
 	transformer := New(tc, nil)
 
 	// Try to transform the ensure constraint
-	// This should succeed because NotNil is a valid built-in constraint for Pointer types
+	// This should succeed because Present is a valid built-in constraint for Pointer types
 	_, err := transformer.transformEnsureConstraint(ensure, ensure.Assertion.Constraints[0], ast.TypeNode{Ident: ast.TypePointer})
 
-	// This should succeed because NotNil is a valid built-in constraint
+	// This should succeed because Present is a valid built-in constraint
 	if err != nil {
 		t.Errorf("Expected no error, but got: %s", err.Error())
 	}

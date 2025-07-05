@@ -118,10 +118,10 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 // validateAssertionNode validates a direct assertion node
 func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, varLeftType ast.TypeNode) error {
 	for _, constraint := range assertionNode.Constraints {
-		if constraint.Name == "NotNil" {
+		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
 			if varLeftType.Ident != ast.TypePointer {
-				return fmt.Errorf("NotNil assertion requires a pointer type, got %s", varLeftType.Ident)
+				return fmt.Errorf("Present assertion requires a pointer type, got %s", varLeftType.Ident)
 			}
 		} else {
 			// Check type guard subject type for other constraints
