@@ -138,26 +138,16 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
 }
 
-// Helper: isNilableType
+// Helper: isNilableType checks if a type can be assigned nil
 func isNilableType(tc *TypeChecker, t ast.TypeNode) bool {
-	tc.log.WithFields(map[string]interface{}{
-		"typeNode": t,
-		"ident":    t.Ident,
-		"function": "isNilableType",
-	}).Debug("Checking nilability of type")
 	// Follow type aliases to the base type
 	base := t
 	chain := tc.GetTypeAliasChain(t)
 	if len(chain) > 0 {
 		base = chain[len(chain)-1]
 	}
-	tc.log.WithFields(map[string]interface{}{
-		"baseType":  base,
-		"baseIdent": base.Ident,
-		"function":  "isNilableType",
-	}).Debug("Resolved base type for nilability check")
 
-	// Check both constant and string versions of type identifiers
+	// Check if the base type is nilable
 	switch base.Ident {
 	case ast.TypePointer, ast.TypeError, ast.TypeMap, ast.TypeArray:
 		return true
@@ -170,10 +160,4 @@ func isNilableType(tc *TypeChecker, t ast.TypeNode) bool {
 	}
 
 	return false
-}
-
-// anyTypeChecker returns the current typechecker if available (for static helpers)
-func anyTypeChecker() (*TypeChecker, bool) {
-	// This is a hack: in real code, pass the typechecker explicitly
-	return nil, false
 }

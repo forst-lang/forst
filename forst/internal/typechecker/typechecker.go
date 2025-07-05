@@ -60,9 +60,6 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		reportPhases:        reportPhases,
 	}
 
-	// Register built-in symbols in global scope
-	tc.registerBuiltinSymbols()
-
 	return tc
 }
 
@@ -203,11 +200,6 @@ func (tc *TypeChecker) popScope() {
 // Intended for use after the collection pass of the typechecker has completed
 func (tc *TypeChecker) RestoreScope(node ast.Node) error {
 	return tc.scopeStack.restoreScope(node)
-}
-
-// registerBuiltinSymbols registers built-in symbols in the global scope
-func (tc *TypeChecker) registerBuiltinSymbols() {
-	// No-op: nil is handled contextually, not as a symbol
 }
 
 // Stores a symbol definition in the current scope

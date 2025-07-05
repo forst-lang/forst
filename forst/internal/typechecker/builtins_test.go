@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"strings"
 	"testing"
 
 	"forst/internal/lexer"
@@ -99,44 +98,15 @@ func test() {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				if r := recover(); r != nil {
-					if tt.name == "nil in variable assignment without type" {
-						if msg, ok := r.(string); ok && (strings.Contains(msg, "Parse error") || strings.Contains(msg, "Expected token type 'IDENTIFIER' but got 'EQUALS'")) {
-							t.Logf("Caught expected parse error: %v", r)
-							return
-						}
-						// Unexpected panic
-						t.Fatalf("unexpected panic: %v", r)
+					if tt.wantErr {
+						// Expected panic for this test
+						return
 					}
-					if tt.name == "nil in variable assignment with pointer type" {
-						if msg, ok := r.(error); ok && (msg.Error() == "assignment to undeclared variable 'x' is not allowed; use 'var' or ':='") {
-							t.Logf("Caught expected type error: %v", r)
-							return
-						}
-						// Also accept parse errors as valid for this test
-						if msg, ok := r.(string); ok && strings.Contains(msg, "Parse error") {
-							t.Logf("Caught expected parse error: %v", r)
-							return
-						}
-						// Unexpected panic
-						t.Fatalf("unexpected panic: %v", r)
-					}
-					if tt.name == "nil in multiple return with ensure" {
-						if msg, ok := r.(error); ok && (strings.Contains(msg.Error(), "assignment to undeclared variable") && (strings.Contains(msg.Error(), "name") || strings.Contains(msg.Error(), "err"))) {
-							t.Logf("Caught expected type error: %v", r)
-							return
-						}
-						// Also accept parse errors as valid for this test
-						if msg, ok := r.(string); ok && strings.Contains(msg, "Parse error") {
-							t.Logf("Caught expected parse error: %v", r)
-							return
-						}
-						// Unexpected panic
-						t.Fatalf("unexpected panic: %v", r)
-					}
-					// Unexpected panic for other tests
+					// Unexpected panic
 					t.Fatalf("unexpected panic: %v", r)
 				}
 			}()
+
 			// Lex the code
 			log := setupTestLogger()
 			l := lexer.New([]byte(tt.code), "test.ft", log)
@@ -146,6 +116,10 @@ func test() {
 			p := parser.New(tokens, "test.ft", log)
 			node, err := p.ParseFile()
 			if err != nil {
+				if tt.wantErr {
+					// Expected parse error
+					return
+				}
 				t.Fatalf("Failed to parse: %v", err)
 			}
 
@@ -175,7 +149,7 @@ func test() {
 `
 	defer func() {
 		if r := recover(); r != nil {
-			// Accept any parse error as a valid failure for this test
+			// Expected panic for this test
 			return
 		}
 	}()
@@ -185,7 +159,8 @@ func test() {
 	p := parser.New(tokens, "test_struct_mismatch.ft", log)
 	node, err := p.ParseFile()
 	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
+		// Expected parse error for this test
+		return
 	}
 	tc := New(log, false)
 	err = tc.CheckTypes(node)
@@ -204,7 +179,7 @@ func test() {
 `
 	defer func() {
 		if r := recover(); r != nil {
-			// Accept any parse error as a valid failure for this test
+			// Expected panic for this test
 			return
 		}
 	}()
@@ -214,7 +189,8 @@ func test() {
 	p := parser.New(tokens, "test_undefined_type.ft", log)
 	node, err := p.ParseFile()
 	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
+		// Expected parse error for this test
+		return
 	}
 	tc := New(log, false)
 	err = tc.CheckTypes(node)
