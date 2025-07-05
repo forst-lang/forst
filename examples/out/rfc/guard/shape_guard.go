@@ -23,24 +23,21 @@ type T_488eVThFocF struct {
 	input T_azh9nsqmxaF
 }
 
-// T_6zoTdTHCbdb: TypeDefShapeExpr({name: Value("Fix memory leak in Node.js")})
-type T_6zoTdTHCbdb struct {
-	name string
-}
+// T_7MnKkUUsBSE: TypeDefAssertionExpr(Value("Fix memory leak in Node.js app"))
+type T_7MnKkUUsBSE string
 
 // T_7zywpPhwVhj: TypeDefShapeExpr({name: Value("Alice")})
 type T_7zywpPhwVhj struct {
 	name string
 }
 
+// T_DX1exfNyf6L: TypeDefShapeExpr({name: Value("Fix memory leak in Node.js app")})
+type T_DX1exfNyf6L struct {
+	name string
+}
+
 // T_EMV7npYWLDn: TypeDefAssertionExpr(Value("Alice"))
 type T_EMV7npYWLDn string
-
-// T_Ed5m4HjrcyC: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js")}})
-type T_Ed5m4HjrcyC struct {
-	ctx   T_LYQafBLM8TQ
-	input T_6zoTdTHCbdb
-}
 
 // T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
 type T_F1jpghi8Uyp struct {
@@ -53,12 +50,15 @@ type T_LYQafBLM8TQ struct {
 	user      T_7zywpPhwVhj
 }
 
-// T_TXQAXucYgEs: TypeDefAssertionExpr(Value("Fix memory leak in Node.js"))
-type T_TXQAXucYgEs string
-
 // T_X86jJwVQ4mH: TypeDefShapeExpr({sessionId: Value(nil)})
 type T_X86jJwVQ4mH struct {
 	sessionId string
+}
+
+// T_Yo2G7tbwv5q: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js app")}})
+type T_Yo2G7tbwv5q struct {
+	ctx   T_LYQafBLM8TQ
+	input T_DX1exfNyf6L
 }
 
 // T_azh9nsqmxaF: TypeDefShapeExpr({name: String})
