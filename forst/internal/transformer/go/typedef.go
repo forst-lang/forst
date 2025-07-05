@@ -205,11 +205,6 @@ func (t *Transformer) defineShapeTypes() error {
 	return nil
 }
 
-// IMPORTANT FORST-GO TYPE EMISSION RULE:
-// Never generate or reference Go type definitions using the original Forst type name (e.g., AppContext).
-// Always use the hash-based name for all user-defined types, and never double-hash a type that is already a hash-based name.
-// If you see a Go type emitted or referenced as the original Forst name, it is a bug.
-//
 // This rule is enforced below:
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	t.log.Debugf("getTypeAliasNameForTypeNode: input type %q, typeKind %v", typeNode.Ident, typeNode.TypeKind)

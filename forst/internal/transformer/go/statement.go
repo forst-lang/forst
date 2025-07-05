@@ -243,44 +243,25 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
-		paramTypeNames := make([]string, len(s.Arguments))
+		paramTypes := make([]ast.TypeNode, len(s.Arguments))
 		if sig, ok := t.TypeChecker.Functions[s.Function.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
 			for i, param := range sig.Parameters {
-				// For assertion types, we need to look up the inferred type
 				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
-					// Look up the inferred type for this assertion
 					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
 					if err == nil && len(inferredTypes) > 0 {
-						// Use the inferred type name
-						paramTypeNames[i] = string(inferredTypes[0].Ident)
+						paramTypes[i] = inferredTypes[0]
 					} else {
-						// Fallback to hash-based name
-						name, err := t.getTypeAliasNameForTypeNode(param.Type)
-						if err == nil {
-							paramTypeNames[i] = name
-						}
+						paramTypes[i] = param.Type
 					}
 				} else {
-					// Look up the generated type for this parameter
-					generatedTypeName, err := t.getGeneratedTypeNameForTypeNode(param.Type)
-					if err == nil {
-						paramTypeNames[i] = generatedTypeName
-					} else {
-						// Fallback to hash-based name
-						name, err := t.getTypeAliasNameForTypeNode(param.Type)
-						if err == nil {
-							paramTypeNames[i] = name
-						}
-					}
+					paramTypes[i] = param.Type
 				}
 			}
 		}
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
-			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypeNames[i] != "" {
-				// Convert string type name to TypeNode structure
-				expectedType := t.stringToTypeNode(paramTypeNames[i])
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedType)
+			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, &paramTypes[i])
 				if err != nil {
 					return nil, err
 				}
@@ -306,24 +287,22 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			varName := s.LValues[0].Ident.String()
 			// Transform the type using transformType to handle pointer types correctly
 			var typeExpr goast.Expr
-			var typeName string
+			var expectedType *ast.TypeNode
 			if t != nil {
 				typeIdent, err := t.transformType(*s.ExplicitTypes[0])
 				if err != nil {
 					// Fallback to string representation
 					typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
-					typeName = string(s.ExplicitTypes[0].Ident)
+					expectedType = s.ExplicitTypes[0]
 				} else {
 					typeExpr = typeIdent
-					typeName = typeIdent.Name
+					expectedType = s.ExplicitTypes[0]
 				}
 			} else {
 				typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
-				typeName = string(s.ExplicitTypes[0].Ident)
+				expectedType = s.ExplicitTypes[0]
 			}
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
-				// Convert string type name to TypeNode structure
-				expectedType := t.stringToTypeNode(typeName)
 				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
 				if err != nil {
 					return nil, err
@@ -370,27 +349,22 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		for i, rval := range s.RValues {
 			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
 				// Try to get the type of the LHS variable
-				var typeName string
+				var expectedType *ast.TypeNode
 				if t != nil {
 					varName := s.LValues[0].Ident.String()
 					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varName)]; ok && len(types) > 0 {
-						typeName, _ = t.getTypeAliasNameForTypeNode(types[0])
+						expectedType = &types[0]
 					}
 					// For short var declarations, try to infer the type from the assignment context
-					if typeName == "" && s.IsShort {
+					if expectedType == nil && s.IsShort {
 						// Try to infer from the RValue's inferred type
 						hash, err := t.TypeChecker.Hasher.HashNode(rval)
 						if err == nil {
 							if inferredTypes, ok := t.TypeChecker.InferredTypes[hash]; ok && len(inferredTypes) > 0 {
-								typeName, _ = t.getTypeAliasNameForTypeNode(inferredTypes[0])
+								expectedType = &inferredTypes[0]
 							}
 						}
 					}
-				}
-				// Convert string type name to TypeNode structure
-				var expectedType *ast.TypeNode
-				if typeName != "" {
-					expectedType = t.stringToTypeNode(typeName)
 				}
 				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
 				if err != nil {

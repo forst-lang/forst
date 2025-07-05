@@ -307,18 +307,74 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 			t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q", aliasName)
 		}
 
-		// Check if this type is actually emitted
-		typeExists := false
+		// Check if this type is actually defined in tc.Defs
+		if expectedType.Ident == ast.TypePointer {
+			// For pointer types, check if the base type exists
+			if len(expectedType.TypeParams) > 0 {
+				baseType := expectedType.TypeParams[0]
+				if _, exists := t.TypeChecker.Defs[baseType.Ident]; exists {
+					t.log.Debugf("transformShapeNodeWithExpectedType: found base type %q in tc.Defs", string(baseType.Ident))
+				} else {
+					t.log.Debugf("transformShapeNodeWithExpectedType: base type %q not found in tc.Defs, falling back to hash-based type", string(baseType.Ident))
+					// Fall back to hash-based type name since the base type is not defined
+					hash, err := t.TypeChecker.Hasher.HashNode(*shape)
+					if err == nil {
+						expectedTypeName := string(hash.ToTypeIdent())
+						t.log.Debugf("transformShapeNodeWithExpectedType: using hash-based type name %q", expectedTypeName)
+
+						// Get the correct alias name for this type
+						aliasName, err := t.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeIdent(expectedTypeName)})
+						if err != nil {
+							t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedTypeName, err)
+							// Fallback to original name
+							aliasName = expectedTypeName
+						}
+
+						// Use the alias name as the composite literal type
+						structType = goast.NewIdent(aliasName)
+						t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q (alias of %q)", aliasName, expectedTypeName)
+					}
+				}
+			}
+		} else {
+			// For non-pointer types, check if the type exists
+			if _, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
+				t.log.Debugf("transformShapeNodeWithExpectedType: found type %q in tc.Defs", string(expectedType.Ident))
+			} else {
+				t.log.Debugf("transformShapeNodeWithExpectedType: type %q not found in tc.Defs, falling back to hash-based type", string(expectedType.Ident))
+				// Fall back to hash-based type name since the expected type is not defined
+				hash, err := t.TypeChecker.Hasher.HashNode(*shape)
+				if err == nil {
+					expectedTypeName := string(hash.ToTypeIdent())
+					t.log.Debugf("transformShapeNodeWithExpectedType: using hash-based type name %q", expectedTypeName)
+
+					// Get the correct alias name for this type
+					aliasName, err := t.getTypeAliasNameForTypeNode(ast.TypeNode{Ident: ast.TypeIdent(expectedTypeName)})
+					if err != nil {
+						t.log.Debugf("transformShapeNodeWithExpectedType: failed to get alias for %q: %v", expectedTypeName, err)
+						// Fallback to original name
+						aliasName = expectedTypeName
+					}
+
+					// Use the alias name as the composite literal type
+					structType = goast.NewIdent(aliasName)
+					t.log.Debugf("transformShapeNodeWithExpectedType: using struct type %q (alias of %q)", aliasName, expectedTypeName)
+				}
+			}
+		}
+
+		// Check if this type is actually emitted in output
+		outputTypeExists := false
 		for _, decl := range t.Output.types {
 			if typeSpec, ok := decl.Specs[0].(*goast.TypeSpec); ok {
 				if typeSpec.Name.Name == structType.(*goast.Ident).Name {
-					typeExists = true
+					outputTypeExists = true
 					t.log.Debugf("transformShapeNodeWithExpectedType: found type %q in output", structType.(*goast.Ident).Name)
 					break
 				}
 			}
 		}
-		if !typeExists {
+		if !outputTypeExists {
 			t.log.Debugf("transformShapeNodeWithExpectedType: WARNING - type %q not found in output!", structType.(*goast.Ident).Name)
 		}
 
@@ -429,18 +485,4 @@ func (t *Transformer) exprToTypeName(expr goast.Expr) string {
 	default:
 		return "" // unknown
 	}
-}
-
-// stringToTypeNode converts a string type name to a TypeNode structure
-func (t *Transformer) stringToTypeNode(typeName string) *ast.TypeNode {
-	if strings.HasPrefix(typeName, "*") {
-		// Pointer type
-		baseTypeName := typeName[1:] // Remove the '*' prefix
-		return &ast.TypeNode{
-			Ident:      ast.TypePointer,
-			TypeParams: []ast.TypeNode{{Ident: ast.TypeIdent(baseTypeName)}},
-		}
-	}
-	// Regular type
-	return &ast.TypeNode{Ident: ast.TypeIdent(typeName)}
 }
