@@ -64,7 +64,10 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 					t.Fatalf("Expected 1 statement in if body, got %d", len(ifNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, ifNode.Body[0], "ast.ReturnNode")
-				varNode := assertNodeType[ast.VariableNode](t, returnNode.Value, "ast.VariableNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				varNode := assertNodeType[ast.VariableNode](t, returnNode.Values[0], "ast.VariableNode")
 				if varNode.Ident.ID != "x" {
 					t.Errorf("Expected return value 'x', got %s", varNode.Ident.ID)
 				}
@@ -134,7 +137,10 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 					t.Fatalf("Expected 1 statement in else block, got %d", len(ifNode.Else.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, ifNode.Else.Body[0], "ast.ReturnNode")
-				value := assertNodeType[ast.IntLiteralNode](t, returnNode.Value, "ast.IntLiteralNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				value := assertNodeType[ast.IntLiteralNode](t, returnNode.Values[0], "ast.IntLiteralNode")
 				if value.Value != 0 {
 					t.Errorf("Expected return value 0, got %d", value.Value)
 				}

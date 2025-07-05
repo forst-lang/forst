@@ -78,7 +78,11 @@ func ValidateShapeGuard(node TypeGuardNode) error {
 	}
 
 	// Check if the return value is a shape refinement
-	if !isShapeRefinement(returnStmt.Value) {
+	// For now, we only support single return values in shape guards
+	if len(returnStmt.Values) != 1 {
+		return fmt.Errorf("shape guard must return exactly one value")
+	}
+	if !isShapeRefinement(returnStmt.Values[0]) {
 		return fmt.Errorf("shape guard must return a shape refinement")
 	}
 

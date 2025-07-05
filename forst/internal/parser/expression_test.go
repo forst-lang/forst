@@ -40,8 +40,11 @@ func TestParseFile_WithBinaryExpressionInFunction(t *testing.T) {
 		}
 		returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
 		// Optionally, check that the return value is a binary expression
-		if _, ok := returnNode.Value.(ast.BinaryExpressionNode); !ok {
-			t.Errorf("Expected return value to be a BinaryExpressionNode, got %T", returnNode.Value)
+		if len(returnNode.Values) != 1 {
+			t.Fatal("Expected exactly one return value")
+		}
+		if _, ok := returnNode.Values[0].(ast.BinaryExpressionNode); !ok {
+			t.Errorf("Expected return value to be a BinaryExpressionNode, got %T", returnNode.Values[0])
 		}
 	} else {
 		t.Fatalf("ParseFile failed: %v", err)

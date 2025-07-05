@@ -41,7 +41,10 @@ func TestParseShape(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				shapeNode := assertNodeType[ast.ShapeNode](t, returnNode.Value, "ast.ShapeNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				shapeNode := assertNodeType[ast.ShapeNode](t, returnNode.Values[0], "ast.ShapeNode")
 				if len(shapeNode.Fields) != 2 {
 					t.Fatalf("Expected 2 fields in shape, got %d", len(shapeNode.Fields))
 				}

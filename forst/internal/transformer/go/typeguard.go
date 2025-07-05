@@ -40,15 +40,18 @@ func (t *Transformer) transformBlock(block []ast.Node) *goast.BlockStmt {
 				X: expr,
 			})
 		case ast.ReturnNode:
-			expr, err := t.transformExpression(n.Value)
-			if err != nil {
-				t.log.WithError(err).Error("Failed to transform expression")
-				continue
+			// Transform all return values
+			results := make([]goast.Expr, len(n.Values))
+			for i, value := range n.Values {
+				expr, err := t.transformExpression(value)
+				if err != nil {
+					t.log.WithError(err).Error("Failed to transform expression")
+					continue
+				}
+				results[i] = expr
 			}
 			stmts = append(stmts, &goast.ReturnStmt{
-				Results: []goast.Expr{
-					expr,
-				},
+				Results: results,
 			})
 		}
 	}

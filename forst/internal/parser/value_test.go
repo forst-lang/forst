@@ -33,7 +33,10 @@ func TestParseValue(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				varNode := assertNodeType[ast.VariableNode](t, returnNode.Value, "ast.VariableNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				varNode := assertNodeType[ast.VariableNode](t, returnNode.Values[0], "ast.VariableNode")
 				if varNode.Ident.ID != "x" {
 					t.Errorf("Expected variable 'x', got %s", varNode.Ident.ID)
 				}
@@ -62,7 +65,10 @@ func TestParseValue(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				refNode := assertNodeType[ast.ReferenceNode](t, returnNode.Value, "ast.ReferenceNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				refNode := assertNodeType[ast.ReferenceNode](t, returnNode.Values[0], "ast.ReferenceNode")
 				varNode := assertNodeType[ast.VariableNode](t, refNode.Value, "ast.VariableNode")
 				if varNode.Ident.ID != "x" {
 					t.Errorf("Expected referenced variable 'x', got %s", varNode.Ident.ID)
@@ -92,7 +98,10 @@ func TestParseValue(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				derefNode := assertNodeType[ast.DereferenceNode](t, returnNode.Value, "ast.DereferenceNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				derefNode := assertNodeType[ast.DereferenceNode](t, returnNode.Values[0], "ast.DereferenceNode")
 				varNode := assertNodeType[ast.VariableNode](t, derefNode.Value, "ast.VariableNode")
 				if varNode.Ident.ID != "x" {
 					t.Errorf("Expected dereferenced variable 'x', got %s", varNode.Ident.ID)
@@ -123,7 +132,10 @@ func TestParseValue(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				varNode := assertNodeType[ast.VariableNode](t, returnNode.Value, "ast.VariableNode")
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				varNode := assertNodeType[ast.VariableNode](t, returnNode.Values[0], "ast.VariableNode")
 				if varNode.Ident.ID != "fmt.Println" {
 					t.Errorf("Expected qualified identifier 'fmt.Println', got %s", varNode.Ident.ID)
 				}

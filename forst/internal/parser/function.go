@@ -185,11 +185,23 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 func (p *Parser) parseReturnStatement() ast.ReturnNode {
 	p.advance() // Move past `return`
 
-	returnExpression := p.parseExpression()
+	// Parse multiple return values
+	values := []ast.ExpressionNode{}
+
+	// Parse first expression
+	if p.current().Type != ast.TokenSemicolon && p.current().Type != ast.TokenRBrace {
+		values = append(values, p.parseExpression())
+	}
+
+	// Parse additional expressions separated by commas
+	for p.current().Type == ast.TokenComma {
+		p.advance() // Consume comma
+		values = append(values, p.parseExpression())
+	}
 
 	return ast.ReturnNode{
-		Value: returnExpression,
-		Type:  ast.TypeNode{Ident: ast.TypeImplicit},
+		Values: values,
+		Type:   ast.TypeNode{Ident: ast.TypeImplicit},
 	}
 }
 

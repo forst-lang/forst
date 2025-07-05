@@ -28,18 +28,16 @@ func createUser(op AppMutation.Input({
     name: String
   }
 })) {
-  ensure op.ctx is LoggedIn() {
-    println("Not logged in")
-  }
+  ensure op.ctx is LoggedIn()
 
   println(*op.ctx.sessionId)
 
-  return op.input.name
+  return op.input.name, nil
 }
 
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-  createUser({
+  name, err = createUser({
     ctx: {
       sessionId: &sessionId,
     },
@@ -47,4 +45,8 @@ func main() {
       name: "Alice",
     },
   })
+  ensure !err {
+    println(err.Error())
+  }
+  println(name)
 }

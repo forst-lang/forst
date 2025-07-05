@@ -265,3 +265,66 @@ func TestTypeChecker_RegistersInferredParameterTypeForAssertion(t *testing.T) {
 		t.Logf("Typechecker registered inferred parameter type %q in tc.Defs", paramTypeName)
 	}
 }
+
+func TestMultipleReturnValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		function    ast.FunctionNode
+		expectError bool
+	}{
+		{
+			name: "function with multiple return values",
+			function: ast.FunctionNode{
+				Ident: ast.Ident{ID: "test"},
+				Body: []ast.Node{
+					ast.ReturnNode{
+						Value: ast.BinaryExpressionNode{
+							Left:     ast.IntLiteralNode{Value: 1},
+							Operator: ast.TokenComma,
+							Right:    ast.IntLiteralNode{Value: 2},
+						},
+					},
+				},
+			},
+			expectError: true, // Should fail until multiple return values are supported
+		},
+		{
+			name: "assignment with multiple return values",
+			function: ast.FunctionNode{
+				Ident: ast.Ident{ID: "test"},
+				Body: []ast.Node{
+					ast.AssignmentNode{
+						LValues: []ast.VariableNode{
+							{Ident: ast.Ident{ID: "a"}},
+							{Ident: ast.Ident{ID: "b"}},
+						},
+						RValues: []ast.ExpressionNode{
+							ast.FunctionCallNode{
+								Function:  ast.Ident{ID: "foo"},
+								Arguments: []ast.ExpressionNode{},
+							},
+						},
+					},
+				},
+			},
+			expectError: true, // Should fail until multiple return values are supported
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := setupTestLogger()
+			tc := New(log, false)
+			err := tc.CheckTypes([]ast.Node{tt.function})
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error for multiple return values, got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for multiple return values: %v", err)
+				}
+			}
+		})
+	}
+}

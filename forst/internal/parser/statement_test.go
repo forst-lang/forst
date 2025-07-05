@@ -67,10 +67,13 @@ func TestParseBlockStatement(t *testing.T) {
 					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
 				}
 				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
-				if returnNode.Value == nil {
+				if len(returnNode.Values) != 1 {
+					t.Fatal("Expected exactly one return value")
+				}
+				if returnNode.Values[0] == nil {
 					t.Fatal("Expected return value, got nil")
 				}
-				value := assertNodeType[ast.IntLiteralNode](t, returnNode.Value, "ast.IntLiteralNode")
+				value := assertNodeType[ast.IntLiteralNode](t, returnNode.Values[0], "ast.IntLiteralNode")
 				if value.Value != 42 {
 					t.Errorf("Expected return value 42, got %d", value.Value)
 				}
@@ -138,6 +141,40 @@ func TestParseBlockStatement(t *testing.T) {
 				if ifNode.Condition == nil {
 					t.Fatal("Expected if condition, got nil")
 				}
+			},
+		},
+		{
+			name: "multiple return values",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenReturn, Value: "return", Line: 2, Column: 4},
+				{Type: ast.TokenIntLiteral, Value: "1", Line: 2, Column: 11},
+				{Type: ast.TokenComma, Value: ",", Line: 2, Column: 12},
+				{Type: ast.TokenIntLiteral, Value: "2", Line: 2, Column: 14},
+				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 3, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				if len(nodes) != 1 {
+					t.Fatalf("Expected 1 node, got %d", len(nodes))
+				}
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				if len(functionNode.Body) != 1 {
+					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
+				}
+				returnNode := assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
+				// This will fail until multiple return values are supported
+				if len(returnNode.Values) != 2 {
+					t.Fatal("Expected exactly two return values")
+				}
+				if returnNode.Values[0] == nil || returnNode.Values[1] == nil {
+					t.Fatal("Expected return values, got nil")
+				}
+				// Should be a tuple or slice of values in the future
 			},
 		},
 	}

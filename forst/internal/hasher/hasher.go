@@ -378,11 +378,14 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		h.writeHashes(hasher, []byte(n.Ident))
 	case ast.ReturnNode:
 		h.writeHashes(hasher, NodeKind["Return"])
-		hash, err := h.HashNode(n.Value)
-		if err != nil {
-			return 0, err
+		// Hash all return values
+		for _, value := range n.Values {
+			hash, err := h.HashNode(value)
+			if err != nil {
+				return 0, err
+			}
+			h.writeHashes(hasher, hash)
 		}
-		h.writeHashes(hasher, hash)
 	case ast.TypeNode:
 		if n.Ident != "" {
 			// For named types, hash only the identifier

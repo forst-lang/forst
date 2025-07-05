@@ -1,6 +1,9 @@
 package main
 
-import errors "errors"
+import (
+	errors "errors"
+	"os"
+)
 
 // AppContext: TypeDefShapeExpr({sessionId: Pointer(String)})
 type AppContext struct {
@@ -63,7 +66,6 @@ func G_DeDHUAU73V6(ctx AppContext) bool {
 
 func createUser(op T_488eVThFocF) (string, error) {
 	if !G_DeDHUAU73V6(op.ctx) {
-		println("Not logged in")
 		return "", errors.New("assertion failed: " + "LoggedIn()")
 	}
 	println(*op.ctx.sessionId)
@@ -72,5 +74,11 @@ func createUser(op T_488eVThFocF) (string, error) {
 
 func main() {
 	sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-	createUser(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId}, input: T_azh9nsqmxaF{name: "Alice"}})
+	name, err := createUser(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId}, input: T_azh9nsqmxaF{name: "Alice"}})
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
+		panic(errors.New("assertion failed: " + "TYPE_ERROR.Nil()"))
+	}
+	println(name)
 }

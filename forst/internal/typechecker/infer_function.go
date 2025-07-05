@@ -19,12 +19,20 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	returnStmtTypes := make([][]ast.TypeNode, 0)
 	for _, stmt := range fn.Body {
 		if retStmt, ok := stmt.(ast.ReturnNode); ok {
-			// Get type of return expression
-			retType, err := tc.inferExpressionType(retStmt.Value)
-			if err != nil {
-				return nil, err
+			// Get types of all return values
+			retTypes := make([]ast.TypeNode, 0)
+			for _, value := range retStmt.Values {
+				retType, err := tc.inferExpressionType(value)
+				if err != nil {
+					return nil, err
+				}
+				// For multiple return values, we expect each expression to return a single type
+				if len(retType) != 1 {
+					return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
+				}
+				retTypes = append(retTypes, retType[0])
 			}
-			returnStmtTypes = append(returnStmtTypes, retType)
+			returnStmtTypes = append(returnStmtTypes, retTypes)
 		}
 	}
 

@@ -77,7 +77,7 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 
 	if p.context.IsMainFunction() {
 		if p.current().Type == ast.TokenOr {
-			p.FailWithParseError(p.current(), "Ensure statement not allowed in main function")
+			p.FailWithParseError(p.current(), "\"or\" block in ensure statements is not allowed in main function")
 		}
 	}
 

@@ -162,6 +162,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.ReturnNode:
+		// For return statements, we don't need to infer types here
+		// as they are handled in inferFunctionReturnType
 		return nil, nil
 
 	case ast.ImportNode:

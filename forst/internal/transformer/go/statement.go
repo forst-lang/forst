@@ -204,35 +204,18 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.ReturnNode:
-		// Convert return statement
-		valueExpr, err := t.transformExpression(s.Value)
-		if err != nil {
-			return nil, err
-		}
-
-		// Check if we need to return multiple values (e.g., (string, error))
-		fnNode, err := t.closestFunction()
-		if err == nil {
-			if fn, ok := fnNode.(ast.FunctionNode); ok {
-				// Use the type checker to get the Go return types
-				goReturnTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn)
-				if err == nil && len(goReturnTypes) > 1 {
-					// Function returns multiple values, need to add nil for error
-					results := []goast.Expr{valueExpr}
-					// Add nil for error (last return type)
-					results = append(results, goast.NewIdent("nil"))
-					return &goast.ReturnStmt{
-						Results: results,
-					}, nil
-				}
+		// Convert return statement with multiple values
+		results := make([]goast.Expr, len(s.Values))
+		for i, value := range s.Values {
+			valueExpr, err := t.transformExpression(value)
+			if err != nil {
+				return nil, err
 			}
+			results[i] = valueExpr
 		}
 
-		// Single return value
 		return &goast.ReturnStmt{
-			Results: []goast.Expr{
-				valueExpr,
-			},
+			Results: results,
 		}, nil
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
