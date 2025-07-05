@@ -63,7 +63,7 @@ func G_Yxaxn7BrDqV(ctx AppContext) bool {
 
 func createUser(op T_488eVThFocF) (string, error) {
 	if !G_Yxaxn7BrDqV(op.ctx) {
-		return "", errors.New("assertion failed: " + "LoggedIn()")
+		return "", errors.New("assertion failed: " + "AppContext.LoggedIn()")
 	}
 	println(*op.ctx.sessionId)
 	return op.input.name, nil
@@ -74,13 +74,13 @@ func main() {
 	name, err := createUser(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId}, input: T_azh9nsqmxaF{name: "Alice"}})
 	if err != nil {
 		println(err.Error())
-		panic(errors.New("assertion failed: " + "TYPE_ERROR.Nil()"))
+		panic(errors.New("assertion failed: " + "Error.Nil()"))
 	}
 	println("Created user: " + name)
 	name, err = createUser(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Bob"}})
 	if err == nil {
 		println("Expected error but user Bob was created")
-		panic(errors.New("assertion failed: " + "Present()"))
+		panic(errors.New("assertion failed: " + "Error.Present()"))
 	}
 	println("Correctly avoided creating user Bob")
 }

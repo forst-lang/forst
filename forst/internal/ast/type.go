@@ -86,19 +86,19 @@ func (t TypeNode) IsError() bool {
 func (t TypeNode) String() string {
 	switch t.Ident {
 	case TypeInt:
-		return "Int"
+		return t.Ident.String()
 	case TypeFloat:
-		return "Float"
+		return t.Ident.String()
 	case TypeString:
-		return "String"
+		return t.Ident.String()
 	case TypeBool:
-		return "Bool"
+		return t.Ident.String()
 	case TypeVoid:
-		return "Void"
+		return t.Ident.String()
 	case TypeError:
-		return "Error"
+		return t.Ident.String()
 	case TypeObject:
-		return "Object"
+		return t.Ident.String()
 	case TypeArray:
 		if len(t.TypeParams) > 0 {
 			return fmt.Sprintf("Array(%s)", t.TypeParams[0].String())
@@ -138,6 +138,40 @@ func (t TypeNode) String() string {
 			return fmt.Sprintf("%s<%s>", t.Ident, strings.Join(params, ", "))
 		}
 		return string(t.Ident)
+	}
+}
+
+// String returns a string representation of the type ident
+func (ti TypeIdent) String() string {
+	switch ti {
+	case TypeInt:
+		return "Int"
+	case TypeFloat:
+		return "Float"
+	case TypeString:
+		return "String"
+	case TypeBool:
+		return "Bool"
+	case TypeVoid:
+		return "Void"
+	case TypeError:
+		return "Error"
+	case TypeObject:
+		return "Object(?)"
+	case TypeArray:
+		return "Array(?)"
+	case TypeMap:
+		return "Map(?, ?)"
+	case TypeAssertion:
+		return "Assertion(?)"
+	case TypeImplicit:
+		return "(implicit)"
+	case TypeShape:
+		return "Shape(?)"
+	case TypePointer:
+		return "Pointer(?)"
+	default:
+		return string(ti)
 	}
 }
 

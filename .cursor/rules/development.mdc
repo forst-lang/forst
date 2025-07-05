@@ -1,8 +1,9 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
+
 # Forst Language Development Guidelines
 
 ## Architecture Overview
@@ -146,6 +147,7 @@ if paramType.Assertion != nil {
 - Test each component in isolation (parser, typechecker, transformer)
 - Use `test_utils.go` helpers for AST construction
 - Focus on edge cases and error conditions
+- Do not use external libraries for testing
 
 ### Integration Tests
 

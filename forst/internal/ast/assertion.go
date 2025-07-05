@@ -62,24 +62,20 @@ func (c ConstraintArgumentNode) String() string {
 func (a AssertionNode) String() string {
 	constraints := make([]string, len(a.Constraints))
 	for i, c := range a.Constraints {
-		argStrings := make([]string, len(c.Args))
-		for j, arg := range c.Args {
-			argStrings[j] = arg.String()
-		}
-		constraints[i] = fmt.Sprintf("%s(%s)", c.Name, strings.Join(argStrings, ", "))
+		constraints[i] = c.String()
 	}
 
 	constraintsString := strings.Join(constraints, ".")
 	if a.BaseType == nil {
 		return constraintsString
 	}
-	if constraintsString == "" {
-		if *a.BaseType == TypePointer {
-			return "*" + fmt.Sprintf("%+v", *a.BaseType)
-		}
-		return string(*a.BaseType)
+
+	baseTypeString := a.BaseType.String()
+	if *a.BaseType == TypePointer {
+		baseTypeString = "*" + baseTypeString
 	}
-	return fmt.Sprintf("%s.%s", *a.BaseType, constraintsString)
+
+	return fmt.Sprintf("%s.%s", baseTypeString, constraintsString)
 }
 
 // Kind returns the node kind for an assertion
