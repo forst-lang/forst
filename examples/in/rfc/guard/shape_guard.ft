@@ -58,7 +58,7 @@ func main() {
       name: "Bob",
     },
   })
-  ensure !err {
+  ensure err is Present() {
     println("Expected error but user Bob was created")
   }
   println("Correctly avoided creating user Bob")

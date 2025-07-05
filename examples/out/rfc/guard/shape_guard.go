@@ -54,7 +54,7 @@ type T_azh9nsqmxaF struct {
 // T_jhkroyier29: TypeDefAssertionExpr(Value(Ref(Variable(sessionId))))
 type T_jhkroyier29 string
 
-func G_DeDHUAU73V6(ctx AppContext) bool {
+func G_Yxaxn7BrDqV(ctx AppContext) bool {
 	if ctx.sessionId == nil {
 		return false
 	}
@@ -62,7 +62,7 @@ func G_DeDHUAU73V6(ctx AppContext) bool {
 }
 
 func createUser(op T_488eVThFocF) (string, error) {
-	if !G_DeDHUAU73V6(op.ctx) {
+	if !G_Yxaxn7BrDqV(op.ctx) {
 		return "", errors.New("assertion failed: " + "LoggedIn()")
 	}
 	println(*op.ctx.sessionId)
@@ -77,4 +77,10 @@ func main() {
 		panic(errors.New("assertion failed: " + "TYPE_ERROR.Nil()"))
 	}
 	println("Created user: " + name)
+	name, err = createUser(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Bob"}})
+	if err == nil {
+		println("Expected error but user Bob was created")
+		panic(errors.New("assertion failed: " + "Present()"))
+	}
+	println("Correctly avoided creating user Bob")
 }
