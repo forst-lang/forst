@@ -139,3 +139,15 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 	}
 	return chain
 }
+
+// GetMostSpecificNonHashAlias returns the first non-hash-based type in the alias chain, or the original type if all are hash-based.
+func (tc *TypeChecker) GetMostSpecificNonHashAlias(typeNode ast.TypeNode) ast.TypeNode {
+	chain := tc.GetTypeAliasChain(typeNode)
+	for _, t := range chain {
+		if !ast.IsHashBasedType(t) {
+			return t
+		}
+	}
+	// If all are hash-based, return the first in the chain
+	return chain[0]
+}

@@ -70,12 +70,9 @@ func (t *Transformer) getAssertionStringForError(assertion *ast.AssertionNode) s
 
 	// Otherwise, try to get the inferred type from the typechecker
 	if inferredType, err := t.TypeChecker.LookupInferredType(assertion, false); err == nil && len(inferredType) > 0 {
-		// Get the original type name by following the alias chain
-		chain := t.TypeChecker.GetTypeAliasChain(inferredType[0])
-		if len(chain) > 0 {
-			return assertion.ToString(&chain[len(chain)-1].Ident)
-		}
-		return assertion.ToString(&inferredType[0].Ident)
+		// Use the most specific non-hash-based alias for error messages
+		nonHash := t.TypeChecker.GetMostSpecificNonHashAlias(inferredType[0])
+		return assertion.ToString(&nonHash.Ident)
 	}
 
 	// Fallback to the original string representation
