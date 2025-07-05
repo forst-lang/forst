@@ -20,7 +20,7 @@ func (p *Parser) parseShape(baseType *ast.TypeIdent) ast.ShapeNode {
 			p.advance() // Consume the colon
 
 			// If the next token is a type, parse as a type annotation
-			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) || p.current().Type == ast.TokenStar {
+			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: false}) || p.current().Type == ast.TokenStar {
 				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 				typeIdent := typ.Ident
 				p.logParsedNodeWithMessage(typ, fmt.Sprintf("Parsed type for shape field %s and type ident %s (type: %+v)", name, typeIdent, typ))

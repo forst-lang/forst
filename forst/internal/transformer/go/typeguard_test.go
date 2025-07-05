@@ -74,7 +74,7 @@ func TestTransformEnsureConstraintWithValidConstraint(t *testing.T) {
 			Ident: ast.Ident{ID: ast.Identifier("ctx")},
 		},
 		Assertion: ast.AssertionNode{
-			BaseType: typeIdentPtr("TYPE_POINTER"),
+			BaseType: typeIdentPtr("*String"),
 			Constraints: []ast.ConstraintNode{
 				ast.ConstraintNode{
 					Name: "NotNil",

@@ -60,7 +60,6 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	} else if p.current().Type == ast.TokenIdentifier {
 		// Parse the identifier, allowing for dot chaining
 		ident := p.parseIdentifier()
-
 		// If we hit a left paren, this is a function call
 		if p.current().Type == ast.TokenLParen {
 			p.advance() // Consume left paren
@@ -87,6 +86,9 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 				Ident: ast.Ident{ID: ident},
 			}
 		}
+	} else if p.current().Type == ast.TokenNil {
+		p.advance()
+		return ast.NilLiteralNode{}
 	} else {
 		expr = p.parseValue() // parseValue should advance the token internally
 	}

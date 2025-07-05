@@ -53,6 +53,10 @@ type MapLiteralNode struct {
 	Type    TypeNode
 }
 
+// NilLiteralNode represents the nil literal
+// This is used instead of VariableNode with Ident 'nil'
+type NilLiteralNode struct{}
+
 // Kind returns the node kind for an integer literal
 func (i IntLiteralNode) Kind() NodeKind {
 	return NodeKindIntLiteral
@@ -83,6 +87,11 @@ func (m MapLiteralNode) Kind() NodeKind {
 	return NodeKindMapLiteral
 }
 
+// Kind returns the node kind for nil literal
+func (n NilLiteralNode) Kind() NodeKind {
+	return NodeKindNilLiteral
+}
+
 // Marker methods to satisfy LiteralNode interface
 func (i IntLiteralNode) isLiteral()    {}
 func (f FloatLiteralNode) isLiteral()  {}
@@ -90,6 +99,7 @@ func (s StringLiteralNode) isLiteral() {}
 func (b BoolLiteralNode) isLiteral()   {}
 func (a ArrayLiteralNode) isLiteral()  {}
 func (m MapLiteralNode) isLiteral()    {}
+func (n NilLiteralNode) isLiteral()    {}
 
 // Implement ValueNode interface for all literal nodes
 func (i IntLiteralNode) isValue()    {}
@@ -98,6 +108,7 @@ func (s StringLiteralNode) isValue() {}
 func (b BoolLiteralNode) isValue()   {}
 func (a ArrayLiteralNode) isValue()  {}
 func (m MapLiteralNode) isValue()    {}
+func (n NilLiteralNode) isValue()    {}
 
 // Ensures LiteralNode implements ExpressionNode
 func (i IntLiteralNode) isExpression()    {}
@@ -106,6 +117,7 @@ func (s StringLiteralNode) isExpression() {}
 func (b BoolLiteralNode) isExpression()   {}
 func (a ArrayLiteralNode) isExpression()  {}
 func (m MapLiteralNode) isExpression()    {}
+func (n NilLiteralNode) isExpression()    {}
 
 func (i IntLiteralNode) String() string {
 	return fmt.Sprintf("%d", i.Value)
@@ -137,4 +149,8 @@ func (m MapLiteralNode) String() string {
 		entries[i] = fmt.Sprintf("%s: %s", entry.Key.String(), entry.Value.String())
 	}
 	return fmt.Sprintf("map[%s]%s{%s}", m.Type.TypeParams[0].String(), m.Type.TypeParams[1].String(), strings.Join(entries, ", "))
+}
+
+func (n NilLiteralNode) String() string {
+	return "nil"
 }

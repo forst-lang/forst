@@ -68,8 +68,15 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 					var expr goast.Expr = goast.NewIdent("bool")
 					return &expr, nil
 				case ast.VariableNode:
-					// Variable references should use the variable's type
-					// For now, assume string for variable references
+					// Variable references should use the variable's actual type
+					variableNode := (*arg.Value).(ast.VariableNode)
+					varType, err := t.TypeChecker.LookupVariableType(&variableNode, t.currentScope())
+					if err == nil {
+						// Use the variable's actual type
+						var expr goast.Expr = goast.NewIdent(string(varType.Ident))
+						return &expr, nil
+					}
+					// Fallback to string if variable type not found
 					var expr goast.Expr = goast.NewIdent("string")
 					return &expr, nil
 				case ast.ReferenceNode:

@@ -229,6 +229,10 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 
 	switch typeNode.TypeKind {
 	case ast.TypeKindBuiltin:
+		// Handle pointer types specially - they should be processed by transformType, not here
+		if typeNode.Ident == ast.TypePointer {
+			panic("BUG: pointer types should be handled by transformType, not getTypeAliasNameForTypeNode")
+		}
 		ident, err := transformTypeIdent(typeNode.Ident)
 		if err != nil {
 			return "", fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)

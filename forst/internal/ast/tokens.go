@@ -160,6 +160,8 @@ const (
 	TokenDefer TokenIdent = "DEFER"
 	// TokenGoto is the token for goto keyword
 	TokenGoto TokenIdent = "GOTO"
+	// TokenNil is the token for nil literal
+	TokenNil TokenIdent = "NIL"
 )
 
 // Token structure

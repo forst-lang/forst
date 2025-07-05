@@ -37,7 +37,7 @@ func createUser(op AppMutation.Input({
 
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-  name, err = createUser({
+  name, err := createUser({
     ctx: {
       sessionId: &sessionId,
     },
@@ -48,5 +48,17 @@ func main() {
   ensure !err {
     println(err.Error())
   }
-  println(name)
+  println("Created user: " + name)
+
+  name, err = createUser({
+    ctx: {
+      sessionId: nil,
+    },
+    input: {
+      name: "Bob",
+    },
+  })
+  ensure err is Nil() {
+    println("Expected error but user Bob was created")
+  }
 }

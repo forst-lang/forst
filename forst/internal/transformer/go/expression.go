@@ -106,6 +106,8 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			return goast.NewIdent("true"), nil
 		}
 		return goast.NewIdent("false"), nil
+	case ast.NilLiteralNode:
+		return goast.NewIdent("nil"), nil
 	case ast.UnaryExpressionNode:
 		op, err := t.transformOperator(e.Operator)
 		if err != nil {
@@ -142,13 +144,48 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Name: e.GetIdent(),
 		}, nil
 	case ast.FunctionCallNode:
+		// Look up parameter types for the function
+		paramTypeNames := make([]string, len(e.Arguments))
+		if sig, ok := t.TypeChecker.Functions[e.Function.ID]; ok && len(sig.Parameters) == len(e.Arguments) {
+			for i, param := range sig.Parameters {
+				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
+					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
+					if err == nil && len(inferredTypes) > 0 {
+						paramTypeNames[i] = string(inferredTypes[0].Ident)
+					} else {
+						name, err := t.getTypeAliasNameForTypeNode(param.Type)
+						if err == nil {
+							paramTypeNames[i] = name
+						}
+					}
+				} else {
+					generatedTypeName, err := t.getGeneratedTypeNameForTypeNode(param.Type)
+					if err == nil {
+						paramTypeNames[i] = generatedTypeName
+					} else {
+						name, err := t.getTypeAliasNameForTypeNode(param.Type)
+						if err == nil {
+							paramTypeNames[i] = name
+						}
+					}
+				}
+			}
+		}
 		args := make([]goast.Expr, len(e.Arguments))
 		for i, arg := range e.Arguments {
-			arg, err := t.transformExpression(arg)
-			if err != nil {
-				return nil, err
+			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypeNames[i] != "" {
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, paramTypeNames[i])
+				if err != nil {
+					return nil, err
+				}
+				args[i] = argExpr
+			} else {
+				argExpr, err := t.transformExpression(arg)
+				if err != nil {
+					return nil, err
+				}
+				args[i] = argExpr
 			}
-			args[i] = arg
 		}
 		return &goast.CallExpr{
 			Fun:  goast.NewIdent(string(e.Function.ID)),

@@ -96,4 +96,5 @@ const (
 	NodeKindDereference       NodeKind = "Dereference"
 	NodeKindMapLiteral        NodeKind = "MapLiteral"
 	NodeKindShapeGuard        NodeKind = "ShapeGuard"
+	NodeKindNilLiteral        NodeKind = "NilLiteral"
 )

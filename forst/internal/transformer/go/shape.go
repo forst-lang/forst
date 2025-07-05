@@ -142,7 +142,51 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 	return nil, fmt.Errorf("shape field has neither explicit type nor assertion nor shape: %T", field)
 }
 
+// findExistingTypeForShape checks if a shape literal matches an existing type definition
+func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode) (ast.TypeIdent, bool) {
+	for typeIdent, def := range t.TypeChecker.Defs {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				// Compare the shapes to see if they match
+				if t.shapesMatch(shape, &shapeExpr.Shape) {
+					return typeIdent, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// shapesMatch checks if two shapes have the same structure
+func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
+	if len(shape1.Fields) != len(shape2.Fields) {
+		return false
+	}
+
+	for name, field1 := range shape1.Fields {
+		field2, exists := shape2.Fields[name]
+		if !exists {
+			return false
+		}
+
+		// For now, just check if both fields have the same type or assertion
+		// This is a simplified comparison - in a full implementation, you'd want to compare the actual types
+		if (field1.Type != nil) != (field2.Type != nil) {
+			return false
+		}
+		if (field1.Assertion != nil) != (field2.Assertion != nil) {
+			return false
+		}
+		if (field1.Shape != nil) != (field2.Shape != nil) {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {
+	// Always generate a struct type for shape definitions
+	// The existing type matching is only for shape literals, not type definitions
 	fields := []*goast.Field{}
 	for name, field := range shape.Fields {
 		fieldType, err := t.transformShapeFieldType(field)

@@ -278,16 +278,21 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
 			// Only support single variable assignment for now
 			varName := s.LValues[0].Ident.String()
-			// Look up the type alias hash for the type
+			// Transform the type using transformType to handle pointer types correctly
+			var typeExpr goast.Expr
 			var typeName string
 			if t != nil {
-				name, err := t.getTypeAliasNameForTypeNode(*s.ExplicitTypes[0])
+				typeIdent, err := t.transformType(*s.ExplicitTypes[0])
 				if err != nil {
+					// Fallback to string representation
+					typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
 					typeName = string(s.ExplicitTypes[0].Ident)
 				} else {
-					typeName = name
+					typeExpr = typeIdent
+					typeName = typeIdent.Name
 				}
 			} else {
+				typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
 				typeName = string(s.ExplicitTypes[0].Ident)
 			}
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
@@ -301,7 +306,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						Specs: []goast.Spec{
 							&goast.ValueSpec{
 								Names:  []*goast.Ident{goast.NewIdent(varName)},
-								Type:   goast.NewIdent(typeName),
+								Type:   typeExpr,
 								Values: []goast.Expr{rhs},
 							},
 						},
@@ -318,7 +323,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					Specs: []goast.Spec{
 						&goast.ValueSpec{
 							Names:  []*goast.Ident{goast.NewIdent(varName)},
-							Type:   goast.NewIdent(typeName),
+							Type:   typeExpr,
 							Values: []goast.Expr{rhs},
 						},
 					},

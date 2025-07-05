@@ -44,7 +44,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log.Warnf("No logger provided, using default logger")
 	}
 	h := hasher.New()
-	return &TypeChecker{
+	tc := &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
 		Defs:                make(map[ast.TypeIdent]ast.Node),
 		Uses:                make(map[ast.TypeIdent][]ast.Node),
@@ -59,6 +59,11 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		log:                 log,
 		reportPhases:        reportPhases,
 	}
+
+	// Register built-in symbols in global scope
+	tc.registerBuiltinSymbols()
+
+	return tc
 }
 
 // CheckTypes performs type inference in two passes:
@@ -198,6 +203,11 @@ func (tc *TypeChecker) popScope() {
 // Intended for use after the collection pass of the typechecker has completed
 func (tc *TypeChecker) RestoreScope(node ast.Node) error {
 	return tc.scopeStack.restoreScope(node)
+}
+
+// registerBuiltinSymbols registers built-in symbols in the global scope
+func (tc *TypeChecker) registerBuiltinSymbols() {
+	// No-op: nil is handled contextually, not as a symbol
 }
 
 // Stores a symbol definition in the current scope

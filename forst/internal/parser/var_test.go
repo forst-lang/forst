@@ -147,6 +147,49 @@ func TestParseVarStatement(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "var declaration with pointer type",
+			tokens: []ast.Token{
+				{Type: ast.TokenVar, Value: "var", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "ptr", Line: 1, Column: 5},
+				{Type: ast.TokenColon, Value: ":", Line: 1, Column: 9},
+				{Type: ast.TokenStar, Value: "*", Line: 1, Column: 11},
+				{Type: ast.TokenString, Value: "String", Line: 1, Column: 12},
+				{Type: ast.TokenEquals, Value: "=", Line: 1, Column: 18},
+				{Type: ast.TokenNil, Value: "nil", Line: 1, Column: 20},
+				{Type: ast.TokenEOF, Value: "", Line: 1, Column: 23},
+			},
+			validate: func(t *testing.T, assignment ast.AssignmentNode) {
+				if len(assignment.LValues) != 1 {
+					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
+				}
+				if assignment.LValues[0].Ident.ID != "ptr" {
+					t.Errorf("Expected variable name 'ptr', got %s", assignment.LValues[0].Ident.ID)
+				}
+				if len(assignment.ExplicitTypes) != 1 {
+					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))
+				}
+				if assignment.ExplicitTypes[0].Ident != ast.TypePointer {
+					t.Errorf("Expected type 'pointer', got %s", assignment.ExplicitTypes[0].Ident)
+				}
+				if len(assignment.ExplicitTypes[0].TypeParams) != 1 {
+					t.Fatalf("Expected 1 type parameter, got %d", len(assignment.ExplicitTypes[0].TypeParams))
+				}
+				if assignment.ExplicitTypes[0].TypeParams[0].Ident != ast.TypeString {
+					t.Errorf("Expected base type 'string', got %s", assignment.ExplicitTypes[0].TypeParams[0].Ident)
+				}
+				if len(assignment.RValues) != 1 {
+					t.Fatalf("Expected 1 rvalue, got %d", len(assignment.RValues))
+				}
+				_, isNil := assignment.RValues[0].(ast.NilLiteralNode)
+				if !isNil {
+					t.Error("Expected nil literal")
+				}
+				if assignment.IsShort {
+					t.Error("Expected IsShort to be false for var declaration")
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

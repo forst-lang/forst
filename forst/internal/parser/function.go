@@ -177,7 +177,22 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
+		// Support both single and parenthesized multiple return types
+		if p.current().Type == ast.TokenLParen {
+			p.advance() // Consume '('
+			for {
+				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+				returnType = append(returnType, typ)
+				if p.current().Type == ast.TokenComma {
+					p.advance()
+				} else {
+					break
+				}
+			}
+			p.expect(ast.TokenRParen)
+		} else {
+			returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
+		}
 	}
 	return returnType
 }

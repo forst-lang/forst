@@ -56,7 +56,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if err != nil {
 			return nil, err
 		}
-		tc.log.Tracef("Variable type: %+v, node: %+v, type params: %+v, (original: %+v of type %T)", typ, typ.Node, typ.TypeParams, e, e.ExplicitType)
+		tc.log.Tracef("Variable type: %+v, node: %+v, type params: %+v, (original: %+v of type %T)", typ, e, typ.TypeParams, e, e)
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
@@ -202,6 +202,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		tc.log.Tracef("Dereference type: %+v", valueType[0].TypeParams)
 		tc.storeInferredType(e, valueType[0].TypeParams)
 		return valueType[0].TypeParams, nil
+
+	case ast.NilLiteralNode:
+		// Return a special marker (empty slice) to indicate untyped nil; context must resolve
+		return nil, nil
 
 	default:
 		tc.log.Tracef("Unhandled expression type: %T", expr)

@@ -1,9 +1,6 @@
 package main
 
-import (
-	errors "errors"
-	"os"
-)
+import errors "errors"
 
 // AppContext: TypeDefShapeExpr({sessionId: Pointer(String)})
 type AppContext struct {
@@ -43,7 +40,7 @@ type T_F1jpghi8Uyp struct {
 	input T_azh9nsqmxaF
 }
 
-// T_S16voJ6uyzy: TypeDefShapeExpr({input: {name: Value("Alice")}, ctx: {sessionId: Value(Ref(Variable(sessionId)))}})
+// T_S16voJ6uyzy: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId)))}, input: {name: Value("Alice")}})
 type T_S16voJ6uyzy struct {
 	ctx   T_D4c1JHuBYcw
 	input T_7zywpPhwVhj
@@ -77,8 +74,7 @@ func main() {
 	name, err := createUser(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId}, input: T_azh9nsqmxaF{name: "Alice"}})
 	if err != nil {
 		println(err.Error())
-		os.Exit(1)
 		panic(errors.New("assertion failed: " + "TYPE_ERROR.Nil()"))
 	}
-	println(name)
+	println("Created user: " + name)
 }

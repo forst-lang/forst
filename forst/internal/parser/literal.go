@@ -87,6 +87,10 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			Type:  arrayType,
 		}
 
+	case ast.TokenNil:
+		p.advance()
+		return ast.NilLiteralNode{}
+
 	default:
 		p.FailWithUnexpectedToken(token, "a literal")
 	}

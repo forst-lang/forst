@@ -43,6 +43,7 @@ var NodeKind = map[string]uint8{
 	"If":               13,
 	"Reference":        14,
 	"MapLiteral":       15,
+	"NilLiteral":       16,
 }
 
 // hashNodes generates a structural hash for multiple AST nodes
@@ -689,6 +690,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
+	case ast.NilLiteralNode:
+		if err := h.writeHashes(hasher, NodeKind["NilLiteral"]); err != nil {
+			return 0, err
+		}
+		// All NilLiteralNode instances are structurally identical
+		return NodeHash(hasher.Sum64()), nil
 	default:
 		return 0, fmt.Errorf("unsupported node type: %T", n)
 	}
