@@ -25,14 +25,16 @@ func TestValidateShapeGuard(t *testing.T) {
 				},
 				Body: []Node{
 					ReturnNode{
-						Value: BinaryExpressionNode{
-							Left:     VariableNode{Ident: Ident{ID: "s"}},
-							Operator: TokenIs,
-							Right: ShapeNode{
-								Fields: map[string]ShapeFieldNode{
-									"field": {
-										Assertion: &AssertionNode{
-											BaseType: typeIdentPtr("String"),
+						Values: []ExpressionNode{
+							BinaryExpressionNode{
+								Left:     VariableNode{Ident: Ident{ID: "s"}},
+								Operator: TokenIs,
+								Right: ShapeNode{
+									Fields: map[string]ShapeFieldNode{
+										"field": {
+											Assertion: &AssertionNode{
+												BaseType: typeIdentPtr("String"),
+											},
 										},
 									},
 								},
@@ -53,14 +55,16 @@ func TestValidateShapeGuard(t *testing.T) {
 				},
 				Body: []Node{
 					ReturnNode{
-						Value: BinaryExpressionNode{
-							Left:     VariableNode{Ident: Ident{ID: "s"}},
-							Operator: TokenIs,
-							Right: ShapeNode{
-								Fields: map[string]ShapeFieldNode{
-									"field": {
-										Assertion: &AssertionNode{
-											BaseType: typeIdentPtr("String"),
+						Values: []ExpressionNode{
+							BinaryExpressionNode{
+								Left:     VariableNode{Ident: Ident{ID: "s"}},
+								Operator: TokenIs,
+								Right: ShapeNode{
+									Fields: map[string]ShapeFieldNode{
+										"field": {
+											Assertion: &AssertionNode{
+												BaseType: typeIdentPtr("String"),
+											},
 										},
 									},
 								},
@@ -93,11 +97,13 @@ func TestValidateShapeGuard(t *testing.T) {
 				},
 				Body: []Node{
 					ReturnNode{
-						Value: BinaryExpressionNode{
-							Left:     VariableNode{Ident: Ident{ID: "s"}},
-							Operator: TokenIs,
-							Right: AssertionNode{
-								BaseType: typeIdentPtr("Int"),
+						Values: []ExpressionNode{
+							BinaryExpressionNode{
+								Left:     VariableNode{Ident: Ident{ID: "s"}},
+								Operator: TokenIs,
+								Right: AssertionNode{
+									BaseType: typeIdentPtr("Int"),
+								},
 							},
 						},
 					},
