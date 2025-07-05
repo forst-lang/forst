@@ -36,17 +36,23 @@ We acknowledge that TypeScript is the de facto standard for frontend development
 
 - So we should focus on interoperability with TypeScript clients.
 
-### Go Integration
+### TypeScript Interoperability
+
+- Enable gradual adoption in Node.js backends
+- Provide first-class support for Node.js tooling, testing frameworks, and deployment workflows
+- Close gaps still existing between the TS ecosystem and Go ecosystem
+
+#### Frontend Interoperability
+
+- Generate accurate TypeScript definitions from backend types
+- Help browsers exchange data with backends that use Forst
+- Minimize friction in full-stack development workflows
+
+### Go Interoperability
 
 - Generate clean, idiomatic Go code that's easy to understand and maintain
 - Support direct use of Go packages and types with minimal overhead
 - Work seamlessly with existing Go tools, testing and deployment
-
-### Frontend Integration
-
-- Generate accurate TypeScript definitions from backend types
-- Ensure type safety across API boundaries
-- Minimize friction in full-stack development workflows
 
 ## Anti-Features
 

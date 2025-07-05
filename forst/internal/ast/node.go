@@ -37,6 +37,7 @@ type NodeKind string
 // NodeKindTypeDef is the kind for type definition nodes
 // NodeKindTypeDefAssertion is the kind for type definition assertion nodes
 // NodeKindTypeDefBinaryExpr is the kind for type definition binary expression nodes
+// NodeKindTypeDefShape is the kind for type definition shape nodes
 // NodeKindEnsureBlock is the kind for ensure block nodes
 // NodeKindAssignment is the kind for assignment nodes
 // NodeKindShape is the kind for shape nodes
@@ -49,6 +50,8 @@ type NodeKind string
 // NodeKindDefault is the kind for default statement nodes
 // NodeKindFallthrough is the kind for fallthrough statement nodes
 // NodeKindReference is the kind for reference nodes
+// NodeKindDereference is the kind for dereference nodes
+// NodeKindShapeGuard is the kind for shape guard nodes
 const (
 	NodeKindFunction          NodeKind = "Function"
 	NodeKindBlock             NodeKind = "Block"
@@ -78,6 +81,7 @@ const (
 	NodeKindTypeDef           NodeKind = "TypeDef"
 	NodeKindTypeDefAssertion  NodeKind = "TypeDefAssertion"
 	NodeKindTypeDefBinaryExpr NodeKind = "TypeDefBinaryExpr"
+	NodeKindTypeDefShape      NodeKind = "TypeDefShape"
 	NodeKindEnsureBlock       NodeKind = "EnsureBlock"
 	NodeKindAssignment        NodeKind = "Assignment"
 	NodeKindShape             NodeKind = "Shape"
@@ -89,5 +93,8 @@ const (
 	NodeKindDefault           NodeKind = "Default"
 	NodeKindFallthrough       NodeKind = "Fallthrough"
 	NodeKindReference         NodeKind = "Reference"
+	NodeKindDereference       NodeKind = "Dereference"
 	NodeKindMapLiteral        NodeKind = "MapLiteral"
+	NodeKindShapeGuard        NodeKind = "ShapeGuard"
+	NodeKindNilLiteral        NodeKind = "NilLiteral"
 )

@@ -2,9 +2,11 @@ package ast
 
 import "fmt"
 
-// ParamNode represents a function parameter with a name and type
+// ParamNode is the interface for parameter nodes
 type ParamNode interface {
 	Node
+	GetIdent() string
+	GetType() TypeNode
 }
 
 // SimpleParamNode represents a basic named parameter
@@ -42,4 +44,14 @@ func (p DestructuredParamNode) String() string {
 // Kind returns the node kind for a destructured parameter
 func (p DestructuredParamNode) Kind() NodeKind {
 	return NodeKindDestructuredParam
+}
+
+// GetType returns the type of the parameter
+func (p SimpleParamNode) GetType() TypeNode {
+	return p.Type
+}
+
+// GetType returns the type of the destructured parameter
+func (p DestructuredParamNode) GetType() TypeNode {
+	return p.Type
 }

@@ -61,7 +61,29 @@ func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 
 // AddType adds a type declaration to the TransformerOutput
 func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
+	// Check if this type is already defined
+	if len(typeDecl.Specs) > 0 {
+		if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+			if t.HasType(spec.Name.Name) {
+				return // Skip duplicate type definitions
+			}
+		}
+	}
 	t.types = append(t.types, typeDecl)
+}
+
+// HasType returns true if a type with the given name is already defined
+func (t *TransformerOutput) HasType(name string) bool {
+	for _, typeDecl := range t.types {
+		if len(typeDecl.Specs) > 0 {
+			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+				if spec.Name.Name == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // PackageName returns the package name for the TransformerOutput
@@ -104,10 +126,12 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 		}
 	}
 
-	for _, t := range t.types {
-		decls = append(decls, goast.Decl(t))
+	// Add type declarations
+	for _, typeDecl := range t.types {
+		decls = append(decls, goast.Decl(typeDecl))
 	}
 
+	// Add function declarations
 	for _, fn := range t.functions {
 		decls = append(decls, goast.Decl(fn))
 	}

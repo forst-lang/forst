@@ -1,0 +1,54 @@
+package main
+
+// Example demonstrating anonymous object literals with shape guards
+
+// Function with nested anonymous object literals
+func processOrder(order { 
+  customer: { name: String, email: String },
+  items: Array({ id: String, quantity: Int })
+}) {
+  println("Processing order for: " + order.customer.name)
+  println("Customer email: " + order.customer.email)
+  
+  for item in order.items {
+    println("Item: " + item.id + ", Quantity: " + string(item.quantity))
+  }
+}
+
+// Function for user input validation
+func handleUserRegistration(data { 
+  username: String, 
+  email: String, 
+  password: String,
+  preferences: { theme: String, notifications: Bool }
+}) {
+  println("Registering user: " + data.username)
+  println("Email: " + data.email)
+  println("Theme preference: " + data.preferences.theme)
+  println("Notifications enabled: " + string(data.preferences.notifications))
+}
+
+func main() {
+  // Using nested anonymous object literals
+  processOrder({
+    customer: {
+      name: "Bob",
+      email: "bob@example.com"
+    },
+    items: [
+      { id: "item1", quantity: 2 },
+      { id: "item2", quantity: 1 }
+    ]
+  })
+  
+  // Using anonymous object literal for user registration
+  handleUserRegistration({
+    username: "charlie",
+    email: "charlie@example.com",
+    password: "securepassword123",
+    preferences: {
+      theme: "dark",
+      notifications: true
+    }
+  })
+} 

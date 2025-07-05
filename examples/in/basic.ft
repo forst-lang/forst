@@ -1,9 +1,9 @@
 package main
 
 func greet(): String {
-    return "Hello, World!"
+	return "Hello, World!"
 }
 
 func main() {
-    println(greet())
+	println(greet())
 }

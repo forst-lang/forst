@@ -1,35 +1,74 @@
+package main
+
 type MutationArg = Shape
 
 is (m MutationArg) Input(input Shape) {
   // Note how we can use the `input` variable in the type guard below
   // which actually inserts a **type** into the shape (not a value)
-  return m is Shape({ input })
+  ensure m is { input }
 }
 
 is (m MutationArg) Context(ctx Shape) {
-  return m is Shape({ ctx })
+  ensure m is { ctx }
 }
 
-type AppContext = Shape({
-  sessionId: Maybe(String)
-})
-
-type AppMutation = trpc.Mutation.Context(AppContext)
-
-func createUser(op: AppMutation.Input({
-  input: Shape({
-    name: String
-  })
-} (Shape({name: String}), error) {
-  ensure op.ctx.LoggedIn() or NotLoggedIn()
-
-  op.ctx.sessionId[0]
-
-  return {
-    name: op.input.name
-  }, nil
+type User = {
+  name: String
 }
 
+type AppContext = {
+  sessionId: *String,
+  user: *User,
+}
+
+type AppMutation = MutationArg.Context(AppContext)
+
+// Manual type assertion on a field in a shape guard via accessor
 is (ctx AppContext) LoggedIn() {
-  return ctx.sessionId is String()
+  ensure ctx.sessionId is Present()
+  ensure ctx.user is Present()
+}
+
+func createTask(op AppMutation.Input({
+  input: {
+    name: String
+  }
+})) {
+  ensure op.ctx is LoggedIn()
+
+  println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
+
+  return op.input.name, nil
+}
+
+func main() {
+  sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
+  name, err := createTask({
+    ctx: {
+      sessionId: &sessionId,
+      user: {
+        name: "Alice",
+      },
+    },
+    input: {
+      name: "Fix memory leak in Node.js app",
+    },
+  })
+  ensure !err {
+    println(err.Error())
+  }
+  println("Correctly created task: " + name)
+
+  name, err = createTask({
+    ctx: {
+      sessionId: nil,
+    },
+    input: {
+      name: "Go to the gym",
+    },
+  })
+  ensure err is Present() {
+    println("Expected error but gym task was created")
+  }
+  println("Correctly avoided creating gym task as user was not logged in")
 }

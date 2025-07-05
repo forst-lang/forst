@@ -16,16 +16,35 @@ type TypeIdentOpts struct {
 func (p *Parser) expectCustomTypeIdentifier(opts TypeIdentOpts) ast.Token {
 	token := p.expect(ast.TokenIdentifier)
 	if !isPossibleTypeIdentifier(token, opts) {
-		panic(parseErrorWithValue(token, "Expected type identifier to start with an uppercase letter"))
+		p.FailWithParseError(token, "Expected type identifier to start with an uppercase letter")
 	}
 	return token
 }
 
 func (p *Parser) expectCustomTypeIdentifierOrPackageName(opts TypeIdentOpts) ast.Token {
-	if p.peek().Type == ast.TokenDot && isPossibleTypeIdentifier(p.peek(2), opts) && p.peek(3).Type != ast.TokenLParen {
-		return p.expect(ast.TokenIdentifier)
+	// First, expect an identifier
+	token := p.expect(ast.TokenIdentifier)
+
+	// Check if this is a package name followed by a dot
+	if p.current().Type == ast.TokenDot && isPossibleTypeIdentifier(p.peek(), opts) && p.peek(2).Type != ast.TokenLParen {
+		// This is a package name, consume the dot and get the type name
+		p.advance() // consume dot
+		typeToken := p.expect(ast.TokenIdentifier)
+		// Return a token with the qualified name
+		return ast.Token{
+			Type:   ast.TokenIdentifier,
+			Value:  token.Value + "." + typeToken.Value,
+			Line:   token.Line,
+			Column: token.Column,
+		}
 	}
-	return p.expectCustomTypeIdentifier(opts)
+
+	// Validate the identifier as a type
+	if !isPossibleTypeIdentifier(token, opts) {
+		p.FailWithParseError(token, "Expected type identifier to start with an uppercase letter")
+	}
+
+	return token
 }
 
 func (p *Parser) parseTypeDef() *ast.TypeDefNode {
@@ -50,6 +69,11 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		expr := p.parseTypeDefExpr()
 		p.expect(ast.TokenRParen)
 		return expr
+	}
+
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape(nil)
+		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 
 	var left ast.TypeDefExpr

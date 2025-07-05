@@ -10,7 +10,7 @@ func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
 		return nil, err
 	}
 
-	// Store the base type of the assertion's variable
+	// Store the base type of the assertion's variable as the inferred type
 	tc.storeInferredType(ensure.Assertion, []ast.TypeNode{variableType})
 
 	if ensure.Error != nil {

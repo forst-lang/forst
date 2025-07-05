@@ -2,9 +2,11 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
+	"forst/internal/hasher"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // TypeChecker performs type inference and type checking on the AST
@@ -16,11 +18,10 @@ type TypeChecker struct {
 	// Maps type identifiers to nodes where they are referenced
 	Uses map[ast.TypeIdent][]ast.Node
 	// Maps function identifiers to their parameter and return type signatures
-	Functions     map[ast.Identifier]FunctionSignature
-	Hasher        *StructuralHasher
-	path          NodePath // Tracks current position while traversing AST
-	scopeStack    *ScopeStack
-	inferredTypes map[ast.Node][]ast.TypeNode
+	Functions  map[ast.Identifier]FunctionSignature
+	Hasher     *hasher.StructuralHasher
+	path       NodePath // Tracks current position while traversing AST
+	scopeStack *ScopeStack
 	// Map of inferred types for nodes
 	InferredTypes map[NodeHash][]ast.TypeNode
 	// Map of inferred variable types
@@ -29,30 +30,47 @@ type TypeChecker struct {
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
 	imports []ast.ImportNode
+	// Logger for the type checker
+	log *logrus.Logger
+	// Whether to report phases
+	reportPhases bool
 }
 
 // New creates a new TypeChecker
-func New() *TypeChecker {
-	return &TypeChecker{
+func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
+	h := hasher.New()
+	tc := &TypeChecker{
 		Types:               make(map[NodeHash][]ast.TypeNode),
 		Defs:                make(map[ast.TypeIdent]ast.Node),
 		Uses:                make(map[ast.TypeIdent][]ast.Node),
 		Functions:           make(map[ast.Identifier]FunctionSignature),
-		Hasher:              &StructuralHasher{},
+		Hasher:              h,
 		path:                make(NodePath, 0),
-		scopeStack:          NewScopeStack(NewStructuralHasher()),
-		inferredTypes:       make(map[ast.Node][]ast.TypeNode),
+		scopeStack:          NewScopeStack(h, log),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
 		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),
+		log:                 log,
+		reportPhases:        reportPhases,
 	}
+
+	return tc
 }
 
 // CheckTypes performs type inference in two passes:
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
-	log.Trace("First pass: collecting explicit types and function signatures")
+	if tc.reportPhases {
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckTypes",
+		}).Info("First pass: collecting explicit types and function signatures")
+	}
+
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
@@ -61,7 +79,19 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		tc.path = tc.path[:len(tc.path)-1]
 	}
 
-	log.Debugf("Collected imports: %v", tc.imports)
+	tc.log.WithFields(logrus.Fields{
+		"imports":   len(tc.imports),
+		"typeDefs":  len(tc.Defs),
+		"functions": len(tc.Functions),
+		"uses":      len(tc.Uses),
+		"function":  "CheckTypes",
+	}).Debug("Collected types and function signatures")
+
+	if tc.reportPhases {
+		tc.log.WithFields(logrus.Fields{
+			"function": "CheckTypes",
+		}).Info("Starting second pass: inferring types")
+	}
 
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
@@ -74,113 +104,105 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	return nil
 }
 
-// Traverses the AST to gather type definitions and function signatures
-func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
-	log.Tracef("Collecting explicit types for type %s", node.String())
-	switch n := node.(type) {
-	case ast.ImportNode:
-		log.Debugf("Collecting import: %v", n)
-		tc.imports = append(tc.imports, n)
-	case ast.ImportGroupNode:
-		log.Debugf("Collecting import group: %v", n)
-		tc.imports = append(tc.imports, n.Imports...)
-	case ast.TypeDefNode:
-		tc.registerType(n)
-	case ast.FunctionNode:
-		tc.pushScope(n)
-
-		for _, param := range n.Params {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
-			case ast.DestructuredParamNode:
-				// TODO: Handle destructured params
-				continue
-			}
-		}
-
-		for _, node := range n.Body {
-			if err := tc.collectExplicitTypes(node); err != nil {
-				return err
-			}
-		}
-
-		tc.popScope()
-		tc.registerFunction(n)
-	case *ast.TypeGuardNode:
-		// Register type guard in Defs
-		if _, exists := tc.Defs[ast.TypeIdent(n.Ident)]; !exists {
-			tc.Defs[ast.TypeIdent(n.Ident)] = n
-		}
-		tc.registerFunction(ast.FunctionNode{
-			Ident:       ast.Ident{ID: n.Ident},
-			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeBool}},
-		})
-	}
-
-	return nil
-}
-
 // Associates inferred types with an AST node using its structural hash
 func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
-	hash := tc.Hasher.HashNode(node)
-	log.Tracef("Storing inferred type for node %s (key %s): %s", node.String(), hash.ToTypeIdent(), types)
+	hash, err := tc.Hasher.HashNode(node)
+	if err != nil {
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"function": "storeInferredType",
+		}).WithError(err).Error("failed to hash node during storeInferredType")
+		return
+	}
 	tc.Types[hash] = types
+	tc.log.WithFields(logrus.Fields{
+		"node":     node.String(),
+		"key":      hash.ToTypeIdent(),
+		"types":    types,
+		"function": "storeInferredType",
+		"hash":     fmt.Sprintf("%x", uint64(hash)),
+	}).Trace("Stored inferred type for node")
 }
 
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = returnTypes
-	log.Tracef("Storing inferred function return type for function %s: %s", fn.Ident.ID, returnTypes)
 	tc.Functions[fn.Ident.ID] = sig
+	tc.log.WithFields(logrus.Fields{
+		"fn":          fn.Ident.ID,
+		"returnTypes": returnTypes,
+		"sig":         sig,
+		"function":    "storeInferredFunctionReturnType",
+	}).Trace("Stored inferred function return type")
 }
 
 // DebugPrintCurrentScope prints details about symbols defined in the current scope
 func (tc *TypeChecker) DebugPrintCurrentScope() {
-	currentScope := tc.scopeStack.CurrentScope()
+	currentScope := tc.scopeStack.currentScope()
 	if currentScope == nil {
-		log.Debug("Current scope is nil")
+		tc.log.Debug("Current scope is nil")
 		return
 	}
+
 	if currentScope.Node == nil {
-		log.Debug("Current scope node is nil")
+		tc.log.Debug("Current scope node is nil")
 	} else {
-		log.Debugf("Current scope: %s\n", currentScope.Node.String())
+		tc.log.WithFields(logrus.Fields{
+			"scope": currentScope.String(),
+			"addr":  fmt.Sprintf("%p", currentScope),
+		}).Debug("Current scope")
 	}
-	log.Debugf("  Defined symbols (total: %d)\n", len(currentScope.Symbols))
+
+	tc.log.WithFields(logrus.Fields{
+		"total": len(currentScope.Symbols),
+	}).Debug("Defined symbols")
+
 	for _, symbol := range currentScope.Symbols {
-		log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
+		tc.log.Debugf("    %s: %s\n", symbol.Identifier, symbol.Types)
 	}
 }
 
-// GlobalScope returns the root scope
-func (tc *TypeChecker) GlobalScope() *Scope {
-	return tc.scopeStack.GlobalScope()
+// globalScope returns the root scope
+func (tc *TypeChecker) globalScope() *Scope {
+	return tc.scopeStack.globalScope()
 }
 
-// Stores a type definition that will be used by code generators
-// to create corresponding type definitions in the target language.
-// For example, a Forst type definition like `type PhoneNumber = String.Min(3)`
-// may be transformed into a TypeScript type with validation decorators.
-func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
-	if _, exists := tc.Defs[node.Ident]; exists {
-		return
-	}
-	tc.Defs[node.Ident] = node
+// pushScope creates a new scope for the given node
+// Intended for use in the collection pass of the typechecker, not the transformer
+func (tc *TypeChecker) pushScope(node ast.Node) *Scope {
+	scope := tc.scopeStack.pushScope(node)
+
+	tc.log.WithFields(logrus.Fields{
+		"scope":    scope.String(),
+		"addr":     fmt.Sprintf("%p", scope),
+		"function": "pushScope",
+	}).Debug("Pushed scope")
+	return scope
 }
 
-func (tc *TypeChecker) pushScope(node ast.Node) {
-	tc.scopeStack.PushScope(node)
-}
-
+// popScope removes the current scope and returns to the parent scope
+// Intended for use in the collection pass of the typechecker, not the transformer
 func (tc *TypeChecker) popScope() {
-	tc.scopeStack.PopScope()
+	currentScope := tc.CurrentScope()
+	tc.scopeStack.popScope()
+
+	tc.log.WithFields(logrus.Fields{
+		"scope":    currentScope.String(),
+		"addr":     fmt.Sprintf("%p", currentScope),
+		"function": "popScope",
+	}).Debug("Popped scope")
+}
+
+// RestoreScope restores the scope for a given node
+// Intended for use after the collection pass of the typechecker has completed
+func (tc *TypeChecker) RestoreScope(node ast.Node) error {
+	return tc.scopeStack.restoreScope(node)
 }
 
 // Stores a symbol definition in the current scope
 func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	currentScope := tc.scopeStack.CurrentScope()
+	currentScope := tc.CurrentScope()
 	currentScope.Symbols[ident] = Symbol{
 		Identifier: ident,
 		Types:      types,
@@ -188,14 +210,33 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 		Scope:      currentScope,
 		Position:   tc.path,
 	}
-}
 
-// FindScope finds the scope for a given node
-func (tc *TypeChecker) FindScope(node ast.Node) *Scope {
-	return tc.scopeStack.FindScope(node)
+	tc.log.WithFields(logrus.Fields{
+		"ident":    ident,
+		"types":    types,
+		"scope":    currentScope.String(),
+		"addr":     fmt.Sprintf("%p", currentScope),
+		"function": "storeSymbol",
+	}).Trace("Stored symbol")
 }
 
 // CurrentScope returns the current scope
 func (tc *TypeChecker) CurrentScope() *Scope {
-	return tc.scopeStack.CurrentScope()
+	return tc.scopeStack.currentScope()
+}
+
+// RegisterTypeIfMissing registers a type definition if not already present in Defs.
+// Accepts either ast.TypeDefNode or ast.TypeDefShapeExpr as def.
+func (tc *TypeChecker) RegisterTypeIfMissing(ident ast.TypeIdent, def interface{}) {
+	if _, exists := tc.Defs[ident]; exists {
+		return
+	}
+	switch d := def.(type) {
+	case ast.TypeDefNode:
+		tc.Defs[ident] = d
+	case ast.TypeDefShapeExpr:
+		tc.Defs[ident] = d
+	default:
+		panic("RegisterTypeIfMissing: unsupported type definition")
+	}
 }

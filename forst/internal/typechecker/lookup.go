@@ -2,17 +2,18 @@ package typechecker
 
 import (
 	"fmt"
+	"strings"
 
 	"forst/internal/ast"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // LookupInferredType looks up the inferred type of a node in the current scope
 func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) ([]ast.TypeNode, error) {
-	hash := tc.Hasher.HashNode(node)
+	hash, err := tc.Hasher.HashNode(node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash node during LookupInferredType: %s", err)
+	}
 	if existingType, exists := tc.Types[hash]; exists {
-		// Ignore types that are still marked as implicit, as they are not yet inferred
 		if len(existingType) == 0 {
 			if requireInferred {
 				return nil, fmt.Errorf("expected type of node to have been inferred, found: implicit type")
@@ -29,30 +30,26 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // LookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, error) {
-	log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.Node)
-	symbol, exists := scope.LookupVariable(variable.Ident.ID)
-	if !exists {
-		err := fmt.Errorf("undefined symbol: %s", variable.Ident.ID)
-		log.WithError(err).Error("lookup symbol failed")
-		return ast.TypeNode{}, err
-	}
-	if len(symbol.Types) != 1 {
-		err := fmt.Errorf("expected single type for variable %s but got %d types", variable.Ident.ID, len(symbol.Types))
-		log.WithError(err).Error("lookup symbol failed")
-		return ast.TypeNode{}, err
-	}
-	return symbol.Types[0], nil
-}
+	tc.log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.String())
 
-// LookupFunctionReturnType looks up the return type of a function node
-func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]ast.TypeNode, error) {
-	sig, exists := tc.Functions[function.Ident.ID]
+	parts := strings.Split(string(variable.Ident.ID), ".")
+	baseIdent := ast.Identifier(parts[0])
+
+	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
-		err := fmt.Errorf("undefined function: %s", function.Ident)
-		log.WithError(err).Error("lookup function return type failed")
-		return nil, err
+		return ast.TypeNode{}, fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
 	}
-	return sig.ReturnTypes, nil
+
+	if len(symbol.Types) != 1 {
+		return ast.TypeNode{}, fmt.Errorf("expected single type for variable %s but got %d types", parts[0], len(symbol.Types))
+	}
+
+	if len(parts) == 1 {
+		return symbol.Types[0], nil
+	}
+
+	// Use lookupFieldPath for multi-segment field access
+	return tc.lookupFieldPath(symbol.Types[0], parts[1:])
 }
 
 // LookupEnsureBaseType looks up the base type of an ensure node in a given scope
@@ -64,23 +61,93 @@ func (tc *TypeChecker) LookupEnsureBaseType(ensure *ast.EnsureNode, scope *Scope
 	return &baseType, nil
 }
 
-// LookupAssertionType looks up the type of an assertion node
-func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.TypeNode, error) {
-	hash := tc.Hasher.HashNode(assertion)
-	if existingType, exists := tc.Types[hash]; exists {
-		if len(existingType) != 1 {
-			err := fmt.Errorf("expected single type for assertion %s but got %d types", hash.ToTypeIdent(), len(existingType))
-			log.WithError(err).Error("lookup assertion type failed")
-			return nil, err
+// GetTypeAliasChain returns the chain of type aliases for a given type, ending with the base type.
+func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
+	chain := []ast.TypeNode{typeNode}
+	visited := map[ast.TypeIdent]bool{typeNode.Ident: true}
+	current := typeNode
+	tc.log.WithFields(map[string]interface{}{
+		"typeNode": current.Ident,
+		"function": "GetTypeAliasChain",
+	}).Debug("Starting type alias chain resolution")
+	for {
+		def, exists := tc.Defs[current.Ident]
+		if !exists {
+			// Try inferred types if no explicit alias is found
+			hash, err := tc.Hasher.HashNode(current)
+			if err == nil {
+				if inferred, ok := tc.Types[hash]; ok && len(inferred) > 0 {
+					inferredType := inferred[0]
+					if !visited[inferredType.Ident] {
+						tc.log.WithFields(map[string]interface{}{
+							"typeNode": inferredType.Ident,
+							"function": "GetTypeAliasChain",
+						}).Debug("Following inferred type in alias chain")
+						chain = append(chain, inferredType)
+						visited[inferredType.Ident] = true
+						current = inferredType
+						continue
+					}
+				}
+			}
+			tc.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "GetTypeAliasChain",
+			}).Debug("No definition or inferred type found for type")
+			break
 		}
-		log.Trace(fmt.Sprintf("existingType: %s", existingType))
-		return &existingType[0], nil
+		typeDef, ok := def.(ast.TypeDefNode)
+		if !ok {
+			tc.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "GetTypeAliasChain",
+			}).Debug("Definition is not a TypeDefNode")
+			break
+		}
+		var assertionExpr *ast.TypeDefAssertionExpr
+		switch expr := typeDef.Expr.(type) {
+		case ast.TypeDefAssertionExpr:
+			assertionExpr = &expr
+		case *ast.TypeDefAssertionExpr:
+			assertionExpr = expr
+		}
+		if assertionExpr == nil || assertionExpr.Assertion == nil || assertionExpr.Assertion.BaseType == nil {
+			tc.log.WithFields(map[string]interface{}{
+				"typeNode":  current.Ident,
+				"exprType":  fmt.Sprintf("%T", typeDef.Expr),
+				"exprValue": fmt.Sprintf("%#v", typeDef.Expr),
+				"function":  "GetTypeAliasChain",
+			}).Debug("Definition is not a valid type alias")
+			break
+		}
+		baseIdent := *assertionExpr.Assertion.BaseType
+		if visited[baseIdent] {
+			tc.log.WithFields(map[string]interface{}{
+				"typeNode": current.Ident,
+				"function": "GetTypeAliasChain",
+			}).Debug("Cycle detected in type alias chain")
+			break
+		}
+		baseType := ast.TypeNode{Ident: baseIdent}
+		chain = append(chain, baseType)
+		visited[baseIdent] = true
+		current = baseType
+		tc.log.WithFields(map[string]interface{}{
+			"typeNode": current.Ident,
+			"function": "GetTypeAliasChain",
+		}).Debug("Added base type to alias chain")
 	}
-	typeNode := &ast.TypeNode{
-		Ident:     hash.ToTypeIdent(),
-		Assertion: assertion,
+	return chain
+}
+
+// GetMostSpecificNonHashAlias returns the first non-hash-based type in the alias chain, or the original type if all are hash-based.
+func (tc *TypeChecker) GetMostSpecificNonHashAlias(typeNode ast.TypeNode) ast.TypeNode {
+	chain := tc.GetTypeAliasChain(typeNode)
+	for _, t := range chain {
+		if !ast.IsHashBasedType(t) {
+			return t
+		}
 	}
-	log.Trace(fmt.Sprintf("Storing new looked up assertion type: %s", typeNode.Ident))
-	tc.storeInferredType(assertion, []ast.TypeNode{*typeNode})
-	return typeNode, nil
+	// If all are hash-based, return the first in the chain
+	return chain[0]
 }

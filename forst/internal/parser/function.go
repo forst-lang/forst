@@ -14,6 +14,33 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 			Assertion: &assertion,
 		}
 	}
+	// Disallow Shape({...}) wrapper for shape types
+	if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
+		ident := p.expect(ast.TokenIdentifier)
+		if p.current().Type == ast.TokenLParen {
+			p.FailWithParseError(p.current(), "Shape({...}) wrapper is not allowed. Use {...} directly for shape types.")
+		}
+		return ast.TypeNode{
+			Ident: ast.TypeIdent(ident.Value),
+		}
+	}
+	// Allow direct {...} for shape types
+	if p.current().Type == ast.TokenLBrace {
+		shape := p.parseShape(nil)
+		baseType := ast.TypeIdent(ast.TypeShape)
+		return ast.TypeNode{
+			Ident: ast.TypeShape,
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseType,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{
+						Shape: &shape,
+					}},
+				}},
+			},
+		}
+	}
 	return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 }
 
@@ -44,14 +71,58 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 }
 
 func (p *Parser) parseSimpleParameter() ast.ParamNode {
-	ident := p.expect(ast.TokenIdentifier)
-	// If the next token is a colon, consume it; otherwise, assume the next token is the type
-	if p.current().Type == ast.TokenColon {
-		p.advance()
+	name := p.expect(ast.TokenIdentifier).Value
+	// Remove colon requirement - use Go-style parameter declarations
+
+	tok := p.current()
+	if tok.Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen) {
+		assertion := p.parseAssertionChain(true)
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type: ast.TypeNode{
+				Ident:     ast.TypeAssertion,
+				Assertion: &assertion,
+			},
+		}
 	}
-	typ := p.parseParameterType()
+
+	if tok.Type == ast.TokenIdentifier && tok.Value == "Shape" {
+		// Check if this is Shape({...})
+		if p.peek().Type == ast.TokenLParen {
+			p.FailWithParseError(tok, "Direct usage of Shape({...}) is not allowed. Use a shape type directly, e.g. { field: Type }.")
+		}
+		// Allow direct usage of Shape as a type name
+		p.advance()
+		typeIdent := ast.TypeIdent("Shape")
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type:  ast.TypeNode{Ident: typeIdent},
+		}
+	}
+	if tok.Type == ast.TokenLBrace {
+		shape := p.parseShape(nil)
+		baseType := ast.TypeIdent(ast.TypeShape)
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type: ast.TypeNode{
+				Ident: ast.TypeShape,
+				Assertion: &ast.AssertionNode{
+					BaseType: &baseType,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Match",
+						Args: []ast.ConstraintArgumentNode{{
+							Shape: &shape,
+						}},
+					}},
+				},
+			},
+		}
+	}
+	// Parse the type, which may include dots (e.g. AppMutation.Input)
+	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+	p.logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
 	return ast.SimpleParamNode{
-		Ident: ast.Ident{ID: ast.Identifier(ident.Value)},
+		Ident: ast.Ident{ID: ast.Identifier(name)},
 		Type:  typ,
 	}
 }
@@ -63,7 +134,8 @@ func (p *Parser) parseParameter() ast.ParamNode {
 	case ast.TokenLBrace:
 		return p.parseDestructuredParameter()
 	default:
-		panic(parseErrorMessage(p.current(), "Expected parameter"))
+		p.FailWithParseError(p.current(), "Expected parameter")
+		panic("Reached unreachable path")
 	}
 }
 
@@ -83,9 +155,9 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 		param := p.parseParameter()
 		switch param.(type) {
 		case ast.DestructuredParamNode:
-			logParsedNodeWithMessage(param, "Parsed destructured function param")
+			p.logParsedNodeWithMessage(param, "Parsed destructured function param")
 		default:
-			logParsedNodeWithMessage(param, "Parsed function param")
+			p.logParsedNodeWithMessage(param, "Parsed function param")
 		}
 		params = append(params, param)
 
@@ -105,7 +177,22 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
+		// Support both single and parenthesized multiple return types
+		if p.current().Type == ast.TokenLParen {
+			p.advance() // Consume '('
+			for {
+				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+				returnType = append(returnType, typ)
+				if p.current().Type == ast.TokenComma {
+					p.advance()
+				} else {
+					break
+				}
+			}
+			p.expect(ast.TokenRParen)
+		} else {
+			returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
+		}
 	}
 	return returnType
 }
@@ -113,16 +200,28 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 func (p *Parser) parseReturnStatement() ast.ReturnNode {
 	p.advance() // Move past `return`
 
-	returnExpression := p.parseExpression()
+	// Parse multiple return values
+	values := []ast.ExpressionNode{}
+
+	// Parse first expression
+	if p.current().Type != ast.TokenSemicolon && p.current().Type != ast.TokenRBrace {
+		values = append(values, p.parseExpression())
+	}
+
+	// Parse additional expressions separated by commas
+	for p.current().Type == ast.TokenComma {
+		p.advance() // Consume comma
+		values = append(values, p.parseExpression())
+	}
 
 	return ast.ReturnNode{
-		Value: returnExpression,
-		Type:  ast.TypeNode{Ident: ast.TypeImplicit},
+		Values: values,
+		Type:   ast.TypeNode{Ident: ast.TypeImplicit},
 	}
 }
 
 func (p *Parser) parseFunctionBody() []ast.Node {
-	return p.parseBlock(&BlockContext{AllowReturn: true})
+	return p.parseBlock()
 }
 
 // Parse a function definition
@@ -130,7 +229,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.expect(ast.TokenFunc)               // Expect `fn`
 	name := p.expect(ast.TokenIdentifier) // Function name
 
-	p.context.Scope.functionName = name.Value
+	p.context.ScopeStack.CurrentScope().FunctionName = name.Value
 
 	params := p.parseFunctionSignature() // Parse function parameters
 

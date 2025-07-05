@@ -6,14 +6,14 @@ import (
 	goast "go/ast"
 )
 
-// transformFunction converts a Forst function node to a Go function declaration
-func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
-	// Create function parameters
-	params := &goast.FieldList{
+func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
+	t.log.Debugf("transformFunctionParams: processing %d parameters", len(params))
+
+	fields := &goast.FieldList{
 		List: []*goast.Field{},
 	}
 
-	for _, param := range n.Params {
+	for i, param := range params {
 		var paramName string
 		var paramType ast.TypeNode
 
@@ -26,20 +26,54 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			continue
 		}
 
-		var ident *goast.Ident
-		if t != nil {
-			name, err := t.getTypeAliasNameForTypeNode(paramType)
+		// Add debug output for parameter type
+		t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, param.GetIdent(), paramType.Ident)
+
+		// Look up the inferred type from the type checker
+		var inferredTypes []ast.TypeNode
+		var err error
+
+		if paramType.Assertion != nil {
+			// For assertion types, use the inferred type from the type checker
+			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get type alias name: %s", err)
+				return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
 			}
-			ident = goast.NewIdent(name)
 		} else {
-			ident = goast.NewIdent(string(paramType.Ident))
+			// For non-assertion types, use the original type
+			inferredTypes = []ast.TypeNode{paramType}
 		}
-		params.List = append(params.List, &goast.Field{
+
+		// Use the first inferred type (should be only one for parameters)
+		if len(inferredTypes) == 0 {
+			return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
+		}
+
+		actualType := inferredTypes[0]
+		name, err := t.getTypeAliasNameForTypeNode(actualType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get type alias name for parameter %s: %w", paramName, err)
+		}
+
+		fields.List = append(fields.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  ident,
+			Type:  goast.NewIdent(name),
 		})
+	}
+
+	return fields, nil
+}
+
+// transformFunction converts a Forst function node to a Go function declaration
+func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
+	if err := t.restoreScope(n); err != nil {
+		return nil, fmt.Errorf("failed to restore function scope: %s", err)
+	}
+
+	// Create function parameters
+	params, err := t.transformFunctionParams(n.Params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform function parameters: %s", err)
 	}
 
 	// Create function return type
@@ -56,13 +90,18 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		}
 	}
 
-	t.pushScope(n)
-
 	// Create function body statements
 	stmts := []goast.Stmt{}
 
 	for _, stmt := range n.Body {
-		goStmt := t.transformStatement(stmt)
+		if err := t.restoreScope(n); err != nil {
+			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
+		}
+
+		goStmt, err := t.transformStatement(stmt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform statement: %s", err)
+		}
 		stmts = append(stmts, goStmt)
 	}
 
@@ -83,8 +122,6 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			}
 		}
 	}
-
-	t.popScope()
 
 	// Create the function declaration
 	return &goast.FuncDecl{

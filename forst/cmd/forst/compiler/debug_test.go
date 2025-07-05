@@ -1,4 +1,4 @@
-package main
+package compiler
 
 import (
 	"fmt"
@@ -47,22 +47,16 @@ func (h *TestHook) ContainsMessage(msg string) bool {
 
 var testHook = &TestHook{}
 
-func init() {
-	// Set log level to debug for testing
-	logrus.SetLevel(logrus.DebugLevel)
-	// Add our test hook
-	logrus.AddHook(testHook)
-}
-
 func TestLogMemUsage(t *testing.T) {
 	testHook.Reset()
 
-	// Create a program with memory reporting enabled
-	program := &Program{
-		Args: ProgramArgs{
-			reportMemoryUsage: true,
-		},
-	}
+	log := setupTestLogger()
+	log.AddHook(testHook)
+
+	// Create a compiler with memory reporting enabled
+	c := New(Args{
+		ReportMemoryUsage: true,
+	}, log)
 
 	// Get initial memory stats
 	before := runtime.MemStats{}
@@ -76,7 +70,7 @@ func TestLogMemUsage(t *testing.T) {
 	runtime.ReadMemStats(&after)
 
 	// Test memory usage logging
-	program.logMemUsage("test_phase", before, after)
+	c.logMemUsage("test_phase", before, after)
 
 	// Verify that memory usage was logged
 	if !testHook.ContainsMessage("test_phase") {
@@ -90,12 +84,13 @@ func TestLogMemUsage(t *testing.T) {
 func TestDebugPrintTokens(t *testing.T) {
 	testHook.Reset()
 
-	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	log := setupTestLogger()
+	log.AddHook(testHook)
+
+	// Create a compiler with debug enabled
+	c := New(Args{
+		Debug: true,
+	}, log)
 
 	// Create test tokens
 	tokens := []ast.Token{
@@ -116,7 +111,7 @@ func TestDebugPrintTokens(t *testing.T) {
 	}
 
 	// Test token printing
-	program.debugPrintTokens(tokens)
+	c.debugPrintTokens(tokens)
 
 	// Verify that tokens were logged
 	if !testHook.ContainsMessage("IDENTIFIER") {
@@ -130,12 +125,13 @@ func TestDebugPrintTokens(t *testing.T) {
 func TestDebugPrintForstAST(t *testing.T) {
 	testHook.Reset()
 
-	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	log := setupTestLogger()
+	log.AddHook(testHook)
+
+	// Create a compiler with debug enabled
+	c := New(Args{
+		Debug: true,
+	}, log)
 
 	// Create test AST nodes
 	nodes := []ast.Node{
@@ -149,7 +145,7 @@ func TestDebugPrintForstAST(t *testing.T) {
 	}
 
 	// Test AST printing
-	program.debugPrintForstAST(nodes)
+	c.debugPrintForstAST(nodes)
 
 	// Verify that AST nodes were logged
 	if !testHook.ContainsMessage("Package declaration") {
@@ -163,15 +159,16 @@ func TestDebugPrintForstAST(t *testing.T) {
 func TestDebugPrintTypeInfo(t *testing.T) {
 	testHook.Reset()
 
-	// Create a program with debug enabled
-	program := &Program{
-		Args: ProgramArgs{
-			debug: true,
-		},
-	}
+	log := setupTestLogger()
+	log.AddHook(testHook)
+
+	// Create a compiler with debug enabled
+	c := New(Args{
+		Debug: true,
+	}, log)
 
 	// Create a type checker with some test data
-	tc := typechecker.New()
+	tc := typechecker.New(log, false)
 	tc.Functions["main"] = typechecker.FunctionSignature{
 		Ident: ast.Ident{ID: "main"},
 		Parameters: []typechecker.ParameterSignature{
@@ -191,7 +188,7 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 	}
 
 	// Test type info printing
-	program.debugPrintTypeInfo(tc)
+	c.debugPrintTypeInfo(tc)
 
 	// Verify that type info was logged
 	if !testHook.ContainsMessage("function signature") {

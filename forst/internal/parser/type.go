@@ -8,6 +8,34 @@ import (
 func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 	token := p.current()
 
+	// Handle pointer types
+	if token.Type == ast.TokenStar {
+		p.advance() // consume *
+		baseType := p.parseType(opts)
+		return ast.TypeNode{
+			Ident:      ast.TypePointer,
+			TypeParams: []ast.TypeNode{baseType},
+		}
+	}
+
+	// Handle shape types
+	if token.Type == ast.TokenLBrace {
+		shape := p.parseShape(nil)
+		baseType := ast.TypeIdent(ast.TypeShape)
+		return ast.TypeNode{
+			Ident: ast.TypeShape,
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseType,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{
+						Shape: &shape,
+					}},
+				}},
+			},
+		}
+	}
+
 	switch token.Type {
 	case ast.TokenString:
 		p.advance()
@@ -103,7 +131,24 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 			p.advance() // Consume dot
 			typeName := p.expectCustomTypeIdentifier(opts).Value
 			qualifiedName := firstSegment + "." + typeName
+			// If the next token is LParen, parse as type application/assertion
+			if p.current().Type == ast.TokenLParen {
+				assertion := p.parseAssertionChain(true)
+				return ast.TypeNode{
+					Ident:     ast.TypeAssertion,
+					Assertion: &assertion,
+				}
+			}
 			return ast.TypeNode{Ident: ast.TypeIdent(qualifiedName)}
+		}
+
+		// If the next token is LParen, parse as type application/assertion
+		if p.current().Type == ast.TokenLParen {
+			assertion := p.parseAssertionChain(true)
+			return ast.TypeNode{
+				Ident:     ast.TypeAssertion,
+				Assertion: &assertion,
+			}
 		}
 
 		return ast.TypeNode{Ident: ast.TypeIdent(firstSegment)}

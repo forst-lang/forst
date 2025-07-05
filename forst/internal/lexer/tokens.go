@@ -135,6 +135,8 @@ func GetTokenType(word string) ast.TokenIdent {
 		return ast.TokenDefer
 	case "goto":
 		return ast.TokenGoto
+	case "nil":
+		return ast.TokenNil
 	default:
 		if isDigit(word[0]) {
 			// Check for float literals

@@ -9,6 +9,8 @@ import (
 type ShapeNode struct {
 	ValueNode
 	Fields map[string]ShapeFieldNode
+	// Optional explicit base type, e.g. "User" in User{ name: "John" }
+	BaseType *TypeIdent
 }
 
 // ShapeFieldNode represents a field in a shape
@@ -16,6 +18,7 @@ type ShapeFieldNode struct {
 	Node
 	Assertion *AssertionNode
 	Shape     *ShapeNode
+	Type      *TypeNode
 }
 
 // Kind returns the node kind for a shape
@@ -33,6 +36,10 @@ func (n ShapeNode) String() string {
 			fieldStr = field.Shape.String()
 		} else if field.Assertion != nil {
 			fieldStr = field.Assertion.String()
+		} else if field.Type != nil {
+			fieldStr = field.Type.String()
+		} else {
+			fieldStr = "?"
 		}
 		fields = append(fields, fmt.Sprintf("%s: %s", name, fieldStr))
 	}
@@ -43,5 +50,11 @@ func (n ShapeFieldNode) String() string {
 	if n.Shape != nil {
 		return n.Shape.String()
 	}
-	return n.Assertion.String()
+	if n.Assertion != nil {
+		return n.Assertion.String()
+	}
+	if n.Type != nil {
+		return n.Type.String()
+	}
+	return "?"
 }

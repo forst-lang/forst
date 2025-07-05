@@ -5,7 +5,7 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // TODO: Implement binary type expressions
@@ -17,7 +17,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		baseTypeIdent, err := t.getAssertionBaseTypeIdent(e.Assertion)
 		if err != nil {
 			err = fmt.Errorf("failed to get assertion base type ident during transformation: %w", err)
-			log.WithError(err).Error("transforming assertion base type ident failed")
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming assertion base type ident failed")
 			return nil, err
 		}
 		if baseTypeIdent.Name == "trpc.Mutation" || baseTypeIdent.Name == "trpc.Query" {
@@ -35,7 +38,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 						expr, err := t.transformShapeType(shape)
 						if err != nil {
 							err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
-							log.WithError(err).Error("transforming shape type failed")
+							t.log.WithFields(logrus.Fields{
+								"function": "transformTypeDefExpr",
+								"expr":     expr,
+							}).WithError(err).Error("transforming shape type failed")
 							return nil, err
 						}
 						inputField := goast.Field{
@@ -62,14 +68,86 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			return &result, nil
 		}
 
+		// For assertion types without concrete base types, generate a struct type
+		if baseTypeIdent.Name == "Shape" || baseTypeIdent.Name == "TYPE_VOID" {
+			// Generate an empty struct for abstract types
+			result := goast.StructType{
+				Fields: &goast.FieldList{
+					List: []*goast.Field{},
+				},
+			}
+			var expr goast.Expr = &result
+			return &expr, nil
+		}
+
+		// Handle value assertions by generating concrete Go types instead of recursive aliases
+		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == "Value" {
+			// For value assertions, we need to determine the concrete Go type based on the value
+			if len(e.Assertion.Constraints[0].Args) > 0 {
+				arg := e.Assertion.Constraints[0].Args[0]
+				if arg.Value != nil {
+					switch (*arg.Value).(type) {
+					case ast.StringLiteralNode:
+						// String literals should be typed as string
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					case ast.IntLiteralNode:
+						// Int literals should be typed as int
+						var result goast.Expr = goast.NewIdent("int")
+						return &result, nil
+					case ast.FloatLiteralNode:
+						// Float literals should be typed as float64
+						var result goast.Expr = goast.NewIdent("float64")
+						return &result, nil
+					case ast.BoolLiteralNode:
+						// Bool literals should be typed as bool
+						var result goast.Expr = goast.NewIdent("bool")
+						return &result, nil
+					case ast.VariableNode:
+						// Variable references should use the variable's type
+						// For now, assume string for variable references
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					default:
+						// Default to string for unknown value types
+						var result goast.Expr = goast.NewIdent("string")
+						return &result, nil
+					}
+				}
+			}
+			// If no value or unknown value type, default to string
+			var result goast.Expr = goast.NewIdent("string")
+			return &result, nil
+		}
+
 		// Use hash-based type alias for user-defined types
-		hash := t.TypeChecker.Hasher.HashNode(e)
+		hash, err := t.TypeChecker.Hasher.HashNode(e)
+		if err != nil {
+			err = fmt.Errorf("failed to hash type def expr during transformation: %w", err)
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming type def expr failed")
+			return nil, err
+		}
 		typeAliasName := hash.ToTypeIdent()
 		var result goast.Expr = goast.NewIdent(string(typeAliasName))
 		return &result, nil
 	case *ast.TypeDefAssertionExpr:
 		// Handle pointer by dereferencing and reusing value logic
-		return t.transformTypeDefExpr(*e)
+		return t.transformTypeDefExpr(ast.TypeDefAssertionExpr(*e))
+	case ast.TypeDefShapeExpr:
+		shape := e.Shape
+		expr, err := t.transformShapeType(&shape)
+		if err != nil {
+			err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+				"expr":     expr,
+			}).WithError(err).Error("transforming shape type failed")
+			return nil, err
+		}
+		return expr, nil
 	case ast.TypeDefBinaryExpr:
 		// binaryExpr := expr.(ast.TypeDefBinaryExpr)
 		// if binaryExpr.IsConjunction() {
@@ -96,7 +174,10 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		return &result, nil
 	default:
 		err := fmt.Errorf("unknown type def expr: %T", expr)
-		log.WithError(err).Error("transforming type def expr failed")
+		t.log.WithFields(logrus.Fields{
+			"function": "transformTypeDefExpr",
+			"expr":     expr,
+		}).WithError(err).Error("transforming type def expr failed")
 		return nil, err
 	}
 }

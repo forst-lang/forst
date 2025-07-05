@@ -171,81 +171,68 @@ func validateUser(password: Password) {
 ## Type Guard Rules
 
 > **Warning**
-> This section is a work in progress and subject to change. The examples and details provided here are for illustration purposes and may not reflect the final implementation.
+> This section is a work in progress and subject to change. The examples and rules reflect the current Forst specification and may evolve as the language matures.
 
-### TG-1: Boolean Return Only
+### TG-1: Only `if` / `else if` / `else` Blocks Are Allowed
 
-> All type guards must return a `Bool`.
+> Type guards do not return values. Instead, they must use `if`, `else if`, and `else` branches only.
 
-- ✅ Valid: `return x is Shape({...})`
-- ❌ Invalid: `return Shape({...})`
+- Type guards must not contain `return` statements.
+- All branching must be explicit using `if`, `else if`, and `else`.
+- Each condition must be an `is` assertion.
+- `ensure` may be used within a branch to refine the shape.
 
-### TG-2: Shape Guards Must Preserve or Refine
+### TG-2: Conditions Must Be `is` Assertions
 
-> If the guard operates on a `Shape` or a subtype, it must either:
->
-> - Preserve the shape (`x is Shape({ ...x })`)
-> - Conjoin fields (`x is Shape({ ...x, field: Type })`)
+> `if` and `else if` conditions inside type guards must use the `is` operator with valid type assertions.
 
-- ❌ Removing or expanding field types is forbidden.
+- Valid: `if x.role is String.Equals("admin")`
+- Invalid: `if isAdmin(x)`
+- Invalid: `if x.role == "admin"`
 
-### TG-3: No Destructive Modifications
+### TG-3: Guards May Only Use `ensure` for Refinement
 
-> Shape guards must not **remove**, **replace**, or **exclude** existing fields.
+> Inside a type guard, the only mechanism for refinement or validation is `ensure`.
+> The `ensure` must refine or preserve the type of the receiver.
 
-- ✅ Allowed: Add or constrain fields
-- ❌ Disallowed: Remove or override structural keys
+- `ensure` must only be used for type assertions.
+- `or` clauses are not allowed inside `ensure` in type guards.
+- Refinement must never weaken or remove any existing fields from the shape.
 
-### TG-4: Local Field-Only Conditions
+### TG-4: Recursive Refinement Applies to Sub-Shapes
 
-> All conditions inside a type guard must reference the parameter `x` or its fields directly.
+> Any refinement performed within a shape guard must apply recursively to all sub-shapes.
 
-- ❌ External functions, global vars, computed fields are disallowed
-- ✅ Comparisons like `x.role == "admin"` or `x.age is Int.Min(18)` are allowed
+- Refinements on nested shapes must also preserve or narrow existing fields.
+- You may not destructure and redefine sub-shapes.
+- Every nested assertion must follow the same rules as top-level shape assertions.
 
-### TG-5: At Most One Shape Refinement Per Return Branch
+### TG-5: All Branches Must Be Statically Analyzable
 
-> Each return branch may contain **at most one** `x is Shape(...)` assertion.
+> Type guards must be analyzable by the compiler in polynomial time.
 
-- Prevents exponential refinement inference
-- Compiler must reject multiple chained shape refinements in one return statement
+- Branching must be finite and predictable.
+- Guards that generate combinatorial or deeply recursive shape paths will be rejected.
+- Each path through the guard must be semantically clear and fast to evaluate.
 
-### TG-6: Return Branches Must Be Clear
+### TG-6: Shape Syntax Must Use Bare `{}`
 
-> All return branches must return either:
->
-> - A boolean constant (`true` / `false`)
-> - A single shape assertion (`x is Shape({ ... })`)
+> Shape expressions must use bare braces. The `Shape` keyword is restricted.
 
-- Enables path-wise refinement tracking
+- Use `{ field: Type }` for inline shape refinements.
+- The `Shape` keyword is only allowed:
+  - In guard parameter declarations: `is (g GuardedType) Guarded(s Shape) { <block> }`
+  - In type definitions: `type User Shape`
+- Do not use `Shape({...})` syntax anywhere else.
 
-### TG-7: Shape Refinement Only on Shape Types
+### TG-7: No External Identifiers
 
-> Type guards may only refine `Shape` or subtypes of `Shape`.
+> Type guards must not reference any identifiers outside the receiver or guard parameters.
 
-- ❌ Invalid: `x is Shape({ ... })` if `x: Int`
-
-### TG-8: No Nested Shape Disjunctions
-
-> Disjunctions (`|`) between `Shape({ ... })` types are only allowed at the **top level**.
-
-- ✅ `ShapeA | ShapeB`
-- ❌ `Shape({ field: ShapeA | ShapeB })`
-
-## Shape Expression Refinement (SXR) Rules
-
-### SXR-1: Shape Expressions May Reference Bound Shape Variables as Field Types
-
-In a `Shape({ ... })` expression, a field key may refer to a bound variable of type `Shape`, in which case it is interpreted as a field definition with the variable's shape as its type.
-
-#### ✅ Example
-
-```go
-is (m Mutation) Input(input Shape) {
-  // desugars to: Shape({ input: input })
-  return m is Shape({ input })
-}
-```
+- You may only use:
+  - Fields of the guard receiver
+  - Parameters explicitly passed to the guard
+- Global variables, module imports, or outer-scope bindings are disallowed
 
 ## Reference-level explanation
 

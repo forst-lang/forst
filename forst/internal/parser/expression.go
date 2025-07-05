@@ -15,10 +15,7 @@ func (p *Parser) parseExpression() ast.ExpressionNode {
 
 func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	if level > MaxExpressionDepth {
-		panic(parseErrorWithValue(
-			p.current(),
-			fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth),
-		))
+		p.FailWithParseError(p.current(), fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth))
 	}
 
 	var expr ast.ExpressionNode
@@ -38,21 +35,31 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 	if p.current().Type == ast.TokenLParen {
 		p.advance() // Consume the left parenthesis
 		expr = p.parseExpressionLevel(level + 1)
-		// Check for function call
-		p.expect(ast.TokenRParen) // Consume the right parenthesis
+
+		// If we have an identifier followed by a left parenthesis, this is a function call
+		if p.current().Type == ast.TokenIdentifier {
+			ident := p.expect(ast.TokenIdentifier)
+			if p.current().Type == ast.TokenLParen {
+				p.advance() // Consume left paren
+				var args []ast.ExpressionNode
+				for p.current().Type != ast.TokenRParen {
+					args = append(args, p.parseExpression())
+					if p.current().Type == ast.TokenComma {
+						p.advance()
+					}
+				}
+				p.expect(ast.TokenRParen)
+				expr = ast.FunctionCallNode{
+					Function:  ast.Ident{ID: ast.Identifier(ident.Value)},
+					Arguments: args,
+				}
+			}
+		} else {
+			p.expect(ast.TokenRParen) // Consume the right parenthesis
+		}
 	} else if p.current().Type == ast.TokenIdentifier {
 		// Parse the identifier, allowing for dot chaining
-		ident := p.expect(ast.TokenIdentifier)
-		// Create a new identifier node
-		curIdent := ast.Identifier(ident.Value)
-
-		// Keep chaining identifiers with dots until we hit something else
-		for p.current().Type == ast.TokenDot {
-			p.advance() // Consume dot
-			nextIdent := p.expect(ast.TokenIdentifier)
-			curIdent = ast.Identifier(string(curIdent) + "." + nextIdent.Value)
-		}
-
+		ident := p.parseIdentifier()
 		// If we hit a left paren, this is a function call
 		if p.current().Type == ast.TokenLParen {
 			p.advance() // Consume left paren
@@ -67,15 +74,21 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 			p.expect(ast.TokenRParen)
 
 			expr = ast.FunctionCallNode{
-				Function:  ast.Ident{ID: curIdent},
+				Function:  ast.Ident{ID: ident},
 				Arguments: args,
 			}
+		} else if p.current().Type == ast.TokenLBrace {
+			typeIdent := ast.TypeIdent(string(ident))
+			return p.parseShape(&typeIdent)
 		} else {
 			// Otherwise treat as a variable
 			expr = ast.VariableNode{
-				Ident: ast.Ident{ID: curIdent},
+				Ident: ast.Ident{ID: ident},
 			}
 		}
+	} else if p.current().Type == ast.TokenNil {
+		p.advance()
+		return ast.NilLiteralNode{}
 	} else {
 		expr = p.parseValue() // parseValue should advance the token internally
 	}
@@ -85,12 +98,59 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		operator := p.current().Type
 		p.advance() // Consume the operator
 
-		right := p.parseExpressionLevel(level + 1)
-
-		expr = ast.BinaryExpressionNode{
-			Left:     expr,
-			Operator: operator,
-			Right:    right,
+		// Special handling for 'is' operator
+		if operator == ast.TokenIs {
+			// Check if the right-hand side is a shape literal or Shape(...) call
+			if p.current().Type == ast.TokenLBrace {
+				right := p.parseShape(nil) // Parse the shape literal directly
+				expr = ast.BinaryExpressionNode{
+					Left:     expr,
+					Operator: operator,
+					Right:    right,
+				}
+			} else if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
+				p.advance() // Consume 'Shape'
+				p.expect(ast.TokenLParen)
+				if p.current().Type == ast.TokenLBrace {
+					right := p.parseShape(nil) // Parse the shape literal directly
+					p.expect(ast.TokenRParen)
+					expr = ast.BinaryExpressionNode{
+						Left:     expr,
+						Operator: operator,
+						Right:    right,
+					}
+				} else {
+					right := p.parseExpressionLevel(level + 1)
+					p.expect(ast.TokenRParen)
+					expr = ast.BinaryExpressionNode{
+						Left:     expr,
+						Operator: operator,
+						Right:    right,
+					}
+				}
+			} else if p.current().Type == ast.TokenIdentifier {
+				// Parse assertion node for the right-hand side
+				assertion := p.parseAssertionChain(false)
+				expr = ast.BinaryExpressionNode{
+					Left:     expr,
+					Operator: operator,
+					Right:    assertion,
+				}
+			} else {
+				right := p.parseExpressionLevel(level + 1)
+				expr = ast.BinaryExpressionNode{
+					Left:     expr,
+					Operator: operator,
+					Right:    right,
+				}
+			}
+		} else {
+			right := p.parseExpressionLevel(level + 1)
+			expr = ast.BinaryExpressionNode{
+				Left:     expr,
+				Operator: operator,
+				Right:    right,
+			}
 		}
 	}
 

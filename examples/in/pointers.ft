@@ -1,0 +1,9 @@
+package main
+
+func main() {
+	str := "Can we point?"
+	strptr := &str
+
+	println(str)
+	println(*strptr)
+}

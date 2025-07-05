@@ -11,30 +11,32 @@ func (p *Parser) parseValue() ast.ValueNode {
 	case ast.TokenBitwiseAnd:
 		p.advance() // Consume &
 		nextToken := p.current()
-		if nextToken.Type == ast.TokenIdentifier {
+		switch nextToken.Type {
+		case ast.TokenIdentifier:
 			ref := p.expect(ast.TokenIdentifier)
 			return ast.ReferenceNode{
 				Value: ast.VariableNode{
 					Ident: ast.Ident{ID: ast.Identifier(ref.Value)},
 				},
 			}
-		} else if nextToken.Type == ast.TokenLBrace {
+		case ast.TokenLBrace:
 			// Handle struct literal reference
-			structLit := p.parseStructLiteral()
+			// Check for identifier before left brace (e.g., MyShape { ... })
+			baseTypeIdent := p.parseTypeIdent()
+			shapeLiteral := p.parseShape(baseTypeIdent)
 			return ast.ReferenceNode{
-				Value: structLit,
+				Value: shapeLiteral,
 			}
+		default:
+			p.FailWithParseError(nextToken, "Expected identifier or shape literal after &")
 		}
-		panic(parseErrorWithValue(nextToken, "Expected identifier or struct literal after &"))
 	case ast.TokenIdentifier:
-		p.advance() // Consume identifier
-		identifier := ast.Identifier(token.Value)
+		identifier := p.parseIdentifier()
 
-		// Keep chaining identifiers with dots until we hit something else
-		for p.current().Type == ast.TokenDot {
-			p.advance() // Consume dot
-			nextIdent := p.expect(ast.TokenIdentifier)
-			identifier = ast.Identifier(string(identifier) + "." + nextIdent.Value)
+		if p.current().Type == ast.TokenLBrace {
+			typeIdent := ast.TypeIdent(string(identifier))
+			shape := p.parseShape(&typeIdent)
+			return shape
 		}
 
 		return ast.VariableNode{
@@ -78,12 +80,46 @@ func (p *Parser) parseValue() ast.ValueNode {
 				TypeParams: []ast.TypeNode{keyType, valueType},
 			},
 		}
+	case ast.TokenLBrace:
+		// Handle shape literal
+		shape := p.parseShape(nil)
+		return shape
+	case ast.TokenStar:
+		p.advance() // Consume *
+		identifier := p.parseIdentifier()
+		return ast.DereferenceNode{
+			Value: ast.VariableNode{
+				Ident: ast.Ident{ID: identifier},
+			},
+		}
 	default:
 		return p.parseLiteral()
 	}
+	panic("Reached unreachable path")
 }
 
-// parseStructLiteral parses a struct literal value
-func (p *Parser) parseStructLiteral() ast.ShapeNode {
-	return p.parseShape()
+func (p *Parser) parseIdentifier() ast.Identifier {
+	identifier := ast.Identifier(p.current().Value)
+
+	p.advance() // Consume identifier
+
+	// Keep chaining identifiers with dots until we hit something else
+	for p.current().Type == ast.TokenDot {
+		p.advance() // Consume dot
+		nextIdent := p.expect(ast.TokenIdentifier)
+		identifier = ast.Identifier(string(identifier) + "." + nextIdent.Value)
+	}
+
+	return identifier
+}
+
+// parseTypeIdent parses a type identifier
+func (p *Parser) parseTypeIdent() *ast.TypeIdent {
+	if p.current().Type != ast.TokenIdentifier {
+		p.FailWithParseError(p.current(), "expected identifier")
+	}
+	name := p.current().Value
+	p.advance()
+	typeIdent := ast.TypeIdent(name)
+	return &typeIdent
 }

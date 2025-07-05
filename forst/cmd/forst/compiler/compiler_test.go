@@ -1,4 +1,4 @@
-package main
+package compiler
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestProgramCompilation(t *testing.T) {
 	}{
 		{
 			name:     "valid basic program",
-			filePath: "../../../examples/in/basic.ft",
+			filePath: "../../../../examples/in/basic.ft",
 			wantErr:  false,
 		},
 		{
@@ -26,14 +26,12 @@ func TestProgramCompilation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			program := &Program{
-				Args: ProgramArgs{
-					command:  "run",
-					filePath: tt.filePath,
-				},
-			}
+			c := New(Args{
+				Command:  "run",
+				FilePath: tt.filePath,
+			}, nil)
 
-			code, err := program.compileFile()
+			code, err := c.CompileFile()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Program.compileFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -49,9 +47,9 @@ func TestProgramCompilation(t *testing.T) {
 func TestTempOutputFile(t *testing.T) {
 	testCode := "package main\n\nfunc main() {\n\tprintln(\"Hello, World!\")\n}"
 
-	outputPath, err := createTempOutputFile(testCode)
+	outputPath, err := CreateTempOutputFile(testCode)
 	if err != nil {
-		t.Fatalf("createTempOutputFile() error = %v", err)
+		t.Fatalf("CreateTempOutputFile() error = %v", err)
 	}
 
 	defer func() {
@@ -63,7 +61,7 @@ func TestTempOutputFile(t *testing.T) {
 
 	// Verify the file exists
 	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-		t.Error("createTempOutputFile() did not create the output file")
+		t.Error("CreateTempOutputFile() did not create the output file")
 	}
 
 	// Verify the content
@@ -73,14 +71,14 @@ func TestTempOutputFile(t *testing.T) {
 	}
 
 	if string(content) != testCode {
-		t.Errorf("createTempOutputFile() content = %v, want %v", string(content), testCode)
+		t.Errorf("CreateTempOutputFile() content = %v, want %v", string(content), testCode)
 	}
 }
 
 func TestRunGoProgram(t *testing.T) {
 	// Create a temporary test program
 	testCode := "package main\n\nfunc main() {\n\tprintln(\"Hello, World!\")\n}"
-	outputPath, err := createTempOutputFile(testCode)
+	outputPath, err := CreateTempOutputFile(testCode)
 	if err != nil {
 		t.Fatalf("Failed to create test program: %v", err)
 	}
@@ -93,8 +91,8 @@ func TestRunGoProgram(t *testing.T) {
 	}()
 
 	// Test running the program
-	err = runGoProgram(outputPath)
+	err = RunGoProgram(outputPath)
 	if err != nil {
-		t.Errorf("runGoProgram() error = %v", err)
+		t.Errorf("RunGoProgram() error = %v", err)
 	}
 }
