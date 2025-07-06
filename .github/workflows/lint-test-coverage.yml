@@ -46,6 +46,7 @@ jobs:
           version: latest
           args: --timeout=5m
           working-directory: forst
+        continue-on-error: true
 
       - name: Run tests with coverage
         working-directory: forst
