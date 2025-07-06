@@ -40,6 +40,10 @@ jobs:
         working-directory: forst
         run: go mod download
 
+      - name: Build compiler
+        working-directory: forst
+        run: task build
+
       - name: Run linter
         uses: golangci/golangci-lint-action@v8
         with:
@@ -50,8 +54,7 @@ jobs:
 
       - name: Run tests with coverage
         working-directory: forst
-        run: |
-          go test -v -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+        run: task ci:test
 
       - name: Upload coverage to Coveralls
         uses: shogo82148/actions-goveralls@v1

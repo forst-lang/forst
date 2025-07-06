@@ -139,9 +139,7 @@ tasks:
 
   # CI/CD tasks
   ci:test:
-    desc: Run CI test suite
-    deps: [test:unit, test:integration, dev:lint, dev:vet]
-
-  ci:build:
-    desc: Build for CI
-    deps: [build, test:coverage]
+    desc: Run CI lint suite
+    dir: forst
+    cmds:
+      - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
