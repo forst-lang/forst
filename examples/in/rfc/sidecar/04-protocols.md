@@ -1,5 +1,7 @@
 # Trade-offs and Recommendations
 
+### [00-sidecar.md](00-sidecar.md) - Back to Sidecar RFC
+
 ## Drawbacks
 
 ### HTTP Transport Drawbacks

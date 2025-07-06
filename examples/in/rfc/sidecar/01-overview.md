@@ -1,5 +1,7 @@
 # Sidecar Integration for TypeScript Backend Performance
 
+### [00-sidecar.md](00-sidecar.md) - Back to Sidecar RFC
+
 ## Summary
 
 Introduce a sidecar integration approach that enables gradual adoption of Forst for high-performance backend operations within TypeScript applications. This feature addresses the fundamental performance and memory issues that plague TypeScript backends by allowing developers to replace individual routes with Forst implementations without disrupting existing workflows.

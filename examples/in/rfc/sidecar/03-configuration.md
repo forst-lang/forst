@@ -1,5 +1,7 @@
 # Configuration and Setup
 
+### [00-sidecar.md](00-sidecar.md) - Back to Sidecar RFC
+
 ## Transport Selection
 
 The sidecar automatically selects the optimal transport based on your environment:

@@ -1,5 +1,7 @@
 # Architecture and Communication Patterns
 
+### [00-sidecar.md](00-sidecar.md) - Back to Sidecar RFC
+
 ## Architecture Overview
 
 The sidecar integration supports multiple communication patterns optimized for different use cases:
