@@ -34,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GIT_TAG: ${{ needs.release-please.outputs.tag_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
