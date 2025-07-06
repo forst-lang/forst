@@ -279,7 +279,20 @@ export class StreamingIntegration {
     return this.createAsyncIterable(outputStream);
   }
 
-  // Express.js streaming integration
+  // Express.js streaming integration example
+  const app = express();
+  const integration = new StreamingIntegration({
+    baseUrl: "http://localhost:8080",
+  });
+
+  app.post("/stream", async (req, res) => {
+    await handleStreamingRequest(req, res);
+  });
+
+  app.listen(3000, () => {
+    console.log("Streaming server listening on port 3000");
+  });
+
   async handleStreamingRequest(req: Request, res: Response): Promise<void> {
     // Set streaming headers
     res.setHeader("Content-Type", "application/octet-stream");
