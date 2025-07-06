@@ -100,9 +100,9 @@ Run tests:
 
 ```bash
 task test                  # Run all tests
-make test:unit             # Run compiler unit tests
-make test:unit:parser      # Run parser tests
-make test:unit:typechecker # Run typechecker tests
+task test:unit             # Run compiler unit tests
+task test:unit:parser      # Run parser tests
+task test:unit:typechecker # Run typechecker tests
 ```
 
 Run examples:

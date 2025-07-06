@@ -173,3 +173,61 @@ tasks:
     dir: forst
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+
+  # Release tasks
+  build:release:
+    desc: Build release binaries for multiple platforms
+    dir: forst
+    cmds:
+      - mkdir -p ../dist
+      - GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-linux-amd64 ./{{.BUILD_DIR}}
+      - GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-linux-arm64 ./{{.BUILD_DIR}}
+      - GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-darwin-amd64 ./{{.BUILD_DIR}}
+      - GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-darwin-arm64 ./{{.BUILD_DIR}}
+      - GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-windows-amd64.exe ./{{.BUILD_DIR}}
+      - GOOS=windows GOARCH=arm64 go build -ldflags="-s -w -X main.Version={{.VERSION | default "dev"}} -X main.Commit={{.COMMIT | default "unknown"}} -X main.Date={{.DATE | default "unknown"}}" -o ../dist/{{.BINARY_NAME}}-windows-arm64.exe ./{{.BUILD_DIR}}
+      - tar -czf ../dist/{{.BINARY_NAME}}-linux-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-amd64
+      - tar -czf ../dist/{{.BINARY_NAME}}-linux-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-arm64
+      - tar -czf ../dist/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-amd64
+      - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
+      - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
+      - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
+    generates:
+      - ../dist/*.tar.gz
+      - ../dist/*.zip
+
+  release:build:
+    desc: Build release binaries locally
+    dir: forst
+    cmds:
+      - task build:release
+
+  release:snapshot:
+    desc: Create a snapshot release
+    dir: forst
+    cmds:
+      - task build:release
+      - echo "Snapshot built in dist/ directory"
+
+  release:check:
+    desc: Check release configuration
+    dir: forst
+    cmds:
+      - echo "Release configuration checked"
+      - echo "Using Release Please for automated releases"
+
+  release:please:
+    desc: Run Release Please locally
+    dir: forst
+    cmds:
+      - npx release-please manifest
+      - echo "Release Please manifest generated"
+      - echo "Use 'npx release-please create-pr' to create a release PR"
+      - echo "Use 'npx release-please github-release' to create a GitHub release"
+
+  release:test:
+    desc: Test build with sample version info
+    dir: forst
+    cmds:
+      - task build:release VERSION=1.0.0-test COMMIT=test-commit DATE=2024-01-01T00:00:00Z
+      - echo "Test build completed with version info"

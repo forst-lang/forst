@@ -7,6 +7,13 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// Import version variables from main package
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 // Args represents the arguments for the Forst compiler.
 type Args struct {
 	Command           string
@@ -29,6 +36,11 @@ func ParseArgs(log *logrus.Logger) Args {
 	command := os.Args[1]
 	if command == "--help" || command == "-h" {
 		printUsage(log)
+		os.Exit(0)
+	}
+
+	if command == "--version" || command == "-v" {
+		printVersion(log)
 		os.Exit(0)
 	}
 
@@ -101,4 +113,11 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  -report-memory-usage Report memory usage")
 	log.Infof("  -report-phases       Report when compilation phases start")
 	log.Infof("  -help                Show this help message")
+	log.Infof("  -version             Show version information")
+}
+
+func printVersion(log *logrus.Logger) {
+	log.Infof("Forst Compiler v%s", version)
+	log.Infof("Commit: %s", commit)
+	log.Infof("Date: %s", date)
 }
