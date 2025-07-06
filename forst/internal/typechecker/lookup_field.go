@@ -421,7 +421,8 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		"baseType":  baseType.Ident,
 		"fieldName": fieldName.ID,
 		"fieldPath": fieldPath,
-	}).Debugf("Looking up field path")
+		"fullPath":  fmt.Sprintf("%v", fieldPath),
+	}).Debugf("=== FIELD PATH LOOKUP DEBUG ===")
 
 	// Resolve type aliases before lookup
 	resolvedType := tc.resolveTypeAliasChain(baseType)
@@ -435,7 +436,23 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 
 	// Try type definition lookup
 	if def, exists := tc.Defs[resolvedType.Ident]; exists {
+		tc.log.WithFields(logrus.Fields{
+			"function":  "lookupFieldPath",
+			"baseType":  baseType.Ident,
+			"fieldName": fieldName.ID,
+			"defType":   fmt.Sprintf("%T", def),
+			"def":       fmt.Sprintf("%+v", def),
+		}).Debugf("Found type definition")
+
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			tc.log.WithFields(logrus.Fields{
+				"function":  "lookupFieldPath",
+				"baseType":  baseType.Ident,
+				"fieldName": fieldName.ID,
+				"exprType":  fmt.Sprintf("%T", typeDef.Expr),
+				"expr":      fmt.Sprintf("%+v", typeDef.Expr),
+			}).Debugf("Type definition expression")
+
 			switch expr := typeDef.Expr.(type) {
 			case ast.TypeDefAssertionExpr:
 				// Handle assertion types by resolving the assertion
@@ -457,10 +474,17 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 					"baseType":  baseType.Ident,
 					"fieldName": fieldName.ID,
 					"shape":     fmt.Sprintf("%+v", expr.Shape),
+					"fields":    fmt.Sprintf("%+v", expr.Shape.Fields),
 				}).Debugf("Looking up field in shape expression")
 
 				field, exists := expr.Shape.Fields[string(fieldName.ID)]
 				if !exists {
+					tc.log.WithFields(logrus.Fields{
+						"function":        "lookupFieldPath",
+						"baseType":        baseType.Ident,
+						"fieldName":       fieldName.ID,
+						"availableFields": fmt.Sprintf("%+v", expr.Shape.Fields),
+					}).Debugf("Field not found in shape")
 					return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
 				}
 
@@ -531,6 +555,15 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 			}
 		}
 	}
+
+	tc.log.WithFields(logrus.Fields{
+		"function":  "lookupFieldPath",
+		"baseType":  baseType.Ident,
+		"fieldName": fieldName.ID,
+		"fieldPath": fieldPath,
+		"result":    "not found",
+	}).Debugf("=== END FIELD PATH LOOKUP DEBUG ===")
+
 	return ast.TypeNode{}, fmt.Errorf("field path %v not found in type %s", fieldPath, baseType.Ident)
 }
 

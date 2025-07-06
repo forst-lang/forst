@@ -18,12 +18,11 @@ func (p *Parser) expectConstraintIdentifier() ast.Token {
 
 func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 	token := p.current()
-	// Check if this is a shape definition
+	// Allow shape types as type arguments
 	if token.Type == ast.TokenLBrace {
-		shape := p.parseShapeLiteral(nil)
-		p.logParsedNodeWithMessage(shape, "Parsed shape")
+		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		return ast.ConstraintArgumentNode{
-			Shape: &shape,
+			Type: &typ,
 		}
 	}
 

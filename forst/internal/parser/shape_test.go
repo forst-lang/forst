@@ -99,3 +99,70 @@ func TestParseShape(t *testing.T) {
 		})
 	}
 }
+
+func TestParseShapeType_TopLevel(t *testing.T) {
+	input := `{ foo: String, bar: Int }`
+	p := NewTestParser(input)
+	shape := p.parseShapeType()
+	if len(shape.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(shape.Fields))
+	}
+	if shape.Fields["foo"].Type == nil || shape.Fields["foo"].Type.Ident != ast.TypeString {
+		t.Errorf("expected foo to be String type, got %+v", shape.Fields["foo"].Type)
+	}
+	if shape.Fields["bar"].Type == nil || shape.Fields["bar"].Type.Ident != ast.TypeInt {
+		t.Errorf("expected bar to be Int type, got %+v", shape.Fields["bar"].Type)
+	}
+}
+
+func TestParseShapeType_Nested(t *testing.T) {
+	input := `{ input: { name: String, age: Int } }`
+	p := NewTestParser(input)
+	shape := p.parseShapeType()
+	inputField := shape.Fields["input"]
+	if inputField.Type == nil || inputField.Type.Ident != ast.TypeShape {
+		t.Fatalf("expected input to be shape type, got %+v", inputField.Type)
+	}
+	if inputField.Type.Assertion == nil || len(inputField.Type.Assertion.Constraints) == 0 {
+		t.Fatalf("expected assertion for nested shape, got %+v", inputField.Type.Assertion)
+	}
+	nested := inputField.Type.Assertion.Constraints[0].Args[0].Shape
+	if nested == nil || len(nested.Fields) != 2 {
+		t.Fatalf("expected 2 fields in nested shape, got %+v", nested)
+	}
+}
+
+func TestParseShapeLiteral_TopLevel(t *testing.T) {
+	input := `{ foo: 42, bar: "baz" }`
+	p := NewTestParser(input)
+	shape := p.parseShapeLiteral(nil)
+	if len(shape.Fields) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(shape.Fields))
+	}
+}
+
+func TestParseShapeLiteral_Nested(t *testing.T) {
+	input := `{ input: { name: "Alice" } }`
+	p := NewTestParser(input)
+	shape := p.parseShapeLiteral(nil)
+	inputField := shape.Fields["input"]
+	if inputField.Shape == nil {
+		t.Fatalf("expected input to be a nested shape literal, got %+v", inputField)
+	}
+	if len(inputField.Shape.Fields) != 1 {
+		t.Fatalf("expected 1 field in nested shape, got %+v", inputField.Shape)
+	}
+}
+
+func TestParseShapeType_AsFunctionParam(t *testing.T) {
+	input := `func foo(arg { x: Int, y: String }) {}`
+	p := NewTestParser(input)
+	fn := p.parseFunctionDefinition()
+	if len(fn.Params) != 1 {
+		t.Fatalf("expected 1 parameter, got %d", len(fn.Params))
+	}
+	param := fn.Params[0]
+	if param.GetType().Ident != ast.TypeShape {
+		t.Fatalf("expected parameter to be shape type, got %+v", param.GetType())
+	}
+}

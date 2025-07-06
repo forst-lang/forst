@@ -124,7 +124,7 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
 
-  example:guard:
+  example:shape-guard:
     desc: Compile shape guard example
     dir: forst
     cmds:

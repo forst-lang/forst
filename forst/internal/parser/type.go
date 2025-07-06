@@ -20,7 +20,7 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 
 	// Handle shape types
 	if token.Type == ast.TokenLBrace {
-		shape := p.parseShapeLiteral(nil)
+		shape := p.parseShapeType()
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.TypeNode{
 			Ident: ast.TypeShape,
