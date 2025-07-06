@@ -114,22 +114,26 @@ tasks:
 
   dev:lint:
     desc: Run linters
+    dir: forst
     cmds:
       - golangci-lint run ./...
 
   dev:format:
     desc: Format code
+    dir: forst
     cmds:
       - go fmt ./...
 
   dev:vet:
     desc: Run go vet
+    dir: forst
     cmds:
       - go vet ./...
 
   # Documentation tasks
   docs:generate:
     desc: Generate documentation
+    dir: forst
     cmds:
       - godoc -http=:6060
 
