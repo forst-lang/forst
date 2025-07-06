@@ -1,4 +1,4 @@
-name: Release Please
+name: Release
 
 on:
   push:
@@ -37,14 +37,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
 
-      - uses: jaxxstorm/action-install-gh-release@v1
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          repo: forst-lang/forst
-          tag: ${{ needs.release-please.outputs.tag_name }}
+          go-version: "1.24"
+          check-latest: true
 
-      - run: task release:build
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Build binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          # Extract version info from tag
+          VERSION=${RELEASE_VERSION#v}
+          COMMIT=$(git rev-parse HEAD)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "Building version: $VERSION"
+          echo "Commit: $COMMIT"
+          echo "Date: $DATE"
+
+          # Build binaries for multiple platforms with version info
+          task build:release VERSION=$VERSION COMMIT=$COMMIT DATE=$DATE
+
+          # List built files
+          ls -la dist/
 
       - name: Upload binary to GitHub Release
         run: |
