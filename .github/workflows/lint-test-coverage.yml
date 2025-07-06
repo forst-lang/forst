@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   quality-checks:
     name: Go Lint, Test, and Coverage
@@ -19,6 +22,9 @@ jobs:
         with:
           go-version: "1.22"
           check-latest: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -40,7 +46,7 @@ jobs:
           version: latest
           args: --timeout=5m
           working-directory: forst
-        continue-on-error: true
+
       - name: Run tests with coverage
         working-directory: forst
         run: |

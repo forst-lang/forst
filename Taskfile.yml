@@ -1,0 +1,143 @@
+version: "3"
+
+vars:
+  BINARY_NAME: forst
+  BUILD_DIR: cmd/forst
+  EXAMPLES_DIR: ../examples/in
+  OUTPUT_DIR: ../examples/out
+
+tasks:
+  # Build tasks
+  build:
+    desc: Build the Forst compiler
+    dir: forst
+    cmds:
+      - go build -o ../bin/{{.BINARY_NAME}} ./{{.BUILD_DIR}}
+    sources:
+      - ./**/*.go
+    generates:
+      - ../bin/{{.BINARY_NAME}}
+
+  install:
+    desc: Install the Forst compiler
+    dir: forst
+    cmds:
+      - go install ./{{.BUILD_DIR}}
+
+  clean:
+    desc: Clean build artifacts
+    dir: forst
+    cmds:
+      - rm -rf ../bin/
+      - go clean -cache
+
+  # Test tasks
+  test:
+    desc: Run all tests
+    dir: forst
+    cmds:
+      - go test -v ./internal/...
+      - go test -v ./cmd/forst/...
+
+  test:unit:
+    desc: Run unit tests only
+    dir: forst
+    cmds:
+      - go test -v ./internal/...
+
+  test:integration:
+    desc: Run integration tests (examples)
+    dir: forst
+    cmds:
+      - go test -v ./cmd/forst/...
+
+  test:coverage:
+    desc: Run tests with coverage
+    dir: forst
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+    generates:
+      - coverage.out
+      - coverage.html
+
+  # Example compilation tasks
+  example:
+    desc: Compile a specific example file
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.CLI_ARGS}}
+    vars:
+      CLI_ARGS: '{{.CLI_ARGS | default "../examples/in/basic.ft"}}'
+
+  example:basic:
+    desc: Compile basic example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
+
+  example:function:
+    desc: Compile function example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic_function.ft
+
+  example:ensure:
+    desc: Compile ensure example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
+
+  example:pointers:
+    desc: Compile pointers example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
+
+  example:guard:
+    desc: Compile shape guard example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
+
+  example:basic-guard:
+    desc: Compile basic guard example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
+
+  # Development tasks
+  dev:watch:
+    desc: Watch for changes and run tests
+    cmds:
+      - watchexec -r "task test"
+
+  dev:lint:
+    desc: Run linters
+    cmds:
+      - golangci-lint run ./...
+
+  dev:format:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  dev:vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  # Documentation tasks
+  docs:generate:
+    desc: Generate documentation
+    cmds:
+      - godoc -http=:6060
+
+  # CI/CD tasks
+  ci:test:
+    desc: Run CI test suite
+    deps: [test:unit, test:integration, dev:lint, dev:vet]
+
+  ci:build:
+    desc: Build for CI
+    deps: [build, test:coverage]
