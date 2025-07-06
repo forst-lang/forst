@@ -81,7 +81,7 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 
 		// Handle value assertions by generating concrete Go types instead of recursive aliases
-		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == "Value" {
+		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == ast.ValueConstraint {
 			// For value assertions, we need to determine the concrete Go type based on the value
 			if len(e.Assertion.Constraints[0].Args) > 0 {
 				arg := e.Assertion.Constraints[0].Args[0]

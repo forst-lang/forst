@@ -40,7 +40,7 @@ func (p *Parser) parseShape(baseType *ast.TypeIdent) ast.ShapeNode {
 						Assertion: &ast.AssertionNode{
 							BaseType: nil,
 							Constraints: []ast.ConstraintNode{{
-								Name: "Value",
+								Name: string(ast.ValueConstraint),
 								Args: []ast.ConstraintArgumentNode{{
 									Value: &val,
 								}},

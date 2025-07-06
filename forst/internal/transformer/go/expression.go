@@ -214,7 +214,7 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode) (goa
 	// Check if this is a Value assertion with a value argument
 	if len(assertion.Constraints) > 0 {
 		constraint := assertion.Constraints[0]
-		if constraint.Name == "Value" && len(constraint.Args) > 0 {
+		if constraint.Name == ast.ValueConstraint && len(constraint.Args) > 0 {
 			arg := constraint.Args[0]
 			if arg.Value != nil {
 				// For Value assertions, we need to handle the value appropriately

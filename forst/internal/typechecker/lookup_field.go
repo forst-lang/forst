@@ -6,7 +6,7 @@ import (
 
 	"forst/internal/ast"
 
-	"github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // lookupFieldType looks up a field's type in a given type
@@ -216,7 +216,7 @@ func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast
 	}
 
 	// Handle Value constraints (like id: query.id)
-	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
 		return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
 	}
 
@@ -510,8 +510,8 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 						}).Debugf("Resolved assertion field")
 						return resolvedType, nil
 					}
-					// Handle Value constraints (like id: query.id)
-					if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+
+					if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
 						return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
 					}
 				}
@@ -562,7 +562,7 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 		return *field.Type, nil
 	}
 	// Handle Value constraints (like id: query.id)
-	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
 		return tc.inferValueConstraintType(field.Assertion.Constraints[0], fieldName)
 	}
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
