@@ -590,3 +590,382 @@ func performComplexCalculation(input CalculationInput) CalculationResult {
   }
 }
 ```
+
+## Streaming Support
+
+The sidecar architecture supports streaming between Node.js HTTP requests and the Forst server for real-time data processing and large dataset handling. See **[09-streaming.md](09-streaming.md)** for detailed implementation.
+
+**Key Features:**
+
+- **HTTP Streaming**: Bidirectional streaming with chunked transfer encoding
+- **Memory Efficiency**: Process large datasets without loading into memory
+- **Real-time Processing**: Immediate results as data is processed
+- **Backpressure Handling**: Automatic flow control between Node.js and Forst
+- **Express.js Integration**: Seamless streaming endpoints
+
+## HTTP Request Proxying
+
+The sidecar architecture supports transparent HTTP request proxying, allowing Node.js applications to seamlessly forward requests to the Forst sidecar while maintaining full HTTP semantics.
+
+### 1. HTTP Proxy Client
+
+```typescript
+// @forst/sidecar/lib/http-proxy.ts
+export class ForstHTTPProxy {
+  private sidecarUrl: string;
+  private config: ProxyConfig;
+
+  constructor(config: ProxyConfig) {
+    this.sidecarUrl = config.sidecarUrl;
+    this.config = config;
+  }
+
+  // Proxy HTTP request to Forst sidecar
+  async proxyRequest(
+    req: Request,
+    res: Response,
+    options: ProxyOptions = {}
+  ): Promise<void> {
+    try {
+      // Forward request to Forst sidecar
+      const forstResponse = await this.forwardRequest(req, options);
+
+      // Forward response back to client
+      await this.forwardResponse(forstResponse, res);
+    } catch (error) {
+      console.error("Proxy error:", error);
+      this.handleProxyError(error, res);
+    }
+  }
+
+  // Forward request to Forst sidecar
+  private async forwardRequest(
+    req: Request,
+    options: ProxyOptions
+  ): Promise<Response> {
+    const url = new URL(req.url, this.sidecarUrl);
+    const headers = this.buildForwardHeaders(req.headers, options);
+
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers,
+      body: req.body,
+      duplex: "half",
+    };
+
+    // Add timeout if specified
+    if (options.timeout) {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), options.timeout);
+      fetchOptions.signal = controller.signal;
+    }
+
+    return fetch(url.toString(), fetchOptions);
+  }
+
+  // Forward response from Forst to client
+  private async forwardResponse(
+    forstResponse: Response,
+    res: Response
+  ): Promise<void> {
+    // Forward status and headers
+    res.status(forstResponse.status);
+
+    for (const [key, value] of forstResponse.headers.entries()) {
+      res.setHeader(key, value);
+    }
+
+    // Stream response body
+    if (forstResponse.body) {
+      const reader = forstResponse.body.getReader();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        res.write(value);
+        res.flush?.(); // Flush if available
+      }
+    }
+
+    res.end();
+  }
+
+  // Build headers for forwarding
+  private buildForwardHeaders(
+    originalHeaders: Headers,
+    options: ProxyOptions
+  ): Headers {
+    const headers = new Headers();
+
+    // Forward relevant headers
+    const forwardHeaders = [
+      "content-type",
+      "content-length",
+      "authorization",
+      "user-agent",
+      "accept",
+      "accept-encoding",
+      "cache-control",
+    ];
+
+    for (const header of forwardHeaders) {
+      const value = originalHeaders.get(header);
+      if (value) {
+        headers.set(header, value);
+      }
+    }
+
+    // Add sidecar-specific headers
+    headers.set("X-Forst-Sidecar", "true");
+    headers.set("X-Forwarded-By", "forst-proxy");
+
+    // Add custom headers from options
+    if (options.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
+    }
+
+    return headers;
+  }
+
+  // Handle proxy errors
+  private handleProxyError(error: Error, res: Response): void {
+    if (error.name === "AbortError") {
+      res.status(504).json({ error: "Gateway timeout" });
+    } else if (error.message.includes("ECONNREFUSED")) {
+      res.status(503).json({ error: "Sidecar unavailable" });
+    } else {
+      res.status(500).json({ error: "Internal proxy error" });
+    }
+  }
+}
+
+interface ProxyConfig {
+  sidecarUrl: string;
+  timeout?: number;
+  retries?: number;
+  circuitBreaker?: boolean;
+}
+
+interface ProxyOptions {
+  timeout?: number;
+  headers?: Record<string, string>;
+  retry?: boolean;
+}
+```
+
+### 2. Express.js Middleware Integration
+
+```typescript
+// @forst/sidecar/lib/express-proxy.ts
+export class ForstExpressProxy {
+  private proxy: ForstHTTPProxy;
+  private routeMap: Map<string, string>;
+
+  constructor(config: ProxyConfig) {
+    this.proxy = new ForstHTTPProxy(config);
+    this.routeMap = new Map();
+  }
+
+  // Register route mapping
+  registerRoute(nodeRoute: string, forstRoute: string): void {
+    this.routeMap.set(nodeRoute, forstRoute);
+  }
+
+  // Express.js middleware for proxying
+  middleware() {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      const forstRoute = this.routeMap.get(req.path);
+
+      if (!forstRoute) {
+        return next(); // Continue to next middleware
+      }
+
+      try {
+        // Modify request URL to point to Forst route
+        req.url = forstRoute;
+
+        await this.proxy.proxyRequest(req, res, {
+          timeout: 30000,
+          retry: true,
+        });
+      } catch (error) {
+        console.error("Express proxy error:", error);
+        next(error);
+      }
+    };
+  }
+
+  // Auto-register routes based on Forst files
+  autoRegisterRoutes(): void {
+    const forstFiles = this.scanForstFiles();
+
+    for (const file of forstFiles) {
+      const nodeRoute = this.extractNodeRoute(file);
+      const forstRoute = this.extractForstRoute(file);
+
+      if (nodeRoute && forstRoute) {
+        this.registerRoute(nodeRoute, forstRoute);
+      }
+    }
+  }
+
+  private scanForstFiles(): string[] {
+    // Implementation to scan forst/routes/ directory
+    return [];
+  }
+
+  private extractNodeRoute(file: string): string | null {
+    // Extract route from Forst file name
+    const match = file.match(/forst\/routes\/(.+)\.ft$/);
+    return match ? `/${match[1].replace(/_/g, "-")}` : null;
+  }
+
+  private extractForstRoute(file: string): string | null {
+    // Extract Forst route from file content
+    return null; // Implementation would parse Forst file
+  }
+}
+```
+
+### 3. Usage Examples
+
+#### Basic Express.js Integration
+
+```typescript
+// app.ts
+import express from "express";
+import { ForstExpressProxy } from "@forst/sidecar/lib/express-proxy";
+
+const app = express();
+const forstProxy = new ForstExpressProxy({
+  sidecarUrl: "http://localhost:8080",
+  timeout: 30000,
+});
+
+// Register routes manually
+forstProxy.registerRoute("/process-data", "/process-data");
+forstProxy.registerRoute("/search", "/search");
+forstProxy.registerRoute("/calculate", "/calculate");
+
+// Use proxy middleware
+app.use(forstProxy.middleware());
+
+// Fallback for non-Forst routes
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy" });
+});
+
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
+```
+
+#### Automatic Route Registration
+
+```typescript
+// app.ts with auto-registration
+import express from "express";
+import { ForstExpressProxy } from "@forst/sidecar/lib/express-proxy";
+
+const app = express();
+const forstProxy = new ForstExpressProxy({
+  sidecarUrl: "http://localhost:8080",
+});
+
+// Auto-register routes from Forst files
+forstProxy.autoRegisterRoutes();
+
+app.use(forstProxy.middleware());
+
+// Mixed TypeScript and Forst routes
+app.get("/api/health", (req, res) => {
+  res.json({ status: "healthy" });
+});
+
+// This route is automatically proxied to Forst
+app.post("/api/process-data", (req, res) => {
+  // This will be handled by the proxy middleware
+  // and forwarded to the Forst sidecar
+});
+
+app.listen(3000);
+```
+
+#### Advanced Proxy Configuration
+
+```typescript
+// Advanced proxy with circuit breaker and retries
+import { ForstExpressProxy } from "@forst/sidecar/lib/express-proxy";
+import { CircuitBreaker } from "@forst/sidecar/lib/circuit-breaker";
+
+const circuitBreaker = new CircuitBreaker({
+  failureThreshold: 5,
+  timeout: 60000,
+});
+
+const forstProxy = new ForstExpressProxy({
+  sidecarUrl: "http://localhost:8080",
+  timeout: 30000,
+  retries: 3,
+  circuitBreaker: true,
+});
+
+// Custom proxy middleware with circuit breaker
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  const forstRoute = forstProxy.getRoute(req.path);
+
+  if (forstRoute) {
+    try {
+      await circuitBreaker.execute(async () => {
+        await forstProxy.proxyRequest(req, res, {
+          timeout: 30000,
+          retry: true,
+        });
+      });
+    } catch (error) {
+      console.error("Circuit breaker triggered:", error);
+      res.status(503).json({ error: "Service temporarily unavailable" });
+    }
+  } else {
+    next();
+  }
+});
+```
+
+#### Streaming Proxy
+
+```typescript
+// Streaming proxy for large data processing
+app.post("/api/stream-process", async (req: Request, res: Response) => {
+  const streamingProxy = new ForstHTTPProxy({
+    sidecarUrl: "http://localhost:8080",
+  });
+
+  // Set streaming headers
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Transfer-Encoding", "chunked");
+
+  await streamingProxy.proxyRequest(req, res, {
+    timeout: 0, // No timeout for streaming
+    headers: {
+      Accept: "application/octet-stream",
+    },
+  });
+});
+```
+
+### 4. Proxy Features
+
+- **Transparent forwarding**: Maintains original HTTP semantics
+- **Header preservation**: Forwards relevant headers automatically
+- **Error handling**: Graceful fallback when sidecar is unavailable
+- **Circuit breaker**: Prevents cascading failures
+- **Retry logic**: Automatic retries for transient failures
+- **Streaming support**: Handles large request/response bodies
+- **Route mapping**: Flexible route configuration
+- **Auto-discovery**: Automatic route registration from Forst files
+
+The HTTP proxy enables seamless integration between Node.js applications and the Forst sidecar, allowing developers to gradually migrate routes while maintaining full HTTP compatibility and observability.

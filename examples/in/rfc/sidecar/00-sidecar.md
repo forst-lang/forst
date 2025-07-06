@@ -167,5 +167,6 @@ This RFC is structured to be easily digestible and actionable. Each section focu
 - **06-resilience.md**: Error handling and failure recovery strategies
 - **07-process-management.md**: Sidecar lifecycle and resource management
 - **08-development-workflow.md**: Development tools and debugging workflows
+- **09-streaming.md**: HTTP streaming for large datasets and real-time processing
 
 The modular structure allows teams to focus on the aspects most relevant to their needs while providing comprehensive coverage of the entire system.
