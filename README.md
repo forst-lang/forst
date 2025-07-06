@@ -1,7 +1,8 @@
-# Forst &emsp; [![CI]][actions] [![Go Report Card]][goreport] [![Coverage Status]][coveralls] [![License]][license]
+# Forst &emsp; [![CI]][actions] [![Release]][release] [![Go Report Card]][goreport] [![Coverage Status]][coveralls] [![License]][license]
 
 [CI]: https://img.shields.io/github/actions/workflow/status/forst-lang/forst/lint-test-coverage.yml
 [actions]: https://github.com/forst-lang/forst/actions
+[release]: https://img.shields.io/github/v/release/forst-lang/forst
 [Go Report Card]: https://goreportcard.com/badge/github.com/forst-lang/forst
 [goreport]: https://goreportcard.com/report/github.com/forst-lang/forst
 [Coverage Status]: https://coveralls.io/repos/github/forst-lang/forst/badge.svg?branch=main
