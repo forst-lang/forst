@@ -42,6 +42,14 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Migration Strategy**: Step-by-step adoption guide
 - **Future Considerations**: Advanced features and optimizations
 
+### [05-observability.md](05-observability.md) - Developer Operations and Observability
+
+- **Distributed Tracing**: OpenTelemetry integration across TypeScript-Forst boundary
+- **Multi-Transport Observability**: HTTP, IPC, and Direct transport monitoring
+- **Performance Attribution**: Identifying bottlenecks across layers
+- **Monitoring Dashboards**: Grafana dashboards and Prometheus alerts
+- **Debugging Tools**: Transport inspectors and performance analyzers
+
 ## Key Features
 
 ### 🚀 **Performance Benefits**
@@ -131,5 +139,6 @@ This RFC is structured to be easily digestible and actionable. Each section focu
 - **02-architecture.md**: Deep dive into technical implementation
 - **03-configuration.md**: Practical setup and examples
 - **04-trade-offs.md**: Decision-making framework and future considerations
+- **05-observability.md**: Developer operations, tracing, and monitoring challenges
 
 The modular structure allows teams to focus on the aspects most relevant to their needs while providing comprehensive coverage of the entire system.
