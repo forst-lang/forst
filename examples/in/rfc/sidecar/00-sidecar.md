@@ -35,7 +35,7 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Examples**: Real-world use cases with TypeScript and Forst implementations
 - **Performance Comparison**: Metrics for different transport options
 
-### [04-protocols.md](04-trade-offs.md) - Trade-offs and Recommendations
+### [04-tradeoffs.md](04-tradeoffs.md) - Trade-offs and Recommendations
 
 - **Drawbacks**: Limitations of each approach
 - **Recommendations**: When to use different transport patterns
