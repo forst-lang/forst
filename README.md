@@ -94,20 +94,23 @@ func createUser(op: Mutation.Input({
 
 ## Development
 
+Install Task using the [official instructions](https://taskfile.dev/installation/).
+
 Run tests:
 
 ```bash
-make test              # Run all tests
-make test-typechecker  # Run typechecker tests
-make test-parser      # Run parser tests
-make test-ast         # Run AST tests
+task test                  # Run all tests
+make test:unit             # Run compiler unit tests
+make test:unit:parser      # Run parser tests
+make test:unit:typechecker # Run typechecker tests
 ```
 
 Run examples:
 
 ```bash
-make run-examples     # Run all examples
-make run-example FILE=path/to/example.ft  # Run specific example
+task test:integration                    # Run compilation examples / integration tests
+task example -- ../examples/in/basic.ft  # Run specific example
+task example:function                    # Run function example
 ```
 
 ## Inspirations

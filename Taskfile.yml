@@ -45,6 +45,36 @@ tasks:
     cmds:
       - go test -v ./internal/...
 
+  test:unit:parser:
+    desc: Run unit tests for parser
+    dir: forst
+    cmds:
+      - go test -v ./internal/parser/...
+
+  test:unit:typechecker:
+    desc: Run unit tests for typechecker
+    dir: forst
+    cmds:
+      - go test -v ./internal/typechecker/...
+
+  test:unit:transformer:
+    desc: Run unit tests for transformer
+    dir: forst
+    cmds:
+      - go test -v ./internal/transformer/...
+
+  test:unit:lexer:
+    desc: Run unit tests for lexer
+    dir: forst
+    cmds:
+      - go test -v ./internal/lexer/...
+
+  test:unit:ast:
+    desc: Run unit tests for AST
+    dir: forst
+    cmds:
+      - go test -v ./internal/ast/...
+
   test:integration:
     desc: Run integration tests (examples)
     dir: forst
