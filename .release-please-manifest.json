@@ -1,8 +1,5 @@
 {
   "packages": {
-    ".": {
-      "release-type": "go",
-      "version": "0.0.0"
-    }
+    ".": "0.0.0"
   }
 }
