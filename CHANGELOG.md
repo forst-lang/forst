@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5](https://github.com/forst-lang/forst/compare/v0.0.4...v0.0.5) (2025-07-06)
+
+
+### Bug Fixes
+
+* Enhanced Field Merging and Constraint Processing ([#26](https://github.com/forst-lang/forst/issues/26)) ([2bf7c65](https://github.com/forst-lang/forst/commit/2bf7c65fae267dbe614586c3d264e95492ce6755))
+
 ## [0.0.4](https://github.com/forst-lang/forst/compare/v0.0.3...v0.0.4) (2025-07-06)
 
 
