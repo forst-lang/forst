@@ -1,6 +1,6 @@
 ---
 Feature Name: sidecar-integration
-Start Date: 2025-01-27
+Start Date: 2025-07-06
 ---
 
 # Sidecar Integration for TypeScript Backend Performance
@@ -27,19 +27,19 @@ Current TypeScript backends struggle with:
 
 ```typescript
 // Memory-intensive data processing
-app.post('/process-data', async (req, res) => {
+app.post("/process-data", async (req, res) => {
   const data = req.body;
-  
+
   // This can cause memory spikes and poor performance
   const processed = await heavyDataProcessing(data);
   const enriched = await enrichWithExternalData(processed);
   const validated = await validateComplexRules(enriched);
-  
+
   res.json(validated);
 });
 
 // Concurrent request handling becomes bottleneck
-app.get('/search', async (req, res) => {
+app.get("/search", async (req, res) => {
   // Single-threaded processing limits throughput
   const results = await performComplexSearch(req.query);
   res.json(results);
@@ -54,14 +54,14 @@ With sidecar integration, developers can gradually replace problematic routes:
 
 ```typescript
 // Original TypeScript route (kept for non-critical paths)
-app.post('/simple-endpoint', async (req, res) => {
-  res.json({ status: 'ok' });
+app.post("/simple-endpoint", async (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // Replaced with Forst implementation for performance-critical operations
-import { processData } from '@forst/sidecar';
+import { processData } from "@forst/sidecar";
 
-app.post('/process-data', async (req, res) => {
+app.post("/process-data", async (req, res) => {
   // This now runs in a high-performance Go binary
   const result = await processData(req.body);
   res.json(result);
@@ -69,6 +69,7 @@ app.post('/process-data', async (req, res) => {
 ```
 
 The Forst implementation provides:
+
 - **Memory efficiency**: Go's garbage collector handles memory spikes better
 - **Concurrent performance**: Go's goroutines handle concurrent requests efficiently
 - **CPU optimization**: Compiled Go code outperforms interpreted TypeScript
@@ -101,18 +102,18 @@ npm install @forst/sidecar
 
 ```typescript
 // Your existing TypeScript app
-import express from 'express';
-import { processData, searchUsers } from '@forst/sidecar';
+import express from "express";
+import { processData, searchUsers } from "@forst/sidecar";
 
 const app = express();
 
 // Keep existing routes unchanged
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // Replace performance-critical routes with Forst implementations
-app.post('/process-data', async (req, res) => {
+app.post("/process-data", async (req, res) => {
   try {
     const result = await processData(req.body);
     res.json(result);
@@ -121,7 +122,7 @@ app.post('/process-data', async (req, res) => {
   }
 });
 
-app.get('/search', async (req, res) => {
+app.get("/search", async (req, res) => {
   const results = await searchUsers(req.query);
   res.json(results);
 });
@@ -151,12 +152,12 @@ func processData(input ProcessDataInput) {
   // High-performance data processing
   // Memory-efficient operations
   // Concurrent processing with goroutines
-  
+
   for i := range input.Records {
     // Process each record efficiently
     go processRecord(input.Records[i])
   }
-  
+
   return map[string]interface{}{
     "processed": len(input.Records),
     "status": "success",
@@ -168,7 +169,7 @@ func searchUsers(query map[string]interface{}) {
   // Complex search logic with high performance
   // Efficient memory usage
   // Concurrent database queries
-  
+
   return searchResults
 }
 ```
@@ -224,17 +225,19 @@ The sidecar automatically detects Forst files and generates corresponding TypeSc
 
 ```typescript
 // Auto-generated from forst/routes/process_data.ft
-export async function processData(input: ProcessDataInput): Promise<ProcessDataResult> {
-  const response = await fetch('http://localhost:8080/process-data', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+export async function processData(
+  input: ProcessDataInput
+): Promise<ProcessDataResult> {
+  const response = await fetch("http://localhost:8080/process-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  
+
   if (!response.ok) {
     throw new Error(`Forst execution failed: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -278,7 +281,7 @@ func processData(input ProcessDataInput) (map[string]interface{}, error) {
     // High-performance concurrent processing
     var wg sync.WaitGroup
     results := make(chan ProcessedRecord, len(input.Records))
-    
+
     for _, record := range input.Records {
         wg.Add(1)
         go func(r Record) {
@@ -288,16 +291,16 @@ func processData(input ProcessDataInput) (map[string]interface{}, error) {
             results <- processed
         }(record)
     }
-    
+
     wg.Wait()
     close(results)
-    
+
     // Collect results efficiently
     processedCount := 0
     for range results {
         processedCount++
     }
-    
+
     return map[string]interface{}{
         "processed": processedCount,
         "status":    "success",
@@ -311,16 +314,16 @@ func main() {
             http.Error(w, err.Error(), http.StatusBadRequest)
             return
         }
-        
+
         result, err := processData(input)
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
-        
+
         json.NewEncoder(w).Encode(result)
     })
-    
+
     http.ListenAndServe(":8080", nil)
 }
 ```
@@ -334,20 +337,20 @@ The sidecar provides seamless development experience:
 export class ForstDevServer {
   private watcher: chokidar.FSWatcher;
   private compiler: ForstCompiler;
-  
+
   constructor() {
-    this.watcher = chokidar.watch('./forst/**/*.ft');
+    this.watcher = chokidar.watch("./forst/**/*.ft");
     this.compiler = new ForstCompiler();
-    
-    this.watcher.on('change', (path) => {
+
+    this.watcher.on("change", (path) => {
       this.recompile(path);
     });
   }
-  
+
   private async recompile(path: string) {
     console.log(`Recompiling ${path}...`);
     await this.compiler.compile(path);
-    console.log('Recompilation complete');
+    console.log("Recompilation complete");
   }
 }
 ```
@@ -363,12 +366,12 @@ Go's garbage collector handles memory spikes better than Node.js:
 func processLargeDataset(data []Record) []ProcessedRecord {
     // Go's memory management prevents spikes
     results := make([]ProcessedRecord, 0, len(data))
-    
+
     for _, record := range data {
         processed := processRecord(record)
         results = append(results, processed)
     }
-    
+
     return results
 }
 ```
@@ -382,7 +385,7 @@ Go's goroutines handle concurrent requests efficiently:
 func handleConcurrentRequests(requests []Request) []Response {
     var wg sync.WaitGroup
     responses := make(chan Response, len(requests))
-    
+
     for _, req := range requests {
         wg.Add(1)
         go func(r Request) {
@@ -391,15 +394,15 @@ func handleConcurrentRequests(requests []Request) []Response {
             responses <- response
         }(req)
     }
-    
+
     wg.Wait()
     close(responses)
-    
+
     var results []Response
     for resp := range responses {
         results = append(results, resp)
     }
-    
+
     return results
 }
 ```
@@ -425,11 +428,13 @@ func performComplexCalculation(data []float64) float64 {
 ### Phase 1: Core Sidecar Infrastructure
 
 1. **Automatic Detection**
+
    - Scan `forst/` directory for `.ft` files
    - Generate TypeScript interfaces automatically
    - Create HTTP endpoints for each Forst function
 
 2. **Development Server**
+
    - File watching and hot reloading
    - Automatic recompilation
    - Development HTTP server
@@ -442,11 +447,13 @@ func performComplexCalculation(data []float64) float64 {
 ### Phase 2: Production Integration
 
 1. **Deployment Support**
+
    - Docker integration
    - Kubernetes sidecar support
    - Health checks and monitoring
 
 2. **Performance Monitoring**
+
    - Memory usage tracking
    - Response time metrics
    - Error rate monitoring
@@ -459,11 +466,13 @@ func performComplexCalculation(data []float64) float64 {
 ### Phase 3: Advanced Features
 
 1. **Shared State**
+
    - Database connections
    - Caching layers
    - Session management
 
 2. **Middleware Support**
+
    - Authentication
    - Rate limiting
    - Logging
@@ -486,6 +495,7 @@ npm run dev
 ```
 
 The sidecar automatically:
+
 - Detects `forst/` directory
 - Compiles `.ft` files to Go binaries
 - Generates TypeScript interfaces
@@ -497,19 +507,19 @@ The sidecar automatically:
 // forst.config.js (optional)
 module.exports = {
   // Custom directory structure
-  forstDir: './forst',
-  outputDir: './dist/forst',
-  
+  forstDir: "./forst",
+  outputDir: "./dist/forst",
+
   // Development server
   devServer: {
     port: 8080,
     watch: true,
   },
-  
+
   // Compilation options
   compilation: {
-    optimization: 'speed',
-    debug: process.env.NODE_ENV === 'development',
+    optimization: "speed",
+    debug: process.env.NODE_ENV === "development",
   },
 };
 ```
@@ -520,21 +530,21 @@ module.exports = {
 
 ```typescript
 // Original TypeScript (memory issues)
-app.post('/process-large-dataset', async (req, res) => {
+app.post("/process-large-dataset", async (req, res) => {
   const data = req.body;
-  
+
   // This causes memory spikes
-  const processed = data.map(record => {
+  const processed = data.map((record) => {
     return heavyProcessing(record);
   });
-  
+
   res.json(processed);
 });
 
 // Replaced with Forst implementation
-import { processLargeDataset } from '@forst/sidecar';
+import { processLargeDataset } from "@forst/sidecar";
 
-app.post('/process-large-dataset', async (req, res) => {
+app.post("/process-large-dataset", async (req, res) => {
   const result = await processLargeDataset(req.body);
   res.json(result);
 });
@@ -545,11 +555,11 @@ app.post('/process-large-dataset', async (req, res) => {
 func processLargeDataset(data []Record) []ProcessedRecord {
   // Efficient memory management
   results := make([]ProcessedRecord, 0, len(data))
-  
+
   // Concurrent processing
   var wg sync.WaitGroup
   processed := make(chan ProcessedRecord, len(data))
-  
+
   for _, record := range data {
     wg.Add(1)
     go func(r Record) {
@@ -558,14 +568,14 @@ func processLargeDataset(data []Record) []ProcessedRecord {
       processed <- result
     }(record)
   }
-  
+
   wg.Wait()
   close(processed)
-  
+
   for result := range processed {
     results = append(results, result)
   }
-  
+
   return results
 }
 ```
@@ -574,24 +584,24 @@ func processLargeDataset(data []Record) []ProcessedRecord {
 
 ```typescript
 // Original TypeScript (bottleneck)
-app.get('/search', async (req, res) => {
-  const queries = req.query.queries.split(',');
-  
+app.get("/search", async (req, res) => {
+  const queries = req.query.queries.split(",");
+
   // Single-threaded processing
   const results = [];
   for (const query of queries) {
     const result = await performSearch(query);
     results.push(result);
   }
-  
+
   res.json(results);
 });
 
 // Replaced with Forst implementation
-import { performConcurrentSearch } from '@forst/sidecar';
+import { performConcurrentSearch } from "@forst/sidecar";
 
-app.get('/search', async (req, res) => {
-  const queries = req.query.queries.split(',');
+app.get("/search", async (req, res) => {
+  const queries = req.query.queries.split(",");
   const results = await performConcurrentSearch(queries);
   res.json(results);
 });
@@ -602,7 +612,7 @@ app.get('/search', async (req, res) => {
 func performConcurrentSearch(queries []string) []SearchResult {
   var wg sync.WaitGroup
   results := make(chan SearchResult, len(queries))g
-  
+
   for _, query := range queries {
     wg.Add(1)
     go func(q string) {
@@ -611,15 +621,15 @@ func performConcurrentSearch(queries []string) []SearchResult {
       results <- result
     }(query)
   }
-  
+
   wg.Wait()
   close(results)
-  
+
   var searchResults []SearchResult
   for result := range results {
     searchResults = append(searchResults, result)
   }
-  
+
   return searchResults
 }
 ```
@@ -628,21 +638,21 @@ func performConcurrentSearch(queries []string) []SearchResult {
 
 ```typescript
 // Original TypeScript (slow)
-app.post('/calculate', async (req, res) => {
+app.post("/calculate", async (req, res) => {
   const { numbers } = req.body;
-  
+
   // CPU-intensive calculation
   const result = numbers.reduce((acc, num) => {
     return acc + Math.pow(num, 2);
   }, 0);
-  
+
   res.json({ result: Math.sqrt(result) });
 });
 
 // Replaced with Forst implementation
-import { calculate } from '@forst/sidecar';
+import { calculate } from "@forst/sidecar";
 
-app.post('/calculate', async (req, res) => {
+app.post("/calculate", async (req, res) => {
   const result = await calculate(req.body);
   res.json(result);
 });
@@ -654,13 +664,13 @@ import "math"
 
 func calculate(input map[string]interface{}) map[string]interface{} {
   numbers := input["numbers"].([]float64)
-  
+
   // Compiled Go code runs much faster
   result := 0.0
   for _, num := range numbers {
     result += math.Pow(num, 2)
   }
-  
+
   return map[string]interface{}{
     "result": math.Sqrt(result),
   }
@@ -680,10 +690,12 @@ func calculate(input map[string]interface{}) map[string]interface{} {
 ### Alternative Approaches
 
 1. **Complete rewrite**: Rewrite entire applications in Go
+
    - Drawback: High risk and time investment
    - Drawback: Disrupts development workflow
 
 2. **Microservices**: Split into separate Go services
+
    - Drawback: Complex deployment and orchestration
    - Drawback: Network overhead between services
 
