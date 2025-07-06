@@ -215,6 +215,18 @@ func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast
 		return ast.TypeNode{Ident: ast.TypeShape}, nil
 	}
 
+	// Handle Value constraints (like id: query.id)
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+		tc.log.WithFields(logrus.Fields{
+			"function":  "lookupFieldInTypeDef",
+			"fieldName": fieldName,
+			"baseType":  baseType.Ident,
+		}).Debugf("Field has Value constraint, treating as valid field")
+		// For Value constraints, we can't determine the exact type,
+		// but we can return a reasonable default like String
+		return ast.TypeNode{Ident: ast.TypeString}, nil
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"function":  "lookupFieldInTypeDef",
 		"fieldName": fieldName,
@@ -505,6 +517,17 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 						}).Debugf("Resolved assertion field")
 						return resolvedType, nil
 					}
+					// Handle Value constraints (like id: query.id)
+					if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+						tc.log.WithFields(logrus.Fields{
+							"function":  "lookupFieldPath",
+							"baseType":  baseType.Ident,
+							"fieldName": fieldName.ID,
+						}).Debugf("Field has Value constraint, treating as valid field")
+						// For Value constraints, we can't determine the exact type,
+						// but we can return a reasonable default like String
+						return ast.TypeNode{Ident: ast.TypeString}, nil
+					}
 				}
 				if field.Assertion != nil && len(fieldPath) > 1 {
 					// If the field is an assertion, resolve and continue
@@ -551,6 +574,16 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 	}
 	if field.Type != nil {
 		return *field.Type, nil
+	}
+	// Handle Value constraints (like id: query.id)
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == "Value" {
+		tc.log.WithFields(logrus.Fields{
+			"function":  "lookupFieldPathOnShape",
+			"fieldName": fieldName,
+		}).Debugf("Field has Value constraint, treating as valid field")
+		// For Value constraints, we can't determine the exact type,
+		// but we can return a reasonable default like String
+		return ast.TypeNode{Ident: ast.TypeString}, nil
 	}
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
 }
