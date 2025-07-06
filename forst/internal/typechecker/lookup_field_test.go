@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/hasher"
 	"forst/internal/logger"
 )
 
@@ -449,6 +450,35 @@ func TestLookupFieldPath_ValueFieldInShape(t *testing.T) {
 		Defs: make(map[ast.TypeIdent]ast.Node),
 	}
 
+	// Set up a scope with a known variable type
+	scope := &Scope{
+		Parent: nil,
+		Symbols: map[ast.Identifier]Symbol{
+			"query": {
+				Types: []ast.TypeNode{{Ident: "UserQuery"}},
+				Kind:  SymbolVariable,
+			},
+		},
+	}
+	tc.scopeStack = &ScopeStack{
+		scopes:  make(map[NodeHash]*Scope),
+		current: scope,
+		Hasher:  hasher.New(),
+		log:     logger.New(),
+	}
+
+	// Register the UserQuery type definition
+	userQueryShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		},
+	}
+	userQueryDef := ast.TypeDefNode{
+		Ident: "UserQuery",
+		Expr:  ast.TypeDefShapeExpr{Shape: *userQueryShape},
+	}
+	tc.Defs["UserQuery"] = userQueryDef
+
 	// Create a shape with a field that has a Value constraint (like from a function return)
 	// This simulates the issue from type_safety.ft where user.id fails
 	varNode := ast.VariableNode{
@@ -482,7 +512,7 @@ func TestLookupFieldPath_ValueFieldInShape(t *testing.T) {
 	tc.Defs["T_fJNCGSaFvWC"] = typeDef
 
 	// Test: Look up "id" field in the shape
-	// This should succeed even though the field has a Value constraint instead of a Type
+	// This should succeed and return the actual type of query.id (String)
 	result, err := tc.lookupFieldPath(ast.TypeNode{Ident: "T_fJNCGSaFvWC"}, []string{"id"})
 
 	if err != nil {
@@ -490,7 +520,7 @@ func TestLookupFieldPath_ValueFieldInShape(t *testing.T) {
 		return
 	}
 
-	// Should return a valid type (String as the default for Value constraints)
+	// Should return the actual type (String) based on the variable lookup
 	if result.Ident != ast.TypeString {
 		t.Errorf("Expected String type, got: %s", result.Ident)
 	}
