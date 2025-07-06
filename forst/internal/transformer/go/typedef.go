@@ -209,6 +209,12 @@ func (t *Transformer) defineShapeTypes() error {
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	t.log.Debugf("getTypeAliasNameForTypeNode: input type %q, typeKind %v", typeNode.Ident, typeNode.TypeKind)
 
+	// Handle Shape and TYPE_SHAPE types specially - emit inline empty struct
+	if typeNode.Ident == ast.TypeIdent("Shape") || typeNode.Ident == ast.TypeIdent("TYPE_SHAPE") {
+		t.log.Debugf("getTypeAliasNameForTypeNode: Shape/TYPE_SHAPE type %q -> inline struct", typeNode.Ident)
+		return "struct{}", nil
+	}
+
 	// Ensure the type is registered before emitting
 	if typeNode.TypeKind == ast.TypeKindHashBased || typeNode.TypeKind == ast.TypeKindUserDefined {
 		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; !exists {

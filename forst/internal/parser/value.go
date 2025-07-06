@@ -23,7 +23,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			// Handle struct literal reference
 			// Check for identifier before left brace (e.g., MyShape { ... })
 			baseTypeIdent := p.parseTypeIdent()
-			shapeLiteral := p.parseShape(baseTypeIdent)
+			shapeLiteral := p.parseShapeLiteral(baseTypeIdent)
 			return ast.ReferenceNode{
 				Value: shapeLiteral,
 			}
@@ -35,7 +35,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 
 		if p.current().Type == ast.TokenLBrace {
 			typeIdent := ast.TypeIdent(string(identifier))
-			shape := p.parseShape(&typeIdent)
+			shape := p.parseShapeLiteral(&typeIdent)
 			return shape
 		}
 
@@ -82,7 +82,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 		}
 	case ast.TokenLBrace:
 		// Handle shape literal
-		shape := p.parseShape(nil)
+		shape := p.parseShapeLiteral(nil)
 		return shape
 	case ast.TokenStar:
 		p.advance() // Consume *

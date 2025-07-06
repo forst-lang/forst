@@ -26,7 +26,7 @@ func (p *Parser) parseParameterType() ast.TypeNode {
 	}
 	// Allow direct {...} for shape types
 	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShape(nil)
+		shape := p.parseShapeType()
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.TypeNode{
 			Ident: ast.TypeShape,
@@ -100,7 +100,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		}
 	}
 	if tok.Type == ast.TokenLBrace {
-		shape := p.parseShape(nil)
+		shape := p.parseShapeType()
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.SimpleParamNode{
 			Ident: ast.Ident{ID: ast.Identifier(name)},

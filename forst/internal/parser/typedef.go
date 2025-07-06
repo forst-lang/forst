@@ -72,7 +72,7 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 	}
 
 	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShape(nil)
+		shape := p.parseShapeType()
 		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"forst/internal/ast"
+	"forst/internal/lexer"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -26,4 +27,12 @@ func assertNodeType[T ast.Node](t *testing.T, node ast.Node, expectedType string
 		t.Fatalf("Expected %s, got %T", expectedType, node)
 	}
 	return typedNode
+}
+
+// NewTestParser creates a parser from a source string for testing
+func NewTestParser(input string) *Parser {
+	logger := logrus.New()
+	lex := lexer.New([]byte(input), "<test>", logger)
+	tokens := lex.Lex()
+	return setupParser(tokens)
 }

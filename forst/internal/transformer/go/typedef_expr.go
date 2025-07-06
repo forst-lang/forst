@@ -32,23 +32,54 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			}
 
 			for _, constraint := range e.Assertion.Constraints {
-				if constraint.Name == "Input" && len(constraint.Args) > 0 {
+				if len(constraint.Args) > 0 {
 					arg := constraint.Args[0]
 					if shape := arg.Shape; shape != nil {
-						expr, err := t.transformShapeType(shape)
-						if err != nil {
-							err = fmt.Errorf("failed to transform shape type during transformation: %w", err)
-							t.log.WithFields(logrus.Fields{
-								"function": "transformTypeDefExpr",
-								"expr":     expr,
-							}).WithError(err).Error("transforming shape type failed")
-							return nil, err
+						// For each field in the shape, add it to the struct fields
+						for fieldName, fieldNode := range shape.Fields {
+							expr, err := t.transformShapeType(fieldNode.Shape)
+							if err != nil {
+								err = fmt.Errorf("failed to transform shape type for field '%s' during transformation: %w", fieldName, err)
+								t.log.WithFields(logrus.Fields{
+									"function": "transformTypeDefExpr",
+									"field":    fieldName,
+									"expr":     expr,
+								}).WithError(err).Error("transforming shape type failed")
+								return nil, err
+							}
+							var fieldType goast.Expr
+							if fieldNode.Type != nil {
+								if fieldNode.Type.Assertion != nil {
+									typeExpr, err := t.transformTypeDefExpr(ast.TypeDefAssertionExpr{Assertion: fieldNode.Type.Assertion})
+									if err != nil {
+										err = fmt.Errorf("failed to transform type for field '%s' during transformation: %w", fieldName, err)
+										t.log.WithFields(logrus.Fields{
+											"function": "transformTypeDefExpr",
+											"field":    fieldName,
+											"expr":     typeExpr,
+										}).WithError(err).Error("transforming type failed")
+										return nil, err
+									}
+									if typeExpr != nil {
+										fieldType = *typeExpr
+									}
+								} else {
+									// Use Go builtin type ident
+									fieldType = goast.NewIdent(fieldNode.Type.Ident.String())
+								}
+							}
+							if fieldType == nil && expr != nil {
+								fieldType = *expr
+							}
+							if fieldType == nil {
+								fieldType = goast.NewIdent("interface{}")
+							}
+							goField := goast.Field{
+								Names: []*goast.Ident{goast.NewIdent(fieldName)},
+								Type:  fieldType,
+							}
+							fields = append(fields, &goField)
 						}
-						inputField := goast.Field{
-							Names: []*goast.Ident{goast.NewIdent("input")},
-							Type:  *expr,
-						}
-						fields = append(fields, &inputField)
 					}
 				}
 			}
@@ -69,19 +100,17 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 
 		// For assertion types without concrete base types, generate a struct type
-		if baseTypeIdent.Name == "Shape" || baseTypeIdent.Name == "TYPE_VOID" {
-			// Generate an empty struct for abstract types
+		if baseTypeIdent.Name == "Shape" || baseTypeIdent.Name == "TYPE_SHAPE" || baseTypeIdent.Name == "TYPE_VOID" {
+			// Emit an inline empty struct for abstract/generic shape types
 			result := goast.StructType{
-				Fields: &goast.FieldList{
-					List: []*goast.Field{},
-				},
+				Fields: &goast.FieldList{List: []*goast.Field{}},
 			}
 			var expr goast.Expr = &result
 			return &expr, nil
 		}
 
 		// Handle value assertions by generating concrete Go types instead of recursive aliases
-		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == "Value" {
+		if len(e.Assertion.Constraints) == 1 && e.Assertion.Constraints[0].Name == ast.ValueConstraint {
 			// For value assertions, we need to determine the concrete Go type based on the value
 			if len(e.Assertion.Constraints[0].Args) > 0 {
 				arg := e.Assertion.Constraints[0].Args[0]

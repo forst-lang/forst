@@ -29,7 +29,3 @@ func (p *Parser) logParsedNodeWithMessage(node ast.Node, message string) {
 func isCapitalCase(value string) bool {
 	return unicode.IsUpper(rune(value[0]))
 }
-
-func isParenthesis(token ast.Token) bool {
-	return token.Type == ast.TokenLParen || token.Type == ast.TokenRParen
-}
