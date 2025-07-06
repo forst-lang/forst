@@ -91,7 +91,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter := getMemStats()
 	c.logMemUsage("lexical analysis", memBefore, memAfter)
 
-	c.debugPrintTokens(tokens)
+	if c.Args.Debug {
+		c.debugPrintTokens(tokens)
+	}
 
 	c.reportPhase("Performing syntax analysis...")
 	memBefore = getMemStats()
@@ -106,7 +108,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("syntax analysis", memBefore, memAfter)
 
-	c.debugPrintForstAST(forstNodes)
+	if c.Args.Debug {
+		c.debugPrintForstAST(forstNodes)
+	}
 
 	c.reportPhase("Performing semantic analysis...")
 	memBefore = getMemStats()
@@ -124,7 +128,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("semantic analysis", memBefore, memAfter)
 
-	c.debugPrintTypeInfo(checker)
+	if c.Args.Debug {
+		c.debugPrintTypeInfo(checker)
+	}
 
 	c.reportPhase("Performing code generation...")
 	memBefore = getMemStats()
@@ -136,7 +142,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 		return nil, err
 	}
 
-	c.debugPrintGoAST(goAST)
+	if c.Args.Debug {
+		c.debugPrintGoAST(goAST)
+	}
 	// Generate Go code
 	goCode, err := generators.GenerateGoCode(goAST)
 	if err != nil {

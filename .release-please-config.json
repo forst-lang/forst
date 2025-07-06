@@ -1,0 +1,18 @@
+{
+  "packages": {
+    ".": {
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "go",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "include-v-in-tag": true,
+      "include-component-in-tag": false,
+      "tag-separator": "v",
+      "draft": false,
+      "prerelease": false,
+      "create-pull-request": true,
+      "create-github-release": true
+    }
+  },
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+}

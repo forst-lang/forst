@@ -10,8 +10,32 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// Version information injected by Release Please
+var (
+	Version = "dev"
+	Commit  = "unknown"
+	Date    = "unknown"
+)
+
+func printVersionInfo() {
+	fmt.Printf("forst %s %s %s\n", Version, Commit, Date)
+}
+
 func main() {
-	log := logger.New()
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
+		printVersionInfo()
+		os.Exit(0)
+	}
+
+	// Create logger with appropriate level based on build type
+	// In release builds (when version != "dev"), use INFO level
+	// In development builds, use DEBUG level
+	var log *logrus.Logger
+	if Version == "dev" {
+		log = logger.NewWithLevel(logrus.DebugLevel)
+	} else {
+		log = logger.NewWithLevel(logrus.InfoLevel)
+	}
 
 	args := compiler.ParseArgs(log)
 
