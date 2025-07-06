@@ -1,113 +1,201 @@
-# Sidecar Integration Decision Document
+# Forst Sidecar Integration: Strategic Decision Document
 
 ## Executive Summary
 
-This document outlines the strategic decisions for implementing Forst sidecar integration, enabling gradual adoption of Forst within existing TypeScript backends while maintaining zero-downtime tolerance and prioritizing developer experience over raw performance.
+This document outlines the strategic framework for implementing Forst sidecar integration within existing TypeScript backend applications. The initiative aims to enable gradual adoption of Forst while maintaining zero-downtime tolerance and prioritizing developer experience over raw performance optimization.
 
-## Core Strategic Decisions
+**Key Objectives:**
 
-### **1. MVP-First Approach**
+- Enable seamless integration of Forst within TypeScript applications
+- Provide 10x performance improvements for migrated routes
+- Maintain zero-downtime tolerance in production environments
+- Minimize developer friction during adoption
 
-- **Rapid Prototyping**: Prioritize getting a working solution quickly over comprehensive feature completeness
-- **Incremental Development**: Start with basic HTTP transport and expand to advanced features later
-- **Streaming Architecture**: Design for future streaming capabilities without implementing them in MVP
+## Strategic Framework
 
-### **2. Developer Experience Priority**
+### 1. MVP-First Development Approach
 
-- **TypeScript Familiarity**: Prioritize "feels like TypeScript" over leveraging Go ecosystem features
-- **Zero-Config Installation**: NPM package should automatically download and install Forst compiler
-- **Seamless Integration**: Minimize cognitive overhead for developers adopting Forst
+**Rationale:** Rapid market validation requires a working solution over comprehensive feature completeness.
 
-### **3. Reliability Over Performance**
+**Decisions:**
 
-- **Circuit Breakers**: Implement fallback mechanisms before optimizing for maximum performance
-- **Graceful Degradation**: Ensure system remains functional even when sidecar fails
-- **Production Safety**: Zero tolerance for downtime requires robust error handling
+- **Rapid Prototyping Priority**: Focus on functional implementation over feature completeness
+- **Incremental Architecture**: Implement basic HTTP transport with clear expansion pathways
+- **Future-Ready Design**: Architect for streaming capabilities without current implementation
+- **Iterative Development**: Deploy minimal viable product and expand based on user feedback
+
+### 2. Developer Experience Optimization
+
+**Rationale:** Adoption success depends on minimizing cognitive overhead and maintaining familiar workflows.
+
+**Decisions:**
+
+- **TypeScript Familiarity**: Prioritize familiar TypeScript patterns over Go ecosystem features
+- **Zero-Configuration Installation**: NPM package should automatically provision Forst compiler
+- **Seamless Integration**: Minimize developer friction during initial adoption phase
+- **Gradual Learning Curve**: Enable adoption without requiring Go expertise
+
+### 3. Reliability-First Architecture
+
+**Rationale:** Production environments require robust error handling before performance optimization.
+
+**Decisions:**
+
+- **Circuit Breaker Implementation**: Deploy fallback mechanisms before performance optimization
+- **Graceful Degradation**: Ensure system functionality during sidecar failures
+- **Production Safety**: Implement zero-downtime tolerance through robust error handling
+- **Failure Isolation**: Prevent sidecar issues from affecting TypeScript application stability
 
 ## Technical Architecture Decisions
 
-### **4. Transport Strategy**
+### 4. Transport Layer Strategy
 
-- **HTTP-First Approach**: Use HTTP transport for initial adoption due to easier debugging and familiar tooling
-- **Future IPC Support**: Architect for IPC transport but defer implementation until after MVP validation
-- **Performance Threshold**: Accept sidecar complexity only if it provides 10x performance gains
+**Rationale:** HTTP transport provides familiar debugging and tooling while enabling future optimization.
 
-### **5. Development Workflow**
+**Decisions:**
 
-- **Hot Reloading**: Implement live reloading that works even when Forst compilation fails
-- **File Watching**: Leverage existing Forst compiler file watching capabilities
-- **Simple Dev Server**: HTTP development server that runs Forst compiler and watches files
+- **HTTP-First Implementation**: Utilize HTTP transport for initial adoption and debugging
+- **Future IPC Architecture**: Design for IPC transport with deferred implementation
+- **Performance Threshold**: Accept sidecar complexity only with 10x performance gains
+- **Tooling Compatibility**: Leverage existing HTTP debugging and monitoring tools
 
-### **6. Type System Integration**
+### 5. Development Workflow Design
 
-- **Basic Type Generation**: Start with fundamental type generation, expand to advanced features later
-- **Seamless Type Sharing**: Shared types between TypeScript and Forst should be as seamless as possible
-- **Compile-Time Safety**: Prevent version mismatches between TypeScript and Forst code at compile time
+**Rationale:** Developer productivity requires seamless integration with existing workflows.
 
-## Implementation Decisions
+**Decisions:**
 
-### **7. MVP Feature Set**
+- **Hot Reloading Resilience**: Maintain development workflow during Forst compilation failures
+- **File Watching Integration**: Leverage existing Forst compiler file monitoring capabilities
+- **Simple Development Server**: Implement HTTP development server with compiler integration
+- **Error Transparency**: Surface compilation errors without disrupting development flow
 
-- **NPM Package**: Downloads and installs Forst compiler automatically on installation
-- **HTTP Dev Server**: Simple development server that runs Forst compiler with file watching
-- **Node.js Client**: Client library that communicates with sidecar/HTTP dev server
+### 6. Type System Integration Strategy
+
+**Rationale:** Seamless type sharing between languages is critical for adoption success.
+
+**Decisions:**
+
+- **Basic Type Generation**: Implement fundamental type generation with expansion pathways
+- **Seamless Type Sharing**: Enable transparent type sharing between TypeScript and Forst
+- **Compile-Time Safety**: Prevent version mismatches through compile-time validation
+- **Constraint Mapping**: Map Forst constraints to TypeScript-compatible types
+
+## Implementation Specifications
+
+### 7. MVP Feature Requirements
+
+**Core Components:**
+
+- **NPM Package Integration**: Automatic Forst compiler download and installation
+- **HTTP Development Server**: Simple server with compiler and file watching integration
+- **Node.js Client Library**: Communication layer for sidecar/HTTP server interaction
 - **Basic Type Generation**: Fundamental TypeScript type generation from Forst code
-- **Raw Code Deployment**: Ship raw Forst code to production and compile there (defer compilation optimization)
+- **Raw Code Deployment**: Ship Forst source to production with runtime compilation
 
-### **8. Production Operations**
+### 8. Production Operations Framework
 
-- **Sidecar Management**: Accept manual sidecar startup commands for initial MVP
-- **Process Recovery**: Implement restart and retry mechanisms for sidecar failures
-- **User-Defined Fallbacks**: Let users decide fallback strategy for persistent failures
-- **Compilation Failures**: Break and show output if Forst compilation fails, but maintain hot reloading
+**Operational Decisions:**
 
-### **9. Migration Strategy**
+- **Manual Sidecar Management**: Accept manual startup commands for initial MVP
+- **Process Recovery Mechanisms**: Implement restart and retry logic for sidecar failures
+- **User-Defined Fallbacks**: Enable custom fallback strategies for persistent failures
+- **Compilation Failure Handling**: Maintain hot reloading during compilation failures
 
-- **Explicit Route Selection**: Developers explicitly choose which routes to migrate
-- **Gradual Migration**: Support replacing one route at a time without extra manual setup
-- **Automatic Route Detection**: `@forst/cli` should automatically detect and suggest high-impact routes
-- **Easy Rollback**: Uninstalling NPM package and removing Forst files should suffice for rollback
+### 9. Migration Strategy Implementation
+
+**Adoption Framework:**
+
+- **Explicit Route Selection**: Enable developers to choose specific routes for migration
+- **Gradual Migration Support**: Facilitate one-route-at-a-time migration without manual setup
+- **Automatic Route Detection**: Implement intelligent detection of high-impact routes
+- **Simplified Rollback**: Enable easy rollback through NPM package removal
+
+## Critical Implementation Decisions
+
+### 10. Error Handling Architecture
+
+**Error Management Strategy:**
+
+- **Child Process Integration**: Deploy Forst sidecar as child process within TypeScript application
+- **Compilation Error Isolation**: Isolate Forst compilation errors unless type conflicts occur
+- **Runtime Error Transparency**: Maintain native Forst error presentation without TypeScript wrapping
+- **Error Type Compatibility**: Generate TypeScript-compatible errors with unique Forst codes
+
+### 11. Type Safety Boundary Management
+
+**Type System Decisions:**
+
+- **Type Mismatch Handling**: Accept TypeScript server failures on incompatible types
+- **Constraint Mapping Strategy**: Map Forst constraints to broader TypeScript types with JSDoc documentation
+- **Type Generation Approach**: Prefer broader TypeScript types over exact constraint matches
+- **Forst-Specific Type Handling**: Map to valid TypeScript types or utilize `any` with comprehensive documentation
+
+### 12. Production Deployment Architecture
+
+**Deployment Strategy:**
+
+- **Integrated Deployment Model**: Deploy sidecar as integrated child process within TypeScript application
+- **Development Server Pattern**: Utilize development server deployment pattern with future production optimization
+- **Automatic Compilation**: Implement automatic compilation in production environments
+- **Infrastructure Abstraction**: Defer scaling and infrastructure considerations for MVP phase
 
 ## Future Considerations
 
-### **10. Observability and Monitoring**
+### 13. Observability and Monitoring
 
-- **Unified Observability**: Metrics and logs should appear as if it's a single application
-- **Distributed Tracing**: Handle tracing across TypeScript-Forst boundary seamlessly
-- **Observability Complexity**: Make sidecar observable without adding operational complexity
+**Monitoring Strategy:**
 
-### **11. Advanced Features**
+- **Unified Observability**: Present metrics and logs as single application
+- **Distributed Tracing**: Implement seamless tracing across TypeScript-Forst boundary
+- **Operational Simplicity**: Minimize observability complexity for operational teams
 
-- **TypeScript Tooling**: Integrate with existing TypeScript tooling (deferred from MVP)
+### 14. Advanced Feature Roadmap
+
+**Future Enhancements:**
+
+- **TypeScript Tooling Integration**: Defer complex tooling integration until post-MVP validation
 - **Streaming Support**: Architect for future streaming capabilities without current implementation
 - **IPC Transport**: Design for future IPC transport implementation
-- **Advanced Type Generation**: Expand type generation capabilities based on user feedback
+- **Advanced Type Generation**: Expand type generation based on user feedback and requirements
 
-## Risk Mitigation
+## Risk Mitigation Framework
 
-### **12. Failure Scenarios**
+### 15. Failure Scenario Management
 
-- **Sidecar Crashes**: Implement automatic restart with exponential backoff
-- **Compilation Failures**: Maintain development workflow even when compilation fails
-- **Version Mismatches**: Prevent at compile time where possible
-- **Performance Degradation**: Implement circuit breakers to fall back to TypeScript
+**Risk Mitigation Strategies:**
 
-### **13. Adoption Barriers**
+- **Sidecar Crash Recovery**: Implement automatic restart with exponential backoff
+- **Compilation Failure Resilience**: Maintain development workflow during compilation failures
+- **Version Mismatch Prevention**: Implement compile-time version validation
+- **Performance Degradation Protection**: Deploy circuit breakers for TypeScript fallback
 
-- **Learning Curve**: Prioritize familiar TypeScript patterns over Go-specific features
-- **Tooling Integration**: Defer complex tooling integration until after MVP validation
-- **Production Readiness**: Start with development-friendly features, expand to production features
+### 16. Adoption Barrier Reduction
 
-## Success Metrics
+**Adoption Strategy:**
 
-### **14. Technical Metrics**
+- **Learning Curve Minimization**: Prioritize familiar TypeScript patterns over Go-specific features
+- **Tooling Integration Deferral**: Postpone complex tooling integration until MVP validation
+- **Production Readiness Phasing**: Begin with development-friendly features, expand to production capabilities
 
-- **Zero Downtime**: No production outages due to sidecar integration
-- **Performance Gains**: Achieve 10x performance improvement for migrated routes
-- **Developer Velocity**: Maintain or improve development speed for teams adopting Forst
+## Success Metrics and Validation
 
-### **15. Adoption Metrics**
+### 17. Technical Performance Metrics
 
-- **Easy Onboarding**: Teams can adopt Forst with minimal configuration
-- **Gradual Migration**: Successful migration of individual routes without system-wide changes
-- **Rollback Success**: Teams can easily rollback Forst adoption if needed
+**Technical Success Criteria:**
+
+- **Zero Downtime Achievement**: Eliminate production outages due to sidecar integration
+- **Performance Improvement**: Achieve 10x performance gains for migrated routes
+- **Developer Velocity Maintenance**: Preserve or improve development speed for adopting teams
+
+### 18. Adoption Success Metrics
+
+**Adoption Success Criteria:**
+
+- **Easy Onboarding**: Enable team adoption with minimal configuration requirements
+- **Gradual Migration Success**: Facilitate successful individual route migration without system-wide changes
+- **Rollback Effectiveness**: Ensure teams can easily rollback Forst adoption when necessary
+
+## Conclusion
+
+This decision framework provides a comprehensive approach to Forst sidecar integration that balances rapid market validation with production reliability requirements. The MVP-first approach enables quick iteration while the reliability-first architecture ensures production safety. The focus on developer experience and TypeScript familiarity positions Forst for successful adoption within existing TypeScript ecosystems.
