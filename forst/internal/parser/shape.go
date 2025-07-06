@@ -5,8 +5,8 @@ import (
 	"forst/internal/ast"
 )
 
-// parseShape parses a shape literal value
-func (p *Parser) parseShape(baseType *ast.TypeIdent) ast.ShapeNode {
+// parseShapeLiteral parses a shape literal value
+func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent) ast.ShapeNode {
 	p.expect(ast.TokenLBrace)
 
 	fields := make(map[string]ast.ShapeFieldNode)

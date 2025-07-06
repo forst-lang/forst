@@ -20,7 +20,7 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 	token := p.current()
 	// Check if this is a shape definition
 	if token.Type == ast.TokenLBrace {
-		shape := p.parseShape(nil)
+		shape := p.parseShapeLiteral(nil)
 		p.logParsedNodeWithMessage(shape, "Parsed shape")
 		return ast.ConstraintArgumentNode{
 			Shape: &shape,

@@ -79,7 +79,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 			}
 		} else if p.current().Type == ast.TokenLBrace {
 			typeIdent := ast.TypeIdent(string(ident))
-			return p.parseShape(&typeIdent)
+			return p.parseShapeLiteral(&typeIdent)
 		} else {
 			// Otherwise treat as a variable
 			expr = ast.VariableNode{
@@ -102,7 +102,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		if operator == ast.TokenIs {
 			// Check if the right-hand side is a shape literal or Shape(...) call
 			if p.current().Type == ast.TokenLBrace {
-				right := p.parseShape(nil) // Parse the shape literal directly
+				right := p.parseShapeLiteral(nil) // Parse the shape literal directly
 				expr = ast.BinaryExpressionNode{
 					Left:     expr,
 					Operator: operator,
@@ -112,7 +112,7 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 				p.advance() // Consume 'Shape'
 				p.expect(ast.TokenLParen)
 				if p.current().Type == ast.TokenLBrace {
-					right := p.parseShape(nil) // Parse the shape literal directly
+					right := p.parseShapeLiteral(nil) // Parse the shape literal directly
 					p.expect(ast.TokenRParen)
 					expr = ast.BinaryExpressionNode{
 						Left:     expr,
