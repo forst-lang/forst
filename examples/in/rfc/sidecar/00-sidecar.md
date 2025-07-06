@@ -50,6 +50,30 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Monitoring Dashboards**: Grafana dashboards and Prometheus alerts
 - **Debugging Tools**: Transport inspectors and performance analyzers
 
+### [06-resilience.md](06-resilience.md) - Resilience and Error Handling
+
+- **Failure Modes**: Transport failures, process crashes, serialization errors
+- **Circuit Breakers**: Preventing cascading failures across boundaries
+- **Retry Strategies**: Exponential backoff and error recovery
+- **Graceful Degradation**: Fallback to TypeScript implementations
+- **Monitoring and Alerting**: Error rate tracking and alerting rules
+
+### [07-process-management.md](07-process-management.md) - Process Management and Lifecycle
+
+- **Sidecar Lifecycle**: Startup, monitoring, and shutdown procedures
+- **Health Checks**: Multi-transport health monitoring
+- **Resource Monitoring**: Memory, CPU, and process status tracking
+- **Auto-restart**: Recovery strategies for process failures
+- **Configuration Management**: Environment-specific process settings
+
+### [08-development-workflow.md](08-development-workflow.md) - Development Workflow and Debugging
+
+- **Hot Reloading**: Cross-language hot reload for faster iteration
+- **Integrated Development Server**: Unified TypeScript and Forst development
+- **Debugging Tools**: Transport debugging, state inspection, performance analysis
+- **Development Environment**: Automated setup and process coordination
+- **Debugging Workflow**: Step-by-step debugging across language boundaries
+
 ## Key Features
 
 ### 🚀 **Performance Benefits**
@@ -140,5 +164,8 @@ This RFC is structured to be easily digestible and actionable. Each section focu
 - **03-configuration.md**: Practical setup and examples
 - **04-trade-offs.md**: Decision-making framework and future considerations
 - **05-observability.md**: Developer operations, tracing, and monitoring challenges
+- **06-resilience.md**: Error handling and failure recovery strategies
+- **07-process-management.md**: Sidecar lifecycle and resource management
+- **08-development-workflow.md**: Development tools and debugging workflows
 
 The modular structure allows teams to focus on the aspects most relevant to their needs while providing comprehensive coverage of the entire system.
