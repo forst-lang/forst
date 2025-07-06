@@ -18,8 +18,6 @@ type T_5fHJb69t288 struct {
         ctx   AppContext
         input T_GVKpDX7vGyx
 }
-// T_7MnKkUUsBSE: TypeDefAssertionExpr(Value("Fix memory leak in Node.js app"))
-type T_7MnKkUUsBSE string
 // T_7zywpPhwVhj: TypeDefShapeExpr({name: Value("Alice")})
 type T_7zywpPhwVhj struct {
         name string
@@ -32,8 +30,6 @@ type T_DBy8B2VnfFA struct {
 type T_DX1exfNyf6L struct {
         name string
 }
-// T_EMV7npYWLDn: TypeDefAssertionExpr(Value("Alice"))
-type T_EMV7npYWLDn string
 // T_GVKpDX7vGyx: TypeDefShapeExpr({name: String})
 type T_GVKpDX7vGyx struct {
         name string
@@ -60,15 +56,13 @@ type T_Yo2G7tbwv5q struct {
 type T_azh9nsqmxaF struct {
         name string
 }
-// T_b7WdLNpLZoy: TypeDefShapeExpr({input: {name: Value("Go to the gym")}, ctx: {sessionId: Value(nil)}})
+// T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
 type T_b7WdLNpLZoy struct {
         ctx   T_X86jJwVQ4mH
         input T_goedQ5siUEo
 }
 // T_bN37LzcUYJ8: TypeDefAssertionExpr(Value(nil))
 type T_bN37LzcUYJ8 string
-// T_dkBec8dUP47: TypeDefAssertionExpr(Value("Go to the gym"))
-type T_dkBec8dUP47 string
 // T_goedQ5siUEo: TypeDefShapeExpr({name: Value("Go to the gym")})
 type T_goedQ5siUEo struct {
         name string
@@ -104,7 +98,7 @@ func main() {
                 panic(errors.New("assertion failed: " + "Error.Nil()"))
         }
         println("Correctly created task: " + name)
-        name, err = createTask(T_5fHJb69t288{input: T_GVKpDX7vGyx{name: "Go to the gym"}, ctx: AppContext{sessionId: nil}})
+        name, err = createTask(T_5fHJb69t288{ctx: AppContext{sessionId: nil}, input: T_GVKpDX7vGyx{name: "Go to the gym"}})
         if err == nil {
                 println("Expected error but gym task was created")
                 panic(errors.New("assertion failed: " + "Error.Present()"))

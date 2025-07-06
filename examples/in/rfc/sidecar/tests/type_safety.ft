@@ -27,5 +27,4 @@ func main() {
   user := getUser({ id: "1" })
   println(user.id)
   println(user.name)
-  println(user.age)
 } 
