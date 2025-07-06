@@ -1,0 +1,31 @@
+package main
+
+type User = {
+  id: String,
+  name: String,
+  age: Int
+}
+
+type UserQuery = {
+  id: String
+}
+
+is (user User) Valid {
+  ensure user.id is Min(1)
+  ensure user.age is LessThan(151)
+}
+
+func getUser(query UserQuery) {
+  return {
+    id: query.id,
+    name: "Test User",
+    age: 25
+  }
+}
+
+func main() {
+  user := getUser({ id: "1" })
+  println(user.id)
+  println(user.name)
+  println(user.age)
+} 
