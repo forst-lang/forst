@@ -442,3 +442,56 @@ func TestLookupFieldPath_TypeAliasToShape(t *testing.T) {
 		t.Errorf("Expected String type, got: %s", result.Ident)
 	}
 }
+
+func TestLookupFieldPath_ValueFieldInShape(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Create a shape with a field that has a Value constraint (like from a function return)
+	// This simulates the issue from type_safety.ft where user.id fails
+	varNode := ast.VariableNode{
+		Ident: ast.Ident{ID: "query.id"},
+	}
+	var valueNode ast.ValueNode = varNode
+
+	shape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {
+				// This field has an Assertion with a Value constraint
+				// In the actual case, it would be Value(Variable(query.id))
+				Assertion: &ast.AssertionNode{
+					BaseType: nil,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Value",
+						Args: []ast.ConstraintArgumentNode{{
+							Value: &valueNode,
+						}},
+					}},
+				},
+			},
+		},
+	}
+
+	// Register the type definition
+	typeDef := ast.TypeDefNode{
+		Ident: "T_fJNCGSaFvWC",
+		Expr:  ast.TypeDefShapeExpr{Shape: *shape},
+	}
+	tc.Defs["T_fJNCGSaFvWC"] = typeDef
+
+	// Test: Look up "id" field in the shape
+	// This should succeed even though the field has a Value constraint instead of a Type
+	result, err := tc.lookupFieldPath(ast.TypeNode{Ident: "T_fJNCGSaFvWC"}, []string{"id"})
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+
+	// Should return a valid type (String as the default for Value constraints)
+	if result.Ident != ast.TypeString {
+		t.Errorf("Expected String type, got: %s", result.Ident)
+	}
+}
