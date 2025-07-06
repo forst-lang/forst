@@ -43,9 +43,9 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 		"function":          "transformAssertionType",
 		"constraintsLength": len(assertion.Constraints),
 		"constraintName":    constraintName,
-		"isValueAssertion":  len(assertion.Constraints) == 1 && constraintName == "Value",
+		"isValueAssertion":  len(assertion.Constraints) == 1 && constraintName == ast.ValueConstraint,
 	}).Debugf("Checking value assertion")
-	if len(assertion.Constraints) == 1 && constraintName == "Value" {
+	if len(assertion.Constraints) == 1 && constraintName == ast.ValueConstraint {
 		// For value assertions, we need to determine the concrete Go type based on the value
 		if len(assertion.Constraints[0].Args) > 0 {
 			arg := assertion.Constraints[0].Args[0]

@@ -6,7 +6,7 @@ import (
 
 	"forst/internal/ast"
 
-	"github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // lookupFieldType looks up a field's type in a given type
@@ -215,6 +215,11 @@ func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast
 		return ast.TypeNode{Ident: ast.TypeShape}, nil
 	}
 
+	// Handle Value constraints (like id: query.id)
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
+		return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"function":  "lookupFieldInTypeDef",
 		"fieldName": fieldName,
@@ -416,7 +421,8 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		"baseType":  baseType.Ident,
 		"fieldName": fieldName.ID,
 		"fieldPath": fieldPath,
-	}).Debugf("Looking up field path")
+		"fullPath":  fmt.Sprintf("%v", fieldPath),
+	}).Debugf("=== FIELD PATH LOOKUP DEBUG ===")
 
 	// Resolve type aliases before lookup
 	resolvedType := tc.resolveTypeAliasChain(baseType)
@@ -430,7 +436,23 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 
 	// Try type definition lookup
 	if def, exists := tc.Defs[resolvedType.Ident]; exists {
+		tc.log.WithFields(logrus.Fields{
+			"function":  "lookupFieldPath",
+			"baseType":  baseType.Ident,
+			"fieldName": fieldName.ID,
+			"defType":   fmt.Sprintf("%T", def),
+			"def":       fmt.Sprintf("%+v", def),
+		}).Debugf("Found type definition")
+
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			tc.log.WithFields(logrus.Fields{
+				"function":  "lookupFieldPath",
+				"baseType":  baseType.Ident,
+				"fieldName": fieldName.ID,
+				"exprType":  fmt.Sprintf("%T", typeDef.Expr),
+				"expr":      fmt.Sprintf("%+v", typeDef.Expr),
+			}).Debugf("Type definition expression")
+
 			switch expr := typeDef.Expr.(type) {
 			case ast.TypeDefAssertionExpr:
 				// Handle assertion types by resolving the assertion
@@ -452,10 +474,17 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 					"baseType":  baseType.Ident,
 					"fieldName": fieldName.ID,
 					"shape":     fmt.Sprintf("%+v", expr.Shape),
+					"fields":    fmt.Sprintf("%+v", expr.Shape.Fields),
 				}).Debugf("Looking up field in shape expression")
 
 				field, exists := expr.Shape.Fields[string(fieldName.ID)]
 				if !exists {
+					tc.log.WithFields(logrus.Fields{
+						"function":        "lookupFieldPath",
+						"baseType":        baseType.Ident,
+						"fieldName":       fieldName.ID,
+						"availableFields": fmt.Sprintf("%+v", expr.Shape.Fields),
+					}).Debugf("Field not found in shape")
 					return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
 				}
 
@@ -505,6 +534,10 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 						}).Debugf("Resolved assertion field")
 						return resolvedType, nil
 					}
+
+					if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
+						return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
+					}
 				}
 				if field.Assertion != nil && len(fieldPath) > 1 {
 					// If the field is an assertion, resolve and continue
@@ -522,6 +555,15 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 			}
 		}
 	}
+
+	tc.log.WithFields(logrus.Fields{
+		"function":  "lookupFieldPath",
+		"baseType":  baseType.Ident,
+		"fieldName": fieldName.ID,
+		"fieldPath": fieldPath,
+		"result":    "not found",
+	}).Debugf("=== END FIELD PATH LOOKUP DEBUG ===")
+
 	return ast.TypeNode{}, fmt.Errorf("field path %v not found in type %s", fieldPath, baseType.Ident)
 }
 
@@ -552,5 +594,62 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 	if field.Type != nil {
 		return *field.Type, nil
 	}
+	// Handle Value constraints (like id: query.id)
+	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
+		return tc.inferValueConstraintType(field.Assertion.Constraints[0], fieldName)
+	}
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
+}
+
+// inferValueConstraintType attempts to infer the type from a Value constraint
+func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, fieldName string) (ast.TypeNode, error) {
+	if len(constraint.Args) == 0 {
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	}
+
+	arg := constraint.Args[0]
+	if arg.Value == nil {
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	}
+
+	switch v := (*arg.Value).(type) {
+	case ast.VariableNode:
+		// Look up the variable's actual type
+		varType, err := tc.LookupVariableType(&v, tc.CurrentScope())
+		if err == nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":  "inferValueConstraintType",
+				"fieldName": fieldName,
+				"varType":   varType.Ident,
+			}).Debugf("Inferred type from variable in Value constraint")
+			return varType, nil
+		}
+
+		// If variable type lookup fails, try to infer from the variable name
+		// For dot notation like "query.id", try to infer from context
+		if strings.Contains(string(v.Ident.ID), ".") {
+			parts := strings.Split(string(v.Ident.ID), ".")
+			if len(parts) >= 2 {
+				// Try to look up the type of the base variable
+				baseVar := ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(parts[0])}}
+				baseType, err := tc.LookupVariableType(&baseVar, tc.CurrentScope())
+				if err == nil {
+					// Now try to look up the field on the base type
+					fieldType, err := tc.lookupFieldPath(baseType, parts[1:])
+					if err == nil {
+						tc.log.WithFields(logrus.Fields{
+							"function":  "inferValueConstraintType",
+							"fieldName": fieldName,
+							"fieldType": fieldType.Ident,
+						}).Debugf("Inferred type from field access in Value constraint")
+						return fieldType, nil
+					}
+				}
+			}
+		}
+
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	default:
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	}
 }

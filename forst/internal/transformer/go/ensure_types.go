@@ -26,6 +26,8 @@ const (
 	NilConstraint BuiltinConstraint = "Nil"
 	// PresentConstraint is the built-in NotNil constraint in Forst
 	PresentConstraint BuiltinConstraint = "Present"
+	// ValueConstraint is the built-in Value constraint in Forst
+	ValueConstraint BuiltinConstraint = ast.ValueConstraint
 )
 
 const (

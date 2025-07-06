@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/hasher"
 	"forst/internal/logger"
 )
 
@@ -438,6 +439,88 @@ func TestLookupFieldPath_TypeAliasToShape(t *testing.T) {
 		t.Errorf("Expected no error, got: %v", err)
 		return
 	}
+	if result.Ident != ast.TypeString {
+		t.Errorf("Expected String type, got: %s", result.Ident)
+	}
+}
+
+func TestLookupFieldPath_ValueFieldInShape(t *testing.T) {
+	tc := &TypeChecker{
+		log:  logger.New(),
+		Defs: make(map[ast.TypeIdent]ast.Node),
+	}
+
+	// Set up a scope with a known variable type
+	scope := &Scope{
+		Parent: nil,
+		Symbols: map[ast.Identifier]Symbol{
+			"query": {
+				Types: []ast.TypeNode{{Ident: "UserQuery"}},
+				Kind:  SymbolVariable,
+			},
+		},
+	}
+	tc.scopeStack = &ScopeStack{
+		scopes:  make(map[NodeHash]*Scope),
+		current: scope,
+		Hasher:  hasher.New(),
+		log:     logger.New(),
+	}
+
+	// Register the UserQuery type definition
+	userQueryShape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		},
+	}
+	userQueryDef := ast.TypeDefNode{
+		Ident: "UserQuery",
+		Expr:  ast.TypeDefShapeExpr{Shape: *userQueryShape},
+	}
+	tc.Defs["UserQuery"] = userQueryDef
+
+	// Create a shape with a field that has a Value constraint (like from a function return)
+	// This simulates the issue from type_safety.ft where user.id fails
+	varNode := ast.VariableNode{
+		Ident: ast.Ident{ID: "query.id"},
+	}
+	var valueNode ast.ValueNode = varNode
+
+	shape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {
+				// This field has an Assertion with a Value constraint
+				// In the actual case, it would be Value(Variable(query.id))
+				Assertion: &ast.AssertionNode{
+					BaseType: nil,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Value",
+						Args: []ast.ConstraintArgumentNode{{
+							Value: &valueNode,
+						}},
+					}},
+				},
+			},
+		},
+	}
+
+	// Register the type definition
+	typeDef := ast.TypeDefNode{
+		Ident: "T_fJNCGSaFvWC",
+		Expr:  ast.TypeDefShapeExpr{Shape: *shape},
+	}
+	tc.Defs["T_fJNCGSaFvWC"] = typeDef
+
+	// Test: Look up "id" field in the shape
+	// This should succeed and return the actual type of query.id (String)
+	result, err := tc.lookupFieldPath(ast.TypeNode{Ident: "T_fJNCGSaFvWC"}, []string{"id"})
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+		return
+	}
+
+	// Should return the actual type (String) based on the variable lookup
 	if result.Ident != ast.TypeString {
 		t.Errorf("Expected String type, got: %s", result.Ident)
 	}
