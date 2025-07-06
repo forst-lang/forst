@@ -12,6 +12,9 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +22,30 @@ jobs:
           fetch-depth: 0
 
       - name: Release Please
+        id: release
         uses: googleapis/release-please-action@v4
         with:
           config-file: .release-please-config.json
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    env:
+      GIT_TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: jaxxstorm/action-install-gh-release@v1
+        with:
+          repo: forst-lang/forst
+          tag: ${{ needs.release-please.outputs.tag_name }}
+
+      - run: task release:build
+
+      - name: Upload binary to GitHub Release
+        run: |
+          gh release upload $GIT_TAG ./dist/*

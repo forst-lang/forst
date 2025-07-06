@@ -196,19 +196,6 @@ tasks:
       - ../dist/*.tar.gz
       - ../dist/*.zip
 
-  release:build:
-    desc: Build release binaries locally
-    dir: forst
-    cmds:
-      - task build:release
-
-  release:snapshot:
-    desc: Create a snapshot release
-    dir: forst
-    cmds:
-      - task build:release
-      - echo "Snapshot built in dist/ directory"
-
   release:check:
     desc: Check release configuration
     dir: forst
