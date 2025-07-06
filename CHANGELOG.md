@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0 (2025-07-06)
+
+
+### Features
+
+* Add control flow, references, and map literals ([#13](https://github.com/forst-lang/forst/issues/13)) ([89c7283](https://github.com/forst-lang/forst/commit/89c72833708430fe13cd12ab2dceed62757c2d4b))
+* Add type guards and improve type handling ([#9](https://github.com/forst-lang/forst/issues/9)) ([10d99ee](https://github.com/forst-lang/forst/commit/10d99ee72c4e7d5c8f68823bcb052db944da799e))
+* **lexer:** improve token handling and standardization ([#15](https://github.com/forst-lang/forst/issues/15)) ([925cb55](https://github.com/forst-lang/forst/commit/925cb557a2299cd4a5267ebeb5f2512422b84709))
+* Shape guards ([#17](https://github.com/forst-lang/forst/issues/17)) ([afe5b12](https://github.com/forst-lang/forst/commit/afe5b126ffb7d75af079e285e3de346a3f2d1135))
+* **transformer:** improve assertion handling and error messages ([#12](https://github.com/forst-lang/forst/issues/12)) ([c7f5f4f](https://github.com/forst-lang/forst/commit/c7f5f4fe33f28a7f0580f882b3f701c012823bd2))
+
+
+### Bug Fixes
+
+* add proper release-please manifest file ([b91597a](https://github.com/forst-lang/forst/commit/b91597aa7da0a45256d3ea0e426584459c30b6de))
+* Mapping of packages to versions ([9e34699](https://github.com/forst-lang/forst/commit/9e34699a540615e540e7c4d9ed78bffc559c332b))
+* Mapping of packages to versions ([3036a10](https://github.com/forst-lang/forst/commit/3036a10b220100d7e0c73737475bae15b55b3ffc))
+* Use correct working directory ([65b2bcd](https://github.com/forst-lang/forst/commit/65b2bcd611773cc682443875e5702911def06527))
+
 ## [Unreleased]
 
 ### Added
