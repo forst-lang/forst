@@ -74,6 +74,14 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Development Environment**: Automated setup and process coordination
 - **Debugging Workflow**: Step-by-step debugging across language boundaries
 
+### [09-streaming.md](09-streaming.md) - HTTP Streaming for Large Datasets
+
+- **Bidirectional Streaming**: HTTP streaming with chunked transfer encoding
+- **Large Dataset Processing**: Memory-efficient processing of millions of records
+- **Real-time Data Flows**: Immediate results for sensor data and analytics
+- **Express.js Integration**: Seamless streaming endpoints
+- **Error Handling**: Retry logic and resilience for streaming operations
+
 ## Key Features
 
 ### 🚀 **Performance Benefits**
