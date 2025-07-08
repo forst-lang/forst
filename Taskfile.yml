@@ -136,6 +136,34 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
 
+  example:sidecar:
+    desc: Run end-to-end sidecar integration tests (build, start dev server, test, stop)
+    cmds:
+      - task: build
+      - |
+        PORT=9371
+        ./bin/forst dev -port=$PORT > forst-dev.log 2>&1 &
+        FORST_DEV_PID=$!
+        echo "Started Forst dev server with PID $FORST_DEV_PID"
+        # Wait for the server to be healthy
+        for i in {1..15}; do
+          if curl -s http://localhost:$PORT/health | grep '"success":true' > /dev/null; then
+            echo "Forst dev server is healthy"; break
+          fi
+          echo "Waiting for Forst dev server..."; sleep 1;
+        done
+        # Run the sidecar integration tests
+        cd examples/in/rfc/sidecar && npm run test:sidecar
+        TEST_EXIT_CODE=$?
+        # Stop the dev server using the captured PID
+        if [ ! -z "$FORST_DEV_PID" ]; then
+          echo "Stopping Forst dev server (PID: $FORST_DEV_PID)"
+          kill $FORST_DEV_PID 2>/dev/null || true
+          wait $FORST_DEV_PID 2>/dev/null || true
+        fi
+        exit $TEST_EXIT_CODE
+    silent: false
+
   # Development tasks
   dev:watch:
     desc: Watch for changes and run tests

@@ -1,51 +1,98 @@
-# Sidecar Integration MVP Tests
+# Sidecar Integration Tests
 
-Tiny test cases demonstrating the core sidecar integration functionality.
+This directory contains integration tests for the Forst sidecar functionality, demonstrating HTTP communication between Node.js and Forst applications.
 
-## Test Cases
+## Overview
 
-### 1. Basic Communication (`basic_communication.ft`)
+The tests demonstrate:
 
-- **Goal**: Verify HTTP request/response handling
-- **Input**: JSON message
-- **Expected**: Echo response with timestamp
+- HTTP communication between Node.js and Forst
+- JSON-based low-overhead communication
+- Health checks and error handling
+- Running Forst test files via HTTP API
 
-### 2. Error Handling (`error_handling.ft`)
+## Running the Tests
 
-- **Goal**: Test validation failures and error responses
-- **Input**: Invalid value (15)
-- **Expected**: Validation error response
+### Prerequisites
 
-### 3. Type Safety (`type_safety.ft`)
+1. Make sure you have Go installed and the Forst compiler built
+2. Ensure you're in the sidecar directory: `cd examples/in/rfc/sidecar`
 
-- **Goal**: Demonstrate shape definitions and type generation
-- **Input**: User query
-- **Expected**: User object with validation
-
-## Running Tests
-
-### Direct Forst Tests
+### Option 1: Using npm scripts
 
 ```bash
-cd examples/in/rfc/sidecar/tests
-npx ts-node runner.ts
+# Start the Forst development server
+npm run dev:server
+
+# In another terminal, run the tests
+npm run test:sidecar
 ```
 
-### HTTP Sidecar Tests
+### Option 2: Manual setup
 
 ```bash
-# Terminal 1: Start server
-cd examples/in/rfc/sidecar/tests
-npx ts-node server.ts
+# Start the Forst HTTP server
+./start-forst-server.sh
 
-# Terminal 2: Run client tests
-npx ts-node client.ts
+# In another terminal, run the tests
+npx tsx tests/runner.ts
 ```
 
-## Expected Results
+### Option 3: Using concurrently (starts both server and tests)
 
-- **Test 1**: Should return `{"echo": "hello world", "timestamp": 1234567890}`
-- **Test 2**: Should return validation error for value 15
-- **Test 3**: Should return user object with id, name, and age
+```bash
+npm run dev
+```
 
-All tests are minimal and require no external dependencies beyond Node.js standard library.
+## Test Files
+
+- `basic_communication.ft`: Tests basic echo functionality
+- `type_safety.ft`: Tests type safety and validation
+
+## HTTP API Endpoints
+
+The Forst HTTP server provides the following endpoints:
+
+- `GET /health`: Health check endpoint
+- `POST /run`: Run a Forst test file
+- `POST /compile`: Compile a Forst file
+
+### Example Usage
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Run a test file
+curl -X POST http://localhost:8080/run \
+  -H "Content-Type: application/json" \
+  -d '{"action": "run", "testFile": "/path/to/test.ft"}'
+```
+
+## Architecture
+
+The integration follows the sidecar pattern described in the RFC:
+
+1. **Node.js Test Runner**: Sends HTTP requests to Forst server
+2. **Forst HTTP Server**: Compiles and runs Forst files
+3. **JSON Communication**: Low-overhead JSON-based communication
+4. **Error Handling**: Proper error propagation and health checks
+
+## Troubleshooting
+
+### Server not starting
+
+- Ensure Go is installed and `go` command is available
+- Check that the Forst binary can be built: `cd ../../../../../forst && go build -o bin/forst cmd/forst/main.go`
+
+### Connection refused
+
+- Make sure the server is running on port 8080
+- Check that no other process is using port 8080
+- Verify the server started successfully by checking the logs
+
+### Test failures
+
+- Check the Forst server logs for compilation errors
+- Verify the test files exist and are valid Forst code
+- Ensure the server has proper permissions to read the test files

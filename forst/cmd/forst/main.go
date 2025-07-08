@@ -2,9 +2,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"forst/cmd/forst/compiler"
-	"forst/internal/logger"
 	"os"
 
 	logrus "github.com/sirupsen/logrus"
@@ -28,13 +28,22 @@ func main() {
 	}
 
 	// Create logger with appropriate level based on build type
-	// In release builds (when version != "dev"), use INFO level
-	// In development builds, use DEBUG level
 	var log *logrus.Logger
 	if Version == "dev" {
-		log = logger.NewWithLevel(logrus.DebugLevel)
+		log = logrus.New()
+		log.SetLevel(logrus.DebugLevel)
 	} else {
-		log = logger.NewWithLevel(logrus.InfoLevel)
+		log = logrus.New()
+		log.SetLevel(logrus.InfoLevel)
+	}
+
+	// Check if we should start dev server
+	if len(os.Args) > 1 && os.Args[1] == "dev" {
+		port := flag.String("port", "8080", "Port to listen on")
+		flag.Parse()
+
+		StartDevServer(*port, log)
+		return
 	}
 
 	args := compiler.ParseArgs(log)

@@ -14,7 +14,10 @@
     "zod": "^3.22.4"
   },
   "scripts": {
-    "test": "tsx index.ts"
+    "test": "tsx index.ts",
+    "test:sidecar": "tsx tests/runner.ts",
+    "dev:server": "./start-forst-server.sh",
+    "dev": "concurrently \"npm run dev:server\" \"npm run test:sidecar\""
   },
   "keywords": [],
   "author": "",
