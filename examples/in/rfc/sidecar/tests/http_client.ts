@@ -1,7 +1,8 @@
-interface HTTPRequest {
-  action: string;
-  testFile?: string;
+interface InvokeRequest {
+  package: string;
+  function: string;
   args?: any;
+  streaming?: boolean;
 }
 
 interface HTTPResponse {
@@ -30,12 +31,17 @@ export class ForstHTTPClient {
   }
 
   async runTest(testFile: string): Promise<HTTPResponse> {
-    const request: HTTPRequest = {
-      action: "run",
-      testFile: testFile,
+    // For now, we'll use a simple test function
+    // In the future, this could be more sophisticated
+    const request: InvokeRequest = {
+      package: "test",
+      function: "RunTest",
+      args: {
+        testFile: testFile,
+      },
     };
 
-    const response = await fetch(`${this.baseUrl}/run`, {
+    const response = await fetch(`${this.baseUrl}/invoke`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -53,12 +59,16 @@ export class ForstHTTPClient {
   }
 
   async compileFile(testFile: string): Promise<HTTPResponse> {
-    const request: HTTPRequest = {
-      action: "compile",
-      testFile: testFile,
+    // For now, we'll use a simple compile function
+    const request: InvokeRequest = {
+      package: "test",
+      function: "CompileFile",
+      args: {
+        testFile: testFile,
+      },
     };
 
-    const response = await fetch(`${this.baseUrl}/compile`, {
+    const response = await fetch(`${this.baseUrl}/invoke`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -76,4 +86,4 @@ export class ForstHTTPClient {
   }
 }
 
-export type { HTTPRequest, HTTPResponse };
+export type { InvokeRequest, HTTPResponse };

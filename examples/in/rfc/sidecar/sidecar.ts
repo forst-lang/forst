@@ -20,7 +20,7 @@ const inputFile = resolve(__dirname, "../../../in/input_validation.skip.ft");
 
 async function handle(
   req: IncomingMessage,
-  res: ServerResponse,
+  res: ServerResponse
 ): Promise<void> {
   const spawnOpts = {
     stdio: ["pipe", "pipe", "pipe"], // Capture stderr
@@ -58,7 +58,7 @@ async function handle(
   if (!forstProc.stdin) {
     res.statusCode = 500;
     res.end(
-      JSON.stringify({ success: false, error: "Failed to create stdin pipe" }),
+      JSON.stringify({ success: false, error: "Failed to create stdin pipe" })
     );
     return;
   }
@@ -69,7 +69,7 @@ async function handle(
   if (!forstProc.stdout) {
     res.statusCode = 500;
     res.end(
-      JSON.stringify({ success: false, error: "Failed to create stdout pipe" }),
+      JSON.stringify({ success: false, error: "Failed to create stdout pipe" })
     );
     return;
   }
@@ -80,7 +80,7 @@ async function handle(
   if (!forstProc.stderr) {
     res.statusCode = 500;
     res.end(
-      JSON.stringify({ success: false, error: "Failed to create stderr pipe" }),
+      JSON.stringify({ success: false, error: "Failed to create stderr pipe" })
     );
     return;
   }
@@ -101,7 +101,7 @@ async function handle(
         JSON.stringify({
           success: false,
           error: "Process terminated unexpectedly",
-        }),
+        })
       );
     }
 
@@ -117,7 +117,7 @@ async function handle(
           success: false,
           error: "Validation failed",
           details: errorOutput || output,
-        }),
+        })
       );
     }
 
@@ -140,7 +140,7 @@ async function handle(
           success: false,
           error: "Failed to parse validation result",
           details: errorOutput || output,
-        }),
+        })
       );
     }
   });

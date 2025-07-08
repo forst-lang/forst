@@ -9,8 +9,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORST_DIR="$(cd "$SCRIPT_DIR/../../../../../forst" && pwd)"
 
+# Use PORT environment variable or default to 8080
+PORT="${PORT:-8080}"
+
 echo "Starting Forst development server..."
 echo "Forst directory: $FORST_DIR"
+echo "Port: $PORT"
 
 # Check if forst binary exists
 if [ ! -f "$FORST_DIR/bin/forst" ]; then
@@ -20,5 +24,5 @@ if [ ! -f "$FORST_DIR/bin/forst" ]; then
 fi
 
 # Start the development server
-echo "Starting Forst HTTP server on port 8080..."
-"$FORST_DIR/bin/forst" dev -port=8080 
+echo "Starting Forst HTTP server on port $PORT..."
+"$FORST_DIR/bin/forst" dev -port="$PORT" 

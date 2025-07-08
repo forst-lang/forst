@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"forst/cmd/forst/compiler"
 	"os"
+	"path/filepath"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -39,10 +40,23 @@ func main() {
 
 	// Check if we should start dev server
 	if len(os.Args) > 1 && os.Args[1] == "dev" {
-		port := flag.String("port", "8080", "Port to listen on")
-		flag.Parse()
+		// Parse flags for dev server
+		devFlags := flag.NewFlagSet("dev", flag.ExitOnError)
+		port := devFlags.String("port", "8080", "Port to listen on")
+		configPath := devFlags.String("config", "", "Path to configuration file")
+		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
+		
+		// Parse the dev subcommand flags
+		devFlags.Parse(os.Args[2:])
 
-		StartDevServer(*port, log)
+		// Resolve root directory to absolute path
+		absRootDir, err := filepath.Abs(*rootDir)
+		if err != nil {
+			log.Errorf("Failed to resolve root directory: %v", err)
+			os.Exit(1)
+		}
+
+		StartDevServer(*port, log, *configPath, absRootDir)
 		return
 	}
 

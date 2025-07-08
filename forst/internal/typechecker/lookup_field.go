@@ -604,8 +604,8 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 // inferValueConstraintType attempts to infer the type from a Value constraint
 func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, fieldName string) (ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
-		"function":  "inferValueConstraintType",
-		"fieldName": fieldName,
+		"function":   "inferValueConstraintType",
+		"fieldName":  fieldName,
 		"constraint": fmt.Sprintf("%+v", constraint),
 	}).Debugf("Starting Value constraint type inference")
 
@@ -628,16 +628,16 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 	}
 	// Debug: print type of arg.Value and dereferenced value
 	tc.log.WithFields(logrus.Fields{
-		"function":  "inferValueConstraintType",
-		"fieldName": fieldName,
+		"function":     "inferValueConstraintType",
+		"fieldName":    fieldName,
 		"argValueType": fmt.Sprintf("%T", arg.Value),
-		"argValuePtr": fmt.Sprintf("%p", arg.Value),
+		"argValuePtr":  fmt.Sprintf("%p", arg.Value),
 	}).Debugf("Type of arg.Value before dereference")
 	value := *arg.Value // ValueNode interface
 	tc.log.WithFields(logrus.Fields{
-		"function":  "inferValueConstraintType",
-		"fieldName": fieldName,
-		"dereferencedType": fmt.Sprintf("%T", value),
+		"function":          "inferValueConstraintType",
+		"fieldName":         fieldName,
+		"dereferencedType":  fmt.Sprintf("%T", value),
 		"dereferencedValue": fmt.Sprintf("%+v", value),
 	}).Debugf("Type and value after dereferencing arg.Value")
 	switch v := value.(type) {
@@ -692,10 +692,10 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 					fieldType, err := tc.lookupFieldPath(baseType, parts[1:])
 					if err == nil {
 						tc.log.WithFields(logrus.Fields{
-						"function":  "inferValueConstraintType",
-						"fieldName": fieldName,
-						"fieldType": fieldType.Ident,
-					}).Debugf("Successfully inferred type from field access in Value constraint")
+							"function":  "inferValueConstraintType",
+							"fieldName": fieldName,
+							"fieldType": fieldType.Ident,
+						}).Debugf("Successfully inferred type from field access in Value constraint")
 						return fieldType, nil
 					} else {
 						tc.log.WithFields(logrus.Fields{

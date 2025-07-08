@@ -1,4 +1,4 @@
-package main
+package echo
 
 type EchoRequest = {
   message: String
@@ -9,16 +9,9 @@ type EchoResponse = {
   timestamp: Int
 }
 
-func echo(input EchoRequest) {
+func Echo(input EchoRequest) {
   return {
     echo: input.message,
     timestamp: 1234567890
   }
-}
-
-func main() {
-  echo({
-    message: "hello world"
-  })
-  println("echo function called successfully")
 } 

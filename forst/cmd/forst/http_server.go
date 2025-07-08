@@ -5,23 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
+	"sync"
 	"time"
 
 	"forst/cmd/forst/compiler"
+	"forst/internal/discovery"
+	"forst/internal/executor"
 
 	logrus "github.com/sirupsen/logrus"
 )
 
-// HTTPRequest represents a request from the Node.js client
-type HTTPRequest struct {
-	Action   string          `json:"action"`
-	TestFile string          `json:"testFile,omitempty"`
-	Args     json.RawMessage `json:"args,omitempty"`
+// InvokeRequest represents a request to call a Forst function
+type InvokeRequest struct {
+	Package   string          `json:"package"`
+	Function  string          `json:"function"`
+	Args      json.RawMessage `json:"args"`
+	Streaming bool            `json:"streaming,omitempty"`
 }
 
-// HTTPResponse represents a response to the Node.js client
+// HTTPResponse represents a response to the client
 type HTTPResponse struct {
 	Success bool            `json:"success"`
 	Output  string          `json:"output,omitempty"`
@@ -31,42 +33,64 @@ type HTTPResponse struct {
 
 // HTTPServer handles HTTP communication for Forst applications
 type HTTPServer struct {
-	port     string
-	server   *http.Server
-	compiler *compiler.Compiler
-	log      *logrus.Logger
+	port       string
+	server     *http.Server
+	compiler   *compiler.Compiler
+	log        *logrus.Logger
+	config     *ForstConfig
+	discoverer *discovery.Discoverer
+	executor   *executor.FunctionExecutor
+	functions  map[string]map[string]discovery.FunctionInfo
+	mu         sync.RWMutex
 }
 
 // NewHTTPServer creates a new HTTP server
-func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger) *HTTPServer {
+func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *HTTPServer {
+	discoverer := discovery.NewDiscoverer(rootDir, log, config)
+	executor := executor.NewFunctionExecutor(rootDir, comp, log, config)
+
 	return &HTTPServer{
-		port:     port,
-		compiler: comp,
-		log:      log,
+		port:       port,
+		compiler:   comp,
+		log:        log,
+		config:     config,
+		discoverer: discoverer,
+		executor:   executor,
+		functions:  make(map[string]map[string]discovery.FunctionInfo),
 	}
 }
 
 // Start starts the HTTP server
 func (s *HTTPServer) Start() error {
+	// Discover functions on startup
+	if err := s.discoverFunctions(); err != nil {
+		s.log.Warnf("Failed to discover functions on startup: %v", err)
+	}
+
 	mux := http.NewServeMux()
 
 	// Health check endpoint
 	mux.HandleFunc("/health", s.handleHealth)
-	
-	// Run test endpoint
-	mux.HandleFunc("/run", s.handleRun)
-	
-	// Compile endpoint
-	mux.HandleFunc("/compile", s.handleCompile)
+
+	// Function discovery endpoint
+	mux.HandleFunc("/functions", s.handleFunctions)
+
+	// Function invocation endpoint
+	mux.HandleFunc("/invoke", s.handleInvoke)
 
 	s.server = &http.Server{
 		Addr:         ":" + s.port,
 		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  time.Duration(s.config.Server.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(s.config.Server.WriteTimeout) * time.Second,
 	}
 
 	s.log.Infof("HTTP server listening on port %s", s.port)
+	s.log.Info("Available endpoints:")
+	s.log.Info("  GET  /health     - Health check")
+	s.log.Info("  GET  /functions  - Discover available functions")
+	s.log.Info("  POST /invoke     - Invoke a Forst function")
+
 	return s.server.ListenAndServe()
 }
 
@@ -75,6 +99,21 @@ func (s *HTTPServer) Stop() error {
 	if s.server != nil {
 		return s.server.Close()
 	}
+	return nil
+}
+
+// discoverFunctions discovers all available functions
+func (s *HTTPServer) discoverFunctions() error {
+	functions, err := s.discoverer.DiscoverFunctions()
+	if err != nil {
+		return fmt.Errorf("failed to discover functions: %v", err)
+	}
+
+	s.mu.Lock()
+	s.functions = functions
+	s.mu.Unlock()
+
+	s.log.Infof("Discovered %d packages with public functions", len(functions))
 	return nil
 }
 
@@ -93,137 +132,129 @@ func (s *HTTPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.sendJSONResponse(w, response)
 }
 
-// handleRun handles run requests
-func (s *HTTPServer) handleRun(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+// handleFunctions handles function discovery requests
+func (s *HTTPServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var request HTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		s.sendError(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
+	// Refresh function discovery
+	if err := s.discoverFunctions(); err != nil {
+		s.sendError(w, fmt.Sprintf("Failed to discover functions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	if request.TestFile == "" {
-		s.sendError(w, "Test file is required", http.StatusBadRequest)
-		return
+	s.mu.RLock()
+	functions := make([]discovery.FunctionInfo, 0)
+	for _, pkgFuncs := range s.functions {
+		for _, fn := range pkgFuncs {
+			functions = append(functions, fn)
+		}
 	}
-
-	// Run the test file and capture output
-	output, errorOutput, err := s.runTestFile(request.TestFile)
-	if err != nil {
-		s.sendError(w, fmt.Sprintf("Failed to run test: %v", err), http.StatusInternalServerError)
-		return
-	}
+	s.mu.RUnlock()
 
 	response := HTTPResponse{
 		Success: true,
-		Output:  output,
-		Error:   errorOutput,
+		Output:  fmt.Sprintf("Found %d public functions", len(functions)),
+	}
+
+	// Include function list in result
+	if resultData, err := json.Marshal(functions); err == nil {
+		response.Result = resultData
 	}
 
 	s.sendJSONResponse(w, response)
 }
 
-// handleCompile handles compile requests
-func (s *HTTPServer) handleCompile(w http.ResponseWriter, r *http.Request) {
+// handleInvoke handles function invocation requests
+func (s *HTTPServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var request HTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	var req InvokeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.sendError(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	if request.TestFile == "" {
-		s.sendError(w, "Test file is required", http.StatusBadRequest)
+	// Validate function exists
+	s.mu.RLock()
+	pkgFuncs, ok := s.functions[req.Package]
+	if !ok {
+		s.mu.RUnlock()
+		s.sendError(w, fmt.Sprintf("Package %s not found", req.Package), http.StatusNotFound)
 		return
 	}
 
-	// Compile the test file
-	err := s.compileFile(request.TestFile)
-	if err != nil {
-		s.sendError(w, fmt.Sprintf("Compilation failed: %v", err), http.StatusInternalServerError)
+	fn, ok := pkgFuncs[req.Function]
+	s.mu.RUnlock()
+	if !ok {
+		s.sendError(w, fmt.Sprintf("Function %s not found in package %s", req.Function, req.Package), http.StatusNotFound)
 		return
 	}
 
-	response := HTTPResponse{
-		Success: true,
-		Output:  "Compilation successful",
+	// Check streaming compatibility
+	if req.Streaming && !fn.SupportsStreaming {
+		s.sendError(w, fmt.Sprintf("Function %s does not support streaming", req.Function), http.StatusBadRequest)
+		return
 	}
 
-	s.sendJSONResponse(w, response)
-}
+	// Set up streaming if requested
+	if req.Streaming {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Transfer-Encoding", "chunked")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			s.sendError(w, "Streaming not supported by server", http.StatusInternalServerError)
+			return
+		}
 
-// compileFile compiles a Forst file
-func (s *HTTPServer) compileFile(testFile string) error {
-	// Create a new compiler instance for this file
-	args := compiler.Args{
-		FilePath: testFile,
+		// Execute streaming function
+		results, err := s.executor.ExecuteStreamingFunction(r.Context(), req.Package, req.Function, req.Args)
+		if err != nil {
+			s.sendError(w, fmt.Sprintf("Streaming execution failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Stream results back to client
+		encoder := json.NewEncoder(w)
+		for result := range results {
+			if err := encoder.Encode(result); err != nil {
+				s.log.Errorf("Failed to encode streaming result: %v", err)
+				return
+			}
+			flusher.Flush()
+		}
+	} else {
+		// Execute function normally
+		result, err := s.executor.ExecuteFunction(req.Package, req.Function, req.Args)
+		if err != nil {
+			s.sendError(w, fmt.Sprintf("Function execution failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		response := HTTPResponse{
+			Success: result.Success,
+			Output:  result.Output,
+			Error:   result.Error,
+			Result:  result.Result,
+		}
+		s.sendJSONResponse(w, response)
 	}
-	
-	comp := compiler.New(args, s.log)
-	
-	// Compile the file
-	_, err := comp.CompileFile()
-	return err
-}
-
-// runTestFile runs a test file and captures output
-func (s *HTTPServer) runTestFile(testFile string) (string, string, error) {
-	// First compile the file
-	if err := s.compileFile(testFile); err != nil {
-		return "", "", fmt.Errorf("compilation failed: %v", err)
-	}
-
-	// Then run it using the existing compiler infrastructure
-	return s.executeTestFile(testFile)
-}
-
-// executeTestFile executes a test file and captures its output
-func (s *HTTPServer) executeTestFile(testFile string) (string, string, error) {
-	// Create a temporary output file
-	args := compiler.Args{
-		FilePath: testFile,
-	}
-	
-	comp := compiler.New(args, s.log)
-	
-	// Compile to get Go code
-	goCode, err := comp.CompileFile()
-	if err != nil {
-		return "", "", fmt.Errorf("compilation failed: %v", err)
-	}
-
-	// Create temporary file
-	outputPath, err := compiler.CreateTempOutputFile(*goCode)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create temp file: %v", err)
-	}
-	defer os.RemoveAll(filepath.Dir(outputPath))
-
-	// Run the compiled Go code
-	cmd := exec.Command("go", "run", outputPath)
-	output, err := cmd.CombinedOutput()
-	
-	if err != nil {
-		return "", string(output), err
-	}
-
-	return string(output), "", nil
 }
 
 // sendJSONResponse sends a JSON response to the client
 func (s *HTTPServer) sendJSONResponse(w http.ResponseWriter, response HTTPResponse) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if s.config.Server.CORS {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	}
 
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(response); err != nil {
@@ -243,19 +274,49 @@ func (s *HTTPServer) sendError(w http.ResponseWriter, errorMsg string, statusCod
 }
 
 // StartDevServer is the entry point for the dev server command
-func StartDevServer(port string, log *logrus.Logger) {
-	args := compiler.Args{}
-	comp := compiler.New(args, log)
-	server := NewHTTPServer(port, comp, log)
+func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string) {
+	// Load configuration
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		log.Errorf("Failed to load configuration: %v", err)
+		os.Exit(1)
+	}
 
-	log.Infof("Starting Forst dev server on port %s", port)
-	log.Info("Available endpoints:")
-	log.Info("  GET  /health   - Health check")
-	log.Info("  POST /run       - Run a Forst test file")
-	log.Info("  POST /compile   - Compile a Forst file")
+	// Validate configuration
+	if err := config.Validate(); err != nil {
+		log.Errorf("Invalid configuration: %v", err)
+		os.Exit(1)
+	}
+
+	// Override port if provided
+	if port != "" {
+		config.Server.Port = port
+	}
+
+	// Set log level based on config
+	switch config.Dev.LogLevel {
+	case "debug":
+		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	}
+
+	// Create compiler with config
+	args := config.ToCompilerArgs()
+	comp := compiler.New(args, log)
+
+	// Create server
+	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
+
+	log.Infof("Starting Forst dev server on port %s", config.Server.Port)
+	log.Infof("Root directory: %s", rootDir)
 
 	if err := server.Start(); err != nil {
 		log.Errorf("HTTP server error: %v", err)
 		os.Exit(1)
 	}
-} 
+}

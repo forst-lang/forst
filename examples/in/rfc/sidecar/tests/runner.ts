@@ -9,7 +9,8 @@ interface TestResult {
   errorOutput?: string;
 }
 
-const forstServerUrl = "http://localhost:8080";
+// Get port from environment or default to 8080
+const forstServerUrl = `http://localhost:${process.env.PORT || 8080}`;
 const testsDir = __dirname;
 
 async function runTest(testFile: string): Promise<TestResult> {
@@ -62,8 +63,26 @@ async function main() {
       "  2. Or manually: cd ../../../../../forst && ./bin/forst dev -port=8080"
     );
     console.error("");
-    console.error("The server will be available at: http://localhost:8080");
+    console.error(`The server will be available at: ${forstServerUrl}`);
     process.exit(1);
+  }
+
+  // Fetch and print available functions
+  try {
+    const resp = await fetch(`${forstServerUrl}/functions`);
+    const data = await resp.json();
+    if (data && data.result) {
+      const functions = Array.isArray(data.result) ? data.result : [];
+      console.log("Available Forst functions:");
+      for (const fn of functions) {
+        console.log(
+          `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
+        );
+      }
+      console.log("");
+    }
+  } catch (err) {
+    console.warn("Could not fetch /functions endpoint:", err);
   }
 
   console.log("✅ Forst HTTP server is healthy\n");
