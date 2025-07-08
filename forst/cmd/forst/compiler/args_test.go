@@ -19,6 +19,7 @@ func TestParseArgs(t *testing.T) {
 			want: Args{
 				Command:  "run",
 				FilePath: "test.ft",
+				LogLevel: "info", // default value
 			},
 			wantHelp: false,
 		},
@@ -28,16 +29,17 @@ func TestParseArgs(t *testing.T) {
 			want: Args{
 				Command:  "build",
 				FilePath: "test.ft",
+				LogLevel: "info", // default value
 			},
 			wantHelp: false,
 		},
 		{
-			name: "run with debug flag",
-			args: []string{"forst", "run", "-debug", "test.ft"},
+			name: "run with loglevel flag",
+			args: []string{"forst", "run", "-loglevel", "debug", "test.ft"},
 			want: Args{
 				Command:  "run",
 				FilePath: "test.ft",
-				Debug:    true,
+				LogLevel: "debug",
 			},
 			wantHelp: false,
 		},
@@ -49,6 +51,29 @@ func TestParseArgs(t *testing.T) {
 				FilePath:   "test.ft",
 				Watch:      true,
 				OutputPath: "output.go",
+				LogLevel:   "info", // default value
+			},
+			wantHelp: false,
+		},
+		{
+			name: "run with report phases",
+			args: []string{"forst", "run", "-report-phases", "test.ft"},
+			want: Args{
+				Command:      "run",
+				FilePath:     "test.ft",
+				LogLevel:     "info", // default value
+				ReportPhases: true,
+			},
+			wantHelp: false,
+		},
+		{
+			name: "run with report memory usage",
+			args: []string{"forst", "run", "-report-memory-usage", "test.ft"},
+			want: Args{
+				Command:           "run",
+				FilePath:          "test.ft",
+				LogLevel:          "info", // default value
+				ReportMemoryUsage: true,
 			},
 			wantHelp: false,
 		},
@@ -93,14 +118,20 @@ func TestParseArgs(t *testing.T) {
 			if got.FilePath != tt.want.FilePath {
 				t.Errorf("ParseArgs().filePath = %v, want %v", got.FilePath, tt.want.FilePath)
 			}
-			if got.Debug != tt.want.Debug {
-				t.Errorf("ParseArgs().debug = %v, want %v", got.Debug, tt.want.Debug)
+			if got.LogLevel != tt.want.LogLevel {
+				t.Errorf("ParseArgs().logLevel = %v, want %v", got.LogLevel, tt.want.LogLevel)
 			}
 			if got.Watch != tt.want.Watch {
 				t.Errorf("ParseArgs().watch = %v, want %v", got.Watch, tt.want.Watch)
 			}
 			if got.OutputPath != tt.want.OutputPath {
 				t.Errorf("ParseArgs().outputPath = %v, want %v", got.OutputPath, tt.want.OutputPath)
+			}
+			if got.ReportPhases != tt.want.ReportPhases {
+				t.Errorf("ParseArgs().reportPhases = %v, want %v", got.ReportPhases, tt.want.ReportPhases)
+			}
+			if got.ReportMemoryUsage != tt.want.ReportMemoryUsage {
+				t.Errorf("ParseArgs().reportMemoryUsage = %v, want %v", got.ReportMemoryUsage, tt.want.ReportMemoryUsage)
 			}
 		})
 	}

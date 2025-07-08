@@ -282,6 +282,9 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 		os.Exit(1)
 	}
 
+	log.Infof("Loaded config: %+v", config)
+	log.Infof("Config log level: %s", config.Dev.LogLevel)
+
 	// Validate configuration
 	if err := config.Validate(); err != nil {
 		log.Errorf("Invalid configuration: %v", err)
@@ -297,12 +300,16 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 	switch config.Dev.LogLevel {
 	case "debug":
 		log.SetLevel(logrus.DebugLevel)
+		log.Debug("Log level set to DEBUG")
 	case "info":
 		log.SetLevel(logrus.InfoLevel)
+		log.Debug("Log level set to INFO")
 	case "warn":
 		log.SetLevel(logrus.WarnLevel)
+		log.Debug("Log level set to WARN")
 	case "error":
 		log.SetLevel(logrus.ErrorLevel)
+		log.Debug("Log level set to ERROR")
 	}
 
 	// Create compiler with config

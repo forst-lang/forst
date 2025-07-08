@@ -45,7 +45,7 @@ func main() {
 		port := devFlags.String("port", "8080", "Port to listen on")
 		configPath := devFlags.String("config", "", "Path to configuration file")
 		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
-		
+
 		// Parse the dev subcommand flags
 		devFlags.Parse(os.Args[2:])
 
@@ -69,10 +69,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args.Trace {
+	// Set log level based on args.LogLevel
+	switch args.LogLevel {
+	case "trace":
 		log.SetLevel(logrus.TraceLevel)
-	} else if args.Debug {
+	case "debug":
 		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	default:
+		log.SetLevel(logrus.InfoLevel)
 	}
 
 	log.SetFormatter(&logrus.TextFormatter{

@@ -1,4 +1,4 @@
-package main
+package typesafety
 
 type User = {
   id: String,
@@ -23,8 +23,7 @@ func getUser(query UserQuery) {
   }
 }
 
-func main() {
+func GetUsername() {
   user := getUser({ id: "1" })
-  println(user.id)
-  println(user.name)
-} 
+  return user.name
+}

@@ -1,7 +1,8 @@
 {
   "compiler": {
-    "debug": false,
-    "trace": false,
+    "target": "go",
+    "optimization": "debug",
+    "strict": false,
     "reportPhases": false,
     "reportMemoryUsage": false
   },
@@ -12,7 +13,7 @@
     "cors": true
   },
   "dev": {
-    "logLevel": "info",
+    "logLevel": "debug",
     "watch": false
   },
   "files": {

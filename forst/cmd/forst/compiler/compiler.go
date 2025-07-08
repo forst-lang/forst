@@ -91,7 +91,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter := getMemStats()
 	c.logMemUsage("lexical analysis", memBefore, memAfter)
 
-	if c.Args.Debug {
+	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
 		c.debugPrintTokens(tokens)
 	}
 
@@ -108,7 +108,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("syntax analysis", memBefore, memAfter)
 
-	if c.Args.Debug {
+	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
 		c.debugPrintForstAST(forstNodes)
 	}
 
@@ -128,7 +128,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("semantic analysis", memBefore, memAfter)
 
-	if c.Args.Debug {
+	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
 		c.debugPrintTypeInfo(checker)
 	}
 
@@ -142,7 +142,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 		return nil, err
 	}
 
-	if c.Args.Debug {
+	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
 		c.debugPrintGoAST(goAST)
 	}
 	// Generate Go code
@@ -158,7 +158,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 		if err := os.WriteFile(c.Args.OutputPath, []byte(goCode), 0644); err != nil {
 			return nil, fmt.Errorf("error writing output file: %v", err)
 		}
-	} else if c.Args.Trace {
+	} else if c.Args.LogLevel == "trace" {
 		c.log.Info("Generated Go code:")
 		fmt.Println(goCode)
 	}

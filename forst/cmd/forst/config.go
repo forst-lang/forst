@@ -40,12 +40,6 @@ type CompilerConfig struct {
 	// Optimization level (debug, release)
 	Optimization string `json:"optimization"`
 
-	// Enable debug output
-	Debug bool `json:"debug"`
-
-	// Enable trace output
-	Trace bool `json:"trace"`
-
 	// Report compilation phases
 	ReportPhases bool `json:"reportPhases"`
 
@@ -128,8 +122,6 @@ func DefaultConfig() *ForstConfig {
 		Compiler: CompilerConfig{
 			Target:            "go",
 			Optimization:      "debug",
-			Debug:             false,
-			Trace:             false,
 			ReportPhases:      false,
 			ReportMemoryUsage: false,
 			Strict:            false,
@@ -304,8 +296,7 @@ func (c *ForstConfig) matchesPattern(path, pattern string) bool {
 // ToCompilerArgs converts the config to compiler arguments
 func (c *ForstConfig) ToCompilerArgs() compiler.Args {
 	return compiler.Args{
-		Debug:             c.Compiler.Debug,
-		Trace:             c.Compiler.Trace,
+		LogLevel:          c.Dev.LogLevel,
 		ReportPhases:      c.Compiler.ReportPhases,
 		ReportMemoryUsage: c.Compiler.ReportMemoryUsage,
 	}
@@ -319,7 +310,7 @@ func (c *ForstConfig) Validate() error {
 	}
 
 	// Validate log level
-	validLogLevels := []string{"debug", "info", "warn", "error"}
+	validLogLevels := []string{"debug", "info", "warn", "error", "trace"}
 	logLevelValid := false
 	for _, level := range validLogLevels {
 		if c.Dev.LogLevel == level {

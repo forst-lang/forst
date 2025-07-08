@@ -19,8 +19,7 @@ type Args struct {
 	Command           string
 	FilePath          string
 	OutputPath        string
-	Debug             bool
-	Trace             bool
+	LogLevel          string
 	Watch             bool
 	ReportMemoryUsage bool
 	ReportPhases      bool
@@ -52,8 +51,7 @@ func ParseArgs(log *logrus.Logger) Args {
 
 	// Create a new FlagSet for the command
 	flags := flag.NewFlagSet(command, flag.ExitOnError)
-	debug := flags.Bool("debug", false, "Enable debug output")
-	trace := flags.Bool("trace", false, "Enable trace output")
+	logLevel := flags.String("loglevel", "info", "Log level (debug, info, warn, error, trace)")
 	watch := flags.Bool("watch", false, "Watch file for changes")
 	output := flags.String("o", "", "Output file path")
 	reportMemoryUsage := flags.Bool("report-memory-usage", false, "Report memory usage")
@@ -91,8 +89,7 @@ func ParseArgs(log *logrus.Logger) Args {
 		Command:           command,
 		FilePath:          args[0],
 		OutputPath:        *output,
-		Debug:             *debug,
-		Trace:             *trace,
+		LogLevel:          *logLevel,
 		Watch:             *watch,
 		ReportMemoryUsage: *reportMemoryUsage,
 		ReportPhases:      *reportPhases,
@@ -106,14 +103,13 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  run     Compile and run the Forst program")
 	log.Infof("  build   Compile the Forst program without running")
 	log.Infof("\nFlags:")
-	log.Infof("  -debug               Enable debug output")
-	log.Infof("  -trace               Enable trace output")
-	log.Infof("  -watch               Watch file for changes (run only)")
-	log.Infof("  -o <path>            Output file path")
-	log.Infof("  -report-memory-usage Report memory usage")
-	log.Infof("  -report-phases       Report when compilation phases start")
-	log.Infof("  -help                Show this help message")
-	log.Infof("  -version             Show version information")
+	log.Infof("  -loglevel <level>       Log level (debug, info, warn, error, trace)")
+	log.Infof("  -watch                  Watch file for changes (run only)")
+	log.Infof("  -o <path>               Output file path")
+	log.Infof("  -report-memory-usage    Report memory usage")
+	log.Infof("  -report-phases          Report when phases start")
+	log.Infof("  -help                   Show this help message")
+	log.Infof("  -version                Show version information")
 }
 
 func printVersion(log *logrus.Logger) {

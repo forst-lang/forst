@@ -3,7 +3,6 @@ package discovery
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -72,21 +71,21 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	// Process each file
 	for _, filePath := range ftFiles {
-		packageName := d.extractPackageName(filePath)
-
-		fileFunctions, err := d.discoverFunctionsInFile(filePath, packageName)
+		fileFunctions, err := d.discoverFunctionsInFile(filePath)
 		if err != nil {
 			d.log.Warnf("Failed to discover functions in %s: %v", filePath, err)
 			continue
 		}
 
 		if len(fileFunctions) > 0 {
-			if functions[packageName] == nil {
-				functions[packageName] = make(map[string]FunctionInfo)
-			}
-
-			for name, fn := range fileFunctions {
-				functions[packageName][name] = fn
+			// Group functions by package name from AST
+			for packageName, pkgFuncs := range fileFunctions {
+				if functions[packageName] == nil {
+					functions[packageName] = make(map[string]FunctionInfo)
+				}
+				for name, fn := range pkgFuncs {
+					functions[packageName][name] = fn
+				}
 			}
 		}
 	}
@@ -103,24 +102,9 @@ func (d *Discoverer) findForstFiles() ([]string, error) {
 	return d.config.FindForstFiles(d.rootDir)
 }
 
-// extractPackageName extracts the package name from file path
-func (d *Discoverer) extractPackageName(filePath string) string {
-	relPath, err := filepath.Rel(d.rootDir, filePath)
-	if err != nil {
-		return "unknown"
-	}
-
-	dir := filepath.Dir(relPath)
-	if dir == "." {
-		return "main"
-	}
-
-	return strings.ReplaceAll(dir, string(filepath.Separator), "_")
-}
-
 // discoverFunctionsInFile discovers public functions in a single Forst file
-func (d *Discoverer) discoverFunctionsInFile(filePath, packageName string) (map[string]FunctionInfo, error) {
-	functions := make(map[string]FunctionInfo)
+func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[string]FunctionInfo, error) {
+	functions := make(map[string]map[string]FunctionInfo)
 
 	// Read and parse the file
 	content, err := os.ReadFile(filePath)
@@ -139,7 +123,13 @@ func (d *Discoverer) discoverFunctionsInFile(filePath, packageName string) (map[
 		return nil, fmt.Errorf("failed to parse file: %v", err)
 	}
 
-	// Type check to get function signatures
+	// Extract package name and functions from AST
+	packageName := d.extractPackageNameFromAST(nodes)
+	if packageName == "" {
+		packageName = "main" // Default package name
+	}
+
+	// Type check to get function signatures (optional, don't fail if it errors)
 	tc := typechecker.New(logrus.New(), false)
 	if err := tc.CheckTypes(nodes); err != nil {
 		d.log.Debugf("Type checking failed for %s: %v", filePath, err)
@@ -147,14 +137,31 @@ func (d *Discoverer) discoverFunctionsInFile(filePath, packageName string) (map[
 	}
 
 	// Extract functions from AST nodes
-	d.extractFunctionsFromNodes(nodes, packageName, filePath, functions)
+	fileFunctions := make(map[string]FunctionInfo)
+	d.extractFunctionsFromNodes(nodes, packageName, filePath, fileFunctions)
+
+	if len(fileFunctions) > 0 {
+		functions[packageName] = fileFunctions
+	}
 
 	return functions, nil
 }
 
+// extractPackageNameFromAST extracts the package name from AST nodes
+func (d *Discoverer) extractPackageNameFromAST(nodes []ast.Node) string {
+	for _, node := range nodes {
+		if pkgNode, ok := node.(*ast.PackageNode); ok {
+			return string(pkgNode.Ident.ID)
+		}
+	}
+	return "" // No package declaration found
+}
+
 // extractFunctionsFromNodes extracts public functions from AST nodes
 func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
-	for _, node := range nodes {
+	d.log.Debugf("Processing %d AST nodes for package %s in file %s", len(nodes), packageName, filePath)
+	for i, node := range nodes {
+		d.log.Debugf("Processing node %d: %T", i, node)
 		d.extractFunctionsFromNode(node, packageName, filePath, functions)
 	}
 }
@@ -162,13 +169,15 @@ func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, fi
 // extractFunctionsFromNode extracts public functions from a single AST node
 func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
 	switch n := node.(type) {
-	case *ast.FunctionNode:
+	case ast.FunctionNode:
+		d.log.Debugf("Found function node: %s", n.Ident.ID)
 		// Check if function is public (starts with uppercase)
 		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
+			d.log.Debugf("Function %s is public (starts with uppercase)", n.Ident.ID)
 			fnInfo := FunctionInfo{
 				Package:           packageName,
 				Name:              string(n.Ident.ID),
-				SupportsStreaming: d.analyzeStreamingSupport(n),
+				SupportsStreaming: d.analyzeStreamingSupport(&n),
 				FilePath:          filePath,
 			}
 
@@ -191,7 +200,11 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 
 			functions[string(n.Ident.ID)] = fnInfo
 			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
+		} else {
+			d.log.Debugf("Function %s is private (starts with lowercase)", n.Ident.ID)
 		}
+	default:
+		d.log.Debugf("Node type %T is not a function", node)
 	}
 }
 
