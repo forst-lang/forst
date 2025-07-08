@@ -9,6 +9,8 @@ import (
 
 	"forst/cmd/forst/compiler"
 	"forst/internal/configiface"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 // ForstConfig represents the configuration for the Forst dev server
@@ -142,7 +144,7 @@ func DefaultConfig() *ForstConfig {
 		},
 		Files: FilesConfig{
 			Include:  []string{"**/*.ft"},
-			Exclude:  []string{"**/node_modules/**", "**/.git/**", "**/stream.ft", "**/test_*.ft", "**/*.skip.ft"},
+			Exclude:  []string{"**/node_modules/**", "**/.git/**"},
 			MaxDepth: 10,
 		},
 		Output: OutputConfig{
@@ -288,22 +290,15 @@ func (c *ForstConfig) matchesExcludePatterns(path string) bool {
 	return false
 }
 
-// matchesPattern checks if a file path matches a glob pattern
+// matchesPattern checks if a file path matches a glob pattern using doublestar
 func (c *ForstConfig) matchesPattern(path, pattern string) bool {
-	// Simple glob pattern matching
-	// This is a basic implementation - in production you might want to use a proper glob library
-
-	// Convert pattern to regex-like matching
-	pattern = strings.ReplaceAll(pattern, "**", ".*")
-	pattern = strings.ReplaceAll(pattern, "*", "[^/]*")
-	pattern = strings.ReplaceAll(pattern, "?", ".")
-
-	// Add start/end anchors
-	pattern = "^" + pattern + "$"
-
-	// Simple string matching for now
-	// In a real implementation, you'd use regex or a proper glob library
-	return strings.Contains(path, strings.ReplaceAll(pattern, ".*", ""))
+	// Use doublestar for proper glob pattern matching
+	matched, err := doublestar.Match(pattern, path)
+	if err != nil {
+		// If pattern is invalid, default to not matching
+		return false
+	}
+	return matched
 }
 
 // ToCompilerArgs converts the config to compiler arguments
