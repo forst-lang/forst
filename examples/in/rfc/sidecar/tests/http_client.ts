@@ -30,42 +30,12 @@ export class ForstHTTPClient {
     }
   }
 
-  async runTest(testFile: string): Promise<HTTPResponse> {
+  async runTest(fn: string): Promise<HTTPResponse> {
     // For now, we'll use a simple test function
     // In the future, this could be more sophisticated
     const request: InvokeRequest = {
       package: "test",
-      function: "RunTest",
-      args: {
-        testFile: testFile,
-      },
-    };
-
-    const response = await fetch(`${this.baseUrl}/invoke`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `HTTP request failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    return await response.json();
-  }
-
-  async compileFile(testFile: string): Promise<HTTPResponse> {
-    // For now, we'll use a simple compile function
-    const request: InvokeRequest = {
-      package: "test",
-      function: "CompileFile",
-      args: {
-        testFile: testFile,
-      },
+      function: fn,
     };
 
     const response = await fetch(`${this.baseUrl}/invoke`, {

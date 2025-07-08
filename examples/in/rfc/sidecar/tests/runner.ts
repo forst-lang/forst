@@ -11,36 +11,47 @@ interface TestResult {
 
 // Get port from environment or default to 8080
 const forstServerUrl = `http://localhost:${process.env.PORT || 8080}`;
-const testsDir = __dirname;
 
-async function runTest(testFile: string): Promise<TestResult> {
+async function runTest(test: {
+  fn: string;
+  want: {
+    success: boolean;
+    output: string;
+    error: string | null;
+    errorOutput: string | null;
+  };
+}): Promise<TestResult> {
+  const { fn, want } = test;
+
   const client = new ForstHTTPClient(forstServerUrl);
-  const testPath = join(testsDir, testFile);
 
   try {
     // First check if server is healthy
     const isHealthy = await client.healthCheck();
     if (!isHealthy) {
       return {
-        name: testFile,
+        name: fn,
         passed: false,
         error: "Forst HTTP server is not healthy",
       };
     }
 
     // Run the test via HTTP
-    const response = await client.runTest(testPath);
+    const response = await client.runTest(fn);
 
     return {
-      name: testFile,
-      passed: response.success,
+      name: fn,
+      passed:
+        response.success === want.success &&
+        response.output === want.output &&
+        response.error === want.error,
       output: response.output,
       error: response.error,
       errorOutput: response.error,
     };
   } catch (error) {
     return {
-      name: testFile,
+      name: fn,
       passed: false,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -86,8 +97,26 @@ async function main() {
   }
 
   console.log("✅ Forst HTTP server is healthy\n");
-
-  const tests = ["basic_communication.ft", "type_safety.ft"];
+  const tests = [
+    {
+      fn: "main.Echo",
+      want: {
+        success: true,
+        output: "Hello from Forst!",
+        error: null,
+        errorOutput: null,
+      },
+    },
+    {
+      fn: "typesafety.GetUserAge",
+      want: {
+        success: true,
+        output: "25",
+        error: null,
+        errorOutput: null,
+      },
+    },
+  ] as const;
 
   for (const test of tests) {
     const result = await runTest(test);

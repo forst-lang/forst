@@ -23,7 +23,7 @@ func getUser(query UserQuery) {
   }
 }
 
-func GetUsername() {
+func GetUserAge() {
   user := getUser({ id: "1" })
-  return user.name
+  return user.age
 }
