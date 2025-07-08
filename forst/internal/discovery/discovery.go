@@ -150,11 +150,11 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 // extractPackageNameFromAST extracts the package name from AST nodes
 func (d *Discoverer) extractPackageNameFromAST(nodes []ast.Node) string {
 	for _, node := range nodes {
-		if pkgNode, ok := node.(*ast.PackageNode); ok {
+		if pkgNode, ok := node.(ast.PackageNode); ok {
 			return string(pkgNode.Ident.ID)
 		}
 	}
-	return "" // No package declaration found
+	return ""
 }
 
 // extractFunctionsFromNodes extracts public functions from AST nodes

@@ -99,7 +99,7 @@ async function main() {
   console.log("✅ Forst HTTP server is healthy\n");
   const tests = [
     {
-      fn: "main.Echo",
+      fn: "echo.Echo",
       want: {
         success: true,
         output: "Hello from Forst!",

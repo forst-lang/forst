@@ -23,16 +23,16 @@ type InvokeRequest struct {
 	Streaming bool            `json:"streaming,omitempty"`
 }
 
-// HTTPResponse represents a response to the client
-type HTTPResponse struct {
+// DevServerResponse represents a response to the client
+type DevServerResponse struct {
 	Success bool            `json:"success"`
 	Output  string          `json:"output,omitempty"`
 	Error   string          `json:"error,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
 }
 
-// HTTPServer handles HTTP communication for Forst applications
-type HTTPServer struct {
+// DevServer handles HTTP communication for Forst applications
+type DevServer struct {
 	port       string
 	server     *http.Server
 	compiler   *compiler.Compiler
@@ -45,11 +45,11 @@ type HTTPServer struct {
 }
 
 // NewHTTPServer creates a new HTTP server
-func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *HTTPServer {
+func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *DevServer {
 	discoverer := discovery.NewDiscoverer(rootDir, log, config)
 	executor := executor.NewFunctionExecutor(rootDir, comp, log, config)
 
-	return &HTTPServer{
+	return &DevServer{
 		port:       port,
 		compiler:   comp,
 		log:        log,
@@ -61,7 +61,7 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 }
 
 // Start starts the HTTP server
-func (s *HTTPServer) Start() error {
+func (s *DevServer) Start() error {
 	// Discover functions on startup
 	if err := s.discoverFunctions(); err != nil {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
@@ -95,7 +95,7 @@ func (s *HTTPServer) Start() error {
 }
 
 // Stop stops the HTTP server
-func (s *HTTPServer) Stop() error {
+func (s *DevServer) Stop() error {
 	if s.server != nil {
 		return s.server.Close()
 	}
@@ -103,7 +103,7 @@ func (s *HTTPServer) Stop() error {
 }
 
 // discoverFunctions discovers all available functions
-func (s *HTTPServer) discoverFunctions() error {
+func (s *DevServer) discoverFunctions() error {
 	functions, err := s.discoverer.DiscoverFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to discover functions: %v", err)
@@ -118,13 +118,13 @@ func (s *HTTPServer) discoverFunctions() error {
 }
 
 // handleHealth handles health check requests
-func (s *HTTPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	response := HTTPResponse{
+	response := DevServerResponse{
 		Success: true,
 		Output:  "Forst HTTP server is healthy",
 	}
@@ -133,7 +133,7 @@ func (s *HTTPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleFunctions handles function discovery requests
-func (s *HTTPServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
+func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -154,7 +154,7 @@ func (s *HTTPServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
-	response := HTTPResponse{
+	response := DevServerResponse{
 		Success: true,
 		Output:  fmt.Sprintf("Found %d public functions", len(functions)),
 	}
@@ -168,7 +168,7 @@ func (s *HTTPServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleInvoke handles function invocation requests
-func (s *HTTPServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
+func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -236,7 +236,7 @@ func (s *HTTPServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		response := HTTPResponse{
+		response := DevServerResponse{
 			Success: result.Success,
 			Output:  result.Output,
 			Error:   result.Error,
@@ -247,7 +247,7 @@ func (s *HTTPServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 }
 
 // sendJSONResponse sends a JSON response to the client
-func (s *HTTPServer) sendJSONResponse(w http.ResponseWriter, response HTTPResponse) {
+func (s *DevServer) sendJSONResponse(w http.ResponseWriter, response DevServerResponse) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if s.config.Server.CORS {
@@ -263,8 +263,8 @@ func (s *HTTPServer) sendJSONResponse(w http.ResponseWriter, response HTTPRespon
 }
 
 // sendError sends an error response to the client
-func (s *HTTPServer) sendError(w http.ResponseWriter, errorMsg string, statusCode int) {
-	response := HTTPResponse{
+func (s *DevServer) sendError(w http.ResponseWriter, errorMsg string, statusCode int) {
+	response := DevServerResponse{
 		Success: false,
 		Error:   errorMsg,
 	}
