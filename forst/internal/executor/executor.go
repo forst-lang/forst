@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
 
 	"forst/cmd/forst/compiler"
@@ -30,12 +29,13 @@ func generateRandomString(length int) string {
 
 // FunctionExecutor handles execution of Forst functions
 type FunctionExecutor struct {
-	rootDir  string
-	compiler *compiler.Compiler
-	log      *logrus.Logger
-	cache    map[string]*CompiledFunction
-	mu       sync.RWMutex
-	config   configiface.ForstConfigIface
+	rootDir       string
+	compiler      *compiler.Compiler
+	log           *logrus.Logger
+	cache         map[string]*CompiledFunction
+	mu            sync.RWMutex
+	config        configiface.ForstConfigIface
+	moduleManager *GoModuleManager
 }
 
 // CompiledFunction represents a compiled Forst function
@@ -66,11 +66,12 @@ type StreamingResult struct {
 // NewFunctionExecutor creates a new function executor
 func NewFunctionExecutor(rootDir string, comp *compiler.Compiler, log *logrus.Logger, config configiface.ForstConfigIface) *FunctionExecutor {
 	return &FunctionExecutor{
-		rootDir:  rootDir,
-		compiler: comp,
-		log:      log,
-		cache:    make(map[string]*CompiledFunction),
-		config:   config,
+		rootDir:       rootDir,
+		compiler:      comp,
+		log:           log,
+		cache:         make(map[string]*CompiledFunction),
+		config:        config,
+		moduleManager: NewGoModuleManager(log),
 	}
 }
 
@@ -240,173 +241,34 @@ func (e *FunctionExecutor) getFunctionInfo(packageName, functionName string) (*d
 
 // createTempGoFile creates a temporary Go file that calls the specified function
 func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
-	// Create a temporary directory for the Go module
-	tempDir, err := os.MkdirTemp("", "forst-exec-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %v", err)
+	config := &ModuleConfig{
+		ModuleName:     fmt.Sprintf("exec-%s", generateRandomString(8)),
+		PackageName:    compiledFn.PackageName,
+		FunctionName:   compiledFn.FunctionName,
+		GoCode:         compiledFn.GoCode,
+		SupportsParams: len(compiledFn.Parameters) > 0,
+		Parameters:     compiledFn.Parameters,
+		Args:           args,
+		IsStreaming:    false,
 	}
 
-	// Generate unique module name with random string
-	randomSuffix := generateRandomString(8)
-	moduleName := fmt.Sprintf("forst-exec-%s", randomSuffix)
-	alias := fmt.Sprintf("%s_%s", compiledFn.PackageName, randomSuffix)
-
-	// Create go.mod file
-	goModPath := filepath.Join(tempDir, "go.mod")
-	goModContent := fmt.Sprintf("module %s\n\ngo 1.21\n", moduleName)
-	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write go.mod: %v", err)
-	}
-
-	// Use module import path for the package
-	importPkg := moduleName + "/" + compiledFn.PackageName
-
-	var mainGoContent string
-	if len(compiledFn.Parameters) > 0 {
-		param := compiledFn.Parameters[0]
-		paramType := param.Type
-		paramName := param.Name
-		mainGoContent = fmt.Sprintf(`package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	%s "%s"
-)
-
-func main() {
-	var %s %s.%s
-	if err := json.Unmarshal([]byte(os.Args[1]), &%s); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal args: %%v\n", err)
-		os.Exit(1)
-	}
-	result := %s.%s(%s)
-	output, _ := json.Marshal(result)
-	fmt.Printf("{\"result\":%s}\n", string(output))
-}
-`, alias, importPkg, paramName, alias, paramType, paramName, alias, compiledFn.FunctionName, paramName, "%s")
-	} else {
-		mainGoContent = fmt.Sprintf(`package main
-
-import (
-	"encoding/json"
-	"fmt"
-	%s "%s"
-)
-
-func main() {
-	result := %s.%s()
-	output, _ := json.Marshal(result)
-	fmt.Printf("{\"result\":%s}\n", string(output))
-}
-`, alias, importPkg, alias, compiledFn.FunctionName, "%s")
-	}
-
-	mainGoPath := filepath.Join(tempDir, "main.go")
-	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write main.go: %v", err)
-	}
-
-	// Create the package directory and file
-	packageDir := filepath.Join(tempDir, compiledFn.PackageName)
-	if err := os.MkdirAll(packageDir, 0755); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to create package dir: %v", err)
-	}
-
-	// Write the compiled Go code to the package file
-	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", compiledFn.PackageName))
-	if err := os.WriteFile(packageGoPath, []byte(compiledFn.GoCode), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write package file: %v", err)
-	}
-
-	// Debug: list tempDir contents
-	if e.log != nil {
-		entries, _ := os.ReadDir(tempDir)
-		for _, entry := range entries {
-			if entry.IsDir() {
-				e.log.Tracef("Temp dir contains subdir: %s", entry.Name())
-				subEntries, _ := os.ReadDir(filepath.Join(tempDir, entry.Name()))
-				for _, subEntry := range subEntries {
-					e.log.Tracef("  - %s/%s", entry.Name(), subEntry.Name())
-				}
-			} else {
-				e.log.Tracef("Temp dir contains file: %s", entry.Name())
-			}
-		}
-	}
-
-	return tempDir, nil
+	return e.moduleManager.CreateModule(config)
 }
 
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
 func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
-	// Create a temporary directory for the Go module
-	tempDir, err := os.MkdirTemp("", "forst-streaming-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %v", err)
+	config := &ModuleConfig{
+		ModuleName:     fmt.Sprintf("streaming-%s", generateRandomString(8)),
+		PackageName:    compiledFn.PackageName,
+		FunctionName:   compiledFn.FunctionName,
+		GoCode:         compiledFn.GoCode,
+		SupportsParams: len(compiledFn.Parameters) > 0,
+		Parameters:     compiledFn.Parameters,
+		Args:           args,
+		IsStreaming:    true,
 	}
 
-	// Generate unique module name with random string
-	randomSuffix := generateRandomString(8)
-	moduleName := fmt.Sprintf("forst-streaming-%s", randomSuffix)
-
-	// Create go.mod file
-	goModPath := filepath.Join(tempDir, "go.mod")
-	goModContent := fmt.Sprintf(`module %s
-
-go 1.21
-`, moduleName)
-	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write go.mod: %v", err)
-	}
-
-	// Create the main package file that imports and calls the streaming function
-	mainGoPath := filepath.Join(tempDir, "main.go")
-	mainGoContent := fmt.Sprintf(`package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-)
-
-func main() {
-	var args json.RawMessage = %s
-	
-	results := %s.%s(args)
-	for result := range results {
-		output, _ := json.Marshal(result)
-		fmt.Println(string(output))
-	}
-}
-`, string(args), compiledFn.PackageName, compiledFn.FunctionName)
-
-	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write main.go: %v", err)
-	}
-
-	// Create the package directory and file
-	packageDir := filepath.Join(tempDir, compiledFn.PackageName)
-	if err := os.MkdirAll(packageDir, 0755); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to create package dir: %v", err)
-	}
-
-	// Write the compiled Go code to the package file
-	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", compiledFn.PackageName))
-	if err := os.WriteFile(packageGoPath, []byte(compiledFn.GoCode), 0644); err != nil {
-		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write package file: %v", err)
-	}
-
-	return tempDir, nil
+	return e.moduleManager.CreateModule(config)
 }
 
 // executeGoCode executes Go code and returns the output
