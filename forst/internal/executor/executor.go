@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,16 @@ import (
 
 	logrus "github.com/sirupsen/logrus"
 )
+
+// generateRandomString generates a random string of specified length
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
 
 // FunctionExecutor handles execution of Forst functions
 type FunctionExecutor struct {
@@ -34,6 +45,7 @@ type CompiledFunction struct {
 	GoCode            string
 	FilePath          string
 	SupportsStreaming bool
+	Parameters        []discovery.ParameterInfo
 }
 
 // ExecutionResult represents the result of a function execution
@@ -66,19 +78,22 @@ func NewFunctionExecutor(rootDir string, comp *compiler.Compiler, log *logrus.Lo
 func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*ExecutionResult, error) {
 	// Get or compile the function
 	compiledFn, err := e.getOrCompileFunction(packageName, functionName)
+	e.log.Infof("Compiled function: %v", compiledFn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get function: %v", err)
 	}
 
-	// Create temporary Go file with the function call
-	tempFile, err := e.createTempGoFile(compiledFn, args)
+	// Create temporary Go module with the function call
+	tempDir, err := e.createTempGoFile(compiledFn, args)
+	e.log.Infof("Temp dir: %s", tempDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %v", err)
+		return nil, fmt.Errorf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(filepath.Dir(tempFile))
+	defer os.RemoveAll(tempDir)
 
 	// Execute the Go code
-	output, err := e.executeGoCode(tempFile)
+	output, err := e.executeGoCode(tempDir, args, len(compiledFn.Parameters) > 0)
+	e.log.Infof("Output: %s", output)
 	if err != nil {
 		return &ExecutionResult{
 			Success: false,
@@ -110,14 +125,14 @@ func (e *FunctionExecutor) ExecuteStreamingFunction(ctx context.Context, package
 		return nil, fmt.Errorf("function %s does not support streaming", functionName)
 	}
 
-	// Create temporary Go file with streaming function call
-	tempFile, err := e.createStreamingTempGoFile(compiledFn, args)
+	// Create temporary Go module with streaming function call
+	tempDir, err := e.createStreamingTempGoFile(compiledFn, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %v", err)
+		return nil, fmt.Errorf("failed to create temp dir: %v", err)
 	}
 
 	// Execute the Go code with streaming
-	return e.executeStreamingGoCode(ctx, tempFile)
+	return e.executeStreamingGoCode(ctx, tempDir, args, len(compiledFn.Parameters) > 0)
 }
 
 // getOrCompileFunction gets a compiled function from cache or compiles it
@@ -175,6 +190,7 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		GoCode:            *goCode,
 		FilePath:          filePath,
 		SupportsStreaming: fnInfo.SupportsStreaming,
+		Parameters:        fnInfo.Parameters, // Populate Parameters
 	}, nil
 }
 
@@ -224,52 +240,135 @@ func (e *FunctionExecutor) getFunctionInfo(packageName, functionName string) (*d
 
 // createTempGoFile creates a temporary Go file that calls the specified function
 func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
-	// Create a Go program that calls the function
-	goProgram := fmt.Sprintf(`
-package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-)
-
-%s
-
-func main() {
-	var args json.RawMessage = %s
-	
-	result, err := %s(args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %%v\n", err)
-		os.Exit(1)
-	}
-	
-	output, _ := json.Marshal(result)
-	fmt.Println(string(output))
-}
-`, compiledFn.GoCode, string(args), compiledFn.FunctionName)
-
-	// Create temporary file
+	// Create a temporary directory for the Go module
 	tempDir, err := os.MkdirTemp("", "forst-exec-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %v", err)
 	}
 
-	tempFile := filepath.Join(tempDir, "main.go")
-	if err := os.WriteFile(tempFile, []byte(goProgram), 0644); err != nil {
+	// Generate unique module name with random string
+	randomSuffix := generateRandomString(8)
+	moduleName := fmt.Sprintf("forst-exec-%s", randomSuffix)
+	alias := fmt.Sprintf("%s_%s", compiledFn.PackageName, randomSuffix)
+
+	// Create go.mod file
+	goModPath := filepath.Join(tempDir, "go.mod")
+	goModContent := fmt.Sprintf("module %s\n\ngo 1.21\n", moduleName)
+	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {
 		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write temp file: %v", err)
+		return "", fmt.Errorf("failed to write go.mod: %v", err)
 	}
 
-	return tempFile, nil
+	// Use module import path for the package
+	importPkg := moduleName + "/" + compiledFn.PackageName
+
+	var mainGoContent string
+	if len(compiledFn.Parameters) > 0 {
+		param := compiledFn.Parameters[0]
+		paramType := param.Type
+		paramName := param.Name
+		mainGoContent = fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	%s "%s"
+)
+
+func main() {
+	var %s %s.%s
+	if err := json.Unmarshal([]byte(os.Args[1]), &%s); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to unmarshal args: %%v\n", err)
+		os.Exit(1)
+	}
+	result := %s.%s(%s)
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%s}\n", string(output))
+}
+`, alias, importPkg, paramName, alias, paramType, paramName, alias, compiledFn.FunctionName, paramName, "%s")
+	} else {
+		mainGoContent = fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	%s "%s"
+)
+
+func main() {
+	result := %s.%s()
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%s}\n", string(output))
+}
+`, alias, importPkg, alias, compiledFn.FunctionName, "%s")
+	}
+
+	mainGoPath := filepath.Join(tempDir, "main.go")
+	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to write main.go: %v", err)
+	}
+
+	// Create the package directory and file
+	packageDir := filepath.Join(tempDir, compiledFn.PackageName)
+	if err := os.MkdirAll(packageDir, 0755); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to create package dir: %v", err)
+	}
+
+	// Write the compiled Go code to the package file
+	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", compiledFn.PackageName))
+	if err := os.WriteFile(packageGoPath, []byte(compiledFn.GoCode), 0644); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to write package file: %v", err)
+	}
+
+	// Debug: list tempDir contents
+	if e.log != nil {
+		entries, _ := os.ReadDir(tempDir)
+		for _, entry := range entries {
+			if entry.IsDir() {
+				e.log.Tracef("Temp dir contains subdir: %s", entry.Name())
+				subEntries, _ := os.ReadDir(filepath.Join(tempDir, entry.Name()))
+				for _, subEntry := range subEntries {
+					e.log.Tracef("  - %s/%s", entry.Name(), subEntry.Name())
+				}
+			} else {
+				e.log.Tracef("Temp dir contains file: %s", entry.Name())
+			}
+		}
+	}
+
+	return tempDir, nil
 }
 
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
 func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
-	// Create a Go program that calls the streaming function
-	goProgram := fmt.Sprintf(`
-package main
+	// Create a temporary directory for the Go module
+	tempDir, err := os.MkdirTemp("", "forst-streaming-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %v", err)
+	}
+
+	// Generate unique module name with random string
+	randomSuffix := generateRandomString(8)
+	moduleName := fmt.Sprintf("forst-streaming-%s", randomSuffix)
+
+	// Create go.mod file
+	goModPath := filepath.Join(tempDir, "go.mod")
+	goModContent := fmt.Sprintf(`module %s
+
+go 1.21
+`, moduleName)
+	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to write go.mod: %v", err)
+	}
+
+	// Create the main package file that imports and calls the streaming function
+	mainGoPath := filepath.Join(tempDir, "main.go")
+	mainGoContent := fmt.Sprintf(`package main
 
 import (
 	"encoding/json"
@@ -277,37 +376,52 @@ import (
 	"os"
 )
 
-%s
-
 func main() {
 	var args json.RawMessage = %s
 	
-	results := %s(args)
+	results := %s.%s(args)
 	for result := range results {
 		output, _ := json.Marshal(result)
 		fmt.Println(string(output))
 	}
 }
-`, compiledFn.GoCode, string(args), compiledFn.FunctionName)
+`, string(args), compiledFn.PackageName, compiledFn.FunctionName)
 
-	// Create temporary file
-	tempDir, err := os.MkdirTemp("", "forst-streaming-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp dir: %v", err)
-	}
-
-	tempFile := filepath.Join(tempDir, "main.go")
-	if err := os.WriteFile(tempFile, []byte(goProgram), 0644); err != nil {
+	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
 		os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to write temp file: %v", err)
+		return "", fmt.Errorf("failed to write main.go: %v", err)
 	}
 
-	return tempFile, nil
+	// Create the package directory and file
+	packageDir := filepath.Join(tempDir, compiledFn.PackageName)
+	if err := os.MkdirAll(packageDir, 0755); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to create package dir: %v", err)
+	}
+
+	// Write the compiled Go code to the package file
+	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", compiledFn.PackageName))
+	if err := os.WriteFile(packageGoPath, []byte(compiledFn.GoCode), 0644); err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to write package file: %v", err)
+	}
+
+	return tempDir, nil
 }
 
 // executeGoCode executes Go code and returns the output
-func (e *FunctionExecutor) executeGoCode(tempFile string) (string, error) {
-	cmd := exec.Command("go", "run", tempFile)
+func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, hasParams bool) (string, error) {
+	var cmd *exec.Cmd
+	if hasParams {
+		argStr := string(args)
+		if argStr == "" || argStr == "null" {
+			argStr = "{}"
+		}
+		cmd = exec.Command("go", "run", ".", argStr)
+	} else {
+		cmd = exec.Command("go", "run", ".")
+	}
+	cmd.Dir = tempDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
@@ -317,10 +431,16 @@ func (e *FunctionExecutor) executeGoCode(tempFile string) (string, error) {
 }
 
 // executeStreamingGoCode executes Go code with streaming support
-func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempFile string) (<-chan StreamingResult, error) {
+func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempDir string, args json.RawMessage, hasParams bool) (<-chan StreamingResult, error) {
 	results := make(chan StreamingResult, 100)
 
-	cmd := exec.CommandContext(ctx, "go", "run", tempFile)
+	var cmd *exec.Cmd
+	if hasParams {
+		cmd = exec.CommandContext(ctx, "go", "run", ".", string(args))
+	} else {
+		cmd = exec.CommandContext(ctx, "go", "run", ".")
+	}
+	cmd.Dir = tempDir
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %v", err)
@@ -341,24 +461,10 @@ func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempFile 
 
 			var result StreamingResult
 			if err := json.Unmarshal([]byte(line), &result); err != nil {
-				result = StreamingResult{
-					Data:   line,
-					Status: "raw",
-				}
+				results <- StreamingResult{Error: err.Error()}
+				continue
 			}
-
-			select {
-			case results <- result:
-			case <-ctx.Done():
-				return
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			results <- StreamingResult{
-				Status: "error",
-				Error:  err.Error(),
-			}
+			results <- result
 		}
 	}()
 
@@ -368,8 +474,51 @@ func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempFile 
 // parseExecutionOutput parses the output of a function execution
 func (e *FunctionExecutor) parseExecutionOutput(output string) (*ExecutionResult, error) {
 	// Try to parse as JSON first
-	var result interface{}
+	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &result); err == nil {
+		// Extract the result field if it exists
+		if resultValue, exists := result["result"]; exists {
+			// Handle primitive values vs objects/arrays
+			switch v := resultValue.(type) {
+			case string:
+				// For strings, return the raw value (not JSON-encoded)
+				return &ExecutionResult{
+					Success: true,
+					Output:  v,
+					Result:  []byte(fmt.Sprintf("%q", v)), // JSON-encoded for Result field
+				}, nil
+			case float64:
+				// For numbers, return the raw value as string
+				return &ExecutionResult{
+					Success: true,
+					Output:  fmt.Sprintf("%v", v),
+					Result:  []byte(fmt.Sprintf("%v", v)), // JSON-encoded for Result field
+				}, nil
+			case int:
+				// For integers, return the raw value as string
+				return &ExecutionResult{
+					Success: true,
+					Output:  fmt.Sprintf("%d", v),
+					Result:  []byte(fmt.Sprintf("%d", v)), // JSON-encoded for Result field
+				}, nil
+			case bool:
+				// For booleans, return the raw value as string
+				return &ExecutionResult{
+					Success: true,
+					Output:  fmt.Sprintf("%t", v),
+					Result:  []byte(fmt.Sprintf("%t", v)), // JSON-encoded for Result field
+				}, nil
+			default:
+				// For objects/arrays, return JSON string
+				resultData, _ := json.Marshal(resultValue)
+				return &ExecutionResult{
+					Success: true,
+					Output:  string(resultData),
+					Result:  resultData,
+				}, nil
+			}
+		}
+		// If no result field, return the entire JSON as output
 		resultData, _ := json.Marshal(result)
 		return &ExecutionResult{
 			Success: true,
