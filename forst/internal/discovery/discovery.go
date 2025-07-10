@@ -46,6 +46,7 @@ type Logger interface {
 	Infof(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
+	Tracef(format string, args ...interface{})
 }
 
 // NewDiscoverer creates a new function discoverer
@@ -159,9 +160,9 @@ func (d *Discoverer) extractPackageNameFromAST(nodes []ast.Node) string {
 
 // extractFunctionsFromNodes extracts public functions from AST nodes
 func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
-	d.log.Debugf("Processing %d AST nodes for package %s in file %s", len(nodes), packageName, filePath)
+	d.log.Tracef("Processing %d AST nodes for package %s in file %s", len(nodes), packageName, filePath)
 	for i, node := range nodes {
-		d.log.Debugf("Processing node %d: %T", i, node)
+		d.log.Tracef("Processing node %d: %T", i, node)
 		d.extractFunctionsFromNode(node, packageName, filePath, functions)
 	}
 }
@@ -170,10 +171,10 @@ func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, fi
 func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
 	switch n := node.(type) {
 	case ast.FunctionNode:
-		d.log.Debugf("Found function node: %s", n.Ident.ID)
+		d.log.Tracef("Found function node: %s", n.Ident.ID)
 		// Check if function is public (starts with uppercase)
 		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
-			d.log.Debugf("Function %s is public (starts with uppercase)", n.Ident.ID)
+			d.log.Tracef("Function %s is public (starts with uppercase)", n.Ident.ID)
 			fnInfo := FunctionInfo{
 				Package:           packageName,
 				Name:              string(n.Ident.ID),
@@ -201,10 +202,10 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			functions[string(n.Ident.ID)] = fnInfo
 			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
 		} else {
-			d.log.Debugf("Function %s is private (starts with lowercase)", n.Ident.ID)
+			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
 		}
 	default:
-		d.log.Debugf("Node type %T is not a function", node)
+		d.log.Tracef("Node type %T is not a function", node)
 	}
 }
 
