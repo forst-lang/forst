@@ -199,12 +199,11 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
-		// Capitalize field name for Go export
-		goFieldName := strings.Title(name)
+		// Use original field name for Go struct, but add JSON tag for API compatibility
 		fields = append(fields, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(goFieldName)},
+			Names: []*goast.Ident{goast.NewIdent(name)},
 			Type:  *fieldType,
-			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"},
+			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + strings.Title(name) + "\"`"},
 		})
 	}
 	result := goast.StructType{
