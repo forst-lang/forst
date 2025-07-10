@@ -217,6 +217,7 @@ tasks:
     dir: forst
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - task example:sidecar
 
   # Release tasks
   build:release:
