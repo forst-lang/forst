@@ -36,13 +36,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install dependencies
+      - name: Install Go dependencies
         working-directory: forst
         run: go mod download
 
       - name: Build compiler
         working-directory: forst
         run: task build
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: examples/in/rfc/sidecar/package-lock.json
+
+      - name: Install Node.js dependencies
+        working-directory: examples/in/rfc/sidecar
+        run: npm ci
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v8
