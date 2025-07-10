@@ -96,7 +96,7 @@ tasks:
     desc: Compile a specific example file
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.CLI_ARGS}}
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.CLI_ARGS}}
     vars:
       CLI_ARGS: '{{.CLI_ARGS | default "../examples/in/basic.ft"}}'
 
@@ -104,37 +104,37 @@ tasks:
     desc: Compile basic example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
 
   example:function:
     desc: Compile function example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic_function.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/basic_function.ft
 
   example:ensure:
     desc: Compile ensure example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
 
   example:pointers:
     desc: Compile pointers example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
 
   example:shape-guard:
     desc: Compile shape guard example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
 
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
 
   example:sidecar:
     desc: Run end-to-end sidecar integration tests (build, start dev server, test, stop)
