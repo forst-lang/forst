@@ -141,9 +141,21 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Y:  right,
 		}, nil
 	case ast.VariableNode:
-		return &goast.Ident{
-			Name: e.GetIdent(),
-		}, nil
+		// Support field access: split by '.' and capitalize each field after the first
+		parts := strings.Split(e.GetIdent(), ".")
+		if len(parts) == 1 {
+			return &goast.Ident{Name: parts[0]}, nil
+		}
+		// Capitalize all fields after the first (the base variable)
+		var sel goast.Expr = goast.NewIdent(parts[0])
+		for _, field := range parts[1:] {
+			// Capitalize field for Go export
+			sel = &goast.SelectorExpr{
+				X:   sel,
+				Sel: goast.NewIdent(strings.Title(field)),
+			}
+		}
+		return sel, nil
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(e.Arguments))
@@ -447,8 +459,10 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		} else {
 			fieldValue = goast.NewIdent("nil")
 		}
+		// Capitalize field name for Go struct literal key
+		goFieldName := strings.Title(name)
 		fields = append(fields, &goast.KeyValueExpr{
-			Key:   goast.NewIdent(name),
+			Key:   goast.NewIdent(goFieldName),
 			Value: fieldValue,
 		})
 	}
