@@ -30,12 +30,21 @@ export class ForstHTTPClient {
     }
   }
 
-  async runTest(fn: string): Promise<HTTPResponse> {
-    // For now, we'll use a simple test function
-    // In the future, this could be more sophisticated
+  async invoke(fn: string, args?: any): Promise<HTTPResponse> {
+    // Parse function name to extract package and function
+    const parts = fn.split(".");
+    if (parts.length !== 2) {
+      throw new Error(
+        `Invalid function name format: ${fn}. Expected format: package.function`
+      );
+    }
+
+    const [packageName, functionName] = parts;
+
     const request: InvokeRequest = {
-      package: "test",
-      function: fn,
+      package: packageName,
+      function: functionName,
+      args: args,
     };
 
     const response = await fetch(`${this.baseUrl}/invoke`, {

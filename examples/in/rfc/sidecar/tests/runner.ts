@@ -12,39 +12,33 @@ interface TestResult {
 // Get port from environment or default to 8080
 const forstServerUrl = `http://localhost:${process.env.PORT || 8080}`;
 
-async function runTest(test: {
-  fn: string;
-  want: {
-    success: boolean;
-    output: string;
-    error: string | null;
-    errorOutput: string | null;
-  };
-}): Promise<TestResult> {
-  const { fn, want } = test;
-
-  const client = new ForstHTTPClient(forstServerUrl);
+async function runTest(
+  client: ForstHTTPClient,
+  test: {
+    fn: string;
+    args?: any;
+    want: {
+      success: boolean;
+      output: string;
+      error: string | null;
+      errorOutput: string | null;
+    };
+  }
+): Promise<TestResult> {
+  const { fn, args, want } = test;
 
   try {
-    // First check if server is healthy
-    const isHealthy = await client.healthCheck();
-    if (!isHealthy) {
-      return {
-        name: fn,
-        passed: false,
-        error: "Forst HTTP server is not healthy",
-      };
-    }
-
     // Run the test via HTTP
-    const response = await client.runTest(fn);
+    const response = await client.invoke(fn, args);
 
     return {
       name: fn,
       passed:
         response.success === want.success &&
         response.output === want.output &&
-        response.error === want.error,
+        // Treat null and undefined as equal
+        response.error == want.error &&
+        response.error == want.errorOutput,
       output: response.output,
       error: response.error,
       errorOutput: response.error,
@@ -100,9 +94,10 @@ async function main() {
   const tests = [
     {
       fn: "echo.Echo",
+      args: { message: "Hello from Forst!" },
       want: {
         success: true,
-        output: "Hello from Forst!",
+        output: '{"echo":"Hello from Forst!","timestamp":1234567890}',
         error: null,
         errorOutput: null,
       },
@@ -119,7 +114,7 @@ async function main() {
   ] as const;
 
   for (const test of tests) {
-    const result = await runTest(test);
+    const result = await runTest(client, test);
 
     console.log(`Test: ${result.name}`);
     console.log(`Status: ${result.passed ? "PASS" : "FAIL"}`);
