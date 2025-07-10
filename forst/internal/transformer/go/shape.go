@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
+	"go/token"
+	"strings"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -197,9 +199,12 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
+		// Capitalize field name for Go export
+		goFieldName := strings.Title(name)
 		fields = append(fields, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(name)},
+			Names: []*goast.Ident{goast.NewIdent(goFieldName)},
 			Type:  *fieldType,
+			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"},
 		})
 	}
 	result := goast.StructType{
