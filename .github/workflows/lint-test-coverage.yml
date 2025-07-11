@@ -44,16 +44,24 @@ jobs:
         working-directory: forst
         run: task build
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: examples/in/rfc/sidecar/package-lock.json
+          bun-version: latest
 
-      - name: Install Node.js dependencies
-        working-directory: examples/in/rfc/sidecar
-        run: npm ci
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Bun dependencies
+        run: bun install
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v8
