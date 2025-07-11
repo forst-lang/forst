@@ -1,0 +1,51 @@
+package example
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// ProcessData is a public function that processes data
+func ProcessData(input json.RawMessage) {
+	// Parse the input
+	var data map[string]interface{}
+	if err := json.Unmarshal(input, &data); err != nil {
+		return "", err
+	}
+
+	// Process the data
+	result := fmt.Sprintf("Processed: %v", data)
+	return result, nil
+}
+
+// ProcessStream is a public function that supports streaming
+func ProcessStream(input json.RawMessage) <-chan map[string]interface{} {
+	results := make(chan map[string]interface{}, 10)
+
+	go func() {
+		defer close(results)
+
+		// Parse the input
+		var data map[string]interface{}
+		if err := json.Unmarshal(input, &data); err != nil {
+			results <- map[string]interface{}{
+				"error":  err.Error(),
+				"status": "error",
+			}
+			return
+		}
+
+		// Stream processed results
+		for i := 0; i < 5; i++ {
+			results <- map[string]interface{}{
+				"data":   fmt.Sprintf("Stream result %d: %v", i, data),
+				"status": "success",
+				"index":  i,
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	return results
+}

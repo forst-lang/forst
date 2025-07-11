@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"github.com/sirupsen/logrus"
 )
 
 // LookupInferredType looks up the inferred type of a node in the current scope
@@ -30,23 +31,66 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // LookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, error) {
-	tc.log.Tracef("Looking up variable type for %s in scope %s", variable.Ident.ID, scope.String())
+	tc.log.WithFields(logrus.Fields{
+		"function": "LookupVariableType",
+		"variable": variable.Ident.ID,
+		"scope":    scope.String(),
+	}).Debugf("Looking up variable type")
 
 	parts := strings.Split(string(variable.Ident.ID), ".")
 	baseIdent := ast.Identifier(parts[0])
 
+	tc.log.WithFields(logrus.Fields{
+		"function": "LookupVariableType",
+		"variable": variable.Ident.ID,
+		"baseIdent": baseIdent,
+		"parts":    parts,
+	}).Debugf("Split variable into parts")
+
 	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
+		tc.log.WithFields(logrus.Fields{
+			"function": "LookupVariableType",
+			"variable": variable.Ident.ID,
+			"baseIdent": baseIdent,
+			"scope":    scope.String(),
+		}).Debugf("Variable not found in scope")
 		return ast.TypeNode{}, fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
 	}
 
+	tc.log.WithFields(logrus.Fields{
+		"function": "LookupVariableType",
+		"variable": variable.Ident.ID,
+		"baseIdent": baseIdent,
+		"symbol":   fmt.Sprintf("%+v", symbol),
+		"types":    symbol.Types,
+	}).Debugf("Found symbol in scope")
+
 	if len(symbol.Types) != 1 {
+		tc.log.WithFields(logrus.Fields{
+			"function": "LookupVariableType",
+			"variable": variable.Ident.ID,
+			"baseIdent": baseIdent,
+			"typeCount": len(symbol.Types),
+		}).Debugf("Expected single type but got multiple")
 		return ast.TypeNode{}, fmt.Errorf("expected single type for variable %s but got %d types", parts[0], len(symbol.Types))
 	}
 
 	if len(parts) == 1 {
+		tc.log.WithFields(logrus.Fields{
+			"function": "LookupVariableType",
+			"variable": variable.Ident.ID,
+			"type":     symbol.Types[0].Ident,
+		}).Debugf("Returning single variable type")
 		return symbol.Types[0], nil
 	}
+
+	tc.log.WithFields(logrus.Fields{
+		"function": "LookupVariableType",
+		"variable": variable.Ident.ID,
+		"baseType": symbol.Types[0].Ident,
+		"fieldPath": parts[1:],
+	}).Debugf("Looking up field path on base type")
 
 	// Use lookupFieldPath for multi-segment field access
 	return tc.lookupFieldPath(symbol.Types[0], parts[1:])

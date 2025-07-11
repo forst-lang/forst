@@ -1,0 +1,17 @@
+package echo
+
+type EchoRequest = {
+  message: String
+}
+
+type EchoResponse = {
+  echo: String,
+  timestamp: Int
+}
+
+func Echo(input EchoRequest) {
+  return {
+    echo: input.message,
+    timestamp: 1234567890
+  }
+} 

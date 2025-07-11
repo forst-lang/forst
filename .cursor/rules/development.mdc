@@ -1,9 +1,3 @@
----
-description:
-globs:
-alwaysApply: true
----
-
 # Forst Language Development Guidelines
 
 ## Architecture Overview
@@ -166,6 +160,37 @@ if paramType.Assertion != nil {
 - Hash-based type names ensure uniqueness but may be verbose
 - Consider caching inferred types for repeated lookups
 
+## Sidecar Integration Development
+
+### Strategic Framework
+
+When developing sidecar integration features, refer to the comprehensive decision document at `examples/in/rfc/sidecar/10-decisions.md`. This document outlines:
+
+- **MVP-First Approach**: Prioritize working solutions over feature completeness
+- **Developer Experience Priority**: Focus on TypeScript familiarity and zero-config installation
+- **Reliability-First Architecture**: Implement circuit breakers and fallback mechanisms
+- **HTTP-First Transport**: Use HTTP for initial adoption with future IPC support
+
+### Key Development Principles
+
+- **Child Process Integration**: Deploy Forst sidecar as child process within TypeScript application
+- **Error Handling Strategy**: Isolate compilation errors and maintain runtime error transparency
+- **Type Safety Boundaries**: Map Forst constraints to broader TypeScript types with JSDoc documentation
+- **Production Safety**: Implement zero-downtime tolerance through robust error handling
+
+### Implementation Guidelines
+
+- **NPM Package Integration**: Automatic Forst compiler download and installation
+- **HTTP Development Server**: Simple server with compiler and file watching integration
+- **Node.js Client Library**: Communication layer for sidecar/HTTP server interaction
+- **Basic Type Generation**: Fundamental TypeScript type generation from Forst code
+
+### Testing and Validation
+
+- **Zero Downtime Achievement**: Eliminate production outages due to sidecar integration
+- **Performance Improvement**: Achieve 10x performance gains for migrated routes
+- **Developer Velocity Maintenance**: Preserve or improve development speed for adopting teams
+
 ## Future Development
 
 ### Planned Features
@@ -177,6 +202,11 @@ if paramType.Assertion != nil {
 - Better error messages and diagnostics
 
 ### Architecture Evolution
+
+- Modular type system components
+- Pluggable code generators
+- Language server support
+- Package management and imports
 
 - Modular type system components
 - Pluggable code generators

@@ -1,0 +1,53 @@
+{
+  "name": "@forst/sidecar",
+  "version": "0.1.0",
+  "description": "Sidecar integration for TypeScript applications to use Forst for high-performance backend operations",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "example": "tsx examples/basic.ts"
+  },
+  "keywords": [
+    "forst",
+    "sidecar",
+    "typescript",
+    "performance",
+    "backend"
+  ],
+  "author": "Forst Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "glob": "^10.3.10",
+    "node-fetch": "^3.3.2",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.0"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forst-lang/forst.git",
+    "directory": "packages/sidecar"
+  }
+}

@@ -6,6 +6,7 @@ import (
 )
 
 // Infers the return type of a function from its body
+// This function should be called while the function scope is active
 func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeNode, error) {
 	parsedType := fn.ReturnTypes
 	inferredType := []ast.TypeNode{}

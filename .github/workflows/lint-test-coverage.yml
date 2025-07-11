@@ -32,17 +32,36 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('forst/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install dependencies
+      - name: Install Go dependencies
         working-directory: forst
         run: go mod download
 
       - name: Build compiler
         working-directory: forst
         run: task build
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            */node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Bun dependencies
+        run: bun install
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v8

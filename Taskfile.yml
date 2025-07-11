@@ -18,6 +18,14 @@ tasks:
     generates:
       - ../bin/{{.BINARY_NAME}}
 
+  build:sidecar:
+    desc: Build the Forst sidecar
+    dir: packages/sidecar
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+
   install:
     desc: Install the Forst compiler
     dir: forst
@@ -69,6 +77,18 @@ tasks:
     cmds:
       - go test -v ./internal/lexer/...
 
+  test:unit:discovery:
+    desc: Run unit tests for discovery
+    dir: forst
+    cmds:
+      - go test -v ./internal/discovery/...
+
+  test:unit:executor:
+    desc: Run unit tests for executor
+    dir: forst
+    cmds:
+      - go test -v ./internal/executor/...
+
   test:unit:ast:
     desc: Run unit tests for AST
     dir: forst
@@ -96,7 +116,7 @@ tasks:
     desc: Compile a specific example file
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.CLI_ARGS}}
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.CLI_ARGS}}
     vars:
       CLI_ARGS: '{{.CLI_ARGS | default "../examples/in/basic.ft"}}'
 
@@ -104,37 +124,53 @@ tasks:
     desc: Compile basic example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
 
   example:function:
     desc: Compile function example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/basic_function.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/basic_function.ft
 
   example:ensure:
     desc: Compile ensure example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
 
   example:pointers:
     desc: Compile pointers example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/pointers.ft
 
   example:shape-guard:
     desc: Compile shape guard example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
 
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
+
+  example:sidecar-local:
+    desc: Run sidecar example using local Forst binary
+    dir: examples/in/rfc/sidecar
+    deps: [build:sidecar, build]
+    cmds:
+      - bun run example:local
+    silent: false
+
+  example:sidecar-downloaded:
+    desc: Run sidecar example using downloaded Forst binary
+    dir: examples/in/rfc/sidecar
+    deps: [build:sidecar]
+    cmds:
+      - bun run example:downloaded
+    silent: false
 
   # Development tasks
   dev:watch:
@@ -171,8 +207,11 @@ tasks:
   ci:test:
     desc: Run CI lint suite
     dir: forst
+    set: [errexit]
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - task example:sidecar-local
+      - task example:sidecar-downloaded || echo "Downloaded binary example failed (expected for now - needs release with dev command)"
 
   # Release tasks
   build:release:

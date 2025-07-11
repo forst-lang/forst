@@ -33,9 +33,20 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferNodeType",
+			"fn":       n.Ident.ID,
+			"phase":    "ENTER",
+		}).Debug("Function node type inference")
+
 		if err := tc.RestoreScope(n); err != nil {
 			return nil, err
 		}
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferNodeType",
+			"fn":       n.Ident.ID,
+		}).Debug("Restored function scope")
+
 		// Register parameters in the current scope
 		for _, param := range n.Params {
 			switch p := param.(type) {
@@ -45,10 +56,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 					[]ast.TypeNode{p.Type},
 					SymbolVariable)
 			case ast.DestructuredParamNode:
-				// Handle destructured params if needed
 				continue
 			}
 		}
+		tc.DebugPrintCurrentScope() // Print all symbols in the current scope after parameter registration
 
 		// Convert []ParamNode to []Node
 		params := make([]ast.Node, len(n.Params))
@@ -76,9 +87,13 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				SymbolVariable)
 		}
 
-		_, err = tc.inferNodeTypes(n.Body, n)
-		if err != nil {
-			return nil, err
+		// Process function body without restoring scope for each node
+		// since we want to preserve the function parameter scope
+		for _, bodyNode := range n.Body {
+			_, err := tc.inferNodeType(bodyNode)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		inferredType, err := tc.inferFunctionReturnType(n)
@@ -88,6 +103,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		tc.storeInferredFunctionReturnType(&n, inferredType)
 
 		tc.popScope()
+
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferNodeType",
+			"fn":       n.Ident.ID,
+			"phase":    "EXIT",
+		}).Debug("Function node type inference")
 
 		return inferredType, nil
 
@@ -105,6 +126,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.ExpressionNode:
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferNodeType",
+			"expr":     n.String(),
+		}).Debug("Processing expression node")
 		inferredType, err := tc.inferExpressionType(n)
 		if err != nil {
 			return nil, err

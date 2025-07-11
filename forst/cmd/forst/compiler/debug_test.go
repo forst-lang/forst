@@ -89,7 +89,7 @@ func TestDebugPrintTokens(t *testing.T) {
 
 	// Create a compiler with debug enabled
 	c := New(Args{
-		Debug: true,
+		LogLevel: "debug",
 	}, log)
 
 	// Create test tokens
@@ -130,7 +130,7 @@ func TestDebugPrintForstAST(t *testing.T) {
 
 	// Create a compiler with debug enabled
 	c := New(Args{
-		Debug: true,
+		LogLevel: "debug",
 	}, log)
 
 	// Create test AST nodes
@@ -164,7 +164,7 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 
 	// Create a compiler with debug enabled
 	c := New(Args{
-		Debug: true,
+		LogLevel: "debug",
 	}, log)
 
 	// Create a type checker with some test data

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
+	"go/token"
 
 	logrus "github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
@@ -184,6 +187,37 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 	return true
 }
 
+// capitalizeFirst returns the input string with the first Unicode letter uppercased (robust, modern)
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	// Use the cases package for proper Unicode case conversion
+	caser := cases.Upper(language.Und)
+	upper := caser.String(s)
+
+	// If the string was already uppercase or didn't change, return as is
+	if upper == s {
+		return s
+	}
+
+	// For proper capitalization, we want only the first character uppercase
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return s
+	}
+
+	// Convert only the first character to uppercase using the cases package
+	firstChar := caser.String(string(runes[0]))
+	if len(firstChar) == 0 {
+		return s
+	}
+
+	// Combine the uppercase first character with the rest of the string
+	return firstChar + string(runes[1:])
+}
+
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {
 	// Always generate a struct type for shape definitions
 	// The existing type matching is only for shape literals, not type definitions
@@ -197,9 +231,14 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
+		goFieldName := name
+		if t.ExportReturnStructFields {
+			goFieldName = capitalizeFirst(name)
+		}
 		fields = append(fields, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(name)},
+			Names: []*goast.Ident{goast.NewIdent(goFieldName)},
 			Type:  *fieldType,
+			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"},
 		})
 	}
 	result := goast.StructType{

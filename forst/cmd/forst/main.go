@@ -2,10 +2,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"forst/cmd/forst/compiler"
-	"forst/internal/logger"
 	"os"
+	"path/filepath"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -28,13 +29,35 @@ func main() {
 	}
 
 	// Create logger with appropriate level based on build type
-	// In release builds (when version != "dev"), use INFO level
-	// In development builds, use DEBUG level
 	var log *logrus.Logger
 	if Version == "dev" {
-		log = logger.NewWithLevel(logrus.DebugLevel)
+		log = logrus.New()
+		log.SetLevel(logrus.DebugLevel)
 	} else {
-		log = logger.NewWithLevel(logrus.InfoLevel)
+		log = logrus.New()
+		log.SetLevel(logrus.InfoLevel)
+	}
+
+	// Check if we should start dev server
+	if len(os.Args) > 1 && os.Args[1] == "dev" {
+		// Parse flags for dev server
+		devFlags := flag.NewFlagSet("dev", flag.ExitOnError)
+		port := devFlags.String("port", "8080", "Port to listen on")
+		configPath := devFlags.String("config", "", "Path to configuration file")
+		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
+
+		// Parse the dev subcommand flags
+		devFlags.Parse(os.Args[2:])
+
+		// Resolve root directory to absolute path
+		absRootDir, err := filepath.Abs(*rootDir)
+		if err != nil {
+			log.Errorf("Failed to resolve root directory: %v", err)
+			os.Exit(1)
+		}
+
+		StartDevServer(*port, log, *configPath, absRootDir)
+		return
 	}
 
 	args := compiler.ParseArgs(log)
@@ -46,10 +69,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args.Trace {
+	// Set log level based on args.LogLevel
+	switch args.LogLevel {
+	case "trace":
 		log.SetLevel(logrus.TraceLevel)
-	} else if args.Debug {
+	case "debug":
 		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	default:
+		log.SetLevel(logrus.InfoLevel)
 	}
 
 	log.SetFormatter(&logrus.TextFormatter{

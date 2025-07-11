@@ -3,6 +3,8 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+
+	logrus "github.com/sirupsen/logrus"
 )
 
 // TODO: Improve type inference for complex types
@@ -12,6 +14,10 @@ import (
 // 3. Type aliases
 // 4. Generic types
 func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, error) {
+	tc.log.WithFields(logrus.Fields{
+		"function": "inferShapeType",
+		"shape":    fmt.Sprintf("%+v", shape),
+	}).Debug("Starting shape type inference")
 	hash, err := tc.Hasher.HashNode(shape)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash shape: %w", err)
@@ -64,6 +70,17 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 				},
 			})
 		} else if field.Assertion != nil {
+			// Eagerly resolve Value(Variable(...)) constraints
+			if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
+				resolvedType, err := tc.inferValueConstraintType(field.Assertion.Constraints[0], name)
+				if err == nil {
+					// Store the resolved type in the field
+					f := field // copy to avoid mutating the original in the map
+					f.Type = &resolvedType
+					shape.Fields[name] = f
+					continue
+				}
+			}
 			// Skip if the assertion type has already been inferred
 			inferredType, _ := tc.InferAssertionType(field.Assertion, false)
 			if inferredType != nil {
@@ -94,6 +111,12 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 
 	tc.storeInferredType(shape, shapeType)
 	tc.log.Tracef("Inferred shape type: %s", shapeType)
+
+	tc.log.WithFields(logrus.Fields{
+		"function": "inferShapeType",
+		"shape":    fmt.Sprintf("%+v", shape),
+		"type":     shapeType,
+	}).Debug("Completed shape type inference")
 
 	return shapeType, nil
 }

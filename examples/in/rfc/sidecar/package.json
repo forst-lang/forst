@@ -4,20 +4,25 @@
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   },
-  "name": "@forst/node_invoke",
+  "name": "@forst/examples",
   "version": "1.0.0",
-  "main": "node_invoke.ts",
+  "main": "index.ts",
   "dependencies": {
+    "@forst/sidecar": "workspace:*",
     "@trpc/client": "^10.45.1",
     "@trpc/server": "^10.45.1",
+    "pino": "^9.0.0",
+    "pino-pretty": "^13.0.0",
     "undici-types": "^6.21.0",
     "zod": "^3.22.4"
   },
   "scripts": {
-    "test": "tsx index.ts"
+    "example:local": "tsx tests/local_server_example.ts",
+    "example:downloaded": "tsx tests/downloaded_binary_example.ts"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "description": ""
+  "description": "",
+  "private": true
 }

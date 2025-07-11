@@ -17,10 +17,13 @@ type Transformer struct {
 	Output               *TransformerOutput
 	assertionTransformer *AssertionTransformer
 	log                  *logrus.Logger
+
+	// If true, struct fields for return values will be exported (capitalized)
+	ExportReturnStructFields bool
 }
 
 // New creates a new Transformer
-func New(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {
+func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFields ...bool) *Transformer {
 	if log == nil {
 		log = logrus.New()
 		log.Warnf("No logger provided, using default logger")
@@ -31,6 +34,9 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger) *Transformer {
 		log:         log,
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
+	if len(exportReturnStructFields) > 0 {
+		t.ExportReturnStructFields = exportReturnStructFields[0]
+	}
 	return t
 }
 

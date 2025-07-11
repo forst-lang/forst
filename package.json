@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "name": "forst-monorepo",
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/sidecar",
+    "examples/in/rfc/sidecar"
+  ]
+}
