@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6](https://github.com/forst-lang/forst/compare/v0.0.5...v0.0.6) (2025-07-11)
+
+
+### Features
+
+* JS/TS integration ([#25](https://github.com/forst-lang/forst/issues/25)) ([bbe49bc](https://github.com/forst-lang/forst/commit/bbe49bccb192d3dd7b8de3d89a9cd6296f355d44))
+
 ## [0.0.5](https://github.com/forst-lang/forst/compare/v0.0.4...v0.0.5) (2025-07-06)
 
 
