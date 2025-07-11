@@ -136,7 +136,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memBefore = getMemStats()
 
 	// Transform to Go AST with type information
-	transformer := transformer_go.New(checker, c.log)
+	transformer := transformer_go.New(checker, c.log, false)
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		return nil, err

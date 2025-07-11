@@ -8,11 +8,17 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"forst/cmd/forst/compiler"
 	"forst/internal/configiface"
 	"forst/internal/discovery"
+	"forst/internal/generators"
+	"forst/internal/lexer"
+	"forst/internal/parser"
+	transformer_go "forst/internal/transformer/go"
+	"forst/internal/typechecker"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -77,6 +83,8 @@ func NewFunctionExecutor(rootDir string, comp *compiler.Compiler, log *logrus.Lo
 
 // ExecuteFunction executes a Forst function with the given arguments
 func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*ExecutionResult, error) {
+	e.log.Debugf("ExecuteFunction: %s.%s", packageName, functionName)
+
 	// Get or compile the function
 	compiledFn, err := e.getOrCompileFunction(packageName, functionName)
 	e.log.Infof("Compiled function: %v", compiledFn)
@@ -92,23 +100,54 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Execute the Go code
-	output, err := e.executeGoCode(tempDir, args, len(compiledFn.Parameters) > 0)
-	e.log.Infof("Output: %s", output)
-	if err != nil {
-		return &ExecutionResult{
-			Success: false,
-			Error:   err.Error(),
-		}, nil
+	// Debug: Let's look at the actual generated files
+	e.log.Tracef("Generated Go code:\n%s", compiledFn.GoCode)
+
+	// List the contents of the temp directory
+	entries, err := os.ReadDir(tempDir)
+	if err == nil {
+		e.log.Tracef("Temp directory contents:")
+		for _, entry := range entries {
+			if entry.IsDir() {
+				subEntries, _ := os.ReadDir(filepath.Join(tempDir, entry.Name()))
+				for _, subEntry := range subEntries {
+					e.log.Tracef("  %s/%s", entry.Name(), subEntry.Name())
+				}
+			} else {
+				e.log.Tracef("  %s", entry.Name())
+			}
+		}
 	}
+
+	// Debug: Read and log the actual main.go file
+	mainGoPath := filepath.Join(tempDir, "main.go")
+	if mainGoContent, err := os.ReadFile(mainGoPath); err == nil {
+		e.log.Infof("Generated main.go content:\n%s", string(mainGoContent))
+	} else {
+		e.log.Errorf("Failed to read main.go: %v", err)
+	}
+
+	// Debug: Check log level
+	e.log.Infof("Current log level: %v", e.log.GetLevel())
+
+	// Debug: Check if the echo function has parameters
+	e.log.Infof("Echo function parameters: %v", compiledFn.Parameters)
+
+	// Execute the Go code
+	hasParams := len(compiledFn.Parameters) > 0
+	output, err := e.executeGoCode(tempDir, args, hasParams)
+	if err != nil {
+		e.log.Errorf("Failed to execute Go code: %v", err)
+		return nil, fmt.Errorf("failed to execute Go code: %v", err)
+	}
+
+	e.log.Infof("Output: %s", output)
 
 	// Parse the output
 	result, err := e.parseExecutionOutput(output)
 	if err != nil {
-		return &ExecutionResult{
-			Success: false,
-			Error:   fmt.Sprintf("failed to parse output: %v", err),
-		}, nil
+		e.log.Errorf("Failed to parse output: %v", err)
+		return nil, fmt.Errorf("failed to parse output: %v", err)
 	}
 
 	return result, nil
@@ -169,14 +208,37 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, fmt.Errorf("failed to find function file: %v", err)
 	}
 
-	// Compile the file
-	args := e.compiler.Args
-	args.FilePath = filePath
-
-	comp := compiler.New(args, e.log)
-	goCode, err := comp.CompileFile()
+	// Read and parse the source file
+	source, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile function: %v", err)
+		return nil, fmt.Errorf("error reading file: %v", err)
+	}
+
+	l := lexer.New(source, filePath, e.log)
+	tokens := l.Lex()
+
+	psr := parser.New(tokens, filePath, e.log)
+	forstNodes, err := psr.ParseFile()
+	if err != nil {
+		return nil, err
+	}
+
+	checker := typechecker.New(e.log, false)
+	if err := checker.CheckTypes(forstNodes); err != nil {
+		e.log.Error("Encountered error checking types: ", err)
+		checker.DebugPrintCurrentScope()
+		return nil, err
+	}
+
+	// Use ExportReturnStructFields=true for executor/dev server
+	transformer := transformer_go.New(checker, e.log, true)
+	goAST, err := transformer.TransformForstFileToGo(forstNodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform Forst file to Go: %v", err)
+	}
+	goCode, err := generators.GenerateGoCode(goAST)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate Go code: %v", err)
 	}
 
 	// Extract function information
@@ -188,7 +250,7 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 	return &CompiledFunction{
 		PackageName:       packageName,
 		FunctionName:      functionName,
-		GoCode:            *goCode,
+		GoCode:            goCode,
 		FilePath:          filePath,
 		SupportsStreaming: fnInfo.SupportsStreaming,
 		Parameters:        fnInfo.Parameters, // Populate Parameters
@@ -241,6 +303,8 @@ func (e *FunctionExecutor) getFunctionInfo(packageName, functionName string) (*d
 
 // createTempGoFile creates a temporary Go file that calls the specified function
 func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
+	e.log.Debugf("createTempGoFile: compiledFn.Parameters=%v, len=%d", compiledFn.Parameters, len(compiledFn.Parameters))
+
 	config := &ModuleConfig{
 		ModuleName:     fmt.Sprintf("exec-%s", generateRandomString(8)),
 		PackageName:    compiledFn.PackageName,
@@ -252,7 +316,16 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 		IsStreaming:    false,
 	}
 
-	return e.moduleManager.CreateModule(config)
+	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v", config.SupportsParams, config.Parameters)
+
+	tempDir, err := e.moduleManager.CreateModule(config)
+	e.log.Debugf("Created temp dir: %s", tempDir)
+	if err != nil {
+		e.log.Errorf("Failed to create module: %v", err)
+		return "", err
+	}
+
+	return tempDir, nil
 }
 
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
@@ -279,13 +352,17 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, h
 		if argStr == "" || argStr == "null" {
 			argStr = "{}"
 		}
+		e.log.Debugf("Executing Go program with args: %s", argStr)
 		cmd = exec.Command("go", "run", ".", argStr)
 	} else {
+		e.log.Debugf("Executing Go program without args")
 		cmd = exec.Command("go", "run", ".")
 	}
 	cmd.Dir = tempDir
 	output, err := cmd.CombinedOutput()
+	e.log.Debugf("Go program output: %s", string(output))
 	if err != nil {
+		e.log.Errorf("Go program failed: %v", err)
 		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
 	}
 

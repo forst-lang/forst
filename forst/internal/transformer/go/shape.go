@@ -186,6 +186,13 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 	return true
 }
 
+func capitalizeFirst(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {
 	// Always generate a struct type for shape definitions
 	// The existing type matching is only for shape literals, not type definitions
@@ -199,11 +206,14 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
-		// Use original field name for Go struct, but add JSON tag for API compatibility
+		goFieldName := name
+		if t.ExportReturnStructFields {
+			goFieldName = capitalizeFirst(name)
+		}
 		fields = append(fields, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(name)},
+			Names: []*goast.Ident{goast.NewIdent(goFieldName)},
 			Type:  *fieldType,
-			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + strings.Title(name) + "\"`"},
+			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"},
 		})
 	}
 	result := goast.StructType{
