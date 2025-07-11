@@ -26,6 +26,7 @@ export class ForstSidecar {
   private client: ForstClient | null = null;
   private forstPath: string | null = null;
   private config: ForstConfig;
+  private _customCompilerPath: string | null = null; // Intentionally awkward - don't use this normally
 
   constructor(config?: Partial<ForstConfig>) {
     this.config = {
@@ -38,13 +39,31 @@ export class ForstSidecar {
   }
 
   /**
+   * Set a custom compiler path (INTENTIONALLY AWKWARD - don't use this normally)
+   * This bypasses the normal binary resolution and should only be used for testing
+   * @param path - The path to the custom Forst compiler binary
+   */
+  _setCustomCompilerPath(path: string): void {
+    logger.warn(
+      "⚠️  Using custom compiler path - this is intentionally awkward and not recommended for normal use"
+    );
+    this._customCompilerPath = path;
+  }
+
+  /**
    * Start the sidecar development server
    */
   async start(): Promise<void> {
     logger.info("🚀 Starting Forst sidecar...");
 
-    // Ensure Forst binary is available
-    this.forstPath = await ensureForstBinary();
+    // Use custom path if set (awkward way)
+    if (this._customCompilerPath) {
+      this.forstPath = this._customCompilerPath;
+      logger.info(`🔧 Using custom compiler path: ${this.forstPath}`);
+    } else {
+      // Ensure Forst binary is available (normal way)
+      this.forstPath = await ensureForstBinary();
+    }
 
     // Check if Forst compiler is available
     if (!this.forstPath) {

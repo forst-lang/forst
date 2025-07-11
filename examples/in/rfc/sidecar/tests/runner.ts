@@ -9,6 +9,7 @@ interface TestRunnerConfig {
   logLevel: "info" | "debug" | "warn" | "error";
   rootDir: string;
   title: string;
+  _customSidecar?: ForstSidecar; // Intentionally awkward - don't use this normally
 }
 
 interface TestResult {
@@ -177,13 +178,22 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
   }
 
   // Create sidecar instance
-  sidecar = createSidecar({
-    mode: "development",
-    port: config.port,
-    host: config.host,
-    logLevel: config.logLevel,
-    rootDir: config.rootDir,
-  });
+  if (config._customSidecar) {
+    // Intentionally awkward way to use custom sidecar
+    runnerLogger.warn(
+      "⚠️  Using custom sidecar - this is intentionally awkward and not recommended for normal use"
+    );
+    sidecar = config._customSidecar;
+  } else {
+    // Normal way to create sidecar
+    sidecar = createSidecar({
+      mode: "development",
+      port: config.port,
+      host: config.host,
+      logLevel: config.logLevel,
+      rootDir: config.rootDir,
+    });
+  }
 
   try {
     // Set up cleanup handlers
