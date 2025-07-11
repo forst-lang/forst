@@ -12,7 +12,7 @@ import (
 	"forst/internal/parser"
 	"forst/internal/typechecker"
 
-	logrus "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // FunctionInfo represents a discovered public function
@@ -68,7 +68,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 		return nil, fmt.Errorf("failed to find Forst files: %v", err)
 	}
 
-	d.log.Infof("Found %d Forst files to scan", len(ftFiles))
+	d.log.Debugf("Found %d Forst files to scan", len(ftFiles))
 
 	// Process each file
 	for _, filePath := range ftFiles {
@@ -114,11 +114,12 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 	}
 
 	// Create lexer and tokenize
-	l := lexer.New(content, filePath, logrus.New())
+	mainLogger, _ := d.log.(*logrus.Logger)
+	l := lexer.New(content, filePath, mainLogger)
 	tokens := l.Lex()
 
 	// Create parser and parse the file
-	p := parser.New(tokens, filePath, logrus.New())
+	p := parser.New(tokens, filePath, mainLogger)
 	nodes, err := p.ParseFile()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse file: %v", err)
@@ -131,7 +132,7 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 	}
 
 	// Type check to get function signatures (optional, don't fail if it errors)
-	tc := typechecker.New(logrus.New(), false)
+	tc := typechecker.New(mainLogger, false)
 	if err := tc.CheckTypes(nodes); err != nil {
 		d.log.Debugf("Type checking failed for %s: %v", filePath, err)
 		// Continue without type checking for discovery
@@ -189,6 +190,7 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 					Type: d.typeToString(param.GetType()),
 				})
 			}
+			d.log.Tracef("Discovery: Function %s.%s parameters: %+v", packageName, n.Ident.ID, fnInfo.Parameters)
 
 			// Extract return type
 			if len(n.ReturnTypes) > 0 {
