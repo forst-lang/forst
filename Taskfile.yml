@@ -195,6 +195,7 @@ tasks:
   ci:test:
     desc: Run CI lint suite
     dir: forst
+    set: [errexit]
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
       - task example:sidecar-local

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { logger } from "./logger";
 
 async function runDownloadedBinaryExample() {
-  await runTestSuite({
+  const success = await runTestSuite({
     mode: "downloaded",
     port: 8084, // Use different port to avoid conflicts
     host: "localhost",
@@ -11,6 +11,9 @@ async function runDownloadedBinaryExample() {
     rootDir: resolve(__dirname, "."),
     title: "🚀 Starting Downloaded Binary Example",
   });
+
+  // Exit with appropriate code based on test results
+  process.exit(success ? 0 : 1);
 }
 
 // Run the example

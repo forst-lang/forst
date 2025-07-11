@@ -19,7 +19,7 @@ async function runLocalServerExample() {
     resolve(__dirname, "../../../../../bin/forst")
   );
 
-  await runTestSuite({
+  const success = await runTestSuite({
     mode: "local",
     port: 8083, // Use different port to avoid conflicts
     host: "localhost",
@@ -29,6 +29,9 @@ async function runLocalServerExample() {
     // Pass the awkwardly configured sidecar
     _customSidecar: sidecar,
   });
+
+  // Exit with appropriate code based on test results
+  process.exit(success ? 0 : 1);
 }
 
 // Run the example
