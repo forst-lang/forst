@@ -173,7 +173,6 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 	switch n := node.(type) {
 	case ast.FunctionNode:
 		d.log.Tracef("Found function node: %s", n.Ident.ID)
-		// Check if function is public (starts with uppercase)
 		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
 			d.log.Tracef("Function %s is public (starts with uppercase)", n.Ident.ID)
 			fnInfo := FunctionInfo{
@@ -182,25 +181,43 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 				SupportsStreaming: d.analyzeStreamingSupport(&n),
 				FilePath:          filePath,
 			}
-
-			// Extract parameter information
 			for _, param := range n.Params {
 				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
 					Name: param.GetIdent(),
 					Type: d.typeToString(param.GetType()),
 				})
 			}
-			d.log.Tracef("Discovery: Function %s.%s parameters: %+v", packageName, n.Ident.ID, fnInfo.Parameters)
-
-			// Extract return type
 			if len(n.ReturnTypes) > 0 {
 				fnInfo.ReturnType = d.typeToString(n.ReturnTypes[0])
 			}
-
-			// Determine input/output types for API
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
 			fnInfo.OutputType = fnInfo.ReturnType
-
+			functions[string(n.Ident.ID)] = fnInfo
+			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
+		} else {
+			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
+		}
+	case *ast.FunctionNode:
+		d.log.Tracef("Found function node: %s", n.Ident.ID)
+		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
+			d.log.Tracef("Function %s is public (starts with uppercase)", n.Ident.ID)
+			fnInfo := FunctionInfo{
+				Package:           packageName,
+				Name:              string(n.Ident.ID),
+				SupportsStreaming: d.analyzeStreamingSupport(n),
+				FilePath:          filePath,
+			}
+			for _, param := range n.Params {
+				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
+					Name: param.GetIdent(),
+					Type: d.typeToString(param.GetType()),
+				})
+			}
+			if len(n.ReturnTypes) > 0 {
+				fnInfo.ReturnType = d.typeToString(n.ReturnTypes[0])
+			}
+			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
+			fnInfo.OutputType = fnInfo.ReturnType
 			functions[string(n.Ident.ID)] = fnInfo
 			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
 		} else {
