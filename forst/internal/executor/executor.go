@@ -20,6 +20,8 @@ import (
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
+	"bytes"
+
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -87,14 +89,14 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 
 	// Get or compile the function
 	compiledFn, err := e.getOrCompileFunction(packageName, functionName)
-	e.log.Infof("Compiled function: %v", compiledFn)
+	e.log.Debugf("Compiled function: %v", compiledFn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get function: %v", err)
 	}
 
 	// Create temporary Go module with the function call
 	tempDir, err := e.createTempGoFile(compiledFn, args)
-	e.log.Infof("Temp dir: %s", tempDir)
+	e.log.Tracef("Temp dir: %s", tempDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %v", err)
 	}
@@ -122,7 +124,7 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Debug: Read and log the actual main.go file
 	mainGoPath := filepath.Join(tempDir, "main.go")
 	if mainGoContent, err := os.ReadFile(mainGoPath); err == nil {
-		e.log.Infof("Generated main.go content:\n%s", string(mainGoContent))
+		e.log.Tracef("Generated main.go content:\n%s", string(mainGoContent))
 	} else {
 		e.log.Errorf("Failed to read main.go: %v", err)
 	}
@@ -135,7 +137,8 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 
 	// Execute the Go code
 	hasParams := len(compiledFn.Parameters) > 0
-	output, err := e.executeGoCode(tempDir, args, hasParams)
+	e.log.Infof("executeGoCode: hasParams=%v, args=%s", hasParams, string(args))
+	output, err := e.executeGoCode(tempDir, args, hasParams, compiledFn.Parameters)
 	if err != nil {
 		e.log.Errorf("Failed to execute Go code: %v", err)
 		return nil, fmt.Errorf("failed to execute Go code: %v", err)
@@ -345,28 +348,59 @@ func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunctio
 }
 
 // executeGoCode executes Go code and returns the output
-func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, hasParams bool) (string, error) {
+func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, hasParams bool, params ...interface{}) (string, error) {
 	var cmd *exec.Cmd
 	if hasParams {
-		argStr := string(args)
-		if argStr == "" || argStr == "null" {
-			argStr = "{}"
-		}
-		e.log.Debugf("Executing Go program with args: %s", argStr)
-		cmd = exec.Command("go", "run", ".", argStr)
-	} else {
-		e.log.Debugf("Executing Go program without args")
+		e.log.Tracef("Executing Go program with args: %s", string(args))
 		cmd = exec.Command("go", "run", ".")
+		cmd.Dir = tempDir
+		// Set up output buffers
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+		// Set up stdin to provide the args
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return "", fmt.Errorf("failed to create stdin pipe: %v", err)
+		}
+		// Start the command first
+		if err := cmd.Start(); err != nil {
+			e.log.Errorf("Command start failed: %v", err)
+			return "", fmt.Errorf("failed to start command: %v", err)
+		}
+		// Write args to stdin synchronously
+		data := []byte("{}")
+		if len(args) == 0 || string(args) == "null" {
+			data = []byte("{}")
+		} else {
+			data = args
+		}
+		n, err := stdin.Write(data)
+		if err != nil {
+			e.log.Errorf("Failed to write to stdin: %v", err)
+		} else {
+			e.log.Debugf("Wrote %d bytes to stdin", n)
+		}
+		stdin.Close()
+		// Wait for the command to complete
+		err = cmd.Wait()
+		output := stdoutBuf.String() + stderrBuf.String()
+		if err != nil {
+			e.log.Errorf("Go program failed: %v", err)
+			return "", fmt.Errorf("execution failed: %v, output: %s", err, output)
+		}
+		return output, nil
+	} else {
+		e.log.Tracef("Executing Go program without args")
+		cmd = exec.Command("go", "run", ".")
+		cmd.Dir = tempDir
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			e.log.Errorf("Go program failed: %v", err)
+			return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
+		}
+		return string(output), nil
 	}
-	cmd.Dir = tempDir
-	output, err := cmd.CombinedOutput()
-	e.log.Debugf("Go program output: %s", string(output))
-	if err != nil {
-		e.log.Errorf("Go program failed: %v", err)
-		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
-	}
-
-	return string(output), nil
 }
 
 // executeStreamingGoCode executes Go code with streaming support
