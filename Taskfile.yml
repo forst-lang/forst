@@ -144,14 +144,6 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/basic_guard.ft
 
-  example:sidecar:
-    desc: Run end-to-end sidecar integration tests (sidecar package manages server)
-    dir: examples/in/rfc/sidecar
-    deps: [build:sidecar]
-    cmds:
-      - bun run test:sidecar
-    silent: false
-
   example:sidecar-local:
     desc: Run sidecar example using local Forst binary
     dir: examples/in/rfc/sidecar
@@ -205,6 +197,8 @@ tasks:
     dir: forst
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - task example:sidecar-local
+      - task example:sidecar-downloaded
 
   # Release tasks
   build:release:

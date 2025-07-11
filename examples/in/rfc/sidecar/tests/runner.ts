@@ -1,4 +1,15 @@
-import { ForstClient } from "@forst/sidecar";
+import { ForstSidecar, createSidecar, ForstUtils } from "@forst/sidecar";
+import { resolve } from "node:path";
+import { logger } from "./logger";
+
+interface TestRunnerConfig {
+  mode: "local" | "downloaded";
+  port: number;
+  host: string;
+  logLevel: "info" | "debug" | "warn" | "error";
+  rootDir: string;
+  title: string;
+}
 
 interface TestResult {
   name: string;
@@ -8,15 +19,11 @@ interface TestResult {
   errorOutput?: string;
 }
 
-const serverProtocol = process.env.SERVER_PROTOCOL || "http";
-const serverHost = process.env.HOST || "localhost";
-const serverPort = process.env.PORT || "8081";
-const serverUrl = `${serverProtocol}://${serverHost}:${serverPort}`;
-
 async function runTest(
-  client: ForstClient,
+  sidecar: ForstSidecar,
   test: Readonly<{
-    fn: string;
+    package: string;
+    function: string;
     args?: any;
     want: {
       success?: boolean;
@@ -26,12 +33,22 @@ async function runTest(
   }>
 ): Promise<TestResult> {
   const result: TestResult = {
-    name: test.fn,
+    name: `${test.package}.${test.function}`,
     passed: false,
   };
 
   try {
-    const response = await client.invoke(test.fn, test.args);
+    const response = await sidecar.invoke(
+      test.package,
+      test.function,
+      test.args
+    );
+
+    // Debug: Log the full response structure
+    logger.debug(
+      `Full response for ${test.package}.${test.function}:`,
+      JSON.stringify(response, null, 2)
+    );
 
     if (
       test.want.success !== undefined &&
@@ -74,96 +91,237 @@ async function runTest(
   }
 }
 
-async function main() {
-  console.log("Running Sidecar Integration Tests...\n");
+async function runTestSuite(config: TestRunnerConfig): Promise<void> {
+  logger.info(`🚀 ${config.title}...`);
 
-  // Create HTTP client
-  const client = new ForstClient({
-    baseUrl: serverUrl,
-    timeout: 10000,
-    retries: 3,
+  let sidecar: ForstSidecar;
+  let cleanupHandler: (() => void) | null = null;
+
+  // Check if port is available
+  const checkPortAvailable = async (port: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const net = require("net");
+      const server = net.createServer();
+
+      server.listen(port, () => {
+        server.close();
+        resolve(true);
+      });
+
+      server.on("error", () => {
+        resolve(false);
+      });
+    });
+  };
+
+  // Set up process signal handlers for cleanup
+  const setupCleanup = (sidecarInstance: ForstSidecar) => {
+    const cleanup = async () => {
+      try {
+        await sidecarInstance.stop();
+        logger.info("🛑 Sidecar stopped due to process signal");
+      } catch (error) {
+        logger.error(
+          "Failed to stop sidecar on signal:",
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+      process.exit(1);
+    };
+
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+    process.on("uncaughtException", cleanup);
+    process.on("unhandledRejection", cleanup);
+
+    return () => {
+      process.off("SIGINT", cleanup);
+      process.off("SIGTERM", cleanup);
+      process.off("uncaughtException", cleanup);
+      process.off("unhandledRejection", cleanup);
+    };
+  };
+
+  // Initialize based on mode
+  if (config.mode === "downloaded") {
+    logger.info("📥 Downloading Forst binary...");
+    const forstPath = await ForstUtils.ensureCompiler();
+    logger.info("✅ Forst binary available at:", forstPath);
+  }
+
+  // Check if port is available
+  const isPortAvailable = await checkPortAvailable(config.port);
+  if (!isPortAvailable) {
+    logger.warn(
+      `⚠️  Port ${config.port} is already in use. This might cause issues.`
+    );
+  }
+
+  // Create sidecar instance
+  sidecar = createSidecar({
+    mode: "development",
+    port: config.port,
+    host: config.host,
+    logLevel: config.logLevel,
+    rootDir: config.rootDir,
   });
 
-  // Check if server is running
-  const isHealthy = await client.healthCheck();
-  if (!isHealthy) {
-    console.log("❌ Forst HTTP server is not healthy");
-    console.log(
-      "Note: This test requires a Forst dev server to be running on port 8081"
-    );
-    console.log(
-      "Start it with: cd forst && go run ./cmd/forst dev -port 8081 -root examples/in/rfc/sidecar/tests"
-    );
-    return;
-  }
+  try {
+    // Set up cleanup handlers
+    cleanupHandler = setupCleanup(sidecar);
 
-  console.log("✅ Found existing Forst server, using it for tests");
+    // Start the sidecar
+    await sidecar.start();
+    logger.info("✅ Sidecar started successfully");
 
-  // Discover available functions
-  const functions = await client.discoverFunctions();
-  console.log("Available Forst functions:");
-  for (const fn of functions) {
-    console.log(
-      `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
-    );
-  }
-  console.log();
+    // Get server info
+    const serverInfo = sidecar.getServerInfo();
+    logger.info("📊 Server Info:", serverInfo);
 
-  console.log("✅ Forst HTTP server is healthy\n");
+    // Discover available functions
+    const functions = await sidecar.discoverFunctions();
+    logger.info("🔍 Available functions:");
+    for (const fn of functions) {
+      logger.info(
+        `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
+      );
+    }
 
-  // Define tests
-  const tests = [
-    {
-      fn: "echo.Echo",
-      args: { message: "Hello, Forst!" },
-      want: {
-        success: true,
-        output: { echo: "Hello, Forst!", timestamp: 1234567890 },
+    // Health check
+    const isHealthy = await sidecar.healthCheck();
+    logger.info("Health check:", isHealthy ? "✅ Healthy" : "❌ Unhealthy");
+
+    // Define tests
+    const tests = [
+      {
+        package: "echo",
+        function: "Echo",
+        args: { message: "Hello, Forst!" },
+        want: {
+          success: true,
+          output: { echo: "Hello, Forst!", timestamp: 1234567890 },
+        },
       },
-    },
-    {
-      fn: "typesafety.GetUserAge",
-      args: {},
-      want: {
-        success: true,
-        output: 25,
+      {
+        package: "typesafety",
+        function: "GetUserAge",
+        args: {},
+        want: {
+          success: true,
+          output: 25,
+        },
       },
-    },
-  ] as const;
+    ] as const;
 
-  // Run tests
-  const results: TestResult[] = [];
-  for (const test of tests) {
-    const result = await runTest(client, test);
-    results.push(result);
+    // Run tests
+    logger.info("🧪 Running tests...");
+    const results: TestResult[] = [];
+    for (const test of tests) {
+      const result = await runTest(sidecar, test);
+      results.push(result);
 
-    console.log(`Test: ${test.fn}`);
-    console.log(`Status: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
-    if (result.output) {
-      console.log(`Output: ${result.output}`);
+      logger.info(`Test: ${test.package}.${test.function}`);
+      logger.info(`Status: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
+      if (result.output) {
+        logger.info(`Output: ${result.output}`);
+      }
+      if (result.errorOutput) {
+        logger.info(`Error Output: ${result.errorOutput}`);
+      }
+      if (result.error) {
+        logger.info(`Error: ${result.error}`);
+      }
+      logger.info("");
     }
-    if (result.errorOutput) {
-      console.log(`Error Output: ${result.errorOutput}`);
-    }
-    if (result.error) {
-      console.log(`Error: ${result.error}`);
-    }
-    console.log();
-  }
 
-  // Summary
-  const passed = results.filter((r) => r.passed).length;
-  const total = results.length;
+    // Summary
+    const passed = results.filter((r) => r.passed).length;
+    const total = results.length;
 
-  if (passed === total) {
-    console.log("✅ All tests passed!");
-  } else {
-    console.log(`❌ Some tests failed`);
-    process.exit(1);
+    // Print summary table
+    logger.info("Test Summary:");
+    for (const result of results) {
+      logger.info(`- ${result.name}: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
+    }
+
+    if (passed === total) {
+      logger.info("✅ All tests passed!");
+    } else {
+      logger.info("❌ Some tests failed");
+      process.exit(1);
+    }
+  } catch (error) {
+    logger.error(
+      "❌ Test suite failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+    // Ensure sidecar is stopped even on error
+    try {
+      await sidecar.stop();
+      logger.info("🛑 Sidecar stopped after error");
+    } catch (stopError) {
+      logger.error(
+        "Failed to stop sidecar:",
+        stopError instanceof Error ? stopError.message : String(stopError)
+      );
+    }
+    throw error;
+  } finally {
+    // Clean up signal handlers
+    if (cleanupHandler) {
+      cleanupHandler();
+    }
+
+    // Stop the sidecar
+    try {
+      await sidecar.stop();
+      logger.info("🛑 Sidecar stopped");
+    } catch (stopError) {
+      logger.error(
+        "Failed to stop sidecar in finally:",
+        stopError instanceof Error ? stopError.message : String(stopError)
+      );
+    }
   }
 }
 
-main().catch((error) => {
-  console.error("Test runner failed:", error);
-  process.exit(1);
-});
+// Default configuration for backward compatibility
+const defaultConfig: TestRunnerConfig = {
+  mode: "local",
+  port: 8083, // Use different port to avoid conflicts with existing processes
+  host: "localhost",
+  logLevel: "info",
+  rootDir: resolve(__dirname, "."),
+  title: "Running Sidecar Integration Tests",
+};
+
+async function main() {
+  // Check if we're running in a specific mode
+  const mode = process.env.FORST_MODE as "local" | "downloaded" | undefined;
+  const port = process.env.FORST_PORT ? parseInt(process.env.FORST_PORT) : 8081;
+
+  const config: TestRunnerConfig = {
+    ...defaultConfig,
+    mode: mode || "local",
+    port,
+    title:
+      mode === "downloaded"
+        ? "Running Downloaded Binary Example"
+        : "Running Local Forst Server Example",
+  };
+
+  await runTestSuite(config);
+}
+
+// Run the test suite
+if (require.main === module) {
+  main().catch((error) => {
+    logger.error(
+      "Test runner failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
+  });
+}
+
+export { runTestSuite, TestRunnerConfig };
