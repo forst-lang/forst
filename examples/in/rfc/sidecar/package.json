@@ -15,7 +15,9 @@
     "zod": "^3.22.4"
   },
   "scripts": {
-    "test:sidecar": "tsx tests/runner.ts"
+    "test:sidecar": "tsx tests/runner.ts",
+    "example:local": "tsx tests/local_server_example.ts",
+    "example:downloaded": "tsx tests/downloaded_binary_example.ts"
   },
   "keywords": [],
   "author": "",

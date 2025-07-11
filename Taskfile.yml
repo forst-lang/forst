@@ -152,6 +152,22 @@ tasks:
       - bun run test:sidecar
     silent: false
 
+  example:sidecar-local:
+    desc: Run sidecar example using local Forst binary
+    dir: examples/in/rfc/sidecar
+    deps: [build:sidecar]
+    cmds:
+      - bun run example:local
+    silent: false
+
+  example:sidecar-downloaded:
+    desc: Run sidecar example using downloaded Forst binary
+    dir: examples/in/rfc/sidecar
+    deps: [build:sidecar]
+    cmds:
+      - bun run example:downloaded
+    silent: false
+
   # Development tasks
   dev:watch:
     desc: Watch for changes and run tests
