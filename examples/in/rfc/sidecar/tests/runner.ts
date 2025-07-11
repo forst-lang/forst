@@ -1,5 +1,4 @@
-import { join } from "node:path";
-import { ForstHTTPClient } from "./http_client";
+import { ForstClient } from "@forst/sidecar";
 
 interface TestResult {
   name: string;
@@ -9,132 +8,156 @@ interface TestResult {
   errorOutput?: string;
 }
 
-// Get port from environment or default to 8080
-const forstServerUrl = `http://localhost:${process.env.PORT || 8080}`;
+const serverProtocol = process.env.SERVER_PROTOCOL || "http";
+const serverHost = process.env.HOST || "localhost";
+const serverPort = process.env.PORT || "8081";
+const serverUrl = `${serverProtocol}://${serverHost}:${serverPort}`;
 
 async function runTest(
-  client: ForstHTTPClient,
-  test: {
+  client: ForstClient,
+  test: Readonly<{
     fn: string;
     args?: any;
     want: {
-      success: boolean;
-      output: string;
-      error: string | null;
-      errorOutput: string | null;
+      success?: boolean;
+      output?: any;
+      error?: string;
     };
-  }
+  }>
 ): Promise<TestResult> {
-  const { fn, args, want } = test;
+  const result: TestResult = {
+    name: test.fn,
+    passed: false,
+  };
 
   try {
-    // Run the test via HTTP
-    const response = await client.invoke(fn, args);
+    const response = await client.invoke(test.fn, test.args);
 
-    return {
-      name: fn,
-      passed:
-        response.success === want.success &&
-        response.output === want.output &&
-        // Treat null and undefined as equal
-        response.error == want.error &&
-        response.error == want.errorOutput,
-      output: response.output,
-      error: response.error,
-      errorOutput: response.error,
-    };
+    if (
+      test.want.success !== undefined &&
+      response.success !== test.want.success
+    ) {
+      result.passed = false;
+      result.error = `Expected success: ${test.want.success}, got: ${response.success}`;
+      return result;
+    }
+
+    if (test.want.output !== undefined) {
+      if (
+        JSON.stringify(response.result) !== JSON.stringify(test.want.output)
+      ) {
+        result.passed = false;
+        result.error = `Expected output: ${JSON.stringify(
+          test.want.output
+        )}, got: ${JSON.stringify(response.result)}`;
+        result.output = JSON.stringify(response.result);
+        return result;
+      }
+    }
+
+    if (test.want.error !== undefined) {
+      if (!response.error || !response.error.includes(test.want.error)) {
+        result.passed = false;
+        result.error = `Expected error to contain: ${test.want.error}, got: ${response.error}`;
+        result.errorOutput = response.error;
+        return result;
+      }
+    }
+
+    result.passed = true;
+    result.output = JSON.stringify(response.result);
+    return result;
   } catch (error) {
-    return {
-      name: fn,
-      passed: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    result.passed = false;
+    result.error = `Test failed with exception: ${error}`;
+    return result;
   }
 }
 
 async function main() {
   console.log("Running Sidecar Integration Tests...\n");
 
-  // Check if Forst server is running
-  const client = new ForstHTTPClient(forstServerUrl);
+  // Create HTTP client
+  const client = new ForstClient({
+    baseUrl: serverUrl,
+    timeout: 10000,
+    retries: 3,
+  });
+
+  // Check if server is running
   const isHealthy = await client.healthCheck();
-
   if (!isHealthy) {
-    console.error("❌ Forst HTTP server is not running or not healthy");
-    console.error("");
-    console.error("To start the Forst development server:");
-    console.error("  1. In the sidecar directory: ./start-forst-server.sh");
-    console.error(
-      "  2. Or manually: cd ../../../../../forst && ./bin/forst dev -port=8080"
-    );
-    console.error("");
-    console.error(`The server will be available at: ${forstServerUrl}`);
-    process.exit(1);
+    console.log("❌ Forst HTTP server is not healthy");
+    return;
   }
 
-  // Fetch and print available functions
-  try {
-    const resp = await fetch(`${forstServerUrl}/functions`);
-    const data = await resp.json();
-    if (data && data.result) {
-      const functions = Array.isArray(data.result) ? data.result : [];
-      console.log("Available Forst functions:");
-      for (const fn of functions) {
-        console.log(
-          `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
-        );
-      }
-      console.log("");
-    }
-  } catch (err) {
-    console.warn("Could not fetch /functions endpoint:", err);
+  console.log("✅ Found existing Forst server, using it for tests");
+
+  // Discover available functions
+  const functions = await client.discoverFunctions();
+  console.log("Available Forst functions:");
+  for (const fn of functions) {
+    console.log(
+      `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
+    );
   }
+  console.log();
 
   console.log("✅ Forst HTTP server is healthy\n");
+
+  // Define tests
   const tests = [
     {
       fn: "echo.Echo",
-      args: { message: "Hello from Forst!" },
+      args: { message: "Hello, Forst!" },
       want: {
         success: true,
-        output: '{"echo":"Hello from Forst!","timestamp":1234567890}',
-        error: null,
-        errorOutput: null,
+        output: { echo: "Hello, Forst!", timestamp: 1234567890 },
       },
     },
     {
       fn: "typesafety.GetUserAge",
+      args: {},
       want: {
         success: true,
-        output: "25",
-        error: null,
-        errorOutput: null,
+        output: 25,
       },
     },
   ] as const;
 
+  // Run tests
+  const results: TestResult[] = [];
   for (const test of tests) {
     const result = await runTest(client, test);
+    results.push(result);
 
-    console.log(`Test: ${result.name}`);
-    console.log(`Status: ${result.passed ? "PASS" : "FAIL"}`);
+    console.log(`Test: ${test.fn}`);
+    console.log(`Status: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
+    if (result.output) {
+      console.log(`Output: ${result.output}`);
+    }
+    if (result.errorOutput) {
+      console.log(`Error Output: ${result.errorOutput}`);
+    }
     if (result.error) {
       console.log(`Error: ${result.error}`);
     }
-    if (result.output) {
-      console.log(`Output: ${result.output}`);
-    } else {
-      console.log("Output: <none>");
-    }
+    console.log();
+  }
 
-    if (result.errorOutput) {
-      console.log(`Error Output: ${result.errorOutput}`);
-    } else {
-      console.log("Error Output: <none>");
-    }
+  // Summary
+  const passed = results.filter((r) => r.passed).length;
+  const total = results.length;
 
-    console.log("");
+  if (passed === total) {
+    console.log("✅ All tests passed!");
+  } else {
+    console.log(`❌ Some tests failed`);
+    process.exit(1);
   }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error("Test runner failed:", error);
+  process.exit(1);
+});

@@ -1,83 +1,80 @@
 import { createServer } from "node:http";
-import { handle } from "./node_invoke";
-import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import { initTRPC } from "@trpc/server";
-import { z } from "zod";
+import { ForstSidecar } from "@forst/sidecar";
 
 const port = 3000;
 
-const t = initTRPC.create();
-
-export const router = t.router;
-export const publicProcedure = t.procedure;
-
-const appRouter = router({
-  createUser: publicProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        name: z.string().min(3).max(10),
-        phoneNumber: z
-          .string()
-          .min(3)
-          .max(10)
-          .refine(
-            (val: string) => val.startsWith("+") || val.startsWith("0"),
-            "Phone number must start with + or 0"
-          ),
-        bankAccount: z.object({
-          iban: z.string().min(10).max(34),
-        }),
-      })
-    )
-    .mutation(async ({ input }) => {
-      // Send the input to Forst for validation
-      const response = await fetch(`http://localhost:${port}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Validation failed");
-      }
-
-      const result = await response.json();
-      return result.data;
-    }),
+// Initialize Forst sidecar
+const sidecar = new ForstSidecar({
+  port: 8081,
+  mode: "development",
 });
 
-const url = `http://localhost:${port}`;
-
-const trpc = createTRPCProxyClient<typeof appRouter>({
-  links: [
-    httpBatchLink({
-      url,
-    }),
-  ],
-});
-
-const server = createServer(handle);
-
-server.listen(port, async () => {
-  console.log(`Server running at ${url}`);
-
+// Start the sidecar
+async function startServer() {
   try {
-    // Test tRPC call
-    const result = await trpc.createUser.mutate({
-      id: "123e4567-e89b-12d3-a456-426614174000",
-      name: "John Doe",
-      phoneNumber: "+49123456789",
-      bankAccount: {
-        iban: "DE89370400440532013000",
-      },
+    await sidecar.start();
+
+    const server = createServer(async (req, res) => {
+      if (req.method === "POST" && req.url === "/") {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+
+        req.on("end", async () => {
+          try {
+            const input = JSON.parse(body);
+            const client = sidecar.getClient();
+            const result = await client.invokeFunction(
+              "validation",
+              "ValidateUser",
+              input
+            );
+
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(result));
+          } catch (error) {
+            res.statusCode = 500;
+            res.end(
+              JSON.stringify({
+                success: false,
+                error:
+                  error instanceof Error ? error.message : "Validation failed",
+              })
+            );
+          }
+        });
+      } else {
+        res.statusCode = 404;
+        res.end("Not found");
+      }
     });
 
-    console.log("Response:", result);
-  } catch (err) {
-    console.error("Error:", err);
-  } finally {
-    server.close();
+    server.listen(port, async () => {
+      console.log(`Server running at http://localhost:${port}`);
+
+      // Test the sidecar
+      try {
+        const client = sidecar.getClient();
+        const functions = await client.discoverFunctions();
+        console.log("Available functions:", functions);
+
+        // Test a simple function call
+        const result = await client.invoke("echo.Echo", {
+          message: "Hello from RFC!",
+        });
+        console.log("Test result:", result);
+      } catch (err) {
+        console.error("Error:", err);
+      } finally {
+        server.close();
+        await sidecar.stop();
+      }
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
   }
-});
+}
+
+startServer();

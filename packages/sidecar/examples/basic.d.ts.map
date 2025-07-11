@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "basic.d.ts",
+  "sourceRoot": "",
+  "sources": [
+    "basic.ts"
+  ],
+  "names": [],
+  "mappings": "AAIA,iBAAe,YAAY,kBAmD1B;AAOD,OAAO,EAAE,YAAY,EAAE,CAAC"
+}
