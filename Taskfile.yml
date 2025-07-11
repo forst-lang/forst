@@ -187,10 +187,8 @@ tasks:
   ci:test:
     desc: Run CI lint suite
     dir: forst
-    deps: [build:sidecar]
     cmds:
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
-      - task example:sidecar
 
   # Release tasks
   build:release:

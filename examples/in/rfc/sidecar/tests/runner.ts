@@ -88,6 +88,12 @@ async function main() {
   const isHealthy = await client.healthCheck();
   if (!isHealthy) {
     console.log("❌ Forst HTTP server is not healthy");
+    console.log(
+      "Note: This test requires a Forst dev server to be running on port 8081"
+    );
+    console.log(
+      "Start it with: cd forst && go run ./cmd/forst dev -port 8081 -root examples/in/rfc/sidecar/tests"
+    );
     return;
   }
 
