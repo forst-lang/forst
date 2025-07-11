@@ -5,9 +5,10 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
-	"strings"
 
 	logrus "github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
@@ -186,11 +187,35 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 	return true
 }
 
+// capitalizeFirst returns the input string with the first Unicode letter uppercased (robust, modern)
 func capitalizeFirst(s string) string {
-	if len(s) == 0 {
+	if s == "" {
 		return s
 	}
-	return strings.ToUpper(s[:1]) + s[1:]
+
+	// Use the cases package for proper Unicode case conversion
+	caser := cases.Upper(language.Und)
+	upper := caser.String(s)
+
+	// If the string was already uppercase or didn't change, return as is
+	if upper == s {
+		return s
+	}
+
+	// For proper capitalization, we want only the first character uppercase
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return s
+	}
+
+	// Convert only the first character to uppercase using the cases package
+	firstChar := caser.String(string(runes[0]))
+	if len(firstChar) == 0 {
+		return s
+	}
+
+	// Combine the uppercase first character with the rest of the string
+	return firstChar + string(runes[1:])
 }
 
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {

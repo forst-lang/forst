@@ -100,20 +100,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	%s "%s"
+
+	"%s"
 )
 
 func main() {
-	var %s %s.%s
-	if err := json.Unmarshal([]byte(os.Args[1]), &%s); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to unmarshal args: %%v\n", err)
+	var input %s.%s
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding input: %%v\n", err)
 		os.Exit(1)
 	}
 	result := %s.%s(%s)
 	output, _ := json.Marshal(result)
-	fmt.Printf("{\"result\":%s}\n", string(output))
+	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
-`, alias, importPkg, paramName, alias, paramType, paramName, alias, config.FunctionName, paramName, "%s")
+`, alias, importPkg, paramName, alias, paramType, paramName, alias, config.FunctionName, paramName)
 	}
 
 	return fmt.Sprintf(`package main
@@ -121,15 +122,16 @@ func main() {
 import (
 	"encoding/json"
 	"fmt"
-	%s "%s"
+
+	"%s"
 )
 
 func main() {
 	result := %s.%s()
 	output, _ := json.Marshal(result)
-	fmt.Printf("{\"result\":%s}\n", string(output))
+	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
-`, alias, importPkg, alias, config.FunctionName, "%s")
+`, alias, importPkg, alias, config.FunctionName)
 }
 
 // generateStreamingMainGo generates the main.go content for streaming execution
