@@ -77,6 +77,18 @@ tasks:
     cmds:
       - go test -v ./internal/lexer/...
 
+  test:unit:discovery:
+    desc: Run unit tests for discovery
+    dir: forst
+    cmds:
+      - go test -v ./internal/discovery/...
+
+  test:unit:executor:
+    desc: Run unit tests for executor
+    dir: forst
+    cmds:
+      - go test -v ./internal/executor/...
+
   test:unit:ast:
     desc: Run unit tests for AST
     dir: forst
