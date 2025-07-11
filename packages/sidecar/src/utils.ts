@@ -69,7 +69,7 @@ export class ForstUtils {
   static getCompilerLocalPath(): string {
     const binaryName = this.getCompilerBinaryName();
     const nodeModulesPath = resolve(process.cwd(), "node_modules");
-    const forstBinPath = join(nodeModulesPath, ".bin", "forst");
+    const forstBinPath = join(nodeModulesPath, ".bin", binaryName);
 
     // Ensure the .bin directory exists
     const binDir = dirname(forstBinPath);
