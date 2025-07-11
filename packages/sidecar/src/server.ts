@@ -192,15 +192,18 @@ export class ForstServer {
 
       // Only log non-empty error output
       if (trimmedError) {
-        // Forst compiler debug output goes to stderr but isn't necessarily an error
-        // Check if it looks like an actual error vs debug output
-        if (
-          trimmedError.includes("level=debug") ||
-          trimmedError.includes("level=info")
-        ) {
-          forstLogger.debug(`[Forst Debug] ${trimmedError}`);
+        // Forst compiler output goes to stderr but isn't necessarily an error
+        // Check if it looks like an actual error vs debug/info output
+        if (trimmedError.includes("level=debug")) {
+          forstLogger.debug(trimmedError);
+        } else if (trimmedError.includes("level=info")) {
+          forstLogger.info(trimmedError);
+        } else if (trimmedError.includes("level=warn")) {
+          forstLogger.warn(trimmedError);
+        } else if (trimmedError.includes("level=error")) {
+          forstLogger.error(trimmedError);
         } else {
-          serverLogger.error(`${trimmedError}`);
+          serverLogger.info(`${trimmedError}`);
         }
       }
 
@@ -270,7 +273,7 @@ export class ForstServer {
     const watcher = watch(
       forstDir,
       { recursive: true },
-      (eventType, filename) => {
+      (_eventType, filename) => {
         if (filename && filename.endsWith(".ft")) {
           forstLogger.info(
             `📝 Detected change in ${filename}, triggering reload...`
