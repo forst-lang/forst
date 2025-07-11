@@ -9,6 +9,7 @@ import {
 import { join, dirname, resolve } from "node:path";
 import { platform, arch } from "node:os";
 import { CompilerInfo, ForstConfig } from "./types";
+import { utilsLogger } from "./logger";
 
 export class ForstUtils {
   private static readonly COMPILER_BASE_URL =
@@ -86,8 +87,8 @@ export class ForstUtils {
     const downloadUrl = await this.getCompilerDownloadUrl();
     const localPath = this.getCompilerLocalPath();
 
-    console.log(`Downloading Forst compiler from: ${downloadUrl}`);
-    console.log(`Saving to: ${localPath}`);
+    utilsLogger.info(`Downloading Forst compiler from: ${downloadUrl}`);
+    utilsLogger.info(`Saving to: ${localPath}`);
 
     try {
       const response = await fetch(downloadUrl);
@@ -103,10 +104,10 @@ export class ForstUtils {
       writeFileSync(localPath, buffer);
       chmodSync(localPath, 0o755); // Make executable
 
-      console.log("✅ Forst compiler downloaded successfully");
+      utilsLogger.info("✅ Forst compiler downloaded successfully");
       return localPath;
     } catch (error) {
-      console.error("❌ Failed to download compiler:", error);
+      utilsLogger.error("❌ Failed to download compiler:", error);
       throw error;
     }
   }
@@ -119,7 +120,7 @@ export class ForstUtils {
 
     // Check if binary already exists
     if (existsSync(localPath)) {
-      console.log(`✅ Using existing Forst compiler at: ${localPath}`);
+      utilsLogger.info(`✅ Using existing Forst compiler at: ${localPath}`);
       return localPath;
     }
 
@@ -209,7 +210,7 @@ export class ForstUtils {
       const files = await glob(pattern, { nodir: true });
       return files;
     } catch (error) {
-      console.warn("Failed to detect Forst files:", error);
+      utilsLogger.warn("Failed to detect Forst files:", error);
       return [];
     }
   }

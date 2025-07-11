@@ -1,6 +1,6 @@
 import { ForstSidecar, createSidecar, ForstUtils } from "@forst/sidecar";
 import { resolve } from "node:path";
-import { logger } from "./logger";
+import { runnerLogger, testLogger } from "./logger";
 
 interface TestRunnerConfig {
   mode: "local" | "downloaded";
@@ -45,7 +45,7 @@ async function runTest(
     );
 
     // Debug: Log the full response structure
-    logger.debug(
+    runnerLogger.debug(
       `Full response for ${test.package}.${test.function}:`,
       JSON.stringify(response, null, 2)
     );
@@ -91,11 +91,11 @@ async function runTest(
   }
 }
 
-async function runTestSuite(config: TestRunnerConfig): Promise<void> {
-  logger.info(`🚀 ${config.title}...`);
+async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
+  runnerLogger.info(`🚀 ${config.title}...`);
 
   let sidecar: ForstSidecar;
-  let cleanupHandler: (() => void) | null = null;
+  let cleanupHandler: (() => void) | undefined;
 
   // Check if port is available
   const checkPortAvailable = async (port: number): Promise<boolean> => {
@@ -117,26 +117,45 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
   // Set up process signal handlers for cleanup
   const setupCleanup = (sidecarInstance: ForstSidecar) => {
     const cleanup = async () => {
+      runnerLogger.info("🛑 Received interrupt signal, cleaning up...");
       try {
         await sidecarInstance.stop();
-        logger.info("🛑 Sidecar stopped due to process signal");
+        runnerLogger.info("✅ Forst server stopped successfully");
       } catch (error) {
-        logger.error(
-          "Failed to stop sidecar on signal:",
-          error instanceof Error ? error.message : String(error)
-        );
+        runnerLogger.error("❌ Failed to stop Forst server:", error);
       }
-      process.exit(1);
+      process.exit(0);
     };
 
-    process.on("SIGINT", cleanup);
-    process.on("SIGTERM", cleanup);
-    process.on("uncaughtException", cleanup);
-    process.on("unhandledRejection", cleanup);
+    // Handle various interrupt signals
+    process.on("SIGINT", cleanup); // Ctrl+C
+    process.on("SIGTERM", cleanup); // Termination request
+    process.on("SIGQUIT", cleanup); // Quit request
+    process.on("SIGUSR1", cleanup); // User defined signal 1
+    process.on("SIGUSR2", cleanup); // User defined signal 2
+
+    // Handle uncaught exceptions and unhandled rejections
+    process.on("uncaughtException", (error) => {
+      runnerLogger.error("❌ Uncaught exception:", error);
+      cleanup();
+    });
+
+    process.on("unhandledRejection", (reason, promise) => {
+      runnerLogger.error(
+        "❌ Unhandled rejection at:",
+        promise,
+        "reason:",
+        reason
+      );
+      cleanup();
+    });
 
     return () => {
       process.off("SIGINT", cleanup);
       process.off("SIGTERM", cleanup);
+      process.off("SIGQUIT", cleanup);
+      process.off("SIGUSR1", cleanup);
+      process.off("SIGUSR2", cleanup);
       process.off("uncaughtException", cleanup);
       process.off("unhandledRejection", cleanup);
     };
@@ -144,15 +163,15 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
 
   // Initialize based on mode
   if (config.mode === "downloaded") {
-    logger.info("📥 Downloading Forst binary...");
+    runnerLogger.info("📥 Downloading Forst binary...");
     const forstPath = await ForstUtils.ensureCompiler();
-    logger.info("✅ Forst binary available at:", forstPath);
+    runnerLogger.info("✅ Forst binary available at:", forstPath);
   }
 
   // Check if port is available
   const isPortAvailable = await checkPortAvailable(config.port);
   if (!isPortAvailable) {
-    logger.warn(
+    runnerLogger.warn(
       `⚠️  Port ${config.port} is already in use. This might cause issues.`
     );
   }
@@ -172,24 +191,33 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
 
     // Start the sidecar
     await sidecar.start();
-    logger.info("✅ Sidecar started successfully");
+    runnerLogger.info("✅ Sidecar started successfully");
 
     // Get server info
     const serverInfo = sidecar.getServerInfo();
-    logger.info("📊 Server Info:", serverInfo);
+    runnerLogger.info("📊 Server Info:", serverInfo);
 
     // Discover available functions
     const functions = await sidecar.discoverFunctions();
-    logger.info("🔍 Available functions:");
+    runnerLogger.info("🔍 Available functions:");
     for (const fn of functions) {
-      logger.info(
+      runnerLogger.info(
         `  - ${fn.package}.${fn.name} (streaming: ${fn.supportsStreaming})`
       );
     }
 
     // Health check
     const isHealthy = await sidecar.healthCheck();
-    logger.info("Health check:", isHealthy ? "✅ Healthy" : "❌ Unhealthy");
+    runnerLogger.info(
+      "Health check:",
+      isHealthy ? "✅ Healthy" : "❌ Unhealthy"
+    );
+
+    // Abort if health check fails
+    if (!isHealthy) {
+      runnerLogger.error("❌ Health check failed. Aborting test run.");
+      throw new Error("Sidecar health check failed");
+    }
 
     // Define tests
     const tests = [
@@ -214,24 +242,23 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
     ] as const;
 
     // Run tests
-    logger.info("🧪 Running tests...");
+    runnerLogger.info("🧪 Running tests...");
     const results: TestResult[] = [];
     for (const test of tests) {
       const result = await runTest(sidecar, test);
       results.push(result);
 
-      logger.info(`Test: ${test.package}.${test.function}`);
-      logger.info(`Status: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
+      runnerLogger.info(`Test: ${test.package}.${test.function}`);
+      runnerLogger.info(`Status: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
       if (result.output) {
-        logger.info(`Output: ${result.output}`);
+        runnerLogger.info(`Output: ${result.output}`);
       }
       if (result.errorOutput) {
-        logger.info(`Error Output: ${result.errorOutput}`);
+        runnerLogger.info(`Error: ${result.errorOutput}`);
       }
       if (result.error) {
-        logger.info(`Error: ${result.error}`);
+        runnerLogger.info(`Error: ${result.error}`);
       }
-      logger.info("");
     }
 
     // Summary
@@ -239,28 +266,31 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
     const total = results.length;
 
     // Print summary table
-    logger.info("Test Summary:");
+    runnerLogger.info("Test Summary:");
     for (const result of results) {
-      logger.info(`- ${result.name}: ${result.passed ? "✅ PASS" : "❌ FAIL"}`);
+      runnerLogger.info(
+        `- ${result.name}: ${result.passed ? "✅ PASS" : "❌ FAIL"}`
+      );
     }
 
     if (passed === total) {
-      logger.info("✅ All tests passed!");
+      runnerLogger.info("✅ All tests passed!");
+      return true;
     } else {
-      logger.info("❌ Some tests failed");
-      process.exit(1);
+      runnerLogger.info("❌ Some tests failed");
+      return false;
     }
   } catch (error) {
-    logger.error(
+    runnerLogger.error(
       "❌ Test suite failed:",
       error instanceof Error ? error.message : String(error)
     );
     // Ensure sidecar is stopped even on error
     try {
       await sidecar.stop();
-      logger.info("🛑 Sidecar stopped after error");
+      runnerLogger.info("🛑 Sidecar stopped after error");
     } catch (stopError) {
-      logger.error(
+      runnerLogger.error(
         "Failed to stop sidecar:",
         stopError instanceof Error ? stopError.message : String(stopError)
       );
@@ -275,9 +305,9 @@ async function runTestSuite(config: TestRunnerConfig): Promise<void> {
     // Stop the sidecar
     try {
       await sidecar.stop();
-      logger.info("🛑 Sidecar stopped");
+      runnerLogger.info("🛑 Sidecar stopped");
     } catch (stopError) {
-      logger.error(
+      runnerLogger.error(
         "Failed to stop sidecar in finally:",
         stopError instanceof Error ? stopError.message : String(stopError)
       );
@@ -310,17 +340,29 @@ async function main() {
         : "Running Local Forst Server Example",
   };
 
-  await runTestSuite(config);
+  try {
+    const success = await runTestSuite(config);
+    process.exit(success ? 0 : 1);
+  } catch (error) {
+    runnerLogger.error(
+      "Test runner failed:",
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
+  }
 }
 
 // Run the test suite
 if (require.main === module) {
   main().catch((error) => {
-    logger.error(
+    runnerLogger.error(
       "Test runner failed:",
       error instanceof Error ? error.message : String(error)
     );
-    process.exit(1);
+    // Exit with code 1 if tests failed, 0 otherwise
+    const exitCode =
+      error instanceof Error && error.message === "Some tests failed" ? 1 : 1;
+    process.exit(exitCode);
   });
 }
 

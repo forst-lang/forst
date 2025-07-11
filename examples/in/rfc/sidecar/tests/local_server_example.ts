@@ -9,7 +9,7 @@ async function runLocalServerExample() {
     host: "localhost",
     logLevel: "info",
     rootDir: resolve(__dirname, "."),
-    title: "🚀 Starting Local Forst Server Example",
+    title: "Starting Local Forst Server Example",
   });
 }
 

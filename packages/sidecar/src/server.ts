@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from "node:child_process";
 import { existsSync, watch } from "node:fs";
 import { resolve } from "node:path";
 import { ForstConfig, ServerInfo, FunctionInfo } from "./types";
+import { serverLogger, forstLogger } from "./logger";
 
 export class ForstServer {
   private process: ChildProcess | null = null;
@@ -38,14 +39,14 @@ export class ForstServer {
       await this.setupFileWatching();
 
       this.status = "running";
-      console.log(
+      forstLogger.info(
         `🚀 Forst development server started on http://${this.host}:${this.port}`
       );
 
       return this.getServerInfo();
     } catch (error) {
       this.status = "error";
-      console.error("Failed to start Forst server:", error);
+      serverLogger.error("Failed to start Forst server:", error);
       throw error;
     }
   }
@@ -64,20 +65,56 @@ export class ForstServer {
     this.fileWatchers.forEach((unwatch) => unwatch());
     this.fileWatchers = [];
 
-    // Kill the server process
+    // Kill the server process with robust cleanup
     if (this.process) {
-      this.process.kill("SIGTERM");
-      this.process = null;
+      try {
+        // First try graceful shutdown with SIGTERM
+        this.process.kill("SIGTERM");
+
+        // Wait for graceful shutdown with timeout
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error("Process did not terminate gracefully"));
+          }, 5000); // 5 second timeout
+
+          this.process!.once("exit", (code, signal) => {
+            clearTimeout(timeout);
+            forstLogger.info(
+              `Forst server process exited gracefully with code ${code}, signal ${signal}`
+            );
+            resolve();
+          });
+        });
+      } catch (error) {
+        serverLogger.warn("Graceful shutdown failed, forcing kill:", error);
+
+        // Force kill with SIGKILL if graceful shutdown fails
+        try {
+          this.process.kill("SIGKILL");
+
+          // Wait a bit for the process to be killed
+          await new Promise<void>((resolve) => {
+            setTimeout(() => {
+              forstLogger.info("Forst server process force killed");
+              resolve();
+            }, 1000);
+          });
+        } catch (killError) {
+          serverLogger.error("Failed to force kill process:", killError);
+        }
+      } finally {
+        this.process = null;
+      }
     }
 
-    console.log("🛑 Forst development server stopped");
+    forstLogger.info("🛑 Forst development server stopped");
   }
 
   /**
    * Restart the server
    */
   async restart(): Promise<ServerInfo> {
-    console.log("🔄 Restarting Forst development server...");
+    serverLogger.info("🔄 Restarting Forst development server...");
     await this.stop();
     return this.start();
   }
@@ -107,7 +144,7 @@ export class ForstServer {
       this.config.rootDir || ".",
     ];
 
-    console.log(
+    serverLogger.info(
       `Starting Forst server with: ${this.forstPath} ${args.join(" ")}`
     );
 
@@ -118,12 +155,12 @@ export class ForstServer {
 
     // Handle process events
     this.process.on("error", (error) => {
-      console.error("Forst server process error:", error);
+      serverLogger.error("Forst server process error:", error);
       this.status = "error";
     });
 
     this.process.on("exit", (code, signal) => {
-      console.log(
+      serverLogger.info(
         `Forst server process exited with code ${code}, signal ${signal}`
       );
       this.status = "stopped";
@@ -132,33 +169,52 @@ export class ForstServer {
     // Handle stdout/stderr
     this.process.stdout?.on("data", (data) => {
       const output = data.toString();
-      console.log(`[Forst] ${output.trim()}`);
+      const trimmedOutput = output.trim();
+
+      // Only log non-empty output
+      if (trimmedOutput) {
+        forstLogger.info(`[Forst] ${trimmedOutput}`);
+      }
 
       // Parse function discovery from output
       this.parseFunctionDiscovery(output);
 
       // Check if server is ready (HTTP server listening)
       if (output.includes("HTTP server listening")) {
-        console.log("[DEBUG] Server ready detected from stdout");
+        serverLogger.debug("Server ready detected from stdout");
         this.status = "running";
       }
     });
 
     this.process.stderr?.on("data", (data) => {
       const error = data.toString();
-      console.error(`[Forst Error] ${error.trim()}`);
+      const trimmedError = error.trim();
+
+      // Only log non-empty error output
+      if (trimmedError) {
+        // Forst compiler debug output goes to stderr but isn't necessarily an error
+        // Check if it looks like an actual error vs debug output
+        if (
+          trimmedError.includes("level=debug") ||
+          trimmedError.includes("level=info")
+        ) {
+          forstLogger.debug(`[Forst Debug] ${trimmedError}`);
+        } else {
+          serverLogger.error(`${trimmedError}`);
+        }
+      }
 
       // Check if server is ready (HTTP server listening)
       if (error.includes("HTTP server listening")) {
-        console.log("[DEBUG] Server ready detected from stderr");
+        serverLogger.debug("Server ready detected from stderr");
         this.status = "running";
       }
     });
 
-    console.log("[DEBUG] Waiting for server to be ready...");
+    serverLogger.debug("Waiting for server to be ready...");
     // Wait for server to be ready
     await this.waitForServerReady();
-    console.log("[DEBUG] Server ready check completed");
+    serverLogger.debug("Server ready check completed");
   }
 
   /**
@@ -216,7 +272,7 @@ export class ForstServer {
       { recursive: true },
       (eventType, filename) => {
         if (filename && filename.endsWith(".ft")) {
-          console.log(
+          forstLogger.info(
             `📝 Detected change in ${filename}, triggering reload...`
           );
           this.handleFileChange();
@@ -237,7 +293,10 @@ export class ForstServer {
     }
     this.fileChangeTimeout = setTimeout(() => {
       this.restart().catch((error) => {
-        console.error("Failed to restart server after file change:", error);
+        serverLogger.error(
+          "Failed to restart server after file change:",
+          error
+        );
       });
     }, 1000);
   }
@@ -272,7 +331,9 @@ export class ForstServer {
 
       if (existingIndex === -1) {
         this.functions.push(functionInfo);
-        console.log(`✨ Discovered function: ${packageName}.${functionName}`);
+        forstLogger.info(
+          `✨ Discovered function: ${packageName}.${functionName}`
+        );
       }
     }
   }

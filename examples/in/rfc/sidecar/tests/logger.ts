@@ -1,7 +1,6 @@
 import pino from "pino";
 
-// Create a logger instance for the sidecar examples
-const logger = pino({
+const baseLogger = pino({
   level: process.env.LOG_LEVEL || "info",
   transport: {
     target: "pino-pretty",
@@ -13,5 +12,23 @@ const logger = pino({
   },
 });
 
-// Export logger for direct usage
-export { logger };
+export const logger = baseLogger;
+
+export function createLogger(scope: string) {
+  return {
+    info: (msg: string, ...args: any[]) =>
+      baseLogger.info({ scope }, msg, ...args),
+    error: (msg: string, ...args: any[]) =>
+      baseLogger.error({ scope }, msg, ...args),
+    warn: (msg: string, ...args: any[]) =>
+      baseLogger.warn({ scope }, msg, ...args),
+    debug: (msg: string, ...args: any[]) =>
+      baseLogger.debug({ scope }, msg, ...args),
+    trace: (msg: string, ...args: any[]) =>
+      baseLogger.trace({ scope }, msg, ...args),
+  };
+}
+
+export const testLogger = createLogger("test");
+export const runnerLogger = createLogger("runner");
+export const sidecarLogger = createLogger("sidecar");
