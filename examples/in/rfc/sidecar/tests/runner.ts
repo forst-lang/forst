@@ -165,7 +165,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
   if (config.mode === "downloaded") {
     runnerLogger.info("📥 Downloading Forst binary...");
     const forstPath = await ForstUtils.ensureCompiler();
-    runnerLogger.info("✅ Forst binary available at:", forstPath);
+    runnerLogger.info(`✅ Forst binary available at: ${forstPath}`);
   }
 
   // Check if port is available
