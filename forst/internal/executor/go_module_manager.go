@@ -101,7 +101,7 @@ import (
 	"fmt"
 	"os"
 
-	"%s"
+	%s "%s"
 )
 
 func main() {
@@ -114,7 +114,7 @@ func main() {
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
-`, alias, importPkg, paramName, alias, paramType, paramName, alias, config.FunctionName, paramName)
+`, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
 	}
 
 	return fmt.Sprintf(`package main
@@ -123,7 +123,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"%s"
+	%s "%s"
 )
 
 func main() {
