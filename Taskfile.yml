@@ -147,7 +147,7 @@ tasks:
   example:sidecar-local:
     desc: Run sidecar example using local Forst binary
     dir: examples/in/rfc/sidecar
-    deps: [build:sidecar]
+    deps: [build:sidecar, build]
     cmds:
       - bun run example:local
     silent: false
