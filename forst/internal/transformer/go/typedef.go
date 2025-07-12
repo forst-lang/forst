@@ -215,49 +215,69 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		return "struct{}", nil
 	}
 
-	// Ensure the type is registered before emitting
-	if typeNode.TypeKind == ast.TypeKindHashBased || typeNode.TypeKind == ast.TypeKindUserDefined {
-		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; !exists {
-			t.log.Warnf("Type %q not registered in Defs; synthesizing minimal definition", typeNode.Ident)
-			// Synthesize a minimal struct type
-			minimal := ast.TypeDefNode{
-				Ident: typeNode.Ident,
-				Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+	// If this is a hash-based type, check for structural identity with user-defined types
+	if typeNode.TypeKind == ast.TypeKindHashBased {
+		// Look up the shape for this hash-based type
+		hashDef, hashExists := t.TypeChecker.Defs[typeNode.Ident]
+		if hashExists {
+			if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
+				if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					hashShape := hashShapeExpr.Shape
+					for _, def := range t.TypeChecker.Defs {
+						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
+							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
+								userShape := shapeExpr.Shape
+								if shapesAreStructurallyIdentical(hashShape, userShape) {
+									t.log.Debugf("getTypeAliasNameForTypeNode: aliasing hash-based type %q to user-defined type %q", typeNode.Ident, userDef.Ident)
+									return string(userDef.Ident), nil
+								}
+							}
+						}
+					}
+				}
 			}
-			t.TypeChecker.RegisterTypeIfMissing(typeNode.Ident, minimal)
 		}
 	}
 
-	switch typeNode.TypeKind {
-	case ast.TypeKindBuiltin:
-		// Handle pointer types specially - they should be processed by transformType, not here
-		if typeNode.Ident == ast.TypePointer {
-			panic("BUG: pointer types should be handled by transformType, not getTypeAliasNameForTypeNode")
+	// For user-defined types, check if they're already defined in the typechecker
+	if typeNode.Ident != "" {
+		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; exists {
+			return string(typeNode.Ident), nil
 		}
-		ident, err := transformTypeIdent(typeNode.Ident)
-		if err != nil {
-			return "", fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
-		}
-		if ident != nil {
-			result := ident.Name
-			t.log.Debugf("getTypeAliasNameForTypeNode: builtin type %q -> alias %q", typeNode.Ident, result)
-			return result, nil
-		}
-		return string(typeNode.Ident), nil
-	case ast.TypeKindHashBased:
-		return string(typeNode.Ident), nil
-	case ast.TypeKindUserDefined:
-		// Always emit the hash-based name for user-defined types
-		hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
-		if err != nil {
-			return "", fmt.Errorf("failed to hash type node: %w", err)
-		}
-		result := string(hash.ToTypeIdent())
-		t.log.Debugf("getTypeAliasNameForTypeNode: user-defined type %q -> hash-based alias %q", typeNode.Ident, result)
-		return result, nil
-	default:
-		return string(typeNode.Ident), nil
 	}
+
+	// If not found in Defs, fall back to hash-based name
+	hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash type node: %w", err)
+	}
+	return string(hash.ToTypeIdent()), nil
+}
+
+// shapesAreStructurallyIdentical returns true if two ShapeNodes have the same fields and types
+func shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
+	if len(a.Fields) != len(b.Fields) {
+		return false
+	}
+	for name, fieldA := range a.Fields {
+		fieldB, ok := b.Fields[name]
+		if !ok {
+			return false
+		}
+		// Compare field types (ignoring assertions for now)
+		if fieldA.Type != nil && fieldB.Type != nil {
+			if fieldA.Type.Ident != fieldB.Type.Ident {
+				return false
+			}
+		} else if fieldA.Shape != nil && fieldB.Shape != nil {
+			if !shapesAreStructurallyIdentical(*fieldA.Shape, *fieldB.Shape) {
+				return false
+			}
+		} else if (fieldA.Type != nil) != (fieldB.Type != nil) || (fieldA.Shape != nil) != (fieldB.Shape != nil) {
+			return false
+		}
+	}
+	return true
 }
 
 // getGeneratedTypeNameForTypeNode looks up the generated type name for a TypeNode

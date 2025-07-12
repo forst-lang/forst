@@ -8,6 +8,8 @@ import (
 	goast "go/ast"
 	goasttoken "go/token"
 
+	"strings"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -191,13 +193,136 @@ func (t *Transformer) ensureAllReferencedTypesEmitted() error {
 	// Track which types we've already processed to avoid infinite recursion
 	processed := make(map[ast.TypeIdent]bool)
 
-	// Recursively emit all referenced types
+	// First, recursively emit all referenced types from TypeChecker.Defs
 	for typeIdent, def := range t.TypeChecker.Defs {
 		if err := t.emitTypeAndReferencedTypes(typeIdent, def, processed); err != nil {
 			return fmt.Errorf("failed to emit type %s: %w", typeIdent, err)
 		}
 	}
 
+	// Then, scan all generated code for any additional referenced types that might not be in Defs
+	if err := t.scanAndEmitReferencedTypes(processed); err != nil {
+		return fmt.Errorf("failed to scan and emit referenced types: %w", err)
+	}
+
+	return nil
+}
+
+// scanAndEmitReferencedTypes scans all generated code for referenced types and ensures they are emitted
+func (t *Transformer) scanAndEmitReferencedTypes(processed map[ast.TypeIdent]bool) error {
+	t.log.Debug("Scanning generated code for referenced types")
+
+	// Scan all generated types for field types
+	for _, typeDecl := range t.Output.types {
+		if len(typeDecl.Specs) > 0 {
+			if spec, ok := typeDecl.Specs[0].(*goast.TypeSpec); ok {
+				if structType, ok := spec.Type.(*goast.StructType); ok {
+					if structType.Fields != nil {
+						for _, field := range structType.Fields.List {
+							if field.Type != nil {
+								if err := t.ensureTypeEmittedFromGoType(field.Type, processed); err != nil {
+									return fmt.Errorf("failed to ensure field type emitted: %w", err)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Scan all generated functions for parameter and return types
+	for _, funcDecl := range t.Output.functions {
+		if funcDecl.Type != nil {
+			// Scan parameter types
+			if funcDecl.Type.Params != nil {
+				for _, param := range funcDecl.Type.Params.List {
+					if param.Type != nil {
+						if err := t.ensureTypeEmittedFromGoType(param.Type, processed); err != nil {
+							return fmt.Errorf("failed to ensure parameter type emitted: %w", err)
+						}
+					}
+				}
+			}
+			// Scan return types
+			if funcDecl.Type.Results != nil {
+				for _, result := range funcDecl.Type.Results.List {
+					if result.Type != nil {
+						if err := t.ensureTypeEmittedFromGoType(result.Type, processed); err != nil {
+							return fmt.Errorf("failed to ensure return type emitted: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ensureTypeEmittedFromGoType ensures that a Go type is properly emitted if it represents a Forst type
+func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed map[ast.TypeIdent]bool) error {
+	switch expr := goType.(type) {
+	case *goast.Ident:
+		// Check if this is a hash-based type name (starts with T_)
+		if strings.HasPrefix(expr.Name, "T_") {
+			typeIdent := ast.TypeIdent(expr.Name)
+			if !processed[typeIdent] {
+				t.log.WithFields(logrus.Fields{
+					"function": "ensureTypeEmittedFromGoType",
+					"type":     expr.Name,
+				}).Debug("Found hash-based type in generated code that needs emission")
+
+				// Try to find this type in Defs
+				if def, exists := t.TypeChecker.Defs[typeIdent]; exists {
+					if err := t.emitTypeAndReferencedTypes(typeIdent, def, processed); err != nil {
+						return fmt.Errorf("failed to emit referenced type %s: %w", typeIdent, err)
+					}
+				} else {
+					// If not in Defs, create a minimal type definition to ensure it's emitted
+					t.log.WithFields(logrus.Fields{
+						"function": "ensureTypeEmittedFromGoType",
+						"type":     expr.Name,
+					}).Warn("Hash-based type found in generated code but not in Defs, creating minimal definition")
+
+					// Create a minimal type definition to ensure emission
+					minimalDef := ast.TypeDefNode{
+						Ident: typeIdent,
+						Expr: ast.TypeDefAssertionExpr{
+							Assertion: &ast.AssertionNode{
+								BaseType: func() *ast.TypeIdent { t := ast.TypeString; return &t }(),
+								Constraints: []ast.ConstraintNode{{
+									Name: "Value",
+									Args: []ast.ConstraintArgumentNode{{
+										Value: func() *ast.ValueNode {
+											v := ast.ValueNode(ast.StringLiteralNode{Value: "placeholder"})
+											return &v
+										}(),
+									}},
+								}},
+							},
+						},
+					}
+
+					if err := t.emitTypeAndReferencedTypes(typeIdent, minimalDef, processed); err != nil {
+						return fmt.Errorf("failed to emit minimal type definition for %s: %w", typeIdent, err)
+					}
+				}
+			}
+		}
+	case *goast.StarExpr:
+		// Handle pointer types recursively
+		return t.ensureTypeEmittedFromGoType(expr.X, processed)
+	case *goast.ArrayType:
+		// Handle array types recursively
+		return t.ensureTypeEmittedFromGoType(expr.Elt, processed)
+	case *goast.MapType:
+		// Handle map types recursively
+		if err := t.ensureTypeEmittedFromGoType(expr.Key, processed); err != nil {
+			return err
+		}
+		return t.ensureTypeEmittedFromGoType(expr.Value, processed)
+	}
 	return nil
 }
 
@@ -224,6 +349,31 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 
 	if alreadyEmitted {
 		return nil
+	}
+
+	// Special case: emit type alias for hash-based types that are value constraints or primitive aliases
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
+			// If the assertion is a value constraint or base type is a primitive, emit alias
+			if assertionExpr.Assertion.BaseType != nil {
+				base := *assertionExpr.Assertion.BaseType
+				if ast.IsGoBuiltinType(ast.TypeNode{Ident: base}) || base == ast.TypeString || base == ast.TypeInt || base == ast.TypeFloat || base == ast.TypeBool {
+					goType, err := transformTypeIdent(base)
+					if err == nil && goType != nil {
+						t.Output.AddType(&goast.GenDecl{
+							Tok: goasttoken.TYPE,
+							Specs: []goast.Spec{
+								&goast.TypeSpec{
+									Name: goast.NewIdent(string(typeIdent)),
+									Type: goType,
+								},
+							},
+						})
+						return nil
+					}
+				}
+			}
+		}
 	}
 
 	// Determine the type name to use for emission
