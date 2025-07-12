@@ -140,6 +140,8 @@ export class ForstServer {
       (this.config.port || 8080).toString(),
       "-root",
       this.config.rootDir || ".",
+      "-log-level",
+      this.config.logLevel || "info",
     ];
 
     serverLogger.info(
@@ -198,7 +200,7 @@ export class ForstServer {
         } else if (trimmedError.includes("level=error")) {
           forstLogger.error(trimmedError);
         } else {
-          serverLogger.info(`${trimmedError}`);
+          forstLogger.info(`${trimmedError}`);
         }
       }
 
@@ -221,31 +223,51 @@ export class ForstServer {
   private async waitForServerReady(): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        serverLogger.error("⏰ Server startup timeout after 10 seconds");
         reject(new Error("Server startup timeout"));
       }, 10000);
 
       // Simple approach: wait a bit for server to start, then check if it's responding
       setTimeout(async () => {
         try {
+          const healthUrl = `http://${this.host}:${this.port}/health`;
+          serverLogger.debug(`🏥 Checking server health at: ${healthUrl}`);
+
           // Check if server is responding
-          const response = await fetch(
-            `http://${this.host}:${this.port}/health`
+          const response = await fetch(healthUrl);
+          serverLogger.debug(
+            `🏥 Health check response status: ${response.status}`
           );
+
           if (response.ok) {
+            const healthData = await response.text();
+            serverLogger.debug(`🏥 Health check response body: ${healthData}`);
             this.status = "running";
             clearTimeout(timeout);
+            serverLogger.info("✅ Server is ready and responding");
             resolve();
           } else {
+            const errorText = await response.text();
+            serverLogger.error(
+              `❌ Server health check failed with status ${response.status}: ${errorText}`
+            );
             clearTimeout(timeout);
             reject(new Error("Server health check failed"));
           }
         } catch (error) {
+          serverLogger.error(`❌ Health check request failed:`, error);
           // If health check fails, still set as running if process is alive
           if (this.process && !this.process.killed) {
+            serverLogger.warn(
+              "⚠️  Health check failed but process is alive, marking as running"
+            );
             this.status = "running";
             clearTimeout(timeout);
             resolve();
           } else {
+            serverLogger.error(
+              "❌ Health check failed and process is not alive"
+            );
             clearTimeout(timeout);
             reject(new Error("Server process not responding"));
           }

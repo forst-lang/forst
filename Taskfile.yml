@@ -25,6 +25,20 @@ tasks:
       - bun run build
     sources:
       - ./**/*.ts
+    generates:
+      - packages/sidecar/dist/index.js
+      - packages/sidecar/dist/index.d.ts
+
+  build:client:
+    desc: Build the Forst client
+    dir: packages/client
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/client/dist/index.js
+      - packages/client/dist/index.d.ts
 
   install:
     desc: Install the Forst compiler
@@ -170,6 +184,14 @@ tasks:
     deps: [build:sidecar]
     cmds:
       - bun run example:downloaded
+    silent: false
+
+  example:client:
+    desc: Run client example
+    dir: examples/in/rfc/sidecar
+    deps: [build, build:client, build:sidecar]
+    cmds:
+      - bun run example:client
     silent: false
 
   # Development tasks

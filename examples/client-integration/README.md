@@ -8,9 +8,9 @@ This example demonstrates how to transform the current sidecar approach into a s
 
 ```typescript
 // Manual setup required
-import { createSidecar } from "@forst/sidecar";
+import { ForstSidecar } from "@forst/sidecar";
 
-const sidecar = createSidecar({
+const sidecar = ForstSidecar({
   mode: "development",
   port: 8080,
   host: "localhost",

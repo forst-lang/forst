@@ -1,0 +1,13 @@
+{
+  "name": "@forst/client",
+  "version": "0.1.0",
+  "description": "Auto-generated Forst client",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@forst/sidecar": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

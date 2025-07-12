@@ -8,6 +8,7 @@ import (
 	"forst/internal/typechecker"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -62,6 +63,11 @@ func generateCommand(args []string) error {
 			log.Errorf("Failed to process %s: %v", file, err)
 			continue
 		}
+	}
+
+	// Generate client package structure
+	if err := generateClientPackage(outputDir, forstFiles, log); err != nil {
+		log.Errorf("Failed to generate client package: %v", err)
 	}
 
 	log.Info("TypeScript client generation completed")
@@ -129,23 +135,168 @@ func processForstFile(filePath, targetDir string, log *logrus.Logger) error {
 		return fmt.Errorf("failed to transform to TypeScript: %w", err)
 	}
 
-	// Generate the output file path
+	// Generate the output file paths
 	fileName := filepath.Base(filePath)
 	baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
-	outputPath := filepath.Join(targetDir, "generated", baseName+".d.ts")
 
-	// Ensure the output directory exists
-	outputDir := filepath.Dir(outputPath)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+	// Create generated directory
+	generatedDir := filepath.Join(targetDir, "generated")
+	if err := os.MkdirAll(generatedDir, 0755); err != nil {
+		return fmt.Errorf("failed to create generated directory: %w", err)
 	}
 
-	// Write the generated TypeScript declaration code
-	generatedCode := output.GenerateFile()
-	if err := os.WriteFile(outputPath, []byte(generatedCode), 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
+	// Write types file (shared across all packages)
+	typesPath := filepath.Join(generatedDir, "types.ts")
+	typesCode := output.GenerateTypesFile()
+	if err := os.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
+		return fmt.Errorf("failed to write types file: %w", err)
+	}
+	log.Infof("Generated types file: %s", typesPath)
+
+	// Write package client file
+	clientPath := filepath.Join(generatedDir, baseName+".client.ts")
+	clientCode := output.GenerateClientFile()
+	if err := os.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
+		return fmt.Errorf("failed to write client file: %w", err)
+	}
+	log.Infof("Generated client file: %s", clientPath)
+
+	return nil
+}
+
+// generateClientPackage creates the main client package structure
+func generateClientPackage(outputDir string, forstFiles []string, log *logrus.Logger) error {
+	// Create client package directory
+	clientDir := filepath.Join(outputDir, "client")
+	if err := os.MkdirAll(clientDir, 0755); err != nil {
+		return fmt.Errorf("failed to create client directory: %w", err)
 	}
 
-	log.Infof("Generated %s", outputPath)
+	// Generate main client index file
+	indexContent := generateClientIndex(forstFiles)
+	indexPath := filepath.Join(clientDir, "index.ts")
+	if err := os.WriteFile(indexPath, []byte(indexContent), 0644); err != nil {
+		return fmt.Errorf("failed to write client index: %w", err)
+	}
+	log.Infof("Generated client index: %s", indexPath)
+
+	// Generate package.json for the client
+	packageContent := generateClientPackageJson()
+	packagePath := filepath.Join(clientDir, "package.json")
+	if err := os.WriteFile(packagePath, []byte(packageContent), 0644); err != nil {
+		return fmt.Errorf("failed to write client package.json: %w", err)
+	}
+	log.Infof("Generated client package.json: %s", packagePath)
+
+	// Copy types file to client directory
+	typesSource := filepath.Join(outputDir, "generated", "types.ts")
+	typesDest := filepath.Join(clientDir, "types.ts")
+	if err := copyFile(typesSource, typesDest); err != nil {
+		return fmt.Errorf("failed to copy types file: %w", err)
+	}
+	log.Infof("Copied types file to client directory")
+
+	return nil
+}
+
+// generateClientIndex creates the main client index file
+func generateClientIndex(forstFiles []string) string {
+	var imports []string
+	var exports []string
+	var packageProperties []string
+
+	// Generate imports and exports for each package
+	for _, file := range forstFiles {
+		fileName := filepath.Base(file)
+		baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
+
+		// Import the client implementation
+		imports = append(imports, fmt.Sprintf("import { %s } from '../generated/%s.client';", baseName, baseName))
+		exports = append(exports, baseName)
+		packageProperties = append(packageProperties, fmt.Sprintf("  public %s: ReturnType<typeof %s>;", baseName, baseName))
+	}
+
+	// Create the main client class
+	clientClass := `export interface ForstClientConfig {
+  baseUrl?: string;
+  timeout?: number;
+  retries?: number;
+}
+
+export class ForstClient {
+  private client: SidecarClient;
+`
+
+	// Add package properties
+	clientClass += strings.Join(packageProperties, "\n")
+	clientClass += "\n\n  constructor(config?: ForstClientConfig) {\n"
+	clientClass += "    const defaultConfig = {\n"
+	clientClass += "      baseUrl: process.env.FORST_BASE_URL || 'http://localhost:8080',\n"
+	clientClass += "      timeout: 30000,\n"
+	clientClass += "      retries: 3,\n"
+	clientClass += "      ...config,\n"
+	clientClass += "    };\n\n"
+	clientClass += "    this.client = new SidecarClient(defaultConfig);\n"
+
+	// Initialize package properties
+	for _, export := range exports {
+		clientClass += fmt.Sprintf("    this.%s = %s(this.client);\n", export, export)
+	}
+
+	clientClass += "  }\n}\n"
+
+	// Combine all parts
+	content := "// Auto-generated Forst Client\n"
+	content += "// Generated by Forst TypeScript Transformer\n\n"
+	content += "import { ForstClient as SidecarClient } from '@forst/sidecar';\n"
+
+	if len(imports) > 0 {
+		content += strings.Join(imports, "\n") + "\n\n"
+	}
+
+	content += clientClass + "\n"
+
+	if len(exports) > 0 {
+		content += "// Export individual packages\n"
+		content += "export { " + strings.Join(exports, ", ") + " };\n\n"
+	}
+
+	content += "// Export types\n"
+	content += "export * from './types';\n\n"
+	content += "// Export default\n"
+	content += "export default ForstClient;\n"
+
+	return content
+}
+
+// generateClientPackageJson creates the package.json for the client
+func generateClientPackageJson() string {
+	return `{
+  "name": "@forst/client",
+  "version": "0.1.0",
+  "description": "Auto-generated Forst client",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@forst/sidecar": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}`
+}
+
+// copyFile copies a file from source to destination
+func copyFile(src, dst string) error {
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(dst, input, 0644)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

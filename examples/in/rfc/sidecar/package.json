@@ -9,6 +9,7 @@
   "main": "index.ts",
   "dependencies": {
     "@forst/sidecar": "workspace:*",
+    "@forst/client": "workspace:*",
     "@trpc/client": "^10.45.1",
     "@trpc/server": "^10.45.1",
     "pino": "^9.0.0",
@@ -18,7 +19,8 @@
   },
   "scripts": {
     "example:local": "tsx tests/local_server_example.ts",
-    "example:downloaded": "tsx tests/downloaded_binary_example.ts"
+    "example:downloaded": "tsx tests/downloaded_binary_example.ts",
+    "example:client": "tsx tests/client_example.ts"
   },
   "keywords": [],
   "author": "",

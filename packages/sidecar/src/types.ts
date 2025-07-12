@@ -1,5 +1,3 @@
-// Core types for the Forst sidecar integration
-
 export interface FunctionInfo {
   package: string;
   name: string;
