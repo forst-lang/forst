@@ -53,6 +53,7 @@ func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.T
 	typeNode := &ast.TypeNode{
 		Ident:     hash.ToTypeIdent(),
 		Assertion: assertion,
+		TypeKind:  ast.TypeKindHashBased, // Set the correct type kind for hash-based types
 	}
 	tc.storeInferredType(assertion, []ast.TypeNode{*typeNode})
 	return typeNode, nil

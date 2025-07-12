@@ -388,7 +388,54 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}
 	}
 
+	// Check for structural compatibility between hash-based types and user-defined types
+	if actualDef != nil && expectedDef != nil {
+		if actualShape, actualShapeOk := tc.getShapeFromTypeDef(actualDef); actualShapeOk {
+			if expectedShape, expectedShapeOk := tc.getShapeFromTypeDef(expectedDef); expectedShapeOk {
+				if tc.shapesAreStructurallyIdentical(*actualShape, *expectedShape) {
+					return true
+				}
+			}
+		}
+	}
+
 	return false
+}
+
+// getShapeFromTypeDef extracts the shape from a TypeDefNode if it's a shape definition
+func (tc *TypeChecker) getShapeFromTypeDef(def ast.Node) (*ast.ShapeNode, bool) {
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+			return &shapeExpr.Shape, true
+		}
+	}
+	return nil, false
+}
+
+// shapesAreStructurallyIdentical returns true if two ShapeNodes have the same fields and types
+func (tc *TypeChecker) shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
+	if len(a.Fields) != len(b.Fields) {
+		return false
+	}
+	for name, fieldA := range a.Fields {
+		fieldB, ok := b.Fields[name]
+		if !ok {
+			return false
+		}
+		// Compare field types (ignoring assertions for now)
+		if fieldA.Type != nil && fieldB.Type != nil {
+			if fieldA.Type.Ident != fieldB.Type.Ident {
+				return false
+			}
+		} else if fieldA.Shape != nil && fieldB.Shape != nil {
+			if !tc.shapesAreStructurallyIdentical(*fieldA.Shape, *fieldB.Shape) {
+				return false
+			}
+		} else if (fieldA.Type != nil) != (fieldB.Type != nil) || (fieldA.Shape != nil) != (fieldB.Shape != nil) {
+			return false
+		}
+	}
+	return true
 }
 
 // checkBuiltinFunctionCall validates a call to a built-in function

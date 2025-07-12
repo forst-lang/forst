@@ -1,5 +1,3 @@
-// Core types for the Forst sidecar integration
-
 export interface FunctionInfo {
   package: string;
   name: string;
@@ -94,5 +92,4 @@ export interface ServerInfo {
   port: number;
   host: string;
   status: "starting" | "running" | "stopped" | "error";
-  functions: FunctionInfo[];
 }

@@ -106,6 +106,8 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			}, nil
 		},
 		HasPrefixConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+			// Ensure the strings import is present
+			at.transformer.Output.EnsureImport("strings")
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
@@ -135,6 +137,39 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 					argExpr,
 				},
 			}), nil
+		},
+		ContainsConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+			// Ensure the strings import is present
+			at.transformer.Output.EnsureImport("strings")
+			if err := at.validateConstraintArgs(constraint, 1); err != nil {
+				return nil, err
+			}
+			arg, err := at.expectValue(&constraint.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			arg, err = expectStringLiteral(arg)
+			if err != nil {
+				return nil, err
+			}
+			variableExpr, err := at.transformer.transformExpression(variable)
+			if err != nil {
+				return nil, err
+			}
+			argExpr, err := at.transformer.transformExpression(arg)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.CallExpr{
+				Fun: &goast.SelectorExpr{
+					X:   goast.NewIdent("strings"),
+					Sel: goast.NewIdent("Contains"),
+				},
+				Args: []goast.Expr{
+					variableExpr,
+					argExpr,
+				},
+			}, nil
 		},
 	},
 	ast.TypeInt: {

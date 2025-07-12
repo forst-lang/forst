@@ -18,6 +18,8 @@ const (
 	GreaterThanConstraint BuiltinConstraint = "GreaterThan"
 	// HasPrefixConstraint is the built-in HasPrefix constraint in Forst
 	HasPrefixConstraint BuiltinConstraint = "HasPrefix"
+	// ContainsConstraint is the built-in Contains constraint in Forst
+	ContainsConstraint BuiltinConstraint = "Contains"
 	// TrueConstraint is the built-in True constraint in Forst
 	TrueConstraint BuiltinConstraint = "True"
 	// FalseConstraint is the built-in False constraint in Forst

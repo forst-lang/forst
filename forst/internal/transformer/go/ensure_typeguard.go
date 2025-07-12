@@ -87,16 +87,19 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 
 	// Check if the type guard is defined for the base type
 	for _, param := range typeGuard.Parameters() {
+		paramType := param.GetType()
 		t.log.WithFields(logrus.Fields{
-			"paramType": param.GetType().Ident,
+			"paramType": paramType.Ident,
 			"baseType":  baseType.Ident,
 			"function":  "isTypeGuardCompatible",
 		}).Trace("Checking parameter type")
 
-		if param.GetType().Ident == baseType.Ident {
+		// Use the type checker's IsTypeCompatible function to handle type aliases and structural compatibility
+		if t.TypeChecker.IsTypeCompatible(baseType, paramType) {
 			t.log.WithFields(logrus.Fields{
 				"typeGuard": typeGuard.GetIdent(),
 				"baseType":  baseType.Ident,
+				"paramType": paramType.Ident,
 				"function":  "isTypeGuardCompatible",
 			}).Trace("Found compatible type guard")
 			return true

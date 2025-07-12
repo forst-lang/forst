@@ -1,17 +1,14 @@
-// Main entry point for @forst/sidecar package
-
 import { logger } from "./logger";
 
-export { ForstClient } from "./client";
+export { ForstSidecarClient } from "./client";
 export { ForstServer } from "./server";
 export { ForstUtils } from "./utils";
 export * from "./types";
 
 import type { ForstConfig } from "./types";
 import { ForstUtils } from "./utils";
-import { ForstClient } from "./client";
+import { ForstSidecarClient } from "./client";
 import { ForstServer } from "./server";
-import { ChildProcess } from "child_process";
 
 // Function to ensure Forst binary is available
 async function ensureForstBinary(): Promise<string> {
@@ -23,7 +20,7 @@ async function ensureForstBinary(): Promise<string> {
  */
 export class ForstSidecar {
   private server!: ForstServer;
-  private client: ForstClient | null = null;
+  private client: ForstSidecarClient | null = null;
   private forstPath: string | null = null;
   private config: ForstConfig;
   private _customCompilerPath: string | null = null; // Intentionally awkward - don't use this normally
@@ -79,7 +76,7 @@ export class ForstSidecar {
     await this.server.start();
 
     // Initialize the client
-    this.client = new ForstClient({
+    this.client = new ForstSidecarClient({
       baseUrl: this.server.getServerUrl(),
       timeout: 30000,
       retries: 3,
@@ -101,7 +98,7 @@ export class ForstSidecar {
   /**
    * Get the client for making function calls
    */
-  getClient(): ForstClient {
+  getClient(): ForstSidecarClient {
     if (!this.client) {
       throw new Error("Sidecar not started. Call start() first.");
     }
@@ -174,13 +171,6 @@ export class ForstSidecar {
 }
 
 /**
- * Create a new Forst sidecar instance
- */
-export function createSidecar(config?: Partial<ForstConfig>): ForstSidecar {
-  return new ForstSidecar(config);
-}
-
-/**
  * Express.js middleware for easy integration
  */
 export function createExpressMiddleware(sidecar: ForstSidecar) {
@@ -197,7 +187,7 @@ export function createExpressMiddleware(sidecar: ForstSidecar) {
 export async function autoStart(
   config?: Partial<ForstConfig>
 ): Promise<ForstSidecar> {
-  const sidecar = createSidecar(config);
+  const sidecar = new ForstSidecar(config);
   await sidecar.start();
 
   // Handle graceful shutdown

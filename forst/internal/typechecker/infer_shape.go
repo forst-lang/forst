@@ -25,7 +25,8 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) ([]ast.TypeNode, erro
 	typeIdent := hash.ToTypeIdent()
 	shapeType := []ast.TypeNode{
 		{
-			Ident: typeIdent,
+			Ident:    typeIdent,
+			TypeKind: ast.TypeKindHashBased,
 		},
 	}
 

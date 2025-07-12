@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from "node:child_process";
 import { existsSync, watch } from "node:fs";
 import { resolve } from "node:path";
-import { ForstConfig, ServerInfo, FunctionInfo } from "./types";
+import { ForstConfig, ServerInfo } from "./types";
 import { serverLogger, forstLogger } from "./logger";
 
 export class ForstServer {
@@ -11,7 +11,6 @@ export class ForstServer {
   private status: ServerInfo["status"] = "stopped";
   private port: number;
   private host: string;
-  private functions: FunctionInfo[] = [];
   private fileWatchers: Array<() => void> = [];
 
   constructor(config: ForstConfig, forstPath: string) {
@@ -128,7 +127,6 @@ export class ForstServer {
       port: this.port,
       host: this.host,
       status: this.status,
-      functions: this.functions,
     };
   }
 
@@ -142,6 +140,8 @@ export class ForstServer {
       (this.config.port || 8080).toString(),
       "-root",
       this.config.rootDir || ".",
+      "-log-level",
+      this.config.logLevel || "info",
     ];
 
     serverLogger.info(
@@ -176,9 +176,6 @@ export class ForstServer {
         forstLogger.info(`[Forst] ${trimmedOutput}`);
       }
 
-      // Parse function discovery from output
-      this.parseFunctionDiscovery(output);
-
       // Check if server is ready (HTTP server listening)
       if (output.includes("HTTP server listening")) {
         serverLogger.debug("Server ready detected from stdout");
@@ -203,7 +200,7 @@ export class ForstServer {
         } else if (trimmedError.includes("level=error")) {
           forstLogger.error(trimmedError);
         } else {
-          serverLogger.info(`${trimmedError}`);
+          forstLogger.info(`${trimmedError}`);
         }
       }
 
@@ -226,31 +223,51 @@ export class ForstServer {
   private async waitForServerReady(): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        serverLogger.error("⏰ Server startup timeout after 10 seconds");
         reject(new Error("Server startup timeout"));
       }, 10000);
 
       // Simple approach: wait a bit for server to start, then check if it's responding
       setTimeout(async () => {
         try {
+          const healthUrl = `http://${this.host}:${this.port}/health`;
+          serverLogger.debug(`🏥 Checking server health at: ${healthUrl}`);
+
           // Check if server is responding
-          const response = await fetch(
-            `http://${this.host}:${this.port}/health`
+          const response = await fetch(healthUrl);
+          serverLogger.debug(
+            `🏥 Health check response status: ${response.status}`
           );
+
           if (response.ok) {
+            const healthData = await response.text();
+            serverLogger.debug(`🏥 Health check response body: ${healthData}`);
             this.status = "running";
             clearTimeout(timeout);
+            serverLogger.info("✅ Server is ready and responding");
             resolve();
           } else {
+            const errorText = await response.text();
+            serverLogger.error(
+              `❌ Server health check failed with status ${response.status}: ${errorText}`
+            );
             clearTimeout(timeout);
             reject(new Error("Server health check failed"));
           }
         } catch (error) {
+          serverLogger.error(`❌ Health check request failed:`, error);
           // If health check fails, still set as running if process is alive
           if (this.process && !this.process.killed) {
+            serverLogger.warn(
+              "⚠️  Health check failed but process is alive, marking as running"
+            );
             this.status = "running";
             clearTimeout(timeout);
             resolve();
           } else {
+            serverLogger.error(
+              "❌ Health check failed and process is not alive"
+            );
             clearTimeout(timeout);
             reject(new Error("Server process not responding"));
           }
@@ -305,41 +322,6 @@ export class ForstServer {
   }
 
   private fileChangeTimeout: NodeJS.Timeout | null = null;
-
-  /**
-   * Parse function discovery from server output
-   */
-  private parseFunctionDiscovery(output: string): void {
-    // Look for function discovery patterns in the output
-    const functionMatch = output.match(
-      /Discovered public function: (\w+)\.(\w+)/
-    );
-    if (functionMatch) {
-      const [, packageName, functionName] = functionMatch;
-      const functionInfo: FunctionInfo = {
-        package: packageName,
-        name: functionName,
-        supportsStreaming: false, // TODO: Parse from output
-        inputType: "any",
-        outputType: "any",
-        parameters: [],
-        returnType: "any",
-        filePath: "",
-      };
-
-      // Check if function already exists
-      const existingIndex = this.functions.findIndex(
-        (f) => f.package === packageName && f.name === functionName
-      );
-
-      if (existingIndex === -1) {
-        this.functions.push(functionInfo);
-        forstLogger.info(
-          `✨ Discovered function: ${packageName}.${functionName}`
-        );
-      }
-    }
-  }
 
   /**
    * Get the server URL

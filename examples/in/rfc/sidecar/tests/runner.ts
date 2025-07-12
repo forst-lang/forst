@@ -1,6 +1,5 @@
-import { ForstSidecar, createSidecar, ForstUtils } from "@forst/sidecar";
-import { resolve } from "node:path";
-import { runnerLogger, testLogger } from "./logger";
+import { ForstSidecar, ForstUtils } from "@forst/sidecar";
+import { runnerLogger } from "./logger";
 
 interface TestRunnerConfig {
   mode: "local" | "downloaded";
@@ -186,7 +185,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
     sidecar = config._customSidecar;
   } else {
     // Normal way to create sidecar
-    sidecar = createSidecar({
+    sidecar = new ForstSidecar({
       mode: "development",
       port: config.port,
       host: config.host,

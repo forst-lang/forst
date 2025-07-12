@@ -8,7 +8,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean",
+    "build:clean": "npm run clean && npm run build",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "example": "tsx examples/basic.ts"
