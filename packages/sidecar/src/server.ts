@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from "node:child_process";
 import { existsSync, watch } from "node:fs";
 import { resolve } from "node:path";
-import { ForstConfig, ServerInfo, FunctionInfo } from "./types";
+import { ForstConfig, ServerInfo } from "./types";
 import { serverLogger, forstLogger } from "./logger";
 
 export class ForstServer {
@@ -11,7 +11,6 @@ export class ForstServer {
   private status: ServerInfo["status"] = "stopped";
   private port: number;
   private host: string;
-  private functions: FunctionInfo[] = [];
   private fileWatchers: Array<() => void> = [];
 
   constructor(config: ForstConfig, forstPath: string) {
@@ -128,7 +127,6 @@ export class ForstServer {
       port: this.port,
       host: this.host,
       status: this.status,
-      functions: this.functions,
     };
   }
 
@@ -175,9 +173,6 @@ export class ForstServer {
       if (trimmedOutput) {
         forstLogger.info(`[Forst] ${trimmedOutput}`);
       }
-
-      // Parse function discovery from output
-      this.parseFunctionDiscovery(output);
 
       // Check if server is ready (HTTP server listening)
       if (output.includes("HTTP server listening")) {
@@ -305,41 +300,6 @@ export class ForstServer {
   }
 
   private fileChangeTimeout: NodeJS.Timeout | null = null;
-
-  /**
-   * Parse function discovery from server output
-   */
-  private parseFunctionDiscovery(output: string): void {
-    // Look for function discovery patterns in the output
-    const functionMatch = output.match(
-      /Discovered public function: (\w+)\.(\w+)/
-    );
-    if (functionMatch) {
-      const [, packageName, functionName] = functionMatch;
-      const functionInfo: FunctionInfo = {
-        package: packageName,
-        name: functionName,
-        supportsStreaming: false, // TODO: Parse from output
-        inputType: "any",
-        outputType: "any",
-        parameters: [],
-        returnType: "any",
-        filePath: "",
-      };
-
-      // Check if function already exists
-      const existingIndex = this.functions.findIndex(
-        (f) => f.package === packageName && f.name === functionName
-      );
-
-      if (existingIndex === -1) {
-        this.functions.push(functionInfo);
-        forstLogger.info(
-          `✨ Discovered function: ${packageName}.${functionName}`
-        );
-      }
-    }
-  }
 
   /**
    * Get the server URL

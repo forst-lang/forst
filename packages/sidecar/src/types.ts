@@ -94,5 +94,4 @@ export interface ServerInfo {
   port: number;
   host: string;
   status: "starting" | "running" | "stopped" | "error";
-  functions: FunctionInfo[];
 }
