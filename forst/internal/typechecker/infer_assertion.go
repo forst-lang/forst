@@ -460,7 +460,10 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isTypeGu
 		},
 	}
 
-	shapeType := ast.TypeNode{Ident: typeIdent}
+	shapeType := ast.TypeNode{
+		Ident:    typeIdent,
+		TypeKind: ast.TypeKindHashBased, // Set the correct type kind for hash-based types
+	}
 	tc.storeInferredType(assertion, []ast.TypeNode{shapeType})
 
 	tc.log.WithFields(logrus.Fields{

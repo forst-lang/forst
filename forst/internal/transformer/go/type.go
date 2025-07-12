@@ -32,10 +32,10 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 		}
 		return &goast.Ident{Name: "*" + baseType.Name}, nil
 	default:
-		// Use getTypeAliasNameForTypeNode for user-defined types
-		name, err := t.getTypeAliasNameForTypeNode(n)
+		// Use getAliasedTypeNameForTypeNode for consistent type aliasing
+		name, err := t.getAliasedTypeNameForTypeNode(n)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get type alias name: %s", err)
+			return nil, fmt.Errorf("failed to get aliased type name: %s", err)
 		}
 		return goast.NewIdent(name), nil
 	}

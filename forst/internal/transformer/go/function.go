@@ -50,9 +50,9 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 		}
 
 		actualType := inferredTypes[0]
-		name, err := t.getTypeAliasNameForTypeNode(actualType)
+		name, err := t.getAliasedTypeNameForTypeNode(actualType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get type alias name for parameter %s: %w", paramName, err)
+			return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
 		}
 
 		fields.List = append(fields.List, &goast.Field{

@@ -372,3 +372,21 @@ func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (st
 	}
 	return string(hash.ToTypeIdent()), nil
 }
+
+// getAliasedTypeNameForTypeNode returns the aliased type name for any type node,
+// ensuring consistent type aliasing across the transformer
+func (t *Transformer) getAliasedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
+	// First try to get the aliased name using the existing logic
+	aliasedName, err := t.getTypeAliasNameForTypeNode(typeNode)
+	if err == nil {
+		return aliasedName, nil
+	}
+
+	// If that fails, fall back to the generated name
+	generatedName, err := t.getGeneratedTypeNameForTypeNode(typeNode)
+	if err != nil {
+		return "", fmt.Errorf("failed to get any type name for %s: %w", typeNode.Ident, err)
+	}
+
+	return generatedName, nil
+}
