@@ -225,13 +225,48 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.ReturnNode:
+		// Get the expected return types from the current function
+		var expectedReturnTypes []ast.TypeNode
+		if fnNode, err := t.closestFunction(); err == nil {
+			if fn, ok := fnNode.(ast.FunctionNode); ok {
+				expectedReturnTypes, _ = t.TypeChecker.LookupFunctionReturnType(&fn)
+			}
+		}
+
 		// Convert return statement with multiple values
 		results := make([]goast.Expr, len(s.Values))
 		for i, value := range s.Values {
-			valueExpr, err := t.transformExpression(value)
-			if err != nil {
-				return nil, err
+			var valueExpr goast.Expr
+			var err error
+
+			// If we have an expected return type for this position, use it
+			if i < len(expectedReturnTypes) {
+				expectedType := &expectedReturnTypes[i]
+				if shapeValue, ok := value.(ast.ShapeNode); ok {
+					valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, expectedType)
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					valueExpr, err = t.transformExpression(value)
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else {
+				valueExpr, err = t.transformExpression(value)
+				if err != nil {
+					return nil, err
+				}
 			}
+
+			// Debug: log the type of each return value
+			t.log.WithFields(map[string]interface{}{
+				"index":    i,
+				"expr":     fmt.Sprintf("%#v", valueExpr),
+				"type":     fmt.Sprintf("%T", valueExpr),
+				"function": "transformStatement-ReturnNode",
+			}).Debug("Return value type")
 			results[i] = valueExpr
 		}
 
@@ -262,6 +297,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				if err != nil {
 					return nil, err
 				}
+				// Debug: log the type of each function call argument
+				t.log.WithFields(map[string]interface{}{
+					"index":    i,
+					"expr":     fmt.Sprintf("%#v", argExpr),
+					"type":     fmt.Sprintf("%T", argExpr),
+					"function": "transformStatement-FunctionCallNode",
+				}).Debug("Function call argument type")
 				args[i] = argExpr
 			} else {
 				argExpr, err := t.transformExpression(arg)
