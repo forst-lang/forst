@@ -215,6 +215,31 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 		return "struct{}", nil
 	}
 
+	// For built-in types, return their Go names
+	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
+		ident, err := transformTypeIdent(typeNode.Ident)
+		if err != nil {
+			return "", err
+		}
+		if ident != nil {
+			t.log.Debugf("getTypeAliasNameForTypeNode: builtin type %q -> %q", typeNode.Ident, ident.Name)
+			return ident.Name, nil
+		}
+		return string(typeNode.Ident), nil
+	}
+
+	// Handle pointer types
+	if typeNode.Ident == ast.TypePointer {
+		if len(typeNode.TypeParams) == 0 {
+			return "", fmt.Errorf("pointer type must have a base type parameter")
+		}
+		baseTypeName, err := t.getTypeAliasNameForTypeNode(typeNode.TypeParams[0])
+		if err != nil {
+			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
+		}
+		return "*" + baseTypeName, nil
+	}
+
 	// If this is a hash-based type, check for structural identity with user-defined types
 	if typeNode.TypeKind == ast.TypeKindHashBased {
 		// Look up the shape for this hash-based type
@@ -305,6 +330,30 @@ func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (st
 			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
 		}
 		return "*" + baseTypeName, nil
+	}
+
+	// If this is a hash-based type, check for structural identity with user-defined types
+	if typeNode.TypeKind == ast.TypeKindHashBased {
+		// Look up the shape for this hash-based type
+		hashDef, hashExists := t.TypeChecker.Defs[typeNode.Ident]
+		if hashExists {
+			if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
+				if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					hashShape := hashShapeExpr.Shape
+					for _, def := range t.TypeChecker.Defs {
+						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
+							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
+								userShape := shapeExpr.Shape
+								if shapesAreStructurallyIdentical(hashShape, userShape) {
+									t.log.Debugf("getGeneratedTypeNameForTypeNode: aliasing hash-based type %q to user-defined type %q", typeNode.Ident, userDef.Ident)
+									return string(userDef.Ident), nil
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// For user-defined types, check if they're already defined in the typechecker
