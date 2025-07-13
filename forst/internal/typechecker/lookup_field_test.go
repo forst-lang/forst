@@ -576,7 +576,7 @@ func TestLookupFieldPath_ValueConstraintWithVariableReference(t *testing.T) {
 	// Create a shape type that has a field with Value constraint referencing a variable
 	// This simulates the scenario from the sidecar test where we have:
 	// {id: Value(Variable(query.id)), name: Value("Test User"), age: Value(25)}
-	
+
 	// Create the variable node for query.id
 	varNode := ast.VariableNode{
 		Ident: ast.Ident{ID: ast.Identifier("query.id")},
@@ -682,9 +682,9 @@ func TestLookupFieldPath_ValueConstraintWithVariableReference(t *testing.T) {
 func TestInferValueConstraintType_VariableReference(t *testing.T) {
 	tc := &TypeChecker{log: logger.New(), Defs: make(map[ast.TypeIdent]ast.Node)}
 	tc.scopeStack = &ScopeStack{
-		scopes:  make(map[NodeHash]*Scope),
-		Hasher:  hasher.New(),
-		log:     logger.New(),
+		scopes: make(map[NodeHash]*Scope),
+		Hasher: hasher.New(),
+		log:    logger.New(),
 	}
 	// Initialize root scope to prevent nil pointer dereference
 	rootScope := &Scope{Symbols: make(map[ast.Identifier]Symbol)}
@@ -697,7 +697,7 @@ func TestInferValueConstraintType_VariableReference(t *testing.T) {
 		Name: ast.ValueConstraint,
 		Args: []ast.ConstraintArgumentNode{{Value: &valueNode}},
 	}
-	_, err := tc.inferValueConstraintType(constraint, "foo")
+	_, err := tc.inferValueConstraintType(constraint, "", nil)
 	if err == nil {
 		t.Logf("Expected error for unresolved variable, got nil (OK if variable is not found)")
 	}

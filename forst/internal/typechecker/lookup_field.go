@@ -217,7 +217,7 @@ func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast
 
 	// Handle Value constraints (like id: query.id)
 	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
-		return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
+		return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID), nil)
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -536,7 +536,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 					}
 
 					if len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
-						return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID))
+						return tc.inferValueConstraintType(field.Assertion.Constraints[0], string(fieldName.ID), nil)
 					}
 				}
 				if field.Assertion != nil && len(fieldPath) > 1 {
@@ -596,13 +596,13 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 	}
 	// Handle Value constraints (like id: query.id)
 	if field.Assertion != nil && len(field.Assertion.Constraints) > 0 && field.Assertion.Constraints[0].Name == ast.ValueConstraint {
-		return tc.inferValueConstraintType(field.Assertion.Constraints[0], fieldName)
+		return tc.inferValueConstraintType(field.Assertion.Constraints[0], fieldName, nil)
 	}
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
 }
 
 // inferValueConstraintType attempts to infer the type from a Value constraint
-func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, fieldName string) (ast.TypeNode, error) {
+func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, fieldName string, expectedType *ast.TypeNode) (ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
 		"function":   "inferValueConstraintType",
 		"fieldName":  fieldName,
@@ -763,6 +763,15 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 				}
 			}
 		}
+		// Fallback: use expectedType if provided
+		if expectedType != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferValueConstraintType",
+				"fieldName":    fieldName,
+				"expectedType": expectedType.Ident,
+			}).Debugf("Falling back to expectedType for Value constraint (non-pointer)")
+			return *expectedType, nil
+		}
 		tc.log.WithFields(logrus.Fields{
 			"function":  "inferValueConstraintType",
 			"fieldName": fieldName,
@@ -785,6 +794,92 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 		return ast.TypeNode{Ident: ast.TypeBool}, nil
 	case ast.BoolLiteralNode:
 		return ast.TypeNode{Ident: ast.TypeBool}, nil
+	case *ast.NilLiteralNode:
+		// Handle Value(nil) constraints - use expectedType if provided, otherwise return a generic type
+		if expectedType != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferValueConstraintType",
+				"fieldName":    fieldName,
+				"expectedType": expectedType.Ident,
+			}).Debugf("Using expectedType for Value(nil) constraint")
+			return *expectedType, nil
+		}
+		// For nil values without expected type, return a generic pointer type
+		return ast.TypeNode{Ident: ast.TypePointer}, nil
+	case ast.NilLiteralNode:
+		// Handle Value(nil) constraints - use expectedType if provided, otherwise return a generic type
+		if expectedType != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferValueConstraintType",
+				"fieldName":    fieldName,
+				"expectedType": expectedType.Ident,
+			}).Debugf("Using expectedType for Value(nil) constraint")
+			return *expectedType, nil
+		}
+		// For nil values without expected type, return a generic pointer type
+		return ast.TypeNode{Ident: ast.TypePointer}, nil
+	case *ast.ReferenceNode:
+		// Handle Value(&variable) constraints
+		if v.Value != nil {
+			if varNode, ok := v.Value.(*ast.VariableNode); ok {
+				// Look up the variable's actual type
+				varType, err := tc.LookupVariableType(varNode, tc.CurrentScope())
+				if err == nil {
+					tc.log.WithFields(logrus.Fields{
+						"function":  "inferValueConstraintType",
+						"fieldName": fieldName,
+						"varType":   varType.Ident,
+					}).Debugf("Successfully inferred type from referenced variable in Value constraint")
+					return varType, nil
+				}
+			}
+		}
+		tc.log.WithFields(logrus.Fields{
+			"function":  "inferValueConstraintType",
+			"fieldName": fieldName,
+			"valueType": fmt.Sprintf("%T", v),
+		}).Debugf("Unsupported reference value type in Value constraint")
+		// Fallback: use expectedType if provided
+		if expectedType != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferValueConstraintType",
+				"fieldName":    fieldName,
+				"expectedType": expectedType.Ident,
+			}).Debugf("Falling back to expectedType for Value constraint (non-pointer)")
+			return *expectedType, nil
+		}
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	case ast.ReferenceNode:
+		// Handle Value(&variable) constraints (non-pointer version)
+		if v.Value != nil {
+			if varNode, ok := v.Value.(*ast.VariableNode); ok {
+				// Look up the variable's actual type
+				varType, err := tc.LookupVariableType(varNode, tc.CurrentScope())
+				if err == nil {
+					tc.log.WithFields(logrus.Fields{
+						"function":  "inferValueConstraintType",
+						"fieldName": fieldName,
+						"varType":   varType.Ident,
+					}).Debugf("Successfully inferred type from referenced variable in Value constraint (non-pointer)")
+					return varType, nil
+				}
+			}
+		}
+		tc.log.WithFields(logrus.Fields{
+			"function":  "inferValueConstraintType",
+			"fieldName": fieldName,
+			"valueType": fmt.Sprintf("%T", v),
+		}).Debugf("Unsupported reference value type in Value constraint (non-pointer)")
+		// Fallback: use expectedType if provided
+		if expectedType != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferValueConstraintType",
+				"fieldName":    fieldName,
+				"expectedType": expectedType.Ident,
+			}).Debugf("Falling back to expectedType for Value constraint (non-pointer)")
+			return *expectedType, nil
+		}
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
 	default:
 		tc.log.WithFields(logrus.Fields{
 			"function":  "inferValueConstraintType",

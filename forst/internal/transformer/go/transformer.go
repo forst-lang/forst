@@ -8,6 +8,7 @@ import (
 	goast "go/ast"
 	goasttoken "go/token"
 
+	"sort"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -222,13 +223,37 @@ func (t *Transformer) ensureAllReferencedTypesEmitted() error {
 	processed := make(map[ast.TypeIdent]bool)
 
 	// First, recursively emit all referenced types from TypeChecker.Defs
+	// Sort type definitions for deterministic emission order
+	typeDefs := make([]struct {
+		ident ast.TypeIdent
+		def   ast.Node
+	}, 0, len(t.TypeChecker.Defs))
+
 	for typeIdent, def := range t.TypeChecker.Defs {
-		if err := t.emitTypeAndReferencedTypes(typeIdent, def, processed); err != nil {
-			return fmt.Errorf("failed to emit type %s: %w", typeIdent, err)
+		typeDefs = append(typeDefs, struct {
+			ident ast.TypeIdent
+			def   ast.Node
+		}{typeIdent, def})
+	}
+
+	// Sort by type identifier for deterministic order
+	sort.Slice(typeDefs, func(i, j int) bool {
+		return string(typeDefs[i].ident) < string(typeDefs[j].ident)
+	})
+
+	for _, typeDef := range typeDefs {
+		if processed[typeDef.ident] {
+			continue
+		}
+		processed[typeDef.ident] = true
+
+		// Emit the type definition
+		if err := t.emitTypeAndReferencedTypes(typeDef.ident, typeDef.def, processed); err != nil {
+			return fmt.Errorf("failed to emit type definition %s: %w", typeDef.ident, err)
 		}
 	}
 
-	// Then, scan all generated code for any additional referenced types that might not be in Defs
+	// Then, recursively emit all referenced types from the generated code
 	if err := t.scanAndEmitReferencedTypes(processed); err != nil {
 		return fmt.Errorf("failed to scan and emit referenced types: %w", err)
 	}

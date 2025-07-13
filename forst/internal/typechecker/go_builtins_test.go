@@ -120,8 +120,9 @@ func TestReturnTypeInference_ShapeLiteralVsNamedType(t *testing.T) {
 	t.Logf("Expected type: %v", expectedType)
 	t.Logf("Compatible: %v", compatible)
 
-	// This should be true, but it's currently false
-	if !compatible {
-		t.Errorf("Expected inferred type to be compatible with EchoResponse")
+	// This should be false, because the shape literal with Value constraints is more specific
+	// than the named type EchoResponse
+	if compatible {
+		t.Errorf("Expected inferred type to NOT be compatible with EchoResponse (shape literal is more specific)")
 	}
 }

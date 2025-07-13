@@ -17,7 +17,13 @@ type AppMutation struct {
 type MutationArg struct {
 }
 
-// T_488eVThFocF: TypeDefShapeExpr({input: {name: String}, ctx: AppContext})
+// TYPE_POINTER: TypeDefAssertionExpr(Value(Ref(Variable(sessionId))))
+type TYPE_POINTER string
+
+// TYPE_STRING: TypeDefAssertionExpr(Value("Alice"))
+type TYPE_STRING string
+
+// T_488eVThFocF: TypeDefShapeExpr({ctx: AppContext, input: {name: String}})
 type T_488eVThFocF struct {
 	ctx   AppContext    `json:"ctx"`
 	input T_azh9nsqmxaF `json:"input"`
@@ -35,13 +41,13 @@ type T_DX1exfNyf6L struct {
 
 // T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
 type T_F1jpghi8Uyp struct {
-	input T_7zywpPhwVhj `json:"input"`
+	input User `json:"input"`
 }
 
 // T_LYQafBLM8TQ: TypeDefShapeExpr({sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}})
 type T_LYQafBLM8TQ struct {
-	sessionId *string       `json:"sessionId"`
-	user      T_azh9nsqmxaF `json:"user"`
+	sessionId *string `json:"sessionId"`
+	user      User    `json:"user"`
 }
 
 // T_X86jJwVQ4mH: TypeDefShapeExpr({sessionId: Value(nil)})
@@ -51,8 +57,8 @@ type T_X86jJwVQ4mH struct {
 
 // T_Yo2G7tbwv5q: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js app")}})
 type T_Yo2G7tbwv5q struct {
-	ctx   T_LYQafBLM8TQ `json:"ctx"`
-	input T_7zywpPhwVhj `json:"input"`
+	ctx   AppContext `json:"ctx"`
+	input User       `json:"input"`
 }
 
 // T_azh9nsqmxaF: TypeDefShapeExpr({name: String})
@@ -63,19 +69,13 @@ type T_azh9nsqmxaF struct {
 // T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
 type T_b7WdLNpLZoy struct {
 	ctx   T_X86jJwVQ4mH `json:"ctx"`
-	input T_7zywpPhwVhj `json:"input"`
+	input T_azh9nsqmxaF `json:"input"`
 }
-
-// T_bN37LzcUYJ8: TypeDefAssertionExpr(Value(nil))
-type T_bN37LzcUYJ8 string
 
 // T_goedQ5siUEo: TypeDefShapeExpr({name: Value("Go to the gym")})
 type T_goedQ5siUEo struct {
 	name string `json:"name"`
 }
-
-// T_jhkroyier29: TypeDefAssertionExpr(Value(Ref(Variable(sessionId))))
-type T_jhkroyier29 string
 
 // User: TypeDefShapeExpr({name: String})
 type User struct {
