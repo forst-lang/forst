@@ -168,7 +168,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 					Operator: ast.TokenIs,
 					Right: ast.ShapeNode{
 						Fields: map[string]ast.ShapeFieldNode{
-							"field1": makeAssertionField(ast.TypeString),
+							"field1": ast.MakeAssertionField(ast.TypeString),
 						},
 					},
 				}
@@ -192,15 +192,15 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 			tc := New(log, false)
 			// Register 's' as a Shape type variable in the current scope
 			baseType := ast.TypeIdent(ast.TypeShape)
-			shape := makeShape(map[string]ast.ShapeFieldNode{
-				"field1": makeAssertionField(ast.TypeString),
+			shape := ast.MakeShape(map[string]ast.ShapeFieldNode{
+				"field1": ast.MakeAssertionField(ast.TypeString),
 			})
 			shapeType := ast.TypeNode{
 				Ident: ast.TypeShape,
 				Assertion: &ast.AssertionNode{
 					BaseType: &baseType,
 					Constraints: []ast.ConstraintNode{
-						makeConstraint("Match", shape),
+						ast.MakeConstraint("Match", &shape),
 					},
 				},
 			}
