@@ -256,7 +256,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			if i < len(expectedReturnTypes) {
 				expectedType := &expectedReturnTypes[i]
 				if shapeValue, ok := value.(ast.ShapeNode); ok {
-					valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, expectedType)
+					// Use the unified helper to determine the expected type
+					context := &ShapeContext{
+						ExpectedType: expectedType,
+						ReturnIndex:  i,
+					}
+					// Try to get function name from current scope
+					if fnNode, err := t.closestFunction(); err == nil {
+						if fn, ok := fnNode.(ast.FunctionNode); ok {
+							context.FunctionName = string(fn.Ident.ID)
+						}
+					}
+					expectedTypeForShape := t.getExpectedTypeForShape(&shapeValue, context)
+					valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, expectedTypeForShape)
 					if err != nil {
 						return nil, err
 					}
@@ -298,7 +310,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		args := make([]goast.Expr, len(s.Arguments))
 		for i, arg := range s.Arguments {
 			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, &paramTypes[i])
+				// Use the unified helper to determine the expected type
+				context := &ShapeContext{
+					ExpectedType:   &paramTypes[i],
+					FunctionName:   string(s.Function.ID),
+					ParameterIndex: i,
+				}
+				expectedTypeForShape := t.getExpectedTypeForShape(&shapeArg, context)
+				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape)
 				if err != nil {
 					return nil, err
 				}
@@ -325,9 +344,23 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.AssignmentNode:
+		t.log.WithFields(map[string]interface{}{
+			"lvalues":       s.LValues,
+			"rvalues":       s.RValues,
+			"explicitTypes": s.ExplicitTypes,
+			"isShort":       s.IsShort,
+			"function":      "transformStatement-AssignmentNode",
+		}).Debug("[DEBUG] Processing AssignmentNode")
+
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
 			varName := s.LValues[0].Ident.String()
+			t.log.WithFields(map[string]interface{}{
+				"varName":      varName,
+				"explicitType": s.ExplicitTypes[0],
+				"function":     "transformStatement-AssignmentNode",
+			}).Debug("[DEBUG] Assignment has explicit type annotation")
+
 			var typeExpr goast.Expr
 			var expectedType *ast.TypeNode
 			if t != nil {
@@ -343,8 +376,27 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
 				expectedType = s.ExplicitTypes[0]
 			}
+
+			t.log.WithFields(map[string]interface{}{
+				"varName":      varName,
+				"typeExpr":     fmt.Sprintf("%#v", typeExpr),
+				"expectedType": expectedType,
+				"function":     "transformStatement-AssignmentNode",
+			}).Debug("[DEBUG] Processed explicit type for assignment")
+
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
-				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
+				t.log.WithFields(map[string]interface{}{
+					"varName":  varName,
+					"function": "transformStatement-AssignmentNode",
+				}).Debug("[DEBUG] RHS is ShapeNode, transforming with expected type")
+
+				// Use the unified helper to determine the expected type
+				context := &ShapeContext{
+					ExpectedType: expectedType,
+					VariableName: varName,
+				}
+				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
+				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
 				if err != nil {
 					return nil, err
 				}
@@ -389,22 +441,18 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
 			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
-				var expectedType *ast.TypeNode
-				if t != nil {
-					varName := s.LValues[0].Ident.String()
-					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varName)]; ok && len(types) > 0 {
-						expectedType = &types[0]
-					}
-					if expectedType == nil && s.IsShort {
-						hash, err := t.TypeChecker.Hasher.HashNode(rval)
-						if err == nil {
-							if inferredTypes, ok := t.TypeChecker.InferredTypes[hash]; ok && len(inferredTypes) > 0 {
-								expectedType = &inferredTypes[0]
-							}
-						}
-					}
+				varName := s.LValues[0].Ident.String()
+				t.log.WithFields(map[string]interface{}{
+					"varName":  varName,
+					"function": "transformStatement-AssignmentNode",
+				}).Debug("[DEBUG] RHS is ShapeNode for short assignment")
+
+				// Use the unified helper to determine the expected type
+				context := &ShapeContext{
+					VariableName: varName,
 				}
-				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedType)
+				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
 				if err != nil {
 					return nil, err
 				}

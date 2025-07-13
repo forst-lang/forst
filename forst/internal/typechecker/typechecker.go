@@ -214,7 +214,7 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error)
 										"hashType":    typeNode.Ident,
 										"aliasedType": userDef.Ident,
 										"function":    "GetAliasedTypeName",
-									}).Debug("Resolved hash-based type to aliased type")
+									}).Debug("[DEBUG] Resolved hash-based type to aliased type")
 									return string(userDef.Ident), nil
 								}
 							}
@@ -237,6 +237,11 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash type node: %w", err)
 	}
+	tc.log.WithFields(logrus.Fields{
+		"function":     "GetAliasedTypeName",
+		"typeNode":     typeNode.Ident,
+		"fallbackHash": hash.ToTypeIdent(),
+	}).Debug("[DEBUG] Fallback to hash-based type name")
 	return string(hash.ToTypeIdent()), nil
 }
 

@@ -315,6 +315,12 @@ func (t *Transformer) scanAndEmitReferencedTypes(processed map[ast.TypeIdent]boo
 
 // ensureTypeEmittedFromGoType ensures that a Go type is properly emitted if it represents a Forst type
 func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed map[ast.TypeIdent]bool) error {
+	// Add debug log for the type being checked
+	t.log.WithFields(logrus.Fields{
+		"function": "ensureTypeEmittedFromGoType",
+		"goType":   fmt.Sprintf("%#v", goType),
+	}).Debug("[DEBUG] Checking type emission for goType")
+
 	switch expr := goType.(type) {
 	case *goast.Ident:
 		// Check if this is a hash-based type name (starts with T_)
@@ -324,20 +330,17 @@ func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed m
 				t.log.WithFields(logrus.Fields{
 					"function": "ensureTypeEmittedFromGoType",
 					"type":     expr.Name,
-				}).Debug("Found hash-based type in generated code that needs emission")
-
+				}).Debug("[DEBUG] Found hash-based type in generated code that needs emission")
 				// Try to find this type in Defs
 				if def, exists := t.TypeChecker.Defs[typeIdent]; exists {
 					if err := t.emitTypeAndReferencedTypes(typeIdent, def, processed); err != nil {
 						return fmt.Errorf("failed to emit referenced type %s: %w", typeIdent, err)
 					}
 				} else {
-					// If not in Defs, create a minimal type definition to ensure it's emitted
 					t.log.WithFields(logrus.Fields{
 						"function": "ensureTypeEmittedFromGoType",
 						"type":     expr.Name,
-					}).Warn("Hash-based type found in generated code but not in Defs, creating minimal definition")
-
+					}).Warn("[DEBUG] Hash-based type found in generated code but not in Defs, creating minimal definition")
 					// Create a minimal type definition to ensure emission
 					minimalDef := ast.TypeDefNode{
 						Ident: typeIdent,
@@ -356,7 +359,6 @@ func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed m
 							},
 						},
 					}
-
 					if err := t.emitTypeAndReferencedTypes(typeIdent, minimalDef, processed); err != nil {
 						return fmt.Errorf("failed to emit minimal type definition for %s: %w", typeIdent, err)
 					}
@@ -381,6 +383,12 @@ func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed m
 
 // emitTypeAndReferencedTypes recursively emits a type and all types it references
 func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def interface{}, processed map[ast.TypeIdent]bool) error {
+	// Add debug log for type emission
+	t.log.WithFields(logrus.Fields{
+		"function":  "emitTypeAndReferencedTypes",
+		"typeIdent": typeIdent,
+		"defType":   fmt.Sprintf("%T", def),
+	}).Debug("[DEBUG] Emitting type and referenced types")
 	// Skip if already processed
 	if processed[typeIdent] {
 		return nil
@@ -401,6 +409,10 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 	}
 
 	if alreadyEmitted {
+		t.log.WithFields(logrus.Fields{
+			"function":  "emitTypeAndReferencedTypes",
+			"typeIdent": typeIdent,
+		}).Debug("[DEBUG] Type already emitted, skipping")
 		return nil
 	}
 
@@ -410,6 +422,11 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 			// If the assertion is a value constraint or base type is a primitive, emit alias
 			if assertionExpr.Assertion.BaseType != nil {
 				base := *assertionExpr.Assertion.BaseType
+				t.log.WithFields(logrus.Fields{
+					"function":  "emitTypeAndReferencedTypes",
+					"typeIdent": typeIdent,
+					"baseType":  base,
+				}).Debug("[DEBUG] Emitting type alias for hash-based or primitive type")
 				typeNode := ast.TypeNode{Ident: base}
 				if typeNode.IsGoBuiltin() || base == ast.TypeString || base == ast.TypeInt || base == ast.TypeFloat || base == ast.TypeBool {
 					goType, err := transformTypeIdent(base)
@@ -478,7 +495,7 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 				"function":    "emitTypeAndReferencedTypes",
 				"type":        string(typeIdent),
 				"emittedName": typeNameToEmit,
-			}).Debug("Emitted type definition")
+			}).Debug("[DEBUG] Emitted type definition")
 		}
 
 	case ast.TypeDefShapeExpr:
@@ -511,7 +528,7 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 				"function":    "emitTypeAndReferencedTypes",
 				"type":        string(typeIdent),
 				"emittedName": typeNameToEmit,
-			}).Debug("Emitted shape type definition")
+			}).Debug("[DEBUG] Emitted shape type definition")
 		}
 	}
 
@@ -588,4 +605,201 @@ func (t *Transformer) emitReferencedTypesFromAssertion(assertion *ast.AssertionN
 		}
 	}
 	return nil
+}
+
+// getExpectedTypeForShape determines the expected type for a shape literal based on context.
+// This function provides a unified way to determine the best type to use for struct literal emission.
+// It prioritizes named types when available, falling back to hash-based types only when necessary.
+func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *ShapeContext) *ast.TypeNode {
+	t.log.WithFields(logrus.Fields{
+		"function": "getExpectedTypeForShape",
+		"context":  fmt.Sprintf("%+v", context),
+		"shape":    fmt.Sprintf("%+v", shape),
+	}).Debug("[DEBUG] Determining expected type for shape literal")
+
+	// If the shape has an explicit BaseType, use it
+	if shape.BaseType != nil {
+		t.log.WithFields(logrus.Fields{
+			"function": "getExpectedTypeForShape",
+			"baseType": *shape.BaseType,
+		}).Debug("[DEBUG] Using explicit BaseType")
+		return &ast.TypeNode{Ident: *shape.BaseType}
+	}
+
+	// If context provides an expected type, validate and use it
+	if context != nil && context.ExpectedType != nil {
+		expectedType := context.ExpectedType
+		t.log.WithFields(logrus.Fields{
+			"function":     "getExpectedTypeForShape",
+			"expectedType": expectedType.Ident,
+		}).Debug("[DEBUG] Context provided expected type")
+
+		// Check if the expected type is compatible with the shape
+		if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
+			if typeDef, ok := def.(ast.TypeDefNode); ok {
+				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					// Use typechecker to validate compatibility
+					err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+					if err == nil {
+						t.log.WithFields(logrus.Fields{
+							"function":     "getExpectedTypeForShape",
+							"expectedType": expectedType.Ident,
+						}).Debug("[DEBUG] Expected type is compatible")
+						return expectedType
+					} else {
+						t.log.WithFields(logrus.Fields{
+							"function":     "getExpectedTypeForShape",
+							"expectedType": expectedType.Ident,
+							"error":        err.Error(),
+						}).Debug("[DEBUG] Expected type is not compatible, will fall back to structural matching")
+					}
+				}
+			}
+		}
+	}
+
+	// Try to find a matching named type through structural matching
+	typeIdent, found := t.findExistingTypeForShape(shape, nil)
+	if found {
+		t.log.WithFields(logrus.Fields{
+			"function":  "getExpectedTypeForShape",
+			"typeIdent": typeIdent,
+		}).Debug("[DEBUG] Found matching named type through structural matching")
+		return &ast.TypeNode{Ident: typeIdent}
+	}
+
+	// If context provides variable name, try to infer from variable type
+	if context != nil && context.VariableName != "" {
+		if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(context.VariableName)]; ok && len(types) > 0 {
+			expectedType := &types[0]
+			t.log.WithFields(logrus.Fields{
+				"function":     "getExpectedTypeForShape",
+				"variableName": context.VariableName,
+				"variableType": expectedType.Ident,
+			}).Debug("[DEBUG] Found variable type for assignment")
+
+			// Check if the variable type is compatible
+			if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
+				if typeDef, ok := def.(ast.TypeDefNode); ok {
+					if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+						err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+						if err == nil {
+							t.log.WithFields(logrus.Fields{
+								"function":     "getExpectedTypeForShape",
+								"variableType": expectedType.Ident,
+							}).Debug("[DEBUG] Variable type is compatible")
+							return expectedType
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If context provides function name and parameter index, try to infer from function signature
+	if context != nil && context.FunctionName != "" && context.ParameterIndex >= 0 {
+		if sig, ok := t.TypeChecker.Functions[ast.Identifier(context.FunctionName)]; ok && context.ParameterIndex < len(sig.Parameters) {
+			param := sig.Parameters[context.ParameterIndex]
+			expectedType := &param.Type
+			t.log.WithFields(logrus.Fields{
+				"function":       "getExpectedTypeForShape",
+				"functionName":   context.FunctionName,
+				"parameterIndex": context.ParameterIndex,
+				"parameterType":  expectedType.Ident,
+			}).Debug("[DEBUG] Found function parameter type")
+
+			// For assertion types, try to infer the concrete type
+			if expectedType.Ident == ast.TypeAssertion && expectedType.Assertion != nil {
+				inferredTypes, err := t.TypeChecker.InferAssertionType(expectedType.Assertion, false, "", nil)
+				if err == nil && len(inferredTypes) > 0 {
+					inferredType := &inferredTypes[0]
+					t.log.WithFields(logrus.Fields{
+						"function":     "getExpectedTypeForShape",
+						"inferredType": inferredType.Ident,
+					}).Debug("[DEBUG] Inferred concrete type from assertion")
+
+					// Check if the inferred type is compatible
+					if def, exists := t.TypeChecker.Defs[inferredType.Ident]; exists {
+						if typeDef, ok := def.(ast.TypeDefNode); ok {
+							if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+								err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, inferredType.Ident)
+								if err == nil {
+									t.log.WithFields(logrus.Fields{
+										"function":     "getExpectedTypeForShape",
+										"inferredType": inferredType.Ident,
+									}).Debug("[DEBUG] Inferred type is compatible")
+									return inferredType
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// For non-assertion types, check compatibility directly
+				if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
+					if typeDef, ok := def.(ast.TypeDefNode); ok {
+						if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+							err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+							if err == nil {
+								t.log.WithFields(logrus.Fields{
+									"function":      "getExpectedTypeForShape",
+									"parameterType": expectedType.Ident,
+								}).Debug("[DEBUG] Parameter type is compatible")
+								return expectedType
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If context provides return index, try to infer from function return type
+	if context != nil && context.FunctionName != "" && context.ReturnIndex >= 0 {
+		if sig, ok := t.TypeChecker.Functions[ast.Identifier(context.FunctionName)]; ok && context.ReturnIndex < len(sig.ReturnTypes) {
+			returnType := &sig.ReturnTypes[context.ReturnIndex]
+			t.log.WithFields(logrus.Fields{
+				"function":     "getExpectedTypeForShape",
+				"functionName": context.FunctionName,
+				"returnIndex":  context.ReturnIndex,
+				"returnType":   returnType.Ident,
+			}).Debug("[DEBUG] Found function return type")
+
+			// Check if the return type is compatible
+			if def, exists := t.TypeChecker.Defs[returnType.Ident]; exists {
+				if typeDef, ok := def.(ast.TypeDefNode); ok {
+					if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+						err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, returnType.Ident)
+						if err == nil {
+							t.log.WithFields(logrus.Fields{
+								"function":   "getExpectedTypeForShape",
+								"returnType": returnType.Ident,
+							}).Debug("[DEBUG] Return type is compatible")
+							return returnType
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// No compatible named type found, return nil to indicate hash-based type should be used
+	t.log.WithFields(logrus.Fields{
+		"function": "getExpectedTypeForShape",
+	}).Debug("[DEBUG] No compatible named type found, will use hash-based type")
+	return nil
+}
+
+// ShapeContext provides context information for determining the expected type of a shape literal
+type ShapeContext struct {
+	// ExpectedType is the explicitly provided expected type
+	ExpectedType *ast.TypeNode
+	// VariableName is the name of the variable being assigned (for assignment context)
+	VariableName string
+	// FunctionName is the name of the function (for function call or return context)
+	FunctionName string
+	// ParameterIndex is the index of the parameter (for function call context)
+	ParameterIndex int
+	// ReturnIndex is the index of the return value (for return context)
+	ReturnIndex int
 }

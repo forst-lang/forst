@@ -298,13 +298,15 @@ func TestTransformExpression_StructLiteralTypeEmissionBug(t *testing.T) {
 	}))
 
 	createUserResponseType := ast.MakeTypeDef("CreateUserResponse", ast.MakeShape(map[string]ast.ShapeFieldNode{
-		"user": ast.MakeTypeField(ast.TypeIdent("User")),
+		"user":       ast.MakeTypeField(ast.TypeIdent("User")),
+		"created_at": ast.MakeTypeField(ast.TypeInt),
 	}))
 
 	// Create a function that returns a struct literal
 	// This mimics the createUser function from the client example
 	responseStruct := ast.MakeStructLiteral("CreateUserResponse", map[string]ast.ShapeFieldNode{
-		"user": ast.MakeStructFieldWithType(ast.TypeNode{Ident: "User"}),
+		"user":       ast.MakeStructFieldWithType(ast.TypeNode{Ident: "User"}),
+		"created_at": ast.MakeStructFieldWithType(ast.TypeNode{Ident: ast.TypeInt}),
 	})
 
 	// Create a function that returns the response struct
@@ -485,6 +487,182 @@ func TestTransformExpression_StructLiteralWithFieldAssignments(t *testing.T) {
 	if failures > 0 {
 		t.Logf("Full result string:\n%s", resultStr)
 	}
+}
+
+func TestTransformExpression_StructLiteralAssignment_UsesNamedType(t *testing.T) {
+	// Test that struct literal assignment uses the named type, not a hash-based type
+	// Reproduces the bug seen in the client example
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeTypeField(ast.TypeString),
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	// Assignment: user := User{Id: "123", Name: input.Name, Age: input.Age, Email: input.Email}
+	userStruct := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeStructFieldWithType(ast.MakeStringType()),
+		"name":  ast.MakeStructFieldWithType(ast.MakeStringType()),
+		"age":   ast.MakeStructFieldWithType(ast.TypeNode{Ident: ast.TypeInt}),
+		"email": ast.MakeStructFieldWithType(ast.MakeStringType()),
+	})
+
+	assign := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		RValues: []ast.ExpressionNode{userStruct},
+		IsShort: true,
+	}
+
+	fn := ast.MakeFunction("createUser", []ast.ParamNode{
+		ast.MakeSimpleParam("input", ast.TypeNode{Ident: "User"}),
+	}, []ast.Node{assign})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	c := setupTypeChecker(log)
+	transformer := setupTransformer(c, log)
+
+	// Register types
+	err := c.CheckTypes([]ast.Node{userType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the assignment
+	stmt, err := transformer.transformStatement(assign)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), stmt)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify the assignment uses the named type
+	if !contains(resultStr, "user := User{") {
+		t.Errorf("Expected assignment to use named type, got: %s", resultStr)
+	}
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+	}
+}
+
+func TestTransformExpression_ClientExampleBug(t *testing.T) {
+	// Test that reproduces the exact client example bug
+	// This tests the CreateUser function pattern from user.ft
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeTypeField(ast.TypeString),
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserRequestType := ast.MakeTypeDef("CreateUserRequest", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserResponseType := ast.MakeTypeDef("CreateUserResponse", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeTypeField(ast.TypeIdent("User")),
+		"created_at": ast.MakeTypeField(ast.TypeInt),
+	}))
+
+	// Create the CreateUser function that reproduces the client example
+	// func CreateUser(input CreateUserRequest) {
+	//   user := { id: "123", name: input.name, age: input.age, email: input.email }
+	//   return { user: user, created_at: 1234567890 }
+	// }
+
+	// Create the user assignment: user := { id: "123", name: input.name, age: input.age, email: input.email }
+	userStruct := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeStructField(ast.StringLiteralNode{Value: "123"}),
+		"name":  ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}), // This should be input.name
+		"age":   ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}), // This should be input.age
+		"email": ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}), // This should be input.email
+	})
+
+	userAssign := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		RValues: []ast.ExpressionNode{userStruct},
+		IsShort: true,
+	}
+
+	// Create the return statement: return { user: user, created_at: 1234567890 }
+	responseStruct := ast.MakeStructLiteral("CreateUserResponse", map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "user"}}),
+		"created_at": ast.MakeStructField(ast.IntLiteralNode{Value: 1234567890}),
+	})
+
+	returnStmt := ast.ReturnNode{
+		Values: []ast.ExpressionNode{responseStruct, ast.NilLiteralNode{}},
+	}
+
+	fn := ast.MakeFunction("CreateUser", []ast.ParamNode{
+		ast.MakeSimpleParam("input", ast.TypeNode{Ident: "CreateUserRequest"}),
+	}, []ast.Node{userAssign, returnStmt})
+
+	// Set the function's return types to (CreateUserResponse, error)
+	fn.ReturnTypes = []ast.TypeNode{
+		{Ident: "CreateUserResponse"},
+		{Ident: ast.TypeError},
+	}
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types
+	err := tc.CheckTypes([]ast.Node{userType, createUserRequestType, createUserResponseType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the function
+	result, err := transformer.transformFunction(fn)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify the result uses named types instead of hash-based types
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+	}
+
+	// Verify the function signature is correct
+	if !contains(resultStr, "func CreateUser(input CreateUserRequest) (CreateUserResponse, error)") {
+		t.Errorf("Expected correct function signature, got: %s", resultStr)
+	}
+
+	// Verify the return statement is correct
+	if !contains(resultStr, "return CreateUserResponse{") {
+		t.Errorf("Expected correct return statement, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "user: user") {
+		t.Errorf("Expected user field in return statement, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "created_at: 1234567890") {
+		t.Errorf("Expected created_at field in return statement, got: %s", resultStr)
+	}
+
+	t.Logf("Generated code:\n%s", resultStr)
 }
 
 // Helper function to check if a string contains a substring
