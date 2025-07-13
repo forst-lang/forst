@@ -21,6 +21,7 @@ tasks:
   build:sidecar:
     desc: Build the Forst sidecar
     dir: packages/sidecar
+    deps: [install:bun]
     cmds:
       - bun run build
     sources:
@@ -32,6 +33,7 @@ tasks:
   build:client:
     desc: Build the Forst client
     dir: packages/client
+    deps: [install:bun]
     cmds:
       - bun run build
     sources:
@@ -195,7 +197,7 @@ tasks:
   example:client:
     desc: Run client example
     dir: examples/in/rfc/sidecar
-    deps: [build, build:client, build:sidecar]
+    deps: [build, build:client, build:sidecar, install:bun]
     cmds:
       - bun run example:client
     silent: false
@@ -285,3 +287,8 @@ tasks:
     cmds:
       - task build:release VERSION=1.0.0-test COMMIT=test-commit DATE=2024-01-01T00:00:00Z
       - echo "Test build completed with version info"
+
+  install:bun:
+    desc: Install bun dependencies
+    cmds:
+      - bun install
