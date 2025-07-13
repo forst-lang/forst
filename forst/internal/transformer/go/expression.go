@@ -440,13 +440,94 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 				"fieldName": fieldName,
 				"function":  "transformShapeNodeWithExpectedType",
 			}).Debug("[DEBUG] Field has Node, transforming it")
-			fieldValue, err = t.transformExpression(field.Node.(ast.ExpressionNode))
+
+			// Check if the Node is a ShapeNode (nested struct literal)
+			t.log.WithFields(map[string]interface{}{
+				"fieldName": fieldName,
+				"nodeType":  fmt.Sprintf("%T", field.Node),
+				"function":  "transformShapeNodeWithExpectedType",
+			}).Debug("[DEBUG] Node type for field")
+
+			if shapeNode, ok := field.Node.(ast.ShapeNode); ok {
+				// Look up the expected type for this field from the parent struct's expected type
+				var fieldExpectedType *ast.TypeNode
+				if expectedType != nil {
+					if def, ok := t.TypeChecker.Defs[expectedType.Ident]; ok {
+						if typeDef, ok := def.(ast.TypeDefNode); ok {
+							if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+								if fieldDef, exists := shapeExpr.Shape.Fields[fieldName]; exists {
+									// Check if field has a type
+									if fieldDef.Type != nil {
+										fieldExpectedType = fieldDef.Type
+										t.log.WithFields(map[string]interface{}{
+											"fieldName":         fieldName,
+											"fieldExpectedType": fieldExpectedType.Ident,
+											"function":          "transformShapeNodeWithExpectedType",
+										}).Debug("[DEBUG] Found expected type for nested field in Node")
+									} else if fieldDef.Assertion != nil {
+										// If field has an assertion, try to infer the type from the assertion
+										inferredTypes, err := t.TypeChecker.InferAssertionType(fieldDef.Assertion, false, string(fieldName), nil)
+										if err == nil && len(inferredTypes) > 0 {
+											// Check if the inferred type is actually a named type (not hash-based)
+											inferredType := inferredTypes[0]
+											if !strings.HasPrefix(string(inferredType.Ident), "T_") {
+												// Use the named type directly
+												fieldExpectedType = &inferredType
+												t.log.WithFields(map[string]interface{}{
+													"fieldName":         fieldName,
+													"fieldExpectedType": fieldExpectedType.Ident,
+													"function":          "transformShapeNodeWithExpectedType",
+												}).Debug("[DEBUG] Found expected type from assertion for nested field in Node")
+											} else {
+												// For hash-based types, try to find the original named type
+												// Look up the assertion base type
+												if fieldDef.Assertion.BaseType != nil {
+													fieldExpectedType = &ast.TypeNode{Ident: *fieldDef.Assertion.BaseType}
+													t.log.WithFields(map[string]interface{}{
+														"fieldName":         fieldName,
+														"fieldExpectedType": fieldExpectedType.Ident,
+														"function":          "transformShapeNodeWithExpectedType",
+													}).Debug("[DEBUG] Found expected type from assertion base type for nested field in Node")
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				fieldValue, err = t.transformShapeNodeWithExpectedType(&shapeNode, fieldExpectedType)
+			} else {
+				fieldValue, err = t.transformExpression(field.Node.(ast.ExpressionNode))
+			}
 		} else if field.Shape != nil {
 			t.log.WithFields(map[string]interface{}{
 				"fieldName": fieldName,
 				"function":  "transformShapeNodeWithExpectedType",
 			}).Debug("[DEBUG] Field has Shape, transforming it")
-			fieldValue, err = t.transformShapeNodeWithExpectedType(field.Shape, nil)
+
+			// Look up the expected type for this field from the parent struct's expected type
+			var fieldExpectedType *ast.TypeNode
+			if expectedType != nil {
+				if def, ok := t.TypeChecker.Defs[expectedType.Ident]; ok {
+					if typeDef, ok := def.(ast.TypeDefNode); ok {
+						if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+							if fieldDef, exists := shapeExpr.Shape.Fields[fieldName]; exists && fieldDef.Type != nil {
+								fieldExpectedType = fieldDef.Type
+								t.log.WithFields(map[string]interface{}{
+									"fieldName":         fieldName,
+									"fieldExpectedType": fieldExpectedType.Ident,
+									"function":          "transformShapeNodeWithExpectedType",
+								}).Debug("[DEBUG] Found expected type for nested field")
+							}
+						}
+					}
+				}
+			}
+
+			fieldValue, err = t.transformShapeNodeWithExpectedType(field.Shape, fieldExpectedType)
 		} else if field.Assertion != nil {
 			t.log.WithFields(map[string]interface{}{
 				"fieldName": fieldName,
@@ -513,6 +594,41 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform field %s: %v", fieldName, err)
+		}
+
+		// Check if this field should be a pointer and add & operator if needed
+		if expectedType != nil {
+			if def, ok := t.TypeChecker.Defs[expectedType.Ident]; ok {
+				if typeDef, ok := def.(ast.TypeDefNode); ok {
+					if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+						if fieldDef, exists := shapeExpr.Shape.Fields[fieldName]; exists && fieldDef.Type != nil {
+							if fieldDef.Type.Ident == ast.TypePointer {
+								// Only add & if not already an address or nil
+								switch fv := fieldValue.(type) {
+								case *goast.UnaryExpr:
+									if fv.Op == token.AND {
+										// Already an address, do nothing
+									} else {
+										fieldValue = &goast.UnaryExpr{Op: token.AND, X: fieldValue}
+									}
+								case *goast.Ident:
+									if fv.Name == "nil" {
+										// nil is valid for pointer, do nothing
+									} else {
+										fieldValue = &goast.UnaryExpr{Op: token.AND, X: fieldValue}
+									}
+								default:
+									fieldValue = &goast.UnaryExpr{Op: token.AND, X: fieldValue}
+								}
+								t.log.WithFields(map[string]interface{}{
+									"fieldName": fieldName,
+									"function":  "transformShapeNodeWithExpectedType",
+								}).Debug("[DEBUG] Added & operator for pointer field if needed")
+							}
+						}
+					}
+				}
+			}
 		}
 
 		// Capitalize field name for Go struct literal if needed
