@@ -284,7 +284,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		if sig, ok := t.TypeChecker.Functions[s.Function.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
 			for i, param := range sig.Parameters {
 				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
-					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
+					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false, "", nil)
 					if err == nil && len(inferredTypes) > 0 {
 						paramTypes[i] = inferredTypes[0]
 					} else {

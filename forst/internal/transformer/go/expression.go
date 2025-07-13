@@ -6,6 +6,7 @@ import (
 	goast "go/ast"
 	"go/token"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -164,7 +165,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if sig, ok := t.TypeChecker.Functions[e.Function.ID]; ok && len(sig.Parameters) == len(e.Arguments) {
 			for i, param := range sig.Parameters {
 				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
-					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false)
+					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false, "", nil)
 					if err == nil && len(inferredTypes) > 0 {
 						paramTypes[i] = inferredTypes[0]
 					} else {
@@ -432,7 +433,16 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 
 	// Build the struct literal fields, recursively using expected field types
 	fields := []goast.Expr{}
-	for name, field := range shape.Fields {
+
+	// Canonicalize field order for deterministic emission
+	fieldNames := make([]string, 0, len(shape.Fields))
+	for name := range shape.Fields {
+		fieldNames = append(fieldNames, name)
+	}
+	sort.Strings(fieldNames)
+
+	for _, name := range fieldNames {
+		field := shape.Fields[name]
 		var fieldValue goast.Expr
 		var err error
 		// If we have an expected field type, use it recursively

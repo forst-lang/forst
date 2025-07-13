@@ -371,12 +371,25 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	tc := typechecker.New(nil, false)
 	tr := New(tc, nil)
 
+	// Register AppMutation type
+	appMutationDef := ast.TypeDefNode{
+		Ident: "AppMutation",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"ctx": {Type: &ast.TypeNode{Ident: ast.TypeIdent("AppContext")}},
+				},
+			},
+		},
+	}
+	tc.Defs[ast.TypeIdent("AppMutation")] = appMutationDef
+
 	// Register a minimal type guard for "Input" (as in the real pipeline)
 	inputGuard := &ast.TypeGuardNode{
 		Ident: "Input",
 		Subject: ast.SimpleParamNode{
 			Ident: ast.Ident{ID: ast.Identifier("m")},
-			Type:  ast.TypeNode{Ident: ast.TypeIdent("MutationArg")},
+			Type:  ast.TypeNode{Ident: ast.TypeIdent("AppMutation")},
 		},
 		Params: []ast.ParamNode{
 			ast.SimpleParamNode{
@@ -403,7 +416,7 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 		}},
 	}
 	// Infer the parameter type as the typechecker would
-	inferredTypes, err := tc.InferAssertionType(assertion, false)
+	inferredTypes, err := tc.InferAssertionType(assertion, false, "", nil)
 	if err != nil || len(inferredTypes) == 0 {
 		t.Fatalf("Failed to infer assertion type: %v", err)
 	}

@@ -55,7 +55,7 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 			}
 
 			// For other assertion types (with constraints), use the inferred type from the type checker
-			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false)
+			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false, "", nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
 			}
