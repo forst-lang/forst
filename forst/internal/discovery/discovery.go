@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+var ErrNilForstConfig = errors.New("ForstConfig is required for file discovery")
 
 // FunctionInfo represents a discovered public function
 type FunctionInfo struct {
@@ -105,7 +108,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 // findForstFiles recursively finds all .ft files in the root directory
 func (d *Discoverer) findForstFiles() ([]string, error) {
 	if d.config == nil {
-		return nil, fmt.Errorf("Forst config is required for file discovery")
+		return nil, ErrNilForstConfig
 	}
 	return d.config.FindForstFiles(d.rootDir)
 }
