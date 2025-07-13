@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -974,6 +975,288 @@ func TestTransformExpression_TypeEmissionIssue(t *testing.T) {
 	}
 
 	t.Logf("Generated code:\n%s", resultStr)
+}
+
+func TestTransformExpression_ShapeGuardIssue(t *testing.T) {
+	// Test that reproduces the exact shape guard issue
+	// This tests struct literals that should use named types from function signatures
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	appContextType := ast.MakeTypeDef("AppContext", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"sessionId": ast.MakeTypeField(ast.TypeString), // Simplified for testing
+		"user":      ast.MakeTypeField(ast.TypeIdent("User")),
+	}))
+
+	// Create the function with the complex parameter type
+	fn := ast.MakeFunction("createTask", []ast.ParamNode{
+		ast.MakeSimpleParam("op", ast.TypeNode{Ident: "T_488eVThFocF"}), // This is the hash-based type from the actual error
+	}, []ast.Node{
+		ast.ReturnNode{Values: []ast.ExpressionNode{ast.StringLiteralNode{Value: "test"}, ast.NilLiteralNode{}}},
+	})
+
+	fn.ReturnTypes = []ast.TypeNode{
+		{Ident: ast.TypeString},
+		{Ident: ast.TypeError},
+	}
+
+	// Create struct literals that should match the function parameter type
+	// These are the struct literals from the main function
+	sessionIdVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
+	aliceUser := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Alice"}),
+	})
+
+	ctxStruct := ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
+		"sessionId": ast.MakeStructField(sessionIdVar), // Simplified for testing
+		"user":      ast.MakeStructField(aliceUser),
+	})
+
+	inputStruct := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Fix memory leak in Node.js app"}),
+	})
+
+	mainStruct := ast.MakeStructLiteral("T_488eVThFocF", map[string]ast.ShapeFieldNode{
+		"ctx":   ast.MakeStructField(ctxStruct),
+		"input": ast.MakeStructField(inputStruct),
+	})
+
+	// Create the function call (not used in this test but shows the pattern)
+	_ = ast.FunctionCallNode{
+		Function:  ast.Ident{ID: "createTask"},
+		Arguments: []ast.ExpressionNode{mainStruct},
+	}
+
+	// Create a package with all the types and functions
+	packageNode := ast.MakePackage("main", []ast.Node{})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types and functions
+	err := tc.CheckTypes([]ast.Node{userType, appContextType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the entire package with all nodes
+	result, err := transformer.TransformForstFileToGo([]ast.Node{packageNode, userType, appContextType, fn})
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify that all types are emitted
+	if !contains(resultStr, "type User struct") {
+		t.Errorf("Expected User type to be emitted, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "type AppContext struct") {
+		t.Errorf("Expected AppContext type to be emitted, got: %s", resultStr)
+	}
+
+	// Verify that the function is emitted
+	if !contains(resultStr, "func createTask(op") {
+		t.Errorf("Expected createTask function to be emitted, got: %s", resultStr)
+	}
+
+	// The key issue: verify that struct literals use named types instead of hash-based types
+	// This is what's failing in the actual shape guard example
+	if contains(resultStr, "T_LYQafBLM8TQ") {
+		t.Errorf("Expected no hash-based type T_LYQafBLM8TQ, got: %s", resultStr)
+	}
+
+	if contains(resultStr, "T_X86jJwVQ4mH") {
+		t.Errorf("Expected no hash-based type T_X86jJwVQ4mH, got: %s", resultStr)
+	}
+
+	t.Logf("Generated code:\n%s", resultStr)
+}
+
+func TestTransformExpression_ShapeGuardStructLiteralIssue(t *testing.T) {
+	// Test that reproduces the exact struct literal issue from shape guard
+	// This tests that struct literals use named types instead of hash-based types
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	appContextType := ast.MakeTypeDef("AppContext", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"sessionId": ast.MakeTypeField(ast.TypeString),
+		"user":      ast.MakeTypeField(ast.TypeIdent("User")),
+	}))
+
+	// Create the function parameter type that matches the shape guard example
+	// This should be the type that the struct literals should match
+	expectedType := ast.MakeTypeDef("T_488eVThFocF", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"ctx":   ast.MakeTypeField(ast.TypeIdent("AppContext")),
+		"input": ast.MakeTypeField(ast.TypeIdent("User")),
+	}))
+
+	// Create struct literals that should use named types
+	// These are the struct literals from the main function in shape_guard.ft
+	sessionIdVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
+	aliceUser := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Alice"}),
+	})
+
+	ctxStruct := ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
+		"sessionId": ast.MakeStructField(sessionIdVar),
+		"user":      ast.MakeStructField(aliceUser),
+	})
+
+	inputStruct := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Fix memory leak in Node.js app"}),
+	})
+
+	// This is the problematic struct literal that should use named types
+	_ = ast.MakeStructLiteral("T_488eVThFocF", map[string]ast.ShapeFieldNode{
+		"ctx":   ast.MakeStructField(ctxStruct),
+		"input": ast.MakeStructField(inputStruct),
+	})
+
+	// Create a package with all the types
+	packageNode := ast.MakePackage("main", []ast.Node{})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types
+	err := tc.CheckTypes([]ast.Node{userType, appContextType, expectedType})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the entire package with all nodes
+	result, err := transformer.TransformForstFileToGo([]ast.Node{packageNode, userType, appContextType, expectedType})
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify that all types are emitted
+	if !contains(resultStr, "type User struct") {
+		t.Errorf("Expected User type to be emitted, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "type AppContext struct") {
+		t.Errorf("Expected AppContext type to be emitted, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "type T_488eVThFocF struct") {
+		t.Errorf("Expected T_488eVThFocF type to be emitted, got: %s", resultStr)
+	}
+
+	// The key issue: verify that struct literals use named types instead of hash-based types
+	// This is what's failing in the actual shape guard example
+	if contains(resultStr, "T_LYQafBLM8TQ") {
+		t.Errorf("Expected no hash-based type T_LYQafBLM8TQ, got: %s", resultStr)
+	}
+
+	if contains(resultStr, "T_X86jJwVQ4mH") {
+		t.Errorf("Expected no hash-based type T_X86jJwVQ4mH, got: %s", resultStr)
+	}
+
+	// Verify that the struct literal uses the correct named types
+	if !contains(resultStr, "ctx: AppContext{") {
+		t.Errorf("Expected ctx field to use AppContext type, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "input: User{") {
+		t.Errorf("Expected input field to use User type, got: %s", resultStr)
+	}
+
+	t.Logf("Generated code:\n%s", resultStr)
+}
+
+func TestTransformExpression_ShapeGuardPointerFieldIssue(t *testing.T) {
+	// Test that reproduces the exact shape guard issue with pointer fields
+	// This tests that struct literals with pointer fields are handled correctly
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	appContextType := ast.MakeTypeDef("AppContext", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"sessionId": ast.ShapeFieldNode{Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}},
+		"user":      ast.ShapeFieldNode{Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: "User"}}}},
+	}))
+
+	// Create the function with the complex parameter type
+	fn := ast.MakeFunction("createTask", []ast.ParamNode{
+		ast.MakeSimpleParam("op", ast.TypeNode{Ident: "T_488eVThFocF"}),
+	}, []ast.Node{
+		ast.ReturnNode{Values: []ast.ExpressionNode{ast.StringLiteralNode{Value: "test"}, ast.NilLiteralNode{}}},
+	})
+	fn.ReturnTypes = []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeError}}
+
+	// Create the package with all types and functions
+	pkg := ast.MakePackage("main", []ast.Node{userType, appContextType, fn})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types
+	err := tc.CheckTypes([]ast.Node{userType, appContextType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the package
+	result, err := transformer.TransformForstFileToGo([]ast.Node{&pkg, userType, appContextType, fn})
+	if err != nil {
+		t.Fatalf("Failed to transform package: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	generatedCode := buf.String()
+
+	// Check that pointer types are handled correctly in type definitions (whitespace-insensitive)
+	if !containsIgnoreWhitespace(generatedCode, "sessionId*string") {
+		t.Errorf("Generated code should contain pointer field sessionId *string (whitespace-insensitive), got: %s", generatedCode)
+	}
+
+	if !containsIgnoreWhitespace(generatedCode, "user*User") {
+		t.Errorf("Generated code should contain pointer field user *User (whitespace-insensitive), got: %s", generatedCode)
+	}
+
+	// The generated code should not contain hash-based types for the main struct literals
+	if strings.Contains(generatedCode, "T_LYQafBLM8TQ{") {
+		t.Errorf("Generated code should not contain hash-based type T_LYQafBLM8TQ, got: %s", generatedCode)
+	}
+
+	if strings.Contains(generatedCode, "T_X86jJwVQ4mH{") {
+		t.Errorf("Generated code should not contain hash-based type T_X86jJwVQ4mH, got: %s", generatedCode)
+	}
+
+	t.Logf("Generated code:\n%s", generatedCode)
 }
 
 // Helper function to check if a string contains a substring
