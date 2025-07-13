@@ -13,8 +13,20 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 		// If the next token is a nested shape type
 		if p.current().Type == ast.TokenLBrace {
 			shape := p.parseShapeType()
+			// For shape types, nested shapes should be stored as Type with Assertion
 			return ast.ShapeFieldNode{
-				Shape: &shape,
+				Type: &ast.TypeNode{
+					Ident: ast.TypeShape,
+					Assertion: &ast.AssertionNode{
+						BaseType: nil,
+						Constraints: []ast.ConstraintNode{{
+							Name: "Shape",
+							Args: []ast.ConstraintArgumentNode{{
+								Shape: &shape,
+							}},
+						}},
+					},
+				},
 			}
 		}
 
@@ -35,8 +47,20 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 		}
 	case ast.TokenLBrace:
 		shape := p.parseShapeType()
+		// For shape types, nested shapes should be stored as Type with Assertion
 		return ast.ShapeFieldNode{
-			Shape: &shape,
+			Type: &ast.TypeNode{
+				Ident: ast.TypeShape,
+				Assertion: &ast.AssertionNode{
+					BaseType: nil,
+					Constraints: []ast.ConstraintNode{{
+						Name: "Shape",
+						Args: []ast.ConstraintArgumentNode{{
+							Shape: &shape,
+						}},
+					}},
+				},
+			},
 		}
 	}
 	// If no colon, use the field name as both key and value (type assertion)
@@ -98,26 +122,36 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent) ast.ShapeNode {
 		if p.current().Type == ast.TokenColon {
 			p.advance() // Consume the colon
 
-			val := p.parseValue()
-			var field ast.ShapeFieldNode
-			switch v := val.(type) {
-			case ast.ShapeNode:
-				field = ast.ShapeFieldNode{Shape: &v}
-			default:
-				// For all other value types, wrap in an AssertionNode as a constraint argument
-				field = ast.ShapeFieldNode{
-					Assertion: &ast.AssertionNode{
-						BaseType: nil,
-						Constraints: []ast.ConstraintNode{{
-							Name: string(ast.ValueConstraint),
-							Args: []ast.ConstraintArgumentNode{{
-								Value: &val,
-							}},
-						}},
-					},
+			// Check if the next token is a type identifier (for assertion contexts)
+			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) {
+				// Parse as type annotation
+				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+				fields[name] = ast.ShapeFieldNode{
+					Type: &typ,
 				}
+			} else {
+				// Parse as value
+				val := p.parseValue()
+				var field ast.ShapeFieldNode
+				switch v := val.(type) {
+				case ast.ShapeNode:
+					field = ast.ShapeFieldNode{Shape: &v}
+				default:
+					// For all other value types, wrap in an AssertionNode as a constraint argument
+					field = ast.ShapeFieldNode{
+						Assertion: &ast.AssertionNode{
+							BaseType: nil,
+							Constraints: []ast.ConstraintNode{{
+								Name: string(ast.ValueConstraint),
+								Args: []ast.ConstraintArgumentNode{{
+									Value: &val,
+								}},
+							}},
+						},
+					}
+				}
+				fields[name] = field
 			}
-			fields[name] = field
 		} else {
 			// If no colon, use the field name as both key and value (type assertion)
 			typeIdent := ast.TypeIdent(name)
