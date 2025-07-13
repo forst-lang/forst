@@ -293,18 +293,12 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode, expe
 							"isStructLiteral": isStructLiteral,
 							"isIdentifier":    isIdentifier,
 						}).Debug("ReferenceNode in pointer context")
-						// Only add & if not already a pointer, not a struct literal, and not an identifier
-						if !isStructLiteral && !isIdentifier {
-							t.log.WithFields(map[string]interface{}{
-								"function": "transformAssertionValue",
-							}).Debug("Adding & to inner expression")
-							return &goast.UnaryExpr{Op: token.AND, X: innerExpr}, nil
-						}
-						// If struct literal or identifier, just return it (outer context will add & if needed)
+						// Always add & for ReferenceNode in pointer context
+						// The outer context expects a pointer value
 						t.log.WithFields(map[string]interface{}{
 							"function": "transformAssertionValue",
-						}).Debug("Returning inner expression as-is (struct literal or identifier)")
-						return innerExpr, nil
+						}).Debug("Adding & to inner expression for pointer context")
+						return &goast.UnaryExpr{Op: token.AND, X: innerExpr}, nil
 					}
 					t.log.WithFields(map[string]interface{}{
 						"function":      "transformAssertionValue",
@@ -338,49 +332,64 @@ func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *as
 		"function":     "determineStructType",
 	}).Debug("[DEBUG] determineStructType called")
 
+	// If expected type is provided, use it directly
 	if expectedType != nil {
 		t.log.WithFields(map[string]interface{}{
 			"expectedType": expectedType.Ident,
 			"function":     "determineStructType",
 		}).Debug("[DEBUG] Using expected type directly for struct literal")
+
+		// If the expected type is a pointer type, we need to preserve the base type
+		// for proper code generation (e.g., Pointer(User) should generate &User{})
+		if expectedType.Ident == ast.TypePointer && len(expectedType.TypeParams) > 0 {
+			// For pointer types, we need to use the base type for the struct literal
+			// but still indicate it's a pointer field
+			baseType := expectedType.TypeParams[0]
+			t.log.WithFields(map[string]interface{}{
+				"expectedType": expectedType.Ident,
+				"baseType":     baseType.Ident,
+				"function":     "determineStructType",
+			}).Debug("[DEBUG] Using base type for pointer struct literal")
+			return goast.NewIdent(string(baseType.Ident)), nil
+		}
+
 		return goast.NewIdent(string(expectedType.Ident)), nil
 	}
 
-	// Try to find an existing named type that matches this shape
-	typeIdent, found := t.findExistingTypeForShape(shape, nil)
+	// PINPOINT: When no expected type is provided, check if we should use a named type
+	// instead of generating a hash-based type
 	t.log.WithFields(map[string]interface{}{
-		"found":       found,
-		"typeIdent":   typeIdent,
-		"shapeFields": shape.Fields,
-		"function":    "determineStructType",
-	}).Debug("[DEBUG] findExistingTypeForShape result")
-	if found {
+		"function": "determineStructType",
+		"shape":    fmt.Sprintf("%+v", shape),
+	}).Warn("[PINPOINT] No expected type provided, checking for named type match")
+
+	// Check if this shape matches any existing named type
+	if typeIdent, found := t.findExistingTypeForShape(shape, nil); found {
 		t.log.WithFields(map[string]interface{}{
-			"typeIdent":   typeIdent,
-			"shapeFields": shape.Fields,
-			"function":    "determineStructType",
+			"function":  "determineStructType",
+			"typeIdent": typeIdent,
+			"shape":     fmt.Sprintf("%+v", shape),
 		}).Debug("[DEBUG] Found existing named type for shape without expectedType")
 		return goast.NewIdent(string(typeIdent)), nil
 	}
 
-	t.log.WithFields(map[string]interface{}{
-		"shapeFields": shape.Fields,
-		"function":    "determineStructType",
-	}).Debug("[DEBUG] No existing named type found for shape, will use hash-based type")
-
-	// Fallback: Generate a hash-based type name
-	hash, err := t.TypeChecker.Hasher.HashNode(shape)
+	// Generate a hash-based type name
+	hash, err := t.TypeChecker.Hasher.HashNode(*shape)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash shape: %v", err)
 	}
-	typeName := hash.ToTypeIdent()
+
+	typeName := string(hash.ToTypeIdent())
 	t.log.WithFields(map[string]interface{}{
+		"function": "determineStructType",
 		"hash":     hash,
 		"typeName": typeName,
-		"function": "determineStructType",
 	}).Debug("[DEBUG] Generated hash-based type name")
 
-	return goast.NewIdent(string(typeName)), nil
+	// Ensure the type is emitted
+	t.defineShapeType(shape)
+
+	return goast.NewIdent(typeName), nil
 }
 
 // buildFieldsForExpectedType builds field expressions when an expected type is provided
@@ -429,48 +438,50 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 	// Only emit fields that exist in the Go struct type, and fill missing ones with zero values
 	for fieldName, fieldDef := range shapeExpr.Shape.Fields {
 		t.log.WithFields(map[string]interface{}{
-			"function":     "buildFieldsForExpectedType",
-			"fieldName":    fieldName,
-			"fieldDefType": fmt.Sprintf("%+v", fieldDef.Type),
-			"isPointer":    fieldDef.Type != nil && (fieldDef.Type.Ident == ast.TypePointer || (len(string(fieldDef.Type.Ident)) > 0 && string(fieldDef.Type.Ident)[0] == '*') || (fieldDef.Type.Ident == "Pointer" && len(fieldDef.Type.TypeParams) > 0)),
+			"function":          "buildFieldsForExpectedType",
+			"fieldName":         fieldName,
+			"fieldDefType":      fmt.Sprintf("%+v", fieldDef.Type),
+			"fieldDefAssertion": fmt.Sprintf("%+v", fieldDef.Assertion),
+			"isPointer":         fieldDef.Type != nil && (fieldDef.Type.Ident == ast.TypePointer || (len(string(fieldDef.Type.Ident)) > 0 && string(fieldDef.Type.Ident)[0] == '*') || (fieldDef.Type.Ident == "Pointer" && len(fieldDef.Type.TypeParams) > 0)),
 		}).Warn("[PINPOINT] Field type for buildFieldValue call")
+
+		// Resolve assertion fields to their actual types
+		resolvedFieldDef := fieldDef
+		if fieldDef.Assertion != nil && fieldDef.Type == nil {
+			// For assertion fields like ctx:AppContext, resolve the assertion to get the actual type
+			if assertionType, err := t.TypeChecker.InferAssertionType(fieldDef.Assertion, false, fieldName, nil); err == nil && len(assertionType) > 0 {
+				resolvedFieldDef.Type = &assertionType[0]
+				t.log.WithFields(map[string]interface{}{
+					"function":     "buildFieldsForExpectedType",
+					"fieldName":    fieldName,
+					"resolvedType": fmt.Sprintf("%+v", resolvedFieldDef.Type),
+				}).Debug("[DEBUG] Resolved assertion field to actual type")
+			}
+		}
+
 		var fieldValue goast.Expr
 		var err error
 
 		if field, ok := shape.Fields[fieldName]; ok {
-			t.log.WithFields(map[string]interface{}{
-				"fieldName": fieldName,
-				"field":     fmt.Sprintf("%+v", field),
-				"function":  "buildFieldsForExpectedType",
-			}).Debug("[DEBUG] Field found in shape, building value")
-			fieldValue, err = t.buildFieldValue(field, fieldDef)
+			// Always use resolvedFieldDef.Type as the expected type for the field
+			fieldValue, err = t.buildFieldValue(field, resolvedFieldDef, resolvedFieldDef.Type)
 		} else {
-			t.log.WithFields(map[string]interface{}{
-				"fieldName": fieldName,
-				"function":  "buildFieldsForExpectedType",
-			}).Debug("[DEBUG] Field not found in shape, using zero value")
-			// Field not present in literal, emit zero value
-			fieldValue, err = t.buildZeroValue(fieldDef)
+			// Field not found in shape, use default value
+			fieldValue, err = t.buildFieldValue(ast.ShapeFieldNode{}, resolvedFieldDef, resolvedFieldDef.Type)
 		}
 
 		if err != nil {
-			return nil, err
-		}
-
-		goFieldName := fieldName
-		if t.ExportReturnStructFields {
-			goFieldName = capitalizeFirst(fieldName)
+			return nil, fmt.Errorf("failed to build field %s: %v", fieldName, err)
 		}
 
 		t.log.WithFields(map[string]interface{}{
-			"fieldName":   fieldName,
-			"goFieldName": goFieldName,
-			"fieldValue":  fmt.Sprintf("%#v", fieldValue),
-			"function":    "buildFieldsForExpectedType",
+			"fieldName":  fieldName,
+			"fieldValue": fmt.Sprintf("%T", fieldValue),
+			"function":   "buildFieldsForExpectedType",
 		}).Debug("[DEBUG] Created field key-value expression")
 
 		fields = append(fields, &goast.KeyValueExpr{
-			Key:   goast.NewIdent(goFieldName),
+			Key:   goast.NewIdent(fieldName),
 			Value: fieldValue,
 		})
 	}
@@ -483,7 +494,7 @@ func (t *Transformer) buildFieldsForShape(shape *ast.ShapeNode) ([]*goast.KeyVal
 	fields := make([]*goast.KeyValueExpr, 0)
 
 	for fieldName, field := range shape.Fields {
-		fieldValue, err := t.buildFieldValue(field, ast.ShapeFieldNode{})
+		fieldValue, err := t.buildFieldValue(field, ast.ShapeFieldNode{}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -503,7 +514,7 @@ func (t *Transformer) buildFieldsForShape(shape *ast.ShapeNode) ([]*goast.KeyVal
 }
 
 // buildFieldValue builds a field value expression
-func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef ast.ShapeFieldNode) (goast.Expr, error) {
+func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef ast.ShapeFieldNode, expectedTypeForField *ast.TypeNode) (goast.Expr, error) {
 	t.log.WithFields(map[string]interface{}{
 		"function": "buildFieldValue",
 		"field":    fmt.Sprintf("%+v", field),
@@ -517,8 +528,21 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef ast.Sha
 		if shapeNode, ok := field.Node.(ast.ShapeNode); ok {
 			var fieldExpectedType *ast.TypeNode
 			if fieldDef.Type != nil {
-				// If the field type is a pointer, pass the pointer type as expected type
-				fieldExpectedType = fieldDef.Type
+				// For pointer types, preserve the pointer context for nested struct literals
+				// This ensures they know they should be wrapped in &
+				if fieldDef.Type.Ident == ast.TypePointer && len(fieldDef.Type.TypeParams) > 0 {
+					// Pass the original pointer type to preserve context
+					fieldExpectedType = fieldDef.Type
+				} else if strings.HasPrefix(string(fieldDef.Type.Ident), "*") {
+					// For pointer type identifiers like *User, pass the original pointer type
+					fieldExpectedType = fieldDef.Type
+				} else {
+					// For non-pointer types, use the field type directly
+					fieldExpectedType = fieldDef.Type
+				}
+			} else {
+				// If fieldDef.Type is nil, use the expectedTypeForField passed from the parent
+				fieldExpectedType = expectedTypeForField
 			}
 			value, err = t.transformShapeNodeWithExpectedType(&shapeNode, fieldExpectedType)
 		} else {
@@ -527,8 +551,21 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef ast.Sha
 	} else if field.Shape != nil {
 		var fieldExpectedType *ast.TypeNode
 		if fieldDef.Type != nil {
-			// If the field type is a pointer, pass the pointer type as expected type
-			fieldExpectedType = fieldDef.Type
+			// For pointer types, preserve the pointer context for nested struct literals
+			// This ensures they know they should be wrapped in &
+			if fieldDef.Type.Ident == ast.TypePointer && len(fieldDef.Type.TypeParams) > 0 {
+				// Pass the original pointer type to preserve context
+				fieldExpectedType = fieldDef.Type
+			} else if strings.HasPrefix(string(fieldDef.Type.Ident), "*") {
+				// For pointer type identifiers like *User, pass the original pointer type
+				fieldExpectedType = fieldDef.Type
+			} else {
+				// For non-pointer types, use the field type directly
+				fieldExpectedType = fieldDef.Type
+			}
+		} else {
+			// If fieldDef.Type is nil, use the expectedTypeForField passed from the parent
+			fieldExpectedType = expectedTypeForField
 		}
 		value, err = t.transformShapeNodeWithExpectedType(field.Shape, fieldExpectedType)
 	} else if field.Assertion != nil {
@@ -547,30 +584,13 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef ast.Sha
 		return nil, err
 	}
 
-	// If the expected field type is a pointer, and the value is a struct literal, wrap in &
+	// After generating value, always wrap struct literals in & for pointer fields
 	if fieldDef.Type != nil {
-		t.log.WithFields(map[string]interface{}{
-			"function":     "buildFieldValue",
-			"fieldDefType": fmt.Sprintf("%+v", fieldDef.Type),
-			"ident":        fieldDef.Type.Ident,
-			"typeParams":   fieldDef.Type.TypeParams,
-		}).Debug("[DEBUG] Checking if field type is pointer")
-
 		isPointer := fieldDef.Type.Ident == ast.TypePointer ||
 			(len(string(fieldDef.Type.Ident)) > 0 && string(fieldDef.Type.Ident)[0] == '*') ||
 			(fieldDef.Type.Ident == "Pointer" && len(fieldDef.Type.TypeParams) > 0)
-
-		t.log.WithFields(map[string]interface{}{
-			"function":  "buildFieldValue",
-			"isPointer": isPointer,
-			"valueType": fmt.Sprintf("%T", value),
-		}).Debug("[DEBUG] Pointer check result")
-
 		if isPointer {
 			if composite, ok := value.(*goast.CompositeLit); ok {
-				t.log.WithFields(map[string]interface{}{
-					"function": "buildFieldValue",
-				}).Debug("[DEBUG] Wrapping struct literal in & for pointer field")
 				return &goast.UnaryExpr{
 					Op: token.AND,
 					X:  composite,
@@ -595,35 +615,8 @@ func (t *Transformer) buildTypeValue(fieldType *ast.TypeNode) (goast.Expr, error
 	if fieldType.Ident == ast.TypePointer && len(fieldType.TypeParams) > 0 {
 		t.log.WithFields(map[string]interface{}{
 			"function": "buildTypeValue",
-			"baseType": fieldType.TypeParams[0],
-		}).Debug("[DEBUG] Pointer type detected, creating pointer value")
-
-		// Create a pointer value instead of nil
-		baseType := fieldType.TypeParams[0]
-		baseTypeName, err := t.TypeChecker.GetAliasedTypeName(baseType)
-		if err != nil || baseTypeName == "" {
-			t.log.WithFields(map[string]interface{}{
-				"function": "buildTypeValue",
-				"error":    err,
-			}).Debug("[DEBUG] Failed to get base type name, using nil")
-			return goast.NewIdent("nil"), nil
-		}
-
-		// Create a composite literal with the base type and wrap it with &
-		baseTypeExpr := goast.NewIdent(baseTypeName)
-		compositeLit := &goast.CompositeLit{Type: baseTypeExpr}
-		pointerExpr := &goast.UnaryExpr{
-			Op: token.AND,
-			X:  compositeLit,
-		}
-
-		t.log.WithFields(map[string]interface{}{
-			"function":     "buildTypeValue",
-			"baseTypeName": baseTypeName,
-			"pointerExpr":  fmt.Sprintf("%#v", pointerExpr),
-		}).Debug("[DEBUG] Created pointer value")
-
-		return pointerExpr, nil
+		}).Debug("[DEBUG] Pointer type detected, returning nil")
+		return goast.NewIdent("nil"), nil
 	}
 
 	// Handle pointer type identifiers like *String, *User
@@ -632,26 +625,8 @@ func (t *Transformer) buildTypeValue(fieldType *ast.TypeNode) (goast.Expr, error
 		t.log.WithFields(map[string]interface{}{
 			"function": "buildTypeValue",
 			"identStr": identStr,
-		}).Debug("[DEBUG] Pointer type identifier detected")
-
-		// Extract the base type name (remove the * prefix)
-		baseTypeName := strings.TrimPrefix(identStr, "*")
-
-		// Create a composite literal with the base type and wrap it with &
-		baseTypeExpr := goast.NewIdent(baseTypeName)
-		compositeLit := &goast.CompositeLit{Type: baseTypeExpr}
-		pointerExpr := &goast.UnaryExpr{
-			Op: token.AND,
-			X:  compositeLit,
-		}
-
-		t.log.WithFields(map[string]interface{}{
-			"function":     "buildTypeValue",
-			"baseTypeName": baseTypeName,
-			"pointerExpr":  fmt.Sprintf("%#v", pointerExpr),
-		}).Debug("[DEBUG] Created pointer value from identifier")
-
-		return pointerExpr, nil
+		}).Debug("[DEBUG] Pointer type identifier detected, returning nil")
+		return goast.NewIdent("nil"), nil
 	}
 
 	aliasName, err := t.TypeChecker.GetAliasedTypeName(*fieldType)
@@ -706,6 +681,16 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		"structType": fmt.Sprintf("%#v", structType),
 		"function":   "transformShapeNodeWithExpectedType",
 	}).Debug("[DEBUG] Final structType chosen for Go code generation")
+
+	// After determining structType, if it is a hash-based type (T_*), ensure its type definition is emitted.
+	if ident, ok := structType.(*goast.Ident); ok {
+		if strings.HasPrefix(ident.Name, "T_") {
+			if def, exists := t.TypeChecker.Defs[ast.TypeIdent(ident.Name)]; exists {
+				processed := make(map[ast.TypeIdent]bool)
+				t.emitTypeAndReferencedTypes(ast.TypeIdent(ident.Name), def, processed)
+			}
+		}
+	}
 
 	// Build the fields
 	var fields []*goast.KeyValueExpr
