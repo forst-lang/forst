@@ -164,6 +164,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
 
+  example:echo:
+    desc: Compile echo example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/sidecar/tests/echo.ft
+
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst
