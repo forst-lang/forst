@@ -225,6 +225,68 @@ func TestTransformExpression_NestedStructLiteralWithNamedTypes(t *testing.T) {
 	}
 }
 
+func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testing.T) {
+	// More complete reproduction: function with assignment of struct literal with named type and variable reference
+
+	// Create test AST
+	echoRequestType := ast.MakeTypeDef("EchoRequest", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"message": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	// Simulate: msg := "Hello"; input := EchoRequest{message: msg}
+	msgVar := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "msg"}}},
+		RValues: []ast.ExpressionNode{ast.MakeStringLiteral("Hello")},
+		IsShort: true,
+	}
+	inputStruct := ast.MakeStructLiteral("EchoRequest", map[string]ast.ShapeFieldNode{
+		"message": {Node: ast.VariableNode{Ident: ast.Ident{ID: "msg"}}},
+	})
+	inputVar := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "input"}}},
+		RValues: []ast.ExpressionNode{inputStruct},
+		IsShort: true,
+	}
+
+	mainFn := ast.MakeFunction("main", nil, []ast.Node{msgVar, inputVar})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types and function
+	err := tc.CheckTypes([]ast.Node{echoRequestType, mainFn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the function
+	result, err := transformer.transformFunction(mainFn)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify the result uses the named type and variable reference
+	if !contains(resultStr, "EchoRequest{") {
+		t.Errorf("Expected named type usage, got: %s", resultStr)
+	}
+	if !contains(resultStr, "message: msg") {
+		t.Errorf("Expected field value to use variable reference, got: %s", resultStr)
+	}
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+	}
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
