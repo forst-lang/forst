@@ -23,7 +23,7 @@ func failWithTypeMismatch(fn ast.FunctionNode, inferred []ast.TypeNode, parsed [
 }
 
 // Ensures that the first type matches the expected type, otherwise returns an error
-func ensureMatching(fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode, prefix string) ([]ast.TypeNode, error) {
+func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode, prefix string) ([]ast.TypeNode, error) {
 	if len(expected) == 0 {
 		// If the expected type is implicit, we have nothing to check against
 		return actual, nil
@@ -34,7 +34,7 @@ func ensureMatching(fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.T
 	}
 
 	for i := range expected {
-		if actual[i].Ident != expected[i].Ident {
+		if !tc.IsTypeCompatible(actual[i], expected[i]) {
 			return actual, failWithTypeMismatch(fn, actual, expected, fmt.Sprintf("%s: Type mismatch", prefix))
 		}
 	}

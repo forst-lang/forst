@@ -124,14 +124,160 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	}).Trace("Stored inferred type for node")
 }
 
+// resolveAliasedType resolves a type to its aliased name if it's a hash-based type that matches a user-defined type
+func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
+	// If this is a hash-based type, check for structural identity with user-defined types
+	if typeNode.TypeKind == ast.TypeKindHashBased {
+		// Look up the shape for this hash-based type
+		hashDef, hashExists := tc.Defs[typeNode.Ident]
+		if hashExists {
+			if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
+				if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					hashShape := hashShapeExpr.Shape
+					for _, def := range tc.Defs {
+						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
+							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
+								userShape := shapeExpr.Shape
+								if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
+									tc.log.WithFields(logrus.Fields{
+										"hashType":    typeNode.Ident,
+										"aliasedType": userDef.Ident,
+										"function":    "resolveAliasedType",
+									}).Debug("Resolved hash-based type to aliased type")
+									return ast.TypeNode{
+										Ident:      userDef.Ident,
+										TypeKind:   typeNode.TypeKind,
+										Assertion:  typeNode.Assertion,
+										TypeParams: typeNode.TypeParams,
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return typeNode
+}
+
+// GetAliasedTypeName returns the aliased type name for any type node, ensuring consistent type aliasing
+// This is the unified function that should be used by both typechecker and transformer
+func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error) {
+	// Handle built-in types
+	if tc.isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
+		// Convert Forst built-in types to Go built-in types
+		switch typeNode.Ident {
+		case ast.TypeString:
+			return "string", nil
+		case ast.TypeInt:
+			return "int", nil
+		case ast.TypeFloat:
+			return "float64", nil
+		case ast.TypeBool:
+			return "bool", nil
+		case ast.TypeVoid:
+			return "", nil
+		case ast.TypeError:
+			return "error", nil
+		default:
+			return string(typeNode.Ident), nil
+		}
+	}
+
+	// Handle pointer types
+	if typeNode.Ident == ast.TypePointer {
+		if len(typeNode.TypeParams) == 0 {
+			return "", fmt.Errorf("pointer type must have a base type parameter")
+		}
+		baseTypeName, err := tc.GetAliasedTypeName(typeNode.TypeParams[0])
+		if err != nil {
+			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
+		}
+		return "*" + baseTypeName, nil
+	}
+
+	// If this is a hash-based type, check for structural identity with user-defined types
+	if typeNode.TypeKind == ast.TypeKindHashBased {
+		// Look up the shape for this hash-based type
+		hashDef, hashExists := tc.Defs[typeNode.Ident]
+		if hashExists {
+			if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
+				if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					hashShape := hashShapeExpr.Shape
+					for _, def := range tc.Defs {
+						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
+							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
+								userShape := shapeExpr.Shape
+								if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
+									tc.log.WithFields(logrus.Fields{
+										"hashType":    typeNode.Ident,
+										"aliasedType": userDef.Ident,
+										"function":    "GetAliasedTypeName",
+									}).Debug("Resolved hash-based type to aliased type")
+									return string(userDef.Ident), nil
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// For user-defined types, check if they're already defined in the typechecker
+	if typeNode.Ident != "" {
+		if _, exists := tc.Defs[typeNode.Ident]; exists {
+			return string(typeNode.Ident), nil
+		}
+	}
+
+	// If not found in Defs, fall back to hash-based name
+	hash, err := tc.Hasher.HashNode(typeNode)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash type node: %w", err)
+	}
+	return string(hash.ToTypeIdent()), nil
+}
+
+// isGoBuiltinType checks if a type is a Go builtin type
+func (tc *TypeChecker) isGoBuiltinType(typeName string) bool {
+	builtinTypes := map[string]bool{
+		"string":  true,
+		"int":     true,
+		"int8":    true,
+		"int16":   true,
+		"int32":   true,
+		"int64":   true,
+		"uint":    true,
+		"uint8":   true,
+		"uint16":  true,
+		"uint32":  true,
+		"uint64":  true,
+		"float32": true,
+		"float64": true,
+		"bool":    true,
+		"byte":    true,
+		"rune":    true,
+		"error":   true,
+	}
+	return builtinTypes[typeName]
+}
+
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
+	// Resolve aliased types for return types
+	resolvedReturnTypes := make([]ast.TypeNode, len(returnTypes))
+	for i, returnType := range returnTypes {
+		resolvedReturnTypes[i] = tc.resolveAliasedType(returnType)
+	}
+
 	sig := tc.Functions[fn.Ident.ID]
-	sig.ReturnTypes = returnTypes
+	sig.ReturnTypes = resolvedReturnTypes
 	tc.Functions[fn.Ident.ID] = sig
 	tc.log.WithFields(logrus.Fields{
 		"fn":          fn.Ident.ID,
-		"returnTypes": returnTypes,
+		"returnTypes": resolvedReturnTypes,
 		"sig":         sig,
 		"function":    "storeInferredFunctionReturnType",
 	}).Trace("Stored inferred function return type")

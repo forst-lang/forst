@@ -56,6 +56,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		// Store function symbol
 		tc.storeSymbol(n.Ident.ID, n.ReturnTypes, SymbolFunction)
+	case *ast.FunctionNode:
+		return tc.collectExplicitTypes(*n)
 	case ast.TypeGuardNode:
 		tc.pushScope(n)
 

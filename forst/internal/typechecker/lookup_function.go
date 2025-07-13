@@ -23,7 +23,8 @@ func (tc *TypeChecker) LookupAssertionType(assertion *ast.AssertionNode) (*ast.T
 
 		// For user-defined types, return the original name
 		// For hash-based types, return the hash-based name
-		if ast.IsHashBasedType(ast.TypeNode{Ident: baseType}) {
+		typeNode := ast.TypeNode{Ident: baseType}
+		if typeNode.IsHashBased() {
 			// For hash-based types, get the hash-based name
 			if def, exists := tc.Defs[baseType]; exists {
 				hash, err := tc.Hasher.HashNode(def)
