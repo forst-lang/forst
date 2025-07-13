@@ -17,26 +17,16 @@ type AppMutation struct {
 type MutationArg struct {
 }
 
-// TYPE_POINTER: TypeDefAssertionExpr(Value(Ref(Variable(sessionId))))
-type TYPE_POINTER string
-
-// TYPE_STRING: TypeDefAssertionExpr(Value("Alice"))
-type TYPE_STRING string
-
-// T_488eVThFocF: TypeDefShapeExpr({ctx: AppContext, input: {name: String}})
+// T_488eVThFocF: TypeDefShapeExpr({input: {name: String}, ctx: AppContext})
 type T_488eVThFocF struct {
-	ctx   AppContext    `json:"ctx"`
-	input T_azh9nsqmxaF `json:"input"`
+	ctx   AppContext `json:"ctx"`
+	input User       `json:"input"`
 }
 
-// T_7zywpPhwVhj: TypeDefShapeExpr({name: Value("Alice")})
-type T_7zywpPhwVhj struct {
-	name string `json:"name"`
-}
-
-// T_DX1exfNyf6L: TypeDefShapeExpr({name: Value("Fix memory leak in Node.js app")})
-type T_DX1exfNyf6L struct {
-	name string `json:"name"`
+// T_8XMnUftkRoa: TypeDefShapeExpr({sessionId: Pointer(String), user: Pointer(User)})
+type T_8XMnUftkRoa struct {
+	sessionId *string `json:"sessionId"`
+	user      *User   `json:"user"`
 }
 
 // T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
@@ -46,35 +36,20 @@ type T_F1jpghi8Uyp struct {
 
 // T_LYQafBLM8TQ: TypeDefShapeExpr({sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}})
 type T_LYQafBLM8TQ struct {
-	sessionId *string `json:"sessionId"`
-	user      User    `json:"user"`
-}
-
-// T_X86jJwVQ4mH: TypeDefShapeExpr({sessionId: Value(nil)})
-type T_X86jJwVQ4mH struct {
 	sessionId string `json:"sessionId"`
+	user      User   `json:"user"`
 }
 
 // T_Yo2G7tbwv5q: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js app")}})
 type T_Yo2G7tbwv5q struct {
-	ctx   AppContext `json:"ctx"`
-	input User       `json:"input"`
-}
-
-// T_azh9nsqmxaF: TypeDefShapeExpr({name: String})
-type T_azh9nsqmxaF struct {
-	name string `json:"name"`
+	ctx   T_LYQafBLM8TQ `json:"ctx"`
+	input User          `json:"input"`
 }
 
 // T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
 type T_b7WdLNpLZoy struct {
-	ctx   T_X86jJwVQ4mH `json:"ctx"`
-	input T_7zywpPhwVhj `json:"input"`
-}
-
-// T_goedQ5siUEo: TypeDefShapeExpr({name: Value("Go to the gym")})
-type T_goedQ5siUEo struct {
-	name string `json:"name"`
+	ctx   *string `json:"ctx"`
+	input User    `json:"input"`
 }
 
 // User: TypeDefShapeExpr({name: String})
@@ -100,13 +75,13 @@ func createTask(op T_488eVThFocF) (string, error) {
 }
 func main() {
 	sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-	name, err := createTask(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: T_azh9nsqmxaF{name: "Fix memory leak in Node.js app"}})
+	name, err := createTask(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: User{name: "Fix memory leak in Node.js app"}})
 	if err != nil {
 		println(err.Error())
 		panic(errors.New("assertion failed: " + "Error.Nil()"))
 	}
 	println("Correctly created task: " + name)
-	name, err = createTask(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Go to the gym"}})
+	name, err = createTask(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: User{name: "Go to the gym"}})
 	if err == nil {
 		println("Expected error but gym task was created")
 		panic(errors.New("assertion failed: " + "Error.Present()"))
