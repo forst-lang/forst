@@ -160,7 +160,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err != nil {
 				return nil, err
 			}
-			return &goast.CallExpr{
+			return negateCondition(&goast.CallExpr{
 				Fun: &goast.SelectorExpr{
 					X:   goast.NewIdent("strings"),
 					Sel: goast.NewIdent("Contains"),
@@ -169,7 +169,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 					variableExpr,
 					argExpr,
 				},
-			}, nil
+			}), nil
 		},
 	},
 	ast.TypeInt: {
