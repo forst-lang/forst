@@ -634,6 +634,21 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 			"expectedType": expectedType.Ident,
 		}).Debug("[DEBUG] Context provided expected type")
 
+		// If the expected type is a hash-based type, try to find a structurally compatible named type
+		if strings.HasPrefix(string(expectedType.Ident), "T_") {
+			// Use robust type selection to find the best named type
+			bestType := t.findBestNamedTypeForStructLiteral(*expectedType, nil)
+			if !strings.HasPrefix(string(bestType.Ident), "T_") {
+				t.log.WithFields(logrus.Fields{
+					"function": "getExpectedTypeForShape",
+					"hashType": expectedType.Ident,
+					"bestType": bestType.Ident,
+					"note":     "Resolved hash-based type to named type",
+				}).Warn("[PINPOINT] getExpectedTypeForShape: Resolved hash-based type to named type")
+				return &bestType
+			}
+		}
+
 		// Check if the expected type is compatible with the shape
 		if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {

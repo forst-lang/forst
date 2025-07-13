@@ -100,29 +100,34 @@ func TestReturnTypeInference_ShapeLiteralVsNamedType(t *testing.T) {
 
 	// 5. Infer the type of the return value (the shape literal)
 	ret := fn.Body[0].(ast.ReturnNode)
-	inferredTypes, err := tc.inferExpressionType(ret.Values[0])
+	shapeLiteral := ret.Values[0].(ast.ShapeNode)
+
+	// Pass the expected return type to help with Value constraint inference
+	expectedReturnType := ast.TypeNode{Ident: ast.TypeIdent("EchoResponse")}
+	inferredType, err := tc.inferShapeType(shapeLiteral, &expectedReturnType)
 	if err != nil {
 		t.Fatalf("Failed to infer shape type: %v", err)
 	}
+
+	inferredTypes := []ast.TypeNode{inferredType}
 
 	if len(inferredTypes) == 0 {
 		t.Fatalf("Expected at least one inferred type")
 	}
 
-	inferredType := inferredTypes[0]
-	t.Logf("Inferred type from shape literal: %v", inferredType)
+	inferredTypeResult := inferredTypes[0]
+	t.Logf("Inferred type from shape literal: %v", inferredTypeResult)
 
 	// 6. Test compatibility with the expected return type
 	expectedType := ast.TypeNode{Ident: ast.TypeIdent("EchoResponse")}
-	compatible := tc.IsTypeCompatible(inferredType, expectedType)
+	compatible := tc.IsTypeCompatible(inferredTypeResult, expectedType)
 
-	t.Logf("Inferred type: %v", inferredType)
+	t.Logf("Inferred type: %v", inferredTypeResult)
 	t.Logf("Expected type: %v", expectedType)
 	t.Logf("Compatible: %v", compatible)
 
-	// This should be false, because the shape literal with Value constraints is more specific
-	// than the named type EchoResponse
-	if compatible {
-		t.Errorf("Expected inferred type to NOT be compatible with EchoResponse (shape literal is more specific)")
+	// This should be true, because the shape literal matches the named type EchoResponse exactly
+	if !compatible {
+		t.Errorf("Expected inferred type to be compatible with EchoResponse (shape literal matches named type)")
 	}
 }

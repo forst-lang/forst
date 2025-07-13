@@ -1349,3 +1349,96 @@ func TestPointerValueMismatch_Minimal(t *testing.T) {
 		t.Errorf("Expected user field to be nil for pointer field, got: %s", resultStr)
 	}
 }
+
+func TestTransformExpression_ShapeGuardIssues_Minimal(t *testing.T) {
+	// Test that reproduces the exact issues from shape guard example
+	// 1. Hash-based type emission instead of named types
+	// 2. Pointer/value mismatch in struct literals
+	// 3. Undefined hash-based types
+
+	// Create the type definitions from the shape guard example
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	appContextType := ast.MakeTypeDef("AppContext", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"sessionId": {Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}},
+		"user":      {Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: "User"}}}},
+	}))
+
+	// Create the function parameter type
+	expectedType := ast.MakeTypeDef("T_488eVThFocF", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"ctx":   ast.MakeTypeField(ast.TypeIdent("AppContext")),
+		"input": ast.MakeTypeField(ast.TypeIdent("User")),
+	}))
+
+	// Create the struct literal that should use named types
+	structLiteral := ast.MakeStructLiteral("T_488eVThFocF", map[string]ast.ShapeFieldNode{
+		"ctx": ast.MakeStructField(ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
+			"sessionId": ast.MakeStructField(ast.MakeReferenceNode("sessionId")),
+			"user": ast.MakeStructField(ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+				"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Alice"}),
+			})),
+		})),
+		"input": ast.MakeStructField(ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+			"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Fix memory leak in Node.js app"}),
+		})),
+	})
+
+	// Create the function call
+	call := ast.MakeFunctionCall("createTask", []ast.ExpressionNode{structLiteral})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types and function
+	err := tc.CheckTypes([]ast.Node{userType, appContextType, expectedType})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the function call
+	callResult, err := transformer.transformExpression(call)
+	if err != nil {
+		t.Fatalf("Failed to transform function call: %v", err)
+	}
+
+	// Convert function call to string
+	var callBuf bytes.Buffer
+	err = format.Node(&callBuf, token.NewFileSet(), callResult)
+	if err != nil {
+		t.Fatalf("Failed to format function call: %v", err)
+	}
+	callStr := callBuf.String()
+
+	t.Logf("Generated function call: %s", callStr)
+
+	// Verify that the struct literal uses the correct named types
+	if !contains(callStr, "ctx: AppContext{") {
+		t.Errorf("Expected ctx field to use AppContext type, got: %s", callStr)
+	}
+
+	if !contains(callStr, "input: User{") {
+		t.Errorf("Expected input field to use User type, got: %s", callStr)
+	}
+
+	// Verify that pointer fields are handled correctly
+	if !contains(callStr, "sessionId: &sessionId") {
+		t.Errorf("Expected sessionId field to be a pointer value, got: %s", callStr)
+	}
+
+	if !contains(callStr, "user: &User{") {
+		t.Errorf("Expected user field to be a pointer value, got: %s", callStr)
+	}
+
+	// Verify that no undefined hash-based types are used
+	if contains(callStr, "T_X86jJwVQ4mH") {
+		t.Errorf("Found undefined hash-based type T_X86jJwVQ4mH in output: %s", callStr)
+	}
+
+	if contains(callStr, "T_8XMnUftkRoa") {
+		t.Errorf("Found hash-based type T_8XMnUftkRoa instead of named type in output: %s", callStr)
+	}
+}
