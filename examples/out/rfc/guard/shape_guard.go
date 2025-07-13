@@ -69,7 +69,7 @@ type T_azh9nsqmxaF struct {
 // T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
 type T_b7WdLNpLZoy struct {
 	ctx   T_X86jJwVQ4mH `json:"ctx"`
-	input T_azh9nsqmxaF `json:"input"`
+	input T_7zywpPhwVhj `json:"input"`
 }
 
 // T_goedQ5siUEo: TypeDefShapeExpr({name: Value("Go to the gym")})
