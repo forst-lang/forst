@@ -1259,34 +1259,69 @@ func TestTransformExpression_ShapeGuardPointerFieldIssue(t *testing.T) {
 	t.Logf("Generated code:\n%s", generatedCode)
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
-}
+func TestPointerValueMismatch_Minimal(t *testing.T) {
+	// Minimal test for pointer/value mismatch bug
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+	appContextType := ast.MakeTypeDef("AppContext", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"sessionId": {Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}},
+		"user":      {Type: &ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: "User"}}}},
+	}))
+	structLiteral := ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
+		"sessionId": ast.MakeStructFieldWithType(ast.MakePointerType("String")),
+		"user":      ast.MakeStructFieldWithType(ast.MakePointerType("User")),
+	})
+	fn := ast.MakeFunction("testFn", []ast.ParamNode{
+		ast.MakeSimpleParam("ctx", ast.TypeNode{Ident: "AppContext"}),
+	}, []ast.Node{})
+	call := ast.MakeFunctionCall("testFn", []ast.ExpressionNode{structLiteral})
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+	err := tc.CheckTypes([]ast.Node{userType, appContextType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
 
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+	// Add detailed logging to pinpoint the issue
+	t.Log("=== POINTER/VALUE MISMATCH DEBUG ===")
+	t.Logf("AppContext type definition: %+v", appContextType)
+	t.Logf("Struct literal: %+v", structLiteral)
+	t.Logf("Function parameter type: %+v", fn.Params[0].GetType())
+
+	// Check what the typechecker knows about AppContext
+	if def, exists := tc.Defs["AppContext"]; exists {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			t.Logf("AppContext type definition in typechecker: %+v", typeDef)
+			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				t.Logf("AppContext shape fields: %+v", shapeExpr.Shape.Fields)
+				for fieldName, field := range shapeExpr.Shape.Fields {
+					t.Logf("  Field %s: Type=%+v", fieldName, field.Type)
+				}
+			}
 		}
 	}
-	return false
-}
 
-// Helper function to check if a string contains a substring, ignoring whitespace
-func containsIgnoreWhitespace(s, substr string) bool {
-	s = removeWhitespace(s)
-	substr = removeWhitespace(substr)
-	return contains(s, substr)
-}
-
-// Helper function to remove all whitespace from a string
-func removeWhitespace(s string) string {
-	var b bytes.Buffer
-	for i := 0; i < len(s); i++ {
-		if s[i] != ' ' && s[i] != '\n' && s[i] != '\t' && s[i] != '\r' {
-			b.WriteByte(s[i])
-		}
+	result, err := transformer.transformExpression(call)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
 	}
-	return b.String()
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+	t.Logf("Generated Go code: %s", resultStr)
+
+	if !contains(resultStr, "testFn(AppContext{") {
+		t.Errorf("Expected function call with AppContext struct, got: %s", resultStr)
+	}
+	if !contains(resultStr, "sessionId: &String{") {
+		t.Errorf("Expected sessionId field to be a pointer value (&String{}), got: %s", resultStr)
+	}
+	if !contains(resultStr, "user: &User{") {
+		t.Errorf("Expected user field to be a pointer value (&User{}), got: %s", resultStr)
+	}
 }
