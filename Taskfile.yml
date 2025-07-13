@@ -292,3 +292,4 @@ tasks:
     desc: Install bun dependencies
     cmds:
       - bun install
+    run: once
