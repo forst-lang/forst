@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"strings"
 	"time"
 
 	logrus "github.com/sirupsen/logrus"
@@ -83,7 +84,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 								"function": "inferAssertionType",
 								"shape":    fmt.Sprintf("%+v", *v.Shape),
 							}).Debugf("Calling inferShapeType with shape node")
-							nestedType, err := tc.inferShapeType(*v.Shape)
+							nestedType, err := tc.inferShapeType(*v.Shape, nil)
 							if err != nil {
 								return nil, fmt.Errorf("failed to infer nested shape type: %w", err)
 							}
@@ -186,7 +187,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 								"shapeFields": argNode.Shape.Fields,
 							}).Debugf("Argument is a shape literal; merging its fields directly")
 							// Ensure the shape type is inferred and registered
-							if _, err := tc.inferShapeType(*argNode.Shape); err != nil {
+							if _, err := tc.inferShapeType(*argNode.Shape, nil); err != nil {
 								return nil, fmt.Errorf("failed to infer shape type: %w", err)
 							}
 							// Merge shape fields directly (do NOT add a field for the parameter itself)
@@ -197,7 +198,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 										"function": "inferAssertionType",
 										"shape":    fmt.Sprintf("%+v", *v.Shape),
 									}).Debugf("Calling inferShapeType with shape node")
-									nestedType, err := tc.inferShapeType(*v.Shape)
+									nestedType, err := tc.inferShapeType(*v.Shape, nil)
 									if err != nil {
 										return nil, fmt.Errorf("failed to infer nested shape type: %w", err)
 									}
@@ -216,7 +217,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 										"function": "inferAssertionType",
 										"shape":    fmt.Sprintf("%+v", *argNode.Shape),
 									}).Debugf("Calling inferShapeType with shape node")
-									nestedType, err := tc.inferShapeType(*argNode.Shape)
+									nestedType, err := tc.inferShapeType(*argNode.Shape, nil)
 									if err != nil {
 										return nil, fmt.Errorf("failed to infer nested shape type: %w", err)
 									}
@@ -408,44 +409,34 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 		return nil, fmt.Errorf("failed to hash assertion during inferAssertionType: %s", err)
 	}
 	typeIdent := hash.ToTypeIdent()
-	tc.log.WithFields(logrus.Fields{
-		"function":  "inferAssertionType",
-		"assertion": assertion,
-		"fields":    mergedFields,
-		"typeIdent": typeIdent,
-	}).Tracef("Stored shape type with fields")
 
-	// Store the shape type
-	tc.Defs[typeIdent] = ast.TypeDefNode{
-		Ident: typeIdent,
-		Expr: ast.TypeDefShapeExpr{
-			Shape: ast.ShapeNode{
-				Fields: mergedFields,
-			},
-		},
-	}
+	// Register the hash-based type and its fields
+	RegisterHashBasedType(tc, typeIdent, mergedFields)
 
-	shapeType := ast.TypeNode{
-		Ident:    typeIdent,
-		TypeKind: ast.TypeKindHashBased, // Set the correct type kind for hash-based types
-	}
-	tc.storeInferredType(assertion, []ast.TypeNode{shapeType})
-
-	tc.log.WithFields(logrus.Fields{
-		"function":     "inferAssertionType",
-		"mergedFields": mergedFields,
-	}).Debugf("Final merged fields before storing shape type")
-	for k, v := range mergedFields {
-		if v.Type != nil {
+	// Robust named type preservation: If BaseType is a named type and compatible, use it
+	if assertion.BaseType != nil && !strings.HasPrefix(string(*assertion.BaseType), "T_") {
+		baseTypeIdent := *assertion.BaseType
+		// Check structural compatibility using the full shape merging logic
+		if tc.IsShapeCompatibleWithNamedType(ast.ShapeNode{Fields: mergedFields}, baseTypeIdent) {
 			tc.log.WithFields(logrus.Fields{
 				"function":  "inferAssertionType",
-				"field":     k,
-				"typeIdent": v.Type.Ident,
-			}).Debugf("Field type ident after merging")
+				"baseType":  baseTypeIdent,
+				"typeIdent": typeIdent,
+				"note":      "Preserving named type (compatible with full shape logic)",
+			}).Warn("[PINPOINT] inferAssertionType: Preserving named type (compatible with full shape logic)")
+			return []ast.TypeNode{{Ident: baseTypeIdent}}, nil
 		}
+		// If not compatible, log and fall back to hash-based type
+		tc.log.WithFields(logrus.Fields{
+			"function":  "inferAssertionType",
+			"baseType":  baseTypeIdent,
+			"typeIdent": typeIdent,
+			"note":      "BaseType not compatible with full shape logic, using hash-based type",
+		}).Warn("[PINPOINT] inferAssertionType: BaseType not compatible, using hash-based type")
 	}
 
-	return []ast.TypeNode{shapeType}, nil
+	// Default: return the hash-based type
+	return []ast.TypeNode{{Ident: typeIdent}}, nil
 }
 
 func generateUniqueID() string {

@@ -73,13 +73,13 @@ func TestInferShapeType_ShouldMatchNamedType(t *testing.T) {
 	}
 
 	// Infer the shape type
-	inferredType, err := tc.inferShapeType(shapeLiteral)
+	expectedType := ast.TypeNode{Ident: "EchoResponse"}
+	inferredType, err := tc.inferShapeType(shapeLiteral, &expectedType)
 	if err != nil {
 		t.Fatalf("Failed to infer shape type: %v", err)
 	}
 
 	// The inferred type should be EchoResponse, not a hash-based type
-	expectedType := ast.TypeNode{Ident: ast.TypeIdent("EchoResponse")}
 	if inferredType.Ident != expectedType.Ident {
 		t.Errorf("Expected inferred type to be %s, but got %s", expectedType.Ident, inferredType.Ident)
 	}
@@ -249,7 +249,7 @@ func TestInferShapeType_ValueVariableAssertion_ShouldResolveToUnderlyingType(t *
 	}
 
 	// Infer the shape type
-	inferredType, err := tc.inferShapeType(shapeLiteral)
+	inferredType, err := tc.inferShapeType(shapeLiteral, nil)
 	if err != nil {
 		t.Fatalf("Failed to infer shape type: %v", err)
 	}
@@ -422,14 +422,40 @@ func TestInferShapeType_ValueNil_UsesExpectedPointerType(t *testing.T) {
 	}
 
 	// Now infer the type of the shape literal
-	inferredType, err := tc.inferShapeType(shapeLiteral)
+	inferredType, err := tc.inferShapeType(shapeLiteral, &ast.TypeNode{Ident: "User"})
 	if err != nil {
 		t.Fatalf("Failed to infer shape type: %v", err)
 	}
 
-	// Check that it's a pointer type
-	if !strings.Contains(string(inferredType.Ident), "Pointer") {
-		t.Errorf("Expected pointer type, got: %s", inferredType.Ident)
+	// Check that the inferred type is the named type "User"
+	if inferredType.Ident != "User" {
+		t.Errorf("Expected User type, got: %s", inferredType.Ident)
+	}
+
+	// Check that the sessionId field is a pointer type
+	// We need to look up the type definition to check the field type
+	if def, ok := tc.Defs["User"]; ok {
+		if typeDef, ok := def.(ast.TypeDefNode); ok {
+			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				if sessionIdField, ok := shapeExpr.Shape.Fields["sessionId"]; ok {
+					if sessionIdField.Type != nil {
+						if !strings.Contains(string(sessionIdField.Type.Ident), "Pointer") {
+							t.Errorf("Expected sessionId field to be a pointer type, got: %s", sessionIdField.Type.Ident)
+						}
+					} else {
+						t.Errorf("sessionId field has no type")
+					}
+				} else {
+					t.Errorf("sessionId field not found in User type definition")
+				}
+			} else {
+				t.Errorf("User type definition is not a shape expression")
+			}
+		} else {
+			t.Errorf("User type definition is not a TypeDefNode")
+		}
+	} else {
+		t.Errorf("User type definition not found")
 	}
 
 	t.Logf("Inferred type: %s", inferredType.Ident)
@@ -466,7 +492,7 @@ func TestInferShapeType_ValueNil_CreatesPointerWithUnknownBaseType(t *testing.T)
 	t.Logf("Shape literal: %+v", shapeLiteral)
 
 	// Infer the shape type
-	inferredType, err := tc.inferShapeType(shapeLiteral)
+	inferredType, err := tc.inferShapeType(shapeLiteral, nil)
 	if err != nil {
 		t.Fatalf("Failed to infer shape type: %v", err)
 	}

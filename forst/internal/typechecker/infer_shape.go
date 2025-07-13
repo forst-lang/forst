@@ -13,10 +13,12 @@ import (
 // 2. Nested shapes
 // 3. Type aliases
 // 4. Generic types
-func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error) {
+// Change function signature to accept expectedType
+func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.TypeNode) (ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
-		"function": "inferShapeType",
-		"shape":    fmt.Sprintf("%+v", shape),
+		"function":     "inferShapeType",
+		"shape":        fmt.Sprintf("%+v", shape),
+		"expectedType": expectedType,
 	}).Debug("Inferring shape type")
 
 	// If the shape has a BaseType, use it directly
@@ -44,29 +46,50 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 		return ast.TypeNode{Ident: shapeTypeIdent}, nil
 	}
 
+	// If expectedType is a named type, try to get its definition for field types
+	var expectedFields map[string]*ast.TypeNode
+	if expectedType != nil {
+		if def, ok := tc.Defs[expectedType.Ident]; ok {
+			if typeDef, ok := def.(ast.TypeDefNode); ok {
+				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					expectedFields = make(map[string]*ast.TypeNode)
+					for fname, fdef := range shapeExpr.Shape.Fields {
+						if fdef.Type != nil {
+							t := *fdef.Type
+							expectedFields[fname] = &t
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Process each field and infer its type
 	processedFields := make(map[string]ast.ShapeFieldNode)
 
 	for name, field := range shape.Fields {
+		// Use expectedType for this field if available
+		var fieldExpectedType *ast.TypeNode
+		if expectedFields != nil {
+			if t, ok := expectedFields[name]; ok {
+				fieldExpectedType = t
+			}
+		}
 		tc.log.WithFields(logrus.Fields{
-			"function":  "inferShapeType",
-			"fieldName": name,
-			"field":     fmt.Sprintf("%+v", field),
-		}).Debug("Processing field")
+			"function":     "inferShapeType",
+			"fieldName":    name,
+			"expectedType": fieldExpectedType,
+		}).Warn("[PINPOINT] Expected type for field (from expectedType param)")
 
 		// If the field has an assertion, infer its type
 		if field.Assertion != nil {
-			// Infer assertion type
-			assertionTypes, err := tc.InferAssertionType(field.Assertion, false, name, nil)
+			assertionTypes, err := tc.InferAssertionType(field.Assertion, false, name, fieldExpectedType)
 			if err != nil {
 				return ast.TypeNode{}, fmt.Errorf("failed to infer assertion type for field %s: %w", name, err)
 			}
 			if len(assertionTypes) == 0 {
 				return ast.TypeNode{}, fmt.Errorf("no types inferred for assertion in field %s", name)
 			}
-
-			// Only register the assertion type if it's not a built-in type
-			// This prevents creating type aliases for built-in types like String, Int, etc.
 			inferredType := assertionTypes[0]
 			if !tc.isBuiltinType(inferredType.Ident) {
 				tc.registerType(ast.TypeDefNode{
@@ -76,18 +99,20 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 					},
 				})
 			}
-
-			// Update the field with the inferred type
+			tc.log.WithFields(logrus.Fields{
+				"function":     "inferShapeType",
+				"fieldName":    name,
+				"inferredType": inferredType.Ident,
+			}).Warn("[PINPOINT] Inferred type for field (from assertion)")
 			field.Type = &inferredType
 		}
 
 		// If the field has a nested shape, infer its type recursively
 		if field.Shape != nil {
-			nestedType, err := tc.inferShapeType(*field.Shape)
+			nestedType, err := tc.inferShapeType(*field.Shape, fieldExpectedType)
 			if err != nil {
 				return ast.TypeNode{}, fmt.Errorf("failed to infer nested shape type for field %s: %w", name, err)
 			}
-			// Update the field with the inferred type
 			field.Type = &nestedType
 		}
 
@@ -104,7 +129,6 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 	if len(processedShape.Fields) == 1 {
 		for _, field := range processedShape.Fields {
 			if field.Type != nil && field.Type.Ident == ast.TypePointer {
-				// Return the pointer type directly
 				tc.log.WithFields(logrus.Fields{
 					"function":  "inferShapeType",
 					"fieldType": field.Type.Ident,
@@ -120,7 +144,6 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 	for typeIdent, def := range tc.Defs {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				// Compare the shape structure
 				if tc.shapesHaveSameStructure(processedShape, shapeExpr.Shape) {
 					matchingTypeIdent = typeIdent
 					tc.log.WithFields(logrus.Fields{
@@ -133,7 +156,6 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 		}
 	}
 
-	// If we found a matching named type, use it directly
 	if matchingTypeIdent != "" {
 		tc.log.WithFields(logrus.Fields{
 			"function":  "inferShapeType",
@@ -142,14 +164,11 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode) (ast.TypeNode, error)
 		return ast.TypeNode{Ident: matchingTypeIdent}, nil
 	}
 
-	// Hash the processed shape to get the final type identifier
 	finalHash, err := tc.Hasher.HashNode(processedShape)
 	if err != nil {
 		return ast.TypeNode{}, fmt.Errorf("failed to hash processed shape: %w", err)
 	}
 	finalTypeIdent := finalHash.ToTypeIdent()
-
-	// Only register the shape type definition if we don't have a matching named type
 	tc.registerType(ast.TypeDefNode{
 		Ident: finalTypeIdent,
 		Expr:  ast.TypeDefShapeExpr{Shape: processedShape},

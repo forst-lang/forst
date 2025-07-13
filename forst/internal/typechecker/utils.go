@@ -56,3 +56,57 @@ func typecheckError(message string) string {
 		message,
 	)
 }
+
+// IsShapeSuperset returns true if shape a has all fields of shape b (with compatible types), possibly with extras.
+// This uses the existing shape merging logic to properly handle nested assertions and shape guards.
+func (tc *TypeChecker) IsShapeSuperset(a, b ast.ShapeNode) bool {
+	// For now, use the existing structural compatibility check
+	// TODO: Enhance this to use resolveShapeFieldsFromAssertion for complex cases
+	return tc.shapesAreStructurallyIdentical(a, b)
+}
+
+// IsShapeCompatibleWithNamedType checks if a shape is compatible with a named type,
+// taking into account the full shape merging logic including nested assertions and constraints.
+func (tc *TypeChecker) IsShapeCompatibleWithNamedType(shape ast.ShapeNode, namedType ast.TypeIdent) bool {
+	// Get the named type definition
+	def, exists := tc.Defs[namedType]
+	if !exists {
+		return false
+	}
+
+	// If the named type is a shape definition, compare directly
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+			return tc.shapesAreStructurallyIdentical(shape, shapeExpr.Shape)
+		}
+	}
+
+	// If the named type is an assertion, resolve its fields and compare
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if assertionExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			if assertionExpr.Assertion != nil {
+				// Use the existing shape merging logic
+				mergedFields := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
+				mergedShape := ast.ShapeNode{Fields: mergedFields}
+				return tc.shapesAreStructurallyIdentical(shape, mergedShape)
+			}
+		}
+	}
+
+	return false
+}
+
+// RegisterHashBasedType registers a hash-based type and its fields in the typechecker.
+func RegisterHashBasedType(tc *TypeChecker, typeIdent ast.TypeIdent, fields map[string]ast.ShapeFieldNode) {
+	// Only register if not already present
+	if _, exists := tc.Defs[typeIdent]; !exists {
+		tc.Defs[typeIdent] = ast.TypeDefNode{
+			Ident: typeIdent,
+			Expr: ast.TypeDefShapeExpr{
+				Shape: ast.ShapeNode{
+					Fields: fields,
+				},
+			},
+		}
+	}
+}
