@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Forst Language Development Guidelines
 
 ## Architecture Overview
@@ -141,11 +145,229 @@ if paramType.Assertion != nil {
 - Use `test_utils.go` helpers for AST construction
 - Focus on edge cases and error conditions
 - Do not use external libraries for testing
+- Do not try to register types or variables manually. Use the other components to do so if necessary.
 
 ### Integration Tests
 
-- Use `examples/in/` for end-to-end testing
-- Test full compilation pipeline
+- Use `examples/in/` via `task example:*` commands for end-to-end testing
+- They test full compilation pipeline
+- Verify generated Go code compiles and runs
+
+### Debug Tests
+
+- Create minimal reproductions of bugs
+- Test specific type inference scenarios
+- Validate type emission and code generation
+
+## Performance Considerations
+
+- Type inference can be expensive for complex shapes
+- Hash-based type names ensure uniqueness but may be verbose
+- Consider caching inferred types for repeated lookups
+
+## Sidecar Integration Development
+
+### Strategic Framework
+
+When developing sidecar integration features, refer to the comprehensive decision document at `examples/in/rfc/sidecar/10-decisions.md`. This document outlines:
+
+- **MVP-First Approach**: Prioritize working solutions over feature completeness
+- **Developer Experience Priority**: Focus on TypeScript familiarity and zero-config installation
+- **Reliability-First Architecture**: Implement circuit breakers and fallback mechanisms
+- **HTTP-First Transport**: Use HTTP for initial adoption with future IPC support
+
+### Key Development Principles
+
+- **Child Process Integration**: Deploy Forst sidecar as child process within TypeScript application
+- **Error Handling Strategy**: Isolate compilation errors and maintain runtime error transparency
+- **Type Safety Boundaries**: Map Forst constraints to broader TypeScript types with JSDoc documentation
+- **Production Safety**: Implement zero-downtime tolerance through robust error handling
+
+### Implementation Guidelines
+
+- **NPM Package Integration**: Automatic Forst compiler download and installation
+- **HTTP Development Server**: Simple server with compiler and file watching integration
+- **Node.js Client Library**: Communication layer for sidecar/HTTP server interaction
+- **Basic Type Generation**: Fundamental TypeScript type generation from Forst code
+
+### Testing and Validation
+
+- **Zero Downtime Achievement**: Eliminate production outages due to sidecar integration
+- **Performance Improvement**: Achieve 10x performance gains for migrated routes
+- **Developer Velocity Maintenance**: Preserve or improve development speed for adopting teams
+
+## Future Development
+
+### Planned Features
+
+- See also `/ROADMAP.md` file.
+- Dependent types and refinement types
+- Generic types and type parameters
+- Advanced constraint validation
+- Better error messages and diagnostics
+
+### Architecture Evolution
+
+- Modular type system components
+- Pluggable code generators
+- Language server support
+- Package management and imports
+
+- Modular type system components
+- Pluggable code generators
+- Language server support
+- Package management and imports
+
+# Forst Language Development Guidelines
+
+## Architecture Overview
+
+Forst is a Go-interoperable language that transpiles to Go. The compiler pipeline is:
+
+1. **Lexer** (`internal/lexer/`) - Tokenizes source code
+2. **Parser** (`internal/parser/`) - Builds AST from tokens
+3. **Typechecker** (`internal/typechecker/`) - Infers and validates types
+4. **Transformer** (`internal/transformer/go/`) - Generates Go code from AST
+
+## Key AST Node Types
+
+### Core Types
+
+- `ast.TypeNode` - Base type representation with `Ident` and optional `Assertion`
+- `ast.ShapeNode` - Struct/object types with fields and optional `BaseType`
+- `ast.AssertionNode` - Type constraints and refinements
+- `ast.TypeDefNode` - Type aliases and definitions
+
+### Expression Types
+
+- `ast.VariableNode` - Variable references
+- `ast.ReferenceNode` - Pointer references (`&x`)
+- `ast.DereferenceNode` - Pointer dereferences (`*x`)
+- `ast.FunctionCallNode` - Function calls
+- `ast.ShapeNode` - Struct literals
+
+## Type System Insights
+
+### Type Inference Flow
+
+1. **Parser** creates AST with placeholder types (e.g., `TYPE_ASSERTION`)
+2. **Typechecker** infers concrete types using `infer.go` and specialized infer files
+3. **Transformer** uses inferred types to generate Go code
+
+### Assertion Types
+
+- **Value assertions**: `Type.Value(literal)` - refine types with literal values
+- **Reference assertions**: `Type.Ref(field)` - add pointer fields to types
+- **Shape guards**: `Type.Constraint(...)` - add validation constraints
+
+### Type Resolution
+
+- Built-in types map directly to Go types (`string`, `int`, `error`)
+- User-defined types use hash-based names (`T_abc123`) for structural types
+- Explicit named types preserve their original names (`AppContext`)
+
+## Common Bug Patterns
+
+### Type Emission Issues
+
+- **Problem**: Generated Go code has undefined types
+- **Cause**: Types referenced in struct fields/functions not emitted
+- **Solution**: Ensure all referenced types are added to `t.Output.types`
+
+### Recursive Type Aliases
+
+- **Problem**: `type T_abc123 T_abc123` in generated Go
+- **Cause**: Assertion types generating recursive aliases instead of concrete types
+- **Solution**: Generate concrete Go types based on assertion constraints
+
+### Function Parameter Type Mismatches
+
+- **Problem**: Function expects `T_abc123` but receives `AppContext`
+- **Cause**: Typechecker infers different types for same shape
+- **Solution**: Use `TypeChecker.InferAssertionType()` for function parameters
+
+### Struct Literal Type Issues
+
+- **Problem**: Struct literals use wrong type names
+- **Cause**: Not using explicit type names when available
+- **Solution**: Use `ShapeNode.BaseType` or expected type context
+
+## Debugging Strategies
+
+### 1. Add Tracing
+
+```go
+t.log.WithFields(logrus.Fields{
+    "function": "transformFunctionParams",
+    "paramType": paramType,
+}).Debug("Processing function parameter")
+```
+
+### 2. Check Type Emission
+
+- Verify all referenced types are in `t.Output.types`
+- Check for duplicate type definitions
+- Ensure hash-based names are consistent
+
+### 3. Validate Type Inference
+
+- Check `TypeChecker.Defs` for inferred types
+- Verify assertion types are properly resolved
+- Ensure function signatures match call sites
+
+### 4. Test with Minimal Examples
+
+- Create focused unit tests for specific bugs
+- Use `examples/in/` for integration testing
+- Run `task test:integration` or e.g. `task example:basic` individually to test full pipeline
+
+## Code Generation Patterns
+
+### Type Emission
+
+```go
+// Emit all types from typechecker
+for typeIdent, def := range t.TypeChecker.Defs {
+    // Skip if already emitted
+    // Generate type definition
+    t.Output.types = append(t.Output.types, typeDecl)
+}
+```
+
+### Struct Literal Generation
+
+```go
+// Use explicit type when available
+if shape.BaseType != nil {
+    expectedTypeName = string(*shape.BaseType)
+}
+// Generate composite literal with proper type
+```
+
+### Function Parameter Transformation
+
+```go
+// Use inferred types from typechecker
+if paramType.Assertion != nil {
+    inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false)
+}
+```
+
+## Testing Guidelines
+
+### Unit Tests
+
+- Test each component in isolation (parser, typechecker, transformer)
+- Use `test_utils.go` helpers for AST construction
+- Focus on edge cases and error conditions
+- Do not use external libraries for testing
+- Do not try to register types or variables manually. Use the other components to do so if necessary.
+  - When using the type checker, pass the slice of nodes (type definitions, functions, etc.) directly to CheckTypes.
+
+### Integration Tests
+
+- Use `examples/in/` via `task example:*` commands for end-to-end testing
+- They test full compilation pipeline
 - Verify generated Go code compiles and runs
 
 ### Debug Tests
