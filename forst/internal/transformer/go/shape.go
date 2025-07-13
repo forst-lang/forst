@@ -175,7 +175,8 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 						t.log.WithFields(logrus.Fields{
 							"function":     "findExistingTypeForShape",
 							"expectedType": expectedTypeIdent,
-						}).Debug("Expected type is compatible, using it directly")
+						}).Debug("Expected type is compatible, using it directly (field order ignored)")
+						// Always use expectedType if compatible, regardless of field order
 						return expectedTypeIdent, true
 					} else {
 						t.log.WithFields(logrus.Fields{
@@ -207,38 +208,38 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 					"typeDefFields": fmt.Sprintf("%+v", shapeExpr.Shape.Fields),
 					"literalShape":  fmt.Sprintf("%+v", shape),
 					"literalFields": fmt.Sprintf("%+v", shape.Fields),
-				}).Debug("Checking type definition for match")
+				}).Warn("[DEBUG] Checking type definition for match")
 
 				// Compare the shapes to see if they match
 				if t.shapesMatch(shape, &shapeExpr.Shape) {
 					t.log.WithFields(logrus.Fields{
 						"function":  "findExistingTypeForShape",
 						"typeIdent": typeIdent,
-					}).Debug("Found matching type definition")
+					}).Warn("[DEBUG] Found matching type definition")
 					return typeIdent, true
 				} else {
 					t.log.WithFields(logrus.Fields{
 						"function":  "findExistingTypeForShape",
 						"typeIdent": typeIdent,
-					}).Debug("Type definition did not match")
+					}).Warn("[DEBUG] Type definition did not match")
 				}
 			} else {
 				t.log.WithFields(logrus.Fields{
 					"function":  "findExistingTypeForShape",
 					"typeIdent": typeIdent,
 					"defType":   fmt.Sprintf("%T", typeDef.Expr),
-				}).Debug("Type definition is not a shape expression")
+				}).Warn("[DEBUG] Type definition is not a shape expression")
 			}
 		} else {
 			t.log.WithFields(logrus.Fields{
 				"function": "findExistingTypeForShape",
 				"defType":  fmt.Sprintf("%T", def),
-			}).Debug("Definition is not a TypeDefNode")
+			}).Warn("[DEBUG] Definition is not a TypeDefNode")
 		}
 	}
 	t.log.WithFields(logrus.Fields{
 		"function": "findExistingTypeForShape",
-	}).Debug("No matching type definition found")
+	}).Warn("[DEBUG] No matching type definition found")
 	return "", false
 }
 
@@ -248,7 +249,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 		"function": "shapesMatch",
 		"shape1":   fmt.Sprintf("%+v", shape1),
 		"shape2":   fmt.Sprintf("%+v", shape2),
-	}).Debug("=== SHAPE COMPARISON DEBUG ===")
+	}).Warn("=== SHAPE COMPARISON DEBUG ===")
 
 	// Check if both shapes have the same number of fields
 	if len(shape1.Fields) != len(shape2.Fields) {
@@ -256,7 +257,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			"function": "shapesMatch",
 			"len1":     len(shape1.Fields),
 			"len2":     len(shape2.Fields),
-		}).Debug("Field count mismatch")
+		}).Warn("Field count mismatch")
 		return false
 	}
 
@@ -267,7 +268,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			t.log.WithFields(logrus.Fields{
 				"function":  "shapesMatch",
 				"fieldName": fieldName,
-			}).Debug("Field name not found in second shape")
+			}).Warn("Field name not found in second shape")
 			return false
 		}
 
@@ -281,7 +282,37 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			"field2Shape":     field2.Shape != nil,
 			"field1Assertion": field1.Assertion != nil,
 			"field2Assertion": field2.Assertion != nil,
-		}).Debug("Comparing field types and shapes")
+			"field1Node":      field1.Node != nil,
+			"field2Node":      field2.Node != nil,
+		}).Warn("Comparing field types and shapes")
+
+		// Node-vs-Type compatibility logic
+		if field1.Node != nil && field2.Type != nil {
+			if _, ok := field1.Node.(ast.StringLiteralNode); ok && field2.Type.Ident == ast.TypeString {
+				continue
+			}
+			if _, ok := field1.Node.(ast.IntLiteralNode); ok && field2.Type.Ident == ast.TypeInt {
+				continue
+			}
+			if _, ok := field1.Node.(ast.VariableNode); ok {
+				continue
+			}
+			// Other node types: assume compatible
+			continue
+		}
+		if field2.Node != nil && field1.Type != nil {
+			if _, ok := field2.Node.(ast.StringLiteralNode); ok && field1.Type.Ident == ast.TypeString {
+				continue
+			}
+			if _, ok := field2.Node.(ast.IntLiteralNode); ok && field1.Type.Ident == ast.TypeInt {
+				continue
+			}
+			if _, ok := field2.Node.(ast.VariableNode); ok {
+				continue
+			}
+			// Other node types: assume compatible
+			continue
+		}
 
 		if field1.Type != nil && field2.Type != nil {
 			// Use the typechecker's IsTypeCompatible function for proper type comparison
@@ -320,19 +351,84 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 					return false
 				}
 			}
-		}
-		// Optionally, compare pointer base types (only if both types exist)
-		if field1.Type != nil && field2.Type != nil && field1.Type.Ident == ast.TypePointer && field2.Type.Ident == ast.TypePointer {
-			if len(field1.Type.TypeParams) > 0 && len(field2.Type.TypeParams) > 0 {
-				if field1.Type.TypeParams[0].Ident != field2.Type.TypeParams[0].Ident {
-					t.log.WithFields(logrus.Fields{
-						"function":      "shapesMatch",
-						"fieldName":     fieldName,
-						"field1PtrBase": field1.Type.TypeParams[0].Ident,
-						"field2PtrBase": field2.Type.TypeParams[0].Ident,
-					}).Debug("Pointer base type mismatch")
-					return false
+		} else if field1.Type != nil && field2.Node != nil {
+			// Literal has Type, definition has Node - extract type from Node
+			if varNode, ok := field2.Node.(ast.VariableNode); ok {
+				// For variable nodes, we need to infer the type
+				if t.TypeChecker != nil {
+					// Try to get the type from the variable
+					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varNode.Ident.ID)]; ok && len(types) > 0 {
+						type1 := ast.TypeNode{Ident: field1.Type.Ident}
+						type2 := types[0]
+						if !t.TypeChecker.IsTypeCompatible(type1, type2) {
+							t.log.WithFields(map[string]interface{}{
+								"function":   "shapesMatch",
+								"fieldName":  fieldName,
+								"field1Type": field1.Type.Ident,
+								"field2Type": type2.Ident,
+							}).Debug("Field type mismatch (literal Type vs Node Type)")
+							return false
+						}
+					} else {
+						// If we can't determine the type, assume it's compatible
+						t.log.WithFields(map[string]interface{}{
+							"function":  "shapesMatch",
+							"fieldName": fieldName,
+						}).Debug("Cannot determine Node type, assuming compatible")
+					}
 				}
+			} else {
+				// For other node types, assume compatible
+				t.log.WithFields(map[string]interface{}{
+					"function":  "shapesMatch",
+					"fieldName": fieldName,
+				}).Debug("Non-variable Node type, assuming compatible")
+			}
+		} else if field1.Node != nil && field2.Type != nil {
+			// Literal has Node, definition has Type - this is the main case we need to handle
+			// Extract the type from the Node and compare with the Type
+			if varNode, ok := field1.Node.(ast.VariableNode); ok {
+				// For variable nodes, we need to infer the type
+				if t.TypeChecker != nil {
+					// Try to get the type from the variable
+					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varNode.Ident.ID)]; ok && len(types) > 0 {
+						type1 := types[0]
+						type2 := ast.TypeNode{Ident: field2.Type.Ident}
+						if !t.TypeChecker.IsTypeCompatible(type1, type2) {
+							t.log.WithFields(map[string]interface{}{
+								"function":   "shapesMatch",
+								"fieldName":  fieldName,
+								"field1Type": type1.Ident,
+								"field2Type": field2.Type.Ident,
+							}).Debug("Field type mismatch (Node Type vs literal Type)")
+							return false
+						}
+					} else {
+						// If we can't determine the type, assume it's compatible
+						t.log.WithFields(map[string]interface{}{
+							"function":  "shapesMatch",
+							"fieldName": fieldName,
+						}).Debug("Cannot determine Node type, assuming compatible")
+					}
+				}
+			} else if _, ok := field1.Node.(ast.StringLiteralNode); ok && field2.Type.Ident == ast.TypeString {
+				// String literal matches String type
+				t.log.WithFields(map[string]interface{}{
+					"function":  "shapesMatch",
+					"fieldName": fieldName,
+				}).Debug("String literal matches String type")
+			} else if _, ok := field1.Node.(ast.IntLiteralNode); ok && field2.Type.Ident == ast.TypeInt {
+				// Int literal matches Int type
+				t.log.WithFields(map[string]interface{}{
+					"function":  "shapesMatch",
+					"fieldName": fieldName,
+				}).Debug("Int literal matches Int type")
+			} else {
+				// For other node types, assume compatible
+				t.log.WithFields(map[string]interface{}{
+					"function":  "shapesMatch",
+					"fieldName": fieldName,
+				}).Debug("Non-variable Node type, assuming compatible")
 			}
 		}
 		// If only one side has a type, treat as compatible (literal omits explicit type)
