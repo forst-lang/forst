@@ -452,6 +452,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					VariableName: varName,
 				}
 				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
+				t.log.WithFields(map[string]interface{}{
+					"varName":              varName,
+					"expectedTypeForShape": expectedTypeForShape,
+					"function":             "transformStatement-AssignmentNode",
+				}).Debug("[DEBUG] getExpectedTypeForShape result for assignment")
 				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
 				if err != nil {
 					return nil, err

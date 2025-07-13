@@ -1,6 +1,8 @@
 package ast
 
 import (
+	"testing"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -183,6 +185,8 @@ func MakeConstraint(name string, shape *ShapeNode) ConstraintNode {
 // SetupTestLogger creates a test logger
 func SetupTestLogger() *logrus.Logger {
 	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
+	if testing.Verbose() {
+		logger.SetLevel(logrus.DebugLevel)
+	}
 	return logger
 }

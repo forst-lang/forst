@@ -658,7 +658,8 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 		}
 	}
 
-	// Try to find a matching named type through structural matching
+	// Always try to find a matching named type through structural matching first
+	// This is the most reliable way to find the correct type for shape literals
 	typeIdent, found := t.findExistingTypeForShape(shape, nil)
 	if found {
 		t.log.WithFields(logrus.Fields{

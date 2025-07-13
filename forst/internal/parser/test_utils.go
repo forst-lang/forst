@@ -27,8 +27,10 @@ func assertNodeType[T ast.Node](t *testing.T, node ast.Node, expectedType string
 }
 
 // NewTestParser creates a parser from a source string for testing
-func NewTestParser(input string) *Parser {
-	logger := ast.SetupTestLogger()
+func NewTestParser(input string, logger *logrus.Logger) *Parser {
+	if logger == nil {
+		logger = ast.SetupTestLogger()
+	}
 	lex := lexer.New([]byte(input), "<test>", logger)
 	tokens := lex.Lex()
 	return setupParser(tokens, logger)
