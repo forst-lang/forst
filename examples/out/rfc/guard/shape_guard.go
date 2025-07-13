@@ -16,12 +16,11 @@ type AppMutation struct {
 // MutationArg: TypeDefAssertionExpr(Shape)
 type MutationArg struct {
 }
-type T_5Qrtv4p9fCx string
 
-// T_5fHJb69t288: TypeDefShapeExpr({ctx: AppContext, input: T_GVKpDX7vGyx})
-type T_5fHJb69t288 struct {
+// T_488eVThFocF: TypeDefShapeExpr({input: {name: String}, ctx: AppContext})
+type T_488eVThFocF struct {
 	ctx   AppContext    `json:"ctx"`
-	input T_GVKpDX7vGyx `json:"input"`
+	input T_azh9nsqmxaF `json:"input"`
 }
 
 // T_7zywpPhwVhj: TypeDefShapeExpr({name: Value("Alice")})
@@ -29,30 +28,20 @@ type T_7zywpPhwVhj struct {
 	name string `json:"name"`
 }
 
-// T_DBy8B2VnfFA: TypeDefShapeExpr({input: Shape})
-type T_DBy8B2VnfFA struct {
-	input T_5Qrtv4p9fCx `json:"input"`
-}
-
 // T_DX1exfNyf6L: TypeDefShapeExpr({name: Value("Fix memory leak in Node.js app")})
 type T_DX1exfNyf6L struct {
 	name string `json:"name"`
 }
 
-// T_GVKpDX7vGyx: TypeDefShapeExpr({name: String})
-type T_GVKpDX7vGyx struct {
-	name string `json:"name"`
-}
-
-// T_HFDHMNeRC3v: TypeDefShapeExpr({input: Shape})
-type T_HFDHMNeRC3v struct {
-	input T_5Qrtv4p9fCx `json:"input"`
+// T_F1jpghi8Uyp: TypeDefShapeExpr({input: {name: String}})
+type T_F1jpghi8Uyp struct {
+	input T_7zywpPhwVhj `json:"input"`
 }
 
 // T_LYQafBLM8TQ: TypeDefShapeExpr({sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}})
 type T_LYQafBLM8TQ struct {
-	sessionId *string `json:"sessionId"`
-	user      User    `json:"user"`
+	sessionId *string       `json:"sessionId"`
+	user      T_azh9nsqmxaF `json:"user"`
 }
 
 // T_X86jJwVQ4mH: TypeDefShapeExpr({sessionId: Value(nil)})
@@ -63,7 +52,7 @@ type T_X86jJwVQ4mH struct {
 // T_Yo2G7tbwv5q: TypeDefShapeExpr({ctx: {sessionId: Value(Ref(Variable(sessionId))), user: {name: Value("Alice")}}, input: {name: Value("Fix memory leak in Node.js app")}})
 type T_Yo2G7tbwv5q struct {
 	ctx   T_LYQafBLM8TQ `json:"ctx"`
-	input T_azh9nsqmxaF `json:"input"`
+	input T_7zywpPhwVhj `json:"input"`
 }
 
 // T_azh9nsqmxaF: TypeDefShapeExpr({name: String})
@@ -74,7 +63,7 @@ type T_azh9nsqmxaF struct {
 // T_b7WdLNpLZoy: TypeDefShapeExpr({ctx: {sessionId: Value(nil)}, input: {name: Value("Go to the gym")}})
 type T_b7WdLNpLZoy struct {
 	ctx   T_X86jJwVQ4mH `json:"ctx"`
-	input T_GVKpDX7vGyx `json:"input"`
+	input T_7zywpPhwVhj `json:"input"`
 }
 
 // T_bN37LzcUYJ8: TypeDefAssertionExpr(Value(nil))
@@ -102,7 +91,7 @@ func G_W5HnAr5D9X1(ctx AppContext) bool {
 	}
 	return true
 }
-func createTask(op T_5fHJb69t288) (string, error) {
+func createTask(op T_488eVThFocF) (string, error) {
 	if !G_W5HnAr5D9X1(op.ctx) {
 		return "", errors.New("assertion failed: " + "AppContext.LoggedIn()")
 	}
@@ -111,13 +100,13 @@ func createTask(op T_5fHJb69t288) (string, error) {
 }
 func main() {
 	sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-	name, err := createTask(T_5fHJb69t288{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: T_GVKpDX7vGyx{name: "Fix memory leak in Node.js app"}})
+	name, err := createTask(T_488eVThFocF{ctx: AppContext{sessionId: &sessionId, user: &User{name: "Alice"}}, input: T_azh9nsqmxaF{name: "Fix memory leak in Node.js app"}})
 	if err != nil {
 		println(err.Error())
 		panic(errors.New("assertion failed: " + "Error.Nil()"))
 	}
 	println("Correctly created task: " + name)
-	name, err = createTask(T_5fHJb69t288{ctx: AppContext{sessionId: nil}, input: T_GVKpDX7vGyx{name: "Go to the gym"}})
+	name, err = createTask(T_488eVThFocF{ctx: AppContext{sessionId: nil}, input: T_azh9nsqmxaF{name: "Go to the gym"}})
 	if err == nil {
 		println("Expected error but gym task was created")
 		panic(errors.New("assertion failed: " + "Error.Present()"))
