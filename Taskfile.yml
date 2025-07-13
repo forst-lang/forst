@@ -168,7 +168,7 @@ tasks:
     desc: Compile echo example
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/sidecar/tests/echo.ft
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/echo.ft
 
   example:basic-guard:
     desc: Compile basic guard example
