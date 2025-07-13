@@ -287,6 +287,206 @@ func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testin
 	}
 }
 
+func TestTransformExpression_StructLiteralTypeEmissionBug(t *testing.T) {
+	// Test that reproduces the client example bug where struct literals
+	// use hash-based types instead of named types, causing undefined type errors
+
+	// Create test AST similar to the client example
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"id":   ast.MakeTypeField(ast.TypeString),
+		"name": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserResponseType := ast.MakeTypeDef("CreateUserResponse", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"user": ast.MakeTypeField(ast.TypeIdent("User")),
+	}))
+
+	// Create a function that returns a struct literal
+	// This mimics the createUser function from the client example
+	responseStruct := ast.MakeStructLiteral("CreateUserResponse", map[string]ast.ShapeFieldNode{
+		"user": ast.MakeStructFieldWithType(ast.TypeNode{Ident: "User"}),
+	})
+
+	// Create a function that returns the response struct
+	fn := ast.MakeFunction("createUser", []ast.ParamNode{
+		ast.MakeSimpleParam("name", ast.TypeNode{Ident: ast.TypeString}),
+	}, []ast.Node{
+		ast.ReturnNode{
+			Values: []ast.ExpressionNode{responseStruct, ast.NilLiteralNode{}},
+		},
+	})
+	// Set the function's return types to (CreateUserResponse, error)
+	fn.ReturnTypes = []ast.TypeNode{
+		{Ident: "CreateUserResponse"},
+		{Ident: ast.TypeError},
+	}
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types
+	err := tc.CheckTypes([]ast.Node{userType, createUserResponseType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the function
+	result, err := transformer.transformFunction(fn)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify the result uses named types instead of hash-based types
+	if !contains(resultStr, "CreateUserResponse{") {
+		t.Errorf("Expected CreateUserResponse type usage, got: %s", resultStr)
+	}
+	if !contains(resultStr, "User{") {
+		t.Errorf("Expected User type usage, got: %s", resultStr)
+	}
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+	}
+
+	// Verify the function signature is correct
+	if !contains(resultStr, "func createUser(name string) (CreateUserResponse, error)") {
+		t.Errorf("Expected correct function signature, got: %s", resultStr)
+	}
+
+	// Verify the return statement is correct (accept any field order)
+	missing := false
+	if !contains(resultStr, "return CreateUserResponse{") {
+		t.Errorf("Expected correct return statement, got: %s", resultStr)
+		missing = true
+	}
+	if !contains(resultStr, "user: User{") {
+		t.Errorf("Expected user field in return statement, got: %s", resultStr)
+		missing = true
+	}
+	if !contains(resultStr, "created_at: 0") {
+		t.Errorf("Expected created_at field in return statement, got: %s", resultStr)
+		missing = true
+	}
+	if missing {
+		t.Logf("Full result string:\n%s", resultStr)
+	}
+}
+
+func TestTransformExpression_StructLiteralWithFieldAssignments(t *testing.T) {
+	// Test that reproduces the exact client example pattern with field assignments
+	// This tests the case where struct literals have field assignments like:
+	// user := T_5uFVdbaNXha{Age: input.Age, Email: input.Email, Id: "123", Name: input.Name}
+
+	// Create test AST similar to the client example
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeTypeField(ast.TypeString),
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserRequestType := ast.MakeTypeDef("CreateUserRequest", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserResponseType := ast.MakeTypeDef("CreateUserResponse", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeTypeField(ast.TypeIdent("User")),
+		"created_at": ast.MakeTypeField(ast.TypeInt),
+	}))
+
+	// Create a struct literal with field assignments (like in the client example)
+	// Note: This test focuses on the response struct, not the user struct assignment
+
+	responseStruct := ast.MakeStructLiteral("CreateUserResponse", map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeStructFieldWithType(ast.TypeNode{Ident: "User"}),
+		"created_at": ast.MakeStructFieldWithType(ast.TypeNode{Ident: ast.TypeInt}),
+	})
+
+	// Create a function that returns the response struct
+	fn := ast.MakeFunction("createUser", []ast.ParamNode{
+		ast.MakeSimpleParam("input", ast.TypeNode{Ident: "CreateUserRequest"}),
+	}, []ast.Node{
+		ast.ReturnNode{
+			Values: []ast.ExpressionNode{responseStruct, ast.NilLiteralNode{}},
+		},
+	})
+	// Set the function's return types to (CreateUserResponse, error)
+	fn.ReturnTypes = []ast.TypeNode{
+		{Ident: "CreateUserResponse"},
+		{Ident: ast.TypeError},
+	}
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types
+	err := tc.CheckTypes([]ast.Node{userType, createUserRequestType, createUserResponseType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the function
+	result, err := transformer.transformFunction(fn)
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify the result uses named types instead of hash-based types
+	failures := 0
+	if !containsIgnoreWhitespace(resultStr, "CreateUserResponse{") {
+		t.Errorf("Expected CreateUserResponse type usage, got: %s", resultStr)
+		failures++
+	}
+	if !containsIgnoreWhitespace(resultStr, "User{") {
+		t.Errorf("Expected User type usage, got: %s", resultStr)
+		failures++
+	}
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+		failures++
+	}
+	if !containsIgnoreWhitespace(resultStr, "func createUser(input CreateUserRequest) (CreateUserResponse, error)") {
+		t.Errorf("Expected correct function signature, got: %s", resultStr)
+		failures++
+	}
+	if !containsIgnoreWhitespace(resultStr, "return CreateUserResponse{") {
+		t.Errorf("Expected correct return statement, got: %s", resultStr)
+		failures++
+	}
+	if !containsIgnoreWhitespace(resultStr, "user: User{") {
+		t.Errorf("Expected user field in return statement, got: %s", resultStr)
+		failures++
+	}
+	if !containsIgnoreWhitespace(resultStr, "created_at: 0") {
+		t.Errorf("Expected created_at field in return statement, got: %s", resultStr)
+		failures++
+	}
+	if failures > 0 {
+		t.Logf("Full result string:\n%s", resultStr)
+	}
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
@@ -299,4 +499,22 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// Helper function to check if a string contains a substring, ignoring whitespace
+func containsIgnoreWhitespace(s, substr string) bool {
+	s = removeWhitespace(s)
+	substr = removeWhitespace(substr)
+	return contains(s, substr)
+}
+
+// Helper function to remove all whitespace from a string
+func removeWhitespace(s string) string {
+	var b bytes.Buffer
+	for i := 0; i < len(s); i++ {
+		if s[i] != ' ' && s[i] != '\n' && s[i] != '\t' && s[i] != '\r' {
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
 }
