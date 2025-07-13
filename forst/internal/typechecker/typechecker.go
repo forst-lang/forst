@@ -165,7 +165,7 @@ func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
 // This is the unified function that should be used by both typechecker and transformer
 func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error) {
 	// Handle built-in types
-	if tc.isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
+	if tc.IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		// Convert Forst built-in types to Go built-in types
 		switch typeNode.Ident {
 		case ast.TypeString:
@@ -240,8 +240,8 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error)
 	return string(hash.ToTypeIdent()), nil
 }
 
-// isGoBuiltinType checks if a type is a Go builtin type
-func (tc *TypeChecker) isGoBuiltinType(typeName string) bool {
+// IsGoBuiltinType checks if a type is a Go builtin type
+func (tc *TypeChecker) IsGoBuiltinType(typeName string) bool {
 	builtinTypes := map[string]bool{
 		"string":  true,
 		"int":     true,
