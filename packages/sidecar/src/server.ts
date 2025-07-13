@@ -12,12 +12,27 @@ export class ForstServer {
   private port: number;
   private host: string;
   private fileWatchers: Array<() => void> = [];
+  private shutdownHandler: () => void;
 
   constructor(config: ForstConfig, forstPath: string) {
     this.config = config;
     this.forstPath = forstPath;
     this.port = config.port || 8080;
     this.host = config.host || "localhost";
+
+    // Set up interrupt handlers
+    this.shutdownHandler = async () => {
+      serverLogger.info(
+        "Received interrupt signal, shutting down gracefully..."
+      );
+      try {
+        await this.stop();
+        process.exit(0);
+      } catch (error) {
+        serverLogger.error("Error during shutdown:", error);
+        process.exit(1);
+      }
+    };
   }
 
   /**
@@ -29,6 +44,9 @@ export class ForstServer {
     }
 
     this.status = "starting";
+
+    process.on("SIGINT", this.shutdownHandler);
+    process.on("SIGTERM", this.shutdownHandler);
 
     try {
       // Start the server process using the resolved forstPath
@@ -60,6 +78,10 @@ export class ForstServer {
 
     this.status = "stopped";
 
+    // Remove interrupt handlers
+    process.off("SIGINT", this.shutdownHandler);
+    process.off("SIGTERM", this.shutdownHandler);
+
     // Stop file watchers
     this.fileWatchers.forEach((unwatch) => unwatch());
     this.fileWatchers = [];
@@ -78,7 +100,7 @@ export class ForstServer {
 
           this.process!.once("exit", (code, signal) => {
             clearTimeout(timeout);
-            forstLogger.info(
+            forstLogger.debug(
               `Forst server process exited gracefully with code ${code}, signal ${signal}`
             );
             resolve();
@@ -191,17 +213,19 @@ export class ForstServer {
       if (trimmedError) {
         // Forst compiler output goes to stderr but isn't necessarily an error
         // Check if it looks like an actual error vs debug/info output
-        if (trimmedError.includes("level=debug")) {
-          forstLogger.debug(trimmedError);
-        } else if (trimmedError.includes("level=info")) {
-          forstLogger.info(trimmedError);
-        } else if (trimmedError.includes("level=warn")) {
-          forstLogger.warn(trimmedError);
-        } else if (trimmedError.includes("level=error")) {
-          forstLogger.error(trimmedError);
-        } else {
-          forstLogger.info(`${trimmedError}`);
-        }
+        const logMethods = {
+          "level=debug": forstLogger.debug,
+          "level=info": forstLogger.info,
+          "level=warn": forstLogger.warn,
+          "level=error": forstLogger.error,
+        } as const;
+
+        // Find the appropriate log level based on the error message, defaulting to info
+        const [, logMethod] = Object.entries(logMethods).find(([level]) =>
+          trimmedError.includes(level)
+        ) || [null, forstLogger.info];
+
+        logMethod(trimmedError);
       }
 
       // Check if server is ready (HTTP server listening)
