@@ -13,20 +13,8 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 		// If the next token is a nested shape type
 		if p.current().Type == ast.TokenLBrace {
 			shape := p.parseShapeType()
-			baseType := ast.TypeIdent(ast.TypeShape)
 			return ast.ShapeFieldNode{
-				Type: &ast.TypeNode{
-					Ident: ast.TypeShape,
-					Assertion: &ast.AssertionNode{
-						BaseType: &baseType,
-						Constraints: []ast.ConstraintNode{{
-							Name: "Match",
-							Args: []ast.ConstraintArgumentNode{{
-								Shape: &shape,
-							}},
-						}},
-					},
-				},
+				Shape: &shape,
 			}
 		}
 
