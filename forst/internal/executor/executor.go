@@ -233,8 +233,9 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, err
 	}
 
-	// Use ExportReturnStructFields=true for executor/dev server
-	transformer := transformer_go.New(checker, e.log, true)
+	// Use ExportReturnStructFields=false for function implementation
+	// Capitalization should only be applied to external API types, not function implementations
+	transformer := transformer_go.New(checker, e.log, false)
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform Forst file to Go: %v", err)
