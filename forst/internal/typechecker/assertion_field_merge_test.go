@@ -66,7 +66,7 @@ func TestAssertionFieldMerging_SimpleExample(t *testing.T) {
 	}
 
 	// Test: Infer the type of the assertion
-	inferredTypes, err := tc.InferAssertionType(&assertion, false)
+	inferredTypes, err := tc.InferAssertionType(&assertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer assertion type: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestAssertionFieldMerging_ShapeLiteralArgument(t *testing.T) {
 		},
 	}
 
-	inferredTypes, err := tc.InferAssertionType(&assertion, false)
+	inferredTypes, err := tc.InferAssertionType(&assertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer assertion type: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestAssertionFieldMerging_OneLevelTooDeep(t *testing.T) {
 		},
 	}
 
-	inferredTypes, err := tc.InferAssertionType(&assertion, false)
+	inferredTypes, err := tc.InferAssertionType(&assertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer assertion type: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestAssertionFieldMerging_UnwrapsNestedShapeFields(t *testing.T) {
 		},
 	}
 
-	inferredTypes, err := tc.InferAssertionType(&assertion, false)
+	inferredTypes, err := tc.InferAssertionType(&assertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer assertion type: %v", err)
 	}
@@ -489,17 +489,46 @@ func TestAssertionFieldMerging_UnwrapsNestedShapeFields(t *testing.T) {
 // Simulate the integration bug: create a type assertion with a Match constraint
 // Base type: Shape(?), Constraint: Match({input: Shape})
 func TestAssertionFieldMerging_IntegrationBug(t *testing.T) {
+	// This test reproduces the integration bug where assertion field merging
+	// fails when the constraint argument is a shape literal
 	logger := logrus.New()
 	logger.SetLevel(logrus.TraceLevel)
 	tc := New(logger, false)
 
-	// Base type: Shape(?), Constraint: Match({input: Shape})
-	baseType := ast.TypeIdent("Shape")
+	// Define the base type: AppMutation
+	appMutationShape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {
+				Type: &ast.TypeNode{Ident: ast.TypeString},
+			},
+		},
+	}
+
+	// Create type definitions for the types we need
+	appMutationDef := ast.TypeDefNode{
+		Ident: "AppMutation",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: appMutationShape,
+		},
+	}
+
+	// Define Shape type for the test
+	shapeDef := ast.TypeDefNode{
+		Ident: "Shape",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{},
+			},
+		},
+	}
+
+	// Define the constraint: Match({input: Shape})
 	matchShape := &ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
 			"input": {Type: &ast.TypeNode{Ident: ast.TypeShape}},
 		},
 	}
+	baseType := ast.TypeIdent("Shape")
 	matchConstraint := &ast.AssertionNode{
 		BaseType: &baseType,
 		Constraints: []ast.ConstraintNode{
@@ -509,8 +538,15 @@ func TestAssertionFieldMerging_IntegrationBug(t *testing.T) {
 			},
 		},
 	}
+
+	// Use CheckTypes to register the type definitions properly
+	err := tc.CheckTypes([]ast.Node{appMutationDef, shapeDef})
+	if err != nil {
+		t.Fatalf("Failed to register type definitions: %v", err)
+	}
+
 	// Infer the type for the assertion
-	inferredTypes, err := tc.InferAssertionType(matchConstraint, false)
+	inferredTypes, err := tc.InferAssertionType(matchConstraint, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer type for assertion: %v", err)
 	}
@@ -615,7 +651,7 @@ func TestAssertionFieldMerging_ShapeGuardIntegration(t *testing.T) {
 			},
 		},
 	}
-	appMutationTypes, err := tc.InferAssertionType(&appMutationAssertion, false)
+	appMutationTypes, err := tc.InferAssertionType(&appMutationAssertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer AppMutation type: %v", err)
 	}
@@ -647,7 +683,7 @@ func TestAssertionFieldMerging_ShapeGuardIntegration(t *testing.T) {
 		},
 	}
 
-	inferredTypes, err := tc.InferAssertionType(&finalAssertion, false)
+	inferredTypes, err := tc.InferAssertionType(&finalAssertion, false, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to infer final assertion type: %v", err)
 	}
