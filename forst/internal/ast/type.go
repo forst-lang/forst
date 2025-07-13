@@ -175,17 +175,17 @@ func (ti TypeIdent) String() string {
 	}
 }
 
-// IsGoBuiltinType returns true if the type node is a Go builtin type
-func IsGoBuiltinType(node TypeNode) bool {
+// IsGoBuiltin returns true if the type node is a Go builtin type
+func (node *TypeNode) IsGoBuiltin() bool {
 	return node.TypeKind == TypeKindBuiltin
 }
 
-// IsHashBasedType returns true if the type node is a hash-based/structural type
-func IsHashBasedType(node TypeNode) bool {
+// IsHashBased returns true if the type node is a hash-based/structural type
+func (node *TypeNode) IsHashBased() bool {
 	return node.TypeKind == TypeKindHashBased
 }
 
-// IsUserDefinedType returns true if the type node is a user-defined named type
-func IsUserDefinedType(node TypeNode) bool {
+// IsUserDefined returns true if the type node is a user-defined named type
+func (node *TypeNode) IsUserDefined() bool {
 	return node.TypeKind == TypeKindUserDefined
 }
