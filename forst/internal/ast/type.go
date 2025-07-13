@@ -169,7 +169,7 @@ func (ti TypeIdent) String() string {
 	case TypeShape:
 		return "Shape(?)"
 	case TypePointer:
-		return "Pointer(?)"
+		return "Pointer"
 	default:
 		return string(ti)
 	}
