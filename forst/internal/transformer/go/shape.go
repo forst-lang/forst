@@ -169,7 +169,8 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 					}).Debug("Validating expected type compatibility")
 
 					// Use the typechecker's ValidateShapeFields to check compatibility
-					err := t.TypeChecker.ValidateShapeFields(*shape, shapeExpr.Shape.Fields, expectedTypeIdent)
+					// Parameters: (shapeNode, leftShapeFields, underlyingType)
+					err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedTypeIdent)
 					if err == nil {
 						t.log.WithFields(logrus.Fields{
 							"function":     "findExistingTypeForShape",
@@ -283,27 +284,54 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 		}).Debug("Comparing field types and shapes")
 
 		if field1.Type != nil && field2.Type != nil {
-			if field1.Type.Ident != field2.Type.Ident {
-				t.log.WithFields(logrus.Fields{
-					"function":   "shapesMatch",
-					"fieldName":  fieldName,
-					"field1Type": field1.Type.Ident,
-					"field2Type": field2.Type.Ident,
-				}).Debug("Field type mismatch")
-				return false
+			// Use the typechecker's IsTypeCompatible function for proper type comparison
+			if t.TypeChecker != nil {
+				// Create TypeNode objects for comparison
+				type1 := ast.TypeNode{Ident: field1.Type.Ident}
+				type2 := ast.TypeNode{Ident: field2.Type.Ident}
+
+				// Copy assertions if they exist
+				if field1.Type.Assertion != nil {
+					type1.Assertion = field1.Type.Assertion
+				}
+				if field2.Type.Assertion != nil {
+					type2.Assertion = field2.Type.Assertion
+				}
+
+				// Use the existing IsTypeCompatible function which handles aliases, subtypes, etc.
+				if !t.TypeChecker.IsTypeCompatible(type1, type2) {
+					t.log.WithFields(map[string]interface{}{
+						"function":   "shapesMatch",
+						"fieldName":  fieldName,
+						"field1Type": field1.Type.Ident,
+						"field2Type": field2.Type.Ident,
+					}).Debug("Field type mismatch using IsTypeCompatible")
+					return false
+				}
+			} else {
+				// Fallback to simple identifier comparison if typechecker not available
+				if field1.Type.Ident != field2.Type.Ident {
+					t.log.WithFields(map[string]interface{}{
+						"function":   "shapesMatch",
+						"fieldName":  fieldName,
+						"field1Type": field1.Type.Ident,
+						"field2Type": field2.Type.Ident,
+					}).Debug("Field type mismatch (simple comparison)")
+					return false
+				}
 			}
-			// Optionally, compare pointer base types
-			if field1.Type.Ident == ast.TypePointer && field2.Type.Ident == ast.TypePointer {
-				if len(field1.Type.TypeParams) > 0 && len(field2.Type.TypeParams) > 0 {
-					if field1.Type.TypeParams[0].Ident != field2.Type.TypeParams[0].Ident {
-						t.log.WithFields(logrus.Fields{
-							"function":      "shapesMatch",
-							"fieldName":     fieldName,
-							"field1PtrBase": field1.Type.TypeParams[0].Ident,
-							"field2PtrBase": field2.Type.TypeParams[0].Ident,
-						}).Debug("Pointer base type mismatch")
-						return false
-					}
+		}
+		// Optionally, compare pointer base types (only if both types exist)
+		if field1.Type != nil && field2.Type != nil && field1.Type.Ident == ast.TypePointer && field2.Type.Ident == ast.TypePointer {
+			if len(field1.Type.TypeParams) > 0 && len(field2.Type.TypeParams) > 0 {
+				if field1.Type.TypeParams[0].Ident != field2.Type.TypeParams[0].Ident {
+					t.log.WithFields(logrus.Fields{
+						"function":      "shapesMatch",
+						"fieldName":     fieldName,
+						"field1PtrBase": field1.Type.TypeParams[0].Ident,
+						"field2PtrBase": field2.Type.TypeParams[0].Ident,
+					}).Debug("Pointer base type mismatch")
+					return false
 				}
 			}
 		}
