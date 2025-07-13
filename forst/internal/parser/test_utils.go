@@ -4,11 +4,15 @@ import (
 	"forst/internal/ast"
 	"forst/internal/lexer"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 // setupParser creates a new parser with the given tokens
-func setupParser(tokens []ast.Token) *Parser {
-	logger := ast.SetupTestLogger()
+func setupParser(tokens []ast.Token, logger *logrus.Logger) *Parser {
+	if logger == nil {
+		panic("logger is nil")
+	}
 	return New(tokens, "", logger)
 }
 
@@ -27,5 +31,5 @@ func NewTestParser(input string) *Parser {
 	logger := ast.SetupTestLogger()
 	lex := lexer.New([]byte(input), "<test>", logger)
 	tokens := lex.Lex()
-	return setupParser(tokens)
+	return setupParser(tokens, logger)
 }

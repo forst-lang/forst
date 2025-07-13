@@ -1,7 +1,15 @@
 package transformergo
 
 import (
+	"bytes"
+	"go/format"
+	"go/token"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"forst/internal/parser"
+	"forst/internal/typechecker"
 )
 
 func TestInvalidStructLiteralInMain(t *testing.T) {
@@ -89,4 +97,50 @@ func TestMissingReturnValuesBug(t *testing.T) {
 	// For now, this test just documents the bug
 	// The actual fix will be implemented in the function transformer
 	t.Log("Bug documented: functions are missing return values in generated Go code")
+}
+
+func TestDeterministicShapeGuardExample(t *testing.T) {
+	// Load the shape guard example source
+	inputPath := filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "guard", "shape_guard.ft")
+	inputBytes, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatalf("Failed to read shape guard example: %v", err)
+	}
+	input := string(inputBytes)
+
+	var lastOutput []byte
+	for i := 0; i < 100; i++ {
+		// Parse
+		p := parser.NewTestParser(input)
+		astNodes, err := p.ParseFile()
+		if err != nil {
+			t.Fatalf("Parse failed on run %d: %v", i, err)
+		}
+		// Typecheck
+		tc := typechecker.New(nil, false)
+		err = tc.CheckTypes(astNodes)
+		if err != nil {
+			t.Fatalf("Typecheck failed on run %d: %v", i, err)
+		}
+		// Transform
+		tr := New(tc, nil)
+		goFile, err := tr.TransformForstFileToGo(astNodes)
+		if err != nil {
+			t.Fatalf("Transform failed on run %d: %v", i, err)
+		}
+		// Render Go code
+		var buf bytes.Buffer
+		if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
+			t.Fatalf("Go formatting failed on run %d: %v", i, err)
+		}
+		output := buf.Bytes()
+		if i > 0 && !bytes.Equal(output, lastOutput) {
+			tmp0 := filepath.Join(os.TempDir(), "determinism_fail_run0.go")
+			tmpN := filepath.Join(os.TempDir(), "determinism_fail_runN.go")
+			os.WriteFile(tmp0, lastOutput, 0644)
+			os.WriteFile(tmpN, output, 0644)
+			t.Fatalf("Compiler output is not deterministic on run %d. See %s and %s for diff.", i, tmp0, tmpN)
+		}
+		lastOutput = output
+	}
 }

@@ -3,6 +3,8 @@ package parser
 import (
 	"fmt"
 	"forst/internal/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
@@ -106,8 +108,18 @@ func (p *Parser) parseShapeType() ast.ShapeNode {
 	}
 }
 
-// parseShapeLiteral parses a shape literal value
-func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent) ast.ShapeNode {
+// parseShapeLiteral parses a shape literal value or type
+// baseType is the optional base type that this shape extends
+// parseAsTypes indicates whether to parse field values as type annotations (true) or as literal values (false).
+// When parseAsTypes is true, field values are parsed as type declarations (e.g. String, Int, {name: String}).
+// When parseAsTypes is false, field values are parsed as literal values (e.g. "hello", 42, {name: "Alice"}).
+func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) ast.ShapeNode {
+	p.log.WithFields(logrus.Fields{
+		"function":     "parseShapeLiteral",
+		"baseType":     baseType,
+		"parseAsTypes": parseAsTypes,
+	}).Debug("Starting parseShapeLiteral")
+
 	p.log.WithField("token", p.current()).Trace("Entering parseShapeLiteral")
 	p.expect(ast.TokenLBrace)
 
@@ -118,36 +130,82 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent) ast.ShapeNode {
 		// Parse field name
 		name := p.expect(ast.TokenIdentifier).Value
 
-		// If the next token is a colon, parse the value
+		// If the next token is a colon, parse the value or type
 		if p.current().Type == ast.TokenColon {
 			p.advance() // Consume the colon
 
-			// Check if the next token is a type identifier (for assertion contexts)
-			if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: true}) {
-				// Parse as type annotation
-				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-				fields[name] = ast.ShapeFieldNode{
-					Type: &typ,
+			if parseAsTypes {
+				// Parse as type annotation (like parseShapeTypeField)
+				if p.current().Type == ast.TokenLBrace {
+					// For nested shapes in type contexts, parse as shape literal with parseAsTypes=true
+					shape := p.parseShapeLiteral(nil, true)
+					fields[name] = ast.ShapeFieldNode{
+						Shape: &shape,
+					}
+				} else if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: false}) || p.current().Type == ast.TokenStar {
+					typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+					typeIdent := typ.Ident
+					p.logParsedNodeWithMessage(typ, fmt.Sprintf("Parsed type for shape field %s and type ident %s (type: %+v)", name, typeIdent, typ))
+					fields[name] = ast.ShapeFieldNode{
+						Type: &typ,
+					}
+				} else {
+					p.FailWithParseError(p.current(), "Expected type annotation in shape type context")
 				}
 			} else {
-				// Parse as value
+				// Parse as value (literal context)
 				val := p.parseValue()
+				p.log.WithFields(logrus.Fields{
+					"fieldName": name,
+					"valType":   fmt.Sprintf("%T", val),
+					"valValue":  fmt.Sprintf("%+v", val),
+				}).Debug("Parsed value for shape field")
+
+				valNode, ok := val.(ast.Node)
+				if !ok {
+					p.log.WithFields(logrus.Fields{
+						"fieldName": name,
+						"valType":   fmt.Sprintf("%T", val),
+						"valValue":  fmt.Sprintf("%+v", val),
+					}).Error("Value does not implement ast.Node")
+					panic(fmt.Sprintf("parseShapeLiteral: value for field '%s' does not implement ast.Node: type=%T value=%+v", name, val, val))
+				}
 				var field ast.ShapeFieldNode
 				switch v := val.(type) {
 				case ast.ShapeNode:
-					field = ast.ShapeFieldNode{Shape: &v}
+					field = ast.ShapeFieldNode{Node: valNode, Shape: &v}
+					p.log.WithFields(logrus.Fields{
+						"fieldName": name,
+						"nodeSet":   true,
+					}).Debug("Created shape field with Node and Shape")
 				default:
-					// For all other value types, wrap in an AssertionNode as a constraint argument
-					field = ast.ShapeFieldNode{
-						Assertion: &ast.AssertionNode{
-							BaseType: nil,
-							Constraints: []ast.ConstraintNode{{
-								Name: string(ast.ValueConstraint),
-								Args: []ast.ConstraintArgumentNode{{
-									Value: &val,
-								}},
+					field = ast.ShapeFieldNode{Node: valNode}
+					p.log.WithFields(logrus.Fields{
+						"fieldName": name,
+						"nodeSet":   true,
+					}).Debug("Created shape field with Node")
+				}
+
+				// For backward compatibility, also set the Type field for variable references
+				if varNode, ok := val.(ast.VariableNode); ok {
+					field.Type = &ast.TypeNode{
+						Ident: ast.TypeIdent(string(varNode.Ident.ID)),
+					}
+					p.log.WithFields(logrus.Fields{
+						"fieldName": name,
+						"typeSet":   true,
+						"typeIdent": string(varNode.Ident.ID),
+					}).Debug("Set Type field for variable reference")
+				}
+				if _, isShape := val.(ast.ShapeNode); !isShape {
+					field.Assertion = &ast.AssertionNode{
+						BaseType: nil,
+						Constraints: []ast.ConstraintNode{{
+							Name: string(ast.ValueConstraint),
+							Args: []ast.ConstraintArgumentNode{{
+								Value: &val,
 							}},
-						},
+						}},
 					}
 				}
 				fields[name] = field

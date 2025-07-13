@@ -6,6 +6,8 @@ import (
 )
 
 func TestParseFile(t *testing.T) {
+	logger := ast.SetupTestLogger()
+
 	tests := []struct {
 		name     string
 		tokens   []ast.Token
@@ -67,7 +69,7 @@ func TestParseFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := setupParser(tt.tokens)
+			p := setupParser(tt.tokens, logger)
 			nodes, err := p.ParseFile()
 			if err != nil {
 				t.Fatalf("ParseFile failed: %v", err)
@@ -78,12 +80,14 @@ func TestParseFile(t *testing.T) {
 }
 
 func TestParseFile_WithUnexpectedToken(t *testing.T) {
+	logger := ast.SetupTestLogger()
+
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "unexpected", Line: 1, Column: 1},
 		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 11},
 	}
 
-	p := setupParser(tokens)
+	p := setupParser(tokens, logger)
 	_, err := p.ParseFile()
 	if err == nil {
 		t.Fatal("Expected parse error for unexpected token, got nil")

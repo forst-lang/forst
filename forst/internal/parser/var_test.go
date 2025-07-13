@@ -194,7 +194,8 @@ func TestParseVarStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := setupParser(tt.tokens)
+			logger := ast.SetupTestLogger()
+			p := setupParser(tt.tokens, logger)
 			assignment := p.parseVarStatement()
 			tt.validate(t, assignment)
 		})

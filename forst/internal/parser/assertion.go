@@ -21,7 +21,7 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 	// Allow shape literals as constraint arguments
 	if token.Type == ast.TokenLBrace {
 		// Parse as shape literal so that nested shapes are stored correctly
-		shape := p.parseShapeLiteral(nil)
+		shape := p.parseShapeLiteral(nil, true)
 		return ast.ConstraintArgumentNode{
 			Shape: &shape,
 		}
