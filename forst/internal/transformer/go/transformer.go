@@ -152,16 +152,44 @@ func (t *Transformer) isMainPackage() bool {
 // It returns an error if no function is found
 func (t *Transformer) closestFunction() (ast.Node, error) {
 	scope := t.currentScope()
+	t.log.WithFields(map[string]interface{}{
+		"scope":      scope,
+		"isFunction": scope.IsFunction(),
+		"function":   "closestFunction",
+	}).Debug("Checking current scope")
+
 	if scope.IsFunction() {
+		t.log.WithFields(map[string]interface{}{
+			"scope":    scope,
+			"function": "closestFunction",
+		}).Debug("Current scope is a function")
 		return *scope.Node, nil
 	}
 
+	t.log.WithFields(map[string]interface{}{
+		"scope":    scope,
+		"function": "closestFunction",
+	}).Debug("Current scope is not a function, searching up the scope stack")
+
 	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
 		scope = scope.Parent
+		t.log.WithFields(map[string]interface{}{
+			"scope":      scope,
+			"isFunction": scope.IsFunction(),
+			"function":   "closestFunction",
+		}).Debug("Checking parent scope")
 	}
 	if scope.Node == nil {
+		t.log.WithFields(map[string]interface{}{
+			"function": "closestFunction",
+		}).Debug("No function found in scope stack")
 		return ast.FunctionNode{}, fmt.Errorf("no function found")
 	}
+
+	t.log.WithFields(map[string]interface{}{
+		"scope":    scope,
+		"function": "closestFunction",
+	}).Debug("Found function in scope stack")
 	return (*scope.Node).(ast.FunctionNode), nil
 }
 
@@ -357,7 +385,8 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 			// If the assertion is a value constraint or base type is a primitive, emit alias
 			if assertionExpr.Assertion.BaseType != nil {
 				base := *assertionExpr.Assertion.BaseType
-				if ast.IsGoBuiltinType(ast.TypeNode{Ident: base}) || base == ast.TypeString || base == ast.TypeInt || base == ast.TypeFloat || base == ast.TypeBool {
+				typeNode := ast.TypeNode{Ident: base}
+				if typeNode.IsGoBuiltin() || base == ast.TypeString || base == ast.TypeInt || base == ast.TypeFloat || base == ast.TypeBool {
 					goType, err := transformTypeIdent(base)
 					if err == nil && goType != nil {
 						t.Output.AddType(&goast.GenDecl{
@@ -483,7 +512,7 @@ func (t *Transformer) emitReferencedTypesFromShape(shape *ast.ShapeNode, process
 	for _, field := range shape.Fields {
 		if field.Type != nil {
 			// Emit the field type if it's a user-defined or hash-based type
-			if !ast.IsGoBuiltinType(*field.Type) {
+			if !field.Type.IsGoBuiltin() {
 				// Look up the type definition in TypeChecker.Defs
 				if def, exists := t.TypeChecker.Defs[field.Type.Ident]; exists {
 					if err := t.emitTypeAndReferencedTypes(field.Type.Ident, def, processed); err != nil {
@@ -513,7 +542,7 @@ func (t *Transformer) emitReferencedTypesFromAssertion(assertion *ast.AssertionN
 	// Emit base type if it's user-defined
 	if assertion.BaseType != nil {
 		baseType := ast.TypeNode{Ident: *assertion.BaseType}
-		if !ast.IsGoBuiltinType(baseType) {
+		if !baseType.IsGoBuiltin() {
 			// Look up the type definition in TypeChecker.Defs
 			if def, exists := t.TypeChecker.Defs[*assertion.BaseType]; exists {
 				if err := t.emitTypeAndReferencedTypes(*assertion.BaseType, def, processed); err != nil {

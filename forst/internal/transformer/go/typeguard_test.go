@@ -263,12 +263,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesParameterTypeDef(t *t
 		ReturnTypes: nil,
 	}
 
-	// Debug: Check what getGeneratedTypeNameForTypeNode returns for the parameter type
-	generatedTypeName, err := tr.getGeneratedTypeNameForTypeNode(paramType)
+	// Debug: Check what GetAliasedTypeName returns for the parameter type
+	generatedTypeName, err := tr.TypeChecker.GetAliasedTypeName(paramType)
 	if err != nil {
-		t.Logf("getGeneratedTypeNameForTypeNode error: %v", err)
+		t.Logf("GetAliasedTypeName error: %v", err)
 	} else {
-		t.Logf("getGeneratedTypeNameForTypeNode returned: %q", generatedTypeName)
+		t.Logf("GetAliasedTypeName returned: %q", generatedTypeName)
 	}
 
 	// Debug: Check what's in tc.Defs
@@ -425,12 +425,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	}
 	_ = tr.defineShapeType(shapeType) // ensure the transformer emits the type
 
-	// Debug: Check what getGeneratedTypeNameForTypeNode returns for the parameter type
-	generatedTypeName, err := tr.getGeneratedTypeNameForTypeNode(paramType)
+	// Debug: Check what GetAliasedTypeName returns for the parameter type
+	generatedTypeName, err := tr.TypeChecker.GetAliasedTypeName(paramType)
 	if err != nil {
-		t.Logf("getGeneratedTypeNameForTypeNode error: %v", err)
+		t.Logf("GetAliasedTypeName error: %v", err)
 	} else {
-		t.Logf("getGeneratedTypeNameForTypeNode returned: %q", generatedTypeName)
+		t.Logf("GetAliasedTypeName returned: %q", generatedTypeName)
 	}
 
 	// Debug: Check what's in tc.Defs

@@ -95,7 +95,16 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 		}).Trace("Checking parameter type")
 
 		// Use the type checker's IsTypeCompatible function to handle type aliases and structural compatibility
-		if t.TypeChecker.IsTypeCompatible(baseType, paramType) {
+		compatible := t.TypeChecker.IsTypeCompatible(baseType, paramType)
+		t.log.WithFields(logrus.Fields{
+			"typeGuard":  typeGuard.GetIdent(),
+			"baseType":   baseType.Ident,
+			"paramType":  paramType.Ident,
+			"compatible": compatible,
+			"function":   "isTypeGuardCompatible",
+		}).Debug("Type compatibility check result")
+
+		if compatible {
 			t.log.WithFields(logrus.Fields{
 				"typeGuard": typeGuard.GetIdent(),
 				"baseType":  baseType.Ident,

@@ -9,7 +9,7 @@ import (
 // transformEnsureCondition transforms an ensure node into Go statements
 func (t *Transformer) transformEnsureCondition(ensure *ast.EnsureNode) ([]goast.Stmt, error) {
 	if ensure.Assertion.BaseType == nil {
-		t.log.Warnf("[transformEnsureCondition] Assertion.BaseType is nil for assertion: %v", ensure.Assertion)
+		t.log.Debugf("[transformEnsureCondition] Assertion.BaseType is nil for assertion: %v", ensure.Assertion)
 	} else {
 		t.log.Debugf("[transformEnsureCondition] Assertion.BaseType: %v", *ensure.Assertion.BaseType)
 	}

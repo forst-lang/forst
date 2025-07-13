@@ -229,17 +229,30 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		var expectedReturnTypes []ast.TypeNode
 		if fnNode, err := t.closestFunction(); err == nil {
 			if fn, ok := fnNode.(ast.FunctionNode); ok {
-				expectedReturnTypes, _ = t.TypeChecker.LookupFunctionReturnType(&fn)
+				rawReturnTypes, _ := t.TypeChecker.LookupFunctionReturnType(&fn)
+				// Resolve aliased types from the function signature
+				for _, rawType := range rawReturnTypes {
+					aliasedName, err := t.TypeChecker.GetAliasedTypeName(rawType)
+					if err == nil {
+						aliasedType := ast.TypeNode{
+							Ident:      ast.TypeIdent(aliasedName),
+							TypeKind:   rawType.TypeKind,
+							Assertion:  rawType.Assertion,
+							TypeParams: rawType.TypeParams,
+						}
+						expectedReturnTypes = append(expectedReturnTypes, aliasedType)
+					} else {
+						expectedReturnTypes = append(expectedReturnTypes, rawType)
+					}
+				}
 			}
 		}
 
-		// Convert return statement with multiple values
 		results := make([]goast.Expr, len(s.Values))
 		for i, value := range s.Values {
 			var valueExpr goast.Expr
 			var err error
 
-			// If we have an expected return type for this position, use it
 			if i < len(expectedReturnTypes) {
 				expectedType := &expectedReturnTypes[i]
 				if shapeValue, ok := value.(ast.ShapeNode); ok {
@@ -259,14 +272,6 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					return nil, err
 				}
 			}
-
-			// Debug: log the type of each return value
-			t.log.WithFields(map[string]interface{}{
-				"index":    i,
-				"expr":     fmt.Sprintf("%#v", valueExpr),
-				"type":     fmt.Sprintf("%T", valueExpr),
-				"function": "transformStatement-ReturnNode",
-			}).Debug("Return value type")
 			results[i] = valueExpr
 		}
 
@@ -322,15 +327,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
-			// Only support single variable assignment for now
 			varName := s.LValues[0].Ident.String()
-			// Transform the type using transformType to handle pointer types correctly
 			var typeExpr goast.Expr
 			var expectedType *ast.TypeNode
 			if t != nil {
 				typeIdent, err := t.transformType(*s.ExplicitTypes[0])
 				if err != nil {
-					// Fallback to string representation
 					typeExpr = goast.NewIdent(string(s.ExplicitTypes[0].Ident))
 					expectedType = s.ExplicitTypes[0]
 				} else {
@@ -387,16 +389,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
 			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
-				// Try to get the type of the LHS variable
 				var expectedType *ast.TypeNode
 				if t != nil {
 					varName := s.LValues[0].Ident.String()
 					if types, ok := t.TypeChecker.VariableTypes[ast.Identifier(varName)]; ok && len(types) > 0 {
 						expectedType = &types[0]
 					}
-					// For short var declarations, try to infer the type from the assignment context
 					if expectedType == nil && s.IsShort {
-						// Try to infer from the RValue's inferred type
 						hash, err := t.TypeChecker.Hasher.HashNode(rval)
 						if err == nil {
 							if inferredTypes, ok := t.TypeChecker.InferredTypes[hash]; ok && len(inferredTypes) > 0 {

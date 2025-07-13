@@ -20,7 +20,7 @@ func TestGetTypeAliasNameForTypeNode_RejectsOriginalName(t *testing.T) {
 	// Test built-in types
 	for _, builtin := range []ast.TypeIdent{"string", "int", "float64", "bool", "void", "error"} {
 		typeNode := ast.TypeNode{Ident: builtin, TypeKind: ast.TypeKindBuiltin}
-		_, err := tf.getTypeAliasNameForTypeNode(typeNode)
+		_, err := tf.TypeChecker.GetAliasedTypeName(typeNode)
 		if err != nil {
 			t.Errorf("builtin: %s, unexpected error: %v", builtin, err)
 		}
@@ -28,14 +28,14 @@ func TestGetTypeAliasNameForTypeNode_RejectsOriginalName(t *testing.T) {
 
 	// Test hash-based types
 	hashTypeNode := ast.TypeNode{Ident: "T_abcdefghij", TypeKind: ast.TypeKindHashBased}
-	_, err := tf.getTypeAliasNameForTypeNode(hashTypeNode)
+	_, err := tf.TypeChecker.GetAliasedTypeName(hashTypeNode)
 	if err != nil {
 		t.Errorf("hash-based name: unexpected error: %v", err)
 	}
 
 	// Test user-defined types
 	userTypeNode := ast.TypeNode{Ident: "AppContext", TypeKind: ast.TypeKindUserDefined}
-	_, err = tf.getTypeAliasNameForTypeNode(userTypeNode)
+	_, err = tf.TypeChecker.GetAliasedTypeName(userTypeNode)
 	if err != nil {
 		t.Errorf("user-defined type: unexpected error: %v", err)
 	}

@@ -32,8 +32,8 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 		}
 		return &goast.Ident{Name: "*" + baseType.Name}, nil
 	default:
-		// Use getAliasedTypeNameForTypeNode for consistent type aliasing
-		name, err := t.getAliasedTypeNameForTypeNode(n)
+		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
+		name, err := t.TypeChecker.GetAliasedTypeName(n)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aliased type name: %s", err)
 		}
