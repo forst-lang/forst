@@ -863,6 +863,119 @@ func TestTransformExpression_UnifiedHelperWorking(t *testing.T) {
 	t.Logf("Generated code:\n%s", resultStr)
 }
 
+func TestTransformExpression_TypeEmissionIssue(t *testing.T) {
+	// Test that specifically addresses the type emission issue
+	// This creates a complete package with types and functions to verify type emission
+
+	userType := ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeTypeField(ast.TypeString),
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserRequestType := ast.MakeTypeDef("CreateUserRequest", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"name":  ast.MakeTypeField(ast.TypeString),
+		"age":   ast.MakeTypeField(ast.TypeInt),
+		"email": ast.MakeTypeField(ast.TypeString),
+	}))
+
+	createUserResponseType := ast.MakeTypeDef("CreateUserResponse", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeTypeField(ast.TypeIdent("User")),
+		"created_at": ast.MakeTypeField(ast.TypeInt),
+	}))
+
+	// Create the CreateUser function
+	userStruct := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
+		"id":    ast.MakeStructField(ast.StringLiteralNode{Value: "123"}),
+		"name":  ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}),
+		"age":   ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}),
+		"email": ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "input"}}),
+	})
+
+	userAssign := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		RValues: []ast.ExpressionNode{userStruct},
+		IsShort: true,
+	}
+
+	responseStruct := ast.MakeStructLiteral("CreateUserResponse", map[string]ast.ShapeFieldNode{
+		"user":       ast.MakeStructField(ast.VariableNode{Ident: ast.Ident{ID: "user"}}),
+		"created_at": ast.MakeStructField(ast.IntLiteralNode{Value: 1234567890}),
+	})
+
+	returnStmt := ast.ReturnNode{
+		Values: []ast.ExpressionNode{responseStruct, ast.NilLiteralNode{}},
+	}
+
+	fn := ast.MakeFunction("CreateUser", []ast.ParamNode{
+		ast.MakeSimpleParam("input", ast.TypeNode{Ident: "CreateUserRequest"}),
+	}, []ast.Node{userAssign, returnStmt})
+
+	fn.ReturnTypes = []ast.TypeNode{
+		{Ident: "CreateUserResponse"},
+		{Ident: ast.TypeError},
+	}
+
+	// Create a package with all the types and functions
+	packageNode := ast.MakePackage("user", []ast.Node{})
+
+	// Setup typechecker and transformer
+	log := setupTestLogger()
+	tc := setupTypeChecker(log)
+	transformer := setupTransformer(tc, log)
+
+	// Register types and functions
+	err := tc.CheckTypes([]ast.Node{userType, createUserRequestType, createUserResponseType, fn})
+	if err != nil {
+		t.Fatalf("Type checking failed: %v", err)
+	}
+
+	// Transform the entire package with all nodes
+	result, err := transformer.TransformForstFileToGo([]ast.Node{packageNode, userType, createUserRequestType, createUserResponseType, fn})
+	if err != nil {
+		t.Fatalf("Transform failed: %v", err)
+	}
+
+	// Convert Go AST to string
+	var buf bytes.Buffer
+	err = format.Node(&buf, token.NewFileSet(), result)
+	if err != nil {
+		t.Fatalf("Failed to format result: %v", err)
+	}
+	resultStr := buf.String()
+
+	// Verify that all types are emitted
+	if !contains(resultStr, "type User struct") {
+		t.Errorf("Expected User type to be emitted, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "type CreateUserRequest struct") {
+		t.Errorf("Expected CreateUserRequest type to be emitted, got: %s", resultStr)
+	}
+
+	if !contains(resultStr, "type CreateUserResponse struct") {
+		t.Errorf("Expected CreateUserResponse type to be emitted, got: %s", resultStr)
+	}
+
+	// Verify that no hash-based types are used
+	if contains(resultStr, "T_") {
+		t.Errorf("Expected no hash-based type usage, got: %s", resultStr)
+	}
+
+	// Verify the function signature is correct
+	if !contains(resultStr, "func CreateUser(input CreateUserRequest) (CreateUserResponse, error)") {
+		t.Errorf("Expected correct function signature, got: %s", resultStr)
+	}
+
+	// Verify the return statement is correct
+	if !contains(resultStr, "return CreateUserResponse{") {
+		t.Errorf("Expected correct return statement, got: %s", resultStr)
+	}
+
+	t.Logf("Generated code:\n%s", resultStr)
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsSubstring(s, substr)))
