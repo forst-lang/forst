@@ -415,28 +415,53 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			"actual":   actual.Ident,
 			"expected": expected.Ident,
 			"function": "IsTypeCompatible",
-		}).Debug("Checking structural compatibility")
+		}).Info("Checking structural compatibility")
 
-		if actualShape, actualShapeOk := tc.getShapeFromTypeDef(actualDef); actualShapeOk {
-			if expectedShape, expectedShapeOk := tc.getShapeFromTypeDef(expectedDef); expectedShapeOk {
-				identical := tc.shapesAreStructurallyIdentical(*actualShape, *expectedShape)
+		actualShape, actualShapeOk := tc.getShapeFromTypeDef(actualDef)
+		expectedShape, expectedShapeOk := tc.getShapeFromTypeDef(expectedDef)
+
+		tc.log.WithFields(logrus.Fields{
+			"actual":          actual.Ident,
+			"expected":        expected.Ident,
+			"actualShapeOk":   actualShapeOk,
+			"expectedShapeOk": expectedShapeOk,
+			"function":        "IsTypeCompatible",
+		}).Info("Shape extraction results")
+
+		if actualShapeOk && expectedShapeOk {
+			identical := tc.shapesAreStructurallyIdentical(*actualShape, *expectedShape)
+			tc.log.WithFields(logrus.Fields{
+				"actual":    actual.Ident,
+				"expected":  expected.Ident,
+				"identical": identical,
+				"function":  "IsTypeCompatible",
+			}).Info("Structural compatibility check result")
+
+			if identical {
 				tc.log.WithFields(logrus.Fields{
-					"actual":    actual.Ident,
-					"expected":  expected.Ident,
-					"identical": identical,
-					"function":  "IsTypeCompatible",
-				}).Debug("Structural compatibility check result")
-
-				if identical {
-					tc.log.WithFields(logrus.Fields{
-						"actual":   actual.Ident,
-						"expected": expected.Ident,
-						"function": "IsTypeCompatible",
-					}).Debug("Shapes are structurally identical")
-					return true
-				}
+					"actual":   actual.Ident,
+					"expected": expected.Ident,
+					"function": "IsTypeCompatible",
+				}).Info("Shapes are structurally identical")
+				return true
 			}
+		} else {
+			tc.log.WithFields(logrus.Fields{
+				"actual":          actual.Ident,
+				"expected":        expected.Ident,
+				"actualShapeOk":   actualShapeOk,
+				"expectedShapeOk": expectedShapeOk,
+				"function":        "IsTypeCompatible",
+			}).Info("Could not extract shapes for structural comparison")
 		}
+	} else {
+		tc.log.WithFields(logrus.Fields{
+			"actual":      actual.Ident,
+			"expected":    expected.Ident,
+			"actualDef":   actualDef != nil,
+			"expectedDef": expectedDef != nil,
+			"function":    "IsTypeCompatible",
+		}).Info("Skipping structural compatibility - missing type definitions")
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -469,6 +494,11 @@ func (tc *TypeChecker) shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
 		}
 		// Compare field types (ignoring assertions for now)
 		if fieldA.Type != nil && fieldB.Type != nil {
+			// If either type is unknown (?), treat them as compatible
+			if fieldA.Type.Ident == "?" || fieldB.Type.Ident == "?" {
+				// Unknown types are compatible with any concrete type
+				continue
+			}
 			if fieldA.Type.Ident != fieldB.Type.Ident {
 				return false
 			}

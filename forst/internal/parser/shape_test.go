@@ -103,7 +103,7 @@ func TestParseShape(t *testing.T) {
 
 func TestParseShapeType_TopLevel(t *testing.T) {
 	input := `{ foo: String, bar: Int }`
-	p := NewTestParser(input)
+	p := NewTestParser(input, ast.SetupTestLogger())
 	shape := p.parseShapeType()
 	if len(shape.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(shape.Fields))
@@ -118,7 +118,7 @@ func TestParseShapeType_TopLevel(t *testing.T) {
 
 func TestParseShapeType_Nested(t *testing.T) {
 	input := `{ input: { name: String, age: Int } }`
-	p := NewTestParser(input)
+	p := NewTestParser(input, ast.SetupTestLogger())
 	shape := p.parseShapeType()
 	inputField := shape.Fields["input"]
 	if inputField.Type == nil || inputField.Type.Ident != ast.TypeShape {
@@ -135,7 +135,7 @@ func TestParseShapeType_Nested(t *testing.T) {
 
 func TestParseShapeLiteral_TopLevel(t *testing.T) {
 	input := `{ foo: 42, bar: "baz" }`
-	p := NewTestParser(input)
+	p := NewTestParser(input, ast.SetupTestLogger())
 	shape := p.parseShapeLiteral(nil, false)
 	if len(shape.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(shape.Fields))
@@ -144,7 +144,7 @@ func TestParseShapeLiteral_TopLevel(t *testing.T) {
 
 func TestParseShapeLiteral_Nested(t *testing.T) {
 	input := `{ input: { name: "Alice" } }`
-	p := NewTestParser(input)
+	p := NewTestParser(input, ast.SetupTestLogger())
 	shape := p.parseShapeLiteral(nil, false)
 	inputField := shape.Fields["input"]
 	if inputField.Shape == nil {
@@ -157,7 +157,7 @@ func TestParseShapeLiteral_Nested(t *testing.T) {
 
 func TestParseShapeType_AsFunctionParam(t *testing.T) {
 	input := `func foo(arg { x: Int, y: String }) {}`
-	p := NewTestParser(input)
+	p := NewTestParser(input, ast.SetupTestLogger())
 	fn := p.parseFunctionDefinition()
 	if len(fn.Params) != 1 {
 		t.Fatalf("expected 1 parameter, got %d", len(fn.Params))

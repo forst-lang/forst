@@ -391,3 +391,16 @@ func (tc *TypeChecker) RegisterTypeIfMissing(ident ast.TypeIdent, def interface{
 		panic("RegisterTypeIfMissing: unsupported type definition")
 	}
 }
+
+// IsTypeGuardConstraint returns true if the given constraint name is a registered type guard
+func (tc *TypeChecker) IsTypeGuardConstraint(name string) bool {
+	if def, exists := tc.Defs[ast.TypeIdent(name)]; exists {
+		if _, ok := def.(ast.TypeGuardNode); ok {
+			return true
+		}
+		if _, ok := def.(*ast.TypeGuardNode); ok {
+			return true
+		}
+	}
+	return false
+}

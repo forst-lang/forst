@@ -61,9 +61,6 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.TypeGuardNode:
 		tc.pushScope(n)
 
-		// Register type guard in Defs
-		tc.Defs[ast.TypeIdent(n.Ident)] = n
-
 		// Register type guard symbol in global scope
 		tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
@@ -93,7 +90,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			}
 		}
 
-		// Register the type guard in the type checker
+		// Register the type guard in the type checker (stores pointer in Defs)
 		tc.registerTypeGuard(&n)
 
 		tc.popScope()

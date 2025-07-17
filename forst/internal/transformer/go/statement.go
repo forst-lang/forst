@@ -106,6 +106,11 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 }
 
 func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
+	t.log.WithFields(map[string]interface{}{
+		"function": "transformErrorStatement",
+		"note":     "transformErrorStatement called",
+	}).Warn("[PINPOINT] transformErrorStatement: Entry")
+
 	errorExpr := t.transformErrorExpression(stmt)
 
 	if t.isMainFunction() {
@@ -130,6 +135,11 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 				// For all but the last (error), emit zero value
 				for i := 0; i < len(goReturnTypes)-1; i++ {
 					goType, _ := t.transformType(goReturnTypes[i])
+					// Always use the aliased type name for zero value
+					aliasName, _ := t.TypeChecker.GetAliasedTypeName(goReturnTypes[i])
+					if aliasName != "" {
+						goType = goast.NewIdent(aliasName)
+					}
 					returnTypes = append(returnTypes, getZeroValue(goType))
 				}
 				// Last value is the error
@@ -181,11 +191,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		// Case 2: assertion is a type guard
 		for _, constraint := range s.Assertion.Constraints {
-			for _, def := range t.TypeChecker.Defs {
-				if tg, ok := def.(ast.TypeGuardNode); ok && tg.GetIdent() == constraint.Name {
-					shouldNegate = true
-					break
-				}
+			if t.TypeChecker.IsTypeGuardConstraint(constraint.Name) {
+				shouldNegate = true
+				break
 			}
 		}
 
@@ -285,6 +293,22 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				}
 			}
 			results[i] = valueExpr
+		}
+
+		// Check if we need to add missing error return
+		if len(expectedReturnTypes) > len(results) {
+			// Function expects more return values than provided
+			// Add nil for missing error returns
+			for i := len(results); i < len(expectedReturnTypes); i++ {
+				expectedType := expectedReturnTypes[i]
+				if expectedType.IsError() {
+					results = append(results, goast.NewIdent("nil"))
+				} else {
+					// For non-error types, add zero value
+					goType, _ := t.transformType(expectedType)
+					results = append(results, getZeroValue(goType))
+				}
+			}
 		}
 
 		return &goast.ReturnStmt{
