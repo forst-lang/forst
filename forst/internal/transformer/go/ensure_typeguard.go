@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	goast "go/ast"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -117,6 +118,35 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 				"function":  "isTypeGuardCompatible",
 			}).Info("Found compatible type guard")
 			return true
+		}
+
+		// If the base type is a hash-based type (T_*) and the param type is a named type,
+		// check if they are structurally compatible by looking up their definitions
+		if strings.HasPrefix(string(baseType.Ident), "T_") && !strings.HasPrefix(string(paramType.Ident), "T_") {
+			// Get the base type definition
+			if baseDef, exists := t.TypeChecker.Defs[baseType.Ident]; exists {
+				if baseTypeDef, ok := baseDef.(ast.TypeDefNode); ok {
+					if baseShapeExpr, ok := baseTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+						// Get the param type definition
+						if paramDef, exists := t.TypeChecker.Defs[paramType.Ident]; exists {
+							if paramTypeDef, ok := paramDef.(ast.TypeDefNode); ok {
+								if paramShapeExpr, ok := paramTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+									// Check if the shapes are structurally compatible
+									if t.shapesCompatibleForExpectedType(&baseShapeExpr.Shape, &paramShapeExpr.Shape) {
+										t.log.WithFields(logrus.Fields{
+											"typeGuard": typeGuard.GetIdent(),
+											"baseType":  baseType.Ident,
+											"paramType": paramType.Ident,
+											"function":  "isTypeGuardCompatible",
+										}).Info("Found structurally compatible type guard")
+										return true
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
