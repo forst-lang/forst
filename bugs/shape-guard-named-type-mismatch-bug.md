@@ -1,3 +1,54 @@
+# Hash-based and Named Type Shape Guard Compatibility Bug
+
+## Summary
+
+When using shape guards (type guards) in Forst, the typechecker and transformer do not treat hash-based types (auto-generated for anonymous shapes) and named types (user-defined) as compatible, even if their underlying structure is identical. This causes shape guards to fail to match, resulting in errors like:
+
+    failed to transform constraint: no valid transformation found for constraint: Valid
+
+## Steps to Reproduce
+
+1. Define a named type (e.g., `User`) and a function that returns a struct literal matching that shape.
+2. Add a shape guard (e.g., `is (user User) Valid`) and use it in an `ensure` statement in the function.
+3. Run the test `TestEnsureErrorReturnType_UsesNamedReturnType` in `forst/internal/transformer/go/transformer_test.go`.
+4. Observe that the transformer fails to find a compatible type guard, even though the struct literal and the named type are structurally identical.
+
+## Example Debug Output
+
+```
+time="..." level=info msg="Checking type guard compatibility" function=isTypeGuardCompatible typeGuard=Valid varType=T_i6MUJeF9PoV
+time="..." level=info msg="Expected base type of type guard identified based on variable type" baseType=T_i6MUJeF9PoV function=isTypeGuardCompatible
+time="..." level=info msg="Checking parameter type" baseType=T_i6MUJeF9PoV function=isTypeGuardCompatible paramType=User
+time="..." level=info msg="Type compatibility check result" baseType=T_i6MUJeF9PoV compatible=false function=isTypeGuardCompatible paramType=User typeGuard=Valid
+time="..." level=info msg="No compatible type guard found" baseType=T_i6MUJeF9PoV function=isTypeGuardCompatible typeGuard=Valid
+```
+
+## Root Cause Analysis
+
+- The typechecker uses `IsTypeCompatible` to determine if the type of the variable being guarded (e.g., `T_i6MUJeF9PoV`) is compatible with the parameter type of the type guard (e.g., `User`).
+- `IsTypeCompatible` currently only checks for direct type name matches or shallow aliasing.
+- If the types are not directly equal, but both are shape types with identical fields, the function does not recognize them as compatible.
+- This is a problem for shape guards, as the transformer often generates hash-based types for struct literals, while type guards are defined for named types.
+
+## Proposed Solution
+
+- Patch `IsTypeCompatible` to resolve both types to their underlying shape (using the type definition in `tc.Defs`).
+- If both are shapes, compare their fields for structural equality (field names and types).
+- If the shapes are structurally identical, treat the types as compatible for the purposes of type guards and function return type checks.
+
+## Impact
+
+- This bug prevents valid Forst code using shape guards from compiling or generating correct Go code.
+- Developers are forced to work around the issue by avoiding shape guards or manually aligning type names, which defeats the purpose of structural typing.
+- Fixing this will improve developer experience and make Forst's type system more robust and ergonomic.
+
+## References
+
+- Failing test: `TestEnsureErrorReturnType_UsesNamedReturnType` in `forst/internal/transformer/go/transformer_test.go`
+- Type compatibility logic: `IsTypeCompatible` in `forst/internal/typechecker/go_builtins.go`
+
+---
+
 # Shape Guard Named Type Mismatch Bug
 
 ## Summary
