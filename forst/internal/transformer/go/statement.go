@@ -105,12 +105,32 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 	}
 }
 
-func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
-	t.log.WithFields(map[string]interface{}{
-		"function": "transformErrorStatement",
-		"note":     "transformErrorStatement called",
-	}).Warn("[PINPOINT] transformErrorStatement: Entry")
+// findBestNamedTypeForReturnType tries to find a named type that matches the given hash-based type
+func (t *Transformer) findBestNamedTypeForReturnType(hashType ast.TypeNode) string {
+	// If it's already a named type (not hash-based), return it
+	if !hashType.IsHashBased() {
+		return string(hashType.Ident)
+	}
 
+	// Look through all named types to find one that's compatible
+	for typeIdent, def := range t.TypeChecker.Defs {
+		if _, ok := def.(ast.TypeDefNode); ok {
+			// Skip hash-based types
+			if string(typeIdent)[:2] == "T_" {
+				continue
+			}
+
+			// Check if this named type is compatible with the hash-based type
+			if t.TypeChecker.IsTypeCompatible(hashType, ast.TypeNode{Ident: typeIdent}) {
+				return string(typeIdent)
+			}
+		}
+	}
+
+	return ""
+}
+
+func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 	errorExpr := t.transformErrorExpression(stmt)
 
 	if t.isMainFunction() {
@@ -132,15 +152,29 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 			// Use the type checker to get the Go return types
 			goReturnTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn)
 			if err == nil && len(goReturnTypes) > 0 {
-				// For all but the last (error), emit zero value
 				for i := 0; i < len(goReturnTypes)-1; i++ {
-					goType, _ := t.transformType(goReturnTypes[i])
-					// Always use the aliased type name for zero value
-					aliasName, _ := t.TypeChecker.GetAliasedTypeName(goReturnTypes[i])
-					if aliasName != "" {
-						goType = goast.NewIdent(aliasName)
+					returnType := goReturnTypes[i]
+					aliasName, _ := t.TypeChecker.GetAliasedTypeName(returnType)
+					if aliasName != "" && aliasName != string(returnType.Ident) {
+						// If aliasName is a Go built-in type, use the correct zero value
+						switch aliasName {
+						case "string":
+							returnTypes = append(returnTypes, &goast.BasicLit{Kind: token.STRING, Value: "\"\""})
+						case "int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "uintptr", "float64", "float32", "complex64", "complex128", "rune", "byte":
+							returnTypes = append(returnTypes, &goast.BasicLit{Kind: token.INT, Value: "0"})
+						case "bool":
+							returnTypes = append(returnTypes, goast.NewIdent("false"))
+						case "error":
+							returnTypes = append(returnTypes, goast.NewIdent("nil"))
+						default:
+							// For user-defined types, use composite literal
+							returnTypes = append(returnTypes, &goast.CompositeLit{Type: goast.NewIdent(aliasName)})
+						}
+					} else {
+						// Fallback to hash-based type
+						goType, _ := t.transformType(returnType)
+						returnTypes = append(returnTypes, getZeroValue(goType))
 					}
-					returnTypes = append(returnTypes, getZeroValue(goType))
 				}
 				// Last value is the error
 				returnTypes = append(returnTypes, errorExpr)
@@ -345,13 +379,6 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				if err != nil {
 					return nil, err
 				}
-				// Debug: log the type of each function call argument
-				t.log.WithFields(map[string]interface{}{
-					"index":    i,
-					"expr":     fmt.Sprintf("%#v", argExpr),
-					"type":     fmt.Sprintf("%T", argExpr),
-					"function": "transformStatement-FunctionCallNode",
-				}).Debug("Function call argument type")
 				args[i] = argExpr
 			} else {
 				argExpr, err := t.transformExpression(arg)
@@ -368,22 +395,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.AssignmentNode:
-		t.log.WithFields(map[string]interface{}{
-			"lvalues":       s.LValues,
-			"rvalues":       s.RValues,
-			"explicitTypes": s.ExplicitTypes,
-			"isShort":       s.IsShort,
-			"function":      "transformStatement-AssignmentNode",
-		}).Debug("[DEBUG] Processing AssignmentNode")
-
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
 			varName := s.LValues[0].Ident.String()
-			t.log.WithFields(map[string]interface{}{
-				"varName":      varName,
-				"explicitType": s.ExplicitTypes[0],
-				"function":     "transformStatement-AssignmentNode",
-			}).Debug("[DEBUG] Assignment has explicit type annotation")
 
 			var typeExpr goast.Expr
 			var expectedType *ast.TypeNode
@@ -401,19 +415,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				expectedType = s.ExplicitTypes[0]
 			}
 
-			t.log.WithFields(map[string]interface{}{
-				"varName":      varName,
-				"typeExpr":     fmt.Sprintf("%#v", typeExpr),
-				"expectedType": expectedType,
-				"function":     "transformStatement-AssignmentNode",
-			}).Debug("[DEBUG] Processed explicit type for assignment")
-
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
-				t.log.WithFields(map[string]interface{}{
-					"varName":  varName,
-					"function": "transformStatement-AssignmentNode",
-				}).Debug("[DEBUG] RHS is ShapeNode, transforming with expected type")
-
 				// Use the unified helper to determine the expected type
 				context := &ShapeContext{
 					ExpectedType: expectedType,
@@ -466,22 +468,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		for i, rval := range s.RValues {
 			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
 				varName := s.LValues[0].Ident.String()
-				t.log.WithFields(map[string]interface{}{
-					"varName":  varName,
-					"function": "transformStatement-AssignmentNode",
-				}).Debug("[DEBUG] RHS is ShapeNode for short assignment")
-
-				// Use the unified helper to determine the expected type
-				context := &ShapeContext{
-					VariableName: varName,
-				}
-				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
-				t.log.WithFields(map[string]interface{}{
-					"varName":              varName,
-					"expectedTypeForShape": expectedTypeForShape,
-					"function":             "transformStatement-AssignmentNode",
-				}).Debug("[DEBUG] getExpectedTypeForShape result for assignment")
-				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
+				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}))
 				if err != nil {
 					return nil, err
 				}
