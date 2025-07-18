@@ -101,6 +101,7 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("\nUsage: forst <command> [flags] <filename>.ft")
 	log.Infof("\nCommands:")
 	log.Infof("  dev     Start the Forst development server")
+	log.Infof("  lsp     Start the Forst LSP server")
 	log.Infof("  run     Compile and run a Forst program")
 	log.Infof("  build   Compile a Forst program without running")
 	log.Infof("\nFlags:")

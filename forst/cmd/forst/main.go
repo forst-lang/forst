@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"forst/cmd/forst/compiler"
+	"forst/cmd/forst/lsp"
 	"os"
 	"path/filepath"
 
@@ -13,9 +14,12 @@ import (
 
 // Version information injected by Release Please
 var (
+	// Version is the current version of Forst
 	Version = "dev"
-	Commit  = "unknown"
-	Date    = "unknown"
+	// Commit is the git commit hash
+	Commit = "unknown"
+	// Date is the build date
+	Date = "unknown"
 )
 
 func printVersionInfo() {
@@ -57,6 +61,41 @@ func main() {
 		}
 
 		StartDevServer(*port, log, *configPath, absRootDir)
+		return
+	}
+
+	// Check if we should start LSP server
+	if len(os.Args) > 1 && os.Args[1] == "lsp" {
+		// Parse flags for LSP server
+		lspFlags := flag.NewFlagSet("lsp", flag.ExitOnError)
+		port := lspFlags.String("port", "8081", "Port to listen on")
+		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
+
+		// Parse the lsp subcommand flags
+		lspFlags.Parse(os.Args[2:])
+
+		// Set log level
+		switch *logLevel {
+		case "trace":
+			log.SetLevel(logrus.TraceLevel)
+		case "debug":
+			log.SetLevel(logrus.DebugLevel)
+		case "info":
+			log.SetLevel(logrus.InfoLevel)
+		case "warn":
+			log.SetLevel(logrus.WarnLevel)
+		case "error":
+			log.SetLevel(logrus.ErrorLevel)
+		default:
+			log.SetLevel(logrus.InfoLevel)
+		}
+
+		// Set version information in LSP package
+		lsp.Version = Version
+		lsp.Commit = Commit
+		lsp.Date = Date
+
+		lsp.StartLSPServer(*port, log)
 		return
 	}
 
