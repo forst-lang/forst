@@ -1,4 +1,4 @@
-package main
+package lsp
 
 import (
 	"encoding/json"
@@ -12,7 +12,6 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/lexer"
-	"forst/internal/logger"
 	"forst/internal/parser"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
@@ -47,8 +46,8 @@ type LSPError struct {
 
 // LSPServer represents the LSP server
 type LSPServer struct {
-	debugger    logger.CompilerDebuggerInterface
-	lspDebugger *logger.LSPDebugger
+	debugger    CompilerDebuggerInterface
+	lspDebugger *LSPDebugger
 	log         *logrus.Logger
 	port        string
 	server      *http.Server
@@ -56,8 +55,8 @@ type LSPServer struct {
 
 // NewLSPServer creates a new LSP server
 func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
-	debugger := logger.NewCompilerDebugger(true)
-	lspDebugger := logger.NewLSPDebugger(debugger, "")
+	debugger := NewCompilerDebugger(true)
+	lspDebugger := NewLSPDebugger(debugger, "")
 
 	return &LSPServer{
 		debugger:    debugger,
@@ -70,8 +69,8 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 // Start starts the LSP server
 func (s *LSPServer) Start() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/", s.handleLSP)
+	mux.HandleFunc("/health", s.handleHealth)
 
 	s.server = &http.Server{
 		Addr:         ":" + s.port,
@@ -114,7 +113,7 @@ func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status":    "healthy",
 		"service":   "forst-lsp",
-		"version":   Version,
+		"version":   "1.0.0",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -338,7 +337,7 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 	}
 
 	// Send empty diagnostics to clear them
-	s.sendDiagnosticsNotification(params.TextDocument.URI, []logger.LSPDiagnostic{})
+	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -363,7 +362,7 @@ func (s *LSPServer) handleHover(request LSPRequest) LSPServerResponse {
 		TextDocument struct {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
-		Position logger.LSPPosition `json:"position"`
+		Position LSPPosition `json:"position"`
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
@@ -393,7 +392,7 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 		TextDocument struct {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
-		Position logger.LSPPosition `json:"position"`
+		Position LSPPosition `json:"position"`
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
@@ -445,7 +444,7 @@ func (s *LSPServer) handleExit(request LSPRequest) LSPServerResponse {
 }
 
 // processForstFile processes a Forst file and returns diagnostics
-func (s *LSPServer) processForstFile(uri, content string) []logger.LSPDiagnostic {
+func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 	// Convert URI to file path
 	filePath := strings.TrimPrefix(uri, "file://")
 	if runtime.GOOS == "windows" {
@@ -458,7 +457,7 @@ func (s *LSPServer) processForstFile(uri, content string) []logger.LSPDiagnostic
 	}
 
 	// Create debugger for this file
-	debugger := s.debugger.GetDebugger(logger.PhaseTransformer, filePath)
+	debugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
 	if debugger == nil {
 		return nil
 	}
@@ -470,7 +469,7 @@ func (s *LSPServer) processForstFile(uri, content string) []logger.LSPDiagnostic
 }
 
 // compileForstFile compiles a Forst file and returns diagnostics
-func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.Debugger) []logger.LSPDiagnostic {
+func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger) []LSPDiagnostic {
 	// Add panic recovery to prevent LSP server crashes
 	defer func() {
 		if r := recover(); r != nil {
@@ -482,7 +481,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 	lex := lexer.New([]byte(content), filePath, s.log)
 	tokens := lex.Lex()
 
-	debugger.LogEvent(logger.EventLexerComplete, "Lexical analysis completed", map[string]interface{}{
+	debugger.LogEvent(EventLexerComplete, "Lexical analysis completed", map[string]interface{}{
 		"token_count": len(tokens),
 		"file":        filePath,
 	})
@@ -504,7 +503,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 
 	if err != nil {
 		// Create diagnostic for parsing error
-		diagnostic := logger.CreateTypeErrorDiagnostic(
+		diagnostic := CreateTypeErrorDiagnostic(
 			"file://"+filePath,
 			1, // Default to line 1
 			"",
@@ -512,10 +511,10 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 			"parsing error",
 		)
 		diagnostic.Message = fmt.Sprintf("Parsing error: %v", err)
-		return []logger.LSPDiagnostic{diagnostic}
+		return []LSPDiagnostic{diagnostic}
 	}
 
-	debugger.LogEvent(logger.EventParserComplete, "Parsing completed", map[string]interface{}{
+	debugger.LogEvent(EventParserComplete, "Parsing completed", map[string]interface{}{
 		"node_count": len(astNodes),
 		"file":       filePath,
 	})
@@ -524,7 +523,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 	tc := typechecker.New(s.log, false)
 	if err := tc.CheckTypes(astNodes); err != nil {
 		// Create diagnostic for type checking error
-		diagnostic := logger.CreateTypeErrorDiagnostic(
+		diagnostic := CreateTypeErrorDiagnostic(
 			"file://"+filePath,
 			1, // Default to line 1
 			"",
@@ -532,10 +531,10 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 			"type checking error",
 		)
 		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
-		return []logger.LSPDiagnostic{diagnostic}
+		return []LSPDiagnostic{diagnostic}
 	}
 
-	debugger.LogEvent(logger.EventTypecheckerComplete, "Type checking completed", map[string]interface{}{
+	debugger.LogEvent(EventTypecheckerComplete, "Type checking completed", map[string]interface{}{
 		"file": filePath,
 	})
 
@@ -544,7 +543,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 	_, err = transformer.TransformForstFileToGo(astNodes)
 	if err != nil {
 		// Create diagnostic for transformation error
-		diagnostic := logger.CreateTypeErrorDiagnostic(
+		diagnostic := CreateTypeErrorDiagnostic(
 			"file://"+filePath,
 			1, // Default to line 1
 			"",
@@ -552,10 +551,10 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 			"transformation error",
 		)
 		diagnostic.Message = fmt.Sprintf("Transformation error: %v", err)
-		return []logger.LSPDiagnostic{diagnostic}
+		return []LSPDiagnostic{diagnostic}
 	}
 
-	debugger.LogEvent(logger.EventTransformerComplete, "Code transformation completed", map[string]interface{}{
+	debugger.LogEvent(EventTransformerComplete, "Code transformation completed", map[string]interface{}{
 		"file": filePath,
 	})
 
@@ -565,7 +564,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger logger.D
 }
 
 // findHoverForPosition finds hover information for a specific position
-func (s *LSPServer) findHoverForPosition(uri string, position logger.LSPPosition) *logger.LSPHover {
+func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPHover {
 	// For now, return a simple hover with file information
 	filePath := strings.TrimPrefix(uri, "file://")
 	if runtime.GOOS == "windows" {
@@ -575,8 +574,8 @@ func (s *LSPServer) findHoverForPosition(uri string, position logger.LSPPosition
 	content := fmt.Sprintf("**Forst File**\n\n**File:** %s\n**Line:** %d\n**Character:** %d",
 		filepath.Base(filePath), position.Line+1, position.Character)
 
-	return &logger.LSPHover{
-		Contents: logger.LSPMarkedString{
+	return &LSPHover{
+		Contents: LSPMarkedString{
 			Language: "markdown",
 			Value:    content,
 		},
@@ -584,22 +583,22 @@ func (s *LSPServer) findHoverForPosition(uri string, position logger.LSPPosition
 }
 
 // getCompletionsForPosition gets completion items for a specific position
-func (s *LSPServer) getCompletionsForPosition(uri string, position logger.LSPPosition) []logger.LSPCompletionItem {
+func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) []LSPCompletionItem {
 	// For now, return basic Forst keywords
 	keywords := []string{
 		"func", "type", "var", "const", "if", "else", "for", "return",
 		"ensure", "is", "Valid", "Int", "String", "Bool", "Error",
 	}
 
-	var completions []logger.LSPCompletionItem
+	var completions []LSPCompletionItem
 	for _, keyword := range keywords {
-		completions = append(completions, logger.LSPCompletionItem{
+		completions = append(completions, LSPCompletionItem{
 			Label:            keyword,
-			Kind:             logger.LSPCompletionItemKindKeyword,
+			Kind:             LSPCompletionItemKindKeyword,
 			Detail:           fmt.Sprintf("Forst keyword: %s", keyword),
 			Documentation:    fmt.Sprintf("Forst language keyword: %s", keyword),
 			InsertText:       keyword,
-			InsertTextFormat: logger.LSPInsertTextFormatPlainText,
+			InsertTextFormat: LSPInsertTextFormatPlainText,
 		})
 	}
 
@@ -607,22 +606,8 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position logger.LSPPos
 }
 
 // sendDiagnosticsNotification sends a diagnostics notification
-func (s *LSPServer) sendDiagnosticsNotification(uri string, diagnostics []logger.LSPDiagnostic) {
+func (s *LSPServer) sendDiagnosticsNotification(uri string, diagnostics []LSPDiagnostic) {
 	// In a real LSP implementation, this would be sent to the client
 	// For now, we just log it
 	s.log.Debugf("Sending diagnostics for %s: %d diagnostics", uri, len(diagnostics))
-}
-
-// StartLSPServer is the entry point for the LSP server command
-func StartLSPServer(port string, log *logrus.Logger) {
-	server := NewLSPServer(port, log)
-
-	log.Infof("Starting Forst LSP server on port %s", port)
-	log.Info("This server provides LSP-compatible diagnostics and features")
-	log.Info("Connect your LSP client (VS Code, Vim, etc.) to this server")
-
-	if err := server.Start(); err != nil {
-		log.Errorf("LSP server error: %v", err)
-		os.Exit(1)
-	}
 }

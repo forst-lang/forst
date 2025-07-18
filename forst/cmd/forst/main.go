@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"forst/cmd/forst/compiler"
+	"forst/cmd/forst/lsp"
 	"os"
 	"path/filepath"
 
@@ -86,7 +87,7 @@ func main() {
 			log.SetLevel(logrus.InfoLevel)
 		}
 
-		StartLSPServer(*port, log)
+		lsp.StartLSPServer(*port, log)
 		return
 	}
 
