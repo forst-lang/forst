@@ -8,18 +8,7 @@ import (
 // TypeIdent is a unique identifier for a type
 type TypeIdent string
 
-// TypeKind represents the origin/kind of a type
-// Used for reliable type emission and reasoning
-//
-//	Builtin: Go/Forst built-in types (string, int, etc.)
-//	UserDefined: Named types defined by the user (AppContext, etc.)
-//	HashBased: Structural/anonymous types (T_xxx...)
-type TypeKind int
-
 const (
-	TypeKindBuiltin TypeKind = iota
-	TypeKindUserDefined
-	TypeKindHashBased
 
 	// TypeInt is the built-in int type
 	TypeInt TypeIdent = "TYPE_INT"
@@ -53,6 +42,20 @@ const (
 	TypePointer TypeIdent = "TYPE_POINTER"
 )
 
+// TypeKind represents the origin/kind of a type
+// Used for reliable type emission and reasoning
+//
+//	Builtin: Go/Forst built-in types (string, int, etc.)
+//	UserDefined: Named types defined by the user (AppContext, etc.)
+//	HashBased: Structural/anonymous types (T_xxx...)
+type TypeKind string
+
+const (
+	TypeKindBuiltin     TypeKind = "TYPE_KIND_BUILTIN"
+	TypeKindUserDefined TypeKind = "TYPE_KIND_USER_DEFINED"
+	TypeKindHashBased   TypeKind = "TYPE_KIND_HASH_BASED"
+)
+
 // TypeNode represents a type in the Forst language
 // Kind must be set at construction time and never guessed from Ident
 type TypeNode struct {
@@ -60,7 +63,7 @@ type TypeNode struct {
 	Ident      TypeIdent
 	Assertion  *AssertionNode
 	TypeParams []TypeNode // Generic type parameters
-	TypeKind   TypeKind   // Use TypeKind instead of Kind to avoid conflict
+	TypeKind   TypeKind
 }
 
 // IsExplicit returns true if the type has been specified explicitly
@@ -188,4 +191,64 @@ func (node *TypeNode) IsHashBased() bool {
 // IsUserDefined returns true if the type node is a user-defined named type
 func (node *TypeNode) IsUserDefined() bool {
 	return node.TypeKind == TypeKindUserDefined
+}
+
+// NewBuiltinType creates a new TypeNode for a built-in type
+func NewBuiltinType(ident TypeIdent) TypeNode {
+	return TypeNode{
+		Ident:    ident,
+		TypeKind: TypeKindBuiltin,
+	}
+}
+
+// NewUserDefinedType creates a new TypeNode for a user-defined type
+func NewUserDefinedType(ident TypeIdent) TypeNode {
+	return TypeNode{
+		Ident:    ident,
+		TypeKind: TypeKindUserDefined,
+	}
+}
+
+// NewHashBasedType creates a new TypeNode for a hash-based type
+func NewHashBasedType(ident TypeIdent) TypeNode {
+	return TypeNode{
+		Ident:    ident,
+		TypeKind: TypeKindHashBased,
+	}
+}
+
+// NewPointerType creates a new TypeNode for a pointer type
+func NewPointerType(baseType TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypePointer,
+		TypeParams: []TypeNode{baseType},
+		TypeKind:   TypeKindBuiltin, // Pointer is a built-in type construct
+	}
+}
+
+// NewArrayType creates a new TypeNode for an array type
+func NewArrayType(elementType TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypeArray,
+		TypeParams: []TypeNode{elementType},
+		TypeKind:   TypeKindBuiltin, // Array is a built-in type construct
+	}
+}
+
+// NewMapType creates a new TypeNode for a map type
+func NewMapType(keyType, valueType TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypeMap,
+		TypeParams: []TypeNode{keyType, valueType},
+		TypeKind:   TypeKindBuiltin, // Map is a built-in type construct
+	}
+}
+
+// NewAssertionType creates a new TypeNode for an assertion type
+func NewAssertionType(assertion *AssertionNode) TypeNode {
+	return TypeNode{
+		Ident:     TypeAssertion,
+		Assertion: assertion,
+		TypeKind:  TypeKindHashBased, // Assertions create structural types
+	}
 }

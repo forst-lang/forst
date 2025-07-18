@@ -6,6 +6,19 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// ensureTypeKind ensures that a TypeNode has the correct TypeKind set
+func ensureTypeKind(typeNode ast.TypeNode, expectedKind ast.TypeKind) ast.TypeNode {
+	if typeNode.TypeKind != expectedKind {
+		typeNode.TypeKind = expectedKind
+	}
+	return typeNode
+}
+
+// ensureUserDefinedType ensures that a TypeNode is marked as user-defined
+func ensureUserDefinedType(typeNode ast.TypeNode) ast.TypeNode {
+	return ensureTypeKind(typeNode, ast.TypeKindUserDefined)
+}
+
 func (tc *TypeChecker) storeInferredVariableType(variable ast.VariableNode, typ []ast.TypeNode) {
 	tc.log.Tracef("Storing inferred variable type for variable %s: %s", variable.Ident.ID, typ)
 	tc.storeSymbol(variable.Ident.ID, typ, SymbolVariable)
@@ -20,11 +33,13 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	if _, exists := tc.Defs[node.Ident]; exists {
 		return
 	}
+
 	// Store the type definition node
 	tc.Defs[node.Ident] = node
 	tc.log.WithFields(logrus.Fields{
 		"node":     node.String(),
 		"function": "registerType",
+		"typeKind": "user-defined", // All registered types are user-defined
 	}).Trace("Registered type")
 
 	// If this is a shape type, also store the underlying ShapeNode for field access
@@ -79,6 +94,18 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 
 // registerShapeType registers a shape type with its fields
 func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
+	// Ensure that user-defined types have the correct TypeKind
+	// Update the shape fields to have correct TypeKind
+	for fieldName, field := range shape.Fields {
+		if field.Type != nil {
+			// Ensure user-defined field types have correct TypeKind
+			if field.Type.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(field.Type.Ident) {
+				field.Type.TypeKind = ast.TypeKindUserDefined
+			}
+			shape.Fields[fieldName] = field
+		}
+	}
+
 	tc.Defs[ident] = ast.TypeDefNode{
 		Ident: ident,
 		Expr: ast.TypeDefShapeExpr{
@@ -90,6 +117,7 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 		"ident":    ident,
 		"shape":    shape,
 		"function": "registerShapeType",
+		"typeKind": "user-defined", // All registered types are user-defined
 	}).Trace("Registered shape type")
 }
 
@@ -109,10 +137,21 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 		}
 	}
 
+	// Ensure return types have correct TypeKind
+	processedReturnTypes := make([]ast.TypeNode, len(fn.ReturnTypes))
+	for i, returnType := range fn.ReturnTypes {
+		// For user-defined types, ensure they're marked as user-defined
+		if returnType.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(returnType.Ident) {
+			processedReturnTypes[i] = ensureUserDefinedType(returnType)
+		} else {
+			processedReturnTypes[i] = returnType
+		}
+	}
+
 	tc.Functions[fn.Ident.ID] = FunctionSignature{
 		Ident:       fn.Ident,
 		Parameters:  params,
-		ReturnTypes: fn.ReturnTypes,
+		ReturnTypes: processedReturnTypes,
 	}
 
 	// Store parameter symbols

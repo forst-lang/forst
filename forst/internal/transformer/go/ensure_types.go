@@ -28,6 +28,10 @@ const (
 	NilConstraint BuiltinConstraint = "Nil"
 	// PresentConstraint is the built-in NotNil constraint in Forst
 	PresentConstraint BuiltinConstraint = "Present"
+	// NotEmptyConstraint is the built-in NotEmpty constraint in Forst
+	NotEmptyConstraint BuiltinConstraint = "NotEmpty"
+	// ValidConstraint is the built-in Valid constraint in Forst
+	ValidConstraint BuiltinConstraint = "Valid"
 	// ValueConstraint is the built-in Value constraint in Forst
 	ValueConstraint BuiltinConstraint = ast.ValueConstraint
 )

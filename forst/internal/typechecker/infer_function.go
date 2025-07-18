@@ -59,6 +59,15 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					if len(retType) != 1 {
 						return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
 					}
+					// PINPOINT: Log inferred type for each return value
+					if tc.log != nil {
+						tc.log.WithFields(map[string]interface{}{
+							"function":     fn.Ident.ID,
+							"returnIndex":  i,
+							"returnAST":    fmt.Sprintf("%T", value),
+							"inferredType": retType[0].Ident,
+						}).Warn("[PINPOINT] Inferred return type for function")
+					}
 					retTypes = append(retTypes, retType[0])
 				}
 			}

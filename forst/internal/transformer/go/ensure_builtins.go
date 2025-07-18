@@ -171,6 +171,33 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 				},
 			}), nil
 		},
+		NotEmptyConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+			if err := at.validateConstraintArgs(constraint, 0); err != nil {
+				return nil, err
+			}
+			variableExpr, err := at.transformer.transformExpression(variable)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.BinaryExpr{
+				X: &goast.CallExpr{
+					Fun: goast.NewIdent("len"),
+					Args: []goast.Expr{
+						variableExpr,
+					},
+				},
+				Op: token.EQL,
+				Y:  &goast.BasicLit{Kind: token.INT, Value: "0"},
+			}, nil
+		},
+		ValidConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+			if err := at.validateConstraintArgs(constraint, 0); err != nil {
+				return nil, err
+			}
+			// For now, just return a simple condition that will always be false
+			// This simulates a validation that always fails
+			return goast.NewIdent("false"), nil
+		},
 	},
 	ast.TypeInt: {
 		MinConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {

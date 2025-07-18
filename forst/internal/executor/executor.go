@@ -135,6 +135,11 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Debug: Check if the echo function has parameters
 	e.log.Infof("Echo function parameters: %v", compiledFn.Parameters)
 
+	// Debug: Output the generated Go function code if log level is debug or lower
+	if e.log.Level <= logrus.DebugLevel {
+		e.log.Debugf("Generated Go function code for %s.%s:\n%s", packageName, functionName, compiledFn.GoCode)
+	}
+
 	// Execute the Go code
 	hasParams := len(compiledFn.Parameters) > 0
 	e.log.Infof("executeGoCode: hasParams=%v, args=%s", hasParams, string(args))

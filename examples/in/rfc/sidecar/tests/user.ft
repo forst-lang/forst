@@ -38,7 +38,7 @@ func CreateUser(input CreateUserRequest) {
   return {
     user: user,
     created_at: 1234567890
-  }
+  }, nil
 }
 
 func GetUserById(id String) {
