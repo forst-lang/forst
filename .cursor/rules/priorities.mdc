@@ -1,0 +1,23 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Priorities during Development
+
+This is the hierarchy of priorities during development and debugging, ordered from highest priority to lowest priority.
+
+1. Ensure presence of precise, reproducing unit or integration tests (preferrably unit tests).
+   - These tests help us estimate if we're making progress.
+   - Prefer precise names describing exactly what's under test.
+2. Ensure code is robust and does not break or produce bugs easily.
+   - We are building developer tools that many developers need to rely on for production code.
+3. Ensure log output provides helpful information.
+   - If in doubt, add one more log statement with an appropriate log level (typically trace or debug).
+4. Ensure future-proof fixes.
+   - If possible come up with a generic fix for any given solution such that it works for all likely use cases.
+   - Try to produce re-usable code and re-use it wherever it makes sense.
+   - Prefer expanding AST nodes or compiler state with in-memory calculations over ad-hoc calculations if it makes sense.
+5. Speed of coming up with a fix.
+   - If really necessary, come up with a pinpoint fix for a specific situation, but only if it actually helps us find a future-proof fix.
