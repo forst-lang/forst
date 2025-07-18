@@ -70,6 +70,7 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 // Start starts the LSP server
 func (s *LSPServer) Start() error {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/", s.handleLSP)
 
 	s.server = &http.Server{
@@ -100,6 +101,26 @@ func (s *LSPServer) recoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// handleHealth handles health check requests
+func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	response := map[string]interface{}{
+		"status":    "healthy",
+		"service":   "forst-lsp",
+		"version":   Version,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
 // Stop stops the LSP server
 func (s *LSPServer) Stop() error {
 	if s.server != nil {
@@ -118,6 +139,7 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// Only handle POST requests for LSP protocol
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
