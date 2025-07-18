@@ -25,7 +25,8 @@ func TestParseFile_WithBinaryExpressionInFunction(t *testing.T) {
 		{Type: ast.TokenEOF, Value: "", Line: 3, Column: 2},
 	}
 
-	p := setupParser(tokens)
+	logger := ast.SetupTestLogger()
+	p := setupParser(tokens, logger)
 	nodes, err := p.ParseFile()
 	if err == nil {
 		if len(nodes) != 1 {
@@ -105,7 +106,8 @@ func TestParseFile_WithReferences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := setupParser(tt.tokens)
+			logger := ast.SetupTestLogger()
+			p := setupParser(tt.tokens, logger)
 			nodes, err := p.ParseFile()
 			if err != nil {
 				t.Fatalf("ParseFile failed: %v", err)

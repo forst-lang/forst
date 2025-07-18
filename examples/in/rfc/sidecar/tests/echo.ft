@@ -9,9 +9,9 @@ type EchoResponse = {
   timestamp: Int
 }
 
-func Echo(input EchoRequest) {
+func Echo(input EchoRequest): EchoResponse {
   return {
     echo: input.message,
-    timestamp: 1234567890
-  }
-} 
+		timestamp: 1234567890,
+	}
+}

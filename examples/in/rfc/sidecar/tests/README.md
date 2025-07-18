@@ -46,7 +46,7 @@ npm run dev
 
 ## Test Files
 
-- `basic_communication.ft`: Tests basic echo functionality
+- `echo.ft`: Tests basic echo functionality
 - `type_safety.ft`: Tests type safety and validation
 
 ## HTTP API Endpoints

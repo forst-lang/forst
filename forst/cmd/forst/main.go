@@ -45,6 +45,7 @@ func main() {
 		port := devFlags.String("port", "8080", "Port to listen on")
 		configPath := devFlags.String("config", "", "Path to configuration file")
 		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
+		logLevel := devFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the dev subcommand flags
 		devFlags.Parse(os.Args[2:])
@@ -56,7 +57,16 @@ func main() {
 			os.Exit(1)
 		}
 
-		StartDevServer(*port, log, *configPath, absRootDir)
+		StartDevServer(*port, log, *configPath, absRootDir, logLevel)
+		return
+	}
+
+	// Check if we should generate TypeScript client
+	if len(os.Args) > 1 && os.Args[1] == "generate" {
+		if err := generateCommand(os.Args[2:]); err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
 		return
 	}
 

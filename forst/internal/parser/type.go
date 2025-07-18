@@ -12,55 +12,46 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 	if token.Type == ast.TokenStar {
 		p.advance() // consume *
 		baseType := p.parseType(opts)
-		return ast.TypeNode{
-			Ident:      ast.TypePointer,
-			TypeParams: []ast.TypeNode{baseType},
-		}
+		return ast.NewPointerType(baseType)
 	}
 
 	// Handle shape types
 	if token.Type == ast.TokenLBrace {
 		shape := p.parseShapeType()
 		baseType := ast.TypeIdent(ast.TypeShape)
-		return ast.TypeNode{
-			Ident: ast.TypeShape,
-			Assertion: &ast.AssertionNode{
-				BaseType: &baseType,
-				Constraints: []ast.ConstraintNode{{
-					Name: "Match",
-					Args: []ast.ConstraintArgumentNode{{
-						Shape: &shape,
-					}},
+		return ast.NewAssertionType(&ast.AssertionNode{
+			BaseType: &baseType,
+			Constraints: []ast.ConstraintNode{{
+				Name: "Match",
+				Args: []ast.ConstraintArgumentNode{{
+					Shape: &shape,
 				}},
-			},
-		}
+			}},
+		})
 	}
 
 	switch token.Type {
 	case ast.TokenString:
 		p.advance()
-		return ast.TypeNode{Ident: ast.TypeString}
+		return ast.NewBuiltinType(ast.TypeString)
 	case ast.TokenInt:
 		p.advance()
-		return ast.TypeNode{Ident: ast.TypeInt}
+		return ast.NewBuiltinType(ast.TypeInt)
 	case ast.TokenFloat:
 		p.advance()
-		return ast.TypeNode{Ident: ast.TypeFloat}
+		return ast.NewBuiltinType(ast.TypeFloat)
 	case ast.TokenBool:
 		p.advance()
-		return ast.TypeNode{Ident: ast.TypeBool}
+		return ast.NewBuiltinType(ast.TypeBool)
 	case ast.TokenVoid:
 		p.advance()
-		return ast.TypeNode{Ident: ast.TypeVoid}
+		return ast.NewBuiltinType(ast.TypeVoid)
 	case ast.TokenLBracket:
 		// Parse slice type
 		p.advance()                 // consume [
 		p.expect(ast.TokenRBracket) // expect ]
 		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-		return ast.TypeNode{
-			Ident:      ast.TypeArray,
-			TypeParams: []ast.TypeNode{elementType},
-		}
+		return ast.NewArrayType(elementType)
 	case ast.TokenMap:
 		// Parse map type
 		p.advance()                 // consume map
@@ -68,10 +59,7 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		keyType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		p.expect(ast.TokenRBracket) // expect ]
 		valueType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-		return ast.TypeNode{
-			Ident:      ast.TypeMap,
-			TypeParams: []ast.TypeNode{keyType, valueType},
-		}
+		return ast.NewMapType(keyType, valueType)
 	case ast.TokenInterface:
 		// Parse interface type
 		p.advance() // consume interface keyword
@@ -80,7 +68,7 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		if p.current().Type == ast.TokenLBrace {
 			p.advance()               // consume {
 			p.expect(ast.TokenRBrace) // expect }
-			return ast.TypeNode{Ident: ast.TypeObject}
+			return ast.NewBuiltinType(ast.TypeObject)
 		}
 
 		// Parse interface fields until closing brace
@@ -121,7 +109,7 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		}
 
 		p.expect(ast.TokenRBrace) // require closing brace
-		return ast.TypeNode{Ident: ast.TypeObject}
+		return ast.NewBuiltinType(ast.TypeObject)
 	default:
 		// Parse first segment (could be package name or type)
 		firstSegment := p.expectCustomTypeIdentifierOrPackageName(opts).Value
@@ -134,24 +122,18 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 			// If the next token is LParen, parse as type application/assertion
 			if p.current().Type == ast.TokenLParen {
 				assertion := p.parseAssertionChain(true)
-				return ast.TypeNode{
-					Ident:     ast.TypeAssertion,
-					Assertion: &assertion,
-				}
+				return ast.NewAssertionType(&assertion)
 			}
-			return ast.TypeNode{Ident: ast.TypeIdent(qualifiedName)}
+			return ast.NewUserDefinedType(ast.TypeIdent(qualifiedName))
 		}
 
 		// If the next token is LParen, parse as type application/assertion
 		if p.current().Type == ast.TokenLParen {
 			assertion := p.parseAssertionChain(true)
-			return ast.TypeNode{
-				Ident:     ast.TypeAssertion,
-				Assertion: &assertion,
-			}
+			return ast.NewAssertionType(&assertion)
 		}
 
-		return ast.TypeNode{Ident: ast.TypeIdent(firstSegment)}
+		return ast.NewUserDefinedType(ast.TypeIdent(firstSegment))
 	}
 }
 

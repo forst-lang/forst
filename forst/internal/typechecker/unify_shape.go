@@ -144,8 +144,8 @@ func (tc *TypeChecker) getShapeFields(underlyingType ast.TypeNode, leftmostVar a
 	return leftShapeFields, nil
 }
 
-// validateShapeFields validates that the right-hand shape fields are compatible with the left-hand shape fields
-func (tc *TypeChecker) validateShapeFields(shapeNode ast.ShapeNode, leftShapeFields map[string]ast.ShapeFieldNode, underlyingType ast.TypeIdent) error {
+// ValidateShapeFields validates that the right-hand shape fields are compatible with the left-hand shape fields
+func (tc *TypeChecker) ValidateShapeFields(shapeNode ast.ShapeNode, leftShapeFields map[string]ast.ShapeFieldNode, underlyingType ast.TypeIdent) error {
 	for fieldName, rightField := range shapeNode.Fields {
 		leftField, exists := leftShapeFields[fieldName]
 		if !exists {

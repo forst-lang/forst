@@ -60,12 +60,12 @@ main().catch(console.error);
 
 ```typescript
 import express from "express";
-import { createSidecar, createExpressMiddleware } from "@forst/sidecar";
+import { ForstSidecar, createExpressMiddleware } from "@forst/sidecar";
 
 const app = express();
 
 // Create and start the sidecar
-const sidecar = await createSidecar({
+const sidecar = new ForstSidecar({
   forstDir: "./forst",
   port: 8080,
 });

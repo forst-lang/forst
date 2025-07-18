@@ -80,7 +80,7 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 
 		var ident *goast.Ident
 		if t != nil {
-			name, err := t.getTypeAliasNameForTypeNode(paramType)
+			name, err := t.TypeChecker.GetAliasedTypeName(paramType)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get type alias name: %s", err)
 			}

@@ -1,0 +1,69 @@
+package user
+
+type User = {
+  id: String,
+  name: String,
+  age: Int,
+  email: String
+}
+
+type CreateUserRequest = {
+  name: String,
+  age: Int,
+  email: String
+}
+
+type CreateUserResponse = {
+  user: User,
+  created_at: Int
+}
+
+is (user User) Valid {
+  ensure user.age is GreaterThan(0)
+  ensure user.age is LessThan(151)
+  ensure user.name is Min(1)
+  ensure user.email is Contains("@")
+}
+
+func CreateUser(input CreateUserRequest) {
+  user := {
+    id: "123",
+    name: input.name,
+    age: input.age,
+    email: input.email
+  }
+  
+  ensure user is Valid
+  
+  return {
+    user: user,
+    created_at: 1234567890
+  }, nil
+}
+
+func GetUserById(id String) {
+  // Simulate database lookup
+  return {
+    id: id,
+    name: "John Doe",
+    age: 30,
+    email: "john@example.com"
+  }
+}
+
+func UpdateUserAge(id String, newAge Int) {
+  ensure newAge is GreaterThan(0)
+  ensure newAge is LessThan(151)
+  
+  user := GetUserById(id)
+  updatedUser := {
+    id: user.id,
+    name: user.name,
+    age: newAge,
+    email: user.email
+  }
+  
+  ensure updatedUser is Valid
+  
+  return updatedUser
+} 

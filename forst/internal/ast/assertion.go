@@ -75,6 +75,9 @@ func (a AssertionNode) ToString(baseType *TypeIdent) string {
 	if baseType == nil {
 		return constraintsString
 	}
+	if constraintsString == "" {
+		return baseType.String()
+	}
 	return fmt.Sprintf("%s.%s", baseType.String(), constraintsString)
 }
 

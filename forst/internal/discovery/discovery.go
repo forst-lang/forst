@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+var ErrNilForstConfig = errors.New("ForstConfig is required for file discovery")
 
 // FunctionInfo represents a discovered public function
 type FunctionInfo struct {
@@ -70,6 +73,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	d.log.Debugf("Found %d Forst files to scan", len(ftFiles))
 
+	totalFunctions := 0
 	// Process each file
 	for _, filePath := range ftFiles {
 		fileFunctions, err := d.discoverFunctionsInFile(filePath)
@@ -87,18 +91,24 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 				for name, fn := range pkgFuncs {
 					functions[packageName][name] = fn
 				}
+				totalFunctions += len(pkgFuncs)
 			}
 		}
 	}
 
-	d.log.Infof("Discovered %d packages with public functions", len(functions))
+	d.log.Debugf("Discovered %d package(s) with public functions, in total %d public functions", len(functions), totalFunctions)
+	for packageName, pkgFuncs := range functions {
+		for name := range pkgFuncs {
+			d.log.Debugf("- %s.%s", packageName, name)
+		}
+	}
 	return functions, nil
 }
 
 // findForstFiles recursively finds all .ft files in the root directory
 func (d *Discoverer) findForstFiles() ([]string, error) {
 	if d.config == nil {
-		return nil, fmt.Errorf("ForstConfig is required for file discovery")
+		return nil, ErrNilForstConfig
 	}
 	return d.config.FindForstFiles(d.rootDir)
 }
@@ -172,31 +182,7 @@ func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, fi
 func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
 	switch n := node.(type) {
 	case ast.FunctionNode:
-		d.log.Tracef("Found function node: %s", n.Ident.ID)
-		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
-			d.log.Tracef("Function %s is public (starts with uppercase)", n.Ident.ID)
-			fnInfo := FunctionInfo{
-				Package:           packageName,
-				Name:              string(n.Ident.ID),
-				SupportsStreaming: d.analyzeStreamingSupport(&n),
-				FilePath:          filePath,
-			}
-			for _, param := range n.Params {
-				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
-					Name: param.GetIdent(),
-					Type: d.typeToString(param.GetType()),
-				})
-			}
-			if len(n.ReturnTypes) > 0 {
-				fnInfo.ReturnType = d.typeToString(n.ReturnTypes[0])
-			}
-			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
-			fnInfo.OutputType = fnInfo.ReturnType
-			functions[string(n.Ident.ID)] = fnInfo
-			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
-		} else {
-			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
-		}
+		d.extractFunctionsFromNode(&n, packageName, filePath, functions)
 	case *ast.FunctionNode:
 		d.log.Tracef("Found function node: %s", n.Ident.ID)
 		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
@@ -219,7 +205,7 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
 			fnInfo.OutputType = fnInfo.ReturnType
 			functions[string(n.Ident.ID)] = fnInfo
-			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
+			d.log.Tracef("Discovered public function: %s.%s", packageName, n.Ident.ID)
 		} else {
 			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
 		}

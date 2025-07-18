@@ -9,13 +9,10 @@ import (
 )
 
 // setupParser creates a new parser with the given tokens
-func setupParser(tokens []ast.Token) *Parser {
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	logger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: "15:04:05.000",
-	})
+func setupParser(tokens []ast.Token, logger *logrus.Logger) *Parser {
+	if logger == nil {
+		panic("logger is nil")
+	}
 	return New(tokens, "", logger)
 }
 
@@ -30,9 +27,11 @@ func assertNodeType[T ast.Node](t *testing.T, node ast.Node, expectedType string
 }
 
 // NewTestParser creates a parser from a source string for testing
-func NewTestParser(input string) *Parser {
-	logger := logrus.New()
+func NewTestParser(input string, logger *logrus.Logger) *Parser {
+	if logger == nil {
+		logger = ast.SetupTestLogger()
+	}
 	lex := lexer.New([]byte(input), "<test>", logger)
 	tokens := lex.Lex()
-	return setupParser(tokens)
+	return setupParser(tokens, logger)
 }

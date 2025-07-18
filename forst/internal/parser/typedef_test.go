@@ -69,7 +69,8 @@ func TestParseTypeDef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := setupParser(tt.tokens)
+			logger := ast.SetupTestLogger()
+			p := setupParser(tt.tokens, logger)
 			nodes, err := p.ParseFile()
 			if err != nil {
 				t.Fatalf("ParseFile failed: %v", err)

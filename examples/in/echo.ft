@@ -1,0 +1,23 @@
+package main
+
+type EchoRequest = {
+    message: String
+}
+
+type EchoResponse = {
+    echo: String,
+    timestamp: Int
+}
+
+func Echo(input EchoRequest): EchoResponse {
+    return {
+        echo: input.message,
+		timestamp: 1234567890,
+	}
+}
+
+func main() {
+    input := EchoRequest{message: "Hello, World!"}
+    output := Echo(input)
+    println(output.echo)
+}

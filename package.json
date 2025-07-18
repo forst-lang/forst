@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "workspaces": [
     "packages/sidecar",
+    "packages/client",
     "examples/in/rfc/sidecar"
   ]
 }

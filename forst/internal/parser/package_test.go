@@ -41,7 +41,8 @@ func TestParsePackage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := setupParser(tt.tokens)
+			logger := ast.SetupTestLogger()
+			p := setupParser(tt.tokens, logger)
 			packageNode := p.parsePackage()
 			tt.validate(t, packageNode)
 		})
@@ -55,7 +56,8 @@ func TestParsePackage_SetsContextPackage(t *testing.T) {
 		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 13},
 	}
 
-	p := setupParser(tokens)
+	logger := ast.SetupTestLogger()
+	p := setupParser(tokens, logger)
 	packageNode := p.parsePackage()
 
 	// Check that the package was set in the context
