@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"forst/internal/ast"
@@ -15,8 +12,6 @@ import (
 	"forst/internal/parser"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
-
-	"runtime"
 
 	"github.com/sirupsen/logrus"
 )
@@ -110,26 +105,6 @@ func (s *LSPServer) recoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// handleHealth handles health check requests
-func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	response := map[string]interface{}{
-		"status":    "healthy",
-		"service":   "forst-lsp",
-		"version":   Version,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}
-
-	json.NewEncoder(w).Encode(response)
-}
-
 // Stop stops the LSP server
 func (s *LSPServer) Stop() error {
 	if s.server != nil {
@@ -218,144 +193,6 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	}
 }
 
-// handleInitialize handles the initialize method
-func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
-	capabilities := map[string]interface{}{
-		"textDocumentSync": map[string]interface{}{
-			"openClose": true,
-			"change":    1, // Incremental
-		},
-		"completionProvider": map[string]interface{}{
-			"triggerCharacters": []string{".", ":", "("},
-		},
-		"hoverProvider": true,
-		"diagnosticProvider": map[string]interface{}{
-			"identifier": "forst",
-		},
-	}
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result: map[string]interface{}{
-			"capabilities": capabilities,
-			"serverInfo": map[string]interface{}{
-				"name":    "forst-lsp",
-				"version": Version,
-			},
-		},
-	}
-}
-
-// handleDidOpen handles the textDocument/didOpen method
-func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
-	// Add panic recovery to prevent server crashes
-	defer func() {
-		if r := recover(); r != nil {
-			s.log.Errorf("Panic in handleDidOpen: %v", r)
-		}
-	}()
-
-	// Parse the document URI and content
-	var params struct {
-		TextDocument struct {
-			URI     string `json:"uri"`
-			Version int    `json:"version"`
-			Text    string `json:"text"`
-		} `json:"textDocument"`
-	}
-
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
-			},
-		}
-	}
-
-	// Process the Forst file and generate diagnostics
-	diagnostics := s.processForstFile(params.TextDocument.URI, params.TextDocument.Text)
-
-	// Send diagnostics notification
-	s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
-// handleDidChange handles the textDocument/didChange method
-func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
-	// Parse the document changes
-	var params struct {
-		TextDocument struct {
-			URI     string `json:"uri"`
-			Version int    `json:"version"`
-		} `json:"textDocument"`
-		ContentChanges []struct {
-			Text string `json:"text"`
-		} `json:"contentChanges"`
-	}
-
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
-			},
-		}
-	}
-
-	// Process the updated content
-	if len(params.ContentChanges) > 0 {
-		diagnostics := s.processForstFile(params.TextDocument.URI, params.ContentChanges[0].Text)
-		s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
-	}
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
-// handleDidClose handles the textDocument/didClose method
-func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
-	// Clear diagnostics for the closed document
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-	}
-
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
-			},
-		}
-	}
-
-	// Send empty diagnostics to clear them
-	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
 // handlePublishDiagnostics handles the textDocument/publishDiagnostics method
 func (s *LSPServer) handlePublishDiagnostics(request LSPRequest) LSPServerResponse {
 	// This is typically a notification from the client, not a request
@@ -364,118 +201,6 @@ func (s *LSPServer) handlePublishDiagnostics(request LSPRequest) LSPServerRespon
 		ID:      request.ID,
 		Result:  nil,
 	}
-}
-
-// handleHover handles the textDocument/hover method
-func (s *LSPServer) handleHover(request LSPRequest) LSPServerResponse {
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-		Position LSPPosition `json:"position"`
-	}
-
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
-			},
-		}
-	}
-
-	// Find hover information for the position
-	hover := s.findHoverForPosition(params.TextDocument.URI, params.Position)
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  hover,
-	}
-}
-
-// handleCompletion handles the textDocument/completion method
-func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-		Position LSPPosition `json:"position"`
-	}
-
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
-			},
-		}
-	}
-
-	// Get completion items for the position
-	completions := s.getCompletionsForPosition(params.TextDocument.URI, params.Position)
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result: map[string]interface{}{
-			"isIncomplete": false,
-			"items":        completions,
-		},
-	}
-}
-
-// handleShutdown handles the shutdown method
-func (s *LSPServer) handleShutdown(request LSPRequest) LSPServerResponse {
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
-// handleExit handles the exit method
-func (s *LSPServer) handleExit(request LSPRequest) LSPServerResponse {
-	// Exit the server
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		os.Exit(0)
-	}()
-
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
-// processForstFile processes a Forst file and returns diagnostics
-func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
-
-	// Only process .ft files
-	if !strings.HasSuffix(filePath, ".ft") {
-		return nil
-	}
-
-	// Create debugger for this file
-	debugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
-	if debugger == nil {
-		return nil
-	}
-
-	// Process the file through the compiler pipeline
-	diagnostics := s.compileForstFile(filePath, content, debugger)
-
-	return diagnostics
 }
 
 // compileForstFile compiles a Forst file and returns diagnostics
@@ -571,42 +296,6 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	// Process debug events and convert to LSP diagnostics
 	s.lspDebugger.ProcessDebugEvents()
 	return s.lspDebugger.GetDiagnostics()
-}
-
-// findHoverForPosition finds hover information for a specific position
-func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPHover {
-	// For now, return a simple hover with file information
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
-
-	content := fmt.Sprintf("**Forst File**\n\n**File:** %s\n**Line:** %d\n**Character:** %d",
-		filepath.Base(filePath), position.Line+1, position.Character)
-
-	return &LSPHover{
-		Contents: LSPMarkedString{
-			Language: "markdown",
-			Value:    content,
-		},
-	}
-}
-
-// getCompletionsForPosition gets completion items for a specific position
-func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) []LSPCompletionItem {
-	var completions []LSPCompletionItem
-	for keyword := range lexer.Keywords {
-		completions = append(completions, LSPCompletionItem{
-			Label:            keyword,
-			Kind:             LSPCompletionItemKindKeyword,
-			Detail:           fmt.Sprintf("Forst keyword: %s", keyword),
-			Documentation:    fmt.Sprintf("Forst language keyword: %s", keyword),
-			InsertText:       keyword,
-			InsertTextFormat: LSPInsertTextFormatPlainText,
-		})
-	}
-
-	return completions
 }
 
 // sendDiagnosticsNotification sends a diagnostics notification
