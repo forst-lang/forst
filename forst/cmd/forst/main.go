@@ -14,9 +14,12 @@ import (
 
 // Version information injected by Release Please
 var (
+	// Version is the current version of Forst
 	Version = "dev"
-	Commit  = "unknown"
-	Date    = "unknown"
+	// Commit is the git commit hash
+	Commit = "unknown"
+	// Date is the build date
+	Date = "unknown"
 )
 
 func printVersionInfo() {
@@ -86,6 +89,11 @@ func main() {
 		default:
 			log.SetLevel(logrus.InfoLevel)
 		}
+
+		// Set version information in LSP package
+		lsp.Version = Version
+		lsp.Commit = Commit
+		lsp.Date = Date
 
 		lsp.StartLSPServer(*port, log)
 		return

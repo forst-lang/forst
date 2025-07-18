@@ -53,6 +53,16 @@ type LSPServer struct {
 	server      *http.Server
 }
 
+// Version information for LSP server
+var (
+	// Version is the current version of Forst
+	Version = "dev"
+	// Commit is the git commit hash
+	Commit = "unknown"
+	// Date is the build date
+	Date = "unknown"
+)
+
 // NewLSPServer creates a new LSP server
 func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 	debugger := NewCompilerDebugger(true)
@@ -113,7 +123,7 @@ func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status":    "healthy",
 		"service":   "forst-lsp",
-		"version":   "1.0.0",
+		"version":   Version,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -231,7 +241,7 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 			"capabilities": capabilities,
 			"serverInfo": map[string]interface{}{
 				"name":    "forst-lsp",
-				"version": "1.0.0",
+				"version": Version,
 			},
 		},
 	}
@@ -584,14 +594,8 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 
 // getCompletionsForPosition gets completion items for a specific position
 func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) []LSPCompletionItem {
-	// For now, return basic Forst keywords
-	keywords := []string{
-		"func", "type", "var", "const", "if", "else", "for", "return",
-		"ensure", "is", "Valid", "Int", "String", "Bool", "Error",
-	}
-
 	var completions []LSPCompletionItem
-	for _, keyword := range keywords {
+	for keyword := range lexer.Keywords {
 		completions = append(completions, LSPCompletionItem{
 			Label:            keyword,
 			Kind:             LSPCompletionItemKindKeyword,
