@@ -60,6 +60,36 @@ func main() {
 		return
 	}
 
+	// Check if we should start LSP server
+	if len(os.Args) > 1 && os.Args[1] == "lsp" {
+		// Parse flags for LSP server
+		lspFlags := flag.NewFlagSet("lsp", flag.ExitOnError)
+		port := lspFlags.String("port", "8081", "Port to listen on")
+		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
+
+		// Parse the lsp subcommand flags
+		lspFlags.Parse(os.Args[2:])
+
+		// Set log level
+		switch *logLevel {
+		case "trace":
+			log.SetLevel(logrus.TraceLevel)
+		case "debug":
+			log.SetLevel(logrus.DebugLevel)
+		case "info":
+			log.SetLevel(logrus.InfoLevel)
+		case "warn":
+			log.SetLevel(logrus.WarnLevel)
+		case "error":
+			log.SetLevel(logrus.ErrorLevel)
+		default:
+			log.SetLevel(logrus.InfoLevel)
+		}
+
+		StartLSPServer(*port, log)
+		return
+	}
+
 	args := compiler.ParseArgs(log)
 
 	p := compiler.New(args, log)
