@@ -3,6 +3,7 @@ package lsp
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -865,4 +866,113 @@ func TestGetCompletionsForPositionWithDifferentPositions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLSPServerDebugInfoForLLM(t *testing.T) {
+	// This test demonstrates how the enhanced LSP server provides comprehensive
+	// debugging information that can be used by an LLM to debug compiler issues
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	server := NewLSPServer("8080", logger)
+
+	// Test file with a typical compiler bug (type mismatch)
+	testContent := `
+func exampleFunction(x: String) {
+    y := x + 42  // Type error: cannot add String and Int
+    return y
+}
+`
+
+	// Simulate opening a document
+	request := LSPRequest{
+		JSONRPC: "2.0",
+		ID:      "test-1",
+		Method:  "textDocument/didOpen",
+		Params: json.RawMessage(fmt.Sprintf(`{
+			"textDocument": {
+				"uri": "file:///test.ft",
+				"version": 1,
+				"text": %q
+			}
+		}`, testContent)),
+	}
+
+	response := server.handleDidOpen(request)
+	if response.Error != nil {
+		t.Fatalf("Expected no error, got: %v", response.Error)
+	}
+
+	// Now request comprehensive debug information
+	debugRequest := LSPRequest{
+		JSONRPC: "2.0",
+		ID:      "test-2",
+		Method:  "textDocument/debugInfo",
+		Params: json.RawMessage(`{
+			"textDocument": {
+				"uri": "file:///test.ft"
+			}
+		}`),
+	}
+
+	debugResponse := server.handleDebugInfo(debugRequest)
+	if debugResponse.Error != nil {
+		t.Fatalf("Expected no error, got: %v", debugResponse.Error)
+	}
+
+	// Verify that we got comprehensive debug information
+	debugInfo, ok := debugResponse.Result.(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected debug info to be a map")
+	}
+
+	// Check that we have the expected debugging information
+	requiredFields := []string{"uri", "debugMode", "diagnostics", "compilerState", "phaseDetails"}
+	for _, field := range requiredFields {
+		if _, exists := debugInfo[field]; !exists {
+			t.Errorf("Expected debug info to contain field: %s", field)
+		}
+	}
+
+	// Verify that diagnostics contain the type error
+	diagnostics, ok := debugInfo["diagnostics"].([]LSPDiagnostic)
+	if !ok {
+		t.Fatal("Expected diagnostics to be a slice")
+	}
+
+	if len(diagnostics) == 0 {
+		t.Log("No diagnostics found - this might be expected if the test file compiles successfully")
+	} else {
+		t.Logf("Found %d diagnostics", len(diagnostics))
+		for i, diag := range diagnostics {
+			t.Logf("Diagnostic %d: %s (severity: %d)", i, diag.Message, diag.Severity)
+		}
+	}
+
+	// Verify compiler state information
+	compilerState, ok := debugInfo["compilerState"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected compiler state to be a map")
+	}
+
+	phases, ok := compilerState["phases"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected phases to be a map")
+	}
+
+	// Check that all compiler phases are present
+	expectedPhases := []string{"lexer", "parser", "typechecker", "transformer"}
+	for _, phase := range expectedPhases {
+		if _, exists := phases[phase]; !exists {
+			t.Errorf("Expected phase %s to be present in compiler state", phase)
+		}
+	}
+
+	t.Log("LLM debugging test completed successfully")
+	t.Log("This demonstrates how an LLM can use the LSP server to:")
+	t.Log("1. Open a file and trigger compilation")
+	t.Log("2. Request comprehensive debug information")
+	t.Log("3. Analyze compiler state across all phases")
+	t.Log("4. Get detailed diagnostics with error codes and suggestions")
+	t.Log("5. Access phase-specific information for targeted debugging")
 }

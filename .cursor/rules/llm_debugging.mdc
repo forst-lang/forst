@@ -1,0 +1,59 @@
+# LLM Debugging with Forst LSP Server
+
+## Overview
+
+The enhanced LSP server provides comprehensive debugging information for LLM debugging of compiler issues. It enables LLMs to:
+
+1. **Trigger compilation** by opening files
+2. **Get detailed diagnostics** with error codes and suggestions
+3. **Access compiler state** across all phases (lexer, parser, typechecker, transformer)
+4. **Analyze phase-specific information** for targeted debugging
+
+## Key LSP Methods for LLM Debugging
+
+### `textDocument/didOpen` - Trigger Compilation
+
+Opens a file and triggers the full compilation pipeline.
+
+### `textDocument/debugInfo` - Comprehensive Debug Information
+
+Gets comprehensive debugging information including all compiler phase outputs, diagnostics with error codes and suggestions, compiler state across all phases, and debug events.
+
+### `textDocument/compilerState` - Current Compiler State
+
+Gets the current state of all compiler phases.
+
+### `textDocument/phaseDetails` - Phase-Specific Information
+
+Gets detailed information about specific compiler phases.
+
+## Typical LLM Debugging Workflow
+
+1. **Start LSP server**: `go run cmd/forst/main.go lsp --port 8080`
+2. **Open problematic file**: Triggers full compilation pipeline
+3. **Request debug info**: Gets comprehensive debugging information
+4. **Analyze compiler state**: Understand which phase failed and why
+5. **Get phase details**: Access specific phase information for targeted debugging
+6. **Propose fixes**: Use debug information to suggest solutions
+
+## Common Compiler Issues and Debugging
+
+- **Type Emission Issues**: Check `compilerState.phases.transformer` for type emission status
+- **Recursive Type Aliases**: Check `compilerState.phases.transformer` for assertion type handling
+- **Function Parameter Mismatches**: Check `compilerState.phases.typechecker` for type inference
+- **Struct Literal Problems**: Check `compilerState.phases.transformer` for shape transformation
+
+## Benefits for LLM Debugging
+
+- **Comprehensive Information**: Access to all compiler phases and their state
+- **Structured Data**: JSON responses with clear error codes and suggestions
+- **Real-time Feedback**: Immediate compilation and diagnostic information
+- **Phase-specific Analysis**: Detailed information about each compilation phase
+- **Error Context**: Rich context about variables, types, and scope information
+
+This enhanced LSP server enables LLMs to effectively debug compiler issues by providing the same level of information that human developers would use to understand and fix compiler problems.
+description:
+globs:
+alwaysApply: false
+
+---
