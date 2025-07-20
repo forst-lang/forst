@@ -99,7 +99,13 @@ This is the hierarchy of priorities during development and debugging, ordered fr
 
 ## Debugging Strategies
 
-### 1. Add Tracing
+### 1. Run dump
+
+```bash
+FILE=rfc/guard/shape_guard.ft task dump
+```
+
+### 2. Add Tracing
 
 ```go
 t.log.WithFields(logrus.Fields{
@@ -108,19 +114,19 @@ t.log.WithFields(logrus.Fields{
 }).Debug("Processing function parameter")
 ```
 
-### 2. Check Type Emission
+### 3. Check Type Emission
 
 - Verify all referenced types are in `t.Output.types`
 - Check for duplicate type definitions
 - Ensure hash-based names are consistent
 
-### 3. Validate Type Inference
+### 4. Validate Type Inference
 
 - Check `TypeChecker.Defs` for inferred types
 - Verify assertion types are properly resolved
 - Ensure function signatures match call sites
 
-### 4. Test with Minimal Examples
+### 5. Test with Minimal Examples
 
 - Create focused unit tests for specific bugs
 - Use `examples/in/` for integration testing

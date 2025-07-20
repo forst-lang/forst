@@ -202,6 +202,14 @@ tasks:
       - bun run example:client
     silent: false
 
+  dump:
+    desc: Dump debug info for a specific example file
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} dump --file={{.EXAMPLES_DIR}}/{{.FILE}}
+    vars:
+      FILE: '{{.FILE | default "basic.ft"}}'
+
   # Development tasks
   dev:watch:
     desc: Watch for changes and run tests

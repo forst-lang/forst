@@ -115,7 +115,7 @@ func main() {
 		// Parse flags for dump command
 		dumpFlags := flag.NewFlagSet("dump", flag.ExitOnError)
 		filePath := dumpFlags.String("file", "", "Path to Forst file to dump")
-		compression := dumpFlags.Bool("compression", true, "Enable compression for debug output")
+		compression := dumpFlags.Bool("compression", false, "Enable compression for debug output")
 		format := dumpFlags.String("format", "json", "Output format (json, pretty)")
 		phase := dumpFlags.String("phase", "all", "Specific phase to dump (lexer, parser, typechecker, transformer, all)")
 
