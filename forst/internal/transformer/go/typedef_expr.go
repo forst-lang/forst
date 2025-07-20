@@ -64,8 +64,13 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 										fieldType = *typeExpr
 									}
 								} else {
-									// Use Go builtin type ident
-									fieldType = goast.NewIdent(fieldNode.Type.Ident.String())
+									// Use the unified aliasing logic for Go type ident
+									name, err := t.TypeChecker.GetAliasedTypeName(*fieldNode.Type)
+									if err != nil {
+										fieldType = goast.NewIdent(fieldNode.Type.Ident.String())
+									} else {
+										fieldType = goast.NewIdent(name)
+									}
 								}
 							}
 							if fieldType == nil && expr != nil {

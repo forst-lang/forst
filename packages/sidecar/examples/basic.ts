@@ -1,6 +1,6 @@
 // Basic example of using @forst/sidecar
 
-import { createSidecar, autoStart } from "../src/index";
+import { autoStart } from "../src/index";
 
 async function basicExample() {
   console.log("🚀 Starting basic Forst sidecar example...");

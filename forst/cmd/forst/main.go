@@ -50,6 +50,7 @@ func main() {
 		port := devFlags.String("port", "8080", "Port to listen on")
 		configPath := devFlags.String("config", "", "Path to configuration file")
 		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
+		logLevel := devFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the dev subcommand flags
 		devFlags.Parse(os.Args[2:])
@@ -61,7 +62,16 @@ func main() {
 			os.Exit(1)
 		}
 
-		StartDevServer(*port, log, *configPath, absRootDir)
+		StartDevServer(*port, log, *configPath, absRootDir, logLevel)
+		return
+	}
+
+	// Check if we should generate TypeScript client
+	if len(os.Args) > 1 && os.Args[1] == "generate" {
+		if err := generateCommand(os.Args[2:]); err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -105,7 +115,7 @@ func main() {
 		// Parse flags for dump command
 		dumpFlags := flag.NewFlagSet("dump", flag.ExitOnError)
 		filePath := dumpFlags.String("file", "", "Path to Forst file to dump")
-		compression := dumpFlags.Bool("compression", true, "Enable compression for debug output")
+		compression := dumpFlags.Bool("compression", false, "Enable compression for debug output")
 		format := dumpFlags.String("format", "json", "Output format (json, pretty)")
 		phase := dumpFlags.String("phase", "all", "Specific phase to dump (lexer, parser, typechecker, transformer, all)")
 

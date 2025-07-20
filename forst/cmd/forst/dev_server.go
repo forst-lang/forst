@@ -62,20 +62,14 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 
 // Start starts the HTTP server
 func (s *DevServer) Start() error {
-	// Discover functions on startup
 	if err := s.discoverFunctions(); err != nil {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
 	}
 
 	mux := http.NewServeMux()
 
-	// Health check endpoint
 	mux.HandleFunc("/health", s.handleHealth)
-
-	// Function discovery endpoint
 	mux.HandleFunc("/functions", s.handleFunctions)
-
-	// Function invocation endpoint
 	mux.HandleFunc("/invoke", s.handleInvoke)
 
 	s.server = &http.Server{
@@ -85,13 +79,18 @@ func (s *DevServer) Start() error {
 		WriteTimeout: time.Duration(s.config.Server.WriteTimeout) * time.Second,
 	}
 
-	s.log.Infof("HTTP server listening on port %s", s.port)
-	s.log.Info("Available endpoints:")
-	s.log.Info("  GET  /health     - Health check")
-	s.log.Info("  GET  /functions  - Discover available functions")
-	s.log.Info("  POST /invoke     - Invoke a Forst function")
+	s.logStartupInfo()
 
 	return s.server.ListenAndServe()
+}
+
+// logStartupInfo logs information about the server startup
+func (s *DevServer) logStartupInfo() {
+	s.log.Infof("HTTP server listening on port %s", s.port)
+	s.log.Info("Available endpoints:")
+	s.log.Info("  GET  /functions  - Discover available functions")
+	s.log.Info("  POST /invoke     - Invoke a Forst function")
+	s.log.Info("  GET  /health     - Health check")
 }
 
 // Stop stops the HTTP server
@@ -113,7 +112,6 @@ func (s *DevServer) discoverFunctions() error {
 	s.functions = functions
 	s.mu.Unlock()
 
-	s.log.Infof("Discovered %d packages with public functions", len(functions))
 	return nil
 }
 
@@ -156,7 +154,6 @@ func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 
 	response := DevServerResponse{
 		Success: true,
-		Output:  fmt.Sprintf("Found %d public functions", len(functions)),
 	}
 
 	// Include function list in result
@@ -274,43 +271,8 @@ func (s *DevServer) sendError(w http.ResponseWriter, errorMsg string, statusCode
 }
 
 // StartDevServer is the entry point for the dev server command
-func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string) {
-	// Load configuration
-	config, err := LoadConfig(configPath)
-	if err != nil {
-		log.Errorf("Failed to load configuration: %v", err)
-		os.Exit(1)
-	}
-
-	log.Infof("Loaded config: %+v", config)
-	log.Infof("Config log level: %s", config.Dev.LogLevel)
-
-	// Validate configuration
-	if err := config.Validate(); err != nil {
-		log.Errorf("Invalid configuration: %v", err)
-		os.Exit(1)
-	}
-
-	// Override port if provided
-	if port != "" {
-		config.Server.Port = port
-	}
-
-	// Set log level based on config
-	switch config.Dev.LogLevel {
-	case "debug":
-		log.SetLevel(logrus.DebugLevel)
-		log.Debug("Log level set to DEBUG")
-	case "info":
-		log.SetLevel(logrus.InfoLevel)
-		log.Debug("Log level set to INFO")
-	case "warn":
-		log.SetLevel(logrus.WarnLevel)
-		log.Debug("Log level set to WARN")
-	case "error":
-		log.SetLevel(logrus.ErrorLevel)
-		log.Debug("Log level set to ERROR")
-	}
+func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) {
+	config := loadAndValidateConfig(configPath, log, port, logLevel)
 
 	// Create compiler with config
 	args := config.ToCompilerArgs()
@@ -319,11 +281,97 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 	// Create server
 	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
 
-	log.Infof("Starting Forst dev server on port %s", config.Server.Port)
-	log.Infof("Root directory: %s", rootDir)
+	log.Debugf("Starting Forst dev server on port %s", config.Server.Port)
+	log.Debugf("Root directory: %s", rootDir)
 
 	if err := server.Start(); err != nil {
 		log.Errorf("HTTP server error: %v", err)
 		os.Exit(1)
 	}
+}
+
+func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string) *ForstConfig {
+	config, err := LoadConfig(configPath)
+	if err != nil {
+		log.Errorf("Failed to load configuration: %v", err)
+		os.Exit(1)
+	}
+
+	if configPath == "" {
+		log.Infof("No config file provided, using default configuration")
+	} else {
+		log.Infof("Loaded config from: %s", configPath)
+	}
+
+	// Override port if provided
+	if port != "" && port != config.Server.Port {
+		config.Server.Port = port
+	}
+
+	// Override log level if provided
+	if logLevel != nil {
+		config.Dev.LogLevel = *logLevel
+	}
+
+	type configSection struct {
+		name    string
+		entries []string
+	}
+	sections := []configSection{
+		{"Server", []string{
+			fmt.Sprintf("%-15s %s", "Port:", config.Server.Port),
+			fmt.Sprintf("%-15s %v", "CORS enabled:", config.Server.CORS),
+		}},
+		{"Compiler", []string{
+			fmt.Sprintf("%-15s %s", "Target:", config.Compiler.Target),
+			fmt.Sprintf("%-15s %s", "Optimization:", config.Compiler.Optimization),
+			fmt.Sprintf("%-15s %v", "Report phases:", config.Compiler.ReportPhases),
+		}},
+		{"Files", []string{
+			fmt.Sprintf("%-15s %s", "Include:", config.Files.Include),
+			fmt.Sprintf("%-15s %s", "Exclude:", config.Files.Exclude),
+		}},
+		{"Output", []string{
+			fmt.Sprintf("%-15s %s", "Dir:", config.Output.Dir),
+			fmt.Sprintf("%-15s %s", "File name:", config.Output.FileName),
+			fmt.Sprintf("%-15s %v", "Source maps:", config.Output.SourceMaps),
+			fmt.Sprintf("%-15s %v", "Clean:", config.Output.Clean),
+		}},
+		{"Dev", []string{
+			fmt.Sprintf("%-15s %v", "Hot reload:", config.Dev.HotReload),
+			fmt.Sprintf("%-15s %v", "Watch:", config.Dev.Watch),
+			fmt.Sprintf("%-15s %v", "Auto restart:", config.Dev.AutoRestart),
+			fmt.Sprintf("%-15s %s", "Log level:", config.Dev.LogLevel),
+			fmt.Sprintf("%-15s %v", "Verbose:", config.Dev.Verbose),
+		}},
+	}
+
+	// Set log level based on config
+	switch config.Dev.LogLevel {
+	case "trace":
+		log.SetLevel(logrus.TraceLevel)
+	case "debug":
+		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	}
+
+	for _, section := range sections {
+		log.Debugf("%s:", section.name)
+		for _, entry := range section.entries {
+			log.Debugf("    %s", entry)
+		}
+	}
+
+	// Validate configuration
+	if err := config.Validate(); err != nil {
+		log.Errorf("Invalid configuration: %v", err)
+		os.Exit(1)
+	}
+
+	return config
 }

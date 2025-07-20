@@ -7,7 +7,7 @@ import (
 )
 
 // transformType converts a Forst type node to a Go type declaration
-func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
+func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	if n.Ident == "" {
 		return nil, fmt.Errorf("TypeNode is missing an identifier: %+v", n)
 	}
@@ -30,12 +30,12 @@ func (t *Transformer) transformType(n ast.TypeNode) (*goast.Ident, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform pointer base type: %s", err)
 		}
-		return &goast.Ident{Name: "*" + baseType.Name}, nil
+		return &goast.StarExpr{X: baseType}, nil
 	default:
-		// Use getTypeAliasNameForTypeNode for user-defined types
-		name, err := t.getTypeAliasNameForTypeNode(n)
+		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
+		name, err := t.TypeChecker.GetAliasedTypeName(n)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get type alias name: %s", err)
+			return nil, fmt.Errorf("failed to get aliased type name: %s", err)
 		}
 		return goast.NewIdent(name), nil
 	}
@@ -45,12 +45,12 @@ func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, er
 	fields := make([]*goast.Field, len(types))
 
 	for i, typ := range types {
-		ident, err := t.transformType(typ)
+		expr, err := t.transformType(typ)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform type: %s", err)
 		}
 		fields[i] = &goast.Field{
-			Type: ident,
+			Type: expr,
 		}
 	}
 

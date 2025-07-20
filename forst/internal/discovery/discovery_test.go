@@ -2,10 +2,10 @@ package discovery
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"unicode"
 
@@ -134,8 +134,8 @@ func TestDiscoverer_FindForstFiles_NilConfig(t *testing.T) {
 		t.Error("Expected error when config is nil")
 	}
 
-	if !strings.Contains(err.Error(), "ForstConfig is required") {
-		t.Errorf("Expected error about ForstConfig, got: %v", err)
+	if !errors.Is(err, ErrNilForstConfig) {
+		t.Errorf("Expected ErrNilForstConfig, got: %v", err)
 	}
 }
 

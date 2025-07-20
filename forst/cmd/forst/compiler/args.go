@@ -104,6 +104,7 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  lsp     Start the Forst LSP server")
 	log.Infof("  run     Compile and run a Forst program")
 	log.Infof("  build   Compile a Forst program without running")
+	log.Infof("  generate Generate TypeScript client code")
 	log.Infof("\nFlags:")
 	log.Infof("  -loglevel <level>       Log level (debug, info, warn, error, trace)")
 	log.Infof("  -watch                  Watch file for changes (run only)")

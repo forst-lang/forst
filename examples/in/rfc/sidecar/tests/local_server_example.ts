@@ -1,11 +1,11 @@
 import { runTestSuite } from "./runner";
 import { resolve } from "node:path";
 import { logger } from "./logger";
-import { createSidecar } from "@forst/sidecar";
+import { ForstSidecar } from "@forst/sidecar";
 
 async function runLocalServerExample() {
   // Create sidecar with awkward custom compiler path
-  const sidecar = createSidecar({
+  const sidecar = new ForstSidecar({
     mode: "development",
     port: 8083,
     host: "localhost",

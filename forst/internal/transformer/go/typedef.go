@@ -26,7 +26,8 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 
 	// Use original name for user-defined types, hash-based name for structural types
 	var typeName ast.TypeIdent
-	if ast.IsHashBasedType(ast.TypeNode{Ident: node.Ident}) {
+	var typeNode = ast.TypeNode{Ident: node.Ident}
+	if typeNode.IsHashBased() {
 		// For hash-based types, use the hash-based name
 		typeName = hashTypeName
 	} else {
@@ -113,8 +114,14 @@ func (t *Transformer) defineShapeType(shape *ast.ShapeNode) error {
 		return fmt.Errorf("failed to transform shape type %s: %w", typeIdent, err)
 	}
 
+	// Use the unified aliasing logic for the type name
+	aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent})
+	if err != nil || aliasName == "" {
+		aliasName = string(typeIdent)
+	}
+
 	decl, err := t.transformTypeDef(ast.TypeDefNode{
-		Ident: typeIdent,
+		Ident: ast.TypeIdent(aliasName),
 		Expr: ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
 				BaseType: nil,
@@ -159,8 +166,14 @@ func (t *Transformer) defineShapeFields(shape *ast.ShapeNode) error {
 				return fmt.Errorf("failed to transform shape field type %s: %w", typeIdent, err)
 			}
 
+			// Use the unified aliasing logic for the type name
+			aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent})
+			if err != nil || aliasName == "" {
+				aliasName = string(typeIdent)
+			}
+
 			decl, err := t.transformTypeDef(ast.TypeDefNode{
-				Ident: typeIdent,
+				Ident: ast.TypeIdent(aliasName),
 				Expr: ast.TypeDefAssertionExpr{
 					Assertion: &ast.AssertionNode{
 						BaseType: nil,
@@ -205,101 +218,27 @@ func (t *Transformer) defineShapeTypes() error {
 	return nil
 }
 
-// This rule is enforced below:
+// getTypeAliasNameForTypeNode uses the unified type aliasing function from the typechecker
 func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	t.log.Debugf("getTypeAliasNameForTypeNode: input type %q, typeKind %v", typeNode.Ident, typeNode.TypeKind)
-
 	// Handle Shape and TYPE_SHAPE types specially - emit inline empty struct
 	if typeNode.Ident == ast.TypeIdent("Shape") || typeNode.Ident == ast.TypeIdent("TYPE_SHAPE") {
 		t.log.Debugf("getTypeAliasNameForTypeNode: Shape/TYPE_SHAPE type %q -> inline struct", typeNode.Ident)
 		return "struct{}", nil
 	}
 
-	// Ensure the type is registered before emitting
-	if typeNode.TypeKind == ast.TypeKindHashBased || typeNode.TypeKind == ast.TypeKindUserDefined {
-		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; !exists {
-			t.log.Warnf("Type %q not registered in Defs; synthesizing minimal definition", typeNode.Ident)
-			// Synthesize a minimal struct type
-			minimal := ast.TypeDefNode{
-				Ident: typeNode.Ident,
-				Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
-			}
-			t.TypeChecker.RegisterTypeIfMissing(typeNode.Ident, minimal)
-		}
-	}
-
-	switch typeNode.TypeKind {
-	case ast.TypeKindBuiltin:
-		// Handle pointer types specially - they should be processed by transformType, not here
-		if typeNode.Ident == ast.TypePointer {
-			panic("BUG: pointer types should be handled by transformType, not getTypeAliasNameForTypeNode")
-		}
-		ident, err := transformTypeIdent(typeNode.Ident)
-		if err != nil {
-			return "", fmt.Errorf("failed to transform type ident during getTypeAliasNameForTypeNode: %w", err)
-		}
-		if ident != nil {
-			result := ident.Name
-			t.log.Debugf("getTypeAliasNameForTypeNode: builtin type %q -> alias %q", typeNode.Ident, result)
-			return result, nil
-		}
-		return string(typeNode.Ident), nil
-	case ast.TypeKindHashBased:
-		return string(typeNode.Ident), nil
-	case ast.TypeKindUserDefined:
-		// Always emit the hash-based name for user-defined types
-		hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
-		if err != nil {
-			return "", fmt.Errorf("failed to hash type node: %w", err)
-		}
-		result := string(hash.ToTypeIdent())
-		t.log.Debugf("getTypeAliasNameForTypeNode: user-defined type %q -> hash-based alias %q", typeNode.Ident, result)
-		return result, nil
-	default:
-		return string(typeNode.Ident), nil
-	}
+	// Use the unified type aliasing function from the typechecker
+	return t.TypeChecker.GetAliasedTypeName(typeNode)
 }
 
-// getGeneratedTypeNameForTypeNode looks up the generated type name for a TypeNode
-// by checking if it's already defined in the typechecker's Defs
+// getGeneratedTypeNameForTypeNode uses the unified type aliasing function from the typechecker
 func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	// For built-in types, return their Go names
-	if isGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
-		ident, err := transformTypeIdent(typeNode.Ident)
-		if err != nil {
-			return "", err
-		}
-		if ident != nil {
-			return ident.Name, nil
-		}
-		return string(typeNode.Ident), nil
-	}
+	// Use the unified type aliasing function from the typechecker
+	return t.TypeChecker.GetAliasedTypeName(typeNode)
+}
 
-	// Handle pointer types
-	if typeNode.Ident == ast.TypePointer {
-		if len(typeNode.TypeParams) == 0 {
-			return "", fmt.Errorf("pointer type must have a base type parameter")
-		}
-		baseTypeName, err := t.getGeneratedTypeNameForTypeNode(typeNode.TypeParams[0])
-		if err != nil {
-			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
-		}
-		return "*" + baseTypeName, nil
-	}
-
-	// For user-defined types, check if they're already defined in the typechecker
-	if typeNode.Ident != "" {
-		// Check if this type is already defined in the typechecker's Defs
-		if _, exists := t.TypeChecker.Defs[typeNode.Ident]; exists {
-			// Return the type name as-is since it's already defined
-			return string(typeNode.Ident), nil
-		}
-	}
-
-	// If not found in Defs, fall back to hash-based name
-	hash, err := t.TypeChecker.Hasher.HashNode(typeNode)
-	if err != nil {
-		return "", fmt.Errorf("failed to hash type node: %w", err)
-	}
-	return string(hash.ToTypeIdent()), nil
+// getAliasedTypeNameForTypeNode returns the aliased type name for any type node,
+// ensuring consistent type aliasing across the transformer
+func (t *Transformer) getAliasedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
+	// Use the unified type aliasing function from the typechecker
+	return t.TypeChecker.GetAliasedTypeName(typeNode)
 }

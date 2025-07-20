@@ -160,15 +160,15 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
 
 	case ast.ShapeNode:
-		inferredType, err := tc.inferShapeType(e)
+		inferredType, err := tc.inferShapeType(e, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to infer shape type: %w", err)
 		}
-		tc.storeInferredType(e, inferredType)
-		return inferredType, nil
+		tc.storeInferredType(e, []ast.TypeNode{inferredType})
+		return []ast.TypeNode{inferredType}, nil
 
 	case ast.AssertionNode:
-		inferredType, err := tc.InferAssertionType(&e, false)
+		inferredType, err := tc.InferAssertionType(&e, false, "", nil)
 		if err != nil {
 			return nil, err
 		}

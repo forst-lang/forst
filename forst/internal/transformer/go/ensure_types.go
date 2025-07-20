@@ -18,6 +18,8 @@ const (
 	GreaterThanConstraint BuiltinConstraint = "GreaterThan"
 	// HasPrefixConstraint is the built-in HasPrefix constraint in Forst
 	HasPrefixConstraint BuiltinConstraint = "HasPrefix"
+	// ContainsConstraint is the built-in Contains constraint in Forst
+	ContainsConstraint BuiltinConstraint = "Contains"
 	// TrueConstraint is the built-in True constraint in Forst
 	TrueConstraint BuiltinConstraint = "True"
 	// FalseConstraint is the built-in False constraint in Forst
@@ -26,6 +28,10 @@ const (
 	NilConstraint BuiltinConstraint = "Nil"
 	// PresentConstraint is the built-in NotNil constraint in Forst
 	PresentConstraint BuiltinConstraint = "Present"
+	// NotEmptyConstraint is the built-in NotEmpty constraint in Forst
+	NotEmptyConstraint BuiltinConstraint = "NotEmpty"
+	// ValidConstraint is the built-in Valid constraint in Forst
+	ValidConstraint BuiltinConstraint = "Valid"
 	// ValueConstraint is the built-in Value constraint in Forst
 	ValueConstraint BuiltinConstraint = ast.ValueConstraint
 )

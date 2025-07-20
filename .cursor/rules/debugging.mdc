@@ -16,6 +16,24 @@ Forst is a Go-interoperable language that transpiles to Go. The compiler pipelin
 - **Discovery** (`internal/discovery/`) - Enables function discovery for sidecars
 - **Executor** (`internal/executor/`) – Runs Forst functions for sidecars
 
+## Priorities
+
+This is the hierarchy of priorities during development and debugging, ordered from highest priority to lowest priority.
+
+1. Ensure presence of precise, reproducing unit or integration tests (preferrably unit tests).
+   - These tests help us estimate if we're making progress.
+   - Prefer precise names describing exactly what's under test.
+2. Ensure code is robust and does not break or produce bugs easily.
+   - We are building developer tools that many developers need to rely on for production code.
+3. Ensure log output provides helpful information.
+   - If in doubt, add one more log statement with an appropriate log level (typically trace or debug).
+4. Ensure future-proof fixes.
+   - If possible come up with a generic fix for any given solution such that it works for all likely use cases.
+   - Try to produce re-usable code and re-use it wherever it makes sense.
+   - Prefer expanding AST nodes or compiler state with in-memory calculations over ad-hoc calculations if it makes sense.
+5. Speed of coming up with a fix.
+   - If really necessary, come up with a pinpoint fix for a specific situation, but only if it actually helps us find a future-proof fix.
+
 ## Key AST Node Types
 
 ### Core Types
@@ -81,7 +99,13 @@ Forst is a Go-interoperable language that transpiles to Go. The compiler pipelin
 
 ## Debugging Strategies
 
-### 1. Add Tracing
+### 1. Run dump
+
+```bash
+FILE=rfc/guard/shape_guard.ft task dump
+```
+
+### 2. Add Tracing
 
 ```go
 t.log.WithFields(logrus.Fields{
@@ -90,19 +114,19 @@ t.log.WithFields(logrus.Fields{
 }).Debug("Processing function parameter")
 ```
 
-### 2. Check Type Emission
+### 3. Check Type Emission
 
 - Verify all referenced types are in `t.Output.types`
 - Check for duplicate type definitions
 - Ensure hash-based names are consistent
 
-### 3. Validate Type Inference
+### 4. Validate Type Inference
 
 - Check `TypeChecker.Defs` for inferred types
 - Verify assertion types are properly resolved
 - Ensure function signatures match call sites
 
-### 4. Test with Minimal Examples
+### 5. Test with Minimal Examples
 
 - Create focused unit tests for specific bugs
 - Use `examples/in/` for integration testing

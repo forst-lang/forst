@@ -11,79 +11,71 @@ import (
 func TestFunctionCallWithShapeLiteralArgument(t *testing.T) {
 	// Create a typechecker
 	tc := New(logrus.New(), false)
-	tc.VariableTypes = map[ast.Identifier][]ast.TypeNode{
-		"sessionId": {{Ident: ast.TypeString}},
-	}
 
-	// Create a shape literal that will be passed as a function argument
-	shapeLiteral := ast.ShapeNode{
-		Fields: map[string]ast.ShapeFieldNode{
-			"sessionId": {
-				Assertion: &ast.AssertionNode{
-					Constraints: []ast.ConstraintNode{{
-						Name: "Value",
-						Args: []ast.ConstraintArgumentNode{{
-							Value: func() *ast.ValueNode {
-								var v ast.ValueNode = ast.ReferenceNode{
-									Value: ast.VariableNode{
-										Ident: ast.Ident{ID: ast.Identifier("sessionId")},
-									},
-								}
-								return &v
-							}(),
-						}},
-					}},
+	// Create type definitions for the types we need
+	appMutationDef := ast.TypeDefNode{
+		Ident: "AppMutation",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"id": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 				},
 			},
+		},
+	}
+
+	// Use CheckTypes to register the type definitions properly
+	err := tc.CheckTypes([]ast.Node{appMutationDef})
+	if err != nil {
+		t.Fatalf("Failed to register type definitions: %v", err)
+	}
+
+	// Add a dummy function definition for createMutation that accepts AppMutation
+	createMutationFn := ast.FunctionNode{
+		Ident: ast.Ident{ID: "createMutation"},
+		Params: []ast.ParamNode{
+			ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "input"},
+				Type:  ast.TypeNode{Ident: ast.TypeIdent("AppMutation")},
+			},
+		},
+		ReturnTypes: []ast.TypeNode{},
+		Body:        []ast.Node{},
+	}
+
+	// Create a shape literal argument matching AppMutation
+	shapeLiteral := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 		},
 	}
 
 	// Create a function call with the shape literal as an argument
 	functionCall := ast.FunctionCallNode{
-		Function: ast.Ident{ID: ast.Identifier("createUser")},
-		Arguments: []ast.ExpressionNode{
-			shapeLiteral,
-		},
+		Function:  ast.Ident{ID: "createMutation"},
+		Arguments: []ast.ExpressionNode{shapeLiteral},
 	}
 
-	// Register a function signature for createUser
-	tc.Functions[ast.Identifier("createUser")] = FunctionSignature{
-		Parameters: []ParameterSignature{
-			{
-				Ident: ast.Ident{ID: ast.Identifier("op")},
-				Type: ast.TypeNode{
-					Ident: ast.TypeIdent("AppMutation"),
-				},
-			},
-		},
-		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
+	// Wrap the function call in a function node
+	testFn := ast.FunctionNode{
+		Ident: ast.Ident{ID: "test"},
+		Body:  []ast.Node{functionCall},
 	}
 
-	// Test that the shape literal argument is properly type-checked
-	// This should infer the type for the shape literal and store it
-	_, err := tc.inferExpressionType(functionCall)
+	// Use CheckTypes to register the type definitions and infer the shape literal type
+	err = tc.CheckTypes([]ast.Node{appMutationDef, createMutationFn, testFn})
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("Failed to register type definitions and infer types: %v", err)
 	}
 
-	// Verify that the shape literal has an inferred type stored
-	shapeHash, err := tc.Hasher.HashNode(shapeLiteral)
+	// Optionally, check that the argument is compatible with AppMutation
+	appMutationType := ast.TypeNode{Ident: ast.TypeIdent("AppMutation")}
+	argTypes, err := tc.inferExpressionType(shapeLiteral)
 	if err != nil {
-		t.Fatalf("Failed to hash shape literal: %v", err)
+		t.Fatalf("Failed to infer type for shape literal: %v", err)
 	}
-	shapeTypeIdent := shapeHash.ToTypeIdent()
-
-	// Check if the shape type was registered
-	if _, exists := tc.Defs[shapeTypeIdent]; !exists {
-		t.Errorf("Expected shape type %s to be registered in Defs", shapeTypeIdent)
-	}
-
-	// Check if the inferred type is stored for the shape literal
-	if inferredTypes, exists := tc.Types[shapeHash]; !exists {
-		t.Errorf("Expected inferred types to be stored for shape literal")
-	} else if len(inferredTypes) == 0 {
-		t.Errorf("Expected non-empty inferred types for shape literal")
-	} else if inferredTypes[0].Ident != shapeTypeIdent {
-		t.Errorf("Expected inferred type %s, got %s", shapeTypeIdent, inferredTypes[0].Ident)
+	compatible := tc.IsTypeCompatible(argTypes[0], appMutationType)
+	if !compatible {
+		t.Errorf("Expected shape literal to be compatible with AppMutation, got %v", argTypes[0])
 	}
 }

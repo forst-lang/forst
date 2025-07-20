@@ -353,8 +353,19 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 // IsTypeCompatible checks if a type is compatible with an expected type,
 // taking into account subtypes and type guards
 func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
+	tc.log.WithFields(logrus.Fields{
+		"actual":   actual.Ident,
+		"expected": expected.Ident,
+		"function": "IsTypeCompatible",
+	}).Debug("Checking type compatibility")
+
 	// Direct type match
 	if actual.Ident == expected.Ident {
+		tc.log.WithFields(logrus.Fields{
+			"actual":   actual.Ident,
+			"expected": expected.Ident,
+			"function": "IsTypeCompatible",
+		}).Debug("Direct type match")
 		return true
 	}
 
@@ -366,6 +377,11 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
 					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
 					if tc.IsTypeCompatible(baseType, expected) {
+						tc.log.WithFields(logrus.Fields{
+							"actual":   actual.Ident,
+							"expected": expected.Ident,
+							"function": "IsTypeCompatible",
+						}).Debug("Actual type is alias of expected type")
 						return true
 					}
 				}
@@ -381,6 +397,11 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
 					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
 					if tc.IsTypeCompatible(actual, baseType) {
+						tc.log.WithFields(logrus.Fields{
+							"actual":   actual.Ident,
+							"expected": expected.Ident,
+							"function": "IsTypeCompatible",
+						}).Debug("Expected type is alias of actual type")
 						return true
 					}
 				}
@@ -388,7 +409,108 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}
 	}
 
+	// Check for structural compatibility between hash-based types and user-defined types
+	if actualDef != nil && expectedDef != nil {
+		tc.log.WithFields(logrus.Fields{
+			"actual":   actual.Ident,
+			"expected": expected.Ident,
+			"function": "IsTypeCompatible",
+		}).Info("Checking structural compatibility")
+
+		actualShape, actualShapeOk := tc.getShapeFromTypeDef(actualDef)
+		expectedShape, expectedShapeOk := tc.getShapeFromTypeDef(expectedDef)
+
+		tc.log.WithFields(logrus.Fields{
+			"actual":          actual.Ident,
+			"expected":        expected.Ident,
+			"actualShapeOk":   actualShapeOk,
+			"expectedShapeOk": expectedShapeOk,
+			"function":        "IsTypeCompatible",
+		}).Info("Shape extraction results")
+
+		if actualShapeOk && expectedShapeOk {
+			identical := tc.shapesAreStructurallyIdentical(*actualShape, *expectedShape)
+			tc.log.WithFields(logrus.Fields{
+				"actual":    actual.Ident,
+				"expected":  expected.Ident,
+				"identical": identical,
+				"function":  "IsTypeCompatible",
+			}).Info("Structural compatibility check result")
+
+			if identical {
+				tc.log.WithFields(logrus.Fields{
+					"actual":   actual.Ident,
+					"expected": expected.Ident,
+					"function": "IsTypeCompatible",
+				}).Info("Shapes are structurally identical")
+				return true
+			}
+		} else {
+			tc.log.WithFields(logrus.Fields{
+				"actual":          actual.Ident,
+				"expected":        expected.Ident,
+				"actualShapeOk":   actualShapeOk,
+				"expectedShapeOk": expectedShapeOk,
+				"function":        "IsTypeCompatible",
+			}).Info("Could not extract shapes for structural comparison")
+		}
+	} else {
+		tc.log.WithFields(logrus.Fields{
+			"actual":      actual.Ident,
+			"expected":    expected.Ident,
+			"actualDef":   actualDef != nil,
+			"expectedDef": expectedDef != nil,
+			"function":    "IsTypeCompatible",
+		}).Info("Skipping structural compatibility - missing type definitions")
+	}
+
+	tc.log.WithFields(logrus.Fields{
+		"actual":   actual.Ident,
+		"expected": expected.Ident,
+		"function": "IsTypeCompatible",
+	}).Debug("Types are not compatible")
 	return false
+}
+
+// getShapeFromTypeDef extracts the shape from a TypeDefNode if it's a shape definition
+func (tc *TypeChecker) getShapeFromTypeDef(def ast.Node) (*ast.ShapeNode, bool) {
+	if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+			return &shapeExpr.Shape, true
+		}
+	}
+	return nil, false
+}
+
+// shapesAreStructurallyIdentical returns true if two ShapeNodes have the same fields and types
+func (tc *TypeChecker) shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
+	if len(a.Fields) != len(b.Fields) {
+		return false
+	}
+	for name, fieldA := range a.Fields {
+		fieldB, ok := b.Fields[name]
+		if !ok {
+			return false
+		}
+		// Compare field types (ignoring assertions for now)
+		if fieldA.Type != nil && fieldB.Type != nil {
+			// If either type is unknown (?), treat them as compatible
+			if fieldA.Type.Ident == "?" || fieldB.Type.Ident == "?" {
+				// Unknown types are compatible with any concrete type
+				continue
+			}
+			if fieldA.Type.Ident != fieldB.Type.Ident {
+				return false
+			}
+		} else if fieldA.Shape != nil && fieldB.Shape != nil {
+			if !tc.shapesAreStructurallyIdentical(*fieldA.Shape, *fieldB.Shape) {
+				return false
+			}
+		} else if (fieldA.Type != nil) != (fieldB.Type != nil) || (fieldA.Shape != nil) != (fieldB.Shape != nil) {
+			return false
+		}
+	}
+	return true
 }
 
 // checkBuiltinFunctionCall validates a call to a built-in function
