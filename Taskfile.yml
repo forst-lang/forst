@@ -3,6 +3,7 @@ version: "3"
 vars:
   BINARY_NAME: forst
   BUILD_DIR: cmd/forst
+  ROOT_DIR: ..
   EXAMPLES_DIR: ../examples/in
   OUTPUT_DIR: ../examples/out
 
@@ -206,9 +207,9 @@ tasks:
     desc: Dump debug info for a specific example file
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} dump --file={{.EXAMPLES_DIR}}/{{.FILE}}
+      - go run ./{{.BUILD_DIR}} dump --file={{.ROOT_DIR}}/{{.FILE}}
     vars:
-      FILE: '{{.FILE | default "basic.ft"}}'
+      FILE: '{{.FILE | default "examples/in/basic.ft"}}'
 
   # Development tasks
   dev:watch:

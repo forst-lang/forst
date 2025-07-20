@@ -102,7 +102,7 @@ This is the hierarchy of priorities during development and debugging, ordered fr
 ### 1. Run dump
 
 ```bash
-FILE=rfc/guard/shape_guard.ft task dump
+FILE=examples/in/rfc/guard/shape_guard.ft task dump
 ```
 
 ### 2. Add Tracing
