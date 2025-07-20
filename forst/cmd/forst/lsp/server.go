@@ -650,6 +650,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool) m
 		}
 	}
 
+	// Build the debug info response with the expected structure
 	debugInfo := map[string]interface{}{
 		"uri":       uri,
 		"filePath":  filePath,
@@ -657,6 +658,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool) m
 		"timestamp": time.Now(),
 	}
 
+	// Put all the detailed data inside output.data
 	rawOutput := map[string]interface{}{
 		"phaseOutputs":  structuredOutputs,
 		"compilerState": s.getCompilerState(uri),

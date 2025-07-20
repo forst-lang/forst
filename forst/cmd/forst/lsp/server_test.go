@@ -911,7 +911,8 @@ func exampleFunction(x: String) {
 		Params: json.RawMessage(`{
 			"textDocument": {
 				"uri": "file:///test.ft"
-			}
+			},
+			"compression": false
 		}`),
 	}
 
@@ -927,15 +928,35 @@ func exampleFunction(x: String) {
 	}
 
 	// Check that we have the expected debugging information
-	requiredFields := []string{"uri", "debugMode", "diagnostics", "compilerState", "phaseDetails"}
+	requiredFields := []string{"uri", "debugMode", "output"}
 	for _, field := range requiredFields {
 		if _, exists := debugInfo[field]; !exists {
 			t.Errorf("Expected debug info to contain field: %s", field)
 		}
 	}
 
+	// Check that output contains the expected data structure
+	output, ok := debugInfo["output"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected output to be a map")
+	}
+
+	// Check that output.data contains the detailed information
+	data, ok := output["data"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected output.data to be a map")
+	}
+
+	// Check that data contains the expected fields
+	expectedDataFields := []string{"diagnostics", "compilerState", "phaseDetails"}
+	for _, field := range expectedDataFields {
+		if _, exists := data[field]; !exists {
+			t.Errorf("Expected output.data to contain field: %s", field)
+		}
+	}
+
 	// Verify that diagnostics contain the type error
-	diagnostics, ok := debugInfo["diagnostics"].([]LSPDiagnostic)
+	diagnostics, ok := data["diagnostics"].([]LSPDiagnostic)
 	if !ok {
 		t.Fatal("Expected diagnostics to be a slice")
 	}
@@ -950,7 +971,7 @@ func exampleFunction(x: String) {
 	}
 
 	// Verify compiler state information
-	compilerState, ok := debugInfo["compilerState"].(map[string]interface{})
+	compilerState, ok := data["compilerState"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected compiler state to be a map")
 	}
