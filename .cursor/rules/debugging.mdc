@@ -1,4 +1,8 @@
-# Forst Language Development Guidelines
+---
+alwaysApply: true
+---
+
+# Debugging Help
 
 ## Architecture Overview
 
@@ -8,6 +12,9 @@ Forst is a Go-interoperable language that transpiles to Go. The compiler pipelin
 2. **Parser** (`internal/parser/`) - Builds AST from tokens
 3. **Typechecker** (`internal/typechecker/`) - Infers and validates types
 4. **Transformer** (`internal/transformer/go/`) - Generates Go code from AST
+
+- **Discovery** (`internal/discovery/`) - Enables function discovery for sidecars
+- **Executor** (`internal/executor/`) – Runs Forst functions for sidecars
 
 ## Key AST Node Types
 
@@ -141,11 +148,12 @@ if paramType.Assertion != nil {
 - Use `test_utils.go` helpers for AST construction
 - Focus on edge cases and error conditions
 - Do not use external libraries for testing
+- Do not try to register types or variables manually. Use the other components to do so if necessary.
 
 ### Integration Tests
 
-- Use `examples/in/` for end-to-end testing
-- Test full compilation pipeline
+- Use `examples/in/` via `task example:*` commands for end-to-end testing
+- They test full compilation pipeline
 - Verify generated Go code compiles and runs
 
 ### Debug Tests
