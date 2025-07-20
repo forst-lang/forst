@@ -4,149 +4,101 @@ import (
 	"forst/internal/ast"
 )
 
+// Keywords maps Forst keywords to their token types for static analysis
+var Keywords = map[string]ast.TokenIdent{
+	"func":        ast.TokenFunc,
+	"import":      ast.TokenImport,
+	"package":     ast.TokenPackage,
+	"String":      ast.TokenString,
+	"Int":         ast.TokenInt,
+	"Float":       ast.TokenFloat,
+	"Bool":        ast.TokenBool,
+	"Void":        ast.TokenVoid,
+	"Array":       ast.TokenArray,
+	"return":      ast.TokenReturn,
+	"ensure":      ast.TokenEnsure,
+	"is":          ast.TokenIs,
+	"or":          ast.TokenOr,
+	"type":        ast.TokenType,
+	"if":          ast.TokenIf,
+	"else if":     ast.TokenElseIf,
+	"else":        ast.TokenElse,
+	"for":         ast.TokenFor,
+	"range":       ast.TokenRange,
+	"break":       ast.TokenBreak,
+	"continue":    ast.TokenContinue,
+	"switch":      ast.TokenSwitch,
+	"case":        ast.TokenCase,
+	"default":     ast.TokenDefault,
+	"fallthrough": ast.TokenFallthrough,
+	"var":         ast.TokenVar,
+	"const":       ast.TokenConst,
+	"map":         ast.TokenMap,
+	"chan":        ast.TokenChan,
+	"interface":   ast.TokenInterface,
+	"struct":      ast.TokenStruct,
+	"go":          ast.TokenGo,
+	"defer":       ast.TokenDefer,
+	"goto":        ast.TokenGoto,
+	"nil":         ast.TokenNil,
+}
+
+// Operators maps Forst operators to their token types
+var Operators = map[string]ast.TokenIdent{
+	"//": ast.TokenComment,
+	"(":  ast.TokenLParen,
+	")":  ast.TokenRParen,
+	"{":  ast.TokenLBrace,
+	"}":  ast.TokenRBrace,
+	"[":  ast.TokenLBracket,
+	"]":  ast.TokenRBracket,
+	"+":  ast.TokenPlus,
+	"-":  ast.TokenMinus,
+	"*":  ast.TokenStar,
+	"/":  ast.TokenDivide,
+	"%":  ast.TokenModulo,
+	"==": ast.TokenEquals,
+	"!=": ast.TokenNotEquals,
+	">":  ast.TokenGreater,
+	"<":  ast.TokenLess,
+	">=": ast.TokenGreaterEqual,
+	"<=": ast.TokenLessEqual,
+	"&&": ast.TokenLogicalAnd,
+	"||": ast.TokenLogicalOr,
+	":=": ast.TokenColonEquals,
+	"!":  ast.TokenLogicalNot,
+	":":  ast.TokenColon,
+	",":  ast.TokenComma,
+	".":  ast.TokenDot,
+	";":  ast.TokenSemicolon,
+	"=":  ast.TokenEquals,
+	"&":  ast.TokenBitwiseAnd,
+	"|":  ast.TokenBitwiseOr,
+	"->": ast.TokenArrow,
+}
+
 // GetTokenType returns the token type for a given word
 func GetTokenType(word string) ast.TokenIdent {
-	switch word {
-	case "//":
-		return ast.TokenComment
-	case "func":
-		return ast.TokenFunc
-	case "import":
-		return ast.TokenImport
-	case "package":
-		return ast.TokenPackage
-	case "String":
-		return ast.TokenString
-	case "Int":
-		return ast.TokenInt
-	case "Float":
-		return ast.TokenFloat
-	case "Bool":
-		return ast.TokenBool
-	case "Void":
-		return ast.TokenVoid
-	case "Array":
-		return ast.TokenArray
-	case "return":
-		return ast.TokenReturn
-	case "ensure":
-		return ast.TokenEnsure
-	case "is":
-		return ast.TokenIs
-	case "or":
-		return ast.TokenOr
-	case "type":
-		return ast.TokenType
-	case "(":
-		return ast.TokenLParen
-	case ")":
-		return ast.TokenRParen
-	case "{":
-		return ast.TokenLBrace
-	case "}":
-		return ast.TokenRBrace
-	case "[":
-		return ast.TokenLBracket
-	case "]":
-		return ast.TokenRBracket
-	case "+":
-		return ast.TokenPlus
-	case "-":
-		return ast.TokenMinus
-	case "*":
-		return ast.TokenStar
-	case "/":
-		return ast.TokenDivide
-	case "%":
-		return ast.TokenModulo
-	case "==":
-		return ast.TokenEquals
-	case "!=":
-		return ast.TokenNotEquals
-	case ">":
-		return ast.TokenGreater
-	case "<":
-		return ast.TokenLess
-	case ">=":
-		return ast.TokenGreaterEqual
-	case "<=":
-		return ast.TokenLessEqual
-	case "&&":
-		return ast.TokenLogicalAnd
-	case "||":
-		return ast.TokenLogicalOr
-	case ":=":
-		return ast.TokenColonEquals
-	case "!":
-		return ast.TokenLogicalNot
-	case ":":
-		return ast.TokenColon
-	case ",":
-		return ast.TokenComma
-	case ".":
-		return ast.TokenDot
-	case ";":
-		return ast.TokenSemicolon
-	case "=":
-		return ast.TokenEquals
-	case "&":
-		return ast.TokenBitwiseAnd
-	case "|":
-		return ast.TokenBitwiseOr
-	case "if":
-		return ast.TokenIf
-	case "else if":
-		return ast.TokenElseIf
-	case "else":
-		return ast.TokenElse
-	case "for":
-		return ast.TokenFor
-	case "range":
-		return ast.TokenRange
-	case "break":
-		return ast.TokenBreak
-	case "continue":
-		return ast.TokenContinue
-	case "switch":
-		return ast.TokenSwitch
-	case "case":
-		return ast.TokenCase
-	case "default":
-		return ast.TokenDefault
-	case "fallthrough":
-		return ast.TokenFallthrough
-	case "var":
-		return ast.TokenVar
-	case "const":
-		return ast.TokenConst
-	case "map":
-		return ast.TokenMap
-	case "chan":
-		return ast.TokenChan
-	case "->":
-		return ast.TokenArrow
-	case "interface":
-		return ast.TokenInterface
-	case "struct":
-		return ast.TokenStruct
-	case "go":
-		return ast.TokenGo
-	case "defer":
-		return ast.TokenDefer
-	case "goto":
-		return ast.TokenGoto
-	case "nil":
-		return ast.TokenNil
-	default:
-		if isDigit(word[0]) {
-			// Check for float literals
-			for i := 0; i < len(word); i++ {
-				if word[i] == '.' || word[i] == 'e' || word[i] == 'E' || word[i] == 'i' {
-					return ast.TokenFloatLiteral
-				}
-			}
-			return ast.TokenIntLiteral
-		}
-		return ast.TokenIdentifier
+	// Check keywords first
+	if tokenType, ok := Keywords[word]; ok {
+		return tokenType
 	}
+
+	// Check operators
+	if tokenType, ok := Operators[word]; ok {
+		return tokenType
+	}
+
+	// Check for numeric literals
+	if isDigit(word[0]) {
+		// Check for float literals
+		for i := 0; i < len(word); i++ {
+			if word[i] == '.' || word[i] == 'e' || word[i] == 'E' || word[i] == 'i' {
+				return ast.TokenFloatLiteral
+			}
+		}
+		return ast.TokenIntLiteral
+	}
+
+	return ast.TokenIdentifier
 }
