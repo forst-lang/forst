@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7](https://github.com/forst-lang/forst/compare/v0.0.6...v0.0.7) (2025-07-20)
+
+
+### Features
+
+* Add `forst dump` and `forst lsp` for debugging ([#31](https://github.com/forst-lang/forst/issues/31)) ([7e09ba7](https://github.com/forst-lang/forst/commit/7e09ba79b39fc40be8232dd35057370090d9feb7))
+
+
+### Bug Fixes
+
+* **ci:** add authentication to arduino/setup-task to avoid rate limits ([2660bf7](https://github.com/forst-lang/forst/commit/2660bf72b91bd4507d8b4bf983b8566c0cb73db5))
+
 ## [0.0.6](https://github.com/forst-lang/forst/compare/v0.0.5...v0.0.6) (2025-07-11)
 
 
