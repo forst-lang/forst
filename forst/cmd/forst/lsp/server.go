@@ -651,31 +651,34 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool) m
 	}
 
 	debugInfo := map[string]interface{}{
-		"uri":           uri,
-		"filePath":      filePath,
-		"debugMode":     s.debugMode,
+		"uri":       uri,
+		"filePath":  filePath,
+		"debugMode": s.debugMode,
+		"timestamp": time.Now(),
+	}
+
+	rawOutput := map[string]interface{}{
+		"phaseOutputs":  structuredOutputs,
+		"compilerState": s.getCompilerState(uri),
 		"diagnostics":   s.lspDebugger.GetDiagnostics(),
 		"hovers":        s.lspDebugger.GetHovers(),
 		"completions":   s.lspDebugger.GetCompletions(),
 		"debugEvents":   s.debugEvents,
-		"compilerState": s.getCompilerState(uri),
 		"phaseDetails":  s.getPhaseDetails(uri, ""),
-		"timestamp":     time.Now(),
 	}
 
 	if useCompression {
-		debugInfo["phaseOutputs"] = map[string]interface{}{
+		debugInfo["output"] = map[string]interface{}{
 			"encoding": map[string]interface{}{
 				"format":        "structured_json",
 				"compression":   true,
 				"llm_optimized": true,
 			},
-			"data": s.createCompressedDebugData(structuredOutputs),
+			"data": s.createCompressedDebugData(rawOutput),
 		}
 	} else {
 		// No compression - include full phase outputs
-		debugInfo["phaseOutputs"] = structuredOutputs
-		debugInfo["encoding"] = map[string]interface{}{
+		debugInfo["output"] = map[string]interface{}{
 			"format":        "structured_json",
 			"compression":   false,
 			"llm_optimized": true,
@@ -684,11 +687,88 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool) m
 				"compression":   false,
 				"llm_optimized": true,
 			},
-			"data": structuredOutputs,
+			"data": rawOutput,
 		}
 	}
 
 	return debugInfo
+}
+
+// HandleDebugInfoDirect provides direct access to debugInfo functionality without HTTP overhead
+func (s *LSPServer) HandleDebugInfoDirect(request LSPRequest, content string) LSPServerResponse {
+	// Extract URI from debugInfo params
+	var debugParams map[string]interface{}
+	if err := json.Unmarshal(request.Params, &debugParams); err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Failed to parse debugInfo params",
+			},
+		}
+	}
+
+	textDoc, ok := debugParams["textDocument"].(map[string]interface{})
+	if !ok {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "textDocument not found in params",
+			},
+		}
+	}
+
+	uri, ok := textDoc["uri"].(string)
+	if !ok {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "uri not found in textDocument",
+			},
+		}
+	}
+
+	// First, simulate a didOpen request to set up the file
+	didOpenRequest := LSPRequest{
+		JSONRPC: "2.0",
+		ID:      "didOpen",
+		Method:  "textDocument/didOpen",
+		Params:  nil,
+	}
+
+	// Create didOpen params
+	didOpenParams := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri":     uri,
+			"version": 1,
+			"text":    content,
+		},
+	}
+
+	// Marshal didOpen params
+	didOpenParamsJSON, err := json.Marshal(didOpenParams)
+	if err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Failed to marshal didOpen params",
+			},
+		}
+	}
+	didOpenRequest.Params = didOpenParamsJSON
+
+	// Process the didOpen request
+	s.handleDidOpen(didOpenRequest)
+
+	// Now handle the debugInfo request
+	return s.handleDebugInfo(request)
 }
 
 // createCompressedDebugData creates a compressed version of debug data
