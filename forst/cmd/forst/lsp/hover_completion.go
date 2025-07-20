@@ -124,3 +124,27 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) 
 
 	return completions
 }
+
+// handleWorkspaceSymbol handles the workspace/symbol method
+func (s *LSPServer) handleWorkspaceSymbol(request LSPRequest) LSPServerResponse {
+	// Parse query from params
+	var params map[string]interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+	}
+
+	// For now, return empty array (no workspace symbols found)
+	// TODO: Implement actual workspace symbol search
+	return LSPServerResponse{
+		JSONRPC: "2.0",
+		ID:      request.ID,
+		Result:  []interface{}{},
+	}
+}

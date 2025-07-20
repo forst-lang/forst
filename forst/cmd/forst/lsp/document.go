@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 // handleDidOpen handles the textDocument/didOpen method
@@ -19,6 +21,7 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
+		s.log.Errorf("Failed to parse didOpen params: %v", err)
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
@@ -28,6 +31,12 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 			},
 		}
 	}
+
+	s.log.WithFields(logrus.Fields{
+		"uri":            params.TextDocument.URI,
+		"version":        params.TextDocument.Version,
+		"content_length": len(params.TextDocument.Text),
+	}).Info("File opened for compilation")
 
 	// Process the Forst file and get diagnostics
 	diagnostics := s.processForstFile(params.TextDocument.URI, params.TextDocument.Text)
@@ -55,6 +64,7 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
+		s.log.Errorf("Failed to parse didChange params: %v", err)
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
@@ -70,6 +80,13 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 	if len(params.ContentChanges) > 0 {
 		latestContent = params.ContentChanges[len(params.ContentChanges)-1].Text
 	}
+
+	s.log.WithFields(logrus.Fields{
+		"uri":            params.TextDocument.URI,
+		"version":        params.TextDocument.Version,
+		"changes_count":  len(params.ContentChanges),
+		"content_length": len(latestContent),
+	}).Info("File content changed")
 
 	// Process the Forst file and get diagnostics
 	diagnostics := s.processForstFile(params.TextDocument.URI, latestContent)
@@ -93,6 +110,7 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
+		s.log.Errorf("Failed to parse didClose params: %v", err)
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
@@ -102,6 +120,10 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 			},
 		}
 	}
+
+	s.log.WithFields(logrus.Fields{
+		"uri": params.TextDocument.URI,
+	}).Info("File closed")
 
 	// Clear diagnostics for the closed document
 	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
@@ -162,4 +184,76 @@ func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 	// Compile the file and get diagnostics
 	debugger := s.debugger.GetDebugger(PhaseParser, tempFile.Name())
 	return s.compileForstFile(tempFile.Name(), content, debugger)
+}
+
+// handleDefinition handles the textDocument/definition method
+func (s *LSPServer) handleDefinition(request LSPRequest) LSPServerResponse {
+	// Parse position from params
+	var params map[string]interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+	}
+
+	// For now, return null (no definition found)
+	// TODO: Implement actual definition lookup
+	return LSPServerResponse{
+		JSONRPC: "2.0",
+		ID:      request.ID,
+		Result:  nil,
+	}
+}
+
+// handleReferences handles the textDocument/references method
+func (s *LSPServer) handleReferences(request LSPRequest) LSPServerResponse {
+	// Parse position from params
+	var params map[string]interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+	}
+
+	// For now, return empty array (no references found)
+	// TODO: Implement actual reference lookup
+	return LSPServerResponse{
+		JSONRPC: "2.0",
+		ID:      request.ID,
+		Result:  []interface{}{},
+	}
+}
+
+// handleDocumentSymbol handles the textDocument/documentSymbol method
+func (s *LSPServer) handleDocumentSymbol(request LSPRequest) LSPServerResponse {
+	// Parse text document from params
+	var params map[string]interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil {
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+	}
+
+	// For now, return empty array (no symbols found)
+	// TODO: Implement actual symbol extraction
+	return LSPServerResponse{
+		JSONRPC: "2.0",
+		ID:      request.ID,
+		Result:  []interface{}{},
+	}
 }

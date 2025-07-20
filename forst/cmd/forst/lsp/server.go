@@ -1,6 +1,9 @@
 package lsp
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -132,6 +135,7 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 
 	// Only handle POST requests for LSP protocol
 	if r.Method != http.MethodPost {
+		s.log.Warnf("Invalid method %s for LSP endpoint", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -152,8 +156,24 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log incoming request with INFO level
+	s.log.WithFields(logrus.Fields{
+		"method":    request.Method,
+		"id":        request.ID,
+		"uri":       r.RemoteAddr,
+		"body_size": len(body),
+	}).Info("Incoming LSP request")
+
 	// Handle different LSP methods
 	response := s.handleLSPMethod(request)
+
+	// Log response with INFO level
+	s.log.WithFields(logrus.Fields{
+		"method":     request.Method,
+		"id":         request.ID,
+		"has_error":  response.Error != nil,
+		"has_result": response.Result != nil,
+	}).Debug("LSP response prepared")
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -169,6 +189,11 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 
 // handleLSPMethod handles different LSP methods
 func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
+	s.log.WithFields(logrus.Fields{
+		"method": request.Method,
+		"id":     request.ID,
+	}).Debug("Handling LSP method")
+
 	switch request.Method {
 	case "initialize":
 		return s.handleInitialize(request)
@@ -184,6 +209,23 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 		return s.handleHover(request)
 	case "textDocument/completion":
 		return s.handleCompletion(request)
+	case "textDocument/definition":
+		return s.handleDefinition(request)
+	case "textDocument/references":
+		return s.handleReferences(request)
+	case "textDocument/documentSymbol":
+		return s.handleDocumentSymbol(request)
+	case "workspace/symbol":
+		return s.handleWorkspaceSymbol(request)
+	case "textDocument/formatting":
+		return s.handleFormatting(request)
+	case "textDocument/codeAction":
+		return s.handleCodeAction(request)
+	case "textDocument/codeLens":
+		return s.handleCodeLens(request)
+	case "textDocument/foldingRange":
+		return s.handleFoldingRange(request)
+	// Custom LLM debugging methods
 	case "textDocument/debugInfo":
 		return s.handleDebugInfo(request)
 	case "textDocument/compilerState":
@@ -195,6 +237,10 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	case "exit":
 		return s.handleExit(request)
 	default:
+		s.log.WithFields(logrus.Fields{
+			"method": request.Method,
+			"id":     request.ID,
+		}).Warn("Unknown LSP method requested")
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
@@ -437,27 +483,71 @@ func (s *LSPServer) sendDiagnosticsNotification(uri string, diagnostics []LSPDia
 	s.log.Debugf("Sending diagnostics for %s: %d diagnostics", uri, len(diagnostics))
 }
 
-// handleDebugInfo handles the textDocument/debugInfo method for LLM debugging
+// handleDebugInfo handles the textDocument/debugInfo method primarily for LLM debugging
 func (s *LSPServer) handleDebugInfo(request LSPRequest) LSPServerResponse {
-	var params struct {
-		TextDocument struct {
-			URI string `json:"uri"`
-		} `json:"textDocument"`
-	}
-
+	var params map[string]interface{}
 	if err := json.Unmarshal(request.Params, &params); err != nil {
+		s.log.Errorf("Failed to parse debugInfo params: %v", err)
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
 			Error: &LSPError{
-				Code:    -32700,
-				Message: "Parse error",
+				Code:    -32602,
+				Message: "Invalid params",
 			},
 		}
 	}
 
-	// Get comprehensive debug information
-	debugInfo := s.getComprehensiveDebugInfo(params.TextDocument.URI)
+	// Extract text document URI
+	textDoc, ok := params["textDocument"].(map[string]interface{})
+	if !ok {
+		s.log.Error("textDocument not found in debugInfo params")
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "textDocument not found",
+			},
+		}
+	}
+
+	uri, _ := textDoc["uri"].(string)
+	if uri == "" {
+		s.log.Error("textDocument.uri not found in debugInfo params")
+		return LSPServerResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &LSPError{
+				Code:    -32602,
+				Message: "textDocument.uri not found",
+			},
+		}
+	}
+
+	// Extract compression parameter
+	useCompression := true // Default to true
+	if compressionParam, exists := params["compression"]; exists {
+		if compressionBool, ok := compressionParam.(bool); ok {
+			useCompression = compressionBool
+		}
+	} else {
+		// No compression parameter provided, use default (true)
+		useCompression = true
+	}
+
+	s.log.WithFields(logrus.Fields{
+		"uri":          uri,
+		"method":       "textDocument/debugInfo",
+		"compression":  useCompression,
+		"param_given":  params["compression"] != nil,
+		"param_exists": params["compression"] != nil,
+		"raw_params":   string(request.Params),
+		"all_params":   params,
+	}).Info("Debug info request received")
+
+	// Get comprehensive debug information with compression option
+	debugInfo := s.getComprehensiveDebugInfo(uri, useCompression)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -526,7 +616,7 @@ func (s *LSPServer) handlePhaseDetails(request LSPRequest) LSPServerResponse {
 }
 
 // getComprehensiveDebugInfo provides comprehensive debugging information for LLM debugging
-func (s *LSPServer) getComprehensiveDebugInfo(uri string) map[string]interface{} {
+func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool) map[string]interface{} {
 	// Convert URI to file path
 	filePath := strings.TrimPrefix(uri, "file://")
 	if runtime.GOOS == "windows" {
@@ -544,11 +634,26 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string) map[string]interface{}
 	// Process debug events and convert to LSP structures
 	s.lspDebugger.ProcessDebugEvents()
 
+	// Convert byte slices to structured data for better LLM consumption
+	structuredOutputs := make(map[string]interface{})
+	for phase, data := range allOutput {
+		var events []DebugEvent
+		if err := json.Unmarshal(data, &events); err == nil {
+			structuredOutputs[string(phase)] = events
+		} else {
+			// Fallback to base64 if unmarshaling fails
+			structuredOutputs[string(phase)] = map[string]interface{}{
+				"encoding": "base64",
+				"data":     string(data),
+				"error":    "Failed to parse as structured data",
+			}
+		}
+	}
+
 	debugInfo := map[string]interface{}{
 		"uri":           uri,
 		"filePath":      filePath,
 		"debugMode":     s.debugMode,
-		"phaseOutputs":  allOutput,
 		"diagnostics":   s.lspDebugger.GetDiagnostics(),
 		"hovers":        s.lspDebugger.GetHovers(),
 		"completions":   s.lspDebugger.GetCompletions(),
@@ -558,10 +663,72 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string) map[string]interface{}
 		"timestamp":     time.Now(),
 	}
 
+	if useCompression {
+		debugInfo["phaseOutputs"] = map[string]interface{}{
+			"encoding": map[string]interface{}{
+				"format":        "structured_json",
+				"compression":   true,
+				"llm_optimized": true,
+			},
+			"data": s.createCompressedDebugData(structuredOutputs),
+		}
+	} else {
+		// No compression - include full phase outputs
+		debugInfo["phaseOutputs"] = structuredOutputs
+		debugInfo["encoding"] = map[string]interface{}{
+			"format":        "structured_json",
+			"compression":   false,
+			"llm_optimized": true,
+			"encoding": map[string]interface{}{
+				"format":        "structured_json",
+				"compression":   false,
+				"llm_optimized": true,
+			},
+			"data": structuredOutputs,
+		}
+	}
+
 	return debugInfo
 }
 
-// getCompilerState provides current compiler state information
+// createCompressedDebugData creates a compressed version of debug data
+func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]interface{} {
+	// Marshal to JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("Failed to marshal data: %v", err),
+		}
+	}
+
+	// Compress with gzip
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(jsonData); err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("Failed to compress data: %v", err),
+		}
+	}
+	gw.Close()
+
+	// Encode as base64 for JSON compatibility
+	compressed := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	originalSize := len(jsonData)
+	compressedSize := len(compressed)
+	compressionRatio := float64(compressedSize) / float64(originalSize)
+
+	return map[string]interface{}{
+		"data":              compressed,
+		"encoding":          "gzip+base64",
+		"original_size":     originalSize,
+		"compressed_size":   compressedSize,
+		"compression_ratio": compressionRatio,
+		"llm_optimized":     false, // Requires decoding
+	}
+}
+
+// getCompilerState provides current compile	state information
 func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
 	// Convert URI to file path
 	filePath := strings.TrimPrefix(uri, "file://")
