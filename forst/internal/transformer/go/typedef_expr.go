@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 
 	logrus "github.com/sirupsen/logrus"
@@ -65,7 +66,7 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 									}
 								} else {
 									// Use the unified aliasing logic for Go type ident
-									name, err := t.TypeChecker.GetAliasedTypeName(*fieldNode.Type)
+									name, err := t.TypeChecker.GetAliasedTypeName(*fieldNode.Type, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 									if err != nil {
 										fieldType = goast.NewIdent(fieldNode.Type.Ident.String())
 									} else {

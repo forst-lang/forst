@@ -155,7 +155,7 @@ func (t *Transformer) findBestNamedTypeForReturnStructLiteral(shapeNode ast.Shap
 }
 
 // transformErrorStatement converts an ensure statement to an error return statement
-func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
+func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.EnsureNode) goast.Stmt {
 	// PINPOINT: Log when this function is called
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
@@ -164,68 +164,132 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 		}).Error("[PINPOINT] transformErrorStatement called")
 	}
 
-	// Get the current function to determine the return types
-	if fnNode, err := t.closestFunction(); err == nil {
-		if fn, ok := fnNode.(ast.FunctionNode); ok {
-			functionName := string(fn.Ident.ID)
+	functionName := string(fn.Ident.ID)
 
-			// Get the inferred function signature from the typechecker
-			var returnTypes []ast.TypeNode
-			if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists {
-				returnTypes = sig.ReturnTypes
-			} else {
-				// Fallback to the raw AST node return types
-				returnTypes = fn.ReturnTypes
-			}
+	// Get the inferred function signature from the typechecker
+	var returnTypes []ast.TypeNode
+	if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists {
+		returnTypes = sig.ReturnTypes
+		// PINPOINT: Log the function signature found
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":     "transformErrorStatement",
+				"functionName": functionName,
+				"found":        true,
+				"returnTypes":  returnTypes,
+			}).Warn("[PINPOINT] Found function signature in typechecker")
+		}
+	} else {
+		// Fallback to the raw AST node return types
+		returnTypes = fn.ReturnTypes
+		// PINPOINT: Log the fallback
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":     "transformErrorStatement",
+				"functionName": functionName,
+				"found":        false,
+				"returnTypes":  returnTypes,
+			}).Warn("[PINPOINT] Using fallback return types from AST")
+		}
+	}
 
-			// PINPOINT: Log function signature for error return
-			if t.log != nil {
-				t.log.WithFields(logrus.Fields{
-					"function":     "transformErrorStatement",
-					"functionName": functionName,
-					"returnCount":  len(returnTypes),
-					"returnTypes":  returnTypes,
-				}).Warn("[PINPOINT] Function signature for error return")
-			}
+	// PINPOINT: Log function signature for error return
+	if t.log != nil {
+		t.log.WithFields(logrus.Fields{
+			"function":     "transformErrorStatement",
+			"functionName": functionName,
+			"returnCount":  len(returnTypes),
+			"returnTypes":  returnTypes,
+		}).Warn("[PINPOINT] Function signature for error return")
+	}
 
-			// For main function, use os.Exit(1)
-			if t.isMainFunction() {
-				t.Output.EnsureImport("os")
-				return &goast.ExprStmt{
-					X: &goast.CallExpr{
-						Fun: &goast.SelectorExpr{
-							X:   goast.NewIdent("os"),
-							Sel: goast.NewIdent("Exit"),
-						},
-						Args: []goast.Expr{
-							&goast.BasicLit{
-								Kind:  token.INT,
-								Value: "1",
-							},
-						},
+	// PINPOINT: Log each return type for debugging
+	for i, retType := range returnTypes {
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":     "transformErrorStatement",
+				"functionName": functionName,
+				"returnIndex":  i,
+				"returnType":   retType.Ident,
+				"typeKind":     retType.TypeKind,
+				"isError":      retType.IsError(),
+			}).Warn("[PINPOINT] Processing return type in transformErrorStatement")
+		}
+	}
+
+	// For main function, use os.Exit(1)
+	if t.isMainFunction() {
+		t.Output.EnsureImport("os")
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun: &goast.SelectorExpr{
+					X:   goast.NewIdent("os"),
+					Sel: goast.NewIdent("Exit"),
+				},
+				Args: []goast.Expr{
+					&goast.BasicLit{
+						Kind:  token.INT,
+						Value: "1",
 					},
-				}
-			}
+				},
+			},
+		}
+	}
 
-			// For void functions or functions with no return values, use panic
-			if len(returnTypes) == 0 || (len(returnTypes) == 1 && returnTypes[0].Ident == ast.TypeVoid) {
-				return &goast.ExprStmt{
-					X: &goast.CallExpr{
-						Fun: goast.NewIdent("panic"),
-						Args: []goast.Expr{
-							&goast.BasicLit{
-								Kind:  token.STRING,
-								Value: "\"assertion failed\"",
-							},
-						},
+	// For void functions or functions with no return values, use panic
+	if len(returnTypes) == 0 || (len(returnTypes) == 1 && returnTypes[0].Ident == ast.TypeVoid) {
+		return &goast.ExprStmt{
+			X: &goast.CallExpr{
+				Fun: goast.NewIdent("panic"),
+				Args: []goast.Expr{
+					&goast.BasicLit{
+						Kind:  token.STRING,
+						Value: "\"assertion failed\"",
 					},
-				}
-			}
+				},
+			},
+		}
+	}
 
-			// Build error return values based on the function's return types
-			results := make([]goast.Expr, 0, len(returnTypes))
-			for i, returnType := range returnTypes {
-				// PINPOINT: Log processing return type for zero value
+	// Build error return values based on the function's return types
+	results := make([]goast.Expr, 0, len(returnTypes))
+	for i, returnType := range returnTypes {
+		// PINPOINT: Log processing return type for zero value
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":     "transformErrorStatement",
+				"functionName": functionName,
+				"returnIndex":  i,
+				"returnType":   returnType.Ident,
+				"typeKind":     returnType.TypeKind,
+			}).Warn("[PINPOINT] Processing return type for zero value")
+		}
+
+		var result goast.Expr
+		if returnType.IsError() {
+			// For error types, return an error with the assertion message
+			assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
+
+			// Ensure the errors package is imported
+			t.Output.EnsureImport("errors")
+
+			result = &goast.CallExpr{
+				Fun: &goast.SelectorExpr{
+					X:   goast.NewIdent("errors"),
+					Sel: goast.NewIdent("New"),
+				},
+				Args: []goast.Expr{
+					&goast.BasicLit{
+						Kind:  token.STRING,
+						Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
+					},
+				},
+			}
+		} else {
+			// For non-error types, always use the function's declared return type (including hash-based types)
+			// Never structurally alias to a user-defined type for error returns
+			if returnType.TypeKind == ast.TypeKindUserDefined || returnType.TypeKind == ast.TypeKindHashBased {
+				// PINPOINT: Log when calling buildZeroCompositeLiteral for user-defined or hash-based type
 				if t.log != nil {
 					t.log.WithFields(logrus.Fields{
 						"function":     "transformErrorStatement",
@@ -233,64 +297,32 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 						"returnIndex":  i,
 						"returnType":   returnType.Ident,
 						"typeKind":     returnType.TypeKind,
-					}).Warn("[PINPOINT] Processing return type for zero value")
+					}).Error("[PINPOINT] Calling buildZeroCompositeLiteral for user-defined or hash-based type")
 				}
-
-				var result goast.Expr
-				if returnType.IsError() {
-					// For error types, return an error with the assertion message
-					assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
-
-					// Ensure the errors package is imported
-					t.Output.EnsureImport("errors")
-
-					result = &goast.CallExpr{
-						Fun: &goast.SelectorExpr{
-							X:   goast.NewIdent("errors"),
-							Sel: goast.NewIdent("New"),
-						},
-						Args: []goast.Expr{
-							&goast.BasicLit{
-								Kind:  token.STRING,
-								Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
-							},
-						},
-					}
-				} else {
-					// For non-error types, return zero values
-					if returnType.TypeKind == ast.TypeKindUserDefined {
-						// Use buildZeroCompositeLiteral for user-defined types
-						result = t.buildZeroCompositeLiteral(&returnType)
-					} else {
-						// For built-in types, use getZeroValue
-						goType, _ := t.transformType(returnType)
-						result = getZeroValue(goType)
-					}
-				}
-				results = append(results, result)
-			}
-
-			return &goast.ReturnStmt{
-				Results: results,
+				result = t.buildZeroCompositeLiteral(&returnType)
+			} else {
+				// For built-in types, use getZeroValue
+				goType, _ := t.transformType(returnType)
+				result = getZeroValue(goType)
 			}
 		}
+		results = append(results, result)
 	}
 
-	// Fallback: return nil for error
 	return &goast.ReturnStmt{
-		Results: []goast.Expr{goast.NewIdent("nil")},
+		Results: results,
 	}
 }
 
 // Helper: Build a composite literal of the expected type, mapping a variable to the first field, zero for others
 func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode, valueVar string) goast.Expr {
-	// DEBUG: Log when this function is called
+	// PINPOINT: Log when this function is called
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildCompositeLiteralForReturn",
 			"expectedType": expectedType.Ident,
 			"valueVar":     valueVar,
-		}).Warn("[DEBUG] buildCompositeLiteralForReturn called")
+		}).Error("[PINPOINT] buildCompositeLiteralForReturn called")
 	}
 
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
@@ -326,6 +358,17 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 				// For user-defined types, use nil
 				val = goast.NewIdent("nil")
 			}
+
+			// PINPOINT: Log what value is being generated for each field
+			if t.log != nil {
+				t.log.WithFields(logrus.Fields{
+					"function":     "buildCompositeLiteralForReturn",
+					"fieldName":    fieldName,
+					"fieldType":    field.Type.Ident,
+					"valueType":    fmt.Sprintf("%T", val),
+					"valueDetails": fmt.Sprintf("%+v", val),
+				}).Error("[PINPOINT] Generated value for field in buildCompositeLiteralForReturn")
+			}
 		}
 		elts = append(elts, &goast.KeyValueExpr{
 			Key:   goast.NewIdent(fieldName),
@@ -337,14 +380,14 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 
 // Helper: Build a zero composite literal of the expected type
 func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goast.Expr {
-	// DEBUG: Log when this function is called
+	// PINPOINT: Log when this function is called
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildZeroCompositeLiteral",
 			"expectedType": expectedType.Ident,
 			"isHashBased":  expectedType.IsHashBased(),
 			"typeKind":     expectedType.TypeKind,
-		}).Warn("[DEBUG] buildZeroCompositeLiteral called")
+		}).Error("[PINPOINT] buildZeroCompositeLiteral called")
 	}
 
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
@@ -387,8 +430,14 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 		case ast.TypeError:
 			val = goast.NewIdent("nil")
 		default:
-			// For user-defined types, use nil
-			val = goast.NewIdent("nil")
+			// For user-defined types, recursively generate zero values
+			if field.Type.TypeKind == ast.TypeKindUserDefined {
+				// Recursively build zero value for the user-defined type
+				val = t.buildZeroCompositeLiteral(field.Type)
+			} else {
+				// For other types, use nil
+				val = goast.NewIdent("nil")
+			}
 		}
 
 		// DEBUG: Log the generated zero value
@@ -440,6 +489,24 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 	switch s := stmt.(type) {
 	case ast.EnsureNode:
+		// Track that this function has ensure statements
+		fnNode, err := t.closestFunction()
+		if err != nil {
+			return nil, fmt.Errorf("could not find enclosing function for EnsureNode: %w", err)
+		}
+		fn, ok := fnNode.(ast.FunctionNode)
+		if !ok {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		}
+		t.functionsWithEnsure[string(fn.Ident.ID)] = true
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function": "transformStatement",
+				"action":   "tracking function with ensure",
+				"fnName":   string(fn.Ident.ID),
+			}).Debug("[PINPOINT] Function has ensure statement")
+		}
+
 		// DEBUG: Log when EnsureNode is processed
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
@@ -508,40 +575,51 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		finallyStmts := []goast.Stmt{}
 
-		if s.Block != nil {
-			if err := t.restoreScope(s.Block); err != nil {
-				return nil, fmt.Errorf("failed to restore ensure statement block scope: %s", err)
-			}
-
-			for _, stmt := range s.Block.Body {
-				goStmt, err := t.transformStatement(stmt)
-				if err != nil {
-					return nil, err
-				}
-				finallyStmts = append(finallyStmts, goStmt)
-			}
-		}
-
-		if err := t.restoreScope(s); err != nil {
-			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
-		}
-
 		// Always restore the function scope before calling transformErrorStatement
-		if fnNode, err := t.closestFunction(); err == nil {
-			if err := t.restoreScope(fnNode); err != nil {
-				return nil, fmt.Errorf("failed to restore function scope before error statement: %s", err)
-			}
-		}
+		// (REMOVE THIS BLOCK)
+		// if fnNode, err := t.closestFunction(); err == nil {
+		// 	if err := t.restoreScope(fnNode); err != nil {
+		// 		return nil, fmt.Errorf("failed to restore function scope before error statement: %s", err)
+		// 	}
+		// }
 
+		// PINPOINT: Log before calling transformErrorStatement
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
 				"function":             "transformStatement",
-				"scopeBeforeErrorStmt": fmt.Sprintf("%v", t.currentScope()),
 				"nodeType":             fmt.Sprintf("%T", stmt),
+				"scopeBeforeErrorStmt": fmt.Sprintf("%v", t.currentScope()),
 			}).Warn("[DEBUG] Before transformErrorStatement")
 		}
 
-		errorStmt := t.transformErrorStatement(s)
+		// Always call transformErrorStatement for EnsureNode
+		errorStmt := t.transformErrorStatement(fn, s)
+
+		// Skip processing the Block of EnsureNode when it's being used for error handling
+		// The transformErrorStatement function will handle all error return cases
+		// Only process the Block if it contains non-return statements (which is rare for EnsureNode)
+		if s.Block != nil {
+			// Only process non-return statements in the block
+			// Return statements should be handled by transformErrorStatement, not here
+			for _, stmt := range s.Block.Body {
+				if _, isReturn := stmt.(ast.ReturnNode); !isReturn {
+					goStmt, err := t.transformStatement(stmt)
+					if err != nil {
+						return nil, err
+					}
+					finallyStmts = append(finallyStmts, goStmt)
+				} else {
+					// PINPOINT: Log when we skip a return statement in EnsureNode block
+					if t.log != nil {
+						t.log.WithFields(logrus.Fields{
+							"function": "transformStatement",
+							"stmtType": "EnsureNode",
+							"action":   "skipping return statement in EnsureNode block",
+						}).Warn("[PINPOINT] Skipping return statement in EnsureNode block - should be handled by transformErrorStatement")
+					}
+				}
+			}
+		}
 
 		return &goast.IfStmt{
 			Cond: finalCondition,
@@ -550,6 +628,41 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			},
 		}, nil
 	case ast.ReturnNode:
+		// Check if this function has ensure statements - if so, skip normal return processing
+		var functionName string
+		var hasEnsure bool
+		fnNode, err := t.closestFunction()
+		if err != nil {
+			return nil, fmt.Errorf("could not find enclosing function for ReturnNode: %w", err)
+		}
+		fn, ok := fnNode.(ast.FunctionNode)
+		if !ok {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		}
+		functionName = string(fn.Ident.ID)
+		hasEnsure = t.functionsWithEnsure[functionName]
+		if hasEnsure && t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function": "transformStatement",
+				"action":   "skipping return statement for function with ensure",
+				"fnName":   functionName,
+			}).Warn("[PINPOINT] Skipping return statement - function has ensure statements")
+		}
+
+		// If function has ensure statements, modify return processing to handle ensure statements
+		if hasEnsure {
+			// For functions with ensure statements, the normal return should be the success path
+			// The error path is already handled by transformErrorStatement
+			// So we need to wrap this return in an else block or similar
+			if t.log != nil {
+				t.log.WithFields(logrus.Fields{
+					"function": "transformStatement",
+					"action":   "processing return for function with ensure",
+					"fnName":   functionName,
+				}).Debug("[PINPOINT] Processing return for function with ensure statements")
+			}
+		}
+
 		// DEBUG: Log when ReturnNode is processed
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
@@ -568,58 +681,45 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		// Find the current function node and its inferred return types
 		var expectedReturnTypes []ast.TypeNode
-		var functionName string
-		if fnNode, err := t.closestFunction(); err == nil {
-			if fn, ok := fnNode.(ast.FunctionNode); ok {
-				functionName = string(fn.Ident.ID)
-				// DEBUG: Log function lookup
-				if t.log != nil {
-					t.log.WithFields(logrus.Fields{
-						"function":      "transformReturnStatement",
-						"functionName":  fn.Ident.ID,
-						"functionFound": true,
-					}).Warn("Function node found")
-				}
+		fnNode, err = t.closestFunction()
+		if err != nil {
+			return nil, fmt.Errorf("could not find enclosing function for transformReturnStatement: %w", err)
+		}
+		fn, ok = fnNode.(ast.FunctionNode)
+		if !ok {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		}
+		functionName = string(fn.Ident.ID)
+		// DEBUG: Log function lookup
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":      "transformReturnStatement",
+				"functionName":  fn.Ident.ID,
+				"functionFound": true,
+			}).Warn("Function node found")
+		}
 
-				// Always get the inferred return type from the typechecker
-				if sig, ok := t.TypeChecker.Functions[fn.Ident.ID]; ok && len(sig.ReturnTypes) > 0 {
-					expectedReturnTypes = sig.ReturnTypes
+		// Always get the inferred return type from the typechecker
+		if sig, ok := t.TypeChecker.Functions[fn.Ident.ID]; ok && len(sig.ReturnTypes) > 0 {
+			expectedReturnTypes = sig.ReturnTypes
 
-					// DEBUG: Log function signature
-					if t.log != nil {
-						t.log.WithFields(logrus.Fields{
-							"function":     "transformReturnStatement",
-							"functionName": fn.Ident.ID,
-							"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
-						}).Warn("Function signature for return statement")
-					}
-				} else {
-					// DEBUG: Log missing signature
-					if t.log != nil {
-						t.log.WithFields(logrus.Fields{
-							"function":       "transformReturnStatement",
-							"functionName":   fn.Ident.ID,
-							"hasSig":         ok,
-							"sigReturnTypes": len(sig.ReturnTypes),
-						}).Warn("No function signature found")
-					}
-				}
-			} else {
-				// DEBUG: Log function type mismatch
-				if t.log != nil {
-					t.log.WithFields(logrus.Fields{
-						"function": "transformReturnStatement",
-						"fnType":   fmt.Sprintf("%T", fnNode),
-					}).Warn("Function node is not FunctionNode")
-				}
-			}
-		} else {
-			// DEBUG: Log function lookup error
+			// DEBUG: Log function signature
 			if t.log != nil {
 				t.log.WithFields(logrus.Fields{
-					"function": "transformReturnStatement",
-					"error":    err.Error(),
-				}).Warn("Failed to find closest function")
+					"function":     "transformReturnStatement",
+					"functionName": fn.Ident.ID,
+					"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
+				}).Warn("Function signature for return statement")
+			}
+		} else {
+			// DEBUG: Log missing signature
+			if t.log != nil {
+				t.log.WithFields(logrus.Fields{
+					"function":       "transformReturnStatement",
+					"functionName":   fn.Ident.ID,
+					"hasSig":         ok,
+					"sigReturnTypes": len(sig.ReturnTypes),
+				}).Warn("No function signature found")
 			}
 		}
 
@@ -707,8 +807,26 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			if i < len(expectedReturnTypes) {
 				expectedType := &expectedReturnTypes[i]
 				if expectedType.TypeKind == ast.TypeKindUserDefined {
+					// PINPOINT: Log when processing user-defined return types
+					if t.log != nil {
+						t.log.WithFields(logrus.Fields{
+							"function":     functionName,
+							"returnIndex":  i,
+							"expectedType": expectedType.Ident,
+							"resultsLen":   len(results),
+						}).Error("[PINPOINT] Processing user-defined return type in transformReturnStatement")
+					}
 					for i, ret := range results {
 						if ident, ok := ret.(*goast.Ident); ok {
+							// PINPOINT: Log when calling buildCompositeLiteralForReturn
+							if t.log != nil {
+								t.log.WithFields(logrus.Fields{
+									"function":     functionName,
+									"returnIndex":  i,
+									"expectedType": expectedType.Ident,
+									"identName":    ident.Name,
+								}).Error("[PINPOINT] Calling buildCompositeLiteralForReturn for user-defined type")
+							}
 							goRet := t.buildCompositeLiteralForReturn(expectedType, ident.Name)
 							results[i] = goRet
 						}
@@ -729,8 +847,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							ExpectedType: expectedType,
 							ReturnIndex:  i,
 						}
-						if fnNode, err := t.closestFunction(); err == nil {
-							if fn, ok := fnNode.(ast.FunctionNode); ok {
+						fnNode, err := t.closestFunction()
+						if err == nil {
+							fn, ok := fnNode.(ast.FunctionNode)
+							if ok {
 								context.FunctionName = string(fn.Ident.ID)
 							}
 						}
@@ -805,8 +925,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		// DEBUG: Log function signature information
 		if t.log != nil {
-			if fnNode, err := t.closestFunction(); err == nil {
-				if fn, ok := fnNode.(ast.FunctionNode); ok {
+			fnNode, err := t.closestFunction()
+			if err == nil {
+				fn, ok := fnNode.(ast.FunctionNode)
+				if ok {
 					t.log.WithFields(logrus.Fields{
 						"function":     "transformReturnStatement",
 						"functionName": string(fn.Ident.ID),
@@ -819,10 +941,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		return &goast.ReturnStmt{
 			Results: results,
 		}, nil
+
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(s.Arguments))
-		if sig, ok := t.TypeChecker.Functions[s.Function.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
+		fnNode, err := t.closestFunction()
+		if err != nil {
+			return nil, fmt.Errorf("could not find enclosing function for FunctionCallNode: %w", err)
+		}
+		fn, ok := fnNode.(ast.FunctionNode)
+		if !ok {
+			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
+		}
+		if sig, ok := t.TypeChecker.Functions[fn.Ident.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
 			for i, param := range sig.Parameters {
 				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
 					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false, "", nil)
@@ -868,8 +999,6 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
-			varName := s.LValues[0].Ident.String()
-
 			var typeExpr goast.Expr
 			var expectedType *ast.TypeNode
 			if t != nil {
@@ -890,7 +1019,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				// Use the unified helper to determine the expected type
 				context := &ShapeContext{
 					ExpectedType: expectedType,
-					VariableName: varName,
+					VariableName: s.LValues[0].Ident.String(),
 				}
 				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
 				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
@@ -902,7 +1031,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						Tok: token.VAR,
 						Specs: []goast.Spec{
 							&goast.ValueSpec{
-								Names:  []*goast.Ident{goast.NewIdent(varName)},
+								Names:  []*goast.Ident{goast.NewIdent(s.LValues[0].Ident.String())},
 								Type:   typeExpr,
 								Values: []goast.Expr{rhs},
 							},
@@ -919,7 +1048,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					Tok: token.VAR,
 					Specs: []goast.Spec{
 						&goast.ValueSpec{
-							Names:  []*goast.Ident{goast.NewIdent(varName)},
+							Names:  []*goast.Ident{goast.NewIdent(s.LValues[0].Ident.String())},
 							Type:   typeExpr,
 							Values: []goast.Expr{rhs},
 						},
@@ -927,6 +1056,8 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				},
 			}, nil
 		}
+
+		// Handle assignment without explicit types (normal assignment)
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
 			lhsExpr, err := t.transformExpression(lval)
@@ -961,6 +1092,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			Tok: operator,
 			Rhs: rhs,
 		}, nil
+	case ast.VariableNode:
+		// This case is now handled by transformReturnStatement
+		return nil, fmt.Errorf("transformStatement: VariableNode should not be directly transformed here")
 	default:
 		return &goast.EmptyStmt{}, nil
 	}
@@ -1151,8 +1285,28 @@ func (t *Transformer) wrapVariableInNamedStruct(expectedType *ast.TypeNode, vari
 			value = goast.NewIdent(string(variable.Ident.ID))
 		} else {
 			// This field needs a default value
-			// For now, use zero value - this could be enhanced with field-specific defaults
-			value = goast.NewIdent("0") // Default to 0, could be enhanced
+			// Use proper zero values based on field type
+			fieldType := shapeExpr.Shape.Fields[fieldName].Type
+			if fieldType != nil {
+				switch fieldType.Ident {
+				case ast.TypeString:
+					value = &goast.BasicLit{Kind: token.STRING, Value: "\"\""}
+				case ast.TypeInt:
+					value = &goast.BasicLit{Kind: token.INT, Value: "0"}
+				case ast.TypeBool:
+					value = goast.NewIdent("false")
+				case ast.TypeFloat:
+					value = &goast.BasicLit{Kind: token.FLOAT, Value: "0.0"}
+				case ast.TypeError:
+					value = goast.NewIdent("nil")
+				default:
+					// For user-defined types, use nil
+					value = goast.NewIdent("nil")
+				}
+			} else {
+				// Fallback to 0 if field type is unknown
+				value = goast.NewIdent("0")
+			}
 		}
 
 		elts = append(elts, &goast.KeyValueExpr{

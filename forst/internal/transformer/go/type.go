@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 )
 
@@ -33,7 +34,7 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		return &goast.StarExpr{X: baseType}, nil
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
-		name, err := t.TypeChecker.GetAliasedTypeName(n)
+		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aliased type name: %s", err)
 		}

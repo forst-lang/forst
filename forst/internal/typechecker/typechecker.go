@@ -173,9 +173,13 @@ func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
 	return typeNode
 }
 
+type GetAliasedTypeNameOptions struct {
+	AllowStructuralAlias bool
+}
+
 // GetAliasedTypeName returns the aliased type name for any type node, ensuring consistent type aliasing
 // This is the unified function that should be used by both typechecker and transformer
-func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error) {
+func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliasedTypeNameOptions) (string, error) {
 	// Handle built-in types
 	if tc.IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		// Convert Forst built-in types to Go built-in types
@@ -202,7 +206,7 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error)
 		if len(typeNode.TypeParams) == 0 {
 			return "", fmt.Errorf("pointer type must have a base type parameter")
 		}
-		baseTypeName, err := tc.GetAliasedTypeName(typeNode.TypeParams[0])
+		baseTypeName, err := tc.GetAliasedTypeName(typeNode.TypeParams[0], opts)
 		if err != nil {
 			return "", fmt.Errorf("failed to get base type name for pointer: %w", err)
 		}
@@ -210,7 +214,7 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode) (string, error)
 	}
 
 	// If this is a hash-based type, check for structural identity with user-defined types
-	if typeNode.TypeKind == ast.TypeKindHashBased {
+	if opts.AllowStructuralAlias && typeNode.TypeKind == ast.TypeKindHashBased {
 		// Look up the shape for this hash-based type
 		hashDef, hashExists := tc.Defs[typeNode.Ident]
 		if hashExists {

@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 
 	logrus "github.com/sirupsen/logrus"
@@ -101,7 +102,7 @@ func (t *Transformer) transformAssertionType(assertion *ast.AssertionNode) (*goa
 	var name string
 	if assertionType.IsHashBased() {
 		// For hash-based types, use the unified type aliasing function
-		name, err = t.TypeChecker.GetAliasedTypeName(*assertionType)
+		name, err = t.TypeChecker.GetAliasedTypeName(*assertionType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 		if err != nil {
 			err = fmt.Errorf("failed to get type alias name for assertion type: %w", err)
 			t.log.WithFields(logrus.Fields{

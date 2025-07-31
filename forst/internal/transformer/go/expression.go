@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 	"reflect"
@@ -595,7 +596,7 @@ func (t *Transformer) buildTypeValue(fieldType *ast.TypeNode) (goast.Expr, error
 		return goast.NewIdent("nil"), nil
 	}
 
-	aliasName, err := t.TypeChecker.GetAliasedTypeName(*fieldType)
+	aliasName, err := t.TypeChecker.GetAliasedTypeName(*fieldType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 	if err != nil || aliasName == "" {
 		return goast.NewIdent("nil"), nil
 	}

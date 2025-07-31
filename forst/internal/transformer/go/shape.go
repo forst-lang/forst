@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 
@@ -61,7 +62,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		}
 
 		// Always use the unified aliasing logic for all type names
-		name, err := t.TypeChecker.GetAliasedTypeName(*field.Type)
+		name, err := t.TypeChecker.GetAliasedTypeName(*field.Type, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 		if err != nil {
 			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
 			t.log.WithFields(logrus.Fields{
@@ -117,7 +118,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			"shape":    fmt.Sprintf("%+v", lookupType[0]),
 		}).Tracef("Found inferred type of field of shape")
 		shapeType := lookupType[0]
-		name, err := t.TypeChecker.GetAliasedTypeName(shapeType)
+		name, err := t.TypeChecker.GetAliasedTypeName(shapeType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 		if err != nil {
 			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
 			t.log.WithFields(logrus.Fields{

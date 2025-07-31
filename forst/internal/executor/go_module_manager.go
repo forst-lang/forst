@@ -23,14 +23,15 @@ func NewGoModuleManager(log *logrus.Logger) *GoModuleManager {
 
 // ModuleConfig holds configuration for creating a Go module
 type ModuleConfig struct {
-	ModuleName     string
-	PackageName    string
-	FunctionName   string
-	GoCode         string
-	SupportsParams bool
-	Parameters     []discovery.ParameterInfo
-	Args           []byte
-	IsStreaming    bool
+	ModuleName         string
+	PackageName        string
+	FunctionName       string
+	GoCode             string
+	SupportsParams     bool
+	Parameters         []discovery.ParameterInfo
+	Args               []byte
+	IsStreaming        bool
+	HasMultipleReturns bool
 }
 
 // CreateModule creates a temporary Go module with the specified configuration
@@ -94,7 +95,35 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 		param := config.Parameters[0]
 		paramType := param.Type
 		paramName := param.Name
-		return fmt.Sprintf(`package main
+
+		if config.HasMultipleReturns {
+			return fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	%s "%s"
+)
+
+func main() {
+	var input %s.%s
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding input: %%v\n", err)
+		os.Exit(1)
+	}
+	result, err := %s.%s(%s)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
+		os.Exit(1)
+	}
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%%s}\n", string(output))
+}
+`, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
+		} else {
+			return fmt.Sprintf(`package main
 
 import (
 	"encoding/json"
@@ -115,9 +144,31 @@ func main() {
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
 `, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
+		}
 	}
 
-	return fmt.Sprintf(`package main
+	if config.HasMultipleReturns {
+		return fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"fmt"
+
+	%s "%s"
+)
+
+func main() {
+	result, err := %s.%s()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
+		os.Exit(1)
+	}
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%%s}\n", string(output))
+}
+`, alias, importPkg, alias, config.FunctionName)
+	} else {
+		return fmt.Sprintf(`package main
 
 import (
 	"encoding/json"
@@ -132,6 +183,7 @@ func main() {
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
 `, alias, importPkg, alias, config.FunctionName)
+	}
 }
 
 // generateStreamingMainGo generates the main.go content for streaming execution

@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 
@@ -115,7 +116,7 @@ func (t *Transformer) defineShapeType(shape *ast.ShapeNode) error {
 	}
 
 	// Use the unified aliasing logic for the type name
-	aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent})
+	aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent}, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 	if err != nil || aliasName == "" {
 		aliasName = string(typeIdent)
 	}
@@ -167,7 +168,7 @@ func (t *Transformer) defineShapeFields(shape *ast.ShapeNode) error {
 			}
 
 			// Use the unified aliasing logic for the type name
-			aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent})
+			aliasName, err := t.TypeChecker.GetAliasedTypeName(ast.TypeNode{Ident: typeIdent}, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 			if err != nil || aliasName == "" {
 				aliasName = string(typeIdent)
 			}
@@ -227,18 +228,18 @@ func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string
 	}
 
 	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode)
+	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 }
 
 // getGeneratedTypeNameForTypeNode uses the unified type aliasing function from the typechecker
 func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode)
+	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 }
 
 // getAliasedTypeNameForTypeNode returns the aliased type name for any type node,
 // ensuring consistent type aliasing across the transformer
 func (t *Transformer) getAliasedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
 	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode)
+	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 }

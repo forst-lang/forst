@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 )
 
@@ -42,7 +43,7 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 				baseTypeNode := ast.TypeNode{Ident: baseType}
 				if !baseTypeNode.IsHashBased() {
 					// Use the original type name instead of inferring a hash-based type
-					name, err := t.TypeChecker.GetAliasedTypeName(baseTypeNode)
+					name, err := t.TypeChecker.GetAliasedTypeName(baseTypeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 					if err != nil {
 						return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
 					}
@@ -70,7 +71,7 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 		}
 
 		actualType := inferredTypes[0]
-		name, err := t.TypeChecker.GetAliasedTypeName(actualType)
+		name, err := t.TypeChecker.GetAliasedTypeName(actualType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
 		}

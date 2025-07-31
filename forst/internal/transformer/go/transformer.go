@@ -23,6 +23,9 @@ type Transformer struct {
 
 	// If true, struct fields for return values will be exported (capitalized)
 	ExportReturnStructFields bool
+
+	// Track functions that have ensure statements to prevent normal return statements from overwriting error returns
+	functionsWithEnsure map[string]bool
 }
 
 // New creates a new Transformer
@@ -32,9 +35,10 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		log.Warnf("No logger provided, using default logger")
 	}
 	t := &Transformer{
-		TypeChecker: tc,
-		Output:      &TransformerOutput{},
-		log:         log,
+		TypeChecker:         tc,
+		Output:              &TransformerOutput{},
+		log:                 log,
+		functionsWithEnsure: make(map[string]bool),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {

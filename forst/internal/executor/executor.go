@@ -48,12 +48,13 @@ type FunctionExecutor struct {
 
 // CompiledFunction represents a compiled Forst function
 type CompiledFunction struct {
-	PackageName       string
-	FunctionName      string
-	GoCode            string
-	FilePath          string
-	SupportsStreaming bool
-	Parameters        []discovery.ParameterInfo
+	PackageName        string
+	FunctionName       string
+	GoCode             string
+	FilePath           string
+	SupportsStreaming  bool
+	Parameters         []discovery.ParameterInfo
+	HasMultipleReturns bool
 }
 
 // ExecutionResult represents the result of a function execution
@@ -256,13 +257,16 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, fmt.Errorf("failed to get function info: %v", err)
 	}
 
+	e.log.Debugf("Function %s.%s: HasMultipleReturns=%v, ReturnTypes=%v", packageName, functionName, fnInfo.HasMultipleReturns, fnInfo.ReturnTypes)
+
 	return &CompiledFunction{
-		PackageName:       packageName,
-		FunctionName:      functionName,
-		GoCode:            goCode,
-		FilePath:          filePath,
-		SupportsStreaming: fnInfo.SupportsStreaming,
-		Parameters:        fnInfo.Parameters, // Populate Parameters
+		PackageName:        packageName,
+		FunctionName:       functionName,
+		GoCode:             goCode,
+		FilePath:           filePath,
+		SupportsStreaming:  fnInfo.SupportsStreaming,
+		Parameters:         fnInfo.Parameters, // Populate Parameters
+		HasMultipleReturns: fnInfo.HasMultipleReturns,
 	}, nil
 }
 
@@ -315,17 +319,18 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 	e.log.Debugf("createTempGoFile: compiledFn.Parameters=%v, len=%d", compiledFn.Parameters, len(compiledFn.Parameters))
 
 	config := &ModuleConfig{
-		ModuleName:     fmt.Sprintf("exec-%s", generateRandomString(8)),
-		PackageName:    compiledFn.PackageName,
-		FunctionName:   compiledFn.FunctionName,
-		GoCode:         compiledFn.GoCode,
-		SupportsParams: len(compiledFn.Parameters) > 0,
-		Parameters:     compiledFn.Parameters,
-		Args:           args,
-		IsStreaming:    false,
+		ModuleName:         fmt.Sprintf("exec-%s", generateRandomString(8)),
+		PackageName:        compiledFn.PackageName,
+		FunctionName:       compiledFn.FunctionName,
+		GoCode:             compiledFn.GoCode,
+		SupportsParams:     len(compiledFn.Parameters) > 0,
+		Parameters:         compiledFn.Parameters,
+		Args:               args,
+		IsStreaming:        false,
+		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
 
-	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v", config.SupportsParams, config.Parameters)
+	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v, HasMultipleReturns=%v", config.SupportsParams, config.Parameters, config.HasMultipleReturns)
 
 	tempDir, err := e.moduleManager.CreateModule(config)
 	e.log.Debugf("Created temp dir: %s", tempDir)
@@ -340,14 +345,15 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
 func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
 	config := &ModuleConfig{
-		ModuleName:     fmt.Sprintf("streaming-%s", generateRandomString(8)),
-		PackageName:    compiledFn.PackageName,
-		FunctionName:   compiledFn.FunctionName,
-		GoCode:         compiledFn.GoCode,
-		SupportsParams: len(compiledFn.Parameters) > 0,
-		Parameters:     compiledFn.Parameters,
-		Args:           args,
-		IsStreaming:    true,
+		ModuleName:         fmt.Sprintf("streaming-%s", generateRandomString(8)),
+		PackageName:        compiledFn.PackageName,
+		FunctionName:       compiledFn.FunctionName,
+		GoCode:             compiledFn.GoCode,
+		SupportsParams:     len(compiledFn.Parameters) > 0,
+		Parameters:         compiledFn.Parameters,
+		Args:               args,
+		IsStreaming:        true,
+		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
 
 	return e.moduleManager.CreateModule(config)
