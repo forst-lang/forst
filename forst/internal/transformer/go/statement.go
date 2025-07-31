@@ -188,6 +188,40 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 				}).Warn("[PINPOINT] Function signature for error return")
 			}
 
+			// For main function, use os.Exit(1)
+			if t.isMainFunction() {
+				t.Output.EnsureImport("os")
+				return &goast.ExprStmt{
+					X: &goast.CallExpr{
+						Fun: &goast.SelectorExpr{
+							X:   goast.NewIdent("os"),
+							Sel: goast.NewIdent("Exit"),
+						},
+						Args: []goast.Expr{
+							&goast.BasicLit{
+								Kind:  token.INT,
+								Value: "1",
+							},
+						},
+					},
+				}
+			}
+
+			// For void functions or functions with no return values, use panic
+			if len(returnTypes) == 0 || (len(returnTypes) == 1 && returnTypes[0].Ident == ast.TypeVoid) {
+				return &goast.ExprStmt{
+					X: &goast.CallExpr{
+						Fun: goast.NewIdent("panic"),
+						Args: []goast.Expr{
+							&goast.BasicLit{
+								Kind:  token.STRING,
+								Value: "\"assertion failed\"",
+							},
+						},
+					},
+				}
+			}
+
 			// Build error return values based on the function's return types
 			results := make([]goast.Expr, 0, len(returnTypes))
 			for i, returnType := range returnTypes {
