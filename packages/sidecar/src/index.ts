@@ -79,7 +79,7 @@ export class ForstSidecar {
     this.client = new ForstSidecarClient({
       baseUrl: this.server.getServerUrl(),
       timeout: 30000,
-      retries: 3,
+      retries: 1,
     });
 
     logger.info("✅ Forst sidecar started successfully");

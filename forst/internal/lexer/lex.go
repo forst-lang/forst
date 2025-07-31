@@ -15,7 +15,7 @@ import (
 func (l *Lexer) Lex() []ast.Token {
 	reader := bufio.NewReader(bytes.NewReader(l.input))
 	l.location = LexerLocation{
-		Path: l.context.FilePath,
+		FileID: l.context.FileID,
 	}
 
 	for {
@@ -51,7 +51,7 @@ func (l *Lexer) Lex() []ast.Token {
 						l.storeToken(ast.Token{
 							Type:   ast.TokenComment,
 							Value:  l.blockCommentValue,
-							Path:   l.location.Path,
+							FileID: l.location.FileID,
 							Line:   l.blockCommentStartLine,
 							Column: l.blockCommentStartCol,
 						})
@@ -86,7 +86,7 @@ func (l *Lexer) Lex() []ast.Token {
 				l.storeToken(ast.Token{
 					Type:   ast.TokenStringLiteral,
 					Value:  valueWithBackticks,
-					Path:   l.location.Path,
+					FileID: l.location.FileID,
 					Line:   l.backtickStringStartLine,
 					Column: l.backtickStringStartCol,
 				})
@@ -110,7 +110,7 @@ func (l *Lexer) Lex() []ast.Token {
 
 			// Handle string literals (double quotes, single quotes)
 			if line[l.location.Column] == '"' || line[l.location.Column] == '\'' {
-				token, newCol := processStringLiteral(line, l.location.Column, l.location.Path, l.location.LineNum)
+				token, newCol := processStringLiteral(line, l.location.Column, l.location.FileID, l.location.LineNum)
 				l.storeToken(token)
 				l.location.Column = newCol
 				continue
@@ -132,7 +132,7 @@ func (l *Lexer) Lex() []ast.Token {
 					l.storeToken(ast.Token{
 						Type:   ast.TokenStringLiteral,
 						Value:  valueWithBackticks,
-						Path:   l.location.Path,
+						FileID: l.location.FileID,
 						Line:   l.backtickStringStartLine,
 						Column: l.backtickStringStartCol,
 					})
@@ -170,7 +170,7 @@ func (l *Lexer) Lex() []ast.Token {
 							l.storeToken(ast.Token{
 								Type:   ast.TokenComment,
 								Value:  l.blockCommentValue,
-								Path:   l.location.Path,
+								FileID: l.location.FileID,
 								Line:   l.blockCommentStartLine,
 								Column: l.blockCommentStartCol,
 							})
@@ -192,7 +192,7 @@ func (l *Lexer) Lex() []ast.Token {
 
 			// Check for special characters that should be separate tokens
 			if isSpecialChar(line[l.location.Column]) {
-				token, newColumn := processSpecialChar(line, l.location.Column, l.location.Path, l.location.LineNum)
+				token, newColumn := processSpecialChar(line, l.location.Column, l.location.FileID, l.location.LineNum)
 				l.storeToken(token)
 				l.location.Column = newColumn
 
@@ -204,7 +204,7 @@ func (l *Lexer) Lex() []ast.Token {
 			}
 
 			// Otherwise, process as a word/identifier/number
-			token, newCol := processWord(line, l.location.Column, l.location.Path, l.location.LineNum)
+			token, newCol := processWord(line, l.location.Column, l.location.FileID, l.location.LineNum)
 			l.storeToken(token)
 			l.location.Column = newCol
 		}
@@ -214,7 +214,7 @@ func (l *Lexer) Lex() []ast.Token {
 	l.storeToken(ast.Token{
 		Type:   ast.TokenEOF,
 		Value:  "",
-		Path:   l.location.Path,
+		FileID: l.location.FileID,
 		Line:   l.location.LineNum + 1,
 		Column: 1,
 	})

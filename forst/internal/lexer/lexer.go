@@ -8,14 +8,14 @@ import (
 
 // Context for tracking file information
 type Context struct {
-	FilePath string
+	FileID string
 }
 
 // LexerLocation tracks the current state of the lexer
 type LexerLocation struct {
 	LineNum int
 	Column  int
-	Path    string
+	FileID  string
 }
 
 // Lexer represents the lexer for the Forst language
@@ -41,7 +41,7 @@ type Lexer struct {
 }
 
 // New creates a new lexer instance
-func New(input []byte, filePath string, log *logrus.Logger) *Lexer {
+func New(input []byte, fileID string, log *logrus.Logger) *Lexer {
 	if log == nil {
 		log = logrus.New()
 		log.Warnf("No logger provided, using default logger")
@@ -49,7 +49,7 @@ func New(input []byte, filePath string, log *logrus.Logger) *Lexer {
 	return &Lexer{
 		log:      log,
 		input:    input,
-		context:  Context{FilePath: filePath},
-		location: LexerLocation{Path: filePath},
+		context:  Context{FileID: fileID},
+		location: LexerLocation{FileID: fileID},
 	}
 }

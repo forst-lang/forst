@@ -6,7 +6,7 @@ import (
 )
 
 // Token processing functions
-func processStringLiteral(line []byte, startCol int, path string, lineNum int) (ast.Token, int) {
+func processStringLiteral(line []byte, startCol int, fileID string, lineNum int) (ast.Token, int) {
 	column := startCol
 	quoteChar := line[column]
 	column++ // Move past opening quote
@@ -21,7 +21,7 @@ func processStringLiteral(line []byte, startCol int, path string, lineNum int) (
 		}
 		word := string(line[startCol:column])
 		return ast.Token{
-			Path:   path,
+			FileID: fileID,
 			Line:   lineNum,
 			Column: startCol + 1,
 			Value:  word,
@@ -45,7 +45,7 @@ func processStringLiteral(line []byte, startCol int, path string, lineNum int) (
 	word := string(line[startCol:column])
 
 	return ast.Token{
-		Path:   path,
+		FileID: fileID,
 		Line:   lineNum,
 		Column: startCol + 1,
 		Value:  word,
@@ -53,7 +53,7 @@ func processStringLiteral(line []byte, startCol int, path string, lineNum int) (
 	}, column
 }
 
-func processSpecialChar(line []byte, startCol int, path string, lineNum int) (ast.Token, int) {
+func processSpecialChar(line []byte, startCol int, fileID string, lineNum int) (ast.Token, int) {
 	column := startCol
 	column++
 	// Handle two-character operators
@@ -70,7 +70,7 @@ func processSpecialChar(line []byte, startCol int, path string, lineNum int) (as
 			column++
 		}
 		return ast.Token{
-			Path:   path,
+			FileID: fileID,
 			Line:   lineNum,
 			Column: startCol + 1,
 			Value:  commentContent,
@@ -79,7 +79,7 @@ func processSpecialChar(line []byte, startCol int, path string, lineNum int) (as
 	}
 
 	token := ast.Token{
-		Path:   path,
+		FileID: fileID,
 		Line:   lineNum,
 		Column: startCol + 1,
 		Value:  word,
@@ -89,7 +89,7 @@ func processSpecialChar(line []byte, startCol int, path string, lineNum int) (as
 	return token, column
 }
 
-func processWord(line []byte, startCol int, path string, lineNum int) (ast.Token, int) {
+func processWord(line []byte, startCol int, fileID string, lineNum int) (ast.Token, int) {
 	column := startCol
 	// Special handling for numbers
 	if isDigit(line[column]) {
@@ -142,7 +142,7 @@ func processWord(line []byte, startCol int, path string, lineNum int) (ast.Token
 		}
 
 		return ast.Token{
-			Path:   path,
+			FileID: fileID,
 			Line:   lineNum,
 			Column: startCol + 1,
 			Value:  word,
@@ -157,7 +157,7 @@ func processWord(line []byte, startCol int, path string, lineNum int) (ast.Token
 	word := string(line[startCol:column])
 
 	return ast.Token{
-		Path:   path,
+		FileID: fileID,
 		Line:   lineNum,
 		Column: startCol + 1,
 		Value:  word,

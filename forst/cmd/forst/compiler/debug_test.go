@@ -97,14 +97,14 @@ func TestDebugPrintTokens(t *testing.T) {
 		{
 			Type:   ast.TokenIdentifier,
 			Value:  "test",
-			Path:   "test.ft",
+			FileID: "test.ft",
 			Line:   1,
 			Column: 1,
 		},
 		{
 			Type:   ast.TokenIntLiteral,
 			Value:  "42",
-			Path:   "test.ft",
+			FileID: "test.ft",
 			Line:   1,
 			Column: 6,
 		},

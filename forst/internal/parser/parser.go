@@ -13,7 +13,7 @@ type Context struct {
 	Package    *ast.PackageNode
 	Function   *ast.FunctionNode
 	ScopeStack *ScopeStack
-	FilePath   string
+	FileID     string
 }
 
 // Parser represents the parser for the Forst language
@@ -25,10 +25,10 @@ type Parser struct {
 }
 
 // New creates a new parser instance
-func New(tokens []ast.Token, filePath string, log *logrus.Logger) *Parser {
+func New(tokens []ast.Token, fileID string, log *logrus.Logger) *Parser {
 	scopeStack := NewScopeStack(log)
 	context := Context{
-		FilePath:   filePath,
+		FileID:     fileID,
 		ScopeStack: scopeStack,
 	}
 	if log == nil {

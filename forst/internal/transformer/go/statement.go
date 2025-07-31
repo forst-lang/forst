@@ -91,19 +91,25 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 		case "int", "int64", "int32", "int16", "int8", "uint", "uint64", "uint32", "uint16", "uint8", "uintptr", "float64", "float32", "complex64", "complex128", "rune", "byte":
 			return &goast.BasicLit{Kind: token.INT, Value: "0"}
 		case "bool":
-			return goast.NewIdent("false")
+			return &goast.Ident{Name: "false"}
 		case "error":
-			return goast.NewIdent("nil")
+			return &goast.Ident{Name: "nil"}
 		default:
-			// For structs and user types, use T{}
-			return &goast.CompositeLit{Type: t}
+			// For struct types, return nil
+			return &goast.Ident{Name: "nil"}
 		}
 	case *goast.StarExpr:
-		return goast.NewIdent("nil")
+		// For pointer types, return nil
+		return &goast.Ident{Name: "nil"}
 	case *goast.ArrayType:
-		return goast.NewIdent("nil")
+		// For array types, return nil
+		return &goast.Ident{Name: "nil"}
+	case *goast.InterfaceType:
+		// For interface types, return nil
+		return &goast.Ident{Name: "nil"}
 	default:
-		return goast.NewIdent("nil")
+		// For any other type, return nil
+		return &goast.Ident{Name: "nil"}
 	}
 }
 
@@ -148,8 +154,9 @@ func (t *Transformer) findBestNamedTypeForReturnStructLiteral(shapeNode ast.Shap
 	return nil
 }
 
+// transformErrorStatement converts an ensure statement to an error return statement
 func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
-	// DEBUG: Log entry to error statement with detailed type information
+	// PINPOINT: Log when this function is called
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
 			"function": "transformErrorStatement",
@@ -157,68 +164,101 @@ func (t *Transformer) transformErrorStatement(stmt ast.EnsureNode) goast.Stmt {
 		}).Error("[PINPOINT] transformErrorStatement called")
 	}
 
-	errorExpr := t.transformErrorExpression(stmt)
-
-	// Get the function's declared return type from the current scope
-	var goReturnTypes []ast.TypeNode
-	var functionName string
-	fnNode, err := t.closestFunction()
-	if err == nil {
+	// Get the current function to determine the return types
+	if fnNode, err := t.closestFunction(); err == nil {
 		if fn, ok := fnNode.(ast.FunctionNode); ok {
-			functionName = string(fn.Ident.ID)
-			if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists {
-				goReturnTypes = sig.ReturnTypes
+			functionName := string(fn.Ident.ID)
 
-				// DEBUG: Log the function signature and return types
+			// Get the inferred function signature from the typechecker
+			var returnTypes []ast.TypeNode
+			if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists {
+				returnTypes = sig.ReturnTypes
+			} else {
+				// Fallback to the raw AST node return types
+				returnTypes = fn.ReturnTypes
+			}
+
+			// PINPOINT: Log function signature for error return
+			if t.log != nil {
+				t.log.WithFields(logrus.Fields{
+					"function":     "transformErrorStatement",
+					"functionName": functionName,
+					"returnCount":  len(returnTypes),
+					"returnTypes":  returnTypes,
+				}).Warn("[PINPOINT] Function signature for error return")
+			}
+
+			// Build error return values based on the function's return types
+			results := make([]goast.Expr, 0, len(returnTypes))
+			for i, returnType := range returnTypes {
+				// PINPOINT: Log processing return type for zero value
 				if t.log != nil {
 					t.log.WithFields(logrus.Fields{
 						"function":     "transformErrorStatement",
 						"functionName": functionName,
-						"returnTypes":  fmt.Sprintf("%v", goReturnTypes),
-						"returnCount":  len(goReturnTypes),
-					}).Warn("[PINPOINT] Function signature for error return")
+						"returnIndex":  i,
+						"returnType":   returnType.Ident,
+						"typeKind":     returnType.TypeKind,
+					}).Warn("[PINPOINT] Processing return type for zero value")
 				}
+
+				var result goast.Expr
+				if returnType.IsError() {
+					// For error types, return an error with the assertion message
+					assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
+
+					// Ensure the errors package is imported
+					t.Output.EnsureImport("errors")
+
+					result = &goast.CallExpr{
+						Fun: &goast.SelectorExpr{
+							X:   goast.NewIdent("errors"),
+							Sel: goast.NewIdent("New"),
+						},
+						Args: []goast.Expr{
+							&goast.BasicLit{
+								Kind:  token.STRING,
+								Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
+							},
+						},
+					}
+				} else {
+					// For non-error types, return zero values
+					if returnType.TypeKind == ast.TypeKindUserDefined {
+						// Use buildZeroCompositeLiteral for user-defined types
+						result = t.buildZeroCompositeLiteral(&returnType)
+					} else {
+						// For built-in types, use getZeroValue
+						goType, _ := t.transformType(returnType)
+						result = getZeroValue(goType)
+					}
+				}
+				results = append(results, result)
+			}
+
+			return &goast.ReturnStmt{
+				Results: results,
 			}
 		}
 	}
 
-	// If we can't find the function signature, fallback to a single error return
-	if len(goReturnTypes) == 0 {
-		return &goast.ReturnStmt{
-			Results: []goast.Expr{errorExpr},
-		}
-	}
-
-	// Always build a zero value for the function's declared return type(s)
-	zeroValues := make([]goast.Expr, 0, len(goReturnTypes))
-	for i, retType := range goReturnTypes {
-		// DEBUG: Log each return type being processed
-		if t.log != nil {
-			t.log.WithFields(logrus.Fields{
-				"function":     "transformErrorStatement",
-				"functionName": functionName,
-				"returnIndex":  i,
-				"returnType":   retType.Ident,
-				"typeKind":     retType.TypeKind,
-			}).Warn("[PINPOINT] Processing return type for zero value")
-		}
-
-		zeroValue := t.buildZeroCompositeLiteral(&retType)
-		zeroValues = append(zeroValues, zeroValue)
-	}
-
-	// Replace the last value with the error expression (assuming last return is error)
-	if len(zeroValues) > 0 {
-		zeroValues[len(zeroValues)-1] = errorExpr
-	}
-
+	// Fallback: return nil for error
 	return &goast.ReturnStmt{
-		Results: zeroValues,
+		Results: []goast.Expr{goast.NewIdent("nil")},
 	}
 }
 
 // Helper: Build a composite literal of the expected type, mapping a variable to the first field, zero for others
 func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode, valueVar string) goast.Expr {
+	// DEBUG: Log when this function is called
+	if t.log != nil {
+		t.log.WithFields(logrus.Fields{
+			"function":     "buildCompositeLiteralForReturn",
+			"expectedType": expectedType.Ident,
+			"valueVar":     valueVar,
+		}).Warn("[DEBUG] buildCompositeLiteralForReturn called")
+	}
+
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
 	if !ok {
 		return goast.NewIdent(valueVar)
@@ -236,8 +276,22 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 			val = goast.NewIdent(valueVar)
 			used = true
 		} else {
-			goFieldType, _ := t.transformType(*field.Type)
-			val = getZeroValue(goFieldType)
+			// Use the same logic as buildZeroCompositeLiteral for consistent zero value generation
+			switch field.Type.Ident {
+			case ast.TypeString:
+				val = &goast.BasicLit{Kind: token.STRING, Value: "\"\""}
+			case ast.TypeInt:
+				val = &goast.BasicLit{Kind: token.INT, Value: "0"}
+			case ast.TypeBool:
+				val = goast.NewIdent("false")
+			case ast.TypeFloat:
+				val = &goast.BasicLit{Kind: token.FLOAT, Value: "0.0"}
+			case ast.TypeError:
+				val = goast.NewIdent("nil")
+			default:
+				// For user-defined types, use nil
+				val = goast.NewIdent("nil")
+			}
 		}
 		elts = append(elts, &goast.KeyValueExpr{
 			Key:   goast.NewIdent(fieldName),
@@ -247,58 +301,95 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 	return &goast.CompositeLit{Type: goast.NewIdent(string(expectedType.Ident)), Elts: elts}
 }
 
-// Helper: Build a composite literal of the expected type, all zero values
+// Helper: Build a zero composite literal of the expected type
 func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goast.Expr {
-	// DEBUG: Log the expected type
+	// DEBUG: Log when this function is called
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildZeroCompositeLiteral",
-			"expectedType": string(expectedType.Ident),
-			"typeKind":     expectedType.TypeKind,
+			"expectedType": expectedType.Ident,
 			"isHashBased":  expectedType.IsHashBased(),
+			"typeKind":     expectedType.TypeKind,
 		}).Warn("[DEBUG] buildZeroCompositeLiteral called")
 	}
 
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
 	if !ok {
+		// DEBUG: Log when type definition is not found
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
-				"function":     "buildZeroCompositeLiteral",
-				"expectedType": string(expectedType.Ident),
+				"expectedType": expectedType.Ident,
 				"found":        false,
 			}).Warn("[DEBUG] Type definition not found")
 		}
-		return &goast.CompositeLit{Type: goast.NewIdent(string(expectedType.Ident))}
+		return goast.NewIdent("nil")
 	}
 	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
 	if !ok {
-		if t.log != nil {
-			t.log.WithFields(logrus.Fields{
-				"function":     "buildZeroCompositeLiteral",
-				"expectedType": string(expectedType.Ident),
-				"exprType":     fmt.Sprintf("%T", def.Expr),
-			}).Warn("[DEBUG] Type definition is not a shape expression")
-		}
-		return &goast.CompositeLit{Type: goast.NewIdent(string(expectedType.Ident))}
+		return goast.NewIdent("nil")
 	}
 	fields := shapeExpr.Shape.Fields
 	elts := make([]goast.Expr, 0, len(fields))
 	for fieldName, field := range fields {
-		goFieldType, _ := t.transformType(*field.Type)
-		val := getZeroValue(goFieldType)
+		// DEBUG: Log field processing
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"fieldName":     fieldName,
+				"fieldType":     field.Type.Ident,
+				"fieldTypeKind": field.Type.TypeKind,
+			}).Warn("[DEBUG] Processing field for zero value")
+		}
+
+		var val goast.Expr
+		switch field.Type.Ident {
+		case ast.TypeString:
+			val = &goast.BasicLit{Kind: token.STRING, Value: "\"\""}
+		case ast.TypeInt:
+			val = &goast.BasicLit{Kind: token.INT, Value: "0"}
+		case ast.TypeBool:
+			val = goast.NewIdent("false")
+		case ast.TypeFloat:
+			val = &goast.BasicLit{Kind: token.FLOAT, Value: "0.0"}
+		case ast.TypeError:
+			val = goast.NewIdent("nil")
+		default:
+			// For user-defined types, use nil
+			val = goast.NewIdent("nil")
+		}
+
+		// DEBUG: Log the generated zero value
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"fieldName": fieldName,
+				"fieldType": field.Type.Ident,
+				"zeroValue": fmt.Sprintf("%T", val),
+				"zeroValueDetails": func() string {
+					if basicLit, ok := val.(*goast.BasicLit); ok {
+						return fmt.Sprintf("BasicLit{Kind:%s, Value:%s}", basicLit.Kind, basicLit.Value)
+					}
+					if ident, ok := val.(*goast.Ident); ok {
+						return fmt.Sprintf("Ident{Name:%s}", ident.Name)
+					}
+					return fmt.Sprintf("%T", val)
+				}(),
+			}).Warn("[DEBUG] Generated zero value for field")
+		}
+
 		elts = append(elts, &goast.KeyValueExpr{
 			Key:   goast.NewIdent(fieldName),
 			Value: val,
 		})
 	}
+
+	// DEBUG: Log the final generated composite literal
 	if t.log != nil {
 		t.log.WithFields(logrus.Fields{
-			"function":      "buildZeroCompositeLiteral",
-			"expectedType":  string(expectedType.Ident),
+			"expectedType":  expectedType.Ident,
 			"fieldCount":    len(fields),
 			"generatedType": string(expectedType.Ident),
 		}).Warn("[DEBUG] Generated zero composite literal")
 	}
+
 	return &goast.CompositeLit{Type: goast.NewIdent(string(expectedType.Ident)), Elts: elts}
 }
 

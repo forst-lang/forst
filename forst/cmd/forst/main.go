@@ -118,6 +118,7 @@ func main() {
 		compression := dumpFlags.Bool("compression", false, "Enable compression for debug output")
 		format := dumpFlags.String("format", "json", "Output format (json, pretty)")
 		phase := dumpFlags.String("phase", "all", "Specific phase to dump (lexer, parser, typechecker, transformer, all)")
+		summary := dumpFlags.Bool("summary", false, "Show only phase summaries")
 
 		// Parse the dump subcommand flags
 		dumpFlags.Parse(os.Args[2:])
@@ -132,7 +133,7 @@ func main() {
 		lsp.Commit = Commit
 		lsp.Date = Date
 
-		handleDumpCommand(*filePath, *compression, *format, *phase, log)
+		handleDumpCommand(*filePath, *compression, *format, *phase, *summary, log)
 		return
 	}
 
@@ -198,7 +199,7 @@ func main() {
 }
 
 // handleDumpCommand dumps debug information for a Forst file using LSP functionality
-func handleDumpCommand(filePath string, compression bool, format string, phase string, log *logrus.Logger) {
+func handleDumpCommand(filePath string, compression bool, format string, phase string, summary bool, log *logrus.Logger) {
 	// Create a temporary LSP server instance for dumping
 	server := lsp.NewLSPServer(":0", log) // Port 0 means we won't actually listen
 
@@ -225,12 +226,13 @@ func handleDumpCommand(filePath string, compression bool, format string, phase s
 		Params:  nil, // Will be set below
 	}
 
-	// Create params with compression setting
+	// Create params with all settings
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": uri,
 		},
 		"compression": compression,
+		"summary":     summary,
 	}
 
 	// Marshal params to JSON

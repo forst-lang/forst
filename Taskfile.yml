@@ -207,9 +207,12 @@ tasks:
     desc: Dump debug info for a specific example file
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} dump --file={{.ROOT_DIR}}/{{.FILE}}
+      - go run ./{{.BUILD_DIR}} dump --file={{.ROOT_DIR}}/{{.FILE}} -format={{.FORMAT}} --phase={{.PHASE}} --summary={{.SUMMARY}}
     vars:
       FILE: '{{.FILE | default "examples/in/basic.ft"}}'
+      FORMAT: '{{.FORMAT | default "json"}}'
+      PHASE: '{{.PHASE | default "all"}}'
+      SUMMARY: '{{.SUMMARY | default "false"}}'
 
   # Development tasks
   dev:watch:

@@ -181,7 +181,7 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 		if p.current().Type == ast.TokenLParen {
 			p.advance() // Consume '('
 			for {
-				typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+				typ := p.parseReturnTypeSingle()
 				returnType = append(returnType, typ)
 				if p.current().Type == ast.TokenComma {
 					p.advance()
@@ -191,10 +191,22 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 			}
 			p.expect(ast.TokenRParen)
 		} else {
-			returnType = append(returnType, p.parseType(TypeIdentOpts{AllowLowercaseTypes: false}))
+			returnType = append(returnType, p.parseReturnTypeSingle())
 		}
 	}
 	return returnType
+}
+
+func (p *Parser) parseReturnTypeSingle() ast.TypeNode {
+	// Special handling for shape types in return positions
+	if p.current().Type == ast.TokenLBrace {
+		p.parseShapeType() // Parse the shape but don't use it for return type
+		// For return types, create a simple shape type instead of an assertion
+		return ast.TypeNode{
+			Ident: ast.TypeShape,
+		}
+	}
+	return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 }
 
 func (p *Parser) parseReturnStatement() ast.ReturnNode {

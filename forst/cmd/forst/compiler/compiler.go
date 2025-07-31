@@ -85,7 +85,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memBefore := getMemStats()
 
 	// Lexical Analysis
-	l := lexer.New(source, c.Args.FilePath, c.log)
+	l := lexer.New(source, c.Args.FilePath, c.log) // TODO: Update to use file ID
 	tokens := l.Lex()
 
 	memAfter := getMemStats()
@@ -99,7 +99,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memBefore = getMemStats()
 
 	// Parsing
-	psr := parser.New(tokens, c.Args.FilePath, c.log)
+	psr := parser.New(tokens, c.Args.FilePath, c.log) // TODO: Update to use file ID
 	forstNodes, err := psr.ParseFile()
 	if err != nil {
 		return nil, err

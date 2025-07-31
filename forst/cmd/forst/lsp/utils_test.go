@@ -26,10 +26,6 @@ func TestDebugEventBuilder(t *testing.T) {
 		t.Errorf("Expected phase %s, got %s", PhaseLexer, event.Phase)
 	}
 
-	if event.File != "/test/file.ft" {
-		t.Errorf("Expected file /test/file.ft, got %s", event.File)
-	}
-
 	if event.EventType != EventTokenCreated {
 		t.Errorf("Expected event type %s, got %s", EventTokenCreated, event.EventType)
 	}
@@ -225,10 +221,6 @@ func TestCreateTokenEvent(t *testing.T) {
 		t.Errorf("Expected phase %s, got %s", PhaseLexer, event.Phase)
 	}
 
-	if event.File != "/test/file.ft" {
-		t.Errorf("Expected file /test/file.ft, got %s", event.File)
-	}
-
 	if event.EventType != EventTokenCreated {
 		t.Errorf("Expected event type %s, got %s", EventTokenCreated, event.EventType)
 	}
@@ -268,10 +260,6 @@ func TestCreateFunctionEvent(t *testing.T) {
 		t.Errorf("Expected phase %s, got %s", PhaseParser, event.Phase)
 	}
 
-	if event.File != "/test/file.ft" {
-		t.Errorf("Expected file /test/file.ft, got %s", event.File)
-	}
-
 	if event.EventType != EventFunctionParsed {
 		t.Errorf("Expected event type %s, got %s", EventFunctionParsed, event.EventType)
 	}
@@ -304,10 +292,6 @@ func TestCreateTypeErrorEvent(t *testing.T) {
 
 	if event.Phase != PhaseTypechecker {
 		t.Errorf("Expected phase %s, got %s", PhaseTypechecker, event.Phase)
-	}
-
-	if event.File != "/test/file.ft" {
-		t.Errorf("Expected file /test/file.ft, got %s", event.File)
 	}
 
 	if event.EventType != EventTypeError {
@@ -374,10 +358,6 @@ func TestCreateScopeEvent(t *testing.T) {
 		t.Errorf("Expected phase %s, got %s", PhaseTypechecker, event.Phase)
 	}
 
-	if event.File != "/test/file.ft" {
-		t.Errorf("Expected file /test/file.ft, got %s", event.File)
-	}
-
 	if event.EventType != EventScopeEntered {
 		t.Errorf("Expected event type %s, got %s", EventScopeEntered, event.EventType)
 	}
@@ -416,7 +396,7 @@ func TestFormatDebugEvent(t *testing.T) {
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Phase:     PhaseLexer,
-		File:      "/test/file.ft",
+		FileID:    "f1",
 		EventType: EventTokenCreated,
 		Message:   "Created token",
 		Line:      10,
@@ -428,7 +408,7 @@ func TestFormatDebugEvent(t *testing.T) {
 	expectedParts := []string{
 		"[lexer]",
 		"[token_created]",
-		"file=/test/file.ft",
+		"file=f1",
 		"line=10",
 		"function=testFunction",
 		"Created token",

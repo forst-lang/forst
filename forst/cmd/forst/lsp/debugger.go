@@ -3,6 +3,7 @@ package lsp
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -61,13 +62,23 @@ type CompilerDebuggerInterface interface {
 	LogWithStructuredDebug(logger *logrus.Logger, level logrus.Level, phase CompilerPhase, filePath, eventType, message string, data map[string]interface{})
 }
 
+// FileMetadata contains shared file information to reduce redundancy in debug output
+type FileMetadata struct {
+	URI      string    `json:"uri"`
+	Path     string    `json:"path"`
+	Filename string    `json:"filename"`
+	Size     int64     `json:"size,omitempty"`
+	Modified time.Time `json:"modified,omitempty"`
+}
+
 // StructuredDebugger provides machine-readable debug output for compiler phases.
 // This type implements the Debugger interface and provides structured logging capabilities.
 type StructuredDebugger struct {
-	phase     CompilerPhase
-	filePath  string
-	startTime time.Time
-	output    []DebugEvent
+	phase        CompilerPhase
+	fileID       FileID
+	packageStore *PackageStore
+	startTime    time.Time
+	output       []DebugEvent
 }
 
 // DebugEvent represents a single debug event with structured data.
@@ -79,8 +90,8 @@ type DebugEvent struct {
 	Phase CompilerPhase `json:"phase"`
 	// Type of event (e.g., "token_created", "function_entered", "type_inferred")
 	EventType string `json:"event_type"`
-	// Source file being processed (optional)
-	File string `json:"file,omitempty"`
+	// File ID reference to the package store (optional)
+	FileID FileID `json:"file_id,omitempty"`
 	// Line number in source file (optional)
 	Line int `json:"line,omitempty"`
 	// Function name where event occurred (optional)
@@ -155,14 +166,37 @@ type ErrorInfo struct {
 	Suggestions []string `json:"suggestions,omitempty"`
 }
 
+// extractFilename extracts the filename from a file path
+func extractFilename(filePath string) string {
+	parts := strings.Split(filePath, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return filePath
+}
+
+// extractPackagePath extracts the package path from a file path
+func extractPackagePath(filePath string) string {
+	parts := strings.Split(filePath, "/")
+	if len(parts) > 1 {
+		// Remove the filename and return the directory path
+		return strings.Join(parts[:len(parts)-1], "/")
+	}
+	return "."
+}
+
 // NewStructuredDebugger creates a new structured debugger for a compiler phase.
 // The debugger will collect events for the specified phase and file path.
-func NewStructuredDebugger(phase CompilerPhase, filePath string) *StructuredDebugger {
+func NewStructuredDebugger(phase CompilerPhase, filePath string, packageStore *PackageStore) *StructuredDebugger {
+	// Register file in package store and get file ID
+	fileID := packageStore.RegisterFile(filePath, extractPackagePath(filePath))
+
 	return &StructuredDebugger{
-		phase:     phase,
-		filePath:  filePath,
-		startTime: time.Now(),
-		output:    make([]DebugEvent, 0),
+		phase:        phase,
+		fileID:       fileID,
+		packageStore: packageStore,
+		startTime:    time.Now(),
+		output:       make([]DebugEvent, 0),
 	}
 }
 
@@ -173,7 +207,7 @@ func (d *StructuredDebugger) LogEvent(eventType, message string, data map[string
 		Timestamp: time.Now(),
 		Phase:     d.phase,
 		EventType: eventType,
-		File:      d.filePath,
+		FileID:    d.fileID,
 		Message:   message,
 		Data:      data,
 	}
@@ -187,7 +221,7 @@ func (d *StructuredDebugger) LogScope(eventType, message string, scope *ScopeInf
 		Timestamp: time.Now(),
 		Phase:     d.phase,
 		EventType: eventType,
-		File:      d.filePath,
+		FileID:    d.fileID,
 		Message:   message,
 		Scope:     scope,
 	}
@@ -201,7 +235,7 @@ func (d *StructuredDebugger) LogAST(eventType, message string, ast *ASTInfo) {
 		Timestamp: time.Now(),
 		Phase:     d.phase,
 		EventType: eventType,
-		File:      d.filePath,
+		FileID:    d.fileID,
 		Message:   message,
 		AST:       ast,
 	}
@@ -215,7 +249,7 @@ func (d *StructuredDebugger) LogType(eventType, message string, typeInfo *TypeIn
 		Timestamp: time.Now(),
 		Phase:     d.phase,
 		EventType: eventType,
-		File:      d.filePath,
+		FileID:    d.fileID,
 		Message:   message,
 		TypeInfo:  typeInfo,
 	}
@@ -229,7 +263,7 @@ func (d *StructuredDebugger) LogError(eventType, message string, errorInfo *Erro
 		Timestamp: time.Now(),
 		Phase:     d.phase,
 		EventType: eventType,
-		File:      d.filePath,
+		FileID:    d.fileID,
 		Message:   message,
 		Error:     errorInfo,
 	}
@@ -254,7 +288,7 @@ func (d *StructuredDebugger) GetPhaseSummary() map[string]interface{} {
 
 	return map[string]interface{}{
 		"phase":        d.phase,
-		"file":         d.filePath,
+		"file_id":      d.fileID,
 		"duration_ms":  duration.Milliseconds(),
 		"total_events": len(d.output),
 		"event_counts": eventCounts,
@@ -268,7 +302,7 @@ func (d *StructuredDebugger) GetPhaseSummary() map[string]interface{} {
 func (d *StructuredDebugger) PrintSummary() {
 	summary := d.GetPhaseSummary()
 	fmt.Printf("=== %s Phase Summary ===\n", d.phase)
-	fmt.Printf("File: %s\n", summary["file"])
+	fmt.Printf("File ID: %s\n", summary["file_id"])
 	fmt.Printf("Duration: %dms\n", summary["duration_ms"])
 	fmt.Printf("Total Events: %d\n", summary["total_events"])
 
@@ -284,16 +318,18 @@ func (d *StructuredDebugger) PrintSummary() {
 // CompilerDebugger manages debuggers for all phases.
 // This type implements the CompilerDebuggerInterface and provides centralized debugger management.
 type CompilerDebugger struct {
-	debuggers map[CompilerPhase]*StructuredDebugger
-	enabled   bool
+	debuggers    map[CompilerPhase]*StructuredDebugger
+	packageStore *PackageStore
+	enabled      bool
 }
 
 // NewCompilerDebugger creates a new compiler debugger.
 // The enabled parameter controls whether debugging is active.
 func NewCompilerDebugger(enabled bool) *CompilerDebugger {
 	return &CompilerDebugger{
-		debuggers: make(map[CompilerPhase]*StructuredDebugger),
-		enabled:   enabled,
+		debuggers:    make(map[CompilerPhase]*StructuredDebugger),
+		packageStore: NewPackageStore(),
+		enabled:      enabled,
 	}
 }
 
@@ -308,7 +344,7 @@ func (cd *CompilerDebugger) GetDebugger(phase CompilerPhase, filePath string) De
 		return debugger
 	}
 
-	debugger := NewStructuredDebugger(phase, filePath)
+	debugger := NewStructuredDebugger(phase, filePath, cd.packageStore)
 	cd.debuggers[phase] = debugger
 	return debugger
 }

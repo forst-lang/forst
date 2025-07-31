@@ -280,10 +280,20 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode, expe
 // determineStructType robustly enforce named type for struct literals
 func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *ast.TypeNode) (goast.Expr, error) {
 	t.log.WithFields(logrus.Fields{
-		"function":         "determineStructType",
-		"expectedType":     expectedType,
-		"expectedTypeKind": expectedType.TypeKind,
-		"isUserDefined":    expectedType.IsUserDefined(),
+		"function":     "determineStructType",
+		"expectedType": expectedType,
+		"expectedTypeKind": func() ast.TypeKind {
+			if expectedType != nil {
+				return expectedType.TypeKind
+			}
+			return ast.TypeKindHashBased
+		}(),
+		"isUserDefined": func() bool {
+			if expectedType != nil {
+				return expectedType.IsUserDefined()
+			}
+			return false
+		}(),
 	}).Debug("[PINPOINT] determineStructType entry")
 
 	// If expectedType is provided and is a named type (not hash-based), use it directly
@@ -500,7 +510,27 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 	} else if field.Type != nil {
 		value, err = t.buildTypeValue(field.Type)
 	} else {
-		value = goast.NewIdent("nil")
+		// For missing fields (error cases), generate proper zero values instead of nil
+		if fieldDef.Type != nil {
+			// Use the same logic as buildZeroCompositeLiteral for consistent zero value generation
+			switch fieldDef.Type.Ident {
+			case ast.TypeString:
+				value = &goast.BasicLit{Kind: token.STRING, Value: "\"\""}
+			case ast.TypeInt:
+				value = &goast.BasicLit{Kind: token.INT, Value: "0"}
+			case ast.TypeBool:
+				value = goast.NewIdent("false")
+			case ast.TypeFloat:
+				value = &goast.BasicLit{Kind: token.FLOAT, Value: "0.0"}
+			case ast.TypeError:
+				value = goast.NewIdent("nil")
+			default:
+				// For user-defined types, use nil
+				value = goast.NewIdent("nil")
+			}
+		} else {
+			value = goast.NewIdent("nil")
+		}
 	}
 
 	if err != nil {

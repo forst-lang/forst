@@ -13,11 +13,6 @@ type CreateUserRequest = {
   email: String
 }
 
-type CreateUserResponse = {
-  user: User,
-  created_at: Int
-}
-
 is (user User) Valid {
   ensure user.age is GreaterThan(0)
   ensure user.age is LessThan(151)
