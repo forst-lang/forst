@@ -408,7 +408,7 @@ func TestFormatDebugEvent(t *testing.T) {
 	expectedParts := []string{
 		"[lexer]",
 		"[token_created]",
-		"file=f1",
+		"file_id=f1",
 		"line=10",
 		"function=testFunction",
 		"Created token",
