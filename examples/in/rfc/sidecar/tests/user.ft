@@ -22,7 +22,6 @@ is (user User) Valid {
 }
 
 func CreateUser(input CreateUserRequest) {
-  println(input.name)
   user := {
     id: "123",
     name: input.name,
