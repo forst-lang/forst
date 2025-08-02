@@ -133,8 +133,8 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Debug: Check log level
 	e.log.Infof("Current log level: %v", e.log.GetLevel())
 
-	// Debug: Check if the echo function has parameters
-	e.log.Infof("Echo function parameters: %v", compiledFn.Parameters)
+	// Debug: Check if the function has parameters
+	e.log.Infof("Compiled function parameters: %v", compiledFn.Parameters)
 
 	// Debug: Output the generated Go function code if log level is debug or lower
 	if e.log.Level <= logrus.DebugLevel {
@@ -144,13 +144,13 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Execute the Go code
 	hasParams := len(compiledFn.Parameters) > 0
 	e.log.Infof("executeGoCode: hasParams=%v, args=%s", hasParams, string(args))
-	output, err := e.executeGoCode(tempDir, args, hasParams, compiledFn.Parameters)
+	output, err := e.executeGoCode(tempDir, args, compiledFn.Parameters)
 	if err != nil {
 		e.log.Errorf("Failed to execute Go code: %v", err)
 		return nil, fmt.Errorf("failed to execute Go code: %v", err)
 	}
 
-	e.log.Infof("Output: %s", output)
+	e.log.Infof("Output (stdout+stderr): %s", output)
 
 	// Parse the output
 	result, err := e.parseExecutionOutput(output)
@@ -239,9 +239,9 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, err
 	}
 
-	// Use ExportReturnStructFields=false for function implementation
-	// Capitalization should only be applied to external API types, not function implementations
-	transformer := transformer_go.New(checker, e.log, false)
+	// Use ExportReturnStructFields=true for function implementation to enable JSON marshalling
+	// Struct fields need to be exported (capitalized) for json.Marshal to work properly
+	transformer := transformer_go.New(checker, e.log, true)
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform Forst file to Go: %v", err)
@@ -360,9 +360,9 @@ func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunctio
 }
 
 // executeGoCode executes Go code and returns the output
-func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, hasParams bool, params ...interface{}) (string, error) {
+func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, params ...any) (string, error) {
 	var cmd *exec.Cmd
-	if hasParams {
+	if len(params) > 0 {
 		e.log.Tracef("Executing Go program with args: %s", string(args))
 		cmd = exec.Command("go", "run", ".")
 		cmd.Dir = tempDir
@@ -391,7 +391,7 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, h
 		if err != nil {
 			e.log.Errorf("Failed to write to stdin: %v", err)
 		} else {
-			e.log.Debugf("Wrote %d bytes to stdin", n)
+			e.log.Tracef("Wrote %d bytes to stdin: %s (defined params: %v)", n, string(data), params)
 		}
 		stdin.Close()
 		// Wait for the command to complete
@@ -399,8 +399,9 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, h
 		output := stdoutBuf.String() + stderrBuf.String()
 		if err != nil {
 			e.log.Errorf("Go program failed: %v", err)
-			return "", fmt.Errorf("execution failed: %v, output: %s", err, output)
+			return "", fmt.Errorf("execution failed: %v, output (stdout+stderr): %s", err, output)
 		}
+
 		return output, nil
 	} else {
 		e.log.Tracef("Executing Go program without args")

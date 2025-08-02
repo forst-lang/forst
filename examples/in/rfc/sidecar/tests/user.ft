@@ -14,6 +14,7 @@ type CreateUserRequest = {
 }
 
 is (user User) Valid {
+  ensure user.name is Min(1)
   ensure user.age is GreaterThan(0)
   ensure user.age is LessThan(151)
   ensure user.name is Min(1)
@@ -21,6 +22,7 @@ is (user User) Valid {
 }
 
 func CreateUser(input CreateUserRequest) {
+  println(input.name)
   user := {
     id: "123",
     name: input.name,

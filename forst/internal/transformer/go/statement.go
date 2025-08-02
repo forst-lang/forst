@@ -370,8 +370,13 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 				}).Error("[PINPOINT] Generated value for field in buildCompositeLiteralForReturn")
 			}
 		}
+		goFieldName := fieldName
+		if t.ExportReturnStructFields {
+			goFieldName = capitalizeFirst(fieldName)
+		}
+
 		elts = append(elts, &goast.KeyValueExpr{
-			Key:   goast.NewIdent(fieldName),
+			Key:   goast.NewIdent(goFieldName),
 			Value: val,
 		})
 	}
@@ -458,8 +463,13 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 			}).Warn("[DEBUG] Generated zero value for field")
 		}
 
+		goFieldName := fieldName
+		if t.ExportReturnStructFields {
+			goFieldName = capitalizeFirst(fieldName)
+		}
+
 		elts = append(elts, &goast.KeyValueExpr{
-			Key:   goast.NewIdent(fieldName),
+			Key:   goast.NewIdent(goFieldName),
 			Value: val,
 		})
 	}
@@ -1309,8 +1319,13 @@ func (t *Transformer) wrapVariableInNamedStruct(expectedType *ast.TypeNode, vari
 			}
 		}
 
+		goFieldName := fieldName
+		if t.ExportReturnStructFields {
+			goFieldName = capitalizeFirst(fieldName)
+		}
+
 		elts = append(elts, &goast.KeyValueExpr{
-			Key:   goast.NewIdent(fieldName),
+			Key:   goast.NewIdent(goFieldName),
 			Value: value,
 		})
 	}
