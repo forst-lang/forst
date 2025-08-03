@@ -34,7 +34,7 @@ class PackageProxy {
     const response = await this.sidecar.invoke(
       this.packageName,
       functionName,
-      ...args
+      args
     );
     if (!response.success) {
       throw new Error(
@@ -209,7 +209,7 @@ export class ForstClient {
                 const response = await this.sidecar.invoke(
                   packageName,
                   prop,
-                  ...args
+                  args
                 );
                 clientLogger.debug(
                   `📦 Package proxy received response for ${packageName}.${prop}:`,
@@ -248,7 +248,7 @@ export class ForstClient {
   async invoke(
     packageName: string,
     functionName: string,
-    args?: any
+    args?: any[]
   ): Promise<any> {
     clientLogger.debug(
       `🚀 Client invoking ${packageName}.${functionName} with args:`,

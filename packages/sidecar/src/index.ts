@@ -132,7 +132,7 @@ export class ForstSidecar {
   /**
    * Invoke a Forst function
    */
-  async invoke(packageName: string, functionName: string, args: any = {}) {
+  async invoke(packageName: string, functionName: string, args: any[] = []) {
     if (!this.client) {
       throw new Error("Sidecar not started. Call start() first.");
     }

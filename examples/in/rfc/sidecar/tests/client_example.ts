@@ -87,7 +87,7 @@ async function runClientExample(
 
     // Test direct invoke method for comparison
     logger.info("Testing direct invoke method...");
-    const directResult = await client.invoke("user", "GetUserById", "123");
+    const directResult = await client.invoke("user", "GetUserById", ["123"]);
     logger.info("✅ Direct invoke result:", directResult);
 
     // Test streaming capabilities (if supported)

@@ -381,12 +381,12 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 			return "", fmt.Errorf("failed to start command: %v", err)
 		}
 		// Write args to stdin synchronously
-		data := []byte("{}")
+		data := args
 		if len(args) == 0 || string(args) == "null" {
-			data = []byte("{}")
-		} else {
-			data = args
+			// Create empty array for no args
+			data = []byte("[]")
 		}
+
 		n, err := stdin.Write(data)
 		if err != nil {
 			e.log.Errorf("Failed to write to stdin: %v", err)

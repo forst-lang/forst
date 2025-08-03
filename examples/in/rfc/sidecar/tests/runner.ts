@@ -24,7 +24,7 @@ async function runTest(
   test: Readonly<{
     package: string;
     function: string;
-    args?: any;
+    args?: any[];
     want: {
       success?: boolean;
       output?: any;
@@ -233,7 +233,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       {
         package: "echo",
         function: "Echo",
-        args: { message: "Hello, Forst!" },
+        args: [{ message: "Hello, Forst!" }],
         want: {
           success: true,
           output: { echo: "Hello, Forst!", timestamp: 1234567890 },
@@ -242,7 +242,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       {
         package: "typesafety",
         function: "GetUserAge",
-        args: {},
+        args: [],
         want: {
           success: true,
           output: 25,

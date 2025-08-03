@@ -75,7 +75,7 @@ export class ForstSidecarClient {
   async invokeFunction(
     packageName: string,
     functionName: string,
-    args: any = {},
+    args: any[] = [],
     options: { streaming?: boolean } = {}
   ): Promise<InvokeResponse> {
     const request: InvokeRequest = {
