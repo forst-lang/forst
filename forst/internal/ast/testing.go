@@ -182,11 +182,22 @@ func MakeConstraint(name string, shape *ShapeNode) ConstraintNode {
 	}
 }
 
+// TestLoggerOptions contains options for setting up a test logger
+type TestLoggerOptions struct {
+	ForceLevel logrus.Level
+}
+
 // SetupTestLogger creates a test logger
-func SetupTestLogger() *logrus.Logger {
+func SetupTestLogger(opts *TestLoggerOptions) *logrus.Logger {
 	logger := logrus.New()
+
 	if testing.Verbose() {
 		logger.SetLevel(logrus.DebugLevel)
 	}
+
+	if opts != nil {
+		logger.SetLevel(opts.ForceLevel)
+	}
+
 	return logger
 }

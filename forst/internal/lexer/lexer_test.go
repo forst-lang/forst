@@ -607,7 +607,7 @@ func testLexerTokens(t *testing.T, tt struct {
 	input    string
 	expected []ast.Token
 }) {
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	l := New([]byte(tt.input), testFileID, log)
 	tokens := l.Lex()
 

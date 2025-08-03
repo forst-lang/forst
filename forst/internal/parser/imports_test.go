@@ -61,7 +61,7 @@ func TestParseImport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := ast.SetupTestLogger()
+			logger := ast.SetupTestLogger(nil)
 			p := setupParser(tt.tokens, logger)
 			importNode := p.parseImport()
 			tt.validate(t, importNode)
@@ -79,7 +79,7 @@ func TestParseImportGroup(t *testing.T) {
 		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 14},
 	}
 
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 	p := setupParser(tokens, logger)
 	importGroup := p.parseImportGroup()
 
@@ -160,7 +160,7 @@ func TestParseImports(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := ast.SetupTestLogger()
+			logger := ast.SetupTestLogger(nil)
 			p := setupParser(tt.tokens, logger)
 			nodes := p.parseImports()
 			tt.validate(t, nodes)

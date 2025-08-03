@@ -34,7 +34,7 @@ func TestTransformExpression_StructLiteralWithPointerField(t *testing.T) {
 	call := ast.MakeFunctionCall("testFn", []ast.ExpressionNode{wrapperValue})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -85,7 +85,7 @@ func TestTransformExpression_StructLiteralWithNamedType(t *testing.T) {
 	call := ast.MakeFunctionCall("acceptUser", []ast.ExpressionNode{userStruct})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -137,7 +137,7 @@ func TestTransformExpression_StructLiteralWithIncompatibleType(t *testing.T) {
 	call := ast.MakeFunctionCall("acceptUser", []ast.ExpressionNode{otherStruct})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -193,7 +193,7 @@ func TestTransformExpression_NestedStructLiteralWithNamedTypes(t *testing.T) {
 	call := ast.MakeFunctionCall("acceptContext", []ast.ExpressionNode{nestedStruct})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -252,7 +252,7 @@ func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testin
 	mainFn := ast.MakeFunction("main", nil, []ast.Node{msgVar, inputVar})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -325,7 +325,7 @@ func TestTransformExpression_StructLiteralTypeEmissionBug(t *testing.T) {
 	}
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -431,7 +431,7 @@ func TestTransformExpression_StructLiteralWithFieldAssignments(t *testing.T) {
 	}
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -520,7 +520,7 @@ func TestTransformExpression_StructLiteralAssignment_UsesNamedType(t *testing.T)
 	}, []ast.Node{assign})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	c := setupTypeChecker(log)
 	transformer := setupTransformer(c, log)
 
@@ -616,7 +616,7 @@ func TestTransformExpression_ClientExampleBug(t *testing.T) {
 	}
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -729,7 +729,7 @@ func TestTransformExpression_ClientExampleWithFieldAccess(t *testing.T) {
 	}
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -820,7 +820,7 @@ func TestTransformExpression_UnifiedHelperWorking(t *testing.T) {
 	}
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -924,7 +924,7 @@ func TestTransformExpression_TypeEmissionIssue(t *testing.T) {
 	packageNode := ast.MakePackage("user", []ast.Node{})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -1035,7 +1035,7 @@ func TestTransformExpression_ShapeGuardIssue(t *testing.T) {
 	packageNode := ast.MakePackage("main", []ast.Node{})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -1139,7 +1139,7 @@ func TestTransformExpression_ShapeGuardStructLiteralIssue(t *testing.T) {
 	call := ast.MakeFunctionCall("createTask", []ast.ExpressionNode{mainStruct})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -1238,7 +1238,7 @@ func TestTransformExpression_ShapeGuardPointerFieldIssue(t *testing.T) {
 	pkg := ast.MakePackage("main", []ast.Node{userType, appContextType, fn})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 
@@ -1300,7 +1300,7 @@ func TestPointerValueMismatch_Minimal(t *testing.T) {
 		ast.MakeSimpleParam("ctx", ast.TypeNode{Ident: "AppContext"}),
 	}, []ast.Node{})
 	call := ast.MakeFunctionCall("testFn", []ast.ExpressionNode{structLiteral})
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 	err := tc.CheckTypes([]ast.Node{userType, appContextType, fn})
@@ -1389,7 +1389,7 @@ func TestTransformExpression_ShapeGuardIssues_Minimal(t *testing.T) {
 	call := ast.MakeFunctionCall("createTask", []ast.ExpressionNode{structLiteral})
 
 	// Setup typechecker and transformer
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 

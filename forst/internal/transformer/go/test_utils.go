@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func setupTestLogger() *logrus.Logger {
-	return ast.SetupTestLogger()
+func setupTestLogger(opts *ast.TestLoggerOptions) *logrus.Logger {
+	return ast.SetupTestLogger(opts)
 }
 
 func setupTypeChecker(log *logrus.Logger) *typechecker.TypeChecker {

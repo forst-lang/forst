@@ -125,7 +125,7 @@ func TestTypeGuardReturnType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := setupTestLogger()
+			log := setupTestLogger(nil)
 			tc := New(log, false)
 			err := tc.CheckTypes([]ast.Node{tt.typeGuard})
 			if tt.expectError {
@@ -192,7 +192,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := setupTestLogger()
+			log := setupTestLogger(nil)
 			tc := New(log, false)
 
 			// Create a function that declares 's' and tests the is operation
@@ -228,7 +228,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 }
 
 func TestTypeChecker_RegistersInferredParameterTypeForAssertion(t *testing.T) {
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := New(log, false)
 
 	// Create type definitions for the types we need
@@ -342,7 +342,7 @@ func TestMultipleReturnValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := setupTestLogger()
+			log := setupTestLogger(nil)
 			tc := New(log, false)
 
 			// Register dummy 'foo' function for assignment test
@@ -459,7 +459,7 @@ func TestTypeChecker_AssertionWithShapeLiteral_PropagatesConcreteShapeType(t *te
 }
 
 func TestTypeChecker_AssertionWithTypeNodeMatchConstraint_PropagatesConcreteShapeType(t *testing.T) {
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := New(log, false)
 
 	// Create type definitions for the types we need
@@ -543,7 +543,7 @@ func TestTypeChecker_AssertionWithTypeNodeMatchConstraint_PropagatesConcreteShap
 }
 
 func TestTypeChecker_AssertionWithShapeLiteral_SingleField_NestedShapeType(t *testing.T) {
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := New(log, false)
 
 	// Create type definitions for the types we need

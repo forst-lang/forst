@@ -118,7 +118,7 @@ func TestDeterministicShapeGuardExample(t *testing.T) {
 	var lastOutput []byte
 	for i := 0; i < 100; i++ {
 		// Parse
-		logger := ast.SetupTestLogger()
+		logger := ast.SetupTestLogger(nil)
 		p := parser.NewTestParser(input, logger)
 		astNodes, err := p.ParseFile()
 		if err != nil {
@@ -200,7 +200,7 @@ func CreateUser(input CreateUserRequest) {
 `
 
 	// Parse
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 	if testing.Verbose() {
 		logger.SetLevel(logrus.DebugLevel)
 	}

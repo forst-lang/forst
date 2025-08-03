@@ -181,7 +181,7 @@ func TestParseBlockStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := ast.SetupTestLogger()
+			logger := ast.SetupTestLogger(nil)
 			p := setupParser(tt.tokens, logger)
 			nodes, err := p.ParseFile()
 			if err != nil {

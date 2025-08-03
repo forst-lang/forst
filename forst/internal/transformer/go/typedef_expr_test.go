@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetTypeAliasNameForTypeNode_RejectsOriginalName(t *testing.T) {
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 	tc := typechecker.New(logger, false)
 	tf := New(tc, logger)
 

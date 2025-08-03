@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseFile(t *testing.T) {
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 
 	tests := []struct {
 		name     string
@@ -81,7 +81,7 @@ func TestParseFile(t *testing.T) {
 }
 
 func TestParseFile_WithUnexpectedToken(t *testing.T) {
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "unexpected", Line: 1, Column: 1},
@@ -105,7 +105,7 @@ func TestParseFile_WithUnexpectedToken(t *testing.T) {
 }
 
 func TestParseFile_ShapeLiteralInReturn(t *testing.T) {
-	logger := ast.SetupTestLogger()
+	logger := ast.SetupTestLogger(nil)
 
 	input := `
 package user
