@@ -21,11 +21,11 @@ export interface InvokeRequest {
   streaming?: boolean;
 }
 
-export interface InvokeResponse {
+export interface InvokeResponse<T extends any> {
   success: boolean;
   output?: string;
   error?: string;
-  result?: any;
+  result?: T;
 }
 
 export interface StreamingResult {

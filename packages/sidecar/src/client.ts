@@ -56,7 +56,7 @@ export class ForstSidecarClient {
   /**
    * Invoke a Forst function using package.function format
    */
-  async invoke(fn: string, args?: any): Promise<InvokeResponse> {
+  async invoke<T>(fn: string, args?: any[]): Promise<InvokeResponse<T>> {
     // Parse function name to extract package and function
     const parts = fn.split(".");
     if (parts.length !== 2) {
@@ -66,18 +66,18 @@ export class ForstSidecarClient {
     }
 
     const [packageName, functionName] = parts;
-    return this.invokeFunction(packageName, functionName, args);
+    return this.invokeFunction<T>(packageName, functionName, args);
   }
 
   /**
    * Invoke a Forst function with explicit package and function names
    */
-  async invokeFunction(
+  async invokeFunction<T>(
     packageName: string,
     functionName: string,
     args: any[] = [],
     options: { streaming?: boolean } = {}
-  ): Promise<InvokeResponse> {
+  ): Promise<InvokeResponse<T>> {
     const request: InvokeRequest = {
       package: packageName,
       function: functionName,
@@ -88,7 +88,7 @@ export class ForstSidecarClient {
     logger.debug(`🚀 Invoking ${packageName}.${functionName} with args:`, args);
     logger.debug(`📋 Full request:`, request);
 
-    const response = await this.makeRequest("/invoke", {
+    const response = await this.makeRequest<T>("/invoke", {
       method: "POST",
       body: JSON.stringify(request),
     });
@@ -202,10 +202,10 @@ export class ForstSidecarClient {
   /**
    * Make an HTTP request with retry logic
    */
-  private async makeRequest(
+  private async makeRequest<T>(
     endpoint: string,
     options: RequestInit
-  ): Promise<InvokeResponse> {
+  ): Promise<InvokeResponse<T>> {
     const url = `${this.config.baseUrl}${endpoint}`;
     let lastError: Error | null = null;
 
@@ -247,7 +247,7 @@ export class ForstSidecarClient {
 
         const result = await response.json();
         logger.debug(`✅ Request successful:`, result);
-        return result as InvokeResponse;
+        return result as InvokeResponse<T>;
       } catch (error) {
         lastError = error as Error;
         logger.warn(`❌ Request attempt ${attempt + 1} failed:`, error);

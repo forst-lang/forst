@@ -35,10 +35,10 @@ This will create:
 ### 2. Use the Client
 
 ```typescript
-import { createForstClient } from "@forst/client";
+import { ForstClient } from "@forst/client";
 
 // Create a client instance
-const forst = createForstClient({
+const forst = new ForstClient({
   baseUrl: "http://localhost:8080",
   timeout: 30000,
 });
@@ -55,7 +55,7 @@ console.log("User created:", result);
 
 ## API Reference
 
-### `createForstClient(config?)`
+### `new ForstClient(config?)`
 
 Creates a new Forst client instance with the specified configuration.
 
@@ -64,7 +64,7 @@ Creates a new Forst client instance with the specified configuration.
 - `config` (optional): Client configuration object
   - `baseUrl`: The URL of your Forst server (default: `http://localhost:8080`)
   - `timeout`: Request timeout in milliseconds (default: `30000`)
-  - `retries`: Number of retry attempts (default: `3`)
+  - `retries`: Number of retry attempts, e.g. during function invocation (default: `3`)
   - `mode`: Environment mode (default: `'development'`)
 
 **Returns:** A client instance with dynamic package access
@@ -85,9 +85,9 @@ const math = await forst.math.Add(5, 3);
 ### Basic Usage
 
 ```typescript
-import { createForstClient } from "@forst/client";
+import { ForstClient } from "@forst/client";
 
-const forst = createForstClient();
+const forst = new ForstClient();
 
 async function main() {
   try {
@@ -117,7 +117,7 @@ main();
 ### Error Handling
 
 ```typescript
-const forst = createForstClient();
+const forst = new ForstClient();
 
 try {
   const result = await forst.user.CreateUser({
@@ -134,7 +134,7 @@ try {
 ### Multiple Packages
 
 ```typescript
-const forst = createForstClient();
+const forst = new ForstClient();
 
 // Call functions from different packages
 const userResult = await forst.user.GetUserById("123");
@@ -142,33 +142,14 @@ const echoResult = await forst.echo.Echo({ message: "Hello!" });
 const mathResult = await forst.math.Add(5, 3);
 ```
 
-### Configuration
-
-```typescript
-// Development configuration
-const devClient = createForstClient({
-  baseUrl: "http://localhost:8080",
-  timeout: 30000,
-  mode: "development",
-});
-
-// Production configuration
-const prodClient = createForstClient({
-  baseUrl: "https://api.yourdomain.com",
-  timeout: 60000,
-  retries: 5,
-  mode: "production",
-});
-```
-
 ## TypeScript Support
 
 The client provides full TypeScript support with generated types:
 
 ```typescript
-import { createForstClient } from "@forst/client";
+import { ForstClient } from "@forst/client";
 
-const forst = createForstClient();
+const forst = new ForstClient();
 
 // TypeScript knows the exact types
 const user = await forst.user.GetUserById("123");
@@ -200,46 +181,3 @@ your-project/
 The client respects these environment variables:
 
 - `FORST_BASE_URL`: Default server URL (defaults to `http://localhost:8080`)
-
-## Error Handling
-
-The client provides comprehensive error handling:
-
-- **Network Errors**: Automatic retry with exponential backoff
-- **Validation Errors**: Detailed error messages from Forst validation
-- **Function Errors**: Clear error messages with function context
-- **Type Errors**: TypeScript compilation errors for type mismatches
-
-## Migration from Sidecar
-
-If you're currently using `@forst/sidecar` directly, migration is straightforward:
-
-**Before (Sidecar):**
-
-```typescript
-import { ForstClient } from "@forst/sidecar";
-
-const client = new ForstClient({ baseUrl: "http://localhost:8080" });
-const result = await client.invokeFunction("user", "CreateUser", input);
-```
-
-**After (Client):**
-
-```typescript
-import { createForstClient } from "@forst/client";
-
-const forst = createForstClient({ baseUrl: "http://localhost:8080" });
-const result = await forst.user.CreateUser(input);
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## License
-
-MIT

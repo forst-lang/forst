@@ -8,7 +8,7 @@ import (
 type TypeScriptOutput struct {
 	PackageName string
 	Types       []string
-	Functions   []string
+	Functions   []FunctionSignature
 	ClientCode  []string // Per-package client code
 	MainClient  string   // Main client class
 	TypesFile   string   // Centralized types file
@@ -20,8 +20,8 @@ func (o *TypeScriptOutput) AddType(tsType string) {
 }
 
 // AddFunction adds a function definition to the output
-func (o *TypeScriptOutput) AddFunction(tsFunction string) {
-	o.Functions = append(o.Functions, tsFunction)
+func (o *TypeScriptOutput) AddFunction(sig FunctionSignature) {
+	o.Functions = append(o.Functions, sig)
 }
 
 // SetPackageName sets the package name

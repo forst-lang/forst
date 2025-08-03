@@ -63,6 +63,11 @@ func NewDiscoverer(rootDir string, log Logger, config configiface.ForstConfigIfa
 	}
 }
 
+// GetRootDir returns the root directory for file discovery
+func (d *Discoverer) GetRootDir() string {
+	return d.rootDir
+}
+
 // DiscoverFunctions scans all Forst files and discovers public functions
 func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, error) {
 	functions := make(map[string]map[string]FunctionInfo)

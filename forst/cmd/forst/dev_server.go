@@ -11,6 +11,10 @@ import (
 	"forst/cmd/forst/compiler"
 	"forst/internal/discovery"
 	"forst/internal/executor"
+	"forst/internal/lexer"
+	"forst/internal/parser"
+	transformerts "forst/internal/transformer/ts"
+	"forst/internal/typechecker"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -42,6 +46,102 @@ type DevServer struct {
 	executor   *executor.FunctionExecutor
 	functions  map[string]map[string]discovery.FunctionInfo
 	mu         sync.RWMutex
+	// TypeScript generation cache
+	typesCache     map[string]string // file path -> generated types
+	typesCacheMu   sync.RWMutex
+	lastTypesGen   time.Time
+	typesGenerator *TypeScriptGenerator
+}
+
+// TypeScriptGenerator handles TypeScript type generation
+type TypeScriptGenerator struct {
+	log *logrus.Logger
+}
+
+// NewTypeScriptGenerator creates a new TypeScript generator
+func NewTypeScriptGenerator(log *logrus.Logger) *TypeScriptGenerator {
+	return &TypeScriptGenerator{
+		log: log,
+	}
+}
+
+// GenerateTypesForFunctions generates TypeScript types for discovered functions
+func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error) {
+	// Collect all Forst files that contain discovered functions
+	filePaths := make(map[string]bool)
+	for _, pkgFuncs := range functions {
+		for _, fn := range pkgFuncs {
+			filePaths[fn.FilePath] = true
+		}
+	}
+
+	// Process each file and generate TypeScript
+	var allTypes []string
+	var allFunctions []transformerts.FunctionSignature
+	var packageName string
+
+	for filePath := range filePaths {
+		types, funcs, pkg, err := tg.generateTypesForFile(filePath)
+		if err != nil {
+			tg.log.Warnf("Failed to generate types for %s: %v", filePath, err)
+			continue
+		}
+
+		allTypes = append(allTypes, types...)
+		allFunctions = append(allFunctions, funcs...)
+		if packageName == "" {
+			packageName = pkg
+		}
+	}
+
+	// Generate the complete TypeScript output
+	output := &transformerts.TypeScriptOutput{
+		PackageName: packageName,
+		Types:       allTypes,
+		Functions:   allFunctions,
+	}
+
+	// Generate the types file content
+	output.GenerateTypesFile()
+	return output.TypesFile, nil
+}
+
+// generateTypesForFile generates TypeScript types for a single Forst file
+func (tg *TypeScriptGenerator) generateTypesForFile(filePath string) ([]string, []transformerts.FunctionSignature, string, error) {
+	// Read and parse the file
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to read file: %v", err)
+	}
+
+	// Create lexer and tokenize
+	l := lexer.New(content, filePath, tg.log)
+	tokens := l.Lex()
+
+	// Create parser and parse the file
+	p := parser.New(tokens, filePath, tg.log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to parse file: %v", err)
+	}
+
+	// Create typechecker and run type checking
+	tc := typechecker.New(tg.log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		tg.log.Debugf("Type checking failed for %s: %v", filePath, err)
+		// Continue without type checking for discovery
+	}
+
+	// Create TypeScript transformer
+	transformer := transformerts.New(tc, tg.log)
+
+	// Transform to TypeScript
+	output, err := transformer.TransformForstFileToTypeScript(nodes)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to transform to TypeScript: %v", err)
+	}
+
+	return output.Types, output.Functions, output.PackageName, nil
 }
 
 // NewHTTPServer creates a new HTTP server
@@ -66,11 +166,15 @@ func (s *DevServer) Start() error {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
 	}
 
+	// Initialize TypeScript generator
+	s.typesGenerator = NewTypeScriptGenerator(s.log)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/functions", s.handleFunctions)
 	mux.HandleFunc("/invoke", s.handleInvoke)
+	mux.HandleFunc("/types", s.handleTypes) // New endpoint for TypeScript types
 
 	s.server = &http.Server{
 		Addr:         ":" + s.port,
@@ -90,6 +194,7 @@ func (s *DevServer) logStartupInfo() {
 	s.log.Info("Available endpoints:")
 	s.log.Info("  GET  /functions  - Discover available functions")
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
+	s.log.Info("  GET  /types      - Generate TypeScript types for discovered functions")
 	s.log.Info("  GET  /health     - Health check")
 }
 
@@ -241,6 +346,72 @@ func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 		}
 		s.sendJSONResponse(w, response)
 	}
+}
+
+// handleTypes handles TypeScript type generation requests
+func (s *DevServer) handleTypes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if we need to regenerate types (cache invalidation)
+	forceRegenerate := r.URL.Query().Get("force") == "true"
+
+	s.typesCacheMu.RLock()
+	_, exists := s.typesCache["types"]
+	lastGen := s.lastTypesGen
+	s.typesCacheMu.RUnlock()
+
+	// Regenerate if forced, cache doesn't exist, or it's been more than 5 minutes
+	shouldRegenerate := forceRegenerate || !exists || time.Since(lastGen) > 5*time.Minute
+
+	if shouldRegenerate {
+		s.log.Debug("Regenerating TypeScript types...")
+
+		// Refresh function discovery
+		if err := s.discoverFunctions(); err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to discover functions: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		s.mu.RLock()
+		functions := s.functions
+		s.mu.RUnlock()
+
+		// Generate TypeScript types
+		typesContent, err := s.typesGenerator.GenerateTypesForFunctions(functions, s.discoverer.GetRootDir())
+		if err != nil {
+			s.sendError(w, fmt.Sprintf("Failed to generate TypeScript types: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Cache the generated types
+		s.typesCacheMu.Lock()
+		s.typesCache["types"] = typesContent
+		s.lastTypesGen = time.Now()
+		s.typesCacheMu.Unlock()
+
+		s.log.Debug("TypeScript types generated and cached")
+	} else {
+		s.log.Debug("Using cached TypeScript types")
+	}
+
+	// Return the types
+	s.typesCacheMu.RLock()
+	typesContent := s.typesCache["types"]
+	s.typesCacheMu.RUnlock()
+
+	// Set appropriate headers for TypeScript file
+	w.Header().Set("Content-Type", "application/typescript")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"forst-types.ts\"")
+
+	response := DevServerResponse{
+		Success: true,
+		Output:  typesContent,
+	}
+
+	s.sendJSONResponse(w, response)
 }
 
 // sendJSONResponse sends a JSON response to the client

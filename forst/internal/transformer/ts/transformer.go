@@ -23,12 +23,18 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger) *TypeScriptTransformer
 		log = logrus.New()
 		log.Warnf("No logger provided, using default logger")
 	}
-	return &TypeScriptTransformer{
+
+	transformer := &TypeScriptTransformer{
 		TypeChecker: tc,
 		Output:      &TypeScriptOutput{},
 		log:         log,
 		typeMapping: NewTypeMapping(),
 	}
+
+	// Set the typechecker in the type mapping for hash-based type resolution
+	transformer.typeMapping.SetTypeChecker(tc)
+
+	return transformer
 }
 
 // TransformForstFileToTypeScript converts a Forst AST to TypeScript files
@@ -58,11 +64,12 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node)
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.FunctionNode:
-			tsFunction, err := t.transformFunction(n)
+			funcResult, err := t.transformFunction(n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
 			}
-			t.Output.AddFunction(tsFunction)
+			// Add signature to functions list
+			t.Output.AddFunction(*funcResult.Signature)
 		}
 	}
 
