@@ -198,7 +198,7 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			for _, param := range n.Params {
 				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
 					Name: param.GetIdent(),
-					Type: d.typeToString(param.GetType()),
+					Type: d.resolveTypeName(param.GetType(), tc),
 				})
 			}
 
@@ -220,10 +220,10 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			}
 
 			if len(returnTypes) > 0 {
-				fnInfo.ReturnType = d.typeToString(returnTypes[0])
+				fnInfo.ReturnType = d.resolveTypeName(returnTypes[0], tc)
 				fnInfo.ReturnTypes = make([]string, len(returnTypes))
 				for i, rt := range returnTypes {
-					fnInfo.ReturnTypes[i] = d.typeToString(rt)
+					fnInfo.ReturnTypes[i] = d.resolveTypeName(rt, tc)
 				}
 				fnInfo.HasMultipleReturns = len(returnTypes) > 1
 				d.log.Debugf("Function %s has %d return types: %v, HasMultipleReturns: %v", n.Ident.ID, len(returnTypes), fnInfo.ReturnTypes, fnInfo.HasMultipleReturns)
@@ -267,7 +267,7 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typecheck
 	}
 
 	if len(returnTypes) > 0 {
-		returnType := d.typeToString(returnTypes[0])
+		returnType := d.resolveTypeName(returnTypes[0], tc)
 		if strings.Contains(strings.ToLower(returnType), "stream") ||
 			strings.Contains(strings.ToLower(returnType), "channel") {
 			return true
@@ -279,6 +279,17 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typecheck
 
 // typeToString converts an AST type to a string representation
 func (d *Discoverer) typeToString(t ast.TypeNode) string {
+	return t.String()
+}
+
+// resolveTypeName converts an AST type to a string representation using the typechecker
+func (d *Discoverer) resolveTypeName(t ast.TypeNode, tc *typechecker.TypeChecker) string {
+	if tc != nil {
+		name, err := tc.GetAliasedTypeName(t, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+		if err == nil {
+			return name
+		}
+	}
 	return t.String()
 }
 

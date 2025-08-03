@@ -100,7 +100,7 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 
 		// For primitive types, use them directly
-		if isGoBuiltinType(baseTypeIdent.Name) {
+		if typechecker.IsGoBuiltinType(baseTypeIdent.Name) {
 			var result goast.Expr = baseTypeIdent
 			return &result, nil
 		}

@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"forst/internal/discovery"
+	"forst/internal/typechecker"
 	"os"
 	"path/filepath"
 
@@ -96,6 +97,18 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 		paramType := param.Type
 		paramName := param.Name
 
+		// For Go built-in types, use the type name directly without package prefix
+		inputType := paramType
+		isBuiltin := typechecker.IsGoBuiltinType(paramType)
+		if isBuiltin {
+			inputType = paramType
+		} else {
+			inputType = alias + "." + paramType
+		}
+
+		// For built-in types, pass the parameter directly
+		paramArg := paramName
+
 		if config.HasMultipleReturns {
 			return fmt.Sprintf(`package main
 
@@ -108,7 +121,7 @@ import (
 )
 
 func main() {
-	var input %s.%s
+	var input %s
 	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
 		fmt.Fprintf(os.Stderr, "Error decoding input: %%v\n", err)
 		os.Exit(1)
@@ -121,7 +134,7 @@ func main() {
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
-`, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
+`, alias, importPkg, inputType, alias, config.FunctionName, paramArg)
 		} else {
 			return fmt.Sprintf(`package main
 
@@ -134,7 +147,7 @@ import (
 )
 
 func main() {
-	var input %s.%s
+	var input %s
 	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
 		fmt.Fprintf(os.Stderr, "Error decoding input: %%v\n", err)
 		os.Exit(1)
@@ -143,7 +156,7 @@ func main() {
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 }
-`, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
+`, alias, importPkg, inputType, alias, config.FunctionName, paramName)
 		}
 	}
 

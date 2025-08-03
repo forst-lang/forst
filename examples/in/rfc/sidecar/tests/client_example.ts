@@ -75,7 +75,7 @@ async function runClientExample(
         email: "invalid-email", // Invalid: no @ symbol
       };
 
-      await client.user.CreateUser(invalidRequest as any);
+      await client.user.CreateUser(invalidRequest);
       logger.error("❌ Expected validation error but none occurred");
       return false;
     } catch (error) {

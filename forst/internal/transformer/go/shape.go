@@ -20,7 +20,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		}).Tracef("transformShapeFieldType, type: %s", field.Type.Ident)
 
 		// For user-defined types, ensure the type definition is emitted
-		if !isGoBuiltinType(string(field.Type.Ident)) && field.Type.Ident != ast.TypeString && field.Type.Ident != ast.TypeInt && field.Type.Ident != ast.TypeFloat && field.Type.Ident != ast.TypeBool && field.Type.Ident != ast.TypeVoid {
+		if !typechecker.IsGoBuiltinType(string(field.Type.Ident)) && field.Type.Ident != ast.TypeString && field.Type.Ident != ast.TypeInt && field.Type.Ident != ast.TypeFloat && field.Type.Ident != ast.TypeBool && field.Type.Ident != ast.TypeVoid {
 			// Find the type definition and emit it
 			for _, def := range t.TypeChecker.Defs {
 				if typeDef, ok := def.(ast.TypeDefNode); ok {

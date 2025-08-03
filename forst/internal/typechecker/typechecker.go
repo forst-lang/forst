@@ -181,7 +181,7 @@ type GetAliasedTypeNameOptions struct {
 // This is the unified function that should be used by both typechecker and transformer
 func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliasedTypeNameOptions) (string, error) {
 	// Handle built-in types
-	if tc.IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
+	if IsGoBuiltinType(string(typeNode.Ident)) || typeNode.Ident == ast.TypeString || typeNode.Ident == ast.TypeInt || typeNode.Ident == ast.TypeFloat || typeNode.Ident == ast.TypeBool || typeNode.Ident == ast.TypeVoid || typeNode.Ident == ast.TypeError {
 		// Convert Forst built-in types to Go built-in types
 		switch typeNode.Ident {
 		case ast.TypeString:
@@ -262,7 +262,7 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 }
 
 // IsGoBuiltinType checks if a type is a Go builtin type
-func (tc *TypeChecker) IsGoBuiltinType(typeName string) bool {
+func IsGoBuiltinType(typeName string) bool {
 	builtinTypes := map[string]bool{
 		"string":  true,
 		"int":     true,
