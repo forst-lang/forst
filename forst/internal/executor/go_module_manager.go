@@ -138,6 +138,7 @@ func main() {
 	}
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
 		} else {
@@ -148,6 +149,7 @@ func main() {
 	result := %s.%s(%s)
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
 		}
@@ -164,6 +166,7 @@ func main() {
 	}
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
 	} else {
@@ -173,6 +176,7 @@ func main() {
 	result := %s.%s()
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
 	}
@@ -257,6 +261,7 @@ func main() {
 		output, _ := json.Marshal(result)
 		fmt.Println(string(output))
 	}
+	os.Exit(0)
 }
 `, string(config.Args), config.PackageName, config.FunctionName)
 }
