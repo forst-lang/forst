@@ -263,27 +263,6 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesParameterTypeDef(t *t
 		ReturnTypes: nil,
 	}
 
-	// Debug: Check what GetAliasedTypeName returns for the parameter type
-	generatedTypeName, err := tr.TypeChecker.GetAliasedTypeName(paramType)
-	if err != nil {
-		t.Logf("GetAliasedTypeName error: %v", err)
-	} else {
-		t.Logf("GetAliasedTypeName returned: %q", generatedTypeName)
-	}
-
-	// Debug: Check what's in tc.Defs
-	t.Logf("tc.Defs contains %d entries:", len(tc.Defs))
-	for key, value := range tc.Defs {
-		t.Logf("  %q: %T", key, value)
-	}
-
-	// Debug: Check if the parameter type is actually in tc.Defs
-	if _, exists := tc.Defs[ast.TypeIdent(paramTypeName)]; exists {
-		t.Logf("Parameter type %q IS in tc.Defs", paramTypeName)
-	} else {
-		t.Logf("Parameter type %q is NOT in tc.Defs", paramTypeName)
-	}
-
 	// Register the expected type in tc.Defs (simulate real codegen)
 	shapeType := &ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
@@ -438,27 +417,6 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	}
 	_ = tr.defineShapeType(shapeType) // ensure the transformer emits the type
 
-	// Debug: Check what GetAliasedTypeName returns for the parameter type
-	generatedTypeName, err := tr.TypeChecker.GetAliasedTypeName(paramType)
-	if err != nil {
-		t.Logf("GetAliasedTypeName error: %v", err)
-	} else {
-		t.Logf("GetAliasedTypeName returned: %q", generatedTypeName)
-	}
-
-	// Debug: Check what's in tc.Defs
-	t.Logf("tc.Defs contains %d entries:", len(tc.Defs))
-	for key, value := range tc.Defs {
-		t.Logf("  %q: %T", key, value)
-	}
-
-	// Debug: Check if the parameter type is actually in tc.Defs
-	if _, exists := tc.Defs[ast.TypeIdent(paramTypeName)]; exists {
-		t.Logf("Parameter type %q IS in tc.Defs", paramTypeName)
-	} else {
-		t.Logf("Parameter type %q is NOT in tc.Defs", paramTypeName)
-	}
-
 	// Register a function signature expecting the inferred assertion type
 	funcName := ast.Identifier("f")
 	tc.Functions[funcName] = typechecker.FunctionSignature{
@@ -504,13 +462,6 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	call := ast.FunctionCallNode{
 		Function:  ast.Ident{ID: funcName},
 		Arguments: []ast.ExpressionNode{shapeLiteral},
-	}
-
-	// Debug: Check what type the shape literal would get
-	shapeHash, err := tc.Hasher.HashNode(shapeLiteral)
-	if err == nil {
-		shapeTypeName := string(shapeHash.ToTypeIdent())
-		t.Logf("Shape literal would get type: %q", shapeTypeName)
 	}
 
 	// Transform the function call

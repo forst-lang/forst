@@ -117,8 +117,7 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 
 			// For Go built-in types, use the type name directly without package prefix
 			inputType := paramType
-			isBuiltin := typechecker.IsGoBuiltinType(paramType)
-			if isBuiltin {
+			if typechecker.IsGoBuiltinType(paramType) {
 				inputType = paramType
 			} else {
 				inputType = alias + "." + paramType
