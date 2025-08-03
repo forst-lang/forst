@@ -157,11 +157,14 @@ func (t *Transformer) isMainPackage() bool {
 // It returns an error if no function is found
 func (t *Transformer) closestFunction() (ast.Node, error) {
 	scope := t.currentScope()
-	t.log.WithFields(map[string]interface{}{
-		"scope":      scope,
-		"isFunction": scope.IsFunction(),
-		"function":   "closestFunction",
-	}).Debug("Checking current scope")
+
+	if scope.IsGlobal() {
+		t.log.WithFields(map[string]interface{}{
+			"scope":    scope,
+			"function": "closestFunction",
+		}).Debug("Current scope is global")
+		return nil, fmt.Errorf("current scope is global, no closest function possible")
+	}
 
 	if scope.IsFunction() {
 		t.log.WithFields(map[string]interface{}{
@@ -176,26 +179,29 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 		"function": "closestFunction",
 	}).Debug("Current scope is not a function, searching up the scope stack")
 
-	for scope != nil && !scope.IsFunction() && scope.Parent != nil {
+	for scope != nil && scope.Parent != nil {
 		scope = scope.Parent
-		t.log.WithFields(map[string]interface{}{
-			"scope":      scope,
-			"isFunction": scope.IsFunction(),
-			"function":   "closestFunction",
-		}).Debug("Checking parent scope")
-	}
-	if scope.Node == nil {
-		t.log.WithFields(map[string]interface{}{
-			"function": "closestFunction",
-		}).Debug("No function found in scope stack")
-		return ast.FunctionNode{}, fmt.Errorf("no function found")
+		if scope.Node != nil {
+			t.log.WithFields(map[string]interface{}{
+				"scope":      scope,
+				"isFunction": scope.IsFunction(),
+				"function":   "closestFunction",
+			}).Debug("Checking parent scope")
+
+			if scope.IsFunction() {
+				t.log.WithFields(map[string]interface{}{
+					"scope":    scope,
+					"function": "closestFunction",
+				}).Debug("Found function in scope stack")
+				return (*scope.Node).(ast.FunctionNode), nil
+			}
+		}
 	}
 
 	t.log.WithFields(map[string]interface{}{
-		"scope":    scope,
 		"function": "closestFunction",
-	}).Debug("Found function in scope stack")
-	return (*scope.Node).(ast.FunctionNode), nil
+	}).Debug("No function found in scope stack")
+	return ast.FunctionNode{}, fmt.Errorf("no function found")
 }
 
 func (t *Transformer) isMainFunction() bool {

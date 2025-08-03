@@ -10,6 +10,9 @@ import (
 	"unicode"
 
 	"forst/internal/ast"
+	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
 )
 
 // MockConfig implements configiface.ForstConfigIface for testing
@@ -184,7 +187,7 @@ func TestDiscoverer_ExtractFunctionsFromNode_PublicFunction(t *testing.T) {
 		t.Logf("First character: %c, is upper: %v", functionNode.Ident.ID[0], unicode.IsUpper(rune(functionNode.Ident.ID[0])))
 	}
 
-	discoverer.extractFunctionsFromNode(functionNode, "testpkg", "/test/file.ft", functions)
+	discoverer.extractFunctionsFromNode(functionNode, "testpkg", "/test/file.ft", functions, nil)
 
 	if len(functions) != 1 {
 		t.Errorf("Expected 1 function, got %d", len(functions))
@@ -237,7 +240,7 @@ func TestDiscoverer_ExtractFunctionsFromNode_PrivateFunction(t *testing.T) {
 		},
 	}
 
-	discoverer.extractFunctionsFromNode(functionNode, "testpkg", "/test/file.ft", functions)
+	discoverer.extractFunctionsFromNode(functionNode, "testpkg", "/test/file.ft", functions, nil)
 
 	if len(functions) != 0 {
 		t.Errorf("Expected 0 functions (private function), got %d", len(functions))
@@ -255,7 +258,7 @@ func TestDiscoverer_ExtractFunctionsFromNode_NonFunctionNode(t *testing.T) {
 		Ident: ast.Ident{ID: "testpkg"},
 	}
 
-	discoverer.extractFunctionsFromNode(packageNode, "testpkg", "/test/file.ft", functions)
+	discoverer.extractFunctionsFromNode(packageNode, "testpkg", "/test/file.ft", functions, nil)
 
 	if len(functions) != 0 {
 		t.Errorf("Expected 0 functions (non-function node), got %d", len(functions))
@@ -263,8 +266,10 @@ func TestDiscoverer_ExtractFunctionsFromNode_NonFunctionNode(t *testing.T) {
 }
 
 func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
-	logger := &MockLogger{}
+	logger := logrus.New()
 	discoverer := NewDiscoverer("/test/path", logger, nil)
+
+	tc := typechecker.New(logger, false)
 
 	tests := []struct {
 		name     string
@@ -283,7 +288,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
 				Ident: ast.Ident{ID: ast.Identifier(tt.name)},
 			}
 
-			result := discoverer.analyzeStreamingSupport(functionNode)
+			result := discoverer.analyzeStreamingSupport(functionNode, tc)
 			if result != tt.expected {
 				t.Errorf("Expected %v for function '%s', got %v", tt.expected, tt.name, result)
 			}
@@ -292,8 +297,10 @@ func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
 }
 
 func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
-	logger := &MockLogger{}
+	logger := logrus.New()
 	discoverer := NewDiscoverer("/test/path", logger, nil)
+
+	tc := typechecker.New(logger, false)
 
 	tests := []struct {
 		name     string
@@ -314,7 +321,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
 				},
 			}
 
-			result := discoverer.analyzeStreamingSupport(functionNode)
+			result := discoverer.analyzeStreamingSupport(functionNode, tc)
 			if result != tt.expected {
 				t.Errorf("Expected %v for return type '%s', got %v", tt.expected, tt.name, result)
 			}
@@ -389,8 +396,10 @@ func TestDiscoverer_DetermineInputType(t *testing.T) {
 }
 
 func TestDiscoverer_ExtractFunctionsFromNodes(t *testing.T) {
-	logger := &MockLogger{}
+	logger := logrus.New()
 	discoverer := NewDiscoverer("/test/path", logger, nil)
+
+	tc := typechecker.New(logger, false)
 
 	functions := make(map[string]FunctionInfo)
 
@@ -415,7 +424,7 @@ func TestDiscoverer_ExtractFunctionsFromNodes(t *testing.T) {
 		},
 	}
 
-	discoverer.extractFunctionsFromNodes(nodes, "testpkg", "/test/file.ft", functions)
+	discoverer.extractFunctionsFromNodes(nodes, "testpkg", "/test/file.ft", functions, tc)
 
 	if len(functions) != 2 {
 		t.Errorf("Expected 2 public functions, got %d", len(functions))
