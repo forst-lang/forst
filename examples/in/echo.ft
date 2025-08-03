@@ -10,9 +10,3 @@ func Echo(input EchoRequest) {
 		timestamp: 1234567890,
 	}
 }
-
-// func main() {
-//     input := EchoRequest{message: "Hello, World!"}
-//     output := Echo(input)
-//     println(output.echo)
-// }
