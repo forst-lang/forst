@@ -267,9 +267,10 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typecheck
 	}
 
 	if len(returnTypes) > 0 {
-		returnType := d.resolveTypeName(returnTypes[0], tc)
-		if strings.Contains(strings.ToLower(returnType), "stream") ||
-			strings.Contains(strings.ToLower(returnType), "channel") {
+		// Check the original type name before it gets converted to hash-based names
+		originalTypeName := string(returnTypes[0].Ident)
+		if strings.Contains(strings.ToLower(originalTypeName), "stream") ||
+			strings.Contains(strings.ToLower(originalTypeName), "channel") {
 			return true
 		}
 	}

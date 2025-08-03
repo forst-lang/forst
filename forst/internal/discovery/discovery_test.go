@@ -317,7 +317,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
 			functionNode := &ast.FunctionNode{
 				Ident: ast.Ident{ID: "TestFunction"},
 				ReturnTypes: []ast.TypeNode{
-					{Ident: ast.TypeIdent(tt.name)},
+					ast.NewUserDefinedType(ast.TypeIdent(tt.name)),
 				},
 			}
 
@@ -519,11 +519,11 @@ func privateFunction() {
 		if pubFunc.Parameters[0].Name != "input" {
 			t.Errorf("Expected parameter name 'input', got '%s'", pubFunc.Parameters[0].Name)
 		}
-		if pubFunc.Parameters[0].Type != "String" {
-			t.Errorf("Expected parameter type 'String', got '%s'", pubFunc.Parameters[0].Type)
+		if pubFunc.Parameters[0].Type != "string" {
+			t.Errorf("Expected parameter type 'string', got '%s'", pubFunc.Parameters[0].Type)
 		}
-		if pubFunc.ReturnType != "String" {
-			t.Errorf("Expected return type 'String', got '%s'", pubFunc.ReturnType)
+		if pubFunc.ReturnType != "string" {
+			t.Errorf("Expected return type 'string', got '%s'", pubFunc.ReturnType)
 		}
 		if pubFunc.SupportsStreaming {
 			t.Error("PublicFunction should not support streaming")
