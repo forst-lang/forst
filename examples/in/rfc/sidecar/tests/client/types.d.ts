@@ -3,21 +3,21 @@
 
 // Type definitions
 export interface User {
+  email: string;
   id: string;
   name: string;
   age: number;
-  email: string;
 }
 
 export interface CreateUserRequest {
-  name: string;
   age: number;
   email: string;
+  name: string;
 }
 
 export interface T_NGUd7jXQkPf {
-  user: User;
   created_at: number;
+  user: User;
 }
 
 // Function signatures
