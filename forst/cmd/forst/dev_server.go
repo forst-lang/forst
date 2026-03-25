@@ -157,6 +157,7 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 		discoverer: discoverer,
 		executor:   executor,
 		functions:  make(map[string]map[string]discovery.FunctionInfo),
+		typesCache: make(map[string]string),
 	}
 }
 
