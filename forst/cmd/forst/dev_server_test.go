@@ -156,7 +156,7 @@ func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsH
 func TestTypeScriptGenerator_generateTypesForFile_readsParsesAndTransforms(t *testing.T) {
 	dir := t.TempDir()
 	ft := filepath.Join(dir, "echo.ft")
-	if err := os.WriteFile(ft, []byte(minimalValidForst), 0644); err != nil {
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 

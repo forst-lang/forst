@@ -43,3 +43,5 @@ The project follows this structure:
   - `basic_function.ft`: Function examples
   - `ensure.ft`: Ensure statement examples
 - `examples/out/`: Example expected Go files after transpilation
+
+See [examples/README.md](../../examples/README.md) for how `examples/in/rfc/` mixes RFC-style docs with sample sources.

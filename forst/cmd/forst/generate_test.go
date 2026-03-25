@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-const minimalValidForst = `package main
+// Shared Forst sources for generate tests, dev server tests, and generate_tsc_test.go.
+const generateTestMinimalValidForst = `package main
 
 type EchoRequest = {
 	message: String
@@ -18,6 +19,17 @@ func Echo(input EchoRequest) {
 		echo: input.message,
 		timestamp: 1234567890,
 	}
+}
+`
+
+const generateTestSecondForstFile = `package main
+
+type Ping = {
+	ok: Bool
+}
+
+func PingServer(input Ping) {
+	return { pong: input.ok }
 }
 `
 
@@ -66,7 +78,7 @@ func TestGenerateCommand_emptyDirectoryHasNoFtFiles(t *testing.T) {
 func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "sample.ft")
-	if err := os.WriteFile(ftPath, []byte(minimalValidForst), 0644); err != nil {
+	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -151,23 +163,12 @@ func TestGenerateCommand_invalidForstFile_producesNoGeneratedArtifacts(t *testin
 	}
 }
 
-const secondForstFile = `package main
-
-type Ping = {
-	ok: Bool
-}
-
-func PingServer(input Ping) {
-	return { pong: input.ok }
-}
-`
-
 func TestGenerateCommand_directoryMergesTypesIntoSingleTypesDotDts(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "a.ft"), []byte(minimalValidForst), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "b.ft"), []byte(secondForstFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "b.ft"), []byte(generateTestSecondForstFile), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {
