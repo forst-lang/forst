@@ -105,6 +105,9 @@ func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
+	if !strings.Contains(string(client), "export const sample") {
+		t.Fatalf("client export should match .ft stem sample; got:\n%s", client)
+	}
 }
 
 func TestFindForstFiles_nestedAndFlat(t *testing.T) {

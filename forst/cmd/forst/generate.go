@@ -125,18 +125,19 @@ func processForstFile(filePath, targetDir string, log *logrus.Logger) error {
 
 	log.Debug("Type checking completed")
 
+	fileName := filepath.Base(filePath)
+	baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
+
 	// Create the TypeScript transformer
 	transformer := transformerts.New(tc, log)
 
-	// Transform the AST to TypeScript
-	output, err := transformer.TransformForstFileToTypeScript(ast)
+	// Transform the AST to TypeScript (baseName aligns TS export with generated *.client.ts name)
+	output, err := transformer.TransformForstFileToTypeScript(ast, baseName)
 	if err != nil {
 		return fmt.Errorf("failed to transform to TypeScript: %w", err)
 	}
 
 	// Generate the output file paths
-	fileName := filepath.Base(filePath)
-	baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
 
 	// Create generated directory
 	generatedDir := filepath.Join(targetDir, "generated")

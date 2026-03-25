@@ -38,7 +38,7 @@ func Echo(input EchoRequest) {
 	}
 
 	tr := New(tc, logger)
-	out, err := tr.TransformForstFileToTypeScript(nodes)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "")
 	if err != nil {
 		t.Fatalf("transform: %v", err)
 	}
@@ -86,7 +86,7 @@ func Ping() {
 	}
 
 	tr := New(tc, logger)
-	out, err := tr.TransformForstFileToTypeScript(nodes)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "")
 	if err != nil {
 		t.Fatalf("transform: %v", err)
 	}
@@ -95,6 +95,35 @@ func Ping() {
 	}
 	if !strings.Contains(out.GenerateClientFile(), "'sidecartest'") {
 		t.Fatalf("expected client to use package sidecartest:\n%s", out.GenerateClientFile())
+	}
+}
+
+func TestTransformForstFileToTypeScript_sourceFileStemNamesExportNotPackage(t *testing.T) {
+	const src = `package main
+
+func F() { return 1 }
+`
+	logger := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(src, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := typechecker.New(logger, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	tr := New(tc, logger)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "api")
+	if err != nil {
+		t.Fatalf("transform: %v", err)
+	}
+	client := out.GenerateClientFile()
+	if !strings.Contains(client, "export const api") {
+		t.Fatalf("want export const api, got:\n%s", client)
+	}
+	if !strings.Contains(client, "'main'") {
+		t.Fatalf("invokeFunction should still use Forst package main, got:\n%s", client)
 	}
 }
 

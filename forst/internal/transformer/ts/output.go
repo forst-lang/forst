@@ -7,11 +7,15 @@ import (
 // TypeScriptOutput holds the generated TypeScript code
 type TypeScriptOutput struct {
 	PackageName string
-	Types       []string
-	Functions   []FunctionSignature
-	ClientCode  []string // Per-package client code
-	MainClient  string   // Main client class
-	TypesFile   string   // Centralized types file
+	// SourceFileStem is the basename of the .ft file without extension (e.g. "api" from "api.ft").
+	// It names the generated TypeScript client factory (export const <stem>) and must align with
+	// imports like import { stem } from './stem.client'. Runtime RPC package name remains PackageName.
+	SourceFileStem string
+	Types          []string
+	Functions      []FunctionSignature
+	ClientCode     []string // Per-package client code
+	MainClient     string   // Main client class
+	TypesFile      string   // Centralized types file
 }
 
 // AddType adds a type definition to the output

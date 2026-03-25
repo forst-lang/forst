@@ -37,8 +37,12 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger) *TypeScriptTransformer
 	return transformer
 }
 
-// TransformForstFileToTypeScript converts a Forst AST to TypeScript files
-func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node) (*TypeScriptOutput, error) {
+// TransformForstFileToTypeScript converts a Forst AST to TypeScript files.
+// sourceFileStem should be the .ft file basename without extension (e.g. "api" for "api.ft");
+// pass "" to use PackageName as the TypeScript export name (tests and callers without a file path).
+func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node, sourceFileStem string) (*TypeScriptOutput, error) {
+	t.Output.SourceFileStem = sourceFileStem
+
 	// Build type mapping first
 	t.buildTypeMapping()
 

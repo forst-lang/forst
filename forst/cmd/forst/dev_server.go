@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -133,8 +134,11 @@ func (tg *TypeScriptGenerator) generateTypesForFile(filePath string) ([]string, 
 	// Create TypeScript transformer
 	transformer := transformerts.New(tc, tg.log)
 
+	base := filepath.Base(filePath)
+	stem := base[:len(base)-len(filepath.Ext(base))]
+
 	// Transform to TypeScript
-	output, err := transformer.TransformForstFileToTypeScript(nodes)
+	output, err := transformer.TransformForstFileToTypeScript(nodes, stem)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to transform to TypeScript: %v", err)
 	}
