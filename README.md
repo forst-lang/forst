@@ -114,6 +114,12 @@ task example -- ../examples/in/basic.ft  # Run specific example
 task example:function                    # Run function example
 ```
 
+## TypeScript client output
+
+You can generate **TypeScript types and a small client** from your Forst code so front ends or Node callers get the same shapes your server uses, without copying types by hand.
+
+Run `forst generate` with a `.ft` file or a folder of `.ft` files; it writes a `generated/` tree (declarations plus helpers) and a `client/` stub you can wire to your app. The dev server can also expose types over HTTP while you iterate.
+
 ## Inspirations
 
 Our primary inspiration is TypeScript's structural type system and its enormous success in making JavaScript development more ergonomic, robust and gradually typeable. We aim to bring similar benefits to Go development, insofar as they are not already present.
