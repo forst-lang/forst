@@ -10,7 +10,7 @@ func TestMergeTypeScriptOutputs_empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out == nil || len(out.Types) != 0 || len(out.Functions) != 0 {
+	if out == nil || len(out.Types) != 0 || len(out.Functions) != 0 || len(out.ExportedTypeNames) != 0 {
 		t.Fatalf("want empty merged output, got %#v", out)
 	}
 }
@@ -74,6 +74,18 @@ func TestMergeTypeScriptOutputs_duplicateFunctionConflictingSignature_errors(t *
 	}
 	if !strings.Contains(err.Error(), "Echo") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestMergeTypeScriptOutputs_mergesExportedTypeNames(t *testing.T) {
+	a := &TypeScriptOutput{ExportedTypeNames: []string{"A", "B"}}
+	b := &TypeScriptOutput{ExportedTypeNames: []string{"B", "C"}}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.ExportedTypeNames) != 3 {
+		t.Fatalf("want A B C deduped, got %v", out.ExportedTypeNames)
 	}
 }
 

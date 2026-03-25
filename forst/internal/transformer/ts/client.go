@@ -40,12 +40,10 @@ func (t *TypeScriptTransformer) generatePackageClient() {
 import { ForstSidecarClient as SidecarClient } from '@forst/sidecar';
 `)
 
-	// Add type definitions directly in the client file
-	if len(t.Output.Types) > 0 {
-		lines = append(lines, "// Type definitions")
-		for _, tsType := range t.Output.Types {
-			lines = append(lines, tsType)
-		}
+	// Types live only in ./types.d.ts; pull exported names in for parameter/return annotations.
+	exportNames := sortDedupeStrings(t.Output.ExportedTypeNames)
+	if len(exportNames) > 0 {
+		lines = append(lines, fmt.Sprintf("import type { %s } from './types';", strings.Join(exportNames, ", ")))
 		lines = append(lines, "")
 	}
 
@@ -111,7 +109,6 @@ func (t *TypeScriptTransformer) generateMainClient() {
 
 import { ForstSidecarClient as SidecarClient } from '@forst/sidecar';
 import { ` + exportName + ` } from './` + exportName + `.client';
-import * as types from './types';
 
 export interface ForstClientConfig {
   baseUrl?: string;

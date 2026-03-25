@@ -53,10 +53,30 @@ func MergeTypeScriptOutputs(outputs []*TypeScriptOutput) (*TypeScriptOutput, err
 		}
 	}
 
+	seenExport := make(map[string]struct{})
+	var mergedExports []string
+	for _, o := range outputs {
+		if o == nil {
+			continue
+		}
+		for _, n := range o.ExportedTypeNames {
+			if n == "" {
+				continue
+			}
+			if _, ok := seenExport[n]; ok {
+				continue
+			}
+			seenExport[n] = struct{}{}
+			mergedExports = append(mergedExports, n)
+		}
+	}
+	mergedExports = sortDedupeStrings(mergedExports)
+
 	return &TypeScriptOutput{
-		PackageName: pkg,
-		Types:       mergedTypes,
-		Functions:   mergedFuncs,
+		PackageName:       pkg,
+		Types:             mergedTypes,
+		ExportedTypeNames: mergedExports,
+		Functions:           mergedFuncs,
 	}, nil
 }
 

@@ -12,15 +12,25 @@ type TypeScriptOutput struct {
 	// imports like import { stem } from './stem.client'. Runtime RPC package name remains PackageName.
 	SourceFileStem string
 	Types          []string
-	Functions      []FunctionSignature
-	ClientCode     []string // Per-package client code
-	MainClient     string   // Main client class
-	TypesFile      string   // Centralized types file
+	// ExportedTypeNames lists identifiers emitted in Types (e.g. interface names) for import type { … } in *.client.ts.
+	ExportedTypeNames []string
+	Functions         []FunctionSignature
+	ClientCode        []string // Per-package client code
+	MainClient        string   // Main client class
+	TypesFile         string   // Centralized types file
 }
 
 // AddType adds a type definition to the output
 func (o *TypeScriptOutput) AddType(tsType string) {
 	o.Types = append(o.Types, tsType)
+}
+
+// AddExportedTypeName records a type name declared in Types (for import type from './types' in client modules).
+func (o *TypeScriptOutput) AddExportedTypeName(name string) {
+	if name == "" {
+		return
+	}
+	o.ExportedTypeNames = append(o.ExportedTypeNames, name)
 }
 
 // AddFunction adds a function definition to the output

@@ -105,6 +105,12 @@ func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 	if !strings.Contains(string(client), "export const sample") {
 		t.Fatalf("client export should match .ft stem sample; got:\n%s", client)
 	}
+	if !strings.Contains(string(client), "import type {") || !strings.Contains(string(client), "EchoRequest") || !strings.Contains(string(client), "from './types'") {
+		t.Fatalf("generated client should import types from ./types, got:\n%s", client)
+	}
+	if strings.Contains(string(client), "export interface EchoRequest") {
+		t.Fatalf("generated client should not duplicate interfaces from types.d.ts, got:\n%s", client)
+	}
 }
 
 func TestFindForstFiles_nestedAndFlat(t *testing.T) {
@@ -190,6 +196,7 @@ func TestGenerateClientIndex_importsPackages(t *testing.T) {
 		"import { beta } from '../generated/beta.client'",
 		"public alpha:",
 		"public beta:",
+		"export * from './types'",
 	} {
 		if !strings.Contains(idx, frag) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)

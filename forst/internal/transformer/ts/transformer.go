@@ -59,6 +59,7 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(tsType)
+			t.Output.AddExportedTypeName(def.GetIdent())
 		}
 	}
 

@@ -59,10 +59,16 @@ func Echo(input EchoRequest) {
 		"invokeFunction",
 		"'main'",
 		"Echo",
+		"import type {",
+		"EchoRequest",
+		"from './types'",
 	} {
 		if !strings.Contains(clientFile, fragment) {
 			t.Fatalf("client file missing %q:\n%s", fragment, clientFile)
 		}
+	}
+	if strings.Contains(clientFile, "export interface EchoRequest") {
+		t.Fatalf("client file should not duplicate types.d.ts interfaces; got:\n%s", clientFile)
 	}
 }
 
