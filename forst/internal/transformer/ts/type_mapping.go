@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
+	"sort"
 	"strings"
 )
 
@@ -41,6 +42,59 @@ func (tm *TypeMapping) AddUserType(forstType, tsType string) {
 	tm.userTypes[forstType] = tsType
 }
 
+// sortedFieldNames returns shape field names in stable order for emitted TS.
+func sortedFieldNames(fields map[string]ast.ShapeFieldNode) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(fields))
+	for n := range fields {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// extractInlineShapeFromAssertion returns a nested shape from parser/typechecker
+// encodings (Shape(...) or Match({ ... }) constraint with a shape argument).
+func extractInlineShapeFromAssertion(a *ast.AssertionNode) *ast.ShapeNode {
+	if a == nil {
+		return nil
+	}
+	for _, c := range a.Constraints {
+		if c.Name != "Shape" && c.Name != typechecker.ConstraintMatch {
+			continue
+		}
+		for i := range c.Args {
+			if c.Args[i].Shape != nil {
+				return c.Args[i].Shape
+			}
+		}
+	}
+	return nil
+}
+
+// goBuiltinIdentToTypeScript maps Go primitive type idents (lowercase) to TS types.
+func goBuiltinIdentToTypeScript(ident ast.TypeIdent) (string, bool) {
+	if !typechecker.IsGoBuiltinType(string(ident)) {
+		return "", false
+	}
+	switch string(ident) {
+	case "string", "byte", "rune":
+		return "string", true
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64":
+		return "number", true
+	case "bool":
+		return "boolean", true
+	case "error":
+		return "unknown", true
+	default:
+		return "", false
+	}
+}
+
 // GetTypeScriptType returns the TypeScript type for a Forst type
 func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error) {
 	if forstType == nil {
@@ -50,6 +104,10 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 	// Check user-defined types first
 	if tsType, exists := tm.userTypes[string(forstType.Ident)]; exists {
 		return tsType, nil
+	}
+
+	if forstType.Ident == ast.TypeImplicit {
+		return "unknown", nil
 	}
 
 	// Parameterized builtins (must run before the simple builtin map)
@@ -89,6 +147,46 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return "unknown", nil
 	}
 
+	// Inline object types from shape type definitions: { nested: { x: String } }
+	if forstType.Ident == ast.TypeShape {
+		if sh := extractInlineShapeFromAssertion(forstType.Assertion); sh != nil {
+			return tm.shapeToInlineTypeScript(*sh)
+		}
+	}
+
+	// Assertion types (e.g. User(Match({ ... })), refinements) — reuse typechecker inference.
+	if forstType.Ident == ast.TypeAssertion {
+		if tm.typeChecker != nil && forstType.Assertion != nil {
+			inferred, err := tm.typeChecker.InferAssertionType(forstType.Assertion, false, "", nil)
+			if err == nil && len(inferred) > 0 {
+				return tm.GetTypeScriptType(&inferred[0])
+			}
+		}
+		if sh := extractInlineShapeFromAssertion(forstType.Assertion); sh != nil {
+			return tm.shapeToInlineTypeScript(*sh)
+		}
+		if forstType.Assertion != nil && forstType.Assertion.BaseType != nil {
+			base := ast.TypeNode{
+				Ident:    *forstType.Assertion.BaseType,
+				TypeKind: ast.TypeKindUserDefined,
+			}
+			return tm.GetTypeScriptType(&base)
+		}
+		return "unknown", nil
+	}
+
+	// Go/TS interop: lowercase Go builtins appearing as TypeIdent strings
+	if ts, ok := goBuiltinIdentToTypeScript(forstType.Ident); ok {
+		return ts, nil
+	}
+
+	// Named type that exists in the typechecker (user-defined, stable name)
+	if tm.typeChecker != nil && forstType.TypeKind == ast.TypeKindUserDefined && forstType.Ident != "" {
+		if _, ok := tm.typeChecker.Defs[forstType.Ident].(ast.TypeDefNode); ok {
+			return string(forstType.Ident), nil
+		}
+	}
+
 	// Handle hash-based types by resolving their underlying struct
 	if forstType.TypeKind == ast.TypeKindHashBased && tm.typeChecker != nil {
 		// Try to resolve the hash-based type to a named type
@@ -104,8 +202,7 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		if def, exists := tm.typeChecker.Defs[forstType.Ident]; exists {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
 				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					// Generate TypeScript interface from the shape
-					return tm.generateTypeScriptInterface(shapeExpr.Shape), nil
+					return tm.shapeToInlineTypeScript(shapeExpr.Shape)
 				}
 			}
 		}
@@ -127,20 +224,52 @@ func arrayTypeScript(elem string) string {
 	return elem + "[]"
 }
 
-// generateTypeScriptInterface generates a TypeScript interface from a shape
-func (tm *TypeMapping) generateTypeScriptInterface(shape ast.ShapeNode) string {
-	if len(shape.Fields) == 0 {
-		return "{}"
+// shapeFieldToTypeScript maps a single shape field using Type, nested Shape, or assertion inference.
+func (tm *TypeMapping) shapeFieldToTypeScript(field ast.ShapeFieldNode) (string, error) {
+	if field.Type != nil {
+		return tm.GetTypeScriptType(field.Type)
 	}
-
-	var fields []string
-	for fieldName, field := range shape.Fields {
-		tsType, err := tm.GetTypeScriptType(field.Type)
-		if err != nil {
-			tsType = "any" // Fallback
+	if field.Shape != nil {
+		return tm.shapeToInlineTypeScript(*field.Shape)
+	}
+	if field.Assertion != nil && tm.typeChecker != nil {
+		inferred, err := tm.typeChecker.InferAssertionType(field.Assertion, false, "", nil)
+		if err == nil && len(inferred) > 0 {
+			return tm.GetTypeScriptType(&inferred[0])
 		}
-		fields = append(fields, fmt.Sprintf("  %s: %s;", fieldName, tsType))
 	}
+	return "unknown", nil
+}
 
-	return fmt.Sprintf("{\n%s\n}", strings.Join(fields, "\n"))
+// shapeTypeFieldLines returns sorted "  name: type;" lines for a shape (no surrounding braces).
+func (tm *TypeMapping) shapeTypeFieldLines(shape ast.ShapeNode) ([]string, error) {
+	names := sortedFieldNames(shape.Fields)
+	if len(names) == 0 {
+		return nil, nil
+	}
+	lines := make([]string, 0, len(names))
+	for _, fieldName := range names {
+		field := shape.Fields[fieldName]
+		tsType, err := tm.shapeFieldToTypeScript(field)
+		if err != nil {
+			return nil, fmt.Errorf("field %q: %w", fieldName, err)
+		}
+		if tsType == "" {
+			tsType = "any"
+		}
+		lines = append(lines, fmt.Sprintf("  %s: %s;", fieldName, tsType))
+	}
+	return lines, nil
+}
+
+// shapeToInlineTypeScript emits an inline object type for nested shapes and hash fallbacks.
+func (tm *TypeMapping) shapeToInlineTypeScript(shape ast.ShapeNode) (string, error) {
+	lines, err := tm.shapeTypeFieldLines(shape)
+	if err != nil {
+		return "", err
+	}
+	if len(lines) == 0 {
+		return "{}", nil
+	}
+	return fmt.Sprintf("{\n%s\n}", strings.Join(lines, "\n")), nil
 }

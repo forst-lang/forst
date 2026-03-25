@@ -185,3 +185,41 @@ func Count() {
 		}
 	}
 }
+
+func TestTransformForstFileToTypeScript_nestedShapeFields(t *testing.T) {
+	const src = `package main
+
+type Outer = {
+	meta: { version: Int, label: String }
+}
+
+func Touch() {
+	return 0
+}
+`
+	logger := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(src, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := typechecker.New(nil, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+
+	tr := New(tc, logger)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "")
+	if err != nil {
+		t.Fatalf("transform: %v", err)
+	}
+
+	typesFile := out.GenerateTypesFile()
+	if !strings.Contains(typesFile, "export interface Outer") {
+		t.Fatalf("missing Outer interface:\n%s", typesFile)
+	}
+	if !strings.Contains(typesFile, "label: string") || !strings.Contains(typesFile, "version: number") {
+		t.Fatalf("expected nested meta fields in types file:\n%s", typesFile)
+	}
+}

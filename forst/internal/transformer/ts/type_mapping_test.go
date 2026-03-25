@@ -166,3 +166,78 @@ func TestTypeMapping_GetTypeScriptType_hashBased_usesTypecheckerAliasWhenInDefs(
 		t.Fatalf("got %q, want %q", out, hashID)
 	}
 }
+
+func TestTypeMapping_GetTypeScriptType_typeShape_nestedFromAssertion(t *testing.T) {
+	tm := NewTypeMapping()
+	inner := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"count": {Type: &ast.TypeNode{Ident: ast.TypeInt, TypeKind: ast.TypeKindBuiltin}},
+		},
+	}
+	typ := ast.TypeNode{
+		Ident:    ast.TypeShape,
+		TypeKind: ast.TypeKindBuiltin,
+		Assertion: &ast.AssertionNode{
+			Constraints: []ast.ConstraintNode{{
+				Name: "Shape",
+				Args: []ast.ConstraintArgumentNode{{Shape: &inner}},
+			}},
+		},
+	}
+	got, err := tm.GetTypeScriptType(&typ)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "{\n  count: number;\n}"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_goBuiltinIntIdent(t *testing.T) {
+	tm := NewTypeMapping()
+	got, err := tm.GetTypeScriptType(&ast.TypeNode{Ident: "int", TypeKind: ast.TypeKindBuiltin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "number" {
+		t.Fatalf("got %q, want number", got)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_userDefined_whenInDefs(t *testing.T) {
+	tc := typechecker.New(nil, false)
+	tc.Defs["Widget"] = ast.TypeDefNode{
+		Ident: "Widget",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"id": {Type: &ast.TypeNode{Ident: ast.TypeString, TypeKind: ast.TypeKindBuiltin}},
+				},
+			},
+		},
+	}
+	tm := NewTypeMapping()
+	tm.SetTypeChecker(tc)
+	got, err := tm.GetTypeScriptType(&ast.TypeNode{
+		Ident:    "Widget",
+		TypeKind: ast.TypeKindUserDefined,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "Widget" {
+		t.Fatalf("got %q, want Widget", got)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_implicit(t *testing.T) {
+	tm := NewTypeMapping()
+	got, err := tm.GetTypeScriptType(&ast.TypeNode{Ident: ast.TypeImplicit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "unknown" {
+		t.Fatalf("got %q, want unknown", got)
+	}
+}

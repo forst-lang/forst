@@ -30,17 +30,14 @@ func (t *TypeScriptTransformer) transformTypeDef(def ast.TypeDefNode) (string, e
 
 // transformShapeToTypeScript converts a Forst shape to TypeScript interface
 func (t *TypeScriptTransformer) transformShapeToTypeScript(shape *ast.ShapeNode, typeName string) (string, error) {
-	var fields []string
-
-	for fieldName, field := range shape.Fields {
-		tsType, err := t.typeMapping.GetTypeScriptType(field.Type)
-		if err != nil {
-			return "", fmt.Errorf("failed to get TypeScript type for shape field %s: %w", fieldName, err)
-		}
-		fields = append(fields, fmt.Sprintf("  %s: %s;", fieldName, tsType))
+	if shape == nil {
+		return "", fmt.Errorf("shape is nil")
 	}
-
-	return fmt.Sprintf("export interface %s {\n%s\n}", typeName, strings.Join(fields, "\n")), nil
+	lines, err := t.typeMapping.shapeTypeFieldLines(*shape)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("export interface %s {\n%s\n}", typeName, strings.Join(lines, "\n")), nil
 }
 
 // transformAssertionToTypeScript converts a Forst assertion to TypeScript
