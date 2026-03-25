@@ -13,7 +13,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	// For empty functions, default to void return type
 	if len(fn.Body) == 0 {
-		return ensureMatching(fn, inferredType, parsedType, "Empty function is not void")
+		return ensureMatching(tc, fn, inferredType, parsedType, "Empty function is not void")
 	}
 
 	// Check if there are any ensure nodes and determine if function should return error
@@ -59,6 +59,15 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					if len(retType) != 1 {
 						return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
 					}
+					// PINPOINT: Log inferred type for each return value
+					if tc.log != nil {
+						tc.log.WithFields(map[string]interface{}{
+							"function":     fn.Ident.ID,
+							"returnIndex":  i,
+							"returnAST":    fmt.Sprintf("%T", value),
+							"inferredType": retType[0].Ident,
+						}).Warn("[PINPOINT] Inferred return type for function")
+					}
 					retTypes = append(retTypes, retType[0])
 				}
 			}
@@ -99,7 +108,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 			}
 		}
 
-		return ensureMatching(fn, inferredType, parsedType, "Invalid return expression type")
+		return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return expression type")
 	}
 
 	// If we found return statements, use the first return type
@@ -136,7 +145,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
 	}
 
-	return ensureMatching(fn, inferredType, parsedType, "Invalid return type")
+	return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return type")
 }
 
 // Helper: isNilableType checks if a type can be assigned nil

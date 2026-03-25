@@ -108,7 +108,7 @@ func test() {
 			}()
 
 			// Lex the code
-			log := setupTestLogger()
+			log := setupTestLogger(nil)
 			l := lexer.New([]byte(tt.code), "test.ft", log)
 			tokens := l.Lex()
 
@@ -153,7 +153,7 @@ func test() {
 			return
 		}
 	}()
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	l := lexer.New([]byte(code), "test_struct_mismatch.ft", log)
 	tokens := l.Lex()
 	p := parser.New(tokens, "test_struct_mismatch.ft", log)
@@ -183,7 +183,7 @@ func test() {
 			return
 		}
 	}()
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	l := lexer.New([]byte(code), "test_undefined_type.ft", log)
 	tokens := l.Lex()
 	p := parser.New(tokens, "test_undefined_type.ft", log)
@@ -211,7 +211,7 @@ func test() {
 	a, b = foo()
 }
 `
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	l := lexer.New([]byte(code), "test_multi_assign.ft", log)
 	tokens := l.Lex()
 	p := parser.New(tokens, "test_multi_assign.ft", log)

@@ -1,19 +1,19 @@
 ---
-description: 
-globs: *.go,*.ft
-alwaysApply: false
+alwaysApply: true
 ---
+
 # How to compile example files
 
-See @Makefile for all commands, e.g.:
+See @Taskfile for all commands, e.g.:
 
 ```bash
-make run-example basic-function
+task example:basic
 ```
 
 or
+
 ```bash
-make run-example-shape-guard
+task example:shape-guard
 ```
 
 Run example compilations with tracing enabled:
@@ -29,7 +29,9 @@ examples/in/ensure.ft
 There should be corresponding outputs in the same paths just with `in` replaced by `out`.
 
 ## Project Structure
+
 The project follows this structure:
+
 - `cmd/forst/`: Main compiler executable
 - `internal/`: Core packages
   - `typechecker/`: Type checking implementation
@@ -41,3 +43,5 @@ The project follows this structure:
   - `basic_function.ft`: Function examples
   - `ensure.ft`: Ensure statement examples
 - `examples/out/`: Example expected Go files after transpilation
+
+See [examples/README.md](../../examples/README.md) for how `examples/in/rfc/` mixes RFC-style docs with sample sources.

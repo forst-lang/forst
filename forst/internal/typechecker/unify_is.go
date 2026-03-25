@@ -58,7 +58,7 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 			return ast.TypeNode{}, err
 		}
 
-		if err := tc.validateShapeFields(r, leftShapeFields, varLeftType.Ident); err != nil {
+		if err := tc.ValidateShapeFields(r, leftShapeFields, varLeftType.Ident); err != nil {
 			return ast.TypeNode{}, err
 		}
 

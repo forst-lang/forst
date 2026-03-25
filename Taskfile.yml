@@ -3,6 +3,7 @@ version: "3"
 vars:
   BINARY_NAME: forst
   BUILD_DIR: cmd/forst
+  ROOT_DIR: ..
   EXAMPLES_DIR: ../examples/in
   OUTPUT_DIR: ../examples/out
 
@@ -21,10 +22,26 @@ tasks:
   build:sidecar:
     desc: Build the Forst sidecar
     dir: packages/sidecar
+    deps: [install:bun]
     cmds:
       - bun run build
     sources:
       - ./**/*.ts
+    generates:
+      - packages/sidecar/dist/index.js
+      - packages/sidecar/dist/index.d.ts
+
+  build:client:
+    desc: Build the Forst client
+    dir: packages/client
+    deps: [install:bun]
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/client/dist/index.js
+      - packages/client/dist/index.d.ts
 
   install:
     desc: Install the Forst compiler
@@ -150,6 +167,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/guard/shape_guard.ft
 
+  example:echo:
+    desc: Compile echo example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/echo.ft
+
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst
@@ -171,6 +194,25 @@ tasks:
     cmds:
       - bun run example:downloaded
     silent: false
+
+  example:client:
+    desc: Run client example
+    dir: examples/in/rfc/sidecar
+    deps: [build, build:client, build:sidecar, install:bun]
+    cmds:
+      - bun run example:client
+    silent: false
+
+  dump:
+    desc: Dump debug info for a specific example file
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} dump --file={{.ROOT_DIR}}/{{.FILE}} -format={{.FORMAT}} --phase={{.PHASE}} --summary={{.SUMMARY}}
+    vars:
+      FILE: '{{.FILE | default "examples/in/basic.ft"}}'
+      FORMAT: '{{.FORMAT | default "json"}}'
+      PHASE: '{{.PHASE | default "all"}}'
+      SUMMARY: '{{.SUMMARY | default "false"}}'
 
   # Development tasks
   dev:watch:
@@ -257,3 +299,9 @@ tasks:
     cmds:
       - task build:release VERSION=1.0.0-test COMMIT=test-commit DATE=2024-01-01T00:00:00Z
       - echo "Test build completed with version info"
+
+  install:bun:
+    desc: Install bun dependencies
+    cmds:
+      - bun install
+    run: once

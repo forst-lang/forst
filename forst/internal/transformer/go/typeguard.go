@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 
 	logrus "github.com/sirupsen/logrus"
@@ -80,7 +81,7 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 
 		var ident *goast.Ident
 		if t != nil {
-			name, err := t.getTypeAliasNameForTypeNode(paramType)
+			name, err := t.TypeChecker.GetAliasedTypeName(paramType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
 			if err != nil {
 				return nil, fmt.Errorf("failed to get type alias name: %s", err)
 			}

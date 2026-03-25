@@ -1,0 +1,99 @@
+// Package transformerts converts a Forst AST to TypeScript declaration files
+package transformerts
+
+import (
+	"fmt"
+	"forst/internal/ast"
+	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
+)
+
+// TypeScriptTransformer converts a Forst AST to TypeScript declaration files
+type TypeScriptTransformer struct {
+	TypeChecker *typechecker.TypeChecker
+	Output      *TypeScriptOutput
+	log         *logrus.Logger
+	typeMapping *TypeMapping
+}
+
+// New creates a new TypeScriptTransformer
+func New(tc *typechecker.TypeChecker, log *logrus.Logger) *TypeScriptTransformer {
+	if log == nil {
+		log = logrus.New()
+		log.Warnf("No logger provided, using default logger")
+	}
+
+	transformer := &TypeScriptTransformer{
+		TypeChecker: tc,
+		Output:      &TypeScriptOutput{},
+		log:         log,
+		typeMapping: NewTypeMapping(),
+	}
+
+	// Set the typechecker in the type mapping for hash-based type resolution
+	transformer.typeMapping.SetTypeChecker(tc)
+
+	return transformer
+}
+
+// TransformForstFileToTypeScript converts a Forst AST to TypeScript files.
+// sourceFileStem should be the .ft file basename without extension (e.g. "api" for "api.ft");
+// pass "" to use PackageName as the TypeScript export name (tests and callers without a file path).
+func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node, sourceFileStem string) (*TypeScriptOutput, error) {
+	t.Output.SourceFileStem = sourceFileStem
+
+	// Build type mapping first
+	t.buildTypeMapping()
+
+	// Process all definitions first to build user type mappings
+	for _, def := range t.TypeChecker.Defs {
+		switch def := def.(type) {
+		case ast.TypeDefNode:
+			t.log.WithFields(logrus.Fields{
+				"typeDef":  def.GetIdent(),
+				"function": "TransformForstFileToTypeScript",
+			}).Debug("Processing type definition")
+			tsType, err := t.transformTypeDef(def)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
+			}
+			t.Output.AddType(tsType)
+			t.Output.AddExportedTypeName(def.GetIdent())
+		}
+	}
+
+	// Then process the rest of the nodes
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case ast.PackageNode:
+			t.Output.SetPackageName(string(n.Ident.ID))
+		case ast.FunctionNode:
+			funcResult, err := t.transformFunction(n)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
+			}
+			// Add signature to functions list
+			t.Output.AddFunction(*funcResult.Signature)
+		}
+	}
+
+	// Generate the new client structure
+	t.generateClientStructure()
+
+	t.log.WithFields(logrus.Fields{
+		"function": "TransformForstFileToTypeScript",
+		"types":    len(t.Output.Types),
+		"funcs":    len(t.Output.Functions),
+	}).Debug("Generated TypeScript client structure")
+
+	return t.Output, nil
+}
+
+// buildTypeMapping creates a mapping from Forst types to TypeScript types
+func (t *TypeScriptTransformer) buildTypeMapping() {
+	// User types will be added as we process type definitions
+	t.log.WithFields(logrus.Fields{
+		"function": "buildTypeMapping",
+	}).Debug("Built type mapping")
+}

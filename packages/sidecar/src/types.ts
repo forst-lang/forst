@@ -1,5 +1,3 @@
-// Core types for the Forst sidecar integration
-
 export interface FunctionInfo {
   package: string;
   name: string;
@@ -23,11 +21,11 @@ export interface InvokeRequest {
   streaming?: boolean;
 }
 
-export interface InvokeResponse {
+export interface InvokeResponse<T extends any> {
   success: boolean;
   output?: string;
   error?: string;
-  result?: any;
+  result?: T;
 }
 
 export interface StreamingResult {
@@ -94,5 +92,4 @@ export interface ServerInfo {
   port: number;
   host: string;
   status: "starting" | "running" | "stopped" | "error";
-  functions: FunctionInfo[];
 }

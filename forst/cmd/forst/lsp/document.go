@@ -2,8 +2,6 @@ package lsp
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
@@ -149,41 +147,41 @@ func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 	}
 
 	// Create a temporary file for compilation
-	tempFile, err := os.CreateTemp("", "forst-lsp-*.ft")
-	if err != nil {
-		s.log.Errorf("Failed to create temp file: %v", err)
-		return []LSPDiagnostic{
-			{
-				Range: LSPRange{
-					Start: LSPPosition{Line: 0, Character: 0},
-					End:   LSPPosition{Line: 0, Character: 0},
-				},
-				Severity: LSPDiagnosticSeverityError,
-				Message:  fmt.Sprintf("Failed to create temp file: %v", err),
-			},
-		}
-	}
-	defer os.Remove(tempFile.Name())
+	// tempFile, err := os.CreateTemp("", "forst-lsp-*.ft")
+	// if err != nil {
+	// 	s.log.Errorf("Failed to create temp file: %v", err)
+	// 	return []LSPDiagnostic{
+	// 		{
+	// 			Range: LSPRange{
+	// 				Start: LSPPosition{Line: 0, Character: 0},
+	// 				End:   LSPPosition{Line: 0, Character: 0},
+	// 			},
+	// 			Severity: LSPDiagnosticSeverityError,
+	// 			Message:  fmt.Sprintf("Failed to create temp file: %v", err),
+	// 		},
+	// 	}
+	// }
+	// defer os.Remove(tempFile.Name())
 
-	// Write content to temp file
-	if _, err := tempFile.WriteString(content); err != nil {
-		s.log.Errorf("Failed to write to temp file: %v", err)
-		return []LSPDiagnostic{
-			{
-				Range: LSPRange{
-					Start: LSPPosition{Line: 0, Character: 0},
-					End:   LSPPosition{Line: 0, Character: 0},
-				},
-				Severity: LSPDiagnosticSeverityError,
-				Message:  fmt.Sprintf("Failed to write to temp file: %v", err),
-			},
-		}
-	}
-	tempFile.Close()
+	// // Write content to temp file
+	// if _, err := tempFile.WriteString(content); err != nil {
+	// 	s.log.Errorf("Failed to write to temp file: %v", err)
+	// 	return []LSPDiagnostic{
+	// 		{
+	// 			Range: LSPRange{
+	// 				Start: LSPPosition{Line: 0, Character: 0},
+	// 				End:   LSPPosition{Line: 0, Character: 0},
+	// 			},
+	// 			Severity: LSPDiagnosticSeverityError,
+	// 			Message:  fmt.Sprintf("Failed to write to temp file: %v", err),
+	// 		},
+	// 	}
+	// }
+	// tempFile.Close()
 
 	// Compile the file and get diagnostics
-	debugger := s.debugger.GetDebugger(PhaseParser, tempFile.Name())
-	return s.compileForstFile(tempFile.Name(), content, debugger)
+	debugger := s.debugger.GetDebugger(PhaseParser, filePath)
+	return s.compileForstFile(filePath, content, debugger)
 }
 
 // handleDefinition handles the textDocument/definition method

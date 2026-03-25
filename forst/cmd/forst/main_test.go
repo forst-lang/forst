@@ -280,7 +280,7 @@ func TestCompilerArgsParsing(t *testing.T) {
 	}()
 
 	// Test that we can create a logger without issues
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	if log == nil {
 		t.Error("Expected logger to be created")
 	}
@@ -526,7 +526,7 @@ func runCompiler(inputPath string) error {
 		FilePath: inputPath,
 	}
 
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 
 	c := compiler.New(args, log)
 	_, err := c.CompileFile()

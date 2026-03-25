@@ -13,7 +13,7 @@ func newValueNode(v ast.ValueNode) *ast.ValueNode {
 }
 
 func TestAssertionTransformer(t *testing.T) {
-	log := setupTestLogger()
+	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
 	transformer := setupTransformer(tc, log)
 	at := NewAssertionTransformer(transformer)

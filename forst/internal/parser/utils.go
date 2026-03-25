@@ -14,7 +14,7 @@ func parseErrorMessage(token ast.Token, message string) string {
 	return fmt.Sprintf(
 		"\nParse error in %s:%d:%d (at line %d, column %d):\n"+
 			"%s",
-		token.Path, token.Line, token.Column, token.Line, token.Column, message,
+		token.FileID, token.Line, token.Column, token.Line, token.Column, message,
 	)
 }
 

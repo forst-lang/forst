@@ -31,7 +31,7 @@ func (c *Compiler) debugPrintTokens(tokens []ast.Token) {
 	c.log.Debug("=== Tokens ===")
 	for _, t := range tokens {
 		c.log.WithFields(logrus.Fields{
-			"location": fmt.Sprintf("%s:%d:%d", t.Path, t.Line, t.Column),
+			"location": fmt.Sprintf("%s:%d:%d", t.FileID, t.Line, t.Column),
 			"type":     string(t.Type),
 			"value":    t.Value,
 		}).Debug("Token")

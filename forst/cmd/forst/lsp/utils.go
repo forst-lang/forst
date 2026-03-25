@@ -90,11 +90,15 @@ type DebugEventBuilder struct {
 
 // NewDebugEventBuilder creates a new debug event builder for the specified phase.
 func NewDebugEventBuilder(phase CompilerPhase, filePath string) *DebugEventBuilder {
+	// For now, we'll use a simple file ID since we don't have access to package store here
+	// In a real implementation, this would be passed from the caller
+	fileID := FileID(fmt.Sprintf("f_%s", filePath))
+
 	return &DebugEventBuilder{
 		event: DebugEvent{
 			Timestamp: time.Now(),
 			Phase:     phase,
-			File:      filePath,
+			FileID:    fileID,
 		},
 	}
 }
@@ -314,8 +318,8 @@ func FormatDebugEvent(event DebugEvent) string {
 	parts = append(parts, fmt.Sprintf("[%s]", event.Phase))
 	parts = append(parts, fmt.Sprintf("[%s]", event.EventType))
 
-	if event.File != "" {
-		parts = append(parts, fmt.Sprintf("file=%s", event.File))
+	if event.FileID != "" {
+		parts = append(parts, fmt.Sprintf("file_id=%s", event.FileID))
 	}
 
 	if event.Line > 0 {

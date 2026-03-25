@@ -6,6 +6,7 @@ import (
 	"forst/internal/typechecker"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 // TestHook is a custom hook to capture log entries
 type TestHook struct {
 	entries []*logrus.Entry
+	mu      sync.Mutex
 }
 
 func (h *TestHook) Levels() []logrus.Level {
@@ -21,15 +23,21 @@ func (h *TestHook) Levels() []logrus.Level {
 }
 
 func (h *TestHook) Fire(entry *logrus.Entry) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.entries = append(h.entries, entry)
 	return nil
 }
 
 func (h *TestHook) Reset() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.entries = nil
 }
 
 func (h *TestHook) ContainsMessage(msg string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for _, entry := range h.entries {
 		// Check the message field
 		if strings.Contains(entry.Message, msg) {
@@ -45,13 +53,11 @@ func (h *TestHook) ContainsMessage(msg string) bool {
 	return false
 }
 
-var testHook = &TestHook{}
-
 func TestLogMemUsage(t *testing.T) {
-	testHook.Reset()
+	hook := &TestHook{}
 
-	log := setupTestLogger()
-	log.AddHook(testHook)
+	log := setupTestLogger(nil)
+	log.AddHook(hook)
 
 	// Create a compiler with memory reporting enabled
 	c := New(Args{
@@ -73,19 +79,19 @@ func TestLogMemUsage(t *testing.T) {
 	c.logMemUsage("test_phase", before, after)
 
 	// Verify that memory usage was logged
-	if !testHook.ContainsMessage("test_phase") {
+	if !hook.ContainsMessage("test_phase") {
 		t.Error("Expected memory usage log to contain 'test_phase'")
 	}
-	if !testHook.ContainsMessage("allocatedBytes") {
+	if !hook.ContainsMessage("allocatedBytes") {
 		t.Error("Expected memory usage log to contain 'allocatedBytes'")
 	}
 }
 
 func TestDebugPrintTokens(t *testing.T) {
-	testHook.Reset()
+	hook := &TestHook{}
 
-	log := setupTestLogger()
-	log.AddHook(testHook)
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.DebugLevel})
+	log.AddHook(hook)
 
 	// Create a compiler with debug enabled
 	c := New(Args{
@@ -97,14 +103,14 @@ func TestDebugPrintTokens(t *testing.T) {
 		{
 			Type:   ast.TokenIdentifier,
 			Value:  "test",
-			Path:   "test.ft",
+			FileID: "test.ft",
 			Line:   1,
 			Column: 1,
 		},
 		{
 			Type:   ast.TokenIntLiteral,
 			Value:  "42",
-			Path:   "test.ft",
+			FileID: "test.ft",
 			Line:   1,
 			Column: 6,
 		},
@@ -114,19 +120,25 @@ func TestDebugPrintTokens(t *testing.T) {
 	c.debugPrintTokens(tokens)
 
 	// Verify that tokens were logged
-	if !testHook.ContainsMessage("IDENTIFIER") {
+	// Debug: let's see what was actually captured
+	t.Logf("Hook captured %d entries", len(hook.entries))
+	for i, entry := range hook.entries {
+		t.Logf("Entry %d: %s", i, entry.Message)
+	}
+
+	if !hook.ContainsMessage("IDENTIFIER") {
 		t.Error("Expected token log to contain 'IDENTIFIER'")
 	}
-	if !testHook.ContainsMessage("INT_LITERAL") {
+	if !hook.ContainsMessage("INT_LITERAL") {
 		t.Error("Expected token log to contain 'INT_LITERAL'")
 	}
 }
 
 func TestDebugPrintForstAST(t *testing.T) {
-	testHook.Reset()
+	hook := &TestHook{}
 
-	log := setupTestLogger()
-	log.AddHook(testHook)
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.DebugLevel})
+	log.AddHook(hook)
 
 	// Create a compiler with debug enabled
 	c := New(Args{
@@ -148,19 +160,19 @@ func TestDebugPrintForstAST(t *testing.T) {
 	c.debugPrintForstAST(nodes)
 
 	// Verify that AST nodes were logged
-	if !testHook.ContainsMessage("Package declaration") {
+	if !hook.ContainsMessage("Package declaration") {
 		t.Error("Expected AST log to contain 'Package declaration'")
 	}
-	if !testHook.ContainsMessage("Import") {
+	if !hook.ContainsMessage("Import") {
 		t.Error("Expected AST log to contain 'Import'")
 	}
 }
 
 func TestDebugPrintTypeInfo(t *testing.T) {
-	testHook.Reset()
+	hook := &TestHook{}
 
-	log := setupTestLogger()
-	log.AddHook(testHook)
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.DebugLevel})
+	log.AddHook(hook)
 
 	// Create a compiler with debug enabled
 	c := New(Args{
@@ -191,10 +203,10 @@ func TestDebugPrintTypeInfo(t *testing.T) {
 	c.debugPrintTypeInfo(tc)
 
 	// Verify that type info was logged
-	if !testHook.ContainsMessage("function signature") {
+	if !hook.ContainsMessage("function signature") {
 		t.Error("Expected type info log to contain 'function signature'")
 	}
-	if !testHook.ContainsMessage("definition") {
+	if !hook.ContainsMessage("definition") {
 		t.Error("Expected type info log to contain 'definition'")
 	}
 }

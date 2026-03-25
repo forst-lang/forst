@@ -30,10 +30,6 @@ func TestNewParser(t *testing.T) {
 		t.Fatal("Expected context to be created, got nil")
 	}
 
-	if p.context.FilePath != "test.ft" {
-		t.Errorf("Expected file path 'test.ft', got %s", p.context.FilePath)
-	}
-
 	if p.context.ScopeStack == nil {
 		t.Fatal("Expected scope stack to be created, got nil")
 	}
@@ -186,10 +182,6 @@ func TestParserContext(t *testing.T) {
 	// Test context initialization
 	if p.context == nil {
 		t.Fatal("Expected context to be initialized, got nil")
-	}
-
-	if p.context.FilePath != "test.ft" {
-		t.Errorf("Expected file path 'test.ft', got %s", p.context.FilePath)
 	}
 
 	if p.context.Package != nil {

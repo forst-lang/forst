@@ -17,7 +17,7 @@ type ParseError struct {
 // Location returns the location of the parse error
 func (e *ParseError) Location() string {
 	if e.Context != nil {
-		return fmt.Sprintf("%s:%d:%d", e.Context.FilePath, e.Token.Line, e.Token.Column)
+		return fmt.Sprintf("%s:%d:%d", e.Context.FileID, e.Token.Line, e.Token.Column)
 	}
 	return fmt.Sprintf("line %d, column %d", e.Token.Line, e.Token.Column)
 }

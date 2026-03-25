@@ -48,12 +48,13 @@ type FunctionExecutor struct {
 
 // CompiledFunction represents a compiled Forst function
 type CompiledFunction struct {
-	PackageName       string
-	FunctionName      string
-	GoCode            string
-	FilePath          string
-	SupportsStreaming bool
-	Parameters        []discovery.ParameterInfo
+	PackageName        string
+	FunctionName       string
+	GoCode             string
+	FilePath           string
+	SupportsStreaming  bool
+	Parameters         []discovery.ParameterInfo
+	HasMultipleReturns bool
 }
 
 // ExecutionResult represents the result of a function execution
@@ -132,19 +133,24 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Debug: Check log level
 	e.log.Infof("Current log level: %v", e.log.GetLevel())
 
-	// Debug: Check if the echo function has parameters
-	e.log.Infof("Echo function parameters: %v", compiledFn.Parameters)
+	// Debug: Check if the function has parameters
+	e.log.Infof("Compiled function parameters: %v", compiledFn.Parameters)
+
+	// Debug: Output the generated Go function code if log level is debug or lower
+	if e.log.Level <= logrus.DebugLevel {
+		e.log.Debugf("Generated Go function code for %s.%s:\n%s", packageName, functionName, compiledFn.GoCode)
+	}
 
 	// Execute the Go code
 	hasParams := len(compiledFn.Parameters) > 0
 	e.log.Infof("executeGoCode: hasParams=%v, args=%s", hasParams, string(args))
-	output, err := e.executeGoCode(tempDir, args, hasParams, compiledFn.Parameters)
+	output, err := e.executeGoCode(tempDir, args, compiledFn.Parameters)
 	if err != nil {
 		e.log.Errorf("Failed to execute Go code: %v", err)
 		return nil, fmt.Errorf("failed to execute Go code: %v", err)
 	}
 
-	e.log.Infof("Output: %s", output)
+	e.log.Infof("Output (stdout+stderr): %s", output)
 
 	// Parse the output
 	result, err := e.parseExecutionOutput(output)
@@ -233,7 +239,8 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, err
 	}
 
-	// Use ExportReturnStructFields=true for executor/dev server
+	// Use ExportReturnStructFields=true for function implementation to enable JSON marshalling
+	// Struct fields need to be exported (capitalized) for json.Marshal to work properly
 	transformer := transformer_go.New(checker, e.log, true)
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
@@ -250,13 +257,16 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, fmt.Errorf("failed to get function info: %v", err)
 	}
 
+	e.log.Debugf("Function %s.%s: HasMultipleReturns=%v, ReturnTypes=%v", packageName, functionName, fnInfo.HasMultipleReturns, fnInfo.ReturnTypes)
+
 	return &CompiledFunction{
-		PackageName:       packageName,
-		FunctionName:      functionName,
-		GoCode:            goCode,
-		FilePath:          filePath,
-		SupportsStreaming: fnInfo.SupportsStreaming,
-		Parameters:        fnInfo.Parameters, // Populate Parameters
+		PackageName:        packageName,
+		FunctionName:       functionName,
+		GoCode:             goCode,
+		FilePath:           filePath,
+		SupportsStreaming:  fnInfo.SupportsStreaming,
+		Parameters:         fnInfo.Parameters, // Populate Parameters
+		HasMultipleReturns: fnInfo.HasMultipleReturns,
 	}, nil
 }
 
@@ -309,17 +319,18 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 	e.log.Debugf("createTempGoFile: compiledFn.Parameters=%v, len=%d", compiledFn.Parameters, len(compiledFn.Parameters))
 
 	config := &ModuleConfig{
-		ModuleName:     fmt.Sprintf("exec-%s", generateRandomString(8)),
-		PackageName:    compiledFn.PackageName,
-		FunctionName:   compiledFn.FunctionName,
-		GoCode:         compiledFn.GoCode,
-		SupportsParams: len(compiledFn.Parameters) > 0,
-		Parameters:     compiledFn.Parameters,
-		Args:           args,
-		IsStreaming:    false,
+		ModuleName:         fmt.Sprintf("exec-%s", generateRandomString(8)),
+		PackageName:        compiledFn.PackageName,
+		FunctionName:       compiledFn.FunctionName,
+		GoCode:             compiledFn.GoCode,
+		SupportsParams:     len(compiledFn.Parameters) > 0,
+		Parameters:         compiledFn.Parameters,
+		Args:               args,
+		IsStreaming:        false,
+		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
 
-	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v", config.SupportsParams, config.Parameters)
+	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v, HasMultipleReturns=%v", config.SupportsParams, config.Parameters, config.HasMultipleReturns)
 
 	tempDir, err := e.moduleManager.CreateModule(config)
 	e.log.Debugf("Created temp dir: %s", tempDir)
@@ -334,23 +345,24 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
 func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
 	config := &ModuleConfig{
-		ModuleName:     fmt.Sprintf("streaming-%s", generateRandomString(8)),
-		PackageName:    compiledFn.PackageName,
-		FunctionName:   compiledFn.FunctionName,
-		GoCode:         compiledFn.GoCode,
-		SupportsParams: len(compiledFn.Parameters) > 0,
-		Parameters:     compiledFn.Parameters,
-		Args:           args,
-		IsStreaming:    true,
+		ModuleName:         fmt.Sprintf("streaming-%s", generateRandomString(8)),
+		PackageName:        compiledFn.PackageName,
+		FunctionName:       compiledFn.FunctionName,
+		GoCode:             compiledFn.GoCode,
+		SupportsParams:     len(compiledFn.Parameters) > 0,
+		Parameters:         compiledFn.Parameters,
+		Args:               args,
+		IsStreaming:        true,
+		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
 
 	return e.moduleManager.CreateModule(config)
 }
 
 // executeGoCode executes Go code and returns the output
-func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, hasParams bool, params ...interface{}) (string, error) {
+func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, params ...any) (string, error) {
 	var cmd *exec.Cmd
-	if hasParams {
+	if len(params) > 0 {
 		e.log.Tracef("Executing Go program with args: %s", string(args))
 		cmd = exec.Command("go", "run", ".")
 		cmd.Dir = tempDir
@@ -369,17 +381,17 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, h
 			return "", fmt.Errorf("failed to start command: %v", err)
 		}
 		// Write args to stdin synchronously
-		data := []byte("{}")
+		data := args
 		if len(args) == 0 || string(args) == "null" {
-			data = []byte("{}")
-		} else {
-			data = args
+			// Create empty array for no args
+			data = []byte("[]")
 		}
+
 		n, err := stdin.Write(data)
 		if err != nil {
 			e.log.Errorf("Failed to write to stdin: %v", err)
 		} else {
-			e.log.Debugf("Wrote %d bytes to stdin", n)
+			e.log.Tracef("Wrote %d bytes to stdin: %s (defined params: %v)", n, string(data), params)
 		}
 		stdin.Close()
 		// Wait for the command to complete
@@ -387,8 +399,9 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, h
 		output := stdoutBuf.String() + stderrBuf.String()
 		if err != nil {
 			e.log.Errorf("Go program failed: %v", err)
-			return "", fmt.Errorf("execution failed: %v, output: %s", err, output)
+			return "", fmt.Errorf("execution failed: %v, output (stdout+stderr): %s", err, output)
 		}
+
 		return output, nil
 	} else {
 		e.log.Tracef("Executing Go program without args")

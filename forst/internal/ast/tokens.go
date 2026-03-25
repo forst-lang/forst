@@ -168,7 +168,7 @@ const (
 type Token struct {
 	Type   TokenIdent
 	Value  string
-	Path   string
+	FileID string
 	Line   int
 	Column int
 }

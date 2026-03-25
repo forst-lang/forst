@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,35 +42,35 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 	baseIdent := ast.Identifier(parts[0])
 
 	tc.log.WithFields(logrus.Fields{
-		"function": "LookupVariableType",
-		"variable": variable.Ident.ID,
+		"function":  "LookupVariableType",
+		"variable":  variable.Ident.ID,
 		"baseIdent": baseIdent,
-		"parts":    parts,
+		"parts":     parts,
 	}).Debugf("Split variable into parts")
 
 	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
 		tc.log.WithFields(logrus.Fields{
-			"function": "LookupVariableType",
-			"variable": variable.Ident.ID,
+			"function":  "LookupVariableType",
+			"variable":  variable.Ident.ID,
 			"baseIdent": baseIdent,
-			"scope":    scope.String(),
+			"scope":     scope.String(),
 		}).Debugf("Variable not found in scope")
 		return ast.TypeNode{}, fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
 	}
 
 	tc.log.WithFields(logrus.Fields{
-		"function": "LookupVariableType",
-		"variable": variable.Ident.ID,
+		"function":  "LookupVariableType",
+		"variable":  variable.Ident.ID,
 		"baseIdent": baseIdent,
-		"symbol":   fmt.Sprintf("%+v", symbol),
-		"types":    symbol.Types,
+		"symbol":    fmt.Sprintf("%+v", symbol),
+		"types":     symbol.Types,
 	}).Debugf("Found symbol in scope")
 
 	if len(symbol.Types) != 1 {
 		tc.log.WithFields(logrus.Fields{
-			"function": "LookupVariableType",
-			"variable": variable.Ident.ID,
+			"function":  "LookupVariableType",
+			"variable":  variable.Ident.ID,
 			"baseIdent": baseIdent,
 			"typeCount": len(symbol.Types),
 		}).Debugf("Expected single type but got multiple")
@@ -86,9 +87,9 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 	}
 
 	tc.log.WithFields(logrus.Fields{
-		"function": "LookupVariableType",
-		"variable": variable.Ident.ID,
-		"baseType": symbol.Types[0].Ident,
+		"function":  "LookupVariableType",
+		"variable":  variable.Ident.ID,
+		"baseType":  symbol.Types[0].Ident,
 		"fieldPath": parts[1:],
 	}).Debugf("Looking up field path on base type")
 
@@ -188,7 +189,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 func (tc *TypeChecker) GetMostSpecificNonHashAlias(typeNode ast.TypeNode) ast.TypeNode {
 	chain := tc.GetTypeAliasChain(typeNode)
 	for _, t := range chain {
-		if !ast.IsHashBasedType(t) {
+		if !t.IsHashBased() {
 			return t
 		}
 	}

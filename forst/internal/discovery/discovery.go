@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,16 +16,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var ErrNilForstConfig = errors.New("ForstConfig is required for file discovery")
+
 // FunctionInfo represents a discovered public function
 type FunctionInfo struct {
-	Package           string          `json:"package"`
-	Name              string          `json:"name"`
-	SupportsStreaming bool            `json:"supportsStreaming"`
-	InputType         string          `json:"inputType"`
-	OutputType        string          `json:"outputType"`
-	Parameters        []ParameterInfo `json:"parameters"`
-	ReturnType        string          `json:"returnType"`
-	FilePath          string          `json:"filePath"`
+	Package            string          `json:"package"`
+	Name               string          `json:"name"`
+	SupportsStreaming  bool            `json:"supportsStreaming"`
+	InputType          string          `json:"inputType"`
+	OutputType         string          `json:"outputType"`
+	Parameters         []ParameterInfo `json:"parameters"`
+	ReturnType         string          `json:"returnType"`
+	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
+	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
+	FilePath           string          `json:"filePath"`
 }
 
 // ParameterInfo represents a function parameter
@@ -58,6 +63,11 @@ func NewDiscoverer(rootDir string, log Logger, config configiface.ForstConfigIfa
 	}
 }
 
+// GetRootDir returns the root directory for file discovery
+func (d *Discoverer) GetRootDir() string {
+	return d.rootDir
+}
+
 // DiscoverFunctions scans all Forst files and discovers public functions
 func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, error) {
 	functions := make(map[string]map[string]FunctionInfo)
@@ -70,6 +80,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	d.log.Debugf("Found %d Forst files to scan", len(ftFiles))
 
+	totalFunctions := 0
 	// Process each file
 	for _, filePath := range ftFiles {
 		fileFunctions, err := d.discoverFunctionsInFile(filePath)
@@ -87,18 +98,24 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 				for name, fn := range pkgFuncs {
 					functions[packageName][name] = fn
 				}
+				totalFunctions += len(pkgFuncs)
 			}
 		}
 	}
 
-	d.log.Infof("Discovered %d packages with public functions", len(functions))
+	d.log.Debugf("Discovered %d package(s) with public functions, in total %d public functions", len(functions), totalFunctions)
+	for packageName, pkgFuncs := range functions {
+		for name := range pkgFuncs {
+			d.log.Debugf("- %s.%s", packageName, name)
+		}
+	}
 	return functions, nil
 }
 
 // findForstFiles recursively finds all .ft files in the root directory
 func (d *Discoverer) findForstFiles() ([]string, error) {
 	if d.config == nil {
-		return nil, fmt.Errorf("ForstConfig is required for file discovery")
+		return nil, ErrNilForstConfig
 	}
 	return d.config.FindForstFiles(d.rootDir)
 }
@@ -140,7 +157,7 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 
 	// Extract functions from AST nodes
 	fileFunctions := make(map[string]FunctionInfo)
-	d.extractFunctionsFromNodes(nodes, packageName, filePath, fileFunctions)
+	d.extractFunctionsFromNodes(nodes, packageName, filePath, fileFunctions, tc)
 
 	if len(fileFunctions) > 0 {
 		functions[packageName] = fileFunctions
@@ -160,43 +177,19 @@ func (d *Discoverer) extractPackageNameFromAST(nodes []ast.Node) string {
 }
 
 // extractFunctionsFromNodes extracts public functions from AST nodes
-func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
+func (d *Discoverer) extractFunctionsFromNodes(nodes []ast.Node, packageName, filePath string, functions map[string]FunctionInfo, tc *typechecker.TypeChecker) {
 	d.log.Tracef("Processing %d AST nodes for package %s in file %s", len(nodes), packageName, filePath)
 	for i, node := range nodes {
 		d.log.Tracef("Processing node %d: %T", i, node)
-		d.extractFunctionsFromNode(node, packageName, filePath, functions)
+		d.extractFunctionsFromNode(node, packageName, filePath, functions, tc)
 	}
 }
 
 // extractFunctionsFromNode extracts public functions from a single AST node
-func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePath string, functions map[string]FunctionInfo) {
+func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePath string, functions map[string]FunctionInfo, tc *typechecker.TypeChecker) {
 	switch n := node.(type) {
 	case ast.FunctionNode:
-		d.log.Tracef("Found function node: %s", n.Ident.ID)
-		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
-			d.log.Tracef("Function %s is public (starts with uppercase)", n.Ident.ID)
-			fnInfo := FunctionInfo{
-				Package:           packageName,
-				Name:              string(n.Ident.ID),
-				SupportsStreaming: d.analyzeStreamingSupport(&n),
-				FilePath:          filePath,
-			}
-			for _, param := range n.Params {
-				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
-					Name: param.GetIdent(),
-					Type: d.typeToString(param.GetType()),
-				})
-			}
-			if len(n.ReturnTypes) > 0 {
-				fnInfo.ReturnType = d.typeToString(n.ReturnTypes[0])
-			}
-			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
-			fnInfo.OutputType = fnInfo.ReturnType
-			functions[string(n.Ident.ID)] = fnInfo
-			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
-		} else {
-			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
-		}
+		d.extractFunctionsFromNode(&n, packageName, filePath, functions, tc)
 	case *ast.FunctionNode:
 		d.log.Tracef("Found function node: %s", n.Ident.ID)
 		if len(n.Ident.ID) > 0 && unicode.IsUpper(rune(n.Ident.ID[0])) {
@@ -204,22 +197,48 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			fnInfo := FunctionInfo{
 				Package:           packageName,
 				Name:              string(n.Ident.ID),
-				SupportsStreaming: d.analyzeStreamingSupport(n),
+				SupportsStreaming: d.analyzeStreamingSupport(n, tc),
 				FilePath:          filePath,
 			}
 			for _, param := range n.Params {
 				fnInfo.Parameters = append(fnInfo.Parameters, ParameterInfo{
 					Name: param.GetIdent(),
-					Type: d.typeToString(param.GetType()),
+					Type: d.resolveTypeName(param.GetType(), tc),
 				})
 			}
-			if len(n.ReturnTypes) > 0 {
-				fnInfo.ReturnType = d.typeToString(n.ReturnTypes[0])
+
+			// Use typechecker's inferred return types if available
+			var returnTypes []ast.TypeNode
+			if tc != nil {
+				if sig, exists := tc.Functions[n.Ident.ID]; exists && len(sig.ReturnTypes) > 0 {
+					returnTypes = sig.ReturnTypes
+					d.log.Debugf("Using typechecker's inferred return types for function %s: %v", n.Ident.ID, returnTypes)
+				} else {
+					// Fall back to parser's return types
+					returnTypes = n.ReturnTypes
+					d.log.Debugf("Using parser's return types for function %s: %v", n.Ident.ID, returnTypes)
+				}
+			} else {
+				// No typechecker available, use parser's return types
+				returnTypes = n.ReturnTypes
+				d.log.Debugf("No typechecker available, using parser's return types for function %s: %v", n.Ident.ID, returnTypes)
+			}
+
+			if len(returnTypes) > 0 {
+				fnInfo.ReturnType = d.resolveTypeName(returnTypes[0], tc)
+				fnInfo.ReturnTypes = make([]string, len(returnTypes))
+				for i, rt := range returnTypes {
+					fnInfo.ReturnTypes[i] = d.resolveTypeName(rt, tc)
+				}
+				fnInfo.HasMultipleReturns = len(returnTypes) > 1
+				d.log.Debugf("Function %s has %d return types: %v, HasMultipleReturns: %v", n.Ident.ID, len(returnTypes), fnInfo.ReturnTypes, fnInfo.HasMultipleReturns)
+			} else {
+				d.log.Debugf("Function %s has no return types", n.Ident.ID)
 			}
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
 			fnInfo.OutputType = fnInfo.ReturnType
 			functions[string(n.Ident.ID)] = fnInfo
-			d.log.Debugf("Discovered public function: %s.%s", packageName, n.Ident.ID)
+			d.log.Tracef("Discovered public function: %s.%s", packageName, n.Ident.ID)
 		} else {
 			d.log.Tracef("Function %s is private (starts with lowercase)", n.Ident.ID)
 		}
@@ -229,7 +248,7 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 }
 
 // analyzeStreamingSupport determines if a function supports streaming
-func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode) bool {
+func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typechecker.TypeChecker) bool {
 	// Check function name for streaming indicators
 	name := strings.ToLower(string(fn.Ident.ID))
 	streamingKeywords := []string{"stream", "process", "batch", "pipeline"}
@@ -241,10 +260,22 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode) bool {
 	}
 
 	// Check return type for streaming indicators
-	if len(fn.ReturnTypes) > 0 {
-		returnType := d.typeToString(fn.ReturnTypes[0])
-		if strings.Contains(strings.ToLower(returnType), "stream") ||
-			strings.Contains(strings.ToLower(returnType), "channel") {
+	var returnTypes []ast.TypeNode
+	if tc != nil {
+		if sig, exists := tc.Functions[fn.Ident.ID]; exists && len(sig.ReturnTypes) > 0 {
+			returnTypes = sig.ReturnTypes
+		} else {
+			returnTypes = fn.ReturnTypes
+		}
+	} else {
+		returnTypes = fn.ReturnTypes
+	}
+
+	if len(returnTypes) > 0 {
+		// Check the original type name before it gets converted to hash-based names
+		originalTypeName := string(returnTypes[0].Ident)
+		if strings.Contains(strings.ToLower(originalTypeName), "stream") ||
+			strings.Contains(strings.ToLower(originalTypeName), "channel") {
 			return true
 		}
 	}
@@ -254,6 +285,17 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode) bool {
 
 // typeToString converts an AST type to a string representation
 func (d *Discoverer) typeToString(t ast.TypeNode) string {
+	return t.String()
+}
+
+// resolveTypeName converts an AST type to a string representation using the typechecker
+func (d *Discoverer) resolveTypeName(t ast.TypeNode, tc *typechecker.TypeChecker) string {
+	if tc != nil {
+		name, err := tc.GetAliasedTypeName(t, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+		if err == nil {
+			return name
+		}
+	}
 	return t.String()
 }
 

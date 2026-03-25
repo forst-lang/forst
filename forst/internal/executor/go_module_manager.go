@@ -3,8 +3,10 @@ package executor
 import (
 	"fmt"
 	"forst/internal/discovery"
+	"forst/internal/typechecker"
 	"os"
 	"path/filepath"
+	"strings"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -23,14 +25,15 @@ func NewGoModuleManager(log *logrus.Logger) *GoModuleManager {
 
 // ModuleConfig holds configuration for creating a Go module
 type ModuleConfig struct {
-	ModuleName     string
-	PackageName    string
-	FunctionName   string
-	GoCode         string
-	SupportsParams bool
-	Parameters     []discovery.ParameterInfo
-	Args           []byte
-	IsStreaming    bool
+	ModuleName         string
+	PackageName        string
+	FunctionName       string
+	GoCode             string
+	SupportsParams     bool
+	Parameters         []discovery.ParameterInfo
+	Args               []byte
+	IsStreaming        bool
+	HasMultipleReturns bool
 }
 
 // CreateModule creates a temporary Go module with the specified configuration
@@ -88,13 +91,8 @@ func (m *GoModuleManager) createMainGo(tempDir string, config *ModuleConfig) err
 	return os.WriteFile(mainGoPath, []byte(mainGoContent), 0644)
 }
 
-// generateStandardMainGo generates the main.go content for standard execution
-func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config *ModuleConfig) string {
-	if config.SupportsParams && len(config.Parameters) > 0 {
-		param := config.Parameters[0]
-		paramType := param.Type
-		paramName := param.Name
-		return fmt.Sprintf(`package main
+func buildMainGoHeader(importPkg string, alias string) string {
+	return fmt.Sprintf(`package main
 
 import (
 	"encoding/json"
@@ -103,35 +101,146 @@ import (
 
 	%s "%s"
 )
+	`, alias, importPkg)
+}
+
+// generateStandardMainGo generates the main.go content for standard execution
+func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config *ModuleConfig) string {
+	containerName := "input"
+	if config.SupportsParams && len(config.Parameters) > 0 {
+		// Build parameter types and names for the function call
+		var paramTypes []string
+		var paramNames []string
+
+		for _, param := range config.Parameters {
+			paramType := param.Type
+
+			// For Go built-in types, use the type name directly without package prefix
+			inputType := paramType
+			if typechecker.IsGoBuiltinType(paramType) {
+				inputType = paramType
+			} else {
+				inputType = alias + "." + paramType
+			}
+			paramTypes = append(paramTypes, inputType)
+			paramNames = append(paramNames, param.Name)
+		}
+
+		if config.HasMultipleReturns {
+			return fmt.Sprintf(`%s
 
 func main() {
-	var input %s.%s
-	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
-		fmt.Fprintf(os.Stderr, "Error decoding input: %%v\n", err)
+	%s
+	result, err := %s.%s(%s)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
 		os.Exit(1)
 	}
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
+}
+`, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
+		} else {
+			return fmt.Sprintf(`%s
+
+func main() {
+	%s
 	result := %s.%s(%s)
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
-`, alias, importPkg, alias, paramType, alias, config.FunctionName, paramName)
+`, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
+		}
 	}
 
-	return fmt.Sprintf(`package main
+	if config.HasMultipleReturns {
+		return fmt.Sprintf(`%s
 
-import (
-	"encoding/json"
-	"fmt"
-
-	%s "%s"
-)
+func main() {
+	result, err := %s.%s()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
+		os.Exit(1)
+	}
+	output, _ := json.Marshal(result)
+	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
+}
+`, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
+	} else {
+		return fmt.Sprintf(`%s
 
 func main() {
 	result := %s.%s()
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
+	os.Exit(0)
 }
-`, alias, importPkg, alias, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
+	}
+}
+
+// buildParameterExtraction generates Go code to extract parameters from JSON input
+func buildParameterExtraction(containerName string, paramNames []string, paramTypes []string) string {
+	// Build array definition and decode JSON input
+	var arrayDef strings.Builder
+	arrayDef.WriteString(fmt.Sprintf("var %sJSON = make([]interface{}, %d)", containerName, len(paramNames)))
+	arrayDef.WriteString(fmt.Sprintf(`
+	if err := json.NewDecoder(os.Stdin).Decode(&%sJSON); err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading from stdin: %%v\n", err)
+		os.Exit(1)
+	}`, containerName))
+
+	// Build parameter extraction code
+	var paramCode strings.Builder
+	for i, name := range paramNames {
+		if i < len(paramTypes) {
+			paramType := paramTypes[i]
+
+			// Check if it's a built-in type or struct
+			if typechecker.IsGoBuiltinType(paramType) {
+				// For built-in types, use type assertion with conversion for numbers
+				// Note: JSON numbers are decoded as float64 in Go, so we need to handle
+				// both float64 and int cases for numeric types. When JSON contains
+				// integers like 29, they are decoded as float64(29.0), not int(29).
+				// Direct type assertion to int will fail, so we convert float64 to int.
+				if paramType == "int" {
+					paramCode.WriteString(fmt.Sprintf(`
+        var %s %s
+        if v, ok := %sJSON[%d].(float64); ok {
+        	%s = int(v)
+        } else if v, ok := %sJSON[%d].(int); ok {
+        	%s = v
+        } else {
+        	fmt.Fprintf(os.Stderr, "Error: parameter %%d has wrong type, expected %s\n", %d)
+        	os.Exit(1)
+        }`, name, paramType, containerName, i, name, containerName, i, name, paramType, i))
+				} else {
+					paramCode.WriteString(fmt.Sprintf(`
+        var %s %s
+        if v, ok := %sJSON[%d].(%s); ok {
+        	%s = v
+        } else {
+        	fmt.Fprintf(os.Stderr, "Error: parameter %%d has wrong type, expected %s\n", %d)
+        	os.Exit(1)
+        }`, name, paramType, containerName, i, paramType, name, paramType, i))
+				}
+			} else {
+				// For struct types, use json.Unmarshal
+				paramCode.WriteString(fmt.Sprintf(`
+        var %s %s
+        paramBytes, _ := json.Marshal(%sJSON[%d])
+        if err := json.Unmarshal(paramBytes, &%s); err != nil {
+        	fmt.Fprintf(os.Stderr, "Error unmarshaling parameter %%d: %%v\n", %d, err)
+        	os.Exit(1)
+        }`, name, paramType, containerName, i, name, i))
+			}
+		}
+	}
+
+	return arrayDef.String() + paramCode.String()
 }
 
 // generateStreamingMainGo generates the main.go content for streaming execution
@@ -152,6 +261,7 @@ func main() {
 		output, _ := json.Marshal(result)
 		fmt.Println(string(output))
 	}
+	os.Exit(0)
 }
 `, string(config.Args), config.PackageName, config.FunctionName)
 }

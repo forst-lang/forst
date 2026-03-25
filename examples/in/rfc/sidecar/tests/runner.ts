@@ -1,6 +1,5 @@
-import { ForstSidecar, createSidecar, ForstUtils } from "@forst/sidecar";
-import { resolve } from "node:path";
-import { runnerLogger, testLogger } from "./logger";
+import { ForstSidecar, ForstUtils } from "@forst/sidecar";
+import { runnerLogger } from "./logger";
 
 interface TestRunnerConfig {
   mode: "local" | "downloaded";
@@ -25,7 +24,7 @@ async function runTest(
   test: Readonly<{
     package: string;
     function: string;
-    args?: any;
+    args?: any[];
     want: {
       success?: boolean;
       output?: any;
@@ -186,7 +185,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
     sidecar = config._customSidecar;
   } else {
     // Normal way to create sidecar
-    sidecar = createSidecar({
+    sidecar = new ForstSidecar({
       mode: "development",
       port: config.port,
       host: config.host,
@@ -234,7 +233,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       {
         package: "echo",
         function: "Echo",
-        args: { message: "Hello, Forst!" },
+        args: [{ message: "Hello, Forst!" }],
         want: {
           success: true,
           output: { echo: "Hello, Forst!", timestamp: 1234567890 },
@@ -243,7 +242,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       {
         package: "typesafety",
         function: "GetUserAge",
-        args: {},
+        args: [],
         want: {
           success: true,
           output: 25,
