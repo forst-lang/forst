@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8](https://github.com/forst-lang/forst/compare/v0.0.7...v0.0.8) (2026-03-25)
+
+
+### Features
+
+* Generate TypeScript types ([#30](https://github.com/forst-lang/forst/issues/30)) ([2d8349d](https://github.com/forst-lang/forst/commit/2d8349d5f2c0491053994f6867d6d6faba6743e5))
+* **ts:** emit richer types from checker shapes, assertions, and Go idents ([71de993](https://github.com/forst-lang/forst/commit/71de993d6c208ff4598e04ac1a9894426dbef344))
+
 ## [0.0.7](https://github.com/forst-lang/forst/compare/v0.0.6...v0.0.7) (2025-07-20)
 
 
