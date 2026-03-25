@@ -21,8 +21,8 @@ export interface T_NGUd7jXQkPf {
 }
 
 // Function signatures
-function CreateUser(input: CreateUserRequest): Promise<T_NGUd7jXQkPf>;
+export function CreateUser(input: CreateUserRequest): Promise<T_NGUd7jXQkPf>;
 
-function GetUserById(id: string): Promise<User>;
+export function GetUserById(id: string): Promise<User>;
 
-function UpdateUserAge(id: string, newAge: number): Promise<User>;
+export function UpdateUserAge(id: string, newAge: number): Promise<User>;

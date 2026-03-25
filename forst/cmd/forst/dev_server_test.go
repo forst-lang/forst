@@ -140,7 +140,7 @@ func TestSendJSONResponse_setsCORSWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsEmptyTypesFile(t *testing.T) {
+func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsHeaderOnly(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	tg := NewTypeScriptGenerator(log)
@@ -148,11 +148,8 @@ func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsE
 	if err != nil {
 		t.Fatal(err)
 	}
-	// GenerateTypesForFunctions builds Types/Functions on TypeScriptOutput but
-	// TypeScriptOutput.GenerateTypesFile() only returns the TypesFile field, which
-	// nothing sets here—so aggregated output is empty until that pipeline writes TypesFile.
-	if out != "" {
-		t.Fatalf("expected empty types file string for no discovered files, got %q", out)
+	if !strings.Contains(out, "Auto-generated types for Forst client") {
+		t.Fatalf("expected header in types output, got %q", out)
 	}
 }
 

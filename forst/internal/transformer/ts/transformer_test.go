@@ -46,7 +46,7 @@ func Echo(input EchoRequest) {
 	typesFile := out.GenerateTypesFile()
 	for _, fragment := range []string{
 		"export interface EchoRequest",
-		"function Echo(",
+		"export function Echo(",
 		"Promise<",
 	} {
 		if !strings.Contains(typesFile, fragment) {

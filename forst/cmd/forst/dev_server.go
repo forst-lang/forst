@@ -101,9 +101,7 @@ func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]ma
 		Functions:   allFunctions,
 	}
 
-	// Generate the types file content
-	output.GenerateTypesFile()
-	return output.TypesFile, nil
+	return output.GenerateTypesFile(), nil
 }
 
 // generateTypesForFile generates TypeScript types for a single Forst file

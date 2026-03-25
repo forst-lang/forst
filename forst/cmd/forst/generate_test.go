@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	transformerts "forst/internal/transformer/ts"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -81,7 +79,6 @@ func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 
 	for _, rel := range []string{
 		"generated/types.d.ts",
-		"generated/sample.d.ts",
 		"generated/sample.client.ts",
 		"client/index.ts",
 		"client/package.json",
@@ -99,6 +96,14 @@ func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 	}
 	if !strings.Contains(string(types), "Echo") {
 		t.Fatalf("types.d.ts should mention Echo; got:\n%s", types)
+	}
+
+	client, err := os.ReadFile(filepath.Join(dir, "generated", "sample.client.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(client), "invokeFunction") {
+		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
 }
 
@@ -137,59 +142,6 @@ func TestProcessForstFile_invalidForstReturnsError(t *testing.T) {
 	err := processForstFile(ftPath, dir, log)
 	if err == nil {
 		t.Fatal("expected error for unparseable file")
-	}
-}
-
-func TestGenerateClientImplementation_containsInvokeAndTypes(t *testing.T) {
-	out := &transformerts.TypeScriptOutput{
-		Types: []string{"export interface Foo { x: number; }"},
-		Functions: []transformerts.FunctionSignature{
-			{
-				Name:       "Bar",
-				ReturnType: "string",
-				Parameters: []transformerts.Parameter{
-					{Name: "a", Type: "number"},
-					{Name: "b", Type: "string"},
-				},
-			},
-		},
-	}
-	s := generateClientImplementation("mypkg", out)
-	for _, frag := range []string{
-		"export function mypkg",
-		"ForstSidecarClient",
-		"export interface Foo",
-		"Bar: async (a: number, b: string)",
-		"client.invoke<string>('Bar'",
-	} {
-		if !strings.Contains(s, frag) {
-			t.Fatalf("missing %q in:\n%s", frag, s)
-		}
-	}
-}
-
-func TestGenerateClientImplementation_emptyFunctionsStillExportsWrapper(t *testing.T) {
-	s := generateClientImplementation("empty", &transformerts.TypeScriptOutput{})
-	if !strings.Contains(s, "export function empty(client: ForstSidecarClient)") {
-		t.Fatalf("unexpected output:\n%s", s)
-	}
-}
-
-func TestExtractFunctionName(t *testing.T) {
-	tests := []struct {
-		in   string
-		want string
-	}{
-		{"hello(", "hello"},
-		{"export function hello(", "hello"},
-		{"no paren", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := extractFunctionName(tt.in); got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
-		})
 	}
 }
 

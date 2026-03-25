@@ -91,5 +91,6 @@ func (fs *FunctionSignature) ToString() string {
 	}
 
 	paramStr := strings.Join(params, ", ")
-	return fmt.Sprintf("function %s(%s): Promise<%s>;", fs.Name, paramStr, fs.ReturnType)
+	// .d.ts files require declare or export on top-level declarations; interfaces use export, match that here.
+	return fmt.Sprintf("export function %s(%s): Promise<%s>;", fs.Name, paramStr, fs.ReturnType)
 }
