@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"forst/internal/lexer"
-	"forst/internal/parser"
 	transformerts "forst/internal/transformer/ts"
-	"forst/internal/typechecker"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -57,16 +55,61 @@ func generateCommand(args []string) error {
 
 	log.Infof("Found %d Forst files", len(forstFiles))
 
-	// Process each Forst file
+	sort.Strings(forstFiles)
+
+	var outputs []*transformerts.TypeScriptOutput
 	for _, file := range forstFiles {
-		if err := processForstFile(file, outputDir, log); err != nil {
+		out, err := transformerts.TransformForstFileFromPath(file, log, transformerts.TransformForstFileOptions{
+			RelaxedTypecheck: false,
+		})
+		if err != nil {
 			log.Errorf("Failed to process %s: %v", file, err)
 			continue
 		}
+		outputs = append(outputs, out)
 	}
 
-	// Generate client package structure
-	if err := generateClientPackage(outputDir, forstFiles, log); err != nil {
+	if len(outputs) == 0 {
+		log.Warn("No Forst files were successfully processed")
+		return nil
+	}
+
+	merged, err := transformerts.MergeTypeScriptOutputs(outputs)
+	if err != nil {
+		return fmt.Errorf("merge TypeScript outputs: %w", err)
+	}
+
+	generatedDir := filepath.Join(outputDir, "generated")
+	if err := os.MkdirAll(generatedDir, 0755); err != nil {
+		return fmt.Errorf("failed to create generated directory: %w", err)
+	}
+
+	typesPath := filepath.Join(generatedDir, "types.d.ts")
+	typesCode := merged.GenerateTypesFile()
+	if err := os.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
+		return fmt.Errorf("failed to write types declaration file: %w", err)
+	}
+	log.Infof("Generated types declaration file: %s", typesPath)
+
+	for _, out := range outputs {
+		stem := out.SourceFileStem
+		clientPath := filepath.Join(generatedDir, stem+".client.ts")
+		clientCode := out.GenerateClientFile()
+		if err := os.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
+			log.Errorf("Failed to write client module %s: %v", clientPath, err)
+			continue
+		}
+		log.Infof("Generated client module: %s", clientPath)
+	}
+
+	stems := make([]string, len(outputs))
+	for i, o := range outputs {
+		stems[i] = o.SourceFileStem
+	}
+	sort.Strings(stems)
+
+	// Generate client package structure (only entries that produced output)
+	if err := generateClientPackage(outputDir, stems, log); err != nil {
 		log.Errorf("Failed to generate client package: %v", err)
 	}
 
@@ -93,79 +136,8 @@ func findForstFiles(targetDir string) ([]string, error) {
 	return files, err
 }
 
-// processForstFile processes a single Forst file and generates TypeScript declaration files and client implementation
-func processForstFile(filePath, targetDir string, log *logrus.Logger) error {
-	log.Infof("Processing %s", filePath)
-
-	// Read the Forst file
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	// Lex the content into tokens
-	lex := lexer.New(content, filePath, log)
-	tokens := lex.Lex()
-
-	log.Debugf("Lexed %d tokens", len(tokens))
-
-	// Parse the tokens into AST
-	p := parser.New(tokens, filePath, log)
-	ast, err := p.ParseFile()
-	if err != nil {
-		return fmt.Errorf("failed to parse file: %w", err)
-	}
-
-	log.Debugf("Parsed %d AST nodes", len(ast))
-	// Create typechecker and run type checking
-	tc := typechecker.New(log, false)
-	if err := tc.CheckTypes(ast); err != nil {
-		return fmt.Errorf("failed to type check: %w", err)
-	}
-
-	log.Debug("Type checking completed")
-
-	fileName := filepath.Base(filePath)
-	baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
-
-	// Create the TypeScript transformer
-	transformer := transformerts.New(tc, log)
-
-	// Transform the AST to TypeScript (baseName aligns TS export with generated *.client.ts name)
-	output, err := transformer.TransformForstFileToTypeScript(ast, baseName)
-	if err != nil {
-		return fmt.Errorf("failed to transform to TypeScript: %w", err)
-	}
-
-	// Generate the output file paths
-
-	// Create generated directory
-	generatedDir := filepath.Join(targetDir, "generated")
-	if err := os.MkdirAll(generatedDir, 0755); err != nil {
-		return fmt.Errorf("failed to create generated directory: %w", err)
-	}
-
-	// Write types declaration file (shared across all packages)
-	typesPath := filepath.Join(generatedDir, "types.d.ts")
-	typesCode := output.GenerateTypesFile()
-	if err := os.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
-		return fmt.Errorf("failed to write types declaration file: %w", err)
-	}
-	log.Infof("Generated types declaration file: %s", typesPath)
-
-	// Runtime client module (not .d.ts — ambient files cannot contain async/await).
-	clientPath := filepath.Join(generatedDir, baseName+".client.ts")
-	clientCode := output.GenerateClientFile()
-	if err := os.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
-		return fmt.Errorf("failed to write client module: %w", err)
-	}
-	log.Infof("Generated client module: %s", clientPath)
-
-	return nil
-}
-
 // generateClientPackage creates the main client package structure
-func generateClientPackage(outputDir string, forstFiles []string, log *logrus.Logger) error {
+func generateClientPackage(outputDir string, clientStems []string, log *logrus.Logger) error {
 	// Create client package directory
 	clientDir := filepath.Join(outputDir, "client")
 	if err := os.MkdirAll(clientDir, 0755); err != nil {
@@ -173,7 +145,7 @@ func generateClientPackage(outputDir string, forstFiles []string, log *logrus.Lo
 	}
 
 	// Generate main client index file
-	indexContent := generateClientIndex(forstFiles)
+	indexContent := generateClientIndex(clientStems)
 	indexPath := filepath.Join(clientDir, "index.ts")
 	if err := os.WriteFile(indexPath, []byte(indexContent), 0644); err != nil {
 		return fmt.Errorf("failed to write client index: %w", err)
@@ -199,18 +171,14 @@ func generateClientPackage(outputDir string, forstFiles []string, log *logrus.Lo
 	return nil
 }
 
-// generateClientIndex creates the main client index file
-func generateClientIndex(forstFiles []string) string {
+// generateClientIndex creates the main client index file.
+// clientStems are basenames without .ft (e.g. "api" for api.ft), sorted for stable output.
+func generateClientIndex(clientStems []string) string {
 	var imports []string
 	var exports []string
 	var packageProperties []string
 
-	// Generate imports and exports for each package
-	for _, file := range forstFiles {
-		fileName := filepath.Base(file)
-		baseName := fileName[:len(fileName)-len(filepath.Ext(fileName))]
-
-		// Import the client implementation
+	for _, baseName := range clientStems {
 		imports = append(imports, fmt.Sprintf("import { %s } from '../generated/%s.client';", baseName, baseName))
 		exports = append(exports, baseName)
 		packageProperties = append(packageProperties, fmt.Sprintf("  public %s: ReturnType<typeof %s>;", baseName, baseName))

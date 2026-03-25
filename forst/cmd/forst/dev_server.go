@@ -5,17 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"forst/cmd/forst/compiler"
 	"forst/internal/discovery"
 	"forst/internal/executor"
-	"forst/internal/lexer"
-	"forst/internal/parser"
 	transformerts "forst/internal/transformer/ts"
-	"forst/internal/typechecker"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -76,74 +72,39 @@ func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]ma
 		}
 	}
 
-	// Process each file and generate TypeScript
-	var allTypes []string
-	var allFunctions []transformerts.FunctionSignature
-	var packageName string
-
+	var outputs []*transformerts.TypeScriptOutput
 	for filePath := range filePaths {
-		types, funcs, pkg, err := tg.generateTypesForFile(filePath)
+		out, err := transformerts.TransformForstFileFromPath(filePath, tg.log, transformerts.TransformForstFileOptions{
+			RelaxedTypecheck: true,
+		})
 		if err != nil {
 			tg.log.Warnf("Failed to generate types for %s: %v", filePath, err)
 			continue
 		}
-
-		allTypes = append(allTypes, types...)
-		allFunctions = append(allFunctions, funcs...)
-		if packageName == "" {
-			packageName = pkg
-		}
+		outputs = append(outputs, out)
 	}
 
-	// Generate the complete TypeScript output
-	output := &transformerts.TypeScriptOutput{
-		PackageName: packageName,
-		Types:       allTypes,
-		Functions:   allFunctions,
+	if len(outputs) == 0 {
+		return (&transformerts.TypeScriptOutput{}).GenerateTypesFile(), nil
 	}
 
-	return output.GenerateTypesFile(), nil
+	merged, err := transformerts.MergeTypeScriptOutputs(outputs)
+	if err != nil {
+		return "", err
+	}
+
+	return merged.GenerateTypesFile(), nil
 }
 
 // generateTypesForFile generates TypeScript types for a single Forst file
 func (tg *TypeScriptGenerator) generateTypesForFile(filePath string) ([]string, []transformerts.FunctionSignature, string, error) {
-	// Read and parse the file
-	content, err := os.ReadFile(filePath)
+	out, err := transformerts.TransformForstFileFromPath(filePath, tg.log, transformerts.TransformForstFileOptions{
+		RelaxedTypecheck: true,
+	})
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to read file: %v", err)
+		return nil, nil, "", err
 	}
-
-	// Create lexer and tokenize
-	l := lexer.New(content, filePath, tg.log)
-	tokens := l.Lex()
-
-	// Create parser and parse the file
-	p := parser.New(tokens, filePath, tg.log)
-	nodes, err := p.ParseFile()
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to parse file: %v", err)
-	}
-
-	// Create typechecker and run type checking
-	tc := typechecker.New(tg.log, false)
-	if err := tc.CheckTypes(nodes); err != nil {
-		tg.log.Debugf("Type checking failed for %s: %v", filePath, err)
-		// Continue without type checking for discovery
-	}
-
-	// Create TypeScript transformer
-	transformer := transformerts.New(tc, tg.log)
-
-	base := filepath.Base(filePath)
-	stem := base[:len(base)-len(filepath.Ext(base))]
-
-	// Transform to TypeScript
-	output, err := transformer.TransformForstFileToTypeScript(nodes, stem)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to transform to TypeScript: %v", err)
-	}
-
-	return output.Types, output.Functions, output.PackageName, nil
+	return out.Types, out.Functions, out.PackageName, nil
 }
 
 // NewHTTPServer creates a new HTTP server

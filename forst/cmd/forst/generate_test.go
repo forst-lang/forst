@@ -1,13 +1,10 @@
 package main
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/sirupsen/logrus"
 )
 
 const minimalValidForst = `package main
@@ -134,25 +131,60 @@ func TestFindForstFiles_nestedAndFlat(t *testing.T) {
 	}
 }
 
-func TestProcessForstFile_invalidForstReturnsError(t *testing.T) {
+func TestGenerateCommand_invalidForstFile_producesNoGeneratedArtifacts(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "bad.ft")
 	if err := os.WriteFile(ftPath, []byte("not valid forst {{{"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	err := processForstFile(ftPath, dir, log)
-	if err == nil {
-		t.Fatal("expected error for unparseable file")
+	if err := generateCommand([]string{ftPath}); err != nil {
+		t.Fatalf("expected nil when the only file fails; got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "generated", "types.d.ts")); err == nil {
+		t.Fatal("expected no types.d.ts when generation fails")
+	}
+}
+
+const secondForstFile = `package main
+
+type Ping = {
+	ok: Bool
+}
+
+func PingServer(input Ping) {
+	return { pong: input.ok }
+}
+`
+
+func TestGenerateCommand_directoryMergesTypesIntoSingleTypesDotDts(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.ft"), []byte(minimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.ft"), []byte(secondForstFile), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	types, err := os.ReadFile(filepath.Join(dir, "generated", "types.d.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(types)
+	if !strings.Contains(s, "Echo") || !strings.Contains(s, "PingServer") {
+		t.Fatalf("merged types.d.ts should include both files; got:\n%s", s)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "generated", "a.client.ts")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "generated", "b.client.ts")); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestGenerateClientIndex_importsPackages(t *testing.T) {
-	idx := generateClientIndex([]string{
-		filepath.Join("proj", "alpha.ft"),
-		filepath.Join("proj", "beta.ft"),
-	})
+	idx := generateClientIndex([]string{"alpha", "beta"})
 	for _, frag := range []string{
 		"import { alpha } from '../generated/alpha.client'",
 		"import { beta } from '../generated/beta.client'",
