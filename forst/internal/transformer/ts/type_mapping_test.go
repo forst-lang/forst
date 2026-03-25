@@ -48,6 +48,65 @@ func TestTypeMapping_GetTypeScriptType_builtins(t *testing.T) {
 	}
 }
 
+func TestTypeMapping_GetTypeScriptType_arrayWithElementType(t *testing.T) {
+	tm := NewTypeMapping()
+	got, err := tm.GetTypeScriptType(&ast.TypeNode{
+		Ident:      ast.TypeArray,
+		TypeKind:   ast.TypeKindBuiltin,
+		TypeParams: []ast.TypeNode{ast.NewBuiltinType(ast.TypeString)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "string[]" {
+		t.Fatalf("got %q, want string[]", got)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_mapWithKeyValue(t *testing.T) {
+	tm := NewTypeMapping()
+	m := ast.NewMapType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeInt))
+	got, err := tm.GetTypeScriptType(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "Record<string, number>" {
+		t.Fatalf("got %q, want Record<string, number>", got)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_pointerToNumber(t *testing.T) {
+	tm := NewTypeMapping()
+	p := ast.NewPointerType(ast.NewBuiltinType(ast.TypeInt))
+	got, err := tm.GetTypeScriptType(&p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "(number) | null" {
+		t.Fatalf("got %q, want (number) | null", got)
+	}
+}
+
+func TestTypeMapping_GetTypeScriptType_errorBuiltin(t *testing.T) {
+	tm := NewTypeMapping()
+	got, err := tm.GetTypeScriptType(&ast.TypeNode{Ident: ast.TypeError, TypeKind: ast.TypeKindBuiltin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "unknown" {
+		t.Fatalf("got %q, want unknown", got)
+	}
+}
+
+func TestTypeMapping_arrayTypeScript_parenthesizesUnions(t *testing.T) {
+	if got := arrayTypeScript("string | number"); got != "(string | number)[]" {
+		t.Fatalf("got %q", got)
+	}
+	if got := arrayTypeScript("string"); got != "string[]" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestTypeMapping_GetTypeScriptType_userTypeOverridesBuiltinName(t *testing.T) {
 	tm := NewTypeMapping()
 	// User map is keyed by string(Ident); overriding the string form of a builtin blocks the builtin branch.

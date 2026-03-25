@@ -42,13 +42,11 @@ func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*Functio
 		})
 	}
 
-	// Determine return type - first try typechecker's inferred types
-	returnType := "any"
+	// Return type: same mapping path as parameters (typechecker first, then explicit AST).
+	returnType := "unknown"
 	funcName := string(fn.Ident.ID)
 
-	// Look up function signature in typechecker
 	if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists && len(sig.ReturnTypes) > 0 {
-		// Use typechecker's inferred return types
 		returnTypeNode := &sig.ReturnTypes[0]
 		tsType, err := t.typeMapping.GetTypeScriptType(returnTypeNode)
 		if err != nil {
@@ -56,7 +54,6 @@ func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*Functio
 		}
 		returnType = tsType
 	} else if len(fn.ReturnTypes) > 0 {
-		// Fallback to AST return types if typechecker doesn't have them
 		returnTypeNode := &fn.ReturnTypes[0]
 		tsType, err := t.typeMapping.GetTypeScriptType(returnTypeNode)
 		if err != nil {

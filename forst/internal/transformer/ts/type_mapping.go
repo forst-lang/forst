@@ -17,6 +17,7 @@ type TypeMapping struct {
 // NewTypeMapping creates a new type mapping with built-in types
 func NewTypeMapping() *TypeMapping {
 	return &TypeMapping{
+		// TypeArray / TypeMap use TypeParams; see switch in GetTypeScriptType.
 		builtinTypes: map[ast.TypeIdent]string{
 			ast.TypeString: "string",
 			ast.TypeInt:    "number",
@@ -25,8 +26,6 @@ func NewTypeMapping() *TypeMapping {
 			ast.TypeShape:  "object",
 			ast.TypeVoid:   "void",
 			ast.TypeObject: "object",
-			ast.TypeArray:  "any[]",
-			ast.TypeMap:    "Record<any, any>",
 		},
 		userTypes: make(map[string]string),
 	}
@@ -53,9 +52,41 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return tsType, nil
 	}
 
-	// Check built-in types
-	if tsType, exists := tm.builtinTypes[forstType.Ident]; exists {
-		return tsType, nil
+	// Parameterized builtins (must run before the simple builtin map)
+	switch forstType.Ident {
+	case ast.TypeArray:
+		if len(forstType.TypeParams) > 0 {
+			elem, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			return arrayTypeScript(elem), nil
+		}
+		return "any[]", nil
+	case ast.TypeMap:
+		if len(forstType.TypeParams) >= 2 {
+			keyTS, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			valTS, err := tm.GetTypeScriptType(&forstType.TypeParams[1])
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("Record<%s, %s>", keyTS, valTS), nil
+		}
+		return "Record<any, any>", nil
+	case ast.TypePointer:
+		if len(forstType.TypeParams) > 0 {
+			inner, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			return "(" + inner + ") | null", nil
+		}
+		return "unknown", nil
+	case ast.TypeError:
+		return "unknown", nil
 	}
 
 	// Handle hash-based types by resolving their underlying struct
@@ -80,8 +111,20 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		}
 	}
 
+	if tsType, exists := tm.builtinTypes[forstType.Ident]; exists {
+		return tsType, nil
+	}
+
 	// Default to any for unknown types
 	return "any", nil
+}
+
+// arrayTypeScript returns a TS array type for an element type string (parenthesized when needed).
+func arrayTypeScript(elem string) string {
+	if strings.Contains(elem, "|") || strings.Contains(elem, " & ") {
+		return "(" + elem + ")[]"
+	}
+	return elem + "[]"
 }
 
 // generateTypeScriptInterface generates a TypeScript interface from a shape

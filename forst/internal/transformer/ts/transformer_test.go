@@ -136,3 +136,46 @@ func TestNew_nilLoggerUsesDefault(t *testing.T) {
 	// Exercise one call path that uses the logger without failing.
 	tr.log.SetLevel(logrus.ErrorLevel)
 }
+
+func TestTransformForstFileToTypeScript_arrayMapAndPointerInShape(t *testing.T) {
+	const src = `package main
+
+type Row = {
+	names: []String
+	scores: map[String]Int
+	next: *String
+}
+
+func Count() {
+	return 0
+}
+`
+	logger := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(src, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := typechecker.New(nil, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+
+	tr := New(tc, logger)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "")
+	if err != nil {
+		t.Fatalf("transform: %v", err)
+	}
+
+	typesFile := out.GenerateTypesFile()
+	for _, frag := range []string{
+		"string[]",
+		"Record<string, number>",
+		"(string) | null",
+	} {
+		if !strings.Contains(typesFile, frag) {
+			t.Fatalf("types file missing %q:\n%s", frag, typesFile)
+		}
+	}
+}
