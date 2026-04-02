@@ -24,10 +24,10 @@ The Forst sidecar enables gradual adoption of Forst within TypeScript applicatio
 cd packages/sidecar
 
 # Install dependencies
-npm install
+bun install
 
 # Build the package
-npm run build
+bun run build
 ```
 
 ### Basic Usage
@@ -173,26 +173,26 @@ Manages the Forst development server process.
 ### Building
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### Development Mode
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 ### Testing
 
 ```bash
-npm test
+bun test
 ```
 
 ### Running Examples
 
 ```bash
 # Run the basic example
-npm run example
+bun run example
 
 # Or run the compiled example
 node dist/examples/basic.js

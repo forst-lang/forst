@@ -114,16 +114,16 @@ type tsConfig struct {
 }
 
 type tsCompilerOptions struct {
-	Target             string              `json:"target"`
-	Module             string              `json:"module"`
-	ModuleResolution   string              `json:"moduleResolution"`
-	Strict             bool                `json:"strict"`
-	NoEmit             bool                `json:"noEmit"`
-	SkipLibCheck       bool                `json:"skipLibCheck"`
-	BaseURL            string              `json:"baseUrl"`
-	Paths              map[string][]string `json:"paths"`
+	Target           string              `json:"target"`
+	Module           string              `json:"module"`
+	ModuleResolution string              `json:"moduleResolution"`
+	Strict           bool                `json:"strict"`
+	NoEmit           bool                `json:"noEmit"`
+	SkipLibCheck     bool                `json:"skipLibCheck"`
+	// No baseUrl: TS 6+ deprecates it (TS5101); paths resolve relative to the config file without it.
+	Paths map[string][]string `json:"paths,omitempty"`
 	// Empty types: do not auto-load @types/* from parent node_modules (avoids duplicate `process` vs node-process-shim.d.ts).
-	Types              []string            `json:"types"`
+	Types []string `json:"types"`
 }
 
 func writeTSConfig(projectRoot string) error {
@@ -135,7 +135,6 @@ func writeTSConfig(projectRoot string) error {
 			Strict:           true,
 			NoEmit:           true,
 			SkipLibCheck:     true,
-			BaseURL:          ".",
 			Types:            []string{},
 			Paths: map[string][]string{
 				"@forst/sidecar": {"./stubs/forst-sidecar.d.ts"},
@@ -178,7 +177,7 @@ func runTsc(t *testing.T, projectRoot string) error {
 	}
 
 	if _, err := exec.LookPath("npx"); err == nil {
-		cmd := exec.Command("npx", "-y", "typescript@5.4.5", "tsc", "--noEmit", "-p", tsconfigPath)
+		cmd := exec.Command("npx", "-y", "typescript@6.0.2", "tsc", "--noEmit", "-p", tsconfigPath)
 		return runTscCmd(t, cmd)
 	}
 
