@@ -8,7 +8,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "build:clean": "npm run clean && npm run build",
+    "build:clean": "bun run clean && bun run build",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "example": "tsx examples/basic.ts"
@@ -39,7 +39,7 @@
     "tsx": "^4.21.0"
   },
   "peerDependencies": {
-    "express": "^4.18.0"
+    "express": "^5.0.0"
   },
   "files": [
     "dist/**/*",
