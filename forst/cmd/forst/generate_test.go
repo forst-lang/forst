@@ -8,6 +8,7 @@ import (
 )
 
 // Shared Forst sources for generate tests, dev server tests, and generate_tsc_test.go.
+// Unknown type names in shapes (e.g. Stringd instead of String) fail typechecking, not generate.
 const generateTestMinimalValidForst = `package main
 
 type EchoRequest = {
@@ -32,6 +33,40 @@ func PingServer(input Ping) {
 	return { pong: input.ok }
 }
 `
+
+// Smoke: valid shared fixture typechecks and produces generated/types.d.ts (no tsc required).
+func TestGenerateCommand_minimalFixture_generatesTypes(t *testing.T) {
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "sample.ft")
+	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{ftPath}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	requireGenerateOutputForTSC(t, dir, minimalEchoFixtureTypeScriptChecks)
+}
+
+func TestGenerateCommand_unknownShapeFieldTypeFails(t *testing.T) {
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "bad.ft")
+	src := `package main
+
+type EchoRequest = {
+	message: Stringd
+}
+
+func Echo(input EchoRequest) {
+	return { echo: input.message, timestamp: 0 }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{ftPath}); err == nil {
+		t.Fatal("expected error: unknown type Stringd in shape field")
+	}
+}
 
 func TestGenerateCommand_requiresTarget(t *testing.T) {
 	err := generateCommand(nil)
@@ -149,14 +184,14 @@ func TestFindForstFiles_nestedAndFlat(t *testing.T) {
 	}
 }
 
-func TestGenerateCommand_invalidForstFile_producesNoGeneratedArtifacts(t *testing.T) {
+func TestGenerateCommand_invalidForstFile_returnsErrorAndNoGeneratedArtifacts(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "bad.ft")
 	if err := os.WriteFile(ftPath, []byte("not valid forst {{{"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := generateCommand([]string{ftPath}); err != nil {
-		t.Fatalf("expected nil when the only file fails; got %v", err)
+	if err := generateCommand([]string{ftPath}); err == nil {
+		t.Fatal("expected error when the only file fails to parse/transform")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "generated", "types.d.ts")); err == nil {
 		t.Fatal("expected no types.d.ts when generation fails")

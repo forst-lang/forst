@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,6 +23,7 @@ func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 	if err := generateCommand([]string{ftPath}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
+	requireGenerateOutputForTSC(t, dir, minimalEchoFixtureTypeScriptChecks)
 	assertTypeScriptCompiles(t, dir)
 }
 
@@ -36,7 +38,41 @@ func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
+	requireGenerateOutputForTSC(t, dir, mergedDirectoryFixtureTypeScriptChecks)
 	assertTypeScriptCompiles(t, dir)
+}
+
+// minimalEchoFixtureTypeScriptChecks is shared with generate_test.go (same package).
+// Shape-level correctness is enforced by the typechecker (unknown types are rejected); these
+// are smoke checks that generate emitted expected declarations.
+var minimalEchoFixtureTypeScriptChecks = []string{
+	"export interface EchoRequest",
+	"export function Echo(",
+}
+
+var mergedDirectoryFixtureTypeScriptChecks = []string{
+	"export interface EchoRequest",
+	"export function Echo(",
+	"export interface Ping",
+	"export function PingServer(",
+}
+
+// requireGenerateOutputForTSC fails if forst generate produced no usable output.
+func requireGenerateOutputForTSC(t *testing.T, projectRoot string, wantSubstrings []string) {
+	t.Helper()
+	typesPath := filepath.Join(projectRoot, "generated", "types.d.ts")
+	b, err := os.ReadFile(typesPath)
+	if err != nil {
+		t.Fatalf("expected generated/types.d.ts after generate (got error: %v). "+
+			"If generate failed (parse/typecheck), generateCommand returns an error.", err)
+	}
+	typesSrc := string(b)
+	for _, frag := range wantSubstrings {
+		if !strings.Contains(typesSrc, frag) {
+			t.Fatalf("generated/types.d.ts missing %q (run with -count=1 to avoid stale cache). Full file:\n%s",
+				frag, typesSrc)
+		}
+	}
 }
 
 func assertTypeScriptCompiles(t *testing.T, projectRoot string) {

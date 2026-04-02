@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	transformerts "forst/internal/transformer/ts"
 	"os"
@@ -58,19 +59,23 @@ func generateCommand(args []string) error {
 	sort.Strings(forstFiles)
 
 	var outputs []*transformerts.TypeScriptOutput
+	var processErrs []error
 	for _, file := range forstFiles {
 		out, err := transformerts.TransformForstFileFromPath(file, log, transformerts.TransformForstFileOptions{
 			RelaxedTypecheck: false,
 		})
 		if err != nil {
 			log.Errorf("Failed to process %s: %v", file, err)
+			processErrs = append(processErrs, fmt.Errorf("%s: %w", file, err))
 			continue
 		}
 		outputs = append(outputs, out)
 	}
 
 	if len(outputs) == 0 {
-		log.Warn("No Forst files were successfully processed")
+		if len(forstFiles) > 0 {
+			return errors.Join(processErrs...)
+		}
 		return nil
 	}
 

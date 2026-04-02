@@ -80,6 +80,10 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		tc.path = tc.path[:len(tc.path)-1]
 	}
 
+	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
+		return err
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"imports":   len(tc.imports),
 		"typeDefs":  len(tc.Defs),
