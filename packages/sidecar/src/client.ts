@@ -37,7 +37,10 @@ export class ForstSidecarClient {
       }
 
       const functions = response.result as FunctionInfo[];
-      logger.debug(`🔍 Discovered ${functions.length} functions:`, functions);
+      logger.debug(
+        { functions, count: functions.length },
+        `🔍 Discovered ${functions.length} functions`
+      );
 
       // Cache the functions
       for (const fn of functions) {
@@ -48,7 +51,7 @@ export class ForstSidecarClient {
       logger.info(`✅ Discovered ${functions.length} functions`);
       return functions;
     } catch (error) {
-      logger.error("❌ Failed to discover functions:", error);
+      logger.error({ err: error }, "❌ Failed to discover functions");
       return [];
     }
   }
@@ -85,15 +88,21 @@ export class ForstSidecarClient {
       streaming: options.streaming || false,
     };
 
-    logger.debug(`🚀 Invoking ${packageName}.${functionName} with args:`, args);
-    logger.debug(`📋 Full request:`, request);
+    logger.debug(
+      { args },
+      `🚀 Invoking ${packageName}.${functionName} with args`
+    );
+    logger.debug({ request }, "📋 Full request");
 
     const response = await this.makeRequest<T>("/invoke", {
       method: "POST",
       body: JSON.stringify(request),
     });
 
-    logger.debug(`📦 Response for ${packageName}.${functionName}:`, response);
+    logger.debug(
+      { response },
+      `📦 Response for ${packageName}.${functionName}`
+    );
     return response;
   }
 
@@ -152,7 +161,7 @@ export class ForstSidecarClient {
               onResult(result);
             }
           } catch (error) {
-            logger.warn("Failed to parse streaming chunk:", error);
+            logger.warn({ err: error }, "Failed to parse streaming chunk");
           }
         }
       }
@@ -191,10 +200,10 @@ export class ForstSidecarClient {
       const response = await this.makeRequest("/health", {
         method: "GET",
       });
-      logger.debug(`🏥 Health check response:`, response);
+      logger.debug({ response }, "🏥 Health check response");
       return response.success;
     } catch (error) {
-      logger.error("🏥 Health check failed:", error);
+      logger.error({ err: error }, "🏥 Health check failed");
       return false;
     }
   }
@@ -211,7 +220,7 @@ export class ForstSidecarClient {
 
     logger.debug(`🌐 Making request to: ${url}`);
     logger.debug(`📤 Request method: ${options.method}`);
-    logger.debug(`📤 Request headers:`, options.headers);
+    logger.debug({ headers: options.headers }, "📤 Request headers");
     if (options.body) {
       logger.debug(`📤 Request body: ${options.body}`);
     }
@@ -235,8 +244,10 @@ export class ForstSidecarClient {
           `📥 Response status: ${response.status} ${response.statusText}`
         );
         logger.debug(
-          `📥 Response headers:`,
-          Object.fromEntries(response.headers.entries())
+          {
+            headers: Object.fromEntries(response.headers.entries()),
+          },
+          "📥 Response headers"
         );
 
         if (!response.ok) {
@@ -246,11 +257,14 @@ export class ForstSidecarClient {
         }
 
         const result = await response.json();
-        logger.debug(`✅ Request successful:`, result);
+        logger.debug({ result }, "✅ Request successful");
         return result as InvokeResponse<T>;
       } catch (error) {
         lastError = error as Error;
-        logger.warn(`❌ Request attempt ${attempt + 1} failed:`, error);
+        logger.warn(
+          { err: error },
+          `❌ Request attempt ${attempt + 1} failed`
+        );
 
         if (attempt < this.config.retries!) {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
@@ -260,7 +274,7 @@ export class ForstSidecarClient {
       }
     }
 
-    logger.error(`💥 All request attempts failed. Last error:`, lastError);
+    logger.error({ err: lastError }, "💥 All request attempts failed");
     throw lastError || new Error("Request failed after all retries");
   }
 
