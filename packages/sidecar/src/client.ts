@@ -6,6 +6,12 @@ import {
   FunctionInfo,
 } from "./types";
 import { logger } from "./logger";
+import {
+  invokeRequestLogFields,
+  invokeResponseLogFields,
+  sanitizePayload,
+  sanitizeRequestBodyString,
+} from "./sanitizeLogPayload";
 
 export class ForstSidecarClient {
   private config: ForstClientConfig;
@@ -38,7 +44,10 @@ export class ForstSidecarClient {
 
       const functions = response.result as FunctionInfo[];
       logger.debug(
-        { functions, count: functions.length },
+        {
+          count: functions.length,
+          functions: sanitizePayload(functions),
+        },
         `🔍 Discovered ${functions.length} functions`
       );
 
@@ -89,10 +98,9 @@ export class ForstSidecarClient {
     };
 
     logger.debug(
-      { args },
-      `🚀 Invoking ${packageName}.${functionName} with args`
+      invokeRequestLogFields(request),
+      `🚀 Invoking ${packageName}.${functionName}`
     );
-    logger.debug({ request }, "📋 Full request");
 
     const response = await this.makeRequest<T>("/invoke", {
       method: "POST",
@@ -100,7 +108,11 @@ export class ForstSidecarClient {
     });
 
     logger.debug(
-      { response },
+      {
+        package: packageName,
+        function: functionName,
+        ...invokeResponseLogFields(response),
+      },
       `📦 Response for ${packageName}.${functionName}`
     );
     return response;
@@ -123,6 +135,7 @@ export class ForstSidecarClient {
     };
 
     logger.debug(
+      invokeRequestLogFields(request),
       `Starting streaming invocation of ${packageName}.${functionName}`
     );
 
@@ -200,7 +213,10 @@ export class ForstSidecarClient {
       const response = await this.makeRequest("/health", {
         method: "GET",
       });
-      logger.debug({ response }, "🏥 Health check response");
+      logger.debug(
+        invokeResponseLogFields(response),
+        "🏥 Health check response"
+      );
       return response.success;
     } catch (error) {
       logger.error({ err: error }, "🏥 Health check failed");
@@ -220,9 +236,18 @@ export class ForstSidecarClient {
 
     logger.debug(`🌐 Making request to: ${url}`);
     logger.debug(`📤 Request method: ${options.method}`);
-    logger.debug({ headers: options.headers }, "📤 Request headers");
+    logger.debug(
+      { headers: sanitizePayload(options.headers) },
+      "📤 Request headers"
+    );
     if (options.body) {
-      logger.debug(`📤 Request body: ${options.body}`);
+      const bodyPreview =
+        typeof options.body === "string"
+          ? sanitizeRequestBodyString(options.body)
+          : options.body instanceof ArrayBuffer
+            ? { kind: "ArrayBuffer", byteLength: options.body.byteLength }
+            : { kind: typeof options.body, note: "non-string body omitted" };
+      logger.debug({ body: bodyPreview }, "📤 Request body (sanitized)");
     }
 
     for (let attempt = 0; attempt <= this.config.retries!; attempt++) {
@@ -245,7 +270,9 @@ export class ForstSidecarClient {
         );
         logger.debug(
           {
-            headers: Object.fromEntries(response.headers.entries()),
+            headers: sanitizePayload(
+              Object.fromEntries(response.headers.entries())
+            ),
           },
           "📥 Response headers"
         );
@@ -256,9 +283,12 @@ export class ForstSidecarClient {
           throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        const result = await response.json();
-        logger.debug({ result }, "✅ Request successful");
-        return result as InvokeResponse<T>;
+        const result = (await response.json()) as InvokeResponse<T>;
+        logger.debug(
+          invokeResponseLogFields(result),
+          "✅ Request successful"
+        );
+        return result;
       } catch (error) {
         lastError = error as Error;
         logger.warn(

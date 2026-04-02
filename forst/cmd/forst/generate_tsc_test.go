@@ -177,7 +177,7 @@ func runTsc(t *testing.T, projectRoot string) error {
 	}
 
 	if _, err := exec.LookPath("npx"); err == nil {
-		cmd := exec.Command("npx", "-y", "typescript@5.4.5", "tsc", "--noEmit", "-p", tsconfigPath)
+		cmd := exec.Command("npx", "-y", "typescript@6.0.2", "tsc", "--noEmit", "-p", tsconfigPath)
 		return runTscCmd(t, cmd)
 	}
 
