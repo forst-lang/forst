@@ -8,6 +8,6 @@
     "examples/in/rfc/sidecar"
   ],
   "devDependencies": {
-    "typescript": "~5.4.5"
+    "typescript": "~6.0.2"
   }
 }
