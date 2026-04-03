@@ -17,7 +17,7 @@ Its primary goal is to help you move away from TypeScript on the backend:
 - Strong static typing with aggressive inference and smart narrowing – so you move fast while staying safe.
 - Data schemas acting as guards, automatically validating deeply nested input data through type definitions – to keep untrusted user input out of your application logic.
 
-See also [ROADMAP.md](./ROADMAP.md) for details on what we are planning.
+See also [ROADMAP.md](./ROADMAP.md) for planned work and **feature parity** (tables by theme).
 
 ## Why?
 
