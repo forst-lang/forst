@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9](https://github.com/forst-lang/forst/compare/v0.0.8...v0.0.9) (2026-04-03)
+
+
+### Features
+
+* add extension, syntax highlighting, and LSP editor support ([#36](https://github.com/forst-lang/forst/issues/36)) ([049133e](https://github.com/forst-lang/forst/commit/049133e28a95a24749a22fd1bc03002924607489))
+* **ts:** improve TS emission and fail on unknown types; fix generate exit codes ([cc5f33c](https://github.com/forst-lang/forst/commit/cc5f33c33fd9165990e5e1a10fa2a0f6b734ba10))
+
 ## [0.0.8](https://github.com/forst-lang/forst/compare/v0.0.7...v0.0.8) (2026-03-25)
 
 
