@@ -258,6 +258,11 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 		name string
 		node ast.Node
 	}{
+		{"UnaryExpression", ast.UnaryExpressionNode{
+			Operator: ast.TokenMinus,
+			Operand:  ast.IntLiteralNode{Value: 1},
+		}},
+		{"FloatLiteral", ast.FloatLiteralNode{Value: 3.14}},
 		{"TypeDefBinaryExpr", ast.TypeDefBinaryExpr{
 			Op: ast.TokenBitwiseAnd,
 			Left: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
@@ -352,6 +357,38 @@ func TestStructuralHasher_writeHashAndNode(t *testing.T) {
 	}
 	if buf.Len() == 0 {
 		t.Fatal("expected non-empty buffer")
+	}
+}
+
+func TestStructuralHasher_hashNodes_viaFunctionBodyAndCallArgs(t *testing.T) {
+	h := New()
+	fn := ast.FunctionNode{
+		Ident: ast.Ident{ID: "F"},
+		Body: []ast.Node{
+			ast.IntLiteralNode{Value: 1},
+			ast.IntLiteralNode{Value: 2},
+		},
+	}
+	if _, err := h.HashNode(fn); err != nil {
+		t.Fatal(err)
+	}
+	call := ast.FunctionCallNode{
+		Function: ast.Ident{ID: "g"},
+		Arguments: []ast.ExpressionNode{
+			ast.IntLiteralNode{Value: 3},
+			ast.IntLiteralNode{Value: 4},
+		},
+	}
+	if _, err := h.HashNode(call); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNodeHash_ToTypeIdent_zeroUsesBase58SingleDigit(t *testing.T) {
+	// uint64(0) is not NilHash; toBase58(0) hits the empty-string branch (uses alphabet[0]).
+	id := NodeHash(0).ToTypeIdent()
+	if string(id) != "T_1" {
+		t.Fatalf("got %q", id)
 	}
 }
 

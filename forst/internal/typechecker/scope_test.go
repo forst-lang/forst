@@ -133,3 +133,25 @@ func TestScope_String_nonGlobal(t *testing.T) {
 		t.Fatalf("String() = %q", s)
 	}
 }
+
+func TestScope_DefineType_LookupType(t *testing.T) {
+	log := testLogger(t)
+	root := NewScope(nil, nil, log)
+	ty := ast.TypeNode{Ident: ast.TypeIdent("MyT")}
+	root.DefineType(ast.Identifier("MyT"), ty)
+
+	sym, ok := root.LookupType(ast.Identifier("MyT"))
+	if !ok || sym.Kind != SymbolType || len(sym.Types) != 1 {
+		t.Fatalf("lookup: ok=%v sym=%+v", ok, sym)
+	}
+
+	child := NewScope(root, nil, log)
+	sym2, ok2 := child.LookupType(ast.Identifier("MyT"))
+	if !ok2 || sym2.Identifier != "MyT" {
+		t.Fatalf("child lookup: ok=%v sym=%+v", ok2, sym2)
+	}
+
+	if _, ok := child.LookupType(ast.Identifier("Missing")); ok {
+		t.Fatal("expected missing type")
+	}
+}

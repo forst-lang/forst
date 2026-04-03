@@ -47,3 +47,23 @@ func TestCompilerDebugger_ResetStructuredOutputs_ClearsPhaseEvents(t *testing.T)
 		t.Fatalf("expected empty parser output after reset, got %d events", len(after))
 	}
 }
+
+func TestExtractFilename(t *testing.T) {
+	t.Parallel()
+	if got, want := extractFilename("a/b/c.ft"), "c.ft"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := extractFilename("solo.ft"), "solo.ft"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestExtractPackagePath(t *testing.T) {
+	t.Parallel()
+	if got, want := extractPackagePath("pkg/sub/file.ft"), "pkg/sub"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := extractPackagePath("only.ft"), "."; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}

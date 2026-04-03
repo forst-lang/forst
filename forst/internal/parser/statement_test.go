@@ -177,6 +177,28 @@ func TestParseBlockStatement(t *testing.T) {
 				// Should be a tuple or slice of values in the future
 			},
 		},
+		{
+			name: "block with leading line comment",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenComment, Value: "// pad", Line: 2, Column: 4},
+				{Type: ast.TokenReturn, Value: "return", Line: 3, Column: 4},
+				{Type: ast.TokenIntLiteral, Value: "1", Line: 3, Column: 11},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 4, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				if len(functionNode.Body) != 1 {
+					t.Fatalf("expected 1 statement after skipping comment, got %d", len(functionNode.Body))
+				}
+				assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
+			},
+		},
 	}
 
 	for _, tt := range tests {
