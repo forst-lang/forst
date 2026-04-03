@@ -84,7 +84,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 ## Tooling & developer experience
 
-**LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** returns a wide **ServerCapabilities** set (hover, completion, diagnostics, definition/references, symbols, formatting, code actions, code lens, folding, plus **experimental** debug flags). Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` actually implements vs advertises.
+**LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** returns a wide **ServerCapabilities** set (hover, completion, diagnostics, definition/references, symbols, formatting, code actions, code lens, folding, plus **experimental** debug flags). Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` actually implements vs advertises; **go to definition** is implemented for same-file top-level names (see `definition.go`).
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -95,7 +95,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 | LSP: diagnostics | done | `compileForstFile`: lexer → parser → typechecker; builds `LSPDiagnostic` ranges from compiler errors. `didOpen` / `didChange` / `didClose` responses include `PublishDiagnosticsParams`; `sendDiagnosticsNotification` supports push-style clients. |
 | LSP: hover (`textDocument/hover`) | in progress | **Implemented:** resolve token at LSP position, parse + typecheck when possible; hovers for **identifiers** (function signatures with optional leading `//` / `/* */` doc lines, type definitions, inferred variable types), **keywords** (short quick-info). **Skipped:** literals (by design). **Limits:** if parse fails, hover often returns nothing (errors show in diagnostics). |
 | LSP: completion (`textDocument/completion`) | prototype | Returns **all** Forst keywords from `lexer.Keywords` as keyword items—**not** filtered by position or scope, **no** semantic or identifier completion. Capabilities advertise `resolveProvider: true` but there is **no** `completionItem/resolve` handler (unknown methods return JSON-RPC errors). |
-| LSP: go to definition | prototype | `textDocument/definition` always returns **`null`** (`document.go`; TODO). |
+| LSP: go to definition | done | **`textDocument/definition`** resolves identifiers in the open buffer to defining tokens in the **same file**: top-level **`func`**, **`type`** (incl. shape/alias defs), and top-level **`is (…) Name`** type guards (brace depth avoids `ensure … is …`). Variables/parameters not yet. Implementation: `cmd/forst/lsp/definition.go`. |
 | LSP: find references | prototype | `textDocument/references` returns an **empty** array (TODO). |
 | LSP: document symbols | prototype | `textDocument/documentSymbol` returns **[]** (TODO). |
 | LSP: workspace symbol | prototype | `workspace/symbol` returns **[]** (TODO). |
@@ -105,7 +105,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 | LSP: protocol & client quirks | prototype | **HTTP** transport is non-standard for LSP; stdio clients won’t work without an adapter. Methods not handled by the switch (e.g. some client notifications) get **-32601 Method not found**. |
 | Error messages (line numbers, suggestions) | prototype | Incremental improvements; parity not the only priority. |
 | More real-world examples | prototype | Some examples exist; broader set still wanted. |
-| VS Code extension | not ready | Marketplace extension and wiring to the language service. |
+| VS Code extension | prototype | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **F12 / go to definition** works for same-file definitions the server resolves. **Marketplace** / discoverability still open. |
 
 ---
 

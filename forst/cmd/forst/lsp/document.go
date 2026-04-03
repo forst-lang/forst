@@ -205,30 +205,6 @@ func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 	return s.compileForstFile(filePath, content, debugger)
 }
 
-// handleDefinition handles the textDocument/definition method
-func (s *LSPServer) handleDefinition(request LSPRequest) LSPServerResponse {
-	// Parse position from params
-	var params map[string]interface{}
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32602,
-				Message: "Invalid params",
-			},
-		}
-	}
-
-	// For now, return null (no definition found)
-	// TODO: Implement actual definition lookup
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  nil,
-	}
-}
-
 // handleReferences handles the textDocument/references method
 func (s *LSPServer) handleReferences(request LSPRequest) LSPServerResponse {
 	// Parse position from params
