@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"forst/internal/ast"
@@ -54,6 +55,9 @@ type LSPServer struct {
 	// Add debugging state
 	debugMode   bool
 	debugEvents []DebugEvent
+	// openDocuments holds the latest text per LSP document URI (file://...) for hover and similar pull requests.
+	documentMu    sync.RWMutex
+	openDocuments map[string]string
 }
 
 // Version information for LSP server
@@ -72,12 +76,13 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 	lspDebugger := NewLSPDebugger(debugger, "")
 
 	return &LSPServer{
-		debugger:    debugger,
-		lspDebugger: lspDebugger,
-		log:         log,
-		port:        port,
-		debugMode:   true, // Enable debug mode by default for LLM debugging
-		debugEvents: make([]DebugEvent, 0),
+		debugger:      debugger,
+		lspDebugger:   lspDebugger,
+		log:           log,
+		port:          port,
+		debugMode:     true, // Enable debug mode by default for LLM debugging
+		debugEvents:   make([]DebugEvent, 0),
+		openDocuments: make(map[string]string),
 	}
 }
 

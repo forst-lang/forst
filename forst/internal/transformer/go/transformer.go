@@ -350,7 +350,7 @@ func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed m
 					t.log.WithFields(logrus.Fields{
 						"function": "ensureTypeEmittedFromGoType",
 						"type":     expr.Name,
-					}).Warn("[DEBUG] Hash-based type found in generated code but not in Defs, creating minimal definition")
+					}).Debug("[DEBUG] Hash-based type found in generated code but not in Defs, creating minimal definition")
 					// Create a minimal type definition to ensure emission
 					minimalDef := ast.TypeDefNode{
 						Ident: typeIdent,
@@ -654,7 +654,7 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 					"hashType": expectedType.Ident,
 					"bestType": bestType.Ident,
 					"note":     "Resolved hash-based type to named type",
-				}).Warn("[PINPOINT] getExpectedTypeForShape: Resolved hash-based type to named type")
+				}).Debug("[PINPOINT] getExpectedTypeForShape: Resolved hash-based type to named type")
 				return &bestType
 			}
 		}

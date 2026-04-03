@@ -36,6 +36,10 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 		"content_length": len(params.TextDocument.Text),
 	}).Info("File opened for compilation")
 
+	s.documentMu.Lock()
+	s.openDocuments[params.TextDocument.URI] = params.TextDocument.Text
+	s.documentMu.Unlock()
+
 	// Process the Forst file and get diagnostics
 	diagnostics := s.processForstFile(params.TextDocument.URI, params.TextDocument.Text)
 
@@ -45,7 +49,10 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result:  nil,
+		Result: PublishDiagnosticsParams{
+			URI:           params.TextDocument.URI,
+			Diagnostics:   diagnostics,
+		},
 	}
 }
 
@@ -86,6 +93,10 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 		"content_length": len(latestContent),
 	}).Info("File content changed")
 
+	s.documentMu.Lock()
+	s.openDocuments[params.TextDocument.URI] = latestContent
+	s.documentMu.Unlock()
+
 	// Process the Forst file and get diagnostics
 	diagnostics := s.processForstFile(params.TextDocument.URI, latestContent)
 
@@ -95,7 +106,10 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result:  nil,
+		Result: PublishDiagnosticsParams{
+			URI:           params.TextDocument.URI,
+			Diagnostics:   diagnostics,
+		},
 	}
 }
 
@@ -123,13 +137,20 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 		"uri": params.TextDocument.URI,
 	}).Info("File closed")
 
+	s.documentMu.Lock()
+	delete(s.openDocuments, params.TextDocument.URI)
+	s.documentMu.Unlock()
+
 	// Clear diagnostics for the closed document
 	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result:  nil,
+		Result: PublishDiagnosticsParams{
+			URI:           params.TextDocument.URI,
+			Diagnostics:   []LSPDiagnostic{},
+		},
 	}
 }
 

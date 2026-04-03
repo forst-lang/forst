@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -230,6 +231,20 @@ func TestHandleDidOpen(t *testing.T) {
 
 	if response.Error != nil {
 		t.Errorf("Expected no error, got %v", response.Error)
+	}
+
+	if response.Result == nil {
+		t.Fatal("Expected result with publish diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
+	if pub.Diagnostics == nil {
+		t.Error("Expected diagnostics slice (may be empty)")
 	}
 
 	// Test with invalid JSON
@@ -542,6 +557,27 @@ func TestFindHoverForPosition(t *testing.T) {
 	}
 }
 
+func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	uri := "file:///tmp/hover_sync.ft"
+	content := "package main\n\nfunc Hello() {\n}\n"
+	server.documentMu.Lock()
+	server.openDocuments[uri] = content
+	server.documentMu.Unlock()
+
+	h := server.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 6})
+	if h == nil {
+		t.Fatal("expected hover for function name")
+	}
+	if h.Contents.Value == "" {
+		t.Fatal("expected hover body")
+	}
+	if !strings.Contains(h.Contents.Value, "Hello") {
+		t.Fatalf("expected function name in hover, got %q", h.Contents.Value)
+	}
+}
+
 func TestGetCompletionsForPosition(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
@@ -663,6 +699,17 @@ func TestHandleDidChange(t *testing.T) {
 	if response.Error != nil {
 		t.Errorf("Expected no error, got %v", response.Error)
 	}
+
+	if response.Result == nil {
+		t.Fatal("Expected result with publish diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
 }
 
 func TestHandleDidClose(t *testing.T) {
@@ -692,6 +739,20 @@ func TestHandleDidClose(t *testing.T) {
 
 	if response.Error != nil {
 		t.Errorf("Expected no error, got %v", response.Error)
+	}
+
+	if response.Result == nil {
+		t.Fatal("Expected result with cleared diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
+	if len(pub.Diagnostics) != 0 {
+		t.Errorf("Expected no diagnostics after close, got %d", len(pub.Diagnostics))
 	}
 }
 

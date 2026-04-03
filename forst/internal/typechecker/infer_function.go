@@ -66,7 +66,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 							"returnIndex":  i,
 							"returnAST":    fmt.Sprintf("%T", value),
 							"inferredType": retType[0].Ident,
-						}).Warn("[PINPOINT] Inferred return type for function")
+						}).Debug("[PINPOINT] Inferred return type for function")
 					}
 					retTypes = append(retTypes, retType[0])
 				}

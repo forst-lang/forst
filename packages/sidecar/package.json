@@ -20,7 +20,7 @@
     "performance",
     "backend"
   ],
-  "author": "Forst Team",
+  "author": "haveyaseen",
   "license": "MIT",
   "dependencies": {
     "express": "^5.2.1",
