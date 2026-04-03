@@ -1,6 +1,7 @@
 package hasher
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -288,6 +289,40 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 			LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x"}}},
 			RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
 		}},
+		{"DestructuredParamNode", ast.DestructuredParamNode{
+			Fields: []string{"a", "b"},
+			Type:   ast.TypeNode{Ident: ast.TypeInt},
+		}},
+		{"ImportNode_alias", func() ast.Node {
+			a := ast.Ident{ID: "f"}
+			return ast.ImportNode{Path: "fmt", Alias: &a}
+		}()},
+		{"TypeDef_anonymous", ast.TypeDefNode{
+			Ident: "",
+			Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+		}},
+		{"EnsureNode_error_and_block", func() ast.Node {
+			var e ast.EnsureErrorNode = ast.EnsureErrorVar("e")
+			return ast.EnsureNode{
+				Variable:  ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+				Assertion: ast.AssertionNode{},
+				Error:     &e,
+				Block:     &ast.EnsureBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 1}}},
+			}
+		}()},
+		{"IfNode_full", ast.IfNode{
+			Init: ast.AssignmentNode{
+				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "i"}}},
+				RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
+			},
+			Condition: ast.BoolLiteralNode{Value: true},
+			Body:      []ast.Node{ast.IntLiteralNode{Value: 1}},
+			ElseIfs: []ast.ElseIfNode{
+				{Condition: ast.BoolLiteralNode{Value: false}, Body: []ast.Node{ast.IntLiteralNode{Value: 2}}},
+			},
+			Else: &ast.ElseBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 3}}},
+		}},
+		{"ImportGroupNode", ast.ImportGroupNode{Imports: []ast.ImportNode{{Path: "a"}, {Path: "b"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -299,6 +334,17 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 				t.Fatal("zero hash")
 			}
 		})
+	}
+}
+
+func TestStructuralHasher_writeHashAndNode(t *testing.T) {
+	h := New()
+	var buf bytes.Buffer
+	if err := h.writeHashAndNode(&buf, 9, ast.IntLiteralNode{Value: 7}); err != nil {
+		t.Fatal(err)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("expected non-empty buffer")
 	}
 }
 
