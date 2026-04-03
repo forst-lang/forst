@@ -1,0 +1,78 @@
+package main
+
+// Exercises the same `for` forms as Go: infinite, condition-only, three-clause,
+// empty three-clause, `range` with no variables / one / two / blank key, `continue`,
+// and assignment form `for i = range` with predeclared variables.
+
+func main() {
+  // Infinite loop (exit with break)
+  for {
+    break
+  }
+
+  // Condition-only ("while")
+  for false {
+    println("unreachable")
+  }
+
+  var n: Int = 0
+  for n < 3 {
+    n = n + 1
+  }
+
+  // Three-clause C-style
+  for i := 0; i < 3; i++ {
+    println(string(i))
+  }
+
+  // Empty init / cond / post (still need two semicolons before body)
+  for ;; {
+    break
+  }
+
+  // Slice literal (short decl avoids emitting an unresolved hash-based named type for `[]Int`)
+  xs := [1, 2, 3]
+
+  // range — no variables
+  for range xs {
+    println("range")
+  }
+
+  // range — index only
+  for idx := range xs {
+    println(string(idx))
+  }
+
+  // range — index and value
+  for ik, vv := range xs {
+    println(string(ik) + ":" + string(vv))
+  }
+
+  // range — blank index (use a distinct value name so `:=` is not reused in the same block)
+  for _, elem := range xs {
+    println(string(elem))
+  }
+
+  // Go has no `for _ := range` (blank does not count as a new name with `:=`).
+  // Discarding the index is `for range xs` (already above) or bind the index: `for i := range xs` and use `_` only in two-value form.
+
+  // range — string (index only)
+  for si := range "ab" {
+    println(string(si))
+  }
+
+  // continue + condition
+  for j := 0; j < 4; j++ {
+    if j == 2 {
+      continue
+    }
+    println(string(j))
+  }
+
+  // Assignment form with predeclared variables (Go's `for i = range`)
+  var ri: Int = 0
+  var rv: Int = 0
+  for ri, rv = range xs {
+    println(string(ri) + "=" + string(rv))
+  }
+}
