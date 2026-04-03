@@ -120,6 +120,14 @@ func (d *Discoverer) findForstFiles() ([]string, error) {
 	return d.config.FindForstFiles(d.rootDir)
 }
 
+// packageNameOrDefault returns name when non-empty; otherwise "main" (Go default package).
+func packageNameOrDefault(name string) string {
+	if name == "" {
+		return "main"
+	}
+	return name
+}
+
 // discoverFunctionsInFile discovers public functions in a single Forst file
 func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[string]FunctionInfo, error) {
 	functions := make(map[string]map[string]FunctionInfo)
@@ -143,10 +151,7 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 	}
 
 	// Extract package name and functions from AST
-	packageName := d.extractPackageNameFromAST(nodes)
-	if packageName == "" {
-		packageName = "main" // Default package name
-	}
+	packageName := packageNameOrDefault(d.extractPackageNameFromAST(nodes))
 
 	// Type check to get function signatures (optional, don't fail if it errors)
 	tc := typechecker.New(mainLogger, false)

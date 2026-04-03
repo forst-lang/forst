@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -55,6 +56,22 @@ func (m *MockLogger) Errorf(format string, args ...interface{}) {
 
 func (m *MockLogger) Tracef(format string, args ...interface{}) {
 	m.traceMsgs = append(m.traceMsgs, format)
+}
+
+func TestPackageNameOrDefault(t *testing.T) {
+	if got := packageNameOrDefault("mypkg"); got != "mypkg" {
+		t.Fatalf("non-empty: got %q", got)
+	}
+	if got := packageNameOrDefault(""); got != "main" {
+		t.Fatalf("empty: got %q want main", got)
+	}
+}
+
+func TestDiscoverer_GetRootDir(t *testing.T) {
+	d := NewDiscoverer("/expected/root", &MockLogger{}, &MockConfig{})
+	if got := d.GetRootDir(); got != "/expected/root" {
+		t.Fatalf("GetRootDir: got %q want %q", got, "/expected/root")
+	}
 }
 
 func TestNewDiscoverer(t *testing.T) {
@@ -594,5 +611,145 @@ func TestDiscoverer_ParameterInfo_JSON(t *testing.T) {
 	_, err := json.Marshal(paramInfo)
 	if err != nil {
 		t.Errorf("Failed to marshal ParameterInfo to JSON: %v", err)
+	}
+}
+
+func TestDiscoverer_extractFunctionsFromNode_FunctionNodeValueReceiver(t *testing.T) {
+	// The AST can surface FunctionNode as a value-typed node; the switch delegates to the pointer path.
+	logger := &MockLogger{}
+	discoverer := NewDiscoverer("/test/path", logger, nil)
+	functions := make(map[string]FunctionInfo)
+	node := ast.FunctionNode{
+		Ident:       ast.Ident{ID: "Exported"},
+		ReturnTypes: []ast.TypeNode{{Ident: "String"}},
+	}
+	var n ast.Node = node
+	discoverer.extractFunctionsFromNode(n, "pkg", "/f.ft", functions, nil)
+	if len(functions) != 1 || functions["Exported"].Name != "Exported" {
+		t.Fatalf("expected Exported function, got %+v", functions)
+	}
+}
+
+func TestDiscoverer_discoverFunctionsInFile_readError(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.ft")
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{missing}})
+	_, err := discoverer.discoverFunctionsInFile(missing)
+	if err == nil {
+		t.Fatal("expected error when file does not exist")
+	}
+}
+
+func TestDiscoverer_discoverFunctionsInFile_parseError(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(path, []byte("this is not valid forst syntax @@@\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
+	_, err := discoverer.discoverFunctionsInFile(path)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestDiscoverer_discoverFunctionsInFile_typecheckErrorStillDiscovers(t *testing.T) {
+	// Parses but fails type checking — discovery still extracts the public function using parser return types.
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "semantics.ft")
+	content := `package main
+
+func Bad(): String {
+	return 1
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
+	out, err := discoverer.discoverFunctionsInFile(path)
+	if err != nil {
+		t.Fatalf("discoverFunctionsInFile: %v", err)
+	}
+	fn, ok := out["main"]["Bad"]
+	if !ok {
+		t.Fatalf("expected Bad in main, got %+v", out)
+	}
+	if fn.ReturnType == "" {
+		t.Fatal("expected return type from parser fallback when typecheck fails")
+	}
+}
+
+func TestDiscoverer_DiscoverFunctions_skipsBadFileContinues(t *testing.T) {
+	dir := t.TempDir()
+	goodPath := filepath.Join(dir, "good.ft")
+	badPath := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(goodPath, []byte(`package main
+
+func Ok(): String {
+	return "x"
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(badPath, []byte(`@@@`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	config := &MockConfig{files: []string{badPath, goodPath}}
+	discoverer := NewDiscoverer(dir, logger, config)
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	if _, ok := out["main"]["Ok"]; !ok {
+		t.Fatalf("expected Ok from good.ft, got %+v", out)
+	}
+}
+
+func TestDiscoverer_AnalyzeStreamingSupport_nilTypecheckerUsesReturnTypes(t *testing.T) {
+	discoverer := NewDiscoverer("/", logrus.New(), nil)
+	fn := &ast.FunctionNode{
+		Ident: ast.Ident{ID: "Plain"},
+		ReturnTypes: []ast.TypeNode{
+			{Ident: "UserStream"},
+		},
+	}
+	if !discoverer.analyzeStreamingSupport(fn, nil) {
+		t.Fatal("expected stream hint from return type name when tc is nil")
+	}
+}
+
+func TestDiscoverer_discoverFunctionsInFile_publicFunctionNoExplicitReturns(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "void.ft")
+	content := `package main
+
+func Pub() {
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
+	out, err := discoverer.discoverFunctionsInFile(path)
+	if err != nil {
+		t.Fatalf("discoverFunctionsInFile: %v", err)
+	}
+	fn, ok := out["main"]["Pub"]
+	if !ok {
+		t.Fatalf("expected Pub, got %+v", out)
+	}
+	if fn.HasMultipleReturns || len(fn.ReturnTypes) != 0 {
+		t.Fatalf("expected no return types, got %+v", fn)
 	}
 }

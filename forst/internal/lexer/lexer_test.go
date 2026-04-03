@@ -602,6 +602,86 @@ func TestLexer_UnsupportedTokens(t *testing.T) {
 	}
 }
 
+func TestLexer_EmptyInputYieldsEOF(t *testing.T) {
+	log := setupTestLogger(nil)
+	toks := New([]byte(""), testFileID, log).Lex()
+	if len(toks) != 1 || toks[0].Type != ast.TokenEOF {
+		t.Fatalf("want single EOF, got %+v", toks)
+	}
+}
+
+func TestLexer_New_nilLoggerUsesDefaultLogger(t *testing.T) {
+	l := New([]byte("a"), testFileID, nil)
+	if l == nil || l.log == nil {
+		t.Fatal("expected lexer with internal logger")
+	}
+	toks := l.Lex()
+	if len(toks) < 2 || toks[len(toks)-1].Type != ast.TokenEOF {
+		t.Fatalf("tokens: %+v", toks)
+	}
+}
+
+func TestLexer_multilineBlockCommentAndBacktick(t *testing.T) {
+	// Exercises block-comment continuation and multiline raw strings in Lex().
+	log := setupTestLogger(nil)
+	inputs := []string{
+		"/*\nline2\n*/",
+		"`a\nb`",
+		"/* a /* nested */ b */ x",
+		"x",
+	}
+	for _, in := range inputs {
+		toks := New([]byte(in), testFileID, log).Lex()
+		if len(toks) == 0 {
+			t.Fatalf("no tokens for %q", in)
+		}
+		if got := toks[len(toks)-1].Type; got != ast.TokenEOF {
+			t.Fatalf("last token for %q: want EOF, got %v", in, got)
+		}
+	}
+}
+
+func TestLexer_nestedBlockCommentAcrossLines(t *testing.T) {
+	// Covers nested `/*` inside an accumulating block comment and `*/` that
+	// closes an inner block while an outer block remains (lex.go nesting + continue).
+	log := setupTestLogger(nil)
+	input := "/*\n/*\n*/\n*/\n"
+	toks := New([]byte(input), testFileID, log).Lex()
+	var sawBlock bool
+	for _, tok := range toks {
+		if tok.Type == ast.TokenComment && len(tok.Value) > 4 {
+			sawBlock = true
+		}
+	}
+	if !sawBlock {
+		t.Fatalf("expected a block comment token, got %+v", toks)
+	}
+}
+
+func TestLexer_backtickMiddleLineWithoutClosingTick(t *testing.T) {
+	// Middle line has no backtick — lex.go accumulates and continues (else branch).
+	log := setupTestLogger(nil)
+	input := "`a\nbc\nd`"
+	toks := New([]byte(input), testFileID, log).Lex()
+	if len(toks) < 2 {
+		t.Fatalf("tokens: %+v", toks)
+	}
+	if toks[0].Type != ast.TokenStringLiteral || toks[len(toks)-1].Type != ast.TokenEOF {
+		t.Fatalf("unexpected: %+v", toks)
+	}
+}
+
+func TestLexer_inputWithoutTrailingNewline(t *testing.T) {
+	log := setupTestLogger(nil)
+	toks := New([]byte("ident"), testFileID, log).Lex()
+	if len(toks) < 2 {
+		t.Fatalf("tokens: %+v", toks)
+	}
+	if toks[0].Value != "ident" || toks[len(toks)-1].Type != ast.TokenEOF {
+		t.Fatalf("unexpected: %+v", toks)
+	}
+}
+
 func testLexerTokens(t *testing.T, tt struct {
 	name     string
 	input    string

@@ -72,11 +72,7 @@ func (l *Lexer) Lex() []ast.Token {
 		// Handle accumulating backtick string
 		if l.accumulatingBacktickString {
 			l.backtickStringValue += "\n"
-			lineStart := 0
-			if l.location.Column > 0 {
-				lineStart = l.location.Column
-			}
-			lineRest := line[lineStart:]
+			lineRest := line
 			endIdx := bytes.IndexByte(lineRest, '`')
 			if endIdx != -1 {
 				// Found closing backtick
@@ -92,7 +88,7 @@ func (l *Lexer) Lex() []ast.Token {
 				})
 				l.accumulatingBacktickString = false
 				l.backtickStringValue = ""
-				l.location.Column = lineStart + endIdx + 1
+				l.location.Column = endIdx + 1
 				// Continue lexing after the closing backtick
 			} else {
 				l.backtickStringValue += string(lineRest)

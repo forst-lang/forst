@@ -47,6 +47,24 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 ---
 
+## Go backwards compatibility
+
+**Story:** Forst emits Go so teams can adopt it beside hand-written Go in the same module and rely on the standard toolchain. Parity here means **generated code that compiles and behaves predictably**, **sensible defaults for which Go version we assume**, and (over time) **explicit knobs** when output must run on older toolchains.
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| Emitted code is valid Go for the **supported compiler/toolchain** (see `forst/go.mod`) | done | Primary guarantee today: output matches what we build and test against. |
+| Forst syntax that mirrors Go (subset) maps to familiar Go constructs | done | See README “backwards-compatible with Go” examples. |
+| Mixed packages: Forst (`.ft`) alongside `.go` in one module / tree | prototype | Works in common layouts; edge cases still shaken out with imports and discovery. |
+| Idiomatic, readable generated Go (names, structure, `error` handling) | prototype | Ongoing polish; not frozen. |
+| **Selectable minimum Go version** for emitted code (e.g. emit for older `go` than the compiler) | not ready | Single emit path; no `-target` / compatibility mode yet. |
+| Emit avoids language/stdlib features newer than chosen target (when targets exist) | not ready | Depends on versioned emit; backlog. |
+| Output routinely **`gofmt`-clean** (or documented exceptions) | prototype | Aim for gofmt-friendly layout; not asserted everywhere in tests yet. |
+| Policy for **stdlib / API deprecation** in generated code as Go releases ship | prototype | Track Go release notes over time; no separate audit pipeline yet. |
+| Build tags, file splits, or shims for **per-version or per-GOOS** generated code | not ready | Backlog unless a concrete interop need lands first. |
+
+---
+
 ## TypeScript interoperability
 
 **Story:** `forst generate` yields **types + a stub**; **calling** Forst still means wiring Node/TS to the **Go process** that runs transpiled code. A **small, documented invocation contract** (fewer ad-hoc wires) is an open thread in the rows below. **Further out:** **whole routes or TS-facing modules** implemented in Forst—not only type mirrors—once emit, packaging, and call semantics are solid.
@@ -66,18 +84,25 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 ## Tooling & developer experience
 
+**LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** returns a wide **ServerCapabilities** set (hover, completion, diagnostics, definition/references, symbols, formatting, code actions, code lens, folding, plus **experimental** debug flags). Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` actually implements vs advertises.
+
 | Feature | Status | Notes |
 | --- | --- | --- |
-| LSP: transport & server (`forst lsp`) | in progress | JSON-RPC over HTTP `POST /`; not stdio. See `forst/cmd/forst/lsp/`. |
-| LSP: text document sync | in progress | `didOpen` / `didChange` / `didClose` wired to compilation. |
-| LSP: diagnostics | in progress | From compiler pipeline; feeds editor diagnostics. |
-| LSP: completion | prototype | Keyword completions; not full semantic completion. |
-| LSP: hover | prototype | Placeholder hover content; not AST-aware yet. |
-| LSP: go to definition | prototype | Handler exists; returns no result (`null`) for now. |
-| LSP: find references | prototype | Returns empty; not implemented beyond stub. |
-| LSP: document & workspace symbols | prototype | Returns empty; not implemented beyond stub. |
-| LSP: formatting, code actions, code lens, folding | prototype | Advertised capabilities; stubs return empty/null. |
-| LSP: compiler debug (custom methods) | prototype | debugInfo, compilerState, phaseDetails—niche tooling, not core editor parity. |
+| LSP: HTTP transport & process (`forst lsp`) | done | JSON-RPC on `POST /`; `GET /health` JSON health check; panic recovery on handlers. Implementation: `server.go`. |
+| LSP: `initialize` / `serverInfo` | done | Returns capabilities (e.g. `textDocumentSync` with open/close + incremental, `completionProvider` with trigger characters, `hoverProvider`, `diagnosticProvider`, and providers for navigation/formatting/actions—many of the latter are still stubs). `serverInfo.name`: `forst-lsp`; version from compiler `Version`. |
+| LSP: lifecycle (`shutdown`, `exit`) | done | `shutdown` returns `null`; `exit` acknowledged (see `shutdown.go`, tests). |
+| LSP: text document sync | done | `didOpen` / `didChange` / `didClose`: in-memory `openDocuments` per URI; `didChange` stores the **last** `contentChanges` entry’s `text` as the full buffer and recompiles. Drives diagnostics on each update. |
+| LSP: diagnostics | done | `compileForstFile`: lexer → parser → typechecker; builds `LSPDiagnostic` ranges from compiler errors. `didOpen` / `didChange` / `didClose` responses include `PublishDiagnosticsParams`; `sendDiagnosticsNotification` supports push-style clients. |
+| LSP: hover (`textDocument/hover`) | in progress | **Implemented:** resolve token at LSP position, parse + typecheck when possible; hovers for **identifiers** (function signatures with optional leading `//` / `/* */` doc lines, type definitions, inferred variable types), **keywords** (short quick-info). **Skipped:** literals (by design). **Limits:** if parse fails, hover often returns nothing (errors show in diagnostics). |
+| LSP: completion (`textDocument/completion`) | prototype | Returns **all** Forst keywords from `lexer.Keywords` as keyword items—**not** filtered by position or scope, **no** semantic or identifier completion. Capabilities advertise `resolveProvider: true` but there is **no** `completionItem/resolve` handler (unknown methods return JSON-RPC errors). |
+| LSP: go to definition | prototype | `textDocument/definition` always returns **`null`** (`document.go`; TODO). |
+| LSP: find references | prototype | `textDocument/references` returns an **empty** array (TODO). |
+| LSP: document symbols | prototype | `textDocument/documentSymbol` returns **[]** (TODO). |
+| LSP: workspace symbol | prototype | `workspace/symbol` returns **[]** (TODO). |
+| LSP: formatting | prototype | `textDocument/formatting` returns **`null`** (no formatter yet). |
+| LSP: code actions, code lens, folding | prototype | `textDocument/codeAction` / `codeLens` / `foldingRange` return **empty** arrays (or no-op); capabilities still advertised in `initialize`. |
+| LSP: custom compiler / debug methods | prototype | `textDocument/debugInfo`, `textDocument/compilerState`, `textDocument/phaseDetails`—structured compiler state for tooling/LLM workflows (`server.go`); not general end-user editor parity. |
+| LSP: protocol & client quirks | prototype | **HTTP** transport is non-standard for LSP; stdio clients won’t work without an adapter. Methods not handled by the switch (e.g. some client notifications) get **-32601 Method not found**. |
 | Error messages (line numbers, suggestions) | prototype | Incremental improvements; parity not the only priority. |
 | More real-world examples | prototype | Some examples exist; broader set still wanted. |
 | VS Code extension | not ready | Marketplace extension and wiring to the language service. |
