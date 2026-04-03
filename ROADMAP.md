@@ -6,12 +6,14 @@ Forst aims to give backend developers TypeScript-grade ergonomics while compilin
 
 Each section below is a **feature parity** table: **Feature** | **Status** | **Notes**. Status values:
 
-- **done** — Believed complete for current scope; report gaps as bugs.
-- **in progress** — Active development; some areas incomplete.
-- **prototype** — Experimental or placeholder; limited expectations.
-- **not ready** — Not yet shipped, or not usable for general use yet.
+- ✅ **done** — Believed complete for current scope; report gaps as bugs.
+- ⏳ **in progress** — Actively being implemented **toward** the **done** bar; remaining gaps are temporary.
+- 🔬 **experimental** — Something **exists** (often usable), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial coverage, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
+- 📋 **planned** — On the roadmap but **not yet delivered**: no usable implementation yet.
 
-Themes group work (language, interop, tooling, docs, infrastructure). Priority and ordering are reflected in **Notes** where it helps (e.g. near-term focus vs backlog). We do not publish dates here; use GitHub issues and milestones for concrete execution.
+**In progress vs experimental:** **In progress** means implementation is **underway** toward **done**. **Experimental** means the feature is **out in the wild** in some form, but we are **not** yet treating it as complete—whether because large pieces are missing, behavior may change, or advertised capabilities are still stubs.
+
+Themes group work (language, interop, tooling, docs, infrastructure). We do not publish dates here; use GitHub issues and milestones for concrete execution.
 
 ---
 
@@ -19,17 +21,17 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Basic type system | done | Core static typing. |
-| Shape-based types | done | Structural shapes. |
-| Type definitions | done | User-defined types. |
-| `ensure` statements (basic type assertions) | done | Basic assertions. |
-| Shape guards (struct refinement) | done | Refinement on shapes. |
-| `is` operator for `ensure` conditions | not ready | Near-term priority. |
-| Type guards (beyond shape guards) | not ready | Near-term priority. |
-| Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | not ready | Backlog. |
-| Binary type expressions | not ready | Backlog. |
-| Type aliases | not ready | Backlog. |
-| Generic types | not ready | Backlog. |
+| Basic type system | ✅ done | Core static typing. |
+| Shape-based types | ✅ done | Structural shapes. |
+| Type definitions | ✅ done | User-defined types. |
+| `ensure` statements (basic type assertions) | ✅ done | Basic assertions. |
+| Shape guards (struct refinement) | ✅ done | Refinement on shapes. |
+| `is` operator for `ensure` conditions | 📋 planned | Not implemented. |
+| Type guards (beyond shape guards) | 📋 planned | Not implemented. |
+| Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | 📋 planned | Not implemented. |
+| Binary type expressions | 📋 planned | Not implemented. |
+| Type aliases | 📋 planned | Not implemented. |
+| Generic types | 📋 planned | Not implemented. |
 
 ---
 
@@ -37,48 +39,48 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Transpile to Go (packages, types, functions) | done | Main compiler output. |
-| Runtime validation from type constraints | done | Checks emitted from types. |
-| `import` of Go packages in Forst | prototype | Common paths work; not a full Go loader yet. |
-| Load & typecheck imported Go source | not ready | Understand symbols beyond import lines. |
-| Type-check Forst↔Go calls | not ready | Args and results at boundary calls. |
-| Match Go idioms where it matters (`error`, naming) | prototype | Iterative polish; not the main focus every cycle. |
-| Expose Forst functions to non-Forst callers (HTTP, RPC, subprocess) from **generated Go** | prototype | Compose servers in Go today; Forst-native handler patterns later. |
+| Transpile to Go (packages, types, functions) | ✅ done | Main compiler output. |
+| Runtime validation from type constraints | ✅ done | Checks emitted from types. |
+| `import` of Go packages in Forst | 🔬 experimental | Common paths work; not a full Go loader yet. |
+| Load & typecheck imported Go source | 📋 planned | Understand symbols beyond import lines. |
+| Type-check Forst↔Go calls | 📋 planned | Args and results at boundary calls. |
+| Match Go idioms where it matters (`error`, naming) | 🔬 experimental | Iterative polish; conventions still evolving. |
+| Expose Forst functions to non-Forst callers (HTTP, RPC, subprocess) from **generated Go** | 🔬 experimental | Compose servers in Go; Forst-native handler patterns not in place yet. |
 
 ---
 
 ## Go backwards compatibility
 
-**Story:** Forst emits Go so teams can adopt it beside hand-written Go in the same module and rely on the standard toolchain. Parity here means **generated code that compiles and behaves predictably**, **sensible defaults for which Go version we assume**, and (over time) **explicit knobs** when output must run on older toolchains.
+**Story:** Forst emits Go so teams can adopt it beside hand-written Go in the same module and rely on the standard toolchain. Parity here means **generated code that compiles and behaves predictably**, **sensible defaults for which Go version we assume**, and **explicit knobs** when output must run on older toolchains.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Emitted code is valid Go for the **supported compiler/toolchain** (see `forst/go.mod`) | done | Primary guarantee today: output matches what we build and test against. |
-| Forst syntax that mirrors Go (subset) maps to familiar Go constructs | done | See README “backwards-compatible with Go” examples. |
-| Mixed packages: Forst (`.ft`) alongside `.go` in one module / tree | prototype | Works in common layouts; edge cases still shaken out with imports and discovery. |
-| Idiomatic, readable generated Go (names, structure, `error` handling) | prototype | Ongoing polish; not frozen. |
-| **Selectable minimum Go version** for emitted code (e.g. emit for older `go` than the compiler) | not ready | Single emit path; no `-target` / compatibility mode yet. |
-| Emit avoids language/stdlib features newer than chosen target (when targets exist) | not ready | Depends on versioned emit; backlog. |
-| Output routinely **`gofmt`-clean** (or documented exceptions) | prototype | Aim for gofmt-friendly layout; not asserted everywhere in tests yet. |
-| Policy for **stdlib / API deprecation** in generated code as Go releases ship | prototype | Track Go release notes over time; no separate audit pipeline yet. |
-| Build tags, file splits, or shims for **per-version or per-GOOS** generated code | not ready | Backlog unless a concrete interop need lands first. |
+| Emitted code is valid Go for the **supported compiler/toolchain** (see `forst/go.mod`) | ✅ done | Primary guarantee today: output matches what we build and test against. |
+| Forst syntax that mirrors Go (subset) maps to familiar Go constructs | ✅ done | See README “backwards-compatible with Go” examples. |
+| Mixed packages: Forst (`.ft`) alongside `.go` in one module / tree | 🔬 experimental | Works in common layouts; edge cases still shaken out with imports and discovery. |
+| Idiomatic, readable generated Go (names, structure, `error` handling) | 🔬 experimental | Ongoing polish; not frozen. |
+| **Selectable minimum Go version** for emitted code (e.g. emit for older `go` than the compiler) | 📋 planned | Single emit path; no `-target` / compatibility mode yet. |
+| Emit avoids language/stdlib features newer than chosen target (when targets exist) | 📋 planned | Depends on versioned emit; not in place until targets exist. |
+| Output routinely **`gofmt`-clean** (or documented exceptions) | 🔬 experimental | Aim for gofmt-friendly layout; not asserted everywhere in tests yet. |
+| Policy for **stdlib / API deprecation** in generated code as Go releases ship | 🔬 experimental | Track Go release notes over time; no separate audit pipeline yet. |
+| Build tags, file splits, or shims for **per-version or per-GOOS** generated code | 📋 planned | Not implemented. |
 
 ---
 
 ## TypeScript interoperability
 
-**Story:** `forst generate` yields **types + a stub**; **calling** Forst still means wiring Node/TS to the **Go process** that runs transpiled code. A **small, documented invocation contract** (fewer ad-hoc wires) is an open thread in the rows below. **Further out:** **whole routes or TS-facing modules** implemented in Forst—not only type mirrors—once emit, packaging, and call semantics are solid.
+**Story:** `forst generate` yields **types + a stub**; **calling** Forst still means wiring Node/TS to the **Go process** that runs transpiled code. A **small, documented invocation contract** (fewer ad-hoc wires) is an open thread in the rows below. **Whole routes or TS-facing modules** implemented in Forst—not only type mirrors—are a **larger** concern than types + stub + wiring alone.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Declaration emit (`.d.ts` / TS types from Forst) | done | `forst generate` and TS transformer. |
-| Merge outputs across `.ft` files | done | Shared `types.d.ts`; duplicate handling. |
-| Client / helper stubs next to generated types | prototype | Thin surface; wire to whatever runs the compiled Forst/Go side. |
-| NPM package (installable compiler / CLI) | not ready | Distribution for JS/TS ecosystems. |
-| Run compiler or sidecar from Node.js | prototype | Experimental paths; not the default install yet. |
-| Dev experience: watch + HTTP types (where applicable) | prototype | Iteration story; not the main path yet. |
-| **Invocation:** stable contract from Node/TS to **running** Forst (compiled Go) | prototype | No single blessed pattern yet; fewer bespoke wires over time. |
-| **Route- or module-level Forst** (handlers + client types in one arc) | not ready | Aspirational: full-stack slices in Forst, not only `.d.ts` for hand-written TS handlers. |
+| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer. |
+| Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
+| Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
+| NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems. |
+| Run compiler or sidecar from Node.js | 🔬 experimental | Experimental paths; installation and packaging still evolving. |
+| Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | Watch and HTTP-assisted workflows exist; workflow still evolving. |
+| **Invocation:** stable contract from Node/TS to **running** Forst (compiled Go) | 🔬 experimental | No single blessed pattern; integration is still mostly ad hoc. |
+| **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices in Forst—not only `.d.ts` for hand-written TS handlers—not implemented. |
 
 ---
 
@@ -88,24 +90,24 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| LSP: HTTP transport & process (`forst lsp`) | done | JSON-RPC on `POST /`; `GET /health` JSON health check; panic recovery on handlers. Implementation: `server.go`. |
-| LSP: `initialize` / `serverInfo` | done | Returns capabilities (e.g. `textDocumentSync` with open/close + incremental, `completionProvider` with trigger characters, `hoverProvider`, `diagnosticProvider`, and providers for navigation/formatting/actions—many of the latter are still stubs). `serverInfo.name`: `forst-lsp`; version from compiler `Version`. |
-| LSP: lifecycle (`shutdown`, `exit`) | done | `shutdown` returns `null`; `exit` acknowledged (see `shutdown.go`, tests). |
-| LSP: text document sync | done | `didOpen` / `didChange` / `didClose`: in-memory `openDocuments` per URI; `didChange` stores the **last** `contentChanges` entry’s `text` as the full buffer and recompiles. Drives diagnostics on each update. |
-| LSP: diagnostics | done | `compileForstFile`: lexer → parser → typechecker; builds `LSPDiagnostic` ranges from compiler errors. `didOpen` / `didChange` / `didClose` responses include `PublishDiagnosticsParams`; `sendDiagnosticsNotification` supports push-style clients. |
-| LSP: hover (`textDocument/hover`) | in progress | **Implemented:** resolve token at LSP position, parse + typecheck when possible; hovers for **identifiers** (function signatures with optional leading `//` / `/* */` doc lines, type definitions, inferred variable types), **keywords** (short quick-info). **Skipped:** literals (by design). **Limits:** if parse fails, hover often returns nothing (errors show in diagnostics). |
-| LSP: completion (`textDocument/completion`) | prototype | Returns **all** Forst keywords from `lexer.Keywords` as keyword items—**not** filtered by position or scope, **no** semantic or identifier completion. `completionProvider.resolveProvider` is **false** until `completionItem/resolve` exists. |
-| LSP: go to definition | done | **`textDocument/definition`** resolves identifiers in the open buffer to defining tokens in the **same file**: top-level **`func`**, **`type`** (incl. shape/alias defs), and top-level **`is (…) Name`** type guards (brace depth avoids `ensure … is …`). Variables/parameters not yet. Implementation: `cmd/forst/lsp/definition.go`. |
-| LSP: find references | done | **`textDocument/references`**: same-file identifier occurrences for symbols that match **go-to-definition** rules (top-level **func**, **type**, **type guard**). **`includeDeclaration`** respected. Locals/cross-file not yet. `references.go`. |
-| LSP: document symbols | done | **`textDocument/documentSymbol`**: flat **`SymbolInformation`** for top-level **func**, **type** (skips `T_*` hash idents), **type guard**. Parse failure → `[]`. `symbols.go`. |
-| LSP: workspace symbol | done | **`workspace/symbol`**: searches **open** `.ft` buffers (`openDocuments` / didOpen sync only); substring match on symbol name (case-insensitive). No disk-wide index yet. `symbols.go` / `hover_completion.go`. |
-| LSP: formatting | prototype | `textDocument/formatting` returns **`null`** (no formatter yet). |
-| LSP: code actions, code lens, folding | prototype | `textDocument/codeAction` / `codeLens` / `foldingRange` return **empty** arrays (or no-op); capabilities still advertised in `initialize`. |
-| LSP: custom compiler / debug methods | prototype | `textDocument/debugInfo`, `textDocument/compilerState`, `textDocument/phaseDetails`—structured compiler state for tooling/LLM workflows (`server.go`); not general end-user editor parity. |
-| LSP: protocol & client quirks | prototype | **HTTP** transport is non-standard for LSP; stdio clients won’t work without an adapter. Methods not handled by the switch (e.g. some client notifications) get **-32601 Method not found**. |
-| Error messages (line numbers, suggestions) | prototype | Incremental improvements; parity not the only priority. |
-| More real-world examples | prototype | Some examples exist; broader set still wanted. |
-| VS Code extension | prototype | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **outline**, **go to definition**, **find references**, **workspace symbol** (open files) when the server resolves symbols. **Marketplace** / discoverability still open. |
+| LSP: HTTP transport & process (`forst lsp`) | ✅ done | JSON-RPC on `POST /`; `GET /health` JSON health check; panic recovery on handlers. Implementation: `server.go`. |
+| LSP: `initialize` / `serverInfo` | ✅ done | Returns capabilities (e.g. `textDocumentSync` with open/close + incremental, `completionProvider` with trigger characters, `hoverProvider`, `diagnosticProvider`, and providers for navigation/formatting/actions—many of the latter are still stubs). `serverInfo.name`: `forst-lsp`; version from compiler `Version`. |
+| LSP: lifecycle (`shutdown`, `exit`) | ✅ done | `shutdown` returns `null`; `exit` acknowledged (see `shutdown.go`, tests). |
+| LSP: text document sync | ✅ done | `didOpen` / `didChange` / `didClose`: in-memory `openDocuments` per URI; `didChange` stores the **last** `contentChanges` entry’s `text` as the full buffer and recompiles. Drives diagnostics on each update. |
+| LSP: diagnostics | ✅ done | `compileForstFile`: lexer → parser → typechecker; builds `LSPDiagnostic` ranges from compiler errors. `didOpen` / `didChange` / `didClose` responses include `PublishDiagnosticsParams`; `sendDiagnosticsNotification` supports push-style clients. |
+| LSP: hover (`textDocument/hover`) | ⏳ in progress | **Implemented:** resolve token at LSP position, parse + typecheck when possible; hovers for **identifiers** (function signatures with optional leading `//` / `/* */` doc lines, type definitions, inferred variable types), **keywords** (short quick-info). **Skipped:** literals (by design). **Limits:** if parse fails, hover often returns nothing (errors show in diagnostics). |
+| LSP: completion (`textDocument/completion`) | 🔄 in progress | **Implemented:** `analyzeForstDocument`-backed completions with optional LSP **`context`** (`triggerKind`, `triggerCharacter`); **zone** heuristics (top-level vs inside block, **member-after-`.`**); **keyword** lists filtered per zone; **same-file** functions / user types / type guards; **locals and parameters** via `RestoreScope` + `VisibleVariableLikeSymbols`; **member** fields/methods after `.` via expression inference + `ListFieldNamesForType`. Skips strings/comments. **Not yet:** cross-file/import-qualified symbols, `completionItem/resolve` (`resolveProvider` stays **false**). See `cmd/forst/lsp/completion.go`. |
+| LSP: go to definition | ✅ done | **`textDocument/definition`** resolves identifiers in the open buffer to defining tokens in the **same file**: top-level **`func`**, **`type`** (incl. shape/alias defs), and top-level **`is (…) Name`** type guards (brace depth avoids `ensure … is …`). Variables/parameters not yet. Implementation: `cmd/forst/lsp/definition.go`. |
+| LSP: find references | ✅ done | **`textDocument/references`**: same-file identifier occurrences for symbols that match **go-to-definition** rules (top-level **func**, **type**, **type guard**). **`includeDeclaration`** respected. Locals/cross-file not yet. `references.go`. |
+| LSP: document symbols | ✅ done | **`textDocument/documentSymbol`**: flat **`SymbolInformation`** for top-level **func**, **type** (skips `T_*` hash idents), **type guard**. Parse failure → `[]`. `symbols.go`. |
+| LSP: workspace symbol | ✅ done | **`workspace/symbol`**: searches **open** `.ft` buffers (`openDocuments` / didOpen sync only); substring match on symbol name (case-insensitive). No disk-wide index yet. `symbols.go` / `hover_completion.go`. |
+| LSP: formatting | 🔬 experimental | `textDocument/formatting` returns **`null`** (no formatter yet). |
+| LSP: code actions, code lens, folding | 🔬 experimental | `textDocument/codeAction` / `codeLens` / `foldingRange` return **empty** arrays (or no-op); capabilities still advertised in `initialize`. |
+| LSP: custom compiler / debug methods | 🔬 experimental | `textDocument/debugInfo`, `textDocument/compilerState`, `textDocument/phaseDetails`—structured compiler state for tooling/LLM workflows (`server.go`); not general end-user editor parity. |
+| LSP: protocol & client quirks | 🔬 experimental | **HTTP** transport is non-standard for LSP; stdio clients won’t work without an adapter. Methods not handled by the switch (e.g. some client notifications) get **-32601 Method not found**. |
+| Error messages (line numbers, suggestions) | 🔬 experimental | Incremental improvements; quality and completeness still vary. |
+| More real-world examples | 🔬 experimental | Some examples exist; broader set still wanted. |
+| VS Code extension | 🔬 experimental | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **outline**, **go to definition**, **find references**, **workspace symbol** (open files) when the server resolves symbols. **Marketplace** / discoverability still open. |
 
 ---
 
@@ -113,9 +115,9 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| “Getting Started” guide | prototype | README is the main entry; a fuller guide is still open. |
-| Example project showcasing core features | prototype | `examples/` today; a dedicated showcase repo still open. |
-| Contributing guide (dev setup) | not ready | Contributor onboarding. |
+| “Getting Started” guide | 🔬 experimental | README is the main entry; a fuller guide is still open. |
+| Example project showcasing core features | 🔬 experimental | `examples/` today; a dedicated showcase repo still open. |
+| Contributing guide (dev setup) | 📋 planned | Contributor onboarding. |
 
 ---
 
@@ -125,13 +127,13 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| CI pipeline (lint, tests, compiler build) | done | GitHub Actions; `task ci:test` in `forst/`. |
-| Release automation | done | release-please + git tags. |
+| CI pipeline (lint, tests, compiler build) | ✅ done | GitHub Actions; `task ci:test` in `forst/`. |
+| Release automation | ✅ done | release-please + git tags. |
 
 ### Test coverage
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Unit / library coverage (Go) | done | `go test -cover` on `cmd/forst/...` and `internal/...`; Coveralls upload in CI. |
-| Integration & example runs in CI | done | Same pipeline runs example tasks (e.g. sidecar) after unit tests. |
-| Validation codegen coverage | not ready | Track **emit** (compiler output for constraints/guards) and **generated validation Go** separately from generic `internal/` coverage. |
+| Unit / library coverage (Go) | ✅ done | `go test -cover` on `cmd/forst/...` and `internal/...`; Coveralls upload in CI. |
+| Integration & example runs in CI | ✅ done | Same pipeline runs example tasks (e.g. sidecar) after unit tests. |
+| Validation codegen coverage | 📋 planned | Track **emit** (compiler output for constraints/guards) and **generated validation Go** separately from generic `internal/` coverage. |

@@ -3,12 +3,10 @@ package lsp
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strings"
 	"unicode/utf8"
 
 	"forst/internal/ast"
-	"forst/internal/lexer"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -57,6 +55,10 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
 		Position LSPPosition `json:"position"`
+		Context *struct {
+			TriggerKind      int     `json:"triggerKind"`
+			TriggerCharacter *string `json:"triggerCharacter"`
+		} `json:"context"`
 	}
 
 	if err := json.Unmarshal(request.Params, &params); err != nil {
@@ -70,7 +72,14 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 		}
 	}
 
-	completions := s.getCompletionsForPosition(params.TextDocument.URI, params.Position)
+	var reqCtx *completionRequestContext
+	if params.Context != nil {
+		reqCtx = &completionRequestContext{TriggerKind: params.Context.TriggerKind}
+		if params.Context.TriggerCharacter != nil {
+			reqCtx.TriggerCharacter = *params.Context.TriggerCharacter
+		}
+	}
+	completions := s.getCompletionsForPosition(params.TextDocument.URI, params.Position, reqCtx)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -262,18 +271,6 @@ func leadingCommentDocBeforeFunc(tokens []ast.Token, funcName string) string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
-func findFuncKeywordIndex(tokens []ast.Token, funcName string) int {
-	for i := 0; i+1 < len(tokens); i++ {
-		if tokens[i].Type != ast.TokenFunc {
-			continue
-		}
-		if tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == funcName {
-			return i
-		}
-	}
-	return -1
-}
-
 func collectContiguousLeadingCommentLines(tokens []ast.Token, funcKeywordIdx int) []string {
 	var rev []string
 	for j := funcKeywordIdx - 1; j >= 0 && tokens[j].Type == ast.TokenComment; j-- {
@@ -300,35 +297,6 @@ func stripCommentBody(s string) string {
 		return strings.TrimSpace(body)
 	}
 	return s
-}
-
-// getCompletionsForPosition gets completion items for a given position
-func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) []LSPCompletionItem {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
-
-	// Only process .ft files
-	if !strings.HasSuffix(filePath, ".ft") {
-		return nil
-	}
-
-	// Return Forst keywords as completion items
-	var completions []LSPCompletionItem
-	for keyword := range lexer.Keywords {
-		completions = append(completions, LSPCompletionItem{
-			Label:            keyword,
-			Kind:             LSPCompletionItemKindKeyword,
-			Detail:           "Forst keyword",
-			Documentation:    keyword,
-			InsertText:       keyword,
-			InsertTextFormat: LSPInsertTextFormatPlainText,
-		})
-	}
-
-	return completions
 }
 
 // handleWorkspaceSymbol handles workspace/symbol over open .ft buffers (didOpen/didChange sync only).

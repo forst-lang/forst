@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -317,20 +319,35 @@ func TestHandleHover(t *testing.T) {
 func TestHandleCompletion(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "handle_cpl.ft")
+	const src = `package main
+
+func main() {
+  var x: Int = 1
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	server.documentMu.Lock()
+	server.openDocuments[uri] = src
+	server.documentMu.Unlock()
+
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"position":     map[string]int{"line": 3, "character": 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	request := LSPRequest{
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/completion",
-		Params: json.RawMessage(`{
-			"textDocument": {
-				"uri": "file:///tmp/test.ft"
-			},
-			"position": {
-				"line": 5,
-				"character": 10
-			}
-		}`),
+		Params:  json.RawMessage(params),
 	}
 
 	response := server.handleCompletion(request)
@@ -369,18 +386,19 @@ func TestHandleCompletion(t *testing.T) {
 		t.Error("Expected completion items to be provided")
 	}
 
-	// Check that we have the expected keywords (based on actual lexer.Keywords)
-	expectedKeywords := []string{"func", "type", "var", "const", "if", "else", "for", "return", "ensure", "is", "String", "Int", "Float", "Bool", "Void", "Array", "import", "package", "or", "range", "break", "continue", "switch", "case", "default", "fallthrough", "map", "chan", "interface", "struct", "go", "defer", "goto", "nil"}
-	foundKeywords := make(map[string]bool)
-
+	found := make(map[string]bool)
 	for _, item := range items {
-		foundKeywords[item.Label] = true
+		found[item.Label] = true
 	}
-
-	for _, keyword := range expectedKeywords {
-		if !foundKeywords[keyword] {
-			t.Errorf("Expected keyword '%s' to be in completion items", keyword)
-		}
+	// Inside function body: keywords exclude package/import; include return.
+	if !found["return"] || !found["var"] {
+		t.Fatalf("expected block keywords, got labels: %v", found)
+	}
+	if found["package"] || found["import"] {
+		t.Fatalf("did not expect package/import keywords inside block, got %v", found)
+	}
+	if !found["main"] {
+		t.Fatal("expected function name main in completions")
 	}
 }
 
@@ -587,41 +605,41 @@ func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
 func TestGetCompletionsForPosition(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "get_cpl.ft")
+	const src = `package main
 
-	position := LSPPosition{Line: 5, Character: 10}
-	completions := server.getCompletionsForPosition("file:///tmp/test.ft", position)
+func main() {
+  var x: Int = 1
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	server.documentMu.Lock()
+	server.openDocuments[uri] = src
+	server.documentMu.Unlock()
+
+	position := LSPPosition{Line: 3, Character: 2}
+	completions := server.getCompletionsForPosition(uri, position, nil)
 
 	if len(completions) == 0 {
 		t.Error("Expected completion items to be provided")
 	}
 
-	// Check that we have the expected keywords (based on actual lexer.Keywords)
-	expectedKeywords := []string{"func", "type", "var", "const", "if", "else", "for", "return", "ensure", "is", "String", "Int", "Float", "Bool", "Void", "Array", "import", "package", "or", "range", "break", "continue", "switch", "case", "default", "fallthrough", "map", "chan", "interface", "struct", "go", "defer", "goto", "nil"}
-	foundKeywords := make(map[string]bool)
-
-	for _, item := range completions {
-		foundKeywords[item.Label] = true
-	}
-
-	for _, keyword := range expectedKeywords {
-		if !foundKeywords[keyword] {
-			t.Errorf("Expected keyword '%s' to be in completion items", keyword)
-		}
-	}
-
-	// Check that each completion item has the expected structure
+	kinds := make(map[LSPCompletionItemKind]int)
 	for _, item := range completions {
 		if item.Label == "" {
 			t.Error("Expected completion item to have a label")
 		}
-
-		if item.Kind != LSPCompletionItemKindKeyword {
-			t.Errorf("Expected completion item kind to be keyword, got %d", item.Kind)
-		}
-
+		kinds[item.Kind]++
 		if item.InsertTextFormat != LSPInsertTextFormatPlainText {
 			t.Errorf("Expected insert text format to be plain text, got %d", item.InsertTextFormat)
 		}
+	}
+	if kinds[LSPCompletionItemKindKeyword] == 0 {
+		t.Fatalf("expected some keyword completions, kinds=%v", kinds)
 	}
 }
 
@@ -900,35 +918,54 @@ func TestFindHoverForPositionWithDifferentPaths(t *testing.T) {
 func TestGetCompletionsForPositionWithDifferentPositions(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "multi_cpl.ft")
+	const src = `package main
+
+func main() {
+  var x: Int = 1
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	server.documentMu.Lock()
+	server.openDocuments[uri] = src
+	server.documentMu.Unlock()
 
 	testCases := []struct {
-		uri      string
-		position LSPPosition
+		name string
+		pos  LSPPosition
 	}{
-		{"file:///tmp/test.ft", LSPPosition{Line: 0, Character: 0}},
-		{"file:///home/user/test.ft", LSPPosition{Line: 10, Character: 5}},
-		{"file://C:/Users/test.ft", LSPPosition{Line: 5, Character: 15}},
+		{"top_level_package_line", LSPPosition{Line: 0, Character: 0}},
+		{"inside_main", LSPPosition{Line: 3, Character: 2}},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.uri, func(t *testing.T) {
-			completions := server.getCompletionsForPosition(tc.uri, tc.position)
-
+		t.Run(tc.name, func(t *testing.T) {
+			completions := server.getCompletionsForPosition(uri, tc.pos, nil)
 			if len(completions) == 0 {
-				t.Error("Expected completion items to be provided")
+				t.Fatal("Expected completion items")
 			}
-
-			// Check that we have the expected keywords (based on actual lexer.Keywords)
-			expectedKeywords := []string{"func", "type", "var", "const", "if", "else", "for", "return", "ensure", "is", "String", "Int", "Float", "Bool", "Void", "Array", "import", "package", "or", "range", "break", "continue", "switch", "case", "default", "fallthrough", "map", "chan", "interface", "struct", "go", "defer", "goto", "nil"}
-			foundKeywords := make(map[string]bool)
-
+			found := make(map[string]bool)
 			for _, item := range completions {
-				foundKeywords[item.Label] = true
+				found[item.Label] = true
 			}
-
-			for _, keyword := range expectedKeywords {
-				if !foundKeywords[keyword] {
-					t.Errorf("Expected keyword '%s' to be in completion items", keyword)
+			switch tc.name {
+			case "top_level_package_line":
+				if !found["package"] || !found["func"] {
+					t.Fatalf("expected top-level keywords: %v", found)
+				}
+				if found["return"] {
+					t.Fatal("did not expect return at top level")
+				}
+			case "inside_main":
+				if !found["return"] {
+					t.Fatal("expected return inside function")
+				}
+				if found["package"] {
+					t.Fatal("did not expect package keyword inside block")
 				}
 			}
 		})
