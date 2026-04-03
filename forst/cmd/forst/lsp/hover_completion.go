@@ -193,16 +193,10 @@ func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type == ast.TokenIdentifier {
 		id := ast.Identifier(tok.Value)
-		if types, ok := tc.VariableTypes[id]; ok && len(types) > 0 {
-			var parts []string
-			for _, tn := range types {
-				parts = append(parts, tn.String())
-			}
-			return fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
-		}
+		// Prefer function and type definitions over variable types when the token names those things.
 		if sig, ok := tc.Functions[id]; ok {
 			doc := leadingCommentDocBeforeFunc(tokens, string(id))
-			body := fmt.Sprintf("```forst\n%s\n```", sig.String())
+			body := fmt.Sprintf("```forst\n%s\n```", tc.FormatFunctionSignatureDisplay(sig))
 			if doc == "" {
 				return body
 			}
@@ -210,6 +204,13 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		}
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
 			return typeDefHoverMarkdown(def)
+		}
+		if types, ok := tc.InferredTypesForVariableIdentifier(id); ok && len(types) > 0 {
+			var parts []string
+			for _, tn := range types {
+				parts = append(parts, tc.FormatTypeNodeDisplay(tn))
+			}
+			return fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
 		}
 		return ""
 	}
