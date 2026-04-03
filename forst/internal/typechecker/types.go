@@ -46,3 +46,59 @@ func (f FunctionSignature) String() string {
 func (f FunctionSignature) GetIdent() string {
 	return string(f.Ident.ID)
 }
+
+// FormatTypeNodeDisplay formats a type for human-facing UI (e.g. LSP hover). It resolves hash-based
+// structural types to a named alias in the alias chain when one exists, so hover matches what the
+// user wrote when possible.
+func (tc *TypeChecker) FormatTypeNodeDisplay(t ast.TypeNode) string {
+	if tc == nil {
+		return t.String()
+	}
+	d := tc.GetMostSpecificNonHashAlias(t)
+	return d.String()
+}
+
+// FormatFunctionSignatureDisplay formats a function signature using FormatTypeNodeDisplay for every
+// parameter and return type. Multiple return values (including value + Error) are shown as a
+// parenthesized tuple, e.g. (String, Error).
+func (tc *TypeChecker) FormatFunctionSignatureDisplay(sig FunctionSignature) string {
+	paramStrings := make([]string, len(sig.Parameters))
+	for i, param := range sig.Parameters {
+		paramStrings[i] = fmt.Sprintf("%s: %s", param.Ident.ID, tc.FormatTypeNodeDisplay(param.Type))
+	}
+	retParts := make([]string, len(sig.ReturnTypes))
+	for i, ret := range sig.ReturnTypes {
+		retParts[i] = tc.FormatTypeNodeDisplay(ret)
+	}
+	var retStr string
+	switch len(retParts) {
+	case 0:
+		retStr = "Void"
+	case 1:
+		retStr = retParts[0]
+	default:
+		retStr = "(" + strings.Join(retParts, ", ") + ")"
+	}
+	return fmt.Sprintf("%s(%s) -> %s", sig.Ident.ID, strings.Join(paramStrings, ", "), retStr)
+}
+
+// InferredTypesForVariableIdentifier returns inferred types for a bare identifier. Types come from
+// tc.Types (VariableNode hashes include only the identifier) with a fallback to VariableTypes after
+// declarations. Identifiers that are also function or type names should be handled by the caller
+// first (e.g. prefer function signature hover for func f() { ... }'s name).
+func (tc *TypeChecker) InferredTypesForVariableIdentifier(id ast.Identifier) ([]ast.TypeNode, bool) {
+	if tc == nil {
+		return nil, false
+	}
+	vn := ast.VariableNode{Ident: ast.Ident{ID: id}}
+	hash, err := tc.Hasher.HashNode(vn)
+	if err == nil {
+		if t, ok := tc.Types[hash]; ok && len(t) > 0 {
+			return t, true
+		}
+	}
+	if t, ok := tc.VariableTypes[id]; ok && len(t) > 0 {
+		return t, true
+	}
+	return nil, false
+}

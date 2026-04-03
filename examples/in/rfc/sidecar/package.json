@@ -23,7 +23,7 @@
     "example:client": "tsx tests/client_example.ts"
   },
   "keywords": [],
-  "author": "",
+  "author": "haveyaseen",
   "license": "MIT",
   "description": "",
   "private": true

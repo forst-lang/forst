@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -232,6 +233,20 @@ func TestHandleDidOpen(t *testing.T) {
 		t.Errorf("Expected no error, got %v", response.Error)
 	}
 
+	if response.Result == nil {
+		t.Fatal("Expected result with publish diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
+	if pub.Diagnostics == nil {
+		t.Error("Expected diagnostics slice (may be empty)")
+	}
+
 	// Test with invalid JSON
 	request.Params = json.RawMessage(`{invalid json`)
 	response = server.handleDidOpen(request)
@@ -248,6 +263,9 @@ func TestHandleDidOpen(t *testing.T) {
 func TestHandleHover(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
+	server.documentMu.Lock()
+	server.openDocuments["file:///tmp/test.ft"] = "package main\n\nfunc main() {\n}\n"
+	server.documentMu.Unlock()
 
 	request := LSPRequest{
 		JSONRPC: "2.0",
@@ -258,8 +276,8 @@ func TestHandleHover(t *testing.T) {
 				"uri": "file:///tmp/test.ft"
 			},
 			"position": {
-				"line": 5,
-				"character": 10
+				"line": 2,
+				"character": 5
 			}
 		}`),
 	}
@@ -519,8 +537,11 @@ func TestProcessForstFile(t *testing.T) {
 func TestFindHoverForPosition(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
+	server.documentMu.Lock()
+	server.openDocuments["file:///tmp/test.ft"] = "package main\n\nfunc main() {\n}\n"
+	server.documentMu.Unlock()
 
-	position := LSPPosition{Line: 5, Character: 10}
+	position := LSPPosition{Line: 2, Character: 5}
 	hover := server.findHoverForPosition("file:///tmp/test.ft", position)
 
 	if hover == nil {
@@ -539,6 +560,27 @@ func TestFindHoverForPosition(t *testing.T) {
 	content := hover.Contents.Value
 	if len(content) == 0 {
 		t.Error("Expected hover content to be non-empty")
+	}
+}
+
+func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	uri := "file:///tmp/hover_sync.ft"
+	content := "package main\n\nfunc Hello() {\n}\n"
+	server.documentMu.Lock()
+	server.openDocuments[uri] = content
+	server.documentMu.Unlock()
+
+	h := server.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 6})
+	if h == nil {
+		t.Fatal("expected hover for function name")
+	}
+	if h.Contents.Value == "" {
+		t.Fatal("expected hover body")
+	}
+	if !strings.Contains(h.Contents.Value, "Hello") {
+		t.Fatalf("expected function name in hover, got %q", h.Contents.Value)
 	}
 }
 
@@ -663,6 +705,17 @@ func TestHandleDidChange(t *testing.T) {
 	if response.Error != nil {
 		t.Errorf("Expected no error, got %v", response.Error)
 	}
+
+	if response.Result == nil {
+		t.Fatal("Expected result with publish diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
 }
 
 func TestHandleDidClose(t *testing.T) {
@@ -692,6 +745,20 @@ func TestHandleDidClose(t *testing.T) {
 
 	if response.Error != nil {
 		t.Errorf("Expected no error, got %v", response.Error)
+	}
+
+	if response.Result == nil {
+		t.Fatal("Expected result with cleared diagnostics")
+	}
+	pub, ok := response.Result.(PublishDiagnosticsParams)
+	if !ok {
+		t.Fatalf("Expected PublishDiagnosticsParams result, got %T", response.Result)
+	}
+	if pub.URI != "file:///tmp/test.ft" {
+		t.Errorf("Expected uri file:///tmp/test.ft, got %q", pub.URI)
+	}
+	if len(pub.Diagnostics) != 0 {
+		t.Errorf("Expected no diagnostics after close, got %d", len(pub.Diagnostics))
 	}
 }
 
@@ -802,18 +869,18 @@ func TestFindHoverForPositionWithDifferentPaths(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
-	testCases := []struct {
-		uri      string
-		position LSPPosition
-	}{
-		{"file:///tmp/test.ft", LSPPosition{Line: 0, Character: 0}},
-		{"file:///home/user/test.ft", LSPPosition{Line: 10, Character: 5}},
-		{"file://C:/Users/test.ft", LSPPosition{Line: 5, Character: 15}},
+	testCases := []string{
+		"file:///tmp/test.ft",
+		"file:///home/user/test.ft",
+		"file://C:/Users/test.ft",
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.uri, func(t *testing.T) {
-			hover := server.findHoverForPosition(tc.uri, tc.position)
+	for _, uri := range testCases {
+		t.Run(uri, func(t *testing.T) {
+			server.documentMu.Lock()
+			server.openDocuments[uri] = "package main\n\nfunc main() {\n}\n"
+			server.documentMu.Unlock()
+			hover := server.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 5})
 
 			if hover == nil {
 				t.Fatal("Expected hover to be created")

@@ -3,6 +3,7 @@ package lsp
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -39,6 +40,16 @@ type LSPPosition struct {
 	Line int `json:"line"`
 	// Character is the zero-based character value.
 	Character int `json:"character"`
+}
+
+// lspLineIndex converts a 1-based source line from debug events to an LSP 0-based line index.
+// If the source line is unset (0), the result is 0 (avoids negative LSP lines).
+func lspLineIndex(oneBasedLine int) int {
+	n := oneBasedLine - 1
+	if n < 0 {
+		return 0
+	}
+	return n
 }
 
 // LSPDiagnosticSeverity represents the severity of a diagnostic.
@@ -79,6 +90,14 @@ type LSPLocation struct {
 	URI string `json:"uri"`
 	// Range is the document range.
 	Range LSPRange `json:"range"`
+}
+
+// PublishDiagnosticsParams matches LSP textDocument/publishDiagnostics. The HTTP server also returns
+// this shape in the JSON-RPC result for textDocument/didOpen, didChange, and didClose so pull-based
+// clients can apply diagnostics without server-push over HTTP.
+type PublishDiagnosticsParams struct {
+	URI         string           `json:"uri"`
+	Diagnostics []LSPDiagnostic  `json:"diagnostics"`
 }
 
 // LSPHover represents the result of a hover request.
@@ -211,11 +230,11 @@ func (ld *LSPDebugger) ConvertDebugEventToDiagnostic(event DebugEvent) LSPDiagno
 	diagnostic := LSPDiagnostic{
 		Range: LSPRange{
 			Start: LSPPosition{
-				Line:      event.Line - 1, // LSP uses 0-based line numbers
+				Line:      lspLineIndex(event.Line), // debug events use 1-based lines; LSP is 0-based
 				Character: 0,
 			},
 			End: LSPPosition{
-				Line:      event.Line - 1,
+				Line:      lspLineIndex(event.Line),
 				Character: 100, // Default to end of line
 			},
 		},
@@ -290,11 +309,11 @@ func (ld *LSPDebugger) ConvertDebugEventToHover(event DebugEvent) LSPHover {
 		},
 		Range: &LSPRange{
 			Start: LSPPosition{
-				Line:      event.Line - 1,
+				Line:      lspLineIndex(event.Line),
 				Character: 0,
 			},
 			End: LSPPosition{
-				Line:      event.Line - 1,
+				Line:      lspLineIndex(event.Line),
 				Character: 100,
 			},
 		},
@@ -328,8 +347,64 @@ func (ld *LSPDebugger) ConvertDebugEventToCompletion(event DebugEvent) LSPComple
 	}
 }
 
+// isCompilerPhaseCompleteEvent reports milestone events by structured event_type.
+func isCompilerPhaseCompleteEvent(event DebugEvent) bool {
+	switch event.EventType {
+	case EventLexerComplete, EventParserComplete, EventTypecheckerComplete,
+		EventTransformerComplete, EventDiscoveryComplete, EventExecutionComplete:
+		return true
+	default:
+		return false
+	}
+}
+
+// isRedundantCompilerErrorLog matches LogError calls from compileForstFile that duplicate the
+// primary diagnostic and lack a source line on the debug event (line 0 → spurious top-of-file).
+func isRedundantCompilerErrorLog(event DebugEvent) bool {
+	switch event.EventType {
+	case EventParserError:
+		return event.Message == "Parsing failed"
+	case EventTypeError:
+		return event.Message == "Type checking failed"
+	case EventTransformerError:
+		return event.Message == "Code transformation failed"
+	default:
+		return false
+	}
+}
+
+// shouldSkipDebugEventAsDiagnostic filters out compiler phase milestones that are not user-facing
+// diagnostics. LSP best practice: only publish real errors/warnings/hints here; telemetry belongs
+// in logs or custom methods, not textDocument/publishDiagnostics (or HTTP didOpen results).
+func shouldSkipDebugEventAsDiagnostic(event DebugEvent) bool {
+	if isCompilerPhaseCompleteEvent(event) {
+		return true
+	}
+	// compileForstFile already publishes a precise diagnostic for these failures; LogError duplicates
+	// would also use line 0 and appear at the top of the file (see ResetStructuredOutputs).
+	if isRedundantCompilerErrorLog(event) {
+		return true
+	}
+	// Defensive fallback if event_type is missing after JSON round-trip or drifts.
+	if event.Error != nil {
+		return false
+	}
+	msg := strings.TrimSpace(strings.ToLower(event.Message))
+	switch msg {
+	case "lexical analysis completed", "parsing completed", "type checking completed",
+		"code transformation completed", "discovery completed", "execution completed":
+		return true
+	default:
+		return false
+	}
+}
+
 // ProcessDebugEvents processes all debug events and converts them to LSP structures.
 func (ld *LSPDebugger) ProcessDebugEvents() error {
+	ld.diagnostics = ld.diagnostics[:0]
+	ld.hovers = ld.hovers[:0]
+	ld.completions = ld.completions[:0]
+
 	output, err := ld.debugger.GetAllOutput()
 	if err != nil {
 		return fmt.Errorf("failed to get debug output: %w", err)
@@ -342,6 +417,9 @@ func (ld *LSPDebugger) ProcessDebugEvents() error {
 		}
 
 		for _, event := range events {
+			if shouldSkipDebugEventAsDiagnostic(event) {
+				continue
+			}
 			// Convert to diagnostic
 			diagnostic := ld.ConvertDebugEventToDiagnostic(event)
 			ld.diagnostics = append(ld.diagnostics, diagnostic)
@@ -454,8 +532,8 @@ func (ld *LSPDebugger) positionInRange(pos LSPPosition, range_ LSPRange) bool {
 func CreateTypeErrorDiagnostic(fileURI string, line int, expectedType, actualType, context string) LSPDiagnostic {
 	return LSPDiagnostic{
 		Range: LSPRange{
-			Start: LSPPosition{Line: line - 1, Character: 0},
-			End:   LSPPosition{Line: line - 1, Character: 100},
+			Start: LSPPosition{Line: lspLineIndex(line), Character: 0},
+			End:   LSPPosition{Line: lspLineIndex(line), Character: 100},
 		},
 		Severity: LSPDiagnosticSeverityError,
 		Code:     ErrorCodeTypeMismatch,
@@ -469,8 +547,8 @@ func CreateTypeErrorDiagnostic(fileURI string, line int, expectedType, actualTyp
 				Location: LSPLocation{
 					URI: fileURI,
 					Range: LSPRange{
-						Start: LSPPosition{Line: line - 1, Character: 0},
-						End:   LSPPosition{Line: line - 1, Character: 100},
+						Start: LSPPosition{Line: lspLineIndex(line), Character: 0},
+						End:   LSPPosition{Line: lspLineIndex(line), Character: 100},
 					},
 				},
 				Message: fmt.Sprintf("Expected type: %s", expectedType),
@@ -497,8 +575,8 @@ func CreateFunctionHover(fileURI string, line int, functionName string, paramete
 			Value:    content,
 		},
 		Range: &LSPRange{
-			Start: LSPPosition{Line: line - 1, Character: 0},
-			End:   LSPPosition{Line: line - 1, Character: 100},
+			Start: LSPPosition{Line: lspLineIndex(line), Character: 0},
+			End:   LSPPosition{Line: lspLineIndex(line), Character: 100},
 		},
 	}
 }

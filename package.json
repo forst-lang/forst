@@ -2,9 +2,13 @@
   "private": true,
   "name": "forst-monorepo",
   "version": "0.0.0",
+  "author": "haveyaseen",
+  "license": "MIT",
+  "packageManager": "bun@1.3.11",
   "workspaces": [
     "packages/sidecar",
     "packages/client",
+    "packages/vscode-forst",
     "examples/in/rfc/sidecar"
   ],
   "devDependencies": {

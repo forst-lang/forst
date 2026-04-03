@@ -349,6 +349,17 @@ func (cd *CompilerDebugger) GetDebugger(phase CompilerPhase, filePath string) De
 	return debugger
 }
 
+// ResetStructuredOutputs clears accumulated events for every phase. Debuggers are keyed by
+// CompilerPhase only (not by file), so without this, LogError events from earlier compiles
+// are replayed by ProcessDebugEvents and show up as spurious line-1 diagnostics.
+func (cd *CompilerDebugger) ResetStructuredOutputs() {
+	for _, d := range cd.debuggers {
+		if d != nil {
+			d.output = d.output[:0]
+		}
+	}
+}
+
 // GetAllOutput returns all debug output from all phases.
 // This method implements the CompilerDebuggerInterface.
 func (cd *CompilerDebugger) GetAllOutput() (map[CompilerPhase][]byte, error) {

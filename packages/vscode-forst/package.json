@@ -1,0 +1,108 @@
+{
+  "name": "vscode-forst",
+  "displayName": "Forst",
+  "description": "Language support for Forst (.ft): HTTP LSP integration with the forst compiler",
+  "version": "0.1.0",
+  "publisher": "forst",
+  "private": true,
+  "keywords": [
+    "forst",
+    "language",
+    "lsp",
+    "ft"
+  ],
+  "files": [
+    "out/**/*.js",
+    "language-configuration.json",
+    "syntaxes/**",
+    "README.md"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:forst",
+    "workspaceContains:**/*.ft"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "forst",
+        "aliases": [
+          "Forst"
+        ],
+        "extensions": [
+          ".ft"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "forst",
+        "scopeName": "source.forst",
+        "path": "./syntaxes/forst.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Forst",
+      "properties": {
+        "forst.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the forst executable. When empty, uses the name forst on PATH, or searches upward from workspace folders for bin/forst (after task build)."
+        },
+        "forst.lsp.port": {
+          "type": "number",
+          "default": 8081,
+          "description": "TCP port for the Forst LSP HTTP server (POST / JSON-RPC)."
+        },
+        "forst.lsp.logLevel": {
+          "type": "string",
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Log level passed to forst lsp -log-level"
+        },
+        "forst.lsp.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, start forst lsp as a child process when the extension activates. When false, connect to an already-running server on the configured port."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "forst.restartLanguageServer",
+        "title": "Forst: Restart language server"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "bun run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vsix": "mkdir -p ../../dist && vsce package --no-dependencies --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
+    "typescript": "~6.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forst-lang/forst.git",
+    "directory": "packages/vscode-forst"
+  },
+  "license": "MIT"
+}

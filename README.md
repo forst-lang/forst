@@ -114,6 +114,10 @@ task example -- ../examples/in/basic.ft  # Run specific example
 task example:function                    # Run function example
 ```
 
+## VS Code
+
+The workspace includes an optional extension in [`packages/vscode-forst`](./packages/vscode-forst): it registers `.ft` and talks to the compiler’s HTTP LSP (`forst lsp`) for diagnostics. After `bun install` at the repo root, run `task build:vscode` to compile it (or rely on the F5 **preLaunchTask** in [`.vscode/launch.json`](./.vscode/launch.json)). CI runs the same compile as the first step of `task ci:test`. See [`packages/vscode-forst/README.md`](./packages/vscode-forst/README.md) for F5 and troubleshooting.
+
 ## TypeScript client output
 
 You can generate **TypeScript types and a small client** from your Forst code so front ends or Node callers get the same shapes your server uses, without copying types by hand.
@@ -126,6 +130,15 @@ Our primary inspiration is TypeScript's structural type system and its enormous 
 
 We also draw inspiration from:
 
-- Rust's approach to error handling and type safety
-- tRPC's type-safe API design
-- Zod's runtime type validation and schema composition
+- **Zod** — constraints and shape guards as composable runtime checks on nested data.
+- **tRPC** — one source of truth for API shapes, with **TypeScript types and a small client** generated from Forst (`forst generate`, `examples/client-integration/`).
+- **Go** and **Rust** — **errors as values** and explicit control flow (`ensure` … `or …`), not exceptions.
+
+**Priority ranking** (illustrative). Each criterion is scored ★–★★★★★ (5 = best **feasibility** / **viability** / **impact**; for **effort**, 5 = most work still left).
+
+| Rank | Pillar | Feasibility | Viability | Effort | Impact |
+| ---: | --- | :---: | :---: | :---: | :---: |
+| 1 | Structural types & Go codegen | ★★★★★ | ★★★★★ | ★★☆☆☆ | ★★★★★ |
+| 2 | Schema-style validation (guards, constraints) | ★★★★☆ | ★★★★★ | ★★★★☆ | ★★★★★ |
+| 3 | End-to-end TS types + client (`forst generate`) | ★★★★☆ | ★★★★★ | ★★★☆☆ | ★★★★☆ |
+| 4 | Explicit errors (`ensure`, `error` values) | ★★★★☆ | ★★★★☆ | ★★★☆☆ | ★★★★☆ |

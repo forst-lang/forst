@@ -323,7 +323,7 @@ func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *as
 			"function": "determineStructType",
 			"typeName": typeName,
 			"result":   "using expected type",
-		}).Warn("[PINPOINT] determineStructType result")
+		}).Debug("[PINPOINT] determineStructType result")
 
 		return goast.NewIdent(typeName), nil
 	}
@@ -361,7 +361,7 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 		"function":     "buildFieldsForExpectedType",
 		"expectedType": expectedType.Ident,
 		"shapeFields":  len(shape.Fields),
-	}).Warn("[PINPOINT] buildFieldsForExpectedType entry")
+	}).Debug("[PINPOINT] buildFieldsForExpectedType entry")
 
 	fields := make([]*goast.KeyValueExpr, 0)
 
@@ -451,7 +451,7 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 		"function":     "buildFieldsForExpectedType",
 		"fieldCount":   len(fields),
 		"expectedType": expectedType.Ident,
-	}).Warn("[PINPOINT] buildFieldsForExpectedType result")
+	}).Debug("[PINPOINT] buildFieldsForExpectedType result")
 
 	return fields, nil
 }
@@ -650,14 +650,14 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		"isHashBased":   isHashBased,
 		"isGoBuiltin":   isGoBuiltin,
 		"hasPrefixT":    hasPrefixT,
-	}).Warn("[PINPOINT] transformShapeNodeWithExpectedType entry")
+	}).Debug("[PINPOINT] transformShapeNodeWithExpectedType entry")
 
 	// If expectedType is a named type (not hash-based), always use it for the composite literal
 	if expectedType != nil && expectedType.TypeKind != ast.TypeKindHashBased {
 		t.log.WithFields(logrus.Fields{
 			"function": "transformShapeNodeWithExpectedType",
 			"result":   "using expected type for composite literal",
-		}).Warn("[PINPOINT] Using expected type for composite literal")
+		}).Debug("[PINPOINT] Using expected type for composite literal")
 
 		structType, err := t.determineStructType(shape, expectedType)
 		if err != nil {
@@ -681,7 +681,7 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 	t.log.WithFields(logrus.Fields{
 		"function": "transformShapeNodeWithExpectedType",
 		"result":   "falling back to structural matching",
-	}).Warn("[PINPOINT] Falling back to structural matching")
+	}).Debug("[PINPOINT] Falling back to structural matching")
 
 	// Determine the struct type to use for the composite literal
 	structType, err := t.determineStructType(shape, expectedType)

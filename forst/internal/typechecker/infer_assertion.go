@@ -423,7 +423,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 				"baseType":  baseTypeIdent,
 				"typeIdent": typeIdent,
 				"note":      "Preserving named type (compatible with full shape logic)",
-			}).Warn("[PINPOINT] inferAssertionType: Preserving named type (compatible with full shape logic)")
+			}).Debug("[PINPOINT] inferAssertionType: Preserving named type (compatible with full shape logic)")
 			return []ast.TypeNode{{Ident: baseTypeIdent}}, nil
 		}
 		// If not compatible, log and fall back to hash-based type
@@ -432,7 +432,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 			"baseType":  baseTypeIdent,
 			"typeIdent": typeIdent,
 			"note":      "BaseType not compatible with full shape logic, using hash-based type",
-		}).Warn("[PINPOINT] inferAssertionType: BaseType not compatible, using hash-based type")
+		}).Debug("[PINPOINT] inferAssertionType: BaseType not compatible, using hash-based type")
 	}
 
 	// Default: return the hash-based type

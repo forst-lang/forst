@@ -161,7 +161,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		t.log.WithFields(logrus.Fields{
 			"function": "transformErrorStatement",
 			"stmt":     stmt.String(),
-		}).Error("[PINPOINT] transformErrorStatement called")
+		}).Debug("[PINPOINT] transformErrorStatement called")
 	}
 
 	functionName := string(fn.Ident.ID)
@@ -177,7 +177,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				"functionName": functionName,
 				"found":        true,
 				"returnTypes":  returnTypes,
-			}).Warn("[PINPOINT] Found function signature in typechecker")
+			}).Debug("[PINPOINT] Found function signature in typechecker")
 		}
 	} else {
 		// Fallback to the raw AST node return types
@@ -189,7 +189,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				"functionName": functionName,
 				"found":        false,
 				"returnTypes":  returnTypes,
-			}).Warn("[PINPOINT] Using fallback return types from AST")
+			}).Debug("[PINPOINT] Using fallback return types from AST")
 		}
 	}
 
@@ -200,7 +200,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 			"functionName": functionName,
 			"returnCount":  len(returnTypes),
 			"returnTypes":  returnTypes,
-		}).Warn("[PINPOINT] Function signature for error return")
+		}).Debug("[PINPOINT] Function signature for error return")
 	}
 
 	// PINPOINT: Log each return type for debugging
@@ -213,7 +213,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				"returnType":   retType.Ident,
 				"typeKind":     retType.TypeKind,
 				"isError":      retType.IsError(),
-			}).Warn("[PINPOINT] Processing return type in transformErrorStatement")
+			}).Debug("[PINPOINT] Processing return type in transformErrorStatement")
 		}
 	}
 
@@ -262,7 +262,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				"returnIndex":  i,
 				"returnType":   returnType.Ident,
 				"typeKind":     returnType.TypeKind,
-			}).Warn("[PINPOINT] Processing return type for zero value")
+			}).Debug("[PINPOINT] Processing return type for zero value")
 		}
 
 		var result goast.Expr
@@ -297,7 +297,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 						"returnIndex":  i,
 						"returnType":   returnType.Ident,
 						"typeKind":     returnType.TypeKind,
-					}).Error("[PINPOINT] Calling buildZeroCompositeLiteral for user-defined or hash-based type")
+					}).Debug("[PINPOINT] Calling buildZeroCompositeLiteral for user-defined or hash-based type")
 				}
 				result = t.buildZeroCompositeLiteral(&returnType)
 			} else {
@@ -322,7 +322,7 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 			"function":     "buildCompositeLiteralForReturn",
 			"expectedType": expectedType.Ident,
 			"valueVar":     valueVar,
-		}).Error("[PINPOINT] buildCompositeLiteralForReturn called")
+		}).Debug("[PINPOINT] buildCompositeLiteralForReturn called")
 	}
 
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
@@ -367,7 +367,7 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 					"fieldType":    field.Type.Ident,
 					"valueType":    fmt.Sprintf("%T", val),
 					"valueDetails": fmt.Sprintf("%+v", val),
-				}).Error("[PINPOINT] Generated value for field in buildCompositeLiteralForReturn")
+				}).Debug("[PINPOINT] Generated value for field in buildCompositeLiteralForReturn")
 			}
 		}
 		goFieldName := fieldName
@@ -392,7 +392,7 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 			"expectedType": expectedType.Ident,
 			"isHashBased":  expectedType.IsHashBased(),
 			"typeKind":     expectedType.TypeKind,
-		}).Error("[PINPOINT] buildZeroCompositeLiteral called")
+		}).Debug("[PINPOINT] buildZeroCompositeLiteral called")
 	}
 
 	def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode)
@@ -402,7 +402,7 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 			t.log.WithFields(logrus.Fields{
 				"expectedType": expectedType.Ident,
 				"found":        false,
-			}).Warn("[DEBUG] Type definition not found")
+			}).Debug("[DEBUG] Type definition not found")
 		}
 		return goast.NewIdent("nil")
 	}
@@ -419,7 +419,7 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 				"fieldName":     fieldName,
 				"fieldType":     field.Type.Ident,
 				"fieldTypeKind": field.Type.TypeKind,
-			}).Warn("[DEBUG] Processing field for zero value")
+			}).Debug("[DEBUG] Processing field for zero value")
 		}
 
 		var val goast.Expr
@@ -460,7 +460,7 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 					}
 					return fmt.Sprintf("%T", val)
 				}(),
-			}).Warn("[DEBUG] Generated zero value for field")
+			}).Debug("[DEBUG] Generated zero value for field")
 		}
 
 		goFieldName := fieldName
@@ -480,7 +480,7 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 			"expectedType":  expectedType.Ident,
 			"fieldCount":    len(fields),
 			"generatedType": string(expectedType.Ident),
-		}).Warn("[DEBUG] Generated zero composite literal")
+		}).Debug("[DEBUG] Generated zero composite literal")
 	}
 
 	return &goast.CompositeLit{Type: goast.NewIdent(string(expectedType.Ident)), Elts: elts}
@@ -494,7 +494,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			"function": "transformStatement",
 			"stmtType": fmt.Sprintf("%T", stmt),
 			"stmt":     stmt.String(),
-		}).Error("[PINPOINT] transformStatement called")
+		}).Debug("[PINPOINT] transformStatement called")
 	}
 
 	switch s := stmt.(type) {
@@ -523,14 +523,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function": "transformStatement",
 				"stmtType": "EnsureNode",
 				"stmt":     s.String(),
-			}).Error("[PINPOINT] Processing EnsureNode")
+			}).Debug("[PINPOINT] Processing EnsureNode")
 		}
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
 				"function":           "transformStatement",
 				"scopeBeforeRestore": fmt.Sprintf("%v", t.currentScope()),
 				"nodeType":           fmt.Sprintf("%T", stmt),
-			}).Warn("[DEBUG] Before restoreScope(EnsureNode)")
+			}).Debug("[DEBUG] Before restoreScope(EnsureNode)")
 		}
 		if err := t.restoreScope(stmt); err != nil {
 			return nil, fmt.Errorf("failed to restore ensure statement scope: %s", err)
@@ -540,7 +540,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function":          "transformStatement",
 				"scopeAfterRestore": fmt.Sprintf("%v", t.currentScope()),
 				"nodeType":          fmt.Sprintf("%T", stmt),
-			}).Warn("[DEBUG] After restoreScope(EnsureNode)")
+			}).Debug("[DEBUG] After restoreScope(EnsureNode)")
 		}
 
 		// Convert ensure to if statement with panic
@@ -599,7 +599,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function":             "transformStatement",
 				"nodeType":             fmt.Sprintf("%T", stmt),
 				"scopeBeforeErrorStmt": fmt.Sprintf("%v", t.currentScope()),
-			}).Warn("[DEBUG] Before transformErrorStatement")
+			}).Debug("[DEBUG] Before transformErrorStatement")
 		}
 
 		// Always call transformErrorStatement for EnsureNode
@@ -625,7 +625,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							"function": "transformStatement",
 							"stmtType": "EnsureNode",
 							"action":   "skipping return statement in EnsureNode block",
-						}).Warn("[PINPOINT] Skipping return statement in EnsureNode block - should be handled by transformErrorStatement")
+						}).Debug("[PINPOINT] Skipping return statement in EnsureNode block - should be handled by transformErrorStatement")
 					}
 				}
 			}
@@ -656,7 +656,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function": "transformStatement",
 				"action":   "skipping return statement for function with ensure",
 				"fnName":   functionName,
-			}).Warn("[PINPOINT] Skipping return statement - function has ensure statements")
+			}).Debug("[PINPOINT] Skipping return statement - function has ensure statements")
 		}
 
 		// If function has ensure statements, modify return processing to handle ensure statements
@@ -679,14 +679,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function": "transformStatement",
 				"stmtType": "ReturnNode",
 				"stmt":     s.String(),
-			}).Error("[PINPOINT] Processing ReturnNode")
+			}).Debug("[PINPOINT] Processing ReturnNode")
 		}
 		// DEBUG: Log entry
 		if t.log != nil {
 			t.log.WithFields(logrus.Fields{
 				"function": "transformReturnStatement",
 				"values":   len(s.Values),
-			}).Warn("transformReturnStatement called")
+			}).Debug("transformReturnStatement called")
 		}
 
 		// Find the current function node and its inferred return types
@@ -706,7 +706,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				"function":      "transformReturnStatement",
 				"functionName":  fn.Ident.ID,
 				"functionFound": true,
-			}).Warn("Function node found")
+			}).Debug("Function node found")
 		}
 
 		// Always get the inferred return type from the typechecker
@@ -719,7 +719,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"function":     "transformReturnStatement",
 					"functionName": fn.Ident.ID,
 					"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
-				}).Warn("Function signature for return statement")
+				}).Debug("Function signature for return statement")
 			}
 		} else {
 			// DEBUG: Log missing signature
@@ -729,7 +729,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"functionName":   fn.Ident.ID,
 					"hasSig":         ok,
 					"sigReturnTypes": len(sig.ReturnTypes),
-				}).Warn("No function signature found")
+				}).Debug("No function signature found")
 			}
 		}
 
@@ -747,7 +747,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"returnIndex":  i,
 					"expectedType": expectedType,
 					"actualAST":    fmt.Sprintf("%T", value),
-				}).Warn("[PINPOINT] Mapping AST node to Go type for return value")
+				}).Debug("[PINPOINT] Mapping AST node to Go type for return value")
 			}
 
 			// If the expected type is a named struct and the value is a variable or shape, wrap it in the expected type
@@ -759,7 +759,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						"returnIndex":  i,
 						"expectedType": expectedType.Ident,
 						"valueType":    fmt.Sprintf("%T", value),
-					}).Warn("[PINPOINT] Found user-defined expected type for return value")
+					}).Debug("[PINPOINT] Found user-defined expected type for return value")
 				}
 				// Check if the value is a variable or shape that needs to be wrapped
 				switch v := value.(type) {
@@ -771,7 +771,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							"returnIndex":  i,
 							"variableName": v.Ident.ID,
 							"expectedType": expectedType.Ident,
-						}).Warn("[PINPOINT] Wrapping variable in named struct")
+						}).Debug("[PINPOINT] Wrapping variable in named struct")
 					}
 					// If it's a variable, wrap it in the expected struct type
 					expr, err := t.wrapVariableInNamedStruct(expectedType, v)
@@ -790,7 +790,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"returnIndex":  i,
 								"shapeFields":  len(shapeNode.Fields),
 								"expectedType": expectedType.Ident,
-							}).Warn("[PINPOINT] Wrapping shape (robust) in named struct")
+							}).Debug("[PINPOINT] Wrapping shape (robust) in named struct")
 						}
 						expr, err := t.transformShapeNodeWithExpectedType(shapeNode, expectedType)
 						if err != nil {
@@ -806,7 +806,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							"function":    functionName,
 							"returnIndex": i,
 							"actualType":  fmt.Sprintf("%T", value),
-						}).Warn("[PINPOINT] Unhandled value type in return statement switch")
+						}).Debug("[PINPOINT] Unhandled value type in return statement switch")
 					}
 				}
 			}
@@ -824,7 +824,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							"returnIndex":  i,
 							"expectedType": expectedType.Ident,
 							"resultsLen":   len(results),
-						}).Error("[PINPOINT] Processing user-defined return type in transformReturnStatement")
+						}).Debug("[PINPOINT] Processing user-defined return type in transformReturnStatement")
 					}
 					for i, ret := range results {
 						if ident, ok := ret.(*goast.Ident); ok {
@@ -835,7 +835,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 									"returnIndex":  i,
 									"expectedType": expectedType.Ident,
 									"identName":    ident.Name,
-								}).Error("[PINPOINT] Calling buildCompositeLiteralForReturn for user-defined type")
+								}).Debug("[PINPOINT] Calling buildCompositeLiteralForReturn for user-defined type")
 							}
 							goRet := t.buildCompositeLiteralForReturn(expectedType, ident.Name)
 							results[i] = goRet
@@ -850,7 +850,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"returnIndex":   i,
 								"expectedType":  expectedType.Ident,
 								"isUserDefined": expectedType.IsUserDefined(),
-							}).Warn("[PINPOINT] Processing shape literal without user-defined expected type")
+							}).Debug("[PINPOINT] Processing shape literal without user-defined expected type")
 						}
 
 						context := &ShapeContext{
@@ -877,7 +877,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"expectedType": expectedTypeForShape,
 								"selectedType": useType,
 								"isHashBased":  expectedTypeForShape != nil && expectedTypeForShape.IsHashBased(),
-							}).Warn("[PINPOINT] Processing struct literal in return statement")
+							}).Debug("[PINPOINT] Processing struct literal in return statement")
 						}
 						valueExpr, err = t.transformShapeNodeWithExpectedType(&shapeValue, useType)
 						if err != nil {
@@ -891,7 +891,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 								"returnIndex":  i,
 								"valueType":    fmt.Sprintf("%T", value),
 								"expectedType": expectedType.Ident,
-							}).Warn("[PINPOINT] Processing non-shape return value")
+							}).Debug("[PINPOINT] Processing non-shape return value")
 						}
 						valueExpr, err = t.transformExpression(value)
 						if err != nil {
@@ -907,7 +907,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						"returnIndex":      i,
 						"valueType":        fmt.Sprintf("%T", value),
 						"expectedTypesLen": len(expectedReturnTypes),
-					}).Warn("[PINPOINT] No expected type available for return value")
+					}).Debug("[PINPOINT] No expected type available for return value")
 				}
 				valueExpr, err = t.transformExpression(value)
 				if err != nil {
@@ -943,7 +943,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						"function":     "transformReturnStatement",
 						"functionName": string(fn.Ident.ID),
 						"returnTypes":  expectedReturnTypes,
-					}).Warn("Function signature for return statement")
+					}).Debug("Function signature for return statement")
 				}
 			}
 		}
@@ -1151,7 +1151,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 			"function":     "wrapShapeInNamedStructIfNeeded",
 			"expectedType": expectedType.Ident,
 			"shapeFields":  fmt.Sprintf("%+v", shape.Fields),
-		}).Warn("wrapShapeInNamedStructIfNeeded called")
+		}).Debug("wrapShapeInNamedStructIfNeeded called")
 	}
 
 	// First, try to use the existing wrapInNamedStruct logic
@@ -1161,7 +1161,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 			t.log.WithFields(logrus.Fields{
 				"function": "wrapShapeInNamedStructIfNeeded",
 				"result":   "used wrapInNamedStruct",
-			}).Warn("wrapShapeInNamedStructIfNeeded: used wrapInNamedStruct")
+			}).Debug("wrapShapeInNamedStructIfNeeded: used wrapInNamedStruct")
 		}
 		return expr, nil
 	}
@@ -1170,7 +1170,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 		t.log.WithFields(logrus.Fields{
 			"function": "wrapShapeInNamedStructIfNeeded",
 			"error":    err.Error(),
-		}).Warn("wrapShapeInNamedStructIfNeeded: wrapInNamedStruct failed, trying field matching")
+		}).Debug("wrapShapeInNamedStructIfNeeded: wrapInNamedStruct failed, trying field matching")
 	}
 
 	// If that fails, check if the shape should be wrapped in the expected type
@@ -1196,7 +1196,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 			"shapeFields":    fmt.Sprintf("%+v", shapeFields),
 			"lenExpected":    len(expectedFields),
 			"lenShape":       len(shapeFields),
-		}).Warn("wrapShapeInNamedStructIfNeeded: comparing field counts")
+		}).Debug("wrapShapeInNamedStructIfNeeded: comparing field counts")
 	}
 
 	// If the shape has the same field names as the expected struct, wrap it
@@ -1214,7 +1214,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 				t.log.WithFields(logrus.Fields{
 					"function": "wrapShapeInNamedStructIfNeeded",
 					"result":   "field names match, wrapping",
-				}).Warn("wrapShapeInNamedStructIfNeeded: field names match, wrapping")
+				}).Debug("wrapShapeInNamedStructIfNeeded: field names match, wrapping")
 			}
 
 			// The shape matches the expected struct structure, wrap it
@@ -1259,7 +1259,7 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 		t.log.WithFields(logrus.Fields{
 			"function": "wrapShapeInNamedStructIfNeeded",
 			"result":   "falling back to standard transformation",
-		}).Warn("wrapShapeInNamedStructIfNeeded: falling back to standard transformation")
+		}).Debug("wrapShapeInNamedStructIfNeeded: falling back to standard transformation")
 	}
 
 	// If we get here, the shape doesn't match the expected structure

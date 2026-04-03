@@ -43,6 +43,17 @@ tasks:
       - packages/client/dist/index.js
       - packages/client/dist/index.d.ts
 
+  build:vscode:
+    desc: Compile the VS Code extension (TypeScript)
+    dir: packages/vscode-forst
+    deps: [install:bun]
+    cmds:
+      - bun run compile
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/vscode-forst/out/extension.js
+
   install:
     desc: Install the Forst compiler
     dir: forst
@@ -247,10 +258,11 @@ tasks:
 
   # CI/CD tasks
   ci:test:
-    desc: Run CI lint suite
+    desc: Run CI lint suite (includes VS Code extension compile via build:vscode)
     dir: forst
     set: [errexit]
     cmds:
+      - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
       - task example:sidecar-local
       - task example:sidecar-downloaded || echo "Downloaded binary example failed (expected for now - needs release with dev command)"
@@ -273,9 +285,20 @@ tasks:
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
       - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
       - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
+      - task: build:vsix
     generates:
       - ../dist/*.tar.gz
       - ../dist/*.zip
+      - ../dist/*.vsix
+
+  build:vsix:
+    desc: Package the VS Code extension as a .vsix under dist/ (uploaded with release binaries)
+    dir: packages/vscode-forst
+    deps: [install:bun]
+    cmds:
+      - mkdir -p ../../dist
+      - bun run compile
+      - bunx vsce package --no-dependencies --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
 
   release:check:
     desc: Check release configuration

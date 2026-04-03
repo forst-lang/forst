@@ -79,7 +79,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 			"function":     "inferShapeType",
 			"fieldName":    name,
 			"expectedType": fieldExpectedType,
-		}).Warn("[PINPOINT] Expected type for field (from expectedType param)")
+		}).Debug("[PINPOINT] Expected type for field (from expectedType param)")
 
 		// If the field has an assertion, infer its type
 		if field.Assertion != nil {
@@ -103,7 +103,7 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 				"function":     "inferShapeType",
 				"fieldName":    name,
 				"inferredType": inferredType.Ident,
-			}).Warn("[PINPOINT] Inferred type for field (from assertion)")
+			}).Debug("[PINPOINT] Inferred type for field (from assertion)")
 			field.Type = &inferredType
 		}
 

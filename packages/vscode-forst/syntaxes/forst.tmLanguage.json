@@ -1,0 +1,126 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Forst",
+  "scopeName": "source.forst",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#func-name" },
+    { "include": "#keywords" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.forst",
+          "match": "//.*"
+        },
+        {
+          "name": "comment.block.forst",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.forst",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.forst",
+              "match": "\\\\(?:[nrtvfb\\\\\"']|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.forst",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.forst",
+              "match": "\\\\(?:[nrtvfb\\\\\"']|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.other.forst",
+          "begin": "`",
+          "end": "`"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.forst",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.forst",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric.octal.forst",
+          "match": "\\b0[oO][0-7]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.imaginary.forst",
+          "match": "\\b(?:\\d+\\.\\d+|\\d+\\.|\\.\\d+)(?:[eE][+-]?\\d+)?[i]\\b"
+        },
+        {
+          "name": "constant.numeric.float.forst",
+          "match": "\\b\\d+(?:\\.\\d+)?[eE][+-]?\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.float.forst",
+          "match": "\\b(?:\\d+\\.\\d+|\\d+\\.|\\.\\d+)(?:[eE][+-]?\\d+)?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.forst",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "func-name": {
+      "match": "\\b(func)\\s+([A-Za-z_][\\w]*)",
+      "captures": {
+        "1": { "name": "keyword.declaration.function.forst" },
+        "2": { "name": "entity.name.function.forst" }
+      }
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.forst",
+          "match": "\\b(else if|if|else|for|range|break|continue|switch|case|default|fallthrough|return|ensure|is|or|go|defer|goto)\\b"
+        },
+        {
+          "name": "keyword.declaration.forst",
+          "match": "\\b(func|type|var|const|import|package)\\b"
+        },
+        {
+          "name": "storage.type.builtin.forst",
+          "match": "\\b(String|Int|Float|Bool|Void|Array)\\b"
+        },
+        {
+          "name": "storage.type.forst",
+          "match": "\\b(map|chan|interface|struct)\\b"
+        },
+        {
+          "name": "constant.language.forst",
+          "match": "\\bnil\\b"
+        }
+      ]
+    },
+    "operators": {
+      "match": "(==|!=|>=|<=|&&|\\|\\||:=|\\+\\+|--|->|[+\\-*/%&|^!~<>=?:;,.\\(\\)\\[\\]{}])",
+      "name": "keyword.operator.forst"
+    }
+  }
+}

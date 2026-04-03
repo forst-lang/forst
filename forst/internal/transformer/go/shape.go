@@ -209,38 +209,38 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 					"typeDefFields": fmt.Sprintf("%+v", shapeExpr.Shape.Fields),
 					"literalShape":  fmt.Sprintf("%+v", shape),
 					"literalFields": fmt.Sprintf("%+v", shape.Fields),
-				}).Warn("[DEBUG] Checking type definition for match")
+				}).Debug("[DEBUG] Checking type definition for match")
 
 				// Compare the shapes to see if they match
 				if t.shapesMatch(shape, &shapeExpr.Shape) {
 					t.log.WithFields(logrus.Fields{
 						"function":  "findExistingTypeForShape",
 						"typeIdent": typeIdent,
-					}).Warn("[DEBUG] Found matching type definition")
+					}).Debug("[DEBUG] Found matching type definition")
 					return typeIdent, true
 				} else {
 					t.log.WithFields(logrus.Fields{
 						"function":  "findExistingTypeForShape",
 						"typeIdent": typeIdent,
-					}).Warn("[DEBUG] Type definition did not match")
+					}).Debug("[DEBUG] Type definition did not match")
 				}
 			} else {
 				t.log.WithFields(logrus.Fields{
 					"function":  "findExistingTypeForShape",
 					"typeIdent": typeIdent,
 					"defType":   fmt.Sprintf("%T", typeDef.Expr),
-				}).Warn("[DEBUG] Type definition is not a shape expression")
+				}).Debug("[DEBUG] Type definition is not a shape expression")
 			}
 		} else {
 			t.log.WithFields(logrus.Fields{
 				"function": "findExistingTypeForShape",
 				"defType":  fmt.Sprintf("%T", def),
-			}).Warn("[DEBUG] Definition is not a TypeDefNode")
+			}).Debug("[DEBUG] Definition is not a TypeDefNode")
 		}
 	}
 	t.log.WithFields(logrus.Fields{
 		"function": "findExistingTypeForShape",
-	}).Warn("[DEBUG] No matching type definition found")
+	}).Debug("[DEBUG] No matching type definition found")
 	return "", false
 }
 
@@ -250,7 +250,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 		"function": "shapesMatch",
 		"shape1":   fmt.Sprintf("%+v", shape1),
 		"shape2":   fmt.Sprintf("%+v", shape2),
-	}).Warn("=== SHAPE COMPARISON DEBUG ===")
+	}).Debug("=== SHAPE COMPARISON DEBUG ===")
 
 	// Check if both shapes have the same number of fields
 	if len(shape1.Fields) != len(shape2.Fields) {
@@ -258,7 +258,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			"function": "shapesMatch",
 			"len1":     len(shape1.Fields),
 			"len2":     len(shape2.Fields),
-		}).Warn("Field count mismatch")
+		}).Debug("Field count mismatch")
 		return false
 	}
 
@@ -269,7 +269,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			t.log.WithFields(logrus.Fields{
 				"function":  "shapesMatch",
 				"fieldName": fieldName,
-			}).Warn("Field name not found in second shape")
+			}).Debug("Field name not found in second shape")
 			return false
 		}
 
@@ -285,7 +285,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			"field2Assertion": field2.Assertion != nil,
 			"field1Node":      field1.Node != nil,
 			"field2Node":      field2.Node != nil,
-		}).Warn("Comparing field types and shapes")
+		}).Debug("Comparing field types and shapes")
 
 		// Node-vs-Type compatibility logic
 		if field1.Node != nil && field2.Type != nil {
