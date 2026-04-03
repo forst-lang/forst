@@ -50,6 +50,20 @@ function markdownFromHoverContents(c: LspHoverContents): string {
   return "";
 }
 
+function markdownPlainTextFromHover(h: vscode.Hover): string {
+  const raw = h.contents;
+  const parts = Array.isArray(raw) ? raw : [raw];
+  const chunks: string[] = [];
+  for (const p of parts) {
+    if (typeof p === "string") {
+      chunks.push(p);
+    } else {
+      chunks.push(p.value);
+    }
+  }
+  return chunks.join("\n");
+}
+
 function lspHoverToVs(h: LspHoverResult): vscode.Hover {
   const md = new vscode.MarkdownString(markdownFromHoverContents(h.contents));
   md.isTrusted = false;
@@ -119,7 +133,11 @@ export function registerForstLanguageFeatures(
           if (!h) {
             return null;
           }
-          return lspHoverToVs(h);
+          const vs = lspHoverToVs(h);
+          if (markdownPlainTextFromHover(vs).trim() === "") {
+            return null;
+          }
+          return vs;
         }),
     })
   );

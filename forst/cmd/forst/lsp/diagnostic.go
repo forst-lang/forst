@@ -358,11 +358,31 @@ func isCompilerPhaseCompleteEvent(event DebugEvent) bool {
 	}
 }
 
+// isRedundantCompilerErrorLog matches LogError calls from compileForstFile that duplicate the
+// primary diagnostic and lack a source line on the debug event (line 0 → spurious top-of-file).
+func isRedundantCompilerErrorLog(event DebugEvent) bool {
+	switch event.EventType {
+	case EventParserError:
+		return event.Message == "Parsing failed"
+	case EventTypeError:
+		return event.Message == "Type checking failed"
+	case EventTransformerError:
+		return event.Message == "Code transformation failed"
+	default:
+		return false
+	}
+}
+
 // shouldSkipDebugEventAsDiagnostic filters out compiler phase milestones that are not user-facing
 // diagnostics. LSP best practice: only publish real errors/warnings/hints here; telemetry belongs
 // in logs or custom methods, not textDocument/publishDiagnostics (or HTTP didOpen results).
 func shouldSkipDebugEventAsDiagnostic(event DebugEvent) bool {
 	if isCompilerPhaseCompleteEvent(event) {
+		return true
+	}
+	// compileForstFile already publishes a precise diagnostic for these failures; LogError duplicates
+	// would also use line 0 and appear at the top of the file (see ResetStructuredOutputs).
+	if isRedundantCompilerErrorLog(event) {
 		return true
 	}
 	// Defensive fallback if event_type is missing after JSON round-trip or drifts.

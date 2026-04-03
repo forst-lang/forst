@@ -38,6 +38,19 @@ func TestShouldSkipDebugEventAsDiagnostic_MessageFallback(t *testing.T) {
 	}
 }
 
+func TestShouldSkipRedundantCompilerErrorLogs(t *testing.T) {
+	t.Parallel()
+	ev := DebugEvent{
+		Phase:     PhaseParser,
+		EventType: EventParserError,
+		Message:   "Parsing failed",
+		Error:     &ErrorInfo{Code: ErrorCodeInvalidSyntax, Message: "Parse error at f:2:3"},
+	}
+	if !shouldSkipDebugEventAsDiagnostic(ev) {
+		t.Error("expected redundant parser LogError to be skipped")
+	}
+}
+
 func TestDebugEventsJSONRoundTripPreservesEventType(t *testing.T) {
 	t.Parallel()
 	events := []DebugEvent{

@@ -84,5 +84,9 @@ func (p *Parser) FailWithUnexpectedToken(token ast.Token, message string) {
 }
 
 func (p *Parser) FailWithParseError(token ast.Token, message string) {
-	panic(parseErrorMessage(token, message))
+	panic(&ParseError{
+		Token:   token,
+		Context: p.context,
+		Msg:     message,
+	})
 }

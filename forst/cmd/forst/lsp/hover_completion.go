@@ -102,16 +102,12 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 	if !haveOpen || content == "" {
 		b, err := os.ReadFile(filePath)
 		if err != nil {
-			return basicHoverMarkdown("Forst language element")
+			return nil
 		}
 		content = string(b)
 	}
 
-	hover := s.hoverMarkdownForContent(filePath, content, position)
-	if hover == nil {
-		return basicHoverMarkdown("Forst language element")
-	}
-	return hover
+	return s.hoverMarkdownForContent(filePath, content, position)
 }
 
 func basicHoverMarkdown(text string) *LSPHover {
@@ -135,7 +131,7 @@ func (s *LSPServer) hoverMarkdownForContent(filePath, content string, position L
 
 	cd, ok := s.debugger.(*CompilerDebugger)
 	if !ok {
-		return basicHoverMarkdown("Forst language element")
+		return nil
 	}
 	packageStore := cd.packageStore
 	fileID := packageStore.RegisterFile(filePath, extractPackagePath(filePath))
@@ -149,15 +145,21 @@ func (s *LSPServer) hoverMarkdownForContent(filePath, content string, position L
 	psr := parser.New(tokens, string(fileID), s.log)
 	astNodes, err := psr.ParseFile()
 	if err != nil {
-		return basicHoverMarkdown(fmt.Sprintf("**Syntax**\n\n```\n%s\n```", err.Error()))
+		// Diagnostics carry parse errors; hover stays quiet (matches typical TS / LSP behavior).
+		return nil
 	}
 
 	tc := typechecker.New(s.log, false)
 	if err := tc.CheckTypes(astNodes); err != nil {
-		return basicHoverMarkdown(fmt.Sprintf("%s\n\n---\n*Type checking:* `%s`", hoverTextForToken(tc, tok), err.Error()))
+		// Still show quick info for the symbol when inferable; full error is in Problems.
+		text := hoverTextForToken(tc, tokens, tok)
+		if text == "" {
+			return nil
+		}
+		return basicHoverMarkdown(text)
 	}
 
-	text := hoverTextForToken(tc, tok)
+	text := hoverTextForToken(tc, tokens, tok)
 	if text == "" {
 		return nil
 	}
@@ -188,7 +190,7 @@ func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
 	return best
 }
 
-func hoverTextForToken(tc *typechecker.TypeChecker, tok *ast.Token) string {
+func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type == ast.TokenIdentifier {
 		id := ast.Identifier(tok.Value)
 		if types, ok := tc.VariableTypes[id]; ok && len(types) > 0 {
@@ -196,86 +198,139 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tok *ast.Token) string {
 			for _, tn := range types {
 				parts = append(parts, tn.String())
 			}
-			return fmt.Sprintf("`%s` · **%s**", tok.Value, strings.Join(parts, ", "))
+			return fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
 		}
 		if sig, ok := tc.Functions[id]; ok {
-			return fmt.Sprintf("**function** `%s`\n\n```forst\n%s\n```", tok.Value, sig.String())
+			doc := leadingCommentDocBeforeFunc(tokens, string(id))
+			body := fmt.Sprintf("```forst\n%s\n```", sig.String())
+			if doc == "" {
+				return body
+			}
+			return doc + "\n\n" + body
 		}
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
-			return fmt.Sprintf("**type** `%s`\n\n%s", tok.Value, summarizeTypeDefNode(def))
+			return typeDefHoverMarkdown(def)
 		}
-		return fmt.Sprintf("`%s` · _identifier_", tok.Value)
+		return ""
 	}
 
-	if lit := literalHover(tok); lit != "" {
-		return lit
+	if literalHover(tok) {
+		return ""
 	}
 	if kw := keywordHover(tok); kw != "" {
 		return kw
 	}
-	if tok.Type == ast.TokenDot {
-		return "**`.`** · member access"
-	}
-	return fmt.Sprintf("**%s** `%s`", tok.Type, tok.Value)
+	return ""
 }
 
-func summarizeTypeDefNode(n ast.Node) string {
-	switch d := n.(type) {
+func typeDefHoverMarkdown(def ast.Node) string {
+	switch d := def.(type) {
 	case ast.TypeDefNode:
-		return fmt.Sprintf("`type %s`", d.Ident)
-	default:
-		return fmt.Sprintf("`%T`", n)
-	}
-}
-
-func literalHover(tok *ast.Token) string {
-	switch tok.Type {
-	case ast.TokenIntLiteral:
-		return fmt.Sprintf("**integer literal** `%s`", tok.Value)
-	case ast.TokenFloatLiteral:
-		return fmt.Sprintf("**float literal** `%s`", tok.Value)
-	case ast.TokenStringLiteral:
-		return "**string literal**"
-	case ast.TokenTrue, ast.TokenFalse:
-		return "**boolean literal**"
-	case ast.TokenNil:
-		return "**nil**"
+		return fmt.Sprintf("```forst\ntype %s\n```", d.Ident)
 	default:
 		return ""
 	}
 }
 
+// literalHover reports whether the token is a literal. We intentionally omit hover text for
+// literals (aligned with TypeScript: no noisy hovers on `42`, `"hi"`, etc.).
+func literalHover(tok *ast.Token) bool {
+	switch tok.Type {
+	case ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral,
+		ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
+		return true
+	default:
+		return false
+	}
+}
+
+// keywordHover returns a single-line quick info string (keyword in backticks), similar to
+// built-in TypeScript keyword hovers — no tutorial paragraphs.
 func keywordHover(tok *ast.Token) string {
 	switch tok.Type {
 	case ast.TokenFunc:
-		return "**func** · declare a function"
+		return "`func`"
 	case ast.TokenType:
-		return "**type** · declare a type alias or shape"
+		return "`type`"
 	case ast.TokenReturn:
-		return "**return** · return from a function"
+		return "`return`"
 	case ast.TokenEnsure:
-		return "**ensure** · contract / assertion"
+		return "`ensure`"
 	case ast.TokenImport:
-		return "**import** · import a package"
+		return "`import`"
 	case ast.TokenPackage:
-		return "**package** · package clause"
+		return "`package`"
 	case ast.TokenInt:
-		return "**Int** · built-in integer type"
+		return "`Int`"
 	case ast.TokenFloat:
-		return "**Float** · built-in float type"
+		return "`Float`"
 	case ast.TokenString:
-		return "**String** · built-in string type"
+		return "`String`"
 	case ast.TokenBool:
-		return "**Bool** · built-in boolean type"
+		return "`Bool`"
 	case ast.TokenVoid:
-		return "**Void** · empty return"
+		return "`Void`"
 	case ast.TokenArray:
-		return "**Array** · array type"
+		return "`Array`"
 	case ast.TokenStruct:
-		return "**struct** · structural type"
+		return "`struct`"
 	default:
 		return ""
 	}
+}
+
+// leadingCommentDocBeforeFunc returns plain text from // or /* */ comments that appear in the
+// token stream immediately before `func` `<name>` (TypeScript-style doc above the signature).
+func leadingCommentDocBeforeFunc(tokens []ast.Token, funcName string) string {
+	idx := findFuncKeywordIndex(tokens, funcName)
+	if idx < 0 {
+		return ""
+	}
+	parts := collectContiguousLeadingCommentLines(tokens, idx)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func findFuncKeywordIndex(tokens []ast.Token, funcName string) int {
+	for i := 0; i+1 < len(tokens); i++ {
+		if tokens[i].Type != ast.TokenFunc {
+			continue
+		}
+		if tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == funcName {
+			return i
+		}
+	}
+	return -1
+}
+
+func collectContiguousLeadingCommentLines(tokens []ast.Token, funcKeywordIdx int) []string {
+	var rev []string
+	for j := funcKeywordIdx - 1; j >= 0 && tokens[j].Type == ast.TokenComment; j-- {
+		line := stripCommentBody(tokens[j].Value)
+		if line != "" {
+			rev = append(rev, line)
+		}
+	}
+	n := len(rev)
+	out := make([]string, n)
+	for i := range rev {
+		out[i] = rev[n-1-i]
+	}
+	return out
+}
+
+func stripCommentBody(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "//") {
+		return strings.TrimSpace(s[2:])
+	}
+	if strings.HasPrefix(s, "/*") {
+		body := strings.TrimSuffix(strings.TrimPrefix(s, "/*"), "*/")
+		return strings.TrimSpace(body)
+	}
+	return s
 }
 
 // getCompletionsForPosition gets completion items for a given position

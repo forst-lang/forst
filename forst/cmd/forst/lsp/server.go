@@ -278,6 +278,9 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 
 	// Clear previous debug events for this file
 	s.debugEvents = make([]DebugEvent, 0)
+	if cd, ok := s.debugger.(*CompilerDebugger); ok {
+		cd.ResetStructuredOutputs()
+	}
 
 	// Get file ID from package store
 	packageStore := s.debugger.(*CompilerDebugger).packageStore
@@ -312,24 +315,19 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 		defer func() {
 			if r := recover(); r != nil {
 				s.log.Errorf("Parser panic for %s: %v", filePath, r)
-				err = fmt.Errorf("parser panic: %v", r)
+				if pe, ok := r.(*parser.ParseError); ok {
+					// Preserve *ParseError so LSP diagnostics get token line/column (fmt.Errorf would stringify it).
+					err = pe
+				} else {
+					err = fmt.Errorf("parser panic: %v", r)
+				}
 			}
 		}()
 		astNodes, err = psr.ParseFile()
 	}()
 
 	if err != nil {
-		// Create detailed diagnostic for parsing error
-		diagnostic := CreateTypeErrorDiagnostic(
-			"file://"+filePath,
-			1, // Default to line 1
-			"",
-			"",
-			"parsing error",
-		)
-		diagnostic.Message = fmt.Sprintf("Parsing error: %v", err)
-		diagnostic.Source = "forst-parser"
-		diagnostic.Code = ErrorCodeInvalidSyntax
+		diagnostic := diagnosticForParseFailure("file://"+filePath, content, err)
 
 		// Log parser error event
 		parserDebugger := s.debugger.GetDebugger(PhaseParser, filePath)
@@ -366,17 +364,8 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	// Type checking with detailed error capture
 	tc := typechecker.New(s.log, false)
 	if err := tc.CheckTypes(astNodes); err != nil {
-		// Create detailed diagnostic for type checking error
-		diagnostic := CreateTypeErrorDiagnostic(
-			"file://"+filePath,
-			1, // Default to line 1
-			"",
-			"",
-			"type checking error",
-		)
+		diagnostic := diagnosticForTypecheckOrTransform("file://"+filePath, content, err, "forst-typechecker", ErrorCodeTypeMismatch)
 		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
-		diagnostic.Source = "forst-typechecker"
-		diagnostic.Code = ErrorCodeTypeMismatch
 
 		// Log typechecker error event with detailed information
 		typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
@@ -425,17 +414,8 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	transformer := transformer_go.New(tc, s.log, false)
 	_, err = transformer.TransformForstFileToGo(astNodes)
 	if err != nil {
-		// Create detailed diagnostic for transformation error
-		diagnostic := CreateTypeErrorDiagnostic(
-			"file://"+filePath,
-			1, // Default to line 1
-			"",
-			"",
-			"transformation error",
-		)
+		diagnostic := diagnosticForTypecheckOrTransform("file://"+filePath, content, err, "forst-transformer", ErrorCodeTransformationFailed)
 		diagnostic.Message = fmt.Sprintf("Transformation error: %v", err)
-		diagnostic.Source = "forst-transformer"
-		diagnostic.Code = ErrorCodeTransformationFailed
 
 		// Log transformer error event
 		transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
