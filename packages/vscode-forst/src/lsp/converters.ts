@@ -5,54 +5,62 @@ import type {
   LspPosition,
   LspRange,
   LspTextEdit,
-} from "./lspClient";
+} from "./types";
 
-export function lspPositionToVs(p: LspPosition): vscode.Position {
+/** Bridges LSP 0-based integer positions to VS Code’s `Position` without trusting negative inputs. */
+export function positionToVs(p: LspPosition): vscode.Position {
   return new vscode.Position(
     Math.max(0, Math.floor(p.line)),
     Math.max(0, Math.floor(p.character))
   );
 }
 
-export function lspRangeToVs(r: LspRange): vscode.Range {
+/** Converts an LSP range to a VS Code `Range` for selections, hovers, and edits. */
+export function rangeToVs(r: LspRange): vscode.Range {
   return new vscode.Range(
-    lspPositionToVs(r.start),
-    lspPositionToVs(r.end)
+    positionToVs(r.start),
+    positionToVs(r.end)
   );
 }
 
-export function lspLocationToVs(loc: LspLocation): vscode.Location {
+/** Turns a single LSP location into a navigable VS Code `Location` for go-to-definition. */
+export function locationToVs(loc: LspLocation): vscode.Location {
   return new vscode.Location(
     vscode.Uri.parse(loc.uri),
-    lspRangeToVs(loc.range)
+    rangeToVs(loc.range)
   );
 }
 
-export function lspDefinitionResultToVs(
+/**
+ * Normalizes definition responses that may be a single location or a list—mirrors how VS Code
+ * providers accept either shape from the language service.
+ */
+export function definitionResultToVs(
   r: LspLocation | LspLocation[] | null | undefined
 ): vscode.Location | vscode.Location[] | undefined {
   if (r == null) {
     return undefined;
   }
   if (Array.isArray(r)) {
-    return r.map(lspLocationToVs);
+    return r.map(locationToVs);
   }
-  return lspLocationToVs(r);
+  return locationToVs(r);
 }
 
-export function lspTextEditsToVs(
+/** Applies LSP text edits in document order through VS Code’s edit API. */
+export function textEditsToVs(
   edits: LspTextEdit[] | null | undefined
 ): vscode.TextEdit[] {
   if (edits == null || edits.length === 0) {
     return [];
   }
   return edits.map(
-    (e) => new vscode.TextEdit(lspRangeToVs(e.range), e.newText)
+    (e) => new vscode.TextEdit(rangeToVs(e.range), e.newText)
   );
 }
 
-/** Map LSP CompletionItemKind to vscode.CompletionItemKind (subset). */
-export function lspCompletionKindToVs(kind: number | undefined): vscode.CompletionItemKind {
+/** Maps LSP `CompletionItemKind` numeric codes to VS Code icons where both define overlapping enums. */
+export function completionKindToVs(kind: number | undefined): vscode.CompletionItemKind {
   if (kind == null || !Number.isFinite(kind)) {
     return vscode.CompletionItemKind.Text;
   }
@@ -77,10 +85,11 @@ export function lspCompletionKindToVs(kind: number | undefined): vscode.Completi
   return map[k] ?? vscode.CompletionItemKind.Text;
 }
 
-export function lspCompletionItemToVs(item: LspCompletionItem): vscode.CompletionItem {
+/** Builds a `CompletionItem` with trusted-documentation flags aligned with the extension’s security posture. */
+export function completionItemToVs(item: LspCompletionItem): vscode.CompletionItem {
   const ci = new vscode.CompletionItem(
     item.label,
-    lspCompletionKindToVs(item.kind)
+    completionKindToVs(item.kind)
   );
   ci.detail = item.detail;
   if (item.documentation !== undefined && item.documentation !== "") {
@@ -102,8 +111,8 @@ export function lspCompletionItemToVs(item: LspCompletionItem): vscode.Completio
   return ci;
 }
 
-/** Best-effort: LSP SymbolKind → vscode.SymbolKind */
-export function lspSymbolKindToVs(kind: number | undefined): vscode.SymbolKind {
+/** Aligns LSP `SymbolKind` with VS Code outline icons for a consistent breadcrumb and symbol view. */
+export function symbolKindToVs(kind: number | undefined): vscode.SymbolKind {
   if (kind == null || !Number.isFinite(kind)) {
     return vscode.SymbolKind.Null;
   }
@@ -139,31 +148,36 @@ export function lspSymbolKindToVs(kind: number | undefined): vscode.SymbolKind {
   return map[k] ?? vscode.SymbolKind.Object;
 }
 
-export interface LspSymbolInformationLike {
+/** Narrow structural type for loose `documentSymbol` JSON before validation. */
+export interface SymbolInformationLike {
   name: string;
   kind?: number;
   location: LspLocation;
   containerName?: string;
 }
 
-export function lspSymbolInformationToVs(raw: unknown): vscode.SymbolInformation | undefined {
+/** Best-effort conversion of one raw symbol entry; skips entries that are not object-shaped. */
+export function symbolInformationToVs(raw: unknown): vscode.SymbolInformation | undefined {
   if (raw == null || typeof raw !== "object") {
     return undefined;
   }
-  const o = raw as LspSymbolInformationLike;
+  const o = raw as SymbolInformationLike;
   if (typeof o.name !== "string" || o.location == null) {
     return undefined;
   }
   return new vscode.SymbolInformation(
     o.name,
-    lspSymbolKindToVs(o.kind),
+    symbolKindToVs(o.kind),
     o.containerName ?? "",
-    lspLocationToVs(o.location)
+    locationToVs(o.location)
   );
 }
 
-/** Map document symbols: prefers flat SymbolInformation; hierarchical DocumentSymbol can be added when the LSP emits it. */
-export function lspDocumentSymbolsToVs(
+/**
+ * Flattens symbol arrays returned by the server into `SymbolInformation` until hierarchical
+ * `DocumentSymbol` support is warranted by the wire format.
+ */
+export function documentSymbolsToVs(
   raw: unknown[]
 ): vscode.DocumentSymbol[] | vscode.SymbolInformation[] {
   if (raw.length === 0) {
@@ -171,7 +185,7 @@ export function lspDocumentSymbolsToVs(
   }
   const infos: vscode.SymbolInformation[] = [];
   for (const item of raw) {
-    const si = lspSymbolInformationToVs(item);
+    const si = symbolInformationToVs(item);
     if (si) {
       infos.push(si);
     }
@@ -179,17 +193,19 @@ export function lspDocumentSymbolsToVs(
   return infos;
 }
 
-export interface LspFoldingRangeLike {
+/** Narrow structural type for folding range payloads. */
+export interface FoldingRangeLike {
   startLine: number;
   endLine: number;
   kind?: string;
 }
 
-export function lspFoldingRangeToVs(raw: unknown): vscode.FoldingRange | undefined {
+/** Maps optional LSP folding kinds to VS Code’s built-in folding range kinds for gutter affordances. */
+export function foldingRangeToVs(raw: unknown): vscode.FoldingRange | undefined {
   if (raw == null || typeof raw !== "object") {
     return undefined;
   }
-  const o = raw as LspFoldingRangeLike;
+  const o = raw as FoldingRangeLike;
   if (!Number.isFinite(o.startLine) || !Number.isFinite(o.endLine)) {
     return undefined;
   }
@@ -207,20 +223,22 @@ export function lspFoldingRangeToVs(raw: unknown): vscode.FoldingRange | undefin
   return fr;
 }
 
-export interface LspCodeLensLike {
+/** Narrow structural type for code lens responses. */
+export interface CodeLensLike {
   range: LspRange;
   command?: { title: string; command: string; arguments?: unknown[] };
 }
 
-export function lspCodeLensToVs(raw: unknown): vscode.CodeLens | undefined {
+/** Instantiates a `CodeLens` with an optional command for inline actions when the server provides them. */
+export function codeLensToVs(raw: unknown): vscode.CodeLens | undefined {
   if (raw == null || typeof raw !== "object") {
     return undefined;
   }
-  const o = raw as LspCodeLensLike;
+  const o = raw as CodeLensLike;
   if (o.range == null) {
     return undefined;
   }
-  const lens = new vscode.CodeLens(lspRangeToVs(o.range));
+  const lens = new vscode.CodeLens(rangeToVs(o.range));
   if (o.command != null && typeof o.command.title === "string") {
     lens.command = {
       title: o.command.title,
@@ -231,17 +249,19 @@ export function lspCodeLensToVs(raw: unknown): vscode.CodeLens | undefined {
   return lens;
 }
 
-export interface LspCodeActionLike {
+/** Narrow structural type for code action payloads. */
+export interface CodeActionLike {
   title: string;
   kind?: string;
   command?: { title: string; command: string; arguments?: unknown[] };
 }
 
-export function lspCodeActionToVs(raw: unknown): vscode.CodeAction | undefined {
+/** Produces a `CodeAction` suitable for the lightbulb menu, including kind and embedded commands. */
+export function codeActionToVs(raw: unknown): vscode.CodeAction | undefined {
   if (raw == null || typeof raw !== "object") {
     return undefined;
   }
-  const o = raw as LspCodeActionLike;
+  const o = raw as CodeActionLike;
   if (typeof o.title !== "string") {
     return undefined;
   }

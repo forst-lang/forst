@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 
+/** Snapshot of `forst.*` workspace settings the LSP layer and spawn logic need in one place. */
 export interface ForstExtensionConfig {
   forstPath: string;
   port: number;
@@ -9,6 +10,7 @@ export interface ForstExtensionConfig {
   autoStart: boolean;
 }
 
+/** Reads the current workspace configuration—call sites get fresh values after settings change. */
 export function readForstConfig(): ForstExtensionConfig {
   const cfg = vscode.workspace.getConfiguration("forst");
   const pathRaw = cfg.get<string>("path") ?? "";
@@ -23,13 +25,14 @@ export function readForstConfig(): ForstExtensionConfig {
   };
 }
 
+/** Builds the loopback URL the HTTP JSON-RPC client and health checks use for a given port. */
 export function lspBaseUrl(port: number): string {
   return `http://127.0.0.1:${port}`;
 }
 
 /**
- * When settings use the default executable name, look for a repo-built binary
- * (`bin/forst`) by walking up from each workspace folder. Falls back to PATH (`forst`).
+ * Lets contributors run against `bin/forst` from a clone without editing settings, while still
+ * honoring explicit paths when provided.
  */
 export function resolveForstExecutable(forstPath: string): string {
   const p = forstPath.trim();

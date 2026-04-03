@@ -1,82 +1,26 @@
-/** LSP diagnostic subset used from forst HTTP responses */
-export interface LspDiagnostic {
-  range: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-  severity?: number;
-  message: string;
-  source?: string;
-  code?: string;
-}
+import type { LogOutputChannel } from "vscode";
+import {
+  LspHttpResponseError,
+  LspJsonRpcResponseError,
+  LspMalformedResponseError,
+} from "./errors";
+import type {
+  LspCompletionItem,
+  LspCompletionList,
+  LspHoverResult,
+  LspLocation,
+  LspRange,
+  LspTextEdit,
+  PublishDiagnosticsParams,
+} from "./types";
 
-export interface PublishDiagnosticsParams {
-  uri: string;
-  diagnostics: LspDiagnostic[];
-}
-
-/** LSP MarkedString (`language` + `value`) or MarkupContent (`kind` + `value`). */
-export interface LspMarkedString {
-  language?: string;
-  value: string;
-}
-
-export type LspHoverContents =
-  | string
-  | LspMarkedString
-  | { kind: string; value: string }
-  | (string | LspMarkedString)[];
-
-/** Subset of LSP Hover result returned by forst HTTP LSP. */
-export interface LspHoverResult {
-  contents: LspHoverContents;
-  range?: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-}
-
-export interface LspPosition {
-  line: number;
-  character: number;
-}
-
-export interface LspRange {
-  start: LspPosition;
-  end: LspPosition;
-}
-
-export interface LspLocation {
-  uri: string;
-  range: LspRange;
-}
-
-export interface LspTextEdit {
-  range: LspRange;
-  newText: string;
-}
-
-export interface LspCompletionItem {
-  label: string;
-  kind?: number;
-  detail?: string;
-  documentation?: string;
-  sortText?: string;
-  filterText?: string;
-  insertText?: string;
-  insertTextFormat?: number;
-}
-
-export interface LspCompletionList {
-  isIncomplete?: boolean;
-  items: LspCompletionItem[];
-}
-
+/** Wire-level JSON-RPC error object when `result` is absent. */
 interface JsonRpcError {
   code: number;
   message: string;
 }
 
+/** Parsed POST body shape before branching on `result` vs `error`. */
 interface JsonRpcResponse {
   jsonrpc: string;
   id?: number | string | null;
@@ -84,68 +28,19 @@ interface JsonRpcResponse {
   error?: JsonRpcError;
 }
 
-/** Base class for Forst HTTP LSP client failures. */
-export class LspClientError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "LspClientError";
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
-/** HTTP response status was not OK. */
-export class LspHttpResponseError extends LspClientError {
-  constructor(
-    readonly status: number,
-    readonly bodySnippet: string
-  ) {
-    super(`LSP HTTP ${status}: ${bodySnippet}`);
-    this.name = "LspHttpResponseError";
-  }
-}
-
-/** Response body was not valid JSON. */
-export class LspMalformedResponseError extends LspClientError {
-  constructor(
-    readonly rawBodySnippet: string,
-    cause: unknown
-  ) {
-    super(`Invalid JSON from LSP: ${rawBodySnippet}`, { cause });
-    this.name = "LspMalformedResponseError";
-  }
-}
-
-/** JSON-RPC error object was present in the response. */
-export class LspJsonRpcResponseError extends LspClientError {
-  constructor(
-    readonly rpcCode: number,
-    rpcMessage: string
-  ) {
-    super(
-      rpcMessage.trim().length > 0 ? rpcMessage : `LSP error ${rpcCode}`
-    );
-    this.name = "LspJsonRpcResponseError";
-  }
-}
-
-/** LSP /health did not become ready within the timeout. */
-export class LspHealthTimeoutError extends LspClientError {
-  constructor(
-    readonly healthUrl: string,
-    readonly lastError: string | undefined
-  ) {
-    super(
-      `Forst LSP did not respond on ${healthUrl} (${lastError ?? "unknown"})`
-    );
-    this.name = "LspHealthTimeoutError";
-  }
-}
-
+/**
+ * Thin JSON-RPC over HTTP to the Forst compiler’s LSP mode—lets the extension stay in-process
+ * while reusing the same methods as a full LSP client would call.
+ */
 export class ForstHttpLspClient {
   private nextId = 1;
 
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly log?: LogOutputChannel
+  ) {}
 
+  /** Stable base URL for comparing reconnects and health checks. */
   get base(): string {
     return this.baseUrl;
   }
@@ -158,26 +53,42 @@ export class ForstHttpLspClient {
       method,
       params,
     };
-    const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const text = await res.text();
+    let res: Response;
+    let text: string;
+    try {
+      res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      text = await res.text();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log?.error(`LSP ${method}: network error — ${msg}`);
+      throw e;
+    }
     if (!res.ok) {
-      throw new LspHttpResponseError(res.status, text.slice(0, 200));
+      const err = new LspHttpResponseError(res.status, text.slice(0, 200));
+      this.log?.error(`LSP ${method}: HTTP ${res.status} — ${err.message}`);
+      throw err;
     }
     let json: JsonRpcResponse;
     try {
       json = JSON.parse(text) as JsonRpcResponse;
     } catch (cause) {
-      throw new LspMalformedResponseError(text.slice(0, 200), cause);
+      const err = new LspMalformedResponseError(text.slice(0, 200), cause);
+      this.log?.error(`LSP ${method}: invalid JSON — ${err.message}`);
+      throw err;
     }
     if (json.error) {
-      throw new LspJsonRpcResponseError(
+      const err = new LspJsonRpcResponseError(
         json.error.code,
         json.error.message ?? ""
       );
+      this.log?.error(
+        `LSP ${method}: JSON-RPC ${json.error.code} — ${err.message}`
+      );
+      throw err;
     }
     return json.result;
   }
