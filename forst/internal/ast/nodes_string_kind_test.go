@@ -44,6 +44,10 @@ func TestNodeKindAndString_representativeNodes(t *testing.T) {
 		{"Dereference", DereferenceNode{Value: VariableNode{Ident: Ident{ID: "p"}}}, NodeKindDereference, "Deref"},
 		{"SimpleParam", SimpleParamNode{Ident: Ident{ID: "a"}, Type: TypeNode{Ident: TypeInt}}, NodeKindSimpleParam, "a"},
 		{"TypeDef", TypeDefNode{Ident: "T", Expr: TypeDefShapeExpr{Shape: ShapeNode{Fields: map[string]ShapeFieldNode{}}}}, NodeKindTypeDef, "T"},
+		{"For_classic", ForNode{Cond: BoolLiteralNode{Value: true}, Body: []Node{}}, NodeKindFor, "For"},
+		{"For_range", ForNode{IsRange: true, RangeX: VariableNode{Ident: Ident{ID: "xs"}}, Body: []Node{}}, NodeKindFor, "range"},
+		{"Break", BreakNode{}, NodeKindBreak, "Break"},
+		{"Continue", ContinueNode{}, NodeKindContinue, "Continue"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

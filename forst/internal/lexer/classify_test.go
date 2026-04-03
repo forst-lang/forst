@@ -3,7 +3,7 @@ package lexer
 import "testing"
 
 func TestIsSpecialChar(t *testing.T) {
-	special := []byte{'(', ')', '{', '}', ':', ',', '+', '-', '*', '/', '%', '=', '!', '>', '<', '&', '|', '.', '[', ']'}
+	special := []byte{'(', ')', '{', '}', ':', ',', '+', '-', '*', '/', '%', '=', '!', '>', '<', '&', '|', '.', '[', ']', ';'}
 	for _, c := range special {
 		if !isSpecialChar(c) {
 			t.Errorf("isSpecialChar(%q) = false", c)
@@ -15,7 +15,7 @@ func TestIsSpecialChar(t *testing.T) {
 }
 
 func TestIsTwoCharOperator(t *testing.T) {
-	yes := []string{"->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//"}
+	yes := []string{"->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//", "++", "--"}
 	for _, s := range yes {
 		if !isTwoCharOperator(s) {
 			t.Errorf("isTwoCharOperator(%q) = false", s)

@@ -35,6 +35,8 @@ type TypeChecker struct {
 	log *logrus.Logger
 	// Whether to report phases
 	reportPhases bool
+	// loopDepth counts nested for-loop bodies for break/continue validation
+	loopDepth int
 }
 
 // New creates a new TypeChecker

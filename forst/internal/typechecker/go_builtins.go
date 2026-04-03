@@ -35,6 +35,14 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
 	},
+	// Go predeclared string(): conversion (e.g. code point to UTF-8 string)
+	"string": {
+		Name:           "string",
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeString},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeInt}},
+		AcceptSubtypes: true,
+	},
 	"print": {
 		Name:           "print",
 		Package:        "", // No package required
@@ -520,6 +528,23 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		"calledFn":   fn.Name,
 		"argsLength": len(args),
 	}).Debugf("Validating builtin function call")
+
+	if fn.Name == "string" && len(args) == 1 {
+		argType, err := tc.inferExpressionType(args[0])
+		if err != nil {
+			return nil, err
+		}
+		if len(argType) != 1 {
+			return nil, fmt.Errorf("string() expects one argument")
+		}
+		switch argType[0].Ident {
+		case ast.TypeInt:
+			return []ast.TypeNode{fn.ReturnType}, nil
+		default:
+			return nil, fmt.Errorf("string() unsupported operand type %s", argType[0].Ident)
+		}
+	}
+
 	// Check argument count
 	if !fn.IsVarArgs && len(args) != len(fn.ParamTypes) {
 		tc.log.WithFields(logrus.Fields{

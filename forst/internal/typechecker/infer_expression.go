@@ -50,6 +50,35 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
+	case ast.ArrayLiteralNode:
+		if len(e.Value) == 0 {
+			elem := ast.TypeNode{Ident: ast.TypeInt}
+			if e.Type.Ident != ast.TypeImplicit && e.Type.Ident != "" {
+				elem = e.Type
+			}
+			arr := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elem}}
+			tc.storeInferredType(e, []ast.TypeNode{arr})
+			return []ast.TypeNode{arr}, nil
+		}
+		var elemType ast.TypeNode
+		for i, el := range e.Value {
+			ts, err := tc.inferExpressionType(el)
+			if err != nil {
+				return nil, err
+			}
+			if len(ts) != 1 {
+				return nil, fmt.Errorf("array element %d: expected a single type", i)
+			}
+			if i == 0 {
+				elemType = ts[0]
+			} else if elemType.Ident != ts[0].Ident {
+				return nil, fmt.Errorf("array literal: mixed element types %s and %s", elemType.Ident, ts[0].Ident)
+			}
+		}
+		arr := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elemType}}
+		tc.storeInferredType(e, []ast.TypeNode{arr})
+		return []ast.TypeNode{arr}, nil
+
 	case ast.VariableNode:
 		// Look up the variable's type and store it for this node
 		typ, err := tc.LookupVariableType(&e, tc.CurrentScope())

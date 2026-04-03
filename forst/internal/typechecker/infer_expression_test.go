@@ -79,3 +79,51 @@ func TestFunctionCallWithShapeLiteralArgument(t *testing.T) {
 		t.Errorf("Expected shape literal to be compatible with AppMutation, got %v", argTypes[0])
 	}
 }
+
+func TestInferExpressionType_ArrayLiteralNode_homogeneousInts(t *testing.T) {
+	tc := New(logrus.New(), false)
+	arr := ast.ArrayLiteralNode{
+		Value: []ast.LiteralNode{
+			ast.IntLiteralNode{Value: 1},
+			ast.IntLiteralNode{Value: 2},
+		},
+		Type: ast.TypeNode{Ident: ast.TypeImplicit},
+	}
+	types, err := tc.inferExpressionType(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 || types[0].Ident != ast.TypeArray || len(types[0].TypeParams) != 1 || types[0].TypeParams[0].Ident != ast.TypeInt {
+		t.Fatalf("got %+v", types)
+	}
+}
+
+func TestInferExpressionType_ArrayLiteralNode_mixedElementTypes(t *testing.T) {
+	tc := New(logrus.New(), false)
+	arr := ast.ArrayLiteralNode{
+		Value: []ast.LiteralNode{
+			ast.IntLiteralNode{Value: 1},
+			ast.StringLiteralNode{Value: "x"},
+		},
+		Type: ast.TypeNode{Ident: ast.TypeImplicit},
+	}
+	_, err := tc.inferExpressionType(arr)
+	if err == nil {
+		t.Fatal("expected error for mixed element types")
+	}
+}
+
+func TestInferExpressionType_ArrayLiteralNode_emptyDefaultsToIntElem(t *testing.T) {
+	tc := New(logrus.New(), false)
+	arr := ast.ArrayLiteralNode{
+		Value: []ast.LiteralNode{},
+		Type:  ast.TypeNode{Ident: ast.TypeImplicit},
+	}
+	types, err := tc.inferExpressionType(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 || types[0].Ident != ast.TypeArray || len(types[0].TypeParams) != 1 || types[0].TypeParams[0].Ident != ast.TypeInt {
+		t.Fatalf("got %+v", types)
+	}
+}

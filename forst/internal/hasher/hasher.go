@@ -44,6 +44,20 @@ var NodeKind = map[string]uint8{
 	"Reference":        14,
 	"MapLiteral":       15,
 	"NilLiteral":       16,
+	"For":              17,
+	"Break":            18,
+	"Continue":         19,
+}
+
+func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
+	if node == nil {
+		return writeHash(w, NilHash)
+	}
+	hash, err := h.HashNode(node)
+	if err != nil {
+		return err
+	}
+	return writeHash(w, hash)
 }
 
 // hashNodes generates a structural hash for multiple AST nodes
@@ -594,6 +608,60 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 	case *ast.IfNode:
 		return h.HashNode(*n)
+	case *ast.ForNode:
+		fn := *n
+		h.writeHashes(hasher, NodeKind["For"])
+		if err := h.hashOptionalNode(hasher, fn.Init); err != nil {
+			return 0, err
+		}
+		if fn.Cond != nil {
+			hash, err := h.HashNode(fn.Cond)
+			if err != nil {
+				return 0, err
+			}
+			h.writeHashes(hasher, hash)
+		}
+		if err := h.hashOptionalNode(hasher, fn.Post); err != nil {
+			return 0, err
+		}
+		if fn.IsRange {
+			h.writeHashes(hasher, byte(1))
+			if fn.RangeX != nil {
+				hash, err := h.HashNode(fn.RangeX)
+				if err != nil {
+					return 0, err
+				}
+				h.writeHashes(hasher, hash)
+			}
+			if fn.RangeKey != nil {
+				h.writeHashes(hasher, string(fn.RangeKey.ID))
+			}
+			if fn.RangeValue != nil {
+				h.writeHashes(hasher, string(fn.RangeValue.ID))
+			}
+			var short byte
+			if fn.RangeShort {
+				short = 1
+			}
+			h.writeHashes(hasher, short)
+		} else {
+			h.writeHashes(hasher, byte(0))
+		}
+		hash, err := h.hashNodes(fn.Body)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
+	case *ast.BreakNode:
+		h.writeHashes(hasher, NodeKind["Break"])
+		if n != nil && n.Label != nil {
+			h.writeHashes(hasher, string(n.Label.ID))
+		}
+	case *ast.ContinueNode:
+		h.writeHashes(hasher, NodeKind["Continue"])
+		if n != nil && n.Label != nil {
+			h.writeHashes(hasher, string(n.Label.ID))
+		}
 	case ast.ReferenceNode:
 		h.writeHashes(hasher, NodeKind["Reference"])
 		hash, err := h.HashNode(n.Value)

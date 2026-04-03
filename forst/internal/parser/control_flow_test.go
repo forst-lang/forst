@@ -205,6 +205,36 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "if equality is not parsed as assignment init",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenIf, Value: "if", Line: 2, Column: 4},
+				{Type: ast.TokenIdentifier, Value: "j", Line: 2, Column: 7},
+				{Type: ast.TokenEquals, Value: "==", Line: 2, Column: 9},
+				{Type: ast.TokenIntLiteral, Value: "2", Line: 2, Column: 12},
+				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 14},
+				{Type: ast.TokenContinue, Value: "continue", Line: 3, Column: 8},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 4},
+				{Type: ast.TokenRBrace, Value: "}", Line: 5, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 5, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				ifNode := assertNodeType[*ast.IfNode](t, functionNode.Body[0], "*ast.IfNode")
+				if ifNode.Init != nil {
+					t.Fatalf("expected no init, got %T", ifNode.Init)
+				}
+				bin := assertNodeType[ast.BinaryExpressionNode](t, ifNode.Condition, "ast.BinaryExpressionNode")
+				if bin.Operator != ast.TokenEquals {
+					t.Fatalf("want ==, got %s", bin.Operator)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

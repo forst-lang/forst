@@ -1442,3 +1442,46 @@ func TestTransformExpression_ShapeGuardIssues_Minimal(t *testing.T) {
 		t.Errorf("Found hash-based type T_8XMnUftkRoa instead of named type in output: %s", callStr)
 	}
 }
+
+func TestTransformExpression_ArrayLiteralNode(t *testing.T) {
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	main := ast.FunctionNode{
+		Ident: ast.Ident{ID: "main"},
+		Body: []ast.Node{
+			ast.AssignmentNode{
+				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "xs"}}},
+				RValues: []ast.ExpressionNode{
+					ast.ArrayLiteralNode{
+						Value: []ast.LiteralNode{
+							ast.IntLiteralNode{Value: 1},
+							ast.IntLiteralNode{Value: 2},
+						},
+						Type: ast.TypeNode{Ident: ast.TypeImplicit},
+					},
+				},
+				IsShort: true,
+			},
+		},
+	}
+	if err := tc.CheckTypes([]ast.Node{main}); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+
+	assign := main.Body[0].(ast.AssignmentNode)
+	arr := assign.RValues[0].(ast.ArrayLiteralNode)
+	out, err := tr.transformExpression(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), out); err != nil {
+		t.Fatal(err)
+	}
+	s := buf.String()
+	if !contains(s, "[]int") || !contains(s, "1") || !contains(s, "2") {
+		t.Fatalf("expected []int{1, 2} style literal, got %q", s)
+	}
+}

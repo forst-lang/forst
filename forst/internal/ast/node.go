@@ -97,4 +97,6 @@ const (
 	NodeKindMapLiteral        NodeKind = "MapLiteral"
 	NodeKindShapeGuard        NodeKind = "ShapeGuard"
 	NodeKindNilLiteral        NodeKind = "NilLiteral"
+	NodeKindBreak             NodeKind = "Break"
+	NodeKindContinue          NodeKind = "Continue"
 )

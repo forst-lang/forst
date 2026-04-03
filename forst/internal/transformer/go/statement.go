@@ -1102,6 +1102,42 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			Tok: operator,
 			Rhs: rhs,
 		}, nil
+	case *ast.IfNode:
+		return t.transformIfNode(s)
+	case *ast.ForNode:
+		return t.transformForNode(s)
+	case *ast.BreakNode:
+		bs := &goast.BranchStmt{Tok: token.BREAK}
+		if s.Label != nil {
+			bs.Label = goast.NewIdent(string(s.Label.ID))
+		}
+		return bs, nil
+	case *ast.ContinueNode:
+		cs := &goast.BranchStmt{Tok: token.CONTINUE}
+		if s.Label != nil {
+			cs.Label = goast.NewIdent(string(s.Label.ID))
+		}
+		return cs, nil
+	case ast.UnaryExpressionNode:
+		if s.Operator == ast.TokenPlusPlus || s.Operator == ast.TokenMinusMinus {
+			v, ok := s.Operand.(ast.VariableNode)
+			if !ok {
+				return nil, fmt.Errorf("++/-- only applies to variables")
+			}
+			tok := token.INC
+			if s.Operator == ast.TokenMinusMinus {
+				tok = token.DEC
+			}
+			return &goast.IncDecStmt{
+				X:   goast.NewIdent(string(v.Ident.ID)),
+				Tok: tok,
+			}, nil
+		}
+		ex, err := t.transformExpression(s)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.ExprStmt{X: ex}, nil
 	case ast.VariableNode:
 		// This case is now handled by transformReturnStatement
 		return nil, fmt.Errorf("transformStatement: VariableNode should not be directly transformed here")

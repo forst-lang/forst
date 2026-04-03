@@ -184,6 +184,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/echo.ft
 
+  example:loop:
+    desc: Compile for-loop / range example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/loop.ft
+
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst

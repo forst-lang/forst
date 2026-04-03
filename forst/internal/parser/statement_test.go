@@ -199,6 +199,36 @@ func TestParseBlockStatement(t *testing.T) {
 				assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
 			},
 		},
+		{
+			name: "break and continue statements",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenFor, Value: "for", Line: 2, Column: 4},
+				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 8},
+				{Type: ast.TokenBreak, Value: "break", Line: 3, Column: 6},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 4},
+				{Type: ast.TokenFor, Value: "for", Line: 5, Column: 4},
+				{Type: ast.TokenLBrace, Value: "{", Line: 5, Column: 8},
+				{Type: ast.TokenContinue, Value: "continue", Line: 6, Column: 6},
+				{Type: ast.TokenRBrace, Value: "}", Line: 7, Column: 4},
+				{Type: ast.TokenRBrace, Value: "}", Line: 8, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 8, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				fn := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				if len(fn.Body) != 2 {
+					t.Fatalf("expected 2 statements, got %d", len(fn.Body))
+				}
+				loop1 := assertNodeType[*ast.ForNode](t, fn.Body[0], "*ast.ForNode")
+				assertNodeType[*ast.BreakNode](t, loop1.Body[0], "*ast.BreakNode")
+				loop2 := assertNodeType[*ast.ForNode](t, fn.Body[1], "*ast.ForNode")
+				assertNodeType[*ast.ContinueNode](t, loop2.Body[0], "*ast.ContinueNode")
+			},
+		},
 	}
 
 	for _, tt := range tests {

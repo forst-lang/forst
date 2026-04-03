@@ -19,6 +19,10 @@ func TestGetTokenType_keywordsAndOperators(t *testing.T) {
 		{"->", ast.TokenArrow},
 		{"//", ast.TokenComment},
 		{".", ast.TokenDot},
+		{"++", ast.TokenPlusPlus},
+		{"--", ast.TokenMinusMinus},
+		{"true", ast.TokenTrue},
+		{"false", ast.TokenFalse},
 	}
 	for _, tt := range tests {
 		if got := GetTokenType(tt.word); got != tt.want {

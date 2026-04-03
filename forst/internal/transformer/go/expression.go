@@ -112,6 +112,30 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		return goast.NewIdent("false"), nil
 	case ast.NilLiteralNode:
 		return goast.NewIdent("nil"), nil
+	case ast.ArrayLiteralNode:
+		elts := make([]goast.Expr, 0, len(e.Value))
+		for _, item := range e.Value {
+			ex, err := t.transformExpression(item.(ast.ExpressionNode))
+			if err != nil {
+				return nil, err
+			}
+			elts = append(elts, ex)
+		}
+		elemType := ast.TypeNode{Ident: ast.TypeInt}
+		if hash, err := t.TypeChecker.Hasher.HashNode(e); err == nil {
+			if types, ok := t.TypeChecker.Types[hash]; ok && len(types) == 1 &&
+				types[0].Ident == ast.TypeArray && len(types[0].TypeParams) > 0 {
+				elemType = types[0].TypeParams[0]
+			}
+		}
+		eltGo, err := t.transformType(elemType)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.CompositeLit{
+			Type: &goast.ArrayType{Elt: eltGo},
+			Elts: elts,
+		}, nil
 	case ast.UnaryExpressionNode:
 		op, err := t.transformOperator(e.Operator)
 		if err != nil {

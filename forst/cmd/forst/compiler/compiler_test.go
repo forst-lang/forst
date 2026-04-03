@@ -18,6 +18,11 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "valid loop program",
+			filePath: "../../../../examples/in/loop.ft",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,

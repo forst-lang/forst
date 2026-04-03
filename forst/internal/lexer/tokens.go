@@ -41,6 +41,8 @@ var Keywords = map[string]ast.TokenIdent{
 	"defer":       ast.TokenDefer,
 	"goto":        ast.TokenGoto,
 	"nil":         ast.TokenNil,
+	"true":        ast.TokenTrue,
+	"false":       ast.TokenFalse,
 }
 
 // Operators maps Forst operators to their token types
@@ -53,7 +55,9 @@ var Operators = map[string]ast.TokenIdent{
 	"[":  ast.TokenLBracket,
 	"]":  ast.TokenRBracket,
 	"+":  ast.TokenPlus,
+	"++": ast.TokenPlusPlus,
 	"-":  ast.TokenMinus,
+	"--": ast.TokenMinusMinus,
 	"*":  ast.TokenStar,
 	"/":  ast.TokenDivide,
 	"%":  ast.TokenModulo,

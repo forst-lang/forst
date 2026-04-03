@@ -22,8 +22,8 @@ func (p *Parser) parseIfStatement() ast.Node {
 		}
 	case ast.TokenIdentifier:
 		next := p.peek()
-		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
-			// Handle assignment or short var decl
+		if next.Type == ast.TokenColonEquals || (next.Type == ast.TokenEquals && next.Value == "=") {
+			// Handle assignment or short var decl (`==` is equality, not assignment)
 			init = p.parseAssignment()
 		} else if next.Type == ast.TokenPlusPlus || next.Type == ast.TokenMinusMinus {
 			// Handle inc/dec statement
@@ -92,17 +92,59 @@ func (p *Parser) parseIfStatement() ast.Node {
 func (p *Parser) parseIncDecStmt() ast.Node {
 	ident := p.expect(ast.TokenIdentifier)
 	op := p.current()
-	if op.Type != ast.TokenPlusPlus && op.Type != ast.TokenMinusMinus {
+	var operator ast.TokenIdent
+	switch {
+	case op.Type == ast.TokenPlusPlus:
+		operator = ast.TokenPlusPlus
+		p.advance()
+	case op.Type == ast.TokenMinusMinus:
+		operator = ast.TokenMinusMinus
+		p.advance()
+	case op.Type == ast.TokenPlus && p.peek().Type == ast.TokenPlus:
+		operator = ast.TokenPlusPlus
+		p.advance()
+		p.advance()
+	case op.Type == ast.TokenMinus && p.peek().Type == ast.TokenMinus:
+		operator = ast.TokenMinusMinus
+		p.advance()
+		p.advance()
+	default:
 		p.FailWithParseError(op, "Expected ++ or --")
 	}
-	p.advance() // Consume operator
 
 	return ast.UnaryExpressionNode{
-		Operator: op.Type,
+		Operator: operator,
 		Operand: ast.VariableNode{
 			Ident: ast.Ident{ID: ast.Identifier(ident.Value)},
 		},
 	}
+}
+
+// parseSimpleStatement parses a single simple statement (for if/for init/post, or expression statement).
+func (p *Parser) parseSimpleStatement() ast.Node {
+	switch p.current().Type {
+	case ast.TokenVar:
+		return p.parseVarStatement()
+	case ast.TokenIdentifier:
+		next := p.peek()
+		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
+			return p.parseAssignment()
+		}
+		if next.Type == ast.TokenPlusPlus || next.Type == ast.TokenMinusMinus {
+			return p.parseIncDecStmt()
+		}
+		// Lexer may emit `++` as two `+` tokens
+		if next.Type == ast.TokenPlus && p.peek(1).Type == ast.TokenPlus {
+			return p.parseIncDecStmt()
+		}
+		if next.Type == ast.TokenMinus && p.peek(1).Type == ast.TokenMinus {
+			return p.parseIncDecStmt()
+		}
+		if next.Type == ast.TokenArrow {
+			return p.parseSendStmt()
+		}
+	}
+	return p.parseExpression()
 }
 
 // parseSendStmt parses a send statement (channel <- value)

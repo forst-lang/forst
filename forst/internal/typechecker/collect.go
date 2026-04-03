@@ -115,31 +115,22 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		tc.popScope()
 		return nil
 	case ast.IfNode:
-		tc.log.WithFields(logrus.Fields{
-			"node":     n.String(),
-			"function": "collectExplicitTypes",
-		}).Debug("Storing scope for if")
-		tc.pushScope(n)
-
-		for _, node := range n.Body {
-			if err := tc.collectExplicitTypes(node); err != nil {
-				return err
-			}
+		if err := tc.collectIfNode(&n); err != nil {
+			return err
+		}
+	case *ast.IfNode:
+		if err := tc.collectIfNode(n); err != nil {
+			return err
 		}
 
-		for _, node := range n.ElseIfs {
-			if err := tc.collectExplicitTypes(node); err != nil {
-				return err
-			}
+	case ast.ForNode:
+		if err := tc.collectForNode(&n); err != nil {
+			return err
 		}
-
-		if n.Else != nil {
-			if err := tc.collectExplicitTypes(n.Else); err != nil {
-				return err
-			}
+	case *ast.ForNode:
+		if err := tc.collectForNode(n); err != nil {
+			return err
 		}
-
-		tc.popScope()
 	case ast.ElseIfNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
@@ -172,3 +163,60 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 	return nil
 }
+
+func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
+	tc.log.WithFields(logrus.Fields{
+		"node":     n.String(),
+		"function": "collectIfNode",
+	}).Debug("Storing scope for if")
+	tc.pushScope(n)
+
+	for _, node := range n.Body {
+		if err := tc.collectExplicitTypes(node); err != nil {
+			return err
+		}
+	}
+
+	for _, node := range n.ElseIfs {
+		if err := tc.collectExplicitTypes(node); err != nil {
+			return err
+		}
+	}
+
+	if n.Else != nil {
+		if err := tc.collectExplicitTypes(n.Else); err != nil {
+			return err
+		}
+	}
+
+	tc.popScope()
+	return nil
+}
+
+func (tc *TypeChecker) collectForNode(n *ast.ForNode) error {
+	tc.log.WithFields(logrus.Fields{
+		"function": "collectForNode",
+	}).Debug("Storing scope for for-loop")
+	tc.pushScope(n)
+
+	if n.Init != nil {
+		if err := tc.collectExplicitTypes(n.Init); err != nil {
+			return err
+		}
+	}
+	if n.Post != nil {
+		if err := tc.collectExplicitTypes(n.Post); err != nil {
+			return err
+		}
+	}
+
+	for _, node := range n.Body {
+		if err := tc.collectExplicitTypes(node); err != nil {
+			return err
+		}
+	}
+
+	tc.popScope()
+	return nil
+}
+

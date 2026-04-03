@@ -53,6 +53,35 @@ func TestProcessSpecialChar_twoCharOperator(t *testing.T) {
 	}
 }
 
+func TestProcessSpecialChar_incrementDecrement(t *testing.T) {
+	for _, tt := range []struct {
+		line string
+		want ast.TokenIdent
+	}{
+		{"++x", ast.TokenPlusPlus},
+		{"--y", ast.TokenMinusMinus},
+	} {
+		tok, next := processSpecialChar([]byte(tt.line), 0, "f.ft", 1)
+		if tok.Type != tt.want || len(tok.Value) != 2 {
+			t.Fatalf("%q: got %+v", tt.line, tok)
+		}
+		if next != 2 {
+			t.Fatalf("%q: next %d", tt.line, next)
+		}
+	}
+}
+
+func TestProcessSpecialChar_semicolon(t *testing.T) {
+	line := []byte(";x")
+	tok, next := processSpecialChar(line, 0, "f.ft", 1)
+	if tok.Type != ast.TokenSemicolon || tok.Value != ";" {
+		t.Fatalf("token: %+v", tok)
+	}
+	if next != 1 {
+		t.Fatalf("next: %d", next)
+	}
+}
+
 func TestProcessWord_identifier(t *testing.T) {
 	line := []byte("foo ")
 	tok, next := processWord(line, 0, "f.ft", 1)
@@ -60,6 +89,17 @@ func TestProcessWord_identifier(t *testing.T) {
 		t.Fatalf("token: %+v", tok)
 	}
 	if next != 3 {
+		t.Fatalf("next: %d", next)
+	}
+}
+
+func TestProcessWord_identifier_stopsBeforeSemicolon(t *testing.T) {
+	line := []byte("n;n")
+	tok, next := processWord(line, 0, "f.ft", 1)
+	if tok.Type != ast.TokenIdentifier || tok.Value != "n" {
+		t.Fatalf("token: %+v", tok)
+	}
+	if next != 1 {
 		t.Fatalf("next: %d", next)
 	}
 }

@@ -131,3 +131,27 @@ func TestReturnTypeInference_ShapeLiteralVsNamedType(t *testing.T) {
 		t.Errorf("Expected inferred type to be compatible with EchoResponse (shape literal matches named type)")
 	}
 }
+
+func TestCheckBuiltinFunctionCall_stringInt(t *testing.T) {
+	tc := New(logrus.New(), false)
+	fn, ok := BuiltinFunctions["string"]
+	if !ok {
+		t.Fatal("missing string builtin")
+	}
+	types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 7}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 || types[0].Ident != ast.TypeString {
+		t.Fatalf("got %+v", types)
+	}
+}
+
+func TestCheckBuiltinFunctionCall_stringRejectsNonInt(t *testing.T) {
+	tc := New(logrus.New(), false)
+	fn := BuiltinFunctions["string"]
+	_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}})
+	if err == nil {
+		t.Fatal("expected error for string() of string")
+	}
+}

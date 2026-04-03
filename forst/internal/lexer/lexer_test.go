@@ -119,6 +119,27 @@ func TestLexer_BasicTokens(t *testing.T) {
 				{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
 			},
 		},
+		{
+			name:  "increment and decrement",
+			input: "i++ j--",
+			expected: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "i", FileID: testFileID, Line: 1, Column: 1},
+				{Type: ast.TokenPlusPlus, Value: "++", FileID: testFileID, Line: 1, Column: 2},
+				{Type: ast.TokenIdentifier, Value: "j", FileID: testFileID, Line: 1, Column: 5},
+				{Type: ast.TokenMinusMinus, Value: "--", FileID: testFileID, Line: 1, Column: 6},
+				{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
+			},
+		},
+		{
+			name:  "semicolon not part of identifier",
+			input: "n;n",
+			expected: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "n", FileID: testFileID, Line: 1, Column: 1},
+				{Type: ast.TokenSemicolon, Value: ";", FileID: testFileID, Line: 1, Column: 2},
+				{Type: ast.TokenIdentifier, Value: "n", FileID: testFileID, Line: 1, Column: 3},
+				{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
+			},
+		},
 	}
 
 	for _, tt := range tests {

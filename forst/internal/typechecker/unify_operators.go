@@ -16,6 +16,23 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 	}
 	leftType := leftTypes[0]
 
+	if right == nil {
+		switch operator {
+		case ast.TokenLogicalNot:
+			if leftType.Ident != ast.TypeBool {
+				return ast.TypeNode{}, fmt.Errorf("logical not expects bool, got %s", leftType.Ident)
+			}
+			return ast.TypeNode{Ident: ast.TypeBool}, nil
+		case ast.TokenPlusPlus, ast.TokenMinusMinus:
+			if leftType.Ident != ast.TypeInt && leftType.Ident != ast.TypeFloat {
+				return ast.TypeNode{}, fmt.Errorf("increment/decrement expects numeric type, got %s", leftType.Ident)
+			}
+			return leftType, nil
+		default:
+			return ast.TypeNode{}, fmt.Errorf("unsupported unary operator %s", operator)
+		}
+	}
+
 	rightTypes, err := tc.inferExpressionType(right)
 	if err != nil {
 		return ast.TypeNode{}, err

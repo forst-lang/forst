@@ -10,7 +10,7 @@ func processOrder(order {
   println("Processing order for: " + order.customer.name)
   println("Customer email: " + order.customer.email)
   
-  for item in order.items {
+  for _, item := range order.items {
     println("Item: " + item.id + ", Quantity: " + string(item.quantity))
   }
 }

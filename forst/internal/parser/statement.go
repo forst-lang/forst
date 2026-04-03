@@ -60,20 +60,27 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		ifStatement := p.parseIfStatement()
 		p.logParsedNode(ifStatement)
 		body = append(body, ifStatement)
-	// case ast.TokenFor:
-	// if p.context.IsTypeGuard() {
-	// 	p.FailWithParseError(token, "For loop not allowed in type guards")
-	// }
-	// 	forStatement := p.parseForStatement()
-	// 	p.logParsedNode(forStatement)
-	// 	body = append(body, forStatement)
-	// case ast.TokenSwitch:
-	// if p.context.IsTypeGuard() {
-	// 	p.FailWithParseError(token, "Switch statement not allowed in type guards")
-	// }
-	// 	switchStatement := p.parseSwitchStatement()
-	// 	p.logParsedNode(switchStatement)
-	// 	body = append(body, switchStatement)
+	case ast.TokenFor:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "For loop not allowed in type guards")
+		}
+		forStatement := p.parseForStatement()
+		p.logParsedNode(forStatement)
+		body = append(body, forStatement)
+	case ast.TokenBreak:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "Break not allowed in type guards")
+		}
+		br := p.parseBreakStatement()
+		p.logParsedNode(br)
+		body = append(body, br)
+	case ast.TokenContinue:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "Continue not allowed in type guards")
+		}
+		cont := p.parseContinueStatement()
+		p.logParsedNode(cont)
+		body = append(body, cont)
 	default:
 		expr := p.parseExpression()
 		p.logParsedNode(expr)

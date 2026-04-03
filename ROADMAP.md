@@ -32,6 +32,9 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Binary type expressions | 📋 planned | Not implemented. |
 | Type aliases | 📋 planned | Not implemented. |
 | Generic types | 📋 planned | Not implemented. |
+| `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Parser, typechecker, and Go emit cover the usual Go forms; `examples/in/loop.ft` + `task example:loop`. Gaps: labeled `break`/`continue`, channel `range`, Go 1.22+ integer `range`—see issues if you need them. |
+| `break` / `continue` | ✅ done | Unguarded form; labels not implemented yet. |
+| `switch` / `case` / `select` | 📋 planned | Keywords exist in the lexer; statement support not wired through. |
 
 ---
 
@@ -56,7 +59,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Emitted code is valid Go for the **supported compiler/toolchain** (see `forst/go.mod`) | ✅ done | Primary guarantee today: output matches what we build and test against. |
-| Forst syntax that mirrors Go (subset) maps to familiar Go constructs | ✅ done | See README “backwards-compatible with Go” examples. |
+| Forst syntax that mirrors Go (subset) maps to familiar Go constructs | ✅ done | See README “backwards-compatible with Go” examples; includes `for`/`range`/`break`/`continue`, `if` with init, and boolean literals as keywords. |
 | Mixed packages: Forst (`.ft`) alongside `.go` in one module / tree | 🔬 experimental | Works in common layouts; edge cases still shaken out with imports and discovery. |
 | Idiomatic, readable generated Go (names, structure, `error` handling) | 🔬 experimental | Ongoing polish; not frozen. |
 | **Selectable minimum Go version** for emitted code (e.g. emit for older `go` than the compiler) | 📋 planned | Single emit path; no `-target` / compatibility mode yet. |

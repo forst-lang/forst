@@ -409,3 +409,28 @@ func TestNodeHash_ToGuardIdent(t *testing.T) {
 		t.Errorf("Expected guard identifier to start with 'G_', got %s", guardIdent)
 	}
 }
+
+func TestStructuralHasher_ForBreakContinue(t *testing.T) {
+	h := New()
+	loop := &ast.ForNode{
+		IsRange: true,
+		RangeX:  ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		RangeKey: &ast.Ident{ID: "k"},
+		Body:    []ast.Node{&ast.BreakNode{}, &ast.ContinueNode{}},
+	}
+	h1, err := h.HashNode(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := h.HashNode(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != h2 {
+		t.Fatal("for loop hash not stable")
+	}
+	br := &ast.BreakNode{Label: &ast.Ident{ID: "L"}}
+	if _, err := h.HashNode(br); err != nil {
+		t.Fatal(err)
+	}
+}

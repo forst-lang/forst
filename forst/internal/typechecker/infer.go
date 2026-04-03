@@ -242,13 +242,31 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.IfNode:
-		tc.pushScope(n)
-		for _, node := range n.Body {
-			if _, err := tc.inferNodeType(node); err != nil {
-				return nil, err
-			}
+		return tc.inferIfStatement(n)
+	case *ast.IfNode:
+		return tc.inferIfStatement(*n)
+
+	case *ast.ForNode:
+		return tc.inferForNode(n)
+	case ast.ForNode:
+		return tc.inferForNode(&n)
+
+	case *ast.BreakNode:
+		if n.Label != nil {
+			return nil, fmt.Errorf("labeled break is not implemented yet")
 		}
-		tc.popScope()
+		if tc.loopDepth == 0 {
+			return nil, fmt.Errorf("break is not inside a loop")
+		}
+		return nil, nil
+	case *ast.ContinueNode:
+		if n.Label != nil {
+			return nil, fmt.Errorf("labeled continue is not implemented yet")
+		}
+		if tc.loopDepth == 0 {
+			return nil, fmt.Errorf("continue is not inside a loop")
+		}
+		return nil, nil
 
 	case ast.ElseBlockNode:
 		tc.pushScope(n)
@@ -258,6 +276,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 		tc.popScope()
+		return nil, nil
 	}
 
 	return nil, fmt.Errorf("%s", typecheckErrorMessageWithNode(&node, fmt.Sprintf("unsupported node type %T", node)))
