@@ -11,3 +11,11 @@ func TestDereferenceNode_String(t *testing.T) {
 		t.Fatal(d.String(), d.Kind())
 	}
 }
+
+func TestDereferenceNode_GetIdent_and_isValue_marker(t *testing.T) {
+	d := DereferenceNode{Value: VariableNode{Ident: Ident{ID: "q"}}}
+	if d.GetIdent() != d.Value.String() {
+		t.Fatal(d.GetIdent())
+	}
+	DereferenceNode{}.isValue()
+}

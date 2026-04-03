@@ -225,3 +225,73 @@ func TestIsShapeRefinement(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeGuardNode_GetIdent(t *testing.T) {
+	tg := TypeGuardNode{Ident: "MyGuard", Subject: SimpleParamNode{Ident: Ident{ID: "s"}, Type: TypeNode{Ident: "Shape"}}}
+	if tg.GetIdent() != "MyGuard" {
+		t.Fatal(tg.GetIdent())
+	}
+}
+
+func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
+	shapeSubject := SimpleParamNode{Ident: Ident{ID: "s"}, Type: TypeNode{Ident: "Shape"}}
+	validReturn := ReturnNode{
+		Values: []ExpressionNode{
+			BinaryExpressionNode{
+				Left:     VariableNode{Ident: Ident{ID: "s"}},
+				Operator: TokenIs,
+				Right: ShapeNode{Fields: map[string]ShapeFieldNode{
+					"f": {Type: &TypeNode{Ident: TypeString}},
+				}},
+			},
+		},
+	}
+	t.Run("multiple_body_statements", func(t *testing.T) {
+		node := TypeGuardNode{
+			Ident:   "G",
+			Subject: shapeSubject,
+			Body: []Node{
+				validReturn,
+				validReturn,
+			},
+		}
+		if err := ValidateShapeGuard(node); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	t.Run("first_statement_not_return", func(t *testing.T) {
+		node := TypeGuardNode{
+			Ident:   "G",
+			Subject: shapeSubject,
+			Body:    []Node{IntLiteralNode{Value: 1}},
+		}
+		if err := ValidateShapeGuard(node); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+	t.Run("return_two_values", func(t *testing.T) {
+		node := TypeGuardNode{
+			Ident:   "G",
+			Subject: shapeSubject,
+			Body: []Node{
+				ReturnNode{Values: []ExpressionNode{IntLiteralNode{Value: 1}, IntLiteralNode{Value: 2}}},
+			},
+		}
+		if err := ValidateShapeGuard(node); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+}
+
+func TestIsShapeRefinement_left_not_variable(t *testing.T) {
+	ok := isShapeRefinement(BinaryExpressionNode{
+		Left:     IntLiteralNode{Value: 1},
+		Operator: TokenIs,
+		Right: ShapeNode{Fields: map[string]ShapeFieldNode{
+			"f": {Type: &TypeNode{Ident: TypeString}},
+		}},
+	})
+	if ok {
+		t.Fatal("expected false when left is not a variable")
+	}
+}

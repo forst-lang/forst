@@ -99,3 +99,44 @@ func TestTypeNode_String_branches(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeNode_String_type_object_case(t *testing.T) {
+	s := TypeNode{Ident: TypeObject, TypeKind: TypeKindBuiltin}.String()
+	if !strings.Contains(s, "Object") {
+		t.Fatal(s)
+	}
+}
+
+func TestTypeNode_String_each_simple_builtin_switch_case(t *testing.T) {
+	cases := []struct {
+		ident TypeIdent
+		sub   string
+	}{
+		{TypeFloat, "Float"},
+		{TypeString, "String"},
+		{TypeBool, "Bool"},
+		{TypeVoid, "Void"},
+		{TypeError, "Error"},
+	}
+	for _, tc := range cases {
+		s := TypeNode{Ident: tc.ident, TypeKind: TypeKindBuiltin}.String()
+		if !strings.Contains(s, tc.sub) {
+			t.Fatalf("Ident %v: String() = %q, want substring %q", tc.ident, s, tc.sub)
+		}
+	}
+}
+
+func TestTypeNode_String_default_branch_multiple_type_params(t *testing.T) {
+	tn := TypeNode{
+		Ident:    "Pair",
+		TypeKind: TypeKindUserDefined,
+		TypeParams: []TypeNode{
+			{Ident: TypeInt, TypeKind: TypeKindBuiltin},
+			{Ident: TypeString, TypeKind: TypeKindBuiltin},
+		},
+	}
+	s := tn.String()
+	if !strings.Contains(s, "Pair<") || !strings.Contains(s, "Int") || !strings.Contains(s, "String") {
+		t.Fatal(s)
+	}
+}

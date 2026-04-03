@@ -24,3 +24,18 @@ func TestReturnNode_String_zero_one_and_multi(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestJoinStrings_all_branches(t *testing.T) {
+	if joinStrings([]string{}, ",") != "" {
+		t.Fatal("empty")
+	}
+	if joinStrings([]string{"a"}, ",") != "a" {
+		t.Fatal("single")
+	}
+	if joinStrings([]string{"a", "b"}, ",") != "a,b" {
+		t.Fatal("two")
+	}
+	if joinStrings([]string{"a", "b", "c"}, " | ") != "a | b | c" {
+		t.Fatal("three")
+	}
+}

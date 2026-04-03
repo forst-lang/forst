@@ -189,11 +189,11 @@ type TestLoggerOptions struct {
 	ForceLevel logrus.Level
 }
 
-// SetupTestLogger creates a test logger
-func SetupTestLogger(opts *TestLoggerOptions) *logrus.Logger {
+// setupTestLogger is extracted so tests can cover the verbose branch without requiring -test.v.
+func setupTestLogger(opts *TestLoggerOptions, verbose func() bool) *logrus.Logger {
 	logger := logrus.New()
 
-	if testing.Verbose() {
+	if verbose() {
 		logger.SetLevel(logrus.DebugLevel)
 	}
 
@@ -202,4 +202,9 @@ func SetupTestLogger(opts *TestLoggerOptions) *logrus.Logger {
 	}
 
 	return logger
+}
+
+// SetupTestLogger creates a test logger
+func SetupTestLogger(opts *TestLoggerOptions) *logrus.Logger {
+	return setupTestLogger(opts, testing.Verbose)
 }

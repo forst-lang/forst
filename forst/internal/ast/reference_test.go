@@ -14,3 +14,7 @@ func TestReferenceNode_String_and_GetIdent(t *testing.T) {
 		t.Fatal(r.String(), r.GetIdent())
 	}
 }
+
+func TestReferenceNode_isValue_marker(t *testing.T) {
+	ReferenceNode{}.isValue()
+}

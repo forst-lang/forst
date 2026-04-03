@@ -14,3 +14,7 @@ func TestVariableNode_String_explicit_and_plain(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestVariableNode_isValue_marker(t *testing.T) {
+	VariableNode{}.isValue()
+}

@@ -17,6 +17,45 @@ func TestSetupTestLogger_forceLevel(t *testing.T) {
 	}
 }
 
+func TestSetupTestLogger_nil_opts(t *testing.T) {
+	l := SetupTestLogger(nil)
+	if l == nil {
+		t.Fatal("nil logger")
+	}
+}
+
+func TestSetupTestLogger_verbose_branch(t *testing.T) {
+	if !testing.Verbose() {
+		t.Skip("run with -v to cover debug level branch in SetupTestLogger")
+	}
+	l := SetupTestLogger(nil)
+	if l.GetLevel() != logrus.DebugLevel {
+		t.Fatalf("verbose run: got level %v", l.GetLevel())
+	}
+}
+
+func TestSetupTestLogger_injected_verbose(t *testing.T) {
+	l := setupTestLogger(nil, func() bool { return true })
+	if l.GetLevel() != logrus.DebugLevel {
+		t.Fatalf("expected Debug when verbose returns true, got %v", l.GetLevel())
+	}
+	l2 := setupTestLogger(nil, func() bool { return false })
+	if l2.GetLevel() != logrus.InfoLevel {
+		t.Fatalf("expected default Info when verbose false and no opts, got %v", l2.GetLevel())
+	}
+	l3 := setupTestLogger(&TestLoggerOptions{ForceLevel: logrus.WarnLevel}, func() bool { return true })
+	if l3.GetLevel() != logrus.WarnLevel {
+		t.Fatalf("opts should override verbose level, got %v", l3.GetLevel())
+	}
+}
+
+func TestMakeStringLiteral(t *testing.T) {
+	l := MakeStringLiteral("hello")
+	if l.Value != "hello" || l.Kind() != NodeKindStringLiteral {
+		t.Fatal(l)
+	}
+}
+
 func TestMakeTypeDef_and_shape_helpers(t *testing.T) {
 	td := MakeTypeDef("T", MakeShape(map[string]ShapeFieldNode{"a": MakeTypeField(TypeInt)}))
 	if td.GetIdent() != "T" || td.Kind() != NodeKindTypeDef {

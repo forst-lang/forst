@@ -38,3 +38,24 @@ func TestTypeDefBinaryExpr_conjunction_disjunction_String(t *testing.T) {
 		t.Fatal(and.String())
 	}
 }
+
+func TestTypeDefExpr_marker_methods(t *testing.T) {
+	TypeDefAssertionExpr{}.isTypeDefExpr()
+	TypeDefBinaryExpr{}.isTypeDefExpr()
+	TypeDefShapeExpr{}.isTypeDefExpr()
+}
+
+func TestTypeDefBinaryExpr_and_TypeDefShapeExpr_Kind(t *testing.T) {
+	bin := TypeDefBinaryExpr{
+		Op:    TokenBitwiseAnd,
+		Left:  TypeDefShapeExpr{Shape: ShapeNode{}},
+		Right: TypeDefShapeExpr{Shape: ShapeNode{}},
+	}
+	if bin.Kind() != NodeKindTypeDefBinaryExpr {
+		t.Fatal(bin.Kind())
+	}
+	shapeExpr := TypeDefShapeExpr{Shape: ShapeNode{}}
+	if shapeExpr.Kind() != NodeKindTypeDefShape {
+		t.Fatal(shapeExpr.Kind())
+	}
+}
