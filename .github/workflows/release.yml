@@ -68,7 +68,7 @@ jobs:
           # Build binaries for multiple platforms with version info
           task build:release VERSION=$VERSION COMMIT=$COMMIT DATE=$DATE
 
-          # List built files
+          # dist/: cross-platform forst binaries/archives + forst-vscode-<VERSION>.vsix
           ls -la dist/
 
       - name: Upload binary to GitHub Release
