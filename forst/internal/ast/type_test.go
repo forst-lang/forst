@@ -5,6 +5,38 @@ import (
 	"testing"
 )
 
+func TestTypeNode_builtin_hash_user_implicit_explicit_error(t *testing.T) {
+	b := NewBuiltinType(TypeInt)
+	if !b.IsGoBuiltin() || b.IsHashBased() || b.IsUserDefined() {
+		t.Fatal()
+	}
+	h := NewHashBasedType("T_abc")
+	if !h.IsHashBased() {
+		t.Fatal()
+	}
+	ud := NewUserDefinedType("App")
+	if !ud.IsUserDefined() {
+		t.Fatal()
+	}
+	implicit := TypeNode{Ident: TypeImplicit}
+	if !implicit.IsImplicit() || implicit.IsExplicit() {
+		t.Fatal()
+	}
+	explicit := TypeNode{Ident: TypeInt}
+	if !explicit.IsExplicit() || explicit.IsImplicit() {
+		t.Fatal()
+	}
+	if !(TypeNode{Ident: TypeError}).IsError() {
+		t.Fatal()
+	}
+}
+
+func TestTypeIdent_String_custom_name_default_branch(t *testing.T) {
+	if TypeIdent("ZZZ").String() != "ZZZ" {
+		t.Fatal(TypeIdent("ZZZ").String())
+	}
+}
+
 func TestTypeIdent_String_all_known_tokens(t *testing.T) {
 	cases := []struct {
 		id   TypeIdent
@@ -65,18 +97,5 @@ func TestTypeNode_String_branches(t *testing.T) {
 				t.Fatalf("String() = %q, want substring %q", s, tt.sub)
 			}
 		})
-	}
-}
-
-func TestTokenIdent_String_logical_and_bitwise(t *testing.T) {
-	if TokenBitwiseAnd.String() != "&" || TokenBitwiseOr.String() != "|" {
-		t.Fatal(TokenBitwiseAnd.String(), TokenBitwiseOr.String())
-	}
-	if TokenLogicalAnd.String() != "&&" || TokenLogicalOr.String() != "||" {
-		t.Fatal(TokenLogicalAnd.String(), TokenLogicalOr.String())
-	}
-	// default branch
-	if TokenPlus.String() != string(TokenPlus) {
-		t.Fatalf("%q", TokenPlus.String())
 	}
 }
