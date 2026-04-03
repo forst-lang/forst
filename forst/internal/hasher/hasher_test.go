@@ -333,6 +333,13 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 			if nh == 0 {
 				t.Fatal("zero hash")
 			}
+			nh2, err := h.HashNode(tt.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if nh != nh2 {
+				t.Fatalf("HashNode not deterministic: %v vs %v", nh, nh2)
+			}
 		})
 	}
 }

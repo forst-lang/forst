@@ -124,8 +124,9 @@ func TestImportGroupNode_string(t *testing.T) {
 	if g.Kind() != NodeKindImportGroup {
 		t.Fatal(g.Kind())
 	}
-	if !strings.Contains(g.String(), "a") {
-		t.Fatal(g.String())
+	s := g.String()
+	if !strings.Contains(s, "a") || !strings.Contains(s, "b") {
+		t.Fatalf("ImportGroupNode.String() should include both imports: %q", s)
 	}
 }
 
@@ -161,13 +162,24 @@ func TestEnsureErrorCall_and_EnsureErrorVar_String(t *testing.T) {
 	}
 }
 
-func TestImportNode_alias_and_IsGrouped(t *testing.T) {
+func TestImportNode_alias_format(t *testing.T) {
 	alias := Ident{ID: "f"}
 	n := ImportNode{Path: "fmt", Alias: &alias}
-	if !strings.Contains(n.String(), "as") || !strings.Contains(n.String(), "f") {
-		t.Fatal(n.String())
+	// ImportNode.String() uses "Import(path as alias)" when Alias is set.
+	s := n.String()
+	if !strings.Contains(s, "as") || !strings.Contains(s, "f") {
+		t.Fatalf("ImportNode.String() = %q", s)
 	}
+}
+
+func TestImportNode_IsGrouped_placeholder(t *testing.T) {
+	n := ImportNode{Path: "fmt"}
 	if n.IsGrouped() {
-		t.Fatal("placeholder IsGrouped is false")
+		t.Fatal("ImportNode.IsGrouped() placeholder returns false")
+	}
+	alias := Ident{ID: "f"}
+	withAlias := ImportNode{Path: "fmt", Alias: &alias}
+	if withAlias.IsGrouped() {
+		t.Fatal("ImportNode.IsGrouped() placeholder returns false")
 	}
 }

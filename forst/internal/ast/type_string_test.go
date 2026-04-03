@@ -55,7 +55,7 @@ func TestTypeNode_String_branches(t *testing.T) {
 		{"pointer_with_param", NewPointerType(NewBuiltinType(TypeString)), "Pointer("},
 		{"pointer_empty", TypeNode{Ident: TypePointer}, "Pointer"},
 		{"default_user_ident", TypeNode{Ident: "MyType", TypeKind: TypeKindUserDefined}, "MyType"},
-		{"default_with_assertion", TypeNode{Ident: "X", Assertion: assertion}, "X"},
+		{"default_with_assertion", TypeNode{Ident: "X", Assertion: assertion}, "X("},
 		{"default_with_type_params", TypeNode{Ident: "Box", TypeParams: []TypeNode{{Ident: TypeInt}}}, "Box<"},
 	}
 	for _, tt := range tests {

@@ -23,7 +23,8 @@ func TestParseError_Location_and_Error(t *testing.T) {
 
 func TestParseError_Location_without_context(t *testing.T) {
 	e := &ParseError{Token: ast.Token{Line: 1, Column: 2}, Msg: "oops"}
-	if !strings.Contains(e.Location(), "line 1") {
-		t.Fatal(e.Location())
+	loc := e.Location()
+	if !strings.Contains(loc, "line 1") || !strings.Contains(loc, "column 2") {
+		t.Fatalf("Location() = %q", loc)
 	}
 }

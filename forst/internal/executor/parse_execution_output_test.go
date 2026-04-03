@@ -1,7 +1,8 @@
 package executor
 
 import (
-	"strings"
+	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -86,11 +87,28 @@ func TestFunctionExecutor_parseExecutionOutput_JSON_branches(t *testing.T) {
 
 func TestFunctionExecutor_parseExecutionOutput_result_array_default_branch(t *testing.T) {
 	e := &FunctionExecutor{log: logrus.New()}
-	res, err := e.parseExecutionOutput(`{"result":[1,2]}`)
+	raw := `{"result":[1,2]}`
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatal(err)
+	}
+	wantJSON, err := json.Marshal(payload["result"])
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(res.Output, "[") || !res.Success {
-		t.Fatalf("got %+v", res)
+	wantOut := string(wantJSON)
+
+	res, err := e.parseExecutionOutput(raw)
+	if err != nil {
+		t.Fatalf("parseExecutionOutput: %v", err)
+	}
+	if !res.Success {
+		t.Fatal("expected Success true")
+	}
+	if res.Output != wantOut {
+		t.Fatalf("ExecutionResult.Output = %q, want %q", res.Output, wantOut)
+	}
+	if !bytes.Equal(res.Result, wantJSON) {
+		t.Fatalf("ExecutionResult.Result = %s, want %s", res.Result, wantJSON)
 	}
 }
