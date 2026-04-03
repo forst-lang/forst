@@ -3,14 +3,12 @@ package lsp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"unicode/utf8"
 
 	"forst/internal/ast"
 	"forst/internal/lexer"
-	"forst/internal/parser"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -86,28 +84,18 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 
 // findHoverForPosition finds hover information for a given position.
 func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPHover {
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
-
-	if !strings.HasSuffix(filePath, ".ft") {
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
 		return nil
 	}
-
-	s.documentMu.RLock()
-	content, haveOpen := s.openDocuments[uri]
-	s.documentMu.RUnlock()
-
-	if !haveOpen || content == "" {
-		b, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil
-		}
-		content = string(b)
+	tok := tokenAtLSPPosition(ctx.Tokens, position)
+	if tok == nil {
+		return nil
 	}
-
-	return s.hoverMarkdownForContent(filePath, content, position)
+	if ctx.ParseErr != nil || ctx.TC == nil {
+		return nil
+	}
+	return s.hoverFromAnalyzedContext(ctx, tok)
 }
 
 func basicHoverMarkdown(text string) *LSPHover {
@@ -119,39 +107,19 @@ func basicHoverMarkdown(text string) *LSPHover {
 	}
 }
 
-func (s *LSPServer) hoverMarkdownForContent(filePath, content string, position LSPPosition) *LSPHover {
+func (s *LSPServer) hoverFromAnalyzedContext(ctx *forstDocumentContext, tok *ast.Token) *LSPHover {
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.WithFields(logrus.Fields{
-				"function": "hoverMarkdownForContent",
+				"function": "hoverFromAnalyzedContext",
 				"panic":    r,
 			}).Debug("hover panic recovered")
 		}
 	}()
 
-	cd, ok := s.debugger.(*CompilerDebugger)
-	if !ok {
-		return nil
-	}
-	packageStore := cd.packageStore
-	fileID := packageStore.RegisterFile(filePath, extractPackagePath(filePath))
-	lex := lexer.New([]byte(content), string(fileID), s.log)
-	tokens := lex.Lex()
-	tok := tokenAtLSPPosition(tokens, position)
-	if tok == nil {
-		return nil
-	}
-
-	psr := parser.New(tokens, string(fileID), s.log)
-	astNodes, err := psr.ParseFile()
-	if err != nil {
-		// Diagnostics carry parse errors; hover stays quiet (matches typical TS / LSP behavior).
-		return nil
-	}
-
-	tc := typechecker.New(s.log, false)
-	if err := tc.CheckTypes(astNodes); err != nil {
-		// Still show quick info for the symbol when inferable; full error is in Problems.
+	tc := ctx.TC
+	tokens := ctx.Tokens
+	if ctx.CheckErr != nil {
 		text := hoverTextForToken(tc, tokens, tok)
 		if text == "" {
 			return nil
@@ -363,26 +331,51 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition) 
 	return completions
 }
 
-// handleWorkspaceSymbol handles the workspace/symbol method
+// handleWorkspaceSymbol handles workspace/symbol over open .ft buffers (didOpen/didChange sync only).
 func (s *LSPServer) handleWorkspaceSymbol(request LSPRequest) LSPServerResponse {
-	// Parse query from params
-	var params map[string]interface{}
+	var params struct {
+		Query string `json:"query"`
+	}
 	if err := json.Unmarshal(request.Params, &params); err != nil {
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
 			Error: &LSPError{
-				Code:    -32602,
-				Message: "Invalid params",
+				Code:    -32700,
+				Message: "Parse error",
 			},
 		}
 	}
 
-	// For now, return empty array (no workspace symbols found)
-	// TODO: Implement actual workspace symbol search
+	q := strings.ToLower(strings.TrimSpace(params.Query))
+
+	s.documentMu.RLock()
+	uris := make([]string, 0, len(s.openDocuments))
+	for u := range s.openDocuments {
+		uris = append(uris, u)
+	}
+	s.documentMu.RUnlock()
+
+	var out []LspSymbolInformation
+	for _, uri := range uris {
+		if !strings.HasPrefix(uri, "file://") || !strings.HasSuffix(uri, ".ft") {
+			continue
+		}
+		ctx, ok := s.analyzeForstDocument(uri)
+		if !ok || ctx == nil || ctx.ParseErr != nil || ctx.Nodes == nil {
+			continue
+		}
+		for _, sym := range symbolsFromParsedDocument(uri, ctx.Tokens, ctx.Nodes) {
+			if q != "" && !strings.Contains(strings.ToLower(sym.Name), q) {
+				continue
+			}
+			out = append(out, sym)
+		}
+	}
+
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result:  []interface{}{},
+		Result:  out,
 	}
 }

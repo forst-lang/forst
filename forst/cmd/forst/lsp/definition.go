@@ -2,14 +2,10 @@ package lsp
 
 import (
 	"encoding/json"
-	"os"
-	"runtime"
 	"strings"
 	"unicode/utf8"
 
 	"forst/internal/ast"
-	"forst/internal/lexer"
-	"forst/internal/parser"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -63,77 +59,47 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 		}
 	}()
 
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
-	if !strings.HasSuffix(filePath, ".ft") {
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
 		return nil
 	}
-
-	s.documentMu.RLock()
-	content, haveOpen := s.openDocuments[uri]
-	s.documentMu.RUnlock()
-	if !haveOpen || content == "" {
-		b, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil
-		}
-		content = string(b)
-	}
-
-	cd, ok := s.debugger.(*CompilerDebugger)
-	if !ok {
-		return nil
-	}
-	packageStore := cd.packageStore
-	fileID := packageStore.RegisterFile(filePath, extractPackagePath(filePath))
-	lex := lexer.New([]byte(content), string(fileID), s.log)
-	tokens := lex.Lex()
+	tokens := ctx.Tokens
 	tok := tokenAtLSPPosition(tokens, position)
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
-
-	psr := parser.New(tokens, string(fileID), s.log)
-	astNodes, err := psr.ParseFile()
-	if err != nil {
+	defTok := definingTokenForNavigableSymbol(ctx.TC, tokens, tok)
+	if defTok == nil {
 		return nil
 	}
+	return lspLocationPtrFromToken(uri, defTok)
+}
 
-	tc := typechecker.New(s.log, false)
-	_ = tc.CheckTypes(astNodes)
-
+// definingTokenForNavigableSymbol returns the defining identifier token for a top-level function,
+// user type, or type guard when the cursor token refers to that name (same rules as go-to-definition).
+func definingTokenForNavigableSymbol(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) *ast.Token {
+	if tok == nil || tok.Type != ast.TokenIdentifier {
+		return nil
+	}
 	id := ast.Identifier(tok.Value)
-
 	if _, ok := tc.Functions[id]; ok {
-		if defTok := findFuncNameToken(tokens, string(id)); defTok != nil {
-			return lspLocationPtrFromToken(uri, defTok)
-		}
-		return nil
+		return findFuncNameToken(tokens, string(id))
 	}
-
 	if strings.HasPrefix(tok.Value, "T_") {
 		return nil
 	}
-
 	def, ok := tc.Defs[ast.TypeIdent(tok.Value)]
 	if !ok {
 		return nil
 	}
-
 	switch def.(type) {
 	case ast.TypeDefNode:
-		if defTok := findTypeNameToken(tokens, tok.Value); defTok != nil {
-			return lspLocationPtrFromToken(uri, defTok)
-		}
+		return findTypeNameToken(tokens, tok.Value)
 	case *ast.TypeGuardNode:
-		if defTok := findTypeGuardNameToken(tokens, tok.Value); defTok != nil {
-			return lspLocationPtrFromToken(uri, defTok)
-		}
+		return findTypeGuardNameToken(tokens, tok.Value)
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 func lspLocationPtrFromToken(uri string, t *ast.Token) *LSPLocation {

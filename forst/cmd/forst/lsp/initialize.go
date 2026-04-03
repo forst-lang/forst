@@ -9,7 +9,7 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 		},
 		"completionProvider": map[string]interface{}{
 			"triggerCharacters": []string{".", ":", "(", " "},
-			"resolveProvider":   true,
+			"resolveProvider":   false,
 		},
 		"hoverProvider": true,
 		"diagnosticProvider": map[string]interface{}{
