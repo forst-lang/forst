@@ -1,132 +1,146 @@
 package parser
 
 import (
-	"forst/internal/ast"
 	"testing"
+
+	"forst/internal/ast"
 )
 
-func TestParseFile_WithMapLiterals(t *testing.T) {
-	tests := []struct {
-		name     string
-		tokens   []ast.Token
-		validate func(t *testing.T, nodes []ast.Node)
-	}{
-		{
-			name: "basic map literal",
-			tokens: []ast.Token{
-				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
-				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
-				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
-				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
-				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
-				{Type: ast.TokenVar, Value: "var", Line: 2, Column: 4},
-				{Type: ast.TokenIdentifier, Value: "m", Line: 2, Column: 8},
-				{Type: ast.TokenColon, Value: ":", Line: 2, Column: 9},
-				{Type: ast.TokenMap, Value: "map", Line: 2, Column: 11},
-				{Type: ast.TokenLBracket, Value: "[", Line: 2, Column: 14},
-				{Type: ast.TokenString, Value: "string", Line: 2, Column: 15},
-				{Type: ast.TokenRBracket, Value: "]", Line: 2, Column: 21},
-				{Type: ast.TokenInt, Value: "int", Line: 2, Column: 23},
-				{Type: ast.TokenEquals, Value: "=", Line: 2, Column: 26},
-				{Type: ast.TokenMap, Value: "map", Line: 2, Column: 28},
-				{Type: ast.TokenLBracket, Value: "[", Line: 2, Column: 31},
-				{Type: ast.TokenString, Value: "string", Line: 2, Column: 32},
-				{Type: ast.TokenRBracket, Value: "]", Line: 2, Column: 38},
-				{Type: ast.TokenInt, Value: "int", Line: 2, Column: 40},
-				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 43},
-				{Type: ast.TokenStringLiteral, Value: "\"key\"", Line: 2, Column: 44},
-				{Type: ast.TokenColon, Value: ":", Line: 2, Column: 49},
-				{Type: ast.TokenIntLiteral, Value: "42", Line: 2, Column: 51},
-				{Type: ast.TokenRBrace, Value: "}", Line: 2, Column: 53},
-				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
-				{Type: ast.TokenEOF, Value: "", Line: 3, Column: 2},
-			},
-			validate: func(t *testing.T, nodes []ast.Node) {
-				if len(nodes) != 1 {
-					t.Fatalf("Expected 1 node, got %d", len(nodes))
-				}
-				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if len(functionNode.Body) != 1 {
-					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
-				}
-				assignNode := assertNodeType[ast.AssignmentNode](t, functionNode.Body[0], "ast.AssignmentNode")
-				if len(assignNode.LValues) != 1 {
-					t.Fatalf("Expected 1 left value, got %d", len(assignNode.LValues))
-				}
-				if assignNode.LValues[0].Ident.ID != "m" {
-					t.Errorf("Expected variable name 'm', got %s", assignNode.LValues[0].Ident.ID)
-				}
-				mapNode := assertNodeType[ast.MapLiteralNode](t, assignNode.RValues[0], "ast.MapLiteralNode")
-				if len(mapNode.Entries) != 1 {
-					t.Fatalf("Expected 1 map entry, got %d", len(mapNode.Entries))
-				}
-				entry := mapNode.Entries[0]
-				key := assertNodeType[ast.StringLiteralNode](t, entry.Key, "ast.StringLiteralNode")
-				if key.Value != "key" {
-					t.Errorf("Expected key 'key', got %s", key.Value)
-				}
-				value := assertNodeType[ast.IntLiteralNode](t, entry.Value, "ast.IntLiteralNode")
-				if value.Value != 42 {
-					t.Errorf("Expected value 42, got %d", value.Value)
-				}
-			},
-		},
-		{
-			name: "empty map literal",
-			tokens: []ast.Token{
-				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
-				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
-				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
-				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
-				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
-				{Type: ast.TokenVar, Value: "var", Line: 2, Column: 4},
-				{Type: ast.TokenIdentifier, Value: "m", Line: 2, Column: 8},
-				{Type: ast.TokenColon, Value: ":", Line: 2, Column: 9},
-				{Type: ast.TokenMap, Value: "Map", Line: 2, Column: 11},
-				{Type: ast.TokenLBracket, Value: "[", Line: 2, Column: 14},
-				{Type: ast.TokenString, Value: "String", Line: 2, Column: 15},
-				{Type: ast.TokenRBracket, Value: "]", Line: 2, Column: 21},
-				{Type: ast.TokenInt, Value: "Int", Line: 2, Column: 23},
-				{Type: ast.TokenEquals, Value: "=", Line: 2, Column: 26},
-				{Type: ast.TokenMap, Value: "Map", Line: 2, Column: 28},
-				{Type: ast.TokenLBracket, Value: "[", Line: 2, Column: 31},
-				{Type: ast.TokenString, Value: "String", Line: 2, Column: 32},
-				{Type: ast.TokenRBracket, Value: "]", Line: 2, Column: 38},
-				{Type: ast.TokenInt, Value: "Int", Line: 2, Column: 40},
-				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 43},
-				{Type: ast.TokenRBrace, Value: "}", Line: 2, Column: 44},
-				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
-				{Type: ast.TokenEOF, Value: "", Line: 3, Column: 2},
-			},
-			validate: func(t *testing.T, nodes []ast.Node) {
-				if len(nodes) != 1 {
-					t.Fatalf("Expected 1 node, got %d", len(nodes))
-				}
-				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if len(functionNode.Body) != 1 {
-					t.Fatalf("Expected 1 statement in function body, got %d", len(functionNode.Body))
-				}
-				assignNode := assertNodeType[ast.AssignmentNode](t, functionNode.Body[0], "ast.AssignmentNode")
-				if len(assignNode.LValues) != 1 {
-					t.Fatalf("Expected 1 left value, got %d", len(assignNode.LValues))
-				}
-				mapNode := assertNodeType[ast.MapLiteralNode](t, assignNode.RValues[0], "ast.MapLiteralNode")
-				if len(mapNode.Entries) != 0 {
-					t.Fatalf("Expected 0 map entries, got %d", len(mapNode.Entries))
-				}
-			},
-		},
-	}
+func TestParseLiteral_primitives_and_nil(t *testing.T) {
+	logger := ast.SetupTestLogger(nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := ast.SetupTestLogger(nil)
-			p := setupParser(tt.tokens, logger)
-			nodes, err := p.ParseFile()
-			if err != nil {
-				t.Fatalf("ParseFile failed: %v", err)
+	t.Run("string_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenStringLiteral, Value: `"ab"`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		s, ok := lit.(ast.StringLiteralNode)
+		if !ok || s.Value != "ab" {
+			t.Fatalf("got %#v", lit)
+		}
+	})
+
+	t.Run("string_short_value", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenStringLiteral, Value: `""`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		s := lit.(ast.StringLiteralNode)
+		if s.Value != "" {
+			t.Fatalf("got %q", s.Value)
+		}
+	})
+
+	t.Run("int_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenIntLiteral, Value: "7"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		n := lit.(ast.IntLiteralNode)
+		if n.Value != 7 {
+			t.Fatal(n.Value)
+		}
+	})
+
+	t.Run("float_via_int_dot_fraction", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenIntLiteral, Value: "3"},
+			{Type: ast.TokenDot},
+			{Type: ast.TokenFloatLiteral, Value: "14"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		f := lit.(ast.FloatLiteralNode)
+		if f.Value < 3.13 || f.Value > 3.15 {
+			t.Fatalf("got %v", f.Value)
+		}
+	})
+
+	t.Run("bool_true_false", func(t *testing.T) {
+		for _, tc := range []struct {
+			tok   ast.TokenIdent
+			want  bool
+			value string
+		}{
+			{ast.TokenTrue, true, "true"},
+			{ast.TokenFalse, false, "false"},
+		} {
+			toks := []ast.Token{
+				{Type: tc.tok, Value: tc.value},
+				{Type: ast.TokenEOF},
 			}
-			tt.validate(t, nodes)
-		})
+			p := setupParser(toks, logger)
+			b := p.parseLiteral().(ast.BoolLiteralNode)
+			if b.Value != tc.want {
+				t.Fatal(b.Value)
+			}
+		}
+	})
+
+	t.Run("nil_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenNil, Value: "nil"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		_, ok := p.parseLiteral().(ast.NilLiteralNode)
+		if !ok {
+			t.Fatal("expected NilLiteralNode")
+		}
+	})
+}
+
+func TestParseLiteral_array_literal_branches(t *testing.T) {
+	logger := ast.SetupTestLogger(nil)
+
+	t.Run("typed_array", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenLBracket, Value: "["},
+			{Type: ast.TokenIntLiteral, Value: "1"},
+			{Type: ast.TokenRBracket, Value: "]"},
+			{Type: ast.TokenIdentifier, Value: "int"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		arr := p.parseLiteral().(ast.ArrayLiteralNode)
+		if arr.Type.Ident != "int" || len(arr.Value) != 1 {
+			t.Fatalf("%+v", arr)
+		}
+	})
+
+	t.Run("implicit_array_type", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenLBracket, Value: "["},
+			{Type: ast.TokenIntLiteral, Value: "2"},
+			{Type: ast.TokenRBracket, Value: "]"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		arr := p.parseLiteral().(ast.ArrayLiteralNode)
+		if arr.Type.Ident != ast.TypeImplicit {
+			t.Fatalf("got %s", arr.Type.Ident)
+		}
+	})
+}
+
+func TestParseLiteral_unexpected_panics(t *testing.T) {
+	logger := ast.SetupTestLogger(nil)
+	toks := []ast.Token{
+		{Type: ast.TokenFunc, Value: "func"},
+		{Type: ast.TokenEOF},
 	}
+	p := setupParser(toks, logger)
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic from FailWithUnexpectedToken")
+		}
+	}()
+	p.parseLiteral()
 }

@@ -1,12 +1,37 @@
 package ast
 
 import (
+	"strings"
 	"testing"
 )
 
 func typeIdentPtr(s string) *TypeIdent {
 	ti := TypeIdent(s)
 	return &ti
+}
+
+func TestTypeGuardNode_Parameters_and_ShapeGuardNode_String(t *testing.T) {
+	subj := SimpleParamNode{Ident: Ident{ID: "x"}, Type: NewBuiltinType(TypeInt)}
+	ex := SimpleParamNode{Ident: Ident{ID: "y"}, Type: NewBuiltinType(TypeString)}
+	tg := TypeGuardNode{
+		Ident:   "G",
+		Subject: subj,
+		Params:  []ParamNode{ex},
+		Body:    []Node{},
+	}
+	params := tg.Parameters()
+	if len(params) != 2 || params[0].GetIdent() != "x" || params[1].GetIdent() != "y" {
+		t.Fatalf("Parameters: %+v", params)
+	}
+
+	sg := ShapeGuardNode{
+		TypeGuardNode: TypeGuardNode{Ident: "SG", Subject: subj, Body: []Node{}},
+		TypeArg:       NewBuiltinType(TypeString),
+		FieldName:     "f",
+	}
+	if sg.Kind() != NodeKindShapeGuard || !strings.Contains(sg.String(), "SG") {
+		t.Fatal(sg.String(), sg.Kind())
+	}
 }
 
 func TestValidateShapeGuard(t *testing.T) {

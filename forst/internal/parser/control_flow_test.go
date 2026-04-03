@@ -146,6 +146,65 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "if statement init with increment",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenIf, Value: "if", Line: 2, Column: 4},
+				{Type: ast.TokenIdentifier, Value: "i", Line: 2, Column: 7},
+				{Type: ast.TokenPlusPlus, Value: "++", Line: 2, Column: 8},
+				{Type: ast.TokenSemicolon, Value: ";", Line: 2, Column: 10},
+				{Type: ast.TokenTrue, Value: "true", Line: 2, Column: 12},
+				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 17},
+				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 4, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				ifNode := assertNodeType[*ast.IfNode](t, functionNode.Body[0], "*ast.IfNode")
+				inc := assertNodeType[ast.UnaryExpressionNode](t, ifNode.Init, "ast.UnaryExpressionNode")
+				if inc.Operator != ast.TokenPlusPlus {
+					t.Fatalf("want ++, got %s", inc.Operator)
+				}
+				cond := assertNodeType[ast.BoolLiteralNode](t, ifNode.Condition, "ast.BoolLiteralNode")
+				if !cond.Value {
+					t.Fatal("expected true condition")
+				}
+			},
+		},
+		{
+			name: "if statement init with channel send",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenIf, Value: "if", Line: 2, Column: 4},
+				{Type: ast.TokenIdentifier, Value: "ch", Line: 2, Column: 7},
+				{Type: ast.TokenArrow, Value: "<-", Line: 2, Column: 10},
+				{Type: ast.TokenIntLiteral, Value: "1", Line: 2, Column: 13},
+				{Type: ast.TokenSemicolon, Value: ";", Line: 2, Column: 14},
+				{Type: ast.TokenTrue, Value: "true", Line: 2, Column: 16},
+				{Type: ast.TokenLBrace, Value: "{", Line: 2, Column: 21},
+				{Type: ast.TokenRBrace, Value: "}", Line: 3, Column: 1},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 4, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				ifNode := assertNodeType[*ast.IfNode](t, functionNode.Body[0], "*ast.IfNode")
+				send := assertNodeType[ast.BinaryExpressionNode](t, ifNode.Init, "ast.BinaryExpressionNode")
+				if send.Operator != ast.TokenArrow {
+					t.Fatalf("want <-, got %s", send.Operator)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -6,7 +6,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Testing utilities for creating AST nodes in tests
+// This file holds test-only helpers (fixture builders and SetupTestLogger). It is
+// not part of the language AST model; production code may still call these from
+// tests living in other packages.
 
 // MakeTypeDef creates a type definition node
 func MakeTypeDef(name string, shape ShapeNode) TypeDefNode {
