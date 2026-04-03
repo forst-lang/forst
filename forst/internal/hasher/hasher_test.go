@@ -1,8 +1,10 @@
 package hasher
 
 import (
-	"forst/internal/ast"
+	"strings"
 	"testing"
+
+	"forst/internal/ast"
 )
 
 func TestStructuralHasher_Consistency(t *testing.T) {
@@ -203,6 +205,100 @@ func TestNodeHash_ToTypeIdent(t *testing.T) {
 	}
 	if typeIdent[0:2] != "T_" {
 		t.Errorf("Expected type identifier to start with 'T_', got %s", typeIdent)
+	}
+}
+
+func TestHashTokenType_distinctTokens(t *testing.T) {
+	h := New()
+	a := h.HashTokenType(ast.TokenPlus)
+	b := h.HashTokenType(ast.TokenMinus)
+	if a == b {
+		t.Fatal("expected different hashes for different token types")
+	}
+}
+
+func TestHashNode_nil_maps_to_invalid_type_ident(t *testing.T) {
+	h := New()
+	nh, err := h.HashNode(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nh.ToTypeIdent() != "T_Invalid" {
+		t.Fatalf("got %s", nh.ToTypeIdent())
+	}
+	if nh.ToGuardIdent() != "G_Invalid" {
+		t.Fatalf("got %s", nh.ToGuardIdent())
+	}
+}
+
+func TestHashNode_unsupported_shape_guard_errors(t *testing.T) {
+	h := New()
+	sg := ast.ShapeGuardNode{
+		TypeGuardNode: ast.TypeGuardNode{
+			Ident: "SG",
+			Subject: ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "x"},
+				Type:  ast.TypeNode{Ident: ast.TypeShape},
+			},
+			Body: []ast.Node{},
+		},
+		TypeArg:   ast.TypeNode{Ident: ast.TypeString},
+		FieldName: "f",
+	}
+	_, err := h.HashNode(sg)
+	if err == nil || !strings.Contains(err.Error(), "unsupported node type") {
+		t.Fatalf("expected unsupported error, got %v", err)
+	}
+}
+
+func TestHashNode_additional_structural_variants(t *testing.T) {
+	h := New()
+	tests := []struct {
+		name string
+		node ast.Node
+	}{
+		{"TypeDefBinaryExpr", ast.TypeDefBinaryExpr{
+			Op: ast.TokenBitwiseAnd,
+			Left: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+			Right: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}}}}},
+		}},
+		{"Package", ast.PackageNode{Ident: ast.Ident{ID: "pkg"}}},
+		{"Import", ast.ImportNode{Path: "fmt"}},
+		{"Return", ast.ReturnNode{Values: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}}},
+		{"Dereference", ast.DereferenceNode{Value: ast.VariableNode{Ident: ast.Ident{ID: "p"}}}},
+		{"ArrayLiteral", ast.ArrayLiteralNode{Type: ast.TypeNode{Ident: ast.TypeInt}, Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}}},
+		{"TypeDefShapeExpr", ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}}},
+		{"NilLiteral", ast.NilLiteralNode{}},
+		{"TypeDefAssertionExpr", ast.TypeDefAssertionExpr{Assertion: &ast.AssertionNode{}}},
+		{"ConstraintNode", ast.ConstraintNode{Name: "Min", Args: []ast.ConstraintArgumentNode{}}},
+		{"TypeGuardNode", ast.TypeGuardNode{
+			Ident: "G",
+			Subject: ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "x"},
+				Type:  ast.TypeNode{Ident: ast.TypeInt},
+			},
+			Body: []ast.Node{},
+		}},
+		{"IfNode", ast.IfNode{
+			Condition: ast.BoolLiteralNode{Value: true},
+			Body:      []ast.Node{},
+		}},
+		{"EnsureBlockNode", &ast.EnsureBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 1}}}},
+		{"AssignmentNode", ast.AssignmentNode{
+			LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x"}}},
+			RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nh, err := h.HashNode(tt.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if nh == 0 {
+				t.Fatal("zero hash")
+			}
+		})
 	}
 }
 
