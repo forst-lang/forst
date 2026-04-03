@@ -84,7 +84,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 
 ## Tooling & developer experience
 
-**LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** returns a wide **ServerCapabilities** set (hover, completion, diagnostics, definition/references, symbols, formatting, code actions, code lens, folding, plus **experimental** debug flags). Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` actually implements vs advertises; **go to definition** is implemented for same-file top-level names (see `definition.go`).
+**LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** returns a wide **ServerCapabilities** set (hover, completion, diagnostics, definition/references, symbols, formatting, code actions, code lens, folding, plus **experimental** debug flags). Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` actually implements vs advertises. **Navigation:** same-file **go to definition**, **find references**, **document symbol**, and **workspace symbol** (open buffers only) for top-level functions, user types, and type guards—shared pipeline in `analyze.go`, `definition.go`, `references.go`, `symbols.go`.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -94,18 +94,18 @@ Themes group work (language, interop, tooling, docs, infrastructure). Priority a
 | LSP: text document sync | done | `didOpen` / `didChange` / `didClose`: in-memory `openDocuments` per URI; `didChange` stores the **last** `contentChanges` entry’s `text` as the full buffer and recompiles. Drives diagnostics on each update. |
 | LSP: diagnostics | done | `compileForstFile`: lexer → parser → typechecker; builds `LSPDiagnostic` ranges from compiler errors. `didOpen` / `didChange` / `didClose` responses include `PublishDiagnosticsParams`; `sendDiagnosticsNotification` supports push-style clients. |
 | LSP: hover (`textDocument/hover`) | in progress | **Implemented:** resolve token at LSP position, parse + typecheck when possible; hovers for **identifiers** (function signatures with optional leading `//` / `/* */` doc lines, type definitions, inferred variable types), **keywords** (short quick-info). **Skipped:** literals (by design). **Limits:** if parse fails, hover often returns nothing (errors show in diagnostics). |
-| LSP: completion (`textDocument/completion`) | prototype | Returns **all** Forst keywords from `lexer.Keywords` as keyword items—**not** filtered by position or scope, **no** semantic or identifier completion. Capabilities advertise `resolveProvider: true` but there is **no** `completionItem/resolve` handler (unknown methods return JSON-RPC errors). |
+| LSP: completion (`textDocument/completion`) | prototype | Returns **all** Forst keywords from `lexer.Keywords` as keyword items—**not** filtered by position or scope, **no** semantic or identifier completion. `completionProvider.resolveProvider` is **false** until `completionItem/resolve` exists. |
 | LSP: go to definition | done | **`textDocument/definition`** resolves identifiers in the open buffer to defining tokens in the **same file**: top-level **`func`**, **`type`** (incl. shape/alias defs), and top-level **`is (…) Name`** type guards (brace depth avoids `ensure … is …`). Variables/parameters not yet. Implementation: `cmd/forst/lsp/definition.go`. |
-| LSP: find references | prototype | `textDocument/references` returns an **empty** array (TODO). |
-| LSP: document symbols | prototype | `textDocument/documentSymbol` returns **[]** (TODO). |
-| LSP: workspace symbol | prototype | `workspace/symbol` returns **[]** (TODO). |
+| LSP: find references | done | **`textDocument/references`**: same-file identifier occurrences for symbols that match **go-to-definition** rules (top-level **func**, **type**, **type guard**). **`includeDeclaration`** respected. Locals/cross-file not yet. `references.go`. |
+| LSP: document symbols | done | **`textDocument/documentSymbol`**: flat **`SymbolInformation`** for top-level **func**, **type** (skips `T_*` hash idents), **type guard**. Parse failure → `[]`. `symbols.go`. |
+| LSP: workspace symbol | done | **`workspace/symbol`**: searches **open** `.ft` buffers (`openDocuments` / didOpen sync only); substring match on symbol name (case-insensitive). No disk-wide index yet. `symbols.go` / `hover_completion.go`. |
 | LSP: formatting | prototype | `textDocument/formatting` returns **`null`** (no formatter yet). |
 | LSP: code actions, code lens, folding | prototype | `textDocument/codeAction` / `codeLens` / `foldingRange` return **empty** arrays (or no-op); capabilities still advertised in `initialize`. |
 | LSP: custom compiler / debug methods | prototype | `textDocument/debugInfo`, `textDocument/compilerState`, `textDocument/phaseDetails`—structured compiler state for tooling/LLM workflows (`server.go`); not general end-user editor parity. |
 | LSP: protocol & client quirks | prototype | **HTTP** transport is non-standard for LSP; stdio clients won’t work without an adapter. Methods not handled by the switch (e.g. some client notifications) get **-32601 Method not found**. |
 | Error messages (line numbers, suggestions) | prototype | Incremental improvements; parity not the only priority. |
 | More real-world examples | prototype | Some examples exist; broader set still wanted. |
-| VS Code extension | prototype | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **F12 / go to definition** works for same-file definitions the server resolves. **Marketplace** / discoverability still open. |
+| VS Code extension | prototype | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **outline**, **go to definition**, **find references**, **workspace symbol** (open files) when the server resolves symbols. **Marketplace** / discoverability still open. |
 
 ---
 

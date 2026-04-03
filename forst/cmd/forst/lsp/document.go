@@ -50,8 +50,8 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 		JSONRPC: "2.0",
 		ID:      request.ID,
 		Result: PublishDiagnosticsParams{
-			URI:           params.TextDocument.URI,
-			Diagnostics:   diagnostics,
+			URI:         params.TextDocument.URI,
+			Diagnostics: diagnostics,
 		},
 	}
 }
@@ -107,8 +107,8 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 		JSONRPC: "2.0",
 		ID:      request.ID,
 		Result: PublishDiagnosticsParams{
-			URI:           params.TextDocument.URI,
-			Diagnostics:   diagnostics,
+			URI:         params.TextDocument.URI,
+			Diagnostics: diagnostics,
 		},
 	}
 }
@@ -148,8 +148,8 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 		JSONRPC: "2.0",
 		ID:      request.ID,
 		Result: PublishDiagnosticsParams{
-			URI:           params.TextDocument.URI,
-			Diagnostics:   []LSPDiagnostic{},
+			URI:         params.TextDocument.URI,
+			Diagnostics: []LSPDiagnostic{},
 		},
 	}
 }
@@ -203,52 +203,4 @@ func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
 	// Compile the file and get diagnostics
 	debugger := s.debugger.GetDebugger(PhaseParser, filePath)
 	return s.compileForstFile(filePath, content, debugger)
-}
-
-// handleReferences handles the textDocument/references method
-func (s *LSPServer) handleReferences(request LSPRequest) LSPServerResponse {
-	// Parse position from params
-	var params map[string]interface{}
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32602,
-				Message: "Invalid params",
-			},
-		}
-	}
-
-	// For now, return empty array (no references found)
-	// TODO: Implement actual reference lookup
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  []interface{}{},
-	}
-}
-
-// handleDocumentSymbol handles the textDocument/documentSymbol method
-func (s *LSPServer) handleDocumentSymbol(request LSPRequest) LSPServerResponse {
-	// Parse text document from params
-	var params map[string]interface{}
-	if err := json.Unmarshal(request.Params, &params); err != nil {
-		return LSPServerResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Error: &LSPError{
-				Code:    -32602,
-				Message: "Invalid params",
-			},
-		}
-	}
-
-	// For now, return empty array (no symbols found)
-	// TODO: Implement actual symbol extraction
-	return LSPServerResponse{
-		JSONRPC: "2.0",
-		ID:      request.ID,
-		Result:  []interface{}{},
-	}
 }
