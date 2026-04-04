@@ -434,3 +434,36 @@ func TestStructuralHasher_ForBreakContinue(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestStructuralHasher_ForLoop_optionalInitPost(t *testing.T) {
+	t.Parallel()
+	h := New()
+	body := []ast.Node{
+		ast.ReturnNode{Values: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}}},
+	}
+	initStmt := ast.AssignmentNode{
+		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "i"}}},
+		RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
+		IsShort: true,
+	}
+	noInit := &ast.ForNode{
+		Cond: ast.BoolLiteralNode{Value: true},
+		Body: body,
+	}
+	withInit := &ast.ForNode{
+		Init: initStmt,
+		Cond: ast.BoolLiteralNode{Value: true},
+		Body: body,
+	}
+	a, err := h.HashNode(noInit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := h.HashNode(withInit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == b {
+		t.Fatal("expected different hash when Init is set")
+	}
+}

@@ -86,7 +86,7 @@ func (p *Parser) parseForStatement() ast.Node {
 func (p *Parser) parseForConditionExpression() ast.ExpressionNode {
 	if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLBrace {
 		ident := p.parseIdentifier()
-		return ast.VariableNode{Ident: ast.Ident{ID: ident}}
+		return ast.VariableNode{Ident: ident}
 	}
 	return p.parseExpression()
 }
@@ -166,7 +166,7 @@ func (p *Parser) parseForRangeClause() *ast.ForNode {
 func (p *Parser) parseRangeExpression() ast.ExpressionNode {
 	if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLBrace {
 		ident := p.parseIdentifier()
-		return ast.VariableNode{Ident: ast.Ident{ID: ident}}
+		return ast.VariableNode{Ident: ident}
 	}
 	return p.parseExpression()
 }

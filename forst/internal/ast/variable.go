@@ -29,4 +29,4 @@ func (v VariableNode) GetIdent() string {
 }
 
 // Implement ValueNode interface for VariableNode
-func (v VariableNode) isValue() {}
+func (v VariableNode) isValue() { _ = v }

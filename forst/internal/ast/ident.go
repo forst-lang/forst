@@ -5,7 +5,8 @@ type Identifier string
 
 // Ident represents an identifier in the AST
 type Ident struct {
-	ID Identifier
+	ID   Identifier
+	Span SourceSpan // set by parser for qualified names; zero value if unknown
 }
 
 // Kind returns the node kind for an identifier

@@ -1,11 +1,13 @@
 package lsp
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
 	"forst/internal/parser"
+	"forst/internal/typechecker"
 )
 
 func TestDiagnosticFromParseError_UsesLexerLineColumn(t *testing.T) {
@@ -67,5 +69,119 @@ func TestParseErrorLocationFromMessage_ParseErrorAtForm(t *testing.T) {
 	l, c, ok := parseErrorLocationFromMessage(msg)
 	if !ok || l != 26 || c != 16 {
 		t.Fatalf("got line %d col %d ok=%v", l, c, ok)
+	}
+}
+
+func TestDiagnosticForTypecheckError_usesStructuredSpan(t *testing.T) {
+	t.Parallel()
+	err := &typechecker.Diagnostic{
+		Msg:  "wrong type",
+		Code: "go-call",
+		Span: ast.SourceSpan{StartLine: 2, StartCol: 5, EndLine: 2, EndCol: 9},
+	}
+	d := diagnosticForTypecheckError("file:///t.ft", "", err, "forst-typechecker", ErrorCodeTypeMismatch)
+	if d.Range.Start.Line != 1 || d.Range.Start.Character != 4 {
+		t.Fatalf("start = %+v", d.Range.Start)
+	}
+	if d.Range.End.Line != 1 || d.Range.End.Character != 8 {
+		t.Fatalf("end = %+v", d.Range.End)
+	}
+	if d.Code != "go-call" {
+		t.Fatalf("code = %q", d.Code)
+	}
+}
+
+func TestDiagnosticForParseFailure_ParseError(t *testing.T) {
+	t.Parallel()
+	pe := &parser.ParseError{
+		Token: ast.Token{Line: 2, Column: 4, Value: "oops"},
+		Msg:   "bad token",
+	}
+	d := diagnosticForParseFailure("file:///t.ft", "package main\n\nx\n", pe)
+	if d.Source != "forst-parser" || d.Code != ErrorCodeInvalidSyntax {
+		t.Fatalf("got source=%q code=%q", d.Source, d.Code)
+	}
+	if d.Range.Start.Line != 1 || d.Range.Start.Character != 3 {
+		t.Fatalf("range start = %+v", d.Range.Start)
+	}
+}
+
+func TestDiagnosticForParseFailure_legacyFileLineColInMessage(t *testing.T) {
+	t.Parallel()
+	err := errors.New("Parse error in t.ft:2:3: something went wrong")
+	d := diagnosticForParseFailure("file:///t.ft", "package main\nxx\n", err)
+	if d.Range.Start.Line != 1 || d.Range.Start.Character != 2 {
+		t.Fatalf("want line 1 col 2, got %+v", d.Range.Start)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_emptyContent(t *testing.T) {
+	t.Parallel()
+	line, col := bestEffortLineColumnFromErrorMessage("", "undefined symbol: x")
+	if line != 1 || col != 1 {
+		t.Fatalf("got %d,%d", line, col)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_typeField(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\ntype Box = {\n  n: Int,\n}\n"
+	errMsg := `type Box field "n" invalid`
+	line, col := bestEffortLineColumnFromErrorMessage(content, errMsg)
+	if line != 3 || col != 1 {
+		t.Fatalf("got line %d col %d", line, col)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_functionParameter(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc F(x Int) {}\n"
+	errMsg := "function F parameter mismatch"
+	line, col := bestEffortLineColumnFromErrorMessage(content, errMsg)
+	if line != 3 || col != 1 {
+		t.Fatalf("got line %d col %d", line, col)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_functionReturn(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc G(): Int {\n  return 1\n}\n"
+	errMsg := "function G return type wrong"
+	line, col := bestEffortLineColumnFromErrorMessage(content, errMsg)
+	if line != 3 || col != 1 {
+		t.Fatalf("got line %d col %d", line, col)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_undefinedFunction(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc main() {\n  missing()\n}\n"
+	line, col := bestEffortLineColumnFromErrorMessage(content, "undefined function: missing")
+	if line != 4 {
+		t.Fatalf("line = %d", line)
+	}
+	if want := strings.Index(strings.Split(content, "\n")[3], "missing") + 1; col != want {
+		t.Fatalf("col = %d want %d", col, want)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_unknownIdentifier(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc main() {\n  z := 1\n}\n"
+	line, col := bestEffortLineColumnFromErrorMessage(content, "unknown identifier: z")
+	if line != 4 || col != 3 {
+		t.Fatalf("got line %d col %d", line, col)
+	}
+}
+
+func TestBestEffortLineColumnFromErrorMessage_undeclaredVariableQuote(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc main() {\n  foo := 1\n}\n"
+	line, col := bestEffortLineColumnFromErrorMessage(content, "undeclared variable 'foo'")
+	if line != 4 {
+		t.Fatalf("line = %d", line)
+	}
+	if want := strings.Index(strings.Split(content, "\n")[3], "foo") + 1; col != want {
+		t.Fatalf("col = %d want %d", col, want)
 	}
 }

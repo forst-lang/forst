@@ -16,7 +16,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			ref := p.expect(ast.TokenIdentifier)
 			return ast.ReferenceNode{
 				Value: ast.VariableNode{
-					Ident: ast.Ident{ID: ast.Identifier(ref.Value)},
+					Ident: ast.Ident{ID: ast.Identifier(ref.Value), Span: ast.SpanFromToken(ref)},
 				},
 			}
 		case ast.TokenLBrace:
@@ -31,16 +31,16 @@ func (p *Parser) parseValue() ast.ValueNode {
 			p.FailWithParseError(nextToken, "Expected identifier or shape literal after &")
 		}
 	case ast.TokenIdentifier:
-		identifier := p.parseIdentifier()
+		ident := p.parseIdentifier()
 
 		if p.current().Type == ast.TokenLBrace {
-			typeIdent := ast.TypeIdent(string(identifier))
+			typeIdent := ast.TypeIdent(string(ident.ID))
 			shape := p.parseShapeLiteral(&typeIdent, false)
 			return shape
 		}
 
 		return ast.VariableNode{
-			Ident: ast.Ident{ID: identifier},
+			Ident: ident,
 		}
 	case ast.TokenMap:
 		p.advance() // Consume map keyword
@@ -86,10 +86,10 @@ func (p *Parser) parseValue() ast.ValueNode {
 		return shape
 	case ast.TokenStar:
 		p.advance() // Consume *
-		identifier := p.parseIdentifier()
+		ident := p.parseIdentifier()
 		return ast.DereferenceNode{
 			Value: ast.VariableNode{
-				Ident: ast.Ident{ID: identifier},
+				Ident: ident,
 			},
 		}
 	default:
@@ -98,19 +98,23 @@ func (p *Parser) parseValue() ast.ValueNode {
 	panic("Reached unreachable path")
 }
 
-func (p *Parser) parseIdentifier() ast.Identifier {
-	identifier := ast.Identifier(p.current().Value)
+func (p *Parser) parseIdentifier() ast.Ident {
+	first := p.current()
+	identifier := ast.Identifier(first.Value)
+	p.advance()
 
-	p.advance() // Consume identifier
-
-	// Keep chaining identifiers with dots until we hit something else
+	last := first
 	for p.current().Type == ast.TokenDot {
 		p.advance() // Consume dot
 		nextIdent := p.expect(ast.TokenIdentifier)
 		identifier = ast.Identifier(string(identifier) + "." + nextIdent.Value)
+		last = nextIdent
 	}
 
-	return identifier
+	return ast.Ident{
+		ID:   identifier,
+		Span: ast.SpanBetweenTokens(first, last),
+	}
 }
 
 // parseTypeIdent parses a type identifier

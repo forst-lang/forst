@@ -2,8 +2,24 @@ package parser
 
 import (
 	"fmt"
+
 	"forst/internal/ast"
 )
+
+// parseCallArguments parses comma-separated expressions until ')'. Caller must have consumed '('.
+func (p *Parser) parseCallArguments() (args []ast.ExpressionNode, argSpans []ast.SourceSpan) {
+	for p.current().Type != ast.TokenRParen {
+		startTok := p.current()
+		arg := p.parseExpression()
+		endTok := p.tokens[p.currentIndex-1]
+		args = append(args, arg)
+		argSpans = append(argSpans, ast.SpanBetweenTokens(startTok, endTok))
+		if p.current().Type == ast.TokenComma {
+			p.advance()
+		}
+	}
+	return args, argSpans
+}
 
 // MaxExpressionDepth is the maximum depth of nested expressions
 const MaxExpressionDepth = 20
@@ -38,20 +54,17 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 
 		// If we have an identifier followed by a left parenthesis, this is a function call
 		if p.current().Type == ast.TokenIdentifier {
-			ident := p.expect(ast.TokenIdentifier)
+			identTok := p.expect(ast.TokenIdentifier)
 			if p.current().Type == ast.TokenLParen {
+				lparen := p.current()
 				p.advance() // Consume left paren
-				var args []ast.ExpressionNode
-				for p.current().Type != ast.TokenRParen {
-					args = append(args, p.parseExpression())
-					if p.current().Type == ast.TokenComma {
-						p.advance()
-					}
-				}
-				p.expect(ast.TokenRParen)
+				args, argSpans := p.parseCallArguments()
+				rparen := p.expect(ast.TokenRParen)
 				expr = ast.FunctionCallNode{
-					Function:  ast.Ident{ID: ast.Identifier(ident.Value)},
+					Function:  ast.Ident{ID: ast.Identifier(identTok.Value), Span: ast.SpanFromToken(identTok)},
 					Arguments: args,
+					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+					ArgSpans:  argSpans,
 				}
 			}
 		} else {
@@ -62,29 +75,25 @@ func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
 		ident := p.parseIdentifier()
 		// If we hit a left paren, this is a function call
 		if p.current().Type == ast.TokenLParen {
+			lparen := p.current()
 			p.advance() // Consume left paren
-
-			var args []ast.ExpressionNode
-			for p.current().Type != ast.TokenRParen {
-				args = append(args, p.parseExpression())
-				if p.current().Type == ast.TokenComma {
-					p.advance()
-				}
-			}
-			p.expect(ast.TokenRParen)
+			args, argSpans := p.parseCallArguments()
+			rparen := p.expect(ast.TokenRParen)
 
 			expr = ast.FunctionCallNode{
-				Function:  ast.Ident{ID: ident},
+				Function:  ident,
 				Arguments: args,
+				CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+				ArgSpans:  argSpans,
 			}
 		} else if p.current().Type == ast.TokenLBrace {
-			typeIdent := ast.TypeIdent(string(ident))
+			typeIdent := ast.TypeIdent(string(ident.ID))
 			// Parse the shape literal with the base type
 			return p.parseShapeLiteral(&typeIdent, false)
 		} else {
 			// Otherwise treat as a variable
 			expr = ast.VariableNode{
-				Ident: ast.Ident{ID: ident},
+				Ident: ident,
 			}
 		}
 	} else if p.current().Type == ast.TokenNil {

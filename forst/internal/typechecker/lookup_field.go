@@ -11,7 +11,7 @@ import (
 
 // lookupFieldType looks up a field's type in a given type
 func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Ident, parentAssertion *ast.AssertionNode) (ast.TypeNode, error) {
-	tc.log.Debugf("[lookupFieldType] Looking up field %s in type %s", fieldName, baseType.Ident)
+	tc.log.Debugf("[lookupFieldType] Looking up field %s in type %s", fieldName.ID, baseType.Ident)
 
 	// Add detailed debugging for the lookup process
 	tc.log.WithFields(logrus.Fields{
@@ -92,7 +92,7 @@ func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Iden
 		"result":    "not found",
 	}).Debugf("=== END FIELD LOOKUP DEBUG ===")
 
-	return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName, baseType.Ident)
+	return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName.ID, baseType.Ident)
 }
 
 // lookupFieldInTypeDef looks up a field in a type definition
@@ -329,7 +329,7 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 			"fieldName":       fieldName,
 			"availableFields": fmt.Sprintf("%+v", shape.Fields),
 		}).Debugf("Field not found in nested shape")
-		return ast.TypeNode{}, fmt.Errorf("field %s not found in nested shape", fieldName)
+		return ast.TypeNode{}, fmt.Errorf("field %s not found in nested shape", fieldName.ID)
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -371,7 +371,7 @@ func (tc *TypeChecker) lookupNestedField(shape *ast.ShapeNode, fieldName ast.Ide
 		"fieldName": fieldName,
 		"field":     fmt.Sprintf("%+v", field),
 	}).Debugf("Field exists but is empty (no type, shape, or assertion)")
-	return ast.TypeNode{}, fmt.Errorf("field %s exists but is empty (no type, shape, or assertion)", fieldName)
+	return ast.TypeNode{}, fmt.Errorf("field %s exists but is empty (no type, shape, or assertion)", fieldName.ID)
 }
 
 // resolveTypeAliasChain follows type aliases until it reaches a non-alias (base) type
@@ -485,7 +485,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 						"fieldName":       fieldName.ID,
 						"availableFields": fmt.Sprintf("%+v", expr.Shape.Fields),
 					}).Debugf("Field not found in shape")
-					return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
+					return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName.ID)
 				}
 
 				tc.log.WithFields(logrus.Fields{
@@ -551,7 +551,7 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 					"fieldName": fieldName.ID,
 					"field":     fmt.Sprintf("%+v", field),
 				}).Debugf("Field exists but is not a type or shape")
-				return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
+				return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName.ID)
 			}
 		}
 	}

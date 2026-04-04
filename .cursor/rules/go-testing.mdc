@@ -1,0 +1,23 @@
+---
+description: Go test file pairing, table-driven tests, and standard library testing habits for forst/
+globs: forst/**/*.go
+alwaysApply: false
+---
+
+# Go tests in `forst/`
+
+## Colocated `*_test.go` files
+
+- **Convention:** For each **production** `.go` file `foo.go` in the same package, prefer a matching **`foo_test.go`** in the same directory. That keeps coverage and refactors localized and makes gaps obvious in review.
+- **Exceptions (no separate stem required):** `main.go`, `*_test.go`, `test_utils.go`, generated code, and tiny `doc.go`-style stubs. **New** production code should still add or extend real tests rather than skipping them.
+- **Package layout:** Use `_test` package (`package foo_test`) only when you need **black-box** tests and import paths; otherwise **`package foo`** tests are fine and can exercise unexported symbols (same directory).
+- **Legacy:** Older packages may consolidate tests in one file; when you touch an area, **split or add** a stem file for the code you change when practical.
+
+## Practices
+
+- **Table-driven tests** for multiple inputs; name subtests with `t.Run("case", ...)`.
+- **`t.Helper()`** in helpers that take `*testing.T` so failures point at the real call site.
+- **Precise assertions** — prefer `cmp.Diff` / `errors.Is` / structured checks over broad `if err != nil` only, when the behavior under test matters.
+- **No external test frameworks** — use `testing` and the stdlib unless the repo already depends on a helper.
+- **Integration vs unit:** Prefer fast unit tests; use small golden files or `testdata/` for compiler pipelines; keep `go test ./...` under CI as the default bar.
+- **Coverage:** Run `go test -cover ./...` when changing non-trivial logic; aim to cover error branches and public API, not only happy paths.

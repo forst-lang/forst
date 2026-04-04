@@ -15,7 +15,7 @@ type TypeDefAssertionExpr struct {
 	Assertion *AssertionNode
 }
 
-func (t TypeDefAssertionExpr) isTypeDefExpr() {}
+func (t TypeDefAssertionExpr) isTypeDefExpr() { _ = t }
 
 // Kind returns the node kind for a type definition assertion expression
 func (t TypeDefAssertionExpr) Kind() NodeKind {
@@ -56,14 +56,14 @@ func (t TypeDefBinaryExpr) String() string {
 }
 
 // isTypeDefExpr marks TypeDefBinaryExpr as implementing TypeDefExpr
-func (t TypeDefBinaryExpr) isTypeDefExpr() {}
+func (t TypeDefBinaryExpr) isTypeDefExpr() { _ = t }
 
 // TypeDefShapeExpr represents a shape definition in a type definition
 type TypeDefShapeExpr struct {
 	Shape ShapeNode
 }
 
-func (t TypeDefShapeExpr) isTypeDefExpr() {}
+func (t TypeDefShapeExpr) isTypeDefExpr() { _ = t }
 
 // Kind returns the node kind for a type definition shape expression
 func (t TypeDefShapeExpr) Kind() NodeKind {

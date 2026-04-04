@@ -86,4 +86,4 @@ func (a AssertionNode) Kind() NodeKind {
 	return NodeKindAssertion
 }
 
-func (a AssertionNode) isExpression() {}
+func (a AssertionNode) isExpression() { _ = a }

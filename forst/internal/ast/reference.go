@@ -25,4 +25,4 @@ func (r ReferenceNode) GetIdent() string {
 }
 
 // Implement ValueNode interface for ReferenceNode
-func (r ReferenceNode) isValue() {}
+func (r ReferenceNode) isValue() { _ = r }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -155,6 +156,7 @@ func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[st
 
 	// Type check to get function signatures (optional, don't fail if it errors)
 	tc := typechecker.New(mainLogger, false)
+	tc.GoWorkspaceDir = filepath.Dir(filePath)
 	if err := tc.CheckTypes(nodes); err != nil {
 		d.log.Debugf("Type checking failed for %s: %v", filePath, err)
 		// Continue without type checking for discovery

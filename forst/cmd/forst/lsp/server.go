@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -363,8 +364,9 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 
 	// Type checking with detailed error capture
 	tc := typechecker.New(s.log, false)
+	tc.GoWorkspaceDir = filepath.Dir(filePath)
 	if err := tc.CheckTypes(astNodes); err != nil {
-		diagnostic := diagnosticForTypecheckOrTransform("file://"+filePath, content, err, "forst-typechecker", ErrorCodeTypeMismatch)
+		diagnostic := diagnosticForTypecheckError("file://"+filePath, content, err, "forst-typechecker", ErrorCodeTypeMismatch)
 		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
 
 		// Log typechecker error event with detailed information

@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -168,7 +169,15 @@ func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
 }
 
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tok.Type == ast.TokenStringLiteral {
+		if s := goHoverFromImportString(tc, tokens, tok); s != "" {
+			return s
+		}
+	}
 	if tok.Type == ast.TokenIdentifier {
+		if s := goHoverFromQualifiedGoIdentifier(tc, tokens, tok); s != "" {
+			return s
+		}
 		id := ast.Identifier(tok.Value)
 		// Prefer function and type definitions over variable types when the token names those things.
 		if sig, ok := tc.Functions[id]; ok {
@@ -197,6 +206,86 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 	}
 	if kw := keywordHover(tok); kw != "" {
 		return kw
+	}
+	return ""
+}
+
+func tokenSliceIndex(tokens []ast.Token, tok *ast.Token) int {
+	for i := range tokens {
+		if &tokens[i] == tok {
+			return i
+		}
+	}
+	for i := range tokens {
+		t := tokens[i]
+		if t.Line == tok.Line && t.Column == tok.Column && t.Type == tok.Type && t.Value == tok.Value {
+			return i
+		}
+	}
+	return -1
+}
+
+func goImportLocalShadowedByForstVar(tc *typechecker.TypeChecker, pkgLocal string) bool {
+	inf, ok := tc.InferredTypesForVariableIdentifier(ast.Identifier(pkgLocal))
+	return ok && len(inf) > 0
+}
+
+// goHoverFromQualifiedGoIdentifier adds hover for import.pkg.sel (e.g. fmt.Println) when pkg is a Go import.
+func goHoverFromQualifiedGoIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 0 {
+		return ""
+	}
+	// … pkg . NAME — cursor on exported name
+	if i >= 2 && tokens[i-1].Type == ast.TokenDot && tokens[i-2].Type == ast.TokenIdentifier {
+		pkgLocal := tokens[i-2].Value
+		if goImportLocalShadowedByForstVar(tc, pkgLocal) || !tc.IsImportedLocalName(pkgLocal) {
+			return ""
+		}
+		if md, ok := tc.GoHoverMarkdown(pkgLocal, tok.Value); ok {
+			return md
+		}
+	}
+	// PKG . name … — cursor on package identifier
+	if i+2 < len(tokens) && tokens[i+1].Type == ast.TokenDot && tokens[i+2].Type == ast.TokenIdentifier {
+		pkgLocal := tok.Value
+		if goImportLocalShadowedByForstVar(tc, pkgLocal) || !tc.IsImportedLocalName(pkgLocal) {
+			return ""
+		}
+		if md, ok := tc.GoHoverMarkdown(pkgLocal, ""); ok {
+			return md
+		}
+	}
+	return ""
+}
+
+func goHoverFromImportString(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tok.Type != ast.TokenStringLiteral {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 0 {
+		return ""
+	}
+	for j := i - 1; j >= 0; {
+		switch tokens[j].Type {
+		case ast.TokenComment:
+			j--
+		case ast.TokenImport:
+			path := goload.ImportPathFromForst(tok.Value)
+			if md, ok := tc.GoHoverMarkdownForImportPath(path); ok {
+				return md
+			}
+			return ""
+		case ast.TokenLParen, ast.TokenComma, ast.TokenRParen, ast.TokenStringLiteral:
+			// StringLiteral: sibling path in `import ( "a", "b" )`; keep scanning for `import`.
+			j--
+		default:
+			return ""
+		}
 	}
 	return ""
 }

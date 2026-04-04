@@ -3,6 +3,7 @@ package typechecker
 
 import (
 	"fmt"
+	"go/types"
 	"forst/internal/ast"
 	"forst/internal/hasher"
 	"strings"
@@ -31,6 +32,12 @@ type TypeChecker struct {
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
 	imports []ast.ImportNode
+	// GoWorkspaceDir is the directory used as go/packages Config.Dir for Forst <-> Go boundary checks (optional).
+	GoWorkspaceDir string
+	// goPkgsByLocal maps Forst import local name (e.g. fmt, bar) to loaded *types.Package for Forst <-> Go boundary checks (optional).
+	goPkgsByLocal map[string]*types.Package
+	// importPathByLocal maps import local identifier -> Go import path (for hover even when go/packages failed).
+	importPathByLocal map[string]string
 	// Logger for the type checker
 	log *logrus.Logger
 	// Whether to report phases
@@ -81,6 +88,8 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}
 		tc.path = tc.path[:len(tc.path)-1]
 	}
+
+	tc.initGoImportPackages()
 
 	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
 		return err

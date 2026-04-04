@@ -95,12 +95,13 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			"expr":     expr,
 		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
 
-		// First, process all arguments to ensure they are type-checked
+		argTypes := make([][]ast.TypeNode, 0, len(e.Arguments))
 		for _, arg := range e.Arguments {
-			_, err := tc.inferExpressionType(arg)
+			ts, err := tc.inferExpressionType(arg)
 			if err != nil {
 				return nil, err
 			}
+			argTypes = append(argTypes, ts)
 		}
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
@@ -108,6 +109,30 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				"function": "inferExpressionType",
 				"expr":     expr,
 			}).Tracef("Found function signature for %s: %v", e.Function.ID, signature.ReturnTypes)
+			if len(argTypes) != len(signature.Parameters) {
+				var sp ast.SourceSpan
+				if len(argTypes) > len(signature.Parameters) {
+					sp = spanForCallArg(e.ArgSpans, len(signature.Parameters), e.Arguments, e.CallSpan)
+				} else {
+					sp = e.CallSpan
+				}
+				if !sp.IsSet() {
+					sp = e.Function.Span
+				}
+				return nil, diagnosticf(sp, "call-arity", "function %s expects %d arguments, got %d",
+					e.Function.ID, len(signature.Parameters), len(argTypes))
+			}
+			for i, param := range signature.Parameters {
+				sp := spanForCallArg(e.ArgSpans, i, e.Arguments, e.CallSpan)
+				if len(argTypes[i]) != 1 {
+					return nil, diagnosticf(sp, "call-type", "argument %d to %s must have a single type, got %d",
+						i+1, e.Function.ID, len(argTypes[i]))
+				}
+				if !tc.IsTypeCompatible(argTypes[i][0], param.Type) {
+					return nil, diagnosticf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
+						i+1, e.Function.ID, param.Type.Ident, argTypes[i][0].Ident)
+				}
+			}
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
@@ -152,6 +177,18 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return returnType, nil
 			}
 
+			// Imported Go package (Forst↔Go boundary) when go/packages load succeeded
+			if tc.goPkgsByLocal != nil {
+				if gp := tc.goPkgsByLocal[pkgName]; gp != nil {
+					ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes)
+					if err != nil {
+						return nil, err
+					}
+					tc.storeInferredType(e, ret)
+					return ret, nil
+				}
+			}
+
 			// If not a local variable, check for built-in functions
 			qualifiedName := pkgName + "." + funcName
 			if builtin, exists := BuiltinFunctions[qualifiedName]; exists {
@@ -159,7 +196,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					"function": "inferExpressionType",
 					"expr":     expr,
 				}).Tracef("Found built-in function %s", qualifiedName)
-				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
+				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments, e.ArgSpans, e.CallSpan)
 				if err != nil {
 					return nil, err
 				}
@@ -173,7 +210,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					"function": "inferExpressionType",
 					"expr":     expr,
 				}).Tracef("Found built-in function %s", e.Function.ID)
-				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments)
+				returnType, err := tc.checkBuiltinFunctionCall(builtin, e.Arguments, e.ArgSpans, e.CallSpan)
 				if err != nil {
 					return nil, err
 				}
@@ -186,7 +223,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			"function": "inferExpressionType",
 			"expr":     expr,
 		}).Tracef("No function found for %s", e.Function.ID)
-		return nil, fmt.Errorf("unknown identifier: %s", e.Function.ID)
+		sp := e.Function.Span
+		if !sp.IsSet() {
+			sp = e.CallSpan
+		}
+		return nil, diagnosticf(sp, "undefined-identifier", "unknown identifier: %s", e.Function.ID)
 
 	case ast.ShapeNode:
 		inferredType, err := tc.inferShapeType(e, nil)

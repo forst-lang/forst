@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -86,6 +87,7 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 	}
 
 	tc := typechecker.New(s.log, false)
+	tc.GoWorkspaceDir = filepath.Dir(filePath)
 	checkErr := tc.CheckTypes(nodes)
 	ctx.Nodes = nodes
 	ctx.TC = tc

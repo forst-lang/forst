@@ -138,7 +138,7 @@ func TestCheckBuiltinFunctionCall_stringInt(t *testing.T) {
 	if !ok {
 		t.Fatal("missing string builtin")
 	}
-	types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 7}})
+	types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.IntLiteralNode{Value: 7}}, nil, ast.SourceSpan{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestCheckBuiltinFunctionCall_stringInt(t *testing.T) {
 func TestCheckBuiltinFunctionCall_stringRejectsNonInt(t *testing.T) {
 	tc := New(logrus.New(), false)
 	fn := BuiltinFunctions["string"]
-	_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}})
+	_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.SourceSpan{})
 	if err == nil {
 		t.Fatal("expected error for string() of string")
 	}

@@ -8,7 +8,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"forst/internal/ast"
 	"forst/internal/parser"
+	"forst/internal/typechecker"
 )
 
 var (
@@ -100,6 +102,38 @@ func diagnosticForTypecheckOrTransform(fileURI, content string, err error, sourc
 	msg := err.Error()
 	line1, col1 := bestEffortLineColumnFromErrorMessage(content, msg)
 	return simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
+}
+
+// diagnosticForTypecheckError prefers a structured typechecker.Diagnostic span; otherwise falls back to heuristics.
+func diagnosticForTypecheckError(fileURI, content string, err error, source, defaultCode string) LSPDiagnostic {
+	var diag *typechecker.Diagnostic
+	if errors.As(err, &diag) && diag != nil {
+		msg := diag.Msg
+		code := diag.Code
+		if code == "" {
+			code = defaultCode
+		}
+		if diag.Span.IsSet() {
+			return lspDiagnosticFromASTSpan(fileURI, msg, source, code, diag.Span)
+		}
+		line1, col1 := bestEffortLineColumnFromErrorMessage(content, msg)
+		return simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
+	}
+	return diagnosticForTypecheckOrTransform(fileURI, content, err, source, defaultCode)
+}
+
+// lspDiagnosticFromASTSpan maps a 1-based half-open ast.SourceSpan to an LSP range (0-based; character = UTF-8 byte offset within line for ASCII-aligned lexer columns).
+func lspDiagnosticFromASTSpan(_ string, msg, source, code string, span ast.SourceSpan) LSPDiagnostic {
+	return LSPDiagnostic{
+		Range: LSPRange{
+			Start: LSPPosition{Line: lspLineIndex(span.StartLine), Character: span.StartCol - 1},
+			End:   LSPPosition{Line: lspLineIndex(span.EndLine), Character: span.EndCol - 1},
+		},
+		Severity: LSPDiagnosticSeverityError,
+		Source:   source,
+		Code:     code,
+		Message:  msg,
+	}
 }
 
 func simpleDiagnosticOnLine(fileURI string, line1, col1 int, message, source, code string) LSPDiagnostic {

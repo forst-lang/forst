@@ -10,7 +10,7 @@ import (
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]ast.TypeNode, error) {
 	sig, exists := tc.Functions[function.Ident.ID]
 	if !exists {
-		return nil, fmt.Errorf("undefined function: %s", function.Ident)
+		return nil, fmt.Errorf("undefined function: %s", function.Ident.ID)
 	}
 	return sig.ReturnTypes, nil
 }

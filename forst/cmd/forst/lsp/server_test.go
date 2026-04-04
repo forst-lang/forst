@@ -602,6 +602,34 @@ func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
 	}
 }
 
+func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module hoverlsp\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const src = "package main\n\nimport \"fmt\"\n\nfunc main() {\n  fmt.Println(\"x\")\n}\n"
+	ftPath := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	server.documentMu.Lock()
+	server.openDocuments[uri] = src
+	server.documentMu.Unlock()
+
+	// Cursor on `Println` (0-based line for `  fmt.Println(...)`).
+	h := server.findHoverForPosition(uri, LSPPosition{Line: 5, Character: 6})
+	if h == nil {
+		t.Fatal("expected hover on fmt.Println selector")
+	}
+	v := h.Contents.Value
+	if !strings.Contains(v, "Println") {
+		t.Fatalf("expected Go signature mentioning Println, got %q", v)
+	}
+}
+
 func TestGetCompletionsForPosition(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)

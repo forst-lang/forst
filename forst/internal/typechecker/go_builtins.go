@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"fmt"
 	"forst/internal/ast"
 
 	logrus "github.com/sirupsen/logrus"
@@ -521,8 +520,9 @@ func (tc *TypeChecker) shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
 	return true
 }
 
-// checkBuiltinFunctionCall validates a call to a built-in function
-func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+// checkBuiltinFunctionCall validates a call to a built-in function.
+// argSpans and callSpan come from the parser when available; pass nil / zero value otherwise.
+func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.ExpressionNode, argSpans []ast.SourceSpan, callSpan ast.SourceSpan) ([]ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
 		"function":   "checkBuiltinFunctionCall",
 		"calledFn":   fn.Name,
@@ -534,14 +534,15 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		if err != nil {
 			return nil, err
 		}
+		sp := spanForCallArg(argSpans, 0, args, callSpan)
 		if len(argType) != 1 {
-			return nil, fmt.Errorf("string() expects one argument")
+			return nil, diagnosticf(sp, "builtin-call", "string() expects one argument")
 		}
 		switch argType[0].Ident {
 		case ast.TypeInt:
 			return []ast.TypeNode{fn.ReturnType}, nil
 		default:
-			return nil, fmt.Errorf("string() unsupported operand type %s", argType[0].Ident)
+			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].Ident)
 		}
 	}
 
@@ -550,7 +551,16 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		tc.log.WithFields(logrus.Fields{
 			"function": "checkBuiltinFunctionCall",
 		}).Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
-		return nil, fmt.Errorf("%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
+		var sp ast.SourceSpan
+		if len(args) > len(fn.ParamTypes) {
+			sp = spanForCallArg(argSpans, len(fn.ParamTypes), args, callSpan)
+		} else {
+			sp = callSpan
+		}
+		if !sp.IsSet() && len(args) > 0 {
+			sp = spanForCallArg(argSpans, 0, args, callSpan)
+		}
+		return nil, diagnosticf(sp, "builtin-call", "%s() expects %d arguments, got %d", fn.Name, len(fn.ParamTypes), len(args))
 	}
 
 	// Check argument types
@@ -562,6 +572,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			}).Errorf("Error inferring type for argument %d: %v", i+1, err)
 			return nil, err
 		}
+		sp := spanForCallArg(argSpans, i, args, callSpan)
 		tc.log.WithFields(logrus.Fields{
 			"function": "checkBuiltinFunctionCall",
 		}).Debugf("Arg %d inferred type: %+v", i+1, argType)
@@ -569,7 +580,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			tc.log.WithFields(logrus.Fields{
 				"function": "checkBuiltinFunctionCall",
 			}).Errorf("%s() argument %d must have a single type, got %d", fn.Name, i+1, len(argType))
-			return nil, fmt.Errorf("%s() argument %d must have a single type", fn.Name, i+1)
+			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
 		expectedType := fn.ParamTypes[0] // For varargs, all args must match the first param type
@@ -584,7 +595,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			tc.log.WithFields(logrus.Fields{
 				"function": "checkBuiltinFunctionCall",
 			}).Errorf("%s() argument %d must be of type %s, got %s", fn.Name, i+1, expectedType.Ident, argType[0].Ident)
-			return nil, fmt.Errorf("%s() argument %d must be of type %s, got %s",
+			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must be of type %s, got %s",
 				fn.Name, i+1, expectedType.Ident, argType[0].Ident)
 		}
 	}

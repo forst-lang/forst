@@ -4,44 +4,52 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
 )
 
-func TestStripCommentBody(t *testing.T) {
+func TestTokenSliceIndex_pointerOrValueMatch(t *testing.T) {
 	t.Parallel()
-	if got := stripCommentBody("//  hello "); got != "hello" {
-		t.Fatalf("got %q", got)
+	tokens := []ast.Token{
+		{Line: 1, Column: 1, Type: ast.TokenIdentifier, Value: "a"},
+		{Line: 1, Column: 3, Type: ast.TokenDot, Value: "."},
 	}
-	if got := stripCommentBody("/* x */"); got != "x" {
-		t.Fatalf("got %q", got)
+	if i := tokenSliceIndex(tokens, &tokens[0]); i != 0 {
+		t.Fatalf("pointer match: got %d", i)
+	}
+	alias := ast.Token{Line: 1, Column: 1, Type: ast.TokenIdentifier, Value: "a"}
+	if i := tokenSliceIndex(tokens, &alias); i != 0 {
+		t.Fatalf("value match: got %d", i)
+	}
+	if i := tokenSliceIndex(tokens, &ast.Token{Line: 9, Column: 9}); i != -1 {
+		t.Fatalf("missing: got %d", i)
 	}
 }
 
-func TestLeadingCommentDocBeforeFunc(t *testing.T) {
+func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
-	tokens := []ast.Token{
-		{Type: ast.TokenPackage, Value: "package", Line: 1, Column: 1},
-		{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 9},
-		{Type: ast.TokenComment, Value: "// doc line 1", Line: 3, Column: 1},
-		{Type: ast.TokenComment, Value: "// doc line 2", Line: 4, Column: 1},
-		{Type: ast.TokenFunc, Value: "func", Line: 5, Column: 1},
-		{Type: ast.TokenIdentifier, Value: "Foo", Line: 5, Column: 6},
-	}
-	got := leadingCommentDocBeforeFunc(tokens, "Foo")
-	want := "doc line 1\ndoc line 2"
-	if got != want {
-		t.Fatalf("got %q want %q", got, want)
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenFunc, Value: "func"}
+	if s := hoverTextForToken(tc, nil, tok); s != "`func`" {
+		t.Fatalf("got %q", s)
 	}
 }
 
-func TestFindFuncKeywordIndex(t *testing.T) {
+func TestHoverTextForToken_stringLiteralNonImportReturnsEmpty(t *testing.T) {
 	t.Parallel()
-	tokens := []ast.Token{
-		{Type: ast.TokenFunc, Value: "func"},
-		{Type: ast.TokenIdentifier, Value: "a"},
-		{Type: ast.TokenFunc, Value: "func"},
-		{Type: ast.TokenIdentifier, Value: "b"},
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenStringLiteral, Value: `"hello"`}
+	if s := hoverTextForToken(tc, []ast.Token{{Type: ast.TokenStringLiteral, Value: `"hello"`}}, tok); s != "" {
+		t.Fatalf("expected no hover for non-import string, got %q", s)
 	}
-	if i := findFuncKeywordIndex(tokens, "b"); i != 2 {
-		t.Fatalf("got index %d", i)
+}
+
+func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenIntLiteral, Value: "42"}
+	if s := hoverTextForToken(tc, nil, tok); s != "" {
+		t.Fatalf("got %q", s)
 	}
 }

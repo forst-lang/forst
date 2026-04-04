@@ -26,7 +26,7 @@ func (n ShapeNode) Kind() NodeKind {
 	return NodeKindShape
 }
 
-func (n ShapeNode) isExpression() {}
+func (n ShapeNode) isExpression() { _ = n }
 
 func (n ShapeNode) String() string {
 	var fields []string

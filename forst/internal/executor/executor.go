@@ -233,6 +233,7 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 	}
 
 	checker := typechecker.New(e.log, false)
+	checker.GoWorkspaceDir = filepath.Dir(filePath)
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		e.log.Error("Encountered error checking types: ", err)
 		checker.DebugPrintCurrentScope()

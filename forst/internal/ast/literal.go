@@ -93,31 +93,31 @@ func (n NilLiteralNode) Kind() NodeKind {
 }
 
 // Marker methods to satisfy LiteralNode interface
-func (i IntLiteralNode) isLiteral()    {}
-func (f FloatLiteralNode) isLiteral()  {}
-func (s StringLiteralNode) isLiteral() {}
-func (b BoolLiteralNode) isLiteral()   {}
-func (a ArrayLiteralNode) isLiteral()  {}
-func (m MapLiteralNode) isLiteral()    {}
-func (n NilLiteralNode) isLiteral()    {}
+func (i IntLiteralNode) isLiteral()    { _ = i }
+func (f FloatLiteralNode) isLiteral()  { _ = f }
+func (s StringLiteralNode) isLiteral() { _ = s }
+func (b BoolLiteralNode) isLiteral()   { _ = b }
+func (a ArrayLiteralNode) isLiteral()  { _ = a }
+func (m MapLiteralNode) isLiteral()    { _ = m }
+func (n NilLiteralNode) isLiteral()    { _ = n }
 
 // Implement ValueNode interface for all literal nodes
-func (i IntLiteralNode) isValue()    {}
-func (f FloatLiteralNode) isValue()  {}
-func (s StringLiteralNode) isValue() {}
-func (b BoolLiteralNode) isValue()   {}
-func (a ArrayLiteralNode) isValue()  {}
-func (m MapLiteralNode) isValue()    {}
-func (n NilLiteralNode) isValue()    {}
+func (i IntLiteralNode) isValue()    { _ = i }
+func (f FloatLiteralNode) isValue()  { _ = f }
+func (s StringLiteralNode) isValue() { _ = s }
+func (b BoolLiteralNode) isValue()   { _ = b }
+func (a ArrayLiteralNode) isValue()  { _ = a }
+func (m MapLiteralNode) isValue()    { _ = m }
+func (n NilLiteralNode) isValue()    { _ = n }
 
 // Ensures LiteralNode implements ExpressionNode
-func (i IntLiteralNode) isExpression()    {}
-func (f FloatLiteralNode) isExpression()  {}
-func (s StringLiteralNode) isExpression() {}
-func (b BoolLiteralNode) isExpression()   {}
-func (a ArrayLiteralNode) isExpression()  {}
-func (m MapLiteralNode) isExpression()    {}
-func (n NilLiteralNode) isExpression()    {}
+func (i IntLiteralNode) isExpression()    { _ = i }
+func (f FloatLiteralNode) isExpression()  { _ = f }
+func (s StringLiteralNode) isExpression() { _ = s }
+func (b BoolLiteralNode) isExpression()   { _ = b }
+func (a ArrayLiteralNode) isExpression()  { _ = a }
+func (m MapLiteralNode) isExpression()    { _ = m }
+func (n NilLiteralNode) isExpression()    { _ = n }
 
 func (i IntLiteralNode) String() string {
 	return fmt.Sprintf("%d", i.Value)

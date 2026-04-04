@@ -198,9 +198,12 @@ func TestParseIdentifier(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := ast.SetupTestLogger(nil)
 			p := setupParser(tt.tokens, logger)
-			identifier := p.parseIdentifier()
-			if identifier != tt.expected {
-				t.Errorf("Expected identifier '%s', got '%s'", tt.expected, identifier)
+			ident := p.parseIdentifier()
+			if ident.ID != tt.expected {
+				t.Errorf("Expected identifier '%s', got '%s'", tt.expected, ident.ID)
+			}
+			if !ident.Span.IsSet() {
+				t.Error("expected parseIdentifier to set Span")
 			}
 		})
 	}

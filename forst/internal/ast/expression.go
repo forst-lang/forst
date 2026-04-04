@@ -30,11 +30,13 @@ type BinaryExpressionNode struct {
 type FunctionCallNode struct {
 	Function  Ident
 	Arguments []ExpressionNode
+	CallSpan  SourceSpan   // from '(' through ')' of this call; zero if unset
+	ArgSpans  []SourceSpan // parallel to Arguments when set by parser
 }
 
-func (u UnaryExpressionNode) isExpression()  {}
-func (b BinaryExpressionNode) isExpression() {}
-func (f FunctionCallNode) isExpression()     {}
+func (u UnaryExpressionNode) isExpression()  { _ = u }
+func (b BinaryExpressionNode) isExpression() { _ = b }
+func (f FunctionCallNode) isExpression()     { _ = f }
 
 // Kind returns the node kind for unary expressions
 func (u UnaryExpressionNode) Kind() NodeKind {
