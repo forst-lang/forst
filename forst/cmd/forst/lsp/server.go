@@ -129,7 +129,8 @@ func (s *LSPServer) Stop() error {
 	return nil
 }
 
-// handleLSP handles LSP protocol requests
+// handleLSP handles LSP protocol over HTTP: POST a single JSON-RPC 2.0 object per request.
+// GET returns a small JSON hint for humans or probes (editors must use POST for RPC).
 func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 	// Add panic recovery to prevent server crashes
 	defer func() {
@@ -139,7 +140,13 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Only handle POST requests for LSP protocol
+	if r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"service":"forst-lsp","detail":"POST a JSON-RPC 2.0 object (Content-Type: application/json) to this URL"}`))
+		return
+	}
+
+	// LSP traffic uses POST with a JSON body
 	if r.Method != http.MethodPost {
 		s.log.Warnf("Invalid method %s for LSP endpoint", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -203,6 +210,12 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	switch request.Method {
 	case "initialize":
 		return s.handleInitialize(request)
+	case "initialized":
+		// Notification some clients send after initialize; HTTP bridge may POST it with an id.
+		return LSPServerResponse{JSONRPC: "2.0", ID: request.ID, Result: nil}
+	case "$/cancelRequest":
+		// Cancellation is not implemented; acknowledge so clients do not treat the server as broken.
+		return LSPServerResponse{JSONRPC: "2.0", ID: request.ID, Result: nil}
 	case "textDocument/didOpen":
 		return s.handleDidOpen(request)
 	case "textDocument/didChange":
@@ -243,10 +256,15 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	case "exit":
 		return s.handleExit(request)
 	default:
-		s.log.WithFields(logrus.Fields{
+		entry := s.log.WithFields(logrus.Fields{
 			"method": request.Method,
 			"id":     request.ID,
-		}).Warn("Unknown LSP method requested")
+		})
+		if strings.HasPrefix(request.Method, "$/") {
+			entry.Debug("Unsupported $/ LSP method")
+		} else {
+			entry.Warn("Unknown LSP method requested")
+		}
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,

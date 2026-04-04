@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"unicode"
@@ -777,29 +779,111 @@ func dedupeCompletionItems(items []LSPCompletionItem) []LSPCompletionItem {
 	return out
 }
 
-// getCompletionsForPosition returns merged keyword, semantic, local, and member completions.
-func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, reqCtx *completionRequestContext) []LSPCompletionItem {
+// forstPackageNameFromContent returns the package identifier from the first `package` line, or "".
+func forstPackageNameFromContent(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "//") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "package" {
+			return fields[1]
+		}
+		break
+	}
+	return ""
+}
+
+func (s *LSPServer) countOtherOpenFtURIs(exceptURI string) int {
+	s.documentMu.RLock()
+	defer s.documentMu.RUnlock()
+	n := 0
+	for u := range s.openDocuments {
+		if u == exceptURI {
+			continue
+		}
+		if strings.HasPrefix(u, "file://") && strings.HasSuffix(u, ".ft") {
+			n++
+		}
+	}
+	return n
+}
+
+func uriDisplayBasename(uri string) string {
+	p := strings.TrimPrefix(uri, "file://")
+	if runtime.GOOS == "windows" {
+		p = strings.TrimPrefix(p, "/")
+	}
+	return filepath.Base(p)
+}
+
+// crossBufferTopLevelCompletionItems adds top-level func/type/guard symbols from other open .ft buffers in the same package.
+func (s *LSPServer) crossBufferTopLevelCompletionItems(currentURI, pkg, prefix string) []LSPCompletionItem {
+	if pkg == "" {
+		return nil
+	}
+	s.documentMu.RLock()
+	uris := make([]string, 0, len(s.openDocuments))
+	for u := range s.openDocuments {
+		if u == currentURI {
+			continue
+		}
+		if strings.HasPrefix(u, "file://") && strings.HasSuffix(u, ".ft") {
+			uris = append(uris, u)
+		}
+	}
+	s.documentMu.RUnlock()
+
+	var out []LSPCompletionItem
+	for _, ou := range uris {
+		octx, ok := s.analyzeForstDocument(ou)
+		if !ok || octx == nil || octx.ParseErr != nil || octx.TC == nil {
+			continue
+		}
+		if forstPackageNameFromContent(octx.Content) != pkg {
+			continue
+		}
+		base := uriDisplayBasename(ou)
+		for _, it := range topLevelSymbolCompletionItems(octx, prefix) {
+			it.SortText = "4" + it.Label
+			if it.Detail != "" {
+				it.Detail = fmt.Sprintf("%s · %s", it.Detail, base)
+			} else {
+				it.Detail = base
+			}
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// getCompletionsForPosition returns merged keyword, semantic, local, member, and same-package open-buffer completions.
+// The bool is LSP isIncomplete: true when other open .ft buffers exist (index is open-buffers-only, not full workspace).
+func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, reqCtx *completionRequestContext) ([]LSPCompletionItem, bool) {
 	filePath := strings.TrimPrefix(uri, "file://")
 	if runtime.GOOS == "windows" {
 		filePath = strings.TrimPrefix(filePath, "/")
 	}
 	if !strings.HasSuffix(filePath, ".ft") {
-		return nil
+		return nil, false
 	}
+
+	otherOpen := s.countOtherOpenFtURIs(uri) > 0
 
 	ctx, ok := s.analyzeForstDocument(uri)
 	if !ok || ctx == nil {
-		return nil
+		return nil, false
 	}
 
 	z := inferCompletionZone(ctx.Tokens, position, ctx.Content, reqCtx)
 	if z == zoneUnknown {
-		return nil
+		return nil, false
 	}
 	prefix := identifierPrefixAt(ctx.Content, position)
 
 	if ctx.ParseErr != nil || ctx.TC == nil {
-		return completionItemsFromKeywords(keywordsForZone(z), prefix)
+		return completionItemsFromKeywords(keywordsForZone(z), prefix), otherOpen
 	}
 
 	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
@@ -811,12 +895,16 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	}
 
 	if z == zoneMemberAfterDot {
-		return memberCompletionsAfterDot(ctx, position, prefix)
+		return memberCompletionsAfterDot(ctx, position, prefix), false
 	}
 
 	var items []LSPCompletionItem
 	items = append(items, completionItemsFromKeywords(keywordsForZone(z), prefix)...)
 	items = append(items, topLevelSymbolCompletionItems(ctx, prefix)...)
 	items = append(items, localVariableCompletionItems(ctx, prefix)...)
-	return dedupeCompletionItems(items)
+	pkg := forstPackageNameFromContent(ctx.Content)
+	if z == zoneTopLevel || z == zoneInsideBlock {
+		items = append(items, s.crossBufferTopLevelCompletionItems(uri, pkg, prefix)...)
+	}
+	return dedupeCompletionItems(items), otherOpen
 }

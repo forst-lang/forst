@@ -421,7 +421,10 @@ func TestHandleLSPMethod(t *testing.T) {
 		{"textDocument/completion", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}, "position": {"line": 0, "character": 0}}`)},
 		{"shutdown", false, 0, json.RawMessage(`{}`)},
 		{"exit", false, 0, json.RawMessage(`{}`)},
+		{"initialized", false, 0, json.RawMessage(`{}`)},
+		{"$/cancelRequest", false, 0, json.RawMessage(`{"id": 1}`)},
 		{"unknown/method", true, -32601, json.RawMessage(`{}`)},
+		{"$/progress", true, -32601, json.RawMessage(`{}`)},
 	}
 
 	for _, tc := range testCases {
@@ -504,7 +507,7 @@ func TestHandleLSP(t *testing.T) {
 		t.Errorf("Expected ID 1, got %v", response.ID)
 	}
 
-	// Test GET request (should fail)
+	// GET returns a JSON hint (not JSON-RPC)
 	req, err = http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -513,8 +516,14 @@ func TestHandleLSP(t *testing.T) {
 	w = httptest.NewRecorder()
 	server.handleLSP(w, req)
 
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Expected application/json, got %q", ct)
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("forst-lsp")) {
+		t.Errorf("Expected GET body to mention forst-lsp, got %s", w.Body.String())
 	}
 
 	// Test POST request with invalid JSON
@@ -650,7 +659,10 @@ func main() {
 	server.documentMu.Unlock()
 
 	position := LSPPosition{Line: 3, Character: 2}
-	completions := server.getCompletionsForPosition(uri, position, nil)
+	completions, incomplete := server.getCompletionsForPosition(uri, position, nil)
+	if incomplete {
+		t.Error("Expected isIncomplete false with single open buffer")
+	}
 
 	if len(completions) == 0 {
 		t.Error("Expected completion items to be provided")
@@ -972,7 +984,7 @@ func main() {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			completions := server.getCompletionsForPosition(uri, tc.pos, nil)
+			completions, _ := server.getCompletionsForPosition(uri, tc.pos, nil)
 			if len(completions) == 0 {
 				t.Fatal("Expected completion items")
 			}

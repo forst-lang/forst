@@ -78,8 +78,11 @@ func (s *LSPServer) handleCodeLens(request LSPRequest) LSPServerResponse {
 
 // handleFoldingRange handles the textDocument/foldingRange method
 func (s *LSPServer) handleFoldingRange(request LSPRequest) LSPServerResponse {
-	// Parse text document from params
-	var params map[string]interface{}
+	var params struct {
+		TextDocument struct {
+			URI string `json:"uri"`
+		} `json:"textDocument"`
+	}
 	if err := json.Unmarshal(request.Params, &params); err != nil {
 		return LSPServerResponse{
 			JSONRPC: "2.0",
@@ -91,11 +94,10 @@ func (s *LSPServer) handleFoldingRange(request LSPRequest) LSPServerResponse {
 		}
 	}
 
-	// For now, return empty array (no folding ranges available)
-	// TODO: Implement actual folding range detection
+	ranges := s.foldingRangesForURI(params.TextDocument.URI)
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result:  []interface{}{},
+		Result:  ranges,
 	}
 }

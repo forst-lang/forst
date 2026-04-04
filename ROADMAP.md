@@ -26,7 +26,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Type definitions | ✅ done | User-defined types. |
 | `ensure` statements (basic type assertions) | ✅ done | Basic assertions. |
 | Shape guards (struct refinement) | ✅ done | Refinement on shapes. |
-| `is` operator for `ensure` conditions | 📋 planned | Not implemented. |
+| `is` operator for `ensure` conditions | ✅ done | Parser requires `ensure … is …` (see `forst/internal/parser/ensure.go`; `ensure !ident` uses implicit `Nil()`). Assertions are typechecked (`forst/internal/typechecker/infer_ensure.go`) and emitted (`forst/internal/transformer/go/ensure.go`, `ensure_constraint.go`). Example: `examples/in/ensure.ft` and `task example:ensure`. |
 | Type guards (beyond shape guards) | 📋 planned | Not implemented. |
 | Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | 📋 planned | Not implemented. |
 | Binary type expressions | 📋 planned | Not implemented. |

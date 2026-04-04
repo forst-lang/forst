@@ -2,6 +2,15 @@
 
 Provides `.ft` language registration and connects to the Forst compiler’s **HTTP LSP** (`forst lsp`) for diagnostics on open, edit, and close.
 
+## LSP over HTTP
+
+The server listens on `POST /` with **`Content-Type: application/json`**. Each request body is a single **JSON-RPC 2.0** object (`jsonrpc`, `id`, `method`, `params`). The response is one JSON-RPC result or error object. This is **not** stdio LSP; editors need a small HTTP bridge (this extension implements one).
+
+- **`GET /`** returns a short JSON description of the endpoint (for probes or manual checks).
+- **`GET /health`** returns a health JSON payload.
+
+Unsupported methods return JSON-RPC error **`-32601` Method not found** (except `initialized` and `$/cancelRequest`, which are acknowledged with a null result when posted with an `id`).
+
 ## Requirements
 
 - `forst` on `PATH`, or set **Forst: Path** (`forst.path`) to the executable.

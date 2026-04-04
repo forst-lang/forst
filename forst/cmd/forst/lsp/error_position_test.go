@@ -17,6 +17,9 @@ func TestDiagnosticFromParseError_UsesLexerLineColumn(t *testing.T) {
 		Msg:   "unexpected token",
 	}
 	d := DiagnosticFromParseError("file:///test.ft", pe)
+	if d.Code != ErrorCodeUnexpectedToken {
+		t.Fatalf("code = %q want %q", d.Code, ErrorCodeUnexpectedToken)
+	}
 	if d.Range.Start.Line != 4 {
 		t.Errorf("LSP line = %d, want 4 (lexer line 5 → 0-based 4)", d.Range.Start.Line)
 	}
@@ -103,6 +106,21 @@ func TestDiagnosticForParseFailure_ParseError(t *testing.T) {
 	}
 	if d.Range.Start.Line != 1 || d.Range.Start.Character != 3 {
 		t.Fatalf("range start = %+v", d.Range.Start)
+	}
+}
+
+func TestDiagnosticFromParseError_expectedVsFoundMessageCode(t *testing.T) {
+	t.Parallel()
+	pe := &parser.ParseError{
+		Token: ast.Token{Line: 1, Column: 1, Value: "{"},
+		Msg:   `expected IDENTIFIER, found LBRACE (current text "{")`,
+	}
+	d := DiagnosticFromParseError("file:///t.ft", pe)
+	if d.Code != ErrorCodeUnexpectedToken {
+		t.Fatalf("code = %q", d.Code)
+	}
+	if !strings.Contains(d.Message, "expected ") || !strings.Contains(d.Message, "found ") {
+		t.Fatalf("message = %q", d.Message)
 	}
 }
 

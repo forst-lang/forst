@@ -27,6 +27,23 @@ var (
 	reUnknownIdentifier     = regexp.MustCompile(`unknown identifier:\s*(\S+)`)
 )
 
+// lspCodeForParseMessage maps common parser messages to stable LSP diagnostic codes.
+func lspCodeForParseMessage(msg string) string {
+	if msg == "" {
+		return ErrorCodeInvalidSyntax
+	}
+	if strings.Contains(msg, "Expected token type") {
+		return ErrorCodeUnexpectedToken
+	}
+	if strings.HasPrefix(msg, "expected ") && strings.Contains(msg, ", found ") {
+		return ErrorCodeUnexpectedToken
+	}
+	if strings.Contains(strings.ToLower(msg), "unexpected token") {
+		return ErrorCodeUnexpectedToken
+	}
+	return ErrorCodeInvalidSyntax
+}
+
 // DiagnosticFromParseError builds an LSP diagnostic at the failing token (lexer uses 1-based line/column).
 func DiagnosticFromParseError(fileURI string, pe *parser.ParseError) LSPDiagnostic {
 	line1 := pe.Token.Line
@@ -56,7 +73,7 @@ func DiagnosticFromParseError(fileURI string, pe *parser.ParseError) LSPDiagnost
 		},
 		Severity: LSPDiagnosticSeverityError,
 		Source:   "forst-parser",
-		Code:     ErrorCodeInvalidSyntax,
+		Code:     lspCodeForParseMessage(msg),
 		Message:  msg,
 	}
 }

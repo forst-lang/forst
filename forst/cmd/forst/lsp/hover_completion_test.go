@@ -1,6 +1,9 @@
 package lsp
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -52,4 +55,57 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 	if s := hoverTextForToken(tc, nil, tok); s != "" {
 		t.Fatalf("got %q", s)
 	}
+}
+
+func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
+	t.Parallel()
+	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); s != "`func`" {
+		t.Fatalf("keyword: got %q", s)
+	}
+	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
+	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "`foo`") || !strings.Contains(s, "parses") {
+		t.Fatalf("identifier: got %q", s)
+	}
+	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenIntLiteral, Value: "1"}); s != "" {
+		t.Fatalf("literal: got %q", s)
+	}
+}
+
+func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "bad_hover.ft")
+	// Same top-level rejection as analyze_test (parser error, tokens still present).
+	const src = "package main\n\nunexpected\n"
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ft
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr == nil {
+		t.Fatal("expected parse error for test fixture")
+	}
+
+	// Line 0: `package` keyword
+	hPkg := s.findHoverForPosition(uri, LSPPosition{Line: 0, Character: 2})
+	if hPkg == nil || hPkg.Contents.Value != "`package`" {
+		if hPkg == nil {
+			t.Fatal("expected keyword hover on package when parse fails")
+		}
+		t.Fatalf("package hover: got %q", hPkg.Contents.Value)
+	}
+	// Line 2: `unexpected` — lexical identifier hover
+	h := s.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 2})
+	if h == nil || !strings.Contains(h.Contents.Value, "`unexpected`") {
+		if h == nil {
+			t.Fatal("expected hover when parse fails")
+		}
+		t.Fatalf("identifier hover: got %q", h.Contents.Value)
+	}
+	_ = ctx
 }

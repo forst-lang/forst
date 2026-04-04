@@ -3,6 +3,7 @@ package lsp
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"forst/internal/ast"
@@ -82,7 +83,7 @@ func f() {
 		t.Fatal("no types for s")
 	}
 
-	items := s.getCompletionsForPosition(uri, pos, &completionRequestContext{TriggerCharacter: "."})
+	items, _ := s.getCompletionsForPosition(uri, pos, &completionRequestContext{TriggerCharacter: "."})
 	found := make(map[string]bool)
 	for _, it := range items {
 		found[it.Label] = true
@@ -113,7 +114,7 @@ func main() {
 
 	// After `var `, before `x` — identifier prefix empty
 	pos := LSPPosition{Line: 3, Character: 6}
-	items := s.getCompletionsForPosition(uri, pos, nil)
+	items, _ := s.getCompletionsForPosition(uri, pos, nil)
 	found := make(map[string]bool)
 	for _, it := range items {
 		found[it.Label] = true
@@ -150,12 +151,65 @@ func f() {
 
 	// After `r.` on line `  _ = r.name`
 	pos := LSPPosition{Line: 9, Character: 8}
-	items := s.getCompletionsForPosition(uri, pos, &completionRequestContext{TriggerCharacter: "."})
+	items, _ := s.getCompletionsForPosition(uri, pos, &completionRequestContext{TriggerCharacter: "."})
 	found := make(map[string]bool)
 	for _, it := range items {
 		found[it.Label] = true
 	}
 	if !found["name"] || !found["count"] {
 		t.Fatalf("expected shape fields name and count, got %#v", found)
+	}
+}
+
+func TestForstPackageNameFromContent(t *testing.T) {
+	t.Parallel()
+	if got := forstPackageNameFromContent("package main\n\nfunc f() {}\n"); got != "main" {
+		t.Fatalf("got %q", got)
+	}
+	if got := forstPackageNameFromContent("// hi\npackage foo\n"); got != "foo" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestGetCompletionsForPosition_crossBufferSamePackage(t *testing.T) {
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module t\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	aPath := filepath.Join(dir, "a.ft")
+	bPath := filepath.Join(dir, "b.ft")
+	const bsrc = "package main\n\nfunc OtherFunc() {\n}\n"
+	const asrc = `package main
+
+func main() {
+  var x: Int = 1
+}
+`
+	if err := os.WriteFile(bPath, []byte(bsrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(aPath, []byte(asrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriA := "file://" + aPath
+	uriB := "file://" + bPath
+	s.documentMu.Lock()
+	s.openDocuments[uriA] = asrc
+	s.openDocuments[uriB] = bsrc
+	s.documentMu.Unlock()
+
+	pos := LSPPosition{Line: 3, Character: 2}
+	items, incomplete := s.getCompletionsForPosition(uriA, pos, nil)
+	if !incomplete {
+		t.Fatal("expected isIncomplete true when multiple open .ft buffers")
+	}
+	labels := make([]string, 0, len(items))
+	for _, it := range items {
+		labels = append(labels, it.Label)
+	}
+	if !slices.Contains(labels, "OtherFunc") {
+		t.Fatalf("expected OtherFunc from open buffer b.ft, got %v", labels)
 	}
 }

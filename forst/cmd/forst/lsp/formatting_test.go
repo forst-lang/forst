@@ -2,6 +2,8 @@ package lsp
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -79,5 +81,72 @@ func TestHandleFoldingRange_InvalidParams_ReturnsInvalidParams(t *testing.T) {
 	})
 	if resp.Error == nil || resp.Error.Code != -32602 {
 		t.Fatalf("got %+v", resp.Error)
+	}
+}
+
+func TestHandleFoldingRange_parseOk_returnsFunctionBodyRegion(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module foldt\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "fold.ft")
+	const src = "package main\n\nfunc main() {\n  var x: Int = 1\n}\n"
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ft
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleFoldingRange(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Params:  json.RawMessage(params),
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	arr, ok := resp.Result.([]interface{})
+	if !ok || len(arr) == 0 {
+		t.Fatalf("expected folding ranges, got %T %#v", resp.Result, resp.Result)
+	}
+	m, ok := arr[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("range type %T", arr[0])
+	}
+	sl := m["startLine"]
+	if sl != float64(2) && sl != 2 { // int from in-process maps; float64 after JSON round-trip
+		t.Fatalf("startLine = %v (%T)", sl, sl)
+	}
+	if m["kind"] != "region" {
+		t.Fatalf("kind = %v", m["kind"])
+	}
+}
+
+func TestFoldingRangesForURI_parseError_returnsEmpty(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "bad.ft")
+	uri := "file://" + ft
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = "package main\n\nunexpected\n"
+	s.documentMu.Unlock()
+
+	if err := os.WriteFile(ft, []byte("package main\n\nunexpected\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := s.foldingRangesForURI(uri)
+	if len(got) != 0 {
+		t.Fatalf("expected no ranges on parse error, got %d", len(got))
 	}
 }
