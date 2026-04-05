@@ -33,9 +33,9 @@ bun install
 bun run build
 ```
 
-**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-sidecar.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-sidecar.yml) publishes to npm and JSR automatically (`NPM_TOKEN` and JSR OIDC or `JSR_TOKEN` required).
+**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes to npm and JSR automatically (`NPM_TOKEN` and JSR OIDC or `JSR_TOKEN` required).
 
-**Manual publish:** use workflow **Publish @forst/sidecar** (workflow_dispatch) or run `npm publish` / `npx jsr publish` from `packages/sidecar`. `npx jsr publish --dry-run` validates the JSR package; committed trees are required unless you pass `--allow-dirty`.
+**Local npm / JSR:** from `packages/sidecar`, run `npm publish` or `npx jsr publish` if you must publish outside CI; `npx jsr publish --dry-run` validates the JSR package. CI publishes only when a Release Please **GitHub Release** is published (workflow **Publish packages (npm / JSR)**).
 
 ### Basic Usage
 

@@ -31,7 +31,7 @@ jobs:
 
   build:
     needs: release-please
-    # Compiler releases use tags like v0.0.12; @forst/sidecar uses sidecar-v* (see .release-please-config.json).
+    # Root compiler releases: tags like v0.0.12. @forst/cli uses cli-v*, @forst/sidecar uses sidecar-v* (see .release-please-config.json).
     if: ${{ needs.release-please.outputs.release_created && startsWith(needs.release-please.outputs.tag_name, 'v') }}
     runs-on: ubuntu-latest
     env:

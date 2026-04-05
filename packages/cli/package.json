@@ -1,0 +1,64 @@
+{
+  "name": "@forst/cli",
+  "version": "0.0.19",
+  "description": "Forst compiler CLI: install the native `forst` binary. Linux, macOS, Windows.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "forst": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "bun run sync-jsr-version && bun run build",
+    "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "test": "bun test"
+  },
+  "keywords": [
+    "forst",
+    "compiler",
+    "cli",
+    "golang",
+    "go",
+    "typescript",
+    "transpiler",
+    "native-binary",
+    "npm",
+    "nodejs"
+  ],
+  "author": "haveyaseen",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forst-lang/forst.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/forst-lang/forst/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/forst-lang/forst/issues"
+  }
+}

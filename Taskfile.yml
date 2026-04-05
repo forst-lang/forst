@@ -19,10 +19,29 @@ tasks:
     generates:
       - ../bin/{{.BINARY_NAME}}
 
+  build:cli:
+    desc: Build @forst/cli
+    dir: packages/cli
+    deps: [install:bun]
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/cli/dist/index.js
+      - packages/cli/dist/index.d.ts
+
+  test:cli:
+    desc: Run Bun tests for @forst/cli
+    dir: packages/cli
+    deps: [install:bun]
+    cmds:
+      - bun run test
+
   build:sidecar:
     desc: Build the Forst sidecar
     dir: packages/sidecar
-    deps: [install:bun]
+    deps: [install:bun, build:cli]
     cmds:
       - bun run build
     sources:
@@ -34,7 +53,7 @@ tasks:
   test:sidecar:
     desc: Run Bun tests for @forst/sidecar
     dir: packages/sidecar
-    deps: [install:bun]
+    deps: [install:bun, build:cli]
     cmds:
       - bun run test
 
@@ -284,6 +303,7 @@ tasks:
     cmds:
       - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - task: test:cli
       - task: test:sidecar
       - task example:sidecar-local
       - task example:sidecar-downloaded || echo "Downloaded binary example failed (expected for now - needs release with dev command)"

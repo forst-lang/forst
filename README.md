@@ -2,7 +2,7 @@
 
 [CI]: https://img.shields.io/github/actions/workflow/status/forst-lang/forst/lint-test-coverage.yml
 [actions]: https://github.com/forst-lang/forst/actions
-[release]: https://img.shields.io/github/v/release/forst-lang/forst
+[release]: https://img.shields.io/github/v/release/forst-lang/forst?filter=v*
 [Go Report Card]: https://goreportcard.com/badge/github.com/forst-lang/forst
 [goreport]: https://goreportcard.com/report/github.com/forst-lang/forst
 [Coverage Status]: https://coveralls.io/repos/github/forst-lang/forst/badge.svg?branch=main
@@ -117,6 +117,10 @@ task example:function                    # Run function example
 ## VS Code
 
 The workspace includes an optional extension in [`packages/vscode-forst`](./packages/vscode-forst): it registers `.ft` and talks to the compiler’s HTTP LSP (`forst lsp`) for diagnostics. After `bun install` at the repo root, run `task build:vscode` to compile it (or rely on the F5 **preLaunchTask** in [`.vscode/launch.json`](./.vscode/launch.json)). CI runs the same compile as the first step of `task ci:test`. See [`packages/vscode-forst/README.md`](./packages/vscode-forst/README.md) for F5 and troubleshooting.
+
+## npm
+
+**[`@forst/cli`](./packages/cli/README.md)** installs the Forst compiler in JS/TS projects: `npm i -D @forst/cli`, then `npx forst` / `node_modules/.bin/forst` (it pulls the matching native binary from GitHub Releases). For the dev-server + HTTP client, use **[`@forst/sidecar`](./packages/sidecar/README.md)** instead.
 
 ## TypeScript client output
 

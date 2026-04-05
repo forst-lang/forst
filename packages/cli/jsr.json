@@ -1,0 +1,20 @@
+{
+  "name": "@forst/cli",
+  "version": "0.0.19",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bin": "./src/bin.ts"
+  },
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "dist"
+    ]
+  }
+}
