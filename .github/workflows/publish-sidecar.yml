@@ -1,0 +1,61 @@
+# Publish @forst/sidecar to npmjs.com and jsr.io (manual dispatch).
+#
+# Before running:
+# 1. Bump version in packages/sidecar/package.json
+# 2. Run `bun run sync-jsr-version` (or `node scripts/sync-jsr-version.mjs`) in packages/sidecar
+# 3. Commit and push
+#
+# Secrets:
+# - NPM_TOKEN: required for npm (automation access token with publish to @forst/sidecar).
+# - JSR: link this repo to https://jsr.io/@forst/sidecar for OIDC (id-token below), or set JSR_TOKEN.
+
+name: Publish @forst/sidecar
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - name: Build sidecar
+        working-directory: packages/sidecar
+        run: bun run build
+
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+          node-version: "20"
+
+      - name: npm publish
+        working-directory: packages/sidecar
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  publish-jsr:
+    name: Publish to JSR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - name: jsr publish
+        working-directory: packages/sidecar
+        run: npx jsr publish
+        env:
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
