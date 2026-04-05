@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"forst/internal/generators"
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/logger"
 	"forst/internal/parser"
@@ -118,7 +119,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 
 	// Semantic Analysis
 	checker := typechecker.New(c.log, c.Args.ReportPhases)
-	checker.GoWorkspaceDir = filepath.Dir(c.Args.FilePath)
+	checker.GoWorkspaceDir = goload.FindModuleRoot(filepath.Dir(c.Args.FilePath))
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {

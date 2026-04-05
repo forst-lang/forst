@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
@@ -368,7 +369,7 @@ func (s *LSPServer) analyzePackageGroupMerged(anchorURI string) (snap *packageSn
 		}
 	}
 
-	workDir := filepath.Dir(filePathFromDocumentURI(uris[0]))
+	workDir := goload.FindModuleRoot(filepath.Dir(filePathFromDocumentURI(uris[0])))
 	snap = s.buildPackageSnapshot(uris, results, workDir)
 	s.packageAnalysis.put(fp, snap)
 

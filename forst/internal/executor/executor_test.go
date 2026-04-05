@@ -93,6 +93,34 @@ func Broken(): String {
 	}
 }
 
+func TestFunctionExecutor_ExecuteFunction_crossFileCall(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "lib.ft"), `package demo
+
+func Helper(): String {
+	return "Hello"
+}
+`)
+	writeFile(t, filepath.Join(root, "hello.ft"), `package demo
+
+func Hello(): String {
+	return Helper()
+}
+`)
+	ex := testExecutor(t, root)
+
+	res, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	if err != nil {
+		t.Fatalf("ExecuteFunction: %v", err)
+	}
+	if res == nil || !res.Success {
+		t.Fatalf("expected success, got %+v", res)
+	}
+	if !strings.Contains(res.Output, "Hello") {
+		t.Fatalf("expected Hello in output, got Output=%q Result=%s", res.Output, res.Result)
+	}
+}
+
 func TestFunctionExecutor_ExecuteFunction_Greet(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "hello.ft"), `package demo

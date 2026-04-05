@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"forst/internal/ast"
+	"forst/internal/forstpkg"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -59,10 +60,10 @@ func (m *MockLogger) Tracef(format string, args ...interface{}) {
 }
 
 func TestPackageNameOrDefault(t *testing.T) {
-	if got := packageNameOrDefault("mypkg"); got != "mypkg" {
+	if got := forstpkg.PackageNameOrDefault("mypkg"); got != "mypkg" {
 		t.Fatalf("non-empty: got %q", got)
 	}
-	if got := packageNameOrDefault(""); got != "main" {
+	if got := forstpkg.PackageNameOrDefault(""); got != "main" {
 		t.Fatalf("empty: got %q want main", got)
 	}
 }
@@ -630,19 +631,22 @@ func TestDiscoverer_extractFunctionsFromNode_FunctionNodeValueReceiver(t *testin
 	}
 }
 
-func TestDiscoverer_discoverFunctionsInFile_readError(t *testing.T) {
+func TestDiscoverer_DiscoverFunctions_readErrorSkipped(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.ft")
 	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{missing}})
-	_, err := discoverer.discoverFunctionsInFile(missing)
-	if err == nil {
-		t.Fatal("expected error when file does not exist")
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	if len(out) != 0 {
+		t.Fatalf("expected no functions when file missing, got %+v", out)
 	}
 }
 
-func TestDiscoverer_discoverFunctionsInFile_parseError(t *testing.T) {
+func TestDiscoverer_DiscoverFunctions_parseErrorSkipped(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	dir := t.TempDir()
@@ -650,14 +654,17 @@ func TestDiscoverer_discoverFunctionsInFile_parseError(t *testing.T) {
 	if err := os.WriteFile(path, []byte("this is not valid forst syntax @@@\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
-	_, err := discoverer.discoverFunctionsInFile(path)
-	if err == nil {
-		t.Fatal("expected parse error")
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{path}})
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	if len(out) != 0 {
+		t.Fatalf("expected no functions when parse fails, got %+v", out)
 	}
 }
 
-func TestDiscoverer_discoverFunctionsInFile_typecheckErrorStillDiscovers(t *testing.T) {
+func TestDiscoverer_DiscoverFunctions_typecheckErrorStillDiscovers(t *testing.T) {
 	// Parses but fails type checking — discovery still extracts the public function using parser return types.
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
@@ -672,10 +679,10 @@ func Bad(): String {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
-	out, err := discoverer.discoverFunctionsInFile(path)
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{path}})
+	out, err := discoverer.DiscoverFunctions()
 	if err != nil {
-		t.Fatalf("discoverFunctionsInFile: %v", err)
+		t.Fatalf("DiscoverFunctions: %v", err)
 	}
 	fn, ok := out["main"]["Bad"]
 	if !ok {
@@ -683,6 +690,43 @@ func Bad(): String {
 	}
 	if fn.ReturnType == "" {
 		t.Fatal("expected return type from parser fallback when typecheck fails")
+	}
+}
+
+func TestDiscoverer_DiscoverFunctions_crossFileCall(t *testing.T) {
+	dir := t.TempDir()
+	p1 := filepath.Join(dir, "lib.ft")
+	p2 := filepath.Join(dir, "api.ft")
+	if err := os.WriteFile(p1, []byte(`package demo
+
+func Helper(): String {
+	return "hi"
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p2, []byte(`package demo
+
+func Hello(): String {
+	return Helper()
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	config := &MockConfig{files: []string{p2, p1}}
+	discoverer := NewDiscoverer(dir, logger, config)
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	fn, ok := out["demo"]["Hello"]
+	if !ok {
+		t.Fatalf("expected Hello, got %+v", out)
+	}
+	if fn.ReturnType == "" {
+		t.Fatalf("expected return type with merged-package typecheck, got %+v", fn)
 	}
 }
 
@@ -727,7 +771,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_nilTypecheckerUsesReturnTypes(t *tes
 	}
 }
 
-func TestDiscoverer_discoverFunctionsInFile_publicFunctionNoExplicitReturns(t *testing.T) {
+func TestDiscoverer_DiscoverFunctions_publicFunctionNoExplicitReturns(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	dir := t.TempDir()
@@ -740,10 +784,10 @@ func Pub() {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{})
-	out, err := discoverer.discoverFunctionsInFile(path)
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{path}})
+	out, err := discoverer.DiscoverFunctions()
 	if err != nil {
-		t.Fatalf("discoverFunctionsInFile: %v", err)
+		t.Fatalf("DiscoverFunctions: %v", err)
 	}
 	fn, ok := out["main"]["Pub"]
 	if !ok {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
@@ -87,7 +88,7 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 	}
 
 	tc := typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = filepath.Dir(filePath)
+	tc.GoWorkspaceDir = goload.FindModuleRoot(filepath.Dir(filePath))
 	checkErr := tc.CheckTypes(nodes)
 	ctx.Nodes = nodes
 	ctx.TC = tc

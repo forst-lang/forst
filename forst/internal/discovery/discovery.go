@@ -3,15 +3,14 @@ package discovery
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 
 	"forst/internal/ast"
 	"forst/internal/configiface"
-	"forst/internal/lexer"
-	"forst/internal/parser"
+	"forst/internal/forstpkg"
+	"forst/internal/goload"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -81,25 +80,56 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	d.log.Debugf("Found %d Forst files to scan", len(ftFiles))
 
-	totalFunctions := 0
-	// Process each file
+	mainLogger, ok := d.log.(*logrus.Logger)
+	if !ok {
+		mainLogger = logrus.New()
+		mainLogger.SetOutput(nil)
+	}
+
+	parsed := make(map[string][]ast.Node)
 	for _, filePath := range ftFiles {
-		fileFunctions, err := d.discoverFunctionsInFile(filePath)
+		nodes, err := forstpkg.ParseForstFile(mainLogger, filePath)
 		if err != nil {
-			d.log.Warnf("Failed to discover functions in %s: %v", filePath, err)
+			d.log.Warnf("Failed to parse %s: %v", filePath, err)
 			continue
 		}
+		parsed[filePath] = nodes
+	}
 
-		if len(fileFunctions) > 0 {
-			// Group functions by package name from AST
-			for packageName, pkgFuncs := range fileFunctions {
-				if functions[packageName] == nil {
-					functions[packageName] = make(map[string]FunctionInfo)
-				}
-				for name, fn := range pkgFuncs {
-					functions[packageName][name] = fn
-				}
-				totalFunctions += len(pkgFuncs)
+	byPackage := make(map[string][]string)
+	for path, nodes := range parsed {
+		pkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
+		byPackage[pkg] = append(byPackage[pkg], path)
+	}
+
+	totalFunctions := 0
+	goRoot := goload.FindModuleRoot(d.rootDir)
+
+	for packageName, paths := range byPackage {
+		sort.Strings(paths)
+		var astLists [][]ast.Node
+		for _, p := range paths {
+			astLists = append(astLists, parsed[p])
+		}
+		merged := forstpkg.MergePackageASTs(astLists)
+
+		tc := typechecker.New(mainLogger, false)
+		tc.GoWorkspaceDir = goRoot
+		if err := tc.CheckTypes(merged); err != nil {
+			d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
+		}
+
+		for _, filePath := range paths {
+			fileFunctions := d.discoverFunctionsInParsedFile(parsed[filePath], filePath, packageName, tc)
+			if len(fileFunctions) == 0 {
+				continue
+			}
+			if functions[packageName] == nil {
+				functions[packageName] = make(map[string]FunctionInfo)
+			}
+			for name, fn := range fileFunctions {
+				functions[packageName][name] = fn
+				totalFunctions++
 			}
 		}
 	}
@@ -121,56 +151,12 @@ func (d *Discoverer) findForstFiles() ([]string, error) {
 	return d.config.FindForstFiles(d.rootDir)
 }
 
-// packageNameOrDefault returns name when non-empty; otherwise "main" (Go default package).
-func packageNameOrDefault(name string) string {
-	if name == "" {
-		return "main"
-	}
-	return name
-}
-
-// discoverFunctionsInFile discovers public functions in a single Forst file
-func (d *Discoverer) discoverFunctionsInFile(filePath string) (map[string]map[string]FunctionInfo, error) {
-	functions := make(map[string]map[string]FunctionInfo)
-
-	// Read and parse the file
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %v", err)
-	}
-
-	// Create lexer and tokenize
-	mainLogger, _ := d.log.(*logrus.Logger)
-	l := lexer.New(content, filePath, mainLogger)
-	tokens := l.Lex()
-
-	// Create parser and parse the file
-	p := parser.New(tokens, filePath, mainLogger)
-	nodes, err := p.ParseFile()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse file: %v", err)
-	}
-
-	// Extract package name and functions from AST
-	packageName := packageNameOrDefault(d.extractPackageNameFromAST(nodes))
-
-	// Type check to get function signatures (optional, don't fail if it errors)
-	tc := typechecker.New(mainLogger, false)
-	tc.GoWorkspaceDir = filepath.Dir(filePath)
-	if err := tc.CheckTypes(nodes); err != nil {
-		d.log.Debugf("Type checking failed for %s: %v", filePath, err)
-		// Continue without type checking for discovery
-	}
-
-	// Extract functions from AST nodes
+// discoverFunctionsInParsedFile collects public functions from an already-parsed file using a
+// typechecker that was run on the merged package AST (cross-file types and imports).
+func (d *Discoverer) discoverFunctionsInParsedFile(nodes []ast.Node, filePath, packageName string, tc *typechecker.TypeChecker) map[string]FunctionInfo {
 	fileFunctions := make(map[string]FunctionInfo)
 	d.extractFunctionsFromNodes(nodes, packageName, filePath, fileFunctions, tc)
-
-	if len(fileFunctions) > 0 {
-		functions[packageName] = fileFunctions
-	}
-
-	return functions, nil
+	return fileFunctions
 }
 
 // extractPackageNameFromAST extracts the package name from AST nodes
