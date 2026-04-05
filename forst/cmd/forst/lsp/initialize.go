@@ -26,6 +26,7 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 		"workspaceSymbolProvider": true,
 		"foldingRangeProvider":    true,
 		// documentFormattingProvider, codeActionProvider, codeLensProvider: omitted until implemented (avoid no-op UI).
+		// server.go still routes these methods so tests or explicit clients can call them without advertising in capabilities.
 		// Custom LLM debugging capabilities
 		"experimental": map[string]interface{}{
 			"debugInfoProvider":     true,

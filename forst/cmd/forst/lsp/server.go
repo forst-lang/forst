@@ -59,6 +59,18 @@ type LSPServer struct {
 	// openDocuments holds the latest text per LSP document URI (file://...) for hover and similar pull requests.
 	documentMu    sync.RWMutex
 	openDocuments map[string]string
+
+	// peerAnalysisCache stores last *forstDocumentContext per open URI keyed by buffer text, used only for
+	// cross-buffer completion (read-only symbol lists). Current-buffer analysis always calls analyzeForstDocument
+	// so TypeChecker scope state is never reused after RestoreScope.
+	peerAnalysisMu    sync.Mutex
+	peerAnalysisCache map[string]peerAnalysisCacheEntry
+}
+
+// peerAnalysisCacheEntry is a content-keyed snapshot for same-package peer buffers (completion only).
+type peerAnalysisCacheEntry struct {
+	content string
+	ctx     *forstDocumentContext
 }
 
 // Version information for LSP server
@@ -83,7 +95,8 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 		port:          port,
 		debugMode:     true, // Enable debug mode by default for LLM debugging
 		debugEvents:   make([]DebugEvent, 0),
-		openDocuments: make(map[string]string),
+		openDocuments:     make(map[string]string),
+		peerAnalysisCache: make(map[string]peerAnalysisCacheEntry),
 	}
 }
 
@@ -180,6 +193,12 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 	// Handle different LSP methods
 	response := s.handleLSPMethod(request)
 
+	// JSON-RPC notifications omit "id"; the server must not send a response body (JSON-RPC 2.0).
+	if request.ID == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	// Log response with INFO level
 	s.log.WithFields(logrus.Fields{
 		"method":     request.Method,
@@ -237,6 +256,7 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	case "workspace/symbol":
 		return s.handleWorkspaceSymbol(request)
 	case "textDocument/formatting":
+		// Handlers exist for tests/ad-hoc clients; initialize does not advertise these until non–no-op.
 		return s.handleFormatting(request)
 	case "textDocument/codeAction":
 		return s.handleCodeAction(request)

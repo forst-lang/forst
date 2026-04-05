@@ -94,6 +94,36 @@ func TestDiagnosticForTypecheckError_usesStructuredSpan(t *testing.T) {
 	}
 }
 
+func TestDiagnosticForTypecheckOrTransform_plainError(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc main() {\n  x\n}\n"
+	err := errors.New("transform failed: something")
+	d := diagnosticForTypecheckOrTransform("file:///t.ft", content, err, "forst-transformer", ErrorCodeTransformationFailed)
+	if d.Source != "forst-transformer" || d.Code != ErrorCodeTransformationFailed {
+		t.Fatalf("source=%q code=%q", d.Source, d.Code)
+	}
+	if !strings.Contains(d.Message, "transform failed") {
+		t.Fatalf("message = %q", d.Message)
+	}
+}
+
+func TestDiagnosticForTypecheckError_plainErrorFallsBackToBestEffort(t *testing.T) {
+	t.Parallel()
+	content := "package main\n\nfunc main() {\n  fooBar\n}\n"
+	err := errors.New("undefined symbol: fooBar [scope: main]")
+	d := diagnosticForTypecheckError("file:///t.ft", content, err, "forst-typechecker", ErrorCodeTypeMismatch)
+	if d.Range.Start.Line != 3 {
+		t.Fatalf("start line = %d", d.Range.Start.Line)
+	}
+}
+
+func TestAtoiLineCol_invalidLine(t *testing.T) {
+	t.Parallel()
+	if _, _, ok := atoiLineCol("0", "1"); ok {
+		t.Fatal("expected false for line 0")
+	}
+}
+
 func TestDiagnosticForParseFailure_ParseError(t *testing.T) {
 	t.Parallel()
 	pe := &parser.ParseError{
@@ -106,6 +136,14 @@ func TestDiagnosticForParseFailure_ParseError(t *testing.T) {
 	}
 	if d.Range.Start.Line != 1 || d.Range.Start.Character != 3 {
 		t.Fatalf("range start = %+v", d.Range.Start)
+	}
+}
+
+func TestLspCodeForParseMessage_wrappedExpectedVsFound(t *testing.T) {
+	t.Parallel()
+	msg := "Parse error at f.ft:1:2: expected IDENTIFIER, found LBRACE (current text \"{\")"
+	if c := lspCodeForParseMessage(msg); c != ErrorCodeUnexpectedToken {
+		t.Fatalf("code = %q want %q", c, ErrorCodeUnexpectedToken)
 	}
 }
 

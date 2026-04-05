@@ -17,14 +17,7 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 
 	t.Run("type_guard_subject_mismatch", func(t *testing.T) {
 		tc := New(log, false)
-		tc.Defs[ast.TypeIdent("ExpectsInt")] = ast.TypeGuardNode{
-			Ident: "ExpectsInt",
-			Subject: ast.SimpleParamNode{
-				Ident: ast.Ident{ID: "n"},
-				Type:  ast.TypeNode{Ident: ast.TypeInt},
-			},
-			Body: []ast.Node{},
-		}
+		registerTypeGuardExpectsInt(tc, ast.TypeIdent("ExpectsInt"))
 		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
 		tc.scopeStack.pushScope(fn)
 		tc.CurrentScope().RegisterSymbol(ast.Identifier("s"), []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
@@ -45,14 +38,7 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 
 	t.Run("type_guard_subject_ok", func(t *testing.T) {
 		tc := New(log, false)
-		tc.Defs[ast.TypeIdent("ExpectsInt")] = ast.TypeGuardNode{
-			Ident: "ExpectsInt",
-			Subject: ast.SimpleParamNode{
-				Ident: ast.Ident{ID: "n"},
-				Type:  ast.TypeNode{Ident: ast.TypeInt},
-			},
-			Body: []ast.Node{},
-		}
+		registerTypeGuardExpectsInt(tc, ast.TypeIdent("ExpectsInt"))
 		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
 		tc.scopeStack.pushScope(fn)
 		tc.CurrentScope().RegisterSymbol(ast.Identifier("n"), []ast.TypeNode{{Ident: ast.TypeInt}}, SymbolVariable)
@@ -87,6 +73,26 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 		_, err := tc.inferEnsureType(ensure)
 		if err == nil {
 			t.Fatal("expected error: Present on non-pointer")
+		}
+	})
+
+	t.Run("Present_allows_pointer", func(t *testing.T) {
+		tc := New(log, false)
+		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+		tc.scopeStack.pushScope(fn)
+		ptrToStr := ast.NewPointerType(ast.TypeNode{Ident: ast.TypeString})
+		tc.CurrentScope().RegisterSymbol(ast.Identifier("s"), []ast.TypeNode{ptrToStr}, SymbolVariable)
+
+		ensure := ast.EnsureNode{
+			Variable: ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+			Assertion: ast.AssertionNode{
+				Constraints: []ast.ConstraintNode{
+					{Name: "Present", Args: []ast.ConstraintArgumentNode{}},
+				},
+			},
+		}
+		if _, err := tc.inferEnsureType(ensure); err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }

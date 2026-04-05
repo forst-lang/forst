@@ -35,7 +35,7 @@ func lspCodeForParseMessage(msg string) string {
 	if strings.Contains(msg, "Expected token type") {
 		return ErrorCodeUnexpectedToken
 	}
-	if strings.HasPrefix(msg, "expected ") && strings.Contains(msg, ", found ") {
+	if strings.Contains(msg, "expected ") && strings.Contains(msg, ", found ") {
 		return ErrorCodeUnexpectedToken
 	}
 	if strings.Contains(strings.ToLower(msg), "unexpected token") {

@@ -88,6 +88,18 @@ func foldingBracesForTypeDefAfterNameToken(tokens []ast.Token, nameIdx int) (lBr
 		return -1, -1
 	}
 	for k := nameIdx + 1; k < len(tokens); k++ {
+		if braceDepthAtIndex(tokens, k) == 0 {
+			switch tokens[k].Type {
+			case ast.TokenType, ast.TokenFunc, ast.TokenIs:
+				// Next top-level declaration: no `{ ... }` body for this type def before here.
+				return -1, -1
+			case ast.TokenEOF:
+				return -1, -1
+			case ast.TokenSemicolon:
+				// End of statement without a shape body (e.g. alias); do not pick a later decl's braces.
+				return -1, -1
+			}
+		}
 		if tokens[k].Type != ast.TokenLBrace {
 			continue
 		}

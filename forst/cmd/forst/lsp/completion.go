@@ -922,8 +922,8 @@ func (s *LSPServer) crossBufferTopLevelCompletionItems(currentURI, pkg, prefix s
 
 	var out []LSPCompletionItem
 	for _, ou := range uris {
-		octx, ok := s.analyzeForstDocument(ou)
-		if !ok || octx == nil || octx.ParseErr != nil || octx.TC == nil {
+		octx, ok := s.peerDocumentContextForCompletion(ou)
+		if !ok || octx == nil {
 			continue
 		}
 		if forstPackageNameFromContent(octx.Content) != pkg {
@@ -968,7 +968,12 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	prefix := identifierPrefixAt(ctx.Content, position)
 
 	if ctx.ParseErr != nil || ctx.TC == nil {
-		return completionItemsFromKeywords(keywordsForZone(z), prefix), otherOpen
+		items := completionItemsFromKeywords(keywordsForZone(z), prefix)
+		pkg := forstPackageNameFromContent(ctx.Content)
+		if pkg != "" && (z == zoneTopLevel || z == zoneInsideBlock) {
+			items = append(items, s.crossBufferTopLevelCompletionItems(uri, pkg, prefix)...)
+		}
+		return dedupeCompletionItems(items), otherOpen
 	}
 
 	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
