@@ -25,7 +25,6 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:forst",
     "workspaceContains:**/*.ft"
   ],
   "main": "./out/extension.js",

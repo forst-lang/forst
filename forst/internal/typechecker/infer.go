@@ -239,6 +239,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			case ast.ReturnNode:
 				// Return statements are not allowed in type guards
 				return nil, fmt.Errorf("type guards must not have return statements")
+			case ast.CommentNode:
+				// comments are ignored for validation
 			default:
 				// Only if, else if, else, and ensure statements are allowed
 				return nil, fmt.Errorf("type guards may only contain if, else if, else, and ensure statements")
@@ -288,6 +290,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 		tc.popScope()
+		return nil, nil
+
+	case ast.CommentNode:
 		return nil, nil
 	}
 

@@ -49,6 +49,7 @@ var NodeKind = map[string]uint8{
 	"Continue":         19,
 	"ElseIf":           20,
 	"ElseBlock":        21,
+	"Comment":          22,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -792,6 +793,12 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		// All NilLiteralNode instances are structurally identical
+		return NodeHash(hasher.Sum64()), nil
+	case ast.CommentNode:
+		if err := writeHash(hasher, NodeKind["Comment"]); err != nil {
+			return 0, err
+		}
+		hasher.Write([]byte(n.Text))
 		return NodeHash(hasher.Sum64()), nil
 	default:
 		return 0, fmt.Errorf("unsupported node type: %T", n)

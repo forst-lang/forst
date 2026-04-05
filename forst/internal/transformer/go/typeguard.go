@@ -26,11 +26,13 @@ import (
 // 	return goast.NewIdent(typeName)
 // }
 
-// transformBlock transforms a block of Forst statements into Go statements
+// transformBlock transforms a block of Forst statements into Go statements (type-guard subset).
 func (t *Transformer) transformBlock(block []ast.Node) *goast.BlockStmt {
 	var stmts []goast.Stmt
 	for _, node := range block {
 		switch n := node.(type) {
+		case ast.CommentNode:
+			stmts = append(stmts, &goast.EmptyStmt{})
 		case ast.ExpressionNode:
 			expr, err := t.transformExpression(n)
 			if err != nil {
@@ -144,6 +146,8 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 			return nil, fmt.Errorf("failed to restore type guard parameter scope: %s", err)
 		}
 		switch n := node.(type) {
+		case ast.CommentNode:
+			bodyStmts = append(bodyStmts, &goast.EmptyStmt{})
 		case *ast.IfNode:
 			if err := t.restoreScope(*n); err != nil {
 				return nil, fmt.Errorf("failed to restore if scope in type guard: %s", err)
@@ -288,6 +292,8 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 func (t *Transformer) isTypeLevelTypeGuard(guard ast.TypeGuardNode) bool {
 	for _, node := range guard.Body {
 		switch n := node.(type) {
+		case ast.CommentNode:
+			// comments do not affect type-level classification
 		case ast.EnsureNode:
 			// Check if all constraints in the ensure statement are type-level
 			for _, constraint := range n.Assertion.Constraints {

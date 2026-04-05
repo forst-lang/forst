@@ -32,8 +32,12 @@ func TestParseFile(t *testing.T) {
 				{Type: ast.TokenEOF, Value: "", Line: 2, Column: 1},
 			},
 			validate: func(t *testing.T, nodes []ast.Node) {
-				if len(nodes) != 0 {
-					t.Fatalf("Expected 0 nodes for file with comments only, got %d", len(nodes))
+				if len(nodes) != 1 {
+					t.Fatalf("Expected 1 comment node for file with comments only, got %d", len(nodes))
+				}
+				c := assertNodeType[ast.CommentNode](t, nodes[0], "ast.CommentNode")
+				if c.Text != "// This is a comment" {
+					t.Fatalf("comment text: %q", c.Text)
 				}
 			},
 		},

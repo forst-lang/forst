@@ -193,10 +193,11 @@ func TestParseBlockStatement(t *testing.T) {
 			},
 			validate: func(t *testing.T, nodes []ast.Node) {
 				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
-				if len(functionNode.Body) != 1 {
-					t.Fatalf("expected 1 statement after skipping comment, got %d", len(functionNode.Body))
+				if len(functionNode.Body) != 2 {
+					t.Fatalf("expected comment + return, got %d statements", len(functionNode.Body))
 				}
-				assertNodeType[ast.ReturnNode](t, functionNode.Body[0], "ast.ReturnNode")
+				assertNodeType[ast.CommentNode](t, functionNode.Body[0], "ast.CommentNode")
+				assertNodeType[ast.ReturnNode](t, functionNode.Body[1], "ast.ReturnNode")
 			},
 		},
 		{

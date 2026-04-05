@@ -48,6 +48,7 @@ func TestNodeKindAndString_representativeNodes(t *testing.T) {
 		{"For_range", ForNode{IsRange: true, RangeX: VariableNode{Ident: Ident{ID: "xs"}}, Body: []Node{}}, NodeKindFor, "range"},
 		{"Break", BreakNode{}, NodeKindBreak, "Break"},
 		{"Continue", ContinueNode{}, NodeKindContinue, "Continue"},
+		{"Comment", CommentNode{Text: "// x"}, NodeKindComment, "Comment"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

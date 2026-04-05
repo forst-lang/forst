@@ -127,12 +127,16 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 
 	// Make sure that functions return nil if they return an error
-	if !isMainFunc && len(returnType) > 0 {
+		if !isMainFunc && len(returnType) > 0 {
 		lastReturnType := returnType[len(returnType)-1]
 		if lastReturnType.IsError() {
 			var lastStmt ast.Node
-			if len(n.Body) > 0 {
-				lastStmt = n.Body[len(n.Body)-1]
+			for i := len(n.Body) - 1; i >= 0; i-- {
+				if _, ok := n.Body[i].(ast.CommentNode); ok {
+					continue
+				}
+				lastStmt = n.Body[i]
+				break
 			}
 			if lastStmt == nil || lastStmt.Kind() != ast.NodeKindReturn {
 				stmts = append(stmts, &goast.ReturnStmt{

@@ -66,6 +66,14 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "fmt" {
+		if err := runFmtCommand(os.Args[2:], log, os.Stdout); err != nil {
+			log.Error(err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Check if we should generate TypeScript client
 	if len(os.Args) > 1 && os.Args[1] == "generate" {
 		if err := generateCommand(os.Args[2:]); err != nil {

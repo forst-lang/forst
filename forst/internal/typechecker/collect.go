@@ -14,6 +14,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	}).Trace("Collecting explicit types")
 
 	switch n := node.(type) {
+	case ast.CommentNode:
+		return nil
 	case ast.ImportNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

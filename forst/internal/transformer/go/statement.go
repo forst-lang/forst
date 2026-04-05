@@ -1141,6 +1141,8 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	case ast.VariableNode:
 		// This case is now handled by transformReturnStatement
 		return nil, fmt.Errorf("transformStatement: VariableNode should not be directly transformed here")
+	case ast.CommentNode:
+		return &goast.EmptyStmt{}, nil
 	default:
 		return &goast.EmptyStmt{}, nil
 	}

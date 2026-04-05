@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/printer"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,7 +26,7 @@ func TestHandleFormatting_InvalidParams_ReturnsInvalidParams(t *testing.T) {
 	}
 }
 
-func TestHandleFormatting_ValidEmptyParams_ReturnsNilResult(t *testing.T) {
+func TestHandleFormatting_EmptyParams_ReturnsInvalidParams(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	resp := s.handleFormatting(LSPRequest{
@@ -32,11 +34,113 @@ func TestHandleFormatting_ValidEmptyParams_ReturnsNilResult(t *testing.T) {
 		ID:      2,
 		Params:  json.RawMessage(`{}`),
 	})
+	if resp.Error == nil || resp.Error.Code != -32602 {
+		t.Fatalf("expected invalid params, got %+v", resp.Error)
+	}
+}
+
+func TestHandleFormatting_UnknownDocument_ReturnsNil(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "not-open.ft"))
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleFormatting(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      21,
+		Params:  json.RawMessage(params),
+	})
 	if resp.Error != nil {
-		t.Fatalf("unexpected error: %+v", resp.Error)
+		t.Fatal(resp.Error)
 	}
 	if resp.Result != nil {
-		t.Fatalf("expected nil formatting result, got %v", resp.Result)
+		t.Fatalf("expected nil, got %v", resp.Result)
+	}
+}
+
+func TestHandleFormatting_TrimsTrailingWhitespace_ReturnsSingleEdit(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
+	src := "package main  \nfunc main() {\n}\n"
+	s.setOpenDocument(uri, src)
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleFormatting(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      22,
+		Params:  json.RawMessage(params),
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	edits, ok := resp.Result.([]LSPTextEdit)
+	if !ok || len(edits) != 1 {
+		t.Fatalf("expected one edit, got %T %#v", resp.Result, resp.Result)
+	}
+	pretty, err := printer.FormatSource(src, "fmt.ft", log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := printer.FormatForstWhitespace(pretty, 4, true)
+	if edits[0].NewText != want {
+		t.Fatalf("newText = %q, want %q", edits[0].NewText, want)
+	}
+	if edits[0].Range.Start.Line != 0 || edits[0].Range.Start.Character != 0 {
+		t.Fatalf("range start = %+v", edits[0].Range.Start)
+	}
+}
+
+func TestHandleFormatting_AlreadyFormatted_ReturnsNil(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	initial := "package main\n\nfunc main() {\n}\n"
+	pretty, err := printer.FormatSource(initial, "ok.ft", log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := printer.FormatForstWhitespace(pretty, 4, true)
+	pretty2, err := printer.FormatSource(src, "ok.ft", log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if printer.FormatForstWhitespace(pretty2, 4, true) != src {
+		t.Fatalf("pretty-print is not stable under whitespace pass")
+	}
+
+	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "ok.ft"))
+	s.setOpenDocument(uri, src)
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleFormatting(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      23,
+		Params:  json.RawMessage(params),
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if resp.Result != nil {
+		t.Fatalf("expected nil when unchanged, got %v", resp.Result)
 	}
 }
 

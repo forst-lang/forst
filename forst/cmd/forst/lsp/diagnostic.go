@@ -34,6 +34,12 @@ type LSPRange struct {
 	End LSPPosition `json:"end"`
 }
 
+// LSPTextEdit is a textual edit (e.g. document formatting).
+type LSPTextEdit struct {
+	Range   LSPRange `json:"range"`
+	NewText string   `json:"newText"`
+}
+
 // LSPPosition represents a position in a text document.
 type LSPPosition struct {
 	// Line is the zero-based line value.

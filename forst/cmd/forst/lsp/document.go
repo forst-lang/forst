@@ -268,6 +268,20 @@ func (s *LSPServer) openDocumentContent(uri string) string {
 	return s.openDocuments[uri]
 }
 
+// openDocumentText returns the open buffer for uri and whether that URI is tracked (including empty buffers).
+func (s *LSPServer) openDocumentText(uri string) (string, bool) {
+	s.documentMu.RLock()
+	defer s.documentMu.RUnlock()
+	canon := canonicalFileURI(uri)
+	if _, ok := s.openDocuments[canon]; ok {
+		return s.openDocuments[canon], true
+	}
+	if _, ok := s.openDocuments[uri]; ok {
+		return s.openDocuments[uri], true
+	}
+	return "", false
+}
+
 func (s *LSPServer) removePackageSnapshotsReferencingURI(uri string) {
 	s.packageAnalysis.removeSnapshotReferencingURI(uri)
 }

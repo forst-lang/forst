@@ -35,9 +35,8 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["definitionProvider"] != true {
 		t.Fatal("expected definitionProvider")
 	}
-	// Do not advertise no-op formatting / codeAction / codeLens until implemented.
-	if _, ok := caps["documentFormattingProvider"]; ok {
-		t.Fatal("documentFormattingProvider should be omitted until formatting exists")
+	if caps["documentFormattingProvider"] != true {
+		t.Fatalf("documentFormattingProvider = %v", caps["documentFormattingProvider"])
 	}
 	if _, ok := caps["codeActionProvider"]; ok {
 		t.Fatal("codeActionProvider should be omitted until code actions exist")
