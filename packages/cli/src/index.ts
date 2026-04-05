@@ -10,6 +10,7 @@ export {
   getCompilerCacheDirForVersion,
   getExpectedCompilerBinaryPath,
   resolveForstBinary,
+  validateCompilerVersionForCachePath,
 } from "./resolve.js";
 export type {
   ResolveForstBinaryOptions,

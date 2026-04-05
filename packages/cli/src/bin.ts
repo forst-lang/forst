@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { resolveForstBinary } from "./resolve.js";
 
-export async function runForstCli(): Promise<void> {
+export async function runForstCli(): Promise<number> {
   const bin = await resolveForstBinary();
   const child = spawn(bin, process.argv.slice(2), { stdio: "inherit" });
   const forward = (sig: NodeJS.Signals) => {
@@ -10,21 +10,23 @@ export async function runForstCli(): Promise<void> {
   };
   process.on("SIGINT", forward);
   process.on("SIGTERM", forward);
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     child.on("error", reject);
     child.on("close", (code, signal) => {
       process.removeListener("SIGINT", forward);
       process.removeListener("SIGTERM", forward);
       if (signal) {
-        process.exit(1);
+        resolve(1);
+        return;
       }
-      process.exit(code ?? 0);
-      resolve();
+      resolve(code ?? 0);
     });
   });
 }
 
-runForstCli().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+runForstCli()
+  .then((code) => process.exit(code))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 import {
+  chmodSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
-  chmodSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import { resolveForstBinary } from "./resolve.js";
@@ -87,6 +88,52 @@ describe("resolveForstBinary", () => {
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }
+  });
+
+  test("cache hit skips download and does not call fetchImpl", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const dest = join(cacheRoot, "0.0.19", destName);
+      mkdirSync(dirname(dest), { recursive: true });
+      const marker = Buffer.from("cached-binary-contents");
+      writeFileSync(dest, marker);
+      if (process.platform !== "win32") {
+        chmodSync(dest, 0o755);
+      }
+
+      let fetchCalled = false;
+      const fetchImpl: typeof fetch = async () => {
+        fetchCalled = true;
+        throw new Error("fetchImpl must not be called on cache hit");
+      };
+
+      const p = await resolveForstBinary({
+        version: "0.0.19",
+        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(marker)).toBe(true);
+      expect(fetchCalled).toBe(false);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects invalid version strings used for cache paths", async () => {
+    await expect(
+      resolveForstBinary({
+        version: "../../../evil",
+        env: { ...process.env, FORST_CACHE_DIR: "/tmp" },
+        homedirFn: () => "/unused",
+      })
+    ).rejects.toThrow(/Invalid Forst compiler version/);
   });
 
   test("maps HTTP failure to CompilerBinaryDownloadHttpFailure", async () => {

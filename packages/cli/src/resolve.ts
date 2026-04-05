@@ -27,6 +27,24 @@ const STALE_LOCK_MS = 10 * 60 * 1000;
 const LOCK_WAIT_MS = 120_000;
 const POLL_MS = 200;
 
+/** Semver-ish release id allowed as a single cache path segment (no separators). */
+const COMPILER_VERSION_FOR_CACHE_PATTERN =
+  /^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/;
+
+/**
+ * Validates `version` before using it in {@link join} under FORST_CACHE_DIR or
+ * default cache roots so values cannot escape the intended directory.
+ */
+export function validateCompilerVersionForCachePath(version: string): string {
+  const v = version.trim();
+  if (!COMPILER_VERSION_FOR_CACHE_PATTERN.test(v)) {
+    throw new CompilerBinaryDownloadFailed(
+      `Invalid Forst compiler version "${version}". Expected semver such as 0.0.19 (optional prerelease suffix).`
+    );
+  }
+  return v;
+}
+
 export type ResolveForstBinaryFs = Pick<
   typeof import("node:fs"),
   | "existsSync"
@@ -53,25 +71,26 @@ export function getCompilerCacheDirForVersion(
   version: string,
   options?: { env?: NodeJS.ProcessEnv; homedirFn?: () => string }
 ): string {
+  const v = validateCompilerVersionForCachePath(version);
   const env = options?.env ?? process.env;
   const home = options?.homedirFn ?? homedir;
 
   if (env.FORST_CACHE_DIR && env.FORST_CACHE_DIR.length > 0) {
-    return join(env.FORST_CACHE_DIR, version);
+    return join(env.FORST_CACHE_DIR, v);
   }
 
   if (process.platform === "win32") {
     const base =
       env.LOCALAPPDATA ?? join(home(), "AppData", "Local");
-    return join(base, "forst-cli", "cache", version);
+    return join(base, "forst-cli", "cache", v);
   }
 
   const xdg = env.XDG_CACHE_HOME;
   if (xdg && xdg.length > 0) {
-    return join(xdg, "forst-cli", version);
+    return join(xdg, "forst-cli", v);
   }
 
-  return join(home(), ".cache", "forst-cli", version);
+  return join(home(), ".cache", "forst-cli", v);
 }
 
 /** Path where the binary for this version/platform would be stored (may not exist yet). */
@@ -161,20 +180,23 @@ function writeBinaryAtomically(
   fs: ResolveForstBinaryFs
 ): void {
   const part = `${dest}.part.${randomBytes(8).toString("hex")}`;
-  fs.mkdirSync(dirname(dest), { recursive: true });
   try {
+    fs.mkdirSync(dirname(dest), { recursive: true });
     fs.writeFileSync(part, buf);
-    if (process.platform !== "win32") {
-      fs.chmodSync(part, 0o755);
-    }
     fs.renameSync(part, dest);
+    if (process.platform !== "win32") {
+      fs.chmodSync(dest, 0o755);
+    }
   } catch (e) {
     try {
       fs.unlinkSync(part);
     } catch {
       /* ignore */
     }
-    throw e;
+    throw new CompilerBinaryDownloadFailed(
+      `Failed to install Forst compiler to ${dest}`,
+      { cause: e }
+    );
   }
 }
 

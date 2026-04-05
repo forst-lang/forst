@@ -34,26 +34,31 @@ import { utilsLogger } from "./logger";
  * Compiler download, PATH resolution, filesystem helpers, and generic process utilities for the sidecar.
  */
 export class ForstUtils {
+  /** Maps @forst/cli errors to sidecar errors (same rules as resolveCompilerBinary). */
+  private static mapCliError(e: unknown): never {
+    if (e instanceof CliCompilerBinaryDownloadHttpFailure) {
+      throw new CompilerBinaryDownloadHttpFailure(e.status, e.statusText);
+    }
+    if (e instanceof CliCompilerBinaryDownloadFailed) {
+      throw new CompilerBinaryDownloadFailed(e.message, { cause: e.cause });
+    }
+    if (e instanceof CliCompilerBinaryChecksumMismatch) {
+      throw new CompilerBinaryDownloadFailed(e.message, { cause: e });
+    }
+    if (e instanceof CliUnsupportedArchitecture) {
+      throw new UnsupportedArchitecture(arch());
+    }
+    if (e instanceof CliUnsupportedOperatingSystem) {
+      throw new UnsupportedOperatingSystem(platform());
+    }
+    throw e;
+  }
+
   private static async resolveCompilerBinary(): Promise<string> {
     try {
       return await resolveForstBinary();
     } catch (e) {
-      if (e instanceof CliCompilerBinaryDownloadHttpFailure) {
-        throw new CompilerBinaryDownloadHttpFailure(e.status, e.statusText);
-      }
-      if (e instanceof CliCompilerBinaryDownloadFailed) {
-        throw new CompilerBinaryDownloadFailed(e.message, { cause: e.cause });
-      }
-      if (e instanceof CliCompilerBinaryChecksumMismatch) {
-        throw new CompilerBinaryDownloadFailed(e.message, { cause: e });
-      }
-      if (e instanceof CliUnsupportedArchitecture) {
-        throw new UnsupportedArchitecture(arch());
-      }
-      if (e instanceof CliUnsupportedOperatingSystem) {
-        throw new UnsupportedOperatingSystem(platform());
-      }
-      throw e;
+      this.mapCliError(e);
     }
   }
 
@@ -78,23 +83,35 @@ export class ForstUtils {
    * Get the platform-specific compiler binary name
    */
   static getCompilerBinaryName(): string {
-    return getCompilerArtifactName(platform(), arch());
+    try {
+      return getCompilerArtifactName(platform(), arch());
+    } catch (e) {
+      this.mapCliError(e);
+    }
   }
 
   /**
    * Get the download URL for the compiler binary (pinned to @forst/cli / compiler semver).
    */
   static async getCompilerDownloadUrl(): Promise<string> {
-    const version = getCliPackageVersion();
-    const binaryName = this.getCompilerBinaryName();
-    return buildCompilerArtifactDownloadUrl(version, binaryName);
+    try {
+      const version = getCliPackageVersion();
+      const binaryName = this.getCompilerBinaryName();
+      return buildCompilerArtifactDownloadUrl(version, binaryName);
+    } catch (e) {
+      this.mapCliError(e);
+    }
   }
 
   /**
    * Path where @forst/cli caches the binary for this package version (may not exist yet).
    */
   static getCompilerLocalPath(): string {
-    return getExpectedCompilerBinaryPath(getCliPackageVersion());
+    try {
+      return getExpectedCompilerBinaryPath(getCliPackageVersion());
+    } catch (e) {
+      this.mapCliError(e);
+    }
   }
 
   /**
