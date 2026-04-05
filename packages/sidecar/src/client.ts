@@ -22,6 +22,9 @@ import {
   DevServerStreamingInvokeNoResponseBody,
 } from "./errors";
 
+/**
+ * HTTP client for the Forst dev server (`/invoke`, `/functions`, `/types`, `/health`).
+ */
 export class ForstSidecarClient {
   private config: ForstClientConfig;
   private functions: Map<string, FunctionInfo> = new Map();

@@ -124,6 +124,7 @@ export class LatestCompilerReleaseUnavailable extends ForstError {
   }
 }
 
+/** Thrown when the current OS is not supported for prebuilt compiler binaries. */
 export class UnsupportedOperatingSystem extends ForstError {
   readonly os: string;
 
@@ -135,6 +136,7 @@ export class UnsupportedOperatingSystem extends ForstError {
   }
 }
 
+/** Thrown when the CPU architecture is not supported for prebuilt compiler binaries. */
 export class UnsupportedArchitecture extends ForstError {
   readonly architecture: string;
 

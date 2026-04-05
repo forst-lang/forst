@@ -10,6 +10,9 @@ import {
 } from "./errors";
 import { serverLogger, forstLogger } from "./logger";
 
+/**
+ * Spawns and supervises `forst dev`, exposes the listen URL via `getServerUrl()`, and watches `.ft` files for reload.
+ */
 export class ForstServer {
   private process: ChildProcess | null = null;
   private config: ForstConfig;

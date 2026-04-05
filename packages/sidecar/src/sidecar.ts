@@ -217,4 +217,8 @@ export async function autoStart(
   return sidecar;
 }
 
-export default ForstSidecar;
+/**
+ * Default export: same as {@link ForstSidecar}.
+ */
+const forstSidecarDefault = ForstSidecar;
+export default forstSidecarDefault;

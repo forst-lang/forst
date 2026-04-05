@@ -19,6 +19,9 @@ import {
 } from "./errors";
 import { utilsLogger } from "./logger";
 
+/**
+ * Compiler download, PATH resolution, filesystem helpers, and generic process utilities for the sidecar.
+ */
 export class ForstUtils {
   private static readonly COMPILER_BASE_URL =
     "https://github.com/forst-lang/forst/releases";
