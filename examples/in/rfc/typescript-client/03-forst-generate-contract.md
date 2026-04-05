@@ -1,6 +1,6 @@
-# Layer A: `forst generate` contract (TypeScript declarations)
+# `forst generate` contract (TypeScript declarations)
 
-Normative outline for **file-based** TypeScript interop: what `forst generate` produces and what it guarantees. **Not** the HTTP `forst dev` surface (see [02-layer-b-http-contract.md](./02-layer-b-http-contract.md)).
+Normative outline for **file-based** TypeScript interop: what `forst generate` produces and what it guarantees. **Not** the HTTP `forst dev` surface (see [02-forst-dev-http-contract.md](./02-forst-dev-http-contract.md)).
 
 **Producer:** `forst` compiler (release version). **Consumer:** `tsc` / bundlers reading generated files.
 
@@ -9,7 +9,7 @@ Normative outline for **file-based** TypeScript interop: what `forst generate` p
 | In scope | Out of scope |
 | -------- | ------------- |
 | `.d.ts` and stub files from **`forst generate`** | Your production HTTP API between browser and Go |
-| CLI inputs (paths, flags), exit codes, merge behavior | **`forst dev`** / sidecar HTTP (Layer B) |
+| CLI inputs (paths, flags), exit codes, merge behavior | **`forst dev`** / sidecar HTTP API |
 | Type mapping rules from Forst → TS | Runtime validation in TS unless you add it |
 
 ## Outputs (baseline)

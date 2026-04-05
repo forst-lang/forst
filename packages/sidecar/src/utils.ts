@@ -9,6 +9,14 @@ import {
 import { join, dirname, resolve } from "node:path";
 import { platform, arch } from "node:os";
 import { CompilerInfo, ForstConfig } from "./types";
+import {
+  CompilerBinaryDownloadFailed,
+  CompilerBinaryDownloadHttpFailure,
+  LatestCompilerReleaseUnavailable,
+  SpawnedProcessExitedNonZero,
+  UnsupportedArchitecture,
+  UnsupportedOperatingSystem,
+} from "./errors";
 import { utilsLogger } from "./logger";
 
 export class ForstUtils {
@@ -26,7 +34,9 @@ export class ForstUtils {
       const data = (await response.json()) as { tag_name: string };
       return data.tag_name.replace("v", ""); // Remove 'v' prefix
     } catch (error) {
-      throw new Error("Failed to fetch latest Forst version");
+      throw new LatestCompilerReleaseUnavailable("Failed to fetch latest Forst version", {
+        cause: error instanceof Error ? error : undefined,
+      });
     }
   }
 
@@ -38,11 +48,11 @@ export class ForstUtils {
     const architecture = arch();
     // Validate OS and architecture
     if (!["darwin", "linux", "win32"].includes(os)) {
-      throw new Error(`Unsupported operating system: ${os}`);
+      throw new UnsupportedOperatingSystem(os);
     }
 
     if (!["arm64", "x64"].includes(architecture)) {
-      throw new Error(`Unsupported architecture: ${architecture}`);
+      throw new UnsupportedArchitecture(architecture);
     }
 
     // Map OS to platform name in binary
@@ -93,8 +103,9 @@ export class ForstUtils {
     try {
       const response = await fetch(downloadUrl);
       if (!response.ok) {
-        throw new Error(
-          `Failed to download compiler: ${response.status} ${response.statusText}`
+        throw new CompilerBinaryDownloadHttpFailure(
+          response.status,
+          response.statusText
         );
       }
 
@@ -108,7 +119,15 @@ export class ForstUtils {
       return localPath;
     } catch (error) {
       utilsLogger.error("❌ Failed to download compiler:", error);
-      throw error;
+      if (
+        error instanceof CompilerBinaryDownloadHttpFailure ||
+        error instanceof CompilerBinaryDownloadFailed
+      ) {
+        throw error;
+      }
+      throw new CompilerBinaryDownloadFailed("Failed to download compiler", {
+        cause: error instanceof Error ? error : undefined,
+      });
     }
   }
 
@@ -284,7 +303,7 @@ export class ForstUtils {
         if (code === 0) {
           resolve({ stdout, stderr, code });
         } else {
-          reject(new Error(`Command failed with code ${code}: ${stderr}`));
+          reject(new SpawnedProcessExitedNonZero(code ?? -1, stderr));
         }
       });
 

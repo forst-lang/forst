@@ -75,10 +75,10 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer; contract outline: [03-layer-a-forst-generate-contract.md](./examples/in/rfc/typescript-client/03-layer-a-forst-generate-contract.md). |
+| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer; contract outline: [03-forst-generate-contract.md](./examples/in/rfc/typescript-client/03-forst-generate-contract.md). |
 | Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
 | Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
-| `forst dev` HTTP API + JSON contract | ⏳ in progress | Endpoints `/health`, `/functions`, `/invoke`, `/types`; spec: [02-layer-b-http-contract.md](./examples/in/rfc/typescript-client/02-layer-b-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
+| `forst dev` HTTP API + JSON contract | ⏳ in progress | Endpoints `/health`, `/functions`, `/invoke`, `/types`; spec: [02-forst-dev-http-contract.md](./examples/in/rfc/typescript-client/02-forst-dev-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
 | NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems. |
 | Run compiler or sidecar from Node.js | 🔬 experimental | Monorepo path works; published NPM **planned** (row above). |
 | Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | `@forst/sidecar` + `forst dev`; watch roots documented in sidecar README. |

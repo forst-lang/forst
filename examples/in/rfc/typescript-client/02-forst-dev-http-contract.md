@@ -1,4 +1,4 @@
-# Layer B: `forst dev` HTTP contract (Node / sidecar)
+# `forst dev` HTTP contract (Node / sidecar)
 
 Normative reference for the **HTTP** surface exposed by `forst dev` and consumed by [`@forst/sidecar`](../../../../packages/sidecar/README.md). Implementation: [`forst/cmd/forst/dev_server.go`](../../../../forst/cmd/forst/dev_server.go).
 
@@ -77,4 +77,4 @@ When server config enables CORS, responses include `Access-Control-Allow-Origin:
 ## Related
 
 - Sidecar RFC: [../sidecar/00-sidecar.md](../sidecar/00-sidecar.md)
-- Implementation plan (codegen / Layer A): [00-implementation-plan.md](./00-implementation-plan.md)
+- Implementation plan (codegen): [00-implementation-plan.md](./00-implementation-plan.md)

@@ -4,8 +4,10 @@ export { ForstSidecarClient } from "./client";
 export { ForstServer } from "./server";
 export { ForstUtils } from "./utils";
 export * from "./types";
+export * from "./errors";
 
 import type { ForstConfig } from "./types";
+import { CompilerNotFound, SidecarNotStarted } from "./errors";
 import { ForstUtils } from "./utils";
 import { ForstSidecarClient } from "./client";
 import { ForstServer } from "./server";
@@ -64,9 +66,7 @@ export class ForstSidecar {
 
     // Check if Forst compiler is available
     if (!this.forstPath) {
-      throw new Error(
-        "Forst compiler not found. Please ensure the Forst compiler is installed and available in your PATH."
-      );
+      throw new CompilerNotFound();
     }
 
     // Initialize server with the resolved forst path
@@ -100,7 +100,7 @@ export class ForstSidecar {
    */
   getClient(): ForstSidecarClient {
     if (!this.client) {
-      throw new Error("Sidecar not started. Call start() first.");
+      throw new SidecarNotStarted();
     }
     return this.client;
   }
@@ -124,7 +124,7 @@ export class ForstSidecar {
    */
   async discoverFunctions() {
     if (!this.client) {
-      throw new Error("Sidecar not started. Call start() first.");
+      throw new SidecarNotStarted();
     }
     return this.client.discoverFunctions();
   }
@@ -134,7 +134,7 @@ export class ForstSidecar {
    */
   async invoke(packageName: string, functionName: string, args: any[] = []) {
     if (!this.client) {
-      throw new Error("Sidecar not started. Call start() first.");
+      throw new SidecarNotStarted();
     }
     return this.client.invokeFunction(packageName, functionName, args);
   }
@@ -149,7 +149,7 @@ export class ForstSidecar {
     onResult?: (result: any) => void
   ) {
     if (!this.client) {
-      throw new Error("Sidecar not started. Call start() first.");
+      throw new SidecarNotStarted();
     }
     return this.client.invokeStreaming(
       packageName,

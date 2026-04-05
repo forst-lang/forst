@@ -2,6 +2,12 @@ import { spawn, ChildProcess } from "node:child_process";
 import { existsSync, watch } from "node:fs";
 import { resolve } from "node:path";
 import { ForstConfig, ServerInfo } from "./types";
+import {
+  DevServerChildProcessNotResponding,
+  DevServerChildShutdownTimeout,
+  DevServerHealthCheckHttpFailure,
+  DevServerStartupTimeout,
+} from "./errors";
 import { serverLogger, forstLogger } from "./logger";
 
 export class ForstServer {
@@ -95,7 +101,7 @@ export class ForstServer {
         // Wait for graceful shutdown with timeout
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error("Process did not terminate gracefully"));
+            reject(new DevServerChildShutdownTimeout());
           }, 5000); // 5 second timeout
 
           this.process!.once("exit", (code, signal) => {
@@ -266,7 +272,7 @@ export class ForstServer {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         serverLogger.error("⏰ Server startup timeout after 10 seconds");
-        reject(new Error("Server startup timeout"));
+        reject(new DevServerStartupTimeout());
       }, 10000);
 
       // Simple approach: wait a bit for server to start, then check if it's responding
@@ -294,7 +300,9 @@ export class ForstServer {
               `❌ Server health check failed with status ${response.status}: ${errorText}`
             );
             clearTimeout(timeout);
-            reject(new Error("Server health check failed"));
+            reject(
+              new DevServerHealthCheckHttpFailure(response.status, errorText)
+            );
           }
         } catch (error) {
           serverLogger.error(`❌ Health check request failed:`, error);
@@ -311,7 +319,7 @@ export class ForstServer {
               "❌ Health check failed and process is not alive"
             );
             clearTimeout(timeout);
-            reject(new Error("Server process not responding"));
+            reject(new DevServerChildProcessNotResponding());
           }
         }
       }, 2000); // Wait 2 seconds for server to start

@@ -12,6 +12,15 @@ import {
   sanitizePayload,
   sanitizeRequestBodyString,
 } from "./sanitizeLogPayload";
+import {
+  DevServerFunctionsRejected,
+  DevServerHttpFailure,
+  DevServerRequestRetriesExhausted,
+  DevServerTypesOutputMissing,
+  DevServerTypesRejected,
+  InvalidFunctionNameFormat,
+  DevServerStreamingInvokeNoResponseBody,
+} from "./errors";
 
 export class ForstSidecarClient {
   private config: ForstClientConfig;
@@ -39,7 +48,7 @@ export class ForstSidecarClient {
 
       if (!response.success) {
         logger.error(`❌ Failed to discover functions: ${response.error}`);
-        throw new Error(`Failed to discover functions: ${response.error}`);
+        throw new DevServerFunctionsRejected(response.error);
       }
 
       const functions = response.result as FunctionInfo[];
@@ -72,9 +81,7 @@ export class ForstSidecarClient {
     // Parse function name to extract package and function
     const parts = fn.split(".");
     if (parts.length !== 2) {
-      throw new Error(
-        `Invalid function name format: ${fn}. Expected format: package.function`
-      );
+      throw new InvalidFunctionNameFormat(fn);
     }
 
     const [packageName, functionName] = parts;
@@ -148,12 +155,12 @@ export class ForstSidecarClient {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Streaming request failed: ${error}`);
+      const errorText = await response.text();
+      throw new DevServerHttpFailure(response.status, errorText);
     }
 
     if (!response.body) {
-      throw new Error("No response body available for streaming");
+      throw new DevServerStreamingInvokeNoResponseBody();
     }
 
     const reader = response.body.getReader();
@@ -200,6 +207,24 @@ export class ForstSidecarClient {
   supportsStreaming(packageName: string, functionName: string): boolean {
     const fn = this.getFunctionInfo(packageName, functionName);
     return fn?.supportsStreaming || false;
+  }
+
+  /**
+   * Fetch merged TypeScript definitions from `GET /types` (JSON response envelope per the HTTP contract).
+   * @param force - when true, sends `?force=true` to bypass server cache.
+   */
+  async fetchTypes(options?: { force?: boolean }): Promise<string> {
+    const q = options?.force ? "?force=true" : "";
+    const response = await this.makeRequest(`/types${q}`, {
+      method: "GET",
+    });
+    if (!response.success) {
+      throw new DevServerTypesRejected(response.error);
+    }
+    if (response.output === undefined || response.output === "") {
+      throw new DevServerTypesOutputMissing();
+    }
+    return response.output;
   }
 
   /**
@@ -280,7 +305,7 @@ export class ForstSidecarClient {
         if (!response.ok) {
           const errorText = await response.text();
           logger.error(`❌ HTTP ${response.status}: ${errorText}`);
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
+          throw new DevServerHttpFailure(response.status, errorText);
         }
 
         const result = (await response.json()) as InvokeResponse<T>;
@@ -305,7 +330,7 @@ export class ForstSidecarClient {
     }
 
     logger.error({ err: lastError }, "💥 All request attempts failed");
-    throw lastError || new Error("Request failed after all retries");
+    throw new DevServerRequestRetriesExhausted(lastError);
   }
 
   /**

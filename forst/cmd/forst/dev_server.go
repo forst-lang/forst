@@ -187,7 +187,7 @@ func (s *DevServer) discoverFunctions() error {
 // handleHealth handles health check requests
 func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 // handleFunctions handles function discovery requests
 func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -236,7 +236,7 @@ func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 // handleInvoke handles function invocation requests
 func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 // handleTypes handles TypeScript type generation requests
 func (s *DevServer) handleTypes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -366,10 +366,7 @@ func (s *DevServer) handleTypes(w http.ResponseWriter, r *http.Request) {
 	typesContent := s.typesCache["types"]
 	s.typesCacheMu.RUnlock()
 
-	// Set appropriate headers for TypeScript file
-	w.Header().Set("Content-Type", "application/typescript")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"forst-types.ts\"")
-
+	// JSON envelope with merged TS in `output` (Content-Type from sendJSONResponse).
 	response := DevServerResponse{
 		Success: true,
 		Output:  typesContent,

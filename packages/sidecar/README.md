@@ -267,7 +267,7 @@ The sidecar provides comprehensive error handling:
 
 ## See also
 
-- **Layer B HTTP contract** (`forst dev` JSON API): [examples/in/rfc/typescript-client/02-layer-b-http-contract.md](../../examples/in/rfc/typescript-client/02-layer-b-http-contract.md)
+- **`forst dev` HTTP contract** (JSON API): [examples/in/rfc/typescript-client/02-forst-dev-http-contract.md](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)
 - **Roadmap** (TypeScript interoperability): [ROADMAP.md](../../ROADMAP.md)
 
 ## Contributing
