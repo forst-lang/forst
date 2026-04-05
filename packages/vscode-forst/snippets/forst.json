@@ -1,0 +1,32 @@
+{
+  "Package with main": {
+    "prefix": "pkg",
+    "body": ["package main", "", "func main() {", "\t$0", "}"],
+    "description": "Minimal package with an empty main"
+  },
+  "Function": {
+    "prefix": "func",
+    "body": ["func ${1:name}(${2}): ${3:String} {", "\t$0", "}"],
+    "description": "Function with parameters and return type"
+  },
+  "Function (no result)": {
+    "prefix": "funcv",
+    "body": ["func ${1:name}(${2}) {", "\t$0", "}"],
+    "description": "Function without a return type"
+  },
+  "Type alias": {
+    "prefix": "type",
+    "body": ["type ${1:Name} = ${2:String}"],
+    "description": "Type alias"
+  },
+  "Import": {
+    "prefix": "imp",
+    "body": ["import \"${1:fmt}\""],
+    "description": "Import path string"
+  },
+  "Ensure": {
+    "prefix": "ensure",
+    "body": ["ensure ${1:expr} is ${2:Nil()}", "\tor ${3:err}"],
+    "description": "Ensure statement with or-branch"
+  }
+}
