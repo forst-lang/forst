@@ -1,6 +1,17 @@
 export { ForstSidecarClient } from "./client";
-export { ForstServer } from "./server";
+export {
+  ForstServer,
+  buildForstDevSpawnArgs,
+  buildForstWatchRoots,
+  effectiveProjectRootDir,
+  effectiveWatchDirForConfig,
+} from "./server";
 export { ForstUtils } from "./utils";
+export {
+  mergeForstSidecarEnv,
+  normalizeDevServerBaseUrl,
+  parseDevServerUrlParts,
+} from "./config-merge";
 export * from "./types";
 export * from "./errors";
 

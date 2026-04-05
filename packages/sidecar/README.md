@@ -98,7 +98,43 @@ app.listen(3000, () => {
 
 ## Configuration
 
-**Project layout:** `forst dev -root` uses `rootDir` if set, otherwise `forstDir`, otherwise `./forst`, so discovery matches your `.ft` tree. Hot-reload watches `forstDir`, then `rootDir`, then the same default root. Set both only when the watch tree must differ from the dev server root.
+**Project layout:** `forst dev -root` uses `rootDir` if set, otherwise `forstDir`, otherwise `./forst`, so discovery matches your `.ft` tree. Hot-reload (spawn mode) uses **chokidar** on `watchRoots` if set; otherwise it watches the same directory as **default watch root**: `forstDir`, then `rootDir`, then the same default as `-root`. Set `rootDir` to your **repository or app root** when `.ft` files live in multiple packages; use `watchRoots` to watch several folders without scanning unrelated subtrees.
+
+**Explicit `ftconfig.json`:** set `configPath` to pass `-config` to `forst dev`. The compiler still discovers `ftconfig.json` by walking up from the process working directory (`-root`); `configPath` is for pinning a canonical file in monorepos.
+
+### Monorepos and mixed Forst + TypeScript
+
+- **One dev server per repo (recommended):** run a single `ForstSidecar` with `rootDir` pointing at the monorepo root so discovery sees every `**/*.ft` under that tree (subject to `ftconfig.json` include/exclude). In other packages or processes, use **connect mode** so only the HTTP client runs (no second `forst dev` child, no port collision).
+- **Connect mode:** `sidecarRuntime: "connect"` with `devServerUrl`, or set `FORST_DEV_URL` (see below). `start()` resolves the compiler binary only in **spawn** mode.
+- **Stable types per package:** for checked-in `.d.ts` and CI, prefer `forst generate` where applicable; the dev server’s `GET /types` is for live iteration—see [examples/in/rfc/typescript-client/01-integration-profiles.md](../../examples/in/rfc/typescript-client/01-integration-profiles.md).
+- **Turborepo / Nx:** model `forst dev` as one task (or one sidecar `spawn` at the root); dependent tasks use the sidecar in **connect** mode or call the HTTP API with a shared base URL.
+
+Example layout:
+
+```text
+repo/
+  ftconfig.json
+  apps/api/
+    handler.ts
+    handler.ft
+  packages/core/
+    util.ts
+    util.ft
+```
+
+```typescript
+// Package A — spawns `forst dev`
+await new ForstSidecar({
+  rootDir: ".",
+  configPath: "./ftconfig.json",
+}).start();
+
+// Package B — same process, another terminal, or CI helper — attach only
+await new ForstSidecar({
+  sidecarRuntime: "connect",
+  devServerUrl: "http://127.0.0.1:8080",
+}).start();
+```
 
 ### Basic Configuration
 
@@ -135,9 +171,15 @@ const config: ForstConfig = {
 
 ### Environment Variables
 
-- `NODE_ENV`: Set to 'production' for production mode
-- `FORST_DIR`: Override the Forst directory path
-- `FORST_PORT`: Override the HTTP server port
+Precedence: explicit fields on `ForstConfig` win over these variables (see `mergeForstSidecarEnv`).
+
+- `NODE_ENV`: Used by helpers for default `mode` where applicable.
+- `FORST_DIR`: Default for `forstDir` when not set in config.
+- `FORST_PORT`: Default `port` when not set in config (spawn and health checks).
+- `FORST_DEV_URL`: Base URL of an existing `forst dev` (e.g. `http://127.0.0.1:8080`). When set, **`sidecarRuntime` defaults to `connect`** unless you pass `sidecarRuntime: "spawn"` explicitly.
+- `FORST_SKIP_SPAWN`: If `1`, same as forcing **connect** mode (you must still provide a URL via `devServerUrl` or `FORST_DEV_URL`).
+
+If `FORST_DEV_URL` is present but you need to **spawn** locally anyway, set `sidecarRuntime: "spawn"` in code so the sidecar does not attach to the remote URL.
 
 ## API Reference
 
@@ -147,8 +189,8 @@ Main class for managing the sidecar integration.
 
 #### Methods
 
-- `start()`: Start the development server
-- `stop()`: Stop the development server
+- `start()`: Start the development server (spawn `forst dev`) or attach in **connect** mode
+- `stop()`: Stop the spawned child or disconnect the client
 - `discoverFunctions()`: Discover available Forst functions
 - `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor)
 - `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
@@ -222,7 +264,8 @@ packages/sidecar/
 │   └── basic.ts          # Basic usage example
 ├── dist/                 # Compiled output
 ├── package.json
-├── tsconfig.json
+├── tsconfig.json        # IDE + `tsc --noEmit` (includes tests, Bun types)
+├── tsconfig.build.json  # `npm run build` emit (excludes *.test.ts)
 └── README.md
 ```
 

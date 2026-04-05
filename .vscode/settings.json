@@ -1,0 +1,13 @@
+{
+  // Cursor/IDE may set NPM_CONFIG_DEVDIR; npm 10+ warns it is not a valid config key.
+  // Clearing avoids: npm warn Unknown env config "devdir".
+  "terminal.integrated.env.osx": {
+    "NPM_CONFIG_DEVDIR": null
+  },
+  "terminal.integrated.env.linux": {
+    "NPM_CONFIG_DEVDIR": null
+  },
+  "terminal.integrated.env.windows": {
+    "NPM_CONFIG_DEVDIR": null
+  }
+}

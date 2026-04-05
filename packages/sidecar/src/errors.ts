@@ -16,6 +16,17 @@ export class SidecarNotStarted extends ForstError {
   }
 }
 
+/** `sidecarRuntime` is `connect` but no `devServerUrl` / `FORST_DEV_URL` was provided. */
+export class ConnectModeMissingUrl extends ForstError {
+  constructor(
+    message = "Connect mode requires devServerUrl or the FORST_DEV_URL environment variable."
+  ) {
+    super(message);
+    this.name = "ConnectModeMissingUrl";
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 /** No Forst compiler binary could be resolved (PATH / download). */
 export class CompilerNotFound extends ForstError {
   constructor(

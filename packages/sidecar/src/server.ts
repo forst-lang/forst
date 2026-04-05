@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from "node:child_process";
-import { existsSync, watch } from "node:fs";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import chokidar from "chokidar";
 import { ForstConfig, ServerInfo } from "./types";
 import {
   DevServerChildProcessNotResponding,
@@ -9,6 +10,60 @@ import {
   DevServerStartupTimeout,
 } from "./errors";
 import { serverLogger, forstLogger } from "./logger";
+
+/** Project root passed to `forst dev -root` and used as the child process cwd. */
+export function effectiveProjectRootDir(cfg: ForstConfig): string {
+  return resolve(cfg.rootDir ?? cfg.forstDir ?? "./forst");
+}
+
+/**
+ * Default directory used for `.ft` watch when {@link ForstConfig.watchRoots} is not set.
+ * Prefers `forstDir`, then `rootDir`, then {@link effectiveProjectRootDir}.
+ */
+export function effectiveWatchDirForConfig(cfg: ForstConfig): string {
+  return resolve(
+    cfg.forstDir ?? cfg.rootDir ?? effectiveProjectRootDir(cfg)
+  );
+}
+
+/**
+ * Absolute watch roots: either explicit `watchRoots` or a single {@link effectiveWatchDirForConfig}.
+ * Skips paths that do not exist on disk.
+ */
+export function buildForstWatchRoots(cfg: ForstConfig): string[] {
+  if (cfg.watchRoots && cfg.watchRoots.length > 0) {
+    return cfg.watchRoots.map((r) => resolve(r)).filter((p) => existsSync(p));
+  }
+  const dir = effectiveWatchDirForConfig(cfg);
+  if (!existsSync(dir)) {
+    return [];
+  }
+  return [dir];
+}
+
+/**
+ * Arguments and cwd for `spawn(forst, args, { cwd })` to run `forst dev`.
+ * Exposed for unit tests and advanced integrations.
+ */
+export function buildForstDevSpawnArgs(
+  cfg: ForstConfig,
+  port: number
+): { args: string[]; cwd: string } {
+  const cwd = effectiveProjectRootDir(cfg);
+  const args: string[] = [
+    "dev",
+    "-port",
+    String(port),
+    "-root",
+    cwd,
+    "-log-level",
+    cfg.logLevel || "info",
+  ];
+  if (cfg.configPath) {
+    args.push("-config", resolve(cfg.configPath));
+  }
+  return { args, cwd };
+}
 
 /**
  * Spawns and supervises `forst dev`, exposes the listen URL via `getServerUrl()`, and watches `.ft` files for reload.
@@ -20,7 +75,7 @@ export class ForstServer {
   private status: ServerInfo["status"] = "stopped";
   private port: number;
   private host: string;
-  private fileWatchers: Array<() => void> = [];
+  private fileWatchers: Array<() => Promise<void>> = [];
   private shutdownHandler: () => void;
 
   constructor(config: ForstConfig, forstPath: string) {
@@ -92,7 +147,13 @@ export class ForstServer {
     process.off("SIGTERM", this.shutdownHandler);
 
     // Stop file watchers
-    this.fileWatchers.forEach((unwatch) => unwatch());
+    for (const close of this.fileWatchers) {
+      try {
+        await close();
+      } catch (e) {
+        serverLogger.warn("Error closing file watcher:", e);
+      }
+    }
     this.fileWatchers = [];
 
     // Kill the server process with robust cleanup
@@ -158,48 +219,29 @@ export class ForstServer {
       port: this.port,
       host: this.host,
       status: this.status,
+      connection: "spawn",
     };
-  }
-
-  /**
-   * Project root passed to `forst dev -root` and used as the child process cwd.
-   * Uses `rootDir` if set, else `forstDir`, else `./forst` so discovery matches the `.ft` tree by default.
-   */
-  private effectiveProjectRoot(): string {
-    return resolve(this.config.rootDir ?? this.config.forstDir ?? "./forst");
-  }
-
-  /**
-   * Directory watched for `.ft` changes. Prefer `forstDir`, then `rootDir`, then {@link effectiveProjectRoot}.
-   */
-  private effectiveWatchDir(): string {
-    return resolve(
-      this.config.forstDir ?? this.config.rootDir ?? this.effectiveProjectRoot()
-    );
   }
 
   /**
    * Start the server process
    */
   private async startServerProcess(): Promise<void> {
-    const root = this.effectiveProjectRoot();
-    const args = [
-      "dev",
-      "-port",
-      (this.config.port || 8080).toString(),
-      "-root",
-      root,
-      "-log-level",
-      this.config.logLevel || "info",
-    ];
+    const port = this.config.port || 8080;
+    const { args, cwd } = buildForstDevSpawnArgs(this.config, port);
 
     serverLogger.info(
       `Starting Forst server with: ${this.forstPath} ${args.join(" ")}`
     );
+    if (this.config.configPath) {
+      serverLogger.debug(
+        `Using explicit Forst config file: ${resolve(this.config.configPath)}`
+      );
+    }
 
     this.process = spawn(this.forstPath, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: root,
+      cwd,
     });
 
     // Handle process events
@@ -263,7 +305,7 @@ export class ForstServer {
     });
 
     serverLogger.debug("Waiting for server to be ready...");
-    // Wait for server to be ready
+    // Wait for the server to be ready
     await this.waitForServerReady();
     serverLogger.debug("Server ready check completed");
   }
@@ -284,7 +326,7 @@ export class ForstServer {
           const healthUrl = `http://${this.host}:${this.port}/health`;
           serverLogger.debug(`🏥 Checking server health at: ${healthUrl}`);
 
-          // Check if server is responding
+          // Check if the server is responding
           const response = await fetch(healthUrl);
           serverLogger.debug(
             `🏥 Health check response status: ${response.status}`
@@ -330,30 +372,43 @@ export class ForstServer {
   }
 
   /**
-   * Set up file watching for hot reloading
+   * Set up file watching for hot reloading (chokidar; ignores node_modules / .git).
    */
   private async setupFileWatching(): Promise<void> {
-    const forstDir = this.effectiveWatchDir();
-
-    if (!existsSync(forstDir)) {
+    const roots = buildForstWatchRoots(this.config);
+    if (roots.length === 0) {
+      serverLogger.debug(
+        "No watch roots (directories missing or empty); skipping file watch."
+      );
       return;
     }
 
-    // Watch for .ft file changes
-    const watcher = watch(
-      forstDir,
-      { recursive: true },
-      (_eventType, filename) => {
-        if (filename && filename.endsWith(".ft")) {
-          forstLogger.info(
-            `📝 Detected change in ${filename}, triggering reload...`
-          );
-          this.handleFileChange();
-        }
-      }
+    serverLogger.debug(
+      `Watching Forst sources under: ${roots.join(", ")}`
     );
 
-    this.fileWatchers.push(() => watcher.close());
+    const watcher = chokidar.watch(roots, {
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/dist/**",
+      ],
+      ignoreInitial: true,
+      persistent: true,
+    });
+
+    watcher.on("all", (_event, filePath) => {
+      if (filePath && filePath.endsWith(".ft")) {
+        forstLogger.info(
+          `📝 Detected change in ${filePath}, triggering reload...`
+        );
+        this.handleFileChange();
+      }
+    });
+
+    this.fileWatchers.push(async () => {
+      await watcher.close();
+    });
   }
 
   /**

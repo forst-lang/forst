@@ -2,7 +2,17 @@ import { logger } from "./logger";
 
 import type { ForstConfig, FunctionInfo, InvokeResponse, ServerInfo, StreamingResult } from "./types";
 import type { Request, RequestHandler } from "express";
-import { CompilerNotFound, SidecarNotStarted } from "./errors";
+import {
+  CompilerNotFound,
+  ConnectModeMissingUrl,
+  DevServerChildProcessNotResponding,
+  SidecarNotStarted,
+} from "./errors";
+import {
+  mergeForstSidecarEnv,
+  normalizeDevServerBaseUrl,
+  parseDevServerUrlParts,
+} from "./config-merge";
 import { ForstUtils } from "./utils";
 import { ForstSidecarClient } from "./client";
 import { ForstServer } from "./server";
@@ -19,6 +29,8 @@ export class ForstSidecar {
   private client: ForstSidecarClient | null = null;
   private forstPath: string | null = null;
   private config: ForstConfig;
+  /** When set, the sidecar is attached to an existing `forst dev` (no spawned child). */
+  private connectBaseUrl: string | null = null;
   private _customCompilerPath: string | null = null; // Intentionally awkward - don't use this normally
 
   constructor(config?: Partial<ForstConfig>) {
@@ -48,6 +60,33 @@ export class ForstSidecar {
    */
   async start(): Promise<void> {
     logger.info("🚀 Starting Forst sidecar...");
+    this.config = mergeForstSidecarEnv(this.config);
+
+    if (this.config.sidecarRuntime === "connect") {
+      const raw = this.config.devServerUrl;
+      if (!raw || raw.trim() === "") {
+        throw new ConnectModeMissingUrl();
+      }
+      const baseUrl = normalizeDevServerBaseUrl(raw);
+      this.connectBaseUrl = baseUrl;
+      this.client = new ForstSidecarClient({
+        baseUrl,
+        timeout: 30000,
+        retries: 1,
+      });
+      const ok = await this.client.healthCheck();
+      if (!ok) {
+        this.client = null;
+        this.connectBaseUrl = null;
+        throw new DevServerChildProcessNotResponding(
+          `Could not reach existing Forst dev server at ${baseUrl}`
+        );
+      }
+      logger.info(`✅ Forst sidecar connected to existing dev server (${baseUrl})`);
+      return;
+    }
+
+    this.connectBaseUrl = null;
 
     if (this._customCompilerPath) {
       this.forstPath = this._customCompilerPath;
@@ -86,6 +125,13 @@ export class ForstSidecar {
    * Stop the sidecar development server
    */
   async stop(): Promise<void> {
+    if (this.connectBaseUrl) {
+      logger.info("🛑 Disconnecting Forst sidecar (connect mode)...");
+      this.client = null;
+      this.connectBaseUrl = null;
+      logger.info("✅ Forst sidecar disconnected");
+      return;
+    }
     if (!this.server) {
       logger.debug("ForstSidecar.stop(): server was never started; skipping.");
       return;
@@ -110,6 +156,16 @@ export class ForstSidecar {
    * Get server information. Requires {@link start} to have completed successfully.
    */
   getServerInfo(): ServerInfo {
+    if (this.connectBaseUrl) {
+      const { host, port } = parseDevServerUrlParts(this.connectBaseUrl);
+      return {
+        pid: 0,
+        port,
+        host,
+        status: "running",
+        connection: "connect",
+      };
+    }
     if (!this.server) {
       throw new SidecarNotStarted();
     }
@@ -120,6 +176,9 @@ export class ForstSidecar {
    * Whether the underlying dev server process is running. Returns false if {@link start} has not run.
    */
   isRunning(): boolean {
+    if (this.connectBaseUrl) {
+      return this.client !== null;
+    }
     if (!this.server) {
       return false;
     }

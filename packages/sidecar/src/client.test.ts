@@ -32,7 +32,7 @@ describe("ForstSidecarClient", () => {
         success: true,
         result: [fn],
       }),
-    });
+    }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:8080",
@@ -58,7 +58,7 @@ describe("ForstSidecarClient", () => {
         success: true,
         result: [42],
       }),
-    });
+    }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:8080",
@@ -86,7 +86,7 @@ describe("ForstSidecarClient", () => {
       status: 200,
       headers: new Headers({ "content-type": "application/json" }),
       json: async () => ({ success: true, output: "ok" }),
-    });
+    }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
       baseUrl: "http://127.0.0.1:8080",

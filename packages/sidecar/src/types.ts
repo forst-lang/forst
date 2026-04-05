@@ -63,6 +63,9 @@ export interface ForstClientConfig {
   retries?: number;
 }
 
+/** How the sidecar attaches to `forst dev`: spawn a child process or connect to an existing server. */
+export type SidecarRuntime = "spawn" | "connect";
+
 /** Configuration for `ForstSidecar` and `ForstServer`. */
 export interface ForstConfig {
   mode?: "development" | "production" | "testing";
@@ -72,6 +75,20 @@ export interface ForstConfig {
   outputDir?: string;
   /** Override project root for `forst dev -root` when you need it different from `forstDir`. */
   rootDir?: string;
+  /** Absolute or relative path to `ftconfig.json` passed to `forst dev -config` (optional). */
+  configPath?: string;
+  /**
+   * When set, watch these directories for `.ft` changes instead of the default single watch root.
+   * Paths are resolved relative to `process.cwd()` unless absolute.
+   */
+  watchRoots?: string[];
+  /**
+   * `spawn` (default): run `forst dev` as a child process.
+   * `connect`: only attach the HTTP client; set {@link devServerUrl} or `FORST_DEV_URL`.
+   */
+  sidecarRuntime?: SidecarRuntime;
+  /** Base URL of an already-running `forst dev` (e.g. `http://127.0.0.1:8080`). Used when `sidecarRuntime` is `connect`. */
+  devServerUrl?: string;
   /** TCP port for the embedded HTTP dev server. */
   port?: number;
   /** Bind host for the dev server. */
@@ -135,4 +152,6 @@ export interface ServerInfo {
   port: number;
   host: string;
   status: "starting" | "running" | "stopped" | "error";
+  /** When `connect`, no child process was spawned; {@link pid} is 0. */
+  connection?: SidecarRuntime;
 }
