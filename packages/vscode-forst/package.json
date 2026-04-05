@@ -2,7 +2,7 @@
   "name": "forst",
   "displayName": "Forst VSCode extension",
   "description": "Language support for Forst (.ft): HTTP LSP integration with the forst compiler",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "publisher": "forst",
   "private": true,
   "keywords": [
