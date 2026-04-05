@@ -19,9 +19,10 @@ export class SidecarNotStarted extends ForstError {
 /** No Forst compiler binary could be resolved (PATH / download). */
 export class CompilerNotFound extends ForstError {
   constructor(
-    message = "Forst compiler not found. Please ensure the Forst compiler is installed and available in your PATH."
+    message = "Forst compiler not found. Please ensure the Forst compiler is installed and available in your PATH.",
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = "CompilerNotFound";
     Object.setPrototypeOf(this, new.target.prototype);
   }

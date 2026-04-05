@@ -19,16 +19,21 @@ The Forst sidecar enables gradual adoption of Forst within TypeScript applicatio
 
 ### Installation
 
+From the npm registry (Node 18+):
+
 ```bash
-# Clone the repository and navigate to the sidecar package
+npm install @forst/sidecar
+```
+
+**Monorepo / contributing:** clone the repo, then:
+
+```bash
 cd packages/sidecar
-
-# Install dependencies
 bun install
-
-# Build the package
 bun run build
 ```
+
+Publishing a new version (maintainers): bump `version` in `package.json`, run `bun run sync-jsr-version` so `jsr.json` matches, then use the GitHub Actions workflow [publish-sidecar.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-sidecar.yml) or run `npm publish` and `npx jsr publish` from `packages/sidecar` with appropriate credentials. `npx jsr publish --dry-run` validates the JSR package; committed trees are required unless you pass `--allow-dirty`.
 
 ### Basic Usage
 
@@ -143,8 +148,8 @@ Main class for managing the sidecar integration.
 - `start()`: Start the development server
 - `stop()`: Stop the development server
 - `discoverFunctions()`: Discover available Forst functions
-- `invoke(package, function, args)`: Call a Forst function
-- `invokeStreaming(package, function, args, onResult)`: Call a function with streaming
+- `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor)
+- `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
 - `healthCheck()`: Check server health
 - `isRunning()`: Check if server is running
 
@@ -155,8 +160,8 @@ HTTP client for communicating with the Forst server.
 #### Methods
 
 - `discoverFunctions()`: Get list of available functions
-- `invoke(package, function, args)`: Call a function
-- `invokeStreaming(package, function, args, onResult)`: Stream function results
+- `invoke(package, function, args)`: Call a function (positional `args` array)
+- `invokeStreaming(package, function, args, onResult)`: Stream results; same positional `args` as `invoke`
 - `healthCheck()`: Check server health
 
 ### ForstServer
@@ -205,7 +210,8 @@ node dist/examples/basic.js
 ```
 packages/sidecar/
 ├── src/
-│   ├── index.ts          # Main entry point
+│   ├── index.ts          # Barrel exports
+│   ├── sidecar.ts        # ForstSidecar, middleware, autoStart
 │   ├── client.ts         # HTTP client
 │   ├── server.ts         # Development server
 │   ├── types.ts          # TypeScript types

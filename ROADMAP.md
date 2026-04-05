@@ -79,8 +79,9 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
 | Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
 | `forst dev` HTTP API + JSON contract | ⏳ in progress | Endpoints `/health`, `/functions`, `/invoke`, `/types`; spec: [02-forst-dev-http-contract.md](./examples/in/rfc/typescript-client/02-forst-dev-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
-| NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems. |
-| Run compiler or sidecar from Node.js | 🔬 experimental | Monorepo path works; published NPM **planned** (row above). |
+| `@forst/sidecar` on npm and JSR | 🔬 experimental | Package metadata (`package.json`, `jsr.json`) and [publish-sidecar.yml](./.github/workflows/publish-sidecar.yml); first registry publish is a maintainer step. |
+| NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems (compiler/CLI on npm; distinct from sidecar). |
+| Run compiler or sidecar from Node.js | 🔬 experimental | Sidecar: `npm install @forst/sidecar` when published (JSR: `npx jsr add @forst/sidecar`); compiler binary still resolved via GitHub releases in [`ensureCompiler`](./packages/sidecar/src/utils.ts). Monorepo dev path unchanged. |
 | Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | `@forst/sidecar` + `forst dev`; watch roots documented in sidecar README. |
 | **Invocation:** stable contract from Node/TS to **running** Forst (`forst dev`) | ⏳ in progress | HTTP spec and sidecar linked in row above; broader patterns in [01-integration-profiles.md](./examples/in/rfc/typescript-client/01-integration-profiles.md). |
 | **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices—not only `.d.ts` for hand-written TS handlers—not implemented. |

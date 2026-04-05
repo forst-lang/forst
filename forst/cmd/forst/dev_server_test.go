@@ -64,6 +64,33 @@ func TestHandleFunctions_getOk_wrongMethod(t *testing.T) {
 	}
 }
 
+func TestHandleFunctions_get_success_returnsJSONResultWithFunctionList(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	rr := httptest.NewRecorder()
+	s.handleFunctions(rr, httptest.NewRequest(http.MethodGet, "/functions", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /functions: %d %s", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Content-Type: want application/json, got %q", ct)
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected success, got %+v", resp)
+	}
+	var list []discovery.FunctionInfo
+	if err := json.Unmarshal(resp.Result, &list); err != nil {
+		t.Fatalf("result JSON: %q err %v", resp.Result, err)
+	}
+	if list == nil {
+		t.Fatal("expected result to decode to JSON array (empty is ok), got nil slice")
+	}
+}
+
 func TestHandleInvoke_wrongMethod(t *testing.T) {
 	s := testDevServer(t)
 	rr := httptest.NewRecorder()
@@ -106,6 +133,33 @@ func TestHandleInvoke_functionNotFound(t *testing.T) {
 	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", body))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleInvoke_streamingNotSupported_returns400(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"NoStream": {
+				Package:           "mypkg",
+				Name:              "NoStream",
+				SupportsStreaming: false,
+			},
+		},
+	}
+	body := `{"package":"mypkg","function":"NoStream","args":[],"streaming":true}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Success || !strings.Contains(resp.Error, "does not support streaming") {
+		t.Fatalf("expected streaming error envelope, got %+v", resp)
 	}
 }
 

@@ -1,0 +1,19 @@
+{
+  "name": "@forst/sidecar",
+  "version": "0.1.0",
+  "exports": "./src/index.ts",
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts",
+      "dist",
+      "examples"
+    ]
+  }
+}
