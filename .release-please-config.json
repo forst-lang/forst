@@ -13,7 +13,14 @@
       "prerelease": false,
       "create-pull-request": true,
       "create-github-release": true,
-      "exclude-paths": ["packages/"]
+      "exclude-paths": ["packages/"],
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/vscode-forst/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
     },
     "packages/sidecar": {
       "release-type": "node",

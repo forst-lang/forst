@@ -1,4 +1,5 @@
 import type { LogOutputChannel } from "vscode";
+import * as extensionPackage from "../../package.json";
 import {
   LspHttpResponseError,
   LspJsonRpcResponseError,
@@ -38,7 +39,7 @@ export class ForstHttpLspClient {
   constructor(
     private readonly baseUrl: string,
     private readonly log?: LogOutputChannel
-  ) {}
+  ) { }
 
   /** Stable base URL for comparing reconnects and health checks. */
   get base(): string {
@@ -98,7 +99,10 @@ export class ForstHttpLspClient {
       processId: null,
       rootUri,
       capabilities: {},
-      clientInfo: { name: "forst", version: "0.1.0" },
+      clientInfo: {
+        name: "forst",
+        version: extensionPackage.version,
+      },
     });
   }
 
