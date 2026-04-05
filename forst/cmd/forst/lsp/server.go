@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +64,9 @@ type LSPServer struct {
 	// so TypeChecker scope state is never reused after RestoreScope.
 	peerAnalysisMu    sync.Mutex
 	peerAnalysisCache map[string]peerAnalysisCacheEntry
+
+	// packageAnalysis caches merged same-package snapshots by content fingerprint (bounded LRU).
+	packageAnalysis *packageAnalysisLRU
 }
 
 // peerAnalysisCacheEntry is a content-keyed snapshot for same-package peer buffers (completion only).
@@ -97,6 +99,7 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 		debugEvents:   make([]DebugEvent, 0),
 		openDocuments:     make(map[string]string),
 		peerAnalysisCache: make(map[string]peerAnalysisCacheEntry),
+		packageAnalysis:   newPackageAnalysisLRU(defaultPackageAnalysisCacheMaxEntries),
 	}
 }
 
@@ -366,7 +369,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	}()
 
 	if err != nil {
-		diagnostic := diagnosticForParseFailure("file://"+filePath, content, err)
+		diagnostic := diagnosticForParseFailure(fileURIForLocalPath(filePath), content, err)
 
 		// Log parser error event
 		parserDebugger := s.debugger.GetDebugger(PhaseParser, filePath)
@@ -404,7 +407,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	tc := typechecker.New(s.log, false)
 	tc.GoWorkspaceDir = filepath.Dir(filePath)
 	if err := tc.CheckTypes(astNodes); err != nil {
-		diagnostic := diagnosticForTypecheckError("file://"+filePath, content, err, "forst-typechecker", ErrorCodeTypeMismatch)
+		diagnostic := diagnosticForTypecheckError(fileURIForLocalPath(filePath), content, err, "forst-typechecker", ErrorCodeTypeMismatch)
 		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
 
 		// Log typechecker error event with detailed information
@@ -454,7 +457,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	transformer := transformer_go.New(tc, s.log, false)
 	_, err = transformer.TransformForstFileToGo(astNodes)
 	if err != nil {
-		diagnostic := diagnosticForTypecheckOrTransform("file://"+filePath, content, err, "forst-transformer", ErrorCodeTransformationFailed)
+		diagnostic := diagnosticForTypecheckOrTransform(fileURIForLocalPath(filePath), content, err, "forst-transformer", ErrorCodeTransformationFailed)
 		diagnostic.Message = fmt.Sprintf("Transformation error: %v", err)
 
 		// Log transformer error event
@@ -492,6 +495,35 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	// Process debug events and convert to LSP diagnostics
 	s.lspDebugger.ProcessDebugEvents()
 	return s.lspDebugger.GetDiagnostics()
+}
+
+// compileForstFilePackageGroup runs typecheck/transform on the merged same-package AST when multiple
+// open buffers belong to one package. Falls back to single-file compileForstFile when merge is unavailable.
+// memberURIs may be nil to discover the group from the anchor URI only.
+func (s *LSPServer) compileForstFilePackageGroup(uri, filePath, content string, memberURIs []string) []LSPDiagnostic {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Errorf("Panic in compileForstFilePackageGroup for %s: %v", filePath, r)
+		}
+	}()
+
+	snap, _, ok := s.analyzePackageGroupMerged(uri, memberURIs)
+	if !ok {
+		debugger := s.debugger.GetDebugger(PhaseParser, filePath)
+		return s.compileForstFile(filePath, content, debugger)
+	}
+	if snap.checkErr != nil {
+		d := diagnosticForTypecheckError(fileURIForLocalPath(filePath), content, snap.checkErr, "forst-typechecker", ErrorCodeTypeMismatch)
+		d.Message = fmt.Sprintf("Type checking error: %v", snap.checkErr)
+		return []LSPDiagnostic{d}
+	}
+	transformer := transformer_go.New(snap.tc, s.log, false)
+	if _, err := transformer.TransformForstFileToGo(snap.mergedNodes); err != nil {
+		d := diagnosticForTypecheckOrTransform(fileURIForLocalPath(filePath), content, err, "forst-transformer", ErrorCodeTransformationFailed)
+		d.Message = fmt.Sprintf("Transformation error: %v", err)
+		return []LSPDiagnostic{d}
+	}
+	return []LSPDiagnostic{}
 }
 
 // convertVariableTypes converts the typechecker's variable types to a string map for debugging
@@ -748,11 +780,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 
 // extractFileMetadata extracts file metadata from URI
 func (s *LSPServer) extractFileMetadata(uri string) *FileMetadata {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 
 	// Extract filename
 	parts := strings.Split(filePath, "/")
@@ -812,11 +840,7 @@ func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, fileMetadata *FileM
 
 // getPhaseSummaries returns performance metrics for each phase (timing, event counts)
 func (s *LSPServer) getPhaseSummaries(uri string) map[string]interface{} {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 
 	// Get debuggers for each phase
 	lexerDebugger := s.debugger.GetDebugger(PhaseLexer, filePath)
@@ -950,11 +974,7 @@ func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]inter
 
 // getCompilerState provides current compiler state information (types, variables, scopes)
 func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 
 	// Get debugger for each phase
 	lexerDebugger := s.debugger.GetDebugger(PhaseLexer, filePath)
@@ -987,11 +1007,7 @@ func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
 
 // getPhaseDetails provides detailed phase output information (tokens, AST, types, etc.)
 func (s *LSPServer) getPhaseDetails(uri, phase string) map[string]interface{} {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 
 	phaseDetails := map[string]interface{}{
 		"uri":       uri,

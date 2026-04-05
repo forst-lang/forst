@@ -330,7 +330,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	server.documentMu.Lock()
 	server.openDocuments[uri] = src
 	server.documentMu.Unlock()
@@ -625,7 +625,7 @@ func TestFindHoverForPosition(t *testing.T) {
 func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
-	uri := "file:///tmp/hover_sync.ft"
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "hover_sync.ft"))
 	content := "package main\n\nfunc Hello() {\n}\n"
 	server.documentMu.Lock()
 	server.openDocuments[uri] = content
@@ -653,7 +653,7 @@ func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	server.documentMu.Lock()
@@ -685,7 +685,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	server.documentMu.Lock()
 	server.openDocuments[uri] = src
 	server.documentMu.Unlock()
@@ -1001,7 +1001,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	server.documentMu.Lock()
 	server.openDocuments[uri] = src
 	server.documentMu.Unlock()

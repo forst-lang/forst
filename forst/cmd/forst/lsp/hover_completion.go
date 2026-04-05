@@ -153,14 +153,14 @@ func (s *LSPServer) hoverFromAnalyzedContext(ctx *forstDocumentContext, tok *ast
 	tc := ctx.TC
 	tokens := ctx.Tokens
 	if ctx.CheckErr != nil {
-		text := hoverTextForToken(tc, tokens, tok)
+		text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge)
 		if text == "" {
 			return nil
 		}
 		return basicHoverMarkdown(text)
 	}
 
-	text := hoverTextForToken(tc, tokens, tok)
+	text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge)
 	if text == "" {
 		return nil
 	}
@@ -191,7 +191,20 @@ func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
 	return best
 }
 
-func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+func tokensForFuncDocFromPackageMerge(merge *packageMergeInfo, funcName string) []ast.Token {
+	if merge == nil {
+		return nil
+	}
+	for _, u := range merge.MemberURIs {
+		tks := merge.TokensByURI[u]
+		if findFuncNameToken(tks, funcName) != nil {
+			return tks
+		}
+	}
+	return nil
+}
+
+func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {
 	if tok.Type == ast.TokenStringLiteral {
 		if s := goHoverFromImportString(tc, tokens, tok); s != "" {
 			return s
@@ -204,7 +217,13 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		id := ast.Identifier(tok.Value)
 		// Prefer function and type definitions over variable types when the token names those things.
 		if sig, ok := tc.Functions[id]; ok {
-			doc := leadingCommentDocBeforeFunc(tokens, string(id))
+			docTokens := tokens
+			if merge != nil && leadingCommentDocBeforeFunc(tokens, string(id)) == "" {
+				if alt := tokensForFuncDocFromPackageMerge(merge, string(id)); len(alt) > 0 {
+					docTokens = alt
+				}
+			}
+			doc := leadingCommentDocBeforeFunc(docTokens, string(id))
 			body := fmt.Sprintf("```forst\n%s\n```", tc.FormatFunctionSignatureDisplay(sig))
 			if doc == "" {
 				return body
@@ -438,7 +457,7 @@ func (s *LSPServer) handleWorkspaceSymbol(request LSPRequest) LSPServerResponse 
 
 	var out []LspSymbolInformation
 	for _, uri := range uris {
-		if !strings.HasPrefix(uri, "file://") || !strings.HasSuffix(uri, ".ft") {
+		if !isForstDocumentURI(uri) {
 			continue
 		}
 		ctx, ok := s.analyzeForstDocument(uri)

@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -55,10 +56,17 @@ func TestHandleCodeAction_InvalidParams_ReturnsInvalidParams(t *testing.T) {
 func TestHandleCodeLens_ReturnsEmptySlice(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "x.ft"))
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp := s.handleCodeLens(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      4,
-		Params:  json.RawMessage(`{"textDocument": {"uri": "file:///x.ft"}}`),
+		Params:  json.RawMessage(params),
 	})
 	if resp.Error != nil {
 		t.Fatal(resp.Error)

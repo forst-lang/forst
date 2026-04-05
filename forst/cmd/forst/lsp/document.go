@@ -2,7 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
-	"runtime"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -40,11 +40,10 @@ func (s *LSPServer) handleDidOpen(request LSPRequest) LSPServerResponse {
 	s.openDocuments[params.TextDocument.URI] = params.TextDocument.Text
 	s.documentMu.Unlock()
 
-	// Process the Forst file and get diagnostics
-	diagnostics := s.processForstFile(params.TextDocument.URI, params.TextDocument.Text)
-
-	// Send diagnostics notification
+	memberURIs := s.samePackageOpenURIs(params.TextDocument.URI)
+	diagnostics := s.processForstFileWithURIs(params.TextDocument.URI, params.TextDocument.Text, memberURIs)
 	s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
+	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -97,11 +96,10 @@ func (s *LSPServer) handleDidChange(request LSPRequest) LSPServerResponse {
 	s.openDocuments[params.TextDocument.URI] = latestContent
 	s.documentMu.Unlock()
 
-	// Process the Forst file and get diagnostics
-	diagnostics := s.processForstFile(params.TextDocument.URI, latestContent)
-
-	// Send diagnostics notification
+	memberURIs := s.samePackageOpenURIs(params.TextDocument.URI)
+	diagnostics := s.processForstFileWithURIs(params.TextDocument.URI, latestContent, memberURIs)
 	s.sendDiagnosticsNotification(params.TextDocument.URI, diagnostics)
+	s.publishPeerDiagnosticsFromGroup(memberURIs, params.TextDocument.URI)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -142,6 +140,10 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 	s.documentMu.Unlock()
 
 	s.invalidatePeerAnalysisCache(params.TextDocument.URI)
+	s.invalidatePackageAnalysisCache()
+
+	// Remaining open buffers in the same directory may switch from merged to single-file analysis.
+	s.republishOpenFtInSameDir(params.TextDocument.URI)
 
 	// Clear diagnostics for the closed document
 	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
@@ -156,53 +158,79 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 	}
 }
 
-// processForstFile processes a Forst file and returns diagnostics
+// processForstFile processes a Forst file and returns diagnostics.
 func (s *LSPServer) processForstFile(uri, content string) []LSPDiagnostic {
-	// Convert URI to file path
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	return s.processForstFileWithURIs(uri, content, nil)
+}
 
-	// Only process .ft files
+// processForstFileWithURIs is like processForstFile but accepts an optional precomputed same-package
+// member list (from samePackageOpenURIs) to avoid redundant work on the hot path.
+func (s *LSPServer) processForstFileWithURIs(uri, content string, memberURIs []string) []LSPDiagnostic {
+	filePath := filePathFromDocumentURI(uri)
 	if !strings.HasSuffix(filePath, ".ft") {
 		return nil
 	}
 
-	// Create a temporary file for compilation
-	// tempFile, err := os.CreateTemp("", "forst-lsp-*.ft")
-	// if err != nil {
-	// 	s.log.Errorf("Failed to create temp file: %v", err)
-	// 	return []LSPDiagnostic{
-	// 		{
-	// 			Range: LSPRange{
-	// 				Start: LSPPosition{Line: 0, Character: 0},
-	// 				End:   LSPPosition{Line: 0, Character: 0},
-	// 			},
-	// 			Severity: LSPDiagnosticSeverityError,
-	// 			Message:  fmt.Sprintf("Failed to create temp file: %v", err),
-	// 		},
-	// 	}
-	// }
-	// defer os.Remove(tempFile.Name())
-
-	// // Write content to temp file
-	// if _, err := tempFile.WriteString(content); err != nil {
-	// 	s.log.Errorf("Failed to write to temp file: %v", err)
-	// 	return []LSPDiagnostic{
-	// 		{
-	// 			Range: LSPRange{
-	// 				Start: LSPPosition{Line: 0, Character: 0},
-	// 				End:   LSPPosition{Line: 0, Character: 0},
-	// 			},
-	// 			Severity: LSPDiagnosticSeverityError,
-	// 			Message:  fmt.Sprintf("Failed to write to temp file: %v", err),
-	// 		},
-	// 	}
-	// }
-	// tempFile.Close()
-
-	// Compile the file and get diagnostics
+	uris := memberURIs
+	if uris == nil {
+		uris = s.samePackageOpenURIs(uri)
+	}
+	if len(uris) > 1 {
+		return s.compileForstFilePackageGroup(uri, filePath, content, uris)
+	}
 	debugger := s.debugger.GetDebugger(PhaseParser, filePath)
 	return s.compileForstFile(filePath, content, debugger)
+}
+
+// republishOpenFtInSameDir re-runs diagnostics for other open .ft files in the same directory
+// (e.g. after one peer closes, survivors may no longer use merged package analysis).
+func (s *LSPServer) republishOpenFtInSameDir(closedURI string) {
+	dir := filepath.Dir(filePathFromDocumentURI(closedURI))
+	s.documentMu.RLock()
+	var peers []string
+	for u := range s.openDocuments {
+		if u == closedURI {
+			continue
+		}
+		if !isForstDocumentURI(u) {
+			continue
+		}
+		if filepath.Dir(filePathFromDocumentURI(u)) != dir {
+			continue
+		}
+		peers = append(peers, u)
+	}
+	s.documentMu.RUnlock()
+	for _, u := range peers {
+		s.documentMu.RLock()
+		c := s.openDocuments[u]
+		s.documentMu.RUnlock()
+		if c == "" {
+			continue
+		}
+		memberURIs := s.samePackageOpenURIs(u)
+		d := s.processForstFileWithURIs(u, c, memberURIs)
+		s.sendDiagnosticsNotification(u, d)
+	}
+}
+
+// publishPeerDiagnosticsFromGroup republishes diagnostics for other open buffers in the same package group.
+// memberURIs must be the result of samePackageOpenURIs for exceptURI (same ordering as fingerprinting).
+func (s *LSPServer) publishPeerDiagnosticsFromGroup(memberURIs []string, exceptURI string) {
+	if len(memberURIs) <= 1 {
+		return
+	}
+	for _, peer := range memberURIs {
+		if peer == exceptURI {
+			continue
+		}
+		s.documentMu.RLock()
+		c := s.openDocuments[peer]
+		s.documentMu.RUnlock()
+		if c == "" {
+			continue
+		}
+		d := s.processForstFileWithURIs(peer, c, memberURIs)
+		s.sendDiagnosticsNotification(peer, d)
+	}
 }

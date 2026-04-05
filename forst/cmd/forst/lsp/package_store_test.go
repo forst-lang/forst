@@ -36,7 +36,7 @@ func TestPackageStore_GetFileMetadata(t *testing.T) {
 	if meta == nil {
 		t.Fatal("nil metadata")
 	}
-	if meta.URI != "file:///abs/doc.ft" || meta.Filename != "doc.ft" {
+	if meta.URI != fileURIForLocalPath("/abs/doc.ft") || meta.Filename != "doc.ft" {
 		t.Fatalf("%+v", meta)
 	}
 }

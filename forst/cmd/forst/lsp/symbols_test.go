@@ -12,7 +12,8 @@ import (
 
 func TestSymbolsFromParsedDocument_empty(t *testing.T) {
 	t.Parallel()
-	syms := symbolsFromParsedDocument("file:///a.ft", nil, nil)
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "a.ft"))
+	syms := symbolsFromParsedDocument(uri, nil, nil)
 	if len(syms) != 0 {
 		t.Fatalf("expected no symbols, got %d", len(syms))
 	}
@@ -20,6 +21,7 @@ func TestSymbolsFromParsedDocument_empty(t *testing.T) {
 
 func TestSymbolsFromParsedDocument_skipsHashTypeNames(t *testing.T) {
 	t.Parallel()
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "b.ft"))
 	nodes := []ast.Node{
 		ast.TypeDefNode{Ident: ast.TypeIdent("T_abc123")},
 	}
@@ -27,7 +29,7 @@ func TestSymbolsFromParsedDocument_skipsHashTypeNames(t *testing.T) {
 		{Line: 1, Column: 1, Type: ast.TokenType},
 		{Line: 1, Column: 6, Type: ast.TokenIdentifier, Value: "T_abc123"},
 	}
-	syms := symbolsFromParsedDocument("file:///b.ft", toks, nodes)
+	syms := symbolsFromParsedDocument(uri, toks, nodes)
 	if len(syms) != 0 {
 		t.Fatalf("expected hash-backed type name skipped, got %#v", syms)
 	}
@@ -52,7 +54,7 @@ func bump(): Int {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -89,7 +91,7 @@ func alpha(): Int { return 0 }
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()

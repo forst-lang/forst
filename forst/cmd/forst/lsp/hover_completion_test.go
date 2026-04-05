@@ -34,7 +34,7 @@ func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenFunc, Value: "func"}
-	if s := hoverTextForToken(tc, nil, tok); s != "`func`" {
+	if s := hoverTextForToken(tc, nil, tok, nil); s != "`func`" {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -43,7 +43,7 @@ func TestHoverTextForToken_stringLiteralNonImportReturnsEmpty(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenStringLiteral, Value: `"hello"`}
-	if s := hoverTextForToken(tc, []ast.Token{{Type: ast.TokenStringLiteral, Value: `"hello"`}}, tok); s != "" {
+	if s := hoverTextForToken(tc, []ast.Token{{Type: ast.TokenStringLiteral, Value: `"hello"`}}, tok, nil); s != "" {
 		t.Fatalf("expected no hover for non-import string, got %q", s)
 	}
 }
@@ -52,7 +52,7 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenIntLiteral, Value: "42"}
-	if s := hoverTextForToken(tc, nil, tok); s != "" {
+	if s := hoverTextForToken(tc, nil, tok, nil); s != "" {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -80,7 +80,7 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -123,7 +123,7 @@ func other(): Int { return 1 }
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()

@@ -36,7 +36,7 @@ func TestCollectIdentifierReferences_includeDecl(t *testing.T) {
 		{Line: 2, Column: 1, Type: ast.TokenIdentifier, Value: "Foo"},
 	}
 	def := &toks[0]
-	uri := "file:///x.ft"
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "x.ft"))
 	with := collectIdentifierReferences(uri, toks, "Foo", def, true)
 	if len(with) != 2 {
 		t.Fatalf("includeDecl: want 2 refs, got %d", len(with))
@@ -65,7 +65,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()

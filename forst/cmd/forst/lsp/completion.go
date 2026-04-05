@@ -3,7 +3,6 @@ package lsp
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -888,7 +887,7 @@ func (s *LSPServer) countOtherOpenFtURIs(exceptURI string) int {
 		if u == exceptURI {
 			continue
 		}
-		if strings.HasPrefix(u, "file://") && strings.HasSuffix(u, ".ft") {
+		if isForstDocumentURI(u) {
 			n++
 		}
 	}
@@ -896,11 +895,7 @@ func (s *LSPServer) countOtherOpenFtURIs(exceptURI string) int {
 }
 
 func uriDisplayBasename(uri string) string {
-	p := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		p = strings.TrimPrefix(p, "/")
-	}
-	return filepath.Base(p)
+	return filepath.Base(filePathFromDocumentURI(uri))
 }
 
 // crossBufferTopLevelCompletionItems adds top-level func/type/guard symbols from other open .ft buffers in the same package.
@@ -914,7 +909,7 @@ func (s *LSPServer) crossBufferTopLevelCompletionItems(currentURI, pkg, prefix s
 		if u == currentURI {
 			continue
 		}
-		if strings.HasPrefix(u, "file://") && strings.HasSuffix(u, ".ft") {
+		if isForstDocumentURI(u) {
 			uris = append(uris, u)
 		}
 	}
@@ -946,10 +941,7 @@ func (s *LSPServer) crossBufferTopLevelCompletionItems(currentURI, pkg, prefix s
 // getCompletionsForPosition returns merged keyword, semantic, local, member, and same-package open-buffer completions.
 // The bool is LSP isIncomplete: true when other open .ft buffers exist (index is open-buffers-only, not full workspace).
 func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, reqCtx *completionRequestContext) ([]LSPCompletionItem, bool) {
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 	if !strings.HasSuffix(filePath, ".ft") {
 		return nil, false
 	}
@@ -970,7 +962,7 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	if ctx.ParseErr != nil || ctx.TC == nil {
 		items := completionItemsFromKeywords(keywordsForZone(z), prefix)
 		pkg := forstPackageNameFromContent(ctx.Content)
-		if pkg != "" && (z == zoneTopLevel || z == zoneInsideBlock) {
+		if pkg != "" && (z == zoneTopLevel || z == zoneInsideBlock) && ctx.PackageMerge == nil {
 			items = append(items, s.crossBufferTopLevelCompletionItems(uri, pkg, prefix)...)
 		}
 		return dedupeCompletionItems(items), otherOpen
@@ -993,7 +985,7 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	items = append(items, topLevelSymbolCompletionItems(ctx, prefix)...)
 	items = append(items, localVariableCompletionItems(ctx, prefix)...)
 	pkg := forstPackageNameFromContent(ctx.Content)
-	if z == zoneTopLevel || z == zoneInsideBlock {
+	if (z == zoneTopLevel || z == zoneInsideBlock) && ctx.PackageMerge == nil {
 		items = append(items, s.crossBufferTopLevelCompletionItems(uri, pkg, prefix)...)
 	}
 	return dedupeCompletionItems(items), otherOpen

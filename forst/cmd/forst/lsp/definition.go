@@ -68,8 +68,14 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
-	if defTok := definingTokenForNavigableSymbol(ctx.TC, tokens, tok); defTok != nil {
-		return lspLocationPtrFromToken(uri, defTok)
+	if ctx.PackageMerge != nil {
+		if loc := s.definingTopLevelLocationForPackage(ctx.TC, uri, tokens, tok, ctx.PackageMerge); loc != nil {
+			return loc
+		}
+	} else {
+		if defTok := definingTokenForNavigableSymbol(ctx.TC, tokens, tok); defTok != nil {
+			return lspLocationPtrFromToken(uri, defTok)
+		}
 	}
 	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
 	if tokIdx < 0 {
@@ -77,6 +83,53 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	}
 	if defTok := definingTokenForLocalBinding(ctx, tokIdx, tok); defTok != nil {
 		return lspLocationPtrFromToken(uri, defTok)
+	}
+	return nil
+}
+
+// definingTopLevelLocationForPackage resolves go-to-definition for top-level functions, types, and
+// type guards when the definition may live in another open file in the same package.
+func (s *LSPServer) definingTopLevelLocationForPackage(tc *typechecker.TypeChecker, curURI string, curTokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) *LSPLocation {
+	if tok == nil || tok.Type != ast.TokenIdentifier || merge == nil {
+		return nil
+	}
+	if defTok := definingTokenForNavigableSymbol(tc, curTokens, tok); defTok != nil {
+		return lspLocationPtrFromToken(curURI, defTok)
+	}
+	id := ast.Identifier(tok.Value)
+	if _, ok := tc.Functions[id]; ok {
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if defTok := findFuncNameToken(tks, string(id)); defTok != nil {
+				return lspLocationPtrFromToken(u, defTok)
+			}
+		}
+		return nil
+	}
+	if strings.HasPrefix(tok.Value, "T_") {
+		return nil
+	}
+	def, ok := tc.Defs[ast.TypeIdent(tok.Value)]
+	if !ok {
+		return nil
+	}
+	switch def.(type) {
+	case ast.TypeDefNode:
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if defTok := findTypeNameToken(tks, tok.Value); defTok != nil {
+				return lspLocationPtrFromToken(u, defTok)
+			}
+		}
+	case ast.TypeGuardNode, *ast.TypeGuardNode:
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if defTok := findTypeGuardNameToken(tks, tok.Value); defTok != nil {
+				return lspLocationPtrFromToken(u, defTok)
+			}
+		}
+	default:
+		return nil
 	}
 	return nil
 }

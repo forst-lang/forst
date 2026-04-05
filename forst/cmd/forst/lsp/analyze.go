@@ -3,7 +3,6 @@ package lsp
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"forst/internal/ast"
@@ -25,6 +24,8 @@ type forstDocumentContext struct {
 	ParseErr error
 	TC       *typechecker.TypeChecker
 	CheckErr error
+	// PackageMerge is set when TC analyzed a merged AST for multiple open files in the same package.
+	PackageMerge *packageMergeInfo
 }
 
 // analyzeForstDocument loads buffer text, lexes, parses, and typechecks.
@@ -42,12 +43,13 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 		}
 	}()
 
-	filePath := strings.TrimPrefix(uri, "file://")
-	if runtime.GOOS == "windows" {
-		filePath = strings.TrimPrefix(filePath, "/")
-	}
+	filePath := filePathFromDocumentURI(uri)
 	if !strings.HasSuffix(filePath, ".ft") {
 		return nil, false
+	}
+
+	if _, mctx, merged := s.analyzePackageGroupMerged(uri, nil); merged && mctx != nil {
+		return mctx, true
 	}
 
 	s.documentMu.RLock()

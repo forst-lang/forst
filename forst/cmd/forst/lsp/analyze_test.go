@@ -11,7 +11,8 @@ import (
 func TestAnalyzeForstDocument_nonFtURI(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
-	ctx, ok := s.analyzeForstDocument("file:///tmp/x.go")
+	goURI := mustFileURI(t, filepath.Join(t.TempDir(), "x.go"))
+	ctx, ok := s.analyzeForstDocument(goURI)
 	if ok || ctx != nil {
 		t.Fatalf("expected non-.ft URI to be rejected, ok=%v ctx=%v", ok, ctx)
 	}
@@ -28,7 +29,7 @@ func TestAnalyzeForstDocument_openBuffer_setsTypeChecker(t *testing.T) {
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -50,7 +51,7 @@ func TestAnalyzeForstDocument_parseErrorStillReturnsTokens(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	badPath := filepath.Join(dir, "bad.ft")
-	uri := "file://" + badPath
+	uri := mustFileURI(t, badPath)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	// Top-level token the parser rejects (see internal/parser/parse_test.go).

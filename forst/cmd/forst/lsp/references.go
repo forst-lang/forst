@@ -54,8 +54,14 @@ func (s *LSPServer) findReferencesForPosition(uri string, position LSPPosition, 
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
-	if defTok := definingTokenForNavigableSymbol(ctx.TC, ctx.Tokens, tok); defTok != nil {
-		return collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+	if ctx.PackageMerge != nil {
+		if decl := s.definingTopLevelLocationForPackage(ctx.TC, uri, ctx.Tokens, tok, ctx.PackageMerge); decl != nil {
+			return collectTopLevelReferencesAcrossPackage(ctx.PackageMerge, tok.Value, decl, includeDecl)
+		}
+	} else {
+		if defTok := definingTokenForNavigableSymbol(ctx.TC, ctx.Tokens, tok); defTok != nil {
+			return collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+		}
 	}
 	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
 	if tokIdx < 0 {
@@ -70,6 +76,31 @@ func (s *LSPServer) findReferencesForPosition(uri string, position LSPPosition, 
 		return nil
 	}
 	return collectIdentifierReferencesSameBinding(uri, ctx.Tokens, tok.Value, defTok, includeDecl, sym, ctx.TC, ctx.Nodes)
+}
+
+func collectTopLevelReferencesAcrossPackage(merge *packageMergeInfo, name string, decl *LSPLocation, includeDecl bool) []LSPLocation {
+	if merge == nil || decl == nil {
+		return nil
+	}
+	declURI := decl.URI
+	declLine := decl.Range.Start.Line + 1
+	declCol := decl.Range.Start.Character + 1
+
+	var out []LSPLocation
+	for _, u := range merge.MemberURIs {
+		tokens := merge.TokensByURI[u]
+		for i := range tokens {
+			t := &tokens[i]
+			if t.Type != ast.TokenIdentifier || t.Value != name {
+				continue
+			}
+			if !includeDecl && u == declURI && int(t.Line) == declLine && int(t.Column) == declCol {
+				continue
+			}
+			out = append(out, lspLocationFromToken(u, t))
+		}
+	}
+	return out
 }
 
 func collectIdentifierReferencesSameBinding(uri string, tokens []ast.Token, name string, defTok *ast.Token, includeDecl bool, refSym typechecker.Symbol, tc *typechecker.TypeChecker, nodes []ast.Node) []LSPLocation {

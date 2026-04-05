@@ -44,7 +44,7 @@ func id(x Int): Int {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -94,7 +94,7 @@ func id(x Int): Int {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -149,7 +149,7 @@ func shadow(): Int {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -226,7 +226,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()

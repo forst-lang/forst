@@ -13,17 +13,22 @@ func TestHandleDidOpen_StoresContentAndReturnsPublishDiagnosticsShape(t *testing
 	t.Parallel()
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "hover_doc.ft"))
+	openParams, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri":     uri,
+			"version": 1,
+			"text":    "package main\n\nfunc main() {\n}\n",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := LSPRequest{
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/didOpen",
-		Params: json.RawMessage(`{
-			"textDocument": {
-				"uri": "file:///tmp/hover_doc.ft",
-				"version": 1,
-				"text": "package main\n\nfunc main() {\n}\n"
-			}
-		}`),
+		Params:  json.RawMessage(openParams),
 	}
 	resp := s.handleDidOpen(req)
 	if resp.Error != nil {
@@ -33,7 +38,7 @@ func TestHandleDidOpen_StoresContentAndReturnsPublishDiagnosticsShape(t *testing
 	if !ok {
 		t.Fatalf("result type %T", resp.Result)
 	}
-	if pub.URI != "file:///tmp/hover_doc.ft" {
+	if pub.URI != uri {
 		t.Fatalf("uri = %q", pub.URI)
 	}
 	if pub.Diagnostics == nil {
@@ -41,7 +46,7 @@ func TestHandleDidOpen_StoresContentAndReturnsPublishDiagnosticsShape(t *testing
 	}
 
 	s.documentMu.RLock()
-	text, ok := s.openDocuments["file:///tmp/hover_doc.ft"]
+	text, ok := s.openDocuments[uri]
 	s.documentMu.RUnlock()
 	if !ok {
 		t.Fatal("document not stored in openDocuments")
@@ -80,7 +85,7 @@ func TestHandleDidChange_InvalidJSON_ReturnsParseError(t *testing.T) {
 func TestHandleDidChange_UsesLastContentChange(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
-	uri := "file:///tmp/didchange.ft"
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "didchange.ft"))
 	first := "package main\n"
 	second := "package main\n\nfunc main() {}\n"
 	raw, err := json.Marshal(map[string]interface{}{
@@ -129,7 +134,7 @@ func TestHandleDidClose_InvalidJSON_ReturnsParseError(t *testing.T) {
 func TestHandleDidClose_RemovesOpenDocument(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
-	uri := "file:///tmp/closeme.ft"
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "closeme.ft"))
 	s.documentMu.Lock()
 	s.openDocuments[uri] = "package main\n"
 	s.documentMu.Unlock()
@@ -172,7 +177,7 @@ func TestProcessForstFile_ftPathParseErrorReturnsDiagnostics(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	ft := filepath.Join(t.TempDir(), "bad.ft")
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	d := s.processForstFile(uri, "package main\n\n!!!\n")
 	if len(d) == 0 {
 		t.Fatal("expected at least one diagnostic for invalid syntax")

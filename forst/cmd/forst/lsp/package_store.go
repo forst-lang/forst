@@ -160,7 +160,7 @@ func (ps *PackageStore) GetFileMetadata(fileID FileID) *FileMetadata {
 	}
 
 	return &FileMetadata{
-		URI:      fmt.Sprintf("file://%s", file.Path),
+		URI:      fileURIForLocalPath(file.Path),
 		Path:     file.Path,
 		Filename: file.Filename,
 	}

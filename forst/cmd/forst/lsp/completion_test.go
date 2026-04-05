@@ -49,7 +49,7 @@ func f() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -107,7 +107,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -144,7 +144,7 @@ func f() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
@@ -193,8 +193,8 @@ func main() {
 	if err := os.WriteFile(aPath, []byte(asrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uriA := "file://" + aPath
-	uriB := "file://" + bPath
+	uriA := mustFileURI(t, aPath)
+	uriB := mustFileURI(t, bPath)
 	s.documentMu.Lock()
 	s.openDocuments[uriA] = asrc
 	s.openDocuments[uriB] = bsrc

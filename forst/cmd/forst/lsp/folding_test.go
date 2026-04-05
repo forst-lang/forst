@@ -150,7 +150,7 @@ func TestHandleFoldingRange_parseOk_returnsFunctionBodyRegion(t *testing.T) {
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -191,7 +191,7 @@ func TestFoldingRangesForURI_parseError_returnsEmpty(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	ft := filepath.Join(dir, "bad.ft")
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = "package main\n\nunexpected\n"
@@ -226,7 +226,7 @@ func bump(): Int {
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ft
+	uri := mustFileURI(t, ft)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src

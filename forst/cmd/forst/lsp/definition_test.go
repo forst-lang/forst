@@ -74,7 +74,7 @@ func main() {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -117,7 +117,7 @@ func useRow(r Row): Int {
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	uri := "file://" + ftPath
+	uri := mustFileURI(t, ftPath)
 
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
