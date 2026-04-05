@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/forst-lang/forst/compare/sidecar-v0.1.3...sidecar-v0.1.4) (2026-04-05)
+
+
+### Bug Fixes
+
+* **sidecar:** depend on @forst/cli via workspace protocol ([0762ce6](https://github.com/forst-lang/forst/commit/0762ce6996e59f5e5e4fd715384478e29cd0aca5))
+
 ## [0.1.3](https://github.com/forst-lang/forst/compare/sidecar-v0.1.2...sidecar-v0.1.3) (2026-04-05)
 
 
