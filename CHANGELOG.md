@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11](https://github.com/forst-lang/forst/compare/v0.0.10...v0.0.11) (2026-04-05)
+
+
+### Features
+
+* add Go-style for loops, range, and break/continue ([802a163](https://github.com/forst-lang/forst/commit/802a1635c2dc3b31e37b9ccec4f13b238f13f094))
+* go/packages interop, qualified-call diagnostics, and LSP hover for Go imports ([a255670](https://github.com/forst-lang/forst/commit/a255670974f297cd2265e84411d5fe121a68368d))
+* **lsp:** add document symbols, references, and workspace symbol search ([#38](https://github.com/forst-lang/forst/issues/38)) ([5501834](https://github.com/forst-lang/forst/commit/55018341f47549b7647e563b0482181d54022f1d))
+* **lsp:** add semantic completion with zones, locals, and member access ([98b02bb](https://github.com/forst-lang/forst/commit/98b02bb7b3098cd7b1487bc8c985cfce4a937590))
+* **lsp:** navigate locals, folding, completion, and formatting ([#40](https://github.com/forst-lang/forst/issues/40)) ([b4c559c](https://github.com/forst-lang/forst/commit/b4c559cfaaac8d6f1d96a092b09e07aea16a6245))
+
+
+### Bug Fixes
+
+* Add missing example ([4d78e3f](https://github.com/forst-lang/forst/commit/4d78e3fce3a3e9e0d1a7279c7ac7bd0e794b1767))
+
 ## [0.0.10](https://github.com/forst-lang/forst/compare/v0.0.9...v0.0.10) (2026-04-03)
 
 
