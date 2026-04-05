@@ -52,3 +52,25 @@ func TestLoadByPkgPath_emptyPaths(t *testing.T) {
 		t.Fatalf("empty import list: m=%v err=%v", m, err)
 	}
 }
+
+func TestLoadByPkgPath_strconv(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	m, err := LoadByPkgPath(dir, []string{"strconv"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := m["strconv"]
+	if p == nil || p.Types == nil {
+		t.Fatalf("strconv package missing: %#v", m)
+	}
+	if p.Types.Scope().Lookup("Atoi") == nil {
+		t.Fatal("strconv.Atoi not in scope")
+	}
+}
+
+func TestImportPathFromForst_whitespaceAndQuotes(t *testing.T) {
+	t.Parallel()
+	if got := ImportPathFromForst(`  "encoding/json"  `); got != "encoding/json" {
+		t.Fatalf("got %q", got)
+	}
+}
