@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2](https://github.com/forst-lang/forst/compare/sidecar-v0.1.1...sidecar-v0.1.2) (2026-04-05)
+
+
+### Features
+
+* **sidecar:** add GET /version, version check, and generateTypes hook ([ab5516f](https://github.com/forst-lang/forst/commit/ab5516f4aef36b568f071293bf4741dc25816af4))
+* **sidecar:** ftconfig-aware generate and stronger dev HTTP client ([caa20af](https://github.com/forst-lang/forst/commit/caa20af409f4fb0098500856bc01287c3bcf71aa))
+* **sidecar:** monorepo-friendly connect mode, ftconfig path, and chokidar watch ([ab776d4](https://github.com/forst-lang/forst/commit/ab776d46809b7b71cbc38c4dff7464266353eb32))
+
 ## [0.1.1](https://github.com/forst-lang/forst/compare/sidecar-v0.1.0...sidecar-v0.1.1) (2026-04-05)
 
 
