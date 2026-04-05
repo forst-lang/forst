@@ -50,3 +50,7 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 ## CI
 
 From the repo root: `task build:vscode` compiles this package. The same compile runs at the start of `task ci:test` (see [Taskfile.yml](../../Taskfile.yml)). GitHub Actions uses `package.json` `packageManager` with [setup-bun](https://github.com/oven-sh/setup-bun) to pin the Bun version.
+
+## Open VSX Registry
+
+Releases that build `dist/forst-vscode-<version>.vsix` also run **`npx ovsx publish`** when the repository has an Actions secret **`OVSX_PAT`** (see [Auto publishing extensions](https://github.com/EclipseFdn/open-vsx.org/wiki/Auto-Publishing-Extensions)). If the secret is missing, the step is skipped and the workflow still succeeds.

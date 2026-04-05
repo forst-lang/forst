@@ -91,3 +91,21 @@ jobs:
       - name: Upload binary to GitHub Release
         run: |
           gh release upload $GIT_TAG ./dist/*
+
+      # Self-publish to Open VSX (same .vsix as GitHub Release)
+      - name: Set up Node.js (Open VSX publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publish VS Code extension to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "OVSX_PAT secret not set; skipping Open VSX publish."
+            echo "Create a token at https://open-vsx.org and add OVSX_PAT to this repository's Actions secrets."
+            exit 0
+          fi
+          set -e
+          npx --yes ovsx publish dist/forst-vscode-*.vsix
