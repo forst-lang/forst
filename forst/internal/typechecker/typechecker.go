@@ -30,6 +30,9 @@ type TypeChecker struct {
 	VariableTypes map[ast.Identifier][]ast.TypeNode
 	// Per-occurrence inferred types when the parser set Ident.Span (hover / narrowing).
 	variableOccurrenceTypes map[variableOccurrenceKey][]ast.TypeNode
+	// Per-occurrence type guard names from if-branch / ensure narrowing (when InferAssertionType
+	// preserves a named alias without Assertion on the TypeNode).
+	variableOccurrenceNarrowingGuards map[variableOccurrenceKey][]string
 	// Map of inferred function return types
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
@@ -65,7 +68,8 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		scopeStack:          NewScopeStack(h, log),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:           make(map[ast.Identifier][]ast.TypeNode),
-		variableOccurrenceTypes: make(map[variableOccurrenceKey][]ast.TypeNode),
+		variableOccurrenceTypes:         make(map[variableOccurrenceKey][]ast.TypeNode),
+		variableOccurrenceNarrowingGuards: make(map[variableOccurrenceKey][]string),
 		FunctionReturnTypes:     make(map[ast.Identifier][]ast.TypeNode),
 		log:                 log,
 		reportPhases:        reportPhases,

@@ -257,3 +257,32 @@ func findTypeGuardNameToken(tokens []ast.Token, name string) *ast.Token {
 	}
 	return nil
 }
+
+// findTypeGuardIsKeywordIndex returns the token index of `is` for a top-level `is (…) name` declaration, or -1.
+func findTypeGuardIsKeywordIndex(tokens []ast.Token, name string) int {
+	for i := 0; i+1 < len(tokens); i++ {
+		if braceDepthAtIndex(tokens, i) != 0 {
+			continue
+		}
+		if tokens[i].Type != ast.TokenIs || tokens[i+1].Type != ast.TokenLParen {
+			continue
+		}
+		j := i + 1
+		pdepth := 0
+		for k := j; k < len(tokens); k++ {
+			switch tokens[k].Type {
+			case ast.TokenLParen:
+				pdepth++
+			case ast.TokenRParen:
+				pdepth--
+				if pdepth == 0 {
+					if k+1 < len(tokens) && tokens[k+1].Type == ast.TokenIdentifier && tokens[k+1].Value == name {
+						return i
+					}
+					break
+				}
+			}
+		}
+	}
+	return -1
+}

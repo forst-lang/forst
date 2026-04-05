@@ -31,6 +31,56 @@ func isIdentRune(r rune) bool {
 	return r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
 }
 
+func TestFindHover_crossFileSamePackage(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "a.ft")
+	bPath := filepath.Join(dir, "b.ft")
+	const srcA = `package main
+
+// Peer doc for foo
+func foo(): Int {
+  return 1
+}
+`
+	const srcB = `package main
+
+func bar(): Int {
+  return foo()
+}
+`
+	if err := os.WriteFile(aPath, []byte(srcA), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bPath, []byte(srcB), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriA := mustFileURI(t, aPath)
+	uriB := mustFileURI(t, bPath)
+
+	s.documentMu.Lock()
+	s.openDocuments[uriA] = srcA
+	s.openDocuments[uriB] = srcB
+	s.documentMu.Unlock()
+
+	pos := lspPositionOfIdentifier(srcB, "foo")
+	h := s.findHoverForPosition(uriB, pos)
+	if h == nil {
+		t.Fatal("expected hover for foo defined in peer file")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "foo") || !strings.Contains(val, "Int") {
+		t.Fatalf("expected function signature in hover, got %q", val)
+	}
+	if !strings.Contains(val, "Peer doc for foo") {
+		t.Fatalf("expected leading // doc merged from peer buffer, got %q", val)
+	}
+	_ = uriA
+}
+
 func TestFindDefinition_crossFileSamePackage(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()

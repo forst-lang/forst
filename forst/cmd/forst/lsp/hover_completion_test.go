@@ -31,6 +31,51 @@ func TestTokenSliceIndex_pointerOrValueMatch(t *testing.T) {
 	}
 }
 
+func TestTypeDefHoverMarkdown_typeGuard(t *testing.T) {
+	t.Parallel()
+	v := ast.TypeGuardNode{Ident: ast.Identifier("Strong")}
+	if md := typeDefHoverMarkdown(v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") {
+		t.Fatalf("value TypeGuardNode: got %q", md)
+	}
+	if md := typeDefHoverMarkdown(&v); !strings.Contains(md, "Strong") {
+		t.Fatalf("*TypeGuardNode: got %q", md)
+	}
+}
+
+func TestFindHoverForPosition_typeGuardDeclarationName(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "guard_hover.ft")
+	const src = `package main
+
+type P = String
+
+is (p P) Strong {
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	line := "is (p P) Strong {"
+	char := strings.Index(line, "Strong")
+	if char < 0 {
+		t.Fatal("fixture: no Strong")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: 4, Character: char})
+	if h == nil {
+		t.Fatal("nil hover on type guard name")
+	}
+	if !strings.Contains(h.Contents.Value, "Strong") {
+		t.Fatalf("hover should mention guard name: %q", h.Contents.Value)
+	}
+}
+
 func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
@@ -262,6 +307,74 @@ func main() {
 	val := h.Contents.Value
 	if !strings.Contains(val, "MyStr") && !strings.Contains(val, "String") {
 		t.Fatalf("hover should mention narrowed type; got %q", val)
+	}
+	_ = ctx
+}
+
+func TestFindHoverForPosition_ensureNarrowingListsTypeGuardComments(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "ensure_guard_doc_hover.ft")
+	const src = `package main
+
+type Password = String
+
+// Strength: at least 12 characters.
+is (password Password) Strong {
+  ensure password is Min(12)
+}
+
+func f(): String {
+  password: Password = "123456789012"
+  if password is Strong() {
+    return password
+  }
+  return ""
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, "return password") && strings.Contains(line, "if") == false {
+			hoverLine = i
+			charOffset = strings.Index(line, "password")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find password in then-branch return")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on password in narrowed branch")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Strong") && !strings.Contains(val, "Password") {
+		t.Fatalf("hover should mention refined type; got %q", val)
+	}
+	if !strings.Contains(val, "Strength:") || !strings.Contains(val, "12 characters") {
+		t.Fatalf("hover should include type guard comment block; got %q", val)
 	}
 	_ = ctx
 }

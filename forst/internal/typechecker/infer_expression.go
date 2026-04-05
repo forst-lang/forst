@@ -81,12 +81,16 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 
 	case ast.VariableNode:
 		// Look up the variable's type and store it for this node
-		typ, err := tc.LookupVariableType(&e, tc.CurrentScope())
+		typ, narrowGuards, err := tc.lookupVariableForExpression(&e, tc.CurrentScope())
 		if err != nil {
 			return nil, err
 		}
 		tc.log.Tracef("Variable type: %+v, node: %+v, type params: %+v, (original: %+v of type %T)", typ, e, typ.TypeParams, e, e)
 		tc.storeInferredType(e, []ast.TypeNode{typ})
+		if len(narrowGuards) > 0 && e.Ident.Span.IsSet() {
+			k := variableOccurrenceKey{ident: e.Ident.ID, span: e.Ident.Span}
+			tc.variableOccurrenceNarrowingGuards[k] = append([]string(nil), narrowGuards...)
+		}
 		return []ast.TypeNode{typ}, nil
 
 	case ast.FunctionCallNode:

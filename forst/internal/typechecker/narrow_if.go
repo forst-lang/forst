@@ -9,6 +9,54 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// underlyingBuiltinTypeOfAliasAssertion returns the built-in type ident (e.g. String) when a named
+// type is defined only as a TypeDefAssertionExpr over a built-in (or a chain of such aliases)
+// with no constraints on that assertion. Otherwise returns empty.
+func (tc *TypeChecker) underlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent) ast.TypeIdent {
+	def, ok := tc.Defs[alias].(ast.TypeDefNode)
+	if !ok {
+		return ""
+	}
+	var ade *ast.TypeDefAssertionExpr
+	switch expr := def.Expr.(type) {
+	case ast.TypeDefAssertionExpr:
+		e := expr
+		ade = &e
+	case *ast.TypeDefAssertionExpr:
+		ade = expr
+	default:
+		return ""
+	}
+	if ade == nil || ade.Assertion == nil {
+		return ""
+	}
+	ann := ade.Assertion
+	if ann.BaseType == nil || len(ann.Constraints) != 0 {
+		return ""
+	}
+	if tc.isBuiltinType(*ann.BaseType) {
+		return *ann.BaseType
+	}
+	return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(*ann.BaseType))
+}
+
+// refinedNarrowingTypeFromAliasAssertion maps `x is MyStr`-style narrowing to the underlying
+// built-in when MyStr is an alias defined as an assertion over that built-in. This matches
+// refinement semantics (underlying type in the branch) and avoids registering a hash-only T_…
+// type as the narrowed binding when InferAssertionType would otherwise fall back to a structural hash.
+func (tc *TypeChecker) refinedNarrowingTypeFromAliasAssertion(assertion *ast.AssertionNode, refined []ast.TypeNode) []ast.TypeNode {
+	if assertion == nil || len(assertion.Constraints) != 0 {
+		return refined
+	}
+	if assertion.BaseType == nil {
+		return refined
+	}
+	if u := tc.underlyingBuiltinTypeOfAliasAssertion(*assertion.BaseType); u != "" {
+		return []ast.TypeNode{{Ident: u}}
+	}
+	return refined
+}
+
 // applyIfBranchNarrowing registers a shadow variable binding in the current scope when the
 // condition is of the form `subject is <assertion|shape>`. Strategy: lexical shadowing in the
 // branch scope (see ROADMAP / type narrowing plan) so LookupVariableType sees the refined type.
@@ -39,7 +87,8 @@ func (tc *TypeChecker) applyIfBranchNarrowing(condition ast.Node) {
 	if !ok {
 		return
 	}
-	tc.scopeStack.currentScope().RegisterSymbol(vn.Ident.ID, refined, SymbolVariable)
+	guards := tc.typeGuardNamesFromIsRHS(bin.Right)
+	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards)
 }
 
 // refinedTypesForIsNarrowing returns the type(s) the subject should have when the `is` condition
@@ -63,7 +112,11 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		if r.Assertion == nil {
 			return nil, fmt.Errorf("missing assertion on RHS of `is`")
 		}
-		return tc.InferAssertionType(r.Assertion, false, "", &varLeftType)
+		refined, err := tc.InferAssertionType(r.Assertion, false, "", &varLeftType)
+		if err != nil {
+			return nil, err
+		}
+		return tc.refinedNarrowingTypeFromAliasAssertion(r.Assertion, refined), nil
 	case ast.AssertionNode:
 		vn, ok := leftmostVar.(ast.VariableNode)
 		if !ok {
@@ -105,7 +158,11 @@ func (tc *TypeChecker) refinedTypesForAssertionOnVariable(vn ast.VariableNode, a
 		return nil, fmt.Errorf("expected a single type for assertion subject, got %d", len(varLeftTypes))
 	}
 	varLeftType := varLeftTypes[0]
-	return tc.InferAssertionType(assertion, false, "", &varLeftType)
+	refined, err := tc.InferAssertionType(assertion, false, "", &varLeftType)
+	if err != nil {
+		return nil, err
+	}
+	return tc.refinedNarrowingTypeFromAliasAssertion(assertion, refined), nil
 }
 
 // applyEnsureSuccessorNarrowing registers a refined binding for the ensure subject so that
@@ -138,5 +195,6 @@ func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	if len(refined) == 0 {
 		return
 	}
-	tc.scopeStack.currentScope().RegisterSymbol(vn.Ident.ID, refined, SymbolVariable)
+	guards := tc.typeGuardNamesFromAssertionNode(&n.Assertion)
+	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards)
 }

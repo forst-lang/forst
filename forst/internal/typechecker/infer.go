@@ -180,6 +180,15 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				"mergedFields": mergedFields,
 			}).Debug("Merged fields for type")
 
+			// Assertion-only alias with no shape fields (e.g. type MyStr = String via TypeDefAssertionExpr,
+			// or a chain of such aliases): do not replace Defs with an empty TypeDefShapeExpr — the collect
+			// pass already stored TypeDefAssertionExpr and alias-chain / narrowing logic needs it.
+			if len(mergedFields) == 0 && len(assertionExpr.Assertion.Constraints) == 0 &&
+				assertionExpr.Assertion.BaseType != nil &&
+				tc.underlyingBuiltinTypeOfAliasAssertion(*assertionExpr.Assertion.BaseType) != "" {
+				return nil, nil
+			}
+
 			shape := ast.ShapeNode{
 				Fields: mergedFields,
 			}
@@ -194,8 +203,15 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.ReturnNode:
-		// For return statements, we don't need to infer types here
-		// as they are handled in inferFunctionReturnType
+		// Infer return value expressions in this scope (including nested returns under if/ensure)
+		// so per-occurrence types and narrowing metadata (e.g. type guard names) are stored.
+		for _, v := range n.Values {
+			if expr, ok := v.(ast.ExpressionNode); ok {
+				if _, err := tc.inferExpressionType(expr); err != nil {
+					return nil, err
+				}
+			}
+		}
 		return nil, nil
 
 	case ast.ImportNode:

@@ -32,6 +32,13 @@ func (tc *TypeChecker) LookupInferredType(node ast.Node, requireInferred bool) (
 
 // LookupVariableType finds a variable's type in the current scope chain
 func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, error) {
+	typ, _, err := tc.lookupVariableForExpression(variable, scope)
+	return typ, err
+}
+
+// lookupVariableForExpression returns the inferred type and optional narrowing type guard names
+// (if-branch / ensure) for a simple variable reference. Field paths do not inherit narrowing metadata yet.
+func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, []string, error) {
 	tc.log.WithFields(logrus.Fields{
 		"function": "LookupVariableType",
 		"variable": variable.Ident.ID,
@@ -56,7 +63,7 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 			"baseIdent": baseIdent,
 			"scope":     scope.String(),
 		}).Debugf("Variable not found in scope")
-		return ast.TypeNode{}, fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
+		return ast.TypeNode{}, nil, fmt.Errorf("undefined symbol: %s [scope: %s]", parts[0], scope.String())
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -74,7 +81,7 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 			"baseIdent": baseIdent,
 			"typeCount": len(symbol.Types),
 		}).Debugf("Expected single type but got multiple")
-		return ast.TypeNode{}, fmt.Errorf("expected single type for variable %s but got %d types", parts[0], len(symbol.Types))
+		return ast.TypeNode{}, nil, fmt.Errorf("expected single type for variable %s but got %d types", parts[0], len(symbol.Types))
 	}
 
 	if len(parts) == 1 {
@@ -83,7 +90,7 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 			"variable": variable.Ident.ID,
 			"type":     symbol.Types[0].Ident,
 		}).Debugf("Returning single variable type")
-		return symbol.Types[0], nil
+		return symbol.Types[0], symbol.NarrowingTypeGuards, nil
 	}
 
 	tc.log.WithFields(logrus.Fields{
@@ -94,7 +101,8 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 	}).Debugf("Looking up field path on base type")
 
 	// Use lookupFieldPath for multi-segment field access
-	return tc.lookupFieldPath(symbol.Types[0], parts[1:])
+	t, err := tc.lookupFieldPath(symbol.Types[0], parts[1:])
+	return t, nil, err
 }
 
 // LookupEnsureBaseType looks up the base type of an ensure node in a given scope

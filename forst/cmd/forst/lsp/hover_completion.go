@@ -204,6 +204,84 @@ func tokensForFuncDocFromPackageMerge(merge *packageMergeInfo, funcName string) 
 	return nil
 }
 
+func tokensForTypeGuardDocFromPackageMerge(merge *packageMergeInfo, guardName string) []ast.Token {
+	if merge == nil {
+		return nil
+	}
+	for _, u := range merge.MemberURIs {
+		tks := merge.TokensByURI[u]
+		if findTypeGuardNameToken(tks, guardName) != nil {
+			return tks
+		}
+	}
+	return nil
+}
+
+func leadingCommentDocBeforeTypeGuard(tokens []ast.Token, guardName string) string {
+	idx := findTypeGuardIsKeywordIndex(tokens, guardName)
+	if idx < 0 {
+		return ""
+	}
+	parts := collectContiguousLeadingCommentLines(tokens, idx)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+// variableHoverMarkdownWithGuardDocs builds the code block for inferred types and appends markdown
+// sections for each user type guard constraint that applies, using // or /* */ comments above `is`.
+func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []ast.Token, merge *packageMergeInfo, tok *ast.Token, types []ast.TypeNode) string {
+	var parts []string
+	for _, tn := range types {
+		parts = append(parts, tc.FormatTypeNodeDisplay(tn))
+	}
+	body := fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
+
+	vn := ast.VariableNode{
+		Ident: ast.Ident{ID: ast.Identifier(tok.Value), Span: ast.SpanFromToken(*tok)},
+	}
+	seen := make(map[string]struct{})
+	var names []string
+	for _, g := range tc.NarrowingTypeGuardsForVariableOccurrence(vn) {
+		if _, ok := seen[g]; ok {
+			continue
+		}
+		seen[g] = struct{}{}
+		names = append(names, g)
+	}
+	for _, tn := range types {
+		for _, g := range tc.TypeGuardConstraintNamesForInferredType(tn) {
+			if _, ok := seen[g]; ok {
+				continue
+			}
+			seen[g] = struct{}{}
+			names = append(names, g)
+		}
+	}
+	if len(names) == 0 {
+		return body
+	}
+	var blocks []string
+	for _, g := range names {
+		docTokens := tokens
+		if merge != nil && leadingCommentDocBeforeTypeGuard(tokens, g) == "" {
+			if alt := tokensForTypeGuardDocFromPackageMerge(merge, g); len(alt) > 0 {
+				docTokens = alt
+			}
+		}
+		doc := leadingCommentDocBeforeTypeGuard(docTokens, g)
+		if doc == "" {
+			continue
+		}
+		blocks = append(blocks, fmt.Sprintf("**%s:**\n%s", g, doc))
+	}
+	if len(blocks) == 0 {
+		return body
+	}
+	return body + "\n\n" + strings.Join(blocks, "\n\n")
+}
+
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {
 	if tok.Type == ast.TokenStringLiteral {
 		if s := goHoverFromImportString(tc, tokens, tok); s != "" {
@@ -237,11 +315,7 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 			Ident: ast.Ident{ID: id, Span: ast.SpanFromToken(*tok)},
 		}
 		if types, ok := tc.InferredTypesForVariableNode(vn); ok && len(types) > 0 {
-			var parts []string
-			for _, tn := range types {
-				parts = append(parts, tc.FormatTypeNodeDisplay(tn))
-			}
-			return fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
+			return variableHoverMarkdownWithGuardDocs(tc, tokens, merge, tok, types)
 		}
 		return ""
 	}
@@ -339,9 +413,21 @@ func typeDefHoverMarkdown(def ast.Node) string {
 	switch d := def.(type) {
 	case ast.TypeDefNode:
 		return fmt.Sprintf("```forst\ntype %s\n```", d.Ident)
+	case ast.TypeGuardNode:
+		return typeGuardHoverStub(&d)
+	case *ast.TypeGuardNode:
+		return typeGuardHoverStub(d)
 	default:
 		return ""
 	}
+}
+
+func typeGuardHoverStub(g *ast.TypeGuardNode) string {
+	if g == nil {
+		return ""
+	}
+	// registerTypeGuard stores *TypeGuardNode in Defs; full signature formatting is optional follow-up.
+	return fmt.Sprintf("```forst\nis ... %s\n```", string(g.Ident))
 }
 
 // literalHover reports whether the token is a literal. We intentionally omit hover text for

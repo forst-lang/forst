@@ -30,12 +30,18 @@ func NewScope(parent *Scope, node *ast.Node, log *logrus.Logger) *Scope {
 
 // RegisterSymbol registers a symbol in the scope
 func (s *Scope) RegisterSymbol(name ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
+	s.RegisterSymbolWithNarrowing(name, types, kind, nil)
+}
+
+// RegisterSymbolWithNarrowing registers a variable symbol that may carry if/ensure narrowing metadata.
+func (s *Scope) RegisterSymbolWithNarrowing(name ast.Identifier, types []ast.TypeNode, kind SymbolKind, narrowingGuards []string) {
 	s.log.Tracef("[RegisterSymbol] Registering symbol %s with types %v in scope %s", name, types, s.String())
 	s.Symbols[name] = Symbol{
-		Identifier: name,
-		Types:      types,
-		Kind:       kind,
-		Scope:      s,
+		Identifier:          name,
+		Types:               types,
+		Kind:                kind,
+		Scope:               s,
+		NarrowingTypeGuards: append([]string(nil), narrowingGuards...),
 	}
 }
 
@@ -91,6 +97,9 @@ type Symbol struct {
 	Kind       SymbolKind // Variable, Function, Type, etc
 	Scope      *Scope     // Where this symbol is defined
 	Position   NodePath   // Precise location in AST where symbol is valid
+	// NarrowingTypeGuards is set when this variable binding was registered by if-branch or
+	// ensure-successor narrowing (`x is …`); names refer to user type guards in assertion order.
+	NarrowingTypeGuards []string
 }
 
 // NodePath represents the path from the root to the current node

@@ -137,6 +137,55 @@ func TestIfBranchNarrowing_thenBranchVariableGetsRefinedType(t *testing.T) {
 	}
 }
 
+func TestUnderlyingBuiltinTypeOfAliasAssertion_aliasOverBuiltin(t *testing.T) {
+	t.Parallel()
+	myStr := ast.TypeIdent("MyStr")
+	str := ast.TypeString
+	typeDef := ast.TypeDefNode{
+		Ident: myStr,
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &str,
+			},
+		},
+	}
+	tc := New(logrus.New(), false)
+	if err := tc.CheckTypes([]ast.Node{typeDef}); err != nil {
+		t.Fatal(err)
+	}
+	if got := tc.underlyingBuiltinTypeOfAliasAssertion(myStr); got != ast.TypeString {
+		t.Fatalf("expected String, got %q", got)
+	}
+}
+
+func TestUnderlyingBuiltinTypeOfAliasAssertion_nestedAliasChain(t *testing.T) {
+	t.Parallel()
+	myStr := ast.TypeIdent("MyStr")
+	inner := ast.TypeIdent("Inner")
+	str := ast.TypeString
+	nodes := []ast.Node{
+		ast.TypeDefNode{
+			Ident: inner,
+			Expr: &ast.TypeDefAssertionExpr{
+				Assertion: &ast.AssertionNode{BaseType: &str},
+			},
+		},
+		ast.TypeDefNode{
+			Ident: myStr,
+			Expr: &ast.TypeDefAssertionExpr{
+				Assertion: &ast.AssertionNode{BaseType: &inner},
+			},
+		},
+	}
+	tc := New(logrus.New(), false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	if got := tc.underlyingBuiltinTypeOfAliasAssertion(myStr); got != ast.TypeString {
+		t.Fatalf("expected String, got %q", got)
+	}
+}
+
 func TestVariableOccurrenceTypes_storesDistinctTypesPerSpan(t *testing.T) {
 	tc := New(logrus.New(), false)
 	sa := ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}
