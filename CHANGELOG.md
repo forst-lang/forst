@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20](https://github.com/forst-lang/forst/compare/v0.0.19...v0.0.20) (2026-04-05)
+
+
+### Features
+
+* **cli:** add @forst/cli package and wire sidecar to shared resolver ([#51](https://github.com/forst-lang/forst/issues/51)) ([e569101](https://github.com/forst-lang/forst/commit/e569101aaa34ef4a6be14c4541559a65e314a2f5))
+
 ## [0.0.19](https://github.com/forst-lang/forst/compare/v0.0.18...v0.0.19) (2026-04-05)
 
 
