@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"fmt"
+	"strings"
 
 	"forst/internal/ast"
 
@@ -64,7 +65,11 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		}
 		return tc.InferAssertionType(r.Assertion, false, "", &varLeftType)
 	case ast.AssertionNode:
-		return tc.InferAssertionType(&r, false, "", &varLeftType)
+		vn, ok := leftmostVar.(ast.VariableNode)
+		if !ok {
+			return nil, fmt.Errorf("assertion RHS narrowing requires variable subject, got %T", leftmostVar)
+		}
+		return tc.refinedTypesForAssertionOnVariable(vn, &r)
 	case ast.ShapeNode:
 		tn, err := tc.inferShapeType(r, &varLeftType)
 		if err != nil {
@@ -84,4 +89,54 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		}
 		return nil, fmt.Errorf("unsupported RHS for narrowing: %T", right)
 	}
+}
+
+// refinedTypesForAssertionOnVariable returns the refined type(s) for a variable under the given
+// assertion (same rules as the RHS of `x is …`). Shared by if-branch narrowing and ensure-successor narrowing.
+func (tc *TypeChecker) refinedTypesForAssertionOnVariable(vn ast.VariableNode, assertion *ast.AssertionNode) ([]ast.TypeNode, error) {
+	if assertion == nil {
+		return nil, fmt.Errorf("nil assertion")
+	}
+	varLeftTypes, err := tc.inferExpressionType(vn)
+	if err != nil {
+		return nil, err
+	}
+	if len(varLeftTypes) != 1 {
+		return nil, fmt.Errorf("expected a single type for assertion subject, got %d", len(varLeftTypes))
+	}
+	varLeftType := varLeftTypes[0]
+	return tc.InferAssertionType(assertion, false, "", &varLeftType)
+}
+
+// applyEnsureSuccessorNarrowing registers a refined binding for the ensure subject so that
+// following statements (or the ensure block body) see the same types as after `x is …`.
+// Compound subjects (field paths) are skipped until we have a dedicated occurrence model for them.
+func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
+	vn := n.Variable
+	if strings.Contains(string(vn.Ident.ID), ".") {
+		tc.log.WithFields(logrus.Fields{
+			"function": "applyEnsureSuccessorNarrowing",
+			"subject":  vn.Ident.ID,
+		}).Debug("skipping ensure successor narrowing for compound subject")
+		return
+	}
+	// Match `if x is <assertion>`: infer the assertion as an expression first (see inferIfStatement
+	// ordering), then reuse the same narrowing as the `is` branch.
+	if _, err := tc.inferExpressionType(n.Assertion); err != nil {
+		tc.log.WithFields(logrus.Fields{
+			"function": "applyEnsureSuccessorNarrowing",
+		}).WithError(err).Debug("skipping ensure successor narrowing (assertion expression)")
+		return
+	}
+	refined, err := tc.refinedTypesForIsNarrowing(n.Variable, n.Assertion)
+	if err != nil {
+		tc.log.WithFields(logrus.Fields{
+			"function": "applyEnsureSuccessorNarrowing",
+		}).WithError(err).Debug("skipping ensure successor narrowing")
+		return
+	}
+	if len(refined) == 0 {
+		return
+	}
+	tc.scopeStack.currentScope().RegisterSymbol(vn.Ident.ID, refined, SymbolVariable)
 }

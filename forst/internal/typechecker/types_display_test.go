@@ -50,6 +50,37 @@ func TestFormatTypeNodeDisplay_Builtin(t *testing.T) {
 	}
 }
 
+func TestFormatTypeNodeDisplay_mapsAssertionRefinementHashToTypeAlias(t *testing.T) {
+	t.Parallel()
+	tc := New(nil, false)
+	myStr := ast.TypeIdent("MyStr")
+	str := ast.TypeString
+	tc.Defs[myStr] = ast.TypeDefNode{
+		Ident: myStr,
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &str,
+			},
+		},
+	}
+	a := ast.AssertionNode{BaseType: &myStr}
+	h, err := tc.Hasher.HashNode(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hashIdent := h.ToTypeIdent()
+	tc.Defs[hashIdent] = ast.TypeDefNode{
+		Ident: hashIdent,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}},
+		},
+	}
+	got := tc.FormatTypeNodeDisplay(ast.TypeNode{Ident: hashIdent})
+	if got != "MyStr" {
+		t.Fatalf("got %q want MyStr", got)
+	}
+}
+
 func TestInferredTypesForVariableIdentifier_FromTypesMap(t *testing.T) {
 	t.Parallel()
 	tc := New(nil, false)

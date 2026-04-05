@@ -55,6 +55,7 @@ func (tc *TypeChecker) FormatTypeNodeDisplay(t ast.TypeNode) string {
 		return t.String()
 	}
 	d := tc.GetMostSpecificNonHashAlias(t)
+	d = tc.resolveAliasedType(d)
 	return d.String()
 }
 

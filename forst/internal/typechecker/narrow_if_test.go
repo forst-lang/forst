@@ -8,6 +8,77 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestIfBranchNarrowing_typeAliasIsMyStrRefinesSubjectToString(t *testing.T) {
+	t.Parallel()
+	myStr := ast.TypeIdent("MyStr")
+	str := ast.TypeString
+	typeDef := ast.TypeDefNode{
+		Ident: myStr,
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &str,
+			},
+		},
+	}
+
+	spanDeclX := ast.SourceSpan{StartLine: 1, StartCol: 3, EndLine: 1, EndCol: 4}
+	spanCondX := ast.SourceSpan{StartLine: 1, StartCol: 22, EndLine: 1, EndCol: 23}
+	spanBodyX := ast.SourceSpan{StartLine: 1, StartCol: 35, EndLine: 1, EndCol: 36}
+
+	fn := ast.FunctionNode{
+		Ident:       ast.Ident{ID: "f"},
+		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
+		Body: []ast.Node{
+			ast.AssignmentNode{
+				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
+				RValues: []ast.ExpressionNode{ast.StringLiteralNode{Value: "hello"}},
+				IsShort: true,
+			},
+			ast.IfNode{
+				Condition: ast.BinaryExpressionNode{
+					Left:     ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanCondX}},
+					Operator: ast.TokenIs,
+					Right: ast.AssertionNode{
+						BaseType: func() *ast.TypeIdent {
+							id := myStr
+							return &id
+						}(),
+					},
+				},
+				Body: []ast.Node{
+					ast.ReturnNode{
+						Values: []ast.ExpressionNode{
+							ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanBodyX}},
+						},
+					},
+				},
+			},
+			ast.ReturnNode{
+				Values: []ast.ExpressionNode{ast.StringLiteralNode{Value: ""}},
+			},
+		},
+	}
+
+	tc := New(logrus.New(), false)
+	if err := tc.CheckTypes([]ast.Node{typeDef, fn}); err != nil {
+		t.Fatal(err)
+	}
+
+	ifn := fn.Body[1].(ast.IfNode)
+	ret := ifn.Body[0].(ast.ReturnNode)
+	vn, ok := ret.Values[0].(ast.VariableNode)
+	if !ok {
+		t.Fatalf("expected variable in return, got %T", ret.Values[0])
+	}
+	types, ok := tc.InferredTypesForVariableNode(vn)
+	if !ok || len(types) != 1 {
+		t.Fatalf("expected refined type for x in then-branch, got ok=%v len=%d", ok, len(types))
+	}
+	if types[0].Ident != ast.TypeString {
+		t.Fatalf("expected String (underlying of MyStr) inside branch, got %s", types[0].Ident)
+	}
+}
+
 func TestIfBranchNarrowing_thenBranchVariableGetsRefinedType(t *testing.T) {
 	baseStr := ast.TypeString
 	// Distinct spans so VariableNode hashes differ (mirrors parser behavior).

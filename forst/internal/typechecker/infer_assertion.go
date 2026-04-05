@@ -403,6 +403,13 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 		}
 	}
 
+	// Built-in base with no constraints and no merged shape fields: the assertion is that type
+	// itself (e.g. `x is String`), not a fresh hash-only structural type.
+	if assertion.BaseType != nil && len(assertion.Constraints) == 0 && len(mergedFields) == 0 &&
+		tc.isBuiltinType(*assertion.BaseType) {
+		return []ast.TypeNode{{Ident: *assertion.BaseType}}, nil
+	}
+
 	// Use the structural hash for this assertion node
 	hash, err := tc.Hasher.HashNode(assertion)
 	if err != nil {

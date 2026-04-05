@@ -160,34 +160,73 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 
 // resolveAliasedType resolves a type to its aliased name if it's a hash-based type that matches a user-defined type
 func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
-	// If this is a hash-based type, check for structural identity with user-defined types
-	if typeNode.TypeKind == ast.TypeKindHashBased {
-		// Look up the shape for this hash-based type
-		hashDef, hashExists := tc.Defs[typeNode.Ident]
-		if hashExists {
-			if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
-				if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					hashShape := hashShapeExpr.Shape
-					for _, def := range tc.Defs {
-						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
-							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
-								userShape := shapeExpr.Shape
-								if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
-									tc.log.WithFields(logrus.Fields{
-										"hashType":    typeNode.Ident,
-										"aliasedType": userDef.Ident,
-										"function":    "resolveAliasedType",
-									}).Debug("Resolved hash-based type to aliased type")
-									return ast.TypeNode{
-										Ident:      userDef.Ident,
-										TypeKind:   ast.TypeKindUserDefined, // Mark as user-defined
-										Assertion:  typeNode.Assertion,
-										TypeParams: typeNode.TypeParams,
-									}
+	// Inference often leaves TypeKind unset even for structural hashes (T_…); treat T_-prefixed
+	// idents as hash-like so display and downstream consumers can resolve aliases.
+	isHashLike := typeNode.TypeKind == ast.TypeKindHashBased || strings.HasPrefix(string(typeNode.Ident), "T_")
+	if !isHashLike {
+		return typeNode
+	}
+	hashDef, hashExists := tc.Defs[typeNode.Ident]
+	if hashExists {
+		if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
+			if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				hashShape := hashShapeExpr.Shape
+				for _, def := range tc.Defs {
+					if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
+						// RegisterHashBasedType stores the hash under T_… with a TypeDefShapeExpr; do not
+						// treat that entry (or any other hash typedef) as a display alias for itself.
+						if userDef.Ident == typeNode.Ident || strings.HasPrefix(string(userDef.Ident), "T_") {
+							continue
+						}
+						if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
+							userShape := shapeExpr.Shape
+							if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
+								tc.log.WithFields(logrus.Fields{
+									"hashType":    typeNode.Ident,
+									"aliasedType": userDef.Ident,
+									"function":    "resolveAliasedType",
+								}).Debug("Resolved hash-based type to aliased type")
+								return ast.TypeNode{
+									Ident:      userDef.Ident,
+									TypeKind:   ast.TypeKindUserDefined, // Mark as user-defined
+									Assertion:  typeNode.Assertion,
+									TypeParams: typeNode.TypeParams,
 								}
 							}
 						}
 					}
+				}
+			}
+		}
+	}
+	// type Name = <assertion>: narrowing `x is Name` uses InferAssertionType's structural hash (T_…).
+	// That hash matches HashNode(AssertionNode{BaseType: Name}), not the typedef's inner assertion.
+	if strings.HasPrefix(string(typeNode.Ident), "T_") {
+		for _, def := range tc.Defs {
+			userDef, ok := def.(ast.TypeDefNode)
+			if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
+				continue
+			}
+			if _, ok := typeDefAssertionFromExpr(userDef.Expr); !ok {
+				continue
+			}
+			bt := userDef.Ident
+			a := ast.AssertionNode{BaseType: &bt}
+			h, err := tc.Hasher.HashNode(a)
+			if err != nil {
+				continue
+			}
+			if h.ToTypeIdent() == typeNode.Ident {
+				tc.log.WithFields(logrus.Fields{
+					"hashType":    typeNode.Ident,
+					"aliasedType": userDef.Ident,
+					"function":    "resolveAliasedType",
+				}).Debug("Resolved assertion refinement hash to type alias")
+				return ast.TypeNode{
+					Ident:      userDef.Ident,
+					TypeKind:   ast.TypeKindUserDefined,
+					Assertion:  typeNode.Assertion,
+					TypeParams: typeNode.TypeParams,
 				}
 			}
 		}

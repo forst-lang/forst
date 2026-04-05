@@ -145,6 +145,11 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}
 
 		tc.popScope()
+	case *ast.ElseBlockNode:
+		if n == nil {
+			return nil
+		}
+		return tc.collectExplicitTypes(*n)
 	case ast.ElseBlockNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
