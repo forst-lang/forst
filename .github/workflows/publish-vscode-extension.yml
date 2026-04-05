@@ -1,0 +1,61 @@
+# Build the VSIX, attach it to the Release Please GitHub Release, and publish to Open VSX.
+#
+# Trigger: GitHub Release published with tag prefix `vscode-forst-` (see
+# .release-please-config.json packages/vscode-forst, include-component-in-tag).
+# Compiler releases (`v*`) no longer package or publish the extension.
+#
+# Secrets:
+# - OVSX_PAT: Open VSX publish token (optional; step skipped if unset).
+
+name: Publish VS Code extension
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  vsix-and-open-vsx:
+    name: VSIX + Open VSX
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'vscode-forst-')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - uses: arduino/setup-task@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package .vsix and upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG_NAME#vscode-forst-v}"
+          echo "Extension semver: $VERSION"
+          task build:vsix VERSION="$VERSION"
+          gh release upload "$TAG_NAME" dist/forst-vscode-*.vsix
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "${OVSX_PAT}" ]; then
+            echo "OVSX_PAT secret not set; skipping Open VSX publish."
+            echo "Create a token at https://open-vsx.org and add OVSX_PAT to this repository's Actions secrets."
+            exit 0
+          fi
+          set -e
+          npx --yes ovsx publish dist/forst-vscode-*.vsix

@@ -326,14 +326,12 @@ tasks:
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
       - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
       - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
-      - task: build:vsix
     generates:
       - ../dist/*.tar.gz
       - ../dist/*.zip
-      - ../dist/*.vsix
 
   build:vsix:
-    desc: Package the VS Code extension as a .vsix under dist/ (uploaded with release binaries)
+    desc: Package the VS Code extension as a .vsix under dist/ (used by vscode-forst-v* releases; see publish-vscode-extension.yml)
     dir: packages/vscode-forst
     deps: [install:bun]
     cmds:

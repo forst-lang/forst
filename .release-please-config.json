@@ -13,13 +13,28 @@
       "prerelease": false,
       "create-pull-request": true,
       "create-github-release": true,
-      "exclude-paths": ["packages/"],
-      "extra-files": [
-        {
-          "type": "json",
-          "path": "packages/vscode-forst/package.json",
-          "jsonpath": "$.version"
-        }
+      "exclude-paths": ["packages/"]
+    },
+    "packages/vscode-forst": {
+      "release-type": "node",
+      "package-name": "vscode-forst",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "include-v-in-tag": true,
+      "include-component-in-tag": true,
+      "draft": false,
+      "prerelease": false,
+      "create-pull-request": true,
+      "create-github-release": true,
+      "exclude-paths": [
+        "forst/",
+        "internal/",
+        "examples/",
+        "cmd/",
+        "ROADMAP.md",
+        "packages/cli/",
+        "packages/sidecar/"
       ]
     },
     "packages/cli": {
@@ -63,7 +78,14 @@
       "prerelease": false,
       "create-pull-request": true,
       "create-github-release": true,
-      "exclude-paths": ["forst/", "internal/", "examples/", "cmd/", "ROADMAP.md"],
+      "exclude-paths": [
+        "forst/",
+        "internal/",
+        "examples/",
+        "cmd/",
+        "ROADMAP.md",
+        "packages/vscode-forst/"
+      ],
       "extra-files": [
         {
           "type": "json",

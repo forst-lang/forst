@@ -51,6 +51,6 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 
 From the repo root: `task build:vscode` compiles this package. The same compile runs at the start of `task ci:test` (see [Taskfile.yml](../../Taskfile.yml)). GitHub Actions uses `package.json` `packageManager` with [setup-bun](https://github.com/oven-sh/setup-bun) to pin the Bun version.
 
-## Open VSX Registry
+## Releases and Open VSX
 
-Releases that build `dist/forst-vscode-<version>.vsix` also run **`npx ovsx publish`** when the repository has an Actions secret **`OVSX_PAT`** (see [Auto publishing extensions](https://github.com/EclipseFdn/open-vsx.org/wiki/Auto-Publishing-Extensions)). If the secret is missing, the step is skipped and the workflow still succeeds.
+The extension is versioned separately from the compiler: Release Please uses **`packages/vscode-forst`** and tags like **`vscode-forst-v0.0.19`**. When that GitHub Release is published, [`.github/workflows/publish-vscode-extension.yml`](../../.github/workflows/publish-vscode-extension.yml) builds `dist/forst-vscode-<version>.vsix`, uploads it to the release, and runs **`npx ovsx publish`** when the repository has an Actions secret **`OVSX_PAT`** (see [Auto publishing extensions](https://github.com/EclipseFdn/open-vsx.org/wiki/Auto-Publishing-Extensions)). If the secret is missing, Open VSX publish is skipped and the workflow still succeeds.
