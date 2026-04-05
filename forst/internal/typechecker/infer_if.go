@@ -19,6 +19,8 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 		}
 	}
 	tc.pushScope(&n)
+	// Lexical shadowing: `if x is Assertion { ... }` refines x inside the then-branch.
+	tc.applyIfBranchNarrowing(n.Condition)
 	for _, node := range n.Body {
 		if _, err := tc.inferNodeType(node); err != nil {
 			tc.popScope()
@@ -36,6 +38,7 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 			}
 		}
 		tc.pushScope(&ei)
+		tc.applyIfBranchNarrowing(ei.Condition)
 		for _, node := range ei.Body {
 			if _, err := tc.inferNodeType(node); err != nil {
 				tc.popScope()

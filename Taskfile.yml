@@ -31,6 +31,13 @@ tasks:
       - packages/sidecar/dist/index.js
       - packages/sidecar/dist/index.d.ts
 
+  test:sidecar:
+    desc: Run Bun tests for @forst/sidecar
+    dir: packages/sidecar
+    deps: [install:bun]
+    cmds:
+      - bun run test
+
   build:client:
     desc: Build the Forst client
     dir: packages/client
@@ -276,6 +283,7 @@ tasks:
     cmds:
       - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - task: test:sidecar
       - task example:sidecar-local
       - task example:sidecar-downloaded || echo "Downloaded binary example failed (expected for now - needs release with dev command)"
 

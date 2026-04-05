@@ -4,22 +4,17 @@ import (
 	"forst/internal/ast"
 )
 
-func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (any, error) {
+func (tc *TypeChecker) inferEnsureType(ensure ast.EnsureNode) (ast.TypeNode, error) {
 	variableType, err := tc.LookupVariableType(&ensure.Variable, tc.CurrentScope())
 	if err != nil {
-		return nil, err
+		return ast.TypeNode{}, err
 	}
 
 	if err := tc.validateAssertionNode(ensure.Assertion, variableType); err != nil {
-		return nil, err
+		return ast.TypeNode{}, err
 	}
 
-	// Store the base type of the assertion's variable as the inferred type
-	tc.storeInferredType(ensure.Assertion, []ast.TypeNode{variableType})
-
-	if ensure.Error != nil {
-		return nil, nil
-	}
-
-	return nil, nil
+	// Assertion hover type is stored in infer.go after successor narrowing so `tc.Types` matches the
+	// same inference order as `if x is <assertion>` (see applyEnsureSuccessorNarrowing).
+	return variableType, nil
 }

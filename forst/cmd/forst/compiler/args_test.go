@@ -3,8 +3,18 @@ package compiler
 import (
 	"forst/internal/logger"
 	"os"
+	"path/filepath"
 	"testing"
 )
+
+func mustAbs(t *testing.T, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
+}
 
 func TestParseArgs(t *testing.T) {
 	tests := []struct {
@@ -78,6 +88,17 @@ func TestParseArgs(t *testing.T) {
 			wantHelp: false,
 		},
 		{
+			name: "run with root for merged package",
+			args: []string{"forst", "run", "-root", ".", "test.ft"},
+			want: Args{
+				Command:     "run",
+				FilePath:    "test.ft",
+				LogLevel:    "info",
+				PackageRoot: mustAbs(t, "."),
+			},
+			wantHelp: false,
+		},
+		{
 			name:     "help flag",
 			args:     []string{"forst", "--help"},
 			want:     Args{},
@@ -133,6 +154,9 @@ func TestParseArgs(t *testing.T) {
 			if got.ReportMemoryUsage != tt.want.ReportMemoryUsage {
 				t.Errorf("ParseArgs().reportMemoryUsage = %v, want %v", got.ReportMemoryUsage, tt.want.ReportMemoryUsage)
 			}
+			if tt.want.PackageRoot != "" && got.PackageRoot != tt.want.PackageRoot {
+				t.Errorf("ParseArgs().PackageRoot = %v, want %v", got.PackageRoot, tt.want.PackageRoot)
+			}
 		})
 	}
 }
@@ -157,6 +181,10 @@ func TestInvalidArgs(t *testing.T) {
 		{
 			name: "watch without output",
 			args: []string{"forst", "run", "-watch", "test.ft"},
+		},
+		{
+			name: "root with watch",
+			args: []string{"forst", "run", "-root", ".", "-watch", "-o", "out.go", "test.ft"},
 		},
 	}
 

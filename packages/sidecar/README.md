@@ -46,10 +46,10 @@ async function main() {
   const functions = await sidecar.discoverFunctions();
   console.log("Available functions:", functions);
 
-  // Call a Forst function
-  const result = await sidecar.invoke("myPackage", "myFunction", {
-    arg: "value",
-  });
+  // Call a Forst function (third argument is the JSON args array for the Forst call)
+  const result = await sidecar.invoke("myPackage", "myFunction", [
+    { arg: "value" },
+  ]);
   console.log("Result:", result);
 }
 
@@ -77,7 +77,7 @@ app.use(createExpressMiddleware(sidecar));
 // Use Forst functions in your routes
 app.post("/process-data", async (req, res) => {
   try {
-    const result = await req.forst.invoke("data", "process", req.body);
+    const result = await req.forst.invoke("data", "process", [req.body]);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -90,6 +90,8 @@ app.listen(3000, () => {
 ```
 
 ## Configuration
+
+**Project layout:** `forst dev -root` uses `rootDir` if set, otherwise `forstDir`, otherwise `./forst`, so discovery matches your `.ft` tree. Hot-reload watches `forstDir`, then `rootDir`, then the same default root. Set both only when the watch tree must differ from the dev server root.
 
 ### Basic Configuration
 
@@ -262,6 +264,11 @@ The sidecar provides comprehensive error handling:
 - **Runtime errors**: Proper error propagation from Forst to TypeScript
 - **Network errors**: Retry logic with exponential backoff
 - **Health monitoring**: Automatic detection of server issues
+
+## See also
+
+- **Layer B HTTP contract** (`forst dev` JSON API): [examples/in/rfc/typescript-client/02-layer-b-http-contract.md](../../examples/in/rfc/typescript-client/02-layer-b-http-contract.md)
+- **Roadmap** (TypeScript interoperability): [ROADMAP.md](../../ROADMAP.md)
 
 ## Contributing
 

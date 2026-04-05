@@ -47,6 +47,8 @@ var NodeKind = map[string]uint8{
 	"For":              17,
 	"Break":            18,
 	"Continue":         19,
+	"ElseIf":           20,
+	"ElseBlock":        21,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -607,6 +609,33 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			h.writeHashes(hasher, hash)
 		}
 	case *ast.IfNode:
+		return h.HashNode(*n)
+	case ast.ElseIfNode:
+		h.writeHashes(hasher, NodeKind["ElseIf"])
+		if err := h.hashOptionalNode(hasher, n.Condition); err != nil {
+			return 0, err
+		}
+		hash, err := h.hashNodes(n.Body)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
+	case *ast.ElseIfNode:
+		if n == nil {
+			return NodeHash(NilHash), nil
+		}
+		return h.HashNode(*n)
+	case ast.ElseBlockNode:
+		h.writeHashes(hasher, NodeKind["ElseBlock"])
+		hash, err := h.hashNodes(n.Body)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
+	case *ast.ElseBlockNode:
+		if n == nil {
+			return NodeHash(NilHash), nil
+		}
 		return h.HashNode(*n)
 	case *ast.ForNode:
 		fn := *n

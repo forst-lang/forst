@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"forst/internal/ast"
 	"forst/internal/typechecker"
@@ -144,4 +145,123 @@ func other(): Int { return 1 }
 	if len(syms) != 1 || syms[0].Name != "fooBar" {
 		t.Fatalf("got %#v", syms)
 	}
+}
+
+func TestFindHoverForPosition_ifBranchNarrowingShowsRefinedVariableType(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "narrow_hover.ft")
+	const src = `package main
+
+type MyStr = String
+
+func f(): String {
+	x := "hi"
+	if x is MyStr {
+		return x
+	}
+	return ""
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, "return x") && strings.Contains(line, "return") {
+			hoverLine = i
+			charOffset = strings.Index(line, "x")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find inner return x")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on narrowed x")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "MyStr") && !strings.Contains(val, "String") {
+		t.Fatalf("hover should mention type; got %q", val)
+	}
+}
+
+func TestFindHoverForPosition_ensureBlockNarrowingShowsRefinedVariableType(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "ensure_narrow_hover.ft")
+	const src = `package main
+
+type MyStr = String
+
+func main() {
+	x := "hi"
+	ensure x is MyStr {
+		y := x
+		return
+	}
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, "y := x") {
+			hoverLine = i
+			charOffset = strings.Index(line, "x")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find x in y := x")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on x after ensure narrowing")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "MyStr") && !strings.Contains(val, "String") {
+		t.Fatalf("hover should mention narrowed type; got %q", val)
+	}
+	_ = ctx
 }

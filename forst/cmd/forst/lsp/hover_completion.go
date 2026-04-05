@@ -233,7 +233,10 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
 			return typeDefHoverMarkdown(def)
 		}
-		if types, ok := tc.InferredTypesForVariableIdentifier(id); ok && len(types) > 0 {
+		vn := ast.VariableNode{
+			Ident: ast.Ident{ID: id, Span: ast.SpanFromToken(*tok)},
+		}
+		if types, ok := tc.InferredTypesForVariableNode(vn); ok && len(types) > 0 {
 			var parts []string
 			for _, tn := range types {
 				parts = append(parts, tc.FormatTypeNodeDisplay(tn))

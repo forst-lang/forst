@@ -14,9 +14,9 @@ import (
 	"forst/cmd/forst/compiler"
 	"forst/internal/configiface"
 	"forst/internal/discovery"
+	"forst/internal/forstpkg"
 	"forst/internal/generators"
-	"forst/internal/lexer"
-	"forst/internal/parser"
+	"forst/internal/goload"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
@@ -217,23 +217,32 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, fmt.Errorf("failed to find function file: %v", err)
 	}
 
-	// Read and parse the source file
-	source, err := os.ReadFile(filePath)
+	allFiles, err := e.config.FindForstFiles(e.rootDir)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
+		return nil, fmt.Errorf("list Forst files: %w", err)
+	}
+	var pkgFiles []string
+	for _, p := range allFiles {
+		nodes, err := forstpkg.ParseForstFile(e.log, p)
+		if err != nil {
+			e.log.Debugf("compile: skip %s: %v", p, err)
+			continue
+		}
+		if forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)) == packageName {
+			pkgFiles = append(pkgFiles, p)
+		}
+	}
+	if len(pkgFiles) == 0 {
+		return nil, fmt.Errorf("no parseable Forst files for package %s", packageName)
 	}
 
-	l := lexer.New(source, filePath, e.log)
-	tokens := l.Lex()
-
-	psr := parser.New(tokens, filePath, e.log)
-	forstNodes, err := psr.ParseFile()
+	forstNodes, _, err := forstpkg.ParseAndMergePackage(e.log, pkgFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	checker := typechecker.New(e.log, false)
-	checker.GoWorkspaceDir = filepath.Dir(filePath)
+	checker.GoWorkspaceDir = goload.FindModuleRoot(e.rootDir)
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		e.log.Error("Encountered error checking types: ", err)
 		checker.DebugPrintCurrentScope()

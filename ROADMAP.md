@@ -24,13 +24,14 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Basic type system | ✅ done | Core static typing. |
 | Shape-based types | ✅ done | Structural shapes. |
 | Type definitions | ✅ done | User-defined types. |
-| `ensure` statements (basic type assertions) | ✅ done | Basic assertions. |
+| `ensure` statements (basic type assertions) | ✅ done | Validates assertions and optional blocks; does **not** narrow the subject’s type for statements **after** the `ensure` (see control-flow narrowing). |
 | Shape guards (struct refinement) | ✅ done | Refinement on shapes. |
 | `is` operator for `ensure` conditions | ✅ done | Parser requires `ensure … is …` (see `forst/internal/parser/ensure.go`; `ensure !ident` uses implicit `Nil()`). The typechecker enforces presence (`Present`) and type-guard subject compatibility (`forst/internal/typechecker/unify_typeguard.go`, `infer_ensure.go`); it does **not** fully validate arbitrary built-in constraint semantics beyond that. Emission: `forst/internal/transformer/go/ensure.go`, `ensure_constraint.go`. Examples: `examples/in/ensure.ft` and `task example:ensure`. |
-| Type guards (beyond shape guards) | 📋 planned | Not implemented. |
+| Type guards (beyond shape guards) | 📋 planned | Top-level guard definitions and assertion-time checks exist for shape guards; use-site **control-flow narrowing** with guard-backed `is` conditions should reuse `unify_typeguard.go` rules and will advance this row together with narrowing. |
 | Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | 📋 planned | Not implemented. |
-| Binary type expressions | 📋 planned | Not implemented. |
-| Type aliases | 📋 planned | Not implemented. |
+| Binary type expressions | 🔬 experimental | Parser and AST support conjunction (`&`) and disjunction (`\|`) on type definitions (`forst/internal/parser/typedef.go`, `forst/internal/ast/typedef.go`); hashing includes `TypeDefBinaryExpr`. The typechecker does **not** yet implement meet/join semantics (no `TypeDefBinaryExpr` handling; see TODO in `forst/internal/typechecker/infer_shape.go`). Go codegen is a **placeholder** that emits `string` (`forst/internal/transformer/go/typedef_expr.go`). Do not rely on binary type semantics until inference and emit are finished. **Narrowing** and future binary types should share one internal type algebra (assertions / `TypeNode`), not a parallel representation—see control-flow narrowing. |
+| Type aliases | 🔬 experimental | Simple `type Name = BaseType` works end-to-end: definitions are stored (`forst/internal/typechecker/register.go`), alias chains resolve for field access (`forst/internal/typechecker/lookup_field.go`), and compatibility treats aliases symmetrically where wired (`forst/internal/typechecker/go_builtins.go` via `typeDefAssertionFromExpr` in `forst/internal/typechecker/utils.go`). Tests include merged-package alias returns (`forst/internal/typechecker/alias_return_test.go`). Gaps: interaction with generics and binary type expressions, and alias coverage across every compiler path—treat missing spots as bugs. |
+| Control-flow type narrowing | 🔬 experimental | **If-branch narrowing** for `if x is …` (assertion or shape RHS): refined type for the subject is recorded in the branch scope; variable types are keyed by identifier **and** source span in the typechecker so hover can differ per occurrence. Join/merge across branches and full `ensure`-successor narrowing are not done yet. Implementation: `forst/internal/typechecker/infer_if.go`, `narrow_if.go`; LSP uses `InferredTypesForVariableNode` when the variable AST node is found at the cursor. |
 | Generic types | 📋 planned | Not implemented. |
 | `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Parser, typechecker, and Go emit cover the usual Go forms; `examples/in/loop.ft` + `task example:loop`. Gaps: labeled `break`/`continue`, channel `range`, Go 1.22+ integer `range`—see issues if you need them. |
 | `break` / `continue` | ✅ done | Unguarded form; labels not implemented yet. |
@@ -45,7 +46,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Transpile to Go (packages, types, functions) | ✅ done | Main compiler output. |
 | Runtime validation from type constraints | ✅ done | Checks emitted from types. |
 | `import` of Go packages in Forst | 🔬 experimental | Common paths work; not a full Go loader yet. |
-| Load & typecheck imported Go source | 🔬 experimental | `go/packages` loads import paths from `.ft` files; `TypeChecker.GoWorkspaceDir` defaults to the source file directory (compiler + LSP). |
+| Load & typecheck imported Go source | 🔬 experimental | `go/packages` loads import paths from `.ft` files; `TypeChecker.GoWorkspaceDir` is the directory containing `go.mod` found by walking up from the `.ft` file or compile `-root` (`internal/goload.FindModuleRoot`). `forst run` / `forst build` support optional `-root <dir>` to merge all same-package sources under that tree, matching discovery and the dev executor. |
 | Type-check Forst↔Go calls | 🔬 experimental | Qualified calls `pkg.Func` are checked against loaded Go signatures when imports resolve; primitives, slices, pointers, `error`, and `interface{}` (incl. variadic) are mapped; other Go types report an unsupported diagnostic. Builtin table still supplies return types when both exist. |
 | Match Go idioms where it matters (`error`, naming) | 🔬 experimental | Iterative polish; conventions still evolving. |
 | Expose Forst functions to non-Forst callers (HTTP, RPC, subprocess) from **generated Go** | 🔬 experimental | Compose servers in Go; Forst-native handler patterns not in place yet. |
@@ -72,18 +73,21 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 
 ## TypeScript interoperability
 
-**Story:** `forst generate` yields **types + a stub**; **calling** Forst still means wiring Node/TS to the **Go process** that runs transpiled code. A **small, documented invocation contract** (fewer ad-hoc wires) is an open thread in the rows below. **Whole routes or TS-facing modules** implemented in Forst—not only type mirrors—are a **larger** concern than types + stub + wiring alone.
-
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer. |
+| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer; contract outline: [03-layer-a-forst-generate-contract.md](./examples/in/rfc/typescript-client/03-layer-a-forst-generate-contract.md). |
 | Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
 | Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
+| `forst dev` HTTP API + JSON contract | ⏳ in progress | Endpoints `/health`, `/functions`, `/invoke`, `/types`; spec: [02-layer-b-http-contract.md](./examples/in/rfc/typescript-client/02-layer-b-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
 | NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems. |
-| Run compiler or sidecar from Node.js | 🔬 experimental | Experimental paths; installation and packaging still evolving. |
-| Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | Watch and HTTP-assisted workflows exist; workflow still evolving. |
-| **Invocation:** stable contract from Node/TS to **running** Forst (compiled Go) | 🔬 experimental | No single blessed pattern; integration is still mostly ad hoc. |
-| **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices in Forst—not only `.d.ts` for hand-written TS handlers—not implemented. |
+| Run compiler or sidecar from Node.js | 🔬 experimental | Monorepo path works; published NPM **planned** (row above). |
+| Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | `@forst/sidecar` + `forst dev`; watch roots documented in sidecar README. |
+| **Invocation:** stable contract from Node/TS to **running** Forst (`forst dev`) | ⏳ in progress | HTTP spec and sidecar linked in row above; broader patterns in [01-integration-profiles.md](./examples/in/rfc/typescript-client/01-integration-profiles.md). |
+| **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices—not only `.d.ts` for hand-written TS handlers—not implemented. |
+| OpenAPI / JSON Schema from shapes; pluggable transport (IPC, stdio); WASM / native bridges | 📋 planned | Optional tooling; not core language semantics. |
+| CI: `example:sidecar-downloaded` | 🔬 experimental | May fail until a **release** ships a `forst` binary with a compatible **`dev`** subcommand; **local** `example:sidecar-local` is the CI bar today ([Taskfile.yml](./Taskfile.yml)). |
+
+**See also:** [examples/in/rfc/typescript-client/README.md](./examples/in/rfc/typescript-client/README.md) (RFC index), [examples/in/rfc/sidecar/00-sidecar.md](./examples/in/rfc/sidecar/00-sidecar.md), [examples/in/rfc/sidecar/tests](./examples/in/rfc/sidecar/tests), [examples/client-integration/README.md](./examples/client-integration/README.md).
 
 ---
 

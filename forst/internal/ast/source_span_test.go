@@ -2,6 +2,21 @@ package ast
 
 import "testing"
 
+func TestSourceSpan_ContainsPosition(t *testing.T) {
+	t.Parallel()
+	s := SourceSpan{StartLine: 2, StartCol: 3, EndLine: 2, EndCol: 6} // covers "abc"
+	if !s.ContainsPosition(2, 3) {
+		t.Fatal("start inclusive")
+	}
+	if s.ContainsPosition(2, 6) {
+		t.Fatal("end exclusive")
+	}
+	mid := SourceSpan{StartLine: 1, StartCol: 1, EndLine: 3, EndCol: 1}
+	if !mid.ContainsPosition(2, 5) {
+		t.Fatal("middle line")
+	}
+}
+
 func TestSourceSpan_IsSet(t *testing.T) {
 	t.Parallel()
 	if (SourceSpan{}).IsSet() {

@@ -55,6 +55,7 @@ func (tc *TypeChecker) FormatTypeNodeDisplay(t ast.TypeNode) string {
 		return t.String()
 	}
 	d := tc.GetMostSpecificNonHashAlias(t)
+	d = tc.resolveAliasedType(d)
 	return d.String()
 }
 
@@ -82,10 +83,37 @@ func (tc *TypeChecker) FormatFunctionSignatureDisplay(sig FunctionSignature) str
 	return fmt.Sprintf("%s(%s) -> %s", sig.Ident.ID, strings.Join(paramStrings, ", "), retStr)
 }
 
+// InferredTypesForVariableNode returns inferred types for this variable occurrence. The structural
+// hash includes the identifier and, when set, its source span—so distinct occurrences of the same
+// name (e.g. under `if x is …` narrowing) can have different entries in tc.Types. Callers that only
+// have a lexer token should build VariableNode{Ident: {ID, Span: SpanFromToken(tok)}} to match the
+// parser. Falls back to InferredTypesForVariableIdentifier when the node has no span.
+func (tc *TypeChecker) InferredTypesForVariableNode(vn ast.VariableNode) ([]ast.TypeNode, bool) {
+	if tc == nil {
+		return nil, false
+	}
+	if vn.Ident.Span.IsSet() {
+		k := variableOccurrenceKey{ident: vn.Ident.ID, span: vn.Ident.Span}
+		if t, ok := tc.variableOccurrenceTypes[k]; ok && len(t) > 0 {
+			return t, true
+		}
+	}
+	hash, err := tc.Hasher.HashNode(vn)
+	if err == nil {
+		if t, ok := tc.Types[hash]; ok && len(t) > 0 {
+			return t, true
+		}
+	}
+	if !vn.Ident.Span.IsSet() {
+		return tc.InferredTypesForVariableIdentifier(vn.Ident.ID)
+	}
+	return tc.InferredTypesForVariableIdentifier(vn.Ident.ID)
+}
+
 // InferredTypesForVariableIdentifier returns inferred types for a bare identifier. Types come from
-// tc.Types (VariableNode hashes include only the identifier) with a fallback to VariableTypes after
-// declarations. Identifiers that are also function or type names should be handled by the caller
-// first (e.g. prefer function signature hover for func f() { ... }'s name).
+// tc.Types (VariableNode keys include the identifier and, when present, source span) with a fallback
+// to VariableTypes after declarations. Identifiers that are also function or type names should be
+// handled by the caller first (e.g. prefer function signature hover for func f() { ... }'s name).
 func (tc *TypeChecker) InferredTypesForVariableIdentifier(id ast.Identifier) ([]ast.TypeNode, bool) {
 	if tc == nil {
 		return nil, false

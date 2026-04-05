@@ -380,7 +380,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 	actualDef, actualExists := tc.Defs[actual.Ident]
 	if actualExists {
 		if typeDef, ok := actualDef.(ast.TypeDefNode); ok {
-			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			if typeDefExpr, ok := typeDefAssertionFromExpr(typeDef.Expr); ok {
 				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
 					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
 					if tc.IsTypeCompatible(baseType, expected) {
@@ -400,7 +400,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 	expectedDef, expectedExists := tc.Defs[expected.Ident]
 	if expectedExists {
 		if typeDef, ok := expectedDef.(ast.TypeDefNode); ok {
-			if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefAssertionExpr); ok {
+			if typeDefExpr, ok := typeDefAssertionFromExpr(typeDef.Expr); ok {
 				if typeDefExpr.Assertion != nil && typeDefExpr.Assertion.BaseType != nil {
 					baseType := ast.TypeNode{Ident: *typeDefExpr.Assertion.BaseType}
 					if tc.IsTypeCompatible(actual, baseType) {

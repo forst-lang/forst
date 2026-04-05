@@ -88,6 +88,42 @@ func (t *Transformer) transformOperator(op ast.TokenIdent) (token.Token, error) 
 	return 0, fmt.Errorf("unsupported operator: %s", op)
 }
 
+// transformIfIsCondition builds a Go bool for `left is <assertion>` when the RHS is an AssertionNode.
+// The typechecker already validated the branch; we emit an expression that evaluates the subject
+// (for side effects) and returns true. Constrained assertions need dedicated runtime checks (TODO).
+func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion *ast.AssertionNode) (goast.Expr, error) {
+	if assertion == nil {
+		return nil, fmt.Errorf("if-is: nil assertion")
+	}
+	leftExpr, err := t.transformExpression(left)
+	if err != nil {
+		return nil, err
+	}
+	if len(assertion.Constraints) > 0 {
+		return nil, fmt.Errorf("if-is with assertion constraints is not yet supported in Go codegen")
+	}
+	fn := &goast.FuncLit{
+		Type: &goast.FuncType{
+			Results: &goast.FieldList{
+				List: []*goast.Field{{Type: goast.NewIdent("bool")}},
+			},
+		},
+		Body: &goast.BlockStmt{
+			List: []goast.Stmt{
+				&goast.AssignStmt{
+					Lhs: []goast.Expr{goast.NewIdent("_")},
+					Tok: token.ASSIGN,
+					Rhs: []goast.Expr{leftExpr},
+				},
+				&goast.ReturnStmt{
+					Results: []goast.Expr{goast.NewIdent("true")},
+				},
+			},
+		},
+	}
+	return &goast.CallExpr{Fun: fn}, nil
+}
+
 func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, error) {
 	switch e := expr.(type) {
 	case ast.IntLiteralNode:
@@ -150,6 +186,19 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			X:  expr,
 		}, nil
 	case ast.BinaryExpressionNode:
+		if e.Operator == ast.TokenIs {
+			var asn *ast.AssertionNode
+			switch r := e.Right.(type) {
+			case ast.AssertionNode:
+				cp := r
+				asn = &cp
+			case *ast.AssertionNode:
+				asn = r
+			}
+			if asn != nil {
+				return t.transformIfIsCondition(e.Left, asn)
+			}
+		}
 		left, err := t.transformExpression(e.Left)
 		if err != nil {
 			return nil, err

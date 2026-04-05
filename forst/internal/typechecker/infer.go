@@ -138,17 +138,24 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return inferredType, nil
 
 	case ast.EnsureNode:
-		_, err := tc.inferEnsureType(n)
+		variableType, err := tc.inferEnsureType(n)
 		if err != nil {
 			return nil, err
 		}
 
 		if n.Block != nil {
+			tc.pushScope(n.Block)
+			tc.applyEnsureSuccessorNarrowing(n)
 			_, err = tc.inferNodeTypes(n.Block.Body, n.Block)
+			tc.popScope()
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			tc.applyEnsureSuccessorNarrowing(n)
 		}
+
+		tc.storeInferredType(n.Assertion, []ast.TypeNode{variableType})
 
 		return nil, nil
 	case ast.AssignmentNode:
@@ -268,6 +275,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		return nil, nil
 
+	case *ast.ElseBlockNode:
+		if n == nil {
+			return nil, nil
+		}
+		return tc.inferNodeType(*n)
 	case ast.ElseBlockNode:
 		tc.pushScope(n)
 		for _, node := range n.Body {

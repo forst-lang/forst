@@ -42,12 +42,15 @@ export interface ForstClientConfig {
 
 export interface ForstConfig {
   mode?: "development" | "production" | "testing";
+  /** Directory containing `.ft` sources (watch + hot reload). Falls back to `rootDir` or project root. */
   forstDir?: string;
   outputDir?: string;
+  /** Override project root for `forst dev -root` when you need it different from `forstDir`. */
   rootDir?: string;
   port?: number;
   host?: string;
   logLevel?: "debug" | "info" | "warn" | "error";
+  /** Reserved for future non-HTTP transports (IPC, etc.). Not implemented; HTTP only today. */
   transports?: {
     development?: TransportConfig;
     production?: TransportConfig;

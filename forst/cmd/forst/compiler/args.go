@@ -3,6 +3,7 @@ package compiler
 import (
 	"flag"
 	"os"
+	"path/filepath"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -23,6 +24,8 @@ type Args struct {
 	Watch             bool
 	ReportMemoryUsage bool
 	ReportPhases      bool
+	// PackageRoot, if non-empty, enables merging all same-package .ft files under this directory with the entry file (aligned with sidecar / discovery).
+	PackageRoot string
 }
 
 // ParseArgs parses the command line arguments and returns a ProgramArgs struct.
@@ -56,6 +59,7 @@ func ParseArgs(log *logrus.Logger) Args {
 	output := flags.String("o", "", "Output file path")
 	reportMemoryUsage := flags.Bool("report-memory-usage", false, "Report memory usage")
 	reportPhases := flags.Bool("report-phases", false, "Report when phases start")
+	packageRoot := flags.String("root", "", "Root directory: merge all .ft files under it that share the entry file's package (optional)")
 	help := flags.Bool("help", false, "Show help message")
 
 	if err := flags.Parse(os.Args[2:]); err != nil {
@@ -79,10 +83,25 @@ func ParseArgs(log *logrus.Logger) Args {
 		return Args{}
 	}
 
+	if *packageRoot != "" && *watch {
+		log.Errorf("Error: -root cannot be used with -watch")
+		return Args{}
+	}
+
 	// Require output path when using watch mode
 	if *watch && *output == "" {
 		log.Errorf("Error: -o flag required when using watch mode")
 		return Args{}
+	}
+
+	var pkgRoot string
+	if *packageRoot != "" {
+		abs, err := filepath.Abs(*packageRoot)
+		if err != nil {
+			log.Errorf("invalid -root: %v", err)
+			return Args{}
+		}
+		pkgRoot = abs
 	}
 
 	return Args{
@@ -93,6 +112,7 @@ func ParseArgs(log *logrus.Logger) Args {
 		Watch:             *watch,
 		ReportMemoryUsage: *reportMemoryUsage,
 		ReportPhases:      *reportPhases,
+		PackageRoot:       pkgRoot,
 	}
 }
 
@@ -111,6 +131,7 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  -o <path>               Output file path")
 	log.Infof("  -report-memory-usage    Report memory usage")
 	log.Infof("  -report-phases          Report when phases start")
+	log.Infof("  -root <dir>             Merge same-package .ft files under dir with the entry file")
 	log.Infof("  -help                   Show this help message")
 	log.Infof("  -version                Show version information")
 }

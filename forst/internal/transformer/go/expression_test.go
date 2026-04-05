@@ -1485,3 +1485,31 @@ func TestTransformExpression_ArrayLiteralNode(t *testing.T) {
 		t.Fatalf("expected []int{1, 2} style literal, got %q", s)
 	}
 }
+
+func TestTransformExpression_IfIsAssertionRHS(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	baseStr := ast.TypeString
+	expr := ast.BinaryExpressionNode{
+		Left:     ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+		Operator: ast.TokenIs,
+		Right: ast.AssertionNode{
+			BaseType: &baseStr,
+		},
+	}
+	out, err := tr.transformExpression(expr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), out); err != nil {
+		t.Fatal(err)
+	}
+	got := buf.String()
+	if !strings.Contains(got, "func() bool") || !strings.Contains(got, "_ = s") || !strings.Contains(got, "return true") {
+		t.Fatalf("expected IIFE bool for if-is, got %q", got)
+	}
+}

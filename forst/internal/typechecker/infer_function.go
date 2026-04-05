@@ -79,8 +79,11 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	if len(returnStmtTypes) > 1 {
 		firstType := returnStmtTypes[0]
 		for _, retTypes := range returnStmtTypes[1:] {
-			for _, retType := range retTypes {
-				if retType.Ident != firstType[0].Ident {
+			for i, retType := range retTypes {
+				if i >= len(firstType) {
+					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
+				}
+				if !tc.IsTypeCompatible(retType, firstType[i]) {
 					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
 				}
 			}
@@ -102,7 +105,10 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		// If we found return statements, verify the expression type matches
 		if len(returnStmtTypes) > 0 {
 			for i, exprType := range exprTypes {
-				if exprType.Ident != returnStmtTypes[0][i].Ident {
+				if i >= len(returnStmtTypes[0]) {
+					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
+				}
+				if !tc.IsTypeCompatible(exprType, returnStmtTypes[0][i]) {
 					return nil, failWithTypeMismatch(fn, inferredType, exprTypes, "Inconsistent return expression type")
 				}
 			}

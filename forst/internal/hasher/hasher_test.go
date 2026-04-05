@@ -467,3 +467,38 @@ func TestStructuralHasher_ForLoop_optionalInitPost(t *testing.T) {
 		t.Fatal("expected different hash when Init is set")
 	}
 }
+
+func TestStructuralHasher_ElseIfAndElseBlockNodes(t *testing.T) {
+	t.Parallel()
+	h := New()
+	baseStr := ast.TypeString
+	ei := ast.ElseIfNode{
+		Condition: ast.BinaryExpressionNode{
+			Left:     ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+			Operator: ast.TokenIs,
+			Right:    ast.AssertionNode{BaseType: &baseStr},
+		},
+		Body: []ast.Node{
+			ast.ReturnNode{Values: []ast.ExpressionNode{ast.StringLiteralNode{Value: "ok"}}},
+		},
+	}
+	if _, err := h.HashNode(ei); err != nil {
+		t.Fatalf("ElseIfNode must hash (scope collection): %v", err)
+	}
+	eb := ast.ElseBlockNode{
+		Body: []ast.Node{
+			ast.ReturnNode{Values: []ast.ExpressionNode{ast.StringLiteralNode{Value: ""}}},
+		},
+	}
+	if _, err := h.HashNode(eb); err != nil {
+		t.Fatalf("ElseBlockNode must hash (scope collection): %v", err)
+	}
+	pEI := &ei
+	if _, err := h.HashNode(pEI); err != nil {
+		t.Fatalf("*ElseIfNode: %v", err)
+	}
+	pEB := &eb
+	if _, err := h.HashNode(pEB); err != nil {
+		t.Fatalf("*ElseBlockNode: %v", err)
+	}
+}
