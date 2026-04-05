@@ -141,6 +141,8 @@ func (s *LSPServer) handleDidClose(request LSPRequest) LSPServerResponse {
 	delete(s.openDocuments, params.TextDocument.URI)
 	s.documentMu.Unlock()
 
+	s.invalidatePeerAnalysisCache(params.TextDocument.URI)
+
 	// Clear diagnostics for the closed document
 	s.sendDiagnosticsNotification(params.TextDocument.URI, []LSPDiagnostic{})
 

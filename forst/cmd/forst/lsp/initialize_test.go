@@ -35,6 +35,19 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["definitionProvider"] != true {
 		t.Fatal("expected definitionProvider")
 	}
+	// Do not advertise no-op formatting / codeAction / codeLens until implemented.
+	if _, ok := caps["documentFormattingProvider"]; ok {
+		t.Fatal("documentFormattingProvider should be omitted until formatting exists")
+	}
+	if _, ok := caps["codeActionProvider"]; ok {
+		t.Fatal("codeActionProvider should be omitted until code actions exist")
+	}
+	if _, ok := caps["codeLensProvider"]; ok {
+		t.Fatal("codeLensProvider should be omitted until code lenses exist")
+	}
+	if caps["foldingRangeProvider"] != true {
+		t.Fatalf("foldingRangeProvider = %v", caps["foldingRangeProvider"])
+	}
 	info, ok := res["serverInfo"].(map[string]interface{})
 	if !ok || info["name"] != "forst-lsp" {
 		t.Fatalf("serverInfo = %#v", res["serverInfo"])

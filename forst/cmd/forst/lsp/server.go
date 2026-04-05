@@ -59,6 +59,18 @@ type LSPServer struct {
 	// openDocuments holds the latest text per LSP document URI (file://...) for hover and similar pull requests.
 	documentMu    sync.RWMutex
 	openDocuments map[string]string
+
+	// peerAnalysisCache stores last *forstDocumentContext per open URI keyed by buffer text, used only for
+	// cross-buffer completion (read-only symbol lists). Current-buffer analysis always calls analyzeForstDocument
+	// so TypeChecker scope state is never reused after RestoreScope.
+	peerAnalysisMu    sync.Mutex
+	peerAnalysisCache map[string]peerAnalysisCacheEntry
+}
+
+// peerAnalysisCacheEntry is a content-keyed snapshot for same-package peer buffers (completion only).
+type peerAnalysisCacheEntry struct {
+	content string
+	ctx     *forstDocumentContext
 }
 
 // Version information for LSP server
@@ -83,7 +95,8 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 		port:          port,
 		debugMode:     true, // Enable debug mode by default for LLM debugging
 		debugEvents:   make([]DebugEvent, 0),
-		openDocuments: make(map[string]string),
+		openDocuments:     make(map[string]string),
+		peerAnalysisCache: make(map[string]peerAnalysisCacheEntry),
 	}
 }
 
@@ -129,7 +142,8 @@ func (s *LSPServer) Stop() error {
 	return nil
 }
 
-// handleLSP handles LSP protocol requests
+// handleLSP handles LSP protocol over HTTP: POST a single JSON-RPC 2.0 object per request.
+// GET returns a small JSON hint for humans or probes (editors must use POST for RPC).
 func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 	// Add panic recovery to prevent server crashes
 	defer func() {
@@ -139,7 +153,13 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Only handle POST requests for LSP protocol
+	if r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"service":"forst-lsp","detail":"POST a JSON-RPC 2.0 object (Content-Type: application/json) to this URL"}`))
+		return
+	}
+
+	// LSP traffic uses POST with a JSON body
 	if r.Method != http.MethodPost {
 		s.log.Warnf("Invalid method %s for LSP endpoint", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -173,6 +193,12 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 	// Handle different LSP methods
 	response := s.handleLSPMethod(request)
 
+	// JSON-RPC notifications omit "id"; the server must not send a response body (JSON-RPC 2.0).
+	if request.ID == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	// Log response with INFO level
 	s.log.WithFields(logrus.Fields{
 		"method":     request.Method,
@@ -203,6 +229,12 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	switch request.Method {
 	case "initialize":
 		return s.handleInitialize(request)
+	case "initialized":
+		// Notification some clients send after initialize; HTTP bridge may POST it with an id.
+		return LSPServerResponse{JSONRPC: "2.0", ID: request.ID, Result: nil}
+	case "$/cancelRequest":
+		// Cancellation is not implemented; acknowledge so clients do not treat the server as broken.
+		return LSPServerResponse{JSONRPC: "2.0", ID: request.ID, Result: nil}
 	case "textDocument/didOpen":
 		return s.handleDidOpen(request)
 	case "textDocument/didChange":
@@ -224,6 +256,7 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	case "workspace/symbol":
 		return s.handleWorkspaceSymbol(request)
 	case "textDocument/formatting":
+		// Handlers exist for tests/ad-hoc clients; initialize does not advertise these until non–no-op.
 		return s.handleFormatting(request)
 	case "textDocument/codeAction":
 		return s.handleCodeAction(request)
@@ -243,10 +276,15 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 	case "exit":
 		return s.handleExit(request)
 	default:
-		s.log.WithFields(logrus.Fields{
+		entry := s.log.WithFields(logrus.Fields{
 			"method": request.Method,
 			"id":     request.ID,
-		}).Warn("Unknown LSP method requested")
+		})
+		if strings.HasPrefix(request.Method, "$/") {
+			entry.Debug("Unsupported $/ LSP method")
+		} else {
+			entry.Warn("Unknown LSP method requested")
+		}
 		return LSPServerResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,

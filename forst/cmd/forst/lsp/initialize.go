@@ -23,15 +23,10 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 				"valueSet": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25},
 			},
 		},
-		"workspaceSymbolProvider":    true,
-		"documentFormattingProvider": true,
-		"codeActionProvider": map[string]interface{}{
-			"codeActionKinds": []string{"quickfix", "refactor", "source"},
-		},
-		"codeLensProvider": map[string]interface{}{
-			"resolveProvider": true,
-		},
-		"foldingRangeProvider": true,
+		"workspaceSymbolProvider": true,
+		"foldingRangeProvider":    true,
+		// documentFormattingProvider, codeActionProvider, codeLensProvider: omitted until implemented (avoid no-op UI).
+		// server.go still routes these methods so tests or explicit clients can call them without advertising in capabilities.
 		// Custom LLM debugging capabilities
 		"experimental": map[string]interface{}{
 			"debugInfoProvider":     true,

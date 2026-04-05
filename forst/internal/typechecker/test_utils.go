@@ -9,3 +9,15 @@ func typeIdentPtr(s string) *ast.TypeIdent {
 	ti := ast.TypeIdent(s)
 	return &ti
 }
+
+// registerTypeGuardExpectsInt installs a minimal type guard definition expecting an Int subject (for ensure tests).
+func registerTypeGuardExpectsInt(tc *TypeChecker, name ast.TypeIdent) {
+	tc.Defs[name] = ast.TypeGuardNode{
+		Ident: ast.Identifier(name),
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "n"},
+			Type:  ast.TypeNode{Ident: ast.TypeInt},
+		},
+		Body: []ast.Node{},
+	}
+}

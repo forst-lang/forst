@@ -73,7 +73,7 @@ func (p *Parser) advance() ast.Token {
 func (p *Parser) expect(tokenType ast.TokenIdent) ast.Token {
 	token := p.current()
 	if token.Type != tokenType {
-		p.FailWithParseError(token, fmt.Sprintf("Expected token type '%s' but got '%s'", tokenType, token.Type))
+		p.FailWithParseError(token, fmt.Sprintf("expected %s, found %s (current text %q)", tokenType, token.Type, token.Value))
 	}
 	p.advance()
 	return token

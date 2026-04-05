@@ -411,26 +411,34 @@ func TestHandleLSPMethod(t *testing.T) {
 		expectError bool
 		errorCode   int
 		params      json.RawMessage
+		omitID      bool // JSON-RPC notification: no "id" field; HTTP layer must not send a body (see TestHandleLSP_NotificationNoIDNoJSONBody).
 	}{
-		{"initialize", false, 0, json.RawMessage(`{"processId": 123, "rootUri": "file:///tmp", "capabilities": {}}`)},
-		{"textDocument/didOpen", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft", "version": 1, "text": "package main"}}`)},
-		{"textDocument/didChange", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft", "version": 1}, "contentChanges": [{"text": "package main"}]}`)},
-		{"textDocument/didClose", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}}`)},
-		{"textDocument/publishDiagnostics", false, 0, json.RawMessage(`{}`)},
-		{"textDocument/hover", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}, "position": {"line": 0, "character": 0}}`)},
-		{"textDocument/completion", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}, "position": {"line": 0, "character": 0}}`)},
-		{"shutdown", false, 0, json.RawMessage(`{}`)},
-		{"exit", false, 0, json.RawMessage(`{}`)},
-		{"unknown/method", true, -32601, json.RawMessage(`{}`)},
+		{"initialize", false, 0, json.RawMessage(`{"processId": 123, "rootUri": "file:///tmp", "capabilities": {}}`), false},
+		{"textDocument/didOpen", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft", "version": 1, "text": "package main"}}`), false},
+		{"textDocument/didChange", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft", "version": 1}, "contentChanges": [{"text": "package main"}]}`), false},
+		{"textDocument/didClose", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}}`), false},
+		{"textDocument/publishDiagnostics", false, 0, json.RawMessage(`{}`), false},
+		{"textDocument/hover", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}, "position": {"line": 0, "character": 0}}`), false},
+		{"textDocument/completion", false, 0, json.RawMessage(`{"textDocument": {"uri": "file:///tmp/test.ft"}, "position": {"line": 0, "character": 0}}`), false},
+		{"shutdown", false, 0, json.RawMessage(`{}`), false},
+		{"exit", false, 0, json.RawMessage(`{}`), false},
+		{"initialized", false, 0, json.RawMessage(`{}`), false},
+		{"$/cancelRequest", false, 0, json.RawMessage(`{"id": 1}`), false},
+		{"initialized", false, 0, json.RawMessage(`{}`), true},
+		{"$/cancelRequest", false, 0, json.RawMessage(`{"id": 1}`), true},
+		{"unknown/method", true, -32601, json.RawMessage(`{}`), false},
+		{"$/progress", true, -32601, json.RawMessage(`{}`), false},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.method, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s_omitID_%v", tc.method, tc.omitID), func(t *testing.T) {
 			request := LSPRequest{
 				JSONRPC: "2.0",
-				ID:      1,
 				Method:  tc.method,
 				Params:  tc.params,
+			}
+			if !tc.omitID {
+				request.ID = 1
 			}
 
 			response := server.handleLSPMethod(request)
@@ -439,8 +447,14 @@ func TestHandleLSPMethod(t *testing.T) {
 				t.Errorf("Expected JSONRPC 2.0, got %s", response.JSONRPC)
 			}
 
-			if response.ID != 1 {
-				t.Errorf("Expected ID 1, got %v", response.ID)
+			if tc.omitID {
+				if response.ID != nil {
+					t.Errorf("notification-style request: want nil ID in response echo, got %v", response.ID)
+				}
+			} else {
+				if response.ID != 1 {
+					t.Errorf("Expected ID 1, got %v", response.ID)
+				}
 			}
 
 			if tc.expectError {
@@ -504,7 +518,7 @@ func TestHandleLSP(t *testing.T) {
 		t.Errorf("Expected ID 1, got %v", response.ID)
 	}
 
-	// Test GET request (should fail)
+	// GET returns a JSON hint (not JSON-RPC)
 	req, err = http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -513,8 +527,14 @@ func TestHandleLSP(t *testing.T) {
 	w = httptest.NewRecorder()
 	server.handleLSP(w, req)
 
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("Expected status 405, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Expected application/json, got %q", ct)
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte("forst-lsp")) {
+		t.Errorf("Expected GET body to mention forst-lsp, got %s", w.Body.String())
 	}
 
 	// Test POST request with invalid JSON
@@ -528,6 +548,27 @@ func TestHandleLSP(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+func TestHandleLSP_NotificationNoIDNoJSONBody(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	// JSON-RPC notification: no top-level "id" field — server must not send a JSON-RPC response body.
+	body := `{"jsonrpc":"2.0","method":"initialized","params":{}}`
+	req, err := http.NewRequest("POST", "/", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleLSP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 No Content for notification, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(w.Body.Bytes()) != 0 {
+		t.Fatalf("expected empty body, got %q", w.Body.String())
 	}
 }
 
@@ -650,7 +691,10 @@ func main() {
 	server.documentMu.Unlock()
 
 	position := LSPPosition{Line: 3, Character: 2}
-	completions := server.getCompletionsForPosition(uri, position, nil)
+	completions, incomplete := server.getCompletionsForPosition(uri, position, nil)
+	if incomplete {
+		t.Error("Expected isIncomplete false with single open buffer")
+	}
 
 	if len(completions) == 0 {
 		t.Error("Expected completion items to be provided")
@@ -972,7 +1016,7 @@ func main() {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			completions := server.getCompletionsForPosition(uri, tc.pos, nil)
+			completions, _ := server.getCompletionsForPosition(uri, tc.pos, nil)
 			if len(completions) == 0 {
 				t.Fatal("Expected completion items")
 			}

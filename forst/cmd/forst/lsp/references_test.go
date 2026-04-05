@@ -1,9 +1,13 @@
 package lsp
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"forst/internal/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestTokenSamePosition(t *testing.T) {
@@ -40,5 +44,54 @@ func TestCollectIdentifierReferences_includeDecl(t *testing.T) {
 	without := collectIdentifierReferences(uri, toks, "Foo", def, false)
 	if len(without) != 1 {
 		t.Fatalf("exclude decl: want 1 ref, got %d", len(without))
+	}
+}
+
+func TestHandleReferences_excludesDeclaration(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "ref.ft")
+	const src = `package main
+
+func bump(): Int {
+  return 1
+}
+
+func main() {
+  bump()
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{"uri": uri},
+		"position":     map[string]interface{}{"line": 7, "character": 2},
+		"context":      map[string]interface{}{"includeDeclaration": false},
+	}
+	resp := s.handleReferences(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/references",
+		Params:  mustJSONParams(t, params),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	locs, ok := resp.Result.([]LSPLocation)
+	if !ok {
+		t.Fatalf("result type %T", resp.Result)
+	}
+	if len(locs) != 1 {
+		t.Fatalf("want 1 ref (call site only), got %d", len(locs))
+	}
+	if locs[0].Range.Start.Line != 7 {
+		t.Fatalf("expected call on line 8 (0-based 7), got %+v", locs[0].Range.Start)
 	}
 }

@@ -94,3 +94,33 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 	ctx.CheckErr = checkErr
 	return ctx, true
 }
+
+// peerDocumentContextForCompletion returns a cached *forstDocumentContext for another open buffer when
+// buffer text matches. Used only from crossBufferTopLevelCompletionItems (read-only symbol iteration);
+// the current document always uses analyzeForstDocument directly so TypeChecker scope is not reused after RestoreScope.
+func (s *LSPServer) peerDocumentContextForCompletion(uri string) (*forstDocumentContext, bool) {
+	s.documentMu.RLock()
+	content := s.openDocuments[uri]
+	s.documentMu.RUnlock()
+	if content == "" {
+		return nil, false
+	}
+	s.peerAnalysisMu.Lock()
+	defer s.peerAnalysisMu.Unlock()
+	if e, ok := s.peerAnalysisCache[uri]; ok && e.content == content && e.ctx != nil {
+		return e.ctx, true
+	}
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		return nil, false
+	}
+	s.peerAnalysisCache[uri] = peerAnalysisCacheEntry{content: content, ctx: ctx}
+	return ctx, true
+}
+
+// invalidatePeerAnalysisCache drops cached peer analysis when a buffer is closed.
+func (s *LSPServer) invalidatePeerAnalysisCache(uri string) {
+	s.peerAnalysisMu.Lock()
+	delete(s.peerAnalysisCache, uri)
+	s.peerAnalysisMu.Unlock()
+}

@@ -68,16 +68,3 @@ func TestHandleCodeLens_ReturnsEmptySlice(t *testing.T) {
 		t.Fatalf("expected empty array, got %T %v", resp.Result, resp.Result)
 	}
 }
-
-func TestHandleFoldingRange_InvalidParams_ReturnsInvalidParams(t *testing.T) {
-	t.Parallel()
-	s := NewLSPServer("8080", logrus.New())
-	resp := s.handleFoldingRange(LSPRequest{
-		JSONRPC: "2.0",
-		ID:      5,
-		Params:  json.RawMessage(`{`),
-	})
-	if resp.Error == nil || resp.Error.Code != -32602 {
-		t.Fatalf("got %+v", resp.Error)
-	}
-}

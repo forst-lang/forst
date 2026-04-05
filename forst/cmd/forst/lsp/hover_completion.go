@@ -80,13 +80,13 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 			reqCtx.TriggerCharacter = *params.Context.TriggerCharacter
 		}
 	}
-	completions := s.getCompletionsForPosition(params.TextDocument.URI, params.Position, reqCtx)
+	completions, incomplete := s.getCompletionsForPosition(params.TextDocument.URI, params.Position, reqCtx)
 
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
 		Result: map[string]interface{}{
-			"isIncomplete": false,
+			"isIncomplete": incomplete,
 			"items":        completions,
 		},
 	}
@@ -102,10 +102,33 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 	if tok == nil {
 		return nil
 	}
-	if ctx.ParseErr != nil || ctx.TC == nil {
+	if ctx.ParseErr != nil {
+		if text := lexicalHoverMarkdown(tok); text != "" {
+			return basicHoverMarkdown(text)
+		}
+		return nil
+	}
+	if ctx.TC == nil {
 		return nil
 	}
 	return s.hoverFromAnalyzedContext(ctx, tok)
+}
+
+// lexicalHoverMarkdown returns hover text without type information (parse failed or no TC).
+func lexicalHoverMarkdown(tok *ast.Token) string {
+	if tok == nil {
+		return ""
+	}
+	if literalHover(tok) {
+		return ""
+	}
+	if kw := keywordHover(tok); kw != "" {
+		return kw
+	}
+	if tok.Type == ast.TokenIdentifier {
+		return fmt.Sprintf("Lexical identifier `%s` (types unavailable until the file parses)", tok.Value)
+	}
+	return ""
 }
 
 func basicHoverMarkdown(text string) *LSPHover {
