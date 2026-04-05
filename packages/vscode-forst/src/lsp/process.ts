@@ -36,11 +36,32 @@ export function stopForstLspProcess(
   }
 }
 
+/** Serializes startup so parallel `getOrCreateLspClient` calls cannot spawn multiple `forst lsp` on the same port. */
+let ensureChain: Promise<void> = Promise.resolve();
+
 /**
  * Ensures a listening HTTP LSP exists: either waits on an existing server or spawns `forst lsp`
  * when `autoStart` is enabled and no child is already tracked.
  */
 export async function ensureForstLspProcess(
+  cfg: ForstExtensionConfig,
+  log: LogOutputChannel,
+  state: ForstLspChildState
+): Promise<void> {
+  const prev = ensureChain;
+  let release!: () => void;
+  ensureChain = new Promise<void>((r) => {
+    release = r;
+  });
+  await prev;
+  try {
+    await ensureForstLspProcessUnlocked(cfg, log, state);
+  } finally {
+    release();
+  }
+}
+
+async function ensureForstLspProcessUnlocked(
   cfg: ForstExtensionConfig,
   log: LogOutputChannel,
   state: ForstLspChildState
@@ -56,6 +77,16 @@ export async function ensureForstLspProcess(
     log.debug(`[lsp] child already running; checking health at ${base}`);
     await waitForLspHealth(base, 2000, log);
     return;
+  }
+  // Another window, a manual `forst lsp`, or a previous session may already listen on this port.
+  try {
+    await waitForLspHealth(base, 600, undefined);
+    log.info(
+      `Forst LSP already listening at ${base}; not spawning (reuse existing server or change **forst.lsp.port**).`
+    );
+    return;
+  } catch {
+    /* port free or server not up yet — spawn below */
   }
   const exe = resolveForstExecutable(cfg.forstPath);
   if (exe !== cfg.forstPath) {
@@ -85,7 +116,9 @@ export async function ensureForstLspProcess(
     if (code === 0) {
       log.info("forst lsp exited with code 0");
     } else {
-      log.warn(`forst lsp exited with code ${code ?? "null"}`);
+      log.warn(
+        `forst lsp exited with code ${code ?? "null"}. If the log shows "address already in use", set **forst.lsp.port** to a free port, disable **forst.lsp.autoStart** and run \`forst lsp\` yourself, or stop the other process on that port.`
+      );
     }
     state.process = undefined;
   });

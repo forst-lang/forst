@@ -50,51 +50,114 @@ type packageSnapshot struct {
 // as anchorURI with the same Forst package clause. The anchor is included when it matches.
 func (s *LSPServer) samePackageOpenURIs(anchorURI string) []string {
 	if !isForstDocumentURI(anchorURI) {
-		return []string{anchorURI}
+		return []string{canonicalFileURI(anchorURI)}
 	}
 	anchorPath := filePathFromDocumentURI(anchorURI)
-	dir := filepath.Dir(anchorPath)
+	if anchorPath == "" {
+		return []string{canonicalFileURI(anchorURI)}
+	}
+	canonicalAnchor := canonicalFileURI(anchorURI)
+	dir := canonicalDirForPath(anchorPath)
 
-	s.documentMu.RLock()
-	anchorContent := s.openDocuments[anchorURI]
-	s.documentMu.RUnlock()
+	anchorContent := s.openDocumentContent(anchorURI)
 	if anchorContent == "" {
 		b, err := os.ReadFile(anchorPath)
 		if err != nil {
-			return []string{anchorURI}
+			return []string{canonicalAnchor}
 		}
 		anchorContent = string(b)
 	}
 	pkg := forstPackageNameFromContent(anchorContent)
 	if pkg == "" {
-		return []string{anchorURI}
+		return []string{canonicalAnchor}
 	}
 
 	var out []string
 	s.documentMu.RLock()
+	seen := make(map[string]struct{}, len(s.openDocuments))
 	for u, text := range s.openDocuments {
-		if u == anchorURI {
+		cu := canonicalFileURI(u)
+		if _, ok := seen[cu]; ok {
 			continue
 		}
-		if !isForstDocumentURI(u) {
+		seen[cu] = struct{}{}
+		if cu == canonicalAnchor {
 			continue
 		}
-		p := filePathFromDocumentURI(u)
-		if filepath.Dir(p) != dir {
+		if !isForstDocumentURI(cu) {
+			continue
+		}
+		p := filePathFromDocumentURI(cu)
+		if p == "" {
+			continue
+		}
+		if canonicalDirForPath(p) != dir {
 			continue
 		}
 		if forstPackageNameFromContent(text) != pkg {
 			continue
 		}
-		out = append(out, u)
+		out = append(out, cu)
 	}
 	s.documentMu.RUnlock()
 
-	out = append(out, anchorURI)
+	out = append(out, canonicalAnchor)
+	out = s.mergeSamePackageDiskFt(dir, pkg, out)
+	for i := range out {
+		out[i] = canonicalFileURI(out[i])
+	}
 	sort.Slice(out, func(i, j int) bool {
 		return filePathFromDocumentURI(out[i]) < filePathFromDocumentURI(out[j])
 	})
 	return out
+}
+
+// mergeSamePackageDiskFt appends file:// URIs for same-directory .ft files on disk that declare
+// the same package as pkg but are not already in uris. This lets merged analysis see peers that
+// are not currently open in the editor (LSP clients do not always didOpen every file in a folder).
+func (s *LSPServer) mergeSamePackageDiskFt(dir, pkg string, uris []string) []string {
+	if pkg == "" {
+		return uris
+	}
+	seen := make(map[string]struct{}, len(uris)+8)
+	for _, u := range uris {
+		seen[u] = struct{}{}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return uris
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".ft") {
+			continue
+		}
+		full := filepath.Join(dir, e.Name())
+		u := fileURIForLocalPath(full)
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		head, err := readForstFilePrefix(full, 64*1024)
+		if err != nil {
+			continue
+		}
+		if forstPackageNameFromContent(head) != pkg {
+			continue
+		}
+		uris = append(uris, u)
+		seen[u] = struct{}{}
+	}
+	return uris
+}
+
+func readForstFilePrefix(path string, maxBytes int) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if len(b) > maxBytes {
+		b = b[:maxBytes]
+	}
+	return string(b), nil
 }
 
 // loadPackageGroupContents returns the text used for lex/parse and fingerprinting: open buffer
@@ -103,7 +166,7 @@ func (s *LSPServer) loadPackageGroupContents(uris []string) (map[string]string, 
 	s.documentMu.RLock()
 	contents := make(map[string]string, len(uris))
 	for _, u := range uris {
-		contents[u] = s.openDocuments[u]
+		contents[u] = s.openDocumentContent(u)
 	}
 	s.documentMu.RUnlock()
 
@@ -264,8 +327,8 @@ func (s *LSPServer) snapshotToDocumentContext(snap *packageSnapshot, uri string)
 }
 
 // analyzePackageGroupMerged returns a merged snapshot when the open package group fully parses.
-// memberURIs may be nil to compute membership from the anchor (same as samePackageOpenURIs).
-func (s *LSPServer) analyzePackageGroupMerged(anchorURI string, memberURIs []string) (snap *packageSnapshot, ctx *forstDocumentContext, ok bool) {
+// Membership is always samePackageOpenURIs(anchorURI) so callers cannot pass a stale peer list.
+func (s *LSPServer) analyzePackageGroupMerged(anchorURI string) (snap *packageSnapshot, ctx *forstDocumentContext, ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.WithFields(logrus.Fields{
@@ -278,21 +341,7 @@ func (s *LSPServer) analyzePackageGroupMerged(anchorURI string, memberURIs []str
 		}
 	}()
 
-	uris := memberURIs
-	if uris == nil {
-		uris = s.samePackageOpenURIs(anchorURI)
-	} else {
-		found := false
-		for _, u := range uris {
-			if u == anchorURI {
-				found = true
-				break
-			}
-		}
-		if !found {
-			uris = s.samePackageOpenURIs(anchorURI)
-		}
-	}
+	uris := s.samePackageOpenURIs(anchorURI)
 	if len(uris) <= 1 {
 		return nil, nil, false
 	}
@@ -324,8 +373,4 @@ func (s *LSPServer) analyzePackageGroupMerged(anchorURI string, memberURIs []str
 	s.packageAnalysis.put(fp, snap)
 
 	return snap, s.snapshotToDocumentContext(snap, anchorURI), true
-}
-
-func (s *LSPServer) invalidatePackageAnalysisCache() {
-	s.packageAnalysis.clear()
 }

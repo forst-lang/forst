@@ -31,3 +31,19 @@ func TestPackageAnalysisLRU_getMovesToMRU(t *testing.T) {
 		t.Fatal("expected b evicted after touching a")
 	}
 }
+
+func TestPackageAnalysisLRU_removeSnapshotReferencingURI(t *testing.T) {
+	t.Parallel()
+	c := newPackageAnalysisLRU(10)
+	snap := &packageSnapshot{uris: []string{"file:///a/x.ft", "file:///a/y.ft"}}
+	c.put("fp1", snap)
+	c.removeSnapshotReferencingURI("file:///a/x.ft")
+	if c.get("fp1") != nil {
+		t.Fatal("expected cache entry removed when uri matches member")
+	}
+	c.put("fp2", snap)
+	c.removeSnapshotReferencingURI("file:///other/unrelated.ft")
+	if c.get("fp2") == nil {
+		t.Fatal("expected unrelated uri to leave cache intact")
+	}
+}

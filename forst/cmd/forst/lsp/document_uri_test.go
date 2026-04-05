@@ -34,6 +34,27 @@ func TestFileURIForLocalPath_roundTrip(t *testing.T) {
 	if filepath.Clean(back) != filepath.Clean(abs) {
 		t.Fatalf("round trip: got %q want %q", back, abs)
 	}
+	if want := fileURIForLocalPath(abs); canonicalFileURI(uri) != want {
+		t.Fatalf("canonicalFileURI: got %q want %q", canonicalFileURI(uri), want)
+	}
+}
+
+func TestFilePathFromDocumentURI_percentEncoded(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "name with space.ft")
+	if err := os.WriteFile(sub, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	abs, err := filepath.Abs(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := strings.ReplaceAll(fileURIForLocalPath(abs), " ", "%20")
+	got := filePathFromDocumentURI(encoded)
+	if filepath.Clean(got) != filepath.Clean(abs) {
+		t.Fatalf("percent-encoded segment: got %q want %q", got, abs)
+	}
 }
 
 func TestIsForstDocumentURI(t *testing.T) {

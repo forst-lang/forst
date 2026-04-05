@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -55,11 +56,12 @@ type LSPServer struct {
 	// Add debugging state
 	debugMode   bool
 	debugEvents []DebugEvent
-	// openDocuments holds the latest text per LSP document URI (file://...) for hover and similar pull requests.
+	// openDocuments holds the latest buffer text. Keys are canonical file:// URIs (see canonicalFileURI);
+	// the client’s raw URI may also be stored as an alias when it differs, so lookups stay consistent.
 	documentMu    sync.RWMutex
 	openDocuments map[string]string
 
-	// peerAnalysisCache stores last *forstDocumentContext per open URI keyed by buffer text, used only for
+	// peerAnalysisCache stores last *forstDocumentContext per canonical URI keyed by buffer text, used only for
 	// cross-buffer completion (read-only symbol lists). Current-buffer analysis always calls analyzeForstDocument
 	// so TypeChecker scope state is never reused after RestoreScope.
 	peerAnalysisMu    sync.Mutex
@@ -110,18 +112,21 @@ func (s *LSPServer) Start() error {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	s.server = &http.Server{
-		Addr:         ":" + s.port,
 		Handler:      s.recoveryMiddleware(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	s.log.Infof("LSP server listening on port %s", s.port)
+	ln, err := net.Listen("tcp", ":"+s.port)
+	if err != nil {
+		return err
+	}
+	s.log.Infof("LSP server listening on %s", ln.Addr().String())
 	s.log.Info("Available endpoints:")
 	s.log.Info("  POST / - LSP protocol endpoint")
 	s.log.Info("  GET  /health - Health check")
 
-	return s.server.ListenAndServe()
+	return s.server.Serve(ln)
 }
 
 // recoveryMiddleware adds panic recovery to HTTP requests
@@ -499,15 +504,14 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 
 // compileForstFilePackageGroup runs typecheck/transform on the merged same-package AST when multiple
 // open buffers belong to one package. Falls back to single-file compileForstFile when merge is unavailable.
-// memberURIs may be nil to discover the group from the anchor URI only.
-func (s *LSPServer) compileForstFilePackageGroup(uri, filePath, content string, memberURIs []string) []LSPDiagnostic {
+func (s *LSPServer) compileForstFilePackageGroup(uri, filePath, content string) []LSPDiagnostic {
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.Errorf("Panic in compileForstFilePackageGroup for %s: %v", filePath, r)
 		}
 	}()
 
-	snap, _, ok := s.analyzePackageGroupMerged(uri, memberURIs)
+	snap, _, ok := s.analyzePackageGroupMerged(uri)
 	if !ok {
 		debugger := s.debugger.GetDebugger(PhaseParser, filePath)
 		return s.compileForstFile(filePath, content, debugger)

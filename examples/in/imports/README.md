@@ -10,6 +10,8 @@ Tiny “hello” program split across three files so you can see **how the langu
 
 **`cli.ft`** is the same program in **one** file. Use it with `forst run` or `task example:imports`. The compiler only reads **one** path per invocation; the split layout is for the editor.
 
+The language server merges **all same-package `.ft` files in this directory on disk**, not only the tabs you have open, so `main.ft` still typechecks when `greeting.ft` / `fmt_only.ft` are closed.
+
 ## Golden outputs (`examples/out/`)
 
 `fmt_only.ft` → `fmt_only.go`, `greeting.ft` → `greeting.go`, `cli.ft` → `cli.go`. There is no `main.go`: `main.ft` does not compile alone. Integration coverage for the merged case is `TestProcessForstFile_crossFileGoImportSharedAcrossBuffers` in `cmd/forst/lsp/cross_file_test.go`.

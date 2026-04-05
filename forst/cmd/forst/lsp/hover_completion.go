@@ -56,7 +56,7 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
 		Position LSPPosition `json:"position"`
-		Context *struct {
+		Context  *struct {
 			TriggerKind      int     `json:"triggerKind"`
 			TriggerCharacter *string `json:"triggerCharacter"`
 		} `json:"context"`
@@ -449,9 +449,15 @@ func (s *LSPServer) handleWorkspaceSymbol(request LSPRequest) LSPServerResponse 
 	q := strings.ToLower(strings.TrimSpace(params.Query))
 
 	s.documentMu.RLock()
+	seen := make(map[string]struct{}, len(s.openDocuments))
 	uris := make([]string, 0, len(s.openDocuments))
 	for u := range s.openDocuments {
-		uris = append(uris, u)
+		cu := canonicalFileURI(u)
+		if _, ok := seen[cu]; ok {
+			continue
+		}
+		seen[cu] = struct{}{}
+		uris = append(uris, cu)
 	}
 	s.documentMu.RUnlock()
 

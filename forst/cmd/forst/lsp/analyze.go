@@ -48,14 +48,12 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 		return nil, false
 	}
 
-	if _, mctx, merged := s.analyzePackageGroupMerged(uri, nil); merged && mctx != nil {
+	if _, mctx, merged := s.analyzePackageGroupMerged(uri); merged && mctx != nil {
 		return mctx, true
 	}
 
-	s.documentMu.RLock()
-	content, haveOpen := s.openDocuments[uri]
-	s.documentMu.RUnlock()
-	if !haveOpen || content == "" {
+	content := s.openDocumentContent(uri)
+	if content == "" {
 		b, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, false
@@ -101,22 +99,21 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 // buffer text matches. Used only from crossBufferTopLevelCompletionItems (read-only symbol iteration);
 // the current document always uses analyzeForstDocument directly so TypeChecker scope is not reused after RestoreScope.
 func (s *LSPServer) peerDocumentContextForCompletion(uri string) (*forstDocumentContext, bool) {
-	s.documentMu.RLock()
-	content := s.openDocuments[uri]
-	s.documentMu.RUnlock()
+	content := s.openDocumentContent(uri)
 	if content == "" {
 		return nil, false
 	}
+	canon := canonicalFileURI(uri)
 	s.peerAnalysisMu.Lock()
 	defer s.peerAnalysisMu.Unlock()
-	if e, ok := s.peerAnalysisCache[uri]; ok && e.content == content && e.ctx != nil {
+	if e, ok := s.peerAnalysisCache[canon]; ok && e.content == content && e.ctx != nil {
 		return e.ctx, true
 	}
 	ctx, ok := s.analyzeForstDocument(uri)
 	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
 		return nil, false
 	}
-	s.peerAnalysisCache[uri] = peerAnalysisCacheEntry{content: content, ctx: ctx}
+	s.peerAnalysisCache[canon] = peerAnalysisCacheEntry{content: content, ctx: ctx}
 	return ctx, true
 }
 
@@ -124,5 +121,6 @@ func (s *LSPServer) peerDocumentContextForCompletion(uri string) (*forstDocument
 func (s *LSPServer) invalidatePeerAnalysisCache(uri string) {
 	s.peerAnalysisMu.Lock()
 	delete(s.peerAnalysisCache, uri)
+	delete(s.peerAnalysisCache, canonicalFileURI(uri))
 	s.peerAnalysisMu.Unlock()
 }

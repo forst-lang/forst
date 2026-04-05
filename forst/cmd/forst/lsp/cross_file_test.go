@@ -289,6 +289,59 @@ func main() {
 	}
 }
 
+func TestProcessForstFile_samePackageDiskPeerMergedWhenNotOpen(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module diskpeer\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fmtOnlyPath := filepath.Join(dir, "fmt_only.ft")
+	greetingPath := filepath.Join(dir, "greeting.ft")
+	mainPath := filepath.Join(dir, "main.ft")
+	const srcFmtOnly = `package main
+
+import "fmt"
+`
+	const srcGreeting = `package main
+
+func greeting(): String {
+  return "Hello"
+}
+`
+	const srcMain = `package main
+
+func main() {
+  fmt.Println(greeting())
+}
+`
+	if err := os.WriteFile(fmtOnlyPath, []byte(srcFmtOnly), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(greetingPath, []byte(srcGreeting), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mainPath, []byte(srcMain), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriMain := mustFileURI(t, mainPath)
+	s.documentMu.Lock()
+	s.openDocuments[uriMain] = srcMain
+	s.documentMu.Unlock()
+
+	d := s.processForstFile(uriMain, srcMain)
+	for _, x := range d {
+		msg := strings.ToLower(x.Message)
+		if strings.Contains(msg, "greeting") && strings.Contains(msg, "unknown") {
+			t.Fatalf("greeting should resolve via on-disk peer: %#v", x)
+		}
+		if strings.Contains(msg, "undefined") {
+			t.Fatalf("unexpected undefined diagnostic: %#v", x)
+		}
+	}
+}
+
 func TestGetCompletions_mergedPackageNoCrossBufferDuplicate(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()

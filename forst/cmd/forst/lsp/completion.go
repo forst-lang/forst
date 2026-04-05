@@ -880,14 +880,21 @@ func forstPackageNameFromContent(content string) string {
 }
 
 func (s *LSPServer) countOtherOpenFtURIs(exceptURI string) int {
+	exceptCanon := canonicalFileURI(exceptURI)
 	s.documentMu.RLock()
 	defer s.documentMu.RUnlock()
+	seen := make(map[string]struct{}, len(s.openDocuments))
 	n := 0
 	for u := range s.openDocuments {
-		if u == exceptURI {
+		cu := canonicalFileURI(u)
+		if _, ok := seen[cu]; ok {
 			continue
 		}
-		if isForstDocumentURI(u) {
+		seen[cu] = struct{}{}
+		if cu == exceptCanon {
+			continue
+		}
+		if isForstDocumentURI(cu) {
 			n++
 		}
 	}
@@ -903,14 +910,21 @@ func (s *LSPServer) crossBufferTopLevelCompletionItems(currentURI, pkg, prefix s
 	if pkg == "" {
 		return nil
 	}
+	currentCanon := canonicalFileURI(currentURI)
 	s.documentMu.RLock()
+	seen := make(map[string]struct{}, len(s.openDocuments))
 	uris := make([]string, 0, len(s.openDocuments))
 	for u := range s.openDocuments {
-		if u == currentURI {
+		cu := canonicalFileURI(u)
+		if _, ok := seen[cu]; ok {
 			continue
 		}
-		if isForstDocumentURI(u) {
-			uris = append(uris, u)
+		seen[cu] = struct{}{}
+		if cu == currentCanon {
+			continue
+		}
+		if isForstDocumentURI(cu) {
+			uris = append(uris, cu)
 		}
 	}
 	s.documentMu.RUnlock()
