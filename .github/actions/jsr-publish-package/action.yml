@@ -1,0 +1,25 @@
+# Shared steps: sync jsr.json from package.json, then npx jsr publish.
+# Call after checkout, setup-bun, and bun install at the repo root.
+name: Publish package to JSR
+description: Runs sync-jsr-version and npx jsr publish in a workspace package directory.
+inputs:
+  working-directory:
+    description: Package path from repo root (e.g. packages/cli)
+    required: true
+  jsr-token:
+    description: Optional JSR token (OIDC from GitHub Actions if unset)
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Sync jsr.json version from package.json
+      working-directory: ${{ inputs.working-directory }}
+      run: bun run sync-jsr-version
+      shell: bash
+
+    - name: Publish package to JSR
+      working-directory: ${{ inputs.working-directory }}
+      run: npx jsr publish
+      shell: bash
+      env:
+        JSR_TOKEN: ${{ inputs.jsr-token }}

@@ -22,7 +22,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "bun run build",
+    "prepublishOnly": "bun run sync-jsr-version && bun run build",
+    "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "bun test"
   },

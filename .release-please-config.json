@@ -19,10 +19,34 @@
           "type": "json",
           "path": "packages/vscode-forst/package.json",
           "jsonpath": "$.version"
-        },
+        }
+      ]
+    },
+    "packages/cli": {
+      "release-type": "node",
+      "package-name": "@forst/cli",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "include-v-in-tag": true,
+      "include-component-in-tag": true,
+      "draft": false,
+      "prerelease": false,
+      "create-pull-request": true,
+      "create-github-release": true,
+      "exclude-paths": [
+        "forst/",
+        "internal/",
+        "examples/",
+        "cmd/",
+        "ROADMAP.md",
+        "packages/sidecar/",
+        "packages/vscode-forst/"
+      ],
+      "extra-files": [
         {
           "type": "json",
-          "path": "packages/cli/package.json",
+          "path": "packages/cli/jsr.json",
           "jsonpath": "$.version"
         }
       ]

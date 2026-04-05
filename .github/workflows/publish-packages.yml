@@ -1,0 +1,110 @@
+# Publish @forst/sidecar (npm + JSR) and @forst/cli (npm + JSR).
+#
+# Which jobs run is determined only by the Git tag, matching Release Please
+# (.release-please-config.json):
+#
+# - packages/sidecar → tag prefix `sidecar-` (e.g. sidecar-v0.1.2; include-component-in-tag)
+# - packages/cli → tag prefix `cli-` (e.g. cli-v0.0.19; include-component-in-tag; compiler `v*` is release.yml only)
+#
+# Secrets:
+# - NPM_TOKEN: publish @forst/sidecar and @forst/cli to npm.
+# - JSR: link jsr.io packages to this repo for OIDC, or set JSR_TOKEN.
+
+name: Publish packages (npm / JSR)
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sidecar-npm:
+    name: "@forst/sidecar → npm"
+    runs-on: ubuntu-latest
+    # .release-please-config.json packages/sidecar: include-component-in-tag → sidecar-…
+    if: startsWith(github.event.release.tag_name, 'sidecar-')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+          node-version: "20"
+
+      - name: Publish package to NPM
+        working-directory: packages/sidecar
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  sidecar-jsr:
+    name: "@forst/sidecar → JSR"
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'sidecar-')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - uses: ./.github/actions/jsr-publish-package
+        with:
+          working-directory: packages/sidecar
+          jsr-token: ${{ secrets.JSR_TOKEN }}
+
+  cli-npm:
+    name: "@forst/cli → npm"
+    runs-on: ubuntu-latest
+    # .release-please-config.json packages/cli: include-component-in-tag → cli-…
+    if: startsWith(github.event.release.tag_name, 'cli-')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+          node-version: "20"
+
+      - name: Publish package to NPM
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  cli-jsr:
+    name: "@forst/cli → JSR"
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'cli-')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - uses: ./.github/actions/jsr-publish-package
+        with:
+          working-directory: packages/cli
+          jsr-token: ${{ secrets.JSR_TOKEN }}

@@ -31,7 +31,7 @@ jobs:
 
   build:
     needs: release-please
-    # Compiler releases use tags like v0.0.12; @forst/sidecar uses sidecar-v* (see .release-please-config.json).
+    # Root compiler releases: tags like v0.0.12. @forst/cli uses cli-v*, @forst/sidecar uses sidecar-v* (see .release-please-config.json).
     if: ${{ needs.release-please.outputs.release_created && startsWith(needs.release-please.outputs.tag_name, 'v') }}
     runs-on: ubuntu-latest
     env:
@@ -91,23 +91,6 @@ jobs:
       - name: Upload binary to GitHub Release
         run: |
           gh release upload $GIT_TAG ./dist/*
-
-      - name: Set up Node for @forst/cli npm publish
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Publish @forst/cli to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "${NODE_AUTH_TOKEN}" ]; then
-            echo "NPM_TOKEN not set; skipping @forst/cli publish."
-            exit 0
-          fi
-          bun install
-          cd packages/cli && bun run build && npm publish --access public
 
       # Self-publish to Open VSX (same .vsix as GitHub Release)
       - name: Set up Node.js (Open VSX publish)
