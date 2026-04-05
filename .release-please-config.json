@@ -19,6 +19,11 @@
           "type": "json",
           "path": "packages/vscode-forst/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/cli/package.json",
+          "jsonpath": "$.version"
         }
       ]
     },

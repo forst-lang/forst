@@ -32,6 +32,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@forst/cli": "workspace:*",
     "chokidar": "^5.0.0",
     "glob": "^13.0.6",
     "pino": "^10.3.1",
