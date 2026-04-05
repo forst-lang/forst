@@ -1,10 +1,12 @@
 # Publish @forst/sidecar (npm + JSR) and @forst/cli (npm + JSR).
 #
-# Which jobs run is determined only by the Git tag, matching Release Please
-# (.release-please-config.json):
+# Invoked from release.yml via workflow_call after Release Please creates a tag.
+# (GitHub does not fire `release` workflows for releases created with GITHUB_TOKEN,
+# so we cannot rely on `on: release` alone.)
 #
-# - packages/sidecar → tag prefix `sidecar-` (e.g. sidecar-v0.1.2; include-component-in-tag)
-# - packages/cli → tag prefix `cli-` (e.g. cli-v0.0.19; include-component-in-tag; compiler `v*` is release.yml only)
+# Tag prefixes (.release-please-config.json):
+# - packages/sidecar → `sidecar-`
+# - packages/cli → `cli-`
 #
 # Secrets:
 # - NPM_TOKEN: publish @forst/sidecar and @forst/cli to npm.
@@ -13,19 +15,22 @@
 name: Publish packages (npm / JSR)
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. sidecar-v0.1.0, cli-v0.0.19)"
+        required: true
+        type: string
 
 jobs:
   sidecar-npm:
     name: "@forst/sidecar → npm"
     runs-on: ubuntu-latest
-    # .release-please-config.json packages/sidecar: include-component-in-tag → sidecar-…
-    if: startsWith(github.event.release.tag_name, 'sidecar-')
+    if: startsWith(inputs.tag_name, 'sidecar-')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag_name }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -45,14 +50,14 @@ jobs:
   sidecar-jsr:
     name: "@forst/sidecar → JSR"
     runs-on: ubuntu-latest
-    if: startsWith(github.event.release.tag_name, 'sidecar-')
+    if: startsWith(inputs.tag_name, 'sidecar-')
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag_name }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -66,12 +71,11 @@ jobs:
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
-    # .release-please-config.json packages/cli: include-component-in-tag → cli-…
-    if: startsWith(github.event.release.tag_name, 'cli-')
+    if: startsWith(inputs.tag_name, 'cli-')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag_name }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -91,14 +95,14 @@ jobs:
   cli-jsr:
     name: "@forst/cli → JSR"
     runs-on: ubuntu-latest
-    if: startsWith(github.event.release.tag_name, 'cli-')
+    if: startsWith(inputs.tag_name, 'cli-')
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag_name }}
 
       - uses: oven-sh/setup-bun@v2
 

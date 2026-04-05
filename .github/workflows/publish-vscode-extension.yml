@@ -1,8 +1,9 @@
-# Build the VSIX, attach it to the Release Please GitHub Release, and publish to Open VSX.
+# Build the VSIX, attach it to the GitHub Release, and publish to Open VSX.
 #
-# Trigger: GitHub Release published with tag prefix `vscode-forst-` (see
-# .release-please-config.json packages/vscode-forst, include-component-in-tag).
-# Compiler releases (`v*`) no longer package or publish the extension.
+# Invoked from release.yml via workflow_call after Release Please creates a tag.
+# (GitHub does not fire `release` workflows for releases created with GITHUB_TOKEN.)
+#
+# Tag prefix: `vscode-forst-` (packages/vscode-forst in .release-please-config.json).
 #
 # Secrets:
 # - OVSX_PAT: Open VSX publish token (optional; step skipped if unset).
@@ -10,20 +11,24 @@
 name: Publish VS Code extension
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. vscode-forst-v0.1.0)"
+        required: true
+        type: string
 
 jobs:
   vsix-and-open-vsx:
     name: VSIX + Open VSX
     runs-on: ubuntu-latest
-    if: startsWith(github.event.release.tag_name, 'vscode-forst-')
+    if: startsWith(inputs.tag_name, 'vscode-forst-')
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag_name }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -36,7 +41,7 @@ jobs:
       - name: Package .vsix and upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
           VERSION="${TAG_NAME#vscode-forst-v}"

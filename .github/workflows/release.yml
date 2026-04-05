@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# npm / JSR / VSIX publish runs in this workflow via workflow_call after Release Please creates a tag.
+# Releases created with the default GITHUB_TOKEN do not emit `release` events, so separate
+# `on: release` workflows would not run for Release Please–created releases.
+
 permissions:
   contents: write
   pull-requests: write
@@ -76,3 +80,30 @@ jobs:
       - name: Upload binary to GitHub Release
         run: |
           gh release upload $GIT_TAG ./dist/*
+
+  publish-packages:
+    name: Trigger npm / JSR publish
+    needs: release-please
+    if: >-
+      ${{
+        needs.release-please.outputs.release_created &&
+        (startsWith(needs.release-please.outputs.tag_name, 'sidecar-') ||
+         startsWith(needs.release-please.outputs.tag_name, 'cli-'))
+      }}
+    uses: ./.github/workflows/publish-packages.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
+
+  publish-vscode-extension:
+    name: Trigger VS Code extension publish
+    needs: release-please
+    if: >-
+      ${{
+        needs.release-please.outputs.release_created &&
+        startsWith(needs.release-please.outputs.tag_name, 'vscode-forst-')
+      }}
+    uses: ./.github/workflows/publish-vscode-extension.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
