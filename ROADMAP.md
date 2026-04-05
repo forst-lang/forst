@@ -45,7 +45,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Transpile to Go (packages, types, functions) | ✅ done | Main compiler output. |
 | Runtime validation from type constraints | ✅ done | Checks emitted from types. |
 | `import` of Go packages in Forst | 🔬 experimental | Common paths work; not a full Go loader yet. |
-| Load & typecheck imported Go source | 🔬 experimental | `go/packages` loads import paths from `.ft` files; `TypeChecker.GoWorkspaceDir` defaults to the source file directory (compiler + LSP). |
+| Load & typecheck imported Go source | 🔬 experimental | `go/packages` loads import paths from `.ft` files; `TypeChecker.GoWorkspaceDir` is the directory containing `go.mod` found by walking up from the `.ft` file or compile `-root` (`internal/goload.FindModuleRoot`). `forst run` / `forst build` support optional `-root <dir>` to merge all same-package sources under that tree, matching discovery and the dev executor. |
 | Type-check Forst↔Go calls | 🔬 experimental | Qualified calls `pkg.Func` are checked against loaded Go signatures when imports resolve; primitives, slices, pointers, `error`, and `interface{}` (incl. variadic) are mapped; other Go types report an unsupported diagnostic. Builtin table still supplies return types when both exist. |
 | Match Go idioms where it matters (`error`, naming) | 🔬 experimental | Iterative polish; conventions still evolving. |
 | Expose Forst functions to non-Forst callers (HTTP, RPC, subprocess) from **generated Go** | 🔬 experimental | Compose servers in Go; Forst-native handler patterns not in place yet. |

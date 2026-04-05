@@ -2,16 +2,13 @@ package compiler
 
 import (
 	"fmt"
+	"forst/internal/ast"
 	"forst/internal/generators"
-	"forst/internal/goload"
-	"forst/internal/lexer"
 	"forst/internal/logger"
-	"forst/internal/parser"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -78,48 +75,24 @@ func CreateTempOutputFile(code string) (string, error) {
 
 // CompileFile compiles a Forst file and returns the Go code
 func (c *Compiler) CompileFile() (*string, error) {
-	source, err := c.readSourceFile()
+	var forstNodes []ast.Node
+	var err error
+	if c.Args.PackageRoot != "" {
+		c.reportPhase("Loading merged package (same-package .ft files under -root)...")
+		forstNodes, err = c.loadMergedPackageAST()
+	} else {
+		forstNodes, err = c.lexParseEntryFile()
+	}
 	if err != nil {
 		return nil, err
-	}
-
-	c.reportPhase("Performing lexical analysis...")
-	memBefore := getMemStats()
-
-	// Lexical Analysis
-	l := lexer.New(source, c.Args.FilePath, c.log) // TODO: Update to use file ID
-	tokens := l.Lex()
-
-	memAfter := getMemStats()
-	c.logMemUsage("lexical analysis", memBefore, memAfter)
-
-	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
-		c.debugPrintTokens(tokens)
-	}
-
-	c.reportPhase("Performing syntax analysis...")
-	memBefore = getMemStats()
-
-	// Parsing
-	psr := parser.New(tokens, c.Args.FilePath, c.log) // TODO: Update to use file ID
-	forstNodes, err := psr.ParseFile()
-	if err != nil {
-		return nil, err
-	}
-
-	memAfter = getMemStats()
-	c.logMemUsage("syntax analysis", memBefore, memAfter)
-
-	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
-		c.debugPrintForstAST(forstNodes)
 	}
 
 	c.reportPhase("Performing semantic analysis...")
-	memBefore = getMemStats()
+	memBefore := getMemStats()
 
 	// Semantic Analysis
 	checker := typechecker.New(c.log, c.Args.ReportPhases)
-	checker.GoWorkspaceDir = goload.FindModuleRoot(filepath.Dir(c.Args.FilePath))
+	checker.GoWorkspaceDir = c.goWorkspaceDirForCheck()
 
 	// Collect, infer and check type
 	if err := checker.CheckTypes(forstNodes); err != nil {
@@ -128,7 +101,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 		return nil, err
 	}
 
-	memAfter = getMemStats()
+	memAfter := getMemStats()
 	c.logMemUsage("semantic analysis", memBefore, memAfter)
 
 	if c.Args.LogLevel == "debug" || c.Args.LogLevel == "trace" {
@@ -171,6 +144,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 
 // WatchFile watches the Forst file for changes and recompiles it
 func (c *Compiler) WatchFile() error {
+	if c.Args.PackageRoot != "" {
+		return fmt.Errorf("-watch cannot be used with -root; use a single-file compile or omit -watch")
+	}
 	// Create a new watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

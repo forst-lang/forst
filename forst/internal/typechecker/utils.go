@@ -6,6 +6,25 @@ import (
 	"strings"
 )
 
+// typeDefAssertionFromExpr returns the assertion expr whether the AST stores it by value
+// or as *TypeDefAssertionExpr (the parser uses a pointer for simple aliases like `type T = String`).
+func typeDefAssertionFromExpr(expr ast.TypeDefExpr) (ast.TypeDefAssertionExpr, bool) {
+	if expr == nil {
+		return ast.TypeDefAssertionExpr{}, false
+	}
+	switch e := expr.(type) {
+	case ast.TypeDefAssertionExpr:
+		return e, true
+	case *ast.TypeDefAssertionExpr:
+		if e == nil {
+			return ast.TypeDefAssertionExpr{}, false
+		}
+		return *e, true
+	default:
+		return ast.TypeDefAssertionExpr{}, false
+	}
+}
+
 func formatTypeList(types []ast.TypeNode) string {
 	if len(types) == 0 {
 		return "()"
