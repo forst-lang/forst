@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14](https://github.com/forst-lang/forst/compare/v0.0.13...v0.0.14) (2026-04-05)
+
+
+### Features
+
+* **vscode-forst:** add Forst editor snippets and snippet JSON test ([e5eec47](https://github.com/forst-lang/forst/commit/e5eec47f29fccea9999e0b3aeef868074ab9a010))
+
 ## [0.0.13](https://github.com/forst-lang/forst/compare/v0.0.12...v0.0.13) (2026-04-05)
 
 
