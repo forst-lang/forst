@@ -34,3 +34,18 @@ export class CompilerBinaryDownloadFailed extends Error {
     this.name = "CompilerBinaryDownloadFailed";
   }
 }
+
+/** Downloaded bytes do not match the sha256 from GitHub release metadata. */
+export class CompilerBinaryChecksumMismatch extends Error {
+  readonly expectedHex: string;
+  readonly actualHex: string;
+
+  constructor(expectedHex: string, actualHex: string) {
+    super(
+      `Forst compiler checksum mismatch (possible corrupt download). Expected sha256 ${expectedHex}, got ${actualHex}`
+    );
+    this.name = "CompilerBinaryChecksumMismatch";
+    this.expectedHex = expectedHex;
+    this.actualHex = actualHex;
+  }
+}

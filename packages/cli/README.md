@@ -20,8 +20,9 @@ With a local dependency, `node_modules/.bin/forst` runs the wrapper.
 | --- | --- |
 | `FORST_BINARY` | Absolute path to a `forst` executable; skips download. |
 | `FORST_CACHE_DIR` | Base directory for cached binaries (default: `~/.cache/forst-cli` on Unix, `%LOCALAPPDATA%/forst-cli/cache` on Windows). Each compiler version is stored in a subdirectory. |
+| `FORST_CLI_VERIFY` | **Default:** sha256 verification is **required** using digests from [GitHub release metadata](https://docs.github.com/en/rest/releases/releases). Set to `0` or `false` to skip (not recommended). |
 
-In CI or air-gapped environments, point `FORST_BINARY` at a preinstalled binary and do not rely on GitHub access.
+Downloads use retries on transient HTTP errors, an exclusive lock when two processes install at once, and an atomic write so a partial file never replaces the binary. In CI or air-gapped environments, prefer `FORST_BINARY`, or set `FORST_CLI_VERIFY=0` only if the GitHub API is unreachable or the release has no digest metadata.
 
 ## API
 

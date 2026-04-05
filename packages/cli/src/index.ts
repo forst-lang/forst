@@ -16,11 +16,13 @@ export type {
   ResolveForstBinaryFs,
 } from "./resolve.js";
 export {
+  CompilerBinaryChecksumMismatch,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   UnsupportedArchitecture,
   UnsupportedOperatingSystem,
 } from "./errors.js";
+export { fetchWithRetry } from "./http.js";
 
 import { spawn, type SpawnOptions } from "node:child_process";
 import { resolveForstBinary, type ResolveForstBinaryOptions } from "./resolve.js";

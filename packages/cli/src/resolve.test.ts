@@ -1,11 +1,24 @@
+import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  chmodSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import { resolveForstBinary } from "./resolve.js";
-import { CompilerBinaryDownloadHttpFailure } from "./errors.js";
+import {
+  CompilerBinaryChecksumMismatch,
+  CompilerBinaryDownloadFailed,
+  CompilerBinaryDownloadHttpFailure,
+} from "./errors.js";
+
+const verifyOff = { FORST_CLI_VERIFY: "0" } as const;
 
 test("getCompilerArtifactName matches release task naming", () => {
   expect(getCompilerArtifactName("darwin", "arm64")).toBe("forst-darwin-arm64");
@@ -64,7 +77,7 @@ describe("resolveForstBinary", () => {
 
       const p = await resolveForstBinary({
         version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
         fetchImpl,
         homedirFn: () => "/unused",
       });
@@ -85,11 +98,120 @@ describe("resolveForstBinary", () => {
       await expect(
         resolveForstBinary({
           version: "0.0.19",
-          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
           fetchImpl,
           homedirFn: () => "/unused",
         })
       ).rejects.toBeInstanceOf(CompilerBinaryDownloadHttpFailure);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("verifies sha256 when GitHub API returns digest", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const dest = join(cacheRoot, "0.0.19", destName);
+      const payload = Buffer.from("fake-forst-binary");
+      const hex = createHash("sha256").update(payload).digest("hex");
+
+      const fetchImpl: typeof fetch = async (url) => {
+        const s = String(url);
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({
+              assets: [{ name: destName, digest: `sha256:${hex}` }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        expect(s).toContain("/download/v0.0.19/" + destName);
+        return new Response(payload, { status: 200 });
+      };
+
+      const p = await resolveForstBinary({
+        version: "0.0.19",
+        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("throws when GitHub API returns no digest and verification is required", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+
+      const fetchImpl: typeof fetch = async (url) => {
+        const s = String(url);
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({
+              assets: [{ name: destName }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(null, { status: 500 });
+      };
+
+      await expect(
+        resolveForstBinary({
+          version: "0.0.19",
+          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          fetchImpl,
+          homedirFn: () => "/unused",
+        })
+      ).rejects.toBeInstanceOf(CompilerBinaryDownloadFailed);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("throws CompilerBinaryChecksumMismatch when digest does not match", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const payload = Buffer.from("fake-forst-binary");
+
+      const fetchImpl: typeof fetch = async (url) => {
+        const s = String(url);
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({
+              assets: [
+                { name: destName, digest: "sha256:" + "00".repeat(32) },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(payload, { status: 200 });
+      };
+
+      await expect(
+        resolveForstBinary({
+          version: "0.0.19",
+          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          fetchImpl,
+          homedirFn: () => "/unused",
+        })
+      ).rejects.toBeInstanceOf(CompilerBinaryChecksumMismatch);
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }

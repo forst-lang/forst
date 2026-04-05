@@ -15,6 +15,7 @@ import {
   getExpectedCompilerBinaryPath,
   CompilerBinaryDownloadHttpFailure as CliCompilerBinaryDownloadHttpFailure,
   CompilerBinaryDownloadFailed as CliCompilerBinaryDownloadFailed,
+  CompilerBinaryChecksumMismatch as CliCompilerBinaryChecksumMismatch,
   UnsupportedArchitecture as CliUnsupportedArchitecture,
   UnsupportedOperatingSystem as CliUnsupportedOperatingSystem,
 } from "@forst/cli";
@@ -42,6 +43,9 @@ export class ForstUtils {
       }
       if (e instanceof CliCompilerBinaryDownloadFailed) {
         throw new CompilerBinaryDownloadFailed(e.message, { cause: e.cause });
+      }
+      if (e instanceof CliCompilerBinaryChecksumMismatch) {
+        throw new CompilerBinaryDownloadFailed(e.message, { cause: e });
       }
       if (e instanceof CliUnsupportedArchitecture) {
         throw new UnsupportedArchitecture(arch());
