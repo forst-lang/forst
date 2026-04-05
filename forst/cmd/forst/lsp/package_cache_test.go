@@ -32,6 +32,18 @@ func TestPackageAnalysisLRU_getMovesToMRU(t *testing.T) {
 	}
 }
 
+func TestPackageAnalysisLRU_clear(t *testing.T) {
+	t.Parallel()
+	c := newPackageAnalysisLRU(10)
+	s := &packageSnapshot{}
+	c.put("k1", s)
+	c.put("k2", s)
+	c.clear()
+	if c.get("k1") != nil || c.get("k2") != nil {
+		t.Fatal("expected cache empty after clear")
+	}
+}
+
 func TestPackageAnalysisLRU_removeSnapshotReferencingURI(t *testing.T) {
 	t.Parallel()
 	c := newPackageAnalysisLRU(10)

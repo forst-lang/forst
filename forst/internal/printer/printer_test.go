@@ -147,3 +147,32 @@ func TestPrint_unsupportedTopLevelErrors(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+func TestFormatSource_importRoundTrip(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("done")
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "bundle.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	for _, needle := range []string{`import "fmt"`, `fmt.Println`} {
+		if !strings.Contains(out, needle) {
+			t.Fatalf("missing %q in:\n%s", needle, out)
+		}
+	}
+	l := lexer.New([]byte(out), "bundle.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "bundle.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}

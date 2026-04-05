@@ -130,6 +130,64 @@ func main() {
 			// Binary `+` is inferred in sum; main stays string-only for println.
 			needles: []string{`func sum`, `+`, `return`, `func main`},
 		},
+		{
+			name: "if_else_branch",
+			src: `package main
+
+func main() {
+	n := 1
+	if n > 0 {
+		println("yes")
+	} else {
+		println("no")
+	}
+}
+`,
+			needles: []string{`if `, `else`, `println`, `func main`},
+		},
+		{
+			name: "if_else_if_else_chain",
+			src: `package main
+
+func main() {
+	n := 2
+	if n > 10 {
+		println("a")
+	} else if n < 0 {
+		println("b")
+	} else {
+		println("c")
+	}
+}
+`,
+			// Emitter lowers else-if to nested Go if statements.
+			needles: []string{`if `, `else`, `println("c")`, `func main`},
+		},
+		{
+			name: "if_with_short_decl_init",
+			src: `package main
+
+func main() {
+	if x := 1; x > 0 {
+		println("ok")
+	}
+}
+`,
+			needles: []string{`if `, `x :=`, `println`, `func main`},
+		},
+		{
+			name: "for_range_over_slice",
+			src: `package main
+
+func main() {
+	xs := [1, 2]
+	for range xs {
+		println("r")
+	}
+}
+`,
+			needles: []string{`for `, `range`, `println`, `func main`},
+		},
 	}
 
 	for _, tt := range tests {
@@ -141,6 +199,72 @@ func main() {
 				}
 			}
 		})
+	}
+}
+
+// TestEmitValidation_* cases assert generated Go for built-in constraints and type guards (grep-friendly; see internal/coveragehotspots).
+func TestEmitValidation_builtinMinOnString(t *testing.T) {
+	src := `package main
+
+func checkLen(name String) {
+	ensure name is Min(1)
+}
+
+func main() {
+	checkLen("hi")
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{`func checkLen`, `len(`, `String.Min(1)`, `errors.New`, `package main`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestEmitValidation_builtinLessThanOnInt(t *testing.T) {
+	src := `package main
+
+func capSpeed(speed Int) {
+	ensure speed is LessThan(100)
+}
+
+func main() {
+	capSpeed(50)
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{`func capSpeed`, `100`, `package main`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestEmitValidation_typeGuardStrongPassword(t *testing.T) {
+	src := `package main
+
+type Password = String
+
+is (password Password) Strong {
+	ensure password is Min(12)
+}
+
+func main() {
+	password: Password = "1234567890123"
+	ensure password is Strong() {
+		println("weak")
+	}
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{`func G_`, `len(password)`, `Password`, `os.Exit`, `package main`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
 	}
 }
 
