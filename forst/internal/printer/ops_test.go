@@ -17,13 +17,18 @@ func TestTokenBinary_mapsOperatorTokens(t *testing.T) {
 		{"minus", ast.TokenMinus, "-"},
 		{"star", ast.TokenStar, "*"},
 		{"divide", ast.TokenDivide, "/"},
+		{"modulo", ast.TokenModulo, "%"},
 		{"equals", ast.TokenEquals, "=="},
 		{"notEquals", ast.TokenNotEquals, "!="},
 		{"greater", ast.TokenGreater, ">"},
 		{"less", ast.TokenLess, "<"},
+		{"greaterEqual", ast.TokenGreaterEqual, ">="},
+		{"lessEqual", ast.TokenLessEqual, "<="},
 		{"logicalAnd", ast.TokenLogicalAnd, "&&"},
 		{"logicalOr", ast.TokenLogicalOr, "||"},
 		{"is", ast.TokenIs, "is"},
+		{"bitwiseAnd", ast.TokenBitwiseAnd, "&"},
+		{"bitwiseOr", ast.TokenBitwiseOr, "|"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -53,6 +58,7 @@ func TestTokenUnary_mapsOperatorTokens(t *testing.T) {
 		{"not", ast.TokenLogicalNot, "!"},
 		{"minus", ast.TokenMinus, "-"},
 		{"star", ast.TokenStar, "*"},
+		{"bitwiseAnd", ast.TokenBitwiseAnd, "&"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

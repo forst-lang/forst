@@ -8,19 +8,23 @@ import (
 )
 
 func TestIsCapitalCase(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
+		name string
 		in   string
 		want bool
 	}{
-		{"Foo", true},
-		{"A", true},
-		{"foo", false},
+		{"upperFoo", "Foo", true},
+		{"singleUpper", "A", true},
+		{"lowerFoo", "foo", false},
 	}
 	for _, tt := range tests {
-		if got := isCapitalCase(tt.in); got != tt.want {
-			t.Fatalf("isCapitalCase(%q) = %v, want %v", tt.in, got, tt.want)
-		}
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isCapitalCase(tt.in); got != tt.want {
+				t.Fatalf("isCapitalCase(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
 	}
 }
 

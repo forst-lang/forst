@@ -3,6 +3,7 @@ package typechecker
 import (
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/parser"
 )
 
@@ -33,8 +34,9 @@ func main() {
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := tc.Defs["Point"]; !ok {
-		t.Fatal("expected Point type in Defs")
+	pts := tc.VariableTypes[ast.Identifier("p")]
+	if len(pts) != 1 || pts[0].Ident != ast.TypeIdent("Point") {
+		t.Fatalf("expected p inferred as Point after origin(), got %#v", pts)
 	}
 }
 

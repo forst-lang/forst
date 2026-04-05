@@ -73,6 +73,12 @@ func TestPackageGroupFingerprintFromContents_orderSensitive(t *testing.T) {
 	if fp1 == fp2 {
 		t.Fatal("expected different fingerprints when buffer content changes")
 	}
+
+	uris2 := []string{"file:///b.ft", "file:///a.ft"}
+	fpReorder := packageGroupFingerprintFromContents(uris2, c1)
+	if fp1 == fpReorder {
+		t.Fatal("packageGroupFingerprintFromContents: expected different fingerprints when URI order changes (same contents map)")
+	}
 }
 
 func TestSamePackageOpenURIs_includesDiskPeerWhenBufferOpen(t *testing.T) {

@@ -43,10 +43,11 @@ func TestPackageNameOrDefault(t *testing.T) {
 func TestPackageNameFromNodes_firstPackageWins(t *testing.T) {
 	nodes := []ast.Node{
 		ast.PackageNode{Ident: ast.Ident{ID: "demo"}},
+		ast.PackageNode{Ident: ast.Ident{ID: "other"}},
 		ast.FunctionNode{Ident: ast.Ident{ID: "F"}},
 	}
 	if got := PackageNameFromNodes(nodes); got != "demo" {
-		t.Fatalf("got %q", got)
+		t.Fatalf("expected first package clause name, got %q", got)
 	}
 }
 
