@@ -12,11 +12,17 @@ import type { Request, RequestHandler } from "express";
 import {
   CompilerNotFound,
   ConnectModeMissingUrl,
+  ContractVersionMismatch,
   DevServerChildProcessNotResponding,
   GenerateCommandFailed,
   ServerVersionMismatch,
   SidecarNotStarted,
 } from "./errors";
+import { FORST_DEV_HTTP_CONTRACT_VERSION } from "./constants";
+import {
+  contractVersionCompatible,
+  versionsEquivalentForSidecar,
+} from "./version-compare";
 import {
   mergeForstSidecarEnv,
   normalizeDevServerBaseUrl,
@@ -24,7 +30,11 @@ import {
 } from "./config-merge";
 import { ForstUtils } from "./utils";
 import { ForstSidecarClient } from "./client";
-import { ForstServer, effectiveProjectRootDir } from "./server";
+import {
+  ForstServer,
+  buildForstGenerateArgs,
+  effectiveProjectRootDir,
+} from "./server";
 
 async function ensureForstBinary(): Promise<string> {
   return await ForstUtils.ensureCompiler();
@@ -170,14 +180,34 @@ export class ForstSidecar {
       );
       return;
     }
-    if (local !== remote.version) {
+    if (
+      !contractVersionCompatible(
+        remote.contractVersion,
+        FORST_DEV_HTTP_CONTRACT_VERSION
+      )
+    ) {
+      const detail = `Dev server HTTP contract version is ${remote.contractVersion}, this @forst/sidecar expects ${FORST_DEV_HTTP_CONTRACT_VERSION}`;
+      if (mode === "strict") {
+        throw new ContractVersionMismatch(
+          detail,
+          FORST_DEV_HTTP_CONTRACT_VERSION,
+          remote.contractVersion
+        );
+      }
+      logger.warn(detail);
+    } else {
+      logger.debug(
+        `HTTP contract version OK (${remote.contractVersion})`
+      );
+    }
+    if (!versionsEquivalentForSidecar(local, remote.version)) {
       const detail = `Local forst binary version is ${local}, dev server reports ${remote.version}`;
       if (mode === "strict") {
         throw new ServerVersionMismatch(detail, local, remote.version);
       }
       logger.warn(detail);
     } else {
-      logger.debug(`Forst version check OK: ${local}`);
+      logger.debug(`Forst compiler version check OK: ${local}`);
     }
   }
 
@@ -190,9 +220,10 @@ export class ForstSidecar {
     const root = effectiveProjectRootDir(cfg);
     const forstPath =
       this._customCompilerPath ?? this.forstPath ?? await ensureForstBinary();
+    const args = buildForstGenerateArgs(cfg, root);
     const { exitCode, stderr, stdout } = await ForstUtils.executeForstCommand(
       forstPath,
-      ["generate", root],
+      args,
       { cwd: root }
     );
     if (exitCode !== 0) {

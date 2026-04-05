@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildForstDevSpawnArgs,
+  buildForstGenerateArgs,
   buildForstWatchRoots,
   effectiveProjectRootDir,
   effectiveWatchDirForConfig,
@@ -32,6 +33,24 @@ describe("buildForstDevSpawnArgs", () => {
     const cfg: ForstConfig = { forstDir: "./forst" };
     const { args } = buildForstDevSpawnArgs(cfg, 8080);
     expect(args).not.toContain("-config");
+  });
+});
+
+describe("buildForstGenerateArgs", () => {
+  it("includes -config when configPath is set", () => {
+    const cfg: ForstConfig = { configPath: "./cfg/ftconfig.json" };
+    const args = buildForstGenerateArgs(cfg, "/abs/root");
+    expect(args[0]).toBe("generate");
+    expect(args).toContain("-config");
+    const i = args.indexOf("-config");
+    expect(args[i + 1]).toMatch(/ftconfig\.json$/);
+    expect(args[args.length - 1]).toBe("/abs/root");
+  });
+
+  it("omits -config when configPath is absent", () => {
+    const cfg: ForstConfig = {};
+    const args = buildForstGenerateArgs(cfg, "/abs/root");
+    expect(args).toEqual(["generate", "/abs/root"]);
   });
 });
 

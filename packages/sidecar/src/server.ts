@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import chokidar from "chokidar";
 import { ForstConfig, ServerInfo } from "./types";
+import { ForstUtils } from "./utils";
 import {
   DevServerChildProcessNotResponding,
   DevServerChildShutdownTimeout,
@@ -63,6 +64,21 @@ export function buildForstDevSpawnArgs(
     args.push("-config", resolve(cfg.configPath));
   }
   return { args, cwd };
+}
+
+/**
+ * Arguments for `forst generate`, aligned with {@link buildForstDevSpawnArgs}: optional `-config`, then project root.
+ */
+export function buildForstGenerateArgs(
+  cfg: ForstConfig,
+  root: string
+): string[] {
+  const args: string[] = ["generate"];
+  if (cfg.configPath) {
+    args.push("-config", resolve(cfg.configPath));
+  }
+  args.push(root);
+  return args;
 }
 
 /**
@@ -420,13 +436,37 @@ export class ForstServer {
       clearTimeout(this.fileChangeTimeout);
     }
     this.fileChangeTimeout = setTimeout(() => {
-      this.restart().catch((error) => {
-        serverLogger.error(
-          "Failed to restart server after file change:",
-          error
-        );
-      });
+      this.restart()
+        .then(() => this.maybeGenerateAfterWatch())
+        .catch((error) => {
+          serverLogger.error(
+            "Failed to restart server after file change:",
+            error
+          );
+        });
     }, 1000);
+  }
+
+  /** When {@link ForstConfig.watchGenerate} is set, run `forst generate` after a debounced restart. */
+  private async maybeGenerateAfterWatch(): Promise<void> {
+    if (!this.config.watchGenerate) {
+      return;
+    }
+    const root = effectiveProjectRootDir(this.config);
+    const args = buildForstGenerateArgs(this.config, root);
+    serverLogger.debug(`watchGenerate: ${this.forstPath} ${args.join(" ")}`);
+    const { exitCode, stderr, stdout } = await ForstUtils.executeForstCommand(
+      this.forstPath,
+      args,
+      { cwd: root }
+    );
+    if (exitCode !== 0) {
+      serverLogger.warn(
+        `watchGenerate: forst generate failed (exit ${exitCode}): ${stderr || stdout}`
+      );
+    } else {
+      forstLogger.info("watchGenerate: forst generate completed");
+    }
   }
 
   private fileChangeTimeout: NodeJS.Timeout | null = null;

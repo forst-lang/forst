@@ -16,6 +16,7 @@ import {
 import {
   DevServerFunctionsRejected,
   DevServerHttpFailure,
+  DevServerInvokeRejected,
   DevServerRequestRetriesExhausted,
   DevServerTypesOutputMissing,
   DevServerTypesRejected,
@@ -127,6 +128,9 @@ export class ForstSidecarClient {
       },
       `📦 Response for ${packageName}.${functionName}`
     );
+    if (!response.success) {
+      throw new DevServerInvokeRejected(packageName, functionName, response);
+    }
     return response;
   }
 
@@ -161,7 +165,11 @@ export class ForstSidecarClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new DevServerHttpFailure(response.status, errorText);
+      throw new DevServerHttpFailure(
+        response.status,
+        errorText,
+        parseDevServerHttpErrorField(errorText)
+      );
     }
 
     if (!response.body) {
@@ -342,7 +350,11 @@ export class ForstSidecarClient {
         if (!response.ok) {
           const errorText = await response.text();
           logger.error(`❌ HTTP ${response.status}: ${errorText}`);
-          throw new DevServerHttpFailure(response.status, errorText);
+          throw new DevServerHttpFailure(
+            response.status,
+            errorText,
+            parseDevServerHttpErrorField(errorText)
+          );
         }
 
         const result = (await response.json()) as InvokeResponse<T>;
@@ -362,11 +374,14 @@ export class ForstSidecarClient {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
           logger.debug(`⏳ Retrying in ${delay}ms...`);
           await this.delay(delay);
+          continue;
         }
+        if (this.config.retries! > 0) {
+          throw new DevServerRequestRetriesExhausted(lastError);
+        }
+        throw lastError;
       }
     }
-
-    logger.error({ err: lastError }, "💥 All request attempts failed");
     throw new DevServerRequestRetriesExhausted(lastError);
   }
 
@@ -376,4 +391,17 @@ export class ForstSidecarClient {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+/** When `forst dev` returns JSON `{ success: false, error: "..." }` with a non-2xx status. */
+function parseDevServerHttpErrorField(errorText: string): string | undefined {
+  try {
+    const parsed = JSON.parse(errorText) as { error?: string };
+    if (typeof parsed.error === "string") {
+      return parsed.error;
+    }
+  } catch {
+    /* plain-text body */
+  }
+  return undefined;
 }

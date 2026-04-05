@@ -175,7 +175,8 @@ func TestFindForstFiles_nestedAndFlat(t *testing.T) {
 		}
 	}
 
-	files, err := findForstFiles(root)
+	cfg := DefaultConfig()
+	files, err := cfg.FindForstFiles(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,6 +196,67 @@ func TestGenerateCommand_invalidForstFile_returnsErrorAndNoGeneratedArtifacts(t 
 	}
 	if _, err := os.Stat(filepath.Join(dir, "generated", "types.d.ts")); err == nil {
 		t.Fatal("expected no types.d.ts when generation fails")
+	}
+}
+
+func TestGenerateCommand_respectsFtconfigExclude(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "ftconfig.json")
+	cfgJSON := `{
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": ["**/ignored.ft"]
+  }
+}`
+	if err := os.WriteFile(cfgPath, []byte(cfgJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	good := filepath.Join(dir, "good.ft")
+	if err := os.WriteFile(good, []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ignored := filepath.Join(dir, "ignored.ft")
+	if err := os.WriteFile(ignored, []byte(generateTestSecondForstFile), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	types, err := os.ReadFile(filepath.Join(dir, "generated", "types.d.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(types)
+	if !strings.Contains(s, "Echo") {
+		t.Fatalf("expected Echo from good.ft; got:\n%s", s)
+	}
+	if strings.Contains(s, "PingServer") {
+		t.Fatalf("ignored.ft should be excluded; got PingServer in types:\n%s", s)
+	}
+}
+
+func TestGenerateCommand_singleExcludedFile_returnsError(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "ftconfig.json")
+	cfgJSON := `{
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": ["**/blocked.ft"]
+  }
+}`
+	if err := os.WriteFile(cfgPath, []byte(cfgJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(dir, "blocked.ft")
+	if err := os.WriteFile(blocked, []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{blocked})
+	if err == nil {
+		t.Fatal("expected error when single file is excluded by ftconfig")
+	}
+	if !strings.Contains(err.Error(), "not included") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

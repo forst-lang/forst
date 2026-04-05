@@ -110,6 +110,11 @@ export interface ForstConfig {
    * Default `warn` (logs when they differ). Use `strict` to throw `ServerVersionMismatch`, or `off` to skip.
    */
   versionCheck?: VersionCheckMode;
+  /**
+   * After a debounced watcher-driven `forst dev` restart, run `forst generate` on the project root
+   * (same argv shape as {@link ForstSidecar.generateTypes}, including `-config` when set).
+   */
+  watchGenerate?: boolean;
   /** Reserved for future non-HTTP transports (IPC, etc.). Not implemented; HTTP only today. */
   transports?: {
     development?: TransportConfig;

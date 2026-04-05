@@ -1,3 +1,5 @@
+import type { InvokeResponse } from "./types";
+
 /** Base class for failures thrown by `@forst/sidecar`. */
 export class ForstError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -52,6 +54,24 @@ export class ServerVersionMismatch extends ForstError {
     this.name = "ServerVersionMismatch";
     this.localVersion = localVersion;
     this.remoteVersion = remoteVersion;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** `GET /version` `contractVersion` does not match what this `@forst/sidecar` build expects (`versionCheck: "strict"`). */
+export class ContractVersionMismatch extends ForstError {
+  readonly expectedContractVersion: string;
+  readonly serverContractVersion: string;
+
+  constructor(
+    message: string,
+    expectedContractVersion: string,
+    serverContractVersion: string
+  ) {
+    super(message);
+    this.name = "ContractVersionMismatch";
+    this.expectedContractVersion = expectedContractVersion;
+    this.serverContractVersion = serverContractVersion;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -114,12 +134,46 @@ export class InvalidFunctionNameFormat extends ForstError {
 export class DevServerHttpFailure extends ForstError {
   readonly status: number;
   readonly responseText: string;
+  /**
+   * When the response body is JSON from `forst dev` (`sendError`), the `error` field
+   * (same as {@link DevServerInvokeRejected}'s envelope).
+   */
+  readonly serverErrorFromBody: string | undefined;
 
-  constructor(status: number, responseText: string) {
+  constructor(
+    status: number,
+    responseText: string,
+    serverErrorFromBody?: string
+  ) {
     super(`HTTP ${status}: ${responseText}`);
     this.name = "DevServerHttpFailure";
     this.status = status;
     this.responseText = responseText;
+    this.serverErrorFromBody = serverErrorFromBody;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** Non-streaming `POST /invoke` returned HTTP 200 with `success: false` (executor or envelope failure). */
+export class DevServerInvokeRejected extends ForstError {
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly invokeResponse: InvokeResponse<unknown>;
+
+  constructor(
+    packageName: string,
+    functionName: string,
+    invokeResponse: InvokeResponse<unknown>
+  ) {
+    const detail =
+      invokeResponse.error ||
+      invokeResponse.output ||
+      "invoke reported success: false";
+    super(`${packageName}.${functionName}: ${detail}`);
+    this.name = "DevServerInvokeRejected";
+    this.packageName = packageName;
+    this.functionName = functionName;
+    this.invokeResponse = invokeResponse;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

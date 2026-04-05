@@ -181,9 +181,11 @@ Precedence: explicit fields on `ForstConfig` win over these variables (see `merg
 
 If `FORST_DEV_URL` is present but you need to **spawn** locally anyway, set `sidecarRuntime: "spawn"` in code so the sidecar does not attach to the remote URL.
 
-**Version check:** `versionCheck` on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**) compares the local `forst` binary (`forst version`) to `GET /version` on the dev server after `start()`. Use `strict` in CI if the binary and server must match. Older `forst dev` builds without `/version` log a warning unless `versionCheck` is `off`.
+**Version check:** `versionCheck` on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**) runs after `start()`: it checks that `GET /version`’s **`contractVersion`** matches what this `@forst/sidecar` release expects (HTTP API compatibility), then compares the local `forst` binary (`forst version`) to the server’s reported version using **semver** when both sides parse as semver (otherwise exact string match). In **`strict`**, mismatches throw `ContractVersionMismatch` or `ServerVersionMismatch`. Older `forst dev` builds without a usable `/version` log a warning unless `versionCheck` is `off`.
 
-**Codegen (`forst generate`):** call `forstSidecar.generateTypes()` to run `forst generate <projectRoot>` using the same **effective project root** as `forst dev -root` (`rootDir` / `forstDir`), writing `generated/` under that directory—no HTTP server required. Pair with **connect** mode in monorepos: one task runs `forst dev`, another runs `generateTypes` or `bun run` a script that calls it.
+**Codegen (`forst generate`):** call `forstSidecar.generateTypes()` to run `forst generate` with the same **effective project root** as `forst dev -root` (`rootDir` / `forstDir`). If you set **`configPath`**, the sidecar passes **`-config`** so file discovery matches `forst dev` (include/exclude in `ftconfig.json`). Writes `generated/` under that directory—no HTTP server required. Pair with **connect** mode in monorepos: one task runs `forst dev`, another runs `generateTypes` or a script that calls it.
+
+**Watch + generate:** set **`watchGenerate: true`** to run `forst generate` after each debounced hot-reload restart when `.ft` files change (spawn mode only; uses the same root and optional `-config` as `generateTypes`).
 
 ## API Reference
 
@@ -196,7 +198,7 @@ Main class for managing the sidecar integration.
 - `start()`: Start the development server (spawn `forst dev`) or attach in **connect** mode
 - `stop()`: Stop the spawned child or disconnect the client
 - `discoverFunctions()`: Discover available Forst functions
-- `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor)
+- `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor). If the dev server returns HTTP 200 with `success: false`, throws **`DevServerInvokeRejected`** (structured `invokeResponse` on the error). Non-2xx responses throw **`DevServerHttpFailure`**; when the body is JSON from `forst dev`, **`serverErrorFromBody`** holds the `error` field.
 - `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
 - `healthCheck()`: Check server health
 - `getVersion()`: Read `GET /version` (compiler + HTTP contract metadata)
@@ -210,7 +212,7 @@ HTTP client for communicating with the Forst server.
 #### Methods
 
 - `discoverFunctions()`: Get list of available functions
-- `invoke(package, function, args)`: Call a function (positional `args` array)
+- `invoke(package, function, args)`: Call a function (positional `args` array); throws **`DevServerInvokeRejected`** / **`DevServerHttpFailure`** on failure (same semantics as `ForstSidecar.invoke`)
 - `invokeStreaming(package, function, args, onResult)`: Stream results; same positional `args` as `invoke`
 - `healthCheck()`: Check server health
 - `getVersion()`: Read `GET /version`

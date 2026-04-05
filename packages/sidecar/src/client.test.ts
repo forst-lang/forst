@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, jest } from "bun:test";
 import { ForstSidecarClient } from "./client";
+import {
+  DevServerHttpFailure,
+  DevServerInvokeRejected,
+} from "./errors";
 import type { FunctionInfo } from "./types";
 
 function sampleFunctionInfo(): FunctionInfo {
@@ -78,6 +82,58 @@ describe("ForstSidecarClient", () => {
         }),
       })
     );
+  });
+
+  it("POST /invoke with success: false throws DevServerInvokeRejected", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({
+        success: false,
+        error: "type mismatch",
+      }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    try {
+      await client.invokeFunction("demo", "Echo", []);
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerInvokeRejected);
+      const err = e as DevServerInvokeRejected;
+      expect(err.invokeResponse.error).toBe("type mismatch");
+    }
+  });
+
+  it("non-OK response with JSON body exposes serverErrorFromBody on DevServerHttpFailure", async () => {
+    const body = JSON.stringify({
+      success: false,
+      error: "Package main not found",
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => body,
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    try {
+      await client.invokeFunction("main", "Nope", []);
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerHttpFailure);
+      const err = e as DevServerHttpFailure;
+      expect(err.status).toBe(404);
+      expect(err.serverErrorFromBody).toBe("Package main not found");
+    }
   });
 
   it("GET /version returns ServerVersionInfo", async () => {

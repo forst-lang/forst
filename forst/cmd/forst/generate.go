@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	transformerts "forst/internal/transformer/ts"
 	"os"
@@ -12,13 +13,79 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// loadConfigForGenerate resolves ftconfig: explicit -config, else search upward from target, else defaults.
+func loadConfigForGenerate(explicitConfig string, target string, isDir bool) (*ForstConfig, error) {
+	if explicitConfig != "" {
+		abs, err := filepath.Abs(explicitConfig)
+		if err != nil {
+			return nil, err
+		}
+		return LoadConfig(abs)
+	}
+	startDir := target
+	if !isDir {
+		startDir = filepath.Dir(target)
+	}
+	abs, err := filepath.Abs(startDir)
+	if err != nil {
+		return nil, err
+	}
+	found, err := FindConfigFile(abs)
+	if err != nil {
+		return nil, err
+	}
+	if found != "" {
+		return LoadConfig(found)
+	}
+	return DefaultConfig(), nil
+}
+
+// discoverForstFilesForGenerate lists .ft files using the same include/exclude rules as `forst dev`.
+func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) (forstFiles []string, outputDir string, err error) {
+	if isDir {
+		absTarget, err := filepath.Abs(target)
+		if err != nil {
+			return nil, "", err
+		}
+		forstFiles, err = cfg.FindForstFiles(absTarget)
+		if err != nil {
+			return nil, "", err
+		}
+		return forstFiles, absTarget, nil
+	}
+	if filepath.Ext(target) != ".ft" {
+		return nil, "", fmt.Errorf("target file must have .ft extension")
+	}
+	absFile, err := filepath.Abs(target)
+	if err != nil {
+		return nil, "", err
+	}
+	dir := filepath.Dir(absFile)
+	candidates, err := cfg.FindForstFiles(dir)
+	if err != nil {
+		return nil, "", err
+	}
+	for _, f := range candidates {
+		if filepath.Clean(f) == filepath.Clean(absFile) {
+			return []string{absFile}, dir, nil
+		}
+	}
+	return nil, "", fmt.Errorf("file %s is not included by ftconfig discovery rules (include/exclude)", target)
+}
+
 // generateCommand handles the "forst generate" command
 func generateCommand(args []string) error {
-	if len(args) < 1 {
+	fs := flag.NewFlagSet("generate", flag.ExitOnError)
+	configPath := fs.String("config", "", "Path to ftconfig.json")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	tail := fs.Args()
+	if len(tail) < 1 {
 		return fmt.Errorf("generate command requires a target file or directory")
 	}
 
-	target := args[0]
+	target := tail[0]
 
 	// Create logger
 	log := logrus.New()
@@ -30,27 +97,18 @@ func generateCommand(args []string) error {
 		return fmt.Errorf("failed to stat target %s: %w", target, err)
 	}
 
-	var forstFiles []string
-	var outputDir string
+	cfg, err := loadConfigForGenerate(*configPath, target, fileInfo.IsDir())
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 
-	if fileInfo.IsDir() {
-		// Target is a directory, find all .ft files
-		forstFiles, err = findForstFiles(target)
-		if err != nil {
-			return fmt.Errorf("failed to find Forst files: %w", err)
-		}
-		outputDir = target
-	} else {
-		// Target is a single file
-		if filepath.Ext(target) != ".ft" {
-			return fmt.Errorf("target file must have .ft extension")
-		}
-		forstFiles = []string{target}
-		outputDir = filepath.Dir(target)
+	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, target, fileInfo.IsDir())
+	if err != nil {
+		return err
 	}
 
 	if len(forstFiles) == 0 {
-		log.Warn("No .ft files found in target directory")
+		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
 		return nil
 	}
 
@@ -120,25 +178,6 @@ func generateCommand(args []string) error {
 
 	log.Info("TypeScript declaration files and client implementations generation completed")
 	return nil
-}
-
-// findForstFiles finds all .ft files in the target directory
-func findForstFiles(targetDir string) ([]string, error) {
-	var files []string
-
-	err := filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() && filepath.Ext(path) == ".ft" {
-			files = append(files, path)
-		}
-
-		return nil
-	})
-
-	return files, err
 }
 
 // generateClientPackage creates the main client package structure
