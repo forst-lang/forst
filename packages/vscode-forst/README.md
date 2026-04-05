@@ -43,8 +43,13 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 | `forst.lsp.logLevel` | `info` | Passed to `-log-level`. |
 | `forst.lsp.autoStart` | `true` | Spawn `forst lsp` locally; set `false` if you start the server yourself. |
 
+## Status bar
+
+When the extension activates, the status bar shows the configured LSP port (right side, e.g. `Forst :8081`). The icon reflects LSP state: outline (idle/starting), checkmark (initialized), or error icon if the last operation failed. **Click** the item to open the **Forst** output channel (same as command **Forst: Focus output**).
+
 ## Command palette
 
+- **Forst: Focus output** — opens the **Forst** log channel (HTTP LSP client, spawn, health).
 - **Forst: Restart language server** — stops the spawned process (if any), clears diagnostics, and re-syncs open `.ft` files.
 
 ## CI

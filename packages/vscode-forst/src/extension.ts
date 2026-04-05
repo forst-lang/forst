@@ -7,6 +7,7 @@ import type { ForstLspChildState } from "./lsp/process";
 import { stopForstLspProcess } from "./lsp/process";
 import type { LspSessionState } from "./lsp/session";
 import { getOrCreateLspClient } from "./lsp/session";
+import { refreshForstStatusBar, registerForstStatusBar } from "./statusBar";
 
 /** Problems collection and log channel—module scope matches VS Code’s single extension instance lifecycle. */
 let diagnosticsCollection: vscode.DiagnosticCollection;
@@ -34,6 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   diagnosticsCollection = vscode.languages.createDiagnosticCollection("forst");
   output = vscode.window.createOutputChannel("Forst", { log: true });
   context.subscriptions.push(diagnosticsCollection, output);
+  registerForstStatusBar(context, output);
 
   output.info(
     'Forst extension activated. Open a .ft file (language mode “Forst”) or a folder that contains .ft files to run diagnostics.'
@@ -66,6 +68,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       output.warn(`Document sync / LSP: ${msg}`);
+      refreshForstStatusBar("error", msg);
       void vscode.window.showWarningMessage(`Forst: ${msg}`);
     }
   };
@@ -147,12 +150,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )
   );
 
-  context.subscriptions.push(
+    context.subscriptions.push(
     vscode.commands.registerCommand("forst.restartLanguageServer", async () => {
       restartToken++;
       session.initialized = false;
       session.client = undefined;
       diagnosticsCollection.clear();
+      refreshForstStatusBar("idle");
       stopForstLspProcess(session.child, output);
       output.info("Forst language server restarted (local state cleared).");
       const cfg = readForstConfig();
@@ -170,6 +174,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           applyPublishDiagnostics(diagnosticsCollection, pub, output);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
+          refreshForstStatusBar("error", msg);
           output.error(
             `After restart, failed to sync open document ${doc.uri.fsPath}: ${msg}`
           );
@@ -191,6 +196,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         applyPublishDiagnostics(diagnosticsCollection, pub, output);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        refreshForstStatusBar("error", msg);
         output.error(
           `Initial sync failed for ${doc.uri.fsPath}: ${msg}`
         );

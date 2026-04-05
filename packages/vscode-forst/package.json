@@ -95,6 +95,10 @@
       {
         "command": "forst.showReferences",
         "title": "Forst: Show references (from code lens)"
+      },
+      {
+        "command": "forst.showOutput",
+        "title": "Forst: Focus output"
       }
     ]
   },

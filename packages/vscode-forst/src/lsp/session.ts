@@ -5,6 +5,7 @@ import { lspBaseUrl } from "../config";
 import { ForstHttpLspClient } from "./client";
 import type { ForstLspChildState } from "./process";
 import { ensureForstLspProcess } from "./process";
+import { refreshForstStatusBar } from "../statusBar";
 
 /**
  * Holds the HTTP client, initialize flag, and child-process handle together so restart can reset
@@ -38,6 +39,7 @@ export async function getOrCreateLspClient(
     await session.client.initialize(root);
     session.initialized = true;
     log.info("LSP initialize completed");
+    refreshForstStatusBar("ready");
   }
   return session.client;
 }
