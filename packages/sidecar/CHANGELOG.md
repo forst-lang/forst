@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/forst-lang/forst/compare/sidecar-v0.1.2...sidecar-v0.1.3) (2026-04-05)
+
+
+### Features
+
+* **cli:** add @forst/cli package and wire sidecar to shared resolver ([#51](https://github.com/forst-lang/forst/issues/51)) ([e569101](https://github.com/forst-lang/forst/commit/e569101aaa34ef4a6be14c4541559a65e314a2f5))
+
 ## [0.1.2](https://github.com/forst-lang/forst/compare/sidecar-v0.1.1...sidecar-v0.1.2) (2026-04-05)
 
 
