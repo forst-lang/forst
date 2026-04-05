@@ -115,5 +115,6 @@
     "url": "https://github.com/forst-lang/forst.git",
     "directory": "packages/vscode-forst"
   },
+  "icon": "images/icon.png",
   "license": "MIT"
 }
