@@ -98,7 +98,7 @@ export class ForstHttpLspClient {
       processId: null,
       rootUri,
       capabilities: {},
-      clientInfo: { name: "vscode-forst", version: "0.1.0" },
+      clientInfo: { name: "forst", version: "0.1.0" },
     });
   }
 
