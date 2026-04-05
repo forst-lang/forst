@@ -16,7 +16,7 @@
     "language-configuration.json",
     "syntaxes/**",
     "snippets/**",
-    "images/icon.png",
+    "images/marketplace-icon.png",
     "README.md"
   ],
   "engines": {
@@ -120,6 +120,6 @@
     "url": "https://github.com/forst-lang/forst.git",
     "directory": "packages/vscode-forst"
   },
-  "icon": "images/icon.png",
+  "icon": "images/marketplace-icon.png",
   "license": "MIT"
 }
