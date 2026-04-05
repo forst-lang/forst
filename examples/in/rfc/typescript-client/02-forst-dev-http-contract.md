@@ -31,6 +31,15 @@ Errors from `sendError` set HTTP status (4xx/5xx) and `success: false`, `error: 
 - **Response:** `{ "success": true, "output": "Forst HTTP server is healthy" }`
 - **Errors:** `405` if not GET.
 
+### `GET /version`
+
+- **Response:** `success: true`, **`result`**: JSON object with:
+  - `version` — compiler release string (same as `forst version`)
+  - `commit` — embedded git commit (or `unknown`)
+  - `date` — embedded build date (or `unknown`)
+  - `contractVersion` — revision of this HTTP document surface (bump when routes or envelope semantics change incompatibly)
+- **Errors:** `405` if not GET; `500` if marshaling fails (unexpected).
+
 ### `GET /functions`
 
 - Refreshes discovery, then returns all discovered functions.

@@ -8,6 +8,11 @@ describe("mergeForstSidecarEnv", () => {
     process.env = { ...env };
   });
 
+  it("defaults versionCheck to warn", () => {
+    const m = mergeForstSidecarEnv({});
+    expect(m.versionCheck).toBe("warn");
+  });
+
   it("defaults to spawn when no env hints", () => {
     delete process.env.FORST_DEV_URL;
     delete process.env.FORST_SKIP_SPAWN;

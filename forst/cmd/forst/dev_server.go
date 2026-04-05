@@ -16,6 +16,9 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
+const devHTTPContractVersion = "1"
+
 // InvokeRequest represents a request to call a Forst function
 type InvokeRequest struct {
 	Package   string          `json:"package"`
@@ -136,6 +139,7 @@ func (s *DevServer) Start() error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/version", s.handleVersion)
 	mux.HandleFunc("/functions", s.handleFunctions)
 	mux.HandleFunc("/invoke", s.handleInvoke)
 	mux.HandleFunc("/types", s.handleTypes) // New endpoint for TypeScript types
@@ -160,6 +164,7 @@ func (s *DevServer) logStartupInfo() {
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
 	s.log.Info("  GET  /types      - Generate TypeScript types for discovered functions")
 	s.log.Info("  GET  /health     - Health check")
+	s.log.Info("  GET  /version    - Compiler and HTTP contract version")
 }
 
 // Stop stops the HTTP server
@@ -196,6 +201,30 @@ func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		Output:  "Forst HTTP server is healthy",
 	}
 
+	s.sendJSONResponse(w, response)
+}
+
+// handleVersion returns compiler build metadata and the dev HTTP contract version.
+func (s *DevServer) handleVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	payload := map[string]string{
+		"version":         Version,
+		"commit":          Commit,
+		"date":            Date,
+		"contractVersion": devHTTPContractVersion,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		s.sendError(w, fmt.Sprintf("failed to marshal version: %v", err), http.StatusInternalServerError)
+		return
+	}
+	response := DevServerResponse{
+		Success: true,
+		Result:  data,
+	}
 	s.sendJSONResponse(w, response)
 }
 

@@ -16,6 +16,46 @@ export class SidecarNotStarted extends ForstError {
   }
 }
 
+/** `forst generate` exited non-zero from {@link ForstSidecar.generateTypes}. */
+export class GenerateCommandFailed extends ForstError {
+  readonly stderr: string;
+
+  constructor(message: string, stderr = "") {
+    super(message);
+    this.name = "GenerateCommandFailed";
+    this.stderr = stderr;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** `GET /version` returned `success: false` or an unusable payload. */
+export class DevServerVersionRejected extends ForstError {
+  readonly serverError: string | undefined;
+
+  constructor(serverError: string | undefined) {
+    super(
+      serverError || "Failed to read dev server version from GET /version"
+    );
+    this.name = "DevServerVersionRejected";
+    this.serverError = serverError;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** Local `forst` binary version does not match the running dev server (`versionCheck: "strict"`). */
+export class ServerVersionMismatch extends ForstError {
+  readonly localVersion: string;
+  readonly remoteVersion: string;
+
+  constructor(message: string, localVersion: string, remoteVersion: string) {
+    super(message);
+    this.name = "ServerVersionMismatch";
+    this.localVersion = localVersion;
+    this.remoteVersion = remoteVersion;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 /** `sidecarRuntime` is `connect` but no `devServerUrl` / `FORST_DEV_URL` was provided. */
 export class ConnectModeMissingUrl extends ForstError {
   constructor(

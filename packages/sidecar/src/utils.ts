@@ -166,13 +166,38 @@ export class ForstUtils {
   }
 
   /**
-   * Spawn a Forst process with the given arguments
+   * Parses the first line of `forst version` stdout (`forst <version> <commit> <date>`).
+   */
+  static parseForstVersionStdout(stdout: string): string {
+    const line = stdout.trim().split("\n")[0] ?? "";
+    const m = /^forst\s+(\S+)/i.exec(line);
+    return m?.[1] ?? "";
+  }
+
+  /**
+   * Runs `forst version` on the given binary and returns the semver string, or "" on failure.
+   */
+  static async getLocalBinaryVersion(forstPath: string): Promise<string> {
+    const { stdout, exitCode } = await this.executeForstCommand(
+      forstPath,
+      ["version"],
+      {}
+    );
+    if (exitCode !== 0) {
+      return "";
+    }
+    return this.parseForstVersionStdout(stdout);
+  }
+
+  /**
+   * Spawn a Forst process using the resolved compiler binary path.
    */
   static spawnForstProcess(
+    forstPath: string,
     args: string[],
     options: SpawnOptions = {}
   ): ReturnType<typeof spawn> {
-    return spawn("forst", args, {
+    return spawn(forstPath, args, {
       stdio: ["pipe", "pipe", "pipe"],
       ...options,
     });
@@ -182,11 +207,12 @@ export class ForstUtils {
    * Execute a Forst command and return the result
    */
   static async executeForstCommand(
+    forstPath: string,
     args: string[],
     options: SpawnOptions = {}
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     return new Promise((resolve, reject) => {
-      const process = this.spawnForstProcess(args, options);
+      const process = this.spawnForstProcess(forstPath, args, options);
 
       let stdout = "";
       let stderr = "";

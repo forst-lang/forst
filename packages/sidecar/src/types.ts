@@ -66,6 +66,17 @@ export interface ForstClientConfig {
 /** How the sidecar attaches to `forst dev`: spawn a child process or connect to an existing server. */
 export type SidecarRuntime = "spawn" | "connect";
 
+/** How to react when the local `forst` binary version differs from `GET /version` on the dev server. */
+export type VersionCheckMode = "off" | "warn" | "strict";
+
+/** Payload from `GET /version` on `forst dev` (compiler build + HTTP contract revision). */
+export interface ServerVersionInfo {
+  version: string;
+  commit: string;
+  date: string;
+  contractVersion: string;
+}
+
 /** Configuration for `ForstSidecar` and `ForstServer`. */
 export interface ForstConfig {
   mode?: "development" | "production" | "testing";
@@ -94,6 +105,11 @@ export interface ForstConfig {
   /** Bind host for the dev server. */
   host?: string;
   logLevel?: "debug" | "info" | "warn" | "error";
+  /**
+   * Compare local `forst` binary version to the running dev server (`GET /version`) after connect.
+   * Default `warn` (logs when they differ). Use `strict` to throw `ServerVersionMismatch`, or `off` to skip.
+   */
+  versionCheck?: VersionCheckMode;
   /** Reserved for future non-HTTP transports (IPC, etc.). Not implemented; HTTP only today. */
   transports?: {
     development?: TransportConfig;

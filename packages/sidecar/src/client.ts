@@ -4,6 +4,7 @@ import {
   InvokeResponse,
   StreamingResult,
   FunctionInfo,
+  ServerVersionInfo,
 } from "./types";
 import { logger } from "./logger";
 import {
@@ -18,6 +19,7 @@ import {
   DevServerRequestRetriesExhausted,
   DevServerTypesOutputMissing,
   DevServerTypesRejected,
+  DevServerVersionRejected,
   InvalidFunctionNameFormat,
   DevServerStreamingInvokeNoResponseBody,
 } from "./errors";
@@ -228,6 +230,38 @@ export class ForstSidecarClient {
       throw new DevServerTypesOutputMissing();
     }
     return response.output;
+  }
+
+  /**
+   * Fetch compiler and HTTP contract metadata from `GET /version`.
+   */
+  async getVersion(): Promise<ServerVersionInfo> {
+    const response = await this.makeRequest<ServerVersionInfo>("/version", {
+      method: "GET",
+    });
+    if (!response.success) {
+      throw new DevServerVersionRejected(response.error);
+    }
+    const raw = response.result as unknown;
+    if (!raw || typeof raw !== "object") {
+      throw new DevServerVersionRejected("missing result payload");
+    }
+    const r = raw as Record<string, unknown>;
+    const version = String(r.version ?? "");
+    const commit = String(r.commit ?? "");
+    const date = String(r.date ?? "");
+    const contractVersion = String(r.contractVersion ?? "");
+    if (!version || !contractVersion) {
+      throw new DevServerVersionRejected(
+        "version or contractVersion missing in /version result"
+      );
+    }
+    return {
+      version,
+      commit,
+      date,
+      contractVersion,
+    };
   }
 
   /**

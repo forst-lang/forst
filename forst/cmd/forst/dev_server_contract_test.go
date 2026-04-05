@@ -29,6 +29,35 @@ func TestDevServer_healthGET_matchesContract(t *testing.T) {
 	}
 }
 
+func TestDevServer_versionGET_matchesContract(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	rr := httptest.NewRecorder()
+	s.handleVersion(rr, httptest.NewRequest(http.MethodGet, "/version", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: %d body: %s", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Content-Type: want application/json, got %q", ct)
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || len(resp.Result) == 0 {
+		t.Fatalf("response: %+v", resp)
+	}
+	var meta map[string]string
+	if err := json.Unmarshal(resp.Result, &meta); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"version", "commit", "date", "contractVersion"} {
+		if meta[k] == "" {
+			t.Fatalf("missing key %q in %v", k, meta)
+		}
+	}
+}
+
 func TestDevServer_methodNotAllowed_returnsJSONEnvelope(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -38,6 +67,7 @@ func TestDevServer_methodNotAllowed_returnsJSONEnvelope(t *testing.T) {
 		path    string
 	}{
 		{"health", (*DevServer).handleHealth, http.MethodPost, "/health"},
+		{"version", (*DevServer).handleVersion, http.MethodPost, "/version"},
 		{"functions", (*DevServer).handleFunctions, http.MethodPost, "/functions"},
 		{"invoke", (*DevServer).handleInvoke, http.MethodGet, "/invoke"},
 		{"types", (*DevServer).handleTypes, http.MethodPost, "/types"},

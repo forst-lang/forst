@@ -1,4 +1,4 @@
-import type { ForstConfig, SidecarRuntime } from "./types";
+import type { ForstConfig, SidecarRuntime, VersionCheckMode } from "./types";
 
 function parsePortEnv(): number | undefined {
   const v = process.env.FORST_PORT;
@@ -33,6 +33,9 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
   const host = partial.host ?? "localhost";
   const forstDir = partial.forstDir ?? process.env.FORST_DIR;
 
+  const versionCheck: VersionCheckMode =
+    partial.versionCheck ?? "warn";
+
   return {
     ...partial,
     mode: partial.mode ?? "development",
@@ -42,6 +45,7 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
     forstDir,
     devServerUrl: devServerUrl ?? undefined,
     sidecarRuntime,
+    versionCheck,
   };
 }
 

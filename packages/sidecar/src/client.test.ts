@@ -80,6 +80,35 @@ describe("ForstSidecarClient", () => {
     );
   });
 
+  it("GET /version returns ServerVersionInfo", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({
+        success: true,
+        result: {
+          version: "0.9.0",
+          commit: "abc",
+          date: "2024-01-01",
+          contractVersion: "1",
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    const v = await client.getVersion();
+    expect(v.version).toBe("0.9.0");
+    expect(v.contractVersion).toBe("1");
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:8080/version",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
+
   it("healthCheck uses GET /health", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

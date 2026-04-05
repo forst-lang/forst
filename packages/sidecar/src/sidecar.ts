@@ -1,11 +1,20 @@
 import { logger } from "./logger";
 
-import type { ForstConfig, FunctionInfo, InvokeResponse, ServerInfo, StreamingResult } from "./types";
+import type {
+  ForstConfig,
+  FunctionInfo,
+  InvokeResponse,
+  ServerInfo,
+  ServerVersionInfo,
+  StreamingResult,
+} from "./types";
 import type { Request, RequestHandler } from "express";
 import {
   CompilerNotFound,
   ConnectModeMissingUrl,
   DevServerChildProcessNotResponding,
+  GenerateCommandFailed,
+  ServerVersionMismatch,
   SidecarNotStarted,
 } from "./errors";
 import {
@@ -15,7 +24,7 @@ import {
 } from "./config-merge";
 import { ForstUtils } from "./utils";
 import { ForstSidecarClient } from "./client";
-import { ForstServer } from "./server";
+import { ForstServer, effectiveProjectRootDir } from "./server";
 
 async function ensureForstBinary(): Promise<string> {
   return await ForstUtils.ensureCompiler();
@@ -83,6 +92,7 @@ export class ForstSidecar {
         );
       }
       logger.info(`✅ Forst sidecar connected to existing dev server (${baseUrl})`);
+      await this.maybeCheckVersion();
       return;
     }
 
@@ -118,7 +128,90 @@ export class ForstSidecar {
       retries: 1,
     });
 
+    await this.maybeCheckVersion();
     logger.info("✅ Forst sidecar started successfully");
+  }
+
+  /**
+   * Compare local `forst version` to `GET /version` when {@link ForstConfig.versionCheck} is not `off`.
+   */
+  private async maybeCheckVersion(): Promise<void> {
+    const mode = this.config.versionCheck ?? "warn";
+    if (mode === "off" || !this.client) {
+      return;
+    }
+    let forstPath: string;
+    try {
+      forstPath =
+        this._customCompilerPath ?? this.forstPath ?? await ensureForstBinary();
+    } catch {
+      logger.warn(
+        "Could not resolve local forst binary; skipping version check"
+      );
+      return;
+    }
+    const local = await ForstUtils.getLocalBinaryVersion(forstPath);
+    if (!local) {
+      logger.warn(
+        "Could not read local forst version (`forst version`); skipping version check"
+      );
+      return;
+    }
+    let remote: ServerVersionInfo;
+    try {
+      remote = await this.client.getVersion();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (mode === "strict") {
+        throw e;
+      }
+      logger.warn(
+        `Could not fetch dev server GET /version (older forst dev, or network): ${msg}`
+      );
+      return;
+    }
+    if (local !== remote.version) {
+      const detail = `Local forst binary version is ${local}, dev server reports ${remote.version}`;
+      if (mode === "strict") {
+        throw new ServerVersionMismatch(detail, local, remote.version);
+      }
+      logger.warn(detail);
+    } else {
+      logger.debug(`Forst version check OK: ${local}`);
+    }
+  }
+
+  /**
+   * Run `forst generate` on {@link ForstConfig.rootDir} / {@link ForstConfig.forstDir} (same tree as `forst dev -root`),
+   * writing `generated/` TypeScript under that directory. Does not require the HTTP dev server.
+   */
+  async generateTypes(): Promise<void> {
+    const cfg = mergeForstSidecarEnv(this.config);
+    const root = effectiveProjectRootDir(cfg);
+    const forstPath =
+      this._customCompilerPath ?? this.forstPath ?? await ensureForstBinary();
+    const { exitCode, stderr, stdout } = await ForstUtils.executeForstCommand(
+      forstPath,
+      ["generate", root],
+      { cwd: root }
+    );
+    if (exitCode !== 0) {
+      throw new GenerateCommandFailed(
+        `forst generate exited with code ${exitCode}`,
+        stderr || stdout
+      );
+    }
+    logger.info(`forst generate completed for ${root}`);
+  }
+
+  /**
+   * Read compiler and contract metadata from the running dev server (`GET /version`).
+   */
+  async getVersion(): Promise<ServerVersionInfo> {
+    if (!this.client) {
+      throw new SidecarNotStarted();
+    }
+    return this.client.getVersion();
   }
 
   /**

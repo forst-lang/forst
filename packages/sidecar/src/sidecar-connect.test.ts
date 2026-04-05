@@ -20,6 +20,7 @@ describe("ForstSidecar connect mode", () => {
     const sidecar = new ForstSidecar({
       sidecarRuntime: "connect",
       devServerUrl: "http://127.0.0.1:65520",
+      versionCheck: "off",
     });
     await sidecar.start();
     expect(await sidecar.healthCheck()).toBe(true);

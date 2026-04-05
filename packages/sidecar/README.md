@@ -181,6 +181,10 @@ Precedence: explicit fields on `ForstConfig` win over these variables (see `merg
 
 If `FORST_DEV_URL` is present but you need to **spawn** locally anyway, set `sidecarRuntime: "spawn"` in code so the sidecar does not attach to the remote URL.
 
+**Version check:** `versionCheck` on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**) compares the local `forst` binary (`forst version`) to `GET /version` on the dev server after `start()`. Use `strict` in CI if the binary and server must match. Older `forst dev` builds without `/version` log a warning unless `versionCheck` is `off`.
+
+**Codegen (`forst generate`):** call `forstSidecar.generateTypes()` to run `forst generate <projectRoot>` using the same **effective project root** as `forst dev -root` (`rootDir` / `forstDir`), writing `generated/` under that directory—no HTTP server required. Pair with **connect** mode in monorepos: one task runs `forst dev`, another runs `generateTypes` or `bun run` a script that calls it.
+
 ## API Reference
 
 ### ForstSidecar
@@ -195,6 +199,8 @@ Main class for managing the sidecar integration.
 - `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor)
 - `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
 - `healthCheck()`: Check server health
+- `getVersion()`: Read `GET /version` (compiler + HTTP contract metadata)
+- `generateTypes()`: Run `forst generate` on the configured project root (writes `generated/` TS)
 - `isRunning()`: Check if server is running
 
 ### ForstClient
@@ -207,6 +213,7 @@ HTTP client for communicating with the Forst server.
 - `invoke(package, function, args)`: Call a function (positional `args` array)
 - `invokeStreaming(package, function, args, onResult)`: Stream results; same positional `args` as `invoke`
 - `healthCheck()`: Check server health
+- `getVersion()`: Read `GET /version`
 
 ### ForstServer
 
