@@ -1,7 +1,7 @@
 {
   "name": "@forst/cli",
   "version": "0.0.19",
-  "description": "Forst compiler CLI for Node.js (downloads the native binary for your platform)",
+  "description": "Forst compiler CLI: install the native `forst` binary. Linux, macOS, Windows.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,14 +15,29 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "bun test"
   },
-  "keywords": ["forst", "compiler", "cli", "go"],
+  "keywords": [
+    "forst",
+    "compiler",
+    "cli",
+    "golang",
+    "go",
+    "typescript",
+    "transpiler",
+    "native-binary",
+    "npm",
+    "nodejs"
+  ],
   "author": "haveyaseen",
   "license": "MIT",
   "engines": {
