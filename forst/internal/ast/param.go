@@ -29,7 +29,7 @@ func (p SimpleParamNode) Kind() NodeKind {
 }
 
 func (p SimpleParamNode) String() string {
-	return fmt.Sprintf("%s: %s", p.Ident.ID, p.Type.String())
+	return fmt.Sprintf("%s %s", p.Ident.ID, p.Type.String())
 }
 
 // GetIdent returns the identifier for the simple parameter
@@ -38,7 +38,7 @@ func (p SimpleParamNode) GetIdent() string {
 }
 
 func (p DestructuredParamNode) String() string {
-	return fmt.Sprintf("{%v}: %s", p.Fields, p.Type.String())
+	return fmt.Sprintf("{%v} %s", p.Fields, p.Type.String())
 }
 
 // Kind returns the node kind for a destructured parameter

@@ -157,6 +157,80 @@ func TestHandleCodeAction_InvalidParams_ReturnsInvalidParams(t *testing.T) {
 	}
 }
 
+func TestHandleCodeAction_FormatDocument(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
+	src := "package main  \nfunc main() {\n}\n"
+	s.setOpenDocument(uri, src)
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"range": map[string]interface{}{
+			"start": map[string]interface{}{"line": 0, "character": 0},
+			"end":   map[string]interface{}{"line": 10, "character": 0},
+		},
+		"context": map[string]interface{}{
+			"only": []string{"source.formatDocument"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleCodeAction(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      31,
+		Params:  json.RawMessage(params),
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	actions, ok := resp.Result.([]interface{})
+	if !ok || len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %T %#v", resp.Result, resp.Result)
+	}
+	act, ok := actions[0].(LSPCodeAction)
+	if !ok || act.Kind != "source.formatDocument" || act.Edit == nil {
+		t.Fatalf("action = %#v ok=%v", actions[0], ok)
+	}
+	if len(act.Edit.Changes[uri]) != 1 {
+		t.Fatalf("changes: %#v", act.Edit.Changes)
+	}
+}
+
+func TestHandleCodeAction_OnlyQuickFix_ReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
+	s.setOpenDocument(uri, "package main\n")
+	params, err := json.Marshal(map[string]interface{}{
+		"textDocument": map[string]string{"uri": uri},
+		"range": map[string]interface{}{
+			"start": map[string]interface{}{"line": 0, "character": 0},
+			"end":   map[string]interface{}{"line": 0, "character": 10},
+		},
+		"context": map[string]interface{}{
+			"only": []string{"quickfix"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := s.handleCodeAction(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      32,
+		Params:  json.RawMessage(params),
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	actions, ok := resp.Result.([]interface{})
+	if !ok || len(actions) != 0 {
+		t.Fatalf("expected no actions, got %v", resp.Result)
+	}
+}
+
 func TestHandleCodeLens_ReturnsEmptySlice(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())

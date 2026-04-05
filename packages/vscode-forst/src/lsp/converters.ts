@@ -254,6 +254,26 @@ export interface CodeActionLike {
   title: string;
   kind?: string;
   command?: { title: string; command: string; arguments?: unknown[] };
+  edit?: { changes?: Record<string, LspTextEdit[]> };
+}
+
+/** Converts an LSP workspace edit (`changes` map) to VS Code’s `WorkspaceEdit`. */
+export function workspaceEditFromLsp(raw: unknown): vscode.WorkspaceEdit | undefined {
+  if (raw == null || typeof raw !== "object") {
+    return undefined;
+  }
+  const o = raw as { changes?: Record<string, LspTextEdit[]> };
+  if (o.changes == null || typeof o.changes !== "object") {
+    return undefined;
+  }
+  const ws = new vscode.WorkspaceEdit();
+  for (const [uriStr, edits] of Object.entries(o.changes)) {
+    const uri = vscode.Uri.parse(uriStr);
+    for (const te of edits) {
+      ws.replace(uri, rangeToVs(te.range), te.newText);
+    }
+  }
+  return ws;
 }
 
 /** Produces a `CodeAction` suitable for the lightbulb menu, including kind and embedded commands. */
@@ -267,7 +287,11 @@ export function codeActionToVs(raw: unknown): vscode.CodeAction | undefined {
   }
   const a = new vscode.CodeAction(o.title);
   if (typeof o.kind === "string") {
-    a.kind = vscode.CodeActionKind.Empty.append(o.kind);
+    if (o.kind === "source.formatDocument") {
+      a.kind = vscode.CodeActionKind.Source.append("formatDocument");
+    } else {
+      a.kind = vscode.CodeActionKind.Empty.append(o.kind);
+    }
   }
   if (o.command != null && typeof o.command.title === "string") {
     a.command = {
@@ -275,6 +299,12 @@ export function codeActionToVs(raw: unknown): vscode.CodeAction | undefined {
       command: o.command.command,
       arguments: o.command.arguments,
     };
+  }
+  if (o.edit?.changes != null) {
+    const ws = workspaceEditFromLsp(o.edit);
+    if (ws !== undefined) {
+      a.edit = ws;
+    }
   }
   return a;
 }

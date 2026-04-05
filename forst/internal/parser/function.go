@@ -60,7 +60,9 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 	}
 
 	p.expect(ast.TokenRBrace)
-	p.expect(ast.TokenColon)
+	if p.current().Type == ast.TokenColon {
+		p.advance()
+	}
 
 	paramType := p.parseParameterType()
 
@@ -72,7 +74,10 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 
 func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	name := p.expect(ast.TokenIdentifier).Value
-	// Remove colon requirement - use Go-style parameter declarations
+	// Go-style parameter declarations (name Type). Optional ':' before the type is accepted for legacy sources.
+	if p.current().Type == ast.TokenColon {
+		p.advance()
+	}
 
 	tok := p.current()
 	if tok.Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen) {

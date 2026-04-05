@@ -16,6 +16,7 @@
     "language-configuration.json",
     "syntaxes/**",
     "snippets/**",
+    "images/icon.png",
     "README.md"
   ],
   "engines": {

@@ -255,6 +255,34 @@ export class ForstHttpLspClient {
     return result as LspTextEdit[];
   }
 
+  async prepareRename(params: {
+    uri: string;
+    line: number;
+    character: number;
+  }): Promise<{ range: LspRange; placeholder: string } | null> {
+    const result = await this.post("textDocument/prepareRename", {
+      textDocument: { uri: params.uri },
+      position: { line: params.line, character: params.character },
+    });
+    if (result == null) {
+      return null;
+    }
+    return result as { range: LspRange; placeholder: string };
+  }
+
+  async rename(params: {
+    uri: string;
+    line: number;
+    character: number;
+    newName: string;
+  }): Promise<unknown> {
+    return await this.post("textDocument/rename", {
+      textDocument: { uri: params.uri },
+      position: { line: params.line, character: params.character },
+      newName: params.newName,
+    });
+  }
+
   async codeAction(params: {
     uri: string;
     range: LspRange;

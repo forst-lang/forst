@@ -10,6 +10,34 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestFormatSource_functionParams_goStyleNoColonBeforeType(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func add(a Int, b Int): Int {
+	return a + b
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "params.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if strings.Contains(out, "a: Int") || strings.Contains(out, "b: Int") {
+		t.Fatalf("expected Go-style params (name Type), got:\n%s", out)
+	}
+	if !strings.Contains(out, "a Int") || !strings.Contains(out, "b Int") {
+		t.Fatalf("expected Go-style params, got:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "params.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "params.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
 func TestFormatSource_basicFt_roundTripsParse(t *testing.T) {
 	t.Parallel()
 	const src = `package main

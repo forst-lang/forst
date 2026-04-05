@@ -22,7 +22,7 @@ type ParameterSignature struct {
 
 // String returns a string representation of the parameter signature
 func (p ParameterSignature) String() string {
-	return fmt.Sprintf("%s: %s", p.Ident.ID, p.Type.String())
+	return fmt.Sprintf("%s %s", p.Ident.ID, p.Type.String())
 }
 
 // GetIdent returns the parameter identifier as a string
@@ -65,7 +65,7 @@ func (tc *TypeChecker) FormatTypeNodeDisplay(t ast.TypeNode) string {
 func (tc *TypeChecker) FormatFunctionSignatureDisplay(sig FunctionSignature) string {
 	paramStrings := make([]string, len(sig.Parameters))
 	for i, param := range sig.Parameters {
-		paramStrings[i] = fmt.Sprintf("%s: %s", param.Ident.ID, tc.FormatTypeNodeDisplay(param.Type))
+		paramStrings[i] = fmt.Sprintf("%s %s", param.Ident.ID, tc.FormatTypeNodeDisplay(param.Type))
 	}
 	retParts := make([]string, len(sig.ReturnTypes))
 	for i, ret := range sig.ReturnTypes {

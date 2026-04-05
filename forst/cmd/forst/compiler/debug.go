@@ -94,7 +94,7 @@ func (c *Compiler) debugPrintTypeInfo(tc *typechecker.TypeChecker) {
 	for id, sig := range tc.Functions {
 		params := make([]string, len(sig.Parameters))
 		for i, param := range sig.Parameters {
-			params[i] = fmt.Sprintf("%s: %s", param.GetIdent(), param.Type)
+			params[i] = fmt.Sprintf("%s %s", param.GetIdent(), param.Type)
 		}
 
 		returnTypes := make([]string, len(sig.ReturnTypes))

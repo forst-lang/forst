@@ -260,12 +260,15 @@ func (s *LSPServer) handleLSPMethod(request LSPRequest) LSPServerResponse {
 		return s.handleDefinition(request)
 	case "textDocument/references":
 		return s.handleReferences(request)
+	case "textDocument/prepareRename":
+		return s.handlePrepareRename(request)
+	case "textDocument/rename":
+		return s.handleRename(request)
 	case "textDocument/documentSymbol":
 		return s.handleDocumentSymbol(request)
 	case "workspace/symbol":
 		return s.handleWorkspaceSymbol(request)
 	case "textDocument/formatting":
-		// Handlers exist for tests/ad-hoc clients; initialize does not advertise these until non–no-op.
 		return s.handleFormatting(request)
 	case "textDocument/codeAction":
 		return s.handleCodeAction(request)

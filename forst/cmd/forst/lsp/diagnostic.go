@@ -40,6 +40,24 @@ type LSPTextEdit struct {
 	NewText string   `json:"newText"`
 }
 
+// LSPWorkspaceEdit is a minimal workspace edit using legacy `changes` (URI → text edits).
+type LSPWorkspaceEdit struct {
+	Changes map[string][]LSPTextEdit `json:"changes,omitempty"`
+}
+
+// LSPPrepareRenameResult is returned by textDocument/prepareRename.
+type LSPPrepareRenameResult struct {
+	Range       LSPRange `json:"range"`
+	Placeholder string   `json:"placeholder"`
+}
+
+// LSPCodeAction is a single code action (e.g. source.formatDocument with embedded edit).
+type LSPCodeAction struct {
+	Title string            `json:"title"`
+	Kind  string            `json:"kind,omitempty"`
+	Edit  *LSPWorkspaceEdit `json:"edit,omitempty"`
+}
+
 // LSPPosition represents a position in a text document.
 type LSPPosition struct {
 	// Line is the zero-based line value.

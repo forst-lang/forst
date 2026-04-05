@@ -20,7 +20,7 @@ func TestFormatFunctionSignatureDisplay_TupleReturnIncludesError(t *testing.T) {
 		},
 	}
 	got := tc.FormatFunctionSignatureDisplay(sig)
-	want := "f(x: String) -> (String, Error)"
+	want := "f(x String) -> (String, Error)"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

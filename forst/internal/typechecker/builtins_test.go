@@ -139,12 +139,11 @@ func TestStructLiteralTypeMismatch(t *testing.T) {
 package main
 
 type Foo = {a: String}
-type Bar = {a: String}
 
-func takesFoo(x: Foo) {}
+func takesFoo(x Foo) {}
 
 func test() {
-	takesFoo(Bar{a: "hi"})
+	takesFoo({a: 1})
 }
 `
 	defer func() {

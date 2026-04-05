@@ -10,8 +10,10 @@ import {
   documentSymbolsToVs,
   foldingRangeToVs,
   locationToVs,
+  rangeToVs,
   symbolInformationToVs,
   textEditsToVs,
+  workspaceEditFromLsp,
 } from "./converters";
 
 /** Scopes registered providers to on-disk `.ft` buffers so other schemes do not hit the HTTP client. */
@@ -264,8 +266,38 @@ export function registerForstLanguageFeatures(
   );
 
   context.subscriptions.push(
+    vscode.languages.registerRenameProvider(FORST_SELECTOR, {
+      prepareRename: async (doc, pos, _token) =>
+        withDoc(doc, null, "prepareRename", async (c) => {
+          const r = await c.prepareRename({
+            uri: doc.uri.toString(),
+            line: pos.line,
+            character: pos.character,
+          });
+          if (r == null) {
+            return null;
+          }
+          return {
+            range: rangeToVs(r.range),
+            placeholder: r.placeholder,
+          };
+        }),
+provideRenameEdits: async (doc, pos, newName, _token) =>
+      withDoc(doc, null, "rename", async (c) => {
+          const raw = await c.rename({
+            uri: doc.uri.toString(),
+            line: pos.line,
+            character: pos.character,
+            newName,
+          });
+          return workspaceEditFromLsp(raw) ?? null;
+        }),
+    })
+  );
+
+  context.subscriptions.push(
     vscode.languages.registerCodeActionsProvider(FORST_SELECTOR, {
-      provideCodeActions: async (doc, range, _ctx) =>
+      provideCodeActions: async (doc, range, ctx) =>
         withDoc(doc, [] as vscode.CodeAction[], "codeAction", async (c) => {
           const raw = await c.codeAction({
             uri: doc.uri.toString(),
@@ -276,7 +308,20 @@ export function registerForstLanguageFeatures(
               },
               end: { line: range.end.line, character: range.end.character },
             },
-            diagnostics: [],
+            diagnostics: ctx.diagnostics.map((d) => ({
+              range: {
+                start: {
+                  line: d.range.start.line,
+                  character: d.range.start.character,
+                },
+                end: {
+                  line: d.range.end.line,
+                  character: d.range.end.character,
+                },
+              },
+              message: d.message,
+              severity: d.severity,
+            })),
           });
           const out: vscode.CodeAction[] = [];
           for (const item of raw) {

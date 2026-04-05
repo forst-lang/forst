@@ -38,8 +38,31 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["documentFormattingProvider"] != true {
 		t.Fatalf("documentFormattingProvider = %v", caps["documentFormattingProvider"])
 	}
-	if _, ok := caps["codeActionProvider"]; ok {
-		t.Fatal("codeActionProvider should be omitted until code actions exist")
+	cap, ok := caps["codeActionProvider"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected codeActionProvider map")
+	}
+	var kindStrs []string
+	switch k := cap["codeActionKinds"].(type) {
+	case []string:
+		kindStrs = k
+	case []interface{}:
+		for _, e := range k {
+			s, ok := e.(string)
+			if !ok {
+				t.Fatalf("codeActionKinds element %T", e)
+			}
+			kindStrs = append(kindStrs, s)
+		}
+	default:
+		t.Fatalf("codeActionKinds = %#v", cap["codeActionKinds"])
+	}
+	if len(kindStrs) == 0 {
+		t.Fatal("empty codeActionKinds")
+	}
+	rp, ok := caps["renameProvider"].(map[string]interface{})
+	if !ok || rp["prepareProvider"] != true {
+		t.Fatalf("renameProvider = %#v", caps["renameProvider"])
 	}
 	clp, ok := caps["codeLensProvider"].(map[string]interface{})
 	if !ok {
