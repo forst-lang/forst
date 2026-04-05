@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 )
 
 // handleReferences implements textDocument/references for same-file identifier occurrences
@@ -53,11 +54,41 @@ func (s *LSPServer) findReferencesForPosition(uri string, position LSPPosition, 
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
-	defTok := definingTokenForNavigableSymbol(ctx.TC, ctx.Tokens, tok)
+	if defTok := definingTokenForNavigableSymbol(ctx.TC, ctx.Tokens, tok); defTok != nil {
+		return collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+	}
+	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
+	if tokIdx < 0 {
+		return nil
+	}
+	sym, ok := lookupSymbolAtToken(ctx.TC, ctx.Nodes, ctx.Tokens, tokIdx, ast.Identifier(tok.Value))
+	if !ok {
+		return nil
+	}
+	defTok := definingTokenForLocalBinding(ctx, tokIdx, tok)
 	if defTok == nil {
 		return nil
 	}
-	return collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+	return collectIdentifierReferencesSameBinding(uri, ctx.Tokens, tok.Value, defTok, includeDecl, sym, ctx.TC, ctx.Nodes)
+}
+
+func collectIdentifierReferencesSameBinding(uri string, tokens []ast.Token, name string, defTok *ast.Token, includeDecl bool, refSym typechecker.Symbol, tc *typechecker.TypeChecker, nodes []ast.Node) []LSPLocation {
+	var out []LSPLocation
+	for i := range tokens {
+		t := &tokens[i]
+		if t.Type != ast.TokenIdentifier || t.Value != name {
+			continue
+		}
+		sym2, ok2 := lookupSymbolAtToken(tc, nodes, tokens, i, ast.Identifier(name))
+		if !ok2 || !sameBinding(sym2, refSym) {
+			continue
+		}
+		if !includeDecl && tokenSamePosition(t, defTok) {
+			continue
+		}
+		out = append(out, lspLocationFromToken(uri, t))
+	}
+	return out
 }
 
 func collectIdentifierReferences(uri string, tokens []ast.Token, name string, defTok *ast.Token, includeDecl bool) []LSPLocation {

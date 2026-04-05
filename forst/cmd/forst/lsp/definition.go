@@ -68,11 +68,17 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
-	defTok := definingTokenForNavigableSymbol(ctx.TC, tokens, tok)
-	if defTok == nil {
+	if defTok := definingTokenForNavigableSymbol(ctx.TC, tokens, tok); defTok != nil {
+		return lspLocationPtrFromToken(uri, defTok)
+	}
+	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
+	if tokIdx < 0 {
 		return nil
 	}
-	return lspLocationPtrFromToken(uri, defTok)
+	if defTok := definingTokenForLocalBinding(ctx, tokIdx, tok); defTok != nil {
+		return lspLocationPtrFromToken(uri, defTok)
+	}
+	return nil
 }
 
 // definingTokenForNavigableSymbol returns the defining identifier token for a top-level function,

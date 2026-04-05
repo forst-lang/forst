@@ -273,6 +273,24 @@ func functionBodyBraces(tokens []ast.Token, fn ast.FunctionNode) (lBrace, rBrace
 	return lb, rb
 }
 
+// paramListParenRange returns the indices of `(` and `)` around a function's parameter list
+// (same region as findParamIdentTokenForFunction). ok is false if the signature cannot be found.
+func paramListParenRange(tokens []ast.Token, fn ast.FunctionNode) (open, close int, ok bool) {
+	idx := findFuncKeywordIndex(tokens, string(fn.Ident.ID))
+	if idx < 0 {
+		return -1, -1, false
+	}
+	j := idx + 2
+	if j >= len(tokens) || tokens[j].Type != ast.TokenLParen {
+		return -1, -1, false
+	}
+	closeParen := skipBalancedParens(tokens, j)
+	if closeParen < 0 {
+		return -1, -1, false
+	}
+	return j, closeParen, true
+}
+
 func findFirstToken(tokens []ast.Token, from, limit int, typ ast.TokenIdent) int {
 	if limit > len(tokens) {
 		limit = len(tokens)
@@ -285,27 +303,60 @@ func findFirstToken(tokens []ast.Token, from, limit int, typ ast.TokenIdent) int
 	return -1
 }
 
+// scanToOpeningThenBrace finds the `{` that opens an if/else-if then-branch: optional init
+// (semicolon at paren depth 0), then condition, then `{`. Matches Forst `if cond {` (no parens)
+// as well as `if (cond) {` and `if init; cond {`.
+func scanToOpeningThenBrace(tokens []ast.Token, j int) (l, r int) {
+	paren := 0
+	for j < len(tokens) {
+		if tokens[j].Type == ast.TokenLBrace && paren == 0 {
+			l = j
+			r = matchingRBrace(tokens, l)
+			return l, r
+		}
+		if tokens[j].Type == ast.TokenSemicolon && paren == 0 {
+			j++
+			break
+		}
+		switch tokens[j].Type {
+		case ast.TokenLParen:
+			paren++
+		case ast.TokenRParen:
+			if paren > 0 {
+				paren--
+			}
+		}
+		j++
+	}
+	paren = 0
+	for j < len(tokens) {
+		if tokens[j].Type == ast.TokenLBrace && paren == 0 {
+			l = j
+			r = matchingRBrace(tokens, l)
+			return l, r
+		}
+		switch tokens[j].Type {
+		case ast.TokenLParen:
+			paren++
+		case ast.TokenRParen:
+			if paren > 0 {
+				paren--
+			}
+		}
+		j++
+	}
+	return -1, -1
+}
+
 func ifThenBraces(tokens []ast.Token, ifKeywordIdx int) (l, r int) {
 	if ifKeywordIdx < 0 || ifKeywordIdx >= len(tokens) || tokens[ifKeywordIdx].Type != ast.TokenIf {
 		return -1, -1
 	}
-	if ifKeywordIdx+1 >= len(tokens) || tokens[ifKeywordIdx+1].Type != ast.TokenLParen {
-		return -1, -1
-	}
-	closeParen := skipBalancedParens(tokens, ifKeywordIdx+1)
-	if closeParen < 0 {
-		return -1, -1
-	}
-	j := closeParen + 1
+	j := ifKeywordIdx + 1
 	for j < len(tokens) && tokens[j].Type == ast.TokenComment {
 		j++
 	}
-	if j >= len(tokens) || tokens[j].Type != ast.TokenLBrace {
-		return -1, -1
-	}
-	l = j
-	r = matchingRBrace(tokens, l)
-	return l, r
+	return scanToOpeningThenBrace(tokens, j)
 }
 
 func elseIfThenBraces(tokens []ast.Token, elseIfIdx int) (l, r int) {
@@ -313,23 +364,27 @@ func elseIfThenBraces(tokens []ast.Token, elseIfIdx int) (l, r int) {
 		return -1, -1
 	}
 	j := elseIfIdx + 1
-	if j >= len(tokens) || tokens[j].Type != ast.TokenLParen {
-		return -1, -1
-	}
-	closeParen := skipBalancedParens(tokens, j)
-	if closeParen < 0 {
-		return -1, -1
-	}
-	j = closeParen + 1
 	for j < len(tokens) && tokens[j].Type == ast.TokenComment {
 		j++
 	}
-	if j >= len(tokens) || tokens[j].Type != ast.TokenLBrace {
-		return -1, -1
+	paren := 0
+	for j < len(tokens) {
+		if tokens[j].Type == ast.TokenLBrace && paren == 0 {
+			l = j
+			r = matchingRBrace(tokens, l)
+			return l, r
+		}
+		switch tokens[j].Type {
+		case ast.TokenLParen:
+			paren++
+		case ast.TokenRParen:
+			if paren > 0 {
+				paren--
+			}
+		}
+		j++
 	}
-	l = j
-	r = matchingRBrace(tokens, l)
-	return l, r
+	return -1, -1
 }
 
 func elseBlockBraces(tokens []ast.Token, elseIdx int) (l, r int) {
@@ -429,6 +484,15 @@ func deepestScopeInBlock(body []ast.Node, tokens []ast.Token, tokIdx, bodyL, bod
 			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
+		case *ast.IfNode:
+			idx := findNthBlockLevelKeyword(tokens, bodyL, bodyR, ast.TokenIf, ifIdx)
+			ifIdx++
+			if idx < 0 {
+				continue
+			}
+			if n := matchIfChainFrom(*st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+				return n
+			}
 		case ast.EnsureNode:
 			idx := findNthBlockLevelKeyword(tokens, bodyL, bodyR, ast.TokenEnsure, ensureIdx)
 			ensureIdx++
@@ -516,6 +580,15 @@ func deepestScopeInFunction(fn ast.FunctionNode, tokens []ast.Token, tokIdx int,
 			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
+		case *ast.IfNode:
+			idx := findNthBlockLevelKeyword(tokens, bodyL, bodyR, ast.TokenIf, ifIdx)
+			ifIdx++
+			if idx < 0 {
+				continue
+			}
+			if n := matchIfChainFrom(*st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+				return n
+			}
 		case ast.EnsureNode:
 			idx := findNthBlockLevelKeyword(tokens, bodyL, bodyR, ast.TokenEnsure, ensureIdx)
 			ensureIdx++
@@ -539,13 +612,25 @@ func findInnermostScopeNode(nodes []ast.Node, tokens []ast.Token, tokIdx int, tc
 		switch v := n.(type) {
 		case ast.FunctionNode:
 			lb, rb := functionBodyBraces(tokens, v)
-			if lb < 0 || tokIdx <= lb || tokIdx >= rb {
+			if lb < 0 {
+				continue
+			}
+			if pOpen, pClose, ok := paramListParenRange(tokens, v); ok && tokIdx > pOpen && tokIdx < pClose {
+				return v
+			}
+			if tokIdx <= lb || tokIdx >= rb {
 				continue
 			}
 			return deepestScopeInFunction(v, tokens, tokIdx, lb, rb, tc)
 		case *ast.FunctionNode:
 			lb, rb := functionBodyBraces(tokens, *v)
-			if lb < 0 || tokIdx <= lb || tokIdx >= rb {
+			if lb < 0 {
+				continue
+			}
+			if pOpen, pClose, ok := paramListParenRange(tokens, *v); ok && tokIdx > pOpen && tokIdx < pClose {
+				return v
+			}
+			if tokIdx <= lb || tokIdx >= rb {
 				continue
 			}
 			return deepestScopeInFunction(*v, tokens, tokIdx, lb, rb, tc)
