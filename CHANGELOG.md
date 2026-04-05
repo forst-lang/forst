@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12](https://github.com/forst-lang/forst/compare/v0.0.11...v0.0.12) (2026-04-05)
+
+
+### Features
+
+* **examples:** add merged-package imports test and imports example ([0f3e2dd](https://github.com/forst-lang/forst/commit/0f3e2ddcfbc50197deab8355496bd8dc89cece0d))
+* **lsp:** add package-merge analysis and cross-file features ([36b9064](https://github.com/forst-lang/forst/commit/36b9064e4d31e1c48623a8a185b61087263a93f8))
+
+
+### Bug Fixes
+
+* **lsp:** robust URIs and cache invalidation ([c0b3b65](https://github.com/forst-lang/forst/commit/c0b3b65c697797745f8c88d61587eb8e235d4207))
+
 ## [0.0.11](https://github.com/forst-lang/forst/compare/v0.0.10...v0.0.11) (2026-04-05)
 
 
