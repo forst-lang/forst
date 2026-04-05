@@ -7,20 +7,16 @@
 #
 # Secrets:
 # - NPM_TOKEN: required for npm (automation access token with publish to @forst/sidecar).
-# - JSR: link this repo to https://jsr.io/@forst/sidecar for OIDC (id-token below), or set JSR_TOKEN.
+# - JSR: link this repo to https://jsr.io/@forst/sidecar for OIDC publishing (id-token on the JSR job).
 
 name: Publish @forst/sidecar
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
   publish-npm:
-    name: Publish to npm
+    name: Publish to NPM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +34,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           node-version: "20"
 
-      - name: npm publish
+      - name: Publish package to NPM
         working-directory: packages/sidecar
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -47,15 +43,16 @@ jobs:
   publish-jsr:
     name: Publish to JSR
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install
 
-      - name: jsr publish
+      - name: Publish package to JSR
         working-directory: packages/sidecar
         run: npx jsr publish
-        env:
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
