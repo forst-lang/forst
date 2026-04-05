@@ -9,7 +9,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "build:clean": "bun run clean && bun run build",
-    "test": "jest",
+    "test": "bun test",
     "lint": "eslint src/**/*.ts",
     "example": "tsx examples/basic.ts"
   },
@@ -33,9 +33,6 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
     "typescript": "^6.0.2",
-    "jest": "^30.3.0",
-    "@types/jest": "^30.0.0",
-    "ts-jest": "^29.4.9",
     "tsx": "^4.21.0"
   },
   "peerDependencies": {

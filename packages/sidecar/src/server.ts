@@ -153,15 +153,33 @@ export class ForstServer {
   }
 
   /**
+   * Project root passed to `forst dev -root` and used as the child process cwd.
+   * Uses `rootDir` if set, else `forstDir`, else `./forst` so discovery matches the `.ft` tree by default.
+   */
+  private effectiveProjectRoot(): string {
+    return resolve(this.config.rootDir ?? this.config.forstDir ?? "./forst");
+  }
+
+  /**
+   * Directory watched for `.ft` changes. Prefer `forstDir`, then `rootDir`, then {@link effectiveProjectRoot}.
+   */
+  private effectiveWatchDir(): string {
+    return resolve(
+      this.config.forstDir ?? this.config.rootDir ?? this.effectiveProjectRoot()
+    );
+  }
+
+  /**
    * Start the server process
    */
   private async startServerProcess(): Promise<void> {
+    const root = this.effectiveProjectRoot();
     const args = [
       "dev",
       "-port",
       (this.config.port || 8080).toString(),
       "-root",
-      this.config.rootDir || ".",
+      root,
       "-log-level",
       this.config.logLevel || "info",
     ];
@@ -172,7 +190,7 @@ export class ForstServer {
 
     this.process = spawn(this.forstPath, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: this.config.rootDir || process.cwd(),
+      cwd: root,
     });
 
     // Handle process events
@@ -304,7 +322,7 @@ export class ForstServer {
    * Set up file watching for hot reloading
    */
   private async setupFileWatching(): Promise<void> {
-    const forstDir = resolve(this.config.forstDir || "./forst");
+    const forstDir = this.effectiveWatchDir();
 
     if (!existsSync(forstDir)) {
       return;

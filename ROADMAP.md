@@ -72,18 +72,21 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 
 ## TypeScript interoperability
 
-**Story:** `forst generate` yields **types + a stub**; **calling** Forst still means wiring Node/TS to the **Go process** that runs transpiled code. A **small, documented invocation contract** (fewer ad-hoc wires) is an open thread in the rows below. **Whole routes or TS-facing modules** implemented in Forst—not only type mirrors—are a **larger** concern than types + stub + wiring alone.
-
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer. |
+| Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer; contract outline: [03-layer-a-forst-generate-contract.md](./examples/in/rfc/typescript-client/03-layer-a-forst-generate-contract.md). |
 | Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
 | Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
+| `forst dev` HTTP API + JSON contract | ⏳ in progress | Endpoints `/health`, `/functions`, `/invoke`, `/types`; spec: [02-layer-b-http-contract.md](./examples/in/rfc/typescript-client/02-layer-b-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
 | NPM package (installable compiler / CLI) | 📋 planned | Distribution for JS/TS ecosystems. |
-| Run compiler or sidecar from Node.js | 🔬 experimental | Experimental paths; installation and packaging still evolving. |
-| Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | Watch and HTTP-assisted workflows exist; workflow still evolving. |
-| **Invocation:** stable contract from Node/TS to **running** Forst (compiled Go) | 🔬 experimental | No single blessed pattern; integration is still mostly ad hoc. |
-| **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices in Forst—not only `.d.ts` for hand-written TS handlers—not implemented. |
+| Run compiler or sidecar from Node.js | 🔬 experimental | Monorepo path works; published NPM **planned** (row above). |
+| Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | `@forst/sidecar` + `forst dev`; watch roots documented in sidecar README. |
+| **Invocation:** stable contract from Node/TS to **running** Forst (`forst dev`) | ⏳ in progress | HTTP spec and sidecar linked in row above; broader patterns in [01-integration-profiles.md](./examples/in/rfc/typescript-client/01-integration-profiles.md). |
+| **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices—not only `.d.ts` for hand-written TS handlers—not implemented. |
+| OpenAPI / JSON Schema from shapes; pluggable transport (IPC, stdio); WASM / native bridges | 📋 planned | Optional tooling; not core language semantics. |
+| CI: `example:sidecar-downloaded` | 🔬 experimental | May fail until a **release** ships a `forst` binary with a compatible **`dev`** subcommand; **local** `example:sidecar-local` is the CI bar today ([Taskfile.yml](./Taskfile.yml)). |
+
+**See also:** [examples/in/rfc/typescript-client/README.md](./examples/in/rfc/typescript-client/README.md) (RFC index), [examples/in/rfc/sidecar/00-sidecar.md](./examples/in/rfc/sidecar/00-sidecar.md), [examples/in/rfc/sidecar/tests](./examples/in/rfc/sidecar/tests), [examples/client-integration/README.md](./examples/client-integration/README.md).
 
 ---
 
