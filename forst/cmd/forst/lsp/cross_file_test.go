@@ -208,6 +208,87 @@ func bar(): Int {
 	}
 }
 
+func TestProcessForstFile_crossFileGoImportSharedAcrossBuffers(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module crossfileimport\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fmtOnlyPath := filepath.Join(dir, "fmt_only.ft")
+	greetingPath := filepath.Join(dir, "greeting.ft")
+	mainPath := filepath.Join(dir, "main.ft")
+	const srcFmtOnly = `package main
+
+import "fmt"
+`
+	const srcGreeting = `package main
+
+func greeting(): String {
+  return "Hello"
+}
+`
+	const srcMain = `package main
+
+func main() {
+  fmt.Println(greeting())
+}
+`
+	if err := os.WriteFile(fmtOnlyPath, []byte(srcFmtOnly), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(greetingPath, []byte(srcGreeting), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mainPath, []byte(srcMain), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriFmtOnly := mustFileURI(t, fmtOnlyPath)
+	uriGreeting := mustFileURI(t, greetingPath)
+	uriMain := mustFileURI(t, mainPath)
+	s.documentMu.Lock()
+	s.openDocuments[uriFmtOnly] = srcFmtOnly
+	s.openDocuments[uriGreeting] = srcGreeting
+	s.openDocuments[uriMain] = srcMain
+	s.documentMu.Unlock()
+
+	d := s.processForstFile(uriMain, srcMain)
+	for _, x := range d {
+		msg := strings.ToLower(x.Message)
+		if strings.Contains(msg, "undefined") {
+			t.Fatalf("unexpected undefined diagnostic: %#v", x)
+		}
+		if strings.Contains(msg, "type checking error") {
+			t.Fatalf("unexpected typecheck diagnostic: %#v", x)
+		}
+		if strings.Contains(msg, "transformation error") {
+			t.Fatalf("unexpected transform diagnostic: %#v", x)
+		}
+	}
+
+	posPrintln := lspPositionOfIdentifier(srcMain, "Println")
+	h := s.findHoverForPosition(uriMain, posPrintln)
+	if h == nil {
+		t.Fatal("expected hover for fmt.Println in file without local import")
+	}
+	if h.Contents.Value == "" {
+		t.Fatal("expected non-empty hover body")
+	}
+	if !strings.Contains(h.Contents.Value, "Println") {
+		t.Fatalf("expected Println in hover, got %q", h.Contents.Value)
+	}
+
+	posGreeting := lspPositionOfIdentifier(srcMain, "greeting")
+	def := s.findDefinitionForPosition(uriMain, posGreeting)
+	if def == nil {
+		t.Fatal("expected definition location for greeting from greeting.ft")
+	}
+	if def.URI != uriGreeting {
+		t.Fatalf("definition URI for greeting: got %q want %q", def.URI, uriGreeting)
+	}
+}
+
 func TestGetCompletions_mergedPackageNoCrossBufferDuplicate(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()

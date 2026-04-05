@@ -6,6 +6,8 @@
 
 - **`in/*.ft`** at the root of `in/` (e.g. `basic.ft`, `ensure.ft`) are the small, primary examples referenced by the Taskfile and [testing rules](../.cursor/rules/testing.mdc).
 
+- **`in/imports/`** — multi-file “imports” demo (LSP merged package + `task example:imports` via `cli.ft`); see `in/imports/README.md`.
+
 ## `in/rfc/`
 
 Design notes (Markdown), sample `.ft` files, and sometimes TypeScript or config files are grouped **by topic** (sidecar, guards, typescript-client, effects, etc.). That folder is **not only** minimal “hello world” examples: it is **RFC-style documentation + runnable snippets** kept together. No separate layout is required as long as this convention is understood.
