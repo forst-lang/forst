@@ -28,20 +28,20 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 	// If this assertion has a base type, start with that
 	mergedFields := make(map[string]ast.ShapeFieldNode)
 	if assertion.BaseType != nil {
-		// Look up the base type definition
 		baseTypeDef, exists := tc.Defs[*assertion.BaseType]
-		if !exists {
-			return nil, fmt.Errorf("base type %s not found", *assertion.BaseType)
-		}
-
-		// Extract fields from the base type
-		if shapeExpr, ok := baseTypeDef.(ast.TypeDefNode); ok {
-			if shapeDef, ok := shapeExpr.Expr.(ast.TypeDefShapeExpr); ok {
-				for name, field := range shapeDef.Shape.Fields {
-					mergedFields[name] = field
+		if exists {
+			// Extract fields from the base type
+			if shapeExpr, ok := baseTypeDef.(ast.TypeDefNode); ok {
+				if shapeDef, ok := shapeExpr.Expr.(ast.TypeDefShapeExpr); ok {
+					for name, field := range shapeDef.Shape.Fields {
+						mergedFields[name] = field
+					}
 				}
 			}
+		} else if len(assertion.Constraints) > 0 || !tc.isBuiltinType(*assertion.BaseType) {
+			return nil, fmt.Errorf("base type %s not found", *assertion.BaseType)
 		}
+		// Built-in base (String, Int, …) with no Defs: mergedFields stays empty until constraints run.
 	}
 
 	// Special handling for Value constraints

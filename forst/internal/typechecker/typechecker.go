@@ -28,6 +28,8 @@ type TypeChecker struct {
 	InferredTypes map[NodeHash][]ast.TypeNode
 	// Map of inferred variable types
 	VariableTypes map[ast.Identifier][]ast.TypeNode
+	// Per-occurrence inferred types when the parser set Ident.Span (hover / narrowing).
+	variableOccurrenceTypes map[variableOccurrenceKey][]ast.TypeNode
 	// Map of inferred function return types
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
@@ -62,8 +64,9 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		path:                make(NodePath, 0),
 		scopeStack:          NewScopeStack(h, log),
 		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
-		VariableTypes:       make(map[ast.Identifier][]ast.TypeNode),
-		FunctionReturnTypes: make(map[ast.Identifier][]ast.TypeNode),
+		VariableTypes:           make(map[ast.Identifier][]ast.TypeNode),
+		variableOccurrenceTypes: make(map[variableOccurrenceKey][]ast.TypeNode),
+		FunctionReturnTypes:     make(map[ast.Identifier][]ast.TypeNode),
 		log:                 log,
 		reportPhases:        reportPhases,
 	}
@@ -133,6 +136,10 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 		}
 	}
 
+	if vn, ok := node.(ast.VariableNode); ok && vn.Ident.Span.IsSet() {
+		k := variableOccurrenceKey{ident: vn.Ident.ID, span: vn.Ident.Span}
+		tc.variableOccurrenceTypes[k] = processedTypes
+	}
 	hash, err := tc.Hasher.HashNode(node)
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{

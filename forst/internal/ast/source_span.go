@@ -16,6 +16,26 @@ func (s SourceSpan) IsSet() bool {
 	return s.StartLine >= 1 && s.StartCol >= 1
 }
 
+// ContainsPosition reports whether a 1-based (line, col) position falls inside this half-open span.
+func (s SourceSpan) ContainsPosition(line, col int) bool {
+	if !s.IsSet() {
+		return false
+	}
+	if line < s.StartLine || line > s.EndLine {
+		return false
+	}
+	if s.StartLine == s.EndLine {
+		return col >= s.StartCol && col < s.EndCol
+	}
+	if line == s.StartLine {
+		return col >= s.StartCol
+	}
+	if line == s.EndLine {
+		return col < s.EndCol
+	}
+	return true
+}
+
 // SpanFromToken is a span covering a single token's text.
 func SpanFromToken(t Token) SourceSpan {
 	w := utf8.RuneCountInString(t.Value)
