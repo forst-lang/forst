@@ -109,3 +109,39 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 	}
 	_ = ctx
 }
+
+func TestHandleWorkspaceSymbol_filtersQuery(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "ws.ft")
+	const src = `package main
+
+func fooBar(): Int { return 0 }
+func other(): Int { return 1 }
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := "file://" + ftPath
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	resp := s.handleWorkspaceSymbol(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "workspace/symbol",
+		Params:  mustJSONParams(t, map[string]interface{}{"query": "bar"}),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	syms, ok := resp.Result.([]LspSymbolInformation)
+	if !ok {
+		t.Fatalf("result type %T", resp.Result)
+	}
+	if len(syms) != 1 || syms[0].Name != "fooBar" {
+		t.Fatalf("got %#v", syms)
+	}
+}
