@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.18](https://github.com/forst-lang/forst/compare/v0.0.17...v0.0.18) (2026-04-05)
+
+
+### Features
+
+* **lsp:** rename, format code actions, Go-style params, VSIX icon ([6343445](https://github.com/forst-lang/forst/commit/63434455a92f926a108b08b076dd0630bf637a47))
+
 ## [0.0.17](https://github.com/forst-lang/forst/compare/v0.0.16...v0.0.17) (2026-04-05)
 
 
