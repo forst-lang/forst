@@ -41,8 +41,12 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if _, ok := caps["codeActionProvider"]; ok {
 		t.Fatal("codeActionProvider should be omitted until code actions exist")
 	}
-	if _, ok := caps["codeLensProvider"]; ok {
-		t.Fatal("codeLensProvider should be omitted until code lenses exist")
+	clp, ok := caps["codeLensProvider"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected codeLensProvider map")
+	}
+	if clp["resolveProvider"] != false {
+		t.Fatalf("codeLens resolveProvider = %v", clp["resolveProvider"])
 	}
 	if caps["foldingRangeProvider"] != true {
 		t.Fatalf("foldingRangeProvider = %v", caps["foldingRangeProvider"])

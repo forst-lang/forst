@@ -90,6 +90,10 @@
       {
         "command": "forst.restartLanguageServer",
         "title": "Forst: Restart language server"
+      },
+      {
+        "command": "forst.showReferences",
+        "title": "Forst: Show references (from code lens)"
       }
     ]
   },

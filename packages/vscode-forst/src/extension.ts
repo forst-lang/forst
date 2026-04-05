@@ -126,6 +126,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "forst.showReferences",
+      async (uriStr: string, line: number, char: number) => {
+        const uri = vscode.Uri.parse(uriStr);
+        const pos = new vscode.Position(line, char);
+        const refs = await vscode.commands.executeCommand<
+          vscode.Location[] | undefined
+        >("vscode.executeReferenceProvider", uri, pos);
+        if (refs == null || refs.length === 0) {
+          return;
+        }
+        await vscode.commands.executeCommand(
+          "editor.action.showReferences",
+          uri,
+          pos,
+          refs
+        );
+      }
+    )
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("forst.restartLanguageServer", async () => {
       restartToken++;
       session.initialized = false;

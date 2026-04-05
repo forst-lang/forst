@@ -50,6 +50,11 @@ func (s *LSPServer) findReferencesForPosition(uri string, position LSPPosition, 
 	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
 		return nil
 	}
+	return s.findReferencesFromContext(ctx, uri, position, includeDecl)
+}
+
+// findReferencesFromContext runs the same logic as findReferencesForPosition without re-analyzing the document.
+func (s *LSPServer) findReferencesFromContext(ctx *forstDocumentContext, uri string, position LSPPosition, includeDecl bool) []LSPLocation {
 	tok := tokenAtLSPPosition(ctx.Tokens, position)
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
