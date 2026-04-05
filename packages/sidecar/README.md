@@ -33,7 +33,9 @@ bun install
 bun run build
 ```
 
-Publishing a new version (maintainers): bump `version` in `package.json`, run `bun run sync-jsr-version` so `jsr.json` matches, then use the GitHub Actions workflow [publish-sidecar.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-sidecar.yml) or run `npm publish` and `npx jsr publish` from `packages/sidecar` with appropriate credentials. `npx jsr publish --dry-run` validates the JSR package; committed trees are required unless you pass `--allow-dirty`.
+**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-sidecar.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-sidecar.yml) publishes to npm and JSR automatically (`NPM_TOKEN` and JSR OIDC or `JSR_TOKEN` required).
+
+**Manual publish:** use workflow **Publish @forst/sidecar** (workflow_dispatch) or run `npm publish` / `npx jsr publish` from `packages/sidecar`. `npx jsr publish --dry-run` validates the JSR package; committed trees are required unless you pass `--allow-dirty`.
 
 ### Basic Usage
 
