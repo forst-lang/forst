@@ -15,7 +15,7 @@ async function ensureForstBinary(): Promise<string> {
  * Main Forst sidecar class that provides the complete integration
  */
 export class ForstSidecar {
-  private server!: ForstServer;
+  private server?: ForstServer;
   private client: ForstSidecarClient | null = null;
   private forstPath: string | null = null;
   private config: ForstConfig;
@@ -49,18 +49,21 @@ export class ForstSidecar {
   async start(): Promise<void> {
     logger.info("🚀 Starting Forst sidecar...");
 
-    // Use custom path if set (awkward way)
     if (this._customCompilerPath) {
       this.forstPath = this._customCompilerPath;
+      if (!this.forstPath) {
+        throw new CompilerNotFound("Custom compiler path was empty.");
+      }
       logger.info(`🔧 Using custom compiler path: ${this.forstPath}`);
     } else {
-      // Ensure Forst binary is available (normal way)
-      this.forstPath = await ensureForstBinary();
-    }
-
-    // Check if Forst compiler is available
-    if (!this.forstPath) {
-      throw new CompilerNotFound();
+      try {
+        this.forstPath = await ensureForstBinary();
+      } catch (e) {
+        throw new CompilerNotFound(
+          "Failed to download or resolve the Forst compiler.",
+          { cause: e }
+        );
+      }
     }
 
     // Initialize server with the resolved forst path
@@ -83,6 +86,10 @@ export class ForstSidecar {
    * Stop the sidecar development server
    */
   async stop(): Promise<void> {
+    if (!this.server) {
+      logger.debug("ForstSidecar.stop(): server was never started; skipping.");
+      return;
+    }
     logger.info("🛑 Stopping Forst sidecar...");
     await this.server.stop();
     this.client = null;
@@ -100,16 +107,22 @@ export class ForstSidecar {
   }
 
   /**
-   * Get server information
+   * Get server information. Requires {@link start} to have completed successfully.
    */
   getServerInfo(): ServerInfo {
+    if (!this.server) {
+      throw new SidecarNotStarted();
+    }
     return this.server.getServerInfo();
   }
 
   /**
-   * Check if the sidecar is running
+   * Whether the underlying dev server process is running. Returns false if {@link start} has not run.
    */
   isRunning(): boolean {
+    if (!this.server) {
+      return false;
+    }
     return this.server.isRunning();
   }
 
@@ -124,7 +137,8 @@ export class ForstSidecar {
   }
 
   /**
-   * Invoke a Forst function
+   * Invoke a Forst function with **positional** arguments. The dev server passes `args` as JSON
+   * to the executor (same shape as `POST /invoke`: typically a JSON array matching Forst parameter order).
    */
   async invoke(
     packageName: string,
@@ -138,12 +152,13 @@ export class ForstSidecar {
   }
 
   /**
-   * Invoke a Forst function with streaming
+   * Invoke a Forst function with streaming. Uses the same **`args`** shape as {@link invoke}
+   * (positional JSON array for the executor); the HTTP layer still sends it as the `args` field on `POST /invoke`.
    */
   async invokeStreaming(
     packageName: string,
     functionName: string,
-    args: unknown = {},
+    args: unknown[] = [],
     onResult?: (result: StreamingResult) => void
   ): Promise<void> {
     if (!this.client) {

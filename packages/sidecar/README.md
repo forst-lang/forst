@@ -148,8 +148,8 @@ Main class for managing the sidecar integration.
 - `start()`: Start the development server
 - `stop()`: Stop the development server
 - `discoverFunctions()`: Discover available Forst functions
-- `invoke(package, function, args)`: Call a Forst function
-- `invokeStreaming(package, function, args, onResult)`: Call a function with streaming
+- `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor)
+- `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
 - `healthCheck()`: Check server health
 - `isRunning()`: Check if server is running
 
@@ -160,8 +160,8 @@ HTTP client for communicating with the Forst server.
 #### Methods
 
 - `discoverFunctions()`: Get list of available functions
-- `invoke(package, function, args)`: Call a function
-- `invokeStreaming(package, function, args, onResult)`: Stream function results
+- `invoke(package, function, args)`: Call a function (positional `args` array)
+- `invokeStreaming(package, function, args, onResult)`: Stream results; same positional `args` as `invoke`
 - `healthCheck()`: Check server health
 
 ### ForstServer
