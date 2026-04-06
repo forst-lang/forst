@@ -17,6 +17,7 @@
     "syntaxes/**",
     "snippets/**",
     "images/marketplace-icon.png",
+    "icons/*.svg",
     "README.md"
   ],
   "engines": {
@@ -39,7 +40,11 @@
         "extensions": [
           ".ft"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/forst-light.svg",
+          "dark": "./icons/forst-dark.svg"
+        }
       }
     ],
     "grammars": [
