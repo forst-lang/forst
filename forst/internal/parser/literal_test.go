@@ -48,6 +48,34 @@ func TestParseLiteral_primitives_and_nil(t *testing.T) {
 		}
 	})
 
+	t.Run("negative_int_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenMinus, Value: "-"},
+			{Type: ast.TokenIntLiteral, Value: "7"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		n := lit.(ast.IntLiteralNode)
+		if n.Value != -7 {
+			t.Fatalf("got %d", n.Value)
+		}
+	})
+
+	t.Run("negative_float_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenMinus, Value: "-"},
+			{Type: ast.TokenFloatLiteral, Value: "2.5"},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		f := lit.(ast.FloatLiteralNode)
+		if f.Value != -2.5 {
+			t.Fatalf("got %v", f.Value)
+		}
+	})
+
 	t.Run("float_via_int_dot_fraction", func(t *testing.T) {
 		toks := []ast.Token{
 			{Type: ast.TokenIntLiteral, Value: "3"},

@@ -1,5 +1,11 @@
 package main
 
+import "errors"
+
+func invalidMove(msg String): Error {
+	return errors.New(msg)
+}
+
 func emptyBoard(): []String {
 	return ["", "", "", "", "", "", "", "", ""]
 }
@@ -31,58 +37,26 @@ func lineWinner(cells []String, a Int, b Int, c Int): String {
 }
 
 func winnerOrEmpty(cells []String): String {
-	w := lineWinner(cells, 0, 1, 2)
-	if w != "" {
-		return w
+	lineA := [0, 3, 6, 0, 1, 2, 0, 2]
+	lineB := [1, 4, 7, 3, 4, 5, 4, 4]
+	lineC := [2, 5, 8, 6, 7, 8, 8, 6]
+	for i := 0; i < 8; i++ {
+		w := lineWinner(cells, lineA[i], lineB[i], lineC[i])
+		// ensure returns from the whole function on failure; here we need to continue the loop when w is empty.
+		if w != "" {
+			return w
+		}
 	}
-	w = lineWinner(cells, 3, 4, 5)
-	if w != "" {
-		return w
-	}
-	w = lineWinner(cells, 6, 7, 8)
-	if w != "" {
-		return w
-	}
-	w = lineWinner(cells, 0, 3, 6)
-	if w != "" {
-		return w
-	}
-	w = lineWinner(cells, 1, 4, 7)
-	if w != "" {
-		return w
-	}
-	w = lineWinner(cells, 2, 5, 8)
-	if w != "" {
-		return w
-	}
-	w = lineWinner(cells, 0, 4, 8)
-	if w != "" {
-		return w
-	}
-	return lineWinner(cells, 2, 4, 6)
+	return ""
 }
 
 func boardFull(cells []String): Bool {
-	if cells[0] != "" {
-		if cells[1] != "" {
-			if cells[2] != "" {
-				if cells[3] != "" {
-					if cells[4] != "" {
-						if cells[5] != "" {
-							if cells[6] != "" {
-								if cells[7] != "" {
-									if cells[8] != "" {
-										return true
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+	for i := 0; i < 9; i++ {
+		if cells[i] == "" {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func opponent(p String): String {
@@ -98,57 +72,16 @@ func cloneCells(cells []String): []String {
 	return out
 }
 
-func ApplyMove(req MoveRequest): MoveResponse {
-	idx := cellIndex(req.row, req.col)
-	if idx < 0 {
-		return {
-			ok: false,
-			message: "internal: bad cell index",
-			state: req.state,
-		}
-	}
-	if idx > 8 {
-		return {
-			ok: false,
-			message: "internal: bad cell index",
-			state: req.state,
-		}
-	}
-	if req.row < 0 {
-		return {
-			ok: false,
-			message: "row must be >= 0",
-			state: req.state,
-		}
-	}
-	if req.row > 2 {
-		return {
-			ok: false,
-			message: "row must be <= 2",
-			state: req.state,
-		}
-	}
-	if req.col < 0 {
-		return {
-			ok: false,
-			message: "col must be >= 0",
-			state: req.state,
-		}
-	}
-	if req.col > 2 {
-		return {
-			ok: false,
-			message: "col must be <= 2",
-			state: req.state,
-		}
-	}
-	if req.state.cells[idx] != "" {
-		return {
-			ok: false,
-			message: "cell already taken",
-			state: req.state,
-		}
-	}
+func ApplyMove(req MoveRequest): (MoveResponse, Error) {
+	row := req.row
+	ensure row is GreaterThan(-1) or invalidMove("row must be >= 0")
+	ensure row is LessThan(3) or invalidMove("row must be <= 2")
+	col := req.col
+	ensure col is GreaterThan(-1) or invalidMove("col must be >= 0")
+	ensure col is LessThan(3) or invalidMove("col must be <= 2")
+	idx := cellIndex(row, col)
+	cellEmpty := req.state.cells[idx] == ""
+	ensure cellEmpty is True() or invalidMove("cell already taken")
 	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
 	np := opponent(req.state.nextPlayer)
 	return {
@@ -159,7 +92,7 @@ func ApplyMove(req MoveRequest): MoveResponse {
 			nextPlayer: np,
 			status: req.state.status,
 		},
-	}
+	}, nil
 }
 
 func NewGame(): GameState {
@@ -171,6 +104,6 @@ func NewGame(): GameState {
 	}
 }
 
-func PlayMove(req MoveRequest): MoveResponse {
+func PlayMove(req MoveRequest): (MoveResponse, Error) {
 	return ApplyMove(req)
 }

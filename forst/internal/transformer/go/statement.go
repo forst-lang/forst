@@ -928,16 +928,30 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		// Check if we need to add missing error return
 		if len(expectedReturnTypes) > len(results) {
-			// Function expects more return values than provided
-			// Add nil for missing error returns
-			for i := len(results); i < len(expectedReturnTypes); i++ {
-				expectedType := expectedReturnTypes[i]
-				if expectedType.IsError() {
-					results = append(results, goast.NewIdent("nil"))
-				} else {
-					// For non-error types, add zero value
-					goType, _ := t.transformType(expectedType)
-					results = append(results, getZeroValue(goType))
+			skipNilPadding := false
+			// Single expression like `return g()` where g returns (T, error): do not pad with nil.
+			// Go allows `return g()` as one Result holding a multi-value call; padding would produce
+			// `return g(), nil` which is invalid (multi-value g() in single-value position).
+			if len(s.Values) == 1 {
+				if fc, ok := s.Values[0].(ast.FunctionCallNode); ok {
+					if calleeSig, ok := t.TypeChecker.Functions[fc.Function.ID]; ok &&
+						len(calleeSig.ReturnTypes) == len(expectedReturnTypes) {
+						skipNilPadding = true
+					}
+				}
+			}
+			if !skipNilPadding {
+				// Function expects more return values than provided
+				// Add nil for missing error returns
+				for i := len(results); i < len(expectedReturnTypes); i++ {
+					expectedType := expectedReturnTypes[i]
+					if expectedType.IsError() {
+						results = append(results, goast.NewIdent("nil"))
+					} else {
+						// For non-error types, add zero value
+						goType, _ := t.transformType(expectedType)
+						results = append(results, getZeroValue(goType))
+					}
 				}
 			}
 		}

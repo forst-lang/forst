@@ -17,11 +17,15 @@ func main() {
 	}
 	fmt.Println(fmt.Sprintf("%s", line))
 
-	move := PlayMove({
+	move, errMove := PlayMove({
 		state: g,
 		row:   0,
 		col:   0,
 	})
+	ensure !errMove {
+		fmt.Println(errMove.Error())
+		return
+	}
 	line2, err2 := json.Marshal(move)
 	ensure !err2 {
 		fmt.Println(err2.Error())

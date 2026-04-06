@@ -154,6 +154,12 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 			Operator: ast.TokenLogicalNot,
 			Operand:  p.parseUnaryOrPrimary(depth + 1),
 		}
+	case p.current().Type == ast.TokenMinus:
+		p.advance()
+		base = ast.UnaryExpressionNode{
+			Operator: ast.TokenMinus,
+			Operand:  p.parseUnaryOrPrimary(depth + 1),
+		}
 	case p.current().Type == ast.TokenLParen:
 		p.advance()
 		inner := p.parseExpr(0, depth+1)

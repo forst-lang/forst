@@ -56,19 +56,29 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					if err != nil {
 						return nil, err
 					}
-					if len(retType) != 1 {
+					if len(retType) == 1 {
+						if tc.log != nil {
+							tc.log.WithFields(map[string]interface{}{
+								"function":     fn.Ident.ID,
+								"returnIndex":  i,
+								"returnAST":    fmt.Sprintf("%T", value),
+								"inferredType": retType[0].Ident,
+							}).Debug("[PINPOINT] Inferred return type for function")
+						}
+						retTypes = append(retTypes, retType[0])
+					} else if len(retType) > 1 && len(retStmt.Values) == 1 && len(retType) == len(parsedType) {
+						// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
+						if tc.log != nil {
+							tc.log.WithFields(map[string]interface{}{
+								"function":     fn.Ident.ID,
+								"returnAST":    fmt.Sprintf("%T", value),
+								"inferredTypes": formatTypeList(retType),
+							}).Debug("[PINPOINT] Multi-value return from single expression")
+						}
+						retTypes = append(retTypes, retType...)
+					} else {
 						return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
 					}
-					// PINPOINT: Log inferred type for each return value
-					if tc.log != nil {
-						tc.log.WithFields(map[string]interface{}{
-							"function":     fn.Ident.ID,
-							"returnIndex":  i,
-							"returnAST":    fmt.Sprintf("%T", value),
-							"inferredType": retType[0].Ident,
-						}).Debug("[PINPOINT] Inferred return type for function")
-					}
-					retTypes = append(retTypes, retType[0])
 				}
 			}
 			returnStmtTypes = append(returnStmtTypes, retTypes)
