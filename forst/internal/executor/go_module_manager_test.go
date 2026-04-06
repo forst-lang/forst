@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -155,12 +156,77 @@ func TestGoModuleManager_CreateModule_Streaming(t *testing.T) {
 		"StreamFunction(args)",
 		"for result := range results",
 		"json.Marshal(result)",
+		"test-module/testpkg",
 	}
 
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(content, snippet) {
 			t.Errorf("main.go missing expected content: %s", snippet)
 		}
+	}
+}
+
+func TestGoModuleManager_CreateModule_PackageMainBuilds(t *testing.T) {
+	manager := NewGoModuleManager(nil)
+
+	config := &ModuleConfig{
+		ModuleName:     "test-module",
+		PackageName:    "main",
+		FunctionName:   "Hello",
+		GoCode:         "package main\n\nfunc Hello() string { return \"hi\" }",
+		SupportsParams: false,
+		Parameters:     []discovery.ParameterInfo{},
+		Args:           []byte("{}"),
+		IsStreaming:    false,
+	}
+
+	tempDir, err := manager.CreateModule(config)
+	if err != nil {
+		t.Fatalf("CreateModule failed: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	execPath := filepath.Join(tempDir, "forstexec.bin")
+	cmd := exec.Command("go", "build", "-o", execPath, ".")
+	cmd.Dir = tempDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go build failed: %v\n%s", err, out)
+	}
+}
+
+func TestGoModuleManager_CreatePackageFile_PackageMainRewritesToForstexec(t *testing.T) {
+	manager := NewGoModuleManager(nil)
+
+	tempDir, err := os.MkdirTemp("", "test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	config := &ModuleConfig{
+		PackageName: "main",
+		GoCode:        "package main\n\nfunc Hello() string { return \"hi\" }",
+	}
+
+	err = manager.createPackageFile(tempDir, config)
+	if err != nil {
+		t.Fatalf("createPackageFile failed: %v", err)
+	}
+
+	packageDir := filepath.Join(tempDir, "forstexec")
+	if _, err := os.Stat(packageDir); os.IsNotExist(err) {
+		t.Error("Expected forstexec package directory")
+	}
+
+	packageGoPath := filepath.Join(packageDir, "forstexec.go")
+	content, err := os.ReadFile(packageGoPath)
+	if err != nil {
+		t.Fatalf("Failed to read package file: %v", err)
+	}
+
+	if !strings.HasPrefix(string(content), "package forstexec\n") {
+		t.Errorf("expected package forstexec, got:\n%s", string(content))
 	}
 }
 

@@ -11,7 +11,8 @@ const serverFt = join(exampleRoot, "server.ft");
 function resolveForstBinary(): string {
   const env = process.env.FORST_BINARY?.trim();
   if (env && existsSync(env)) return env;
-  const fromRepo = join(exampleRoot, "..", "..", "bin", "forst");
+  // exampleRoot is examples/in/tictactoe — need three levels up to repo root (not examples/bin).
+  const fromRepo = join(exampleRoot, "..", "..", "..", "bin", "forst");
   if (existsSync(fromRepo)) return fromRepo;
   throw new Error(
     `forst binary not found (set FORST_BINARY or build with task build). Tried: ${fromRepo}`
@@ -20,7 +21,7 @@ function resolveForstBinary(): string {
 
 describe("forst run (merged tictactoe)", () => {
   if (process.env.FORST_SKIP_TICTACTOE_E2E === "1") {
-    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => {});
+    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => { });
     return;
   }
 

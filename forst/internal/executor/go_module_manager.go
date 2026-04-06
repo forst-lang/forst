@@ -23,6 +23,38 @@ func NewGoModuleManager(log *logrus.Logger) *GoModuleManager {
 	}
 }
 
+// libraryExecutorUserPackage is the Go package name used in the executor temp module when Forst
+// emits merged code as `package main`. Go forbids importing package main from another package, so
+// we rewrite the user file to this library name and import `module/forstexec` from the wrapper main.
+const libraryExecutorUserPackage = "forstexec"
+
+func libraryImportPackageName(forstPackage string) string {
+	if forstPackage == "main" {
+		return libraryExecutorUserPackage
+	}
+	return forstPackage
+}
+
+// rewriteUserGoCodeForExecutorLibrary maps `package main` to libraryExecutorUserPackage when the
+// discovery package is main (see libraryImportPackageName).
+func rewriteUserGoCodeForExecutorLibrary(goCode string, forstPackage string) string {
+	if forstPackage != "main" {
+		return goCode
+	}
+	lines := strings.SplitN(goCode, "\n", 2)
+	if len(lines) == 0 {
+		return goCode
+	}
+	first := strings.TrimSpace(lines[0])
+	if first != "package main" {
+		return goCode
+	}
+	if len(lines) == 1 {
+		return fmt.Sprintf("package %s", libraryExecutorUserPackage)
+	}
+	return fmt.Sprintf("package %s\n%s", libraryExecutorUserPackage, lines[1])
+}
+
 // ModuleConfig holds configuration for creating a Go module
 type ModuleConfig struct {
 	ModuleName         string
@@ -77,7 +109,7 @@ func (m *GoModuleManager) createGoMod(tempDir, moduleName string) error {
 
 // createMainGo creates the main.go file
 func (m *GoModuleManager) createMainGo(tempDir string, config *ModuleConfig) error {
-	importPkg := config.ModuleName + "/" + config.PackageName
+	importPkg := config.ModuleName + "/" + libraryImportPackageName(config.PackageName)
 	alias := fmt.Sprintf("%s_%s", config.PackageName, generateRandomString(4))
 
 	var mainGoContent string
@@ -245,13 +277,7 @@ func buildParameterExtraction(containerName string, paramNames []string, paramTy
 
 // generateStreamingMainGo generates the main.go content for streaming execution
 func (m *GoModuleManager) generateStreamingMainGo(importPkg, alias string, config *ModuleConfig) string {
-	return fmt.Sprintf(`package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-)
+	return fmt.Sprintf(`%s
 
 func main() {
 	var args json.RawMessage = %s
@@ -263,20 +289,23 @@ func main() {
 	}
 	os.Exit(0)
 }
-`, string(config.Args), config.PackageName, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias), string(config.Args), alias, config.FunctionName)
 }
 
 // createPackageFile creates the package directory and Go file
 func (m *GoModuleManager) createPackageFile(tempDir string, config *ModuleConfig) error {
-	// Create package directory
-	packageDir := filepath.Join(tempDir, config.PackageName)
+	libPkg := libraryImportPackageName(config.PackageName)
+	packageDir := filepath.Join(tempDir, libPkg)
 	if err := os.MkdirAll(packageDir, 0755); err != nil {
 		return fmt.Errorf("failed to create package dir: %v", err)
 	}
 
-	// Write the compiled Go code to the package file
-	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", config.PackageName))
-	return os.WriteFile(packageGoPath, []byte(config.GoCode), 0644)
+	code := rewriteUserGoCodeForExecutorLibrary(config.GoCode, config.PackageName)
+	if m.log != nil && config.PackageName == "main" {
+		m.log.Tracef("executor temp module: user Go package main -> %s for importable library", libraryExecutorUserPackage)
+	}
+	packageGoPath := filepath.Join(packageDir, fmt.Sprintf("%s.go", libPkg))
+	return os.WriteFile(packageGoPath, []byte(code), 0644)
 }
 
 // logTempDirContents logs the contents of the temporary directory for debugging

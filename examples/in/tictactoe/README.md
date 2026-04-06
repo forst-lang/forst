@@ -46,7 +46,7 @@ task test:tictactoe
 - **`tests/tictactoe-game.simulation.test.ts`** — full game in TypeScript using **`import type`** from **`client/types`** (merged declarations from `forst generate`) and rule logic aligned with `engine.ft` (invalid square + X wins top row).
 - **`tests/tictactoe-forst-run.test.ts`** — runs **`forst run -root … server.ft`** and checks stdout (merged-package smoke).
 
-`forst dev` / `POST /invoke` cannot run merged **`package main`** functions as library imports today (executor limitation); the simulation exercises the **same shapes** TypeScript gets from `forst generate`. Optional: `FORST_BINARY`, or `FORST_SKIP_TICTACTOE_E2E=1` to skip.
+The executor rewrites merged **`package main`** user code to a library package (`forstexec`) so **`POST /invoke`** can import it; the simulation still exercises the **same shapes** TypeScript gets from `forst generate`. Optional: `FORST_BINARY`, or `FORST_SKIP_TICTACTOE_E2E=1` to skip.
 
 ## Golden Go output
 
