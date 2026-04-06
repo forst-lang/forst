@@ -252,6 +252,13 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
 
+  test:tictactoe:
+    desc: Generate TypeScript for tictactoe and run bun integration tests (forst dev + client)
+    deps: [build, example:tictactoe:generate]
+    cmds:
+      - bun install
+      - bun test examples/in/tictactoe/tests/
+
   example:basic-guard:
     desc: Compile basic guard example
     dir: forst
@@ -339,6 +346,7 @@ tasks:
       - task: test:sidecar
       - task example:sidecar-local
       - task example:sidecar-downloaded
+      - task test:tictactoe
 
   # Release tasks
   build:release:
