@@ -64,7 +64,7 @@ func TestPrintType_arrayAndBool(t *testing.T) {
 		Ident:      ast.TypeArray,
 		TypeParams: []ast.TypeNode{{Ident: ast.TypeInt}},
 	}
-	if got := printType(arrInt); got != "[Int]" {
+	if got := printType(arrInt); got != "[]Int" {
 		t.Fatalf("got %q", got)
 	}
 	if got := printType(ast.TypeNode{Ident: ast.TypeBool}); got != "Bool" {

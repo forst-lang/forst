@@ -19,7 +19,7 @@ func printType(t ast.TypeNode) string {
 		return t.Ident.String()
 	case ast.TypeArray:
 		if len(t.TypeParams) > 0 {
-			return "[" + printType(t.TypeParams[0]) + "]"
+			return "[]" + printType(t.TypeParams[0])
 		}
 		return "[]"
 	case ast.TypeMap:

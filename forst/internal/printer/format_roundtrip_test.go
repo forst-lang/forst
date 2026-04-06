@@ -136,6 +136,15 @@ func main() {
 }
 `,
 		},
+		{
+			name: "func_param_slice_type",
+			src: `package main
+
+func getCell(cells []String, idx Int): String {
+	return cells[idx]
+}
+`,
+		},
 	}
 	log := logrus.New()
 	log.SetLevel(logrus.ErrorLevel)
