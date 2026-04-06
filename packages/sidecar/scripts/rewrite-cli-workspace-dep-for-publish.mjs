@@ -1,7 +1,10 @@
 /**
  * Release helper: replace `dependencies["@forst/cli"]: "workspace:*"` with `^<cli semver>` for published tarballs.
- * Reads `version` from `packages/cli/package.json` (same repo / tag as the release).
- * CI runs this before `npm publish`, `jsr publish`, and VSIX packaging; committed package.json stays `workspace:*`.
+ * **@forst/sidecar** must never ship `workspace:*` to npm/JSR — consumers install from registries, not the monorepo.
+ * Reads `version` from `packages/cli/package.json` (same repo / tag as the release; align with the CLI version published to npm).
+ * CI runs this before sidecar npm/JSR publish; `packages/sidecar` prepublishOnly runs it too so manual `npm publish` cannot skip rewriting.
+ * VSIX packaging (`task build:vsix`) uses the same script for `packages/vscode-forst`.
+ * Committed trees keep `workspace:*` for local dev; run `git checkout -- packages/sidecar/package.json` after a dry-run publish if needed.
  *
  * Usage:
  *   node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs [path/to/package.json]

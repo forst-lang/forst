@@ -35,6 +35,10 @@ jobs:
         working-directory: packages/sidecar
         run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
 
+      # Lockfile still describes workspace:* until we re-resolve; required for prepublish build and correct metadata.
+      - name: Install deps after @forst/cli rewrite (non-frozen)
+        run: bun install
+
       - uses: actions/setup-node@v4
         with:
           registry-url: "https://registry.npmjs.org"
@@ -65,6 +69,9 @@ jobs:
       - name: Point dependencies @forst/cli at published semver (not workspace:*)
         working-directory: packages/sidecar
         run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
+
+      - name: Install deps after @forst/cli rewrite (non-frozen)
+        run: bun install
 
       - uses: ./.github/actions/jsr-publish-package
         with:

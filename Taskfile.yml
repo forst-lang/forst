@@ -72,7 +72,7 @@ tasks:
   build:vscode:
     desc: Compile the VS Code extension (TypeScript)
     dir: packages/vscode-forst
-    deps: [install:bun]
+    deps: [install:bun, build:cli]
     cmds:
       - bun run compile
       - bun run test
@@ -371,13 +371,23 @@ tasks:
       - ../dist/*.zip
 
   build:vsix:
-    desc: Package the VS Code extension as a .vsix under dist/ (used by vscode-forst-v* releases; see publish-vscode-extension.yml)
+    desc: |
+      Production .vsix: rewrite @forst/cli from workspace:* to ^semver (packages/cli), install from npm, compile,
+      vsce, then git restore package.json and bun.lockb. Dev/CI keep workspace:*; the shipped extension bundles @forst/cli from the registry.
     dir: packages/vscode-forst
     deps: [install:bun]
     cmds:
-      - mkdir -p ../../dist
-      - bun run compile
-      - bunx vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
+      - |
+        set -euo pipefail
+        cleanup() {
+          git checkout -- package.json ../../bun.lockb
+        }
+        trap cleanup EXIT
+        node ../sidecar/scripts/rewrite-cli-workspace-dep-for-publish.mjs package.json
+        bun install
+        mkdir -p ../../dist
+        bun run compile
+        bunx vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
 
   release:check:
     desc: Check release configuration

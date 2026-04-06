@@ -1,5 +1,8 @@
 # Build the VSIX, attach it to the GitHub Release, and publish to Open VSX.
 #
+# VSIX packaging uses `task build:vsix`: rewrites @forst/cli to a published semver, installs it from npm,
+# then restores package.json / bun.lockb (committed trees stay workspace:* for dev/CI).
+#
 # Invoked from release.yml via workflow_call after Release Please creates a tag.
 # (GitHub does not fire `release` workflows for releases created with GITHUB_TOKEN.)
 #
@@ -33,13 +36,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install --frozen-lockfile
-
-      - name: Point dependencies @forst/cli at published semver (not workspace:*)
-        run: node packages/sidecar/scripts/rewrite-cli-workspace-dep-for-publish.mjs packages/vscode-forst/package.json
-
-      # package.json changed; lockfile no longer matches — cannot use --frozen-lockfile here
-      - name: Install deps after @forst/cli rewrite (non-frozen)
-        run: bun install
 
       - uses: arduino/setup-task@v2
         with:

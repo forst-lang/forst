@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "bun run sync-jsr-version && bun run build",
+    "prepublishOnly": "node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs && bun install --cwd ../.. && bun run sync-jsr-version && bun run build",
     "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
     "dev": "tsc -p tsconfig.build.json --watch",
     "clean": "rm -rf dist",
