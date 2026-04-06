@@ -1,7 +1,7 @@
 /**
- * Release helper: replace `dependencies["@forst/cli"]: "workspace:*"` with `^<cli semver>` for published tarballs.
- * **@forst/sidecar** must never ship `workspace:*` to npm/JSR — consumers install from registries, not the monorepo.
- * Reads `version` from `packages/cli/package.json` (same repo / tag as the release; align with the CLI version published to npm).
+ * Release helper: set `dependencies["@forst/cli"]` to `^<cli semver>` from `packages/cli/package.json`
+ * for published tarballs (never ship `workspace:*` to npm/JSR).
+ * Runs for `workspace:*` or any caret that is out of sync with the CLI package version on the tag.
  * CI runs this before sidecar npm/JSR publish; `packages/sidecar` prepublishOnly runs it too so manual `npm publish` cannot skip rewriting.
  * VSIX packaging (`task build:vsix`) uses the same script for `packages/vscode-forst`.
  * Committed trees keep `workspace:*` for local dev; run `git checkout -- packages/sidecar/package.json` after a dry-run publish if needed.
@@ -25,13 +25,6 @@ const pkgPath = process.argv[2]
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 pkg.dependencies = pkg.dependencies ?? {};
-const current = pkg.dependencies["@forst/cli"];
-if (current !== "workspace:*") {
-  console.log(
-    `rewrite-cli-workspace-dep-for-publish: skip ${pkgPath} (@forst/cli is "${current ?? "(missing)"}", not workspace:*)`
-  );
-  process.exit(0);
-}
 
 const cliPkg = JSON.parse(readFileSync(cliPkgPath, "utf8"));
 const v = cliPkg.version;
@@ -41,8 +34,18 @@ if (!v || typeof v !== "string") {
   );
 }
 
-pkg.dependencies["@forst/cli"] = `^${v}`;
+const desired = `^${v}`;
+const current = pkg.dependencies["@forst/cli"];
+
+if (current === desired) {
+  console.log(
+    `rewrite-cli-workspace-dep-for-publish: ${pkgPath} already has @forst/cli ${desired}`
+  );
+  process.exit(0);
+}
+
+pkg.dependencies["@forst/cli"] = desired;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 console.log(
-  `rewrite-cli-workspace-dep-for-publish: ${pkgPath} → dependencies["@forst/cli"] = ^${v}`
+  `rewrite-cli-workspace-dep-for-publish: ${pkgPath} → dependencies["@forst/cli"] = ${desired} (was ${JSON.stringify(current)})`
 );

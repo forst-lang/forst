@@ -1,5 +1,8 @@
 # Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call.
 # Inputs: pass the tag for each package that released (omit or leave empty for the other).
+#
+# Sidecar jobs depend on the matching CLI jobs when both run: sidecar declares `@forst/cli@^…` and
+# JSR resolves that package from jsr.io (npm publish order matters for npm installability).
 
 name: Publish packages (npm / JSR)
 
@@ -18,69 +21,10 @@ on:
         default: ""
 
 jobs:
-  sidecar-npm:
-    name: "@forst/sidecar → npm"
-    runs-on: ubuntu-latest
-    if: inputs.sidecar_tag != ''
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.sidecar_tag }}
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install --frozen-lockfile
-
-      - name: Point dependencies @forst/cli at published semver (not workspace:*)
-        working-directory: packages/sidecar
-        run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
-
-      # Lockfile still describes workspace:* until we re-resolve; required for prepublish build and correct metadata.
-      - name: Install deps after @forst/cli rewrite (non-frozen)
-        run: bun install
-
-      - uses: actions/setup-node@v4
-        with:
-          registry-url: "https://registry.npmjs.org"
-          node-version: "20"
-
-      - name: Publish package to NPM
-        working-directory: packages/sidecar
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
-
-  sidecar-jsr:
-    name: "@forst/sidecar → JSR"
-    runs-on: ubuntu-latest
-    if: inputs.sidecar_tag != ''
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.sidecar_tag }}
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install --frozen-lockfile
-
-      - name: Point dependencies @forst/cli at published semver (not workspace:*)
-        working-directory: packages/sidecar
-        run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
-
-      - name: Install deps after @forst/cli rewrite (non-frozen)
-        run: bun install
-
-      - uses: ./.github/actions/jsr-publish-package
-        with:
-          working-directory: packages/sidecar
-          jsr-token: ${{ secrets.JSR_TOKEN }}
-
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
+    
     if: inputs.cli_tag != ''
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +40,13 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           node-version: "20"
 
+      # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
+      - name: Build @forst/cli
+        working-directory: packages/cli
+        run: bun run build
+
+      # If publish fails with E404 on PUT @forst/cli: ensure NPM_TOKEN is from a user in the @forst npm org
+      # with publish rights (or use an org automation token). Granular tokens must include this package/scope.
       - name: Publish package to NPM
         working-directory: packages/cli
         env:
@@ -121,4 +72,79 @@ jobs:
       - uses: ./.github/actions/jsr-publish-package
         with:
           working-directory: packages/cli
+          jsr-token: ${{ secrets.JSR_TOKEN }}
+
+  sidecar-npm:
+    name: "@forst/sidecar → npm"
+    runs-on: ubuntu-latest
+    needs: [cli-npm]
+    if: |
+      inputs.sidecar_tag != '' &&
+      (needs.cli-npm.result == 'success' || needs.cli-npm.result == 'skipped')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sidecar_tag }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Point dependencies @forst/cli at published semver (not workspace:*)
+        working-directory: packages/sidecar
+        run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
+
+      # Lockfile still describes workspace:* until we re-resolve; required for prepublish build and correct metadata.
+      - name: Install deps after @forst/cli rewrite (non-frozen)
+        run: bun install
+
+      # Sidecar tsc imports @forst/cli; workspace package must have dist/ (not only types).
+      - name: Build @forst/cli
+        working-directory: packages/cli
+        run: bun run build
+
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+          node-version: "20"
+
+      - name: Publish package to NPM
+        working-directory: packages/sidecar
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  sidecar-jsr:
+    name: "@forst/sidecar → JSR"
+    runs-on: ubuntu-latest
+    needs: [cli-jsr]
+    if: |
+      inputs.sidecar_tag != '' &&
+      (needs.cli-jsr.result == 'success' || needs.cli-jsr.result == 'skipped')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sidecar_tag }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Point dependencies @forst/cli at published semver (not workspace:*)
+        working-directory: packages/sidecar
+        run: node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs
+
+      - name: Install deps after @forst/cli rewrite (non-frozen)
+        run: bun install
+
+      - name: Build @forst/cli
+        working-directory: packages/cli
+        run: bun run build
+
+      - uses: ./.github/actions/jsr-publish-package
+        with:
+          working-directory: packages/sidecar
           jsr-token: ${{ secrets.JSR_TOKEN }}

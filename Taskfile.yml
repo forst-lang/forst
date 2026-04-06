@@ -372,8 +372,8 @@ tasks:
 
   build:vsix:
     desc: |
-      Production .vsix: rewrite @forst/cli from workspace:* to ^semver (packages/cli), install from npm, compile,
-      vsce, then git restore package.json and bun.lockb. Dev/CI keep workspace:*; the shipped extension bundles @forst/cli from the registry.
+      Production .vsix: rewrite @forst/cli from workspace:* to ^semver (packages/cli), bun install, copy (not symlink)
+      node_modules/@forst/cli so vsce does not follow ../../packages/cli, compile, vsce, then git restore package.json and bun.lockb.
       Depends on build:cli so packages/cli/dist exists when Bun links the workspace package (tsc needs .d.ts).
     dir: packages/vscode-forst
     deps: [install:bun, build:cli]
@@ -386,6 +386,7 @@ tasks:
         trap cleanup EXIT
         node ../sidecar/scripts/rewrite-cli-workspace-dep-for-publish.mjs package.json
         bun install
+        node ./scripts/materialize-cli-dep-for-vsix.mjs
         mkdir -p ../../dist
         bun run compile
         bunx vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
