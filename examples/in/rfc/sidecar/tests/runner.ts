@@ -116,7 +116,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
 
   // Set up process signal handlers for cleanup
   const setupCleanup = (sidecarInstance: ForstSidecar) => {
-    const cleanup = async () => {
+    const cleanup = async (exitCode: number) => {
       runnerLogger.info("🛑 Received interrupt signal, cleaning up...");
       try {
         await sidecarInstance.stop();
@@ -124,40 +124,49 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       } catch (error) {
         runnerLogger.error("❌ Failed to stop Forst server:", error);
       }
-      process.exit(0);
+      process.exit(exitCode);
+    };
+
+    const onSignal = () => {
+      void cleanup(0).catch((err) => {
+        runnerLogger.error("cleanup failed:", err);
+        process.exit(1);
+      });
     };
 
     // Handle various interrupt signals
-    process.on("SIGINT", cleanup); // Ctrl+C
-    process.on("SIGTERM", cleanup); // Termination request
-    process.on("SIGQUIT", cleanup); // Quit request
-    process.on("SIGUSR1", cleanup); // User defined signal 1
-    process.on("SIGUSR2", cleanup); // User defined signal 2
+    process.on("SIGINT", onSignal); // Ctrl+C
+    process.on("SIGTERM", onSignal); // Termination request
+    process.on("SIGQUIT", onSignal); // Quit request
+    process.on("SIGUSR1", onSignal); // User defined signal 1
+    process.on("SIGUSR2", onSignal); // User defined signal 2
 
-    // Handle uncaught exceptions and unhandled rejections
-    process.on("uncaughtException", (error) => {
+    const onException = (error: Error) => {
       runnerLogger.error("❌ Uncaught exception:", error);
-      cleanup();
-    });
+      void cleanup(1).catch(() => process.exit(1));
+    };
 
-    process.on("unhandledRejection", (reason, promise) => {
+    const onRejection = (reason: unknown, promise: Promise<unknown>) => {
       runnerLogger.error(
         "❌ Unhandled rejection at:",
         promise,
         "reason:",
         reason
       );
-      cleanup();
-    });
+      void cleanup(1).catch(() => process.exit(1));
+    };
+
+    process.on("uncaughtException", onException);
+    process.on("unhandledRejection", onRejection);
 
     return () => {
-      process.off("SIGINT", cleanup);
-      process.off("SIGTERM", cleanup);
-      process.off("SIGQUIT", cleanup);
-      process.off("SIGUSR1", cleanup);
-      process.off("SIGUSR2", cleanup);
-      process.off("uncaughtException", cleanup);
-      process.off("unhandledRejection", cleanup);
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+      process.off("SIGQUIT", onSignal);
+      process.off("SIGUSR1", onSignal);
+      process.off("SIGUSR2", onSignal);
+      process.off("uncaughtException", onException);
+      process.off("unhandledRejection", onRejection);
     };
   };
 

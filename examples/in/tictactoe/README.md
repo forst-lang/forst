@@ -1,6 +1,6 @@
 # Tic-tac-toe example
 
-Stateless game rules in `engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `server.ft` (same `package main`; JSON would need exported struct fields from the Go emitter).
+Stateless game rules in `engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `server.ft` (same `package main`). For `encoding/json`, use **`forst run -export-struct-fields`** / **`forst build -export-struct-fields`** (or `compiler.exportStructFields` in `ftconfig.json`, used by `forst dev`) so emitted struct fields are exported and tagged for JSON—matching the field names `forst generate` produces for TypeScript.
 
 ## Run
 

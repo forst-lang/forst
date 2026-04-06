@@ -166,11 +166,19 @@ export class ForstUtils {
    * Runs `forst version` on the given binary and returns the semver string, or "" on failure.
    */
   static async getLocalBinaryVersion(forstPath: string): Promise<string> {
-    const { stdout, exitCode } = await this.executeForstCommand(
-      forstPath,
-      ["version"],
-      {}
-    );
+    let stdout: string;
+    let exitCode: number;
+    try {
+      const r = await this.executeForstCommand(forstPath, ["version"], {});
+      stdout = r.stdout;
+      exitCode = r.exitCode;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      utilsLogger.warn(
+        `Could not spawn forst version (skipping local semver): ${msg}`
+      );
+      return "";
+    }
     if (exitCode !== 0) {
       return "";
     }

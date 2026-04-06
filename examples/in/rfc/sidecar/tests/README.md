@@ -78,6 +78,10 @@ The integration follows the sidecar pattern described in the RFC:
 3. **JSON Communication**: Low-overhead JSON-based communication
 4. **Error Handling**: Proper error propagation and health checks
 
+## `example:sidecar-downloaded` and `FORST_BINARY`
+
+The Task task `example:sidecar-downloaded` (and `ci:test`) sets **`FORST_BINARY`** to the **`bin/forst`** binary built by **`task build`** when the variable is unset, so CI does not depend on downloading a release from GitHub. To exercise the **`@forst/cli`** download path instead, unset **`FORST_BINARY`** and run `bun run example:downloaded` from this directory (requires a matching compiler release for the CLI package version).
+
 ## Troubleshooting
 
 ### Server not starting

@@ -267,11 +267,14 @@ tasks:
     silent: false
 
   example:sidecar-downloaded:
-    desc: Run sidecar example using downloaded Forst binary
+    desc: Run sidecar example (FORST_BINARY defaults to repo bin/forst after task build; unset to exercise @forst/cli download)
     dir: examples/in/rfc/sidecar
-    deps: [build:sidecar]
+    deps: [build:sidecar, build]
     cmds:
-      - bun run example:downloaded
+      - |
+        REPO_BIN="$(cd ../../../.. && pwd)/bin/forst"
+        export FORST_BINARY="${FORST_BINARY:-$REPO_BIN}"
+        bun run example:downloaded
     silent: false
 
   example:client:
@@ -335,7 +338,7 @@ tasks:
       - task: test:cli
       - task: test:sidecar
       - task example:sidecar-local
-      - task example:sidecar-downloaded || echo "Downloaded binary example failed (expected for now - needs release with dev command)"
+      - task example:sidecar-downloaded
 
   # Release tasks
   build:release:

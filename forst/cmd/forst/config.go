@@ -48,6 +48,10 @@ type CompilerConfig struct {
 
 	// Strict mode
 	Strict bool `json:"strict"`
+
+	// ExportStructFields makes the Go emitter use exported struct field names and json struct tags
+	// so encoding/json can marshal values (aligns with forst generate TypeScript field names).
+	ExportStructFields bool `json:"exportStructFields"`
 }
 
 // ServerConfig represents HTTP server settings
@@ -120,11 +124,12 @@ type DevConfig struct {
 func DefaultConfig() *ForstConfig {
 	return &ForstConfig{
 		Compiler: CompilerConfig{
-			Target:            "go",
-			Optimization:      "debug",
-			ReportPhases:      false,
-			ReportMemoryUsage: false,
-			Strict:            false,
+			Target:               "go",
+			Optimization:       "debug",
+			ReportPhases:         false,
+			ReportMemoryUsage:    false,
+			Strict:               false,
+			ExportStructFields:   false,
 		},
 		Server: ServerConfig{
 			Port:           "8080",
@@ -296,9 +301,10 @@ func (c *ForstConfig) matchesPattern(path, pattern string) bool {
 // ToCompilerArgs converts the config to compiler arguments
 func (c *ForstConfig) ToCompilerArgs() compiler.Args {
 	return compiler.Args{
-		LogLevel:          c.Dev.LogLevel,
-		ReportPhases:      c.Compiler.ReportPhases,
-		ReportMemoryUsage: c.Compiler.ReportMemoryUsage,
+		LogLevel:           c.Dev.LogLevel,
+		ReportPhases:       c.Compiler.ReportPhases,
+		ReportMemoryUsage:  c.Compiler.ReportMemoryUsage,
+		ExportStructFields: c.Compiler.ExportStructFields,
 	}
 }
 

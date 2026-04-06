@@ -45,6 +45,29 @@ func TestLoadConfig_fromJSONFile_mergesWithDefaults(t *testing.T) {
 	if cfg.Compiler.Target != "go" {
 		t.Fatalf("expected default compiler target, got %q", cfg.Compiler.Target)
 	}
+	if cfg.Compiler.ExportStructFields {
+		t.Fatal("expected default exportStructFields false")
+	}
+}
+
+func TestLoadConfig_compilerExportStructFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ftconfig.json")
+	json := `{"compiler": { "exportStructFields": true }}`
+	if err := os.WriteFile(path, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Compiler.ExportStructFields {
+		t.Fatalf("expected exportStructFields true, got %+v", cfg.Compiler)
+	}
+	args := cfg.ToCompilerArgs()
+	if !args.ExportStructFields {
+		t.Fatalf("ToCompilerArgs: %+v", args)
+	}
 }
 
 func TestLoadConfig_invalidJSON(t *testing.T) {
@@ -121,8 +144,9 @@ func TestForstConfig_ToCompilerArgs(t *testing.T) {
 	c.Dev.LogLevel = "warn"
 	c.Compiler.ReportPhases = true
 	c.Compiler.ReportMemoryUsage = true
+	c.Compiler.ExportStructFields = true
 	args := c.ToCompilerArgs()
-	if args.LogLevel != "warn" || !args.ReportPhases || !args.ReportMemoryUsage {
+	if args.LogLevel != "warn" || !args.ReportPhases || !args.ReportMemoryUsage || !args.ExportStructFields {
 		t.Fatalf("unexpected args: %+v", args)
 	}
 }

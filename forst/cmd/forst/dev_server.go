@@ -487,6 +487,7 @@ func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, l
 			fmt.Sprintf("%-15s %s", "Target:", config.Compiler.Target),
 			fmt.Sprintf("%-15s %s", "Optimization:", config.Compiler.Optimization),
 			fmt.Sprintf("%-15s %v", "Report phases:", config.Compiler.ReportPhases),
+			fmt.Sprintf("%-15s %v", "Export struct fields (JSON):", config.Compiler.ExportStructFields),
 		}},
 		{"Files", []string{
 			fmt.Sprintf("%-15s %s", "Include:", config.Files.Include),

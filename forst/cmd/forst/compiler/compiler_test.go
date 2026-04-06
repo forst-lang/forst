@@ -3,6 +3,7 @@ package compiler
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -77,6 +78,47 @@ func TestTempOutputFile(t *testing.T) {
 
 	if string(content) != testCode {
 		t.Errorf("CreateTempOutputFile() content = %v, want %v", string(content), testCode)
+	}
+}
+
+func TestCompileFile_exportStructFields_emitsJSONMarshalableShape(t *testing.T) {
+	dir := t.TempDir()
+	typesPath := filepath.Join(dir, "types.ft")
+	if err := os.WriteFile(typesPath, []byte(`package demo
+
+type Wire = {
+	msg: String,
+	count: Int,
+}
+
+func Identity(x Wire): Wire {
+	return x
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := New(Args{
+		Command:            "build",
+		FilePath:           typesPath,
+		PackageRoot:        dir,
+		LogLevel:           "error",
+		ExportStructFields: true,
+	}, nil)
+
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if code == nil {
+		t.Fatal("nil code")
+	}
+	out := *code
+	if !strings.Contains(out, "Msg") || !strings.Contains(out, "Count") {
+		t.Fatalf("expected exported field names Msg and Count, got: %.400s", out)
+	}
+	if !strings.Contains(out, "`json:\"msg\"`") || !strings.Contains(out, "`json:\"count\"`") {
+		t.Fatalf("expected json struct tags for Forst field names, got: %.400s", out)
 	}
 }
 

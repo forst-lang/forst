@@ -100,18 +100,23 @@ export class ForstServer {
     this.port = config.port || 8080;
     this.host = config.host || "localhost";
 
-    // Set up interrupt handlers
-    this.shutdownHandler = async () => {
-      serverLogger.info(
-        "Received interrupt signal, shutting down gracefully..."
-      );
-      try {
-        await this.stop();
-        process.exit(0);
-      } catch (error) {
-        serverLogger.error("Error during shutdown:", error);
+    // Set up interrupt handlers (sync wrapper so Node never leaves a rejected Promise from an async listener).
+    this.shutdownHandler = (): void => {
+      void (async () => {
+        serverLogger.info(
+          "Received interrupt signal, shutting down gracefully..."
+        );
+        try {
+          await this.stop();
+          process.exit(0);
+        } catch (error) {
+          serverLogger.error("Error during shutdown:", error);
+          process.exit(1);
+        }
+      })().catch((err) => {
+        serverLogger.error("Fatal shutdown error:", err);
         process.exit(1);
-      }
+      });
     };
   }
 
@@ -411,6 +416,10 @@ export class ForstServer {
       ],
       ignoreInitial: true,
       persistent: true,
+    });
+
+    watcher.on("error", (err) => {
+      serverLogger.warn("File watcher error:", err);
     });
 
     watcher.on("all", (_event, filePath) => {

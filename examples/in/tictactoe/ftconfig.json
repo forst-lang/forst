@@ -4,7 +4,8 @@
     "optimization": "debug",
     "strict": false,
     "reportPhases": false,
-    "reportMemoryUsage": false
+    "reportMemoryUsage": false,
+    "exportStructFields": true
   },
   "server": {
     "port": "8099",

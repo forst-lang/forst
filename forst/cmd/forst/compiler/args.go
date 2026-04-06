@@ -24,6 +24,8 @@ type Args struct {
 	Watch             bool
 	ReportMemoryUsage bool
 	ReportPhases      bool
+	// ExportStructFields, when true, emits exported struct field names and json tags so encoding/json can marshal shapes (forst dev / ftconfig: compiler.exportStructFields).
+	ExportStructFields bool
 	// PackageRoot, if non-empty, enables merging all same-package .ft files under this directory with the entry file (aligned with sidecar / discovery).
 	PackageRoot string
 }
@@ -59,6 +61,7 @@ func ParseArgs(log *logrus.Logger) Args {
 	output := flags.String("o", "", "Output file path")
 	reportMemoryUsage := flags.Bool("report-memory-usage", false, "Report memory usage")
 	reportPhases := flags.Bool("report-phases", false, "Report when phases start")
+	exportStructFields := flags.Bool("export-struct-fields", false, "Emit exported struct fields with json tags (for encoding/json and TS-aligned wire shapes)")
 	packageRoot := flags.String("root", "", "Root directory: merge all .ft files under it that share the entry file's package (optional)")
 	help := flags.Bool("help", false, "Show help message")
 
@@ -105,14 +108,15 @@ func ParseArgs(log *logrus.Logger) Args {
 	}
 
 	return Args{
-		Command:           command,
-		FilePath:          args[0],
-		OutputPath:        *output,
-		LogLevel:          *logLevel,
-		Watch:             *watch,
-		ReportMemoryUsage: *reportMemoryUsage,
-		ReportPhases:      *reportPhases,
-		PackageRoot:       pkgRoot,
+		Command:            command,
+		FilePath:           args[0],
+		OutputPath:         *output,
+		LogLevel:           *logLevel,
+		Watch:              *watch,
+		ReportMemoryUsage:  *reportMemoryUsage,
+		ReportPhases:       *reportPhases,
+		ExportStructFields: *exportStructFields,
+		PackageRoot:        pkgRoot,
 	}
 }
 
@@ -131,6 +135,7 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  -o <path>               Output file path")
 	log.Infof("  -report-memory-usage    Report memory usage")
 	log.Infof("  -report-phases          Report when phases start")
+	log.Infof("  -export-struct-fields   Emit exported struct fields with json tags for JSON marshaling")
 	log.Infof("  -root <dir>             Merge same-package .ft files under dir with the entry file")
 	log.Infof("  -help                   Show this help message")
 	log.Infof("  -version                Show version information")
