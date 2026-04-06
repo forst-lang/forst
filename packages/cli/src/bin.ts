@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { printForstCliInfo } from "./cli-info.js";
+import { FORST_CLI_INFO_FLAG } from "./constants.js";
 import { resolveForstBinary } from "./resolve.js";
+
+const argv = process.argv.slice(2);
 
 export async function runForstCli(): Promise<number> {
   const bin = await resolveForstBinary();
@@ -24,9 +28,18 @@ export async function runForstCli(): Promise<number> {
   });
 }
 
-runForstCli()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+if (argv.length === 1 && argv[0] === FORST_CLI_INFO_FLAG) {
+  printForstCliInfo()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+} else {
+  runForstCli()
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}

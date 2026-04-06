@@ -18,6 +18,8 @@ npx @forst/cli version
 
 With a local dependency, `node_modules/.bin/forst` runs the wrapper.
 
+**Diagnostics:** `npx forst --forst-cli-info` prints the npm package semver, the resolved native binary path, and the output of `forst version` (useful for bug reports and CI).
+
 ## Environment
 
 | Variable | Purpose |
