@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { printForstCliInfo, printForstCliVersion } from "./cli-info.js";
-import { FORST_CLI_INFO_FLAG, FORST_CLI_VERSION_FLAGS } from "./constants.js";
+import {
+  printForstCliInfo,
+  printForstCliVersion,
+  printForstGoBuildInfo,
+} from "./cli-info.js";
+import {
+  FORST_CLI_INFO_FLAG,
+  FORST_CLI_GO_BUILDINFO_FLAG,
+  FORST_CLI_VERSION_FLAGS,
+} from "./constants.js";
 import { resolveForstBinary } from "./resolve.js";
 
 const argv = process.argv.slice(2);
@@ -39,6 +47,13 @@ if (argv.length === 1 && argv[0] === FORST_CLI_INFO_FLAG) {
     });
 } else if (argv.length === 1 && versionFlags.includes(argv[0])) {
   printForstCliVersion()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+} else if (argv.length === 1 && argv[0] === FORST_CLI_GO_BUILDINFO_FLAG) {
+  printForstGoBuildInfo()
     .then(() => process.exit(0))
     .catch((err) => {
       console.error(err);

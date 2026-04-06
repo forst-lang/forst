@@ -1,8 +1,18 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { printForstCliInfo, printForstCliVersion } from "./cli-info.js";
+import {
+  printForstCliInfo,
+  printForstCliVersion,
+  printForstGoBuildInfo,
+} from "./cli-info.js";
 
 describe("printForstCliInfo", () => {
   test.skipIf(process.platform === "win32")(
@@ -72,6 +82,52 @@ fi
       expect(lines[0]).toMatch(/^@forst\/cli /);
       expect(lines[1]).toContain("9.9.9");
       expect(lines[1]).not.toContain("extra");
+    }
+  );
+});
+
+describe("printForstGoBuildInfo", () => {
+  test.skipIf(process.platform === "win32")(
+    "runs go version -m via fake go on PATH",
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), "forst-cli-gom-"));
+      const fakeForst = join(dir, "forst");
+      writeFileSync(fakeForst, "#fake\n");
+      chmodSync(fakeForst, 0o755);
+
+      const fakeGoDir = join(dir, "bin");
+      const fakeGo = join(fakeGoDir, "go");
+      const goScript = `#!/bin/sh
+# fake go: args are e.g. version -m /path/to/binary
+echo "forst-test: go1.99.0"
+echo "\\tpath\\tgithub.com/forst-lang/forst\\tv0.0.1\\t\\th1:deadbeef"
+`;
+      mkdirSync(fakeGoDir, { recursive: true });
+      writeFileSync(fakeGo, goScript);
+      chmodSync(fakeGo, 0o755);
+
+      const lines: string[] = [];
+      const origLog = console.log;
+      console.log = (...a: unknown[]) => {
+        lines.push(a.map(String).join(" "));
+      };
+      try {
+        await printForstGoBuildInfo({
+          env: {
+            ...process.env,
+            FORST_BINARY: fakeForst,
+            PATH: `${fakeGoDir}:${process.env.PATH ?? ""}`,
+          },
+        });
+      } finally {
+        console.log = origLog;
+        rmSync(dir, { recursive: true, force: true });
+      }
+
+      const flat = lines.join("\n");
+      expect(flat).toContain("Embedded build metadata");
+      expect(flat).toContain("forst-test:");
+      expect(flat).toContain("forst-lang/forst");
     }
   );
 });
