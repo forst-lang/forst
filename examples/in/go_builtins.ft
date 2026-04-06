@@ -1,0 +1,13 @@
+package main
+
+// Exercises Go predeclared builtins checked by tryDispatchGoBuiltin: len on String and
+// slice literals, min/max on ordered types. Golden output: ../out/go_builtins.go
+
+func main() {
+	s: String = "ab"
+	println(len(s))
+	println(len("hi"))
+	println(len([1, 2, 3]))
+	println(min(1, 2, 3))
+	println(max(3, 4))
+}

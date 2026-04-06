@@ -46,7 +46,7 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
-| Built-in calls (`make`, `new`, `append`, `copy`, `len`, `cap`, `close`, …) | 🔬 experimental | Via **Go builtins** and transpilation; not necessarily first-class Forst syntax for every builtin. |
+| Built-in calls (`make`, `new`, `append`, `copy`, `len`, `cap`, `close`, …) | 🔬 experimental | Predeclared Go builtins used as calls are type-checked against Go rules in `forst/internal/typechecker/go_builtins.go` (`tryDispatchGoBuiltin`). **`make` / `new` with a type argument** are rejected until the expression parser accepts **Forst type syntax** in that position (e.g. `Array(Int)`, `Map(K, V)`), not Go spellings like `[]T` or `map[K]V`. |
 | Goroutines (beyond `go` call) | 🔬 experimental | `go f()` supported; scheduler/runtime is Go’s. |
 | Channels (`chan`, `<-`, `range` on channel) | 🔬 experimental | Send/receive parse in some forms; `select` and full channel ergonomics missing. |
 | `panic` / `recover` | 🔬 experimental | May appear in generated code; not first-class Forst keywords. |

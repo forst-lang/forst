@@ -23,6 +23,8 @@ Run example compilations with tracing enabled:
 examples/in/rfc/guard/shape_guard.ft
 examples/in/rfc/guard/basic_guard.ft
 examples/in/basic.ft
+examples/in/go_builtins.ft
+examples/in/generics.ft
 examples/in/basic_function.ft
 examples/in/ensure.ft
 
@@ -40,6 +42,7 @@ The project follows this structure:
 - `examples/in/`: Example Forst source files
   - `rfc/guard/`: Guard-related examples
   - `basic.ft`: Basic language examples
+  - `generics.ft`: Built-in parameterized types (`[]T`, `*T`, `append`/`copy`/`cap`/`range`); not user-defined generics
   - `basic_function.ft`: Function examples
   - `ensure.ft`: Ensure statement examples
 - `examples/out/`: Example expected Go files after transpilation

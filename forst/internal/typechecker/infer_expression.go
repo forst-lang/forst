@@ -287,6 +287,36 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		// Return a special marker (empty slice) to indicate untyped nil; context must resolve
 		return nil, nil
 
+	case ast.MapLiteralNode:
+		if e.Type.Ident != ast.TypeMap || len(e.Type.TypeParams) != 2 {
+			return nil, fmt.Errorf("map literal: invalid type %v", e.Type)
+		}
+		wantK, wantV := e.Type.TypeParams[0], e.Type.TypeParams[1]
+		for i, ent := range e.Entries {
+			kt, err := tc.inferExpressionType(ent.Key)
+			if err != nil {
+				return nil, fmt.Errorf("map literal entry %d key: %w", i, err)
+			}
+			if len(kt) != 1 {
+				return nil, fmt.Errorf("map literal entry %d key: expected one type", i)
+			}
+			if !tc.IsTypeCompatible(kt[0], wantK) {
+				return nil, fmt.Errorf("map literal entry %d key: want %s, got %s", i, wantK.Ident, kt[0].Ident)
+			}
+			vt, err := tc.inferExpressionType(ent.Value)
+			if err != nil {
+				return nil, fmt.Errorf("map literal entry %d value: %w", i, err)
+			}
+			if len(vt) != 1 {
+				return nil, fmt.Errorf("map literal entry %d value: expected one type", i)
+			}
+			if !tc.IsTypeCompatible(vt[0], wantV) {
+				return nil, fmt.Errorf("map literal entry %d value: want %s, got %s", i, wantV.Ident, vt[0].Ident)
+			}
+		}
+		tc.storeInferredType(e, []ast.TypeNode{e.Type})
+		return []ast.TypeNode{e.Type}, nil
+
 	default:
 		tc.log.Tracef("Unhandled expression type: %T", expr)
 		return nil, fmt.Errorf("cannot infer type for expression: %T", expr)

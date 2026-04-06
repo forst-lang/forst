@@ -69,15 +69,18 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 				p.advance() // Consume comma
 			}
 		}
-		p.expect(ast.TokenRBracket)
+		rbrack := p.expect(ast.TokenRBracket)
 
 		var arrayType ast.TypeNode
-		if p.current().Type == ast.TokenIdentifier {
-			// Parse array type annotation
+		next := p.current()
+		// Optional `[elem...]T` suffix: only when `T` is on the same line as `]`. Otherwise a
+		// closing `]` at end of line would consume the next statement's identifier (e.g. `xs` in
+		// `ys := [...]\n  xs := [...]`).
+		if next.Type == ast.TokenIdentifier && next.Line == rbrack.Line {
 			arrayType = ast.TypeNode{
-				Ident: ast.TypeIdent(p.current().Value),
+				Ident: ast.TypeIdent(next.Value),
 			}
-			p.advance() // Consume type identifier
+			p.advance()
 		} else {
 			arrayType = ast.TypeNode{Ident: ast.TypeImplicit}
 		}

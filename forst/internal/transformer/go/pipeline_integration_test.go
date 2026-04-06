@@ -202,6 +202,37 @@ func main() {
 `,
 			needles: []string{`defer work()`, `go work()`, `func main`},
 		},
+		{
+			name: "builtin_len_string",
+			src: `package main
+
+func main() {
+	println(len("hi"))
+}
+`,
+			needles: []string{`package main`, `len("hi")`, `println`},
+		},
+		{
+			name: "builtin_len_array_literal",
+			src: `package main
+
+func main() {
+	println(len([1, 2, 3]))
+}
+`,
+			needles: []string{`len(`, `func main`},
+		},
+		{
+			name: "builtin_min_max_literals",
+			src: `package main
+
+func main() {
+	println(min(1, 2, 3))
+	println(max(3, 4))
+}
+`,
+			needles: []string{`min(`, `max(`, `func main`},
+		},
 	}
 
 	for _, tt := range tests {

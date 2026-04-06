@@ -172,6 +172,34 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Type: &goast.ArrayType{Elt: eltGo},
 			Elts: elts,
 		}, nil
+	case ast.MapLiteralNode:
+		if e.Type.Ident != ast.TypeMap || len(e.Type.TypeParams) != 2 {
+			return nil, fmt.Errorf("map literal: invalid type %v", e.Type)
+		}
+		keyGo, err := t.transformType(e.Type.TypeParams[0])
+		if err != nil {
+			return nil, err
+		}
+		valGo, err := t.transformType(e.Type.TypeParams[1])
+		if err != nil {
+			return nil, err
+		}
+		elts := make([]goast.Expr, 0, len(e.Entries))
+		for _, ent := range e.Entries {
+			kx, err := t.transformExpression(ent.Key)
+			if err != nil {
+				return nil, err
+			}
+			vx, err := t.transformExpression(ent.Value)
+			if err != nil {
+				return nil, err
+			}
+			elts = append(elts, &goast.KeyValueExpr{Key: kx, Value: vx})
+		}
+		return &goast.CompositeLit{
+			Type: &goast.MapType{Key: keyGo, Value: valGo},
+			Elts: elts,
+		}, nil
 	case ast.UnaryExpressionNode:
 		op, err := t.transformOperator(e.Operator)
 		if err != nil {
