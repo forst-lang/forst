@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Manual run: Actions → Release → Run workflow (confirms the workflow still runs if push triggers are unclear).
+  workflow_dispatch:
 
 # npm / JSR / VSIX publish runs in this workflow via workflow_call after Release Please creates a tag.
 # Releases created with the default GITHUB_TOKEN do not emit `release` events, so separate
@@ -12,6 +14,9 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # Reusable workflows may only request permissions the caller grants; publish-packages.yml
+  # jobs (sidecar-jsr, cli-jsr) need OIDC for JSR.
+  id-token: write
 
 jobs:
   release-please:
