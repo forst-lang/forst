@@ -255,7 +255,7 @@ export class ForstClient {
 	}
 
 	content += clientClass + "\n"
-	content += "export * from './types';\n"
+	content += "export type * from './types.d.ts';\n"
 
 	return content
 }

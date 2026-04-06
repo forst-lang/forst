@@ -1,86 +1,159 @@
 /**
- * Full game in TypeScript using types from the **`client/`** tree (`forst generate` copies merged `types.d.ts` there).
- * Move rules mirror `engine.ft` (ApplyMove / invalid moves).
- * Requires `task example:tictactoe:generate` so `client/types.d.ts` exists.
+ * End-to-end: TypeScript uses **`ForstClient`** from **`client/`** only (no `generated/` imports).
+ * Calls **`engine.NewGame`** / **`engine.PlayMove`** via **`forst dev`** → **`POST /invoke`** (same as production).
+ *
+ * Requires `task example:tictactoe:generate` so `client/types.d.ts` and `client/index.ts` exist.
+ * Spawns **`forst dev`** with the example `ftconfig.json` (see `beforeAll`).
  */
-import { describe, it, expect } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { GameState, MoveRequest, MoveResponse } from "../client/types";
+import { DevServerHttpFailure } from "@forst/sidecar";
+import { ForstClient } from "../client";
+import type { GameState, MoveRequest } from "../client/types";
 
 const exampleRoot = join(import.meta.dir, "..");
 const typesFile = join(exampleRoot, "client", "types.d.ts");
+const ftconfigPath = join(exampleRoot, "ftconfig.json");
 
-function invalidMove(msg: string): Error {
-  return new Error(msg);
+function resolveForstBinary(): string {
+  const env = process.env.FORST_BINARY?.trim();
+  if (env && existsSync(env)) return env;
+  const fromRepo = join(exampleRoot, "..", "..", "..", "bin", "forst");
+  if (existsSync(fromRepo)) return fromRepo;
+  throw new Error(
+    `forst binary not found (set FORST_BINARY or build with task build). Tried: ${fromRepo}`
+  );
 }
 
-/** Mirrors `ApplyMove` in engine.ft for valid/invalid moves. */
-function applyMove(req: MoveRequest): { ok: MoveResponse; err?: undefined } | { ok?: undefined; err: Error } {
-  const row = req.row;
-  if (row <= -1) return { err: invalidMove("row must be >= 0") };
-  if (row >= 3) return { err: invalidMove("row must be <= 2") };
-  const col = req.col;
-  if (col <= -1) return { err: invalidMove("col must be >= 0") };
-  if (col >= 3) return { err: invalidMove("col must be <= 2") };
-  const idx = row * 3 + col;
-  if (req.state.cells[idx] !== "") {
-    return { err: invalidMove("cell already taken") };
+function forstRepoDir(): string {
+  return join(exampleRoot, "..", "..", "..", "forst");
+}
+
+function devListenPort(): number {
+  const raw = process.env.FORST_TICTACTOE_DEV_PORT?.trim();
+  if (raw && /^\d+$/.test(raw)) return parseInt(raw, 10);
+  return 8099;
+}
+
+async function waitForHealth(baseUrl: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  const url = `${baseUrl.replace(/\/$/, "")}/health`;
+  let lastErr: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) {
+        const j = (await r.json()) as { success?: boolean };
+        if (j.success === true) return;
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+    await new Promise((r) => setTimeout(r, 100));
   }
-  const next = [...req.state.cells];
-  next[idx] = req.state.nextPlayer;
-  const np = req.state.nextPlayer === "X" ? "O" : "X";
-  return {
-    ok: {
-      ok: true,
-      message: "ok",
-      state: {
-        cells: next,
-        nextPlayer: np,
-        status: req.state.status,
-      },
-    },
-  };
+  throw new Error(
+    `timed out waiting for ${url} (${lastErr instanceof Error ? lastErr.message : String(lastErr)})`
+  );
 }
 
-function newGame(): GameState {
-  return {
-    cells: Array(9).fill(""),
-    nextPlayer: "X",
-    status: "playing",
-  };
-}
+let devProc: ReturnType<typeof Bun.spawn> | null = null;
+let client: ForstClient | null = null;
+let baseUrl = "";
 
-describe("tictactoe game (TS simulation + client types)", () => {
+beforeAll(async () => {
+  if (process.env.FORST_SKIP_TICTACTOE_E2E === "1") return;
   if (!existsSync(typesFile)) {
     throw new Error(
       `Missing ${typesFile}. Run: task example:tictactoe:generate (from repo root)`
     );
   }
+  if (!existsSync(ftconfigPath)) {
+    throw new Error(`Missing ${ftconfigPath}`);
+  }
 
+  const forst = resolveForstBinary();
+  const port = devListenPort();
+  baseUrl = `http://127.0.0.1:${port}`;
+
+  devProc = Bun.spawn(
+    [
+      forst,
+      "dev",
+      "-root",
+      exampleRoot,
+      "-config",
+      ftconfigPath,
+      "-port",
+      String(port),
+      "-log-level",
+      "error",
+    ],
+    {
+      cwd: forstRepoDir(),
+      stdout: "pipe",
+      stderr: "pipe",
+    }
+  );
+
+  await waitForHealth(baseUrl, 60_000);
+
+  client = new ForstClient({
+    baseUrl,
+    retries: 0,
+    timeout: 60_000,
+  });
+});
+
+afterAll(() => {
+  if (devProc) {
+    try {
+      devProc.kill();
+    } catch {
+      /* ignore */
+    }
+    devProc = null;
+  }
+  client = null;
+});
+
+describe("tictactoe game (ForstClient + forst dev)", () => {
   if (process.env.FORST_SKIP_TICTACTOE_E2E === "1") {
-    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => { });
+    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => {});
     return;
   }
 
-  it("runs NewGame then one move and rejects duplicate square", () => {
-    let state = newGame();
+  it("runs NewGame then one move and rejects duplicate square via server", async () => {
+    expect(client).not.toBeNull();
+    const c = client!;
+
+    let state = await c.engine.NewGame();
     expect(state.cells).toHaveLength(9);
     expect(state.nextPlayer).toBe("X");
 
-    const r1 = applyMove({ state, row: 1, col: 2 });
-    if (!r1.ok) throw r1.err;
-    expect(r1.ok.ok).toBe(true);
-    expect(r1.ok.state.nextPlayer).toBe("O");
-    expect(r1.ok.state.cells[5]).toBe("X");
+    const req: MoveRequest = { state, row: 1, col: 2 };
+    const r1 = await c.engine.PlayMove(req);
+    expect(r1.ok).toBe(true);
+    expect(r1.state.nextPlayer).toBe("O");
+    expect(r1.state.cells[5]).toBe("X");
 
-    const bad = applyMove({ state: r1.ok.state, row: 1, col: 2 });
-    expect(bad.err).toBeDefined();
-    expect(bad.err?.message).toContain("cell already taken");
+    try {
+      await c.engine.PlayMove({ state: r1.state, row: 1, col: 2 });
+      expect.unreachable("expected duplicate move to fail");
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerHttpFailure);
+      const http = e as DevServerHttpFailure;
+      const blob = `${http.serverErrorFromBody ?? ""} ${http.responseText}`;
+      // Duplicate square fails `ensure` in engine.ft (runtime reports Bool.True / assertion; message text may vary by emit).
+      expect(blob).toMatch(/cell already taken|Bool\.True\(\)|assertion failed/);
+    }
   });
 
-  it("plays five moves so X wins the top row", () => {
-    let state = newGame();
+  it("plays five moves so X wins the top row (server-side rules)", async () => {
+    expect(client).not.toBeNull();
+    const c = client!;
+
+    let state: GameState = await c.engine.NewGame();
     const moves: [number, number][] = [
       [0, 0],
       [1, 0],
@@ -89,10 +162,9 @@ describe("tictactoe game (TS simulation + client types)", () => {
       [0, 2],
     ];
     for (const [row, col] of moves) {
-      const r = applyMove({ state, row, col });
-      if (!r.ok) throw r.err;
-      expect(r.ok.ok).toBe(true);
-      state = r.ok.state;
+      const r = await c.engine.PlayMove({ state, row, col });
+      expect(r.ok).toBe(true);
+      state = r.state;
     }
     expect(state.cells[0]).toBe("X");
     expect(state.cells[1]).toBe("X");
