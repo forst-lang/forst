@@ -1,5 +1,7 @@
 # Shared steps: sync jsr.json from package.json, then npx jsr publish.
 # Call after checkout, setup-bun, and `bun install --frozen-lockfile` at the repo root.
+# Use --allow-dirty: sidecar (and similar) rewrites @forst/cli to ^semver and runs bun install, which
+# dirties package.json and bun.lockb compared to the tag — intentional before publish.
 name: Publish package to JSR
 description: Runs sync-jsr-version and npx jsr publish in a workspace package directory.
 inputs:
@@ -19,7 +21,7 @@ runs:
 
     - name: Publish package to JSR
       working-directory: ${{ inputs.working-directory }}
-      run: npx jsr publish
+      run: npx jsr publish --allow-dirty
       shell: bash
       env:
         JSR_TOKEN: ${{ inputs.jsr-token }}

@@ -374,8 +374,9 @@ tasks:
     desc: |
       Production .vsix: rewrite @forst/cli from workspace:* to ^semver (packages/cli), install from npm, compile,
       vsce, then git restore package.json and bun.lockb. Dev/CI keep workspace:*; the shipped extension bundles @forst/cli from the registry.
+      Depends on build:cli so packages/cli/dist exists when Bun links the workspace package (tsc needs .d.ts).
     dir: packages/vscode-forst
-    deps: [install:bun]
+    deps: [install:bun, build:cli]
     cmds:
       - |
         set -euo pipefail

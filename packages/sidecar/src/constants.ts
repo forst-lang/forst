@@ -1,7 +1,9 @@
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json") as { version: string };
+/** `dist/*.js` → `packages/sidecar/package.json` (same layout as `@forst/cli` version helper). */
+const pkgPath = join(__dirname, "..", "package.json");
+const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string };
 
 /** npm semver of this `@forst/sidecar` build (from package.json next to dist/). */
 export const SIDECAR_PACKAGE_VERSION = pkg.version;
