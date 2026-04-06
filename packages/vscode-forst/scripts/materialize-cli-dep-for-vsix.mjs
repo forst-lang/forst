@@ -1,9 +1,15 @@
 /**
  * vsce refuses paths that escape the extension root (e.g. extension/../../package.json).
- * In a Bun workspace, `node_modules/@forst/cli` is often a symlink to `packages/cli`, so
- * `vsce package` follows it and fails. Replace each such symlink with a recursive copy before packaging.
+ * In a Bun workspace, `node_modules/@forst/cli` is usually a symlink to `packages/cli`. Replacing
+ * it with a plain tree fixes that, but a full `cpSync` of `packages/cli` still copies **nested**
+ * symlinks (e.g. under dev `node_modules`) that point back into the monorepo — vsce follows them and
+ * fails again.
  *
- * Bun may hoist `@forst/cli` to the monorepo root (`../../node_modules`), not under `packages/vscode-forst/node_modules`.
+ * This script rebuilds `node_modules/@forst/cli` using the same **files** layout as `npm publish`
+ * for `packages/cli` (see that package.json `files` field): `dist/`, `README.md`, `LICENSE`, plus
+ * `package.json`. No symlinks, minimal size.
+ *
+ * Bun may hoist `@forst/cli` to the repo root `node_modules`, not under `packages/vscode-forst/node_modules`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -12,48 +18,61 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const vscodeRoot = path.join(__dirname, "..");
 const repoRoot = path.join(vscodeRoot, "..", "..");
+const cliSource = path.join(repoRoot, "packages", "cli");
 
 const candidates = [
   path.join(vscodeRoot, "node_modules", "@forst", "cli"),
   path.join(repoRoot, "node_modules", "@forst", "cli"),
 ];
 
-function materialize(cliPath) {
-  if (!fs.existsSync(cliPath)) {
-    return false;
+/**
+ * @param {string} sourceRoot — e.g. packages/cli
+ * @param {string} destRoot — e.g. node_modules/@forst/cli
+ */
+function copyNpmFilesLayout(sourceRoot, destRoot) {
+  const pkgPath = path.join(sourceRoot, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    throw new Error(`materialize-cli-dep-for-vsix: missing ${pkgPath}`);
   }
-  let st;
-  try {
-    st = fs.lstatSync(cliPath);
-  } catch {
-    return false;
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  const files = Array.isArray(pkg.files) ? pkg.files : ["dist"];
+
+  fs.rmSync(destRoot, { recursive: true, force: true });
+  fs.mkdirSync(destRoot, { recursive: true });
+  fs.copyFileSync(pkgPath, path.join(destRoot, "package.json"));
+
+  for (const entry of files) {
+    const src = path.join(sourceRoot, entry);
+    const dst = path.join(destRoot, entry);
+    if (!fs.existsSync(src)) {
+      console.warn(
+        `materialize-cli-dep-for-vsix: skip missing "files" entry ${JSON.stringify(entry)}`
+      );
+      continue;
+    }
+    const st = fs.statSync(src);
+    if (st.isDirectory()) {
+      fs.cpSync(src, dst, { recursive: true, dereference: true });
+    } else {
+      fs.copyFileSync(src, dst);
+    }
   }
-  if (!st.isSymbolicLink()) {
-    console.log(
-      `materialize-cli-dep-for-vsix: not a symlink, skip: ${cliPath}`
-    );
-    return true;
-  }
-  const real = fs.realpathSync(cliPath);
-  console.log(`materialize-cli-dep-for-vsix: copy ${real} → ${cliPath}`);
-  fs.rmSync(cliPath, { force: true });
-  fs.cpSync(real, cliPath, { recursive: true });
-  return true;
 }
 
-let any = false;
-for (const p of candidates) {
-  if (fs.existsSync(p)) {
-    any = true;
-    materialize(p);
-  }
-}
-
-if (!any) {
+const distIndex = path.join(cliSource, "dist", "index.js");
+if (!fs.existsSync(distIndex)) {
   console.error(
-    "materialize-cli-dep-for-vsix: no node_modules/@forst/cli found (tried hoisted + local)"
+    `materialize-cli-dep-for-vsix: ${distIndex} missing — run task build:cli (or bun run build in packages/cli) first`
   );
   process.exit(1);
+}
+
+for (const cliPath of candidates) {
+  fs.mkdirSync(path.dirname(cliPath), { recursive: true });
+  console.log(
+    `materialize-cli-dep-for-vsix: ${cliPath} ← npm "files" layout from ${cliSource}`
+  );
+  copyNpmFilesLayout(cliSource, cliPath);
 }
 
 console.log("materialize-cli-dep-for-vsix: done");
