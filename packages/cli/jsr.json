@@ -1,6 +1,6 @@
 {
   "name": "@forst/cli",
-  "version": "0.0.19",
+  "version": "0.0.21",
   "exports": {
     ".": "./src/index.ts",
     "./bin": "./src/bin.ts"
