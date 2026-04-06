@@ -89,6 +89,11 @@
           "type": "boolean",
           "default": true,
           "description": "When true, start forst lsp as a child process when the extension activates. When false, connect to an already-running server on the configured port."
+        },
+        "forst.downloadCompiler": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, use @forst/cli to resolve FORST_BINARY, the local cache, or download the compiler from GitHub releases when no workspace bin/forst is found. When false, only PATH and workspace bin/forst apply."
         }
       }
     },
@@ -112,7 +117,10 @@
     "test": "node --test test/snippets.test.mjs",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "vsix": "mkdir -p ../../dist && vsce package --no-dependencies --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode.vsix"
+    "vsix": "mkdir -p ../../dist && vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode.vsix"
+  },
+  "dependencies": {
+    "@forst/cli": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

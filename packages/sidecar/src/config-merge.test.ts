@@ -52,4 +52,22 @@ describe("mergeForstSidecarEnv", () => {
     const m = mergeForstSidecarEnv({});
     expect(m.forstDir).toBe("./packages/api/forst");
   });
+
+  it("defaults downloadCompiler to false when unset", () => {
+    delete process.env.FORST_DOWNLOAD_COMPILER;
+    const m = mergeForstSidecarEnv({});
+    expect(m.downloadCompiler).toBe(false);
+  });
+
+  it("enables downloadCompiler when FORST_DOWNLOAD_COMPILER=1", () => {
+    process.env.FORST_DOWNLOAD_COMPILER = "1";
+    const m = mergeForstSidecarEnv({});
+    expect(m.downloadCompiler).toBe(true);
+  });
+
+  it("respects explicit downloadCompiler over env", () => {
+    process.env.FORST_DOWNLOAD_COMPILER = "1";
+    const m = mergeForstSidecarEnv({ downloadCompiler: false });
+    expect(m.downloadCompiler).toBe(false);
+  });
 });

@@ -17,6 +17,7 @@ import {
   CompilerBinaryChecksumMismatch,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
+  CompilerBinaryNotFound,
 } from "./errors.js";
 
 const verifyOff = { FORST_CLI_VERIFY: "0" } as const;
@@ -59,6 +60,22 @@ describe("resolveForstBinary", () => {
         env: { ...process.env, FORST_BINARY: "/nonexistent/forst-binary-xyz" },
       })
     ).rejects.toThrow(/FORST_BINARY/);
+  });
+
+  test("allowDownload false throws when cache miss and no FORST_BINARY", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      await expect(
+        resolveForstBinary({
+          version: "0.0.19",
+          allowDownload: false,
+          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          homedirFn: () => "/unused",
+        })
+      ).rejects.toBeInstanceOf(CompilerBinaryNotFound);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
   });
 
   test("downloads into cache when missing", async () => {

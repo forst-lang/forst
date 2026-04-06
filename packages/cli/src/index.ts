@@ -7,6 +7,7 @@ export {
 } from "./urls.js";
 export { getCliPackageVersion } from "./version.js";
 export {
+  getCompilerArtifactDownloadUrlForCurrentPlatform,
   getCompilerCacheDirForVersion,
   getExpectedCompilerBinaryPath,
   resolveForstBinary,
@@ -20,9 +21,11 @@ export {
   CompilerBinaryChecksumMismatch,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
+  CompilerBinaryNotFound,
   UnsupportedArchitecture,
   UnsupportedOperatingSystem,
 } from "./errors.js";
+export { fetchLatestCompilerReleaseVersion } from "./github-release.js";
 export { fetchWithRetry } from "./http.js";
 
 import { spawn, type SpawnOptions } from "node:child_process";

@@ -17,11 +17,22 @@ import {
   CompilerBinaryChecksumMismatch,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
+  CompilerBinaryNotFound,
 } from "./errors.js";
 import { fetchReleaseAssetSha256Hex } from "./github-release.js";
 import { fetchWithRetry } from "./http.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import { getCliPackageVersion } from "./version.js";
+
+/** Download URL for the compiler artifact matching this @forst/cli version and current OS/arch. */
+export function getCompilerArtifactDownloadUrlForCurrentPlatform(
+  platform: NodeJS.Platform = process.platform,
+  archName: string = process.arch
+): string {
+  const version = getCliPackageVersion();
+  const artifact = getCompilerArtifactName(platform, archName);
+  return buildCompilerArtifactDownloadUrl(version, artifact);
+}
 
 const STALE_LOCK_MS = 10 * 60 * 1000;
 const LOCK_WAIT_MS = 120_000;
@@ -59,6 +70,11 @@ export type ResolveForstBinaryFs = Pick<
 export interface ResolveForstBinaryOptions {
   /** Compiler version to fetch (default: @forst/cli package version). */
   version?: string;
+  /**
+   * When false, only `FORST_BINARY` or an existing cached binary is used; no network download.
+   * Default true (download if missing).
+   */
+  allowDownload?: boolean;
   /** Override path to the native binary (skips download). */
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
@@ -207,6 +223,7 @@ function writeBinaryAtomically(
 export async function resolveForstBinary(
   options: ResolveForstBinaryOptions = {}
 ): Promise<string> {
+  const allowDownload = options.allowDownload !== false;
   const env = options.env ?? process.env;
   const override = env.FORST_BINARY?.trim();
   if (override) {
@@ -236,6 +253,13 @@ export async function resolveForstBinary(
 
   if (fs.existsSync(dest)) {
     return dest;
+  }
+
+  if (!allowDownload) {
+    throw new CompilerBinaryNotFound(
+      `Forst compiler is not installed in the local cache (${dest}). ` +
+        `Set FORST_BINARY to the executable, enable downloads, or install the @forst/cli cache.`
+    );
   }
 
   const url = buildCompilerArtifactDownloadUrl(version, artifact);

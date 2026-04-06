@@ -1,7 +1,7 @@
 import * as cp from "child_process";
 import type { LogOutputChannel } from "vscode";
 import type { ForstExtensionConfig } from "../config";
-import { lspBaseUrl, resolveForstExecutable } from "../config";
+import { lspBaseUrl, resolveForstExecutableWithCli } from "../config";
 import { waitForLspHealth } from "./health";
 
 /**
@@ -88,7 +88,7 @@ async function ensureForstLspProcessUnlocked(
   } catch {
     /* port free or server not up yet — spawn below */
   }
-  const exe = resolveForstExecutable(cfg.forstPath);
+  const exe = await resolveForstExecutableWithCli(cfg, log);
   if (exe !== cfg.forstPath) {
     log.info(`Resolved forst executable: ${exe}`);
   }
@@ -128,7 +128,7 @@ async function ensureForstLspProcessUnlocked(
     state.process = undefined;
     const msg = err instanceof Error ? err.message : String(err);
     log.error(
-      `Could not spawn forst (${exe}): ${msg}. Set **forst.path**, put forst on PATH, or open a workspace that contains **bin/forst** after \`task build\`.`
+      `Could not spawn forst (${exe}): ${msg}. Set **forst.path**, put forst on PATH, enable **forst.downloadCompiler**, or open a workspace that contains **bin/forst** after \`task build\`.`
     );
     throw err;
   }

@@ -36,8 +36,8 @@ import {
   effectiveProjectRootDir,
 } from "./server";
 
-async function ensureForstBinary(): Promise<string> {
-  return await ForstUtils.ensureCompiler();
+async function ensureForstBinary(config: ForstConfig): Promise<string> {
+  return await ForstUtils.ensureCompiler(config.downloadCompiler ?? false);
 }
 
 /**
@@ -116,10 +116,10 @@ export class ForstSidecar {
       logger.info(`🔧 Using custom compiler path: ${this.forstPath}`);
     } else {
       try {
-        this.forstPath = await ensureForstBinary();
+        this.forstPath = await ensureForstBinary(this.config);
       } catch (e) {
         throw new CompilerNotFound(
-          "Failed to download or resolve the Forst compiler.",
+          "Failed to resolve the Forst compiler. Install `forst`, set FORST_BINARY, enable downloadCompiler (or FORST_DOWNLOAD_COMPILER=1), or use a cached @forst/cli binary.",
           { cause: e }
         );
       }
@@ -153,7 +153,9 @@ export class ForstSidecar {
     let forstPath: string;
     try {
       forstPath =
-        this._customCompilerPath ?? this.forstPath ?? await ensureForstBinary();
+        this._customCompilerPath ??
+        this.forstPath ??
+        (await ensureForstBinary(mergeForstSidecarEnv(this.config)));
     } catch {
       logger.warn(
         "Could not resolve local forst binary; skipping version check"
@@ -219,7 +221,9 @@ export class ForstSidecar {
     const cfg = mergeForstSidecarEnv(this.config);
     const root = effectiveProjectRootDir(cfg);
     const forstPath =
-      this._customCompilerPath ?? this.forstPath ?? await ensureForstBinary();
+      this._customCompilerPath ??
+      this.forstPath ??
+      (await ensureForstBinary(cfg));
     const args = buildForstGenerateArgs(cfg, root);
     const { exitCode, stderr, stdout } = await ForstUtils.executeForstCommand(
       forstPath,

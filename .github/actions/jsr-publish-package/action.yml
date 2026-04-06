@@ -1,5 +1,5 @@
 # Shared steps: sync jsr.json from package.json, then npx jsr publish.
-# Call after checkout, setup-bun, and bun install at the repo root.
+# Call after checkout, setup-bun, and `bun install --frozen-lockfile` at the repo root.
 name: Publish package to JSR
 description: Runs sync-jsr-version and npx jsr publish in a workspace package directory.
 inputs:

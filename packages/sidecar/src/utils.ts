@@ -11,11 +11,13 @@ import {
   resolveForstBinary,
   getCompilerArtifactName,
   getCliPackageVersion,
-  buildCompilerArtifactDownloadUrl,
   getExpectedCompilerBinaryPath,
+  getCompilerArtifactDownloadUrlForCurrentPlatform,
+  fetchLatestCompilerReleaseVersion,
   CompilerBinaryDownloadHttpFailure as CliCompilerBinaryDownloadHttpFailure,
   CompilerBinaryDownloadFailed as CliCompilerBinaryDownloadFailed,
   CompilerBinaryChecksumMismatch as CliCompilerBinaryChecksumMismatch,
+  CompilerBinaryNotFound as CliCompilerBinaryNotFound,
   UnsupportedArchitecture as CliUnsupportedArchitecture,
   UnsupportedOperatingSystem as CliUnsupportedOperatingSystem,
 } from "@forst/cli";
@@ -23,6 +25,7 @@ import { CompilerInfo, ForstConfig } from "./types";
 import {
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
+  CompilerNotFound,
   LatestCompilerReleaseUnavailable,
   SpawnedProcessExitedNonZero,
   UnsupportedArchitecture,
@@ -45,6 +48,9 @@ export class ForstUtils {
     if (e instanceof CliCompilerBinaryChecksumMismatch) {
       throw new CompilerBinaryDownloadFailed(e.message, { cause: e });
     }
+    if (e instanceof CliCompilerBinaryNotFound) {
+      throw new CompilerNotFound(e.message, { cause: e });
+    }
     if (e instanceof CliUnsupportedArchitecture) {
       throw new UnsupportedArchitecture(arch());
     }
@@ -54,28 +60,28 @@ export class ForstUtils {
     throw e;
   }
 
-  private static async resolveCompilerBinary(): Promise<string> {
+  private static async resolveCompilerBinary(
+    allowDownload: boolean
+  ): Promise<string> {
     try {
-      return await resolveForstBinary();
+      return await resolveForstBinary({ allowDownload });
     } catch (e) {
       this.mapCliError(e);
     }
   }
 
   /**
-   * Get the latest version from GitHub releases
+   * Latest published compiler semver from GitHub `releases/latest`.
    */
   static async getLatestVersion(): Promise<string> {
     try {
-      const response = await fetch(
-        "https://api.github.com/repos/forst-lang/forst/releases/latest"
+      return await fetchLatestCompilerReleaseVersion();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new LatestCompilerReleaseUnavailable(
+        `Failed to fetch latest Forst version: ${msg}`,
+        { cause: e instanceof Error ? e : undefined }
       );
-      const data = (await response.json()) as { tag_name: string };
-      return data.tag_name.replace("v", ""); // Remove 'v' prefix
-    } catch (error) {
-      throw new LatestCompilerReleaseUnavailable("Failed to fetch latest Forst version", {
-        cause: error instanceof Error ? error : undefined,
-      });
     }
   }
 
@@ -93,11 +99,9 @@ export class ForstUtils {
   /**
    * Get the download URL for the compiler binary (pinned to @forst/cli / compiler semver).
    */
-  static async getCompilerDownloadUrl(): Promise<string> {
+  static getCompilerDownloadUrl(): string {
     try {
-      const version = getCliPackageVersion();
-      const binaryName = this.getCompilerBinaryName();
-      return buildCompilerArtifactDownloadUrl(version, binaryName);
+      return getCompilerArtifactDownloadUrlForCurrentPlatform();
     } catch (e) {
       this.mapCliError(e);
     }
@@ -115,12 +119,12 @@ export class ForstUtils {
   }
 
   /**
-   * Download the compiler binary from GitHub releases
+   * Download the compiler binary from GitHub releases (when missing).
    */
   static async downloadCompiler(): Promise<string> {
-    utilsLogger.info("Resolving Forst compiler via @forst/cli");
+    utilsLogger.info("Resolving Forst compiler via @forst/cli (download allowed)");
     try {
-      const path = await this.resolveCompilerBinary();
+      const path = await this.resolveCompilerBinary(true);
       utilsLogger.info(`✅ Forst compiler available at: ${path}`);
       return path;
     } catch (error) {
@@ -130,10 +134,11 @@ export class ForstUtils {
   }
 
   /**
-   * Ensure the compiler binary is available locally
+   * Ensure the compiler binary is available locally.
+   * @param allowDownload When false (default), only FORST_BINARY or an existing cache hit is used.
    */
-  static async ensureCompiler(): Promise<string> {
-    const localPath = await this.resolveCompilerBinary();
+  static async ensureCompiler(allowDownload = false): Promise<string> {
+    const localPath = await this.resolveCompilerBinary(allowDownload);
     utilsLogger.info(`✅ Using Forst compiler at: ${localPath}`);
     return localPath;
   }
@@ -141,9 +146,9 @@ export class ForstUtils {
   /**
    * Get compiler information
    */
-  static async getCompilerInfo(): Promise<CompilerInfo> {
+  static async getCompilerInfo(allowDownload = false): Promise<CompilerInfo> {
     const version = getCliPackageVersion();
-    const binaryPath = await this.resolveCompilerBinary();
+    const binaryPath = await this.resolveCompilerBinary(allowDownload);
 
     return {
       version,

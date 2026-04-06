@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import type { LogOutputChannel } from "vscode";
 import * as vscode from "vscode";
 
 /** Snapshot of `forst.*` workspace settings the LSP layer and spawn logic need in one place. */
@@ -8,6 +9,11 @@ export interface ForstExtensionConfig {
   port: number;
   logLevel: string;
   autoStart: boolean;
+  /**
+   * When true (default), use @forst/cli to resolve FORST_BINARY, cache, or download the compiler.
+   * When false, use workspace `bin/forst` / PATH only.
+   */
+  downloadCompiler: boolean;
 }
 
 /** Reads the current workspace configuration—call sites get fresh values after settings change. */
@@ -17,11 +23,13 @@ export function readForstConfig(): ForstExtensionConfig {
   const port = cfg.get<number>("lsp.port") ?? 8081;
   const logLevel = cfg.get<string>("lsp.logLevel") ?? "info";
   const autoStart = cfg.get<boolean>("lsp.autoStart") ?? true;
+  const downloadCompiler = cfg.get<boolean>("downloadCompiler") ?? true;
   return {
     forstPath: pathRaw.trim() || "forst",
     port,
     logLevel,
     autoStart,
+    downloadCompiler,
   };
 }
 
@@ -63,4 +71,43 @@ export function resolveForstExecutable(forstPath: string): string {
     }
   }
   return p;
+}
+
+const defaultExeName = () =>
+  process.platform === "win32" ? "forst.exe" : "forst";
+
+/**
+ * Resolves the `forst` executable: explicit path, workspace `bin/forst`, then @forst/cli
+ * (FORST_BINARY, cache, optional download per `downloadCompiler`).
+ */
+export async function resolveForstExecutableWithCli(
+  cfg: ForstExtensionConfig,
+  log?: LogOutputChannel
+): Promise<string> {
+  const def = defaultExeName();
+  const resolved = resolveForstExecutable(cfg.forstPath);
+
+  if (resolved !== def && resolved !== "forst") {
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`forst executable not found: ${resolved}`);
+    }
+    return resolved;
+  }
+
+  try {
+    const { resolveForstBinary } = await import("@forst/cli");
+    const p = await resolveForstBinary({
+      allowDownload: cfg.downloadCompiler,
+    });
+    if (p !== resolved) {
+      log?.info(`Resolved Forst compiler via @forst/cli: ${p}`);
+    }
+    return p;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    log?.warn(
+      `Forst CLI could not resolve the compiler (${msg}). Using "${resolved}" (PATH).`
+    );
+    return resolved;
+  }
 }

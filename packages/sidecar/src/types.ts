@@ -117,6 +117,11 @@ export interface ForstConfig {
   host?: string;
   logLevel?: "debug" | "info" | "warn" | "error";
   /**
+   * When true, download the compiler from GitHub releases if missing (via @forst/cli cache).
+   * Default false. Override with env `FORST_DOWNLOAD_COMPILER=1` or `true`.
+   */
+  downloadCompiler?: boolean;
+  /**
    * Compare local `forst` binary version to the running dev server (`GET /version`) after connect.
    * Default `warn` (logs when they differ). Use `strict` to throw `ServerVersionMismatch`, or `off` to skip.
    */

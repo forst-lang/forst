@@ -36,6 +36,12 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
   const versionCheck: VersionCheckMode =
     partial.versionCheck ?? "warn";
 
+  const downloadCompiler =
+    partial.downloadCompiler !== undefined
+      ? partial.downloadCompiler
+      : process.env.FORST_DOWNLOAD_COMPILER === "1" ||
+        process.env.FORST_DOWNLOAD_COMPILER === "true";
+
   return {
     ...partial,
     mode: partial.mode ?? "development",
@@ -46,6 +52,7 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
     devServerUrl: devServerUrl ?? undefined,
     sidecarRuntime,
     versionCheck,
+    downloadCompiler,
   };
 }
 

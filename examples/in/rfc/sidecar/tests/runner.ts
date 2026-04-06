@@ -1,4 +1,4 @@
-import { ForstSidecar, ForstUtils } from "@forst/sidecar";
+import { ForstSidecar } from "@forst/sidecar";
 import { runnerLogger } from "./logger";
 
 interface TestRunnerConfig {
@@ -172,9 +172,9 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
 
   // Initialize based on mode
   if (config.mode === "downloaded") {
-    runnerLogger.info("📥 Downloading Forst binary...");
-    const forstPath = await ForstUtils.ensureCompiler();
-    runnerLogger.info(`✅ Forst binary available at: ${forstPath}`);
+    runnerLogger.info(
+      "📥 Sidecar will download the Forst binary if missing (downloadCompiler)."
+    );
   }
 
   // Check if port is available
@@ -200,6 +200,7 @@ async function runTestSuite(config: TestRunnerConfig): Promise<boolean> {
       host: config.host,
       logLevel: config.logLevel,
       rootDir: config.rootDir,
+      downloadCompiler: config.mode === "downloaded",
     });
   }
 

@@ -32,7 +32,14 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
+
+      - name: Point dependencies @forst/cli at published semver (not workspace:*)
+        run: node packages/sidecar/scripts/rewrite-cli-workspace-dep-for-publish.mjs packages/vscode-forst/package.json
+
+      # package.json changed; lockfile no longer matches — cannot use --frozen-lockfile here
+      - name: Install deps after @forst/cli rewrite (non-frozen)
+        run: bun install
 
       - uses: arduino/setup-task@v2
         with:

@@ -377,7 +377,7 @@ tasks:
     cmds:
       - mkdir -p ../../dist
       - bun run compile
-      - bunx vsce package --no-dependencies --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
+      - bunx vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
 
   release:check:
     desc: Check release configuration

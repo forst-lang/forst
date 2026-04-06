@@ -35,6 +35,14 @@ export class CompilerBinaryDownloadFailed extends Error {
   }
 }
 
+/** No local compiler and downloading was disabled (see {@link resolveForstBinary} `allowDownload`). */
+export class CompilerBinaryNotFound extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "CompilerBinaryNotFound";
+  }
+}
+
 /** Downloaded bytes do not match the sha256 from GitHub release metadata. */
 export class CompilerBinaryChecksumMismatch extends Error {
   readonly expectedHex: string;
