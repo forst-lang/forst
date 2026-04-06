@@ -4,12 +4,15 @@ Forst aims to give backend developers TypeScript-grade ergonomics while compilin
 
 ## How this roadmap works
 
+This document tracks **what exists**, **what is in flight**, and **what we refuse to add**—aligned with [PHILOSOPHY.md](./PHILOSOPHY.md)—without shipping dates (use issues/milestones for scheduling).
+
 Each section below is a **feature parity** table: **Feature** | **Status** | **Notes**. Status values:
 
 - ✅ **done** — Believed complete for current scope; report gaps as bugs.
 - ⏳ **in progress** — Actively being implemented **toward** the **done** bar; remaining gaps are temporary.
 - 🔬 **experimental** — Something **exists** (often usable), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial coverage, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
 - 📋 **planned** — On the roadmap but **not yet delivered**: no usable implementation yet.
+- 🚫 **not planned (anti-feature)** — Intentionally **omitted** from the language design; not a backlog gap—see [Anti-features](#anti-features) and [PHILOSOPHY.md](./PHILOSOPHY.md).
 
 **In progress vs experimental:** **In progress** means implementation is **underway** toward **done**. **Experimental** means the feature is **out in the wild** in some form, but we are **not** yet treating it as complete—whether because large pieces are missing, behavior may change, or advertised capabilities are still stubs.
 
@@ -17,11 +20,29 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 
 ---
 
+## Anti-features
+
+These items are **not** on the roadmap as future work—they are **deliberately excluded** where they would fight predictability, explicit control flow, or Go-aligned error handling. They implement the “**no unpredictable behavior**” and related boundaries in [PHILOSOPHY](./PHILOSOPHY.md#anti-features): features that hide control flow, surprise with errors, or break compile-time reasoning stay out of the language surface.
+
+| Topic | 🚫 Why not planned |
+| --- | --- |
+| **`panic` / `recover` as language constructs** | Non-local, implicit control flow; hard to trace and compose. Forst steers toward explicit **`Result`** / **`error`** paths instead—see [Optional & Result Types](#optional--result-types) and [Result & error types](./examples/in/rfc/optionals/02-result-and-error-types.md). (Interop may still surface `panic` in generated Go.) |
+| **Exceptions (`try` / `catch` / `throw`)** | Same family as above: surprise jumps up the stack. Aligns with Go’s **`error`** returns and the planned **`Result`** model rather than TS/Java-style exceptions. |
+| **Macros, preprocessors, compile-time code that rewrites control flow** | Easy to hide behavior; PHILOSOPHY requires control-flow changes to use **ordinary keywords** so execution stays readable. |
+| **TypeScript-style `undefined` as a separate value** | Dual null/undefined semantics complicate APIs and generated types; the optionals direction is **`Nil`** / absence without `undefined`—see [optionals RFC hub](./examples/in/rfc/optionals/README.md). |
+| **Implicit numeric / widening coercion** | Silent `int`↔`float` (and similar) breaks predictability for backends; conversions should be **explicit**—see [PHILOSOPHY](./PHILOSOPHY.md#no-implicit-type-conversions). |
+| **Dependent types & arbitrary type-level computation** | Keeps typechecking decidable and tooling fast; no type families / template metaprogramming—see [No side effects in type system](./PHILOSOPHY.md#no-side-effects-in-type-system) (and nested headings there). |
+| **Runtime type mutation (“monkey patching”)** | Types are fixed at compile time so behavior stays auditable—see [PHILOSOPHY](./PHILOSOPHY.md#no-runtime-type-modifications). |
+
+---
+
 ## Language & types
 
-Work is grouped below by theme.
+The language surface is organized around **structural types**, **explicit annotations where inference would be ambiguous**, and **Go-shaped** execution—see [Guiding Principles](./PHILOSOPHY.md#guiding-principles). Subsections below group roadmap items by concern (core types, optional/result modeling, guards, generics, control flow, builtins).
 
 ### Core typing & declarations
+
+**Intention:** Establish the baseline **static type system**, modules, and declarations so APIs are checkable and stable—aligned with “robust type checking” and “predictable, deterministic behavior” in [PHILOSOPHY](./PHILOSOPHY.md#guiding-principles).
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -33,24 +54,31 @@ Work is grouped below by theme.
 
 ### Optional & Result Types
 
+**Intention:** Model **absence** and **failure** in the type system instead of ad hoc conventions: optional values without a separate **`undefined`** universe (see [optionals direction](./examples/in/rfc/optionals/README.md)), and **`Result`**-style success/failure that still maps to idiomatic Go **`(T, error)`**. This supports [traceable errors](./PHILOSOPHY.md#no-surprising-errors) and explicit handling rather than exceptions or non-local jumps ([Anti-features](#anti-features)); structured error tagging builds on the same story ([errors RFC](./examples/in/rfc/errors/README.md)).
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Optional / nilable value types (`T \| Nil`, `T?` sugar) | 📋 planned | Crystal-style **absence** without TypeScript `undefined` juggling; unions, narrowing, and Go lowering—see [optionals RFC hub](./examples/in/rfc/optionals/README.md) ([00](./examples/in/rfc/optionals/00-crystal-inspired-optionals.md)). |
 | `Result(Success, Failure)` + structured `error` | 📋 planned | Single-return **success vs failure** in source; **failure** side stays in the **Error** family; maps to idiomatic **`(T, error)`** in Go—see [Result & error types](./examples/in/rfc/optionals/02-result-and-error-types.md) and [generics ↔ `Result`](./examples/in/rfc/generics/00-user-generics-and-type-parameters.md#result-types-generics-and-narrowing-ok-and-err). |
+| Structured error system (tagged hierarchy, observability) | 📋 planned | Specification and phased design in [errors RFC hub](./examples/in/rfc/errors/README.md) and [error system architecture](./examples/in/rfc/errors/00-error-system-architecture.md); no delivered implementation yet—overlaps planned **`Result`** and [Result & error types](./examples/in/rfc/optionals/02-result-and-error-types.md). |
 
 ### Guards, `ensure`, and narrowing
+
+**Intention:** Combine **runtime validation** with **refinement** so constraints and narrowing stay tied to types—developers give the compiler **clear intent** ([PHILOSOPHY](./PHILOSOPHY.md#guiding-principles)), and control flow stays easier to follow than implicit guardrails elsewhere.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
 | `ensure` statements (basic type assertions) | ✅ done | Validates assertions and optional blocks; does **not** narrow the subject’s type for statements **after** the `ensure` (see control-flow narrowing). |
 | Shape guards (struct refinement) | ✅ done | Refinement on shapes. |
 | `is` operator for `ensure` conditions | ✅ done | Parser requires `ensure … is …` (see `forst/internal/parser/ensure.go`; `ensure !ident` uses implicit `Nil()`). The typechecker enforces presence (`Present`) and type-guard subject compatibility (`forst/internal/typechecker/unify_typeguard.go`, `infer_ensure.go`); it does **not** fully validate arbitrary built-in constraint semantics beyond that. Emission: `forst/internal/transformer/go/ensure.go`, `ensure_constraint.go`. Examples: `examples/in/ensure.ft` and `task example:ensure`. |
-| Type guards (beyond shape guards) | 📋 planned | Top-level guard definitions and assertion-time checks exist for shape guards; use-site **control-flow narrowing** with guard-backed `is` conditions should reuse `unify_typeguard.go` rules and will advance this row together with narrowing. |
+| Type guards (beyond shape guards) | 🔬 experimental | Top-level `is (subject T) Name { … }` declarations are **implemented** end-to-end: parse (`forst/internal/parser/typeguard.go`), typecheck (`unify_typeguard.go`, registration in `Defs`), Go emit (`forst/internal/transformer/go/typeguard.go`, `ensure_typeguard.go`). Examples: `examples/in/rfc/guard/` (`task example:shape-guard`, `task example:basic-guard`). **Not** at full RFC “done” yet: narrowing across all control-flow positions and other polish overlap **Control-flow type narrowing**; language design: [type guards RFC](./examples/in/rfc/guard/guard.md); Go / `.d.ts` interop: [interop](./examples/in/rfc/guard/interop.md). |
 | Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | 📋 planned | Not implemented. |
 | Binary type expressions | 🔬 experimental | Parser and AST support conjunction (`&`) and disjunction (`\|`) on type definitions (`forst/internal/parser/typedef.go`, `forst/internal/ast/typedef.go`); hashing includes `TypeDefBinaryExpr`. The typechecker does **not** yet implement meet/join semantics (no `TypeDefBinaryExpr` handling; see TODO in `forst/internal/typechecker/infer_shape.go`). Go codegen is a **placeholder** that emits `string` (`forst/internal/transformer/go/typedef_expr.go`). Do not rely on binary type semantics until inference and emit are finished. **Narrowing** and future binary types should share one internal type algebra (assertions / `TypeNode`), not a parallel representation—see control-flow narrowing. |
 | Control-flow type narrowing | 🔬 experimental | **If-branch narrowing** for `if x is …` (assertion or shape RHS): refined type for the subject is recorded in the branch scope; variable types are keyed by identifier **and** source span in the typechecker so hover can differ per occurrence. Join/merge across branches and full `ensure`-successor narrowing are not done yet. Implementation: `forst/internal/typechecker/infer_if.go`, `narrow_if.go`; LSP uses `InferredTypesForVariableNode` when the variable AST node is found at the cursor. Type guards vs optionals / `Result`: [type guards & optionals](./examples/in/rfc/optionals/10-type-guards-shape-guards-and-optionals.md). |
 
 ### Generics, aliases, and nominal features
+
+**Intention:** Reach **parametric abstraction** and naming convenience **without** type-level metaprogramming or hidden coercions—see [No metaprogramming](./PHILOSOPHY.md#no-metaprogramming) and [Anti-features](#anti-features). Forst stays **function-centric** until methods land; aliases and interfaces bridge Go interop gradually.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -63,6 +91,8 @@ Work is grouped below by theme.
 
 ### Control flow & statements
 
+**Intention:** Offer **familiar, readable** control flow (Go-shaped **`if`**, **`for`**, **`defer`**, **`go`**) so execution paths stay explicit—consistent with [predictable behavior](./PHILOSOPHY.md#no-unpredictable-behavior) and the anti-feature stance against hidden jumps ([Anti-features](#anti-features)).
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | `if` / `else` (incl. init statement) | ✅ done | Same structural forms as Go. |
@@ -70,23 +100,25 @@ Work is grouped below by theme.
 | `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
 | `switch` / `case` / `default` / `fallthrough` | 📋 planned | Keywords exist in the lexer; no AST/typecheck/emit yet. **Design open:** may track Go’s **`switch`** closely, or lean toward a **`match`**-style construct (patterns, exhaustiveness) instead of—or layered on—classic **`switch`**; not decided. |
 | `select` | 📋 planned | Not a Forst keyword yet; needs lexer + full statement support (see also channel row below). |
-| `defer` / `go` statements | ✅ done | Matches [Go spec](https://go.dev/ref/spec): operand must be a **function or method call** (not a receive `<-ch` or other non-call). The operand **cannot be parenthesized** (`defer (f())` is rejected at parse time). Calls to certain **predeclared builtins** are forbidden—the same set Go disallows in **expression statement** context (`append`, `cap`, `complex`, `imag`, `len`, `make`, `new`, `real`, and `unsafe.*` calls listed in the spec); enforced in `forst/internal/typechecker/defer_go_validate.go`. Implementation: `forst/internal/parser/control_flow.go`, `forst/internal/typechecker/infer.go`, `forst/internal/transformer/go/statement.go`. Anonymous `go func(){ … }()` / `defer func(){ … }()` are not expressible until func literals exist in expression position. |
+| `defer` / `go` statements | ✅ done | **`go`** starts a goroutine; scheduling and runtime are Go’s—**goroutines** are **✅ done** via this statement (no separate surface). Matches [Go spec](https://go.dev/ref/spec): operand must be a **function or method call** (not a receive `<-ch` or other non-call). The operand **cannot be parenthesized** (`defer (f())` is rejected at parse time). Calls to certain **predeclared builtins** are forbidden—the same set Go disallows in **expression statement** context (`append`, `cap`, `complex`, `imag`, `len`, `make`, `new`, `real`, and `unsafe.*` calls listed in the spec); enforced in `forst/internal/typechecker/defer_go_validate.go`. Implementation: `forst/internal/parser/control_flow.go`, `forst/internal/typechecker/infer.go`, `forst/internal/transformer/go/statement.go`. Anonymous `go func(){ … }()` / `defer func(){ … }()` are not expressible until func literals exist in expression position. |
 | Labeled statements + `goto` | 📋 planned | `goto` is lexed; no parser support. |
 
 ### Builtins, runtime, and platform
 
+**Intention:** Reuse **Go’s predeclared builtins and runtime** where they match backend reality, while **Forst-native** ergonomics (e.g. **`make`/`new` with Forst types**) catch up over time. A first-class **`unsafe`** package is **not** on the roadmap—only reachable through **Go interop** (see [Anti-features](#anti-features)).
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Built-in calls (`make`, `new`, `append`, `copy`, `len`, `cap`, `close`, …) | 🔬 experimental | Predeclared Go builtins used as calls are type-checked against Go rules in `forst/internal/typechecker/go_builtins.go` (`tryDispatchGoBuiltin`). **`make` / `new` with a type argument** are rejected until the expression parser accepts **Forst type syntax** in that position (e.g. `Array(Int)`, `Map(K, V)`), not Go spellings like `[]T` or `map[K]V`. |
-| Goroutines (beyond `go` call) | 🔬 experimental | `go f()` supported; scheduler/runtime is Go’s. |
-| Channels (`chan`, `<-`, `range` on channel) | 🔬 experimental | Send/receive parse in some forms; `select` and full channel ergonomics missing. |
-| `panic` / `recover` | 🔬 experimental | May appear in generated code; not first-class Forst keywords. |
+| Channels (`chan`, `<-`, `range` on channel) | 📋 planned | **No** end-to-end channel story yet: channel types are **not** modeled in the typechecker (`builtin_type_helpers.go` notes channels unmodeled); **`select`** is not a Forst statement; there are **no** `.ft` examples using `chan`. Fragmentary parse paths exist, but nothing users can rely on as a shipped feature. |
 | Build tags, `//go:build`, assembly | 📋 planned | See “Go backwards compatibility” / emit targets. |
-| `unsafe` package | 🔬 experimental | Only through Go interop / generated code, not a Forst `unsafe` block. |
+| `unsafe` package (via `import "unsafe"` + qualified calls) | 📋 planned | **Not working end-to-end yet:** Go represents **`unsafe.Sizeof`** (and similar) as **builtins**, not plain `types.Func`, so today’s Forst↔Go qualified-call path reports **“not a function”**; **`unsafe.Pointer`** is also **unmapped** in `goTypeToForstType`. **Workaround:** put **`unsafe` usage in hand-written Go** and call from Forst. **Intended** model: same as Go—**only** the **`unsafe` package**, lexically **`import "unsafe"`** + **`unsafe.*`**—see [Go interoperability](#go-interoperability). |
 
 ---
 
 ## Go interoperability
+
+**Intention:** Make Forst a **first-class citizen in Go modules**—compile to readable Go, call **real `go/packages` APIs**, and share types with hand-written Go—supporting [Go interoperability](./PHILOSOPHY.md#go-interoperability) and adoption beside existing backends.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -104,6 +136,8 @@ Work is grouped below by theme.
 
 **Story:** Forst emits Go so teams can adopt it beside hand-written Go in the same module and rely on the standard toolchain. Parity here means **generated code that compiles and behaves predictably**, **sensible defaults for which Go version we assume**, and **explicit knobs** when output must run on older toolchains.
 
+**Intention:** Keep **trust in the Go toolchain** (build tags, formatting, version targets) so generated code stays boring and reviewable—aligned with predictable deployment and [Go interoperability](./PHILOSOPHY.md#go-interoperability).
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Emitted code is valid Go for the **supported compiler/toolchain** (see `forst/go.mod`) | ✅ done | Primary guarantee today: output matches what we build and test against. |
@@ -120,12 +154,16 @@ Work is grouped below by theme.
 
 ## TypeScript interoperability
 
+**Intention:** Give **Node/TS clients accurate types** and a **smooth dev loop** (`forst generate`, `forst dev`, sidecar) for full-stack workflows—per [TypeScript interoperability](./PHILOSOPHY.md#typescript-interoperability) and gradual adoption without abandoning the TS ecosystem.
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Declaration emit (`.d.ts` / TS types from Forst) | ✅ done | `forst generate` and TS transformer; contract outline: [03-forst-generate-contract.md](./examples/in/rfc/typescript-client/03-forst-generate-contract.md). |
 | Merge outputs across `.ft` files | ✅ done | Shared `types.d.ts`; duplicate handling. |
 | Client / helper stubs next to generated types | 🔬 experimental | Thin surface; wire to whatever runs the compiled Forst/Go side. |
-| `forst dev` HTTP API + JSON contract | ✅ done | Endpoints `/health`, `/functions`, `/invoke`, `/types`, `/version` (includes **`contractVersion`** for HTTP API compatibility). Spec: [02-forst-dev-http-contract.md](./examples/in/rfc/typescript-client/02-forst-dev-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. |
+| `forst dev` HTTP API + JSON contract | ✅ done | Endpoints `/health`, `/functions`, `/invoke`, `/types`, `/version` (includes **`contractVersion`** for HTTP API compatibility). Spec: [02-forst-dev-http-contract.md](./examples/in/rfc/typescript-client/02-forst-dev-http-contract.md). [`@forst/sidecar`](./packages/sidecar/README.md) reference client; `bun test` in `packages/sidecar`. **Shipped today:** **JSON** request/response bodies over HTTP. **Future:** **protobuf**-based RPC—see **Protobuf sidecar wire** row below. |
+| **Protobuf** sidecar wire (gRPC / Connect) | 📋 planned | **Protocol Buffers** as the **contract-first** IDL for a high-throughput TS ↔ Forst boundary, carried as **gRPC** (HTTP/2) or **Connect** (protobuf over HTTP)—see [sidecar wire format](./examples/in/rfc/sidecar/11-wire-format.md). Not implemented; MVP remains JSON (**`forst dev` HTTP API** above). |
+| Native ES modules / Node addon path | 📋 planned | Design in [Forst as native ES modules](./examples/in/rfc/esm/README.md) (Forst → Go → addon → ESM); no compiler or addon pipeline yet. Complementary to HTTP sidecar + `forst generate`, not a replacement; [examples hub](./examples/README.md) lists the RFC as exploration. |
 | `forst generate` + `ftconfig` discovery | ✅ done | `forst generate` accepts **`-config`**, loads config from the target tree when omitted, and uses the same **include/exclude** discovery as `forst dev` (`forst/cmd/forst/generate.go`; tests in `generate_test.go`). |
 | `@forst/sidecar` on npm and JSR | 🔬 experimental | Package metadata (`package.json`, `jsr.json`) and [publish-packages.yml](./.github/workflows/publish-packages.yml) (sidecar jobs); first registry publish is a maintainer step. |
 | `@forst/cli` on npm and JSR (compiler / CLI) | 🔬 experimental | [`@forst/cli`](./packages/cli/README.md): Release Please `cli-v*` tags; lazy-download of the native `forst` from GitHub Releases; npm + JSR in [publish-packages.yml](./.github/workflows/publish-packages.yml) (CLI jobs). Compiler binaries still ship on root `v*` ([release.yml](./.github/workflows/release.yml)). Short overview: [README — npm](./README.md#npm). Not the same package as sidecar. |
@@ -133,14 +171,16 @@ Work is grouped below by theme.
 | Dev experience: watch + HTTP types (where applicable) | 🔬 experimental | `@forst/sidecar` + `forst dev`; **`watchRoots`**, optional **`watchGenerate`** (debounced `forst generate` after reload), **`generateTypes()`** with **`configPath`** → **`-config`**. Documented in [`packages/sidecar/README.md`](./packages/sidecar/README.md). |
 | **Invocation:** stable contract from Node/TS to **running** Forst (`forst dev`) | ✅ done | HTTP `POST /invoke` JSON envelope; `ForstSidecarClient` throws typed errors (**`DevServerInvokeRejected`** when `success: false`, **`DevServerHttpFailure`** with optional **`serverErrorFromBody`** from JSON error bodies). After **`start()`**, **`versionCheck`** compares **`GET /version`** **`contractVersion`** to the sidecar build and compares compiler versions with **semver** when parseable (`version-compare.ts`). Broader integration patterns: [01-integration-profiles.md](./examples/in/rfc/typescript-client/01-integration-profiles.md). |
 | **Route- or module-level Forst** (handlers + client types in one arc) | 📋 planned | Full-stack slices—not only `.d.ts` for hand-written TS handlers—not implemented. |
-| OpenAPI / JSON Schema from shapes; pluggable transport (IPC, stdio); WASM / native bridges | 📋 planned | Optional tooling; not core language semantics. |
+| OpenAPI / JSON Schema from shapes; pluggable transport (IPC, stdio); WASM | 📋 planned | Optional tooling; not core language semantics. In-process **native** integration is tracked separately (see **Native ES modules / Node addon path** above). |
 | CI: `example:sidecar-downloaded` | 🔬 experimental | May fail until a **release** ships a `forst` binary with a compatible **`dev`** subcommand; **local** `example:sidecar-local` is the CI bar today ([Taskfile.yml](./Taskfile.yml)). |
 
-**See also:** [README (npm)](./README.md#npm), [`packages/cli/README.md`](./packages/cli/README.md), [examples/in/rfc/typescript-client/README.md](./examples/in/rfc/typescript-client/README.md) (RFC index), [examples/in/rfc/sidecar/00-sidecar.md](./examples/in/rfc/sidecar/00-sidecar.md), [examples/in/rfc/sidecar/tests](./examples/in/rfc/sidecar/tests), [examples/client-integration/README.md](./examples/client-integration/README.md).
+**See also:** [README (npm)](./README.md#npm), [`packages/cli/README.md`](./packages/cli/README.md), [examples/in/rfc/typescript-client/README.md](./examples/in/rfc/typescript-client/README.md) (RFC index), [examples/in/rfc/sidecar/00-sidecar.md](./examples/in/rfc/sidecar/00-sidecar.md), [examples/in/rfc/sidecar/11-wire-format.md](./examples/in/rfc/sidecar/11-wire-format.md) (protobuf, gRPC, Connect), [examples/in/rfc/sidecar/tests](./examples/in/rfc/sidecar/tests), [examples/client-integration/README.md](./examples/client-integration/README.md).
 
 ---
 
 ## Tooling & developer experience
+
+**Intention:** Turn the compiler into **actionable feedback** in the editor—diagnostics, navigation, refactor—matching [clear, actionable development feedback](./PHILOSOPHY.md#guiding-principles) and fast iteration.
 
 **LSP (`forst lsp`):** The server exposes **JSON-RPC over HTTP** (`POST /` on the listener port), not stdio—editors need a small bridge (the in-repo VS Code extension does this). **`initialize`** advertises **text sync**, **completion**, **hover**, **diagnostics**, **definition/references**, **rename** (with **prepare rename**), **document formatting**, **code actions** (`source` / `source.formatDocument`), **document/workspace symbols**, **folding**, **code lens**, plus **experimental** debug flags (`initialize.go`). `textDocument/formatting` may return **`null`** when the buffer cannot be formatted. Behavior below is what **`handleLSPMethod`** in `forst/cmd/forst/lsp/` implements. **Navigation:** **go to definition** and **find references** for top-level symbols use **merged same-package** analysis when multiple `.ft` files are open in the same directory (and on-disk peers with the same `package` clause are merged when a buffer is alone); **locals and parameters** stay binding-aware (`RestoreScope` / `LookupVariable`). **Document symbol** and **workspace symbol** (open buffers only) list top-level items—shared pipeline in `analyze.go`, `definition.go`, `references.go`, `navigation_locals.go`, `symbols.go`.
 
@@ -171,6 +211,8 @@ Work is grouped below by theme.
 
 ## Docs & community
 
+**Intention:** Lower the **onboarding bar** and grow a **contributor-friendly** project—supporting [Adoption](./PHILOSOPHY.md#adoption) and sustainable community growth around the language.
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | “Getting Started” guide | 🔬 experimental | README is the main entry; a fuller guide is still open. |
@@ -181,7 +223,11 @@ Work is grouped below by theme.
 
 ## Infrastructure
 
+**Intention:** Keep **main green**, releases **repeatable**, and tests **signal real regressions**—so language and tooling changes stay safe to ship at velocity.
+
 ### CI & releases
+
+**Intention:** Automate verification and shipping so every merge stays **releasable** and consumers get **versioned artifacts** predictably.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
@@ -189,6 +235,8 @@ Work is grouped below by theme.
 | Release automation | ✅ done | release-please + git tags. |
 
 ### Test coverage
+
+**Intention:** Prefer **targeted tests** on compiler hot paths over vanity coverage—so refactors and RFC-sized changes stay [safe to reason about](./PHILOSOPHY.md#guiding-principles) in review.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
