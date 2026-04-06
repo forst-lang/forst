@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.1...vscode-forst-v0.1.2) (2026-04-06)
+
+
+### Features
+
+* **vscode:** add language icon for .ft tab and explorer ([a4cbd43](https://github.com/forst-lang/forst/commit/a4cbd43ca2ae06650fb1877de621c70f06b19eff))
+* **vscode:** rename marketplace icon file for cache bust ([f3e9a4a](https://github.com/forst-lang/forst/commit/f3e9a4a9d02199b55abfe944e2a5d22ef7967b68))
+
 ## [0.1.1](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.0...vscode-forst-v0.1.1) (2026-04-05)
 
 

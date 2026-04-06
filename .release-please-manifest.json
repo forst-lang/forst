@@ -1,6 +1,6 @@
 {
-  ".": "0.0.21",
+  ".": "0.0.22",
   "packages/cli": "0.0.20",
-  "packages/vscode-forst": "0.1.1",
-  "packages/sidecar": "0.1.4"
+  "packages/vscode-forst": "0.1.2",
+  "packages/sidecar": "0.1.5"
 }
