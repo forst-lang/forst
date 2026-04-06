@@ -69,27 +69,24 @@ import { ForstSidecarClient as SidecarClient } from '@forst/sidecar';
 		// Generate implementation
 		impl := fmt.Sprintf(`  %s: async (%s): Promise<%s> => {`, funcName, paramsSigStr, function.ReturnType)
 
-		// Create args object for single parameter, or use spread for multiple
+		// Executor stdin expects a JSON array of positional args (see go_module_manager buildParameterExtraction).
 		if len(paramNames) == 1 {
 			impl += fmt.Sprintf(`
-    const response = await client.invokeFunction<%s>('%s', '%s', %s);`,
+    const response = await client.invokeFunction<%s>('%s', '%s', [%s]);`,
 				function.ReturnType, t.Output.PackageName, funcName, paramNames[0])
 		} else if len(paramNames) > 1 {
 			impl += fmt.Sprintf(`
-    const response = await client.invokeFunction<%s>('%s', '%s', { %s });`,
+    const response = await client.invokeFunction<%s>('%s', '%s', [%s]);`,
 				function.ReturnType, t.Output.PackageName, funcName, paramNamesStr)
 		} else {
 			impl += fmt.Sprintf(`
-    const response = await client.invokeFunction<%s>('%s', '%s', {});`,
+    const response = await client.invokeFunction<%s>('%s', '%s', []);`,
 				function.ReturnType, t.Output.PackageName, funcName)
 		}
 
-		impl += fmt.Sprintf(`
-    if (!response.success) {
-      throw new Error(response.error || '%s.%s failed');
-    }
+		impl += `
     return response.result;
-  },`, t.Output.PackageName, funcName)
+  },`
 
 		lines = append(lines, impl)
 	}

@@ -128,6 +128,73 @@ func TestGoSignatureReturnsToForst_unsupportedReturnYieldsNil(t *testing.T) {
 	}
 }
 
+func TestInferredTypesForVariableIdentifier_errInEnsureBody(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	src := `package main
+
+import "fmt"
+
+func checkConditions(): Error {
+	return nil
+}
+
+func main() {
+	err := checkConditions()
+	ensure !err {
+		fmt.Println(err.Error())
+	}
+}
+`
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	ty, ok := tc.InferredTypesForVariableIdentifier("err")
+	if !ok || len(ty) != 1 {
+		t.Fatalf("err: ok=%v types=%v", ok, ty)
+	}
+	if ty[0].Ident != ast.TypeError {
+		t.Fatalf("want TYPE_ERROR, got %#v", ty[0])
+	}
+}
+
+func TestGoHoverMarkdownForForstReceiverMethod_errorError(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	md, ok := tc.GoHoverMarkdownForForstReceiverMethod(ast.TypeNode{Ident: ast.TypeError}, "Error")
+	if !ok {
+		t.Fatal("expected hover for Error.Error")
+	}
+	if !strings.Contains(md, "func (error).Error()") && !strings.Contains(md, "Error() string") {
+		t.Fatalf("expected go/types error.Error signature, got %q", md)
+	}
+	if !strings.Contains(md, "predeclared") {
+		t.Fatalf("expected predeclared error mention, got %q", md)
+	}
+	if !strings.Contains(md, "pkg.go.dev/builtin") {
+		t.Fatalf("expected link to package builtin docs, got %q", md)
+	}
+	// From $GOROOT/src/builtin/builtin.go (via go/doc)
+	if !strings.Contains(strings.ToLower(md), "conventional") {
+		t.Fatalf("expected builtin doc excerpt for error interface, got %q", md)
+	}
+}
+
+func TestGoHoverMarkdownForForstReceiverMethod_wrongReceiver(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	if _, ok := tc.GoHoverMarkdownForForstReceiverMethod(ast.TypeNode{Ident: ast.TypeString}, "Error"); ok {
+		t.Fatal("String should not get error.Error hover")
+	}
+}
+
 func TestGoHoverMarkdown_packageOnly(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)

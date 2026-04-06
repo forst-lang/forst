@@ -1,0 +1,8 @@
+{
+  "examples": [
+    {
+      "path": "tictactoe",
+      "mustContain": ["GameState", "PlayMove", "export const engine"]
+    }
+  ]
+}

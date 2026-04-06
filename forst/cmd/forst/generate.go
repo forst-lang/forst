@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	transformerts "forst/internal/transformer/ts"
@@ -114,27 +113,16 @@ func generateCommand(args []string) error {
 
 	log.Infof("Found %d Forst files", len(forstFiles))
 
+	// Stable order for generated *.client.ts and client index (not required for typechecking).
 	sort.Strings(forstFiles)
 
-	var outputs []*transformerts.TypeScriptOutput
-	var processErrs []error
-	for _, file := range forstFiles {
-		out, err := transformerts.TransformForstFileFromPath(file, log, transformerts.TransformForstFileOptions{
-			RelaxedTypecheck: false,
-		})
-		if err != nil {
-			log.Errorf("Failed to process %s: %v", file, err)
-			processErrs = append(processErrs, fmt.Errorf("%s: %w", file, err))
-			continue
-		}
-		outputs = append(outputs, out)
+	chunks, tc, err := transformerts.ParseMergedTypecheckProject(forstFiles, log)
+	if err != nil {
+		return err
 	}
-
-	if len(outputs) == 0 {
-		if len(forstFiles) > 0 {
-			return errors.Join(processErrs...)
-		}
-		return nil
+	outputs, err := transformerts.GenerateTypeScriptOutputsPerFile(chunks, tc, log)
+	if err != nil {
+		return err
 	}
 
 	merged, err := transformerts.MergeTypeScriptOutputs(outputs)

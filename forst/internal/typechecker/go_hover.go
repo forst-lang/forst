@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"fmt"
+	"go/doc/comment"
 	"go/types"
 	"strings"
 
@@ -89,6 +90,48 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 				}
 			}
 		}
+	}
+
+	return b.String(), true
+}
+
+// GoHoverMarkdownForForstReceiverMethod returns hover for recv.method when the receiver is a Forst
+// builtin that maps to a Go type (see forstBuiltinReceiverGoType) and methodName is in that type's
+// method set. Documentation text is taken from $GOROOT/src/builtin (package builtin) when
+// available; the signature always comes from go/types.
+func (tc *TypeChecker) GoHoverMarkdownForForstReceiverMethod(receiverType ast.TypeNode, methodName string) (string, bool) {
+	goRecv, goDocName, ok := forstBuiltinReceiverGoType(receiverType)
+	if !ok {
+		return "", false
+	}
+	obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, methodName)
+	if obj == nil {
+		return "", false
+	}
+	line := types.ObjectString(obj, nil)
+
+	p, _ := loadBuiltinGoDocPackage(tc.log)
+	docText := builtinGoDocParagraph(p, goDocName, methodName)
+	if docText != "" {
+		var cdocParser comment.Parser
+		var pr comment.Printer
+		docText = strings.TrimSpace(string(pr.Markdown(cdocParser.Parse(docText))))
+	}
+
+	var b strings.Builder
+	b.WriteString("**Go** (predeclared `")
+	b.WriteString(goDocName)
+	b.WriteString("` — [package builtin](https://pkg.go.dev/builtin))\n\n")
+	if docText != "" {
+		b.WriteString(docText)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("```go\n")
+	b.WriteString(line)
+	b.WriteString("\n```")
+
+	if goDocName == "error" && methodName == "Error" {
+		b.WriteString("\n\n**Forst** `Error` maps to Go `error`; `Error()` returns `String`.")
 	}
 
 	return b.String(), true

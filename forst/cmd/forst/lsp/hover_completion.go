@@ -102,6 +102,7 @@ func (s *LSPServer) findHoverForPosition(uri string, position LSPPosition) *LSPH
 	if tok == nil {
 		return nil
 	}
+	tok = hoverTokenAdjustForMemberOpenParen(ctx.Tokens, position, tok)
 	if ctx.ParseErr != nil {
 		if text := lexicalHoverMarkdown(tok); text != "" {
 			return basicHoverMarkdown(text)
@@ -165,6 +166,33 @@ func (s *LSPServer) hoverFromAnalyzedContext(ctx *forstDocumentContext, tok *ast
 		return nil
 	}
 	return basicHoverMarkdown(text)
+}
+
+// hoverTokenAdjustForMemberOpenParen maps a caret on the opening '(' of recv.method( to the method
+// identifier. Many LSP clients place the cursor on '(' when invoking hover after member access, and
+// tokenAtLSPPosition would otherwise select LParen — so identifier-only hovers (e.g. err.Error(),
+// fmt.Println) produced nothing.
+func hoverTokenAdjustForMemberOpenParen(tokens []ast.Token, pos LSPPosition, tok *ast.Token) *ast.Token {
+	if tok == nil || tok.Type != ast.TokenLParen {
+		return tok
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 2 {
+		return tok
+	}
+	if tokens[i-1].Type != ast.TokenIdentifier || tokens[i-2].Type != ast.TokenDot {
+		return tok
+	}
+	line1 := int(pos.Line) + 1
+	char1 := int(pos.Character) + 1 // 1-based, matches lexer Column
+	if tok.Line != line1 {
+		return tok
+	}
+	// First code unit of '(' only (not a later paren on the same line).
+	if char1 != tok.Column {
+		return tok
+	}
+	return &tokens[i-1]
 }
 
 func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
@@ -271,6 +299,12 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if s := goHoverFromQualifiedGoIdentifier(tc, tokens, tok); s != "" {
 			return s
 		}
+		if s := goHoverFromForstReceiverMethod(tc, tokens, tok); s != "" {
+			return s
+		}
+		if s := goHoverFromFieldMemberChain(tc, tokens, tok, merge); s != "" {
+			return s
+		}
 		id := ast.Identifier(tok.Value)
 		// Prefer function and type definitions over variable types when the token names those things.
 		if sig, ok := tc.Functions[id]; ok {
@@ -328,6 +362,141 @@ func goImportLocalShadowedByForstVar(tc *typechecker.TypeChecker, pkgLocal strin
 	return ok && len(inf) > 0
 }
 
+// dottedChainRootAndFieldPath parses recv.field1.field2… at endIdx (the rightmost identifier token).
+// Returns rootIdx for the root variable token and fieldPath ["field1", "field2", …].
+func dottedChainRootAndFieldPath(tokens []ast.Token, endIdx int) (rootIdx int, fieldPath []string, ok bool) {
+	if endIdx < 2 || tokens[endIdx-1].Type != ast.TokenDot || tokens[endIdx-2].Type != ast.TokenIdentifier {
+		return 0, nil, false
+	}
+	var path []string
+	for j := endIdx; j >= 0; {
+		if tokens[j].Type != ast.TokenIdentifier {
+			return 0, nil, false
+		}
+		path = append([]string{tokens[j].Value}, path...)
+		if j < 2 || tokens[j-1].Type != ast.TokenDot {
+			rootIdx = j
+			break
+		}
+		j -= 2
+	}
+	if len(path) < 2 {
+		return 0, nil, false
+	}
+	fieldPath = path[1:]
+	return rootIdx, fieldPath, true
+}
+
+func goHoverFromFieldMemberChain(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {
+	if tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 0 {
+		for j := range tokens {
+			t := &tokens[j]
+			if t.Line == tok.Line && t.Column == tok.Column && t.Type == tok.Type && t.Value == tok.Value {
+				i = j
+				break
+			}
+		}
+	}
+	if i < 0 {
+		return ""
+	}
+	rootIdx, fieldPath, ok := dottedChainRootAndFieldPath(tokens, i)
+	if !ok || len(fieldPath) == 0 {
+		return ""
+	}
+	recvTok := &tokens[rootIdx]
+	recvName := recvTok.Value
+	if tc.IsImportedLocalName(recvName) && !goImportLocalShadowedByForstVar(tc, recvName) {
+		return ""
+	}
+	md, parentType, ok := tc.FieldHoverMarkdown(ast.Identifier(recvName), ast.SpanFromToken(*recvTok), fieldPath)
+	if !ok || md == "" {
+		return ""
+	}
+	last := fieldPath[len(fieldPath)-1]
+	if parentType == "" {
+		return md
+	}
+	doc := leadingCommentDocBeforeShapeField(tokens, string(parentType), last)
+	if doc == "" && merge != nil {
+		doc = mergeLeadingCommentDocShapeField(merge, tokens, string(parentType), last)
+	}
+	if doc == "" {
+		return md
+	}
+	return doc + "\n\n" + md
+}
+
+func mergeLeadingCommentDocShapeField(merge *packageMergeInfo, anchorTokens []ast.Token, parentTypeName, fieldName string) string {
+	if merge == nil {
+		return ""
+	}
+	for _, u := range merge.MemberURIs {
+		tks := merge.TokensByURI[u]
+		if tks == nil {
+			continue
+		}
+		if doc := leadingCommentDocBeforeShapeField(tks, parentTypeName, fieldName); doc != "" {
+			return doc
+		}
+	}
+	return ""
+}
+
+// findShapeFieldNameTokenIndex returns the token index of the field name identifier in
+// `type ParentName = { ... fieldName: ... }`.
+func findShapeFieldNameTokenIndex(tokens []ast.Token, parentTypeName, fieldName string) int {
+	for i := 0; i+3 < len(tokens); i++ {
+		if tokens[i].Type != ast.TokenType {
+			continue
+		}
+		if tokens[i+1].Type != ast.TokenIdentifier || tokens[i+1].Value != parentTypeName {
+			continue
+		}
+		if tokens[i+2].Type != ast.TokenEquals || tokens[i+2].Value != "=" {
+			continue
+		}
+		if tokens[i+3].Type != ast.TokenLBrace {
+			continue
+		}
+		depth := 1
+		for j := i + 4; j < len(tokens); j++ {
+			switch tokens[j].Type {
+			case ast.TokenLBrace:
+				depth++
+			case ast.TokenRBrace:
+				depth--
+			}
+			if depth == 0 {
+				break
+			}
+			if depth != 1 {
+				continue
+			}
+			if j+1 < len(tokens) && tokens[j].Type == ast.TokenIdentifier && tokens[j].Value == fieldName && tokens[j+1].Type == ast.TokenColon {
+				return j
+			}
+		}
+	}
+	return -1
+}
+
+func leadingCommentDocBeforeShapeField(tokens []ast.Token, parentTypeName, fieldName string) string {
+	idx := findShapeFieldNameTokenIndex(tokens, parentTypeName, fieldName)
+	if idx < 0 {
+		return ""
+	}
+	parts := collectContiguousLeadingCommentLines(tokens, idx)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
 // goHoverFromQualifiedGoIdentifier adds hover for import.pkg.sel (e.g. fmt.Println) when pkg is a Go import.
 func goHoverFromQualifiedGoIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type != ast.TokenIdentifier {
@@ -354,6 +523,44 @@ func goHoverFromQualifiedGoIdentifier(tc *typechecker.TypeChecker, tokens []ast.
 			return ""
 		}
 		if md, ok := tc.GoHoverMarkdown(pkgLocal, ""); ok {
+			return md
+		}
+	}
+	return ""
+}
+
+// goHoverFromForstReceiverMethod adds hover for recv.method when recv is a Forst variable and method
+// maps to a Go predeclared interface (e.g. err.Error with Forst Error → go error).
+func goHoverFromForstReceiverMethod(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 2 || tokens[i-1].Type != ast.TokenDot || tokens[i-2].Type != ast.TokenIdentifier {
+		return ""
+	}
+	recvTok := tokens[i-2]
+	recvName := recvTok.Value
+	// Skip when recv is a Go import local name without a Forst shadow (e.g. fmt.Println). If recv is a
+	// Forst variable (including one that shadows an import), we still resolve receiver methods here.
+	if tc.IsImportedLocalName(recvName) && !goImportLocalShadowedByForstVar(tc, recvName) {
+		return ""
+	}
+	vn := ast.VariableNode{
+		Ident: ast.Ident{
+			ID:   ast.Identifier(recvName),
+			Span: ast.SpanFromToken(recvTok),
+		},
+	}
+	recvTypes, ok := tc.InferredTypesForVariableNode(vn)
+	if !ok || len(recvTypes) == 0 {
+		recvTypes, ok = tc.InferredTypesForVariableIdentifier(ast.Identifier(recvName))
+	}
+	if !ok {
+		return ""
+	}
+	for _, rt := range recvTypes {
+		if md, ok := tc.GoHoverMarkdownForForstReceiverMethod(rt, tok.Value); ok {
 			return md
 		}
 	}

@@ -8,6 +8,10 @@
 
 - **`in/imports/`** — multi-file “imports” demo (LSP merged package + `task example:imports` via `cli.ft`); see `in/imports/README.md`.
 
+- **`in/tictactoe/`** — multi-file `package main` (types + engine + `fmt` demo `server.ft`). Run with `task example:tictactoe` (`forst run -root …/tictactoe -- …/server.ft`). Regenerate TS with `task example:tictactoe:generate`. Golden Go for the merged compile is `out/tictactoe/server.go`; refresh with `UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1` from `forst/`.
+
+- **`in/forst-generate-ts-examples.json`** — lists example directories (under `in/`) that CI typechecks after `forst generate` (`TestGenerate_typescriptTypechecks_exampleManifest` in `forst/cmd/forst`). Add a path when an example has `ftconfig.json` + `.ft` sources and should keep emitting valid `generated/` + `client/` TypeScript.
+
 ## `in/rfc/`
 
 Design notes (Markdown), sample `.ft` files, and sometimes TypeScript or config files are grouped **by topic**. That folder is **not only** minimal “hello world” examples: it is **RFC-style documentation + runnable snippets** kept together. Each topic usually has a `README.md` index (except where noted). Implementation status in the wild is tracked separately in [ROADMAP.md](../ROADMAP.md); **stage** here describes the RFC’s *intent and maturity as documentation*, not a guarantee that every bullet is shipped.

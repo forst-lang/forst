@@ -3,7 +3,7 @@ import { logger } from "./logger";
 import type {
   ForstConfig,
   FunctionInfo,
-  InvokeResponse,
+  InvokeSuccess,
   ServerInfo,
   ServerVersionInfo,
   StreamingResult,
@@ -327,7 +327,7 @@ export class ForstSidecar {
     packageName: string,
     functionName: string,
     args: unknown[] = []
-  ): Promise<InvokeResponse<unknown>> {
+  ): Promise<InvokeSuccess<unknown>> {
     if (!this.client) {
       throw new SidecarNotStarted();
     }

@@ -46,6 +46,17 @@ export interface InvokeResponse<T extends any> {
   result?: T;
 }
 
+/**
+ * Successful `POST /invoke` after HTTP 200: the dev server includes `result`, or the sidecar client
+ * throws (missing `result` is treated as a protocol error).
+ */
+export type InvokeSuccess<T> = {
+  success: true;
+  result: T;
+  output?: string;
+  error?: string;
+};
+
 /** One NDJSON line from a streaming `POST /invoke` response. */
 export interface StreamingResult {
   data: any;
