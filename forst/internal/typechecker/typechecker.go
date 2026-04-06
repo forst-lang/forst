@@ -3,9 +3,9 @@ package typechecker
 
 import (
 	"fmt"
-	"go/types"
 	"forst/internal/ast"
 	"forst/internal/hasher"
+	"go/types"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -33,6 +33,8 @@ type TypeChecker struct {
 	// Per-occurrence type guard names from if-branch / ensure narrowing (when InferAssertionType
 	// preserves a named alias without Assertion on the TypeNode).
 	variableOccurrenceNarrowingGuards map[variableOccurrenceKey][]string
+	// Per-occurrence dotted predicate display from narrowing RHS (e.g. `MyStr().Min(12)`), for LSP hover.
+	variableOccurrenceNarrowingPredicateDisplay map[variableOccurrenceKey]string
 	// Map of inferred function return types
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
@@ -49,6 +51,8 @@ type TypeChecker struct {
 	reportPhases bool
 	// loopDepth counts nested for-loop bodies for break/continue validation
 	loopDepth int
+	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
+	ifChainNarrowingStack [][]narrowingEvent
 }
 
 // New creates a new TypeChecker
@@ -59,20 +63,21 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 	}
 	h := hasher.New()
 	tc := &TypeChecker{
-		Types:               make(map[NodeHash][]ast.TypeNode),
-		Defs:                make(map[ast.TypeIdent]ast.Node),
-		Uses:                make(map[ast.TypeIdent][]ast.Node),
-		Functions:           make(map[ast.Identifier]FunctionSignature),
-		Hasher:              h,
-		path:                make(NodePath, 0),
-		scopeStack:          NewScopeStack(h, log),
-		InferredTypes:       make(map[NodeHash][]ast.TypeNode),
-		VariableTypes:           make(map[ast.Identifier][]ast.TypeNode),
-		variableOccurrenceTypes:         make(map[variableOccurrenceKey][]ast.TypeNode),
-		variableOccurrenceNarrowingGuards: make(map[variableOccurrenceKey][]string),
-		FunctionReturnTypes:     make(map[ast.Identifier][]ast.TypeNode),
-		log:                 log,
-		reportPhases:        reportPhases,
+		Types:                             make(map[NodeHash][]ast.TypeNode),
+		Defs:                              make(map[ast.TypeIdent]ast.Node),
+		Uses:                              make(map[ast.TypeIdent][]ast.Node),
+		Functions:                         make(map[ast.Identifier]FunctionSignature),
+		Hasher:                            h,
+		path:                              make(NodePath, 0),
+		scopeStack:                        NewScopeStack(h, log),
+		InferredTypes:                     make(map[NodeHash][]ast.TypeNode),
+		VariableTypes:                     make(map[ast.Identifier][]ast.TypeNode),
+		variableOccurrenceTypes:           make(map[variableOccurrenceKey][]ast.TypeNode),
+		variableOccurrenceNarrowingGuards:             make(map[variableOccurrenceKey][]string),
+		variableOccurrenceNarrowingPredicateDisplay:   make(map[variableOccurrenceKey]string),
+		FunctionReturnTypes:               make(map[ast.Identifier][]ast.TypeNode),
+		log:                               log,
+		reportPhases:                      reportPhases,
 	}
 
 	return tc

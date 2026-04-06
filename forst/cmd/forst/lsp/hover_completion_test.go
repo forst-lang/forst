@@ -249,6 +249,9 @@ func f(): String {
 	if !strings.Contains(val, "MyStr") && !strings.Contains(val, "String") {
 		t.Fatalf("hover should mention type; got %q", val)
 	}
+	if !strings.Contains(val, "MyStr()") || !strings.Contains(val, "String.") {
+		t.Fatalf("hover should use dotted predicate chain (e.g. String.MyStr()); got %q", val)
+	}
 }
 
 func TestFindHoverForPosition_ensureBlockNarrowingShowsRefinedVariableType(t *testing.T) {
@@ -307,6 +310,65 @@ func main() {
 	val := h.Contents.Value
 	if !strings.Contains(val, "MyStr") && !strings.Contains(val, "String") {
 		t.Fatalf("hover should mention narrowed type; got %q", val)
+	}
+	_ = ctx
+}
+
+func TestFindHoverForPosition_typeGuardSuccessiveEnsureAccumulatesPredicateDisplay(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "tg_two_ensure_hover.ft")
+	const src = `package main
+
+is (x: String) G {
+	ensure x is Min(1)
+	ensure x is Max(10)
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, "ensure x is Max") {
+			hoverLine = i
+			charOffset = strings.Index(line, "x")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find subject x on second ensure")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on x")
+	}
+	val := h.Contents.Value
+	// Subject on this line is typed before this ensure's narrowing; only prior ensures apply.
+	if !strings.Contains(val, "Min(1)") {
+		t.Fatalf("hover should show prior ensure predicate; got %q", val)
+	}
+	if strings.Contains(val, "Max(10)") {
+		t.Fatalf("hover on second ensure subject must not include this line's Max(10); got %q", val)
 	}
 	_ = ctx
 }
@@ -375,6 +437,9 @@ func f(): String {
 	}
 	if !strings.Contains(val, "Strength:") || !strings.Contains(val, "12 characters") {
 		t.Fatalf("hover should include type guard comment block; got %q", val)
+	}
+	if iDoc, iFence := strings.Index(val, "Strength:"), strings.Index(val, "```"); iDoc < 0 || iFence < 0 || iDoc >= iFence {
+		t.Fatalf("doc should appear above the forst code block; got %q", val)
 	}
 	_ = ctx
 }

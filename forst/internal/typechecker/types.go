@@ -59,6 +59,88 @@ func (tc *TypeChecker) FormatTypeNodeDisplay(t ast.TypeNode) string {
 	return d.String()
 }
 
+// PredicateChainForVariableHover returns the ordered list of narrowing / assertion predicate names
+// for hover: flow-narrowing guards first, then extra user type-guard names from the inferred type
+// node (deduplicated, order preserved).
+func (tc *TypeChecker) PredicateChainForVariableHover(vn ast.VariableNode, types []ast.TypeNode) []string {
+	if tc == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	var out []string
+	add := func(name string) {
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	for _, g := range tc.NarrowingTypeGuardsForVariableOccurrence(vn) {
+		add(g)
+	}
+	if len(types) == 1 {
+		for _, g := range tc.TypeGuardConstraintNamesForInferredType(types[0]) {
+			add(g)
+		}
+	}
+	return out
+}
+
+// FormatVariableOccurrenceTypeForHover formats a variable occurrence for LSP hover. The static
+// type uses FormatTypeNodeDisplay; assertion predicates (flow + inferred assertion) are appended
+// as a dotted call chain, e.g. `String.MyStr().Contains("bla")`.
+func (tc *TypeChecker) FormatVariableOccurrenceTypeForHover(vn ast.VariableNode, types []ast.TypeNode) string {
+	if tc == nil || len(types) == 0 {
+		return ""
+	}
+	if len(types) > 1 {
+		parts := make([]string, len(types))
+		for i := range types {
+			parts[i] = tc.FormatTypeNodeDisplay(types[i])
+		}
+		return strings.Join(parts, ", ")
+	}
+	base := tc.FormatTypeNodeDisplay(types[0])
+	chain := tc.PredicateChainForVariableHover(vn, types)
+	if len(chain) == 0 {
+		return base
+	}
+	flowNames := tc.NarrowingTypeGuardsForVariableOccurrence(vn)
+	flowSet := make(map[string]struct{}, len(flowNames))
+	for _, g := range flowNames {
+		flowSet[g] = struct{}{}
+	}
+	astSuffix := tc.NarrowingPredicateDisplayForVariableOccurrence(vn)
+
+	var b strings.Builder
+	b.WriteString(base)
+	if astSuffix != "" {
+		b.WriteString(".")
+		b.WriteString(astSuffix)
+		for _, g := range chain {
+			if _, ok := flowSet[g]; ok {
+				continue
+			}
+			b.WriteString(".")
+			b.WriteString(g)
+			b.WriteString("()")
+		}
+		return b.String()
+	}
+	b.WriteString(".")
+	for i, g := range chain {
+		if i > 0 {
+			b.WriteString(".")
+		}
+		b.WriteString(g)
+		b.WriteString("()")
+	}
+	return b.String()
+}
+
 // FormatFunctionSignatureDisplay formats a function signature using FormatTypeNodeDisplay for every
 // parameter and return type. Multiple return values (including value + Error) are shown as a
 // parenthesized tuple, e.g. (String, Error).
@@ -87,7 +169,8 @@ func (tc *TypeChecker) FormatFunctionSignatureDisplay(sig FunctionSignature) str
 // hash includes the identifier and, when set, its source span—so distinct occurrences of the same
 // name (e.g. under `if x is …` narrowing) can have different entries in tc.Types. Callers that only
 // have a lexer token should build VariableNode{Ident: {ID, Span: SpanFromToken(tok)}} to match the
-// parser. Falls back to InferredTypesForVariableIdentifier when the node has no span.
+// parser (e.g. `ensure` subject identifiers in internal/parser/ensure.go). Falls back to
+// InferredTypesForVariableIdentifier when the node has no span.
 func (tc *TypeChecker) InferredTypesForVariableNode(vn ast.VariableNode) ([]ast.TypeNode, bool) {
 	if tc == nil {
 		return nil, false

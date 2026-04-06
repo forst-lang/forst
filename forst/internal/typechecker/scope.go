@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"log"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -30,18 +31,77 @@ func NewScope(parent *Scope, node *ast.Node, log *logrus.Logger) *Scope {
 
 // RegisterSymbol registers a symbol in the scope
 func (s *Scope) RegisterSymbol(name ast.Identifier, types []ast.TypeNode, kind SymbolKind) {
-	s.RegisterSymbolWithNarrowing(name, types, kind, nil)
+	s.RegisterSymbolWithNarrowing(name, types, kind, nil, "")
 }
 
 // RegisterSymbolWithNarrowing registers a variable symbol that may carry if/ensure narrowing metadata.
-func (s *Scope) RegisterSymbolWithNarrowing(name ast.Identifier, types []ast.TypeNode, kind SymbolKind, narrowingGuards []string) {
+// narrowingPredicateDisplay is an optional dotted call chain for UI (e.g. `MyStr().Min(12)`), without the static base type.
+//
+// When the same identifier is already registered in this scope as a variable with narrowing metadata
+// (successive `ensure x is …` in a type guard body), new guards and display segments are merged so
+// hover and lookup keep the full chain (e.g. `Min(1)` then `Max(10)` → `Min(1).Max(10)`).
+func (s *Scope) RegisterSymbolWithNarrowing(name ast.Identifier, types []ast.TypeNode, kind SymbolKind, narrowingGuards []string, narrowingPredicateDisplay string) {
 	s.log.Tracef("[RegisterSymbol] Registering symbol %s with types %v in scope %s", name, types, s.String())
+	if prev, ok := s.Symbols[name]; ok && kind == SymbolVariable && prev.Kind == SymbolVariable &&
+		(len(prev.NarrowingTypeGuards) > 0 || prev.NarrowingPredicateDisplay != "") {
+		s.Symbols[name] = mergeVariableNarrowingInPlace(prev, types, narrowingGuards, narrowingPredicateDisplay)
+		return
+	}
 	s.Symbols[name] = Symbol{
-		Identifier:          name,
-		Types:               types,
-		Kind:                kind,
-		Scope:               s,
-		NarrowingTypeGuards: append([]string(nil), narrowingGuards...),
+		Identifier:                name,
+		Types:                     types,
+		Kind:                      kind,
+		Scope:                     s,
+		NarrowingTypeGuards:       append([]string(nil), narrowingGuards...),
+		NarrowingPredicateDisplay: narrowingPredicateDisplay,
+	}
+}
+
+func mergeVariableNarrowingInPlace(prev Symbol, types []ast.TypeNode, nextGuards []string, nextDisplay string) Symbol {
+	out := prev
+	out.Types = types
+	out.Kind = SymbolVariable
+	out.NarrowingTypeGuards = mergeNarrowingGuardNamesDedupe(prev.NarrowingTypeGuards, nextGuards)
+	out.NarrowingPredicateDisplay = mergeNarrowingPredicateDisplaySegments(prev.NarrowingPredicateDisplay, nextDisplay)
+	return out
+}
+
+func mergeNarrowingGuardNamesDedupe(prev, next []string) []string {
+	seen := make(map[string]struct{}, len(prev)+len(next))
+	var out []string
+	for _, g := range prev {
+		if g == "" {
+			continue
+		}
+		if _, ok := seen[g]; ok {
+			continue
+		}
+		seen[g] = struct{}{}
+		out = append(out, g)
+	}
+	for _, g := range next {
+		if g == "" {
+			continue
+		}
+		if _, ok := seen[g]; ok {
+			continue
+		}
+		seen[g] = struct{}{}
+		out = append(out, g)
+	}
+	return out
+}
+
+func mergeNarrowingPredicateDisplaySegments(prev, next string) string {
+	prev = strings.TrimSpace(prev)
+	next = strings.TrimSpace(next)
+	switch {
+	case prev == "":
+		return next
+	case next == "":
+		return prev
+	default:
+		return prev + "." + next
 	}
 }
 
@@ -100,6 +160,9 @@ type Symbol struct {
 	// NarrowingTypeGuards is set when this variable binding was registered by if-branch or
 	// ensure-successor narrowing (`x is …`); names refer to user type guards in assertion order.
 	NarrowingTypeGuards []string
+	// NarrowingPredicateDisplay is the dotted predicate suffix from the narrowing RHS (e.g.
+	// `MyStr().Contains("x")`) for LSP hover; excludes the refined static base type.
+	NarrowingPredicateDisplay string
 }
 
 // NodePath represents the path from the root to the current node

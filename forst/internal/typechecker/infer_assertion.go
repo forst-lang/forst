@@ -11,6 +11,18 @@ import (
 
 const ConstraintMatch = "Match"
 
+// isBuiltinAssertionConstraintName reports built-in value/refinement constraints that are not
+// user-defined TypeGuardNode entries in Defs (see internal/transformer/go/ensure_types.go).
+func isBuiltinAssertionConstraintName(name string) bool {
+	switch name {
+	case "Min", "Max", "LessThan", "GreaterThan", "HasPrefix", "Contains",
+		"True", "False", "Nil", "Present", "NotEmpty", "Valid", ast.ValueConstraint:
+		return true
+	default:
+		return false
+	}
+}
+
 // TODO: Improve assertion type inference
 // This should handle:
 // 1. Complex constraints
@@ -38,7 +50,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 					}
 				}
 			}
-		} else if len(assertion.Constraints) > 0 || !tc.isBuiltinType(*assertion.BaseType) {
+		} else if !tc.isBuiltinType(*assertion.BaseType) {
 			return nil, fmt.Errorf("base type %s not found", *assertion.BaseType)
 		}
 		// Built-in base (String, Int, …) with no Defs: mergedFields stays empty until constraints run.
@@ -126,9 +138,12 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 			continue // Skip normal type guard processing for Match constraint
 		}
 
-		// Get the type guard definition
+		// Get the type guard definition (user-defined `is (…) Name { }` guards only).
 		guardDef, exists := tc.Defs[ast.TypeIdent(constraint.Name)]
 		if !exists {
+			if isBuiltinAssertionConstraintName(constraint.Name) {
+				continue
+			}
 			return nil, fmt.Errorf("type guard %s not found", constraint.Name)
 		}
 

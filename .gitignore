@@ -278,3 +278,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 generated/
+
+# Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
+forst/.gocache/
+forst/.gotmp/

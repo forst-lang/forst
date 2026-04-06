@@ -145,6 +145,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 		if n.Block != nil {
 			tc.pushScope(n.Block)
+			// Subject hover: reflect only prior ensures in this scope — not this line's assertion,
+			// which has not been applied at the subject position yet. Successor narrowing runs next.
+			if _, err := tc.inferExpressionType(n.Variable); err != nil {
+				return nil, err
+			}
 			tc.applyEnsureSuccessorNarrowing(n)
 			_, err = tc.inferNodeTypes(n.Block.Body, n.Block)
 			tc.popScope()
@@ -152,6 +157,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				return nil, err
 			}
 		} else {
+			if _, err := tc.inferExpressionType(n.Variable); err != nil {
+				return nil, err
+			}
 			tc.applyEnsureSuccessorNarrowing(n)
 		}
 
@@ -242,23 +250,38 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 
-		// Validate type guard body
+		// Infer and validate type guard body: same pipeline as function bodies (`inferIfStatement`
+		// for narrowing/merge, `inferEnsureType` for ensure) so control-flow join and guard metadata
+		// apply inside `is (…) Name { … }` definitions.
 		for _, node := range guardNode.Body {
 			switch stmt := node.(type) {
+			case ast.CommentNode:
+				continue
+			case ast.ReturnNode:
+				return nil, fmt.Errorf("type guards must not have return statements")
 			case ast.IfNode:
-				// Check that condition uses is operator
 				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
 					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
 				}
+				if _, err := tc.inferIfStatement(stmt); err != nil {
+					return nil, err
+				}
+			case *ast.IfNode:
+				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
+					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
+				}
+				if _, err := tc.inferIfStatement(*stmt); err != nil {
+					return nil, err
+				}
 			case ast.EnsureNode:
-				// Ensure statements are valid
-			case ast.ReturnNode:
-				// Return statements are not allowed in type guards
-				return nil, fmt.Errorf("type guards must not have return statements")
-			case ast.CommentNode:
-				// comments are ignored for validation
+				if _, err := tc.inferNodeType(stmt); err != nil {
+					return nil, err
+				}
+			case *ast.EnsureNode:
+				if _, err := tc.inferNodeType(*stmt); err != nil {
+					return nil, err
+				}
 			default:
-				// Only if, else if, else, and ensure statements are allowed
 				return nil, fmt.Errorf("type guards may only contain if, else if, else, and ensure statements")
 			}
 		}
