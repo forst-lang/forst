@@ -437,6 +437,12 @@ func TestExamples(t *testing.T) {
 				return
 			}
 
+			// Multi-file package: golden + merged compile are checked in TestExampleTictactoeMergedPackage.
+			if strings.HasPrefix(relPath, "tictactoe/") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleTictactoeMergedPackage (-root merged package)")
+				return
+			}
+
 			// Find expected output file(s)
 			expectedFiles, err := findExpectedOutputFiles(outputBasePath)
 			if err != nil {
@@ -489,6 +495,46 @@ func TestExamples(t *testing.T) {
 	}
 }
 
+// TestExampleTictactoeMergedPackage compiles examples/in/tictactoe with -root (same-package merge)
+// and checks generated Go against examples/out/tictactoe/server.go.
+// Regenerate the golden file: UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1
+func TestExampleTictactoeMergedPackage(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
+	entry := filepath.Join(root, "server.ft")
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "tictactoe", "server.go")
+
+	c := compiler.New(compiler.Args{
+		Command:     "run",
+		FilePath:    entry,
+		PackageRoot: root,
+		LogLevel:    "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	actual := *code
+
+	if os.Getenv("UPDATE_TICTACTOE_GOLDEN") == "1" {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(actual), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote golden %s", goldenPath)
+		return
+	}
+
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden %s: %v (set UPDATE_TICTACTOE_GOLDEN=1 to create)", goldenPath, err)
+	}
+	// Hash-based emitted type names (T_…) are not stable across small compiler changes; assert
+	// structural markers instead of line-for-line equality with extractKeyElements.
+	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
+}
+
 // Returns all .go files in the output directory for a given example
 func findExpectedOutputFiles(basePath string) ([]string, error) {
 	var files []string
@@ -531,6 +577,30 @@ func runCompiler(inputPath string) error {
 	c := compiler.New(args, log)
 	_, err := c.CompileFile()
 	return err
+}
+
+// verifyTictactoeMergedGolden checks merged-package Go output without depending on hash-based
+// type names (T_…) that may change between compiler versions.
+func verifyTictactoeMergedGolden(t *testing.T, expected, actual, goldenPath string) {
+	markers := []string{
+		"package main",
+		"type GameState struct",
+		"type MoveRequest struct",
+		"type MoveResponse struct",
+		"func ApplyMove(req MoveRequest) (MoveResponse, error)",
+		"func PlayMove(req MoveRequest) (MoveResponse, error)",
+		"func NewGame() GameState",
+		"func main()",
+		"fmt",
+	}
+	for _, m := range markers {
+		if !strings.Contains(actual, m) {
+			t.Errorf("output missing %q (golden %s)", m, goldenPath)
+		}
+	}
+	if len(expected) > 0 && len(actual) < len(expected)/2 {
+		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
+	}
 }
 
 // Checks if the actual output contains key elements from expected

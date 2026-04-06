@@ -14,7 +14,7 @@ func TestInferForNode_rangeOverIntSlice(t *testing.T) {
 		Ident: ast.Ident{ID: "main"},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "xs"}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}},
 				RValues: []ast.ExpressionNode{
 					ast.ArrayLiteralNode{
 						Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 10}},
@@ -45,7 +45,7 @@ func TestInferForNode_classicForWithPostIncrement(t *testing.T) {
 		Body: []ast.Node{
 			&ast.ForNode{
 				Init: ast.AssignmentNode{
-					LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "i"}}},
+					LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "i"}}},
 					RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
 					IsShort: true,
 				},

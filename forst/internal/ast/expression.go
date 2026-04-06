@@ -38,7 +38,24 @@ func (u UnaryExpressionNode) isExpression()  { _ = u }
 func (b BinaryExpressionNode) isExpression() { _ = b }
 func (f FunctionCallNode) isExpression()     { _ = f }
 
-// Kind returns the node kind for unary expressions
+// IndexExpressionNode is a subscript expression: target[index] (slice or array).
+type IndexExpressionNode struct {
+	Target ExpressionNode
+	Index  ExpressionNode
+}
+
+func (IndexExpressionNode) isExpression() {}
+
+// Kind returns the node kind for index expressions.
+func (i IndexExpressionNode) Kind() NodeKind {
+	return NodeKindIndexExpression
+}
+
+func (i IndexExpressionNode) String() string {
+	return fmt.Sprintf("%s[%s]", i.Target.String(), i.Index.String())
+}
+
+// Kind returns the node kind for unary expressions.
 func (u UnaryExpressionNode) Kind() NodeKind {
 	return NodeKindUnaryExpression
 }

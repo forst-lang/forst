@@ -291,7 +291,7 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 		}},
 		{"EnsureBlockNode", &ast.EnsureBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 1}}}},
 		{"AssignmentNode", ast.AssignmentNode{
-			LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x"}}},
+			LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x"}}},
 			RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
 		}},
 		{"DestructuredParamNode", ast.DestructuredParamNode{
@@ -317,7 +317,7 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 		}()},
 		{"IfNode_full", ast.IfNode{
 			Init: ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "i"}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "i"}}},
 				RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
 			},
 			Condition: ast.BoolLiteralNode{Value: true},
@@ -442,7 +442,7 @@ func TestStructuralHasher_ForLoop_optionalInitPost(t *testing.T) {
 		ast.ReturnNode{Values: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}}},
 	}
 	initStmt := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "i"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "i"}}},
 		RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
 		IsShort: true,
 	}

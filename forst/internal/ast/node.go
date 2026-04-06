@@ -102,4 +102,5 @@ const (
 	NodeKindDefer             NodeKind = "Defer"
 	NodeKindGoStmt            NodeKind = "GoStmt"
 	NodeKindComment           NodeKind = "Comment"
+	NodeKindIndexExpression   NodeKind = "IndexExpression"
 )

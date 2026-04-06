@@ -8,11 +8,13 @@ export interface ForstSidecarClientConfig {
   retries?: number;
 }
 
-export interface InvokeFunctionResult<T> {
-  success: boolean;
-  error?: string;
+/** Successful `POST /invoke` (matches @forst/sidecar InvokeSuccess). */
+export type InvokeSuccess<T> = {
+  success: true;
   result: T;
-}
+  output?: string;
+  error?: string;
+};
 
 export class ForstSidecarClient {
   constructor(config?: ForstSidecarClientConfig);
@@ -20,5 +22,5 @@ export class ForstSidecarClient {
     packageName: string,
     functionName: string,
     args: unknown
-  ): Promise<InvokeFunctionResult<T>>;
+  ): Promise<InvokeSuccess<T>>;
 }

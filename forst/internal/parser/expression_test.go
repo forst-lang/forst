@@ -93,8 +93,12 @@ func TestParseFile_WithReferences(t *testing.T) {
 				if len(assignNode.LValues) != 1 {
 					t.Fatalf("Expected 1 left value, got %d", len(assignNode.LValues))
 				}
-				if assignNode.LValues[0].Ident.ID != "p" {
-					t.Errorf("Expected variable name 'p', got %s", assignNode.LValues[0].Ident.ID)
+				lv0, ok := assignNode.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignNode.LValues[0])
+				}
+				if lv0.Ident.ID != "p" {
+					t.Errorf("Expected variable name 'p', got %s", lv0.Ident.ID)
 				}
 				varNode := assertNodeType[ast.VariableNode](t, assignNode.RValues[0], "ast.VariableNode")
 				if varNode.Ident.ID != "x" {

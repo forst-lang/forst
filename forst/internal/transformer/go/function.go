@@ -71,14 +71,14 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 		}
 
 		actualType := inferredTypes[0]
-		name, err := t.TypeChecker.GetAliasedTypeName(actualType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+		typeExpr, err := t.transformType(actualType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
+			return nil, fmt.Errorf("failed to transform type for parameter %s: %w", paramName, err)
 		}
 
 		fields.List = append(fields.List, &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  goast.NewIdent(name),
+			Type:  typeExpr,
 		})
 	}
 

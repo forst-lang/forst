@@ -52,6 +52,7 @@ var NodeKind = map[string]uint8{
 	"Comment":          22,
 	"Defer":            23,
 	"GoStmt":           24,
+	"IndexExpression":  25,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -256,6 +257,22 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		if err := h.writeHashes(hasher, hash); err != nil {
+			return 0, err
+		}
+
+	case ast.IndexExpressionNode:
+		if err := h.writeHashes(hasher, NodeKind["IndexExpression"]); err != nil {
+			return 0, err
+		}
+		th, err := h.HashNode(n.Target)
+		if err != nil {
+			return 0, err
+		}
+		ih, err := h.HashNode(n.Index)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, th, ih); err != nil {
 			return 0, err
 		}
 

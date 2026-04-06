@@ -42,6 +42,170 @@ func TestTypeDefHoverMarkdown_typeGuard(t *testing.T) {
 	}
 }
 
+func TestFindHoverForPosition_errorDotError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module errhover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "err_hover.ft")
+	const src = `package main
+
+import "fmt"
+
+func checkConditions(): Error {
+	return nil
+}
+
+func main() {
+	err := checkConditions()
+	ensure !err {
+		fmt.Println(err.Error())
+	}
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	var errTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type != ast.TokenIdentifier || tok.Value != "Error" {
+			continue
+		}
+		// Second identifier "Error" in err.Error() — skip Println's line (no err. prefix in token stream).
+		if i >= 2 && ctx.Tokens[i-1].Type == ast.TokenDot && ctx.Tokens[i-2].Value == "err" {
+			errTok = tok
+			break
+		}
+	}
+	if errTok == nil {
+		t.Fatal("could not find Error token for err.Error()")
+	}
+	// Lexer columns are 1-based; LSP positions are 0-based (match tokenAtLSPPosition).
+	h := s.findHoverForPosition(uri, LSPPosition{Line: errTok.Line - 1, Character: errTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on Error in err.Error")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "error") || !strings.Contains(val, "Error()") {
+		t.Fatalf("expected go error.Error hover, got %q", val)
+	}
+}
+
+func TestFindHoverForPosition_errMoveDotError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module errhover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "err_move_hover.ft")
+	const src = `package main
+
+import "fmt"
+
+func check(): (String, Error) {
+	return "", nil
+}
+
+func main() {
+	_, errMove := check()
+	ensure !errMove {
+		fmt.Println(errMove.Error())
+	}
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	var errTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type != ast.TokenIdentifier || tok.Value != "Error" {
+			continue
+		}
+		if i >= 2 && ctx.Tokens[i-1].Type == ast.TokenDot && ctx.Tokens[i-2].Value == "errMove" {
+			errTok = tok
+			break
+		}
+	}
+	if errTok == nil {
+		t.Fatal("could not find Error token for errMove.Error()")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: errTok.Line - 1, Character: errTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on Error in errMove.Error")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "error") || !strings.Contains(val, "Error()") {
+		t.Fatalf("expected go error.Error hover, got %q", val)
+	}
+
+	// Caret on '(' after "Error" should still show method hover (not LParen).
+	var openAfterError *ast.Token
+	for i := range ctx.Tokens {
+		if i+1 >= len(ctx.Tokens) {
+			continue
+		}
+		tok := &ctx.Tokens[i]
+		if tok.Type != ast.TokenIdentifier || tok.Value != "Error" {
+			continue
+		}
+		if i < 2 || ctx.Tokens[i-1].Type != ast.TokenDot || ctx.Tokens[i-2].Value != "errMove" {
+			continue
+		}
+		nxt := &ctx.Tokens[i+1]
+		if nxt.Type == ast.TokenLParen {
+			openAfterError = nxt
+			break
+		}
+	}
+	if openAfterError == nil {
+		t.Fatal("could not find '(' after errMove.Error")
+	}
+	h2 := s.findHoverForPosition(uri, LSPPosition{Line: openAfterError.Line - 1, Character: openAfterError.Column - 1})
+	if h2 == nil {
+		t.Fatal("nil hover on '(' after errMove.Error")
+	}
+	if v := h2.Contents.Value; !strings.Contains(v, "error") || !strings.Contains(v, "Error()") {
+		t.Fatalf("expected go error.Error hover when cursor on '(', got %q", v)
+	}
+}
+
 func TestFindHoverForPosition_typeGuardDeclarationName(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

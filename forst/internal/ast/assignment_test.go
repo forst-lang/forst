@@ -8,9 +8,9 @@ import (
 func TestAssignmentNode_String_short_with_explicit_types(t *testing.T) {
 	tInt := NewBuiltinType(TypeInt)
 	a := AssignmentNode{
-		LValues: []VariableNode{
-			{Ident: Ident{ID: "a"}},
-			{Ident: Ident{ID: "b"}},
+		LValues: []ExpressionNode{
+			VariableNode{Ident: Ident{ID: "a"}},
+			VariableNode{Ident: Ident{ID: "b"}},
 		},
 		RValues: []ExpressionNode{
 			IntLiteralNode{Value: 1},

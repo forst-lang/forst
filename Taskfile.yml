@@ -167,8 +167,13 @@ tasks:
       - coverage.html
 
   # Example compilation tasks
+  #
+  # Multi-file merged package + TypeScript (examples/in/tictactoe):
+  #   task example:tictactoe          — run entry server.ft (forst run -root …/tictactoe)
+  #   task example:tictactoe:generate — forst generate …/tictactoe (generated/*.ts, client/)
+  #
   example:
-    desc: Compile a specific example file
+    desc: Compile a specific example file (use task example:tictactoe for merged-package demo)
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.CLI_ARGS}}
@@ -234,6 +239,18 @@ tasks:
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/imports/cli.ft
+
+  example:tictactoe:
+    desc: Run tic-tac-toe demo (merged package under examples/in/tictactoe; entry server.ft)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/server.ft
+
+  example:tictactoe:generate:
+    desc: Regenerate generated/ and client/ TypeScript for tictactoe (forst generate on the package dir)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
 
   example:basic-guard:
     desc: Compile basic guard example

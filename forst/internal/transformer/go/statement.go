@@ -826,20 +826,29 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 							"resultsLen":   len(results),
 						}).Debug("[PINPOINT] Processing user-defined return type in transformReturnStatement")
 					}
-					for i, ret := range results {
+					for j, ret := range results {
 						if ident, ok := ret.(*goast.Ident); ok {
 							// PINPOINT: Log when calling buildCompositeLiteralForReturn
 							if t.log != nil {
 								t.log.WithFields(logrus.Fields{
 									"function":     functionName,
-									"returnIndex":  i,
+									"returnIndex":  j,
 									"expectedType": expectedType.Ident,
 									"identName":    ident.Name,
 								}).Debug("[PINPOINT] Calling buildCompositeLiteralForReturn for user-defined type")
 							}
 							goRet := t.buildCompositeLiteralForReturn(expectedType, ident.Name)
-							results[i] = goRet
+							results[j] = goRet
 						}
+					}
+					// Function calls and other expressions are not placed in results[] by the ident→composite pass above.
+					if results[i] == nil {
+						valueExpr, err = t.transformExpression(value)
+						if err != nil {
+							return nil, err
+						}
+					} else {
+						valueExpr = results[i]
 					}
 				} else {
 					if shapeValue, ok := value.(ast.ShapeNode); ok {
@@ -919,16 +928,30 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		// Check if we need to add missing error return
 		if len(expectedReturnTypes) > len(results) {
-			// Function expects more return values than provided
-			// Add nil for missing error returns
-			for i := len(results); i < len(expectedReturnTypes); i++ {
-				expectedType := expectedReturnTypes[i]
-				if expectedType.IsError() {
-					results = append(results, goast.NewIdent("nil"))
-				} else {
-					// For non-error types, add zero value
-					goType, _ := t.transformType(expectedType)
-					results = append(results, getZeroValue(goType))
+			skipNilPadding := false
+			// Single expression like `return g()` where g returns (T, error): do not pad with nil.
+			// Go allows `return g()` as one Result holding a multi-value call; padding would produce
+			// `return g(), nil` which is invalid (multi-value g() in single-value position).
+			if len(s.Values) == 1 {
+				if fc, ok := s.Values[0].(ast.FunctionCallNode); ok {
+					if calleeSig, ok := t.TypeChecker.Functions[fc.Function.ID]; ok &&
+						len(calleeSig.ReturnTypes) == len(expectedReturnTypes) {
+						skipNilPadding = true
+					}
+				}
+			}
+			if !skipNilPadding {
+				// Function expects more return values than provided
+				// Add nil for missing error returns
+				for i := len(results); i < len(expectedReturnTypes); i++ {
+					expectedType := expectedReturnTypes[i]
+					if expectedType.IsError() {
+						results = append(results, goast.NewIdent("nil"))
+					} else {
+						// For non-error types, add zero value
+						goType, _ := t.transformType(expectedType)
+						results = append(results, getZeroValue(goType))
+					}
 				}
 			}
 		}
@@ -1026,10 +1049,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
+				vn, vok := s.LValues[0].(ast.VariableNode)
+				if !vok {
+					return nil, fmt.Errorf("assignment: explicit type requires a simple variable on the left")
+				}
 				// Use the unified helper to determine the expected type
 				context := &ShapeContext{
 					ExpectedType: expectedType,
-					VariableName: s.LValues[0].Ident.String(),
+					VariableName: vn.Ident.String(),
 				}
 				expectedTypeForShape := t.getExpectedTypeForShape(&shapeRHS, context)
 				rhs, err := t.transformShapeNodeWithExpectedType(&shapeRHS, expectedTypeForShape)
@@ -1041,7 +1068,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						Tok: token.VAR,
 						Specs: []goast.Spec{
 							&goast.ValueSpec{
-								Names:  []*goast.Ident{goast.NewIdent(s.LValues[0].Ident.String())},
+								Names:  []*goast.Ident{goast.NewIdent(vn.Ident.String())},
 								Type:   typeExpr,
 								Values: []goast.Expr{rhs},
 							},
@@ -1053,12 +1080,16 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			if err != nil {
 				return nil, err
 			}
+			vn2, ok := s.LValues[0].(ast.VariableNode)
+			if !ok {
+				return nil, fmt.Errorf("assignment: explicit type requires a simple variable on the left")
+			}
 			return &goast.DeclStmt{
 				Decl: &goast.GenDecl{
 					Tok: token.VAR,
 					Specs: []goast.Spec{
 						&goast.ValueSpec{
-							Names:  []*goast.Ident{goast.NewIdent(s.LValues[0].Ident.String())},
+							Names:  []*goast.Ident{goast.NewIdent(vn2.Ident.String())},
 							Type:   typeExpr,
 							Values: []goast.Expr{rhs},
 						},
@@ -1079,7 +1110,10 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		rhs := make([]goast.Expr, len(s.RValues))
 		for i, rval := range s.RValues {
 			if shapeRHS, ok := rval.(ast.ShapeNode); ok && len(s.LValues) == 1 {
-				varName := s.LValues[0].Ident.String()
+				varName := ""
+				if vn, vok := s.LValues[0].(ast.VariableNode); vok {
+					varName = vn.Ident.String()
+				}
 				rhsExpr, err := t.transformShapeNodeWithExpectedType(&shapeRHS, t.getExpectedTypeForShape(&shapeRHS, &ShapeContext{VariableName: varName}))
 				if err != nil {
 					return nil, err

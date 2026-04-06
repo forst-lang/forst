@@ -1,0 +1,109 @@
+package main
+
+import "errors"
+
+func invalidMove(msg String): Error {
+	return errors.New(msg)
+}
+
+func emptyBoard(): []String {
+	return ["", "", "", "", "", "", "", "", ""]
+}
+
+func cellIndex(row Int, col Int): Int {
+	return row*3 + col
+}
+
+func getCell(cells []String, idx Int): String {
+	return cells[idx]
+}
+
+func setCell(cells []String, idx Int, val String): []String {
+	out := emptyBoard()
+	copy(out, cells)
+	out[idx] = val
+	return out
+}
+
+func lineWinner(cells []String, a Int, b Int, c Int): String {
+	x0 := cells[a]
+	if x0 == "" {
+		return ""
+	}
+	if x0 == cells[b] && x0 == cells[c] {
+		return x0
+	}
+	return ""
+}
+
+func winnerOrEmpty(cells []String): String {
+	lineA := [0, 3, 6, 0, 1, 2, 0, 2]
+	lineB := [1, 4, 7, 3, 4, 5, 4, 4]
+	lineC := [2, 5, 8, 6, 7, 8, 8, 6]
+	for i := 0; i < 8; i++ {
+		w := lineWinner(cells, lineA[i], lineB[i], lineC[i])
+		// ensure returns from the whole function on failure; here we need to continue the loop when w is empty.
+		if w != "" {
+			return w
+		}
+	}
+	return ""
+}
+
+func boardFull(cells []String): Bool {
+	for i := 0; i < 9; i++ {
+		if cells[i] == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func opponent(p String): String {
+	if p == "X" {
+		return "O"
+	}
+	return "X"
+}
+
+func cloneCells(cells []String): []String {
+	out := emptyBoard()
+	copy(out, cells)
+	return out
+}
+
+func ApplyMove(req MoveRequest): (MoveResponse, Error) {
+	row := req.row
+	ensure row is GreaterThan(-1) or invalidMove("row must be >= 0")
+	ensure row is LessThan(3) or invalidMove("row must be <= 2")
+	col := req.col
+	ensure col is GreaterThan(-1) or invalidMove("col must be >= 0")
+	ensure col is LessThan(3) or invalidMove("col must be <= 2")
+	idx := cellIndex(row, col)
+	cellEmpty := req.state.cells[idx] == ""
+	ensure cellEmpty is True() or invalidMove("cell already taken")
+	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
+	np := opponent(req.state.nextPlayer)
+	return {
+		ok: true,
+		message: "ok",
+		state: {
+			cells: next,
+			nextPlayer: np,
+			status: req.state.status,
+		},
+	}, nil
+}
+
+func NewGame(): GameState {
+	board := emptyBoard()
+	return {
+		cells: board,
+		nextPlayer: "X",
+		status: "playing",
+	}
+}
+
+func PlayMove(req MoveRequest): (MoveResponse, Error) {
+	return ApplyMove(req)
+}

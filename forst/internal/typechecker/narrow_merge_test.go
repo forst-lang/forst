@@ -32,7 +32,7 @@ func TestIfMergePoint_xWidensToOuterTypeAfterIfChain(t *testing.T) {
 		ReturnTypes: []ast.TypeNode{{Ident: myStr}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{
+				LValues: []ast.ExpressionNode{ast.VariableNode{
 					Ident:        ast.Ident{ID: "x", Span: spanDeclX},
 					ExplicitType: explicitMyStr,
 				}},
@@ -122,7 +122,7 @@ func TestIfMergePoint_tableElseIfLadder(t *testing.T) {
 				ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
 				Body: []ast.Node{
 					ast.AssignmentNode{
-						LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
+						LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
 						RValues: []ast.ExpressionNode{ast.StringLiteralNode{Value: "hello"}},
 						IsShort: true,
 					},
@@ -206,7 +206,7 @@ func TestIfMergePoint_nestedInnerIfEmptyBody_xWidensInsideOuterIfBody(t *testing
 		ReturnTypes: []ast.TypeNode{{Ident: myStr}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{
+				LValues: []ast.ExpressionNode{ast.VariableNode{
 					Ident:        ast.Ident{ID: "x", Span: spanDeclX},
 					ExplicitType: explicitMyStr,
 				}},
@@ -265,7 +265,7 @@ func TestIfMergePoint_inferredString_outerUnchangedAfterIfChain(t *testing.T) {
 		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x", Span: spanDecl}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanDecl}}},
 				RValues: []ast.ExpressionNode{ast.StringLiteralNode{Value: "hello"}},
 				IsShort: true,
 			},

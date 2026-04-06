@@ -360,11 +360,21 @@ func (p *printer) printAssignment(a ast.AssignmentNode) (string, error) {
 
 	lhsParts := make([]string, len(a.LValues))
 	for i, lv := range a.LValues {
-		s := string(lv.Ident.ID)
-		if len(a.ExplicitTypes) > i && a.ExplicitTypes[i] != nil {
-			s += ": " + printType(*a.ExplicitTypes[i])
-		} else if lv.ExplicitType.Ident != "" && !lv.ExplicitType.IsImplicit() {
-			s += ": " + printType(lv.ExplicitType)
+		var s string
+		switch v := lv.(type) {
+		case ast.VariableNode:
+			s = string(v.Ident.ID)
+			if len(a.ExplicitTypes) > i && a.ExplicitTypes[i] != nil {
+				s += ": " + printType(*a.ExplicitTypes[i])
+			} else if v.ExplicitType.Ident != "" && !v.ExplicitType.IsImplicit() {
+				s += ": " + printType(v.ExplicitType)
+			}
+		default:
+			var err error
+			s, err = p.printExpr(lv.(ast.ExpressionNode))
+			if err != nil {
+				return "", err
+			}
 		}
 		lhsParts[i] = s
 	}
@@ -640,6 +650,16 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 		return p.printBinary(x)
 	case ast.FunctionCallNode:
 		return p.printCall(x)
+	case ast.IndexExpressionNode:
+		tgt, err := p.printExpr(x.Target)
+		if err != nil {
+			return "", err
+		}
+		idx, err := p.printExpr(x.Index)
+		if err != nil {
+			return "", err
+		}
+		return tgt + "[" + idx + "]", nil
 	case ast.ReferenceNode:
 		inner, err := p.printValue(x.Value)
 		if err != nil {

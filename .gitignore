@@ -279,6 +279,9 @@ vite.config.ts.timestamp-*
 
 generated/
 
+# forst generate output for the tictactoe example (see task example:tictactoe:generate)
+examples/in/**/client/
+
 # Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
 forst/.gocache/
 forst/.gotmp/

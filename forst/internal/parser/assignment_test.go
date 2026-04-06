@@ -37,8 +37,12 @@ func TestParseAssignment(t *testing.T) {
 				if len(assignNode.LValues) != 1 {
 					t.Fatalf("Expected 1 left value, got %d", len(assignNode.LValues))
 				}
-				if assignNode.LValues[0].Ident.ID != "x" {
-					t.Errorf("Expected variable name 'x', got %s", assignNode.LValues[0].Ident.ID)
+				lv0, ok := assignNode.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignNode.LValues[0])
+				}
+				if lv0.Ident.ID != "x" {
+					t.Errorf("Expected variable name 'x', got %s", lv0.Ident.ID)
 				}
 				if assignNode.IsShort {
 					t.Error("Expected regular assignment, got short assignment")
@@ -73,11 +77,15 @@ func TestParseAssignment(t *testing.T) {
 				if len(assignNode.LValues) != 1 {
 					t.Fatalf("Expected 1 left value, got %d", len(assignNode.LValues))
 				}
-				if assignNode.LValues[0].Ident.ID != "x" {
-					t.Errorf("Expected variable name 'x', got %s", assignNode.LValues[0].Ident.ID)
+				lv0, ok := assignNode.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignNode.LValues[0])
 				}
-				if assignNode.LValues[0].ExplicitType.Ident != ast.TypeInt {
-					t.Errorf("Expected type 'int', got %s", assignNode.LValues[0].ExplicitType.Ident)
+				if lv0.Ident.ID != "x" {
+					t.Errorf("Expected variable name 'x', got %s", lv0.Ident.ID)
+				}
+				if lv0.ExplicitType.Ident != ast.TypeInt {
+					t.Errorf("Expected type 'int', got %s", lv0.ExplicitType.Ident)
 				}
 			},
 		},
@@ -160,11 +168,19 @@ func TestParseMultipleAssignment(t *testing.T) {
 				if len(assignNode.LValues) != 2 {
 					t.Fatalf("Expected 2 left values, got %d", len(assignNode.LValues))
 				}
-				if assignNode.LValues[0].Ident.ID != "x" {
-					t.Errorf("Expected first variable name 'x', got %s", assignNode.LValues[0].Ident.ID)
+				lv0, ok := assignNode.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs[0], got %T", assignNode.LValues[0])
 				}
-				if assignNode.LValues[1].Ident.ID != "y" {
-					t.Errorf("Expected second variable name 'y', got %s", assignNode.LValues[1].Ident.ID)
+				lv1, ok := assignNode.LValues[1].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs[1], got %T", assignNode.LValues[1])
+				}
+				if lv0.Ident.ID != "x" {
+					t.Errorf("Expected first variable name 'x', got %s", lv0.Ident.ID)
+				}
+				if lv1.Ident.ID != "y" {
+					t.Errorf("Expected second variable name 'y', got %s", lv1.Ident.ID)
 				}
 				if len(assignNode.RValues) != 2 {
 					t.Fatalf("Expected 2 right values, got %d", len(assignNode.RValues))

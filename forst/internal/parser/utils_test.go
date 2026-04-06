@@ -16,6 +16,7 @@ func TestIsCapitalCase(t *testing.T) {
 		{"upperFoo", "Foo", true},
 		{"singleUpper", "A", true},
 		{"lowerFoo", "foo", false},
+		{"empty", "", false},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -23,6 +24,29 @@ func TestIsCapitalCase(t *testing.T) {
 			t.Parallel()
 			if got := isCapitalCase(tt.in); got != tt.want {
 				t.Fatalf("isCapitalCase(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsShapeLiteralTypePrefix(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{"empty", "", false},
+		{"lowercase_param", "c", false},
+		{"type_name", "User", true},
+		{"qualified_type", "pkg.User", true},
+		{"qualified_lowercase_suffix", "pkg.c", false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isShapeLiteralTypePrefix(tt.in); got != tt.want {
+				t.Fatalf("isShapeLiteralTypePrefix(%q) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
 	}

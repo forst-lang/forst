@@ -8,11 +8,20 @@ import (
 
 // parseLiteral parses basic literal types (string, int, float, bool)
 func (p *Parser) parseLiteral() ast.LiteralNode {
+	neg := false
+	if p.current().Type == ast.TokenMinus {
+		neg = true
+		p.advance()
+	}
+
 	token := p.current()
 	p.advance() // Consume the token
 
 	switch token.Type {
 	case ast.TokenStringLiteral:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before string literal")
+		}
 		// Remove quotes from the string value
 		value := token.Value
 		if len(value) >= 2 {
@@ -36,6 +45,9 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			if err != nil {
 				p.FailWithParseError(token, "Invalid float literal")
 			}
+			if neg {
+				floatVal = -floatVal
+			}
 			return ast.FloatLiteralNode{
 				Value: floatVal,
 			}
@@ -46,21 +58,46 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		if err != nil {
 			p.FailWithParseError(token, "Invalid integer literal")
 		}
+		if neg {
+			intVal = -intVal
+		}
 		return ast.IntLiteralNode{
 			Value: intVal,
 		}
 
+	case ast.TokenFloatLiteral:
+		s := strings.TrimSuffix(token.Value, "f")
+		floatVal, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			p.FailWithParseError(token, "Invalid float literal")
+		}
+		if neg {
+			floatVal = -floatVal
+		}
+		return ast.FloatLiteralNode{
+			Value: floatVal,
+		}
+
 	case ast.TokenTrue:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before boolean literal")
+		}
 		return ast.BoolLiteralNode{
 			Value: true,
 		}
 
 	case ast.TokenFalse:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before boolean literal")
+		}
 		return ast.BoolLiteralNode{
 			Value: false,
 		}
 
 	case ast.TokenLBracket:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before array literal")
+		}
 		items := []ast.LiteralNode{}
 		for p.current().Type != ast.TokenRBracket {
 			items = append(items, p.parseLiteral())
@@ -91,6 +128,9 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 
 	case ast.TokenNil:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before nil")
+		}
 		return ast.NilLiteralNode{}
 
 	default:

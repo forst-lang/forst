@@ -84,6 +84,28 @@ describe("ForstSidecarClient", () => {
     );
   });
 
+  it("POST /invoke with success: true but no result throws DevServerInvokeRejected", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({
+        success: true,
+      }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    try {
+      await client.invokeFunction("demo", "Echo", []);
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerInvokeRejected);
+    }
+  });
+
   it("POST /invoke with success: false throws DevServerInvokeRejected", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

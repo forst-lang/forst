@@ -24,145 +24,180 @@ func (p *Parser) parseCallArguments() (args []ast.ExpressionNode, argSpans []ast
 // MaxExpressionDepth is the maximum depth of nested expressions
 const MaxExpressionDepth = 20
 
-// parseExpression parses an expression at the current level
-func (p *Parser) parseExpression() ast.ExpressionNode {
-	return p.parseExpressionLevel(0)
+// binaryPrecedence returns operator precedence for Pratt parsing. Higher number = tighter binding
+// (binds before operators with lower numbers). Must match Go: && tighter than ||, comparisons
+// tighter than &&, etc.
+func binaryPrecedence(op ast.TokenIdent) int {
+	switch op {
+	case ast.TokenLogicalOr:
+		return 10
+	case ast.TokenLogicalAnd:
+		return 20
+	case ast.TokenEquals, ast.TokenNotEquals, ast.TokenGreater, ast.TokenLess,
+		ast.TokenGreaterEqual, ast.TokenLessEqual, ast.TokenIs:
+		return 30
+	case ast.TokenPlus, ast.TokenMinus:
+		return 40
+	case ast.TokenStar, ast.TokenDivide, ast.TokenModulo:
+		return 50
+	default:
+		return 0
+	}
 }
 
-func (p *Parser) parseExpressionLevel(level int) ast.ExpressionNode {
-	if level > MaxExpressionDepth {
-		p.FailWithParseError(p.current(), fmt.Sprintf("Expression level too deep - maximum nesting depth is %d", MaxExpressionDepth))
+// parseExpression parses an expression with correct binary operator precedence (e.g. comparisons
+// bind tighter than && so `a != x && a != y` is `(a != x) && (a != y)`).
+func (p *Parser) parseExpression() ast.ExpressionNode {
+	return p.parseExpr(0, 0)
+}
+
+// parseExpr implements Pratt parsing: left-associative binary operators with minPrec threshold.
+func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
+	if depth > MaxExpressionDepth {
+		p.FailWithParseError(p.current(), fmt.Sprintf("Expression nesting too deep - maximum depth is %d", MaxExpressionDepth))
 	}
 
-	var expr ast.ExpressionNode
-
-	// Handle unary not operator
-	if p.current().Type == ast.TokenLogicalNot {
-		p.advance() // Consume the not operator
-		operand := p.parseExpressionLevel(level + 1)
-		expr = ast.UnaryExpressionNode{
-			Operator: ast.TokenLogicalNot,
-			Operand:  operand,
+	lhs := p.parseUnaryOrPrimary(depth)
+	for {
+		tok := p.current().Type
+		if !tok.IsBinaryOperator() {
+			break
 		}
-		return expr
-	}
-
-	// Handle parentheses
-	if p.current().Type == ast.TokenLParen {
-		p.advance() // Consume the left parenthesis
-		expr = p.parseExpressionLevel(level + 1)
-
-		// If we have an identifier followed by a left parenthesis, this is a function call
-		if p.current().Type == ast.TokenIdentifier {
-			identTok := p.expect(ast.TokenIdentifier)
-			if p.current().Type == ast.TokenLParen {
-				lparen := p.current()
-				p.advance() // Consume left paren
-				args, argSpans := p.parseCallArguments()
-				rparen := p.expect(ast.TokenRParen)
-				expr = ast.FunctionCallNode{
-					Function:  ast.Ident{ID: ast.Identifier(identTok.Value), Span: ast.SpanFromToken(identTok)},
-					Arguments: args,
-					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
-					ArgSpans:  argSpans,
-				}
-			}
-		} else {
-			p.expect(ast.TokenRParen) // Consume the right parenthesis
+		prec := binaryPrecedence(tok)
+		if prec < minPrec {
+			break
 		}
-	} else if p.current().Type == ast.TokenIdentifier {
-		// Parse the identifier, allowing for dot chaining
-		ident := p.parseIdentifier()
-		// If we hit a left paren, this is a function call
-		if p.current().Type == ast.TokenLParen {
-			lparen := p.current()
-			p.advance() // Consume left paren
-			args, argSpans := p.parseCallArguments()
-			rparen := p.expect(ast.TokenRParen)
-
-			expr = ast.FunctionCallNode{
-				Function:  ident,
-				Arguments: args,
-				CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
-				ArgSpans:  argSpans,
-			}
-		} else if p.current().Type == ast.TokenLBrace {
-			typeIdent := ast.TypeIdent(string(ident.ID))
-			// Parse the shape literal with the base type
-			return p.parseShapeLiteral(&typeIdent, false)
-		} else {
-			// Otherwise treat as a variable
-			expr = ast.VariableNode{
-				Ident: ident,
-			}
-		}
-	} else if p.current().Type == ast.TokenNil {
+		operator := tok
 		p.advance()
-		return ast.NilLiteralNode{}
-	} else {
-		expr = p.parseValue() // parseValue should advance the token internally
-	}
 
-	// Handle binary operators
-	for p.current().Type.IsBinaryOperator() {
-		operator := p.current().Type
-		p.advance() // Consume the operator
-
-		// Special handling for 'is' operator
 		if operator == ast.TokenIs {
-			// Check if the right-hand side is a shape literal or Shape(...) call
 			if p.current().Type == ast.TokenLBrace {
-				right := p.parseShapeLiteral(nil, false) // Parse the shape literal directly
-				expr = ast.BinaryExpressionNode{
-					Left:     expr,
+				right := p.parseShapeLiteral(nil, false)
+				lhs = ast.BinaryExpressionNode{
+					Left:     lhs,
 					Operator: operator,
 					Right:    right,
 				}
 			} else if p.current().Type == ast.TokenIdentifier && p.current().Value == "Shape" {
-				p.advance() // Consume 'Shape'
+				p.advance()
 				p.expect(ast.TokenLParen)
 				if p.current().Type == ast.TokenLBrace {
-					right := p.parseShapeLiteral(nil, false) // Parse the shape literal directly
+					right := p.parseShapeLiteral(nil, false)
 					p.expect(ast.TokenRParen)
-					expr = ast.BinaryExpressionNode{
-						Left:     expr,
+					lhs = ast.BinaryExpressionNode{
+						Left:     lhs,
 						Operator: operator,
 						Right:    right,
 					}
 				} else {
-					right := p.parseExpressionLevel(level + 1)
+					right := p.parseExpr(0, depth+1)
 					p.expect(ast.TokenRParen)
-					expr = ast.BinaryExpressionNode{
-						Left:     expr,
+					lhs = ast.BinaryExpressionNode{
+						Left:     lhs,
 						Operator: operator,
 						Right:    right,
 					}
 				}
 			} else if p.current().Type == ast.TokenIdentifier {
-				// Parse assertion node for the right-hand side
 				assertion := p.parseAssertionChain(false)
-				expr = ast.BinaryExpressionNode{
-					Left:     expr,
+				lhs = ast.BinaryExpressionNode{
+					Left:     lhs,
 					Operator: operator,
 					Right:    assertion,
 				}
 			} else {
-				right := p.parseExpressionLevel(level + 1)
-				expr = ast.BinaryExpressionNode{
-					Left:     expr,
+				right := p.parseExpr(0, depth+1)
+				lhs = ast.BinaryExpressionNode{
+					Left:     lhs,
 					Operator: operator,
 					Right:    right,
 				}
 			}
-		} else {
-			right := p.parseExpressionLevel(level + 1)
-			expr = ast.BinaryExpressionNode{
-				Left:     expr,
-				Operator: operator,
-				Right:    right,
-			}
+			continue
+		}
+
+		rhs := p.parseExpr(prec+1, depth+1)
+		lhs = ast.BinaryExpressionNode{
+			Left:     lhs,
+			Operator: operator,
+			Right:    rhs,
 		}
 	}
+	return lhs
+}
 
-	return expr
+// parseIndexSuffixChain parses zero or more `[expr]` suffixes (slice/array indexing).
+func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, depth int) ast.ExpressionNode {
+	for p.current().Type == ast.TokenLBracket {
+		p.advance()
+		idx := p.parseExpression()
+		p.expect(ast.TokenRBracket)
+		base = ast.IndexExpressionNode{
+			Target: base,
+			Index:  idx,
+		}
+	}
+	return base
+}
+
+func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
+	if depth > MaxExpressionDepth {
+		p.FailWithParseError(p.current(), fmt.Sprintf("Expression nesting too deep - maximum depth is %d", MaxExpressionDepth))
+	}
+
+	var base ast.ExpressionNode
+
+	switch {
+	case p.current().Type == ast.TokenLogicalNot:
+		p.advance()
+		base = ast.UnaryExpressionNode{
+			Operator: ast.TokenLogicalNot,
+			Operand:  p.parseUnaryOrPrimary(depth + 1),
+		}
+	case p.current().Type == ast.TokenMinus:
+		p.advance()
+		base = ast.UnaryExpressionNode{
+			Operator: ast.TokenMinus,
+			Operand:  p.parseUnaryOrPrimary(depth + 1),
+		}
+	case p.current().Type == ast.TokenLParen:
+		p.advance()
+		inner := p.parseExpr(0, depth+1)
+		p.expect(ast.TokenRParen)
+		base = inner
+	case p.current().Type == ast.TokenIdentifier:
+		base = p.parseIdentifierPrimary()
+	case p.current().Type == ast.TokenNil:
+		p.advance()
+		base = ast.NilLiteralNode{}
+	default:
+		base = p.parseValue()
+	}
+
+	return p.parseIndexSuffixChain(base, depth)
+}
+
+// parseIdentifierPrimary parses call, typed shape literal, or variable; caller must be positioned
+// on TokenIdentifier (it calls parseIdentifier).
+func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
+	ident := p.parseIdentifier()
+	if p.current().Type == ast.TokenLParen {
+		lparen := p.current()
+		p.advance()
+		args, argSpans := p.parseCallArguments()
+		rparen := p.expect(ast.TokenRParen)
+		return ast.FunctionCallNode{
+			Function:  ident,
+			Arguments: args,
+			CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+			ArgSpans:  argSpans,
+		}
+	}
+	if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) {
+		typeIdent := ast.TypeIdent(string(ident.ID))
+		return p.parseShapeLiteral(&typeIdent, false)
+	}
+	return ast.VariableNode{
+		Ident: ident,
+	}
 }

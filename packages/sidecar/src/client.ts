@@ -2,6 +2,7 @@ import {
   ForstClientConfig,
   InvokeRequest,
   InvokeResponse,
+  InvokeSuccess,
   StreamingResult,
   FunctionInfo,
   ServerVersionInfo,
@@ -83,7 +84,7 @@ export class ForstSidecarClient {
   /**
    * Invoke a Forst function using package.function format
    */
-  async invoke<T>(fn: string, args?: any[]): Promise<InvokeResponse<T>> {
+  async invoke<T>(fn: string, args?: any[]): Promise<InvokeSuccess<T>> {
     // Parse function name to extract package and function
     const parts = fn.split(".");
     if (parts.length !== 2) {
@@ -102,7 +103,7 @@ export class ForstSidecarClient {
     functionName: string,
     args: any[] = [],
     options: { streaming?: boolean } = {}
-  ): Promise<InvokeResponse<T>> {
+  ): Promise<InvokeSuccess<T>> {
     const request: InvokeRequest = {
       package: packageName,
       function: functionName,
@@ -131,7 +132,21 @@ export class ForstSidecarClient {
     if (!response.success) {
       throw new DevServerInvokeRejected(packageName, functionName, response);
     }
-    return response;
+    if (response.result === undefined) {
+      throw new DevServerInvokeRejected(packageName, functionName, {
+        success: false,
+        error:
+          response.error ??
+          "invoke response missing result (success was true but result is undefined)",
+        output: response.output,
+      });
+    }
+    return {
+      success: true as const,
+      result: response.result,
+      output: response.output,
+      error: response.error,
+    };
   }
 
   /**

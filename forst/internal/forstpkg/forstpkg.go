@@ -4,7 +4,6 @@ package forstpkg
 import (
 	"fmt"
 	"os"
-	"sort"
 
 	"forst/internal/ast"
 	"forst/internal/lexer"
@@ -61,10 +60,10 @@ func MergePackageASTs(fileNodes [][]ast.Node) []ast.Node {
 	return merged
 }
 
-// ParseAndMergePackage parses paths in sorted order and returns merged nodes plus
+// ParseAndMergePackage parses paths in caller order and returns merged nodes plus
 // per-path AST for per-file metadata (e.g. discovery).
+// Type checking does not depend on this order (see typechecker.partitionTopLevelForCollect).
 func ParseAndMergePackage(log *logrus.Logger, paths []string) (merged []ast.Node, byPath map[string][]ast.Node, err error) {
-	sort.Strings(paths)
 	byPath = make(map[string][]ast.Node, len(paths))
 	var lists [][]ast.Node
 	for _, p := range paths {

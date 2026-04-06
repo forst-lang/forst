@@ -3,7 +3,7 @@ package ast
 // AssignmentNode represents a variable assignment in the AST
 type AssignmentNode struct {
 	Node
-	LValues       []VariableNode   // Variables being assigned to (targets of the assignment)
+	LValues       []ExpressionNode // Assignable expressions (VariableNode or IndexExpressionNode, etc.)
 	RValues       []ExpressionNode // Values being assigned
 	ExplicitTypes []*TypeNode      // Optional explicit types for each name
 	IsShort       bool             // Whether this is a short := assignment
@@ -19,13 +19,19 @@ func (n AssignmentNode) String() string {
 	result := "Assignment("
 
 	// Build comma-separated list of names and types
-	for i, ident := range n.LValues {
+	for i, lv := range n.LValues {
 		if i > 0 {
 			result += ", "
 		}
-		result += ident.String()
-		if len(n.ExplicitTypes) > i && n.ExplicitTypes[i] != nil {
-			result += ": " + n.ExplicitTypes[i].String()
+		if vn, ok := lv.(VariableNode); ok {
+			result += vn.String()
+			if len(n.ExplicitTypes) > i && n.ExplicitTypes[i] != nil {
+				result += ": " + n.ExplicitTypes[i].String()
+			}
+		} else if e, ok := lv.(ExpressionNode); ok {
+			result += e.String()
+		} else {
+			result += lv.String()
 		}
 	}
 

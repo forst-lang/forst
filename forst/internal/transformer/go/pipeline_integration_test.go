@@ -233,6 +233,84 @@ func main() {
 `,
 			needles: []string{`min(`, `max(`, `func main`},
 		},
+		{
+			name: "slice_shape_field_and_param_emit_go_slice",
+			src: `package main
+
+type Row = { cells: []String }
+
+func getCell(cells []String, idx Int): String {
+	return cells[idx]
+}
+
+func main() {
+	println(getCell(["x"], 0))
+}
+`,
+			// Shape fields and parameters must use Go []string, not a hash-only type name (would break indexing).
+			needles: []string{`type Row`, `[]string`, `cells []string`, `cells[idx]`},
+		},
+		{
+			name: "return_user_defined_struct_type_via_call_expr",
+			src: `package main
+
+type R = { ok: Bool }
+
+func inner(): R {
+	return { ok: true }
+}
+
+func outer(): R {
+	return inner()
+}
+
+func main() {
+	x := outer()
+	println(x.ok)
+}
+`,
+			needles: []string{`func inner`, `func outer`, `return inner()`, `type R`},
+		},
+		{
+			name: "ensure_greater_than_negative_int_literal_with_or",
+			src: `package main
+
+import "errors"
+
+func bad(msg String): Error {
+	return errors.New(msg)
+}
+
+func f(row Int): (String, Error) {
+	ensure row is GreaterThan(-1) or bad("x")
+	return "ok", nil
+}
+
+func main() {
+	println("hi")
+}
+`,
+			needles: []string{`-1`, `row`, `errors`},
+		},
+		{
+			name: "return_multi_value_call_single_expr_not_padded_with_nil",
+			src: `package main
+
+func inner(): (Int, Error) {
+	return 1, nil
+}
+
+func outer(): (Int, Error) {
+	return inner()
+}
+
+func main() {
+	_, _ := outer()
+	println("ok")
+}
+`,
+			needles: []string{`return inner()`, `func outer`},
+		},
 	}
 
 	for _, tt := range tests {
@@ -248,6 +326,31 @@ func main() {
 }
 
 // TestEmitValidation_* cases assert generated Go for built-in constraints and type guards (grep-friendly; see internal/coveragehotspots).
+func TestPipeline_return_multi_value_call_not_padded_with_nil(t *testing.T) {
+	src := `package main
+
+func inner(): (Int, Error) {
+	return 1, nil
+}
+
+func outer(): (Int, Error) {
+	return inner()
+}
+
+func main() {
+	_, _ := outer()
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, "inner(), nil") {
+		t.Fatalf("multi-value return must not be padded (invalid Go); got:\n%s", out)
+	}
+	if !strings.Contains(out, "return inner()") {
+		t.Fatalf("expected `return inner()` in:\n%s", out)
+	}
+}
+
 func TestEmitValidation_builtinMinOnString(t *testing.T) {
 	src := `package main
 

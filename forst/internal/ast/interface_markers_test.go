@@ -9,6 +9,7 @@ func TestInterfaceMarkerMethodsExecute(t *testing.T) {
 	UnaryExpressionNode{}.isExpression()
 	BinaryExpressionNode{}.isExpression()
 	FunctionCallNode{}.isExpression()
+	IndexExpressionNode{}.isExpression()
 
 	AssertionNode{}.isExpression()
 	ShapeNode{}.isExpression()

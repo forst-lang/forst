@@ -35,6 +35,17 @@ func TestUnifyTypes_unaryDecrement(t *testing.T) {
 	}
 }
 
+func TestUnifyTypes_unaryMinusInt(t *testing.T) {
+	tc := New(logrus.New(), false)
+	ty, err := tc.unifyTypes(ast.IntLiteralNode{Value: 1}, nil, ast.TokenMinus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ty.Ident != ast.TypeInt {
+		t.Fatalf("got %s", ty.Ident)
+	}
+}
+
 func TestUnifyTypes_unaryLogicalNot(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.scopeStack.globalScope().RegisterSymbol("b", []ast.TypeNode{{Ident: ast.TypeBool}}, SymbolVariable)

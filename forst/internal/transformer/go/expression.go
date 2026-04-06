@@ -262,6 +262,20 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			}
 		}
 		return sel, nil
+	case ast.IndexExpressionNode:
+		tgt, err := t.transformExpression(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		idx, err := t.transformExpression(e.Index)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.IndexExpr{
+			X:     tgt,
+			Index: idx,
+		}, nil
+
 	case ast.FunctionCallNode:
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(e.Arguments))

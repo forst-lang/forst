@@ -99,6 +99,32 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 		return []ast.TypeNode{typ}, nil
 
+	case ast.IndexExpressionNode:
+		targetTypes, err := tc.inferExpressionType(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		if len(targetTypes) != 1 {
+			return nil, fmt.Errorf("index expression: target must have a single type, got %d", len(targetTypes))
+		}
+		t := targetTypes[0]
+		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
+			return nil, fmt.Errorf("index expression: target must be a slice or array, got %s", t.Ident)
+		}
+		indexTypes, err := tc.inferExpressionType(e.Index)
+		if err != nil {
+			return nil, err
+		}
+		if len(indexTypes) != 1 {
+			return nil, fmt.Errorf("index expression: index must have a single type")
+		}
+		if indexTypes[0].Ident != ast.TypeInt {
+			return nil, fmt.Errorf("index expression: index must be Int, got %s", indexTypes[0].Ident)
+		}
+		elem := t.TypeParams[0]
+		tc.storeInferredType(e, []ast.TypeNode{elem})
+		return []ast.TypeNode{elem}, nil
+
 	case ast.FunctionCallNode:
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferExpressionType",

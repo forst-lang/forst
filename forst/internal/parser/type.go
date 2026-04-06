@@ -133,6 +133,11 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 			return ast.NewAssertionType(&assertion)
 		}
 
+		// `Error` as a bare identifier is the built-in error interface (matches stdlib `error` / errors.New).
+		if firstSegment == "Error" {
+			return ast.NewBuiltinType(ast.TypeError)
+		}
+
 		return ast.NewUserDefinedType(ast.TypeIdent(firstSegment))
 	}
 }

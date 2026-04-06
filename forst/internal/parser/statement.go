@@ -34,28 +34,34 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 			assignment := p.parseMultipleAssignment()
 			p.logParsedNode(assignment)
 			body = append(body, assignment)
-		} else if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
-			assignment := p.parseAssignment()
-			p.logParsedNode(assignment)
-			body = append(body, assignment)
-		} else if next.Type == ast.TokenColon &&
-			(p.peek(2).Type == ast.TokenIdentifier ||
-				p.peek(2).Type == ast.TokenString ||
-				p.peek(2).Type == ast.TokenInt ||
-				p.peek(2).Type == ast.TokenFloat ||
-				p.peek(2).Type == ast.TokenBool ||
-				p.peek(2).Type == ast.TokenVoid) &&
-			(p.peek(3).Type == ast.TokenColonEquals ||
-				p.peek(3).Type == ast.TokenEquals) {
-			// identifier: Type := ...
-			assignment := p.parseAssignment()
-			p.logParsedNode(assignment)
-			body = append(body, assignment)
-		} else {
+			break
+		}
+		// x = …, x := …, x: T = …, xs[i] = … (assignable expression, then = or := or : Type …)
+		saved := p.currentIndex
+		lhs := p.parseAssignableExpr()
+		if _, ok := lhs.(ast.IndexExpressionNode); ok && p.current().Type == ast.TokenColon {
+			p.currentIndex = saved
 			expr := p.parseExpression()
 			p.logParsedNode(expr)
 			body = append(body, expr)
+			break
 		}
+		if p.current().Type == ast.TokenEquals || p.current().Type == ast.TokenColonEquals {
+			assign := p.finishAssignment(lhs)
+			p.logParsedNode(assign)
+			body = append(body, assign)
+			break
+		}
+		if _, ok := lhs.(ast.VariableNode); ok && p.current().Type == ast.TokenColon {
+			assign := p.finishAssignment(lhs)
+			p.logParsedNode(assign)
+			body = append(body, assign)
+			break
+		}
+		p.currentIndex = saved
+		expr := p.parseExpression()
+		p.logParsedNode(expr)
+		body = append(body, expr)
 	case ast.TokenIf:
 		ifStatement := p.parseIfStatement()
 		p.logParsedNode(ifStatement)

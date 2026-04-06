@@ -1,0 +1,29 @@
+{
+  "compiler": {
+    "target": "go",
+    "optimization": "debug",
+    "strict": false,
+    "reportPhases": false,
+    "reportMemoryUsage": false
+  },
+  "server": {
+    "port": "8099",
+    "readTimeout": 30,
+    "writeTimeout": 30,
+    "cors": true
+  },
+  "dev": {
+    "logLevel": "info",
+    "watch": false
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/client/**",
+      "**/*.skip.ft"
+    ],
+    "maxDepth": 10
+  }
+}

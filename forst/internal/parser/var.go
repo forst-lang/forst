@@ -23,14 +23,14 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 			p.expect(ast.TokenEquals)
 			rvalue := p.parseExpression()
 			return ast.AssignmentNode{
-				LValues:       []ast.VariableNode{{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
+				LValues:       []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
 				RValues:       []ast.ExpressionNode{rvalue},
 				ExplicitTypes: []*ast.TypeNode{&typeNode},
 			}
 		} else {
 			// No equals sign, just type declaration
 			return ast.AssignmentNode{
-				LValues:       []ast.VariableNode{{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
+				LValues:       []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
 				ExplicitTypes: []*ast.TypeNode{&typeNode},
 			}
 		}
@@ -42,7 +42,7 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 			p.FailWithParseError(ident, "'var x = nil' is not allowed: explicit type required for nil assignment")
 		}
 		return ast.AssignmentNode{
-			LValues: []ast.VariableNode{{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}}},
+			LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}}},
 			RValues: []ast.ExpressionNode{rvalue},
 		}
 	}
@@ -57,8 +57,8 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 	}
 
 	node := ast.AssignmentNode{
-		LValues: []ast.VariableNode{
-			{
+		LValues: []ast.ExpressionNode{
+			ast.VariableNode{
 				Ident:        ast.Ident{ID: ast.Identifier(ident.Value)},
 				ExplicitType: typeNode,
 			},

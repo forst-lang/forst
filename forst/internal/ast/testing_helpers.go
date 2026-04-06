@@ -133,7 +133,7 @@ func MakeNestedStructField(shape *ShapeNode) ShapeFieldNode {
 // MakeAssignment creates an assignment node
 func MakeAssignment(varName string, varType TypeNode, value ExpressionNode) *AssignmentNode {
 	return &AssignmentNode{
-		LValues: []VariableNode{{
+		LValues: []ExpressionNode{VariableNode{
 			Ident: Ident{ID: Identifier(varName)},
 		}},
 		RValues:       []ExpressionNode{value},

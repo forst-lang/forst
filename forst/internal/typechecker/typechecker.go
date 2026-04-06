@@ -93,7 +93,10 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}).Info("First pass: collecting explicit types and function signatures")
 	}
 
-	for _, node := range nodes {
+	// Collect order is independent of source order: types and type guards before functions so
+	// signatures can reference any user-defined type in the program (multi-file or single file).
+	collectOrder := partitionTopLevelForCollect(nodes)
+	for _, node := range collectOrder {
 		tc.path = append(tc.path, node)
 		if err := tc.collectExplicitTypes(node); err != nil {
 			return err
