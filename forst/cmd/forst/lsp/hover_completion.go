@@ -229,41 +229,19 @@ func leadingCommentDocBeforeTypeGuard(tokens []ast.Token, guardName string) stri
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
-// variableHoverMarkdownWithGuardDocs builds the code block for inferred types and appends markdown
-// sections for each user type guard constraint that applies, using // or /* */ comments above `is`.
+// variableHoverMarkdownWithGuardDocs puts leading // or /* */ docs first (one block per predicate in
+// the full chain, stacked vertically), then a ```forst``` line with the same predicate chain in the
+// type using dotted calls (see FormatVariableOccurrenceTypeForHover).
 func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []ast.Token, merge *packageMergeInfo, tok *ast.Token, types []ast.TypeNode) string {
-	var parts []string
-	for _, tn := range types {
-		parts = append(parts, tc.FormatTypeNodeDisplay(tn))
-	}
-	body := fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, strings.Join(parts, ", "))
-
 	vn := ast.VariableNode{
 		Ident: ast.Ident{ID: ast.Identifier(tok.Value), Span: ast.SpanFromToken(*tok)},
 	}
-	seen := make(map[string]struct{})
-	var names []string
-	for _, g := range tc.NarrowingTypeGuardsForVariableOccurrence(vn) {
-		if _, ok := seen[g]; ok {
-			continue
-		}
-		seen[g] = struct{}{}
-		names = append(names, g)
-	}
-	for _, tn := range types {
-		for _, g := range tc.TypeGuardConstraintNamesForInferredType(tn) {
-			if _, ok := seen[g]; ok {
-				continue
-			}
-			seen[g] = struct{}{}
-			names = append(names, g)
-		}
-	}
-	if len(names) == 0 {
-		return body
-	}
-	var blocks []string
-	for _, g := range names {
+	display := tc.FormatVariableOccurrenceTypeForHover(vn, types)
+	body := fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, display)
+
+	chain := tc.PredicateChainForVariableHover(vn, types)
+	var docBlocks []string
+	for _, g := range chain {
 		docTokens := tokens
 		if merge != nil && leadingCommentDocBeforeTypeGuard(tokens, g) == "" {
 			if alt := tokensForTypeGuardDocFromPackageMerge(merge, g); len(alt) > 0 {
@@ -274,12 +252,13 @@ func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []as
 		if doc == "" {
 			continue
 		}
-		blocks = append(blocks, fmt.Sprintf("**%s:**\n%s", g, doc))
+		docBlocks = append(docBlocks, fmt.Sprintf("**%s**\n\n%s", g, doc))
 	}
-	if len(blocks) == 0 {
+	if len(docBlocks) == 0 {
 		return body
 	}
-	return body + "\n\n" + strings.Join(blocks, "\n\n")
+	top := strings.Join(docBlocks, "\n\n")
+	return top + "\n\n" + body
 }
 
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {

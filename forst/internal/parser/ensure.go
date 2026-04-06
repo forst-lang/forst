@@ -30,7 +30,13 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		if p.peek().Type == ast.TokenLParen {
 			p.FailWithParseError(p.current(), "Expected variable after ensure !")
 		}
-		variable = ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(p.current().Value)}}
+		tok := p.current()
+		variable = ast.VariableNode{
+			Ident: ast.Ident{
+				ID:   ast.Identifier(tok.Value),
+				Span: ast.SpanFromToken(tok),
+			},
+		}
 		p.advance() // Move past variable
 		// Create implicit Nil() assertion
 		errorType := ast.TypeError
@@ -45,18 +51,21 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		}
 	} else {
 		// Parse the left side as a variable or field access
-		ident := p.expect(ast.TokenIdentifier)
-		curIdent := ast.Identifier(ident.Value)
+		firstTok := p.expect(ast.TokenIdentifier)
+		curIdent := ast.Identifier(firstTok.Value)
+		lastTok := firstTok
 
 		// Allow field access with dots
 		for p.current().Type == ast.TokenDot {
 			p.advance() // Consume dot
-			nextIdent := p.expect(ast.TokenIdentifier)
-			curIdent = ast.Identifier(string(curIdent) + "." + nextIdent.Value)
+			nextTok := p.expect(ast.TokenIdentifier)
+			curIdent = ast.Identifier(string(curIdent) + "." + nextTok.Value)
+			lastTok = nextTok
 		}
 
+		subjectSpan := ast.SpanBetweenTokens(firstTok, lastTok)
 		variable = ast.VariableNode{
-			Ident: ast.Ident{ID: curIdent},
+			Ident: ast.Ident{ID: curIdent, Span: subjectSpan},
 		}
 
 		p.expect(ast.TokenIs)

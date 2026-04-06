@@ -38,6 +38,13 @@ func TestParseEnsure(t *testing.T) {
 				if ensureNode.Variable.Ident.ID == "" {
 					t.Fatal("Expected ensure variable, got empty")
 				}
+				if !ensureNode.Variable.Ident.Span.IsSet() {
+					t.Fatal("ensure subject Ident.Span must be set for per-occurrence inference and LSP hover")
+				}
+				wantSpan := ast.SpanFromToken(ast.Token{Line: 2, Column: 11, Value: "x"})
+				if ensureNode.Variable.Ident.Span != wantSpan {
+					t.Fatalf("ensure subject span: got %+v want %+v", ensureNode.Variable.Ident.Span, wantSpan)
+				}
 				if ensureNode.Assertion.BaseType == nil {
 					t.Fatal("Expected ensure assertion with BaseType, got nil")
 				}

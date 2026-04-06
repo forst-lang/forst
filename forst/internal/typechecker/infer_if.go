@@ -5,7 +5,18 @@ import (
 )
 
 // inferIfStatement type-checks if / else-if / else, including init and conditions.
+//
+// Control-flow narrowing (design notes — see repo narrowing plan §1):
+//   - TypeScript/Flow-style flow-sensitive facts: branch-local refinement for `x is R` via
+//     lexical scopes (pushScope) + RegisterSymbolWithNarrowing in narrow_if.go.
+//   - SSA/phi analogy: endIfChainApplyJoin is the join at the merge point after the if-chain;
+//     JoinAfterIfMerge (typeops.go) widens to the outer (pre-if) binding type (§3.2) until unions exist.
+//   - Kotlin/Swift analogy: refinement is scoped to branch bodies; after the full chain, merge
+//     restores the enclosing binding type for uses in the continuation.
 func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
+	tc.beginIfChainForStatement()
+	defer tc.endIfChainApplyJoin()
+
 	if n.Init != nil {
 		if _, err := tc.inferNodeType(n.Init); err != nil {
 			return nil, err

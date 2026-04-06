@@ -137,6 +137,26 @@ func TestIfBranchNarrowing_thenBranchVariableGetsRefinedType(t *testing.T) {
 	}
 }
 
+func TestRefinedNarrowingTypeFromAliasAssertion_baseTypeNamesTypeGuardUsesSubjectType(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	tc.Defs[ast.TypeIdent("MyStr")] = ast.TypeGuardNode{
+		Ident: "MyStr",
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "x"},
+			Type:  ast.TypeNode{Ident: ast.TypeString},
+		},
+		Body: []ast.Node{},
+	}
+	base := ast.TypeIdent("MyStr")
+	a := &ast.AssertionNode{BaseType: &base}
+	refined := []ast.TypeNode{{Ident: ast.TypeIdent("T_shouldNotAppear")}}
+	got := tc.refinedNarrowingTypeFromAliasAssertion(a, refined)
+	if len(got) != 1 || got[0].Ident != ast.TypeString {
+		t.Fatalf("want narrowed to guard subject String, got %+v", got)
+	}
+}
+
 func TestUnderlyingBuiltinTypeOfAliasAssertion_aliasOverBuiltin(t *testing.T) {
 	t.Parallel()
 	myStr := ast.TypeIdent("MyStr")

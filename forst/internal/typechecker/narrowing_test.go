@@ -175,3 +175,27 @@ func TestApplyEnsureSuccessorNarrowing_skipsCompoundSubjectLeavesSymbolUnchanged
 		t.Fatalf("compound subject must not be re-registered with refined types: ok=%v types=%+v", ok, sym.Types)
 	}
 }
+
+func TestEndIfChainApplyJoin_emptyStackNoPanic(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	tc.endIfChainApplyJoin()
+}
+
+func TestIfChainNarrowing_beginRecordEnd_withoutBinding_mergeNoPanic(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	tc.beginIfChainForStatement()
+	tc.recordIfChainNarrowingSubject(ast.Identifier("x"), []ast.TypeNode{{Ident: ast.TypeString}}, []string{"g"})
+	tc.endIfChainApplyJoin()
+}
+
+func TestIfChainNarrowing_nestedChainsStackDiscipline(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	tc.beginIfChainForStatement()
+	tc.beginIfChainForStatement()
+	tc.recordIfChainNarrowingSubject(ast.Identifier("y"), []ast.TypeNode{{Ident: ast.TypeInt}}, nil)
+	tc.endIfChainApplyJoin()
+	tc.endIfChainApplyJoin()
+}

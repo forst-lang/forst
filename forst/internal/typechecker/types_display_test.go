@@ -101,3 +101,49 @@ func TestInferredTypesForVariableIdentifier_FromVariableTypesFallback(t *testing
 		t.Fatalf("got %v ok=%v", got, ok)
 	}
 }
+
+func TestFormatVariableOccurrenceTypeForHover_narrowingGuardSuffix(t *testing.T) {
+	t.Parallel()
+	tc := New(nil, false)
+	sp := ast.SourceSpan{StartLine: 3, StartCol: 10, EndLine: 3, EndCol: 11}
+	vn := ast.VariableNode{Ident: ast.Ident{ID: "x", Span: sp}}
+	k := variableOccurrenceKey{ident: vn.Ident.ID, span: sp}
+	tc.variableOccurrenceNarrowingGuards[k] = []string{"MyStr"}
+	tc.variableOccurrenceNarrowingPredicateDisplay[k] = "MyStr()"
+	got := tc.FormatVariableOccurrenceTypeForHover(vn, []ast.TypeNode{ast.NewBuiltinType(ast.TypeString)})
+	if got != "String.MyStr()" {
+		t.Fatalf("got %q want String.MyStr()", got)
+	}
+}
+
+func TestPredicateChainForVariableHover_mergesNarrowingAndInferredTypeGuards(t *testing.T) {
+	t.Parallel()
+	tc := New(nil, false)
+	sp := ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}
+	vn := ast.VariableNode{Ident: ast.Ident{ID: "x", Span: sp}}
+	k := variableOccurrenceKey{ident: vn.Ident.ID, span: sp}
+	tc.variableOccurrenceNarrowingGuards[k] = []string{"Min"}
+	tc.Defs[ast.TypeIdent("Strong")] = ast.TypeGuardNode{Ident: ast.Identifier("Strong")}
+	pw := ast.TypeIdent("Password")
+	tn := ast.TypeNode{
+		Ident: pw,
+		Assertion: &ast.AssertionNode{
+			Constraints: []ast.ConstraintNode{{Name: "Strong"}},
+		},
+	}
+	got := tc.PredicateChainForVariableHover(vn, []ast.TypeNode{tn})
+	if len(got) != 2 || got[0] != "Min" || got[1] != "Strong" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestFormatVariableOccurrenceTypeForHover_noGuardsIsBaseOnly(t *testing.T) {
+	t.Parallel()
+	tc := New(nil, false)
+	sp := ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 2}
+	vn := ast.VariableNode{Ident: ast.Ident{ID: "x", Span: sp}}
+	got := tc.FormatVariableOccurrenceTypeForHover(vn, []ast.TypeNode{ast.NewBuiltinType(ast.TypeInt)})
+	if got != "Int" {
+		t.Fatalf("got %q want Int", got)
+	}
+}

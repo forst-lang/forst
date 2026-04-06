@@ -106,3 +106,35 @@ func f(): String {
 		t.Fatalf("expected [Strong], got %v", guards)
 	}
 }
+
+// TestTypeGuardBody_nestedIfEnsure_runsFullInference verifies that `if` / `ensure` inside a type
+// guard definition use the same inference as function bodies (narrowing, merge at if-chain end,
+// ensure validation).
+func TestTypeGuardBody_nestedIfEnsure_runsFullInference(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+type Password = String
+
+is (password Password) Strong {
+  if password is Password {
+    ensure password is Min(12)
+  }
+}
+
+func f(): String {
+  return ""
+}
+`
+	lex := lexer.New([]byte(src), "guard_body.ft", logrus.New())
+	tokens := lex.Lex()
+	psr := parser.New(tokens, "guard_body.ft", logrus.New())
+	nodes, err := psr.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(logrus.New(), false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+}

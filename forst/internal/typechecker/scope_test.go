@@ -155,3 +155,22 @@ func TestScope_DefineType_LookupType(t *testing.T) {
 		t.Fatal("expected missing type")
 	}
 }
+
+func TestRegisterSymbolWithNarrowing_mergesSuccessiveEnsureInSameScope(t *testing.T) {
+	t.Parallel()
+	log := testLogger(t)
+	s := NewScope(nil, nil, log)
+	str := ast.NewBuiltinType(ast.TypeString)
+	s.RegisterSymbolWithNarrowing("x", []ast.TypeNode{str}, SymbolVariable, []string{"Min"}, "Min(1)")
+	s.RegisterSymbolWithNarrowing("x", []ast.TypeNode{str}, SymbolVariable, []string{"Max"}, "Max(10)")
+	sym, ok := s.LookupVariable("x")
+	if !ok {
+		t.Fatal("expected x")
+	}
+	if sym.NarrowingPredicateDisplay != "Min(1).Max(10)" {
+		t.Fatalf("display: got %q", sym.NarrowingPredicateDisplay)
+	}
+	if len(sym.NarrowingTypeGuards) != 2 || sym.NarrowingTypeGuards[0] != "Min" || sym.NarrowingTypeGuards[1] != "Max" {
+		t.Fatalf("guards: %#v", sym.NarrowingTypeGuards)
+	}
+}
