@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.9](https://github.com/forst-lang/forst/compare/sidecar-v0.1.8...sidecar-v0.1.9) (2026-04-06)
+
+
+### Features
+
+* **cli:** add --version/-V to npm shim ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+* **sidecar:** add invalidateFunctionCache on ForstSidecarClient ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+* **vscode-forst:** add Copy debug info to clipboard command ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+
+
+### Bug Fixes
+
+* **ci:** pass --allow-dirty to jsr publish after rewrite + bun install ([d08da05](https://github.com/forst-lang/forst/commit/d08da051f0e4080a0ceedbc7ec9cfa27559e86ee))
+* **sidecar:** read package version without import.meta for CJS build ([d08da05](https://github.com/forst-lang/forst/commit/d08da051f0e4080a0ceedbc7ec9cfa27559e86ee))
+
 ## [0.1.8](https://github.com/forst-lang/forst/compare/sidecar-v0.1.7...sidecar-v0.1.8) (2026-04-06)
 
 

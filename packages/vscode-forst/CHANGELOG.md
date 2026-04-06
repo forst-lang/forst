@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.5](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.4...vscode-forst-v0.1.5) (2026-04-06)
+
+
+### Features
+
+* **cli:** add --version/-V to npm shim ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+* **sidecar:** add invalidateFunctionCache on ForstSidecarClient ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+* **vscode-forst:** add Copy debug info to clipboard command ([490c8e5](https://github.com/forst-lang/forst/commit/490c8e5211b83cb3c7a15b2c3218ff5ace597b0a))
+
 ## [0.1.4](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.3...vscode-forst-v0.1.4) (2026-04-06)
 
 
