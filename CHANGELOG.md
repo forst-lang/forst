@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.24](https://github.com/forst-lang/forst/compare/v0.0.23...v0.0.24) (2026-04-06)
+
+
+### Features
+
+* **cli:** gate binary download and expose release helpers ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+* **sidecar:** optional compiler download via config and env ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+* **vscode-forst:** resolve `forst` via @forst/cli and `forst.downloadCompiler` ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+
+
+### Bug Fixes
+
+* **printer:** print slice types as []T instead of [T] ([6627c72](https://github.com/forst-lang/forst/commit/6627c72a32e56a2adeca104cca882465852b629c))
+
 ## [0.0.23](https://github.com/forst-lang/forst/compare/v0.0.22...v0.0.23) (2026-04-06)
 
 

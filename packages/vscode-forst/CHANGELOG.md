@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.3](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.2...vscode-forst-v0.1.3) (2026-04-06)
+
+
+### Features
+
+* **cli:** gate binary download and expose release helpers ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+* **sidecar:** optional compiler download via config and env ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+* **vscode-forst:** resolve `forst` via @forst/cli and `forst.downloadCompiler` ([81b819f](https://github.com/forst-lang/forst/commit/81b819fa4e4fe494e08d086a789242439f2426c4))
+
 ## [0.1.2](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.1...vscode-forst-v0.1.2) (2026-04-06)
 
 
