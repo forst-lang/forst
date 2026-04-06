@@ -200,7 +200,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 				Ident: ast.Ident{ID: "test"},
 				Body: []ast.Node{
 					ast.AssignmentNode{
-						LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "s"}}},
+						LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "s"}}},
 						RValues: []ast.ExpressionNode{ast.ShapeNode{
 							Fields: map[string]ast.ShapeFieldNode{
 								"field1": {Type: &ast.TypeNode{Ident: ast.TypeString}},
@@ -323,9 +323,9 @@ func TestMultipleReturnValues(t *testing.T) {
 				Ident: ast.Ident{ID: "test"},
 				Body: []ast.Node{
 					ast.AssignmentNode{
-						LValues: []ast.VariableNode{
-							{Ident: ast.Ident{ID: "a"}},
-							{Ident: ast.Ident{ID: "b"}},
+						LValues: []ast.ExpressionNode{
+							ast.VariableNode{Ident: ast.Ident{ID: "a"}},
+							ast.VariableNode{Ident: ast.Ident{ID: "b"}},
 						},
 						RValues: []ast.ExpressionNode{
 							ast.FunctionCallNode{

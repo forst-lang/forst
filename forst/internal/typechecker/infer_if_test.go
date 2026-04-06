@@ -15,7 +15,7 @@ func TestInferIfStatement_withInitAndCondition(t *testing.T) {
 		Body: []ast.Node{
 			&ast.IfNode{
 				Init: ast.AssignmentNode{
-					LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x"}}},
+					LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x"}}},
 					RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
 					IsShort: true,
 				},

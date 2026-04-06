@@ -26,8 +26,12 @@ func TestParseVarStatement(t *testing.T) {
 				if len(assignment.LValues) != 1 {
 					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
 				}
-				if assignment.LValues[0].Ident.ID != "x" {
-					t.Errorf("Expected variable name 'x', got %s", assignment.LValues[0].Ident.ID)
+				lv0, ok := assignment.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignment.LValues[0])
+				}
+				if lv0.Ident.ID != "x" {
+					t.Errorf("Expected variable name 'x', got %s", lv0.Ident.ID)
 				}
 				if len(assignment.ExplicitTypes) != 1 {
 					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))
@@ -60,8 +64,12 @@ func TestParseVarStatement(t *testing.T) {
 				if len(assignment.LValues) != 1 {
 					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
 				}
-				if assignment.LValues[0].Ident.ID != "y" {
-					t.Errorf("Expected variable name 'y', got %s", assignment.LValues[0].Ident.ID)
+				lv0, ok := assignment.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignment.LValues[0])
+				}
+				if lv0.Ident.ID != "y" {
+					t.Errorf("Expected variable name 'y', got %s", lv0.Ident.ID)
 				}
 				if len(assignment.ExplicitTypes) != 1 {
 					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))
@@ -91,8 +99,12 @@ func TestParseVarStatement(t *testing.T) {
 				if len(assignment.LValues) != 1 {
 					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
 				}
-				if assignment.LValues[0].Ident.ID != "z" {
-					t.Errorf("Expected variable name 'z', got %s", assignment.LValues[0].Ident.ID)
+				lv0, ok := assignment.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignment.LValues[0])
+				}
+				if lv0.Ident.ID != "z" {
+					t.Errorf("Expected variable name 'z', got %s", lv0.Ident.ID)
 				}
 				if len(assignment.ExplicitTypes) != 1 {
 					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))
@@ -127,8 +139,12 @@ func TestParseVarStatement(t *testing.T) {
 				if len(assignment.LValues) != 1 {
 					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
 				}
-				if assignment.LValues[0].Ident.ID != "arr" {
-					t.Errorf("Expected variable name 'arr', got %s", assignment.LValues[0].Ident.ID)
+				lv0, ok := assignment.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignment.LValues[0])
+				}
+				if lv0.Ident.ID != "arr" {
+					t.Errorf("Expected variable name 'arr', got %s", lv0.Ident.ID)
 				}
 				if len(assignment.ExplicitTypes) != 1 {
 					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))
@@ -163,8 +179,12 @@ func TestParseVarStatement(t *testing.T) {
 				if len(assignment.LValues) != 1 {
 					t.Fatalf("Expected 1 lvalue, got %d", len(assignment.LValues))
 				}
-				if assignment.LValues[0].Ident.ID != "ptr" {
-					t.Errorf("Expected variable name 'ptr', got %s", assignment.LValues[0].Ident.ID)
+				lv0, ok := assignment.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", assignment.LValues[0])
+				}
+				if lv0.Ident.ID != "ptr" {
+					t.Errorf("Expected variable name 'ptr', got %s", lv0.Ident.ID)
 				}
 				if len(assignment.ExplicitTypes) != 1 {
 					t.Fatalf("Expected 1 explicit type, got %d", len(assignment.ExplicitTypes))

@@ -53,8 +53,12 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 				if len(initNode.LValues) != 1 {
 					t.Fatalf("Expected 1 left value, got %d", len(initNode.LValues))
 				}
-				if initNode.LValues[0].Ident.ID != "x" {
-					t.Errorf("Expected init variable 'x', got %s", initNode.LValues[0].Ident.ID)
+				initLV, ok := initNode.LValues[0].(ast.VariableNode)
+				if !ok {
+					t.Fatalf("Expected VariableNode lhs, got %T", initNode.LValues[0])
+				}
+				if initLV.Ident.ID != "x" {
+					t.Errorf("Expected init variable 'x', got %s", initLV.Ident.ID)
 				}
 				condNode := assertNodeType[ast.BinaryExpressionNode](t, ifNode.Condition, "ast.BinaryExpressionNode")
 				if condNode.Operator != ast.TokenGreater {

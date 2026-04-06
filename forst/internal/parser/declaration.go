@@ -15,8 +15,8 @@ func (p *Parser) parseVarDeclaration() ast.AssignmentNode {
 	}
 
 	return ast.AssignmentNode{
-		LValues: []ast.VariableNode{
-			{
+		LValues: []ast.ExpressionNode{
+			ast.VariableNode{
 				Ident: ast.Ident{ID: ast.Identifier(ident.Value)},
 			},
 		},

@@ -7,7 +7,7 @@ import (
 
 func TestIfNode_String_with_else_and_init(t *testing.T) {
 	ifn := IfNode{
-		Init:      AssignmentNode{LValues: []VariableNode{{Ident: Ident{ID: "i"}}}, RValues: []ExpressionNode{IntLiteralNode{Value: 0}}},
+		Init:      AssignmentNode{LValues: []ExpressionNode{VariableNode{Ident: Ident{ID: "i"}}}, RValues: []ExpressionNode{IntLiteralNode{Value: 0}}},
 		Condition: BoolLiteralNode{Value: true},
 		Body:      []Node{},
 		ElseIfs:   []ElseIfNode{{Condition: BoolLiteralNode{Value: false}, Body: []Node{}}},

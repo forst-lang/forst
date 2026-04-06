@@ -17,7 +17,6 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		"function":   "inferAssignmentTypes",
 	}).Trace("Starting type inference for assignment")
 
-	// Collect types for each RValue
 	resolvedTypes = make([][]ast.TypeNode, 0, len(assign.RValues))
 	for _, rvalue := range assign.RValues {
 		types, err := tc.inferExpressionType(rvalue)
@@ -27,7 +26,6 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		resolvedTypes = append(resolvedTypes, types)
 	}
 
-	// Debug: print resolvedTypes, LValues, and RValues before distribution
 	if tc.log != nil {
 		tc.log.WithFields(logrus.Fields{
 			"resolvedTypes": resolvedTypes,
@@ -36,9 +34,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		}).Debug("Before distributing function return types to LValues")
 	}
 
-	// Distribute function call return values to LValues
 	if len(assign.RValues) == 1 && len(resolvedTypes) == 1 && len(assign.LValues) > 1 {
-		// Check if the single RValue is a function call and its return types match LValues
 		if _, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
 			if len(resolvedTypes[0]) == len(assign.LValues) {
 				newResolved := make([][]ast.TypeNode, len(assign.LValues))
@@ -50,68 +46,91 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		}
 	}
 
-	// Debug: print resolvedTypes after distribution
 	if tc.log != nil {
 		tc.log.WithFields(logrus.Fields{
 			"resolvedTypes": resolvedTypes,
 		}).Debug("After distributing function return types to LValues")
 	}
 
-	// Store types for each LValue
-	for i, variableNode := range assign.LValues {
-		// Check if this is a var declaration (has explicit types) or a regular assignment
-		isVarDeclaration := len(assign.ExplicitTypes) > 0 && assign.ExplicitTypes[i] != nil
+	for i, lv := range assign.LValues {
+		switch l := lv.(type) {
+		case ast.VariableNode:
+			isVarDeclaration := len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil
 
-		// For regular assignments (not var declarations), check if variable is declared
-		if !assign.IsShort && !isVarDeclaration {
-			_, exists := tc.scopeStack.LookupVariableType(variableNode.Ident.ID)
-			if !exists {
-				return fmt.Errorf("assignment to undeclared variable '%s' is not allowed; use 'var' or ':='", variableNode.Ident.ID)
-			}
-		}
-
-		// For var declarations, check that the explicit type is defined
-		if isVarDeclaration {
-			explicitType := variableNode.ExplicitType
-			isPointer := explicitType.Ident == ast.TypePointer
-			isBuiltin := explicitType.Ident == ast.TypeString || explicitType.Ident == ast.TypeInt || explicitType.Ident == ast.TypeFloat || explicitType.Ident == ast.TypeBool || explicitType.Ident == ast.TypeError || explicitType.Ident == ast.TypeVoid || explicitType.Ident == ast.TypeArray || explicitType.Ident == ast.TypeMap || explicitType.Ident == ast.TypeShape || explicitType.Ident == ast.TypeObject
-			_, isDefined := tc.Defs[explicitType.Ident]
-			if !isPointer && !isBuiltin && !isDefined {
-				return fmt.Errorf("undefined type name '%s' in variable declaration", explicitType.Ident)
-			}
-		}
-
-		// For var declarations, check nil assignment is only allowed for pointer, interface, map, slice, channel, or function types
-		if isVarDeclaration && len(assign.RValues) == 1 {
-			if _, isNil := assign.RValues[0].(ast.NilLiteralNode); isNil {
-				explicitType := variableNode.ExplicitType
-				isPointer := explicitType.Ident == ast.TypePointer
-				isInterface := explicitType.Ident == ast.TypeObject
-				isMap := explicitType.Ident == ast.TypeMap
-				isArray := explicitType.Ident == ast.TypeArray
-				isFunc := explicitType.Ident == ast.TypeIdent("Func") // TODO: update if you have a function type ident
-				if !(isPointer || isInterface || isMap || isArray || isFunc) {
-					return fmt.Errorf("cannot assign nil to variable of type '%s'", explicitType.Ident)
+			if !assign.IsShort && !isVarDeclaration {
+				_, exists := tc.scopeStack.LookupVariableType(l.Ident.ID)
+				if !exists {
+					return fmt.Errorf("assignment to undeclared variable '%s' is not allowed; use 'var' or ':='", l.Ident.ID)
 				}
 			}
-		}
 
-		if variableNode.ExplicitType.Ident != "" && variableNode.ExplicitType.Ident != ast.TypeImplicit {
-			tc.log.WithFields(logrus.Fields{
-				"variable":     variableNode.Ident.ID,
-				"explicitType": variableNode.ExplicitType.Ident,
-				"function":     "inferAssignmentTypes",
-			}).Trace("Using explicit type for variable (alias preserved)")
-			tc.storeInferredVariableType(variableNode, []ast.TypeNode{variableNode.ExplicitType})
-			tc.storeInferredType(variableNode, []ast.TypeNode{variableNode.ExplicitType})
-		} else {
-			tc.log.WithFields(logrus.Fields{
-				"variable":     variableNode.Ident.ID,
-				"resolvedType": resolvedTypes[i],
-				"function":     "inferAssignmentTypes",
-			}).Trace("Using resolved type for variable")
-			tc.storeInferredVariableType(variableNode, resolvedTypes[i])
-			tc.storeInferredType(variableNode, resolvedTypes[i])
+			if isVarDeclaration {
+				explicitType := l.ExplicitType
+				isPointer := explicitType.Ident == ast.TypePointer
+				isBuiltin := explicitType.Ident == ast.TypeString || explicitType.Ident == ast.TypeInt || explicitType.Ident == ast.TypeFloat || explicitType.Ident == ast.TypeBool || explicitType.Ident == ast.TypeError || explicitType.Ident == ast.TypeVoid || explicitType.Ident == ast.TypeArray || explicitType.Ident == ast.TypeMap || explicitType.Ident == ast.TypeShape || explicitType.Ident == ast.TypeObject
+				_, isDefined := tc.Defs[explicitType.Ident]
+				if !isPointer && !isBuiltin && !isDefined {
+					return fmt.Errorf("undefined type name '%s' in variable declaration", explicitType.Ident)
+				}
+			}
+
+			if isVarDeclaration && len(assign.RValues) == 1 {
+				if _, isNil := assign.RValues[0].(ast.NilLiteralNode); isNil {
+					explicitType := l.ExplicitType
+					isPointer := explicitType.Ident == ast.TypePointer
+					isInterface := explicitType.Ident == ast.TypeObject
+					isMap := explicitType.Ident == ast.TypeMap
+					isArray := explicitType.Ident == ast.TypeArray
+					isFunc := explicitType.Ident == ast.TypeIdent("Func")
+					if !(isPointer || isInterface || isMap || isArray || isFunc) {
+						return fmt.Errorf("cannot assign nil to variable of type '%s'", explicitType.Ident)
+					}
+				}
+			}
+
+			if l.ExplicitType.Ident != "" && l.ExplicitType.Ident != ast.TypeImplicit {
+				tc.log.WithFields(logrus.Fields{
+					"variable":     l.Ident.ID,
+					"explicitType": l.ExplicitType.Ident,
+					"function":     "inferAssignmentTypes",
+				}).Trace("Using explicit type for variable (alias preserved)")
+				tc.storeInferredVariableType(l, []ast.TypeNode{l.ExplicitType})
+				tc.storeInferredType(l, []ast.TypeNode{l.ExplicitType})
+			} else {
+				tc.log.WithFields(logrus.Fields{
+					"variable":     l.Ident.ID,
+					"resolvedType": resolvedTypes[i],
+					"function":     "inferAssignmentTypes",
+				}).Trace("Using resolved type for variable")
+				tc.storeInferredVariableType(l, resolvedTypes[i])
+				tc.storeInferredType(l, resolvedTypes[i])
+			}
+
+		case ast.IndexExpressionNode:
+			if assign.IsShort {
+				return fmt.Errorf("cannot use := on indexed assignment")
+			}
+			if len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil {
+				return fmt.Errorf("indexed assignment does not support explicit types on the left-hand side")
+			}
+			lhsTypes, err := tc.inferExpressionType(l)
+			if err != nil {
+				return err
+			}
+			if len(lhsTypes) != 1 {
+				return fmt.Errorf("indexed assignment: left-hand side must have a single type")
+			}
+			if len(resolvedTypes[i]) != 1 {
+				return fmt.Errorf("indexed assignment: right-hand side must have a single type")
+			}
+			if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsTypes[0]) {
+				return fmt.Errorf("assignment type mismatch: cannot assign %s to element (expected %s)",
+					resolvedTypes[i][0].Ident, lhsTypes[0].Ident)
+			}
+			tc.storeInferredType(l, lhsTypes)
+
+		default:
+			return fmt.Errorf("unsupported assignment target type: %T", lv)
 		}
 	}
 

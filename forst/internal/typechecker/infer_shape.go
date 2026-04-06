@@ -188,6 +188,9 @@ func (tc *TypeChecker) isBuiltinType(typeIdent ast.TypeIdent) bool {
 		ast.TypeVoid,
 		ast.TypePointer,
 		ast.TypeShape,
+		ast.TypeArray,
+		ast.TypeMap,
+		ast.TypeObject,
 	}
 
 	for _, builtinType := range builtinTypes {

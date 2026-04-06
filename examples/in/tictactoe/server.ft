@@ -1,0 +1,31 @@
+package main
+
+// JSON demo and entrypoint. HTTP handlers and package-level Go vars are limited in Forst today;
+// use `forst dev` + POST /invoke for remote JSON (see client/).
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+func main() {
+	g := NewGame()
+	line, err := json.Marshal(g)
+	ensure !err {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(fmt.Sprintf("%s", line))
+
+	move := PlayMove({
+		state: g,
+		row:   0,
+		col:   0,
+	})
+	line2, err2 := json.Marshal(move)
+	ensure !err2 {
+		fmt.Println(err2.Error())
+		return
+	}
+	fmt.Println(fmt.Sprintf("%s", line2))
+}

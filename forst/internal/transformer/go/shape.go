@@ -45,33 +45,12 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			}
 		}
 
-		// Handle pointer types specially
-		if field.Type.Ident == ast.TypePointer {
-			if len(field.Type.TypeParams) == 0 {
-				return nil, fmt.Errorf("pointer type must have a base type parameter")
-			}
-			baseType := field.Type.TypeParams[0]
-			baseTypeField := ast.ShapeFieldNode{Type: &baseType}
-			baseTypeExpr, err := t.transformShapeFieldType(baseTypeField)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform pointer base type: %w", err)
-			}
-			starExpr := &goast.StarExpr{X: *baseTypeExpr}
-			var expr goast.Expr = starExpr
-			return &expr, nil
-		}
-
-		// Always use the unified aliasing logic for all type names
-		name, err := t.TypeChecker.GetAliasedTypeName(*field.Type, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+		// Use the same Go type emission as function signatures (slices, maps, pointers, aliases).
+		typeExpr, err := t.transformType(*field.Type)
 		if err != nil {
-			err = fmt.Errorf("failed to get type alias name during transformation: %w", err)
-			t.log.WithFields(logrus.Fields{
-				"function": "transformShapeFieldType",
-			}).WithError(err).Error("getting type alias name failed")
-			return nil, err
+			return nil, fmt.Errorf("failed to transform shape field type: %w", err)
 		}
-		ident := goast.NewIdent(name)
-		var expr goast.Expr = ident
+		var expr goast.Expr = typeExpr
 		return &expr, nil
 	}
 

@@ -236,7 +236,7 @@ func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testin
 
 	// Simulate: msg := "Hello"; input := EchoRequest{message: msg}
 	msgVar := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "msg"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "msg"}}},
 		RValues: []ast.ExpressionNode{ast.MakeStringLiteral("Hello")},
 		IsShort: true,
 	}
@@ -244,7 +244,7 @@ func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testin
 		"message": {Node: ast.VariableNode{Ident: ast.Ident{ID: "msg"}}},
 	})
 	inputVar := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "input"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "input"}}},
 		RValues: []ast.ExpressionNode{inputStruct},
 		IsShort: true,
 	}
@@ -510,7 +510,7 @@ func TestTransformExpression_StructLiteralAssignment_UsesNamedType(t *testing.T)
 	})
 
 	assign := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "user"}}},
 		RValues: []ast.ExpressionNode{userStruct},
 		IsShort: true,
 	}
@@ -590,7 +590,7 @@ func TestTransformExpression_ClientExampleBug(t *testing.T) {
 	})
 
 	userAssign := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "user"}}},
 		RValues: []ast.ExpressionNode{userStruct},
 		IsShort: true,
 	}
@@ -703,7 +703,7 @@ func TestTransformExpression_ClientExampleWithFieldAccess(t *testing.T) {
 	})
 
 	userAssign := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "user"}}},
 		RValues: []ast.ExpressionNode{userStruct},
 		IsShort: true,
 	}
@@ -897,7 +897,7 @@ func TestTransformExpression_TypeEmissionIssue(t *testing.T) {
 	})
 
 	userAssign := ast.AssignmentNode{
-		LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "user"}}},
+		LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "user"}}},
 		RValues: []ast.ExpressionNode{userStruct},
 		IsShort: true,
 	}
@@ -1452,7 +1452,7 @@ func TestTransformExpression_ArrayLiteralNode(t *testing.T) {
 		Ident: ast.Ident{ID: "main"},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "xs"}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}},
 				RValues: []ast.ExpressionNode{
 					ast.ArrayLiteralNode{
 						Value: []ast.LiteralNode{

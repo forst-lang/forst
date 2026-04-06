@@ -1,0 +1,21 @@
+package main
+
+// Domain and wire types for a stateless tic-tac-toe session (board + turn carried by the client).
+
+type GameState = {
+	cells:      []String,
+	nextPlayer: String,
+	status:     String,
+}
+
+type MoveRequest = {
+	state: GameState,
+	row:   Int,
+	col:   Int,
+}
+
+type MoveResponse = {
+	state:   GameState,
+	ok:      Bool,
+	message: String,
+}

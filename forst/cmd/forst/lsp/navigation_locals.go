@@ -207,10 +207,12 @@ func findFirstShortDeclAssignmentInBody(body []ast.Node, name string) *ast.Assig
 		for _, s := range stmts {
 			if a, ok := s.(ast.AssignmentNode); ok && a.IsShort {
 				for _, lv := range a.LValues {
-					if string(lv.Ident.ID) == name {
-						copyA := a
-						return &copyA
+					vn, ok := lv.(ast.VariableNode)
+					if !ok || string(vn.Ident.ID) != name {
+						continue
 					}
+					copyA := a
+					return &copyA
 				}
 			}
 			switch st := s.(type) {
@@ -279,7 +281,8 @@ func globalShortDeclOrdinalForAssignment(fileNodes []ast.Node, name string, want
 				return false
 			}
 			for _, lv := range v.LValues {
-				if string(lv.Ident.ID) != name {
+				vn, ok := lv.(ast.VariableNode)
+				if !ok || string(vn.Ident.ID) != name {
 					continue
 				}
 				got, err := h.HashNode(v)
@@ -462,7 +465,8 @@ func definingTokenForFor(tc *typechecker.TypeChecker, fileNodes []ast.Node, toke
 	if forn.Init != nil {
 		if a, ok := forn.Init.(ast.AssignmentNode); ok && a.IsShort {
 			for _, lv := range a.LValues {
-				if string(lv.Ident.ID) == name {
+				vn, vok := lv.(ast.VariableNode)
+				if vok && string(vn.Ident.ID) == name {
 					return findIdentInForThreeClauseHeader(tokens, fk, name)
 				}
 			}
@@ -700,7 +704,8 @@ func definingTokenForIf(tc *typechecker.TypeChecker, fileNodes []ast.Node, token
 	if ifn.Init != nil {
 		if a, ok := ifn.Init.(ast.AssignmentNode); ok && a.IsShort {
 			for _, lv := range a.LValues {
-				if string(lv.Ident.ID) == name {
+				vn, vok := lv.(ast.VariableNode)
+				if vok && string(vn.Ident.ID) == name {
 					return findIdentInsideIfInitParens(tokens, fileNodes, ifn, tc.Hasher, name)
 				}
 			}

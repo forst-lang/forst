@@ -233,6 +233,44 @@ func main() {
 `,
 			needles: []string{`min(`, `max(`, `func main`},
 		},
+		{
+			name: "slice_shape_field_and_param_emit_go_slice",
+			src: `package main
+
+type Row = { cells: []String }
+
+func getCell(cells []String, idx Int): String {
+	return cells[idx]
+}
+
+func main() {
+	println(getCell(["x"], 0))
+}
+`,
+			// Shape fields and parameters must use Go []string, not a hash-only type name (would break indexing).
+			needles: []string{`type Row`, `[]string`, `cells []string`, `cells[idx]`},
+		},
+		{
+			name: "return_user_defined_struct_type_via_call_expr",
+			src: `package main
+
+type R = { ok: Bool }
+
+func inner(): R {
+	return { ok: true }
+}
+
+func outer(): R {
+	return inner()
+}
+
+func main() {
+	x := outer()
+	println(x.ok)
+}
+`,
+			needles: []string{`func inner`, `func outer`, `return inner()`, `type R`},
+		},
 	}
 
 	for _, tt := range tests {

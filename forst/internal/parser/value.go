@@ -33,7 +33,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 	case ast.TokenIdentifier:
 		ident := p.parseIdentifier()
 
-		if p.current().Type == ast.TokenLBrace {
+		if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) {
 			typeIdent := ast.TypeIdent(string(ident.ID))
 			shape := p.parseShapeLiteral(&typeIdent, false)
 			return shape

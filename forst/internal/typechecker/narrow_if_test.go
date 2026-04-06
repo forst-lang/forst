@@ -30,7 +30,7 @@ func TestIfBranchNarrowing_typeAliasIsMyStrRefinesSubjectToString(t *testing.T) 
 		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
 				RValues: []ast.ExpressionNode{ast.StringLiteralNode{Value: "hello"}},
 				IsShort: true,
 			},
@@ -91,7 +91,7 @@ func TestIfBranchNarrowing_thenBranchVariableGetsRefinedType(t *testing.T) {
 		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
-				LValues: []ast.VariableNode{{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
+				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x", Span: spanDeclX}}},
 				RValues: []ast.ExpressionNode{ast.StringLiteralNode{Value: "hello"}},
 				IsShort: true,
 			},

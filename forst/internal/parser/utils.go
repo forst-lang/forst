@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"forst/internal/ast"
+	"strings"
 	"unicode"
 )
 
@@ -27,5 +28,22 @@ func (p *Parser) logParsedNodeWithMessage(node ast.Node, message string) {
 }
 
 func isCapitalCase(value string) bool {
+	if value == "" {
+		return false
+	}
 	return unicode.IsUpper(rune(value[0]))
+}
+
+// isShapeLiteralTypePrefix reports whether Identifier "{" should be parsed as a typed
+// composite literal (TypeName { ... }). Lowercase identifiers are left as variables so
+// expressions like `x == c {` can end the comparison before `{` starts a block.
+func isShapeLiteralTypePrefix(ident string) bool {
+	if ident == "" {
+		return false
+	}
+	i := strings.LastIndex(ident, ".")
+	if i >= 0 {
+		ident = ident[i+1:]
+	}
+	return isCapitalCase(ident)
 }

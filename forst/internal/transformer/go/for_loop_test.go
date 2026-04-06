@@ -19,7 +19,7 @@ func TestTransformForNode_infiniteAndRange(t *testing.T) {
 		Ident: forstast.Ident{ID: "main"},
 		Body: []forstast.Node{
 			forstast.AssignmentNode{
-				LValues: []forstast.VariableNode{{Ident: forstast.Ident{ID: "xs"}}},
+				LValues: []forstast.ExpressionNode{forstast.VariableNode{Ident: forstast.Ident{ID: "xs"}}},
 				RValues: []forstast.ExpressionNode{
 					forstast.ArrayLiteralNode{
 						Value: []forstast.LiteralNode{forstast.IntLiteralNode{Value: 1}},
@@ -78,7 +78,7 @@ func TestTransformForNode_classicThreeClause(t *testing.T) {
 		Body: []forstast.Node{
 			&forstast.ForNode{
 				Init: forstast.AssignmentNode{
-					LValues: []forstast.VariableNode{{Ident: forstast.Ident{ID: "i"}}},
+					LValues: []forstast.ExpressionNode{forstast.VariableNode{Ident: forstast.Ident{ID: "i"}}},
 					RValues: []forstast.ExpressionNode{forstast.IntLiteralNode{Value: 0}},
 					IsShort: true,
 				},
