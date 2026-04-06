@@ -1,0 +1,36 @@
+package main
+
+// Built-in parameterized types: Array = []T, Pointer = *T (and map[K]V in type positions). These use type parameters on predeclared type constructors; user-defined generics are not implemented yet — see ROADMAP.
+// Golden output: ../out/generics.go
+
+func main() {
+	// []Int: back-to-back slice short declarations, then copy / append / len / cap
+	dst := [0, 0, 0]
+	src := [1, 2, 3]
+	println(copy(dst, src))
+	xs := append(src, 4)
+	println(len(xs))
+	println(cap(xs))
+	println(copy(dst, xs))
+
+	// map[K]V: map literal; len (same key/value type parameters as Go's map[K]V)
+	scores := map[String]Int{ "a": 1, "b": 2 }
+	empty := map[String]Int{}
+	println(len(scores))
+	println(len(empty))
+
+	// Two-value range: index and value are both Int, matching Array(Int)
+	for i, v := range xs {
+		println(string(i) + string(v))
+	}
+
+	// *String
+	s := "go"
+	p := &s
+	println(*p)
+
+	// *Int
+	n := 7
+	pn := &n
+	println(*pn)
+}

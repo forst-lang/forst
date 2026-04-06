@@ -6,6 +6,17 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// BuiltinCheckKind says how checkBuiltinFunctionCall validates a builtin.
+type BuiltinCheckKind uint8
+
+const (
+	// BuiltinCheckGeneric uses ParamTypes, arity, and IsTypeCompatible (stdlib entries, string() conversion).
+	BuiltinCheckGeneric BuiltinCheckKind = iota
+	// BuiltinCheckDispatch: rules live in tryDispatchGoBuiltin + helpers; ParamTypes are placeholders
+	// for arity/LSP only — never used with IsTypeCompatible for these entries.
+	BuiltinCheckDispatch
+)
+
 // BuiltinFunction represents a built-in function with its type signature
 type BuiltinFunction struct {
 	Name           string
@@ -14,25 +25,31 @@ type BuiltinFunction struct {
 	ParamTypes     []ast.TypeNode
 	IsVarArgs      bool
 	AcceptSubtypes bool // Whether to accept subtypes of parameter types
+	CheckKind      BuiltinCheckKind
+	// HoverSignature is optional markdown for hover when CheckKind is BuiltinCheckDispatch (otherwise ParamTypes are shown).
+	HoverSignature string
 }
 
 // BuiltinFunctions maps function names to their type signatures
 var BuiltinFunctions = map[string]BuiltinFunction{
-	// Built-in functions that don't require a package
+	// Predeclared Go builtins (no package): type-checking is implemented in tryDispatchGoBuiltin, not ParamTypes.
 	"len": {
 		Name:           "len",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeInt},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
-		AcceptSubtypes: true,                                    // Accept subtypes like Password
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
+		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
+		HoverSignature: "predeclared `len` via tryDispatchGoBuiltin (operand: string, slice, map, …)",
 	},
 	"println": {
 		Name:           "println",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	// Go predeclared string(): conversion (e.g. code point to UTF-8 string)
 	"string": {
@@ -44,119 +61,135 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 	},
 	"print": {
 		Name:           "print",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"cap": {
 		Name:           "cap",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeInt},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"append": {
 		Name:           "append",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns same type as input
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"make": {
 		Name:           "make",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns same type as input
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"new": {
 		Name:           "new",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns pointer to type
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"clear": {
 		Name:           "clear",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // container to clear
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"complex": {
 		Name:           "complex",
-		Package:        "",                                                               // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},                              // Returns complex number
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeString}}, // real, imag parts
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeFloat}, {Ident: ast.TypeFloat}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"real": {
 		Name:           "real",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns real part
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // complex number
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeFloat},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"imag": {
 		Name:           "imag",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns imaginary part
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // complex number
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeFloat},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"delete": {
 		Name:           "delete",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeString}}, // map, key
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}, {Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"close": {
 		Name:           "close",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // channel
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"min": {
 		Name:           "min",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns smallest value
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // values to compare
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"max": {
 		Name:           "max",
-		Package:        "",                                      // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},     // Returns largest value
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // values to compare
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"panic": {
 		Name:           "panic",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // panic value
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"recover": {
 		Name:           "recover",
-		Package:        "",                                  // No package required
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString}, // Returns panic value
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeObject},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 	"copy": {
 		Name:           "copy",
-		Package:        "", // No package required
+		Package:        "",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeInt},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeString}}, // dst, src
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}, {Ident: ast.TypeObject}},
 		AcceptSubtypes: true,
+		CheckKind:      BuiltinCheckDispatch,
 	},
 
 	// fmt package functions
@@ -376,6 +409,16 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		return true
 	}
 
+	// Assigning to TypeObject mirrors Go assignability to interface{} / any (empty interface).
+	if expected.Ident == ast.TypeObject && actual.Ident != ast.TypeVoid {
+		tc.log.WithFields(logrus.Fields{
+			"actual":   actual.Ident,
+			"expected": expected.Ident,
+			"function": "IsTypeCompatible",
+		}).Debug("Actual type assignable to TypeObject")
+		return true
+	}
+
 	// Check if actual type is an alias of expected type
 	actualDef, actualExists := tc.Defs[actual.Ident]
 	if actualExists {
@@ -546,6 +589,20 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		}
 	}
 
+	// Go predeclared builtins (empty package): semantics are implemented in tryDispatchGoBuiltin, not ParamTypes.
+	if fn.Package == "" && fn.Name != "string" {
+		ret, ok, err := tc.tryDispatchGoBuiltin(fn, args, argSpans, callSpan)
+		if ok {
+			return ret, err
+		}
+		if err != nil {
+			return nil, err
+		}
+		if fn.CheckKind == BuiltinCheckDispatch {
+			return nil, diagnosticf(callSpan, "builtin-call", "internal: missing tryDispatchGoBuiltin case for %q", fn.Name)
+		}
+	}
+
 	// Check argument count
 	if !fn.IsVarArgs && len(args) != len(fn.ParamTypes) {
 		tc.log.WithFields(logrus.Fields{
@@ -601,4 +658,252 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 	}
 
 	return []ast.TypeNode{fn.ReturnType}, nil
+}
+
+func (tc *TypeChecker) inferBuiltinArgType(args []ast.ExpressionNode, i int, argSpans []ast.SourceSpan, callSpan ast.SourceSpan) (ast.TypeNode, error) {
+	if i < 0 || i >= len(args) {
+		return ast.TypeNode{}, diagnosticf(callSpan, "builtin-call", "internal: missing argument %d", i+1)
+	}
+	sp := spanForCallArg(argSpans, i, args, callSpan)
+	ts, err := tc.inferExpressionType(args[i])
+	if err != nil {
+		return ast.TypeNode{}, err
+	}
+	if len(ts) != 1 {
+		return ast.TypeNode{}, diagnosticf(sp, "builtin-call", "argument %d must have a single type", i+1)
+	}
+	return ts[0], nil
+}
+
+// tryDispatchGoBuiltin applies Go-aligned rules for predeclared builtins (Package "").
+// If it returns handled=false, the caller falls back to generic ParamTypes checking.
+func (tc *TypeChecker) tryDispatchGoBuiltin(fn BuiltinFunction, args []ast.ExpressionNode, argSpans []ast.SourceSpan, callSpan ast.SourceSpan) ([]ast.TypeNode, bool, error) {
+	intT := ast.NewBuiltinType(ast.TypeInt)
+	voidT := ast.NewBuiltinType(ast.TypeVoid)
+	objT := ast.NewBuiltinType(ast.TypeObject)
+	floatT := ast.NewBuiltinType(ast.TypeFloat)
+
+	switch fn.Name {
+	case "len":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "len() expects 1 argument, got %d", len(args))
+		}
+		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if !lenOperandAllowed(t) {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "len() invalid operand type %s", t.Ident)
+		}
+		return []ast.TypeNode{intT}, true, nil
+
+	case "cap":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "cap() expects 1 argument, got %d", len(args))
+		}
+		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if !capOperandAllowed(t) {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "cap() invalid operand type %s", t.Ident)
+		}
+		return []ast.TypeNode{intT}, true, nil
+
+	case "append":
+		if len(args) < 2 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "append() expects at least 2 arguments, got %d", len(args))
+		}
+		sliceT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if sliceT.Ident != ast.TypeArray {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "append() first argument must be a slice, got %s", sliceT.Ident)
+		}
+		elem, ok := sliceElementType(sliceT)
+		if !ok {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "append() slice must have an element type")
+		}
+		for i := 1; i < len(args); i++ {
+			at, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
+			if err != nil {
+				return nil, true, err
+			}
+			if !tc.IsTypeCompatible(at, elem) {
+				sp := spanForCallArg(argSpans, i, args, callSpan)
+				return nil, true, diagnosticf(sp, "builtin-call", "append() argument %d must be assignable to slice element %s, got %s",
+					i+1, elem.Ident, at.Ident)
+			}
+		}
+		return []ast.TypeNode{sliceT}, true, nil
+
+	case "copy":
+		if len(args) != 2 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "copy() expects 2 arguments, got %d", len(args))
+		}
+		dstT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		srcT, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if dstT.Ident == ast.TypeArray && len(dstT.TypeParams) == 1 && dstT.TypeParams[0].Ident == ast.TypeInt && srcT.Ident == ast.TypeString {
+			return []ast.TypeNode{intT}, true, nil
+		}
+		if dstT.Ident != ast.TypeArray || srcT.Ident != ast.TypeArray {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "copy() expects two slices, or []Int with String (Go copy to []byte)")
+		}
+		de, ok1 := sliceElementType(dstT)
+		se, ok2 := sliceElementType(srcT)
+		if !ok1 || !ok2 {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "copy() could not read slice element types")
+		}
+		if !builtinTypesIdenticalOrdered(de, se) {
+			sp := spanForCallArg(argSpans, 1, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "copy() slice element types must match")
+		}
+		return []ast.TypeNode{intT}, true, nil
+
+	case "delete":
+		if len(args) != 2 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "delete() expects 2 arguments, got %d", len(args))
+		}
+		mT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		keyT, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		kFormal, _, ok := mapKeyValueTypes(mT)
+		if !ok {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "delete() first argument must be a map, got %s", mT.Ident)
+		}
+		if !tc.IsTypeCompatible(keyT, kFormal) {
+			sp := spanForCallArg(argSpans, 1, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "delete() key type incompatible with map key %s", kFormal.Ident)
+		}
+		return []ast.TypeNode{voidT}, true, nil
+
+	case "close":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "close() expects 1 argument, got %d", len(args))
+		}
+		if _, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan); err != nil {
+			return nil, true, err
+		}
+		return []ast.TypeNode{voidT}, true, nil
+
+	case "clear":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "clear() expects 1 argument, got %d", len(args))
+		}
+		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if !clearOperandAllowed(t) {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "clear() expects a map or slice, got %s", t.Ident)
+		}
+		return []ast.TypeNode{voidT}, true, nil
+
+	case "min", "max":
+		if len(args) < 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "%s() expects at least 1 argument", fn.Name)
+		}
+		first, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if !isOrderedBuiltinType(first) {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "%s() expects ordered types (Int, Float, String), got %s", fn.Name, first.Ident)
+		}
+		for i := 1; i < len(args); i++ {
+			at, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
+			if err != nil {
+				return nil, true, err
+			}
+			if !builtinTypesIdenticalOrdered(first, at) {
+				sp := spanForCallArg(argSpans, i, args, callSpan)
+				return nil, true, diagnosticf(sp, "builtin-call", "%s() arguments must have the same type", fn.Name)
+			}
+		}
+		return []ast.TypeNode{first}, true, nil
+
+	case "complex":
+		if len(args) != 2 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "complex() expects 2 arguments, got %d", len(args))
+		}
+		a, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		b, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		if a.Ident != ast.TypeFloat || b.Ident != ast.TypeFloat {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "complex() expects Float arguments, got %s and %s", a.Ident, b.Ident)
+		}
+		return []ast.TypeNode{objT}, true, nil
+
+	case "real", "imag":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "%s() expects 1 argument, got %d", fn.Name, len(args))
+		}
+		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
+		if err != nil {
+			return nil, true, err
+		}
+		// Forst has no complex128 TypeIdent; complex() is typed as Object.
+		if t.Ident != ast.TypeObject {
+			sp := spanForCallArg(argSpans, 0, args, callSpan)
+			return nil, true, diagnosticf(sp, "builtin-call", "%s() expects a complex value, got %s", fn.Name, t.Ident)
+		}
+		return []ast.TypeNode{floatT}, true, nil
+
+	case "panic":
+		if len(args) != 1 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "panic() expects 1 argument, got %d", len(args))
+		}
+		if _, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan); err != nil {
+			return nil, true, err
+		}
+		return []ast.TypeNode{voidT}, true, nil
+
+	case "print", "println":
+		for i := range args {
+			if _, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan); err != nil {
+				return nil, true, err
+			}
+		}
+		return []ast.TypeNode{voidT}, true, nil
+
+	case "recover":
+		if len(args) != 0 {
+			return nil, true, diagnosticf(callSpan, "builtin-call", "recover() expects 0 arguments, got %d", len(args))
+		}
+		return []ast.TypeNode{objT}, true, nil
+
+	case "make", "new":
+		return nil, true, diagnosticf(callSpan, "builtin-call",
+			"%s() with a type argument is not supported yet: use Forst type syntax (e.g. Array(Int)) when the parser accepts types in call position, or use a small Go helper via import", fn.Name)
+
+	default:
+		return nil, false, nil
+	}
 }

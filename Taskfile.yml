@@ -181,6 +181,18 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/basic.ft
 
+  example:go-builtins:
+    desc: Compile go_builtins example (len/min/max on strings and slices)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_builtins.ft
+
+  example:generics:
+    desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/generics.ft
+
   example:function:
     desc: Compile function example
     dir: forst

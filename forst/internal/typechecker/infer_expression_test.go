@@ -127,3 +127,53 @@ func TestInferExpressionType_ArrayLiteralNode_emptyDefaultsToIntElem(t *testing.
 		t.Fatalf("got %+v", types)
 	}
 }
+
+func TestInferExpressionType_MapLiteralNode_stringInt(t *testing.T) {
+	tc := New(logrus.New(), false)
+	m := ast.MapLiteralNode{
+		Type: ast.TypeNode{
+			Ident: ast.TypeMap,
+			TypeParams: []ast.TypeNode{
+				{Ident: ast.TypeString},
+				{Ident: ast.TypeInt},
+			},
+		},
+		Entries: []ast.MapEntryNode{
+			{
+				Key:   ast.StringLiteralNode{Value: "a"},
+				Value: ast.IntLiteralNode{Value: 1},
+			},
+		},
+	}
+	types, err := tc.inferExpressionType(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 || types[0].Ident != ast.TypeMap || len(types[0].TypeParams) != 2 ||
+		types[0].TypeParams[0].Ident != ast.TypeString || types[0].TypeParams[1].Ident != ast.TypeInt {
+		t.Fatalf("got %+v", types)
+	}
+}
+
+func TestInferExpressionType_MapLiteralNode_keyTypeMismatch(t *testing.T) {
+	tc := New(logrus.New(), false)
+	m := ast.MapLiteralNode{
+		Type: ast.TypeNode{
+			Ident: ast.TypeMap,
+			TypeParams: []ast.TypeNode{
+				{Ident: ast.TypeString},
+				{Ident: ast.TypeInt},
+			},
+		},
+		Entries: []ast.MapEntryNode{
+			{
+				Key:   ast.IntLiteralNode{Value: 1},
+				Value: ast.IntLiteralNode{Value: 2},
+			},
+		},
+	}
+	_, err := tc.inferExpressionType(m)
+	if err == nil {
+		t.Fatal("expected key type error")
+	}
+}

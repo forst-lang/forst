@@ -32,6 +32,28 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 			return nil, fmt.Errorf("failed to transform pointer base type: %s", err)
 		}
 		return &goast.StarExpr{X: baseType}, nil
+	case ast.TypeArray:
+		if len(n.TypeParams) < 1 {
+			return nil, fmt.Errorf("array type must have element type parameter")
+		}
+		elt, err := t.transformType(n.TypeParams[0])
+		if err != nil {
+			return nil, err
+		}
+		return &goast.ArrayType{Elt: elt}, nil
+	case ast.TypeMap:
+		if len(n.TypeParams) < 2 {
+			return nil, fmt.Errorf("map type must have key and value type parameters")
+		}
+		keyT, err := t.transformType(n.TypeParams[0])
+		if err != nil {
+			return nil, err
+		}
+		valT, err := t.transformType(n.TypeParams[1])
+		if err != nil {
+			return nil, err
+		}
+		return &goast.MapType{Key: keyT, Value: valT}, nil
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})

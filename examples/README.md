@@ -4,7 +4,7 @@
 
 - **`in/`** — Forst `.ft` sources used by Task targets (e.g. `task example:basic`). Paths are mirrored under **`out/`** with expected Go output for integration checks (`in` → `out`).
 
-- **`in/*.ft`** at the root of `in/` (e.g. `basic.ft`, `ensure.ft`) are the small, primary examples referenced by the Taskfile and [testing rules](../.cursor/rules/testing.mdc).
+- **`in/*.ft`** at the root of `in/` (e.g. `basic.ft`, `go_builtins.ft`, `generics.ft`, `ensure.ft`) are the small, primary examples referenced by the Taskfile and [testing rules](../.cursor/rules/testing.mdc).
 
 - **`in/imports/`** — multi-file “imports” demo (LSP merged package + `task example:imports` via `cli.ft`); see `in/imports/README.md`.
 

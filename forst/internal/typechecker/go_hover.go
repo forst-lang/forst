@@ -67,7 +67,9 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 	qual := pkgLocal + "." + symbol
 	if bfn, ok := BuiltinFunctions[qual]; ok {
 		b.WriteString("\n\n**Forst (builtin table)** ")
-		if len(bfn.ParamTypes) > 0 {
+		if bfn.HoverSignature != "" {
+			b.WriteString(bfn.HoverSignature + " → ")
+		} else if len(bfn.ParamTypes) > 0 {
 			parts := make([]string, len(bfn.ParamTypes))
 			for i, p := range bfn.ParamTypes {
 				parts[i] = tc.FormatTypeNodeDisplay(p)
