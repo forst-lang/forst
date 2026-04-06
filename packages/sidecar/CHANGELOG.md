@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/forst-lang/forst/compare/sidecar-v0.1.9...sidecar-v0.1.10) (2026-04-06)
+
+
+### Bug Fixes
+
+* **sidecar:** harden prepublish (local bun install, build CLI before tsc) ([614a697](https://github.com/forst-lang/forst/commit/614a697ea47e07003bd9351b322d08c9d4bf3055))
+* **vscode-forst:** copy hoisted @forst/cli before vsce package ([614a697](https://github.com/forst-lang/forst/commit/614a697ea47e07003bd9351b322d08c9d4bf3055))
+
 ## [0.1.9](https://github.com/forst-lang/forst/compare/sidecar-v0.1.8...sidecar-v0.1.9) (2026-04-06)
 
 

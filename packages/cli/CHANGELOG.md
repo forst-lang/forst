@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.24](https://github.com/forst-lang/forst/compare/cli-v0.0.23...cli-v0.0.24) (2026-04-06)
+
+
+### Features
+
+* **cli:** add --forst-go-buildinfo using go version -m ([f3b46a6](https://github.com/forst-lang/forst/commit/f3b46a616c730a61ba6f63c8fa86d3560db24bf4))
+
 ## [0.0.23](https://github.com/forst-lang/forst/compare/cli-v0.0.22...cli-v0.0.23) (2026-04-06)
 
 
