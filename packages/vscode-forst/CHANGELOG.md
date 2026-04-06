@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.8...vscode-forst-v0.1.9) (2026-04-06)
+
+
+### Bug Fixes
+
+* **vscode-forst:** import debugInfo from compiled `out/` in node tests ([fb726fe](https://github.com/forst-lang/forst/commit/fb726fec60e0b3b5a1d137498d3d7cd131c4a8b4))
+
 ## [0.1.8](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.7...vscode-forst-v0.1.8) (2026-04-06)
 
 
