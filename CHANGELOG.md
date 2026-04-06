@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.23](https://github.com/forst-lang/forst/compare/v0.0.22...v0.0.23) (2026-04-06)
+
+
+### Features
+
+* **compiler:** add exportable struct fields for JSON and TS wire alignment ([a7cce2b](https://github.com/forst-lang/forst/commit/a7cce2b17da45c13862954721d3bcf421c107afd))
+* **executor:** rewrite merged package main to importable forstexec in temp modules ([23ba6ae](https://github.com/forst-lang/forst/commit/23ba6ae5b2369dcb4d7b62a10c646776507dd50a))
+
+
+### Bug Fixes
+
+* **sidecar:** avoid unhandled rejections in version check and shutdown ([a7cce2b](https://github.com/forst-lang/forst/commit/a7cce2b17da45c13862954721d3bcf421c107afd))
+* **tictactoe:** resolve repo-root `bin/forst` in forst-run smoke test ([23ba6ae](https://github.com/forst-lang/forst/commit/23ba6ae5b2369dcb4d7b62a10c646776507dd50a))
+
 ## [0.0.22](https://github.com/forst-lang/forst/compare/v0.0.21...v0.0.22) (2026-04-06)
 
 
