@@ -85,6 +85,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				ast.Identifier(param.GetIdent()),
 				paramTypes,
 				SymbolVariable)
+			// Field hover (req.state, …) uses VariableTypes for the receiver; params are not assignments.
+			if sp, ok := param.(ast.SimpleParamNode); ok && len(paramTypes) > 0 {
+				tc.VariableTypes[sp.Ident.ID] = append([]ast.TypeNode(nil), paramTypes...)
+			}
 		}
 
 		// Process function body without restoring scope for each node
@@ -242,9 +246,13 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		for _, param := range guardNode.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
+				pt := []ast.TypeNode{p.Type}
 				tc.scopeStack.currentScope().RegisterSymbol(
 					p.Ident.ID,
-					[]ast.TypeNode{p.Type}, SymbolVariable)
+					pt, SymbolVariable)
+				// Field hover and other lookups use VariableTypes; type guard params are not assigned
+				// like locals, so register their declared types here (same idea as inferred params).
+				tc.VariableTypes[p.Ident.ID] = pt
 			case ast.DestructuredParamNode:
 				continue
 			}

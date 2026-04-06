@@ -413,7 +413,8 @@ func goHoverFromFieldMemberChain(tc *typechecker.TypeChecker, tokens []ast.Token
 	if tc.IsImportedLocalName(recvName) && !goImportLocalShadowedByForstVar(tc, recvName) {
 		return ""
 	}
-	md, parentType, ok := tc.FieldHoverMarkdown(ast.Identifier(recvName), ast.SpanFromToken(*recvTok), fieldPath)
+	dottedSpan := ast.SpanBetweenTokens(*recvTok, *tok)
+	md, parentType, ok := tc.FieldHoverMarkdown(ast.Identifier(recvName), ast.SpanFromToken(*recvTok), fieldPath, dottedSpan)
 	if !ok || md == "" {
 		return ""
 	}

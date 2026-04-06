@@ -62,6 +62,41 @@ func TestAssertionTransformer(t *testing.T) {
 			},
 		},
 		{
+			name: "slice min length",
+			ensure: ast.EnsureNode{
+				Variable: ast.VariableNode{Ident: ast.Ident{ID: "cells"}},
+				Assertion: ast.AssertionNode{
+					Constraints: []ast.ConstraintNode{
+						{
+							Name: string(MinConstraint),
+							Args: []ast.ConstraintArgumentNode{
+								{Value: newValueNode(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}})},
+							},
+						},
+					},
+				},
+			},
+			baseType: ast.TypeNode{Ident: ast.TypeArray},
+			validate: func(t *testing.T, expr goast.Expr) {
+				binExpr, ok := expr.(*goast.BinaryExpr)
+				if !ok {
+					t.Errorf("expected BinaryExpr, got %T", expr)
+					return
+				}
+				if binExpr.Op != token.LSS {
+					t.Errorf("expected LSS operator, got %v", binExpr.Op)
+				}
+				callExpr, ok := binExpr.X.(*goast.CallExpr)
+				if !ok {
+					t.Errorf("expected CallExpr for len(), got %T", binExpr.X)
+					return
+				}
+				if len(callExpr.Args) != 1 {
+					t.Errorf("expected 1 argument to len(), got %d", len(callExpr.Args))
+				}
+			},
+		},
+		{
 			name: "int less than",
 			ensure: ast.EnsureNode{
 				Variable: ast.VariableNode{Ident: ast.Ident{ID: "speed"}},

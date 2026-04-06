@@ -11,6 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// compoundNarrowingInfo holds predicate metadata for dotted identifiers (e.g. req.state after ensure).
+type compoundNarrowingInfo struct {
+	guards []string
+	disp   string
+}
+
 // TypeChecker performs type inference and type checking on the AST
 type TypeChecker struct {
 	// Maps structural hashes of AST nodes to their inferred or declared types
@@ -35,6 +41,9 @@ type TypeChecker struct {
 	variableOccurrenceNarrowingGuards map[variableOccurrenceKey][]string
 	// Per-occurrence dotted predicate display from narrowing RHS (e.g. `MyStr().Min(12)`), for LSP hover.
 	variableOccurrenceNarrowingPredicateDisplay map[variableOccurrenceKey]string
+	// compoundNarrowingByIdentifier stores narrowing for dotted ensure/if subjects (e.g. req.state) by
+	// identifier only. Per-span maps miss when the same path appears later with a different span.
+	compoundNarrowingByIdentifier map[ast.Identifier]compoundNarrowingInfo
 	// Map of inferred function return types
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
@@ -75,6 +84,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		variableOccurrenceTypes:           make(map[variableOccurrenceKey][]ast.TypeNode),
 		variableOccurrenceNarrowingGuards:             make(map[variableOccurrenceKey][]string),
 		variableOccurrenceNarrowingPredicateDisplay:   make(map[variableOccurrenceKey]string),
+		compoundNarrowingByIdentifier:                   make(map[ast.Identifier]compoundNarrowingInfo),
 		FunctionReturnTypes:               make(map[ast.Identifier][]ast.TypeNode),
 		log:                               log,
 		reportPhases:                      reportPhases,

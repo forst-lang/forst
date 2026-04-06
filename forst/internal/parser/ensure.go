@@ -71,14 +71,16 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		p.expect(ast.TokenIs)
 		assertion = p.parseAssertionChain(false)
 
-		// Try to set the base type from the current scope if not set
+		// Try to set the base type from the current scope if not set (simple subject only).
+		// For compound paths (e.g. ensure req.state is ValidBoard()), the subject's static type is
+		// the field type (GameState), not the root variable's type (MoveRequest). Setting BaseType to
+		// the latter breaks InferAssertionType and ensure-successor narrowing / hover.
 		if assertion.BaseType == nil && p.context != nil && p.context.ScopeStack != nil {
 			scope := p.context.ScopeStack.CurrentScope()
 			if scope != nil {
-				// Use the existing variable lookup logic that handles compound identifiers
 				parts := strings.Split(string(curIdent), ".")
 				baseIdent := parts[0]
-				if typeNode, ok := scope.Variables[baseIdent]; ok {
+				if typeNode, ok := scope.Variables[baseIdent]; ok && len(parts) == 1 {
 					baseType := typeNode.Ident
 					assertion.BaseType = &baseType
 				}

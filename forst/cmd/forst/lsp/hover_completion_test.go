@@ -537,6 +537,148 @@ is (x: String) G {
 	_ = ctx
 }
 
+func TestFindHoverForPosition_typeGuardFieldPathSecondEnsureShowsPriorPredicate(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "tg_field_ensure_hover.ft")
+	const src = `package main
+
+type GameState = {
+	cells: []String,
+}
+
+is (g GameState) ValidBoard() {
+	ensure g.cells is Min(9)
+	ensure g.cells is Max(9)
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, "ensure g.cells is Max") {
+			hoverLine = i
+			charOffset = strings.Index(line, "cells")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find cells on second ensure")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on cells")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Array(String)") {
+		t.Fatalf("hover should mention slice type; got %q", val)
+	}
+	if !strings.Contains(val, "Min(9)") {
+		t.Fatalf("hover on second ensure subject should show prior Min(9); got %q", val)
+	}
+	if strings.Contains(val, "Max(9)") {
+		t.Fatalf("hover on second ensure subject must not include this line's Max(9); got %q", val)
+	}
+	_ = ctx
+}
+
+func TestFindHoverForPosition_functionParamFieldPathAfterEnsureTypeGuard(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "fn_param_field_ensure_tg_hover.ft")
+	const src = `package main
+
+type GameState = {
+	cells: []String,
+	status: String,
+}
+
+is (g GameState) ValidBoard() {
+	ensure g.cells is Min(9)
+	ensure g.cells is Max(9)
+}
+
+type MoveRequest = {
+	state: GameState,
+	row:   Int,
+	col:   Int,
+}
+
+func ApplyMove(req MoveRequest): (Int, Error) {
+	ensure req.state is ValidBoard()
+	if req.state.status != "playing" {
+		return 0, nil
+	}
+	return 1, nil
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOffset int
+	for i, line := range lines {
+		if strings.Contains(line, `if req.state.status`) {
+			hoverLine = i
+			charOffset = strings.Index(line, "state")
+			break
+		}
+	}
+	if charOffset < 0 {
+		t.Fatal("could not find req.state on if line")
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+
+	linePrefix := []rune(lines[hoverLine][:charOffset])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(string(linePrefix))})
+	if h == nil {
+		t.Fatal("nil hover on state in req.state")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "GameState") {
+		t.Fatalf("hover should mention GameState; got %q", val)
+	}
+	if !strings.Contains(val, "ValidBoard") {
+		t.Fatalf("hover after ensure should include ValidBoard; got %q", val)
+	}
+	_ = ctx
+}
+
 func TestFindHoverForPosition_ensureNarrowingListsTypeGuardComments(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

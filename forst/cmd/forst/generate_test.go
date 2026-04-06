@@ -294,7 +294,7 @@ func TestGenerateClientIndex_importsPackages(t *testing.T) {
 		"import { beta } from '../generated/beta.client'",
 		"public alpha:",
 		"public beta:",
-		"export * from './types'",
+		"export type * from './types.d.ts'",
 	} {
 		if !strings.Contains(idx, frag) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)

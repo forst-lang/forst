@@ -2,6 +2,34 @@ package main
 
 import "errors"
 
+// --- Domain and wire types (stateless session: board + turn carried by the client)
+
+// GameState.status is one of: "playing" | "x_won" | "o_won" | "draw"
+type GameState = {
+	cells:      []String,
+	nextPlayer: String,
+	status:     String,
+}
+
+type MoveRequest = {
+	state: GameState,
+	row:   Int,
+	col:   Int,
+}
+
+type MoveResponse = {
+	state:   GameState,
+	ok:      Bool,
+	message: String,
+}
+
+// --- Shape guards (structural invariants)
+
+is (g GameState) ValidBoard() {
+	ensure g.cells is Min(9)
+	ensure g.cells is Max(9)
+}
+
 func invalidMove(msg String): Error {
 	return errors.New(msg)
 }
@@ -42,7 +70,6 @@ func winnerOrEmpty(cells []String): String {
 	lineC := [2, 5, 8, 6, 7, 8, 8, 6]
 	for i := 0; i < 8; i++ {
 		w := lineWinner(cells, lineA[i], lineB[i], lineC[i])
-		// ensure returns from the whole function on failure; here we need to continue the loop when w is empty.
 		if w != "" {
 			return w
 		}
@@ -72,7 +99,23 @@ func cloneCells(cells []String): []String {
 	return out
 }
 
+func terminalStatusForWinner(w String): String {
+	if w == "X" {
+		return "x_won"
+	}
+	return "o_won"
+}
+
 func ApplyMove(req MoveRequest): (MoveResponse, Error) {
+	ensure req.state is ValidBoard()
+	if req.state.status != "playing" {
+		return {
+			ok:      false,
+			message: "game already finished",
+			state:   req.state,
+		}, invalidMove("game already finished")
+	}
+
 	row := req.row
 	ensure row is GreaterThan(-1) or invalidMove("row must be >= 0")
 	ensure row is LessThan(3) or invalidMove("row must be <= 2")
@@ -82,15 +125,27 @@ func ApplyMove(req MoveRequest): (MoveResponse, Error) {
 	idx := cellIndex(row, col)
 	cellEmpty := req.state.cells[idx] == ""
 	ensure cellEmpty is True() or invalidMove("cell already taken")
+
 	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
 	np := opponent(req.state.nextPlayer)
+
+	w := winnerOrEmpty(next)
+	status := req.state.status
+	if w != "" {
+		status = terminalStatusForWinner(w)
+	} else if boardFull(next) {
+		status = "draw"
+	} else {
+		status = "playing"
+	}
+
 	return {
 		ok: true,
 		message: "ok",
 		state: {
-			cells: next,
+			cells:      next,
 			nextPlayer: np,
-			status: req.state.status,
+			status:     status,
 		},
 	}, nil
 }
@@ -98,9 +153,9 @@ func ApplyMove(req MoveRequest): (MoveResponse, Error) {
 func NewGame(): GameState {
 	board := emptyBoard()
 	return {
-		cells: board,
+		cells:      board,
 		nextPlayer: "X",
-		status: "playing",
+		status:     "playing",
 	}
 }
 

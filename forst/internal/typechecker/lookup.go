@@ -37,8 +37,9 @@ func (tc *TypeChecker) LookupVariableType(variable *ast.VariableNode, scope *Sco
 }
 
 // lookupVariableForExpression returns the inferred type, optional narrowing type guard names,
-// optional dotted predicate display from the narrowing RHS, and an error. Field paths do not
-// inherit narrowing metadata yet.
+// optional dotted predicate display from the narrowing RHS, and an error. For field paths
+// (e.g. g.cells), ensure-successor narrowing may register the full identifier; that symbol is
+// preferred so hover shows Min(9).Max(9) like for a simple name.
 func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, scope *Scope) (ast.TypeNode, []string, string, error) {
 	tc.log.WithFields(logrus.Fields{
 		"function": "LookupVariableType",
@@ -47,6 +48,16 @@ func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, s
 	}).Debugf("Looking up variable type")
 
 	parts := strings.Split(string(variable.Ident.ID), ".")
+	if len(parts) > 1 {
+		if symbol, exists := scope.LookupVariable(variable.Ident.ID); exists && len(symbol.Types) > 0 {
+			tc.log.WithFields(logrus.Fields{
+				"function":  "LookupVariableType",
+				"variable":  variable.Ident.ID,
+				"narrowing": symbol.NarrowingPredicateDisplay,
+			}).Debugf("Using full-path symbol from ensure successor narrowing")
+			return symbol.Types[0], symbol.NarrowingTypeGuards, symbol.NarrowingPredicateDisplay, nil
+		}
+	}
 	baseIdent := ast.Identifier(parts[0])
 
 	tc.log.WithFields(logrus.Fields{

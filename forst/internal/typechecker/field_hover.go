@@ -9,7 +9,11 @@ import (
 // FieldHoverMarkdown returns markdown for a dotted field path rooted at a variable (e.g. move.state
 // or move.state.status). Uses lookupFieldPath; ok is false if the path cannot be resolved.
 // parentTypeForDoc is the named type whose shape defines the last field (for leading comments), when known.
-func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSpan, fieldPath []string) (md string, parentTypeForDoc ast.TypeIdent, ok bool) {
+//
+// When dottedSpan is set, it must cover the full dotted expression (recv.field1.…) so the same
+// VariableNode identity as in the AST is used; then ensure/if narrowing on the full path (e.g.
+// ensure g.cells is Min(9)) appears in hover via FormatVariableOccurrenceTypeForHover.
+func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSpan, fieldPath []string, dottedSpan ast.SourceSpan) (md string, parentTypeForDoc ast.TypeIdent, ok bool) {
 	if tc == nil || len(fieldPath) == 0 {
 		return "", "", false
 	}
@@ -33,6 +37,13 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 			continue
 		}
 		typeStr := tc.FormatTypeNodeDisplay(resolved)
+		if dottedSpan.IsSet() {
+			fullID := ast.Identifier(string(root) + "." + strings.Join(fieldPath, "."))
+			vn := ast.VariableNode{Ident: ast.Ident{ID: fullID, Span: dottedSpan}}
+			if types, have := tc.InferredTypesForVariableNode(vn); have && len(types) > 0 {
+				typeStr = tc.FormatVariableOccurrenceTypeForHover(vn, types)
+			}
+		}
 		pid, _ := tc.ParentTypeIdentForFieldPath(bt, fieldPath)
 		var b strings.Builder
 		b.WriteString("**`")

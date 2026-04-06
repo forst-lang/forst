@@ -1,6 +1,8 @@
 package typechecker
 
 import (
+	"strings"
+
 	"forst/internal/ast"
 )
 
@@ -15,6 +17,11 @@ func (tc *TypeChecker) NarrowingTypeGuardsForVariableOccurrence(vn ast.VariableN
 	if g := tc.variableOccurrenceNarrowingGuards[k]; len(g) > 0 {
 		return append([]string(nil), g...)
 	}
+	if strings.Contains(string(vn.Ident.ID), ".") {
+		if info, ok := tc.compoundNarrowingByIdentifier[vn.Ident.ID]; ok && len(info.guards) > 0 {
+			return append([]string(nil), info.guards...)
+		}
+	}
 	return nil
 }
 
@@ -25,7 +32,15 @@ func (tc *TypeChecker) NarrowingPredicateDisplayForVariableOccurrence(vn ast.Var
 		return ""
 	}
 	k := variableOccurrenceKey{ident: vn.Ident.ID, span: vn.Ident.Span}
-	return tc.variableOccurrenceNarrowingPredicateDisplay[k]
+	if s := tc.variableOccurrenceNarrowingPredicateDisplay[k]; s != "" {
+		return s
+	}
+	if strings.Contains(string(vn.Ident.ID), ".") {
+		if info, ok := tc.compoundNarrowingByIdentifier[vn.Ident.ID]; ok && info.disp != "" {
+			return info.disp
+		}
+	}
+	return ""
 }
 
 // typeGuardNamesFromAssertionNode returns labels for hover and NarrowingTypeGuards: every

@@ -149,6 +149,7 @@ func (tc *TypeChecker) applyIfBranchNarrowing(condition ast.Node) {
 	guards := tc.typeGuardNamesFromIsRHS(bin.Right)
 	disp := tc.narrowingPredicateDisplayFromIsRHS(bin.Right)
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
+	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
 	tc.recordIfChainNarrowingSubject(vn.Ident.ID, refined, guards)
 }
 
@@ -276,16 +277,10 @@ func (tc *TypeChecker) assertionRefinesBuiltinSubjectWithOnlyBuiltinConstraints(
 
 // applyEnsureSuccessorNarrowing registers a refined binding for the ensure subject so that
 // following statements (or the ensure block body) see the same types as after `x is …`.
-// Compound subjects (field paths) are skipped until we have a dedicated occurrence model for them.
+// Field paths such as `g.cells` register under the full identifier so lookup + hover match
+// simple variables (Min/Max chain, etc.).
 func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	vn := n.Variable
-	if strings.Contains(string(vn.Ident.ID), ".") {
-		tc.log.WithFields(logrus.Fields{
-			"function": "applyEnsureSuccessorNarrowing",
-			"subject":  vn.Ident.ID,
-		}).Debug("skipping ensure successor narrowing for compound subject")
-		return
-	}
 	// Best-effort assertion expression inference (registers tc.Types for the assertion subtree).
 	// Do not abort narrowing on failure: `inferExpressionType(AssertionNode)` often lacks the
 	// subject context that `refinedTypesForIsNarrowing` supplies via InferAssertionType, so it can
@@ -308,6 +303,20 @@ func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	guards := tc.typeGuardNamesFromAssertionNode(&n.Assertion)
 	disp := tc.narrowingPredicateDisplayFromIsRHS(n.Assertion)
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
+	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
+}
+
+func (tc *TypeChecker) recordCompoundNarrowingIdentifier(id ast.Identifier, guards []string, disp string) {
+	if tc == nil || id == "" || !strings.Contains(string(id), ".") {
+		return
+	}
+	prev := tc.compoundNarrowingByIdentifier[id]
+	mergedGuards := mergeNarrowingGuardNamesDedupe(prev.guards, guards)
+	mergedDisp := mergeNarrowingPredicateDisplaySegments(prev.disp, disp)
+	tc.compoundNarrowingByIdentifier[id] = compoundNarrowingInfo{
+		guards: mergedGuards,
+		disp:   mergedDisp,
+	}
 }
 
 // --- Control-flow join at the merge point after a completed if / else-if / else chain (plan §3.2).
