@@ -18,6 +18,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      paths_released: ${{ steps.release.outputs.paths_released }}
       sidecar_tag_name: ${{ steps.release.outputs['packages/sidecar--tag_name'] }}
       cli_tag_name: ${{ steps.release.outputs['packages/cli--tag_name'] }}
       vscode_tag_name: ${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}
@@ -34,9 +35,11 @@ jobs:
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  # Go compiler binaries: only when the root package (`.`) is in this release — not vscode/cli/sidecar-only tags.
+  # `startsWith(tag_name, 'v')` is wrong here (`vscode-forst-v…` also starts with `v`).
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created && startsWith(needs.release-please.outputs.tag_name, 'v') }}
+    if: ${{ contains(fromJSON(needs.release-please.outputs.paths_released || '[]'), '.') }}
     runs-on: ubuntu-latest
     env:
       GIT_TAG: ${{ needs.release-please.outputs.tag_name }}
