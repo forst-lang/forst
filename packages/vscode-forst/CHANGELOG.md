@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.6...vscode-forst-v0.1.7) (2026-04-06)
+
+
+### Bug Fixes
+
+* **vscode-forst:** materialize @forst/cli with npm files layout for VSIX ([5514db3](https://github.com/forst-lang/forst/commit/5514db317d68f617cd2148f8dabb339c022f6ea8))
+
 ## [0.1.6](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.5...vscode-forst-v0.1.6) (2026-04-06)
 
 
