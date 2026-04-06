@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "forst": "./dist/bin.js"
+    "forst": "dist/bin.js"
   },
   "exports": {
     ".": {
@@ -54,7 +54,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/forst-lang/forst.git",
+    "url": "git+https://github.com/forst-lang/forst.git",
     "directory": "packages/cli"
   },
   "homepage": "https://github.com/forst-lang/forst/tree/main/packages/cli#readme",
