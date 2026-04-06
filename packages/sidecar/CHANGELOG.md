@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.5](https://github.com/forst-lang/forst/compare/sidecar-v0.1.4...sidecar-v0.1.5) (2026-04-06)
+
+
+### Features
+
+* **compiler:** variable slice indexing and indexed assignment ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **compiler:** variable slice indexing and indexed assignment ([#57](https://github.com/forst-lang/forst/issues/57)) ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **examples:** add tic-tac-toe multi-file sample ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **examples:** tic-tac-toe uses ensure constraints and `(MoveResponse, Error)` ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **generate:** merged-package typecheck before emitting TypeScript ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **lsp:** hover dotted fields, receiver methods, and '(' after recv.method ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **typechecker:** collect defs before functions; builtin Go doc for hovers ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+
+
+### Bug Fixes
+
+* **parser:** unary minus, negative literals, and Error built-in type ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **transformer:** correct Go types for slices and named returns ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **transformer:** do not pad `return g()` with `, nil` for multi-value calls ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **typechecker:** infer full tuple from `return f()` when arity matches ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+
 ## [0.1.4](https://github.com/forst-lang/forst/compare/sidecar-v0.1.3...sidecar-v0.1.4) (2026-04-05)
 
 

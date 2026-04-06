@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.22](https://github.com/forst-lang/forst/compare/v0.0.21...v0.0.22) (2026-04-06)
+
+
+### Features
+
+* **compiler:** add defer and go statements with Go-compatible rules ([780b61b](https://github.com/forst-lang/forst/commit/780b61b3b555933dfea3d000e046287377f7ac9e))
+* **compiler:** Go builtins, map literals, and slice ]T parse fix ([#56](https://github.com/forst-lang/forst/issues/56)) ([30deb88](https://github.com/forst-lang/forst/commit/30deb88b9b8a13f2fa3b37654f153c0cb7fb3b9d))
+* **compiler:** variable slice indexing and indexed assignment ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **compiler:** variable slice indexing and indexed assignment ([#57](https://github.com/forst-lang/forst/issues/57)) ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **examples:** add tic-tac-toe multi-file sample ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **examples:** tic-tac-toe uses ensure constraints and `(MoveResponse, Error)` ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **generate:** merged-package typecheck before emitting TypeScript ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **lsp:** hover dotted fields, receiver methods, and '(' after recv.method ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **typechecker:** collect defs before functions; builtin Go doc for hovers ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **typechecker:** flow merge, typeops, and predicate-chain hover ([#55](https://github.com/forst-lang/forst/issues/55)) ([f2024df](https://github.com/forst-lang/forst/commit/f2024df5cddf3b349567c4ee5c93fccc19bbacc2))
+
+
+### Bug Fixes
+
+* **ci:** fix Release workflow validation and allow manual runs ([e262b3a](https://github.com/forst-lang/forst/commit/e262b3a43cdfb0e6b09cc7ec1a89a1f086bedef6))
+* **ci:** run Release Please PR step before tagging ([af2ab1e](https://github.com/forst-lang/forst/commit/af2ab1e9962f66404a1f2d75896f4605ae2caeb6))
+* **parser:** unary minus, negative literals, and Error built-in type ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **transformer:** correct Go types for slices and named returns ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **transformer:** do not pad `return g()` with `, nil` for multi-value calls ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+* **typechecker:** infer full tuple from `return f()` when arity matches ([803caf0](https://github.com/forst-lang/forst/commit/803caf0cd28e1e6e7e292f4dfef23de6bba74b49))
+
 ## [0.0.21](https://github.com/forst-lang/forst/compare/v0.0.20...v0.0.21) (2026-04-05)
 
 
