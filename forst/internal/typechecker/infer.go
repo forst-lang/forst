@@ -316,6 +316,31 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		return nil, nil
 
+	case *ast.DeferNode:
+		fc, ok := n.Call.(ast.FunctionCallNode)
+		if !ok {
+			return nil, fmt.Errorf("defer requires a function or method call")
+		}
+		if err := validateDeferGoBuiltinRestriction("defer", fc); err != nil {
+			return nil, err
+		}
+		if _, err := tc.inferExpressionType(n.Call); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	case *ast.GoStmtNode:
+		fc, ok := n.Call.(ast.FunctionCallNode)
+		if !ok {
+			return nil, fmt.Errorf("go requires a function or method call")
+		}
+		if err := validateDeferGoBuiltinRestriction("go", fc); err != nil {
+			return nil, err
+		}
+		if _, err := tc.inferExpressionType(n.Call); err != nil {
+			return nil, err
+		}
+		return nil, nil
+
 	case *ast.ElseBlockNode:
 		if n == nil {
 			return nil, nil

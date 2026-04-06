@@ -81,6 +81,20 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		cont := p.parseContinueStatement()
 		p.logParsedNode(cont)
 		body = append(body, cont)
+	case ast.TokenDefer:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "defer not allowed in type guards")
+		}
+		d := p.parseDeferStatement()
+		p.logParsedNode(d)
+		body = append(body, d)
+	case ast.TokenGo:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "go not allowed in type guards")
+		}
+		g := p.parseGoStatement()
+		p.logParsedNode(g)
+		body = append(body, g)
 	default:
 		expr := p.parseExpression()
 		p.logParsedNode(expr)

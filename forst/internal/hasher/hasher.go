@@ -50,6 +50,8 @@ var NodeKind = map[string]uint8{
 	"ElseIf":           20,
 	"ElseBlock":        21,
 	"Comment":          22,
+	"Defer":            23,
+	"GoStmt":           24,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -692,6 +694,20 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		if n != nil && n.Label != nil {
 			h.writeHashes(hasher, string(n.Label.ID))
 		}
+	case *ast.DeferNode:
+		h.writeHashes(hasher, NodeKind["Defer"])
+		hash, err := h.HashNode(n.Call)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
+	case *ast.GoStmtNode:
+		h.writeHashes(hasher, NodeKind["GoStmt"])
+		hash, err := h.HashNode(n.Call)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
 	case ast.ReferenceNode:
 		h.writeHashes(hasher, NodeKind["Reference"])
 		hash, err := h.HashNode(n.Value)

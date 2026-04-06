@@ -318,6 +318,18 @@ func (p *printer) printStmt(node ast.Node) (string, error) {
 			return "continue " + string(n.Label.ID), nil
 		}
 		return "continue", nil
+	case *ast.DeferNode:
+		s, err := p.printExpr(n.Call)
+		if err != nil {
+			return "", err
+		}
+		return "defer " + s, nil
+	case *ast.GoStmtNode:
+		s, err := p.printExpr(n.Call)
+		if err != nil {
+			return "", err
+		}
+		return "go " + s, nil
 	default:
 		// Expression statement
 		if e, ok := node.(ast.ExpressionNode); ok {

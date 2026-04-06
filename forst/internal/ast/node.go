@@ -99,5 +99,7 @@ const (
 	NodeKindNilLiteral        NodeKind = "NilLiteral"
 	NodeKindBreak             NodeKind = "Break"
 	NodeKindContinue          NodeKind = "Continue"
+	NodeKindDefer             NodeKind = "Defer"
+	NodeKindGoStmt            NodeKind = "GoStmt"
 	NodeKindComment           NodeKind = "Comment"
 )

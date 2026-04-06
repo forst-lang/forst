@@ -188,6 +188,20 @@ func main() {
 `,
 			needles: []string{`for `, `range`, `println`, `func main`},
 		},
+		{
+			name: "defer_and_go_statements",
+			src: `package main
+
+func work() {}
+
+func main() {
+	defer work()
+	go work()
+	println("ok")
+}
+`,
+			needles: []string{`defer work()`, `go work()`, `func main`},
+		},
 	}
 
 	for _, tt := range tests {

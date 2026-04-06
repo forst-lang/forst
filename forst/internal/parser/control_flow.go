@@ -161,3 +161,23 @@ func (p *Parser) parseSendStmt() ast.Node {
 		Right:    value,
 	}
 }
+
+// parseDeferStatement parses `defer <expr>` (caller consumed nothing).
+func (p *Parser) parseDeferStatement() ast.Node {
+	p.advance() // defer
+	if p.current().Type == ast.TokenLParen {
+		p.FailWithParseError(p.current(), "defer operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression)")
+	}
+	call := p.parseExpression()
+	return &ast.DeferNode{Call: call}
+}
+
+// parseGoStatement parses `go <expr>` (caller consumed nothing).
+func (p *Parser) parseGoStatement() ast.Node {
+	p.advance() // go
+	if p.current().Type == ast.TokenLParen {
+		p.FailWithParseError(p.current(), "go operand cannot be parenthesized (Go: must be a function or method call, not a parenthesized expression)")
+	}
+	call := p.parseExpression()
+	return &ast.GoStmtNode{Call: call}
+}

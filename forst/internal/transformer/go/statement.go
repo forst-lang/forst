@@ -1106,6 +1106,26 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		return t.transformIfNode(s)
 	case *ast.ForNode:
 		return t.transformForNode(s)
+	case *ast.DeferNode:
+		ex, err := t.transformExpression(s.Call)
+		if err != nil {
+			return nil, err
+		}
+		call, ok := ex.(*goast.CallExpr)
+		if !ok {
+			return nil, fmt.Errorf("defer: internal error, expected call expression, got %T", ex)
+		}
+		return &goast.DeferStmt{Call: call}, nil
+	case *ast.GoStmtNode:
+		ex, err := t.transformExpression(s.Call)
+		if err != nil {
+			return nil, err
+		}
+		call, ok := ex.(*goast.CallExpr)
+		if !ok {
+			return nil, fmt.Errorf("go: internal error, expected call expression, got %T", ex)
+		}
+		return &goast.GoStmt{Call: call}, nil
 	case *ast.BreakNode:
 		bs := &goast.BranchStmt{Tok: token.BREAK}
 		if s.Label != nil {

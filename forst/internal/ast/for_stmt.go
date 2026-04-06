@@ -62,3 +62,29 @@ func (c ContinueNode) String() string {
 	}
 	return "Continue"
 }
+
+// DeferNode is a defer statement: `defer <call>` (expression must be a function or method call).
+type DeferNode struct {
+	Call ExpressionNode
+}
+
+func (d DeferNode) Kind() NodeKind {
+	return NodeKindDefer
+}
+
+func (d DeferNode) String() string {
+	return "Defer(...)"
+}
+
+// GoStmtNode is a go statement: `go <call>` (starts a goroutine; expression must be a function or method call).
+type GoStmtNode struct {
+	Call ExpressionNode
+}
+
+func (g GoStmtNode) Kind() NodeKind {
+	return NodeKindGoStmt
+}
+
+func (g GoStmtNode) String() string {
+	return "Go(...)"
+}
