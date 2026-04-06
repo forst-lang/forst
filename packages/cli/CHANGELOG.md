@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.22](https://github.com/forst-lang/forst/compare/cli-v0.0.21...cli-v0.0.22) (2026-04-06)
+
+
+### Features
+
+* **cli:** add --forst-cli-info diagnostics ([ee648e5](https://github.com/forst-lang/forst/commit/ee648e5d6c4d8f71e6547c7f51ce54e696aec215))
+
 ## [0.0.21](https://github.com/forst-lang/forst/compare/cli-v0.0.20...cli-v0.0.21) (2026-04-06)
 
 

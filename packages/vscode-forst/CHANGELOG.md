@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.3...vscode-forst-v0.1.4) (2026-04-06)
+
+
+### Features
+
+* **sidecar:** send X-Forst-Sidecar-Version on dev server HTTP requests ([47c9698](https://github.com/forst-lang/forst/commit/47c969808b6b8bb68f7ccbd4cc6d8f19e24ebc2d))
+* **vscode-forst:** include extension semver in the activation log line. ([47c9698](https://github.com/forst-lang/forst/commit/47c969808b6b8bb68f7ccbd4cc6d8f19e24ebc2d))
+
 ## [0.1.3](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.2...vscode-forst-v0.1.3) (2026-04-06)
 
 
