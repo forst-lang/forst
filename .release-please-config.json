@@ -13,7 +13,9 @@
       "prerelease": false,
       "create-pull-request": true,
       "create-github-release": true,
-      "exclude-paths": ["packages/"]
+      "exclude-paths": [
+        "packages/"
+      ]
     },
     "packages/vscode-forst": {
       "release-type": "node",
@@ -61,7 +63,7 @@
       "extra-files": [
         {
           "type": "json",
-          "path": "packages/cli/jsr.json",
+          "path": "jsr.json",
           "jsonpath": "$.version"
         }
       ]
@@ -89,7 +91,7 @@
       "extra-files": [
         {
           "type": "json",
-          "path": "packages/sidecar/jsr.json",
+          "path": "jsr.json",
           "jsonpath": "$.version"
         }
       ]

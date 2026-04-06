@@ -1,36 +1,31 @@
-# Publish @forst/sidecar (npm + JSR) and @forst/cli (npm + JSR).
-#
-# Invoked from release.yml via workflow_call after Release Please creates a tag.
-# (GitHub does not fire `release` workflows for releases created with GITHUB_TOKEN,
-# so we cannot rely on `on: release` alone.)
-#
-# Tag prefixes (.release-please-config.json):
-# - packages/sidecar → `sidecar-`
-# - packages/cli → `cli-`
-#
-# Secrets:
-# - NPM_TOKEN: publish @forst/sidecar and @forst/cli to npm.
-# - JSR: link jsr.io packages to this repo for OIDC, or set JSR_TOKEN.
+# Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call.
+# Inputs: pass the tag for each package that released (omit or leave empty for the other).
 
 name: Publish packages (npm / JSR)
 
 on:
   workflow_call:
     inputs:
-      tag_name:
-        description: "Release tag (e.g. sidecar-v0.1.0, cli-v0.0.19)"
-        required: true
+      sidecar_tag:
+        description: "Git tag for sidecar (e.g. sidecar-v0.1.0)"
+        required: false
         type: string
+        default: ""
+      cli_tag:
+        description: "Git tag for cli (e.g. cli-v0.0.19)"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   sidecar-npm:
     name: "@forst/sidecar → npm"
     runs-on: ubuntu-latest
-    if: startsWith(inputs.tag_name, 'sidecar-')
+    if: inputs.sidecar_tag != ''
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_name }}
+          ref: ${{ inputs.sidecar_tag }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -50,14 +45,14 @@ jobs:
   sidecar-jsr:
     name: "@forst/sidecar → JSR"
     runs-on: ubuntu-latest
-    if: startsWith(inputs.tag_name, 'sidecar-')
+    if: inputs.sidecar_tag != ''
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_name }}
+          ref: ${{ inputs.sidecar_tag }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -71,11 +66,11 @@ jobs:
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
-    if: startsWith(inputs.tag_name, 'cli-')
+    if: inputs.cli_tag != ''
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_name }}
+          ref: ${{ inputs.cli_tag }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -95,14 +90,14 @@ jobs:
   cli-jsr:
     name: "@forst/cli → JSR"
     runs-on: ubuntu-latest
-    if: startsWith(inputs.tag_name, 'cli-')
+    if: inputs.cli_tag != ''
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_name }}
+          ref: ${{ inputs.cli_tag }}
 
       - uses: oven-sh/setup-bun@v2
 

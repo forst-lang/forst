@@ -3,65 +3,39 @@ name: Release
 on:
   push:
     branches: [main]
-  # Manual run: Actions → Release → Run workflow (confirms the workflow still runs if push triggers are unclear).
   workflow_dispatch:
 
-# npm / JSR / VSIX publish runs in this workflow via workflow_call after Release Please creates a tag.
-# Releases created with the default GITHUB_TOKEN do not emit `release` events, so separate
-# `on: release` workflows would not run for Release Please–created releases.
-
+# Publish runs via workflow_call here because GITHUB_TOKEN releases do not trigger `on: release`.
 permissions:
   contents: write
   pull-requests: write
   issues: write
-  # Reusable workflows may only request permissions the caller grants; publish-packages.yml
-  # jobs (sidecar-jsr, cli-jsr) need OIDC for JSR.
   id-token: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      # Root package (.) — compiler v* tags
-      release_created: ${{ steps.release-please-release.outputs.release_created }}
-      tag_name: ${{ steps.release-please-release.outputs.tag_name }}
-      releases_created: ${{ steps.release-please-release.outputs.releases_created }}
-      # Manifest paths (see .release-please-config.json) — scoped tags never appear in root tag_name
-      sidecar_release_created: ${{ steps.release-please-release.outputs['packages/sidecar--release_created'] }}
-      sidecar_tag_name: ${{ steps.release-please-release.outputs['packages/sidecar--tag_name'] }}
-      cli_release_created: ${{ steps.release-please-release.outputs['packages/cli--release_created'] }}
-      cli_tag_name: ${{ steps.release-please-release.outputs['packages/cli--tag_name'] }}
-      vscode_release_created: ${{ steps.release-please-release.outputs['packages/vscode-forst--release_created'] }}
-      vscode_tag_name: ${{ steps.release-please-release.outputs['packages/vscode-forst--tag_name'] }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      sidecar_tag_name: ${{ steps.release.outputs['packages/sidecar--tag_name'] }}
+      cli_tag_name: ${{ steps.release.outputs['packages/cli--tag_name'] }}
+      vscode_tag_name: ${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Run PR creation before tagging: the action's default order is releases first,
-      # then PRs—so a failing createReleases() prevented any PR from being opened/updated.
-      - name: Release Please (release PRs)
-        id: release-please-pr
+      - name: Release Please
+        id: release
         uses: googleapis/release-please-action@v4
         with:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
-          skip-github-release: true
-
-      - name: Release Please (tags / GitHub releases)
-        id: release-please-release
-        uses: googleapis/release-please-action@v4
-        with:
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
-          token: ${{ secrets.GITHUB_TOKEN }}
-          skip-github-pull-request: true
 
   build:
     needs: release-please
-    # Root compiler releases: tags like v0.0.12. VS Code extension ships on vscode-forst-v* (see publish-vscode-extension.yml).
     if: ${{ needs.release-please.outputs.release_created && startsWith(needs.release-please.outputs.tag_name, 'v') }}
     runs-on: ubuntu-latest
     env:
@@ -72,14 +46,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
           check-latest: true
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
+      - uses: arduino/setup-task@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -88,48 +60,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ needs.release-please.outputs.tag_name }}
         run: |
-          # Extract version info from tag
           VERSION=${RELEASE_VERSION#v}
           COMMIT=$(git rev-parse HEAD)
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          echo "Building version: $VERSION"
-          echo "Commit: $COMMIT"
-          echo "Date: $DATE"
-
-          # Build binaries for multiple platforms with version info
           task build:release VERSION=$VERSION COMMIT=$COMMIT DATE=$DATE
-
-          # dist/: cross-platform forst binaries/archives (no .vsix here; extension uses vscode-forst-v* releases)
           ls -la dist/
 
       - name: Upload binary to GitHub Release
-        run: |
-          gh release upload $GIT_TAG ./dist/*
+        run: gh release upload $GIT_TAG ./dist/*
 
-  # One workflow_call per scoped tag: publish-packages.yml fans out jobs by prefix from tag_name.
-  publish-packages-sidecar:
-    name: Publish @forst/sidecar (npm / JSR)
+  publish-packages:
     needs: release-please
-    if: ${{ needs.release-please.outputs.sidecar_release_created == 'true' }}
+    # Prefer non-empty tags over *_release_created == 'true' (output quirks between runs).
+    if: ${{ needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' }}
     uses: ./.github/workflows/publish-packages.yml
     with:
-      tag_name: ${{ needs.release-please.outputs.sidecar_tag_name }}
-    secrets: inherit
-
-  publish-packages-cli:
-    name: Publish @forst/cli (npm / JSR)
-    needs: release-please
-    if: ${{ needs.release-please.outputs.cli_release_created == 'true' }}
-    uses: ./.github/workflows/publish-packages.yml
-    with:
-      tag_name: ${{ needs.release-please.outputs.cli_tag_name }}
+      sidecar_tag: ${{ needs.release-please.outputs.sidecar_tag_name }}
+      cli_tag: ${{ needs.release-please.outputs.cli_tag_name }}
     secrets: inherit
 
   publish-vscode-extension:
-    name: Publish VS Code extension (VSIX + Open VSX)
     needs: release-please
-    if: ${{ needs.release-please.outputs.vscode_release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.vscode_tag_name != '' }}
     uses: ./.github/workflows/publish-vscode-extension.yml
     with:
       tag_name: ${{ needs.release-please.outputs.vscode_tag_name }}
