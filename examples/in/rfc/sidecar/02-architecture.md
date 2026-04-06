@@ -31,9 +31,11 @@ The sidecar integration supports multiple communication patterns optimized for d
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          │                       │                       │
-    HTTP/JSON              HTTP/JSON              Compiled
-    Protocol              Protocol              Go Code
+    HTTP + body            HTTP + body              Compiled
+    (see wire format)      (see wire format)        Go Code
 ```
+
+**Wire format:** Production service boundaries should prefer **contract-first encodings**—typically **Protocol Buffers**—with RPC carried as **gRPC** (HTTP/2) or **Connect** (protobuf over HTTP). **JSON** remains valid for MVP, debugging, and simple REST-style handlers. See **[11-wire-format.md](./11-wire-format.md)** for the two protobuf RPC variants and trade-offs.
 
 ### Pattern 3: Direct Integration (Experimental)
 
@@ -55,7 +57,7 @@ The sidecar integration supports multiple communication patterns optimized for d
 
 **HTTP Advantages:**
 
-- **Familiar protocol**: Standard REST/JSON patterns
+- **Familiar protocol**: Standard HTTP; payloads may be **JSON** (bootstrap) or **protobuf** via **gRPC/Connect** (see [11-wire-format.md](./11-wire-format.md))
 - **Production ready**: Works with existing load balancers, proxies, monitoring
 - **Cross-platform**: Works on any OS without special permissions
 - **Debugging**: Easy to inspect with curl, Postman, browser dev tools
@@ -64,9 +66,9 @@ The sidecar integration supports multiple communication patterns optimized for d
 
 **HTTP Disadvantages:**
 
-- **Overhead**: TCP handshakes, HTTP headers, JSON serialization
+- **Overhead**: TCP handshakes, HTTP headers, serialization (JSON is heavier than **protobuf** for large payloads)
 - **Latency**: ~1-5ms per call (significant for high-frequency operations)
-- **Memory**: JSON parsing/stringification overhead
+- **Memory**: Parse/generate cost depends on encoding; **protobuf** reduces CPU and bytes vs JSON at scale
 - **Complexity**: Network stack, connection pooling, retry logic
 
 **IPC Advantages:**

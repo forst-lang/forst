@@ -4,6 +4,8 @@
 
 This document provides a comprehensive approach to error handling in Forst that seamlessly integrates with Effect's tagged error system, modern microservices practices, and observability tools like OpenTelemetry. The focus is on creating a robust error API that enforces good practices and enables excellent developer experience.
 
+**Related:** [19-forst-effect-npm-observability.md](./19-forst-effect-npm-observability.md) packages the Effect-facing npm story, trace/log correlation across the boundary, and open design items for `@forst/effect`.
+
 ## Core Principles
 
 ### 1. **Structured Error Types**

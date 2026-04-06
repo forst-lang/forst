@@ -7,7 +7,7 @@
 ### HTTP Transport Drawbacks
 
 1. **Performance overhead**: ~2ms latency per call vs ~0.2ms for IPC
-2. **Memory overhead**: JSON serialization/deserialization
+2. **Serialization overhead**: JSON is convenient but costly at high QPS or large payloads; **protobuf** (with **gRPC** or **Connect**) reduces CPU and bytes—see **[11-wire-format.md](./11-wire-format.md)**
 3. **Network complexity**: Connection pooling, retry logic, error handling
 4. **Port management**: Potential port conflicts in development
 
@@ -96,12 +96,20 @@ This approach aligns with Forst's goal of bringing Go's performance to TypeScrip
 
 ## Future Considerations
 
+### Wire format and RPC (protobuf)
+
+Service-grade boundaries should standardize on **Protocol Buffers** with one of:
+
+1. **gRPC** — protobuf over HTTP/2 (default Go stack for RPC)
+2. **Connect** — protobuf over HTTP, strong TypeScript client story, same `.proto` files
+
+**JSON** remains appropriate for MVP, debugging, and human-inspectable APIs. Full comparison: **[11-wire-format.md](./11-wire-format.md)**.
+
 ### Advanced Transport Options
 
-1. **gRPC**: For high-performance RPC communication
-2. **WebSockets**: For real-time bidirectional communication
-3. **Shared Memory**: For maximum performance in single-machine deployments
-4. **Message Queues**: For asynchronous processing patterns
+1. **WebSockets**: For real-time bidirectional communication (orthogonal to protobuf unary RPC)
+2. **Shared Memory**: For maximum performance in single-machine deployments
+3. **Message Queues**: For asynchronous processing patterns
 
 ### Integration Patterns
 

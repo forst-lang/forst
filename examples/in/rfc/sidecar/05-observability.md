@@ -6,6 +6,10 @@
 
 The sidecar integration introduces unique challenges for developer operations, tracing, and observability. This document outlines the specific issues teams will face and proposes solutions for maintaining visibility across the TypeScript-Forst boundary.
 
+**Related (Effect-TS):** [Effect RFC: `@forst/effect` and observability](../effect/19-forst-effect-npm-observability.md) — how the npm package layers spans, OTEL, and logs on top of this boundary.
+
+**Related (wire format):** [11-wire-format.md](./11-wire-format.md) — protobuf with **gRPC** or **Connect**; span attributes should record **serialized byte size** (or redacted summaries), not assume JSON.
+
 ## Key Challenges
 
 ### 1. Distributed Tracing Complexity
@@ -68,7 +72,7 @@ const duration = performance.now() - start;
 
 **Potential Bottlenecks**:
 
-- **TypeScript serialization**: JSON.stringify overhead
+- **Serialization** (TypeScript → wire): JSON is heavier than **protobuf** for large payloads; see [11-wire-format.md](./11-wire-format.md)
 - **Transport latency**: HTTP vs IPC vs Direct
 - **Forst processing**: Go runtime, memory allocation
 - **Network I/O**: If using HTTP transport
@@ -92,11 +96,13 @@ export class ForstTracing {
     args: any[],
     fn: () => Promise<T>
   ): Promise<T> {
+    // serializedRequestSizeBytes: supplied by the transport layer after encoding (protobuf, JSON, …)
     const span = this.tracer.startSpan(`forst.${functionName}`, {
       attributes: {
         "forst.function": functionName,
         "forst.transport": this.getTransportType(),
-        "forst.args.size": JSON.stringify(args).length,
+        // Byte length after the client encodes the request (protobuf, JSON, …); see 11-wire-format.md
+        "forst.args.size_bytes": serializedRequestSizeBytes(args),
       },
     });
 
@@ -289,7 +295,8 @@ export class ForstProfiler {
       totalDuration: duration,
       transportLatency: this.measureTransportLatency(),
       processingTime: duration - this.measureTransportLatency(),
-      resultSize: JSON.stringify(result).length,
+      // Wire-encoded response size when available (protobuf, JSON, …)
+      resultSizeBytes: wireEncodedResultSizeBytes(result),
     });
   }
 

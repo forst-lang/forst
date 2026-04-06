@@ -31,6 +31,7 @@ Effect-TS is a powerful TypeScript library that provides structured error handli
 - **[16-advanced-effect-features.md](./16-advanced-effect-features.md)** - Advanced features enabled by perfect Effect integration and strict primitive adherence
 - **[17-feasibility-analysis.md](./17-feasibility-analysis.md)** - Feasibility analysis of alternative Effect integration approaches
 - **[18-comprehensive-error-handling.md](./18-comprehensive-error-handling.md)** - Comprehensive error handling with Effect integration and observability
+- **[19-forst-effect-npm-observability.md](./19-forst-effect-npm-observability.md)** - `@forst/effect` npm package: Effect runtime integration, logs, spans, OTEL, and cross-process observability model
 
 ### Recommendations
 
@@ -124,6 +125,7 @@ This RFC is a living document. Contributions and feedback are welcome to help re
 
 ## Related Resources
 
+- [Sidecar observability (trace context, OTEL)](../sidecar/05-observability.md) — TypeScript ↔ Go boundary for spans and logs
 - [Effect-TS Documentation](https://effect.website/)
 - [Forst Design Philosophy](../../../PHILOSOPHY.md)
 - [Forst Roadmap](../../../ROADMAP.md)

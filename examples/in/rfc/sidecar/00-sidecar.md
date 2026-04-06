@@ -82,6 +82,14 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Express.js Integration**: Seamless streaming endpoints
 - **Error Handling**: Retry logic and resilience for streaming operations
 
+### [11-wire-format.md](11-wire-format.md) - Wire Format: JSON, Protobuf, and RPC Variants
+
+- **Contract-first protobuf** for service-grade TypeScript ↔ Go boundaries
+- **gRPC** (protobuf over HTTP/2) — idiomatic for Go microservices
+- **Connect** (protobuf over HTTP) — strong TypeScript/Node ergonomics, same `.proto` schemas
+- **Proto JSON** (standard mapping) for **tooling/dev** (`grpcurl`, fixtures, UIs) without a second schema
+- **JSON** as MVP/debug path; observability via headers/metadata regardless of body encoding
+
 ## Key Features
 
 ### 🚀 **Performance Benefits**
@@ -176,5 +184,6 @@ This RFC is structured to be easily digestible and actionable. Each section focu
 - **07-process-management.md**: Sidecar lifecycle and resource management
 - **08-development-workflow.md**: Development tools and debugging workflows
 - **09-streaming.md**: HTTP streaming for large datasets and real-time processing
+- **11-wire-format.md**: Protobuf, gRPC vs Connect, proto JSON for tooling, and when to use plain JSON
 
 The modular structure allows teams to focus on the aspects most relevant to their needs while providing comprehensive coverage of the entire system.

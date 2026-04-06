@@ -618,3 +618,5 @@ This approach positions Forst as the crucial intermediary that enables TypeScrip
 - Maintains type safety across boundaries
 
 **The result:** TypeScript developers can use familiar Effect patterns while getting Go's performance benefits through a seamless sidecar integration.
+
+**See also:** [19-forst-effect-npm-observability.md](./19-forst-effect-npm-observability.md) — `@forst/effect`, logs/spans, OpenTelemetry, and what “integrated observability” means across the TS–Go boundary.

@@ -59,6 +59,19 @@ This document outlines the strategic framework for implementing Forst sidecar in
 - **Performance Threshold**: Accept sidecar complexity only with 10x performance gains
 - **Tooling Compatibility**: Leverage existing HTTP debugging and monitoring tools
 
+### 4.1 Wire Format and RPC (Protobuf)
+
+**Rationale:** JSON is easy for **bootstrap** and **debugging**, but **service-style** TypeScript ↔ Go boundaries benefit from **contract-first** encodings that match Go production norms.
+
+**Decisions:**
+
+- **Protobuf as contract IDL**: Single `.proto` source of truth for generated Go and TypeScript types where feasible
+- **Two RPC variants** (documented in **[11-wire-format.md](./11-wire-format.md)**):
+  - **gRPC** — protobuf over **HTTP/2**; default for Go-centric internal services
+  - **Connect** — protobuf over **HTTP**; strong **Node/TypeScript** ergonomics; same schemas as gRPC where both are offered
+- **JSON** remains acceptable for **MVP**, **curl-friendly** demos, and **admin** tooling; not the only long-term encoding for high-throughput paths. When the API is **proto-defined**, use **standard protobuf JSON mapping** (proto JSON) for those JSON surfaces so contracts do not fork—see **[11-wire-format.md](./11-wire-format.md)** (Protobuf ↔ JSON for tooling and development).
+- **Observability**: Trace context uses **metadata/headers**; independent of whether the body is JSON or protobuf
+
 ### 5. Development Workflow Design
 
 **Rationale:** Developer productivity requires seamless integration with existing workflows.
