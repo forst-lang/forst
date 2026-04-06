@@ -11,7 +11,8 @@
 7. [Implementation phases](#implementation-phases)
 8. [Risks and mitigations](#risks-and-mitigations)
 9. [Testing strategy](#testing-strategy)
-10. [References](#references)
+10. [Result types, generics, and narrowing (Ok and Err)](#result-types-generics-and-narrowing-ok-and-err)
+11. [References](#references)
 
 ---
 
@@ -41,7 +42,10 @@ The audience is **language designers and compiler contributors** deciding what t
 4. **Foundation for future features**  
    Constraints (`comparable`, ordered types, eventual interface-like bounds) connect to **binary type expressions**, **control-flow narrowing**, and **interop** work already listed on the [roadmap](../../../../ROADMAP.md). A coherent generic **core** avoids bolting on ad hoc special cases later.
 
-5. **Honest ergonomics vs hand-written Go**  
+5. **`Result` and discriminated narrowing**  
+   User generics give **`Result(Success, Failure)`** a stable **instantiated** form (e.g. **`Result[Int, ParseError]`** in examples above)—the same **substitution** story as **`Box[Int]`**. That unlocks **`if r is Ok()`** / **`ensure r is Ok() or err`** with **narrowed** success and failure **payloads** when **`Ok()`** / **`Err(...)`** are **native type guards** on **`Result`** (see [§10](#result-types-generics-and-narrowing-ok-and-err) and the [optionals / `Result` RFC](../optionals/02-result-and-error-types.md)).
+
+6. **Honest ergonomics vs hand-written Go**  
    Emitting **real Go generics** where appropriate keeps generated code readable and **debuggable** in mixed Go/Forst modules—aligned with Forst’s Go-backwards-compatibility story.
 
 ### What success does *not* require
@@ -209,11 +213,49 @@ Stages A–B unlock most **language** generics; C–D unlock **interop and stdli
 
 ---
 
+## Result types, generics, and narrowing (Ok and Err)
+
+**See also:** [optionals — `Result` types](../optionals/02-result-and-error-types.md), [optionals — `ensure` / `is`](../optionals/09-ensure-is-narrowing-and-binary-types.md), [optionals — type guards and `Result`](../optionals/10-type-guards-shape-guards-and-optionals.md), [guard RFC — generic type guards](../guard/guard.md).
+
+The [Purpose](#purpose-and-benefits-for-the-language) section already uses **`Result[Int, AppError]`** as an illustrative **instantiated** generic type. That is **the same** **identity** story as **`Box[Int]`** (parameter symbol + concrete type arguments), but applied to Forst’s **`Result(Success, Failure)`** convention instead of a user-defined **`Box`**.
+
+### Why this belongs in the generics RFC
+
+- **`Result`** is **two-parameter** and **nominal** in intent: callers care about **`Result(Int, ParseError)`** vs **`Result(Int, Error)`** as **distinct** instantiated types, with **subtyping** on the **failure** parameter where defined ([optionals 02](../optionals/02-result-and-error-types.md)).
+- **User generics** (this RFC) supply **substitution** and **compatibility** for those parameters—whether **`Result`** is ultimately a **builtin** type constructor or a **library** generic **`type Result[S, F] = …`**.
+- **Narrowing** is **orthogonal** to emit but **depends** on knowing the **instantiated** **`Success`** and **`Failure`** types: after **`if r is Ok()`**, the **success** payload should have type **`Success`**; after **`if r is Err(...)`**, the **failure** payload should refine to **`Failure`** (or a **subtype**) ([optionals 02 §5](../optionals/02-result-and-error-types.md), [optionals 09](../optionals/09-ensure-is-narrowing-and-binary-types.md)).
+
+### `Ok()` as a native type guard on `Result`
+
+**Discriminated** **`Result`** is **`Ok(Success) | Err(Failure)`** ([optionals 01 §3](../optionals/01-single-return-unions-and-go-interop.md)). The **guard** subsystem should treat **`Ok()`** and **`Err(...)`** as **assertions** on that sum—**analogous** to the [guard RFC’s **generic type guards**](../guard/guard.md#generic-type-guards) example: the **guard** carries **type parameters** that **specialize** with the **`Result`** instance.
+
+**Illustrative ergonomics** (syntax not final):
+
+- **`if r is Ok()`** — narrow **`r`** to the **success** case; **payload** type is the **`Success`** argument of **`Result(Success, Failure)`** (e.g. **`Int`** for **`Result(Int, ParseError)`**).
+- **`ensure r is Ok() or err`** — same **narrowing** in the **success** continuation; **failure** path returns **`error`** per **`ensure`** semantics ([optionals 09](../optionals/09-ensure-is-narrowing-and-binary-types.md)).
+- **`if r is Err()`** / **`ensure r is Err() or err`** — mirror for the **failure** branch; **payload** narrows to **`Failure`** (subject to **`Error`** hierarchy rules in [optionals 02](../optionals/02-result-and-error-types.md)).
+
+So **`Ok()`** is **not** an ad hoc keyword-only hack: it is the **success** discriminant of **`Result`**, composed with **generic instantiation** so the checker **knows** which **`Success`**/**`Failure`** types apply at **`r`**’s static type.
+
+### Staging relative to this RFC’s phases
+
+| Dependency | Notes |
+| ---------- | ----- |
+| **Binary unions + narrowing** ([ROADMAP](../../../../ROADMAP.md)) | **`Result`** narrowing shares the **same** **`is` / `ensure`** pipeline as **`T \| Nil`** and other sums ([optionals 10](../optionals/10-type-guards-shape-guards-and-optionals.md)). |
+| **Phases 1–3** (AST, substitution, generic types) | **Instantiated** **`Result[Int, ParseError]`** (illustrative) needs **stable** type identity and **substitution**, same as **`Pair[Int, String]`** in [§Risks](#1-structural-hashing-vs-named-generic-instantiation-identity). |
+| **Phase 4** (generic functions) | Combinators like **`map`/`and_then`** on **`Result`** (if expressed as **generic** functions) follow **call** resolution and **explicit** type args first. |
+| **Emit** | **`Result`** still **lowers** to idiomatic **`(T, error)`** where the optionals RFC says so ([optionals 02 §4](../optionals/02-result-and-error-types.md)); **narrowing** is a **source**-level guarantee, not a requirement to emit **generic** **`Result`** structs in Go. |
+
+**Bottom line:** Once **`Result(Success, Failure)`** and **user generics** both exist, **`if r is Ok()`** / **`ensure r is Ok() or err`** with **narrowed** payloads **matches** the **illustrative** **`Result[Int, AppError]`**-style example in this RFC: **one** **parameterized** type, **one** **discriminant** guard, **one** narrowing story.
+
+---
+
 ## References
 
 - [ROADMAP.md](../../../../ROADMAP.md) — feature status table.
 - [PHILOSOPHY.md](../../../../PHILOSOPHY.md) — inference and explicitness.
 - [examples/README.md](../../../../examples/README.md) — RFC layout conventions under `examples/in/rfc/`.
+- [optionals / `Result`](../optionals/02-result-and-error-types.md), [optionals hub](../optionals/00-crystal-inspired-optionals.md) — **`Result`** vs **`T?`**, narrowing, **`Ok()`** / **`Err()`** (cross-links [§10](#result-types-generics-and-narrowing-ok-and-err)).
 - Internal surfaces: [`ast.TypeNode`](../../../../forst/internal/ast/type.go), [`go_interop.go`](../../../../forst/internal/typechecker/go_interop.go), [`transformer/go`](../../../../forst/internal/transformer/go/).
 
 ---

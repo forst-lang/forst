@@ -10,6 +10,11 @@ This directory contains comprehensive documentation and specifications for Forst
 
 - **[00-error-system-architecture.md](./00-error-system-architecture.md)** - Complete error system architecture and implementation guide
 
+### Related language design
+
+- **[optionals hub](../optionals/00-crystal-inspired-optionals.md)** — Index of **`T | Nil`**, **`Result`**, and related topic docs (**01–09**).
+- **[optionals / Result and error types](../optionals/02-result-and-error-types.md)** — How **`Result(Value, ErrorSubtype)`** ties **`Result`** to the **`Error`** hierarchy.
+
 ## Key Features
 
 ### 1. Structured Error Types
