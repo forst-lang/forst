@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.6](https://github.com/forst-lang/forst/compare/sidecar-v0.1.5...sidecar-v0.1.6) (2026-04-06)
+
+
+### Features
+
+* **compiler:** add exportable struct fields for JSON and TS wire alignment ([a7cce2b](https://github.com/forst-lang/forst/commit/a7cce2b17da45c13862954721d3bcf421c107afd))
+
+
+### Bug Fixes
+
+* **sidecar:** avoid unhandled rejections in version check and shutdown ([a7cce2b](https://github.com/forst-lang/forst/commit/a7cce2b17da45c13862954721d3bcf421c107afd))
+
 ## [0.1.5](https://github.com/forst-lang/forst/compare/sidecar-v0.1.4...sidecar-v0.1.5) (2026-04-06)
 
 
