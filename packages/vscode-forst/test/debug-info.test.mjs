@@ -5,7 +5,7 @@ import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { formatForstDebugInfo } = await import(
-  path.join(__dirname, "..", "out", "debugInfo.js")
+  path.join(__dirname, "..", "src", "debugInfo.ts")
 );
 
 test("formatForstDebugInfo includes key fields and compiler output", () => {

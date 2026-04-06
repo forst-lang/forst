@@ -10,6 +10,9 @@
  * `package.json`. No symlinks, minimal size.
  *
  * Bun may hoist `@forst/cli` to the repo root `node_modules`, not under `packages/vscode-forst/node_modules`.
+ *
+ * For production VSIX, `package-vsix-from-stage.mjs` copies the extension into a **temporary**
+ * directory without a parent workspace so `npm list` (used by vsce) does not include the monorepo root.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,18 +21,17 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const vscodeRoot = path.join(__dirname, "..");
 const repoRoot = path.join(vscodeRoot, "..", "..");
-const cliSource = path.join(repoRoot, "packages", "cli");
 
-const candidates = [
-  path.join(vscodeRoot, "node_modules", "@forst", "cli"),
-  path.join(repoRoot, "node_modules", "@forst", "cli"),
-];
+/** Resolved `packages/cli` absolute path for the repo containing this extension. */
+export function getPackagesCliRoot() {
+  return path.join(repoRoot, "packages", "cli");
+}
 
 /**
  * @param {string} sourceRoot — e.g. packages/cli
  * @param {string} destRoot — e.g. node_modules/@forst/cli
  */
-function copyNpmFilesLayout(sourceRoot, destRoot) {
+export function copyNpmFilesLayout(sourceRoot, destRoot) {
   const pkgPath = path.join(sourceRoot, "package.json");
   if (!fs.existsSync(pkgPath)) {
     throw new Error(`materialize-cli-dep-for-vsix: missing ${pkgPath}`);
@@ -59,20 +61,36 @@ function copyNpmFilesLayout(sourceRoot, destRoot) {
   }
 }
 
-const distIndex = path.join(cliSource, "dist", "index.js");
-if (!fs.existsSync(distIndex)) {
-  console.error(
-    `materialize-cli-dep-for-vsix: ${distIndex} missing — run task build:cli (or bun run build in packages/cli) first`
-  );
-  process.exit(1);
+const candidates = [
+  path.join(vscodeRoot, "node_modules", "@forst", "cli"),
+  path.join(repoRoot, "node_modules", "@forst", "cli"),
+];
+
+function isRunAsMain() {
+  const mainPath = process.argv[1];
+  if (!mainPath) {
+    return false;
+  }
+  return path.resolve(mainPath) === path.resolve(fileURLToPath(import.meta.url));
 }
 
-for (const cliPath of candidates) {
-  fs.mkdirSync(path.dirname(cliPath), { recursive: true });
-  console.log(
-    `materialize-cli-dep-for-vsix: ${cliPath} ← npm "files" layout from ${cliSource}`
-  );
-  copyNpmFilesLayout(cliSource, cliPath);
-}
+if (isRunAsMain()) {
+  const cliSource = getPackagesCliRoot();
+  const distIndex = path.join(cliSource, "dist", "index.js");
+  if (!fs.existsSync(distIndex)) {
+    console.error(
+      `materialize-cli-dep-for-vsix: ${distIndex} missing — run task build:cli (or bun run build in packages/cli) first`
+    );
+    process.exit(1);
+  }
 
-console.log("materialize-cli-dep-for-vsix: done");
+  for (const cliPath of candidates) {
+    fs.mkdirSync(path.dirname(cliPath), { recursive: true });
+    console.log(
+      `materialize-cli-dep-for-vsix: ${cliPath} ← npm "files" layout from ${cliSource}`
+    );
+    copyNpmFilesLayout(cliSource, cliPath);
+  }
+
+  console.log("materialize-cli-dep-for-vsix: done");
+}

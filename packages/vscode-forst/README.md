@@ -18,7 +18,7 @@ Unsupported methods return JSON-RPC error **`-32601` Method not found** (except 
 
 ## Develop (F5)
 
-Use **VS Code** (or a fork that supports the **Extension Development Host**). Run `bun install` at the repo root once; TypeScript is compiled automatically when you F5 (see below) or run `task build:vscode` / `bun run compile` in `packages/vscode-forst`.
+Use **VS Code** (or a fork that supports the **Extension Development Host**). Run `bun install` at the repo root once; `bun run compile` runs `tsc --noEmit` then **Bun** bundles `src/extension.ts` to `out/extension.js` (plus a source map). That runs on F5 (see below) or via `task build:vscode` / `bun run compile` in `packages/vscode-forst`. **`@forst/cli` stays external** at runtime (shipped under `node_modules` in the VSIX) so the CLI can read its own `package.json` for the compiler version.
 
 **Important:** `--extensionDevelopmentPath` must point at **`packages/vscode-forst`**, not the monorepo root. Otherwise the extension never loads (no **Forst** output channel, no Problems).
 

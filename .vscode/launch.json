@@ -9,7 +9,7 @@
         "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-forst"
       ],
       "outFiles": [
-        "${workspaceFolder}/packages/vscode-forst/out/**/*.js"
+        "${workspaceFolder}/packages/vscode-forst/out/extension.js"
       ],
       "preLaunchTask": "bun: compile vscode-forst"
     }

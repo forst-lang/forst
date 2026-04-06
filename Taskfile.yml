@@ -80,6 +80,7 @@ tasks:
       - ./**/*.ts
     generates:
       - packages/vscode-forst/out/extension.js
+      - packages/vscode-forst/out/extension.js.map
 
   install:
     desc: Install the Forst compiler
@@ -372,9 +373,9 @@ tasks:
 
   build:vsix:
     desc: |
-      Production .vsix: rewrite @forst/cli from workspace:* to ^semver (packages/cli), bun install, copy (not symlink)
-      node_modules/@forst/cli so vsce does not follow ../../packages/cli, compile, vsce, then git restore package.json and bun.lockb.
-      Depends on build:cli so packages/cli/dist exists when Bun links the workspace package (tsc needs .d.ts).
+      Production .vsix: rewrite @forst/cli, bun install, materialize @forst/cli for compile, compile, then
+      package-vsix-from-stage (vsce from a temp dir so npm list does not include the monorepo root).
+      Restores package.json and bun.lockb after. Depends on build:cli for packages/cli/dist.
     dir: packages/vscode-forst
     deps: [install:bun, build:cli]
     cmds:
@@ -389,7 +390,7 @@ tasks:
         node ./scripts/materialize-cli-dep-for-vsix.mjs
         mkdir -p ../../dist
         bun run compile
-        bunx vsce package --skip-license --allow-package-all-secrets --allow-package-env-file -o ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
+        node ./scripts/package-vsix-from-stage.mjs ../../dist/forst-vscode-{{.VERSION | default "dev"}}.vsix
 
   release:check:
     desc: Check release configuration
