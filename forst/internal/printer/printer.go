@@ -115,6 +115,8 @@ func (p *printer) printTopLevel(node ast.Node) (string, error) {
 		return p.printTypeDef(n)
 	case ast.FunctionNode:
 		return p.printFunction(n)
+	case *ast.TypeGuardNode:
+		return p.printTypeGuard(*n)
 	case ast.TypeGuardNode:
 		return p.printTypeGuard(n)
 	case ast.CommentNode:
@@ -164,6 +166,11 @@ func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
 
 func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 	switch x := e.(type) {
+	case *ast.TypeDefAssertionExpr:
+		if x == nil || x.Assertion == nil {
+			return "", fmt.Errorf("printer: empty type def assertion")
+		}
+		return p.formatAssertion(*x.Assertion), nil
 	case ast.TypeDefAssertionExpr:
 		if x.Assertion == nil {
 			return "", fmt.Errorf("printer: empty type def assertion")
@@ -304,8 +311,12 @@ func (p *printer) printStmt(node ast.Node) (string, error) {
 		return p.printReturn(n)
 	case ast.EnsureNode:
 		return p.printEnsure(n)
+	case *ast.IfNode:
+		return p.printIf(n)
 	case ast.IfNode:
 		return p.printIf(&n)
+	case *ast.ForNode:
+		return p.printFor(*n)
 	case ast.ForNode:
 		return p.printFor(n)
 	case *ast.BreakNode:
@@ -701,7 +712,8 @@ func (p *printer) printCall(c ast.FunctionCallNode) (string, error) {
 
 func (p *printer) printShape(s ast.ShapeNode) (string, error) {
 	var b strings.Builder
-	if s.BaseType != nil {
+	// Anonymous structural types use BaseType TYPE_SHAPE as a sentinel; omit it in source.
+	if s.BaseType != nil && *s.BaseType != ast.TypeShape {
 		b.WriteString(string(*s.BaseType))
 	}
 	b.WriteByte('{')

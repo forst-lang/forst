@@ -19,33 +19,64 @@ Themes group work (language, interop, tooling, docs, infrastructure). We do not 
 
 ## Language & types
 
+Work is grouped below by theme.
+
+### Core typing & declarations
+
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Basic type system | ✅ done | Core static typing. |
 | Shape-based types | ✅ done | Structural shapes. |
 | Type definitions | ✅ done | User-defined types. |
+| Packages, imports, top-level `func` | ✅ done | Core compilation path (same role as Go). |
+| `var`, assignments, `:=`, short declarations | ✅ done | Forst uses typed `name: Type =` and inference-friendly forms alongside Go-like patterns. |
+
+### Optional & Result Types
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| Optional / nilable value types (`T \| Nil`, `T?` sugar) | 📋 planned | Crystal-style **absence** without TypeScript `undefined` juggling; unions, narrowing, and Go lowering—see [optionals RFC hub](./examples/in/rfc/optionals/README.md) ([00](./examples/in/rfc/optionals/00-crystal-inspired-optionals.md)). |
+| `Result(Success, Failure)` + structured `error` | 📋 planned | Single-return **success vs failure** in source; **failure** side stays in the **Error** family; maps to idiomatic **`(T, error)`** in Go—see [Result & error types](./examples/in/rfc/optionals/02-result-and-error-types.md) and [generics ↔ `Result`](./examples/in/rfc/generics/00-user-generics-and-type-parameters.md#result-types-generics-and-narrowing-ok-and-err). |
+
+### Guards, `ensure`, and narrowing
+
+| Feature | Status | Notes |
+| --- | --- | --- |
 | `ensure` statements (basic type assertions) | ✅ done | Validates assertions and optional blocks; does **not** narrow the subject’s type for statements **after** the `ensure` (see control-flow narrowing). |
 | Shape guards (struct refinement) | ✅ done | Refinement on shapes. |
 | `is` operator for `ensure` conditions | ✅ done | Parser requires `ensure … is …` (see `forst/internal/parser/ensure.go`; `ensure !ident` uses implicit `Nil()`). The typechecker enforces presence (`Present`) and type-guard subject compatibility (`forst/internal/typechecker/unify_typeguard.go`, `infer_ensure.go`); it does **not** fully validate arbitrary built-in constraint semantics beyond that. Emission: `forst/internal/transformer/go/ensure.go`, `ensure_constraint.go`. Examples: `examples/in/ensure.ft` and `task example:ensure`. |
 | Type guards (beyond shape guards) | 📋 planned | Top-level guard definitions and assertion-time checks exist for shape guards; use-site **control-flow narrowing** with guard-backed `is` conditions should reuse `unify_typeguard.go` rules and will advance this row together with narrowing. |
 | Immutability guarantees (`ensure`-scoped; unsafe mode for Go interop) | 📋 planned | Not implemented. |
 | Binary type expressions | 🔬 experimental | Parser and AST support conjunction (`&`) and disjunction (`\|`) on type definitions (`forst/internal/parser/typedef.go`, `forst/internal/ast/typedef.go`); hashing includes `TypeDefBinaryExpr`. The typechecker does **not** yet implement meet/join semantics (no `TypeDefBinaryExpr` handling; see TODO in `forst/internal/typechecker/infer_shape.go`). Go codegen is a **placeholder** that emits `string` (`forst/internal/transformer/go/typedef_expr.go`). Do not rely on binary type semantics until inference and emit are finished. **Narrowing** and future binary types should share one internal type algebra (assertions / `TypeNode`), not a parallel representation—see control-flow narrowing. |
+| Control-flow type narrowing | 🔬 experimental | **If-branch narrowing** for `if x is …` (assertion or shape RHS): refined type for the subject is recorded in the branch scope; variable types are keyed by identifier **and** source span in the typechecker so hover can differ per occurrence. Join/merge across branches and full `ensure`-successor narrowing are not done yet. Implementation: `forst/internal/typechecker/infer_if.go`, `narrow_if.go`; LSP uses `InferredTypesForVariableNode` when the variable AST node is found at the cursor. Type guards vs optionals / `Result`: [type guards & optionals](./examples/in/rfc/optionals/10-type-guards-shape-guards-and-optionals.md). |
+
+### Generics, aliases, and nominal features
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| Generic types | 📋 planned | User-declared type parameters on types and functions; see [generics RFC](./examples/in/rfc/generics/00-user-generics-and-type-parameters.md). |
 | Type aliases | 🔬 experimental | Simple `type Name = BaseType` works end-to-end: definitions are stored (`forst/internal/typechecker/register.go`), alias chains resolve for field access (`forst/internal/typechecker/lookup_field.go`), and compatibility treats aliases symmetrically where wired (`forst/internal/typechecker/go_builtins.go` via `typeDefAssertionFromExpr` in `forst/internal/typechecker/utils.go`). Tests include merged-package alias returns (`forst/internal/typechecker/alias_return_test.go`). Gaps: interaction with generics and binary type expressions, and alias coverage across every compiler path—treat missing spots as bugs. |
-| Control-flow type narrowing | 🔬 experimental | **If-branch narrowing** for `if x is …` (assertion or shape RHS): refined type for the subject is recorded in the branch scope; variable types are keyed by identifier **and** source span in the typechecker so hover can differ per occurrence. Join/merge across branches and full `ensure`-successor narrowing are not done yet. Implementation: `forst/internal/typechecker/infer_if.go`, `narrow_if.go`; LSP uses `InferredTypesForVariableNode` when the variable AST node is found at the cursor. |
-| Generic types | 📋 planned | Not implemented. |
-| Packages, imports, top-level `func` | ✅ done | Core compilation path (same role as Go). |
-| `var`, assignments, `:=`, short declarations | ✅ done | Forst uses typed `name: Type =` and inference-friendly forms alongside Go-like patterns. |
-| `if` / `else` (incl. init statement) | ✅ done | Same structural forms as Go. |
-| `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Parser, typechecker, and Go emit cover the usual Go forms; `examples/in/loop.ft` + `task example:loop`. Gaps vs Go: labeled `break`/`continue`, channel `range` nuances, Go 1.22+ integer `range`—see issues if you need them. |
-| `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
-| `switch` / `case` / `default` / `fallthrough` | 📋 planned | Keywords exist in the lexer; no AST/typecheck/emit yet. |
-| `select` | 📋 planned | Not a Forst keyword yet; needs lexer + full statement support (see also channel row below). |
-| `defer` / `go` statements | ✅ done | Matches [Go spec](https://go.dev/ref/spec): operand must be a **function or method call** (not a receive `<-ch` or other non-call). The operand **cannot be parenthesized** (`defer (f())` is rejected at parse time). Calls to certain **predeclared builtins** are forbidden—the same set Go disallows in **expression statement** context (`append`, `cap`, `complex`, `imag`, `len`, `make`, `new`, `real`, and `unsafe.*` calls listed in the spec); enforced in `forst/internal/typechecker/defer_go_validate.go`. Implementation: `forst/internal/parser/control_flow.go`, `forst/internal/typechecker/infer.go`, `forst/internal/transformer/go/statement.go`. Anonymous `go func(){ … }()` / `defer func(){ … }()` are not expressible until func literals exist in expression position. |
-| Labeled statements + `goto` | 📋 planned | `goto` is lexed; no parser support. |
-| `const` / `iota` | 🔬 experimental | `const` exists lexically; full `const`/`iota` story not aligned with Go. |
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
+| `const` / `iota` | 🔬 experimental | `const` exists lexically; full `const`/`iota` story not aligned with Go. |
+
+### Control flow & statements
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| `if` / `else` (incl. init statement) | ✅ done | Same structural forms as Go. |
+| `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Parser, typechecker, and Go emit cover the usual Go forms; `examples/in/loop.ft` + `task example:loop`. Gaps vs Go: labeled `break`/`continue`, channel `range` nuances, Go 1.22+ integer `range`—see issues if you need them. |
+| `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
+| `switch` / `case` / `default` / `fallthrough` | 📋 planned | Keywords exist in the lexer; no AST/typecheck/emit yet. **Design open:** may track Go’s **`switch`** closely, or lean toward a **`match`**-style construct (patterns, exhaustiveness) instead of—or layered on—classic **`switch`**; not decided. |
+| `select` | 📋 planned | Not a Forst keyword yet; needs lexer + full statement support (see also channel row below). |
+| `defer` / `go` statements | ✅ done | Matches [Go spec](https://go.dev/ref/spec): operand must be a **function or method call** (not a receive `<-ch` or other non-call). The operand **cannot be parenthesized** (`defer (f())` is rejected at parse time). Calls to certain **predeclared builtins** are forbidden—the same set Go disallows in **expression statement** context (`append`, `cap`, `complex`, `imag`, `len`, `make`, `new`, `real`, and `unsafe.*` calls listed in the spec); enforced in `forst/internal/typechecker/defer_go_validate.go`. Implementation: `forst/internal/parser/control_flow.go`, `forst/internal/typechecker/infer.go`, `forst/internal/transformer/go/statement.go`. Anonymous `go func(){ … }()` / `defer func(){ … }()` are not expressible until func literals exist in expression position. |
+| Labeled statements + `goto` | 📋 planned | `goto` is lexed; no parser support. |
+
+### Builtins, runtime, and platform
+
+| Feature | Status | Notes |
+| --- | --- | --- |
 | Built-in calls (`make`, `new`, `append`, `copy`, `len`, `cap`, `close`, …) | 🔬 experimental | Predeclared Go builtins used as calls are type-checked against Go rules in `forst/internal/typechecker/go_builtins.go` (`tryDispatchGoBuiltin`). **`make` / `new` with a type argument** are rejected until the expression parser accepts **Forst type syntax** in that position (e.g. `Array(Int)`, `Map(K, V)`), not Go spellings like `[]T` or `map[K]V`. |
 | Goroutines (beyond `go` call) | 🔬 experimental | `go f()` supported; scheduler/runtime is Go’s. |
 | Channels (`chan`, `<-`, `range` on channel) | 🔬 experimental | Send/receive parse in some forms; `select` and full channel ergonomics missing. |

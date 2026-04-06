@@ -1,7 +1,10 @@
 package printer
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestUTF16Len_ASCII(t *testing.T) {
@@ -49,5 +52,50 @@ func TestFormatForstWhitespace_ExpandsLeadingTabsWhenInsertSpaces(t *testing.T) 
 	out := FormatForstWhitespace(in, 2, true)
 	if out != "  foo\n" {
 		t.Fatalf("got %q", out)
+	}
+}
+
+func TestUTF16Len_nonBMP(t *testing.T) {
+	t.Parallel()
+	// One Unicode scalar value above U+FFFF uses two UTF-16 code units.
+	if got := UTF16Len("\U0001F600"); got != 2 {
+		t.Fatalf("got %d", got)
+	}
+}
+
+func TestFormatSource_unexpectedTopLevel_returnsError(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	_, err := FormatSource("unexpected\n", "t.ft", log)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestFormatDocument_parseError_fallsBackToWhitespaceOnly(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.TraceLevel)
+	src := "unexpected\n"
+	out := FormatDocument(src, "bad.ft", 2, true, log)
+	want := FormatForstWhitespace(src, 2, true)
+	if out != want {
+		t.Fatalf("got %q want %q", out, want)
+	}
+}
+
+func TestFormatDocument_validSource_appliesWhitespacePass(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	src := `package main
+
+func main() {
+}
+`
+	out := FormatDocument(src, "ok.ft", 2, true, log)
+	if !strings.HasSuffix(out, "\n") {
+		t.Fatalf("expected final newline: %q", out)
 	}
 }

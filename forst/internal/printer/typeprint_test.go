@@ -1,10 +1,16 @@
 package printer
 
 import (
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
 )
+
+func ptrConstraintValue(v ast.ValueNode) *ast.ValueNode {
+	p := ast.ValueNode(v)
+	return &p
+}
 
 func TestPrintType_builtins(t *testing.T) {
 	t.Parallel()
@@ -94,6 +100,49 @@ func TestQuoteString_roundTrip(t *testing.T) {
 	t.Parallel()
 	s := "a\"b\nc"
 	if got := quoteString(s); got != `"a\"b\nc"` {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestPrintType_typeAssertion_and_namedWithConstraints(t *testing.T) {
+	t.Parallel()
+	base := ast.TypeString
+	a := ast.AssertionNode{
+		BaseType: &base,
+		Constraints: []ast.ConstraintNode{
+			{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrConstraintValue(ast.IntLiteralNode{Value: 2})}}},
+		},
+	}
+	if got := printType(ast.TypeNode{Ident: ast.TypeAssertion, Assertion: &a}); got != "String.Min(2)" {
+		t.Fatalf("TypeAssertion: got %q", got)
+	}
+
+	tNamed := ast.TypeIdent("Row")
+	a2 := ast.AssertionNode{
+		Constraints: []ast.ConstraintNode{
+			{
+				Name: "Between",
+				Args: []ast.ConstraintArgumentNode{
+					{Value: ptrConstraintValue(ast.IntLiteralNode{Value: 1})},
+					{Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
+	}
+	got := printType(ast.TypeNode{Ident: tNamed, Assertion: &a2})
+	if got != "Row.Between(1, Int)" {
+		t.Fatalf("named + constraints: got %q", got)
+	}
+}
+
+func TestPrintType_typeShape_withAssertion(t *testing.T) {
+	t.Parallel()
+	base := ast.TypeString
+	a := ast.AssertionNode{
+		BaseType:    &base,
+		Constraints: []ast.ConstraintNode{{Name: "Present", Args: []ast.ConstraintArgumentNode{}}},
+	}
+	if got := printType(ast.TypeNode{Ident: ast.TypeShape, Assertion: &a}); !strings.Contains(got, "Present") {
 		t.Fatalf("got %q", got)
 	}
 }
