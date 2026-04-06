@@ -81,6 +81,28 @@ describe("ForstSidecarClient", () => {
     );
   });
 
+  it("invalidateFunctionCache clears getFunctionInfo lookups", async () => {
+    const fn = sampleFunctionInfo();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({
+        success: true,
+        result: [fn],
+      }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    await client.discoverFunctions();
+    expect(client.getFunctionInfo("demo", "Echo")).toBeDefined();
+    client.invalidateFunctionCache();
+    expect(client.getFunctionInfo("demo", "Echo")).toBeUndefined();
+  });
+
   it("POST /invoke sends package, function, and args JSON", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

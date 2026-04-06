@@ -223,6 +223,14 @@ export class ForstSidecarClient {
   }
 
   /**
+   * Clears the in-memory cache from {@link discoverFunctions}. Call after the dev server restarts
+   * or reloads so the next discovery reflects new/removed functions.
+   */
+  invalidateFunctionCache(): void {
+    this.functions.clear();
+  }
+
+  /**
    * Get information about a specific function
    */
   getFunctionInfo(

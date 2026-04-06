@@ -1,5 +1,9 @@
-export { COMPILER_RELEASES_BASE, FORST_CLI_INFO_FLAG } from "./constants.js";
-export { printForstCliInfo } from "./cli-info.js";
+export {
+  COMPILER_RELEASES_BASE,
+  FORST_CLI_INFO_FLAG,
+  FORST_CLI_VERSION_FLAGS,
+} from "./constants.js";
+export { printForstCliInfo, printForstCliVersion } from "./cli-info.js";
 export {
   getCompilerArtifactName,
 } from "./artifact.js";

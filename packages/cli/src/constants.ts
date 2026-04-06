@@ -7,3 +7,9 @@ export const COMPILER_RELEASES_BASE =
  * wrapper semver, resolved binary path, and `forst version` — without forwarding to other subcommands.
  */
 export const FORST_CLI_INFO_FLAG = "--forst-cli-info";
+
+/**
+ * Pass as the only argument to print `@forst/cli` semver and the resolved compiler’s `forst version`
+ * first line — compact, for scripts and `--version` conventions (does not forward to the native binary).
+ */
+export const FORST_CLI_VERSION_FLAGS = ["--version", "-V"] as const;

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
-import { readForstConfig } from "./config";
+import { readForstConfig, resolveForstExecutableWithCli } from "./config";
+import { formatForstDebugInfo, gatherForstDebugInfo } from "./debugInfo";
 import { applyPublishDiagnostics } from "./lsp/diagnostics";
 import { registerForstLanguageFeatures } from "./lsp/languageFeatures";
 import type { ForstLspChildState } from "./lsp/process";
@@ -36,6 +37,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   output = vscode.window.createOutputChannel("Forst", { log: true });
   context.subscriptions.push(diagnosticsCollection, output);
   registerForstStatusBar(context, output);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("forst.copyDebugInfo", async () => {
+      const cfg = readForstConfig();
+      const vscodeExtVer = String(
+        (context.extension.packageJSON as { version?: string }).version ?? "?"
+      );
+      try {
+        const resolved = await resolveForstExecutableWithCli(cfg, output);
+        const fields = await gatherForstDebugInfo(
+          vscodeExtVer,
+          vscode.version,
+          cfg,
+          resolved
+        );
+        const text = formatForstDebugInfo(fields);
+        await vscode.env.clipboard.writeText(text);
+        output.info("Forst debug info copied to clipboard.");
+        void vscode.window.showInformationMessage(
+          "Forst: debug info copied to clipboard."
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        output.error(`Copy debug info failed: ${msg}`);
+        void vscode.window.showErrorMessage(`Forst: ${msg}`);
+      }
+    })
+  );
 
   const vscodeExtVer = String(
     (context.extension.packageJSON as { version?: string }).version ?? "?"
