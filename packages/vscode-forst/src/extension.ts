@@ -37,9 +37,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(diagnosticsCollection, output);
   registerForstStatusBar(context, output);
 
-  output.info(
-    'Forst extension activated. Open a .ft file (language mode “Forst”) or a folder that contains .ft files to run diagnostics.'
+  const vscodeExtVer = String(
+    (context.extension.packageJSON as { version?: string }).version ?? "?"
   );
+  output.info(`Forst VS Code extension ${vscodeExtVer} — activated. Open a .ft file (language mode “Forst”) or a folder that contains .ft files to run diagnostics.`);
   output.show(true);
 
   registerForstLanguageFeatures(context, {

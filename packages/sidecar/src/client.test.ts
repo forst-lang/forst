@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, jest } from "bun:test";
 import { ForstSidecarClient } from "./client";
 import {
+  SIDECAR_PACKAGE_VERSION,
+  SIDECAR_VERSION_HTTP_HEADER,
+} from "./constants";
+import {
   DevServerHttpFailure,
   DevServerInvokeRejected,
 } from "./errors";
@@ -24,6 +28,30 @@ describe("ForstSidecarClient", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+  });
+
+  it("sends sidecar version header on dev server requests", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({ success: true }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    await client.healthCheck();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:8080/health",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
+        }),
+      })
+    );
   });
 
   it("GET /functions returns parsed FunctionInfo list", async () => {

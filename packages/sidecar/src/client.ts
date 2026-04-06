@@ -15,6 +15,10 @@ import {
   sanitizeRequestBodyString,
 } from "./sanitizeLogPayload";
 import {
+  SIDECAR_PACKAGE_VERSION,
+  SIDECAR_VERSION_HTTP_HEADER,
+} from "./constants";
+import {
   DevServerFunctionsRejected,
   DevServerHttpFailure,
   DevServerInvokeRejected,
@@ -344,6 +348,7 @@ export class ForstSidecarClient {
         const response = await fetch(url, {
           ...options,
           headers: {
+            [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
             "Content-Type": "application/json",
             ...options.headers,
           },

@@ -64,6 +64,10 @@ jobs:
       - name: Install Bun dependencies
         run: bun install
 
+      - name: Echo package versions (smoke)
+        run: |
+          echo "sidecar=$(node -p "require('./packages/sidecar/package.json').version") vscode-forst=$(node -p "require('./packages/vscode-forst/package.json').version")"
+
       - name: Run linter
         uses: golangci/golangci-lint-action@v8
         with:

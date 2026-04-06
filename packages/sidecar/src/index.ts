@@ -8,7 +8,11 @@ export {
   effectiveWatchDirForConfig,
 } from "./server";
 export { ForstUtils } from "./utils";
-export { FORST_DEV_HTTP_CONTRACT_VERSION } from "./constants";
+export {
+  FORST_DEV_HTTP_CONTRACT_VERSION,
+  SIDECAR_PACKAGE_VERSION,
+  SIDECAR_VERSION_HTTP_HEADER,
+} from "./constants";
 export {
   contractVersionCompatible,
   versionsEquivalentForSidecar,
