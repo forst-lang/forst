@@ -17,21 +17,33 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      release_created: ${{ steps.release-please-release.outputs.release_created }}
+      tag_name: ${{ steps.release-please-release.outputs.tag_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Release Please
-        id: release
+      # Run PR creation before tagging: the action's default order is releases first,
+      # then PRs—so a failing createReleases() prevented any PR from being opened/updated.
+      - name: Release Please (release PRs)
+        id: release-please-pr
         uses: googleapis/release-please-action@v4
         with:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
+          skip-github-release: true
+
+      - name: Release Please (tags / GitHub releases)
+        id: release-please-release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+          skip-github-pull-request: true
 
   build:
     needs: release-please
