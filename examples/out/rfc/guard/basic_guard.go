@@ -5,7 +5,7 @@ import errors "errors"
 // Password: TypeDefAssertionExpr(TYPE_STRING)
 type Password string
 
-func G_H5qf3FeqdN3(password Password) bool {
+func G_AAqSwpSKPZ9(password Password) bool {
 	if len(password) < 12 {
 		return false
 	}
@@ -14,7 +14,7 @@ func G_H5qf3FeqdN3(password Password) bool {
 
 func main() {
 	var password Password = "12345abc"
-	if !G_H5qf3FeqdN3(password) {
+	if !G_AAqSwpSKPZ9(password) {
 		println("Detected password as too weak, exiting...")
 		panic(errors.New("assertion failed: " + "Strong()"))
 	}

@@ -13,28 +13,33 @@ type CreateUserRequest = {
   email: String
 }
 
-is (user User) Valid {
-  ensure user.name is Min(1)
-  ensure user.age is GreaterThan(0)
-  ensure user.age is LessThan(151)
-  ensure user.name is Min(1)
-  ensure user.email is Contains("@")
+type CreateUserResponse = {
+  user: User,
+  created_at: Int
 }
 
-func CreateUser(input CreateUserRequest) {
-  user := {
+is (u User) Valid {
+  ensure u.name is Min(1)
+  ensure u.age is GreaterThan(0)
+  ensure u.age is LessThan(151)
+  ensure u.name is Min(1)
+  ensure u.email is Contains("@")
+}
+
+func CreateUser(input CreateUserRequest): Result(CreateUserResponse, Error) {
+  created := {
     id: "123",
     name: input.name,
     age: input.age,
     email: input.email
   }
-  
-  ensure user is Valid
-  
-  return {
-    user: user,
+
+  ensure created is Valid
+
+  return Ok({
+    user: created,
     created_at: 1234567890
-  }, nil
+  })
 }
 
 func GetUserById(id String) {
@@ -50,16 +55,16 @@ func GetUserById(id String) {
 func UpdateUserAge(id String, newAge Int) {
   ensure newAge is GreaterThan(0)
   ensure newAge is LessThan(151)
-  
-  user := GetUserById(id)
+
+  existing := GetUserById(id)
   updatedUser := {
-    id: user.id,
-    name: user.name,
+    id: existing.id,
+    name: existing.name,
     age: newAge,
-    email: user.email
+    email: existing.email
   }
-  
+
   ensure updatedUser is Valid
-  
+
   return updatedUser
-} 
+}

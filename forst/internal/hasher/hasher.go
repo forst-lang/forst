@@ -282,6 +282,16 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["Ensure"]); err != nil {
 			return 0, err
 		}
+		// Subject variable must participate in the hash; otherwise distinct ensures
+		// with the same assertion (e.g. `ensure a.name is Min(1)` vs `ensure b.name is Min(1)`)
+		// collide in scopeStack.scopes and restoreScope picks the wrong Ensure scope.
+		vh, err := h.HashNode(n.Variable)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, vh); err != nil {
+			return 0, err
+		}
 		hash, err := h.HashNode(n.Assertion)
 		if err != nil {
 			return 0, err
