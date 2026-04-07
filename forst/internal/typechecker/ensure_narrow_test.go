@@ -372,12 +372,12 @@ type MoveRequest = {
 	col:   Int,
 }
 
-func ApplyMove(req MoveRequest): (Int, Error) {
+func ApplyMove(req MoveRequest): Result(Int, Error) {
 	ensure req.state is ValidBoard()
 	if req.state.status != "playing" {
-		return 0, nil
+		return Ok(0)
 	}
-	return 1, nil
+	return Ok(1)
 }
 `
 	log := logrus.New()

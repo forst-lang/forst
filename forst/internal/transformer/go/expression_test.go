@@ -1513,3 +1513,23 @@ func TestTransformExpression_IfIsAssertionRHS(t *testing.T) {
 		t.Fatalf("expected IIFE bool for if-is, got %q", got)
 	}
 }
+
+func TestTransformExpression_tupleResultBindingRejectsBareVariable(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	tr.resultLocalSplit = map[string]resultLocalSplit{
+		"x": {
+			errGoName:      "xErr",
+			successGoNames: []string{"x0", "x1"},
+		},
+	}
+	_, err := tr.transformExpression(ast.VariableNode{Ident: ast.Ident{ID: "x"}})
+	if err == nil {
+		t.Fatal("expected error for tuple-split Result variable")
+	}
+	if !strings.Contains(err.Error(), "multiple left-hand names") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

@@ -17,6 +17,7 @@ Exploration of **`T | Nil`** (Crystal-style **`T?`**) vs Go’s **`(value, error
 | [08](./08-go-interop-lowering.md) | **Lowering** optionals to Go |
 | [09](./09-ensure-is-narrowing-and-binary-types.md) | **`ensure`**, **`is`**, narrowing |
 | [10](./10-type-guards-shape-guards-and-optionals.md) | **Type / shape guards** vs optionals **`Result`** |
+| [11](./11-forst-result-tuple-single-return.md) | **User-facing** — **`Result`**, **`Tuple`**, **single return**, **`Ok`/`Err`**, **`is`** narrowing, Go interop, tooling, migration (**normative direction**) |
 
 ## See also
 

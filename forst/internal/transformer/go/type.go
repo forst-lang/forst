@@ -54,6 +54,10 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 			return nil, err
 		}
 		return &goast.MapType{Key: keyT, Value: valT}, nil
+	case ast.TypeResult:
+		return nil, fmt.Errorf("Result types are expanded at function boundaries; use transformTypes, not transformType")
+	case ast.TypeTuple:
+		return nil, fmt.Errorf("Tuple types are expanded at function boundaries; use transformTypes, not transformType")
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
@@ -65,16 +69,35 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 }
 
 func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, error) {
-	fields := make([]*goast.Field, len(types))
-
-	for i, typ := range types {
+	var fields []*goast.Field
+	for _, typ := range types {
+		if typ.IsResultType() {
+			if len(typ.TypeParams) != 2 {
+				return nil, fmt.Errorf("Result must have exactly two type parameters")
+			}
+			s, err := t.transformType(typ.TypeParams[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform Result success type: %w", err)
+			}
+			fields = append(fields, &goast.Field{Type: s})
+			fields = append(fields, &goast.Field{Type: goast.NewIdent("error")})
+			continue
+		}
+		if typ.IsTupleType() {
+			for _, elem := range typ.TypeParams {
+				expr, err := t.transformType(elem)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform Tuple element: %w", err)
+				}
+				fields = append(fields, &goast.Field{Type: expr})
+			}
+			continue
+		}
 		expr, err := t.transformType(typ)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform type: %s", err)
 		}
-		fields[i] = &goast.Field{
-			Type: expr,
-		}
+		fields = append(fields, &goast.Field{Type: expr})
 	}
 
 	return &goast.FieldList{

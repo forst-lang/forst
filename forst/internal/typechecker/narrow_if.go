@@ -170,6 +170,18 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 	varLeftType := varLeftTypes[0]
 
 	switch r := right.(type) {
+	case ast.AssertionNode:
+		if handled, refined, err := tc.refinedTypesForResultIsNarrowing(varLeftType, &r); handled {
+			if err != nil {
+				return nil, err
+			}
+			return refined, nil
+		}
+		vn, ok := leftmostVar.(ast.VariableNode)
+		if !ok {
+			return nil, fmt.Errorf("assertion RHS narrowing requires variable subject, got %T", leftmostVar)
+		}
+		return tc.refinedTypesForAssertionOnVariable(vn, &r)
 	case ast.TypeDefAssertionExpr:
 		if r.Assertion == nil {
 			return nil, fmt.Errorf("missing assertion on RHS of `is`")
@@ -179,12 +191,6 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 			return nil, err
 		}
 		return tc.refinedNarrowingTypeFromAliasAssertion(r.Assertion, refined), nil
-	case ast.AssertionNode:
-		vn, ok := leftmostVar.(ast.VariableNode)
-		if !ok {
-			return nil, fmt.Errorf("assertion RHS narrowing requires variable subject, got %T", leftmostVar)
-		}
-		return tc.refinedTypesForAssertionOnVariable(vn, &r)
 	case ast.ShapeNode:
 		tn, err := tc.inferShapeType(r, &varLeftType)
 		if err != nil {
@@ -221,6 +227,28 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 		}
 		return nil, fmt.Errorf("unsupported RHS for narrowing: %T", right)
 	}
+}
+
+// refinedTypesForResultIsNarrowing handles `x is Ok(...)` / `Err(...)` when x is Result(S,F).
+func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode, a *ast.AssertionNode) (handled bool, refined []ast.TypeNode, err error) {
+	if a == nil || len(a.Constraints) != 1 || a.BaseType != nil {
+		return false, nil, nil
+	}
+	c := a.Constraints[0]
+	if c.Name != "Ok" && c.Name != "Err" {
+		return false, nil, nil
+	}
+	if !varLeftType.IsResultType() || len(varLeftType.TypeParams) < 2 {
+		// User type guard named Ok/Err (e.g. `is (v N) Ok()`) — not Result discriminators.
+		return false, nil, nil
+	}
+	if err := tc.validateResultDiscriminatorAssertion(*a, varLeftType); err != nil {
+		return true, nil, err
+	}
+	if c.Name == "Ok" {
+		return true, []ast.TypeNode{varLeftType.TypeParams[0]}, nil
+	}
+	return true, []ast.TypeNode{varLeftType.TypeParams[1]}, nil
 }
 
 // refinedTypesForAssertionOnVariable returns the refined type(s) for a variable under the given

@@ -29,6 +29,10 @@ type FunctionInfo struct {
 	ReturnType         string          `json:"returnType"`
 	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
 	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
+	// IsResult and the result* fields apply when the sole return type is Result(Success, Failure).
+	IsResult           bool   `json:"isResult,omitempty"`
+	ResultSuccessType  string `json:"resultSuccessType,omitempty"`
+	ResultFailureType  string `json:"resultFailureType,omitempty"`
 	FilePath           string          `json:"filePath"`
 }
 
@@ -228,6 +232,9 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			} else {
 				d.log.Debugf("Function %s has no return types", n.Ident.ID)
 			}
+			if len(returnTypes) == 1 {
+				d.applyResultDiscoveryMetadata(&fnInfo, returnTypes[0], tc)
+			}
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
 			fnInfo.OutputType = fnInfo.ReturnType
 			functions[string(n.Ident.ID)] = fnInfo
@@ -279,6 +286,15 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typecheck
 // typeToString converts an AST type to a string representation
 func (d *Discoverer) typeToString(t ast.TypeNode) string {
 	return t.String()
+}
+
+func (d *Discoverer) applyResultDiscoveryMetadata(fn *FunctionInfo, rt ast.TypeNode, tc *typechecker.TypeChecker) {
+	if !rt.IsResultType() || len(rt.TypeParams) < 2 {
+		return
+	}
+	fn.IsResult = true
+	fn.ResultSuccessType = d.resolveTypeName(rt.TypeParams[0], tc)
+	fn.ResultFailureType = d.resolveTypeName(rt.TypeParams[1], tc)
 }
 
 // resolveTypeName converts an AST type to a string representation using the typechecker

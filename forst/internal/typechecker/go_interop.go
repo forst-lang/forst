@@ -10,6 +10,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// goErrorInterfaceType returns the predeclared error interface type, or nil if unavailable.
+func goErrorInterfaceType() types.Type {
+	obj := types.Universe.Lookup("error")
+	if obj == nil {
+		return nil
+	}
+	tn, ok := obj.(*types.TypeName)
+	if !ok {
+		return nil
+	}
+	return tn.Type()
+}
+
 func fallbackImportLocal(imp ast.ImportNode) (path, local string) {
 	ip := goload.ImportPathFromForst(imp.Path)
 	if ip == "" {
@@ -97,7 +110,9 @@ func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = byLocal
 }
 
-func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) ([]ast.TypeNode, error) {
+// foldErrorPair: when true, Go (T, error) is represented as a single Result(T, Error) (expression / single-assignment).
+// When false, returns two separate type nodes so two-value assignments (v, err := pkg.F()) typecheck.
+func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
 	obj := pkg.Scope().Lookup(funcName)
 	if obj == nil {
 		sp := e.Function.Span
@@ -118,18 +133,16 @@ func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, func
 	if !ok {
 		return nil, diagnosticf(e.CallSpan, "go-call", "%s.%s: invalid signature", pkgDisplay, funcName)
 	}
-	mapped, err := tc.checkGoSignature(sig, pkgDisplay+"."+funcName, e, argTypes)
+	mapped, err := tc.checkGoSignature(sig, pkgDisplay+"."+funcName, e, argTypes, foldErrorPair)
 	if err != nil {
 		return nil, err
 	}
-	qual := pkgDisplay + "." + funcName
-	if b, ok := BuiltinFunctions[qual]; ok {
-		return []ast.TypeNode{b.ReturnType}, nil
-	}
+	// go/types is authoritative here (package is loaded). Do not override with BuiltinFunctions
+	// entries that may omit error returns (e.g. strconv.Atoi is (int, error) -> Result(Int, Error)).
 	return mapped, nil
 }
 
-func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
 	params := sig.Params()
 	nParams := params.Len()
 	nArgs := len(argTypes)
@@ -188,6 +201,22 @@ func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast
 		}
 		out[i] = gt
 	}
+	// Go idiom (T1,...,Tn, error) becomes Result(T1, Error) when n==1, else Result(Tuple(T1..Tn), Error).
+	if foldErrorPair && res.Len() >= 2 {
+		errIface := goErrorInterfaceType()
+		if errIface != nil && types.AssignableTo(res.At(res.Len()-1).Type(), errIface) {
+			n := res.Len()
+			successTypes := out[:n-1]
+			failureType := out[n-1]
+			var success ast.TypeNode
+			if len(successTypes) == 1 {
+				success = successTypes[0]
+			} else {
+				success = ast.NewTupleType(successTypes...)
+			}
+			return []ast.TypeNode{ast.NewResultType(success, failureType)}, nil
+		}
+	}
 	return out, nil
 }
 
@@ -221,7 +250,7 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	if t == nil {
 		return ast.TypeNode{}, false
 	}
-	if t.String() == "error" {
+	if errIface := goErrorInterfaceType(); errIface != nil && types.AssignableTo(t, errIface) {
 		return ast.TypeNode{Ident: ast.TypeError}, true
 	}
 	switch u := t.Underlying().(type) {

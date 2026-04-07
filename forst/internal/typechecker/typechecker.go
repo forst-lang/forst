@@ -62,6 +62,8 @@ type TypeChecker struct {
 	loopDepth int
 	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
 	ifChainNarrowingStack [][]narrowingEvent
+	// currentFunction is set while inferring a function body (Ok/Err need Result(S,F) from the signature).
+	currentFunction *ast.FunctionNode
 }
 
 // New creates a new TypeChecker
@@ -91,6 +93,12 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 	}
 
 	return tc
+}
+
+// GoImportPackageLoaded reports whether go/packages successfully loaded the given import local name
+// (e.g. "strconv", "fmt") for Forst↔Go boundary typing. When false, qualified calls may fall back to builtins only.
+func (tc *TypeChecker) GoImportPackageLoaded(local string) bool {
+	return tc.goPkgsByLocal != nil && tc.goPkgsByLocal[local] != nil
 }
 
 // CheckTypes performs type inference in two passes:

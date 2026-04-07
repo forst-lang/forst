@@ -18,8 +18,8 @@ func TestNilBuiltinSymbol(t *testing.T) {
 			code: `
 package main
 
-func test() : (String, Error) {
-	return "hello", nil
+func test() : Result(String, Error) {
+	return Ok("hello")
 }
 `,
 			wantErr: false,
@@ -64,8 +64,8 @@ func test() {
 			code: `
 package main
 
-func foo() (String, Error) {
-	return "hello", nil
+func foo() : Result(String, Error) {
+	return Ok("hello")
 }
 
 func test() {
@@ -80,14 +80,13 @@ func test() {
 			code: `
 package main
 
-func foo() : (String, Error) {
-	return "hello", nil
+func foo() : Result(String, Error) {
+	return Ok("hello")
 }
 
 func test() {
-	name, err := foo()
-	ensure !err
-	println(name)
+	r := foo()
+	println(r)
 }
 `,
 			wantErr: false,
@@ -202,8 +201,8 @@ func TestAssignmentToUndeclaredVarsWithMultipleReturn(t *testing.T) {
 	code := `
 package main
 
-func foo() : (String, Error) {
-	return "hi", nil
+func foo() : Result(String, Error) {
+	return Ok("hi")
 }
 
 func test() {

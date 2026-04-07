@@ -117,6 +117,18 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 
 // validateAssertionNode validates a direct assertion node
 func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, varLeftType ast.TypeNode) error {
+	if len(assertionNode.Constraints) == 1 && assertionNode.BaseType == nil {
+		c := assertionNode.Constraints[0]
+		if c.Name == "Ok" || c.Name == "Err" {
+			if varLeftType.IsResultType() {
+				return tc.validateResultDiscriminatorAssertion(assertionNode, varLeftType)
+			}
+			// Otherwise only valid if a user-defined type guard uses this name (e.g. `is (v N) Ok()`).
+			if _, hasGuard := tc.Defs[ast.TypeIdent(c.Name)]; !hasGuard {
+				return fmt.Errorf("%s assertion requires Result subject, got %s", c.Name, varLeftType.String())
+			}
+		}
+	}
 	for _, constraint := range assertionNode.Constraints {
 		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
@@ -137,4 +149,72 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		}
 	}
 	return nil
+}
+
+// validateResultDiscriminatorAssertion validates `x is Ok(...)` / `Err(...)` when the subject is Result(S,F).
+func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode, varLeftType ast.TypeNode) error {
+	if !varLeftType.IsResultType() || len(varLeftType.TypeParams) < 2 {
+		c := "Ok"
+		if len(a.Constraints) == 1 && a.Constraints[0].Name == "Err" {
+			c = "Err"
+		}
+		return fmt.Errorf("%s assertion requires Result subject, got %s", c, varLeftType.String())
+	}
+	if a.BaseType != nil {
+		return fmt.Errorf("Ok/Err discriminator cannot use a base type")
+	}
+	if len(a.Constraints) != 1 {
+		return fmt.Errorf("Ok/Err assertion requires exactly one constraint")
+	}
+	c := a.Constraints[0]
+	succ := varLeftType.TypeParams[0]
+	fail := varLeftType.TypeParams[1]
+	switch c.Name {
+	case "Ok":
+		switch len(c.Args) {
+		case 0:
+			return nil
+		case 1:
+			if c.Args[0].Value == nil {
+				return fmt.Errorf("Ok(...) requires a value argument")
+			}
+			vt, err := tc.inferExpressionType(*c.Args[0].Value)
+			if err != nil {
+				return err
+			}
+			if len(vt) != 1 {
+				return fmt.Errorf("Ok argument: expected a single type")
+			}
+			if !tc.IsTypeCompatible(vt[0], succ) {
+				return fmt.Errorf("Ok(...) value incompatible with success type %s", succ.String())
+			}
+			return nil
+		default:
+			return fmt.Errorf("Ok(...) expects at most one argument")
+		}
+	case "Err":
+		switch len(c.Args) {
+		case 0:
+			return nil
+		case 1:
+			if c.Args[0].Value == nil {
+				return fmt.Errorf("Err(...) requires a value argument")
+			}
+			vt, err := tc.inferExpressionType(*c.Args[0].Value)
+			if err != nil {
+				return err
+			}
+			if len(vt) != 1 {
+				return fmt.Errorf("Err argument: expected a single type")
+			}
+			if !tc.IsTypeCompatible(vt[0], fail) {
+				return fmt.Errorf("Err(...) value incompatible with failure type %s", fail.String())
+			}
+			return nil
+		default:
+			return fmt.Errorf("Err(...) expects at most one argument")
+		}
+	default:
+		return fmt.Errorf("internal: not Ok/Err discriminator")
+	}
 }

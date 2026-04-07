@@ -38,6 +38,12 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		}
 	}
 
+	// `is` RHS may be AssertionNode with Ok/Err — InferAssertionType cannot type it without subject;
+	// unifyIsOperator validates using the left-hand subject type instead.
+	if operator == ast.TokenIs {
+		return tc.unifyIsOperator(left, right)
+	}
+
 	rightTypes, err := tc.inferExpressionType(right)
 	if err != nil {
 		return ast.TypeNode{}, err
@@ -54,8 +60,6 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		return tc.unifyComparisonOperator(leftType, rightType)
 	} else if operator.IsLogicalBinaryOperator() {
 		return tc.unifyLogicalOperator(leftType, rightType)
-	} else if operator == ast.TokenIs {
-		return tc.unifyIsOperator(left, right, leftType, rightType)
 	}
 
 	panic(typecheckError("unsupported operator"))

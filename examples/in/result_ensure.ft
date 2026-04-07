@@ -1,0 +1,14 @@
+package main
+
+// Demonstrates Result lowering, x/xErr split, and ensure x is Ok() failure path.
+// Golden: ../out/result_ensure/result_ensure.go (cmd/forst TestExamples)
+
+func okInt(): Result(Int, Error) {
+	return Ok(42)
+}
+
+func main() {
+	x := okInt()
+	ensure x is Ok()
+	println(x)
+}

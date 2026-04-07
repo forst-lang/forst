@@ -106,14 +106,10 @@ func terminalStatusForWinner(w String): String {
 	return "o_won"
 }
 
-func ApplyMove(req MoveRequest): (MoveResponse, Error) {
+func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	ensure req.state is ValidBoard()
 	if req.state.status != "playing" {
-		return {
-			ok:      false,
-			message: "game already finished",
-			state:   req.state,
-		}, invalidMove("game already finished")
+		return Err(invalidMove("game already finished"))
 	}
 
 	row := req.row
@@ -139,7 +135,7 @@ func ApplyMove(req MoveRequest): (MoveResponse, Error) {
 		status = "playing"
 	}
 
-	return {
+	return Ok({
 		ok: true,
 		message: "ok",
 		state: {
@@ -147,7 +143,7 @@ func ApplyMove(req MoveRequest): (MoveResponse, Error) {
 			nextPlayer: np,
 			status:     status,
 		},
-	}, nil
+	})
 }
 
 func NewGame(): GameState {
@@ -159,6 +155,6 @@ func NewGame(): GameState {
 	}
 }
 
-func PlayMove(req MoveRequest): (MoveResponse, Error) {
+func PlayMove(req MoveRequest): Result(MoveResponse, Error) {
 	return ApplyMove(req)
 }

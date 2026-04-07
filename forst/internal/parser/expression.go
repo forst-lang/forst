@@ -186,6 +186,17 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 		p.advance()
 		args, argSpans := p.parseCallArguments()
 		rparen := p.expect(ast.TokenRParen)
+		if ident.ID == "Ok" || ident.ID == "Err" {
+			if len(args) != 1 {
+				p.FailWithParseError(lparen, string(ident.ID)+" expects exactly one argument")
+			}
+			_ = argSpans
+			_ = rparen
+			if ident.ID == "Ok" {
+				return ast.OkExprNode{Value: args[0]}
+			}
+			return ast.ErrExprNode{Value: args[0]}
+		}
 		return ast.FunctionCallNode{
 			Function:  ident,
 			Arguments: args,

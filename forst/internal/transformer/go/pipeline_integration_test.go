@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,8 +14,20 @@ import (
 	"forst/internal/typechecker"
 )
 
+// pipelineOpts configures compileForstPipelineExt (Go workspace / optional skip for FFI tests).
+type pipelineOpts struct {
+	goWorkspaceDir     string
+	skipUnlessGoImport string // if set, t.Skip when go/packages did not load this import local name
+}
+
 // compileForstPipeline runs parse → typecheck → transform → go/format on Forst source.
 func compileForstPipeline(t *testing.T, src string) string {
+	t.Helper()
+	return compileForstPipelineExt(t, src, pipelineOpts{})
+}
+
+// compileForstPipelineExt runs parse → typecheck → transform → go/format with optional GoWorkspaceDir.
+func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string {
 	t.Helper()
 	log := ast.SetupTestLogger(nil)
 	if !testing.Verbose() {
@@ -27,8 +41,12 @@ func compileForstPipeline(t *testing.T, src string) string {
 	}
 
 	tc := typechecker.New(log, false)
+	tc.GoWorkspaceDir = opts.goWorkspaceDir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("typecheck: %v", err)
+	}
+	if opts.skipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.skipUnlessGoImport) {
+		t.Skipf("%s not loaded (go/packages or workspace)", opts.skipUnlessGoImport)
 	}
 
 	tr := New(tc, log)
@@ -42,6 +60,24 @@ func compileForstPipeline(t *testing.T, src string) string {
 		t.Fatalf("go/format: %v", err)
 	}
 	return buf.String()
+}
+
+func moduleRootFromWD(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found from cwd")
+		}
+		dir = parent
+	}
 }
 
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
@@ -281,9 +317,9 @@ func bad(msg String): Error {
 	return errors.New(msg)
 }
 
-func f(row Int): (String, Error) {
+func f(row Int): Result(String, Error) {
 	ensure row is GreaterThan(-1) or bad("x")
-	return "ok", nil
+	return Ok("ok")
 }
 
 func main() {
@@ -296,17 +332,17 @@ func main() {
 			name: "return_multi_value_call_single_expr_not_padded_with_nil",
 			src: `package main
 
-func inner(): (Int, Error) {
-	return 1, nil
+func inner(): Result(Int, Error) {
+	return Ok(1)
 }
 
-func outer(): (Int, Error) {
+func outer(): Result(Int, Error) {
 	return inner()
 }
 
 func main() {
-	_, _ := outer()
-	println("ok")
+	x := outer()
+	println(x)
 }
 `,
 			needles: []string{`return inner()`, `func outer`},
@@ -329,17 +365,17 @@ func main() {
 func TestPipeline_return_multi_value_call_not_padded_with_nil(t *testing.T) {
 	src := `package main
 
-func inner(): (Int, Error) {
-	return 1, nil
+func inner(): Result(Int, Error) {
+	return Ok(1)
 }
 
-func outer(): (Int, Error) {
+func outer(): Result(Int, Error) {
 	return inner()
 }
 
 func main() {
-	_, _ := outer()
-	println("ok")
+	x := outer()
+	println(x)
 }
 `
 	out := compileForstPipeline(t, src)
@@ -410,6 +446,138 @@ func main() {
 `
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{`func G_`, `len(password)`, `Password`, `os.Exit`, `package main`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_singleAssignResultCall_emitsTwoValueAssignAndPrintln(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return Ok(1)
+}
+
+func main() {
+	x := f()
+	println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`x, xErr :=`,
+		`println(x, xErr)`,
+		`func f()`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_discardedResultCallStmt_emitsBareCallExprStmt(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return Ok(1)
+}
+
+func main() {
+	f()
+}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, `_, _ = f()`) {
+		t.Fatalf("did not expect blank assignment; Go allows discarding multi-return via expression statement, got:\n%s", out)
+	}
+	if !strings.Contains(out, "main() {\n\tf()\n") {
+		t.Fatalf("expected bare f() call statement in main, got:\n%s", out)
+	}
+}
+
+func TestPipeline_discardedStrconvAtoiStmt_emitsBareCallExprStmt(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "strconv"
+
+func main() {
+	strconv.Atoi("42")
+}
+`
+	out := compileForstPipelineExt(t, src, pipelineOpts{
+		goWorkspaceDir:     dir,
+		skipUnlessGoImport: "strconv",
+	})
+	if strings.Contains(out, `_, _ = strconv.Atoi`) {
+		t.Fatalf("did not expect blank assignment; Go allows discarding multi-return via expression statement, got:\n%s", out)
+	}
+	if !strings.Contains(out, "main() {\n\tstrconv.Atoi(\"42\")\n") {
+		t.Fatalf("expected bare strconv.Atoi call statement in main, got:\n%s", out)
+	}
+}
+
+func TestPipeline_ifResultIsOk_emitsErrNilCheck(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return Ok(1)
+}
+
+func main() {
+	x := f()
+	if x is Ok() {
+		println(x)
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `xErr == nil`) {
+		t.Fatalf("expected `if` condition to check success error is nil, got:\n%s", out)
+	}
+}
+
+func TestPipeline_ensureResultIsOk_emitsErrNilCheck(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return Ok(1)
+}
+
+func main() {
+	x := f()
+	ensure x is Ok()
+	println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	// Ensure runs the error path when the predicate fails: !(xErr == nil) (equivalent to xErr != nil)
+	if !strings.Contains(out, `!(xErr == nil)`) && !strings.Contains(out, `xErr != nil`) {
+		t.Fatalf("expected ensure failure branch on non-Ok result (negated xErr == nil), got:\n%s", out)
+	}
+}
+
+func TestPipeline_fmtPrintln_resultSplitExpandsLikePrintln(t *testing.T) {
+	src := `package main
+
+import "fmt"
+
+func f(): Result(Int, Error) {
+	return Ok(1)
+}
+
+func main() {
+	x := f()
+	fmt.Println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`x, xErr :=`,
+		`fmt.Println(x, xErr)`,
+		`import "fmt"`,
+	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}

@@ -95,6 +95,12 @@ func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion 
 	if assertion == nil {
 		return nil, fmt.Errorf("if-is: nil assertion")
 	}
+	if len(assertion.Constraints) == 1 && assertion.BaseType == nil {
+		c := assertion.Constraints[0]
+		if c.Name == "Ok" || c.Name == "Err" {
+			return t.transformResultIsDiscriminator(left, c)
+		}
+	}
 	leftExpr, err := t.transformExpression(left)
 	if err != nil {
 		return nil, err
@@ -122,6 +128,78 @@ func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion 
 		},
 	}
 	return &goast.CallExpr{Fun: fn}, nil
+}
+
+func expressionFromConstraintArg(arg ast.ConstraintArgumentNode) (ast.ExpressionNode, error) {
+	if arg.Value == nil {
+		return nil, fmt.Errorf("missing value argument")
+	}
+	return *arg.Value, nil
+}
+
+func (t *Transformer) goResultErrIdentForExpr(left ast.ExpressionNode) (goast.Expr, error) {
+	vn, ok := left.(ast.VariableNode)
+	if !ok {
+		return nil, fmt.Errorf("if-is: Result Ok/Err requires a simple variable subject")
+	}
+	name := string(vn.Ident.ID)
+	if t.resultLocalSplit != nil {
+		if split, ok := t.resultLocalSplit[name]; ok && split.errGoName != "" {
+			return goast.NewIdent(split.errGoName), nil
+		}
+	}
+	return nil, fmt.Errorf("if-is: Result Ok/Err requires a Result-bound variable (missing local split for %q)", name)
+}
+
+// transformResultIsDiscriminator lowers `x is Ok(...)` / `Err(...)` for Result lowered to (succ, err).
+func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c ast.ConstraintNode) (goast.Expr, error) {
+	errExpr, err := t.goResultErrIdentForExpr(left)
+	if err != nil {
+		return nil, err
+	}
+	succExpr, err := t.transformExpression(left)
+	if err != nil {
+		return nil, err
+	}
+	switch c.Name {
+	case "Ok":
+		check := goast.Expr(&goast.BinaryExpr{
+			X: errExpr, Op: token.EQL, Y: goast.NewIdent("nil"),
+		})
+		if len(c.Args) == 1 {
+			argExpr, err := expressionFromConstraintArg(c.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			arg, err := t.transformExpression(argExpr)
+			if err != nil {
+				return nil, err
+			}
+			eq := &goast.BinaryExpr{X: succExpr, Op: token.EQL, Y: arg}
+			check = &goast.BinaryExpr{X: check, Op: token.LAND, Y: eq}
+		}
+		return check, nil
+	case "Err":
+		if len(c.Args) == 0 {
+			return &goast.BinaryExpr{X: errExpr, Op: token.NEQ, Y: goast.NewIdent("nil")}, nil
+		}
+		if len(c.Args) == 1 {
+			argExpr, err := expressionFromConstraintArg(c.Args[0])
+			if err != nil {
+				return nil, err
+			}
+			arg, err := t.transformExpression(argExpr)
+			if err != nil {
+				return nil, err
+			}
+			ne := &goast.BinaryExpr{X: errExpr, Op: token.NEQ, Y: goast.NewIdent("nil")}
+			eq := &goast.BinaryExpr{X: errExpr, Op: token.EQL, Y: arg}
+			return &goast.BinaryExpr{X: ne, Op: token.LAND, Y: eq}, nil
+		}
+		return nil, fmt.Errorf("if-is: Err(...) expects at most one argument")
+	default:
+		return nil, fmt.Errorf("internal: not Ok/Err")
+	}
 }
 
 func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, error) {
@@ -248,6 +326,13 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		// Support field access: split by '.' and capitalize each field after the first
 		parts := strings.Split(e.GetIdent(), ".")
 		if len(parts) == 1 {
+			if t != nil && t.resultLocalSplit != nil {
+				if split, ok := t.resultLocalSplit[parts[0]]; ok && len(split.successGoNames) > 1 {
+					return nil, fmt.Errorf(
+						"codegen: %q is a Result whose success lowers to multiple Go values %v; use multiple left-hand names (e.g. a, b, err := pkg.F()) instead of a single binding",
+						parts[0], split.successGoNames)
+				}
+			}
 			return &goast.Ident{Name: parts[0]}, nil
 		}
 		var sel goast.Expr = goast.NewIdent(parts[0])
@@ -277,6 +362,16 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		}, nil
 
 	case ast.FunctionCallNode:
+		if isPrintLikeBuiltinCall(e.Function) {
+			args, err := t.transformPrintBuiltinCallArgs(e.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.CallExpr{
+				Fun:  goFunExprFromForstCallIdent(e.Function),
+				Args: args,
+			}, nil
+		}
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(e.Arguments))
 		if sig, ok := t.TypeChecker.Functions[e.Function.ID]; ok && len(sig.Parameters) == len(e.Arguments) {
@@ -317,7 +412,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			}
 		}
 		return &goast.CallExpr{
-			Fun:  goast.NewIdent(string(e.Function.ID)),
+			Fun:  goFunExprFromForstCallIdent(e.Function),
 			Args: args,
 		}, nil
 	case ast.ReferenceNode:
@@ -351,6 +446,9 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		expectedType := t.getExpectedTypeForShape(&e, context)
 		// Always use the unified aliasing logic for shape literals
 		return t.transformShapeNodeWithExpectedType(&e, expectedType)
+
+	case ast.OkExprNode, ast.ErrExprNode:
+		return nil, fmt.Errorf("Ok(...) and Err(...) are lowered in return statements only (not as a value expression)")
 	}
 
 	return nil, fmt.Errorf("unsupported expression type: %s", reflect.TypeOf(expr).String())

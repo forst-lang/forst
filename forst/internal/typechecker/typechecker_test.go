@@ -628,3 +628,10 @@ func TestTypeChecker_AssertionWithShapeLiteral_SingleField_NestedShapeType(t *te
 		t.Errorf("Field 'id' not found in inferred shape")
 	}
 }
+
+func TestGoImportPackageLoaded_beforeCheckTypes(t *testing.T) {
+	tc := New(logrus.New(), false)
+	if tc.GoImportPackageLoaded("strconv") {
+		t.Fatal("expected false before CheckTypes initializes go import packages")
+	}
+}

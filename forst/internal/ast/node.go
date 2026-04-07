@@ -103,4 +103,6 @@ const (
 	NodeKindGoStmt            NodeKind = "GoStmt"
 	NodeKindComment           NodeKind = "Comment"
 	NodeKindIndexExpression   NodeKind = "IndexExpression"
+	NodeKindOkExpr            NodeKind = "OkExpr"
+	NodeKindErrExpr           NodeKind = "ErrExpr"
 )

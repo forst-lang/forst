@@ -576,6 +576,16 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 		}
 
+		// Case 3: Result Ok/Err discriminators (not user type guards named Ok/Err)
+		if !shouldNegate {
+			for _, constraint := range s.Assertion.Constraints {
+				if (constraint.Name == "Ok" || constraint.Name == "Err") && !t.TypeChecker.IsTypeGuardConstraint(constraint.Name) {
+					shouldNegate = true
+					break
+				}
+			}
+		}
+
 		if shouldNegate {
 			finalCondition = &goast.UnaryExpr{
 				Op: token.NOT,
@@ -730,6 +740,28 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"hasSig":         ok,
 					"sigReturnTypes": len(sig.ReturnTypes),
 				}).Debug("No function signature found")
+			}
+		}
+
+		// Result(S, F) is one Forst return type but lowers to (S, error) in Go.
+		if len(s.Values) == 1 && len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsResultType() {
+			switch v := s.Values[0].(type) {
+			case ast.OkExprNode:
+				succExpr, err := t.transformExpression(v.Value)
+				if err != nil {
+					return nil, err
+				}
+				return &goast.ReturnStmt{Results: []goast.Expr{succExpr, goast.NewIdent("nil")}}, nil
+			case ast.ErrExprNode:
+				failExpr, err := t.transformExpression(v.Value)
+				if err != nil {
+					return nil, err
+				}
+				goT, err := t.transformType(expectedReturnTypes[0].TypeParams[0])
+				if err != nil {
+					return nil, err
+				}
+				return &goast.ReturnStmt{Results: []goast.Expr{getZeroValue(goT), failExpr}}, nil
 			}
 		}
 
@@ -976,6 +1008,18 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 
 	case ast.FunctionCallNode:
+		if isPrintLikeBuiltinCall(s.Function) {
+			args, err := t.transformPrintBuiltinCallArgs(s.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.ExprStmt{
+				X: &goast.CallExpr{
+					Fun:  goFunExprFromForstCallIdent(s.Function),
+					Args: args,
+				},
+			}, nil
+		}
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(s.Arguments))
 		fnNode, err := t.closestFunction()
@@ -1023,12 +1067,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				args[i] = argExpr
 			}
 		}
-		return &goast.ExprStmt{
-			X: &goast.CallExpr{
-				Fun:  goast.NewIdent(s.Function.String()),
-				Args: args,
-			},
-		}, nil
+		call := &goast.CallExpr{
+			Fun:  goFunExprFromForstCallIdent(s.Function),
+			Args: args,
+		}
+		// Multi-return calls (folded Result → (succ…, error), or native Go multi-return) are valid
+		// Go expression statements: return values are discarded (see Go spec, Expression statements).
+		return &goast.ExprStmt{X: call}, nil
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
@@ -1099,6 +1144,55 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Handle assignment without explicit types (normal assignment)
+		// Result(S,F) is one Forst value but lowers to (success..., error) in Go: multi-value assignment.
+		if len(s.LValues) == 1 && len(s.RValues) == 1 {
+			if vn, ok := s.LValues[0].(ast.VariableNode); ok {
+				if fc, ok := s.RValues[0].(ast.FunctionCallNode); ok && t.rhsCallIsFoldedResult(fc) {
+					ts, err := t.TypeChecker.LookupInferredType(fc, false)
+					if err != nil || len(ts) != 1 || !ts[0].IsResultType() {
+						return nil, fmt.Errorf("assignment: expected Result from folded Go call")
+					}
+					succ := ts[0].TypeParams[0]
+					var successNames []string
+					if succ.IsTupleType() {
+						k := len(succ.TypeParams)
+						successNames = make([]string, k)
+						for i := 0; i < k; i++ {
+							successNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						}
+					} else {
+						successNames = []string{string(vn.Ident.ID)}
+					}
+					errName := string(vn.Ident.ID) + "Err"
+					rhsExpr, err := t.transformExpression(fc)
+					if err != nil {
+						return nil, err
+					}
+					if t.resultLocalSplit == nil {
+						t.resultLocalSplit = make(map[string]resultLocalSplit)
+					}
+					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
+						errGoName:      errName,
+						successGoNames: successNames,
+					}
+					op := token.ASSIGN
+					if s.IsShort {
+						op = token.DEFINE
+					}
+					lhs := make([]goast.Expr, 0, len(successNames)+1)
+					for _, n := range successNames {
+						lhs = append(lhs, goast.NewIdent(n))
+					}
+					lhs = append(lhs, goast.NewIdent(errName))
+					return &goast.AssignStmt{
+						Lhs: lhs,
+						Tok: op,
+						Rhs: []goast.Expr{rhsExpr},
+					}, nil
+				}
+			}
+		}
+
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
 			lhsExpr, err := t.transformExpression(lval)

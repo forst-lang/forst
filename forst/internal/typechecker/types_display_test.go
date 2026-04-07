@@ -6,7 +6,7 @@ import (
 	"forst/internal/ast"
 )
 
-func TestFormatFunctionSignatureDisplay_TupleReturnIncludesError(t *testing.T) {
+func TestFormatFunctionSignatureDisplay_ResultReturnIncludesError(t *testing.T) {
 	t.Parallel()
 	tc := New(nil, false)
 	sig := FunctionSignature{
@@ -15,12 +15,11 @@ func TestFormatFunctionSignatureDisplay_TupleReturnIncludesError(t *testing.T) {
 			{Ident: ast.Ident{ID: "x"}, Type: ast.NewBuiltinType(ast.TypeString)},
 		},
 		ReturnTypes: []ast.TypeNode{
-			ast.NewBuiltinType(ast.TypeString),
-			ast.NewBuiltinType(ast.TypeError),
+			ast.NewResultType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeError)),
 		},
 	}
 	got := tc.FormatFunctionSignatureDisplay(sig)
-	want := "f(x String) -> (String, Error)"
+	want := "f(x String) -> Result(String, Error)"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

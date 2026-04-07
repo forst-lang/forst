@@ -33,6 +33,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
+		prevFn := tc.currentFunction
+		tc.currentFunction = &n
+		defer func() { tc.currentFunction = prevFn }()
+
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferNodeType",
 			"fn":       n.Ident.ID,

@@ -138,6 +138,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 			inferredType = []ast.TypeNode{
 				{Ident: ast.TypeError},
 			}
+		} else if len(inferredType) == 1 && inferredType[0].IsResultType() {
+			// Result(S,F) already includes failure; do not append a legacy second Error.
 		} else {
 			if len(inferredType) < 1 || len(inferredType) > 2 {
 				return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))

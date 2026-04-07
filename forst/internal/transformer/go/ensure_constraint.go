@@ -2,6 +2,7 @@ package transformergo
 
 import (
 	"fmt"
+
 	"forst/internal/ast"
 	goast "go/ast"
 	gotoken "go/token"
@@ -22,6 +23,18 @@ func (at *AssertionTransformer) transformEnsureConstraints(ensure ast.EnsureNode
 
 // transformEnsureConstraint transforms a single constraint in an ensure statement
 func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constraint ast.ConstraintNode, varType ast.TypeNode) (goast.Expr, error) {
+	// Result(S,F) discriminators: same lowering as `if x is Ok() / Err()` (success/err + error split).
+	// Ensure-successor narrowing may replace the subject's static type with S; use resultLocalSplit
+	// (from `x := f()` with Result) when present, else varType.IsResultType().
+	if ensure.Assertion.BaseType == nil && len(ensure.Assertion.Constraints) == 1 {
+		c := ensure.Assertion.Constraints[0]
+		if c.Name == "Ok" || c.Name == "Err" {
+			if t.hasResultLocalSplitForSimpleVariable(ensure.Variable) || varType.IsResultType() {
+				return t.transformResultIsDiscriminator(ensure.Variable, c)
+			}
+		}
+	}
+
 	// Try built-in constraints first
 	if transformed, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, ensure.Variable, constraint); err == nil {
 		return transformed, nil
