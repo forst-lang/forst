@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.30](https://github.com/forst-lang/forst/compare/v0.0.29...v0.0.30) (2026-04-12)
+
+
+### Features
+
+* **tictactoe:** colocate wire types and finish ApplyMove rules ([50bba0d](https://github.com/forst-lang/forst/commit/50bba0d0317fa3e10dcbdd03872e64e5ff6ba2c1))
+* **transformer:** extend ensure builtins coverage (ensure_builtins + tests) ([50bba0d](https://github.com/forst-lang/forst/commit/50bba0d0317fa3e10dcbdd03872e64e5ff6ba2c1))
+
+
+### Bug Fixes
+
+* **generate:** align client index expectation with `export type * from './types.d.ts'` ([50bba0d](https://github.com/forst-lang/forst/commit/50bba0d0317fa3e10dcbdd03872e64e5ff6ba2c1))
+* **generate:** emit type-only re-export for merged client index ([0e11e55](https://github.com/forst-lang/forst/commit/0e11e55a92b8f865e4e1f2a5c323cdec212f40dd))
+* **lsp:** pass dotted span into FieldHoverMarkdown for narrowing display ([50bba0d](https://github.com/forst-lang/forst/commit/50bba0d0317fa3e10dcbdd03872e64e5ff6ba2c1))
+* **typechecker:** compound ensure subjects and field-path hover narrowing ([50bba0d](https://github.com/forst-lang/forst/commit/50bba0d0317fa3e10dcbdd03872e64e5ff6ba2c1))
+
 ## [0.0.29](https://github.com/forst-lang/forst/compare/v0.0.28...v0.0.29) (2026-04-06)
 
 
