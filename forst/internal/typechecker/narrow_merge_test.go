@@ -96,9 +96,17 @@ func TestIfMergePoint_xWidensToOuterTypeAfterIfChain(t *testing.T) {
 
 func TestJoinAfterIfMerge_returnsOuter(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
+	str := ast.TypeString
+	tc.registerType(ast.TypeDefNode{
+		Ident: "MyStr",
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &str},
+		},
+	})
 	outer := ast.TypeNode{Ident: ast.TypeIdent("MyStr")}
 	refined := []ast.TypeNode{{Ident: ast.TypeString}}
-	got := JoinAfterIfMerge(outer, refined)
+	got := JoinAfterIfMerge(tc, outer, refined)
 	if got.Ident != outer.Ident {
 		t.Fatalf("JoinAfterIfMerge: got %s want %s", got.Ident, outer.Ident)
 	}

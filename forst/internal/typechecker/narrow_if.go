@@ -526,7 +526,7 @@ func (tc *TypeChecker) endIfChainApplyJoin() {
 		outerByIdent[id] = sym.Types[0]
 	}
 
-	mergedByIdent := MergeFlowFactsAtIfJoin(outerByIdent, branchFacts)
+	mergedByIdent := MergeFlowFactsAtIfJoin(tc, outerByIdent, branchFacts)
 	for id, merged := range mergedByIdent {
 		outer := outerByIdent[id]
 		tc.log.WithFields(logrus.Fields{

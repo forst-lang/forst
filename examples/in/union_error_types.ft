@@ -1,0 +1,18 @@
+package main
+
+// Union of nominal errors (see RFC optionals/02 §3): a finite failure set assignable to Error.
+// Go emit lowers error-only unions to `error`; TypeScript emit uses `ParseError | IoError`.
+
+error ParseError {
+	code: Int
+}
+
+error IoError {
+	path: String
+}
+
+// Named union of two failure kinds (middle ground vs Result(_, Error)).
+type ErrKind = ParseError | IoError
+
+func main() {
+}

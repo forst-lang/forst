@@ -16,23 +16,28 @@ func TestWidenToEnclosing_isIdentity(t *testing.T) {
 
 func TestJoinAfterIfMerge_table(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
 	outer := ast.TypeNode{Ident: ast.TypeIdent("Outer")}
 	cases := []struct {
 		name string
 		ref  []ast.TypeNode
-		want ast.TypeIdent
+		want func(ast.TypeNode) bool
 	}{
-		{"nil_refinements", nil, outer.Ident},
-		{"empty_refinements", []ast.TypeNode{}, outer.Ident},
-		{"single_refinement", []ast.TypeNode{{Ident: ast.TypeString}}, outer.Ident},
-		{"multiple_refinements", []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeInt}}, outer.Ident},
+		{"nil_refinements", nil, func(g ast.TypeNode) bool { return g.Ident == outer.Ident }},
+		{"empty_refinements", []ast.TypeNode{}, func(g ast.TypeNode) bool { return g.Ident == outer.Ident }},
+		{"single_refinement", []ast.TypeNode{{Ident: ast.TypeString}}, func(g ast.TypeNode) bool {
+			return g.Ident == ast.TypeUnion && len(g.TypeParams) == 2
+		}},
+		{"multiple_refinements", []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeInt}}, func(g ast.TypeNode) bool {
+			return g.Ident == ast.TypeUnion && len(g.TypeParams) == 3
+		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			got := JoinAfterIfMerge(outer, c.ref)
-			if got.Ident != c.want {
-				t.Fatalf("got %s want %s", got.Ident, c.want)
+			got := JoinAfterIfMerge(tc, outer, c.ref)
+			if !c.want(got) {
+				t.Fatalf("got %+v", got)
 			}
 		})
 	}
@@ -148,7 +153,7 @@ func TestJoinTypes_heterogeneous(t *testing.T) {
 		{Ident: ast.TypeInt},
 	}
 	got, ok := JoinTypes(types)
-	if ok || got.Ident != ast.TypeString {
+	if !ok || got.Ident != ast.TypeUnion || len(got.TypeParams) != 2 {
 		t.Fatalf("JoinTypes heterogeneous: got %+v ok=%v", got, ok)
 	}
 }
@@ -167,13 +172,13 @@ func TestJoinTypes_empty(t *testing.T) {
 
 func TestJoinTypes_heterogeneousFirstStubAfterDedupe(t *testing.T) {
 	t.Parallel()
-	// [String, Int, String] → dedupe [String, Int] → stub first is String, outcome heterogeneous.
+	// [String, Int, String] → dedupe [String, Int] → union IR.
 	got, ok := JoinTypes([]ast.TypeNode{
 		{Ident: ast.TypeString},
 		{Ident: ast.TypeInt},
 		{Ident: ast.TypeString},
 	})
-	if ok || got.Ident != ast.TypeString {
+	if !ok || got.Ident != ast.TypeUnion || len(got.TypeParams) != 2 {
 		t.Fatalf("got %+v ok=%v", got, ok)
 	}
 }
@@ -202,8 +207,8 @@ func TestJoinTypes_typeParams_heterogeneous(t *testing.T) {
 	a := ast.TypeNode{Ident: box, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}
 	b := ast.TypeNode{Ident: box, TypeParams: []ast.TypeNode{{Ident: ast.TypeInt}}}
 	got, ok := JoinTypes([]ast.TypeNode{a, b})
-	if ok {
-		t.Fatalf("expected heterogeneous, got ok=true %+v", got)
+	if !ok || got.Ident != ast.TypeUnion || len(got.TypeParams) != 2 {
+		t.Fatalf("expected union of Box types, got ok=%v %+v", ok, got)
 	}
 }
 
@@ -257,7 +262,7 @@ func TestJoinTypesDetailed_outcomes(t *testing.T) {
 			{Ident: ast.TypeString},
 			{Ident: ast.TypeInt},
 		})
-		if out != JoinTypesHeterogeneous || got.Ident != ast.TypeString {
+		if out != JoinTypesHeterogeneous || got.Ident != ast.TypeUnion {
 			t.Fatalf("got %+v outcome %v", got, out)
 		}
 	})

@@ -24,6 +24,11 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "union of nominal errors typedef",
+			filePath: "../../../../examples/in/union_error_types.ft",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,

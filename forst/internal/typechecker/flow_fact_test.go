@@ -8,11 +8,12 @@ import (
 
 func TestMergeFlowFactsAtIfJoin_emptyInputs(t *testing.T) {
 	t.Parallel()
-	out := MergeFlowFactsAtIfJoin(nil, nil)
+	tc := New(discardLogger(), false)
+	out := MergeFlowFactsAtIfJoin(tc, nil, nil)
 	if len(out) != 0 {
 		t.Fatalf("expected empty map, got %d entries", len(out))
 	}
-	out = MergeFlowFactsAtIfJoin(map[ast.Identifier]ast.TypeNode{}, []FlowTypeFact{})
+	out = MergeFlowFactsAtIfJoin(tc, map[ast.Identifier]ast.TypeNode{}, []FlowTypeFact{})
 	if len(out) != 0 {
 		t.Fatalf("expected empty map")
 	}
@@ -20,12 +21,20 @@ func TestMergeFlowFactsAtIfJoin_emptyInputs(t *testing.T) {
 
 func TestMergeFlowFactsAtIfJoin_oneRefinementWidensToOuter(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
+	str := ast.TypeString
+	tc.registerType(ast.TypeDefNode{
+		Ident: "MyStr",
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &str},
+		},
+	})
 	id := ast.Identifier("x")
 	outer := ast.TypeNode{Ident: ast.TypeIdent("MyStr")}
 	facts := []FlowTypeFact{
 		{Ident: id, RefinedType: ast.TypeNode{Ident: ast.TypeString}},
 	}
-	out := MergeFlowFactsAtIfJoin(map[ast.Identifier]ast.TypeNode{id: outer}, facts)
+	out := MergeFlowFactsAtIfJoin(tc, map[ast.Identifier]ast.TypeNode{id: outer}, facts)
 	if len(out) != 1 || out[id].Ident != outer.Ident {
 		t.Fatalf("merge: got %+v", out)
 	}
@@ -33,6 +42,14 @@ func TestMergeFlowFactsAtIfJoin_oneRefinementWidensToOuter(t *testing.T) {
 
 func TestMergeFlowFactsAtIfJoin_outerWithoutMatchingFactsSkipped(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
+	str := ast.TypeString
+	tc.registerType(ast.TypeDefNode{
+		Ident: "MyStr",
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &str},
+		},
+	})
 	x, y := ast.Identifier("x"), ast.Identifier("y")
 	outerX := ast.TypeNode{Ident: ast.TypeIdent("MyStr")}
 	outerY := ast.TypeNode{Ident: ast.TypeInt}
@@ -40,6 +57,7 @@ func TestMergeFlowFactsAtIfJoin_outerWithoutMatchingFactsSkipped(t *testing.T) {
 		{Ident: x, RefinedType: ast.TypeNode{Ident: ast.TypeString}},
 	}
 	out := MergeFlowFactsAtIfJoin(
+		tc,
 		map[ast.Identifier]ast.TypeNode{x: outerX, y: outerY},
 		facts,
 	)
@@ -54,8 +72,9 @@ func TestMergeFlowFactsAtIfJoin_outerWithoutMatchingFactsSkipped(t *testing.T) {
 	}
 }
 
-func TestMergeFlowFactsAtIfJoin_multipleRefinementsSameIdJoinToOuter(t *testing.T) {
+func TestMergeFlowFactsAtIfJoin_multipleRefinementsSameIdJoinToUnion(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
 	id := ast.Identifier("x")
 	outer := ast.TypeNode{Ident: ast.TypeIdent("Outer")}
 	facts := []FlowTypeFact{
@@ -63,14 +82,19 @@ func TestMergeFlowFactsAtIfJoin_multipleRefinementsSameIdJoinToOuter(t *testing.
 		{Ident: id, RefinedType: ast.TypeNode{Ident: ast.TypeString}},
 		{Ident: id, RefinedType: ast.TypeNode{Ident: ast.TypeInt}},
 	}
-	out := MergeFlowFactsAtIfJoin(map[ast.Identifier]ast.TypeNode{id: outer}, facts)
-	if len(out) != 1 || out[id].Ident != outer.Ident {
-		t.Fatalf("merge to outer: got %+v", out)
+	out := MergeFlowFactsAtIfJoin(tc, map[ast.Identifier]ast.TypeNode{id: outer}, facts)
+	if len(out) != 1 {
+		t.Fatalf("merge: got %+v", out)
+	}
+	got := out[id]
+	if got.Ident != ast.TypeUnion || len(got.TypeParams) != 3 {
+		t.Fatalf("want union(Outer,String,Int), got %+v", got)
 	}
 }
 
 func TestMergeFlowFactsAtIfJoin_twoIdsIndependent(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
 	x, y := ast.Identifier("x"), ast.Identifier("y")
 	ox := ast.TypeNode{Ident: ast.TypeIdent("A")}
 	oy := ast.TypeNode{Ident: ast.TypeIdent("B")}
@@ -79,35 +103,37 @@ func TestMergeFlowFactsAtIfJoin_twoIdsIndependent(t *testing.T) {
 		{Ident: y, RefinedType: ast.TypeNode{Ident: ast.TypeInt}},
 	}
 	out := MergeFlowFactsAtIfJoin(
+		tc,
 		map[ast.Identifier]ast.TypeNode{x: ox, y: oy},
 		facts,
 	)
 	if len(out) != 2 {
 		t.Fatalf("want 2 keys, got %+v", out)
 	}
-	if out[x].Ident != ox.Ident || out[y].Ident != oy.Ident {
-		t.Fatalf("each key widens to its own outer: %+v", out)
+	if out[x].Ident != ast.TypeUnion || out[y].Ident != ast.TypeUnion {
+		t.Fatalf("want union join per id: %+v", out)
 	}
 }
 
 func TestMergeFlowFactsAtIfJoin_factsPreserveOrderInRefinementsSlice(t *testing.T) {
 	t.Parallel()
-	// JoinAfterIfMerge ignores refinement values today; still ensure MergeFlowFacts passes
-	// every fact through to JoinAfterIfMerge (future union/LUB may depend on order).
+	tc := New(discardLogger(), false)
+	// Order of refinements is preserved through dedupe + union (String before Int).
 	id := ast.Identifier("x")
 	outer := ast.TypeNode{Ident: ast.TypeIdent("U")}
 	facts := []FlowTypeFact{
 		{Ident: id, RefinedType: ast.TypeNode{Ident: ast.TypeString}, NarrowingTypeGuards: []string{"g1"}},
 		{Ident: id, RefinedType: ast.TypeNode{Ident: ast.TypeInt}, NarrowingTypeGuards: []string{"g2"}},
 	}
-	out := MergeFlowFactsAtIfJoin(map[ast.Identifier]ast.TypeNode{id: outer}, facts)
-	if len(out) != 1 || out[id].Ident != outer.Ident {
+	out := MergeFlowFactsAtIfJoin(tc, map[ast.Identifier]ast.TypeNode{id: outer}, facts)
+	if len(out) != 1 || out[id].Ident != ast.TypeUnion {
 		t.Fatalf("got %+v", out)
 	}
 }
 
 func TestMergeFlowFactsAtIfJoin_branchFactsForUnknownOuterIgnored(t *testing.T) {
 	t.Parallel()
+	tc := New(discardLogger(), false)
 	// Facts mentioning z with no outer entry: outer loop only emits keys present in outerByIdent.
 	x := ast.Identifier("x")
 	z := ast.Identifier("z")
@@ -116,8 +142,8 @@ func TestMergeFlowFactsAtIfJoin_branchFactsForUnknownOuterIgnored(t *testing.T) 
 		{Ident: x, RefinedType: ast.TypeNode{Ident: ast.TypeInt}},
 		{Ident: z, RefinedType: ast.TypeNode{Ident: ast.TypeBool}},
 	}
-	out := MergeFlowFactsAtIfJoin(map[ast.Identifier]ast.TypeNode{x: outer}, facts)
-	if len(out) != 1 || out[x].Ident != outer.Ident {
+	out := MergeFlowFactsAtIfJoin(tc, map[ast.Identifier]ast.TypeNode{x: outer}, facts)
+	if len(out) != 1 || out[x].Ident != ast.TypeUnion {
 		t.Fatalf("got %+v", out)
 	}
 	if _, ok := out[z]; ok {

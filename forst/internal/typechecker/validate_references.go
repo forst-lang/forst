@@ -16,6 +16,11 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 		if !ok {
 			continue
 		}
+		if bin, ok := typeDef.Expr.(ast.TypeDefBinaryExpr); ok {
+			if err := tc.validateTypeDefBinary(typeDef.Ident, bin); err != nil {
+				return err
+			}
+		}
 		payload, ok := ast.PayloadShape(typeDef.Expr)
 		if !ok {
 			continue
@@ -107,6 +112,13 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 	case ast.TypeTuple:
 		for i, p := range t.TypeParams {
 			if err := tc.validateTypeReference(p, fmt.Sprintf("%s tuple[%d]", ctx, i)); err != nil {
+				return err
+			}
+		}
+		return nil
+	case ast.TypeUnion, ast.TypeIntersection:
+		for i, p := range t.TypeParams {
+			if err := tc.validateTypeReference(p, fmt.Sprintf("%s %s[%d]", ctx, t.Ident, i)); err != nil {
 				return err
 			}
 		}

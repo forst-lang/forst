@@ -195,29 +195,15 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 		}
 		return expr, nil
 	case ast.TypeDefBinaryExpr:
-		// binaryExpr := expr.(ast.TypeDefBinaryExpr)
-		// if binaryExpr.IsConjunction() {
-		// 	return &goast.InterfaceType{
-		// 		Methods: &goast.FieldList{
-		// 			List: []*goast.Field{
-		// 				{Type: *t.transformTypeDefExpr(binaryExpr.Left)},
-		// 				{Type: *t.transformTypeDefExpr(binaryExpr.Right)},
-		// 			},
-		// 		},
-		// 	}
-		// } else if binaryExpr.IsDisjunction() {
-		// 	return &goast.InterfaceType{
-		// 		Methods: &goast.FieldList{
-		// 			List: []*goast.Field{
-		// 				{Type: *t.transformTypeDefExpr(binaryExpr.Left)},
-		// 				{Type: *t.transformTypeDefExpr(binaryExpr.Right)},
-		// 			},
-		// 		},
-		// 	}
-		// }
-		ident := goast.NewIdent("string")
-		var result goast.Expr = ident
-		return &result, nil
+		canon, err := t.TypeChecker.TypeDefExprToTypeNode(e)
+		if err != nil {
+			return nil, fmt.Errorf("binary typedef: %w", err)
+		}
+		goTy, err := t.transformType(canon)
+		if err != nil {
+			return nil, err
+		}
+		return &goTy, nil
 	default:
 		err := fmt.Errorf("unknown type def expr: %T", expr)
 		t.log.WithFields(logrus.Fields{

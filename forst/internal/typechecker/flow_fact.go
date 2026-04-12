@@ -16,6 +16,7 @@ type FlowTypeFact struct {
 // MergeFlowFactsAtIfJoin applies JoinAfterIfMerge to each fact key shared with branch narrowing.
 // outerByIdent maps each binding to its pre-if (enclosing scope) type.
 func MergeFlowFactsAtIfJoin(
+	tc *TypeChecker,
 	outerByIdent map[ast.Identifier]ast.TypeNode,
 	branchFacts []FlowTypeFact,
 ) map[ast.Identifier]ast.TypeNode {
@@ -30,7 +31,7 @@ func MergeFlowFactsAtIfJoin(
 		if len(refinements) == 0 {
 			continue
 		}
-		out[id] = JoinAfterIfMerge(outer, refinements)
+		out[id] = JoinAfterIfMerge(tc, outer, refinements)
 	}
 	return out
 }

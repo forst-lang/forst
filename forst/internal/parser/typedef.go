@@ -98,8 +98,7 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		}
 	} else {
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
-
-		return &ast.TypeDefAssertionExpr{
+		left = ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
 				BaseType: &typ.Ident,
 			},

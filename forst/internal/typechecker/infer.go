@@ -228,9 +228,16 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			// or a chain of such aliases): do not replace Defs with an empty TypeDefShapeExpr — the collect
 			// pass already stored TypeDefAssertionExpr and alias-chain / narrowing logic needs it.
 			if len(mergedFields) == 0 && len(assertionExpr.Assertion.Constraints) == 0 &&
-				assertionExpr.Assertion.BaseType != nil &&
-				tc.underlyingBuiltinTypeOfAliasAssertion(*assertionExpr.Assertion.BaseType) != "" {
-				return nil, nil
+				assertionExpr.Assertion.BaseType != nil {
+				base := *assertionExpr.Assertion.BaseType
+				// Direct alias to a built-in (e.g. type Greeting = String): underlyingBuiltinTypeOfAliasAssertion
+				// only resolves named typedef chains via Defs and returns "" when base is itself a built-in ident.
+				if tc.isBuiltinType(base) {
+					return nil, nil
+				}
+				if tc.underlyingBuiltinTypeOfAliasAssertion(base) != "" {
+					return nil, nil
+				}
 			}
 
 			shape := ast.ShapeNode{

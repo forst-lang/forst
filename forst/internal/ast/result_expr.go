@@ -43,3 +43,13 @@ func (t TypeNode) IsResultType() bool {
 func (t TypeNode) IsTupleType() bool {
 	return t.Ident == TypeTuple && len(t.TypeParams) >= 1
 }
+
+// IsUnionType reports a normalized type-level union (A | B | …).
+func (t TypeNode) IsUnionType() bool {
+	return t.Ident == TypeUnion && len(t.TypeParams) >= 2
+}
+
+// IsIntersectionType reports a normalized type-level intersection (A & B & …).
+func (t TypeNode) IsIntersectionType() bool {
+	return t.Ident == TypeIntersection && len(t.TypeParams) >= 2
+}

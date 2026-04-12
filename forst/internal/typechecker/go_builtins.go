@@ -393,6 +393,13 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 // IsTypeCompatible checks if a type is compatible with an expected type,
 // taking into account subtypes and type guards
 func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNode) bool {
+	if a, ok := tc.expandTypeDefBinaryIfNeeded(actual); ok {
+		actual = a
+	}
+	if e, ok := tc.expandTypeDefBinaryIfNeeded(expected); ok {
+		expected = e
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"actual":   actual.Ident,
 		"expected": expected.Ident,
@@ -418,6 +425,16 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				}
 			}
 			return true
+		case ast.TypeUnion, ast.TypeIntersection:
+			if len(actual.TypeParams) != len(expected.TypeParams) {
+				return false
+			}
+			for i := range actual.TypeParams {
+				if !tc.IsTypeCompatible(actual.TypeParams[i], expected.TypeParams[i]) {
+					return false
+				}
+			}
+			return true
 		default:
 			tc.log.WithFields(logrus.Fields{
 				"actual":   actual.Ident,
@@ -426,6 +443,46 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			}).Debug("Direct type match")
 			return true
 		}
+	}
+
+	// Union on the left: Union(A,B) <: T iff A <: T and B <: T.
+	if actual.Ident == ast.TypeUnion && len(actual.TypeParams) > 0 {
+		for _, m := range actual.TypeParams {
+			if !tc.IsTypeCompatible(m, expected) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Intersection on the right: S <: A & B iff S <: A and S <: B.
+	if expected.Ident == ast.TypeIntersection && len(expected.TypeParams) > 0 {
+		for _, m := range expected.TypeParams {
+			if !tc.IsTypeCompatible(actual, m) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Intersection on the left: A & B <: T iff A <: T and B <: T.
+	if actual.Ident == ast.TypeIntersection && len(actual.TypeParams) > 0 {
+		for _, m := range actual.TypeParams {
+			if !tc.IsTypeCompatible(m, expected) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Union on the right: S <: Union(A,B) iff S <: A or S <: B.
+	if expected.Ident == ast.TypeUnion && len(expected.TypeParams) > 0 {
+		for _, m := range expected.TypeParams {
+			if tc.IsTypeCompatible(actual, m) {
+				return true
+			}
+		}
+		return false
 	}
 
 	// RFC 02: nominal `error X { ... }` (`TypeDefErrorExpr`) is assignable to the built-in `Error` type.

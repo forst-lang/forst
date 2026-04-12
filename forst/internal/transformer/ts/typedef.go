@@ -27,6 +27,17 @@ func (t *TypeScriptTransformer) transformTypeDef(def ast.TypeDefNode) (string, e
 		t.typeMapping.AddUserType(typeName, tsType)
 
 		return t.transformAssertionToTypeScript(expr.Assertion, typeName)
+	case ast.TypeDefBinaryExpr:
+		canon, err := t.TypeChecker.TypeDefExprToTypeNode(expr)
+		if err != nil {
+			return "", fmt.Errorf("binary typedef %s: %w", typeName, err)
+		}
+		ts, err := t.typeMapping.GetTypeScriptType(&canon)
+		if err != nil {
+			return "", err
+		}
+		t.typeMapping.AddUserType(typeName, ts)
+		return fmt.Sprintf("export type %s = %s", typeName, ts), nil
 	default:
 		return "", fmt.Errorf("unsupported type definition expression: %T", expr)
 	}

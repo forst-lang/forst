@@ -241,3 +241,29 @@ func TestTypeMapping_GetTypeScriptType_implicit(t *testing.T) {
 		t.Fatalf("got %q, want unknown", got)
 	}
 }
+
+func TestTypeMapping_GetTypeScriptType_unionAndIntersection(t *testing.T) {
+	tc := typechecker.New(nil, false)
+	tc.Defs["Tag"] = ast.TypeDefNode{
+		Ident: "Tag",
+		Expr: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+	}
+	tm := NewTypeMapping()
+	tm.SetTypeChecker(tc)
+	u := ast.NewUnionType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeInt))
+	got, err := tm.GetTypeScriptType(&u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "string | number" {
+		t.Fatalf("got %q", got)
+	}
+	i := ast.NewIntersectionType(ast.NewBuiltinType(ast.TypeString), ast.TypeNode{Ident: "Tag", TypeKind: ast.TypeKindUserDefined})
+	got2, err := tm.GetTypeScriptType(&i)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got2 != "string & Tag" {
+		t.Fatalf("got %q", got2)
+	}
+}

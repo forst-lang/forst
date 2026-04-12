@@ -217,6 +217,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/nominal_error.ft
 
+  example:union-error-types:
+    desc: Compile union of nominal errors typedef (ParseError | IoError → Go error / TS union)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/union_error_types.ft
+
   example:result-ensure:
     desc: Compile Result + ensure Ok() example (golden examples/out/result_ensure/)
     dir: forst
