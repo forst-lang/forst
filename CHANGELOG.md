@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0](https://github.com/forst-lang/forst/compare/v0.0.30...v0.1.0) (2026-04-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compiler:** nominal error types (`error X { … }`) ([#70](https://github.com/forst-lang/forst/issues/70))
+
+### Features
+
+* **compiler:** nominal error types (`error X { … }`) ([#70](https://github.com/forst-lang/forst/issues/70)) ([58842e7](https://github.com/forst-lang/forst/commit/58842e7c6d65478b89b69629a3afd6e1a866264f))
+* **lsp:** add hover dictionaries for built-in types and guards ([#72](https://github.com/forst-lang/forst/issues/72)) ([23a07ea](https://github.com/forst-lang/forst/commit/23a07ea1f2f01d1b464fb4bb6294c2dedf188def))
+
+
+### Bug Fixes
+
+* **typechecker:** match hash shape literals to missing named param types ([30b5ee2](https://github.com/forst-lang/forst/commit/30b5ee2eaf560da7e8764eebae355ebcc8edf439))
+
 ## [0.0.30](https://github.com/forst-lang/forst/compare/v0.0.29...v0.0.30) (2026-04-12)
 
 
