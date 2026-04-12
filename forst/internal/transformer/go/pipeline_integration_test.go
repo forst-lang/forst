@@ -82,8 +82,8 @@ func moduleRootFromWD(t *testing.T) string {
 
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
 	tests := []struct {
-		name   string
-		src    string
+		name    string
+		src     string
 		needles []string // substrings that must appear in generated Go (stable signals)
 	}{
 		{
@@ -535,6 +535,98 @@ func main() {
 	out := compileForstPipeline(t, src)
 	if !strings.Contains(out, `xErr == nil`) {
 		t.Fatalf("expected `if` condition to check success error is nil, got:\n%s", out)
+	}
+}
+
+func TestPipeline_shapeFieldResult_IntError_emitsStructStorageAndSelectors(t *testing.T) {
+	src := `package main
+
+type Wrap = {
+	r: Result(Int, Error),
+}
+
+func okInt(): Result(Int, Error) {
+	return Ok(42)
+}
+
+func main() {
+	x := okInt()
+	w := { r: x }
+	if w.r is Ok() {
+		println(w.r)
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "Err error") || !strings.Contains(out, "V") {
+		t.Fatalf("expected Wrap field to lower Result to struct { V …; Err error }, got:\n%s", out)
+	}
+	if !strings.Contains(out, "w.r.Err == nil") {
+		t.Fatalf("expected if w.r is Ok() to check w.r.Err == nil, got:\n%s", out)
+	}
+	if !strings.Contains(out, "println(w.r.V)") {
+		t.Fatalf("expected println narrowed field to use w.r.V, got:\n%s", out)
+	}
+}
+
+func TestPipeline_shapeFieldResult_println_unnarrowed_expandsVAndErr(t *testing.T) {
+	src := `package main
+
+type Wrap = {
+	r: Result(Int, Error),
+}
+
+func okInt(): Result(Int, Error) {
+	return Ok(42)
+}
+
+func main() {
+	x := okInt()
+	w := { r: x }
+	println(w.r)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "println(w.r.V, w.r.Err)") {
+		t.Fatalf("expected println on unnarrowed struct Result field to expand to V and Err, got:\n%s", out)
+	}
+}
+
+func TestPipeline_shapeFieldResult_ensureOk_emitsCompoundErrCheck(t *testing.T) {
+	src := `package main
+
+type Wrap = {
+	r: Result(Int, Error),
+}
+
+func okInt(): Result(Int, Error) {
+	return Ok(42)
+}
+
+func main() {
+	x := okInt()
+	w := { r: x }
+	ensure w.r is Ok()
+	println(w.r)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `!(w.r.Err == nil)`) && !strings.Contains(out, `w.r.Err != nil`) {
+		t.Fatalf("expected ensure w.r is Ok() to branch on w.r.Err, got:\n%s", out)
+	}
+}
+
+func TestPipeline_ensure_string_min_infersBaseType(t *testing.T) {
+	src := `package main
+
+func main() {
+	s := "ab"
+	ensure s is Min(1)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "len(s)") {
+		t.Fatalf("expected ensure Min on string to use len(s), got:\n%s", out)
 	}
 }
 

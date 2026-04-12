@@ -12,6 +12,9 @@
     "packages/vscode-forst",
     "examples/in/rfc/sidecar"
   ],
+  "scripts": {
+    "vscode-forst:compile": "bun run --filter forst compile"
+  },
   "devDependencies": {
     "typescript": "~6.0.2"
   }

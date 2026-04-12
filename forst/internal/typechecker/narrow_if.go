@@ -148,9 +148,73 @@ func (tc *TypeChecker) applyIfBranchNarrowing(condition ast.Node) {
 	}
 	guards := tc.typeGuardNamesFromIsRHS(bin.Right)
 	disp := tc.narrowingPredicateDisplayFromIsRHS(bin.Right)
+	if tc.isBuiltinResultOkErrIsNarrowing(bin.Left, bin.Right) {
+		// Refined type is already S or F; do not append `.Ok()` / `.Err()` to hover (would read as `Int.Ok()`).
+		guards = nil
+		disp = ""
+	}
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
 	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
 	tc.recordIfChainNarrowingSubject(vn.Ident.ID, refined, guards)
+}
+
+// isBuiltinResultOkErrIsNarrowing is true when `left is <Assertion>` is the built-in Result
+// discriminator (`Ok`/`Err` with Result subject), not a user-defined type guard named Ok/Err.
+func (tc *TypeChecker) isBuiltinResultOkErrIsNarrowing(left, right ast.Node) bool {
+	v, err := tc.getLeftmostVariable(left)
+	if err != nil {
+		return false
+	}
+	varLeftTypes, err := tc.inferExpressionType(v)
+	if err != nil || len(varLeftTypes) != 1 {
+		return false
+	}
+	varLeftType := varLeftTypes[0]
+	a := assertionNodeFromIsRHS(right)
+	if a == nil {
+		return false
+	}
+	handled, _, _ := tc.refinedTypesForResultIsNarrowing(varLeftType, a)
+	return handled
+}
+
+// ensureUsesBuiltinResultOkErrDiscriminator is true when `ensure subject is Ok(...)` / `Err(...)`
+// is the built-in Result(S,F) discriminator. In that case `inferExpressionType(AssertionNode)` would
+// look for a type guard named Ok/Err and fail; narrowing uses the subject's Result type instead.
+func (tc *TypeChecker) ensureUsesBuiltinResultOkErrDiscriminator(n ast.EnsureNode) bool {
+	if n.Assertion.BaseType != nil || len(n.Assertion.Constraints) != 1 {
+		return false
+	}
+	c := n.Assertion.Constraints[0].Name
+	if c != "Ok" && c != "Err" {
+		return false
+	}
+	vt, err := tc.LookupVariableType(&n.Variable, tc.CurrentScope())
+	if err != nil {
+		return false
+	}
+	return vt.IsResultType() && len(vt.TypeParams) >= 2
+}
+
+func assertionNodeFromIsRHS(right ast.Node) *ast.AssertionNode {
+	if right == nil {
+		return nil
+	}
+	switch r := right.(type) {
+	case ast.AssertionNode:
+		return &r
+	case *ast.AssertionNode:
+		return r
+	case ast.TypeDefAssertionExpr:
+		if r.Assertion != nil {
+			return r.Assertion
+		}
+	case *ast.TypeDefAssertionExpr:
+		if r != nil && r.Assertion != nil {
+			return r.Assertion
+		}
+	}
+	return nil
 }
 
 // refinedTypesForIsNarrowing returns the type(s) the subject should have when the `is` condition
@@ -313,10 +377,13 @@ func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	// Do not abort narrowing on failure: `inferExpressionType(AssertionNode)` often lacks the
 	// subject context that `refinedTypesForIsNarrowing` supplies via InferAssertionType, so it can
 	// error while validation + narrowing still succeed (e.g. `ensure x is String.Min(1)`).
-	if _, err := tc.inferExpressionType(n.Assertion); err != nil {
-		tc.log.WithFields(logrus.Fields{
-			"function": "applyEnsureSuccessorNarrowing",
-		}).WithError(err).Debug("ensure assertion expr inference failed (continuing with narrowing)")
+	// Skip for built-in Result Ok/Err — those are not type guards; infer would error ("Ok not found").
+	if !tc.ensureUsesBuiltinResultOkErrDiscriminator(n) {
+		if _, err := tc.inferExpressionType(n.Assertion); err != nil {
+			tc.log.WithFields(logrus.Fields{
+				"function": "applyEnsureSuccessorNarrowing",
+			}).WithError(err).Debug("ensure assertion expr inference failed (continuing with narrowing)")
+		}
 	}
 	refined, err := tc.refinedTypesForIsNarrowing(n.Variable, n.Assertion)
 	if err != nil {
@@ -330,6 +397,10 @@ func (tc *TypeChecker) applyEnsureSuccessorNarrowing(n ast.EnsureNode) {
 	}
 	guards := tc.typeGuardNamesFromAssertionNode(&n.Assertion)
 	disp := tc.narrowingPredicateDisplayFromIsRHS(n.Assertion)
+	if tc.isBuiltinResultOkErrIsNarrowing(n.Variable, n.Assertion) {
+		guards = nil
+		disp = ""
+	}
 	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, guards, disp)
 	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, guards, disp)
 }

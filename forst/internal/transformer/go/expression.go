@@ -1,6 +1,7 @@
 package transformergo
 
 import (
+	"errors"
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
@@ -12,6 +13,9 @@ import (
 
 	logrus "github.com/sirupsen/logrus"
 )
+
+// errMissingConstraintArgValue is returned when an Ok/Err constraint argument omits a value.
+var errMissingConstraintArgValue = errors.New("missing value argument for constraint argument")
 
 // negateCondition negates a condition
 func negateCondition(condition goast.Expr) goast.Expr {
@@ -132,7 +136,7 @@ func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion 
 
 func expressionFromConstraintArg(arg ast.ConstraintArgumentNode) (ast.ExpressionNode, error) {
 	if arg.Value == nil {
-		return nil, fmt.Errorf("missing value argument")
+		return nil, errMissingConstraintArgValue
 	}
 	return *arg.Value, nil
 }
@@ -143,6 +147,12 @@ func (t *Transformer) goResultErrIdentForExpr(left ast.ExpressionNode) (goast.Ex
 		return nil, fmt.Errorf("if-is: Result Ok/Err requires a simple variable subject")
 	}
 	name := string(vn.Ident.ID)
+	if isDotQualifiedVariable(vn) {
+		if t.compoundVarDeclaresResultField(vn) {
+			return t.goResultErrIdentForCompoundField(vn)
+		}
+		return nil, fmt.Errorf("if-is: Result Ok/Err on %q is not a lowered Result struct field", name)
+	}
 	if t.resultLocalSplit != nil {
 		if split, ok := t.resultLocalSplit[name]; ok && split.errGoName != "" {
 			return goast.NewIdent(split.errGoName), nil
@@ -157,12 +167,12 @@ func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c 
 	if err != nil {
 		return nil, err
 	}
-	succExpr, err := t.transformExpression(left)
-	if err != nil {
-		return nil, err
-	}
 	switch c.Name {
 	case "Ok":
+		succExpr, err := t.goResultSuccessValueExprForOkDiscriminator(left)
+		if err != nil {
+			return nil, err
+		}
 		check := goast.Expr(&goast.BinaryExpr{
 			X: errExpr, Op: token.EQL, Y: goast.NewIdent("nil"),
 		})
@@ -196,9 +206,9 @@ func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c 
 			eq := &goast.BinaryExpr{X: errExpr, Op: token.EQL, Y: arg}
 			return &goast.BinaryExpr{X: ne, Op: token.LAND, Y: eq}, nil
 		}
-		return nil, fmt.Errorf("if-is: Err(...) expects at most one argument")
+		return nil, errors.New("if-is: Err(...) expects at most one argument")
 	default:
-		return nil, fmt.Errorf("internal: not Ok/Err")
+		return nil, errors.New("internal: not Ok/Err discriminator")
 	}
 }
 
@@ -346,6 +356,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				Sel: goast.NewIdent(fieldName),
 			}
 		}
+		sel = t.appendResultStoragePayloadSelector(e, sel)
 		return sel, nil
 	case ast.IndexExpressionNode:
 		tgt, err := t.transformExpression(e.Target)
@@ -710,6 +721,25 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 				fieldExpectedType = expectedTypeForField
 			}
 			value, err = t.transformShapeNodeWithExpectedType(&shapeNode, fieldExpectedType)
+		} else if vn, ok := field.Node.(ast.VariableNode); ok && expectedTypeForField != nil && expectedTypeForField.IsResultType() &&
+			len(expectedTypeForField.TypeParams) >= 2 && expectedTypeForField.TypeParams[1].Ident == ast.TypeError &&
+			t.resultLocalSplit != nil {
+			if split, ok := t.resultLocalSplit[string(vn.Ident.ID)]; ok && split.errGoName != "" && len(split.successGoNames) >= 1 {
+				st, err2 := t.transformResultAsStructFieldGoType(*expectedTypeForField)
+				if err2 != nil {
+					return nil, err2
+				}
+				var typ goast.Expr = st
+				value = &goast.CompositeLit{
+					Type: typ,
+					Elts: []goast.Expr{
+						&goast.KeyValueExpr{Key: goast.NewIdent(loweredResultValueFieldName), Value: goast.NewIdent(split.successGoNames[0])},
+						&goast.KeyValueExpr{Key: goast.NewIdent(loweredResultErrFieldName), Value: goast.NewIdent(split.errGoName)},
+					},
+				}
+			} else {
+				value, err = t.transformExpression(field.Node.(ast.ExpressionNode))
+			}
 		} else {
 			value, err = t.transformExpression(field.Node.(ast.ExpressionNode))
 		}

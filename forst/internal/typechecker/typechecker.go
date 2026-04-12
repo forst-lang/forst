@@ -64,6 +64,9 @@ type TypeChecker struct {
 	ifChainNarrowingStack [][]narrowingEvent
 	// currentFunction is set while inferring a function body (Ok/Err need Result(S,F) from the signature).
 	currentFunction *ast.FunctionNode
+	// resultErrIfBranchDepth counts nested `if subject is Err(...)` then-bodies (built-in Result
+	// narrowing). Failure propagation with `return Err(...)` there is rejected; use `ensure` instead.
+	resultErrIfBranchDepth int
 }
 
 // New creates a new TypeChecker

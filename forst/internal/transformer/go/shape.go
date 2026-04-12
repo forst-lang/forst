@@ -45,6 +45,15 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 			}
 		}
 
+		// Result(S,F) in a struct field is not a valid Go single type; lower to struct { V S; Err F }.
+		if field.Type.IsResultType() {
+			st, err := t.transformResultAsStructFieldGoType(*field.Type)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform shape field type: %w", err)
+			}
+			var expr goast.Expr = st
+			return &expr, nil
+		}
 		// Use the same Go type emission as function signatures (slices, maps, pointers, aliases).
 		typeExpr, err := t.transformType(*field.Type)
 		if err != nil {

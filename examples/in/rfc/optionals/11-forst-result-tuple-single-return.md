@@ -1,9 +1,9 @@
 # Forst `Result`, `Tuple`, and single-return functions (user-facing RFC)
 
 **Audience:** Forst language users and API authors planning ahead.  
-**Status:** **Normative direction** — reflects **locked design decisions** for the compiler and tooling. Exact grammar, keyword spelling, and release timing follow implementation; this document is the **contract** for *what* the language is moving toward and *why* it matters to you.
+**Status:** **Normative direction** for **`Result`**, **`Tuple`**, **single-return** signatures, **Go lowering**, **tooling**, and **migration** — unless a section points to a more specific RFC. **Exception:** how **`Result`** values are **constructed** at **return** sites is **not locked**; see [12 — Result primitives without `Ok`/`Err`](./12-result-primitives-without-ok-err.md) (**exploratory**), which **withdraws** only the plan that **`Ok(...)`** / **`Err(...)`** are the **mandatory constructors**. **`Ok`** and **`Err`** remain **built-in type guards** on **`Result`** for **`is` / `ensure` narrowing** ([12 §0](./12-result-primitives-without-ok-err.md#0-scope-split-guards-vs-constructors)) — **intended for now**.
 
-**Relations:** Builds on [02-result-and-error-types.md](./02-result-and-error-types.md) (philosophy and error family) and [01-single-return-unions-and-go-interop.md](./01-single-return-unions-and-go-interop.md) (Go mapping). Where older docs say “exploratory” or “not locked,” **this** doc states the **intended** user-visible shape unless a section explicitly marks “TBD at implementation.”
+**Relations:** Builds on [02-result-and-error-types.md](./02-result-and-error-types.md) (philosophy and error family) and [01-single-return-unions-and-go-interop.md](./01-single-return-unions-and-go-interop.md) (Go mapping). Where older docs say “exploratory” or “not locked,” **this** doc states the **intended** user-visible shape **except** where **§1.4** defers **construction** to [12](./12-result-primitives-without-ok-err.md).
 
 ---
 
@@ -44,18 +44,22 @@ Tuple(T1, …, Tn)     -- arity matches the Go signature
 
 **Implication:** “Multiple things” from pure Go tuples become **one** Forst value whose type is `Tuple(...)`. This is **not** the same as `Result`; there is no required failure side.
 
-### 1.4 Constructors: `Ok` and `Err`
+### 1.4 Producing `Result` values (construction open — see RFC 12)
 
-Values of type `Result(T, E)` are built with dedicated **language** forms **`Ok(...)`** and **`Err(...)`** (not user-definable functions with the same names). That keeps codegen, diagnostics, and learning materials unambiguous.
+The language still needs a **clear, low-clutter** way to **build** **success** and **failure** values for `Result(T, E)` at **return** sites. A previous revision of this document **locked** **`Ok(...)`** / **`Err(...)`** as the **constructors** for those values; **that decision alone** is withdrawn ([12](./12-result-primitives-without-ok-err.md)).
 
-**Implication:** You write `return Ok(value)` / `return Err(err)` instead of `return value, nil` / `return zero, err` in Forst source. The compiler still emits **idiomatic Go** `(T, error)` at the boundary (see §3).
+**Stable for now (separate from construction):** **`Ok`** and **`Err`** as **built-in type guards** on **`Result`** for **`if r is Ok(...)`** / **`if r is Err(...)`** and **`ensure`** ([12 §0](./12-result-primitives-without-ok-err.md#0-scope-split-guards-vs-constructors)).
+
+**Active design:** [12 — Result primitives without `Ok`/`Err`](./12-result-primitives-without-ok-err.md) records **goals**, **tradeoffs**, and **candidate** **construction** directions. **Leading candidate ([12 §5.7](./12-result-primitives-without-ok-err.md)):** **ordinary** **`return x`** for **success**, **explicit** **nominal** **error** **constructors** for **failure**—**no** **`Ok`/`Err`** **keywords** at **return** sites (**`is Ok`/`is Err`** **guards** unchanged). Until that work stabilizes and is folded back here, **user-facing** **constructor** syntax is **not** part of the stable contract.
+
+**Implication:** Examples that show **`return Ok(x)`** / **`return Err(e)`** show one **transitional** construction style, not a **locked** one. **`is`** / **`ensure`** examples using **`Ok`/`Err` guards** match the **intended narrowing** story **for now**. **Lowering** to idiomatic Go **`(T, error)`** (§2) remains the **direction**.
 
 ### 1.5 Consuming `Result`: `is` and narrowing (not multi-assign)
 
-The primary way to **unpack** a `Result` in v1 is **flow-sensitive narrowing** with **`is`**, symmetrically on success and failure:
+The primary way to **unpack** a `Result` is **flow-sensitive narrowing** with **`is`**, using the **built-in `Ok`/`Err` guards** on **`Result`** ([12 §0](./12-result-primitives-without-ok-err.md#0-scope-split-guards-vs-constructors)) — **for now** the **normative** intent:
 
-- **`if r is Ok(v)`** — in the then-branch, **`v`** has the success type (and **`r`** is known to be the success case where the type system tracks that).  
-- **`if r is Err(e)`** — in the then-branch, **`e`** has the failure type, narrowed according to **`Result(T, F)`** (e.g. `F` a specific error subtype).
+- **`if r is Ok(v)`** — in the then-branch, **`v`** / **`r`** carry the **success** type **`S`** for `Result(S, F)` where the typechecker models it.  
+- **`if r is Err(e)`** — in the then-branch, **`e`** / **`r`** carry the **failure** type **`F`** (e.g. a specific **error** subtype).
 
 There is **no** reliance on method-only combinators as the **sole** story for v1, and **no** long-term dependency on `a, b := f()` for `Result`-typed calls.
 
@@ -114,7 +118,7 @@ These items are **tracked in the compiler** and do not change the user contract 
 
 - **Tests first:** End-to-end and pipeline tests (compile Forst → generated Go → **`go test` / build**) land early so refactors stay safe.  
 - **Tuple arity:** **n-ary** `Tuple` in the first milestone so rare Go signatures with more than two results are not stranded.  
-- **Minor open details:** Exact JSON shape for `returnDescriptors`, fine points of **`is`** syntax for `Ok`/`Err`, and success-side subtyping rules for `Result`—specified at implementation time and reflected back into this hub if needed.
+- **Minor open details:** Exact JSON shape for `returnDescriptors`, fine points of **`is`** / **discriminator** syntax for **`Result`** (see [12](./12-result-primitives-without-ok-err.md)), and success-side subtyping rules for `Result`—specified at implementation time and reflected back into this hub if needed.
 
 ---
 
@@ -125,6 +129,7 @@ These items are **tracked in the compiler** and do not change the user contract 
 | [02](./02-result-and-error-types.md) | Error-kinded **`Failure`**, hierarchy, Rust contrast |
 | [01](./01-single-return-unions-and-go-interop.md) | Single-return ergonomics, Go `go/types` mapping |
 | [09](./09-ensure-is-narrowing-and-binary-types.md) | **`ensure`**, **`is`**, narrowing |
+| [12](./12-result-primitives-without-ok-err.md) | **Exploratory** — alternatives to **`Ok`/`Err`**; **open** construction + discriminator story |
 | [ROADMAP.md](../../../../ROADMAP.md) | Feature status |
 | [PHILOSOPHY.md](../../../../PHILOSOPHY.md) | Design boundaries |
 
@@ -135,3 +140,5 @@ These items are **tracked in the compiler** and do not change the user contract 
 | Change | Notes |
 |--------|--------|
 | Initial | User-facing consolidation of **Result**, **Tuple**, **single return**, **Ok/Err**, **symmetric `is` narrowing**, **Go interop**, **parenthesized type display**, **versioned discovery**, **flag-day migration**, **test-first** implementation strategy. |
+| RFC 12 | **Withdraws** locked **`Ok`/`Err`** **constructor** decision only; **§1.4** construction open; **§1.5** **`Ok`/`Err` as guards** intended **for now**; points to [12](./12-result-primitives-without-ok-err.md). |
+| RFC 12 §5.7 | **§1.4** — **leading candidate**: **`return x`** **success**, **nominal** **error** **constructors** **failure** ([12 §5.7](./12-result-primitives-without-ok-err.md)). |

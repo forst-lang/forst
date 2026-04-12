@@ -2,11 +2,14 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "bun: compile",
+      "label": "compile: vscode-forst",
       "type": "shell",
-      "command": "bun run compile",
+      "command": "bun run --filter forst compile",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}/../..",
+        "env": {
+          "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:${env:PATH}"
+        }
       },
       "group": "build",
       "presentation": {

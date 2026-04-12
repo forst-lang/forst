@@ -215,6 +215,8 @@ Stages A–B unlock most **language** generics; C–D unlock **interop and stdli
 
 ## Result types, generics, and narrowing (Ok and Err)
 
+**Status note:** [optionals RFC 12](../optionals/12-result-primitives-without-ok-err.md) **withdraws** a **locked** choice that **`Ok(...)`** / **`Err(...)`** are the **mandatory constructors** for **`Result`** values. **`Ok`/`Err`** as **built-in type guards** on **`Result`** for **`is`/`ensure`** remain **intended for now** ([12 §0](../optionals/12-result-primitives-without-ok-err.md#0-scope-split-guards-vs-constructors)). This section continues to describe **`Result`** as a **discriminated** sum and how **narrowing** interacts with **generics** using those guards.
+
 **See also:** [optionals — `Result` types](../optionals/02-result-and-error-types.md), [optionals — `ensure` / `is`](../optionals/09-ensure-is-narrowing-and-binary-types.md), [optionals — type guards and `Result`](../optionals/10-type-guards-shape-guards-and-optionals.md), [guard RFC — generic type guards](../guard/guard.md).
 
 The [Purpose](#purpose-and-benefits-for-the-language) section already uses **`Result[Int, AppError]`** as an illustrative **instantiated** generic type. That is **the same** **identity** story as **`Box[Int]`** (parameter symbol + concrete type arguments), but applied to Forst’s **`Result(Success, Failure)`** convention instead of a user-defined **`Box`**.
@@ -235,7 +237,7 @@ The [Purpose](#purpose-and-benefits-for-the-language) section already uses **`Re
 - **`ensure r is Ok() or err`** — same **narrowing** in the **success** continuation; **failure** path returns **`error`** per **`ensure`** semantics ([optionals 09](../optionals/09-ensure-is-narrowing-and-binary-types.md)).
 - **`if r is Err()`** / **`ensure r is Err() or err`** — mirror for the **failure** branch; **payload** narrows to **`Failure`** (subject to **`Error`** hierarchy rules in [optionals 02](../optionals/02-result-and-error-types.md)).
 
-So **`Ok()`** is **not** an ad hoc keyword-only hack: it is the **success** discriminant of **`Result`**, composed with **generic instantiation** so the checker **knows** which **`Success`**/**`Failure`** types apply at **`r`**’s static type.
+The **intent** is that **success** and **failure** behave like **discriminants** on the **`Result`** sum, composed with **generic instantiation** so the checker **knows** which **`Success`**/**`Failure`** types apply at **`r`**’s static type—whether those discriminants stay spelled **`Ok`/`Err`** or adopt **other** primitives ([optionals 12](../optionals/12-result-primitives-without-ok-err.md)).
 
 ### Staging relative to this RFC’s phases
 

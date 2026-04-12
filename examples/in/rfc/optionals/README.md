@@ -17,7 +17,11 @@ Exploration of **`T | Nil`** (Crystal-style **`T?`**) vs Go’s **`(value, error
 | [08](./08-go-interop-lowering.md) | **Lowering** optionals to Go |
 | [09](./09-ensure-is-narrowing-and-binary-types.md) | **`ensure`**, **`is`**, narrowing |
 | [10](./10-type-guards-shape-guards-and-optionals.md) | **Type / shape guards** vs optionals **`Result`** |
-| [11](./11-forst-result-tuple-single-return.md) | **User-facing** — **`Result`**, **`Tuple`**, **single return**, **`Ok`/`Err`**, **`is`** narrowing, Go interop, tooling, migration (**normative direction**) |
+| [11](./11-forst-result-tuple-single-return.md) | **User-facing** — **`Result`**, **`Tuple`**, **single return**, **`is`** narrowing, Go interop, tooling, migration (**normative**, **except** `Result` **construction** — see **12**) |
+| [12](./12-result-primitives-without-ok-err.md) | **Exploratory** — **§5.7** **stated preference**: **`return x`** **success**, **nominal** **error** **constructors** **failure**, **no** **`Ok`/`Err`** **keywords** at **returns**; **`is Ok`/`Err`** **guards** kept; **§5.6** brainstorm; **§7** **[errors RFC](../errors/README.md)**; **withdraws** mandatory **`Ok`/`Err`** **constructors** ([11](./11-forst-result-tuple-single-return.md) **§1.4**) |
+| [13](./13-result-constructors-prior-art.md) | **Analysis** — **`Ok`/`Err`-style** vs **avoiding** wrappers; **Go/Zig**; **Effect**: **`Effect<A,E,R>`**, **`gen`/`yield*`**, **`mapError`/`catchTag`**, vs Forst **`ensure`** for **validation** + **refinement** |
+
+**Errors RFC hub:** [ensure-only failure propagation + constructor-free `Result`](../errors/01-ensure-only-failure-returns.md) — normative **`ensure … is Ok() or …`** vs **`if`** for **`Result`** propagation (**`Ok()`** success guard); ties **[12 §5.7](./12-result-primitives-without-ok-err.md)** to compiler enforcement.
 
 ## See also
 

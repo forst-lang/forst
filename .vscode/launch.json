@@ -11,7 +11,7 @@
       "outFiles": [
         "${workspaceFolder}/packages/vscode-forst/out/extension.js"
       ],
-      "preLaunchTask": "bun: compile vscode-forst"
+      "preLaunchTask": "compile: vscode-forst"
     }
   ]
 }

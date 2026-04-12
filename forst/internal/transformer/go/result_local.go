@@ -37,7 +37,7 @@ type resultLocalSplit struct {
 
 // hasResultLocalSplitForSimpleVariable is true when vn is a plain name bound from a folded Result (x/xErr).
 func (t *Transformer) hasResultLocalSplitForSimpleVariable(vn ast.VariableNode) bool {
-	if strings.Contains(string(vn.Ident.ID), ".") {
+	if isDotQualifiedVariable(vn) {
 		return false
 	}
 	name := string(vn.Ident.ID)
@@ -61,9 +61,21 @@ func (t *Transformer) rhsCallIsFoldedResult(fc ast.FunctionCallNode) bool {
 // expanding a Result-split local (success slots + err) when present.
 // Used from both expression and statement transforms.
 func (t *Transformer) transformPrintBuiltinCallArgs(args []ast.ExpressionNode) ([]goast.Expr, error) {
-	var expanded []goast.Expr
+	expanded := make([]goast.Expr, 0, len(args)*2)
 	for _, arg := range args {
 		if vn, ok := arg.(ast.VariableNode); ok {
+			// Struct-stored Result fields lower to {V, Err}; expand print args like x,xErr only
+			// when this occurrence is still typed as Result. When narrowed (e.g. inside `if w.r is Ok()`),
+			// use normal codegen (e.g. println(w.r.V)).
+			if sel, okSel := t.compoundResultFieldStorageSelector(vn); okSel {
+				if occ, okOcc := t.TypeChecker.InferredTypesForVariableNode(vn); okOcc && len(occ) == 1 && occ[0].IsResultType() {
+					expanded = append(expanded,
+						goLoweredResultValueSelector(sel),
+						goLoweredResultErrSelector(sel),
+					)
+					continue
+				}
+			}
 			name := string(vn.Ident.ID)
 			if t != nil && t.resultLocalSplit != nil {
 				if split, ok := t.resultLocalSplit[name]; ok && split.errGoName != "" && len(split.successGoNames) > 0 {

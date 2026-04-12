@@ -1,11 +1,18 @@
 package transformergo
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 
 	"forst/internal/ast"
 	goast "go/ast"
 	gotoken "go/token"
+)
+
+var (
+	errConstraintArgNeedsKind = errors.New("constraint argument must be a type, shape, or value")
+	errConstraintArgValueKind = errors.New("unsupported value kind in constraint argument")
 )
 
 // transformEnsureConstraints transforms an ensure node based on its type
@@ -29,7 +36,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 	if ensure.Assertion.BaseType == nil && len(ensure.Assertion.Constraints) == 1 {
 		c := ensure.Assertion.Constraints[0]
 		if c.Name == "Ok" || c.Name == "Err" {
-			if t.hasResultLocalSplitForSimpleVariable(ensure.Variable) || varType.IsResultType() {
+			if t.hasResultLocalSplitForSimpleVariable(ensure.Variable) || varType.IsResultType() || t.compoundVarDeclaresResultField(ensure.Variable) {
 				return t.transformResultIsDiscriminator(ensure.Variable, c)
 			}
 		}
@@ -115,25 +122,27 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 func transformConstraintArg(arg ast.ConstraintArgumentNode) (goast.Expr, error) {
 	if arg.Type != nil {
 		return goast.NewIdent(string(arg.Type.Ident)), nil
-	} else if arg.Shape != nil {
+	}
+	if arg.Shape != nil {
 		return goast.NewIdent("struct{}"), nil
-	} else if arg.Value != nil {
+	}
+	if arg.Value != nil {
 		switch v := (*arg.Value).(type) {
 		case ast.IntLiteralNode:
-			return &goast.BasicLit{Kind: gotoken.INT, Value: fmt.Sprintf("%d", v.Value)}, nil
+			return &goast.BasicLit{Kind: gotoken.INT, Value: strconv.FormatInt(v.Value, 10)}, nil
 		case ast.StringLiteralNode:
-			return &goast.BasicLit{Kind: gotoken.STRING, Value: fmt.Sprintf("%q", v.Value)}, nil
+			return &goast.BasicLit{Kind: gotoken.STRING, Value: strconv.Quote(v.Value)}, nil
 		case ast.BoolLiteralNode:
-			return goast.NewIdent(fmt.Sprintf("%v", v.Value)), nil
+			return goast.NewIdent(strconv.FormatBool(v.Value)), nil
 		case ast.FloatLiteralNode:
-			return &goast.BasicLit{Kind: gotoken.FLOAT, Value: fmt.Sprintf("%f", v.Value)}, nil
+			return &goast.BasicLit{Kind: gotoken.FLOAT, Value: strconv.FormatFloat(v.Value, 'f', -1, 64)}, nil
 		case ast.VariableNode:
 			return &goast.Ident{Name: string(v.Ident.ID)}, nil
 		default:
-			return nil, fmt.Errorf("unsupported value type in constraint argument: %T", v)
+			return nil, fmt.Errorf("%w: %T", errConstraintArgValueKind, v)
 		}
 	}
-	return nil, fmt.Errorf("unsupported constraint argument type")
+	return nil, errConstraintArgNeedsKind
 }
 
 // validateConstraintArgs validates the number of arguments for a constraint

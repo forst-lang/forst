@@ -35,7 +35,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.FunctionNode:
 		prevFn := tc.currentFunction
 		tc.currentFunction = &n
-		defer func() { tc.currentFunction = prevFn }()
+		prevErrBranchDepth := tc.resultErrIfBranchDepth
+		tc.resultErrIfBranchDepth = 0
+		defer func() {
+			tc.currentFunction = prevFn
+			tc.resultErrIfBranchDepth = prevErrBranchDepth
+		}()
 
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferNodeType",
@@ -227,6 +232,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 					return nil, err
 				}
 			}
+		}
+		if err := tc.checkReturnDisallowedInResultErrBranch(n); err != nil {
+			return nil, err
 		}
 		return nil, nil
 
