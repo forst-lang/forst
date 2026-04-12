@@ -800,6 +800,9 @@ func R(): Result(Int, Error) {
 	if fn.ResultSuccessType == "" || fn.ResultFailureType == "" {
 		t.Fatalf("expected result component types, got success=%q failure=%q", fn.ResultSuccessType, fn.ResultFailureType)
 	}
+	if !fn.HasMultipleReturns {
+		t.Fatalf("expected HasMultipleReturns for Result (lowers to success + error in Go), got %+v", fn)
+	}
 	raw, err := json.Marshal(fn)
 	if err != nil {
 		t.Fatal(err)

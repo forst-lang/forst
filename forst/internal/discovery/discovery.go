@@ -295,6 +295,9 @@ func (d *Discoverer) applyResultDiscoveryMetadata(fn *FunctionInfo, rt ast.TypeN
 	fn.IsResult = true
 	fn.ResultSuccessType = d.resolveTypeName(rt.TypeParams[0], tc)
 	fn.ResultFailureType = d.resolveTypeName(rt.TypeParams[1], tc)
+	// Result(S, F) is one Forst return slot but lowers to (S, error) in Go; the executor wrapper
+	// must use `result, err := fn(...)` like any multi-return Go function.
+	fn.HasMultipleReturns = true
 }
 
 // resolveTypeName converts an AST type to a string representation using the typechecker

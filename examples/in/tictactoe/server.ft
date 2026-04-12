@@ -12,12 +12,13 @@ func main() {
 	a1 := getCell(g.cells, 1)
 	a2 := getCell(g.cells, 2)
 	fmt.Println("top row |", a0, a1, a2)
-	// PlayMove returns Result(MoveResponse, Error); destructuring deferred until if-is narrowing
-	played := PlayMove({
+	move := PlayMove({
 		state: g,
 		row:   1,
 		col:   2,
 	})
-	fmt.Println("played sample move:", played)
-	fmt.Println("then    | next:", g.nextPlayer, "| status:", g.status)
+	if move is Ok() {
+		fmt.Println("after X @ (1,2) | msg:", move.message)
+		fmt.Println("then    | next:", move.state.nextPlayer, "| status:", move.state.status)
+	}
 }

@@ -74,6 +74,14 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					newResolved[i] = []ast.TypeNode{resolvedTypes[0][i]}
 				}
 				resolvedTypes = newResolved
+			} else if len(resolvedTypes[0]) == 1 && len(assign.LValues) == 2 &&
+				resolvedTypes[0][0].IsResultType() && len(resolvedTypes[0][0].TypeParams) >= 2 {
+				// Result(S, F) is one Forst return type but maps to two LHS slots (success, failure).
+				rt := resolvedTypes[0][0]
+				resolvedTypes = [][]ast.TypeNode{
+					{rt.TypeParams[0]},
+					{rt.TypeParams[1]},
+				}
 			}
 		}
 	}
