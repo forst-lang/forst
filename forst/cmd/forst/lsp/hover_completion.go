@@ -329,7 +329,7 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
 			return typeDefHoverMarkdown(tokens, merge, def)
 		}
-		if doc := guardIdentifierHoverMarkdown(tokens, tok); doc != "" {
+		if doc := guardIdentifierHoverMarkdown(tc, tokens, tok); doc != "" {
 			return doc
 		}
 		vn := ast.VariableNode{
@@ -724,15 +724,55 @@ func keywordHover(tok *ast.Token) string {
 	return hoverdoc.MarkdownForKeywordToken(tok.Type)
 }
 
+// subjectExprStringBeforeIs returns the variable or field path immediately before `is` (e.g. `n` in
+// `ensure n is GreaterThan(0)`, `w.r` in `ensure w.r is Ok()`), or "" if not a simple identifier/dot chain.
+func subjectExprStringBeforeIs(tokens []ast.Token, isIdx int) string {
+	if isIdx < 1 {
+		return ""
+	}
+	start := isIdx - 1
+	if start < 0 || tokens[start].Type != ast.TokenIdentifier {
+		return ""
+	}
+	for start >= 2 && tokens[start-1].Type == ast.TokenDot && tokens[start-2].Type == ast.TokenIdentifier {
+		start -= 2
+	}
+	var b strings.Builder
+	for i := start; i < isIdx; i++ {
+		switch tokens[i].Type {
+		case ast.TokenIdentifier:
+			b.WriteString(tokens[i].Value)
+		case ast.TokenDot:
+			b.WriteByte('.')
+		default:
+			return ""
+		}
+	}
+	return b.String()
+}
+
 // guardIdentifierHoverMarkdown returns built-in guard documentation when the identifier appears
 // immediately after `is` (e.g. ensure x is Min(1), if x is Ok()).
-func guardIdentifierHoverMarkdown(tokens []ast.Token, tok *ast.Token) string {
+func guardIdentifierHoverMarkdown(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return ""
 	}
 	i := tokenSliceIndex(tokens, tok)
 	if i < 1 || tokens[i-1].Type != ast.TokenIs {
 		return ""
+	}
+	isIdx := i - 1
+	if tc != nil {
+		if subj := subjectExprStringBeforeIs(tokens, isIdx); subj != "" {
+			// Use inferred types, not LookupVariableType(CurrentScope): after CheckTypes the scope
+			// stack is often at file level, but VariableTypes / tc.Types still hold locals.
+			if types, ok := tc.InferredTypesForVariableIdentifier(ast.Identifier(subj)); ok && len(types) == 1 {
+				baseDisp := tc.FormatTypeNodeDisplay(types[0])
+				if md := hoverdoc.GuardMarkdownQualified(baseDisp, tok.Value); md != "" {
+					return md
+				}
+			}
+		}
 	}
 	return hoverdoc.GuardMarkdown(tok.Value)
 }

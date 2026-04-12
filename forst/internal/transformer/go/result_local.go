@@ -29,6 +29,60 @@ func goFunExprFromForstCallIdent(id ast.Ident) goast.Expr {
 	return goast.NewIdent(s)
 }
 
+// goExprForNarrowedResultSplitLocal maps a plain Forst name bound from lowered Result(S,F) to the Go
+// identifier for the success or error slot when the typechecker narrowed the binding in the current
+// scope (e.g. ensure failure block vs successor narrowing).
+func (t *Transformer) goExprForNarrowedResultSplitLocal(vn ast.VariableNode, split resultLocalSplit) (goast.Expr, bool) {
+	if split.errGoName == "" || len(split.successGoNames) < 1 || isDotQualifiedVariable(vn) {
+		return nil, false
+	}
+	decl, ok := t.TypeChecker.VariableTypes[vn.Ident.ID]
+	if !ok || len(decl) != 1 || !decl[0].IsResultType() || len(decl[0].TypeParams) < 2 {
+		return nil, false
+	}
+	rt := decl[0]
+	succ := rt.TypeParams[0]
+	fail := rt.TypeParams[1]
+	lt, err := t.TypeChecker.LookupVariableType(&vn, t.currentScope())
+	if err != nil {
+		return nil, false
+	}
+	if lt.IsResultType() {
+		return nil, false
+	}
+	if t.TypeChecker.IsTypeCompatible(lt, succ) {
+		return goast.NewIdent(split.successGoNames[0]), true
+	}
+	if t.TypeChecker.IsTypeCompatible(lt, fail) {
+		return goast.NewIdent(split.errGoName), true
+	}
+	return nil, false
+}
+
+// goFunExprFromForstCallIdentWithNarrowing is like goFunExprFromForstCallIdent but rewrites the
+// receiver of recv.method when recv is a Result-split local and the current scope narrowed it.
+func (t *Transformer) goFunExprFromForstCallIdentWithNarrowing(id ast.Ident) goast.Expr {
+	s := string(id.ID)
+	i := strings.LastIndex(s, ".")
+	if i <= 0 || i >= len(s)-1 {
+		return goFunExprFromForstCallIdent(id)
+	}
+	recv := s[:i]
+	method := s[i+1:]
+	if strings.Contains(recv, ".") {
+		return goFunExprFromForstCallIdent(id)
+	}
+	if t.resultLocalSplit != nil {
+		if split, ok := t.resultLocalSplit[recv]; ok {
+			vn := ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(recv)}}
+			if expr, ok2 := t.goExprForNarrowedResultSplitLocal(vn, split); ok2 {
+				return &goast.SelectorExpr{X: expr, Sel: goast.NewIdent(method)}
+			}
+		}
+	}
+	return goFunExprFromForstCallIdent(id)
+}
+
 // resultLocalSplit records how a Forst Result binding maps to Go identifiers for multi-value returns.
 type resultLocalSplit struct {
 	errGoName      string
@@ -89,6 +143,16 @@ func (t *Transformer) transformPrintBuiltinCallArgs(args []ast.ExpressionNode) (
 			name := string(vn.Ident.ID)
 			if t != nil && t.resultLocalSplit != nil {
 				if split, ok := t.resultLocalSplit[name]; ok && split.errGoName != "" && len(split.successGoNames) > 0 {
+					lt, err := t.TypeChecker.LookupVariableType(&vn, t.currentScope())
+					if err == nil && !lt.IsResultType() {
+						// Success-only / failure-only narrowing (e.g. after `ensure x is Ok()`): one Go value.
+						argExpr, err2 := t.transformExpression(arg)
+						if err2 != nil {
+							return nil, err2
+						}
+						expanded = append(expanded, argExpr)
+						continue
+					}
 					for _, id := range split.successGoNames {
 						expanded = append(expanded, goast.NewIdent(id))
 					}

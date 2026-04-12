@@ -613,6 +613,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		// The transformErrorStatement function will handle all error return cases
 		// Only process the Block if it contains non-return statements (which is rare for EnsureNode)
 		if s.Block != nil {
+			// Match typechecker pushScope(n.Block): failure-branch narrowing for the ensure subject
+			// lives on the block scope, not the EnsureNode scope.
+			if err := t.restoreScope(s.Block); err != nil {
+				return nil, fmt.Errorf("failed to restore ensure block scope: %w", err)
+			}
 			// Only process non-return statements in the block
 			// Return statements should be handled by transformErrorStatement, not here
 			for _, stmt := range s.Block.Body {

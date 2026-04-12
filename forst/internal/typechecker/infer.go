@@ -176,11 +176,21 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			if _, err := tc.inferExpressionType(n.Variable); err != nil {
 				return nil, err
 			}
-			tc.applyEnsureSuccessorNarrowing(n)
+			// Built-in Result Ok/Err: the block is the failure branch (see transformer: if !cond { block }).
+			// Narrow to F when the assertion was Ok(), and to S when it was Err().
+			if tc.ensureUsesBuiltinResultOkErrDiscriminator(n) {
+				tc.applyEnsureBlockResultFailureNarrowing(n)
+			} else {
+				tc.applyEnsureSuccessorNarrowing(n)
+			}
 			_, err = tc.inferNodeTypes(n.Block.Body, n.Block)
 			tc.popScope()
 			if err != nil {
 				return nil, err
+			}
+			// After a passing ensure, following statements see the success-side refinement (S after Ok, etc.).
+			if tc.ensureUsesBuiltinResultOkErrDiscriminator(n) {
+				tc.applyEnsureSuccessorNarrowing(n)
 			}
 		} else {
 			if _, err := tc.inferExpressionType(n.Variable); err != nil {

@@ -293,6 +293,44 @@ func (tc *TypeChecker) refinedTypesForIsNarrowing(left, right ast.Node) ([]ast.T
 	}
 }
 
+// refinedTypesForResultEnsureBlockFailure returns the subject type inside
+// `ensure x is Ok()/Err() { ... }` for the block body. The block runs when the assertion fails (same
+// as the generated `if !(ok)` branch), so for Ok() the subject is the failure type F; for Err() it is
+// the success type S.
+func (tc *TypeChecker) refinedTypesForResultEnsureBlockFailure(varLeftType ast.TypeNode, a *ast.AssertionNode) ([]ast.TypeNode, error) {
+	handled, _, err := tc.refinedTypesForResultIsNarrowing(varLeftType, a)
+	if !handled || err != nil {
+		return nil, err
+	}
+	if !varLeftType.IsResultType() || len(varLeftType.TypeParams) < 2 || a == nil || len(a.Constraints) != 1 {
+		return nil, nil
+	}
+	c := a.Constraints[0]
+	if c.Name == "Ok" {
+		return []ast.TypeNode{varLeftType.TypeParams[1]}, nil
+	}
+	if c.Name == "Err" {
+		return []ast.TypeNode{varLeftType.TypeParams[0]}, nil
+	}
+	return nil, nil
+}
+
+// applyEnsureBlockResultFailureNarrowing registers the failure-branch Result(S,F) refinement for the
+// ensure subject inside an ensure block body (built-in Ok/Err only).
+func (tc *TypeChecker) applyEnsureBlockResultFailureNarrowing(n ast.EnsureNode) {
+	vn := n.Variable
+	vt, err := tc.LookupVariableType(&vn, tc.CurrentScope())
+	if err != nil {
+		return
+	}
+	refined, err := tc.refinedTypesForResultEnsureBlockFailure(vt, &n.Assertion)
+	if err != nil || len(refined) == 0 {
+		return
+	}
+	tc.scopeStack.currentScope().RegisterSymbolWithNarrowing(vn.Ident.ID, refined, SymbolVariable, nil, "")
+	tc.recordCompoundNarrowingIdentifier(vn.Ident.ID, nil, "")
+}
+
 // refinedTypesForResultIsNarrowing handles `x is Ok(...)` / `Err(...)` when x is Result(S,F).
 func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode, a *ast.AssertionNode) (handled bool, refined []ast.TypeNode, err error) {
 	if a == nil || len(a.Constraints) != 1 || a.BaseType != nil {

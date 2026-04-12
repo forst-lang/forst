@@ -385,6 +385,18 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 		return nil, fmt.Errorf("method calls are only valid on single types, got %s", formatTypeList(varType))
 	}
 
+	t := varType[0]
+	if t.IsResultType() && len(t.TypeParams) >= 2 {
+		switch methodName {
+		case "Ok":
+			return []ast.TypeNode{t.TypeParams[0]}, nil
+		case "Err":
+			return []ast.TypeNode{t.TypeParams[1]}, nil
+		default:
+			return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, t.String())
+		}
+	}
+
 	returnType, err := tc.CheckBuiltinMethod(varType[0], methodName, args)
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{

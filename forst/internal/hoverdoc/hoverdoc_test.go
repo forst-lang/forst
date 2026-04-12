@@ -56,6 +56,17 @@ func TestGuardMarkdown_unknown(t *testing.T) {
 	}
 }
 
+func TestGuardMarkdownQualified_prefixesBaseType(t *testing.T) {
+	t.Parallel()
+	md := GuardMarkdownQualified("Int", GuardGreaterThan)
+	if !strings.HasPrefix(md, "**`Int.GreaterThan`** (guard)") {
+		t.Fatalf("want Int.GreaterThan title, got:\n%s", md)
+	}
+	if strings.Contains(md, "**`GreaterThan`** (guard)") {
+		t.Fatal("should not use unqualified title when base is set")
+	}
+}
+
 func TestIsBuiltinTypeSurfaceName(t *testing.T) {
 	t.Parallel()
 	if !IsBuiltinTypeSurfaceName(NameResult) || IsBuiltinTypeSurfaceName("NotBuiltin") {

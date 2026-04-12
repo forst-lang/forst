@@ -43,6 +43,25 @@ func GuardMarkdown(name string) string {
 	return guardDocs[name]
 }
 
+// GuardMarkdownQualified is like GuardMarkdown, but when baseTypeDisplay is non-empty the title line
+// uses **`<Base>.<name>`** (guard) (e.g. Int.GreaterThan) instead of **`<name>`** (guard).
+func GuardMarkdownQualified(baseTypeDisplay, name string) string {
+	doc := GuardMarkdown(name)
+	if doc == "" {
+		return ""
+	}
+	base := strings.TrimSpace(baseTypeDisplay)
+	if base == "" {
+		return doc
+	}
+	oldPrefix := "**`" + name + "`** (guard)\n\n"
+	newPrefix := "**`" + base + "." + name + "`** (guard)\n\n"
+	if strings.HasPrefix(doc, oldPrefix) {
+		return newPrefix + doc[len(oldPrefix):]
+	}
+	return doc
+}
+
 func guardDoc(title, body string) string {
 	var b strings.Builder
 	b.WriteString("**`")

@@ -475,7 +475,7 @@ func main() {
 	}
 }
 
-func TestEnsureResult_blockBody_seesOkNarrowing(t *testing.T) {
+func TestEnsureResult_blockBody_seesFailureBranchNarrowing_whenOk(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main
@@ -506,7 +506,8 @@ func main() {
 		t.Fatal("expected ensure block")
 	}
 	printlnCall := unwrapFunctionCall(t, ensureStmt.Block.Body[0])
-	checkVarHover(t, tc, printlnCall, ast.TypeInt)
+	// Block runs when Ok() fails — x is the Err payload (F).
+	checkVarHover(t, tc, printlnCall, ast.TypeError)
 }
 
 func TestEnsureResult_isErr_narrowsFailureInSuccessor(t *testing.T) {
@@ -704,7 +705,7 @@ func main() {
 	checkVarHover(t, tc, printlnCall, ast.TypeInt)
 }
 
-func TestEnsureResult_fieldPath_blockBody_seesOkNarrowing(t *testing.T) {
+func TestEnsureResult_fieldPath_blockBody_seesFailureBranchNarrowing_whenOk(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := fieldPathResultSourcePrefix + `
@@ -734,6 +735,45 @@ func main() {
 		t.Fatalf("ensure subject: got %q", ensureStmt.Variable.Ident.ID)
 	}
 	printlnCall := unwrapFunctionCall(t, ensureStmt.Block.Body[0])
+	checkVarHover(t, tc, printlnCall, ast.TypeError)
+}
+
+func TestEnsureResult_blockBody_seesFailureBranchNarrowing_whenErr(t *testing.T) {
+	t.Parallel()
+	dir := moduleRootForResultTests(t)
+	log := setupTestLogger(nil)
+	src := `package main
+
+import "strconv"
+
+func bad(): Result(Int, Error) {
+	return strconv.Atoi("x")
+}
+
+func main() {
+	x := bad()
+	ensure x is Err() {
+		println(x)
+	}
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+	mainFn := findMainFunction(t, nodes)
+	ensureStmt := mainFn.Body[1].(ast.EnsureNode)
+	if ensureStmt.Block == nil {
+		t.Fatal("expected ensure block")
+	}
+	printlnCall := unwrapFunctionCall(t, ensureStmt.Block.Body[0])
+	// Block runs when Err() fails — x is Ok (success payload).
 	checkVarHover(t, tc, printlnCall, ast.TypeInt)
 }
 

@@ -342,6 +342,11 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 						"codegen: %q is a Result whose success lowers to multiple Go values %v; use multiple left-hand names (e.g. a, b, err := pkg.F()) instead of a single binding",
 						parts[0], split.successGoNames)
 				}
+				if split, ok := t.resultLocalSplit[parts[0]]; ok {
+					if expr, ok2 := t.goExprForNarrowedResultSplitLocal(e, split); ok2 {
+						return expr, nil
+					}
+				}
 			}
 			return &goast.Ident{Name: parts[0]}, nil
 		}
@@ -423,7 +428,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			}
 		}
 		return &goast.CallExpr{
-			Fun:  goFunExprFromForstCallIdent(e.Function),
+			Fun:  t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
 			Args: args,
 		}, nil
 	case ast.ReferenceNode:

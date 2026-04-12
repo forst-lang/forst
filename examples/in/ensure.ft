@@ -13,18 +13,22 @@ func mustNotExceedSpeedLimit(speed Int) {
 }
 
 func checkConditions() {
-    err := mustBeARealName("John") 
-    ensure err is Nil() or err
+    err := mustBeARealName("John")
+    ensure err is Nil()
+        or err
     speed := 80
     err = mustNotExceedSpeedLimit(speed)
-    ensure !err or err
+    ensure !err
+        or err
+    return 20
 }
 
 func main() {
-    err := checkConditions()
-    ensure !err {
-        fmt.Printf("Conditions not met: %s", err.Error())
+    result := checkConditions()
+    ensure result is Ok() {
+        fmt.Printf("Conditions not met: %s", result.Error())
         fmt.Println()
     }
-    fmt.Println("Conditions met, program exiting successfully")
+    fmt.Printf("Conditions met (value %d), program exiting successfully", result)
+    fmt.Println()
 }

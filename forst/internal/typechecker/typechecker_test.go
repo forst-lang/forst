@@ -669,3 +669,31 @@ func main() {
 		t.Fatalf("okInt return types = %v, want single Result(...)", formatTypeList(sig.ReturnTypes))
 	}
 }
+
+func TestCheckTypes_resultValue_OkErrMethodCalls(t *testing.T) {
+	src := `package main
+
+func okInt() {
+	n := 42
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func main() {
+	x := okInt()
+	println(x.Ok())
+	println(x.Err())
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -117,6 +117,30 @@ func prefixEachLine(prefix, s string) string {
 	return b.String()
 }
 
+// prefixFirstLineOnly prepends the block indent only to the first line. Other lines are left
+// unchanged — used when printStmt already embedded correct indentation for nested blocks (if/for/ensure).
+func (p *printer) prefixFirstLineOnly(s string) string {
+	s = strings.TrimSuffix(s, "\n")
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	var b strings.Builder
+	pref := p.prefix()
+	for i, line := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		if i == 0 {
+			b.WriteString(pref)
+			b.WriteString(line)
+		} else {
+			b.WriteString(line)
+		}
+	}
+	return b.String()
+}
+
 func (p *printer) printFile(nodes []ast.Node) (string, error) {
 	var b strings.Builder
 	for i, node := range nodes {
@@ -341,7 +365,16 @@ func (p *printer) printBlock(nodes []ast.Node) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		b.WriteString(prefixEachLine(p.prefix(), line))
+		if strings.Contains(line, "\n") {
+			switch node.(type) {
+			case ast.CommentNode:
+				b.WriteString(prefixEachLine(p.prefix(), line))
+			default:
+				b.WriteString(p.prefixFirstLineOnly(line))
+			}
+		} else {
+			b.WriteString(prefixEachLine(p.prefix(), line))
+		}
 		b.WriteByte('\n')
 	}
 	return b.String(), nil
@@ -493,7 +526,9 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		}
 	}
 	if e.Error != nil {
-		b.WriteString(" or ")
+		b.WriteString("\n")
+		b.WriteString(p.prefix())
+		b.WriteString("    or ")
 		switch err := (*e.Error).(type) {
 		case ast.EnsureErrorCall:
 			b.WriteString(err.ErrorType)

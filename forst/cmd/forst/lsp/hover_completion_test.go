@@ -1005,3 +1005,46 @@ func f(s: String): Void {
 		t.Fatalf("expected built-in Min guard documentation in hover, got %q", val)
 	}
 }
+
+func TestFindHover_guardIdentifierShowsBaseQualifiedTitle(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "guard_qual_hover.ft")
+	const src = `package main
+
+func f(): Void {
+	n := 1
+	ensure n is GreaterThan(0)
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOff int
+	for i, line := range lines {
+		if ix := strings.Index(line, "GreaterThan"); ix >= 0 {
+			hoverLine = i
+			charOff = ix
+			break
+		}
+	}
+	if charOff < 0 {
+		t.Fatal("could not find GreaterThan")
+	}
+	prefix := string([]rune(lines[hoverLine])[:charOff])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(prefix)})
+	if h == nil {
+		t.Fatal("nil hover on GreaterThan")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Int.GreaterThan") || !strings.Contains(val, "strictly above") {
+		t.Fatalf("expected Int.GreaterThan qualified guard title and body, got %q", val)
+	}
+}

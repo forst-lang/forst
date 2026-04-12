@@ -62,6 +62,13 @@ func (tc *TypeChecker) ListFieldNamesForType(baseType ast.TypeNode) []string {
 
 	t = tc.resolveAliasedType(t)
 
+	if t.IsResultType() && len(t.TypeParams) >= 2 {
+		add("Ok")
+		add("Err")
+		sort.Strings(names)
+		return names
+	}
+
 	if bt, ok := BuiltinTypes[t.Ident]; ok {
 		for m := range bt.Methods {
 			add(m)

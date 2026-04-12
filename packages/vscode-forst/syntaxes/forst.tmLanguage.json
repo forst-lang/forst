@@ -7,6 +7,7 @@
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#func-name" },
+    { "include": "#nominal-error-decl" },
     { "include": "#keywords" },
     { "include": "#operators" }
   ],
@@ -94,6 +95,14 @@
         "2": { "name": "entity.name.function.forst" }
       }
     },
+    "nominal-error-decl": {
+      "comment": "RFC nominal errors: error Name { ... } — highlight the declared name like a type.",
+      "match": "\\b(error)\\s+([A-Za-z_][\\w]*)",
+      "captures": {
+        "1": { "name": "keyword.declaration.forst" },
+        "2": { "name": "entity.name.type.forst" }
+      }
+    },
     "keywords": {
       "patterns": [
         {
@@ -102,11 +111,11 @@
         },
         {
           "name": "keyword.declaration.forst",
-          "match": "\\b(func|type|var|const|import|package)\\b"
+          "match": "\\b(func|type|error|var|const|import|package)\\b"
         },
         {
           "name": "storage.type.builtin.forst",
-          "match": "\\b(String|Int|Float|Bool|Void|Array)\\b"
+          "match": "\\b(String|Int|Float|Bool|Void|Array|Error|Result|Tuple)\\b"
         },
         {
           "name": "storage.type.forst",
@@ -114,7 +123,7 @@
         },
         {
           "name": "constant.language.forst",
-          "match": "\\bnil\\b"
+          "match": "\\b(nil|true|false)\\b"
         }
       ]
     },

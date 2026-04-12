@@ -268,3 +268,63 @@ func main() {
 		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
 	}
 }
+
+func TestFormatSource_ensureOr_putsOrOnNextLineIndentedFour(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func f(name String) {
+	ensure name is Min(1) or TooShort("msg")
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "ensure-or.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if !strings.Contains(out, "\n\t    or TooShort") {
+		t.Fatalf("expected `or` on the line after `ensure` with +4 column indent, got:\n%s", out)
+	}
+	if strings.Contains(out, "Min(1) or ") {
+		t.Fatalf("did not expect `ensure` and `or` on one line, got:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "ensure-or.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "ensure-or.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
+
+func TestFormatSource_ensureNegatedBlock_noDoubleIndent(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+import "fmt"
+
+func main() {
+	ensure !err {
+		fmt.Printf("x")
+	}
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "ensure-block.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if strings.Contains(out, "\t\t\tfmt.Printf") {
+		t.Fatalf("ensure block body must not be triple-indented:\n%s", out)
+	}
+	if strings.Contains(out, "\t\t}\n}") {
+		t.Fatalf("ensure closing brace must not be double-indented:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "ensure-block.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "ensure-block.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}
