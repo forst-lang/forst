@@ -87,6 +87,12 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 				}
 			}
 		}
+	} else if _, ok := node.Expr.(ast.TypeDefErrorExpr); ok {
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"function": "registerType",
+		}).Trace("Registering nominal error type (wraps payload shape)")
+		tc.registerErrorNominalType(node)
 	} else if shapeExpr, ok := node.Expr.(ast.TypeDefShapeExpr); ok {
 		// If the type definition is directly a shape, store it with a special key
 		tc.log.WithFields(logrus.Fields{
@@ -99,32 +105,49 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 	}
 }
 
-// registerShapeType registers a shape type with its fields
-func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
-	// Ensure that user-defined types have the correct TypeKind
-	// Update the shape fields to have correct TypeKind
+func (tc *TypeChecker) normalizeShapeFieldKinds(shape *ast.ShapeNode) {
 	for fieldName, field := range shape.Fields {
 		if field.Type != nil {
-			// Ensure user-defined field types have correct TypeKind
 			if field.Type.TypeKind != ast.TypeKindHashBased && !tc.isBuiltinType(field.Type.Ident) {
 				field.Type.TypeKind = ast.TypeKindUserDefined
 			}
 			shape.Fields[fieldName] = field
 		}
 	}
+}
+
+// registerErrorNominalType stores `error X { ... }`: a TypeDefErrorExpr wrapping the payload shape.
+func (tc *TypeChecker) registerErrorNominalType(node ast.TypeDefNode) {
+	errEx, ok := node.Expr.(ast.TypeDefErrorExpr)
+	if !ok {
+		return
+	}
+	payload := errEx.Payload
+	tc.normalizeShapeFieldKinds(&payload)
+	tc.Defs[node.Ident] = ast.TypeDefNode{
+		Ident: node.Ident,
+		Expr:  ast.TypeDefErrorExpr{Payload: payload},
+	}
+	tc.log.WithFields(logrus.Fields{
+		"ident":    node.Ident,
+		"function": "registerErrorNominalType",
+	}).Trace("Registered nominal error type")
+}
+
+// registerShapeType registers an ordinary shape-backed type (`type X = { ... }`).
+func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNode) {
+	tc.normalizeShapeFieldKinds(&shape)
 
 	tc.Defs[ident] = ast.TypeDefNode{
 		Ident: ident,
-		Expr: ast.TypeDefShapeExpr{
-			Shape: shape,
-		},
+		Expr:  ast.TypeDefShapeExpr{Shape: shape},
 	}
 
 	tc.log.WithFields(logrus.Fields{
 		"ident":    ident,
 		"shape":    shape,
 		"function": "registerShapeType",
-		"typeKind": "user-defined", // All registered types are user-defined
+		"typeKind": "user-defined",
 	}).Trace("Registered shape type")
 }
 
@@ -139,7 +162,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 				Type:  p.Type,
 			}
 		case ast.DestructuredParamNode:
-			// Handle destructured params if needed
+			// TODO: Handle destructured params
 			continue
 		}
 	}

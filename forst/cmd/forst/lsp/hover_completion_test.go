@@ -34,11 +34,29 @@ func TestTokenSliceIndex_pointerOrValueMatch(t *testing.T) {
 func TestTypeDefHoverMarkdown_typeGuard(t *testing.T) {
 	t.Parallel()
 	v := ast.TypeGuardNode{Ident: ast.Identifier("Strong")}
-	if md := typeDefHoverMarkdown(v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") {
+	if md := typeDefHoverMarkdown(nil, nil, v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") {
 		t.Fatalf("value TypeGuardNode: got %q", md)
 	}
-	if md := typeDefHoverMarkdown(&v); !strings.Contains(md, "Strong") {
+	if md := typeDefHoverMarkdown(nil, nil, &v); !strings.Contains(md, "Strong") {
 		t.Fatalf("*TypeGuardNode: got %q", md)
+	}
+}
+
+func TestTypeDefHoverMarkdown_nominalError(t *testing.T) {
+	t.Parallel()
+	def := ast.TypeDefNode{
+		Ident: "NotPositive",
+		Expr: ast.TypeDefErrorExpr{
+			Payload: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"message": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+		},
+	}
+	md := typeDefHoverMarkdown(nil, nil, def)
+	if !strings.Contains(md, "Nominal error") || !strings.Contains(md, "error NotPositive") || !strings.Contains(md, "message") {
+		t.Fatalf("hover: %q", md)
 	}
 }
 

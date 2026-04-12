@@ -147,19 +147,19 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 		if def, exists := t.TypeChecker.Defs[expectedTypeIdent]; exists {
 			// Check if the expected type definition is compatible with the shape
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
 					t.log.WithFields(logrus.Fields{
 						"function":      "findExistingTypeForShape",
 						"expectedType":  expectedTypeIdent,
-						"typeDefShape":  fmt.Sprintf("%+v", shapeExpr.Shape),
-						"typeDefFields": fmt.Sprintf("%+v", shapeExpr.Shape.Fields),
+						"typeDefShape":  fmt.Sprintf("%+v", *payload),
+						"typeDefFields": fmt.Sprintf("%+v", payload.Fields),
 						"literalShape":  fmt.Sprintf("%+v", shape),
 						"literalFields": fmt.Sprintf("%+v", shape.Fields),
 					}).Debug("Validating expected type compatibility")
 
 					// Use the typechecker's ValidateShapeFields to check compatibility
 					// Parameters: (shapeNode, leftShapeFields, underlyingType)
-					err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedTypeIdent)
+					err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, expectedTypeIdent)
 					if err == nil {
 						t.log.WithFields(logrus.Fields{
 							"function":     "findExistingTypeForShape",
@@ -189,18 +189,18 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 	// Fall back to structural matching if no expected type or expected type doesn't match
 	for typeIdent, def := range t.TypeChecker.Defs {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
-			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+			if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
 				t.log.WithFields(logrus.Fields{
 					"function":      "findExistingTypeForShape",
 					"typeIdent":     typeIdent,
-					"typeDefShape":  fmt.Sprintf("%+v", shapeExpr.Shape),
-					"typeDefFields": fmt.Sprintf("%+v", shapeExpr.Shape.Fields),
+					"typeDefShape":  fmt.Sprintf("%+v", *payload),
+					"typeDefFields": fmt.Sprintf("%+v", payload.Fields),
 					"literalShape":  fmt.Sprintf("%+v", shape),
 					"literalFields": fmt.Sprintf("%+v", shape.Fields),
 				}).Debug("[DEBUG] Checking type definition for match")
 
 				// Compare the shapes to see if they match
-				if t.shapesMatch(shape, &shapeExpr.Shape) {
+				if t.shapesMatch(shape, payload) {
 					t.log.WithFields(logrus.Fields{
 						"function":  "findExistingTypeForShape",
 						"typeIdent": typeIdent,
@@ -648,8 +648,8 @@ func (t *Transformer) resolveFieldToShape(field ast.ShapeFieldNode) *ast.ShapeNo
 		// Check if the type is a hash-based type or named type that we can look up
 		if def, exists := t.TypeChecker.Defs[field.Type.Ident]; exists {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					return &shapeExpr.Shape
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+					return payload
 				}
 			}
 		}

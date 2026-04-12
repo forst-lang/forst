@@ -38,6 +38,7 @@ type NodeKind string
 // NodeKindTypeDefAssertion is the kind for type definition assertion nodes
 // NodeKindTypeDefBinaryExpr is the kind for type definition binary expression nodes
 // NodeKindTypeDefShape is the kind for type definition shape nodes
+// NodeKindTypeDefError is the kind for `error X { ... }` payload (nominal error wrapping a shape)
 // NodeKindEnsureBlock is the kind for ensure block nodes
 // NodeKindAssignment is the kind for assignment nodes
 // NodeKindShape is the kind for shape nodes
@@ -82,6 +83,7 @@ const (
 	NodeKindTypeDefAssertion  NodeKind = "TypeDefAssertion"
 	NodeKindTypeDefBinaryExpr NodeKind = "TypeDefBinaryExpr"
 	NodeKindTypeDefShape      NodeKind = "TypeDefShape"
+	NodeKindTypeDefError      NodeKind = "TypeDefError"
 	NodeKindEnsureBlock       NodeKind = "EnsureBlock"
 	NodeKindAssignment        NodeKind = "Assignment"
 	NodeKindShape             NodeKind = "Shape"

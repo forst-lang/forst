@@ -117,7 +117,7 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 // Named struct types use a composite literal; builtins use getZeroValue after transformType.
 func (t *Transformer) zeroValueExprForASTType(ty ast.TypeNode) (goast.Expr, error) {
 	if def, ok := t.TypeChecker.Defs[ty.Ident].(ast.TypeDefNode); ok {
-		if _, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
+		if _, ok := ast.PayloadShape(def.Expr); ok {
 			return t.buildZeroCompositeLiteral(&ty), nil
 		}
 	}
@@ -377,11 +377,11 @@ func (t *Transformer) buildCompositeLiteralForReturn(expectedType *ast.TypeNode,
 	if !ok {
 		return goast.NewIdent(valueVar)
 	}
-	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
+	payload, ok := ast.PayloadShape(def.Expr)
 	if !ok {
 		return goast.NewIdent(valueVar)
 	}
-	fields := shapeExpr.Shape.Fields
+	fields := payload.Fields
 	elts := make([]goast.Expr, 0, len(fields))
 	used := false
 	for fieldName, field := range fields {
@@ -454,11 +454,11 @@ func (t *Transformer) buildZeroCompositeLiteral(expectedType *ast.TypeNode) goas
 		}
 		return goast.NewIdent("nil")
 	}
-	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
+	payload, ok := ast.PayloadShape(def.Expr)
 	if !ok {
 		return goast.NewIdent("nil")
 	}
-	fields := shapeExpr.Shape.Fields
+	fields := payload.Fields
 	elts := make([]goast.Expr, 0, len(fields))
 	for fieldName, field := range fields {
 		// DEBUG: Log field processing
@@ -1347,8 +1347,8 @@ func (t *Transformer) wrapInNamedStruct(expectedType *ast.TypeNode, value ast.No
 		return expr, err
 	case ast.VariableNode:
 		if def, ok := t.TypeChecker.Defs[expectedType.Ident].(ast.TypeDefNode); ok {
-			if shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
-				fields := shapeExpr.Shape.Fields
+			if payload, ok := ast.PayloadShape(def.Expr); ok {
+				fields := payload.Fields
 				if len(fields) == 1 {
 					for fieldName := range fields {
 						return &goast.CompositeLit{
@@ -1407,13 +1407,13 @@ func (t *Transformer) wrapShapeInNamedStructIfNeeded(expectedType *ast.TypeNode,
 		return nil, fmt.Errorf("wrapShapeInNamedStructIfNeeded: expected type %v is not a TypeDefNode", expectedType.Ident)
 	}
 
-	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
+	payload, ok := ast.PayloadShape(def.Expr)
 	if !ok {
-		return nil, fmt.Errorf("wrapShapeInNamedStructIfNeeded: expected type %v does not have a shape expression", expectedType.Ident)
+		return nil, fmt.Errorf("wrapShapeInNamedStructIfNeeded: expected type %v does not have a shape or error payload", expectedType.Ident)
 	}
 
 	// Check if the shape fields match the expected struct fields
-	expectedFields := shapeExpr.Shape.Fields
+	expectedFields := payload.Fields
 	shapeFields := shape.Fields
 
 	if t.log != nil {
@@ -1504,26 +1504,26 @@ func (t *Transformer) wrapVariableInNamedStruct(expectedType *ast.TypeNode, vari
 		return nil, fmt.Errorf("wrapVariableInNamedStruct: expected type %v is not a TypeDefNode", expectedType.Ident)
 	}
 
-	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
+	payload, ok := ast.PayloadShape(def.Expr)
 	if !ok {
-		return nil, fmt.Errorf("wrapVariableInNamedStruct: expected type %v does not have a shape expression", expectedType.Ident)
+		return nil, fmt.Errorf("wrapVariableInNamedStruct: expected type %v does not have a shape or error payload", expectedType.Ident)
 	}
 
 	// Create composite literal with all fields
-	elts := make([]goast.Expr, 0, len(shapeExpr.Shape.Fields))
+	elts := make([]goast.Expr, 0, len(payload.Fields))
 
-	for fieldName := range shapeExpr.Shape.Fields {
+	for fieldName := range payload.Fields {
 		var value goast.Expr
 
 		// Check if this field should contain our variable
-		fieldType := shapeExpr.Shape.Fields[fieldName].Type
+		fieldType := payload.Fields[fieldName].Type
 		if fieldType != nil && fieldType.Ident == ast.TypeIdent(variable.Ident.ID) {
 			// This field should contain our variable
 			value = goast.NewIdent(string(variable.Ident.ID))
 		} else {
 			// This field needs a default value
 			// Use proper zero values based on field type
-			fieldType := shapeExpr.Shape.Fields[fieldName].Type
+			fieldType := payload.Fields[fieldName].Type
 			if fieldType != nil {
 				switch fieldType.Ident {
 				case ast.TypeString:

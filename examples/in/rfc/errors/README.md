@@ -2,21 +2,25 @@
 
 ## Overview
 
-This directory contains comprehensive documentation and specifications for Forst's error handling system, designed to integrate seamlessly with Effect's tagged error system and modern observability tools.
+This directory contains specifications and architecture notes for Forst’s error handling: **nominal** errors, **`ensure`-first** failure for **`Result`**, and lowering to Go / typed clients.
 
 ## Documents
 
-### Core Architecture
+### Normative language design
 
-- **[00-error-system-architecture.md](./00-error-system-architecture.md)** - Complete error system architecture and implementation guide
+- **[02 — First-class errors (normative)](./02-first-class-errors-normative.md)** — **`ensure`-only** failure for **`Result`**, **`Err(Nominal)`** guards, **`or`** typing (**LUB**), **inference** of **`F`**, **implicit** **`error N`** from constructors, and **§7** **out-of-scope** mapping/wrapping. **Supersedes** [12 §5.7](../optionals/12-result-primitives-without-ok-err.md) **nominal `return` failure** for **`Result`** functions in favor of **`ensure … or`**. **§9** tracks **compiler checklist** (shipped vs remaining).
 
-### Related language design
+### Architecture and related RFCs
+
+- **[00-error-system-architecture.md](./00-error-system-architecture.md)** — Architecture sketch: base **`Error`**, **`forst/errors`**, tags, TS **optional Effect compatibility**, roadmap (no Effect mandate in implementation phases).
+- **[01 — Ensure-only failure propagation](./01-ensure-only-failure-returns.md)** — Propagate **`Result`** failures with **`ensure … is Ok() or …`** (not **`if` + failure `return`**); **`Ok`/`Err`** remain **guards**; pairs with **02** and **[12](../optionals/12-result-primitives-without-ok-err.md)**.
+
+### Related language design (optionals hub)
 
 - **[optionals hub](../optionals/00-crystal-inspired-optionals.md)** — Index of **`T | Nil`**, **`Result`**, and related topic docs (**01–09**).
 - **[optionals / Result and error types](../optionals/02-result-and-error-types.md)** — How **`Result(Value, ErrorSubtype)`** ties **`Result`** to the **`Error`** hierarchy.
-- **[optionals / Result primitives (RFC 12) §5.7](../optionals/12-result-primitives-without-ok-err.md)** — **Stated preference:** **`return x`** **success**, **nominal** **error** **constructors** **failure** (no **`Ok`/`Err`** at **returns**).  
-- **[optionals / Result primitives (RFC 12) §7](../optionals/12-result-primitives-without-ok-err.md#7-error-system-rfc--relationship-and-what-can-be-inferred)** — How this **error** **hierarchy** **informs** **`Result`** **construction** (nominal failures, factories, **`ensure`**, what is / isn’t inferable).
-- **[01 — Ensure-only failure propagation](./01-ensure-only-failure-returns.md)** — **Normative target:** propagate **`Result`** failures with **`ensure … is Ok() or NominalErr()`** (not **`if` + failure `return`**); **`Ok`/`Err`** remain **guards**; **§5.1** documents the partial **compiler** check (**`return Err(...)`** banned in **`if … is Err`** then-branch); pairs with **§5.7**; **coverage** vs open **[12](../optionals/12-result-primitives-without-ok-err.md)** risks.
+- **[optionals / Result primitives (RFC 12) §5.7](../optionals/12-result-primitives-without-ok-err.md)** — **`return x`** **success**; **failure** authoring for **`Result`** is refined by **02** ( **`ensure … or`** normative for failures).  
+- **[optionals / Result primitives (RFC 12) §7](../optionals/12-result-primitives-without-ok-err.md#7-error-system-rfc--relationship-and-what-can-be-inferred)** — How the **errors** story informs **`Result`** **construction** and inference.
 
 ## Key Features
 
@@ -98,40 +102,31 @@ Error (Base)
 
 ## Quick Start
 
-### 1. Define Error Types in Forst
+See **[02 — First-class errors (normative)](./02-first-class-errors-normative.md)** for the full rules. Sketch:
+
+### 1. Declare or infer a nominal error
+
+Explicit:
 
 ```forst
-error ValidationError extends Error {
+error BadEmail {
     field: String
-    value: String?
-    constraint: String
 }
 ```
 
-### 2. Use Error Factory Functions
+Or introduce **`BadEmail`** implicitly from the first **`ensure … or BadEmail({ … })`** (shape inferred).
+
+### 2. Fail only via `ensure` on `Result`
 
 ```forst
-func validateEmail(email: String) (String, Error) {
-    if !isValidEmailFormat(email) {
-        return "", newValidationError("email", email, "email_format")
-    }
-    return email, nil
-}
+func parsePositive(n: Int): Result(Int, NotPositive)
+  ensure n > 0 or NotPositive({ field: "n" })
+  return n
 ```
 
-### 3. Handle Errors in TypeScript
+### 3. TypeScript clients
 
-```typescript
-import { Effect } from "effect";
-import { ForstService } from "@forst/effect";
-
-const program = Effect.gen(function* () {
-  const result = yield* ForstService.processUser(123);
-  return result;
-});
-
-const result = await Effect.runPromise(program);
-```
+Generated types use a stable **`forstTag` / `_tag`**; optional compatibility with Effect-style tagged errors is described in [00 — Phase 3](./00-error-system-architecture.md#phase-3-typescript--client-integration-weeks-5-6). Effect is **not** required.
 
 ## Benefits
 
@@ -139,7 +134,7 @@ const result = await Effect.runPromise(program);
 
 - **Type safety** with compile-time error checking
 - **Clear error messages** with actionable information
-- **Easy error handling** with Effect patterns
+- **Explicit failures** via **`ensure`** and nominal constructors
 - **Rich debugging context** with trace IDs
 
 ### For Operations
@@ -166,12 +161,9 @@ const result = await Effect.runPromise(program);
 
 ## Integration
 
-### With Effect
+### With TypeScript runtimes
 
-- Seamless tagged error conversion
-- Effect.gen error handling patterns
-- Resource management for error handling
-- Composition of error handling logic
+- Generated error shapes can align with **tagged** / **discriminated** unions; **Effect**-compatible patterns are **optional** ([00](./00-error-system-architecture.md)).
 
 ### With OpenTelemetry
 

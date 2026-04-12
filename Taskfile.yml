@@ -211,6 +211,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/ensure.ft
 
+  example:nominal-error:
+    desc: Compile nominal error example (error X { ... } nominal failure type, RFC 02)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/nominal_error.ft
+
   example:result-ensure:
     desc: Compile Result + ensure Ok() example (golden examples/out/result_ensure/)
     dir: forst

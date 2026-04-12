@@ -237,3 +237,34 @@ func main() {
 		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
 	}
 }
+
+func TestFormatSource_nominalError_roundTrips(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+error NotPositive {
+	message: String
+}
+
+func main() {
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "err.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if strings.Contains(out, "type NotPositive") {
+		t.Fatalf("must not emit type alias for nominal error, got:\n%s", out)
+	}
+	if !strings.Contains(out, "error NotPositive") {
+		t.Fatalf("expected error NotPositive { ... }, got:\n%s", out)
+	}
+	l := lexer.New([]byte(out), "err.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "err.ft", log)
+	if _, err := p.ParseFile(); err != nil {
+		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
+	}
+}

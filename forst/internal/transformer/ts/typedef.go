@@ -17,6 +17,10 @@ func (t *TypeScriptTransformer) transformTypeDef(def ast.TypeDefNode) (string, e
 		t.typeMapping.AddUserType(typeName, tsType)
 
 		return t.transformShapeToTypeScript(&expr.Shape, typeName)
+	case ast.TypeDefErrorExpr:
+		tsType := typeName
+		t.typeMapping.AddUserType(typeName, tsType)
+		return t.transformShapeToTypeScript(&expr.Payload, typeName)
 	case ast.TypeDefAssertionExpr:
 		// Add user type mapping
 		tsType := typeName

@@ -59,11 +59,11 @@ func (tc *TypeChecker) FindStructurallyIdenticalNamedType(typeNode ast.TypeNode)
 		if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
 			continue
 		}
-		shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr)
+		userPayload, ok := ast.PayloadShape(userDef.Expr)
 		if !ok {
 			continue
 		}
-		userShape := shapeExpr.Shape
+		userShape := *userPayload
 		if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
 			return userDef.Ident
 		}
@@ -87,13 +87,13 @@ func (tc *TypeChecker) FindAnyStructurallyIdenticalNamedType(shape ast.ShapeNode
 			continue
 		}
 
-		shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr)
+		payload, ok := ast.PayloadShape(typeDef.Expr)
 		if !ok {
 			continue
 		}
 
 		// Check if the shapes are structurally identical
-		if tc.shapesAreStructurallyIdentical(shape, shapeExpr.Shape) {
+		if tc.shapesAreStructurallyIdentical(shape, *payload) {
 			return typeIdent
 		}
 	}

@@ -3,9 +3,9 @@
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [Error Type Hierarchy](#error-type-hierarchy)
+2. [Error types](#error-types-base-only-in-the-language)
 3. [Error Context & Tracing](#error-context--tracing)
-4. [Error Factory System](#error-factory-system)
+4. [Raising errors (`ensure`)](#raising-errors-ensure)
 5. [Error Handling Patterns](#error-handling-patterns)
 6. [Go Implementation](#go-implementation)
 7. [TypeScript/Effect Integration](#typescripteffect-integration)
@@ -23,10 +23,10 @@
 
 | Principle                | Description                            | Implementation                            |
 | ------------------------ | -------------------------------------- | ----------------------------------------- |
-| **Structured Errors**    | Every error has clear type and context | Type hierarchy with base + specific types |
+| **Structured Errors**    | Every error has clear type and context | Base **`Error`** in language; nominals are user-defined |
 | **Observability First**  | Built-in tracing and logging           | OpenTelemetry integration, trace IDs      |
 | **Type Safety**          | Compile-time and runtime validation    | Forst types → Go types → TypeScript types |
-| **Developer Experience** | Clear messages and easy handling       | Rich error context, Effect integration    |
+| **Developer Experience** | Structured types and clear failure codes | Rich error context, Effect integration      |
 
 ### Error Flow Architecture
 
@@ -34,9 +34,9 @@
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Forst Code    │───▶│   Go Runtime     │───▶│  TypeScript     │
 │                 │    │                  │    │                 │
-│ • Error Types   │    │ • Error Factory  │    │ • Effect Errors │
+│ • Error Types   │    │ • `forst/errors` │    │ • Effect Errors │
 │ • Context       │    │ • Tracing        │    │ • Tagged Errors │
-│ • Validation    │    │ • Serialization  │    │ • Error Handling│
+│ • `ensure`      │    │ • Serialization  │    │ • Error Handling│
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
@@ -51,95 +51,41 @@
 
 ---
 
-## Error Type Hierarchy
+## Error types (base only in the language)
 
-### 1. Base Error Structure
+The language provides a single abstract **base `Error`** for typing and lowering. **Authors never write `error Error { … }`** in source—that form does not exist in normative Forst. Concrete kinds (validation, I/O, domain, …) are **user nominals** declared with **`error X { … }`** only—there is **no** inheritance between user nominals (see [02 — First-class errors (normative)](./02-first-class-errors-normative.md)). You may declare nominals explicitly, or—**unless already defined**—introduce them **implicitly** the first time you use a constructor on the right-hand side of **`ensure`**. There are **no** built-in standard error variants such as `ValidationError` or `NetworkError`.
 
-```forst
-// Base error type
-error Error {
-    // Core fields
-    message: String
-    code: String
-    timestamp: Int64
+### 1. Base `Error` (language-defined, not a user `error` declaration)
 
-    // Tracing fields
-    traceId: String?
-    spanId: String?
+The language does **not** require a human-readable string on every error. Optional display text may live on **specific** subtypes or **host** layers (HTTP bodies, logs)—not as a mandatory field on the base type.
 
-    // Context fields
-    context: Map[String, String]?
-}
-```
+Nominal **`error`** names in Forst correspond to **tags** in lowered Go (see **`forst/errors`** below); do not rely on `Error()` strings for classification at boundaries.
 
-### 2. Error Type Categories
+The **implementation** supplies a base **`Error`** with fields along these lines (exact layout is specified with the compiler; this is **not** spelled as **`error Error { … }`** in Forst source):
 
-| Category       | Error Types       | Use Cases                        | Retryable      |
-| -------------- | ----------------- | -------------------------------- | -------------- |
-| **Validation** | `ValidationError` | Input validation, business rules | ❌ No          |
-| **Data**       | `DatabaseError`   | Database operations, queries     | ✅ Yes         |
-| **Network**    | `NetworkError`    | HTTP requests, external APIs     | ✅ Yes\*       |
-| **Business**   | `BusinessError`   | Domain logic, business rules     | ❌ No          |
-| **System**     | `SystemError`     | Infrastructure, internal errors  | ✅ Conditional |
+- **Core:** `code`, `timestamp`
+- **Tracing (optional):** `traceId`, `spanId`
+- **Context (optional):** `context` as key–value metadata
 
-### 3. Specific Error Types
+### 2. User-defined nominal errors (explicit or implicit)
 
-#### Validation Errors
+**Explicit:** declare the nominal and its payload shape in source (**inherits** the base **`Error`** automatically):
 
 ```forst
-error ValidationError extends Error {
+error NotPositive {
     field: String
-    value: String?
-    constraint: String
 }
 ```
 
-#### Database Errors
+**Implicit:** if **`NotPositive`** is not yet declared, a line such as **`ensure n > 0 or NotPositive({ field: "n" })`** causes the compiler to introduce **`error NotPositive { field: String }`** (the shape is inferred from the **constructor**—field names and types must be consistent across the package). Further **`ensure`** sites that use **`NotPositive({ … })`** must match that shape.
+
+Other domains can use the same pattern (`RateLimited({ … })`, …). **Retryability**, **HTTP status**, and **alerting** are **application policy** over those nominals, not fixed tables in the language.
+
+The classification examples later use a second illustrative nominal:
 
 ```forst
-error DatabaseError extends Error {
-    operation: String
-    table: String?
-    query: String?
-    constraint: String?
-}
-```
-
-#### Network Errors
-
-```forst
-error NetworkError extends Error {
-    url: String?
-    statusCode: Int?
-    method: String?
-    timeout: Bool
-}
-```
-
-#### Business Errors
-
-```forst
-error BusinessError extends Error {
-    domain: String
-    operation: String
-    resourceId: String?
-}
-```
-
-#### System Errors
-
-```forst
-error SystemError extends Error {
-    component: String
-    severity: Severity
-    retryable: Bool
-}
-
-enum Severity {
-    Low
-    Medium
-    High
-    Critical
+error IoTimeout {
+    op: String
 }
 ```
 
@@ -169,33 +115,11 @@ struct ErrorContext {
 }
 ```
 
-### 2. Context Generation
+### 2. Tracing and context at runtime
 
-```forst
-func createErrorContext() ErrorContext {
-    return ErrorContext{
-        traceId: generateTraceId(),
-        spanId: generateSpanId(),
-        service: "forst-service",
-        version: getVersion(),
-        environment: getEnvironment(),
-        metadata: Map[String, String]{}
-    }
-}
+Trace IDs, span IDs, and service metadata may be attached when errors are **lowered** to Go or when crossing **host** boundaries—rather than via ad hoc “builder” or factory helpers in Forst source. The authoring model is **`ensure`** + nominal constructors (see below).
 
-func enrichError(error: Error, context: ErrorContext) Error {
-    return Error{
-        message: error.message,
-        code: error.code,
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        context: mergeMaps(error.context, context.metadata)
-    }
-}
-```
-
-### 3. Tracing Integration
+### 3. Tracing integration (reference)
 
 | Component    | Purpose               | Implementation                  |
 | ------------ | --------------------- | ------------------------------- |
@@ -206,106 +130,31 @@ func enrichError(error: Error, context: ErrorContext) Error {
 
 ---
 
-## Error Factory System
+## Raising errors (`ensure`)
 
-### 1. Factory Function Pattern
+In Forst, **domain failures are not produced by factory helpers or ad hoc “return an error value”** in the primary authoring model. Instead:
+
+1. **`ensure`** — Failure is raised via **`ensure <condition> or <failure>`**. Only **`ensure`** introduces a failure along that path (see the [errors RFC hub](./README.md) and [ensure-only propagation](./01-ensure-only-failure-returns.md)).
+2. **Nominal constructors** — The **`or`** branch uses a **constructor call**: zero-argument **`RateLimited()`** or a single shape argument **`NotPositive({ field: "n" })`**. If the nominal is not yet declared, the compiler **implicitly defines** the corresponding **`error NotPositive { … }`** from that constructor (see [Error types — user-defined nominal errors](#2-user-defined-nominal-errors-explicit-or-implicit)).
+3. **Forwarding** — When propagating a failure from a **`Result`** or inner call, use **`ensure`** with **`is Ok()`** (or the agreed **`Err`** guard) and **`or`** the constructor you need, or forward the inner failure expression when it already matches the expected nominal type—rather than building errors through generic factory functions.
+
+### Positive framing (by design)
+
+Requiring **`ensure`** steers authors toward **what must hold** for the function to continue—the **expected** precondition or outcome—rather than centering control flow on **unexpected** failure branches first. The condition reads as an **invariant** or **success criterion**; the **`or`** branch names the nominal failure only when that criterion is not met. This does not remove the need to think about failures, but it keeps the **happy path** and **explicit expectations** in the foreground.
+
+Illustrative (syntax follows the normative errors / `ensure` RFCs):
 
 ```forst
-// Validation error factory
-func newValidationError(field: String, value: String?, constraint: String) ValidationError {
-    context := createErrorContext()
-
-    return ValidationError{
-        message: "Validation failed for field: " + field,
-        code: "VALIDATION_ERROR",
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        field: field,
-        value: value,
-        constraint: constraint,
-        context: context.metadata
-    }
-}
-
-// Database error factory
-func newDatabaseError(operation: String, table: String?, query: String?, err: Error) DatabaseError {
-    context := createErrorContext()
-
-    return DatabaseError{
-        message: "Database operation failed: " + err.message,
-        code: "DATABASE_ERROR",
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        operation: operation,
-        table: table,
-        query: query,
-        context: context.metadata
-    }
-}
-
-// Network error factory
-func newNetworkError(url: String?, statusCode: Int?, method: String?, timeout: Bool) NetworkError {
-    context := createErrorContext()
-
-    return NetworkError{
-        message: "Network request failed",
-        code: "NETWORK_ERROR",
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        url: url,
-        statusCode: statusCode,
-        method: method,
-        timeout: timeout,
-        context: context.metadata
-    }
-}
-
-// Business error factory
-func newBusinessError(domain: String, operation: String, resourceId: String?, message: String) BusinessError {
-    context := createErrorContext()
-
-    return BusinessError{
-        message: message,
-        code: "BUSINESS_ERROR",
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        domain: domain,
-        operation: operation,
-        resourceId: resourceId,
-        context: context.metadata
-    }
-}
-
-// System error factory
-func newSystemError(component: String, severity: Severity, retryable: Bool, message: String) SystemError {
-    context := createErrorContext()
-
-    return SystemError{
-        message: message,
-        code: "SYSTEM_ERROR",
-        timestamp: getCurrentTimestamp(),
-        traceId: context.traceId,
-        spanId: context.spanId,
-        component: component,
-        severity: severity,
-        retryable: retryable,
-        context: context.metadata
-    }
-}
+func parsePositive(n: Int): Result(Int, NotPositive)
+  ensure n > 0 or NotPositive({
+    field: "n",
+  })
+  return n
 ```
 
-### 2. Factory Function Benefits
+After this line (if **`NotPositive`** was not declared earlier), the compiler treats **`NotPositive`** as **`error NotPositive { field: String }`** for the rest of the package.
 
-| Benefit         | Description                  | Example                       |
-| --------------- | ---------------------------- | ----------------------------- |
-| **Consistency** | Standardized error creation  | All errors have trace IDs     |
-| **Context**     | Automatic context enrichment | Service, version, environment |
-| **Tracing**     | Built-in tracing support     | Trace ID, span ID generation  |
-| **Validation**  | Type-safe error creation     | Compile-time validation       |
+This document does **not** prescribe **factory functions** (`newXError`, `NewXError`, etc.) for creating error values in Forst or in generated Go **call sites**—those patterns belong to legacy sketches; the **constructor + `ensure`** model replaces them for user-facing code.
 
 ---
 
@@ -335,21 +184,17 @@ func handleError(error: Error) Error {
 }
 ```
 
-### 2. Error Classification
+### 2. Error classification (policy over *your* nominals)
+
+Retry and alerting are **not** fixed by the language. You match on **nominal types you declared** (here `NotPositive` is the illustrative error from §2 above; `IoTimeout` stands in for another error you might define elsewhere).
 
 ```forst
 func isRetryableError(error: Error) Bool {
     switch error {
-    case ValidationError:
+    case NotPositive:
         return false
-    case DatabaseError:
+    case IoTimeout:
         return true
-    case NetworkError:
-        return !error.timeout
-    case BusinessError:
-        return false
-    case SystemError:
-        return error.retryable
     default:
         return false
     }
@@ -357,12 +202,10 @@ func isRetryableError(error: Error) Bool {
 
 func shouldAlert(error: Error) Bool {
     switch error {
-    case SystemError:
-        return error.severity == Critical || error.severity == High
-    case DatabaseError:
+    case IoTimeout:
         return true
-    case NetworkError:
-        return error.statusCode >= 500
+    case NotPositive:
+        return false
     default:
         return false
     }
@@ -373,7 +216,7 @@ func shouldAlert(error: Error) Bool {
 
 | Strategy            | When to Use           | Implementation               |
 | ------------------- | --------------------- | ---------------------------- |
-| **Fail Fast**       | Validation errors     | Return immediately           |
+| **Fail Fast**       | Precondition failures | Return immediately           |
 | **Retry**           | Transient errors      | Exponential backoff          |
 | **Circuit Breaker** | Service failures      | Stop calling failing service |
 | **Fallback**        | Non-critical failures | Use default values           |
@@ -383,12 +226,28 @@ func shouldAlert(error: Error) Bool {
 
 ## Go Implementation
 
-### 1. Error Interface
+### 1. Tags, `forst/errors`, and coexistence with Go errors
+
+Forst errors should be identifiable at runtime **without** guessing from `err.Error()` strings (which collide easily with **`fmt.Errorf`**, libraries, and opaque wrappers). The intended design:
+
+1. **Stable tags** — Each nominal Forst error maps to a Go value that carries a **distinct tag** (e.g. a `Tag` field or a `ForstTag() string` method), aligned with the **nominal name** in Forst and with TypeScript **tagged** / **discriminated** shapes on the client. Tags are used for **`errors.As`**, logging filters, and HTTP/JSON mapping—not for replacing `Error() string`.
+
+2. **Standard package `forst/errors`** — The compiler **depends on** and **generates against** a small, versioned Go module (import path conceptually **`forst/errors`**, analogous to built-in stdlib: always available, not something every app vendors by hand). It should define:
+   - **Shared interfaces** (e.g. a **`ForstError`** marker that includes **`Tag()`** or **`ForstTag()`**),
+   - **Optional helpers** such as **`IsForst(err error) bool`**, **`TagOf(err error) (string, bool)`**, or unwrap-safe predicates,
+   - **Base struct fields** shared by lowered errors (codes, trace IDs) so user packages and generated code stay consistent.
+
+3. **Minimal conflict with typical `error` values** — Plain Go errors remain plain: **`forst/errors`** types should **not** overload **`Error()`** to embed the only copy of structured data; use normal struct fields and **`Unwrap`** where wrapping. Third-party **`error`** values are not Forst errors unless **`errors.As`** into a **user-generated** concrete type (e.g. `*NotPositiveError`) or the tag helper succeeds. Namespace **JSON** field names if needed to avoid clashing with generic API envelopes.
+
+Generated concrete types (e.g. `*NotPositiveError`) **live in the user’s Go module** but **embed** or **satisfy** types from **`forst/errors`**; the **tag** and **shape** follow the user’s Forst declarations.
+
+### 2. Error interface
 
 ```go
-// Base error interface
+// Base error interface (implemented by generated types; definitions anchored in forst/errors)
 type ForstError interface {
-    Error() string
+    error
+    ForstTag() string // stable nominal tag; never inferred from Error() string alone
     Code() string
     Timestamp() int64
     TraceID() string
@@ -397,9 +256,10 @@ type ForstError interface {
     ToJSON() string
 }
 
-// Base error implementation
+// Base error implementation (no required human-readable message field).
+// Tag identifies the user-defined nominal kind (e.g. "NotPositive"); see §1 above.
 type BaseError struct {
-    Message   string            `json:"message"`
+    Tag       string            `json:"forstTag"` // stable discriminator; not parsed from Error() string
     Code      string            `json:"code"`
     Timestamp int64             `json:"timestamp"`
     TraceID   string            `json:"traceId"`
@@ -408,7 +268,11 @@ type BaseError struct {
 }
 
 func (e *BaseError) Error() string {
-    return e.Message
+    return e.Code // human-facing summary; Tag/fields are authoritative for classification
+}
+
+func (e *BaseError) ForstTag() string {
+    return e.Tag
 }
 
 func (e *BaseError) Code() string {
@@ -437,158 +301,25 @@ func (e *BaseError) ToJSON() string {
 }
 ```
 
-### 2. Specific Error Types
+### 3. Generated concrete type (illustrative)
+
+The language does not ship `ValidationError`, `DatabaseError`, etc. Each nominal you declare becomes its own generated struct. One example matching the **`NotPositive`** sketch:
 
 ```go
-// Validation error
-type ValidationError struct {
+// Generated in your module from `error NotPositive { field: String }` — not a built-in type.
+type NotPositiveError struct {
     BaseError
-    Field      string `json:"field"`
-    Value      string `json:"value,omitempty"`
-    Constraint string `json:"constraint"`
+    Field string `json:"field"`
 }
 
-func (e *ValidationError) Error() string {
-    return fmt.Sprintf("validation failed for field %s: %s", e.Field, e.Message)
-}
-
-// Database error
-type DatabaseError struct {
-    BaseError
-    Operation  string `json:"operation"`
-    Table      string `json:"table,omitempty"`
-    Query      string `json:"query,omitempty"`
-    Constraint string `json:"constraint,omitempty"`
-}
-
-func (e *DatabaseError) Error() string {
-    return fmt.Sprintf("database error in %s: %s", e.Operation, e.Message)
-}
-
-// Network error
-type NetworkError struct {
-    BaseError
-    URL        string `json:"url,omitempty"`
-    StatusCode int    `json:"statusCode,omitempty"`
-    Method     string `json:"method,omitempty"`
-    Timeout    bool   `json:"timeout"`
-}
-
-func (e *NetworkError) Error() string {
-    return fmt.Sprintf("network error: %s", e.Message)
-}
-
-// Business error
-type BusinessError struct {
-    BaseError
-    Domain     string `json:"domain"`
-    Operation  string `json:"operation"`
-    ResourceID string `json:"resourceId,omitempty"`
-}
-
-func (e *BusinessError) Error() string {
-    return fmt.Sprintf("business error in %s.%s: %s", e.Domain, e.Operation, e.Message)
-}
-
-// System error
-type SystemError struct {
-    BaseError
-    Component string `json:"component"`
-    Severity  string `json:"severity"`
-    Retryable bool   `json:"retryable"`
-}
-
-func (e *SystemError) Error() string {
-    return fmt.Sprintf("system error in %s: %s", e.Component, e.Message)
+func (e *NotPositiveError) Error() string {
+    return fmt.Sprintf("not positive: %s", e.Field)
 }
 ```
 
-### 3. Error Factory Functions
+Go **call sites** in Forst do not hand-author these structs to **fail**; the compiler lowers **`ensure … or NotPositive({ … })`** into values like `*NotPositiveError`. Other nominals get analogous generated types with **distinct `ForstTag()`** values.
 
-```go
-// Error factory functions
-func NewValidationError(field, value, constraint string) *ValidationError {
-    return &ValidationError{
-        BaseError: BaseError{
-            Message:   fmt.Sprintf("Validation failed for field: %s", field),
-            Code:      "VALIDATION_ERROR",
-            Timestamp: time.Now().Unix(),
-            TraceID:   generateTraceID(),
-            SpanID:    generateSpanID(),
-            Context:   make(map[string]string),
-        },
-        Field:      field,
-        Value:      value,
-        Constraint: constraint,
-    }
-}
-
-func NewDatabaseError(operation, table, query string, err error) *DatabaseError {
-    return &DatabaseError{
-        BaseError: BaseError{
-            Message:   fmt.Sprintf("Database operation failed: %s", err.Error()),
-            Code:      "DATABASE_ERROR",
-            Timestamp: time.Now().Unix(),
-            TraceID:   generateTraceID(),
-            SpanID:    generateSpanID(),
-            Context:   make(map[string]string),
-        },
-        Operation: operation,
-        Table:     table,
-        Query:     query,
-    }
-}
-
-func NewNetworkError(url string, statusCode int, method string, timeout bool) *NetworkError {
-    return &NetworkError{
-        BaseError: BaseError{
-            Message:   "Network request failed",
-            Code:      "NETWORK_ERROR",
-            Timestamp: time.Now().Unix(),
-            TraceID:   generateTraceID(),
-            SpanID:    generateSpanID(),
-            Context:   make(map[string]string),
-        },
-        URL:        url,
-        StatusCode: statusCode,
-        Method:     method,
-        Timeout:    timeout,
-    }
-}
-
-func NewBusinessError(domain, operation, resourceID, message string) *BusinessError {
-    return &BusinessError{
-        BaseError: BaseError{
-            Message:   message,
-            Code:      "BUSINESS_ERROR",
-            Timestamp: time.Now().Unix(),
-            TraceID:   generateTraceID(),
-            SpanID:    generateSpanID(),
-            Context:   make(map[string]string),
-        },
-        Domain:     domain,
-        Operation:  operation,
-        ResourceID: resourceID,
-    }
-}
-
-func NewSystemError(component, severity string, retryable bool, message string) *SystemError {
-    return &SystemError{
-        BaseError: BaseError{
-            Message:   message,
-            Timestamp: time.Now().Unix(),
-            TraceID:   generateTraceID(),
-            SpanID:    generateSpanID(),
-            Context:   make(map[string]string),
-        },
-        Component: component,
-        Severity:  severity,
-        Retryable: retryable,
-    }
-}
-```
-
-### 4. OpenTelemetry Integration
+### 4. OpenTelemetry integration
 
 ```go
 // OpenTelemetry integration
@@ -610,6 +341,7 @@ func (et *ErrorTracer) RecordError(ctx context.Context, err ForstError) {
 
         // Add error attributes
         span.SetAttributes(
+            attribute.String("error.forst_tag", err.ForstTag()),
             attribute.String("error.code", err.Code()),
             attribute.String("error.trace_id", err.TraceID()),
             attribute.String("error.span_id", err.SpanID()),
@@ -634,12 +366,13 @@ func (et *ErrorTracer) RecordErrorWithSpan(ctx context.Context, err ForstError, 
 
 ## TypeScript/Effect Integration
 
-### 1. Effect Tagged Errors
+### 1. Effect tagged errors (base + user nominals)
+
+Only the **base** tagged class mirrors the built-in **`Error`**; every other kind is **emitted from your Forst declarations** (here `NotPositive` and `IoTimeout` match the illustrations above).
 
 ```typescript
-// Base error class
+// Base — corresponds to the language abstract Error (no `error Error {}` in source)
 export class ForstError extends Data.TaggedError("ForstError")<{
-  message: string;
   code: string;
   timestamp: number;
   traceId: string;
@@ -647,150 +380,54 @@ export class ForstError extends Data.TaggedError("ForstError")<{
   context?: Record<string, string>;
 }> {}
 
-// Specific error types
-export class ValidationError extends Data.TaggedError("ValidationError")<{
-  message: string;
+// Generated per user nominal — not built into the language
+export class NotPositiveError extends Data.TaggedError("NotPositive")<{
   code: string;
   timestamp: number;
   traceId: string;
   spanId: string;
   context?: Record<string, string>;
   field: string;
-  value?: string;
-  constraint: string;
 }> {}
 
-export class DatabaseError extends Data.TaggedError("DatabaseError")<{
-  message: string;
+export class IoTimeoutError extends Data.TaggedError("IoTimeout")<{
   code: string;
   timestamp: number;
   traceId: string;
   spanId: string;
   context?: Record<string, string>;
-  operation: string;
-  table?: string;
-  query?: string;
-  constraint?: string;
-}> {}
-
-export class NetworkError extends Data.TaggedError("NetworkError")<{
-  message: string;
-  code: string;
-  timestamp: number;
-  traceId: string;
-  spanId: string;
-  context?: Record<string, string>;
-  url?: string;
-  statusCode?: number;
-  method?: string;
-  timeout: boolean;
-}> {}
-
-export class BusinessError extends Data.TaggedError("BusinessError")<{
-  message: string;
-  code: string;
-  timestamp: number;
-  traceId: string;
-  spanId: string;
-  context?: Record<string, string>;
-  domain: string;
-  operation: string;
-  resourceId?: string;
-}> {}
-
-export class SystemError extends Data.TaggedError("SystemError")<{
-  message: string;
-  code: string;
-  timestamp: number;
-  traceId: string;
-  spanId: string;
-  context?: Record<string, string>;
-  component: string;
-  severity: "Low" | "Medium" | "High" | "Critical";
-  retryable: boolean;
+  op: string;
 }> {}
 ```
 
-### 2. Error Conversion Functions
+### 2. Error conversion functions (wire / JSON boundaries)
+
+These reconstruct tagged errors from **transport** payloads (HTTP, RPC). They are **not** the Forst authoring model, which uses **`ensure`** and nominal constructors in source.
 
 ```typescript
-// Error conversion functions
+// Wire conversion: branch on `forstTag` / `_tag` from your API contract — not on fixed built-in kinds.
 export function convertForstError(error: any): ForstError {
-  if (error.code === "VALIDATION_ERROR") {
-    return new ValidationError({
-      message: error.message,
+  if (error.forstTag === "NotPositive" || error._tag === "NotPositive") {
+    return new NotPositiveError({
       code: error.code,
       timestamp: error.timestamp,
       traceId: error.traceId,
       spanId: error.spanId,
       context: error.context,
       field: error.field,
-      value: error.value,
-      constraint: error.constraint,
     });
   }
-
-  if (error.code === "DATABASE_ERROR") {
-    return new DatabaseError({
-      message: error.message,
+  if (error.forstTag === "IoTimeout" || error._tag === "IoTimeout") {
+    return new IoTimeoutError({
       code: error.code,
       timestamp: error.timestamp,
       traceId: error.traceId,
       spanId: error.spanId,
       context: error.context,
-      operation: error.operation,
-      table: error.table,
-      query: error.query,
-      constraint: error.constraint,
+      op: error.op,
     });
   }
-
-  if (error.code === "NETWORK_ERROR") {
-    return new NetworkError({
-      message: error.message,
-      code: error.code,
-      timestamp: error.timestamp,
-      traceId: error.traceId,
-      spanId: error.spanId,
-      context: error.context,
-      url: error.url,
-      statusCode: error.statusCode,
-      method: error.method,
-      timeout: error.timeout,
-    });
-  }
-
-  if (error.code === "BUSINESS_ERROR") {
-    return new BusinessError({
-      message: error.message,
-      code: error.code,
-      timestamp: error.timestamp,
-      traceId: error.traceId,
-      spanId: error.spanId,
-      context: error.context,
-      domain: error.domain,
-      operation: error.operation,
-      resourceId: error.resourceId,
-    });
-  }
-
-  if (error.code === "SYSTEM_ERROR") {
-    return new SystemError({
-      message: error.message,
-      code: error.code,
-      timestamp: error.timestamp,
-      traceId: error.traceId,
-      spanId: error.spanId,
-      context: error.context,
-      component: error.component,
-      severity: error.severity,
-      retryable: error.retryable,
-    });
-  }
-
-  // Fallback to base error
   return new ForstError({
-    message: error.message || "Unknown error",
     code: error.code || "UNKNOWN_ERROR",
     timestamp: error.timestamp || Date.now(),
     traceId: error.traceId || "",
@@ -814,7 +451,7 @@ export class ForstErrorHandler {
 
       // Record metrics
       yield* Effect.sync(() => {
-        console.log(`Error recorded: ${error.code} - ${error.message}`);
+        console.log(`Error recorded: ${error.code}`);
       });
 
       // Check if error should be retried
@@ -831,22 +468,13 @@ export class ForstErrorHandler {
     });
 
   static isRetryableError = (error: ForstError): boolean => {
-    if (error instanceof ValidationError) return false;
-    if (error instanceof DatabaseError) return true;
-    if (error instanceof NetworkError) return !error.timeout;
-    if (error instanceof BusinessError) return false;
-    if (error instanceof SystemError) return error.retryable;
+    if (error instanceof IoTimeoutError) return true;
+    if (error instanceof NotPositiveError) return false;
     return false;
   };
 
   static shouldAlert = (error: ForstError): boolean => {
-    if (error instanceof SystemError) {
-      return error.severity === "Critical" || error.severity === "High";
-    }
-    if (error instanceof DatabaseError) return true;
-    if (error instanceof NetworkError) {
-      return (error.statusCode ?? 0) >= 500;
-    }
+    if (error instanceof IoTimeoutError) return true;
     return false;
   };
 }
@@ -910,46 +538,27 @@ export class ForstService {
 ### 1. Error Response Format
 
 ```typescript
-// Standardized error response format
+// Standardized error response format — payload shape depends on the nominal `forstTag`
 export interface ForstErrorResponse {
   success: false;
   error: {
     type: string;
-    message: string;
+    forstTag: string;
+    /** Optional human-readable text; not required by the Forst error model. */
+    message?: string;
     code: string;
     timestamp: number;
     traceId: string;
     spanId: string;
     context?: Record<string, string>;
-    // Type-specific fields
-    field?: string;
-    value?: string;
-    constraint?: string;
-    operation?: string;
-    table?: string;
-    query?: string;
-    url?: string;
-    statusCode?: number;
-    method?: string;
-    timeout?: boolean;
-    domain?: string;
-    resourceId?: string;
-    component?: string;
-    severity?: string;
-    retryable?: boolean;
+    [key: string]: unknown;
   };
 }
 ```
 
-### 2. HTTP Status Code Mapping
+### 2. HTTP status mapping
 
-| Error Type        | HTTP Status | Description           |
-| ----------------- | ----------- | --------------------- |
-| `ValidationError` | 400         | Bad Request           |
-| `DatabaseError`   | 500         | Internal Server Error |
-| `NetworkError`    | 502         | Bad Gateway           |
-| `BusinessError`   | 422         | Unprocessable Entity  |
-| `SystemError`     | 500         | Internal Server Error |
+There is **no** fixed global table: HTTP codes are **application policy** keyed by **`forstTag`** (and optionally `code`). Example: map `NotPositive` → 400, `IoTimeout` → 504; your service defines the rest for its own nominals.
 
 ### 3. Error Handling Middleware
 
@@ -977,7 +586,7 @@ export const errorHandlingMiddleware = (
       success: false,
       error: {
         type: forstError._tag,
-        message: forstError.message,
+        forstTag: forstError._tag,
         code: forstError.code,
         timestamp: forstError.timestamp,
         traceId: forstError.traceId,
@@ -990,51 +599,17 @@ export const errorHandlingMiddleware = (
 };
 
 function getHttpStatusFromError(error: ForstError): number {
-  if (error instanceof ValidationError) return 400;
-  if (error instanceof DatabaseError) return 500;
-  if (error instanceof NetworkError) return 502;
-  if (error instanceof BusinessError) return 422;
-  if (error instanceof SystemError) return 500;
+  if (error instanceof NotPositiveError) return 400;
+  if (error instanceof IoTimeoutError) return 504;
   return 500;
 }
 
-function getTypeSpecificFields(error: ForstError): Record<string, any> {
-  if (error instanceof ValidationError) {
-    return {
-      field: error.field,
-      value: error.value,
-      constraint: error.constraint,
-    };
+function getTypeSpecificFields(error: ForstError): Record<string, unknown> {
+  if (error instanceof NotPositiveError) {
+    return { field: error.field, constraint: error.constraint };
   }
-  if (error instanceof DatabaseError) {
-    return {
-      operation: error.operation,
-      table: error.table,
-      query: error.query,
-      constraint: error.constraint,
-    };
-  }
-  if (error instanceof NetworkError) {
-    return {
-      url: error.url,
-      statusCode: error.statusCode,
-      method: error.method,
-      timeout: error.timeout,
-    };
-  }
-  if (error instanceof BusinessError) {
-    return {
-      domain: error.domain,
-      operation: error.operation,
-      resourceId: error.resourceId,
-    };
-  }
-  if (error instanceof SystemError) {
-    return {
-      component: error.component,
-      severity: error.severity,
-      retryable: error.retryable,
-    };
+  if (error instanceof IoTimeoutError) {
+    return { op: error.op };
   }
   return {};
 }
@@ -1056,7 +631,7 @@ export class OpenTelemetryErrorHandler {
       const span = trace.getActiveSpan();
       if (span) {
         span.recordException(error);
-        span.setStatus({ code: 1, message: error.message });
+        span.setStatus({ code: 1, message: error.code });
 
         // Add error attributes
         span.setAttributes({
@@ -1082,7 +657,7 @@ export class OpenTelemetryErrorHandler {
 
       yield* Effect.sync(() => {
         span.recordException(error);
-        span.setStatus({ code: 1, message: error.message });
+        span.setStatus({ code: 1, message: error.code });
         span.end();
       });
     });
@@ -1128,43 +703,38 @@ import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
 
 describe("Forst Error Handling", () => {
-  it("should convert validation error correctly", () => {
+  it("should convert NotPositive wire payload", () => {
     const error = {
-      code: "VALIDATION_ERROR",
-      message: "Validation failed",
-      field: "email",
-      constraint: "email_format",
+      forstTag: "NotPositive",
+      code: "NOT_POSITIVE",
+      field: "n",
     };
 
     const forstError = convertForstError(error);
 
-    expect(forstError).toBeInstanceOf(ValidationError);
-    expect(forstError.field).toBe("email");
-    expect(forstError.constraint).toBe("email_format");
+    expect(forstError).toBeInstanceOf(NotPositiveError);
+    expect(forstError.field).toBe("n");
   });
 
-  it("should handle retryable errors", () => {
-    const error = new DatabaseError({
-      message: "Connection failed",
-      code: "DATABASE_ERROR",
+  it("should treat IoTimeout as retryable", () => {
+    const error = new IoTimeoutError({
+      code: "IO_TIMEOUT",
       timestamp: Date.now(),
       traceId: "trace-123",
       spanId: "span-456",
-      operation: "SELECT",
+      op: "read",
     });
 
     expect(ForstErrorHandler.isRetryableError(error)).toBe(true);
   });
 
-  it("should handle non-retryable errors", () => {
-    const error = new ValidationError({
-      message: "Invalid email",
-      code: "VALIDATION_ERROR",
+  it("should treat NotPositive as non-retryable", () => {
+    const error = new NotPositiveError({
+      code: "NOT_POSITIVE",
       timestamp: Date.now(),
       traceId: "trace-123",
       spanId: "span-456",
-      field: "email",
-      constraint: "email_format",
+      field: "n",
     });
 
     expect(ForstErrorHandler.isRetryableError(error)).toBe(false);
@@ -1202,17 +772,17 @@ describe("Forst Service Integration", () => {
 
 | Principle                       | Description                                                             | Implementation                           |
 | ------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------- |
-| **Always include context**      | Every error should have trace ID, span ID, and relevant context         | Built into error factory functions       |
+| **Always include context**      | Trace and metadata when lowering or at boundaries                      | Compiler / runtime + host layers         |
 | **Use specific error types**    | Don't use generic errors, create specific types for different scenarios | Type hierarchy with specific error types |
 | **Include retry information**   | Clearly indicate if an error is retryable                               | `retryable` field in error types         |
-| **Provide actionable messages** | Error messages should help developers understand what went wrong        | Clear, descriptive error messages        |
-| **Maintain error hierarchy**    | Use inheritance to create clear error relationships                     | Base error + specific error types        |
+| **Optional human-readable text**| Add strings at HTTP/log boundaries when helpful; not a language requirement | Subtype fields or host layers              |
+| **Inherit base `Error`**        | User nominals inherit the language base automatically                   | `error MyKind { … }` (no `extends Error`)  |
 
 ### 2. Error Handling Patterns
 
 | Pattern                  | When to Use                                           | Implementation                             |
 | ------------------------ | ----------------------------------------------------- | ------------------------------------------ |
-| **Fail fast**            | Don't continue processing after encountering an error | Return immediately on validation errors    |
+| **Fail fast**            | Don't continue processing after encountering an error | Return immediately on precondition failures |
 | **Log errors**           | Always log errors with full context                   | Structured logging with trace IDs          |
 | **Record metrics**       | Track error rates and types                           | Metrics collection for monitoring          |
 | **Use circuit breakers** | Prevent cascading failures                            | Circuit breaker pattern for external calls |
@@ -1234,24 +804,36 @@ describe("Forst Service Integration", () => {
 
 ### Phase 1: Core Error System (Weeks 1-2)
 
-- [ ] Implement base error types in Forst
-- [ ] Create error factory functions
+- [ ] Implement base `Error` type in Forst (no other built-in error kinds)
+- [ ] Lower `ensure … or Constructor(...)` to idiomatic Go `error` values
 - [ ] Implement error context and tracing
 - [ ] Add basic error handling patterns
 
 ### Phase 2: Go Implementation (Weeks 3-4)
 
-- [ ] Implement Go error types
+- [ ] Generate user nominal error structs in Go; ship `forst/errors` base only
 - [ ] Add OpenTelemetry integration
 - [ ] Create error serialization
 - [ ] Implement error handling middleware
 
-### Phase 3: TypeScript Integration (Weeks 5-6)
+### Phase 3: TypeScript / client integration (Weeks 5-6)
 
-- [ ] Create Effect tagged errors
-- [ ] Implement error conversion functions
-- [ ] Add Effect error handling
-- [ ] Create error handling services
+- [ ] Emit tagged or discriminated TypeScript types for user nominal errors (aligned with `forstTag` / `_tag`; see **Effect compatibility** below)
+- [ ] Implement wire / JSON conversion into those types at API boundaries
+- [ ] Document client-side handling patterns (narrowing, retries) without mandating a specific runtime library
+- [ ] Ensure generated shapes are **compatible** with [Effect](https://github.com/Effect-TS/effect)’s error model where practical (teams may wrap values with `Data.TaggedError` or unions with `Data.taggedEnum` themselves—Forst does not depend on Effect)
+
+#### TypeScript: optional compatibility with Effect (analysis)
+
+Effect documents **tagged errors** and **native `cause`** under [Data — TaggedError](https://effect.website/docs/data-types/data/#taggederror) and [Native cause support](https://effect.website/docs/data-types/data/#native-cause-support). The implementation lives primarily in [`packages/effect/src/Data.ts`](https://github.com/Effect-TS/effect/blob/main/packages/effect/src/Data.ts).
+
+**What Effect assumes (relevant to Forst-generated types):**
+
+1. **`_tag` discriminant** — `Data.tagged` / `Data.TaggedClass` / `TaggedEnum` all use a readonly **`_tag`** field whose value is the variant name (`Data.ts`: `tagged` sets `value._tag = tag`; `TaggedClass` sets `readonly _tag = tag`). **`Data.TaggedError(tag)`** builds a class whose instances extend `Data.Error` and set **`readonly _tag = tag`** (see `TaggedError` at the bottom of `Data.ts`). This matches Forst’s story of **nominal names → stable string tags**; generated TS should expose the same discriminator so `Predicate.isTagged`, **`Effect.catchTag`**, and manual `switch (e._tag)` all work if consumers opt in.
+
+2. **`Data.Error` and `cause`** — `Data.Error`’s constructor calls `super(args?.message, args?.cause ? { cause: args.cause } : undefined)` and **`Object.assign(this, args)`**, so arbitrary fields (including **`cause`**) sit on the error object and integrate with **JavaScript’s `Error.prototype.cause`**. `TaggedError` subclasses **`Data.Error`**, so instances can carry **`cause`** the same way. Forst-generated TS types do **not** need to subclass Effect’s classes; they only need to remain **structurally usable** where teams pass payloads into **`Data.TaggedError("MyTag")<Payload>()`** or mirror `{ readonly _tag: "MyTag"; … }` unions.
+
+3. **No mandate** — Compatibility means: **discriminated unions / `_tag`**, optional alignment of field names (`message`, `cause`) with `Data.Error` conventions, and documentation. It does **not** mean generating **`import { Data } from "effect"`** in user code by default.
 
 ### Phase 4: API and Observability (Weeks 7-8)
 
@@ -1284,18 +866,18 @@ This comprehensive error handling system provides:
 
 1. **Type Safety** - Compile-time and runtime error type checking
 2. **Observability** - Built-in tracing, logging, and metrics
-3. **Developer Experience** - Clear error messages and easy handling
+3. **Developer Experience** - Structured types and clear failure codes; optional human-readable text at boundaries
 4. **Production Ready** - Circuit breakers, retries, and alerting
-5. **Effect Integration** - Seamless integration with Effect's error system
+5. **Client types** - Generated or hand-maintained TS shapes that mirror nominal errors for boundaries
 
 ### **Modern Practices**
 
-1. **Structured Errors** - Clear error types with context
+1. **Structured Errors** - Base `Error` plus nominals you define
 2. **Distributed Tracing** - OpenTelemetry integration
 3. **Error Classification** - Retryable vs non-retryable errors
 4. **Circuit Breakers** - Fault tolerance patterns
 5. **Metrics and Alerting** - Production monitoring
 
-This approach positions Forst as a production-ready system with excellent error handling that integrates seamlessly with modern observability tools and Effect's error system.
+This approach positions Forst as a production-ready system with excellent error handling that integrates cleanly with observability tools and typed clients at HTTP and RPC boundaries.
 
 

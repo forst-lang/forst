@@ -126,13 +126,13 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 			// Get the base type definition
 			if baseDef, exists := t.TypeChecker.Defs[baseType.Ident]; exists {
 				if baseTypeDef, ok := baseDef.(ast.TypeDefNode); ok {
-					if baseShapeExpr, ok := baseTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					if basePayload, ok := ast.PayloadShape(baseTypeDef.Expr); ok {
 						// Get the param type definition
 						if paramDef, exists := t.TypeChecker.Defs[paramType.Ident]; exists {
 							if paramTypeDef, ok := paramDef.(ast.TypeDefNode); ok {
-								if paramShapeExpr, ok := paramTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
+								if paramPayload, ok := ast.PayloadShape(paramTypeDef.Expr); ok {
 									// Check if the shapes are structurally compatible
-									if t.shapesCompatibleForExpectedType(&baseShapeExpr.Shape, &paramShapeExpr.Shape) {
+									if t.shapesCompatibleForExpectedType(basePayload, paramPayload) {
 										t.log.WithFields(logrus.Fields{
 											"typeGuard": typeGuard.GetIdent(),
 											"baseType":  baseType.Ident,

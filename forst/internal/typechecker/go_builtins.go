@@ -428,6 +428,20 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}
 	}
 
+	// RFC 02: nominal `error X { ... }` (`TypeDefErrorExpr`) is assignable to the built-in `Error` type.
+	if expected.Ident == ast.TypeError {
+		if def, ok := tc.Defs[actual.Ident].(ast.TypeDefNode); ok {
+			if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
+				tc.log.WithFields(logrus.Fields{
+					"actual":   actual.Ident,
+					"expected": expected.Ident,
+					"function": "IsTypeCompatible",
+				}).Debug("Nominal error type assignable to built-in Error")
+				return true
+			}
+		}
+	}
+
 	// Assigning to TypeObject mirrors Go assignability to interface{} / any (empty interface).
 	if expected.Ident == ast.TypeObject && actual.Ident != ast.TypeVoid {
 		tc.log.WithFields(logrus.Fields{
@@ -566,12 +580,10 @@ func isScalarTypeIdent(id ast.TypeIdent) bool {
 	}
 }
 
-// getShapeFromTypeDef extracts the shape from a TypeDefNode if it's a shape definition
+// getShapeFromTypeDef extracts the shape from a TypeDefNode if it is shape-backed (ordinary shape or error payload).
 func (tc *TypeChecker) getShapeFromTypeDef(def ast.Node) (*ast.ShapeNode, bool) {
 	if typeDef, ok := def.(ast.TypeDefNode); ok {
-		if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-			return &shapeExpr.Shape, true
-		}
+		return ast.PayloadShape(typeDef.Expr)
 	}
 	return nil, false
 }

@@ -525,3 +525,45 @@ func TestInferShapeType_ValueNil_SingleFieldShapeIsNotUnwrappedToPointer(t *test
 		t.Fatalf("sessionId field: want Pointer(String), got %+v", sf.Type)
 	}
 }
+
+// When a struct literal matches both an ordinary shape typedef and a nominal error typedef, bind to the shape.
+func TestInferShapeType_prefersShapeTypedefOverNominalErrorWhenBothMatch(t *testing.T) {
+	tc := New(logrus.New(), false)
+	nodes := []ast.Node{
+		ast.TypeDefNode{
+			Ident: "ErrDup",
+			Expr: ast.TypeDefErrorExpr{
+				Payload: ast.ShapeNode{
+					Fields: map[string]ast.ShapeFieldNode{
+						"code": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+					},
+				},
+			},
+		},
+		ast.TypeDefNode{
+			Ident: "Row",
+			Expr: ast.TypeDefShapeExpr{
+				Shape: ast.ShapeNode{
+					Fields: map[string]ast.ShapeFieldNode{
+						"code": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+					},
+				},
+			},
+		},
+	}
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	lit := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"code": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+		},
+	}
+	out, err := tc.inferShapeType(lit, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Ident != "Row" {
+		t.Fatalf("want named shape typedef Row when ErrDup also matches structurally, got %q", out.Ident)
+	}
+}

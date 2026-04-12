@@ -16,6 +16,8 @@ const (
 	TokenFunc TokenIdent = "FUNCTION"
 	// TokenType is the token for type keyword
 	TokenType TokenIdent = "TYPE"
+	// TokenError is the token for error nominal type declarations (`error X { ... }`)
+	TokenError TokenIdent = "ERROR_KW"
 
 	// TokenInt is the token for built-in int type
 	TokenInt TokenIdent = "TYPE_INT"

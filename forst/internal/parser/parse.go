@@ -49,6 +49,10 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			typeDef := p.parseTypeDef()
 			p.logParsedNodeWithMessage(typeDef, "Parsed type def")
 			nodes = append(nodes, *typeDef)
+		case ast.TokenError:
+			errDef := p.parseErrorTypeDef()
+			p.logParsedNodeWithMessage(errDef, "Parsed error nominal def")
+			nodes = append(nodes, *errDef)
 		case ast.TokenFunc:
 			scope := NewScope("", false, false, p.log)
 			p.context.ScopeStack.PushScope(scope)

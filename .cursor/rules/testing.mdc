@@ -27,6 +27,7 @@ examples/in/go_builtins.ft
 examples/in/generics.ft
 examples/in/basic_function.ft
 examples/in/ensure.ft
+examples/in/nominal_error.ft (`task example:nominal-error` — nominal `error X { … }` type)
 examples/in/result_ensure.ft (`task example:result-ensure` — Result + `ensure … is Ok()`)
 examples/in/result_if.ft (`task example:result-if` — Result + `if x is Ok()`)
 examples/in/tictactoe/ (merged package: `task example:tictactoe`; TypeScript from `forst generate`: `task example:tictactoe:generate` — writes gitignored `examples/in/tictactoe/generated/` and `examples/in/tictactoe/client/`)

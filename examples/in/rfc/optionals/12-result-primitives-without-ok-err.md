@@ -150,6 +150,8 @@ This subsection records a **concrete** **direction** favored by **language** **d
 
 **Guards unchanged:** **`is Ok(...)`** / **`is Err(...)`** on **`Result`** **subjects** remain the **narrowing** vocabulary (**§0**); this **preference** only affects **function** **bodies**, not **`if`/`ensure`** **syntax**.
 
+**Normative update:** **[02 — first-class errors (normative)](../errors/02-first-class-errors-normative.md)** refines **failure** for **`Result(S,F)`**: use **`ensure … or Nominal(…)`** only—not **`return Nominal(…)`**. The **failure** row in the table above remains the **exploratory** preference recorded here; **implementers** should follow **02** for **`Result`** failure **authoring**.
+
 **Typechecker obligations**
 
 - **Infer** or **check** that **`return expr`** in a **`Result(S, F)`** **function** selects the **success** path when **`expr: S`**, and the **failure** path when **`expr: F`** (and **`F`** is **error-kinded** per [02](./02-result-and-error-types.md)).  
@@ -183,7 +185,7 @@ The **[errors RFC hub](../errors/README.md)** and **[error system architecture](
 
 | Theme | Content relevant to **Result** **construction** |
 | --- | --- |
-| **Nominal errors** | **`error ValidationError extends Error { … }`**-style types with **fields** — failures are **not** only **`string`**; they carry **structure** for **TS** and **observability**. |
+| **Nominal errors** | **`error ValidationError { … }`**-style types (implicit base **`Error`**; no **`error Error {}`**) with **fields** — failures are **not** only **`string`**; they carry **structure** for **TS** and **observability**. |
 | **Factories** | **Error factory system** (see **§4** in the architecture doc) — **preferred** way to **build** instances with **context**. |
 | **Categories** | **Validation** / **Network** / **Business** / **System** — informs **retry**, **logging**, **HTTP** mapping; **not** the same as **`is Err`**, but **overlaps** with **how** **`ensure`** failures are **classified**. |
 | **Effect / tagged errors** | **TypeScript/Effect integration** — **discriminated** / **tagged** shapes for **client** code; parallels **Effect**’s **`catchTag`** story ([13 §5.6](./13-result-constructors-prior-art.md)). |
@@ -235,7 +237,8 @@ The **current** compiler uses **`Ok`/`Err`** both as **expression constructors**
 | [13](./13-result-constructors-prior-art.md) | **Rust/Go/Zig/TS** patterns; **`ensure`** + error factories vs **`Err()`** clutter |
 | [07](./07-background-motivation-and-tradeoffs.md) | Broader pros/cons in the optionals space |
 | [errors README](../errors/README.md) | Error system **hub** |
-| [error system architecture](../errors/00-error-system-architecture.md) | **Hierarchy**, factories, **TS/Effect**, observability |
+| [02 — first-class errors (normative)](../errors/02-first-class-errors-normative.md) | **`ensure`-only** **`Result`** failure, **`Err(Nominal)`**, **`or`** **LUB**, inference; **supersedes** §5.7 **nominal `return` failure** for **`Result`** |
+| [error system architecture](../errors/00-error-system-architecture.md) | Base **`Error`**, **`forst/errors`**, TS tags, observability sketch |
 | [errors / ensure-only failure propagation](../errors/01-ensure-only-failure-returns.md) | **`ensure … is Ok() or …`** for **`Result`** propagation; **`Ok`/`Err`** as **guards**; **compiler** rule vs **`if`**; **coverage** vs this RFC’s **open** items |
 
 ---

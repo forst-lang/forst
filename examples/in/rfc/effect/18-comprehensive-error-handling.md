@@ -36,44 +36,37 @@ This document provides a comprehensive approach to error handling in Forst that 
 
 ### 1. Base Error Types
 
-```forst
-// Base error types in Forst
-error Error {
-    message: String
-    code: String
-    timestamp: Int64
-    traceId: String?
-    spanId: String?
-    context: Map[String, String]?
-}
+The language supplies an abstract base **`Error`** for typing and lowering; **authors do not write `error Error { … }`**. User nominals use **`error X { … }`** only (no **`extends`**, no inheritance between user nominals)—see [errors / 02 — normative](../errors/02-first-class-errors-normative.md).
 
-error ValidationError extends Error {
+```forst
+// User nominals (each implicitly inherits the language base Error)
+error ValidationError {
     field: String
     value: String?
     constraint: String
 }
 
-error DatabaseError extends Error {
+error DatabaseError {
     operation: String
     table: String?
     query: String?
     constraint: String?
 }
 
-error NetworkError extends Error {
+error NetworkError {
     url: String?
     statusCode: Int?
     method: String?
     timeout: Bool
 }
 
-error BusinessError extends Error {
+error BusinessError {
     domain: String
     operation: String
     resourceId: String?
 }
 
-error SystemError extends Error {
+error SystemError {
     component: String
     severity: Severity
     retryable: Bool

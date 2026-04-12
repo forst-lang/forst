@@ -183,6 +183,17 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			return nil, err
 		}
 		return expr, nil
+	case ast.TypeDefErrorExpr:
+		payload := e.Payload
+		expr, err := t.transformShapeType(&payload)
+		if err != nil {
+			err = fmt.Errorf("failed to transform error nominal payload during transformation: %w", err)
+			t.log.WithFields(logrus.Fields{
+				"function": "transformTypeDefExpr",
+			}).WithError(err).Error("transforming error nominal payload failed")
+			return nil, err
+		}
+		return expr, nil
 	case ast.TypeDefBinaryExpr:
 		// binaryExpr := expr.(ast.TypeDefBinaryExpr)
 		// if binaryExpr.IsConjunction() {

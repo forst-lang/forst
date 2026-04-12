@@ -74,6 +74,35 @@ func (t TypeDefShapeExpr) String() string {
 	return fmt.Sprintf("TypeDefShapeExpr(%s)", t.Shape)
 }
 
+// TypeDefErrorExpr is the body of `error Name { ... }` (RFC 02): a nominal error type wrapping a payload shape.
+// It is distinct from TypeDefShapeExpr so errors are not "just shapes with a flag".
+type TypeDefErrorExpr struct {
+	Payload ShapeNode
+}
+
+func (t TypeDefErrorExpr) isTypeDefExpr() { _ = t }
+
+// Kind returns the node kind for a nominal error type definition expression.
+func (t TypeDefErrorExpr) Kind() NodeKind {
+	return NodeKindTypeDefError
+}
+
+func (t TypeDefErrorExpr) String() string {
+	return fmt.Sprintf("TypeDefErrorExpr(%s)", t.Payload)
+}
+
+// PayloadShape returns the backing shape for field types and lowering: ordinary shape types or error payloads.
+func PayloadShape(expr TypeDefExpr) (*ShapeNode, bool) {
+	switch e := expr.(type) {
+	case TypeDefShapeExpr:
+		return &e.Shape, true
+	case TypeDefErrorExpr:
+		return &e.Payload, true
+	default:
+		return nil, false
+	}
+}
+
 // TypeDefNode represents a type definition node
 type TypeDefNode struct {
 	Node

@@ -44,8 +44,8 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 		if exists {
 			// Extract fields from the base type
 			if shapeExpr, ok := baseTypeDef.(ast.TypeDefNode); ok {
-				if shapeDef, ok := shapeExpr.Expr.(ast.TypeDefShapeExpr); ok {
-					for name, field := range shapeDef.Shape.Fields {
+				if payload, ok := ast.PayloadShape(shapeExpr.Expr); ok {
+					for name, field := range payload.Fields {
 						mergedFields[name] = field
 					}
 				}
@@ -310,7 +310,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 								}
 								// Look up the inferred type definition
 								if def, ok := tc.Defs[concreteType].(ast.TypeDefNode); ok {
-									if shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
+									if payload, ok := ast.PayloadShape(def.Expr); ok {
 										matchShape := (*ast.ShapeNode)(nil)
 										for _, c := range argNode.Type.Assertion.Constraints {
 											if c.Name == "Match" && len(c.Args) > 0 && c.Args[0].Shape != nil {
@@ -318,7 +318,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 												break
 											}
 										}
-										for fieldName, fieldNode := range shapeExpr.Shape.Fields {
+										for fieldName, fieldNode := range payload.Fields {
 											if fieldNode.Type != nil && fieldNode.Type.Ident == ast.TypeShape && matchShape != nil {
 												if argField, ok := matchShape.Fields[fieldName]; ok {
 													if argField.Type != nil && argField.Type.Assertion != nil {
@@ -377,9 +377,9 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 								"defsHasArgType": (tc.Defs[argType] != nil),
 							}).Debugf("Checking for type definition for argument type")
 							if def, ok := tc.Defs[argType].(ast.TypeDefNode); ok {
-								if shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
+								if payload, ok := ast.PayloadShape(def.Expr); ok {
 									// Merge fields from the type definition
-									for fieldName, fieldNode := range shapeExpr.Shape.Fields {
+									for fieldName, fieldNode := range payload.Fields {
 										mergedFields[fieldName] = fieldNode
 										tc.log.WithFields(logrus.Fields{
 											"function": "inferAssertionType",

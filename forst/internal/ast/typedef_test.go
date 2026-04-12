@@ -43,6 +43,23 @@ func TestTypeDefExpr_marker_methods(t *testing.T) {
 	TypeDefAssertionExpr{}.isTypeDefExpr()
 	TypeDefBinaryExpr{}.isTypeDefExpr()
 	TypeDefShapeExpr{}.isTypeDefExpr()
+	TypeDefErrorExpr{}.isTypeDefExpr()
+}
+
+func TestTypeDefErrorExpr_Kind_and_PayloadShape(t *testing.T) {
+	ee := TypeDefErrorExpr{Payload: ShapeNode{Fields: map[string]ShapeFieldNode{}}}
+	if ee.Kind() != NodeKindTypeDefError {
+		t.Fatalf("Kind: %v", ee.Kind())
+	}
+	sh, ok := PayloadShape(ee)
+	if !ok || sh == nil || len(sh.Fields) != 0 {
+		t.Fatalf("PayloadShape(TypeDefErrorExpr): ok=%v fields=%d", ok, len(sh.Fields))
+	}
+	se := TypeDefShapeExpr{Shape: ShapeNode{Fields: map[string]ShapeFieldNode{}}}
+	sh2, ok := PayloadShape(se)
+	if !ok || sh2 == nil {
+		t.Fatal("PayloadShape(TypeDefShapeExpr)")
+	}
 }
 
 func TestTypeDefBinaryExpr_and_TypeDefShapeExpr_Kind(t *testing.T) {

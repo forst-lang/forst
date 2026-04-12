@@ -201,8 +201,8 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		// If no aliased name found, try to resolve the underlying struct definition
 		if def, exists := tm.typeChecker.Defs[forstType.Ident]; exists {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					return tm.shapeToInlineTypeScript(shapeExpr.Shape)
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+					return tm.shapeToInlineTypeScript(*payload)
 				}
 			}
 		}

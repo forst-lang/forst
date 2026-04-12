@@ -1,0 +1,24 @@
+package main
+
+import "fmt"
+
+// Nominal error type (RFC 02): `error Name { ... }` introduces a named failure kind with a
+// struct payload. It is not a plain `type` alias; the compiler ties it to the built-in `Error`
+// for typing and interop. Payload fields use the same record shape as an ordinary struct type.
+error NotPositive {
+	message: String
+}
+
+func Test() {
+	n := 0
+	ensure n is GreaterThan(0) or NotPositive({
+		message: "n must be greater than 0",
+	})
+}
+
+func main() {
+	err := Test()
+	ensure !err {
+		fmt.Println(err)
+	}
+}
