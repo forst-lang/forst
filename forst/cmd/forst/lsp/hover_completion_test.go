@@ -256,7 +256,22 @@ func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenFunc, Value: "func"}
-	if s := hoverTextForToken(tc, nil, tok, nil); s != "`func`" {
+	s := hoverTextForToken(tc, nil, tok, nil)
+	if !strings.Contains(s, "**`func`**") || !strings.Contains(s, "Declares") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_builtinGuardAfterIs(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tokens := []ast.Token{
+		{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 1},
+		{Type: ast.TokenIs, Value: "is", Line: 1, Column: 3},
+		{Type: ast.TokenIdentifier, Value: "Min", Line: 1, Column: 6},
+	}
+	tok := &tokens[2]
+	if s := hoverTextForToken(tc, tokens, tok, nil); !strings.Contains(s, "Min") || !strings.Contains(s, "guard") {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -281,7 +296,7 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 
 func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
 	t.Parallel()
-	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); s != "`func`" {
+	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); !strings.Contains(s, "**`func`**") {
 		t.Fatalf("keyword: got %q", s)
 	}
 	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
@@ -315,7 +330,7 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 
 	// Line 0: `package` keyword
 	hPkg := s.findHoverForPosition(uri, LSPPosition{Line: 0, Character: 2})
-	if hPkg == nil || hPkg.Contents.Value != "`package`" {
+	if hPkg == nil || !strings.Contains(hPkg.Contents.Value, "**`package`**") {
 		if hPkg == nil {
 			t.Fatal("expected keyword hover on package when parse fails")
 		}
