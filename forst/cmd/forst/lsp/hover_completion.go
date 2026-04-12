@@ -8,6 +8,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/goload"
+	"forst/internal/printer"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -322,7 +323,7 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 			return doc + "\n\n" + body
 		}
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
-			return typeDefHoverMarkdown(def)
+			return typeDefHoverMarkdown(tokens, merge, def)
 		}
 		vn := ast.VariableNode{
 			Ident: ast.Ident{ID: id, Span: ast.SpanFromToken(*tok)},
@@ -450,6 +451,49 @@ func mergeLeadingCommentDocShapeField(merge *packageMergeInfo, anchorTokens []as
 
 // findShapeFieldNameTokenIndex returns the token index of the field name identifier in
 // `type ParentName = { ... fieldName: ... }`.
+// findTypeDefKeywordIndex returns the token index of `error` or `type` starting a definition named typeName.
+func findTypeDefKeywordIndex(tokens []ast.Token, typeName string) int {
+	for i := 0; i+1 < len(tokens); i++ {
+		if tokens[i].Type == ast.TokenError && tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == typeName {
+			return i
+		}
+		if tokens[i].Type == ast.TokenType && tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == typeName {
+			return i
+		}
+	}
+	return -1
+}
+
+func leadingCommentDocBeforeTypeDef(tokens []ast.Token, merge *packageMergeInfo, typeName string) string {
+	if merge != nil && len(tokens) > 0 && leadingCommentDocBeforeTypeDefSingle(tokens, typeName) == "" {
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if tks == nil {
+				continue
+			}
+			if doc := leadingCommentDocBeforeTypeDefSingle(tks, typeName); doc != "" {
+				return doc
+			}
+		}
+	}
+	return leadingCommentDocBeforeTypeDefSingle(tokens, typeName)
+}
+
+func leadingCommentDocBeforeTypeDefSingle(tokens []ast.Token, typeName string) string {
+	if len(tokens) == 0 {
+		return ""
+	}
+	idx := findTypeDefKeywordIndex(tokens, typeName)
+	if idx < 0 {
+		return ""
+	}
+	parts := collectContiguousLeadingCommentLines(tokens, idx)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
 func findShapeFieldNameTokenIndex(tokens []ast.Token, parentTypeName, fieldName string) int {
 	for i := 0; i+3 < len(tokens); i++ {
 		if tokens[i].Type != ast.TokenType {
@@ -596,10 +640,26 @@ func goHoverFromImportString(tc *typechecker.TypeChecker, tokens []ast.Token, to
 	return ""
 }
 
-func typeDefHoverMarkdown(def ast.Node) string {
+func typeDefHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, def ast.Node) string {
 	switch d := def.(type) {
 	case ast.TypeDefNode:
-		return fmt.Sprintf("```forst\ntype %s\n```", d.Ident)
+		doc := leadingCommentDocBeforeTypeDef(tokens, merge, string(d.Ident))
+		body, err := printer.FormatTypeDefNode(printer.DefaultConfig(), d)
+		if err != nil || body == "" {
+			body = fmt.Sprintf("type %s", d.Ident)
+		}
+		var kindIntro string
+		switch d.Expr.(type) {
+		case ast.TypeDefErrorExpr:
+			kindIntro = "**Nominal error** (assignable to `Error`)\n\n"
+		default:
+			kindIntro = "**Type**\n\n"
+		}
+		block := kindIntro + "```forst\n" + body + "\n```"
+		if doc == "" {
+			return block
+		}
+		return doc + "\n\n" + block
 	case ast.TypeGuardNode:
 		return typeGuardHoverStub(&d)
 	case *ast.TypeGuardNode:

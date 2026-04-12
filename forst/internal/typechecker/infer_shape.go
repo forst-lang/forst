@@ -51,9 +51,9 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 	if expectedType != nil {
 		if def, ok := tc.Defs[expectedType.Ident]; ok {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
 					expectedFields = make(map[string]*ast.TypeNode)
-					for fname, fdef := range shapeExpr.Shape.Fields {
+					for fname, fdef := range payload.Fields {
 						if fdef.Type != nil {
 							t := *fdef.Type
 							expectedFields[fname] = &t
@@ -130,8 +130,8 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 	if expectedType != nil {
 		if def, ok := tc.Defs[expectedType.Ident]; ok {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					if tc.shapesHaveSameStructure(processedShape, shapeExpr.Shape) {
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+					if tc.shapesHaveSameStructure(processedShape, *payload) {
 						tc.log.WithFields(logrus.Fields{
 							"function":     "inferShapeType",
 							"matchingType": expectedType.Ident,
@@ -143,23 +143,9 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 		}
 	}
 
-	// Now look for a matching named type definition that has the same structure
-	var matchingTypeIdent ast.TypeIdent
-
-	for typeIdent, def := range tc.Defs {
-		if typeDef, ok := def.(ast.TypeDefNode); ok {
-			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				if tc.shapesHaveSameStructure(processedShape, shapeExpr.Shape) {
-					matchingTypeIdent = typeIdent
-					tc.log.WithFields(logrus.Fields{
-						"function":     "inferShapeType",
-						"matchingType": typeIdent,
-					}).Debug("Found matching named type definition")
-					break
-				}
-			}
-		}
-	}
+	// Now look for a matching named type definition that has the same structure.
+	// Prefer ordinary shape typedefs over nominal error typedefs when both match (same payload shape).
+	matchingTypeIdent := tc.matchingTypeDefForShapeLiteral(processedShape)
 
 	if matchingTypeIdent != "" {
 		tc.log.WithFields(logrus.Fields{
@@ -206,6 +192,55 @@ func (tc *TypeChecker) isBuiltinType(typeIdent ast.TypeIdent) bool {
 		}
 	}
 	return false
+}
+
+// matchingTypeDefForShapeLiteral picks a named typedef whose payload matches processedShape.
+// Prefers TypeDefShapeExpr over TypeDefErrorExpr when both match, so literals do not bind to
+// nominal errors when an ordinary shape type with the same fields exists.
+func (tc *TypeChecker) matchingTypeDefForShapeLiteral(processedShape ast.ShapeNode) ast.TypeIdent {
+	for typeIdent, def := range tc.Defs {
+		typeDef, ok := def.(ast.TypeDefNode)
+		if !ok {
+			continue
+		}
+		if _, ok := typeDef.Expr.(ast.TypeDefShapeExpr); !ok {
+			continue
+		}
+		payload, ok := ast.PayloadShape(typeDef.Expr)
+		if !ok {
+			continue
+		}
+		if tc.shapesHaveSameStructure(processedShape, *payload) {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "matchingTypeDefForShapeLiteral",
+				"matchingType": typeIdent,
+				"kind":         "TypeDefShapeExpr",
+			}).Debug("Found matching shape typedef for literal")
+			return typeIdent
+		}
+	}
+	for typeIdent, def := range tc.Defs {
+		typeDef, ok := def.(ast.TypeDefNode)
+		if !ok {
+			continue
+		}
+		if _, ok := typeDef.Expr.(ast.TypeDefErrorExpr); !ok {
+			continue
+		}
+		payload, ok := ast.PayloadShape(typeDef.Expr)
+		if !ok {
+			continue
+		}
+		if tc.shapesHaveSameStructure(processedShape, *payload) {
+			tc.log.WithFields(logrus.Fields{
+				"function":     "matchingTypeDefForShapeLiteral",
+				"matchingType": typeIdent,
+				"kind":         "TypeDefErrorExpr",
+			}).Debug("Found matching nominal error typedef for literal")
+			return typeIdent
+		}
+	}
+	return ""
 }
 
 // shapesHaveSameStructure compares two shapes to see if they have the same field structure

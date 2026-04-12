@@ -15,11 +15,11 @@ func (tc *TypeChecker) FieldTypeForNamedShape(shapeTypeIdent ast.TypeIdent, fiel
 	if !ok {
 		return ast.TypeNode{}, false
 	}
-	se, ok := td.Expr.(ast.TypeDefShapeExpr)
+	shapePtr, ok := ast.PayloadShape(td.Expr)
 	if !ok {
 		return ast.TypeNode{}, false
 	}
-	f, ok := se.Shape.Fields[fieldName]
+	f, ok := shapePtr.Fields[fieldName]
 	if !ok || f.Type == nil {
 		return ast.TypeNode{}, false
 	}

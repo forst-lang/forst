@@ -607,17 +607,17 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 		return fields, nil
 	}
 
-	shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr)
+	payload, ok := ast.PayloadShape(typeDef.Expr)
 	if !ok {
 		t.log.WithFields(logrus.Fields{
 			"function": "buildFieldsForExpectedType",
 			"exprType": fmt.Sprintf("%T", typeDef.Expr),
-		}).Debug("[PINPOINT] TypeDef expression is not a TypeDefShapeExpr")
+		}).Debug("[PINPOINT] TypeDef expression has no struct payload (shape or error)")
 		return fields, nil
 	}
 
 	// Only emit fields that exist in the Go struct type, and fill missing ones with zero values
-	for fieldName, fieldDef := range shapeExpr.Shape.Fields {
+	for fieldName, fieldDef := range payload.Fields {
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildFieldsForExpectedType",
 			"fieldName":    fieldName,

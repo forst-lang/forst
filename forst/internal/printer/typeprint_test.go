@@ -96,6 +96,41 @@ func TestPrintType_userGeneric(t *testing.T) {
 	}
 }
 
+func TestPrintType_userNominalIdent(t *testing.T) {
+	t.Parallel()
+	if got := printType(ast.TypeNode{Ident: ast.TypeIdent("NotPositive")}); got != "NotPositive" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestPrintType_result(t *testing.T) {
+	t.Parallel()
+	res := ast.TypeNode{
+		Ident: ast.TypeResult,
+		TypeParams: []ast.TypeNode{
+			{Ident: ast.TypeString},
+			{Ident: ast.TypeError},
+		},
+	}
+	if got := printType(res); got != "Result(String, Error)" {
+		t.Fatalf("Result: got %q", got)
+	}
+}
+
+func TestPrintType_tuple(t *testing.T) {
+	t.Parallel()
+	tup := ast.TypeNode{
+		Ident: ast.TypeTuple,
+		TypeParams: []ast.TypeNode{
+			{Ident: ast.TypeInt},
+			{Ident: ast.TypeString},
+		},
+	}
+	if got := printType(tup); got != "Tuple(Int, String)" {
+		t.Fatalf("Tuple: got %q", got)
+	}
+}
+
 func TestQuoteString_roundTrip(t *testing.T) {
 	t.Parallel()
 	s := "a\"b\nc"

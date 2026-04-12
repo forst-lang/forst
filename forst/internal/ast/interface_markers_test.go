@@ -17,6 +17,7 @@ func TestInterfaceMarkerMethodsExecute(t *testing.T) {
 	TypeDefAssertionExpr{}.isTypeDefExpr()
 	TypeDefBinaryExpr{}.isTypeDefExpr()
 	TypeDefShapeExpr{}.isTypeDefExpr()
+	TypeDefErrorExpr{}.isTypeDefExpr()
 
 	VariableNode{}.isValue()
 	DereferenceNode{}.isValue()

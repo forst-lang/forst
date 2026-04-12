@@ -42,12 +42,12 @@ func (tc *TypeChecker) isShapeAlias(typeIdent ast.TypeIdent) bool {
 					"typeIdent": typeIdent,
 				}).Tracef("Type is a Shape alias (via *TypeDefAssertionExpr) but assertion is nil")
 				return true
-			} else if _, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				// Direct shape definition
+			} else if _, ok := ast.PayloadShape(typeDef.Expr); ok {
+				// Struct payload: shape typedef or nominal error (RFC 02)
 				tc.log.WithFields(logrus.Fields{
 					"function":  "isShapeAlias",
 					"typeIdent": typeIdent,
-				}).Tracef("Type is a Shape alias (via TypeDefShapeExpr)")
+				}).Tracef("Type has struct payload (TypeDefShapeExpr or TypeDefErrorExpr)")
 				return true
 			} else {
 				tc.log.WithFields(logrus.Fields{
@@ -97,9 +97,8 @@ func (tc *TypeChecker) getShapeFields(underlyingType ast.TypeNode, leftmostVar a
 						}).Tracef("Collected fields for type")
 						maps.Copy(leftShapeFields, mergedFields)
 					}
-				} else if typeDefExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					// Direct shape definition
-					maps.Copy(leftShapeFields, typeDefExpr.Shape.Fields)
+				} else if sh, ok := ast.PayloadShape(typeDef.Expr); ok {
+					maps.Copy(leftShapeFields, sh.Fields)
 				}
 			}
 		}

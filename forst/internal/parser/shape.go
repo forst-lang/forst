@@ -108,6 +108,26 @@ func (p *Parser) parseShapeType() ast.ShapeNode {
 	}
 }
 
+// parseShapeTypeForError parses `{ ... }` for `error Name { ... }`. Empty payloads are allowed
+// (e.g. `error RateLimited {}` for `RateLimited()` on `ensure … or`).
+func (p *Parser) parseShapeTypeForError() ast.ShapeNode {
+	p.expect(ast.TokenLBrace)
+	fields := make(map[string]ast.ShapeFieldNode)
+	for p.current().Type != ast.TokenRBrace {
+		name := p.expect(ast.TokenIdentifier).Value
+		fields[name] = p.parseShapeTypeField(name)
+		if p.current().Type == ast.TokenComma {
+			p.advance()
+		}
+	}
+	p.expect(ast.TokenRBrace)
+	baseType := ast.TypeIdent(ast.TypeShape)
+	return ast.ShapeNode{
+		Fields:   fields,
+		BaseType: &baseType,
+	}
+}
+
 // parseShapeLiteral parses a shape literal value or type
 // baseType is the optional base type that this shape extends
 // parseAsTypes indicates whether to parse field values as type annotations (true) or as literal values (false).

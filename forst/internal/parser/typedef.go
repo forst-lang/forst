@@ -63,6 +63,20 @@ func (p *Parser) parseTypeDef() *ast.TypeDefNode {
 	}
 }
 
+// parseErrorTypeDef parses `error Name { payloadFields }` (RFC 02). No `type`/`=` and no `extends`.
+func (p *Parser) parseErrorTypeDef() *ast.TypeDefNode {
+	p.expect(ast.TokenError)
+	nameTok := p.expectCustomTypeIdentifier(TypeIdentOpts{AllowLowercaseTypes: false})
+	if nameTok.Value == "Error" {
+		p.FailWithParseError(nameTok, "cannot declare `error Error { ... }`; use a concrete nominal name (the language base Error is not a user declaration)")
+	}
+	shape := p.parseShapeTypeForError()
+	return &ast.TypeDefNode{
+		Ident: ast.TypeIdent(nameTok.Value),
+		Expr:  ast.TypeDefErrorExpr{Payload: shape},
+	}
+}
+
 func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 	if p.current().Type == ast.TokenLParen {
 		p.advance()

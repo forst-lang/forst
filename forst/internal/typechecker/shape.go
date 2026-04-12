@@ -41,9 +41,8 @@ func (tc *TypeChecker) resolveShapeFieldsFromAssertion(assertion *ast.AssertionN
 						merged[k] = v
 						tc.log.Debugf("[resolveShapeFieldsFromAssertion] Added field from base: %s => %+v", k, v)
 					}
-				} else if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-					// If the base type is a shape, add its fields directly
-					for k, v := range shapeExpr.Shape.Fields {
+				} else if sh, ok := ast.PayloadShape(typeDef.Expr); ok {
+					for k, v := range sh.Fields {
 						merged[k] = v
 						tc.log.Debugf("[resolveShapeFieldsFromAssertion] Added field from base shape: %s => %+v", k, v)
 					}

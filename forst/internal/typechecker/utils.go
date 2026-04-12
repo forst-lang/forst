@@ -112,8 +112,8 @@ func (tc *TypeChecker) IsShapeCompatibleWithNamedType(shape ast.ShapeNode, named
 
 	// If the named type is a shape definition, compare directly
 	if typeDef, ok := def.(ast.TypeDefNode); ok {
-		if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-			return tc.shapesAreStructurallyIdentical(shape, shapeExpr.Shape)
+		if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+			return tc.shapesAreStructurallyIdentical(shape, *payload)
 		}
 	}
 

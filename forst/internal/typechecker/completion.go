@@ -78,8 +78,8 @@ func (tc *TypeChecker) ListFieldNamesForType(baseType ast.TypeNode) []string {
 
 	switch d := def.(type) {
 	case ast.TypeDefNode:
-		if shapeExpr, ok := d.Expr.(ast.TypeDefShapeExpr); ok {
-			for k := range shapeExpr.Shape.Fields {
+		if payload, ok := ast.PayloadShape(d.Expr); ok {
+			for k := range payload.Fields {
 				add(k)
 			}
 		}

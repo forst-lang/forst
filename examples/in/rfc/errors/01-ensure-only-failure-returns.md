@@ -1,6 +1,6 @@
 # Ensure-only failure propagation and constructor-free `Result` (RFC)
 
-**Audience:** Language designers and compiler contributors. **Depends on** [12 §5.7](../optionals/12-result-primitives-without-ok-err.md) (constructor-free returns), [09](../optionals/09-ensure-is-narrowing-and-binary-types.md) (`ensure`, `is`, narrowing), and the [error system architecture](./00-error-system-architecture.md).
+**Audience:** Language designers and compiler contributors. **Depends on** [12 §5.7](../optionals/12-result-primitives-without-ok-err.md) (constructor-free returns), [09](../optionals/09-ensure-is-narrowing-and-binary-types.md) (`ensure`, `is`, narrowing), the [error system architecture](./00-error-system-architecture.md), and **[02 — First-class errors (normative)](./02-first-class-errors-normative.md)** ( **`ensure`-only** failure **`Result`** authoring, **`Err(Nominal)`**, **`or`** typing).
 
 **Status:** **Normative target** for **control flow** and **construction** at **`Result`** call sites—**compiler-enforced** once implemented. **Does not** replace [12](../optionals/12-result-primitives-without-ok-err.md)’s full **construction** experiment; it **specializes** how **failure propagation** from a **`Result`** value should be written.
 

@@ -97,10 +97,10 @@ func (tc *TypeChecker) ShapeFieldFromTypeDef(typeName ast.TypeIdent, fieldName s
 	if !ok {
 		return ast.ShapeFieldNode{}, false
 	}
-	se, ok := td.Expr.(ast.TypeDefShapeExpr)
+	shapePtr, ok := ast.PayloadShape(td.Expr)
 	if !ok {
 		return ast.ShapeFieldNode{}, false
 	}
-	f, ok := se.Shape.Fields[fieldName]
+	f, ok := shapePtr.Fields[fieldName]
 	return f, ok
 }

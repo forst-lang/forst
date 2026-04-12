@@ -29,9 +29,8 @@ func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
 						if userDef.Ident == typeNode.Ident || strings.HasPrefix(string(userDef.Ident), "T_") {
 							continue
 						}
-						if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
-							userShape := shapeExpr.Shape
-							if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
+						if userPayload, ok := ast.PayloadShape(userDef.Expr); ok {
+							if tc.shapesAreStructurallyIdentical(hashShape, *userPayload) {
 								tc.log.WithFields(logrus.Fields{
 									"hashType":    typeNode.Ident,
 									"aliasedType": userDef.Ident,
@@ -136,9 +135,8 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 					hashShape := hashShapeExpr.Shape
 					for _, def := range tc.Defs {
 						if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
-							if shapeExpr, ok := userDef.Expr.(ast.TypeDefShapeExpr); ok {
-								userShape := shapeExpr.Shape
-								if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
+							if userPayload, ok := ast.PayloadShape(userDef.Expr); ok {
+								if tc.shapesAreStructurallyIdentical(hashShape, *userPayload) {
 									tc.log.WithFields(logrus.Fields{
 										"hashType":    typeNode.Ident,
 										"aliasedType": userDef.Ident,

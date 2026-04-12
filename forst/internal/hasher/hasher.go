@@ -55,6 +55,7 @@ var NodeKind = map[string]uint8{
 	"IndexExpression":  25,
 	"OkExpr":           26,
 	"ErrExpr":          27,
+	"TypeDefErrorExpr": 28,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -829,6 +830,13 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 	case ast.TypeDefShapeExpr:
 		h.writeHashes(hasher, NodeKind["TypeDefShapeExpr"])
 		hash, err := h.HashNode(n.Shape)
+		if err != nil {
+			return 0, err
+		}
+		h.writeHashes(hasher, hash)
+	case ast.TypeDefErrorExpr:
+		h.writeHashes(hasher, NodeKind["TypeDefErrorExpr"])
+		hash, err := h.HashNode(n.Payload)
 		if err != nil {
 			return 0, err
 		}

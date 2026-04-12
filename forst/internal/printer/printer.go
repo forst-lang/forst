@@ -46,6 +46,16 @@ func Print(cfg Config, nodes []ast.Node) (string, error) {
 	return p.printFile(nodes)
 }
 
+// FormatTypeDefNode pretty-prints a single type definition (e.g. LSP hover).
+func FormatTypeDefNode(cfg Config, def ast.TypeDefNode) (string, error) {
+	if cfg.Indent == "" {
+		cfg.Indent = "\t"
+	}
+	var p printer
+	p.cfg = cfg
+	return p.printTypeDef(def)
+}
+
 type printer struct {
 	cfg    Config
 	depth  int
@@ -171,6 +181,14 @@ func (p *printer) printImportGroup(g ast.ImportGroupNode) string {
 }
 
 func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
+	if _, ok := t.Expr.(ast.TypeDefErrorExpr); ok {
+		ee := t.Expr.(ast.TypeDefErrorExpr)
+		body, err := p.printShape(ee.Payload)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("error %s %s", string(t.Ident), body), nil
+	}
 	expr, err := p.printTypeDefExpr(t.Expr)
 	if err != nil {
 		return "", err
@@ -206,6 +224,12 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 		return left + " " + op + " " + right, nil
 	case ast.TypeDefShapeExpr:
 		return p.printShape(x.Shape)
+	case ast.TypeDefErrorExpr:
+		body, err := p.printShape(x.Payload)
+		if err != nil {
+			return "", err
+		}
+		return "error " + body, nil
 	default:
 		return "", fmt.Errorf("printer: unsupported type def expr %T", e)
 	}

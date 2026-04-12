@@ -551,13 +551,14 @@ func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def in
 
 // emitReferencedTypes emits all types referenced by a TypeDefNode
 func (t *Transformer) emitReferencedTypes(def ast.TypeDefNode, processed map[ast.TypeIdent]bool) error {
-	// Handle different expression types
 	switch expr := def.Expr.(type) {
-	case ast.TypeDefShapeExpr:
-		return t.emitReferencedTypesFromShape(&expr.Shape, processed)
 	case ast.TypeDefAssertionExpr:
 		if expr.Assertion != nil {
 			return t.emitReferencedTypesFromAssertion(expr.Assertion, processed)
+		}
+	default:
+		if payload, ok := ast.PayloadShape(def.Expr); ok {
+			return t.emitReferencedTypesFromShape(payload, processed)
 		}
 	}
 	return nil
@@ -666,9 +667,9 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 		// Check if the expected type is compatible with the shape
 		if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
 			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
 					// Use typechecker to validate compatibility
-					err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+					err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, expectedType.Ident)
 					if err == nil {
 						t.log.WithFields(logrus.Fields{
 							"function":     "getExpectedTypeForShape",
@@ -711,8 +712,8 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 			// Check if the variable type is compatible
 			if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
 				if typeDef, ok := def.(ast.TypeDefNode); ok {
-					if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-						err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+					if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+						err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, expectedType.Ident)
 						if err == nil {
 							t.log.WithFields(logrus.Fields{
 								"function":     "getExpectedTypeForShape",
@@ -751,8 +752,8 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 					// Check if the inferred type is compatible
 					if def, exists := t.TypeChecker.Defs[inferredType.Ident]; exists {
 						if typeDef, ok := def.(ast.TypeDefNode); ok {
-							if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-								err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, inferredType.Ident)
+							if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+								err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, inferredType.Ident)
 								if err == nil {
 									t.log.WithFields(logrus.Fields{
 										"function":     "getExpectedTypeForShape",
@@ -768,8 +769,8 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 				// For non-assertion types, check compatibility directly
 				if def, exists := t.TypeChecker.Defs[expectedType.Ident]; exists {
 					if typeDef, ok := def.(ast.TypeDefNode); ok {
-						if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-							err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, expectedType.Ident)
+						if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+							err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, expectedType.Ident)
 							if err == nil {
 								t.log.WithFields(logrus.Fields{
 									"function":      "getExpectedTypeForShape",
@@ -798,8 +799,8 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 			// Check if the return type is compatible
 			if def, exists := t.TypeChecker.Defs[returnType.Ident]; exists {
 				if typeDef, ok := def.(ast.TypeDefNode); ok {
-					if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-						err := t.TypeChecker.ValidateShapeFields(shapeExpr.Shape, shape.Fields, returnType.Ident)
+					if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+						err := t.TypeChecker.ValidateShapeFields(*payload, shape.Fields, returnType.Ident)
 						if err == nil {
 							t.log.WithFields(logrus.Fields{
 								"function":   "getExpectedTypeForShape",

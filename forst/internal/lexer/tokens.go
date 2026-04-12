@@ -20,6 +20,7 @@ var Keywords = map[string]ast.TokenIdent{
 	"is":          ast.TokenIs,
 	"or":          ast.TokenOr,
 	"type":        ast.TokenType,
+	"error":       ast.TokenError,
 	"if":          ast.TokenIf,
 	"else if":     ast.TokenElseIf,
 	"else":        ast.TokenElse,

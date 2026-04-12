@@ -122,6 +122,31 @@ func Identity(x Wire): Wire {
 	}
 }
 
+func TestCompileFile_nominalErrorExample_emitsNamedPayloadStruct(t *testing.T) {
+	c := New(Args{
+		Command:  "build",
+		FilePath: "../../../../examples/in/nominal_error.ft",
+		LogLevel: "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if code == nil {
+		t.Fatal("nil code")
+	}
+	out := *code
+	for _, want := range []string{
+		"type NotPositive struct",
+		"message string",
+		"func Test() error",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("generated Go missing %q; output (truncated):\n%.800s", want, out)
+		}
+	}
+}
+
 func TestCompileFile_packageRootMergesSamePackage(t *testing.T) {
 	dir := t.TempDir()
 	typesPath := filepath.Join(dir, "types.ft")

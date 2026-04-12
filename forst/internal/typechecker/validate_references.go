@@ -16,11 +16,11 @@ func (tc *TypeChecker) validateReferencedTypesAfterCollect() error {
 		if !ok {
 			continue
 		}
-		shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr)
+		payload, ok := ast.PayloadShape(typeDef.Expr)
 		if !ok {
 			continue
 		}
-		for fname, field := range shapeExpr.Shape.Fields {
+		for fname, field := range payload.Fields {
 			if field.Type != nil {
 				ctx := fmt.Sprintf("type %s field %q", typeDef.Ident, fname)
 				if err := tc.validateTypeReference(*field.Type, ctx); err != nil {
