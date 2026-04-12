@@ -96,6 +96,13 @@ func TestPrintType_userGeneric(t *testing.T) {
 	}
 }
 
+func TestPrintType_userNominalIdent(t *testing.T) {
+	t.Parallel()
+	if got := printType(ast.TypeNode{Ident: ast.TypeIdent("NotPositive")}); got != "NotPositive" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestPrintType_result(t *testing.T) {
 	t.Parallel()
 	res := ast.TypeNode{

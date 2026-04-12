@@ -73,3 +73,62 @@ func TestIsTypeCompatible_plainShapeTypeNotImplicitError(t *testing.T) {
 		t.Fatal("non-error nominal shape must not be assignable to Error")
 	}
 }
+
+// End-to-end: same ensure … or Nominal({ … }) shape as examples/in/nominal_error.ft.
+func TestCheckTypes_nominalError_ensureOr_typechecks(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+
+error NotPositive {
+	message: String
+}
+
+func Test() {
+	n := 0
+	ensure n is GreaterThan(0) or NotPositive({
+		message: "n must be greater than 0",
+	})
+}
+
+func main() {
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Today IsTypeCompatible falls through to structural comparison for typedefs with the same payload.
+func TestIsTypeCompatible_distinctNominalErrors_samePayloadStructurallyCompatible(t *testing.T) {
+	tc := New(logrus.New(), false)
+	tc.registerType(ast.TypeDefNode{
+		Ident: "E1",
+		Expr: ast.TypeDefErrorExpr{
+			Payload: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
+	})
+	tc.registerType(ast.TypeDefNode{
+		Ident: "E2",
+		Expr: ast.TypeDefErrorExpr{
+			Payload: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
+	})
+	if !tc.IsTypeCompatible(ast.TypeNode{Ident: "E1"}, ast.TypeNode{Ident: "E2"}) {
+		t.Fatal("same-shaped nominal error typedefs are structurally compatible today")
+	}
+}
