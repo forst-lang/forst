@@ -17,7 +17,7 @@ func invalidMove(msg String): Error {
 
 func f(row Int): Result(String, Error) {
 	ensure row is GreaterThan(-1) or invalidMove("bad")
-	return Ok("")
+	return ""
 }
 `
 	log := ast.SetupTestLogger(nil)

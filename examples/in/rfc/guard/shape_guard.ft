@@ -38,7 +38,7 @@ func createTask(op AppMutation.Input({
 
   println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 
-  return Ok(op.input.name)
+  return op.input.name
 }
 
 func main() {

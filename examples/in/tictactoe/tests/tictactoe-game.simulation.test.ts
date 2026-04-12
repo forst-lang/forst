@@ -119,7 +119,7 @@ afterAll(() => {
 
 describe("tictactoe game (ForstClient + forst dev)", () => {
   if (process.env.FORST_SKIP_TICTACTOE_E2E === "1") {
-    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => {});
+    it.skip("skipped (FORST_SKIP_TICTACTOE_E2E=1)", () => { });
     return;
   }
 
@@ -133,7 +133,6 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
 
     const req: MoveRequest = { state, row: 1, col: 2 };
     const r1 = await c.engine.PlayMove(req);
-    expect(r1.ok).toBe(true);
     expect(r1.state.nextPlayer).toBe("O");
     expect(r1.state.cells[5]).toBe("X");
 
@@ -163,7 +162,6 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
     ];
     for (const [row, col] of moves) {
       const r = await c.engine.PlayMove({ state, row, col });
-      expect(r.ok).toBe(true);
       state = r.state;
     }
     expect(state.cells[0]).toBe("X");

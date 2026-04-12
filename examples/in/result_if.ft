@@ -3,7 +3,7 @@ package main
 // Result split + if x is Ok() narrowing; golden: ../out/result_if/result_if.go
 
 func one(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {

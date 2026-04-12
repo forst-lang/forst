@@ -2,7 +2,8 @@ package ast
 
 import "fmt"
 
-// OkExprNode is the language construct Ok(expr) for Result success values.
+// OkExprNode is the AST for a parsed Ok(expr) call. The typechecker rejects it as a value
+// constructor; Ok remains a built-in discriminant for is/ensure on Result.
 type OkExprNode struct {
 	Value ExpressionNode
 }
@@ -18,7 +19,8 @@ func (o OkExprNode) String() string {
 	return fmt.Sprintf("Ok(%s)", o.Value.String())
 }
 
-// ErrExprNode is the language construct Err(expr) for Result failure values.
+// ErrExprNode is the AST for a parsed Err(expr) call. The typechecker rejects it as a value
+// constructor; Err remains a built-in discriminant for is/ensure on Result.
 type ErrExprNode struct {
 	Value ExpressionNode
 }

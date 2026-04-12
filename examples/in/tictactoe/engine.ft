@@ -19,7 +19,6 @@ type MoveRequest = {
 
 type MoveResponse = {
 	state:   GameState,
-	ok:      Bool,
 	message: String,
 }
 
@@ -108,9 +107,8 @@ func terminalStatusForWinner(w String): String {
 
 func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	ensure req.state is ValidBoard()
-	if req.state.status != "playing" {
-		return Err(invalidMove("game already finished"))
-	}
+	playing := req.state.status == "playing"
+	ensure playing is True() or invalidMove("game already finished")
 
 	row := req.row
 	ensure row is GreaterThan(-1) or invalidMove("row must be >= 0")
@@ -135,15 +133,14 @@ func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 		status = "playing"
 	}
 
-	return Ok({
-		ok: true,
+	return {
 		message: "ok",
 		state: {
 			cells:      next,
 			nextPlayer: np,
 			status:     status,
 		},
-	})
+	}
 }
 
 func NewGame(): GameState {

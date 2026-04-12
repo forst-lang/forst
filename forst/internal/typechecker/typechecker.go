@@ -87,12 +87,12 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		InferredTypes:                     make(map[NodeHash][]ast.TypeNode),
 		VariableTypes:                     make(map[ast.Identifier][]ast.TypeNode),
 		variableOccurrenceTypes:           make(map[variableOccurrenceKey][]ast.TypeNode),
-		variableOccurrenceNarrowingGuards:             make(map[variableOccurrenceKey][]string),
-		variableOccurrenceNarrowingPredicateDisplay:   make(map[variableOccurrenceKey]string),
-		compoundNarrowingByIdentifier:                   make(map[ast.Identifier]compoundNarrowingInfo),
-		FunctionReturnTypes:               make(map[ast.Identifier][]ast.TypeNode),
-		log:                               log,
-		reportPhases:                      reportPhases,
+		variableOccurrenceNarrowingGuards: make(map[variableOccurrenceKey][]string),
+		variableOccurrenceNarrowingPredicateDisplay: make(map[variableOccurrenceKey]string),
+		compoundNarrowingByIdentifier:               make(map[ast.Identifier]compoundNarrowingInfo),
+		FunctionReturnTypes:                         make(map[ast.Identifier][]ast.TypeNode),
+		log:                                         log,
+		reportPhases:                                reportPhases,
 	}
 
 	return tc
@@ -381,6 +381,12 @@ func IsGoBuiltinType(typeName string) bool {
 
 // Stores the return types for a function in its signature
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
+	// Constructor-free Result returns: the body infers plain S but the function type stays Result(S,F).
+	if len(fn.ReturnTypes) == 1 && len(returnTypes) == 1 &&
+		fn.ReturnTypes[0].IsResultType() && !returnTypes[0].IsResultType() &&
+		tc.isPlainSuccessCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) {
+		returnTypes = []ast.TypeNode{fn.ReturnTypes[0]}
+	}
 	// Resolve aliased types for return types
 	resolvedReturnTypes := make([]ast.TypeNode, len(returnTypes))
 	for i, returnType := range returnTypes {

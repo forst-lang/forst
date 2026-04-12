@@ -70,8 +70,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 						// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
 						if tc.log != nil {
 							tc.log.WithFields(map[string]interface{}{
-								"function":     fn.Ident.ID,
-								"returnAST":    fmt.Sprintf("%T", value),
+								"function":      fn.Ident.ID,
+								"returnAST":     fmt.Sprintf("%T", value),
 								"inferredTypes": formatTypeList(retType),
 							}).Debug("[PINPOINT] Multi-value return from single expression")
 						}
@@ -138,6 +138,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 			inferredType = []ast.TypeNode{
 				{Ident: ast.TypeError},
 			}
+		} else if len(parsedType) == 1 && parsedType[0].IsResultType() {
+			// Declared Result(S,F): ensure composes with Result; do not append a legacy second Error.
 		} else if len(inferredType) == 1 && inferredType[0].IsResultType() {
 			// Result(S,F) already includes failure; do not append a legacy second Error.
 		} else {

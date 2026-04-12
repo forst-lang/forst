@@ -779,7 +779,7 @@ func TestDiscoverer_DiscoverFunctions_ResultReturn_setsIsResultAndComponentTypes
 	content := `package main
 
 func R(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

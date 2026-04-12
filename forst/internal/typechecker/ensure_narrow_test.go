@@ -375,9 +375,9 @@ type MoveRequest = {
 func ApplyMove(req MoveRequest): Result(Int, Error) {
 	ensure req.state is ValidBoard()
 	if req.state.status != "playing" {
-		return Ok(0)
+		return 0
 	}
-	return Ok(1)
+	return 1
 }
 `
 	log := logrus.New()

@@ -68,8 +68,8 @@ In a function returning **`Result(S, F)`** (and analogously for multi-return / l
 
 ### 5.1 Done (compiler)
 
-- **`if`** then-branches whose condition is **`subject is Err(...)`** on a built-in **`Result(S, F)`** increment a depth counter ([`infer_if.go`](../../../../forst/internal/typechecker/infer_if.go)); see [`ifConditionIsBuiltinResultErrNarrowing`](../../../../forst/internal/typechecker/result_err_branch_return.go).
-- **`return Err(...)`** (`ErrExprNode`) in that region is rejected with a diagnostic pointing at **`ensure`** ([`checkReturnDisallowedInResultErrBranch`](../../../../forst/internal/typechecker/result_err_branch_return.go), hooked from [`infer.go`](../../../../forst/internal/typechecker/infer.go) **`ReturnNode`**).
+- **`Ok(...)`** / **`Err(...)`** as **value constructors** are rejected in [`infer_expression.go`](../../../../forst/internal/typechecker/infer_expression.go); **`Ok`/`Err`** remain **built-in guards** for **`is` / `ensure`** only. Success returns use plain **`return x`** with **`x : S`** for **`Result(S, F)`**; function signatures still expose **`Result(S, F)`** to callers ([`storeInferredFunctionReturnType`](../../../../forst/internal/typechecker/typechecker.go), [`ensureMatching`](../../../../forst/internal/typechecker/utils.go)).
+- **`if`** then-branches whose condition is **`subject is Err(...)`** on a built-in **`Result(S, F)`** increment a depth counter ([`infer_if.go`](../../../../forst/internal/typechecker/infer_if.go)); see [`ifConditionIsBuiltinResultErrNarrowing`](../../../../forst/internal/typechecker/result_err_branch_return.go). (Legacy **`checkReturnDisallowedInResultErrBranch`** is largely superseded by the global **`Err(...)`** rejection, but kept for diagnostics ordering if **`Err`** ever appears in lowered code.)
 - **`else-if`** chains use the same rule per arm.
 - **Nested function bodies** reset the counter when entering a **`FunctionNode`** so inner **`return Err(...)`** is not attributed to an outer **`if … is Err`**.
 - **Tests:** [`result_err_branch_return_test.go`](../../../../forst/internal/typechecker/result_err_branch_return_test.go).

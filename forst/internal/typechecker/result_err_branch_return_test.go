@@ -13,7 +13,7 @@ func TestResultErrBranch_returnErr_disallowed(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, String) {
-	return Ok(0)
+	return 0
 }
 
 func g(): Result(Int, String) {
@@ -21,7 +21,7 @@ func g(): Result(Int, String) {
 	if x is Err() {
 		return Err("fail")
 	}
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -36,9 +36,9 @@ func main() {
 	tc := New(log, false)
 	err = tc.CheckTypes(nodes)
 	if err == nil {
-		t.Fatal("expected CheckTypes error: return Err in Err branch")
+		t.Fatal("expected CheckTypes error: Err is not a value constructor")
 	}
-	if !strings.Contains(err.Error(), "ensure") || !strings.Contains(err.Error(), "Err") {
+	if !strings.Contains(err.Error(), "Err(...)") || !strings.Contains(err.Error(), "not a value constructor") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -49,15 +49,15 @@ func TestResultErrBranch_returnOk_recoveryAllowed(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, String) {
-	return Ok(0)
+	return 0
 }
 
 func g(): Result(Int, String) {
 	x := f()
 	if x is Err() {
-		return Ok(42)
+		return 42
 	}
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 	}
 }
 
-func TestResultErrBranch_returnErr_outsideErrBranchAllowed(t *testing.T) {
+func TestResultErrBranch_returnErr_outsideErrBranch_rejected(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main
@@ -94,18 +94,22 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
-	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatalf("CheckTypes: %v", err)
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected CheckTypes error: Err is not a value constructor")
+	}
+	if !strings.Contains(err.Error(), "Err(...)") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestResultErrBranch_nestedTwoErrIfBranches_returnErrDisallowed(t *testing.T) {
+func TestResultErrBranch_nestedTwoErrIfBranches_returnErrRejected(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main
 
 func f(): Result(Int, String) {
-	return Ok(0)
+	return 0
 }
 
 func g(): Result(Int, String) {
@@ -116,7 +120,7 @@ func g(): Result(Int, String) {
 			return Err("both")
 		}
 	}
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -131,14 +135,14 @@ func main() {
 	tc := New(log, false)
 	err = tc.CheckTypes(nodes)
 	if err == nil {
-		t.Fatal("expected CheckTypes error: return Err in nested Err branches")
+		t.Fatal("expected CheckTypes error: Err is not a value constructor")
 	}
-	if !strings.Contains(err.Error(), "ensure") {
+	if !strings.Contains(err.Error(), "Err(...)") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestResultErrBranch_fieldPath_returnErr_disallowed(t *testing.T) {
+func TestResultErrBranch_fieldPath_returnErr_rejected(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main
@@ -148,7 +152,7 @@ type WrapStr = {
 }
 
 func fail(): Result(Int, String) {
-	return Err("e")
+	return 0
 }
 
 func g(): Result(Int, String) {
@@ -157,7 +161,7 @@ func g(): Result(Int, String) {
 	if w.r is Err() {
 		return Err("propagate")
 	}
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -172,9 +176,9 @@ func main() {
 	tc := New(log, false)
 	err = tc.CheckTypes(nodes)
 	if err == nil {
-		t.Fatal("expected CheckTypes error: return Err in Err branch (field subject)")
+		t.Fatal("expected CheckTypes error: Err is not a value constructor")
 	}
-	if !strings.Contains(err.Error(), "ensure") {
+	if !strings.Contains(err.Error(), "Err(...)") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

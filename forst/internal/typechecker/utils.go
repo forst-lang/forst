@@ -41,6 +41,19 @@ func failWithTypeMismatch(fn ast.FunctionNode, inferred []ast.TypeNode, parsed [
 	return fmt.Errorf("%s: inferred return type %v of function %s does not match parsed return type %v", prefix, formatTypeList(inferred), fn.Ident.ID, formatTypeList(parsed))
 }
 
+// isPlainSuccessCompatibleWithDeclaredResult is true when the function declares Result(S,F)
+// and the inferred return is a plain success value S (constructor-free Result return).
+func (tc *TypeChecker) isPlainSuccessCompatibleWithDeclaredResult(actual ast.TypeNode, expected ast.TypeNode) bool {
+	if !expected.IsResultType() || len(expected.TypeParams) < 2 {
+		return false
+	}
+	if actual.IsResultType() {
+		return false
+	}
+	succ := expected.TypeParams[0]
+	return tc.IsTypeCompatible(actual, succ)
+}
+
 // Ensures that the first type matches the expected type, otherwise returns an error
 func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode, prefix string) ([]ast.TypeNode, error) {
 	if len(expected) == 0 {
@@ -53,9 +66,13 @@ func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode,
 	}
 
 	for i := range expected {
-		if !tc.IsTypeCompatible(actual[i], expected[i]) {
-			return actual, failWithTypeMismatch(fn, actual, expected, fmt.Sprintf("%s: Type mismatch", prefix))
+		if tc.IsTypeCompatible(actual[i], expected[i]) {
+			continue
 		}
+		if tc.isPlainSuccessCompatibleWithDeclaredResult(actual[i], expected[i]) {
+			continue
+		}
+		return actual, failWithTypeMismatch(fn, actual, expected, fmt.Sprintf("%s: Type mismatch", prefix))
 	}
 
 	return actual, nil

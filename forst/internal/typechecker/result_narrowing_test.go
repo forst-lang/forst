@@ -1,13 +1,32 @@
 package typechecker
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
 	"forst/internal/parser"
-
 )
+
+func moduleRootForResultTests(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found from cwd")
+		}
+		dir = parent
+	}
+}
 
 func TestIfResult_isOk_narrowsSuccessType(t *testing.T) {
 	t.Parallel()
@@ -15,7 +34,7 @@ func TestIfResult_isOk_narrowsSuccessType(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 
 func main() {
@@ -51,7 +70,7 @@ func TestIfResult_isOk_hoverShowsIntNotOkSuffix(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -99,7 +118,7 @@ func TestEnsureResult_isOkEmpty_hoverShowsIntNotOkSuffix(t *testing.T) {
 	src := `package main
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {
@@ -138,11 +157,14 @@ func main() {
 
 func TestIfResult_isErr_hoverShowsFailureTypeNotErrSuffix(t *testing.T) {
 	t.Parallel()
+	dir := moduleRootForResultTests(t)
 	log := setupTestLogger(nil)
 	src := `package main
 
-func f(): Result(Int, String) {
-	return Err("e")
+import "strconv"
+
+func f(): Result(Int, Error) {
+	return strconv.Atoi("notint")
 }
 
 func main() {
@@ -158,6 +180,7 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
@@ -176,8 +199,8 @@ func main() {
 		t.Fatalf("x: ok=%v types=%v", ok, types)
 	}
 	hover := tc.FormatVariableOccurrenceTypeForHover(vn, types)
-	if hover != "String" {
-		t.Fatalf("hover: got %q want String (no .Err() suffix)", hover)
+	if hover != "Error" {
+		t.Fatalf("hover: got %q want Error (no .Err() suffix)", hover)
 	}
 }
 
@@ -258,7 +281,7 @@ func TestEnsureResult_isOk_validates(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 
 func main() {
@@ -284,7 +307,7 @@ func TestIfResult_thenBranch_okNarrowed_elseBranch_xStillResult(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 
 func main() {
@@ -325,11 +348,14 @@ func main() {
 
 func TestIfResult_elseIf_isErr_narrowsFailureType(t *testing.T) {
 	t.Parallel()
+	dir := moduleRootForResultTests(t)
 	log := setupTestLogger(nil)
 	src := `package main
 
-func f(): Result(Int, String) {
-	return Err("e")
+import "strconv"
+
+func f(): Result(Int, Error) {
+	return strconv.Atoi("notint")
 }
 
 func main() {
@@ -347,6 +373,7 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
@@ -356,7 +383,7 @@ func main() {
 		t.Fatalf("ElseIfs: %d", len(ifStmt.ElseIfs))
 	}
 	eiPrint := unwrapFunctionCall(t, ifStmt.ElseIfs[0].Body[0])
-	checkVarHover(t, tc, eiPrint, ast.TypeString)
+	checkVarHover(t, tc, eiPrint, ast.TypeError)
 }
 
 func TestIfResult_isOk_withLiteralArg_narrowsSuccessType(t *testing.T) {
@@ -365,7 +392,7 @@ func TestIfResult_isOk_withLiteralArg_narrowsSuccessType(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 
 func main() {
@@ -396,7 +423,7 @@ func TestIfResult_isOk_incompatibleLiteralArg_errors(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(0)
+	return 0
 }
 
 func main() {
@@ -454,7 +481,7 @@ func TestEnsureResult_blockBody_seesOkNarrowing(t *testing.T) {
 	src := `package main
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {
@@ -484,11 +511,14 @@ func main() {
 
 func TestEnsureResult_isErr_narrowsFailureInSuccessor(t *testing.T) {
 	t.Parallel()
+	dir := moduleRootForResultTests(t)
 	log := setupTestLogger(nil)
 	src := `package main
 
-func bad(): Result(Int, String) {
-	return Err("e")
+import "strconv"
+
+func bad(): Result(Int, Error) {
+	return strconv.Atoi("notint")
 }
 
 func main() {
@@ -503,16 +533,17 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
 	mainFn := findMainFunction(t, nodes)
 	printlnCall := unwrapFunctionCall(t, mainFn.Body[2])
-	checkVarHover(t, tc, printlnCall, ast.TypeString)
+	checkVarHover(t, tc, printlnCall, ast.TypeError)
 }
 
 // fieldPathResultFixture defines Wrap { r: Result(Int, Error) } and helpers; shape literals cannot use
-// Ok(...) in-field (parseValue), so we bind x := okInt() then w := { r: x }.
+// Result constructors in-field (parseValue), so we bind x := okInt() then w := { r: x }.
 const fieldPathResultSourcePrefix = `package main
 
 type Wrap = {
@@ -520,7 +551,7 @@ type Wrap = {
 }
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 `
 
@@ -557,15 +588,18 @@ func main() {
 
 func TestIfResult_fieldPath_isErr_narrowsFailureType(t *testing.T) {
 	t.Parallel()
+	dir := moduleRootForResultTests(t)
 	log := setupTestLogger(nil)
 	src := `package main
 
-type WrapStr = {
-	r: Result(Int, String),
+import "strconv"
+
+type WrapErr = {
+	r: Result(Int, Error),
 }
 
-func bad(): Result(Int, String) {
-	return Err("e")
+func bad(): Result(Int, Error) {
+	return strconv.Atoi("notint")
 }
 
 func main() {
@@ -582,6 +616,7 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
@@ -592,7 +627,7 @@ func main() {
 	if vn.Ident.ID != "w.r" {
 		t.Fatalf("want println subject w.r, got %q", vn.Ident.ID)
 	}
-	checkVarHover(t, tc, printlnCall, ast.TypeString)
+	checkVarHover(t, tc, printlnCall, ast.TypeError)
 }
 
 func TestIfResult_fieldPath_thenOk_elseBranch_fieldStaysResult(t *testing.T) {
@@ -704,15 +739,18 @@ func main() {
 
 func TestEnsureResult_fieldPath_isErr_narrowsFailureSuccessor(t *testing.T) {
 	t.Parallel()
+	dir := moduleRootForResultTests(t)
 	log := setupTestLogger(nil)
 	src := `package main
 
-type WrapStr = {
-	r: Result(Int, String),
+import "strconv"
+
+type WrapErr = {
+	r: Result(Int, Error),
 }
 
-func bad(): Result(Int, String) {
-	return Err("e")
+func bad(): Result(Int, Error) {
+	return strconv.Atoi("notint")
 }
 
 func main() {
@@ -728,6 +766,7 @@ func main() {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("CheckTypes: %v", err)
 	}
@@ -737,7 +776,7 @@ func main() {
 	if vn.Ident.ID != "w.r" {
 		t.Fatalf("want println subject w.r, got %q", vn.Ident.ID)
 	}
-	checkVarHover(t, tc, printlnCall, ast.TypeString)
+	checkVarHover(t, tc, printlnCall, ast.TypeError)
 }
 
 // checkVarHover asserts the first println argument is a variable with the expected builtin type (Ident + hover display).

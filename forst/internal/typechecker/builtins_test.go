@@ -19,7 +19,7 @@ func TestNilBuiltinSymbol(t *testing.T) {
 package main
 
 func test() : Result(String, Error) {
-	return Ok("hello")
+	return "hello"
 }
 `,
 			wantErr: false,
@@ -65,7 +65,7 @@ func test() {
 package main
 
 func foo() : Result(String, Error) {
-	return Ok("hello")
+	return "hello"
 }
 
 func test() {
@@ -81,7 +81,7 @@ func test() {
 package main
 
 func foo() : Result(String, Error) {
-	return Ok("hello")
+	return "hello"
 }
 
 func test() {
@@ -202,7 +202,7 @@ func TestAssignmentToUndeclaredVarsWithMultipleReturn(t *testing.T) {
 package main
 
 func foo() : Result(String, Error) {
-	return Ok("hi")
+	return "hi"
 }
 
 func test() {

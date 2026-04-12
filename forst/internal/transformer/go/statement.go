@@ -792,25 +792,15 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Result(S, F) is one Forst return type but lowers to (S, error) in Go.
+		// Constructor-free success: plain `S` becomes `return succ, nil`.
+		// `return g()` where `g()` is already `Result` stays a single Go return (`return g()`), not `g(), nil`.
 		if len(s.Values) == 1 && len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsResultType() {
-			switch v := s.Values[0].(type) {
-			case ast.OkExprNode:
-				succExpr, err := t.transformExpression(v.Value)
+			if !t.returnValueDelegatesWholeResult(s.Values[0]) {
+				succExpr, err := t.transformExpression(s.Values[0])
 				if err != nil {
 					return nil, err
 				}
 				return &goast.ReturnStmt{Results: []goast.Expr{succExpr, goast.NewIdent("nil")}}, nil
-			case ast.ErrExprNode:
-				failExpr, err := t.transformExpression(v.Value)
-				if err != nil {
-					return nil, err
-				}
-				succT := expectedReturnTypes[0].TypeParams[0]
-				zeroSucc, err := t.zeroValueExprForASTType(succT)
-				if err != nil {
-					return nil, err
-				}
-				return &goast.ReturnStmt{Results: []goast.Expr{zeroSucc, failExpr}}, nil
 			}
 		}
 

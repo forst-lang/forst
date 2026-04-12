@@ -134,10 +134,10 @@ func CreateUser(input CreateUserRequest): Result(CreateUserResponse, Error) {
     email: input.email
   }
   
-  return Ok({
+  return {
     user: user,
     created_at: 1234567890
-  })
+  }
 }
 `
 
@@ -183,23 +183,19 @@ func CreateUser(input CreateUserRequest): Result(CreateUserResponse, Error) {
 		t.Fatal("Could not find return statement")
 	}
 
-	// Check that the return statement wraps the shape in Ok(...)
+	// Return is a shape literal (constructor-free Result success).
 	if len(returnStmt.Values) != 1 {
 		t.Fatalf("Expected 1 return value, got %d", len(returnStmt.Values))
 	}
 
-	okExpr, ok := returnStmt.Values[0].(ast.OkExprNode)
-	if !ok {
-		t.Fatalf("Expected Ok(...) return, got %T", returnStmt.Values[0])
-	}
-	firstValue := okExpr.Value
+	firstValue := returnStmt.Values[0]
 	var shapeNode *ast.ShapeNode
 	if sn, ok := firstValue.(*ast.ShapeNode); ok {
 		shapeNode = sn
 	} else if snVal, ok := firstValue.(ast.ShapeNode); ok {
 		shapeNode = &snVal
 	} else {
-		t.Fatalf("Expected Ok payload to be ShapeNode, got %T", firstValue)
+		t.Fatalf("Expected return value to be ShapeNode, got %T", firstValue)
 	}
 
 	// The shape should have exactly 2 fields: user and created_at

@@ -4,7 +4,7 @@ package main
 // Golden: ../out/result_ensure/result_ensure.go (cmd/forst TestExamples)
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {

@@ -319,7 +319,7 @@ func bad(msg String): Error {
 
 func f(row Int): Result(String, Error) {
 	ensure row is GreaterThan(-1) or bad("x")
-	return Ok("ok")
+	return "ok"
 }
 
 func main() {
@@ -333,7 +333,7 @@ func main() {
 			src: `package main
 
 func inner(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func outer(): Result(Int, Error) {
@@ -366,7 +366,7 @@ func TestPipeline_return_multi_value_call_not_padded_with_nil(t *testing.T) {
 	src := `package main
 
 func inner(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func outer(): Result(Int, Error) {
@@ -456,7 +456,7 @@ func TestPipeline_singleAssignResultCall_emitsTwoValueAssignAndPrintln(t *testin
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -480,7 +480,7 @@ func TestPipeline_discardedResultCallStmt_emitsBareCallExprStmt(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -522,7 +522,7 @@ func TestPipeline_ifResultIsOk_emitsErrNilCheck(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -546,7 +546,7 @@ type Wrap = {
 }
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {
@@ -577,7 +577,7 @@ type Wrap = {
 }
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {
@@ -600,7 +600,7 @@ type Wrap = {
 }
 
 func okInt(): Result(Int, Error) {
-	return Ok(42)
+	return 42
 }
 
 func main() {
@@ -640,7 +640,7 @@ type Payload = { n: Int }
 func f(): Result(Payload, Error) {
 	x := 0
 	ensure x is GreaterThan(0)
-	return Ok({ n: 1 })
+	return { n: 1 }
 }
 
 func main() {}
@@ -662,7 +662,7 @@ func TestPipeline_ensureResultIsOk_emitsErrNilCheck(t *testing.T) {
 	src := `package main
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {
@@ -684,7 +684,7 @@ func TestPipeline_fmtPrintln_resultSplitExpandsLikePrintln(t *testing.T) {
 import "fmt"
 
 func f(): Result(Int, Error) {
-	return Ok(1)
+	return 1
 }
 
 func main() {

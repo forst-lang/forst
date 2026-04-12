@@ -36,10 +36,10 @@ func CreateUser(input CreateUserRequest): Result(CreateUserResponse, Error) {
 
   ensure created is Valid
 
-  return Ok({
+  return {
     user: created,
     created_at: 1234567890
-  })
+  }
 }
 
 func GetUserById(id String) {

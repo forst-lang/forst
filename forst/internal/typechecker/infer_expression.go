@@ -344,44 +344,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return []ast.TypeNode{e.Type}, nil
 
 	case ast.OkExprNode:
-		ts, err := tc.inferExpressionType(e.Value)
-		if err != nil {
-			return nil, err
-		}
-		if len(ts) != 1 {
-			return nil, fmt.Errorf("Ok(...) value must have a single type, got %d", len(ts))
-		}
-		failT := ast.NewBuiltinType(ast.TypeError)
-		if tc.currentFunction != nil && len(tc.currentFunction.ReturnTypes) == 1 &&
-			tc.currentFunction.ReturnTypes[0].IsResultType() && len(tc.currentFunction.ReturnTypes[0].TypeParams) >= 2 {
-			failT = tc.currentFunction.ReturnTypes[0].TypeParams[1]
-		}
-		res := ast.NewResultType(ts[0], failT)
-		tc.storeInferredType(e, []ast.TypeNode{res})
-		return []ast.TypeNode{res}, nil
+		return nil, fmt.Errorf("Ok(...) is not a value constructor; use `is Ok()` / `ensure ... is Ok()` guards, or return a plain success value of type S for Result(S, F)")
 
 	case ast.ErrExprNode:
-		ts, err := tc.inferExpressionType(e.Value)
-		if err != nil {
-			return nil, err
-		}
-		if len(ts) != 1 {
-			return nil, fmt.Errorf("Err(...) value must have a single type, got %d", len(ts))
-		}
-		if tc.currentFunction == nil || len(tc.currentFunction.ReturnTypes) != 1 ||
-			!tc.currentFunction.ReturnTypes[0].IsResultType() || len(tc.currentFunction.ReturnTypes[0].TypeParams) < 2 {
-			return nil, fmt.Errorf("Err(...) is only valid inside a function that returns Result(Success, Failure)")
-		}
-		rt := tc.currentFunction.ReturnTypes[0]
-		failExpected := rt.TypeParams[1]
-		if !tc.IsTypeCompatible(ts[0], failExpected) {
-			return nil, fmt.Errorf("Err(...) value type %s is not compatible with failure type %s",
-				ts[0].String(), failExpected.String())
-		}
-		succ := rt.TypeParams[0]
-		res := ast.NewResultType(succ, ts[0])
-		tc.storeInferredType(e, []ast.TypeNode{res})
-		return []ast.TypeNode{res}, nil
+		return nil, fmt.Errorf("Err(...) is not a value constructor; use `is Err()` / `ensure ...` and FFI/interop for failure values")
 
 	default:
 		tc.log.Tracef("Unhandled expression type: %T", expr)
