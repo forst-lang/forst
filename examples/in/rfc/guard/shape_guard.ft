@@ -60,6 +60,7 @@ func main() {
   createTask({
     ctx: {
       sessionId: nil,
+      user: nil,
     },
     input: {
       name: "Go to the gym",
