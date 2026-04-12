@@ -64,6 +64,10 @@ type TypeChecker struct {
 	// resultErrIfBranchDepth counts nested `if subject is Err(...)` then-bodies (built-in Result
 	// narrowing). Failure propagation with `return Err(...)` there is rejected; use `ensure` instead.
 	resultErrIfBranchDepth int
+	// shapeExpectations maps a missing named parameter type (not in Defs) to the shape inferred for
+	// a shape literal that was checked with that contextual type. Enables IsTypeCompatible(hash, T)
+	// when T was intentionally absent from Defs but inferShapeType still produced a concrete shape.
+	shapeExpectations map[ast.TypeIdent]ast.ShapeNode
 }
 
 // New creates a new TypeChecker

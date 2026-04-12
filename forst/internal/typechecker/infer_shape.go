@@ -125,6 +125,17 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 		BaseType: shape.BaseType,
 	}
 
+	// If the callee names a typedef that is not in Defs (forward ref, or tests that unregister it),
+	// record the inferred shape so IsTypeCompatible can still relate the hash type to the param name.
+	if expectedType != nil {
+		if _, ok := tc.Defs[expectedType.Ident]; !ok {
+			if tc.shapeExpectations == nil {
+				tc.shapeExpectations = make(map[ast.TypeIdent]ast.ShapeNode)
+			}
+			tc.shapeExpectations[expectedType.Ident] = processedShape
+		}
+	}
+
 	// Prefer the contextual expected type when it names a shape that matches. Otherwise map
 	// iteration order over tc.Defs can bind a structurally equivalent hash type before a named alias.
 	if expectedType != nil {

@@ -563,12 +563,37 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}).Info("Skipping structural compatibility - missing type definitions")
 	}
 
+	if tc.shapeExpectationMatches(actual, expected) {
+		return true
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"actual":   actual.Ident,
 		"expected": expected.Ident,
 		"function": "IsTypeCompatible",
 	}).Debug("Types are not compatible")
 	return false
+}
+
+// shapeExpectationMatches handles hash-typed shape literals assigned to a named parameter type that
+// has no Defs entry but was bound during inferShapeType (see shapeExpectations on TypeChecker).
+func (tc *TypeChecker) shapeExpectationMatches(actual ast.TypeNode, expected ast.TypeNode) bool {
+	if tc.shapeExpectations == nil || expected.Ident == "" {
+		return false
+	}
+	expShape, ok := tc.shapeExpectations[expected.Ident]
+	if !ok {
+		return false
+	}
+	actualDef, ok := tc.Defs[actual.Ident]
+	if !ok {
+		return false
+	}
+	actualShape, ok := tc.getShapeFromTypeDef(actualDef)
+	if !ok {
+		return false
+	}
+	return tc.shapesHaveSameStructure(*actualShape, expShape)
 }
 
 func isScalarTypeIdent(id ast.TypeIdent) bool {

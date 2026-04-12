@@ -167,8 +167,8 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesExpectedType(t *testi
 	// Remove the type registration for T_ShapeArg so the shape literal gets a new hash-based type
 	delete(tc.Defs, ast.TypeIdent(typeName))
 
-	// Check types for all nodes
-	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc, shapeType}); err != nil {
+	// Check types for the functions only (top-level *ast.ShapeNode is not a valid infer node).
+	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -303,6 +303,28 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesParameterTypeDef(t *t
 	tc := typechecker.New(nil, false)
 	tr := New(tc, nil)
 
+	// Referenced by shape fields; validateReferencedTypesAfterCollect requires typedefs.
+	tc.Defs[ast.TypeIdent("AppContext")] = ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"sessionId": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+		},
+	}
+	tc.Defs[ast.TypeIdent("T_azh9nsqmxaF")] = ast.TypeDefNode{
+		Ident: "T_azh9nsqmxaF",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+		},
+	}
+
 	// Register a function signature expecting an assertion type (like AppMutation.Input)
 	funcName := ast.Identifier("f")
 	paramTypeName := "T_KBdY4FCchfk" // This is the inferred type for AppMutation.Input({...})
@@ -432,6 +454,27 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	// Setup minimal typechecker and transformer
 	tc := typechecker.New(nil, false)
 	tr := New(tc, nil)
+
+	tc.Defs[ast.TypeIdent("AppContext")] = ast.TypeDefNode{
+		Ident: "AppContext",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"sessionId": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+		},
+	}
+	tc.Defs[ast.TypeIdent("T_azh9nsqmxaF")] = ast.TypeDefNode{
+		Ident: "T_azh9nsqmxaF",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+		},
+	}
 
 	// Register AppMutation type
 	appMutationDef := ast.TypeDefNode{
