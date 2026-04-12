@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.10](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.9...vscode-forst-v0.1.10) (2026-04-12)
+
+
+### Features
+
+* **lsp:** qualify guard hovers using the inferred subject type ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+* **vscode-forst:** highlight nominal `error Name` and core builtin types ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+
+
+### Bug Fixes
+
+* **printer:** format `ensure` error alternatives and nested statement indentation ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+* **transformer:** map narrowed Result locals to split Go names ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+
 ## [0.1.9](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.8...vscode-forst-v0.1.9) (2026-04-06)
 
 

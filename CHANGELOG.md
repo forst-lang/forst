@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/forst-lang/forst/compare/v0.1.0...v0.2.0) (2026-04-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **typechecker:** add union/intersection IR; typedef semantics ([#74](https://github.com/forst-lang/forst/issues/74))
+
+### Features
+
+* **lsp:** qualify guard hovers using the inferred subject type ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+* **typechecker:** add union/intersection IR; typedef semantics ([#74](https://github.com/forst-lang/forst/issues/74)) ([6087988](https://github.com/forst-lang/forst/commit/6087988b3bc1198f3654df916a3e9a6c81994ce3))
+* **vscode-forst:** highlight nominal `error Name` and core builtin types ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+
+
+### Bug Fixes
+
+* **printer:** format `ensure` error alternatives and nested statement indentation ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+* **transformer:** map narrowed Result locals to split Go names ([3d47e0f](https://github.com/forst-lang/forst/commit/3d47e0fad60ecf1c462c498938dbad41bd37aa28))
+
 ## [0.1.0](https://github.com/forst-lang/forst/compare/v0.0.30...v0.1.0) (2026-04-12)
 
 
