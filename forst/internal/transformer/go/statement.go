@@ -113,6 +113,24 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 	}
 }
 
+// zeroValueExprForASTType returns a Go expression for the zero value of a Forst type.
+// Named struct types use a composite literal; builtins use getZeroValue after transformType.
+func (t *Transformer) zeroValueExprForASTType(ty ast.TypeNode) (goast.Expr, error) {
+	if def, ok := t.TypeChecker.Defs[ty.Ident].(ast.TypeDefNode); ok {
+		if _, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
+			return t.buildZeroCompositeLiteral(&ty), nil
+		}
+	}
+	if ty.TypeKind == ast.TypeKindUserDefined || ty.TypeKind == ast.TypeKindHashBased {
+		return t.buildZeroCompositeLiteral(&ty), nil
+	}
+	goType, err := t.transformType(ty)
+	if err != nil {
+		return nil, err
+	}
+	return getZeroValue(goType), nil
+}
+
 // findBestNamedTypeForReturnType tries to find a named type that matches the given hash-based type
 func (t *Transformer) findBestNamedTypeForReturnType(hashType ast.TypeNode) string {
 	// If it's already a named type (not hash-based), return it
@@ -252,6 +270,32 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 	}
 
 	// Build error return values based on the function's return types
+	// Result(S, Error) is one Forst return type but lowers to (S, error) in Go.
+	if len(returnTypes) == 1 && returnTypes[0].IsResultType() && len(returnTypes[0].TypeParams) >= 2 {
+		succT := returnTypes[0].TypeParams[0]
+		zeroSucc, err := t.zeroValueExprForASTType(succT)
+		if err != nil {
+			zeroSucc = t.buildZeroCompositeLiteral(&succT)
+		}
+		t.Output.EnsureImport("errors")
+		assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
+		errExpr := &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("errors"),
+				Sel: goast.NewIdent("New"),
+			},
+			Args: []goast.Expr{
+				&goast.BasicLit{
+					Kind:  token.STRING,
+					Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
+				},
+			},
+		}
+		return &goast.ReturnStmt{
+			Results: []goast.Expr{zeroSucc, errExpr},
+		}
+	}
+
 	results := make([]goast.Expr, 0, len(returnTypes))
 	for i, returnType := range returnTypes {
 		// PINPOINT: Log processing return type for zero value
@@ -301,9 +345,13 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				}
 				result = t.buildZeroCompositeLiteral(&returnType)
 			} else {
-				// For built-in types, use getZeroValue
-				goType, _ := t.transformType(returnType)
-				result = getZeroValue(goType)
+				zv, err := t.zeroValueExprForASTType(returnType)
+				if err != nil {
+					goType, _ := t.transformType(returnType)
+					result = getZeroValue(goType)
+				} else {
+					result = zv
+				}
 			}
 		}
 		results = append(results, result)
@@ -757,11 +805,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				if err != nil {
 					return nil, err
 				}
-				goT, err := t.transformType(expectedReturnTypes[0].TypeParams[0])
+				succT := expectedReturnTypes[0].TypeParams[0]
+				zeroSucc, err := t.zeroValueExprForASTType(succT)
 				if err != nil {
 					return nil, err
 				}
-				return &goast.ReturnStmt{Results: []goast.Expr{getZeroValue(goT), failExpr}}, nil
+				return &goast.ReturnStmt{Results: []goast.Expr{zeroSucc, failExpr}}, nil
 			}
 		}
 
@@ -980,9 +1029,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					if expectedType.IsError() {
 						results = append(results, goast.NewIdent("nil"))
 					} else {
-						// For non-error types, add zero value
-						goType, _ := t.transformType(expectedType)
-						results = append(results, getZeroValue(goType))
+						zv, err := t.zeroValueExprForASTType(expectedType)
+						if err != nil {
+							return nil, fmt.Errorf("transformReturnStatement: zero value for %s: %w", expectedType.Ident, err)
+						}
+						results = append(results, zv)
 					}
 				}
 			}

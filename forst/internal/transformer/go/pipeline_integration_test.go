@@ -630,6 +630,34 @@ func main() {
 	}
 }
 
+func TestPipeline_ensure_failure_on_Result_struct_returns_two_values_not_nil(t *testing.T) {
+	// Regression: Result(S, Error) is one Forst return type; ensure failure must lower to
+	// (zero S, error), not a single nil (invalid for struct S) or one return value.
+	src := `package main
+
+type Payload = { n: Int }
+
+func f(): Result(Payload, Error) {
+	x := 0
+	ensure x is GreaterThan(0)
+	return Ok({ n: 1 })
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "Payload{") {
+		t.Fatalf("expected zero composite literal for struct success type on ensure failure, got:\n%s", out)
+	}
+	if !strings.Contains(out, "errors.New") {
+		t.Fatalf("expected errors.New on ensure failure for Result return, got:\n%s", out)
+	}
+	// Old bug: transformType(Result) failed and produced a lone `return nil`
+	if strings.Contains(out, "return nil") {
+		t.Fatalf("ensure failure must not emit bare return nil for Result(Payload, Error), got:\n%s", out)
+	}
+}
+
 func TestPipeline_ensureResultIsOk_emitsErrNilCheck(t *testing.T) {
 	src := `package main
 
