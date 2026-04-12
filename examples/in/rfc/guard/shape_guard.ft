@@ -44,7 +44,7 @@ func createTask(op AppMutation.Input({
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
   // createTask returns Result(String, Error); tuple destructuring deferred until if-is narrowing
-  first := createTask({
+  createTask({
     ctx: {
       sessionId: &sessionId,
       user: {
@@ -55,10 +55,9 @@ func main() {
       name: "Fix memory leak in Node.js app",
     },
   })
-  _ = first
   println("Correctly created task (Result API)")
 
-  second := createTask({
+  createTask({
     ctx: {
       sessionId: nil,
     },
@@ -66,6 +65,5 @@ func main() {
       name: "Go to the gym",
     },
   })
-  _ = second
   println("Correctly avoided creating gym task as user was not logged in")
 }

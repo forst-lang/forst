@@ -16,10 +16,12 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		return ensureMatching(tc, fn, inferredType, parsedType, "Empty function is not void")
 	}
 
-	// Check if there are any ensure nodes and determine if function should return error
+	// Check if there are any ensure nodes and determine if function should return error.
+	// Use Kind() so *ast.EnsureNode and ast.EnsureNode both count (interface assertion on the
+	// concrete struct type alone misses pointers).
 	hasEnsure := false
 	for _, stmt := range fn.Body {
-		if _, ok := stmt.(ast.EnsureNode); ok {
+		if stmt.Kind() == ast.NodeKindEnsure {
 			hasEnsure = true
 			break
 		}
@@ -139,23 +141,20 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 				{Ident: ast.TypeError},
 			}
 		} else if len(parsedType) == 1 && parsedType[0].IsResultType() {
-			// Declared Result(S,F): ensure composes with Result; do not append a legacy second Error.
+			// Declared Result(S,F): ensure composes with Result; do not add a second Error slot.
 		} else if len(inferredType) == 1 && inferredType[0].IsResultType() {
-			// Result(S,F) already includes failure; do not append a legacy second Error.
+			// Result(S,F) already includes failure; do not append Error.
 		} else {
 			if len(inferredType) < 1 || len(inferredType) > 2 {
 				return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))
 			}
 
-			// If the inferred type is a single (non-error) return type, just append the error type to the inferred return type
+			// Single success value + ensure: always infer Result(S, Error) (one type), not a (S, error) pair.
 			if len(inferredType) == 1 && inferredType[0].Ident != ast.TypeError {
-				inferredType = append(inferredType, ast.TypeNode{Ident: ast.TypeError})
+				inferredType = []ast.TypeNode{ast.NewResultType(inferredType[0], ast.TypeNode{Ident: ast.TypeError})}
 			}
 
-			// If parsed types are empty and inferred type is a single (non-error) return type, just append the error type to the inferred return type
-			if inferredType[len(inferredType)-1].Ident != ast.TypeError {
-				// Special case: if the last return type is nil, it's not a valid return type
-				// and we should force the function to return an error
+			if len(inferredType) == 2 && inferredType[len(inferredType)-1].Ident != ast.TypeError {
 				inferredType[len(inferredType)-1] = ast.TypeNode{Ident: ast.TypeError}
 			}
 		}

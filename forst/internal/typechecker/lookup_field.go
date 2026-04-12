@@ -918,7 +918,10 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						"fieldName": fieldName,
 						"varType":   varType.Ident,
 					}).Debugf("Successfully inferred type from referenced variable in Value constraint")
-					return varType, nil
+					return ast.TypeNode{
+						Ident:      ast.TypePointer,
+						TypeParams: []ast.TypeNode{varType},
+					}, nil
 				} else {
 					tc.log.WithFields(logrus.Fields{
 						"function":  "inferValueConstraintType",
@@ -997,7 +1000,10 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						"fieldName": fieldName,
 						"varType":   varType.Ident,
 					}).Debugf("Successfully inferred type from referenced variable in Value constraint (non-pointer)")
-					return varType, nil
+					return ast.TypeNode{
+						Ident:      ast.TypePointer,
+						TypeParams: []ast.TypeNode{varType},
+					}, nil
 				} else {
 					tc.log.WithFields(logrus.Fields{
 						"function":  "inferValueConstraintType",
@@ -1030,7 +1036,10 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						"fieldName": fieldName,
 						"varType":   varType.Ident,
 					}).Debugf("Successfully inferred type from referenced variable in Value constraint (non-pointer, non-pointer var)")
-					return varType, nil
+					return ast.TypeNode{
+						Ident:      ast.TypePointer,
+						TypeParams: []ast.TypeNode{varType},
+					}, nil
 				} else {
 					tc.log.WithFields(logrus.Fields{
 						"function":  "inferValueConstraintType",

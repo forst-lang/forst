@@ -1,3 +1,4 @@
+// Tests for typechecker.go: TypeChecker construction, CheckTypes entry, and related integration.
 package typechecker
 
 import (
@@ -6,6 +7,8 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/lexer"
+	"forst/internal/parser"
 
 	"github.com/sirupsen/logrus"
 )
@@ -633,5 +636,40 @@ func TestGoImportPackageLoaded_beforeCheckTypes(t *testing.T) {
 	tc := New(logrus.New(), false)
 	if tc.GoImportPackageLoaded("strconv") {
 		t.Fatal("expected false before CheckTypes initializes go import packages")
+	}
+}
+
+// With no explicit return type, ensure + plain success return infers a single Result(S, Error), not
+// a two-value (S, error) type, so `x := okInt()` binds one type to x.
+func TestCheckTypes_ensureWithoutExplicitReturn_infersSingleResult(t *testing.T) {
+	src := `package main
+
+func okInt() {
+	n := 42
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func main() {
+	x := okInt()
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	sig, ok := tc.Functions[ast.Identifier("okInt")]
+	if !ok {
+		t.Fatal("missing okInt signature")
+	}
+	if len(sig.ReturnTypes) != 1 || !sig.ReturnTypes[0].IsResultType() {
+		t.Fatalf("okInt return types = %v, want single Result(...)", formatTypeList(sig.ReturnTypes))
 	}
 }

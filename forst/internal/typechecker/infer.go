@@ -100,6 +100,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 		}
 
+		// registerFunction stored raw AST types (e.g. TYPE_ASSERTION for `op AppMutation.Input({...})`).
+		// inferNodeTypes + InferAssertionType resolve those to concrete types; call-site checks use
+		// tc.Functions[name].Parameters, so keep the signature in sync.
+		if sig, ok := tc.Functions[n.Ident.ID]; ok {
+			for i := range sig.Parameters {
+				if i < len(paramTypes) && len(paramTypes[i]) >= 1 {
+					sig.Parameters[i].Type = paramTypes[i][0]
+				}
+			}
+		}
+
 		// Process function body without restoring scope for each node
 		// since we want to preserve the function parameter scope
 		for _, bodyNode := range n.Body {
