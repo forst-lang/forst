@@ -537,14 +537,14 @@ func (ld *LSPDebugger) CreateHoverNotification(position LSPPosition) LSPNotifica
 }
 
 // positionInRange checks if a position is within a range.
-func (ld *LSPDebugger) positionInRange(pos LSPPosition, range_ LSPRange) bool {
-	if pos.Line < range_.Start.Line || pos.Line > range_.End.Line {
+func (ld *LSPDebugger) positionInRange(pos LSPPosition, rng LSPRange) bool {
+	if pos.Line < rng.Start.Line || pos.Line > rng.End.Line {
 		return false
 	}
-	if pos.Line == range_.Start.Line && pos.Character < range_.Start.Character {
+	if pos.Line == rng.Start.Line && pos.Character < rng.Start.Character {
 		return false
 	}
-	if pos.Line == range_.End.Line && pos.Character > range_.End.Character {
+	if pos.Line == rng.End.Line && pos.Character > rng.End.Character {
 		return false
 	}
 	return true
@@ -582,7 +582,7 @@ func CreateTypeErrorDiagnostic(fileURI string, line int, expectedType, actualTyp
 }
 
 // CreateFunctionHover creates an LSP hover for function information.
-func CreateFunctionHover(fileURI string, line int, functionName string, parameters, returnTypes []string) LSPHover {
+func CreateFunctionHover(_ string, line int, functionName string, parameters, returnTypes []string) LSPHover {
 	content := fmt.Sprintf("**Function:** %s\n\n", functionName)
 	content += fmt.Sprintf("**Parameters:** %d\n", len(parameters))
 	for _, param := range parameters {

@@ -58,8 +58,8 @@ func TestDeterministicShapeGuardExample(t *testing.T) {
 		if i > 0 && !bytes.Equal(output, lastOutput) {
 			tmp0 := filepath.Join(os.TempDir(), "determinism_fail_run0.go")
 			tmpN := filepath.Join(os.TempDir(), "determinism_fail_runN.go")
-			os.WriteFile(tmp0, lastOutput, 0644)
-			os.WriteFile(tmpN, output, 0644)
+			_ = os.WriteFile(tmp0, lastOutput, 0644)
+			_ = os.WriteFile(tmpN, output, 0644)
 			t.Fatalf("Compiler output is not deterministic on run %d. See %s and %s for diff.", i, tmp0, tmpN)
 		}
 		lastOutput = output

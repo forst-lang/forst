@@ -53,7 +53,10 @@ func main() {
 		logLevel := devFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the dev subcommand flags
-		devFlags.Parse(os.Args[2:])
+		if err := devFlags.Parse(os.Args[2:]); err != nil {
+			log.Errorf("dev flags: %v", err)
+			os.Exit(1)
+		}
 
 		// Resolve root directory to absolute path
 		absRootDir, err := filepath.Abs(*rootDir)
@@ -91,7 +94,10 @@ func main() {
 		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the lsp subcommand flags
-		lspFlags.Parse(os.Args[2:])
+		if err := lspFlags.Parse(os.Args[2:]); err != nil {
+			log.Errorf("lsp flags: %v", err)
+			os.Exit(1)
+		}
 
 		// Set log level
 		switch *logLevel {
@@ -129,7 +135,10 @@ func main() {
 		summary := dumpFlags.Bool("summary", false, "Show only phase summaries")
 
 		// Parse the dump subcommand flags
-		dumpFlags.Parse(os.Args[2:])
+		if err := dumpFlags.Parse(os.Args[2:]); err != nil {
+			log.Errorf("dump flags: %v", err)
+			os.Exit(1)
+		}
 
 		if *filePath == "" {
 			log.Error("dump command requires --file flag")
@@ -207,7 +216,7 @@ func main() {
 }
 
 // handleDumpCommand dumps debug information for a Forst file using LSP functionality
-func handleDumpCommand(filePath string, compression bool, format string, phase string, summary bool, log *logrus.Logger) {
+func handleDumpCommand(filePath string, compression bool, format string, _ string, summary bool, log *logrus.Logger) {
 	// Create a temporary LSP server instance for dumping
 	server := lsp.NewLSPServer(":0", log) // Port 0 means we won't actually listen
 

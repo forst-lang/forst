@@ -28,7 +28,7 @@ func TestTransformAssertionType_valueConstraint_literals(t *testing.T) {
 			log := setupTestLogger(nil)
 			tc := setupTypeChecker(log)
 			tr := setupTransformer(tc, log)
-			var v ast.ValueNode = tt.val
+			var v = tt.val
 			a := &ast.AssertionNode{
 				Constraints: []ast.ConstraintNode{
 					{Name: ast.ValueConstraint, Args: []ast.ConstraintArgumentNode{{Value: &v}}},

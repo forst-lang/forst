@@ -437,10 +437,10 @@ func TestInferShapeType_ValueNil_UsesExpectedPointerType(t *testing.T) {
 	if def, ok := tc.Defs["User"]; ok {
 		if typeDef, ok := def.(ast.TypeDefNode); ok {
 			if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				if sessionIdField, ok := shapeExpr.Shape.Fields["sessionId"]; ok {
-					if sessionIdField.Type != nil {
-						if !strings.Contains(string(sessionIdField.Type.Ident), "Pointer") {
-							t.Errorf("Expected sessionId field to be a pointer type, got: %s", sessionIdField.Type.Ident)
+				if sessionIDField, ok := shapeExpr.Shape.Fields["sessionId"]; ok {
+					if sessionIDField.Type != nil {
+						if !strings.Contains(string(sessionIDField.Type.Ident), "Pointer") {
+							t.Errorf("Expected sessionId field to be a pointer type, got: %s", sessionIDField.Type.Ident)
 						}
 					} else {
 						t.Errorf("sessionId field has no type")

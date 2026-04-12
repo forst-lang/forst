@@ -225,7 +225,7 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(responseJSON)
+	_, _ = w.Write(responseJSON)
 }
 
 // handleLSPMethod handles different LSP methods
@@ -319,7 +319,7 @@ func (s *LSPServer) handlePublishDiagnostics(request LSPRequest) LSPServerRespon
 }
 
 // compileForstFile compiles a Forst file and returns diagnostics
-func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger) []LSPDiagnostic {
+func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSPDiagnostic {
 	// Add panic recovery to prevent LSP server crashes
 	defer func() {
 		if r := recover(); r != nil {
@@ -502,7 +502,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, debugger Debugger
 	}
 
 	// Process debug events and convert to LSP diagnostics
-	s.lspDebugger.ProcessDebugEvents()
+	_ = s.lspDebugger.ProcessDebugEvents()
 	return s.lspDebugger.GetDiagnostics()
 }
 
@@ -712,7 +712,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 	}
 
 	// Process debug events and convert to LSP structures
-	s.lspDebugger.ProcessDebugEvents()
+	_ = s.lspDebugger.ProcessDebugEvents()
 
 	// Convert byte slices to structured data for better LLM consumption
 	structuredOutputs := make(map[string]interface{})
@@ -805,7 +805,7 @@ func (s *LSPServer) extractFileMetadata(uri string) *FileMetadata {
 }
 
 // optimizeDebugEvents removes redundant file metadata from debug events
-func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, fileMetadata *FileMetadata) []map[string]interface{} {
+func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, _ *FileMetadata) []map[string]interface{} {
 	optimizedEvents := make([]map[string]interface{}, 0, len(events))
 
 	for _, event := range events {
@@ -824,7 +824,7 @@ func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, fileMetadata *FileM
 		if event.Function != "" {
 			optimizedEvent["function"] = event.Function
 		}
-		if event.Data != nil && len(event.Data) > 0 {
+		if len(event.Data) > 0 {
 			optimizedEvent["data"] = event.Data
 		}
 		if event.Scope != nil {
@@ -961,7 +961,11 @@ func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]inter
 			"error": fmt.Sprintf("Failed to compress data: %v", err),
 		}
 	}
-	gw.Close()
+	if err := gw.Close(); err != nil {
+		return map[string]interface{}{
+			"error": fmt.Sprintf("Failed to finish gzip: %v", err),
+		}
+	}
 
 	// Encode as base64 for JSON compatibility
 	compressed := base64.StdEncoding.EncodeToString(buf.Bytes())

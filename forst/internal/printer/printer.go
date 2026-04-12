@@ -67,9 +67,8 @@ func FormatTypeGuardNode(cfg Config, g ast.TypeGuardNode) (string, error) {
 }
 
 type printer struct {
-	cfg    Config
-	depth  int
-	indent string
+	cfg   Config
+	depth int
 }
 
 func (p *printer) push() { p.depth++ }
@@ -418,7 +417,7 @@ func (p *printer) printAssignment(a ast.AssignmentNode) (string, error) {
 			}
 		default:
 			var err error
-			s, err = p.printExpr(lv.(ast.ExpressionNode))
+			s, err = p.printExpr(lv)
 			if err != nil {
 				return "", err
 			}

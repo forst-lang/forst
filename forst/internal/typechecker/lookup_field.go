@@ -9,92 +9,6 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
-// lookupFieldType looks up a field's type in a given type
-func (tc *TypeChecker) lookupFieldType(baseType ast.TypeNode, fieldName ast.Ident, parentAssertion *ast.AssertionNode) (ast.TypeNode, error) {
-	tc.log.Debugf("[lookupFieldType] Looking up field %s in type %s", fieldName.ID, baseType.Ident)
-
-	// Add detailed debugging for the lookup process
-	tc.log.WithFields(logrus.Fields{
-		"function":  "lookupFieldType",
-		"fieldName": fieldName,
-		"baseType":  baseType.Ident,
-	}).Debugf("=== FIELD LOOKUP DEBUG ===")
-
-	// Try type definition lookup
-	if fieldType, err := tc.lookupFieldInTypeDef(baseType, fieldName); err == nil {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"result":    "found in typeDef",
-		}).Debugf("Field found in typeDef")
-		return fieldType, nil
-	} else {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"error":     err.Error(),
-		}).Debugf("Field not found in typeDef")
-	}
-
-	// Try type guard lookup
-	if fieldType, err := tc.lookupFieldInTypeGuard(baseType, fieldName); err == nil {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"result":    "found in typeGuard",
-		}).Debugf("Field found in typeGuard")
-		return fieldType, nil
-	} else {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"error":     err.Error(),
-		}).Debugf("Field not found in typeGuard")
-	}
-
-	// Try assertion chain lookup
-	if fieldType, err := tc.lookupFieldInAssertion(baseType, fieldName, parentAssertion); err == nil {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"result":    "found in assertion",
-		}).Debugf("Field found in assertion")
-		return fieldType, nil
-	} else {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"error":     err.Error(),
-		}).Debugf("Field not found in assertion")
-	}
-
-	// Don't throw error for Shape type
-	if baseType.Ident == ast.TypeShape {
-		tc.log.WithFields(logrus.Fields{
-			"function":  "lookupFieldType",
-			"fieldName": fieldName,
-			"baseType":  baseType.Ident,
-			"result":    "returning Shape type",
-		}).Debugf("Returning Shape type for field")
-		return ast.TypeNode{Ident: ast.TypeShape}, nil
-	}
-
-	tc.log.WithFields(logrus.Fields{
-		"function":  "lookupFieldType",
-		"fieldName": fieldName,
-		"baseType":  baseType.Ident,
-		"result":    "not found",
-	}).Debugf("=== END FIELD LOOKUP DEBUG ===")
-
-	return ast.TypeNode{}, fmt.Errorf("field %s not found in type %s", fieldName.ID, baseType.Ident)
-}
-
 // lookupFieldInTypeDef looks up a field in a type definition
 func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast.Ident) (ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
@@ -226,22 +140,6 @@ func (tc *TypeChecker) lookupFieldInTypeDef(baseType ast.TypeNode, fieldName ast
 		"baseType":  baseType.Ident,
 	}).Debugf("Returning Shape type as fallback")
 	return ast.TypeNode{Ident: ast.TypeShape}, nil
-}
-
-// lookupFieldInTypeGuard looks up a field in a type guard
-func (tc *TypeChecker) lookupFieldInTypeGuard(baseType ast.TypeNode, fieldName ast.Ident) (ast.TypeNode, error) {
-	guardDef, ok := tc.Defs[baseType.Ident].(ast.TypeGuardNode)
-	if !ok {
-		return ast.TypeNode{}, fmt.Errorf("not a type guard")
-	}
-
-	for _, param := range guardDef.Parameters() {
-		if param.GetIdent() == string(fieldName.ID) {
-			return param.GetType(), nil
-		}
-	}
-
-	return ast.TypeNode{}, fmt.Errorf("field not found in type guard")
 }
 
 // lookupFieldInAssertion looks up a field in an assertion chain
@@ -714,15 +612,14 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 							"fieldType": fieldType.Ident,
 						}).Debugf("Successfully inferred type from field access in Value constraint")
 						return fieldType, nil
-					} else {
-						tc.log.WithFields(logrus.Fields{
-							"function":  "inferValueConstraintType",
-							"fieldName": fieldName,
-							"baseType":  baseType.Ident,
-							"fieldPath": parts[1:],
-							"error":     err.Error(),
-						}).Debugf("Failed to lookup field on base type")
 					}
+					tc.log.WithFields(logrus.Fields{
+						"function":  "inferValueConstraintType",
+						"fieldName": fieldName,
+						"baseType":  baseType.Ident,
+						"fieldPath": parts[1:],
+						"error":     err.Error(),
+					}).Debugf("Failed to lookup field on base type")
 				} else {
 					tc.log.WithFields(logrus.Fields{
 						"function":  "inferValueConstraintType",
@@ -934,14 +831,13 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						Ident:      ast.TypePointer,
 						TypeParams: []ast.TypeNode{varType},
 					}, nil
-				} else {
-					tc.log.WithFields(logrus.Fields{
-						"function":  "inferValueConstraintType",
-						"fieldName": fieldName,
-						"varIdent":  varNode.Ident.ID,
-						"error":     err.Error(),
-					}).Debugf("Failed to lookup variable type for ReferenceNode")
 				}
+				tc.log.WithFields(logrus.Fields{
+					"function":  "inferValueConstraintType",
+					"fieldName": fieldName,
+					"varIdent":  varNode.Ident.ID,
+					"error":     err.Error(),
+				}).Debugf("Failed to lookup variable type for ReferenceNode")
 			} else {
 				tc.log.WithFields(logrus.Fields{
 					"function":   "inferValueConstraintType",
@@ -1016,14 +912,13 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						Ident:      ast.TypePointer,
 						TypeParams: []ast.TypeNode{varType},
 					}, nil
-				} else {
-					tc.log.WithFields(logrus.Fields{
-						"function":  "inferValueConstraintType",
-						"fieldName": fieldName,
-						"varIdent":  varNode.Ident.ID,
-						"error":     err.Error(),
-					}).Debugf("Failed to lookup variable type for ReferenceNode (non-pointer)")
 				}
+				tc.log.WithFields(logrus.Fields{
+					"function":  "inferValueConstraintType",
+					"fieldName": fieldName,
+					"varIdent":  varNode.Ident.ID,
+					"error":     err.Error(),
+				}).Debugf("Failed to lookup variable type for ReferenceNode (non-pointer)")
 			} else if varNode, ok := v.Value.(ast.VariableNode); ok {
 				// Try non-pointer version
 				tc.log.WithFields(logrus.Fields{

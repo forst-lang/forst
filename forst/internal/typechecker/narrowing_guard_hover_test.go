@@ -48,8 +48,7 @@ func f(): String {
 	}
 	var ret ast.ReturnNode
 	var found bool
-	var findIf func([]ast.Node)
-	findIf = func(body []ast.Node) {
+	var findIf = func(body []ast.Node) {
 		for _, st := range body {
 			switch x := st.(type) {
 			case ast.IfNode:

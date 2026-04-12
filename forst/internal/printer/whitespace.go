@@ -1,4 +1,4 @@
-package printer
+package printer //nolint:revive // package name matches internal/printer; overlaps with go/printer
 
 import (
 	"strings"

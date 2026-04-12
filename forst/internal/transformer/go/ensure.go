@@ -57,9 +57,8 @@ func (t *Transformer) transformEnsureCondition(ensure *ast.EnsureNode) ([]goast.
 				transformedStmts = append(transformedStmts, &goast.ExprStmt{X: callExpr})
 				t.log.Debugf("[transformEnsureCondition] Returning %d statements", len(transformedStmts))
 				return transformedStmts, nil
-			} else {
-				t.log.Debugf("[transformEnsureCondition] Type guard is not compatible")
 			}
+			t.log.Debugf("[transformEnsureCondition] Type guard is not compatible")
 		}
 	}
 

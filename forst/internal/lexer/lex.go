@@ -14,7 +14,7 @@ import (
 // Lex converts the input into a slice of tokens
 func (l *Lexer) Lex() []ast.Token {
 	reader := bufio.NewReader(bytes.NewReader(l.input))
-	l.location = LexerLocation{
+	l.location = Location{
 		FileID: l.context.FileID,
 	}
 
@@ -136,11 +136,10 @@ func (l *Lexer) Lex() []ast.Token {
 					l.backtickStringValue = ""
 					l.location.Column += endIdx + 2 // skip both backticks
 					continue
-				} else {
-					l.backtickStringValue = string(line[l.location.Column+1:])
-					// Will continue accumulating in the next line
-					break
 				}
+				l.backtickStringValue = string(line[l.location.Column+1:])
+				// Will continue accumulating in the next line
+				break
 			}
 
 			// Start of block comment

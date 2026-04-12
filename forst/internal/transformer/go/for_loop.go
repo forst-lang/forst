@@ -140,11 +140,7 @@ func (t *Transformer) transformForNode(fn *ast.ForNode) (goast.Stmt, error) {
 		}
 	}
 	if fn.Cond != nil {
-		ce, ok := fn.Cond.(ast.ExpressionNode)
-		if !ok {
-			return nil, fmt.Errorf("for condition is not an expression")
-		}
-		fs.Cond, err = t.transformExpression(ce)
+		fs.Cond, err = t.transformExpression(fn.Cond)
 		if err != nil {
 			return nil, err
 		}

@@ -11,8 +11,8 @@ type Context struct {
 	FileID string
 }
 
-// LexerLocation tracks the current state of the lexer
-type LexerLocation struct {
+// Location tracks the current state of the lexer.
+type Location struct {
 	LineNum int
 	Column  int
 	FileID  string
@@ -24,7 +24,7 @@ type Lexer struct {
 	input    []byte
 	tokens   []ast.Token
 	context  Context
-	location LexerLocation
+	location Location
 
 	// Block comment state
 	accumulatingBlockComment bool
@@ -50,6 +50,6 @@ func New(input []byte, fileID string, log *logrus.Logger) *Lexer {
 		log:      log,
 		input:    input,
 		context:  Context{FileID: fileID},
-		location: LexerLocation{FileID: fileID},
+		location: Location{FileID: fileID},
 	}
 }

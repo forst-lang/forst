@@ -1006,13 +1006,13 @@ func TestTransformExpression_ShapeGuardIssue(t *testing.T) {
 
 	// Create struct literals that should match the function parameter type
 	// These are the struct literals from the main function
-	sessionIdVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
+	sessionIDVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
 	aliceUser := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
 		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Alice"}),
 	})
 
 	ctxStruct := ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
-		"sessionId": ast.MakeStructField(sessionIdVar), // Simplified for testing
+		"sessionId": ast.MakeStructField(sessionIDVar), // Simplified for testing
 		"user":      ast.MakeStructField(aliceUser),
 	})
 
@@ -1108,13 +1108,13 @@ func TestTransformExpression_ShapeGuardStructLiteralIssue(t *testing.T) {
 
 	// Create struct literals that should use named types
 	// These are the struct literals from the main function in shape_guard.ft
-	sessionIdVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
+	sessionIDVar := ast.VariableNode{Ident: ast.Ident{ID: "sessionId"}}
 	aliceUser := ast.MakeStructLiteral("User", map[string]ast.ShapeFieldNode{
 		"name": ast.MakeStructField(ast.StringLiteralNode{Value: "Alice"}),
 	})
 
 	ctxStruct := ast.MakeStructLiteral("AppContext", map[string]ast.ShapeFieldNode{
-		"sessionId": ast.MakeStructField(sessionIdVar),
+		"sessionId": ast.MakeStructField(sessionIDVar),
 		"user":      ast.MakeStructField(aliceUser),
 	})
 

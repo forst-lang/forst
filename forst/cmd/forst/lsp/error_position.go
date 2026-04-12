@@ -45,7 +45,7 @@ func lspCodeForParseMessage(msg string) string {
 }
 
 // DiagnosticFromParseError builds an LSP diagnostic at the failing token (lexer uses 1-based line/column).
-func DiagnosticFromParseError(fileURI string, pe *parser.ParseError) LSPDiagnostic {
+func DiagnosticFromParseError(_ string, pe *parser.ParseError) LSPDiagnostic {
 	line1 := pe.Token.Line
 	col1 := pe.Token.Column
 	if line1 < 1 {
@@ -56,7 +56,7 @@ func DiagnosticFromParseError(fileURI string, pe *parser.ParseError) LSPDiagnost
 	}
 	line0 := lspLineIndex(line1)
 	startC := col1 - 1
-	endC := startC
+	var endC int
 	if pe.Token.Value != "" {
 		endC = startC + utf8.RuneCountInString(pe.Token.Value)
 	} else {
@@ -153,7 +153,7 @@ func lspDiagnosticFromASTSpan(_ string, msg, source, code string, span ast.Sourc
 	}
 }
 
-func simpleDiagnosticOnLine(fileURI string, line1, col1 int, message, source, code string) LSPDiagnostic {
+func simpleDiagnosticOnLine(_ string, line1, col1 int, message, source, code string) LSPDiagnostic {
 	if line1 < 1 {
 		line1 = 1
 	}

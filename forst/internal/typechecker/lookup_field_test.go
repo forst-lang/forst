@@ -43,7 +43,7 @@ func TestLookupNestedFieldNilPointerDereference(t *testing.T) {
 			t.Errorf("Function panicked: %v", r)
 		}
 	}()
-	tc.lookupNestedField(shape, fieldName)
+	_, _ = tc.lookupNestedField(shape, fieldName)
 }
 
 func TestLookupNestedFieldWithNilShapeField(t *testing.T) {

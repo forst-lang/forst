@@ -15,6 +15,6 @@ func TestReferenceNode_String_and_GetIdent(t *testing.T) {
 	}
 }
 
-func TestReferenceNode_isValue_marker(t *testing.T) {
+func TestReferenceNode_isValue_marker(_ *testing.T) {
 	ReferenceNode{}.isValue()
 }

@@ -66,7 +66,7 @@ func NewTypeScriptGenerator(log *logrus.Logger) *TypeScriptGenerator {
 }
 
 // GenerateTypesForFunctions generates TypeScript types for discovered functions
-func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error) {
+func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, _ string) (string, error) {
 	// Collect all Forst files that contain discovered functions
 	filePaths := make(map[string]bool)
 	for _, pkgFuncs := range functions {

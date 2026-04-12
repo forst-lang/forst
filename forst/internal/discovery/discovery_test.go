@@ -23,7 +23,7 @@ type MockConfig struct {
 	err   error
 }
 
-func (m *MockConfig) FindForstFiles(rootDir string) ([]string, error) {
+func (m *MockConfig) FindForstFiles(_ string) ([]string, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -39,15 +39,15 @@ type MockLogger struct {
 	traceMsgs []string
 }
 
-func (m *MockLogger) Debugf(format string, args ...interface{}) {
+func (m *MockLogger) Debugf(format string, _ ...interface{}) {
 	m.debugMsgs = append(m.debugMsgs, format)
 }
 
-func (m *MockLogger) Infof(format string, args ...interface{}) {
+func (m *MockLogger) Infof(format string, _ ...interface{}) {
 	m.infoMsgs = append(m.infoMsgs, format)
 }
 
-func (m *MockLogger) Warnf(format string, args ...interface{}) {
+func (m *MockLogger) Warnf(format string, _ ...interface{}) {
 	m.warnMsgs = append(m.warnMsgs, format)
 }
 
@@ -478,7 +478,7 @@ func TestDiscoverer_DiscoverFunctions_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	testFile := filepath.Join(tempDir, "test.ft")
 	testContent := `package testpkg

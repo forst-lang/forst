@@ -720,7 +720,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 	server := NewLSPServer("8080", log)
 
 	// Create a handler that panics
-	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	panicHandler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		panic("test panic")
 	})
 
@@ -912,7 +912,7 @@ func TestHandleExit(t *testing.T) {
 	}
 }
 
-func TestSendDiagnosticsNotification(t *testing.T) {
+func TestSendDiagnosticsNotification(_ *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 

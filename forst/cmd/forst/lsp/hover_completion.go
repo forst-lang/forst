@@ -443,7 +443,7 @@ func goHoverFromFieldMemberChain(tc *typechecker.TypeChecker, tokens []ast.Token
 	return doc + "\n\n" + md
 }
 
-func mergeLeadingCommentDocShapeField(merge *packageMergeInfo, anchorTokens []ast.Token, parentTypeName, fieldName string) string {
+func mergeLeadingCommentDocShapeField(merge *packageMergeInfo, _ []ast.Token, parentTypeName, fieldName string) string {
 	if merge == nil {
 		return ""
 	}

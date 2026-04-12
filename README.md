@@ -46,13 +46,16 @@ See also [PHILOSOPHY.md](./PHILOSOPHY.md) for what guides and motivates us.
 
 ## Examples
 
+The snippets below follow one **user signup** path: you accept structured input, attach domain-specific failures, assert invariants with `ensure`, and narrow `Result` values at call sites.
+
 ### Hello World
 
 Forst aims to be backwards-compatible with Go:
 
 ```go
 package main
-import fmt "fmt"
+
+import "fmt"
 
 func main() {
   fmt.Println("Hello World!")
@@ -61,13 +64,13 @@ func main() {
 
 ### Basic Function
 
+Helpers infer their return type; here, open seats before accepting a new registration:
+
 ```go
-func diff(a: Int, b: Int) Bool {
-  return 3 - 2
+func spotsLeft(capacity Int, registered Int) {
+  return capacity - registered
 }
 ```
-
-Specifying the return type is optional. It will be inferred automatically.
 
 ### Input Validation
 
@@ -80,7 +83,7 @@ type PhoneNumber =
     | String.HasPrefix("0")
   )
 
-func createUser(op: Mutation.Input({
+func registerUser(op: Mutation.Input({
   id: UUID.V4(),
   name: String.Min(3).Max(10),
   phoneNumber: PhoneNumber,
@@ -88,8 +91,47 @@ func createUser(op: Mutation.Input({
     iban: String.Min(10).Max(34),
   },
 })) {
-  fmt.Println("Creating user with id: %s", op.input.id)
-  return 300.3f
+  fmt.Printf("Registering user %s (%s)\n", op.input.name, op.input.id)
+}
+```
+
+### Nominal errors
+
+Give failures a named kind and payload (`error Name { … }`), distinct from a plain string:
+
+```go
+error NameTooShort {
+  message: String
+}
+```
+
+### Ensure
+
+Pair refinements with those errors when the check fails:
+
+```go
+func validateDisplayName(name String) {
+  ensure name is Min(3) or NameTooShort({
+    message: "name must be at least 3 characters",
+  })
+}
+```
+
+### Result and narrowing
+
+A function can return a `Result`; callers narrow with `ensure x is Ok()`:
+
+```go
+func allocateUserID() {
+  id := 1001
+  ensure id is GreaterThan(0)
+  return id
+}
+
+func main() {
+  x := allocateUserID()
+  ensure x is Ok()
+  println(x) // x is guaranteed to be an Int here
 }
 ```
 

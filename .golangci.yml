@@ -9,3 +9,13 @@ linters:
     - govet
     - misspell
     - revive
+  settings:
+    revive:
+      # Listing rules only disables specific checks; keep revive defaults otherwise.
+      enable-default-rules: true
+      rules:
+        # Doc-comment style for every exported symbol is high churn; keep other revive checks.
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true

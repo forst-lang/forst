@@ -240,6 +240,7 @@ func findTypeGuardNameToken(tokens []ast.Token, name string) *ast.Token {
 		}
 		j := i + 1
 		pdepth := 0
+	innerName:
 		for k := j; k < len(tokens); k++ {
 			switch tokens[k].Type {
 			case ast.TokenLParen:
@@ -250,7 +251,7 @@ func findTypeGuardNameToken(tokens []ast.Token, name string) *ast.Token {
 					if k+1 < len(tokens) && tokens[k+1].Type == ast.TokenIdentifier && tokens[k+1].Value == name {
 						return &tokens[k+1]
 					}
-					break
+					break innerName
 				}
 			}
 		}
@@ -269,6 +270,7 @@ func findTypeGuardIsKeywordIndex(tokens []ast.Token, name string) int {
 		}
 		j := i + 1
 		pdepth := 0
+	innerIs:
 		for k := j; k < len(tokens); k++ {
 			switch tokens[k].Type {
 			case ast.TokenLParen:
@@ -279,7 +281,7 @@ func findTypeGuardIsKeywordIndex(tokens []ast.Token, name string) int {
 					if k+1 < len(tokens) && tokens[k+1].Type == ast.TokenIdentifier && tokens[k+1].Value == name {
 						return i
 					}
-					break
+					break innerIs
 				}
 			}
 		}

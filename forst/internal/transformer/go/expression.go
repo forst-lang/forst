@@ -574,7 +574,9 @@ func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *as
 	bestType := t.findBestNamedTypeForStructLiteral(inferredType, expectedType)
 
 	// Ensure the type is emitted
-	t.defineShapeType(shape)
+	if err := t.defineShapeType(shape); err != nil {
+		return nil, err
+	}
 
 	return goast.NewIdent(string(bestType.Ident)), nil
 }
@@ -937,7 +939,9 @@ func (t *Transformer) transformShapeNodeWithExpectedType(shape *ast.ShapeNode, e
 		if strings.HasPrefix(ident.Name, "T_") {
 			if def, exists := t.TypeChecker.Defs[ast.TypeIdent(ident.Name)]; exists {
 				processed := make(map[ast.TypeIdent]bool)
-				t.emitTypeAndReferencedTypes(ast.TypeIdent(ident.Name), def, processed)
+				if err := t.emitTypeAndReferencedTypes(ast.TypeIdent(ident.Name), def, processed); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

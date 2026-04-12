@@ -13,7 +13,8 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 	// Check for explicit type or assignment
 	tok := p.current()
 
-	if tok.Type == ast.TokenColon {
+	switch tok.Type {
+	case ast.TokenColon:
 		// Explicit type: var x: Type = ... or var x: Type
 		p.advance() // Consume colon
 		typeNode := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
@@ -34,7 +35,7 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 				ExplicitTypes: []*ast.TypeNode{&typeNode},
 			}
 		}
-	} else if tok.Type == ast.TokenEquals {
+	case ast.TokenEquals:
 		// No explicit type: var x = ...
 		p.advance() // consume '='
 		rvalue := p.parseExpression()

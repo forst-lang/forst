@@ -133,7 +133,7 @@ func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, va
 		if constraint.Name == "Present" {
 			// Check if left type is a pointer type
 			if varLeftType.Ident != ast.TypePointer {
-				return fmt.Errorf("Present assertion requires a pointer type, got %s", varLeftType.Ident)
+				return fmt.Errorf("present assertion requires a pointer type, got %s", varLeftType.Ident)
 			}
 		} else {
 			// Check type guard subject type for other constraints
@@ -183,7 +183,7 @@ func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode,
 				return err
 			}
 			if len(vt) != 1 {
-				return fmt.Errorf("Ok argument: expected a single type")
+				return fmt.Errorf("ok argument: expected a single type")
 			}
 			if !tc.IsTypeCompatible(vt[0], succ) {
 				return fmt.Errorf("Ok(...) value incompatible with success type %s", succ.String())
@@ -205,7 +205,7 @@ func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode,
 				return err
 			}
 			if len(vt) != 1 {
-				return fmt.Errorf("Err argument: expected a single type")
+				return fmt.Errorf("err argument: expected a single type")
 			}
 			if !tc.IsTypeCompatible(vt[0], fail) {
 				return fmt.Errorf("Err(...) value incompatible with failure type %s", fail.String())

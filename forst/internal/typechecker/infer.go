@@ -11,7 +11,9 @@ import (
 func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node, scopeNode ast.Node) ([][]ast.TypeNode, error) {
 	inferredTypes := make([][]ast.TypeNode, len(nodes))
 	for i, node := range nodes {
-		tc.RestoreScope(scopeNode)
+		if err := tc.RestoreScope(scopeNode); err != nil {
+			return nil, err
+		}
 		inferredType, err := tc.inferNodeType(node)
 		if err != nil {
 			return nil, err
@@ -238,10 +240,8 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		// Infer return value expressions in this scope (including nested returns under if/ensure)
 		// so per-occurrence types and narrowing metadata (e.g. type guard names) are stored.
 		for _, v := range n.Values {
-			if expr, ok := v.(ast.ExpressionNode); ok {
-				if _, err := tc.inferExpressionType(expr); err != nil {
-					return nil, err
-				}
+			if _, err := tc.inferExpressionType(v); err != nil {
+				return nil, err
 			}
 		}
 		if err := tc.checkReturnDisallowedInResultErrBranch(n); err != nil {

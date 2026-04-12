@@ -53,7 +53,7 @@ func tokenIndexAtLSPPosition(tokens []ast.Token, pos LSPPosition) int {
 	line1 := pos.Line + 1
 	char1 := pos.Character + 1
 
-	var lastIdxOnLine int = -1
+	var lastIdxOnLine = -1
 	for i := range tokens {
 		t := &tokens[i]
 		if t.Type == ast.TokenEOF {
@@ -90,24 +90,6 @@ func tokenIndexAtLSPPosition(tokens []ast.Token, pos LSPPosition) int {
 		return -1
 	}
 	return len(tokens) - 1
-}
-
-func tokenIndexCoversPosition(tokens []ast.Token, idx int, pos LSPPosition) bool {
-	if idx < 0 || idx >= len(tokens) {
-		return false
-	}
-	line1 := pos.Line + 1
-	char1 := pos.Character + 1
-	t := &tokens[idx]
-	if t.Line != line1 {
-		return false
-	}
-	width := utf8.RuneCountInString(t.Value)
-	if width < 1 {
-		width = 1
-	}
-	endCol := t.Column + width - 1
-	return char1 >= t.Column && char1 <= endCol
 }
 
 func isCursorInCommentOrString(tokens []ast.Token, idx int) bool {
@@ -274,7 +256,7 @@ func functionBodyBraces(tokens []ast.Token, fn ast.FunctionNode) (lBrace, rBrace
 
 // paramListParenRange returns the indices of `(` and `)` around a function's parameter list
 // (same region as findParamIdentTokenForFunction). ok is false if the signature cannot be found.
-func paramListParenRange(tokens []ast.Token, fn ast.FunctionNode) (open, close int, ok bool) {
+func paramListParenRange(tokens []ast.Token, fn ast.FunctionNode) (open, closeIdx int, ok bool) {
 	idx := findFuncKeywordIndex(tokens, string(fn.Ident.ID))
 	if idx < 0 {
 		return -1, -1, false

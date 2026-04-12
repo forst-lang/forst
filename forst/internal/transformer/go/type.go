@@ -55,9 +55,9 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		}
 		return &goast.MapType{Key: keyT, Value: valT}, nil
 	case ast.TypeResult:
-		return nil, fmt.Errorf("Result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
+		return nil, fmt.Errorf("result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
 	case ast.TypeTuple:
-		return nil, fmt.Errorf("Tuple types are expanded at function boundaries; use transformTypes, not transformType")
+		return nil, fmt.Errorf("tuple types are expanded at function boundaries; use transformTypes, not transformType")
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
@@ -73,7 +73,7 @@ func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, er
 	for _, typ := range types {
 		if typ.IsResultType() {
 			if len(typ.TypeParams) != 2 {
-				return nil, fmt.Errorf("Result must have exactly two type parameters")
+				return nil, fmt.Errorf("result must have exactly two type parameters")
 			}
 			s, err := t.transformType(typ.TypeParams[0])
 			if err != nil {
@@ -111,19 +111,19 @@ func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, er
 // (matches Go error checks on .Err).
 func (t *Transformer) transformResultAsStructFieldGoType(rt ast.TypeNode) (*goast.StructType, error) {
 	if !rt.IsResultType() || len(rt.TypeParams) < 2 {
-		return nil, fmt.Errorf("expected Result(S, F)")
+		return nil, fmt.Errorf("expected result(S, F)")
 	}
 	fail := rt.TypeParams[1]
 	if fail.Ident != ast.TypeError {
-		return nil, fmt.Errorf("Result in struct fields: failure type must be Error for Go codegen (got %s)", fail.String())
+		return nil, fmt.Errorf("result in struct fields: failure type must be Error for Go codegen (got %s)", fail.String())
 	}
 	s, err := t.transformType(rt.TypeParams[0])
 	if err != nil {
-		return nil, fmt.Errorf("Result field success type: %w", err)
+		return nil, fmt.Errorf("result field success type: %w", err)
 	}
 	e, err := t.transformType(fail)
 	if err != nil {
-		return nil, fmt.Errorf("Result field failure type: %w", err)
+		return nil, fmt.Errorf("result field failure type: %w", err)
 	}
 	return &goast.StructType{
 		Fields: &goast.FieldList{

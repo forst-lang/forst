@@ -79,7 +79,7 @@ func MakeTypeNode(typeName string) TypeNode {
 }
 
 // MakeShapeType creates a shape type
-func MakeShapeType(fields map[string]ShapeFieldNode) TypeNode {
+func MakeShapeType(_ map[string]ShapeFieldNode) TypeNode {
 	return TypeNode{
 		Ident: TypeShape,
 		TypeParams: []TypeNode{{
@@ -168,7 +168,7 @@ func MakeFunctionCall(functionName string, arguments []ExpressionNode) FunctionC
 }
 
 // MakePackage creates a package node
-func MakePackage(name string, nodes []Node) PackageNode {
+func MakePackage(name string, _ []Node) PackageNode {
 	return PackageNode{
 		Ident: Ident{ID: Identifier(name)},
 	}

@@ -303,7 +303,7 @@ func TestGenerateClientIndex_importsPackages(t *testing.T) {
 }
 
 func TestGenerateClientPackageJson_isValidJSONShape(t *testing.T) {
-	j := generateClientPackageJson()
+	j := generateClientPackageJSON()
 	if !strings.Contains(j, `"name": "@forst/client"`) || !strings.Contains(j, `"@forst/sidecar"`) {
 		t.Fatalf("unexpected package.json:\n%s", j)
 	}

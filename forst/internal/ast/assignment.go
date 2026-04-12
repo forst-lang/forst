@@ -28,8 +28,6 @@ func (n AssignmentNode) String() string {
 			if len(n.ExplicitTypes) > i && n.ExplicitTypes[i] != nil {
 				result += ": " + n.ExplicitTypes[i].String()
 			}
-		} else if e, ok := lv.(ExpressionNode); ok {
-			result += e.String()
 		} else {
 			result += lv.String()
 		}

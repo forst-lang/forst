@@ -101,7 +101,7 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Debug: Let's look at the actual generated files
 	e.log.Tracef("Generated Go code:\n%s", compiledFn.GoCode)
@@ -403,7 +403,7 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 		} else {
 			e.log.Tracef("Wrote %d bytes to stdin: %s (defined params: %v)", n, string(data), params)
 		}
-		stdin.Close()
+		_ = stdin.Close()
 		// Wait for the command to complete
 		err = cmd.Wait()
 		output := stdoutBuf.String() + stderrBuf.String()
@@ -449,7 +449,7 @@ func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempDir s
 	// Read output in background
 	go func() {
 		defer close(results)
-		defer cmd.Wait()
+		defer func() { _ = cmd.Wait() }()
 
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {

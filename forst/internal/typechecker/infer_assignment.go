@@ -122,7 +122,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					isMap := explicitType.Ident == ast.TypeMap
 					isArray := explicitType.Ident == ast.TypeArray
 					isFunc := explicitType.Ident == ast.TypeIdent("Func")
-					if !(isPointer || isInterface || isMap || isArray || isFunc) {
+					if !isPointer && !isInterface && !isMap && !isArray && !isFunc {
 						return fmt.Errorf("cannot assign nil to variable of type '%s'", explicitType.Ident)
 					}
 				}

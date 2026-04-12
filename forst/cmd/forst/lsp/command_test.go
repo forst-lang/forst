@@ -35,9 +35,9 @@ func TestStartLSPServer(t *testing.T) {
 	})
 
 	// Test that the function signature is correct
-	t.Run("function signature", func(t *testing.T) {
+	t.Run("function signature", func(*testing.T) {
 		// This is a compile-time test to ensure the function signature is correct
-		var _ func(string, *logrus.Logger) = StartLSPServer
+		var _ = StartLSPServer
 	})
 }
 

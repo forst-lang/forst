@@ -59,7 +59,7 @@ func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform shape field type: %w", err)
 		}
-		var expr goast.Expr = typeExpr
+		var expr = typeExpr
 		return &expr, nil
 	}
 
@@ -167,15 +167,14 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 						}).Debug("Expected type is compatible, using it directly (field order ignored)")
 						// Always use expectedType if compatible, regardless of field order
 						return expectedTypeIdent, true
-					} else {
-						t.log.WithFields(logrus.Fields{
-							"function":     "findExistingTypeForShape",
-							"expectedType": expectedTypeIdent,
-							"error":        err.Error(),
-						}).Debug("Expected type is not compatible with shape, falling back to structural matching")
-						// Expected type exists but doesn't match the shape structure
-						// Fall back to structural matching instead of using incompatible type
 					}
+					t.log.WithFields(logrus.Fields{
+						"function":     "findExistingTypeForShape",
+						"expectedType": expectedTypeIdent,
+						"error":        err.Error(),
+					}).Debug("Expected type is not compatible with shape, falling back to structural matching")
+					// Expected type exists but doesn't match the shape structure
+					// Fall back to structural matching instead of using incompatible type
 				}
 			}
 		} else {
@@ -206,12 +205,11 @@ func (t *Transformer) findExistingTypeForShape(shape *ast.ShapeNode, expectedTyp
 						"typeIdent": typeIdent,
 					}).Debug("[DEBUG] Found matching type definition")
 					return typeIdent, true
-				} else {
-					t.log.WithFields(logrus.Fields{
-						"function":  "findExistingTypeForShape",
-						"typeIdent": typeIdent,
-					}).Debug("[DEBUG] Type definition did not match")
 				}
+				t.log.WithFields(logrus.Fields{
+					"function":  "findExistingTypeForShape",
+					"typeIdent": typeIdent,
+				}).Debug("[DEBUG] Type definition did not match")
 			} else {
 				t.log.WithFields(logrus.Fields{
 					"function":  "findExistingTypeForShape",
@@ -283,7 +281,8 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			if _, ok := field1.Node.(ast.IntLiteralNode); ok && field2.Type.Ident == ast.TypeInt {
 				continue
 			}
-			if _, ok := field1.Node.(ast.VariableNode); ok {
+			switch field1.Node.(type) {
+			case ast.VariableNode:
 				continue
 			}
 			// Other node types: assume compatible
@@ -296,7 +295,8 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			if _, ok := field2.Node.(ast.IntLiteralNode); ok && field1.Type.Ident == ast.TypeInt {
 				continue
 			}
-			if _, ok := field2.Node.(ast.VariableNode); ok {
+			switch field2.Node.(type) {
+			case ast.VariableNode:
 				continue
 			}
 			// Other node types: assume compatible

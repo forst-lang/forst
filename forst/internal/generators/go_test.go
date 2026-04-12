@@ -113,7 +113,7 @@ func TestGenerateGoCode_declarationOrderGroups(t *testing.T) {
 	if iConst == -1 || iType == -1 || iFunc == -1 {
 		t.Fatalf("missing expected decls:\n%s", out)
 	}
-	if !(iConst < iType && iType < iFunc) {
+	if iConst >= iType || iType >= iFunc {
 		t.Fatalf("expected const then type then func, got:\n%s", out)
 	}
 }

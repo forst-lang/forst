@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"strings"
-	"time"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -459,8 +458,4 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 
 	// Default: return the hash-based type
 	return []ast.TypeNode{{Ident: typeIdent}}, nil
-}
-
-func generateUniqueID() string {
-	return fmt.Sprintf("%x", time.Now().UnixNano())
 }

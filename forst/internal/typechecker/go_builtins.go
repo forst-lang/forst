@@ -702,7 +702,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
-		expectedType := fn.ParamTypes[0]
+		var expectedType ast.TypeNode
 		if !fn.IsVarArgs {
 			expectedType = fn.ParamTypes[i]
 		} else if fn.Package == "fmt" {

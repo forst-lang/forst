@@ -306,11 +306,9 @@ func (tc *TypeChecker) shapesHaveSameStructure(shape1, shape2 ast.ShapeNode) boo
 		}).Debug("Comparing field types")
 
 		if field1Type != nil && field2Type != nil {
-			if field1Type.Ident == field2Type.Ident {
-				// Same head identifier; continue to nested shape check below if any.
-			} else if tc.IsTypeCompatible(*field1Type, *field2Type) {
-				// Hash vs named alias, pointer vs structural, etc.
-			} else {
+			sameIdent := field1Type.Ident == field2Type.Ident
+			compatible := tc.IsTypeCompatible(*field1Type, *field2Type)
+			if !sameIdent && !compatible {
 				tc.log.WithFields(logrus.Fields{
 					"function":   "shapesHaveSameStructure",
 					"fieldName":  fieldName,
@@ -319,6 +317,7 @@ func (tc *TypeChecker) shapesHaveSameStructure(shape1, shape2 ast.ShapeNode) boo
 				}).Debug("Field type mismatch")
 				return false
 			}
+			// Same head identifier or compatible types; continue to nested shape check below if any.
 		} else if field1Type != nil || field2Type != nil {
 			tc.log.WithFields(logrus.Fields{
 				"function":   "shapesHaveSameStructure",

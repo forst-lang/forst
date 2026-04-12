@@ -140,10 +140,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 			inferredType = []ast.TypeNode{
 				{Ident: ast.TypeError},
 			}
-		} else if len(parsedType) == 1 && parsedType[0].IsResultType() {
-			// Declared Result(S,F): ensure composes with Result; do not add a second Error slot.
-		} else if len(inferredType) == 1 && inferredType[0].IsResultType() {
-			// Result(S,F) already includes failure; do not append Error.
+		} else if (len(parsedType) == 1 && parsedType[0].IsResultType()) || (len(inferredType) == 1 && inferredType[0].IsResultType()) {
+			// Declared or inferred Result(S,F): ensure composes with Result; do not add a second Error slot.
 		} else {
 			if len(inferredType) < 1 || len(inferredType) > 2 {
 				return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))

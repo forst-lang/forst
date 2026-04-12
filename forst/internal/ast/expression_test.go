@@ -33,7 +33,7 @@ func TestFunctionCallNode_String_multi_arg(t *testing.T) {
 	}
 }
 
-func TestExpressionNodes_expression_marker_methods(t *testing.T) {
+func TestExpressionNodes_expression_marker_methods(_ *testing.T) {
 	UnaryExpressionNode{}.isExpression()
 	BinaryExpressionNode{}.isExpression()
 	FunctionCallNode{}.isExpression()

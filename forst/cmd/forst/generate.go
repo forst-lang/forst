@@ -185,7 +185,7 @@ func generateClientPackage(outputDir string, clientStems []string, log *logrus.L
 	log.Infof("Generated client index: %s", indexPath)
 
 	// Generate package.json for the client
-	packageContent := generateClientPackageJson()
+	packageContent := generateClientPackageJSON()
 	packagePath := filepath.Join(clientDir, "package.json")
 	if err := os.WriteFile(packagePath, []byte(packageContent), 0644); err != nil {
 		return fmt.Errorf("failed to write client package.json: %w", err)
@@ -260,8 +260,8 @@ export class ForstClient {
 	return content
 }
 
-// generateClientPackageJson creates the package.json for the client
-func generateClientPackageJson() string {
+// generateClientPackageJSON creates the package.json for the client
+func generateClientPackageJSON() string {
 	return `{
   "name": "@forst/client",
   "version": "0.1.0",

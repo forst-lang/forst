@@ -676,13 +676,12 @@ func (t *Transformer) getExpectedTypeForShape(shape *ast.ShapeNode, context *Sha
 							"expectedType": expectedType.Ident,
 						}).Debug("[DEBUG] Expected type is compatible")
 						return expectedType
-					} else {
-						t.log.WithFields(logrus.Fields{
-							"function":     "getExpectedTypeForShape",
-							"expectedType": expectedType.Ident,
-							"error":        err.Error(),
-						}).Debug("[DEBUG] Expected type is not compatible, will fall back to structural matching")
 					}
+					t.log.WithFields(logrus.Fields{
+						"function":     "getExpectedTypeForShape",
+						"expectedType": expectedType.Ident,
+						"error":        err.Error(),
+					}).Debug("[DEBUG] Expected type is not compatible, will fall back to structural matching")
 				}
 			}
 		}

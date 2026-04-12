@@ -97,7 +97,9 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 
 		tc.popScope()
 	case *ast.TypeGuardNode:
-		tc.collectExplicitTypes(*n)
+		if err := tc.collectExplicitTypes(*n); err != nil {
+			return err
+		}
 	case ast.EnsureNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

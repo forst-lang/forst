@@ -730,11 +730,11 @@ func findIdentInsideIfInitParens(tokens []ast.Token, fileNodes []ast.Node, ifn a
 	if ifIdx+1 >= len(tokens) || tokens[ifIdx+1].Type != ast.TokenLParen {
 		return nil
 	}
-	close := skipBalancedParens(tokens, ifIdx+1)
-	if close < 0 {
+	closeIdx := skipBalancedParens(tokens, ifIdx+1)
+	if closeIdx < 0 {
 		return nil
 	}
-	for k := ifIdx + 2; k < close; k++ {
+	for k := ifIdx + 2; k < closeIdx; k++ {
 		if tokens[k].Type == ast.TokenIdentifier && tokens[k].Value == name {
 			return &tokens[k]
 		}

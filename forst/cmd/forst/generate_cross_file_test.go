@@ -114,9 +114,9 @@ func Tag(b Beta): String {
 	}
 }
 
-func truncateForTestLog(s string, max int) string {
-	if len(s) <= max {
+func truncateForTestLog(s string, limit int) string {
+	if len(s) <= limit {
 		return s
 	}
-	return s[:max] + "…"
+	return s[:limit] + "…"
 }

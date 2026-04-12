@@ -1,4 +1,4 @@
-package parser
+package parser //nolint:revive // package name matches internal/parser; overlaps with text/template parser etc.
 
 import (
 	"testing"

@@ -208,7 +208,7 @@ func TestAssertionFieldMerging_ShapeLiteralArgument(t *testing.T) {
 	}
 
 	// The shape should have both id and foo fields
-	if _, hasId := shape.Fields["id"]; !hasId {
+	if _, hasID := shape.Fields["id"]; !hasID {
 		t.Error("Expected 'id' field from base type")
 	}
 	if _, hasFoo := shape.Fields["foo"]; !hasFoo {

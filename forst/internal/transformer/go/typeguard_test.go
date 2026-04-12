@@ -168,9 +168,13 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesExpectedType(t *testi
 	delete(tc.Defs, ast.TypeIdent(typeName))
 
 	// Check types for all nodes
-	tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc, shapeType})
+	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc, shapeType}); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.TypeChecker.RestoreScope(mainFunc)
+	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+		t.Fatal(err)
+	}
 
 	// Transform the function call
 	stmt, err := tr.transformStatement(mainFunc.Body[0])
@@ -252,9 +256,13 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UndefinedTypeError(t *tes
 	// Do NOT register the type T_ShapeArg in tc.Defs (simulate missing type)
 
 	// Check types for all nodes
-	tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc})
+	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.TypeChecker.RestoreScope(mainFunc)
+	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+		t.Fatal(err)
+	}
 
 	// Transform the function call
 	stmt, err := tr.transformStatement(mainFunc.Body[0])
@@ -374,9 +382,13 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesParameterTypeDef(t *t
 	}
 
 	// Check types for all nodes
-	tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc})
+	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.TypeChecker.RestoreScope(mainFunc)
+	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+		t.Fatal(err)
+	}
 
 	// Transform the function call
 	stmt, err := tr.transformStatement(mainFunc.Body[0])
@@ -552,9 +564,13 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	}
 
 	// Check types for all nodes
-	tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc})
+	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+		t.Fatal(err)
+	}
 
-	tr.TypeChecker.RestoreScope(mainFunc)
+	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+		t.Fatal(err)
+	}
 
 	// Transform the function call
 	stmt, err := tr.transformStatement(mainFunc.Body[0])

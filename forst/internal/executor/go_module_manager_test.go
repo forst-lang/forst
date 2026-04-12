@@ -45,7 +45,7 @@ func TestGoModuleManager_CreateModule_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateModule failed: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Verify directory structure
 	entries, err := os.ReadDir(tempDir)
@@ -96,7 +96,7 @@ func TestGoModuleManager_CreateModule_WithParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateModule failed: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Verify main.go content for parameterized function
 	mainGoPath := filepath.Join(tempDir, "main.go")
@@ -140,7 +140,7 @@ func TestGoModuleManager_CreateModule_Streaming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateModule failed: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Verify main.go content for streaming function
 	mainGoPath := filepath.Join(tempDir, "main.go")
@@ -184,7 +184,7 @@ func TestGoModuleManager_CreateModule_PackageMainBuilds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateModule failed: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	execPath := filepath.Join(tempDir, "forstexec.bin")
 	cmd := exec.Command("go", "build", "-o", execPath, ".")
@@ -202,7 +202,7 @@ func TestGoModuleManager_CreatePackageFile_PackageMainRewritesToForstexec(t *tes
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &ModuleConfig{
 		PackageName: "main",
@@ -237,7 +237,7 @@ func TestGoModuleManager_CreateGoMod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	moduleName := "test-module"
 	err = manager.createGoMod(tempDir, moduleName)
@@ -275,7 +275,7 @@ func TestGoModuleManager_CreateMainGo_Standard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &ModuleConfig{
 		ModuleName:     "test-module",
@@ -320,7 +320,7 @@ func TestGoModuleManager_CreateMainGo_WithParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &ModuleConfig{
 		ModuleName:     "test-module",
@@ -369,7 +369,7 @@ func TestGoModuleManager_CreatePackageFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &ModuleConfig{
 		PackageName: "testpkg",

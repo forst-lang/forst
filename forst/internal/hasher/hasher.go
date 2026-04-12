@@ -114,7 +114,9 @@ func (h *StructuralHasher) writeHashAndNode(w io.Writer, kind uint8, node ast.No
 	return writeHash(w, hash)
 }
 
-// HashNode generates a structural hash for an AST node
+// HashNode generates a structural hash for an AST node.
+//
+//nolint:errcheck // Many branches hash into an in-memory FNV writer; unchecked writeHashes calls mirror checked ones nearby.
 func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 	hasher := fnv.New64a()
 
@@ -316,7 +318,9 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.ShapeNode:
-		h.writeHashes(hasher, NodeKind["Shape"])
+		if err := h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
+			return 0, err
+		}
 		// Convert map to sorted slice of fields for deterministic ordering
 		fields := make([]struct {
 			name  string
@@ -333,35 +337,49 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each field in sorted order
 		for _, f := range fields {
-			h.writeHashes(hasher, []byte(f.name))
+			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
+				return 0, err
+			}
 			hash, err := h.HashNode(f.field)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 
 	case ast.ShapeFieldNode:
-		h.writeHashes(hasher, NodeKind["ShapeField"])
+		if err := h.writeHashes(hasher, NodeKind["ShapeField"]); err != nil {
+			return 0, err
+		}
 		if n.Assertion != nil {
 			hash, err := h.HashNode(*n.Assertion)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 		if n.Shape != nil {
 			hash, err := h.HashNode(*n.Shape)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 
 	case ast.AssertionNode:
-		h.writeHashes(hasher, NodeKind["Assertion"])
+		if err := h.writeHashes(hasher, NodeKind["Assertion"]); err != nil {
+			return 0, err
+		}
 		if n.BaseType != nil {
-			h.writeHashes(hasher, []byte(*n.BaseType))
+			if err := h.writeHashes(hasher, []byte(*n.BaseType)); err != nil {
+				return 0, err
+			}
 		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))
@@ -375,12 +393,18 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 
 	case ast.ConstraintNode:
-		h.writeHashes(hasher, NodeKind["Constraint"])
-		h.writeHashes(hasher, []byte(n.Name))
+		if err := h.writeHashes(hasher, NodeKind["Constraint"]); err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, []byte(n.Name)); err != nil {
+			return 0, err
+		}
 		nodes := make([]ast.Node, len(n.Args))
 		for i, arg := range n.Args {
 			nodes[i] = arg
@@ -389,23 +413,31 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		if err := h.writeHashes(hasher, hash); err != nil {
+			return 0, err
+		}
 
 	case ast.ConstraintArgumentNode:
-		h.writeHashes(hasher, NodeKind["ConstraintArgument"])
+		if err := h.writeHashes(hasher, NodeKind["ConstraintArgument"]); err != nil {
+			return 0, err
+		}
 		if n.Value != nil {
 			hash, err := h.HashNode(*n.Value)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 		if n.Shape != nil {
 			hash, err := h.HashNode(*n.Shape)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 	case ast.PackageNode:
 		h.writeHashes(hasher, NodeKind["Package"])
@@ -487,7 +519,9 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			h.writeHashes(hasher, hash)
 		}
 	case *ast.ShapeNode:
-		h.writeHashes(hasher, NodeKind["Shape"])
+		if err := h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
+			return 0, err
+		}
 		// Convert map to sorted slice of fields for deterministic ordering
 		fields := make([]struct {
 			name  string
@@ -504,12 +538,16 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each field in sorted order
 		for _, f := range fields {
-			h.writeHashes(hasher, []byte(f.name))
+			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
+				return 0, err
+			}
 			hash, err := h.HashNode(f.field)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			if err := h.writeHashes(hasher, hash); err != nil {
+				return 0, err
+			}
 		}
 	case *ast.ShapeFieldNode:
 		h.writeHashes(hasher, NodeKind["ShapeField"])

@@ -38,12 +38,12 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["documentFormattingProvider"] != true {
 		t.Fatalf("documentFormattingProvider = %v", caps["documentFormattingProvider"])
 	}
-	cap, ok := caps["codeActionProvider"].(map[string]interface{})
+	actionCap, ok := caps["codeActionProvider"].(map[string]interface{})
 	if !ok {
 		t.Fatal("expected codeActionProvider map")
 	}
 	var kindStrs []string
-	switch k := cap["codeActionKinds"].(type) {
+	switch k := actionCap["codeActionKinds"].(type) {
 	case []string:
 		kindStrs = k
 	case []interface{}:
@@ -55,7 +55,7 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 			kindStrs = append(kindStrs, s)
 		}
 	default:
-		t.Fatalf("codeActionKinds = %#v", cap["codeActionKinds"])
+		t.Fatalf("codeActionKinds = %#v", actionCap["codeActionKinds"])
 	}
 	if len(kindStrs) == 0 {
 		t.Fatal("empty codeActionKinds")

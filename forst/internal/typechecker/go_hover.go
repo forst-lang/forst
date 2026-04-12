@@ -37,7 +37,7 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 		var b strings.Builder
 		b.WriteString("**Go package** `" + pkgLocal + "`")
 		if path != "" {
-			b.WriteString(fmt.Sprintf("\n\n```go\nimport %q\n```", path))
+			fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
 		}
 		if gp == nil {
 			b.WriteString("\n\n*(Go types not loaded — check `go/packages` / `GoWorkspaceDir`.)*")

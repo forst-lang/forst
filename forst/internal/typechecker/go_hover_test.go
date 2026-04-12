@@ -101,7 +101,7 @@ func TestIsImportedLocalName(t *testing.T) {
 
 func TestGoSignatureReturnsToForst_void(t *testing.T) {
 	t.Parallel()
-	sig := types.NewSignature(nil, nil, nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	out := goSignatureReturnsToForst(sig)
 	if len(out) != 1 || out[0].Ident != ast.TypeVoid {
 		t.Fatalf("want single Void, got %#v", out)
@@ -111,7 +111,7 @@ func TestGoSignatureReturnsToForst_void(t *testing.T) {
 func TestGoSignatureReturnsToForst_int(t *testing.T) {
 	t.Parallel()
 	results := types.NewTuple(types.NewParam(0, nil, "", types.Typ[types.Int]))
-	sig := types.NewSignature(nil, nil, results, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
 	out := goSignatureReturnsToForst(sig)
 	if len(out) != 1 || out[0].Ident != ast.TypeInt {
 		t.Fatalf("got %#v", out)
@@ -122,7 +122,7 @@ func TestGoSignatureReturnsToForst_unsupportedReturnYieldsNil(t *testing.T) {
 	t.Parallel()
 	// unsafe.Pointer is a basic kind that goTypeToForstType does not map.
 	results := types.NewTuple(types.NewParam(0, nil, "", types.Typ[types.UnsafePointer]))
-	sig := types.NewSignature(nil, nil, results, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
 	if out := goSignatureReturnsToForst(sig); out != nil {
 		t.Fatalf("expected nil, got %#v", out)
 	}

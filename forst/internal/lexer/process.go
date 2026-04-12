@@ -99,11 +99,12 @@ func processWord(line []byte, startCol int, fileID string, lineNum int) (ast.Tok
 
 		// Check for base prefix
 		if line[column] == '0' && column+1 < len(line) {
-			if line[column+1] == 'x' || line[column+1] == 'X' {
+			switch line[column+1] {
+			case 'x', 'X':
 				column += 2
-			} else if line[column+1] == 'b' || line[column+1] == 'B' {
+			case 'b', 'B':
 				column += 2
-			} else if line[column+1] == 'o' || line[column+1] == 'O' {
+			case 'o', 'O':
 				column += 2
 			}
 		}

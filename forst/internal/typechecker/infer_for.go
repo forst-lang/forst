@@ -16,10 +16,8 @@ func (tc *TypeChecker) inferForNode(n *ast.ForNode) ([]ast.TypeNode, error) {
 			}
 		}
 		if n.Cond != nil {
-			if ce, ok := n.Cond.(ast.ExpressionNode); ok {
-				if _, err := tc.inferExpressionType(ce); err != nil {
-					return nil, err
-				}
+			if _, err := tc.inferExpressionType(n.Cond); err != nil {
+				return nil, err
 			}
 		}
 		if n.Post != nil {

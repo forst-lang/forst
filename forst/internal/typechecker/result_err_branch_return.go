@@ -52,11 +52,7 @@ func (tc *TypeChecker) checkReturnDisallowedInResultErrBranch(ret ast.ReturnNode
 	if !rt.IsResultType() || len(rt.TypeParams) < 2 {
 		return nil
 	}
-	for _, val := range ret.Values {
-		expr, ok := val.(ast.ExpressionNode)
-		if !ok {
-			continue
-		}
+	for _, expr := range ret.Values {
 		if isErrExprAST(expr) {
 			return fmt.Errorf("propagate Result failures with `ensure` (e.g. `ensure x is Ok()`), not `if` + `return Err(...)` in an `Err` branch")
 		}

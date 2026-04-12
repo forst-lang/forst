@@ -1,4 +1,4 @@
-package ast
+package ast //nolint:revive // package name matches internal/ast; overlaps with go/ast in imports
 
 import (
 	"strings"
@@ -39,7 +39,7 @@ func TestTypeDefBinaryExpr_conjunction_disjunction_String(t *testing.T) {
 	}
 }
 
-func TestTypeDefExpr_marker_methods(t *testing.T) {
+func TestTypeDefExpr_marker_methods(_ *testing.T) {
 	TypeDefAssertionExpr{}.isTypeDefExpr()
 	TypeDefBinaryExpr{}.isTypeDefExpr()
 	TypeDefShapeExpr{}.isTypeDefExpr()

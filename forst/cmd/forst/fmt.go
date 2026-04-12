@@ -49,9 +49,9 @@ func runFmtCommand(argv []string, log *logrus.Logger, out io.Writer) error {
 		}
 		switch {
 		case *list:
-			fmt.Fprintln(out, path)
+			_, _ = fmt.Fprintln(out, path)
 		case *dry:
-			fmt.Fprintf(out, "write %s\n", path)
+			_, _ = fmt.Fprintf(out, "write %s\n", path)
 		default:
 			info, statErr := os.Stat(path)
 			perm := iofs.FileMode(0o644)

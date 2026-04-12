@@ -221,11 +221,7 @@ func TestIsOperationWithShapeWrapper(t *testing.T) {
 			}
 
 			// The is operation should have been processed during CheckTypes
-			// We can verify this by checking if the types were inferred correctly
-			if !tt.expectError {
-				// For valid cases, we expect the types to be inferred without error
-				// The actual type inference happens during CheckTypes above
-			}
+			// (valid cases infer types during CheckTypes above; error cases are asserted via expectError)
 		})
 	}
 }

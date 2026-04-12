@@ -25,4 +25,4 @@ func (d DereferenceNode) GetIdent() string {
 }
 
 // Implement ValueNode interface for DereferenceNode
-func (r DereferenceNode) isValue() { _ = r }
+func (d DereferenceNode) isValue() { _ = d }

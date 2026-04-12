@@ -78,19 +78,19 @@ func (m *GoModuleManager) CreateModule(config *ModuleConfig) (string, error) {
 
 	// Create go.mod file
 	if err := m.createGoMod(tempDir, config.ModuleName); err != nil {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		return "", err
 	}
 
 	// Create main.go file
 	if err := m.createMainGo(tempDir, config); err != nil {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		return "", err
 	}
 
 	// Create package directory and file
 	if err := m.createPackageFile(tempDir, config); err != nil {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		return "", err
 	}
 
@@ -148,7 +148,7 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 			paramType := param.Type
 
 			// For Go built-in types, use the type name directly without package prefix
-			inputType := paramType
+			var inputType string
 			if typechecker.IsGoBuiltinType(paramType) {
 				inputType = paramType
 			} else {
@@ -218,12 +218,12 @@ func main() {
 func buildParameterExtraction(containerName string, paramNames []string, paramTypes []string) string {
 	// Build array definition and decode JSON input
 	var arrayDef strings.Builder
-	arrayDef.WriteString(fmt.Sprintf("var %sJSON = make([]interface{}, %d)", containerName, len(paramNames)))
-	arrayDef.WriteString(fmt.Sprintf(`
+	fmt.Fprintf(&arrayDef, "var %sJSON = make([]interface{}, %d)", containerName, len(paramNames))
+	fmt.Fprintf(&arrayDef, `
 	if err := json.NewDecoder(os.Stdin).Decode(&%sJSON); err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading from stdin: %%v\n", err)
 		os.Exit(1)
-	}`, containerName))
+	}`, containerName)
 
 	// Build parameter extraction code
 	var paramCode strings.Builder
@@ -239,7 +239,7 @@ func buildParameterExtraction(containerName string, paramNames []string, paramTy
 				// integers like 29, they are decoded as float64(29.0), not int(29).
 				// Direct type assertion to int will fail, so we convert float64 to int.
 				if paramType == "int" {
-					paramCode.WriteString(fmt.Sprintf(`
+					fmt.Fprintf(&paramCode, `
         var %s %s
         if v, ok := %sJSON[%d].(float64); ok {
         	%s = int(v)
@@ -248,26 +248,26 @@ func buildParameterExtraction(containerName string, paramNames []string, paramTy
         } else {
         	fmt.Fprintf(os.Stderr, "Error: parameter %%d has wrong type, expected %s\n", %d)
         	os.Exit(1)
-        }`, name, paramType, containerName, i, name, containerName, i, name, paramType, i))
+        }`, name, paramType, containerName, i, name, containerName, i, name, paramType, i)
 				} else {
-					paramCode.WriteString(fmt.Sprintf(`
+					fmt.Fprintf(&paramCode, `
         var %s %s
         if v, ok := %sJSON[%d].(%s); ok {
         	%s = v
         } else {
         	fmt.Fprintf(os.Stderr, "Error: parameter %%d has wrong type, expected %s\n", %d)
         	os.Exit(1)
-        }`, name, paramType, containerName, i, paramType, name, paramType, i))
+        }`, name, paramType, containerName, i, paramType, name, paramType, i)
 				}
 			} else {
 				// For struct types, use json.Unmarshal
-				paramCode.WriteString(fmt.Sprintf(`
+				fmt.Fprintf(&paramCode, `
         var %s %s
         paramBytes, _ := json.Marshal(%sJSON[%d])
         if err := json.Unmarshal(paramBytes, &%s); err != nil {
         	fmt.Fprintf(os.Stderr, "Error unmarshaling parameter %%d: %%v\n", %d, err)
         	os.Exit(1)
-        }`, name, paramType, containerName, i, name, i))
+        }`, name, paramType, containerName, i, name, i)
 			}
 		}
 	}

@@ -195,7 +195,7 @@ func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
 	r1 := types.NewVar(0, nil, "", types.Typ[types.Int])
 	r2 := types.NewVar(0, nil, "", errIface)
 	results := types.NewTuple(r0, r1, r2)
-	sig := types.NewSignature(nil, types.NewTuple(), results, false)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(), results, false)
 	e := ast.FunctionCallNode{CallSpan: ast.SourceSpan{}}
 	got, err := tc.checkGoSignature(sig, "test.F", e, [][]ast.TypeNode{}, true)
 	if err != nil {
@@ -225,7 +225,7 @@ func TestCheckGoSignature_foldsPairIntErrorNoTuple(t *testing.T) {
 	r0 := types.NewVar(0, nil, "", types.Typ[types.Int])
 	r1 := types.NewVar(0, nil, "", errIface)
 	results := types.NewTuple(r0, r1)
-	sig := types.NewSignature(nil, types.NewTuple(), results, false)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(), results, false)
 	e := ast.FunctionCallNode{CallSpan: ast.SourceSpan{}}
 	got, err := tc.checkGoSignature(sig, "test.F", e, [][]ast.TypeNode{}, true)
 	if err != nil {

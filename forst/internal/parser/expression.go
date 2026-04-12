@@ -127,7 +127,7 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 }
 
 // parseIndexSuffixChain parses zero or more `[expr]` suffixes (slice/array indexing).
-func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, depth int) ast.ExpressionNode {
+func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, _ int) ast.ExpressionNode {
 	for p.current().Type == ast.TokenLBracket {
 		p.advance()
 		idx := p.parseExpression()

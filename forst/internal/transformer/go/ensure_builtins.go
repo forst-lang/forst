@@ -190,7 +190,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 				Y:  &goast.BasicLit{Kind: token.INT, Value: "0"},
 			}, nil
 		},
-		ValidConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+		ValidConstraint: func(at *AssertionTransformer, _ ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}

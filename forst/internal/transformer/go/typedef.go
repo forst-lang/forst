@@ -218,28 +218,3 @@ func (t *Transformer) defineShapeTypes() error {
 	}
 	return nil
 }
-
-// getTypeAliasNameForTypeNode uses the unified type aliasing function from the typechecker
-func (t *Transformer) getTypeAliasNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	// Handle Shape and TYPE_SHAPE types specially - emit inline empty struct
-	if typeNode.Ident == ast.TypeIdent("Shape") || typeNode.Ident == ast.TypeIdent("TYPE_SHAPE") {
-		t.log.Debugf("getTypeAliasNameForTypeNode: Shape/TYPE_SHAPE type %q -> inline struct", typeNode.Ident)
-		return "struct{}", nil
-	}
-
-	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-}
-
-// getGeneratedTypeNameForTypeNode uses the unified type aliasing function from the typechecker
-func (t *Transformer) getGeneratedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-}
-
-// getAliasedTypeNameForTypeNode returns the aliased type name for any type node,
-// ensuring consistent type aliasing across the transformer
-func (t *Transformer) getAliasedTypeNameForTypeNode(typeNode ast.TypeNode) (string, error) {
-	// Use the unified type aliasing function from the typechecker
-	return t.TypeChecker.GetAliasedTypeName(typeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-}
