@@ -204,6 +204,55 @@ func main() {
 	}
 }
 
+func TestIfResult_isErr_typeArg_narrowsToNominalFailureArm(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+
+error ParseError { code: Int }
+
+type ErrKind = ParseError
+
+func mk(): Result(Int, ErrKind) {
+	return 0
+}
+
+func main() {
+	x := mk()
+	if x is Err(ParseError) {
+		y := x
+		println(y)
+	}
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+	mainFn := findMainFunction(t, nodes)
+	ifStmt := unwrapIfNode(t, mainFn.Body[1])
+	printlnCall, ok := ifStmt.Body[1].(ast.FunctionCallNode)
+	if !ok {
+		t.Fatalf("expected println call, got %T", ifStmt.Body[1])
+	}
+	vn, ok := printlnCall.Arguments[0].(ast.VariableNode)
+	if !ok {
+		t.Fatalf("expected variable arg, got %T", printlnCall.Arguments[0])
+	}
+	types, ok := tc.InferredTypesForVariableNode(vn)
+	if !ok || len(types) != 1 {
+		t.Fatalf("y: ok=%v types=%v", ok, types)
+	}
+	if types[0].Ident != ast.TypeIdent("ParseError") {
+		t.Fatalf("expected ParseError narrowed failure payload, got %s", types[0].String())
+	}
+}
+
 func unwrapIfNode(t *testing.T, n ast.Node) ast.IfNode {
 	t.Helper()
 	switch x := n.(type) {

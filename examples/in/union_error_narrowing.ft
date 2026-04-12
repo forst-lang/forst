@@ -1,0 +1,32 @@
+package main
+
+// Narrowing: failure payloads from closed nominal-error unions (ErrKind = A | B) use Result(S, ErrKind)
+// and `Err()` / `Err(...)` guards — not `is ParseError` on the union (nominal errors are not `is` guards).
+// Covered by compiler and typechecker tests; no golden .go (TestExamples skips when out/ is missing).
+
+error ParseError {
+	code: Int,
+}
+
+error IoError {
+	path: String,
+}
+
+type ErrKind = ParseError | IoError
+
+func onlyParseError(p ParseError) {}
+
+func mk(): Result(Int, ErrKind) {
+	return 0
+}
+
+func demo() {
+	x := mk()
+	if x is Err(ParseError) {
+		onlyParseError(x)
+	}
+}
+
+func main() {
+	demo()
+}

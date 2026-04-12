@@ -7,10 +7,39 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// typeIdentIsNominalError reports whether id names a user `error Name { ... }` type.
+func (tc *TypeChecker) typeIdentIsNominalError(id ast.TypeIdent) bool {
+	def, ok := tc.Defs[id].(ast.TypeDefNode)
+	if !ok {
+		return false
+	}
+	switch def.Expr.(type) {
+	case ast.TypeDefErrorExpr, *ast.TypeDefErrorExpr:
+		return true
+	default:
+		return false
+	}
+}
+
+// rejectNominalErrorAsBareIsGuard rejects `x is ParseError`-style guards: nominal errors must be
+// discriminated via Result and `Err()` / `Err(...)` (built-in Result guards), not as the RHS base type.
+func (tc *TypeChecker) rejectNominalErrorAsBareIsGuard(assertionNode *ast.AssertionNode) error {
+	if assertionNode == nil || assertionNode.BaseType == nil {
+		return nil
+	}
+	if tc.typeIdentIsNominalError(*assertionNode.BaseType) {
+		return fmt.Errorf("nominal error type %q cannot be used as an `is` guard; narrow failure values via Result using `Err()` or `Err(...)`", *assertionNode.BaseType)
+	}
+	return nil
+}
+
 // validateTypeDefAssertion validates a TypeDefAssertionExpr against the left-hand side type
 func (tc *TypeChecker) validateTypeDefAssertion(assertionNode *ast.AssertionNode, varLeftType ast.TypeNode) error {
 	if assertionNode == nil {
 		return fmt.Errorf("right-hand side of 'is' must be an assertion")
+	}
+	if err := tc.rejectNominalErrorAsBareIsGuard(assertionNode); err != nil {
+		return err
 	}
 
 	// Check that the assertion's base type matches the left-hand side type or is a subtype
@@ -117,6 +146,9 @@ func (tc *TypeChecker) processTypeGuardFields(shapeNode *ast.ShapeNode, assertio
 
 // validateAssertionNode validates a direct assertion node
 func (tc *TypeChecker) validateAssertionNode(assertionNode ast.AssertionNode, varLeftType ast.TypeNode) error {
+	if err := tc.rejectNominalErrorAsBareIsGuard(&assertionNode); err != nil {
+		return err
+	}
 	if len(assertionNode.Constraints) == 1 && assertionNode.BaseType == nil {
 		c := assertionNode.Constraints[0]
 		if c.Name == "Ok" || c.Name == "Err" {
@@ -197,10 +229,17 @@ func (tc *TypeChecker) validateResultDiscriminatorAssertion(a ast.AssertionNode,
 		case 0:
 			return nil
 		case 1:
-			if c.Args[0].Value == nil {
-				return fmt.Errorf("Err(...) requires a value argument")
+			arg := c.Args[0]
+			if arg.Type != nil {
+				if !tc.IsTypeCompatible(*arg.Type, fail) {
+					return fmt.Errorf("Err(...) type argument incompatible with failure type %s", fail.String())
+				}
+				return nil
 			}
-			vt, err := tc.inferExpressionType(*c.Args[0].Value)
+			if arg.Value == nil {
+				return fmt.Errorf("Err(...) requires a value or type argument")
+			}
+			vt, err := tc.inferExpressionType(*arg.Value)
 			if err != nil {
 				return err
 			}
