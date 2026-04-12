@@ -9,6 +9,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestTypeDefExprToTypeNode_nilExprErrors(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	_, err := tc.TypeDefExprToTypeNode(nil)
+	if err == nil {
+		t.Fatal("expected error for nil typedef expression")
+	}
+}
+
 func TestTypeDefExprToTypeNode_unionAndMeet(t *testing.T) {
 	t.Parallel()
 	tc := New(logrus.New(), false)
@@ -174,6 +183,43 @@ func TestExpandTypeDefBinaryIfNeeded_roundTrip(t *testing.T) {
 	})
 	if !tc.IsTypeCompatible(ast.TypeNode{Ident: "AB"}, ast.TypeNode{Ident: ast.TypeError}) {
 		t.Fatal("named typedef binary should expand to union and assign to Error")
+	}
+}
+
+func TestIsErrorKindedType_unionAndIntersectionBranches(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	if tc.IsErrorKindedType(ast.TypeNode{Ident: ast.TypeUnion, TypeParams: nil}) {
+		t.Fatal("empty union should not be error-kinded")
+	}
+	if tc.IsErrorKindedType(ast.TypeNode{Ident: ast.TypeUnion, TypeParams: []ast.TypeNode{}}) {
+		t.Fatal("union with zero members should not be error-kinded")
+	}
+	// Mixed non-error member => false
+	if tc.IsErrorKindedType(ast.NewUnionType(ast.TypeNode{Ident: ast.TypeError}, ast.TypeNode{Ident: ast.TypeString})) {
+		t.Fatal("Error | String is not fully error-kinded (String is not)")
+	}
+	tc.registerType(ast.TypeDefNode{
+		Ident: "E1",
+		Expr: ast.TypeDefErrorExpr{
+			Payload: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+				"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+			}},
+		},
+	})
+	tc.registerType(ast.TypeDefNode{
+		Ident: "E2",
+		Expr: ast.TypeDefErrorExpr{
+			Payload: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+				"b": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			}},
+		},
+	})
+	if !tc.IsErrorKindedType(ast.NewUnionType(ast.TypeNode{Ident: "E1"}, ast.TypeNode{Ident: "E2"})) {
+		t.Fatal("E1 | E2 nominal errors should be error-kinded")
+	}
+	if !tc.IsErrorKindedType(ast.NewIntersectionType(ast.TypeNode{Ident: "E1"}, ast.TypeNode{Ident: "E2"})) {
+		t.Fatal("E1 & E2 (both nominal errors) should be error-kinded for IsErrorKindedType")
 	}
 }
 

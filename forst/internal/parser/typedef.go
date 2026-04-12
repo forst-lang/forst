@@ -90,6 +90,20 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 
+	// TypeScript-style leading `|` or `&` after `=` (whitespace/newlines are not tokens):
+	//   type X =
+	//     | A
+	//     | B
+	// Equivalent to `type X = A | B` — skip the first token and parse the rest.
+	if p.current().Type == ast.TokenBitwiseOr {
+		p.advance()
+		return p.parseTypeDefExpr()
+	}
+	if p.current().Type == ast.TokenBitwiseAnd {
+		p.advance()
+		return p.parseTypeDefExpr()
+	}
+
 	var left ast.TypeDefExpr
 	if p.peek().Type == ast.TokenDot {
 		assertion := p.parseAssertionChain(true)

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 
@@ -166,5 +167,41 @@ func getCell(cells []String, idx Int): String {
 				t.Fatalf("re-parse: %v\n--- out ---\n%s", err, out)
 			}
 		})
+	}
+}
+
+func TestPrint_unionTypedef_multilineLeadingPipe(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+type X = A | B
+
+func main() {}
+`
+	log := ast.SetupTestLogger(nil)
+	log.SetLevel(logrus.ErrorLevel)
+	l := lexer.New([]byte(src), "t.ft", log)
+	tokens := l.Lex()
+	p := parser.New(tokens, "t.ft", log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	cfg.TypeDefLineWidth = 1 // force Prettier-style break for any union with 2+ members
+	out, err := Print(cfg, nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "type X =\n") {
+		t.Fatalf("expected multiline typedef header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "| A") || !strings.Contains(out, "| B") {
+		t.Fatalf("expected leading | on each variant, got:\n%s", out)
+	}
+	// Round-trip parse formatted output
+	l2 := lexer.New([]byte(out), "t.ft", log)
+	if _, err := parser.New(l2.Lex(), "t.ft", log).ParseFile(); err != nil {
+		t.Fatalf("re-parse formatted: %v\n%s", err, out)
 	}
 }

@@ -17,11 +17,14 @@ import (
 type Config struct {
 	// Indent is one indentation level inside blocks (default "\t").
 	Indent string
+	// TypeDefLineWidth is the maximum length for a full `type Name = expr` line before breaking
+	// union/intersection typedefs across lines (leading | or & per member, Prettier-style). Zero defaults to 80.
+	TypeDefLineWidth int
 }
 
 // DefaultConfig returns Config with tab indentation.
 func DefaultConfig() Config {
-	return Config{Indent: "\t"}
+	return Config{Indent: "\t", TypeDefLineWidth: 80}
 }
 
 // FormatSource lexes and parses src then pretty-prints the AST. fileID is used for diagnostics.
@@ -213,6 +216,13 @@ func (p *printer) printImportGroup(g ast.ImportGroupNode) string {
 	return b.String()
 }
 
+func (p *printer) effectiveTypeDefLineWidth() int {
+	if p.cfg.TypeDefLineWidth <= 0 {
+		return 80
+	}
+	return p.cfg.TypeDefLineWidth
+}
+
 func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
 	if _, ok := t.Expr.(ast.TypeDefErrorExpr); ok {
 		ee := t.Expr.(ast.TypeDefErrorExpr)
@@ -226,7 +236,102 @@ func (p *printer) printTypeDef(t ast.TypeDefNode) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("type %s = %s", string(t.Ident), expr), nil
+	name := string(t.Ident)
+	single := fmt.Sprintf("type %s = %s", name, expr)
+	if body, ok, err := p.maybeMultilineTypeDefAlias(name, t.Expr, single); err != nil {
+		return "", err
+	} else if ok {
+		return body, nil
+	}
+	return single, nil
+}
+
+// maybeMultilineTypeDefAlias returns (formatted, true, nil) when the typedef is broken across lines.
+func (p *printer) maybeMultilineTypeDefAlias(name string, e ast.TypeDefExpr, singleLine string) (string, bool, error) {
+	op, members := flattenTypeDefSameOpChain(e)
+	if len(members) < 2 {
+		return "", false, nil
+	}
+	if len(singleLine) <= p.effectiveTypeDefLineWidth() {
+		return "", false, nil
+	}
+	body, err := p.printTypeDefExprLeadingOps(op, members)
+	if err != nil {
+		return "", false, err
+	}
+	out := fmt.Sprintf("type %s =\n%s", name, prefixEachLine(p.cfg.Indent, body))
+	return out, true, nil
+}
+
+// flattenTypeDefSameOpChain returns (op, members) for a homogeneous | or & chain, or ("", nil) if not splittable.
+func flattenTypeDefSameOpChain(e ast.TypeDefExpr) (ast.TokenIdent, []ast.TypeDefExpr) {
+	bin, ok := unwrapTypeDefBinary(e)
+	if !ok || (bin.Op != ast.TokenBitwiseOr && bin.Op != ast.TokenBitwiseAnd) {
+		return "", nil
+	}
+	op := bin.Op
+	members := flattenTypeDefSameOp(e, op)
+	if len(members) < 2 {
+		return "", nil
+	}
+	return op, members
+}
+
+func unwrapTypeDefBinary(e ast.TypeDefExpr) (ast.TypeDefBinaryExpr, bool) {
+	switch x := e.(type) {
+	case ast.TypeDefBinaryExpr:
+		return x, true
+	case *ast.TypeDefBinaryExpr:
+		if x == nil {
+			return ast.TypeDefBinaryExpr{}, false
+		}
+		return *x, true
+	default:
+		return ast.TypeDefBinaryExpr{}, false
+	}
+}
+
+func flattenTypeDefSameOp(e ast.TypeDefExpr, op ast.TokenIdent) []ast.TypeDefExpr {
+	switch x := e.(type) {
+	case ast.TypeDefBinaryExpr:
+		if x.Op != op {
+			return []ast.TypeDefExpr{e}
+		}
+		left := flattenTypeDefSameOp(x.Left, op)
+		right := flattenTypeDefSameOp(x.Right, op)
+		out := make([]ast.TypeDefExpr, 0, len(left)+len(right))
+		out = append(out, left...)
+		out = append(out, right...)
+		return out
+	case *ast.TypeDefBinaryExpr:
+		if x == nil {
+			return []ast.TypeDefExpr{e}
+		}
+		return flattenTypeDefSameOp(*x, op)
+	default:
+		return []ast.TypeDefExpr{e}
+	}
+}
+
+func (p *printer) printTypeDefExprLeadingOps(op ast.TokenIdent, members []ast.TypeDefExpr) (string, error) {
+	opStr := "|"
+	if op == ast.TokenBitwiseAnd {
+		opStr = "&"
+	}
+	var b strings.Builder
+	for i, m := range members {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(opStr)
+		b.WriteByte(' ')
+		s, err := p.printTypeDefExpr(m)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(s)
+	}
+	return b.String(), nil
 }
 
 func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
