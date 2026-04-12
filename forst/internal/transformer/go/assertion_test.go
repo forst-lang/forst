@@ -10,11 +10,6 @@ import (
 )
 
 func TestTransformAssertionType_valueConstraint_literals(t *testing.T) {
-	t.Parallel()
-	log := setupTestLogger(nil)
-	tc := setupTypeChecker(log)
-	tr := setupTransformer(tc, log)
-
 	cases := []struct {
 		name string
 		val  ast.ValueNode
@@ -25,10 +20,15 @@ func TestTransformAssertionType_valueConstraint_literals(t *testing.T) {
 		{"float", ast.FloatLiteralNode{Value: 1.25}, "float64"},
 		{"bool", ast.BoolLiteralNode{Value: false}, "bool"},
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			var v ast.ValueNode = tc.val
+			// Each subtest needs its own TypeChecker: LookupAssertionType mutates tc.Types
+			// (race when subtests shared one checker under -race).
+			log := setupTestLogger(nil)
+			tc := setupTypeChecker(log)
+			tr := setupTransformer(tc, log)
+			var v ast.ValueNode = tt.val
 			a := &ast.AssertionNode{
 				Constraints: []ast.ConstraintNode{
 					{Name: ast.ValueConstraint, Args: []ast.ConstraintArgumentNode{{Value: &v}}},
@@ -42,8 +42,8 @@ func TestTransformAssertionType_valueConstraint_literals(t *testing.T) {
 				t.Fatal("nil expr")
 			}
 			got := goExprString(t, *expr)
-			if !strings.Contains(got, tc.want) {
-				t.Fatalf("got %q want %q", got, tc.want)
+			if !strings.Contains(got, tt.want) {
+				t.Fatalf("got %q want %q", got, tt.want)
 			}
 		})
 	}
