@@ -30,6 +30,9 @@ type Transformer struct {
 	// resultLocalSplit maps a Forst variable name to the Go identifiers used when lowering
 	// "x := pkg.F()" where F returns Result (Go (values..., error)). Scoped per transformFunction.
 	resultLocalSplit map[string]resultLocalSplit
+
+	// emittedSealMethods records receiver+method pairs for nominal error union sealing (dedupe on re-emit).
+	emittedSealMethods map[string]struct{}
 }
 
 // New creates a new Transformer

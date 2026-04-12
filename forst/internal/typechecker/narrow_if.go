@@ -350,7 +350,28 @@ func (tc *TypeChecker) refinedTypesForResultIsNarrowing(varLeftType ast.TypeNode
 	if c.Name == "Ok" {
 		return true, []ast.TypeNode{varLeftType.TypeParams[0]}, nil
 	}
-	return true, []ast.TypeNode{varLeftType.TypeParams[1]}, nil
+	fail := varLeftType.TypeParams[1]
+	if len(c.Args) == 0 {
+		return true, []ast.TypeNode{fail}, nil
+	}
+	if len(c.Args) != 1 {
+		return true, nil, fmt.Errorf("Err(...) expects at most one argument")
+	}
+	arg := c.Args[0]
+	if arg.Type != nil {
+		return true, []ast.TypeNode{*arg.Type}, nil
+	}
+	if arg.Value == nil {
+		return true, nil, fmt.Errorf("Err(...) requires a value or type argument")
+	}
+	vt, err := tc.inferExpressionType(*arg.Value)
+	if err != nil {
+		return true, nil, err
+	}
+	if len(vt) != 1 {
+		return true, nil, fmt.Errorf("err argument: expected a single type")
+	}
+	return true, []ast.TypeNode{vt[0]}, nil
 }
 
 // refinedTypesForAssertionOnVariable returns the refined type(s) for a variable under the given
@@ -526,7 +547,7 @@ func (tc *TypeChecker) endIfChainApplyJoin() {
 		outerByIdent[id] = sym.Types[0]
 	}
 
-	mergedByIdent := MergeFlowFactsAtIfJoin(outerByIdent, branchFacts)
+	mergedByIdent := MergeFlowFactsAtIfJoin(tc, outerByIdent, branchFacts)
 	for id, merged := range mergedByIdent {
 		outer := outerByIdent[id]
 		tc.log.WithFields(logrus.Fields{

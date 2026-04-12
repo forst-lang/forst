@@ -24,6 +24,16 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "union of nominal errors typedef",
+			filePath: "../../../../examples/in/union_error_types.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "union of nominal errors with if-branch narrowing",
+			filePath: "../../../../examples/in/union_error_narrowing.ft",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,
@@ -119,6 +129,34 @@ func Identity(x Wire): Wire {
 	}
 	if !strings.Contains(out, "`json:\"msg\"`") || !strings.Contains(out, "`json:\"count\"`") {
 		t.Fatalf("expected json struct tags for Forst field names, got: %.400s", out)
+	}
+}
+
+func TestCompileFile_unionErrorNarrowing_example(t *testing.T) {
+	t.Parallel()
+	c := New(Args{
+		Command:  "build",
+		FilePath: "../../../../examples/in/union_error_narrowing.ft",
+		LogLevel: "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if code == nil {
+		t.Fatal("nil code")
+	}
+	out := *code
+	for _, want := range []string{
+		"type ErrKind interface",
+		"isErrKind()",
+		"type ParseError struct",
+		"func onlyParseError(p ParseError)",
+		"func demo()",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("generated Go missing %q\n%.1200s", want, out)
+		}
 	}
 }
 

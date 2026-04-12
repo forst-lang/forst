@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +32,7 @@ func Hello(): Greeting {
 	}
 
 	log := logrus.New()
-	log.SetOutput(nil)
+	log.SetOutput(io.Discard)
 	merged, _, err := forstpkg.ParseAndMergePackage(log, []string{typesPath, apiPath})
 	if err != nil {
 		t.Fatalf("merge: %v", err)
@@ -43,9 +44,35 @@ func Hello(): Greeting {
 	}
 }
 
+// Regression: inferNodeType must not replace `type Greeting = String` with an empty TypeDefShapeExpr.
+// underlyingBuiltinTypeOfAliasAssertion(String) returns "" because String is not in Defs as a typedef.
+func TestInferTypeDef_directBuiltinAliasPreservesAssertionExpr(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	tc := New(log, false)
+	str := ast.TypeString
+	td := ast.TypeDefNode{
+		Ident: "Greeting",
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &str},
+		},
+	}
+	tc.registerType(td)
+	if _, err := tc.inferNodeType(td); err != nil {
+		t.Fatalf("infer: %v", err)
+	}
+	def, ok := tc.Defs[ast.TypeIdent("Greeting")].(ast.TypeDefNode)
+	if !ok {
+		t.Fatalf("expected TypeDefNode for Greeting")
+	}
+	if _, ok := def.Expr.(ast.TypeDefAssertionExpr); !ok {
+		t.Fatalf("expected TypeDefAssertionExpr after infer, got %T", def.Expr)
+	}
+}
+
 func TestIsTypeCompatible_simpleTypeAliasToString(t *testing.T) {
 	log := logrus.New()
-	log.SetOutput(nil)
+	log.SetOutput(io.Discard)
 	tc := New(log, false)
 	tc.Defs[ast.TypeIdent("Greeting")] = ast.TypeDefNode{
 		Ident: ast.TypeIdent("Greeting"),

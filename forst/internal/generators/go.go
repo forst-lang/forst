@@ -20,40 +20,6 @@ func GenerateGoCode(goFile *goast.File) (string, error) {
 	sortDeclarations(goFile)
 	sortStructFields(goFile)
 
-	// DEBUG: Log the AST before serialization to check for issues
-	fmt.Printf("DEBUG: AST before serialization - %d declarations\n", len(goFile.Decls))
-	for _, decl := range goFile.Decls {
-		if funcDecl, ok := decl.(*goast.FuncDecl); ok {
-			fmt.Printf("DEBUG: Function %s\n", funcDecl.Name.Name)
-			// Print the function body to see what's being generated
-			if funcDecl.Body != nil {
-				for j, stmt := range funcDecl.Body.List {
-					fmt.Printf("DEBUG: Statement %d: %T\n", j, stmt)
-					// If it's a return statement, print the return values
-					if returnStmt, ok := stmt.(*goast.ReturnStmt); ok {
-						fmt.Printf("DEBUG: Return statement with %d results\n", len(returnStmt.Results))
-						for k, result := range returnStmt.Results {
-							fmt.Printf("DEBUG: Return result %d: %T\n", k, result)
-							// If it's a composite literal, print its elements
-							if compositeLit, ok := result.(*goast.CompositeLit); ok {
-								fmt.Printf("DEBUG: Composite literal type: %T\n", compositeLit.Type)
-								fmt.Printf("DEBUG: Composite literal has %d elements\n", len(compositeLit.Elts))
-								for l, elt := range compositeLit.Elts {
-									if keyValue, ok := elt.(*goast.KeyValueExpr); ok {
-										fmt.Printf("DEBUG: Element %d key: %T, value: %T\n", l, keyValue.Key, keyValue.Value)
-										if basicLit, ok := keyValue.Value.(*goast.BasicLit); ok {
-											fmt.Printf("DEBUG: BasicLit Kind: %s, Value: %s\n", basicLit.Kind, basicLit.Value)
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
 	if err := format.Node(&buf, fset, goFile); err != nil {
 		return "", fmt.Errorf("failed to format Go code: %w", err)
 	}

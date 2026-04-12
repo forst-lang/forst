@@ -69,3 +69,33 @@ func main() {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestUnifyIs_nominalErrorBaseType_rejected(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+
+error ParseError { code: Int }
+type ErrKind = ParseError
+
+func main() {
+	var e: ErrKind = { code: 1 }
+	if e is ParseError {
+		println(e)
+	}
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected CheckTypes error: nominal error cannot be bare `is` guard")
+	}
+	if !strings.Contains(err.Error(), "cannot be used as an `is` guard") || !strings.Contains(err.Error(), "Err()") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

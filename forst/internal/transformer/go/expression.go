@@ -161,6 +161,44 @@ func (t *Transformer) goResultErrIdentForExpr(left ast.ExpressionNode) (goast.Ex
 	return nil, fmt.Errorf("if-is: Result Ok/Err requires a Result-bound variable (missing local split for %q)", name)
 }
 
+// goExprErrFailureTypeAssertion builds a bool expression for `Err(T)` when T is a type argument:
+// failure value is non-nil and type-asserts to T (comma-ok), for codegen when no runtime value is given.
+func (t *Transformer) goExprErrFailureTypeAssertion(errExpr goast.Expr, discriminant *ast.TypeNode) (goast.Expr, error) {
+	if discriminant == nil {
+		return nil, fmt.Errorf("if-is: Err type discriminator needs a type")
+	}
+	goTy, err := t.transformType(*discriminant)
+	if err != nil {
+		return nil, err
+	}
+	// func() bool {
+	//   if errExpr == nil { return false }
+	//   _, ok := errExpr.(T)
+	//   return ok
+	// }()
+	ifNil := &goast.IfStmt{
+		Cond: &goast.BinaryExpr{X: errExpr, Op: token.EQL, Y: goast.NewIdent("nil")},
+		Body: &goast.BlockStmt{List: []goast.Stmt{
+			&goast.ReturnStmt{Results: []goast.Expr{goast.NewIdent("false")}},
+		}},
+	}
+	assign := &goast.AssignStmt{
+		Lhs: []goast.Expr{goast.NewIdent("_"), goast.NewIdent("ok")},
+		Tok: token.DEFINE,
+		Rhs: []goast.Expr{&goast.TypeAssertExpr{X: errExpr, Type: goTy}},
+	}
+	retOk := &goast.ReturnStmt{Results: []goast.Expr{goast.NewIdent("ok")}}
+	fn := &goast.FuncLit{
+		Type: &goast.FuncType{
+			Results: &goast.FieldList{
+				List: []*goast.Field{{Type: goast.NewIdent("bool")}},
+			},
+		},
+		Body: &goast.BlockStmt{List: []goast.Stmt{ifNil, assign, retOk}},
+	}
+	return &goast.CallExpr{Fun: fn}, nil
+}
+
 // transformResultIsDiscriminator lowers `x is Ok(...)` / `Err(...)` for Result lowered to (succ, err).
 func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c ast.ConstraintNode) (goast.Expr, error) {
 	errExpr, err := t.goResultErrIdentForExpr(left)
@@ -194,6 +232,9 @@ func (t *Transformer) transformResultIsDiscriminator(left ast.ExpressionNode, c 
 			return &goast.BinaryExpr{X: errExpr, Op: token.NEQ, Y: goast.NewIdent("nil")}, nil
 		}
 		if len(c.Args) == 1 {
+			if c.Args[0].Type != nil {
+				return t.goExprErrFailureTypeAssertion(errExpr, c.Args[0].Type)
+			}
 			argExpr, err := expressionFromConstraintArg(c.Args[0])
 			if err != nil {
 				return nil, err

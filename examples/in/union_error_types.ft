@@ -1,0 +1,18 @@
+package main
+
+// Union of nominal errors (see RFC optionals/02 section 3): a finite failure set assignable to Error.
+// Go emit: sealed interface `ErrKind` + marker methods on each member; TypeScript: `ParseError | IoError`.
+error ParseError {
+	code: Int,
+}
+
+error IoError {
+	path: String,
+}
+
+// Named union of two failure kinds (middle ground vs Result(_, Error)).
+// Also valid: `type ErrKind = ParseError | IoError` (same AST).
+type ErrKind = ParseError | IoError
+
+func main() {
+}

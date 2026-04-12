@@ -111,6 +111,18 @@ func TestTransformResultIsDiscriminator_splitLocal(t *testing.T) {
 		}
 	})
 
+	t.Run("Err_with_type_arg", func(t *testing.T) {
+		arg := ast.ConstraintArgumentNode{Type: &ast.TypeNode{Ident: ast.TypeInt}}
+		out, err := tr.transformResultIsDiscriminator(left, ast.ConstraintNode{Name: "Err", Args: []ast.ConstraintArgumentNode{arg}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := exprString(t, out)
+		if !strings.Contains(s, "int") || !strings.Contains(s, "ok") {
+			t.Fatalf("got %q", s)
+		}
+	})
+
 	t.Run("Err_too_many_args", func(t *testing.T) {
 		var v1 ast.ValueNode = ast.IntLiteralNode{Value: 1}
 		var v2 ast.ValueNode = ast.IntLiteralNode{Value: 2}

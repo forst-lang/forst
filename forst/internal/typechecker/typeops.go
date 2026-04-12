@@ -5,20 +5,57 @@ import (
 )
 
 // InternalType is the semantic type representation used by lattice operations.
-// It aliases ast.TypeNode today; a dedicated IR may replace this (see narrowing plan §9.5).
+// It aliases ast.TypeNode today; a dedicated IR may replace it (see narrowing plan §9.5).
 type InternalType = ast.TypeNode
 
-// JoinAfterIfMerge implements merge-after-if for control-flow narrowing (plan §3.2, §0.3):
-// at the join point following a completed if / else-if / else chain, the static type of a
-// binding is the outer (pre-if) type until union types exist in the language.
-//
-// branchRefinements lists types inferred for the same binding along paths that narrowed it;
-// outer is the binding type in the enclosing scope before the if chain. The result is always
-// outer for this policy. When union/LUB types exist, consult branchRefinements to compute a
-// finer join without breaking callers that already pass refinements from MergeFlowFactsAtIfJoin.
-func JoinAfterIfMerge(outer InternalType, branchRefinements []InternalType) InternalType {
-	_ = branchRefinements // reserved for union / LUB when InternalType can represent unions
-	return outer
+// JoinAfterIfMerge combines the pre-if binding type with branch refinements at an if-chain merge point.
+// When tc is nil, returns outer (conservative). Otherwise forms a union of outer and refinements,
+// then collapses to outer when every union member is assignable to outer (width / subtyping).
+func JoinAfterIfMerge(tc *TypeChecker, outer InternalType, branchRefinements []InternalType) InternalType {
+	if len(branchRefinements) == 0 {
+		return outer
+	}
+	if tc == nil {
+		return outer
+	}
+	all := append([]InternalType{outer}, branchRefinements...)
+	flat := flattenUnionOperandsForJoin(all)
+	deduped := DedupeTypesPreservingOrder(flat)
+	j, ok := JoinTypes(deduped)
+	if !ok {
+		return outer
+	}
+	if j.Ident == ast.TypeUnion {
+		for _, m := range j.TypeParams {
+			if !tc.IsTypeCompatible(m, outer) {
+				return j
+			}
+		}
+		return outer
+	}
+	if tc.IsTypeCompatible(j, outer) {
+		return outer
+	}
+	return j
+}
+
+func flattenUnionOperandsForJoin(types []InternalType) []InternalType {
+	var out []InternalType
+	for _, t := range types {
+		out = append(out, flattenOneForJoin(t)...)
+	}
+	return out
+}
+
+func flattenOneForJoin(t InternalType) []InternalType {
+	if t.Ident == ast.TypeUnion && len(t.TypeParams) > 0 {
+		var out []InternalType
+		for _, m := range t.TypeParams {
+			out = append(out, flattenOneForJoin(m)...)
+		}
+		return out
+	}
+	return []InternalType{t}
 }
 
 // JoinTypesOutcome describes how JoinTypes combined its inputs.
@@ -31,23 +68,25 @@ const (
 	JoinTypesSingleton
 	// JoinTypesAllEquivalent means every operand is structurally the same (shallow + TypeParams).
 	JoinTypesAllEquivalent
-	// JoinTypesHeterogeneous means operands differ; union IR is not available yet — result is first after dedupe.
+	// JoinTypesHeterogeneous means operands differ; result is a normalized TypeUnion (or singleton after collapse).
 	JoinTypesHeterogeneous
 )
 
-// JoinTypesDetailed classifies n-ary join: duplicates collapse for reporting, but multiple
-// shallow-equal operands are JoinTypesAllEquivalent (not Singleton). Heterogeneous lists
-// return the first type after DedupeTypesPreservingOrder (union IR not available yet).
+// JoinTypesDetailed classifies n-ary join: duplicates collapse; heterogeneous lists become TypeUnion IR.
 func JoinTypesDetailed(types []InternalType) (InternalType, JoinTypesOutcome) {
 	if len(types) == 0 {
 		return InternalType{}, JoinTypesEmpty
 	}
-	if len(types) == 1 {
-		return types[0], JoinTypesSingleton
+	flat := flattenUnionOperandsForJoin(types)
+	if len(flat) == 0 {
+		return InternalType{}, JoinTypesEmpty
 	}
-	first := types[0]
+	if len(flat) == 1 {
+		return flat[0], JoinTypesSingleton
+	}
+	first := flat[0]
 	allEq := true
-	for _, t := range types[1:] {
+	for _, t := range flat[1:] {
 		if !typeNodesShallowEqual(first, t) {
 			allEq = false
 			break
@@ -56,19 +95,22 @@ func JoinTypesDetailed(types []InternalType) (InternalType, JoinTypesOutcome) {
 	if allEq {
 		return first, JoinTypesAllEquivalent
 	}
-	deduped := DedupeTypesPreservingOrder(types)
-	return deduped[0], JoinTypesHeterogeneous
+	deduped := DedupeTypesPreservingOrder(flat)
+	if len(deduped) == 1 {
+		return deduped[0], JoinTypesSingleton
+	}
+	u := ast.NewUnionType(deduped...)
+	return u, JoinTypesHeterogeneous
 }
 
-// JoinTypes is n-ary join for type-level union (future typedef A | B). Without union IR,
-// equivalent operands collapse; heterogeneous lists return (first, false).
+// JoinTypes is n-ary join for type-level union (typedef A | B and control-flow join).
 func JoinTypes(types []InternalType) (InternalType, bool) {
 	t, outcome := JoinTypesDetailed(types)
 	switch outcome {
 	case JoinTypesEmpty:
 		return InternalType{}, false
 	case JoinTypesHeterogeneous:
-		return t, false
+		return t, true
 	default:
 		return t, true
 	}
@@ -113,7 +155,7 @@ func typeNodesShallowEqual(a, b InternalType) bool {
 	return true
 }
 
-// MeetTypes intersects types for typedef A & B (stub: equal idents only; extend with normalization).
+// MeetTypes intersects types for typedef A & B (structural equality or subtype GLB via MeetTypesSubtyping on use sites).
 func MeetTypes(a, b InternalType) (InternalType, bool) {
 	if typeNodesShallowEqual(a, b) {
 		return a, true

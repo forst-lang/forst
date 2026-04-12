@@ -58,6 +58,16 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		return nil, fmt.Errorf("result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
 	case ast.TypeTuple:
 		return nil, fmt.Errorf("tuple types are expanded at function boundaries; use transformTypes, not transformType")
+	case ast.TypeUnion:
+		if t.TypeChecker.IsErrorKindedType(n) {
+			var r goast.Expr = goast.NewIdent("error")
+			return r, nil
+		}
+		var r goast.Expr = goast.NewIdent("any")
+		return r, nil
+	case ast.TypeIntersection:
+		var r goast.Expr = goast.NewIdent("any")
+		return r, nil
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})

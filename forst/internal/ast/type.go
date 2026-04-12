@@ -45,6 +45,11 @@ const (
 	TypeResult TypeIdent = "TYPE_RESULT"
 	// TypeTuple is Tuple(T1, ..., Tn) for product multi-values (e.g. Go FFI)
 	TypeTuple TypeIdent = "TYPE_TUPLE"
+
+	// TypeUnion is a finite type-level union (A | B | …) used by typedef and join; members are in TypeParams.
+	TypeUnion TypeIdent = "TYPE_UNION"
+	// TypeIntersection is a finite type-level intersection (A & B & …); members are in TypeParams.
+	TypeIntersection TypeIdent = "TYPE_INTERSECTION"
 )
 
 // TypeKind represents the origin/kind of a type
@@ -148,6 +153,24 @@ func (t TypeNode) String() string {
 			return fmt.Sprintf("Tuple(%s)", strings.Join(params, ", "))
 		}
 		return "Tuple()"
+	case TypeUnion:
+		if len(t.TypeParams) > 0 {
+			parts := make([]string, len(t.TypeParams))
+			for i := range t.TypeParams {
+				parts[i] = t.TypeParams[i].String()
+			}
+			return strings.Join(parts, " | ")
+		}
+		return "Union()"
+	case TypeIntersection:
+		if len(t.TypeParams) > 0 {
+			parts := make([]string, len(t.TypeParams))
+			for i := range t.TypeParams {
+				parts[i] = t.TypeParams[i].String()
+			}
+			return strings.Join(parts, " & ")
+		}
+		return "Intersection()"
 	default:
 		if t.Assertion != nil {
 			return fmt.Sprintf("%s(%s)", t.Ident, t.Assertion.String())
@@ -196,6 +219,10 @@ func (ti TypeIdent) String() string {
 		return "Result"
 	case TypeTuple:
 		return "Tuple"
+	case TypeUnion:
+		return "Union"
+	case TypeIntersection:
+		return "Intersection"
 	default:
 		return string(ti)
 	}
@@ -292,4 +319,92 @@ func NewTupleType(elems ...TypeNode) TypeNode {
 		TypeParams: elems,
 		TypeKind:   TypeKindBuiltin,
 	}
+}
+
+// NewUnionType returns a normalized finite union (flattened nested unions, deduped by shallow equality).
+func NewUnionType(members ...TypeNode) TypeNode {
+	flat := flattenUnionMembers(members)
+	if len(flat) == 1 {
+		return flat[0]
+	}
+	return TypeNode{
+		Ident:      TypeUnion,
+		TypeParams: flat,
+		TypeKind:   TypeKindBuiltin,
+	}
+}
+
+// NewIntersectionType returns a normalized finite intersection (flattened nested intersections, deduped).
+func NewIntersectionType(members ...TypeNode) TypeNode {
+	flat := flattenIntersectionMembers(members)
+	if len(flat) == 1 {
+		return flat[0]
+	}
+	return TypeNode{
+		Ident:      TypeIntersection,
+		TypeParams: flat,
+		TypeKind:   TypeKindBuiltin,
+	}
+}
+
+func flattenUnionMembers(in []TypeNode) []TypeNode {
+	var out []TypeNode
+	for _, t := range in {
+		if t.Ident == TypeUnion && len(t.TypeParams) > 0 {
+			out = append(out, flattenUnionMembers(t.TypeParams)...)
+			continue
+		}
+		out = append(out, t)
+	}
+	return dedupeTypeNodesShallow(out)
+}
+
+func flattenIntersectionMembers(in []TypeNode) []TypeNode {
+	var out []TypeNode
+	for _, t := range in {
+		if t.Ident == TypeIntersection && len(t.TypeParams) > 0 {
+			out = append(out, flattenIntersectionMembers(t.TypeParams)...)
+			continue
+		}
+		out = append(out, t)
+	}
+	return dedupeTypeNodesShallow(out)
+}
+
+func dedupeTypeNodesShallow(types []TypeNode) []TypeNode {
+	if len(types) <= 1 {
+		if len(types) == 1 {
+			return []TypeNode{types[0]}
+		}
+		return nil
+	}
+	var out []TypeNode
+	for _, t := range types {
+		found := false
+		for _, u := range out {
+			if typeNodesShallowEqualAST(t, u) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func typeNodesShallowEqualAST(a, b TypeNode) bool {
+	if a.Ident != b.Ident {
+		return false
+	}
+	if len(a.TypeParams) != len(b.TypeParams) {
+		return false
+	}
+	for i := range a.TypeParams {
+		if !typeNodesShallowEqualAST(a.TypeParams[i], b.TypeParams[i]) {
+			return false
+		}
+	}
+	return true
 }

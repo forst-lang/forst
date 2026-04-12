@@ -145,6 +145,32 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return "unknown", nil
 	case ast.TypeError:
 		return "unknown", nil
+	case ast.TypeUnion:
+		if len(forstType.TypeParams) == 0 {
+			return "never", nil
+		}
+		parts := make([]string, 0, len(forstType.TypeParams))
+		for i := range forstType.TypeParams {
+			s, err := tm.GetTypeScriptType(&forstType.TypeParams[i])
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, s)
+		}
+		return strings.Join(parts, " | "), nil
+	case ast.TypeIntersection:
+		if len(forstType.TypeParams) == 0 {
+			return "unknown", nil
+		}
+		parts := make([]string, 0, len(forstType.TypeParams))
+		for i := range forstType.TypeParams {
+			s, err := tm.GetTypeScriptType(&forstType.TypeParams[i])
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, s)
+		}
+		return strings.Join(parts, " & "), nil
 	}
 
 	// Inline object types from shape type definitions: { nested: { x: String } }
