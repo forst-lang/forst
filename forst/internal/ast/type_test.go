@@ -88,7 +88,7 @@ func TestTypeNode_String_branches(t *testing.T) {
 		{"pointer_empty", TypeNode{Ident: TypePointer}, "Pointer"},
 		{"default_user_ident", TypeNode{Ident: "MyType", TypeKind: TypeKindUserDefined}, "MyType"},
 		{"default_with_assertion", TypeNode{Ident: "X", Assertion: assertion}, "X("},
-		{"default_with_type_params", TypeNode{Ident: "Box", TypeParams: []TypeNode{{Ident: TypeInt}}}, "Box<"},
+		{"default_with_type_params", TypeNode{Ident: "Box", TypeParams: []TypeNode{{Ident: TypeInt}}}, "Box("},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestTypeNode_String_default_branch_multiple_type_params(t *testing.T) {
 		},
 	}
 	s := tn.String()
-	if !strings.Contains(s, "Pair<") || !strings.Contains(s, "Int") || !strings.Contains(s, "String") {
+	if !strings.Contains(s, "Pair(") || !strings.Contains(s, "Int") || !strings.Contains(s, "String") {
 		t.Fatal(s)
 	}
 }

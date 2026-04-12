@@ -91,6 +91,10 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		return nil, fmt.Errorf("failed to restore function scope: %s", err)
 	}
 
+	prevResultSplit := t.resultLocalSplit
+	t.resultLocalSplit = make(map[string]resultLocalSplit)
+	defer func() { t.resultLocalSplit = prevResultSplit }()
+
 	// Create function parameters
 	params, err := t.transformFunctionParams(n.Params)
 	if err != nil {

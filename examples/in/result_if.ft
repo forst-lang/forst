@@ -1,0 +1,17 @@
+package main
+
+// Result split + if x is Ok() narrowing; golden: ../out/result_if/result_if.go
+
+func one() {
+	// Ensure in the body keeps Result/ensure tooling and narrowing aligned; return type is inferred as Result(Int, Error).
+	n := 1
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func main() {
+	x := one()
+	if x is Ok() {
+		println(x)
+	}
+}

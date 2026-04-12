@@ -771,6 +771,57 @@ func TestDiscoverer_AnalyzeStreamingSupport_nilTypecheckerUsesReturnTypes(t *tes
 	}
 }
 
+func TestDiscoverer_DiscoverFunctions_ResultReturn_setsIsResultAndComponentTypes(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "result.ft")
+	content := `package main
+
+func R(): Result(Int, Error) {
+	return 0
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{path}})
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	fn, ok := out["main"]["R"]
+	if !ok {
+		t.Fatalf("expected R, got %+v", out)
+	}
+	if !fn.IsResult {
+		t.Fatalf("expected IsResult, got %+v", fn)
+	}
+	if fn.ResultSuccessType == "" || fn.ResultFailureType == "" {
+		t.Fatalf("expected result component types, got success=%q failure=%q", fn.ResultSuccessType, fn.ResultFailureType)
+	}
+	if !fn.HasMultipleReturns {
+		t.Fatalf("expected HasMultipleReturns for Result (lowers to success + error in Go), got %+v", fn)
+	}
+	raw, err := json.Marshal(fn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["isResult"] != true {
+		t.Fatalf("JSON isResult: got %v", m["isResult"])
+	}
+	if _, ok := m["resultSuccessType"]; !ok {
+		t.Fatalf("JSON missing resultSuccessType: %v", m)
+	}
+	if _, ok := m["resultFailureType"]; !ok {
+		t.Fatalf("JSON missing resultFailureType: %v", m)
+	}
+}
+
 func TestDiscoverer_DiscoverFunctions_publicFunctionNoExplicitReturns(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)

@@ -148,6 +148,67 @@ func TestPrint_unsupportedTopLevelErrors(t *testing.T) {
 	}
 }
 
+func TestFormatSource_multilineShapesAndIndentedBlockLines(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func main() {
+  println({
+    ctx: {
+      n: 1,
+    },
+    input: {
+      name: "x",
+    },
+  })
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "shape.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if !strings.Contains(out, "println({\n") {
+		t.Fatalf("expected multiline call + shape opening, got:\n%s", out)
+	}
+	if !strings.Contains(out, "\tctx: {\n") {
+		t.Fatalf("expected nested shape field on its own indented line, got:\n%s", out)
+	}
+	if !strings.Contains(out, "\t\tn:") {
+		t.Fatalf("expected deeper indent inside nested shape, got:\n%s", out)
+	}
+}
+
+func TestFormatSource_shapeLiteral_nilPrintsAsNilNotValueNil(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func main() {
+  println({
+    ctx: {
+      sessionId: nil,
+    },
+    input: {
+      name: "Go to the gym",
+    },
+  })
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	out, err := FormatSource(src, "nilshape.ft", log)
+	if err != nil {
+		t.Fatalf("FormatSource: %v", err)
+	}
+	if strings.Contains(out, "Value(nil)") {
+		t.Fatalf("shape literal must print nil, not Value(nil):\n%s", out)
+	}
+	if !strings.Contains(out, "sessionId: nil") {
+		t.Fatalf("expected sessionId: nil, got:\n%s", out)
+	}
+}
+
 func TestFormatSource_importRoundTrip(t *testing.T) {
 	t.Parallel()
 	const src = `package main

@@ -324,4 +324,39 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+
+	t.Run("fmt.Println accepts Result like any", func(t *testing.T) {
+		tc2 := New(logrus.New(), false)
+		r := ast.NewResultType(ast.NewBuiltinType(ast.TypeInt), ast.NewBuiltinType(ast.TypeError))
+		tc2.CurrentScope().RegisterSymbol(ast.Identifier("x"), []ast.TypeNode{r}, SymbolVariable)
+		fn := BuiltinFunctions["fmt.Println"]
+		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
+			ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+		}, nil, ast.SourceSpan{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("fmt.Printf format string then any", func(t *testing.T) {
+		fn := BuiltinFunctions["fmt.Printf"]
+		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
+			ast.StringLiteralNode{Value: "%d"},
+			ast.IntLiteralNode{Value: 1},
+		}, nil, ast.SourceSpan{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("fmt.Printf rejects non-string format", func(t *testing.T) {
+		fn := BuiltinFunctions["fmt.Printf"]
+		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
+			ast.IntLiteralNode{Value: 1},
+			ast.StringLiteralNode{Value: "x"},
+		}, nil, ast.SourceSpan{})
+		if err == nil {
+			t.Fatal("expected error: first argument must be format string")
+		}
+	})
 }

@@ -14,6 +14,9 @@ This directory contains comprehensive documentation and specifications for Forst
 
 - **[optionals hub](../optionals/00-crystal-inspired-optionals.md)** — Index of **`T | Nil`**, **`Result`**, and related topic docs (**01–09**).
 - **[optionals / Result and error types](../optionals/02-result-and-error-types.md)** — How **`Result(Value, ErrorSubtype)`** ties **`Result`** to the **`Error`** hierarchy.
+- **[optionals / Result primitives (RFC 12) §5.7](../optionals/12-result-primitives-without-ok-err.md)** — **Stated preference:** **`return x`** **success**, **nominal** **error** **constructors** **failure** (no **`Ok`/`Err`** at **returns**).  
+- **[optionals / Result primitives (RFC 12) §7](../optionals/12-result-primitives-without-ok-err.md#7-error-system-rfc--relationship-and-what-can-be-inferred)** — How this **error** **hierarchy** **informs** **`Result`** **construction** (nominal failures, factories, **`ensure`**, what is / isn’t inferable).
+- **[01 — Ensure-only failure propagation](./01-ensure-only-failure-returns.md)** — **Normative target:** propagate **`Result`** failures with **`ensure … is Ok() or NominalErr()`** (not **`if` + failure `return`**); **`Ok`/`Err`** remain **guards**; **§5.1** documents the partial **compiler** check (**`return Err(...)`** banned in **`if … is Err`** then-branch); pairs with **§5.7**; **coverage** vs open **[12](../optionals/12-result-primitives-without-ok-err.md)** risks.
 
 ## Key Features
 

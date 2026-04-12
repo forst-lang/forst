@@ -197,7 +197,7 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		Name:           "Print",
 		Package:        "fmt",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}}, // Go ...any
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
 	},
@@ -205,7 +205,7 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		Name:           "Println",
 		Package:        "fmt",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // Base type
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeObject}}, // Go ...any
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
 	},
@@ -213,7 +213,7 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		Name:           "Printf",
 		Package:        "fmt",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeVoid},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // format string
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}}, // format string; further args checked as Object
 		IsVarArgs:      true,
 		AcceptSubtypes: true,
 	},
@@ -399,14 +399,33 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		"function": "IsTypeCompatible",
 	}).Debug("Checking type compatibility")
 
-	// Direct type match
+	// Same identifier: simple types match; generic built-ins must compare type parameters.
 	if actual.Ident == expected.Ident {
-		tc.log.WithFields(logrus.Fields{
-			"actual":   actual.Ident,
-			"expected": expected.Ident,
-			"function": "IsTypeCompatible",
-		}).Debug("Direct type match")
-		return true
+		switch actual.Ident {
+		case ast.TypeResult:
+			if len(actual.TypeParams) != 2 || len(expected.TypeParams) != 2 {
+				return false
+			}
+			return tc.IsTypeCompatible(actual.TypeParams[0], expected.TypeParams[0]) &&
+				tc.IsTypeCompatible(actual.TypeParams[1], expected.TypeParams[1])
+		case ast.TypeTuple:
+			if len(actual.TypeParams) != len(expected.TypeParams) {
+				return false
+			}
+			for i := range actual.TypeParams {
+				if !tc.IsTypeCompatible(actual.TypeParams[i], expected.TypeParams[i]) {
+					return false
+				}
+			}
+			return true
+		default:
+			tc.log.WithFields(logrus.Fields{
+				"actual":   actual.Ident,
+				"expected": expected.Ident,
+				"function": "IsTypeCompatible",
+			}).Debug("Direct type match")
+			return true
+		}
 	}
 
 	// Assigning to TypeObject mirrors Go assignability to interface{} / any (empty interface).
@@ -417,6 +436,20 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			"function": "IsTypeCompatible",
 		}).Debug("Actual type assignable to TypeObject")
 		return true
+	}
+
+	// Value compatible with *T when compatible with T for non-scalar T (shape literals for *User,
+	// etc.). Scalars still require an explicit pointer so String does not satisfy *String.
+	if expected.Ident == ast.TypePointer && len(expected.TypeParams) == 1 {
+		inner := expected.TypeParams[0]
+		if !isScalarTypeIdent(inner.Ident) && tc.IsTypeCompatible(actual, inner) {
+			tc.log.WithFields(logrus.Fields{
+				"actual":   actual.Ident,
+				"expected": expected.Ident,
+				"function": "IsTypeCompatible",
+			}).Debug("Actual type compatible with pointer element type")
+			return true
+		}
 	}
 
 	// Check if actual type is an alias of expected type
@@ -479,7 +512,9 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}).Info("Shape extraction results")
 
 		if actualShapeOk && expectedShapeOk {
-			identical := tc.shapesAreStructurallyIdentical(*actualShape, *expectedShape)
+			// Prefer shapesHaveSameStructure: it resolves assertion fields and uses assignability for
+			// mismatched type identifiers (e.g. inferred literal ctx vs AppContext).
+			identical := tc.shapesHaveSameStructure(*actualShape, *expectedShape)
 			tc.log.WithFields(logrus.Fields{
 				"actual":    actual.Ident,
 				"expected":  expected.Ident,
@@ -522,6 +557,15 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 	return false
 }
 
+func isScalarTypeIdent(id ast.TypeIdent) bool {
+	switch id {
+	case ast.TypeString, ast.TypeInt, ast.TypeFloat, ast.TypeBool:
+		return true
+	default:
+		return false
+	}
+}
+
 // getShapeFromTypeDef extracts the shape from a TypeDefNode if it's a shape definition
 func (tc *TypeChecker) getShapeFromTypeDef(def ast.Node) (*ast.ShapeNode, bool) {
 	if typeDef, ok := def.(ast.TypeDefNode); ok {
@@ -549,9 +593,15 @@ func (tc *TypeChecker) shapesAreStructurallyIdentical(a, b ast.ShapeNode) bool {
 				// Unknown types are compatible with any concrete type
 				continue
 			}
-			if fieldA.Type.Ident != fieldB.Type.Ident {
-				return false
+			if fieldA.Type.Ident == fieldB.Type.Ident {
+				continue
 			}
+			// Hash-based structural types vs named shapes (e.g. inferred literal vs AppContext) must use
+			// full assignability, not identifier equality only.
+			if tc.IsTypeCompatible(*fieldA.Type, *fieldB.Type) {
+				continue
+			}
+			return false
 		} else if fieldA.Shape != nil && fieldB.Shape != nil {
 			if !tc.shapesAreStructurallyIdentical(*fieldA.Shape, *fieldB.Shape) {
 				return false
@@ -640,9 +690,25 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			return nil, diagnosticf(sp, "builtin-call", "%s() argument %d must have a single type", fn.Name, i+1)
 		}
 
-		expectedType := fn.ParamTypes[0] // For varargs, all args must match the first param type
+		expectedType := fn.ParamTypes[0]
 		if !fn.IsVarArgs {
 			expectedType = fn.ParamTypes[i]
+		} else if fn.Package == "fmt" {
+			switch fn.Name {
+			case "Printf":
+				if i == 0 {
+					expectedType = fn.ParamTypes[0] // format: String
+				} else {
+					expectedType = ast.TypeNode{Ident: ast.TypeObject}
+				}
+			case "Print", "Println":
+				expectedType = ast.TypeNode{Ident: ast.TypeObject}
+			default:
+				expectedType = fn.ParamTypes[0]
+			}
+		} else {
+			// For other varargs, all args must match the first param type.
+			expectedType = fn.ParamTypes[0]
 		}
 		tc.log.WithFields(logrus.Fields{
 			"function": "checkBuiltinFunctionCall",

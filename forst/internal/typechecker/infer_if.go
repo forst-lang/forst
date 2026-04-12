@@ -29,14 +29,24 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 			}
 		}
 	}
+	incErr := tc.ifConditionIsBuiltinResultErrNarrowing(n.Condition)
 	tc.pushScope(&n)
+	if incErr {
+		tc.resultErrIfBranchDepth++
+	}
 	// Lexical shadowing: `if x is Assertion { ... }` refines x inside the then-branch.
 	tc.applyIfBranchNarrowing(n.Condition)
 	for _, node := range n.Body {
 		if _, err := tc.inferNodeType(node); err != nil {
+			if incErr {
+				tc.resultErrIfBranchDepth--
+			}
 			tc.popScope()
 			return nil, err
 		}
+	}
+	if incErr {
+		tc.resultErrIfBranchDepth--
 	}
 	tc.popScope()
 
@@ -48,13 +58,23 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 				}
 			}
 		}
+		incErrEI := tc.ifConditionIsBuiltinResultErrNarrowing(ei.Condition)
 		tc.pushScope(&ei)
+		if incErrEI {
+			tc.resultErrIfBranchDepth++
+		}
 		tc.applyIfBranchNarrowing(ei.Condition)
 		for _, node := range ei.Body {
 			if _, err := tc.inferNodeType(node); err != nil {
+				if incErrEI {
+					tc.resultErrIfBranchDepth--
+				}
 				tc.popScope()
 				return nil, err
 			}
+		}
+		if incErrEI {
+			tc.resultErrIfBranchDepth--
 		}
 		tc.popScope()
 	}

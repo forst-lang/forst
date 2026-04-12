@@ -4,6 +4,8 @@ This document is a **companion** to the [optionals hub](./00-crystal-inspired-op
 
 **Status:** exploratory specification sketch. Final syntax (parentheses vs generics, keyword spelling) is **not** locked.
 
+**User-facing consolidation:** For **single return**, **`Result`**, **`Tuple`**, **`is`** narrowing, migration, and tooling, see **[11 — Forst Result, Tuple, single-return](./11-forst-result-tuple-single-return.md)**. **`Ok`/`Err`** as **built-in guards** on **`Result`** for **`is`** are **intended for now**; for **how `Result` values are built** at **returns** (alternatives to mandatory **`Ok`/`Err` constructors**), see **[12 — Result primitives without `Ok`/`Err`](./12-result-primitives-without-ok-err.md)** (**exploratory** for **construction** only).
+
 ---
 
 ## 1. Convention: `Result(Success, Failure)` with a failure type in the `Error` family

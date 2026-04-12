@@ -461,7 +461,8 @@ func TestInferShapeType_ValueNil_UsesExpectedPointerType(t *testing.T) {
 	t.Logf("Inferred type: %s", inferredType.Ident)
 }
 
-func TestInferShapeType_ValueNil_CreatesPointerWithUnknownBaseType(t *testing.T) {
+// Value(nil) with no contextual type still produces a one-field shape type (hash struct), not a bare Pointer.
+func TestInferShapeType_ValueNil_SingleFieldShapeIsNotUnwrappedToPointer(t *testing.T) {
 	tc := New(logrus.New(), false)
 	if testing.Verbose() {
 		tc.log.SetLevel(logrus.DebugLevel)
@@ -500,16 +501,27 @@ func TestInferShapeType_ValueNil_CreatesPointerWithUnknownBaseType(t *testing.T)
 	t.Logf("Inferred type: %s", inferredType.Ident)
 	t.Logf("Inferred type details: %+v", inferredType)
 
-	t.Logf("Inferred type: %s", inferredType.Ident)
-	t.Logf("Inferred type params: %+v", inferredType.TypeParams)
-	// Check that the inferred type is a pointer to String
-	if inferredType.Ident != ast.TypePointer {
-		t.Errorf("Expected %s type, got: %s", ast.TypePointer, inferredType.Ident)
+	// Single-field `{ sessionId: nil }` is a shape type (hash-named struct), not collapsed to bare Pointer.
+	if inferredType.Ident == ast.TypePointer {
+		t.Fatalf("expected a struct shape type, not bare %s", ast.TypePointer)
 	}
-	if len(inferredType.TypeParams) != 1 {
-		t.Errorf("Expected pointer to one type param, got: %+v", inferredType.TypeParams)
-	} else if inferredType.TypeParams[0].Ident != ast.TypeString {
-		t.Errorf("Expected pointer to String, got: %s", inferredType.TypeParams[0].Ident)
+	def, ok := tc.Defs[inferredType.Ident]
+	if !ok {
+		t.Fatalf("inferred type %q not registered in Defs", inferredType.Ident)
 	}
-
+	typeDef, ok := def.(ast.TypeDefNode)
+	if !ok {
+		t.Fatalf("Defs[%s] is not TypeDefNode", inferredType.Ident)
+	}
+	shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr)
+	if !ok {
+		t.Fatalf("Defs[%s] is not a shape type", inferredType.Ident)
+	}
+	sf, ok := shapeExpr.Shape.Fields["sessionId"]
+	if !ok {
+		t.Fatalf("shape missing sessionId field")
+	}
+	if sf.Type == nil || sf.Type.Ident != ast.TypePointer || len(sf.Type.TypeParams) != 1 || sf.Type.TypeParams[0].Ident != ast.TypeString {
+		t.Fatalf("sessionId field: want Pointer(String), got %+v", sf.Type)
+	}
 }

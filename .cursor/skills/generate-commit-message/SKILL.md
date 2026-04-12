@@ -10,7 +10,7 @@ description: >-
 
 ## Introduction
 
-Use this skill to generate a **commit message from staged changes**. The agent must **always read the cached diff** (`git diff --cached`) before writing a message. Output should follow **Conventional Commits** format. For any feature or bugfix in the commit, provide a **minimal illustrative example** (using Forst or other relevant language) when it helps clarify the change.
+Use this skill to generate a **commit message from staged changes**. The agent must **always read the cached diff** (`git diff --cached`) before writing a message. The output should follow **Conventional Commits** format, using `!` to indicate breaking changes, for example: `feat!:`, `fix!:`, `refactor!:`, etc. For any feature or bugfix in the commit, provide a **minimal illustrative example** (using Forst or another relevant language) when it helps clarify the change.
 
 ## Workflow
 
@@ -20,19 +20,20 @@ Use this skill to generate a **commit message from staged changes**. The agent m
      git diff --cached --stat
      git diff --cached
      ```
-   - If nothing is staged, say so and suggest `git add`, or, if requested, offer to use `git diff` for unstaged changes instead.
+   - If nothing is staged, state this and suggest `git add`. If requested, offer to use `git diff` for unstaged changes instead.
 
 2. **Draft a Conventional Commit message:**
    - For each feature or bugfix implemented (can be more than one per commit), start a new semantic title:
      - `type(scope): imperative summary`
+     - If a breaking change is included (i.e. would break consumers or require a SemVer major bump), add `!`: for example, `feat!:`, `fix!:`, `refactor!:`, etc.
    - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`
-   - The `scope` is optional but should be concise (e.g. `typechecker`, `compiler`).
+   - The `scope` is optional but should be concise (e.g., `typechecker`, `compiler`).
 
-3. **Body** (when useful): Describe motivation, behavior, and rationale. Do not simply repeat the title. Add notes for breaking changes or migration instructions as needed.
+3. **Body** (when useful): Describe motivation, behavior, and rationale. Do not simply repeat the title. Add notes for breaking changes or migration instructions as needed. Explicitly call out breaking changes in the body if `!` is used.
 
 4. **Minimal code example (when applicable):**
    - For each `feat` or `fix` entry, append an Example section with a short snippet that illustrates the relevant behavior.
-   - Use the project's main language (e.g. Forst `.ft`) or another relevant format (Go, TypeScript, JSON, etc.).
+   - Use the project's main language (e.g., Forst `.ft`) or another relevant format (Go, TypeScript, JSON, etc.).
    - Keep the example very short (approx. 3–12 lines); illustrate a single function, type, or config.
    - Examples must use triple backticks in the output, and those backticks must be **escaped as \`\`\`** (no additional slashes, just one backslash per backtick), so that the message remains inside the outer code block.
      - For example:
@@ -49,6 +50,7 @@ Use this skill to generate a **commit message from staged changes**. The agent m
 
 **Present the entire commit message in a single code block.**  
 - For multiple `feat` or `fix` areas within a single commit, each should receive its own semantic title and body (and example if appropriate) within the same code block, separated by a blank line.
+- Use the `!` symbol for breaking changes as described above when the change is breaking.
 - Example blocks must use escaped backticks (`\`\`\``) *without* extra slashes—just a single backslash per backtick—to avoid breaking the outer code block.
 
 ## Common Mistakes to Avoid

@@ -495,6 +495,49 @@ func TestExamples(t *testing.T) {
 	}
 }
 
+// TestResultExamplesIncludeEnsureLowering locks in the shape of result_if / result_ensure: a
+// Result-returning helper should include an `ensure` in its body so tooling and lowering match
+// real code paths (plain `return n` alone does not emit an ensure branch).
+func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
+	t.Parallel()
+	examples := []string{
+		filepath.Join("..", "..", "..", "examples", "in", "result_if.ft"),
+		filepath.Join("..", "..", "..", "examples", "in", "result_ensure.ft"),
+	}
+	const wantBranch = `if n <= 0`
+	const wantMsg = `assertion failed: Int.GreaterThan(0)`
+	for _, path := range examples {
+		path := path
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			t.Parallel()
+			src, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read example: %v", err)
+			}
+			if !strings.Contains(string(src), "ensure n is") {
+				t.Fatalf("example %s should include `ensure n is` in the Result-returning helper", path)
+			}
+
+			c := compiler.New(compiler.Args{
+				Command:  "run",
+				FilePath: path,
+				LogLevel: "error",
+			}, nil)
+			code, err := c.CompileFile()
+			if err != nil {
+				t.Fatalf("CompileFile: %v", err)
+			}
+			out := *code
+			if !strings.Contains(out, wantBranch) {
+				t.Errorf("expected generated Go to include ensure failure branch %q", wantBranch)
+			}
+			if !strings.Contains(out, wantMsg) {
+				t.Errorf("expected generated Go to include assertion message %q", wantMsg)
+			}
+		})
+	}
+}
+
 // TestExampleTictactoeMergedPackage compiles examples/in/tictactoe with -root (same-package merge)
 // and checks generated Go against examples/out/tictactoe/server.go.
 // Regenerate the golden file: UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1

@@ -125,15 +125,20 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 		BaseType: shape.BaseType,
 	}
 
-	// Special case: if the shape has only one field and that field is a pointer type from Value(nil), return the pointer type directly
-	if len(processedShape.Fields) == 1 {
-		for _, field := range processedShape.Fields {
-			if field.Type != nil && field.Type.Ident == ast.TypePointer {
-				tc.log.WithFields(logrus.Fields{
-					"function":  "inferShapeType",
-					"fieldType": field.Type.Ident,
-				}).Debug("Single-field shape with pointer type, returning pointer type directly")
-				return *field.Type, nil
+	// Prefer the contextual expected type when it names a shape that matches. Otherwise map
+	// iteration order over tc.Defs can bind a structurally equivalent hash type before a named alias.
+	if expectedType != nil {
+		if def, ok := tc.Defs[expectedType.Ident]; ok {
+			if typeDef, ok := def.(ast.TypeDefNode); ok {
+				if shapeExpr, ok := typeDef.Expr.(ast.TypeDefShapeExpr); ok {
+					if tc.shapesHaveSameStructure(processedShape, shapeExpr.Shape) {
+						tc.log.WithFields(logrus.Fields{
+							"function":     "inferShapeType",
+							"matchingType": expectedType.Ident,
+						}).Debug("Using contextual expected type for shape literal")
+						return ast.TypeNode{Ident: expectedType.Ident}, nil
+					}
+				}
 			}
 		}
 	}
@@ -191,6 +196,8 @@ func (tc *TypeChecker) isBuiltinType(typeIdent ast.TypeIdent) bool {
 		ast.TypeArray,
 		ast.TypeMap,
 		ast.TypeObject,
+		ast.TypeResult,
+		ast.TypeTuple,
 	}
 
 	for _, builtinType := range builtinTypes {
@@ -264,7 +271,11 @@ func (tc *TypeChecker) shapesHaveSameStructure(shape1, shape2 ast.ShapeNode) boo
 		}).Debug("Comparing field types")
 
 		if field1Type != nil && field2Type != nil {
-			if field1Type.Ident != field2Type.Ident {
+			if field1Type.Ident == field2Type.Ident {
+				// Same head identifier; continue to nested shape check below if any.
+			} else if tc.IsTypeCompatible(*field1Type, *field2Type) {
+				// Hash vs named alias, pointer vs structural, etc.
+			} else {
 				tc.log.WithFields(logrus.Fields{
 					"function":   "shapesHaveSameStructure",
 					"fieldName":  fieldName,

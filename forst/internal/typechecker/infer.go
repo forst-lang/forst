@@ -33,6 +33,15 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
+		prevFn := tc.currentFunction
+		tc.currentFunction = &n
+		prevErrBranchDepth := tc.resultErrIfBranchDepth
+		tc.resultErrIfBranchDepth = 0
+		defer func() {
+			tc.currentFunction = prevFn
+			tc.resultErrIfBranchDepth = prevErrBranchDepth
+		}()
+
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferNodeType",
 			"fn":       n.Ident.ID,
@@ -88,6 +97,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			// Field hover (req.state, …) uses VariableTypes for the receiver; params are not assignments.
 			if sp, ok := param.(ast.SimpleParamNode); ok && len(paramTypes) > 0 {
 				tc.VariableTypes[sp.Ident.ID] = append([]ast.TypeNode(nil), paramTypes...)
+			}
+		}
+
+		// registerFunction stored raw AST types (e.g. TYPE_ASSERTION for `op AppMutation.Input({...})`).
+		// inferNodeTypes + InferAssertionType resolve those to concrete types; call-site checks use
+		// tc.Functions[name].Parameters, so keep the signature in sync.
+		if sig, ok := tc.Functions[n.Ident.ID]; ok {
+			for i := range sig.Parameters {
+				if i < len(paramTypes) && len(paramTypes[i]) >= 1 {
+					sig.Parameters[i].Type = paramTypes[i][0]
+				}
 			}
 		}
 
@@ -223,6 +243,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 					return nil, err
 				}
 			}
+		}
+		if err := tc.checkReturnDisallowedInResultErrBranch(n); err != nil {
+			return nil, err
 		}
 		return nil, nil
 

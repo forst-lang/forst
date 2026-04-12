@@ -1,6 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+    
     {
       "name": "Run Extension (vscode-forst)",
       "type": "extensionHost",
@@ -11,7 +12,7 @@
       "outFiles": [
         "${workspaceFolder}/packages/vscode-forst/out/extension.js"
       ],
-      "preLaunchTask": "bun: compile vscode-forst"
+      "preLaunchTask": "compile: vscode-forst"
     }
   ]
 }

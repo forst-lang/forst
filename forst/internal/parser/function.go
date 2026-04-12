@@ -182,22 +182,11 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 	returnType := []ast.TypeNode{}
 	if p.current().Type == ast.TokenColon {
 		p.advance() // Consume the colon
-		// Support both single and parenthesized multiple return types
+		// Single return type only (use Result(T, Error) or Tuple(...) instead of Go-style (T, U))
 		if p.current().Type == ast.TokenLParen {
-			p.advance() // Consume '('
-			for {
-				typ := p.parseReturnTypeSingle()
-				returnType = append(returnType, typ)
-				if p.current().Type == ast.TokenComma {
-					p.advance()
-				} else {
-					break
-				}
-			}
-			p.expect(ast.TokenRParen)
-		} else {
-			returnType = append(returnType, p.parseReturnTypeSingle())
+			p.FailWithParseError(p.current(), "multi-value return types are not supported; use Result(Success, Error) or Tuple(T1, ...)")
 		}
+		returnType = append(returnType, p.parseReturnTypeSingle())
 	}
 	return returnType
 }
@@ -217,18 +206,12 @@ func (p *Parser) parseReturnTypeSingle() ast.TypeNode {
 func (p *Parser) parseReturnStatement() ast.ReturnNode {
 	p.advance() // Move past `return`
 
-	// Parse multiple return values
-	values := []ast.ExpressionNode{}
-
-	// Parse first expression
+	var values []ast.ExpressionNode
 	if p.current().Type != ast.TokenSemicolon && p.current().Type != ast.TokenRBrace {
 		values = append(values, p.parseExpression())
-	}
-
-	// Parse additional expressions separated by commas
-	for p.current().Type == ast.TokenComma {
-		p.advance() // Consume comma
-		values = append(values, p.parseExpression())
+		if p.current().Type == ast.TokenComma {
+			p.FailWithParseError(p.current(), "multiple return values are not supported; use a single Result(S, F) success value or delegate to a Result-returning call")
+		}
 	}
 
 	return ast.ReturnNode{

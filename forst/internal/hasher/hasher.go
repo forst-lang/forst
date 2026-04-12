@@ -53,6 +53,8 @@ var NodeKind = map[string]uint8{
 	"Defer":            23,
 	"GoStmt":           24,
 	"IndexExpression":  25,
+	"OkExpr":           26,
+	"ErrExpr":          27,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -278,6 +280,16 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 
 	case ast.EnsureNode:
 		if err := h.writeHashes(hasher, NodeKind["Ensure"]); err != nil {
+			return 0, err
+		}
+		// Subject variable must participate in the hash; otherwise distinct ensures
+		// with the same assertion (e.g. `ensure a.name is Min(1)` vs `ensure b.name is Min(1)`)
+		// collide in scopeStack.scopes and restoreScope picks the wrong Ensure scope.
+		vh, err := h.HashNode(n.Variable)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, vh); err != nil {
 			return 0, err
 		}
 		hash, err := h.HashNode(n.Assertion)
@@ -821,6 +833,28 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
+	case ast.OkExprNode:
+		if err := h.writeHashes(hasher, NodeKind["OkExpr"]); err != nil {
+			return 0, err
+		}
+		hash, err := h.HashNode(n.Value)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, hash); err != nil {
+			return 0, err
+		}
+	case ast.ErrExprNode:
+		if err := h.writeHashes(hasher, NodeKind["ErrExpr"]); err != nil {
+			return 0, err
+		}
+		hash, err := h.HashNode(n.Value)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, hash); err != nil {
+			return 0, err
+		}
 	case ast.NilLiteralNode:
 		if err := h.writeHashes(hasher, NodeKind["NilLiteral"]); err != nil {
 			return 0, err

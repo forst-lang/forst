@@ -2,11 +2,24 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "bun: compile vscode-forst",
+      "label": "Kill Forst LSP",
       "type": "shell",
-      "command": "bun run compile",
+      "command": "pkill -f 'forst lsp' 2>/dev/null || true; echo 'Forst LSP processes stopped (or none were running).'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "compile: vscode-forst",
+      "type": "shell",
+      "command": "bun run --filter forst compile",
       "options": {
-        "cwd": "${workspaceFolder}/packages/vscode-forst"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:${env:PATH}"
+        }
       },
       "group": "build",
       "presentation": {

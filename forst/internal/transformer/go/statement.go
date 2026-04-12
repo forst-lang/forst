@@ -113,6 +113,24 @@ func getZeroValue(goType goast.Expr) goast.Expr {
 	}
 }
 
+// zeroValueExprForASTType returns a Go expression for the zero value of a Forst type.
+// Named struct types use a composite literal; builtins use getZeroValue after transformType.
+func (t *Transformer) zeroValueExprForASTType(ty ast.TypeNode) (goast.Expr, error) {
+	if def, ok := t.TypeChecker.Defs[ty.Ident].(ast.TypeDefNode); ok {
+		if _, ok := def.Expr.(ast.TypeDefShapeExpr); ok {
+			return t.buildZeroCompositeLiteral(&ty), nil
+		}
+	}
+	if ty.TypeKind == ast.TypeKindUserDefined || ty.TypeKind == ast.TypeKindHashBased {
+		return t.buildZeroCompositeLiteral(&ty), nil
+	}
+	goType, err := t.transformType(ty)
+	if err != nil {
+		return nil, err
+	}
+	return getZeroValue(goType), nil
+}
+
 // findBestNamedTypeForReturnType tries to find a named type that matches the given hash-based type
 func (t *Transformer) findBestNamedTypeForReturnType(hashType ast.TypeNode) string {
 	// If it's already a named type (not hash-based), return it
@@ -252,6 +270,32 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 	}
 
 	// Build error return values based on the function's return types
+	// Result(S, Error) is one Forst return type but lowers to (S, error) in Go.
+	if len(returnTypes) == 1 && returnTypes[0].IsResultType() && len(returnTypes[0].TypeParams) >= 2 {
+		succT := returnTypes[0].TypeParams[0]
+		zeroSucc, err := t.zeroValueExprForASTType(succT)
+		if err != nil {
+			zeroSucc = t.buildZeroCompositeLiteral(&succT)
+		}
+		t.Output.EnsureImport("errors")
+		assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
+		errExpr := &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("errors"),
+				Sel: goast.NewIdent("New"),
+			},
+			Args: []goast.Expr{
+				&goast.BasicLit{
+					Kind:  token.STRING,
+					Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
+				},
+			},
+		}
+		return &goast.ReturnStmt{
+			Results: []goast.Expr{zeroSucc, errExpr},
+		}
+	}
+
 	results := make([]goast.Expr, 0, len(returnTypes))
 	for i, returnType := range returnTypes {
 		// PINPOINT: Log processing return type for zero value
@@ -301,9 +345,13 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 				}
 				result = t.buildZeroCompositeLiteral(&returnType)
 			} else {
-				// For built-in types, use getZeroValue
-				goType, _ := t.transformType(returnType)
-				result = getZeroValue(goType)
+				zv, err := t.zeroValueExprForASTType(returnType)
+				if err != nil {
+					goType, _ := t.transformType(returnType)
+					result = getZeroValue(goType)
+				} else {
+					result = zv
+				}
 			}
 		}
 		results = append(results, result)
@@ -576,6 +624,16 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}
 		}
 
+		// Case 3: Result Ok/Err discriminators (not user type guards named Ok/Err)
+		if !shouldNegate {
+			for _, constraint := range s.Assertion.Constraints {
+				if (constraint.Name == "Ok" || constraint.Name == "Err") && !t.TypeChecker.IsTypeGuardConstraint(constraint.Name) {
+					shouldNegate = true
+					break
+				}
+			}
+		}
+
 		if shouldNegate {
 			finalCondition = &goast.UnaryExpr{
 				Op: token.NOT,
@@ -730,6 +788,19 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"hasSig":         ok,
 					"sigReturnTypes": len(sig.ReturnTypes),
 				}).Debug("No function signature found")
+			}
+		}
+
+		// Result(S, F) is one Forst return type but lowers to (S, error) in Go.
+		// Constructor-free success: plain `S` becomes `return succ, nil`.
+		// `return g()` where `g()` is already `Result` stays a single Go return (`return g()`), not `g(), nil`.
+		if len(s.Values) == 1 && len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsResultType() {
+			if !t.returnValueDelegatesWholeResult(s.Values[0]) {
+				succExpr, err := t.transformExpression(s.Values[0])
+				if err != nil {
+					return nil, err
+				}
+				return &goast.ReturnStmt{Results: []goast.Expr{succExpr, goast.NewIdent("nil")}}, nil
 			}
 		}
 
@@ -948,9 +1019,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					if expectedType.IsError() {
 						results = append(results, goast.NewIdent("nil"))
 					} else {
-						// For non-error types, add zero value
-						goType, _ := t.transformType(expectedType)
-						results = append(results, getZeroValue(goType))
+						zv, err := t.zeroValueExprForASTType(expectedType)
+						if err != nil {
+							return nil, fmt.Errorf("transformReturnStatement: zero value for %s: %w", expectedType.Ident, err)
+						}
+						results = append(results, zv)
 					}
 				}
 			}
@@ -976,6 +1049,18 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 
 	case ast.FunctionCallNode:
+		if isPrintLikeBuiltinCall(s.Function) {
+			args, err := t.transformPrintBuiltinCallArgs(s.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.ExprStmt{
+				X: &goast.CallExpr{
+					Fun:  goFunExprFromForstCallIdent(s.Function),
+					Args: args,
+				},
+			}, nil
+		}
 		// Look up parameter types for the function
 		paramTypes := make([]ast.TypeNode, len(s.Arguments))
 		fnNode, err := t.closestFunction()
@@ -1023,12 +1108,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				args[i] = argExpr
 			}
 		}
-		return &goast.ExprStmt{
-			X: &goast.CallExpr{
-				Fun:  goast.NewIdent(s.Function.String()),
-				Args: args,
-			},
-		}, nil
+		call := &goast.CallExpr{
+			Fun:  goFunExprFromForstCallIdent(s.Function),
+			Args: args,
+		}
+		// Multi-return calls (folded Result → (succ…, error), or native Go multi-return) are valid
+		// Go expression statements: return values are discarded (see Go spec, Expression statements).
+		return &goast.ExprStmt{X: call}, nil
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
 		if len(s.ExplicitTypes) > 0 && s.ExplicitTypes[0] != nil {
@@ -1099,6 +1185,55 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Handle assignment without explicit types (normal assignment)
+		// Result(S,F) is one Forst value but lowers to (success..., error) in Go: multi-value assignment.
+		if len(s.LValues) == 1 && len(s.RValues) == 1 {
+			if vn, ok := s.LValues[0].(ast.VariableNode); ok {
+				if fc, ok := s.RValues[0].(ast.FunctionCallNode); ok && t.rhsCallIsFoldedResult(fc) {
+					ts, err := t.TypeChecker.LookupInferredType(fc, false)
+					if err != nil || len(ts) != 1 || !ts[0].IsResultType() {
+						return nil, fmt.Errorf("assignment: expected Result from folded Go call")
+					}
+					succ := ts[0].TypeParams[0]
+					var successNames []string
+					if succ.IsTupleType() {
+						k := len(succ.TypeParams)
+						successNames = make([]string, k)
+						for i := 0; i < k; i++ {
+							successNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+						}
+					} else {
+						successNames = []string{string(vn.Ident.ID)}
+					}
+					errName := string(vn.Ident.ID) + "Err"
+					rhsExpr, err := t.transformExpression(fc)
+					if err != nil {
+						return nil, err
+					}
+					if t.resultLocalSplit == nil {
+						t.resultLocalSplit = make(map[string]resultLocalSplit)
+					}
+					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
+						errGoName:      errName,
+						successGoNames: successNames,
+					}
+					op := token.ASSIGN
+					if s.IsShort {
+						op = token.DEFINE
+					}
+					lhs := make([]goast.Expr, 0, len(successNames)+1)
+					for _, n := range successNames {
+						lhs = append(lhs, goast.NewIdent(n))
+					}
+					lhs = append(lhs, goast.NewIdent(errName))
+					return &goast.AssignStmt{
+						Lhs: lhs,
+						Tok: op,
+						Rhs: []goast.Expr{rhsExpr},
+					}, nil
+				}
+			}
+		}
+
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
 			lhsExpr, err := t.transformExpression(lval)

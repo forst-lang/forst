@@ -54,6 +54,10 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 			return nil, err
 		}
 		return &goast.MapType{Key: keyT, Value: valT}, nil
+	case ast.TypeResult:
+		return nil, fmt.Errorf("Result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
+	case ast.TypeTuple:
+		return nil, fmt.Errorf("Tuple types are expanded at function boundaries; use transformTypes, not transformType")
 	default:
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
@@ -65,20 +69,69 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 }
 
 func (t *Transformer) transformTypes(types []ast.TypeNode) (*goast.FieldList, error) {
-	fields := make([]*goast.Field, len(types))
-
-	for i, typ := range types {
+	var fields []*goast.Field
+	for _, typ := range types {
+		if typ.IsResultType() {
+			if len(typ.TypeParams) != 2 {
+				return nil, fmt.Errorf("Result must have exactly two type parameters")
+			}
+			s, err := t.transformType(typ.TypeParams[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform Result success type: %w", err)
+			}
+			fields = append(fields, &goast.Field{Type: s})
+			fields = append(fields, &goast.Field{Type: goast.NewIdent("error")})
+			continue
+		}
+		if typ.IsTupleType() {
+			for _, elem := range typ.TypeParams {
+				expr, err := t.transformType(elem)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform Tuple element: %w", err)
+				}
+				fields = append(fields, &goast.Field{Type: expr})
+			}
+			continue
+		}
 		expr, err := t.transformType(typ)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform type: %s", err)
 		}
-		fields[i] = &goast.Field{
-			Type: expr,
-		}
+		fields = append(fields, &goast.Field{Type: expr})
 	}
 
 	return &goast.FieldList{
 		List: fields,
+	}, nil
+}
+
+// transformResultAsStructFieldGoType lowers Result(S, F) stored in a Forst shape field to a single
+// Go struct type { V S; Err F }. Call sites must use the same layout for literals and field access
+// (.V success payload, .Err failure / error slot). Only failure type Error is supported for now
+// (matches Go error checks on .Err).
+func (t *Transformer) transformResultAsStructFieldGoType(rt ast.TypeNode) (*goast.StructType, error) {
+	if !rt.IsResultType() || len(rt.TypeParams) < 2 {
+		return nil, fmt.Errorf("expected Result(S, F)")
+	}
+	fail := rt.TypeParams[1]
+	if fail.Ident != ast.TypeError {
+		return nil, fmt.Errorf("Result in struct fields: failure type must be Error for Go codegen (got %s)", fail.String())
+	}
+	s, err := t.transformType(rt.TypeParams[0])
+	if err != nil {
+		return nil, fmt.Errorf("Result field success type: %w", err)
+	}
+	e, err := t.transformType(fail)
+	if err != nil {
+		return nil, fmt.Errorf("Result field failure type: %w", err)
+	}
+	return &goast.StructType{
+		Fields: &goast.FieldList{
+			List: []*goast.Field{
+				{Names: []*goast.Ident{goast.NewIdent(loweredResultValueFieldName)}, Type: s},
+				{Names: []*goast.Ident{goast.NewIdent(loweredResultErrFieldName)}, Type: e},
+			},
+		},
 	}, nil
 }
 

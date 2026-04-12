@@ -40,6 +40,11 @@ const (
 
 	// TypePointer is a new type added
 	TypePointer TypeIdent = "TYPE_POINTER"
+
+	// TypeResult is Result(Success, Failure) with Failure error-kinded
+	TypeResult TypeIdent = "TYPE_RESULT"
+	// TypeTuple is Tuple(T1, ..., Tn) for product multi-values (e.g. Go FFI)
+	TypeTuple TypeIdent = "TYPE_TUPLE"
 )
 
 // TypeKind represents the origin/kind of a type
@@ -129,6 +134,20 @@ func (t TypeNode) String() string {
 			return fmt.Sprintf("Pointer(%s)", t.TypeParams[0].String())
 		}
 		return "Pointer"
+	case TypeResult:
+		if len(t.TypeParams) >= 2 {
+			return fmt.Sprintf("Result(%s, %s)", t.TypeParams[0].String(), t.TypeParams[1].String())
+		}
+		return "Result(?, ?)"
+	case TypeTuple:
+		if len(t.TypeParams) > 0 {
+			params := make([]string, len(t.TypeParams))
+			for i, param := range t.TypeParams {
+				params[i] = param.String()
+			}
+			return fmt.Sprintf("Tuple(%s)", strings.Join(params, ", "))
+		}
+		return "Tuple()"
 	default:
 		if t.Assertion != nil {
 			return fmt.Sprintf("%s(%s)", t.Ident, t.Assertion.String())
@@ -138,7 +157,7 @@ func (t TypeNode) String() string {
 			for i, param := range t.TypeParams {
 				params[i] = param.String()
 			}
-			return fmt.Sprintf("%s<%s>", t.Ident, strings.Join(params, ", "))
+			return fmt.Sprintf("%s(%s)", t.Ident, strings.Join(params, ", "))
 		}
 		return string(t.Ident)
 	}
@@ -173,6 +192,10 @@ func (ti TypeIdent) String() string {
 		return "Shape(?)"
 	case TypePointer:
 		return "Pointer"
+	case TypeResult:
+		return "Result"
+	case TypeTuple:
+		return "Tuple"
 	default:
 		return string(ti)
 	}
@@ -250,5 +273,23 @@ func NewAssertionType(assertion *AssertionNode) TypeNode {
 		Ident:     TypeAssertion,
 		Assertion: assertion,
 		TypeKind:  TypeKindHashBased, // Assertions create structural types
+	}
+}
+
+// NewResultType returns Result(successType, failureType).
+func NewResultType(successType, failureType TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypeResult,
+		TypeParams: []TypeNode{successType, failureType},
+		TypeKind:   TypeKindBuiltin,
+	}
+}
+
+// NewTupleType returns Tuple(t1, ..., tn); n must be at least 1.
+func NewTupleType(elems ...TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypeTuple,
+		TypeParams: elems,
+		TypeKind:   TypeKindBuiltin,
 	}
 }

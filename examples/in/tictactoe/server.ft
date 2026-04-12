@@ -12,15 +12,13 @@ func main() {
 	a1 := getCell(g.cells, 1)
 	a2 := getCell(g.cells, 2)
 	fmt.Println("top row |", a0, a1, a2)
-	move, errMove := PlayMove({
+	move := PlayMove({
 		state: g,
 		row:   1,
 		col:   2,
 	})
-	ensure !errMove {
-		fmt.Println(errMove.Error())
-		return
+	if move is Ok() {
+		fmt.Println("after X @ (1,2) | msg:", move.message)
+		fmt.Println("then    | next:", move.state.nextPlayer, "| status:", move.state.status)
 	}
-	fmt.Println("after X @ (1,2) | ok:", move.ok, "| msg:", move.message)
-	fmt.Println("then    | next:", move.state.nextPlayer, "| status:", move.state.status)
 }

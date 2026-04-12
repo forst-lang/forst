@@ -11,12 +11,16 @@
 
 Details: [guard RFC](../guard/guard.md).
 
+### Compiler enforcement (`Result` + `if` … `is Err`)
+
+The typechecker rejects **`return Err(...)`** inside the **then** branch of **`if subject is Err(...)`** when **`subject`** is a built-in **`Result(S, F)`**—use **`ensure subject is Ok()`** (and optional **`or err`**) to propagate failure instead ([errors RFC 01](../errors/01-ensure-only-failure-returns.md)). **`return Ok(...)`** in that branch for **recovery** remains valid. **`else`** after **`is Ok`** (failure region without negated narrowing) is **not** covered yet.
+
 ---
 
 ## How optionals and unions fit
 
 - **`T | Nil`** is a **sum** type. **`is`** can discriminate **present** vs **absent** like **refinements** or **tagged** variants—**one** rule: after a successful **`is`**, the binding has a **smaller** type.
-- **`Result(Success, ErrorSubtype)`** as **`Ok | Err`** (with [generics](../generics/README.md)) uses the **same** pattern: **`is Ok(...)`** / **`is Err(...)`** narrows payloads ([02](./02-result-and-error-types.md)).
+- **`Result(Success, ErrorSubtype)`** uses the **same** narrowing idea: **success** vs **failure** branches refine payloads ([02](./02-result-and-error-types.md)). **`Ok`** and **`Err`** are **built-in guards** on **`Result`** for **`is`/`ensure`** ([12 §0](./12-result-primitives-without-ok-err.md#0-scope-split-guards-vs-constructors)); **only** **value construction** at **`return`** is **open** in [12](./12-result-primitives-without-ok-err.md).
 
 ---
 

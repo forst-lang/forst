@@ -119,17 +119,11 @@ func TestFindHoverForPosition_errMoveDotError(t *testing.T) {
 	ft := filepath.Join(dir, "err_move_hover.ft")
 	const src = `package main
 
-import "fmt"
-
-func check(): (String, Error) {
-	return "", nil
-}
+import "errors"
 
 func main() {
-	_, errMove := check()
-	ensure !errMove {
-		fmt.Println(errMove.Error())
-	}
+	errMove := errors.New("x")
+	println(errMove.Error())
 }
 `
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
@@ -624,12 +618,12 @@ type MoveRequest = {
 	col:   Int,
 }
 
-func ApplyMove(req MoveRequest): (Int, Error) {
+func ApplyMove(req MoveRequest): Result(Int, Error) {
 	ensure req.state is ValidBoard()
 	if req.state.status != "playing" {
-		return 0, nil
+		return 0
 	}
-	return 1, nil
+	return 1
 }
 `
 	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {

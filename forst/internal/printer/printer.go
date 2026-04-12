@@ -77,11 +77,25 @@ func topLevelSeparator(prev, next ast.Node) string {
 }
 
 func (p *printer) formatIndentedComment(text string) string {
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		lines[i] = p.prefix() + line
+	return strings.TrimRight(text, "\n")
+}
+
+// prefixEachLine prepends prefix to every line in s (including empty lines).
+func prefixEachLine(prefix, s string) string {
+	s = strings.TrimSuffix(s, "\n")
+	if s == "" {
+		return ""
 	}
-	return strings.Join(lines, "\n")
+	lines := strings.Split(s, "\n")
+	var b strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(prefix)
+		b.WriteString(line)
+	}
+	return b.String()
 }
 
 func (p *printer) printFile(nodes []ast.Node) (string, error) {
@@ -294,8 +308,7 @@ func (p *printer) printBlock(nodes []ast.Node) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		b.WriteString(p.prefix())
-		b.WriteString(line)
+		b.WriteString(prefixEachLine(p.prefix(), line))
 		b.WriteByte('\n')
 	}
 	return b.String(), nil
@@ -730,18 +743,78 @@ func (p *printer) printCall(c ast.FunctionCallNode) (string, error) {
 	return b.String(), nil
 }
 
+// shapeUseMultiline picks a multi-line layout for non-empty shapes so nested structure
+// stays readable (matches common hand-formatted Forst).
+func shapeUseMultiline(s ast.ShapeNode) bool {
+	return len(s.Fields) > 0
+}
+
+func sortedShapeFieldNames(fields map[string]ast.ShapeFieldNode) []string {
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (p *printer) printShape(s ast.ShapeNode) (string, error) {
+	return p.printShapeAtFieldIndent(s, 1)
+}
+
+// printShapeAtFieldIndent prints a shape; fieldIndent is the number of cfg.Indent units
+// used for each field line inside this shape (1 = one level of indentation inside the shape).
+func (p *printer) printShapeAtFieldIndent(s ast.ShapeNode, fieldIndent int) (string, error) {
+	if !shapeUseMultiline(s) {
+		return p.printShapeOneLine(s)
+	}
+	return p.printShapeMultiline(s, fieldIndent)
+}
+
+// shapeFieldParsedValueExpr reports the expression for a shape *literal* field. The parser stores
+// literal RHS values as Assertion Value(expr) for the typechecker; the printer must emit the
+// original expression (e.g. nil, 1, "x") instead of Value(nil).
+func shapeFieldParsedValueExpr(field ast.ShapeFieldNode) (ast.ExpressionNode, bool) {
+	a := field.Assertion
+	if a == nil || a.BaseType != nil || len(a.Constraints) != 1 {
+		return nil, false
+	}
+	c := a.Constraints[0]
+	if c.Name != ast.ValueConstraint || len(c.Args) != 1 {
+		return nil, false
+	}
+	arg := c.Args[0]
+	if arg.Value == nil {
+		return nil, false
+	}
+	expr, ok := (*arg.Value).(ast.ExpressionNode)
+	return expr, ok
+}
+
+func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) (string, error) {
+	if field.Shape != nil {
+		return p.printShapeAtFieldIndent(*field.Shape, fieldIndent)
+	}
+	if expr, ok := shapeFieldParsedValueExpr(field); ok {
+		return p.printExpr(expr)
+	}
+	if field.Assertion != nil {
+		return p.formatAssertion(*field.Assertion), nil
+	}
+	if field.Type != nil {
+		return printType(*field.Type), nil
+	}
+	return "", nil
+}
+
+func (p *printer) printShapeOneLine(s ast.ShapeNode) (string, error) {
 	var b strings.Builder
 	// Anonymous structural types use BaseType TYPE_SHAPE as a sentinel; omit it in source.
 	if s.BaseType != nil && *s.BaseType != ast.TypeShape {
 		b.WriteString(string(*s.BaseType))
 	}
 	b.WriteByte('{')
-	names := make([]string, 0, len(s.Fields))
-	for name := range s.Fields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := sortedShapeFieldNames(s.Fields)
 	for i, name := range names {
 		if i > 0 {
 			b.WriteString(", ")
@@ -749,18 +822,43 @@ func (p *printer) printShape(s ast.ShapeNode) (string, error) {
 		field := s.Fields[name]
 		b.WriteString(name)
 		b.WriteString(": ")
-		if field.Shape != nil {
-			inner, err := p.printShape(*field.Shape)
-			if err != nil {
-				return "", err
-			}
-			b.WriteString(inner)
-		} else if field.Assertion != nil {
-			b.WriteString(p.formatAssertion(*field.Assertion))
-		} else if field.Type != nil {
-			b.WriteString(printType(*field.Type))
+		rhs, err := p.printShapeFieldRHS(field, 1)
+		if err != nil {
+			return "", err
 		}
+		b.WriteString(rhs)
 	}
+	b.WriteByte('}')
+	return b.String(), nil
+}
+
+func (p *printer) printShapeMultiline(s ast.ShapeNode, fieldIndent int) (string, error) {
+	if fieldIndent < 1 {
+		fieldIndent = 1
+	}
+	fi := strings.Repeat(p.cfg.Indent, fieldIndent)
+	closeIndent := strings.Repeat(p.cfg.Indent, fieldIndent-1)
+
+	var b strings.Builder
+	// Anonymous structural types use BaseType TYPE_SHAPE as a sentinel; omit it in source.
+	if s.BaseType != nil && *s.BaseType != ast.TypeShape {
+		b.WriteString(string(*s.BaseType))
+	}
+	b.WriteString("{\n")
+	names := sortedShapeFieldNames(s.Fields)
+	for _, name := range names {
+		field := s.Fields[name]
+		b.WriteString(fi)
+		b.WriteString(name)
+		b.WriteString(": ")
+		rhs, err := p.printShapeFieldRHS(field, fieldIndent+1)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(rhs)
+		b.WriteString(",\n")
+	}
+	b.WriteString(closeIndent)
 	b.WriteByte('}')
 	return b.String(), nil
 }

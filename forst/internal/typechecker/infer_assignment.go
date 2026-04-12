@@ -2,6 +2,8 @@ package typechecker
 
 import (
 	"fmt"
+	"strings"
+
 	"forst/internal/ast"
 
 	logrus "github.com/sirupsen/logrus"
@@ -17,13 +19,43 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		"function":   "inferAssignmentTypes",
 	}).Trace("Starting type inference for assignment")
 
-	resolvedTypes = make([][]ast.TypeNode, 0, len(assign.RValues))
-	for _, rvalue := range assign.RValues {
-		types, err := tc.inferExpressionType(rvalue)
-		if err != nil {
-			return err
+	nValueGo := false
+	if len(assign.RValues) == 1 && len(assign.LValues) >= 2 {
+		if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok && tc.goPkgsByLocal != nil {
+			parts := strings.Split(string(fc.Function.ID), ".")
+			if len(parts) == 2 {
+				if gp := tc.goPkgsByLocal[parts[0]]; gp != nil {
+					argTypes := make([][]ast.TypeNode, 0, len(fc.Arguments))
+					for _, arg := range fc.Arguments {
+						ts, err := tc.inferExpressionType(arg)
+						if err != nil {
+							return err
+						}
+						argTypes = append(argTypes, ts)
+					}
+					raw, err := tc.checkGoQualifiedCall(gp, parts[0], parts[1], fc, argTypes, false)
+					if err == nil && len(raw) == len(assign.LValues) {
+						resolvedTypes = make([][]ast.TypeNode, len(raw))
+						for i := range raw {
+							resolvedTypes[i] = []ast.TypeNode{raw[i]}
+						}
+						nValueGo = true
+						tc.storeInferredType(fc, raw)
+					}
+				}
+			}
 		}
-		resolvedTypes = append(resolvedTypes, types)
+	}
+
+	if !nValueGo {
+		resolvedTypes = make([][]ast.TypeNode, 0, len(assign.RValues))
+		for _, rvalue := range assign.RValues {
+			types, err := tc.inferExpressionType(rvalue)
+			if err != nil {
+				return err
+			}
+			resolvedTypes = append(resolvedTypes, types)
+		}
 	}
 
 	if tc.log != nil {
@@ -42,6 +74,14 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					newResolved[i] = []ast.TypeNode{resolvedTypes[0][i]}
 				}
 				resolvedTypes = newResolved
+			} else if len(resolvedTypes[0]) == 1 && len(assign.LValues) == 2 &&
+				resolvedTypes[0][0].IsResultType() && len(resolvedTypes[0][0].TypeParams) >= 2 {
+				// Result(S, F) is one Forst return type but maps to two LHS slots (success, failure).
+				rt := resolvedTypes[0][0]
+				resolvedTypes = [][]ast.TypeNode{
+					{rt.TypeParams[0]},
+					{rt.TypeParams[1]},
+				}
 			}
 		}
 	}

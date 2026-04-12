@@ -114,6 +114,31 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		// Parse first segment (could be package name or type)
 		firstSegment := p.expectCustomTypeIdentifierOrPackageName(opts).Value
 
+		// Result(S, F) and Tuple(T1, ...) — must come before generic LParen-as-assertion
+		if firstSegment == "Result" && p.current().Type == ast.TokenLParen {
+			p.advance()
+			succ := p.parseType(opts)
+			p.expect(ast.TokenComma)
+			fail := p.parseType(opts)
+			p.expect(ast.TokenRParen)
+			return ast.NewResultType(succ, fail)
+		}
+		if firstSegment == "Tuple" && p.current().Type == ast.TokenLParen {
+			p.advance()
+			var elems []ast.TypeNode
+			for p.current().Type != ast.TokenRParen {
+				if len(elems) > 0 {
+					p.expect(ast.TokenComma)
+				}
+				elems = append(elems, p.parseType(opts))
+			}
+			p.expect(ast.TokenRParen)
+			if len(elems) == 0 {
+				p.FailWithParseError(p.current(), "Tuple requires at least one type argument")
+			}
+			return ast.NewTupleType(elems...)
+		}
+
 		// Check if it's a package name
 		if p.current().Type == ast.TokenDot && p.peek(2).Type != ast.TokenLParen {
 			p.advance() // Consume dot

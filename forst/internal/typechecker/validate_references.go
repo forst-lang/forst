@@ -96,6 +96,21 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		return nil
 	case ast.TypeObject:
 		return nil
+	case ast.TypeResult:
+		if len(t.TypeParams) >= 2 {
+			if err := tc.validateTypeReference(t.TypeParams[0], ctx+" result success"); err != nil {
+				return err
+			}
+			return tc.validateTypeReference(t.TypeParams[1], ctx+" result failure")
+		}
+		return nil
+	case ast.TypeTuple:
+		for i, p := range t.TypeParams {
+			if err := tc.validateTypeReference(p, fmt.Sprintf("%s tuple[%d]", ctx, i)); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		if tc.isBuiltinType(t.Ident) {
 			return nil

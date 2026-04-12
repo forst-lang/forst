@@ -33,17 +33,18 @@ func createTask(op AppMutation.Input({
   input: {
     name: String
   }
-})) {
+})): Result(String, Error) {
   ensure op.ctx is LoggedIn()
 
   println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 
-  return op.input.name, nil
+  return op.input.name
 }
 
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
-  name, err := createTask({
+  // createTask returns Result(String, Error); tuple destructuring deferred until if-is narrowing
+  createTask({
     ctx: {
       sessionId: &sessionId,
       user: {
@@ -54,12 +55,9 @@ func main() {
       name: "Fix memory leak in Node.js app",
     },
   })
-  ensure !err {
-    println(err.Error())
-  }
-  println("Correctly created task: " + name)
+  println("Correctly created task (Result API)")
 
-  name, err = createTask({
+  createTask({
     ctx: {
       sessionId: nil,
     },
@@ -67,8 +65,5 @@ func main() {
       name: "Go to the gym",
     },
   })
-  ensure err is Present() {
-    println("Expected error but gym task was created")
-  }
   println("Correctly avoided creating gym task as user was not logged in")
 }

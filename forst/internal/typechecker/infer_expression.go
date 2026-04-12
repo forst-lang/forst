@@ -131,13 +131,26 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			"expr":     expr,
 		}).Tracef("Checking function call: %s with %d arguments", e.Function.ID, len(e.Arguments))
 
-		argTypes := make([][]ast.TypeNode, 0, len(e.Arguments))
-		for _, arg := range e.Arguments {
-			ts, err := tc.inferExpressionType(arg)
-			if err != nil {
-				return nil, err
+		var argTypes [][]ast.TypeNode
+		if sig, ok := tc.Functions[e.Function.ID]; ok && len(e.Arguments) == len(sig.Parameters) {
+			argTypes = make([][]ast.TypeNode, len(e.Arguments))
+			for i, arg := range e.Arguments {
+				exp := &sig.Parameters[i].Type
+				ts, err := tc.inferExpressionTypeWithExpected(arg, exp)
+				if err != nil {
+					return nil, err
+				}
+				argTypes[i] = ts
 			}
-			argTypes = append(argTypes, ts)
+		} else {
+			argTypes = make([][]ast.TypeNode, 0, len(e.Arguments))
+			for _, arg := range e.Arguments {
+				ts, err := tc.inferExpressionType(arg)
+				if err != nil {
+					return nil, err
+				}
+				argTypes = append(argTypes, ts)
+			}
 		}
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
@@ -216,7 +229,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			// Imported Go package (Forst↔Go boundary) when go/packages load succeeded
 			if tc.goPkgsByLocal != nil {
 				if gp := tc.goPkgsByLocal[pkgName]; gp != nil {
-					ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes)
+					ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)
 					if err != nil {
 						return nil, err
 					}
@@ -343,6 +356,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		tc.storeInferredType(e, []ast.TypeNode{e.Type})
 		return []ast.TypeNode{e.Type}, nil
 
+	case ast.OkExprNode:
+		return nil, fmt.Errorf("Ok(...) is not a value constructor; use `is Ok()` / `ensure ... is Ok()` guards, or return a plain success value of type S for Result(S, F)")
+
+	case ast.ErrExprNode:
+		return nil, fmt.Errorf("Err(...) is not a value constructor; use `is Err()` / `ensure ...` and FFI/interop for failure values")
+
 	default:
 		tc.log.Tracef("Unhandled expression type: %T", expr)
 		return nil, fmt.Errorf("cannot infer type for expression: %T", expr)
@@ -384,4 +403,29 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 		"args":       args,
 	}).Tracef("Successfully inferred method call type: %v", returnType)
 	return returnType, nil
+}
+
+// inferExpressionTypeWithExpected infers an expression's type. For shape literals it passes the
+// callee parameter type into inferShapeType so fields match the formal parameter (e.g. *String for
+// `sessionId` when the parameter is AppMutation.Input(...)).
+func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *ast.TypeNode) ([]ast.TypeNode, error) {
+	if expected != nil {
+		switch x := expr.(type) {
+		case ast.ShapeNode:
+			inferredType, err := tc.inferShapeType(x, expected)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(expr, []ast.TypeNode{inferredType})
+			return []ast.TypeNode{inferredType}, nil
+		case *ast.ShapeNode:
+			inferredType, err := tc.inferShapeType(*x, expected)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(expr, []ast.TypeNode{inferredType})
+			return []ast.TypeNode{inferredType}, nil
+		}
+	}
+	return tc.inferExpressionType(expr)
 }

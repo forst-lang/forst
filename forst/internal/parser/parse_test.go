@@ -126,7 +126,7 @@ type CreateUserResponse = {
   created_at: Int
 }
 
-func CreateUser(input CreateUserRequest) {
+func CreateUser(input CreateUserRequest): Result(CreateUserResponse, Error) {
   user := {
     id: "123",
     name: input.name,
@@ -137,7 +137,7 @@ func CreateUser(input CreateUserRequest) {
   return {
     user: user,
     created_at: 1234567890
-  }, nil
+  }
 }
 `
 
@@ -183,12 +183,11 @@ func CreateUser(input CreateUserRequest) {
 		t.Fatal("Could not find return statement")
 	}
 
-	// Check that the return statement has the expected structure
-	if len(returnStmt.Values) != 2 {
-		t.Fatalf("Expected 2 return values, got %d", len(returnStmt.Values))
+	// Return is a shape literal (constructor-free Result success).
+	if len(returnStmt.Values) != 1 {
+		t.Fatalf("Expected 1 return value, got %d", len(returnStmt.Values))
 	}
 
-	// Check the first return value (the shape literal)
 	firstValue := returnStmt.Values[0]
 	var shapeNode *ast.ShapeNode
 	if sn, ok := firstValue.(*ast.ShapeNode); ok {
@@ -196,7 +195,7 @@ func CreateUser(input CreateUserRequest) {
 	} else if snVal, ok := firstValue.(ast.ShapeNode); ok {
 		shapeNode = &snVal
 	} else {
-		t.Fatalf("Expected first return value to be ShapeNode, got %T", firstValue)
+		t.Fatalf("Expected return value to be ShapeNode, got %T", firstValue)
 	}
 
 	// The shape should have exactly 2 fields: user and created_at

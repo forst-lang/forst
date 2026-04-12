@@ -1,0 +1,107 @@
+package transformergo
+
+import (
+	"strings"
+
+	"forst/internal/ast"
+	goast "go/ast"
+)
+
+// isPrintLikeBuiltinCall reports calls that behave like Go print builtins for Result-split lowering.
+func isPrintLikeBuiltinCall(id ast.Ident) bool {
+	switch string(id.ID) {
+	case "print", "println", "fmt.Print", "fmt.Println", "fmt.Printf":
+		return true
+	default:
+		return false
+	}
+}
+
+// goFunExprFromForstCallIdent turns "pkg.Func" into a Go selector expression; otherwise a bare ident.
+func goFunExprFromForstCallIdent(id ast.Ident) goast.Expr {
+	s := string(id.ID)
+	if i := strings.LastIndex(s, "."); i > 0 && i < len(s)-1 {
+		return &goast.SelectorExpr{
+			X:   goast.NewIdent(s[:i]),
+			Sel: goast.NewIdent(s[i+1:]),
+		}
+	}
+	return goast.NewIdent(s)
+}
+
+// resultLocalSplit records how a Forst Result binding maps to Go identifiers for multi-value returns.
+type resultLocalSplit struct {
+	errGoName      string
+	successGoNames []string // one identifier per success slot (Tuple → x0, x1, …)
+}
+
+// hasResultLocalSplitForSimpleVariable is true when vn is a plain name bound from a folded Result (x/xErr).
+func (t *Transformer) hasResultLocalSplitForSimpleVariable(vn ast.VariableNode) bool {
+	if isDotQualifiedVariable(vn) {
+		return false
+	}
+	name := string(vn.Ident.ID)
+	if t.resultLocalSplit == nil {
+		return false
+	}
+	s, ok := t.resultLocalSplit[name]
+	return ok && s.errGoName != ""
+}
+
+// rhsCallIsFoldedResult reports whether fc is typed as a single Forst Result (including Go (T, error) FFI).
+func (t *Transformer) rhsCallIsFoldedResult(fc ast.FunctionCallNode) bool {
+	ts, err := t.TypeChecker.LookupInferredType(fc, false)
+	if err != nil || len(ts) != 1 || !ts[0].IsResultType() {
+		return false
+	}
+	return true
+}
+
+// returnValueDelegatesWholeResult is true when `return expr` should forward a Result-returning
+// callee as a single Go return (`return g()`), not `return succ, nil` for constructor-free success.
+func (t *Transformer) returnValueDelegatesWholeResult(expr ast.ExpressionNode) bool {
+	fc, ok := expr.(ast.FunctionCallNode)
+	if !ok {
+		return false
+	}
+	return t.rhsCallIsFoldedResult(fc)
+}
+
+// transformPrintBuiltinCallArgs builds Go call arguments for print/println and fmt.Print*,
+// expanding a Result-split local (success slots + err) when present.
+// Used from both expression and statement transforms.
+func (t *Transformer) transformPrintBuiltinCallArgs(args []ast.ExpressionNode) ([]goast.Expr, error) {
+	expanded := make([]goast.Expr, 0, len(args)*2)
+	for _, arg := range args {
+		if vn, ok := arg.(ast.VariableNode); ok {
+			// Struct-stored Result fields lower to {V, Err}; expand print args like x,xErr only
+			// when this occurrence is still typed as Result. When narrowed (e.g. inside `if w.r is Ok()`),
+			// use normal codegen (e.g. println(w.r.V)).
+			if sel, okSel := t.compoundResultFieldStorageSelector(vn); okSel {
+				if occ, okOcc := t.TypeChecker.InferredTypesForVariableNode(vn); okOcc && len(occ) == 1 && occ[0].IsResultType() {
+					expanded = append(expanded,
+						goLoweredResultValueSelector(sel),
+						goLoweredResultErrSelector(sel),
+					)
+					continue
+				}
+			}
+			name := string(vn.Ident.ID)
+			if t != nil && t.resultLocalSplit != nil {
+				if split, ok := t.resultLocalSplit[name]; ok && split.errGoName != "" && len(split.successGoNames) > 0 {
+					for _, id := range split.successGoNames {
+						expanded = append(expanded, goast.NewIdent(id))
+					}
+					expanded = append(expanded, goast.NewIdent(split.errGoName))
+					continue
+				}
+			}
+		}
+		argExpr, err := t.transformExpression(arg)
+		if err != nil {
+			return nil, err
+		}
+		expanded = append(expanded, argExpr)
+	}
+	return expanded, nil
+}

@@ -50,6 +50,35 @@ func TestStructuralHasher_Consistency(t *testing.T) {
 		}
 	})
 
+	t.Run("EnsureNode subject variable affects hash", func(t *testing.T) {
+		// Regression: EnsureNode must hash Variable; otherwise structurally identical
+		// assertions (e.g. Min(1)) on different subjects collide in scopeStack.scopes.
+		assertion := ast.AssertionNode{
+			Constraints: []ast.ConstraintNode{
+				{Name: "Min", Args: []ast.ConstraintArgumentNode{}},
+			},
+		}
+		e1 := ast.EnsureNode{
+			Variable:  ast.VariableNode{Ident: ast.Ident{ID: "a"}},
+			Assertion: assertion,
+		}
+		e2 := ast.EnsureNode{
+			Variable:  ast.VariableNode{Ident: ast.Ident{ID: "b"}},
+			Assertion: assertion,
+		}
+		h1, err := hasher.HashNode(e1)
+		if err != nil {
+			t.Fatalf("hash e1: %v", err)
+		}
+		h2, err := hasher.HashNode(e2)
+		if err != nil {
+			t.Fatalf("hash e2: %v", err)
+		}
+		if h1 == h2 {
+			t.Fatalf("EnsureNodes with different subjects must not share a hash")
+		}
+	})
+
 	t.Run("map field order doesn't affect hash", func(t *testing.T) {
 		// Create two maps with same fields in different order
 		map1 := ast.MapLiteralNode{

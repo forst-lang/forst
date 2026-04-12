@@ -20,7 +20,7 @@ func (tc *TypeChecker) getLeftmostVariable(node ast.Node) (ast.Node, error) {
 }
 
 // unifyIsOperator handles type unification for the 'is' operator
-func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType ast.TypeNode, rightType ast.TypeNode) (ast.TypeNode, error) {
+func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node) (ast.TypeNode, error) {
 	// Get the leftmost variable to check against type guard receiver
 	leftmostVar, err := tc.getLeftmostVariable(left)
 	if err != nil {
@@ -68,6 +68,14 @@ func (tc *TypeChecker) unifyIsOperator(left ast.Node, right ast.Node, leftType a
 		}
 
 	default:
+		rightTypes, err := tc.inferExpressionType(right)
+		if err != nil {
+			return ast.TypeNode{}, err
+		}
+		if len(rightTypes) != 1 {
+			return ast.TypeNode{}, fmt.Errorf("expected single type on RHS of `is`")
+		}
+		rightType := rightTypes[0]
 		if rightType.Ident != ast.TypeShape {
 			return ast.TypeNode{}, fmt.Errorf("right-hand side of 'is' must be a Shape type or assertion, got %s", rightType.Ident)
 		}

@@ -18,18 +18,19 @@ Unsupported methods return JSON-RPC error **`-32601` Method not found** (except 
 
 ## Develop (F5)
 
-Use **VS Code** (or a fork that supports the **Extension Development Host**). Run `bun install` at the repo root once; `bun run compile` runs `tsc --noEmit` then **Bun** bundles `src/extension.ts` to `out/extension.js` (plus a source map). That runs on F5 (see below) or via `task build:vscode` / `bun run compile` in `packages/vscode-forst`. **`@forst/cli` stays external** at runtime (shipped under `node_modules` in the VSIX) so the CLI can read its own `package.json` for the compiler version.
+Use **VS Code** (or a fork that supports the **Extension Development Host**). Install dependencies at the repo root once (`bun install`). The **preLaunch** task runs from the **monorepo root**: **`bun run --filter forst compile`** (same effect as `bun run compile` inside `packages/vscode-forst`, or **`bun run vscode-forst:compile`** from the root `package.json`), which runs `tsc -p ./` and emits `out/extension.js`. Tasks also prepend common **`PATH`** entries (`~/.bun/bin`, Homebrew, `/usr/local/bin`) so **Cursor / VS Code** can find `bun` when GUI apps get a minimal environment. That runs on F5 (see below) or via `task build:vscode`. **`@forst/cli` stays external** at runtime (shipped under `node_modules` in the VSIX) so the CLI can read its own `package.json` for the compiler version.
 
 **Important:** `--extensionDevelopmentPath` must point at **`packages/vscode-forst`**, not the monorepo root. Otherwise the extension never loads (no **Forst** output channel, no Problems).
 
 1. Build the compiler so `forst` is on `PATH`, or set **Forst: Path** later.
-2. **If you opened the whole Forst repo as the workspace** (recommended): use the root [`.vscode/launch.json`](../../.vscode/launch.json) configuration **“Run Extension (vscode-forst)”** and press F5. That sets `extensionDevelopmentPath` to `packages/vscode-forst` and runs the **bun: compile vscode-forst** preLaunch task (`bun run compile` in this package) so `out/` is up to date.
-3. **If you opened only `packages/vscode-forst` as the workspace**: use [.vscode/launch.json](.vscode/launch.json) **“Run Extension (this folder = vscode-forst)”** and F5; its preLaunch task compiles the same way.
+2. **If you opened the whole Forst repo as the workspace** (recommended): use the root [`.vscode/launch.json`](../../.vscode/launch.json) configuration **“Run Extension (vscode-forst)”** and press F5. That sets `extensionDevelopmentPath` to `packages/vscode-forst` and runs the **compile: vscode-forst** preLaunch task from the **repo root** (`bun run --filter forst compile`) so `out/` is up to date.
+3. **If you opened only `packages/vscode-forst` as the workspace**: use [.vscode/launch.json](.vscode/launch.json) **“Run Extension (this folder = vscode-forst)”** and F5; the preLaunch task uses the **parent monorepo** (`cwd` = two levels up) and runs the same **`bun run --filter forst compile`** from that root—keep this folder inside the full clone so `../..` is the repo with `package.json` / `bun.lock`.
 
 In the **Extension Development Host** window, **File → Open Folder** and choose a tree that contains `.ft` files (e.g. `examples/in`). Open an `.ft` file; the status bar language mode should be **Forst**. Check **View → Output** and pick **Forst** — you should see “Forst extension activated.” and LSP logs after that.
 
 ### Troubleshooting
 
+- **`bun` not found** when the preLaunch task runs: the task prepends **`~/.bun/bin`**, **Homebrew**, and **`/usr/local/bin`** to **`PATH`**. If it still fails, add Bun to **`~/.zprofile`** (login PATH) or **VS Code → Settings → `terminal.integrated.env.osx`** so GUI-spawned tasks see `bun`. Install from [bun.sh](https://bun.sh). The compile runs from the **monorepo root** via **`bun run --filter forst compile`**.
 - No **Forst** channel: the dev host did not load this extension; fix `extensionDevelopmentPath` as above.
 - Language mode **Plain Text** on `.ft`: extension not loaded, or another extension stole the association; confirm the dev host and try **Change Language Mode** → Forst.
 - **Cursor:** extension debugging may differ; try VS Code if F5 does nothing.

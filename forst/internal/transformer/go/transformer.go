@@ -26,6 +26,10 @@ type Transformer struct {
 
 	// Track functions that have ensure statements to prevent normal return statements from overwriting error returns
 	functionsWithEnsure map[string]bool
+
+	// resultLocalSplit maps a Forst variable name to the Go identifiers used when lowering
+	// "x := pkg.F()" where F returns Result (Go (values..., error)). Scoped per transformFunction.
+	resultLocalSplit map[string]resultLocalSplit
 }
 
 // New creates a new Transformer
