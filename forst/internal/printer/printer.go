@@ -56,6 +56,16 @@ func FormatTypeDefNode(cfg Config, def ast.TypeDefNode) (string, error) {
 	return p.printTypeDef(def)
 }
 
+// FormatTypeGuardNode pretty-prints a type guard declaration (e.g. LSP hover).
+func FormatTypeGuardNode(cfg Config, g ast.TypeGuardNode) (string, error) {
+	if cfg.Indent == "" {
+		cfg.Indent = "\t"
+	}
+	var p printer
+	p.cfg = cfg
+	return p.printTypeGuard(g)
+}
+
 type printer struct {
 	cfg    Config
 	depth  int

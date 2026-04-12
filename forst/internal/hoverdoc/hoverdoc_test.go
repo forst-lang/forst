@@ -55,3 +55,30 @@ func TestGuardMarkdown_unknown(t *testing.T) {
 		t.Fatal("expected empty for unknown guard")
 	}
 }
+
+func TestIsBuiltinTypeSurfaceName(t *testing.T) {
+	t.Parallel()
+	if !IsBuiltinTypeSurfaceName(NameResult) || IsBuiltinTypeSurfaceName("NotBuiltin") {
+		t.Fatal("IsBuiltinTypeSurfaceName mismatch")
+	}
+}
+
+func TestForstBlock(t *testing.T) {
+	t.Parallel()
+	s := forstBlock("a", "b")
+	if !strings.Contains(s, "```forst") || !strings.Contains(s, "a\nb") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestMarkdownForKeywordToken_controlFlowAndLiterals(t *testing.T) {
+	t.Parallel()
+	cases := []ast.TokenIdent{
+		ast.TokenIf, ast.TokenFor, ast.TokenNil, ast.TokenTrue, ast.TokenError,
+	}
+	for _, tok := range cases {
+		if s := MarkdownForKeywordToken(tok); s == "" {
+			t.Fatalf("empty for %v", tok)
+		}
+	}
+}

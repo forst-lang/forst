@@ -181,3 +181,24 @@ func TestPrintType_typeShape_withAssertion(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestFormatTypeGuardNode_roundTrip(t *testing.T) {
+	t.Parallel()
+	g := ast.TypeGuardNode{
+		Ident: ast.Identifier("Positive"),
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "n"},
+			Type:  ast.TypeNode{Ident: ast.TypeInt},
+		},
+		Body: []ast.Node{
+			ast.ReturnNode{Values: []ast.ExpressionNode{ast.BoolLiteralNode{Value: true}}},
+		},
+	}
+	out, err := FormatTypeGuardNode(DefaultConfig(), g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "is (") || !strings.Contains(out, "Positive") || !strings.Contains(out, "n Int") {
+		t.Fatalf("FormatTypeGuardNode: %q", out)
+	}
+}

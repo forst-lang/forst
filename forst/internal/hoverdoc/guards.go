@@ -8,10 +8,10 @@ import (
 
 // Built-in assertion / guard names (ensure and if … is …) plus Result discriminators.
 const (
-	GuardMin          = "Min"
-	GuardMax          = "Max"
-	GuardLessThan     = "LessThan"
-	GuardGreaterThan  = "GreaterThan"
+	GuardMin           = "Min"
+	GuardMax           = "Max"
+	GuardLessThan      = "LessThan"
+	GuardGreaterThan   = "GreaterThan"
 	GuardHasPrefix     = "HasPrefix"
 	GuardContains      = "Contains"
 	GuardTrue          = "True"
@@ -53,36 +53,119 @@ func guardDoc(title, body string) string {
 }
 
 var guardDocs = map[string]string{
-	GuardMin: guardDoc(GuardMin,
-		"Lower bound. For strings and arrays, compares `len(value)` to the integer argument; for `Int` and `Float`, compares the numeric value. Used in `ensure x is Min(n)` or `if x is Min(n)`."),
-	GuardMax: guardDoc(GuardMax,
-		"Upper bound. For strings and arrays, compares `len(value)` to the integer argument; for `Int` and `Float`, compares the numeric value."),
-	GuardLessThan: guardDoc(GuardLessThan,
-		"For integers and floats, requires `value < n` (implemented with `>=` on the right-hand literal in generated checks)."),
-	GuardGreaterThan: guardDoc(GuardGreaterThan,
-		"For integers and floats, requires `value > n` (implemented with `<=` on the right-hand literal in generated checks)."),
-	GuardHasPrefix: guardDoc(GuardHasPrefix,
-		"For strings, requires `strings.HasPrefix(value, prefix)` to hold for the given string literal argument."),
-	GuardContains: guardDoc(GuardContains,
-		"For strings, requires `strings.Contains(value, substr)` to hold for the given string literal argument."),
-	GuardTrue: guardDoc(GuardTrue,
-		"For booleans, requires the value to be `true`."),
-	GuardFalse: guardDoc(GuardFalse,
-		"For booleans, requires the value to be `false`."),
-	GuardNil: guardDoc(GuardNil,
-		"For pointers and `Error`, requires the value to be nil (or an untyped nil in Go terms)."),
-	GuardPresent: guardDoc(GuardPresent,
-		"For pointers and `Error`, requires the value to be non-nil (`!= nil`)."),
-	GuardNotEmpty: guardDoc(GuardNotEmpty,
-		"For strings and arrays, requires non-zero length (`len != 0`)."),
-	GuardValid: guardDoc(GuardValid,
-		"Placeholder hook for validation. The compiler may emit a conservative check; prefer explicit predicates or user-defined type guards for real validation."),
-	GuardValue: guardDoc(GuardValue,
-		"Refines a type to a single compile-time value (dependent-style literal typing)."),
-	GuardMatch: guardDoc(GuardMatch,
-		"Structural matching against a shape or pattern in assertions (see type checker rules for the surrounding type)."),
-	GuardOk: guardDoc(GuardOk,
-		"For `Result(S, F)`, narrows to the success payload. In `if x is Ok()` the then-branch sees `S`; `ensure x is Ok()` narrows following statements."),
-	GuardErr: guardDoc(GuardErr,
-		"For `Result(S, F)`, narrows to the failure side. In `if x is Err()` the then-branch sees the failure type (typically error-kinded)."),
+	GuardMin: guardDoc(GuardMin, strings.Join([]string{
+		"Requires a **minimum**: for `String` and `Array`, compares `len` to the integer argument; for `Int` / `Float`, compares the numeric value.",
+		"",
+		"**Example**",
+		"",
+		forstBlock(
+			"ensure name is Min(1)",
+			"ensure scores is Min(0)",
+		),
+	}, "\n")),
+	GuardMax: guardDoc(GuardMax, strings.Join([]string{
+		"Requires a **maximum** (same length vs value rules as `Min`).",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure label is Max(80)"),
+	}, "\n")),
+	GuardLessThan: guardDoc(GuardLessThan, strings.Join([]string{
+		"For `Int` / `Float`, requires the value to stay **strictly below** the given number (the compiler emits the matching comparison).",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure n is LessThan(100)"),
+	}, "\n")),
+	GuardGreaterThan: guardDoc(GuardGreaterThan, strings.Join([]string{
+		"For `Int` / `Float`, requires the value to stay **strictly above** the given number.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure n is GreaterThan(0)"),
+	}, "\n")),
+	GuardHasPrefix: guardDoc(GuardHasPrefix, strings.Join([]string{
+		"For `String`, requires the value to start with the given **string literal** (lowers to `strings.HasPrefix`).",
+		"",
+		"**Example**",
+		"",
+		forstBlock(`ensure url is HasPrefix("https://")`),
+	}, "\n")),
+	GuardContains: guardDoc(GuardContains, strings.Join([]string{
+		"For `String`, requires the substring to appear (`strings.Contains`).",
+		"",
+		"**Example**",
+		"",
+		forstBlock(`ensure msg is Contains("error")`),
+	}, "\n")),
+	GuardTrue: guardDoc(GuardTrue, strings.Join([]string{
+		"For `Bool`, requires the value to be **true**.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure ok is True()"),
+	}, "\n")),
+	GuardFalse: guardDoc(GuardFalse, strings.Join([]string{
+		"For `Bool`, requires the value to be **false**.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure done is False()"),
+	}, "\n")),
+	GuardNil: guardDoc(GuardNil, strings.Join([]string{
+		"For pointers and `Error`, requires **nil**.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure err is Nil()"),
+	}, "\n")),
+	GuardPresent: guardDoc(GuardPresent, strings.Join([]string{
+		"For pointers and `Error`, requires **non-nil** (`!= nil`).",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure err is Present()"),
+	}, "\n")),
+	GuardNotEmpty: guardDoc(GuardNotEmpty, strings.Join([]string{
+		"For `String` and `Array`, requires `len != 0`.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("ensure line is NotEmpty()"),
+	}, "\n")),
+	GuardValid: guardDoc(GuardValid, strings.Join([]string{
+		"Reserved hook for custom validation. The compiler may emit a placeholder check—use explicit guards or a user-defined type guard for real rules.",
+	}, "\n")),
+	GuardValue: guardDoc(GuardValue, strings.Join([]string{
+		"Refines a type to a **single compile-time value** (literal typing).",
+		"",
+		"**Example**",
+		"",
+		forstBlock("// appears in assertion-style types as Value(...)"),
+	}, "\n")),
+	GuardMatch: guardDoc(GuardMatch, strings.Join([]string{
+		"Structural match against a shape or pattern inside an assertion—see the surrounding type for what is compared.",
+	}, "\n")),
+	GuardOk: guardDoc(GuardOk, strings.Join([]string{
+		"For `Result(S, F)`, picks the **success** side. In `if x is Ok()` the then-branch sees `S`; after `ensure x is Ok()`, later code is narrowed.",
+		"",
+		"**Example**",
+		"",
+		forstBlock(
+			"if r is Ok() {",
+			"  // r is the success payload here",
+			"}",
+		),
+	}, "\n")),
+	GuardErr: guardDoc(GuardErr, strings.Join([]string{
+		"For `Result(S, F)`, picks the **failure** side (often error-like).",
+		"",
+		"**Example**",
+		"",
+		forstBlock(
+			"if r is Err() {",
+			"  // handle failure",
+			"}",
+		),
+	}, "\n")),
 }

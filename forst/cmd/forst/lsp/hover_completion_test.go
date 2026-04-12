@@ -34,7 +34,7 @@ func TestTokenSliceIndex_pointerOrValueMatch(t *testing.T) {
 func TestTypeDefHoverMarkdown_typeGuard(t *testing.T) {
 	t.Parallel()
 	v := ast.TypeGuardNode{Ident: ast.Identifier("Strong")}
-	if md := typeDefHoverMarkdown(nil, nil, v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") {
+	if md := typeDefHoverMarkdown(nil, nil, v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") || !strings.Contains(md, "Type guard") {
 		t.Fatalf("value TypeGuardNode: got %q", md)
 	}
 	if md := typeDefHoverMarkdown(nil, nil, &v); !strings.Contains(md, "Strong") {
@@ -272,6 +272,24 @@ func TestHoverTextForToken_builtinGuardAfterIs(t *testing.T) {
 	}
 	tok := &tokens[2]
 	if s := hoverTextForToken(tc, tokens, tok, nil); !strings.Contains(s, "Min") || !strings.Contains(s, "guard") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_builtinTypeNameIdentifier(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenIdentifier, Value: "Tuple", Line: 1, Column: 1}
+	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "Tuple") || !strings.Contains(s, "built-in type") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_nilKeyword(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenNil, Value: "nil", Line: 1, Column: 1}
+	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "nil") || !strings.Contains(s, "zero value") {
 		t.Fatalf("got %q", s)
 	}
 }
