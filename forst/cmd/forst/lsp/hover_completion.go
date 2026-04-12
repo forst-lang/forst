@@ -9,6 +9,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/printer"
+	"forst/internal/hoverdoc"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -278,10 +279,13 @@ func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []as
 			}
 		}
 		doc := leadingCommentDocBeforeTypeGuard(docTokens, g)
-		if doc == "" {
+		if doc != "" {
+			docBlocks = append(docBlocks, fmt.Sprintf("**%s**\n\n%s", g, doc))
 			continue
 		}
-		docBlocks = append(docBlocks, fmt.Sprintf("**%s**\n\n%s", g, doc))
+		if fb := hoverdoc.GuardMarkdown(g); fb != "" {
+			docBlocks = append(docBlocks, fb)
+		}
 	}
 	if len(docBlocks) == 0 {
 		return body
@@ -325,20 +329,26 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if def, ok := tc.Defs[ast.TypeIdent(tok.Value)]; ok {
 			return typeDefHoverMarkdown(tokens, merge, def)
 		}
+		if doc := guardIdentifierHoverMarkdown(tokens, tok); doc != "" {
+			return doc
+		}
 		vn := ast.VariableNode{
 			Ident: ast.Ident{ID: id, Span: ast.SpanFromToken(*tok)},
 		}
 		if types, ok := tc.InferredTypesForVariableNode(vn); ok && len(types) > 0 {
 			return variableHoverMarkdownWithGuardDocs(tc, tokens, merge, tok, types)
 		}
+		if md := hoverdoc.BuiltinTypeMarkdown(tok.Value); md != "" {
+			return md
+		}
 		return ""
 	}
 
-	if literalHover(tok) {
-		return ""
-	}
 	if kw := keywordHover(tok); kw != "" {
 		return kw
+	}
+	if literalHover(tok) {
+		return ""
 	}
 	return ""
 }
@@ -661,67 +671,70 @@ func typeDefHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, def ast.N
 		}
 		return doc + "\n\n" + block
 	case ast.TypeGuardNode:
-		return typeGuardHoverStub(&d)
+		return typeGuardHoverMarkdown(tokens, merge, &d)
 	case *ast.TypeGuardNode:
-		return typeGuardHoverStub(d)
+		return typeGuardHoverMarkdown(tokens, merge, d)
 	default:
 		return ""
 	}
 }
 
-func typeGuardHoverStub(g *ast.TypeGuardNode) string {
+func typeGuardHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, g *ast.TypeGuardNode) string {
 	if g == nil {
 		return ""
 	}
-	// registerTypeGuard stores *TypeGuardNode in Defs; full signature formatting is optional follow-up.
-	return fmt.Sprintf("```forst\nis ... %s\n```", string(g.Ident))
+	name := string(g.Ident)
+	doc := leadingCommentDocBeforeTypeGuard(tokens, name)
+	if doc == "" && merge != nil {
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if doc = leadingCommentDocBeforeTypeGuard(tks, name); doc != "" {
+				break
+			}
+		}
+	}
+	body, err := printer.FormatTypeGuardNode(printer.DefaultConfig(), *g)
+	if err != nil || strings.TrimSpace(body) == "" {
+		body = fmt.Sprintf("is ... %s\n", name)
+	}
+	block := "**Type guard**\n\n```forst\n" + body + "```"
+	if doc == "" {
+		return block
+	}
+	return doc + "\n\n" + block
 }
 
-// literalHover reports whether the token is a literal. We intentionally omit hover text for
-// literals (aligned with TypeScript: no noisy hovers on `42`, `"hi"`, etc.).
+// literalHover reports whether the token is a numeric or string literal. Boolean and nil
+// tokens are documented via keywordHover instead.
 func literalHover(tok *ast.Token) bool {
 	switch tok.Type {
-	case ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral,
-		ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
+	case ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral:
 		return true
 	default:
 		return false
 	}
 }
 
-// keywordHover returns a single-line quick info string (keyword in backticks), similar to
-// built-in TypeScript keyword hovers — no tutorial paragraphs.
+// keywordHover returns markdown for documented keywords and built-in type tokens (see
+// internal/hoverdoc).
 func keywordHover(tok *ast.Token) string {
-	switch tok.Type {
-	case ast.TokenFunc:
-		return "`func`"
-	case ast.TokenType:
-		return "`type`"
-	case ast.TokenReturn:
-		return "`return`"
-	case ast.TokenEnsure:
-		return "`ensure`"
-	case ast.TokenImport:
-		return "`import`"
-	case ast.TokenPackage:
-		return "`package`"
-	case ast.TokenInt:
-		return "`Int`"
-	case ast.TokenFloat:
-		return "`Float`"
-	case ast.TokenString:
-		return "`String`"
-	case ast.TokenBool:
-		return "`Bool`"
-	case ast.TokenVoid:
-		return "`Void`"
-	case ast.TokenArray:
-		return "`Array`"
-	case ast.TokenStruct:
-		return "`struct`"
-	default:
+	if tok == nil {
 		return ""
 	}
+	return hoverdoc.MarkdownForKeywordToken(tok.Type)
+}
+
+// guardIdentifierHoverMarkdown returns built-in guard documentation when the identifier appears
+// immediately after `is` (e.g. ensure x is Min(1), if x is Ok()).
+func guardIdentifierHoverMarkdown(tokens []ast.Token, tok *ast.Token) string {
+	if tok == nil || tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 1 || tokens[i-1].Type != ast.TokenIs {
+		return ""
+	}
+	return hoverdoc.GuardMarkdown(tok.Value)
 }
 
 // leadingCommentDocBeforeFunc returns plain text from // or /* */ comments that appear in the

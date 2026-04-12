@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +35,7 @@ func TestTokenSliceIndex_pointerOrValueMatch(t *testing.T) {
 func TestTypeDefHoverMarkdown_typeGuard(t *testing.T) {
 	t.Parallel()
 	v := ast.TypeGuardNode{Ident: ast.Identifier("Strong")}
-	if md := typeDefHoverMarkdown(nil, nil, v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") {
+	if md := typeDefHoverMarkdown(nil, nil, v); !strings.Contains(md, "Strong") || !strings.Contains(md, "is") || !strings.Contains(md, "Type guard") {
 		t.Fatalf("value TypeGuardNode: got %q", md)
 	}
 	if md := typeDefHoverMarkdown(nil, nil, &v); !strings.Contains(md, "Strong") {
@@ -256,7 +257,40 @@ func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenFunc, Value: "func"}
-	if s := hoverTextForToken(tc, nil, tok, nil); s != "`func`" {
+	s := hoverTextForToken(tc, nil, tok, nil)
+	if !strings.Contains(s, "**`func`**") || !strings.Contains(s, "Declares") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_builtinGuardAfterIs(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tokens := []ast.Token{
+		{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 1},
+		{Type: ast.TokenIs, Value: "is", Line: 1, Column: 3},
+		{Type: ast.TokenIdentifier, Value: "Min", Line: 1, Column: 6},
+	}
+	tok := &tokens[2]
+	if s := hoverTextForToken(tc, tokens, tok, nil); !strings.Contains(s, "Min") || !strings.Contains(s, "guard") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_builtinTypeNameIdentifier(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenIdentifier, Value: "Tuple", Line: 1, Column: 1}
+	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "Tuple") || !strings.Contains(s, "built-in type") {
+		t.Fatalf("got %q", s)
+	}
+}
+
+func TestHoverTextForToken_nilKeyword(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(logrus.New(), false)
+	tok := &ast.Token{Type: ast.TokenNil, Value: "nil", Line: 1, Column: 1}
+	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "nil") || !strings.Contains(s, "zero value") {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -281,7 +315,7 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 
 func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
 	t.Parallel()
-	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); s != "`func`" {
+	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenFunc, Value: "func"}); !strings.Contains(s, "**`func`**") {
 		t.Fatalf("keyword: got %q", s)
 	}
 	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
@@ -315,7 +349,7 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 
 	// Line 0: `package` keyword
 	hPkg := s.findHoverForPosition(uri, LSPPosition{Line: 0, Character: 2})
-	if hPkg == nil || hPkg.Contents.Value != "`package`" {
+	if hPkg == nil || !strings.Contains(hPkg.Contents.Value, "**`package`**") {
 		if hPkg == nil {
 			t.Fatal("expected keyword hover on package when parse fails")
 		}
@@ -760,4 +794,214 @@ func f(): String {
 		t.Fatalf("doc should appear above the forst code block; got %q", val)
 	}
 	_ = ctx
+}
+
+func TestHandleHover_invalidParamsReturnsParseError(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	resp := s.handleHover(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      42,
+		Params:  json.RawMessage(`not-json`),
+	})
+	if resp.Error == nil {
+		t.Fatal("expected JSON-RPC error for invalid params")
+	}
+	if resp.Error.Code != -32700 {
+		t.Fatalf("want code -32700, got %d msg %q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.ID != 42 {
+		t.Fatalf("echo id: got %v", resp.ID)
+	}
+}
+
+func TestHandleCompletion_invalidParamsReturnsParseError(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	resp := s.handleCompletion(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      7,
+		Params:  json.RawMessage(`{`),
+	})
+	if resp.Error == nil {
+		t.Fatal("expected JSON-RPC error for invalid params")
+	}
+	if resp.Error.Code != -32700 {
+		t.Fatalf("want code -32700, got %d", resp.Error.Code)
+	}
+}
+
+func TestLexicalHoverMarkdown_trueFalseNil(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		tok  ast.TokenIdent
+		want string
+	}{
+		{ast.TokenTrue, "true"},
+		{ast.TokenFalse, "false"},
+		{ast.TokenNil, "nil"},
+	}
+	for _, tc := range cases {
+		tok := ast.Token{Type: tc.tok, Value: tc.want}
+		s := lexicalHoverMarkdown(&tok)
+		if s == "" || !strings.Contains(s, tc.want) {
+			t.Fatalf("%v: got %q", tc.tok, s)
+		}
+	}
+}
+
+func TestFindHover_crossFileTypeLeadingComment(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "widget.ft")
+	bPath := filepath.Join(dir, "use.ft")
+	const srcA = `package main
+
+// Widget wraps an identifier
+type Widget = {
+  id: Int
+}
+`
+	const srcB = `package main
+
+func wid(w: Widget): Int {
+  return w.id
+}
+`
+	if err := os.WriteFile(aPath, []byte(srcA), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bPath, []byte(srcB), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriA := mustFileURI(t, aPath)
+	uriB := mustFileURI(t, bPath)
+	s.documentMu.Lock()
+	s.openDocuments[uriA] = srcA
+	s.openDocuments[uriB] = srcB
+	s.documentMu.Unlock()
+
+	pos := lspPositionOfIdentifier(srcB, "Widget")
+	h := s.findHoverForPosition(uriB, pos)
+	if h == nil {
+		t.Fatal("expected hover on Widget in peer file")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Widget wraps an identifier") {
+		t.Fatalf("expected merged // doc from defining file, got %q", val)
+	}
+	if !strings.Contains(val, "type Widget") && !strings.Contains(val, "Widget") {
+		t.Fatalf("expected type definition in hover: %q", val)
+	}
+}
+
+func TestFindHoverForPosition_noTokenReturnsNil(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "short.ft")
+	const src = "package main\n"
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+	// Line 10 has no tokens in this one-line file.
+	if h := s.findHoverForPosition(uri, LSPPosition{Line: 10, Character: 0}); h != nil {
+		t.Fatalf("expected nil hover when no token at position, got %#v", h)
+	}
+}
+
+func TestFindHover_userTypeNameShadowsBuiltinTupleDoc(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "shadow_tuple.ft")
+	const src = `package main
+
+type Tuple = Int
+
+func f(): Tuple {
+  return 0
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	line := "func f(): Tuple {"
+	ix := strings.Index(line, "Tuple")
+	if ix < 0 {
+		t.Fatal("fixture")
+	}
+	li := 0
+	for i, l := range strings.Split(src, "\n") {
+		if strings.Contains(l, "func f():") {
+			li = i
+			break
+		}
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: li, Character: ix})
+	if h == nil {
+		t.Fatal("nil hover on Tuple return type")
+	}
+	val := h.Contents.Value
+	// User-defined alias must win over built-in Tuple FFI hover.
+	if !strings.Contains(val, "type Tuple") {
+		t.Fatalf("expected user type hover, got %q", val)
+	}
+	if strings.Contains(val, "FFI") || strings.Contains(val, "multi-value") {
+		t.Fatalf("did not expect built-in Tuple blurb, got %q", val)
+	}
+}
+
+func TestFindHover_variableHoverIncludesBuiltinGuardDocWhenNoSourceComment(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "guard_fallback_hover.ft")
+	const src = `package main
+
+func f(s: String): Void {
+  ensure s is Min(3)
+  _ = s
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	lines := strings.Split(src, "\n")
+	var hoverLine, charOff int
+	for i, line := range lines {
+		if strings.Contains(line, "_ = s") {
+			hoverLine = i
+			charOff = strings.Index(line, "s")
+			break
+		}
+	}
+	if charOff < 0 {
+		t.Fatal("could not find s in _ = s")
+	}
+	prefix := string([]rune(lines[hoverLine])[:charOff])
+	h := s.findHoverForPosition(uri, LSPPosition{Line: hoverLine, Character: utf8.RuneCountInString(prefix)})
+	if h == nil {
+		t.Fatal("nil hover on s after ensure")
+	}
+	val := h.Contents.Value
+	// Built-in Min guard doc (hoverdoc) should appear when there is no // above the guard.
+	if !strings.Contains(val, "Min") || !strings.Contains(val, "minimum") {
+		t.Fatalf("expected built-in Min guard documentation in hover, got %q", val)
+	}
 }
