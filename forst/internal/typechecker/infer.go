@@ -35,108 +35,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		prevFn := tc.currentFunction
-		tc.currentFunction = &n
-		prevErrBranchDepth := tc.resultErrIfBranchDepth
-		tc.resultErrIfBranchDepth = 0
-		defer func() {
-			tc.currentFunction = prevFn
-			tc.resultErrIfBranchDepth = prevErrBranchDepth
-		}()
-
-		tc.log.WithFields(logrus.Fields{
-			"function": "inferNodeType",
-			"fn":       n.Ident.ID,
-			"phase":    "ENTER",
-		}).Debug("Function node type inference")
-
-		if err := tc.RestoreScope(n); err != nil {
-			return nil, err
-		}
-		tc.log.WithFields(logrus.Fields{
-			"function": "inferNodeType",
-			"fn":       n.Ident.ID,
-		}).Debug("Restored function scope")
-
-		// Register parameters in the current scope
-		for _, param := range n.Params {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				tc.scopeStack.currentScope().RegisterSymbol(
-					p.Ident.ID,
-					[]ast.TypeNode{p.Type},
-					SymbolVariable)
-			case ast.DestructuredParamNode:
-				continue
-			}
-		}
-		tc.DebugPrintCurrentScope() // Print all symbols in the current scope after parameter registration
-
-		// Convert []ParamNode to []Node
-		params := make([]ast.Node, len(n.Params))
-		for i, param := range n.Params {
-			params[i] = param
-		}
-
-		paramTypes, err := tc.inferNodeTypes(params, n)
-		if err != nil {
-			return nil, err
-		}
-
-		for i, paramTypes := range paramTypes {
-			param := n.Params[i]
-			// Store in scope for structural lookup
-			tc.log.WithFields(logrus.Fields{
-				"paramTypes": paramTypes,
-				"param":      param.GetIdent(),
-				"function":   "inferNodeType",
-			}).Trace("Storing param variable type")
-
-			tc.scopeStack.currentScope().RegisterSymbol(
-				ast.Identifier(param.GetIdent()),
-				paramTypes,
-				SymbolVariable)
-			// Field hover (req.state, …) uses VariableTypes for the receiver; params are not assignments.
-			if sp, ok := param.(ast.SimpleParamNode); ok && len(paramTypes) > 0 {
-				tc.VariableTypes[sp.Ident.ID] = append([]ast.TypeNode(nil), paramTypes...)
-			}
-		}
-
-		// registerFunction stored raw AST types (e.g. TYPE_ASSERTION for `op AppMutation.Input({...})`).
-		// inferNodeTypes + InferAssertionType resolve those to concrete types; call-site checks use
-		// tc.Functions[name].Parameters, so keep the signature in sync.
-		if sig, ok := tc.Functions[n.Ident.ID]; ok {
-			for i := range sig.Parameters {
-				if i < len(paramTypes) && len(paramTypes[i]) >= 1 {
-					sig.Parameters[i].Type = paramTypes[i][0]
-				}
-			}
-		}
-
-		// Process function body without restoring scope for each node
-		// since we want to preserve the function parameter scope
-		for _, bodyNode := range n.Body {
-			_, err := tc.inferNodeType(bodyNode)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		inferredType, err := tc.inferFunctionReturnType(n)
-		if err != nil {
-			return nil, err
-		}
-		tc.storeInferredFunctionReturnType(&n, inferredType)
-
-		tc.popScope()
-
-		tc.log.WithFields(logrus.Fields{
-			"function": "inferNodeType",
-			"fn":       n.Ident.ID,
-			"phase":    "EXIT",
-		}).Debug("Function node type inference")
-
-		return inferredType, nil
+		return tc.inferFunctionNode(n)
 
 	case ast.SimpleParamNode:
 		if n.Type.Assertion != nil {
@@ -164,44 +63,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return inferredType, nil
 
 	case ast.EnsureNode:
-		variableType, err := tc.inferEnsureType(n)
-		if err != nil {
-			return nil, err
-		}
-
-		if n.Block != nil {
-			tc.pushScope(n.Block)
-			// Subject hover: reflect only prior ensures in this scope — not this line's assertion,
-			// which has not been applied at the subject position yet. Successor narrowing runs next.
-			if _, err := tc.inferExpressionType(n.Variable); err != nil {
-				return nil, err
-			}
-			// Built-in Result Ok/Err: the block is the failure branch (see transformer: if !cond { block }).
-			// Narrow to F when the assertion was Ok(), and to S when it was Err().
-			if tc.ensureUsesBuiltinResultOkErrDiscriminator(n) {
-				tc.applyEnsureBlockResultFailureNarrowing(n)
-			} else {
-				tc.applyEnsureSuccessorNarrowing(n)
-			}
-			_, err = tc.inferNodeTypes(n.Block.Body, n.Block)
-			tc.popScope()
-			if err != nil {
-				return nil, err
-			}
-			// After a passing ensure, following statements see the success-side refinement (S after Ok, etc.).
-			if tc.ensureUsesBuiltinResultOkErrDiscriminator(n) {
-				tc.applyEnsureSuccessorNarrowing(n)
-			}
-		} else {
-			if _, err := tc.inferExpressionType(n.Variable); err != nil {
-				return nil, err
-			}
-			tc.applyEnsureSuccessorNarrowing(n)
-		}
-
-		tc.storeInferredType(n.Assertion, []ast.TypeNode{variableType})
-
-		return nil, nil
+		return tc.inferEnsureNode(n)
 	case ast.AssignmentNode:
 		if err := tc.inferAssignmentTypes(n); err != nil {
 			return nil, err
@@ -273,69 +135,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.TypeGuardNode, *ast.TypeGuardNode:
-		// Push a new scope for the type guard's body
-		var guardNode ast.TypeGuardNode
-		if ptr, ok := n.(*ast.TypeGuardNode); ok {
-			guardNode = *ptr
-		} else {
-			guardNode = n.(ast.TypeGuardNode)
-		}
-		tc.pushScope(&guardNode)
-
-		// Register parameters in the current scope
-		for _, param := range guardNode.Parameters() {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				pt := []ast.TypeNode{p.Type}
-				tc.scopeStack.currentScope().RegisterSymbol(
-					p.Ident.ID,
-					pt, SymbolVariable)
-				// Field hover and other lookups use VariableTypes; type guard params are not assigned
-				// like locals, so register their declared types here (same idea as inferred params).
-				tc.VariableTypes[p.Ident.ID] = pt
-			case ast.DestructuredParamNode:
-				continue
-			}
-		}
-
-		// Infer and validate type guard body: same pipeline as function bodies (`inferIfStatement`
-		// for narrowing/merge, `inferEnsureType` for ensure) so control-flow join and guard metadata
-		// apply inside `is (…) Name { … }` definitions.
-		for _, node := range guardNode.Body {
-			switch stmt := node.(type) {
-			case ast.CommentNode:
-				continue
-			case ast.ReturnNode:
-				return nil, fmt.Errorf("type guards must not have return statements")
-			case ast.IfNode:
-				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
-					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
-				}
-				if _, err := tc.inferIfStatement(stmt); err != nil {
-					return nil, err
-				}
-			case *ast.IfNode:
-				if binExpr, ok := stmt.Condition.(ast.BinaryExpressionNode); !ok || binExpr.Operator != ast.TokenIs {
-					return nil, fmt.Errorf("type guard conditions must use 'is' operator")
-				}
-				if _, err := tc.inferIfStatement(*stmt); err != nil {
-					return nil, err
-				}
-			case ast.EnsureNode:
-				if _, err := tc.inferNodeType(stmt); err != nil {
-					return nil, err
-				}
-			case *ast.EnsureNode:
-				if _, err := tc.inferNodeType(*stmt); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("type guards may only contain if, else if, else, and ensure statements")
-			}
-		}
-
-		tc.popScope()
-		return nil, nil
+		return tc.inferTypeGuardNode(n)
 
 	case ast.IfNode:
 		return tc.inferIfStatement(n)

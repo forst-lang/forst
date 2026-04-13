@@ -33,15 +33,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Create logger with appropriate level based on build type
-	var log *logrus.Logger
-	if Version == "dev" {
-		log = logrus.New()
-		log.SetLevel(logrus.DebugLevel)
-	} else {
-		log = logrus.New()
-		log.SetLevel(logrus.InfoLevel)
-	}
+	log := newLogger()
 
 	// Check if we should start dev server
 	if len(os.Args) > 1 && os.Args[1] == "dev" {
@@ -100,20 +92,7 @@ func main() {
 		}
 
 		// Set log level
-		switch *logLevel {
-		case "trace":
-			log.SetLevel(logrus.TraceLevel)
-		case "debug":
-			log.SetLevel(logrus.DebugLevel)
-		case "info":
-			log.SetLevel(logrus.InfoLevel)
-		case "warn":
-			log.SetLevel(logrus.WarnLevel)
-		case "error":
-			log.SetLevel(logrus.ErrorLevel)
-		default:
-			log.SetLevel(logrus.InfoLevel)
-		}
+		setLogLevel(log, *logLevel)
 
 		// Set version information in LSP package
 		lsp.Version = Version
@@ -164,20 +143,7 @@ func main() {
 	}
 
 	// Set log level based on args.LogLevel
-	switch args.LogLevel {
-	case "trace":
-		log.SetLevel(logrus.TraceLevel)
-	case "debug":
-		log.SetLevel(logrus.DebugLevel)
-	case "info":
-		log.SetLevel(logrus.InfoLevel)
-	case "warn":
-		log.SetLevel(logrus.WarnLevel)
-	case "error":
-		log.SetLevel(logrus.ErrorLevel)
-	default:
-		log.SetLevel(logrus.InfoLevel)
-	}
+	setLogLevel(log, args.LogLevel)
 
 	log.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: false,
@@ -212,6 +178,33 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	}
+}
+
+func newLogger() *logrus.Logger {
+	logger := logrus.New()
+	if Version == "dev" {
+		logger.SetLevel(logrus.DebugLevel)
+		return logger
+	}
+	logger.SetLevel(logrus.InfoLevel)
+	return logger
+}
+
+func setLogLevel(log *logrus.Logger, level string) {
+	switch level {
+	case "trace":
+		log.SetLevel(logrus.TraceLevel)
+	case "debug":
+		log.SetLevel(logrus.DebugLevel)
+	case "info":
+		log.SetLevel(logrus.InfoLevel)
+	case "warn":
+		log.SetLevel(logrus.WarnLevel)
+	case "error":
+		log.SetLevel(logrus.ErrorLevel)
+	default:
+		log.SetLevel(logrus.InfoLevel)
 	}
 }
 
