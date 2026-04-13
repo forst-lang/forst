@@ -413,17 +413,17 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 		}
 
 		return output, nil
-	} else {
-		e.log.Tracef("Executing Go program without args")
-		cmd = exec.Command("go", "run", ".")
-		cmd.Dir = tempDir
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			e.log.Errorf("Go program failed: %v", err)
-			return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
-		}
-		return string(output), nil
 	}
+
+	e.log.Tracef("Executing Go program without args")
+	cmd = exec.Command("go", "run", ".")
+	cmd.Dir = tempDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		e.log.Errorf("Go program failed: %v", err)
+		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
+	}
+	return string(output), nil
 }
 
 // executeStreamingGoCode executes Go code with streaming support

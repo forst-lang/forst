@@ -28,12 +28,11 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 				RValues:       []ast.ExpressionNode{rvalue},
 				ExplicitTypes: []*ast.TypeNode{&typeNode},
 			}
-		} else {
-			// No equals sign, just type declaration
-			return ast.AssignmentNode{
-				LValues:       []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
-				ExplicitTypes: []*ast.TypeNode{&typeNode},
-			}
+		}
+		// No equals sign, just type declaration
+		return ast.AssignmentNode{
+			LValues:       []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: ast.Identifier(ident.Value)}, ExplicitType: typeNode}},
+			ExplicitTypes: []*ast.TypeNode{&typeNode},
 		}
 	case ast.TokenEquals:
 		// No explicit type: var x = ...

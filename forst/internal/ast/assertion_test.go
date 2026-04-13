@@ -69,6 +69,6 @@ func TestAssertionNode_ToString_base_and_constraints_together(t *testing.T) {
 	}
 }
 
-func TestAssertionNode_isExpression_marker(t *testing.T) {
+func TestAssertionNode_isExpression_marker(_ *testing.T) {
 	AssertionNode{}.isExpression()
 }

@@ -15,6 +15,6 @@ func TestVariableNode_String_explicit_and_plain(t *testing.T) {
 	}
 }
 
-func TestVariableNode_isValue_marker(t *testing.T) {
+func TestVariableNode_isValue_marker(_ *testing.T) {
 	VariableNode{}.isValue()
 }

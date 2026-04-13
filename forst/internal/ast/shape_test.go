@@ -44,7 +44,7 @@ func TestShapeNode_String_unknown_field_cell(t *testing.T) {
 	}
 }
 
-func TestShapeNode_isExpression_marker(t *testing.T) {
+func TestShapeNode_isExpression_marker(_ *testing.T) {
 	ShapeNode{}.isExpression()
 }
 

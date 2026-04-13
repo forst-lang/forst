@@ -51,11 +51,11 @@ func (m *MockLogger) Warnf(format string, _ ...interface{}) {
 	m.warnMsgs = append(m.warnMsgs, format)
 }
 
-func (m *MockLogger) Errorf(format string, args ...interface{}) {
+func (m *MockLogger) Errorf(format string, _ ...interface{}) {
 	m.errorMsgs = append(m.errorMsgs, format)
 }
 
-func (m *MockLogger) Tracef(format string, args ...interface{}) {
+func (m *MockLogger) Tracef(format string, _ ...interface{}) {
 	m.traceMsgs = append(m.traceMsgs, format)
 }
 

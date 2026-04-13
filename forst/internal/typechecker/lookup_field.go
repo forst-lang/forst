@@ -937,7 +937,14 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 				}).Debugf("About to lookup variable type (non-pointer, non-pointer var)")
 
 				varType, err := tc.LookupVariableType(&varNode, tc.CurrentScope())
-				if err == nil {
+				if err != nil {
+					tc.log.WithFields(logrus.Fields{
+						"function":  "inferValueConstraintType",
+						"fieldName": fieldName,
+						"varIdent":  varNode.Ident.ID,
+						"error":     err.Error(),
+					}).Debugf("Failed to lookup variable type for ReferenceNode (non-pointer, non-pointer var)")
+				} else {
 					tc.log.WithFields(logrus.Fields{
 						"function":  "inferValueConstraintType",
 						"fieldName": fieldName,
@@ -947,13 +954,6 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 						Ident:      ast.TypePointer,
 						TypeParams: []ast.TypeNode{varType},
 					}, nil
-				} else {
-					tc.log.WithFields(logrus.Fields{
-						"function":  "inferValueConstraintType",
-						"fieldName": fieldName,
-						"varIdent":  varNode.Ident.ID,
-						"error":     err.Error(),
-					}).Debugf("Failed to lookup variable type for ReferenceNode (non-pointer, non-pointer var)")
 				}
 			} else {
 				tc.log.WithFields(logrus.Fields{
