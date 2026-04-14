@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 )
 
 func TestExamples_exactGolden_basic(t *testing.T) {

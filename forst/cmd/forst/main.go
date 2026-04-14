@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 	"forst/cmd/forst/lsp"
 	"os"
 	"path/filepath"

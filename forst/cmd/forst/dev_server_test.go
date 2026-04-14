@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 	"forst/internal/discovery"
 
 	"github.com/sirupsen/logrus"
@@ -194,6 +195,35 @@ func TestSendJSONResponse_setsCORSWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestSendJSONResponse_doesNotSetCORSWhenDisabled(t *testing.T) {
+	s := testDevServer(t)
+	s.config.Server.CORS = false
+	rr := httptest.NewRecorder()
+	s.sendJSONResponse(rr, DevServerResponse{Success: true})
+	if rr.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("expected no CORS header, got %v", rr.Header())
+	}
+}
+
+func TestSendError_setsStatusAndJSONEnvelope(t *testing.T) {
+	s := testDevServer(t)
+	rr := httptest.NewRecorder()
+	s.sendError(rr, "upstream gateway timed out", http.StatusBadGateway)
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("status: got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Content-Type: want application/json, got %q", ct)
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Success || resp.Error != "upstream gateway timed out" {
+		t.Fatalf("unexpected error envelope: %+v", resp)
+	}
+}
+
 func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsHeaderOnly(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
@@ -243,5 +273,82 @@ func TestDevServer_Stop_nilServerNoop(t *testing.T) {
 	s := &DevServer{}
 	if err := s.Stop(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandleTypes_freshCache_returnsCachedWithoutGenerator(t *testing.T) {
+	s := testDevServer(t)
+	s.typesCacheMu.Lock()
+	s.typesCache["types"] = "cached-types-content"
+	s.lastTypesGen = time.Now()
+	s.typesCacheMu.Unlock()
+
+	rr := httptest.NewRecorder()
+	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /types: %d %s", rr.Code, rr.Body.String())
+	}
+
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got %+v", resp)
+	}
+	if resp.Output != "cached-types-content" {
+		t.Fatalf("expected cached output, got %q", resp.Output)
+	}
+}
+
+func TestHandleTypes_forceRegenerate_overwritesCache(t *testing.T) {
+	s := testDevServer(t)
+	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	s.typesCacheMu.Lock()
+	s.typesCache["types"] = "stale-cache"
+	s.lastTypesGen = time.Now()
+	s.typesCacheMu.Unlock()
+
+	rr := httptest.NewRecorder()
+	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types?force=true", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /types?force=true: %d %s", rr.Code, rr.Body.String())
+	}
+
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got %+v", resp)
+	}
+	if resp.Output == "stale-cache" {
+		t.Fatalf("expected regenerated output, got stale cache")
+	}
+}
+
+func TestHandleTypes_staleCache_regeneratesWithoutForce(t *testing.T) {
+	s := testDevServer(t)
+	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	s.typesCacheMu.Lock()
+	s.typesCache["types"] = "stale-cache"
+	s.lastTypesGen = time.Now().Add(-6 * time.Minute)
+	s.typesCacheMu.Unlock()
+
+	rr := httptest.NewRecorder()
+	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /types stale cache: %d %s", rr.Code, rr.Body.String())
+	}
+
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success {
+		t.Fatalf("expected success response, got %+v", resp)
+	}
+	if resp.Output == "stale-cache" {
+		t.Fatalf("expected stale cache invalidation and regeneration")
 	}
 }

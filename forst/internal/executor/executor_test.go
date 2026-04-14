@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 
 	"github.com/sirupsen/logrus"
 )

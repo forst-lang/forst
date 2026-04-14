@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 	"forst/internal/configiface"
 
 	"github.com/bmatcuk/doublestar/v4"

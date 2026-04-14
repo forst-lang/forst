@@ -1,7 +1,7 @@
 package main
 
 import (
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 	"os"
 	"path/filepath"
 	"strings"

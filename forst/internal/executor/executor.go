@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"forst/cmd/forst/compiler"
+	"forst/internal/compiler"
 	"forst/internal/configiface"
 	"forst/internal/discovery"
 	"forst/internal/forstpkg"

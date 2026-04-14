@@ -15,22 +15,22 @@ func TestProgramCompilation(t *testing.T) {
 	}{
 		{
 			name:     "valid basic program",
-			filePath: "../../../../examples/in/basic.ft",
+			filePath: "../../../examples/in/basic.ft",
 			wantErr:  false,
 		},
 		{
 			name:     "valid loop program",
-			filePath: "../../../../examples/in/loop.ft",
+			filePath: "../../../examples/in/loop.ft",
 			wantErr:  false,
 		},
 		{
 			name:     "union of nominal errors typedef",
-			filePath: "../../../../examples/in/union_error_types.ft",
+			filePath: "../../../examples/in/union_error_types.ft",
 			wantErr:  false,
 		},
 		{
 			name:     "union of nominal errors with if-branch narrowing",
-			filePath: "../../../../examples/in/union_error_narrowing.ft",
+			filePath: "../../../examples/in/union_error_narrowing.ft",
 			wantErr:  false,
 		},
 		{
@@ -136,7 +136,7 @@ func TestCompileFile_unionErrorNarrowing_example(t *testing.T) {
 	t.Parallel()
 	c := New(Args{
 		Command:  "build",
-		FilePath: "../../../../examples/in/union_error_narrowing.ft",
+		FilePath: "../../../examples/in/union_error_narrowing.ft",
 		LogLevel: "error",
 	}, nil)
 	code, err := c.CompileFile()
@@ -163,7 +163,7 @@ func TestCompileFile_unionErrorNarrowing_example(t *testing.T) {
 func TestCompileFile_nominalErrorExample_emitsNamedPayloadStruct(t *testing.T) {
 	c := New(Args{
 		Command:  "build",
-		FilePath: "../../../../examples/in/nominal_error.ft",
+		FilePath: "../../../examples/in/nominal_error.ft",
 		LogLevel: "error",
 	}, nil)
 	code, err := c.CompileFile()
