@@ -59,3 +59,44 @@ func TestTypeChecker_ShapeGuard_ComplexConstraints(t *testing.T) {
 		})
 	}
 }
+
+func TestMergeShapeFieldsFromConstraints_lastWins(t *testing.T) {
+	constraints := []ast.ConstraintNode{
+		{
+			Name: "Shape",
+			Args: []ast.ConstraintArgumentNode{
+				{
+					Shape: &ast.ShapeNode{
+						Fields: map[string]ast.ShapeFieldNode{
+							"id":   {Type: &ast.TypeNode{Ident: ast.TypeString}},
+							"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "Shape",
+			Args: []ast.ConstraintArgumentNode{
+				{
+					Shape: &ast.ShapeNode{
+						Fields: map[string]ast.ShapeFieldNode{
+							"id": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	merged := MergeShapeFieldsFromConstraints(constraints)
+	if len(merged) != 2 {
+		t.Fatalf("expected 2 merged fields, got %d", len(merged))
+	}
+	if merged["id"].Type == nil || merged["id"].Type.Ident != ast.TypeInt {
+		t.Fatalf("expected last constraint to win for id, got %+v", merged["id"])
+	}
+	if merged["name"].Type == nil || merged["name"].Type.Ident != ast.TypeString {
+		t.Fatalf("expected name to be preserved, got %+v", merged["name"])
+	}
+}

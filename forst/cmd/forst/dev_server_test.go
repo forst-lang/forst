@@ -352,3 +352,69 @@ func TestHandleTypes_staleCache_regeneratesWithoutForce(t *testing.T) {
 		t.Fatalf("expected stale cache invalidation and regeneration")
 	}
 }
+
+func TestLoadAndValidateConfig_overridesPortAndLogLevel(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "ftconfig.json")
+	configJSON := `{
+  "server": { "port": "3001" },
+  "dev": { "logLevel": "info" }
+}`
+	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
+	overrideLevel := "debug"
+	cfg := loadAndValidateConfig(configPath, logger, "9090", &overrideLevel)
+	if cfg == nil {
+		t.Fatal("expected config, got nil")
+	}
+	if cfg.Server.Port != "9090" {
+		t.Fatalf("expected overridden port 9090, got %q", cfg.Server.Port)
+	}
+	if cfg.Dev.LogLevel != "debug" {
+		t.Fatalf("expected overridden log level debug, got %q", cfg.Dev.LogLevel)
+	}
+}
+
+func TestLoadAndValidateConfig_setsLoggerLevelFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "ftconfig.json")
+	configJSON := `{
+  "server": { "port": "8080" },
+  "dev": { "logLevel": "trace" }
+}`
+	if err := os.WriteFile(configPath, []byte(configJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	logger.SetLevel(logrus.ErrorLevel)
+
+	cfg := loadAndValidateConfig(configPath, logger, "", nil)
+	if cfg == nil {
+		t.Fatal("expected config, got nil")
+	}
+	if cfg.Dev.LogLevel != "trace" {
+		t.Fatalf("expected config log level trace, got %q", cfg.Dev.LogLevel)
+	}
+	if logger.GetLevel() != logrus.TraceLevel {
+		t.Fatalf("expected logger level trace, got %s", logger.GetLevel())
+	}
+}
+
+func TestDevServer_Start_invalidPortReturnsError_andInitializesTypesGenerator(t *testing.T) {
+	s := testDevServer(t)
+	s.port = "invalid-port"
+	err := s.Start()
+	if err == nil {
+		t.Fatal("expected start error for invalid port")
+	}
+	if s.typesGenerator == nil {
+		t.Fatal("expected types generator initialization before listen failure")
+	}
+}

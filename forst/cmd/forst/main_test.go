@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestVersionInfo(t *testing.T) {
@@ -259,6 +261,40 @@ func TestLogLevelParsing(t *testing.T) {
 				t.Errorf("Expected log level %s for input %s, got %s", tc.expectedLevel, tc.logLevel, actualLevel)
 			}
 		})
+	}
+}
+
+func TestNewLogger_setsLevelByVersion(t *testing.T) {
+	original := Version
+	defer func() { Version = original }()
+
+	Version = "dev"
+	if got := newLogger().GetLevel(); got != logrus.DebugLevel {
+		t.Fatalf("dev logger level: %s", got)
+	}
+
+	Version = "1.2.3"
+	if got := newLogger().GetLevel(); got != logrus.InfoLevel {
+		t.Fatalf("release logger level: %s", got)
+	}
+}
+
+func TestSetLogLevel_appliesKnownAndDefault(t *testing.T) {
+	log := logrus.New()
+
+	setLogLevel(log, "trace")
+	if log.GetLevel() != logrus.TraceLevel {
+		t.Fatalf("trace level not applied: %s", log.GetLevel())
+	}
+
+	setLogLevel(log, "error")
+	if log.GetLevel() != logrus.ErrorLevel {
+		t.Fatalf("error level not applied: %s", log.GetLevel())
+	}
+
+	setLogLevel(log, "not-a-level")
+	if log.GetLevel() != logrus.InfoLevel {
+		t.Fatalf("default info level not applied: %s", log.GetLevel())
 	}
 }
 
