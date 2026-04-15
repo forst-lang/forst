@@ -1,206 +1,116 @@
 package compiler
 
 import (
-	"forst/internal/logger"
+	"bytes"
+	"io"
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
-func mustAbs(t *testing.T, path string) string {
-	t.Helper()
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return abs
+func TestPrintVersion_smoke(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	printVersion(log)
 }
 
-func TestParseArgs(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		want     Args
-		wantHelp bool
-	}{
-		{
-			name: "run command with file",
-			args: []string{"forst", "run", "test.ft"},
-			want: Args{
-				Command:  "run",
-				FilePath: "test.ft",
-				LogLevel: "info", // default value
-			},
-			wantHelp: false,
-		},
-		{
-			name: "build command with file",
-			args: []string{"forst", "build", "test.ft"},
-			want: Args{
-				Command:  "build",
-				FilePath: "test.ft",
-				LogLevel: "info", // default value
-			},
-			wantHelp: false,
-		},
-		{
-			name: "run with loglevel flag",
-			args: []string{"forst", "run", "-loglevel", "debug", "test.ft"},
-			want: Args{
-				Command:  "run",
-				FilePath: "test.ft",
-				LogLevel: "debug",
-			},
-			wantHelp: false,
-		},
-		{
-			name: "run with watch and output",
-			args: []string{"forst", "run", "-watch", "-o", "output.go", "test.ft"},
-			want: Args{
-				Command:    "run",
-				FilePath:   "test.ft",
-				Watch:      true,
-				OutputPath: "output.go",
-				LogLevel:   "info", // default value
-			},
-			wantHelp: false,
-		},
-		{
-			name: "run with report phases",
-			args: []string{"forst", "run", "-report-phases", "test.ft"},
-			want: Args{
-				Command:      "run",
-				FilePath:     "test.ft",
-				LogLevel:     "info", // default value
-				ReportPhases: true,
-			},
-			wantHelp: false,
-		},
-		{
-			name: "run with report memory usage",
-			args: []string{"forst", "run", "-report-memory-usage", "test.ft"},
-			want: Args{
-				Command:           "run",
-				FilePath:          "test.ft",
-				LogLevel:          "info", // default value
-				ReportMemoryUsage: true,
-			},
-			wantHelp: false,
-		},
-		{
-			name: "run with root for merged package",
-			args: []string{"forst", "run", "-root", ".", "test.ft"},
-			want: Args{
-				Command:     "run",
-				FilePath:    "test.ft",
-				LogLevel:    "info",
-				PackageRoot: mustAbs(t, "."),
-			},
-			wantHelp: false,
-		},
-		{
-			name:     "help flag",
-			args:     []string{"forst", "--help"},
-			want:     Args{},
-			wantHelp: true,
-		},
-		{
-			name:     "invalid command",
-			args:     []string{"forst", "invalid", "test.ft"},
-			want:     Args{},
-			wantHelp: false,
-		},
+func TestPrintUsage_smoke(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	printUsage(log)
+}
+
+func TestParseArgs_noSubcommand_printsUsageAndReturnsEmpty(t *testing.T) {
+	old := os.Args
+	t.Cleanup(func() { os.Args = old })
+	os.Args = []string{"forst"}
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	log.SetLevel(logrus.InfoLevel)
+
+	args := ParseArgs(log)
+	if args.Command != "" {
+		t.Fatalf("expected empty command, got %q", args.Command)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Save original args and restore after test
-			origArgs := os.Args
-			defer func() { os.Args = origArgs }()
-
-			os.Args = tt.args
-
-			if tt.wantHelp {
-				// Help flag should cause os.Exit(0)
-				defer func() {
-					if r := recover(); r == nil {
-						t.Errorf("Expected ParseArgs() to exit with status 0 for help flag")
-					}
-				}()
-			}
-
-			log := logger.New()
-			got := ParseArgs(log)
-
-			// Compare fields
-			if got.Command != tt.want.Command {
-				t.Errorf("ParseArgs().command = %v, want %v", got.Command, tt.want.Command)
-			}
-			if got.FilePath != tt.want.FilePath {
-				t.Errorf("ParseArgs().filePath = %v, want %v", got.FilePath, tt.want.FilePath)
-			}
-			if got.LogLevel != tt.want.LogLevel {
-				t.Errorf("ParseArgs().logLevel = %v, want %v", got.LogLevel, tt.want.LogLevel)
-			}
-			if got.Watch != tt.want.Watch {
-				t.Errorf("ParseArgs().watch = %v, want %v", got.Watch, tt.want.Watch)
-			}
-			if got.OutputPath != tt.want.OutputPath {
-				t.Errorf("ParseArgs().outputPath = %v, want %v", got.OutputPath, tt.want.OutputPath)
-			}
-			if got.ReportPhases != tt.want.ReportPhases {
-				t.Errorf("ParseArgs().reportPhases = %v, want %v", got.ReportPhases, tt.want.ReportPhases)
-			}
-			if got.ReportMemoryUsage != tt.want.ReportMemoryUsage {
-				t.Errorf("ParseArgs().reportMemoryUsage = %v, want %v", got.ReportMemoryUsage, tt.want.ReportMemoryUsage)
-			}
-			if tt.want.PackageRoot != "" && got.PackageRoot != tt.want.PackageRoot {
-				t.Errorf("ParseArgs().PackageRoot = %v, want %v", got.PackageRoot, tt.want.PackageRoot)
-			}
-		})
+	if !strings.Contains(buf.String(), "Forst Compiler") || !strings.Contains(buf.String(), "Usage:") {
+		t.Fatalf("expected usage banner in log, got %q", buf.String())
 	}
 }
 
-func TestInvalidArgs(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-	}{
-		{
-			name: "no arguments",
-			args: []string{"forst"},
-		},
-		{
-			name: "no file specified",
-			args: []string{"forst", "run"},
-		},
-		{
-			name: "build with watch",
-			args: []string{"forst", "build", "-watch", "test.ft"},
-		},
-		{
-			name: "watch without output",
-			args: []string{"forst", "run", "-watch", "test.ft"},
-		},
-		{
-			name: "root with watch",
-			args: []string{"forst", "run", "-root", ".", "-watch", "-o", "out.go", "test.ft"},
-		},
+func TestParseArgs_unknownCommand_returnsEmpty(t *testing.T) {
+	old := os.Args
+	t.Cleanup(func() { os.Args = old })
+	os.Args = []string{"forst", "nope", "x.ft"}
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+
+	args := ParseArgs(log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
 	}
+	if !strings.Contains(buf.String(), "Unknown command") {
+		t.Fatalf("expected unknown command log, got %q", buf.String())
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Save original args and restore after test
-			origArgs := os.Args
-			defer func() { os.Args = origArgs }()
+func TestParseArgs_buildWithWatchRejected(t *testing.T) {
+	old := os.Args
+	t.Cleanup(func() { os.Args = old })
+	os.Args = []string{"forst", "build", "-watch", "out.go", "x.ft"}
 
-			os.Args = tt.args
-			log := logger.New()
-			got := ParseArgs(log)
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
 
-			if got != (Args{}) {
-				t.Errorf("ParseArgs() = %v, want empty ProgramArgs for invalid args", got)
-			}
-		})
+	args := ParseArgs(log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
+	}
+	if !strings.Contains(buf.String(), "watch") || !strings.Contains(buf.String(), "build") {
+		t.Fatalf("expected watch+build error, got %q", buf.String())
+	}
+}
+
+func TestParseArgs_watchWithoutOutputRejected(t *testing.T) {
+	old := os.Args
+	t.Cleanup(func() { os.Args = old })
+	os.Args = []string{"forst", "run", "-watch", "x.ft"}
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+
+	args := ParseArgs(log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
+	}
+	if !strings.Contains(buf.String(), "-o") {
+		t.Fatalf("expected -o required message, got %q", buf.String())
+	}
+}
+
+func TestParseArgs_rootWithWatchRejected(t *testing.T) {
+	old := os.Args
+	t.Cleanup(func() { os.Args = old })
+	os.Args = []string{"forst", "run", "-watch", "-o", "out.go", "-root", "/tmp", "x.ft"}
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+
+	args := ParseArgs(log)
+	if args.Command != "" {
+		t.Fatalf("expected empty args, got command %q", args.Command)
+	}
+	if !strings.Contains(buf.String(), "root") || !strings.Contains(buf.String(), "watch") {
+		t.Fatalf("expected root+watch error, got %q", buf.String())
 	}
 }

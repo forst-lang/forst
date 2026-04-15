@@ -101,3 +101,40 @@ func Peer(): String {
 		t.Fatalf("expected merged-package phase log, got %q", logBuffer.String())
 	}
 }
+
+func TestCompileFile_writesOutputPathMatchesReturnedCode(t *testing.T) {
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "ok.ft")
+	outPath := filepath.Join(dir, "emit.go")
+	if err := os.WriteFile(srcPath, []byte(`package main
+
+func main() {
+	println("hi")
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := New(Args{
+		Command:    "build",
+		FilePath:   srcPath,
+		OutputPath: outPath,
+		LogLevel:   "error",
+	}, silentCompilerTestLogger())
+
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if code == nil {
+		t.Fatal("nil code")
+	}
+
+	disk, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if string(disk) != *code {
+		t.Fatalf("written file differs from returned string (len disk=%d len ret=%d)", len(disk), len(*code))
+	}
+}

@@ -82,6 +82,56 @@ func TestForstBlock(t *testing.T) {
 	}
 }
 
+func TestForstBlock_emptyVariadic(t *testing.T) {
+	t.Parallel()
+	if forstBlock() != "" {
+		t.Fatal("expected empty for no lines")
+	}
+}
+
+func TestGuardMarkdownQualified_unknown_returnsEmpty(t *testing.T) {
+	t.Parallel()
+	if GuardMarkdownQualified("Int", "NotARealGuard") != "" {
+		t.Fatal("expected empty when guard name unknown")
+	}
+}
+
+func TestGuardMarkdownQualified_emptyBase_matchesUnqualifiedPrefix(t *testing.T) {
+	t.Parallel()
+	md := GuardMarkdownQualified("   ", GuardMin)
+	if !strings.HasPrefix(md, "**`Min`** (guard)") {
+		t.Fatalf("expected unqualified title, got:\n%s", md)
+	}
+}
+
+func TestBuiltinTypeMarkdown_unknownReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	if BuiltinTypeMarkdown("TotallyUnknownType") != "" {
+		t.Fatal("expected empty")
+	}
+}
+
+func TestMarkdownForKeywordToken_switchCoverage(t *testing.T) {
+	t.Parallel()
+	// One token from each major branch of MarkdownForKeywordToken (builtins/types vs keywords).
+	cases := []ast.TokenIdent{
+		ast.TokenFloat, ast.TokenString, ast.TokenBool, ast.TokenVoid,
+		ast.TokenStruct, ast.TokenFunc, ast.TokenType, ast.TokenReturn,
+		ast.TokenImport, ast.TokenPackage, ast.TokenEnsure, ast.TokenIs,
+		ast.TokenOr, ast.TokenElseIf, ast.TokenElse, ast.TokenRange,
+		ast.TokenBreak, ast.TokenContinue, ast.TokenSwitch, ast.TokenCase,
+		ast.TokenDefault, ast.TokenFallthrough, ast.TokenVar, ast.TokenConst,
+		ast.TokenChan, ast.TokenInterface, ast.TokenGo, ast.TokenDefer,
+		ast.TokenGoto, ast.TokenArrow, ast.TokenLogicalAnd, ast.TokenLogicalOr,
+		ast.TokenLogicalNot,
+	}
+	for _, tok := range cases {
+		if s := MarkdownForKeywordToken(tok); s == "" {
+			t.Fatalf("empty markdown for token %v", tok)
+		}
+	}
+}
+
 func TestMarkdownForKeywordToken_controlFlowAndLiterals(t *testing.T) {
 	t.Parallel()
 	cases := []ast.TokenIdent{

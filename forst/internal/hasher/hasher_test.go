@@ -293,8 +293,8 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 		}},
 		{"FloatLiteral", ast.FloatLiteralNode{Value: 3.14}},
 		{"TypeDefBinaryExpr", ast.TypeDefBinaryExpr{
-			Op: ast.TokenBitwiseAnd,
-			Left: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+			Op:    ast.TokenBitwiseAnd,
+			Left:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
 			Right: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}}}}},
 		}},
 		{"Package", ast.PackageNode{Ident: ast.Ident{ID: "pkg"}}},
@@ -442,10 +442,10 @@ func TestNodeHash_ToGuardIdent(t *testing.T) {
 func TestStructuralHasher_ForBreakContinue(t *testing.T) {
 	h := New()
 	loop := &ast.ForNode{
-		IsRange: true,
-		RangeX:  ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		IsRange:  true,
+		RangeX:   ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
 		RangeKey: &ast.Ident{ID: "k"},
-		Body:    []ast.Node{&ast.BreakNode{}, &ast.ContinueNode{}},
+		Body:     []ast.Node{&ast.BreakNode{}, &ast.ContinueNode{}},
 	}
 	h1, err := h.HashNode(loop)
 	if err != nil {
@@ -494,6 +494,24 @@ func TestStructuralHasher_ForLoop_optionalInitPost(t *testing.T) {
 	}
 	if a == b {
 		t.Fatal("expected different hash when Init is set")
+	}
+}
+
+func TestHashNode_okErrAndIndexExpression(t *testing.T) {
+	t.Parallel()
+	h := New()
+	idx := ast.IndexExpressionNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		Index:  ast.IntLiteralNode{Value: 0},
+	}
+	if _, err := h.HashNode(idx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.HashNode(ast.OkExprNode{Value: ast.IntLiteralNode{Value: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.HashNode(ast.ErrExprNode{Value: ast.StringLiteralNode{Value: "e"}}); err != nil {
+		t.Fatal(err)
 	}
 }
 

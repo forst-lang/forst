@@ -18,6 +18,23 @@ func TestWatchFile_rejectsPackageRoot(t *testing.T) {
 	}
 }
 
+func TestWatchFile_missingWatchedFile_returnsBeforeEventLoop(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "not-created.ft")
+	out := filepath.Join(dir, "out.go")
+
+	c := New(Args{
+		FilePath:   missing,
+		OutputPath: out,
+		LogLevel:   "error",
+	}, nil)
+
+	err := c.WatchFile()
+	if err == nil {
+		t.Fatal("expected error from fsnotify.Add on missing path")
+	}
+}
+
 func TestCompileAndRunOnce_compileFailureDoesNotPanic(t *testing.T) {
 	c := New(Args{
 		Command:  "build",
@@ -26,6 +43,41 @@ func TestCompileAndRunOnce_compileFailureDoesNotPanic(t *testing.T) {
 	}, nil)
 	// should log and return without panic
 	c.compileAndRunOnce()
+}
+
+func TestCompileAndRunOnce_successInvokesRunGoProgramWithOutputPath(t *testing.T) {
+	origRun := runGoProgramForWatch
+	t.Cleanup(func() { runGoProgramForWatch = origRun })
+
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "ok.ft")
+	if err := os.WriteFile(ftPath, []byte(`package main
+
+func main() {
+	println("ok")
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "compiled.go")
+
+	var gotPath string
+	runGoProgramForWatch = func(p string) error {
+		gotPath = p
+		return nil
+	}
+
+	c := New(Args{
+		Command:    "build",
+		FilePath:   ftPath,
+		OutputPath: outPath,
+		LogLevel:   "error",
+	}, nil)
+	c.compileAndRunOnce()
+
+	if gotPath != outPath {
+		t.Fatalf("expected go run on %q, got %q", outPath, gotPath)
+	}
 }
 
 func TestRunCompiledOutput_usesExplicitOutputPath(t *testing.T) {

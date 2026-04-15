@@ -15,6 +15,23 @@ func TestMergeTypeScriptOutputs_empty(t *testing.T) {
 	}
 }
 
+func TestMergeTypeScriptOutputs_skipsNilEntries(t *testing.T) {
+	a := &TypeScriptOutput{
+		PackageName: "main",
+		Types:       []string{"export interface Only {}"},
+		Functions: []FunctionSignature{
+			{Name: "F", ReturnType: "void"},
+		},
+	}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{nil, a, nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Types) != 1 || len(out.Functions) != 1 {
+		t.Fatalf("got types=%d funcs=%d", len(out.Types), len(out.Functions))
+	}
+}
+
 func TestMergeTypeScriptOutputs_dedupesIdenticalTypeStrings(t *testing.T) {
 	a := &TypeScriptOutput{
 		PackageName: "main",

@@ -715,6 +715,43 @@ func main() {
 	}
 }
 
+func TestHandleLSP_getReturnsProbeJSON(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	server.handleLSP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"service":"forst-lsp"`) {
+		t.Fatalf("body: %s", w.Body.String())
+	}
+}
+
+func TestHandleLSP_invalidMethod405(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	req := httptest.NewRequest(http.MethodPut, "/", nil)
+	w := httptest.NewRecorder()
+	server.handleLSP(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status %d", w.Code)
+	}
+}
+
+func TestHandleLSP_invalidJSONBody400(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("not-json{"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleLSP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status %d body %s", w.Code, w.Body.String())
+	}
+}
+
 func TestRecoveryMiddleware(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
@@ -1156,4 +1193,71 @@ func exampleFunction(x: String) {
 	t.Log("3. Analyze compiler state across all phases")
 	t.Log("4. Get detailed diagnostics with error codes and suggestions")
 	t.Log("5. Access phase-specific information for targeted debugging")
+}
+
+func TestHandleCompilerState_andPhaseDetails(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "st.ft")
+	const src = `package main
+
+func main() {
+	println("x")
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	cs := s.handleCompilerState(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+		}),
+	})
+	if cs.Error != nil {
+		t.Fatalf("compilerState: %+v", cs.Error)
+	}
+	m, ok := cs.Result.(map[string]interface{})
+	if !ok || m["uri"] == nil {
+		t.Fatalf("expected result map with uri, got %#v", cs.Result)
+	}
+
+	pdAll := s.handlePhaseDetails(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"phase":        "",
+		}),
+	})
+	if pdAll.Error != nil {
+		t.Fatalf("phaseDetails all: %+v", pdAll.Error)
+	}
+	pdMap, ok := pdAll.Result.(map[string]interface{})
+	if !ok || pdMap["phases"] == nil {
+		t.Fatalf("expected phases for empty phase, got %#v", pdAll.Result)
+	}
+
+	pdLex := s.handlePhaseDetails(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      3,
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"phase":        "lexer",
+		}),
+	})
+	if pdLex.Error != nil {
+		t.Fatalf("phaseDetails lexer: %+v", pdLex.Error)
+	}
+	if _, ok := pdLex.Result.(map[string]interface{})["details"]; !ok {
+		t.Fatalf("expected details for lexer phase: %#v", pdLex.Result)
+	}
 }

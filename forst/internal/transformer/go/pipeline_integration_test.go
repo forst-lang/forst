@@ -347,6 +347,100 @@ func main() {
 `,
 			needles: []string{`return inner()`, `func outer`},
 		},
+		{
+			name: "for_three_clause_loop",
+			src: `package main
+
+func main() {
+	for i := 0; i < 2; i++ {
+		println("x")
+	}
+}
+`,
+			needles: []string{`for `, `i++`, `func main`},
+		},
+		{
+			name: "pointer_address_and_deref",
+			src: `package main
+
+func main() {
+	s := "a"
+	p := &s
+	println(*p)
+}
+`,
+			needles: []string{`&s`, `*p`, `func main`},
+		},
+		{
+			name: "float_literal_arithmetic",
+			src: `package main
+
+func main() {
+	x := 1.5 + 2.5
+	println("ok")
+}
+`,
+			needles: []string{`1.5`, `+`, `func main`},
+		},
+		{
+			name: "map_literal",
+			src: `package main
+
+func main() {
+	scores := map[String]Int{ "a": 1, "b": 2 }
+	println("k")
+}
+`,
+			needles: []string{`map[string]int`, `func main`},
+		},
+		{
+			name: "logical_and_expression",
+			src: `package main
+
+func main() {
+	if true && true {
+		println("y")
+	}
+}
+`,
+			needles: []string{`&&`, `func main`},
+		},
+		{
+			name: "ensure_string_contains_builtin",
+			src: `package main
+
+func main() {
+	s := "hello"
+	ensure s is Contains("ell")
+	println("ok")
+}
+`,
+			needles: []string{`strings.Contains`, `"strings"`, `func main`},
+		},
+		{
+			name: "ensure_float_greater_than_main",
+			src: `package main
+
+func main() {
+	x := 1.5
+	ensure x is GreaterThan(1.0)
+	println("ok")
+}
+`,
+			needles: []string{`1.5`, `x <= 1`, `os.Exit`, `func main`},
+		},
+		{
+			name: "ensure_array_min_length_main",
+			src: `package main
+
+func main() {
+	xs := [1, 2]
+	ensure xs is Min(1)
+	println("ok")
+}
+`,
+			needles: []string{`len(xs) < 1`, `os.Exit`, `func main`},
+		},
 	}
 
 	for _, tt := range tests {
@@ -449,6 +543,52 @@ func main() {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
+	}
+}
+
+func TestEmitValidation_ensureBoolTrue(t *testing.T) {
+	src := `package main
+
+func main() {
+	ok := true
+	ensure ok is True()
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	// Bool True() lowers to a direct boolean check on the subject.
+	if !strings.Contains(out, `!ok`) || !strings.Contains(out, `package main`) {
+		t.Fatalf("expected negated ok check for True(), got:\n%s", out)
+	}
+}
+
+func TestEmitValidation_stringHasPrefix(t *testing.T) {
+	src := `package main
+
+func main() {
+	u := "https://x"
+	ensure u is HasPrefix("https://")
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `strings.HasPrefix`) || !strings.Contains(out, `"strings"`) {
+		t.Fatalf("expected strings import and HasPrefix, got:\n%s", out)
+	}
+}
+
+func TestEmitValidation_stringNotEmpty(t *testing.T) {
+	src := `package main
+
+func main() {
+	s := "a"
+	ensure s is NotEmpty()
+	println(s)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `len(s) == 0`) {
+		t.Fatalf("expected empty check via len(s) == 0, got:\n%s", out)
 	}
 }
 

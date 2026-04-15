@@ -35,6 +35,61 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "result ensure",
+			filePath: "../../../examples/in/result_ensure.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "generics builtins",
+			filePath: "../../../examples/in/generics.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "ensure statements",
+			filePath: "../../../examples/in/ensure.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "pointers",
+			filePath: "../../../examples/in/pointers.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "go builtins",
+			filePath: "../../../examples/in/go_builtins.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "basic function",
+			filePath: "../../../examples/in/basic_function.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "result if narrowing",
+			filePath: "../../../examples/in/result_if.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "nominal error",
+			filePath: "../../../examples/in/nominal_error.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "loop forms",
+			filePath: "../../../examples/in/loop.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "union error types",
+			filePath: "../../../examples/in/union_error_types.ft",
+			wantErr:  false,
+		},
+		{
+			name:     "echo",
+			filePath: "../../../examples/in/echo.ft",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,

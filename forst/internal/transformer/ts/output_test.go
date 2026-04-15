@@ -20,3 +20,19 @@ func TestTypeScriptOutput_GenerateTypesFile_buildsFromSlicesOnly(t *testing.T) {
 		t.Fatalf("unexpected types file:\n%s", s)
 	}
 }
+
+func TestTypeScriptOutput_GenerateMainClient_returnsMainClientField(t *testing.T) {
+	o := &TypeScriptOutput{MainClient: "// main client\n"}
+	if o.GenerateMainClient() != "// main client\n" {
+		t.Fatalf("got %q", o.GenerateMainClient())
+	}
+}
+
+func TestTypeScriptOutput_AddExportedTypeName_ignoresEmptyString(t *testing.T) {
+	o := &TypeScriptOutput{}
+	o.AddExportedTypeName("")
+	o.AddExportedTypeName("X")
+	if len(o.ExportedTypeNames) != 1 || o.ExportedTypeNames[0] != "X" {
+		t.Fatalf("got %#v", o.ExportedTypeNames)
+	}
+}
