@@ -223,6 +223,7 @@ func main() {
   return 0
 }
 `
+
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -254,6 +255,114 @@ func main() {
 	}
 	if resp.Result != nil {
 		t.Fatalf("expected null definition for keyword, got %#v", resp.Result)
+	}
+}
+
+func TestHandleDefinition_ifBlockShortDecl(t *testing.T) {
+	t.Parallel()
+	server := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "if_local.ft")
+	const source = `package main
+
+func f(): Int {
+  if true {
+    local := 1
+    return local
+  }
+  return 0
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, filePath)
+	server.documentMu.Lock()
+	server.openDocuments[uri] = source
+	server.documentMu.Unlock()
+
+	context, ok := server.analyzeForstDocument(uri)
+	if !ok || context == nil || context.ParseErr != nil {
+		t.Fatalf("analyze: ok=%v parseErr=%v", ok, context.ParseErr)
+	}
+	usePos, ok := lspPosForNthIdentToken(context.Tokens, "local", 1)
+	if !ok {
+		t.Fatal("local use token not found")
+	}
+
+	response := server.handleDefinition(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/definition",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": usePos.Line, "character": usePos.Character},
+		}),
+	})
+	if response.Error != nil {
+		t.Fatalf("definition error: %+v", response.Error)
+	}
+	location := mustLSPLocation(t, response.Result)
+	defPos, ok := lspPosForNthIdentToken(context.Tokens, "local", 0)
+	if !ok {
+		t.Fatal("local definition token not found")
+	}
+	if location.Range.Start.Line != defPos.Line || location.Range.Start.Character != defPos.Character {
+		t.Fatalf("expected local definition at %+v, got %+v", defPos, location.Range.Start)
+	}
+}
+
+func TestHandleReferences_ifBlockShortDecl(t *testing.T) {
+	t.Parallel()
+	server := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "if_refs.ft")
+	const source = `package main
+
+func f(): Int {
+  if true {
+    local := 1
+    return local
+  }
+  return 0
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, filePath)
+	server.documentMu.Lock()
+	server.openDocuments[uri] = source
+	server.documentMu.Unlock()
+
+	context, ok := server.analyzeForstDocument(uri)
+	if !ok || context == nil || context.ParseErr != nil {
+		t.Fatalf("analyze: ok=%v parseErr=%v", ok, context.ParseErr)
+	}
+	usePos, ok := lspPosForNthIdentToken(context.Tokens, "local", 1)
+	if !ok {
+		t.Fatal("local use token not found")
+	}
+
+	response := server.handleReferences(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/references",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": usePos.Line, "character": usePos.Character},
+			"context":      map[string]interface{}{"includeDeclaration": true},
+		}),
+	})
+	if response.Error != nil {
+		t.Fatalf("references error: %+v", response.Error)
+	}
+	locations, ok := response.Result.([]LSPLocation)
+	if !ok {
+		t.Fatalf("unexpected references result type: %T", response.Result)
+	}
+	if len(locations) != 2 {
+		t.Fatalf("expected 2 refs for if-block local binding, got %d", len(locations))
 	}
 }
 

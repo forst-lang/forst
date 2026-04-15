@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"forst/internal/compiler"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -614,143 +617,185 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
 }
 
-// Returns all .go files in the output directory for a given example
-func findExpectedOutputFiles(basePath string) ([]string, error) {
-	var files []string
+func TestFindExpectedOutputFiles_directoryAndSingleFile(t *testing.T) {
+	baseDir := t.TempDir()
 
-	// Check if it's a directory
-	info, err := os.Stat(basePath)
-	if err == nil && info.IsDir() {
-		// It's a directory, find all .go files
-		entries, err := os.ReadDir(basePath)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
-				files = append(files, filepath.Join(basePath, entry.Name()))
-			}
-		}
-	} else {
-		// Try as a single file
-		filePath := basePath + ".go"
-		if _, err := os.Stat(filePath); err == nil {
-			files = append(files, filePath)
-		}
+	dirPath := filepath.Join(baseDir, "module")
+	if err := os.MkdirAll(dirPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirPath, "a.go"), []byte("package x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirPath, "README.md"), []byte("ignore"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
-	return files, nil
-}
-
-// Executes the compiler on the given input file and returns any error
-func runCompiler(inputPath string) error {
-	// Create a compiler instance with args
-	args := compiler.Args{
-		Command:  "run",
-		FilePath: inputPath,
+	gotDirFiles, err := findExpectedOutputFiles(dirPath)
+	if err != nil {
+		t.Fatalf("findExpectedOutputFiles(dir): %v", err)
+	}
+	if len(gotDirFiles) != 1 || !strings.HasSuffix(gotDirFiles[0], "a.go") {
+		t.Fatalf("unexpected directory files: %+v", gotDirFiles)
 	}
 
-	log := setupTestLogger(nil)
+	singleBase := filepath.Join(baseDir, "single_output")
+	if err := os.WriteFile(singleBase+".go", []byte("package y"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gotSingleFile, err := findExpectedOutputFiles(singleBase)
+	if err != nil {
+		t.Fatalf("findExpectedOutputFiles(single): %v", err)
+	}
+	if len(gotSingleFile) != 1 || gotSingleFile[0] != singleBase+".go" {
+		t.Fatalf("unexpected single file lookup: %+v", gotSingleFile)
+	}
 
-	c := compiler.New(args, log)
-	_, err := c.CompileFile()
-	return err
+	gotMissing, err := findExpectedOutputFiles(filepath.Join(baseDir, "missing"))
+	if err != nil {
+		t.Fatalf("findExpectedOutputFiles(missing): %v", err)
+	}
+	if len(gotMissing) != 0 {
+		t.Fatalf("expected no files for missing path, got %+v", gotMissing)
+	}
 }
 
-// verifyTictactoeMergedGolden checks merged-package Go output without depending on hash-based
-// type names (T_…) that may change between compiler versions.
-func verifyTictactoeMergedGolden(t *testing.T, expected, actual, goldenPath string) {
-	markers := []string{
+func TestExtractKeyElements_collectsSignaturesTypesFieldsAndIf(t *testing.T) {
+	code := strings.Join([]string{
 		"package main",
-		"type GameState struct",
-		"type MoveRequest struct",
-		"type MoveResponse struct",
-		"func ApplyMove(req MoveRequest) (MoveResponse, error)",
-		"func PlayMove(req MoveRequest) (MoveResponse, error)",
-		"func NewGame() GameState",
-		"func main()",
-		"fmt",
+		"type User struct {",
+		"  Name string",
+		"}",
+		"func run(x int) error {",
+		"  if x > 0 {",
+		"    return nil",
+		"  }",
+		"  return nil",
+		"}",
+	}, "\n")
+
+	keyElements := extractKeyElements(code)
+	joined := strings.Join(keyElements, "\n")
+
+	expectedFragments := []string{
+		"type User struct {",
+		"Name string",
+		"func run(x int) error {",
+		"if x > 0 {",
 	}
-	for _, m := range markers {
-		if !strings.Contains(actual, m) {
-			t.Errorf("output missing %q (golden %s)", m, goldenPath)
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(joined, fragment) {
+			t.Fatalf("missing key element fragment %q in:\n%s", fragment, joined)
 		}
-	}
-	if len(expected) > 0 && len(actual) < len(expected)/2 {
-		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
 	}
 }
 
-// Checks if the actual output contains key elements from expected
-func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePath string) {
-	// Extract key elements from the expected output
-	keyElements := extractKeyElements(expected)
+func TestCheckIfStatementConditions_handlesMalformedIfWithoutPanic(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	_ = log // keeps intent explicit for this test file's logging-heavy helpers
 
-	for _, element := range keyElements {
-		if !strings.Contains(actual, element) {
-			t.Errorf("Output missing expected element from %s: %s", filePath, element)
-		}
-	}
+	code := strings.Join([]string{
+		"package main",
+		"func x() {",
+		"  if brokenCondition()",
+		"  if validCondition() {",
+		"  }",
+		"}",
+	}, "\n")
 
-	// Check if statement conditions
-	checkIfStatementConditions(t, actual, filePath)
+	checkIfStatementConditions(t, code, "synthetic.go")
 }
 
-// Extracts key code elements from Go code
-func extractKeyElements(code string) []string {
-	var elements []string
-
-	// Extract function signatures, type definitions, and struct fields
-	lines := strings.Split(code, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// Function signatures
-		if strings.HasPrefix(line, "func ") && strings.Contains(line, "(") {
-			elements = append(elements, line)
-		}
-
-		// Type definitions
-		if strings.HasPrefix(line, "type ") && strings.Contains(line, "struct") {
-			elements = append(elements, line)
-		}
-
-		// Struct fields (simplified)
-		if strings.Contains(line, " string") || strings.Contains(line, " int") ||
-			strings.Contains(line, " float") || strings.Contains(line, " bool") {
-			elements = append(elements, line)
-		}
-
-		// If statements - check for conditions
-		if strings.HasPrefix(line, "if ") && strings.Contains(line, "(") {
-			elements = append(elements, line)
-		}
+func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
+	testFilePath := filepath.Join(t.TempDir(), "input.ft")
+	source := "fn main() { return }\n"
+	if err := os.WriteFile(testFilePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
-	return elements
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
+	compactOutput := captureStdoutForMainTest(t, func() {
+		handleDumpCommand(testFilePath, false, "json", "", false, logger)
+	})
+	if strings.TrimSpace(compactOutput) == "" {
+		t.Fatal("expected non-empty json output")
+	}
+	var compactJSON any
+	if err := json.Unmarshal([]byte(compactOutput), &compactJSON); err != nil {
+		t.Fatalf("compact output should be valid JSON: %v\noutput: %s", err, compactOutput)
+	}
+
+	prettyOutput := captureStdoutForMainTest(t, func() {
+		handleDumpCommand(testFilePath, false, "pretty", "", true, logger)
+	})
+	if strings.TrimSpace(prettyOutput) == "" {
+		t.Fatal("expected non-empty pretty output")
+	}
+	var prettyJSON any
+	if err := json.Unmarshal([]byte(prettyOutput), &prettyJSON); err != nil {
+		t.Fatalf("pretty output should be valid JSON: %v\noutput: %s", err, prettyOutput)
+	}
+	if !strings.Contains(prettyOutput, "\n") {
+		t.Fatalf("expected pretty output to contain newlines, got: %s", prettyOutput)
+	}
 }
 
-// Checks if statement conditions match expected conditions
-func checkIfStatementConditions(t *testing.T, code, filePath string) {
-	lines := strings.Split(code, "\n")
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
+func TestHandleDumpCommand_helperProcess(t *testing.T) {
+	if os.Getenv("FORST_MAIN_DUMP_HELPER") != "1" {
+		return
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	handleDumpCommand("/path/that/does/not/exist.ft", false, "json", "", false, logger)
+}
 
-		// Extract if statement conditions
-		if strings.HasPrefix(line, "if ") && strings.Contains(line, "(") {
-			// Extract condition between "if " and " {"
-			start := strings.Index(line, "if ") + 3
-			end := strings.Index(line, " {")
-			if end == -1 {
-				continue // Skip if no opening brace found
-			}
+func TestHandleDumpCommand_exitsOnReadFailure(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestHandleDumpCommand_helperProcess")
+	cmd.Env = append(os.Environ(), "FORST_MAIN_DUMP_HELPER=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected helper process to exit with non-zero status")
+	}
+}
 
-			actualCondition := strings.TrimSpace(line[start:end])
+func TestMain_helperProcess(t *testing.T) {
+	helperCase := os.Getenv("FORST_MAIN_HELPER_CASE")
+	if helperCase == "" {
+		return
+	}
 
-			// For now, just log the condition for debugging
-			// In the future, we could compare against expected conditions from output files
-			t.Logf("If statement condition in %s at line %d: %s", filePath, i+1, actualCondition)
-		}
+	switch helperCase {
+	case "version":
+		os.Args = []string{"forst", "version"}
+	case "dump-missing-file":
+		os.Args = []string{"forst", "dump", "--file", "/path/that/does/not/exist.ft"}
+	default:
+		t.Fatalf("unknown helper case: %s", helperCase)
+	}
+
+	main()
+}
+
+func TestMain_versionCommand_exitsZeroAndPrintsVersion(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(), "FORST_MAIN_HELPER_CASE=version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected zero exit for version command: %v, output=%s", err, string(output))
+	}
+	if !strings.Contains(string(output), "forst ") {
+		t.Fatalf("expected version output to contain 'forst ', got: %s", string(output))
+	}
+}
+
+func TestMain_dumpMissingFile_exitsNonZero(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(), "FORST_MAIN_HELPER_CASE=dump-missing-file")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected dump command to exit non-zero when file is missing")
 	}
 }

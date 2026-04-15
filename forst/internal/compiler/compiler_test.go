@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -239,5 +240,128 @@ func TestRunGoProgram(t *testing.T) {
 	err = RunGoProgram(outputPath)
 	if err != nil {
 		t.Errorf("RunGoProgram() error = %v", err)
+	}
+}
+
+func TestLoadInputNodesForCompile_singleFilePath(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "single.ft")
+	src := `package main
+
+func Main() {
+	return
+}
+`
+	if err := os.WriteFile(filePath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := New(Args{
+		Command:  "build",
+		FilePath: filePath,
+		LogLevel: "error",
+	}, nil)
+	nodes, err := c.loadInputNodesForCompile()
+	if err != nil {
+		t.Fatalf("loadInputNodesForCompile: %v", err)
+	}
+	if len(nodes) == 0 {
+		t.Fatal("expected parsed nodes for single-file path")
+	}
+}
+
+func TestLoadInputNodesForCompile_packageRootEntryOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	outsideDir := t.TempDir()
+	entry := filepath.Join(outsideDir, "entry.ft")
+	if err := os.WriteFile(entry, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := New(Args{
+		Command:     "build",
+		FilePath:    entry,
+		PackageRoot: root,
+		LogLevel:    "error",
+	}, nil)
+	_, err := c.loadInputNodesForCompile()
+	if err == nil {
+		t.Fatal("expected error when entry file is outside package root")
+	}
+	if !strings.Contains(err.Error(), "is not under -root") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileFile_outputPathWriteError(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "ok.ft")
+	src := `package main
+
+func Main() {
+	return
+}
+`
+	if err := os.WriteFile(filePath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputPath := filepath.Join(dir, "missing-dir", "out.go")
+	c := New(Args{
+		Command:    "build",
+		FilePath:   filePath,
+		OutputPath: outputPath,
+		LogLevel:   "error",
+	}, nil)
+	_, err := c.CompileFile()
+	if err == nil {
+		t.Fatal("expected output path write error")
+	}
+	if !strings.Contains(err.Error(), "error writing output file") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileFile_traceLogLevel_printsGeneratedCodeToStdout(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "trace.ft")
+	src := `package main
+
+func Main() {
+	return
+}
+`
+	if err := os.WriteFile(filePath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	originalStdout := os.Stdout
+	readPipe, writePipe, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stdout = writePipe
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	c := New(Args{
+		Command:  "build",
+		FilePath: filePath,
+		LogLevel: "trace",
+	}, nil)
+	_, err = c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+
+	if err := writePipe.Close(); err != nil {
+		t.Fatalf("close stdout write pipe: %v", err)
+	}
+	stdoutBytes, err := io.ReadAll(readPipe)
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	stdout := string(stdoutBytes)
+	if !strings.Contains(stdout, "package main") {
+		t.Fatalf("expected generated code on stdout, got: %s", stdout)
 	}
 }

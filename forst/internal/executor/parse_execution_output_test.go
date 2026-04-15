@@ -112,3 +112,16 @@ func TestFunctionExecutor_parseExecutionOutput_result_array_default_branch(t *te
 		t.Fatalf("ExecutionResult.Result = %s, want %s", res.Result, wantJSON)
 	}
 }
+
+func TestExecutionResultFromValue_intBranch(t *testing.T) {
+	res := executionResultFromValue(42)
+	if !res.Success {
+		t.Fatal("expected Success true")
+	}
+	if res.Output != "42" {
+		t.Fatalf("Output = %q, want %q", res.Output, "42")
+	}
+	if string(res.Result) != "42" {
+		t.Fatalf("Result = %q, want %q", res.Result, "42")
+	}
+}

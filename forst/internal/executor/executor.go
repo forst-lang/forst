@@ -184,31 +184,6 @@ func (e *FunctionExecutor) ExecuteStreamingFunction(ctx context.Context, package
 	return e.executeStreamingGoCode(ctx, tempDir, args, len(compiledFn.Parameters) > 0)
 }
 
-// getOrCompileFunction gets a compiled function from cache or compiles it
-func (e *FunctionExecutor) getOrCompileFunction(packageName, functionName string) (*CompiledFunction, error) {
-	cacheKey := fmt.Sprintf("%s.%s", packageName, functionName)
-
-	e.mu.RLock()
-	if cached, exists := e.cache[cacheKey]; exists {
-		e.mu.RUnlock()
-		return cached, nil
-	}
-	e.mu.RUnlock()
-
-	// Compile the function
-	compiledFn, err := e.compileFunction(packageName, functionName)
-	if err != nil {
-		return nil, err
-	}
-
-	// Cache the compiled function
-	e.mu.Lock()
-	e.cache[cacheKey] = compiledFn
-	e.mu.Unlock()
-
-	return compiledFn, nil
-}
-
 // compileFunction compiles a Forst function to Go code
 func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*CompiledFunction, error) {
 	// Find the Forst file containing the function
@@ -278,50 +253,6 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		Parameters:         fnInfo.Parameters, // Populate Parameters
 		HasMultipleReturns: fnInfo.HasMultipleReturns,
 	}, nil
-}
-
-// findFunctionFile finds the Forst file containing the specified function
-func (e *FunctionExecutor) findFunctionFile(packageName, functionName string) (string, error) {
-	// This is a simplified implementation
-	// In a real implementation, you'd use the discovery package to find the file
-	discoverer := discovery.NewDiscoverer(e.rootDir, e.log, e.config)
-	functions, err := discoverer.DiscoverFunctions()
-	if err != nil {
-		return "", fmt.Errorf("failed to discover functions: %v", err)
-	}
-
-	pkgFuncs, exists := functions[packageName]
-	if !exists {
-		return "", fmt.Errorf("package %s not found", packageName)
-	}
-
-	fnInfo, exists := pkgFuncs[functionName]
-	if !exists {
-		return "", fmt.Errorf("function %s not found in package %s", functionName, packageName)
-	}
-
-	return fnInfo.FilePath, nil
-}
-
-// getFunctionInfo gets information about a function
-func (e *FunctionExecutor) getFunctionInfo(packageName, functionName string) (*discovery.FunctionInfo, error) {
-	discoverer := discovery.NewDiscoverer(e.rootDir, e.log, e.config)
-	functions, err := discoverer.DiscoverFunctions()
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover functions: %v", err)
-	}
-
-	pkgFuncs, exists := functions[packageName]
-	if !exists {
-		return nil, fmt.Errorf("package %s not found", packageName)
-	}
-
-	fnInfo, exists := pkgFuncs[functionName]
-	if !exists {
-		return nil, fmt.Errorf("function %s not found in package %s", functionName, packageName)
-	}
-
-	return &fnInfo, nil
 }
 
 // createTempGoFile creates a temporary Go file that calls the specified function
@@ -465,67 +396,4 @@ func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempDir s
 	}()
 
 	return results, nil
-}
-
-// parseExecutionOutput parses the output of a function execution
-func (e *FunctionExecutor) parseExecutionOutput(output string) (*ExecutionResult, error) {
-	// Try to parse as JSON first
-	var result map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &result); err == nil {
-		// Extract the result field if it exists
-		if resultValue, exists := result["result"]; exists {
-			// Handle primitive values vs objects/arrays
-			switch v := resultValue.(type) {
-			case string:
-				// For strings, return the raw value (not JSON-encoded)
-				return &ExecutionResult{
-					Success: true,
-					Output:  v,
-					Result:  []byte(fmt.Sprintf("%q", v)), // JSON-encoded for Result field
-				}, nil
-			case float64:
-				// For numbers, return the raw value as string
-				return &ExecutionResult{
-					Success: true,
-					Output:  fmt.Sprintf("%v", v),
-					Result:  []byte(fmt.Sprintf("%v", v)), // JSON-encoded for Result field
-				}, nil
-			case int:
-				// For integers, return the raw value as string
-				return &ExecutionResult{
-					Success: true,
-					Output:  fmt.Sprintf("%d", v),
-					Result:  []byte(fmt.Sprintf("%d", v)), // JSON-encoded for Result field
-				}, nil
-			case bool:
-				// For booleans, return the raw value as string
-				return &ExecutionResult{
-					Success: true,
-					Output:  fmt.Sprintf("%t", v),
-					Result:  []byte(fmt.Sprintf("%t", v)), // JSON-encoded for Result field
-				}, nil
-			default:
-				// For objects/arrays, return JSON string
-				resultData, _ := json.Marshal(resultValue)
-				return &ExecutionResult{
-					Success: true,
-					Output:  string(resultData),
-					Result:  resultData,
-				}, nil
-			}
-		}
-		// If no result field, return the entire JSON as output
-		resultData, _ := json.Marshal(result)
-		return &ExecutionResult{
-			Success: true,
-			Output:  output,
-			Result:  resultData,
-		}, nil
-	}
-
-	// If not JSON, return as raw output
-	return &ExecutionResult{
-		Success: true,
-		Output:  output,
-	}, nil
 }

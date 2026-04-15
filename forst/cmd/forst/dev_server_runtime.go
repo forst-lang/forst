@@ -143,18 +143,7 @@ func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, l
 		}},
 	}
 
-	switch config.Dev.LogLevel {
-	case "trace":
-		log.SetLevel(logrus.TraceLevel)
-	case "debug":
-		log.SetLevel(logrus.DebugLevel)
-	case "info":
-		log.SetLevel(logrus.InfoLevel)
-	case "warn":
-		log.SetLevel(logrus.WarnLevel)
-	case "error":
-		log.SetLevel(logrus.ErrorLevel)
-	}
+	setLogLevel(log, config.Dev.LogLevel)
 
 	for _, section := range sections {
 		log.Debugf("%s:", section.name)

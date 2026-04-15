@@ -1,45 +1,12 @@
 package executor
 
 import (
+	"context"
 	"encoding/json"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"forst/internal/compiler"
-
-	"github.com/sirupsen/logrus"
 )
-
-// walkForstFilesConfig finds .ft files under rootDir (same behavior as production discovery needs).
-type walkForstFilesConfig struct{}
-
-func (walkForstFilesConfig) FindForstFiles(rootDir string) ([]string, error) {
-	var out []string
-	err := filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(strings.ToLower(path), ".ft") {
-			out = append(out, path)
-		}
-		return nil
-	})
-	return out, err
-}
-
-func testExecutor(t *testing.T, root string) *FunctionExecutor {
-	t.Helper()
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	comp := compiler.New(compiler.Args{Command: "run", FilePath: filepath.Join(root, "placeholder.ft")}, log)
-	return NewFunctionExecutor(root, comp, log, walkForstFilesConfig{})
-}
 
 func TestFunctionExecutor_ExecuteFunction_unknownPackage(t *testing.T) {
 	root := t.TempDir()
@@ -75,7 +42,6 @@ func Greet(): String {
 
 func TestFunctionExecutor_ExecuteFunction_typecheckError(t *testing.T) {
 	root := t.TempDir()
-	// Valid parse; typechecker should reject String function returning integer literal.
 	writeFile(t, filepath.Join(root, "bad.ft"), `package demo
 
 func Broken(): String {
@@ -169,9 +135,72 @@ func Greet(): String {
 	}
 }
 
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatal(err)
+func TestFunctionExecutor_ExecuteStreamingFunction_unknownPackage(t *testing.T) {
+	root := t.TempDir()
+	ex := testExecutor(t, root)
+
+	_, err := ex.ExecuteStreamingFunction(context.Background(), "missingpkg", "Fn", json.RawMessage("null"))
+	if err == nil {
+		t.Fatal("expected error for unknown package")
+	}
+	if !strings.Contains(err.Error(), "failed to get function") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFunctionExecutor_ExecuteStreamingFunction_notStreamingFunction(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "hello.ft"), `package demo
+
+func Hello(): String {
+	return "Hello"
+}
+`)
+	ex := testExecutor(t, root)
+
+	_, err := ex.ExecuteStreamingFunction(context.Background(), "demo", "Hello", json.RawMessage("null"))
+	if err == nil {
+		t.Fatal("expected non-streaming function error")
+	}
+	if !strings.Contains(err.Error(), "does not support streaming") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFunctionExecutor_ExecuteFunction_skipsBadFileAndUsesGoodPackageFiles(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "good.ft"), `package demo
+
+func Hello(): String {
+	return "Hello"
+}
+`)
+	writeFile(t, filepath.Join(root, "bad.ft"), `@@@ this is not valid forst @@`)
+
+	ex := testExecutor(t, root)
+	res, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	if err != nil {
+		t.Fatalf("ExecuteFunction should succeed despite bad file: %v", err)
+	}
+	if res == nil || !res.Success {
+		t.Fatalf("expected success result, got %+v", res)
+	}
+	if !strings.Contains(res.Output, "Hello") {
+		t.Fatalf("expected Hello output, got Output=%q Result=%s", res.Output, res.Result)
+	}
+}
+
+func TestFunctionExecutor_ExecuteFunction_allFilesUnparseableReturnsNoParseableError(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "bad1.ft"), `@@@ invalid @@@`)
+	writeFile(t, filepath.Join(root, "bad2.ft"), `!!! also invalid !!!`)
+
+	ex := testExecutor(t, root)
+	_, err := ex.ExecuteFunction("demo", "AnyFn", json.RawMessage("null"))
+	if err == nil {
+		t.Fatal("expected error when all package files are unparseable")
+	}
+	if !strings.Contains(err.Error(), "failed to get function") {
+		t.Fatalf("expected wrapped get-function error, got %v", err)
 	}
 }

@@ -187,6 +187,7 @@ func main() {
   var x: Int = 1
 }
 `
+
 	if err := os.WriteFile(bPath, []byte(bsrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -211,5 +212,61 @@ func main() {
 	}
 	if !slices.Contains(labels, "OtherFunc") {
 		t.Fatalf("expected OtherFunc from open buffer b.ft, got %v", labels)
+	}
+}
+
+func TestGetCompletionsForPosition_insideCommentReturnsEmpty(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "comment.ft")
+	const source = `package main
+
+func main() {
+  // typing here should not trigger completions
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, filePath)
+	server.documentMu.Lock()
+	server.openDocuments[uri] = source
+	server.documentMu.Unlock()
+
+	// Position inside comment text.
+	position := LSPPosition{Line: 3, Character: 10}
+	items, incomplete := server.getCompletionsForPosition(uri, position, nil)
+	if incomplete {
+		t.Fatal("expected isIncomplete false in single-file comment case")
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected no completions inside comment, got %d: %+v", len(items), items)
+	}
+}
+
+func TestGetCompletionsForPosition_memberAfterDotUnknownLHSReturnsEmpty(t *testing.T) {
+	log := logrus.New()
+	server := NewLSPServer("8080", log)
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "dot_unknown.ft")
+	const source = `package main
+
+func main() {
+  unknown.
+}
+`
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, filePath)
+	server.documentMu.Lock()
+	server.openDocuments[uri] = source
+	server.documentMu.Unlock()
+
+	position := LSPPosition{Line: 3, Character: 10}
+	items, _ := server.getCompletionsForPosition(uri, position, &completionRequestContext{TriggerCharacter: "."})
+	if len(items) != 0 {
+		t.Fatalf("expected no member completions for unknown lhs, got %+v", items)
 	}
 }

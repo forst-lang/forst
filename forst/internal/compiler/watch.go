@@ -2,16 +2,18 @@ package compiler
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
 
+var createTempOutputFileForWatch = CreateTempOutputFile
+var runGoProgramForWatch = RunGoProgram
+
 // WatchFile watches the Forst file for changes and recompiles it.
 func (c *Compiler) WatchFile() error {
-	if c.Args.PackageRoot != "" {
-		return fmt.Errorf("-watch cannot be used with -root; use a single-file compile or omit -watch")
+	if err := c.validateWatchConfig(); err != nil {
+		return err
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -51,6 +53,13 @@ func (c *Compiler) WatchFile() error {
 	}
 }
 
+func (c *Compiler) validateWatchConfig() error {
+	if c.Args.PackageRoot != "" {
+		return fmt.Errorf("-watch cannot be used with -root; use a single-file compile or omit -watch")
+	}
+	return nil
+}
+
 func (c *Compiler) compileAndRunOnce() {
 	code, err := c.CompileFile()
 	if err != nil {
@@ -63,15 +72,17 @@ func (c *Compiler) compileAndRunOnce() {
 	}
 }
 
-func (c *Compiler) runCompiledOutput(code string) error {
-	outputPath := c.Args.OutputPath
-	if outputPath == "" {
-		var err error
-		outputPath, err = CreateTempOutputFile(code)
-		if err != nil {
-			c.log.Error(err)
-			os.Exit(1)
-		}
+func (c *Compiler) resolveOutputPathForRun(code string) (string, error) {
+	if c.Args.OutputPath != "" {
+		return c.Args.OutputPath, nil
 	}
-	return RunGoProgram(outputPath)
+	return createTempOutputFileForWatch(code)
+}
+
+func (c *Compiler) runCompiledOutput(code string) error {
+	outputPath, err := c.resolveOutputPathForRun(code)
+	if err != nil {
+		return err
+	}
+	return runGoProgramForWatch(outputPath)
 }

@@ -454,227 +454,33 @@ func (tc *TypeChecker) inferBuiltinArgType(args []ast.ExpressionNode, i int, arg
 // tryDispatchGoBuiltin applies Go-aligned rules for predeclared builtins (Package "").
 // If it returns handled=false, the caller falls back to generic ParamTypes checking.
 func (tc *TypeChecker) tryDispatchGoBuiltin(fn BuiltinFunction, args []ast.ExpressionNode, argSpans []ast.SourceSpan, callSpan ast.SourceSpan) ([]ast.TypeNode, bool, error) {
-	intT := ast.NewBuiltinType(ast.TypeInt)
-	voidT := ast.NewBuiltinType(ast.TypeVoid)
-	objT := ast.NewBuiltinType(ast.TypeObject)
-	floatT := ast.NewBuiltinType(ast.TypeFloat)
-
 	switch fn.Name {
 	case "len":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "len() expects 1 argument, got %d", len(args))
-		}
-		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if !lenOperandAllowed(t) {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "len() invalid operand type %s", t.Ident)
-		}
-		return []ast.TypeNode{intT}, true, nil
-
+		return tc.dispatchLen(args, argSpans, callSpan)
 	case "cap":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "cap() expects 1 argument, got %d", len(args))
-		}
-		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if !capOperandAllowed(t) {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "cap() invalid operand type %s", t.Ident)
-		}
-		return []ast.TypeNode{intT}, true, nil
-
+		return tc.dispatchCap(args, argSpans, callSpan)
 	case "append":
-		if len(args) < 2 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "append() expects at least 2 arguments, got %d", len(args))
-		}
-		sliceT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if sliceT.Ident != ast.TypeArray {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "append() first argument must be a slice, got %s", sliceT.Ident)
-		}
-		elem, ok := sliceElementType(sliceT)
-		if !ok {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "append() slice must have an element type")
-		}
-		for i := 1; i < len(args); i++ {
-			at, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
-			if err != nil {
-				return nil, true, err
-			}
-			if !tc.IsTypeCompatible(at, elem) {
-				sp := spanForCallArg(argSpans, i, args, callSpan)
-				return nil, true, diagnosticf(sp, "builtin-call", "append() argument %d must be assignable to slice element %s, got %s",
-					i+1, elem.Ident, at.Ident)
-			}
-		}
-		return []ast.TypeNode{sliceT}, true, nil
-
+		return tc.dispatchAppend(args, argSpans, callSpan)
 	case "copy":
-		if len(args) != 2 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "copy() expects 2 arguments, got %d", len(args))
-		}
-		dstT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		srcT, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if dstT.Ident == ast.TypeArray && len(dstT.TypeParams) == 1 && dstT.TypeParams[0].Ident == ast.TypeInt && srcT.Ident == ast.TypeString {
-			return []ast.TypeNode{intT}, true, nil
-		}
-		if dstT.Ident != ast.TypeArray || srcT.Ident != ast.TypeArray {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "copy() expects two slices, or []Int with String (Go copy to []byte)")
-		}
-		de, ok1 := sliceElementType(dstT)
-		se, ok2 := sliceElementType(srcT)
-		if !ok1 || !ok2 {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "copy() could not read slice element types")
-		}
-		if !builtinTypesIdenticalOrdered(de, se) {
-			sp := spanForCallArg(argSpans, 1, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "copy() slice element types must match")
-		}
-		return []ast.TypeNode{intT}, true, nil
-
+		return tc.dispatchCopy(args, argSpans, callSpan)
 	case "delete":
-		if len(args) != 2 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "delete() expects 2 arguments, got %d", len(args))
-		}
-		mT, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		keyT, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		kFormal, _, ok := mapKeyValueTypes(mT)
-		if !ok {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "delete() first argument must be a map, got %s", mT.Ident)
-		}
-		if !tc.IsTypeCompatible(keyT, kFormal) {
-			sp := spanForCallArg(argSpans, 1, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "delete() key type incompatible with map key %s", kFormal.Ident)
-		}
-		return []ast.TypeNode{voidT}, true, nil
-
+		return tc.dispatchDelete(args, argSpans, callSpan)
 	case "close":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "close() expects 1 argument, got %d", len(args))
-		}
-		if _, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan); err != nil {
-			return nil, true, err
-		}
-		return []ast.TypeNode{voidT}, true, nil
-
+		return tc.dispatchClose(args, argSpans, callSpan)
 	case "clear":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "clear() expects 1 argument, got %d", len(args))
-		}
-		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if !clearOperandAllowed(t) {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "clear() expects a map or slice, got %s", t.Ident)
-		}
-		return []ast.TypeNode{voidT}, true, nil
-
+		return tc.dispatchClear(args, argSpans, callSpan)
 	case "min", "max":
-		if len(args) < 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "%s() expects at least 1 argument", fn.Name)
-		}
-		first, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if !isOrderedBuiltinType(first) {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "%s() expects ordered types (Int, Float, String), got %s", fn.Name, first.Ident)
-		}
-		for i := 1; i < len(args); i++ {
-			at, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
-			if err != nil {
-				return nil, true, err
-			}
-			if !builtinTypesIdenticalOrdered(first, at) {
-				sp := spanForCallArg(argSpans, i, args, callSpan)
-				return nil, true, diagnosticf(sp, "builtin-call", "%s() arguments must have the same type", fn.Name)
-			}
-		}
-		return []ast.TypeNode{first}, true, nil
-
+		return tc.dispatchMinMax(fn.Name, args, argSpans, callSpan)
 	case "complex":
-		if len(args) != 2 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "complex() expects 2 arguments, got %d", len(args))
-		}
-		a, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		b, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		if a.Ident != ast.TypeFloat || b.Ident != ast.TypeFloat {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "complex() expects Float arguments, got %s and %s", a.Ident, b.Ident)
-		}
-		return []ast.TypeNode{objT}, true, nil
-
+		return tc.dispatchComplex(args, argSpans, callSpan)
 	case "real", "imag":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "%s() expects 1 argument, got %d", fn.Name, len(args))
-		}
-		t, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan)
-		if err != nil {
-			return nil, true, err
-		}
-		// Forst has no complex128 TypeIdent; complex() is typed as Object.
-		if t.Ident != ast.TypeObject {
-			sp := spanForCallArg(argSpans, 0, args, callSpan)
-			return nil, true, diagnosticf(sp, "builtin-call", "%s() expects a complex value, got %s", fn.Name, t.Ident)
-		}
-		return []ast.TypeNode{floatT}, true, nil
-
+		return tc.dispatchRealImag(fn.Name, args, argSpans, callSpan)
 	case "panic":
-		if len(args) != 1 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "panic() expects 1 argument, got %d", len(args))
-		}
-		if _, err := tc.inferBuiltinArgType(args, 0, argSpans, callSpan); err != nil {
-			return nil, true, err
-		}
-		return []ast.TypeNode{voidT}, true, nil
-
+		return tc.dispatchPanic(args, argSpans, callSpan)
 	case "print", "println":
-		for i := range args {
-			if _, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan); err != nil {
-				return nil, true, err
-			}
-		}
-		return []ast.TypeNode{voidT}, true, nil
-
+		return tc.dispatchPrintLike(args, argSpans, callSpan)
 	case "recover":
-		if len(args) != 0 {
-			return nil, true, diagnosticf(callSpan, "builtin-call", "recover() expects 0 arguments, got %d", len(args))
-		}
-		return []ast.TypeNode{objT}, true, nil
-
+		return tc.dispatchRecover(args, callSpan)
 	case "make", "new":
 		return nil, true, diagnosticf(callSpan, "builtin-call",
 			"%s() with a type argument is not supported yet: use Forst type syntax (e.g. Array(Int)) when the parser accepts types in call position, or use a small Go helper via import", fn.Name)
