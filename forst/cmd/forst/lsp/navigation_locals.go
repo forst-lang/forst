@@ -450,7 +450,7 @@ func definingTokenForFor(tc *typechecker.TypeChecker, fileNodes []ast.Node, toke
 	if nth < 0 {
 		return nil
 	}
-	fk := nthTopLevelForKeyword(tokens, nth)
+	fk := nthForKeywordInSourceOrder(tokens, nth)
 	if fk < 0 {
 		return nil
 	}
@@ -480,7 +480,8 @@ func definingTokenForFor(tc *typechecker.TypeChecker, fileNodes []ast.Node, toke
 }
 
 func forNodeOccurrenceIndex(nodes []ast.Node, target *ast.ForNode, h *hasher.StructuralHasher) int {
-	want, err := h.HashNode(*target)
+	// HashNode implements *ast.ForNode only; pass the pointer (see hasher.go).
+	want, err := h.HashNode(target)
 	if err != nil {
 		return -1
 	}
@@ -503,7 +504,7 @@ func forNodeOccurrenceIndex(nodes []ast.Node, target *ast.ForNode, h *hasher.Str
 		case *ast.TypeGuardNode:
 			walk(*v)
 		case ast.ForNode:
-			got, e := h.HashNode(v)
+			got, e := h.HashNode(&v)
 			if e == nil && got == want {
 				found = true
 				return
@@ -564,6 +565,26 @@ func nthTopLevelForKeyword(tokens []ast.Token, n int) int {
 			}
 			seen++
 		}
+	}
+	return -1
+}
+
+// nthForKeywordInSourceOrder returns the token index of the n-th `for` keyword in the
+// file (0-based). Order matches the preorder traversal used by forNodeOccurrenceIndex
+// (statement `for` keywords in source order, including inside functions).
+func nthForKeywordInSourceOrder(tokens []ast.Token, n int) int {
+	if n < 0 {
+		return -1
+	}
+	seen := 0
+	for i := range tokens {
+		if tokens[i].Type != ast.TokenFor {
+			continue
+		}
+		if seen == n {
+			return i
+		}
+		seen++
 	}
 	return -1
 }

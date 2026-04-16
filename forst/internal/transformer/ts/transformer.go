@@ -14,7 +14,7 @@ type TypeScriptTransformer struct {
 	TypeChecker *typechecker.TypeChecker
 	Output      *TypeScriptOutput
 	log         *logrus.Logger
-	typeMapping *TypeMapping
+	typeMapping forstTypeMapper
 }
 
 // New creates a new TypeScriptTransformer

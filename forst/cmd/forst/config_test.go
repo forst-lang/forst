@@ -89,6 +89,68 @@ func TestLoadConfig_missingFile(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_emptyPath_findsConfigInWorkingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ftconfig.json")
+	json := `{"server": { "port": "7777" }}`
+	if err := os.WriteFile(path, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Port != "7777" {
+		t.Fatalf("expected port from cwd config, got %+v", cfg.Server)
+	}
+}
+
+func TestForstConfig_FindForstFiles_nonexistentRoot_returnsError(t *testing.T) {
+	cfg := DefaultConfig()
+	root := filepath.Join(t.TempDir(), "nope_subdir_missing")
+	_, err := cfg.FindForstFiles(root)
+	if err == nil {
+		t.Fatal("expected error for missing root")
+	}
+}
+
+func TestForstConfig_FindForstFiles_includeRestrictsToMatchingPaths(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src")
+	other := filepath.Join(root, "other")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(other, 0755); err != nil {
+		t.Fatal(err)
+	}
+	inSrc := filepath.Join(src, "keep.ft")
+	outSrc := filepath.Join(other, "skip.ft")
+	for _, p := range []string{inSrc, outSrc} {
+		if err := os.WriteFile(p, []byte("package main\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := DefaultConfig()
+	cfg.Files.Include = []string{"**/src/**/*.ft"}
+	cfg.Files.Exclude = nil
+	files, err := cfg.FindForstFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || filepath.Base(files[0]) != "keep.ft" {
+		t.Fatalf("want only src/keep.ft, got %v", files)
+	}
+}
+
 func TestFindConfigFile_foundInAncestor(t *testing.T) {
 	root := t.TempDir()
 	sub := filepath.Join(root, "a", "b", "c")

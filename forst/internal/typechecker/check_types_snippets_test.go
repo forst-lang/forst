@@ -381,6 +381,126 @@ func main() {
 	}
 }`,
 		},
+		{
+			"for_range_two_vars",
+			`package main
+func main() {
+	xs := [1, 2]
+	for i, v := range xs {
+		println(string(i) + string(v))
+	}
+}`,
+		},
+		{
+			"else_if_short_decl",
+			`package main
+func main() {
+	n := 2
+	if n > 10 {
+		println("a")
+	} else if n < 5 {
+		z := 1
+		println(string(z))
+	}
+}`,
+		},
+		{
+			"nominal_error_union_typedef",
+			`package main
+error E1 { code: Int }
+error E2 { msg: String }
+type U = E1 | E2
+func main() {
+}`,
+		},
+		{
+			"func_if_init_return",
+			`package main
+func f(): Int {
+	if x := 1; x > 0 {
+		return x
+	}
+	return 0
+}
+func main() {
+	println(string(f()))
+}`,
+		},
+		{
+			"nested_shape",
+			`package main
+type Outer = { inner: { x: Int } }
+func main() {
+	v := { inner: { x: 3 } }
+	println(string(v.inner.x))
+}`,
+		},
+		{
+			"type_alias_string",
+			`package main
+type Name = String
+func main() {
+	n: Name = "a"
+	println(n)
+}`,
+		},
+		{
+			"pointer_field",
+			`package main
+type Box = { p: *Int }
+func main() {
+	n := 1
+	b := { p: &n }
+	println(string(*b.p))
+}`,
+		},
+		{
+			"result_ensure_ok",
+			`package main
+func one() {
+	n := 1
+	ensure n is GreaterThan(0)
+	return n
+}
+func main() {
+	x := one()
+	if x is Ok() {
+		println(x)
+	}
+}`,
+		},
+		{
+			"typeguard_def_and_ensure",
+			`package main
+type S = String
+is (s S) NonEmpty() {
+	ensure s is Min(1)
+}
+func main() {
+	v: S = "ok"
+	ensure v is NonEmpty() {
+		println("no")
+	}
+	println("yes")
+}`,
+		},
+		{
+			"shape_extra_field_literal",
+			`package main
+type Row = { id: Int, label: String }
+func main() {
+	r: Row = { id: 1, label: "a" }
+	println(string(r.id))
+}`,
+		},
+		{
+			"import_fmt_qualified",
+			`package main
+import "fmt"
+func main() {
+	fmt.Println("x")
+}`,
+		},
 	}
 	for _, tc := range cases {
 		tc := tc

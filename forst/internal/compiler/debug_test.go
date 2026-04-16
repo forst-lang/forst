@@ -149,10 +149,15 @@ func TestDebugPrintForstAST(t *testing.T) {
 	nodes := []ast.Node{
 		ast.PackageNode{Ident: ast.Ident{ID: "main"}},
 		ast.ImportNode{Path: "fmt"},
+		ast.ImportGroupNode{Imports: []ast.ImportNode{{Path: "os"}}},
 		ast.FunctionNode{
 			Ident:       ast.Ident{ID: "main"},
 			ReturnTypes: []ast.TypeNode{{Ident: ast.TypeVoid}},
 			Body:        []ast.Node{},
+		},
+		ast.FunctionNode{
+			Ident: ast.Ident{ID: "noRet"},
+			Body:  []ast.Node{},
 		},
 	}
 
@@ -165,6 +170,12 @@ func TestDebugPrintForstAST(t *testing.T) {
 	}
 	if !hook.ContainsMessage("Import") {
 		t.Error("Expected AST log to contain 'Import'")
+	}
+	if !hook.ContainsMessage("Import group") {
+		t.Error("Expected AST log to contain 'Import group'")
+	}
+	if !hook.ContainsMessage("(?)") {
+		t.Error("Expected AST log to mark inferred return types for functions without explicit returns")
 	}
 }
 

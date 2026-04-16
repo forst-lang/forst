@@ -358,6 +358,113 @@ func main() {
 	}
 }
 
+func TestHandleDefinition_shortDeclInsideElseIfBranch(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "elseif_def.ft")
+	const src = `package main
+
+func main() {
+  n := 2
+  if n > 10 {
+    println("a")
+  } else if n < 5 {
+    z := 1
+    println(string(z))
+  }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v err=%v", ok, ctx.ParseErr)
+	}
+	posUse, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 1)
+	if !ok {
+		t.Fatal("use z not found")
+	}
+	resp := s.handleDefinition(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/definition",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		}),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	loc := mustLSPLocation(t, resp.Result)
+	posDecl, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 0)
+	if !ok {
+		t.Fatal("decl z not found")
+	}
+	if loc.Range.Start.Line != posDecl.Line || loc.Range.Start.Character != posDecl.Character {
+		t.Fatalf("want decl %+v, got %+v", posDecl, loc.Range.Start)
+	}
+}
+
+func TestFindASTNodeForScope_elseIfShortDecl(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "eif_scope.ft")
+	const src = `package main
+
+func main() {
+  n := 2
+  if n > 10 {
+    println("a")
+  } else if n < 5 {
+    z := 1
+    println(string(z))
+  }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v err=%v", ok, ctx.ParseErr)
+	}
+	// Cursor on `println` inside else-if body (0-based line 7 = println(string(z))).
+	pos := LSPPosition{Line: 7, Character: 4}
+	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, pos)
+	if tokIdx < 0 {
+		t.Fatalf("token index for %v", pos)
+	}
+	if err := ctx.TC.RestoreScope(nil); err != nil {
+		t.Fatalf("RestoreScope nil: %v", err)
+	}
+	scopeNode := findInnermostScopeNode(ctx.Nodes, ctx.Tokens, tokIdx, ctx.TC)
+	if scopeNode == nil {
+		t.Fatal("expected innermost scope node for else-if body")
+	}
+	if err := ctx.TC.RestoreScope(scopeNode); err != nil {
+		t.Fatalf("RestoreScope inner: %v", err)
+	}
+	sym, ok := ctx.TC.CurrentScope().LookupVariable(ast.Identifier("z"))
+	if !ok || sym.Scope == nil {
+		t.Fatalf("lookup z: ok=%v scopeNode=%T", ok, scopeNode)
+	}
+	if astNode := findASTNodeForScope(ctx.TC, ctx.Nodes, sym.Scope); astNode == nil {
+		t.Fatal("findASTNodeForScope: got nil")
+	}
+}
+
 func TestHandleDefinition_shortDeclInsideElseBlock(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())

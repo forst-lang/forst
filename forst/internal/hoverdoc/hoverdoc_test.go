@@ -96,6 +96,17 @@ func TestGuardMarkdownQualified_unknown_returnsEmpty(t *testing.T) {
 	}
 }
 
+func TestGuardMarkdownQualified_nonMatchingTitlePrefix_returnsDocUnchanged(t *testing.T) {
+	orig := guardDocs[GuardMin]
+	guardDocs[GuardMin] = "no standard title prefix\n\nbody"
+	defer func() { guardDocs[GuardMin] = orig }()
+
+	md := GuardMarkdownQualified("Int", GuardMin)
+	if md != guardDocs[GuardMin] {
+		t.Fatalf("expected doc unchanged, got %q", md)
+	}
+}
+
 func TestGuardMarkdownQualified_emptyBase_matchesUnqualifiedPrefix(t *testing.T) {
 	t.Parallel()
 	md := GuardMarkdownQualified("   ", GuardMin)
@@ -116,6 +127,7 @@ func TestMarkdownForKeywordToken_switch(t *testing.T) {
 	// One token from each major branch of MarkdownForKeywordToken (builtins/types vs keywords).
 	cases := []ast.TokenIdent{
 		ast.TokenFloat, ast.TokenString, ast.TokenBool, ast.TokenVoid,
+		ast.TokenArray, ast.TokenMap,
 		ast.TokenStruct, ast.TokenFunc, ast.TokenType, ast.TokenReturn,
 		ast.TokenImport, ast.TokenPackage, ast.TokenEnsure, ast.TokenIs,
 		ast.TokenOr, ast.TokenElseIf, ast.TokenElse, ast.TokenRange,
@@ -135,11 +147,18 @@ func TestMarkdownForKeywordToken_switch(t *testing.T) {
 func TestMarkdownForKeywordToken_controlFlowAndLiterals(t *testing.T) {
 	t.Parallel()
 	cases := []ast.TokenIdent{
-		ast.TokenIf, ast.TokenFor, ast.TokenNil, ast.TokenTrue, ast.TokenError,
+		ast.TokenIf, ast.TokenFor, ast.TokenNil, ast.TokenTrue, ast.TokenFalse, ast.TokenError,
 	}
 	for _, tok := range cases {
 		if s := MarkdownForKeywordToken(tok); s == "" {
 			t.Fatalf("empty for %v", tok)
 		}
+	}
+}
+
+func TestMarkdownForKeywordToken_unknownReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	if MarkdownForKeywordToken(ast.TokenIdent("__not_a_keyword__")) != "" {
+		t.Fatal("expected empty markdown for unknown token ident")
 	}
 }

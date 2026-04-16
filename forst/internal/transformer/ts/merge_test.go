@@ -106,6 +106,36 @@ func TestMergeTypeScriptOutputs_mergesExportedTypeNames(t *testing.T) {
 	}
 }
 
+func TestMergeTypeScriptOutputs_skipsEmptyExportedTypeNameEntries(t *testing.T) {
+	a := &TypeScriptOutput{
+		PackageName:       "main",
+		ExportedTypeNames: []string{"", "A"},
+		Types:             []string{"export interface A {}"},
+	}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.ExportedTypeNames) != 1 || out.ExportedTypeNames[0] != "A" {
+		t.Fatalf("got %v", out.ExportedTypeNames)
+	}
+}
+
+func TestMergeTypeScriptOutputs_packageNameFromFirstNonNilWithPackage(t *testing.T) {
+	first := &TypeScriptOutput{PackageName: ""}
+	second := &TypeScriptOutput{
+		PackageName: "pkg",
+		Types:       []string{"export interface X { x: number; }"},
+	}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{nil, first, second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.PackageName != "pkg" {
+		t.Fatalf("PackageName: %q", out.PackageName)
+	}
+}
+
 func TestFunctionSignaturesEqual(t *testing.T) {
 	a := FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "a", Type: "string"}}, ReturnType: "void"}
 	b := FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "a", Type: "string"}}, ReturnType: "void"}
@@ -115,5 +145,22 @@ func TestFunctionSignaturesEqual(t *testing.T) {
 	c := FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "a", Type: "number"}}, ReturnType: "void"}
 	if functionSignaturesEqual(a, c) {
 		t.Fatal("expected not equal")
+	}
+}
+
+func TestFunctionSignaturesEqual_falseWhenNameOrReturnOrArityDiffers(t *testing.T) {
+	base := FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "a", Type: "string"}}, ReturnType: "void"}
+	if functionSignaturesEqual(base, FunctionSignature{Name: "g", Parameters: base.Parameters, ReturnType: "void"}) {
+		t.Fatal("name")
+	}
+	if functionSignaturesEqual(base, FunctionSignature{Name: "f", Parameters: base.Parameters, ReturnType: "number"}) {
+		t.Fatal("return")
+	}
+	if functionSignaturesEqual(base, FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "a", Type: "string"}, {Name: "b", Type: "string"}}, ReturnType: "void"}) {
+		t.Fatal("param count")
+	}
+	otherParamName := FunctionSignature{Name: "f", Parameters: []Parameter{{Name: "b", Type: "string"}}, ReturnType: "void"}
+	if functionSignaturesEqual(base, otherParamName) {
+		t.Fatal("param name")
 	}
 }

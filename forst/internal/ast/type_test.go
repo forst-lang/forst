@@ -55,12 +55,56 @@ func TestTypeIdent_String_all_known_tokens(t *testing.T) {
 		{TypeImplicit, "(implicit)"},
 		{TypeShape, "Shape(?)"},
 		{TypePointer, "Pointer"},
+		{TypeResult, "Result"},
+		{TypeTuple, "Tuple"},
+		{TypeUnion, "Union"},
+		{TypeIntersection, "Intersection"},
 		{TypeIdent("CustomType"), "CustomType"},
 	}
 	for _, tc := range cases {
 		if got := tc.id.String(); got != tc.want {
 			t.Errorf("TypeIdent(%q).String() = %q, want %q", tc.id, got, tc.want)
 		}
+	}
+}
+
+func TestNewUnionType_dedupesLaterDuplicateOfEarlierMember(t *testing.T) {
+	a := NewBuiltinType(TypeInt)
+	b := NewBuiltinType(TypeString)
+	u := NewUnionType(a, b, a)
+	if u.Ident != TypeUnion || len(u.TypeParams) != 2 {
+		t.Fatalf("got %+v", u)
+	}
+}
+
+func TestNewIntersectionType_dedupesShallowDuplicateMembers(t *testing.T) {
+	a := NewBuiltinType(TypeString)
+	u := NewIntersectionType(a, a)
+	if u.Ident != TypeString {
+		t.Fatalf("got %+v", u)
+	}
+}
+
+func TestNewUnionType_zeroMembers_unionWithNoTypeParams(t *testing.T) {
+	u := NewUnionType()
+	if u.Ident != TypeUnion || len(u.TypeParams) != 0 {
+		t.Fatalf("got %+v", u)
+	}
+}
+
+func TestNewIntersectionType_zeroMembers_intersectionWithNoTypeParams(t *testing.T) {
+	u := NewIntersectionType()
+	if u.Ident != TypeIntersection || len(u.TypeParams) != 0 {
+		t.Fatalf("got %+v", u)
+	}
+}
+
+func TestNewUnionType_dedupeComparesNestedArrayTypes(t *testing.T) {
+	ai := NewArrayType(NewBuiltinType(TypeInt))
+	as := NewArrayType(NewBuiltinType(TypeString))
+	u := NewUnionType(ai, as)
+	if u.Ident != TypeUnion || len(u.TypeParams) != 2 {
+		t.Fatalf("got %+v", u)
 	}
 }
 
@@ -89,6 +133,14 @@ func TestTypeNode_String_branches(t *testing.T) {
 		{"default_user_ident", TypeNode{Ident: "MyType", TypeKind: TypeKindUserDefined}, "MyType"},
 		{"default_with_assertion", TypeNode{Ident: "X", Assertion: assertion}, "X("},
 		{"default_with_type_params", TypeNode{Ident: "Box", TypeParams: []TypeNode{{Ident: TypeInt}}}, "Box("},
+		{"result_full", NewResultType(NewBuiltinType(TypeInt), NewBuiltinType(TypeError)), "Result("},
+		{"result_short", TypeNode{Ident: TypeResult, TypeKind: TypeKindBuiltin}, "Result(?, ?)"},
+		{"tuple_empty", TypeNode{Ident: TypeTuple, TypeKind: TypeKindBuiltin}, "Tuple()"},
+		{"tuple_nonempty", NewTupleType(NewBuiltinType(TypeInt), NewBuiltinType(TypeString)), "Tuple("},
+		{"union_join", NewUnionType(NewBuiltinType(TypeInt), NewBuiltinType(TypeString)), "|"},
+		{"union_empty", TypeNode{Ident: TypeUnion, TypeKind: TypeKindBuiltin}, "Union()"},
+		{"intersection_join", NewIntersectionType(NewBuiltinType(TypeInt), NewBuiltinType(TypeString)), "&"},
+		{"intersection_empty", TypeNode{Ident: TypeIntersection, TypeKind: TypeKindBuiltin}, "Intersection()"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

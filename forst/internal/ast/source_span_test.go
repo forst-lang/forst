@@ -17,6 +17,42 @@ func TestSourceSpan_ContainsPosition(t *testing.T) {
 	}
 }
 
+func TestSourceSpan_ContainsPosition_unsetSpan(t *testing.T) {
+	t.Parallel()
+	if (SourceSpan{}).ContainsPosition(1, 1) {
+		t.Fatal("unset span should contain nothing")
+	}
+}
+
+func TestSourceSpan_ContainsPosition_outsideLineRange(t *testing.T) {
+	t.Parallel()
+	s := SourceSpan{StartLine: 2, StartCol: 1, EndLine: 4, EndCol: 5}
+	if s.ContainsPosition(1, 1) {
+		t.Fatal("before start line")
+	}
+	if s.ContainsPosition(5, 1) {
+		t.Fatal("after end line")
+	}
+}
+
+func TestSourceSpan_ContainsPosition_multilineFirstAndLastLineEdges(t *testing.T) {
+	t.Parallel()
+	// Lines 1–3; end column on line 3 is exclusive.
+	s := SourceSpan{StartLine: 1, StartCol: 3, EndLine: 3, EndCol: 2}
+	if s.ContainsPosition(1, 2) {
+		t.Fatal("on first line but before StartCol")
+	}
+	if !s.ContainsPosition(1, 3) {
+		t.Fatal("on first line at StartCol")
+	}
+	if !s.ContainsPosition(3, 1) {
+		t.Fatal("on last line before EndCol")
+	}
+	if s.ContainsPosition(3, 2) {
+		t.Fatal("on last line at EndCol (exclusive)")
+	}
+}
+
 func TestSourceSpan_IsSet(t *testing.T) {
 	t.Parallel()
 	if (SourceSpan{}).IsSet() {

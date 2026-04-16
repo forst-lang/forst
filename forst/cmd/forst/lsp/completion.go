@@ -284,6 +284,30 @@ func findFirstToken(tokens []ast.Token, from, limit int, typ ast.TokenIdent) int
 	return -1
 }
 
+// findFirstElseIfKeywords returns the token index where an else-if chain starts: either a single
+// TokenElseIf, or TokenElse immediately followed by TokenIf (with optional comments between).
+// The lexer usually emits two words "else" and "if", not the combined keyword.
+func findFirstElseIfKeywords(tokens []ast.Token, from, limit int) int {
+	if limit > len(tokens) {
+		limit = len(tokens)
+	}
+	for i := from; i < limit; i++ {
+		if tokens[i].Type == ast.TokenElseIf {
+			return i
+		}
+		if tokens[i].Type == ast.TokenElse && i+1 < limit {
+			j := i + 1
+			for j < limit && tokens[j].Type == ast.TokenComment {
+				j++
+			}
+			if j < limit && tokens[j].Type == ast.TokenIf {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
 // scanToOpeningThenBrace finds the `{` that opens an if/else-if then-branch: optional init
 // (semicolon at paren depth 0), then condition, then `{`. Matches Forst `if cond {` (no parens)
 // as well as `if (cond) {` and `if init; cond {`.
@@ -341,10 +365,25 @@ func ifThenBraces(tokens []ast.Token, ifKeywordIdx int) (l, r int) {
 }
 
 func elseIfThenBraces(tokens []ast.Token, elseIfIdx int) (l, r int) {
-	if elseIfIdx < 0 || elseIfIdx >= len(tokens) || tokens[elseIfIdx].Type != ast.TokenElseIf {
+	if elseIfIdx < 0 || elseIfIdx >= len(tokens) {
 		return -1, -1
 	}
-	j := elseIfIdx + 1
+	var j int
+	switch tokens[elseIfIdx].Type {
+	case ast.TokenElseIf:
+		j = elseIfIdx + 1
+	case ast.TokenElse:
+		j = elseIfIdx + 1
+		for j < len(tokens) && tokens[j].Type == ast.TokenComment {
+			j++
+		}
+		if j >= len(tokens) || tokens[j].Type != ast.TokenIf {
+			return -1, -1
+		}
+		j++
+	default:
+		return -1, -1
+	}
 	for j < len(tokens) && tokens[j].Type == ast.TokenComment {
 		j++
 	}
@@ -380,6 +419,9 @@ func elseBlockBraces(tokens []ast.Token, elseIdx int) (l, r int) {
 		return -1, -1
 	}
 	if tokens[j].Type == ast.TokenElseIf {
+		return -1, -1
+	}
+	if tokens[j].Type == ast.TokenIf {
 		return -1, -1
 	}
 	if tokens[j].Type != ast.TokenLBrace {
@@ -508,7 +550,7 @@ func matchIfChainFrom(ifn ast.IfNode, tokens []ast.Token, tokIdx, ifIdx, limit i
 	}
 	next := r + 1
 	for _, ei := range ifn.ElseIfs {
-		eiIdx := findFirstToken(tokens, next, limit, ast.TokenElseIf)
+		eiIdx := findFirstElseIfKeywords(tokens, next, limit)
 		if eiIdx < 0 {
 			break
 		}

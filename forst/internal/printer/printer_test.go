@@ -4,11 +4,38 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 
 	"github.com/sirupsen/logrus"
 )
+
+func TestPrintParam_simple(t *testing.T) {
+	t.Parallel()
+	var p printer
+	p.cfg = DefaultConfig()
+	simple, err := p.printParam(ast.SimpleParamNode{
+		Ident: ast.Ident{ID: ast.Identifier("x")},
+		Type:  ast.NewBuiltinType(ast.TypeInt),
+	})
+	if err != nil || simple != "x Int" {
+		t.Fatalf("simple: %q err=%v", simple, err)
+	}
+}
+
+func TestPrintParam_destructured(t *testing.T) {
+	t.Parallel()
+	var p printer
+	p.cfg = DefaultConfig()
+	destr, err := p.printParam(ast.DestructuredParamNode{
+		Fields: []string{"a", "b"},
+		Type:   ast.NewBuiltinType(ast.TypeString),
+	})
+	if err != nil || destr != "{a, b} String" {
+		t.Fatalf("destructured: %q err=%v", destr, err)
+	}
+}
 
 func TestFormatSource_functionParams_goStyleNoColonBeforeType(t *testing.T) {
 	t.Parallel()

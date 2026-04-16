@@ -51,6 +51,10 @@ func f() {
 	if rangeKey == nil || rangeKey.Value != "idx" {
 		t.Fatalf("expected range key idx token, got %+v", rangeKey)
 	}
+	valTok := findIdentBetweenForAndRange(tokens, rangeForIndex, "val")
+	if valTok == nil || valTok.Value != "val" {
+		t.Fatalf("expected range value val token, got %+v", valTok)
+	}
 	rangeBodyL, rangeBodyR := forStmtBodyBraces(tokens, rangeForIndex)
 	if rangeBodyL < 0 || rangeBodyR <= rangeBodyL {
 		t.Fatalf("expected valid range for body braces, got l=%d r=%d", rangeBodyL, rangeBodyR)
@@ -71,6 +75,23 @@ func f() {
 	threeBodyL, threeBodyR := forStmtBodyBraces(tokens, threeClauseForIndex)
 	if threeBodyL < 0 || threeBodyR <= threeBodyL {
 		t.Fatalf("expected valid three-clause for body braces, got l=%d r=%d", threeBodyL, threeBodyR)
+	}
+}
+
+func TestNavigationHelpers_nthForKeyword_sourceOrderIncludesLoopsInsideFunctions(t *testing.T) {
+	tokens := lexTokensForLSPHelperTest(`package main
+
+func f() {
+  for i := 0; i < 1; i++ {
+    break
+  }
+}
+`)
+	if idx := nthTopLevelForKeyword(tokens, 0); idx >= 0 {
+		t.Fatalf("depth-0 scan must not match for inside function, got idx=%d", idx)
+	}
+	if idx := nthForKeywordInSourceOrder(tokens, 0); idx < 0 || tokens[idx].Type != ast.TokenFor {
+		t.Fatalf("expected first for keyword in file, got idx=%d", idx)
 	}
 }
 

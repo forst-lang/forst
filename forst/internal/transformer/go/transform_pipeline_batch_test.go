@@ -333,6 +333,246 @@ func main() {
 	println(string(r.id))
 }`,
 		},
+		{
+			"for_range_index_value",
+			`package main
+func main() {
+	xs := [1, 2]
+	for i, v := range xs {
+		println(string(i) + string(v))
+	}
+}`,
+		},
+		{
+			"pointer_string_and_int",
+			`package main
+func main() {
+	s := "go"
+	p := &s
+	n := 7
+	pn := &n
+	println(*p)
+	println(string(*pn))
+}`,
+		},
+		{
+			"map_len_empty",
+			`package main
+func main() {
+	m := map[String]Int{}
+	println(string(len(m)))
+}`,
+		},
+		{
+			"nested_shape_literal",
+			`package main
+type Outer = { inner: { x: Int } }
+func main() {
+	v := { inner: { x: 3 } }
+	println(string(v.inner.x))
+}`,
+		},
+		{
+			"type_alias_string",
+			`package main
+type Name = String
+func main() {
+	n: Name = "a"
+	println(n)
+}`,
+		},
+		{
+			"nominal_errors_union_typedef",
+			`package main
+error E1 { code: Int }
+error E2 { msg: String }
+type U = E1 | E2
+func main() {
+}`,
+		},
+		{
+			"slice_literal_spread",
+			`package main
+func main() {
+	xs := [1, 2, 3]
+	println(string(len(xs)))
+}`,
+		},
+		{
+			"compare_chain",
+			`package main
+func main() {
+	if 1 < 2 && 2 < 3 {
+		println("ok")
+	}
+}`,
+		},
+		{
+			"if_not",
+			`package main
+func main() {
+	if !false {
+		println("t")
+	}
+}`,
+		},
+		{
+			"paren_expr",
+			`package main
+func main() {
+	println(string((1 + 2) * 3))
+}`,
+		},
+		{
+			"string_eq",
+			`package main
+func main() {
+	if "a" == "a" {
+		println("eq")
+	}
+}`,
+		},
+		{
+			"int_eq",
+			`package main
+func main() {
+	if 1 == 1 {
+		println("eq")
+	}
+}`,
+		},
+		{
+			"float_literal",
+			`package main
+func main() {
+	x := 1.5
+	y := x + 0.5
+	println("ok")
+}`,
+		},
+		{
+			"bool_var",
+			`package main
+func main() {
+	b := true
+	if b {
+		println("y")
+	}
+}`,
+		},
+		{
+			"empty_slice",
+			`package main
+func main() {
+	xs := [0]
+	println(string(len(xs)))
+}`,
+		},
+		{
+			"slice_append_variadic",
+			`package main
+func main() {
+	xs := [1]
+	ys := append(xs, 2)
+	println(string(len(ys)))
+}`,
+		},
+		{
+			"double_deref_shape",
+			`package main
+type Box = { p: *Int }
+func main() {
+	n := 1
+	b := { p: &n }
+	println(string(*b.p))
+}`,
+		},
+		{
+			"if_elseif_no_else",
+			`package main
+func main() {
+	n := 1
+	if n > 10 {
+		println("a")
+	} else if n < 5 {
+		println("b")
+	}
+}`,
+		},
+		{
+			"func_void",
+			`package main
+func noop() {}
+func main() {
+	noop()
+	println("z")
+}`,
+		},
+		{
+			"return_void_func",
+			`package main
+func f() {
+	return
+}
+func main() {
+	f()
+}`,
+		},
+		{
+			"return_named_struct_explicit_return_type",
+			`package main
+type Point = { x: Int, y: Int }
+func origin(): Point {
+	return { x: 0, y: 0 }
+}
+func main() {
+	p := origin()
+	println(string(p.x))
+}`,
+		},
+		{
+			"typeguard_ensure_failure_block",
+			`package main
+type S = String
+is (s S) NonEmpty() {
+	ensure s is Min(1)
+}
+func main() {
+	v: S = "a"
+	ensure v is NonEmpty() {
+		println("weak")
+	}
+	println("ok")
+}`,
+		},
+		{
+			"shape_two_named_assignable",
+			`package main
+type A = { n: Int }
+type B = { n: Int }
+func main() {
+	x: A = { n: 1 }
+	y: B = { n: 2 }
+	println(string(x.n + y.n))
+}`,
+		},
+		{
+			"import_fmt_qualified_call",
+			`package main
+import "fmt"
+func main() {
+	fmt.Println("hi")
+}`,
+		},
+		{
+			"float_compare",
+			`package main
+func main() {
+	if 1.0 < 2.0 {
+		println("f")
+	}
+}`,
+		},
 	}
 	for _, tc := range cases {
 		tc := tc

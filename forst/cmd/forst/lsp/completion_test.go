@@ -308,6 +308,13 @@ func main() {
 			}
 			break
 		}
+		if tk.Type == ast.TokenElse && i+1 < len(toks) && toks[i+1].Type == ast.TokenIf {
+			el, er := elseIfThenBraces(toks, i)
+			if el < 0 || er < el {
+				t.Fatalf("elseIfThenBraces (else+if): %d %d", el, er)
+			}
+			break
+		}
 	}
 	src2 := `package main
 func main() {

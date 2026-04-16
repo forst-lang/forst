@@ -23,3 +23,20 @@ func TestAssignmentNode_String_short_with_explicit_types(t *testing.T) {
 		t.Fatal(a.String())
 	}
 }
+
+func TestAssignmentNode_String_indexLValue_nonVariableBranch(t *testing.T) {
+	a := AssignmentNode{
+		LValues: []ExpressionNode{
+			IndexExpressionNode{
+				Target: VariableNode{Ident: Ident{ID: "xs"}},
+				Index:  IntLiteralNode{Value: 0},
+			},
+		},
+		RValues: []ExpressionNode{IntLiteralNode{Value: 1}},
+		IsShort: false,
+	}
+	s := a.String()
+	if !strings.Contains(s, "Variable(xs)[0]") || !strings.Contains(s, " = ") {
+		t.Fatalf("got %q", s)
+	}
+}

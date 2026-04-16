@@ -167,6 +167,29 @@ func TestTypeMapping_GetTypeScriptType_hashBased_usesTypecheckerAliasWhenInDefs(
 	}
 }
 
+func TestTypeMapping_shapeTypeFieldLines_nestedShapeField(t *testing.T) {
+	tm := NewTypeMapping()
+	tc := typechecker.New(nil, false)
+	tm.SetTypeChecker(tc)
+	inner := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"k": {Type: &ast.TypeNode{Ident: ast.TypeString, TypeKind: ast.TypeKindBuiltin}},
+		},
+	}
+	shape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"nested": {Shape: &inner},
+		},
+	}
+	lines, err := tm.shapeTypeFieldLines(shape)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 || !strings.Contains(lines[0], "nested") || !strings.Contains(lines[0], "k") {
+		t.Fatalf("unexpected lines: %v", lines)
+	}
+}
+
 func TestTypeMapping_GetTypeScriptType_typeShape_nestedFromAssertion(t *testing.T) {
 	tm := NewTypeMapping()
 	inner := ast.ShapeNode{

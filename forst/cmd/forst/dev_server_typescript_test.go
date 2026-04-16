@@ -112,3 +112,81 @@ func TestTypeScriptGenerator_generateTypesForFile_missingFile(t *testing.T) {
 		t.Fatalf("expected read error, got %v", err)
 	}
 }
+
+func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsAndMergesRest(t *testing.T) {
+	dir := t.TempDir()
+	good := filepath.Join(dir, "good.ft")
+	bad := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(good, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bad, []byte(`@@@`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	tg := NewTypeScriptGenerator(log)
+	functions := map[string]map[string]discovery.FunctionInfo{
+		"main": {
+			"Echo": {
+				Package:  "main",
+				Name:     "Echo",
+				FilePath: good,
+			},
+			"Bad": {
+				Package:  "main",
+				Name:     "Bad",
+				FilePath: bad,
+			},
+		},
+	}
+	out, err := tg.GenerateTypesForFunctions(functions, dir)
+	if err != nil {
+		t.Fatalf("GenerateTypesForFunctions: %v", err)
+	}
+	if !strings.Contains(out, "EchoRequest") {
+		t.Fatalf("expected types from good.ft, got:\n%s", out)
+	}
+}
+
+func TestTypeScriptGenerator_GenerateTypesForFunctions_conflictingSignatures_returnsError(t *testing.T) {
+	dir := t.TempDir()
+	alpha := filepath.Join(dir, "alpha.ft")
+	beta := filepath.Join(dir, "beta.ft")
+	srcAlpha := `package alphapkg
+
+func Echo(): String {
+	return "x"
+}
+`
+	srcBeta := `package betapkg
+
+func Echo(): Int {
+	return 1
+}
+`
+	if err := os.WriteFile(alpha, []byte(srcAlpha), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(beta, []byte(srcBeta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	tg := NewTypeScriptGenerator(log)
+	functions := map[string]map[string]discovery.FunctionInfo{
+		"alphapkg": {
+			"Echo": {Package: "alphapkg", Name: "Echo", FilePath: alpha},
+		},
+		"betapkg": {
+			"Echo": {Package: "betapkg", Name: "Echo", FilePath: beta},
+		},
+	}
+	_, err := tg.GenerateTypesForFunctions(functions, dir)
+	if err == nil {
+		t.Fatal("expected merge error for duplicate Echo with different TS signatures")
+	}
+	if !strings.Contains(err.Error(), "Echo") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

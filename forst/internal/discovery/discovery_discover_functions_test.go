@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -33,11 +34,24 @@ func privateFunction() {
 	}
 
 	config := &MockConfig{files: []string{testFile}}
-	discoverer := NewDiscoverer(tempDir, &MockLogger{}, config)
+	ml := &MockLogger{}
+	discoverer := NewDiscoverer(tempDir, ml, config)
 
 	functions, err := discoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions failed: %v", err)
+	}
+	var sawDiscoveredSummary, sawSymbolLine bool
+	for _, m := range ml.debugMsgs {
+		if strings.Contains(m, "Discovered") {
+			sawDiscoveredSummary = true
+		}
+		if m == "- %s.%s" {
+			sawSymbolLine = true
+		}
+	}
+	if !sawDiscoveredSummary || !sawSymbolLine {
+		t.Fatalf("expected summary + per-symbol Debugf patterns, debugMsgs=%#v", ml.debugMsgs)
 	}
 	pkgFuncs, exists := functions["testpkg"]
 	if !exists {
@@ -425,5 +439,57 @@ func PublicBeta(): String {
 	}
 	if _, ok := secondOut["beta"]["PublicBeta"]; !ok {
 		t.Fatalf("second order missing beta.PublicBeta: %+v", secondOut)
+	}
+}
+
+func TestDiscoverer_DiscoverFunctions_typecheckFailure_logsDebug(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad_typecheck.ft")
+	content := `package main
+
+func Bad(): String {
+	return 1
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ml := &MockLogger{}
+	discoverer := NewDiscoverer(dir, ml, &MockConfig{files: []string{path}})
+	_, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	found := false
+	for _, m := range ml.debugMsgs {
+		if strings.Contains(m, "Type checking failed") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected typecheck failure debug, got debugMsgs=%#v", ml.debugMsgs)
+	}
+}
+
+func TestDiscoverer_DiscoverFunctions_onlyPrivateFunctions_skipsFileWithNoPublic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "priv.ft")
+	content := `package main
+
+func privateOnly(): String {
+	return "x"
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	discoverer := NewDiscoverer(dir, &MockLogger{}, &MockConfig{files: []string{path}})
+	out, err := discoverer.DiscoverFunctions()
+	if err != nil {
+		t.Fatalf("DiscoverFunctions: %v", err)
+	}
+	if len(out) != 0 {
+		t.Fatalf("expected no public functions, got %+v", out)
 	}
 }

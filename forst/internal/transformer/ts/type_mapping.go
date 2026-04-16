@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+// forstTypeMapper is the TypeScript-side type mapping used by TypeScriptTransformer.
+// *TypeMapping is the default implementation; tests may swap in a wrapper.
+type forstTypeMapper interface {
+	SetTypeChecker(*typechecker.TypeChecker)
+	GetTypeScriptType(*ast.TypeNode) (string, error)
+	AddUserType(forstType, tsType string)
+	shapeTypeFieldLines(shape ast.ShapeNode) ([]string, error)
+}
+
 // TypeMapping maps Forst types to TypeScript types
 type TypeMapping struct {
 	builtinTypes map[ast.TypeIdent]string

@@ -10,7 +10,7 @@ Each section below is a **feature parity** table: **Feature** | **Status** | **N
 
 - ✅ **done** — Believed complete for current scope; report gaps as bugs.
 - ⏳ **in progress** — Actively being implemented **toward** the **done** bar; remaining gaps are temporary.
-- 🔬 **experimental** — Something **exists** (often usable), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial coverage, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
+- 🔬 **experimental** — Something **exists** (often usable), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial behavior, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
 - 📋 **planned** — On the roadmap but **not yet delivered**: no usable implementation yet.
 - 🚫 **not planned (anti-feature)** — Intentionally **omitted** from the language design; not a backlog gap—see [Anti-features](#anti-features) and [PHILOSOPHY.md](./PHILOSOPHY.md).
 
@@ -83,7 +83,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Feature | Status | Notes |
 | --- | --- | --- |
 | Generic types | 📋 planned | User-declared type parameters on types and functions; see [generics RFC](./examples/in/rfc/generics/00-user-generics-and-type-parameters.md). |
-| Type aliases | 🔬 experimental | Simple `type Name = BaseType` works end-to-end: definitions are stored (`forst/internal/typechecker/register.go`), alias chains resolve for field access (`forst/internal/typechecker/lookup_field.go`), and compatibility treats aliases symmetrically where wired (`forst/internal/typechecker/go_builtins.go` via `typeDefAssertionFromExpr` in `forst/internal/typechecker/utils.go`). Tests include merged-package alias returns (`forst/internal/typechecker/alias_return_test.go`). Gaps: interaction with generics and binary type expressions, and alias coverage across every compiler path—treat missing spots as bugs. |
+| Type aliases | 🔬 experimental | Simple `type Name = BaseType` works end-to-end: definitions are stored (`forst/internal/typechecker/register.go`), alias chains resolve for field access (`forst/internal/typechecker/lookup_field.go`), and compatibility treats aliases symmetrically where wired (`forst/internal/typechecker/go_builtins.go` via `typeDefAssertionFromExpr` in `forst/internal/typechecker/utils.go`). |
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
@@ -234,14 +234,14 @@ The language surface is organized around **structural types**, **explicit annota
 | CI pipeline (lint, tests, compiler build) | ✅ done | GitHub Actions; `task ci:test` in `forst/`. |
 | Release automation | ✅ done | release-please + git tags. |
 
-### Test coverage
+### Tests and merge gate
 
-**Intention:** Prefer **targeted tests** on compiler hot paths over vanity coverage—so refactors and RFC-sized changes stay [safe to reason about](./PHILOSOPHY.md#guiding-principles) in review.
+**Intention:** Prefer **targeted tests** on compiler hot paths over broad, low-signal suites—so refactors and RFC-sized changes stay [safe to reason about](./PHILOSOPHY.md#guiding-principles) in review.
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| Unit / library coverage (Go) | ✅ done | `go test -cover` on `cmd/forst/...` and `internal/...`; Coveralls upload in CI. |
+| Unit / library tests (Go) | ✅ done | `go test` on `cmd/forst/...` and `internal/...` (with optional `-cover` locally); Coveralls upload in CI. |
 | Integration & example runs in CI | ✅ done | Same pipeline runs example tasks (e.g. sidecar) after unit tests. |
-| Colocated Go tests (`foo.go` + `foo_test.go`) | ⏳ in progress | Cursor rule **go-testing** describes the convention (stem-matched tests, exceptions for `main` / `test_utils` / generated code). New and touched production files should move toward this; LSP (`analyze`, `references`, `symbols`), `goload`, and `typechecker/go_hover` are covered first. Stem-matched tests now include e.g. `lsp/package_analysis_test.go`, `typechecker/collect_test.go`, `typechecker/unify_shape_test.go`, `typechecker/register_test.go`. |
-| Deeper coverage on hot paths (LSP, goload, transformer emit) | ⏳ in progress | **Merged** statement coverage on `./cmd/forst/...` + `./internal/...` is the tracked metric (~**76.5%** baseline; **≥79.5%** target). See [docs/adoption/merged-coverage-plan.md](./docs/adoption/merged-coverage-plan.md). Hot-path prioritization remains in `internal/hotpaths`; do not raise `Taskfile` `MIN_COVERAGE` until the gate actually passes. |
-| Validation codegen coverage | 🔬 experimental | Pipeline tests named `TestEmitValidation_*` in `internal/transformer/go` assert generated Go for built-in constraints and type guards; grep separately from generic coverage. Still expand emit paths over time. |
+| Colocated Go tests (`foo.go` + `foo_test.go`) | ⏳ in progress | Cursor rule **go-testing** describes the convention (stem-matched tests, exceptions for `main` / `test_utils` / generated code). New and touched production files should move toward this; LSP (`analyze`, `references`, `symbols`), `goload`, and `typechecker/go_hover` are prioritized first. Stem-matched tests now include e.g. `lsp/package_analysis_test.go`, `typechecker/collect_test.go`, `typechecker/unify_shape_test.go`, `typechecker/register_test.go`. |
+| Merged statement totals on hot paths (LSP, goload, transformer emit) | ⏳ in progress | **Merged** statement totals on `./cmd/forst/...` + `./internal/...` are tracked (see [docs/adoption/merged-statement-plan.md](./docs/adoption/merged-statement-plan.md) for baseline, target **≥79.5%**, gate command, and where to focus next). Do not raise `Taskfile` `MIN_COVERAGE` until the gate actually passes. |
+| Validation codegen (`TestEmitValidation_*`) | 🔬 experimental | Pipeline tests in `internal/transformer/go` assert generated Go for built-in constraints and type guards; grep-friendly prefix. Still expand emit paths over time. |
