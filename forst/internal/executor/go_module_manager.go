@@ -173,8 +173,8 @@ func main() {
 	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
-		} else {
-			return fmt.Sprintf(`%s
+		}
+		return fmt.Sprintf(`%s
 
 func main() {
 	%s
@@ -184,7 +184,6 @@ func main() {
 	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
-		}
 	}
 
 	if config.HasMultipleReturns {
@@ -201,8 +200,8 @@ func main() {
 	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
-	} else {
-		return fmt.Sprintf(`%s
+	}
+	return fmt.Sprintf(`%s
 
 func main() {
 	result := %s.%s()
@@ -211,7 +210,6 @@ func main() {
 	os.Exit(0)
 }
 `, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
-	}
 }
 
 // buildParameterExtraction generates Go code to extract parameters from JSON input

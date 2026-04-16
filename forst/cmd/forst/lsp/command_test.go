@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestStartLSPServer_helperProcess(t *testing.T) {
+func TestStartLSPServer_helperProcess(_ *testing.T) {
 	if os.Getenv("FORST_LSP_HELPER_PROCESS") != "1" {
 		return
 	}

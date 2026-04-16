@@ -106,7 +106,7 @@ func TestLoadAndValidateConfig_warnAndInvalidLogLevelBehavior(t *testing.T) {
 	})
 }
 
-func TestLoadAndValidateConfig_helperProcess_invalidLogLevel(t *testing.T) {
+func TestLoadAndValidateConfig_helperProcess_invalidLogLevel(_ *testing.T) {
 	if os.Getenv("FORST_DEVCFG_HELPER") != "1" {
 		return
 	}

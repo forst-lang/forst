@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -21,9 +22,14 @@ type generateTSExamplesManifest struct {
 // examplesInRoot returns the absolute path to examples/in (from forst/cmd/forst test cwd).
 func examplesInRoot(t *testing.T) string {
 	t.Helper()
-	abs, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "in"))
-	if err != nil {
-		t.Fatalf("examples/in path: %v", err)
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+	base := filepath.Dir(thisFile) // forst/cmd/forst
+	abs := filepath.Clean(filepath.Join(base, "..", "..", "..", "examples", "in"))
+	if _, err := os.Stat(abs); err != nil {
+		t.Fatalf("examples/in path %s: %v", abs, err)
 	}
 	return abs
 }

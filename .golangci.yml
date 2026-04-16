@@ -1,6 +1,12 @@
 version: "2"
 
 linters:
+  exclusions:
+    rules:
+      # internal/{ast,parser,printer} intentionally reuse stdlib-like package names.
+      - linters:
+          - revive
+        text: "avoid package names that conflict with Go standard library package names"
   enable:
     - errcheck
     - staticcheck

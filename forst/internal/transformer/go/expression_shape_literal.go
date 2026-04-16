@@ -370,10 +370,9 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 					Op: token.AND,
 					X:  value,
 				}, nil
-			} else {
-				// If no value provided, generate nil
-				return goast.NewIdent("nil"), nil
 			}
+			// If no value provided, generate nil
+			return goast.NewIdent("nil"), nil
 		}
 	}
 
@@ -410,9 +409,8 @@ func (t *Transformer) buildTypeValue(fieldType *ast.TypeNode) (goast.Expr, error
 	default:
 		if strings.HasPrefix(aliasName, "T_") {
 			return goast.NewIdent("nil"), nil
-		} else {
-			return &goast.CompositeLit{Type: goast.NewIdent(aliasName)}, nil
 		}
+		return &goast.CompositeLit{Type: goast.NewIdent(aliasName)}, nil
 	}
 }
 

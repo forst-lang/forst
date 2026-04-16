@@ -360,8 +360,18 @@ tasks:
       - godoc -http=:6060
 
   # CI/CD tasks
+  check:coverage:
+    desc: Fail if merged statement coverage is below MIN_COVERAGE (default 72); uses profile.cov from last go test or runs tests
+    dir: forst
+    vars:
+      MIN_COVERAGE: '{{.MIN_COVERAGE | default "72"}}'
+    cmds:
+      - |
+        test -f profile.cov || go test -coverprofile=profile.cov ./cmd/forst/... ./internal/... -count=1
+      - bash scripts/check_coverage_threshold.sh profile.cov {{.MIN_COVERAGE}}
+
   ci:test:
-    desc: Run CI lint suite (includes VS Code extension compile via build:vscode)
+    desc: Run CI lint suite
     dir: forst
     set: [errexit]
     cmds:

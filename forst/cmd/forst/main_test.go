@@ -539,9 +539,10 @@ func TestExamples(t *testing.T) {
 // real code paths (plain `return n` alone does not emit an ensure branch).
 func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
 	t.Parallel()
+	root := examplesInRoot(t)
 	examples := []string{
-		filepath.Join("..", "..", "..", "examples", "in", "result_if.ft"),
-		filepath.Join("..", "..", "..", "examples", "in", "result_ensure.ft"),
+		filepath.Join(root, "result_if.ft"),
+		filepath.Join(root, "result_ensure.ft"),
 	}
 	const wantBranch = `if n <= 0`
 	const wantMsg = `assertion failed: Int.GreaterThan(0)`
@@ -743,7 +744,7 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 	}
 }
 
-func TestHandleDumpCommand_helperProcess(t *testing.T) {
+func TestHandleDumpCommand_helperProcess(_ *testing.T) {
 	if os.Getenv("FORST_MAIN_DUMP_HELPER") != "1" {
 		return
 	}
