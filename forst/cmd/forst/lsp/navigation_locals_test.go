@@ -80,6 +80,106 @@ func id(x Int): Int {
 	}
 }
 
+func TestHandleDefinition_shortDeclInsideIfBlock(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "if_short.ft")
+	const src = `package main
+
+func main() {
+  if true {
+    z := 1
+    println(string(z))
+  }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v parseErr=%v", ok, ctx.ParseErr)
+	}
+	posUse, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 1)
+	if !ok {
+		t.Fatal("use z not found")
+	}
+	resp := s.handleDefinition(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/definition",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		}),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	loc := mustLSPLocation(t, resp.Result)
+	posDecl, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 0)
+	if !ok {
+		t.Fatal("decl z not found")
+	}
+	if loc.Range.Start.Line != posDecl.Line || loc.Range.Start.Character != posDecl.Character {
+		t.Fatalf("want definition at short decl %+v, got %+v", posDecl, loc.Range.Start)
+	}
+}
+
+func TestDefiningTokenForLocalBinding_ifBody_matchesHandleDefinition(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "if_short_bind.ft")
+	const src = `package main
+
+func main() {
+  if true {
+    z := 1
+    println(string(z))
+  }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v", ok)
+	}
+	posUse, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 1)
+	if !ok {
+		t.Fatal("use z not found")
+	}
+	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, posUse)
+	if tokIdx < 0 || tokIdx >= len(ctx.Tokens) {
+		t.Fatalf("bad tokIdx %d", tokIdx)
+	}
+	tok := &ctx.Tokens[tokIdx]
+	defTok := definingTokenForLocalBinding(ctx, tokIdx, tok)
+	if defTok == nil || defTok.Value != "z" {
+		t.Fatalf("definingTokenForLocalBinding: got %+v", defTok)
+	}
+	posDecl, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 0)
+	if !ok {
+		t.Fatal("decl z not found")
+	}
+	if defTok.Line-1 != posDecl.Line || defTok.Column-1 != posDecl.Character {
+		t.Fatalf("def tok at %d:%d want decl %+v", defTok.Line, defTok.Column, posDecl)
+	}
+}
+
 func TestHandleReferences_ParameterAndBody_includeDeclaration(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
@@ -255,6 +355,111 @@ func main() {
 	}
 	if resp.Result != nil {
 		t.Fatalf("expected null definition for keyword, got %#v", resp.Result)
+	}
+}
+
+func TestHandleDefinition_shortDeclInsideElseBlock(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "else_local.ft")
+	const src = `package main
+
+func main() {
+  n := 2
+  if n > 10 {
+    println("a")
+  } else {
+    z := 1
+    println(string(z))
+  }
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v err=%v", ok, ctx.ParseErr)
+	}
+	posUse, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 1)
+	if !ok {
+		t.Fatal("use z not found")
+	}
+	resp := s.handleDefinition(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/definition",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		}),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	loc := mustLSPLocation(t, resp.Result)
+	posDecl, ok := lspPosForNthIdentToken(ctx.Tokens, "z", 0)
+	if !ok {
+		t.Fatal("decl z not found")
+	}
+	if loc.Range.Start.Line != posDecl.Line || loc.Range.Start.Character != posDecl.Character {
+		t.Fatalf("want decl %+v, got %+v", posDecl, loc.Range.Start)
+	}
+}
+
+func TestHandleDefinition_ifInitShortDecl(t *testing.T) {
+	t.Parallel()
+	s := NewLSPServer("8080", logrus.New())
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "if_init.ft")
+	const src = `package main
+
+func f(): Int {
+  if x := 1; x > 0 {
+    return x
+  }
+  return 0
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
+		t.Fatalf("analyze: ok=%v err=%v", ok, ctx.ParseErr)
+	}
+	posUse, ok := lspPosForNthIdentToken(ctx.Tokens, "x", 2)
+	if !ok {
+		t.Fatal("return x use not found")
+	}
+	resp := s.handleDefinition(LSPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "textDocument/definition",
+		Params: mustJSONParams(t, map[string]interface{}{
+			"textDocument": map[string]interface{}{"uri": uri},
+			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		}),
+	})
+	if resp.Error != nil {
+		t.Fatalf("error: %+v", resp.Error)
+	}
+	loc := mustLSPLocation(t, resp.Result)
+	posDecl, ok := lspPosForNthIdentToken(ctx.Tokens, "x", 0)
+	if !ok {
+		t.Fatal("x in init not found")
+	}
+	if loc.Range.Start.Line != posDecl.Line || loc.Range.Start.Character != posDecl.Character {
+		t.Fatalf("want decl %+v, got %+v", posDecl, loc.Range.Start)
 	}
 }
 

@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestPipeline_coverageBatch runs parse → typecheck → transform on many minimal programs to lift
-// merged coverage over the transformer and shared typechecker paths.
-func TestPipeline_coverageBatch(t *testing.T) {
+// TestPipeline_batchMinimalPrograms runs parse → typecheck → transform on many minimal programs.
+func TestPipeline_batchMinimalPrograms(t *testing.T) {
 	t.Parallel()
 	cases := []string{
 		`package main

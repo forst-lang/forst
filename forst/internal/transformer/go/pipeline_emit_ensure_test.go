@@ -122,6 +122,36 @@ func main() {
 	}
 }
 
+func TestPipeline_nominalErrorUnion_typedef_emitsMembersAndUnion(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+error ParseError {
+	code: Int,
+}
+
+error IoError {
+	path: String,
+}
+
+type ErrKind = ParseError | IoError
+
+func main() {
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`ParseError`,
+		`IoError`,
+		`ErrKind`,
+		`package main`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
 func TestPipeline_ensurePointerNil_main_emitsNilCheck(t *testing.T) {
 	t.Parallel()
 	src := `package main

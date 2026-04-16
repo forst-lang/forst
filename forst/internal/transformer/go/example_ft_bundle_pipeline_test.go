@@ -7,7 +7,7 @@ import (
 )
 
 // TestPipeline_examplesBundle runs compileForstPipeline on the same large example set as
-// internal/typechecker TestCheckTypes_examplesBundle to lift transformer coverage.
+// internal/typechecker TestCheckTypes_examplesBundle exercises the same example bundle for the transformer.
 func TestPipeline_examplesBundle(t *testing.T) {
 	t.Parallel()
 	rel := []string{

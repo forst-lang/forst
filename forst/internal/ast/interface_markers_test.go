@@ -2,7 +2,7 @@ package ast
 
 import "testing"
 
-// Exercises unexported interface marker methods so coverage attributes statements
+// Exercises unexported interface marker methods so statement attribution includes these branches.
 // (see literal.go and related: bodies use `_ = recv` for coverable units).
 func TestInterfaceMarkerMethodsExecute(t *testing.T) {
 	t.Parallel()

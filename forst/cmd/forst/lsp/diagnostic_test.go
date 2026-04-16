@@ -127,7 +127,7 @@ func TestLSPDebugger_ConvertDebugEventToHover(t *testing.T) {
 	}
 }
 
-func TestLSPDebugger_ConvertDebugEventToCompletion(t *testing.T) {
+func TestLSPDebugger_ConvertDebugEventToListItem(t *testing.T) {
 	t.Parallel()
 	ld := NewLSPDebugger(nil, "")
 	c := ld.ConvertDebugEventToCompletion(DebugEvent{

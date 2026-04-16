@@ -455,7 +455,7 @@ func main() {
 	}
 }
 
-// TestEmitValidation_* cases assert generated Go for built-in constraints and type guards (grep-friendly; see internal/coveragehotspots).
+// TestEmitValidation_* cases assert generated Go for built-in constraints and type guards (grep-friendly).
 func TestPipeline_return_multi_value_call_not_padded_with_nil(t *testing.T) {
 	src := `package main
 

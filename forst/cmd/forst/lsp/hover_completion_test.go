@@ -815,7 +815,7 @@ func TestHandleHover_invalidParamsReturnsParseError(t *testing.T) {
 	}
 }
 
-func TestHandleCompletion_invalidParamsReturnsParseError(t *testing.T) {
+func TestHandleTextDocumentList_invalidParamsReturnsParseError(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	resp := s.handleCompletion(LSPRequest{

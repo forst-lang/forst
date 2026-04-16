@@ -69,3 +69,29 @@ func TestIsForstDocumentURI(t *testing.T) {
 		t.Fatal("expected non-file scheme false")
 	}
 }
+
+func TestLegacyLocalPathFromFileURI_fileSchemePath(t *testing.T) {
+	t.Parallel()
+	p, ok := legacyLocalPathFromFileURI("file:///tmp/example.ft")
+	if !ok || p == "" {
+		t.Fatalf("got ok=%v p=%q", ok, p)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(p), "/tmp/example.ft") {
+		t.Fatalf("unexpected path %q", p)
+	}
+}
+
+func TestLegacyLocalPathFromFileURI_noSchemePrefix(t *testing.T) {
+	t.Parallel()
+	if _, ok := legacyLocalPathFromFileURI("https://x/y"); ok {
+		t.Fatal("expected false without file:// prefix")
+	}
+}
+
+func TestLocalPathFromFileURI_nonFileSchemeFallsBackToLegacy(t *testing.T) {
+	t.Parallel()
+	// url.Parse succeeds but scheme != file → legacy (no file:// prefix → false).
+	if _, ok := localPathFromFileURI("http://example.com/x.ft"); ok {
+		t.Fatal("expected non-file scheme to fail")
+	}
+}

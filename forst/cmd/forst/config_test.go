@@ -196,3 +196,62 @@ func TestForstConfig_matchesPattern_invalidGlob(t *testing.T) {
 		t.Fatal("invalid pattern should not match")
 	}
 }
+
+func TestLoadConfigForGenerate_explicitConfigPath(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "ftconfig.json")
+	json := `{"server": { "port": "3001" }}`
+	if err := os.WriteFile(cfgPath, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ftFile := filepath.Join(dir, "a.ft")
+	if err := os.WriteFile(ftFile, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfigForGenerate(cfgPath, ftFile, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Port != "3001" {
+		t.Fatalf("server: %+v", cfg.Server)
+	}
+}
+
+func TestLoadConfigForGenerate_findsConfigWalkingUpFromFileDir(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "nested")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(root, "ftconfig.json")
+	json := `{"server": { "port": "4002" }}`
+	if err := os.WriteFile(cfgPath, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ftFile := filepath.Join(sub, "a.ft")
+	if err := os.WriteFile(ftFile, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfigForGenerate("", ftFile, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Port != "4002" {
+		t.Fatalf("expected parent ftconfig, got %+v", cfg.Server)
+	}
+}
+
+func TestLoadConfigForGenerate_usesDefaultWhenNoConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	ftFile := filepath.Join(dir, "only.ft")
+	if err := os.WriteFile(ftFile, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfigForGenerate("", ftFile, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Port != "8080" {
+		t.Fatalf("expected default port, got %+v", cfg.Server)
+	}
+}

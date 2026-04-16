@@ -80,6 +80,57 @@ func TestRefinedTypesForIsNarrowing_shapeNodeRHSEmptyShape(t *testing.T) {
 	}
 }
 
+func TestRefinedTypesForIsNarrowing_typeDefAssertionNilAssertionErrors(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+	tc.scopeStack.pushScope(fn)
+	tc.CurrentScope().RegisterSymbol(ast.Identifier("x"), []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
+
+	_, err := tc.refinedTypesForIsNarrowing(
+		ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+		ast.TypeDefAssertionExpr{Assertion: nil},
+	)
+	if err == nil || !strings.Contains(err.Error(), "missing assertion") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRefinedTypesForIsNarrowing_nilFunctionCallPointerRHS(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+	tc.scopeStack.pushScope(fn)
+	tc.CurrentScope().RegisterSymbol(ast.Identifier("x"), []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
+
+	_, err := tc.refinedTypesForIsNarrowing(
+		ast.VariableNode{Ident: ast.Ident{ID: "x"}},
+		(*ast.FunctionCallNode)(nil),
+	)
+	if err == nil || !strings.Contains(err.Error(), "nil RHS") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRefinedTypesForIsNarrowing_literalLHSFailsGetLeftmostVariable(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+	tc.scopeStack.pushScope(fn)
+	str := ast.TypeString
+	_, err := tc.refinedTypesForIsNarrowing(
+		ast.BinaryExpressionNode{
+			Left:     ast.IntLiteralNode{Value: 1},
+			Operator: ast.TokenPlus,
+			Right:    ast.IntLiteralNode{Value: 2},
+		},
+		ast.AssertionNode{BaseType: &str},
+	)
+	if err == nil || !strings.Contains(err.Error(), "expression does not start with a variable") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestIfBranchNarrowing_elseIfBranchRefinesVariable(t *testing.T) {
 	t.Parallel()
 	baseStr := ast.TypeString

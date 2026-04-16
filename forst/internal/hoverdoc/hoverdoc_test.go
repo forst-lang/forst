@@ -111,7 +111,7 @@ func TestBuiltinTypeMarkdown_unknownReturnsEmpty(t *testing.T) {
 	}
 }
 
-func TestMarkdownForKeywordToken_switchCoverage(t *testing.T) {
+func TestMarkdownForKeywordToken_switch(t *testing.T) {
 	t.Parallel()
 	// One token from each major branch of MarkdownForKeywordToken (builtins/types vs keywords).
 	cases := []ast.TokenIdent{

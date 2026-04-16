@@ -6,7 +6,7 @@ import (
 	"forst/internal/parser"
 )
 
-// TestCheckTypes_manyMinimalPrograms exercises common CheckTypes paths for coverage (parse → collect → infer).
+// TestCheckTypes_manyMinimalPrograms exercises common CheckTypes paths (parse → collect → infer).
 func TestCheckTypes_manyMinimalPrograms(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -211,6 +211,174 @@ type T = { n: Int }
 func main() {
 	v := { n: 3 }
 	println(string(v.n))
+}`,
+		},
+		{
+			"func_two_params",
+			`package main
+func add(a Int, b Int) {
+	println(string(a + b))
+}
+func main() {
+	add(1, 2)
+}`,
+		},
+		{
+			"mul_expr",
+			`package main
+func main() {
+	println(string(2 * 3))
+}`,
+		},
+		{
+			"nested_if_else",
+			`package main
+func main() {
+	if true {
+		if false {
+			println("a")
+		} else {
+			println("b")
+		}
+	}
+}`,
+		},
+		{
+			"void_func_call",
+			`package main
+func nop() {}
+func main() {
+	nop()
+	println("ok")
+}`,
+		},
+		{
+			"sub_int",
+			`package main
+func main() {
+	println(string(5 - 2))
+}`,
+		},
+		{
+			"paren_expr",
+			`package main
+func main() {
+	println(string((1 + 2) * 3))
+}`,
+		},
+		{
+			"string_eq",
+			`package main
+func main() {
+	if "a" == "a" {
+		println("same")
+	}
+}`,
+		},
+		{
+			"int_neq",
+			`package main
+func main() {
+	if 1 != 2 {
+		println("neq")
+	}
+}`,
+		},
+		{
+			"bool_and_or",
+			`package main
+func main() {
+	if true && false {
+		println("no")
+	}
+	if false || true {
+		println("yes")
+	}
+}`,
+		},
+		{
+			"assign_after_decl",
+			`package main
+func main() {
+	x := 1
+	x = x + 1
+	println(string(x))
+}`,
+		},
+		{
+			"go_append_multi",
+			`package main
+func main() {
+	xs := [1]
+	ys := append(xs, 2, 3)
+	println(string(len(ys)))
+}`,
+		},
+		{
+			"go_copy_slices",
+			`package main
+func main() {
+	a := [1, 2]
+	b := [0, 0]
+	println(string(copy(b, a)))
+}`,
+		},
+		{
+			"go_min_max",
+			`package main
+func main() {
+	println(string(min(3, 2, 1)))
+	println(string(max(1, 2)))
+}`,
+		},
+		{
+			"go_complex_stmt",
+			`package main
+func main() {
+	complex(1.0, 2.0)
+	println("ok")
+}`,
+		},
+		{
+			"go_map_delete",
+			`package main
+func main() {
+	m := map[String]Int{ "a": 1 }
+	delete(m, "a")
+	println("ok")
+}`,
+		},
+		{
+			"go_clear_slice",
+			`package main
+func main() {
+	sl := [1, 2]
+	clear(sl)
+	println("ok")
+}`,
+		},
+		{
+			"go_recover",
+			`package main
+func main() {
+	recover()
+	println("ok")
+}`,
+		},
+		{
+			"go_panic",
+			`package main
+func main() {
+	panic("x")
+}`,
+		},
+		{
+			"if_with_short_decl_init",
+			`package main
+func main() {
+	if x := 1; x > 0 {
+		println("y")
+	}
 }`,
 		},
 	}

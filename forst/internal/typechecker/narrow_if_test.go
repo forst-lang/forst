@@ -223,3 +223,33 @@ func TestVariableOccurrenceTypes_storesDistinctTypesPerSpan(t *testing.T) {
 		t.Fatalf("second occurrence: got %+v ok=%v", tb, ok)
 	}
 }
+
+func TestAssertionNodeFromIsRHS_branches(t *testing.T) {
+	t.Parallel()
+	if p := assertionNodeFromIsRHS(nil); p != nil {
+		t.Fatal("nil RHS")
+	}
+	aVal := ast.AssertionNode{BaseType: typeIdentPtr(string(ast.TypeString))}
+	if p := assertionNodeFromIsRHS(aVal); p == nil || p.BaseType == nil {
+		t.Fatalf("value assertion: %+v", p)
+	}
+	aPtr := &ast.AssertionNode{BaseType: typeIdentPtr(string(ast.TypeInt))}
+	if p := assertionNodeFromIsRHS(aPtr); p != aPtr {
+		t.Fatal("pointer assertion")
+	}
+	td := ast.TypeDefAssertionExpr{Assertion: aPtr}
+	if p := assertionNodeFromIsRHS(td); p != aPtr {
+		t.Fatal("typedef value")
+	}
+	tdPtr := &ast.TypeDefAssertionExpr{Assertion: aPtr}
+	if p := assertionNodeFromIsRHS(tdPtr); p != aPtr {
+		t.Fatal("typedef pointer")
+	}
+	tdNil := ast.TypeDefAssertionExpr{Assertion: nil}
+	if p := assertionNodeFromIsRHS(tdNil); p != nil {
+		t.Fatal("typedef nil assertion")
+	}
+	if p := assertionNodeFromIsRHS(ast.IntLiteralNode{Value: 1}); p != nil {
+		t.Fatal("unexpected for literal")
+	}
+}

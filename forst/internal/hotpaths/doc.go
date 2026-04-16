@@ -1,6 +1,11 @@
-// Package coveragehotspots documents Tier-1 test coverage hotspots for the Forst compiler.
+// Package hotpaths maps high-impact areas to prioritize when strengthening tests for the Forst compiler.
 //
-// Use this as a prioritization guide—not a line-coverage target. Re-run periodically:
+// Merged statement-% milestone (see ../../../docs/adoption/merged-coverage-plan.md): reach at least **79.5%**
+// merged statement totals on [./cmd/forst/... ./internal/...] (forst/ module), measured with
+// scripts/check_coverage_threshold.sh. That document lists baseline, done work, and remaining todos.
+// This package stays a **hot-path** map; the adoption doc owns the **percentage** gate.
+//
+// Use this as a prioritization guide—not a per-line target. Re-run periodically:
 //
 //	go test -coverprofile=c.out ./internal/typechecker/... ./internal/transformer/go/...
 //	go tool cover -func=c.out | sort -t$'\t' -k3 -n | head -40
@@ -22,5 +27,5 @@
 //
 // Pipeline tests that assert generated Go for constraints, type guards, and ensure blocks use the
 // TestEmitValidation_ name prefix (see internal/transformer/go/pipeline_integration_test.go). That
-// keeps “validation emit” coverage grep-friendly and distinct from generic statement coverage.
-package coveragehotspots
+// keeps “validation emit” assertions grep-friendly and distinct from generic statement totals.
+package hotpaths

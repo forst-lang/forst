@@ -316,7 +316,7 @@ func TestHandleHover(t *testing.T) {
 	}
 }
 
-func TestHandleCompletion(t *testing.T) {
+func TestHandleTextDocumentListRequest(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -671,7 +671,7 @@ func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
 	}
 }
 
-func TestGetCompletionsForPosition(t *testing.T) {
+func TestListAtPosition_keywordKinds(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -1024,7 +1024,7 @@ func TestFindHoverForPositionWithDifferentPaths(t *testing.T) {
 	}
 }
 
-func TestGetCompletionsForPositionWithDifferentPositions(t *testing.T) {
+func TestListAtPosition_zoneByCursor(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -1033,6 +1033,12 @@ func TestGetCompletionsForPositionWithDifferentPositions(t *testing.T) {
 
 func main() {
   var x: Int = 1
+  if x > 0 {
+    println("a")
+  }
+  for n := 0; n < 2; n = n + 1 {
+    println("b")
+  }
 }
 `
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
@@ -1049,6 +1055,9 @@ func main() {
 	}{
 		{"top_level_package_line", LSPPosition{Line: 0, Character: 0}},
 		{"inside_main", LSPPosition{Line: 3, Character: 2}},
+		{"inside_if_body", LSPPosition{Line: 5, Character: 4}},
+		{"inside_for_body", LSPPosition{Line: 8, Character: 4}},
+		{"after_if_condition_line", LSPPosition{Line: 4, Character: 2}},
 	}
 
 	for _, tc := range testCases {
@@ -1069,7 +1078,7 @@ func main() {
 				if found["return"] {
 					t.Fatal("did not expect return at top level")
 				}
-			case "inside_main":
+			case "inside_main", "inside_if_body", "inside_for_body", "after_if_condition_line":
 				if !found["return"] {
 					t.Fatal("expected return inside function")
 				}

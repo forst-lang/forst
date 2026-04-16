@@ -74,3 +74,19 @@ func TestImportPathFromForst_whitespaceAndQuotes(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestLoadByPkgPath_os(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	m, err := LoadByPkgPath(dir, []string{"os"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := m["os"]
+	if p == nil || p.Types == nil {
+		t.Fatalf("os package missing: %#v", m)
+	}
+	if p.Types.Scope().Lookup("Getenv") == nil {
+		t.Fatal("os.Getenv not in scope")
+	}
+}
+

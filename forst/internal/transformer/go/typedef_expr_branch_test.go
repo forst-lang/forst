@@ -113,3 +113,21 @@ func TestDefineShapeFields_registersNestedShapeTypes(t *testing.T) {
 	}
 }
 
+func TestTransformTypeDefExpr_pointerAssertionExpr_deref(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	base := ast.TypeIdent(ast.TypeInt)
+	inner := ast.TypeDefAssertionExpr{
+		Assertion: &ast.AssertionNode{BaseType: &base},
+	}
+	expr, err := tr.transformTypeDefExpr(&inner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr == nil || *expr == nil {
+		t.Fatal("expected Go expr")
+	}
+}
+

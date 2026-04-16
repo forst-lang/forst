@@ -213,7 +213,7 @@ is (x Int) Pair(y Int) {
 	if got != nil && got.Value != "y" {
 		t.Fatalf("unexpected token value: %+v", got)
 	}
-	_ = tc // keep consistent parse/typecheck path for helper coverage
+	_ = tc // keep consistent parse/typecheck path for helpers
 }
 
 func TestNavigationLocalHelpers_definingTokenForFor(t *testing.T) {

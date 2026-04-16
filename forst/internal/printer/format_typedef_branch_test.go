@@ -40,3 +40,24 @@ func TestFormatTypeDefNode_andPrintShapeOneLine(t *testing.T) {
 	}
 }
 
+func TestFormatTypeDefNode_nestedUnionFlattens(t *testing.T) {
+	t.Parallel()
+	expr := ast.TypeDefBinaryExpr{
+		Op: ast.TokenBitwiseOr,
+		Left: ast.TypeDefBinaryExpr{
+			Op:    ast.TokenBitwiseOr,
+			Left:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{"a": {Type: &ast.TypeNode{Ident: ast.TypeInt}}}}},
+			Right: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{"b": {Type: &ast.TypeNode{Ident: ast.TypeInt}}}}},
+		},
+		Right: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{"c": {Type: &ast.TypeNode{Ident: ast.TypeInt}}}}},
+	}
+	typeDef := ast.TypeDefNode{Ident: "U", Expr: expr}
+	out, err := FormatTypeDefNode(Config{Indent: "  "}, typeDef)
+	if err != nil {
+		t.Fatalf("FormatTypeDefNode: %v", err)
+	}
+	if !strings.Contains(out, "type U") || !strings.Contains(out, "|") {
+		t.Fatalf("unexpected typedef union output: %q", out)
+	}
+}
+

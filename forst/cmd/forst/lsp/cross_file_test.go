@@ -392,7 +392,7 @@ func main() {
 	}
 }
 
-func TestGetCompletions_mergedPackageNoCrossBufferDuplicate(t *testing.T) {
+func TestMergedPackage_noCrossBufferDuplicateSymbol(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()
 	s := NewLSPServer("8080", log)

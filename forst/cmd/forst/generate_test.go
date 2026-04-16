@@ -335,3 +335,35 @@ func TestCopyFile_missingSource(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestDiscoverForstFilesForGenerate_rejectsNonFtExtension(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "x.go")
+	if err := os.WriteFile(f, []byte("package x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	_, _, err := discoverForstFilesForGenerate(cfg, f, false)
+	if err == nil || !strings.Contains(err.Error(), ".ft") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_directoryListsFtFiles(t *testing.T) {
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "one.ft")
+	if err := os.WriteFile(ftPath, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	files, outDir, err := discoverForstFilesForGenerate(cfg, dir, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("want 1 file, got %v", files)
+	}
+	if filepath.Clean(outDir) != filepath.Clean(dir) {
+		t.Fatalf("outputDir %q vs dir %q", outDir, dir)
+	}
+}

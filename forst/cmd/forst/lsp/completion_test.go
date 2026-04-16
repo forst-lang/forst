@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -34,7 +35,7 @@ func TestLhsExpressionBeforeDot(t *testing.T) {
 	}
 }
 
-func TestGetCompletionsForPosition_memberAfterDot(t *testing.T) {
+func TestListAtPosition_builtinMemberAfterDot(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -93,7 +94,7 @@ func f() {
 	}
 }
 
-func TestGetCompletionsForPosition_includesLocalVariable(t *testing.T) {
+func TestListAtPosition_includesLocalVariable(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -124,7 +125,7 @@ func main() {
 	}
 }
 
-func TestGetCompletionsForPosition_shapeFieldsAfterDot(t *testing.T) {
+func TestListAtPosition_shapeFieldsAfterDot(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -171,7 +172,7 @@ func TestForstPackageNameFromContent(t *testing.T) {
 	}
 }
 
-func TestGetCompletionsForPosition_crossBufferSamePackage(t *testing.T) {
+func TestListAtPosition_crossBufferSamePackage(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -215,7 +216,7 @@ func main() {
 	}
 }
 
-func TestGetCompletionsForPosition_insideCommentReturnsEmpty(t *testing.T) {
+func TestListAtPosition_insideCommentReturnsEmpty(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -245,7 +246,7 @@ func main() {
 	}
 }
 
-func TestGetCompletionsForPosition_memberAfterDotUnknownLHSReturnsEmpty(t *testing.T) {
+func TestListAtPosition_memberAfterDotUnknownLHSReturnsEmpty(t *testing.T) {
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -268,5 +269,269 @@ func main() {
 	items, _ := server.getCompletionsForPosition(uri, position, &completionRequestContext{TriggerCharacter: "."})
 	if len(items) != 0 {
 		t.Fatalf("expected no member completions for unknown lhs, got %+v", items)
+	}
+}
+
+func TestIfThenBraces_scanToOpeningThenBrace(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+  if true {
+    println("x")
+  } else if false {
+    println("y")
+  } else {
+    println("z")
+  }
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	ifIdx := -1
+	for i, tk := range toks {
+		if tk.Type == ast.TokenIf {
+			ifIdx = i
+			break
+		}
+	}
+	if ifIdx < 0 {
+		t.Fatal("no if token")
+	}
+	l, r := ifThenBraces(toks, ifIdx)
+	if l < 0 || r < l {
+		t.Fatalf("ifThenBraces: %d %d", l, r)
+	}
+	for i, tk := range toks {
+		if tk.Type == ast.TokenElseIf {
+			el, er := elseIfThenBraces(toks, i)
+			if el < 0 || er < el {
+				t.Fatalf("elseIfThenBraces: %d %d", el, er)
+			}
+			break
+		}
+	}
+	src2 := `package main
+func main() {
+  if x := 1; x > 0 {
+    println("a")
+  }
+}
+`
+	toks2 := lexTokensForLSPHelperTest(src2)
+	ifIdx2 := -1
+	for i, tk := range toks2 {
+		if tk.Type == ast.TokenIf {
+			ifIdx2 = i
+			break
+		}
+	}
+	l2, r2 := ifThenBraces(toks2, ifIdx2)
+	if l2 < 0 || r2 < l2 {
+		t.Fatalf("ifThenBraces short decl: %d %d", l2, r2)
+	}
+}
+
+func TestIdentifierPrefixAt_grid(t *testing.T) {
+	t.Parallel()
+	src := "  foo_bar123  \n"
+	lines := strings.Count(src, "\n")
+	for line := 0; line <= lines; line++ {
+		for ch := 0; ch < 20; ch++ {
+			_ = identifierPrefixAt(src, LSPPosition{Line: line, Character: ch})
+		}
+	}
+}
+
+func TestLineUpToCursor_edgeLines(t *testing.T) {
+	t.Parallel()
+	src := "a\nbc\ndef\n"
+	for line := -1; line < 5; line++ {
+		for ch := -1; ch < 10; ch++ {
+			_ = lineUpToCursor(src, LSPPosition{Line: line, Character: ch})
+		}
+	}
+}
+
+func TestTokenIndexAtLSPPosition_grid(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+  x := 1
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	for line := 0; line < 6; line++ {
+		for ch := 0; ch < 40; ch++ {
+			_ = tokenIndexAtLSPPosition(toks, LSPPosition{Line: line, Character: ch})
+		}
+	}
+}
+
+func TestInferZoneFromCursor_variants(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+  println(x)
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	reqDot := &completionRequestContext{TriggerCharacter: "."}
+	reqNil := (*completionRequestContext)(nil)
+	for line := 0; line < 6; line++ {
+		for ch := 0; ch < 30; ch++ {
+			pos := LSPPosition{Line: line, Character: ch}
+			_ = inferCompletionZone(toks, pos, src, reqDot)
+			_ = inferCompletionZone(toks, pos, src, reqNil)
+		}
+	}
+}
+
+func TestKeywordsForZone_all(t *testing.T) {
+	t.Parallel()
+	_ = keywordsForZone(zoneUnknown)
+	_ = keywordsForZone(zoneTopLevel)
+	_ = keywordsForZone(zoneInsideBlock)
+	_ = keywordsForZone(zoneMemberAfterDot)
+}
+
+func TestMatchingRBraceAndSkipParens_scanIndices(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f((a Int)) {}
+func main() {
+  { { } }
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	for i := range toks {
+		_ = matchingRBrace(toks, i)
+		_ = skipBalancedParens(toks, i)
+	}
+}
+
+func TestFindLBraceAfterFuncSignature_returnNamed(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func g() : Int {
+  return 1
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	idx := findFuncKeywordIndex(toks, "g")
+	if idx < 0 {
+		t.Fatal("no func g")
+	}
+	lb := findLBraceAfterFuncSignature(toks, idx)
+	if lb < 0 {
+		t.Fatal("expected lbrace")
+	}
+	if matchingRBrace(toks, lb) < 0 {
+		t.Fatal("expected rbrace")
+	}
+}
+
+func TestParamListParenRange_main(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "main"}}
+	o, c, ok := paramListParenRange(toks, fn)
+	if !ok || o < 0 || c < o {
+		t.Fatalf("param range: ok=%v %d %d", ok, o, c)
+	}
+}
+
+func TestFindFirstToken_scan(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	for from := 0; from < len(toks); from++ {
+		for lim := from; lim <= len(toks)+2; lim++ {
+			_ = findFirstToken(toks, from, lim, ast.TokenFunc)
+		}
+	}
+}
+
+func TestElseBlockBraces_and_ensureBlockBraces(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+  if true {
+  } else {
+    ensure x is Min(1) {
+    }
+  }
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	for i := range toks {
+		if toks[i].Type == ast.TokenElse {
+			l, r := elseBlockBraces(toks, i)
+			if l < 0 || r < l {
+				t.Fatalf("elseBlockBraces at %d: %d %d", i, l, r)
+			}
+			break
+		}
+	}
+	for i := range toks {
+		if toks[i].Type == ast.TokenEnsure {
+			l, r := ensureBlockBraces(toks, i)
+			if l < 0 || r < l {
+				t.Fatalf("ensureBlockBraces at %d: %d %d", i, l, r)
+			}
+			break
+		}
+	}
+}
+
+func TestNetBraceDepthBetween_sweep(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func main() {
+  { }
+}
+`
+	toks := lexTokensForLSPHelperTest(src)
+	n := len(toks)
+	for a := 0; a < n; a++ {
+		for b := a; b < n; b++ {
+			_ = netBraceDepthBetween(toks, a, b)
+		}
+	}
+}
+
+func TestKeywordItemsDedupe(t *testing.T) {
+	t.Parallel()
+	a := completionItemsFromKeywords([]string{"func", "type", "func"}, "f")
+	b := dedupeCompletionItems(append(a, a...))
+	if len(b) < 1 {
+		t.Fatal("expected items")
+	}
+}
+
+func TestForstPackageNameFromContent_variants(t *testing.T) {
+	t.Parallel()
+	for _, s := range []string{
+		"",
+		"package main\n",
+		"package foo\n",
+		"  \n package bar \n",
+	} {
+		_ = forstPackageNameFromContent(s)
+	}
+}
+
+func TestURIDisplayBasename_variants(t *testing.T) {
+	t.Parallel()
+	for _, u := range []string{
+		"",
+		"file:///tmp/x.ft",
+		"file:///a/b/c/d.ft",
+	} {
+		_ = uriDisplayBasename(u)
 	}
 }

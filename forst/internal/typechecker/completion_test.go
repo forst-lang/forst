@@ -126,7 +126,7 @@ func foo(a: Int) {
 	}
 }
 
-func TestInferExpressionTypeForCompletion_delegatesToInfer(t *testing.T) {
+func TestInferExpressionTypeForIdentifier_matchesInfer(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main

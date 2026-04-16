@@ -515,6 +515,223 @@ func TestHashNode_okErrAndIndexExpression(t *testing.T) {
 	}
 }
 
+func TestHashNode_moreSwitchBranches(t *testing.T) {
+	t.Parallel()
+	h := New()
+	base := ast.TypeString
+	tests := []struct {
+		name string
+		node ast.Node
+	}{
+		{"TypeDefAssertionExpr_value", ast.TypeDefAssertionExpr{Assertion: &ast.AssertionNode{BaseType: &base}}},
+		{"TypeDefAssertionExpr_ptr", &ast.TypeDefAssertionExpr{Assertion: &ast.AssertionNode{}}},
+		{"TypeDefErrorExpr", ast.TypeDefErrorExpr{Payload: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+			"code": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+		}}}},
+		{"CommentNode", ast.CommentNode{Text: "lint"}},
+		{"DeferNode", &ast.DeferNode{Call: ast.FunctionCallNode{Function: ast.Ident{ID: "close"}, Arguments: []ast.ExpressionNode{}}}},
+		{"GoStmtNode", &ast.GoStmtNode{Call: ast.FunctionCallNode{Function: ast.Ident{ID: "run"}, Arguments: []ast.ExpressionNode{}}}},
+		{"ForNode_range_short", &ast.ForNode{
+			IsRange:    true,
+			RangeX:     ast.VariableNode{Ident: ast.Ident{ID: "m"}},
+			RangeKey:   &ast.Ident{ID: "k"},
+			RangeValue: &ast.Ident{ID: "v"},
+			RangeShort: true,
+			Body:       []ast.Node{ast.IntLiteralNode{Value: 1}},
+		}},
+		{"TypeDef_named", ast.TypeDefNode{
+			Ident: "Row",
+			Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
+		}},
+		{"ConstraintArgument_value", func() ast.Node {
+			var v ast.ValueNode = ast.IntLiteralNode{Value: 42}
+			return ast.ConstraintArgumentNode{Value: &v}
+		}()},
+		{"ConstraintArgument_shape", ast.ConstraintArgumentNode{
+			Shape: &ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+				"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+			}},
+		}},
+		{"ShapeField_type_only", ast.ShapeFieldNode{
+			Type: &ast.TypeNode{Ident: ast.TypeString},
+		}},
+		{"ShapeField_assertion", ast.ShapeFieldNode{
+			Assertion: &ast.AssertionNode{Constraints: []ast.ConstraintNode{{Name: "Min"}}},
+		}},
+		{"TypeGuard_destructured_param", ast.TypeGuardNode{
+			Ident: "DG",
+			Subject: ast.DestructuredParamNode{
+				Fields: []string{"a", "z"},
+				Type:   ast.TypeNode{Ident: ast.TypeInt},
+			},
+			Body: []ast.Node{},
+		}},
+		{"MapLiteral_with_type", ast.MapLiteralNode{
+			Type: ast.TypeNode{Ident: ast.TypeString},
+			Entries: []ast.MapEntryNode{
+				{Key: ast.StringLiteralNode{Value: "k"}, Value: ast.IntLiteralNode{Value: 1}},
+			},
+		}},
+		{"Binary_ptr", &ast.BinaryExpressionNode{
+			Left: ast.IntLiteralNode{Value: 1}, Operator: ast.TokenPlus, Right: ast.IntLiteralNode{Value: 2},
+		}},
+		{"Unary_ptr", &ast.UnaryExpressionNode{Operator: ast.TokenMinus, Operand: ast.IntLiteralNode{Value: 3}}},
+		{"TypeGuard_ptr", func() ast.Node {
+			tg := ast.TypeGuardNode{
+				Ident: "PG",
+				Subject: ast.SimpleParamNode{
+					Ident: ast.Ident{ID: "x"},
+					Type:  ast.TypeNode{Ident: ast.TypeInt},
+				},
+				Body: []ast.Node{},
+			}
+			return &tg
+		}()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := h.HashNode(tt.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got == 0 {
+				t.Fatal("zero hash")
+			}
+			got2, err := h.HashNode(tt.node)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != got2 {
+				t.Fatalf("determinism: %v vs %v", got, got2)
+			}
+		})
+	}
+}
+
+func TestStructuralHasher_writeHashAndNode_propagates_HashNode_error(t *testing.T) {
+	h := New()
+	var buf bytes.Buffer
+	sg := ast.ShapeGuardNode{
+		TypeGuardNode: ast.TypeGuardNode{
+			Ident: "SG",
+			Subject: ast.SimpleParamNode{
+				Ident: ast.Ident{ID: "x"},
+				Type:  ast.TypeNode{Ident: ast.TypeShape},
+			},
+			Body: []ast.Node{},
+		},
+		TypeArg:   ast.TypeNode{Ident: ast.TypeString},
+		FieldName: "f",
+	}
+	err := h.writeHashAndNode(&buf, 9, sg)
+	if err == nil || !strings.Contains(err.Error(), "unsupported node type") {
+		t.Fatalf("expected unsupported propagation, got %v", err)
+	}
+}
+
+func TestHashNode_nil_ElseIf_ElseBlock_pointers(t *testing.T) {
+	h := New()
+	var ei *ast.ElseIfNode
+	h1, err := h.HashNode(ei)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != NodeHash(NilHash) {
+		t.Fatalf("nil *ElseIfNode: got %v want NilHash", h1)
+	}
+	var eb *ast.ElseBlockNode
+	h2, err := h.HashNode(eb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h2 != NodeHash(NilHash) {
+		t.Fatalf("nil *ElseBlockNode: got %v want NilHash", h2)
+	}
+}
+
+func TestHashNode_packageImportTypeDefAndFullIfFor(t *testing.T) {
+	t.Parallel()
+	h := New()
+	var errVar ast.EnsureErrorNode = ast.EnsureErrorCall{ErrorType: "E", ErrorArgs: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}}
+	ensureFull := ast.EnsureNode{
+		Variable:  ast.VariableNode{Ident: ast.Ident{ID: "v"}},
+		Assertion: ast.AssertionNode{Constraints: []ast.ConstraintNode{{Name: "Min"}}},
+		Error:     &errVar,
+		Block:     &ast.EnsureBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 1}}},
+	}
+	if _, err := h.HashNode(ensureFull); err != nil {
+		t.Fatal(err)
+	}
+
+	pkg := ast.PackageNode{Ident: ast.Ident{ID: "main"}}
+	if _, err := h.HashNode(pkg); err != nil {
+		t.Fatal(err)
+	}
+	imp := ast.ImportNode{Path: "fmt", Alias: &ast.Ident{ID: "f"}}
+	if _, err := h.HashNode(imp); err != nil {
+		t.Fatal(err)
+	}
+	ig := ast.ImportGroupNode{Imports: []ast.ImportNode{
+		{Path: "a"},
+		{Path: "b", Alias: &ast.Ident{ID: "bb"}},
+	}}
+	if _, err := h.HashNode(ig); err != nil {
+		t.Fatal(err)
+	}
+
+	tdAnon := ast.TypeDefNode{Ident: "", Expr: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{
+		"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+	}}}}
+	if _, err := h.HashNode(tdAnon); err != nil {
+		t.Fatal(err)
+	}
+
+	ifFull := ast.IfNode{
+		Init: ast.AssignmentNode{
+			IsShort: true,
+			LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "i"}}},
+			RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}},
+		},
+		Condition: ast.BoolLiteralNode{Value: true},
+		Body:      []ast.Node{ast.IntLiteralNode{Value: 1}},
+		ElseIfs: []ast.ElseIfNode{
+			{Condition: ast.BoolLiteralNode{Value: false}, Body: []ast.Node{ast.IntLiteralNode{Value: 2}}},
+		},
+		Else: &ast.ElseBlockNode{Body: []ast.Node{ast.IntLiteralNode{Value: 3}}},
+	}
+	if _, err := h.HashNode(ifFull); err != nil {
+		t.Fatal(err)
+	}
+
+	post := ast.UnaryExpressionNode{Operator: ast.TokenMinusMinus, Operand: ast.VariableNode{Ident: ast.Ident{ID: "i"}}}
+	forClassic := &ast.ForNode{
+		Init: ifFull.Init,
+		Cond: ast.BinaryExpressionNode{
+			Left: ast.VariableNode{Ident: ast.Ident{ID: "i"}}, Operator: ast.TokenLess,
+			Right: ast.IntLiteralNode{Value: 3},
+		},
+		Post: post,
+		Body: []ast.Node{&ast.ContinueNode{}},
+	}
+	if _, err := h.HashNode(forClassic); err != nil {
+		t.Fatal(err)
+	}
+
+	tgTwo := ast.TypeGuardNode{
+		Ident: "TG",
+		Subject: ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "b"}, Type: ast.TypeNode{Ident: ast.TypeInt},
+		},
+		Params: []ast.ParamNode{
+			ast.SimpleParamNode{Ident: ast.Ident{ID: "a"}, Type: ast.TypeNode{Ident: ast.TypeInt}},
+		},
+		Body: []ast.Node{},
+	}
+	if _, err := h.HashNode(tgTwo); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestStructuralHasher_ElseIfAndElseBlockNodes(t *testing.T) {
 	t.Parallel()
 	h := New()

@@ -236,3 +236,91 @@ func TestValidateReferencedTypesAfterCollect_T_prefixSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidateReferencedTypesAfterCollect_resultFailureUnknown(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"r": {Type: &ast.TypeNode{
+			Ident: ast.TypeResult,
+			TypeParams: []ast.TypeNode{
+				{Ident: ast.TypeInt},
+				{Ident: "MissingErr"},
+			},
+		}},
+	}))
+	err := tc.validateReferencedTypesAfterCollect()
+	if err == nil || !strings.Contains(err.Error(), `unknown type "MissingErr"`) || !strings.Contains(err.Error(), "result failure") {
+		t.Fatalf("expected Result failure branch error, got %v", err)
+	}
+}
+
+func TestValidateReferencedTypesAfterCollect_tupleMemberUnknown(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"t": {Type: &ast.TypeNode{
+			Ident: ast.TypeTuple,
+			TypeParams: []ast.TypeNode{
+				{Ident: ast.TypeString},
+				{Ident: "NoTuple"},
+			},
+		}},
+	}))
+	err := tc.validateReferencedTypesAfterCollect()
+	if err == nil || !strings.Contains(err.Error(), "NoTuple") || !strings.Contains(err.Error(), "tuple[1]") {
+		t.Fatalf("expected tuple error, got %v", err)
+	}
+}
+
+func TestValidateReferencedTypesAfterCollect_unionMemberUnknown(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"u": {Type: &ast.TypeNode{
+			Ident: ast.TypeUnion,
+			TypeParams: []ast.TypeNode{
+				{Ident: ast.TypeInt},
+				{Ident: "NoUnion"},
+			},
+		}},
+	}))
+	err := tc.validateReferencedTypesAfterCollect()
+	if err == nil || !strings.Contains(err.Error(), "NoUnion") {
+		t.Fatalf("expected union member error, got %v", err)
+	}
+}
+
+func TestValidateReferencedTypesAfterCollect_intersectionMemberUnknown(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"i": {Type: &ast.TypeNode{
+			Ident: ast.TypeIntersection,
+			TypeParams: []ast.TypeNode{
+				{Ident: "A"},
+				{Ident: "B"},
+			},
+		}},
+	}))
+	err := tc.validateReferencedTypesAfterCollect()
+	if err == nil || !strings.Contains(err.Error(), `unknown type "A"`) {
+		t.Fatalf("expected intersection error, got %v", err)
+	}
+}
+
+func TestValidateReferencedTypesAfterCollect_syntheticParenTypeSkipped(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"x": {Type: &ast.TypeNode{Ident: "Pointer(String)"}},
+	}))
+	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateReferencedTypesAfterCollect_pointerBuiltinScalarStringForm(t *testing.T) {
+	tc := testTC(t)
+	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
+		"p": {Type: &ast.TypeNode{Ident: "*String"}},
+	}))
+	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
+		t.Fatal(err)
+	}
+}

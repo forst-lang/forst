@@ -23,8 +23,8 @@ func TestCheckTypes_combinatorialMain(t *testing.T) {
 	}
 	cmp := []string{"<", ">", "<=", ">=", "==", "!="}
 	for _, o := range ops {
-		for a := 0; a < 4; a++ {
-			for b := 0; b < 4; b++ {
+		for a := 0; a < 8; a++ {
+			for b := 0; b < 8; b++ {
 				if !o.ok(a, b) {
 					continue
 				}
@@ -38,8 +38,8 @@ func main() {
 		}
 	}
 	for _, c := range cmp {
-		for a := 0; a < 3; a++ {
-			for b := 0; b < 3; b++ {
+		for a := 0; a < 6; a++ {
+			for b := 0; b < 6; b++ {
 				src := fmt.Sprintf(`package main
 func main() {
 	if %d %s %d {

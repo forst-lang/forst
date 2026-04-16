@@ -51,7 +51,7 @@ func TestAnalyzeForstDocument_returnsFalseWhenDebuggerUnavailable(t *testing.T) 
 	}
 }
 
-func TestPeerDocumentContextForCompletion_cacheReuseAndInvalidation(t *testing.T) {
+func TestPeerDocumentContext_cacheReuseAndInvalidation(t *testing.T) {
 	t.Parallel()
 	server := NewLSPServer("8080", logrus.New())
 	dir := t.TempDir()
