@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/forst-lang/forst/compare/sidecar-v0.1.11...sidecar-v0.1.12) (2026-04-18)
+
+
+### Bug Fixes
+
+* **release:** run sidecar publish when CLI job is skipped ([594962c](https://github.com/forst-lang/forst/commit/594962c5a15724ba28ffbf55ede92bfe8b259f20))
+
 ## [0.1.11](https://github.com/forst-lang/forst/compare/sidecar-v0.1.10...sidecar-v0.1.11) (2026-04-18)
 
 
