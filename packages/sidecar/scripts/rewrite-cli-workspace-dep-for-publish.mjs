@@ -2,7 +2,10 @@
  * Release helper: set `dependencies["@forst/cli"]` to `^<cli semver>` from `packages/cli/package.json`
  * for published tarballs (never ship `workspace:*` to npm/JSR).
  * Runs for `workspace:*` or any caret that is out of sync with the CLI package version on the tag.
- * CI runs this before sidecar npm/JSR publish; `packages/sidecar` prepublishOnly runs it too so manual `npm publish` cannot skip rewriting.
+ *
+ * Must run last before npm/jsr pack: a root `bun install` after this can re-normalize workspace
+ * members back to `workspace:*`, so `prepublish:sidecar` ends with this script + assert-published-cli-dep.
+ *
  * VSIX packaging (`task build:vsix`) uses the same script for `packages/vscode-forst`.
  * Committed trees keep `workspace:*` for local dev; run `git checkout -- packages/sidecar/package.json` after a dry-run publish if needed.
  *
