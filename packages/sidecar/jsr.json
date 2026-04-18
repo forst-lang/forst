@@ -1,6 +1,6 @@
 {
   "name": "@forst/sidecar",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "exports": "./src/index.ts",
   "publish": {
     "include": [

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.25](https://github.com/forst-lang/forst/compare/cli-v0.0.24...cli-v0.0.25) (2026-04-18)
+
+
+### Bug Fixes
+
+* **release:** run sidecar publish when CLI job is skipped ([594962c](https://github.com/forst-lang/forst/commit/594962c5a15724ba28ffbf55ede92bfe8b259f20))
+
 ## [0.0.24](https://github.com/forst-lang/forst/compare/cli-v0.0.23...cli-v0.0.24) (2026-04-06)
 
 
