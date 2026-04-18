@@ -78,7 +78,10 @@ jobs:
     name: "@forst/sidecar → npm"
     runs-on: ubuntu-latest
     needs: [cli-npm]
+    # GitHub skips dependents when a needed job is skipped unless `if` uses `always()`; without it,
+    # sidecar-only releases never run (cli-npm is skipped).
     if: |
+      always() && !cancelled() &&
       inputs.sidecar_tag != '' &&
       (needs.cli-npm.result == 'success' || needs.cli-npm.result == 'skipped')
     steps:
@@ -120,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [cli-jsr]
     if: |
+      always() && !cancelled() &&
       inputs.sidecar_tag != '' &&
       (needs.cli-jsr.result == 'success' || needs.cli-jsr.result == 'skipped')
     permissions:

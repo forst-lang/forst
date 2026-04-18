@@ -8,6 +8,8 @@ The **npm package version** is chosen by Release Please for `packages/cli`; the 
 
 **Local JSR dry-run / publish:** from `packages/cli`, run `npx jsr publish --dry-run` or `npx jsr publish` (CI only runs on GitHub Release). Committed trees are required unless you pass `--allow-dirty`.
 
+**Registries:** [npm](https://www.npmjs.com/package/@forst/cli) · [JSR](https://jsr.io/@forst/cli).
+
 ## Install
 
 ```bash

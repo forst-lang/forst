@@ -37,6 +37,8 @@ bun run build
 
 **Local npm / JSR:** from `packages/sidecar`, run `npm publish` or `npx jsr publish` if you must publish outside CI; `npx jsr publish --dry-run` validates the JSR package. CI publishes only when a Release Please **GitHub Release** is published (workflow **Publish packages (npm / JSR)**).
 
+**Registries:** [npm](https://www.npmjs.com/package/@forst/sidecar) · [JSR](https://jsr.io/@forst/sidecar).
+
 ### Basic Usage
 
 ```typescript

@@ -19,9 +19,11 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       paths_released: ${{ steps.release.outputs.paths_released }}
-      sidecar_tag_name: ${{ steps.release.outputs['packages/sidecar--tag_name'] }}
-      cli_tag_name: ${{ steps.release.outputs['packages/cli--tag_name'] }}
-      vscode_tag_name: ${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}
+      # Re-export via a shell step so job outputs get plain names (job-level mapping of
+      # steps.release.outputs['packages/…--tag_name'] can end up empty on some runners).
+      sidecar_tag_name: ${{ steps.pkg_tags.outputs.sidecar_tag_name }}
+      cli_tag_name: ${{ steps.pkg_tags.outputs.cli_tag_name }}
+      vscode_tag_name: ${{ steps.pkg_tags.outputs.vscode_tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,6 +36,13 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Export monorepo package tags for job outputs
+        id: pkg_tags
+        run: |
+          echo "cli_tag_name=${{ steps.release.outputs['packages/cli--tag_name'] }}" >> "$GITHUB_OUTPUT"
+          echo "sidecar_tag_name=${{ steps.release.outputs['packages/sidecar--tag_name'] }}" >> "$GITHUB_OUTPUT"
+          echo "vscode_tag_name=${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}" >> "$GITHUB_OUTPUT"
 
   # Go compiler binaries: only when the root package (`.`) is in this release — not vscode/cli/sidecar-only tags.
   # `startsWith(tag_name, 'v')` is wrong here (`vscode-forst-v…` also starts with `v`).
