@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2](https://github.com/forst-lang/forst/compare/v0.2.1...v0.2.2) (2026-04-18)
+
+
+### Features
+
+* support Go dot-imports across parser, checker, and LSP ([496c40f](https://github.com/forst-lang/forst/commit/496c40f5d2118295f85c155f2446d4d1b672069b))
+
+
+### Bug Fixes
+
+* **sidecar:** keep registry @forst/cli off workspace:* ([31763bf](https://github.com/forst-lang/forst/commit/31763bf55e1a26049aa9c3b5c051ba0e63cdc822))
+
 ## [0.2.1](https://github.com/forst-lang/forst/compare/v0.2.0...v0.2.1) (2026-04-16)
 
 

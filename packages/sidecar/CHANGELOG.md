@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/forst-lang/forst/compare/sidecar-v0.1.10...sidecar-v0.1.11) (2026-04-18)
+
+
+### Bug Fixes
+
+* **sidecar:** keep registry @forst/cli off workspace:* ([31763bf](https://github.com/forst-lang/forst/commit/31763bf55e1a26049aa9c3b5c051ba0e63cdc822))
+
 ## [0.1.10](https://github.com/forst-lang/forst/compare/sidecar-v0.1.9...sidecar-v0.1.10) (2026-04-06)
 
 
