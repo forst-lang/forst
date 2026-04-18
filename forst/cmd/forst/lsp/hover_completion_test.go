@@ -1214,3 +1214,71 @@ func main() {
 		t.Fatalf("expected import path hover mentioning fmt, got %q", h.Contents.Value)
 	}
 }
+
+func TestFindHoverForPosition_regularImportQualifiedCall(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module regimp\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "reg_str.ft")
+	const src = `package main
+
+import "strings"
+
+func main() {
+	println(strings.Contains("a", "b"))
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("analyze")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("typecheck: %v", ctx.CheckErr)
+	}
+	if ctx.TC == nil || ctx.TC.GoImportPackageLoaded("strings") == false {
+		t.Skip("strings package not loaded (go/packages)")
+	}
+
+	var pkgTok, memberTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenIdentifier && tok.Value == "strings" {
+			// First "strings" should be package id in strings.Contains (not import path — that is string literal).
+			if i+2 < len(ctx.Tokens) && ctx.Tokens[i+1].Type == ast.TokenDot && ctx.Tokens[i+2].Value == "Contains" {
+				pkgTok = tok
+			}
+		}
+		if tok.Type == ast.TokenIdentifier && tok.Value == "Contains" {
+			if i >= 2 && ctx.Tokens[i-2].Value == "strings" && ctx.Tokens[i-1].Type == ast.TokenDot {
+				memberTok = tok
+				break
+			}
+		}
+	}
+	if pkgTok == nil || memberTok == nil {
+		t.Fatal("could not find strings / Contains tokens for strings.Contains")
+	}
+
+	hPkg := s.findHoverForPosition(uri, LSPPosition{Line: pkgTok.Line - 1, Character: pkgTok.Column - 1})
+	if hPkg == nil || !strings.Contains(hPkg.Contents.Value, "strings") {
+		t.Fatalf("expected package hover on strings identifier, got %v", hPkg)
+	}
+	hMem := s.findHoverForPosition(uri, LSPPosition{Line: memberTok.Line - 1, Character: memberTok.Column - 1})
+	if hMem == nil || !strings.Contains(hMem.Contents.Value, "Contains") || !strings.Contains(hMem.Contents.Value, "```go") {
+		t.Fatalf("expected Go func hover on Contains, got %v", hMem)
+	}
+}

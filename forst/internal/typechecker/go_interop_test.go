@@ -116,6 +116,98 @@ func main() {
 	}
 }
 
+func TestGoRegularImport_stringsQualifiedCall_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "strings"
+
+func main() {
+	x := strings.Contains("ab", "a")
+	println(x)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Skip("strings not loaded (go/packages or workspace)")
+	}
+	if !tc.IsImportedLocalName("strings") {
+		t.Fatal("expected regular import to bind package identifier strings")
+	}
+	var call ast.FunctionCallNode
+	for _, n := range nodes {
+		fn, ok := n.(ast.FunctionNode)
+		if !ok || fn.Ident.ID != "main" {
+			continue
+		}
+		asg, ok := fn.Body[0].(ast.AssignmentNode)
+		if !ok {
+			t.Fatalf("expected assignment, got %T", fn.Body[0])
+		}
+		var ok2 bool
+		call, ok2 = asg.RValues[0].(ast.FunctionCallNode)
+		if !ok2 {
+			t.Fatalf("expected function call, got %T", asg.RValues[0])
+		}
+		break
+	}
+	if string(call.Function.ID) != "strings.Contains" {
+		t.Fatalf("expected qualified id strings.Contains, got %q", call.Function.ID)
+	}
+	ts, err := tc.LookupInferredType(call, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ts) != 1 || ts[0].Ident != ast.TypeBool {
+		t.Fatalf("want Bool, got %v", ts)
+	}
+}
+
+func TestGoRegularImport_aliasedQualifiedCall_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import str "strings"
+
+func main() {
+	x := str.Contains("ab", "a")
+	println(x)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["str"] == nil {
+		t.Skip("strings alias not loaded (go/packages or workspace)")
+	}
+	if !tc.IsImportedLocalName("str") {
+		t.Fatal("expected alias str as imported local name")
+	}
+	if tc.IsImportedLocalName("strings") {
+		t.Fatal("import path local name strings must not be bound when using alias str")
+	}
+}
+
 func TestGoDotImport_unqualifiedCall(t *testing.T) {
 	dir := moduleRootFromWD(t)
 	src := `package main

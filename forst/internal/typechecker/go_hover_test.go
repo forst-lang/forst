@@ -294,3 +294,78 @@ func TestGoHoverMarkdownDotImportedSymbol_stringsContains(t *testing.T) {
 		t.Fatalf("got %q", md)
 	}
 }
+
+func TestGoHoverMarkdown_regularImport_stringsContains(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport \"strings\"\nfunc main() {}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	_ = tc.CheckTypes(nodes)
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Skip("strings not loaded (go/packages or workspace)")
+	}
+	md, ok := tc.GoHoverMarkdown("strings", "Contains")
+	if !ok {
+		t.Fatal("expected Go hover for strings.Contains")
+	}
+	if !strings.Contains(md, "Contains") {
+		t.Fatalf("expected signature mentioning Contains, got %q", md)
+	}
+}
+
+func TestGoHoverMarkdown_regularAliasedImport_strContains(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport str \"strings\"\nfunc main() {}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	_ = tc.CheckTypes(nodes)
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["str"] == nil {
+		t.Skip("aliased strings not loaded")
+	}
+	md, ok := tc.GoHoverMarkdown("str", "Contains")
+	if !ok {
+		t.Fatal("expected Go hover for str.Contains")
+	}
+	if !strings.Contains(md, "Contains") {
+		t.Fatalf("expected signature mentioning Contains, got %q", md)
+	}
+}
+
+func TestLoadedGoPackageByImportPath_regularImport(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport \"strings\"\nfunc main() {}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	_ = tc.CheckTypes(nodes)
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Skip("strings not loaded")
+	}
+	gp := tc.loadedGoPackageByImportPath("strings")
+	if gp == nil {
+		t.Fatal("loadedGoPackageByImportPath(strings) should resolve for regular import")
+	}
+	if gp.Path() != "strings" {
+		t.Fatalf("got path %q", gp.Path())
+	}
+}
