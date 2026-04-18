@@ -49,6 +49,8 @@ type TypeChecker struct {
 	GoWorkspaceDir string
 	// goPkgsByLocal maps Forst import local name (e.g. fmt, bar) to loaded *types.Package for Forst <-> Go boundary checks (optional).
 	goPkgsByLocal map[string]*types.Package
+	// dotImportPkgs lists packages imported with Go dot-import (import . "path"). Used to resolve unqualified calls like NewReader.
+	dotImportPkgs []*types.Package
 	// importPathByLocal maps import local identifier -> Go import path (for hover even when go/packages failed).
 	importPathByLocal map[string]string
 	// Logger for the type checker
@@ -103,6 +105,11 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 // (e.g. "strconv", "fmt") for Forst↔Go boundary typing. When false, qualified calls may fall back to builtins only.
 func (tc *TypeChecker) GoImportPackageLoaded(local string) bool {
 	return tc.goPkgsByLocal != nil && tc.goPkgsByLocal[local] != nil
+}
+
+// HasDotImportPackages reports whether go/packages loaded at least one dot-imported package (import . "path").
+func (tc *TypeChecker) HasDotImportPackages() bool {
+	return len(tc.dotImportPkgs) > 0
 }
 
 // CheckTypes performs type inference in two passes:

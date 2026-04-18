@@ -116,6 +116,34 @@ func main() {
 	}
 }
 
+func TestGoDotImport_unqualifiedCall(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import . "strings"
+
+func main() {
+	x := Contains("ab", "a")
+	println(x)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	if !tc.HasDotImportPackages() {
+		t.Skip("strings dot-import not loaded (go/packages or workspace)")
+	}
+}
+
 func TestGoQualifiedCall_twoValueAssignmentUnfoldsToPair(t *testing.T) {
 	dir := moduleRootFromWD(t)
 	src := `package main

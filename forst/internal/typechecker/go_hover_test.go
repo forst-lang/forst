@@ -218,3 +218,79 @@ func TestGoHoverMarkdown_packageOnly(t *testing.T) {
 		t.Fatalf("expected package hover, got %q", md)
 	}
 }
+
+func TestIsImportedLocalName_dotImportDoesNotBindPackageIdentifier(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport . \"strings\"\nfunc main() {}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	_ = tc.CheckTypes(nodes)
+	if tc.IsImportedLocalName("strings") {
+		t.Fatal("dot-import must not register the package name as an import local (not Go-compatible)")
+	}
+	if !tc.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded")
+	}
+}
+
+func TestGoHoverMarkdownForImportPath_dotImport(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport . \"strings\"\nfunc main() {}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	_ = tc.CheckTypes(nodes)
+	md, ok := tc.GoHoverMarkdownForImportPath("strings")
+	if !ok {
+		t.Fatal("expected hover for import path string on dot-imported package")
+	}
+	if !strings.Contains(md, "strings") {
+		t.Fatalf("expected path in hover, got %q", md)
+	}
+	if !tc.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded")
+	}
+	if !strings.Contains(md, "```go") {
+		t.Fatalf("expected code block, got %q", md)
+	}
+}
+
+func TestGoHoverMarkdownDotImportedSymbol_stringsContains(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := "package main\nimport . \"strings\"\nfunc main() {\n\tprintln(Contains(\"a\", \"b\"))\n}\n"
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	if !tc.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded")
+	}
+	md, ok := tc.GoHoverMarkdownDotImportedSymbol("Contains")
+	if !ok {
+		t.Fatal("expected hover for dot-imported function")
+	}
+	if !strings.Contains(md, "Contains") {
+		t.Fatalf("got %q", md)
+	}
+}

@@ -46,6 +46,28 @@ func TestParseImport(t *testing.T) {
 			},
 		},
 		{
+			name: "dot import",
+			tokens: []ast.Token{
+				{Type: ast.TokenDot, Value: ".", Line: 1, Column: 1},
+				{Type: ast.TokenStringLiteral, Value: `"strings"`, Line: 1, Column: 3},
+				{Type: ast.TokenEOF, Value: "", Line: 1, Column: 12},
+			},
+			validate: func(t *testing.T, importNode ast.ImportNode) {
+				if importNode.Path != "strings" {
+					t.Errorf("Expected path 'strings', got %s", importNode.Path)
+				}
+				if importNode.Alias == nil {
+					t.Fatal("Expected alias for dot import")
+				}
+				if importNode.Alias.ID != "." {
+					t.Errorf("Expected alias '.', got %s", importNode.Alias.ID)
+				}
+				if importNode.SideEffectOnly {
+					t.Error("dot import must not be side-effect-only")
+				}
+			},
+		},
+		{
 			name: "import with complex path",
 			tokens: []ast.Token{
 				{Type: ast.TokenStringLiteral, Value: `"github.com/example/pkg"`, Line: 1, Column: 1},
@@ -153,6 +175,27 @@ func TestParseImports(t *testing.T) {
 				}
 				if importGroup.Imports[1].Path != "os" {
 					t.Errorf("Expected second import path 'os', got %s", importGroup.Imports[1].Path)
+				}
+			},
+		},
+		{
+			name: "dot import single line",
+			tokens: []ast.Token{
+				{Type: ast.TokenImport, Value: "import", Line: 1, Column: 1},
+				{Type: ast.TokenDot, Value: ".", Line: 1, Column: 8},
+				{Type: ast.TokenStringLiteral, Value: `"strings"`, Line: 1, Column: 10},
+				{Type: ast.TokenEOF, Value: "", Line: 1, Column: 19},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				if len(nodes) != 1 {
+					t.Fatalf("Expected 1 node, got %d", len(nodes))
+				}
+				importNode := assertNodeType[ast.ImportNode](t, nodes[0], "ast.ImportNode")
+				if importNode.Path != "strings" {
+					t.Errorf("Expected path 'strings', got %s", importNode.Path)
+				}
+				if importNode.Alias == nil || importNode.Alias.ID != "." {
+					t.Fatalf("Expected dot alias, got %+v", importNode.Alias)
 				}
 			},
 		},

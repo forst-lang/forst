@@ -43,5 +43,9 @@ func nameFromAlias(alias *ast.Ident) *goast.Ident {
 	if alias == nil {
 		return nil
 	}
+	// Go dot-import and blank-import use special import names.
+	if string(alias.ID) == "." {
+		return goast.NewIdent(".")
+	}
 	return goast.NewIdent(string(alias.ID))
 }

@@ -16,8 +16,9 @@ import (
 
 // pipelineOpts configures compileForstPipelineExt (Go workspace / optional skip for FFI tests).
 type pipelineOpts struct {
-	goWorkspaceDir     string
-	skipUnlessGoImport string // if set, t.Skip when go/packages did not load this import local name
+	goWorkspaceDir      string
+	skipUnlessGoImport  string // if set, t.Skip when go/packages did not load this import local name
+	skipUnlessDotImport bool   // if true, t.Skip when go/packages did not populate dot-import packages
 }
 
 // compileForstPipeline runs parse → typecheck → transform → go/format on Forst source.
@@ -47,6 +48,9 @@ func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string
 	}
 	if opts.skipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.skipUnlessGoImport) {
 		t.Skipf("%s not loaded (go/packages or workspace)", opts.skipUnlessGoImport)
+	}
+	if opts.skipUnlessDotImport && !tc.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded (go/packages or workspace)")
 	}
 
 	tr := New(tc, log)
@@ -452,6 +456,27 @@ func main() {
 				}
 			}
 		})
+	}
+}
+
+func TestPipeline_dot_import_strings(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`
+	out := compileForstPipelineExt(t, src, pipelineOpts{
+		goWorkspaceDir:      dir,
+		skipUnlessDotImport: true,
+	})
+	for _, sub := range []string{`package main`, `. "strings"`, `Contains`, `"a"`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
 	}
 }
 

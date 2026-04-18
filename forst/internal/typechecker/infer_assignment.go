@@ -21,9 +21,9 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 
 	nValueGo := false
 	if len(assign.RValues) == 1 && len(assign.LValues) >= 2 {
-		if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok && tc.goPkgsByLocal != nil {
+		if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
 			parts := strings.Split(string(fc.Function.ID), ".")
-			if len(parts) == 2 {
+			if len(parts) == 2 && tc.goPkgsByLocal != nil {
 				if gp := tc.goPkgsByLocal[parts[0]]; gp != nil {
 					argTypes := make([][]ast.TypeNode, 0, len(fc.Arguments))
 					for _, arg := range fc.Arguments {
@@ -34,6 +34,34 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 						argTypes = append(argTypes, ts)
 					}
 					raw, err := tc.checkGoQualifiedCall(gp, parts[0], parts[1], fc, argTypes, false)
+					if err == nil && len(raw) == len(assign.LValues) {
+						resolvedTypes = make([][]ast.TypeNode, len(raw))
+						for i := range raw {
+							resolvedTypes[i] = []ast.TypeNode{raw[i]}
+						}
+						nValueGo = true
+						tc.storeInferredType(fc, raw)
+					}
+				}
+			} else if len(parts) == 1 && len(tc.dotImportPkgs) > 0 {
+				sp := fc.Function.Span
+				if !sp.IsSet() {
+					sp = fc.CallSpan
+				}
+				gp, err := tc.lookupDotImportFunc(parts[0], sp)
+				if err != nil {
+					return err
+				}
+				if gp != nil {
+					argTypes := make([][]ast.TypeNode, 0, len(fc.Arguments))
+					for _, arg := range fc.Arguments {
+						ts, err := tc.inferExpressionType(arg)
+						if err != nil {
+							return err
+						}
+						argTypes = append(argTypes, ts)
+					}
+					raw, err := tc.checkGoQualifiedCall(gp, gp.Path(), parts[0], fc, argTypes, false)
 					if err == nil && len(raw) == len(assign.LValues) {
 						resolvedTypes = make([][]ast.TypeNode, len(raw))
 						for i := range raw {

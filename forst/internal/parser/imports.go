@@ -6,11 +6,23 @@ import (
 )
 
 func (p *Parser) parseImport() ast.ImportNode {
-	var alias string
-	if p.current().Type == ast.TokenIdentifier {
-		alias = p.current().Value
-		p.advance() // Skip alias
+	var alias *ast.Ident
+	var sideEffectOnly bool
+
+	switch p.current().Type {
+	case ast.TokenDot:
+		// Go dot-import: import . "path" — symbols from path are in the file scope unqualified.
+		p.advance()
+		alias = &ast.Ident{ID: "."}
+	case ast.TokenIdentifier:
+		id := p.current().Value
+		p.advance()
+		alias = &ast.Ident{ID: ast.Identifier(id)}
+		if id == "_" {
+			sideEffectOnly = true
+		}
 	}
+
 	pathToken := p.expect(ast.TokenStringLiteral)
 	rawPath := pathToken.Value
 	path := rawPath
@@ -19,10 +31,9 @@ func (p *Parser) parseImport() ast.ImportNode {
 	}
 
 	node := ast.ImportNode{
-		Path: path,
-	}
-	if alias != "" {
-		node.Alias = &ast.Ident{ID: ast.Identifier(alias)}
+		Path:           path,
+		Alias:          alias,
+		SideEffectOnly: sideEffectOnly,
 	}
 
 	return node

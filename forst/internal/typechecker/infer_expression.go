@@ -266,6 +266,21 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				tc.storeInferredType(e, returnType)
 				return returnType, nil
 			}
+			// Dot-imported Go package: import . "strings" → NewReader(...)
+			spDot := e.Function.Span
+			if !spDot.IsSet() {
+				spDot = e.CallSpan
+			}
+			if gp, err := tc.lookupDotImportFunc(string(e.Function.ID), spDot); err != nil {
+				return nil, err
+			} else if gp != nil {
+				ret, err := tc.checkGoQualifiedCall(gp, gp.Path(), string(e.Function.ID), e, argTypes, true)
+				if err != nil {
+					return nil, err
+				}
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
 		}
 
 		tc.log.WithFields(logrus.Fields{

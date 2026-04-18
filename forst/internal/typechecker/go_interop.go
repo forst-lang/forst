@@ -3,6 +3,8 @@ package typechecker
 import (
 	"go/types"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"forst/internal/ast"
 	"forst/internal/goload"
@@ -41,12 +43,13 @@ func fallbackImportLocal(imp ast.ImportNode) (path, local string) {
 // On failure, logs at debug and leaves goPkgsByLocal nil (Forst still typechecks without boundary checks).
 func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = nil
+	tc.dotImportPkgs = nil
 	tc.importPathByLocal = make(map[string]string)
 
 	if tc.GoWorkspaceDir == "" {
 		for _, imp := range tc.imports {
 			p, l := fallbackImportLocal(imp)
-			if l != "" {
+			if l != "" && l != "." {
 				tc.importPathByLocal[l] = p
 			}
 		}
@@ -66,7 +69,7 @@ func (tc *TypeChecker) initGoImportPackages() {
 	if len(paths) == 0 {
 		for _, imp := range tc.imports {
 			p, l := fallbackImportLocal(imp)
-			if l != "" {
+			if l != "" && l != "." {
 				tc.importPathByLocal[l] = p
 			}
 		}
@@ -80,7 +83,7 @@ func (tc *TypeChecker) initGoImportPackages() {
 		}).WithError(err).Debug("go/packages load failed; skipping Forst↔Go boundary checks")
 		for _, imp := range tc.imports {
 			p, l := fallbackImportLocal(imp)
-			if l != "" {
+			if l != "" && l != "." {
 				tc.importPathByLocal[l] = p
 			}
 		}
@@ -92,12 +95,18 @@ func (tc *TypeChecker) initGoImportPackages() {
 		pkgp, ok := loaded[ip]
 		if !ok || pkgp == nil || pkgp.Types == nil {
 			p, l := fallbackImportLocal(imp)
-			if l != "" {
+			if l != "" && l != "." {
 				tc.importPathByLocal[l] = p
 			}
 			continue
 		}
 		tp := pkgp.Types
+		if imp.Alias != nil && string(imp.Alias.ID) == "." {
+			// Dot-import does not introduce a package identifier (e.g. `strings` is not in scope).
+			// Do not register tp.Name() in importPathByLocal — that would break IsImportedLocalName / LSP.
+			tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+			continue
+		}
 		var local string
 		if imp.Alias != nil {
 			local = string(imp.Alias.ID)
@@ -108,6 +117,42 @@ func (tc *TypeChecker) initGoImportPackages() {
 		byLocal[local] = tp
 	}
 	tc.goPkgsByLocal = byLocal
+}
+
+func goIdentifierExported(name string) bool {
+	if name == "" || name[0] == '_' {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(name)
+	return r != utf8.RuneError && unicode.IsUpper(r)
+}
+
+// lookupDotImportFunc finds which dot-imported package defines the given function name, if unique.
+func (tc *TypeChecker) lookupDotImportFunc(funcName string, sp ast.SourceSpan) (*types.Package, error) {
+	if len(tc.dotImportPkgs) == 0 {
+		return nil, nil
+	}
+	if !goIdentifierExported(funcName) {
+		return nil, nil
+	}
+	var matched []*types.Package
+	for _, pkg := range tc.dotImportPkgs {
+		obj := pkg.Scope().Lookup(funcName)
+		if obj == nil {
+			continue
+		}
+		if _, ok := obj.(*types.Func); !ok {
+			continue
+		}
+		matched = append(matched, pkg)
+	}
+	if len(matched) == 0 {
+		return nil, nil
+	}
+	if len(matched) > 1 {
+		return nil, diagnosticf(sp, "dot-import", "%s is ambiguous (multiple dot-imported packages)", funcName)
+	}
+	return matched[0], nil
 }
 
 // foldErrorPair: when true, Go (T, error) is represented as a single Result(T, Error) (expression / single-assignment).

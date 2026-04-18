@@ -1048,3 +1048,169 @@ func f(): Void {
 		t.Fatalf("expected Int.GreaterThan qualified guard title and body, got %q", val)
 	}
 }
+
+func TestFindHoverForPosition_importDotImportPathStringLiteral(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "dot_imp.ft")
+	const src = `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("analyze")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+
+	var strTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type != ast.TokenStringLiteral {
+			continue
+		}
+		if tok.Line != 3 {
+			continue
+		}
+		strTok = &ctx.Tokens[i]
+		break
+	}
+	if strTok == nil {
+		t.Fatal("no import path string token on line 3")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: strTok.Line - 1, Character: strTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on import path string")
+	}
+	if !strings.Contains(h.Contents.Value, "strings") {
+		t.Fatalf("expected import path hover, got %q", h.Contents.Value)
+	}
+}
+
+func TestFindHoverForPosition_dotImportUnqualifiedFunc(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "dot_fn.ft")
+	const src = `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("analyze")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.TC == nil || !ctx.TC.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded")
+	}
+
+	var idTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenIdentifier && tok.Value == "Contains" {
+			idTok = &ctx.Tokens[i]
+			break
+		}
+	}
+	if idTok == nil {
+		t.Fatal("Contains token not found")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: idTok.Line - 1, Character: idTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on Contains")
+	}
+	if !strings.Contains(h.Contents.Value, "Contains") || !strings.Contains(h.Contents.Value, "```go") {
+		t.Fatalf("expected Go signature hover, got %q", h.Contents.Value)
+	}
+}
+
+func TestFindHoverForPosition_aliasedImportPathStringLiteral(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "alias_imp.ft")
+	const src = `package main
+
+import f "fmt"
+
+func main() {
+	f.Println("x")
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("analyze")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+
+	var strTok *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Line != 3 {
+			continue
+		}
+		if tok.Type == ast.TokenStringLiteral {
+			strTok = &ctx.Tokens[i]
+			break
+		}
+	}
+	if strTok == nil {
+		t.Fatal("import path string on line 3 not found")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: strTok.Line - 1, Character: strTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on import path string")
+	}
+	if !strings.Contains(h.Contents.Value, "fmt") {
+		t.Fatalf("expected import path hover mentioning fmt, got %q", h.Contents.Value)
+	}
+}

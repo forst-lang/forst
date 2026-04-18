@@ -304,6 +304,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if s := goHoverFromQualifiedGoIdentifier(tc, tokens, tok); s != "" {
 			return s
 		}
+		if md, ok := tc.GoHoverMarkdownDotImportedSymbol(tok.Value); ok && md != "" {
+			return md
+		}
 		if s := goHoverFromForstReceiverMethod(tc, tokens, tok); s != "" {
 			return s
 		}
@@ -642,6 +645,12 @@ func goHoverFromImportString(tc *typechecker.TypeChecker, tokens []ast.Token, to
 			return ""
 		case ast.TokenLParen, ast.TokenComma, ast.TokenRParen, ast.TokenStringLiteral:
 			// StringLiteral: sibling path in `import ( "a", "b" )`; keep scanning for `import`.
+			j--
+		case ast.TokenDot:
+			// `import . "pkg"`
+			j--
+		case ast.TokenIdentifier:
+			// `import alias "pkg"`, `import _ "pkg"`
 			j--
 		default:
 			return ""

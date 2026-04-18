@@ -18,46 +18,54 @@ func (tc *TypeChecker) IsImportedLocalName(id string) bool {
 	return ok
 }
 
-// GoHoverMarkdown returns markdown for hovering an imported Go package (symbol == "") or an exported
-// member (symbol set), e.g. pkgLocal "fmt", symbol "Println". Uses go/types when packages loaded.
-func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
-	if tc.importPathByLocal == nil {
-		return "", false
+// loadedGoPackageByImportPath returns a loaded *types.Package for the given import path, including
+// dot-imported packages (which are not keyed in goPkgsByLocal).
+func (tc *TypeChecker) loadedGoPackageByImportPath(path string) *types.Package {
+	if path == "" {
+		return nil
 	}
-	path, ok := tc.importPathByLocal[pkgLocal]
-	if !ok || path == "" {
-		return "", false
-	}
-	gp := (*types.Package)(nil)
-	if tc.goPkgsByLocal != nil {
-		gp = tc.goPkgsByLocal[pkgLocal]
-	}
-
-	if symbol == "" {
-		var b strings.Builder
-		b.WriteString("**Go package** `" + pkgLocal + "`")
-		if path != "" {
-			fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
+	if tc.importPathByLocal != nil && tc.goPkgsByLocal != nil {
+		for local, p := range tc.importPathByLocal {
+			if p == path {
+				if gp := tc.goPkgsByLocal[local]; gp != nil {
+					return gp
+				}
+			}
 		}
-		if gp == nil {
-			b.WriteString("\n\n*(Go types not loaded — check `go/packages` / `GoWorkspaceDir`.)*")
-		}
-		return b.String(), true
 	}
-
-	if gp == nil {
-		if path != "" {
-			return fmt.Sprintf("**Go** `%s.%s`\n\n```go\nimport %q\n```\n\n*(Go types not loaded.)*", pkgLocal, symbol, path), true
+	for _, dp := range tc.dotImportPkgs {
+		if dp.Path() == path {
+			return dp
 		}
-		return "", false
 	}
+	return nil
+}
 
+func (tc *TypeChecker) dotImportPackageForUniqueFunc(symbol string) *types.Package {
+	if len(tc.dotImportPkgs) == 0 || !goIdentifierExported(symbol) {
+		return nil
+	}
+	var matched []*types.Package
+	for _, pkg := range tc.dotImportPkgs {
+		obj := pkg.Scope().Lookup(symbol)
+		if obj == nil {
+			continue
+		}
+		if _, ok := obj.(*types.Func); !ok {
+			continue
+		}
+		matched = append(matched, pkg)
+	}
+	if len(matched) != 1 {
+		return nil
+	}
+	return matched[0]
+}
+
+func (tc *TypeChecker) goHoverMarkdownBodyForResolvedPackage(gp *types.Package, pkgQual, symbol string) (string, bool) {
 	obj := gp.Scope().Lookup(symbol)
 	if obj == nil {
-		if path != "" {
-			return fmt.Sprintf("**Go** `%s.%s` — not found in `%s`", pkgLocal, symbol, path), true
-		}
-		return "", false
+		return fmt.Sprintf("**Go** `%s.%s` — not found in `%s`", pkgQual, symbol, gp.Path()), true
 	}
 
 	qf := types.RelativeTo(gp)
@@ -65,7 +73,7 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 	var b strings.Builder
 	b.WriteString("```go\n" + head + "\n```")
 
-	qual := pkgLocal + "." + symbol
+	qual := pkgQual + "." + symbol
 	if bfn, ok := BuiltinFunctions[qual]; ok {
 		b.WriteString("\n\n**Forst (builtin table)** ")
 		if bfn.HoverSignature != "" {
@@ -93,6 +101,56 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 	}
 
 	return b.String(), true
+}
+
+// GoHoverMarkdownDotImportedSymbol returns hover for an unqualified call that resolves to a unique
+// dot-imported package function (e.g. Contains after import . "strings").
+func (tc *TypeChecker) GoHoverMarkdownDotImportedSymbol(symbol string) (string, bool) {
+	gp := tc.dotImportPackageForUniqueFunc(symbol)
+	if gp == nil {
+		return "", false
+	}
+	return tc.goHoverMarkdownBodyForResolvedPackage(gp, gp.Name(), symbol)
+}
+
+// GoHoverMarkdown returns markdown for hovering an imported Go package (symbol == "") or an exported
+// member (symbol set), e.g. pkgLocal "fmt", symbol "Println". Uses go/types when packages loaded.
+func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
+	if tc.importPathByLocal == nil {
+		return "", false
+	}
+	path, ok := tc.importPathByLocal[pkgLocal]
+	if !ok || path == "" {
+		return "", false
+	}
+	gp := (*types.Package)(nil)
+	if tc.goPkgsByLocal != nil {
+		gp = tc.goPkgsByLocal[pkgLocal]
+	}
+	if gp == nil {
+		gp = tc.loadedGoPackageByImportPath(path)
+	}
+
+	if symbol == "" {
+		var b strings.Builder
+		b.WriteString("**Go package** `" + pkgLocal + "`")
+		if path != "" {
+			fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
+		}
+		if gp == nil {
+			b.WriteString("\n\n*(Go types not loaded — check `go/packages` / `GoWorkspaceDir`.)*")
+		}
+		return b.String(), true
+	}
+
+	if gp == nil {
+		if path != "" {
+			return fmt.Sprintf("**Go** `%s.%s`\n\n```go\nimport %q\n```\n\n*(Go types not loaded.)*", pkgLocal, symbol, path), true
+		}
+		return "", false
+	}
+
+	return tc.goHoverMarkdownBodyForResolvedPackage(gp, pkgLocal, symbol)
 }
 
 // GoHoverMarkdownForForstReceiverMethod returns hover for recv.method when the receiver is a Forst
@@ -158,10 +216,18 @@ func (tc *TypeChecker) GoHoverMarkdownForImportPath(path string) (string, bool) 
 	if path == "" {
 		return "", false
 	}
-	for local, p := range tc.importPathByLocal {
-		if p == path {
-			return tc.GoHoverMarkdown(local, "")
+	if tc.importPathByLocal != nil {
+		for local, p := range tc.importPathByLocal {
+			if p == path {
+				return tc.GoHoverMarkdown(local, "")
+			}
 		}
+	}
+	if gp := tc.loadedGoPackageByImportPath(path); gp != nil {
+		var b strings.Builder
+		b.WriteString("**Go package** `" + gp.Name() + "`")
+		fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
+		return b.String(), true
 	}
 	return fmt.Sprintf("**Go import path** `%s`", path), true
 }
