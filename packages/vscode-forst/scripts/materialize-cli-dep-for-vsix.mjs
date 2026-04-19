@@ -9,11 +9,15 @@
  * for `packages/cli` (see that package.json `files` field): `dist/`, `README.md`, `LICENSE`, plus
  * `package.json`. No symlinks, minimal size.
  *
+ * After copying, we run `npm install --omit=dev` in that folder so runtime deps (e.g. `semver`)
+ * exist under `node_modules`. Otherwise `vsce`/`npm list --production` fails with ELSPROBLEMS.
+ *
  * Bun may hoist `@forst/cli` to the repo root `node_modules`, not under `packages/vscode-forst/node_modules`.
  *
  * For production VSIX, `package-vsix-from-stage.mjs` copies the extension into a **temporary**
  * directory without a parent workspace so `npm list` (used by vsce) does not include the monorepo root.
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +62,25 @@ export function copyNpmFilesLayout(sourceRoot, destRoot) {
     } else {
       fs.copyFileSync(src, dst);
     }
+  }
+
+  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+  const install = spawnSync(
+    npm,
+    ["install", "--omit=dev", "--no-audit", "--no-fund"],
+    {
+      cwd: destRoot,
+      stdio: "inherit",
+      env: process.env,
+    }
+  );
+  if (install.error) {
+    throw install.error;
+  }
+  if (install.status !== 0) {
+    throw new Error(
+      `materialize-cli-dep-for-vsix: npm install --omit=dev failed in ${destRoot} (status ${install.status})`
+    );
   }
 }
 

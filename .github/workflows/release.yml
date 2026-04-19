@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  # Manual: Actions → Release → Run workflow (Release Please + publish jobs when tags are produced).
   workflow_dispatch:
     inputs:
       npm_publish_verbose:

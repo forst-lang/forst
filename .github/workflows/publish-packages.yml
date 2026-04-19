@@ -1,4 +1,5 @@
-# Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call.
+# Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call, or
+# run manually: Actions → "Publish packages (npm / JSR)" → Run workflow.
 # Inputs: pass the tag for each package that released (omit or leave empty for the other).
 # Optional: npm_publish_verbose — pass --verbose to npm publish (default true).
 #
@@ -29,15 +30,47 @@ on:
         required: false
         type: boolean
         default: true
+  workflow_dispatch:
+    inputs:
+      sidecar_tag:
+        description: "Git tag for sidecar (e.g. sidecar-v0.1.0). Leave empty to skip."
+        required: false
+        type: string
+        default: ""
+      cli_tag:
+        description: "Git tag for cli (e.g. cli-v0.0.19). Leave empty to skip."
+        required: false
+        type: string
+        default: ""
+      npm_publish_verbose:
+        description: "Pass --verbose to npm publish (both @forst/cli and @forst/sidecar)"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   id-token: write  # Required for OIDC
   contents: read
 
 jobs:
+  validate-dispatch:
+    name: Validate manual inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: At least one tag when running from Actions UI
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            exit 0
+          fi
+          if [ -z "${{ inputs.cli_tag }}" ] && [ -z "${{ inputs.sidecar_tag }}" ]; then
+            echo "::error::Set cli_tag and/or sidecar_tag — both empty publishes nothing."
+            exit 1
+          fi
+
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
+    needs: [validate-dispatch]
     permissions:
       contents: read
       id-token: write
@@ -87,6 +120,7 @@ jobs:
   cli-jsr:
     name: "@forst/cli → JSR"
     runs-on: ubuntu-latest
+    needs: [validate-dispatch]
     if: inputs.cli_tag != ''
     permissions:
       contents: read

@@ -3,7 +3,8 @@
 # VSIX packaging uses `task build:vsix`: rewrites @forst/cli to a published semver, installs it from npm,
 # then restores package.json / bun.lockb (committed trees stay workspace:* for dev/CI).
 #
-# Invoked from release.yml via workflow_call after Release Please creates a tag.
+# Invoked from release.yml via workflow_call after Release Please creates a tag, or run manually:
+# Actions → "Publish VS Code extension" → Run workflow (enter the release tag).
 # (GitHub does not fire `release` workflows for releases created with GITHUB_TOKEN.)
 #
 # Tag prefix: `vscode-forst-` (packages/vscode-forst in .release-please-config.json).
@@ -18,6 +19,12 @@ on:
     inputs:
       tag_name:
         description: "Release tag (e.g. vscode-forst-v0.1.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. vscode-forst-v0.1.0); must exist on the default branch"
         required: true
         type: string
 
