@@ -1,6 +1,6 @@
 {
   "name": "@forst/cli",
-  "version": "0.0.31",
+  "version": "0.0.32",
   "description": "Forst compiler CLI: install the native `forst` binary. Linux, macOS, Windows.",
   "type": "module",
   "main": "./dist/index.js",
