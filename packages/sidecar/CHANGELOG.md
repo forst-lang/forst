@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.21](https://github.com/forst-lang/forst/compare/sidecar-v0.1.20...sidecar-v0.1.21) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Clear token based auth as much as possible ([6240d2f](https://github.com/forst-lang/forst/commit/6240d2f175f86a7f1a647cfdd4b01005f973f26c))
+
 ## [0.1.20](https://github.com/forst-lang/forst/compare/sidecar-v0.1.19...sidecar-v0.1.20) (2026-04-19)
 
 

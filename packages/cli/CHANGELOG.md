@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.34](https://github.com/forst-lang/forst/compare/cli-v0.0.33...cli-v0.0.34) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Clear token based auth as much as possible ([6240d2f](https://github.com/forst-lang/forst/commit/6240d2f175f86a7f1a647cfdd4b01005f973f26c))
+
 ## [0.0.33](https://github.com/forst-lang/forst/compare/cli-v0.0.32...cli-v0.0.33) (2026-04-19)
 
 

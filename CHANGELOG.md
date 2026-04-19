@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.11](https://github.com/forst-lang/forst/compare/v0.2.10...v0.2.11) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Clear token based auth as much as possible ([6240d2f](https://github.com/forst-lang/forst/commit/6240d2f175f86a7f1a647cfdd4b01005f973f26c))
+
 ## [0.2.10](https://github.com/forst-lang/forst/compare/v0.2.9...v0.2.10) (2026-04-19)
 
 
