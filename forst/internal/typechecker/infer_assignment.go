@@ -23,8 +23,8 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 	if len(assign.RValues) == 1 && len(assign.LValues) >= 2 {
 		if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
 			parts := strings.Split(string(fc.Function.ID), ".")
-			if len(parts) == 2 && tc.goPkgsByLocal != nil {
-				if gp := tc.goPkgsByLocal[parts[0]]; gp != nil {
+			if len(parts) == 2 {
+				if gp := tc.goPackageForImportLocal(parts[0]); gp != nil {
 					argTypes := make([][]ast.TypeNode, 0, len(fc.Arguments))
 					for _, arg := range fc.Arguments {
 						ts, err := tc.inferExpressionType(arg)
@@ -43,7 +43,8 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 						tc.storeInferredType(fc, raw)
 					}
 				}
-			} else if len(parts) == 1 && len(tc.dotImportPkgs) > 0 {
+			}
+			if !nValueGo && len(parts) == 1 && len(tc.dotImportPkgs) > 0 {
 				sp := fc.Function.Span
 				if !sp.IsSet() {
 					sp = fc.CallSpan

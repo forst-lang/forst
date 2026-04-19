@@ -119,6 +119,41 @@ func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = byLocal
 }
 
+// goPackageForImportLocal returns *types.Package for a Go import's local name (e.g. "strings", "fmt").
+// It uses the map from initGoImportPackages, or lazily runs go/packages for that import path when the
+// batch load failed or left this name unloaded — so qualified calls like strings.NewReader still resolve.
+func (tc *TypeChecker) goPackageForImportLocal(local string) *types.Package {
+	if local == "" || local == "." {
+		return nil
+	}
+	if tc.goPkgsByLocal != nil {
+		if p := tc.goPkgsByLocal[local]; p != nil {
+			return p
+		}
+	}
+	path := ""
+	if tc.importPathByLocal != nil {
+		path = tc.importPathByLocal[local]
+	}
+	if path == "" || tc.GoWorkspaceDir == "" {
+		return nil
+	}
+	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{path})
+	if err != nil || len(loaded) == 0 {
+		return nil
+	}
+	pkgp, ok := loaded[path]
+	if !ok || pkgp == nil || pkgp.Types == nil {
+		return nil
+	}
+	gp := pkgp.Types
+	if tc.goPkgsByLocal == nil {
+		tc.goPkgsByLocal = make(map[string]*types.Package)
+	}
+	tc.goPkgsByLocal[local] = gp
+	return gp
+}
+
 func goIdentifierExported(name string) bool {
 	if name == "" || name[0] == '_' {
 		return false
@@ -283,6 +318,10 @@ func (tc *TypeChecker) forstAssignableToGoType(f ast.TypeNode, g types.Type) boo
 		if u.NumMethods() == 0 {
 			return true
 		}
+		// Opaque Go pointer (e.g. *strings.Reader from NewReader) implements io.Reader at the FFI boundary.
+		if f.Ident == ast.TypePointer && len(f.TypeParams) == 1 && f.TypeParams[0].Ident == ast.TypeImplicit {
+			return true
+		}
 	}
 	exp, ok := goTypeToForstType(g)
 	if !ok {
@@ -297,6 +336,11 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	}
 	if errIface := goErrorInterfaceType(); errIface != nil && types.AssignableTo(t, errIface) {
 		return ast.TypeNode{Ident: ast.TypeError}, true
+	}
+	// Named types (e.g. strings.Reader, enmime.Envelope) must be detected before Underlying(),
+	// which would strip to struct/interface and lose the stable FFI mapping.
+	if _, ok := t.(*types.Named); ok {
+		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	}
 	switch u := t.Underlying().(type) {
 	case *types.Basic:
@@ -325,9 +369,12 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	case *types.Pointer:
 		inner, ok := goTypeToForstType(u.Elem())
 		if !ok {
-			return ast.TypeNode{}, false
+			return ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeImplicit}}}, true
 		}
 		return ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{inner}}, true
+	case *types.Interface:
+		// io.Reader and other interfaces at the Forst↔Go boundary map to implicit until a richer model exists.
+		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	default:
 		return ast.TypeNode{}, false
 	}

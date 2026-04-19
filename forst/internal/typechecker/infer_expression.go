@@ -226,16 +226,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return returnType, nil
 			}
 
-			// Imported Go package (Forst↔Go boundary) when go/packages load succeeded
-			if tc.goPkgsByLocal != nil {
-				if gp := tc.goPkgsByLocal[pkgName]; gp != nil {
-					ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)
-					if err != nil {
-						return nil, err
-					}
-					tc.storeInferredType(e, ret)
-					return ret, nil
+			// Imported Go package (Forst↔Go boundary): batch or lazy go/packages load
+			if gp := tc.goPackageForImportLocal(pkgName); gp != nil {
+				ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)
+				if err != nil {
+					return nil, err
 				}
+				tc.storeInferredType(e, ret)
+				return ret, nil
 			}
 
 			// If not a local variable, check for built-in functions
@@ -411,8 +409,12 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 			return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, t.String())
 		}
 	}
+	// *T method calls: lower to element type for built-in / opaque Go receiver (e.g. *enmime.Envelope).
+	if t.Ident == ast.TypePointer && len(t.TypeParams) == 1 {
+		t = t.TypeParams[0]
+	}
 
-	returnType, err := tc.CheckBuiltinMethod(varType[0], methodName, args)
+	returnType, err := tc.CheckBuiltinMethod(t, methodName, args)
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{
 			"function":   "inferMethodCallType",

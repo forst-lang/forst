@@ -7,6 +7,30 @@ import (
 
 // unifyTypes attempts to unify two types based on the operator and operand types
 func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.TokenIdent) (ast.TypeNode, error) {
+	// NilLiteralNode infers to an empty type list (untyped nil); comparisons `x == nil` / `nil == x` are Bool.
+	if operator.IsComparisonBinaryOperator() {
+		if _, ok := left.(ast.NilLiteralNode); ok && right != nil {
+			rightTypes, err := tc.inferExpressionType(right)
+			if err != nil {
+				return ast.TypeNode{}, err
+			}
+			if len(rightTypes) != 1 {
+				return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(rightTypes))
+			}
+			return ast.TypeNode{Ident: ast.TypeBool}, nil
+		}
+		if _, ok := right.(ast.NilLiteralNode); ok {
+			leftTypes, err := tc.inferExpressionType(left)
+			if err != nil {
+				return ast.TypeNode{}, err
+			}
+			if len(leftTypes) != 1 {
+				return ast.TypeNode{}, fmt.Errorf("expected single type but got %d types", len(leftTypes))
+			}
+			return ast.TypeNode{Ident: ast.TypeBool}, nil
+		}
+	}
+
 	leftTypes, err := tc.inferExpressionType(left)
 	if err != nil {
 		return ast.TypeNode{}, err

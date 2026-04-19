@@ -14,6 +14,55 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestGoPackageForImportLocal_lazyLoadsWhenBatchMapEmpty(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	tc.importPathByLocal = map[string]string{"strings": "strings"}
+	tc.goPkgsByLocal = nil
+
+	gp := tc.goPackageForImportLocal("strings")
+	if gp == nil {
+		t.Skip("go/packages could not load strings (environment)")
+	}
+	if gp.Path() != "strings" {
+		t.Fatalf("got %q", gp.Path())
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Fatal("expected lazy result cached in goPkgsByLocal")
+	}
+}
+
+func TestGoQualifiedCall_stringsNewReader_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "strings"
+
+func main() {
+	r := strings.NewReader("x")
+	println(r)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Skip("strings not loaded")
+	}
+}
+
 func moduleRootFromWD(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()

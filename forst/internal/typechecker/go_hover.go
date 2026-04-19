@@ -19,15 +19,15 @@ func (tc *TypeChecker) IsImportedLocalName(id string) bool {
 }
 
 // loadedGoPackageByImportPath returns a loaded *types.Package for the given import path, including
-// dot-imported packages (which are not keyed in goPkgsByLocal).
+// dot-imported packages and lazy-loaded regular imports (same as goPackageForImportLocal).
 func (tc *TypeChecker) loadedGoPackageByImportPath(path string) *types.Package {
 	if path == "" {
 		return nil
 	}
-	if tc.importPathByLocal != nil && tc.goPkgsByLocal != nil {
+	if tc.importPathByLocal != nil {
 		for local, p := range tc.importPathByLocal {
 			if p == path {
-				if gp := tc.goPkgsByLocal[local]; gp != nil {
+				if gp := tc.goPackageForImportLocal(local); gp != nil {
 					return gp
 				}
 			}

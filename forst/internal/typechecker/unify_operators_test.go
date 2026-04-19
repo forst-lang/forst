@@ -88,3 +88,29 @@ func TestUnifyTypes_unsupportedUnaryWithNilRight(t *testing.T) {
 		t.Fatal("expected error for unsupported unary")
 	}
 }
+
+func TestUnifyTypes_comparisonEqNil(t *testing.T) {
+	tc := New(logrus.New(), false)
+	tc.scopeStack.globalScope().RegisterSymbol("err", []ast.TypeNode{{Ident: ast.TypeError}}, SymbolVariable)
+	tc.VariableTypes["err"] = []ast.TypeNode{{Ident: ast.TypeError}}
+	ty, err := tc.unifyTypes(ast.VariableNode{Ident: ast.Ident{ID: "err"}}, ast.NilLiteralNode{}, ast.TokenEquals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ty.Ident != ast.TypeBool {
+		t.Fatalf("want Bool, got %s", ty.Ident)
+	}
+}
+
+func TestUnifyTypes_comparisonNilEqErr(t *testing.T) {
+	tc := New(logrus.New(), false)
+	tc.scopeStack.globalScope().RegisterSymbol("err", []ast.TypeNode{{Ident: ast.TypeError}}, SymbolVariable)
+	tc.VariableTypes["err"] = []ast.TypeNode{{Ident: ast.TypeError}}
+	ty, err := tc.unifyTypes(ast.NilLiteralNode{}, ast.VariableNode{Ident: ast.Ident{ID: "err"}}, ast.TokenEquals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ty.Ident != ast.TypeBool {
+		t.Fatalf("want Bool, got %s", ty.Ident)
+	}
+}
