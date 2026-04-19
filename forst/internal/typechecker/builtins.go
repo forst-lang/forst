@@ -2,7 +2,6 @@ package typechecker
 
 import (
 	"fmt"
-	"strings"
 
 	"forst/internal/ast"
 
@@ -73,22 +72,10 @@ func (tc *TypeChecker) CheckBuiltinMethod(typ ast.TypeNode, methodName string, a
 		"args":     args,
 	}).Tracef("Checking built-in method")
 
-	// Opaque Go values (TYPE_IMPLICIT from go/types named types / pointers). Prefer a few common
-	// enmime/* patterns so stdlib calls (e.g. strings.Join) still typecheck; full fidelity uses go/types
-	// per receiver (future work).
+	// Opaque Go values (TYPE_IMPLICIT): we do not have go/types method signatures here, so every
+	// call is modeled as a single opaque result. Richer checking would use the loaded receiver type.
 	if typ.Ident == ast.TypeImplicit {
-		// (*enmime.Envelope).Date() (time.Time, error) — model as opaque + error for two-value assignment.
-		if methodName == "Date" {
-			return []ast.TypeNode{{Ident: ast.TypeImplicit}, {Ident: ast.TypeError}}, nil
-		}
-		switch {
-		case strings.HasSuffix(methodName, "Values"):
-			return []ast.TypeNode{{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}}, nil
-		case strings.HasPrefix(methodName, "Get"):
-			return []ast.TypeNode{{Ident: ast.TypeString}}, nil
-		default:
-			return []ast.TypeNode{{Ident: ast.TypeImplicit}}, nil
-		}
+		return []ast.TypeNode{{Ident: ast.TypeImplicit}}, nil
 	}
 
 	builtinType, exists := BuiltinTypes[typ.Ident]

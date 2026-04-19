@@ -337,7 +337,7 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	if errIface := goErrorInterfaceType(); errIface != nil && types.AssignableTo(t, errIface) {
 		return ast.TypeNode{Ident: ast.TypeError}, true
 	}
-	// Named types (e.g. strings.Reader, enmime.Envelope) must be detected before Underlying(),
+	// Named types (e.g. strings.Reader) must be detected before Underlying(),
 	// which would strip to struct/interface and lose the stable FFI mapping.
 	if _, ok := t.(*types.Named); ok {
 		return ast.TypeNode{Ident: ast.TypeImplicit}, true

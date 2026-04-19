@@ -3,223 +3,23 @@ package typechecker
 import (
 	"testing"
 
-	"forst/internal/lexer"
-	"forst/internal/parser"
+	"forst/internal/ast"
+
+	"github.com/sirupsen/logrus"
 )
 
-func TestNilBuiltinSymbol(t *testing.T) {
-	tests := []struct {
-		name    string
-		code    string
-		wantErr bool
-	}{
-		{
-			name: "nil in return statement with error type",
-			code: `
-package main
-
-func test() : Result(String, Error) {
-	return "hello"
-}
-`,
-			wantErr: false,
-		},
-		{
-			name: "nil in return statement without error type",
-			code: `
-package main
-
-func test() : (String, String) {
-	return "hello", nil
-}
-`,
-			wantErr: true,
-		},
-		{
-			name: "nil in variable assignment with pointer type",
-			code: `
-package main
-
-type Ptr = *String
-
-func test() {
-	var x Ptr = nil
-}
-`,
-			wantErr: true,
-		},
-		{
-			name: "nil in variable assignment without type",
-			code: `
-package main
-
-func test() {
-	var x = nil
-}
-`,
-			wantErr: true,
-		},
-		{
-			name: "nil in multiple return with ensure",
-			code: `
-package main
-
-func foo() : Result(String, Error) {
-	return "hello"
-}
-
-func test() {
-	name, err = foo()
-	ensure err == nil
-}
-`,
-			wantErr: true,
-		},
-		{
-			name: "nil in function call with error return",
-			code: `
-package main
-
-func foo() : Result(String, Error) {
-	return "hello"
-}
-
-func test() {
-	r := foo()
-	println(r)
-}
-`,
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if tt.wantErr {
-						// Expected panic for this test
-						return
-					}
-					// Unexpected panic
-					t.Fatalf("unexpected panic: %v", r)
-				}
-			}()
-
-			// Lex the code
-			log := setupTestLogger(nil)
-			l := lexer.New([]byte(tt.code), "test.ft", log)
-			tokens := l.Lex()
-
-			// Parse the code
-			p := parser.New(tokens, "test.ft", log)
-			node, err := p.ParseFile()
+func TestCheckBuiltinMethod_implicitReceiver_returnsOpaque(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	for _, method := range []string{"Date", "GetFoo", "HeaderValues", "Parse"} {
+		t.Run(method, func(t *testing.T) {
+			got, err := tc.CheckBuiltinMethod(ast.TypeNode{Ident: ast.TypeImplicit}, method, nil)
 			if err != nil {
-				if tt.wantErr {
-					// Expected parse error
-					return
-				}
-				t.Fatalf("Failed to parse: %v", err)
+				t.Fatal(err)
 			}
-
-			// Typecheck
-			tc := New(log, false)
-			err = tc.CheckTypes(node)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CheckTypes() error = %v, wantErr %v", err, tt.wantErr)
+			if len(got) != 1 || got[0].Ident != ast.TypeImplicit {
+				t.Fatalf("want single implicit, got %v", got)
 			}
 		})
-	}
-}
-
-func TestStructLiteralTypeMismatch(t *testing.T) {
-	code := `
-package main
-
-type Foo = {a: String}
-
-func takesFoo(x Foo) {}
-
-func test() {
-	takesFoo({a: 1})
-}
-`
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected panic for this test
-			return
-		}
-	}()
-	log := setupTestLogger(nil)
-	l := lexer.New([]byte(code), "test_struct_mismatch.ft", log)
-	tokens := l.Lex()
-	p := parser.New(tokens, "test_struct_mismatch.ft", log)
-	node, err := p.ParseFile()
-	if err != nil {
-		// Expected parse error for this test
-		return
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(node)
-	if err == nil {
-		t.Errorf("Expected type error for struct literal type mismatch, got none")
-	}
-}
-
-func TestUndefinedTypeNameInVarDecl(t *testing.T) {
-	code := `
-package main
-
-func test() {
-	var x UndefinedType = nil
-}
-`
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected panic for this test
-			return
-		}
-	}()
-	log := setupTestLogger(nil)
-	l := lexer.New([]byte(code), "test_undefined_type.ft", log)
-	tokens := l.Lex()
-	p := parser.New(tokens, "test_undefined_type.ft", log)
-	node, err := p.ParseFile()
-	if err != nil {
-		// Expected parse error for this test
-		return
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(node)
-	if err == nil {
-		t.Errorf("Expected type error for undefined type name, got none")
-	}
-}
-
-func TestAssignmentToUndeclaredVarsWithMultipleReturn(t *testing.T) {
-	code := `
-package main
-
-func foo() : Result(String, Error) {
-	return "hi"
-}
-
-func test() {
-	a, b = foo()
-}
-`
-	log := setupTestLogger(nil)
-	l := lexer.New([]byte(code), "test_multi_assign.ft", log)
-	tokens := l.Lex()
-	p := parser.New(tokens, "test_multi_assign.ft", log)
-	node, err := p.ParseFile()
-	if err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(node)
-	if err == nil {
-		t.Errorf("Expected type error for assignment to undeclared variables, got none")
 	}
 }

@@ -9,6 +9,11 @@ import (
 func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.TokenIdent) (ast.TypeNode, error) {
 	// NilLiteralNode infers to an empty type list (untyped nil); comparisons `x == nil` / `nil == x` are Bool.
 	if operator.IsComparisonBinaryOperator() {
+		_, leftNil := left.(ast.NilLiteralNode)
+		_, rightNil := right.(ast.NilLiteralNode)
+		if leftNil && rightNil {
+			return ast.TypeNode{Ident: ast.TypeBool}, nil
+		}
 		if _, ok := left.(ast.NilLiteralNode); ok && right != nil {
 			rightTypes, err := tc.inferExpressionType(right)
 			if err != nil {

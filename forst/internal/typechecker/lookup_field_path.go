@@ -67,14 +67,8 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		return tc.lookupFieldPath(resolvedType.TypeParams[0], fieldPath)
 	}
 
-	// Opaque Go struct: allow a few enmime/* field names so len()/returns typecheck; else implicit.
+	// Opaque Go value: field types are unknown without go/types; treat every segment as implicit.
 	if resolvedType.Ident == ast.TypeImplicit {
-		if ft, ok := implicitGoFieldType(string(fieldName.ID)); ok {
-			if len(fieldPath) == 1 {
-				return ft, nil
-			}
-			return tc.lookupFieldPath(ft, fieldPath[1:])
-		}
 		if len(fieldPath) == 1 {
 			return ast.TypeNode{Ident: ast.TypeImplicit}, nil
 		}
@@ -264,16 +258,4 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 		return tc.inferValueConstraintType(field.Assertion.Constraints[0], fieldName, nil)
 	}
 	return ast.TypeNode{}, fmt.Errorf("field %s exists but is not a type or shape", fieldName)
-}
-
-// implicitGoFieldType maps a subset of common github.com/jhillyerd/enmime Envelope fields for FFI typing.
-func implicitGoFieldType(fieldName string) (ast.TypeNode, bool) {
-	switch fieldName {
-	case "Attachments":
-		return ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeImplicit}}}, true
-	case "Text", "HTML":
-		return ast.TypeNode{Ident: ast.TypeString}, true
-	default:
-		return ast.TypeNode{}, false
-	}
 }

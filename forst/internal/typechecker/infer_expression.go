@@ -409,7 +409,7 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 			return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, t.String())
 		}
 	}
-	// *T method calls: lower to element type for built-in / opaque Go receiver (e.g. *enmime.Envelope).
+	// *T method calls: lower to element type for built-in / opaque Go receivers.
 	if t.Ident == ast.TypePointer && len(t.TypeParams) == 1 {
 		t = t.TypeParams[0]
 	}

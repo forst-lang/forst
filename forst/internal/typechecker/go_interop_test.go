@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 
@@ -409,5 +410,93 @@ func TestCheckGoSignature_foldsPairIntErrorNoTuple(t *testing.T) {
 	}
 	if succ.Ident != ast.TypeInt {
 		t.Fatalf("want Int success, got %s", succ.String())
+	}
+}
+
+func TestGoPackageForImportLocal_returnsNilForEmptyOrDot(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	tc.GoWorkspaceDir = moduleRootFromWD(t)
+	if tc.goPackageForImportLocal("") != nil {
+		t.Fatal("expected nil for empty local name")
+	}
+	if tc.goPackageForImportLocal(".") != nil {
+		t.Fatal("expected nil for dot local name")
+	}
+}
+
+func TestGoPackageForImportLocal_returnsNilWhenUnknownLocal(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	tc.GoWorkspaceDir = moduleRootFromWD(t)
+	tc.importPathByLocal = map[string]string{"fmt": "fmt"}
+	if tc.goPackageForImportLocal("not_imported") != nil {
+		t.Fatal("expected nil when local is not mapped to an import path")
+	}
+}
+
+func TestGoTypeToForstType_namedGoTypeMapsToImplicit(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
+	if err != nil || len(loaded) == 0 {
+		t.Skip("go/packages could not load strings")
+	}
+	pkgp := loaded["strings"]
+	if pkgp == nil || pkgp.Types == nil {
+		t.Skip("strings package types unavailable")
+	}
+	obj := pkgp.Types.Scope().Lookup("Reader")
+	if obj == nil {
+		t.Fatal("strings.Reader not found")
+	}
+	got, ok := goTypeToForstType(obj.Type())
+	if !ok || got.Ident != ast.TypeImplicit {
+		t.Fatalf("want implicit, got ok=%v %#v", ok, got)
+	}
+}
+
+func TestGoTypeToForstType_pointerToUnmappedElementIsOpaquePointer(t *testing.T) {
+	t.Parallel()
+	ptr := types.NewPointer(types.Typ[types.UnsafePointer])
+	got, ok := goTypeToForstType(ptr)
+	if !ok {
+		t.Fatal("expected pointer mapping")
+	}
+	if got.Ident != ast.TypePointer || len(got.TypeParams) != 1 || got.TypeParams[0].Ident != ast.TypeImplicit {
+		t.Fatalf("want *implicit, got %#v", got)
+	}
+}
+
+func TestGoTypeToForstType_emptyInterfaceMapsToImplicit(t *testing.T) {
+	t.Parallel()
+	iface := types.NewInterfaceType(nil, nil)
+	got, ok := goTypeToForstType(iface)
+	if !ok || got.Ident != ast.TypeImplicit {
+		t.Fatalf("want implicit, got ok=%v %#v", ok, got)
+	}
+}
+
+func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	loaded, err := goload.LoadByPkgPath(dir, []string{"io"})
+	if err != nil || len(loaded) == 0 {
+		t.Skip("go/packages could not load io")
+	}
+	pkgp := loaded["io"]
+	if pkgp == nil || pkgp.Types == nil {
+		t.Skip("io package types unavailable")
+	}
+	obj := pkgp.Types.Scope().Lookup("Reader")
+	if obj == nil {
+		t.Fatal("io.Reader not found")
+	}
+	readerIface := obj.Type()
+
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := New(log, false)
+	ptr := ast.TypeNode{Ident: ast.TypePointer, TypeParams: []ast.TypeNode{{Ident: ast.TypeImplicit}}}
+	if !tc.forstAssignableToGoType(ptr, readerIface) {
+		t.Fatalf("expected *implicit assignable to %s", readerIface.String())
 	}
 }
