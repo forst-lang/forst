@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.17](https://github.com/forst-lang/forst/compare/v0.2.16...v0.2.17) (2026-04-19)
+
+
+### Features
+
+* **generate:** opt-in streaming TS clients, chan T IR, and sidecar async iterable ([8dcc68c](https://github.com/forst-lang/forst/commit/8dcc68cbe19ff9ea5db3039da08fac507fe0843e))
+
 ## [0.2.16](https://github.com/forst-lang/forst/compare/v0.2.15...v0.2.16) (2026-04-19)
 
 
