@@ -14,6 +14,8 @@ The **npm package version** is chosen by Release Please for `packages/cli`; the 
 
 **Registries:** [npm](https://www.npmjs.com/package/@forst/cli) · [JSR](https://jsr.io/@forst/cli).
 
+**CI publishes** use GitHub Actions OIDC ([trusted publishing](https://docs.npmjs.com/trusted-publishers/)) when configured on npm; a classic `NPM_TOKEN` in repo secrets still works as a fallback. JSR uses OIDC linked to the repo or a `JSR_TOKEN` secret.
+
 ## Install
 
 ```bash
@@ -35,6 +37,19 @@ With a local dependency, `node_modules/.bin/forst` runs the wrapper.
 | `FORST_CLI_VERIFY` | **Default:** sha256 verification is **required** using digests from [GitHub release metadata](https://docs.github.com/en/rest/releases/releases). Set to `0` or `false` to skip (not recommended). |
 
 Downloads use retries on transient HTTP errors, an exclusive lock when two processes install at once, and an atomic write so a partial file never replaces the binary. In CI or air-gapped environments, prefer `FORST_BINARY`, or set `FORST_CLI_VERIFY=0` only if the GitHub API is unreachable or the release has no digest metadata.
+
+## Upgrading
+
+Bump the **`@forst/cli`** version in `package.json` when you need a compiler release that shipped after your current lockfile entry. The wrapper always resolves the native binary for the **installed npm package semver**, not “latest” globally—so a stale dependency means a stale compiler until you upgrade. After upgrading, run `npx forst --forst-cli-info` to confirm the binary and `forst version` match expectations.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Download fails or 404 on asset | A GitHub release must exist for this package version’s compiler artifacts. If you use a git fork or unpublished semver, pin `FORST_BINARY` or publish/install a released CLI version. |
+| Wrong OS/arch binary | Rare on supported platforms; override with `FORST_BINARY` for custom builds. |
+| sha256 / verify errors | Release metadata must include digests; otherwise verification fails unless `FORST_CLI_VERIFY=0`. Corporate proxies blocking `api.github.com` show up here too. |
+| Two installs race | Locking avoids corruption; if both processes use different versions, each gets its own cache subdirectory. |
 
 ## API
 

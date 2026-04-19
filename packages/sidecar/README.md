@@ -2,7 +2,9 @@
 
 Sidecar integration for TypeScript applications to use Forst for high-performance backend operations.
 
-**Compiler:** depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for the same native `forst` binary download/cache. Env vars (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) apply here too—see [CLI README](../cli/README.md#environment).
+**Compiler:** depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for the same native `forst` binary download/cache. Env vars (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) apply here too—see [CLI README](../cli/README.md#environment). Published tarballs pin `@forst/cli` to a **caret range** (`^x.y.z`) matching the CLI version at release time—upgrade **sidecar** when you need a newer sidecar API, and let the range pull a newer CLI, or bump **`@forst/cli`** explicitly in your app if you only need a newer compiler.
+
+**Peer:** [`express`](https://www.npmjs.com/package/express) **^5** (see `peerDependencies`). Install it in your app; the sidecar does not bundle Express.
 
 ## Overview
 
@@ -24,8 +26,10 @@ The Forst sidecar enables gradual adoption of Forst within TypeScript applicatio
 From the npm registry (Node 18+):
 
 ```bash
-npm install @forst/sidecar
+npm install @forst/sidecar express
 ```
+
+(`express` is a peer dependency—install the major version range your app already uses if it satisfies `^5`.)
 
 **Monorepo / contributing:** clone the repo, then:
 
@@ -35,7 +39,7 @@ bun install
 bun run build
 ```
 
-**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes to npm and JSR automatically (`NPM_TOKEN` and JSR OIDC or `JSR_TOKEN` required).
+**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) runs **Publish packages (npm / JSR)**. npm: [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC from GitHub Actions) when each package is configured on npmjs.com; optional `NPM_TOKEN` secret still works as fallback. JSR: link the repo for OIDC or set `JSR_TOKEN`. With `workflow_call`, the trusted publisher workflow name on npm may need to match the **caller** (e.g. `release.yml`)—see npm’s troubleshooting for reusable workflows.
 
 **Local npm / JSR:** from `packages/sidecar`, run `npm publish` or `npx jsr publish` if you must publish outside CI; `npx jsr publish --dry-run` validates the JSR package. CI publishes only when a Release Please **GitHub Release** is published (workflow **Publish packages (npm / JSR)**).
 
@@ -190,6 +194,15 @@ If `FORST_DEV_URL` is present but you need to **spawn** locally anyway, set `sid
 **Codegen (`forst generate`):** call `forstSidecar.generateTypes()` to run `forst generate` with the same **effective project root** as `forst dev -root` (`rootDir` / `forstDir`). If you set **`configPath`**, the sidecar passes **`-config`** so file discovery matches `forst dev` (include/exclude in `ftconfig.json`). Writes `generated/` under that directory—no HTTP server required. Pair with **connect** mode in monorepos: one task runs `forst dev`, another runs `generateTypes` or a script that calls it.
 
 **Watch + generate:** set **`watchGenerate: true`** to run `forst generate` after each debounced hot-reload restart when `.ft` files change (spawn mode only; uses the same root and optional `-config` as `generateTypes`).
+
+### Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| `ContractVersionMismatch` / `ServerVersionMismatch` | `versionCheck` (default `warn`): align `@forst/sidecar` with the `forst dev` build, or set `versionCheck: "off"` temporarily while debugging. |
+| Port already in use | Another `forst dev` or sidecar **spawn** on the same `FORST_PORT`; use **connect** mode + `FORST_DEV_URL` for a second process. |
+| `invoke` throws `DevServerInvokeRejected` | HTTP 200 with `success: false` from the executor—inspect `invokeResponse` on the error, not only `message`. |
+| Compiler never downloads | Same as CLI: network to GitHub Releases, or set `FORST_BINARY` in CI. |
 
 ## API Reference
 

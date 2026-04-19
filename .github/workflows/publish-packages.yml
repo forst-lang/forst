@@ -24,9 +24,9 @@ jobs:
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
-    # https://docs.github.com/en/actions/tutorials/publish-packages/publish-nodejs-packages
     permissions:
       contents: read
+      id-token: write
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     if: inputs.cli_tag != ''
@@ -43,18 +43,16 @@ jobs:
         with:
           # Trailing slash matters for how setup-node wires auth to npm (same as GitHub’s publish tutorial).
           registry-url: "https://registry.npmjs.org/"
-          node-version: "20"
+          # Trusted publishing requires Node ≥22.14 and npm ≥11.5.1 (npm docs).
+          node-version: "24"
+
+      - name: Install npm CLI for trusted publishing
+        run: npm install -g npm@^11.5.1
 
       # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
       - name: Build @forst/cli
         working-directory: packages/cli
         run: bun run build
-
-      # E404 on PUT …/@forst%2fcli is almost always missing publish rights on the @forst scope (not a bad
-      # tarball). Fix: add the npm user for this token to https://www.npmjs.com/org/forst with publish
-      # access, or use a granular access token with Publish for @forst/cli (prefer an Automation token).
-      - name: Confirm npm user (debug 404 on publish)
-        run: npm whoami
 
       # Avoid workspace-aware publish (monorepo root): can make npm resolve sibling packages from the
       # registry before the version being published exists. `--workspaces=false` publishes cwd only.
@@ -88,6 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     needs: [cli-npm]
@@ -108,8 +107,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
+          # Trailing slash matters for how setup-node wires auth to npm (same as GitHub’s publish tutorial).
           registry-url: "https://registry.npmjs.org/"
-          node-version: "20"
+          node-version: "24"
+
+      - name: Install npm CLI for trusted publishing
+        run: npm install -g npm@^11.5.1
 
       # `npm pack` does not run prepublishOnly; run the same pipeline as publish, then pack with
       # --ignore-scripts so the tarball matches what npm publish would upload (prepublishOnly runs again on publish).
@@ -124,9 +127,6 @@ jobs:
           tar -xOf "${OUT}" package/package.json | jq -e \
             '.dependencies["@forst/cli"] | type == "string" and test("^\\^") and (test("^workspace:") | not)'
           git checkout -- package.json
-
-      - name: Confirm npm user (debug 404 on publish)
-        run: npm whoami
 
       - name: Publish package to NPM
         working-directory: packages/sidecar
