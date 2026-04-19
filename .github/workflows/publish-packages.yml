@@ -44,10 +44,14 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
+
+      # Ensure npm 11.5.1 or later is installed
+      - name: Update npm
+        run: npm install -g npm@latest
 
       # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
       - name: Build @forst/cli
@@ -103,10 +107,14 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
+
+      # Ensure npm 11.5.1 or later is installed
+      - name: Update npm
+        run: npm install -g npm@latest
 
       # `npm pack` does not run prepublishOnly; run the same pipeline as publish, then pack with
       # --ignore-scripts so the tarball matches what npm publish would upload (prepublishOnly runs again on publish).

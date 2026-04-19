@@ -30,7 +30,8 @@
     "node": ">=18"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "dependencies": {
     "@forst/cli": "workspace:*",
@@ -60,5 +61,9 @@
     "type": "git",
     "url": "git+https://github.com/forst-lang/forst.git",
     "directory": "packages/sidecar"
+  },
+  "homepage": "https://github.com/forst-lang/forst/tree/main/packages/sidecar#readme",
+  "bugs": {
+    "url": "https://github.com/forst-lang/forst/issues"
   }
 }

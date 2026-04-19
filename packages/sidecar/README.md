@@ -379,6 +379,7 @@ Forst compiles selected logic to native code; CPU-bound paths may outperform equ
 | **npm** | [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC) when the package is configured on npmjs.com; optional `NPM_TOKEN` as fallback. With reusable workflows, the workflow name trusted by npm may need to match the **caller** (e.g. `release.yml`)—see npm’s troubleshooting. |
 | **JSR** | Repository OIDC or `JSR_TOKEN`. |
 | **Manual** | From `packages/sidecar`: `npm publish` / `npx jsr publish`; `npx jsr publish --dry-run` to validate. |
+| **`repository.url`** | Same as CLI: for npm **trusted publishing** from GitHub, `repository.url` must match the repo OIDC sees ([npm docs](https://docs.npmjs.com/trusted-publishers/)). This package uses `git+https://github.com/forst-lang/forst.git`; change it if you publish from a fork. |
 
 ## See also
 

@@ -130,6 +130,7 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 | **npm** | [Package page](https://www.npmjs.com/package/@forst/cli). CI may use [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC); a repository `NPM_TOKEN` can still be used where a classic token fallback is required. |
 | **JSR** | [jsr.io/@forst/cli](https://jsr.io/@forst/cli)—link the repository for OIDC or configure `JSR_TOKEN` as documented by JSR. |
 | **Manual JSR** | From `packages/cli`: `npx jsr publish --dry-run` or `npx jsr publish`. A clean git tree is expected unless you pass `--allow-dirty`. |
+| **`repository.url`** | For [trusted publishing](https://docs.npmjs.com/trusted-publishers/) from GitHub Actions, `package.json` → `repository.url` must **exactly match** the GitHub repo running CI (e.g. `git+https://github.com/forst-lang/forst.git`). Forks must update this field to the fork (or publish only from the upstream repo)—otherwise npm can reject the publish. |
 
 ## Security
 
