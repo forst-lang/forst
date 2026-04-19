@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.22](https://github.com/forst-lang/forst/compare/sidecar-v0.1.21...sidecar-v0.1.22) (2026-04-19)
+
+
+### Features
+
+* **generate:** opt-in streaming TS clients, chan T IR, and sidecar async iterable ([8dcc68c](https://github.com/forst-lang/forst/commit/8dcc68cbe19ff9ea5db3039da08fac507fe0843e))
+
 ## [0.1.21](https://github.com/forst-lang/forst/compare/sidecar-v0.1.20...sidecar-v0.1.21) (2026-04-19)
 
 
