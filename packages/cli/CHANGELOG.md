@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.27](https://github.com/forst-lang/forst/compare/cli-v0.0.26...cli-v0.0.27) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** align npm auth with GitHub Node.js publish guide ([ac613b3](https://github.com/forst-lang/forst/commit/ac613b3683dc95cd8bd7bacb2ff493397e3e52fd))
+
 ## [0.0.26](https://github.com/forst-lang/forst/compare/cli-v0.0.25...cli-v0.0.26) (2026-04-19)
 
 
