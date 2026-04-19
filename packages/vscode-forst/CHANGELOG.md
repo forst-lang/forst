@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.10...vscode-forst-v0.2.0) (2026-04-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **vscode-forst:** Rename forst.path to forst.compiler.path and forst.downloadCompiler to forst.compiler.download in settings.json (no legacy keys).
+
+### Features
+
+* **vscode-forst:** nest compiler settings and pass preferLatestRelease to CLI ([5d6241d](https://github.com/forst-lang/forst/commit/5d6241d76212f4ee4eeed833432a57ebd0c80725))
+
 ## [0.1.10](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.9...vscode-forst-v0.1.10) (2026-04-12)
 
 

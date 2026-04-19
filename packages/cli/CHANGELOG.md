@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.35](https://github.com/forst-lang/forst/compare/cli-v0.0.34...cli-v0.0.35) (2026-04-19)
+
+
+### Features
+
+* **cli:** add preferLatestRelease for GitHub latest vs bundled semver ([4e2eff9](https://github.com/forst-lang/forst/commit/4e2eff97cb0fa3626325145bd0feb4b360237fe3))
+
 ## [0.0.34](https://github.com/forst-lang/forst/compare/cli-v0.0.33...cli-v0.0.34) (2026-04-19)
 
 
