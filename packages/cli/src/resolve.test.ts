@@ -12,7 +12,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
-import { resolveForstBinary } from "./resolve.js";
+import {
+  maxSemverCompilerVersion,
+  resolveForstBinary,
+} from "./resolve.js";
+import { getCliPackageVersion } from "./version.js";
 import {
   CompilerBinaryChecksumMismatch,
   CompilerBinaryDownloadFailed,
@@ -34,6 +38,12 @@ test("buildCompilerArtifactDownloadUrl", () => {
   ).toBe(
     "https://github.com/forst-lang/forst/releases/download/v0.0.19/forst-darwin-arm64"
   );
+});
+
+test("maxSemverCompilerVersion picks the higher semver", () => {
+  expect(maxSemverCompilerVersion("0.0.24", "0.0.34")).toBe("0.0.34");
+  expect(maxSemverCompilerVersion("1.0.0", "0.9.9")).toBe("1.0.0");
+  expect(maxSemverCompilerVersion("0.0.10", "0.0.9")).toBe("0.0.10");
 });
 
 describe("resolveForstBinary", () => {
@@ -239,6 +249,86 @@ describe("resolveForstBinary", () => {
           homedirFn: () => "/unused",
         })
       ).rejects.toBeInstanceOf(CompilerBinaryDownloadFailed);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("preferLatestRelease uses semver max and downloads newer release path", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const dest = join(cacheRoot, "99.0.0", destName);
+      const fakeBinary = Buffer.from("fake-forst-binary");
+      const hex = createHash("sha256").update(fakeBinary).digest("hex");
+
+      const fetchImpl: typeof fetch = async (url) => {
+        const s = String(url);
+        if (s.includes("/repos/forst-lang/forst/releases/latest")) {
+          return new Response(
+            JSON.stringify({ tag_name: "v99.0.0" }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (s.includes("/repos/forst-lang/forst/releases/tags/v99.0.0")) {
+          return new Response(
+            JSON.stringify({
+              assets: [{ name: destName, digest: `sha256:${hex}` }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        expect(s).toContain("/download/v99.0.0/" + destName);
+        return new Response(fakeBinary, { status: 200 });
+      };
+
+      const p = await resolveForstBinary({
+        preferLatestRelease: true,
+        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(fakeBinary)).toBe(true);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("preferLatestRelease does not fetch when allowDownload is false", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const bundled = getCliPackageVersion();
+      const dest = join(cacheRoot, bundled, destName);
+      mkdirSync(dirname(dest), { recursive: true });
+      const marker = Buffer.from("cached");
+      writeFileSync(dest, marker);
+      if (process.platform !== "win32") {
+        chmodSync(dest, 0o755);
+      }
+
+      const fetchImpl: typeof fetch = async () => {
+        throw new Error("network must not be used when allowDownload is false");
+      };
+
+      const p = await resolveForstBinary({
+        preferLatestRelease: true,
+        allowDownload: false,
+        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(marker)).toBe(true);
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }

@@ -18,8 +18,10 @@ export {
 export { getCliPackageVersion } from "./version.js";
 export {
   getCompilerArtifactDownloadUrlForCurrentPlatform,
+  getCompilerCacheBaseDir,
   getCompilerCacheDirForVersion,
   getExpectedCompilerBinaryPath,
+  maxSemverCompilerVersion,
   resolveForstBinary,
   validateCompilerVersionForCachePath,
 } from "./resolve.js";

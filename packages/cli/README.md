@@ -29,7 +29,7 @@ Use it in npm scripts, developer tooling, or as a dependency of libraries such a
 
 ## Overview
 
-`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: the **npm package version** determines which **native binary** is downloaded (matching that semver on GitHub Releases). The binary is cached per version so repeat invocations avoid redundant downloads.
+`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: by default the **npm package version** determines which **native binary** is downloaded (matching that semver on GitHub Releases). Callers may opt into **`preferLatestRelease`** so resolution uses semantic versioning to pick the newer of the bundled semver and GitHub’s latest release. The binary is cached per version so repeat invocations avoid redundant downloads.
 
 The wrapper is responsible for resolution, verification, and concurrency-safe installation—not for implementing compiler features (those live in the native `forst` executable).
 
@@ -103,12 +103,16 @@ For full command coverage (`dev`, `generate`, `lsp`, `fmt`, …), see [Native co
 
 ## How the wrapper works
 
+By default, programmatic resolution (`resolveForstBinary` with no options) follows the same rules as the CLI shim:
+
 1. Read the **semver** of the installed `@forst/cli` package (not “latest” from the registry globally).
 2. Resolve the corresponding **release assets** on GitHub for that version.
 3. Download (unless `FORST_BINARY` is set), **verify** when `FORST_CLI_VERIFY` is enabled, and place the binary in the cache.
 4. Execute the native `forst` with your arguments.
 
-Upgrading the **npm package** is therefore the supported way to pin a compiler version in Node workflows.
+**Optional: follow GitHub’s latest release (semantic versioning).** Pass **`preferLatestRelease: true`** to `resolveForstBinary` (and keep **`allowDownload: true`**). The wrapper then fetches **`releases/latest`** from GitHub, compares that tag to the bundled package semver using the **`semver`** library, and uses the **higher** of the two for the cache path and download. That way tooling can install a **newer** compiler than the bundled `@forst/cli` semver without downgrading when your npm package is already ahead. The latest-tag response is cached on disk under your cache root (`.latest-compiler-release.json`, refreshed about once per hour) so repeated calls do not hammer the API. If the latest check fails (offline, rate limits), resolution falls back to the bundled semver only.
+
+Upgrading the **npm package** remains the supported way to move the **minimum** compiler version in Node workflows; `preferLatestRelease` is for integrations (for example the VS Code extension) that should track GitHub releases between extension publishes.
 
 ## Programmatic API
 
@@ -116,6 +120,9 @@ Upgrading the **npm package** is therefore the supported way to pin a compiler v
 import { resolveForstBinary, spawnForst, getCliPackageVersion } from "@forst/cli";
 
 const bin = await resolveForstBinary();
+// Optional: max(bundled semver, GitHub latest) — see "How the wrapper works" above.
+// await resolveForstBinary({ preferLatestRelease: true });
+
 // spawnForst(["generate", "-h"], {}, { version: "0.0.19" });
 ```
 
@@ -140,7 +147,7 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 
 ## Upgrading
 
-Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. The wrapper always binds to the **installed npm semver**, not an implicit “latest” on the registry—stale dependencies mean a stale compiler until you upgrade.
+Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the **installed npm semver**, not an implicit “latest” on the registry—stale dependencies mean a stale compiler until you upgrade.
 
 After upgrading, run:
 

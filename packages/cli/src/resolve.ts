@@ -3,6 +3,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -11,6 +12,7 @@ import {
 import { open } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import semver from "semver";
 import { getCompilerArtifactName } from "./artifact.js";
 import { COMPILER_RELEASES_BASE } from "./constants.js";
 import {
@@ -38,6 +40,10 @@ const STALE_LOCK_MS = 10 * 60 * 1000;
 const LOCK_WAIT_MS = 120_000;
 const POLL_MS = 200;
 
+/** How long to reuse GitHub `releases/latest` when {@link ResolveForstBinaryOptions.preferLatestRelease} is set. */
+const LATEST_RELEASE_CACHE_TTL_MS = 60 * 60 * 1000;
+const LATEST_RELEASE_CACHE_FILENAME = ".latest-compiler-release.json";
+
 /** Semver-ish release id allowed as a single cache path segment (no separators). */
 const COMPILER_VERSION_FOR_CACHE_PATTERN =
   /^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/;
@@ -60,6 +66,7 @@ export type ResolveForstBinaryFs = Pick<
   typeof import("node:fs"),
   | "existsSync"
   | "mkdirSync"
+  | "readFileSync"
   | "writeFileSync"
   | "chmodSync"
   | "renameSync"
@@ -70,6 +77,12 @@ export type ResolveForstBinaryFs = Pick<
 export interface ResolveForstBinaryOptions {
   /** Compiler version to fetch (default: @forst/cli package version). */
   version?: string;
+  /**
+   * When true and {@link allowDownload} is true, fetches the latest GitHub release tag and uses the
+   * higher of that and the bundled @forst/cli semver for the cache path (may download a newer binary).
+   * Ignored when {@link version} is set. Default false for API callers; the VS Code extension defaults this on.
+   */
+  preferLatestRelease?: boolean;
   /**
    * When false, only `FORST_BINARY` or an existing cached binary is used; no network download.
    * Default true (download if missing).
@@ -118,6 +131,112 @@ export function getExpectedCompilerBinaryPath(
 ): string {
   const artifact = getCompilerArtifactName(platform, arch);
   return join(getCompilerCacheDirForVersion(version, options), artifact);
+}
+
+/** Root under which per-version compiler directories are stored (e.g. `~/.cache/forst-cli`). */
+export function getCompilerCacheBaseDir(
+  options?: { env?: NodeJS.ProcessEnv; homedirFn?: () => string }
+): string {
+  return dirname(getCompilerCacheDirForVersion("0.0.0", options));
+}
+
+/**
+ * Returns the higher of two semver strings (using `semver.coerce`). Used for bundled vs GitHub latest.
+ */
+export function maxSemverCompilerVersion(a: string, b: string): string {
+  const va = semver.coerce(a);
+  const vb = semver.coerce(b);
+  if (!va || !vb) {
+    throw new CompilerBinaryDownloadFailed(
+      `Invalid semver for compiler version comparison: "${a}" vs "${b}"`
+    );
+  }
+  return semver.gt(va, vb) ? a.trim() : b.trim();
+}
+
+interface LatestReleaseDiskCache {
+  version: string;
+  fetchedAt: number;
+}
+
+async function fetchLatestReleaseVersionWithDiskCache(
+  fetchFn: typeof fetch,
+  env: NodeJS.ProcessEnv,
+  homedirFn: () => string,
+  fs: ResolveForstBinaryFs
+): Promise<string> {
+  const base = getCompilerCacheBaseDir({ env, homedirFn });
+  const cachePath = join(base, LATEST_RELEASE_CACHE_FILENAME);
+  try {
+    if (fs.existsSync(cachePath)) {
+      const raw = fs.readFileSync(cachePath, "utf8");
+      const parsed = JSON.parse(raw) as LatestReleaseDiskCache;
+      if (
+        typeof parsed.version === "string" &&
+        typeof parsed.fetchedAt === "number" &&
+        Date.now() - parsed.fetchedAt < LATEST_RELEASE_CACHE_TTL_MS
+      ) {
+        return parsed.version;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const { fetchLatestCompilerReleaseVersion } = await import("./github-release.js");
+  const version = await fetchLatestCompilerReleaseVersion(fetchFn);
+  try {
+    fs.mkdirSync(base, { recursive: true });
+    fs.writeFileSync(
+      cachePath,
+      JSON.stringify({
+        version,
+        fetchedAt: Date.now(),
+      } satisfies LatestReleaseDiskCache),
+      "utf8"
+    );
+  } catch {
+    /* ignore */
+  }
+  return version;
+}
+
+async function resolveEffectiveCompilerVersion(
+  options: ResolveForstBinaryOptions,
+  allowDownload: boolean,
+  fs: ResolveForstBinaryFs
+): Promise<string> {
+  if (options.version !== undefined && options.version.length > 0) {
+    return validateCompilerVersionForCachePath(options.version);
+  }
+
+  const bundled = getCliPackageVersion();
+  const prefer =
+    options.preferLatestRelease === true && allowDownload;
+  if (!prefer) {
+    return validateCompilerVersionForCachePath(bundled);
+  }
+
+  const fetchFn = options.fetchImpl ?? fetch;
+  const env = options.env ?? process.env;
+  const homedirFn = options.homedirFn ?? homedir;
+
+  try {
+    const latest = await fetchLatestReleaseVersionWithDiskCache(
+      fetchFn,
+      env,
+      homedirFn,
+      fs
+    );
+    try {
+      const picked = maxSemverCompilerVersion(bundled, latest);
+      return validateCompilerVersionForCachePath(picked);
+    } catch {
+      return validateCompilerVersionForCachePath(bundled);
+    }
+  } catch {
+    return validateCompilerVersionForCachePath(bundled);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -238,13 +357,14 @@ export async function resolveForstBinary(
   const fs = options.fs ?? {
     existsSync,
     mkdirSync,
+    readFileSync,
     writeFileSync,
     chmodSync,
     renameSync,
     unlinkSync,
     statSync,
   };
-  const version = options.version ?? getCliPackageVersion();
+  const version = await resolveEffectiveCompilerVersion(options, allowDownload, fs);
   const artifact = getCompilerArtifactName(process.platform, process.arch);
   const dest = getExpectedCompilerBinaryPath(version, process.platform, process.arch, {
     env,
