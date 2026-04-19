@@ -1,49 +1,96 @@
 # @forst/sidecar
 
-TypeScript integration for running **Forst**-compiled logic alongside Node.js: manage the `forst dev` server (or attach to an existing one), call compiled functions over HTTP, and align generated types with your project layout.
+**TypeScript integration for Forst** in Node.js applications: start or attach to a `forst dev` server, invoke compiled Forst functions over HTTP, and keep generated types aligned with your repository layout.
 
-**Compiler dependency:** this package depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for resolving and caching the same native `forst` binary as the CLI. Environment variables (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) are shared—see [CLI README — Environment](../cli/README.md#environment). Published packages declare `@forst/cli` with a **semver caret** (`^x.y.z`) locked at release time. Upgrade **`@forst/sidecar`** when you need new sidecar APIs; adjust **`@forst/cli`** when you need a newer compiler without necessarily changing sidecar.
+This package is aimed at teams adopting Forst **incrementally**—without replacing their existing Express/TypeScript stack in one step.
 
-**Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^5** (`peerDependencies`). Install Express in the application; it is not bundled here.
+---
+
+## Table of contents
+
+1. [Overview](#overview)
+2. [At a glance](#at-a-glance)
+3. [Use cases](#use-cases)
+4. [Requirements](#requirements)
+5. [Features](#features)
+6. [Installation](#installation)
+7. [Quick start](#quick-start)
+8. [Express integration](#express-integration)
+9. [Architecture: spawn vs connect](#architecture-spawn-vs-connect)
+10. [Configuration](#configuration)
+11. [Environment variables](#environment-variables)
+12. [Versioning and codegen](#versioning-and-codegen)
+13. [Troubleshooting](#troubleshooting)
+14. [API reference](#api-reference)
+15. [Forst sources layout](#forst-sources-layout)
+16. [Development](#development)
+17. [Package layout](#package-layout)
+18. [Performance](#performance)
+19. [Error handling](#error-handling)
+20. [Publishing and distribution](#publishing-and-distribution)
+21. [See also](#see-also)
+22. [Support](#support)
+23. [Contributing](#contributing)
+24. [License](#license)
+
+---
 
 ## Overview
 
-The sidecar lets teams introduce Forst incrementally: keep your existing TypeScript and HTTP stack, route hot paths through compiled Forst functions, and use **spawn** mode for local development or **connect** mode when a single `forst dev` instance is shared across processes or CI tasks.
+The sidecar orchestrates the **Forst development server** (`forst dev`) and a small **HTTP client** so TypeScript code can discover functions, invoke them with JSON payloads, and run `forst generate` with the same roots and config as the dev server.
+
+Two runtime modes matter in practice:
+
+| Mode | Role |
+| --- | --- |
+| **Spawn** | The sidecar starts `forst dev` as a child process (typical local development). |
+| **Connect** | The sidecar only talks HTTP to an already-running `forst dev` (typical second process, CI shard, or monorepo package). |
+
+**Compiler dependency:** [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) supplies the native `forst` binary (download/cache). Shared environment variables: [`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`](../cli/README.md#environment-variables). Published `@forst/sidecar` packages declare `@forst/cli` with a **caret** range (`^x.y.z`) fixed at release time—bump **sidecar** for API changes, adjust **`@forst/cli`** when you only need a newer compiler.
+
+**Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^5**—install Express in the host application; it is not bundled here.
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Role** | Dev server lifecycle + HTTP client + optional Express middleware |
+| **Typical stack** | Node.js 18+, Express 5, `@forst/cli` (transitive or direct) |
+| **Protocols** | JSON over HTTP to `forst dev` ([contract](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)) |
+| **Registries** | [npm](https://www.npmjs.com/package/@forst/sidecar) · [JSR](https://jsr.io/@forst/sidecar) |
 
 ## Use cases
 
-- **Development:** run one `ForstSidecar` with hot reload against a tree of `.ft` files; iterate from TypeScript without managing the compiler binary manually.
-- **Monorepos:** centralize `forst dev` at the repository root; other packages attach in **connect** mode to avoid duplicate servers and port contention.
-- **Automation:** drive `forst generate` and health checks from the same configuration you use for the dev server.
+- **Local development:** one `ForstSidecar` with hot reload over a tree of `.ft` files; iterate from TypeScript without hand-managing the compiler binary.
+- **Monorepos:** run a single `forst dev` at the repo root; other packages use **connect** mode so only the HTTP client runs (no duplicate servers or port collisions).
+- **Automation and CI:** shared `FORST_DEV_URL`, health checks, and `generateTypes()` from the same configuration as dev.
 
 ## Requirements
 
 - **Node.js** 18 or later (`engines` in `package.json`)
-- **Express** 5.x installed in the host application (peer dependency)
-- **`@forst/cli`** available at runtime (installed transitively or pinned explicitly) so the native compiler can be resolved
+- **Express** 5.x in the host application (`peerDependencies`)
+- **`@forst/cli`** resolvable at runtime (dependency of this package or pinned explicitly) so the native compiler can be located
 
 ## Features
 
-- **Zero-config setup**: Automatic detection and compilation of Forst files
-- **Hot reloading**: Automatic recompilation when `.ft` files change
-- **Type safety**: Automatic TypeScript interface generation
-- **HTTP transport**: Familiar REST/JSON patterns for easy debugging
-- **Express.js integration**: Drop-in middleware for Express applications
-- **Health monitoring**: Built-in health checks and status monitoring
+- Zero-config defaults for common layouts
+- Hot reload when `.ft` files change (spawn mode)
+- TypeScript-oriented workflow (`forst generate`, optional watch)
+- HTTP/JSON interaction with `forst dev`
+- Express middleware to expose the sidecar on `req.forst`
+- Health and version endpoints for coordination with orchestration
 
-## Quick Start
+## Installation
 
-### Installation
-
-From the npm registry (Node 18+):
+**From the public registry:**
 
 ```bash
 npm install @forst/sidecar express
 ```
 
-(`express` is a peer dependency—install the major version range your app already uses if it satisfies `^5`.)
+Express is a **peer dependency**—if your app already satisfies `express@^5`, you do not need a second install line.
 
-**Monorepo / contributing:** clone the repo, then:
+**Working inside this monorepo** (contributors):
 
 ```bash
 cd packages/sidecar
@@ -51,29 +98,20 @@ bun install
 bun run build
 ```
 
-**Releases:** `@forst/sidecar` is versioned by [Release Please](https://github.com/googleapis/release-please) (`packages/sidecar` in [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). Merging the release PR bumps `package.json` and `jsr.json`. When GitHub publishes a release whose tag contains `sidecar-v`, [publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) runs **Publish packages (npm / JSR)**. npm: [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC from GitHub Actions) when each package is configured on npmjs.com; optional `NPM_TOKEN` secret still works as fallback. JSR: link the repo for OIDC or set `JSR_TOKEN`. With `workflow_call`, the trusted publisher workflow name on npm may need to match the **caller** (e.g. `release.yml`)—see npm’s troubleshooting for reusable workflows.
-
-**Local npm / JSR:** from `packages/sidecar`, run `npm publish` or `npx jsr publish` if you must publish outside CI; `npx jsr publish --dry-run` validates the JSR package. CI publishes only when a Release Please **GitHub Release** is published (workflow **Publish packages (npm / JSR)**).
-
-**Registries:** [npm](https://www.npmjs.com/package/@forst/sidecar) · [JSR](https://jsr.io/@forst/sidecar).
-
-### Basic Usage
+## Quick start
 
 ```typescript
 import { autoStart } from "@forst/sidecar";
 
 async function main() {
-  // Start the sidecar with zero configuration
   const sidecar = await autoStart({
-    forstDir: "./forst", // Directory containing your .ft files
+    forstDir: "./forst",
     port: 8080,
   });
 
-  // Discover available functions
   const functions = await sidecar.discoverFunctions();
   console.log("Available functions:", functions);
 
-  // Call a Forst function (third argument is the JSON args array for the Forst call)
   const result = await sidecar.invoke("myPackage", "myFunction", [
     { arg: "value" },
   ]);
@@ -83,7 +121,9 @@ async function main() {
 main().catch(console.error);
 ```
 
-### Express.js Integration
+The third argument to `invoke` is the **positional JSON argument array** expected by the Forst executor.
+
+## Express integration
 
 ```typescript
 import express from "express";
@@ -91,17 +131,14 @@ import { ForstSidecar, createExpressMiddleware } from "@forst/sidecar";
 
 const app = express();
 
-// Create and start the sidecar
 const sidecar = new ForstSidecar({
   forstDir: "./forst",
   port: 8080,
 });
 await sidecar.start();
 
-// Add middleware to make sidecar available in routes
 app.use(createExpressMiddleware(sidecar));
 
-// Use Forst functions in your routes
 app.post("/process-data", async (req, res) => {
   try {
     const result = await req.forst.invoke("data", "process", [req.body]);
@@ -116,18 +153,36 @@ app.listen(3000, () => {
 });
 ```
 
+## Architecture: spawn vs connect
+
+**Spawn (default when no dev URL is set)**
+
+- The sidecar resolves the `forst` binary (via `@forst/cli`) and starts `forst dev` as a subprocess.
+- Use for local development and whenever this process should own the compiler lifecycle.
+
+**Connect**
+
+- Set `sidecarRuntime: "connect"` and `devServerUrl`, or set `FORST_DEV_URL` (see [Environment variables](#environment-variables)).
+- The sidecar does **not** spawn a child; it only issues HTTP requests to an existing server.
+- Use when another task or package already runs `forst dev`, or in CI where the server is started separately.
+
+`start()` resolves the compiler binary only in **spawn** mode.
+
 ## Configuration
 
-**Project layout:** `forst dev -root` uses `rootDir` if set, otherwise `forstDir`, otherwise `./forst`, so discovery matches your `.ft` tree. Hot-reload (spawn mode) uses **chokidar** on `watchRoots` if set; otherwise it watches the same directory as **default watch root**: `forstDir`, then `rootDir`, then the same default as `-root`. Set `rootDir` to your **repository or app root** when `.ft` files live in multiple packages; use `watchRoots` to watch several folders without scanning unrelated subtrees.
+### Project layout and roots
 
-**Explicit `ftconfig.json`:** set `configPath` to pass `-config` to `forst dev`. The compiler still discovers `ftconfig.json` by walking up from the process working directory (`-root`); `configPath` is for pinning a canonical file in monorepos.
+`forst dev -root` uses `rootDir` if set, otherwise `forstDir`, otherwise `./forst`, so discovery matches your `.ft` tree. In **spawn** mode, hot reload uses **chokidar** on `watchRoots` when set; otherwise it watches the same directory as the default watch root (`forstDir`, then `rootDir`, then the same default as `-root`). Set `rootDir` to your **repository or app root** when `.ft` files span multiple packages; use `watchRoots` to include several folders without scanning unrelated subtrees.
+
+### `ftconfig.json`
+
+Set `configPath` to pass `-config` to `forst dev` when you need a canonical config path in monorepos. The compiler still discovers `ftconfig.json` by walking upward from the process working directory (`-root`); `configPath` pins a specific file when discovery-by-walk is ambiguous.
 
 ### Monorepos and mixed Forst + TypeScript
 
-- **One dev server per repo (recommended):** run a single `ForstSidecar` with `rootDir` pointing at the monorepo root so discovery sees every `**/*.ft` under that tree (subject to `ftconfig.json` include/exclude). In other packages or processes, use **connect mode** so only the HTTP client runs (no second `forst dev` child, no port collision).
-- **Connect mode:** `sidecarRuntime: "connect"` with `devServerUrl`, or set `FORST_DEV_URL` (see below). `start()` resolves the compiler binary only in **spawn** mode.
-- **Stable types per package:** for checked-in `.d.ts` and CI, prefer `forst generate` where applicable; the dev server’s `GET /types` is for live iteration—see [examples/in/rfc/typescript-client/01-integration-profiles.md](../../examples/in/rfc/typescript-client/01-integration-profiles.md).
-- **Turborepo / Nx:** model `forst dev` as one task (or one sidecar `spawn` at the root); dependent tasks use the sidecar in **connect** mode or call the HTTP API with a shared base URL.
+- **One dev server per repository (recommended):** a single `ForstSidecar` with `rootDir` at the monorepo root so discovery sees `**/*.ft` under that tree (subject to `ftconfig.json` include/exclude). Other packages use **connect** mode.
+- **Stable checked-in types:** prefer `forst generate` (or `generateTypes()`) for CI and commits; `GET /types` on the dev server is for live iteration—see [01-integration-profiles.md](../../examples/in/rfc/typescript-client/01-integration-profiles.md).
+- **Turborepo / Nx:** model `forst dev` as one root task; dependents use **connect** mode or call the HTTP API with a shared base URL.
 
 Example layout:
 
@@ -143,31 +198,31 @@ repo/
 ```
 
 ```typescript
-// Package A — spawns `forst dev`
+// One process — spawns `forst dev`
 await new ForstSidecar({
   rootDir: ".",
   configPath: "./ftconfig.json",
 }).start();
 
-// Package B — same process, another terminal, or CI helper — attach only
+// Another terminal or package — attach only
 await new ForstSidecar({
   sidecarRuntime: "connect",
   devServerUrl: "http://127.0.0.1:8080",
 }).start();
 ```
 
-### Basic Configuration
+### Example `ForstConfig` shape
 
 ```typescript
 import { ForstConfig } from "@forst/sidecar";
 
 const config: ForstConfig = {
-  mode: "development", // 'development' | 'production' | 'testing'
-  forstDir: "./forst", // Directory containing .ft files
-  outputDir: "./dist/forst", // Output directory for compiled files
-  port: 8080, // HTTP server port
-  host: "localhost", // HTTP server host
-  logLevel: "info", // 'debug' | 'info' | 'warn' | 'error'
+  mode: "development",
+  forstDir: "./forst",
+  outputDir: "./dist/forst",
+  port: 8080,
+  host: "localhost",
+  logLevel: "info",
   transports: {
     development: {
       mode: "http",
@@ -189,129 +244,68 @@ const config: ForstConfig = {
 };
 ```
 
-### Environment Variables
+## Environment variables
 
-Precedence: explicit fields on `ForstConfig` win over these variables (see `mergeForstSidecarEnv`).
+Precedence: explicit fields on `ForstConfig` override these (see `mergeForstSidecarEnv` in the codebase).
 
-- `NODE_ENV`: Used by helpers for default `mode` where applicable.
-- `FORST_DIR`: Default for `forstDir` when not set in config.
-- `FORST_PORT`: Default `port` when not set in config (spawn and health checks).
-- `FORST_DEV_URL`: Base URL of an existing `forst dev` (e.g. `http://127.0.0.1:8080`). When set, **`sidecarRuntime` defaults to `connect`** unless you pass `sidecarRuntime: "spawn"` explicitly.
-- `FORST_SKIP_SPAWN`: If `1`, same as forcing **connect** mode (you must still provide a URL via `devServerUrl` or `FORST_DEV_URL`).
+| Variable | Role |
+| --- | --- |
+| `NODE_ENV` | Influences default `mode` where applicable. |
+| `FORST_DIR` | Default for `forstDir` when not set in config. |
+| `FORST_PORT` | Default `port` when not set (spawn and health checks). |
+| `FORST_DEV_URL` | Base URL of an existing `forst dev` (e.g. `http://127.0.0.1:8080`). When set, **`sidecarRuntime` defaults to `connect`** unless you pass `sidecarRuntime: "spawn"`. |
+| `FORST_SKIP_SPAWN` | If `1`, forces **connect** semantics; you must still supply `devServerUrl` or `FORST_DEV_URL`. |
 
-If `FORST_DEV_URL` is present but you need to **spawn** locally anyway, set `sidecarRuntime: "spawn"` in code so the sidecar does not attach to the remote URL.
+If `FORST_DEV_URL` is set but you need a local **spawn** anyway, set `sidecarRuntime: "spawn"` in code.
 
-**Version check:** `versionCheck` on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**) runs after `start()`: it checks that `GET /version`’s **`contractVersion`** matches what this `@forst/sidecar` release expects (HTTP API compatibility), then compares the local `forst` binary (`forst version`) to the server’s reported version using **semver** when both sides parse as semver (otherwise exact string match). In **`strict`**, mismatches throw `ContractVersionMismatch` or `ServerVersionMismatch`. Older `forst dev` builds without a usable `/version` log a warning unless `versionCheck` is `off`.
+## Versioning and codegen
 
-**Codegen (`forst generate`):** call `forstSidecar.generateTypes()` to run `forst generate` with the same **effective project root** as `forst dev -root` (`rootDir` / `forstDir`). If you set **`configPath`**, the sidecar passes **`-config`** so file discovery matches `forst dev` (include/exclude in `ftconfig.json`). Writes `generated/` under that directory—no HTTP server required. Pair with **connect** mode in monorepos: one task runs `forst dev`, another runs `generateTypes` or a script that calls it.
+**`versionCheck`** on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**): after `start()`, compares `GET /version`’s **`contractVersion`** with what this `@forst/sidecar` build expects, then compares the local `forst` binary (`forst version`) to the server’s version (semver when both parse, else exact string). **`strict`** throws `ContractVersionMismatch` or `ServerVersionMismatch`. Older `forst dev` builds without a usable `/version` log a warning unless `versionCheck` is `off`.
 
-**Watch + generate:** set **`watchGenerate: true`** to run `forst generate` after each debounced hot-reload restart when `.ft` files change (spawn mode only; uses the same root and optional `-config` as `generateTypes`).
+**`generateTypes()`** runs `forst generate` with the same effective project root as `forst dev -root` (`rootDir` / `forstDir`). If **`configPath`** is set, `-config` is passed so include/exclude matches `forst dev`. Output goes under `generated/`—no HTTP server required. In monorepos, pair with **connect** mode: one task runs `forst dev`, another runs codegen.
 
-### Troubleshooting
+**`watchGenerate`:** when `true`, runs `forst generate` after debounced hot-reload restarts when `.ft` files change (**spawn** mode only; same roots as `generateTypes`).
+
+## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
-| `ContractVersionMismatch` / `ServerVersionMismatch` | `versionCheck` (default `warn`): align `@forst/sidecar` with the `forst dev` build, or set `versionCheck: "off"` temporarily while debugging. |
-| Port already in use | Another `forst dev` or sidecar **spawn** on the same `FORST_PORT`; use **connect** mode + `FORST_DEV_URL` for a second process. |
-| `invoke` throws `DevServerInvokeRejected` | HTTP 200 with `success: false` from the executor—inspect `invokeResponse` on the error, not only `message`. |
-| Compiler never downloads | Same as CLI: network to GitHub Releases, or set `FORST_BINARY` in CI. |
+| `ContractVersionMismatch` / `ServerVersionMismatch` | Align `@forst/sidecar` with the `forst dev` build, or set `versionCheck: "off"` temporarily. |
+| Port already in use | Another **spawn** on the same `FORST_PORT`; use **connect** + `FORST_DEV_URL` for a second process. |
+| `DevServerInvokeRejected` | HTTP 200 with `success: false` from the executor—inspect `invokeResponse` on the error. |
+| Compiler never downloads | Network access to GitHub Releases, or set `FORST_BINARY` (see [CLI README](../cli/README.md#environment-variables)). |
 
-## API Reference
+## API reference
 
-### ForstSidecar
+### `ForstSidecar`
 
-Main class for managing the sidecar integration.
+Main API for managing the sidecar.
 
-#### Methods
+| Method | Description |
+| --- | --- |
+| `start()` | Start `forst dev` (**spawn**) or attach (**connect**). |
+| `stop()` | Stop the child process or disconnect the client. |
+| `discoverFunctions()` | List discoverable Forst functions. |
+| `invoke(package, function, args)` | Call a function; `args` is the positional JSON array. On HTTP 200 with `success: false`, throws **`DevServerInvokeRejected`**. Non-2xx: **`DevServerHttpFailure`**; JSON bodies may set **`serverErrorFromBody`**. |
+| `invokeStreaming(...)` | Same `args` shape as `invoke`, with streaming. |
+| `healthCheck()` | Server health. |
+| `getVersion()` | `GET /version` (compiler + contract metadata). |
+| `generateTypes()` | Run `forst generate` at the configured root. |
+| `isRunning()` | Whether the server is considered up. |
 
-- `start()`: Start the development server (spawn `forst dev`) or attach in **connect** mode
-- `stop()`: Stop the spawned child or disconnect the client
-- `discoverFunctions()`: Discover available Forst functions
-- `invoke(package, function, args)`: Call a Forst function (`args`: positional JSON array for the executor). If the dev server returns HTTP 200 with `success: false`, throws **`DevServerInvokeRejected`** (structured `invokeResponse` on the error). Non-2xx responses throw **`DevServerHttpFailure`**; when the body is JSON from `forst dev`, **`serverErrorFromBody`** holds the `error` field.
-- `invokeStreaming(package, function, args, onResult)`: Same `args` shape as `invoke` (positional array), with streaming
-- `healthCheck()`: Check server health
-- `getVersion()`: Read `GET /version` (compiler + HTTP contract metadata)
-- `generateTypes()`: Run `forst generate` on the configured project root (writes `generated/` TS)
-- `isRunning()`: Check if server is running
+### `ForstClient`
 
-### ForstClient
+HTTP client for the same JSON API; method semantics match `ForstSidecar` where applicable.
 
-HTTP client for communicating with the Forst server.
+### `ForstServer`
 
-#### Methods
+Process management for the development server (`start` / `stop` / `restart` / `getServerInfo`).
 
-- `discoverFunctions()`: Get list of available functions
-- `invoke(package, function, args)`: Call a function (positional `args` array); throws **`DevServerInvokeRejected`** / **`DevServerHttpFailure`** on failure (same semantics as `ForstSidecar.invoke`)
-- `invokeStreaming(package, function, args, onResult)`: Stream results; same positional `args` as `invoke`
-- `healthCheck()`: Check server health
-- `getVersion()`: Read `GET /version`
+## Forst sources layout
 
-### ForstServer
+Organize `.ft` files under a directory such as `forst/` (names are project-specific):
 
-Manages the Forst development server process.
-
-#### Methods
-
-- `start()`: Start the server
-- `stop()`: Stop the server
-- `restart()`: Restart the server
-- `getServerInfo()`: Get server status information
-
-## Development
-
-### Building
-
-```bash
-bun run build
-```
-
-### Development Mode
-
-```bash
-bun run dev
-```
-
-### Testing
-
-```bash
-bun test
-```
-
-### Running Examples
-
-```bash
-# Run the basic example
-bun run example
-
-# Or run the compiled example
-node dist/examples/basic.js
-```
-
-## Project Structure
-
-```
-packages/sidecar/
-├── src/
-│   ├── index.ts          # Barrel exports
-│   ├── sidecar.ts        # ForstSidecar, middleware, autoStart
-│   ├── client.ts         # HTTP client
-│   ├── server.ts         # Development server
-│   ├── types.ts          # TypeScript types
-│   └── utils.ts          # Utility functions
-├── examples/
-│   └── basic.ts          # Basic usage example
-├── dist/                 # Compiled output
-├── package.json
-├── tsconfig.json        # IDE + `tsc --noEmit` (includes tests, Bun types)
-├── tsconfig.build.json  # `npm run build` emit (excludes *.test.ts)
-└── README.md
-```
-
-## Forst File Structure
-
-The sidecar expects Forst files to be organized as follows:
-
-```
+```text
 forst/
 ├── routes/
 │   ├── process_data.ft
@@ -322,7 +316,7 @@ forst/
     └── helpers.ft
 ```
 
-Each `.ft` file should contain public functions that can be called from TypeScript:
+Expose public functions callable from TypeScript—for example:
 
 ```go
 // forst/routes/process_data.ft
@@ -333,39 +327,75 @@ type ProcessDataInput = {
 }
 
 func processData(input ProcessDataInput) {
-  // High-performance processing logic
   return { processed: len(input.records), status: "success" }
 }
 ```
 
+## Development
+
+| Task | Command |
+| --- | --- |
+| Build | `bun run build` |
+| Watch | `bun run dev` |
+| Tests | `bun test` |
+| Example | `bun run example` or `node dist/examples/basic.js` after build |
+
+## Package layout
+
+```text
+packages/sidecar/
+├── src/
+│   ├── index.ts          # Barrel exports
+│   ├── sidecar.ts        # ForstSidecar, middleware, autoStart
+│   ├── client.ts         # HTTP client
+│   ├── server.ts         # Development server
+│   ├── types.ts          # TypeScript types
+│   └── utils.ts          # Utilities
+├── examples/basic.ts
+├── dist/                 # Build output
+├── package.json
+├── tsconfig.json         # IDE + typecheck (includes tests)
+├── tsconfig.build.json   # Emit for publish
+└── README.md
+```
+
 ## Performance
 
-Forst compiles selected logic to native code; workloads that are CPU-bound or benefit from Go’s runtime model may see lower latency and more predictable memory use than equivalent hot paths left in interpreted TypeScript. Measure in your own deployment: the sidecar focuses on integration, not on benchmarking your application.
+Forst compiles selected logic to native code; CPU-bound paths may outperform equivalent hot spots left in interpreted TypeScript. **Measure in your own environment**—the sidecar handles integration, not application benchmarking.
 
 ## Error handling
 
-- **Compilation failures:** surfaced from the compiler process; inspect logs from `forst dev` when spawn mode is used.
-- **Invoke failures:** typed errors (`DevServerInvokeRejected`, `DevServerHttpFailure`) distinguish HTTP and application-level failures—see [API Reference](#api-reference).
-- **Network resilience:** the HTTP client applies retries with backoff for transient errors where appropriate.
-- **Health checks:** use `healthCheck()` or your configured HTTP health path to verify the dev server before routing traffic.
+- **Compilation:** errors surface from `forst dev` logs in **spawn** mode.
+- **Invoke:** use `DevServerInvokeRejected` and `DevServerHttpFailure` for structured handling ([API reference](#api-reference)).
+- **HTTP client:** retries with backoff where appropriate for transient failures.
+- **Health:** use `healthCheck()` or your HTTP health route before depending on traffic.
+
+## Publishing and distribution
+
+| Topic | Details |
+| --- | --- |
+| **Versioning** | [Release Please](https://github.com/googleapis/release-please) for `packages/sidecar`; tags like `sidecar-v*` update `package.json` and `jsr.json` ([config](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). |
+| **CI** | [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes to npm and JSR after a Release Please **GitHub Release**. |
+| **npm** | [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC) when the package is configured on npmjs.com; optional `NPM_TOKEN` as fallback. With reusable workflows, the workflow name trusted by npm may need to match the **caller** (e.g. `release.yml`)—see npm’s troubleshooting. |
+| **JSR** | Repository OIDC or `JSR_TOKEN`. |
+| **Manual** | From `packages/sidecar`: `npm publish` / `npx jsr publish`; `npx jsr publish --dry-run` to validate. |
 
 ## See also
 
-- **`forst dev` HTTP contract** (JSON API): [examples/in/rfc/typescript-client/02-forst-dev-http-contract.md](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)
-- **Roadmap** (TypeScript interoperability): [ROADMAP.md](../../ROADMAP.md)
+- **`forst dev` HTTP contract:** [02-forst-dev-http-contract.md](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)
+- **Roadmap:** [ROADMAP.md](../../ROADMAP.md)
 
 ## Support
 
-For sidecar-specific behavior, open an issue in the [project issue tracker](https://github.com/forst-lang/forst/issues) with your `@forst/sidecar` and `@forst/cli` versions, whether you use **spawn** or **connect** mode, and relevant logs. For compiler or binary download issues, include `npx forst --forst-cli-info` from [`@forst/cli`](../cli/README.md).
+Open an issue in the [tracker](https://github.com/forst-lang/forst/issues) with `@forst/sidecar` and `@forst/cli` versions, **spawn** vs **connect**, and logs. For compiler or binary issues, include `npx forst --forst-cli-info` from [`@forst/cli`](../cli/README.md).
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+1. Fork the repository  
+2. Create a feature branch  
+3. Make changes and add tests where appropriate  
+4. Open a pull request  
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT — see the [`LICENSE`](./LICENSE) file in this package.

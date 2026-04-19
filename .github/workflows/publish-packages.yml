@@ -58,7 +58,7 @@ jobs:
       # registry before the version being published exists. `--workspaces=false` publishes cwd only.
       - name: Publish package to NPM
         working-directory: packages/cli
-        run: npm publish --access public --workspaces=false
+        run: npm publish --access public --workspaces=false --provenance
 
   cli-jsr:
     name: "@forst/cli → JSR"
@@ -124,7 +124,7 @@ jobs:
 
       - name: Publish package to NPM
         working-directory: packages/sidecar
-        run: npm publish --access public --workspaces=false
+        run: npm publish --access public --workspaces=false --provenance
 
   sidecar-jsr:
     name: "@forst/sidecar → JSR"
