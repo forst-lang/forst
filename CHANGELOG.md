@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.12](https://github.com/forst-lang/forst/compare/v0.2.11...v0.2.12) (2026-04-19)
+
+
+### Bug Fixes
+
+* **typechecker:** lazy-load Go imports and improve opaque FFI typing ([c0bd7d2](https://github.com/forst-lang/forst/commit/c0bd7d28c99f2ddd02ebaad9fc318df3fbbe9927))
+* **typechecker:** unify `nil == nil` to Bool ([6e98448](https://github.com/forst-lang/forst/commit/6e98448c7f99b38bf8a0f43b53f1f246b17e3ec1))
+
 ## [0.2.11](https://github.com/forst-lang/forst/compare/v0.2.10...v0.2.11) (2026-04-19)
 
 
