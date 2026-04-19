@@ -30,14 +30,21 @@ type Args struct {
 	PackageRoot string
 }
 
-// ParseArgs parses the command line arguments and returns a ProgramArgs struct.
+// ParseArgs parses os.Args for the run/build CLI path.
 func ParseArgs(log *logrus.Logger) Args {
-	if len(os.Args) < 2 {
+	return ParseArgsFrom(os.Args, log)
+}
+
+// ParseArgsFrom parses argv as the full argument vector (argv[0] is the program name).
+// Used by cmd/forst after subcommands are handled, and by tests without mutating os.Args
+// (avoids data races under -race with coverage teardown).
+func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
+	if len(argv) < 2 {
 		printUsage(log)
 		return Args{}
 	}
 
-	command := os.Args[1]
+	command := argv[1]
 	if command == "--help" || command == "-h" {
 		printUsage(log)
 		os.Exit(0)
@@ -65,7 +72,7 @@ func ParseArgs(log *logrus.Logger) Args {
 	packageRoot := flags.String("root", "", "Root directory: merge all .ft files under it that share the entry file's package (optional)")
 	help := flags.Bool("help", false, "Show help message")
 
-	if err := flags.Parse(os.Args[2:]); err != nil {
+	if err := flags.Parse(argv[2:]); err != nil {
 		return Args{}
 	}
 

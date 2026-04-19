@@ -79,6 +79,13 @@ func runMain(argv []string) int {
 			log.Errorf("Failed to resolve root directory: %v", err)
 			return 1
 		}
+		if fi, err := os.Stat(absRootDir); err != nil {
+			log.Errorf("Failed to access root directory: %v", err)
+			return 1
+		} else if !fi.IsDir() {
+			log.Errorf("Root path is not a directory: %s", absRootDir)
+			return 1
+		}
 
 		if err := startDevServerFunc(*port, log, *configPath, absRootDir, logLevel); err != nil {
 			return 1
@@ -165,11 +172,7 @@ func runMain(argv []string) int {
 		return 0
 	}
 
-	saved := os.Args
-	os.Args = argv
-	defer func() { os.Args = saved }()
-
-	args := compiler.ParseArgs(log)
+	args := compiler.ParseArgsFrom(argv, log)
 
 	p := compiler.New(args, log)
 

@@ -3,7 +3,6 @@ package compiler
 import (
 	"bytes"
 	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -25,16 +24,12 @@ func TestPrintUsage_smoke(t *testing.T) {
 }
 
 func TestParseArgs_noSubcommand_printsUsageAndReturnsEmpty(t *testing.T) {
-	old := os.Args
-	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst"}
-
 	var buf bytes.Buffer
 	log := logrus.New()
 	log.SetOutput(&buf)
 	log.SetLevel(logrus.InfoLevel)
 
-	args := ParseArgs(log)
+	args := ParseArgsFrom([]string{"forst"}, log)
 	if args.Command != "" {
 		t.Fatalf("expected empty command, got %q", args.Command)
 	}
@@ -44,15 +39,11 @@ func TestParseArgs_noSubcommand_printsUsageAndReturnsEmpty(t *testing.T) {
 }
 
 func TestParseArgs_unknownCommand_returnsEmpty(t *testing.T) {
-	old := os.Args
-	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst", "nope", "x.ft"}
-
 	var buf bytes.Buffer
 	log := logrus.New()
 	log.SetOutput(&buf)
 
-	args := ParseArgs(log)
+	args := ParseArgsFrom([]string{"forst", "nope", "x.ft"}, log)
 	if args.Command != "" {
 		t.Fatalf("expected empty args, got command %q", args.Command)
 	}
@@ -62,15 +53,11 @@ func TestParseArgs_unknownCommand_returnsEmpty(t *testing.T) {
 }
 
 func TestParseArgs_buildWithWatchRejected(t *testing.T) {
-	old := os.Args
-	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst", "build", "-watch", "out.go", "x.ft"}
-
 	var buf bytes.Buffer
 	log := logrus.New()
 	log.SetOutput(&buf)
 
-	args := ParseArgs(log)
+	args := ParseArgsFrom([]string{"forst", "build", "-watch", "out.go", "x.ft"}, log)
 	if args.Command != "" {
 		t.Fatalf("expected empty args, got command %q", args.Command)
 	}
@@ -80,15 +67,11 @@ func TestParseArgs_buildWithWatchRejected(t *testing.T) {
 }
 
 func TestParseArgs_watchWithoutOutputRejected(t *testing.T) {
-	old := os.Args
-	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst", "run", "-watch", "x.ft"}
-
 	var buf bytes.Buffer
 	log := logrus.New()
 	log.SetOutput(&buf)
 
-	args := ParseArgs(log)
+	args := ParseArgsFrom([]string{"forst", "run", "-watch", "x.ft"}, log)
 	if args.Command != "" {
 		t.Fatalf("expected empty args, got command %q", args.Command)
 	}
@@ -98,15 +81,11 @@ func TestParseArgs_watchWithoutOutputRejected(t *testing.T) {
 }
 
 func TestParseArgs_rootWithWatchRejected(t *testing.T) {
-	old := os.Args
-	t.Cleanup(func() { os.Args = old })
-	os.Args = []string{"forst", "run", "-watch", "-o", "out.go", "-root", "/tmp", "x.ft"}
-
 	var buf bytes.Buffer
 	log := logrus.New()
 	log.SetOutput(&buf)
 
-	args := ParseArgs(log)
+	args := ParseArgsFrom([]string{"forst", "run", "-watch", "-o", "out.go", "-root", "/tmp", "x.ft"}, log)
 	if args.Command != "" {
 		t.Fatalf("expected empty args, got command %q", args.Command)
 	}
