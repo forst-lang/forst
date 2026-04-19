@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.13](https://github.com/forst-lang/forst/compare/sidecar-v0.1.12...sidecar-v0.1.13) (2026-04-19)
+
+
+### Bug Fixes
+
+* **cli:** document Node 18+ in README ([67e7abc](https://github.com/forst-lang/forst/commit/67e7abc1d9db416a11f9d0a5b1429a0c2ad88b6f))
+* **release:** npm whoami and --workspaces=false ([67e7abc](https://github.com/forst-lang/forst/commit/67e7abc1d9db416a11f9d0a5b1429a0c2ad88b6f))
+
 ## [0.1.12](https://github.com/forst-lang/forst/compare/sidecar-v0.1.11...sidecar-v0.1.12) (2026-04-18)
 
 
