@@ -2,6 +2,8 @@
 
 Install the **Forst** compiler for Node.js without a separate Go toolchain. The package ships a small wrapper that downloads the official **native binary** for your OS/arch from [GitHub Releases](https://github.com/forst-lang/forst/releases) (same artifacts as `task build:release`).
 
+Requires **Node.js 18** or newer (see `engines` in `package.json`).
+
 The **npm package version** is chosen by Release Please for `packages/cli`; the wrapper downloads the native binary for that semver from [GitHub Releases](https://github.com/forst-lang/forst/releases) (typically aligned with the compiler).
 
 **Releases:** Tags `cli-v*` (same pattern as `sidecar-v*`, see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json) `packages/cli`) bump `package.json` and `jsr.json`. When GitHub publishes that release, [publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes **@forst/cli** to npm and JSR (link [jsr.io/@forst/cli](https://jsr.io/@forst/cli) to this repo for OIDC, or set `JSR_TOKEN`).

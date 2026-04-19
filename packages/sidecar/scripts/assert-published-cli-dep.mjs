@@ -2,6 +2,9 @@
  * Fail if `dependencies["@forst/cli"]` is still a workspace protocol or otherwise
  * unsuitable for a published registry package. Run immediately after
  * rewrite-cli-workspace-dep-for-publish.mjs (nothing after that should rewrite package.json).
+ *
+ * This script only reads `package.json` on disk — it does **not** call the npm registry.
+ * (Despite the filename: “published” means “fit for npm/JSR tarballs”, not “already on npm”.)
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

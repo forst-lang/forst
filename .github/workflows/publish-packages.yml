@@ -45,13 +45,21 @@ jobs:
         working-directory: packages/cli
         run: bun run build
 
-      # If publish fails with E404 on PUT @forst/cli: ensure NPM_TOKEN is from a user in the @forst npm org
-      # with publish rights (or use an org automation token). Granular tokens must include this package/scope.
+      # E404 on PUT …/@forst%2fcli is almost always missing publish rights on the @forst scope (not a bad
+      # tarball). Fix: add the npm user for this token to https://www.npmjs.com/org/forst with publish
+      # access, or use a granular access token with Publish for @forst/cli (prefer an Automation token).
+      - name: Confirm npm user (debug 404 on publish)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
+
+      # Avoid workspace-aware publish (monorepo root): can make npm resolve sibling packages from the
+      # registry before the version being published exists. `--workspaces=false` publishes cwd only.
       - name: Publish package to NPM
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+        run: npm publish --access public --workspaces=false
 
   cli-jsr:
     name: "@forst/cli → JSR"
@@ -112,11 +120,16 @@ jobs:
             '.dependencies["@forst/cli"] | type == "string" and test("^\\^") and (test("^workspace:") | not)'
           git checkout -- package.json
 
+      - name: Confirm npm user (debug 404 on publish)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
+
       - name: Publish package to NPM
         working-directory: packages/sidecar
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+        run: npm publish --access public --workspaces=false
 
   sidecar-jsr:
     name: "@forst/sidecar → JSR"
