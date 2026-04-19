@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.14](https://github.com/forst-lang/forst/compare/v0.2.13...v0.2.14) (2026-04-19)
+
+
+### Bug Fixes
+
+* **vscode-forst:** install CLI prod deps when materializing for VSIX ([e90aaba](https://github.com/forst-lang/forst/commit/e90aabafe3923aa7e7976bae993025a0ee94c2cb))
+
 ## [0.2.13](https://github.com/forst-lang/forst/compare/v0.2.12...v0.2.13) (2026-04-19)
 
 

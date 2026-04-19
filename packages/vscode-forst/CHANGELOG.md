@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/forst-lang/forst/compare/vscode-forst-v0.2.0...vscode-forst-v0.2.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **vscode-forst:** install CLI prod deps when materializing for VSIX ([e90aaba](https://github.com/forst-lang/forst/commit/e90aabafe3923aa7e7976bae993025a0ee94c2cb))
+
 ## [0.2.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.1.10...vscode-forst-v0.2.0) (2026-04-19)
 
 
