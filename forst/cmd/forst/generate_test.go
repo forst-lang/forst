@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -333,6 +334,33 @@ func TestCopyFile_missingSource(t *testing.T) {
 	err := copyFile(filepath.Join(t.TempDir(), "nope"), filepath.Join(t.TempDir(), "out"))
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestCopyFile_writeDestinationFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod not portable for read-only destination")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	if err := os.WriteFile(src, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dstDir := filepath.Join(dir, "ro")
+	if err := os.Mkdir(dstDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dstDir, 0o755) })
+	dst := filepath.Join(dstDir, "dst.txt")
+	if err := copyFile(src, dst); err == nil {
+		t.Fatal("expected error when destination is not writable")
+	}
+}
+
+func TestLoadConfigForGenerate_explicitPath_absError(t *testing.T) {
+	_, err := loadConfigForGenerate("x\x00y", "dummy", false)
+	if err == nil {
+		t.Fatal("expected error from filepath.Abs on invalid path")
 	}
 }
 

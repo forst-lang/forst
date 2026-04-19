@@ -122,7 +122,7 @@ func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		results, err := s.executor.ExecuteStreamingFunction(r.Context(), req.Package, req.Function, req.Args)
+		results, err := s.fnExec.ExecuteStreamingFunction(r.Context(), req.Package, req.Function, req.Args)
 		if err != nil {
 			s.sendError(w, fmt.Sprintf("Streaming execution failed: %v", err), http.StatusInternalServerError)
 			return
@@ -137,7 +137,7 @@ func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	} else {
-		result, err := s.executor.ExecuteFunction(req.Package, req.Function, req.Args)
+		result, err := s.fnExec.ExecuteFunction(req.Package, req.Function, req.Args)
 		if err != nil {
 			s.sendError(w, fmt.Sprintf("Function execution failed: %v", err), http.StatusInternalServerError)
 			return

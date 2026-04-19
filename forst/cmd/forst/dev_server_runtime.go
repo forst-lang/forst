@@ -71,7 +71,7 @@ func (s *DevServer) discoverFunctions() error {
 }
 
 // StartDevServer is the entry point for the dev server command.
-func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) {
+func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) error {
 	config := loadAndValidateConfig(configPath, log, port, logLevel)
 
 	args := config.ToCompilerArgs()
@@ -84,8 +84,9 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 
 	if err := server.Start(); err != nil {
 		log.Errorf("HTTP server error: %v", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string) *ForstConfig {

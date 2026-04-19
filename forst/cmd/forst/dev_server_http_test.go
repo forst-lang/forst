@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"forst/internal/discovery"
+	"forst/internal/executor"
 )
 
 type nonFlushingResponseWriter struct {
@@ -364,6 +367,182 @@ func TestSendJSONResponse_doesNotSetCORSWhenDisabled(t *testing.T) {
 	s.sendJSONResponse(rr, DevServerResponse{Success: true})
 	if rr.Header().Get("Access-Control-Allow-Origin") != "" {
 		t.Fatalf("expected no CORS header, got %v", rr.Header())
+	}
+}
+
+type stubDevExecutor struct {
+	executeFn          func(string, string, json.RawMessage) (*executor.ExecutionResult, error)
+	executeStreamingFn func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error)
+}
+
+func (s *stubDevExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error) {
+	if s.executeFn != nil {
+		return s.executeFn(packageName, functionName, args)
+	}
+	return nil, fmt.Errorf("stub: no executeFn")
+}
+
+func (s *stubDevExecutor) ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error) {
+	if s.executeStreamingFn != nil {
+		return s.executeStreamingFn(ctx, packageName, functionName, args)
+	}
+	return nil, fmt.Errorf("stub: no executeStreamingFn")
+}
+
+func TestHandleInvoke_executeFunctionSuccess_returns200(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"Fn": {Package: "mypkg", Name: "Fn"},
+		},
+	}
+	s.fnExec = &stubDevExecutor{
+		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+			return &executor.ExecutionResult{
+				Success: true,
+				Result:  json.RawMessage(`{"ok":true}`),
+			}, nil
+		},
+	}
+	body := `{"package":"mypkg","function":"Fn","args":[]}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || string(resp.Result) != `{"ok":true}` {
+		t.Fatalf("unexpected body: %+v", resp)
+	}
+}
+
+func TestHandleInvoke_streamingSuccess_writesNDJSON(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"StreamFn": {
+				Package: "mypkg", Name: "StreamFn", SupportsStreaming: true,
+			},
+		},
+	}
+	ch := make(chan executor.StreamingResult, 2)
+	ch <- executor.StreamingResult{Data: map[string]int{"n": 1}, Status: "ok"}
+	ch <- executor.StreamingResult{Data: map[string]int{"n": 2}, Status: "ok"}
+	close(ch)
+	s.fnExec = &stubDevExecutor{
+		executeStreamingFn: func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error) {
+			return ch, nil
+		},
+	}
+	reqBody := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/octet-stream" {
+		t.Fatalf("Content-Type: %q", ct)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, `"n":1`) || !strings.Contains(body, `"n":2`) {
+		t.Fatalf("unexpected streaming body: %s", body)
+	}
+}
+
+// errRecorder wraps httptest.ResponseRecorder and fails writes after enough bytes so a second JSON encode fails.
+type errAfterManyBytes struct {
+	*httptest.ResponseRecorder
+	limit int
+	n     int
+}
+
+func (w *errAfterManyBytes) Write(p []byte) (int, error) {
+	if w.n > w.limit {
+		return 0, fmt.Errorf("simulated write failure")
+	}
+	n, err := w.ResponseRecorder.Write(p)
+	w.n += n
+	if w.n > w.limit {
+		return n, fmt.Errorf("simulated write failure")
+	}
+	return n, err
+}
+
+func (w *errAfterManyBytes) Flush() {
+	w.ResponseRecorder.Flush()
+}
+
+func TestHandleInvoke_streamingEncodeError_stopsAfterFirstChunk(t *testing.T) {
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"StreamFn": {
+				Package: "mypkg", Name: "StreamFn", SupportsStreaming: true,
+			},
+		},
+	}
+	ch := make(chan executor.StreamingResult, 3)
+	ch <- executor.StreamingResult{Data: "first", Status: "ok"}
+	ch <- executor.StreamingResult{Data: "second", Status: "ok"}
+	close(ch)
+	s.fnExec = &stubDevExecutor{
+		executeStreamingFn: func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error) {
+			return ch, nil
+		},
+	}
+	base := httptest.NewRecorder()
+	rr := &errAfterManyBytes{ResponseRecorder: base, limit: 40}
+	reqBody := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(reqBody)))
+	if base.Code != 0 && base.Code != http.StatusOK {
+		t.Fatalf("unexpected code %d", base.Code)
+	}
+}
+
+func TestHandleTypes_discoveryFailureOnRegenerate_returns500(t *testing.T) {
+	s := testDevServer(t)
+	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	s.discoverer = discovery.NewDiscoverer(t.TempDir(), s.log, nil)
+
+	rr := httptest.NewRecorder()
+	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types?force=true", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+type jsonErrorResponseWriter struct {
+	header http.Header
+	code   int
+}
+
+func (w *jsonErrorResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *jsonErrorResponseWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("write blocked")
+}
+
+func (w *jsonErrorResponseWriter) WriteHeader(statusCode int) {
+	w.code = statusCode
+}
+
+func TestSendJSONResponse_encoderError_fallsBackToHTTPError(t *testing.T) {
+	s := testDevServer(t)
+	w := &jsonErrorResponseWriter{}
+	s.sendJSONResponse(w, DevServerResponse{Success: true})
+	// http.Error sets text/plain body; code should be 500.
+	if w.code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 from http.Error, got %d", w.code)
 	}
 }
 

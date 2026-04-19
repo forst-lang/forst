@@ -773,6 +773,34 @@ func TestMain_helperProcess(t *testing.T) {
 		os.Args = []string{"forst", "version"}
 	case "dump-missing-file":
 		os.Args = []string{"forst", "dump", "--file", "/path/that/does/not/exist.ft"}
+	case "dump-ok":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "dump", "--file", filepath.Join(tmp, "sample.ft")}
+	case "dev-bad-port":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "dev", "-port", "notaport", "-root", tmp}
+	case "lsp-bad-port":
+		os.Args = []string{"forst", "lsp", "-port", "notaport"}
+	case "fmt-list":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "fmt", "-l", filepath.Join(tmp, "a.ft")}
+	case "generate-ok":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "generate", filepath.Join(tmp, "sample.ft")}
+	case "run-no-file":
+		os.Args = []string{"forst", "run"}
 	default:
 		t.Fatalf("unknown helper case: %s", helperCase)
 	}
@@ -798,5 +826,96 @@ func TestMain_dumpMissingFile_exitsNonZero(t *testing.T) {
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected dump command to exit non-zero when file is missing")
+	}
+}
+
+func TestMain_dumpOk_runsDumpSubcommand(t *testing.T) {
+	tmp := t.TempDir()
+	ftPath := filepath.Join(tmp, "sample.ft")
+	if err := os.WriteFile(ftPath, []byte("fn main() { return }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=dump-ok",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected zero exit: %v out=%s", err, string(out))
+	}
+	if !strings.Contains(string(out), "{") {
+		t.Fatalf("expected JSON output, got: %s", string(out))
+	}
+}
+
+func TestMain_devBadPort_exitsNonZero(t *testing.T) {
+	tmp := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=dev-bad-port",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+	)
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected dev with invalid port to exit non-zero")
+	}
+}
+
+func TestMain_lspBadPort_exitsNonZero(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(), "FORST_MAIN_HELPER_CASE=lsp-bad-port")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected lsp with invalid port to exit non-zero")
+	}
+}
+
+func TestMain_fmtList_subcommand(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "a.ft")
+	if err := os.WriteFile(path, []byte("package main  \nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=fmt-list",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("fmt -l: %v out=%s", err, string(out))
+	}
+	if !strings.Contains(string(out), "a.ft") {
+		t.Fatalf("expected list to mention a.ft: %s", string(out))
+	}
+}
+
+func TestMain_generateOk_subcommand(t *testing.T) {
+	tmp := t.TempDir()
+	ftPath := filepath.Join(tmp, "sample.ft")
+	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=generate-ok",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generate: %v out=%s", err, string(out))
+	}
+	if !strings.Contains(string(out), "Found") && !strings.Contains(string(out), "generated") {
+		t.Logf("output: %s", string(out))
+	}
+}
+
+func TestMain_runNoFile_exitsNonZero(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(), "FORST_MAIN_HELPER_CASE=run-no-file")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero when run has no input file")
 	}
 }

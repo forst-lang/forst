@@ -183,8 +183,6 @@ func TestStartDevServer_helperProcess(t *testing.T) {
 	switch helperCase {
 	case "invalid-config-path":
 		StartDevServer("8080", logger, "/path/that/does/not/exist/ftconfig.json", ".", &level)
-	case "invalid-port":
-		StartDevServer("invalid-port", logger, "", ".", &level)
 	default:
 		t.Fatalf("unknown helper case: %s", helperCase)
 	}
@@ -199,12 +197,13 @@ func TestStartDevServer_exitsOnConfigLoadFailure(t *testing.T) {
 	}
 }
 
-func TestStartDevServer_exitsOnServerStartFailure(t *testing.T) {
-	cmd := exec.Command(os.Args[0], "-test.run=TestStartDevServer_helperProcess")
-	cmd.Env = append(os.Environ(), "FORST_START_DEVSERVER_HELPER_CASE=invalid-port")
-	err := cmd.Run()
+func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "info"
+	err := StartDevServer("invalid-port", logger, "", t.TempDir(), &level)
 	if err == nil {
-		t.Fatal("expected StartDevServer to exit non-zero on server start failure")
+		t.Fatal("expected error when listen address is invalid")
 	}
 }
 

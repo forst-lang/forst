@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -12,6 +13,12 @@ import (
 
 	logrus "github.com/sirupsen/logrus"
 )
+
+// devFunctionExecutor is implemented by *executor.FunctionExecutor; HTTP tests may substitute stubs.
+type devFunctionExecutor interface {
+	ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
+	ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
+}
 
 // devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
 const devHTTPContractVersion = "1"
@@ -40,7 +47,7 @@ type DevServer struct {
 	log        *logrus.Logger
 	config     *ForstConfig
 	discoverer *discovery.Discoverer
-	executor   *executor.FunctionExecutor
+	fnExec     devFunctionExecutor
 	functions  map[string]map[string]discovery.FunctionInfo
 	mu         sync.RWMutex
 	// TypeScript generation cache
@@ -53,7 +60,7 @@ type DevServer struct {
 // NewHTTPServer creates a new HTTP server
 func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *DevServer {
 	discoverer := discovery.NewDiscoverer(rootDir, log, config)
-	executor := executor.NewFunctionExecutor(rootDir, comp, log, config)
+	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, config)
 
 	return &DevServer{
 		port:       port,
@@ -61,7 +68,7 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 		log:        log,
 		config:     config,
 		discoverer: discoverer,
-		executor:   executor,
+		fnExec:     fnExec,
 		functions:  make(map[string]map[string]discovery.FunctionInfo),
 		typesCache: make(map[string]string),
 	}

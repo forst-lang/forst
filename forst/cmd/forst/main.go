@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"forst/internal/compiler"
 	"forst/cmd/forst/lsp"
+	"forst/internal/compiler"
 	"os"
 	"path/filepath"
 
@@ -28,15 +28,20 @@ func printVersionInfo() {
 }
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
+	os.Exit(runMain(os.Args))
+}
+
+// runMain contains the forst CLI entry logic. It returns a process exit code (0 = success).
+func runMain(argv []string) int {
+	if len(argv) > 1 && (argv[1] == "version" || argv[1] == "--version" || argv[1] == "-v") {
 		printVersionInfo()
-		os.Exit(0)
+		return 0
 	}
 
 	log := newLogger()
 
 	// Check if we should start dev server
-	if len(os.Args) > 1 && os.Args[1] == "dev" {
+	if len(argv) > 1 && argv[1] == "dev" {
 		// Parse flags for dev server
 		devFlags := flag.NewFlagSet("dev", flag.ExitOnError)
 		port := devFlags.String("port", "8080", "Port to listen on")
@@ -45,50 +50,52 @@ func main() {
 		logLevel := devFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the dev subcommand flags
-		if err := devFlags.Parse(os.Args[2:]); err != nil {
+		if err := devFlags.Parse(argv[2:]); err != nil {
 			log.Errorf("dev flags: %v", err)
-			os.Exit(1)
+			return 1
 		}
 
 		// Resolve root directory to absolute path
 		absRootDir, err := filepath.Abs(*rootDir)
 		if err != nil {
 			log.Errorf("Failed to resolve root directory: %v", err)
-			os.Exit(1)
+			return 1
 		}
 
-		StartDevServer(*port, log, *configPath, absRootDir, logLevel)
-		return
+		if err := StartDevServer(*port, log, *configPath, absRootDir, logLevel); err != nil {
+			return 1
+		}
+		return 0
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "fmt" {
-		if err := runFmtCommand(os.Args[2:], log, os.Stdout); err != nil {
+	if len(argv) > 1 && argv[1] == "fmt" {
+		if err := runFmtCommand(argv[2:], log, os.Stdout); err != nil {
 			log.Error(err)
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	// Check if we should generate TypeScript client
-	if len(os.Args) > 1 && os.Args[1] == "generate" {
-		if err := generateCommand(os.Args[2:]); err != nil {
+	if len(argv) > 1 && argv[1] == "generate" {
+		if err := generateCommand(argv[2:]); err != nil {
 			log.Error(err)
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	// Check if we should start LSP server
-	if len(os.Args) > 1 && os.Args[1] == "lsp" {
+	if len(argv) > 1 && argv[1] == "lsp" {
 		// Parse flags for LSP server
 		lspFlags := flag.NewFlagSet("lsp", flag.ExitOnError)
 		port := lspFlags.String("port", "8081", "Port to listen on")
 		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the lsp subcommand flags
-		if err := lspFlags.Parse(os.Args[2:]); err != nil {
+		if err := lspFlags.Parse(argv[2:]); err != nil {
 			log.Errorf("lsp flags: %v", err)
-			os.Exit(1)
+			return 1
 		}
 
 		// Set log level
@@ -99,12 +106,14 @@ func main() {
 		lsp.Commit = Commit
 		lsp.Date = Date
 
-		lsp.StartLSPServer(*port, log)
-		return
+		if err := lsp.StartLSPServer(*port, log); err != nil {
+			return 1
+		}
+		return 0
 	}
 
 	// Check if we should dump debug info
-	if len(os.Args) > 1 && os.Args[1] == "dump" {
+	if len(argv) > 1 && argv[1] == "dump" {
 		// Parse flags for dump command
 		dumpFlags := flag.NewFlagSet("dump", flag.ExitOnError)
 		filePath := dumpFlags.String("file", "", "Path to Forst file to dump")
@@ -114,14 +123,14 @@ func main() {
 		summary := dumpFlags.Bool("summary", false, "Show only phase summaries")
 
 		// Parse the dump subcommand flags
-		if err := dumpFlags.Parse(os.Args[2:]); err != nil {
+		if err := dumpFlags.Parse(argv[2:]); err != nil {
 			log.Errorf("dump flags: %v", err)
-			os.Exit(1)
+			return 1
 		}
 
 		if *filePath == "" {
 			log.Error("dump command requires --file flag")
-			os.Exit(1)
+			return 1
 		}
 
 		// Set version information in LSP package
@@ -130,8 +139,12 @@ func main() {
 		lsp.Date = Date
 
 		handleDumpCommand(*filePath, *compression, *format, *phase, *summary, log)
-		return
+		return 0
 	}
+
+	saved := os.Args
+	os.Args = argv
+	defer func() { os.Args = saved }()
 
 	args := compiler.ParseArgs(log)
 
@@ -139,7 +152,7 @@ func main() {
 
 	if args.FilePath == "" {
 		log.Error(fmt.Errorf("no input file path provided"))
-		os.Exit(1)
+		return 1
 	}
 
 	// Set log level based on args.LogLevel
@@ -153,13 +166,13 @@ func main() {
 	if args.Watch {
 		if err := p.WatchFile(); err != nil {
 			log.Error(err)
-			os.Exit(1)
+			return 1
 		}
 	} else {
 		code, err := p.CompileFile()
 		if err != nil {
 			log.Error(err)
-			os.Exit(1)
+			return 1
 		}
 
 		outputPath := args.OutputPath
@@ -168,17 +181,18 @@ func main() {
 			outputPath, err = compiler.CreateTempOutputFile(*code)
 			if err != nil {
 				log.Error(err)
-				os.Exit(1)
+				return 1
 			}
 		}
 
 		if args.Command == "run" {
 			if err := compiler.RunGoProgram(outputPath); err != nil {
 				log.Error(err)
-				os.Exit(1)
+				return 1
 			}
 		}
 	}
+	return 0
 }
 
 func newLogger() *logrus.Logger {

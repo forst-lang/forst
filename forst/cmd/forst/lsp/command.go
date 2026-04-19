@@ -1,13 +1,11 @@
 package lsp
 
 import (
-	"os"
-
 	"github.com/sirupsen/logrus"
 )
 
 // StartLSPServer is the entry point for the LSP server command
-func StartLSPServer(port string, log *logrus.Logger) {
+func StartLSPServer(port string, log *logrus.Logger) error {
 	server := NewLSPServer(port, log)
 
 	log.Infof("Starting Forst LSP server on port %s", port)
@@ -16,6 +14,7 @@ func StartLSPServer(port string, log *logrus.Logger) {
 
 	if err := server.Start(); err != nil {
 		log.Errorf("LSP server error: %v", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
