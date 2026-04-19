@@ -60,6 +60,11 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		p.expect(ast.TokenRBracket) // expect ]
 		valueType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		return ast.NewMapType(keyType, valueType)
+	case ast.TokenChan:
+		// chan T (streaming / Go channel lower)
+		p.advance()
+		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+		return ast.NewChannelType(elementType)
 	case ast.TokenInterface:
 		// Parse interface type
 		p.advance() // consume interface keyword
@@ -178,5 +183,6 @@ func isPossibleTypeIdentifier(token ast.Token, opts TypeIdentOpts) bool {
 		token.Type == ast.TokenBool ||
 		token.Type == ast.TokenVoid ||
 		token.Type == ast.TokenLBracket ||
-		token.Type == ast.TokenMap
+		token.Type == ast.TokenMap ||
+		token.Type == ast.TokenChan
 }

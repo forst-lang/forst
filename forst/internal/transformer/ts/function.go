@@ -3,6 +3,8 @@ package transformerts
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/discovery"
+	"forst/internal/typechecker"
 	"strings"
 )
 
@@ -11,6 +13,10 @@ type FunctionSignature struct {
 	Name       string
 	Parameters []Parameter
 	ReturnType string
+	// Streamable mirrors discovery (keyword/heuristic or chan T).
+	Streamable bool
+	// StreamingRowType is the TS type for each NDJSON data row when GenerateStreamingClients is on and return is chan T with a typable element; empty otherwise.
+	StreamingRowType string
 }
 
 // Parameter represents a TypeScript function parameter
@@ -62,11 +68,32 @@ func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*Functio
 		returnType = tsType
 	}
 
+	streamable := discovery.StreamingSupported(&fn, t.TypeChecker)
+	streamingRowTS := ""
+	if t.GenerateStreamingClients && streamable {
+		var rt *ast.TypeNode
+		if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists && len(sig.ReturnTypes) > 0 {
+			rt = &sig.ReturnTypes[0]
+		} else if len(fn.ReturnTypes) > 0 {
+			rt = &fn.ReturnTypes[0]
+		}
+		if rt != nil {
+			if elem, ok := typechecker.ChannelElementType(*rt); ok {
+				ts, err := t.typeMapping.GetTypeScriptType(&elem)
+				if err == nil && ts != "" && ts != "unknown" {
+					streamingRowTS = ts
+				}
+			}
+		}
+	}
+
 	// Create function signature
 	signature := &FunctionSignature{
-		Name:       funcName,
-		Parameters: parameters,
-		ReturnType: returnType,
+		Name:             funcName,
+		Parameters:       parameters,
+		ReturnType:       returnType,
+		Streamable:       streamable,
+		StreamingRowType: streamingRowTS,
 	}
 
 	// Generate definition for .client.ts file
@@ -90,4 +117,21 @@ func (fs *FunctionSignature) ToString() string {
 	paramStr := strings.Join(params, ", ")
 	// .d.ts files require declare or export on top-level declarations; interfaces use export, match that here.
 	return fmt.Sprintf("export function %s(%s): Promise<%s>;", fs.Name, paramStr, fs.ReturnType)
+}
+
+// StreamTypesDeclaration returns an extra export for the streaming API, or empty.
+// Uses AsyncGenerator + StreamingResult from @forst/sidecar so row typing matches the runtime NDJSON envelope.
+func (fs *FunctionSignature) StreamTypesDeclaration() string {
+	if fs.StreamingRowType == "" {
+		return ""
+	}
+	params := make([]string, len(fs.Parameters))
+	for i, param := range fs.Parameters {
+		params[i] = fmt.Sprintf("%s: %s", param.Name, param.Type)
+	}
+	paramStr := strings.Join(params, ", ")
+	return fmt.Sprintf(
+		"export function %sStream(%s): AsyncGenerator<import('@forst/sidecar').StreamingResult & { data?: %s }, void, undefined>;",
+		fs.Name, paramStr, fs.StreamingRowType,
+	)
 }

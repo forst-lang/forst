@@ -223,6 +223,49 @@ export class ForstSidecarClient {
   }
 
   /**
+   * Same NDJSON stream as {@link invokeStreaming}, exposed as an async iterable for `for await`.
+   */
+  async *invokeStreamingIterable<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = []
+  ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
+    const queue: StreamingResult[] = [];
+    let notify: (() => void) | undefined;
+    let done = false;
+    let err: unknown;
+    const p = this.invokeStreaming(packageName, functionName, args, (row) => {
+      queue.push(row);
+      notify?.();
+    });
+    void p.then(
+      () => {
+        done = true;
+        notify?.();
+      },
+      (e) => {
+        err = e;
+        notify?.();
+      }
+    );
+    for (;;) {
+      while (queue.length > 0) {
+        const row = queue.shift()!;
+        yield row as StreamingResult & { data?: T };
+      }
+      if (err !== undefined) {
+        throw err;
+      }
+      if (done) {
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        notify = resolve;
+      });
+    }
+  }
+
+  /**
    * Clears the in-memory cache from {@link discoverFunctions}. Call after the dev server restarts
    * or reloads so the next discovery reflects new/removed functions.
    */

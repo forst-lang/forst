@@ -52,6 +52,9 @@ type CompilerConfig struct {
 	// ExportStructFields makes the Go emitter use exported struct field names and json struct tags
 	// so encoding/json can marshal values (aligns with forst generate TypeScript field names).
 	ExportStructFields bool `json:"exportStructFields"`
+
+	// GenerateStreamingClients emits FuncNameStream async-generator helpers in generated TypeScript (requires typable chan T return).
+	GenerateStreamingClients bool `json:"generateStreamingClients"`
 }
 
 // ServerConfig represents HTTP server settings

@@ -84,6 +84,9 @@ func functionSignaturesEqual(a, b FunctionSignature) bool {
 	if a.Name != b.Name || a.ReturnType != b.ReturnType {
 		return false
 	}
+	if a.StreamingRowType != b.StreamingRowType {
+		return false
+	}
 	if len(a.Parameters) != len(b.Parameters) {
 		return false
 	}

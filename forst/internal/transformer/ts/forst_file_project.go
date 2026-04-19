@@ -50,12 +50,21 @@ func ParseMergedTypecheckProject(filePaths []string, log *logrus.Logger) ([]Fors
 	return chunks, tc, nil
 }
 
+// GenerateTSOptions configures per-run TypeScript emission (forst generate).
+type GenerateTSOptions struct {
+	GenerateStreamingClients bool
+}
+
 // GenerateTypeScriptOutputsPerFile runs the TypeScript transformer per file using a shared
 // typechecker (from ParseMergedTypecheckProject).
-func GenerateTypeScriptOutputsPerFile(chunks []ForstFileChunk, tc *typechecker.TypeChecker, log *logrus.Logger) ([]*TypeScriptOutput, error) {
+func GenerateTypeScriptOutputsPerFile(chunks []ForstFileChunk, tc *typechecker.TypeChecker, log *logrus.Logger, opts *GenerateTSOptions) ([]*TypeScriptOutput, error) {
+	if opts == nil {
+		opts = &GenerateTSOptions{}
+	}
 	outputs := make([]*TypeScriptOutput, 0, len(chunks))
 	for _, ch := range chunks {
 		tr := New(tc, log)
+		tr.GenerateStreamingClients = opts.GenerateStreamingClients
 		out, err := tr.TransformForstFileToTypeScript(ch.Nodes, ch.Stem)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", ch.Path, err)

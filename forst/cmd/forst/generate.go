@@ -137,7 +137,9 @@ func generateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	outputs, err := generateTSOutputsPerFileHook(chunks, tc, log)
+	outputs, err := generateTSOutputsPerFileHook(chunks, tc, log, &transformerts.GenerateTSOptions{
+		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
+	})
 	if err != nil {
 		return err
 	}

@@ -7,8 +7,14 @@ import (
 	"forst/internal/typechecker"
 )
 
-// analyzeStreamingSupport determines if a function supports streaming
-func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typechecker.TypeChecker) bool {
+// StreamingSupported reports whether a public function may be invoked with streaming (NDJSON over HTTP).
+func StreamingSupported(fn *ast.FunctionNode, tc *typechecker.TypeChecker) bool {
+	if fn == nil {
+		return false
+	}
+	if typechecker.IsChannelReturn(fn, tc) {
+		return true
+	}
 	// Check function name for streaming indicators
 	name := strings.ToLower(string(fn.Ident.ID))
 	streamingKeywords := []string{"stream", "process", "batch", "pipeline"}
@@ -41,4 +47,9 @@ func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typecheck
 	}
 
 	return false
+}
+
+// analyzeStreamingSupport determines if a function supports streaming
+func (d *Discoverer) analyzeStreamingSupport(fn *ast.FunctionNode, tc *typechecker.TypeChecker) bool {
+	return StreamingSupported(fn, tc)
 }

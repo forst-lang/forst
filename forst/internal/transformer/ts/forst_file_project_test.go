@@ -57,7 +57,7 @@ func GetX(r R): Int {
 		t.Fatal("expected non-empty AST per file")
 	}
 
-	outputs, err := GenerateTypeScriptOutputsPerFile(chunks, tc, logrus.New())
+	outputs, err := GenerateTypeScriptOutputsPerFile(chunks, tc, logrus.New(), nil)
 	if err != nil {
 		t.Fatalf("GenerateTypeScriptOutputsPerFile: %v", err)
 	}

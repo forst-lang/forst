@@ -11,7 +11,6 @@ import (
 
 func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
 	logger := logrus.New()
-	discoverer := NewDiscoverer("/test/path", logger, nil)
 	tc := typechecker.New(logger, false)
 
 	tests := []struct {
@@ -30,7 +29,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
 			functionNode := &ast.FunctionNode{
 				Ident: ast.Ident{ID: ast.Identifier(testCase.name)},
 			}
-			result := discoverer.analyzeStreamingSupport(functionNode, tc)
+			result := StreamingSupported(functionNode, tc)
 			if result != testCase.expected {
 				t.Errorf("Expected %v for function '%s', got %v", testCase.expected, testCase.name, result)
 			}
@@ -40,7 +39,6 @@ func TestDiscoverer_AnalyzeStreamingSupport_FunctionName(t *testing.T) {
 
 func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
 	logger := logrus.New()
-	discoverer := NewDiscoverer("/test/path", logger, nil)
 	tc := typechecker.New(logger, false)
 
 	tests := []struct {
@@ -61,7 +59,7 @@ func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
 					ast.NewUserDefinedType(ast.TypeIdent(testCase.name)),
 				},
 			}
-			result := discoverer.analyzeStreamingSupport(functionNode, tc)
+			result := StreamingSupported(functionNode, tc)
 			if result != testCase.expected {
 				t.Errorf("Expected %v for return type '%s', got %v", testCase.expected, testCase.name, result)
 			}
@@ -70,14 +68,26 @@ func TestDiscoverer_AnalyzeStreamingSupport_ReturnType(t *testing.T) {
 }
 
 func TestDiscoverer_AnalyzeStreamingSupport_nilTypecheckerUsesReturnTypes(t *testing.T) {
-	discoverer := NewDiscoverer("/", logrus.New(), nil)
 	functionNode := &ast.FunctionNode{
 		Ident: ast.Ident{ID: "Plain"},
 		ReturnTypes: []ast.TypeNode{
 			{Ident: "UserStream"},
 		},
 	}
-	if !discoverer.analyzeStreamingSupport(functionNode, nil) {
+	if !StreamingSupported(functionNode, nil) {
 		t.Fatal("expected stream hint from return type name when tc is nil")
+	}
+}
+
+func TestStreamingSupported_channelReturn(t *testing.T) {
+	tc := typechecker.New(logrus.New(), false)
+	fn := &ast.FunctionNode{
+		Ident: ast.Ident{ID: "PlainName"},
+		ReturnTypes: []ast.TypeNode{
+			ast.NewChannelType(ast.NewBuiltinType(ast.TypeString)),
+		},
+	}
+	if !StreamingSupported(fn, tc) {
+		t.Fatal("expected streaming for chan return")
 	}
 }

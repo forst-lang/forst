@@ -152,6 +152,15 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 			return "(" + inner + ") | null", nil
 		}
 		return "unknown", nil
+	case ast.TypeChannel:
+		if len(forstType.TypeParams) > 0 {
+			elem, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			return "AsyncIterable<" + elem + ">", nil
+		}
+		return "unknown", nil
 	case ast.TypeError:
 		return "unknown", nil
 	case ast.TypeUnion:

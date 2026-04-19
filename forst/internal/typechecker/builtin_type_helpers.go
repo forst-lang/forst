@@ -43,11 +43,13 @@ func lenOperandAllowed(t ast.TypeNode) bool {
 	}
 }
 
-// capOperandAllowed mirrors Go's cap: slice, array, channel. Channel is not modeled.
+// capOperandAllowed mirrors Go's cap: slice, array, channel.
 // TYPE_IMPLICIT is allowed for the same reason as lenOperandAllowed.
 func capOperandAllowed(t ast.TypeNode) bool {
 	switch t.Ident {
 	case ast.TypeImplicit:
+		return true
+	case ast.TypeChannel:
 		return true
 	case ast.TypeArray:
 		return true

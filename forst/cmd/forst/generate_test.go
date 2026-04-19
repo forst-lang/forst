@@ -55,6 +55,31 @@ func TestGenerateCommand_minimalFixture_generatesTypes(t *testing.T) {
 	requireGenerateOutputForTSC(t, dir, minimalEchoFixtureTypeScriptChecks)
 }
 
+func TestGenerateCommand_generateStreamingClientsFlag_doesNotBreakGenerate(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "ftconfig.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"compiler":{"generateStreamingClients":true}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ftPath := filepath.Join(dir, "sample.ft")
+	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{ftPath}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	clientPath := filepath.Join(dir, "generated", "sample.client.ts")
+	data, err := os.ReadFile(clientPath)
+	if err != nil {
+		t.Fatalf("read client: %v", err)
+	}
+	s := string(data)
+	// Echo returns a shape, not chan T — no *Stream method without a typable channel row type.
+	if strings.Contains(s, "invokeStreamingIterable") {
+		t.Fatalf("did not expect streaming emission for non-channel return, got:\n%s", s)
+	}
+}
+
 func TestGenerateCommand_unknownShapeFieldTypeFails(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "bad.ft")
@@ -681,7 +706,7 @@ func TestGenerateCommand_generateTSPerFileError(t *testing.T) {
 		t.Fatal(err)
 	}
 	orig := generateTSOutputsPerFileHook
-	generateTSOutputsPerFileHook = func([]transformerts.ForstFileChunk, *typechecker.TypeChecker, *logrus.Logger) ([]*transformerts.TypeScriptOutput, error) {
+	generateTSOutputsPerFileHook = func([]transformerts.ForstFileChunk, *typechecker.TypeChecker, *logrus.Logger, *transformerts.GenerateTSOptions) ([]*transformerts.TypeScriptOutput, error) {
 		return nil, fmt.Errorf("per file")
 	}
 	t.Cleanup(func() { generateTSOutputsPerFileHook = orig })

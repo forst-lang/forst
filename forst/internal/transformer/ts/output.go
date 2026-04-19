@@ -68,9 +68,12 @@ func formatTypesDeclarationFile(types []string, functions []FunctionSignature) s
 
 	if len(functions) > 0 {
 		lines = append(lines, "// Function signatures")
-		sigs := make([]string, len(functions))
+		sigs := make([]string, 0, len(functions)*2)
 		for i := range functions {
-			sigs[i] = functions[i].ToString()
+			sigs = append(sigs, functions[i].ToString())
+			if extra := functions[i].StreamTypesDeclaration(); extra != "" {
+				sigs = append(sigs, extra)
+			}
 		}
 		lines = append(lines, strings.Join(sigs, "\n\n"))
 		lines = append(lines, "")

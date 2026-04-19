@@ -54,6 +54,18 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 			return nil, err
 		}
 		return &goast.MapType{Key: keyT, Value: valT}, nil
+	case ast.TypeChannel:
+		if len(n.TypeParams) < 1 {
+			return nil, fmt.Errorf("channel type must have element type parameter")
+		}
+		elt, err := t.transformType(n.TypeParams[0])
+		if err != nil {
+			return nil, err
+		}
+		return &goast.ChanType{
+			Dir:   goast.SEND | goast.RECV,
+			Value: elt,
+		}, nil
 	case ast.TypeResult:
 		return nil, fmt.Errorf("result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
 	case ast.TypeTuple:

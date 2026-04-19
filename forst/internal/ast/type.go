@@ -32,7 +32,7 @@ const (
 	// TypeAssertion is a placeholder for a type assertion
 	TypeAssertion TypeIdent = "TYPE_ASSERTION"
 
-	// TypeImplicit is a placeholder for an implicit type
+	// TypeImplicit is a placeholder for an implicit type (String()/display uses "Any").
 	TypeImplicit TypeIdent = "TYPE_IMPLICIT"
 
 	// TypeShape is a new type added
@@ -45,6 +45,9 @@ const (
 	TypeResult TypeIdent = "TYPE_RESULT"
 	// TypeTuple is Tuple(T1, ..., Tn) for product multi-values (e.g. Go FFI)
 	TypeTuple TypeIdent = "TYPE_TUPLE"
+
+	// TypeChannel is chan T (lowers to Go chan; used for streaming NDJSON row element T).
+	TypeChannel TypeIdent = "TYPE_CHANNEL"
 
 	// TypeUnion is a finite type-level union (A | B | …) used by typedef and join; members are in TypeParams.
 	TypeUnion TypeIdent = "TYPE_UNION"
@@ -128,7 +131,7 @@ func (t TypeNode) String() string {
 		}
 		return "Assertion(?)"
 	case TypeImplicit:
-		return "(implicit)"
+		return "Any"
 	case TypeShape:
 		if len(t.TypeParams) > 0 {
 			return fmt.Sprintf("Shape(%s)", t.TypeParams[0].String())
@@ -153,6 +156,11 @@ func (t TypeNode) String() string {
 			return fmt.Sprintf("Tuple(%s)", strings.Join(params, ", "))
 		}
 		return "Tuple()"
+	case TypeChannel:
+		if len(t.TypeParams) > 0 {
+			return fmt.Sprintf("chan %s", t.TypeParams[0].String())
+		}
+		return "chan"
 	case TypeUnion:
 		if len(t.TypeParams) > 0 {
 			parts := make([]string, len(t.TypeParams))
@@ -210,7 +218,7 @@ func (ti TypeIdent) String() string {
 	case TypeAssertion:
 		return "Assertion(?)"
 	case TypeImplicit:
-		return "(implicit)"
+		return "Any"
 	case TypeShape:
 		return "Shape(?)"
 	case TypePointer:
@@ -219,6 +227,8 @@ func (ti TypeIdent) String() string {
 		return "Result"
 	case TypeTuple:
 		return "Tuple"
+	case TypeChannel:
+		return "Chan"
 	case TypeUnion:
 		return "Union"
 	case TypeIntersection:
@@ -282,6 +292,15 @@ func NewArrayType(elementType TypeNode) TypeNode {
 		Ident:      TypeArray,
 		TypeParams: []TypeNode{elementType},
 		TypeKind:   TypeKindBuiltin, // Array is a built-in type construct
+	}
+}
+
+// NewChannelType creates a new TypeNode for chan T (element type T).
+func NewChannelType(elementType TypeNode) TypeNode {
+	return TypeNode{
+		Ident:      TypeChannel,
+		TypeParams: []TypeNode{elementType},
+		TypeKind:   TypeKindBuiltin,
 	}
 }
 
