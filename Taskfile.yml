@@ -376,7 +376,7 @@ tasks:
     set: [errexit]
     cmds:
       - task: build:vscode
-      - go test -race -covermode atomic -coverprofile=profile.cov ./cmd/forst/... ./internal/...
+      - go test -race -covermode atomic -coverprofile=profile.cov -timeout=3m ./cmd/forst/... ./internal/...
       - task: test:cli
       - task: test:sidecar
       - task example:sidecar-local
