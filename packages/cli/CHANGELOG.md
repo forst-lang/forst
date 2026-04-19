@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.33](https://github.com/forst-lang/forst/compare/cli-v0.0.32...cli-v0.0.33) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Update repository URLs to not use git+ prefix ([2bfca0f](https://github.com/forst-lang/forst/commit/2bfca0f7b25c37d629bd892f49533b82706f6913))
+
 ## [0.0.32](https://github.com/forst-lang/forst/compare/cli-v0.0.31...cli-v0.0.32) (2026-04-19)
 
 
