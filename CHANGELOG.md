@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.15](https://github.com/forst-lang/forst/compare/v0.2.14...v0.2.15) (2026-04-19)
+
+
+### Features
+
+* **cmd/forst:** add test hooks and return errors from dump instead of exiting ([68ec01a](https://github.com/forst-lang/forst/commit/68ec01a4ef8bd4aae8f501f05140c2ee7b752796))
+* **typechecker:** track Go call results and check methods with go/types ([68ec01a](https://github.com/forst-lang/forst/commit/68ec01a4ef8bd4aae8f501f05140c2ee7b752796))
+
+
+### Bug Fixes
+
+* **compiler:** parse run/build argv without touching os.Args ([66460c1](https://github.com/forst-lang/forst/commit/66460c190a1552cd3a60b98d3a4f369916f19275))
+
 ## [0.2.14](https://github.com/forst-lang/forst/compare/v0.2.13...v0.2.14) (2026-04-19)
 
 
