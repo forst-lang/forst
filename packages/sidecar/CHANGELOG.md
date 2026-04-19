@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.20](https://github.com/forst-lang/forst/compare/sidecar-v0.1.19...sidecar-v0.1.20) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Update repository URLs to not use git+ prefix ([2bfca0f](https://github.com/forst-lang/forst/commit/2bfca0f7b25c37d629bd892f49533b82706f6913))
+
 ## [0.1.19](https://github.com/forst-lang/forst/compare/sidecar-v0.1.18...sidecar-v0.1.19) (2026-04-19)
 
 
