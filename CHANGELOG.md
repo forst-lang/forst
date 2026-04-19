@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9](https://github.com/forst-lang/forst/compare/v0.2.8...v0.2.9) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** update GitHub action and update npm to latest ([2139b3c](https://github.com/forst-lang/forst/commit/2139b3c63075de44fc0a2815eb3821a7eea74467))
+
 ## [0.2.8](https://github.com/forst-lang/forst/compare/v0.2.7...v0.2.8) (2026-04-19)
 
 

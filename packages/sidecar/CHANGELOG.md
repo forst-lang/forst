@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/forst-lang/forst/compare/sidecar-v0.1.17...sidecar-v0.1.18) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** update GitHub action and update npm to latest ([2139b3c](https://github.com/forst-lang/forst/commit/2139b3c63075de44fc0a2815eb3821a7eea74467))
+
 ## [0.1.17](https://github.com/forst-lang/forst/compare/sidecar-v0.1.16...sidecar-v0.1.17) (2026-04-19)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.31](https://github.com/forst-lang/forst/compare/cli-v0.0.30...cli-v0.0.31) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** update GitHub action and update npm to latest ([2139b3c](https://github.com/forst-lang/forst/commit/2139b3c63075de44fc0a2815eb3821a7eea74467))
+
 ## [0.0.30](https://github.com/forst-lang/forst/compare/cli-v0.0.29...cli-v0.0.30) (2026-04-19)
 
 
