@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.29](https://github.com/forst-lang/forst/compare/cli-v0.0.28...cli-v0.0.29) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Further adjust release jobs for NPM ([8f9466f](https://github.com/forst-lang/forst/commit/8f9466fe82a44f09112e02e8c2fd58ee19a78d35))
+
 ## [0.0.28](https://github.com/forst-lang/forst/compare/cli-v0.0.27...cli-v0.0.28) (2026-04-19)
 
 

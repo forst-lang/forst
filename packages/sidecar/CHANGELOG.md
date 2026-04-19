@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/forst-lang/forst/compare/sidecar-v0.1.15...sidecar-v0.1.16) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Further adjust release jobs for NPM ([8f9466f](https://github.com/forst-lang/forst/commit/8f9466fe82a44f09112e02e8c2fd58ee19a78d35))
+
 ## [0.1.15](https://github.com/forst-lang/forst/compare/sidecar-v0.1.14...sidecar-v0.1.15) (2026-04-19)
 
 
