@@ -18,7 +18,7 @@ import (
 // runFmtCommand implements `forst fmt`, modeled on `go fmt` / gofmt: format .ft files in place by
 // default, with -l to list files that differ (without writing) and -n for a dry run (no writes).
 func runFmtCommand(argv []string, log *logrus.Logger, out io.Writer) error {
-	flags := flag.NewFlagSet("fmt", flag.ExitOnError)
+	flags := flag.NewFlagSet("fmt", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	list := flags.Bool("l", false, "list files whose formatting differs (do not write)")
 	dry := flags.Bool("n", false, "dry run: do not write; print write <path> for each file that would change")

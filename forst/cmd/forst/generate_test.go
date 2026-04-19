@@ -1,11 +1,18 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	transformerts "forst/internal/transformer/ts"
+	"forst/internal/typechecker"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Shared Forst sources for generate tests, dev server tests, and generate_tsc_test.go.
@@ -393,5 +400,326 @@ func TestDiscoverForstFilesForGenerate_directoryListsFtFiles(t *testing.T) {
 	}
 	if filepath.Clean(outDir) != filepath.Clean(dir) {
 		t.Fatalf("outputDir %q vs dir %q", outDir, dir)
+	}
+}
+
+func TestLoadConfigForGenerate_explicitConfig_loadError(t *testing.T) {
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "bad.json")
+	if err := os.WriteFile(bad, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadConfigForGenerate(bad, dir, true)
+	if err == nil {
+		t.Fatal("expected load config error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_directoryAbsError(t *testing.T) {
+	cfg := DefaultConfig()
+	_, _, err := discoverForstFilesForGenerate(cfg, "x\x00y", true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_missingDirTarget_findFails(t *testing.T) {
+	cfg := DefaultConfig()
+	missing := filepath.Join(t.TempDir(), "not-there")
+	_, _, err := discoverForstFilesForGenerate(cfg, missing, true)
+	if err == nil {
+		t.Fatal("expected FindForstFiles error for missing directory")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_directoryTarget_absError(t *testing.T) {
+	orig := absPathForGenerate
+	absPathForGenerate = func(string) (string, error) { return "", fmt.Errorf("abs") }
+	t.Cleanup(func() { absPathForGenerate = orig })
+	_, _, err := discoverForstFilesForGenerate(DefaultConfig(), t.TempDir(), true)
+	if err == nil {
+		t.Fatal("expected abs error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_fileTarget_absError(t *testing.T) {
+	orig := absPathForGenerate
+	absPathForGenerate = func(string) (string, error) { return "", fmt.Errorf("abs") }
+	t.Cleanup(func() { absPathForGenerate = orig })
+	_, _, err := discoverForstFilesForGenerate(DefaultConfig(), "x.ft", false)
+	if err == nil {
+		t.Fatal("expected abs error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_findForstFilesWalkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod walk error not portable")
+	}
+	root := t.TempDir()
+	sub := filepath.Join(root, "blocked")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "a.ft"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(sub, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(sub, 0o755) })
+	cfg := DefaultConfig()
+	_, _, err := discoverForstFilesForGenerate(cfg, root, true)
+	if err == nil {
+		t.Fatal("expected walk error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_singleFileAbsError(t *testing.T) {
+	cfg := DefaultConfig()
+	_, _, err := discoverForstFilesForGenerate(cfg, "a\x00b.ft", false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDiscoverForstFilesForGenerate_findInParentDirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod walk error not portable")
+	}
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "one.ft")
+	if err := os.WriteFile(ft, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	cfg := DefaultConfig()
+	_, _, err := discoverForstFilesForGenerate(cfg, ft, false)
+	if err == nil {
+		t.Fatal("expected find error")
+	}
+}
+
+func TestGenerateCommand_badFlag(t *testing.T) {
+	err := generateCommand([]string{"-not-a-generate-flag"})
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestGenerateCommand_loadConfigFailure(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	badCfg := filepath.Join(dir, "cfg.json")
+	if err := os.WriteFile(badCfg, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{"-config", badCfg, ft})
+	if err == nil || !strings.Contains(err.Error(), "load config") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateCommand_mkdirGeneratedFails(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := generateIO.MkdirAll
+	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
+	t.Cleanup(func() { generateIO.MkdirAll = orig })
+	err := generateCommand([]string{ft})
+	if err == nil || !strings.Contains(err.Error(), "generated") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateCommand_writeTypesFails(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := generateIO.WriteFile
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(name, "types.d.ts") && strings.Contains(name, "generated") {
+			return fmt.Errorf("write types")
+		}
+		return orig(name, data, perm)
+	}
+	t.Cleanup(func() { generateIO.WriteFile = orig })
+	err := generateCommand([]string{ft})
+	if err == nil || !strings.Contains(err.Error(), "types declaration") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateCommand_writeClientModuleLogsError(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := generateIO.WriteFile
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(name, ".client.ts") {
+			return fmt.Errorf("no client")
+		}
+		return orig(name, data, perm)
+	}
+	t.Cleanup(func() { generateIO.WriteFile = orig })
+	if err := generateCommand([]string{ft}); err != nil {
+		t.Fatalf("generateCommand completes with log+continue on client write: %v", err)
+	}
+}
+
+func TestGenerateClientPackage_mkdirFails(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	orig := generateIO.MkdirAll
+	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
+	t.Cleanup(func() { generateIO.MkdirAll = orig })
+	err := generateClientPackage(t.TempDir(), []string{"a"}, log)
+	if err == nil || !strings.Contains(err.Error(), "client directory") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateClientPackage_writeIndexFails(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	dir := t.TempDir()
+	origW := generateIO.WriteFile
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(name, "index.ts") {
+			return fmt.Errorf("index")
+		}
+		return origW(name, data, perm)
+	}
+	t.Cleanup(func() { generateIO.WriteFile = origW })
+	err := generateClientPackage(dir, []string{"a"}, log)
+	if err == nil || !strings.Contains(err.Error(), "client index") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	dir := t.TempDir()
+	origW := generateIO.WriteFile
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasSuffix(name, "package.json") {
+			return fmt.Errorf("pj")
+		}
+		return origW(name, data, perm)
+	}
+	t.Cleanup(func() { generateIO.WriteFile = origW })
+	err := generateClientPackage(dir, []string{"a"}, log)
+	if err == nil || !strings.Contains(err.Error(), "package.json") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateClientPackage_copyTypesFails(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	dir := t.TempDir()
+	gen := filepath.Join(dir, "generated")
+	if err := os.MkdirAll(gen, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	typesPath := filepath.Join(gen, "types.d.ts")
+	if err := os.WriteFile(typesPath, []byte("export type X = 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	origW := generateIO.WriteFile
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.Contains(name, string(filepath.Separator)+"client"+string(filepath.Separator)) && strings.HasSuffix(name, "types.d.ts") {
+			return fmt.Errorf("copy")
+		}
+		return origW(name, data, perm)
+	}
+	t.Cleanup(func() { generateIO.WriteFile = origW })
+	err := generateClientPackage(dir, []string{"a"}, log)
+	if err == nil || !strings.Contains(err.Error(), "copy types") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoadConfigForGenerate_explicitAbsError(t *testing.T) {
+	orig := absPathForGenerate
+	absPathForGenerate = func(string) (string, error) { return "", fmt.Errorf("abs") }
+	t.Cleanup(func() { absPathForGenerate = orig })
+	_, err := loadConfigForGenerate("cfg.json", ".", true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLoadConfigForGenerate_startDirAbsError(t *testing.T) {
+	orig := absPathForGenerate
+	absPathForGenerate = func(string) (string, error) { return "", fmt.Errorf("abs") }
+	t.Cleanup(func() { absPathForGenerate = orig })
+	_, err := loadConfigForGenerate("", t.TempDir(), true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestGenerateCommand_generateTSPerFileError(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := generateTSOutputsPerFileHook
+	generateTSOutputsPerFileHook = func([]transformerts.ForstFileChunk, *typechecker.TypeChecker, *logrus.Logger) ([]*transformerts.TypeScriptOutput, error) {
+		return nil, fmt.Errorf("per file")
+	}
+	t.Cleanup(func() { generateTSOutputsPerFileHook = orig })
+	err := generateCommand([]string{ft})
+	if err == nil || !strings.Contains(err.Error(), "per file") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateCommand_mergeOutputsError(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := mergeTypeScriptOutputsHook
+	mergeTypeScriptOutputsHook = func([]*transformerts.TypeScriptOutput) (*transformerts.TypeScriptOutput, error) {
+		return nil, fmt.Errorf("merge")
+	}
+	t.Cleanup(func() { mergeTypeScriptOutputsHook = orig })
+	err := generateCommand([]string{ft})
+	if err == nil || !strings.Contains(err.Error(), "merge") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGenerateCommand_generateClientPackageLogsError(t *testing.T) {
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "x.ft")
+	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := generateClientPackageHook
+	generateClientPackageHook = func(string, []string, *logrus.Logger) error {
+		return fmt.Errorf("client")
+	}
+	t.Cleanup(func() { generateClientPackageHook = orig })
+	if err := generateCommand([]string{ft}); err != nil {
+		t.Fatalf("expected nil (error is logged), got %v", err)
 	}
 }

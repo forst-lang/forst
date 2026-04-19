@@ -5,14 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"forst/internal/compiler"
 	"forst/internal/discovery"
 	"forst/internal/executor"
+
+	"github.com/sirupsen/logrus"
 )
 
 type nonFlushingResponseWriter struct {
@@ -220,6 +226,117 @@ func TestHandleInvoke_executeFunctionFailure_returns500(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "Function execution failed") {
 		t.Fatalf("unexpected error response: %s", rr.Body.String())
 	}
+}
+
+func TestHandleVersion_marshalError_returns500(t *testing.T) {
+	orig := jsonMarshalVersionPayload
+	jsonMarshalVersionPayload = func(any) ([]byte, error) { return nil, fmt.Errorf("marshal") }
+	t.Cleanup(func() { jsonMarshalVersionPayload = orig })
+
+	s := testDevServer(t)
+	rr := httptest.NewRecorder()
+	s.handleVersion(rr, httptest.NewRequest(http.MethodGet, "/version", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleFunctions_twoPublicFuncsSamePackage(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.ft"), []byte(generateTestMinimalValidForst), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "b.ft"), []byte(generateTestSecondForstFile), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	cfg := DefaultConfig()
+	comp := compiler.New(cfg.ToCompilerArgs(), log)
+	s := NewHTTPServer("0", comp, log, cfg, root)
+
+	rr := httptest.NewRecorder()
+	s.handleFunctions(rr, httptest.NewRequest(http.MethodGet, "/functions", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /functions: %d %s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	var list []discovery.FunctionInfo
+	if err := json.Unmarshal(resp.Result, &list); err != nil {
+		t.Fatalf("result: %v", err)
+	}
+	if len(list) < 2 {
+		t.Fatalf("want at least 2 functions, got %d (%v)", len(list), list)
+	}
+}
+
+func TestHandleFunctions_marshalListError_returnsResponseWithoutResult(t *testing.T) {
+	orig := jsonMarshalFunctionsList
+	jsonMarshalFunctionsList = func(any) ([]byte, error) { return nil, fmt.Errorf("no") }
+	t.Cleanup(func() { jsonMarshalFunctionsList = orig })
+
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"p": {"F": {Package: "p", Name: "F"}},
+	}
+	rr := httptest.NewRecorder()
+	s.handleFunctions(rr, httptest.NewRequest(http.MethodGet, "/functions", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status: %d", rr.Code)
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || len(resp.Result) != 0 {
+		t.Fatalf("expected success with empty result on marshal failure, got %+v", resp)
+	}
+}
+
+func TestHandleInvoke_streamingExecuteError_returns500(t *testing.T) {
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"StreamFn": {Package: "mypkg", Name: "StreamFn", SupportsStreaming: true},
+		},
+	}
+	s.fnExec = &stubDevExecutor{
+		executeStreamingFn: func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error) {
+			return nil, fmt.Errorf("stream boom")
+		},
+	}
+	rr := httptest.NewRecorder()
+	body := `{"package":"mypkg","function":"StreamFn","args":[],"streaming":true}`
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleTypes_generateTypesError_returns500(t *testing.T) {
+	s := testDevServer(t)
+	s.typesGenerator = &stubTypesGen{err: fmt.Errorf("types")}
+	s.typesCacheMu.Lock()
+	s.typesCache["types"] = ""
+	s.lastTypesGen = time.Now()
+	s.typesCacheMu.Unlock()
+
+	rr := httptest.NewRecorder()
+	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types?force=true", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+type stubTypesGen struct {
+	err error
+}
+
+func (s *stubTypesGen) GenerateTypesForFunctions(map[string]map[string]discovery.FunctionInfo, string) (string, error) {
+	return "", s.err
 }
 
 func TestHandleVersion_getAndWrongMethod(t *testing.T) {

@@ -7,10 +7,23 @@ import (
 	"fmt"
 	"forst/cmd/forst/lsp"
 	"forst/internal/compiler"
+	"io"
 	"os"
 	"path/filepath"
 
 	logrus "github.com/sirupsen/logrus"
+)
+
+// Test hooks for runMain branches (subprocess servers, compiler helpers).
+var (
+	startDevServerFunc     = StartDevServer
+	startLSPFunc           = lsp.StartLSPServer
+	createTempOutputFileFn = compiler.CreateTempOutputFile
+	runGoProgramFn         = compiler.RunGoProgram
+	jsonMarshalDumpParams  = json.Marshal
+	jsonMarshalDumpResult  = json.Marshal
+	jsonMarshalDumpIndent  = json.MarshalIndent
+	pathAbs                = filepath.Abs
 )
 
 // Version information injected by Release Please
@@ -43,7 +56,8 @@ func runMain(argv []string) int {
 	// Check if we should start dev server
 	if len(argv) > 1 && argv[1] == "dev" {
 		// Parse flags for dev server
-		devFlags := flag.NewFlagSet("dev", flag.ExitOnError)
+		devFlags := flag.NewFlagSet("dev", flag.ContinueOnError)
+		devFlags.SetOutput(io.Discard)
 		port := devFlags.String("port", "8080", "Port to listen on")
 		configPath := devFlags.String("config", "", "Path to configuration file")
 		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
@@ -56,13 +70,13 @@ func runMain(argv []string) int {
 		}
 
 		// Resolve root directory to absolute path
-		absRootDir, err := filepath.Abs(*rootDir)
+		absRootDir, err := pathAbs(*rootDir)
 		if err != nil {
 			log.Errorf("Failed to resolve root directory: %v", err)
 			return 1
 		}
 
-		if err := StartDevServer(*port, log, *configPath, absRootDir, logLevel); err != nil {
+		if err := startDevServerFunc(*port, log, *configPath, absRootDir, logLevel); err != nil {
 			return 1
 		}
 		return 0
@@ -88,7 +102,8 @@ func runMain(argv []string) int {
 	// Check if we should start LSP server
 	if len(argv) > 1 && argv[1] == "lsp" {
 		// Parse flags for LSP server
-		lspFlags := flag.NewFlagSet("lsp", flag.ExitOnError)
+		lspFlags := flag.NewFlagSet("lsp", flag.ContinueOnError)
+		lspFlags.SetOutput(io.Discard)
 		port := lspFlags.String("port", "8081", "Port to listen on")
 		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
@@ -106,7 +121,7 @@ func runMain(argv []string) int {
 		lsp.Commit = Commit
 		lsp.Date = Date
 
-		if err := lsp.StartLSPServer(*port, log); err != nil {
+		if err := startLSPFunc(*port, log); err != nil {
 			return 1
 		}
 		return 0
@@ -115,7 +130,8 @@ func runMain(argv []string) int {
 	// Check if we should dump debug info
 	if len(argv) > 1 && argv[1] == "dump" {
 		// Parse flags for dump command
-		dumpFlags := flag.NewFlagSet("dump", flag.ExitOnError)
+		dumpFlags := flag.NewFlagSet("dump", flag.ContinueOnError)
+		dumpFlags.SetOutput(io.Discard)
 		filePath := dumpFlags.String("file", "", "Path to Forst file to dump")
 		compression := dumpFlags.Bool("compression", false, "Enable compression for debug output")
 		format := dumpFlags.String("format", "json", "Output format (json, pretty)")
@@ -138,7 +154,10 @@ func runMain(argv []string) int {
 		lsp.Commit = Commit
 		lsp.Date = Date
 
-		handleDumpCommand(*filePath, *compression, *format, *phase, *summary, log)
+		if err := handleDumpCommand(*filePath, *compression, *format, *phase, *summary, log); err != nil {
+			log.Error(err)
+			return 1
+		}
 		return 0
 	}
 
@@ -178,7 +197,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = compiler.CreateTempOutputFile(*code)
+			outputPath, err = createTempOutputFileFn(*code)
 			if err != nil {
 				log.Error(err)
 				return 1
@@ -186,7 +205,7 @@ func runMain(argv []string) int {
 		}
 
 		if args.Command == "run" {
-			if err := compiler.RunGoProgram(outputPath); err != nil {
+			if err := runGoProgramFn(outputPath); err != nil {
 				log.Error(err)
 				return 1
 			}
@@ -223,22 +242,20 @@ func setLogLevel(log *logrus.Logger, level string) {
 }
 
 // handleDumpCommand dumps debug information for a Forst file using LSP functionality
-func handleDumpCommand(filePath string, compression bool, format string, _ string, summary bool, log *logrus.Logger) {
+func handleDumpCommand(filePath string, compression bool, format string, _ string, summary bool, log *logrus.Logger) error {
 	// Create a temporary LSP server instance for dumping
 	server := lsp.NewLSPServer(":0", log) // Port 0 means we won't actually listen
 
 	// Read the file content
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Errorf("Failed to read file %s: %v", filePath, err)
-		os.Exit(1)
+		return fmt.Errorf("read file %s: %w", filePath, err)
 	}
 
 	// Convert file path to URI format
-	absPath, err := filepath.Abs(filePath)
+	absPath, err := pathAbs(filePath)
 	if err != nil {
-		log.Errorf("Failed to get absolute path: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("absolute path: %w", err)
 	}
 	uri := "file://" + absPath
 
@@ -260,10 +277,9 @@ func handleDumpCommand(filePath string, compression bool, format string, _ strin
 	}
 
 	// Marshal params to JSON
-	paramsJSON, err := json.Marshal(params)
+	paramsJSON, err := jsonMarshalDumpParams(params)
 	if err != nil {
-		log.Errorf("Failed to marshal params: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("marshal params: %w", err)
 	}
 	request.Params = paramsJSON
 
@@ -273,16 +289,16 @@ func handleDumpCommand(filePath string, compression bool, format string, _ strin
 	// Format the output
 	var output []byte
 	if format == "pretty" {
-		output, err = json.MarshalIndent(response.Result, "", "  ")
+		output, err = jsonMarshalDumpIndent(response.Result, "", "  ")
 	} else {
-		output, err = json.Marshal(response.Result)
+		output, err = jsonMarshalDumpResult(response.Result)
 	}
 
 	if err != nil {
-		log.Errorf("Failed to marshal output: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("marshal output: %w", err)
 	}
 
 	// Print the output
 	fmt.Println(string(output))
+	return nil
 }

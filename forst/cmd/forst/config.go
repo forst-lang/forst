@@ -124,12 +124,12 @@ type DevConfig struct {
 func DefaultConfig() *ForstConfig {
 	return &ForstConfig{
 		Compiler: CompilerConfig{
-			Target:               "go",
+			Target:             "go",
 			Optimization:       "debug",
-			ReportPhases:         false,
-			ReportMemoryUsage:    false,
-			Strict:               false,
-			ExportStructFields:   false,
+			ReportPhases:       false,
+			ReportMemoryUsage:  false,
+			Strict:             false,
+			ExportStructFields: false,
 		},
 		Server: ServerConfig{
 			Port:           "8080",

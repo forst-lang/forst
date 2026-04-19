@@ -207,6 +207,19 @@ func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
 	}
 }
 
+func TestStartDevServer_returnsNilWhenStartHookSucceeds(t *testing.T) {
+	orig := devServerStartFn
+	devServerStartFn = func(*DevServer) error { return nil }
+	t.Cleanup(func() { devServerStartFn = orig })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "info"
+	if err := StartDevServer("8080", logger, "", t.TempDir(), &level); err != nil {
+		t.Fatalf("expected nil when start hook succeeds, got %v", err)
+	}
+}
+
 func TestDevServer_discoverFunctions_successUpdatesCache(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)

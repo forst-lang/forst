@@ -268,10 +268,13 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		AcceptSubtypes: true,
 	},
 	"strings.Join": {
-		Name:           "Join",
-		Package:        "strings",
-		ReturnType:     ast.TypeNode{Ident: ast.TypeString},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeString}}, // elems, sep
+		Name:       "Join",
+		Package:    "strings",
+		ReturnType: ast.TypeNode{Ident: ast.TypeString},
+		ParamTypes: []ast.TypeNode{
+			{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}},
+			{Ident: ast.TypeString},
+		}, // elems []string, sep string
 		AcceptSubtypes: true,
 	},
 	"strings.Split": {

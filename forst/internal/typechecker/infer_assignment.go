@@ -210,5 +210,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		"function":      "inferAssignmentTypes",
 	}).Trace("Finished type inference for assignment")
 
+	tc.bindVariableGoTypesFromCall(assign)
+
 	return nil
 }

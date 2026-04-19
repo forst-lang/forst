@@ -114,12 +114,12 @@ type tsConfig struct {
 }
 
 type tsCompilerOptions struct {
-	Target           string              `json:"target"`
-	Module           string              `json:"module"`
-	ModuleResolution string              `json:"moduleResolution"`
-	Strict           bool                `json:"strict"`
-	NoEmit           bool                `json:"noEmit"`
-	SkipLibCheck     bool                `json:"skipLibCheck"`
+	Target           string `json:"target"`
+	Module           string `json:"module"`
+	ModuleResolution string `json:"moduleResolution"`
+	Strict           bool   `json:"strict"`
+	NoEmit           bool   `json:"noEmit"`
+	SkipLibCheck     bool   `json:"skipLibCheck"`
 	// No baseUrl: TS 6+ deprecates it (TS5101); paths resolve relative to the config file without it.
 	Paths map[string][]string `json:"paths,omitempty"`
 	// Empty types: do not auto-load @types/* from parent node_modules (avoids duplicate `process` vs node-process-shim.d.ts).

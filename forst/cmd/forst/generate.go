@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	transformerts "forst/internal/transformer/ts"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,10 +13,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// generateIO hooks filesystem operations for tests.
+var generateIO = struct {
+	MkdirAll  func(string, os.FileMode) error
+	WriteFile func(string, []byte, os.FileMode) error
+	ReadFile  func(string) ([]byte, error)
+}{
+	MkdirAll:  os.MkdirAll,
+	WriteFile: os.WriteFile,
+	ReadFile:  os.ReadFile,
+}
+
+var (
+	absPathForGenerate           = filepath.Abs
+	mergeTypeScriptOutputsHook   = transformerts.MergeTypeScriptOutputs
+	generateTSOutputsPerFileHook = transformerts.GenerateTypeScriptOutputsPerFile
+	generateClientPackageHook    = generateClientPackage
+)
+
 // loadConfigForGenerate resolves ftconfig: explicit -config, else search upward from target, else defaults.
 func loadConfigForGenerate(explicitConfig string, target string, isDir bool) (*ForstConfig, error) {
 	if explicitConfig != "" {
-		abs, err := filepath.Abs(explicitConfig)
+		abs, err := absPathForGenerate(explicitConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -25,14 +44,11 @@ func loadConfigForGenerate(explicitConfig string, target string, isDir bool) (*F
 	if !isDir {
 		startDir = filepath.Dir(target)
 	}
-	abs, err := filepath.Abs(startDir)
+	abs, err := absPathForGenerate(startDir)
 	if err != nil {
 		return nil, err
 	}
-	found, err := FindConfigFile(abs)
-	if err != nil {
-		return nil, err
-	}
+	found, _ := FindConfigFile(abs)
 	if found != "" {
 		return LoadConfig(found)
 	}
@@ -42,7 +58,7 @@ func loadConfigForGenerate(explicitConfig string, target string, isDir bool) (*F
 // discoverForstFilesForGenerate lists .ft files using the same include/exclude rules as `forst dev`.
 func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) (forstFiles []string, outputDir string, err error) {
 	if isDir {
-		absTarget, err := filepath.Abs(target)
+		absTarget, err := absPathForGenerate(target)
 		if err != nil {
 			return nil, "", err
 		}
@@ -55,7 +71,7 @@ func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) 
 	if filepath.Ext(target) != ".ft" {
 		return nil, "", fmt.Errorf("target file must have .ft extension")
 	}
-	absFile, err := filepath.Abs(target)
+	absFile, err := absPathForGenerate(target)
 	if err != nil {
 		return nil, "", err
 	}
@@ -74,7 +90,8 @@ func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) 
 
 // generateCommand handles the "forst generate" command
 func generateCommand(args []string) error {
-	fs := flag.NewFlagSet("generate", flag.ExitOnError)
+	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
 	configPath := fs.String("config", "", "Path to ftconfig.json")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -120,24 +137,24 @@ func generateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	outputs, err := transformerts.GenerateTypeScriptOutputsPerFile(chunks, tc, log)
+	outputs, err := generateTSOutputsPerFileHook(chunks, tc, log)
 	if err != nil {
 		return err
 	}
 
-	merged, err := transformerts.MergeTypeScriptOutputs(outputs)
+	merged, err := mergeTypeScriptOutputsHook(outputs)
 	if err != nil {
 		return fmt.Errorf("merge TypeScript outputs: %w", err)
 	}
 
 	generatedDir := filepath.Join(outputDir, "generated")
-	if err := os.MkdirAll(generatedDir, 0755); err != nil {
+	if err := generateIO.MkdirAll(generatedDir, 0755); err != nil {
 		return fmt.Errorf("failed to create generated directory: %w", err)
 	}
 
 	typesPath := filepath.Join(generatedDir, "types.d.ts")
 	typesCode := merged.GenerateTypesFile()
-	if err := os.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
+	if err := generateIO.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
 		return fmt.Errorf("failed to write types declaration file: %w", err)
 	}
 	log.Infof("Generated types declaration file: %s", typesPath)
@@ -146,7 +163,7 @@ func generateCommand(args []string) error {
 		stem := out.SourceFileStem
 		clientPath := filepath.Join(generatedDir, stem+".client.ts")
 		clientCode := out.GenerateClientFile()
-		if err := os.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
+		if err := generateIO.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
 			log.Errorf("Failed to write client module %s: %v", clientPath, err)
 			continue
 		}
@@ -160,7 +177,7 @@ func generateCommand(args []string) error {
 	sort.Strings(stems)
 
 	// Generate client package structure (only entries that produced output)
-	if err := generateClientPackage(outputDir, stems, log); err != nil {
+	if err := generateClientPackageHook(outputDir, stems, log); err != nil {
 		log.Errorf("Failed to generate client package: %v", err)
 	}
 
@@ -172,14 +189,14 @@ func generateCommand(args []string) error {
 func generateClientPackage(outputDir string, clientStems []string, log *logrus.Logger) error {
 	// Create client package directory
 	clientDir := filepath.Join(outputDir, "client")
-	if err := os.MkdirAll(clientDir, 0755); err != nil {
+	if err := generateIO.MkdirAll(clientDir, 0755); err != nil {
 		return fmt.Errorf("failed to create client directory: %w", err)
 	}
 
 	// Generate main client index file
 	indexContent := generateClientIndex(clientStems)
 	indexPath := filepath.Join(clientDir, "index.ts")
-	if err := os.WriteFile(indexPath, []byte(indexContent), 0644); err != nil {
+	if err := generateIO.WriteFile(indexPath, []byte(indexContent), 0644); err != nil {
 		return fmt.Errorf("failed to write client index: %w", err)
 	}
 	log.Infof("Generated client index: %s", indexPath)
@@ -187,7 +204,7 @@ func generateClientPackage(outputDir string, clientStems []string, log *logrus.L
 	// Generate package.json for the client
 	packageContent := generateClientPackageJSON()
 	packagePath := filepath.Join(clientDir, "package.json")
-	if err := os.WriteFile(packagePath, []byte(packageContent), 0644); err != nil {
+	if err := generateIO.WriteFile(packagePath, []byte(packageContent), 0644); err != nil {
 		return fmt.Errorf("failed to write client package.json: %w", err)
 	}
 	log.Infof("Generated client package.json: %s", packagePath)
@@ -279,12 +296,12 @@ func generateClientPackageJSON() string {
 
 // copyFile copies a file from source to destination
 func copyFile(src, dst string) error {
-	input, err := os.ReadFile(src)
+	input, err := generateIO.ReadFile(src)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(dst, input, 0644)
+	err = generateIO.WriteFile(dst, input, 0644)
 	if err != nil {
 		return err
 	}

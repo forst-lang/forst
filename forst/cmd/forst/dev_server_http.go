@@ -9,6 +9,12 @@ import (
 	"forst/internal/discovery"
 )
 
+// jsonMarshalVersionPayload marshals the /version payload; tests may replace to inject errors.
+var jsonMarshalVersionPayload = json.Marshal
+
+// jsonMarshalFunctionsList encodes the function list for /functions; tests may replace to inject errors.
+var jsonMarshalFunctionsList = json.Marshal
+
 // handleHealth handles health check requests.
 func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -36,7 +42,7 @@ func (s *DevServer) handleVersion(w http.ResponseWriter, r *http.Request) {
 		"date":            Date,
 		"contractVersion": devHTTPContractVersion,
 	}
-	data, err := json.Marshal(payload)
+	data, err := jsonMarshalVersionPayload(payload)
 	if err != nil {
 		s.sendError(w, fmt.Sprintf("failed to marshal version: %v", err), http.StatusInternalServerError)
 		return
@@ -73,7 +79,7 @@ func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 	}
 
-	if resultData, err := json.Marshal(functions); err == nil {
+	if resultData, err := jsonMarshalFunctionsList(functions); err == nil {
 		response.Result = resultData
 	}
 

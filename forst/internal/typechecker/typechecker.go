@@ -70,6 +70,9 @@ type TypeChecker struct {
 	// a shape literal that was checked with that contextual type. Enables IsTypeCompatible(hash, T)
 	// when T was intentionally absent from Defs but inferShapeType still produced a concrete shape.
 	shapeExpectations map[ast.TypeIdent]ast.ShapeNode
+	// variableGoTypes maps locals assigned from Go qualified calls to the corresponding go/types result types.
+	// Used to type-check method calls against real Go method signatures instead of opaque TYPE_IMPLICIT.
+	variableGoTypes map[ast.Identifier]types.Type
 }
 
 // New creates a new TypeChecker
@@ -94,6 +97,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		variableOccurrenceNarrowingPredicateDisplay: make(map[variableOccurrenceKey]string),
 		compoundNarrowingByIdentifier:               make(map[ast.Identifier]compoundNarrowingInfo),
 		FunctionReturnTypes:                         make(map[ast.Identifier][]ast.TypeNode),
+		variableGoTypes:                             make(map[ast.Identifier]types.Type),
 		log:                                         log,
 		reportPhases:                                reportPhases,
 	}

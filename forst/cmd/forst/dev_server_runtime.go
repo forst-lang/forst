@@ -82,12 +82,15 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 	log.Debugf("Starting Forst dev server on port %s", config.Server.Port)
 	log.Debugf("Root directory: %s", rootDir)
 
-	if err := server.Start(); err != nil {
+	if err := devServerStartFn(server); err != nil {
 		log.Errorf("HTTP server error: %v", err)
 		return err
 	}
 	return nil
 }
+
+// devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
+var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string) *ForstConfig {
 	config, err := LoadConfig(configPath)

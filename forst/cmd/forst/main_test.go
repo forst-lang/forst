@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"forst/internal/compiler"
 	"io"
 	"os"
@@ -719,7 +720,9 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 	logger.SetOutput(io.Discard)
 
 	compactOutput := captureStdoutForMainTest(t, func() {
-		handleDumpCommand(testFilePath, false, "json", "", false, logger)
+		if err := handleDumpCommand(testFilePath, false, "json", "", false, logger); err != nil {
+			t.Fatalf("handleDumpCommand json: %v", err)
+		}
 	})
 	if strings.TrimSpace(compactOutput) == "" {
 		t.Fatal("expected non-empty json output")
@@ -730,7 +733,9 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 	}
 
 	prettyOutput := captureStdoutForMainTest(t, func() {
-		handleDumpCommand(testFilePath, false, "pretty", "", true, logger)
+		if err := handleDumpCommand(testFilePath, false, "pretty", "", true, logger); err != nil {
+			t.Fatalf("handleDumpCommand pretty: %v", err)
+		}
 	})
 	if strings.TrimSpace(prettyOutput) == "" {
 		t.Fatal("expected non-empty pretty output")
@@ -744,13 +749,80 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 	}
 }
 
+func TestHandleDumpCommand_absPathError(t *testing.T) {
+	testFilePath := filepath.Join(t.TempDir(), "input.ft")
+	if err := os.WriteFile(testFilePath, []byte("fn main() { return }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := pathAbs
+	pathAbs = func(string) (string, error) { return "", fmt.Errorf("abs") }
+	t.Cleanup(func() { pathAbs = orig })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	if err := handleDumpCommand(testFilePath, false, "json", "", false, logger); err == nil || !strings.Contains(err.Error(), "absolute path") {
+		t.Fatalf("expected absolute path error, got %v", err)
+	}
+}
+
+func TestHandleDumpCommand_marshalParamsError(t *testing.T) {
+	testFilePath := filepath.Join(t.TempDir(), "input.ft")
+	if err := os.WriteFile(testFilePath, []byte("fn main() { return }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := jsonMarshalDumpParams
+	jsonMarshalDumpParams = func(any) ([]byte, error) { return nil, fmt.Errorf("params") }
+	t.Cleanup(func() { jsonMarshalDumpParams = orig })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	if err := handleDumpCommand(testFilePath, false, "json", "", false, logger); err == nil || !strings.Contains(err.Error(), "marshal params") {
+		t.Fatalf("expected marshal params error, got %v", err)
+	}
+}
+
+func TestHandleDumpCommand_marshalOutputJSONError(t *testing.T) {
+	testFilePath := filepath.Join(t.TempDir(), "input.ft")
+	if err := os.WriteFile(testFilePath, []byte("fn main() { return }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := jsonMarshalDumpResult
+	jsonMarshalDumpResult = func(any) ([]byte, error) { return nil, fmt.Errorf("out") }
+	t.Cleanup(func() { jsonMarshalDumpResult = orig })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	if err := handleDumpCommand(testFilePath, false, "json", "", false, logger); err == nil || !strings.Contains(err.Error(), "marshal output") {
+		t.Fatalf("expected marshal output error, got %v", err)
+	}
+}
+
+func TestHandleDumpCommand_marshalOutputPrettyError(t *testing.T) {
+	testFilePath := filepath.Join(t.TempDir(), "input.ft")
+	if err := os.WriteFile(testFilePath, []byte("fn main() { return }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := jsonMarshalDumpIndent
+	jsonMarshalDumpIndent = func(any, string, string) ([]byte, error) { return nil, fmt.Errorf("indent") }
+	t.Cleanup(func() { jsonMarshalDumpIndent = orig })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	if err := handleDumpCommand(testFilePath, false, "pretty", "", false, logger); err == nil || !strings.Contains(err.Error(), "marshal output") {
+		t.Fatalf("expected marshal output error, got %v", err)
+	}
+}
+
 func TestHandleDumpCommand_helperProcess(_ *testing.T) {
 	if os.Getenv("FORST_MAIN_DUMP_HELPER") != "1" {
 		return
 	}
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	handleDumpCommand("/path/that/does/not/exist.ft", false, "json", "", false, logger)
+	if err := handleDumpCommand("/path/that/does/not/exist.ft", false, "json", "", false, logger); err == nil {
+		os.Exit(0)
+	}
+	os.Exit(1)
 }
 
 func TestHandleDumpCommand_exitsOnReadFailure(t *testing.T) {

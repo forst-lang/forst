@@ -218,7 +218,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					"expr":     expr,
 				}).Tracef("Found local variable %s with type: %v", pkgName, varType)
 				// Check if the method is valid for this type
-				returnType, err := tc.inferMethodCallType(varType, funcName, e.Arguments)
+				returnType, err := tc.inferMethodCallType(ast.Identifier(pkgName), varType, funcName, e, argTypes)
 				if err != nil {
 					return nil, err
 				}
@@ -382,12 +382,12 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 }
 
 // Checks if a method call is valid for a given type and returns its return type
-func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName string, args []ast.ExpressionNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []ast.TypeNode, methodName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) ([]ast.TypeNode, error) {
 	tc.log.WithFields(logrus.Fields{
 		"function":   "inferMethodCallType",
 		"varType":    varType,
 		"methodName": methodName,
-		"args":       args,
+		"receiver":   receiver,
 	}).Tracef("inferMethodCallType")
 
 	if len(varType) != 1 {
@@ -409,18 +409,31 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 			return nil, fmt.Errorf("method %s() is not valid on type %s", methodName, t.String())
 		}
 	}
+
+	if goRecv, ok := tc.variableGoTypes[receiver]; ok && goRecv != nil {
+		ret, err := tc.checkGoMethodCall(goRecv, methodName, e, argTypes, true)
+		if err != nil {
+			return nil, err
+		}
+		tc.log.WithFields(logrus.Fields{
+			"function":   "inferMethodCallType",
+			"receiver":   receiver,
+			"methodName": methodName,
+		}).Tracef("Go method call: %v", ret)
+		return ret, nil
+	}
+
 	// *T method calls: lower to element type for built-in / opaque Go receivers.
 	if t.Ident == ast.TypePointer && len(t.TypeParams) == 1 {
 		t = t.TypeParams[0]
 	}
 
-	returnType, err := tc.CheckBuiltinMethod(t, methodName, args)
+	returnType, err := tc.CheckBuiltinMethod(t, methodName, e.Arguments)
 	if err != nil {
 		tc.log.WithFields(logrus.Fields{
 			"function":   "inferMethodCallType",
 			"varType":    varType,
 			"methodName": methodName,
-			"args":       args,
 		}).Tracef("Error checking built-in method: %v", err)
 		return nil, err
 	}
@@ -429,7 +442,6 @@ func (tc *TypeChecker) inferMethodCallType(varType []ast.TypeNode, methodName st
 		"function":   "inferMethodCallType",
 		"varType":    varType,
 		"methodName": methodName,
-		"args":       args,
 	}).Tracef("Successfully inferred method call type: %v", returnType)
 	return returnType, nil
 }

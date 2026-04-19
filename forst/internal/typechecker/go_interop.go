@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"go/types"
 	"strings"
 	"unicode"
@@ -323,6 +324,13 @@ func (tc *TypeChecker) forstAssignableToGoType(f ast.TypeNode, g types.Type) boo
 			return true
 		}
 	}
+	// Opaque Go values (named types, method results) are represented as TYPE_IMPLICIT until we have
+	// variableGoTypes-backed method typing. At a Go call boundary, trust go/types assignability for
+	// any parameter type we can map to Forst (e.g. slices passed to stdlib helpers).
+	if f.Ident == ast.TypeImplicit {
+		_, ok := goTypeToForstType(g)
+		return ok
+	}
 	exp, ok := goTypeToForstType(g)
 	if !ok {
 		return false
@@ -377,5 +385,74 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	default:
 		return ast.TypeNode{}, false
+	}
+}
+
+// checkGoMethodCall type-checks a method call using go/types when the receiver has a tracked Go type.
+func (tc *TypeChecker) checkGoMethodCall(recv types.Type, methodName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
+	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, methodName)
+	if obj == nil {
+		sp := e.CallSpan
+		if !sp.IsSet() {
+			sp = e.Function.Span
+		}
+		return nil, diagnosticf(sp, "go-method", "%s has no field or method %s", recv.String(), methodName)
+	}
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		sp := e.CallSpan
+		if !sp.IsSet() {
+			sp = e.Function.Span
+		}
+		return nil, diagnosticf(sp, "go-method", "%s.%s is not a method", recv.String(), methodName)
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return nil, diagnosticf(e.CallSpan, "go-method", "invalid method signature")
+	}
+	qual := fmt.Sprintf("(%s).%s", recv.String(), methodName)
+	return tc.checkGoSignature(sig, qual, e, argTypes, foldErrorPair)
+}
+
+// bindVariableGoTypesFromCall records go/types result types for each LHS of `pkg.Func(...)` when
+// the Go result arity matches the assignment (single- and multi-value).
+func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
+	if len(assign.RValues) != 1 {
+		return
+	}
+	fc, ok := assign.RValues[0].(ast.FunctionCallNode)
+	if !ok {
+		return
+	}
+	parts := strings.Split(string(fc.Function.ID), ".")
+	if len(parts) != 2 {
+		return
+	}
+	gp := tc.goPackageForImportLocal(parts[0])
+	if gp == nil {
+		return
+	}
+	obj := gp.Scope().Lookup(parts[1])
+	if obj == nil {
+		return
+	}
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return
+	}
+	res := sig.Results()
+	if res.Len() != len(assign.LValues) {
+		return
+	}
+	for i, lv := range assign.LValues {
+		vn, ok := lv.(ast.VariableNode)
+		if !ok {
+			continue
+		}
+		tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
 	}
 }

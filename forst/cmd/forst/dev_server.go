@@ -20,6 +20,11 @@ type devFunctionExecutor interface {
 	ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 
+// devTypesGenerator is implemented by *TypeScriptGenerator; HTTP tests may substitute stubs.
+type devTypesGenerator interface {
+	GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error)
+}
+
 // devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
 const devHTTPContractVersion = "1"
 
@@ -54,7 +59,7 @@ type DevServer struct {
 	typesCache     map[string]string // file path -> generated types
 	typesCacheMu   sync.RWMutex
 	lastTypesGen   time.Time
-	typesGenerator *TypeScriptGenerator
+	typesGenerator devTypesGenerator
 }
 
 // NewHTTPServer creates a new HTTP server

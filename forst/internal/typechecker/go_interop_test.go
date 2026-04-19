@@ -164,6 +164,9 @@ func main() {
 	if ts[0].TypeParams[0].Ident != ast.TypeInt || ts[0].TypeParams[1].Ident != ast.TypeError {
 		t.Fatalf("want Result(Int, Error), got %s", ts[0].String())
 	}
+	if tc.variableGoTypes[ast.Identifier("x")] != nil {
+		t.Fatal("expected no variableGoTypes[\"x\"] when Go arity does not match LHS count (folded Result)")
+	}
 }
 
 func TestGoRegularImport_stringsQualifiedCall_typechecks(t *testing.T) {
@@ -354,6 +357,12 @@ func main() {
 	if len(tv1) != 1 || tv1[0].Ident != ast.TypeError {
 		t.Fatalf("want err: Error, got %v", tv1)
 	}
+	if tc.variableGoTypes[ast.Identifier("v")] == nil {
+		t.Fatal("expected variableGoTypes[\"v\"] after two-value Go call")
+	}
+	if tc.variableGoTypes[ast.Identifier("err")] == nil {
+		t.Fatal("expected variableGoTypes[\"err\"] after two-value Go call")
+	}
 }
 
 func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
@@ -473,6 +482,194 @@ func TestGoTypeToForstType_emptyInterfaceMapsToImplicit(t *testing.T) {
 	got, ok := goTypeToForstType(iface)
 	if !ok || got.Ident != ast.TypeImplicit {
 		t.Fatalf("want implicit, got ok=%v %#v", ok, got)
+	}
+}
+
+func TestGoMethodCall_sliceResult_stringsJoin_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "regexp"
+import "strings"
+
+func main() {
+	re := regexp.MustCompile(` + "`" + `\w+` + "`" + `)
+	subs := re.FindStringSubmatch("hello")
+	j := strings.Join(subs, " ")
+	println(j)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
+		t.Skip("strings not loaded (go/packages or workspace)")
+	}
+	if tc.variableGoTypes[ast.Identifier("re")] == nil {
+		t.Fatal("expected variableGoTypes[\"re\"] after single-value qualified call")
+	}
+	var mainFn ast.FunctionNode
+	foundMain := false
+	for _, n := range nodes {
+		fn, ok := n.(ast.FunctionNode)
+		if ok && fn.Ident.ID == "main" {
+			mainFn = fn
+			foundMain = true
+			break
+		}
+	}
+	if !foundMain {
+		t.Fatal("main not found")
+	}
+	subsAsg, ok := mainFn.Body[1].(ast.AssignmentNode)
+	if !ok {
+		t.Fatalf("expected subs assignment, got %T", mainFn.Body[1])
+	}
+	subsVar, ok := subsAsg.LValues[0].(ast.VariableNode)
+	if !ok {
+		t.Fatalf("expected variable subs, got %T", subsAsg.LValues[0])
+	}
+	subsTy, err := tc.LookupInferredType(subsVar, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subsTy) != 1 || subsTy[0].Ident != ast.TypeArray || len(subsTy[0].TypeParams) != 1 || subsTy[0].TypeParams[0].Ident != ast.TypeString {
+		t.Fatalf("want subs: Array(String), got %v", subsTy)
+	}
+	joinAsg, ok := mainFn.Body[2].(ast.AssignmentNode)
+	if !ok {
+		t.Fatalf("expected j assignment, got %T", mainFn.Body[2])
+	}
+	joinCall, ok := joinAsg.RValues[0].(ast.FunctionCallNode)
+	if !ok {
+		t.Fatalf("expected strings.Join call, got %T", joinAsg.RValues[0])
+	}
+	joinTy, err := tc.LookupInferredType(joinCall, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(joinTy) != 1 || joinTy[0].Ident != ast.TypeString {
+		t.Fatalf("want j rhs: String, got %v", joinTy)
+	}
+}
+
+func TestVariableGoTypes_twoValueOpenThenMethodCall_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os"
+
+func main() {
+	f, err := os.Open(".")
+	n := f.Name()
+	println(f)
+	println(err)
+	println(n)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["os"] == nil {
+		t.Skip("os not loaded (go/packages or workspace)")
+	}
+	if tc.variableGoTypes[ast.Identifier("f")] == nil {
+		t.Fatal("expected variableGoTypes[\"f\"]")
+	}
+	if tc.variableGoTypes[ast.Identifier("err")] == nil {
+		t.Fatal("expected variableGoTypes[\"err\"]")
+	}
+}
+
+func TestGoMethodCall_missingMethodOnTrackedReceiver_errors(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os"
+
+func main() {
+	f, err := os.Open(".")
+	x := f.NotARealMethodName()
+	println(x)
+	println(err)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected type error for missing method on tracked receiver")
+	}
+	var diag *Diagnostic
+	if !errors.As(err, &diag) {
+		t.Fatalf("expected *Diagnostic, got %T: %v", err, err)
+	}
+	if diag == nil || diag.Code != "go-method" {
+		t.Fatalf("expected go-method diagnostic, got %+v", diag)
+	}
+}
+
+func TestForstAssignableToGoType_implicitRejectsUnmappedGoParam(t *testing.T) {
+	t.Parallel()
+	ch := types.NewChan(types.SendRecv, types.Typ[types.Int])
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := New(log, false)
+	implicit := ast.TypeNode{Ident: ast.TypeImplicit}
+	if tc.forstAssignableToGoType(implicit, ch) {
+		t.Fatal("expected implicit not assignable when Go type has no Forst mapping")
+	}
+}
+
+func TestForstAssignableToGoType_implicitAssignsToGoSliceParam(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
+	if err != nil || len(loaded) == 0 {
+		t.Skip("go/packages could not load strings")
+	}
+	pkgp := loaded["strings"]
+	if pkgp == nil || pkgp.Types == nil {
+		t.Skip("strings package types unavailable")
+	}
+	obj := pkgp.Types.Scope().Lookup("Join")
+	if obj == nil {
+		t.Fatal("strings.Join not found")
+	}
+	fn := obj.(*types.Func)
+	sig := fn.Type().(*types.Signature)
+	sliceStr := sig.Params().At(0).Type()
+
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := New(log, false)
+	implicit := ast.TypeNode{Ident: ast.TypeImplicit}
+	if !tc.forstAssignableToGoType(implicit, sliceStr) {
+		t.Fatalf("expected implicit assignable to %s", sliceStr.String())
 	}
 }
 
