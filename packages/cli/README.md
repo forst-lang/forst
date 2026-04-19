@@ -1,10 +1,14 @@
 # @forst/cli
 
-Install the **Forst** compiler for Node.js without a separate Go toolchain. The package ships a small wrapper that downloads the official **native binary** for your OS/arch from [GitHub Releases](https://github.com/forst-lang/forst/releases) (same artifacts as `task build:release`).
+Install the **Forst** compiler for Node.js without a separate Go toolchain. This package provides a small Node.js wrapper that downloads and caches the official **native `forst` binary** for your platform from [GitHub Releases](https://github.com/forst-lang/forst/releases) (the same artifacts produced by `task build:release` in the main repository).
 
-Requires **Node.js 18** or newer (see `engines` in `package.json`).
+Use it when you want the compiler in JavaScript/TypeScript workflows (npm scripts, tooling, or libraries such as [`@forst/sidecar`](../sidecar/README.md)) without building Go from source.
 
-**First run:** the wrapper downloads the matching native binary from GitHub Releases (needs HTTPS). Pin or skip download with `FORST_BINARY` (see Environment below)—handy for offline CI or air-gapped machines.
+## Requirements
+
+- **Node.js** 18 or later (`engines` in `package.json`)
+- **Network access** to `github.com` on first use (binary download and release metadata), unless you point to a pre-installed binary with `FORST_BINARY`
+- **Supported platforms:** Linux, macOS, and Windows on architectures published on the project’s GitHub Releases for your package version
 
 The **npm package version** is chosen by Release Please for `packages/cli`; the wrapper downloads the native binary for that semver from [GitHub Releases](https://github.com/forst-lang/forst/releases) (typically aligned with the compiler).
 
@@ -14,7 +18,11 @@ The **npm package version** is chosen by Release Please for `packages/cli`; the 
 
 **Registries:** [npm](https://www.npmjs.com/package/@forst/cli) · [JSR](https://jsr.io/@forst/cli).
 
-**CI publishes** use GitHub Actions OIDC ([trusted publishing](https://docs.npmjs.com/trusted-publishers/)) when configured on npm; a classic `NPM_TOKEN` in repo secrets still works as a fallback. JSR uses OIDC linked to the repo or a `JSR_TOKEN` secret.
+**CI publishes** use GitHub Actions OIDC ([trusted publishing](https://docs.npmjs.com/trusted-publishers/)) when configured on npm; a classic `NPM_TOKEN` in repository secrets may be used where a fallback is required. JSR publishes use OIDC linked to the repository, or a `JSR_TOKEN` secret when applicable.
+
+## Security
+
+The wrapper **verifies** downloaded binaries by default (`FORST_CLI_VERIFY`) using SHA-256 digests from GitHub’s release API. Downloads use atomic writes and file locking so concurrent installs cannot leave a truncated binary in place. For maximum control in locked-down environments, supply a vetted compiler with `FORST_BINARY` and avoid exposing long-lived tokens in logs (CI should use OIDC or short-lived credentials where possible).
 
 ## Install
 
@@ -25,6 +33,8 @@ npx @forst/cli version
 ```
 
 With a local dependency, `node_modules/.bin/forst` runs the wrapper.
+
+On **first use**, the wrapper downloads the binary for your installed package version (HTTPS to GitHub). To skip the download—for example in offline CI—set `FORST_BINARY` to a pre-installed executable (see **Environment** below).
 
 **Diagnostics:** `npx forst --forst-cli-info` prints the npm package semver, the resolved native binary path, and the output of `forst version` (useful for bug reports and CI).
 
@@ -66,4 +76,12 @@ const bin = await resolveForstBinary();
 
 ## Compiler CLI
 
-The native binary implements `forst dev`, `forst generate`, `forst lsp`, `forst fmt`, etc. See the Go entrypoint in [`forst/cmd/forst/main.go`](../../forst/cmd/forst/main.go).
+The native binary implements `forst dev`, `forst generate`, `forst lsp`, `forst fmt`, and related commands. Refer to the Go entry point in [`forst/cmd/forst/main.go`](../../forst/cmd/forst/main.go) and the main project documentation for full CLI behavior.
+
+## Support
+
+Report issues and feature requests in the [issue tracker](https://github.com/forst-lang/forst/issues). Include the output of `npx forst --forst-cli-info` and your OS/architecture when reporting download or verification problems.
+
+## License
+
+MIT — see [`LICENSE`](./LICENSE).

@@ -3,6 +3,9 @@
 #
 # Sidecar jobs depend on the matching CLI jobs when both run: sidecar declares `@forst/cli@^…` and
 # JSR resolves that package from jsr.io (npm publish order matters for npm installability).
+#
+# npm publish: trusted publishing (OIDC) — no NODE_AUTH_TOKEN. Re-add job env
+#   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} if you need token fallback or `npm`/registry auth for private deps.
 
 name: Publish packages (npm / JSR)
 
@@ -20,6 +23,10 @@ on:
         type: string
         default: ""
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
   cli-npm:
     name: "@forst/cli → npm"
@@ -27,8 +34,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     if: inputs.cli_tag != ''
     steps:
       - uses: actions/checkout@v4
@@ -41,13 +46,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Trailing slash matters for how setup-node wires auth to npm (same as GitHub’s publish tutorial).
-          registry-url: "https://registry.npmjs.org/"
-          # Trusted publishing requires Node ≥22.14 and npm ≥11.5.1 (npm docs).
-          node-version: "24"
-
-      - name: Install npm CLI for trusted publishing
-        run: npm install -g npm@^11.5.1
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
       - name: Build @forst/cli
@@ -87,8 +87,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     needs: [cli-npm]
     # GitHub skips dependents when a needed job is skipped unless `if` uses `always()`; without it,
     # sidecar-only releases never run (cli-npm is skipped).
@@ -107,12 +105,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Trailing slash matters for how setup-node wires auth to npm (same as GitHub’s publish tutorial).
-          registry-url: "https://registry.npmjs.org/"
-          node-version: "24"
-
-      - name: Install npm CLI for trusted publishing
-        run: npm install -g npm@^11.5.1
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       # `npm pack` does not run prepublishOnly; run the same pipeline as publish, then pack with
       # --ignore-scripts so the tarball matches what npm publish would upload (prepublishOnly runs again on publish).

@@ -1,14 +1,26 @@
 # @forst/sidecar
 
-Sidecar integration for TypeScript applications to use Forst for high-performance backend operations.
+TypeScript integration for running **Forst**-compiled logic alongside Node.js: manage the `forst dev` server (or attach to an existing one), call compiled functions over HTTP, and align generated types with your project layout.
 
-**Compiler:** depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for the same native `forst` binary download/cache. Env vars (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) apply here too—see [CLI README](../cli/README.md#environment). Published tarballs pin `@forst/cli` to a **caret range** (`^x.y.z`) matching the CLI version at release time—upgrade **sidecar** when you need a newer sidecar API, and let the range pull a newer CLI, or bump **`@forst/cli`** explicitly in your app if you only need a newer compiler.
+**Compiler dependency:** this package depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for resolving and caching the same native `forst` binary as the CLI. Environment variables (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) are shared—see [CLI README — Environment](../cli/README.md#environment). Published packages declare `@forst/cli` with a **semver caret** (`^x.y.z`) locked at release time. Upgrade **`@forst/sidecar`** when you need new sidecar APIs; adjust **`@forst/cli`** when you need a newer compiler without necessarily changing sidecar.
 
-**Peer:** [`express`](https://www.npmjs.com/package/express) **^5** (see `peerDependencies`). Install it in your app; the sidecar does not bundle Express.
+**Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^5** (`peerDependencies`). Install Express in the application; it is not bundled here.
 
 ## Overview
 
-The Forst sidecar enables gradual adoption of Forst within TypeScript applications by providing a seamless bridge between TypeScript and high-performance Forst-compiled Go binaries. This allows teams to solve performance bottlenecks incrementally without requiring a complete rewrite.
+The sidecar lets teams introduce Forst incrementally: keep your existing TypeScript and HTTP stack, route hot paths through compiled Forst functions, and use **spawn** mode for local development or **connect** mode when a single `forst dev` instance is shared across processes or CI tasks.
+
+## Use cases
+
+- **Development:** run one `ForstSidecar` with hot reload against a tree of `.ft` files; iterate from TypeScript without managing the compiler binary manually.
+- **Monorepos:** centralize `forst dev` at the repository root; other packages attach in **connect** mode to avoid duplicate servers and port contention.
+- **Automation:** drive `forst generate` and health checks from the same configuration you use for the dev server.
+
+## Requirements
+
+- **Node.js** 18 or later (`engines` in `package.json`)
+- **Express** 5.x installed in the host application (peer dependency)
+- **`@forst/cli`** available at runtime (installed transitively or pinned explicitly) so the native compiler can be resolved
 
 ## Features
 
@@ -326,26 +338,25 @@ func processData(input ProcessDataInput) {
 }
 ```
 
-## Performance Benefits
+## Performance
 
-- **10x faster latency** compared to TypeScript for CPU-intensive operations
-- **Memory efficiency** through Go's garbage collector
-- **Concurrent processing** with goroutines
-- **Compiled performance** vs interpreted TypeScript
+Forst compiles selected logic to native code; workloads that are CPU-bound or benefit from Go’s runtime model may see lower latency and more predictable memory use than equivalent hot paths left in interpreted TypeScript. Measure in your own deployment: the sidecar focuses on integration, not on benchmarking your application.
 
-## Error Handling
+## Error handling
 
-The sidecar provides comprehensive error handling:
-
-- **Compilation errors**: Graceful handling of Forst compilation failures
-- **Runtime errors**: Proper error propagation from Forst to TypeScript
-- **Network errors**: Retry logic with exponential backoff
-- **Health monitoring**: Automatic detection of server issues
+- **Compilation failures:** surfaced from the compiler process; inspect logs from `forst dev` when spawn mode is used.
+- **Invoke failures:** typed errors (`DevServerInvokeRejected`, `DevServerHttpFailure`) distinguish HTTP and application-level failures—see [API Reference](#api-reference).
+- **Network resilience:** the HTTP client applies retries with backoff for transient errors where appropriate.
+- **Health checks:** use `healthCheck()` or your configured HTTP health path to verify the dev server before routing traffic.
 
 ## See also
 
 - **`forst dev` HTTP contract** (JSON API): [examples/in/rfc/typescript-client/02-forst-dev-http-contract.md](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)
 - **Roadmap** (TypeScript interoperability): [ROADMAP.md](../../ROADMAP.md)
+
+## Support
+
+For sidecar-specific behavior, open an issue in the [project issue tracker](https://github.com/forst-lang/forst/issues) with your `@forst/sidecar` and `@forst/cli` versions, whether you use **spawn** or **connect** mode, and relevant logs. For compiler or binary download issues, include `npx forst --forst-cli-info` from [`@forst/cli`](../cli/README.md).
 
 ## Contributing
 
