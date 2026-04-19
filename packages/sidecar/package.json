@@ -4,6 +4,13 @@
   "description": "Sidecar integration for TypeScript applications to use Forst for high-performance backend operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublish:sidecar": "bun run --cwd ../cli build && bun run sync-jsr-version && bun run build && node ./scripts/rewrite-cli-workspace-dep-for-publish.mjs && node ./scripts/assert-published-cli-dep.mjs",
@@ -15,12 +22,15 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "lint": "eslint src/**/*.ts",
-    "example": "tsx examples/basic.ts"
+    "example": "tsx examples/basic.ts",
+    "pack:dry": "npm pack --dry-run --ignore-scripts"
   },
   "keywords": [
     "forst",
     "sidecar",
     "typescript",
+    "express",
+    "dev-server",
     "performance",
     "backend"
   ],

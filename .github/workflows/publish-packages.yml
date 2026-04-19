@@ -1,11 +1,12 @@
 # Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call.
 # Inputs: pass the tag for each package that released (omit or leave empty for the other).
+# Optional: npm_publish_verbose — pass --verbose to npm publish (default true).
 #
 # Sidecar jobs depend on the matching CLI jobs when both run: sidecar declares `@forst/cli@^…` and
 # JSR resolves that package from jsr.io (npm publish order matters for npm installability).
 #
-# npm publish: trusted publishing (OIDC) — no NODE_AUTH_TOKEN. Re-add job env
-#   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} if you need token fallback or `npm`/registry auth for private deps.
+# npm publish: trusted publishing (OIDC). Publish runs with NODE_AUTH_TOKEN="" so npm does not use a
+#   classic token from the environment; re-add token in the command if you need fallback.
 
 name: Publish packages (npm / JSR)
 
@@ -22,6 +23,11 @@ on:
         required: false
         type: string
         default: ""
+      npm_publish_verbose:
+        description: "Pass --verbose to npm publish (both @forst/cli and @forst/sidecar)"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   id-token: write  # Required for OIDC
@@ -62,7 +68,13 @@ jobs:
       # registry before the version being published exists. `--workspaces=false` publishes cwd only.
       - name: Publish package to NPM
         working-directory: packages/cli
-        run: npm publish --access public --workspaces=false --provenance
+        run: |
+          set -euo pipefail
+          NPM_VERBOSE=""
+          if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
+            NPM_VERBOSE="--verbose"
+          fi
+          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
 
   cli-jsr:
     name: "@forst/cli → JSR"
@@ -132,7 +144,13 @@ jobs:
 
       - name: Publish package to NPM
         working-directory: packages/sidecar
-        run: npm publish --access public --workspaces=false --provenance
+        run: |
+          set -euo pipefail
+          NPM_VERBOSE=""
+          if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
+            NPM_VERBOSE="--verbose"
+          fi
+          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
 
   sidecar-jsr:
     name: "@forst/sidecar → JSR"

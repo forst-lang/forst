@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      npm_publish_verbose:
+        description: "Pass --verbose to npm publish (publish-packages workflow)"
+        type: boolean
+        default: true
 
 # Publish runs via workflow_call here because GITHUB_TOKEN releases do not trigger `on: release`.
 permissions:
@@ -89,6 +94,8 @@ jobs:
     with:
       sidecar_tag: ${{ needs.release-please.outputs.sidecar_tag_name }}
       cli_tag: ${{ needs.release-please.outputs.cli_tag_name }}
+      # Push to main: verbose npm (true). Manual run: use checkbox (default true).
+      npm_publish_verbose: ${{ github.event_name != 'workflow_dispatch' || inputs.npm_publish_verbose }}
     secrets: inherit
 
   publish-vscode-extension:

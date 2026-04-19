@@ -25,12 +25,15 @@
     "prepublishOnly": "bun run sync-jsr-version && bun run build",
     "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
-    "test": "bun test"
+    "test": "bun test",
+    "pack:dry": "npm pack --dry-run --ignore-scripts"
   },
   "keywords": [
     "forst",
     "compiler",
     "cli",
+    "lsp",
+    "fmt",
     "golang",
     "go",
     "typescript",
