@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.16](https://github.com/forst-lang/forst/compare/v0.2.15...v0.2.16) (2026-04-19)
+
+
+### Features
+
+* **typechecker:** resolve Go-bound fields and hovers via go/types ([b12e3e1](https://github.com/forst-lang/forst/commit/b12e3e19819a4655a188c2435514caed2dbad85c))
+
 ## [0.2.15](https://github.com/forst-lang/forst/compare/v0.2.14...v0.2.15) (2026-04-19)
 
 

@@ -1,5 +1,5 @@
 {
-  ".": "0.2.15",
+  ".": "0.2.16",
   "packages/cli": "0.0.35",
   "packages/vscode-forst": "0.2.1",
   "packages/sidecar": "0.1.21"
