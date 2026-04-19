@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/forst-lang/forst/compare/sidecar-v0.1.13...sidecar-v0.1.14) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** align npm auth with GitHub Node.js publish guide ([ac613b3](https://github.com/forst-lang/forst/commit/ac613b3683dc95cd8bd7bacb2ff493397e3e52fd))
+
 ## [0.1.13](https://github.com/forst-lang/forst/compare/sidecar-v0.1.12...sidecar-v0.1.13) (2026-04-19)
 
 
