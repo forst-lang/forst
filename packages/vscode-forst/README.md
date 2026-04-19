@@ -13,8 +13,8 @@ Unsupported methods return JSON-RPC error **`-32601` Method not found** (except 
 
 ## Requirements
 
-- `forst` on `PATH`, or set **Forst: Path** (`forst.path`) to the executable.
-- Default LSP URL: `http://127.0.0.1:8081` (configurable via **Forst: Lsp: Port**).
+- `forst` on `PATH`, a workspace **`bin/forst`** from a clone, or leave **`forst.compiler.path`** empty so the extension uses **`@forst/cli`** (see **Compiler download** below).
+- Default LSP URL: `http://127.0.0.1:8081` (configurable via **`forst.lsp.port`**).
 
 ## Develop (F5)
 
@@ -22,7 +22,7 @@ Use **VS Code** (or a fork that supports the **Extension Development Host**). In
 
 **Important:** `--extensionDevelopmentPath` must point at **`packages/vscode-forst`**, not the monorepo root. Otherwise the extension never loads (no **Forst** output channel, no Problems).
 
-1. Build the compiler so `forst` is on `PATH`, or set **Forst: Path** later.
+1. Build the compiler so `forst` is on `PATH`, or set **`forst.compiler.path`** later.
 2. **If you opened the whole Forst repo as the workspace** (recommended): use the root [`.vscode/launch.json`](../../.vscode/launch.json) configuration **“Run Extension (vscode-forst)”** and press F5. That sets `extensionDevelopmentPath` to `packages/vscode-forst` and runs the **compile: vscode-forst** preLaunch task from the **repo root** (`bun run --filter forst compile`) so `out/` is up to date.
 3. **If you opened only `packages/vscode-forst` as the workspace**: use [.vscode/launch.json](.vscode/launch.json) **“Run Extension (this folder = vscode-forst)”** and F5; the preLaunch task uses the **parent monorepo** (`cwd` = two levels up) and runs the same **`bun run --filter forst compile`** from that root—keep this folder inside the full clone so `../..` is the repo with `package.json` / `bun.lock`.
 
@@ -37,12 +37,20 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 
 ## Settings
 
+Settings use two prefixes: **`forst.compiler.*`** (executable resolution and downloads) and **`forst.lsp.*`** (HTTP language server).
+
 | Setting | Default | Description |
 | --- | --- | --- |
-| `forst.path` | _(empty)_ | Path to `forst`; empty uses `PATH`. |
-| `forst.lsp.port` | `8081` | Port for `forst lsp`. |
-| `forst.lsp.logLevel` | `info` | Passed to `-log-level`. |
+| `forst.compiler.path` | _(empty)_ | Path to `forst`; empty uses `PATH`, then walks workspace folders for `bin/forst`. |
+| `forst.compiler.download` | `true` | When no explicit path/workspace binary is found, use **`@forst/cli`** to resolve **`FORST_BINARY`**, the cache, or download the native compiler. Set `false` to only use `PATH` / `bin/forst`. |
+| `forst.compiler.preferLatestRelease` | `true` | When compiler downloads are enabled, compare the bundled **`@forst/cli`** semver with [GitHub’s latest release](https://github.com/forst-lang/forst/releases/latest) and use the **newer** (semantic version) for the cache path—so the language server can run a newer compiler than the one pinned by an older VSIX. Set `false` to always use the bundled CLI semver only (same as a plain `resolveForstBinary()` without `preferLatestRelease`). |
 | `forst.lsp.autoStart` | `true` | Spawn `forst lsp` locally; set `false` if you start the server yourself. |
+| `forst.lsp.logLevel` | `info` | Passed to `-log-level`. |
+| `forst.lsp.port` | `8081` | Port for `forst lsp`. |
+
+### Compiler download
+
+With **`forst.compiler.download`** enabled (default), the extension calls **`resolveForstBinary`** from the bundled **`@forst/cli`**. With **`forst.compiler.preferLatestRelease`** enabled (default), it passes **`preferLatestRelease: true`**, so the effective compiler version is the maximum of the bundled package semver and GitHub’s latest tag—see [`packages/cli` README](../cli/README.md#how-the-wrapper-works). Cached binaries live under the usual **`FORST_CACHE_DIR`** / `~/.cache/forst-cli/<version>/` layout.
 
 ## Status bar
 

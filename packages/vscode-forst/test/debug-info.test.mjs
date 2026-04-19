@@ -16,7 +16,8 @@ test("formatForstDebugInfo includes key fields and compiler output", () => {
     forstPathSetting: "forst",
     resolvedCompilerPath: "/x/bin/forst",
     compilerVersionOutput: "forst 1.0.0 (abc) 2026-01-01",
-    downloadCompiler: true,
+    compilerDownload: true,
+    preferLatestCompilerRelease: true,
     lspPort: 8081,
     lspAutoStart: true,
     lspLogLevel: "info",
@@ -25,4 +26,7 @@ test("formatForstDebugInfo includes key fields and compiler output", () => {
   assert.ok(text.includes("8081"));
   assert.ok(text.includes("forst 1.0.0"));
   assert.ok(text.includes("/x/bin/forst"));
+  assert.ok(text.includes("forst.compiler.path"));
+  assert.ok(text.includes("forst.compiler.download"));
+  assert.ok(text.includes("forst.compiler.preferLatestRelease"));
 });

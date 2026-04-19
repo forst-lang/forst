@@ -13,7 +13,8 @@ export interface ForstDebugInfoFields {
   forstPathSetting: string;
   resolvedCompilerPath: string;
   compilerVersionOutput: string;
-  downloadCompiler: boolean;
+  compilerDownload: boolean;
+  preferLatestCompilerRelease: boolean;
   lspPort: number;
   lspAutoStart: boolean;
   lspLogLevel: string;
@@ -31,9 +32,10 @@ export function formatForstDebugInfo(f: ForstDebugInfoFields): string {
     `| Extension | \`${f.extensionVersion}\` |`,
     `| VS Code | \`${f.vscodeVersion}\` |`,
     `| Platform | \`${f.platform}\` |`,
-    `| \`forst.path\` | \`${f.forstPathSetting}\` |`,
+    `| \`forst.compiler.path\` | \`${f.forstPathSetting}\` |`,
     `| Resolved compiler | \`${f.resolvedCompilerPath}\` |`,
-    `| \`forst.downloadCompiler\` | \`${f.downloadCompiler}\` |`,
+    `| \`forst.compiler.download\` | \`${f.compilerDownload}\` |`,
+    `| \`forst.compiler.preferLatestRelease\` | \`${f.preferLatestCompilerRelease}\` |`,
     `| \`forst.lsp.port\` | \`${f.lspPort}\` |`,
     `| \`forst.lsp.autoStart\` | \`${f.lspAutoStart}\` |`,
     `| \`forst.lsp.logLevel\` | \`${f.lspLogLevel}\` |`,
@@ -76,7 +78,8 @@ export async function gatherForstDebugInfo(
     forstPathSetting: cfg.forstPath || "(empty — PATH or workspace bin/forst)",
     resolvedCompilerPath,
     compilerVersionOutput,
-    downloadCompiler: cfg.downloadCompiler,
+    compilerDownload: cfg.downloadCompiler,
+    preferLatestCompilerRelease: cfg.preferLatestCompilerRelease,
     lspPort: cfg.port,
     lspAutoStart: cfg.autoStart,
     lspLogLevel: cfg.logLevel,

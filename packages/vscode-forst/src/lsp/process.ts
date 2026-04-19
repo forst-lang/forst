@@ -128,7 +128,7 @@ async function ensureForstLspProcessUnlocked(
     state.process = undefined;
     const msg = err instanceof Error ? err.message : String(err);
     log.error(
-      `Could not spawn forst (${exe}): ${msg}. Set **forst.path**, put forst on PATH, enable **forst.downloadCompiler**, or open a workspace that contains **bin/forst** after \`task build\`.`
+      `Could not spawn forst (${exe}): ${msg}. Set **forst.compiler.path**, put forst on PATH, enable **forst.compiler.download**, or open a workspace that contains **bin/forst** after \`task build\`.`
     );
     throw err;
   }
