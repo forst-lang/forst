@@ -2,6 +2,8 @@
 
 Sidecar integration for TypeScript applications to use Forst for high-performance backend operations.
 
+**Compiler:** depends on [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) for the same native `forst` binary download/cache. Env vars (`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`) apply here too—see [CLI README](../cli/README.md#environment).
+
 ## Overview
 
 The Forst sidecar enables gradual adoption of Forst within TypeScript applications by providing a seamless bridge between TypeScript and high-performance Forst-compiled Go binaries. This allows teams to solve performance bottlenecks incrementally without requiring a complete rewrite.

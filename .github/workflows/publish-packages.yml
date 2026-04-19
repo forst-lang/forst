@@ -24,7 +24,11 @@ jobs:
   cli-npm:
     name: "@forst/cli → npm"
     runs-on: ubuntu-latest
-    
+    # https://docs.github.com/en/actions/tutorials/publish-packages/publish-nodejs-packages
+    permissions:
+      contents: read
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     if: inputs.cli_tag != ''
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +41,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          registry-url: "https://registry.npmjs.org"
+          # Trailing slash matters for how setup-node wires auth to npm (same as GitHub’s publish tutorial).
+          registry-url: "https://registry.npmjs.org/"
           node-version: "20"
 
       # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
@@ -49,16 +54,12 @@ jobs:
       # tarball). Fix: add the npm user for this token to https://www.npmjs.com/org/forst with publish
       # access, or use a granular access token with Publish for @forst/cli (prefer an Automation token).
       - name: Confirm npm user (debug 404 on publish)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm whoami
 
       # Avoid workspace-aware publish (monorepo root): can make npm resolve sibling packages from the
       # registry before the version being published exists. `--workspaces=false` publishes cwd only.
       - name: Publish package to NPM
         working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --workspaces=false
 
   cli-jsr:
@@ -85,6 +86,10 @@ jobs:
   sidecar-npm:
     name: "@forst/sidecar → npm"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     needs: [cli-npm]
     # GitHub skips dependents when a needed job is skipped unless `if` uses `always()`; without it,
     # sidecar-only releases never run (cli-npm is skipped).
@@ -103,7 +108,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          registry-url: "https://registry.npmjs.org"
+          registry-url: "https://registry.npmjs.org/"
           node-version: "20"
 
       # `npm pack` does not run prepublishOnly; run the same pipeline as publish, then pack with
@@ -121,14 +126,10 @@ jobs:
           git checkout -- package.json
 
       - name: Confirm npm user (debug 404 on publish)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm whoami
 
       - name: Publish package to NPM
         working-directory: packages/sidecar
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --workspaces=false
 
   sidecar-jsr:
