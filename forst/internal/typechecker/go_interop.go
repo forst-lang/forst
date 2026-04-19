@@ -238,7 +238,7 @@ func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast
 				return nil, err
 			}
 		}
-		sliceT, ok := params.At(nParams-1).Type().Underlying().(*types.Slice)
+		sliceT, ok := params.At(nParams - 1).Type().Underlying().(*types.Slice)
 		if !ok {
 			return nil, diagnosticf(e.CallSpan, "go-call", "%s: invalid variadic parameter", qual)
 		}
@@ -386,6 +386,64 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	default:
 		return ast.TypeNode{}, false
 	}
+}
+
+// goTypeAtFieldPath resolves exported field selectors on a Go type (e.g. *url.URL then ["Path"]).
+// It is used when a Forst local was bound from a Go call (variableGoTypes) so field types match
+// go/types instead of stopping at Pointer((implicit)) / (implicit) from goTypeToForstType alone.
+func goTypeAtFieldPath(recv types.Type, fieldPath []string) (types.Type, error) {
+	if len(fieldPath) == 0 {
+		return recv, nil
+	}
+	obj, _, _ := types.LookupFieldOrMethod(recv, true, nil, fieldPath[0])
+	if obj == nil {
+		return nil, fmt.Errorf("no field or method %q on %s", fieldPath[0], recv)
+	}
+	v, ok := obj.(*types.Var)
+	if !ok {
+		return nil, fmt.Errorf("%q is not a struct field (got %T)", fieldPath[0], obj)
+	}
+	ft := v.Type()
+	if len(fieldPath) == 1 {
+		return ft, nil
+	}
+	return goTypeAtFieldPath(ft, fieldPath[1:])
+}
+
+// lookupFieldPathFromGoType maps the final field's Go type to a Forst TypeNode using goTypeToForstType.
+func (tc *TypeChecker) lookupFieldPathFromGoType(goBase types.Type, fieldPath []string) (ast.TypeNode, error) {
+	last, err := goTypeAtFieldPath(goBase, fieldPath)
+	if err != nil {
+		return ast.TypeNode{}, err
+	}
+	t, ok := goTypeToForstType(last)
+	if !ok {
+		return ast.TypeNode{}, fmt.Errorf("cannot map Go type %s", last)
+	}
+	return t, nil
+}
+
+// goTypeDisplayStringForVariablePath returns types.Type.String() for a simple or dotted variable when
+// the root name was recorded in variableGoTypes (Go FFI binding). Used for hover when Forst's
+// goTypeToForstType mapping is lossy (e.g. named structs as (implicit)).
+func (tc *TypeChecker) goTypeDisplayStringForVariablePath(id ast.Identifier) (string, bool) {
+	if tc == nil {
+		return "", false
+	}
+	parts := strings.Split(string(id), ".")
+	if len(parts) == 0 {
+		return "", false
+	}
+	base := ast.Identifier(parts[0])
+	gt, ok := tc.variableGoTypes[base]
+	if !ok || gt == nil {
+		return "", false
+	}
+	last, err := goTypeAtFieldPath(gt, parts[1:])
+	if err != nil {
+		return "", false
+	}
+	return last.String(), true
 }
 
 // checkGoMethodCall type-checks a method call using go/types when the receiver has a tracked Go type.

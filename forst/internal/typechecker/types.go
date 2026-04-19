@@ -103,6 +103,15 @@ func (tc *TypeChecker) FormatVariableOccurrenceTypeForHover(vn ast.VariableNode,
 		}
 		return strings.Join(parts, ", ")
 	}
+	// When the variable comes from a Go FFI binding, show the real go/types string (e.g. *enmime.Envelope)
+	// instead of lossy Forst mapping like Pointer((implicit)).
+	if goStr, ok := tc.goTypeDisplayStringForVariablePath(vn.Ident.ID); ok {
+		chain := tc.PredicateChainForVariableHover(vn, types)
+		astSuffix := tc.NarrowingPredicateDisplayForVariableOccurrence(vn)
+		if len(chain) == 0 && astSuffix == "" {
+			return goStr
+		}
+	}
 	base := tc.FormatTypeNodeDisplay(types[0])
 	chain := tc.PredicateChainForVariableHover(vn, types)
 	if len(chain) == 0 {

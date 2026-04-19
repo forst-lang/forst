@@ -444,6 +444,39 @@ func TestGoPackageForImportLocal_returnsNilWhenUnknownLocal(t *testing.T) {
 	}
 }
 
+func TestGoTypeAtFieldPath_netURLPathField(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	loaded, err := goload.LoadByPkgPath(dir, []string{"net/url"})
+	if err != nil || len(loaded) == 0 {
+		t.Skip("go/packages could not load net/url")
+	}
+	pkgp := loaded["net/url"]
+	if pkgp == nil || pkgp.Types == nil {
+		t.Skip("net/url types unavailable")
+	}
+	obj := pkgp.Types.Scope().Lookup("URL")
+	if obj == nil {
+		t.Fatal("url.URL not found")
+	}
+	named := obj.Type().(*types.Named)
+	ptr := types.NewPointer(named)
+	got, err := goTypeAtFieldPath(ptr, []string{"Path"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.String() != "string" {
+		t.Fatalf("want string, got %s", got)
+	}
+	tc := New(logrus.New(), false)
+	mapped, err := tc.lookupFieldPathFromGoType(ptr, []string{"Path"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mapped.Ident != ast.TypeString {
+		t.Fatalf("want Forst String, got %v", mapped)
+	}
+}
+
 func TestGoTypeToForstType_namedGoTypeMapsToImplicit(t *testing.T) {
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})

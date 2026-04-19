@@ -32,11 +32,21 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 	last := fieldPath[len(fieldPath)-1]
 	displayPath := string(root) + "." + strings.Join(fieldPath, ".")
 	for _, bt := range baseTypes {
-		resolved, err := tc.lookupFieldPath(bt, fieldPath)
+		var resolved ast.TypeNode
+		var err error
+		if gt := tc.variableGoTypes[root]; gt != nil {
+			resolved, err = tc.lookupFieldPathFromGoType(gt, fieldPath)
+		}
+		if err != nil || tc.variableGoTypes[root] == nil {
+			resolved, err = tc.lookupFieldPath(bt, fieldPath)
+		}
 		if err != nil {
 			continue
 		}
 		typeStr := tc.FormatTypeNodeDisplay(resolved)
+		if goStr, ok := tc.goTypeDisplayStringForVariablePath(ast.Identifier(displayPath)); ok {
+			typeStr = goStr
+		}
 		if dottedSpan.IsSet() {
 			fullID := ast.Identifier(string(root) + "." + strings.Join(fieldPath, "."))
 			vn := ast.VariableNode{Ident: ast.Ident{ID: fullID, Span: dottedSpan}}

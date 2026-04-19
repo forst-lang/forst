@@ -88,6 +88,15 @@ func (tc *TypeChecker) goHoverMarkdownBodyForResolvedPackage(gp *types.Package, 
 		b.WriteString("return `" + tc.FormatTypeNodeDisplay(bfn.ReturnType) + "`")
 	} else if fn, ok := obj.(*types.Func); ok {
 		if sig, ok2 := fn.Type().(*types.Signature); ok2 {
+			res := sig.Results()
+			if res.Len() > 0 {
+				qf := types.RelativeTo(gp)
+				parts := make([]string, res.Len())
+				for i := 0; i < res.Len(); i++ {
+					parts[i] = types.TypeString(res.At(i).Type(), qf)
+				}
+				b.WriteString("\n\n**Go return types** `" + strings.Join(parts, ", ") + "`")
+			}
 			if mapped := goSignatureReturnsToForst(sig); len(mapped) > 0 {
 				b.WriteString("\n\n**Forst-mapped returns** ")
 				for i, m := range mapped {

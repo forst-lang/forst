@@ -21,8 +21,14 @@ func mapKeyValueTypes(t ast.TypeNode) (key, val ast.TypeNode, ok bool) {
 // lenOperandAllowed mirrors Go's len: string, array, slice, map, pointer to array,
 // and channel when modeled. Forst does not model channel types yet; pointer-to-slice
 // uses the same Array(T) representation as a slice, so we allow Pointer(Array(T)).
+//
+// Opaque Go interop values (TYPE_IMPLICIT) are allowed: the operand may be a slice,
+// string, map, etc. that we do not reify into a Forst type node; len() is still
+// valid in Go and the generated code is checked by go/types.
 func lenOperandAllowed(t ast.TypeNode) bool {
 	switch t.Ident {
+	case ast.TypeImplicit:
+		return true
 	case ast.TypeString, ast.TypeMap:
 		return true
 	case ast.TypeArray:
@@ -38,8 +44,11 @@ func lenOperandAllowed(t ast.TypeNode) bool {
 }
 
 // capOperandAllowed mirrors Go's cap: slice, array, channel. Channel is not modeled.
+// TYPE_IMPLICIT is allowed for the same reason as lenOperandAllowed.
 func capOperandAllowed(t ast.TypeNode) bool {
 	switch t.Ident {
+	case ast.TypeImplicit:
+		return true
 	case ast.TypeArray:
 		return true
 	case ast.TypePointer:

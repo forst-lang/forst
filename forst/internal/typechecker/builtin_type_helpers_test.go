@@ -16,6 +16,7 @@ func TestBuiltinHelpers_lenOperandAllowed(t *testing.T) {
 		{"map", ast.NewMapType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeInt)), true},
 		{"slice", ast.NewArrayType(ast.NewBuiltinType(ast.TypeInt)), true},
 		{"pointer_to_slice", ast.NewPointerType(ast.NewArrayType(ast.NewBuiltinType(ast.TypeBool))), true},
+		{"implicit_go", ast.NewBuiltinType(ast.TypeImplicit), true},
 		{"int", ast.NewBuiltinType(ast.TypeInt), false},
 	}
 	for _, tt := range tests {
@@ -35,6 +36,7 @@ func TestBuiltinHelpers_capOperandAllowed(t *testing.T) {
 	}{
 		{"slice", ast.NewArrayType(ast.NewBuiltinType(ast.TypeInt)), true},
 		{"pointer_to_slice", ast.NewPointerType(ast.NewArrayType(ast.NewBuiltinType(ast.TypeBool))), true},
+		{"implicit_go", ast.NewBuiltinType(ast.TypeImplicit), true},
 		{"string", ast.NewBuiltinType(ast.TypeString), false},
 		{"map", ast.NewMapType(ast.NewBuiltinType(ast.TypeString), ast.NewBuiltinType(ast.TypeInt)), false},
 	}
