@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8](https://github.com/forst-lang/forst/compare/v0.2.7...v0.2.8) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** add --provenance to npm publish commands ([6e9beac](https://github.com/forst-lang/forst/commit/6e9beac63d5aa6d0dd541fb655ed4a0333fd58bd))
+
 ## [0.2.7](https://github.com/forst-lang/forst/compare/v0.2.6...v0.2.7) (2026-04-19)
 
 
