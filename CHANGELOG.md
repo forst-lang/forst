@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.13](https://github.com/forst-lang/forst/compare/v0.2.12...v0.2.13) (2026-04-19)
+
+
+### Features
+
+* **cli:** add preferLatestRelease for GitHub latest vs bundled semver ([4e2eff9](https://github.com/forst-lang/forst/commit/4e2eff97cb0fa3626325145bd0feb4b360237fe3))
+
 ## [0.2.12](https://github.com/forst-lang/forst/compare/v0.2.11...v0.2.12) (2026-04-19)
 
 
