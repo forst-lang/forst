@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/forst-lang/forst/compare/sidecar-v0.1.18...sidecar-v0.1.19) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** unset NODE_AUTH_TOKEN for release ([006984d](https://github.com/forst-lang/forst/commit/006984dc747f353966eaa9f7e0523a596cd4c4e6))
+
 ## [0.1.18](https://github.com/forst-lang/forst/compare/sidecar-v0.1.17...sidecar-v0.1.18) (2026-04-19)
 
 
