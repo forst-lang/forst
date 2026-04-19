@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.17](https://github.com/forst-lang/forst/compare/sidecar-v0.1.16...sidecar-v0.1.17) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** add --provenance to npm publish commands ([6e9beac](https://github.com/forst-lang/forst/commit/6e9beac63d5aa6d0dd541fb655ed4a0333fd58bd))
+
 ## [0.1.16](https://github.com/forst-lang/forst/compare/sidecar-v0.1.15...sidecar-v0.1.16) (2026-04-19)
 
 

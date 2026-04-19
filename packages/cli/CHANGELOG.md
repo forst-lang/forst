@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.30](https://github.com/forst-lang/forst/compare/cli-v0.0.29...cli-v0.0.30) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** add --provenance to npm publish commands ([6e9beac](https://github.com/forst-lang/forst/commit/6e9beac63d5aa6d0dd541fb655ed4a0333fd58bd))
+
 ## [0.0.29](https://github.com/forst-lang/forst/compare/cli-v0.0.28...cli-v0.0.29) (2026-04-19)
 
 
