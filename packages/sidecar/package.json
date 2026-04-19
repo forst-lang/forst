@@ -69,7 +69,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/forst-lang/forst.git",
+    "url": "git+https://github.com/forst-lang/forst.git",
     "directory": "packages/sidecar"
   },
   "homepage": "https://github.com/forst-lang/forst/tree/main/packages/sidecar#readme",

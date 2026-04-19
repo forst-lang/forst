@@ -5,8 +5,9 @@
 # Sidecar jobs depend on the matching CLI jobs when both run: sidecar declares `@forst/cli@^…` and
 # JSR resolves that package from jsr.io (npm publish order matters for npm installability).
 #
-# npm publish: trusted publishing (OIDC). Publish runs with NODE_AUTH_TOKEN="" so npm does not use a
-#   classic token from the environment; re-add token in the command if you need fallback.
+# npm publish: trusted publishing (OIDC). After setup-node, a step clears ~/.npmrc, ./.npmrc, and
+#   NPM_CONFIG_USERCONFIG and sets NODE_AUTH_TOKEN= in GITHUB_ENV; publish also passes NODE_AUTH_TOKEN=""
+#   so npm does not use a classic token. Re-add token in the publish command if you need fallback.
 
 name: Publish packages (npm / JSR)
 
@@ -58,6 +59,13 @@ jobs:
       # Ensure npm 11.5.1 or later is installed
       - name: Update npm
         run: npm install -g npm@latest
+
+      - name: Clear token-based auth for OIDC publish
+        run: |
+          rm -f "$HOME/.npmrc" || true
+          rm -f .npmrc || true
+          rm -f "$NPM_CONFIG_USERCONFIG" || true
+          echo "NODE_AUTH_TOKEN=" >> "$GITHUB_ENV"
 
       # npm validates `bin` paths before lifecycle scripts; build once so `dist/bin.js` exists (prepublishOnly still runs for JSR sync + fresh build).
       - name: Build @forst/cli
@@ -127,6 +135,13 @@ jobs:
       # Ensure npm 11.5.1 or later is installed
       - name: Update npm
         run: npm install -g npm@latest
+
+      - name: Clear token-based auth for OIDC publish
+        run: |
+          rm -f "$HOME/.npmrc" || true
+          rm -f .npmrc || true
+          rm -f "$NPM_CONFIG_USERCONFIG" || true
+          echo "NODE_AUTH_TOKEN=" >> "$GITHUB_ENV"
 
       # `npm pack` does not run prepublishOnly; run the same pipeline as publish, then pack with
       # --ignore-scripts so the tarball matches what npm publish would upload (prepublishOnly runs again on publish).
