@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.28](https://github.com/forst-lang/forst/compare/cli-v0.0.27...cli-v0.0.28) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Restore permissions for NPM release ([3c2650b](https://github.com/forst-lang/forst/commit/3c2650b20d10052cfddca9383c697511b1f87da4))
+
 ## [0.0.27](https://github.com/forst-lang/forst/compare/cli-v0.0.26...cli-v0.0.27) (2026-04-19)
 
 
