@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,26 +135,14 @@ func checkIfStatementConditions(t *testing.T, code, filePath string) {
 	}
 }
 
-func captureStdoutForMainTest(t *testing.T, run func()) string {
+// captureDumpCommandOutput runs run() with handleDumpCommand writing to a buffer (not os.Stdout),
+// so -race + coverage do not race on the global stdout fd.
+func captureDumpCommandOutput(t *testing.T, run func()) string {
 	t.Helper()
-	originalStdout := os.Stdout
-	readPipe, writePipe, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Stdout = writePipe
-	t.Cleanup(func() {
-		os.Stdout = originalStdout
-	})
-
+	var buf bytes.Buffer
+	old := dumpCommandStdout
+	dumpCommandStdout = &buf
+	t.Cleanup(func() { dumpCommandStdout = old })
 	run()
-
-	if err := writePipe.Close(); err != nil {
-		t.Fatalf("close write pipe: %v", err)
-	}
-	outputBytes, err := io.ReadAll(readPipe)
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
-	}
-	return string(outputBytes)
+	return buf.String()
 }

@@ -35,7 +35,7 @@ examples/in/tictactoe/ (merged package: `task example:tictactoe`; TypeScript fro
 
 There should be corresponding outputs in the same paths just with `in` replaced by `out` (Go goldens). Tictactoe TS artifacts are not committed; regenerate locally after changing `.ft` files.
 
-TypeScript from `forst generate`: examples registered in `examples/in/forst-generate-ts-examples.json` are covered by `TestGenerate_typescriptTypechecks_exampleManifest` (merged generate + `tsc --noEmit` with stubs). Set `FORST_SKIP_TS_E2E=1` to skip when no `tsc` is available.
+TypeScript from `forst generate`: examples registered in `examples/in/forst-generate-ts-examples.json` are covered by `TestGenerate_exampleManifest` (merged generate + optional substring checks). `tsc --noEmit` with stubs lives in `generate_tsc_test.go`. Set `FORST_SKIP_TS_E2E=1` to skip when no `tsc` is available.
 
 ## Project Structure
 

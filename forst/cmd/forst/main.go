@@ -14,6 +14,10 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// dumpCommandStdout is the writer for `forst dump` CLI output. Tests set to a buffer instead of
+// swapping os.Stdout (avoids data races with -race + coverage teardown).
+var dumpCommandStdout io.Writer = os.Stdout
+
 // Test hooks for runMain branches (subprocess servers, compiler helpers).
 var (
 	startDevServerFunc     = StartDevServer
@@ -298,7 +302,8 @@ func handleDumpCommand(filePath string, compression bool, format string, _ strin
 		return fmt.Errorf("marshal output: %w", err)
 	}
 
-	// Print the output
-	fmt.Println(string(output))
+	if _, err := fmt.Fprintln(dumpCommandStdout, string(output)); err != nil {
+		return fmt.Errorf("write dump output: %w", err)
+	}
 	return nil
 }

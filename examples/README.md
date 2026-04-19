@@ -10,7 +10,7 @@
 
 - **`in/tictactoe/`** — multi-file `package main` (types + engine + `fmt` demo `server.ft`). Run with `task example:tictactoe` (`forst run -root …/tictactoe -- …/server.ft`). Regenerate TS with `task example:tictactoe:generate`. Golden Go for the merged compile is `out/tictactoe/server.go`; refresh with `UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1` from `forst/`.
 
-- **`in/forst-generate-ts-examples.json`** — lists example directories (under `in/`) that CI typechecks after `forst generate` (`TestGenerate_typescriptTypechecks_exampleManifest` in `forst/cmd/forst`). Add a path when an example has `ftconfig.json` + `.ft` sources and should keep emitting valid `generated/` + `client/` TypeScript.
+- **`in/forst-generate-ts-examples.json`** — lists example directories (under `in/`) that CI exercises with `forst generate` plus optional `mustContain` checks (`TestGenerate_exampleManifest` in `forst/cmd/forst`). Add a path when an example has `ftconfig.json` + `.ft` sources and should keep emitting valid `generated/` + `client/` TypeScript. Separate `tsc --noEmit` smoke runs in `generate_tsc_test.go`.
 
 ## `in/rfc/`
 

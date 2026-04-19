@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,31 +92,18 @@ func TestRunMain_dump_ok(t *testing.T) {
 	if err := os.WriteFile(ftPath, []byte("fn main() { return }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := os.Stdout
-	os.Stdout = w
-	defer func() { os.Stdout = old }()
-
-	done := make(chan struct{})
-	var out []byte
-	go func() {
-		defer close(done)
-		out, _ = io.ReadAll(r)
-		_ = r.Close()
-	}()
+	var buf bytes.Buffer
+	old := dumpCommandStdout
+	dumpCommandStdout = &buf
+	t.Cleanup(func() { dumpCommandStdout = old })
 
 	code := runMain([]string{"forst", "dump", "--file", ftPath})
-	_ = w.Close()
-	<-done
 
 	if code != 0 {
 		t.Fatalf("want exit 0, got %d", code)
 	}
-	if !strings.Contains(string(out), "{") {
-		t.Fatalf("expected JSON output, got %q", string(out))
+	if !strings.Contains(buf.String(), "{") {
+		t.Fatalf("expected JSON output, got %q", buf.String())
 	}
 }
 

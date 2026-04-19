@@ -11,7 +11,9 @@ import (
 )
 
 // generateTSExamplesManifest is examples/in/forst-generate-ts-examples.json (paths relative to examples/in).
-// Add an entry when an example ships ftconfig + .ft sources and should pass `forst generate` + tsc.
+// Add an entry when an example ships ftconfig + .ft sources and should pass `forst generate` (and optional
+// mustContain checks). Full `tsc --noEmit` smoke stays in generate_tsc_test.go to avoid a second tsc run on
+// large trees (e.g. tictactoe) in every CI race run.
 type generateTSExamplesManifest struct {
 	Examples []struct {
 		Path        string   `json:"path"`
@@ -34,7 +36,10 @@ func examplesInRoot(t *testing.T) string {
 	return abs
 }
 
-func TestGenerate_typescriptTypechecks_exampleManifest(t *testing.T) {
+// TestGenerate_exampleManifest checks dirs listed in forst-generate-ts-examples.json via `forst generate`
+// + optional mustContain. It does not repeat per-file example compiles (see TestExamples) or merged
+// compile goldens (TestExampleTictactoeMergedPackage); those are compiler pipelines, not generate.
+func TestGenerate_exampleManifest(t *testing.T) {
 	root := examplesInRoot(t)
 	manifestPath := filepath.Join(root, "forst-generate-ts-examples.json")
 	data, err := os.ReadFile(manifestPath)
@@ -74,7 +79,6 @@ func TestGenerate_typescriptTypechecks_exampleManifest(t *testing.T) {
 			if len(ex.MustContain) > 0 {
 				mustContainInGeneratedTypeScript(t, dir, ex.MustContain)
 			}
-			assertTypeScriptCompiles(t, dir)
 		})
 	}
 }

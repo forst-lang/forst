@@ -719,7 +719,7 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 
-	compactOutput := captureStdoutForMainTest(t, func() {
+	compactOutput := captureDumpCommandOutput(t, func() {
 		if err := handleDumpCommand(testFilePath, false, "json", "", false, logger); err != nil {
 			t.Fatalf("handleDumpCommand json: %v", err)
 		}
@@ -732,7 +732,7 @@ func TestHandleDumpCommand_jsonAndPrettyOutput(t *testing.T) {
 		t.Fatalf("compact output should be valid JSON: %v\noutput: %s", err, compactOutput)
 	}
 
-	prettyOutput := captureStdoutForMainTest(t, func() {
+	prettyOutput := captureDumpCommandOutput(t, func() {
 		if err := handleDumpCommand(testFilePath, false, "pretty", "", true, logger); err != nil {
 			t.Fatalf("handleDumpCommand pretty: %v", err)
 		}
