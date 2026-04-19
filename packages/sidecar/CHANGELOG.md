@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/forst-lang/forst/compare/sidecar-v0.1.14...sidecar-v0.1.15) (2026-04-19)
+
+
+### Bug Fixes
+
+* **release:** Restore permissions for NPM release ([3c2650b](https://github.com/forst-lang/forst/commit/3c2650b20d10052cfddca9383c697511b1f87da4))
+
 ## [0.1.14](https://github.com/forst-lang/forst/compare/sidecar-v0.1.13...sidecar-v0.1.14) (2026-04-19)
 
 
