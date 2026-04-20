@@ -1,0 +1,13 @@
+package main
+
+import "fmt"
+
+func main() {
+	// Map read is Result(Int, Error): handle failure explicitly with ensure … is Ok().
+	catalog := map[String]Int{ "ITEM-1": 10 }
+	sku := "ITEM-1"
+	avail := catalog[sku]
+	ensure avail is Ok()
+	fmt.Println(string(avail))
+	fmt.Println("ok")
+}

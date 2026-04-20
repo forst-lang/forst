@@ -35,7 +35,7 @@ Place an order: validate input, attach domain failures, assert invariants with `
 
 ### Hello World
 
-*Before (Go)* and *After (Forst)* — Forst is a superset of Go for ordinary programs: the same `package main` source can be built with the standard Go toolchain or compiled with Forst, so a minimal executable looks identical on both sides.
+*Before (Go)* and *After (Forst)* — Forst is a superset of Go for ordinary programs: the same `package main` source can be built with the standard Go toolchain or compiled with Forst, so a minimal executable looks identical on both sides. Use a **`.ft`** file for the Forst CLI (`forst run`, `forst generate`, …); `go build` expects the usual **`.go`** name if you compile the same text with Go.
 
 ```golang
 package main
@@ -132,17 +132,19 @@ if in.Quantity > avail {
 }
 ```
 
-*After (Forst)* — Map lookup and error handling are streamlined: missing or invalid input is converted directly into a dedicated, first-class error type. If a stock-keeping unit isn’t found, the `UnknownStockKeepingUnit` error is returned. If the requested quantity exceeds available stock, the `InsufficientStock` error (with structured, named fields) is produced.
+*After (Forst)* — A **map read** `catalog[key]` has type **`Result(V, Error)`**: a missing key becomes the failure side of that `Result` (generated code uses comma-ok under the hood). You **must** handle failure before using the success value—the usual pattern is **`ensure x is Ok()`**, which narrows `x` to `V`. **Comma-ok assignment (`v, ok := m[k]`) is not supported** as Forst syntax. See [`examples/in/map_catalog.ft`](examples/in/map_catalog.ft) for `ensure avail is Ok()` after a lookup.
 
-```ruby
-r := catalog[in.stockKeepingUnit]
-ensure r or UnknownStockKeepingUnit()
-ensure in.quantity is Max(r) or InsufficientStock({
+```golang
+avail := catalog[in.stockKeepingUnit]
+ensure avail is Ok()
+ensure in.quantity is Max(avail) or InsufficientStock({
 	stockKeepingUnit: in.stockKeepingUnit,
 	requested:        in.quantity,
-	available:        r,
+	available:        avail,
 })
 ```
+
+`ensure … or …` is not allowed in `func main` (parser rule); put guards that use `or` in a non-`main` function if needed.
 
 ### Caller — success path and narrowing
 
@@ -206,7 +208,7 @@ Adjust the import path to your output layout. See [TypeScript client output](#ty
 - Seamless TypeScript type generation inspired by tRPC – publishing types of API endpoints should be easy
 - Structural typing for function parameters and return values
 - Type-based assertions that allow complex type narrowing in function parameters
-- First-class scoped errors including stack traces, avoiding exceptions
+- First-class nominal errors and explicit `ensure` / `Result` control flow—no exceptions; depth and parity are tracked in [ROADMAP.md](./ROADMAP.md)
 
 ## Design Philosophy
 
@@ -219,8 +221,9 @@ Install Task using the [official instructions](https://taskfile.dev/installation
 Run tests:
 
 ```bash
-task test                  # Run all tests
-task test:unit             # Run compiler unit tests
+task test                  # Go tests: forst/internal/... and forst/cmd/forst/...
+task ci:test               # Full CI suite (Go tests + VS Code extension build + @forst/cli & @forst/sidecar + examples)
+task test:unit             # Run compiler unit tests (internal only)
 task test:unit:parser      # Run parser tests
 task test:unit:typechecker # Run typechecker tests
 ```

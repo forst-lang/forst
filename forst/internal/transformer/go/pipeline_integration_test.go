@@ -869,6 +869,71 @@ func main() {
 	}
 }
 
+func TestPipeline_mapIndex_read_emitsResultSplitAndMissingKeyIIFE(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	x := m["a"]
+	ensure x is Ok()
+	println(string(x))
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`x, xErr :=`,
+		`missing map key`,
+		`errors.New`,
+		`v, ok :=`,
+		`!ok`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_mapIndex_assignTarget_noResultIIFE(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	m["a"] = 3
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `m["a"] = 3`) {
+		t.Fatalf("expected plain indexed assignment, got:\n%s", out)
+	}
+	if strings.Contains(out, "missing map key") {
+		t.Fatalf("did not expect map-read IIFE for assign-only program, got:\n%s", out)
+	}
+}
+
+func TestPipeline_mapIndex_return_delegatesWholeResult(t *testing.T) {
+	src := `package main
+
+func lookup(): Result(Int, Error) {
+	m := map[String]Int{ "a": 1 }
+	return m["a"]
+}
+
+func main() {
+	x := lookup()
+	ensure x is Ok()
+	println(string(x))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `return func()`) && !strings.Contains(out, `return func(`) {
+		t.Fatalf("expected return of map lookup to lower via func literal / delegate, got:\n%s", out)
+	}
+	if !strings.Contains(out, `missing map key`) {
+		t.Fatalf("expected missing-key path in lowered map read, got:\n%s", out)
+	}
+}
+
 func TestPipeline_emitted_go_is_gofmt_clean(t *testing.T) {
 	src := `package main
 

@@ -163,6 +163,10 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		sel = t.appendResultStoragePayloadSelector(e, sel)
 		return sel, nil
 	case ast.IndexExpressionNode:
+		ts, err := t.TypeChecker.LookupInferredType(e, false)
+		if err == nil && len(ts) == 1 && ts[0].IsResultType() {
+			return t.transformMapIndexResultCall(e, ts[0])
+		}
 		tgt, err := t.transformExpression(e.Target)
 		if err != nil {
 			return nil, err

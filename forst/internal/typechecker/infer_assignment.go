@@ -115,6 +115,23 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		}
 	}
 
+	// Forst intentionally does not support Go's map comma-ok form (v, ok := m[k]).
+	if len(assign.RValues) == 1 && len(assign.LValues) == 2 {
+		if idx, ok := assign.RValues[0].(ast.IndexExpressionNode); ok {
+			targetTypes, err := tc.inferExpressionType(idx.Target)
+			if err != nil {
+				return err
+			}
+			if len(targetTypes) == 1 && targetTypes[0].Ident == ast.TypeMap {
+				return fmt.Errorf("map index comma-ok assignment (v, ok := m[k]) is not supported")
+			}
+		}
+	}
+
+	if len(assign.RValues) > 0 && len(resolvedTypes) != len(assign.LValues) {
+		return fmt.Errorf("assignment: %d left-hand values but right-hand produces %d value(s)", len(assign.LValues), len(resolvedTypes))
+	}
+
 	if tc.log != nil {
 		tc.log.WithFields(logrus.Fields{
 			"resolvedTypes": resolvedTypes,
@@ -182,7 +199,7 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 			if len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil {
 				return fmt.Errorf("indexed assignment does not support explicit types on the left-hand side")
 			}
-			lhsTypes, err := tc.inferExpressionType(l)
+			lhsTypes, err := tc.inferIndexExpressionAsAssignTarget(l)
 			if err != nil {
 				return err
 			}

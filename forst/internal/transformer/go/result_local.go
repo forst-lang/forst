@@ -111,14 +111,23 @@ func (t *Transformer) rhsCallIsFoldedResult(fc ast.FunctionCallNode) bool {
 	return true
 }
 
+// rhsExprIsFoldedResult reports whether rv is a single Forst Result (function call, Go FFI, or map index read).
+func (t *Transformer) rhsExprIsFoldedResult(rv ast.ExpressionNode) bool {
+	switch e := rv.(type) {
+	case ast.FunctionCallNode:
+		return t.rhsCallIsFoldedResult(e)
+	case ast.IndexExpressionNode:
+		ts, err := t.TypeChecker.LookupInferredType(e, false)
+		return err == nil && len(ts) == 1 && ts[0].IsResultType()
+	default:
+		return false
+	}
+}
+
 // returnValueDelegatesWholeResult is true when `return expr` should forward a Result-returning
 // callee as a single Go return (`return g()`), not `return succ, nil` for constructor-free success.
 func (t *Transformer) returnValueDelegatesWholeResult(expr ast.ExpressionNode) bool {
-	fc, ok := expr.(ast.FunctionCallNode)
-	if !ok {
-		return false
-	}
-	return t.rhsCallIsFoldedResult(fc)
+	return t.rhsExprIsFoldedResult(expr)
 }
 
 // transformPrintBuiltinCallArgs builds Go call arguments for print/println and fmt.Print*,
