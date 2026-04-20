@@ -339,24 +339,32 @@ export class ForstSidecar {
   }
 
   /**
-   * Invoke a Forst function with streaming. Uses the same **`args`** shape as {@link invoke}
-   * (positional JSON array for the executor); the HTTP layer still sends it as the `args` field on `POST /invoke`.
+   * Streaming invoke; same **`args`** as {@link invoke}. See {@link ForstSidecarClient.invokeStream}.
    */
-  async invokeStreaming(
+  invokeStream<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args?: unknown[]
+  ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined>;
+  invokeStream(
+    packageName: string,
+    functionName: string,
+    args: unknown[] | undefined,
+    onResult: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void>;
+  invokeStream<T = unknown>(
     packageName: string,
     functionName: string,
     args: unknown[] = [],
-    onResult?: (result: StreamingResult) => void
-  ): Promise<void> {
+    onResult?: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void> | AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
     if (!this.client) {
       throw new SidecarNotStarted();
     }
-    return this.client.invokeStreaming(
-      packageName,
-      functionName,
-      args,
-      onResult
-    );
+    if (onResult !== undefined) {
+      return this.client.invokeStream(packageName, functionName, args, onResult);
+    }
+    return this.client.invokeStream<T>(packageName, functionName, args);
   }
 
   /**

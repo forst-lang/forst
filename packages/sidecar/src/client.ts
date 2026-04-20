@@ -153,15 +153,12 @@ export class ForstSidecarClient {
     };
   }
 
-  /**
-   * Invoke a Forst function with streaming support
-   */
-  async invokeStreaming(
+  /** NDJSON lines from POST /invoke with `streaming: true`. */
+  private async *streamingInvoke(
     packageName: string,
     functionName: string,
-    args: unknown[] = [],
-    onResult?: (result: StreamingResult) => void
-  ): Promise<void> {
+    args: unknown[] = []
+  ): AsyncGenerator<StreamingResult, void, undefined> {
     const request: InvokeRequest = {
       package: packageName,
       function: functionName,
@@ -209,9 +206,7 @@ export class ForstSidecarClient {
         for (const line of lines) {
           try {
             const result: StreamingResult = JSON.parse(line);
-            if (onResult) {
-              onResult(result);
-            }
+            yield result;
           } catch (error) {
             logger.warn({ err: error }, "Failed to parse streaming chunk");
           }
@@ -223,45 +218,44 @@ export class ForstSidecarClient {
   }
 
   /**
-   * Same NDJSON stream as {@link invokeStreaming}, exposed as an async iterable for `for await`.
+   * NDJSON streaming invoke. Same **`args`** as {@link invokeFunction}.
+   * - Omit **`onResult`** for `for await` (optional generic **`T`** types **`data`** on each row).
+   * - Pass **`onResult`** to consume the stream via callback; resolves when the stream ends.
    */
-  async *invokeStreamingIterable<T = unknown>(
+  invokeStream<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args?: unknown[]
+  ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined>;
+  invokeStream(
+    packageName: string,
+    functionName: string,
+    args: unknown[] | undefined,
+    onResult: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void>;
+  invokeStream<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = [],
+    onResult?: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void> | AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
+    if (onResult !== undefined) {
+      return (async () => {
+        for await (const row of this.streamingInvoke(packageName, functionName, args)) {
+          await onResult(row);
+        }
+      })();
+    }
+    return this.invokeStreamRows<T>(packageName, functionName, args);
+  }
+
+  private async *invokeStreamRows<T = unknown>(
     packageName: string,
     functionName: string,
     args: unknown[] = []
   ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
-    const queue: StreamingResult[] = [];
-    let notify: (() => void) | undefined;
-    let done = false;
-    let err: unknown;
-    const p = this.invokeStreaming(packageName, functionName, args, (row) => {
-      queue.push(row);
-      notify?.();
-    });
-    void p.then(
-      () => {
-        done = true;
-        notify?.();
-      },
-      (e) => {
-        err = e;
-        notify?.();
-      }
-    );
-    for (;;) {
-      while (queue.length > 0) {
-        const row = queue.shift()!;
-        yield row as StreamingResult & { data?: T };
-      }
-      if (err !== undefined) {
-        throw err;
-      }
-      if (done) {
-        return;
-      }
-      await new Promise<void>((resolve) => {
-        notify = resolve;
-      });
+    for await (const row of this.streamingInvoke(packageName, functionName, args)) {
+      yield row as StreamingResult & { data?: T };
     }
   }
 

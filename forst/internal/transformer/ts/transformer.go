@@ -15,7 +15,7 @@ type TypeScriptTransformer struct {
 	Output      *TypeScriptOutput
 	log         *logrus.Logger
 	typeMapping forstTypeMapper
-	// GenerateStreamingClients enables invokeStreaming-based async generator methods when row types are known (chan T with typable T).
+	// GenerateStreamingClients emits *Stream helpers delegating to invokeStream when row types are known (chan T with typable T).
 	GenerateStreamingClients bool
 }
 

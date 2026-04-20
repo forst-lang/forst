@@ -287,7 +287,7 @@ Main API for managing the sidecar.
 | `stop()` | Stop the child process or disconnect the client. |
 | `discoverFunctions()` | List discoverable Forst functions. |
 | `invoke(package, function, args)` | Call a function; `args` is the positional JSON array. On HTTP 200 with `success: false`, throws **`DevServerInvokeRejected`**. Non-2xx: **`DevServerHttpFailure`**; JSON bodies may set **`serverErrorFromBody`**. |
-| `invokeStreaming(...)` | Same `args` shape as `invoke`, with streaming. |
+| `invokeStream(...)` | NDJSON stream: omit the last arg for `for await`, or pass `onResult` to consume by callback. |
 | `healthCheck()` | Server health. |
 | `getVersion()` | `GET /version` (compiler + contract metadata). |
 | `generateTypes()` | Run `forst generate` at the configured root. |

@@ -75,7 +75,7 @@ func TestGenerateCommand_generateStreamingClientsFlag_doesNotBreakGenerate(t *te
 	}
 	s := string(data)
 	// Echo returns a shape, not chan T — no *Stream method without a typable channel row type.
-	if strings.Contains(s, "invokeStreamingIterable") {
+	if strings.Contains(s, "invokeStream<") {
 		t.Fatalf("did not expect streaming emission for non-channel return, got:\n%s", s)
 	}
 }

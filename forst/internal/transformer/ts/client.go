@@ -97,10 +97,10 @@ import { ForstSidecarClient as SidecarClient } from '@forst/sidecar';
 			} else if len(paramNames) > 1 {
 				argList = paramNamesStr
 			}
-			// Delegate directly to invokeStreamingIterable<T>: one async generator, no wrapper re-yield
+			// Delegate directly to invokeStream<T>: one async generator, no wrapper re-yield
 			// (for await / spread / Stream APIs compose naturally; same package/name/args as invokeFunction).
 			stream := fmt.Sprintf(`  %sStream: (%s) =>
-    client.invokeStreamingIterable<%s>('%s', '%s', [%s]),
+    client.invokeStream<%s>('%s', '%s', [%s]),
 `,
 				funcName, paramsSigStr, function.StreamingRowType,
 				t.Output.PackageName, funcName, argList)
