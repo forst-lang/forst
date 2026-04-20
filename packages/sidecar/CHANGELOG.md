@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/forst-lang/forst/compare/sidecar-v0.1.22...sidecar-v0.2.0) (2026-04-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sidecar:** ForstSidecarClient.invokeStreaming and invokeStreamingIterable are removed; use invokeStream(package, fn, args) for async iteration or invokeStream(package, fn, args, onResult) for callback consumption.
+
+### Features
+
+* **sidecar:** unify streaming as invokeStream with generator or callback ([fe9d8df](https://github.com/forst-lang/forst/commit/fe9d8df1fb444034b5a4d0838c997c91c21a4a26))
+
 ## [0.1.22](https://github.com/forst-lang/forst/compare/sidecar-v0.1.21...sidecar-v0.1.22) (2026-04-19)
 
 
