@@ -1,6 +1,6 @@
 {
   "name": "@forst/sidecar",
-  "version": "0.1.22",
+  "version": "0.2.0",
   "description": "Sidecar integration for TypeScript applications to use Forst for high-performance backend operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

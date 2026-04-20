@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/forst-lang/forst/compare/v0.2.17...v0.3.0) (2026-04-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sidecar:** ForstSidecarClient.invokeStreaming and invokeStreamingIterable are removed; use invokeStream(package, fn, args) for async iteration or invokeStream(package, fn, args, onResult) for callback consumption.
+
+### Features
+
+* **sidecar:** unify streaming as invokeStream with generator or callback ([fe9d8df](https://github.com/forst-lang/forst/commit/fe9d8df1fb444034b5a4d0838c997c91c21a4a26))
+
 ## [0.2.17](https://github.com/forst-lang/forst/compare/v0.2.16...v0.2.17) (2026-04-19)
 
 
