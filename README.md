@@ -31,393 +31,172 @@ We want to be to Go what TypeScript is to JavaScript.
 
 ## Examples
 
-Side-by-side comparisons with Go and TypeScript, then snippets that follow one **user signup** path: you accept structured input, attach domain-specific failures, assert invariants with `ensure`, and narrow `Result` values at call sites.
-
-### Validation (Go → Forst)
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-Structs, struct tags, and separate validation logic.
-
-<pre><code class="language-go">package example
-
-import "errors"
-
-type Register struct {
-	Name  string `json:"name" validate:"required,min=3"`
-	Phone string `json:"phone"`
-}
-
-func (r Register) Validate() error {
-	if len(r.Name) &lt; 3 {
-		return errors.New("name too short")
-	}
-	return nil
-}</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-Constraints on the type; invalid data is rejected with the same model the typechecker uses.
-
-<pre><code class="language-forst">type PhoneNumber =
-  String.Min(3).Max(10) &amp; (
-    String.HasPrefix("+")
-    | String.HasPrefix("0")
-  )
-
-func registerUser(op: Mutation.Input({
-  name: String.Min(3).Max(10),
-  phoneNumber: PhoneNumber,
-})) {
-  fmt.Printf("Registering user %s\n", op.input.name)
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
-
-### Types across the wire (TypeScript → Forst)
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (TypeScript)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-<code>interface</code> and a runtime schema (e.g. Zod)—two layers to keep aligned.
-
-<pre><code class="language-typescript">import { z } from "zod";
-
-interface RegisterInput {
-  name: string;
-  phone: string;
-}
-
-const RegisterSchema = z.object({
-  name: z.string().min(3),
-  phone: z.string().regex(/^(\+|0)/),
-});</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-One definition; <code>forst generate</code> emits TypeScript declarations (and a small client) from your <code>.ft</code> sources so the front end imports the same shapes as the server.
-
-<pre><code class="language-forst">func registerUser(op: Mutation.Input({
-  name: String.Min(3).Max(10),
-  phoneNumber: PhoneNumber,
-})) {
-  // …
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
+Place an order: validate input, attach domain failures, assert invariants with `ensure`, and narrow `Result` values at call sites. The snippets follow one **catalog order** story (`StockKeepingUnit` + `Quantity`, stock check, order id). For more samples, see [`examples/in/`](examples/in/).
 
 ### Hello World
 
-Forst accepts ordinary Go: the same program compiles as Go or as Forst.
+*Before (Go)* and *After (Forst)* — Forst is a superset of Go for ordinary programs: the same `package main` source can be built with the standard Go toolchain or compiled with Forst, so a minimal executable looks identical on both sides.
 
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-Standard <code>package main</code> using the Go toolchain.
-
-<pre><code class="language-go">package main
+```golang
+package main
 
 import "fmt"
 
 func main() {
 	fmt.Println("Hello World!")
-}</code></pre>
+}
+```
 
-</td>
-<td valign="top" width="50%">
+### Input shape
 
-Same source as Forst—no rewrite for a minimal program.
+*Before (Go)* — You declare a request struct with plain `string` and `int` fields, then enforce stock-keeping unit length and quantity range with hand-written `if` checks and generic errors such as `errors.New`. The types themselves do not carry those constraints; validation lives entirely in imperative code.
 
-<pre><code class="language-forst">package main
-
-import "fmt"
-
-func main() {
-  fmt.Println("Hello World!")
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
-
-### Basic Function
-
-Go requires explicit return types; Forst can infer them. Open seats before accepting a new registration:
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-<pre><code class="language-go">func spotsLeft(capacity, registered int) int {
-	return capacity - registered
-}</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-<pre><code class="language-forst">func spotsLeft(capacity Int, registered Int) {
-  return capacity - registered
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
-
-### Input Validation
-
-Go: separate structs, tags, and ad hoc checks. Forst: refinements on types plus a single input shape—compile-time and runtime stay aligned.
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-<pre><code class="language-go">package example
-
-import (
-	"errors"
-	"fmt"
-	"strings"
-)
-
-type RegisterUserInput struct {
-	ID          string
-	Name        string
-	PhoneNumber string
-	BankAccount struct{ IBAN string }
+```golang
+type PlaceOrderInput struct {
+	StockKeepingUnit string
+	Quantity         int
 }
 
-func validPhone(s string) bool {
-	n := len(s)
-	return n &gt;= 3 &amp;&amp; n &lt;= 10 &amp;&amp;
-		(strings.HasPrefix(s, "+") ||
-			strings.HasPrefix(s, "0"))
+func placeOrder(in PlaceOrderInput) (string, error) {
+	if len(in.StockKeepingUnit) < 1 || len(in.StockKeepingUnit) > 64 {
+		return "", errors.New("invalid stock keeping unit")
+	}
+	if in.Quantity < 1 || in.Quantity > 99 {
+		return "", errors.New("invalid quantity")
+	}
+	// function body continues...
+}
+```
+
+*After (Forst)* — With Forst, you put constraints directly on the fields themselves. No need for manual validation as invalid inputs are rejected automatically.
+
+```golang
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity: Int.Min(1).Max(99),
 }
 
-func RegisterUser(op RegisterUserInput) error {
-	n := len(op.Name)
-	if n &lt; 3 || n &gt; 10 {
-		return errors.New("invalid name")
-	}
-	iban := len(op.BankAccount.IBAN)
-	if iban &lt; 10 || iban &gt; 34 {
-		return errors.New("invalid iban")
-	}
-	if !validPhone(op.PhoneNumber) {
-		return errors.New("invalid phone")
-	}
-	fmt.Printf("Registering user %s (%s)\n",
-		op.Name, op.ID)
-	return nil
-}</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-<pre><code class="language-forst">type PhoneNumber =
-  String.Min(3).Max(10) &amp; (
-    String.HasPrefix("+")
-    | String.HasPrefix("0")
-  )
-
-func registerUser(op: Mutation.Input({
-  id: UUID.V4(),
-  name: String.Min(3).Max(10),
-  phoneNumber: PhoneNumber,
-  bankAccount: {
-    iban: String.Min(10).Max(34),
-  },
-})) {
-  fmt.Printf("Registering user %s (%s)\n", op.input.name, op.input.id)
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
+func placeOrder(in: PlaceOrderInput) {
+	// in is already validated; invariants enforced by typechecker
+}
+```
 
 ### Nominal errors
 
-Go models named errors with a struct and <code>Error()</code>. Forst uses <code>error Name { … }</code> as a first-class declaration.
+*Before (Go)* — Each failure kind is a distinct struct type implementing `error`, with `Error()` returning a human-readable string. Callers who need structure use `errors.As`, type switches, or sentinel comparisons; there is no single dedicated syntax for “named” domain errors beyond conventions.
 
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
+```golang
+type UnknownStockKeepingUnit struct{}
 
-<pre><code class="language-go">type NameTooShort struct {
-	Message string
+func (e UnknownStockKeepingUnit) Error() string { return "unknown stock keeping unit" }
+
+type InsufficientStock struct {
+	StockKeepingUnit string
+	Requested        int
+	Available        int
 }
 
-func (e NameTooShort) Error() string {
-	return e.Message
-}</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-<pre><code class="language-forst">error NameTooShort {
-  message: String
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
-
-### Ensure
-
-Go: explicit branches; typical style is <code>errors.New</code> or <code>fmt.Errorf</code>—callers match on strings or wrap, not on a dedicated failure type tied to the check. Forst: <code>ensure</code> pairs the refinement with a nominal error in one place.
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-<pre><code class="language-go">package example
-
-import "errors"
-
-func validateDisplayName(name string) error {
-	if len(name) &lt; 3 {
-		return errors.New(
-			"name must be at least 3 characters",
-		)
-	}
-	return nil
-}</code></pre>
-
-</td>
-<td valign="top" width="50%">
-
-<pre><code class="language-forst">func validateDisplayName(name String) {
-  ensure name is Min(3) or NameTooShort({
-    message: "name must be at least 3 characters",
-  })
-}</code></pre>
-
-</td>
-</tr>
-</tbody>
-</table>
-
-### Result and narrowing
-
-Go: <code>(T, error)</code> and manual checks. Forst: <code>Result</code> plus <code>ensure</code> so success paths narrow the value.
-
-<table>
-<thead>
-<tr>
-<th align="left">Before (Go)</th>
-<th align="left">After (Forst)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td valign="top" width="50%">
-
-<pre><code class="language-go">package main
-
-import (
-	"errors"
-	"fmt"
-)
-
-func allocateUserID() (int, error) {
-	id := 1001
-	if id &lt;= 0 {
-		return 0, errors.New("invalid id")
-	}
-	return id, nil
+func (e InsufficientStock) Error() string {
+	return fmt.Sprintf("insufficient stock for %s: need %d, have %d",
+		e.StockKeepingUnit, e.Requested, e.Available)
 }
+```
 
-func main() {
-	x, err := allocateUserID()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(x)
-}</code></pre>
+*After (Forst)* — `error Name { … }` introduces a nominal failure with an explicit payload shape. The language treats it as a first-class error variant, so you get a dedicated declaration instead of bolting domain meaning onto generic structs and `Error()` strings alone.
 
-</td>
-<td valign="top" width="50%">
+```golang
+error UnknownStockKeepingUnit {}
 
-<pre><code class="language-forst">func allocateUserID() {
-  id := 1001
-  ensure id is GreaterThan(0)
-  return id
+error InsufficientStock {
+	stockKeepingUnit: String,
+	requested:        Int,
+	available:        Int,
 }
+```
 
-func main() {
-  x := allocateUserID()
-  ensure x is Ok()
-  println(x) // x is guaranteed to be an Int here
-}</code></pre>
+### Catalog lookup and stock
 
-</td>
-</tr>
-</tbody>
-</table>
+*Before (Go)* — Map lookup returns a value plus a boolean: you use `value, ok := catalog[key]` to tell “missing key” from “present but zero”, then branch with `if` statements and construct `error` returns yourself.
+
+```golang
+avail, ok := catalog[in.StockKeepingUnit]
+if !ok {
+	return "", UnknownStockKeepingUnit{}
+}
+if in.Quantity > avail {
+	return "", InsufficientStock{
+		StockKeepingUnit: in.StockKeepingUnit,
+		Requested:        in.Quantity,
+		Available:        avail,
+	}
+}
+```
+
+*After (Forst)* — Map lookup and error handling are streamlined: missing or invalid input is converted directly into a dedicated, first-class error type. If a stock-keeping unit isn’t found, the `UnknownStockKeepingUnit` error is returned. If the requested quantity exceeds available stock, the `InsufficientStock` error (with structured, named fields) is produced.
+
+```ruby
+r := catalog[in.stockKeepingUnit]
+ensure r or UnknownStockKeepingUnit()
+ensure in.quantity is Max(r) or InsufficientStock({
+	stockKeepingUnit: in.stockKeepingUnit,
+	requested:        in.quantity,
+	available:        r,
+})
+```
+
+### Caller — success path and narrowing
+
+*Before (Go)* — The API returns `(string, error)`. The caller must test `err != nil` before using the order id, then decide how to log, wrap, or branch on concrete error types—standard Go error discipline, with no automatic narrowing of the success value.
+
+```golang
+id, err := PlaceOrder(PlaceOrderInput{
+	StockKeepingUnit: "ITEM-1",
+	Quantity:         2,
+})
+if err != nil {
+	// switch on type, wrap, log, etc.
+	return
+}
+_ = id
+```
+
+*After (Forst)* — `placeOrder` yields a `Result`-style value. `ensure x is Ok()` refines `x` to the success payload (here the order id), so the following code can treat it as that value without a separate `if err != nil` block. The call site passes a single anonymous record `{ stockKeepingUnit, quantity }`, usually wrapped by `Mutation.Input`, instead of naming a separate struct type for this invocation.
+
+```golang
+x := placeOrder({
+	stockKeepingUnit: "ITEM-1",
+	quantity:         2,
+})
+ensure x is Ok() or x
+// use success value from x (order id / narrowed payload per compiler)
+```
+
+If `placeOrder` accepts a bare record, use `placeOrder({ stockKeepingUnit: "ITEM-1", quantity: 2 })` instead.
+
+### Types across the wire
+
+*Before (TypeScript)* — *You have to define TypeScript interfaces manually to describe the structured data being passed around. These interfaces use broad types like `string` or `number`, which means the input is only type-checked in a very basic way—e.g., every string is accepted, not just valid SKUs or positive quantities. To provide runtime validation (for example, checking `quantity > 0` or `stockKeepingUnit` matches a pattern), you’d need extra schema validators like Zod or Effect.Schema.*
+
+```typescript
+interface PlaceOrderInput {
+  stockKeepingUnit: string; // any string: not validated further by TypeScript
+  quantity: number;         // any number: not automatically checked for positivity, etc.
+}
+```
+
+*After (TypeScript)* — *With Forst, you define your types in one place. Running `forst generate` outputs unified **generated/types.d.ts** (see [`forst/cmd/forst/generate.go`](./forst/cmd/forst/generate.go)). You just import these. There is no need for extra types and they are available on the consuming code with zero config.*
+
+```typescript
+import type { PlaceOrderInput } from "./generated/types";
+
+async function submitOrder(input: PlaceOrderInput) {
+  // input is structurally checked, but fields are still unconstrained primitives unless validated
+  // For runtime checks, use e.g. Zod: placeOrderInputSchema.parse(input)
+  // JSON.stringify(input) — same shapes the server checked in .ft
+}
+```
+
+Adjust the import path to your output layout. See [TypeScript client output](#typescript-client-output) for `forst generate` and the `generated/` tree.
 
 ## Features
 
@@ -428,7 +207,6 @@ func main() {
 - Structural typing for function parameters and return values
 - Type-based assertions that allow complex type narrowing in function parameters
 - First-class scoped errors including stack traces, avoiding exceptions
-- No class or module reopening
 
 ## Design Philosophy
 
