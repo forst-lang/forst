@@ -163,6 +163,27 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return "unknown", nil
 	case ast.TypeError:
 		return "unknown", nil
+	case ast.TypeResult:
+		if len(forstType.TypeParams) >= 2 {
+			succ, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			fail, err := tm.GetTypeScriptType(&forstType.TypeParams[1])
+			if err != nil {
+				return "", err
+			}
+			succTS := succ
+			if strings.Contains(succ, "|") || strings.Contains(succ, " & ") {
+				succTS = "(" + succ + ")"
+			}
+			failTS := fail
+			if strings.Contains(fail, "|") || strings.Contains(fail, " & ") {
+				failTS = "(" + fail + ")"
+			}
+			return fmt.Sprintf("({ ok: true; value: %s } | { ok: false; error: %s })", succTS, failTS), nil
+		}
+		return "unknown", nil
 	case ast.TypeUnion:
 		if len(forstType.TypeParams) == 0 {
 			return "never", nil
