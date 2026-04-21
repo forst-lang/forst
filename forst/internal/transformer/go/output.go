@@ -6,13 +6,20 @@ import (
 	"strings"
 )
 
-// TransformerOutput represents the output of the Transformer
+// TransformerOutput represents the output of the Transformer.
 type TransformerOutput struct {
-	packageName  string
-	imports      []*goast.GenDecl
+	// The name of the Go package to emit
+	packageName string
+	// List of single import declarations (added individually)
+	imports []*goast.GenDecl
+	// List of grouped import declarations
 	importGroups []*goast.GenDecl
-	functions    []*goast.FuncDecl
-	types        []*goast.GenDecl
+	// File-level variable declarations (e.g., sentinels, emitted after imports)
+	valueDecls []*goast.GenDecl
+	// All function declarations to emit in output
+	functions []*goast.FuncDecl
+	// All type declarations to emit in output
+	types []*goast.GenDecl
 }
 
 // SetPackageName sets the package name for the TransformerOutput
@@ -72,6 +79,38 @@ func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
 	t.types = append(t.types, typeDecl)
 }
 
+// EnsureErrMissingMapKeyDecl emits at most once: var errMissingMapKey = errors.New("missing map key").
+// Call EnsureImport("errors") before generating code that references it.
+func (t *TransformerOutput) EnsureErrMissingMapKeyDecl() {
+	for _, d := range t.valueDecls {
+		if d.Tok != token.VAR || len(d.Specs) == 0 {
+			continue
+		}
+		if vs, ok := d.Specs[0].(*goast.ValueSpec); ok && len(vs.Names) > 0 && vs.Names[0].Name == "errMissingMapKey" {
+			return
+		}
+	}
+	t.valueDecls = append(t.valueDecls, &goast.GenDecl{
+		Tok: token.VAR,
+		Specs: []goast.Spec{
+			&goast.ValueSpec{
+				Names: []*goast.Ident{goast.NewIdent("errMissingMapKey")},
+				Values: []goast.Expr{
+					&goast.CallExpr{
+						Fun: &goast.SelectorExpr{
+							X:   goast.NewIdent("errors"),
+							Sel: goast.NewIdent("New"),
+						},
+						Args: []goast.Expr{
+							&goast.BasicLit{Kind: token.STRING, Value: `"missing map key"`},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
 // HasType returns true if a type with the given name is already defined
 func (t *TransformerOutput) HasType(name string) bool {
 	for _, typeDecl := range t.types {
@@ -124,6 +163,10 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 		if len(imp.Specs) > 0 {
 			decls = append(decls, goast.Decl(imp))
 		}
+	}
+
+	for _, vd := range t.valueDecls {
+		decls = append(decls, goast.Decl(vd))
 	}
 
 	// Add type declarations

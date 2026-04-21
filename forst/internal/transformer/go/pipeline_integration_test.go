@@ -869,6 +869,108 @@ func main() {
 	}
 }
 
+func TestPipeline_mapIndex_read_emitsResultSplitAndMissingKeyIIFE(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	x := m["a"]
+	ensure x is Ok()
+	println(string(x))
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`x, xErr :=`,
+		`missing map key`,
+		`errMissingMapKey`,
+		`errors.New`,
+		`v, ok :=`,
+		`!ok`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_mapIndex_assignTarget_noResultIIFE(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	m["a"] = 3
+	println("ok")
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `m["a"] = 3`) {
+		t.Fatalf("expected plain indexed assignment, got:\n%s", out)
+	}
+	if strings.Contains(out, "missing map key") {
+		t.Fatalf("did not expect map-read IIFE for assign-only program, got:\n%s", out)
+	}
+}
+
+func TestPipeline_mapIndex_duplicateReads_usesFuncLitCache(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	a := m["a"]
+	b := m["a"]
+	ensure a is Ok()
+	ensure b is Ok()
+	println(string(a))
+	println(string(b))
+}
+`
+	log := ast.SetupTestLogger(nil)
+	if !testing.Verbose() {
+		log.SetOutput(bytes.NewBuffer(nil))
+	}
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := typechecker.New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	tr := New(tc, log)
+	_, err = tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tr.mapIndexCacheHits < 1 {
+		t.Fatalf("expected at least one map-index FuncLit cache hit for duplicate m[\"a\"], got hits=%d", tr.mapIndexCacheHits)
+	}
+}
+
+func TestPipeline_mapIndex_return_delegatesWholeResult(t *testing.T) {
+	src := `package main
+
+func lookup(): Result(Int, Error) {
+	m := map[String]Int{ "a": 1 }
+	return m["a"]
+}
+
+func main() {
+	x := lookup()
+	ensure x is Ok()
+	println(string(x))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `return func()`) && !strings.Contains(out, `return func(`) {
+		t.Fatalf("expected return of map lookup to lower via func literal / delegate, got:\n%s", out)
+	}
+	if !strings.Contains(out, `missing map key`) {
+		t.Fatalf("expected missing-key path in lowered map read, got:\n%s", out)
+	}
+}
+
 func TestPipeline_emitted_go_is_gofmt_clean(t *testing.T) {
 	src := `package main
 

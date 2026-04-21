@@ -108,9 +108,6 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return nil, fmt.Errorf("index expression: target must have a single type, got %d", len(targetTypes))
 		}
 		t := targetTypes[0]
-		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
-			return nil, fmt.Errorf("index expression: target must be a slice or array, got %s", t.Ident)
-		}
 		indexTypes, err := tc.inferExpressionType(e.Index)
 		if err != nil {
 			return nil, err
@@ -118,8 +115,27 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if len(indexTypes) != 1 {
 			return nil, fmt.Errorf("index expression: index must have a single type")
 		}
+		if t.Ident == ast.TypeMap && len(t.TypeParams) >= 2 {
+			wantK, wantV := t.TypeParams[0], t.TypeParams[1]
+			if !tc.IsTypeCompatible(indexTypes[0], wantK) {
+				return nil, fmt.Errorf("map index: key type want %s, got %s", wantK.Ident, indexTypes[0].Ident)
+			}
+			// Rvalue map lookup is Result(V, Error): present key → Ok(value); missing key → Err.
+			resultType := ast.TypeNode{
+				Ident: ast.TypeResult,
+				TypeParams: []ast.TypeNode{
+					wantV,
+					{Ident: ast.TypeError},
+				},
+			}
+			tc.storeInferredType(e, []ast.TypeNode{resultType})
+			return []ast.TypeNode{resultType}, nil
+		}
+		if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
+			return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
+		}
 		if indexTypes[0].Ident != ast.TypeInt {
-			return nil, fmt.Errorf("index expression: index must be Int, got %s", indexTypes[0].Ident)
+			return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
 		}
 		elem := t.TypeParams[0]
 		tc.storeInferredType(e, []ast.TypeNode{elem})
@@ -446,6 +462,43 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 	return returnType, nil
 }
 
+// inferIndexExpressionAsAssignTarget types an index expression as an assignment target (m[k] = x or xs[i] = x).
+// Map cells use element type V; rvalue map reads elsewhere use Result(V, Error) via inferExpressionType.
+func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionNode) ([]ast.TypeNode, error) {
+	targetTypes, err := tc.inferExpressionType(e.Target)
+	if err != nil {
+		return nil, err
+	}
+	if len(targetTypes) != 1 {
+		return nil, fmt.Errorf("index expression: target must have a single type, got %d", len(targetTypes))
+	}
+	t := targetTypes[0]
+	indexTypes, err := tc.inferExpressionType(e.Index)
+	if err != nil {
+		return nil, err
+	}
+	if len(indexTypes) != 1 {
+		return nil, fmt.Errorf("index expression: index must have a single type")
+	}
+	if t.Ident == ast.TypeMap && len(t.TypeParams) >= 2 {
+		wantK, wantV := t.TypeParams[0], t.TypeParams[1]
+		if !tc.IsTypeCompatible(indexTypes[0], wantK) {
+			return nil, fmt.Errorf("map index: key type want %s, got %s", wantK.Ident, indexTypes[0].Ident)
+		}
+		tc.storeInferredType(e, []ast.TypeNode{wantV})
+		return []ast.TypeNode{wantV}, nil
+	}
+	if t.Ident != ast.TypeArray || len(t.TypeParams) < 1 {
+		return nil, fmt.Errorf("index expression: target must be a map, slice, or array, got %s", t.Ident)
+	}
+	if indexTypes[0].Ident != ast.TypeInt {
+		return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
+	}
+	elem := t.TypeParams[0]
+	tc.storeInferredType(e, []ast.TypeNode{elem})
+	return []ast.TypeNode{elem}, nil
+}
+
 // inferExpressionTypeWithExpected infers an expression's type. For shape literals it passes the
 // callee parameter type into inferShapeType so fields match the formal parameter (e.g. *String for
 // `sessionId` when the parameter is AppMutation.Input(...)).
@@ -466,6 +519,10 @@ func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *
 			}
 			tc.storeInferredType(expr, []ast.TypeNode{inferredType})
 			return []ast.TypeNode{inferredType}, nil
+		case ast.IndexExpressionNode:
+			// Extension point: map/slice index with an expected type (e.g. generic calls). Today
+			// expected is ignored; index inference is unchanged from inferExpressionType.
+			return tc.inferExpressionType(x)
 		}
 	}
 	return tc.inferExpressionType(expr)

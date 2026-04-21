@@ -95,6 +95,10 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	t.resultLocalSplit = make(map[string]resultLocalSplit)
 	defer func() { t.resultLocalSplit = prevResultSplit }()
 
+	prevMapIndexCache := t.mapIndexFuncLitCache
+	t.mapIndexFuncLitCache = make(map[string]*goast.FuncLit)
+	defer func() { t.mapIndexFuncLitCache = prevMapIndexCache }()
+
 	// Create function parameters
 	params, err := t.transformFunctionParams(n.Params)
 	if err != nil {

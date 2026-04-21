@@ -38,7 +38,7 @@ func (u UnaryExpressionNode) isExpression()  { _ = u }
 func (b BinaryExpressionNode) isExpression() { _ = b }
 func (f FunctionCallNode) isExpression()     { _ = f }
 
-// IndexExpressionNode is a subscript expression: target[index] (slice or array).
+// IndexExpressionNode is a subscript expression: target[index] (slice, array, or map).
 type IndexExpressionNode struct {
 	Target ExpressionNode
 	Index  ExpressionNode

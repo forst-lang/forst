@@ -90,6 +90,11 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:     "map catalog result",
+			filePath: "../../../examples/in/map_catalog.ft",
+			wantErr:  false,
+		},
+		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,
@@ -418,5 +423,61 @@ func Main() {
 	stdout := string(stdoutBytes)
 	if !strings.Contains(stdout, "package main") {
 		t.Fatalf("expected generated code on stdout, got: %s", stdout)
+	}
+}
+
+// TestCompileFile_map_catalog_golden keeps examples/out/map_catalog.go aligned with codegen for
+// examples/in/map_catalog.ft (also exercised by cmd/forst TestExamples).
+// Regenerate: UPDATE_MAP_CATALOG_GOLDEN=1 go test ./internal/compiler -run TestCompileFile_map_catalog_golden -count=1
+func TestCompileFile_map_catalog_golden(t *testing.T) {
+	c := New(Args{
+		Command:  "run",
+		FilePath: "../../../examples/in/map_catalog.ft",
+		LogLevel: "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	actual := *code
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "map_catalog.go")
+	if os.Getenv("UPDATE_MAP_CATALOG_GOLDEN") == "1" {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(actual), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote %s", goldenPath)
+		return
+	}
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden %s: %v (set UPDATE_MAP_CATALOG_GOLDEN=1 to create)", goldenPath, err)
+	}
+	verifyMapCatalogGolden(t, string(expected), actual, goldenPath)
+}
+
+func verifyMapCatalogGolden(t *testing.T, expected, actual, goldenPath string) {
+	t.Helper()
+	markers := []string{
+		"package main",
+		"func main()",
+		`var errMissingMapKey = errors.New("missing map key")`,
+		`missing map key`,
+		`v, ok :=`,
+		`!ok`,
+		`errMissingMapKey`,
+		`fmt`,
+		`fmt.Println`,
+		`catalog[sku]`,
+	}
+	for _, m := range markers {
+		if !strings.Contains(actual, m) {
+			t.Errorf("generated Go missing %q (golden %s)", m, goldenPath)
+		}
+	}
+	if len(expected) > 0 && len(actual) < len(expected)/2 {
+		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
 	}
 }

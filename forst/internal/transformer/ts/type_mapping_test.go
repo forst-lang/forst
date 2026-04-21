@@ -98,6 +98,26 @@ func TestTypeMapping_GetTypeScriptType_errorBuiltin(t *testing.T) {
 	}
 }
 
+func TestTypeMapping_GetTypeScriptType_resultPair(t *testing.T) {
+	tm := NewTypeMapping()
+	r := ast.TypeNode{
+		Ident:    ast.TypeResult,
+		TypeKind: ast.TypeKindBuiltin,
+		TypeParams: []ast.TypeNode{
+			ast.NewBuiltinType(ast.TypeInt),
+			ast.NewBuiltinType(ast.TypeError),
+		},
+	}
+	got, err := tm.GetTypeScriptType(&r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "({ ok: true; value: number } | { ok: false; error: unknown })"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
 func TestTypeMapping_arrayTypeScript_parenthesizesUnions(t *testing.T) {
 	if got := arrayTypeScript("string | number"); got != "(string | number)[]" {
 		t.Fatalf("got %q", got)

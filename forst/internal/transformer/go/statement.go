@@ -516,10 +516,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		// Result(S,F) is one Forst value but lowers to (success..., error) in Go: multi-value assignment.
 		if len(s.LValues) == 1 && len(s.RValues) == 1 {
 			if vn, ok := s.LValues[0].(ast.VariableNode); ok {
-				if fc, ok := s.RValues[0].(ast.FunctionCallNode); ok && t.rhsCallIsFoldedResult(fc) {
-					ts, err := t.TypeChecker.LookupInferredType(fc, false)
+				rhs := s.RValues[0]
+				if t.rhsExprIsFoldedResult(rhs) {
+					ts, err := t.TypeChecker.LookupInferredType(rhs, false)
 					if err != nil || len(ts) != 1 || !ts[0].IsResultType() {
-						return nil, fmt.Errorf("assignment: expected Result from folded Go call")
+						return nil, fmt.Errorf("assignment: expected Result from RHS")
 					}
 					succ := ts[0].TypeParams[0]
 					var successNames []string
@@ -533,7 +534,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 						successNames = []string{string(vn.Ident.ID)}
 					}
 					errName := string(vn.Ident.ID) + "Err"
-					rhsExpr, err := t.transformExpression(fc)
+					rhsExpr, err := t.transformExpression(rhs)
 					if err != nil {
 						return nil, err
 					}

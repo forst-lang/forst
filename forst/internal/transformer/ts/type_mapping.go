@@ -163,6 +163,31 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return "unknown", nil
 	case ast.TypeError:
 		return "unknown", nil
+	// TypeResult: emitted TypeScript is a static signature approximation for generated clients.
+	// Go codegen uses (T, error) and ensure/Result control flow; HTTP/JSON or other wire formats
+	// are not automatically { ok, value } unless you add an explicit codec. Do not assume runtime
+	// payloads match this discriminated union without aligning your integration boundary.
+	case ast.TypeResult:
+		if len(forstType.TypeParams) >= 2 {
+			succ, err := tm.GetTypeScriptType(&forstType.TypeParams[0])
+			if err != nil {
+				return "", err
+			}
+			fail, err := tm.GetTypeScriptType(&forstType.TypeParams[1])
+			if err != nil {
+				return "", err
+			}
+			succTS := succ
+			if strings.Contains(succ, "|") || strings.Contains(succ, " & ") {
+				succTS = "(" + succ + ")"
+			}
+			failTS := fail
+			if strings.Contains(fail, "|") || strings.Contains(fail, " & ") {
+				failTS = "(" + fail + ")"
+			}
+			return fmt.Sprintf("({ ok: true; value: %s } | { ok: false; error: %s })", succTS, failTS), nil
+		}
+		return "unknown", nil
 	case ast.TypeUnion:
 		if len(forstType.TypeParams) == 0 {
 			return "never", nil
