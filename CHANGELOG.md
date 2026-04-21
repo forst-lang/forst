@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/forst-lang/forst/compare/v0.3.0...v0.4.0) (2026-04-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* map reads are Result(V, Error); emit comma-ok via Go IIFE ([#94](https://github.com/forst-lang/forst/issues/94))
+
+### Features
+
+* map reads are Result(V, Error); emit comma-ok via Go IIFE ([#94](https://github.com/forst-lang/forst/issues/94)) ([0cebdf1](https://github.com/forst-lang/forst/commit/0cebdf15dc86c74d62eaaa4eaedd50aca5fc83a1))
+
 ## [0.3.0](https://github.com/forst-lang/forst/compare/v0.2.17...v0.3.0) (2026-04-20)
 
 
