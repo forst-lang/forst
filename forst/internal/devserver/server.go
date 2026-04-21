@@ -1,4 +1,5 @@
-package main
+// Package devserver implements the HTTP API for forst dev (invoke, types, health, etc.).
+package devserver
 
 import (
 	"context"
@@ -8,11 +9,15 @@ import (
 	"time"
 
 	"forst/internal/compiler"
+	"forst/internal/configiface"
 	"forst/internal/discovery"
 	"forst/internal/executor"
 
 	logrus "github.com/sirupsen/logrus"
 )
+
+// HTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
+const HTTPContractVersion = "1"
 
 // devFunctionExecutor is implemented by *executor.FunctionExecutor; HTTP tests may substitute stubs.
 type devFunctionExecutor interface {
@@ -25,10 +30,7 @@ type devTypesGenerator interface {
 	GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error)
 }
 
-// devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
-const devHTTPContractVersion = "1"
-
-// InvokeRequest represents a request to call a Forst function
+// InvokeRequest represents a request to call a Forst function.
 type InvokeRequest struct {
 	Package   string          `json:"package"`
 	Function  string          `json:"function"`
@@ -36,7 +38,7 @@ type InvokeRequest struct {
 	Streaming bool            `json:"streaming,omitempty"`
 }
 
-// DevServerResponse represents a response to the client
+// DevServerResponse represents a response to the client.
 type DevServerResponse struct {
 	Success bool            `json:"success"`
 	Output  string          `json:"output,omitempty"`
@@ -44,13 +46,29 @@ type DevServerResponse struct {
 	Result  json.RawMessage `json:"result,omitempty"`
 }
 
-// DevServer handles HTTP communication for Forst applications
+// BuildInfo is compiler build metadata served from GET /version.
+type BuildInfo struct {
+	Version string
+	Commit  string
+	Date    string
+}
+
+// HTTPOpts holds HTTP server options (from config server section).
+type HTTPOpts struct {
+	ReadTimeoutSec  int
+	WriteTimeoutSec int
+	CORS            bool
+}
+
+// DevServer handles HTTP communication for Forst applications.
 type DevServer struct {
 	port       string
 	server     *http.Server
 	compiler   *compiler.Compiler
 	log        *logrus.Logger
-	config     *ForstConfig
+	config     configiface.ForstConfigIface
+	httpOpts   HTTPOpts
+	buildInfo  BuildInfo
 	discoverer *discovery.Discoverer
 	fnExec     devFunctionExecutor
 	functions  map[string]map[string]discovery.FunctionInfo
@@ -62,16 +80,18 @@ type DevServer struct {
 	typesGenerator devTypesGenerator
 }
 
-// NewHTTPServer creates a new HTTP server
-func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *DevServer {
-	discoverer := discovery.NewDiscoverer(rootDir, log, config)
-	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, config)
+// NewHTTPServer creates a new HTTP server.
+func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, cfg configiface.ForstConfigIface, buildInfo BuildInfo, httpOpts HTTPOpts, rootDir string) *DevServer {
+	discoverer := discovery.NewDiscoverer(rootDir, log, cfg)
+	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, cfg)
 
 	return &DevServer{
 		port:       port,
 		compiler:   comp,
 		log:        log,
-		config:     config,
+		config:     cfg,
+		httpOpts:   httpOpts,
+		buildInfo:  buildInfo,
 		discoverer: discoverer,
 		fnExec:     fnExec,
 		functions:  make(map[string]map[string]discovery.FunctionInfo),

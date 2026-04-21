@@ -28,6 +28,7 @@ export * from "./errors";
 export {
   ForstSidecar,
   createExpressMiddleware,
+  createRouteToForstMiddleware,
   autoStart,
 } from "./sidecar";
 export { default } from "./sidecar";

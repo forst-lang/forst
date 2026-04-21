@@ -134,6 +134,35 @@ describe("ForstSidecarClient", () => {
     );
   });
 
+  it("POST /invoke/raw sends JSON array body and query params", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({
+        success: true,
+        result: { ok: true },
+      }),
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:8080",
+      retries: 0,
+    });
+    await client.invokeFunctionRaw("demo", "Echo", [{ a: 1 }]);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:8080/invoke/raw?package=demo&function=Echo",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify([{ a: 1 }]),
+        headers: expect.objectContaining({
+          [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
+        }),
+      })
+    );
+  });
+
   it("POST /invoke with success: true but no result throws DevServerInvokeRejected", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

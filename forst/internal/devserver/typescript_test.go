@@ -1,4 +1,4 @@
-package main
+package devserver
 
 import (
 	"io"
@@ -28,7 +28,7 @@ func TestNewTypeScriptGenerator_GenerateTypesForFunctions_emptyDiscoveryReturnsH
 func TestTypeScriptGenerator_GenerateTypesForFunctions_nonEmptyDiscovery_mergesPerFileOutputs(t *testing.T) {
 	dir := t.TempDir()
 	ft := filepath.Join(dir, "echo.ft")
-	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+	if err := os.WriteFile(ft, []byte(testMinimalValidForst), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +84,7 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_allFilesFail_returnsHeade
 func TestTypeScriptGenerator_generateTypesForFile_readsParsesAndTransforms(t *testing.T) {
 	dir := t.TempDir()
 	ft := filepath.Join(dir, "echo.ft")
-	if err := os.WriteFile(ft, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+	if err := os.WriteFile(ft, []byte(testMinimalValidForst), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsA
 	dir := t.TempDir()
 	good := filepath.Join(dir, "good.ft")
 	bad := filepath.Join(dir, "bad.ft")
-	if err := os.WriteFile(good, []byte(generateTestMinimalValidForst), 0o644); err != nil {
+	if err := os.WriteFile(good, []byte(testMinimalValidForst), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(bad, []byte(`@@@`), 0o644); err != nil {

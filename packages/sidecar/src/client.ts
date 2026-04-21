@@ -18,6 +18,8 @@ import {
   SIDECAR_PACKAGE_VERSION,
   SIDECAR_VERSION_HTTP_HEADER,
 } from "./constants";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import {
   DevServerFunctionsRejected,
   DevServerHttpFailure,
@@ -153,32 +155,251 @@ export class ForstSidecarClient {
     };
   }
 
-  /** NDJSON lines from POST /invoke with `streaming: true`. */
-  private async *streamingInvoke(
+  /**
+   * Invoke via `POST /invoke/raw` — body is **only** the JSON array of arguments (no outer envelope).
+   * Prefer this when args are large or when mirroring a raw HTTP payload forwarded as a single arg.
+   */
+  async invokeFunctionRaw<T>(
     packageName: string,
     functionName: string,
     args: unknown[] = []
-  ): AsyncGenerator<StreamingResult, void, undefined> {
-    const request: InvokeRequest = {
+  ): Promise<InvokeSuccess<T>> {
+    const qs = new URLSearchParams({
       package: packageName,
       function: functionName,
-      args,
-      streaming: true,
-    };
+    });
+    const body = JSON.stringify(args);
 
     logger.debug(
-      invokeRequestLogFields(request),
-      `Starting streaming invocation of ${packageName}.${functionName}`
+      { package: packageName, function: functionName, argCount: args.length },
+      `🚀 Invoking (raw body) ${packageName}.${functionName}`
     );
 
-    const response = await fetch(`${this.config.baseUrl}/invoke`, {
+    const response = await this.makeRequest<T>(
+      `/invoke/raw?${qs.toString()}`,
+      {
+        method: "POST",
+        body,
+      }
+    );
+
+    logger.debug(
+      {
+        package: packageName,
+        function: functionName,
+        ...invokeResponseLogFields(response),
+      },
+      `📦 Response (raw invoke) for ${packageName}.${functionName}`
+    );
+    if (!response.success) {
+      throw new DevServerInvokeRejected(packageName, functionName, response);
+    }
+    if (response.result === undefined) {
+      throw new DevServerInvokeRejected(packageName, functionName, {
+        success: false,
+        error:
+          response.error ??
+          "invoke response missing result (success was true but result is undefined)",
+        output: response.output,
+      });
+    }
+    return {
+      success: true as const,
+      result: response.result,
+      output: response.output,
+      error: response.error,
+    };
+  }
+
+  /**
+   * Same contract as {@link invokeFunctionRaw}, but the JSON body is sent as a **`ReadableStream`**
+   * so Node does not build one full string before `fetch` (pairs with streaming request capture in Express).
+   */
+  async invokeFunctionRawWithReadableBody<T>(
+    packageName: string,
+    functionName: string,
+    body: ReadableStream<Uint8Array>
+  ): Promise<InvokeSuccess<T>> {
+    const qs = new URLSearchParams({
+      package: packageName,
+      function: functionName,
+    });
+    const url = `${this.config.baseUrl}/invoke/raw?${qs.toString()}`;
+
+    logger.debug(
+      { package: packageName, function: functionName },
+      `🚀 Invoking (streaming JSON body) ${packageName}.${functionName}`
+    );
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
+        [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(request),
+      body,
+      duplex: "half",
+      signal: AbortSignal.timeout(this.config.timeout!),
     });
 
+    logger.debug(
+      `📥 Response status: ${response.status} ${response.statusText}`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new DevServerHttpFailure(
+        response.status,
+        errorText,
+        parseDevServerHttpErrorField(errorText)
+      );
+    }
+
+    const parsed = (await response.json()) as InvokeResponse<T>;
+    logger.debug(
+      {
+        package: packageName,
+        function: functionName,
+        ...invokeResponseLogFields(parsed),
+      },
+      `📦 Response (streaming raw invoke) for ${packageName}.${functionName}`
+    );
+
+    if (!parsed.success) {
+      throw new DevServerInvokeRejected(packageName, functionName, parsed);
+    }
+    if (parsed.result === undefined) {
+      throw new DevServerInvokeRejected(packageName, functionName, {
+        success: false,
+        error:
+          parsed.error ??
+          "invoke response missing result (success was true but result is undefined)",
+        output: parsed.output,
+      });
+    }
+    return {
+      success: true as const,
+      result: parsed.result,
+      output: parsed.output,
+      error: parsed.error,
+    };
+  }
+
+  /**
+   * Stream NDJSON from `POST /invoke/raw?...&streaming=true` with a raw JSON array body.
+   * Same row shape as {@link invokeStream}.
+   */
+  invokeStreamRaw<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args?: unknown[]
+  ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined>;
+  invokeStreamRaw(
+    packageName: string,
+    functionName: string,
+    args: unknown[] | undefined,
+    onResult: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void>;
+  invokeStreamRaw<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = [],
+    onResult?: (result: StreamingResult) => void | Promise<void>
+  ): Promise<void> | AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
+    if (onResult !== undefined) {
+      return (async () => {
+        for await (const row of this.streamingInvokeRaw(
+          packageName,
+          functionName,
+          args
+        )) {
+          await onResult(row);
+        }
+      })();
+    }
+    return this.invokeStreamRawRows<T>(packageName, functionName, args);
+  }
+
+  private async *invokeStreamRawRows<T = unknown>(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = []
+  ): AsyncGenerator<StreamingResult & { data?: T }, void, undefined> {
+    for await (const row of this.streamingInvokeRaw(
+      packageName,
+      functionName,
+      args
+    )) {
+      yield row as StreamingResult & { data?: T };
+    }
+  }
+
+  /**
+   * `POST /invoke/raw?streaming=true` and pipe the dev server response bytes to **`destination`**
+   * (e.g. Express `res`) without parsing NDJSON — lowest overhead for proxy-style streaming.
+   * Request JSON is sent as **`body`** (same shape as {@link invokeFunctionRawWithReadableBody}).
+   */
+  async pipeInvokeRawStream(
+    packageName: string,
+    functionName: string,
+    body: ReadableStream<Uint8Array>,
+    destination: NodeJS.WritableStream & {
+      statusCode?: number;
+      setHeader(name: string, value: string | number | readonly string[]): void;
+      flushHeaders?(): void;
+    }
+  ): Promise<void> {
+    const qs = new URLSearchParams({
+      package: packageName,
+      function: functionName,
+      streaming: "true",
+    });
+    const url = `${this.config.baseUrl}/invoke/raw?${qs.toString()}`;
+
+    logger.debug(
+      { package: packageName, function: functionName },
+      `🌊 Piping streaming raw invoke ${packageName}.${functionName}`
+    );
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
+        "Content-Type": "application/json",
+      },
+      body,
+      duplex: "half",
+      signal: AbortSignal.timeout(this.config.timeout!),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new DevServerHttpFailure(
+        response.status,
+        errorText,
+        parseDevServerHttpErrorField(errorText)
+      );
+    }
+    if (!response.body) {
+      throw new DevServerStreamingInvokeNoResponseBody();
+    }
+
+    destination.statusCode = response.status;
+    response.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (lower === "transfer-encoding" || lower === "content-length") {
+        return;
+      }
+      destination.setHeader(key, value);
+    });
+
+    const webBody = response.body as unknown as import("stream/web").ReadableStream;
+    await pipeline(Readable.fromWeb(webBody), destination);
+  }
+
+  private async *readNDJSONStream(
+    response: Response
+  ): AsyncGenerator<StreamingResult, void, undefined> {
     if (!response.ok) {
       const errorText = await response.text();
       throw new DevServerHttpFailure(
@@ -215,6 +436,69 @@ export class ForstSidecarClient {
     } finally {
       reader.releaseLock();
     }
+  }
+
+  /** NDJSON lines from POST /invoke with `streaming: true`. */
+  private async *streamingInvoke(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = []
+  ): AsyncGenerator<StreamingResult, void, undefined> {
+    const request: InvokeRequest = {
+      package: packageName,
+      function: functionName,
+      args,
+      streaming: true,
+    };
+
+    logger.debug(
+      invokeRequestLogFields(request),
+      `Starting streaming invocation of ${packageName}.${functionName}`
+    );
+
+    const response = await fetch(`${this.config.baseUrl}/invoke`, {
+      method: "POST",
+      headers: {
+        [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(this.config.timeout!),
+    });
+
+    yield* this.readNDJSONStream(response);
+  }
+
+  /** NDJSON lines from POST /invoke/raw?streaming=true with a JSON array body. */
+  private async *streamingInvokeRaw(
+    packageName: string,
+    functionName: string,
+    args: unknown[] = []
+  ): AsyncGenerator<StreamingResult, void, undefined> {
+    const qs = new URLSearchParams({
+      package: packageName,
+      function: functionName,
+      streaming: "true",
+    });
+    logger.debug(
+      { package: packageName, function: functionName, argCount: args.length },
+      `Starting streaming raw invoke ${packageName}.${functionName}`
+    );
+
+    const response = await fetch(
+      `${this.config.baseUrl}/invoke/raw?${qs.toString()}`,
+      {
+        method: "POST",
+        headers: {
+          [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(args),
+        signal: AbortSignal.timeout(this.config.timeout!),
+      }
+    );
+
+    yield* this.readNDJSONStream(response);
   }
 
   /**
