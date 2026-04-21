@@ -519,6 +519,10 @@ func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *
 			}
 			tc.storeInferredType(expr, []ast.TypeNode{inferredType})
 			return []ast.TypeNode{inferredType}, nil
+		case ast.IndexExpressionNode:
+			// Extension point: map/slice index with an expected type (e.g. generic calls). Today
+			// expected is ignored; index inference is unchanged from inferExpressionType.
+			return tc.inferExpressionType(x)
 		}
 	}
 	return tc.inferExpressionType(expr)

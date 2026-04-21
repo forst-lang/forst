@@ -4,13 +4,15 @@ import "fmt"
 import errors "errors"
 import os "os"
 
+var errMissingMapKey = errors.New("missing map key")
+
 func main() {
 	catalog := map[string]int{"ITEM-1": 10}
 	sku := "ITEM-1"
 	avail, availErr := func() (int, error) {
 		v, ok := catalog[sku]
 		if !ok {
-			return 0, errors.New("missing map key")
+			return 0, errMissingMapKey
 		}
 		return v, nil
 	}()

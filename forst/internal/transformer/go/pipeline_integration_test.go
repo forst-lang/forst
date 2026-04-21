@@ -883,6 +883,7 @@ func main() {
 	for _, sub := range []string{
 		`x, xErr :=`,
 		`missing map key`,
+		`errMissingMapKey`,
 		`errors.New`,
 		`v, ok :=`,
 		`!ok`,
@@ -908,6 +909,42 @@ func main() {
 	}
 	if strings.Contains(out, "missing map key") {
 		t.Fatalf("did not expect map-read IIFE for assign-only program, got:\n%s", out)
+	}
+}
+
+func TestPipeline_mapIndex_duplicateReads_usesFuncLitCache(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	a := m["a"]
+	b := m["a"]
+	ensure a is Ok()
+	ensure b is Ok()
+	println(string(a))
+	println(string(b))
+}
+`
+	log := ast.SetupTestLogger(nil)
+	if !testing.Verbose() {
+		log.SetOutput(bytes.NewBuffer(nil))
+	}
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := typechecker.New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	tr := New(tc, log)
+	_, err = tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tr.mapIndexCacheHits < 1 {
+		t.Fatalf("expected at least one map-index FuncLit cache hit for duplicate m[\"a\"], got hits=%d", tr.mapIndexCacheHits)
 	}
 }
 

@@ -294,7 +294,38 @@ func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []as
 	return top + "\n\n" + body
 }
 
+// mapIndexLBracketHoverMarkdown returns hover text when the cursor is on `[` after a map variable (e.g. m[k]).
+func mapIndexLBracketHoverMarkdown(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tc == nil || tok == nil || tok.Type != ast.TokenLBracket {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 1 {
+		return ""
+	}
+	prev := &tokens[i-1]
+	if prev.Type != ast.TokenIdentifier {
+		return ""
+	}
+	vn := ast.VariableNode{
+		Ident: ast.Ident{ID: ast.Identifier(prev.Value), Span: ast.SpanFromToken(*prev)},
+	}
+	types, ok := tc.InferredTypesForVariableNode(vn)
+	if !ok || len(types) != 1 {
+		return ""
+	}
+	if types[0].Ident != ast.TypeMap {
+		return ""
+	}
+	return "**Map lookup:** type `Result(V, Error)`; missing key is failure. Use `ensure … is Ok()` before using `V`."
+}
+
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {
+	if tok.Type == ast.TokenLBracket {
+		if s := mapIndexLBracketHoverMarkdown(tc, tokens, tok); s != "" {
+			return s
+		}
+	}
 	if tok.Type == ast.TokenStringLiteral {
 		if s := goHoverFromImportString(tc, tokens, tok); s != "" {
 			return s

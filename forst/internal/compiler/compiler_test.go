@@ -463,10 +463,11 @@ func verifyMapCatalogGolden(t *testing.T, expected, actual, goldenPath string) {
 	markers := []string{
 		"package main",
 		"func main()",
+		`var errMissingMapKey = errors.New("missing map key")`,
 		`missing map key`,
 		`v, ok :=`,
 		`!ok`,
-		`errors.New`,
+		`errMissingMapKey`,
 		`fmt`,
 		`fmt.Println`,
 		`catalog[sku]`,

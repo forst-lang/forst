@@ -345,6 +345,12 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 		case ast.TypeInt:
 			return []ast.TypeNode{fn.ReturnType}, nil
 		default:
+			if argType[0].Ident == ast.TypeResult {
+				if idx, ok := args[0].(ast.IndexExpressionNode); ok && tc.isMapIndexRValue(idx) {
+					return nil, diagnosticf(sp, "builtin-call",
+						"map lookup has type Result(V, Error); use `ensure x is Ok()` (or bind and handle the Result) before using string()")
+				}
+			}
 			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].Ident)
 		}
 	}
@@ -488,4 +494,13 @@ func (tc *TypeChecker) tryDispatchGoBuiltin(fn BuiltinFunction, args []ast.Expre
 	default:
 		return nil, false, nil
 	}
+}
+
+// isMapIndexRValue is true when expr is a subscript whose target is a map type (rvalue read).
+func (tc *TypeChecker) isMapIndexRValue(expr ast.IndexExpressionNode) bool {
+	tts, err := tc.inferExpressionType(expr.Target)
+	if err != nil || len(tts) != 1 {
+		return false
+	}
+	return tts[0].Ident == ast.TypeMap && len(tts[0].TypeParams) >= 2
 }

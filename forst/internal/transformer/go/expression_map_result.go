@@ -15,6 +15,13 @@ func (t *Transformer) transformMapIndexResultCall(e ast.IndexExpressionNode, res
 		return nil, fmt.Errorf("transformMapIndexResultCall: expected Result")
 	}
 	succT := resultT.TypeParams[0]
+	cacheKey := mapIndexExprCacheKey(e)
+	if t.mapIndexFuncLitCache != nil {
+		if lit, ok := t.mapIndexFuncLitCache[cacheKey]; ok {
+			t.mapIndexCacheHits++
+			return &goast.CallExpr{Fun: lit}, nil
+		}
+	}
 	tgt, err := t.transformExpression(e.Target)
 	if err != nil {
 		return nil, err
@@ -32,14 +39,7 @@ func (t *Transformer) transformMapIndexResultCall(e ast.IndexExpressionNode, res
 		return nil, err
 	}
 	t.Output.EnsureImport("errors")
-
-	errorsNew := &goast.CallExpr{
-		Fun: &goast.SelectorExpr{
-			X:   goast.NewIdent("errors"),
-			Sel: goast.NewIdent("New"),
-		},
-		Args: []goast.Expr{&goast.BasicLit{Kind: token.STRING, Value: `"missing map key"`}},
-	}
+	t.Output.EnsureErrMissingMapKeyDecl()
 
 	// v, ok := m[k]
 	assign := &goast.AssignStmt{
@@ -50,7 +50,7 @@ func (t *Transformer) transformMapIndexResultCall(e ast.IndexExpressionNode, res
 	ifNotOk := &goast.IfStmt{
 		Cond: &goast.UnaryExpr{Op: token.NOT, X: goast.NewIdent("ok")},
 		Body: &goast.BlockStmt{List: []goast.Stmt{
-			&goast.ReturnStmt{Results: []goast.Expr{zero, errorsNew}},
+			&goast.ReturnStmt{Results: []goast.Expr{zero, goast.NewIdent("errMissingMapKey")}},
 		}},
 	}
 	retOk := &goast.ReturnStmt{Results: []goast.Expr{goast.NewIdent("v"), goast.NewIdent("nil")}}
@@ -67,7 +67,22 @@ func (t *Transformer) transformMapIndexResultCall(e ast.IndexExpressionNode, res
 		},
 		Body: &goast.BlockStmt{List: []goast.Stmt{assign, ifNotOk, retOk}},
 	}
+	if t.mapIndexFuncLitCache != nil {
+		t.mapIndexFuncLitCache[cacheKey] = fn
+	}
 	return &goast.CallExpr{Fun: fn}, nil
+}
+
+// mapIndexExprCacheKey is stable for duplicate reads: avoid Variable(m) vs m spelling differences in String().
+func mapIndexExprCacheKey(e ast.IndexExpressionNode) string {
+	var target string
+	switch t := e.Target.(type) {
+	case ast.VariableNode:
+		target = string(t.Ident.ID)
+	default:
+		target = e.Target.String()
+	}
+	return target + "\x00" + e.Index.String()
 }
 
 // goZeroValueGoAST returns a zero value expression for common Forst types used as map values.
@@ -81,6 +96,8 @@ func (t *Transformer) goZeroValueGoAST(vt ast.TypeNode) (goast.Expr, error) {
 		return &goast.BasicLit{Kind: token.STRING, Value: `""`}, nil
 	case ast.TypeBool:
 		return goast.NewIdent("false"), nil
+	case ast.TypePointer:
+		return goast.NewIdent("nil"), nil
 	default:
 		gt, err := t.transformType(vt)
 		if err != nil {

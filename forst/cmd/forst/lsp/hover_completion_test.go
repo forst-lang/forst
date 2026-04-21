@@ -1282,3 +1282,56 @@ func main() {
 		t.Fatalf("expected Go func hover on Contains, got %v", hMem)
 	}
 }
+
+func TestFindHoverForPosition_mapIndexLBracket(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "map_bracket_hover.ft")
+	const src = `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	k := "a"
+	x := m[k]
+	ensure x is Ok()
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+	var lb *ast.Token
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenLBracket && i > 0 && ctx.Tokens[i-1].Value == "m" {
+			lb = tok
+			break
+		}
+	}
+	if lb == nil {
+		t.Fatal("no LBracket after m")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: lb.Line - 1, Character: lb.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on [")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "Result(V, Error)") || !strings.Contains(val, "ensure") {
+		t.Fatalf("expected map index hover, got %q", val)
+	}
+}

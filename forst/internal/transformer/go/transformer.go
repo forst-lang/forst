@@ -33,6 +33,11 @@ type Transformer struct {
 
 	// emittedSealMethods records receiver+method pairs for nominal error union sealing (dedupe on re-emit).
 	emittedSealMethods map[string]struct{}
+
+	// mapIndexFuncLitCache deduplicates identical map-read IIFEs within one Forst function (key: expr|succType).
+	mapIndexFuncLitCache map[string]*goast.FuncLit
+	// mapIndexCacheHits counts cache hits during transform (second+ identical map read in a function).
+	mapIndexCacheHits int
 }
 
 // New creates a new Transformer
