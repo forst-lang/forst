@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { text } from "node:stream/consumers";
 
 import { describe, expect, it, jest } from "bun:test";
 import { createRouteToForstMiddleware } from "./express-middleware";
@@ -175,6 +176,106 @@ describe("createRouteToForstMiddleware", () => {
       expect.any(Object)
     );
     expect(res.send).toHaveBeenCalledWith("ok");
+  });
+
+  it("mapRequest can inject headers; Cookie and Authorization pass through from req", async () => {
+    let capturedBody: ReadableStream<Uint8Array> | null = null;
+    const invokeFunctionRawWithReadableBody = jest
+      .fn()
+      .mockImplementation(
+        async (_pkg: string, _fn: string, body: ReadableStream<Uint8Array>) => {
+          capturedBody = body;
+          return {
+            success: true,
+            result: { status: 200, body: "ok" },
+          };
+        }
+      );
+    const sidecar = {
+      getClient: () => ({ invokeFunctionRawWithReadableBody }),
+    } as any;
+
+    const mw = createRouteToForstMiddleware(sidecar, {
+      packageName: "main",
+      functionName: "Handle",
+      mapRequest: (r) => ({
+        ...r,
+        headers: {
+          ...r.headers,
+          "x-context": "injected",
+        },
+      }),
+    });
+
+    const req = {
+      method: "GET",
+      originalUrl: "/x",
+      url: "/x",
+      path: "/x",
+      query: {},
+      headers: {
+        cookie: "sid=1",
+        authorization: "Bearer z",
+        host: "localhost",
+      },
+      body: Buffer.alloc(0),
+      on: () => {},
+    } as any;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    } as any;
+
+    await mw(req, res, jest.fn());
+
+    expect(invokeFunctionRawWithReadableBody).toHaveBeenCalled();
+    expect(capturedBody).not.toBeNull();
+    const raw = await text(Readable.fromWeb(capturedBody!) as any);
+    const parsed = JSON.parse(raw) as Array<{
+      headers: Record<string, string | string[]>;
+    }>;
+    expect(parsed[0].headers["x-context"]).toBe("injected");
+    expect(parsed[0].headers["cookie"]).toBe("sid=1");
+    expect(parsed[0].headers["authorization"]).toBe("Bearer z");
+  });
+
+  it("calls next with the error when invokeFunctionRawWithReadableBody rejects", async () => {
+    const err = new Error("invoke failed");
+    const invokeFunctionRawWithReadableBody = jest.fn().mockRejectedValue(err);
+    const sidecar = {
+      getClient: () => ({ invokeFunctionRawWithReadableBody }),
+    } as any;
+
+    const mw = createRouteToForstMiddleware(sidecar, {
+      packageName: "main",
+      functionName: "Handle",
+    });
+
+    const req = {
+      method: "GET",
+      originalUrl: "/x",
+      url: "/x",
+      path: "/x",
+      query: {},
+      headers: {},
+      body: Buffer.alloc(0),
+      on: () => {},
+    } as any;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    } as any;
+
+    const next = jest.fn();
+    await mw(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(err);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.send).not.toHaveBeenCalled();
   });
 
   it("streaming: true pipes via pipeInvokeRawStream (invoke/raw + streaming)", async () => {
