@@ -2,9 +2,11 @@ package executor
 
 import (
 	"fmt"
+	"forst/gateway"
 	"forst/internal/discovery"
 	"forst/internal/typechecker"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -66,6 +68,9 @@ type ModuleConfig struct {
 	Args               []byte
 	IsStreaming        bool
 	HasMultipleReturns bool
+	// ForstModuleReplaceAbs is the absolute path to the Forst SDK module (module "forst") for
+	// `replace forst => ...` so generated code may import merge-path stdlib packages (e.g. gateway).
+	ForstModuleReplaceAbs string
 }
 
 // CreateModule creates a temporary Go module with the specified configuration
@@ -77,7 +82,7 @@ func (m *GoModuleManager) CreateModule(config *ModuleConfig) (string, error) {
 	}
 
 	// Create go.mod file
-	if err := m.createGoMod(tempDir, config.ModuleName); err != nil {
+	if err := m.createGoMod(tempDir, config.ModuleName, config.ForstModuleReplaceAbs); err != nil {
 		_ = os.RemoveAll(tempDir)
 		return "", err
 	}
@@ -94,6 +99,15 @@ func (m *GoModuleManager) CreateModule(config *ModuleConfig) (string, error) {
 		return "", err
 	}
 
+	if config.ForstModuleReplaceAbs != "" {
+		cmd := exec.Command("go", "mod", "tidy")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			_ = os.RemoveAll(tempDir)
+			return "", fmt.Errorf("go mod tidy in executor temp module: %w", err)
+		}
+	}
+
 	// Debug: list tempDir contents
 	m.logTempDirContents(tempDir)
 
@@ -101,10 +115,15 @@ func (m *GoModuleManager) CreateModule(config *ModuleConfig) (string, error) {
 }
 
 // createGoMod creates the go.mod file
-func (m *GoModuleManager) createGoMod(tempDir, moduleName string) error {
+func (m *GoModuleManager) createGoMod(tempDir, moduleName, forstReplaceAbs string) error {
 	goModPath := filepath.Join(tempDir, "go.mod")
-	goModContent := fmt.Sprintf("module %s\n\ngo 1.21\n", moduleName)
-	return os.WriteFile(goModPath, []byte(goModContent), 0644)
+	var b strings.Builder
+	fmt.Fprintf(&b, "module %s\n\ngo 1.21\n", moduleName)
+	if forstReplaceAbs != "" {
+		fmt.Fprintf(&b, "\nrequire forst v0.0.0\n")
+		fmt.Fprintf(&b, "replace forst => %s\n", filepath.ToSlash(forstReplaceAbs))
+	}
+	return os.WriteFile(goModPath, []byte(b.String()), 0644)
 }
 
 // createMainGo creates the main.go file
@@ -123,21 +142,48 @@ func (m *GoModuleManager) createMainGo(tempDir string, config *ModuleConfig) err
 	return os.WriteFile(mainGoPath, []byte(mainGoContent), 0644)
 }
 
-func buildMainGoHeader(importPkg string, alias string) string {
-	return fmt.Sprintf(`package main
+func buildMainGoHeader(importPkg string, alias string, needsGateway bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, `package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
-
+`)
+	if needsGateway {
+		fmt.Fprintf(&b, `
+	gateway "%s"
+`, gateway.StdlibImportPath)
+	}
+	fmt.Fprintf(&b, `
 	%s "%s"
 )
-	`, alias, importPkg)
+`, alias, importPkg)
+	return b.String()
+}
+
+func parameterTypesForGatewayImport(params []discovery.ParameterInfo) []string {
+	out := make([]string, len(params))
+	for i := range params {
+		out[i] = params[i].Type
+	}
+	return out
+}
+
+// mainGoInvokeErrReturn emits JSON consumed by parseExecutionOutput for Result Err (RFC §18.1).
+func mainGoInvokeErrReturn() string {
+	return `	if err != nil {
+		out, _ := json.Marshal(map[string]any{"success": false, "error": err.Error()})
+		fmt.Println(string(out))
+		os.Exit(0)
+	}
+`
 }
 
 // generateStandardMainGo generates the main.go content for standard execution
 func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config *ModuleConfig) string {
+	gwImport := gateway.TempModuleNeedsGatewayImport(parameterTypesForGatewayImport(config.Parameters))
 	containerName := "input"
 	if config.SupportsParams && len(config.Parameters) > 0 {
 		// Build parameter types and names for the function call
@@ -150,6 +196,8 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 			// For Go built-in types, use the type name directly without package prefix
 			var inputType string
 			if typechecker.IsGoBuiltinType(paramType) {
+				inputType = paramType
+			} else if strings.Contains(paramType, ".") {
 				inputType = paramType
 			} else {
 				inputType = alias + "." + paramType
@@ -164,15 +212,12 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 func main() {
 	%s
 	result, err := %s.%s(%s)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
-		os.Exit(1)
-	}
+%s
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
+`, buildMainGoHeader(importPkg, alias, gwImport), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "), mainGoInvokeErrReturn())
 		}
 		return fmt.Sprintf(`%s
 
@@ -183,7 +228,7 @@ func main() {
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
+`, buildMainGoHeader(importPkg, alias, gwImport), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
 	}
 
 	if config.HasMultipleReturns {
@@ -191,15 +236,12 @@ func main() {
 
 func main() {
 	result, err := %s.%s()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
-		os.Exit(1)
-	}
+%s
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias, gwImport), alias, config.FunctionName, mainGoInvokeErrReturn())
 	}
 	return fmt.Sprintf(`%s
 
@@ -209,7 +251,7 @@ func main() {
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias, gwImport), alias, config.FunctionName)
 }
 
 // buildParameterExtraction generates Go code to extract parameters from JSON input
@@ -275,6 +317,7 @@ func buildParameterExtraction(containerName string, paramNames []string, paramTy
 
 // generateStreamingMainGo generates the main.go content for streaming execution
 func (m *GoModuleManager) generateStreamingMainGo(importPkg, alias string, config *ModuleConfig) string {
+	gwImport := gateway.TempModuleNeedsGatewayImport(parameterTypesForGatewayImport(config.Parameters))
 	return fmt.Sprintf(`%s
 
 func main() {
@@ -287,7 +330,7 @@ func main() {
 	}
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), string(config.Args), alias, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias, gwImport), string(config.Args), alias, config.FunctionName)
 }
 
 // createPackageFile creates the package directory and Go file

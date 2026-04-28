@@ -90,6 +90,11 @@ The sidecar integration addresses fundamental performance and memory issues that
 - **Proto JSON** (standard mapping) for **tooling/dev** (`grpcurl`, fixtures, UIs) without a second schema
 - **JSON** as MVP/debug path; observability via headers/metadata regardless of body encoding
 
+### [12-forst-http-outcome-pipeline.md](12-forst-http-outcome-pipeline.md) - `GatewayRequest` / `GatewayResponse` and the Express / sidecar bridge
+
+- **Normative** story for **`forst/gateway` → `invoke` `result` →** [@forst/sidecar](../../../../packages/sidecar) **(Express)**, i.e. **Forst** **gateway** **middleware** — full **gateway** + **IR/TS** design in [TypeScript RFC 05](../typescript-client/05-forst-http-gateway-signature-pipeline-rfc.md)  
+- **`GatewayHandler`**, **legacy** vs `kind`‑**discriminated** `result` JSON, **checklist** for the end‑to‑end **gateway** path
+
 ## Key Features
 
 ### 🚀 **Performance Benefits**

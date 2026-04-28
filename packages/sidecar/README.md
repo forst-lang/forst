@@ -54,7 +54,7 @@ Two runtime modes matter in practice:
 
 | | |
 | --- | --- |
-| **Role** | Dev server lifecycle + HTTP client + optional Express middleware |
+| **Role** | Dev server lifecycle + HTTP client + optional Express integration (`req.forst`, full-request routing, `autoStart`) |
 | **Typical stack** | Node.js 18+, Express 5, `@forst/cli` (transitive or direct) |
 | **Protocols** | JSON over HTTP to `forst dev` ([contract](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)) |
 | **Registries** | [npm](https://www.npmjs.com/package/@forst/sidecar) · [JSR](https://jsr.io/@forst/sidecar) |
@@ -77,7 +77,7 @@ Two runtime modes matter in practice:
 - Hot reload when `.ft` files change (spawn mode)
 - TypeScript-oriented workflow (`forst generate`, optional watch)
 - HTTP/JSON interaction with `forst dev`
-- Express middleware to expose the sidecar on `req.forst`
+- Express middleware: attach the sidecar on `req.forst`, or route a **whole** HTTP request into Forst with `createRouteToForstMiddleware` (defaults to **`POST /invoke/raw`**; optional streaming passthrough)
 - Health and version endpoints for coordination with orchestration
 
 ## Installation
@@ -125,6 +125,8 @@ The third argument to `invoke` is the **positional JSON argument array** expecte
 
 ## Express integration
 
+### Attach the sidecar on `req.forst`
+
 ```typescript
 import express from "express";
 import { ForstSidecar, createExpressMiddleware } from "@forst/sidecar";
@@ -152,6 +154,40 @@ app.listen(3000, () => {
   console.log("Server running on port 3000");
 });
 ```
+
+### Forward a full request to Forst (`createRouteToForstMiddleware`)
+
+Use this when you want a single Forst function to see **method, URL, headers, and body** (body is sent as base64 inside one JSON argument). By default the sidecar calls **`POST /invoke/raw`** (raw JSON array body) instead of the `/invoke` envelope—set `useRawInvoke: false` if you need the classic `/invoke` shape. Set `streaming: true` to pipe **`POST /invoke/raw?streaming=true`** straight to the Express response (your Forst handler must support streaming).
+
+```typescript
+import express from "express";
+import {
+  ForstSidecar,
+  createRouteToForstMiddleware,
+} from "@forst/sidecar";
+
+const app = express();
+const sidecar = new ForstSidecar({ forstDir: "./forst", port: 8080 });
+await sidecar.start();
+
+// Mount before body parsers if you need the raw stream; or rely on req.body / req.rawBody (see implementation).
+app.use(
+  "/proxy",
+  createRouteToForstMiddleware(sidecar, {
+    packageName: "gateway",
+    functionName: "HandleHTTP",
+  })
+);
+```
+
+The Forst function receives one argument (the routed request object). For HTTP gateways, success **`invoke` `result`** JSON is **`kind`-discriminated** per [RFC 05 §12](../../examples/in/rfc/typescript-client/05-forst-http-gateway-signature-pipeline-rfc.md):
+
+- **`kind: "answer"`** (exact strings may evolve — see RFC): HTTP reply — `status`, optional `headers`, `body` or `bodyBase64`.
+- **`kind: "pass"`**: Delegate to the Express chain — optional `locals` (shallow-merged into `res.locals`), optional request merge fields on `req`, then `next()` with no response from this invoke. Use generics for typing: `createRouteToForstMiddleware<{ sessionId: string }, { userId: string }>(sidecar, { … })`, and augment `Express.Locals` / `Express.Request` in your app.
+
+TypeScript types `ForstRoutedAnswer`, `ForstRoutedPass`, and the union `ForstRoutedResponse` mirror these arms (`kind`, `request` for the Express `req` merge — not `reqPatch`). See [`02-forst-dev-http-contract.md`](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md) for the HTTP envelope and `contractVersion`.
+
+**`answer` / `pass` handling does not run** when `streaming: true` (the dev server response is streamed to the client; the JSON `result` is not interpreted as a gateway outcome).
 
 ## Architecture: spawn vs connect
 
@@ -293,9 +329,17 @@ Main API for managing the sidecar.
 | `generateTypes()` | Run `forst generate` at the configured root. |
 | `isRunning()` | Whether the server is considered up. |
 
-### `ForstClient`
+### Express helpers
 
-HTTP client for the same JSON API; method semantics match `ForstSidecar` where applicable.
+| Export | Description |
+| --- | --- |
+| `createExpressMiddleware(sidecar)` | Sets `req.forst` to the `ForstSidecar` instance. |
+| `createRouteToForstMiddleware(sidecar, opts)` | Forwards the incoming request to a Forst function; see [Express integration](#express-integration). |
+| `autoStart(config?)` | Construct `ForstSidecar`, `start()`, register `SIGINT` / `SIGTERM` shutdown. |
+
+### `ForstSidecarClient`
+
+HTTP client for the dev server. Notably: **`invokeFunctionRaw`** / **`invokeStreamRaw`** / **`pipeInvokeRawStream`** use **`POST /invoke/raw`** (query parameters for package, function, and optional `streaming`) with a **JSON array** body—see the [HTTP contract](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md). Method semantics align with `ForstSidecar` where applicable.
 
 ### `ForstServer`
 
@@ -345,17 +389,20 @@ func processData(input ProcessDataInput) {
 ```text
 packages/sidecar/
 ├── src/
-│   ├── index.ts          # Barrel exports
-│   ├── sidecar.ts        # ForstSidecar, middleware, autoStart
-│   ├── client.ts         # HTTP client
-│   ├── server.ts         # Development server
-│   ├── types.ts          # TypeScript types
-│   └── utils.ts          # Utilities
+│   ├── index.ts              # Public exports
+│   ├── sidecar.ts            # Re-exports (stable import path `@forst/sidecar`)
+│   ├── forst-sidecar.ts      # ForstSidecar class
+│   ├── express-middleware.ts # createExpressMiddleware, createRouteToForstMiddleware
+│   ├── auto-start.ts         # autoStart
+│   ├── client.ts             # HTTP client (`/invoke`, `/invoke/raw`, streaming, …)
+│   ├── server.ts             # Development server subprocess
+│   ├── types.ts              # TypeScript types
+│   └── utils.ts              # Utilities
 ├── examples/basic.ts
-├── dist/                 # Build output
+├── dist/                     # Build output
 ├── package.json
-├── tsconfig.json         # IDE + typecheck (includes tests)
-├── tsconfig.build.json   # Emit for publish
+├── tsconfig.json             # IDE + typecheck (includes tests)
+├── tsconfig.build.json       # Emit for publish
 └── README.md
 ```
 

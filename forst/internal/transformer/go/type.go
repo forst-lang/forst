@@ -2,6 +2,8 @@ package transformergo
 
 import (
 	"fmt"
+	"strings"
+
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
@@ -81,6 +83,13 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		var r goast.Expr = goast.NewIdent("any")
 		return r, nil
 	default:
+		id := string(n.Ident)
+		if strings.Contains(id, ".") {
+			parts := strings.Split(id, ".")
+			if len(parts) == 2 {
+				return &goast.SelectorExpr{X: goast.NewIdent(parts[0]), Sel: goast.NewIdent(parts[1])}, nil
+			}
+		}
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
 		if err != nil {

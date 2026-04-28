@@ -37,7 +37,7 @@ Errors from `sendError` set HTTP status (4xx/5xx) and `success: false`, `error: 
   - `version` — compiler release string (same as `forst version`)
   - `commit` — embedded git commit (or `unknown`)
   - `date` — embedded build date (or `unknown`)
-  - `contractVersion` — revision of this HTTP document surface (bump when routes or envelope semantics change incompatibly)
+  - `contractVersion` — revision of this HTTP document surface (bump when routes or envelope semantics change incompatibly). Current compiler/`forst dev` builds use **`"2"`** (aligned with `@forst/sidecar` `FORST_DEV_HTTP_CONTRACT_VERSION`).
 - **Errors:** `405` if not GET; `500` if marshaling fails (unexpected).
 
 ### `GET /functions`
@@ -61,7 +61,7 @@ Errors from `sendError` set HTTP status (4xx/5xx) and `success: false`, `error: 
 
 `args` is opaque JSON passed to the executor (often a JSON array of call arguments). The sidecar sends an **array** for positional args (see [`packages/sidecar`](../../../../packages/sidecar)).
 
-**Non-streaming response:** `success`, `output`, `error`, `result` mirror executor output (`Result` is JSON-encoded payload).
+**Non-streaming response:** `success`, `output`, `error`, `result` mirror executor output (`result` is the JSON-encoded payload). For HTTP gateways, [`@forst/sidecar`](../../../../packages/sidecar) consumes **`result`** using **`kind`-discriminated** JSON aligned with [RFC 05 §12](../typescript-client/05-forst-http-gateway-signature-pipeline-rfc.md) (e.g. **`answer`** vs **`pass`** arms). Non-normative examples may still show older field names until docs are updated; **RFC 05 §12** is normative for the success **`result`** shape.
 
 **Streaming:** `streaming: true` requires `SupportsStreaming` on the function; response uses chunked JSON lines (`application/octet-stream`, chunked transfer).
 

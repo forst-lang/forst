@@ -2,73 +2,13 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"forst/internal/compiler"
+	"forst/internal/devserver"
 
 	logrus "github.com/sirupsen/logrus"
 )
-
-// Start starts the HTTP server.
-func (s *DevServer) Start() error {
-	if err := s.discoverFunctions(); err != nil {
-		s.log.Warnf("Failed to discover functions on startup: %v", err)
-	}
-
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.handleHealth)
-	mux.HandleFunc("/version", s.handleVersion)
-	mux.HandleFunc("/functions", s.handleFunctions)
-	mux.HandleFunc("/invoke", s.handleInvoke)
-	mux.HandleFunc("/types", s.handleTypes)
-
-	s.server = &http.Server{
-		Addr:         ":" + s.port,
-		Handler:      mux,
-		ReadTimeout:  time.Duration(s.config.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(s.config.Server.WriteTimeout) * time.Second,
-	}
-
-	s.logStartupInfo()
-	return s.server.ListenAndServe()
-}
-
-// logStartupInfo logs information about the server startup.
-func (s *DevServer) logStartupInfo() {
-	s.log.Infof("HTTP server listening on port %s", s.port)
-	s.log.Info("Available endpoints:")
-	s.log.Info("  GET  /functions  - Discover available functions")
-	s.log.Info("  POST /invoke     - Invoke a Forst function")
-	s.log.Info("  GET  /types      - Generate TypeScript types for discovered functions")
-	s.log.Info("  GET  /health     - Health check")
-	s.log.Info("  GET  /version    - Compiler and HTTP contract version")
-}
-
-// Stop stops the HTTP server.
-func (s *DevServer) Stop() error {
-	if s.server != nil {
-		return s.server.Close()
-	}
-	return nil
-}
-
-// discoverFunctions discovers all available functions.
-func (s *DevServer) discoverFunctions() error {
-	functions, err := s.discoverer.DiscoverFunctions()
-	if err != nil {
-		return fmt.Errorf("failed to discover functions: %v", err)
-	}
-
-	s.mu.Lock()
-	s.functions = functions
-	s.mu.Unlock()
-
-	return nil
-}
 
 // StartDevServer is the entry point for the dev server command.
 func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) error {
@@ -77,7 +17,19 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 	args := config.ToCompilerArgs()
 	comp := compiler.New(args, log)
 
-	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
+	server := devserver.NewHTTPServer(
+		config.Server.Port,
+		comp,
+		log,
+		config,
+		devserver.BuildInfo{Version: Version, Commit: Commit, Date: Date},
+		devserver.HTTPOpts{
+			ReadTimeoutSec:  config.Server.ReadTimeout,
+			WriteTimeoutSec: config.Server.WriteTimeout,
+			CORS:            config.Server.CORS,
+		},
+		rootDir,
+	)
 
 	log.Debugf("Starting Forst dev server on port %s", config.Server.Port)
 	log.Debugf("Root directory: %s", rootDir)
@@ -90,7 +42,7 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 }
 
 // devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
-var devServerStartFn = func(s *DevServer) error { return s.Start() }
+var devServerStartFn = func(s *devserver.DevServer) error { return s.Start() }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string) *ForstConfig {
 	config, err := LoadConfig(configPath)

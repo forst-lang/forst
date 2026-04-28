@@ -13,6 +13,6 @@ export const SIDECAR_VERSION_HTTP_HEADER = "X-Forst-Sidecar-Version";
 
 /**
  * Expected `contractVersion` from `GET /version` for this `@forst/sidecar` release.
- * Must stay in sync with `devHTTPContractVersion` in `forst/cmd/forst/dev_server.go`.
+ * Must stay in sync with `HTTPContractVersion` in `forst/internal/devserver/server.go`.
  */
-export const FORST_DEV_HTTP_CONTRACT_VERSION = "1";
+export const FORST_DEV_HTTP_CONTRACT_VERSION = "2";
