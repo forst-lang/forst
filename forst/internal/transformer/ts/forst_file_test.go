@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -44,5 +45,29 @@ func Broken() {
 	}
 	if out == nil || out.SourceFileStem != "x" {
 		t.Fatalf("unexpected output: %#v", out)
+	}
+}
+
+func TestTransformForstFileFromPath_gatewayExample_emitsSidecarGatewayTypes(t *testing.T) {
+	hello := filepath.Join("..", "..", "..", "..", "examples", "in", "gateway", "hello.ft")
+	abs, err := filepath.Abs(hello)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	out, err := TransformForstFileFromPath(abs, log, TransformForstFileOptions{RelaxedTypecheck: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Functions) < 2 {
+		t.Fatalf("expected gateway functions, got %#v", out.Functions)
+	}
+	ts := out.GenerateTypesFile()
+	if !strings.Contains(ts, "import('@forst/sidecar').ForstRoutedRequest") {
+		t.Fatalf("types.d.ts should map gateway.GatewayRequest to sidecar ForstRoutedRequest:\n%s", ts)
+	}
+	if !strings.Contains(ts, "import('@forst/sidecar').ForstRoutedResponse") {
+		t.Fatalf("types.d.ts should map gateway.GatewayResponse to sidecar ForstRoutedResponse:\n%s", ts)
 	}
 }

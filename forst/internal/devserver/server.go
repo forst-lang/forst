@@ -17,7 +17,7 @@ import (
 )
 
 // HTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
-const HTTPContractVersion = "1"
+const HTTPContractVersion = "2"
 
 // devFunctionExecutor is implemented by *executor.FunctionExecutor; HTTP tests may substitute stubs.
 type devFunctionExecutor interface {

@@ -29,7 +29,11 @@ export type ForstRoutedRequest = ForstRoutedRequestMeta & {
   bodyBase64: string;
 };
 
-export type ForstRoutedResponse = {
+/**
+ * Successful `invoke` `result` when the handler answers with an HTTP response (RFC §12 `kind: "answer"`).
+ */
+export type ForstRoutedAnswer = {
+  kind: "answer";
   status?: number;
   headers?: Record<string, string>;
   /** UTF-8 body. If `bodyBase64` is present, it wins. */
@@ -37,6 +41,52 @@ export type ForstRoutedResponse = {
   /** Raw bytes (base64). */
   bodyBase64?: string;
 };
+
+/**
+ * Successful `invoke` `result` when the handler passes control to the next Express middleware
+ * (RFC §12 `kind: "pass"`). Optional JSON objects are shallow-merged.
+ */
+export type ForstRoutedPass<
+  Locals extends Record<string, unknown> = Record<string, unknown>,
+  ReqPatch extends object = Record<string, never>
+> = {
+  kind: "pass";
+  locals?: Locals;
+  /** Shallow-merged onto `req`. Maps from §12 JSON field `request`. */
+  request?: ReqPatch;
+};
+
+/**
+ * JSON your Forst gateway function returns: §12 `answer` vs `pass`.
+ *
+ * @typeParam Locals - Shape merged into `res.locals` when Forst returns `{ kind: "pass", locals }`.
+ * @typeParam ReqPatch - Shape merged onto `req` when Forst returns `{ kind: "pass", request }`.
+ */
+export type ForstRoutedResponse<
+  Locals extends Record<string, unknown> = Record<string, unknown>,
+  ReqPatch extends object = Record<string, never>
+> = ForstRoutedAnswer | ForstRoutedPass<Locals, ReqPatch>;
+
+/** Narrowing helper for custom handlers that read invoke `result` payloads. */
+export function isPass<
+  Locals extends Record<string, unknown> = Record<string, unknown>,
+  ReqPatch extends object = Record<string, never>
+>(r: unknown): r is ForstRoutedPass<Locals, ReqPatch> {
+  return (
+    r !== null &&
+    typeof r === "object" &&
+    (r as { kind?: unknown }).kind === "pass"
+  );
+}
+
+/** Narrowing helper for the `answer` arm. */
+export function isAnswer(r: unknown): r is ForstRoutedAnswer {
+  return (
+    r !== null &&
+    typeof r === "object" &&
+    (r as { kind?: unknown }).kind === "answer"
+  );
+}
 
 export type ForstRouteToForstOptions = {
   packageName: string;
@@ -128,8 +178,14 @@ async function invokeRawBodyAsWebStream(
  * to a Forst function as a single argument.
  *
  * The invoked Forst function should return a JSON object matching {@link ForstRoutedResponse}.
+ *
+ * @typeParam Locals - Shape merged into `res.locals` when Forst returns `{ kind: "pass", locals }`.
+ * @typeParam ReqPatch - Shape merged onto `req` when Forst returns `{ kind: "pass", request }`.
  */
-export function createRouteToForstMiddleware(
+export function createRouteToForstMiddleware<
+  Locals extends Record<string, unknown> = Record<string, unknown>,
+  ReqPatch extends object = Record<string, never>
+>(
   sidecar: ForstSidecar,
   opts: ForstRouteToForstOptions
 ): RequestHandler {
@@ -161,12 +217,10 @@ export function createRouteToForstMiddleware(
 
       if (useRaw) {
         const body = await invokeRawBodyAsWebStream(req, meta, opts.mapRequest);
-        const invoke = await client.invokeFunctionRawWithReadableBody<ForstRoutedResponse>(
-          opts.packageName,
-          opts.functionName,
-          body
-        );
-        writeForstRoutedResponse(res, invoke.result ?? {});
+        const invoke = await client.invokeFunctionRawWithReadableBody<
+          ForstRoutedResponse<Locals, ReqPatch>
+        >(opts.packageName, opts.functionName, body);
+        applyForstRoutedResult(req, res, next, invoke.result ?? {});
         return;
       }
 
@@ -177,23 +231,47 @@ export function createRouteToForstMiddleware(
       const routed = opts.mapRequest ? opts.mapRequest(base) : base;
       const args: unknown[] = [routed];
 
-      const invoke = await client.invokeFunction<ForstRoutedResponse>(
+      const invoke = await client.invokeFunction<ForstRoutedResponse<Locals, ReqPatch>>(
         opts.packageName,
         opts.functionName,
         args
       );
 
-      writeForstRoutedResponse(res, invoke.result ?? {});
+      applyForstRoutedResult(req, res, next, invoke.result ?? {});
     } catch (e) {
       next(e);
     }
   };
 }
 
-function writeForstRoutedResponse(
+function applyForstRoutedResult(
+  req: Request,
   res: Response,
-  payload: ForstRoutedResponse
+  next: Parameters<RequestHandler>[2],
+  result: ForstRoutedResponse<Record<string, unknown>, object>
 ): void {
+  if (isPass(result)) {
+    if (result.locals !== undefined) {
+      Object.assign(res.locals, result.locals);
+    }
+    if (result.request !== undefined) {
+      Object.assign(req as object, result.request as object);
+    }
+    next();
+    return;
+  }
+  if (isAnswer(result)) {
+    writeForstRoutedAnswer(res, result);
+    return;
+  }
+  next(
+    new Error(
+      'Invalid Forst gateway invoke result: expected kind "answer" or "pass"'
+    )
+  );
+}
+
+function writeForstRoutedAnswer(res: Response, payload: ForstRoutedAnswer): void {
   const status = payload.status ?? 200;
   res.status(status);
 

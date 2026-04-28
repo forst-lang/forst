@@ -345,9 +345,14 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	if errIface := goErrorInterfaceType(); errIface != nil && types.AssignableTo(t, errIface) {
 		return ast.TypeNode{Ident: ast.TypeError}, true
 	}
-	// Named types (e.g. strings.Reader) must be detected before Underlying(),
+	// Named types (e.g. strings.Reader, gateway.GatewayResponse) must be detected before Underlying(),
 	// which would strip to struct/interface and lose the stable FFI mapping.
-	if _, ok := t.(*types.Named); ok {
+	if nt, ok := t.(*types.Named); ok {
+		obj := nt.Obj()
+		if pkg := obj.Pkg(); pkg != nil && obj.Name() != "" && pkg.Path() == "forst/gateway" {
+			qual := pkg.Name() + "." + obj.Name()
+			return ast.TypeNode{Ident: ast.TypeIdent(qual), TypeKind: ast.TypeKindUserDefined}, true
+		}
 		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	}
 	switch u := t.Underlying().(type) {
@@ -513,4 +518,19 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 		}
 		tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
 	}
+}
+
+// GoQualifiedNamedTypeExists reports whether local.typeName resolves to a Go named type in an
+// imported package (e.g. gateway.GatewayRequest with import "forst/gateway").
+func (tc *TypeChecker) GoQualifiedNamedTypeExists(local, typeName string) bool {
+	gp := tc.goPackageForImportLocal(local)
+	if gp == nil {
+		return false
+	}
+	obj := gp.Scope().Lookup(typeName)
+	if obj == nil {
+		return false
+	}
+	_, ok := obj.(*types.TypeName)
+	return ok
 }

@@ -19,11 +19,14 @@ describe("versionsEquivalentForSidecar", () => {
 describe("contractVersionCompatible", () => {
   it("matches expected dev HTTP contract constant", () => {
     expect(
-      contractVersionCompatible("1", FORST_DEV_HTTP_CONTRACT_VERSION)
+      contractVersionCompatible("2", FORST_DEV_HTTP_CONTRACT_VERSION)
     ).toBe(true);
   });
 
   it("rejects mismatched contract strings", () => {
     expect(contractVersionCompatible("2", "1")).toBe(false);
+    expect(contractVersionCompatible("1", FORST_DEV_HTTP_CONTRACT_VERSION)).toBe(
+      false
+    );
   });
 });

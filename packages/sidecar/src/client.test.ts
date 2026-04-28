@@ -248,7 +248,7 @@ describe("ForstSidecarClient", () => {
           version: "0.9.0",
           commit: "abc",
           date: "2024-01-01",
-          contractVersion: "1",
+          contractVersion: "2",
         },
       }),
     }) as unknown as typeof fetch;
@@ -259,7 +259,7 @@ describe("ForstSidecarClient", () => {
     });
     const v = await client.getVersion();
     expect(v.version).toBe("0.9.0");
-    expect(v.contractVersion).toBe("1");
+    expect(v.contractVersion).toBe("2");
     expect(global.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:8080/version",
       expect.objectContaining({ method: "GET" })

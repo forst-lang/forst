@@ -180,7 +180,14 @@ app.use(
 );
 ```
 
-The Forst function receives one argument (the routed request object) and should return JSON matching `ForstRoutedResponse` (`status`, optional `headers`, `body` or `bodyBase64`) unless `streaming` is enabled.
+The Forst function receives one argument (the routed request object). For HTTP gateways, success **`invoke` `result`** JSON is **`kind`-discriminated** per [RFC 05 §12](../../examples/in/rfc/typescript-client/05-forst-http-gateway-signature-pipeline-rfc.md):
+
+- **`kind: "answer"`** (exact strings may evolve — see RFC): HTTP reply — `status`, optional `headers`, `body` or `bodyBase64`.
+- **`kind: "pass"`**: Delegate to the Express chain — optional `locals` (shallow-merged into `res.locals`), optional request merge fields on `req`, then `next()` with no response from this invoke. Use generics for typing: `createRouteToForstMiddleware<{ sessionId: string }, { userId: string }>(sidecar, { … })`, and augment `Express.Locals` / `Express.Request` in your app.
+
+TypeScript types `ForstRoutedAnswer`, `ForstRoutedPass`, and the union `ForstRoutedResponse` mirror these arms (`kind`, `request` for the Express `req` merge — not `reqPatch`). See [`02-forst-dev-http-contract.md`](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md) for the HTTP envelope and `contractVersion`.
+
+**`answer` / `pass` handling does not run** when `streaming: true` (the dev server response is streamed to the client; the JSON `result` is not interpreted as a gateway outcome).
 
 ## Architecture: spawn vs connect
 

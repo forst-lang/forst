@@ -148,6 +148,12 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		if strings.HasPrefix(string(t.Ident), "T_") {
 			return nil
 		}
+		if strings.Contains(string(t.Ident), ".") {
+			parts := strings.Split(string(t.Ident), ".")
+			if len(parts) == 2 && tc.GoQualifiedNamedTypeExists(parts[0], parts[1]) {
+				return nil
+			}
+		}
 		def, ok := tc.Defs[t.Ident]
 		if !ok {
 			return fmt.Errorf("%s: unknown type %q", ctx, t.Ident)

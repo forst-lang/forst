@@ -3,7 +3,6 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
-	"forst/internal/typechecker"
 	goast "go/ast"
 )
 
@@ -35,37 +34,14 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 		var err error
 
 		if paramType.Assertion != nil {
-			// For assertion types, check if we should preserve the original type name
-			// If the assertion has a base type that's a user-defined type AND no constraints, use that
-			if paramType.Assertion.BaseType != nil && len(paramType.Assertion.Constraints) == 0 {
-				baseType := *paramType.Assertion.BaseType
-				// Check if the base type is a user-defined type (not a hash-based type)
-				baseTypeNode := ast.TypeNode{Ident: baseType}
-				if !baseTypeNode.IsHashBased() {
-					// Use the original type name instead of inferring a hash-based type
-					name, err := t.TypeChecker.GetAliasedTypeName(baseTypeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-					if err != nil {
-						return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
-					}
-					fields.List = append(fields.List, &goast.Field{
-						Names: []*goast.Ident{goast.NewIdent(paramName)},
-						Type:  goast.NewIdent(name),
-					})
-					continue
-				}
-			}
-
-			// For other assertion types (with constraints), use the inferred type from the type checker
 			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false, "", nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
 			}
 		} else {
-			// For non-assertion types, use the original type
 			inferredTypes = []ast.TypeNode{paramType}
 		}
 
-		// Use the first inferred type (should be only one for parameters)
 		if len(inferredTypes) == 0 {
 			return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
 		}

@@ -307,3 +307,106 @@ func TestHandleInvoke_streamingEncodeError_stopsAfterFirstChunk(t *testing.T) {
 		t.Fatalf("unexpected code %d", base.Code)
 	}
 }
+
+func TestHandleInvoke_gateway_success_validatesOK(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"gw": {
+			"Handle": {
+				Package:   "gw",
+				Name:      "Handle",
+				IsGateway: true,
+			},
+		},
+	}
+	valid := `{"kind":"answer","status":200,"headers":{},"body":"ok"}`
+	s.fnExec = &stubDevExecutor{
+		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+			return &executor.ExecutionResult{
+				Success: true,
+				Result:  json.RawMessage(valid),
+			}, nil
+		},
+	}
+	body := `{"package":"gw","function":"Handle","args":[]}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || string(resp.Result) != valid {
+		t.Fatalf("unexpected body: %+v", resp)
+	}
+}
+
+func TestHandleInvoke_gateway_invalidResult_returns500(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"gw": {
+			"Handle": {
+				Package:   "gw",
+				Name:      "Handle",
+				IsGateway: true,
+			},
+		},
+	}
+	s.fnExec = &stubDevExecutor{
+		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+			return &executor.ExecutionResult{
+				Success: true,
+				Result:  json.RawMessage(`{"kind":"nope"}`),
+			}, nil
+		},
+	}
+	body := `{"package":"gw","function":"Handle","args":[]}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Success || !strings.Contains(resp.Error, "invalid gateway result") {
+		t.Fatalf("expected validation error envelope, got %+v", resp)
+	}
+}
+
+func TestHandleInvoke_nonGateway_skipsShapeValidation(t *testing.T) {
+	t.Parallel()
+	s := testDevServer(t)
+	s.functions = map[string]map[string]discovery.FunctionInfo{
+		"mypkg": {
+			"Fn": {Package: "mypkg", Name: "Fn", IsGateway: false},
+		},
+	}
+	opaque := `{"kind":"nope","not":"a gateway payload"}`
+	s.fnExec = &stubDevExecutor{
+		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+			return &executor.ExecutionResult{
+				Success: true,
+				Result:  json.RawMessage(opaque),
+			}, nil
+		},
+	}
+	body := `{"package":"mypkg","function":"Fn","args":[]}`
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp DevServerResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || string(resp.Result) != opaque {
+		t.Fatalf("unexpected body: %+v", resp)
+	}
+}

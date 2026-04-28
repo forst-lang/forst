@@ -8,7 +8,7 @@ describe("createRouteToForstMiddleware", () => {
   it("serializes method/url/headers and forwards raw body as base64", async () => {
     const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
       success: true,
-      result: { status: 204 },
+      result: { kind: "answer", status: 204 },
     });
     const sidecar = {
       getClient: () => ({ invokeFunctionRawWithReadableBody }),
@@ -27,7 +27,7 @@ describe("createRouteToForstMiddleware", () => {
       query: { x: "1" },
       headers: { "content-type": "application/octet-stream", "x-req": "abc" },
       body: Buffer.from("hello"),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const resHeaders: Record<string, string> = {};
@@ -56,6 +56,7 @@ describe("createRouteToForstMiddleware", () => {
     const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
       success: true,
       result: {
+        kind: "answer",
         status: 200,
         headers: { "content-type": "application/octet-stream", "x-out": "1" },
         bodyBase64: Buffer.from("bin").toString("base64"),
@@ -78,7 +79,7 @@ describe("createRouteToForstMiddleware", () => {
       query: {},
       headers: {},
       body: Buffer.alloc(0),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const resHeaders: Record<string, string> = {};
@@ -103,7 +104,7 @@ describe("createRouteToForstMiddleware", () => {
   it("useRawInvoke: false uses POST /invoke envelope via invokeFunction", async () => {
     const invokeFunction = jest.fn().mockResolvedValue({
       success: true,
-      result: { status: 200, body: "ok" },
+      result: { kind: "answer", status: 200, body: "ok" },
     });
     const invokeFunctionRawWithReadableBody = jest.fn();
     const sidecar = {
@@ -124,7 +125,7 @@ describe("createRouteToForstMiddleware", () => {
       query: {},
       headers: {},
       body: Buffer.alloc(0),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const res = {
@@ -143,7 +144,7 @@ describe("createRouteToForstMiddleware", () => {
   it("streams outbound invoke body when request is not materialized (default)", async () => {
     const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
       success: true,
-      result: { status: 200, body: "ok" },
+      result: { kind: "answer", status: 200, body: "ok" },
     });
     const stream = Readable.from([Buffer.from("hello")]) as any;
     stream.method = "POST";
@@ -219,7 +220,7 @@ describe("createRouteToForstMiddleware", () => {
         host: "localhost",
       },
       body: Buffer.alloc(0),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const res = {
@@ -261,7 +262,7 @@ describe("createRouteToForstMiddleware", () => {
       query: {},
       headers: {},
       body: Buffer.alloc(0),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const res = {
@@ -275,6 +276,134 @@ describe("createRouteToForstMiddleware", () => {
 
     expect(next).toHaveBeenCalledWith(err);
     expect(res.status).not.toHaveBeenCalled();
+    expect(res.send).not.toHaveBeenCalled();
+  });
+
+  it("kind pass merges locals and request then calls next without sending", async () => {
+    const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
+      success: true,
+      result: {
+        kind: "pass",
+        locals: { sessionId: "s1" },
+        request: { forstCtx: { n: 1 } },
+      },
+    });
+    const sidecar = {
+      getClient: () => ({ invokeFunctionRawWithReadableBody }),
+    } as any;
+
+    const mw = createRouteToForstMiddleware<
+      { sessionId: string },
+      { forstCtx: { n: number } }
+    >(sidecar, {
+      packageName: "main",
+      functionName: "Handle",
+    });
+
+    const req = {
+      method: "GET",
+      originalUrl: "/x",
+      url: "/x",
+      path: "/x",
+      query: {},
+      headers: {},
+      body: Buffer.alloc(0),
+      on: () => { },
+    } as any;
+
+    const res = {
+      locals: {} as Record<string, unknown>,
+      status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    } as any;
+
+    const next = jest.fn();
+    await mw(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(next.mock.calls[0] ?? []).toEqual([]);
+    expect(res.locals.sessionId).toBe("s1");
+    expect(req.forstCtx).toEqual({ n: 1 });
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.send).not.toHaveBeenCalled();
+  });
+
+  it("calls next with error when invoke result has unknown kind", async () => {
+    const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
+      success: true,
+      result: { kind: "other" },
+    });
+    const sidecar = {
+      getClient: () => ({ invokeFunctionRawWithReadableBody }),
+    } as any;
+
+    const mw = createRouteToForstMiddleware(sidecar, {
+      packageName: "main",
+      functionName: "Handle",
+    });
+
+    const req = {
+      method: "GET",
+      originalUrl: "/x",
+      url: "/x",
+      path: "/x",
+      query: {},
+      headers: {},
+      body: Buffer.alloc(0),
+      on: () => { },
+    } as any;
+
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    } as any;
+
+    const next = jest.fn();
+    await mw(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    const errArg = next.mock.calls[0]?.[0];
+    expect(errArg).toBeInstanceOf(Error);
+    expect(String((errArg as Error).message)).toContain("answer");
+    expect(res.send).not.toHaveBeenCalled();
+  });
+
+  it("kind pass with no locals or request still calls next", async () => {
+    const invokeFunctionRawWithReadableBody = jest.fn().mockResolvedValue({
+      success: true,
+      result: { kind: "pass" },
+    });
+    const sidecar = {
+      getClient: () => ({ invokeFunctionRawWithReadableBody }),
+    } as any;
+
+    const mw = createRouteToForstMiddleware(sidecar, {
+      packageName: "main",
+      functionName: "Handle",
+    });
+
+    const req = {
+      method: "GET",
+      originalUrl: "/x",
+      url: "/x",
+      path: "/x",
+      query: {},
+      headers: {},
+      body: Buffer.alloc(0),
+      on: () => { },
+    } as any;
+
+    const res = {
+      locals: {},
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    } as any;
+
+    const next = jest.fn();
+    await mw(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
     expect(res.send).not.toHaveBeenCalled();
   });
 
@@ -299,7 +428,7 @@ describe("createRouteToForstMiddleware", () => {
       query: {},
       headers: {},
       body: Buffer.alloc(0),
-      on: () => {},
+      on: () => { },
     } as any;
 
     const res = { status: jest.fn(), setHeader: jest.fn(), end: jest.fn() } as any;

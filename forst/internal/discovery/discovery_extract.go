@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"strings"
 	"unicode"
 
 	"forst/internal/ast"
@@ -58,6 +59,7 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 
 			returnTypes := d.resolveFunctionReturnTypes(n, tc)
 			d.applyFunctionReturnMetadata(&fnInfo, returnTypes, tc)
+			d.applyGatewayMetadata(&fnInfo, n, tc)
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)
 			fnInfo.OutputType = fnInfo.ReturnType
 			functions[string(n.Ident.ID)] = fnInfo
@@ -81,6 +83,17 @@ func (d *Discoverer) resolveFunctionReturnTypes(fn *ast.FunctionNode, tc *typech
 	}
 	d.log.Debugf("No typechecker available, using parser's return types for function %s: %v", fn.Ident.ID, fn.ReturnTypes)
 	return fn.ReturnTypes
+}
+
+func (d *Discoverer) applyGatewayMetadata(fnInfo *FunctionInfo, fn *ast.FunctionNode, tc *typechecker.TypeChecker) {
+	if fn == nil || len(fn.Params) != 1 || !fnInfo.IsResult {
+		return
+	}
+	pt := d.resolveTypeName(fn.Params[0].GetType(), tc)
+	st := fnInfo.ResultSuccessType
+	if strings.Contains(pt, "GatewayRequest") && strings.Contains(st, "GatewayResponse") {
+		fnInfo.IsGateway = true
+	}
 }
 
 func (d *Discoverer) applyFunctionReturnMetadata(fnInfo *FunctionInfo, returnTypes []ast.TypeNode, tc *typechecker.TypeChecker) {

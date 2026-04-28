@@ -17,6 +17,7 @@ import {
 const PKG = "gw";
 const FN = "Handle";
 const STREAM_FN = "StreamHandle";
+const FN_CONTINUE = "ContinueHandle";
 
 function readStubBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -167,6 +168,7 @@ describe("createRouteToForstMiddleware (integration)", () => {
           JSON.stringify({
             success: true,
             result: {
+              kind: "answer",
               status: 201,
               headers: { "x-from-forst": "1", "content-type": "text/plain" },
               body: "session-ok",
@@ -307,5 +309,84 @@ describe("createRouteToForstMiddleware (integration)", () => {
     expect(upstream.status).toBe(200);
     expect(upstream.headers.get("x-stream-stub")).toBe("yes");
     expect(await text(upstream.body!)).toBe("ndjson-chunk\n");
+  });
+
+  it("kind pass merges locals; next middleware sees res.locals (typed flow)", async () => {
+    let stub = await withStubDevServer(async (req, res) => {
+      if (req.method === "GET" && req.url?.startsWith("/health")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+      if (req.method === "POST" && req.url?.startsWith("/invoke/raw")) {
+        const u = new URL(req.url ?? "", "http://127.0.0.1");
+        expect(u.searchParams.get("package")).toBe(PKG);
+        expect(u.searchParams.get("function")).toBe(FN_CONTINUE);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            success: true,
+            result: {
+              kind: "pass",
+              locals: { sessionId: "integration-sid" },
+            },
+          })
+        );
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    stubClose = stub.close;
+
+    sidecar = new ForstSidecar({
+      sidecarRuntime: "connect",
+      devServerUrl: stub.baseUrl,
+      versionCheck: "off",
+    });
+    await sidecar.start();
+
+    const app = express();
+    app.use(express.raw({ type: "*/*" }));
+    const routeMw = createRouteToForstMiddleware<{ sessionId: string }>(
+      sidecar,
+      {
+        packageName: PKG,
+        functionName: FN_CONTINUE,
+      }
+    );
+    app.use((req, res, next) => {
+      if (!req.path.startsWith("/session")) {
+        res.status(404).end();
+        return;
+      }
+      void routeMw(req, res, next);
+    });
+    app.use((req, res, next) => {
+      if (!req.path.startsWith("/session")) {
+        next();
+        return;
+      }
+      res
+        .status(200)
+        .type("application/json")
+        .send(JSON.stringify({ sid: res.locals.sessionId }));
+    });
+
+    expressServer = createServer(app);
+    const expressPort = await listenOnRandomPort(expressServer);
+
+    const upstream = await fetch(
+      `http://127.0.0.1:${expressPort}/session/pass`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: Buffer.from("x"),
+      }
+    );
+
+    expect(upstream.status).toBe(200);
+    expect(await upstream.json()).toEqual({ sid: "integration-sid" });
   });
 });

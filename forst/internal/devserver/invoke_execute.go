@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"forst/gateway"
 )
 
 // invokeWithArgs performs lookup and execution for POST /invoke and POST /invoke/raw.
@@ -56,6 +58,13 @@ func (s *DevServer) invokeWithArgs(w http.ResponseWriter, r *http.Request, pkg, 
 		if err != nil {
 			s.sendError(w, fmt.Sprintf("Function execution failed: %v", err), http.StatusInternalServerError)
 			return
+		}
+
+		if result.Success && finfo.IsGateway && len(result.Result) > 0 {
+			if err := gateway.ValidateGatewayResultJSON(result.Result); err != nil {
+				s.sendError(w, fmt.Sprintf("invalid gateway result: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		response := DevServerResponse{

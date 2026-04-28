@@ -39,6 +39,16 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 	// If this assertion has a base type, start with that
 	mergedFields := make(map[string]ast.ShapeFieldNode)
 	if assertion.BaseType != nil {
+		bs := string(*assertion.BaseType)
+		if strings.Contains(bs, ".") {
+			parts := strings.Split(bs, ".")
+			if len(parts) == 2 && tc.GoQualifiedNamedTypeExists(parts[0], parts[1]) {
+				return []ast.TypeNode{{
+					Ident:    ast.TypeIdent(bs),
+					TypeKind: ast.TypeKindUserDefined,
+				}}, nil
+			}
+		}
 		baseTypeDef, exists := tc.Defs[*assertion.BaseType]
 		if exists {
 			// Extract fields from the base type

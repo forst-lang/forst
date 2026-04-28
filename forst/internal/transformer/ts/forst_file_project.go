@@ -35,7 +35,7 @@ func ParseMergedTypecheckProject(filePaths []string, log *logrus.Logger) ([]Fors
 	}
 
 	tc := typechecker.New(log, false)
-	tc.GoWorkspaceDir = goload.FindModuleRoot(paths[0])
+	tc.GoWorkspaceDir = goload.GoWorkspaceForPackages(paths[0])
 	if err := tc.CheckTypes(merged); err != nil {
 		return nil, nil, fmt.Errorf("failed to type check: %w", err)
 	}
