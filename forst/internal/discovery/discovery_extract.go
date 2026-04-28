@@ -1,9 +1,9 @@
 package discovery
 
 import (
-	"strings"
 	"unicode"
 
+	"forst/gateway"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 )
@@ -86,14 +86,15 @@ func (d *Discoverer) resolveFunctionReturnTypes(fn *ast.FunctionNode, tc *typech
 }
 
 func (d *Discoverer) applyGatewayMetadata(fnInfo *FunctionInfo, fn *ast.FunctionNode, tc *typechecker.TypeChecker) {
-	if fn == nil || len(fn.Params) != 1 || !fnInfo.IsResult {
+	if fn == nil {
 		return
 	}
-	pt := d.resolveTypeName(fn.Params[0].GetType(), tc)
-	st := fnInfo.ResultSuccessType
-	if strings.Contains(pt, "GatewayRequest") && strings.Contains(st, "GatewayResponse") {
-		fnInfo.IsGateway = true
+	pt := ""
+	if len(fn.Params) == 1 {
+		pt = d.resolveTypeName(fn.Params[0].GetType(), tc)
 	}
+	st := fnInfo.ResultSuccessType
+	fnInfo.IsGateway = gateway.IsGatewayHandlerSignature(len(fn.Params), pt, st, fnInfo.IsResult)
 }
 
 func (d *Discoverer) applyFunctionReturnMetadata(fnInfo *FunctionInfo, returnTypes []ast.TypeNode, tc *typechecker.TypeChecker) {

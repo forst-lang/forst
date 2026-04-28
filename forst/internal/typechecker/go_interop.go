@@ -345,11 +345,12 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	if errIface := goErrorInterfaceType(); errIface != nil && types.AssignableTo(t, errIface) {
 		return ast.TypeNode{Ident: ast.TypeError}, true
 	}
-	// Named types (e.g. strings.Reader, gateway.GatewayResponse) must be detected before Underlying(),
-	// which would strip to struct/interface and lose the stable FFI mapping.
+	// Named types from arbitrary Go packages default to implicit mapping; merge-path Forst stdlib
+	// packages use qualified UserDefined (see goload.IsMergeStdlibUserDefinedImport). Detect before
+	// Underlying(), which would strip to struct/interface and lose the stable FFI name.
 	if nt, ok := t.(*types.Named); ok {
 		obj := nt.Obj()
-		if pkg := obj.Pkg(); pkg != nil && obj.Name() != "" && pkg.Path() == "forst/gateway" {
+		if pkg := obj.Pkg(); pkg != nil && obj.Name() != "" && goload.IsMergeStdlibUserDefinedImport(pkg.Path()) {
 			qual := pkg.Name() + "." + obj.Name()
 			return ast.TypeNode{Ident: ast.TypeIdent(qual), TypeKind: ast.TypeKindUserDefined}, true
 		}
@@ -521,7 +522,7 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 }
 
 // GoQualifiedNamedTypeExists reports whether local.typeName resolves to a Go named type in an
-// imported package (e.g. gateway.GatewayRequest with import "forst/gateway").
+// imported package (e.g. merge-path stdlib with import path accepted by IsMergeStdlibUserDefinedImport).
 func (tc *TypeChecker) GoQualifiedNamedTypeExists(local, typeName string) bool {
 	gp := tc.goPackageForImportLocal(local)
 	if gp == nil {

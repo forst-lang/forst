@@ -60,11 +60,9 @@ func (s *DevServer) invokeWithArgs(w http.ResponseWriter, r *http.Request, pkg, 
 			return
 		}
 
-		if result.Success && finfo.IsGateway && len(result.Result) > 0 {
-			if err := gateway.ValidateGatewayResultJSON(result.Result); err != nil {
-				s.sendError(w, fmt.Sprintf("invalid gateway result: %v", err), http.StatusInternalServerError)
-				return
-			}
+		if err := gateway.ValidateSuccessResultIfGateway(finfo.IsGateway, result.Success, result.Result); err != nil {
+			s.sendError(w, fmt.Sprintf("invalid gateway result: %v", err), http.StatusInternalServerError)
+			return
 		}
 
 		response := DevServerResponse{

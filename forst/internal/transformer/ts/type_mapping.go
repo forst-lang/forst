@@ -2,6 +2,7 @@ package transformerts
 
 import (
 	"fmt"
+	"forst/gateway"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	"sort"
@@ -115,12 +116,8 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 		return tsType, nil
 	}
 
-	// forst/gateway ↔ §12 JSON shapes mirrored by @forst/sidecar (RFC 05).
-	switch string(forstType.Ident) {
-	case "gateway.GatewayRequest":
-		return "import('@forst/sidecar').ForstRoutedRequest", nil
-	case "gateway.GatewayResponse":
-		return "import('@forst/sidecar').ForstRoutedResponse", nil
+	if ts, ok := gateway.TypeScriptEmitType(string(forstType.Ident)); ok {
+		return ts, nil
 	}
 
 	if forstType.Ident == ast.TypeImplicit {

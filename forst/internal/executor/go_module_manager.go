@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"forst/gateway"
 	"forst/internal/discovery"
 	"forst/internal/typechecker"
 	"os"
@@ -68,7 +69,7 @@ type ModuleConfig struct {
 	IsStreaming        bool
 	HasMultipleReturns bool
 	// ForstModuleReplaceAbs is the absolute path to the Forst SDK module (module "forst") for
-	// `replace forst => ...` so generated code may import forst/gateway and siblings.
+	// `replace forst => ...` so generated code may import merge-path stdlib packages (e.g. gateway).
 	ForstModuleReplaceAbs string
 }
 
@@ -152,8 +153,8 @@ import (
 `)
 	if needsGateway {
 		fmt.Fprintf(&b, `
-	gateway "forst/gateway"
-`)
+	gateway "%s"
+`, gateway.StdlibImportPath)
 	}
 	fmt.Fprintf(&b, `
 	%s "%s"
@@ -162,13 +163,12 @@ import (
 	return b.String()
 }
 
-func moduleNeedsGatewayImport(params []discovery.ParameterInfo) bool {
-	for _, p := range params {
-		if strings.Contains(p.Type, "gateway.") {
-			return true
-		}
+func parameterTypesForGatewayImport(params []discovery.ParameterInfo) []string {
+	out := make([]string, len(params))
+	for i := range params {
+		out[i] = params[i].Type
 	}
-	return false
+	return out
 }
 
 // mainGoInvokeErrReturn emits JSON consumed by parseExecutionOutput for Result Err (RFC §18.1).
@@ -183,7 +183,7 @@ func mainGoInvokeErrReturn() string {
 
 // generateStandardMainGo generates the main.go content for standard execution
 func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config *ModuleConfig) string {
-	gwImport := moduleNeedsGatewayImport(config.Parameters)
+	gwImport := gateway.TempModuleNeedsGatewayImport(parameterTypesForGatewayImport(config.Parameters))
 	containerName := "input"
 	if config.SupportsParams && len(config.Parameters) > 0 {
 		// Build parameter types and names for the function call
@@ -317,7 +317,7 @@ func buildParameterExtraction(containerName string, paramNames []string, paramTy
 
 // generateStreamingMainGo generates the main.go content for streaming execution
 func (m *GoModuleManager) generateStreamingMainGo(importPkg, alias string, config *ModuleConfig) string {
-	gwImport := moduleNeedsGatewayImport(config.Parameters)
+	gwImport := gateway.TempModuleNeedsGatewayImport(parameterTypesForGatewayImport(config.Parameters))
 	return fmt.Sprintf(`%s
 
 func main() {
