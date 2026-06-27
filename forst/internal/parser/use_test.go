@@ -71,3 +71,13 @@ func f() {
 		})
 	}
 }
+
+func TestParseUseStatement_forbiddenOptionalBinding(t *testing.T) {
+	err := parseShouldFail(`package main
+func f() {
+	use logger?: Logger
+}`)
+	if err == nil {
+		t.Fatal("expected parse error for optional use binding")
+	}
+}

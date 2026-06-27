@@ -46,8 +46,10 @@ func (tc *TypeChecker) finishProvidersChecking(nodes []ast.Node) error {
 	}
 
 	eng := tc.providersEngine()
-	for _, check := range eng.PendingWith {
-		tc.checkUnusedWiringKeys(check)
+	if !eng.DeferWiringRootCheck {
+		for _, check := range eng.PendingWith {
+			tc.checkUnusedWiringKeys(check)
+		}
 	}
 
 	if err := tc.validateSidecarExportable(nodes); err != nil {

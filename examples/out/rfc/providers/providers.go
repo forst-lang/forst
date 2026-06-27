@@ -53,6 +53,9 @@ func logExpiry(providers Providers_2TAwF8pWZKc, id string)  {
 	logger := providers.Logger
 	logger.info("expire " + id)
 }
+func mainWiringDemo()  {
+	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 0}, Logger: &NopLogger{}}, Token{id: "x", expiresAt: 1})
+}
 func (c FakeClock) now() int {
 	return c.fixedMs
 }

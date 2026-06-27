@@ -1,11 +1,52 @@
 package lsp
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"forst/internal/ast"
+	"forst/internal/astwalk"
+	"forst/internal/typechecker"
 )
+
+func withScopeHoverMarkdown(tc *typechecker.TypeChecker, nodes []ast.Node, tok *ast.Token) string {
+	if tc == nil || tok == nil || tok.Type != ast.TokenWith {
+		return ""
+	}
+	chain := collectWithChainContainingPosition(nodes, tok.Line, tok.Column)
+	if len(chain) == 0 {
+		return ""
+	}
+	labels, err := tc.EffectiveScopeKeyLabels(chain)
+	if err != nil {
+		return ""
+	}
+	if len(labels) == 0 {
+		return "**Effective scope:** (empty)"
+	}
+	parts := make([]string, len(labels))
+	for i, l := range labels {
+		if l.Shadowed {
+			parts[i] = l.Key + " (shadows outer)"
+		} else {
+			parts[i] = l.Key
+		}
+	}
+	return fmt.Sprintf("**Effective scope:** %s", strings.Join(parts, ", "))
+}
+
+func collectWithChainContainingPosition(nodes []ast.Node, line, col int) []ast.WithNode {
+	var chain []ast.WithNode
+	astwalk.WalkStmtsContaining(nodes, line, col, astwalk.StmtVisitor{
+		OnWith: func(w ast.WithNode) bool {
+			chain = append(chain, w)
+			return true
+		},
+	})
+	return chain
+}
 
 type withWiringCursor struct {
 	inWiringShape bool
@@ -153,4 +194,58 @@ func providersUseCompletionItems(ctx *forstDocumentContext, pos LSPPosition, pre
 		labels = effectiveProviderContractLabels(ctx, pos)
 	}
 	return completionItemsFromStrings(labels, prefix, "2")
+}
+
+type codeActionDiagnosticParam struct {
+	Range   LSPRange `json:"range"`
+	Message string   `json:"message"`
+	Code    string   `json:"code"`
+}
+
+func providersQuickFixActions(uri, content string, diags []codeActionDiagnosticParam) []LSPCodeAction {
+	var out []LSPCodeAction
+	for _, d := range diags {
+		if !isUnknownWiringKeyDiagnostic(d) {
+			continue
+		}
+		edit := lineDeleteEdit(content, d.Range)
+		out = append(out, LSPCodeAction{
+			Title: "Remove unknown wiring key",
+			Kind:  "quickfix",
+			Edit: &LSPWorkspaceEdit{
+				Changes: map[string][]LSPTextEdit{
+					uri: []LSPTextEdit{edit},
+				},
+			},
+		})
+	}
+	return out
+}
+
+func isUnknownWiringKeyDiagnostic(d codeActionDiagnosticParam) bool {
+	if d.Code == "providers-unknown-key" {
+		return true
+	}
+	return strings.Contains(d.Message, "unknown wiring key")
+}
+
+func lineDeleteEdit(content string, diagRange LSPRange) LSPTextEdit {
+	lines := strings.Split(content, "\n")
+	line := diagRange.Start.Line
+	if line < 0 || line >= len(lines) {
+		return LSPTextEdit{Range: diagRange, NewText: ""}
+	}
+	endLine := line + 1
+	endChar := 0
+	if endLine >= len(lines) {
+		endLine = line
+		endChar = utf8.RuneCountInString(lines[line])
+	}
+	return LSPTextEdit{
+		Range: LSPRange{
+			Start: LSPPosition{Line: line, Character: 0},
+			End:   LSPPosition{Line: endLine, Character: endChar},
+		},
+		NewText: "",
+	}
 }

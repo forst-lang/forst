@@ -44,8 +44,12 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 		}
 		contractType, ok := eng.KnownRoots[fieldName]
 		if !ok {
-			return ProviderScope{}, diagnosticf(fieldSpan, "providers-unknown-key",
-				"unknown wiring key %q", fieldName)
+			if eng.DeferWiringRootCheck {
+				contractType = ast.TypeNode{Ident: ast.TypeIdent(fieldName)}
+			} else {
+				return ProviderScope{}, diagnosticf(fieldSpan, "providers-unknown-key",
+					"unknown wiring key %q", fieldName)
+			}
 		}
 		if !tc.wiringValueAssignable(valTypes[0], contractType) {
 			return ProviderScope{}, diagnosticf(fieldSpan, "providers-wiring-type",
@@ -85,8 +89,12 @@ func (tc *TypeChecker) ambientFromInferredBundle(types []ast.TypeNode, span ast.
 		}
 		contractType, ok := eng.KnownRoots[fieldName]
 		if !ok {
-			return ProviderScope{}, diagnosticf(span, "providers-unknown-key",
-				"unknown wiring key %q", fieldName)
+			if eng.DeferWiringRootCheck {
+				contractType = ast.TypeNode{Ident: ast.TypeIdent(fieldName)}
+			} else {
+				return ProviderScope{}, diagnosticf(span, "providers-unknown-key",
+					"unknown wiring key %q", fieldName)
+			}
 		}
 		amb.Keys[fieldName] = contractType
 		amb.Shadowed[fieldName] = true
@@ -139,6 +147,9 @@ func (tc *TypeChecker) validateWiringKey(key string, span ast.SourceSpan) error 
 		}
 	}
 	if _, ok := tc.providersEngine().KnownRoots[key]; ok {
+		return nil
+	}
+	if tc.providersEngine().DeferWiringRootCheck {
 		return nil
 	}
 	return diagnosticf(span, "providers-unknown-key", "unknown wiring key %q", key)

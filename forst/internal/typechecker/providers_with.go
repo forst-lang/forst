@@ -112,11 +112,7 @@ func (tc *TypeChecker) callCollector(out map[string]struct{}) func(ast.FunctionC
 }
 
 func (tc *TypeChecker) recordRequiredProviderRootsForCallee(callee ast.Identifier, out map[string]struct{}) {
-	slots := tc.FunctionProviders[callee]
-	if len(slots) == 0 && tc.providers != nil {
-		slots = tc.providers.Slots[callee]
-	}
-	for _, slot := range slots {
+	for _, slot := range tc.providerSlotsForCallee(callee) {
 		out[string(slot.RootIdent)] = struct{}{}
 	}
 }

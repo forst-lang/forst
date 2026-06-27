@@ -28,3 +28,12 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	}
 	return checker, modResult, nil
 }
+
+// TypecheckForCompileEntry loads compile input AST and runs module-level typechecking.
+func (c *Compiler) TypecheckForCompileEntry() (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
+	nodes, err := c.loadInputNodesForCompile()
+	if err != nil {
+		return nil, nil, err
+	}
+	return c.typecheckForCompile(nodes)
+}

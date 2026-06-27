@@ -82,3 +82,18 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestCheckModuleProviders_mainWiringRoot(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
+	result, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: root})
+	if err != nil {
+		t.Fatalf("CheckModuleProviders: %v", err)
+	}
+	tc := result.ForstPackageTypeChecker("providers_demo")
+	if tc == nil {
+		t.Fatal("missing providers_demo tc")
+	}
+	if len(tc.FunctionProviders["mainWiringDemo"]) != 0 {
+		t.Fatalf("mainWiringDemo should be runnable, providers = %v", tc.FunctionProviders["mainWiringDemo"])
+	}
+}

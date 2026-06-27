@@ -59,3 +59,57 @@ func TestX(t *testing.T) {
 		t.Fatal("expected parse error for map wiring")
 	}
 }
+
+func TestParseProviders_forbiddenPickProjection(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	with pick { Logger } {
+		x := 1
+	}
+}`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for pick projection wiring")
+	}
+}
+
+func TestParseProviders_forbiddenMinusWiring(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	with minus { Logger } {
+		x := 1
+	}
+}`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for minus wiring")
+	}
+}
+
+func TestParseProviders_forbiddenSubtractWiring(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	with services minus Logger {
+		x := 1
+	}
+}`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for subtract wiring")
+	}
+}
+
+func TestParseProviders_forbiddenOptionalUse(t *testing.T) {
+	t.Parallel()
+	src := `package main
+func f() {
+	use logger?: Logger
+}`
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for optional use binding")
+	}
+}

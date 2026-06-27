@@ -624,3 +624,24 @@ func TestRoot(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestProviders_ioWriterTypedefUse(t *testing.T) {
+	src := `package main
+
+import "io"
+
+type AuditWriter = io.Writer
+
+func writeAudit(msg String) {
+	use w: AuditWriter
+}
+`
+	tc, err := parseAndCheck(t, src)
+	if err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	slots := tc.FunctionProviders["writeAudit"]
+	if len(slots) != 1 || slots[0].Key != "io.Writer" {
+		t.Fatalf("writeAudit providers = %v", slots)
+	}
+}

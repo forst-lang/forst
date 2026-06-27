@@ -105,6 +105,13 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 		perPkgProviders[packageName] = cloneSlots(tc.FunctionProviders)
 	}
 
+	typechecker.MergeModuleKnownRoots(result.PerPackage)
+	for _, tc := range result.PerPackage {
+		if err := tc.RevalidateDeferredWiringKeysAfterModuleMerge(); err != nil {
+			return nil, err
+		}
+	}
+
 	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)
 	for packageName, tc := range result.PerPackage {
 		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, result.importPathMap) {
@@ -126,6 +133,7 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 		tc.SetFunctionProviders(slots)
 		tc.FunctionProviders = slots
 		perPkgProviders[packageName] = slots
+		tc.RevalidateUnusedWiringKeysAfterModuleMerge()
 	}
 
 	for packageName, tc := range result.PerPackage {

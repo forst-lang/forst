@@ -21,20 +21,14 @@ func writeCrossPackageProvidersFixture(t *testing.T, dir string) (alphaFt, betaF
 	if err := os.MkdirAll(betaDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Go stub so beta resolves alpha.ExpireToken and records cross-package Providers calls.
-	if err := os.WriteFile(filepath.Join(alphaDir, "stub.go"), []byte(`package alpha
-
-func ExpireToken() {}
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	alphaFt = filepath.Join(alphaDir, "expire.ft")
 	if err := os.WriteFile(alphaFt, []byte(`package alpha
 
-type Logger = { info(msg String) }
+type Logger = { Info(msg String) }
 
 func ExpireToken() {
 	use logger: Logger
+	logger.Info("expire")
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
