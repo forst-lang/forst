@@ -15,3 +15,9 @@ Files:
 - `beta/handle_test.ft` — `with { Logger: … }` integration test
 
 Generated Go (`z_forst_gen.go` / test emit) forwards `providers` into `alpha.LogExpiry` using Forst sibling import resolution (no Go stub required).
+
+Go goldens: `examples/out/rfc/providers/cross_pkg/alpha/log.go` and `.../beta/handle.go`. Refresh from `forst/`:
+
+```bash
+UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersCrossPkgGolden -count=1
+```
