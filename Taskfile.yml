@@ -239,7 +239,7 @@ tasks:
     desc: Compile Providers showcase (use/with, golden examples/out/rfc/providers/)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
 
   test:providers:
     desc: Run forst test on Providers golden package (providers.ft + providers_test.ft)
@@ -259,8 +259,8 @@ tasks:
     desc: Compile cross-package Providers cookbook (alpha + beta emit)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta/handle.ft
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha/log.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta/handle.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha/log.ft
 
   test:forst:
     desc: Alias for test:providers (forst test on Providers golden)
