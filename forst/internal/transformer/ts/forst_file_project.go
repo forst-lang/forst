@@ -7,6 +7,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -34,10 +35,22 @@ func ParseMergedTypecheckProject(filePaths []string, log *logrus.Logger) ([]Fors
 		return nil, nil, err
 	}
 
-	tc := typechecker.New(log, false)
-	tc.GoWorkspaceDir = goload.FindModuleRoot(paths[0])
-	if err := tc.CheckTypes(merged); err != nil {
-		return nil, nil, fmt.Errorf("failed to type check: %w", err)
+	moduleRoot := goload.FindModuleRoot(paths[0])
+	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(merged))
+
+	var tc *typechecker.TypeChecker
+	modResult, modErr := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: moduleRoot})
+	if modErr == nil && modResult != nil && modResult.PerPackage[forstPkg] != nil {
+		tc = modResult.PerPackage[forstPkg]
+	} else {
+		tc = typechecker.New(log, false)
+		tc.GoWorkspaceDir = moduleRoot
+		if err := tc.CheckTypes(merged); err != nil {
+			return nil, nil, fmt.Errorf("failed to type check: %w", err)
+		}
+		if modErr != nil {
+			return nil, nil, modErr
+		}
 	}
 
 	chunks := make([]ForstFileChunk, 0, len(paths))

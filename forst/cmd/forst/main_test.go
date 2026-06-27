@@ -663,6 +663,55 @@ func TestExampleProvidersMergedPackage(t *testing.T) {
 	}
 }
 
+// TestExampleProvidersCrossPkgGolden compiles cross_pkg alpha/beta and checks generated Go goldens.
+// Regenerate: UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersCrossPkgGolden -count=1
+func TestExampleProvidersCrossPkgGolden(t *testing.T) {
+	type pkgCase struct {
+		root, entry, golden string
+	}
+	cases := []pkgCase{
+		{
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha", "log.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "alpha", "log.go"),
+		},
+		{
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta", "handle.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "beta", "handle.go"),
+		},
+	}
+	for _, tc := range cases {
+		c := compiler.New(compiler.Args{
+			Command:  "run",
+			FilePath: tc.entry,
+			LogLevel: "error",
+		}, nil)
+		code, err := c.CompileFile()
+		if err != nil {
+			t.Fatalf("%s: CompileFile: %v", tc.entry, err)
+		}
+		actual := *code
+		if os.Getenv("UPDATE_PROVIDERS_CROSS_PKG_GOLDEN") == "1" {
+			if err := os.MkdirAll(filepath.Dir(tc.golden), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(tc.golden, []byte(actual), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("wrote golden %s", tc.golden)
+			continue
+		}
+		expected, err := os.ReadFile(tc.golden)
+		if err != nil {
+			t.Fatalf("read golden %s: %v (set UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 to create)", tc.golden, err)
+		}
+		if string(expected) != actual {
+			t.Fatalf("golden mismatch for %s (set UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", tc.golden, string(expected), actual)
+		}
+	}
+}
+
 func TestFindExpectedOutputFiles_directoryAndSingleFile(t *testing.T) {
 	baseDir := t.TempDir()
 

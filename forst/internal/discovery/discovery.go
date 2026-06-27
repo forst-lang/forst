@@ -10,8 +10,8 @@ import (
 	"forst/internal/configiface"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
-	"forst/internal/providersgraph"
 
 	"github.com/sirupsen/logrus"
 )
@@ -108,42 +108,31 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	totalFunctions := 0
 	goRoot := goload.FindModuleRoot(d.rootDir)
-	modulePath := goload.ModulePath(goRoot)
 
+	modResult, modErr := modulecheck.CheckModuleProviders(mainLogger, modulecheck.Options{ModuleRoot: goRoot})
 	perPkgTC := make(map[string]*typechecker.TypeChecker)
-	perPkgProviders := make(map[string]map[ast.Identifier][]typechecker.ProviderSlot)
-
-	for packageName, paths := range byPackage {
-		sort.Strings(paths)
-		var astLists [][]ast.Node
-		for _, p := range paths {
-			astLists = append(astLists, parsed[p])
-		}
-		merged := forstpkg.MergePackageASTs(astLists)
-
-		tc := typechecker.New(mainLogger, false)
-		tc.GoWorkspaceDir = goRoot
-		if err := tc.CheckTypes(merged); err != nil {
-			d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
-		}
-		perPkgTC[packageName] = tc
-		perPkgProviders[packageName] = cloneFunctionProviders(tc.FunctionProviders)
+	if modResult != nil {
+		perPkgTC = modResult.PerPackage
 	}
-
-	importPathToForstPkg := BuildForstPackageImportPaths(goRoot, modulePath, byPackage)
-	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)
-	for packageName, tc := range perPkgTC {
-		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, importPathToForstPkg) {
-			moduleGraph.AddModuleCall(call)
+	if modErr != nil {
+		d.log.Debugf("Module providers check: %v", modErr)
+		// Fall back to per-package typecheck for discovery metadata when module pass fails.
+		if len(perPkgTC) == 0 {
+			for packageName, paths := range byPackage {
+				sort.Strings(paths)
+				var astLists [][]ast.Node
+				for _, p := range paths {
+					astLists = append(astLists, parsed[p])
+				}
+				merged := forstpkg.MergePackageASTs(astLists)
+				tc := typechecker.New(mainLogger, false)
+				tc.GoWorkspaceDir = goRoot
+				if err := tc.CheckTypes(merged); err != nil {
+					d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
+				}
+				perPkgTC[packageName] = tc
+			}
 		}
-	}
-	moduleGraph.ComputeFixedPoint(providersgraph.ProviderScopeKeyPresent)
-	for packageName := range perPkgTC {
-		slots := moduleGraph.PerPackage(packageName)
-		if tc := perPkgTC[packageName]; tc != nil {
-			tc.FunctionProviders = slots
-		}
-		perPkgProviders[packageName] = slots
 	}
 
 	for packageName, paths := range byPackage {
@@ -179,19 +168,6 @@ func (d *Discoverer) DiscoverProvidersJSONV1() (ProvidersDiscoveryV1, error) {
 		return ProvidersDiscoveryV1{}, err
 	}
 	return BuildProvidersDiscoveryV1(functions), nil
-}
-
-func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
-	if len(src) == 0 {
-		return make(map[ast.Identifier][]typechecker.ProviderSlot)
-	}
-	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
-	for fn, slots := range src {
-		copied := make([]typechecker.ProviderSlot, len(slots))
-		copy(copied, slots)
-		out[fn] = copied
-	}
-	return out
 }
 
 func discoveryLogrusOrDiscard(log Logger) *logrus.Logger {

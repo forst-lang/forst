@@ -4,6 +4,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 	goast "go/ast"
 	goasttoken "go/token"
@@ -41,6 +42,8 @@ type Transformer struct {
 
 	// providersStructByKey maps sorted slot-set key → deduped Providers struct name (ADR-013).
 	providersStructByKey map[string]string
+	// moduleResult for cross-package Forst call lowering.
+	moduleResult *modulecheck.ModuleResult
 	// wiringStack holds merged wiring frames during with-block lowering.
 	wiringStack []wiringFrame
 	// currentFnProvidersName is the Go identifier for the active function's providers param (typically "providers").
@@ -67,6 +70,11 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		t.ExportReturnStructFields = exportReturnStructFields[0]
 	}
 	return t
+}
+
+// SetModuleResult attaches cross-package Providers metadata for call lowering.
+func (t *Transformer) SetModuleResult(m *modulecheck.ModuleResult) {
+	t.moduleResult = m
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST

@@ -8,26 +8,14 @@ import (
 // ProviderSlot is one inferred Provider requirement for a function (root ident + contract type).
 type ProviderSlot = providersgraph.Slot
 
-// ProviderScope holds merged Provider wiring keys in scope during a with-block.
-type ProviderScope struct {
-	keys     map[string]ast.TypeNode
-	shadowed map[string]bool
-}
-
-type callSiteRecord struct {
-	Callee      ast.Identifier
-	ScopeKeys map[string]ast.TypeNode
-	Span        ast.SourceSpan
-}
-
 type pendingWithCheck struct {
 	with      ast.WithNode
 	innerKeys map[string]struct{}
 }
 
+// ProviderScope is an alias for the canonical scope type in providersgraph.
+type ProviderScope = providersgraph.ProviderScope
+
 func newProviderScope() ProviderScope {
-	return ProviderScope{
-		keys:     make(map[string]ast.TypeNode),
-		shadowed: make(map[string]bool),
-	}
+	return providersgraph.NewProviderScope()
 }

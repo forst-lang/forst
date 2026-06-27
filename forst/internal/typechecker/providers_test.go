@@ -533,3 +533,94 @@ func PublicApi() {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestProviders_N4_wiringRootMustSatisfyAllProviders(t *testing.T) {
+	src := `package main
+
+import "testing"
+
+type Logger = { info(msg String) }
+type Clock = { now(): Int }
+
+func needsBoth() {
+	use logger: Logger
+	use clock: Clock
+}
+
+func TestRoot(t *testing.T) {
+	with { Logger: &NopLogger {} } {
+		needsBoth()
+	}
+}
+
+type NopLogger = {}
+func (NopLogger) info(msg String) {}
+`
+	_, err := parseAndCheck(t, src)
+	if err == nil {
+		t.Fatal("expected wiring root error for missing Clock")
+	}
+	diag, ok := err.(*Diagnostic)
+	if !ok || diag.Code != "providers-unsatisfied" {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestProviders_N6_wiringSupersetAllowed(t *testing.T) {
+	src := `package main
+
+import "testing"
+
+type Logger = { info(msg String) }
+type Clock = { now(): Int }
+
+type NopLogger = {}
+type FakeClock = { fixedMs: Int }
+
+func (NopLogger) info(msg String) {}
+func (c FakeClock) now(): Int { return c.fixedMs }
+
+func needsLogger() {
+	use logger: Logger
+}
+
+func TestRoot(t *testing.T) {
+	with {
+		Logger: &NopLogger {},
+		Clock:  &FakeClock { fixedMs: 1 },
+	} {
+		needsLogger()
+	}
+}
+`
+	tc, err := parseAndCheck(t, src)
+	if err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if len(tc.FunctionProviders["TestRoot"]) != 0 {
+		t.Fatalf("TestRoot should not require providers when wired")
+	}
+}
+
+func TestProviders_N9_unknownWiringKeyHardError(t *testing.T) {
+	src := `package main
+
+import "testing"
+
+type Logger = { info(msg String) }
+
+func TestRoot(t *testing.T) {
+	with { UnknownKey: 1 } {
+		x := 1
+	}
+}
+`
+	_, err := parseAndCheck(t, src)
+	if err == nil {
+		t.Fatal("expected unknown wiring key error")
+	}
+	diag, ok := err.(*Diagnostic)
+	if !ok || diag.Code != "providers-unknown-key" {
+		t.Fatalf("got %v", err)
+	}
+}

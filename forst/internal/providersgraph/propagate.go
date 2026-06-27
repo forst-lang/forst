@@ -87,7 +87,9 @@ func PropagateModuleFixedPoint(
 				if satisfies(slot, call.ProviderScope) {
 					continue
 				}
-				if AddSlotToFunction(callerMap, call.CallerFn, slot) {
+				propagated := slot
+				propagated.SourcePkg = call.TargetPkg
+				if AddSlotToFunction(callerMap, call.CallerFn, propagated) {
 					changed = true
 				}
 			}

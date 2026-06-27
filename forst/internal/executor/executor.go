@@ -17,6 +17,7 @@ import (
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
+	"forst/internal/modulecheck"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
@@ -216,17 +217,31 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 		return nil, err
 	}
 
-	checker := typechecker.New(e.log, false)
-	checker.GoWorkspaceDir = goload.FindModuleRoot(e.rootDir)
-	if err := checker.CheckTypes(forstNodes); err != nil {
-		e.log.Error("Encountered error checking types: ", err)
-		checker.DebugPrintCurrentScope()
-		return nil, err
+	moduleRoot := goload.FindModuleRoot(e.rootDir)
+	modResult, modErr := modulecheck.CheckModuleProviders(e.log, modulecheck.Options{ModuleRoot: moduleRoot})
+
+	var checker *typechecker.TypeChecker
+	if modErr == nil && modResult != nil && modResult.PerPackage[packageName] != nil {
+		checker = modResult.PerPackage[packageName]
+	} else {
+		checker = typechecker.New(e.log, false)
+		checker.GoWorkspaceDir = moduleRoot
+		if err := checker.CheckTypes(forstNodes); err != nil {
+			e.log.Error("Encountered error checking types: ", err)
+			checker.DebugPrintCurrentScope()
+			return nil, err
+		}
+		if modErr != nil {
+			return nil, modErr
+		}
 	}
 
 	// Use ExportReturnStructFields=true for function implementation to enable JSON marshalling
 	// Struct fields need to be exported (capitalized) for json.Marshal to work properly
 	transformer := transformer_go.New(checker, e.log, true)
+	if modResult != nil {
+		transformer.SetModuleResult(modResult)
+	}
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform Forst file to Go: %v", err)

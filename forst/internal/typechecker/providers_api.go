@@ -39,16 +39,16 @@ func (tc *TypeChecker) EffectiveScopeKeyLabels(chain []ast.WithNode) ([]Effectiv
 			return nil, err
 		}
 		if i > 0 {
-			for k := range amb.keys {
-				if _, had := merged.keys[k]; had {
+			for k := range amb.Keys {
+				if _, had := merged.Keys[k]; had {
 					shadowedKeys[k] = true
 				}
 			}
 		}
 		merged = tc.mergeProviderScope(merged, amb)
 	}
-	keys := make([]string, 0, len(merged.keys))
-	for k := range merged.keys {
+	keys := make([]string, 0, len(merged.Keys))
+	for k := range merged.Keys {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -64,11 +64,12 @@ func (tc *TypeChecker) EffectiveScopeKeyLabels(chain []ast.WithNode) ([]Effectiv
 
 // KnownProviderRootKeys returns sorted contract root identifiers valid in with wiring maps.
 func (tc *TypeChecker) KnownProviderRootKeys() []string {
-	if len(tc.knownProviderRoots) == 0 {
+	eng := tc.providersEngine()
+	if len(eng.KnownRoots) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(tc.knownProviderRoots))
-	for k := range tc.knownProviderRoots {
+	keys := make([]string, 0, len(eng.KnownRoots))
+	for k := range eng.KnownRoots {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -77,7 +78,7 @@ func (tc *TypeChecker) KnownProviderRootKeys() []string {
 
 // ProviderImplTypeNamesForContract returns type names (and &Type) assignable to a wiring key.
 func (tc *TypeChecker) ProviderImplTypeNamesForContract(contractRoot string) []string {
-	contract, ok := tc.knownProviderRoots[contractRoot]
+	contract, ok := tc.providersEngine().KnownRoots[contractRoot]
 	if !ok {
 		return nil
 	}
@@ -106,17 +107,6 @@ func (tc *TypeChecker) scopeSatisfiesAllSlots(scope map[string]ast.TypeNode, slo
 		}
 	}
 	return true
-}
-
-func (tc *TypeChecker) validateAllCallSites() error {
-	for caller, sites := range tc.functionCallSites {
-		for _, site := range sites {
-			if err := tc.validateCallSite(caller, site); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (tc *TypeChecker) isWiringRoot(fn ast.FunctionNode) bool {

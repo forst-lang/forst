@@ -11,6 +11,8 @@ type Slot struct {
 	RootIdent    ast.Identifier
 	ContractType ast.TypeNode
 	Key          string
+	// SourcePkg is the Forst package that defined this slot (set when propagated cross-package).
+	SourcePkg string
 }
 
 // ProviderScopeSnapshot is merged wiring keys in scope at a call site.

@@ -247,6 +247,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return returnType, nil
 			}
 
+			// Forst sibling package in same module (before Go stub resolution)
+			if ret, err := tc.resolveForstSiblingCall(pkgName, funcName, e, argTypes); err != nil {
+				return nil, err
+			} else if ret != nil {
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
+
 			// Imported Go package (Forst↔Go boundary): batch or lazy go/packages load
 			if gp := tc.goPackageForImportLocal(pkgName); gp != nil {
 				ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)

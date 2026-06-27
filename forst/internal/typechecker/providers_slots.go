@@ -7,18 +7,8 @@ import (
 	"forst/internal/ast"
 )
 
-func (tc *TypeChecker) initProvidersInference() {
-	tc.FunctionProviders = make(map[ast.Identifier][]ProviderSlot)
-	tc.functionDirectProviders = make(map[ast.Identifier]map[string]ProviderSlot)
-	tc.functionCallSites = make(map[ast.Identifier][]callSiteRecord)
-	tc.knownProviderRoots = make(map[string]ast.TypeNode)
-	tc.providerScopeStack = nil
-	tc.pendingWithChecks = nil
-	tc.Warnings = nil
-	tc.crossPackageCallSites = nil
-}
-
 func (tc *TypeChecker) seedKnownProviderRootsFromTypes() {
+	eng := tc.providersEngine()
 	for ident, def := range tc.Defs {
 		typeDef, ok := def.(ast.TypeDefNode)
 		if !ok {
@@ -29,7 +19,7 @@ func (tc *TypeChecker) seedKnownProviderRootsFromTypes() {
 			continue
 		}
 		root := string(tc.providerRootIdent(ast.TypeNode{Ident: ident}))
-		tc.knownProviderRoots[root] = ast.TypeNode{Ident: ident}
+		eng.KnownRoots[root] = ast.TypeNode{Ident: ident}
 	}
 }
 
@@ -123,7 +113,7 @@ func (tc *TypeChecker) makeProviderSlot(contractType ast.TypeNode) (ProviderSlot
 		ContractType: resolved,
 		Key:          key,
 	}
-	tc.knownProviderRoots[string(root)] = resolved
+	tc.providersEngine().KnownRoots[string(root)] = resolved
 	return slot, nil
 }
 
@@ -135,10 +125,11 @@ func (tc *TypeChecker) recordDirectProvider(slot ProviderSlot) {
 	if fn == "" {
 		return
 	}
-	if tc.functionDirectProviders[fn] == nil {
-		tc.functionDirectProviders[fn] = make(map[string]ProviderSlot)
+	eng := tc.providersEngine()
+	if eng.Direct[fn] == nil {
+		eng.Direct[fn] = make(map[string]ProviderSlot)
 	}
-	tc.functionDirectProviders[fn][slot.Key] = slot
+	eng.Direct[fn][slot.Key] = slot
 }
 
 func providerBindingName(root ast.Identifier) ast.Identifier {

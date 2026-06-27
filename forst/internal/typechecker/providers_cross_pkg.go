@@ -5,15 +5,6 @@ import (
 	"forst/internal/providersgraph"
 )
 
-// crossPackageCallRecord is a qualified import call recorded during single-package check.
-type crossPackageCallRecord struct {
-	CallerFn    ast.Identifier
-	ImportLocal string
-	CalleeFn    ast.Identifier
-	ScopeKeys map[string]ast.TypeNode
-	Span        ast.SourceSpan
-}
-
 // ModuleCrossCall links a caller function to an exported callee in another Forst package.
 type ModuleCrossCall = providersgraph.ModuleCallEdge
 
@@ -22,42 +13,84 @@ func (tc *TypeChecker) recordCrossPackageCall(importLocal string, callee ast.Ide
 	if fn == "" || importLocal == "" || callee == "" {
 		return
 	}
-	tc.crossPackageCallSites = append(tc.crossPackageCallSites, crossPackageCallRecord{
+	eng := tc.providersEngine()
+	eng.CallEdges = append(eng.CallEdges, providersgraph.CallEdge{
 		CallerFn:    fn,
-		ImportLocal: importLocal,
 		CalleeFn:    callee,
-		ScopeKeys: tc.currentMergedScope(),
+		ImportLocal: importLocal,
+		Scope:       tc.currentMergedScope(),
 		Span:        span,
 	})
 }
 
-// BuildModuleCrossCalls resolves recorded import calls to Forst package callees.
+// BuildModuleCrossCalls resolves recorded cross-package import calls to Forst package callees.
 func BuildModuleCrossCalls(callerForstPkg string, tc *TypeChecker, importPathToForstPkg map[string]string) []ModuleCrossCall {
-	if tc == nil || len(tc.crossPackageCallSites) == 0 {
+	if tc == nil || tc.providers == nil {
 		return nil
 	}
 	var out []ModuleCrossCall
-	for _, site := range tc.crossPackageCallSites {
-		if tc.importPathByLocal == nil {
+	for _, edge := range tc.providers.CallEdges {
+		if edge.ImportLocal == "" {
 			continue
 		}
-		importPath := tc.importPathByLocal[site.ImportLocal]
+		importPath := tc.importPathForLocal(edge.ImportLocal)
+		if importPath == "" {
+			continue
+		}
 		targetPkg := importPathToForstPkg[importPath]
 		if targetPkg == "" || targetPkg == callerForstPkg {
 			continue
 		}
 		out = append(out, ModuleCrossCall{
-			CallerPkg:   callerForstPkg,
-			CallerFn:    site.CallerFn,
-			TargetPkg:   targetPkg,
-			TargetFn:    site.CalleeFn,
-			ProviderScope:     site.ScopeKeys,
+			CallerPkg:     callerForstPkg,
+			CallerFn:      edge.CallerFn,
+			TargetPkg:     targetPkg,
+			TargetFn:      edge.CalleeFn,
+			ProviderScope: edge.Scope,
 		})
 	}
 	return out
 }
 
 // PropagateModuleProvidersFixedPoint merges Providers across Forst packages until stable.
-func PropagateModuleProvidersFixedPoint(perPkg map[string]map[ast.Identifier][]ProviderSlot, calls []ModuleCrossCall) {
-	providersgraph.PropagateModuleFixedPoint(perPkg, calls, providersgraph.ProviderScopeKeyPresent)
+func PropagateModuleProvidersFixedPoint(perPkg map[string]map[ast.Identifier][]ProviderSlot, calls []ModuleCrossCall, satisfies providersgraph.SatisfiesProviderScope) {
+	providersgraph.PropagateModuleFixedPoint(perPkg, calls, satisfies)
+}
+
+// ModuleSatisfiesFromTypeChecker returns a type-aware satisfaction predicate for module propagation.
+func ModuleSatisfiesFromTypeChecker(tc *TypeChecker) providersgraph.SatisfiesProviderScope {
+	if tc == nil {
+		return providersgraph.ProviderScopeKeyPresent
+	}
+	return tc.scopeSatisfiesSlot
+}
+
+// CrossPackageCallEdges returns cross-package call edges with resolved target packages.
+func CrossPackageCallEdges(callerForstPkg string, tc *TypeChecker, importPathToForstPkg map[string]string) []providersgraph.CallEdge {
+	if tc == nil || tc.providers == nil {
+		return nil
+	}
+	var out []providersgraph.CallEdge
+	for _, edge := range tc.providers.CallEdges {
+		if edge.ImportLocal == "" {
+			continue
+		}
+		importPath := tc.importPathForLocal(edge.ImportLocal)
+		if importPath == "" {
+			continue
+		}
+		targetPkg := importPathToForstPkg[importPath]
+		if targetPkg == "" || targetPkg == callerForstPkg {
+			continue
+		}
+		out = append(out, providersgraph.CallEdge{
+			CallerPkg: callerForstPkg,
+			CallerFn:  edge.CallerFn,
+			CalleePkg: targetPkg,
+			CalleeFn:  edge.CalleeFn,
+			Scope:     edge.Scope,
+			Span:      edge.Span,
+		})
+	}
+	return out
 }

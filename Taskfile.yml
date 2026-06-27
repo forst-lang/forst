@@ -255,6 +255,13 @@ tasks:
     cmds:
       - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta
 
+  example:providers-cross_pkg:
+    desc: Compile cross-package Providers cookbook (alpha + beta emit)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta/handle.ft
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha/log.ft
+
   test:forst:
     desc: Alias for test:providers (forst test on Providers golden)
     cmds:
@@ -416,6 +423,7 @@ tasks:
       - task test:providers
       - task test:providers-cross_pkg
       - task example:providers
+      - task example:providers-cross_pkg
 
   # Release tasks
   build:release:

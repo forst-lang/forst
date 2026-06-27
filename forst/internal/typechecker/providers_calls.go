@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/providersgraph"
 )
 
 func (tc *TypeChecker) checkCallProvidersSatisfied(caller, callee ast.Identifier, scope map[string]ast.TypeNode, span ast.SourceSpan) error {
@@ -18,7 +19,8 @@ func (tc *TypeChecker) checkCallProvidersSatisfied(caller, callee ast.Identifier
 		return nil
 	}
 	return diagnosticfRelated(span, "providers-unsatisfied", tc.providersObligationRelated(caller, callee),
-		"%s requires %s; not supplied\n  required by: %s", callee, strings.Join(missing, ", "), CallSiteObligationChain(caller, callee, tc.FunctionProviders[callee]))
+		"%s requires %s; not supplied\n  required by: %s%s", callee, strings.Join(missing, ", "),
+		tc.buildCallSiteObligationChain(caller, callee, missing), providersFixItHint(missing))
 }
 
 func (tc *TypeChecker) providersObligationRelated(caller, callee ast.Identifier) []RelatedDiagnostic {
@@ -43,10 +45,11 @@ func (tc *TypeChecker) recordFunctionCall(callee ast.Identifier, span ast.Source
 	if fn == "" {
 		return
 	}
-	rec := callSiteRecord{
-		Callee:      callee,
-		ScopeKeys: tc.currentMergedScope(),
-		Span:        span,
-	}
-	tc.functionCallSites[fn] = append(tc.functionCallSites[fn], rec)
+	eng := tc.providersEngine()
+	eng.CallEdges = append(eng.CallEdges, providersgraph.CallEdge{
+		CallerFn: fn,
+		CalleeFn: callee,
+		Scope:    tc.currentMergedScope(),
+		Span:     span,
+	})
 }

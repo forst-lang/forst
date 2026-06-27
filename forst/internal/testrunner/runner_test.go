@@ -75,7 +75,7 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(os.Stderr)
 	log.SetLevel(logrus.PanicLevel)
-	code, err := emitPackageGo(dir, pkgs[0], log)
+	code, err := emitPackageGo(dir, pkgs[0], nil, log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestWriteGeneratedTestAndRun_requiresGoMod(t *testing.T) {
 		Dir:     pkgDir,
 		RelPath: "pkg",
 	}, "package pkg\n", nil, log)
-	if err == nil || code == 0 {
+	if err == nil || code == ExitSuccess {
 		t.Fatalf("expected go.mod error, code=%d err=%v", code, err)
 	}
 	if !strings.Contains(err.Error(), "no go.mod") {
@@ -118,8 +118,8 @@ func TestRun_providersWithWiringPasses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0", code)
+	if code != ExitSuccess {
+		t.Fatalf("exit code = %d, want %d", code, ExitSuccess)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "auth", generatedTestGoName)); !os.IsNotExist(err) {
 		t.Fatal("expected generated test file removed after run")

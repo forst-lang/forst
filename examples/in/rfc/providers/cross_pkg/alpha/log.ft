@@ -2,10 +2,14 @@
 package alpha
 
 type Logger = {
-	info(msg String),
+	Info(msg String),
 }
+
+type NopLogger = {}
+
+func (NopLogger) Info(msg String) {}
 
 func LogExpiry(id String) {
 	use logger: Logger
-	logger.info("expire " + id)
+	logger.Info("expire " + id)
 }

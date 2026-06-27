@@ -11,6 +11,7 @@ task test:providers-cross_pkg
 Files:
 
 - `alpha/log.ft` — contract + direct `use`
-- `alpha/stub.go` — Go stub for cross-package call resolution
-- `beta/handle.ft` — imports alpha, repeats `Logger` typedef for wiring keys
+- `beta/handle.ft` — imports alpha; `Logger` typedef for wiring keys
 - `beta/handle_test.ft` — `with { Logger: … }` integration test
+
+Generated Go (`z_forst_gen.go` / test emit) forwards `providers` into `alpha.LogExpiry` using Forst sibling import resolution (no Go stub required).

@@ -21,25 +21,25 @@ func (tc *TypeChecker) slotsFromMap(m map[string]ProviderSlot) []ProviderSlot {
 }
 
 func (tc *TypeChecker) addProviderSlotToFunction(fn ast.Identifier, slot ProviderSlot) bool {
-	return providersgraph.AddSlotToFunction(tc.FunctionProviders, fn, slot)
+	return providersgraph.AddSlotToFunction(tc.providersEngine().Slots, fn, slot)
 }
 
 func (tc *TypeChecker) computeProvidersFixedPoint() {
+	eng := tc.providersEngine()
 	g := providersgraph.New()
-	for fn, direct := range tc.functionDirectProviders {
+	for fn, direct := range eng.Direct {
 		g.SetDirect(fn, direct)
 	}
-	for caller, sites := range tc.functionCallSites {
-		for _, site := range sites {
-			g.AddIntraCall(caller, site.Callee, site.ScopeKeys)
-		}
+	for _, edge := range providersgraph.IntraEdgesFromCallEdges(eng.CallEdges) {
+		g.AddIntraCall(edge.Caller, edge.Callee, edge.ProviderScope)
 	}
 	g.ComputeIntraFixedPoint(tc.scopeSatisfiesSlot)
-	tc.FunctionProviders = g.AllSlots()
+	eng.Slots = g.AllSlots()
+	tc.FunctionProviders = eng.Slots
 
 	tc.log.WithFields(logrus.Fields{
 		"function": "computeProvidersFixedPoint",
-		"count":    len(tc.FunctionProviders),
+		"count":    len(eng.Slots),
 	}).Debug("Computed FunctionProviders fixed point")
 }
 
@@ -76,30 +76,43 @@ func (tc *TypeChecker) paramTypesForIdent(id ast.Identifier) []ast.TypeNode {
 	return types
 }
 
-func (tc *TypeChecker) validateCallSite(caller ast.Identifier, site callSiteRecord) error {
-	if len(tc.FunctionProviders[site.Callee]) == 0 {
+func (tc *TypeChecker) validateCallSite(caller ast.Identifier, edge providersgraph.CallEdge) error {
+	if len(tc.FunctionProviders[edge.CalleeFn]) == 0 {
 		return nil
 	}
-	if tc.scopeSatisfiesAllSlots(site.ScopeKeys, tc.FunctionProviders[site.Callee]) {
+	if tc.scopeSatisfiesAllSlots(edge.Scope, tc.FunctionProviders[edge.CalleeFn]) {
 		return nil
 	}
-	if !tc.isWiringRootIdent(caller) && tc.callerForwardsProviders(caller, site.Callee) {
+	if !tc.isWiringRootIdent(caller) && tc.callerForwardsProviders(caller, edge.CalleeFn) {
 		return nil
 	}
-	return tc.checkCallProvidersSatisfied(caller, site.Callee, site.ScopeKeys, site.Span)
+	return tc.checkCallProvidersSatisfied(caller, edge.CalleeFn, edge.Scope, edge.Span)
 }
 
-// ProvidersGraph returns the intra-package Providers graph after inference (ADR-036).
-func (tc *TypeChecker) ProvidersGraph() *providersgraph.Graph {
-	g := providersgraph.New()
-	for fn, direct := range tc.functionDirectProviders {
-		g.SetDirect(fn, direct)
+func (tc *TypeChecker) validateIntraCallSites() error {
+	if tc.providers == nil {
+		return nil
 	}
-	for caller, sites := range tc.functionCallSites {
-		for _, site := range sites {
-			g.AddIntraCall(caller, site.Callee, site.ScopeKeys)
+	for _, edge := range tc.providers.CallEdges {
+		if edge.ImportLocal != "" {
+			continue
+		}
+		if err := tc.validateCallSite(edge.CallerFn, edge); err != nil {
+			return err
 		}
 	}
-	g.ComputeIntraFixedPoint(tc.scopeSatisfiesSlot)
+	return nil
+}
+
+// BuildGraph returns the intra-package Providers graph from engine state.
+func (tc *TypeChecker) BuildGraph() *providersgraph.Graph {
+	eng := tc.providersEngine()
+	g := providersgraph.New()
+	for fn, direct := range eng.Direct {
+		g.SetDirect(fn, direct)
+	}
+	for _, edge := range providersgraph.IntraEdgesFromCallEdges(eng.CallEdges) {
+		g.AddIntraCall(edge.Caller, edge.Callee, edge.ProviderScope)
+	}
 	return g
 }

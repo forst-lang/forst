@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/providersgraph"
 )
 
 func TestPropagateModuleProvidersFixedPoint_crossPackageCall(t *testing.T) {
@@ -21,7 +22,7 @@ func TestPropagateModuleProvidersFixedPoint_crossPackageCall(t *testing.T) {
 		TargetPkg: "alpha",
 		TargetFn:  "ExpireToken",
 	}}
-	PropagateModuleProvidersFixedPoint(perPkg, calls)
+	PropagateModuleProvidersFixedPoint(perPkg, calls, providersgraph.ProviderScopeKeyPresent)
 	slots := perPkg["beta"]["Handle"]
 	if len(slots) != 1 || slots[0].RootIdent != "Logger" {
 		t.Fatalf("Handle providers = %v", slots)
@@ -44,7 +45,7 @@ func TestPropagateModuleProvidersFixedPoint_ambientSatisfiesSkipsSlot(t *testing
 		TargetFn:    "ExpireToken",
 		ProviderScope:     map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
 	}}
-	PropagateModuleProvidersFixedPoint(perPkg, calls)
+	PropagateModuleProvidersFixedPoint(perPkg, calls, providersgraph.ProviderScopeKeyPresent)
 	if len(perPkg["beta"]["Handle"]) != 0 {
 		t.Fatalf("expected scope to satisfy Logger, got %v", perPkg["beta"]["Handle"])
 	}
@@ -52,11 +53,12 @@ func TestPropagateModuleProvidersFixedPoint_ambientSatisfiesSkipsSlot(t *testing
 
 func TestBuildModuleCrossCalls_resolvesForstImportPath(t *testing.T) {
 	tc := New(nil, false)
+	tc.providers = newProvidersEngine()
 	tc.importPathByLocal = map[string]string{"alpha": "testmod/alpha"}
-	tc.crossPackageCallSites = []crossPackageCallRecord{{
+	tc.providers.CallEdges = []providersgraph.CallEdge{{
 		CallerFn:    "Handle",
-		ImportLocal: "alpha",
 		CalleeFn:    "ExpireToken",
+		ImportLocal: "alpha",
 	}}
 	importMap := map[string]string{"testmod/alpha": "alpha"}
 	calls := BuildModuleCrossCalls("beta", tc, importMap)

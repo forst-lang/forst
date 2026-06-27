@@ -79,14 +79,11 @@ type TypeChecker struct {
 	goQualifiedTypeAliases map[ast.TypeIdent]string
 	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
 	FunctionProviders map[ast.Identifier][]ProviderSlot
-	// Providers inference state (cleared/rebuilt each CheckTypes pass).
-	functionDirectProviders map[ast.Identifier]map[string]ProviderSlot
-	functionCallSites     map[ast.Identifier][]callSiteRecord
-	knownProviderRoots      map[string]ast.TypeNode
-	providerScopeStack          []ProviderScope
-	pendingWithChecks     []pendingWithCheck
-	crossPackageCallSites []crossPackageCallRecord
-	Warnings              []Diagnostic
+	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).
+	providers *ProvidersEngine
+	// moduleResult is set during module-level check for cross-package Forst call resolution.
+	moduleResult ModuleResultView
+	Warnings       []Diagnostic
 }
 
 // New creates a new TypeChecker.

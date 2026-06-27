@@ -27,6 +27,19 @@ func (tc *TypeChecker) ImportPathForLocal(local string) (string, bool) {
 	return path, ok && path != ""
 }
 
+// ImportLocalForPath returns the import local name for a Go import path (inverse of ImportPathForLocal).
+func (tc *TypeChecker) ImportLocalForPath(path string) (string, bool) {
+	if tc.importPathByLocal == nil || path == "" {
+		return "", false
+	}
+	for local, p := range tc.importPathByLocal {
+		if p == path {
+			return local, true
+		}
+	}
+	return "", false
+}
+
 // loadedGoPackageByImportPath returns a loaded *types.Package for the given import path, including
 // dot-imported packages and lazy-loaded regular imports (same as goPackageForImportLocal).
 func (tc *TypeChecker) loadedGoPackageByImportPath(path string) *types.Package {

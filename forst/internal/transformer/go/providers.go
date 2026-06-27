@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/hasher"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 	goast "go/ast"
 	goasttoken "go/token"
@@ -98,7 +99,7 @@ func (t *Transformer) emitProvidersStruct(slots []typechecker.ProviderSlot) erro
 	}
 	fields := make([]*goast.Field, 0, len(slots))
 	for _, slot := range slots {
-		fieldType, err := t.transformType(slot.ContractType)
+		fieldType, err := t.transformProviderSlotType(slot)
 		if err != nil {
 			return fmt.Errorf("providers struct field %s: %w", slot.RootIdent, err)
 		}
@@ -322,7 +323,8 @@ func (t *Transformer) buildProvidersStructLiteral(slots []typechecker.ProviderSl
 }
 
 func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []ast.ExpressionNode) ([]goast.Expr, error) {
-	slots := t.TypeChecker.FunctionProviders[callee]
+	slots := t.calleeProviderSlots(callee)
+	crossPkgLocal := crossPackageImportLocal(callee)
 	paramTypes := make([]ast.TypeNode, len(args))
 	if sig, ok := t.TypeChecker.Functions[callee]; ok && len(sig.Parameters) == len(args) {
 		for i, param := range sig.Parameters {
@@ -361,13 +363,109 @@ func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []as
 		}
 	}
 	if len(slots) > 0 {
-		providersLit, err := t.buildProvidersStructLiteral(slots)
+		var providersLit goast.Expr
+		var err error
+		if crossPkgLocal != "" {
+			providersLit, err = t.buildCrossPackageProvidersLiteral(crossPkgLocal, slots)
+		} else {
+			providersLit, err = t.buildProvidersStructLiteral(slots)
+		}
 		if err != nil {
 			return nil, err
 		}
 		goArgs = append([]goast.Expr{providersLit}, goArgs...)
 	}
 	return goArgs, nil
+}
+
+func crossPackageImportLocal(callee ast.Identifier) string {
+	parts := splitQualifiedIdent(string(callee))
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[0]
+}
+
+func (t *Transformer) buildCrossPackageProvidersLiteral(importLocal string, slots []typechecker.ProviderSlot) (goast.Expr, error) {
+	if len(slots) == 0 || t.currentFnProvidersName == "" {
+		return nil, fmt.Errorf("cross-package providers literal: missing slots or caller param")
+	}
+	structName := t.providersStructName(slots)
+	typeExpr := &goast.SelectorExpr{
+		X:   goast.NewIdent(importLocal),
+		Sel: goast.NewIdent(structName),
+	}
+	elts := make([]goast.Expr, 0, len(slots))
+	for _, slot := range slots {
+		root := string(slot.RootIdent)
+		elts = append(elts, &goast.KeyValueExpr{
+			Key: goast.NewIdent(root),
+			Value: &goast.SelectorExpr{
+				X:   goast.NewIdent(t.currentFnProvidersName),
+				Sel: goast.NewIdent(root),
+			},
+		})
+	}
+	return &goast.CompositeLit{Type: typeExpr, Elts: elts}, nil
+}
+
+// transformProviderSlotType emits the Go type for a Providers struct field, using a sibling
+// package's contract type when the slot was propagated cross-package (SourcePkg).
+func (t *Transformer) transformProviderSlotType(slot typechecker.ProviderSlot) (goast.Expr, error) {
+	if slot.SourcePkg != "" && t.moduleResult != nil {
+		if local := importLocalForForstPkg(t.TypeChecker, t.moduleResult, slot.SourcePkg); local != "" {
+			typeName := string(slot.ContractType.Ident)
+			if typeName != "" && typeName != string(ast.TypeImplicit) {
+				return &goast.SelectorExpr{
+					X:   goast.NewIdent(local),
+					Sel: goast.NewIdent(typeName),
+				}, nil
+			}
+		}
+	}
+	return t.transformType(slot.ContractType)
+}
+
+func importLocalForForstPkg(tc *typechecker.TypeChecker, mod *modulecheck.ModuleResult, forstPkg string) string {
+	if tc == nil || mod == nil || forstPkg == "" {
+		return ""
+	}
+	for path, pkg := range mod.ImportPathToForstPkg() {
+		if pkg != forstPkg {
+			continue
+		}
+		if local, ok := tc.ImportLocalForPath(path); ok {
+			return local
+		}
+	}
+	return ""
+}
+
+// calleeProviderSlots returns Provider slots for intra- or cross-package callees.
+func (t *Transformer) calleeProviderSlots(callee ast.Identifier) []typechecker.ProviderSlot {
+	calleeStr := string(callee)
+	if parts := splitQualifiedIdent(calleeStr); len(parts) == 2 {
+		importLocal, fnName := parts[0], ast.Identifier(parts[1])
+		if t.moduleResult != nil && t.TypeChecker != nil {
+			if path, ok := t.TypeChecker.ImportPathForLocal(importLocal); ok && path != "" {
+				if forstPkg := t.moduleResult.ImportPathToForstPkg()[path]; forstPkg != "" {
+					if sibling := t.moduleResult.ForstPackageTypeChecker(forstPkg); sibling != nil {
+						return sibling.FunctionProviders[fnName]
+					}
+				}
+			}
+		}
+	}
+	return t.TypeChecker.FunctionProviders[callee]
+}
+
+func splitQualifiedIdent(s string) []string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '.' {
+			return []string{s[:i], s[i+1:]}
+		}
+	}
+	return nil
 }
 
 func (t *Transformer) transformWithStatements(with ast.WithNode) ([]goast.Stmt, error) {

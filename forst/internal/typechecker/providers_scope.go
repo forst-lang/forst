@@ -4,40 +4,20 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+	"forst/internal/providersgraph"
 )
 
 func (tc *TypeChecker) currentMergedScope() map[string]ast.TypeNode {
-	if len(tc.providerScopeStack) == 0 {
-		return nil
-	}
-	merged := make(map[string]ast.TypeNode)
-	for i := range tc.providerScopeStack {
-		a := tc.providerScopeStack[i]
-		for k, v := range a.keys {
-			merged[k] = v
-		}
-	}
-	return merged
+	eng := tc.providersEngine()
+	return providersgraph.MergeScopeStack(eng.ScopeStack)
 }
 
-func (tc *TypeChecker) mergeProviderScope(outer ProviderScope, inner ProviderScope) ProviderScope {
-	out := newProviderScope()
-	for k, v := range outer.keys {
-		if inner.shadowed[k] {
-			continue
-		}
-		out.keys[k] = v
-	}
-	for k, v := range inner.keys {
-		out.keys[k] = v
-	}
-	for k := range inner.shadowed {
-		out.shadowed[k] = true
-	}
-	return out
+func (tc *TypeChecker) mergeProviderScope(outer, inner ProviderScope) ProviderScope {
+	return providersgraph.MergeProviderScope(outer, inner)
 }
 
 func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScope, error) {
+	eng := tc.providersEngine()
 	amb := newProviderScope()
 	for fieldName, field := range shape.Fields {
 		if field.IsMethod {
@@ -62,7 +42,7 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 		if len(valTypes) != 1 {
 			return ProviderScope{}, fmt.Errorf("wiring field %s must have a single type", fieldName)
 		}
-		contractType, ok := tc.knownProviderRoots[fieldName]
+		contractType, ok := eng.KnownRoots[fieldName]
 		if !ok {
 			return ProviderScope{}, diagnosticf(fieldSpan, "providers-unknown-key",
 				"unknown wiring key %q", fieldName)
@@ -71,8 +51,8 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 			return ProviderScope{}, diagnosticf(fieldSpan, "providers-wiring-type",
 				"wiring field %s: expected type %s, got %s", fieldName, contractType.Ident, valTypes[0].Ident)
 		}
-		amb.keys[fieldName] = contractType
-		amb.shadowed[fieldName] = true
+		amb.Keys[fieldName] = contractType
+		amb.Shadowed[fieldName] = true
 	}
 	return amb, nil
 }
@@ -97,18 +77,19 @@ func (tc *TypeChecker) ambientFromInferredBundle(types []ast.TypeNode, span ast.
 		return ProviderScope{}, diagnosticf(span, "providers-wiring-shape",
 			"with wiring expression must be a Providers shape")
 	}
+	eng := tc.providersEngine()
 	amb := newProviderScope()
 	for fieldName := range shape.Fields {
 		if err := tc.validateWiringKey(fieldName, span); err != nil {
 			return ProviderScope{}, err
 		}
-		contractType, ok := tc.knownProviderRoots[fieldName]
+		contractType, ok := eng.KnownRoots[fieldName]
 		if !ok {
 			return ProviderScope{}, diagnosticf(span, "providers-unknown-key",
 				"unknown wiring key %q", fieldName)
 		}
-		amb.keys[fieldName] = contractType
-		amb.shadowed[fieldName] = true
+		amb.Keys[fieldName] = contractType
+		amb.Shadowed[fieldName] = true
 	}
 	return amb, nil
 }
@@ -157,7 +138,7 @@ func (tc *TypeChecker) validateWiringKey(key string, span ast.SourceSpan) error 
 			}
 		}
 	}
-	if _, ok := tc.knownProviderRoots[key]; ok {
+	if _, ok := tc.providersEngine().KnownRoots[key]; ok {
 		return nil
 	}
 	return diagnosticf(span, "providers-unknown-key", "unknown wiring key %q", key)

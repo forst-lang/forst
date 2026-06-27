@@ -56,10 +56,10 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 	})
 	if err != nil {
 		log.Error(err)
-		if code == 0 {
-			return 2
+		if code == testrunner.ExitSuccess {
+			return testrunner.ExitError.Int()
 		}
-		return code
+		return code.Int()
 	}
-	return code
+	return code.Int()
 }
