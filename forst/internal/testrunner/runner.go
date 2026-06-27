@@ -83,10 +83,10 @@ func runPackageTests(moduleRoot string, pkg PackageUnderTest, goTestArgs []strin
 	if err != nil {
 		return 1, fmt.Errorf("%s: %w", pkg.RelPath, err)
 	}
-	return writeGeneratedTestAndRun(moduleRoot, pkg, code, goTestArgs, log)
+	return writeGeneratedTestAndRun(pkg, code, goTestArgs, log)
 }
 
-func writeGeneratedTestAndRun(moduleRoot string, pkg PackageUnderTest, goCode string, goTestArgs []string, log *logrus.Logger) (int, error) {
+func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []string, log *logrus.Logger) (int, error) {
 	genPath := filepath.Join(pkg.Dir, generatedTestGoName)
 	if err := os.WriteFile(genPath, []byte(goCode), 0o644); err != nil {
 		return 1, fmt.Errorf("%s: write generated test: %w", pkg.RelPath, err)
@@ -97,16 +97,23 @@ func writeGeneratedTestAndRun(moduleRoot string, pkg PackageUnderTest, goCode st
 		}
 	}()
 
-	importPath := "./" + pkg.RelPath
-	if pkg.RelPath == "" {
-		importPath = "."
+	// Resolve the module from the package dir (where we wrote the test file), not only the
+	// caller's ModuleRoot — avoids go test running outside a module when paths disagree.
+	modRoot := goload.FindModuleRoot(pkg.Dir)
+	if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err != nil {
+		return 1, fmt.Errorf("%s: no go.mod in %s (forst test packages need a local go.mod)", pkg.RelPath, modRoot)
+	}
+	importPath := "."
+	if rel, err := filepath.Rel(modRoot, pkg.Dir); err == nil && rel != "." {
+		importPath = "./" + filepath.ToSlash(rel)
 	}
 	args := []string{"test"}
 	args = append(args, goTestArgs...)
 	args = append(args, importPath)
 
 	cmd := exec.Command("go", args...)
-	cmd.Dir = moduleRoot
+	cmd.Dir = modRoot
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

@@ -18,10 +18,14 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 	}
 	paths, goTestArgs := testrunner.ParseCLIArgs(args)
 	for _, p := range paths {
-		if p == "" || p == "." {
+		if p == "" {
 			continue
 		}
-		abs, err := filepath.Abs(p)
+		candidate := p
+		if p == "." {
+			candidate = root
+		}
+		abs, err := filepath.Abs(candidate)
 		if err != nil {
 			log.Error(err)
 			return 2

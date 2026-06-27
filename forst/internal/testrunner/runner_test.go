@@ -87,6 +87,27 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	}
 }
 
+func TestWriteGeneratedTestAndRun_requiresGoMod(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+	log.SetLevel(logrus.PanicLevel)
+	code, err := writeGeneratedTestAndRun(PackageUnderTest{
+		Dir:     pkgDir,
+		RelPath: "pkg",
+	}, "package pkg\n", nil, log)
+	if err == nil || code == 0 {
+		t.Fatalf("expected go.mod error, code=%d err=%v", code, err)
+	}
+	if !strings.Contains(err.Error(), "no go.mod") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestRun_providersWithWiringPasses(t *testing.T) {
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
