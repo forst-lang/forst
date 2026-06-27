@@ -38,6 +38,15 @@ type Transformer struct {
 	mapIndexFuncLitCache map[string]*goast.FuncLit
 	// mapIndexCacheHits counts cache hits during transform (second+ identical map read in a function).
 	mapIndexCacheHits int
+
+	// usablesStructByKey maps sorted slot-set key → deduped Usables struct name (ADR-013).
+	usablesStructByKey map[string]string
+	// wiringStack holds merged wiring frames during with-block lowering.
+	wiringStack []wiringFrame
+	// currentFnUsablesName is the Go identifier for the active function's usables param (typically "usables").
+	currentFnUsablesName string
+	// currentFnUsablesSlots is the slot set for the active function (for pass-through lowering).
+	currentFnUsablesSlots []typechecker.UsableSlot
 }
 
 // New creates a new Transformer
@@ -51,6 +60,7 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		Output:              &TransformerOutput{},
 		log:                 log,
 		functionsWithEnsure: make(map[string]bool),
+		usablesStructByKey:  make(map[string]string),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {
@@ -123,6 +133,11 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				},
 			})
 		}
+	}
+
+	// Emit deduped Usables struct types before functions.
+	if err := t.emitAllUsablesStructs(); err != nil {
+		return nil, fmt.Errorf("failed to emit Usables structs: %w", err)
 	}
 
 	// Then process the rest of the nodes

@@ -56,6 +56,8 @@ var NodeKind = map[string]uint8{
 	"OkExpr":           26,
 	"ErrExpr":          27,
 	"TypeDefErrorExpr": 28,
+	"Use":              29,
+	"With":             30,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -913,6 +915,36 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 		hasher.Write([]byte(n.Text))
 		return NodeHash(hasher.Sum64()), nil
+	case ast.UseNode:
+		if err := h.writeHashes(hasher, NodeKind["Use"]); err != nil {
+			return 0, err
+		}
+		if n.Ident != nil {
+			if err := h.writeHashes(hasher, []byte(n.Ident.ID)); err != nil {
+				return 0, err
+			}
+		}
+		if err := h.writeHashes(hasher, []byte(n.ContractType.Ident)); err != nil {
+			return 0, err
+		}
+	case ast.WithNode:
+		if err := h.writeHashes(hasher, NodeKind["With"]); err != nil {
+			return 0, err
+		}
+		wiringHash, err := h.HashNode(n.Wiring)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, wiringHash); err != nil {
+			return 0, err
+		}
+		bodyHash, err := h.hashNodes(n.Body)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, bodyHash); err != nil {
+			return 0, err
+		}
 	default:
 		return 0, fmt.Errorf("unsupported node type: %T", n)
 	}
@@ -965,6 +997,23 @@ func (h NodeHash) ToGuardIdent() ast.TypeIdent {
 		return ast.TypeIdent("G_Invalid")
 	}
 	return ast.TypeIdent("G_" + h.toBase58())
+}
+
+// HashSortedStrings returns a stable hash of the given strings (sorted before hashing).
+func HashSortedStrings(parts ...string) NodeHash {
+	sorted := append([]string(nil), parts...)
+	sort.Strings(sorted)
+	h := fnv.New64a()
+	for _, p := range sorted {
+		io.WriteString(h, p)
+		h.Write([]byte{0})
+	}
+	return NodeHash(h.Sum64())
+}
+
+// ToUsablesIdent names a deduped Usables struct from a slot-set hash (ADR-013).
+func (h NodeHash) ToUsablesIdent() string {
+	return "Usables_" + h.toBase58()
 }
 
 // Helper to check for typed nil pointers

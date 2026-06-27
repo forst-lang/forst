@@ -389,59 +389,14 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				},
 			}, nil
 		}
-		// Look up parameter types for the function
-		paramTypes := make([]ast.TypeNode, len(s.Arguments))
-		fnNode, err := t.closestFunction()
+		args, err := t.transformFunctionCallArgs(s.Function.ID, s.Arguments)
 		if err != nil {
-			return nil, fmt.Errorf("could not find enclosing function for FunctionCallNode: %w", err)
-		}
-		fn, ok := fnNode.(ast.FunctionNode)
-		if !ok {
-			return nil, fmt.Errorf("enclosing node is not a FunctionNode")
-		}
-		if sig, ok := t.TypeChecker.Functions[fn.Ident.ID]; ok && len(sig.Parameters) == len(s.Arguments) {
-			for i, param := range sig.Parameters {
-				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
-					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false, "", nil)
-					if err == nil && len(inferredTypes) > 0 {
-						paramTypes[i] = inferredTypes[0]
-					} else {
-						paramTypes[i] = param.Type
-					}
-				} else {
-					paramTypes[i] = param.Type
-				}
-			}
-		}
-		args := make([]goast.Expr, len(s.Arguments))
-		for i, arg := range s.Arguments {
-			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
-				// Use the unified helper to determine the expected type
-				context := &ShapeContext{
-					ExpectedType:   &paramTypes[i],
-					FunctionName:   string(s.Function.ID),
-					ParameterIndex: i,
-				}
-				expectedTypeForShape := t.getExpectedTypeForShape(&shapeArg, context)
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape)
-				if err != nil {
-					return nil, err
-				}
-				args[i] = argExpr
-			} else {
-				argExpr, err := t.transformExpression(arg)
-				if err != nil {
-					return nil, err
-				}
-				args[i] = argExpr
-			}
+			return nil, err
 		}
 		call := &goast.CallExpr{
 			Fun:  goFunExprFromForstCallIdent(s.Function),
 			Args: args,
 		}
-		// Multi-return calls (folded Result → (succ…, error), or native Go multi-return) are valid
-		// Go expression statements: return values are discarded (see Go spec, Expression statements).
 		return &goast.ExprStmt{X: call}, nil
 	case ast.AssignmentNode:
 		// Check for explicit type annotation
@@ -661,6 +616,17 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		return nil, fmt.Errorf("transformStatement: VariableNode should not be directly transformed here")
 	case ast.CommentNode:
 		return &goast.EmptyStmt{}, nil
+	case ast.UseNode:
+		return t.transformUseStatement(s)
+	case ast.WithNode:
+		withStmts, err := t.transformWithStatements(s)
+		if err != nil {
+			return nil, err
+		}
+		if len(withStmts) == 1 {
+			return withStmts[0], nil
+		}
+		return &goast.BlockStmt{List: withStmts}, nil
 	default:
 		return &goast.EmptyStmt{}, nil
 	}

@@ -376,6 +376,15 @@ func (p *printer) printTypeDefExpr(e ast.TypeDefExpr) (string, error) {
 func (p *printer) printFunction(fn ast.FunctionNode) (string, error) {
 	var b strings.Builder
 	b.WriteString("func ")
+	if fn.Receiver != nil {
+		b.WriteByte('(')
+		if fn.Receiver.Ident.ID != "" {
+			b.WriteString(string(fn.Receiver.Ident.ID))
+			b.WriteByte(' ')
+		}
+		b.WriteString(printType(fn.Receiver.Type))
+		b.WriteString(") ")
+	}
 	b.WriteString(string(fn.Ident.ID))
 	b.WriteByte('(')
 	for i, param := range fn.Params {
@@ -495,6 +504,10 @@ func (p *printer) printStmt(node ast.Node) (string, error) {
 		return p.printReturn(n)
 	case ast.EnsureNode:
 		return p.printEnsure(n)
+	case ast.UseNode:
+		return p.printUse(n)
+	case ast.WithNode:
+		return p.printWith(n)
 	case *ast.IfNode:
 		return p.printIf(n)
 	case ast.IfNode:
@@ -667,6 +680,38 @@ func (p *printer) printEnsure(e ast.EnsureNode) (string, error) {
 		b.WriteString(p.prefix())
 		b.WriteByte('}')
 	}
+	return b.String(), nil
+}
+
+func (p *printer) printUse(u ast.UseNode) (string, error) {
+	var b strings.Builder
+	b.WriteString("use ")
+	if u.Ident != nil {
+		b.WriteString(string(u.Ident.ID))
+		b.WriteString(": ")
+	}
+	b.WriteString(printType(u.ContractType))
+	return b.String(), nil
+}
+
+func (p *printer) printWith(w ast.WithNode) (string, error) {
+	var b strings.Builder
+	b.WriteString("with ")
+	wiring, err := p.printExpr(w.Wiring)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(wiring)
+	b.WriteString(" {\n")
+	p.push()
+	body, err := p.printBlock(w.Body)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(body)
+	p.pop()
+	b.WriteString(p.prefix())
+	b.WriteByte('}')
 	return b.String(), nil
 }
 

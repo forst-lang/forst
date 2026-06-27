@@ -37,6 +37,12 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.FunctionNode:
 		tc.pushScope(n)
 
+		if n.Receiver != nil {
+			if n.Receiver.Ident.ID != "" {
+				tc.storeSymbol(n.Receiver.Ident.ID, []ast.TypeNode{n.Receiver.Type}, SymbolVariable)
+			}
+		}
+
 		for _, param := range n.Params {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
@@ -56,8 +62,10 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		tc.registerFunction(n)
 		tc.popScope()
 
-		// Store function symbol
-		tc.storeSymbol(n.Ident.ID, n.ReturnTypes, SymbolFunction)
+		if n.Receiver == nil {
+			// Store package-level function symbol
+			tc.storeSymbol(n.Ident.ID, n.ReturnTypes, SymbolFunction)
+		}
 	case *ast.FunctionNode:
 		return tc.collectExplicitTypes(*n)
 	case ast.TypeGuardNode:
@@ -115,6 +123,17 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 				}
 			}
 			tc.popScope()
+		}
+		tc.popScope()
+		return nil
+	case ast.UseNode:
+		return nil
+	case ast.WithNode:
+		tc.pushScope(n)
+		for _, node := range n.Body {
+			if err := tc.collectExplicitTypes(node); err != nil {
+				return err
+			}
 		}
 		tc.popScope()
 		return nil

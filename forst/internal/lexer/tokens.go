@@ -17,6 +17,8 @@ var Keywords = map[string]ast.TokenIdent{
 	"Array":       ast.TokenArray,
 	"return":      ast.TokenReturn,
 	"ensure":      ast.TokenEnsure,
+	"use":         ast.TokenUse,
+	"with":        ast.TokenWith,
 	"is":          ast.TokenIs,
 	"or":          ast.TokenOr,
 	"type":        ast.TokenType,

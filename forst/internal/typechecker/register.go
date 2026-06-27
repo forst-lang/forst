@@ -103,6 +103,11 @@ func (tc *TypeChecker) registerType(node ast.TypeDefNode) {
 
 		tc.registerShapeType(node.Ident, shapeExpr.Shape)
 	}
+
+	if assertionExpr, ok := typeDefAssertionFromExpr(node.Expr); ok && assertionExpr.Assertion != nil &&
+		assertionExpr.Assertion.BaseType != nil && len(assertionExpr.Assertion.Constraints) == 0 {
+		tc.registerGoQualifiedTypeAlias(node.Ident, *assertionExpr.Assertion.BaseType)
+	}
 }
 
 func (tc *TypeChecker) normalizeShapeFieldKinds(shape *ast.ShapeNode) {
@@ -152,6 +157,15 @@ func (tc *TypeChecker) registerShapeType(ident ast.TypeIdent, shape ast.ShapeNod
 }
 
 func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
+	if fn.Receiver != nil {
+		recvType := fn.Receiver.Type.Ident
+		if fn.Receiver.Type.Ident == ast.TypePointer && len(fn.Receiver.Type.TypeParams) == 1 {
+			recvType = fn.Receiver.Type.TypeParams[0].Ident
+		}
+		tc.registerTypeMethod(recvType, string(fn.Ident.ID), fn)
+		return
+	}
+
 	// Store function signature
 	params := make([]ParameterSignature, len(fn.Params))
 	for i, param := range fn.Params {

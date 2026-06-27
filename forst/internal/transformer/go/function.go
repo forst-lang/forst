@@ -104,6 +104,24 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform function parameters: %s", err)
 	}
+	params, err = t.prependUsablesParam(params, n)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepend usables parameter: %w", err)
+	}
+
+	prevUsablesName := t.currentFnUsablesName
+	prevUsablesSlots := t.currentFnUsablesSlots
+	if t.functionNeedsUsablesParam(n) {
+		t.currentFnUsablesName = "usables"
+		t.currentFnUsablesSlots = t.TypeChecker.FunctionUsables[n.Ident.ID]
+	} else {
+		t.currentFnUsablesName = ""
+		t.currentFnUsablesSlots = nil
+	}
+	defer func() {
+		t.currentFnUsablesName = prevUsablesName
+		t.currentFnUsablesSlots = prevUsablesSlots
+	}()
 
 	// Create function return type
 	returnType, err := t.TypeChecker.LookupFunctionReturnType(&n)
@@ -127,11 +145,44 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
 		}
 
-		goStmt, err := t.transformStatement(stmt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform statement: %s", err)
+		switch s := stmt.(type) {
+		case ast.UseNode:
+			goStmt, err := t.transformUseStatement(s)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform use statement: %w", err)
+			}
+			if _, ok := goStmt.(*goast.EmptyStmt); ok && s.Ident == nil {
+				continue
+			}
+			stmts = append(stmts, goStmt)
+		case ast.WithNode:
+			withStmts, err := t.transformWithStatements(s)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform with block: %w", err)
+			}
+			stmts = append(stmts, withStmts...)
+		default:
+			goStmt, err := t.transformStatement(stmt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform statement: %s", err)
+			}
+			stmts = append(stmts, goStmt)
 		}
-		stmts = append(stmts, goStmt)
+	}
+
+	var recv *goast.FieldList
+	if n.Receiver != nil {
+		recvType, err := t.transformType(n.Receiver.Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform receiver type: %w", err)
+		}
+		var names []*goast.Ident
+		if n.Receiver.Ident.ID != "" {
+			names = []*goast.Ident{goast.NewIdent(string(n.Receiver.Ident.ID))}
+		}
+		recv = &goast.FieldList{
+			List: []*goast.Field{{Names: names, Type: recvType}},
+		}
 	}
 
 	// Make sure that functions return nil if they return an error
@@ -158,6 +209,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 
 	// Create the function declaration
 	return &goast.FuncDecl{
+		Recv: recv,
 		Name: goast.NewIdent(n.Ident.String()),
 		Type: &goast.FuncType{
 			Params:  params,

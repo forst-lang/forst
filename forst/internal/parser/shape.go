@@ -7,7 +7,56 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// parseShapeMemberName reads a shape field or method name. The `error` keyword is allowed
+// when it starts a method signature (`error(msg String)`).
+func (p *Parser) parseShapeMemberName() string {
+	tok := p.current()
+	switch tok.Type {
+	case ast.TokenIdentifier:
+		p.advance()
+		return tok.Value
+	case ast.TokenError:
+		if p.peek().Type == ast.TokenLParen {
+			p.advance()
+			return tok.Value
+		}
+		p.FailWithParseError(tok, "expected shape member name")
+	default:
+		p.FailWithParseError(tok, "expected shape member name")
+	}
+	panic("unreachable")
+}
+
+func (p *Parser) parseShapeMethodSignature() ([]ast.ParamNode, []ast.TypeNode) {
+	p.expect(ast.TokenLParen)
+	params := []ast.ParamNode{}
+	if p.current().Type != ast.TokenRParen {
+		for {
+			params = append(params, p.parseParameter())
+			if p.current().Type == ast.TokenComma {
+				p.advance()
+			} else {
+				break
+			}
+		}
+	}
+	p.expect(ast.TokenRParen)
+	var returnTypes []ast.TypeNode
+	if p.current().Type == ast.TokenColon {
+		returnTypes = p.parseReturnType()
+	}
+	return params, returnTypes
+}
+
 func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
+	if p.current().Type == ast.TokenLParen {
+		params, returnTypes := p.parseShapeMethodSignature()
+		return ast.ShapeFieldNode{
+			IsMethod:          true,
+			MethodParams:      params,
+			MethodReturnTypes: returnTypes,
+		}
+	}
 	switch p.current().Type {
 	case ast.TokenColon:
 		p.advance() // Consume the colon
@@ -75,6 +124,14 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 }
 
 func (p *Parser) parseShapeType() ast.ShapeNode {
+	return p.parseShapeTypeInternal(false)
+}
+
+func (p *Parser) parseShapeTypeAllowEmpty() ast.ShapeNode {
+	return p.parseShapeTypeInternal(true)
+}
+
+func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 	p.log.WithField("token", p.current()).Trace("Entering parseShapeType")
 	p.expect(ast.TokenLBrace)
 
@@ -83,7 +140,7 @@ func (p *Parser) parseShapeType() ast.ShapeNode {
 	for p.current().Type != ast.TokenRBrace {
 		p.log.WithField("token", p.current()).Trace("parseShapeType: parsing field")
 		// Parse field name
-		name := p.expect(ast.TokenIdentifier).Value
+		name := p.parseShapeMemberName()
 
 		fields[name] = p.parseShapeTypeField(name)
 
@@ -96,8 +153,7 @@ func (p *Parser) parseShapeType() ast.ShapeNode {
 
 	p.expect(ast.TokenRBrace)
 
-	// Require at least one field in shape definitions
-	if len(fields) == 0 {
+	if len(fields) == 0 && !allowEmpty {
 		p.FailWithParseError(p.current(), "Shape type must have at least one field. Empty shapes are not allowed.")
 	}
 
@@ -114,7 +170,7 @@ func (p *Parser) parseShapeTypeForError() ast.ShapeNode {
 	p.expect(ast.TokenLBrace)
 	fields := make(map[string]ast.ShapeFieldNode)
 	for p.current().Type != ast.TokenRBrace {
-		name := p.expect(ast.TokenIdentifier).Value
+		name := p.parseShapeMemberName()
 		fields[name] = p.parseShapeTypeField(name)
 		if p.current().Type == ast.TokenComma {
 			p.advance()
@@ -148,7 +204,7 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) a
 	for p.current().Type != ast.TokenRBrace {
 		p.log.WithField("token", p.current()).Trace("parseShapeLiteral: parsing field")
 		// Parse field name
-		name := p.expect(ast.TokenIdentifier).Value
+		name := p.parseShapeMemberName()
 
 		// If the next token is a colon, parse the value or type
 		if p.current().Type == ast.TokenColon {
@@ -248,11 +304,6 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) a
 	}
 
 	p.expect(ast.TokenRBrace)
-
-	// Require at least one field in shape definitions
-	if len(fields) == 0 {
-		p.FailWithParseError(p.current(), "Shape type must have at least one field. Empty shapes are not allowed.")
-	}
 
 	return ast.ShapeNode{
 		Fields:   fields,

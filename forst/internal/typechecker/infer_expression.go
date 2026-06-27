@@ -198,6 +198,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 						i+1, e.Function.ID, param.Type.Ident, argTypes[i][0].Ident)
 				}
 			}
+			callSpan := e.CallSpan
+			if !callSpan.IsSet() {
+				callSpan = e.Function.Span
+			}
+			tc.recordFunctionCall(e.Function.ID, callSpan)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
@@ -442,6 +447,19 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 	// *T method calls: lower to element type for built-in / opaque Go receivers.
 	if t.Ident == ast.TypePointer && len(t.TypeParams) == 1 {
 		t = t.TypeParams[0]
+	}
+
+	if ret, err := tc.checkUserTypeMethod(t, methodName, e.Arguments); err == nil {
+		return ret, nil
+	} else if tc.TypeMethods != nil {
+		// Only fall through when the type has no method table; otherwise surface the error.
+		if methods, ok := tc.TypeMethods[t.Ident]; ok && len(methods) > 0 {
+			return nil, err
+		}
+	}
+
+	if ret, err := tc.checkContractShapeMethod(t, methodName, e.Arguments); err == nil {
+		return ret, nil
 	}
 
 	returnType, err := tc.CheckBuiltinMethod(t, methodName, e.Arguments)

@@ -73,6 +73,19 @@ type TypeChecker struct {
 	// variableGoTypes maps locals assigned from Go qualified calls to the corresponding go/types result types.
 	// Used to type-check method calls against real Go method signatures instead of opaque TYPE_IMPLICIT.
 	variableGoTypes map[ast.Identifier]types.Type
+	// TypeMethods maps receiver type ident -> method name -> signature (Forst receiver methods).
+	TypeMethods map[ast.TypeIdent]map[string]FunctionSignature
+	// goQualifiedTypeAliases maps Forst type ident -> Go qualified type name (e.g. io.Writer).
+	goQualifiedTypeAliases map[ast.TypeIdent]string
+	// FunctionUsables holds inferred Usable slots per function after fixed-point propagation.
+	FunctionUsables map[ast.Identifier][]UsableSlot
+	// Usables inference state (cleared/rebuilt each CheckTypes pass).
+	functionDirectUsables map[ast.Identifier]map[string]UsableSlot
+	functionCallSites     map[ast.Identifier][]callSiteRecord
+	knownUsableRoots      map[string]ast.TypeNode
+	ambientStack          []Ambient
+	pendingWithChecks     []pendingWithCheck
+	Warnings              []Diagnostic
 }
 
 // New creates a new TypeChecker
@@ -157,12 +170,19 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}).Info("Starting second pass: inferring types")
 	}
 
+	tc.initUsablesInference()
+	tc.seedKnownUsableRootsFromTypes()
+
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if _, err := tc.inferNodeType(node); err != nil {
 			return err
 		}
 		tc.path = tc.path[:len(tc.path)-1]
+	}
+
+	if err := tc.finishUsablesChecking(nodes); err != nil {
+		return err
 	}
 
 	return nil

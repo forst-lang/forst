@@ -217,6 +217,14 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				}).Info("Shapes are structurally identical")
 				return true
 			}
+			if (*expectedShape).IsMethodOnlyContract() &&
+				tc.typeMethodsSatisfyContract(actual.Ident, *expectedShape) {
+				return true
+			}
+		} else if expectedShapeOk && (*expectedShape).IsMethodOnlyContract() {
+			if tc.typeMethodsSatisfyContract(actual.Ident, *expectedShape) {
+				return true
+			}
 		} else {
 			tc.log.WithFields(logrus.Fields{
 				"actual":          actual.Ident,

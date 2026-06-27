@@ -14,6 +14,11 @@ func (p *Parser) parseValue() ast.ValueNode {
 		switch nextToken.Type {
 		case ast.TokenIdentifier:
 			ref := p.expect(ast.TokenIdentifier)
+			if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(ref.Value) {
+				typeIdent := ast.TypeIdent(ref.Value)
+				shape := p.parseShapeLiteral(&typeIdent, false)
+				return ast.ReferenceNode{Value: shape}
+			}
 			return ast.ReferenceNode{
 				Value: ast.VariableNode{
 					Ident: ast.Ident{ID: ast.Identifier(ref.Value), Span: ast.SpanFromToken(ref)},
