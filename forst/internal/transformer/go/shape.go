@@ -657,7 +657,8 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 	// Always generate a struct type for shape definitions with data fields
 	// The existing type matching is only for shape literals, not type definitions
 	fields := []*goast.Field{}
-	for name, field := range shape.Fields {
+	for _, name := range ast.ShapeFieldNamesInOrder(shape.Fields, shape.FieldOrder) {
+		field := shape.Fields[name]
 		fieldType, err := t.transformShapeFieldType(field)
 		if err != nil {
 			err = fmt.Errorf("failed to transform shape field type during transformation: %w", err)

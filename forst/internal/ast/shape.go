@@ -41,7 +41,8 @@ func (n ShapeNode) isExpression() { _ = n }
 
 func (n ShapeNode) String() string {
 	var fields []string
-	for name, field := range n.Fields {
+	for _, name := range ShapeFieldNamesInOrder(n.Fields, n.FieldOrder) {
+		field := n.Fields[name]
 		var fieldStr string
 		if field.Shape != nil {
 			fieldStr = field.Shape.String()

@@ -8,6 +8,41 @@ import (
 	goast "go/ast"
 )
 
+func TestBuildFieldsForExpectedType_preservesShapeFieldOrder(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tc.Defs[ast.TypeIdent("Token")] = ast.TypeDefNode{
+		Ident: "Token",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"id":        {Type: &ast.TypeNode{Ident: ast.TypeString}},
+					"expiresAt": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
+	}
+	tr := setupTransformer(tc, log)
+	shape := &ast.ShapeNode{
+		FieldOrder: []string{"id", "expiresAt"},
+		Fields: map[string]ast.ShapeFieldNode{
+			"id":        ast.MakeStructField(ast.StringLiteralNode{Value: "t1"}),
+			"expiresAt": ast.MakeStructField(ast.IntLiteralNode{Value: 500}),
+		},
+	}
+	fields, err := tr.buildFieldsForExpectedType(shape, &ast.TypeNode{Ident: "Token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 2 {
+		t.Fatalf("len %d", len(fields))
+	}
+	if fields[0].Key.(*goast.Ident).Name != "id" || fields[1].Key.(*goast.Ident).Name != "expiresAt" {
+		t.Fatalf("field order: %s, %s", fields[0].Key, fields[1].Key)
+	}
+}
+
 func TestBuildFieldsForShape_intLiteralField(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
