@@ -104,7 +104,7 @@ Cross-check against [§4 tensions](../optionals/12-result-primitives-without-ok-
 - **Imported FFI `(T, error)` and `is` patterns** ([12 §6.2](../optionals/12-result-primitives-without-ok-err.md)): **outside** this document.
 - **Migration path** ([12 §6.3](../optionals/12-result-primitives-without-ok-err.md), [§8](../optionals/12-result-primitives-without-ok-err.md)): codemod, deprecation—**process** work.
 - **Teachability: guards use `Ok`/`Err`, returns do not use constructors** ([12 §5.4](../optionals/12-result-primitives-without-ok-err.md)): mitigated by **docs** and **diagnostics**, not eliminated.
-- **Payload into `or SomeError(...)`:** when wrapping needs the **`Err`** payload, **`or`** must allow expressions in scope (e.g. **`SomeError(wrap(e))`** or **`SomeError(x)`** if **`x`** is still provider). **Specify and test** against real **`EnsureError*`** typing ([`EnsureNode.Error`](../../../../forst/internal/ast/ensure.go)).
+- **Payload into `or SomeError(...)`:** when wrapping needs the **`Err`** payload, **`or`** must allow expressions in scope (e.g. **`SomeError(wrap(e))`** or **`SomeError(x)`** if **`x`** is still usable). **Specify and test** against real **`EnsureError*`** typing ([`EnsureNode.Error`](../../../../forst/internal/ast/ensure.go)).
 - **Brevity vs auditability** ([12 §4](../optionals/12-result-primitives-without-ok-err.md)): **tradeoff** remains.
 - **Errors RFC delivery** ([12 §7.4](../optionals/12-result-primitives-without-ok-err.md)): nominal types / factories must be **available** for ergonomics.
 

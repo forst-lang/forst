@@ -10,8 +10,8 @@ Each section below is a **feature parity** table: **Feature** | **Status** | **N
 
 - ✅ **done** — Believed complete for current scope; report gaps as bugs.
 - ⏳ **in progress** — Actively being implemented **toward** the **done** bar; remaining gaps are temporary.
-- 🔬 **experimental** — Something **exists** (often provider), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial behavior, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
-- 📋 **planned** — On the roadmap but **not yet delivered**: no provider implementation yet.
+- 🔬 **experimental** — Something **exists** (often prototype), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial behavior, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
+- 📋 **planned** — On the roadmap but **not yet delivered**: no implementation yet.
 - 🚫 **not planned (anti-feature)** — Intentionally **omitted** from the language design; not a backlog gap—see [Anti-features](#anti-features) and [PHILOSOPHY.md](./PHILOSOPHY.md).
 
 **In progress vs experimental:** **In progress** means implementation is **underway** toward **done**. **Experimental** means the feature is **out in the wild** in some form, but we are **not** yet treating it as complete—whether because large pieces are missing, behavior may change, or advertised capabilities are still stubs.

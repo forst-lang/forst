@@ -13,7 +13,7 @@
 
 Its primary goal is to help you move away from TypeScript on the backend:
 
-- Generate instantly provider TypeScript types from backend endpoints – enabling full-stack development without build steps.
+- Generate instantly re-usable TypeScript types from backend endpoints – enabling full-stack development without build steps.
 - Strong static typing with aggressive inference and smart narrowing – so you move fast while staying safe.
 - Data schemas acting as guards, automatically validating deeply nested input data through type definitions – to keep untrusted user input out of your application logic.
 

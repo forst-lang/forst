@@ -57,7 +57,7 @@ var mergedDirectoryFixtureTypeScriptChecks = []string{
 	"export function PingServer(",
 }
 
-// requireGenerateOutputForTSC fails if forst generate produced no provider output.
+// requireGenerateOutputForTSC fails if forst generate produced no usable output.
 func requireGenerateOutputForTSC(t *testing.T, projectRoot string, wantSubstrings []string) {
 	t.Helper()
 	typesPath := filepath.Join(projectRoot, "generated", "types.d.ts")

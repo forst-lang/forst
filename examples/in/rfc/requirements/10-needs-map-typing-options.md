@@ -2,7 +2,7 @@
 
 **Status:** **Leading option locked** as [ADR-017 — Provider shape constraint](./ADR.md#adr-017-provider-shape-constraint). Name analysis below; union/generic alternatives remain in this doc for comparison.
 
-**Term:** **Provider** — a **shape type** describing what may be **`use`d** in a scope; **shape literals** `{ Logger: impl, … }` in **`with`** must satisfy an Provider (explicit typedef or inferred minimal shape from completeness).
+**Term:** **Provider** — a **shape type** describing what may be **`use`d** in a scope; **shape literals** `{ Logger: impl, … }` in **`with`** must satisfy a Provider (explicit typedef or inferred minimal shape from completeness).
 
 **Not Go maps:** Wiring uses Forst **composite literals** (shapes / `ShapeNode` in the parser) — the same `{ field: value }` form as data shapes — **not** `map[K]V` unless you explicitly choose a map type elsewhere.
 
@@ -12,7 +12,7 @@
 
 ## Leading option (summary)
 
-**Syntax stays shape literals** ([ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)). **Typing** is an ordinary **shape** whose fields are requirement contracts — we call that shape an **Provider**.
+**Syntax stays shape literals** ([ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)). **Typing** is an ordinary **shape** whose fields are requirement contracts — we call that shape a **Provider**.
 
 ```forst
 type CIProviders = {
@@ -58,7 +58,7 @@ At compile time, `{ Logger: x, … }` is a **shape literal** in Forst (same AST 
 
 | Rule | Behavior |
 | --- | --- |
-| **Fixture defs** | Return type / annotation is an **Provider** shape → wrong field name (`Metricks`) → **error** |
+| **Fixture defs** | Return type / annotation is a **Provider** shape → wrong field name (`Metricks`) → **error** |
 | **Completeness** | Inferred `Needs(f)` for the block must be covered by merged scope ([ADR-009](./ADR.md#adr-009-transitive-inference-and-mandatory-completeness)) |
 | **Superset** | Extra Provider fields OK; lowering copies only `Needs(callee)`; unused keys → **warning** ([ADR-012](./ADR.md#adr-012-superset-wiring-extras-allowed)) |
 | **Nested `with`** | Partial shape overlays outer; inner fields shadow |
@@ -96,7 +96,7 @@ We need a short English name for: *“shape of requirement contracts that a `wit
 
 - **Concept (docs, ADR, LSP):** “This map must satisfy **Provider** *X*.”
 - **Author typedefs:** name the bundle **`…Providers`** — `CIProviders`, `ProdProviders`, `TestProviders`.
-- **Not a keyword:** an Provider is any shape that meets the rules in [ADR-017](./ADR.md#adr-017-provider-shape-constraint); no mandatory `Provider` token in source for now.
+- **Not a keyword:** a Provider is any shape that meets the rules in [ADR-017](./ADR.md#adr-017-provider-shape-constraint); no mandatory `Provider` token in source for now.
 - **Optional later sugar:** `type CIProviders = Provider { Logger: Logger, … }` — marker for readability only; desugars to shape + Provider kind flag in checker.
 
 **Avoid:** **`Needs`** as the shape name (inference wins that word). **`Supply`** (dead keyword). **`Context`** (dropped pattern).
@@ -234,7 +234,7 @@ type CI = NeedsMap<Logger, UserRepo, HttpClient, Metrics>
 
 ## Option C — Provider shape constraint (**leading — [ADR-017](./ADR.md#adr-017-provider-shape-constraint)**)
 
-**Surface:** Wiring is a **shape literal** (or variable/call) that must **satisfy** an **Provider** — a shape whose fields are requirement contracts.
+**Surface:** Wiring is a **shape literal** (or variable/call) that must **satisfy** a **Provider** — a shape whose fields are requirement contracts.
 
 ```forst
 type CIProviders = {
@@ -381,7 +381,7 @@ func ciUserApiServices() {
 
 **Surface:** `with appServices { … }` where `appServices` is an existing handler struct (`AppServices`) with implicit field→requirement projection — **no** explicit Provider shape literal.
 
-**Conflicts with [ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)** — wiring must be an expression assignable to an **Provider** (shape literal, typed fixture return, etc.), not struct forwarding sugar.
+**Conflicts with [ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)** — wiring must be an expression assignable to a **Provider** (shape literal, typed fixture return, etc.), not struct forwarding sugar.
 
 Not recommended — listed for completeness. Brownfield connection stays a hand-written conversion to `{ Logger: appServices.Logger, … }` or a fixture function ([Q6](./10-needs-map-typing-options.md#questions-to-answer)).
 
