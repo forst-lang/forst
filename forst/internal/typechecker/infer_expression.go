@@ -253,6 +253,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				if err != nil {
 					return nil, err
 				}
+				callSpan := e.CallSpan
+				if !callSpan.IsSet() {
+					callSpan = e.Function.Span
+				}
+				tc.recordCrossPackageCall(pkgName, ast.Identifier(funcName), callSpan)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}

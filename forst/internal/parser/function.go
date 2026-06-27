@@ -271,7 +271,7 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 
 	node := ast.FunctionNode{
 		Receiver:    receiver,
-		Ident:       ast.Ident{ID: ast.Identifier(name.Value)},
+		Ident:       ast.Ident{ID: ast.Identifier(name.Value), Span: ast.SpanFromToken(name)},
 		ReturnTypes: returnType,
 		Params:      params,
 		Body:        body,

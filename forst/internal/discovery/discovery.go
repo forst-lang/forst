@@ -28,6 +28,10 @@ type FunctionInfo struct {
 	ReturnType         string          `json:"returnType"`
 	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
 	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
+	// Usables lists root contract idents in Usables(f) (ordered); empty when runnable.
+	Usables []string `json:"usables,omitempty"`
+	// Runnable is true iff Usables(f) is empty — eligible for TS/sidecar export.
+	Runnable bool `json:"runnable,omitempty"`
 	// IsResult and the result* fields apply when the sole return type is Result(Success, Failure).
 	IsResult          bool   `json:"isResult,omitempty"`
 	ResultSuccessType string `json:"resultSuccessType,omitempty"`
@@ -103,6 +107,10 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 
 	totalFunctions := 0
 	goRoot := goload.FindModuleRoot(d.rootDir)
+	modulePath := goload.ModulePath(goRoot)
+
+	perPkgTC := make(map[string]*typechecker.TypeChecker)
+	perPkgUsables := make(map[string]map[ast.Identifier][]typechecker.UsableSlot)
 
 	for packageName, paths := range byPackage {
 		sort.Strings(paths)
@@ -117,7 +125,24 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 		if err := tc.CheckTypes(merged); err != nil {
 			d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
 		}
+		perPkgTC[packageName] = tc
+		perPkgUsables[packageName] = cloneFunctionUsables(tc.FunctionUsables)
+	}
 
+	importPathToForstPkg := BuildForstPackageImportPaths(goRoot, modulePath, byPackage)
+	var moduleCrossCalls []typechecker.ModuleCrossCall
+	for packageName, tc := range perPkgTC {
+		moduleCrossCalls = append(moduleCrossCalls, typechecker.BuildModuleCrossCalls(packageName, tc, importPathToForstPkg)...)
+	}
+	typechecker.PropagateModuleUsablesFixedPoint(perPkgUsables, moduleCrossCalls)
+	for packageName, slots := range perPkgUsables {
+		if tc := perPkgTC[packageName]; tc != nil {
+			tc.FunctionUsables = slots
+		}
+	}
+
+	for packageName, paths := range byPackage {
+		tc := perPkgTC[packageName]
 		for _, filePath := range paths {
 			fileFunctions := d.discoverFunctionsInParsedFile(parsed[filePath], filePath, packageName, tc)
 			if len(fileFunctions) == 0 {
@@ -140,6 +165,28 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 		}
 	}
 	return functions, nil
+}
+
+// DiscoverUsablesJSONV1 discovers public functions and returns SPEC § Discovery JSON v1 Usables metadata.
+func (d *Discoverer) DiscoverUsablesJSONV1() (UsablesDiscoveryV1, error) {
+	functions, err := d.DiscoverFunctions()
+	if err != nil {
+		return UsablesDiscoveryV1{}, err
+	}
+	return BuildUsablesDiscoveryV1(functions), nil
+}
+
+func cloneFunctionUsables(src map[ast.Identifier][]typechecker.UsableSlot) map[ast.Identifier][]typechecker.UsableSlot {
+	if len(src) == 0 {
+		return make(map[ast.Identifier][]typechecker.UsableSlot)
+	}
+	out := make(map[ast.Identifier][]typechecker.UsableSlot, len(src))
+	for fn, slots := range src {
+		copied := make([]typechecker.UsableSlot, len(slots))
+		copy(copied, slots)
+		out[fn] = copied
+	}
+	return out
 }
 
 func discoveryLogrusOrDiscard(log Logger) *logrus.Logger {

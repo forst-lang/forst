@@ -1335,3 +1335,135 @@ func main() {
 		t.Fatalf("expected map index hover, got %q", val)
 	}
 }
+
+func TestFindHoverForPosition_functionUsablesRequirement(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module usables_hover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "usables_fn_hover.ft")
+	const src = `package main
+
+type Logger = { info(msg String) }
+
+func expireToken() {
+	use logger: Logger
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	var fnTok *ast.Token
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenIdentifier && tok.Value == "expireToken" {
+			fnTok = tok
+			break
+		}
+	}
+	if fnTok == nil {
+		t.Fatal("no expireToken token")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: fnTok.Line - 1, Character: fnTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on expireToken")
+	}
+	if !strings.Contains(h.Contents.Value, "**Usables:**") || !strings.Contains(h.Contents.Value, "Logger") {
+		t.Fatalf("expected Usables hover, got %q", h.Contents.Value)
+	}
+}
+
+func TestFindHoverForPosition_withEffectiveAmbientNested(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module usables_hover\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ft := filepath.Join(dir, "usables_with_hover.ft")
+	const src = `package main
+
+import "testing"
+
+type Logger = { info(msg String) }
+type Clock = { now(): Int }
+
+type NopLogger = {}
+type FakeClock = { fixedMs: Int }
+
+func (NopLogger) info(msg String) {}
+func (c FakeClock) now(): Int { return c.fixedMs }
+
+func TestNestedWith(t *testing.T) {
+	with {
+		Logger: &NopLogger {},
+		Clock:  &FakeClock { fixedMs: 1 },
+	} {
+		with { Clock: &FakeClock { fixedMs: 2 } } {
+		}
+	}
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	ctx, ok := s.analyzeForstDocument(uri)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	if ctx.CheckErr != nil {
+		t.Fatalf("check: %v", ctx.CheckErr)
+	}
+	var innerWithTok *ast.Token
+	withCount := 0
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type != ast.TokenWith {
+			continue
+		}
+		withCount++
+		if withCount == 2 {
+			innerWithTok = tok
+			break
+		}
+	}
+	if innerWithTok == nil {
+		t.Fatal("no inner with token")
+	}
+	h := s.findHoverForPosition(uri, LSPPosition{Line: innerWithTok.Line - 1, Character: innerWithTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on inner with")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "**Effective ambient:**") {
+		t.Fatalf("expected effective ambient hover, got %q", val)
+	}
+	if !strings.Contains(val, "Logger") || !strings.Contains(val, "Clock") {
+		t.Fatalf("expected Logger and Clock in ambient, got %q", val)
+	}
+}

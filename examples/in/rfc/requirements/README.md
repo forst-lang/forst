@@ -35,7 +35,7 @@ Specifications for **function requirements** (capabilities): how Forst functions
 | **[03 — Critique & alternatives](./03-design-critique-and-alternatives.md)** | Critical review of 01 — overlap with Go, naming, shape-based types. Historical; 04 consolidates actionable conclusions. |
 | **[01 — Normative spec](./01-normative-spec.md)** | Consolidated v0 design (`requirement` + `require` + `provide`) — **historical target** until implementation follows 04. |
 | **[00 — Prior art](./00-prior-art.md)** | Research reference — Effect/ZIO, Unison, Rust, Go, Kotlin context, codebase audit. **Not normative.** |
-| **[02 — Examples](./02-examples.ft)** | Minimal Forst source showcasing v0 syntax (may not compile until implemented). |
+| **[02 — Examples](./usables.ft)** | Minimal compiling Usables showcase (`use` / `with` / nested transitive `with`). |
 
 ### Competing designs (archived proposals)
 

@@ -308,6 +308,12 @@ func TestX(t *testing.T) {
 	if !strings.Contains(diag.Msg, "Logger") {
 		t.Fatalf("message should mention Logger: %q", diag.Msg)
 	}
+	if !strings.Contains(diag.Msg, "TestX → needsLogger") {
+		t.Fatalf("message should include obligation chain: %q", diag.Msg)
+	}
+	if len(diag.Related) < 2 {
+		t.Fatalf("expected related diagnostics for obligation chain, got %d", len(diag.Related))
+	}
 }
 
 func TestUsables_diagnostic_unsatisfiedWiringRoot(t *testing.T) {
@@ -377,6 +383,54 @@ func TestX(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected unused Clock warning, got warnings: %+v", tc.Warnings)
+	}
+}
+
+func TestUsables_unusedKey_detectsCallInAssignment(t *testing.T) {
+	src := `package main
+
+import "testing"
+
+type Logger = { info(msg String) }
+type Clock = { now(): Int }
+
+type NopLogger = {}
+type FakeClock = { fixedMs: Int }
+
+func (NopLogger) info(msg String) {}
+func (c FakeClock) now(): Int { return c.fixedMs }
+
+func expireToken() {
+	use logger: Logger
+}
+
+func TestAssignCall(t *testing.T) {
+	with {
+		Logger: &NopLogger {},
+		Clock:  &FakeClock { fixedMs: 1 },
+	} {
+		_ := expireToken()
+	}
+}
+`
+	tc, err := parseAndCheck(t, src)
+	if err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	for _, w := range tc.Warnings {
+		if w.Code == "usables-unused-key" && strings.Contains(w.Msg, "Logger") {
+			t.Fatalf("Logger should be required via assignment call, got warning: %s", w.Msg)
+		}
+	}
+	foundClockUnused := false
+	for _, w := range tc.Warnings {
+		if w.Code == "usables-unused-key" && strings.Contains(w.Msg, "Clock") {
+			foundClockUnused = true
+			break
+		}
+	}
+	if !foundClockUnused {
+		t.Fatalf("expected unused Clock warning, got: %+v", tc.Warnings)
 	}
 }
 
@@ -450,5 +504,32 @@ func TestX(t *testing.T) {
 	}
 	if len(tc.FunctionUsables["TestX"]) != 0 {
 		t.Fatalf("*testing.T param should not appear in Usables, got %v", tc.FunctionUsables["TestX"])
+	}
+}
+
+func TestUsables_sidecarExport_errorsOnPublicWithUsables(t *testing.T) {
+	src := `package main
+
+type Logger = { info(msg String) }
+
+func PublicApi() {
+	use logger: Logger
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected sidecar export error")
+	}
+	diag, ok := err.(*Diagnostic)
+	if !ok || diag.Code != "usables-sidecar-export" {
+		t.Fatalf("got %v", err)
 	}
 }

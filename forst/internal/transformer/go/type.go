@@ -27,6 +27,14 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		if len(n.TypeParams) == 0 {
 			return nil, fmt.Errorf("pointer type must have a base type parameter")
 		}
+		if ast.IsTestingTParamType(n) {
+			return &goast.StarExpr{
+				X: &goast.SelectorExpr{
+					X:   goast.NewIdent("testing"),
+					Sel: goast.NewIdent("T"),
+				},
+			}, nil
+		}
 		baseType, err := t.transformType(n.TypeParams[0])
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform pointer base type: %s", err)

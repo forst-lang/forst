@@ -71,6 +71,9 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.FunctionNode:
+			if !ShouldEmitFunctionToTypeScript(n, t.TypeChecker) {
+				continue
+			}
 			funcResult, err := t.transformFunction(n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)

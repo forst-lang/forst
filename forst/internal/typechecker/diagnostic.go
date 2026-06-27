@@ -8,9 +8,16 @@ import (
 
 // Diagnostic is a type-check error with an optional source span for editors and LSP.
 type Diagnostic struct {
+	Msg     string
+	Span    ast.SourceSpan
+	Code    string
+	Related []RelatedDiagnostic
+}
+
+// RelatedDiagnostic links a primary diagnostic to another source location (e.g. Usables obligation chain).
+type RelatedDiagnostic struct {
 	Msg  string
 	Span ast.SourceSpan
-	Code string
 }
 
 func (d *Diagnostic) Error() string {
@@ -59,5 +66,14 @@ func diagnosticf(span ast.SourceSpan, code, format string, a ...interface{}) err
 		Msg:  fmt.Sprintf(format, a...),
 		Span: span,
 		Code: code,
+	}
+}
+
+func diagnosticfRelated(span ast.SourceSpan, code string, related []RelatedDiagnostic, format string, a ...interface{}) error {
+	return &Diagnostic{
+		Msg:     fmt.Sprintf(format, a...),
+		Span:    span,
+		Code:    code,
+		Related: related,
 	}
 }

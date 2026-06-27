@@ -50,6 +50,7 @@ func (tc *TypeChecker) initUsablesInference() {
 	tc.ambientStack = nil
 	tc.pendingWithChecks = nil
 	tc.Warnings = nil
+	tc.crossPackageCallSites = nil
 }
 
 func (tc *TypeChecker) seedKnownUsableRootsFromTypes() {
@@ -379,7 +380,7 @@ func (tc *TypeChecker) ambientSatisfiesSlot(slot UsableSlot, ambient map[string]
 	return tc.IsTypeCompatible(contract, slot.ContractType) || tc.IsTypeCompatible(slot.ContractType, contract)
 }
 
-func (tc *TypeChecker) checkCallUsablesSatisfied(callee ast.Identifier, ambient map[string]ast.TypeNode, span ast.SourceSpan) error {
+func (tc *TypeChecker) checkCallUsablesSatisfied(caller, callee ast.Identifier, ambient map[string]ast.TypeNode, span ast.SourceSpan) error {
 	slots := tc.FunctionUsables[callee]
 	var missing []string
 	for _, slot := range slots {
@@ -390,8 +391,25 @@ func (tc *TypeChecker) checkCallUsablesSatisfied(callee ast.Identifier, ambient 
 	if len(missing) == 0 {
 		return nil
 	}
-	return diagnosticf(span, "usables-unsatisfied",
-		"%s requires %s; not supplied\n  required by: %s", callee, strings.Join(missing, ", "), callee)
+	return diagnosticfRelated(span, "usables-unsatisfied", tc.usablesObligationRelated(caller, callee),
+		"%s requires %s; not supplied\n  required by: %s", callee, strings.Join(missing, ", "), CallSiteObligationChain(caller, callee, tc.FunctionUsables[callee]))
+}
+
+func (tc *TypeChecker) usablesObligationRelated(caller, callee ast.Identifier) []RelatedDiagnostic {
+	var related []RelatedDiagnostic
+	if sig, ok := tc.Functions[caller]; ok && sig.Ident.Span.IsSet() {
+		related = append(related, RelatedDiagnostic{
+			Msg:  "caller " + string(caller),
+			Span: sig.Ident.Span,
+		})
+	}
+	if sig, ok := tc.Functions[callee]; ok && sig.Ident.Span.IsSet() {
+		related = append(related, RelatedDiagnostic{
+			Msg:  string(callee) + " declares Usables requirements",
+			Span: sig.Ident.Span,
+		})
+	}
+	return related
 }
 
 func (tc *TypeChecker) recordFunctionCall(callee ast.Identifier, span ast.SourceSpan) {
@@ -469,10 +487,30 @@ func (tc *TypeChecker) checkUnusedWiringKeys(check pendingWithCheck) {
 
 func (tc *TypeChecker) collectRequiredUsableRootsFromNode(node ast.Node, out map[string]struct{}) {
 	switch n := node.(type) {
+	case ast.AssignmentNode:
+		for _, rv := range n.RValues {
+			tc.collectRequiredUsableRootsFromExpr(rv, out)
+		}
+	case ast.ReturnNode:
+		for _, v := range n.Values {
+			tc.collectRequiredUsableRootsFromExpr(v, out)
+		}
+	case ast.DeferNode:
+		tc.collectRequiredUsableRootsFromExpr(n.Call, out)
+	case *ast.DeferNode:
+		if n != nil {
+			tc.collectRequiredUsableRootsFromExpr(n.Call, out)
+		}
+	case ast.GoStmtNode:
+		tc.collectRequiredUsableRootsFromExpr(n.Call, out)
+	case *ast.GoStmtNode:
+		if n != nil {
+			tc.collectRequiredUsableRootsFromExpr(n.Call, out)
+		}
 	case ast.FunctionCallNode:
-		callee := n.Function.ID
-		for _, slot := range tc.FunctionUsables[callee] {
-			out[string(slot.RootIdent)] = struct{}{}
+		tc.recordRequiredUsableRootsForCallee(n.Function.ID, out)
+		for _, arg := range n.Arguments {
+			tc.collectRequiredUsableRootsFromExpr(arg, out)
 		}
 	case ast.WithNode:
 		for _, child := range n.Body {
@@ -502,6 +540,101 @@ func (tc *TypeChecker) collectRequiredUsableRootsFromNode(node ast.Node, out map
 			}
 		}
 	}
+}
+
+func (tc *TypeChecker) collectRequiredUsableRootsFromExpr(expr ast.ExpressionNode, out map[string]struct{}) {
+	if expr == nil {
+		return
+	}
+	switch e := expr.(type) {
+	case ast.FunctionCallNode:
+		tc.recordRequiredUsableRootsForCallee(e.Function.ID, out)
+		for _, arg := range e.Arguments {
+			tc.collectRequiredUsableRootsFromExpr(arg, out)
+		}
+	case *ast.FunctionCallNode:
+		if e != nil {
+			tc.recordRequiredUsableRootsForCallee(e.Function.ID, out)
+			for _, arg := range e.Arguments {
+				tc.collectRequiredUsableRootsFromExpr(arg, out)
+			}
+		}
+	case ast.BinaryExpressionNode:
+		tc.collectRequiredUsableRootsFromExpr(e.Left, out)
+		tc.collectRequiredUsableRootsFromExpr(e.Right, out)
+	case ast.UnaryExpressionNode:
+		tc.collectRequiredUsableRootsFromExpr(e.Operand, out)
+	case ast.IndexExpressionNode:
+		tc.collectRequiredUsableRootsFromExpr(e.Target, out)
+		tc.collectRequiredUsableRootsFromExpr(e.Index, out)
+	case ast.ReferenceNode:
+		if v, ok := e.Value.(ast.ExpressionNode); ok {
+			tc.collectRequiredUsableRootsFromExpr(v, out)
+		}
+	case ast.DereferenceNode:
+		tc.collectRequiredUsableRootsFromValue(e.Value, out)
+	case ast.ShapeNode:
+		for _, field := range e.Fields {
+			if v, ok := field.ValueExpression(); ok {
+				tc.collectRequiredUsableRootsFromExpr(v, out)
+			}
+		}
+	case ast.ArrayLiteralNode:
+		for _, el := range e.Value {
+			tc.collectRequiredUsableRootsFromValue(el, out)
+		}
+	case ast.MapLiteralNode:
+		for _, entry := range e.Entries {
+			tc.collectRequiredUsableRootsFromValue(entry.Key, out)
+			tc.collectRequiredUsableRootsFromValue(entry.Value, out)
+		}
+	case ast.OkExprNode:
+		tc.collectRequiredUsableRootsFromExpr(e.Value, out)
+	case ast.ErrExprNode:
+		tc.collectRequiredUsableRootsFromExpr(e.Value, out)
+	case ast.AssertionNode:
+		for _, c := range e.Constraints {
+			for _, arg := range c.Args {
+				if arg.Shape != nil {
+					for _, field := range arg.Shape.Fields {
+						if v, ok := field.ValueExpression(); ok {
+							tc.collectRequiredUsableRootsFromExpr(v, out)
+						}
+					}
+				}
+				if arg.Value != nil {
+					tc.collectRequiredUsableRootsFromValue(*arg.Value, out)
+				}
+			}
+		}
+	}
+}
+
+func (tc *TypeChecker) collectRequiredUsableRootsFromValue(v ast.ValueNode, out map[string]struct{}) {
+	if v == nil {
+		return
+	}
+	if expr, ok := v.(ast.ExpressionNode); ok {
+		tc.collectRequiredUsableRootsFromExpr(expr, out)
+	}
+}
+
+func (tc *TypeChecker) recordRequiredUsableRootsForCallee(callee ast.Identifier, out map[string]struct{}) {
+	for _, slot := range tc.FunctionUsables[callee] {
+		out[string(slot.RootIdent)] = struct{}{}
+	}
+}
+
+// UsableRootIdentsFromSlots returns ordered root contract idents for discovery JSON / LSP.
+func UsableRootIdentsFromSlots(slots []UsableSlot) []string {
+	if len(slots) == 0 {
+		return nil
+	}
+	out := make([]string, len(slots))
+	for i, s := range slots {
+		out[i] = string(s.RootIdent)
+	}
+	return out
 }
 
 func orderUsableSlots(slots []UsableSlot) []UsableSlot {
@@ -624,7 +757,25 @@ func (tc *TypeChecker) validateCallSite(caller ast.Identifier, site callSiteReco
 	if !tc.isWiringRootIdent(caller) && tc.callerForwardsUsables(caller, site.Callee) {
 		return nil
 	}
-	return tc.checkCallUsablesSatisfied(site.Callee, site.AmbientKeys, site.Span)
+	return tc.checkCallUsablesSatisfied(caller, site.Callee, site.AmbientKeys, site.Span)
+}
+
+// EffectiveAmbientKeys merges wiring from nested with-blocks and returns sorted root keys available in that scope.
+func (tc *TypeChecker) EffectiveAmbientKeys(chain []ast.WithNode) ([]string, error) {
+	var merged Ambient
+	for _, w := range chain {
+		amb, err := tc.ambientFromWiringExpr(w.Wiring, w.Span)
+		if err != nil {
+			return nil, err
+		}
+		merged = tc.mergeAmbient(merged, amb)
+	}
+	keys := make([]string, 0, len(merged.keys))
+	for k := range merged.keys {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys, nil
 }
 
 func (tc *TypeChecker) ambientSatisfiesAllSlots(ambient map[string]ast.TypeNode, slots []UsableSlot) bool {
@@ -665,6 +816,47 @@ func obligationChain(root ast.Identifier, slots []UsableSlot) string {
 	return strings.Join(parts, " → ")
 }
 
+// UsablesObligationChain formats root → …usable roots for diagnostics and LSP.
+func UsablesObligationChain(root ast.Identifier, slots []UsableSlot) string {
+	return obligationChain(root, slots)
+}
+
+// CallSiteObligationChain formats caller → callee → …usable roots at a call site.
+func CallSiteObligationChain(caller, callee ast.Identifier, slots []UsableSlot) string {
+	parts := []string{string(caller), string(callee)}
+	seen := map[string]struct{}{string(caller): {}, string(callee): {}}
+	for _, slot := range slots {
+		name := string(slot.RootIdent)
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		parts = append(parts, name)
+	}
+	return strings.Join(parts, " → ")
+}
+
+func (tc *TypeChecker) validateSidecarExportable(nodes []ast.Node) error {
+	for _, node := range nodes {
+		fn, ok := node.(ast.FunctionNode)
+		if !ok {
+			continue
+		}
+		if fn.Receiver != nil || !ast.IsPublicExportIdent(fn.Ident.ID) {
+			continue
+		}
+		slots := tc.FunctionUsables[fn.Ident.ID]
+		if len(slots) == 0 {
+			continue
+		}
+		roots := UsableRootIdentsFromSlots(slots)
+		return diagnosticf(fn.Ident.Span, "usables-sidecar-export",
+			"cannot export %s to TypeScript/sidecar: requires %s; wire at a host entry point first",
+			fn.Ident.ID, strings.Join(roots, ", "))
+	}
+	return nil
+}
+
 func (tc *TypeChecker) finishUsablesChecking(nodes []ast.Node) error {
 	tc.computeUsablesFixedPoint()
 
@@ -674,6 +866,10 @@ func (tc *TypeChecker) finishUsablesChecking(nodes []ast.Node) error {
 
 	for _, check := range tc.pendingWithChecks {
 		tc.checkUnusedWiringKeys(check)
+	}
+
+	if err := tc.validateSidecarExportable(nodes); err != nil {
+		return err
 	}
 
 	for _, node := range nodes {
@@ -693,9 +889,30 @@ func (tc *TypeChecker) finishUsablesChecking(nodes []ast.Node) error {
 			names[i] = string(s.RootIdent)
 		}
 		chain := obligationChain(fn.Ident.ID, slots)
-		return diagnosticf(fn.Ident.Span, "usables-unsatisfied",
+		return diagnosticfRelated(fn.Ident.Span, "usables-unsatisfied", tc.usablesWiringRootRelated(fn.Ident.ID),
 			"%s requires %s; not supplied at wiring root\n  required by: %s",
 			fn.Ident.ID, strings.Join(names, ", "), chain)
 	}
 	return nil
+}
+
+func (tc *TypeChecker) usablesWiringRootRelated(rootFn ast.Identifier) []RelatedDiagnostic {
+	var related []RelatedDiagnostic
+	seen := make(map[ast.Identifier]struct{})
+	for _, site := range tc.functionCallSites[rootFn] {
+		if len(tc.FunctionUsables[site.Callee]) == 0 {
+			continue
+		}
+		if _, ok := seen[site.Callee]; ok {
+			continue
+		}
+		seen[site.Callee] = struct{}{}
+		if sig, ok := tc.Functions[site.Callee]; ok && sig.Ident.Span.IsSet() {
+			related = append(related, RelatedDiagnostic{
+				Msg:  string(site.Callee) + " declares Usables requirements",
+				Span: sig.Ident.Span,
+			})
+		}
+	}
+	return related
 }

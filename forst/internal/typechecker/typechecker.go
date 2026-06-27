@@ -85,10 +85,11 @@ type TypeChecker struct {
 	knownUsableRoots      map[string]ast.TypeNode
 	ambientStack          []Ambient
 	pendingWithChecks     []pendingWithCheck
+	crossPackageCallSites []crossPackageCallRecord
 	Warnings              []Diagnostic
 }
 
-// New creates a new TypeChecker
+// New creates a new TypeChecker.
 func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 	if log == nil {
 		log = logrus.New()

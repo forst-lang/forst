@@ -1,6 +1,9 @@
 package ast
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // IsTestingTParamType reports whether t is *testing.T (or a pointer to a qualified testing.T).
 func IsTestingTParamType(t TypeNode) bool {
@@ -24,6 +27,15 @@ func IsUsablesWiringRoot(fnIdent Identifier, paramTypes []TypeNode) bool {
 		return true
 	}
 	return IsTestingTParamType(paramTypes[0])
+}
+
+// IsPublicExportIdent reports whether id is an exported (public) Forst identifier (uppercase initial).
+func IsPublicExportIdent(id Identifier) bool {
+	s := string(id)
+	if s == "" {
+		return false
+	}
+	return unicode.IsUpper(rune(s[0]))
 }
 
 // ParamTypesFromFunction collects parameter types from simple params (skips destructured).

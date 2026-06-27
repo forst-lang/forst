@@ -53,6 +53,15 @@ func TestIsUsablesWiringRoot(t *testing.T) {
 	}
 }
 
+func TestIsPublicExportIdent(t *testing.T) {
+	if !IsPublicExportIdent("Handle") {
+		t.Fatal("Handle is public")
+	}
+	if IsPublicExportIdent("handle") {
+		t.Fatal("handle is not public")
+	}
+}
+
 func TestIsTestingTParamType(t *testing.T) {
 	ptr := TypeNode{
 		Ident:      TypePointer,
