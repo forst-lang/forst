@@ -644,16 +644,8 @@ func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
 }
 
 func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module hoverlsp\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	const src = "package main\n\nimport \"fmt\"\n\nfunc main() {\n  fmt.Println(\"x\")\n}\n"
-	ftPath := filepath.Join(dir, "main.ft")
-	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ftPath)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	server.documentMu.Lock()

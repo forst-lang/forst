@@ -90,4 +90,18 @@ func TestLoadByPkgPath_os(t *testing.T) {
 	}
 }
 
+func TestLoadByPkgPath_cacheHit(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	m1, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m1["fmt"] != m2["fmt"] {
+		t.Fatal("expected cached fmt package pointer")
+	}
+}
 

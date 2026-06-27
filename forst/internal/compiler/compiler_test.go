@@ -6,8 +6,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
+func testCompilerLogger() *logrus.Logger {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	log.SetLevel(logrus.ErrorLevel)
+	return log
+}
+
+// TestProgramCompilation smoke-checks compile; full examples/in matrix lives in cmd/forst TestExamples.
 func TestProgramCompilation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -20,81 +30,6 @@ func TestProgramCompilation(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "valid loop program",
-			filePath: "../../../examples/in/loop.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "union of nominal errors typedef",
-			filePath: "../../../examples/in/union_error_types.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "union of nominal errors with if-branch narrowing",
-			filePath: "../../../examples/in/union_error_narrowing.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "result ensure",
-			filePath: "../../../examples/in/result_ensure.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "generics builtins",
-			filePath: "../../../examples/in/generics.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "ensure statements",
-			filePath: "../../../examples/in/ensure.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "pointers",
-			filePath: "../../../examples/in/pointers.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "go builtins",
-			filePath: "../../../examples/in/go_builtins.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "basic function",
-			filePath: "../../../examples/in/basic_function.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "result if narrowing",
-			filePath: "../../../examples/in/result_if.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "nominal error",
-			filePath: "../../../examples/in/nominal_error.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "loop forms",
-			filePath: "../../../examples/in/loop.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "union error types",
-			filePath: "../../../examples/in/union_error_types.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "echo",
-			filePath: "../../../examples/in/echo.ft",
-			wantErr:  false,
-		},
-		{
-			name:     "map catalog result",
-			filePath: "../../../examples/in/map_catalog.ft",
-			wantErr:  false,
-		},
-		{
 			name:     "non-existent file",
 			filePath: "nonexistent.ft",
 			wantErr:  true,
@@ -102,11 +37,14 @@ func TestProgramCompilation(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := New(Args{
 				Command:  "run",
 				FilePath: tt.filePath,
-			}, nil)
+				LogLevel: "error",
+			}, testCompilerLogger())
 
 			code, err := c.CompileFile()
 			if (err != nil) != tt.wantErr {

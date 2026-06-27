@@ -63,11 +63,6 @@ func TestTypeDefHoverMarkdown_nominalError(t *testing.T) {
 
 func TestFindHoverForPosition_errorDotError(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module errhover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "err_hover.ft")
 	const src = `package main
 
 import "fmt"
@@ -83,10 +78,7 @@ func main() {
 	}
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -131,11 +123,6 @@ func main() {
 
 func TestFindHoverForPosition_errMoveDotError(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module errhover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "err_move_hover.ft")
 	const src = `package main
 
 import "errors"
@@ -145,10 +132,7 @@ func main() {
 	println(errMove.Error())
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1051,11 +1035,6 @@ func f(): Void {
 
 func TestFindHoverForPosition_importDotImportPathStringLiteral(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "dot_imp.ft")
 	const src = `package main
 
 import . "strings"
@@ -1064,10 +1043,7 @@ func main() {
 	println(Contains("a", "b"))
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1107,11 +1083,6 @@ func main() {
 
 func TestFindHoverForPosition_dotImportUnqualifiedFunc(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "dot_fn.ft")
 	const src = `package main
 
 import . "strings"
@@ -1120,10 +1091,7 @@ func main() {
 	println(Contains("a", "b"))
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1162,11 +1130,6 @@ func main() {
 
 func TestFindHoverForPosition_aliasedImportPathStringLiteral(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module imphover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "alias_imp.ft")
 	const src = `package main
 
 import f "fmt"
@@ -1175,10 +1138,7 @@ func main() {
 	f.Println("x")
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1217,11 +1177,6 @@ func main() {
 
 func TestFindHoverForPosition_regularImportQualifiedCall(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module regimp\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "reg_str.ft")
 	const src = `package main
 
 import "strings"
@@ -1230,10 +1185,7 @@ func main() {
 	println(strings.Contains("a", "b"))
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1338,11 +1290,6 @@ func main() {
 
 func TestFindHoverForPosition_functionProvidersRequirement(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_hover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "providers_fn_hover.ft")
 	const src = `package main
 
 type Logger = { info(msg String) }
@@ -1351,10 +1298,7 @@ func expireToken() {
 	use logger: Logger
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1392,11 +1336,6 @@ func expireToken() {
 
 func TestFindHoverForPosition_withEffectiveScopeNested(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_hover\n\ngo 1.23\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ft := filepath.Join(dir, "providers_with_hover.ft")
 	const src = `package main
 
 import "testing"
@@ -1420,10 +1359,7 @@ func TestNestedWith(t *testing.T) {
 	}
 }
 `
-	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	uri := mustFileURI(t, ft)
+	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
