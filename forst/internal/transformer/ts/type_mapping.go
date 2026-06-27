@@ -2,6 +2,7 @@ package transformerts
 
 import (
 	"fmt"
+	"forst/gateway"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	"sort"
@@ -113,6 +114,10 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 	// Check user-defined types first
 	if tsType, exists := tm.userTypes[string(forstType.Ident)]; exists {
 		return tsType, nil
+	}
+
+	if ts, ok := gateway.TypeScriptEmitType(string(forstType.Ident)); ok {
+		return ts, nil
 	}
 
 	if forstType.Ident == ast.TypeImplicit {

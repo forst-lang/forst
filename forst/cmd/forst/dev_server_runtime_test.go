@@ -1,34 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"forst/internal/discovery"
+	"forst/internal/devserver"
 
 	"github.com/sirupsen/logrus"
 )
-
-func TestDevServer_Stop_nilServerNoop(t *testing.T) {
-	s := &DevServer{}
-	if err := s.Stop(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestDevServer_Stop_nonNilServerClosePath(t *testing.T) {
-	// A non-started http.Server still exercises the non-nil branch in Stop().
-	s := &DevServer{server: &http.Server{}}
-	if err := s.Stop(); err != nil {
-		t.Fatalf("expected nil close error for empty server, got %v", err)
-	}
-}
 
 func TestLoadAndValidateConfig_overridesPortAndLogLevel(t *testing.T) {
 	dir := t.TempDir()
@@ -135,41 +117,6 @@ func TestLoadAndValidateConfig_invalidLogLevelExits(t *testing.T) {
 	}
 }
 
-func TestDevServer_Start_invalidPortReturnsError_andInitializesTypesGenerator(t *testing.T) {
-	s := testDevServer(t)
-	s.port = "invalid-port"
-	err := s.Start()
-	if err == nil {
-		t.Fatal("expected start error for invalid port")
-	}
-	if s.typesGenerator == nil {
-		t.Fatal("expected types generator initialization before listen failure")
-	}
-}
-
-func TestDevServer_logStartupInfo_includesEndpoints(t *testing.T) {
-	s := testDevServer(t)
-	buf := &bytes.Buffer{}
-	s.log.SetOutput(buf)
-	s.port = "8080"
-
-	s.logStartupInfo()
-
-	output := buf.String()
-	for _, fragment := range []string{
-		"HTTP server listening on port 8080",
-		"GET  /functions",
-		"POST /invoke",
-		"GET  /types",
-		"GET  /health",
-		"GET  /version",
-	} {
-		if !strings.Contains(output, fragment) {
-			t.Fatalf("startup log missing %q in output:\n%s", fragment, output)
-		}
-	}
-}
-
 func TestStartDevServer_helperProcess(t *testing.T) {
 	helperCase := os.Getenv("FORST_START_DEVSERVER_HELPER_CASE")
 	if helperCase == "" {
@@ -209,7 +156,7 @@ func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
 
 func TestStartDevServer_returnsNilWhenStartHookSucceeds(t *testing.T) {
 	orig := devServerStartFn
-	devServerStartFn = func(*DevServer) error { return nil }
+	devServerStartFn = func(*devserver.DevServer) error { return nil }
 	t.Cleanup(func() { devServerStartFn = orig })
 
 	logger := logrus.New()
@@ -217,70 +164,5 @@ func TestStartDevServer_returnsNilWhenStartHookSucceeds(t *testing.T) {
 	level := "info"
 	if err := StartDevServer("8080", logger, "", t.TempDir(), &level); err != nil {
 		t.Fatalf("expected nil when start hook succeeds, got %v", err)
-	}
-}
-
-func TestDevServer_discoverFunctions_successUpdatesCache(t *testing.T) {
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	rootDir := t.TempDir()
-	cfg := DefaultConfig()
-
-	s := &DevServer{
-		log:        log,
-		discoverer: discovery.NewDiscoverer(rootDir, log, cfg),
-		functions: map[string]map[string]discovery.FunctionInfo{
-			"stale": {
-				"Old": {Package: "stale", Name: "Old"},
-			},
-		},
-	}
-
-	if err := s.discoverFunctions(); err != nil {
-		t.Fatalf("discoverFunctions success path returned error: %v", err)
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.functions == nil {
-		t.Fatal("expected functions map to be set")
-	}
-	if _, ok := s.functions["stale"]; ok {
-		t.Fatalf("expected stale map to be replaced by fresh discovery result, got %+v", s.functions)
-	}
-}
-
-func TestDevServer_Start_logsWarningWhenInitialDiscoveryFails(t *testing.T) {
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	s := testDevServer(t)
-	s.log = log
-	s.port = "invalid-port"
-	// nil config in discoverer forces initial discovery failure; Start should warn and continue to listen path.
-	s.discoverer = discovery.NewDiscoverer(t.TempDir(), log, nil)
-
-	err := s.Start()
-	if err == nil {
-		t.Fatal("expected listen error due to invalid port")
-	}
-	if s.typesGenerator == nil {
-		t.Fatal("expected types generator to be initialized even when discovery fails")
-	}
-}
-
-func TestDevServer_discoverFunctions_errorPropagates(t *testing.T) {
-	log := logrus.New()
-	log.SetOutput(io.Discard)
-	s := &DevServer{
-		log:        log,
-		discoverer: discovery.NewDiscoverer(t.TempDir(), log, nil),
-	}
-
-	err := s.discoverFunctions()
-	if err == nil {
-		t.Fatal("expected discoverFunctions error")
-	}
-	if !strings.Contains(err.Error(), "failed to discover functions") {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }

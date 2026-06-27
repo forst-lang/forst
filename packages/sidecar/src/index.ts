@@ -28,6 +28,15 @@ export * from "./errors";
 export {
   ForstSidecar,
   createExpressMiddleware,
+  createRouteToForstMiddleware,
+  isAnswer,
+  isPass,
+  type ForstRoutedAnswer,
+  type ForstRoutedRequest,
+  type ForstRoutedRequestMeta,
+  type ForstRoutedPass,
+  type ForstRoutedResponse,
+  type ForstRouteToForstOptions,
   autoStart,
 } from "./sidecar";
 export { default } from "./sidecar";

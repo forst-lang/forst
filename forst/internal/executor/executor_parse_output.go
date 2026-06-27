@@ -3,15 +3,31 @@ package executor
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // parseExecutionOutput parses the output of a function execution.
 func (e *FunctionExecutor) parseExecutionOutput(output string) (*ExecutionResult, error) {
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t := strings.TrimSpace(output)
+		if err2 := json.Unmarshal([]byte(t), &parsed); err2 != nil {
+			return &ExecutionResult{
+				Success: true,
+				Output:  output,
+			}, nil
+		}
+	}
+
+	// Executor-generated main prints {"success":false,"error":"..."} on Err (RFC §18.1).
+	if succ, ok := parsed["success"].(bool); ok && !succ {
+		msg := ""
+		if s, ok := parsed["error"].(string); ok {
+			msg = s
+		}
 		return &ExecutionResult{
-			Success: true,
-			Output:  output,
+			Success: false,
+			Error:   msg,
 		}, nil
 	}
 

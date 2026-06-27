@@ -32,6 +32,8 @@ type FunctionInfo struct {
 	IsResult          bool   `json:"isResult,omitempty"`
 	ResultSuccessType string `json:"resultSuccessType,omitempty"`
 	ResultFailureType string `json:"resultFailureType,omitempty"`
+	// IsGateway is true when the signature matches GatewayHandler (GatewayRequest -> Result(GatewayResponse, E)).
+	IsGateway bool `json:"isGateway,omitempty"`
 	FilePath          string `json:"filePath"`
 }
 
@@ -102,7 +104,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 	}
 
 	totalFunctions := 0
-	goRoot := goload.FindModuleRoot(d.rootDir)
+	goRoot := goload.GoWorkspaceForPackages(d.rootDir)
 
 	for packageName, paths := range byPackage {
 		sort.Strings(paths)

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, jest } from "bun:test";
-import { ForstSidecar } from "./sidecar";
+import { ForstSidecar } from "./forst-sidecar";
 
 describe("ForstSidecar connect mode", () => {
   const originalFetch = global.fetch;

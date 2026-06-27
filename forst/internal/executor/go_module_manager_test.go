@@ -240,7 +240,7 @@ func TestGoModuleManager_CreateGoMod(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	moduleName := "test-module"
-	err = manager.createGoMod(tempDir, moduleName)
+	err = manager.createGoMod(tempDir, moduleName, "")
 	if err != nil {
 		t.Fatalf("createGoMod failed: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestGoModuleManager_CreateGoMod_Error(t *testing.T) {
 	manager := NewGoModuleManager(nil)
 
 	// Try to create go.mod in a non-existent directory
-	err := manager.createGoMod("/non/existent/path", "test-module")
+	err := manager.createGoMod("/non/existent/path", "test-module", "")
 	if err == nil {
 		t.Error("Expected error when creating go.mod in non-existent directory")
 	}

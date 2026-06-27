@@ -125,6 +125,14 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 		return "*" + baseTypeName, nil
 	}
 
+	// Qualified Go named types imported in Forst (e.g. gateway.GatewayRequest): stable spelling for codegen.
+	if strings.Contains(string(typeNode.Ident), ".") {
+		parts := strings.Split(string(typeNode.Ident), ".")
+		if len(parts) == 2 && tc.GoQualifiedNamedTypeExists(parts[0], parts[1]) {
+			return string(typeNode.Ident), nil
+		}
+	}
+
 	// If this is a hash-based type, check for structural identity with user-defined types
 	if opts.AllowStructuralAlias && typeNode.TypeKind == ast.TypeKindHashBased {
 		// Look up the shape for this hash-based type

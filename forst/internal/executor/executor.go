@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"forst/internal/ast"
 	"forst/internal/compiler"
 	"forst/internal/configiface"
 	"forst/internal/discovery"
@@ -217,7 +218,7 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 	}
 
 	checker := typechecker.New(e.log, false)
-	checker.GoWorkspaceDir = goload.FindModuleRoot(e.rootDir)
+	checker.GoWorkspaceDir = goload.GoWorkspaceForPackages(e.rootDir)
 	if err := checker.CheckTypes(forstNodes); err != nil {
 		e.log.Error("Encountered error checking types: ", err)
 		checker.DebugPrintCurrentScope()
@@ -244,13 +245,25 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 
 	e.log.Debugf("Function %s.%s: HasMultipleReturns=%v, ReturnTypes=%v", packageName, functionName, fnInfo.HasMultipleReturns, fnInfo.ReturnTypes)
 
+	params := fnInfo.Parameters
+	if sig, ok := checker.Functions[ast.Identifier(functionName)]; ok && len(sig.Parameters) > 0 {
+		params = make([]discovery.ParameterInfo, len(sig.Parameters))
+		for i, p := range sig.Parameters {
+			typeName, err := checker.GetAliasedTypeName(p.Type, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+			if err != nil {
+				return nil, fmt.Errorf("parameter %q resolved type: %w", p.Ident.ID, err)
+			}
+			params[i] = discovery.ParameterInfo{Name: string(p.Ident.ID), Type: typeName}
+		}
+	}
+
 	return &CompiledFunction{
 		PackageName:        packageName,
 		FunctionName:       functionName,
 		GoCode:             goCode,
 		FilePath:           filePath,
 		SupportsStreaming:  fnInfo.SupportsStreaming,
-		Parameters:         fnInfo.Parameters, // Populate Parameters
+		Parameters:         params,
 		HasMultipleReturns: fnInfo.HasMultipleReturns,
 	}, nil
 }
@@ -259,7 +272,7 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
 	e.log.Debugf("createTempGoFile: compiledFn.Parameters=%v, len=%d", compiledFn.Parameters, len(compiledFn.Parameters))
 
-	config := &ModuleConfig{
+	mc := ModuleConfig{
 		ModuleName:         fmt.Sprintf("exec-%s", generateRandomString(8)),
 		PackageName:        compiledFn.PackageName,
 		FunctionName:       compiledFn.FunctionName,
@@ -270,6 +283,12 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 		IsStreaming:        false,
 		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
+	if sdk, err := goload.ForstSDKModuleRoot(e.rootDir); err != nil {
+		e.log.Debugf("Forst SDK module root not found (forst/gateway replace): %v", err)
+	} else {
+		mc.ForstModuleReplaceAbs = sdk
+	}
+	config := &mc
 
 	e.log.Debugf("ModuleConfig: SupportsParams=%v, Parameters=%v, HasMultipleReturns=%v", config.SupportsParams, config.Parameters, config.HasMultipleReturns)
 
@@ -285,7 +304,7 @@ func (e *FunctionExecutor) createTempGoFile(compiledFn *CompiledFunction, args j
 
 // createStreamingTempGoFile creates a temporary Go file for streaming execution
 func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunction, args json.RawMessage) (string, error) {
-	config := &ModuleConfig{
+	mc := ModuleConfig{
 		ModuleName:         fmt.Sprintf("streaming-%s", generateRandomString(8)),
 		PackageName:        compiledFn.PackageName,
 		FunctionName:       compiledFn.FunctionName,
@@ -296,8 +315,13 @@ func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunctio
 		IsStreaming:        true,
 		HasMultipleReturns: compiledFn.HasMultipleReturns,
 	}
+	if sdk, err := goload.ForstSDKModuleRoot(e.rootDir); err != nil {
+		e.log.Debugf("Forst SDK module root not found (forst/gateway replace): %v", err)
+	} else {
+		mc.ForstModuleReplaceAbs = sdk
+	}
 
-	return e.moduleManager.CreateModule(config)
+	return e.moduleManager.CreateModule(&mc)
 }
 
 // executeGoCode executes Go code and returns the output
@@ -337,24 +361,28 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 		_ = stdin.Close()
 		// Wait for the command to complete
 		err = cmd.Wait()
-		output := stdoutBuf.String() + stderrBuf.String()
+		out := stdoutBuf.String()
 		if err != nil {
 			e.log.Errorf("Go program failed: %v", err)
-			return "", fmt.Errorf("execution failed: %v, output (stdout+stderr): %s", err, output)
+			return "", fmt.Errorf("execution failed: %v, stderr: %s", err, stderrBuf.String())
 		}
 
-		return output, nil
+		return out, nil
 	}
 
 	e.log.Tracef("Executing Go program without args")
 	cmd = exec.Command("go", "run", ".")
 	cmd.Dir = tempDir
-	output, err := cmd.CombinedOutput()
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	err := cmd.Run()
+	out := stdoutBuf.String()
 	if err != nil {
 		e.log.Errorf("Go program failed: %v", err)
-		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("execution failed: %v, stderr: %s", err, stderrBuf.String())
 	}
-	return string(output), nil
+	return out, nil
 }
 
 // executeStreamingGoCode executes Go code with streaming support

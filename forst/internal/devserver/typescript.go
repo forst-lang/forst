@@ -1,4 +1,4 @@
-package main
+package devserver
 
 import (
 	"forst/internal/discovery"

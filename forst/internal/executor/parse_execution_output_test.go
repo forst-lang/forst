@@ -113,6 +113,21 @@ func TestFunctionExecutor_parseExecutionOutput_result_array_default_branch(t *te
 	}
 }
 
+func TestFunctionExecutor_parseExecutionOutput_invokeErrEnvelope(t *testing.T) {
+	e := &FunctionExecutor{log: logrus.New()}
+	raw := `{"success":false,"error":"bad request"}`
+	res, err := e.parseExecutionOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Success {
+		t.Fatal("expected Success false")
+	}
+	if res.Error != "bad request" {
+		t.Fatalf("Error = %q", res.Error)
+	}
+}
+
 func TestExecutionResultFromValue_intBranch(t *testing.T) {
 	res := executionResultFromValue(42)
 	if !res.Success {

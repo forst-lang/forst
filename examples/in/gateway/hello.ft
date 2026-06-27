@@ -1,0 +1,11 @@
+package gwexample
+
+import "forst/gateway"
+
+func AnswerHello(req gateway.GatewayRequest): Result(gateway.GatewayResponse, Error) {
+	return gateway.Plain200Text("hello")
+}
+
+func PassThrough(req gateway.GatewayRequest): Result(gateway.GatewayResponse, Error) {
+	return gateway.PassEmpty()
+}

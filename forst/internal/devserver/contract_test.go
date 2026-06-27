@@ -1,4 +1,4 @@
-package main
+package devserver
 
 import (
 	"encoding/json"
@@ -70,6 +70,7 @@ func TestDevServer_methodNotAllowed_returnsJSONEnvelope(t *testing.T) {
 		{"version", (*DevServer).handleVersion, http.MethodPost, "/version"},
 		{"functions", (*DevServer).handleFunctions, http.MethodPost, "/functions"},
 		{"invoke", (*DevServer).handleInvoke, http.MethodGet, "/invoke"},
+		{"invoke_raw", (*DevServer).handleInvokeRaw, http.MethodGet, "/invoke/raw"},
 		{"types", (*DevServer).handleTypes, http.MethodPost, "/types"},
 	}
 	for _, tc := range cases {

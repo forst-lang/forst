@@ -19,9 +19,9 @@ import (
 // goWorkspaceDirForCheck returns the directory used for go/packages when checking Forst↔Go imports.
 func (c *Compiler) goWorkspaceDirForCheck() string {
 	if c.Args.PackageRoot != "" {
-		return goload.FindModuleRoot(c.Args.PackageRoot)
+		return goload.GoWorkspaceForPackages(c.Args.PackageRoot)
 	}
-	return goload.FindModuleRoot(filepath.Dir(c.Args.FilePath))
+	return goload.GoWorkspaceForPackages(c.Args.FilePath)
 }
 
 // collectSamePackageFtPaths finds all .ft files under rootDir that declare the same package

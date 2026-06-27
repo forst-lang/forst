@@ -310,3 +310,29 @@ func TestTypeMapping_GetTypeScriptType_unionAndIntersection(t *testing.T) {
 		t.Fatalf("got %q", got2)
 	}
 }
+
+func TestTypeMapping_GetTypeScriptType_gatewayStdlibQualifiedNames(t *testing.T) {
+	tm := NewTypeMapping()
+	req := ast.TypeNode{
+		Ident:    "gateway.GatewayRequest",
+		TypeKind: ast.TypeKindUserDefined,
+	}
+	gotReq, err := tm.GetTypeScriptType(&req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotReq != "import('@forst/sidecar').ForstRoutedRequest" {
+		t.Fatalf("GatewayRequest: got %q", gotReq)
+	}
+	resp := ast.TypeNode{
+		Ident:    "gateway.GatewayResponse",
+		TypeKind: ast.TypeKindUserDefined,
+	}
+	gotResp, err := tm.GetTypeScriptType(&resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotResp != "import('@forst/sidecar').ForstRoutedResponse" {
+		t.Fatalf("GatewayResponse: got %q", gotResp)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
@@ -37,6 +38,7 @@ func TransformForstFileFromPath(filePath string, log *logrus.Logger, opts Transf
 	}
 
 	tc := typechecker.New(log, false)
+	tc.GoWorkspaceDir = goload.GoWorkspaceForPackages(filePath)
 	if err := tc.CheckTypes(nodes); err != nil {
 		if !opts.RelaxedTypecheck {
 			return nil, fmt.Errorf("failed to type check: %w", err)
