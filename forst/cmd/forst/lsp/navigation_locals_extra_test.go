@@ -30,21 +30,6 @@ func parseNodesAndTokensForNavigationTest(t *testing.T, src string) ([]ast.Node,
 	return nodes, tokens, tc
 }
 
-func firstForNode(t *testing.T, nodes []ast.Node) *ast.ForNode {
-	t.Helper()
-	for _, n := range nodes {
-		if fn, ok := n.(ast.FunctionNode); ok {
-			for _, stmt := range fn.Body {
-				if f, ok := stmt.(*ast.ForNode); ok {
-					return f
-				}
-			}
-		}
-	}
-	t.Fatal("no for node found")
-	return nil
-}
-
 func firstFunctionNode(t *testing.T, nodes []ast.Node) ast.FunctionNode {
 	t.Helper()
 	for _, n := range nodes {

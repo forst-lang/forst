@@ -23,7 +23,7 @@ func TestAnalyzeForstDocument_providersExample_methodContractParses(t *testing.T
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_demo\n\ngo 1.23\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Remove(filepath.Join(dir, "go.mod")) })
+	t.Cleanup(func() { _ = os.Remove(filepath.Join(dir, "go.mod")) })
 
 	uri := mustFileURI(t, root)
 	s := NewLSPServer("8080", logrus.New())

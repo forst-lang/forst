@@ -38,14 +38,6 @@ func (tc *TypeChecker) initProvidersInference() {
 	tc.Warnings = nil
 }
 
-// FunctionProviders returns inferred Provider slots (alias for engine slots after fixed-point).
-func (tc *TypeChecker) functionProviders() map[ast.Identifier][]ProviderSlot {
-	if tc.providers == nil {
-		return nil
-	}
-	return tc.providers.Slots
-}
-
 // SetFunctionProviders writes merged slots back after module-level propagation.
 func (tc *TypeChecker) SetFunctionProviders(slots map[ast.Identifier][]ProviderSlot) {
 	eng := tc.providersEngine()
@@ -126,7 +118,7 @@ func (tc *TypeChecker) importPathForLocal(importLocal string) string {
 }
 
 // resolveForstSiblingCall resolves alpha.Foo when alpha is a Forst package in the same module.
-func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, _ [][]ast.TypeNode) ([]ast.TypeNode, error) {
 	importMap := tc.importPathToForstPkgMap()
 	if importMap == nil {
 		return nil, nil

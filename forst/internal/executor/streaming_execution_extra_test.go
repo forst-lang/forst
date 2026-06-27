@@ -21,7 +21,7 @@ func TestFunctionExecutor_createStreamingTempGoFile_createsModule(t *testing.T) 
 	if err != nil {
 		t.Fatalf("createStreamingTempGoFile: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 	if _, err := os.Stat(filepath.Join(dir, "main.go")); err != nil {
 		t.Fatalf("expected generated main.go: %v", err)
 	}

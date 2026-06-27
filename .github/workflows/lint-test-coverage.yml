@@ -64,6 +64,11 @@ jobs:
       - name: Install Bun dependencies
         run: bun install
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+
       - name: Echo package versions (smoke)
         run: |
           echo "sidecar=$(node -p "require('./packages/sidecar/package.json').version") vscode-forst=$(node -p "require('./packages/vscode-forst/package.json').version")"

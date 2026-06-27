@@ -58,31 +58,31 @@ func (n ShapeNode) String() string {
 	return fmt.Sprintf("{%s}", strings.Join(fields, ", "))
 }
 
-func (n ShapeFieldNode) String() string {
-	if n.IsMethod {
-		return n.methodSignatureString()
+func (f ShapeFieldNode) String() string {
+	if f.IsMethod {
+		return f.methodSignatureString()
 	}
-	if n.Shape != nil {
-		return n.Shape.String()
+	if f.Shape != nil {
+		return f.Shape.String()
 	}
-	if n.Assertion != nil {
-		return n.Assertion.String()
+	if f.Assertion != nil {
+		return f.Assertion.String()
 	}
-	if n.Type != nil {
-		return n.Type.String()
+	if f.Type != nil {
+		return f.Type.String()
 	}
 	return "?"
 }
 
-func (n ShapeFieldNode) methodSignatureString() string {
+func (f ShapeFieldNode) methodSignatureString() string {
 	var params []string
-	for _, p := range n.MethodParams {
+	for _, p := range f.MethodParams {
 		params = append(params, p.String())
 	}
 	sig := fmt.Sprintf("(%s)", joinStrings(params, ", "))
-	if len(n.MethodReturnTypes) > 0 {
-		rets := make([]string, len(n.MethodReturnTypes))
-		for i, rt := range n.MethodReturnTypes {
+	if len(f.MethodReturnTypes) > 0 {
+		rets := make([]string, len(f.MethodReturnTypes))
+		for i, rt := range f.MethodReturnTypes {
 			rets[i] = rt.String()
 		}
 		sig += ": " + joinStrings(rets, ", ")
@@ -91,11 +91,11 @@ func (n ShapeFieldNode) methodSignatureString() string {
 }
 
 // IsMethodOnlyContract reports whether every field in the shape is a method signature (Provider contract).
-func (s ShapeNode) IsMethodOnlyContract() bool {
-	if len(s.Fields) == 0 {
+func (n ShapeNode) IsMethodOnlyContract() bool {
+	if len(n.Fields) == 0 {
 		return false
 	}
-	for _, f := range s.Fields {
+	for _, f := range n.Fields {
 		if !f.IsMethod {
 			return false
 		}

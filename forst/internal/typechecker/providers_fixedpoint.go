@@ -12,18 +12,6 @@ func ProviderRootIdentsFromSlots(slots []ProviderSlot) []string {
 	return providersgraph.RootIdentsFromSlots(slots)
 }
 
-func orderProviderSlots(slots []ProviderSlot) []ProviderSlot {
-	return providersgraph.OrderSlots(slots)
-}
-
-func (tc *TypeChecker) slotsFromMap(m map[string]ProviderSlot) []ProviderSlot {
-	return providersgraph.SlotsFromDirectMap(m)
-}
-
-func (tc *TypeChecker) addProviderSlotToFunction(fn ast.Identifier, slot ProviderSlot) bool {
-	return providersgraph.AddSlotToFunction(tc.providersEngine().Slots, fn, slot)
-}
-
 func (tc *TypeChecker) computeProvidersFixedPoint() {
 	eng := tc.providersEngine()
 	g := providersgraph.New()

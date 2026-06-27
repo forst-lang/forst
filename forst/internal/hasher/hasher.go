@@ -1005,7 +1005,7 @@ func HashSortedStrings(parts ...string) NodeHash {
 	sort.Strings(sorted)
 	h := fnv.New64a()
 	for _, p := range sorted {
-		io.WriteString(h, p)
+		_, _ = io.WriteString(h, p)
 		h.Write([]byte{0})
 	}
 	return NodeHash(h.Sum64())
@@ -1024,5 +1024,5 @@ func isNilPointer(i interface{}) bool {
 	// Use reflection to check for nil pointer
 	// (avoiding import cycle by not using ast.Node directly)
 	v := reflect.ValueOf(i)
-	return v.Kind() == reflect.Ptr && v.IsNil()
+	return v.Kind() == reflect.Pointer && v.IsNil()
 }

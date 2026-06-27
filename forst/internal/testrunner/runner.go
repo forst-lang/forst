@@ -150,7 +150,7 @@ func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulec
 	return writeGeneratedTestAndRun(pkg, code, goTestArgs, log)
 }
 
-func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
+func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []string, _ *logrus.Logger) (ExitCode, error) {
 	genPath := filepath.Join(pkg.Dir, generatedTestGoName)
 	if err := os.WriteFile(genPath, []byte(goCode), 0o644); err != nil {
 		return ExitFailure, fmt.Errorf("%s: write generated test: %w", pkg.RelPath, err)
