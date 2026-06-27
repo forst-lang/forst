@@ -59,8 +59,8 @@ func (d *Discoverer) extractFunctionsFromNode(node ast.Node, packageName, filePa
 			returnTypes := d.resolveFunctionReturnTypes(n, tc)
 			d.applyFunctionReturnMetadata(&fnInfo, returnTypes, tc)
 			if tc != nil {
-				slots := tc.FunctionUsables[n.Ident.ID]
-				fnInfo.Usables = typechecker.UsableRootIdentsFromSlots(slots)
+				slots := tc.FunctionProviders[n.Ident.ID]
+				fnInfo.Providers = typechecker.ProviderRootIdentsFromSlots(slots)
 				fnInfo.Runnable = len(slots) == 0
 			}
 			fnInfo.InputType = d.determineInputType(fnInfo.Parameters)

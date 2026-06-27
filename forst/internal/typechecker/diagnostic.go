@@ -14,7 +14,7 @@ type Diagnostic struct {
 	Related []RelatedDiagnostic
 }
 
-// RelatedDiagnostic links a primary diagnostic to another source location (e.g. Usables obligation chain).
+// RelatedDiagnostic links a primary diagnostic to another source location (e.g. Providers obligation chain).
 type RelatedDiagnostic struct {
 	Msg  string
 	Span ast.SourceSpan

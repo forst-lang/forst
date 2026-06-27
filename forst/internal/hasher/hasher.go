@@ -1011,9 +1011,9 @@ func HashSortedStrings(parts ...string) NodeHash {
 	return NodeHash(h.Sum64())
 }
 
-// ToUsablesIdent names a deduped Usables struct from a slot-set hash (ADR-013).
-func (h NodeHash) ToUsablesIdent() string {
-	return "Usables_" + h.toBase58()
+// ToProvidersIdent names a deduped Providers struct from a slot-set hash (ADR-013).
+func (h NodeHash) ToProvidersIdent() string {
+	return "Providers_" + h.toBase58()
 }
 
 // Helper to check for typed nil pointers

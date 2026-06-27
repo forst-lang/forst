@@ -11,7 +11,7 @@ import (
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/typechecker"
-	"forst/internal/usablesgraph"
+	"forst/internal/providersgraph"
 
 	"github.com/sirupsen/logrus"
 )
@@ -29,9 +29,9 @@ type FunctionInfo struct {
 	ReturnType         string          `json:"returnType"`
 	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
 	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
-	// Usables lists root contract idents in Usables(f) (ordered); empty when runnable.
-	Usables []string `json:"usables,omitempty"`
-	// Runnable is true iff Usables(f) is empty — eligible for TS/sidecar export.
+	// Providers lists root contract idents in Providers(f) (ordered); empty when runnable.
+	Providers []string `json:"providers,omitempty"`
+	// Runnable is true iff Providers(f) is empty — eligible for TS/sidecar export.
 	Runnable bool `json:"runnable,omitempty"`
 	// IsResult and the result* fields apply when the sole return type is Result(Success, Failure).
 	IsResult          bool   `json:"isResult,omitempty"`
@@ -111,7 +111,7 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 	modulePath := goload.ModulePath(goRoot)
 
 	perPkgTC := make(map[string]*typechecker.TypeChecker)
-	perPkgUsables := make(map[string]map[ast.Identifier][]typechecker.UsableSlot)
+	perPkgProviders := make(map[string]map[ast.Identifier][]typechecker.ProviderSlot)
 
 	for packageName, paths := range byPackage {
 		sort.Strings(paths)
@@ -127,23 +127,23 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 			d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
 		}
 		perPkgTC[packageName] = tc
-		perPkgUsables[packageName] = cloneFunctionUsables(tc.FunctionUsables)
+		perPkgProviders[packageName] = cloneFunctionProviders(tc.FunctionProviders)
 	}
 
 	importPathToForstPkg := BuildForstPackageImportPaths(goRoot, modulePath, byPackage)
-	moduleGraph := usablesgraph.NewModuleGraph(perPkgUsables)
+	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)
 	for packageName, tc := range perPkgTC {
 		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, importPathToForstPkg) {
 			moduleGraph.AddModuleCall(call)
 		}
 	}
-	moduleGraph.ComputeFixedPoint(usablesgraph.AmbientKeyPresent)
+	moduleGraph.ComputeFixedPoint(providersgraph.ProviderScopeKeyPresent)
 	for packageName := range perPkgTC {
 		slots := moduleGraph.PerPackage(packageName)
 		if tc := perPkgTC[packageName]; tc != nil {
-			tc.FunctionUsables = slots
+			tc.FunctionProviders = slots
 		}
-		perPkgUsables[packageName] = slots
+		perPkgProviders[packageName] = slots
 	}
 
 	for packageName, paths := range byPackage {
@@ -172,22 +172,22 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 	return functions, nil
 }
 
-// DiscoverUsablesJSONV1 discovers public functions and returns SPEC § Discovery JSON v1 Usables metadata.
-func (d *Discoverer) DiscoverUsablesJSONV1() (UsablesDiscoveryV1, error) {
+// DiscoverProvidersJSONV1 discovers public functions and returns SPEC § Discovery JSON v1 Providers metadata.
+func (d *Discoverer) DiscoverProvidersJSONV1() (ProvidersDiscoveryV1, error) {
 	functions, err := d.DiscoverFunctions()
 	if err != nil {
-		return UsablesDiscoveryV1{}, err
+		return ProvidersDiscoveryV1{}, err
 	}
-	return BuildUsablesDiscoveryV1(functions), nil
+	return BuildProvidersDiscoveryV1(functions), nil
 }
 
-func cloneFunctionUsables(src map[ast.Identifier][]typechecker.UsableSlot) map[ast.Identifier][]typechecker.UsableSlot {
+func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
 	if len(src) == 0 {
-		return make(map[ast.Identifier][]typechecker.UsableSlot)
+		return make(map[ast.Identifier][]typechecker.ProviderSlot)
 	}
-	out := make(map[ast.Identifier][]typechecker.UsableSlot, len(src))
+	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
 	for fn, slots := range src {
-		copied := make([]typechecker.UsableSlot, len(slots))
+		copied := make([]typechecker.ProviderSlot, len(slots))
 		copy(copied, slots)
 		out[fn] = copied
 	}

@@ -1336,13 +1336,13 @@ func main() {
 	}
 }
 
-func TestFindHoverForPosition_functionUsablesRequirement(t *testing.T) {
+func TestFindHoverForPosition_functionProvidersRequirement(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module usables_hover\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_hover\n\ngo 1.23\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ft := filepath.Join(dir, "usables_fn_hover.ft")
+	ft := filepath.Join(dir, "providers_fn_hover.ft")
 	const src = `package main
 
 type Logger = { info(msg String) }
@@ -1385,18 +1385,18 @@ func expireToken() {
 	if h == nil {
 		t.Fatal("nil hover on expireToken")
 	}
-	if !strings.Contains(h.Contents.Value, "**Usables:**") || !strings.Contains(h.Contents.Value, "Logger") {
-		t.Fatalf("expected Usables hover, got %q", h.Contents.Value)
+	if !strings.Contains(h.Contents.Value, "**Providers:**") || !strings.Contains(h.Contents.Value, "Logger") {
+		t.Fatalf("expected Providers hover, got %q", h.Contents.Value)
 	}
 }
 
-func TestFindHoverForPosition_withEffectiveAmbientNested(t *testing.T) {
+func TestFindHoverForPosition_withEffectiveScopeNested(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module usables_hover\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_hover\n\ngo 1.23\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ft := filepath.Join(dir, "usables_with_hover.ft")
+	ft := filepath.Join(dir, "providers_with_hover.ft")
 	const src = `package main
 
 import "testing"
@@ -1460,11 +1460,11 @@ func TestNestedWith(t *testing.T) {
 		t.Fatal("nil hover on inner with")
 	}
 	val := h.Contents.Value
-	if !strings.Contains(val, "**Effective ambient:**") {
-		t.Fatalf("expected effective ambient hover, got %q", val)
+	if !strings.Contains(val, "**Effective scope:**") {
+		t.Fatalf("expected effective scope hover, got %q", val)
 	}
 	if !strings.Contains(val, "Logger") || !strings.Contains(val, "Clock") {
-		t.Fatalf("expected Logger and Clock in ambient, got %q", val)
+		t.Fatalf("expected Logger and Clock in scope, got %q", val)
 	}
 	if !strings.Contains(val, "shadows outer") {
 		t.Fatalf("expected shadow marker on inner Clock, got %q", val)

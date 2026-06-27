@@ -18,7 +18,7 @@ The design’s **Go lowering target** (interfaces + per-function needs struct + 
 | --- | --- |
 | Parser (`use`, `with`) | **Feasible (S)** — same pattern as `ensure`; keyword map in `lexer/tokens.go` |
 | Contract types (shapes + methods) | **Blocked for MVP (L)** — no receiver-method grammar; shape fields are data-only |
-| Requirement inference + completeness | **Hard (XL)** — no call graph, no ambient requirement scope |
+| Requirement inference + completeness | **Hard (XL)** — no call graph, no scope requirement scope |
 | Go imported interfaces as contracts | **Partial (M–L)** — `go/types` loads packages; interface identity is opaque (`TYPE_IMPLICIT`) |
 | Needs struct + `with` lowering | **Feasible once analysis exists (M)** — extends `transformFunction` / call sites |
 | Integration with handlers / sidecar | **Feasible (S–M)** — explicit `ctx` params already match sidecar data-only wire format |
@@ -26,7 +26,7 @@ The design’s **Go lowering target** (interfaces + per-function needs struct + 
 **Recommended phasing**
 
 1. **MVP (L):** Receiver methods + method signatures in contract shapes; `use` binding; explicit `with` map blocks; **manual** needs struct emission (one struct per function from collected `use` sites); **no** transitive completeness yet.
-2. **v1 (XL):** Call-graph need propagation, ambient `with` scopes (always-forward), `with ctx` field forwarding, postfix override merge, completeness diagnostics at wiring roots.
+2. **v1 (XL):** Call-graph need propagation, scope `with` scopes (always-forward), `with ctx` field forwarding, postfix override merge, completeness diagnostics at wiring roots.
 3. **v2 (L):** Imported Go interface contracts with stable identity, cross-package fixed-point, Go-side discovery/LSP `needs` JSON (not TypeScript).
 
 **Go/no-go:** **Conditional go** — proceed if MVP accepts shipping **syntax + lowering first** and treats inference as the mandatory v1 milestone (per [04 § executive summary](./04-redesign.md): without the checker, keywords are ~85% redundant with hand-written Go).
@@ -47,13 +47,13 @@ The design’s **Go lowering target** (interfaces + per-function needs struct + 
 | **Parser: `with` blocks / postfix** | Feasible | M | Medium | Block stmt in `parseBlockStatement`; postfix needs Pratt/call suffix in `parser/expression.go` |
 | **Typechecker: requirement inference** | Not present | XL | High | Call graph over `tc.Functions`; new `Needs` map per function |
 | **Typechecker: transitive closure** | Not present | L | High | Fixed-point over call edges; inner `with` subtracts satisfied keys |
-| **Typechecker: completeness at entry points** | Not present | M | Medium | Wiring-root detection (`main`, exported handlers); ambient scope stack |
+| **Typechecker: completeness at entry points** | Not present | M | Medium | Wiring-root detection (`main`, exported handlers); scope scope stack |
 | **Typechecker: structural vs nominal satisfaction** | Partial | L | High | `shapesAreStructurallyIdentical` (`go_builtins.go`) compares **fields only**; distinct nominal errors already leak structural equality (`error_nominal_test.go`) |
 | **Typechecker: imported Go interface resolution** | Partial | M | Medium | `initGoImportPackages` + `goPackageForImportLocal` (`go_interop.go`); interfaces become `TYPE_IMPLICIT` in `goTypeToForstType` |
 | **Transformer: synthesized `fnNeeds` struct** | Not present | M | Low | Pointer fields per [ADR-013](./ADR.md#adr-013-pointer-fields-in-needs-structs); emit via `Output.AddType` |
 | **Transformer: `with` → struct literals** | Not present | M | Medium | Scope-aware call transformer; rewrites arity at call sites |
 | **Transformer: `with ctx` field extraction** | Not present | M | Medium | Shape field walk + assignability to need keys |
-| **Transformer: ambient merge / override at call site** | Not present | M | Medium | Ambient binding stack in checker; merge override keys with ambient |
+| **Transformer: scope merge / override at call site** | Not present | M | Medium | ProviderScope binding stack in checker; merge override keys with scope |
 | **Go wrap syntax for foreign symbols** | Partial | M | Medium | Qualified types parse (`parser/type.go`); alias typedef lowers to named Go type; adapter methods need receiver methods |
 | **Integration with handler/context patterns** | Feasible | S | Low | Handler service structs (e.g. `UserApiServices`) register via `registerShapeType` (`register.go`); sidecar stays data-only |
 
@@ -77,7 +77,7 @@ See `compiler/compile_pipeline.go`.
 | **AST** | New: `internal/ast/use.go`, `internal/ast/with.go`; extend `internal/ast/node.go` kinds | `UseNode`, `WithBlockNode`, `WithCallSuffixNode`, optional `RequirementMapNode` |
 | **Parser** | `internal/parser/statement.go`, new `use.go` / `with.go`, `internal/parser/expression.go` | Statement and postfix forms; **also** receiver methods in `function.go`, method fields in `shape.go` |
 | **Printer** | `internal/printer/printer.go` | Round-trip for new nodes |
-| **Typechecker** | New: `requirements.go`, `requirements_infer.go`, `requirements_satisfy.go`; extend `collect.go`, `infer.go`, `infer_expression.go` | Needs collection, propagation, ambient env, diagnostics |
+| **Typechecker** | New: `requirements.go`, `requirements_infer.go`, `requirements_satisfy.go`; extend `collect.go`, `infer.go`, `infer_expression.go` | Needs collection, propagation, scope env, diagnostics |
 | **Typechecker (prereq)** | `register.go`, `infer_expression.go`, `builtins.go` | Method registry for Forst receiver methods; method-set satisfaction |
 | **Transformer** | `internal/transformer/go/function.go`, new `requirements.go`, `statement.go`, `expression.go` | Prepend needs param; strip `use` to locals; rewrite calls inside `with` |
 | **Discovery / LSP** | `internal/discovery/discovery.go` | Go-side `needs: []string` on `FunctionInfo` (v2); filtered from TS manifest per [ADR-011](./ADR.md#adr-011-typescript-never-sees-requirements) |
@@ -97,7 +97,7 @@ ShapeMethodField { ... }  // or extend ShapeFieldNode with signature
 
 ```text
 FunctionNeeds    map[Identifier]set[TypeIdent]   // direct + propagated
-AmbientRequirements stack per WithBlockNode
+ScopeRequirements stack per WithBlockNode
 RequirementKey     TypeIdent                     // nominal identity (N6)
 ```
 
@@ -123,7 +123,7 @@ A **third pass** (after infer, before transform) is the cleanest insertion point
 
 ### 3. `with` merge / shadow semantics — **High**
 
-Requires an **ambient requirement environment** threaded through scopes (similar to `ScopeStack` in `scope_stack.go` but keyed by requirement type, not variable). Inner maps override outer per key; **all inner calls auto-forward** ambient to callees (no opt-in modifier). No existing pattern — `ensure` scopes are for narrowing, not supply.
+Requires an **scope requirement environment** threaded through scopes (similar to `ScopeStack` in `scope_stack.go` but keyed by requirement type, not variable). Inner maps override outer per key; **all inner calls auto-forward** scope to callees (no opt-in modifier). No existing pattern — `ensure` scopes are for narrowing, not supply.
 
 **Mitigation:** Implement explicit map + `with ctx` + always-forward merge; strict override rules with tests per row in 05’s merge table and [ADR-004/005](./ADR.md).
 
@@ -185,9 +185,9 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 | **Per-function needs struct synthesis** | Transformer emits only explicit params |
 | **Call-site rewriting for injected needs** | All calls use declared arity from `tc.Functions` |
 | **Requirement inference pass** | No `Needs(f)` collection or transitive closure |
-| **Ambient requirement scopes** | Distinct from variable scopes |
+| **ProviderScope requirement scopes** | Distinct from variable scopes |
 | **Completeness diagnostics** | No wiring-root analysis |
-| **`with forward` postfix** | Removed by [ADR-004](./ADR.md); ambient always forwards |
+| **`with forward` postfix** | Removed by [ADR-004](./ADR.md); scope always forwards |
 | **Field → requirement key convention** | `logger` → `Logger` heuristic undocumented in compiler |
 | **Discovery `needs` metadata** | `discovery.FunctionInfo` has params only |
 | **Imported type as first-class contract** | Qualified typedefs not linked to `go/types` in `Defs` |
@@ -207,7 +207,7 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 - `use x: T` / `use T` statements; type-check contract type.
 - `with { Key: value, … } { … }` and `call(...) with { … }` (no `forward`, no `with ctx` yet).
 - Emit `type expireTokenNeeds struct { … }` from **direct** `use` sites in each function; prepend to signature; lower `use` to local field reads.
-- Single-file completeness: `main` must `with`-wrap calls whose callee needs are unsatisfied in empty ambient env.
+- Single-file completeness: `main` must `with`-wrap calls whose callee needs are unsatisfied in empty scope env.
 
 **Acceptance criteria**
 
@@ -217,7 +217,7 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 
 **Not in MVP**
 
-- Transitive propagation, `with ctx`, ambient always-forward + override merge, imported `io.Writer` as contract, cross-package.
+- Transitive propagation, `with ctx`, scope always-forward + override merge, imported `io.Writer` as contract, cross-package.
 
 ---
 
@@ -228,9 +228,9 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 **Scope**
 
 - Build call graph from function bodies; compute `Needs(f)` with rules N1–N5.
-- Ambient env for nested `with`; inner shadowing.
+- ProviderScope env for nested `with`; inner shadowing.
 - `with ctx { … }` field forwarding when `ctx` is shape-typed and fields satisfy needs.
-- Ambient auto-forward and postfix override merge ([ADR-004](./ADR.md), [ADR-005](./ADR.md)).
+- ProviderScope auto-forward and postfix override merge ([ADR-004](./ADR.md), [ADR-005](./ADR.md)).
 - Wiring-root completeness errors with chain diagnostics (as sketched in 05).
 - Designated context param detection (`ctx`, `deps`, `app`).
 

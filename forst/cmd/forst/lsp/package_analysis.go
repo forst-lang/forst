@@ -354,7 +354,7 @@ func (s *LSPServer) analyzePackageGroupMerged(anchorURI string) (snap *packageSn
 	fp := packageGroupFingerprintFromContents(uris, contents)
 
 	// Merged analysis cache keys include every open buffer fingerprint, so edits to
-	// use/with sites or Usables(f) invalidate via cache miss (ADR-036). usablesgraph.Invalidate
+	// use/with sites or Providers(f) invalidate via cache miss (ADR-036). providersgraph.Invalidate
 	// is for future incremental TC; full re-analysis uses this fingerprint path today.
 
 	if cached := s.packageAnalysis.get(fp); cached != nil && cached.tc != nil {

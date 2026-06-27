@@ -407,9 +407,9 @@ func auditAction(action String, ctx AppContext) {
 }
 ```
 
-Inner `supply` shadows `Logger` for the callee; other capabilities merge from ambient scope (`supply forward`).
+Inner `supply` shadows `Logger` for the callee; other capabilities merge from scope scope (`supply forward`).
 
-**Still manual:** author knows callee needs or trusts ambient merge + compiler errors.
+**Still manual:** author knows callee needs or trusts scope merge + compiler errors.
 
 ### Flow diagram
 
@@ -571,7 +571,7 @@ test "createUser returns 201" uses CI {
 }
 ```
 
-`supply CI { … }` desugars to: build context from harness preset + empty override map; run body with ambient merge.
+`supply CI { … }` desugars to: build context from harness preset + empty override map; run body with scope merge.
 
 #### Selective override (deltas only)
 
@@ -1070,7 +1070,7 @@ test "greet logs" {
 2. **`supply` vs `provide`** — single keyword vote (Effect alignment vs Forst branding).
 3. **I2 strictness** — infer from `ctx.logger.info` only when `ctx` param name matches convention (`ctx`, `deps`, `app`)?
 4. **Nested `test` blocks** — shared `supply ctx` scope for subtests?
-5. **Partial `supply` suffix** — ambient merge rules when map is strict subset ([03](./03-design-critique-and-alternatives.md) medium priority).
+5. **Partial `supply` suffix** — scope merge rules when map is strict subset ([03](./03-design-critique-and-alternatives.md) medium priority).
 6. **Built-in capabilities** — prelude `Env`, `Random` as predeclared `type`s?
 7. **TS emit** — JSDoc `@uses` vs Effect `R` branded types.
 8. **Lint** — discourage `supply forward` on exported surfaces?
@@ -1098,7 +1098,7 @@ test "greet logs" {
 | **9. Harness presets** | `harness CI`, `uses CI` on tests, `override` merge lowering — [§ Integration test harness](#integration-test-harness) |
 | **10. Harness discovery** | JSON catalog + CI policy hints for agents |
 
-**Do not implement first:** `requirement` decl, operator slots (`?T`), ambient `using` (Agent B).
+**Do not implement first:** `requirement` decl, operator slots (`?T`), scope `using` (Agent B).
 
 **Validation:** Unit tests per inference rule; integration example mirroring [02-examples.ft](./02-examples.ft) with golden Go in `examples/out/`.
 

@@ -2,7 +2,7 @@ package ast
 
 import "fmt"
 
-// WithNode wires Usable implementations for a block.
+// WithNode wires Provider implementations for a block.
 // Wiring is a shape literal `{ Logger: x, ... }` or an expression such as `ciUserApiServices()`.
 type WithNode struct {
 	Wiring ExpressionNode

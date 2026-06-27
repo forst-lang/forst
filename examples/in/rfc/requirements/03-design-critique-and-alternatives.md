@@ -76,7 +76,7 @@ flowchart LR
 | --- | --- | --- |
 | Named method-set contract | **Yes** — interface | Only if Forst lacks interface emission from types (fixable without `requirement`) |
 | Deps bundling as first param | **Yes** | **Yes** — if compiler synthesizes and merges needs structs |
-| Call-site struct literals | **Yes** | **Partial** — `provide forward` / ambient merge reduces boilerplate |
+| Call-site struct literals | **Yes** | **Partial** — `provide forward` / scope merge reduces boilerplate |
 | Transitive propagation checking | **No** in Go | **Yes** — core value |
 | `provide ctx` field naming convention | **Yes** — manual mapping | **Minor** — naming sugar |
 | Entry-point wiring checklist | **No** in Go | **Yes** — `forst doctor` / compile errors |
@@ -163,7 +163,7 @@ func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserRespo
 
 1. Host/sidecar constructs `AppContext` once per request (logger, clock, db implementations).
 2. Compiler maps `Logger` → `ctx.logger`, `UserRepo` → `ctx.db` (structural satisfaction + naming convention).
-3. Internal calls inherit via ambient scope inside the block; emitted Go copies fields into callee `fnNeeds` literals.
+3. Internal calls inherit via scope scope inside the block; emitted Go copies fields into callee `fnNeeds` literals.
 
 **Flow B — `main` entry:**
 
@@ -205,7 +205,7 @@ provide { UserRepo: FakeUserRepo { users: … } } {
 
 **Works well:** fakes are plain structs; no registry. **Still manual:** author implements every method on the fake; compiler does not generate mocks.
 
-**Gap vs production:** Tests often use **partial** bundles (`provide Clock: …` only in Agent A agent doc) — requires ambient merge rules; normative spec expects entry completeness. Test blocks must supply **full transitive need set** for calls inside the block.
+**Gap vs production:** Tests often use **partial** bundles (`provide Clock: …` only in Agent A agent doc) — requires scope merge rules; normative spec expects entry completeness. Test blocks must supply **full transitive need set** for calls inside the block.
 
 ### Partial override at call site
 
@@ -216,11 +216,11 @@ func auditAction(action String, ctx AppContext) {
 }
 ```
 
-**Mechanism:** inner `provide` shadows `Logger` for the callee; other requirements merged from ambient (`provide forward` or outer scope).
+**Mechanism:** inner `provide` shadows `Logger` for the callee; other requirements merged from scope (`provide forward` or outer scope).
 
 **Still manual:**
 
-- Author must know callee's full need set or rely on compiler merge from ambient.
+- Author must know callee's full need set or rely on compiler merge from scope.
 - Override map keys are requirement **idents**, not fields — extra cognitive step vs `AuditLogger` interface type.
 - No automatic "use real logger everywhere except this call" — explicit map each time.
 
@@ -487,7 +487,7 @@ If the team keeps the normative direction, revise before implementation:
 
 1. **Justify or remove `requirement` primitive** — Add § comparing `requirement` vs `type … capability` with a decision matrix; default recommendation: merge into `type`.
 2. **Specify needs-struct merge algorithm** — Open Q1 blocks ABI stability; normative default (one `PackageDeps` per distinct set) should be chosen.
-3. **Clarify ambient merge for partial `provide`** — Normative §3.3.1 vs Agent A §3.6: document exact rules when suffix map has strict subset of keys.
+3. **Clarify scope merge for partial `provide`** — Normative §3.3.1 vs Agent A §3.6: document exact rules when suffix map has strict subset of keys.
 4. **Handler-first profile** — Normative path for `provide ctx` should be **primary** in examples; postfix `provide { Logger: ctx.logger, … }` demoted to override-only.
 5. **Rename consideration** — Document `use`/`supply` as approved aliases or v2 migration targets.
 

@@ -94,15 +94,15 @@ func TestDiagnosticForTypecheckError_usesStructuredSpan(t *testing.T) {
 	}
 }
 
-func TestDiagnosticForTypecheckError_usablesObligationRelated(t *testing.T) {
+func TestDiagnosticForTypecheckError_providersObligationRelated(t *testing.T) {
 	t.Parallel()
 	err := &typechecker.Diagnostic{
 		Msg:  "needsLogger requires Logger; not supplied",
-		Code: "usables-unsatisfied",
+		Code: "providers-unsatisfied",
 		Span: ast.SourceSpan{StartLine: 10, StartCol: 2, EndLine: 10, EndCol: 15},
 		Related: []typechecker.RelatedDiagnostic{
 			{Msg: "caller TestX", Span: ast.SourceSpan{StartLine: 8, StartCol: 1, EndLine: 8, EndCol: 5}},
-			{Msg: "needsLogger declares Usables requirements", Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 12}},
+			{Msg: "needsLogger declares Providers requirements", Span: ast.SourceSpan{StartLine: 4, StartCol: 1, EndLine: 4, EndCol: 12}},
 		},
 	}
 	d := diagnosticForTypecheckError("file:///t.ft", "", err, "forst-typechecker", ErrorCodeTypeMismatch)
@@ -112,7 +112,7 @@ func TestDiagnosticForTypecheckError_usablesObligationRelated(t *testing.T) {
 	if d.RelatedInformation[0].Location.Range.Start.Line != 7 {
 		t.Fatalf("caller link line = %d", d.RelatedInformation[0].Location.Range.Start.Line)
 	}
-	if d.RelatedInformation[1].Message != "needsLogger declares Usables requirements" {
+	if d.RelatedInformation[1].Message != "needsLogger declares Providers requirements" {
 		t.Fatalf("callee message = %q", d.RelatedInformation[1].Message)
 	}
 }

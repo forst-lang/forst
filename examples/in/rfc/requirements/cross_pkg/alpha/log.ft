@@ -1,0 +1,11 @@
+// Cross-package Providers cookbook: alpha defines Logger contract + direct use.
+package alpha
+
+type Logger = {
+	info(msg String),
+}
+
+func LogExpiry(id String) {
+	use logger: Logger
+	logger.info("expire " + id)
+}

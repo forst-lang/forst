@@ -77,13 +77,13 @@ type TypeChecker struct {
 	TypeMethods map[ast.TypeIdent]map[string]FunctionSignature
 	// goQualifiedTypeAliases maps Forst type ident -> Go qualified type name (e.g. io.Writer).
 	goQualifiedTypeAliases map[ast.TypeIdent]string
-	// FunctionUsables holds inferred Usable slots per function after fixed-point propagation.
-	FunctionUsables map[ast.Identifier][]UsableSlot
-	// Usables inference state (cleared/rebuilt each CheckTypes pass).
-	functionDirectUsables map[ast.Identifier]map[string]UsableSlot
+	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
+	FunctionProviders map[ast.Identifier][]ProviderSlot
+	// Providers inference state (cleared/rebuilt each CheckTypes pass).
+	functionDirectProviders map[ast.Identifier]map[string]ProviderSlot
 	functionCallSites     map[ast.Identifier][]callSiteRecord
-	knownUsableRoots      map[string]ast.TypeNode
-	ambientStack          []Ambient
+	knownProviderRoots      map[string]ast.TypeNode
+	providerScopeStack          []ProviderScope
 	pendingWithChecks     []pendingWithCheck
 	crossPackageCallSites []crossPackageCallRecord
 	Warnings              []Diagnostic
@@ -171,8 +171,8 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}).Info("Starting second pass: inferring types")
 	}
 
-	tc.initUsablesInference()
-	tc.seedKnownUsableRootsFromTypes()
+	tc.initProvidersInference()
+	tc.seedKnownProviderRootsFromTypes()
 
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
@@ -182,7 +182,7 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		tc.path = tc.path[:len(tc.path)-1]
 	}
 
-	if err := tc.finishUsablesChecking(nodes); err != nil {
+	if err := tc.finishProvidersChecking(nodes); err != nil {
 		return err
 	}
 

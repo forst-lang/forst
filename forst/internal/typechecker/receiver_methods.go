@@ -208,8 +208,8 @@ func (tc *TypeChecker) resolveGoQualifiedTypeName(ident ast.TypeIdent) (string, 
 	return "", false
 }
 
-// UsableContractKey returns a stable identity string for a Usable contract type (named or Go-qualified).
-func (tc *TypeChecker) UsableContractKey(t ast.TypeNode) string {
+// ProviderContractKey returns a stable identity string for a Provider contract type (named or Go-qualified).
+func (tc *TypeChecker) ProviderContractKey(t ast.TypeNode) string {
 	if q, ok := tc.resolveGoQualifiedTypeName(t.Ident); ok {
 		return q
 	}

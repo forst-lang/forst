@@ -17,7 +17,7 @@ Forst functions should declare **runtime capabilities** separately from **data p
 | Operator | Role | Reads as |
 | --- | --- | --- |
 | **`?T`** | Requirement **slot** (type position) | “This function may use capability **T**.” |
-| **`@require T`** | Requirement **resolution** (expression) | “Give me the **T** implementation from the ambient bundle.” |
+| **`@require T`** | Requirement **resolution** (expression) | “Give me the **T** implementation from the scope bundle.” |
 
 Requirements are **not** injected through a framework container. They lower to a **plain Go struct field** (`ReqSet`) passed explicitly at boundaries (HTTP handler, test helper, `main`). Every `@require` in source maps 1:1 to a field read in generated Go — no reflection, no magic globals.
 
@@ -53,7 +53,7 @@ requirement Clock {
 
 ### 1.3 `@require T` — resolution expression
 
-**`@require T`** is a **prefix expression** that yields a value of type **`T`** (the requirement interface) by reading from the function’s ambient **`ReqSet`**.
+**`@require T`** is a **prefix expression** that yields a value of type **`T`** (the requirement interface) by reading from the function’s scope **`ReqSet`**.
 
 ```forst
 repo := @require UserRepo
@@ -406,7 +406,7 @@ Forbidden at **`requirement`** declaration time (cycle in requirement graph). Im
 
 ### 6.5 `@require` in `requirement` impl vs business func
 
-Implementation methods on concrete types use **normal fields**, not `@require`. **`@require`** is only valid in **`func`** bodies that receive an ambient **`ReqSet`**.
+Implementation methods on concrete types use **normal fields**, not `@require`. **`@require`** is only valid in **`func`** bodies that receive an scope **`ReqSet`**.
 
 ### 6.6 Cross-package re-exports
 
@@ -441,7 +441,7 @@ Extend discovery JSON with **`requirements: ["UserRepo", "Clock"]`** per exporte
 | Missing field on `ReqSet` at runtime | Panic or `MissingRequirement` error (build-tag policy) |
 | `@require T` but `T` not in `needs` / inference | Compile error |
 | Entrypoint with no host wiring | `forst doctor` warning + link to wiring example |
-| Test without `with req` | Compile error: “no ambient ReqSet for `@require UserRepo`” |
+| Test without `with req` | Compile error: “no scope ReqSet for `@require UserRepo`” |
 
 ---
 

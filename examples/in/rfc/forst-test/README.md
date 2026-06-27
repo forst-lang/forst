@@ -25,7 +25,7 @@ flowchart TB
   Compiler --> GoTest
 ```
 
-- **Requirements RFC** owns `use` / `with` / Usable semantics inside tests.
+- **Requirements RFC** owns `use` / `with` / Provider semantics inside tests.
 - **This RFC** owns how tests are **found**, **compiled**, and **run**.
 
 ## Status

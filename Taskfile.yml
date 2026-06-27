@@ -236,32 +236,32 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/result_if.ft
 
   example:requirements:
-    desc: Compile Usables showcase (use/with, golden examples/out/rfc/requirements/)
+    desc: Compile Providers showcase (use/with, golden examples/out/rfc/requirements/)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/requirements -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/requirements/usables.ft
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/requirements -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/requirements/providers.ft
 
-  test:usables:
-    desc: Run forst test on requirements Usables golden package (usables.ft + usables_test.ft)
+  test:providers:
+    desc: Run forst test on requirements Providers golden package (providers.ft + providers_test.ft)
     deps: [build]
     dir: examples/in/rfc/requirements
     cmds:
       - ../../../../bin/forst test .
 
-  test:usables-xpkg:
-    desc: Run forst test on cross-package Usables cookbook (xpkg/alpha + xpkg/beta)
+  test:providers-cross_pkg:
+    desc: Run forst test on cross-package Providers cookbook (cross_pkg/alpha + cross_pkg/beta)
     deps: [build]
-    dir: examples/in/rfc/requirements/xpkg
+    dir: examples/in/rfc/requirements/cross_pkg
     cmds:
       - ../../../../../bin/forst test beta
 
   test:forst:
-    desc: Alias for test:usables (forst test on requirements golden)
+    desc: Alias for test:providers (forst test on requirements golden)
     cmds:
-      - task: test:usables
+      - task: test:providers
 
-  example:usables:
-    desc: Alias for example:requirements (usables.ft golden)
+  example:providers:
+    desc: Alias for example:requirements (providers.ft golden)
     dir: forst
     cmds:
       - task: example:requirements
@@ -413,8 +413,8 @@ tasks:
       - task example:sidecar-local
       - task example:sidecar-downloaded
       - task test:tictactoe
-      - task test:usables
-      - task test:usables-xpkg
+      - task test:providers
+      - task test:providers-cross_pkg
       - task example:requirements
 
   # Release tasks

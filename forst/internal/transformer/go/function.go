@@ -104,23 +104,23 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform function parameters: %s", err)
 	}
-	params, err = t.prependUsablesParam(params, n)
+	params, err = t.prependProvidersParam(params, n)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepend usables parameter: %w", err)
+		return nil, fmt.Errorf("failed to prepend providers parameter: %w", err)
 	}
 
-	prevUsablesName := t.currentFnUsablesName
-	prevUsablesSlots := t.currentFnUsablesSlots
-	if t.functionNeedsUsablesParam(n) {
-		t.currentFnUsablesName = "usables"
-		t.currentFnUsablesSlots = t.TypeChecker.FunctionUsables[n.Ident.ID]
+	prevProvidersName := t.currentFnProvidersName
+	prevProvidersSlots := t.currentFnProvidersSlots
+	if t.functionNeedsProvidersParam(n) {
+		t.currentFnProvidersName = "providers"
+		t.currentFnProvidersSlots = t.TypeChecker.FunctionProviders[n.Ident.ID]
 	} else {
-		t.currentFnUsablesName = ""
-		t.currentFnUsablesSlots = nil
+		t.currentFnProvidersName = ""
+		t.currentFnProvidersSlots = nil
 	}
 	defer func() {
-		t.currentFnUsablesName = prevUsablesName
-		t.currentFnUsablesSlots = prevUsablesSlots
+		t.currentFnProvidersName = prevProvidersName
+		t.currentFnProvidersSlots = prevProvidersSlots
 	}()
 
 	// Create function return type

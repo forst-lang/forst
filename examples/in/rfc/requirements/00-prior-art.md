@@ -136,7 +136,7 @@ test = handle findUser "42" with
   cases { IO.send -> _ -> "mock-json" }
 ```
 
-**Mechanism:** Effect handlers (Frank lineage); ability polymorphism; direct-style code with typed ambient capabilities.
+**Mechanism:** Effect handlers (Frank lineage); ability polymorphism; direct-style code with typed scope capabilities.
 
 **Strengths:** **Excellent test story** — swap handlers for pure mocks; requirements visible in signature `{…}`; no monadic `flatMap` noise.
 
@@ -271,15 +271,15 @@ fun traverse(xs : list<int>) : yield<int> ()
 
 ---
 
-### 2.10 Frank — ambient abilities and multihandlers
+### 2.10 Frank — scope abilities and multihandlers
 
-Frank treats **functions as operators** that may **handle** commands. Effect polymorphism propagates an **ambient ability inward** (dual to Koka's outward rows). **Multihandlers** interpret multiple command sources at once.
+Frank treats **functions as operators** that may **handle** commands. Effect polymorphism propagates an **scope ability inward** (dual to Koka's outward rows). **Multihandlers** interpret multiple command sources at once.
 
 **Mechanism:** Bidirectional effect typing; adapters for effect encapsulation (“effect pollution”).
 
 **Strengths:** Theoretical clarity; direct-style; influenced Unison.
 
-**Weaknesses:** Niche language; ambient ability rules are hard to teach; no production Go/TS toolchain.
+**Weaknesses:** Niche language; scope ability rules are hard to teach; no production Go/TS toolchain.
 
 **References:** [Do be do be do (POPL 2017)](https://homepages.inf.ed.ac.uk/slindley/papers/frankly.pdf), [Frank JFP paper](https://homepages.inf.ed.ac.uk/slindley/papers/frankly-jfp.pdf).
 
@@ -313,13 +313,13 @@ Or **struct + interface fields** (service struct with `repo UserRepository`). Te
 | **ZIO** | ★★ | ★★★ | ★★ | ★★★ | ★★ | ★ JVM-only origin | ★★★ | ★★ | Same as Effect; not TS-native |
 | **Roc platform / Task** | ★★★ | ★★ (platform boundary) | ★★★ inferred tasks | ★★ platform swap | ★★★ app level | ★★ host-specific | ★★ coarse | ★★ | Too coarse for per-function reqs; abilities ≠ services |
 | **Roc abilities** | ★★★ | ★★★ | ★★★ derived | ★ (not DI) | ★★★ | ★★★ dict passing | — type-level | ★★ | Wrong abstraction (Eq/Hash, not Logger) |
-| **Unison abilities** | ★★ `{IO,…}` | ★★★ | ★★ ambient | ★★★ handlers | ★★★ | ★ handlers hard in Go | ★★★ | ★★ handler syntax | Runtime/handler model ≠ Go sidecar |
+| **Unison abilities** | ★★ `{IO,…}` | ★★★ | ★★ scope | ★★★ handlers | ★★★ | ★ handlers hard in Go | ★★★ | ★★ handler syntax | Runtime/handler model ≠ Go sidecar |
 | **Haskell MTL** | ★ `(MonadX m)` | ★★★ | ★★ constraints | ★★★ fixtures/mocks | ★★ | ★ | ★★ | ★★ | Not TS-familiar; constraint soup |
 | **Polysemy** | ★ | ★★★ | ★★ rows | ★★★ interpreters | ★★ | ★ | ★★★ | ★ | Academic Haskell tooling |
 | **Rust traits** | ★★★ | ★★★ | ★ explicit | ★★★ mockall | ★★ wiring | ★★★ interfaces | ★★★ | ★★★ | No aggregated `R`; manual composition |
 | **Kotlin context** | ★★★ | ★★★ signatures | ★★ explicit `context` | ★★★ | ★★★ | ★★ desugar to params | ★★★ | ★★★ | Go has no native equivalent |
 | **Koka effects** | ★ rows | ★★★ | ★★★ inference | ★★★ handlers | ★★ | ★ | ★★★ | ★ | Row syntax alien to TS/Go users |
-| **Frank** | ★ | ★★ ambient | ★★★ | ★★ | ★★★ | ★ | ★★ | ★ | Research language |
+| **Frank** | ★ | ★★ scope | ★★★ | ★★ | ★★★ | ★ | ★★ | ★ | Research language |
 | **Go interfaces (baseline)** | ★★★ | ★★★ | ★ manual | ★★★ | ★★★ simple | ★★★ native | ★★ (param creep) | ★★★ | No type-level requirement sum |
 
 ---

@@ -37,7 +37,7 @@ Implication: marketing “compile-time completeness” before v1 inference is **
 | Keyword | Commitment |
 | --- | --- |
 | **`use`** | Body-local binding to a contract type; aggregates into `Needs(f)`. |
-| **`with`** | Scope or call-site supply; merges/shadows ambient bindings; supports `with ctx`, explicit maps, postfix `… with { … }`, and `with forward`. |
+| **`with`** | Scope or call-site supply; merges/shadows scope bindings; supports `with ctx`, explicit maps, postfix `… with { … }`, and `with forward`. |
 
 No third keyword for contracts, harnesses, or overrides. **Policy lives in plain functions** (`ciAppContext()`, `BlockedHttp`, `RecordingEmail`) rather than compiler-enforced test presets.
 
@@ -63,7 +63,7 @@ Constraint: **do not overload `ensure` or `Result` for DI.** Any future native E
 
 - **User generics** ([ROADMAP — Generics](../../ROADMAP.md#generics-aliases-and-nominal-features)): requirement keys stay **nominal typedef idents**; generic contracts (`Repo[T]`) need explicit policy for whether `Needs(f)` keys the instantiated type or the definition—unresolved in 05, likely deferred.
 - **Go wrap of generic APIs**: [06](./06-feasibility-analysis.md) flags uneven generic/variadic interop; wrapper adapters may remain hand-written Go at the edge.
-- **`go` / goroutines**: requirements are **not goroutine-local**; ambient `with` scopes follow lexical structure, not `context.Context` cancellation trees. Async code that spawns work must pass needs explicitly or re-enter a `with` scope—same as explicit Go.
+- **`go` / goroutines**: requirements are **not goroutine-local**; scope `with` scopes follow lexical structure, not `context.Context` cancellation trees. Async code that spawns work must pass needs explicitly or re-enter a `with` scope—same as explicit Go.
 
 ### Package boundaries and cross-package inference
 
@@ -97,7 +97,7 @@ Teams wanting those patterns will fight the checker or bypass it in hand-written
 
 ### Dependent types, refinement types ([ROADMAP anti-features](../../ROADMAP.md#anti-features))
 
-ROADMAP lists **dependent types and arbitrary type-level computation** as **not planned**. Requirements inference is a **fixed-point over call graphs and ambient scopes**, not refinement of values (`Logger` indexed by log level, etc.). Shape guards and `ensure` refine **data**; `use`/`with` refine **who supplies services**—orthogonal planes that should not merge without breaking decidability and tooling speed goals.
+ROADMAP lists **dependent types and arbitrary type-level computation** as **not planned**. Requirements inference is a **fixed-point over call graphs and scope scopes**, not refinement of values (`Logger` indexed by log level, etc.). Shape guards and `ensure` refine **data**; `use`/`with` refine **who supplies services**—orthogonal planes that should not merge without breaking decidability and tooling speed goals.
 
 ---
 
@@ -204,7 +204,7 @@ Matches how agents already write Go table tests—**lowered Go resembles hand-wr
 
 ### Where agents still fail
 
-- **Partial maps** at call sites when ambient scope is implicit—must read enclosing **`with ctx`**.
+- **Partial maps** at call sites when scope scope is implicit—must read enclosing **`with ctx`**.
 - **`with forward`** merge semantics—easy to omit callee gaps.
 - **Wrap syntax** for foreign Go (`ClientDoer`, `PostgresStore`)—more boilerplate than a single `use repo: UserStore` line suggests.
 - **Field → key convention** (`logger` → `Logger`)—heuristic, undocumented in source until spec is tool-visible.
@@ -245,7 +245,7 @@ Honest gaps relative to product ambitions and prior art ([00](./00-prior-art.md)
 
 Prioritize work that **maximizes positive implications** and **contains negative ones**.
 
-1. **Treat v1 inference as the product gate**, not a follow-up: transitive **`Needs`**, ambient **`with`**, wiring-root diagnostics with call chains—as sketched in 05’s completeness errors. Do not promote **`use`/`with`** publicly until then.
+1. **Treat v1 inference as the product gate**, not a follow-up: transitive **`Needs`**, scope **`with`**, wiring-root diagnostics with call chains—as sketched in 05’s completeness errors. Do not promote **`use`/`with`** publicly until then.
 2. **Ship receiver methods + contract interface emission first** (MVP phase 0): without them, “types as contracts” is aspirational.
 3. **Invest in Go-side discovery/`needs` JSON in the same release as v1 inference**—humans and agents share one source of truth; **never** emit requirements to TypeScript ([ADR-011](./ADR.md#adr-011-typescript-never-sees-requirements)).
 4. **Document and test `ciAppContext()` / `BlockedHttp` as org conventions**, optional linter rules (`RealHttp` in `test*` functions)—compensate for no harness keyword without reintroducing DSL.

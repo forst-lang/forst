@@ -177,7 +177,7 @@ The **[errors RFC hub](../errors/README.md)** and **[error system architecture](
 ### 7.1 Alignment with **`Result(S, F)`** ([02](./02-result-and-error-types.md))
 
 - The **failure** parameter **`F`** of **`Result(S, F)`** is **error-kinded**: it must be **`Error`** or a **subtype** / **refinement** in the **same** hierarchy—not an arbitrary **`E`** as in Rust’s default **`Result<T, E>`**.  
-- **Subtyping:** **`Result(Int, ParseError)`** usable where **`Result(Int, Error)`** is expected when **`ParseError <: Error`**—same **width** story as in [02 §2](./02-result-and-error-types.md) and the **architecture** doc’s **tree** of **specific** errors under **`Error`**.
+- **Subtyping:** **`Result(Int, ParseError)`** provider where **`Result(Int, Error)`** is expected when **`ParseError <: Error`**—same **width** story as in [02 §2](./02-result-and-error-types.md) and the **architecture** doc’s **tree** of **specific** errors under **`Error`**.
 
 **Inference:** Any **construction** rule that allows **`return e`** on the **failure** path should require **`e`** to be **assignable** to **`F`** (and thus, ultimately, compatible with **`Error`** semantics).
 

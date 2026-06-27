@@ -101,7 +101,7 @@ func Echo(input EchoRequest) {
 	}
 }
 
-func TestGenerateCommand_publicWithUsablesFailsSidecarExport(t *testing.T) {
+func TestGenerateCommand_publicWithProvidersFailsSidecarExport(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "api.ft")
 	src := `package main
@@ -117,7 +117,7 @@ func PublicApi() {
 	}
 	err := generateCommand([]string{ftPath})
 	if err == nil {
-		t.Fatal("expected sidecar export error for public function with Usables")
+		t.Fatal("expected sidecar export error for public function with Providers")
 	}
 	if !strings.Contains(err.Error(), "cannot export PublicApi") {
 		t.Fatalf("unexpected error: %v", err)

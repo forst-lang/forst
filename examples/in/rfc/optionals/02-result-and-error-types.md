@@ -59,7 +59,7 @@ The [errors RFC](../errors/README.md) describes a **hierarchical**, **structured
 
 **Subtyping and assignability**
 
-- A **`Result(Int, ParseError)`** is naturally **usable** where **`Result(Int, Error)`** is expected if **`ParseError`** is a **subtype** of **`Error`** (standard **width** subtyping on the **failure** parameter).
+- A **`Result(Int, ParseError)`** is naturally **provider** where **`Result(Int, Error)`** is expected if **`ParseError`** is a **subtype** of **`Error`** (standard **width** subtyping on the **failure** parameter).
 - The **inverse** (treating **`Result(Int, Error)`** as **`Result(Int, ParseError)`**) is **unsound** without a **runtime** check—same as narrowing **`error`** to **`ParseError`** in Go with **`errors.As`**.
 
 This gives **one** story: **typed** failures in **signatures**, **wider** **`Error`** at **composition** points, **narrowing** with **`is`** / **`errors.As`** where needed.

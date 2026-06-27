@@ -1,6 +1,6 @@
-# Forst function requirements
+# Forst Providers (`use` / `with`)
 
-Specifications for **function requirements** (capabilities): how Forst functions declare **runtime behavior** they need (loggers, clocks, databases) separately from **data parameters**, and how tests **swap implementations** without DI frameworks.
+Specifications for **Providers**: how Forst functions declare **runtime behavior** they need (loggers, clocks, databases) separately from **data parameters**, and how tests **swap implementations** at scope boundaries without DI frameworks.
 
 ## Current recommended direction
 
@@ -8,9 +8,9 @@ Specifications for **function requirements** (capabilities): how Forst functions
 
 **Alternative minimal design:** **[SPEC — Function requirements](./SPEC.md)** — `use` / `with` only, imported types as contracts, no test DSL.
 
-**RFC (consolidated):** **[RFC — Function requirements](./RFC.md)** — reader-facing RFC synthesizing [SPEC](./SPEC.md) + [ADR](./ADR.md): motivation, RFC 2119 requirements, decision registry.
+**RFC (consolidated):** **[RFC — Providers](./RFC.md)** — reader-facing RFC synthesizing [SPEC](./SPEC.md) + [ADR](./ADR.md): motivation, RFC 2119 requirements, decision registry.
 
-**Design decisions:** **[ADR](./ADR.md)** — 46 atomic accepted decisions (always-forward ambient, derived `Usables(f)`, etc.).
+**Design decisions:** **[ADR](./ADR.md)** — 46 atomic accepted decisions (always-forward scope, derived `Providers(f)`, etc.).
 
 **Feasibility:** **[06 — Feasibility analysis](./06-feasibility-analysis.md)** — compiler audit of 05: partially feasible, phased MVP → v1 → v2.
 
@@ -18,7 +18,7 @@ Specifications for **function requirements** (capabilities): how Forst functions
 
 **Design analysis:** **[08 — Design analysis](./08-design-analysis.md)** — three adversarial critiques (Go, PL, compiler/DX) from [SPEC](./SPEC.md) + [ADR](./ADR.md) only; synthesis and adoption risk register.
 
-**Design solutions:** **[09 — Design solutions](./09-design-solutions.md)** — disposition ledger for critique follow-ups (locked in [ADR-003](./ADR.md#adr-003-no-author-written-usables-clause-on-signatures)–[ADR-046](./ADR.md#adr-046-ensure-in-tests-lowers-to-tfatal--terror)).
+**Design solutions:** **[09 — Design solutions](./09-design-solutions.md)** — disposition ledger for critique follow-ups (locked in [ADR-003](./ADR.md#adr-003-no-author-written-providers-clause-on-signatures)–[ADR-046](./ADR.md#adr-046-ensure-in-tests-lowers-to-tfatal--terror)).
 
 **Needs map typing (open):** **[10 — Needs map typing options](./10-needs-map-typing-options.md)** — shapes, **typedef unions (`A | B`)**, intersections; builds on implemented binary types.
 
@@ -35,7 +35,7 @@ Specifications for **function requirements** (capabilities): how Forst functions
 | **[03 — Critique & alternatives](./03-design-critique-and-alternatives.md)** | Critical review of 01 — overlap with Go, naming, shape-based types. Historical; 04 consolidates actionable conclusions. |
 | **[01 — Normative spec](./01-normative-spec.md)** | Consolidated v0 design (`requirement` + `require` + `provide`) — **historical target** until implementation follows 04. |
 | **[00 — Prior art](./00-prior-art.md)** | Research reference — Effect/ZIO, Unison, Rust, Go, Kotlin context, codebase audit. **Not normative.** |
-| **[02 — Examples](./usables.ft)** | Minimal compiling Usables showcase (`use` / `with` / nested transitive `with`). |
+| **[02 — Examples](./providers.ft)** | Minimal compiling Providers showcase (`use` / `with` / nested transitive `with`). |
 
 ### Competing designs (archived proposals)
 
@@ -64,7 +64,7 @@ From **[04](./04-redesign.md)**:
 
 - [Errors hub](../errors/README.md) — `ensure` is validation/narrowing, **not** requirements.
 - [Effect hub](../effect/00-overview.md) — error channels and TS interop; requirements are **Go-side capabilities**, not a full `Effect<A,E,R>` monad.
-- [Sidecar decisions](../sidecar/10-decisions.md) — host builds handler service bundles; wire format stays **data-only**; TS sees **runnable exports only** ([ADR-021](./ADR.md#adr-021-runnable-exports-only-when-usablesf-is-empty)).
+- [Sidecar decisions](../sidecar/10-decisions.md) — host builds handler service bundles; wire format stays **data-only**; TS sees **runnable exports only** ([ADR-021](./ADR.md#adr-021-runnable-exports-only-when-providersf-is-empty)).
 - [Guard / `ensure`](../guard/guard.md) — orthogonal to capability wiring.
 - [Forst test runner](../forst-test/README.md) — `forst test` CLI (discovery, emit, `go test` bridge).
 

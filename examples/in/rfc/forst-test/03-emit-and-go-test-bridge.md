@@ -28,7 +28,7 @@ flowchart LR
 ## Production emit (unchanged)
 
 - `{fn}Needs` struct per function with non-empty `Needs(f)` — **by-value** contract fields ([ADR-013](../requirements/ADR.md#adr-013-needs-struct-lowering)).
-- `with` blocks → struct literals copying from ambient Usable at call sites.
+- `with` blocks → struct literals copying from scope Provider at call sites.
 - Exported symbols follow existing Go export rules.
 
 ---
@@ -78,7 +78,7 @@ expireToken(expireTokenNeeds{
 }, token)
 ```
 
-Same ambient-merge rules as [SPEC § Go lowering](../requirements/SPEC.md#go-lowering).
+Same scope-merge rules as [SPEC § Go lowering](../requirements/SPEC.md#go-lowering).
 
 ---
 

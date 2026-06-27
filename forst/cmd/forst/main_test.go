@@ -482,8 +482,8 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleTictactoeMergedPackage (-root merged package)")
 				return
 			}
-			if strings.HasPrefix(relPath, "rfc/requirements/usables") && strings.HasSuffix(relPath, ".ft") {
-				t.Skip("covered by TestExampleRequirementsUsablesMergedPackage (-root merged package)")
+			if strings.HasPrefix(relPath, "rfc/requirements/providers") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleRequirementsProvidersMergedPackage (-root merged package)")
 				return
 			}
 
@@ -623,13 +623,13 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
 }
 
-// TestExampleRequirementsUsablesMergedPackage compiles examples/in/rfc/requirements with -root
-// (usables.ft + usables_test.ft) and checks generated Go against examples/out/rfc/requirements/usables.go.
-// Regenerate: UPDATE_USABLES_GOLDEN=1 go test ./cmd/forst -run TestExampleRequirementsUsablesMergedPackage -count=1
-func TestExampleRequirementsUsablesMergedPackage(t *testing.T) {
+// TestExampleRequirementsProvidersMergedPackage compiles examples/in/rfc/requirements with -root
+// (providers.ft + providers_test.ft) and checks generated Go against examples/out/rfc/requirements/providers.go.
+// Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleRequirementsProvidersMergedPackage -count=1
+func TestExampleRequirementsProvidersMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "requirements")
-	entry := filepath.Join(root, "usables.ft")
-	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "requirements", "usables.go")
+	entry := filepath.Join(root, "providers.ft")
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "requirements", "providers.go")
 
 	c := compiler.New(compiler.Args{
 		Command:     "run",
@@ -643,7 +643,7 @@ func TestExampleRequirementsUsablesMergedPackage(t *testing.T) {
 	}
 	actual := *code
 
-	if os.Getenv("UPDATE_USABLES_GOLDEN") == "1" {
+	if os.Getenv("UPDATE_PROVIDERS_GOLDEN") == "1" {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -656,10 +656,10 @@ func TestExampleRequirementsUsablesMergedPackage(t *testing.T) {
 
 	expected, err := os.ReadFile(goldenPath)
 	if err != nil {
-		t.Fatalf("read golden %s: %v (set UPDATE_USABLES_GOLDEN=1 to create)", goldenPath, err)
+		t.Fatalf("read golden %s: %v (set UPDATE_PROVIDERS_GOLDEN=1 to create)", goldenPath, err)
 	}
 	if string(expected) != actual {
-		t.Fatalf("golden mismatch for requirements/usables.go (set UPDATE_USABLES_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
+		t.Fatalf("golden mismatch for requirements/providers.go (set UPDATE_PROVIDERS_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
 	}
 }
 

@@ -11,7 +11,7 @@ Status: Design proposal (competition entry)
 
 Agent A makes **runtime capabilities** first-class in Forst with two keywords — **`require`** and **`provide`** — and one primitive declaration form, **`requirement`**. Functions declare what they need with **`require`** (in the body or an optional signature clause); callers satisfy those needs with **`provide`** at **boundaries** (entry points, tests, HTTP wiring). Internal call chains inherit an already-provided bundle — no re-provision at every hop.
 
-The design reads like **`ensure`**: a short, English verb at the point of use. Wiring mirrors **Effect-TS `Effect.provide` / `provideService`**: implementations are chosen explicitly at the edge, then flow inward. Everything lowers to **Go interfaces + a struct field** — no DI framework, no reflection, no ambient globals.
+The design reads like **`ensure`**: a short, English verb at the point of use. Wiring mirrors **Effect-TS `Effect.provide` / `provideService`**: implementations are chosen explicitly at the edge, then flow inward. Everything lowers to **Go interfaces + a struct field** — no DI framework, no reflection, no scope globals.
 
 **New surface area:** one primitive (`requirement`) and two keywords (`require`, `provide`).
 
@@ -187,7 +187,7 @@ func handleRefresh(body RefreshBody): Result(Session, Error) require Logger, Clo
     token, err := parseToken(body.token)
     ensure err is Nil() or err
 
-    return expireToken(token)   // inherits Logger + Clock from ambient bundle
+    return expireToken(token)   // inherits Logger + Clock from scope bundle
 }
 
 func parseToken(raw String): Result(Token, Error) {
@@ -441,7 +441,7 @@ saveOrder(order, provide { Database: txDb })
 saveOrder(saveOrderDeps{Database: txDb, Logger: outerDeps.Logger, ...}, order)
 ```
 
-When the caller has ambient deps, **`provide { Database: txDb }`** means **override `Database` only**; other fields copied from ambient (compile error if ambient lacks a required field).
+When the caller has scope deps, **`provide { Database: txDb }`** means **override `Database` only**; other fields copied from scope (compile error if scope lacks a required field).
 
 ### 3.7 Traceability guarantees
 
@@ -500,7 +500,7 @@ Inside **`provide { … } { body }`**:
 
 Entry into a nested function that needs **`Database`** when the block only provides **`Logger`** → compile error on the call inside the block.
 
-### 4.6 Ambient deps from parameter
+### 4.6 ProviderScope deps from parameter
 
 If **`F(deps RequestDeps, …)`** and **`RequestDeps`** fields structurally implement **`Needs(F)`**, the checker treats **`deps`** as satisfying those requirements without an enclosing `provide` block.
 
@@ -532,7 +532,7 @@ Concrete **`PostgresDatabase`** satisfies **`Database`**; deps field type is **`
 
 ## 5. Why explicit `provide` beats implicit context for Forst
 
-Comparison baseline: **implicit context threading** ([Agent B](agent-b-using-context.md) `using`, ambient `ReqSet` without call-site visibility).
+Comparison baseline: **implicit context threading** ([Agent B](agent-b-using-context.md) `using`, scope `ReqSet` without call-site visibility).
 
 | Criterion | Agent A (`require` + `provide`) | Implicit context |
 | --- | --- | --- |
@@ -588,7 +588,7 @@ Inner call sees **`AuditLogger`**; outer block unchanged after call returns. Go 
 f(x, provide { Database: txDb })
 ```
 
-**Allowed** when caller has ambient **`deps`** satisfying the rest of **`Needs(f)`**. Compiler emits merged literal. **Error** if neither ambient nor suffix supplies a required type.
+**Allowed** when caller has scope **`deps`** satisfying the rest of **`Needs(f)`**. Compiler emits merged literal. **Error** if neither scope nor suffix supplies a required type.
 
 ### 6.4 Optional requirements
 
@@ -638,7 +638,7 @@ func ExpireToken(deps ExpireTokenDeps, token Token) ...
 
 ### 6.12 Requirement methods must not `require`
 
-Inside **`requirement`** declarations, methods list signatures only — no **`require`** (capabilities cannot pull ambient deps at interface definition time).
+Inside **`requirement`** declarations, methods list signatures only — no **`require`** (capabilities cannot pull scope deps at interface definition time).
 
 ### 6.13 Concurrency
 

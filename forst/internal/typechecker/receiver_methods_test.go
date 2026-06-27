@@ -71,13 +71,13 @@ type W = io.Writer
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
-	key := tc.UsableContractKey(ast.TypeNode{Ident: "W"})
+	key := tc.ProviderContractKey(ast.TypeNode{Ident: "W"})
 	if key != "io.Writer" {
-		t.Fatalf("UsableContractKey(W): got %q want io.Writer", key)
+		t.Fatalf("ProviderContractKey(W): got %q want io.Writer", key)
 	}
-	keyDirect := tc.UsableContractKey(ast.TypeNode{Ident: "io.Writer"})
+	keyDirect := tc.ProviderContractKey(ast.TypeNode{Ident: "io.Writer"})
 	if keyDirect != "io.Writer" {
-		t.Fatalf("UsableContractKey(io.Writer): got %q", keyDirect)
+		t.Fatalf("ProviderContractKey(io.Writer): got %q", keyDirect)
 	}
 }
 

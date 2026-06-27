@@ -2,7 +2,7 @@ package ast
 
 import "fmt"
 
-// UseNode declares a Usable contract requirement in a function body.
+// UseNode declares a Provider contract requirement in a function body.
 // `use x: T` binds name x to contract T; `use T` is an anonymous use (root ident of T).
 type UseNode struct {
 	Ident        *Ident

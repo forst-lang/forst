@@ -90,7 +90,7 @@ func (n ShapeFieldNode) methodSignatureString() string {
 	return sig
 }
 
-// IsMethodOnlyContract reports whether every field in the shape is a method signature (Usable contract).
+// IsMethodOnlyContract reports whether every field in the shape is a method signature (Provider contract).
 func (s ShapeNode) IsMethodOnlyContract() bool {
 	if len(s.Fields) == 0 {
 		return false

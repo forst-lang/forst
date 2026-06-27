@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func writeUsablesTestFixture(t *testing.T, dir string) {
+func writeProvidersTestFixture(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\n\ngo 1.23\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestExpireWithWiring(t *testing.T) {
 
 func TestDiscoverPackages_findsTestPackage(t *testing.T) {
 	dir := t.TempDir()
-	writeUsablesTestFixture(t, dir)
+	writeProvidersTestFixture(t, dir)
 	pkgs, err := DiscoverPackages(dir, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestDiscoverPackages_findsTestPackage(t *testing.T) {
 
 func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	dir := t.TempDir()
-	writeUsablesTestFixture(t, dir)
+	writeProvidersTestFixture(t, dir)
 	pkgs, err := DiscoverPackages(dir, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -79,17 +79,17 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(code, "func TestExpireWithWiring(usables ") {
-		t.Fatalf("test wiring root should not get usables param:\n%s", code)
+	if strings.Contains(code, "func TestExpireWithWiring(providers ") {
+		t.Fatalf("test wiring root should not get providers param:\n%s", code)
 	}
 	if !strings.Contains(code, "func TestExpireWithWiring(t *testing.T)") {
 		t.Fatalf("expected Go test signature, got:\n%s", code)
 	}
 }
 
-func TestRun_usablesWithWiringPasses(t *testing.T) {
+func TestRun_providersWithWiringPasses(t *testing.T) {
 	dir := t.TempDir()
-	writeUsablesTestFixture(t, dir)
+	writeProvidersTestFixture(t, dir)
 	log := logrus.New()
 	log.SetOutput(os.Stderr)
 	log.SetLevel(logrus.PanicLevel)

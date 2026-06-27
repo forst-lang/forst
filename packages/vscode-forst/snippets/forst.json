@@ -32,7 +32,7 @@
   "Use contract": {
     "prefix": "use",
     "body": ["use ${1:name}: ${2:Logger}"],
-    "description": "Bind an ambient Usable contract in function body"
+    "description": "Bind a scoped provider contract in function body"
   },
   "With wiring": {
     "prefix": "with",
@@ -43,7 +43,7 @@
       "\t$0",
       "}"
     ],
-    "description": "Wire Usables at a test or host boundary"
+    "description": "Wire Providers at a test or host boundary"
   },
   "Nested with (transitive)": {
     "prefix": "withnest",

@@ -1,8 +1,8 @@
-# Needs map typing — Usable shape constraint (leading option)
+# Needs map typing — Provider shape constraint (leading option)
 
-**Status:** **Leading option locked** as [ADR-017 — Usable shape constraint](./ADR.md#adr-017-usable-shape-constraint). Name analysis below; union/generic alternatives remain in this doc for comparison.
+**Status:** **Leading option locked** as [ADR-017 — Provider shape constraint](./ADR.md#adr-017-provider-shape-constraint). Name analysis below; union/generic alternatives remain in this doc for comparison.
 
-**Term:** **Usable** — a **shape type** describing what may be **`use`d** in a scope; **shape literals** `{ Logger: impl, … }` in **`with`** must satisfy an Usable (explicit typedef or inferred minimal shape from completeness).
+**Term:** **Provider** — a **shape type** describing what may be **`use`d** in a scope; **shape literals** `{ Logger: impl, … }` in **`with`** must satisfy an Provider (explicit typedef or inferred minimal shape from completeness).
 
 **Not Go maps:** Wiring uses Forst **composite literals** (shapes / `ShapeNode` in the parser) — the same `{ field: value }` form as data shapes — **not** `map[K]V` unless you explicitly choose a map type elsewhere.
 
@@ -12,10 +12,10 @@
 
 ## Leading option (summary)
 
-**Syntax stays shape literals** ([ADR-015](./ADR.md#adr-015-with-takes-usable-shape-literals-only)). **Typing** is an ordinary **shape** whose fields are requirement contracts — we call that shape an **Usable**.
+**Syntax stays shape literals** ([ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)). **Typing** is an ordinary **shape** whose fields are requirement contracts — we call that shape an **Provider**.
 
 ```forst
-type CIUsables = {
+type CIProviders = {
     Logger:      Logger,
     UserRepo:    UserRepo,
     HttpClient:  HttpClient,
@@ -23,7 +23,7 @@ type CIUsables = {
     Metrics:     Metrics,
 }
 
-func ciUserApiServices(): CIUsables {
+func ciUserApiServices(): CIProviders {
     return {
         Logger:      NopLogger {},
         UserRepo:    InMemoryUserRepo { users: map[String]User{} },
@@ -48,7 +48,7 @@ with ciUserApiServices() {
 
 | Allowed | Not allowed |
 | --- | --- |
-| `with { Logger: NopLogger {}, UserRepo: db } { … }` — **anonymous shape literal** satisfying `CIUsables` | `with ctx { … }` — **named struct param** with implicit field→requirement projection |
+| `with { Logger: NopLogger {}, UserRepo: db } { … }` — **anonymous shape literal** satisfying `CIProviders` | `with ctx { … }` — **named struct param** with implicit field→requirement projection |
 | `with ciUserApiServices() { … }` — variable holding same literal shape | Passing `AppServices` struct as a function param for services ([ADR-006](./ADR.md#adr-006-parameters-are-data-requirements-are-runtime-logic)) |
 | Nested `with { Clock: fake } { … }` — partial shape overlay | Postfix `f() with { … }` |
 
@@ -58,15 +58,15 @@ At compile time, `{ Logger: x, … }` is a **shape literal** in Forst (same AST 
 
 | Rule | Behavior |
 | --- | --- |
-| **Fixture defs** | Return type / annotation is an **Usable** shape → wrong field name (`Metricks`) → **error** |
-| **Completeness** | Inferred `Needs(f)` for the block must be covered by merged ambient ([ADR-009](./ADR.md#adr-009-transitive-inference-and-mandatory-completeness)) |
-| **Superset** | Extra Usable fields OK; lowering copies only `Needs(callee)`; unused keys → **warning** ([ADR-012](./ADR.md#adr-012-superset-wiring-extras-allowed)) |
+| **Fixture defs** | Return type / annotation is an **Provider** shape → wrong field name (`Metricks`) → **error** |
+| **Completeness** | Inferred `Needs(f)` for the block must be covered by merged scope ([ADR-009](./ADR.md#adr-009-transitive-inference-and-mandatory-completeness)) |
+| **Superset** | Extra Provider fields OK; lowering copies only `Needs(callee)`; unused keys → **warning** ([ADR-012](./ADR.md#adr-012-superset-wiring-extras-allowed)) |
 | **Nested `with`** | Partial shape overlays outer; inner fields shadow |
 | **Field names** | **Root** contract idents only (`Logger`, not alias `AuditLogger` when `type AuditLogger = Logger`) |
 | **Values** | Assignable to contract type; **nil forbidden** ([ADR-016](./ADR.md#adr-016-post-critique-decisions-09--locked)) |
-| **Go emit** | Usable shape ↔ `{fn}Needs` struct fields (same names); dedupe identical sets ([ADR-016](./ADR.md#adr-016-post-critique-decisions-09--locked)) |
+| **Go emit** | Provider shape ↔ `{fn}Needs` struct fields (same names); dedupe identical sets ([ADR-016](./ADR.md#adr-016-post-critique-decisions-09--locked)) |
 
-**No new keyword required** — `Usable` is the **concept name** for “shape used as wiring constraint.” Typedefs use plain shape syntax `{ … }`. Optional future marker `Usable { … }` in typedef bodies is sugar only.
+**No new keyword required** — `Provider` is the **concept name** for “shape used as wiring constraint.” Typedefs use plain shape syntax `{ … }`. Optional future marker `Provider { … }` in typedef bodies is sugar only.
 
 ---
 
@@ -78,7 +78,7 @@ We need a short English name for: *“shape of requirement contracts that a `wit
 
 | Name | Example | Pros | Cons | Score |
 | --- | --- | --- | --- | ---: |
-| **Usable** / **Usables** | `type CIUsables = { Logger: Logger, … }` | Pairs with **`use`** (“what you can use”); short; not a third keyword; plural **Usables** names bundles naturally | Adjective-as-noun is slightly informal; must document vs English “usable API” | **9** |
+| **Provider** / **Providers** | `type CIProviders = { Logger: Logger, … }` | Pairs with **`use`** (“what you can use”); short; not a third keyword; plural **Providers** names bundles naturally | Adjective-as-noun is slightly informal; must document vs English “provider API” | **9** |
 | **Wiring** | `type CIWiring = { … }` | Describes `with` accurately | Doesn’t pair with **`use`**; verb-ish process, not the map | 7 |
 | **Supply** / **Supplies** | `type CISupplies = { … }` | Matches “supply implementations” | Old RFC **`supply`** keyword rejected; easy confusion | 5 |
 | **Needs** / **NeedsMap** | `type CINeeds = { … }` | Obvious | Collides with inferred **`Needs(f)`** and tooling JSON field `needs` | 4 |
@@ -92,12 +92,12 @@ We need a short English name for: *“shape of requirement contracts that a `wit
 | **Context** | `type CIContext = { … }` | Familiar from other langs | **`with ctx`** struct pattern explicitly dropped | 3 |
 | **Capabilities** | `type CICapabilities = { … }` | Effect-ish | **`capability`** declaration family rejected | 4 |
 
-### Recommendation: **Usable** (concept), **Usables** (concrete typedef)
+### Recommendation: **Provider** (concept), **Providers** (concrete typedef)
 
-- **Concept (docs, ADR, LSP):** “This map must satisfy **Usable** *X*.”
-- **Author typedefs:** name the bundle **`…Usables`** — `CIUsables`, `ProdUsables`, `TestUsables`.
-- **Not a keyword:** an Usable is any shape that meets the rules in [ADR-017](./ADR.md#adr-017-usable-shape-constraint); no mandatory `Usable` token in source for now.
-- **Optional later sugar:** `type CIUsables = Usable { Logger: Logger, … }` — marker for readability only; desugars to shape + Usable kind flag in checker.
+- **Concept (docs, ADR, LSP):** “This map must satisfy **Provider** *X*.”
+- **Author typedefs:** name the bundle **`…Providers`** — `CIProviders`, `ProdProviders`, `TestProviders`.
+- **Not a keyword:** an Provider is any shape that meets the rules in [ADR-017](./ADR.md#adr-017-provider-shape-constraint); no mandatory `Provider` token in source for now.
+- **Optional later sugar:** `type CIProviders = Provider { Logger: Logger, … }` — marker for readability only; desugars to shape + Provider kind flag in checker.
 
 **Avoid:** **`Needs`** as the shape name (inference wins that word). **`Supply`** (dead keyword). **`Context`** (dropped pattern).
 
@@ -106,8 +106,8 @@ We need a short English name for: *“shape of requirement contracts that a `wit
 | Term | Meaning |
 | --- | --- |
 | **Contract** | Type a function can `use` — `Logger`, `UserRepo`, … |
-| **Usable** | Shape listing contracts + field types; constraint on a wiring map |
-| **Usables** | A named Usable typedef (`CIUsables`) or a **shape literal** `{ Logger: impl, … }` satisfying one |
+| **Provider** | Shape listing contracts + field types; constraint on a wiring map |
+| **Providers** | A named Provider typedef (`CIProviders`) or a **shape literal** `{ Logger: impl, … }` satisfying one |
 | **`Needs(f)`** | Inferred set of contracts function `f` requires — derived, not the typedef name |
 
 ---
@@ -123,7 +123,7 @@ Locked elsewhere:
 Still to specify in compiler:
 
 - Exact assignability rules (extras, partial nested maps, unknown keys).
-- Whether dev-only trace comments ([Q4](#cross-cutting-ambient-traceability-q4)) ship with Usable spike.
+- Whether dev-only trace comments ([Q4](#cross-cutting-scope-traceability-q4)) ship with Provider spike.
 
 ---
 
@@ -162,7 +162,7 @@ Forst already has **binary type expressions** on typedef bodies — the same **`
 | Needs-map problem | Existing Forst mechanism |
 | --- | --- |
 | **Closed fixture key set** (catch `Metricks`) | Typedef **union of contract nominals**: `type CIKeys = Logger \| UserRepo \| …` — checker: key ∈ union members |
-| **Product of slots** (all keys required together) | **Usable** shape — leading option ([ADR-017](./ADR.md#adr-017-usable-shape-constraint)) |
+| **Product of slots** (all keys required together) | **Provider** shape — leading option ([ADR-017](./ADR.md#adr-017-provider-shape-constraint)) |
 | **Value assignability** (fake satisfies contract) | Existing **structural** `IsTypeCompatible` (already used for contracts) |
 | **Branch-dependent needs** | **`JoinTypes`** on `Needs(f)` across paths (same as if-merge union story) |
 | **Closed enum of implementations** (future) | Same **sealed union** pattern as nominal errors — only if we need runtime tagging; likely **overkill** for wiring maps |
@@ -176,7 +176,7 @@ Forst already has **binary type expressions** on typedef bodies — the same **`
 | **Q1** | What is the static type of `{ Logger: x, UserRepo: y }` in `with`? |
 | **Q2** | How do fat fixtures (`ciUserApiServices()`) catch typos like `Metricks`? |
 | **Q3** | What Go type(s) does lowering emit for wiring and for `{fn}Needs` fields? |
-| **Q4** | How do humans debug “which ambient supplied this call?” without new keywords? |
+| **Q4** | How do humans debug “which scope supplied this call?” without new keywords? |
 | **Q5** | How do `type Alias = Root` and `with` keys interact? |
 | **Q6** | How does brownfield Go (`AppServices struct`) connect — without a dedicated bridge keyword? |
 
@@ -204,7 +204,7 @@ with {
 | **Q5** | Key = **root** contract ident; alias `AuditLogger = Logger` → key `Logger`. |
 | **Q6** | User writes ordinary conversion to map literal once; no compiler magic. |
 
-**Status:** Fallback if Usable assignability is too strict for nested overlays; strict unknown-key errors still apply.
+**Status:** Fallback if Provider assignability is too strict for nested overlays; strict unknown-key errors still apply.
 
 ---
 
@@ -232,18 +232,18 @@ type CI = NeedsMap<Logger, UserRepo, HttpClient, Metrics>
 
 ---
 
-## Option C — Usable shape constraint (**leading — [ADR-017](./ADR.md#adr-017-usable-shape-constraint)**)
+## Option C — Provider shape constraint (**leading — [ADR-017](./ADR.md#adr-017-provider-shape-constraint)**)
 
-**Surface:** Wiring is a **shape literal** (or variable/call) that must **satisfy** an **Usable** — a shape whose fields are requirement contracts.
+**Surface:** Wiring is a **shape literal** (or variable/call) that must **satisfy** an **Provider** — a shape whose fields are requirement contracts.
 
 ```forst
-type CIUsables = {
+type CIProviders = {
     Logger:     Logger,
     UserRepo:   UserRepo,
     HttpClient: HttpClient,
 }
 
-func ciUserApiServices(): CIUsables {
+func ciUserApiServices(): CIProviders {
     return {
         Logger:     NopLogger {},
         UserRepo:   InMemoryUserRepo { users: map[String]User{} },
@@ -254,19 +254,19 @@ func ciUserApiServices(): CIUsables {
 with ciUserApiServices() { handleGetUser("42") }
 ```
 
-No `with CIUsables { … }` passing the type as value — **ADR-015**: `with` takes a **wiring expression** (`ciUserApiServices()` or `{ … }` shape literal), not struct forwarding.
+No `with CIProviders { … }` passing the type as value — **ADR-015**: `with` takes a **wiring expression** (`ciUserApiServices()` or `{ … }` shape literal), not struct forwarding.
 
 | | |
 | --- | --- |
-| **Q1** | Static type = Usable shape; shape literal checked for field names + value assignability |
+| **Q1** | Static type = Provider shape; shape literal checked for field names + value assignability |
 | **Q2** | Wrong field → shape error; catches `Metricks` |
-| **Q3** | Usable → Go struct with same field names; aligns with `{fn}Needs` emit |
+| **Q3** | Provider → Go struct with same field names; aligns with `{fn}Needs` emit |
 | **Q4** | LSP / optional trace comments |
 | **Q5** | Fields = **root** contract idents |
-| **Q6** | Hand-written conversion returning `{ … }` typed as Usable |
+| **Q6** | Hand-written conversion returning `{ … }` typed as Provider |
 
 **Pros:** Reuses shapes; idiomatic Go emit; pairs with **`use`**; no new keyword.  
-**Cons:** Must define partial-map rules for nested `with` (merged ambient, not full CIUsables every time).
+**Cons:** Must define partial-map rules for nested `with` (merged scope, not full CIProviders every time).
 
 ---
 
@@ -379,9 +379,9 @@ func ciUserApiServices() {
 
 ## Option E — `with ctx` on opaque service struct (rejected)
 
-**Surface:** `with appServices { … }` where `appServices` is an existing handler struct (`AppServices`) with implicit field→requirement projection — **no** explicit Usable shape literal.
+**Surface:** `with appServices { … }` where `appServices` is an existing handler struct (`AppServices`) with implicit field→requirement projection — **no** explicit Provider shape literal.
 
-**Conflicts with [ADR-015](./ADR.md#adr-015-with-takes-usable-shape-literals-only)** — wiring must be an expression assignable to an **Usable** (shape literal, typed fixture return, etc.), not struct forwarding sugar.
+**Conflicts with [ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)** — wiring must be an expression assignable to an **Provider** (shape literal, typed fixture return, etc.), not struct forwarding sugar.
 
 Not recommended — listed for completeness. Brownfield connection stays a hand-written conversion to `{ Logger: appServices.Logger, … }` or a fixture function ([Q6](./10-needs-map-typing-options.md#questions-to-answer)).
 
@@ -394,7 +394,7 @@ Independent of Q1 surface, generated Go likely needs:
 | Piece | Candidates |
 | --- | --- |
 | **`{fn}Needs` fields** | Interface / contract type per field (preferred over `*interface`) |
-| **Call-site wiring** | Struct literal copying from ambient; or map lookup |
+| **Call-site wiring** | Struct literal copying from scope; or map lookup |
 | **Dedup** | Identical need sets → one emitted struct name ([ADR-016](./ADR.md#adr-016-post-critique-decisions) — implementation detail) |
 | **Nil** | **Disallowed** at wiring sites — compile error if nil assignable value ([ADR-016](./ADR.md#adr-016-post-critique-decisions)) |
 
@@ -402,16 +402,16 @@ Independent of Q1 surface, generated Go likely needs:
 
 ---
 
-## Cross-cutting: ambient traceability (Q4)
+## Cross-cutting: scope traceability (Q4)
 
 No new keywords. Candidates (can combine):
 
 | Mechanism | Owner |
 | --- | --- |
-| LSP: “ambient from line N, keys {…}” | Compiler / LSP |
+| LSP: “scope from line N, keys {…}” | Compiler / LSP |
 | `forst build -trace-needs` comments in generated Go | Transformer flag |
 | Discovery JSON: per-function `Needs(f)` | Already planned |
-| Source `with` nesting | **By design** — explicit scopes ([ADR-004](./ADR.md#adr-004-always-forward-ambient-no-with-forward)) |
+| Source `with` nesting | **By design** — explicit scopes ([ADR-004](./ADR.md#adr-004-always-forward-scope-no-with-forward)) |
 
 **Not in scope:** subtract / `pick` / least-privilege scopes.
 
@@ -438,14 +438,14 @@ Recommendation to decide in pilot: **root ident only** in map literals (simplest
 
 Allowed without new syntax:
 
-- Hand-written function returning **shape literal** typed as **Usable** / `…Usables` typedef.
+- Hand-written function returning **shape literal** typed as **Provider** / `…Providers` typedef.
 - Future: optional **codegen** from Go struct → map (tooling, not language).
 
 ---
 
 ## Comparison matrix
 
-| Criterion | **Usable (C)** | A open map | B NeedsMap | D/F union |
+| Criterion | **Provider (C)** | A open map | B NeedsMap | D/F union |
 | --- | --- | --- | --- | --- |
 | Pairs with `use` / `with` | **Yes** | Partial | No | Partial |
 | Fixture typo safety | **Strong** | Weak | Strong | Strong |
@@ -458,19 +458,19 @@ Allowed without new syntax:
 
 ## Recommended next step
 
-1. Implement **Usable** rules in checker: shape field = contract; shape literal assignability; root field names; nil forbid.
-2. Spike **`ciUserApiServices(): CIUsables`** in `examples/in/rfc/requirements/` + golden Go.
-3. Nested **`with`** merge + completeness against inferred shape (not full CIUsables on every inner map).
-4. Wire **Usable → `{fn}Needs`** lowering; dedupe identical shapes.
-5. Union typedef (F) only if unknown-key errors without Usable typedef prove insufficient.
+1. Implement **Provider** rules in checker: shape field = contract; shape literal assignability; root field names; nil forbid.
+2. Spike **`ciUserApiServices(): CIProviders`** in `examples/in/rfc/requirements/` + golden Go.
+3. Nested **`with`** merge + completeness against inferred shape (not full CIProviders on every inner map).
+4. Wire **Provider → `{fn}Needs`** lowering; dedupe identical shapes.
+5. Union typedef (F) only if unknown-key errors without Provider typedef prove insufficient.
 
-See [ADR-017](./ADR.md#adr-017-usable-shape-constraint).
+See [ADR-017](./ADR.md#adr-017-provider-shape-constraint).
 
 ---
 
 ## References
 
-- [ADR-017 — Usable shape constraint](./ADR.md#adr-017-usable-shape-constraint)
+- [ADR-017 — Provider shape constraint](./ADR.md#adr-017-provider-shape-constraint)
 - [09 — Design solutions](./09-design-solutions.md)
 - [08 — Design analysis](./08-design-analysis.md)
 - [SPEC — Function requirements](./SPEC.md)

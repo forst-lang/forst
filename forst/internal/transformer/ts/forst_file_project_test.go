@@ -67,7 +67,7 @@ func GetX(r R): Int {
 	}
 }
 
-func TestParseMergedTypecheckProject_sidecarExportRejectsPublicWithUsables(t *testing.T) {
+func TestParseMergedTypecheckProject_sidecarExportRejectsPublicWithProviders(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "api.ft")
 	src := `package main
@@ -83,7 +83,7 @@ func PublicApi() {
 	}
 	_, _, err := ParseMergedTypecheckProject([]string{path}, logrus.New())
 	if err == nil {
-		t.Fatal("expected sidecar export error for public function with Usables")
+		t.Fatal("expected sidecar export error for public function with Providers")
 	}
 	if !strings.Contains(err.Error(), "cannot export PublicApi") {
 		t.Fatalf("expected sidecar export error, got: %v", err)

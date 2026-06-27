@@ -15,7 +15,7 @@
 | 1 | Mandatory completeness | **Locked** — [ADR-016](./ADR.md#adr-016-post-critique-decisions-09--locked) |
 | 2 | Comma-merge / override sugar | **Deferred** — nested `with` is fine |
 | 3 | Fixture / map typing, typos | **Open** — [10](./10-needs-map-typing-options.md) |
-| 4 | Ambient traceability | **Open** — covered in [10 § Q4](./10-needs-map-typing-options.md#cross-cutting-ambient-traceability-q4) |
+| 4 | ProviderScope traceability | **Open** — covered in [10 § Q4](./10-needs-map-typing-options.md#cross-cutting-scope-traceability-q4) |
 | 5 | Emit field types, pointers | **Partial** — no required pointers; emit in [10 § Q3](./10-needs-map-typing-options.md#cross-cutting-emit-lowering-q3) |
 | 6 | Header `needs` syntax | **Locked** — inference + LSP coloring only; inner `with` satisfies locally |
 | 7 | Least privilege / `pick` | **By design** — no subtract |
@@ -44,7 +44,7 @@ The [design review (08)](./08-design-analysis.md) asked two harsh critics: *what
 | **`use`** | Inside a function: “I need X.” |
 | **`with`** | Around a block: “For everything in here, supply these implementations.” |
 | **Map / wiring map** | A list like `{ Logger: &fake, UserRepo: &fakeDb }` — names on the left, implementations on the right. |
-| **Ambient / forwarding** | If you’re already inside a `with` block, inner function calls automatically get those services — you don’t repeat the map on every line. |
+| **ProviderScope / forwarding** | If you’re already inside a `with` block, inner function calls automatically get those services — you don’t repeat the map on every line. |
 | **Inference / completeness check** | The compiler follows the call chain: if deep function D starts needing Email, every path that reaches D must supply Email — or build fails. |
 | **Fixture** | A shared test setup, e.g. `ciUserApiServices()` returning a map full of safe fakes for CI. |
 
@@ -57,7 +57,7 @@ The [design review (08)](./08-design-analysis.md) asked two harsh critics: *what
 | [1](#1-inference-shipped-late-or-never) | Language ships before the smart checker | **Turn on strict checking per package when ready** |
 | [2](#2-one-key-test-overrides-need-nested-with) | Changing one fake in a test is awkward | **Comma-merge `with`** |
 | [3](#3-open-fat-maps-typo-keys) | Typos in big test setup maps | **Shape (C) or typedef union (F/D)** — see [unions baseline](#existing-forst-unions-and-intersections-reuse-baseline) |
-| [4](#4-ambient-wiring-invisible-at-call-sites) | Hard to see what services a call got | **Dev-only trace comments in generated Go** |
+| [4](#4-scope-wiring-invisible-at-call-sites) | Hard to see what services a call got | **Dev-only trace comments in generated Go** |
 | [5](#5-pointer-to-interface-in-emitted-go) | Generated Go looks weird to Go devs | **Normal interfaces in structs; pointers only in maps** |
 | [6](#6-requirements-absent-from-signatures) | Function header doesn’t list dependencies | **Auto-generated “needs list” for docs/tools** |
 | [7](#7-no-least-privilege-no-subtract) | Tests can’t easily hide one service | **`pick` — take only the keys you want** |
@@ -191,7 +191,7 @@ Overlay literals in comma-merge: unknown key → **error**; extra valid but unus
 
 ---
 
-## 4. Ambient wiring invisible at call sites
+## 4. ProviderScope wiring invisible at call sites
 
 ### In plain English — the problem
 

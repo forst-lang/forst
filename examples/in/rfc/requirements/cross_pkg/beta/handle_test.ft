@@ -1,0 +1,16 @@
+package beta
+
+import "testing"
+
+import "providers_cross_pkg_demo/alpha"
+
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {
+}
+
+func TestHandle_propagatesLoggerFromAlpha(t *testing.T) {
+	with {Logger: &NopLogger{}} {
+		Handle("tok-1")
+	}
+}

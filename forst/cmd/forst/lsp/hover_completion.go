@@ -156,7 +156,7 @@ func (s *LSPServer) hoverFromAnalyzedContext(ctx *forstDocumentContext, tok *ast
 	tc := ctx.TC
 	tokens := ctx.Tokens
 	if tok.Type == ast.TokenWith && ctx.Nodes != nil {
-		if md := withAmbientHoverMarkdown(tc, ctx.Nodes, tok); md != "" {
+		if md := withScopeHoverMarkdown(tc, ctx.Nodes, tok); md != "" {
 			return basicHoverMarkdown(md)
 		}
 	}
@@ -360,9 +360,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 			}
 			doc := leadingCommentDocBeforeFunc(docTokens, string(id))
 			body := fmt.Sprintf("```forst\n%s\n```", tc.FormatFunctionSignatureDisplay(sig))
-			if slots := tc.FunctionUsables[id]; len(slots) > 0 {
-				roots := typechecker.UsableRootIdentsFromSlots(slots)
-				body += fmt.Sprintf("\n\n**Usables:** %s", strings.Join(roots, ", "))
+			if slots := tc.FunctionProviders[id]; len(slots) > 0 {
+				roots := typechecker.ProviderRootIdentsFromSlots(slots)
+				body += fmt.Sprintf("\n\n**Providers:** %s", strings.Join(roots, ", "))
 			}
 			if doc == "" {
 				return body
