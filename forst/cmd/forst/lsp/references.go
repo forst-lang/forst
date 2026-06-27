@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"forst/internal/ast"
 	"forst/internal/typechecker"
@@ -61,11 +62,13 @@ func (s *LSPServer) findReferencesFromContext(ctx *forstDocumentContext, uri str
 	}
 	if ctx.PackageMerge != nil {
 		if decl := s.definingTopLevelLocationForPackage(ctx.TC, uri, ctx.Tokens, tok, ctx.PackageMerge); decl != nil {
-			return collectTopLevelReferencesAcrossPackage(ctx.PackageMerge, tok.Value, decl, includeDecl)
+			locs := collectTopLevelReferencesAcrossPackage(ctx.PackageMerge, tok.Value, decl, includeDecl)
+			return appendTopLevelCrossPackageReferences(s, ctx, tok.Value, locs)
 		}
 	} else {
 		if defTok := definingTokenForNavigableSymbol(ctx.TC, ctx.Tokens, tok); defTok != nil {
-			return collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+			locs := collectIdentifierReferences(uri, ctx.Tokens, tok.Value, defTok, includeDecl)
+			return appendTopLevelCrossPackageReferences(s, ctx, tok.Value, locs)
 		}
 	}
 	tokIdx := tokenIndexAtLSPPosition(ctx.Tokens, position)
@@ -81,6 +84,37 @@ func (s *LSPServer) findReferencesFromContext(ctx *forstDocumentContext, uri str
 		return nil
 	}
 	return collectIdentifierReferencesSameBinding(uri, ctx.Tokens, tok.Value, defTok, includeDecl, sym, ctx.TC, ctx.Nodes)
+}
+
+func appendTopLevelCrossPackageReferences(s *LSPServer, ctx *forstDocumentContext, name string, locs []LSPLocation) []LSPLocation {
+	if ctx == nil || ctx.TC == nil {
+		return locs
+	}
+	if _, ok := ctx.TC.Functions[ast.Identifier(name)]; !ok {
+		return locs
+	}
+	cross := s.collectCrossPackageReferencesForExportedFunction(ctx, name)
+	if len(cross) == 0 {
+		return locs
+	}
+	seen := make(map[string]struct{}, len(locs)+len(cross))
+	for _, l := range locs {
+		key := referenceLocationKey(l)
+		seen[key] = struct{}{}
+	}
+	for _, l := range cross {
+		key := referenceLocationKey(l)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		locs = append(locs, l)
+	}
+	return locs
+}
+
+func referenceLocationKey(l LSPLocation) string {
+	return fmt.Sprintf("%s:%d:%d", l.URI, l.Range.Start.Line, l.Range.Start.Character)
 }
 
 func collectTopLevelReferencesAcrossPackage(merge *packageMergeInfo, name string, decl *LSPLocation, includeDecl bool) []LSPLocation {

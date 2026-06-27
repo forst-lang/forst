@@ -321,6 +321,12 @@ provideRenameEdits: async (doc, pos, newName, _token) =>
               },
               message: d.message,
               severity: d.severity,
+              code:
+                typeof d.code === "string"
+                  ? d.code
+                  : d.code != null && typeof d.code === "object" && "value" in d.code
+                    ? String((d.code as { value: string }).value)
+                    : undefined,
             })),
           });
           const out: vscode.CodeAction[] = [];

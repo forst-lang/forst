@@ -41,6 +41,7 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_nonEmptyDiscovery_mergesP
 				Package:  "main",
 				Name:     "Echo",
 				FilePath: ft,
+				Runnable: true,
 			},
 		},
 	}
@@ -132,11 +133,13 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsA
 				Package:  "main",
 				Name:     "Echo",
 				FilePath: good,
+				Runnable: true,
 			},
 			"Bad": {
 				Package:  "main",
 				Name:     "Bad",
 				FilePath: bad,
+				Runnable: true,
 			},
 		},
 	}
@@ -176,10 +179,10 @@ func Echo(): Int {
 	tg := NewTypeScriptGenerator(log)
 	functions := map[string]map[string]discovery.FunctionInfo{
 		"alphapkg": {
-			"Echo": {Package: "alphapkg", Name: "Echo", FilePath: alpha},
+			"Echo": {Package: "alphapkg", Name: "Echo", FilePath: alpha, Runnable: true},
 		},
 		"betapkg": {
-			"Echo": {Package: "betapkg", Name: "Echo", FilePath: beta},
+			"Echo": {Package: "betapkg", Name: "Echo", FilePath: beta, Runnable: true},
 		},
 	}
 	_, err := tg.GenerateTypesForFunctions(functions, dir)

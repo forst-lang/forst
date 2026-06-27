@@ -199,11 +199,11 @@ func main() {
 	if !strings.Contains(out, "println({\n") {
 		t.Fatalf("expected multiline call + shape opening, got:\n%s", out)
 	}
-	if !strings.Contains(out, "\tctx: {\n") {
-		t.Fatalf("expected nested shape field on its own indented line, got:\n%s", out)
+	if !strings.Contains(out, "\tctx:") {
+		t.Fatalf("expected ctx field indented inside outer shape, got:\n%s", out)
 	}
-	if !strings.Contains(out, "\t\tn:") {
-		t.Fatalf("expected deeper indent inside nested shape, got:\n%s", out)
+	if !strings.Contains(out, "ctx: {n: 1}") {
+		t.Fatalf("expected compact nested shape when short, got:\n%s", out)
 	}
 }
 

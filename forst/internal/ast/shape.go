@@ -9,6 +9,8 @@ import (
 type ShapeNode struct {
 	ValueNode
 	Fields map[string]ShapeFieldNode
+	// FieldOrder is source declaration order when parsed from Forst; empty means unspecified (printer may sort).
+	FieldOrder []string
 	// Optional explicit base type, e.g. "User" in User{ name: "John" }
 	BaseType *TypeIdent
 }

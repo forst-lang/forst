@@ -697,12 +697,32 @@ func (p *printer) printUse(u ast.UseNode) (string, error) {
 func (p *printer) printWith(w ast.WithNode) (string, error) {
 	var b strings.Builder
 	b.WriteString("with ")
-	wiring, err := p.printExpr(w.Wiring)
-	if err != nil {
-		return "", err
+	if shape, ok := w.Wiring.(ast.ShapeNode); ok {
+		oneLine, err := p.printShapeOneLine(shape)
+		if err != nil {
+			return "", err
+		}
+		compactHead := "with " + oneLine + " {"
+		if len(compactHead) <= p.effectiveTypeDefLineWidth() {
+			b.WriteString(oneLine)
+			b.WriteString(" {\n")
+		} else {
+			fieldIndent := p.depth + 1
+			wiring, err := p.printShapeMultiline(shape, fieldIndent)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(wiring)
+			b.WriteString(" {\n")
+		}
+	} else {
+		wiring, err := p.printExpr(w.Wiring)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(wiring)
+		b.WriteString(" {\n")
 	}
-	b.WriteString(wiring)
-	b.WriteString(" {\n")
 	p.push()
 	body, err := p.printBlock(w.Body)
 	if err != nil {
@@ -961,10 +981,51 @@ func (p *printer) printCall(c ast.FunctionCallNode) (string, error) {
 	return b.String(), nil
 }
 
-// shapeUseMultiline picks a multi-line layout for non-empty shapes so nested structure
-// stays readable (matches common hand-formatted Forst).
-func shapeUseMultiline(s ast.ShapeNode) bool {
-	return len(s.Fields) > 0
+// shapeShouldUseMultiline picks multi-line layout when a one-line shape would exceed the line
+// width budget, or when multiple fields include nested shape literals (keeps nested structure readable).
+func (p *printer) shapeShouldUseMultiline(s ast.ShapeNode) bool {
+	if len(s.Fields) == 0 {
+		return false
+	}
+	oneLine, err := p.printShapeOneLine(s)
+	if err != nil {
+		return true
+	}
+	if len(oneLine) > p.effectiveTypeDefLineWidth() {
+		return true
+	}
+	if len(s.Fields) > 1 {
+		for _, field := range s.Fields {
+			if field.Shape != nil && len(field.Shape.Fields) > 0 {
+				return true
+			}
+			if expr, ok := field.ValueExpression(); ok {
+				if p.shapeExprHasNestedFields(expr) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (p *printer) shapeExprHasNestedFields(expr ast.ExpressionNode) bool {
+	switch x := expr.(type) {
+	case ast.ShapeNode:
+		return len(x.Fields) > 0
+	case ast.ReferenceNode:
+		if inner, ok := x.Value.(ast.ShapeNode); ok {
+			return len(inner.Fields) > 0
+		}
+	}
+	return false
+}
+
+func shapeFieldNamesForPrint(s ast.ShapeNode) []string {
+	if len(s.FieldOrder) > 0 {
+		return s.FieldOrder
+	}
+	return sortedShapeFieldNames(s.Fields)
 }
 
 func sortedShapeFieldNames(fields map[string]ast.ShapeFieldNode) []string {
@@ -983,7 +1044,7 @@ func (p *printer) printShape(s ast.ShapeNode) (string, error) {
 // printShapeAtFieldIndent prints a shape; fieldIndent is the number of cfg.Indent units
 // used for each field line inside this shape (1 = one level of indentation inside the shape).
 func (p *printer) printShapeAtFieldIndent(s ast.ShapeNode, fieldIndent int) (string, error) {
-	if !shapeUseMultiline(s) {
+	if !p.shapeShouldUseMultiline(s) {
 		return p.printShapeOneLine(s)
 	}
 	return p.printShapeMultiline(s, fieldIndent)
@@ -1031,11 +1092,7 @@ func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) 
 // printShapeFieldEntry prints one shape member: method signatures omit the colon (`info(msg String)`).
 func (p *printer) printShapeFieldEntry(name string, field ast.ShapeFieldNode, fieldIndent int) (string, error) {
 	if field.IsMethod {
-		sig, err := p.printShapeFieldRHS(field, fieldIndent)
-		if err != nil {
-			return "", err
-		}
-		return name + sig, nil
+		return ast.FormatShapeMemberName(name, field), nil
 	}
 	rhs, err := p.printShapeFieldRHS(field, fieldIndent)
 	if err != nil {
@@ -1051,7 +1108,7 @@ func (p *printer) printShapeOneLine(s ast.ShapeNode) (string, error) {
 		b.WriteString(string(*s.BaseType))
 	}
 	b.WriteByte('{')
-	names := sortedShapeFieldNames(s.Fields)
+	names := shapeFieldNamesForPrint(s)
 	for i, name := range names {
 		if i > 0 {
 			b.WriteString(", ")
@@ -1080,7 +1137,7 @@ func (p *printer) printShapeMultiline(s ast.ShapeNode, fieldIndent int) (string,
 		b.WriteString(string(*s.BaseType))
 	}
 	b.WriteString("{\n")
-	names := sortedShapeFieldNames(s.Fields)
+	names := shapeFieldNamesForPrint(s)
 	for _, name := range names {
 		field := s.Fields[name]
 		b.WriteString(fi)

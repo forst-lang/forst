@@ -1466,4 +1466,7 @@ func TestNestedWith(t *testing.T) {
 	if !strings.Contains(val, "Logger") || !strings.Contains(val, "Clock") {
 		t.Fatalf("expected Logger and Clock in ambient, got %q", val)
 	}
+	if !strings.Contains(val, "shadows outer") {
+		t.Fatalf("expected shadow marker on inner Clock, got %q", val)
+	}
 }

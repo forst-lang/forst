@@ -96,6 +96,19 @@ func codeActionKindsAllowFormat(only []string) bool {
 	return false
 }
 
+// codeActionKindsAllowQuickFix returns true when context.only is empty or includes quickfix.
+func codeActionKindsAllowQuickFix(only []string) bool {
+	if len(only) == 0 {
+		return true
+	}
+	for _, k := range only {
+		if k == "quickfix" || strings.HasPrefix(k, "quickfix.") {
+			return true
+		}
+	}
+	return false
+}
+
 // handleCodeAction handles the textDocument/codeAction method
 func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 	var params struct {
@@ -103,7 +116,8 @@ func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
 		Context struct {
-			Only []string `json:"only"`
+			Only        []string                    `json:"only"`
+			Diagnostics []codeActionDiagnosticParam `json:"diagnostics"`
 		} `json:"context"`
 	}
 	if err := json.Unmarshal(request.Params, &params); err != nil {
@@ -128,6 +142,14 @@ func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 	}
 
 	var out []interface{}
+	src, _ := s.openDocumentText(params.TextDocument.URI)
+
+	if codeActionKindsAllowQuickFix(params.Context.Only) {
+		for _, act := range usablesQuickFixActions(params.TextDocument.URI, src, params.Context.Diagnostics) {
+			out = append(out, act)
+		}
+	}
+
 	if codeActionKindsAllowFormat(params.Context.Only) {
 		if edits := s.documentFormattingEdits(params.TextDocument.URI, 4, true); edits != nil {
 			out = append(out, LSPCodeAction{

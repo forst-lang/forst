@@ -482,6 +482,10 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleTictactoeMergedPackage (-root merged package)")
 				return
 			}
+			if strings.HasPrefix(relPath, "rfc/requirements/usables") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleRequirementsUsablesMergedPackage (-root merged package)")
+				return
+			}
 
 			// Find expected output file(s)
 			expectedFiles, err := findExpectedOutputFiles(outputBasePath)
@@ -496,8 +500,8 @@ func TestExamples(t *testing.T) {
 
 			// Run the compiler on the input file
 			if err := runCompiler(path); err != nil {
-				if strings.HasPrefix(relPath, "rfc/") {
-					t.Logf("Ignoring failure for RFC example %s: %v", relPath, err)
+				if strings.HasPrefix(relPath, "rfc/") && len(expectedFiles) == 0 {
+					t.Logf("Ignoring failure for RFC example %s (no golden): %v", relPath, err)
 					return
 				}
 				t.Fatalf("Failed to run compiler: %v", err)
@@ -617,6 +621,46 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 	// Hash-based emitted type names (T_…) are not stable across small compiler changes; assert
 	// structural markers instead of line-for-line equality with extractKeyElements.
 	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
+}
+
+// TestExampleRequirementsUsablesMergedPackage compiles examples/in/rfc/requirements with -root
+// (usables.ft + usables_test.ft) and checks generated Go against examples/out/rfc/requirements/usables.go.
+// Regenerate: UPDATE_USABLES_GOLDEN=1 go test ./cmd/forst -run TestExampleRequirementsUsablesMergedPackage -count=1
+func TestExampleRequirementsUsablesMergedPackage(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "requirements")
+	entry := filepath.Join(root, "usables.ft")
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "requirements", "usables.go")
+
+	c := compiler.New(compiler.Args{
+		Command:     "run",
+		FilePath:    entry,
+		PackageRoot: root,
+		LogLevel:    "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	actual := *code
+
+	if os.Getenv("UPDATE_USABLES_GOLDEN") == "1" {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(actual), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote golden %s", goldenPath)
+		return
+	}
+
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden %s: %v (set UPDATE_USABLES_GOLDEN=1 to create)", goldenPath, err)
+	}
+	if string(expected) != actual {
+		t.Fatalf("golden mismatch for requirements/usables.go (set UPDATE_USABLES_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
+	}
 }
 
 func TestFindExpectedOutputFiles_directoryAndSingleFile(t *testing.T) {

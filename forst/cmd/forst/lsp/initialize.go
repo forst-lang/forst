@@ -27,7 +27,7 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 		"foldingRangeProvider":         true,
 		"documentFormattingProvider": true,
 		"codeActionProvider": map[string]interface{}{
-			"codeActionKinds": []string{"source", "source.formatDocument"},
+			"codeActionKinds": []string{"quickfix", "source", "source.formatDocument"},
 		},
 		"renameProvider": map[string]interface{}{
 			"prepareProvider": true,

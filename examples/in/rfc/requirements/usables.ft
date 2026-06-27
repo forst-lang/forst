@@ -1,9 +1,7 @@
 // Usables showcase: `use` in body, `with` at boundary, nested transitive `with`.
-// Golden: examples/out/rfc/requirements/usables.go (`task example:usables`).
+// Tests: usables_test.ft (`forst test`). Golden: examples/out/rfc/requirements/usables.go (`task example:usables`).
 
 package requirements_demo
-
-import "testing"
 
 type Logger = {
 	info(msg String)
@@ -35,35 +33,5 @@ func expireToken(token Token) {
 	use clock: Clock
 	if token.expiresAt < clock.now() {
 		logExpiry(token.id)
-	}
-}
-
-func TestExpireToken_expired(t *testing.T) {
-	token := Token { id: "t1", expiresAt: 500 }
-	with {
-		Logger: &NopLogger {},
-		Clock:  &FakeClock { fixedMs: 1000 },
-	} {
-		expireToken(token)
-	}
-}
-
-func TestExpireToken_valid(t *testing.T) {
-	token := Token { id: "t1", expiresAt: 5000 }
-	with {
-		Logger: &NopLogger {},
-		Clock:  &FakeClock { fixedMs: 1000 },
-	} {
-		expireToken(token)
-	}
-}
-
-// Outer `with` supplies Logger; inner overlays Clock — both reach nested `logExpiry` / `expireToken`.
-func TestTransitiveWith_expired(t *testing.T) {
-	token := Token { id: "t2", expiresAt: 1500 }
-	with { Logger: &NopLogger {} } {
-		with { Clock: &FakeClock { fixedMs: 2000 } } {
-			expireToken(token)
-		}
 	}
 }

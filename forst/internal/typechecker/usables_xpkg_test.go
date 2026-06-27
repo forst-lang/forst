@@ -42,7 +42,7 @@ func TestPropagateModuleUsablesFixedPoint_ambientSatisfiesSkipsSlot(t *testing.T
 		CallerFn:    "Handle",
 		TargetPkg:   "alpha",
 		TargetFn:    "ExpireToken",
-		AmbientKeys: map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
+		Ambient:     map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
 	}}
 	PropagateModuleUsablesFixedPoint(perPkg, calls)
 	if len(perPkg["beta"]["Handle"]) != 0 {

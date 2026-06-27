@@ -101,6 +101,18 @@ func TestParseShape(t *testing.T) {
 	}
 }
 
+func TestParseShapeType_preservesFieldOrder(t *testing.T) {
+	input := `{ id: String, expiresAt: Int }`
+	p := NewTestParser(input, ast.SetupTestLogger(nil))
+	shape := p.parseShapeType()
+	if len(shape.FieldOrder) != 2 {
+		t.Fatalf("FieldOrder = %v", shape.FieldOrder)
+	}
+	if shape.FieldOrder[0] != "id" || shape.FieldOrder[1] != "expiresAt" {
+		t.Fatalf("FieldOrder = %v, want [id expiresAt]", shape.FieldOrder)
+	}
+}
+
 func TestParseShapeType_TopLevel(t *testing.T) {
 	input := `{ foo: String, bar: Int }`
 	p := NewTestParser(input, ast.SetupTestLogger(nil))

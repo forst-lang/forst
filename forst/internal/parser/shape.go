@@ -136,6 +136,7 @@ func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 	p.expect(ast.TokenLBrace)
 
 	fields := make(map[string]ast.ShapeFieldNode)
+	var fieldOrder []string
 	// Parse fields until closing brace
 	for p.current().Type != ast.TokenRBrace {
 		p.log.WithField("token", p.current()).Trace("parseShapeType: parsing field")
@@ -143,6 +144,7 @@ func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 		name := p.parseShapeMemberName()
 
 		fields[name] = p.parseShapeTypeField(name)
+		fieldOrder = append(fieldOrder, name)
 
 		p.log.WithField("token", p.current()).Trace("parseShapeType: after field parse")
 		// Handle commas between fields
@@ -159,8 +161,9 @@ func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 
 	baseType := ast.TypeIdent(ast.TypeShape)
 	return ast.ShapeNode{
-		Fields:   fields,
-		BaseType: &baseType,
+		Fields:     fields,
+		FieldOrder: fieldOrder,
+		BaseType:   &baseType,
 	}
 }
 
@@ -169,9 +172,11 @@ func (p *Parser) parseShapeTypeInternal(allowEmpty bool) ast.ShapeNode {
 func (p *Parser) parseShapeTypeForError() ast.ShapeNode {
 	p.expect(ast.TokenLBrace)
 	fields := make(map[string]ast.ShapeFieldNode)
+	var fieldOrder []string
 	for p.current().Type != ast.TokenRBrace {
 		name := p.parseShapeMemberName()
 		fields[name] = p.parseShapeTypeField(name)
+		fieldOrder = append(fieldOrder, name)
 		if p.current().Type == ast.TokenComma {
 			p.advance()
 		}
@@ -179,8 +184,9 @@ func (p *Parser) parseShapeTypeForError() ast.ShapeNode {
 	p.expect(ast.TokenRBrace)
 	baseType := ast.TypeIdent(ast.TypeShape)
 	return ast.ShapeNode{
-		Fields:   fields,
-		BaseType: &baseType,
+		Fields:     fields,
+		FieldOrder: fieldOrder,
+		BaseType:   &baseType,
 	}
 }
 
@@ -200,6 +206,7 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) a
 	p.expect(ast.TokenLBrace)
 
 	fields := make(map[string]ast.ShapeFieldNode)
+	var fieldOrder []string
 	// Parse fields until closing brace
 	for p.current().Type != ast.TokenRBrace {
 		p.log.WithField("token", p.current()).Trace("parseShapeLiteral: parsing field")
@@ -295,6 +302,7 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) a
 				},
 			}
 		}
+		fieldOrder = append(fieldOrder, name)
 
 		p.log.WithField("token", p.current()).Trace("parseShapeLiteral: after field parse")
 		// Handle commas between fields
@@ -306,7 +314,8 @@ func (p *Parser) parseShapeLiteral(baseType *ast.TypeIdent, parseAsTypes bool) a
 	p.expect(ast.TokenRBrace)
 
 	return ast.ShapeNode{
-		Fields:   fields,
-		BaseType: baseType,
+		Fields:     fields,
+		FieldOrder: fieldOrder,
+		BaseType:   baseType,
 	}
 }

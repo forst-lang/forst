@@ -11,6 +11,7 @@ import (
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/typechecker"
+	"forst/internal/usablesgraph"
 
 	"github.com/sirupsen/logrus"
 )
@@ -130,15 +131,19 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 	}
 
 	importPathToForstPkg := BuildForstPackageImportPaths(goRoot, modulePath, byPackage)
-	var moduleCrossCalls []typechecker.ModuleCrossCall
+	moduleGraph := usablesgraph.NewModuleGraph(perPkgUsables)
 	for packageName, tc := range perPkgTC {
-		moduleCrossCalls = append(moduleCrossCalls, typechecker.BuildModuleCrossCalls(packageName, tc, importPathToForstPkg)...)
+		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, importPathToForstPkg) {
+			moduleGraph.AddModuleCall(call)
+		}
 	}
-	typechecker.PropagateModuleUsablesFixedPoint(perPkgUsables, moduleCrossCalls)
-	for packageName, slots := range perPkgUsables {
+	moduleGraph.ComputeFixedPoint(usablesgraph.AmbientKeyPresent)
+	for packageName := range perPkgTC {
+		slots := moduleGraph.PerPackage(packageName)
 		if tc := perPkgTC[packageName]; tc != nil {
 			tc.FunctionUsables = slots
 		}
+		perPkgUsables[packageName] = slots
 	}
 
 	for packageName, paths := range byPackage {
