@@ -39,10 +39,11 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 		log = logrus.New()
 		log.SetOutput(io.Discard)
 	}
-	moduleRoot := goload.FindModuleRoot(opts.ModuleRoot)
+	scanRoot := filepath.Clean(opts.ModuleRoot)
+	moduleRoot := goload.FindModuleRoot(scanRoot)
 	modulePath := goload.ModulePath(moduleRoot)
 
-	ftFiles, err := findForstFiles(moduleRoot)
+	ftFiles, err := findForstFiles(scanRoot)
 	if err != nil {
 		return nil, err
 	}
