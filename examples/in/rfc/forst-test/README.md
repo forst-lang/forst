@@ -1,6 +1,6 @@
 # Forst test runner (`forst test`)
 
-RFC for the **`forst test`** CLI — discovery, compilation, and execution of Forst tests. **Test syntax** ( `Test*` + `*testing.T`, `with` wiring, `ensure` in tests) is normative in the [requirements SPEC](../requirements/SPEC.md#testing-go-native) and [ADR-018](../requirements/ADR.md#adr-018-go-native-test-entrypoints).
+RFC for the **`forst test`** CLI — discovery, compilation, and execution of Forst tests. **Test syntax** ( `Test*` + `*testing.T`, `with` wiring, `ensure` in tests) is normative in the [requirements SPEC](../providers/SPEC.md#testing-go-native) and [ADR-018](../providers/ADR.md#adr-018-go-native-test-entrypoints).
 
 ## Documents
 
@@ -14,7 +14,7 @@ RFC for the **`forst test`** CLI — discovery, compilation, and execution of Fo
 
 ```mermaid
 flowchart TB
-  ReqSPEC["requirements/SPEC.md\nTest syntax + ensure rules"]
+  ReqSPEC["providers/SPEC.md\nTest syntax + ensure rules"]
   ADR018["ADR-018\nTest entrypoints"]
   TestRFC["forst-test/\nCLI + runner"]
   Compiler["Compiler\ntest fn + emit"]

@@ -1,5 +1,5 @@
 ---
-Feature Name: function-requirements
+Feature Name: providers
 Design: Agent A — explicit `require` + `provide`
 Start Date: 2026-06-27
 Status: Design proposal (competition entry)
@@ -764,7 +764,7 @@ test "greet logs" {
 
 ## 12. Recommended next step
 
-Add **`examples/in/rfc/requirements/explicit_basic.ft`** with golden Go output and **`TestRequirements_explicitBasic`** integration test — same pattern as `nominal_error.ft`. Validates parse → infer → **`provide`** lowering before committing lexer tokens.
+Add **`examples/in/rfc/providers/explicit_basic.ft`** with golden Go output and **`TestProviders_explicitBasic`** integration test — same pattern as `nominal_error.ft`. Validates parse → infer → **`provide`** lowering before committing lexer tokens.
 
 ---
 

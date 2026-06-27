@@ -465,7 +465,7 @@ Extend discovery JSON with **`requirements: ["UserRepo", "Clock"]`** per exporte
 3. **Infer:** compute `Needs(F)`; propagate across calls.
 4. **Check:** `@require T` implies `T ∈ Needs(F)`; entrypoint wiring metadata.
 5. **Emit:** `ReqSet` struct; append `req *ReqSet` parameter; rewrite `@require`.
-6. **Test:** golden `examples/in/rfc/requirements/operator_basic.ft` → Go with struct literal test.
+6. **Test:** golden `examples/in/rfc/providers/operator_basic.ft` → Go with struct literal test.
 
 ---
 
@@ -480,4 +480,4 @@ Extend discovery JSON with **`requirements: ["UserRepo", "Clock"]`** per exporte
 
 ## 10. Recommended next step
 
-Add **`examples/in/rfc/requirements/operator_basic.ft`** with golden Go output and a **`TestRequirements_operatorBasic`** integration test — same pattern as `nominal_error.ft` and tictactoe merged package. Validates the full pipeline before committing to lexer tokens **`?`** and **`@`**.
+Add **`examples/in/rfc/providers/operator_basic.ft`** with golden Go output and a **`TestProviders_operatorBasic`** integration test — same pattern as `nominal_error.ft` and tictactoe merged package. Validates the full pipeline before committing to lexer tokens **`?`** and **`@`**.

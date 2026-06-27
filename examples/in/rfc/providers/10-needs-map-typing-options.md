@@ -459,7 +459,7 @@ Allowed without new syntax:
 ## Recommended next step
 
 1. Implement **Provider** rules in checker: shape field = contract; shape literal assignability; root field names; nil forbid.
-2. Spike **`ciUserApiServices(): CIProviders`** in `examples/in/rfc/requirements/` + golden Go.
+2. Spike **`ciUserApiServices(): CIProviders`** in `examples/in/rfc/providers/` + golden Go.
 3. Nested **`with`** merge + completeness against inferred shape (not full CIProviders on every inner map).
 4. Wire **Provider → `{fn}Needs`** lowering; dedupe identical shapes.
 5. Union typedef (F) only if unknown-key errors without Provider typedef prove insufficient.

@@ -482,8 +482,8 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleTictactoeMergedPackage (-root merged package)")
 				return
 			}
-			if strings.HasPrefix(relPath, "rfc/requirements/providers") && strings.HasSuffix(relPath, ".ft") {
-				t.Skip("covered by TestExampleRequirementsProvidersMergedPackage (-root merged package)")
+			if strings.HasPrefix(relPath, "rfc/providers/providers") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleProvidersMergedPackage (-root merged package)")
 				return
 			}
 
@@ -623,13 +623,13 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
 }
 
-// TestExampleRequirementsProvidersMergedPackage compiles examples/in/rfc/requirements with -root
-// (providers.ft + providers_test.ft) and checks generated Go against examples/out/rfc/requirements/providers.go.
-// Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleRequirementsProvidersMergedPackage -count=1
-func TestExampleRequirementsProvidersMergedPackage(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "requirements")
+// TestExampleProvidersMergedPackage compiles examples/in/rfc/providers with -root
+// (providers.ft + providers_test.ft) and checks generated Go against examples/out/rfc/providers/providers.go.
+// Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersMergedPackage -count=1
+func TestExampleProvidersMergedPackage(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
 	entry := filepath.Join(root, "providers.ft")
-	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "requirements", "providers.go")
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
 	c := compiler.New(compiler.Args{
 		Command:     "run",
@@ -659,7 +659,7 @@ func TestExampleRequirementsProvidersMergedPackage(t *testing.T) {
 		t.Fatalf("read golden %s: %v (set UPDATE_PROVIDERS_GOLDEN=1 to create)", goldenPath, err)
 	}
 	if string(expected) != actual {
-		t.Fatalf("golden mismatch for requirements/providers.go (set UPDATE_PROVIDERS_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
+		t.Fatalf("golden mismatch for providers/providers.go (set UPDATE_PROVIDERS_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
 	}
 }
 

@@ -1,5 +1,5 @@
 ---
-Feature Name: function-requirements-providers
+Feature Name: providers
 Status: Accepted
 Audience: Backend engineers, compiler implementers, language designers
 Normative companions: [ADR.md](./ADR.md) (ADR-001–046), [SPEC.md](./SPEC.md)

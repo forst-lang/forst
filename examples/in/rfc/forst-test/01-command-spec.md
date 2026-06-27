@@ -2,7 +2,7 @@
 
 **Status:** Draft — target behavior for `cmd/forst test`.
 
-**Depends on:** [requirements SPEC § Testing](../requirements/SPEC.md#testing-go-native), [ADR-018](../requirements/ADR.md#adr-018-go-native-test-entrypoints).
+**Depends on:** [requirements SPEC § Testing](../providers/SPEC.md#testing-go-native), [ADR-018](../providers/ADR.md#adr-018-go-native-test-entrypoints).
 
 ---
 
@@ -27,7 +27,7 @@ Examples:
 
 ```bash
 forst test
-forst test ./examples/in/rfc/requirements
+forst test ./examples/in/rfc/providers
 forst test -v -run TestExpireToken
 forst test ./pkg -- -count=1
 ```
@@ -39,7 +39,7 @@ forst test ./pkg -- -count=1
 1. **Resolve config** — `ftconfig.json` / `ForstConfig` (same as `forst run`, `forst generate`).
 2. **Discover** — `*.ft` + `*_test.ft` per [02 — Discovery](./02-discovery-and-layout.md).
 3. **Merge packages** — per-package AST merge (same as multi-file compile).
-4. **Typecheck** — full checker pass including requirements ([ADR-009](../requirements/ADR.md#adr-009-transitive-inference-and-mandatory-completeness)).
+4. **Typecheck** — full checker pass including requirements ([ADR-009](../providers/ADR.md#adr-009-transitive-inference-and-mandatory-completeness)).
 5. **Emit** — production `.go` + `*_test.go` per [03 — Emit bridge](./03-emit-and-go-test-bridge.md).
 6. **Run** — `go test` in module root with forwarded flags.
 
@@ -61,7 +61,7 @@ Match `go test` conventions where practical so CI scripts can swap `go test` →
 
 - **Compile / typecheck errors** — Forst diagnostics on stderr (same format as `forst run`).
 - **Test run** — pass through **`go test`** stdout/stderr verbatim (`-v` shows subtests from `t.Run`).
-- **Requirements completeness errors** — reported at typecheck (before `go test`) with obligation chains per [SPEC](../requirements/SPEC.md).
+- **Requirements completeness errors** — reported at typecheck (before `go test`) with obligation chains per [SPEC](../providers/SPEC.md).
 
 ---
 
@@ -70,7 +70,7 @@ Match `go test` conventions where practical so CI scripts can swap `go test` →
 | Item | Notes |
 | --- | --- |
 | **Replace `go test` runtime** | Always delegate execution to Go toolchain |
-| **TS / sidecar tests** | Requirements and tests are Go-side only ([ADR-011](../requirements/ADR.md#adr-011-typescript-never-sees-requirements)) |
+| **TS / sidecar tests** | Requirements and tests are Go-side only ([ADR-011](../providers/ADR.md#adr-011-typescript-never-sees-requirements)) |
 | **Coverage UI** | Use `go test -cover` passthrough when needed |
 | **Watch mode** | Future; use external file watcher + `forst test` in v1 |
 | **Benchmark runner** | `BenchmarkXxx` reserved; not v1 |

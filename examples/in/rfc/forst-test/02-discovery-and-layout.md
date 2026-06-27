@@ -2,7 +2,7 @@
 
 **Status:** Draft.
 
-**Depends on:** [01 — Command spec](./01-command-spec.md), [ADR-018](../requirements/ADR.md#adr-018-go-native-test-entrypoints).
+**Depends on:** [01 — Command spec](./01-command-spec.md), [ADR-018](../providers/ADR.md#adr-018-go-native-test-entrypoints).
 
 ---
 

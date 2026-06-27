@@ -14,7 +14,7 @@ import (
 
 func TestHandleCodeAction_providersExample_noPanic(t *testing.T) {
 	t.Parallel()
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "requirements", "providers.ft"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestHandleCodeAction_providersExample_noPanic(t *testing.T) {
 
 func TestHandleLSP_httpCodeAction_providersExample_returns200(t *testing.T) {
 	t.Parallel()
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "requirements", "providers.ft"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}

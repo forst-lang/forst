@@ -81,7 +81,7 @@ See `compiler/compile_pipeline.go`.
 | **Typechecker (prereq)** | `register.go`, `infer_expression.go`, `builtins.go` | Method registry for Forst receiver methods; method-set satisfaction |
 | **Transformer** | `internal/transformer/go/function.go`, new `requirements.go`, `statement.go`, `expression.go` | Prepend needs param; strip `use` to locals; rewrite calls inside `with` |
 | **Discovery / LSP** | `internal/discovery/discovery.go` | Go-side `needs: []string` on `FunctionInfo` (v2); filtered from TS manifest per [ADR-011](./ADR.md#adr-011-typescript-never-sees-requirements) |
-| **Examples / tests** | `examples/in/rfc/requirements/`, `examples/out/` | Golden pipeline tests per phase |
+| **Examples / tests** | `examples/in/rfc/providers/`, `examples/out/` | Golden pipeline tests per phase |
 
 ### New AST nodes (minimum)
 
@@ -211,7 +211,7 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 
 **Acceptance criteria**
 
-- `examples/in/rfc/requirements/SPEC.md` token-expiry example compiles through `task example:*` golden (subset without `with ctx`).
+- `examples/in/rfc/providers/SPEC.md` token-expiry example compiles through `task example:*` golden (subset without `with ctx`).
 - Unit tests: parse `use`/`with`; needs struct emission; one integration test calling `expireToken` with literal needs struct.
 - Receiver method call `logger.info(...)` type-checks on `StdLogger`.
 
@@ -280,11 +280,11 @@ Go interop handles qualified calls and tracked receivers (`checkGoMethodCall`, `
 | **Parser** | Colocated `use_test.go`, `with_test.go` — token streams like `ensure_test.go` |
 | **Typechecker** | Unit tests for `Needs` collection, propagation, shadow, completeness errors; table-driven satisfaction cases |
 | **Transformer** | Golden Go snippets for needs struct + call rewrite; extend `pipeline_integration_test.go` |
-| **Integration** | New `examples/in/rfc/requirements/requirements_mvp.ft` + `examples/out/` golden via `task example:requirements` |
+| **Integration** | New `examples/in/rfc/providers/providers_mvp.ft` + `examples/out/` golden via `task example:providers` |
 | **Regression** | Run existing `task test:integration` / full `go test ./...` — requirements must not break `ensure`, Result, guards |
 | **Interop** | Extend `go_interop_test.go` patterns for `io.Writer` contract wiring |
 
-Prefer **precise test names** per project priorities (e.g. `TestRequirements_propagateNeedsThroughCallChain`).
+Prefer **precise test names** per project priorities (e.g. `TestProviders_propagateNeedsThroughCallChain`).
 
 ---
 
@@ -335,4 +335,4 @@ Proceed with [SPEC](./SPEC.md) as the **surface-area target** (two keywords, typ
 - Structural compare: `forst/internal/typechecker/go_builtins.go` (`shapesAreStructurallyIdentical`)
 - Function lowering: `forst/internal/transformer/go/function.go`
 - Compile pipeline: `forst/internal/compiler/compile_pipeline.go`
-- Prior art audit: `examples/in/rfc/requirements/00-prior-art.md` §5
+- Prior art audit: `examples/in/rfc/providers/00-prior-art.md` §5

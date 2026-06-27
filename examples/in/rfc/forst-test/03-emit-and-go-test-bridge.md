@@ -2,7 +2,7 @@
 
 **Status:** Draft.
 
-**Depends on:** [01 — Command spec](./01-command-spec.md), [ADR-007](../requirements/ADR.md#adr-007-go-lowering--needs-struct-as-first-parameter), [ADR-013](../requirements/ADR.md#adr-013-needs-struct-lowering), [ADR-018](../requirements/ADR.md#adr-018-go-native-test-entrypoints).
+**Depends on:** [01 — Command spec](./01-command-spec.md), [ADR-007](../providers/ADR.md#adr-007-go-lowering--needs-struct-as-first-parameter), [ADR-013](../providers/ADR.md#adr-013-needs-struct-lowering), [ADR-018](../providers/ADR.md#adr-018-go-native-test-entrypoints).
 
 ---
 
@@ -27,7 +27,7 @@ flowchart LR
 
 ## Production emit (unchanged)
 
-- `{fn}Needs` struct per function with non-empty `Needs(f)` — **by-value** contract fields ([ADR-013](../requirements/ADR.md#adr-013-needs-struct-lowering)).
+- `{fn}Needs` struct per function with non-empty `Needs(f)` — **by-value** contract fields ([ADR-013](../providers/ADR.md#adr-013-needs-struct-lowering)).
 - `with` blocks → struct literals copying from scope Provider at call sites.
 - Exported symbols follow existing Go export rules.
 
@@ -78,7 +78,7 @@ expireToken(expireTokenNeeds{
 }, token)
 ```
 
-Same scope-merge rules as [SPEC § Go lowering](../requirements/SPEC.md#go-lowering).
+Same scope-merge rules as [SPEC § Go lowering](../providers/SPEC.md#go-lowering).
 
 ---
 

@@ -1,0 +1,58 @@
+package providers_demo
+
+import "testing"
+// Clock: TypeDefShapeExpr({now: ?})
+type Clock interface {
+	now() int
+}
+// FakeClock: TypeDefShapeExpr({fixedMs: Int})
+type FakeClock struct {
+	fixedMs int `json:"fixedMs"`
+}
+// Logger: TypeDefShapeExpr({info: ?})
+type Logger interface {
+	info(msg string)
+}
+// NopLogger: TypeDefShapeExpr({})
+type NopLogger struct {
+}
+type Providers_2TAwF8pWZKc struct {
+	Logger Logger
+}
+type Providers_Pm6dPg3hV64 struct {
+	Clock  Clock
+	Logger Logger
+}
+// Token: TypeDefShapeExpr({id: String, expiresAt: Int})
+type Token struct {
+	expiresAt int    `json:"expiresAt"`
+	id        string `json:"id"`
+}
+
+func TestExpireToken_expired(t *testing.T)  {
+	token := Token{id: "t1", expiresAt: 500}
+	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
+}
+func TestExpireToken_valid(t *testing.T)  {
+	token := Token{id: "t1", expiresAt: 5000}
+	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
+}
+func TestTransitiveWith_expired(t *testing.T)  {
+	token := Token{id: "t2", expiresAt: 1500}
+	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 2000}, Logger: &NopLogger{}}, token)
+}
+func expireToken(providers Providers_Pm6dPg3hV64, token Token)  {
+	clock := providers.Clock
+	if token.expiresAt < clock.now() {
+		logExpiry(Providers_2TAwF8pWZKc{Logger: providers.Logger}, token.id)
+	}
+}
+func (NopLogger) info(msg string) {
+}
+func logExpiry(providers Providers_2TAwF8pWZKc, id string)  {
+	logger := providers.Logger
+	logger.info("expire " + id)
+}
+func (c FakeClock) now() int {
+	return c.fixedMs
+}

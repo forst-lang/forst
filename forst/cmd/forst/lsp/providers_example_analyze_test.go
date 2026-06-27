@@ -11,7 +11,7 @@ import (
 // Regression: Providers contract typedefs use method signatures in shapes (`info(msg String)`).
 func TestAnalyzeForstDocument_providersExample_methodContractParses(t *testing.T) {
 	t.Parallel()
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "requirements", "providers.ft"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestAnalyzeForstDocument_providersExample_methodContractParses(t *testing.T
 		t.Fatal(err)
 	}
 	dir := filepath.Dir(root)
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module requirements_demo\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_demo\n\ngo 1.23\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Remove(filepath.Join(dir, "go.mod")) })

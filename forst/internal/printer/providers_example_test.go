@@ -11,7 +11,7 @@ import (
 
 func TestFormatSource_providersExample_preservesTokenFieldOrder(t *testing.T) {
 	t.Parallel()
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "in", "rfc", "requirements", "providers.ft"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestFormatSource_providersExample_preservesTokenFieldOrder(t *testing.T) {
 
 func TestFormatSource_providersExample_roundTrips(t *testing.T) {
 	t.Parallel()
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "in", "rfc", "requirements", "providers.ft"))
+	root, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package requirements_demo
+package providers_demo
 
 import "testing"
 

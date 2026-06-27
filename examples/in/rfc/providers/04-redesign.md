@@ -867,7 +867,7 @@ test "createUser does not hit network" uses CI {
 | **H-b** | Checker: harness `uses` ⊆ implementations; test entry `Needs` ⊆ harness + overrides |
 | **H-c** | Lower `supply CI` → preset helper; `override` → `mergeHarness` |
 | **H-d** | Discovery JSON: harness catalog + policies |
-| **H-e** | Example in [02-examples.ft](./02-examples.ft) + golden `_test.go` with `task example:requirements` |
+| **H-e** | Example in [02-examples.ft](./02-examples.ft) + golden `_test.go` with `task example:providers` |
 
 **Dependency:** Phases **1–5** in [Next steps](#next-steps) (`use`, `supply`, inference) must land first; harness is **phase 6–7** sugar.
 
@@ -1093,7 +1093,7 @@ test "greet logs" {
 | **4. Parser: `use`, `supply`** | Postfix + block forms; `supply forward` |
 | **5. `supply ctx` lowering** | Field extraction + naming convention |
 | **6. Optional `uses` clause** | Export docs + discovery JSON |
-| **7. Examples + tasks** | Update [02-examples.ft](./02-examples.ft); add `task example:requirements` when compiles |
+| **7. Examples + tasks** | Update [02-examples.ft](./02-examples.ft); add `task example:providers` when compiles |
 | **8. Needs merge pass** | Package-level dedup (ABI stability) |
 | **9. Harness presets** | `harness CI`, `uses CI` on tests, `override` merge lowering — [§ Integration test harness](#integration-test-harness) |
 | **10. Harness discovery** | JSON catalog + CI policy hints for agents |

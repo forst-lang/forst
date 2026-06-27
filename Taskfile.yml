@@ -235,36 +235,36 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/result_if.ft
 
-  example:requirements:
-    desc: Compile Providers showcase (use/with, golden examples/out/rfc/requirements/)
+  example:providers:
+    desc: Compile Providers showcase (use/with, golden examples/out/rfc/providers/)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/requirements -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/requirements/providers.ft
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
 
   test:providers:
-    desc: Run forst test on requirements Providers golden package (providers.ft + providers_test.ft)
+    desc: Run forst test on Providers golden package (providers.ft + providers_test.ft)
     deps: [build]
-    dir: examples/in/rfc/requirements
+    dir: examples/in/rfc/providers
     cmds:
       - ../../../../bin/forst test .
 
   test:providers-cross_pkg:
     desc: Run forst test on cross-package Providers cookbook (cross_pkg/alpha + cross_pkg/beta)
     deps: [build]
-    dir: examples/in/rfc/requirements/cross_pkg
+    dir: examples/in/rfc/providers/cross_pkg
     cmds:
       - ../../../../../bin/forst test beta
 
   test:forst:
-    desc: Alias for test:providers (forst test on requirements golden)
+    desc: Alias for test:providers (forst test on Providers golden)
     cmds:
       - task: test:providers
 
-  example:providers:
-    desc: Alias for example:requirements (providers.ft golden)
+  example:requirements:
+    desc: Alias for example:providers (legacy task name)
     dir: forst
     cmds:
-      - task: example:requirements
+      - task: example:providers
 
   example:pointers:
     desc: Compile pointers example
@@ -415,7 +415,7 @@ tasks:
       - task test:tictactoe
       - task test:providers
       - task test:providers-cross_pkg
-      - task example:requirements
+      - task example:providers
 
   # Release tasks
   build:release:

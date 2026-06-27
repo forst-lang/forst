@@ -1,5 +1,5 @@
 ---
-Feature Name: function-requirements
+Feature Name: providers
 Design: Agent B — implicit context with `using`
 Start Date: 2026-06-27
 ---

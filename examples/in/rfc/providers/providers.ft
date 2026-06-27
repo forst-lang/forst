@@ -1,7 +1,7 @@
 // Providers showcase: `use` in body, `with` at boundary, nested transitive `with`.
-// Tests: providers_test.ft (`forst test`). Golden: examples/out/rfc/requirements/providers.go (`task example:providers`).
+// Tests: providers_test.ft (`forst test`). Golden: examples/out/rfc/providers/providers.go (`task example:providers`).
 
-package requirements_demo
+package providers_demo
 
 type Logger = {
 	info(msg String)
