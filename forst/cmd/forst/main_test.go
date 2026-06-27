@@ -498,22 +498,18 @@ func TestExamples(t *testing.T) {
 				return
 			}
 
-			// Run the compiler on the input file
-			if err := runCompiler(path); err != nil {
+			// Compile once and compare against golden output.
+			c := compiler.New(compiler.Args{
+				Command:  "run",
+				FilePath: path,
+				LogLevel: "error",
+			}, exampleTestLogger())
+			code, err := c.CompileFile()
+			if err != nil {
 				if strings.HasPrefix(relPath, "rfc/") && len(expectedFiles) == 0 {
 					t.Logf("Ignoring failure for RFC example %s (no golden): %v", relPath, err)
 					return
 				}
-				t.Fatalf("Failed to run compiler: %v", err)
-			}
-
-			// Read the generated code from the temporary file
-			compiler := compiler.New(compiler.Args{
-				Command:  "run",
-				FilePath: path,
-			}, nil)
-			code, err := compiler.CompileFile()
-			if err != nil {
 				t.Fatalf("Failed to compile file: %v", err)
 			}
 			actualOutput := *code
