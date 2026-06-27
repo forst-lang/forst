@@ -1,0 +1,186 @@
+// Function requirements — syntax showcase (ADR / SPEC)
+// May not compile until the requirements feature is implemented.
+
+package requirements_demo
+
+import "testing"
+
+// --- Contracts (ordinary types; no `requirement` keyword) --------------------
+
+type Logger = {
+	info(msg String)
+	error(msg String)
+}
+
+type Clock = {
+	now(): Int
+}
+
+type UserRepo = {
+	find(id String): Result(User, Error)
+	save(user User): Result(User, Error)
+}
+
+// --- Domain types -----------------------------------------------------------
+
+type User = {
+	id:   String,
+	name: String,
+}
+
+type Token = {
+	id:        String,
+	expiresAt: Int,
+}
+
+// --- Production implementations (structural satisfaction) -------------------
+
+type StdLogger = {
+	level: String,
+}
+
+func (l StdLogger) info(msg String) {
+	// lowered to Go: fmt or host logger
+}
+
+func (l StdLogger) error(msg String) {}
+
+type SystemClock = {}
+
+func (c SystemClock) now(): Int {
+	return 0 // placeholder — lowered to time.Now().UnixMilli() or host hook
+}
+
+type PostgresUserRepo = {
+	dsn: String,
+}
+
+func (db PostgresUserRepo) find(id String): Result(User, Error) {
+	return Err(NotFound { id: id })
+}
+
+func (db PostgresUserRepo) save(user User): Result(User, Error) {
+	return Ok(user)
+}
+
+// --- Business logic: `use` in body, `with` at boundary ----------------------
+
+func expireToken(token Token): Result(Token, Error) {
+	use logger: Logger
+	use clock: Clock
+
+	if token.expiresAt < clock.now() {
+		logger.info("token expired: " + token.id)
+		return Err(Expired { tokenId: token.id })
+	}
+	return Ok(token)
+}
+
+func getUser(id String): Result(User, Error) {
+	use repo: UserRepo
+	return repo.find(id)
+}
+
+// --- CI fixture (helper — not a test entrypoint) ----------------------------
+
+func ciUserApiServices() {
+	return {
+		Logger:   &NopLogger {},
+		Clock:    &FakeClock { fixedMs: 1_700_000_000_000 },
+		UserRepo: &InMemoryUserRepo { users: map[String]User{} },
+	}
+}
+
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {}
+
+func (NopLogger) error(msg String) {}
+
+type FakeClock = { fixedMs: Int }
+
+func (c FakeClock) now(): Int { return c.fixedMs }
+
+type InMemoryUserRepo = { users: map[String]User }
+
+func (r InMemoryUserRepo) find(id String): Result(User, Error) {
+	user := r.users[id]
+	if user.id == "" {
+		return Err(NotFound { id: id })
+	}
+	return Ok(user)
+}
+
+func (r InMemoryUserRepo) save(user User): Result(User, Error) {
+	return Ok(user)
+}
+
+// --- Tests: Go-native `Test*` + `*testing.T` (ADR-018) -----------------------
+
+func TestExpireTokenRejectsExpired(t *testing.T) {
+	token := Token { id: "t1", expiresAt: 1000 }
+	with {
+		Logger: &NopLogger {},
+		Clock:  &FakeClock { fixedMs: 2000 },
+	} {
+		result := expireToken(token)
+		ensure result is Err(Expired {})
+	}
+}
+
+func TestGetUserReturnsUserFromFakeRepo(t *testing.T) {
+	with {
+		UserRepo: &InMemoryUserRepo {
+			users: map[String]User{
+				"42": User { id: "42", name: "Ada" },
+			},
+		},
+	} {
+		result := getUser("42")
+		ensure result is Ok()
+	}
+}
+
+// Nested `with` overlays one key; outer Usable forwards the rest (ADR-005)
+
+func TestExpireTokenWithSharedFixture(t *testing.T) {
+	token := Token { id: "t1", expiresAt: 1000 }
+	with ciUserApiServices() {
+		with { Clock: &FakeClock { fixedMs: 2000 } } {
+			result := expireToken(token)
+			ensure result is Err(Expired {})
+		}
+	}
+}
+
+func TestExpireToken_table(t *testing.T) {
+	token := Token { id: "t1", expiresAt: 1000 }
+	cases := [] {
+		{ name: "expired", fixedMs: 3000 },
+		{ name: "valid",   fixedMs: 500 },
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			with ciUserApiServices() {
+				with { Clock: &FakeClock { fixedMs: tc.fixedMs } } {
+					result := expireToken(token)
+					if tc.name == "expired" {
+						ensure result is Err(Expired {})
+					} else {
+						ensure result is Ok()
+					}
+				}
+			}
+		})
+	}
+}
+
+// --- Nominal errors (orthogonal to requirements) ----------------------------
+
+error NotFound {
+	id: String,
+}
+
+error Expired {
+	tokenId: String,
+}

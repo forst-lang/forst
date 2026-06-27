@@ -44,7 +44,7 @@
 - All nominal types are aliases of constraints on other types
   - e.g. `Array(String)` is an anonymous, non-nominal type
   - but `type StringArray = Array(String)` is a nominal type
-- Traits from Rust instead of classes? Allow any objects that satisfy the trait to be used in place of the trait.
+- Traits from Rust? Allow any objects that satisfy the trait to be used in place of the trait.
   - Disallow methods in parameter object types
 
 ### Features
