@@ -5,6 +5,11 @@
  */
 
 /** Diagnostic shape used when applying `publishDiagnostics`-style payloads from HTTP responses. */
+export interface LspDiagnosticRelatedInformation {
+  location: LspLocation;
+  message: string;
+}
+
 export interface LspDiagnostic {
   range: {
     start: { line: number; character: number };
@@ -14,6 +19,7 @@ export interface LspDiagnostic {
   message: string;
   source?: string;
   code?: string;
+  relatedInformation?: LspDiagnosticRelatedInformation[];
 }
 
 /** Batch notification payload for syncing editor diagnostics with server results. */

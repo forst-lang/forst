@@ -36,6 +36,39 @@ func TestPrint_useNamedAndAnonymous(t *testing.T) {
 	}
 }
 
+func TestPrint_methodContractShapeTypedef(t *testing.T) {
+	shape := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"info": {
+				IsMethod: true,
+				MethodParams: []ast.ParamNode{
+					ast.SimpleParamNode{Ident: ast.Ident{ID: "msg"}, Type: ast.TypeNode{Ident: ast.TypeString}},
+				},
+			},
+			"now": {
+				IsMethod:          true,
+				MethodParams:      nil,
+				MethodReturnTypes: []ast.TypeNode{{Ident: ast.TypeInt}},
+			},
+		},
+	}
+	var p printer
+	p.cfg = DefaultConfig()
+	out, err := p.printShapeMultiline(shape, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "info:") {
+		t.Fatalf("method field should not use colon syntax: %q", out)
+	}
+	if !strings.Contains(out, "info(msg String)") {
+		t.Fatalf("missing method signature: %q", out)
+	}
+	if !strings.Contains(out, "now(): Int") {
+		t.Fatalf("missing return type method: %q", out)
+	}
+}
+
 func TestPrint_withShapeLiteralWiring(t *testing.T) {
 	with := ast.WithNode{
 		Wiring: ast.ShapeNode{

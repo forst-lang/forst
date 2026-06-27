@@ -19,6 +19,9 @@ test("snippets/forst.json parses and defines expected prefixes", () => {
     "Type alias",
     "Import",
     "Ensure",
+    "Use contract",
+    "With wiring",
+    "Nested with (transitive)",
   ];
   for (const name of required) {
     assert.ok(name in data, `missing snippet: ${name}`);

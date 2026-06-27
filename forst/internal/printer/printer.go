@@ -1010,6 +1010,9 @@ func shapeFieldParsedValueExpr(field ast.ShapeFieldNode) (ast.ExpressionNode, bo
 }
 
 func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) (string, error) {
+	if field.IsMethod {
+		return field.String(), nil
+	}
 	if field.Shape != nil {
 		return p.printShapeAtFieldIndent(*field.Shape, fieldIndent)
 	}
@@ -1025,6 +1028,22 @@ func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) 
 	return "", nil
 }
 
+// printShapeFieldEntry prints one shape member: method signatures omit the colon (`info(msg String)`).
+func (p *printer) printShapeFieldEntry(name string, field ast.ShapeFieldNode, fieldIndent int) (string, error) {
+	if field.IsMethod {
+		sig, err := p.printShapeFieldRHS(field, fieldIndent)
+		if err != nil {
+			return "", err
+		}
+		return name + sig, nil
+	}
+	rhs, err := p.printShapeFieldRHS(field, fieldIndent)
+	if err != nil {
+		return "", err
+	}
+	return name + ": " + rhs, nil
+}
+
 func (p *printer) printShapeOneLine(s ast.ShapeNode) (string, error) {
 	var b strings.Builder
 	// Anonymous structural types use BaseType TYPE_SHAPE as a sentinel; omit it in source.
@@ -1038,13 +1057,11 @@ func (p *printer) printShapeOneLine(s ast.ShapeNode) (string, error) {
 			b.WriteString(", ")
 		}
 		field := s.Fields[name]
-		b.WriteString(name)
-		b.WriteString(": ")
-		rhs, err := p.printShapeFieldRHS(field, 1)
+		entry, err := p.printShapeFieldEntry(name, field, 1)
 		if err != nil {
 			return "", err
 		}
-		b.WriteString(rhs)
+		b.WriteString(entry)
 	}
 	b.WriteByte('}')
 	return b.String(), nil
@@ -1067,13 +1084,11 @@ func (p *printer) printShapeMultiline(s ast.ShapeNode, fieldIndent int) (string,
 	for _, name := range names {
 		field := s.Fields[name]
 		b.WriteString(fi)
-		b.WriteString(name)
-		b.WriteString(": ")
-		rhs, err := p.printShapeFieldRHS(field, fieldIndent+1)
+		entry, err := p.printShapeFieldEntry(name, field, fieldIndent+1)
 		if err != nil {
 			return "", err
 		}
-		b.WriteString(rhs)
+		b.WriteString(entry)
 		b.WriteString(",\n")
 	}
 	b.WriteString(closeIndent)
