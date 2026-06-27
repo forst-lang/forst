@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
@@ -180,6 +181,9 @@ func findForstFiles(root string) ([]string, error) {
 			return nil
 		}
 		if filepath.Ext(path) == ".ft" {
+			if strings.HasSuffix(path, ".skip.ft") {
+				return nil
+			}
 			out = append(out, path)
 		}
 		return nil

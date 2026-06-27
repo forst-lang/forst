@@ -1,8 +1,12 @@
 package compiler
 
 import (
+	"os"
+	"path/filepath"
+
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/goload"
 	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 )
@@ -10,7 +14,7 @@ import (
 // typecheckForCompile runs module-level Providers checking when multiple Forst packages exist,
 // returning the typechecker for the compiled package.
 func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
-	moduleRoot := c.goWorkspaceDirForCheck()
+	moduleRoot := c.moduleRootForProvidersPass()
 	modResult, err := modulecheck.CheckModuleProviders(c.log, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err != nil {
 		return nil, modResult, err
@@ -22,7 +26,7 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 		}
 	}
 	checker := typechecker.New(c.log, c.Args.ReportPhases)
-	checker.GoWorkspaceDir = moduleRoot
+	checker.GoWorkspaceDir = c.goWorkspaceDirForCheck()
 	if err := checker.CheckTypes(nodes); err != nil {
 		return checker, modResult, err
 	}
@@ -36,4 +40,26 @@ func (c *Compiler) TypecheckForCompileEntry() (*typechecker.TypeChecker, *module
 		return nil, nil, err
 	}
 	return c.typecheckForCompile(nodes)
+}
+
+// moduleRootForProvidersPass limits the Providers module walk for single-file compiles
+// inside the compiler repo (avoids scanning every examples/*.ft under forst/go.mod).
+func (c *Compiler) moduleRootForProvidersPass() string {
+	if c.Args.PackageRoot != "" {
+		return goload.FindModuleRoot(c.Args.PackageRoot)
+	}
+	entryDir := filepath.Dir(c.Args.FilePath)
+	modRoot := goload.FindModuleRoot(entryDir)
+	if isCompilerWorkspaceModule(modRoot) {
+		return entryDir
+	}
+	return modRoot
+}
+
+func isCompilerWorkspaceModule(modRoot string) bool {
+	if modRoot == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(modRoot, "cmd", "forst"))
+	return err == nil
 }
