@@ -11,19 +11,20 @@ import (
 )
 
 func runTestCommand(args []string, log *logrus.Logger) int {
-	root, err := os.Getwd()
+	cwd, err := os.Getwd()
 	if err != nil {
 		log.Error(err)
 		return 2
 	}
 	paths, goTestArgs := testrunner.ParseCLIArgs(args)
+	root := cwd
 	for _, p := range paths {
 		if p == "" {
 			continue
 		}
 		candidate := p
 		if p == "." {
-			candidate = root
+			candidate = cwd
 		}
 		abs, err := filepath.Abs(candidate)
 		if err != nil {
@@ -32,6 +33,16 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 		}
 		if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
 			root = goload.FindModuleRoot(abs)
+			rel, err := filepath.Rel(root, abs)
+			if err != nil {
+				log.Error(err)
+				return 2
+			}
+			if rel == "." {
+				paths = []string{"."}
+			} else {
+				paths = []string{filepath.ToSlash(rel)}
+			}
 			break
 		}
 	}

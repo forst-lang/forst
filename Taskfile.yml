@@ -244,14 +244,16 @@ tasks:
   test:providers:
     desc: Run forst test on Providers golden package (providers.ft + providers_test.ft)
     deps: [build]
+    dir: forst
     cmds:
-      - '{{.TASKFILE_DIR}}/bin/{{.BINARY_NAME}} test {{.TASKFILE_DIR}}/examples/in/rfc/providers'
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
 
   test:providers-cross_pkg:
     desc: Run forst test on cross-package Providers cookbook (cross_pkg/alpha + cross_pkg/beta)
     deps: [build]
+    dir: forst
     cmds:
-      - '{{.TASKFILE_DIR}}/bin/{{.BINARY_NAME}} test {{.TASKFILE_DIR}}/examples/in/rfc/providers/cross_pkg/beta'
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta
 
   test:forst:
     desc: Alias for test:providers (forst test on Providers golden)
