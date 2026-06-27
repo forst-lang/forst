@@ -30,6 +30,39 @@ func rootIdentsFromSlots(slots []typechecker.ProviderSlot) []string {
 	return roots
 }
 
+const providersParamBaseName = "providers"
+
+// uniqueProvidersParamName picks a Go parameter name for the Providers struct, appending
+// "_" until it does not collide with an existing parameter name.
+func uniqueProvidersParamName(occupied []string) string {
+	occupiedSet := make(map[string]struct{}, len(occupied))
+	for _, name := range occupied {
+		occupiedSet[name] = struct{}{}
+	}
+	name := providersParamBaseName
+	for {
+		if _, ok := occupiedSet[name]; !ok {
+			return name
+		}
+		name += "_"
+	}
+}
+
+func goFieldListParamNames(params *goast.FieldList) []string {
+	if params == nil {
+		return nil
+	}
+	var names []string
+	for _, field := range params.List {
+		for _, ident := range field.Names {
+			if ident != nil && ident.Name != "" {
+				names = append(names, ident.Name)
+			}
+		}
+	}
+	return names
+}
+
 func (t *Transformer) providersStructName(slots []typechecker.ProviderSlot) string {
 	key := providersSlotSetKey(slots)
 	if name, ok := t.providersStructByKey[key]; ok {
@@ -102,30 +135,35 @@ func (t *Transformer) functionNeedsProvidersParam(fn ast.FunctionNode) bool {
 	return len(t.TypeChecker.FunctionProviders[fn.Ident.ID]) > 0
 }
 
-func (t *Transformer) prependProvidersParam(params *goast.FieldList, fn ast.FunctionNode) (*goast.FieldList, error) {
+func (t *Transformer) prependProvidersParam(params *goast.FieldList, fn ast.FunctionNode) (*goast.FieldList, string, error) {
 	slots := t.TypeChecker.FunctionProviders[fn.Ident.ID]
 	if len(slots) == 0 || fn.Receiver != nil || t.isProvidersWiringRoot(fn) {
-		return params, nil
+		return params, "", nil
 	}
 	if err := t.emitProvidersStruct(slots); err != nil {
-		return nil, err
+		return nil, "", err
 	}
+	paramName := uniqueProvidersParamName(goFieldListParamNames(params))
 	providersField := &goast.Field{
-		Names: []*goast.Ident{goast.NewIdent("providers")},
+		Names: []*goast.Ident{goast.NewIdent(paramName)},
 		Type:  goast.NewIdent(t.providersStructName(slots)),
 	}
 	if params == nil {
-		return &goast.FieldList{List: []*goast.Field{providersField}}, nil
+		return &goast.FieldList{List: []*goast.Field{providersField}}, paramName, nil
 	}
 	out := &goast.FieldList{List: make([]*goast.Field, 0, len(params.List)+1)}
 	out.List = append(out.List, providersField)
 	out.List = append(out.List, params.List...)
-	return out, nil
+	return out, paramName, nil
 }
 
 func (t *Transformer) transformUseStatement(use ast.UseNode) (goast.Stmt, error) {
 	if use.Ident == nil {
 		return &goast.EmptyStmt{}, nil
+	}
+	providersName := t.currentFnProvidersName
+	if providersName == "" {
+		providersName = providersParamBaseName
 	}
 	root := string(t.TypeChecker.ProviderRootIdent(use.ContractType))
 	return &goast.AssignStmt{
@@ -133,7 +171,7 @@ func (t *Transformer) transformUseStatement(use ast.UseNode) (goast.Stmt, error)
 		Tok: goasttoken.DEFINE,
 		Rhs: []goast.Expr{
 			&goast.SelectorExpr{
-				X:   goast.NewIdent("providers"),
+				X:   goast.NewIdent(providersName),
 				Sel: goast.NewIdent(root),
 			},
 		},

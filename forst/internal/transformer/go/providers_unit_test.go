@@ -44,6 +44,18 @@ func TestMergeWiringFrames_outerInnerAndShadow(t *testing.T) {
 	}
 }
 
+func TestUniqueProvidersParamName(t *testing.T) {
+	if got := uniqueProvidersParamName(nil); got != "providers" {
+		t.Fatalf("no occupied: got %q", got)
+	}
+	if got := uniqueProvidersParamName([]string{"providers"}); got != "providers_" {
+		t.Fatalf("one collision: got %q", got)
+	}
+	if got := uniqueProvidersParamName([]string{"providers", "providers_"}); got != "providers__" {
+		t.Fatalf("two collisions: got %q", got)
+	}
+}
+
 func TestTransformUseStatement_namedAndAnonymous(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
@@ -52,6 +64,7 @@ func TestTransformUseStatement_namedAndAnonymous(t *testing.T) {
 		Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}},
 	}
 	tr := setupTransformer(tc, log)
+	tr.currentFnProvidersName = "providers_"
 
 	named, err := tr.transformUseStatement(ast.UseNode{
 		Ident:        &ast.Ident{ID: "logger"},
@@ -70,6 +83,9 @@ func TestTransformUseStatement_namedAndAnonymous(t *testing.T) {
 	sel, ok := assign.Rhs[0].(*goast.SelectorExpr)
 	if !ok || sel.Sel.Name != "Logger" {
 		t.Fatalf("rhs = %v", assign.Rhs[0])
+	}
+	if x, ok := sel.X.(*goast.Ident); !ok || x.Name != "providers_" {
+		t.Fatalf("use should read from currentFnProvidersName, got X=%v", sel.X)
 	}
 
 	anon, err := tr.transformUseStatement(ast.UseNode{
@@ -147,5 +163,24 @@ func outer() {
 	}
 	if !containsIgnoreWhitespace(out, "inner(providers)") {
 		t.Fatalf("outer should pass providers through to inner, got:\n%s", out)
+	}
+}
+
+func TestProvidersLowering_paramNameCollision(t *testing.T) {
+	src := `package main
+
+type Logger = { info(msg String) }
+
+func handler(providers String) {
+	use logger: Logger
+}
+`
+	out := compileForstPipelineExt(t, src, pipelineOpts{goWorkspaceDir: moduleRootFromWD(t)})
+
+	if !containsIgnoreWhitespace(out, "func handler(providers_ Providers_") {
+		t.Fatalf("providers struct param should be providers_, got:\n%s", out)
+	}
+	if !containsIgnoreWhitespace(out, "logger := providers_.Logger") {
+		t.Fatalf("use should bind from providers_, got:\n%s", out)
 	}
 }
