@@ -3,12 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"forst/internal/compiler"
 	"forst/internal/configiface"
+	"forst/internal/httpbody"
+	"forst/internal/safefs"
 
 	"github.com/bmatcuk/doublestar/v4"
 )
@@ -74,7 +77,7 @@ type ServerConfig struct {
 	// Write timeout in seconds
 	WriteTimeout int `json:"writeTimeout"`
 
-	// Max request size in bytes
+	// MaxRequestSize is the maximum HTTP request body size in bytes (enforced on /invoke and LSP POST).
 	MaxRequestSize int64 `json:"maxRequestSize"`
 }
 
@@ -209,7 +212,15 @@ func LoadConfig(configPath string) (*ForstConfig, error) {
 		}
 	}
 
+	normalizeServerMaxRequestSize(config)
+
 	return config, nil
+}
+
+func normalizeServerMaxRequestSize(config *ForstConfig) {
+	if config.Server.MaxRequestSize <= 0 {
+		config.Server.MaxRequestSize = httpbody.DefaultMaxBytes
+	}
 }
 
 // loadConfigFromFile loads configuration from a JSON file
@@ -228,39 +239,35 @@ func loadConfigFromFile(configPath string, config *ForstConfig) error {
 	return nil
 }
 
-// FindForstFiles recursively finds all .ft files in the configured directories
+// FindForstFiles recursively finds all .ft files in the configured directories under rootDir.
 func (c *ForstConfig) FindForstFiles(rootDir string) ([]string, error) {
+	root, err := safefs.OpenRoot(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+
 	var files []string
-
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-
-		// Skip directories
-		if info.IsDir() {
+		if d.IsDir() {
 			return nil
 		}
-
-		// Check if file has .ft extension
-		if !strings.HasSuffix(strings.ToLower(path), ".ft") {
+		absPath := root.AbsPath(path)
+		if !strings.HasSuffix(strings.ToLower(absPath), ".ft") {
 			return nil
 		}
-
-		// Check include patterns
-		if !c.matchesIncludePatterns(path) {
+		if !c.matchesIncludePatterns(absPath) {
 			return nil
 		}
-
-		// Check exclude patterns
-		if c.matchesExcludePatterns(path) {
+		if c.matchesExcludePatterns(absPath) {
 			return nil
 		}
-
-		files = append(files, path)
+		files = append(files, absPath)
 		return nil
 	})
-
 	return files, err
 }
 

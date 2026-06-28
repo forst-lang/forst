@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"forst/internal/ast"
+	"forst/internal/httpbody"
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
@@ -70,6 +70,9 @@ type LSPServer struct {
 
 	// packageAnalysis caches merged same-package snapshots by content fingerprint (bounded LRU).
 	packageAnalysis *packageAnalysisLRU
+
+	// maxRequestBodyBytes caps POST body size; 0 uses httpbody.DefaultMaxBytes.
+	maxRequestBodyBytes int64
 }
 
 // peerAnalysisCacheEntry is a content-keyed snapshot for same-package peer buffers (completion only).
@@ -175,9 +178,17 @@ func (s *LSPServer) handleLSP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read request body
-	body, err := io.ReadAll(r.Body)
+	maxBody := s.maxRequestBodyBytes
+	if maxBody <= 0 {
+		maxBody = httpbody.DefaultMaxBytes
+	}
+	body, err := httpbody.ReadAll(r.Body, maxBody)
 	if err != nil {
+		if httpbody.IsTooLarge(err) {
+			s.log.Warn("LSP request body too large")
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		s.log.Errorf("Failed to read request body: %v", err)
 		http.Error(w, "Failed to read request", http.StatusBadRequest)
 		return

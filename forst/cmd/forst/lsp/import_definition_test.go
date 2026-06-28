@@ -8,6 +8,31 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestForstFileURIsUnderModule_listsDiskFt(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module urimod\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ftPath := filepath.Join(dir, "lib.ft")
+	if err := os.WriteFile(ftPath, []byte("package lib\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewLSPServer("8080", logrus.New())
+	out := s.forstFileURIsUnderModule(dir)
+	wantURI := fileURIForLocalPath(ftPath)
+	var found bool
+	for _, u := range out {
+		if u == wantURI {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("forstFileURIsUnderModule=%v want URI %s", out, wantURI)
+	}
+}
+
 func writeXpkgCrossPackageFixture(t *testing.T, dir string) (alphaLogPath, betaHandlePath string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\n\ngo 1.23\n"), 0o644); err != nil {

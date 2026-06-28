@@ -8,6 +8,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/lexer"
 	"forst/internal/parser"
+	"forst/internal/safefs"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,6 +34,30 @@ func ParseForstFile(log *logrus.Logger, path string) (nodes []ast.Node, err erro
 	l := lexer.New(source, path, log)
 	tokens := l.Lex()
 	psr := parser.New(tokens, path, log)
+	return psr.ParseFile()
+}
+
+// ParseForstFileFromRoot reads and parses a .ft file relative to root.
+// displayPath is used in diagnostics (typically the absolute path).
+func ParseForstFileFromRoot(log *logrus.Logger, root *safefs.RootedFS, relPath, displayPath string) (nodes []ast.Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if pe, ok := r.(*parser.ParseError); ok {
+				err = pe
+				nodes = nil
+				return
+			}
+			err = fmt.Errorf("parse panic in %s: %v", displayPath, r)
+			nodes = nil
+		}
+	}()
+	source, err := root.ReadFile(relPath)
+	if err != nil {
+		return nil, err
+	}
+	l := lexer.New(source, displayPath, log)
+	tokens := l.Lex()
+	psr := parser.New(tokens, displayPath, log)
 	return psr.ParseFile()
 }
 

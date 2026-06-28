@@ -113,6 +113,38 @@ func TestLoadConfig_emptyPath_findsConfigInWorkingDirectory(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_negativeMaxRequestSize_clampedToDefault(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ftconfig.json")
+	json := `{"server": { "maxRequestSize": -1 }}`
+	if err := os.WriteFile(path, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.MaxRequestSize != 10*1024*1024 {
+		t.Fatalf("expected default max request size, got %d", cfg.Server.MaxRequestSize)
+	}
+}
+
+func TestLoadConfig_zeroMaxRequestSize_clampedToDefault(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ftconfig.json")
+	json := `{"server": { "maxRequestSize": 0 }}`
+	if err := os.WriteFile(path, []byte(json), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.MaxRequestSize != 10*1024*1024 {
+		t.Fatalf("expected default max request size, got %d", cfg.Server.MaxRequestSize)
+	}
+}
+
 func TestForstConfig_FindForstFiles_nonexistentRoot_returnsError(t *testing.T) {
 	cfg := DefaultConfig()
 	root := filepath.Join(t.TempDir(), "nope_subdir_missing")

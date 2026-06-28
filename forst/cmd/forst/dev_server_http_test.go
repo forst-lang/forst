@@ -131,6 +131,18 @@ func TestHandleInvoke_invalidJSON(t *testing.T) {
 	}
 }
 
+func TestHandleInvoke_oversizedBody(t *testing.T) {
+	s := testDevServer(t)
+	s.config.Server.MaxRequestSize = 64
+
+	body := strings.Repeat("x", 128)
+	rr := httptest.NewRecorder()
+	s.handleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("want 413, got %d body %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHandleInvoke_packageNotFound(t *testing.T) {
 	s := testDevServer(t)
 	s.functions = make(map[string]map[string]discovery.FunctionInfo)
