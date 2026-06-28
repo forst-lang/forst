@@ -107,7 +107,7 @@
       "patterns": [
         {
           "name": "keyword.control.forst",
-          "match": "\\b(else if|if|else|for|range|break|continue|switch|case|default|fallthrough|return|ensure|is|or|go|defer|goto)\\b"
+          "match": "\\b(else if|if|else|for|range|break|continue|switch|case|default|fallthrough|return|ensure|is|or|go|defer|goto|use|with)\\b"
         },
         {
           "name": "keyword.declaration.forst",

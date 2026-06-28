@@ -308,13 +308,40 @@ func (tc *TypeChecker) shapesHaveSameStructure(shape1, shape2 ast.ShapeNode) boo
 		}
 
 		tc.log.WithFields(logrus.Fields{
-			"function":   "shapesHaveSameStructure",
 			"fieldName":  fieldName,
 			"field1Type": field1Type,
 			"field2Type": field2Type,
 			"field1":     field1,
 			"field2":     field2,
 		}).Debug("Comparing field types")
+
+		if field1.IsMethod && field2.IsMethod {
+			if len(field1.MethodParams) != len(field2.MethodParams) {
+				return false
+			}
+			for i := range field1.MethodParams {
+				p1, ok1 := field1.MethodParams[i].(ast.SimpleParamNode)
+				p2, ok2 := field2.MethodParams[i].(ast.SimpleParamNode)
+				if !ok1 || !ok2 {
+					return false
+				}
+				if !tc.IsTypeCompatible(p1.Type, p2.Type) && !tc.IsTypeCompatible(p2.Type, p1.Type) {
+					return false
+				}
+			}
+			if len(field1.MethodReturnTypes) != len(field2.MethodReturnTypes) {
+				return false
+			}
+			for i := range field1.MethodReturnTypes {
+				if !tc.IsTypeCompatible(field1.MethodReturnTypes[i], field2.MethodReturnTypes[i]) &&
+					!tc.IsTypeCompatible(field2.MethodReturnTypes[i], field1.MethodReturnTypes[i]) {
+					return false
+				}
+			}
+			continue
+		} else if field1.IsMethod != field2.IsMethod {
+			return false
+		}
 
 		if field1Type != nil && field2Type != nil {
 			sameIdent := field1Type.Ident == field2Type.Ident

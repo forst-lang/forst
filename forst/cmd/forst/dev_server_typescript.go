@@ -21,10 +21,13 @@ func NewTypeScriptGenerator(log *logrus.Logger) *TypeScriptGenerator {
 
 // GenerateTypesForFunctions generates TypeScript types for discovered functions.
 func (tg *TypeScriptGenerator) GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, _ string) (string, error) {
-	// Collect all Forst files that contain discovered functions.
+	// Collect all Forst files that contain runnable discovered functions (ADR-021).
 	filePaths := make(map[string]bool)
 	for _, pkgFuncs := range functions {
 		for _, fn := range pkgFuncs {
+			if !fn.Runnable {
+				continue
+			}
 			filePaths[fn.FilePath] = true
 		}
 	}

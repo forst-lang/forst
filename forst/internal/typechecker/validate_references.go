@@ -138,6 +138,9 @@ func (tc *TypeChecker) validateTypeReference(t ast.TypeNode, ctx string) error {
 		if IsGoBuiltinType(string(t.Ident)) {
 			return nil
 		}
+		if strings.Contains(string(t.Ident), ".") {
+			return nil
+		}
 		if t.TypeKind == ast.TypeKindHashBased {
 			if _, ok := tc.Defs[t.Ident]; !ok {
 				return fmt.Errorf("%s: unknown structural type %q", ctx, t.Ident)

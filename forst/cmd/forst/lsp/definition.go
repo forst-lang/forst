@@ -84,6 +84,9 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	if defTok := definingTokenForLocalBinding(ctx, tokIdx, tok); defTok != nil {
 		return lspLocationPtrFromToken(uri, defTok)
 	}
+	if loc := s.definingLocationForQualifiedImport(ctx, tokIdx); loc != nil {
+		return loc
+	}
 	return nil
 }
 

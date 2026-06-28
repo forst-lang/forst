@@ -63,10 +63,14 @@ export function resolveForstExecutable(forstPath: string): string {
   for (const folder of folders) {
     let dir = folder.uri.fsPath;
     for (let i = 0; i < 16; i++) {
-      const candidate = path.join(dir, "bin", defaultName);
+      const rootBin = path.join(dir, "bin", defaultName);
+      const nestedBin = path.join(dir, "forst", "bin", defaultName);
       try {
-        if (fs.existsSync(candidate)) {
-          return candidate;
+        if (fs.existsSync(rootBin)) {
+          return rootBin;
+        }
+        if (fs.existsSync(nestedBin)) {
+          return nestedBin;
         }
       } catch {
         /* ignore */

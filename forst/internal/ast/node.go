@@ -70,6 +70,8 @@ const (
 	NodeKindArrayLiteral      NodeKind = "ArrayLiteral"
 	NodeKindIdentifier        NodeKind = "Identifier"
 	NodeKindEnsure            NodeKind = "Ensure"
+	NodeKindUse               NodeKind = "Use"
+	NodeKindWith              NodeKind = "With"
 	NodeKindAssertion         NodeKind = "Assertion"
 	NodeKindImport            NodeKind = "Import"
 	NodeKindImportGroup       NodeKind = "ImportGroup"

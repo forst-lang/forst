@@ -63,6 +63,10 @@ const (
 	TokenReturn TokenIdent = "RETURN"
 	// TokenEnsure is the token for ensure keyword
 	TokenEnsure TokenIdent = "ENSURE"
+	// TokenUse is the token for use (Providers contract declaration)
+	TokenUse TokenIdent = "USE"
+	// TokenWith is the token for with (Providers wiring block)
+	TokenWith TokenIdent = "WITH"
 	// TokenIs is the token for is keyword
 	TokenIs TokenIdent = "IS"
 	// TokenOr is the token for or keyword

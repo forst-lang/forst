@@ -5,7 +5,6 @@ import (
 	"forst/internal/ast"
 	"forst/internal/generators"
 	transformer_go "forst/internal/transformer/go"
-	"forst/internal/typechecker"
 	"os"
 )
 
@@ -19,11 +18,12 @@ func (c *Compiler) CompileFile() (*string, error) {
 	c.reportPhase("Performing semantic analysis...")
 	memBefore := getMemStats()
 
-	checker := typechecker.New(c.log, c.Args.ReportPhases)
-	checker.GoWorkspaceDir = c.goWorkspaceDirForCheck()
-	if err := checker.CheckTypes(forstNodes); err != nil {
+	checker, modResult, err := c.typecheckForCompile(forstNodes)
+	if err != nil {
 		c.log.Error("Encountered error checking types: ", err)
-		checker.DebugPrintCurrentScope()
+		if checker != nil {
+			checker.DebugPrintCurrentScope()
+		}
 		return nil, err
 	}
 
@@ -38,6 +38,9 @@ func (c *Compiler) CompileFile() (*string, error) {
 	memBefore = getMemStats()
 
 	transformer := transformer_go.New(checker, c.log, c.Args.ExportStructFields)
+	if modResult != nil {
+		transformer.SetModuleResult(modResult)
+	}
 	goAST, err := transformer.TransformForstFileToGo(forstNodes)
 	if err != nil {
 		return nil, err

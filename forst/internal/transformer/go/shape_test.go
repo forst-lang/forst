@@ -6,6 +6,7 @@ package transformergo
 import (
 	"forst/internal/ast"
 	"forst/internal/typechecker"
+	goast "go/ast"
 	"testing"
 )
 
@@ -91,5 +92,39 @@ func TestResolveFieldToShape_directAndTypedef(t *testing.T) {
 	got := tr.resolveFieldToShape(field)
 	if got == nil || got.Fields["msg"].Type == nil || got.Fields["msg"].Type.Ident != ast.TypeString {
 		t.Fatalf("expected typedef-backed shape resolution, got %+v", got)
+	}
+}
+
+func TestTransformMethodOnlyShapeAsInterface_emitsGoInterface(t *testing.T) {
+	tc := typechecker.New(setupTestLogger(nil), false)
+	tr := setupTransformer(tc, setupTestLogger(nil))
+
+	shape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"info": {
+				IsMethod: true,
+				MethodParams: []ast.ParamNode{
+					ast.SimpleParamNode{
+						Ident: ast.Ident{ID: "msg"},
+						Type:  ast.TypeNode{Ident: ast.TypeString},
+					},
+				},
+			},
+		},
+	}
+	if !shape.IsMethodOnlyContract() {
+		t.Fatal("fixture should be method-only contract")
+	}
+
+	expr, err := tr.transformMethodOnlyShapeAsInterface(shape)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iface, ok := (*expr).(*goast.InterfaceType)
+	if !ok {
+		t.Fatalf("expected InterfaceType, got %T", *expr)
+	}
+	if len(iface.Methods.List) != 1 || iface.Methods.List[0].Names[0].Name != "info" {
+		t.Fatalf("interface methods: %+v", iface.Methods.List)
 	}
 }

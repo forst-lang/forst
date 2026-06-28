@@ -118,6 +118,9 @@ web_modules/
 
 # Next.js build output
 .next
+# Keep committed Forst example goldens (see examples/README.md)
+!examples/out/
+!examples/out/**
 out
 
 # Nuxt.js build / generate output
@@ -231,6 +234,9 @@ web_modules/
 .parcel-cache
 # Next.js build output
 .next
+# Keep committed Forst example goldens (see examples/README.md)
+!examples/out/
+!examples/out/**
 out
 # Nuxt.js build / generate output
 .nuxt
@@ -285,3 +291,7 @@ examples/in/**/client/
 # Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
 forst/.gocache/
 forst/.gotmp/
+
+# forst test / emit generated Go (regenerated locally by forst test)
+z_forst_gen.go
+z_forst_gen_test.go

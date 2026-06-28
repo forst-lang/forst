@@ -97,6 +97,9 @@ func TestIsImportedLocalName(t *testing.T) {
 	if tc.IsImportedLocalName("notimported") {
 		t.Fatal("unexpected import name")
 	}
+	if path, ok := tc.ImportPathForLocal("fmt"); !ok || path != "fmt" {
+		t.Fatalf("ImportPathForLocal(fmt) = %q, %v", path, ok)
+	}
 }
 
 func TestGoSignatureReturnsToForst_void(t *testing.T) {

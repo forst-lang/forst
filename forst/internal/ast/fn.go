@@ -4,6 +4,8 @@ import "fmt"
 
 // FunctionNode represents a function definition with optional parameters and an optional return type
 type FunctionNode struct {
+	// Receiver is set for methods: func (recv Type) name(...).
+	Receiver    *SimpleParamNode
 	Ident       Ident
 	Params      []ParamNode
 	ReturnTypes []TypeNode

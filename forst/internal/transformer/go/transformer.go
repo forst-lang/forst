@@ -4,6 +4,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 	goast "go/ast"
 	goasttoken "go/token"
@@ -38,6 +39,17 @@ type Transformer struct {
 	mapIndexFuncLitCache map[string]*goast.FuncLit
 	// mapIndexCacheHits counts cache hits during transform (second+ identical map read in a function).
 	mapIndexCacheHits int
+
+	// providersStructByKey maps sorted slot-set key → deduped Providers struct name (ADR-013).
+	providersStructByKey map[string]string
+	// moduleResult for cross-package Forst call lowering.
+	moduleResult *modulecheck.ModuleResult
+	// wiringStack holds merged wiring frames during with-block lowering.
+	wiringStack []wiringFrame
+	// currentFnProvidersName is the Go identifier for the active function's providers param (typically "providers").
+	currentFnProvidersName string
+	// currentFnProvidersSlots is the slot set for the active function (for pass-through lowering).
+	currentFnProvidersSlots []typechecker.ProviderSlot
 }
 
 // New creates a new Transformer
@@ -51,12 +63,18 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		Output:              &TransformerOutput{},
 		log:                 log,
 		functionsWithEnsure: make(map[string]bool),
+		providersStructByKey:  make(map[string]string),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {
 		t.ExportReturnStructFields = exportReturnStructFields[0]
 	}
 	return t
+}
+
+// SetModuleResult attaches cross-package Providers metadata for call lowering.
+func (t *Transformer) SetModuleResult(m *modulecheck.ModuleResult) {
+	t.moduleResult = m
 }
 
 // TransformForstFileToGo converts a Forst AST to a Go AST
@@ -123,6 +141,11 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				},
 			})
 		}
+	}
+
+	// Emit deduped Providers struct types before functions.
+	if err := t.emitAllProvidersStructs(); err != nil {
+		return nil, fmt.Errorf("failed to emit Providers structs: %w", err)
 	}
 
 	// Then process the rest of the nodes

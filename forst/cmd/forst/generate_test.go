@@ -101,6 +101,29 @@ func Echo(input EchoRequest) {
 	}
 }
 
+func TestGenerateCommand_publicWithProvidersFailsSidecarExport(t *testing.T) {
+	dir := t.TempDir()
+	ftPath := filepath.Join(dir, "api.ft")
+	src := `package main
+
+type Logger = { info(msg String) }
+
+func PublicApi() {
+	use logger: Logger
+}
+`
+	if err := os.WriteFile(ftPath, []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{ftPath})
+	if err == nil {
+		t.Fatal("expected sidecar export error for public function with Providers")
+	}
+	if !strings.Contains(err.Error(), "cannot export PublicApi") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGenerateCommand_requiresTarget(t *testing.T) {
 	err := generateCommand(nil)
 	if err == nil {

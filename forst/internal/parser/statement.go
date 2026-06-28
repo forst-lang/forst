@@ -21,6 +21,20 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		ensureStatement := p.parseEnsureStatement()
 		p.logParsedNode(ensureStatement)
 		body = append(body, ensureStatement)
+	case ast.TokenUse:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "use statement not allowed in type guards")
+		}
+		useStatement := p.parseUseStatement()
+		p.logParsedNode(useStatement)
+		body = append(body, useStatement)
+	case ast.TokenWith:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "with statement not allowed in type guards")
+		}
+		withStatement := p.parseWithStatement()
+		p.logParsedNode(withStatement)
+		body = append(body, withStatement)
 	case ast.TokenReturn:
 		if p.context.IsTypeGuard() {
 			p.FailWithParseError(token, "Return statement not allowed in type guards")

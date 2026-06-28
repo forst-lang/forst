@@ -28,5 +28,32 @@
     "prefix": "ensure",
     "body": ["ensure ${1:expr} is ${2:Nil()}", "\tor ${3:err}"],
     "description": "Ensure statement with or-branch"
+  },
+  "Use contract": {
+    "prefix": "use",
+    "body": ["use ${1:name}: ${2:Logger}"],
+    "description": "Bind a scoped provider contract in function body"
+  },
+  "With wiring": {
+    "prefix": "with",
+    "body": [
+      "with {",
+      "\t${1:Logger}: &${2:NopLogger} {},",
+      "} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Wire Providers at a test or host boundary"
+  },
+  "Nested with (transitive)": {
+    "prefix": "withnest",
+    "body": [
+      "with { ${1:Logger}: &${2:NopLogger} {} } {",
+      "\twith { ${3:Clock}: &${4:FakeClock} { fixedMs: ${5:1000} } } {",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ],
+    "description": "Nested with: outer supplies contracts, inner overlays one key"
   }
 }

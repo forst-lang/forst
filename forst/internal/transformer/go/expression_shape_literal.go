@@ -166,7 +166,8 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 	}
 
 	// Only emit fields that exist in the Go struct type, and fill missing ones with zero values
-	for fieldName, fieldDef := range payload.Fields {
+	for _, fieldName := range ast.ShapeFieldNamesForCompositeEmit(payload.Fields, shape) {
+		fieldDef := payload.Fields[fieldName]
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildFieldsForExpectedType",
 			"fieldName":    fieldName,
@@ -233,7 +234,8 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 func (t *Transformer) buildFieldsForShape(shape *ast.ShapeNode) ([]*goast.KeyValueExpr, error) {
 	fields := make([]*goast.KeyValueExpr, 0)
 
-	for fieldName, field := range shape.Fields {
+	for _, fieldName := range ast.ShapeFieldNamesInOrder(shape.Fields, shape.FieldOrder) {
+		field := shape.Fields[fieldName]
 		fieldValue, err := t.buildFieldValue(field, &field, nil)
 		if err != nil {
 			return nil, err

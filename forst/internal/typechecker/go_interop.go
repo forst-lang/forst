@@ -41,40 +41,36 @@ func fallbackImportLocal(imp ast.ImportNode) (path, local string) {
 }
 
 // initGoImportPackages loads Go packages for Forst import lines when GoWorkspaceDir is set.
-// On failure, logs at debug and leaves goPkgsByLocal nil (Forst still typechecks without boundary checks).
+// Forst sibling imports are seeded from the AST and skip go/packages; stdlib and external Go imports
+// are loaded via go/packages for Forst↔Go boundary checks.
 func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = nil
 	tc.dotImportPkgs = nil
 	tc.importPathByLocal = make(map[string]string)
+	tc.registerImportLocalsFromAST()
 
 	if tc.GoWorkspaceDir == "" {
-		for _, imp := range tc.imports {
-			p, l := fallbackImportLocal(imp)
-			if l != "" && l != "." {
-				tc.importPathByLocal[l] = p
-			}
-		}
 		return
 	}
+
+	forstSiblings := tc.forstSiblingImportPaths()
 	pathSet := make(map[string]struct{})
 	for _, imp := range tc.imports {
-		p := goload.ImportPathFromForst(imp.Path)
-		if p != "" {
-			pathSet[p] = struct{}{}
+		ip := goload.ImportPathFromForst(imp.Path)
+		if ip == "" {
+			continue
 		}
+		if _, isForst := forstSiblings[ip]; isForst {
+			continue
+		}
+		pathSet[ip] = struct{}{}
+	}
+	if len(pathSet) == 0 {
+		return
 	}
 	paths := make([]string, 0, len(pathSet))
 	for p := range pathSet {
 		paths = append(paths, p)
-	}
-	if len(paths) == 0 {
-		for _, imp := range tc.imports {
-			p, l := fallbackImportLocal(imp)
-			if l != "" && l != "." {
-				tc.importPathByLocal[l] = p
-			}
-		}
-		return
 	}
 	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, paths)
 	if err != nil {
@@ -82,23 +78,19 @@ func (tc *TypeChecker) initGoImportPackages() {
 			"function": "initGoImportPackages",
 			"dir":      tc.GoWorkspaceDir,
 		}).WithError(err).Debug("go/packages load failed; skipping Forst↔Go boundary checks")
-		for _, imp := range tc.imports {
-			p, l := fallbackImportLocal(imp)
-			if l != "" && l != "." {
-				tc.importPathByLocal[l] = p
-			}
-		}
 		return
 	}
 	byLocal := make(map[string]*types.Package)
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
+		if ip == "" {
+			continue
+		}
+		if _, isForst := forstSiblings[ip]; isForst {
+			continue
+		}
 		pkgp, ok := loaded[ip]
-		if !ok || pkgp == nil || pkgp.Types == nil {
-			p, l := fallbackImportLocal(imp)
-			if l != "" && l != "." {
-				tc.importPathByLocal[l] = p
-			}
+		if !ok || !goload.PackageLoadOK(pkgp, ip) {
 			continue
 		}
 		tp := pkgp.Types
@@ -113,11 +105,38 @@ func (tc *TypeChecker) initGoImportPackages() {
 			local = string(imp.Alias.ID)
 		} else {
 			local = tp.Name()
+			if local == "" {
+				_, local = fallbackImportLocal(imp)
+			}
 		}
-		tc.importPathByLocal[local] = ip
+		if local == "" || local == "." {
+			continue
+		}
 		byLocal[local] = tp
 	}
 	tc.goPkgsByLocal = byLocal
+}
+
+func (tc *TypeChecker) registerImportLocalsFromAST() {
+	for _, imp := range tc.imports {
+		path, local := fallbackImportLocal(imp)
+		if local != "" && local != "." {
+			tc.importPathByLocal[local] = path
+		}
+	}
+}
+
+func (tc *TypeChecker) forstSiblingImportPaths() map[string]struct{} {
+	out := make(map[string]struct{})
+	if tc.moduleResult == nil {
+		return out
+	}
+	for path := range tc.moduleResult.ImportPathToForstPkg() {
+		if path != "" {
+			out[path] = struct{}{}
+		}
+	}
+	return out
 }
 
 // goPackageForImportLocal returns *types.Package for a Go import's local name (e.g. "strings", "fmt").
@@ -144,7 +163,7 @@ func (tc *TypeChecker) goPackageForImportLocal(local string) *types.Package {
 		return nil
 	}
 	pkgp, ok := loaded[path]
-	if !ok || pkgp == nil || pkgp.Types == nil {
+	if !ok || !goload.PackageLoadOK(pkgp, path) {
 		return nil
 	}
 	gp := pkgp.Types

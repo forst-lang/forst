@@ -11,8 +11,10 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/lexer"
+	"forst/internal/modulecheck"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
 
@@ -281,9 +283,22 @@ func (s *LSPServer) buildPackageSnapshot(uris []string, results []fileParseResul
 	if len(merged) == 0 {
 		return &packageSnapshot{uris: uris, results: results}
 	}
-	tc := typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = workDir
-	checkErr := tc.CheckTypes(merged)
+	moduleRoot := goload.FindModuleRoot(workDir)
+	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(merged))
+
+	var tc *typechecker.TypeChecker
+	var checkErr error
+	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
+	if modErr == nil && modResult != nil && modResult.PerPackage[forstPkg] != nil {
+		tc = modResult.PerPackage[forstPkg]
+	} else {
+		tc = typechecker.New(s.log, false)
+		tc.GoWorkspaceDir = workDir
+		checkErr = tc.CheckTypes(merged)
+		if modErr != nil && checkErr == nil {
+			checkErr = modErr
+		}
+	}
 	return &packageSnapshot{
 		uris:        uris,
 		results:     results,
@@ -352,6 +367,10 @@ func (s *LSPServer) analyzePackageGroupMerged(anchorURI string) (snap *packageSn
 		return nil, nil, false
 	}
 	fp := packageGroupFingerprintFromContents(uris, contents)
+
+	// Merged analysis cache keys include every open buffer fingerprint, so edits to
+	// use/with sites or Providers(f) invalidate via cache miss (ADR-036). providersgraph.Invalidate
+	// is for future incremental TC; full re-analysis uses this fingerprint path today.
 
 	if cached := s.packageAnalysis.get(fp); cached != nil && cached.tc != nil {
 		if ctx := s.snapshotToDocumentContext(cached, anchorURI); ctx != nil {

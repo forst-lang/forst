@@ -1022,6 +1022,8 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	items = append(items, completionItemsFromKeywords(keywordsForZone(z), prefix)...)
 	items = append(items, topLevelSymbolCompletionItems(ctx, prefix)...)
 	items = append(items, localVariableCompletionItems(ctx, prefix)...)
+	items = append(items, providersWiringCompletionItems(ctx, position, prefix)...)
+	items = append(items, providersUseCompletionItems(ctx, position, prefix)...)
 	pkg := forstPackageNameFromContent(ctx.Content)
 	if (z == zoneTopLevel || z == zoneInsideBlock) && ctx.PackageMerge == nil {
 		items = append(items, s.crossBufferTopLevelCompletionItems(uri, pkg, prefix)...)

@@ -73,9 +73,20 @@ type TypeChecker struct {
 	// variableGoTypes maps locals assigned from Go qualified calls to the corresponding go/types result types.
 	// Used to type-check method calls against real Go method signatures instead of opaque TYPE_IMPLICIT.
 	variableGoTypes map[ast.Identifier]types.Type
+	// TypeMethods maps receiver type ident -> method name -> signature (Forst receiver methods).
+	TypeMethods map[ast.TypeIdent]map[string]FunctionSignature
+	// goQualifiedTypeAliases maps Forst type ident -> Go qualified type name (e.g. io.Writer).
+	goQualifiedTypeAliases map[ast.TypeIdent]string
+	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
+	FunctionProviders map[ast.Identifier][]ProviderSlot
+	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).
+	providers *ProvidersEngine
+	// moduleResult is set during module-level check for cross-package Forst call resolution.
+	moduleResult ModuleResultView
+	Warnings       []Diagnostic
 }
 
-// New creates a new TypeChecker
+// New creates a new TypeChecker.
 func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 	if log == nil {
 		log = logrus.New()
@@ -157,12 +168,19 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}).Info("Starting second pass: inferring types")
 	}
 
+	tc.initProvidersInference()
+	tc.seedKnownProviderRootsFromTypes()
+
 	for _, node := range nodes {
 		tc.path = append(tc.path, node)
 		if _, err := tc.inferNodeType(node); err != nil {
 			return err
 		}
 		tc.path = tc.path[:len(tc.path)-1]
+	}
+
+	if err := tc.finishProvidersChecking(nodes); err != nil {
+		return err
 	}
 
 	return nil

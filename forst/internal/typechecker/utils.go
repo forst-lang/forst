@@ -54,6 +54,19 @@ func (tc *TypeChecker) isPlainSuccessCompatibleWithDeclaredResult(actual ast.Typ
 	return tc.IsTypeCompatible(actual, succ)
 }
 
+// isPlainFailureCompatibleWithDeclaredResult is true when the function declares Result(S,F)
+// and the inferred return is a plain failure value F (constructor-free Result failure return).
+func (tc *TypeChecker) isPlainFailureCompatibleWithDeclaredResult(actual ast.TypeNode, expected ast.TypeNode) bool {
+	if !expected.IsResultType() || len(expected.TypeParams) < 2 {
+		return false
+	}
+	if actual.IsResultType() {
+		return false
+	}
+	fail := expected.TypeParams[1]
+	return tc.IsTypeCompatible(actual, fail)
+}
+
 // Ensures that the first type matches the expected type, otherwise returns an error
 func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode, prefix string) ([]ast.TypeNode, error) {
 	if len(expected) == 0 {
@@ -70,6 +83,9 @@ func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode,
 			continue
 		}
 		if tc.isPlainSuccessCompatibleWithDeclaredResult(actual[i], expected[i]) {
+			continue
+		}
+		if tc.isPlainFailureCompatibleWithDeclaredResult(actual[i], expected[i]) {
 			continue
 		}
 		return actual, failWithTypeMismatch(fn, actual, expected, fmt.Sprintf("%s: Type mismatch", prefix))

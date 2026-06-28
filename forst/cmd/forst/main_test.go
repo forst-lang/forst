@@ -482,6 +482,10 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleTictactoeMergedPackage (-root merged package)")
 				return
 			}
+			if strings.HasPrefix(relPath, "rfc/providers/providers") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleProvidersMergedPackage (-root merged package)")
+				return
+			}
 
 			// Find expected output file(s)
 			expectedFiles, err := findExpectedOutputFiles(outputBasePath)
@@ -494,22 +498,18 @@ func TestExamples(t *testing.T) {
 				return
 			}
 
-			// Run the compiler on the input file
-			if err := runCompiler(path); err != nil {
-				if strings.HasPrefix(relPath, "rfc/") {
-					t.Logf("Ignoring failure for RFC example %s: %v", relPath, err)
-					return
-				}
-				t.Fatalf("Failed to run compiler: %v", err)
-			}
-
-			// Read the generated code from the temporary file
-			compiler := compiler.New(compiler.Args{
+			// Compile once and compare against golden output.
+			c := compiler.New(compiler.Args{
 				Command:  "run",
 				FilePath: path,
-			}, nil)
-			code, err := compiler.CompileFile()
+				LogLevel: "error",
+			}, exampleTestLogger())
+			code, err := c.CompileFile()
 			if err != nil {
+				if strings.HasPrefix(relPath, "rfc/") && len(expectedFiles) == 0 {
+					t.Logf("Ignoring failure for RFC example %s (no golden): %v", relPath, err)
+					return
+				}
 				t.Fatalf("Failed to compile file: %v", err)
 			}
 			actualOutput := *code
@@ -617,6 +617,95 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 	// Hash-based emitted type names (T_…) are not stable across small compiler changes; assert
 	// structural markers instead of line-for-line equality with extractKeyElements.
 	verifyTictactoeMergedGolden(t, string(expected), actual, goldenPath)
+}
+
+// TestExampleProvidersMergedPackage compiles examples/in/rfc/providers with -root
+// (providers.ft + providers_test.ft) and checks generated Go against examples/out/rfc/providers/providers.go.
+// Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersMergedPackage -count=1
+func TestExampleProvidersMergedPackage(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
+	entry := filepath.Join(root, "providers.ft")
+	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
+
+	c := compiler.New(compiler.Args{
+		Command:     "run",
+		FilePath:    entry,
+		PackageRoot: root,
+		LogLevel:    "error",
+	}, nil)
+	code, err := c.CompileFile()
+	if err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	actual := *code
+
+	if os.Getenv("UPDATE_PROVIDERS_GOLDEN") == "1" {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(actual), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wrote golden %s", goldenPath)
+		return
+	}
+
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden %s: %v (set UPDATE_PROVIDERS_GOLDEN=1 to create)", goldenPath, err)
+	}
+	if string(expected) != actual {
+		t.Fatalf("golden mismatch for providers/providers.go (set UPDATE_PROVIDERS_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", string(expected), actual)
+	}
+}
+
+// TestExampleProvidersCrossPkgGolden compiles cross_pkg alpha/beta and checks generated Go goldens.
+// Regenerate: UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersCrossPkgGolden -count=1
+func TestExampleProvidersCrossPkgGolden(t *testing.T) {
+	type pkgCase struct {
+		root, entry, golden string
+	}
+	cases := []pkgCase{
+		{
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha", "log.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "alpha", "log.go"),
+		},
+		{
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta", "handle.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "beta", "handle.go"),
+		},
+	}
+	for _, tc := range cases {
+		c := compiler.New(compiler.Args{
+			Command:  "run",
+			FilePath: tc.entry,
+			LogLevel: "error",
+		}, nil)
+		code, err := c.CompileFile()
+		if err != nil {
+			t.Fatalf("%s: CompileFile: %v", tc.entry, err)
+		}
+		actual := *code
+		if os.Getenv("UPDATE_PROVIDERS_CROSS_PKG_GOLDEN") == "1" {
+			if err := os.MkdirAll(filepath.Dir(tc.golden), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(tc.golden, []byte(actual), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("wrote golden %s", tc.golden)
+			continue
+		}
+		expected, err := os.ReadFile(tc.golden)
+		if err != nil {
+			t.Fatalf("read golden %s: %v (set UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 to create)", tc.golden, err)
+		}
+		if string(expected) != actual {
+			t.Fatalf("golden mismatch for %s (set UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 to refresh)\n--- expected ---\n%s\n--- actual ---\n%s", tc.golden, string(expected), actual)
+		}
+	}
 }
 
 func TestFindExpectedOutputFiles_directoryAndSingleFile(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 )
 
 // localPathFromFileURI extracts a host filesystem path from an LSP file:// URI.
-// It returns false when the URI is not a usable file URI (wrong scheme, empty path).
+// It returns false when the URI is not a proper file URI (wrong scheme, empty path).
 func localPathFromFileURI(uri string) (string, bool) {
 	u, err := url.Parse(uri)
 	if err != nil || u.Scheme != "file" {

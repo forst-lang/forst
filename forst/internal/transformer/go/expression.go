@@ -191,44 +191,9 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				Args: args,
 			}, nil
 		}
-		// Look up parameter types for the function
-		paramTypes := make([]ast.TypeNode, len(e.Arguments))
-		if sig, ok := t.TypeChecker.Functions[e.Function.ID]; ok && len(sig.Parameters) == len(e.Arguments) {
-			for i, param := range sig.Parameters {
-				if param.Type.Ident == ast.TypeAssertion && param.Type.Assertion != nil {
-					inferredTypes, err := t.TypeChecker.InferAssertionType(param.Type.Assertion, false, "", nil)
-					if err == nil && len(inferredTypes) > 0 {
-						paramTypes[i] = inferredTypes[0]
-					} else {
-						paramTypes[i] = param.Type
-					}
-				} else {
-					paramTypes[i] = param.Type
-				}
-			}
-		}
-		args := make([]goast.Expr, len(e.Arguments))
-		for i, arg := range e.Arguments {
-			if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
-				// Use the unified helper to determine the expected type
-				context := &ShapeContext{
-					ExpectedType:   &paramTypes[i],
-					FunctionName:   string(e.Function.ID),
-					ParameterIndex: i,
-				}
-				expectedTypeForShape := t.getExpectedTypeForShape(&shapeArg, context)
-				argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape)
-				if err != nil {
-					return nil, err
-				}
-				args[i] = argExpr
-			} else {
-				argExpr, err := t.transformExpression(arg)
-				if err != nil {
-					return nil, err
-				}
-				args[i] = argExpr
-			}
+		args, err := t.transformFunctionCallArgs(e.Function.ID, e.Arguments)
+		if err != nil {
+			return nil, err
 		}
 		return &goast.CallExpr{
 			Fun:  t.goFunExprFromForstCallIdentWithNarrowing(e.Function),

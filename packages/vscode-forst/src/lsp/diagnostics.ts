@@ -1,5 +1,6 @@
 import type { LogOutputChannel } from "vscode";
 import * as vscode from "vscode";
+import { locationToVs } from "./converters";
 import type { LspDiagnostic, PublishDiagnosticsParams } from "./types";
 
 /** Coordinates that are negative or non-finite are clamped so `vscode.Range` construction never throws. */
@@ -48,6 +49,14 @@ export function lspDiagnosticToVs(d: LspDiagnostic): vscode.Diagnostic {
   diag.source = d.source ?? "forst";
   if (d.code !== undefined) {
     diag.code = d.code;
+  }
+  if (d.relatedInformation?.length) {
+    diag.relatedInformation = d.relatedInformation.map((r) =>
+      new vscode.DiagnosticRelatedInformation(
+        locationToVs(r.location),
+        r.message
+      )
+    );
   }
   return diag;
 }

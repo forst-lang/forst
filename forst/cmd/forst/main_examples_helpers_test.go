@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"forst/internal/compiler"
+	"github.com/sirupsen/logrus"
 )
 
 // Returns all .go files in the output directory for a given example.
@@ -36,18 +37,11 @@ func findExpectedOutputFiles(basePath string) ([]string, error) {
 	return files, nil
 }
 
-// Executes the compiler on the given input file and returns any error.
-func runCompiler(inputPath string) error {
-	args := compiler.Args{
-		Command:  "run",
-		FilePath: inputPath,
-	}
-
-	log := setupTestLogger(nil)
-
-	c := compiler.New(args, log)
-	_, err := c.CompileFile()
-	return err
+func exampleTestLogger() *logrus.Logger {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	log.SetLevel(logrus.ErrorLevel)
+	return log
 }
 
 // verifyTictactoeMergedGolden checks merged-package Go output without depending on hash-based

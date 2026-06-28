@@ -110,6 +110,10 @@ func runMain(argv []string) int {
 		return 0
 	}
 
+	if len(argv) > 1 && argv[1] == "test" {
+		return runTestCommand(argv[2:], log)
+	}
+
 	// Check if we should start LSP server
 	if len(argv) > 1 && argv[1] == "lsp" {
 		// Parse flags for LSP server

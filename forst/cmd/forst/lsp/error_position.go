@@ -131,21 +131,66 @@ func diagnosticForTypecheckError(fileURI, content string, err error, source, def
 			code = defaultCode
 		}
 		if diag.Span.IsSet() {
-			return lspDiagnosticFromASTSpan(fileURI, msg, source, code, diag.Span)
+			return lspDiagnosticFromTypecheckerDiagnostic(fileURI, msg, source, code, diag)
 		}
 		line1, col1 := bestEffortLineColumnFromErrorMessage(content, msg)
-		return simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
+		d := simpleDiagnosticOnLine(fileURI, line1, col1, msg, source, code)
+		d.RelatedInformation = lspRelatedInformationFromDiagnostic(fileURI, content, diag.Related)
+		return d
 	}
 	return diagnosticForTypecheckOrTransform(fileURI, content, err, source, defaultCode)
+}
+
+func lspDiagnosticFromTypecheckerDiagnostic(fileURI, msg, source, code string, diag *typechecker.Diagnostic) LSPDiagnostic {
+	d := lspDiagnosticFromASTSpan(fileURI, msg, source, code, diag.Span)
+	d.RelatedInformation = lspRelatedInformationFromDiagnostic(fileURI, "", diag.Related)
+	return d
+}
+
+func lspRelatedInformationFromDiagnostic(fileURI, content string, related []typechecker.RelatedDiagnostic) []LSPDiagnosticRelatedInformation {
+	if len(related) == 0 {
+		return nil
+	}
+	out := make([]LSPDiagnosticRelatedInformation, 0, len(related))
+	for _, rel := range related {
+		if rel.Span.IsSet() {
+			out = append(out, LSPDiagnosticRelatedInformation{
+				Location: LSPLocation{
+					URI:   fileURI,
+					Range: lspRangeFromASTSpan(rel.Span),
+				},
+				Message: rel.Msg,
+			})
+			continue
+		}
+		if content != "" && rel.Msg != "" {
+			line1, col1 := bestEffortLineColumnFromErrorMessage(content, rel.Msg)
+			out = append(out, LSPDiagnosticRelatedInformation{
+				Location: LSPLocation{
+					URI: fileURI,
+					Range: LSPRange{
+						Start: LSPPosition{Line: lspLineIndex(line1), Character: col1 - 1},
+						End:   LSPPosition{Line: lspLineIndex(line1), Character: col1 + 120},
+					},
+				},
+				Message: rel.Msg,
+			})
+		}
+	}
+	return out
+}
+
+func lspRangeFromASTSpan(span ast.SourceSpan) LSPRange {
+	return LSPRange{
+		Start: LSPPosition{Line: lspLineIndex(span.StartLine), Character: span.StartCol - 1},
+		End:   LSPPosition{Line: lspLineIndex(span.EndLine), Character: span.EndCol - 1},
+	}
 }
 
 // lspDiagnosticFromASTSpan maps a 1-based half-open ast.SourceSpan to an LSP range (0-based; character = UTF-8 byte offset within line for ASCII-aligned lexer columns).
 func lspDiagnosticFromASTSpan(_ string, msg, source, code string, span ast.SourceSpan) LSPDiagnostic {
 	return LSPDiagnostic{
-		Range: LSPRange{
-			Start: LSPPosition{Line: lspLineIndex(span.StartLine), Character: span.StartCol - 1},
-			End:   LSPPosition{Line: lspLineIndex(span.EndLine), Character: span.EndCol - 1},
-		},
+		Range:    lspRangeFromASTSpan(span),
 		Severity: LSPDiagnosticSeverityError,
 		Source:   source,
 		Code:     code,

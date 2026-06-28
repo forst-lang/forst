@@ -76,7 +76,7 @@ jobs:
       id-token: write
     if: inputs.cli_tag != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cli_tag }}
 
@@ -126,7 +126,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cli_tag }}
 
@@ -153,7 +153,7 @@ jobs:
       inputs.sidecar_tag != '' &&
       (needs.cli-npm.result == 'success' || needs.cli-npm.result == 'skipped')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sidecar_tag }}
 
@@ -213,7 +213,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.sidecar_tag }}
 

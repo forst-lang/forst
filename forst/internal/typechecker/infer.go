@@ -64,6 +64,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case ast.EnsureNode:
 		return tc.inferEnsureNode(n)
+	case ast.UseNode:
+		return tc.inferUseNode(n)
+	case ast.WithNode:
+		return tc.inferWithNode(n)
 	case ast.AssignmentNode:
 		if err := tc.inferAssignmentTypes(n); err != nil {
 			return nil, err
@@ -99,6 +103,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				}
 				if tc.underlyingBuiltinTypeOfAliasAssertion(base) != "" {
 					return nil, nil
+				}
+			}
+
+			// Pure alias to another named user type (e.g. type AuditLogger = Logger): keep the
+			// TypeDefAssertionExpr from collect — do not expand to a duplicate TypeDefShapeExpr.
+			if len(assertionExpr.Assertion.Constraints) == 0 && assertionExpr.Assertion.BaseType != nil {
+				base := *assertionExpr.Assertion.BaseType
+				if !tc.isBuiltinType(base) && tc.underlyingBuiltinTypeOfAliasAssertion(base) == "" {
+					if _, ok := tc.Defs[base]; ok {
+						return nil, nil
+					}
 				}
 			}
 

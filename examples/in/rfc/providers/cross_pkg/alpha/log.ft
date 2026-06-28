@@ -1,0 +1,15 @@
+// Cross-package Providers cookbook: alpha defines Logger contract + direct use.
+package alpha
+
+type Logger = {
+	Info(msg String),
+}
+
+type NopLogger = {}
+
+func (NopLogger) Info(msg String) {}
+
+func LogExpiry(id String) {
+	use logger: Logger
+	logger.Info("expire " + id)
+}

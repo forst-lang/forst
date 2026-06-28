@@ -12,6 +12,52 @@ import (
 	"golang.org/x/text/language"
 )
 
+func (t *Transformer) transformMethodOnlyShapeAsInterface(shape *ast.ShapeNode) (*goast.Expr, error) {
+	methods := []*goast.Field{}
+	for name, field := range shape.Fields {
+		if !field.IsMethod {
+			continue
+		}
+		params := &goast.FieldList{List: []*goast.Field{}}
+		for _, param := range field.MethodParams {
+			sp, ok := param.(ast.SimpleParamNode)
+			if !ok {
+				continue
+			}
+			typeExpr, err := t.transformType(sp.Type)
+			if err != nil {
+				return nil, fmt.Errorf("method %s param: %w", name, err)
+			}
+			params.List = append(params.List, &goast.Field{
+				Names: []*goast.Ident{goast.NewIdent(sp.GetIdent())},
+				Type:  typeExpr,
+			})
+		}
+		var results *goast.FieldList
+		if len(field.MethodReturnTypes) > 0 {
+			resultFields := make([]*goast.Field, len(field.MethodReturnTypes))
+			for i, ret := range field.MethodReturnTypes {
+				typeExpr, err := t.transformType(ret)
+				if err != nil {
+					return nil, fmt.Errorf("method %s return: %w", name, err)
+				}
+				resultFields[i] = &goast.Field{Type: typeExpr}
+			}
+			results = &goast.FieldList{List: resultFields}
+		}
+		methods = append(methods, &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(name)},
+			Type: &goast.FuncType{
+				Params:  params,
+				Results: results,
+			},
+		})
+	}
+	result := goast.InterfaceType{Methods: &goast.FieldList{List: methods}}
+	var expr goast.Expr = &result
+	return &expr, nil
+}
+
 func (t *Transformer) transformShapeFieldType(field ast.ShapeFieldNode) (*goast.Expr, error) {
 	if field.Type != nil {
 		t.log.WithFields(logrus.Fields{
@@ -605,10 +651,14 @@ func capitalizeFirst(s string) string {
 }
 
 func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, error) {
-	// Always generate a struct type for shape definitions
+	if shape.IsMethodOnlyContract() {
+		return t.transformMethodOnlyShapeAsInterface(shape)
+	}
+	// Always generate a struct type for shape definitions with data fields
 	// The existing type matching is only for shape literals, not type definitions
 	fields := []*goast.Field{}
-	for name, field := range shape.Fields {
+	for _, name := range ast.ShapeFieldNamesInOrder(shape.Fields, shape.FieldOrder) {
+		field := shape.Fields[name]
 		fieldType, err := t.transformShapeFieldType(field)
 		if err != nil {
 			err = fmt.Errorf("failed to transform shape field type during transformation: %w", err)

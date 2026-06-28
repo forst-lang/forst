@@ -198,6 +198,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 						i+1, e.Function.ID, param.Type.Ident, argTypes[i][0].Ident)
 				}
 			}
+			callSpan := e.CallSpan
+			if !callSpan.IsSet() {
+				callSpan = e.Function.Span
+			}
+			tc.recordFunctionCall(e.Function.ID, callSpan)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
 		}
@@ -242,12 +247,25 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return returnType, nil
 			}
 
+			// Forst sibling package in same module (before Go stub resolution)
+			if ret, err := tc.resolveForstSiblingCall(pkgName, funcName, e, argTypes); err != nil {
+				return nil, err
+			} else if ret != nil {
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
+
 			// Imported Go package (Forst↔Go boundary): batch or lazy go/packages load
 			if gp := tc.goPackageForImportLocal(pkgName); gp != nil {
 				ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)
 				if err != nil {
 					return nil, err
 				}
+				callSpan := e.CallSpan
+				if !callSpan.IsSet() {
+					callSpan = e.Function.Span
+				}
+				tc.recordCrossPackageCall(pkgName, ast.Identifier(funcName), callSpan)
 				tc.storeInferredType(e, ret)
 				return ret, nil
 			}
@@ -442,6 +460,19 @@ func (tc *TypeChecker) inferMethodCallType(receiver ast.Identifier, varType []as
 	// *T method calls: lower to element type for built-in / opaque Go receivers.
 	if t.Ident == ast.TypePointer && len(t.TypeParams) == 1 {
 		t = t.TypeParams[0]
+	}
+
+	if ret, err := tc.checkUserTypeMethod(t, methodName, e.Arguments); err == nil {
+		return ret, nil
+	} else if tc.TypeMethods != nil {
+		// Only fall through when the type has no method table; otherwise surface the error.
+		if methods, ok := tc.TypeMethods[t.Ident]; ok && len(methods) > 0 {
+			return nil, err
+		}
+	}
+
+	if ret, err := tc.checkContractShapeMethod(t, methodName, e.Arguments); err == nil {
+		return ret, nil
 	}
 
 	returnType, err := tc.CheckBuiltinMethod(t, methodName, e.Arguments)

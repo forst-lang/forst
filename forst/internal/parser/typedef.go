@@ -86,7 +86,7 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 	}
 
 	if p.current().Type == ast.TokenLBrace {
-		shape := p.parseShapeType()
+		shape := p.parseShapeTypeAllowEmpty()
 		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 

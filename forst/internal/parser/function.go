@@ -224,10 +224,42 @@ func (p *Parser) parseFunctionBody() []ast.Node {
 	return p.parseBlock()
 }
 
+// parseFunctionName reads a function or method name. `error` is allowed when it starts a signature.
+// `use` is allowed as a function name when followed by `(` (the `use` statement keyword uses a different lookahead).
+func (p *Parser) parseFunctionName() ast.Token {
+	tok := p.current()
+	switch tok.Type {
+	case ast.TokenIdentifier:
+		p.advance()
+		return tok
+	case ast.TokenError:
+		if p.peek().Type == ast.TokenLParen {
+			p.advance()
+			return tok
+		}
+		p.FailWithParseError(tok, "expected function name")
+	case ast.TokenUse:
+		if p.peek().Type == ast.TokenLParen {
+			p.advance()
+			return tok
+		}
+		p.FailWithParseError(tok, "expected function name")
+	default:
+		p.FailWithParseError(tok, "expected function name")
+	}
+	panic("unreachable")
+}
+
 // Parse a function definition
 func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
-	p.expect(ast.TokenFunc)               // Expect `fn`
-	name := p.expect(ast.TokenIdentifier) // Function name
+	p.expect(ast.TokenFunc) // Expect `func`
+
+	var receiver *ast.SimpleParamNode
+	if p.current().Type == ast.TokenLParen {
+		receiver = p.parseReceiver()
+	}
+
+	name := p.parseFunctionName() // Function name
 
 	p.context.ScopeStack.CurrentScope().FunctionName = name.Value
 
@@ -238,11 +270,43 @@ func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	body := p.parseFunctionBody()
 
 	node := ast.FunctionNode{
-		Ident:       ast.Ident{ID: ast.Identifier(name.Value)},
+		Receiver:    receiver,
+		Ident:       ast.Ident{ID: ast.Identifier(name.Value), Span: ast.SpanFromToken(name)},
 		ReturnTypes: returnType,
 		Params:      params,
 		Body:        body,
 	}
 
 	return node
+}
+
+func (p *Parser) parseReceiver() *ast.SimpleParamNode {
+	p.expect(ast.TokenLParen)
+
+	firstTok := p.expect(ast.TokenIdentifier)
+	var recvName ast.Identifier
+	var recvType ast.TypeNode
+
+	if p.current().Type == ast.TokenIdentifier || p.current().Type == ast.TokenStar ||
+		p.current().Type == ast.TokenMap || p.current().Type == ast.TokenLBracket {
+		// func (l StdLogger) or func (l *T)
+		recvName = ast.Identifier(firstTok.Value)
+		recvType = p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+	} else {
+		// func (StdLogger) or func (NopLogger) — type only, no receiver name
+		p.currentIndex--
+		recvType = p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+	}
+
+	p.expect(ast.TokenRParen)
+
+	var ident ast.Ident
+	if recvName != "" {
+		ident = ast.Ident{ID: recvName, Span: ast.SpanFromToken(firstTok)}
+	}
+
+	return &ast.SimpleParamNode{
+		Ident: ident,
+		Type:  recvType,
+	}
 }

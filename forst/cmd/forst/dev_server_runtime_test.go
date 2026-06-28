@@ -182,7 +182,7 @@ func TestStartDevServer_helperProcess(t *testing.T) {
 
 	switch helperCase {
 	case "invalid-config-path":
-		StartDevServer("8080", logger, "/path/that/does/not/exist/ftconfig.json", ".", &level)
+		_ = StartDevServer("8080", logger, "/path/that/does/not/exist/ftconfig.json", ".", &level)
 	default:
 		t.Fatalf("unknown helper case: %s", helperCase)
 	}

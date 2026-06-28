@@ -10,6 +10,7 @@ import (
 	"forst/internal/configiface"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
+	"forst/internal/modulecheck"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -28,6 +29,10 @@ type FunctionInfo struct {
 	ReturnType         string          `json:"returnType"`
 	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
 	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
+	// Providers lists root contract idents in Providers(f) (ordered); empty when runnable.
+	Providers []string `json:"providers,omitempty"`
+	// Runnable is true iff Providers(f) is empty — eligible for TS/sidecar export.
+	Runnable bool `json:"runnable,omitempty"`
 	// IsResult and the result* fields apply when the sole return type is Result(Success, Failure).
 	IsResult          bool   `json:"isResult,omitempty"`
 	ResultSuccessType string `json:"resultSuccessType,omitempty"`
@@ -104,20 +109,34 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 	totalFunctions := 0
 	goRoot := goload.FindModuleRoot(d.rootDir)
 
+	modResult, modErr := modulecheck.CheckModuleProviders(mainLogger, modulecheck.Options{ModuleRoot: goRoot})
+	perPkgTC := make(map[string]*typechecker.TypeChecker)
+	if modResult != nil {
+		perPkgTC = modResult.PerPackage
+	}
+	if modErr != nil {
+		d.log.Debugf("Module providers check: %v", modErr)
+		// Fall back to per-package typecheck for discovery metadata when module pass fails.
+		if len(perPkgTC) == 0 {
+			for packageName, paths := range byPackage {
+				sort.Strings(paths)
+				var astLists [][]ast.Node
+				for _, p := range paths {
+					astLists = append(astLists, parsed[p])
+				}
+				merged := forstpkg.MergePackageASTs(astLists)
+				tc := typechecker.New(mainLogger, false)
+				tc.GoWorkspaceDir = goRoot
+				if err := tc.CheckTypes(merged); err != nil {
+					d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
+				}
+				perPkgTC[packageName] = tc
+			}
+		}
+	}
+
 	for packageName, paths := range byPackage {
-		sort.Strings(paths)
-		var astLists [][]ast.Node
-		for _, p := range paths {
-			astLists = append(astLists, parsed[p])
-		}
-		merged := forstpkg.MergePackageASTs(astLists)
-
-		tc := typechecker.New(mainLogger, false)
-		tc.GoWorkspaceDir = goRoot
-		if err := tc.CheckTypes(merged); err != nil {
-			d.log.Debugf("Type checking failed for package %s: %v", packageName, err)
-		}
-
+		tc := perPkgTC[packageName]
 		for _, filePath := range paths {
 			fileFunctions := d.discoverFunctionsInParsedFile(parsed[filePath], filePath, packageName, tc)
 			if len(fileFunctions) == 0 {
@@ -140,6 +159,15 @@ func (d *Discoverer) DiscoverFunctions() (map[string]map[string]FunctionInfo, er
 		}
 	}
 	return functions, nil
+}
+
+// DiscoverProvidersJSONV1 discovers public functions and returns SPEC § Discovery JSON v1 Providers metadata.
+func (d *Discoverer) DiscoverProvidersJSONV1() (ProvidersDiscoveryV1, error) {
+	functions, err := d.DiscoverFunctions()
+	if err != nil {
+		return ProvidersDiscoveryV1{}, err
+	}
+	return BuildProvidersDiscoveryV1(functions), nil
 }
 
 func discoveryLogrusOrDiscard(log Logger) *logrus.Logger {

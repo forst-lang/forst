@@ -2,6 +2,8 @@
 
 Provides `.ft` language registration and connects to the Forst compiler’s **HTTP LSP** (`forst lsp`) for diagnostics on open, edit, and close.
 
+Language features include **Providers** (`use` / `with`): syntax highlighting and snippets for wiring blocks, function hover showing required contracts, and **related diagnostic links** on unsatisfied Provider obligations (click through the obligation chain in the Problems panel).
+
 ## LSP over HTTP
 
 The server listens on `POST /` with **`Content-Type: application/json`**. Each request body is a single **JSON-RPC 2.0** object (`jsonrpc`, `id`, `method`, `params`). The response is one JSON-RPC result or error object. This is **not** stdio LSP; editors need a small HTTP bridge (this extension implements one).
@@ -34,6 +36,7 @@ In the **Extension Development Host** window, **File → Open Folder** and choos
 - No **Forst** channel: the dev host did not load this extension; fix `extensionDevelopmentPath` as above.
 - Language mode **Plain Text** on `.ft`: extension not loaded, or another extension stole the association; confirm the dev host and try **Change Language Mode** → Forst.
 - **Cursor:** extension debugging may differ; try VS Code if F5 does nothing.
+- **Parse errors on `type Logger = { info(msg String) }`:** Providers contract shapes need a recent compiler (method signatures in typedef shapes). Run **`task build`** at the repo root so **`bin/forst`** is current, set **`forst.compiler.path`** to that binary if needed, then **Forst: Restart language server**. With **`forst.compiler.download`** enabled, the extension may use an older cached release until you point it at a local build.
 
 ## Settings
 

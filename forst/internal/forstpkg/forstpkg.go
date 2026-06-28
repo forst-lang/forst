@@ -13,7 +13,19 @@ import (
 )
 
 // ParseForstFile parses a single .ft file into top-level AST nodes.
-func ParseForstFile(log *logrus.Logger, path string) ([]ast.Node, error) {
+// Parse failures are returned as errors (parser panics are converted to *parser.ParseError).
+func ParseForstFile(log *logrus.Logger, path string) (nodes []ast.Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if pe, ok := r.(*parser.ParseError); ok {
+				err = pe
+				nodes = nil
+				return
+			}
+			err = fmt.Errorf("parse panic in %s: %v", path, r)
+			nodes = nil
+		}
+	}()
 	source, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

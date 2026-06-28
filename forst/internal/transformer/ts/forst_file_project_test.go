@@ -3,6 +3,7 @@ package transformerts
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -63,5 +64,28 @@ func GetX(r R): Int {
 	}
 	if len(outputs) != 2 {
 		t.Fatalf("TS outputs: got %d want 2", len(outputs))
+	}
+}
+
+func TestParseMergedTypecheckProject_sidecarExportRejectsPublicWithProviders(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "api.ft")
+	src := `package main
+
+type Logger = { info(msg String) }
+
+func PublicApi() {
+	use logger: Logger
+}
+`
+	if err := os.WriteFile(path, []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ParseMergedTypecheckProject([]string{path}, logrus.New())
+	if err == nil {
+		t.Fatal("expected sidecar export error for public function with Providers")
+	}
+	if !strings.Contains(err.Error(), "cannot export PublicApi") {
+		t.Fatalf("expected sidecar export error, got: %v", err)
 	}
 }
