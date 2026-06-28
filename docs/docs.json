@@ -7,7 +7,7 @@
     "light": "#07C983",
     "dark": "#15803D"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "styling": {
     "codeblocks": {
       "languages": {
@@ -106,8 +106,8 @@
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/icon.png",
+    "dark": "/logo/icon.png"
   },
   "navbar": {
     "links": [

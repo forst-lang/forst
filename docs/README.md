@@ -67,7 +67,7 @@ When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmL
 
 Brand icons for cards live in [`icons/`](./icons/). TypeScript logo from [typescriptlang.org](https://www.typescriptlang.org/branding/) (Wikimedia). Go blue wordmark from [go.dev/brand](https://go.dev/brand) (Wikimedia).
 
-The navbar logo and favicon match the VS Code extension **FT** mark in [`packages/vscode-forst/icons/`](../packages/vscode-forst/icons/). When those icons change, sync [`logo/light.svg`](./logo/light.svg), [`logo/dark.svg`](./logo/dark.svg), and [`favicon.svg`](./favicon.svg).
+The navbar logo and favicon match the VS Code extension icon in [`packages/vscode-forst/images/marketplace-icon.png`](../packages/vscode-forst/images/marketplace-icon.png). When that icon changes, sync [`logo/icon.png`](./logo/icon.png) and [`favicon.png`](./favicon.png). The **FT** tab glyph for `.ft` files lives in [`packages/vscode-forst/icons/`](../packages/vscode-forst/icons/).
 
 ## Internal docs
 
