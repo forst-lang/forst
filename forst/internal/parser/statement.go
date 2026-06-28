@@ -50,6 +50,24 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 			body = append(body, assignment)
 			break
 		}
+		if next.Type == ast.TokenPlusPlus || next.Type == ast.TokenMinusMinus {
+			incDec := p.parseIncDecStmt()
+			p.logParsedNode(incDec)
+			body = append(body, incDec)
+			break
+		}
+		if next.Type == ast.TokenPlus && p.peek(1).Type == ast.TokenPlus {
+			incDec := p.parseIncDecStmt()
+			p.logParsedNode(incDec)
+			body = append(body, incDec)
+			break
+		}
+		if next.Type == ast.TokenMinus && p.peek(1).Type == ast.TokenMinus {
+			incDec := p.parseIncDecStmt()
+			p.logParsedNode(incDec)
+			body = append(body, incDec)
+			break
+		}
 		// x = …, x := …, x: T = …, xs[i] = … (assignable expression, then = or := or : Type …)
 		saved := p.currentIndex
 		lhs := p.parseAssignableExpr()
@@ -60,7 +78,7 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 			body = append(body, expr)
 			break
 		}
-		if p.current().Type == ast.TokenEquals || p.current().Type == ast.TokenColonEquals {
+		if ast.IsAssignmentOperatorToken(p.current()) {
 			assign := p.finishAssignment(lhs)
 			p.logParsedNode(assign)
 			body = append(body, assign)
@@ -115,6 +133,20 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		g := p.parseGoStatement()
 		p.logParsedNode(g)
 		body = append(body, g)
+	case ast.TokenStar:
+		saved := p.currentIndex
+		if lhs, ok := p.parseDerefAssignableExpr(); ok {
+			if ast.IsAssignmentOperatorToken(p.current()) {
+				assign := p.finishAssignment(lhs)
+				p.logParsedNode(assign)
+				body = append(body, assign)
+				break
+			}
+		}
+		p.currentIndex = saved
+		expr := p.parseExpression()
+		p.logParsedNode(expr)
+		body = append(body, expr)
 	default:
 		expr := p.parseExpression()
 		p.logParsedNode(expr)

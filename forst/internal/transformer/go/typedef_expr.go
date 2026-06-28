@@ -2,6 +2,8 @@ package transformergo
 
 import (
 	"fmt"
+	"strings"
+
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
@@ -153,6 +155,15 @@ func (t *Transformer) transformTypeDefExpr(expr ast.TypeDefExpr) (*goast.Expr, e
 			// If no value or unknown value type, default to string
 			var result goast.Expr = goast.NewIdent("string")
 			return &result, nil
+		}
+
+		// Plain alias to another user-defined type (e.g. type UserId = RawId): emit named alias, not hash.
+		if e.Assertion.BaseType != nil && len(e.Assertion.Constraints) == 0 {
+			baseName := string(*e.Assertion.BaseType)
+			if _, ok := t.TypeChecker.Defs[ast.TypeIdent(baseName)]; ok && !strings.HasPrefix(baseName, "T_") {
+				var result goast.Expr = goast.NewIdent(baseName)
+				return &result, nil
+			}
 		}
 
 		// Use hash-based type alias for user-defined types

@@ -96,11 +96,62 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 
 // unifyArithmeticOperator handles type unification for arithmetic operators
 func (tc *TypeChecker) unifyArithmeticOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
-	if leftType.Ident != rightType.Ident {
-		return ast.TypeNode{}, fmt.Errorf("type mismatch in arithmetic expression: %s and %s",
-			leftType.Ident, rightType.Ident)
+	leftType = tc.normalizeAliasForArithmetic(leftType)
+	rightType = tc.normalizeAliasForArithmetic(rightType)
+	if leftType.Ident == rightType.Ident {
+		return leftType, nil
 	}
-	return leftType, nil
+	if tc.IsTypeCompatible(leftType, rightType) {
+		return leftType, nil
+	}
+	if tc.IsTypeCompatible(rightType, leftType) {
+		return rightType, nil
+	}
+	if tc.arithmeticWithStringAndAlias(leftType, rightType) {
+		return ast.TypeNode{Ident: ast.TypeString}, nil
+	}
+	return ast.TypeNode{}, fmt.Errorf("type mismatch in arithmetic expression: %s and %s",
+		leftType.Ident, rightType.Ident)
+}
+
+func (tc *TypeChecker) arithmeticWithStringAndAlias(a, b ast.TypeNode) bool {
+	if a.Ident == ast.TypeString && tc.typeIsOrRefinesBuiltin(b, ast.TypeString) {
+		return true
+	}
+	if b.Ident == ast.TypeString && tc.typeIsOrRefinesBuiltin(a, ast.TypeString) {
+		return true
+	}
+	return false
+}
+
+func (tc *TypeChecker) typeIsOrRefinesBuiltin(t ast.TypeNode, bu ast.TypeIdent) bool {
+	if t.Ident == bu {
+		return true
+	}
+	if t.Assertion != nil && t.Assertion.BaseType != nil && *t.Assertion.BaseType == bu {
+		return true
+	}
+	if bu2 := tc.underlyingBuiltinFromTypeNode(t); bu2 == bu {
+		return true
+	}
+	return false
+}
+
+// underlyingBuiltinFromTypeNode returns the built-in at the end of an alias chain (e.g. Slug → String),
+// including aliases whose typedef carries inline constraints (Min/Max/HasPrefix).
+func (tc *TypeChecker) underlyingBuiltinFromTypeNode(t ast.TypeNode) ast.TypeIdent {
+	if bu := tc.underlyingBuiltinTypeOfAliasAssertion(t.Ident); bu != "" {
+		return bu
+	}
+	for _, link := range tc.GetTypeAliasChain(ast.TypeNode{Ident: t.Ident}) {
+		if tc.isBuiltinType(link.Ident) {
+			return link.Ident
+		}
+	}
+	if t.Assertion != nil && t.Assertion.BaseType != nil {
+		return tc.underlyingBuiltinFromTypeNode(ast.TypeNode{Ident: *t.Assertion.BaseType})
+	}
+	return ""
 }
 
 // unifyComparisonOperator handles type unification for comparison operators
@@ -119,4 +170,11 @@ func (tc *TypeChecker) unifyLogicalOperator(leftType, rightType ast.TypeNode) (a
 			leftType.Ident, rightType.Ident)
 	}
 	return ast.TypeNode{Ident: ast.TypeBool}, nil
+}
+
+func (tc *TypeChecker) normalizeAliasForArithmetic(t ast.TypeNode) ast.TypeNode {
+	if bu := tc.underlyingBuiltinFromTypeNode(t); bu != "" {
+		return ast.TypeNode{Ident: bu}
+	}
+	return t
 }

@@ -45,6 +45,18 @@ func tokenBinary(op ast.TokenIdent) string {
 	}
 }
 
+// incDecSuffix returns ++/-- for postfix increment/decrement statements (parseIncDecStmt).
+func incDecSuffix(op ast.TokenIdent) (string, bool) {
+	switch op {
+	case ast.TokenPlusPlus:
+		return "++", true
+	case ast.TokenMinusMinus:
+		return "--", true
+	default:
+		return "", false
+	}
+}
+
 func tokenUnary(op ast.TokenIdent) string {
 	switch op {
 	case ast.TokenLogicalNot:
@@ -55,6 +67,10 @@ func tokenUnary(op ast.TokenIdent) string {
 		return "*"
 	case ast.TokenBitwiseAnd:
 		return "&"
+	case ast.TokenPlusPlus:
+		return "++"
+	case ast.TokenMinusMinus:
+		return "--"
 	default:
 		return string(op)
 	}

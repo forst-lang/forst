@@ -11,7 +11,7 @@ func (p *Parser) parseWithStatement() ast.WithNode {
 	var wiring ast.ExpressionNode
 	switch p.current().Type {
 	case ast.TokenLBrace:
-		shape := p.parseShapeLiteral(nil, false)
+		shape := p.parseShapeLiteral(ShapeLiteralOpts{})
 		wiring = shape
 	default:
 		if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLBrace {

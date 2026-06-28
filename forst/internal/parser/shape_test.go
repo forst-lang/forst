@@ -148,7 +148,7 @@ func TestParseShapeType_Nested(t *testing.T) {
 func TestParseShapeLiteral_TopLevel(t *testing.T) {
 	input := `{ foo: 42, bar: "baz" }`
 	p := NewTestParser(input, ast.SetupTestLogger(nil))
-	shape := p.parseShapeLiteral(nil, false)
+	shape := p.parseShapeLiteral(ShapeLiteralOpts{})
 	if len(shape.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(shape.Fields))
 	}
@@ -157,7 +157,7 @@ func TestParseShapeLiteral_TopLevel(t *testing.T) {
 func TestParseShapeLiteral_Nested(t *testing.T) {
 	input := `{ input: { name: "Alice" } }`
 	p := NewTestParser(input, ast.SetupTestLogger(nil))
-	shape := p.parseShapeLiteral(nil, false)
+	shape := p.parseShapeLiteral(ShapeLiteralOpts{})
 	inputField := shape.Fields["input"]
 	if inputField.Shape == nil {
 		t.Fatalf("expected input to be a nested shape literal, got %+v", inputField)

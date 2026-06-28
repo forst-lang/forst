@@ -117,6 +117,31 @@ func TestParseAssignment(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "compound assignment",
+			tokens: []ast.Token{
+				{Type: ast.TokenFunc, Value: "func", Line: 1, Column: 1},
+				{Type: ast.TokenIdentifier, Value: "main", Line: 1, Column: 6},
+				{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 9},
+				{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 10},
+				{Type: ast.TokenLBrace, Value: "{", Line: 1, Column: 12},
+				{Type: ast.TokenIdentifier, Value: "n", Line: 2, Column: 4},
+				{Type: ast.TokenColonEquals, Value: ":=", Line: 2, Column: 6},
+				{Type: ast.TokenIntLiteral, Value: "0", Line: 2, Column: 9},
+				{Type: ast.TokenIdentifier, Value: "n", Line: 3, Column: 4},
+				{Type: ast.TokenPlusEq, Value: "+=", Line: 3, Column: 6},
+				{Type: ast.TokenIntLiteral, Value: "5", Line: 3, Column: 9},
+				{Type: ast.TokenRBrace, Value: "}", Line: 4, Column: 1},
+				{Type: ast.TokenEOF, Value: "", Line: 4, Column: 2},
+			},
+			validate: func(t *testing.T, nodes []ast.Node) {
+				functionNode := assertNodeType[ast.FunctionNode](t, nodes[0], "ast.FunctionNode")
+				assignNode := assertNodeType[ast.AssignmentNode](t, functionNode.Body[1], "ast.AssignmentNode")
+				if assignNode.CompoundOp != ast.TokenPlusEq {
+					t.Fatalf("CompoundOp = %q, want PLUS_EQ", assignNode.CompoundOp)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -115,6 +115,29 @@ func main() {
 `,
 		},
 		{
+			name: "for_three_clause_inc",
+			src: `package main
+
+func main() {
+	for i := 0; i < 3; i++ {
+		println(string(i))
+	}
+}
+`,
+		},
+		{
+			name: "compound_assign",
+			src: `package main
+
+func main() {
+	n := 0
+	n += 5
+	n -= 2
+	println(string(n))
+}
+`,
+		},
+		{
 			name: "defer_go",
 			src: `package main
 

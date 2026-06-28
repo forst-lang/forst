@@ -55,7 +55,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +86,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
@@ -119,7 +119,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
@@ -152,7 +152,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
@@ -175,7 +175,7 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
 				return nil, err
 			}
-			variableExpr, err := at.transformer.transformExpression(variable)
+			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}

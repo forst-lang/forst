@@ -29,6 +29,8 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Binary types (`A \| B`, `A & B`) | Union and intersection typedefs type-check; closed nominal error unions emit to Go and TS. General unions, intersections, and narrowing still incomplete. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Optional types (`T \| Nil`) | Planned: Crystal-style `T \| Nil` / `T?` unions, narrowing, and Go lowering. See [optionals RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/optionals). |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | User-defined generics | Type parameters on types and functions. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Postfix `++` / `--` and compound assignment | `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=` as standalone statements and in `for` post clauses (`lang_probe/59_inc_compound`). |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Shift / xor compound assignment | `^=`, `<<=`, `>>=`, `&^=`—planned when `^`, `<<`, `>>`, and `&^` tokens and three-character lexing land. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | `switch` / `select` | Not implemented yet; design open for Go-style `switch` vs pattern `match`. |
 
 ## Go interoperability

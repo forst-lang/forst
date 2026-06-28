@@ -32,16 +32,25 @@ func (p *Parser) finishAssignment(lhs ast.ExpressionNode) ast.AssignmentNode {
 	}
 
 	assignToken := p.current()
-	if assignToken.Type != ast.TokenEquals && assignToken.Type != ast.TokenColonEquals {
+	if !ast.IsAssignmentOperatorToken(assignToken) {
 		p.FailWithParseError(assignToken, "Expected assignment or short assignment operator")
 	}
 	if assignToken.Type == ast.TokenColonEquals {
 		if _, ok := lhs.(ast.VariableNode); !ok {
 			p.FailWithParseError(assignToken, "cannot use := on this expression")
 		}
-	} else {
+	} else if ast.IsCompoundAssignToken(assignToken.Type) {
+		if explicitType != nil {
+			p.FailWithParseError(assignToken, "cannot use compound assignment with explicit type")
+		}
 		switch lhs.(type) {
-		case ast.VariableNode, ast.IndexExpressionNode:
+		case ast.VariableNode, ast.IndexExpressionNode, ast.DereferenceNode:
+		default:
+			p.FailWithParseError(assignToken, "left-hand side of compound assignment must be a variable, index, or dereference")
+		}
+	} else if assignToken.Type == ast.TokenEquals {
+		switch lhs.(type) {
+		case ast.VariableNode, ast.IndexExpressionNode, ast.DereferenceNode:
 		default:
 			p.FailWithParseError(assignToken, "left-hand side of assignment must be a variable or index expression")
 		}
@@ -50,11 +59,17 @@ func (p *Parser) finishAssignment(lhs ast.ExpressionNode) ast.AssignmentNode {
 
 	expr := p.parseExpression()
 
+	compoundOp := ast.TokenIdent("")
+	if ast.IsCompoundAssignToken(assignToken.Type) {
+		compoundOp = assignToken.Type
+	}
+
 	return ast.AssignmentNode{
 		LValues:       []ast.ExpressionNode{lhs},
 		RValues:       []ast.ExpressionNode{expr},
 		ExplicitTypes: []*ast.TypeNode{explicitType},
 		IsShort:       assignToken.Type == ast.TokenColonEquals,
+		CompoundOp:    compoundOp,
 	}
 }
 

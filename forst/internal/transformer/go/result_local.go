@@ -54,7 +54,16 @@ func (t *Transformer) goExprForNarrowedResultSplitLocal(vn ast.VariableNode, spl
 		return goast.NewIdent(split.successGoNames[0]), true
 	}
 	if t.TypeChecker.IsTypeCompatible(lt, fail) {
-		return goast.NewIdent(split.errGoName), true
+		errIdent := goast.NewIdent(split.errGoName)
+		if def, ok := t.TypeChecker.Defs[lt.Ident].(ast.TypeDefNode); ok {
+			if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
+				goTy, err := t.transformType(lt)
+				if err == nil {
+					return &goast.TypeAssertExpr{X: errIdent, Type: goTy}, true
+				}
+			}
+		}
+		return errIdent, true
 	}
 	return nil, false
 }

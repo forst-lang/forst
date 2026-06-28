@@ -126,6 +126,10 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
+	if e.Operator == ast.TokenPlus {
+		left, right = t.coerceGoStringConcatOperands(e.Left, e.Right, left, right)
+		left, right = t.coerceGoStringPlusAlias(left, right)
+	}
 		return &goast.BinaryExpr{
 			X:  left,
 			Op: op,
@@ -190,6 +194,20 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				Fun:  goFunExprFromForstCallIdent(e.Function),
 				Args: args,
 			}, nil
+		}
+		if e.Function.ID == "string" && len(e.Arguments) == 1 {
+			if goExpr, ok, err := t.transformStringBuiltinCall(e.Arguments[0]); ok {
+				if err != nil {
+					return nil, err
+				}
+				return goExpr, nil
+			}
+		}
+		if lit, ok, err := t.transformNominalErrorConstructorCall(e); ok {
+			if err != nil {
+				return nil, err
+			}
+			return lit, nil
 		}
 		args, err := t.transformFunctionCallArgs(e.Function.ID, e.Arguments)
 		if err != nil {

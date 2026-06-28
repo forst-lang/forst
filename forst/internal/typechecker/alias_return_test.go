@@ -70,6 +70,37 @@ func TestInferTypeDef_directBuiltinAliasPreservesAssertionExpr(t *testing.T) {
 	}
 }
 
+func TestInferTypeDef_constrainedBuiltinAliasPreservesAssertionExpr(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	tc := New(log, false)
+	str := ast.TypeString
+	td := ast.TypeDefNode{
+		Ident: "Slug",
+		Expr: ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{
+				BaseType: &str,
+				Constraints: []ast.ConstraintNode{
+					{Name: "Min", Args: []ast.ConstraintArgumentNode{
+						{Value: func() *ast.ValueNode { v := ast.IntLiteralNode{Value: 1}; var n ast.ValueNode = v; return &n }()},
+					}},
+				},
+			},
+		},
+	}
+	tc.registerType(td)
+	if _, err := tc.inferNodeType(td); err != nil {
+		t.Fatalf("infer: %v", err)
+	}
+	def, ok := tc.Defs[ast.TypeIdent("Slug")].(ast.TypeDefNode)
+	if !ok {
+		t.Fatalf("expected TypeDefNode for Slug")
+	}
+	if _, ok := def.Expr.(ast.TypeDefAssertionExpr); !ok {
+		t.Fatalf("expected TypeDefAssertionExpr after infer, got %T", def.Expr)
+	}
+}
+
 func TestIsTypeCompatible_simpleTypeAliasToString(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)

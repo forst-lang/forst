@@ -319,6 +319,15 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			"function": "inferExpressionType",
 			"expr":     expr,
 		}).Tracef("No function found for %s", e.Function.ID)
+
+		if ret, ok, err := tc.inferNominalErrorConstructorCall(e, argTypes); ok {
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+
 		sp := e.Function.Span
 		if !sp.IsSet() {
 			sp = e.CallSpan
@@ -526,6 +535,20 @@ func (tc *TypeChecker) inferIndexExpressionAsAssignTarget(e ast.IndexExpressionN
 		return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
 	}
 	elem := t.TypeParams[0]
+	tc.storeInferredType(e, []ast.TypeNode{elem})
+	return []ast.TypeNode{elem}, nil
+}
+
+// inferDerefExpressionAsAssignTarget types *p = x (including **pp = x).
+func (tc *TypeChecker) inferDerefExpressionAsAssignTarget(e ast.DereferenceNode) ([]ast.TypeNode, error) {
+	ptrTypes, err := tc.inferExpressionType(e.Value)
+	if err != nil {
+		return nil, err
+	}
+	if len(ptrTypes) != 1 || ptrTypes[0].Ident != ast.TypePointer || len(ptrTypes[0].TypeParams) != 1 {
+		return nil, fmt.Errorf("dereference assignment: left-hand side must be a pointer, got %s", formatTypeList(ptrTypes))
+	}
+	elem := ptrTypes[0].TypeParams[0]
 	tc.storeInferredType(e, []ast.TypeNode{elem})
 	return []ast.TypeNode{elem}, nil
 }

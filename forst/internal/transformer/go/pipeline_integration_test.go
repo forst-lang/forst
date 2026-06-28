@@ -599,7 +599,7 @@ func main() {
 }
 `
 	out := compileForstPipeline(t, src)
-	for _, sub := range []string{`func G_`, `len(password)`, `Password`, `os.Exit`, `package main`} {
+	for _, sub := range []string{`func G_`, `len(string(password))`, `Password`, `os.Exit`, `package main`} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
 		}
@@ -944,6 +944,31 @@ func main() {
 	}
 	if strings.Contains(out, "missing map key") {
 		t.Fatalf("did not expect map-read IIFE for assign-only program, got:\n%s", out)
+	}
+}
+
+func TestPipeline_mapIndex_assignThenRead_sameKey_noResultIIFEOnLHS(t *testing.T) {
+	src := `package main
+
+func main() {
+	m := map[String]Int{ "a": 1 }
+	m["a"] = 99
+	v := m["a"]
+	ensure v is Ok()
+	println(string(v))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `m["a"] = 99`) {
+		t.Fatalf("expected plain indexed assignment, got:\n%s", out)
+	}
+	if strings.Contains(out, `m["a"] = func()`) {
+		t.Fatalf("assign LHS must not be Result read IIFE, got:\n%s", out)
+	}
+	for _, sub := range []string{`v, vErr :=`, `missing map key`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("expected map read lowering %q in:\n%s", sub, out)
+		}
 	}
 }
 

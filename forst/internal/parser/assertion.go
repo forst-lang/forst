@@ -21,7 +21,7 @@ func (p *Parser) parseConstraintArgument() ast.ConstraintArgumentNode {
 	// Allow shape literals as constraint arguments
 	if token.Type == ast.TokenLBrace {
 		// Parse as shape literal so that nested shapes are stored correctly
-		shape := p.parseShapeLiteral(nil, true)
+		shape := p.parseShapeLiteral(ShapeLiteralOpts{ParseAsTypes: true})
 		return ast.ConstraintArgumentNode{
 			Shape: &shape,
 		}
@@ -72,8 +72,10 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 
 	token := p.current()
 	isIdentOrConstraint := token.Type == ast.TokenIdentifier || isPossibleConstraintIdentifier(token)
+	isBuiltinKeyword := token.Type == ast.TokenString || token.Type == ast.TokenInt ||
+		token.Type == ast.TokenFloat || token.Type == ast.TokenBool
 
-	if isIdentOrConstraint {
+	if isIdentOrConstraint || isBuiltinKeyword {
 		isConstraintWithoutBaseType := p.peek().Type == ast.TokenLParen
 
 		if isConstraintWithoutBaseType {
@@ -82,6 +84,9 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 			}
 			constraint := p.parseConstraint()
 			constraints = append(constraints, constraint)
+		} else if isBuiltinKeyword {
+			baseType = builtinTypeIdentFromToken(token)
+			p.advance()
 		} else {
 			// Parse first segment (could be package name or type)
 			typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
@@ -114,4 +119,21 @@ func (p *Parser) parseAssertionChain(requireBaseType bool) ast.AssertionNode {
 		BaseType:    baseType,
 		Constraints: constraints,
 	}
+}
+
+func builtinTypeIdentFromToken(token ast.Token) *ast.TypeIdent {
+	var ident ast.TypeIdent
+	switch token.Type {
+	case ast.TokenString:
+		ident = ast.TypeString
+	case ast.TokenInt:
+		ident = ast.TypeInt
+	case ast.TokenFloat:
+		ident = ast.TypeFloat
+	case ast.TokenBool:
+		ident = ast.TypeBool
+	default:
+		return nil
+	}
+	return &ident
 }

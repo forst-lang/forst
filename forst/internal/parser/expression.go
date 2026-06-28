@@ -63,6 +63,14 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 		if !tok.IsBinaryOperator() {
 			break
 		}
+		// Single `=` is assignment at statement level only, not a binary expression operator.
+		if tok == ast.TokenEquals && p.current().Value == "=" {
+			break
+		}
+		// `* *` begins a dereference chain / assign target, not multiplication.
+		if tok == ast.TokenStar && p.peek().Type == ast.TokenStar {
+			break
+		}
 		prec := binaryPrecedence(tok)
 		if prec < minPrec {
 			break
@@ -72,7 +80,7 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 
 		if operator == ast.TokenIs {
 			if p.current().Type == ast.TokenLBrace {
-				right := p.parseShapeLiteral(nil, false)
+				right := p.parseShapeLiteral(ShapeLiteralOpts{})
 				lhs = ast.BinaryExpressionNode{
 					Left:     lhs,
 					Operator: operator,
@@ -82,7 +90,7 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 				p.advance()
 				p.expect(ast.TokenLParen)
 				if p.current().Type == ast.TokenLBrace {
-					right := p.parseShapeLiteral(nil, false)
+					right := p.parseShapeLiteral(ShapeLiteralOpts{})
 					p.expect(ast.TokenRParen)
 					lhs = ast.BinaryExpressionNode{
 						Left:     lhs,
@@ -160,6 +168,14 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 			Operator: ast.TokenMinus,
 			Operand:  p.parseUnaryOrPrimary(depth + 1),
 		}
+	case p.current().Type == ast.TokenStar:
+		p.advance()
+		operand := p.parseUnaryOrPrimary(depth + 1)
+		vn, ok := operand.(ast.ValueNode)
+		if !ok {
+			p.FailWithParseError(p.current(), "dereference operand must be a value expression")
+		}
+		base = ast.DereferenceNode{Value: vn}
 	case p.current().Type == ast.TokenLParen:
 		p.advance()
 		inner := p.parseExpr(0, depth+1)
@@ -206,7 +222,7 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 	}
 	if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) {
 		typeIdent := ast.TypeIdent(string(ident.ID))
-		return p.parseShapeLiteral(&typeIdent, false)
+		return p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
 	}
 	return ast.VariableNode{
 		Ident: ident,

@@ -516,7 +516,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 
 		lhs := make([]goast.Expr, len(s.LValues))
 		for i, lval := range s.LValues {
-			lhsExpr, err := t.transformExpression(lval)
+			var lhsExpr goast.Expr
+			var err error
+			if idx, ok := lval.(ast.IndexExpressionNode); ok {
+				lhsExpr, err = t.transformIndexAssignTarget(idx)
+			} else {
+				lhsExpr, err = t.transformExpression(lval)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -545,6 +551,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		operator := token.ASSIGN
 		if s.IsShort {
 			operator = token.DEFINE
+		}
+		if s.CompoundOp != "" {
+			var err error
+			operator, err = assignmentGoToken(s)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return &goast.AssignStmt{
 			Lhs: lhs,

@@ -6,7 +6,7 @@ import errors "errors"
 type Password string
 
 func G_AAqSwpSKPZ9(password Password) bool {
-	if len(password) < 12 {
+	if len(string(password)) < 12 {
 		return false
 	}
 	return true

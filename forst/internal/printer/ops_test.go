@@ -59,6 +59,8 @@ func TestTokenUnary_mapsOperatorTokens(t *testing.T) {
 		{"minus", ast.TokenMinus, "-"},
 		{"star", ast.TokenStar, "*"},
 		{"bitwiseAnd", ast.TokenBitwiseAnd, "&"},
+		{"plusPlus", ast.TokenPlusPlus, "++"},
+		{"minusMinus", ast.TokenMinusMinus, "--"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

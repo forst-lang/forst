@@ -139,6 +139,16 @@ func main() {
 }`,
 		},
 		{
+			"compound_assign",
+			`package main
+func main() {
+	n := 0
+	n += 5
+	n -= 2
+	println(string(n))
+}`,
+		},
+		{
 			"for_three_clause_post_assign",
 			`package main
 func main() {

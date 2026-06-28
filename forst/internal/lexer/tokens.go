@@ -82,6 +82,13 @@ var Operators = map[string]ast.TokenIdent{
 	"&":  ast.TokenBitwiseAnd,
 	"|":  ast.TokenBitwiseOr,
 	"->": ast.TokenArrow,
+	"+=": ast.TokenPlusEq,
+	"-=": ast.TokenMinusEq,
+	"*=": ast.TokenStarEq,
+	"/=": ast.TokenDivideEq,
+	"%=": ast.TokenModuloEq,
+	"&=": ast.TokenBitwiseAndEq,
+	"|=": ast.TokenBitwiseOrEq,
 }
 
 // GetTokenType returns the token type for a given word

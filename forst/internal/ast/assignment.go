@@ -9,6 +9,7 @@ type AssignmentNode struct {
 	RValues       []ExpressionNode // Values being assigned
 	ExplicitTypes []*TypeNode      // Optional explicit types for each name
 	IsShort       bool             // Whether this is a short := assignment
+	CompoundOp    TokenIdent       // Non-empty for +=, -=, etc.
 }
 
 // Kind returns the node kind for an assignment
@@ -37,9 +38,12 @@ func (n AssignmentNode) String() string {
 	}
 
 	// Add appropriate assignment operator
-	if n.IsShort {
+	switch {
+	case n.IsShort:
 		result.WriteString(" := ")
-	} else {
+	case n.CompoundOp != "":
+		result.WriteString(" " + CompoundAssignOperatorString(n.CompoundOp) + " ")
+	default:
 		result.WriteString(" = ")
 	}
 

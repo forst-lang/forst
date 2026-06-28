@@ -127,7 +127,7 @@ func (p *Parser) parseSimpleStatement() ast.Node {
 		return p.parseVarStatement()
 	case ast.TokenIdentifier:
 		next := p.peek()
-		if next.Type == ast.TokenColonEquals || next.Type == ast.TokenEquals {
+		if next.Type == ast.TokenColonEquals || (next.Type == ast.TokenEquals && next.Value == "=") || ast.IsCompoundAssignToken(next.Type) {
 			return p.parseAssignment()
 		}
 		if next.Type == ast.TokenPlusPlus || next.Type == ast.TokenMinusMinus {
