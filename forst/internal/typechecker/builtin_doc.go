@@ -3,19 +3,15 @@ package typechecker
 import (
 	"fmt"
 	goast "go/ast"
-	"go/build"
 	"go/doc"
-	"go/parser"
-	"go/token"
 	"go/types"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"forst/internal/ast"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/tools/go/packages"
 )
 
 var (
@@ -24,36 +20,63 @@ var (
 	builtinGoDocErr  error
 )
 
-// loadBuiltinGoDocPackage parses $GOROOT/src/builtin (Go's documented predeclared identifiers) and
-// returns go/doc metadata. Safe to call repeatedly; parsing happens once.
+// loadBuiltinGoDocPackage parses package builtin (Go's documented predeclared identifiers) via
+// go/packages and returns go/doc metadata. Safe to call repeatedly; parsing happens once.
 func loadBuiltinGoDocPackage(log *logrus.Logger) (*doc.Package, error) {
 	builtinGoDocOnce.Do(func() {
-		ctx := build.Default
-		dir := filepath.Join(ctx.GOROOT, "src", "builtin")
-		fi, err := os.Stat(dir)
-		if err != nil || !fi.IsDir() {
-			builtinGoDocErr = fmt.Errorf("builtin doc dir: %w", err)
-			if log != nil {
-				log.WithFields(logrus.Fields{"dir": dir, "err": builtinGoDocErr}).Debug("skip builtin go/doc")
-			}
-			return
+		cfg := &packages.Config{
+			Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax,
 		}
-		fset := token.NewFileSet()
-		filter := func(info os.FileInfo) bool { return !strings.HasSuffix(info.Name(), "_test.go") }
-		pkgs, err := parser.ParseDir(fset, dir, filter, parser.ParseComments)
+		pkgs, err := packages.Load(cfg, "builtin")
 		if err != nil {
 			builtinGoDocErr = err
 			if log != nil {
-				log.WithError(err).Debug("parse builtin package for doc")
+				log.WithError(err).Debug("load builtin package for doc")
 			}
 			return
 		}
-		astPkg, ok := pkgs["builtin"]
-		if !ok || astPkg == nil {
-			builtinGoDocErr = fmt.Errorf("no package builtin in %s", dir)
+		if packages.PrintErrors(pkgs) > 0 {
+			builtinGoDocErr = fmt.Errorf("load package builtin")
+			if log != nil {
+				log.WithError(builtinGoDocErr).Debug("load builtin package for doc")
+			}
 			return
 		}
-		builtinGoDocPkg = doc.New(astPkg, "builtin", doc.AllDecls)
+		if len(pkgs) == 0 || pkgs[0] == nil {
+			builtinGoDocErr = fmt.Errorf("no package builtin")
+			return
+		}
+		p := pkgs[0]
+		paths := p.CompiledGoFiles
+		if len(paths) == 0 {
+			paths = p.GoFiles
+		}
+		files := make([]*goast.File, 0, len(p.Syntax))
+		for i, f := range p.Syntax {
+			if f == nil {
+				continue
+			}
+			if i >= len(paths) {
+				continue
+			}
+			if strings.HasSuffix(paths[i], "_test.go") {
+				continue
+			}
+			files = append(files, f)
+		}
+		if len(files) == 0 {
+			builtinGoDocErr = fmt.Errorf("no Go source files in package builtin")
+			return
+		}
+		docPkg, err := doc.NewFromFiles(p.Fset, files, "builtin", doc.AllDecls)
+		if err != nil {
+			builtinGoDocErr = err
+			if log != nil {
+				log.WithError(err).Debug("doc.NewFromFiles for package builtin")
+			}
+			return
+		}
+		builtinGoDocPkg = docPkg
 	})
 	if builtinGoDocErr != nil {
 		return nil, builtinGoDocErr

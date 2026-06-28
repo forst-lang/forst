@@ -132,10 +132,10 @@
     "@forst/cli": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
-    "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.7.1",
-    "typescript": "~6.0.2"
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "~6.0.3"
   },
   "repository": {
     "type": "git",
