@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/forst-lang/forst/compare/v0.5.1...v0.5.2) (2026-06-28)
+
+
+### Features
+
+* **security:** cap HTTP bodies and confine FS reads with os.Root ([#101](https://github.com/forst-lang/forst/issues/101)) ([055a2ee](https://github.com/forst-lang/forst/commit/055a2ee5c061356aeb49bf4c455263a908d294c4))
+
+
+### Performance Improvements
+
+* **release:** add PGO profile and use it in `build:release` ([#104](https://github.com/forst-lang/forst/issues/104)) ([985f36d](https://github.com/forst-lang/forst/commit/985f36d4f4084428df4766b77863dcc2f322a7da))
+
 ## [0.5.1](https://github.com/forst-lang/forst/compare/v0.5.0...v0.5.1) (2026-06-28)
 
 
