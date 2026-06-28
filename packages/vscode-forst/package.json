@@ -2,7 +2,7 @@
   "name": "forst",
   "displayName": "Forst",
   "description": "Language support for Forst (.ft): HTTP LSP integration with the Forst compiler",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "forst",
   "private": true,
   "keywords": [
