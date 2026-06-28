@@ -1,0 +1,24 @@
+# Allowlist model: deny the whole repo, then allow only compiler build inputs.
+# Build context root is the monorepo; see docker/Dockerfile.
+**
+
+# --- Allow: compiler module ---
+!forst/
+!forst/**
+
+# --- Deny: local artifacts inside forst/ (never compile inputs) ---
+forst/bin/
+forst/**/*.test
+forst/**/*.cov
+forst/profile.cov
+forst/coverage.out
+forst/**/coverage.out
+
+# --- Deny: tests and fixtures (not linked into cmd/forst) ---
+forst/**/*_test.go
+forst/**/testdata/
+forst/**/*.golden
+
+# --- Deny: docs and editor noise inside forst/ ---
+forst/**/*.md
+forst/**/.DS_Store

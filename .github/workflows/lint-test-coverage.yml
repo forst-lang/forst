@@ -90,3 +90,50 @@ jobs:
         with:
           path-to-profile: profile.cov
           working-directory: forst
+
+  docker-smoke:
+    name: Docker image smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build default image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: default
+          load: true
+          tags: forst-smoke:default
+          build-args: |
+            VERSION=dev
+            COMMIT=ci-smoke
+            DATE=2026-01-01T00:00:00Z
+
+      - name: Run forst version
+        run: docker run --rm forst-smoke:default version
+
+      - name: Run forst run via default image
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/examples/in:/workspace" \
+            -w /workspace \
+            forst-smoke:default run basic.ft
+
+      - name: Build minimal image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: minimal
+          load: true
+          tags: forst-smoke:minimal
+          build-args: |
+            VERSION=dev
+            COMMIT=ci-smoke
+            DATE=2026-01-01T00:00:00Z
+
+      - name: Run forst version on minimal image
+        run: docker run --rm forst-smoke:minimal version
