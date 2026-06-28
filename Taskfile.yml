@@ -241,9 +241,19 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
 
+  ensure:providers-gomod:
+    internal: true
+    dir: forst
+    cmds:
+      - |
+        MOD="{{.EXAMPLES_DIR}}/rfc/providers/go.mod"
+        if [ ! -f "$MOD" ]; then
+          printf '%s\n\n%s\n' 'module providers_demo' 'go 1.23' > "$MOD"
+        fi
+
   test:providers:
     desc: Run forst test on Providers golden package (providers.ft + providers_test.ft)
-    deps: [build]
+    deps: [build, ensure:providers-gomod]
     dir: forst
     cmds:
       - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers

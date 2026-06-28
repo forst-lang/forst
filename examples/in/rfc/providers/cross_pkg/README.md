@@ -14,7 +14,7 @@ Files:
 - `beta/handle.ft` — imports alpha; `Logger` typedef for wiring keys
 - `beta/handle_test.ft` — `with { Logger: … }` integration test
 
-Generated Go (`z_forst_gen.go` / test emit) forwards `providers` into `alpha.LogExpiry` using Forst sibling import resolution (no Go stub required).
+Generated Go (`z_forst_gen.go` / `z_forst_gen_test.go`) is written by `forst test` emit and gitignored; it forwards `providers` into `alpha.LogExpiry` using Forst sibling import resolution (no committed Go stub required). Forst sibling imports resolve from `.ft` + the module map; `go/packages` is used only for stdlib and external Go imports.
 
 Go goldens: `examples/out/rfc/providers/cross_pkg/alpha/log.go` and `.../beta/handle.go`. Refresh from `forst/`:
 

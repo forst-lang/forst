@@ -156,9 +156,9 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 		return ExitFailure, fmt.Errorf("%s: write generated test: %w", pkg.RelPath, err)
 	}
 
-	modRoot := goload.FindModuleRoot(pkg.Dir)
-	if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err != nil {
-		return ExitFailure, fmt.Errorf("%s: no go.mod in %s (forst test packages need a local go.mod)", pkg.RelPath, modRoot)
+	modRoot, err := goload.ModuleRootWithGoMod(pkg.Dir)
+	if err != nil {
+		return ExitFailure, fmt.Errorf("%s: %w (forst test packages need a local go.mod)", pkg.RelPath, err)
 	}
 	importPath := "."
 	if rel, err := filepath.Rel(modRoot, pkg.Dir); err == nil && rel != "." {

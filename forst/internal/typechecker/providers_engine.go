@@ -2,9 +2,7 @@ package typechecker
 
 import (
 	"forst/internal/ast"
-	"forst/internal/goload"
 	"forst/internal/providersgraph"
-	"strings"
 )
 
 // ProvidersEngine owns all Providers inference state for one package check.
@@ -95,36 +93,14 @@ func (tc *TypeChecker) importPathToForstPkgMap() map[string]string {
 	return tc.moduleResult.ImportPathToForstPkg()
 }
 
-func (tc *TypeChecker) importPathForLocal(importLocal string) string {
-	if path, ok := tc.ImportPathForLocal(importLocal); ok && path != "" {
-		return path
-	}
-	for _, imp := range tc.imports {
-		ip := goload.ImportPathFromForst(imp.Path)
-		if ip == "" {
-			continue
-		}
-		local := ip
-		if imp.Alias != nil {
-			local = string(imp.Alias.ID)
-		} else if i := strings.LastIndex(ip, "/"); i >= 0 {
-			local = ip[i+1:]
-		}
-		if local == importLocal {
-			return ip
-		}
-	}
-	return ""
-}
-
 // resolveForstSiblingCall resolves alpha.Foo when alpha is a Forst package in the same module.
 func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, _ [][]ast.TypeNode) ([]ast.TypeNode, error) {
 	importMap := tc.importPathToForstPkgMap()
 	if importMap == nil {
 		return nil, nil
 	}
-	importPath := tc.importPathForLocal(importLocal)
-	if importPath == "" {
+	importPath, ok := tc.ImportPathForLocal(importLocal)
+	if !ok {
 		return nil, nil
 	}
 	targetPkg := importMap[importPath]

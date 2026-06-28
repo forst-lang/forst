@@ -132,9 +132,9 @@ func (tc *TypeChecker) outgoingCallEdges(pkg string, fn ast.Identifier) []outgoi
 			continue
 		}
 		if edge.ImportLocal != "" {
-			importPath := tci.importPathForLocal(edge.ImportLocal)
+			importPath, ok := tci.ImportPathForLocal(edge.ImportLocal)
 			targetPkg := pkg
-			if tc.moduleResult != nil && importPath != "" {
+			if tc.moduleResult != nil && ok {
 				if mapped := tc.moduleResult.ImportPathToForstPkg()[importPath]; mapped != "" {
 					targetPkg = mapped
 				}

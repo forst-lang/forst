@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/tools/go/packages"
 )
 
 func moduleRootFromWD(t *testing.T) string {
@@ -102,6 +104,102 @@ func TestLoadByPkgPath_cacheHit(t *testing.T) {
 	}
 	if m1["fmt"] != m2["fmt"] {
 		t.Fatal("expected cached fmt package pointer")
+	}
+}
+
+func TestPackageLoadOK(t *testing.T) {
+	t.Parallel()
+	if PackageLoadOK(nil, "fmt") {
+		t.Fatal("nil package")
+	}
+}
+
+func TestPackageLoadOK_acceptsStdlib(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	m, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !PackageLoadOK(m["fmt"], "fmt") {
+		t.Fatal("expected fmt to pass PackageLoadOK")
+	}
+}
+
+func TestPackageLoadOK_rejectsGhostWithoutSources(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module ghostmod\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ClearLoadCacheForTest()
+	cfg := &packages.Config{Mode: packages.NeedTypes, Dir: dir, Env: loadPackagesEnv(dir)}
+	pkgs, err := packages.Load(cfg, "ghostmod/sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range pkgs {
+		if packageLoadOKAt(p, "ghostmod/sub", dir) {
+			t.Fatal("ghost package without Go sources should not pass packageLoadOKAt")
+		}
+	}
+}
+
+func TestLoadByPkgPath_normalizesSubdir(t *testing.T) {
+	root := moduleRootFromWD(t)
+	sub := filepath.Join(root, "internal", "goload")
+	m, err := LoadByPkgPath(sub, []string{"fmt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m["fmt"] == nil {
+		t.Fatal("expected fmt when Dir is a module subdir")
+	}
+}
+
+func TestLoadByPkgPath_singlePathCacheFromBatch(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	ClearLoadCacheForTest()
+	batch, err := LoadByPkgPath(dir, []string{"fmt", "strings"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	single, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch["fmt"] != single["fmt"] {
+		t.Fatal("expected single-path load to reuse batch cache entry")
+	}
+}
+
+func TestLoadByPkgPath_modulePackageWithoutGoSources(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ClearLoadCacheForTest()
+	m, err := LoadByPkgPath(dir, []string{"testmod/sub"})
+	if err == nil && m["testmod/sub"] != nil {
+		t.Fatalf("expected unresolved package omitted, got %#v", m)
+	}
+	// Mixed load: stdlib succeeds, module subpackage without Go sources is omitted.
+	ClearLoadCacheForTest()
+	m, err = LoadByPkgPath(dir, []string{"testing", "testmod/sub"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m["testing"] == nil || m["testing"].Types == nil {
+		t.Fatal("expected testing package")
+	}
+	if m["testmod/sub"] != nil {
+		t.Fatal("expected testmod/sub omitted when directory has no Go files")
 	}
 }
 

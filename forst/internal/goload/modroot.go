@@ -1,9 +1,31 @@
 package goload
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
+
+// ModuleRootWithGoMod walks upward from start until a directory containing go.mod
+// is found. Unlike FindModuleRoot, this returns an error when no go.mod exists.
+func ModuleRootWithGoMod(start string) (string, error) {
+	startDir := start
+	if info, err := os.Stat(start); err == nil && !info.IsDir() {
+		startDir = filepath.Dir(start)
+	}
+	startDir = filepath.Clean(startDir)
+	dir := startDir
+	for {
+		if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no go.mod in %s or ancestor directories", startDir)
+		}
+		dir = parent
+	}
+}
 
 // FindModuleRoot walks upward from start (file or directory) until a directory
 // containing go.mod is found. If none is found, it returns the directory that

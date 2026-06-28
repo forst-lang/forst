@@ -291,3 +291,7 @@ examples/in/**/client/
 # Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
 forst/.gocache/
 forst/.gotmp/
+
+# forst test / emit generated Go (regenerated locally by forst test)
+z_forst_gen.go
+z_forst_gen_test.go

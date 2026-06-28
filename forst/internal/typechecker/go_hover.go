@@ -19,12 +19,23 @@ func (tc *TypeChecker) IsImportedLocalName(id string) bool {
 }
 
 // ImportPathForLocal returns the Go import path for an import's local name (e.g. alpha → testmod/alpha).
+// Resolution uses the import map from go/packages when available, then falls back to Forst import lines in the AST.
 func (tc *TypeChecker) ImportPathForLocal(local string) (string, bool) {
-	if tc.importPathByLocal == nil || local == "" {
+	if local == "" {
 		return "", false
 	}
-	path, ok := tc.importPathByLocal[local]
-	return path, ok && path != ""
+	if tc.importPathByLocal != nil {
+		if path, ok := tc.importPathByLocal[local]; ok && path != "" {
+			return path, true
+		}
+	}
+	for _, imp := range tc.imports {
+		path, impLocal := fallbackImportLocal(imp)
+		if impLocal == local && path != "" {
+			return path, true
+		}
+	}
+	return "", false
 }
 
 // ImportLocalForPath returns the import local name for a Go import path (inverse of ImportPathForLocal).

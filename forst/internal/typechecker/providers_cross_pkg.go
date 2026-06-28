@@ -33,8 +33,8 @@ func BuildModuleCrossCalls(callerForstPkg string, tc *TypeChecker, importPathToF
 		if edge.ImportLocal == "" {
 			continue
 		}
-		importPath := tc.importPathForLocal(edge.ImportLocal)
-		if importPath == "" {
+		importPath, ok := tc.ImportPathForLocal(edge.ImportLocal)
+		if !ok {
 			continue
 		}
 		targetPkg := importPathToForstPkg[importPath]
@@ -75,8 +75,8 @@ func CrossPackageCallEdges(callerForstPkg string, tc *TypeChecker, importPathToF
 		if edge.ImportLocal == "" {
 			continue
 		}
-		importPath := tc.importPathForLocal(edge.ImportLocal)
-		if importPath == "" {
+		importPath, ok := tc.ImportPathForLocal(edge.ImportLocal)
+		if !ok {
 			continue
 		}
 		targetPkg := importPathToForstPkg[importPath]

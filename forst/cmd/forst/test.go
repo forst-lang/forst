@@ -32,8 +32,13 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 			return 2
 		}
 		if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
-			root = goload.FindModuleRoot(abs)
-			rel, err := filepath.Rel(root, abs)
+			modRoot, err := goload.ModuleRootWithGoMod(abs)
+			if err != nil {
+				log.Error(err)
+				return 2
+			}
+			root = modRoot
+			rel, err := filepath.Rel(modRoot, abs)
 			if err != nil {
 				log.Error(err)
 				return 2
