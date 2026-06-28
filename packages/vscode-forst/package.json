@@ -21,7 +21,7 @@
     "README.md"
   ],
   "engines": {
-    "vscode": "^1.125.0"
+    "vscode": "^1.74.0"
   },
   "categories": [
     "Programming Languages"
@@ -133,7 +133,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "1.74.0",
     "@vscode/vsce": "^3.9.2",
     "typescript": "~6.0.3"
   },
