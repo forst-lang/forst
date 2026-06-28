@@ -1,4 +1,5 @@
-# Build the VSIX, attach it to the GitHub Release, and publish to Open VSX.
+# Build the VSIX, attach it to the GitHub Release, publish to the VS Code Marketplace,
+# and publish to Open VSX.
 #
 # VSIX packaging uses `task build:vsix`: rewrites @forst/cli to a published semver, installs it from npm,
 # then restores package.json / bun.lockb (committed trees stay workspace:* for dev/CI).
@@ -9,8 +10,9 @@
 #
 # Tag prefix: `vscode-forst-` (packages/vscode-forst in .release-please-config.json).
 #
-# Secrets:
-# - OVSX_PAT: Open VSX publish token (optional; step skipped if unset).
+# Secrets (publish steps are skipped when unset):
+# - VSCE_PAT: Azure DevOps PAT with Marketplace → Manage scope for publisher forst
+# - OVSX_PAT: Open VSX publish token for publisher forst
 
 name: Publish VS Code extension
 
@@ -29,8 +31,8 @@ on:
         type: string
 
 jobs:
-  vsix-and-open-vsx:
-    name: VSIX + Open VSX
+  vsix-and-publish:
+    name: VSIX + Marketplace + Open VSX
     runs-on: ubuntu-latest
     if: startsWith(inputs.tag_name, 'vscode-forst-')
     permissions:
@@ -62,6 +64,20 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "24.x"
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "${VSCE_PAT}" ]; then
+            echo "VSCE_PAT secret not set; skipping VS Code Marketplace publish."
+            echo "Create a PAT at https://dev.azure.com with Marketplace → Manage scope for publisher forst."
+            exit 0
+          fi
+          set -euo pipefail
+          VSIX=$(ls dist/forst-vscode-*.vsix | head -1)
+          test -f "${VSIX}"
+          npx --yes @vscode/vsce publish --packagePath "${VSIX}"
 
       - name: Publish to Open VSX
         env:

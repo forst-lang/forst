@@ -68,8 +68,13 @@ When the extension activates, the status bar shows the configured LSP port (righ
 
 From the repo root: `task build:vscode` compiles this package. The same compile runs at the start of `task ci:test` (see [Taskfile.yml](../../Taskfile.yml)). GitHub Actions uses `package.json` `packageManager` with [setup-bun](https://github.com/oven-sh/setup-bun) to pin the Bun version.
 
-## Releases and Open VSX
+## Releases (VS Code Marketplace and Open VSX)
 
-The extension is versioned separately from the compiler: Release Please uses **`packages/vscode-forst`** and tags like **`vscode-forst-v0.0.19`**. When that GitHub Release is published, [`.github/workflows/publish-vscode-extension.yml`](../../.github/workflows/publish-vscode-extension.yml) builds `dist/forst-vscode-<version>.vsix`, uploads it to the release, and runs **`npx ovsx publish`** when the repository has an Actions secret **`OVSX_PAT`** (see [Auto publishing extensions](https://github.com/EclipseFdn/open-vsx.org/wiki/Auto-Publishing-Extensions)). If the secret is missing, Open VSX publish is skipped and the workflow still succeeds.
+The extension is versioned separately from the compiler: Release Please uses **`packages/vscode-forst`** and tags like **`vscode-forst-v0.0.19`**. When that GitHub Release is published, [`.github/workflows/publish-vscode-extension.yml`](../../.github/workflows/publish-vscode-extension.yml) builds `dist/forst-vscode-<version>.vsix`, uploads it to the release, and publishes the **same VSIX** to:
+
+- **VS Code Marketplace** when **`VSCE_PAT`** is set — Azure DevOps PAT with **Marketplace → Manage** for publisher **`forst`** ([create a PAT](https://dev.azure.com))
+- **Open VSX** when **`OVSX_PAT`** is set — publisher **`forst`** ([Open VSX token](https://open-vsx.org); see [Auto publishing extensions](https://github.com/EclipseFdn/open-vsx.org/wiki/Auto-Publishing-Extensions))
+
+If a secret is missing, that publish step is skipped and the workflow still succeeds.
 
 **`@forst/cli` dependency:** In git, `package.json` uses `workspace:*` so local development and `task build:vscode` / `task ci:test` resolve the CLI from the monorepo (with `task build:cli` producing `dist/` for types). **`task build:vsix`** (and the release workflow) rewrites that dependency to `^<cli semver>` from `packages/cli/package.json`, runs `bun install` so the CLI is installed from **npm**, packages the VSIX, then restores `package.json` and `bun.lockb`. The published VSIX therefore bundles the registry package, matching end-user installs. Building a production VSIX requires **`@forst/cli` to already exist on npm** at a version compatible with the `^` range (typically publish the CLI before or with the same release train).
