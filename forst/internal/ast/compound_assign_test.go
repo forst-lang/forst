@@ -36,6 +36,58 @@ func TestIsAssignmentOperatorToken(t *testing.T) {
 	}
 }
 
+func TestCompoundAssignBinaryOp_allOperators(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		compound TokenIdent
+		binary   TokenIdent
+	}{
+		{TokenMinusEq, TokenMinus},
+		{TokenStarEq, TokenStar},
+		{TokenDivideEq, TokenDivide},
+		{TokenModuloEq, TokenModulo},
+		{TokenBitwiseAndEq, TokenBitwiseAnd},
+		{TokenBitwiseOrEq, TokenBitwiseOr},
+	}
+	for _, tc := range cases {
+		op, ok := CompoundAssignBinaryOp(tc.compound)
+		if !ok || op != tc.binary {
+			t.Fatalf("%s -> %v ok=%v", tc.compound, op, ok)
+		}
+	}
+	if _, ok := CompoundAssignBinaryOp(TokenColonEquals); ok {
+		t.Fatal(":= is not compound assign")
+	}
+}
+
+func TestCompoundAssignOperatorString_allSpellings(t *testing.T) {
+	t.Parallel()
+	cases := map[TokenIdent]string{
+		TokenPlusEq:       "+=",
+		TokenMinusEq:      "-=",
+		TokenStarEq:       "*=",
+		TokenDivideEq:     "/=",
+		TokenModuloEq:     "%=",
+		TokenBitwiseAndEq: "&=",
+		TokenBitwiseOrEq:  "|=",
+	}
+	for tok, want := range cases {
+		if got := CompoundAssignOperatorString(tok); got != want {
+			t.Fatalf("%s: got %q want %q", tok, got, want)
+		}
+	}
+	if got := CompoundAssignOperatorString(TokenPlus); got != string(TokenPlus) {
+		t.Fatalf("unknown token: %q", got)
+	}
+}
+
+func TestIsAssignmentOperatorToken_colonEquals(t *testing.T) {
+	t.Parallel()
+	if !IsAssignmentOperatorToken(Token{Type: TokenColonEquals, Value: ":="}) {
+		t.Fatal("expected := to be assignment operator")
+	}
+}
+
 func TestAssignmentNode_String_compound(t *testing.T) {
 	t.Parallel()
 	a := AssignmentNode{

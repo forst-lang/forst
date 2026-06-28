@@ -179,6 +179,20 @@ func TestTypeNode_String_each_simple_builtin_switch_case(t *testing.T) {
 	}
 }
 
+func TestNewChannelType_andString(t *testing.T) {
+	t.Parallel()
+	ch := NewChannelType(NewBuiltinType(TypeInt))
+	if ch.Ident != TypeChannel || len(ch.TypeParams) != 1 || ch.TypeParams[0].Ident != TypeInt {
+		t.Fatalf("got %+v", ch)
+	}
+	if got := ch.String(); got != "chan Int" {
+		t.Fatalf("got %q", got)
+	}
+	if got := (TypeNode{Ident: TypeChannel}).String(); got != "chan" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestTypeNode_String_default_branch_multiple_type_params(t *testing.T) {
 	tn := TypeNode{
 		Ident:    "Pair",

@@ -283,6 +283,33 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 	})
 }
 
+func TestValidateShapeGuard_customIsShapeResolver(t *testing.T) {
+	node := TypeGuardNode{
+		Ident: "HasField",
+		Subject: SimpleParamNode{
+			Ident: Ident{ID: "s"},
+			Type:  TypeNode{Ident: "MutationArg"},
+		},
+		Body: []Node{
+			ReturnNode{
+				Values: []ExpressionNode{
+					BinaryExpressionNode{
+						Left:     VariableNode{Ident: Ident{ID: "s"}},
+						Operator: TokenIs,
+						Right: ShapeNode{Fields: map[string]ShapeFieldNode{
+							"f": {Type: &TypeNode{Ident: TypeString}},
+						}},
+					},
+				},
+			},
+		},
+	}
+	isShape := func(t TypeNode) bool { return string(t.Ident) == "MutationArg" }
+	if err := ValidateShapeGuard(node, isShape); err != nil {
+		t.Fatalf("expected success with custom resolver: %v", err)
+	}
+}
+
 func TestIsShapeRefinement_left_not_variable(t *testing.T) {
 	ok := isShapeRefinement(BinaryExpressionNode{
 		Left:     IntLiteralNode{Value: 1},

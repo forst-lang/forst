@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"forst/internal/ast"
@@ -65,5 +66,13 @@ func TestDiscoverer_extractProvidersFromTypechecker(t *testing.T) {
 	}
 	if info.Runnable {
 		t.Fatal("ExpireToken should not be runnable")
+	}
+}
+
+func TestDiscoverer_DiscoverProvidersJSONV1_configError(t *testing.T) {
+	discoverer := NewDiscoverer("/test", &MockLogger{}, &MockConfig{err: fmt.Errorf("config error")})
+	_, err := discoverer.DiscoverProvidersJSONV1()
+	if err == nil {
+		t.Fatal("expected error when discovery fails")
 	}
 }

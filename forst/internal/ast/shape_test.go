@@ -78,6 +78,47 @@ func TestShapeNode_String_multiple_top_level_fields(t *testing.T) {
 	}
 }
 
+func TestShapeFieldNode_IsMethodField_and_methodString(t *testing.T) {
+	field := ShapeFieldNode{
+		IsMethod: true,
+		MethodParams: []ParamNode{
+			SimpleParamNode{Ident: Ident{ID: "msg"}, Type: TypeNode{Ident: TypeString}},
+		},
+		MethodReturnTypes: []TypeNode{{Ident: TypeError}},
+	}
+	if !field.IsMethodField() {
+		t.Fatal("expected method field")
+	}
+	if got := field.String(); got != "(msg String): Error" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestShapeNode_IsMethodOnlyContract_emptyFields(t *testing.T) {
+	if (ShapeNode{Fields: map[string]ShapeFieldNode{}}).IsMethodOnlyContract() {
+		t.Fatal("empty shape is not method-only")
+	}
+}
+
+func TestShapeFieldNode_ValueExpression_fromNode(t *testing.T) {
+	lit := StringLiteralNode{Value: "wired"}
+	field := ShapeFieldNode{Node: lit}
+	expr, ok := field.ValueExpression()
+	if !ok {
+		t.Fatal("expected expression from Node")
+	}
+	if got, ok := expr.(StringLiteralNode); !ok || got.Value != "wired" {
+		t.Fatalf("got %#v", expr)
+	}
+}
+
+func TestShapeFieldNode_ValueExpression_nonExpressionNode(t *testing.T) {
+	field := ShapeFieldNode{Node: CommentNode{Text: "note"}}
+	if _, ok := field.ValueExpression(); ok {
+		t.Fatal("comment node is not an expression")
+	}
+}
+
 func TestShapeNode_String_field_assertion_branch(t *testing.T) {
 	bt := TypeIdent("Str")
 	s := ShapeNode{Fields: map[string]ShapeFieldNode{
