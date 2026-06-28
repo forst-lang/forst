@@ -109,7 +109,9 @@ func (p *Parser) parseShapeFieldTypeAfterColon(name string, opts ShapeFieldTypeO
 			},
 		}
 	}
-	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: false}) || p.current().Type == ast.TokenStar {
+	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: false}) ||
+		p.current().Type == ast.TokenStar ||
+		p.current().Type == ast.TokenArray {
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		typeIdent := typ.Ident
 		p.logParsedNodeWithMessage(typ, fmt.Sprintf("Parsed type for shape field %s and type ident %s (type: %+v)", name, typeIdent, typ))
