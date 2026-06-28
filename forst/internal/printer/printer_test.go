@@ -355,3 +355,26 @@ func main() {
 		t.Fatalf("re-parse pretty output: %v\n--- out ---\n%s", err, out)
 	}
 }
+
+func TestPrintExpr_mapLiteral(t *testing.T) {
+	t.Parallel()
+	var p printer
+	p.cfg = DefaultConfig()
+	got, err := p.printExpr(ast.MapLiteralNode{
+		Type: ast.TypeNode{
+			Ident:      ast.TypeMap,
+			TypeParams: []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeInt}},
+		},
+		Entries: []ast.MapEntryNode{
+			{Key: ast.StringLiteralNode{Value: "a"}, Value: ast.IntLiteralNode{Value: 1}},
+			{Key: ast.StringLiteralNode{Value: "b"}, Value: ast.IntLiteralNode{Value: 2}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("printExpr map literal: %v", err)
+	}
+	want := `map[String]Int{"a": 1, "b": 2}`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}

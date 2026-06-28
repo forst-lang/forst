@@ -800,6 +800,10 @@ func (p *printer) printIf(n *ast.IfNode) (string, error) {
 
 func (p *printer) printFor(n ast.ForNode) (string, error) {
 	var b strings.Builder
+	if n.Label != nil {
+		b.WriteString(string(n.Label.ID))
+		b.WriteString(": ")
+	}
 	if n.IsRange {
 		b.WriteString("for ")
 		if n.RangeKey != nil {
@@ -948,7 +952,34 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 		buf.WriteByte(']')
 		return buf.String(), nil
 	case ast.MapLiteralNode:
-		return "", fmt.Errorf("printer: MapLiteral not supported yet")
+		var buf strings.Builder
+		buf.WriteString("map[")
+		if len(x.Type.TypeParams) >= 1 {
+			buf.WriteString(printType(x.Type.TypeParams[0]))
+		}
+		buf.WriteByte(']')
+		if len(x.Type.TypeParams) >= 2 {
+			buf.WriteString(printType(x.Type.TypeParams[1]))
+		}
+		buf.WriteByte('{')
+		for i, ent := range x.Entries {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			k, err := p.printExpr(ent.Key.(ast.ExpressionNode))
+			if err != nil {
+				return "", err
+			}
+			buf.WriteString(k)
+			buf.WriteString(": ")
+			v, err := p.printExpr(ent.Value.(ast.ExpressionNode))
+			if err != nil {
+				return "", err
+			}
+			buf.WriteString(v)
+		}
+		buf.WriteByte('}')
+		return buf.String(), nil
 	default:
 		return "", fmt.Errorf("printer: unsupported expression %T", e)
 	}
