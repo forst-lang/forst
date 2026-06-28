@@ -46,22 +46,22 @@ func bar(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/codeLens",
-		Params:  mustJSONParams(t, map[string]interface{}{"textDocument": map[string]string{"uri": uriA}}),
+		Params:  mustJSONParams(t, map[string]any{"textDocument": map[string]string{"uri": uriA}}),
 	})
 	if resp.Error != nil {
 		t.Fatalf("error: %+v", resp.Error)
 	}
-	raw, ok := resp.Result.([]interface{})
+	raw, ok := resp.Result.([]any)
 	if !ok {
 		t.Fatalf("result type %T", resp.Result)
 	}
-	var fooLens map[string]interface{}
+	var fooLens map[string]any
 	for _, item := range raw {
-		m, ok := item.(map[string]interface{})
+		m, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		cmd, _ := m["command"].(map[string]interface{})
+		cmd, _ := m["command"].(map[string]any)
 		if cmd == nil {
 			continue
 		}
@@ -88,12 +88,12 @@ func broken {`
 		JSONRPC: "2.0",
 		ID:      2,
 		Method:  "textDocument/codeLens",
-		Params:  mustJSONParams(t, map[string]interface{}{"textDocument": map[string]string{"uri": uri}}),
+		Params:  mustJSONParams(t, map[string]any{"textDocument": map[string]string{"uri": uri}}),
 	})
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	raw, ok := resp.Result.([]interface{})
+	raw, ok := resp.Result.([]any)
 	if !ok {
 		t.Fatalf("result type %T", resp.Result)
 	}

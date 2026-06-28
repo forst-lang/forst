@@ -417,7 +417,6 @@ func main() {
 }`,
 	}
 	for i, src := range cases {
-		src := src
 		t.Run(fmt.Sprintf("case_%03d", i), func(t *testing.T) {
 			t.Parallel()
 			out := compileForstPipeline(t, src)

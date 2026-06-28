@@ -279,8 +279,8 @@ func handleDumpCommand(filePath string, compression bool, format string, _ strin
 	}
 
 	// Create params with all settings
-	params := map[string]interface{}{
-		"textDocument": map[string]interface{}{
+	params := map[string]any{
+		"textDocument": map[string]any{
 			"uri": uri,
 		},
 		"compression": compression,

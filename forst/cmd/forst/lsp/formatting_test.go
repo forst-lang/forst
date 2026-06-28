@@ -43,9 +43,9 @@ func TestHandleFormatting_UnknownDocument_ReturnsNil(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "not-open.ft"))
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+		"options":      map[string]any{"tabSize": 4, "insertSpaces": true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,9 +71,9 @@ func TestHandleFormatting_TrimsTrailingWhitespace_ReturnsSingleEdit(t *testing.T
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
 	src := "package main  \nfunc main() {\n}\n"
 	s.setOpenDocument(uri, src)
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+		"options":      map[string]any{"tabSize": 4, "insertSpaces": true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -124,9 +124,9 @@ func TestHandleFormatting_AlreadyFormatted_ReturnsNil(t *testing.T) {
 	s := NewLSPServer("8080", logrus.New())
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "ok.ft"))
 	s.setOpenDocument(uri, src)
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"options":      map[string]interface{}{"tabSize": 4, "insertSpaces": true},
+		"options":      map[string]any{"tabSize": 4, "insertSpaces": true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -165,13 +165,13 @@ func TestHandleCodeAction_FormatDocument(t *testing.T) {
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
 	src := "package main  \nfunc main() {\n}\n"
 	s.setOpenDocument(uri, src)
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"range": map[string]interface{}{
-			"start": map[string]interface{}{"line": 0, "character": 0},
-			"end":   map[string]interface{}{"line": 10, "character": 0},
+		"range": map[string]any{
+			"start": map[string]any{"line": 0, "character": 0},
+			"end":   map[string]any{"line": 10, "character": 0},
 		},
-		"context": map[string]interface{}{
+		"context": map[string]any{
 			"only": []string{"source.formatDocument"},
 		},
 	})
@@ -186,7 +186,7 @@ func TestHandleCodeAction_FormatDocument(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	actions, ok := resp.Result.([]interface{})
+	actions, ok := resp.Result.([]any)
 	if !ok || len(actions) != 1 {
 		t.Fatalf("expected 1 action, got %T %#v", resp.Result, resp.Result)
 	}
@@ -204,13 +204,13 @@ func TestHandleCodeAction_OnlyQuickFix_ReturnsEmpty(t *testing.T) {
 	s := NewLSPServer("8080", logrus.New())
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "fmt.ft"))
 	s.setOpenDocument(uri, "package main\n")
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"range": map[string]interface{}{
-			"start": map[string]interface{}{"line": 0, "character": 0},
-			"end":   map[string]interface{}{"line": 0, "character": 10},
+		"range": map[string]any{
+			"start": map[string]any{"line": 0, "character": 0},
+			"end":   map[string]any{"line": 0, "character": 10},
 		},
-		"context": map[string]interface{}{
+		"context": map[string]any{
 			"only": []string{"quickfix"},
 		},
 	})
@@ -225,7 +225,7 @@ func TestHandleCodeAction_OnlyQuickFix_ReturnsEmpty(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	actions, ok := resp.Result.([]interface{})
+	actions, ok := resp.Result.([]any)
 	if !ok || len(actions) != 0 {
 		t.Fatalf("expected no actions, got %v", resp.Result)
 	}
@@ -235,7 +235,7 @@ func TestHandleCodeLens_ReturnsEmptySlice(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "x.ft"))
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
 	})
 	if err != nil {
@@ -249,7 +249,7 @@ func TestHandleCodeLens_ReturnsEmptySlice(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	arr, ok := resp.Result.([]interface{})
+	arr, ok := resp.Result.([]any)
 	if !ok || len(arr) != 0 {
 		t.Fatalf("expected empty array, got %T %v", resp.Result, resp.Result)
 	}

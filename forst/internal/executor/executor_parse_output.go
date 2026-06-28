@@ -34,7 +34,7 @@ func executionResultFromValue(resultValue any) *ExecutionResult {
 		return &ExecutionResult{
 			Success: true,
 			Output:  typedValue,
-			Result:  []byte(fmt.Sprintf("%q", typedValue)),
+			Result:  fmt.Appendf(nil, "%q", typedValue),
 		}
 	case float64:
 		value := fmt.Sprintf("%v", typedValue)

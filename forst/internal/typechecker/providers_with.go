@@ -47,7 +47,7 @@ func (tc *TypeChecker) inferWithNode(with ast.WithNode) ([]ast.TypeNode, error) 
 	return nil, nil
 }
 
-func (tc *TypeChecker) warnf(span ast.SourceSpan, code, format string, a ...interface{}) {
+func (tc *TypeChecker) warnf(span ast.SourceSpan, code, format string, a ...any) {
 	tc.Warnings = append(tc.Warnings, Diagnostic{
 		Msg:  fmt.Sprintf(format, a...),
 		Span: span,

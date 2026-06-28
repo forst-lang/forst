@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
 func TestProvidersWiringCompletion_contractKeys(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_compl\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("providers_compl")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "w.ft")
@@ -54,7 +56,7 @@ func TestWiringKeys(t *testing.T) {
 func TestProvidersWiringCompletion_implTypesAfterColon(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_compl\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("providers_compl")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "w.ft")
@@ -96,7 +98,7 @@ func TestImpl(t *testing.T) {
 func TestProvidersUseCompletion_contractAfterColon(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_use\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("providers_use")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "u.ft")
@@ -146,11 +148,11 @@ func TestHandleCodeAction_unknownWiringKeyQuickFix(t *testing.T) {
 		Start: LSPPosition{Line: 8, Character: 0},
 		End:   LSPPosition{Line: 8, Character: 30},
 	}
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"context": map[string]interface{}{
+		"context": map[string]any{
 			"only": []string{"quickfix"},
-			"diagnostics": []map[string]interface{}{
+			"diagnostics": []map[string]any{
 				{
 					"range":   diagRange,
 					"message": "unknown wiring key \"BadKey\"",
@@ -170,7 +172,7 @@ func TestHandleCodeAction_unknownWiringKeyQuickFix(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	actions, ok := resp.Result.([]interface{})
+	actions, ok := resp.Result.([]any)
 	if !ok || len(actions) != 1 {
 		t.Fatalf("expected 1 quickfix, got %T %#v", resp.Result, resp.Result)
 	}

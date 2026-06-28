@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/testmod"
 
 	"github.com/sirupsen/logrus"
 )
@@ -142,7 +143,7 @@ func TestHandleFoldingRange_InvalidParams_ReturnsInvalidParams(t *testing.T) {
 func TestHandleFoldingRange_parseOk_returnsFunctionBodyRegion(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module foldt\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("foldt")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "fold.ft")
@@ -156,7 +157,7 @@ func TestHandleFoldingRange_parseOk_returnsFunctionBodyRegion(t *testing.T) {
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
 
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
 	})
 	if err != nil {
@@ -170,11 +171,11 @@ func TestHandleFoldingRange_parseOk_returnsFunctionBodyRegion(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatal(resp.Error)
 	}
-	arr, ok := resp.Result.([]interface{})
+	arr, ok := resp.Result.([]any)
 	if !ok || len(arr) == 0 {
 		t.Fatalf("expected folding ranges, got %T %#v", resp.Result, resp.Result)
 	}
-	m, ok := arr[0].(map[string]interface{})
+	m, ok := arr[0].(map[string]any)
 	if !ok {
 		t.Fatalf("range type %T", arr[0])
 	}
@@ -209,7 +210,7 @@ func TestFoldingRangesForURI_parseError_returnsEmpty(t *testing.T) {
 func TestFoldingRangesForURI_typeAndFuncProduceMultipleRanges(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module foldtg\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("foldtg")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "mix.ft")

@@ -84,9 +84,9 @@ func main() {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": 7, "character": 2},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": 7, "character": 2},
 		}),
 	})
 	if resp.Error != nil {
@@ -127,9 +127,9 @@ func useRow(r Row): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": 6, "character": 14},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": 6, "character": 14},
 		}),
 	})
 	if resp.Error != nil {
@@ -141,7 +141,7 @@ func useRow(r Row): Int {
 	}
 }
 
-func mustJSONParams(t *testing.T, v interface{}) json.RawMessage {
+func mustJSONParams(t *testing.T, v any) json.RawMessage {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -150,7 +150,7 @@ func mustJSONParams(t *testing.T, v interface{}) json.RawMessage {
 	return b
 }
 
-func mustLSPLocation(t *testing.T, v interface{}) LSPLocation {
+func mustLSPLocation(t *testing.T, v any) LSPLocation {
 	t.Helper()
 	switch x := v.(type) {
 	case LSPLocation:

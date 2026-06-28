@@ -17,18 +17,18 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if resp.Error != nil {
 		t.Fatalf("unexpected error: %+v", resp.Error)
 	}
-	res, ok := resp.Result.(map[string]interface{})
+	res, ok := resp.Result.(map[string]any)
 	if !ok {
 		t.Fatalf("result type %T", resp.Result)
 	}
-	caps, ok := res["capabilities"].(map[string]interface{})
+	caps, ok := res["capabilities"].(map[string]any)
 	if !ok {
 		t.Fatal("missing capabilities")
 	}
 	if caps["hoverProvider"] != true {
 		t.Fatalf("hoverProvider = %v", caps["hoverProvider"])
 	}
-	dp, ok := caps["diagnosticProvider"].(map[string]interface{})
+	dp, ok := caps["diagnosticProvider"].(map[string]any)
 	if !ok || dp["identifier"] != "forst" {
 		t.Fatalf("diagnosticProvider = %#v", caps["diagnosticProvider"])
 	}
@@ -38,7 +38,7 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["documentFormattingProvider"] != true {
 		t.Fatalf("documentFormattingProvider = %v", caps["documentFormattingProvider"])
 	}
-	actionCap, ok := caps["codeActionProvider"].(map[string]interface{})
+	actionCap, ok := caps["codeActionProvider"].(map[string]any)
 	if !ok {
 		t.Fatal("expected codeActionProvider map")
 	}
@@ -46,7 +46,7 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	switch k := actionCap["codeActionKinds"].(type) {
 	case []string:
 		kindStrs = k
-	case []interface{}:
+	case []any:
 		for _, e := range k {
 			s, ok := e.(string)
 			if !ok {
@@ -60,11 +60,11 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if len(kindStrs) == 0 {
 		t.Fatal("empty codeActionKinds")
 	}
-	rp, ok := caps["renameProvider"].(map[string]interface{})
+	rp, ok := caps["renameProvider"].(map[string]any)
 	if !ok || rp["prepareProvider"] != true {
 		t.Fatalf("renameProvider = %#v", caps["renameProvider"])
 	}
-	clp, ok := caps["codeLensProvider"].(map[string]interface{})
+	clp, ok := caps["codeLensProvider"].(map[string]any)
 	if !ok {
 		t.Fatal("expected codeLensProvider map")
 	}
@@ -74,7 +74,7 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if caps["foldingRangeProvider"] != true {
 		t.Fatalf("foldingRangeProvider = %v", caps["foldingRangeProvider"])
 	}
-	info, ok := res["serverInfo"].(map[string]interface{})
+	info, ok := res["serverInfo"].(map[string]any)
 	if !ok || info["name"] != "forst-lsp" {
 		t.Fatalf("serverInfo = %#v", res["serverInfo"])
 	}

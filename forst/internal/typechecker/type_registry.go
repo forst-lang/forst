@@ -8,7 +8,7 @@ import (
 
 // RegisterTypeIfMissing registers a type definition if not already present in Defs.
 // Accepts either ast.TypeDefNode or ast.TypeDefShapeExpr as def.
-func (tc *TypeChecker) RegisterTypeIfMissing(ident ast.TypeIdent, def interface{}) {
+func (tc *TypeChecker) RegisterTypeIfMissing(ident ast.TypeIdent, def any) {
 	if _, exists := tc.Defs[ident]; exists {
 		return
 	}

@@ -18,7 +18,7 @@ func TestHandleHealth_GET_ReturnsHealthyJSON(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d", rr.Code)
 	}
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}

@@ -100,7 +100,7 @@ func alpha(): Int { return 0 }
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/documentSymbol",
-		Params:  mustJSONParams(t, map[string]interface{}{"textDocument": map[string]interface{}{"uri": uri}}),
+		Params:  mustJSONParams(t, map[string]any{"textDocument": map[string]any{"uri": uri}}),
 	})
 	if resp.Error != nil {
 		t.Fatalf("error: %+v", resp.Error)

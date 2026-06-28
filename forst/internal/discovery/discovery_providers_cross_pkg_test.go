@@ -5,12 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
 func writeCrossPackageProvidersFixture(t *testing.T, dir string) (alphaFt, betaFt string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("testmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	alphaDir := filepath.Join(dir, "alpha")

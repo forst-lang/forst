@@ -372,7 +372,7 @@ func other(): Int { return 1 }
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "workspace/symbol",
-		Params:  mustJSONParams(t, map[string]interface{}{"query": "bar"}),
+		Params:  mustJSONParams(t, map[string]any{"query": "bar"}),
 	})
 	if resp.Error != nil {
 		t.Fatalf("error: %+v", resp.Error)

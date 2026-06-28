@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -263,7 +265,7 @@ func TestProcessForstFile_crossFileGoImportSharedAcrossBuffers(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module crossfileimport\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("crossfileimport")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	fmtOnlyPath := filepath.Join(dir, "fmt_only.ft")
@@ -344,7 +346,7 @@ func TestProcessForstFile_samePackageDiskPeerMergedWhenNotOpen(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module diskpeer\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("diskpeer")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	fmtOnlyPath := filepath.Join(dir, "fmt_only.ft")

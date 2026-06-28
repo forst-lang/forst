@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"forst/internal/discovery"
+	"forst/internal/testmod"
 	"forst/internal/typechecker"
 	"os"
 	"path/filepath"
@@ -103,7 +104,7 @@ func (m *GoModuleManager) CreateModule(config *ModuleConfig) (string, error) {
 // createGoMod creates the go.mod file
 func (m *GoModuleManager) createGoMod(tempDir, moduleName string) error {
 	goModPath := filepath.Join(tempDir, "go.mod")
-	goModContent := fmt.Sprintf("module %s\n\ngo 1.21\n", moduleName)
+	goModContent := testmod.GoModContent(moduleName)
 	return os.WriteFile(goModPath, []byte(goModContent), 0644)
 }
 

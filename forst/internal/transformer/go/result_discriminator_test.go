@@ -150,7 +150,7 @@ func TestTransformResultIsDiscriminator_splitLocal(t *testing.T) {
 	})
 }
 
-func exprString(t *testing.T, e interface{}) string {
+func exprString(t *testing.T, e any) string {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := format.Node(&buf, token.NewFileSet(), e); err != nil {

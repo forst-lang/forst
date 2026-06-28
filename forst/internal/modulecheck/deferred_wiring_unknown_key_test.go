@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"forst/internal/modulecheck"
+	"forst/internal/testmod"
 )
 
 func TestCheckModuleProviders_unknownWiringKeyRejectedAfterMerge(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "go.mod"), "module unk_after_merge\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("unk_after_merge"))
 	writeFile(t, filepath.Join(dir, "demo.ft"), `package main
 
 import "testing"

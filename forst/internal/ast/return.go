@@ -1,5 +1,7 @@
 package ast
 
+import "strings"
+
 import "fmt"
 
 // ReturnNode represents a return statement
@@ -38,9 +40,10 @@ func joinStrings(strs []string, sep string) string {
 		return strs[0]
 	}
 
-	result := strs[0]
+	var result strings.Builder
+	result.WriteString(strs[0])
 	for i := 1; i < len(strs); i++ {
-		result += sep + strs[i]
+		result.WriteString(sep + strs[i])
 	}
-	return result
+	return result.String()
 }

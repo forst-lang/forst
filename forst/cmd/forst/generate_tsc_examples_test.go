@@ -54,7 +54,6 @@ func TestGenerate_exampleManifest(t *testing.T) {
 		t.Fatal("manifest has no examples")
 	}
 	for _, ex := range man.Examples {
-		ex := ex
 		name := ex.Path
 		if name == "" {
 			t.Fatal("manifest entry missing path")

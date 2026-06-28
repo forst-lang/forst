@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"fmt"
+	"slices"
 
 	"forst/internal/ast"
 )
@@ -52,10 +53,8 @@ func (tc *TypeChecker) checkReturnDisallowedInResultErrBranch(ret ast.ReturnNode
 	if !rt.IsResultType() || len(rt.TypeParams) < 2 {
 		return nil
 	}
-	for _, expr := range ret.Values {
-		if isErrExprAST(expr) {
-			return fmt.Errorf("propagate Result failures with `ensure` (e.g. `ensure x is Ok()`), not `if` + `return Err(...)` in an `Err` branch")
-		}
+	if slices.ContainsFunc(ret.Values, isErrExprAST) {
+		return fmt.Errorf("propagate Result failures with `ensure` (e.g. `ensure x is Ok()`), not `if` + `return Err(...)` in an `Err` branch")
 	}
 	return nil
 }

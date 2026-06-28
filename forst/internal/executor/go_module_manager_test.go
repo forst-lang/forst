@@ -2,7 +2,6 @@ package executor
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	"forst/internal/discovery"
+	"forst/internal/testmod"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -252,7 +252,7 @@ func TestGoModuleManager_CreateGoMod(t *testing.T) {
 		t.Fatalf("Failed to read go.mod: %v", err)
 	}
 
-	expectedContent := fmt.Sprintf("module %s\n\ngo 1.21\n", moduleName)
+	expectedContent := testmod.GoModContent(moduleName)
 	if string(content) != expectedContent {
 		t.Errorf("go.mod content mismatch:\nExpected: %s\nGot: %s", expectedContent, string(content))
 	}

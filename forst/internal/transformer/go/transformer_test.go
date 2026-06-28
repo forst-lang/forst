@@ -29,7 +29,7 @@ func TestDeterministicShapeGuardExample(t *testing.T) {
 	input := string(inputBytes)
 
 	var lastOutput []byte
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		// Parse
 		logger := ast.SetupTestLogger(nil)
 		p := parser.NewTestParser(input, logger)

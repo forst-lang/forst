@@ -19,7 +19,7 @@ func TestDebugEventBuilder(t *testing.T) {
 		WithMessage("Test message").
 		WithLine(10).
 		WithFunction("testFunction").
-		WithData(map[string]interface{}{"key": "value"}).
+		WithData(map[string]any{"key": "value"}).
 		Build()
 
 	if event.Phase != PhaseLexer {
@@ -515,7 +515,7 @@ func TestDebugEventBuilderChaining(t *testing.T) {
 		WithMessage("Function transformed").
 		WithLine(15).
 		WithFunction("myFunction").
-		WithData(map[string]interface{}{"transformed": true}).
+		WithData(map[string]any{"transformed": true}).
 		WithScope(NewScopeInfoBuilder().WithFunctionName("myFunction").Build()).
 		WithAST(&ASTInfo{NodeType: "FunctionNode"}).
 		WithTypeInfo(&TypeInfo{ExpectedType: "Int"}).

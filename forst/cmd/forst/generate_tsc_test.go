@@ -222,7 +222,7 @@ func findLocalTypescriptCompiler() (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		binDir := filepath.Join(dir, "node_modules", "typescript", "bin")
 		for _, name := range []string{"tsc", "tsc.cmd"} {
 			cand := filepath.Join(binDir, name)
@@ -244,7 +244,7 @@ func findMonorepoRootWithPackageJSON() string {
 	if err != nil {
 		return ""
 	}
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		pkg := filepath.Join(dir, "package.json")
 		if st, err := os.Stat(pkg); err == nil && !st.IsDir() {
 			return dir

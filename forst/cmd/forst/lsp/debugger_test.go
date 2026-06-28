@@ -100,11 +100,11 @@ func TestCompilerDebugger_PrintAllSummaries_LogWithStructuredDebug(t *testing.T)
 	t.Parallel()
 	cd := NewCompilerDebugger(true)
 	dbg := cd.GetDebugger(PhaseParser, "/tmp/p.ft")
-	dbg.LogEvent("evt", "hello", map[string]interface{}{"k": 1})
+	dbg.LogEvent("evt", "hello", map[string]any{"k": 1})
 	cd.PrintAllSummaries()
 
 	log := logrus.New()
-	cd.LogWithStructuredDebug(log, logrus.DebugLevel, PhaseParser, "/tmp/p.ft", "evt2", "msg2", map[string]interface{}{"a": 2})
+	cd.LogWithStructuredDebug(log, logrus.DebugLevel, PhaseParser, "/tmp/p.ft", "evt2", "msg2", map[string]any{"a": 2})
 	out, err := cd.GetAllOutput()
 	if err != nil {
 		t.Fatal(err)

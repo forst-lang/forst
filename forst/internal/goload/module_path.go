@@ -18,8 +18,8 @@ func ModulePath(moduleRoot string) string {
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		if after, ok := strings.CutPrefix(line, "module "); ok {
+			return strings.TrimSpace(after)
 		}
 	}
 	return ""

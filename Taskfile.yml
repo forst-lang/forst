@@ -248,7 +248,7 @@ tasks:
       - |
         MOD="{{.EXAMPLES_DIR}}/rfc/providers/go.mod"
         if [ ! -f "$MOD" ]; then
-          printf '%s\n\n%s\n' 'module providers_demo' 'go 1.23' > "$MOD"
+          printf '%s\n\n%s\n' 'module providers_demo' 'go 1.26' > "$MOD"
         fi
 
   test:providers:
@@ -399,6 +399,12 @@ tasks:
     dir: forst
     cmds:
       - go vet ./...
+
+  fix:check:
+    desc: Verify go fix modernizers produce no diff (Go 1.26)
+    dir: forst
+    cmds:
+      - go fix -diff ./...
 
   # Documentation tasks
   docs:generate:

@@ -85,8 +85,8 @@ func verifyOutputContainsExpectedElements(t *testing.T, expected, actual, filePa
 func extractKeyElements(code string) []string {
 	var elements []string
 
-	lines := strings.Split(code, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(code, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 
 		if strings.HasPrefix(line, "func ") && strings.Contains(line, "(") {

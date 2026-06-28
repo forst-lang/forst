@@ -41,9 +41,9 @@ func id(x Int): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/prepareRename",
-		Params: mustJSONParams(t, map[string]interface{}{
+		Params: mustJSONParams(t, map[string]any{
 			"textDocument": map[string]string{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -87,9 +87,9 @@ func id(x Int): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/rename",
-		Params: mustJSONParams(t, map[string]interface{}{
+		Params: mustJSONParams(t, map[string]any{
 			"textDocument": map[string]string{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 			"newName":      "y",
 		}),
 	})
@@ -142,9 +142,9 @@ func id(x Int): Int {
 	resp := s.handleRename(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      1,
-		Params: mustJSONParams(t, map[string]interface{}{
+		Params: mustJSONParams(t, map[string]any{
 			"textDocument": map[string]string{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 			"newName":      "bad name",
 		}),
 	})
@@ -194,16 +194,16 @@ func id(x Int): Int {
 	resp := s.handlePrepareRename(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      1,
-		Params: mustJSONParams(t, map[string]interface{}{
+		Params: mustJSONParams(t, map[string]any{
 			"textDocument": map[string]string{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	b, err := json.Marshal(resp.Result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
 		t.Fatal(err)
 	}

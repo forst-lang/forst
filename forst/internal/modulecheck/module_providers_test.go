@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"forst/internal/modulecheck"
+	"forst/internal/testmod"
 )
 
 func TestCheckModuleProviders_crossPkg(t *testing.T) {
@@ -37,7 +38,7 @@ func TestCheckModuleProviders_crossPkg(t *testing.T) {
 
 func TestCheckModuleProviders_crossPkg_missingWiringAtRoot(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "go.mod"), "module cross_neg\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("cross_neg"))
 	alphaDir := filepath.Join(dir, "alpha")
 	betaDir := filepath.Join(dir, "beta")
 	for _, d := range []string{alphaDir, betaDir} {

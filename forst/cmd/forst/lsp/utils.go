@@ -2,6 +2,8 @@ package lsp
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 )
@@ -128,7 +130,7 @@ func (b *DebugEventBuilder) WithFunction(function string) *DebugEventBuilder {
 }
 
 // WithData sets the additional data for the debug event.
-func (b *DebugEventBuilder) WithData(data map[string]interface{}) *DebugEventBuilder {
+func (b *DebugEventBuilder) WithData(data map[string]any) *DebugEventBuilder {
 	b.event.Data = data
 	return b
 }
@@ -249,7 +251,7 @@ func CreateTokenEvent(phase CompilerPhase, filePath, tokenType, value string, li
 		WithEventType(EventTokenCreated).
 		WithMessage(fmt.Sprintf("Created %s token: %s", tokenType, value)).
 		WithLine(line).
-		WithData(map[string]interface{}{
+		WithData(map[string]any{
 			"token_type": tokenType,
 			"value":      value,
 			"line":       line,
@@ -264,7 +266,7 @@ func CreateFunctionEvent(phase CompilerPhase, filePath, functionName string, par
 		WithEventType(EventFunctionParsed).
 		WithMessage(fmt.Sprintf("Processed function: %s", functionName)).
 		WithFunction(functionName).
-		WithData(map[string]interface{}{
+		WithData(map[string]any{
 			"function_name": functionName,
 			"parameters":    parameters,
 			"return_types":  returnTypes,
@@ -299,9 +301,7 @@ func CreateScopeEvent(phase CompilerPhase, filePath, eventType, functionName str
 		WithFunctionName(functionName).
 		Build()
 
-	for name, typeName := range variables {
-		scopeInfo.Variables[name] = typeName
-	}
+	maps.Copy(scopeInfo.Variables, variables)
 
 	return NewDebugEventBuilder(phase, filePath).
 		WithEventType(eventType).
@@ -346,10 +346,8 @@ func ValidateEventType(eventType string) error {
 		EventFunctionExecuted, EventExecutionError, EventExecutionComplete,
 	}
 
-	for _, validType := range validTypes {
-		if eventType == validType {
-			return nil
-		}
+	if slices.Contains(validTypes, eventType) {
+		return nil
 	}
 
 	return fmt.Errorf("invalid event type: %s", eventType)
@@ -364,10 +362,8 @@ func ValidateErrorCode(errorCode string) error {
 		ErrorCodeTransformationFailed, ErrorCodeTypeEmissionFailed, ErrorCodeCodeGenerationFailed,
 	}
 
-	for _, validCode := range validCodes {
-		if errorCode == validCode {
-			return nil
-		}
+	if slices.Contains(validCodes, errorCode) {
+		return nil
 	}
 
 	return fmt.Errorf("invalid error code: %s", errorCode)

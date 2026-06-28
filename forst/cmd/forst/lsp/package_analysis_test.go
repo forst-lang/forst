@@ -122,11 +122,8 @@ func fromPeer(): Int {
 		t.Fatalf("expected at least open + disk peer, got %v", out)
 	}
 	var hasB bool
-	for _, u := range out {
-		if u == uriB {
-			hasB = true
-			break
-		}
+	if slices.Contains(out, uriB) {
+		hasB = true
 	}
 	if !hasB {
 		t.Fatalf("expected peer.ft URI in samePackageOpenURIs, got %v", out)
@@ -172,7 +169,7 @@ func TestReadForstFilePrefix_truncatesLargeFile(t *testing.T) {
 	p := filepath.Join(dir, "big.ft")
 	var b strings.Builder
 	b.WriteString("package main\n")
-	for i := 0; i < 70000; i++ {
+	for range 70000 {
 		b.WriteByte('x')
 	}
 	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {

@@ -30,23 +30,23 @@ type MockLogger struct {
 	traceMsgs []string
 }
 
-func (m *MockLogger) Debugf(format string, _ ...interface{}) {
+func (m *MockLogger) Debugf(format string, _ ...any) {
 	m.debugMsgs = append(m.debugMsgs, format)
 }
 
-func (m *MockLogger) Infof(format string, _ ...interface{}) {
+func (m *MockLogger) Infof(format string, _ ...any) {
 	m.infoMsgs = append(m.infoMsgs, format)
 }
 
-func (m *MockLogger) Warnf(format string, _ ...interface{}) {
+func (m *MockLogger) Warnf(format string, _ ...any) {
 	m.warnMsgs = append(m.warnMsgs, format)
 }
 
-func (m *MockLogger) Errorf(format string, _ ...interface{}) {
+func (m *MockLogger) Errorf(format string, _ ...any) {
 	m.errorMsgs = append(m.errorMsgs, format)
 }
 
-func (m *MockLogger) Tracef(format string, _ ...interface{}) {
+func (m *MockLogger) Tracef(format string, _ ...any) {
 	m.traceMsgs = append(m.traceMsgs, format)
 }
 

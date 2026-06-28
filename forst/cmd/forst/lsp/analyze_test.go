@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +23,7 @@ func TestAnalyzeForstDocument_nonFtURI(t *testing.T) {
 func TestAnalyzeForstDocument_openBuffer_setsTypeChecker(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module t\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("t")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "a.ft")

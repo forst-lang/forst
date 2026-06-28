@@ -19,7 +19,6 @@ func TestIsCapitalCase(t *testing.T) {
 		{"empty", "", false},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := isCapitalCase(tt.in); got != tt.want {
@@ -42,7 +41,6 @@ func TestIsShapeLiteralTypePrefix(t *testing.T) {
 		{"qualified_lowercase_suffix", "pkg.c", false},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if got := isShapeLiteralTypePrefix(tt.in); got != tt.want {

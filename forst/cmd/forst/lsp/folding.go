@@ -7,27 +7,15 @@ import (
 )
 
 // foldingRangeFromTokenPair builds an LSP folding range for a `{` … `}` pair (token indices).
-func foldingRangeFromTokenPair(tokens []ast.Token, lBraceIdx, rBraceIdx int) map[string]interface{} {
+func foldingRangeFromTokenPair(tokens []ast.Token, lBraceIdx, rBraceIdx int) map[string]any {
 	l := &tokens[lBraceIdx]
 	r := &tokens[rBraceIdx]
-	rw := utf8.RuneCountInString(r.Value)
-	if rw < 1 {
-		rw = 1
-	}
-	startLine := l.Line - 1
-	if startLine < 0 {
-		startLine = 0
-	}
-	startChar := l.Column - 1
-	if startChar < 0 {
-		startChar = 0
-	}
-	endLine := r.Line - 1
-	if endLine < 0 {
-		endLine = 0
-	}
+	rw := max(utf8.RuneCountInString(r.Value), 1)
+	startLine := max(l.Line-1, 0)
+	startChar := max(l.Column-1, 0)
+	endLine := max(r.Line-1, 0)
 	endChar := r.Column - 1 + rw
-	return map[string]interface{}{
+	return map[string]any{
 		"startLine":      startLine,
 		"startCharacter": startChar,
 		"endLine":        endLine,
@@ -139,13 +127,13 @@ func foldingBracesAfterTypeGuardName(tokens []ast.Token, nameIdx int) (lBrace, r
 	return -1, -1
 }
 
-func (s *LSPServer) foldingRangesForURI(uri string) []interface{} {
+func (s *LSPServer) foldingRangesForURI(uri string) []any {
 	ctx, ok := s.analyzeForstDocument(uri)
 	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.Nodes == nil {
-		return []interface{}{}
+		return []any{}
 	}
 	tokens := ctx.Tokens
-	var out []interface{}
+	var out []any
 	for _, n := range ctx.Nodes {
 		switch v := n.(type) {
 		case ast.FunctionNode:

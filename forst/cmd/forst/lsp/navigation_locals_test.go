@@ -62,9 +62,9 @@ func id(x Int): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -114,9 +114,9 @@ func main() {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -212,10 +212,10 @@ func id(x Int): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/references",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
-			"context":      map[string]interface{}{"includeDeclaration": true},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
+			"context":      map[string]any{"includeDeclaration": true},
 		}),
 	})
 	if resp.Error != nil {
@@ -273,10 +273,10 @@ func shadow(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/references",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posInnerUse.Line, "character": posInnerUse.Character},
-			"context":      map[string]interface{}{"includeDeclaration": true},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posInnerUse.Line, "character": posInnerUse.Character},
+			"context":      map[string]any{"includeDeclaration": true},
 		}),
 	})
 	if respInner.Error != nil {
@@ -294,10 +294,10 @@ func shadow(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/references",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posOuterUse.Line, "character": posOuterUse.Character},
-			"context":      map[string]interface{}{"includeDeclaration": true},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posOuterUse.Line, "character": posOuterUse.Character},
+			"context":      map[string]any{"includeDeclaration": true},
 		}),
 	})
 	if respOuter.Error != nil {
@@ -345,9 +345,9 @@ func main() {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posReturn.Line, "character": posReturn.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posReturn.Line, "character": posReturn.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -394,9 +394,9 @@ func main() {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -501,9 +501,9 @@ func main() {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -552,9 +552,9 @@ func f(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": posUse.Line, "character": posUse.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": posUse.Line, "character": posUse.Character},
 		}),
 	})
 	if resp.Error != nil {
@@ -606,9 +606,9 @@ func f(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/definition",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": usePos.Line, "character": usePos.Character},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": usePos.Line, "character": usePos.Character},
 		}),
 	})
 	if response.Error != nil {
@@ -660,10 +660,10 @@ func f(): Int {
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "textDocument/references",
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
-			"position":     map[string]interface{}{"line": usePos.Line, "character": usePos.Character},
-			"context":      map[string]interface{}{"includeDeclaration": true},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+			"position":     map[string]any{"line": usePos.Line, "character": usePos.Character},
+			"context":      map[string]any{"includeDeclaration": true},
 		}),
 	})
 	if response.Error != nil {

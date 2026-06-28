@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"maps"
 	"strings"
 
 	logrus "github.com/sirupsen/logrus"
@@ -44,9 +45,7 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 			// Extract fields from the base type
 			if shapeExpr, ok := baseTypeDef.(ast.TypeDefNode); ok {
 				if payload, ok := ast.PayloadShape(shapeExpr.Expr); ok {
-					for name, field := range payload.Fields {
-						mergedFields[name] = field
-					}
+					maps.Copy(mergedFields, payload.Fields)
 				}
 			}
 		} else if !tc.isBuiltinType(*assertion.BaseType) {

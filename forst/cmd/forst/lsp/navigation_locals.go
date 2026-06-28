@@ -4,6 +4,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
 	"forst/internal/typechecker"
+	"slices"
 )
 
 // definingTokenForLocalBinding resolves same-file definition for parameters and locals
@@ -295,16 +296,12 @@ func globalShortDeclOrdinalForAssignment(fileNodes []ast.Node, name string, want
 				idx++
 			}
 		case ast.FunctionNode:
-			for _, st := range v.Body {
-				if walk(st) {
-					return true
-				}
+			if slices.ContainsFunc(v.Body, walk) {
+				return true
 			}
 		case ast.TypeGuardNode:
-			for _, st := range v.Body {
-				if walk(st) {
-					return true
-				}
+			if slices.ContainsFunc(v.Body, walk) {
+				return true
 			}
 		case *ast.TypeGuardNode:
 			return walk(*v)
@@ -312,23 +309,17 @@ func globalShortDeclOrdinalForAssignment(fileNodes []ast.Node, name string, want
 			if v.Init != nil && walk(v.Init) {
 				return true
 			}
-			for _, st := range v.Body {
-				if walk(st) {
+			if slices.ContainsFunc(v.Body, walk) {
+				return true
+			}
+			for i := range v.ElseIfs {
+				if slices.ContainsFunc(v.ElseIfs[i].Body, walk) {
 					return true
 				}
 			}
-			for i := range v.ElseIfs {
-				for _, st := range v.ElseIfs[i].Body {
-					if walk(st) {
-						return true
-					}
-				}
-			}
 			if v.Else != nil {
-				for _, st := range v.Else.Body {
-					if walk(st) {
-						return true
-					}
+				if slices.ContainsFunc(v.Else.Body, walk) {
+					return true
 				}
 			}
 		case *ast.IfNode:
@@ -337,19 +328,15 @@ func globalShortDeclOrdinalForAssignment(fileNodes []ast.Node, name string, want
 			if v.Init != nil && walk(v.Init) {
 				return true
 			}
-			for _, st := range v.Body {
-				if walk(st) {
-					return true
-				}
+			if slices.ContainsFunc(v.Body, walk) {
+				return true
 			}
 		case *ast.ForNode:
 			return walk(*v)
 		case ast.EnsureNode:
 			if v.Block != nil {
-				for _, st := range v.Block.Body {
-					if walk(st) {
-						return true
-					}
+				if slices.ContainsFunc(v.Block.Body, walk) {
+					return true
 				}
 			}
 		case *ast.EnsureNode:
@@ -357,10 +344,8 @@ func globalShortDeclOrdinalForAssignment(fileNodes []ast.Node, name string, want
 		}
 		return false
 	}
-	for _, top := range fileNodes {
-		if walk(top) {
-			return idx
-		}
+	if slices.ContainsFunc(fileNodes, walk) {
+		return idx
 	}
 	return -1
 }

@@ -30,7 +30,6 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 		"rfc/guard/basic_guard.ft",
 	}
 	for _, rel := range relPaths {
-		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
 			p := filepath.Join(examplesRoot, rel)

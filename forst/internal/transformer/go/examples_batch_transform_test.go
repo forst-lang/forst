@@ -37,7 +37,6 @@ func TestTransformForstFileToGo_examplesInTree(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	for _, path := range paths {
-		path := path
 		t.Run(filepath.ToSlash(strings.TrimPrefix(path, root+"/")), func(t *testing.T) {
 			t.Parallel()
 			defer func() {

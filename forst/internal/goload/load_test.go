@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"golang.org/x/tools/go/packages"
 )
 
@@ -127,7 +129,7 @@ func TestPackageLoadOK_acceptsStdlib(t *testing.T) {
 
 func TestPackageLoadOK_rejectsGhostWithoutSources(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module ghostmod\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("ghostmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	sub := filepath.Join(dir, "sub")
@@ -177,7 +179,7 @@ func TestLoadByPkgPath_singlePathCacheFromBatch(t *testing.T) {
 
 func TestLoadByPkgPath_modulePackageWithoutGoSources(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("testmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	sub := filepath.Join(dir, "sub")

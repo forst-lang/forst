@@ -120,8 +120,8 @@ type LSPLocation struct {
 // this shape in the JSON-RPC result for textDocument/didOpen, didChange, and didClose so pull-based
 // clients can apply diagnostics without server-push over HTTP.
 type PublishDiagnosticsParams struct {
-	URI         string           `json:"uri"`
-	Diagnostics []LSPDiagnostic  `json:"diagnostics"`
+	URI         string          `json:"uri"`
+	Diagnostics []LSPDiagnostic `json:"diagnostics"`
 }
 
 // LSPHover represents the result of a hover request.
@@ -296,40 +296,41 @@ func (ld *LSPDebugger) convertSeverityToLSP(errorInfo *ErrorInfo) LSPDiagnosticS
 
 // ConvertDebugEventToHover converts a debug event to an LSP hover.
 func (ld *LSPDebugger) ConvertDebugEventToHover(event DebugEvent) LSPHover {
-	content := fmt.Sprintf("**%s**\n\n", event.EventType)
-	content += fmt.Sprintf("**Phase:** %s\n", event.Phase)
-	content += fmt.Sprintf("**Message:** %s\n", event.Message)
+	var content strings.Builder
+	content.WriteString(fmt.Sprintf("**%s**\n\n", event.EventType))
+	content.WriteString(fmt.Sprintf("**Phase:** %s\n", event.Phase))
+	content.WriteString(fmt.Sprintf("**Message:** %s\n", event.Message))
 
 	if event.Function != "" {
-		content += fmt.Sprintf("**Function:** %s\n", event.Function)
+		content.WriteString(fmt.Sprintf("**Function:** %s\n", event.Function))
 	}
 
 	if event.TypeInfo != nil {
-		content += fmt.Sprintf("**Expected Type:** %s\n", event.TypeInfo.ExpectedType)
-		content += fmt.Sprintf("**Actual Type:** %s\n", event.TypeInfo.ActualType)
-		content += fmt.Sprintf("**Inferred Type:** %s\n", event.TypeInfo.InferredType)
+		content.WriteString(fmt.Sprintf("**Expected Type:** %s\n", event.TypeInfo.ExpectedType))
+		content.WriteString(fmt.Sprintf("**Actual Type:** %s\n", event.TypeInfo.ActualType))
+		content.WriteString(fmt.Sprintf("**Inferred Type:** %s\n", event.TypeInfo.InferredType))
 	}
 
 	if event.Scope != nil {
-		content += fmt.Sprintf("**Function:** %s\n", event.Scope.FunctionName)
-		content += "**Variables:**\n"
+		content.WriteString(fmt.Sprintf("**Function:** %s\n", event.Scope.FunctionName))
+		content.WriteString("**Variables:**\n")
 		for name, typeName := range event.Scope.Variables {
-			content += fmt.Sprintf("  - %s: %s\n", name, typeName)
+			content.WriteString(fmt.Sprintf("  - %s: %s\n", name, typeName))
 		}
 	}
 
 	if event.Error != nil {
-		content += fmt.Sprintf("**Error:** %s\n", event.Error.Message)
-		content += "**Suggestions:**\n"
+		content.WriteString(fmt.Sprintf("**Error:** %s\n", event.Error.Message))
+		content.WriteString("**Suggestions:**\n")
 		for _, suggestion := range event.Error.Suggestions {
-			content += fmt.Sprintf("  - %s\n", suggestion)
+			content.WriteString(fmt.Sprintf("  - %s\n", suggestion))
 		}
 	}
 
 	return LSPHover{
 		Contents: LSPMarkedString{
 			Language: "markdown",
-			Value:    content,
+			Value:    content.String(),
 		},
 		Range: &LSPRange{
 			Start: LSPPosition{
@@ -482,7 +483,7 @@ func (ld *LSPDebugger) GetCompletions() []LSPCompletionItem {
 
 // GetLSPOutput returns all LSP-compatible output as JSON.
 func (ld *LSPDebugger) GetLSPOutput() ([]byte, error) {
-	output := map[string]interface{}{
+	output := map[string]any{
 		"diagnostics": ld.diagnostics,
 		"hovers":      ld.hovers,
 		"completions": ld.completions,
@@ -500,7 +501,7 @@ type LSPNotification struct {
 	// Method is the method name.
 	Method string `json:"method"`
 	// Params are the notification parameters.
-	Params interface{} `json:"params"`
+	Params any `json:"params"`
 }
 
 // CreateDiagnosticsNotification creates an LSP diagnostics notification.
@@ -508,7 +509,7 @@ func (ld *LSPDebugger) CreateDiagnosticsNotification() LSPNotification {
 	return LSPNotification{
 		JSONRPC: "2.0",
 		Method:  "textDocument/publishDiagnostics",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"uri":         ld.fileURI,
 			"diagnostics": ld.diagnostics,
 		},
@@ -529,7 +530,7 @@ func (ld *LSPDebugger) CreateHoverNotification(position LSPPosition) LSPNotifica
 	return LSPNotification{
 		JSONRPC: "2.0",
 		Method:  "textDocument/hover",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"position": position,
 			"hover":    hover,
 		},
@@ -583,20 +584,21 @@ func CreateTypeErrorDiagnostic(fileURI string, line int, expectedType, actualTyp
 
 // CreateFunctionHover creates an LSP hover for function information.
 func CreateFunctionHover(_ string, line int, functionName string, parameters, returnTypes []string) LSPHover {
-	content := fmt.Sprintf("**Function:** %s\n\n", functionName)
-	content += fmt.Sprintf("**Parameters:** %d\n", len(parameters))
+	var content strings.Builder
+	content.WriteString(fmt.Sprintf("**Function:** %s\n\n", functionName))
+	content.WriteString(fmt.Sprintf("**Parameters:** %d\n", len(parameters)))
 	for _, param := range parameters {
-		content += fmt.Sprintf("  - %s\n", param)
+		content.WriteString(fmt.Sprintf("  - %s\n", param))
 	}
-	content += fmt.Sprintf("**Return Types:** %d\n", len(returnTypes))
+	content.WriteString(fmt.Sprintf("**Return Types:** %d\n", len(returnTypes)))
 	for _, retType := range returnTypes {
-		content += fmt.Sprintf("  - %s\n", retType)
+		content.WriteString(fmt.Sprintf("  - %s\n", retType))
 	}
 
 	return LSPHover{
 		Contents: LSPMarkedString{
 			Language: "markdown",
-			Value:    content,
+			Value:    content.String(),
 		},
 		Range: &LSPRange{
 			Start: LSPPosition{Line: lspLineIndex(line), Character: 0},

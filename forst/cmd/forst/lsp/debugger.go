@@ -32,7 +32,7 @@ const (
 // This interface allows for easy testing and mocking of debugger functionality.
 type Debugger interface {
 	// LogEvent logs a structured debug event with the given type, message, and data.
-	LogEvent(eventType, message string, data map[string]interface{})
+	LogEvent(eventType, message string, data map[string]any)
 	// LogScope logs scope information with the given event type, message, and scope details.
 	LogScope(eventType, message string, scope *ScopeInfo)
 	// LogAST logs AST node information with the given event type, message, and AST details.
@@ -44,7 +44,7 @@ type Debugger interface {
 	// GetOutput returns all debug events as JSON bytes.
 	GetOutput() ([]byte, error)
 	// GetPhaseSummary returns a summary of the phase execution as a map.
-	GetPhaseSummary() map[string]interface{}
+	GetPhaseSummary() map[string]any
 	// PrintSummary prints a human-readable summary of the phase.
 	PrintSummary()
 }
@@ -59,7 +59,7 @@ type CompilerDebuggerInterface interface {
 	// PrintAllSummaries prints summaries for all phases.
 	PrintAllSummaries()
 	// LogWithStructuredDebug logs to both the existing logger and structured debugger.
-	LogWithStructuredDebug(logger *logrus.Logger, level logrus.Level, phase CompilerPhase, filePath, eventType, message string, data map[string]interface{})
+	LogWithStructuredDebug(logger *logrus.Logger, level logrus.Level, phase CompilerPhase, filePath, eventType, message string, data map[string]any)
 }
 
 // FileMetadata contains shared file information to reduce redundancy in debug output
@@ -68,7 +68,7 @@ type FileMetadata struct {
 	Path     string    `json:"path"`
 	Filename string    `json:"filename"`
 	Size     int64     `json:"size,omitempty"`
-	Modified time.Time `json:"modified,omitempty"`
+	Modified time.Time `json:"modified"`
 }
 
 // StructuredDebugger provides machine-readable debug output for compiler phases.
@@ -99,7 +99,7 @@ type DebugEvent struct {
 	// Human-readable message describing the event
 	Message string `json:"message"`
 	// Additional structured data for the event
-	Data map[string]interface{} `json:"data,omitempty"`
+	Data map[string]any `json:"data,omitempty"`
 	// Scope information if relevant to the event
 	Scope *ScopeInfo `json:"scope,omitempty"`
 	// AST information if relevant to the event
@@ -135,7 +135,7 @@ type ASTInfo struct {
 	// List of child node types (optional)
 	Children []string `json:"children,omitempty"`
 	// Additional properties specific to the node type
-	Properties map[string]interface{} `json:"properties,omitempty"`
+	Properties map[string]any `json:"properties,omitempty"`
 }
 
 // TypeInfo provides information about type inference and checking.
@@ -202,7 +202,7 @@ func NewStructuredDebugger(phase CompilerPhase, filePath string, packageStore *P
 
 // LogEvent logs a structured debug event.
 // This method implements the Debugger interface.
-func (d *StructuredDebugger) LogEvent(eventType, message string, data map[string]interface{}) {
+func (d *StructuredDebugger) LogEvent(eventType, message string, data map[string]any) {
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Phase:     d.phase,
@@ -278,7 +278,7 @@ func (d *StructuredDebugger) GetOutput() ([]byte, error) {
 
 // GetPhaseSummary returns a summary of the phase execution.
 // This method implements the Debugger interface.
-func (d *StructuredDebugger) GetPhaseSummary() map[string]interface{} {
+func (d *StructuredDebugger) GetPhaseSummary() map[string]any {
 	duration := time.Since(d.startTime)
 
 	eventCounts := make(map[string]int)
@@ -286,7 +286,7 @@ func (d *StructuredDebugger) GetPhaseSummary() map[string]interface{} {
 		eventCounts[event.EventType]++
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"phase":        d.phase,
 		"file_id":      d.fileID,
 		"duration_ms":  duration.Milliseconds(),
@@ -388,7 +388,7 @@ func (cd *CompilerDebugger) PrintAllSummaries() {
 // LogWithStructuredDebug integrates with existing logrus logger.
 // This function provides a bridge between the existing logging system and the structured debugger.
 // This method implements the CompilerDebuggerInterface.
-func (cd *CompilerDebugger) LogWithStructuredDebug(logger *logrus.Logger, level logrus.Level, phase CompilerPhase, filePath, eventType, message string, data map[string]interface{}) {
+func (cd *CompilerDebugger) LogWithStructuredDebug(logger *logrus.Logger, level logrus.Level, phase CompilerPhase, filePath, eventType, message string, data map[string]any) {
 	// Log to existing logger with structured fields
 	logger.WithFields(logrus.Fields{
 		"phase":      phase,

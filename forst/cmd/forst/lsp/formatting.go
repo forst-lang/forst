@@ -141,7 +141,7 @@ func (s *LSPServer) handleCodeAction(request LSPRequest) LSPServerResponse {
 		}
 	}
 
-	var out []interface{}
+	var out []any
 	src, _ := s.openDocumentText(params.TextDocument.URI)
 
 	if codeActionKindsAllowQuickFix(params.Context.Only) {

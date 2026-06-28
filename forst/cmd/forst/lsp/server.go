@@ -27,24 +27,24 @@ import (
 // LSPRequest represents an LSP request
 type LSPRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      interface{}     `json:"id"`
+	ID      any             `json:"id"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 // LSPResponse represents an LSP response
 type LSPServerResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *LSPError   `json:"error,omitempty"`
+	JSONRPC string    `json:"jsonrpc"`
+	ID      any       `json:"id"`
+	Result  any       `json:"result,omitempty"`
+	Error   *LSPError `json:"error,omitempty"`
 }
 
 // LSPError represents an LSP error
 type LSPError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // LSPServer represents the LSP server
@@ -97,12 +97,12 @@ func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 	lspDebugger := NewLSPDebugger(debugger, "")
 
 	return &LSPServer{
-		debugger:      debugger,
-		lspDebugger:   lspDebugger,
-		log:           log,
-		port:          port,
-		debugMode:     true, // Enable debug mode by default for LLM debugging
-		debugEvents:   make([]DebugEvent, 0),
+		debugger:          debugger,
+		lspDebugger:       lspDebugger,
+		log:               log,
+		port:              port,
+		debugMode:         true, // Enable debug mode by default for LLM debugging
+		debugEvents:       make([]DebugEvent, 0),
 		openDocuments:     make(map[string]string),
 		peerAnalysisCache: make(map[string]peerAnalysisCacheEntry),
 		packageAnalysis:   newPackageAnalysisLRU(defaultPackageAnalysisCacheMaxEntries),
@@ -354,7 +354,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 
 	// Log detailed lexer information
 	lexerDebugger := s.debugger.GetDebugger(PhaseLexer, filePath)
-	lexerDebugger.LogEvent(EventLexerComplete, "Lexical analysis completed", map[string]interface{}{
+	lexerDebugger.LogEvent(EventLexerComplete, "Lexical analysis completed", map[string]any{
 		"token_count": len(tokens),
 		"file_id":     fileID,
 		"tokens":      tokens,
@@ -409,7 +409,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 
 	// Log detailed parser information
 	parserDebugger := s.debugger.GetDebugger(PhaseParser, filePath)
-	parserDebugger.LogEvent(EventParserComplete, "Parsing completed", map[string]interface{}{
+	parserDebugger.LogEvent(EventParserComplete, "Parsing completed", map[string]any{
 		"node_count": len(astNodes),
 		"file":       filePath,
 		"ast_nodes":  astNodes,
@@ -457,7 +457,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 
 	// Log detailed typechecker information
 	typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
-	typecheckerDebugger.LogEvent(EventTypecheckerComplete, "Type checking completed", map[string]interface{}{
+	typecheckerDebugger.LogEvent(EventTypecheckerComplete, "Type checking completed", map[string]any{
 		"file":           filePath,
 		"inferred_types": tc.InferredTypes,
 		"variable_types": convertVariableTypes(tc.VariableTypes),
@@ -499,7 +499,7 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 
 	// Log detailed transformer information
 	transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
-	transformerDebugger.LogEvent(EventTransformerComplete, "Code transformation completed", map[string]interface{}{
+	transformerDebugger.LogEvent(EventTransformerComplete, "Code transformation completed", map[string]any{
 		"file":               filePath,
 		"transformer_status": "completed",
 	})
@@ -565,7 +565,7 @@ func (s *LSPServer) sendDiagnosticsNotification(uri string, diagnostics []LSPDia
 
 // handleDebugInfo handles the textDocument/debugInfo method primarily for LLM debugging
 func (s *LSPServer) handleDebugInfo(request LSPRequest) LSPServerResponse {
-	var params map[string]interface{}
+	var params map[string]any
 	if err := json.Unmarshal(request.Params, &params); err != nil {
 		s.log.Errorf("Failed to parse debugInfo params: %v", err)
 		return LSPServerResponse{
@@ -579,7 +579,7 @@ func (s *LSPServer) handleDebugInfo(request LSPRequest) LSPServerResponse {
 	}
 
 	// Extract text document URI
-	textDoc, ok := params["textDocument"].(map[string]interface{})
+	textDoc, ok := params["textDocument"].(map[string]any)
 	if !ok {
 		s.log.Error("textDocument not found in debugInfo params")
 		return LSPServerResponse{
@@ -705,7 +705,7 @@ func (s *LSPServer) handlePhaseDetails(request LSPRequest) LSPServerResponse {
 }
 
 // getComprehensiveDebugInfo provides comprehensive debugging information for LLM debugging
-func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, summaryOnly bool) map[string]interface{} {
+func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, summaryOnly bool) map[string]any {
 	// Extract file metadata once
 	fileMetadata := s.extractFileMetadata(uri)
 
@@ -717,7 +717,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 	// Get all debug output from all phases
 	allOutput, err := s.debugger.GetAllOutput()
 	if err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to get debug output: %v", err),
 		}
 	}
@@ -726,7 +726,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 	_ = s.lspDebugger.ProcessDebugEvents()
 
 	// Convert byte slices to structured data for better LLM consumption
-	structuredOutputs := make(map[string]interface{})
+	structuredOutputs := make(map[string]any)
 	for phase, data := range allOutput {
 		var events []DebugEvent
 		if err := json.Unmarshal(data, &events); err == nil {
@@ -735,7 +735,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 			structuredOutputs[string(phase)] = optimizedEvents
 		} else {
 			// Fallback to base64 if unmarshaling fails
-			structuredOutputs[string(phase)] = map[string]interface{}{
+			structuredOutputs[string(phase)] = map[string]any{
 				"encoding": "base64",
 				"data":     string(data),
 				"error":    "Failed to parse as structured data",
@@ -744,7 +744,7 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 	}
 
 	// Build the debug info response with the expected structure
-	debugInfo := map[string]interface{}{
+	debugInfo := map[string]any{
 		"uri":       uri,
 		"debugMode": s.debugMode,
 		"timestamp": time.Now(),
@@ -754,28 +754,28 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 
 	// Add package store information
 	packageStore := s.debugger.(*CompilerDebugger).packageStore
-	debugInfo["packageStore"] = map[string]interface{}{
+	debugInfo["packageStore"] = map[string]any{
 		"files":    packageStore.GetAllFiles(),
 		"packages": packageStore.GetAllPackages(),
 	}
 
-	var rawOutput map[string]interface{}
+	var rawOutput map[string]any
 	if summaryOnly {
 		// Summary mode: Just phase summaries (timing, event counts)
-		rawOutput = map[string]interface{}{
+		rawOutput = map[string]any{
 			"phaseSummaries": s.getPhaseSummaries(uri),
 		}
 	} else {
 		// Full mode: Complete debugging information
-		rawOutput = map[string]interface{}{
+		rawOutput = map[string]any{
 			"phaseOutputs": structuredOutputs,
 			"diagnostics":  s.lspDebugger.GetDiagnostics(),
 		}
 	}
 
 	if useCompression {
-		debugInfo["output"] = map[string]interface{}{
-			"encoding": map[string]interface{}{
+		debugInfo["output"] = map[string]any{
+			"encoding": map[string]any{
 				"format":        "structured_json",
 				"compression":   true,
 				"llm_optimized": true,
@@ -784,8 +784,8 @@ func (s *LSPServer) getComprehensiveDebugInfo(uri string, useCompression bool, s
 		}
 	} else {
 		// No compression - include full phase outputs
-		debugInfo["output"] = map[string]interface{}{
-			"encoding": map[string]interface{}{
+		debugInfo["output"] = map[string]any{
+			"encoding": map[string]any{
 				"format":        "structured_json",
 				"compression":   false,
 				"llm_optimized": true,
@@ -816,12 +816,12 @@ func (s *LSPServer) extractFileMetadata(uri string) *FileMetadata {
 }
 
 // optimizeDebugEvents removes redundant file metadata from debug events
-func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, _ *FileMetadata) []map[string]interface{} {
-	optimizedEvents := make([]map[string]interface{}, 0, len(events))
+func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, _ *FileMetadata) []map[string]any {
+	optimizedEvents := make([]map[string]any, 0, len(events))
 
 	for _, event := range events {
 		// Create optimized event without redundant file metadata
-		optimizedEvent := map[string]interface{}{
+		optimizedEvent := map[string]any{
 			"timestamp":  event.Timestamp,
 			"phase":      event.Phase,
 			"event_type": event.EventType,
@@ -858,7 +858,7 @@ func (s *LSPServer) optimizeDebugEvents(events []DebugEvent, _ *FileMetadata) []
 }
 
 // getPhaseSummaries returns performance metrics for each phase (timing, event counts)
-func (s *LSPServer) getPhaseSummaries(uri string) map[string]interface{} {
+func (s *LSPServer) getPhaseSummaries(uri string) map[string]any {
 	filePath := filePathFromDocumentURI(uri)
 
 	// Get debuggers for each phase
@@ -867,7 +867,7 @@ func (s *LSPServer) getPhaseSummaries(uri string) map[string]interface{} {
 	typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
 	transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
 
-	phaseSummaries := map[string]interface{}{
+	phaseSummaries := map[string]any{
 		"lexer":       lexerDebugger.GetPhaseSummary(),
 		"parser":      parserDebugger.GetPhaseSummary(),
 		"typechecker": typecheckerDebugger.GetPhaseSummary(),
@@ -880,7 +880,7 @@ func (s *LSPServer) getPhaseSummaries(uri string) map[string]interface{} {
 // HandleDebugInfoDirect provides direct access to debugInfo functionality without HTTP overhead
 func (s *LSPServer) HandleDebugInfoDirect(request LSPRequest, content string) LSPServerResponse {
 	// Extract URI from debugInfo params
-	var debugParams map[string]interface{}
+	var debugParams map[string]any
 	if err := json.Unmarshal(request.Params, &debugParams); err != nil {
 		return LSPServerResponse{
 			JSONRPC: "2.0",
@@ -892,7 +892,7 @@ func (s *LSPServer) HandleDebugInfoDirect(request LSPRequest, content string) LS
 		}
 	}
 
-	textDoc, ok := debugParams["textDocument"].(map[string]interface{})
+	textDoc, ok := debugParams["textDocument"].(map[string]any)
 	if !ok {
 		return LSPServerResponse{
 			JSONRPC: "2.0",
@@ -925,8 +925,8 @@ func (s *LSPServer) HandleDebugInfoDirect(request LSPRequest, content string) LS
 	}
 
 	// Create didOpen params
-	didOpenParams := map[string]interface{}{
-		"textDocument": map[string]interface{}{
+	didOpenParams := map[string]any{
+		"textDocument": map[string]any{
 			"uri":     uri,
 			"version": 1,
 			"text":    content,
@@ -955,11 +955,11 @@ func (s *LSPServer) HandleDebugInfoDirect(request LSPRequest, content string) LS
 }
 
 // createCompressedDebugData creates a compressed version of debug data
-func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]interface{} {
+func (s *LSPServer) createCompressedDebugData(data any) map[string]any {
 	// Marshal to JSON
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to marshal data: %v", err),
 		}
 	}
@@ -968,12 +968,12 @@ func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]inter
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	if _, err := gw.Write(jsonData); err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to compress data: %v", err),
 		}
 	}
 	if err := gw.Close(); err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to finish gzip: %v", err),
 		}
 	}
@@ -985,7 +985,7 @@ func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]inter
 	compressedSize := len(compressed)
 	compressionRatio := float64(compressedSize) / float64(originalSize)
 
-	return map[string]interface{}{
+	return map[string]any{
 		"data":              compressed,
 		"encoding":          "gzip+base64",
 		"original_size":     originalSize,
@@ -996,7 +996,7 @@ func (s *LSPServer) createCompressedDebugData(data interface{}) map[string]inter
 }
 
 // getCompilerState provides current compiler state information (types, variables, scopes)
-func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
+func (s *LSPServer) getCompilerState(uri string) map[string]any {
 	filePath := filePathFromDocumentURI(uri)
 
 	// Get debugger for each phase
@@ -1005,19 +1005,19 @@ func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
 	typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
 	transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
 
-	compilerState := map[string]interface{}{
+	compilerState := map[string]any{
 		"uri": uri,
-		"state": map[string]interface{}{
-			"lexer": map[string]interface{}{
+		"state": map[string]any{
+			"lexer": map[string]any{
 				"tokens": getDebuggerOutput(lexerDebugger),
 			},
-			"parser": map[string]interface{}{
+			"parser": map[string]any{
 				"ast": getDebuggerOutput(parserDebugger),
 			},
-			"typechecker": map[string]interface{}{
+			"typechecker": map[string]any{
 				"types": getDebuggerOutput(typecheckerDebugger),
 			},
-			"transformer": map[string]interface{}{
+			"transformer": map[string]any{
 				"goCode": getDebuggerOutput(transformerDebugger),
 			},
 		},
@@ -1029,10 +1029,10 @@ func (s *LSPServer) getCompilerState(uri string) map[string]interface{} {
 }
 
 // getPhaseDetails provides detailed phase output information (tokens, AST, types, etc.)
-func (s *LSPServer) getPhaseDetails(uri, phase string) map[string]interface{} {
+func (s *LSPServer) getPhaseDetails(uri, phase string) map[string]any {
 	filePath := filePathFromDocumentURI(uri)
 
-	phaseDetails := map[string]interface{}{
+	phaseDetails := map[string]any{
 		"uri":       uri,
 		"phase":     phase,
 		"timestamp": time.Now(),
@@ -1041,11 +1041,11 @@ func (s *LSPServer) getPhaseDetails(uri, phase string) map[string]interface{} {
 	if phase == "" {
 		// Return details for all phases
 		phases := []CompilerPhase{PhaseLexer, PhaseParser, PhaseTypechecker, PhaseTransformer}
-		allPhaseDetails := make(map[string]interface{})
+		allPhaseDetails := make(map[string]any)
 
 		for _, p := range phases {
 			debugger := s.debugger.GetDebugger(p, filePath)
-			allPhaseDetails[string(p)] = map[string]interface{}{
+			allPhaseDetails[string(p)] = map[string]any{
 				"details": getDebuggerOutput(debugger),
 			}
 		}
@@ -1062,17 +1062,17 @@ func (s *LSPServer) getPhaseDetails(uri, phase string) map[string]interface{} {
 }
 
 // getDebuggerOutput safely gets debugger output
-func getDebuggerOutput(debugger Debugger) interface{} {
+func getDebuggerOutput(debugger Debugger) any {
 	output, err := debugger.GetOutput()
 	if err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": err.Error(),
 		}
 	}
 
 	var events []DebugEvent
 	if err := json.Unmarshal(output, &events); err != nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to unmarshal debug events: %v", err),
 			"raw":   string(output),
 		}

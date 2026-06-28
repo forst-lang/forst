@@ -575,7 +575,6 @@ func main() {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			p := parser.NewTestParser(tc.src, log)
@@ -642,8 +641,8 @@ func TestTransformForstFileToGo_combinatorialArithmetic(t *testing.T) {
 		{"%", func(_, b int) bool { return b != 0 }},
 	}
 	for _, o := range ops {
-		for a := 0; a < 8; a++ {
-			for b := 0; b < 8; b++ {
+		for a := range 8 {
+			for b := range 8 {
 				if !o.ok(a, b) {
 					continue
 				}
@@ -676,8 +675,8 @@ func TestTransformForstFileToGo_combinatorialComparison(t *testing.T) {
 	log.SetOutput(io.Discard)
 	cmp := []string{"<", ">", "<=", ">=", "==", "!="}
 	for _, c := range cmp {
-		for a := 0; a < 6; a++ {
-			for b := 0; b < 6; b++ {
+		for a := range 6 {
+			for b := range 6 {
 				src := fmt.Sprintf(`package main
 func main() {
 	if %d %s %d {

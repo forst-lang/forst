@@ -247,7 +247,6 @@ func (s *LSPServer) parsePackageGroupMembersParallel(uris []string, contents map
 	g.SetLimit(parseLimit(len(uris)))
 
 	for i := range uris {
-		i := i
 		g.Go(func() error {
 			u := uris[i]
 			fp := filePathFromDocumentURI(u)
