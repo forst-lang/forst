@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.36](https://github.com/forst-lang/forst/compare/cli-v0.0.35...cli-v0.0.36) (2026-06-28)
+
+
+### Bug Fixes
+
+* **cli:** pin compiler release and verify digests when available ([f43e22a](https://github.com/forst-lang/forst/commit/f43e22a38737dbaa27e93e823ced36367b64b874))
+* **vscode-forst:** fail closed when compiler download is enabled ([f43e22a](https://github.com/forst-lang/forst/commit/f43e22a38737dbaa27e93e823ced36367b64b874))
+
 ## [0.0.35](https://github.com/forst-lang/forst/compare/cli-v0.0.34...cli-v0.0.35) (2026-04-19)
 
 
