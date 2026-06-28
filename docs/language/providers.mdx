@@ -3,6 +3,11 @@ title: "Providers (DI)"
 description: "Declare shared runtime services with use and wire them at entry points using with blocks."
 ---
 
+import ProvidersLoggerClock from "/snippets/providers-logger-clock.mdx";
+import ProvidersWithMain from "/snippets/providers-with-main.mdx";
+import ProvidersShadow from "/snippets/providers-shadow.mdx";
+import ProvidersTest from "/snippets/providers-test.mdx";
+
 Backend functions depend on runtime services (loggers, clocks, DB handles). **Providers** declare those dependencies with **`use`** and wire them at entry points with **`with`**. Request data stays separate from shared infrastructure.
 
 ## Two primitives
@@ -18,27 +23,7 @@ Backend functions depend on runtime services (loggers, clocks, DB handles). **Pr
 
 Contracts are ordinary types: shapes with methods, or imported Go interfaces:
 
-```forst
-type Logger = {
-	info(msg String)
-}
-
-type Clock = {
-	now(): Int
-}
-
-func logExpiry(id String) {
-	use logger: Logger
-	logger.info("expire " + id)
-}
-
-func expireToken(token Token) {
-	use clock: Clock
-	if token.expiresAt < clock.now() {
-		logExpiry(token.id)
-	}
-}
-```
+<ProvidersLoggerClock />
 
 The compiler aggregates `use` sites into **`Providers(f)`** for each function and propagates requirements transitively through calls. You can see the obligation chain in diagnostics and LSP hovers: which services a handler needs, and which entry point must supply them.
 
@@ -46,16 +31,7 @@ The compiler aggregates `use` sites into **`Providers(f)`** for each function an
 
 Entry points satisfy every Provider the call graph needs using a **`with { … } { … }`** block. Production wiring and test wiring use the same mechanism:
 
-```forst
-func main() {
-	with {
-		Logger: &ProductionLogger{},
-		Clock:  &SystemClock {},
-	} {
-		expireToken(Token { id: "x", expiresAt: 1 })
-	}
-}
-```
+<ProvidersWithMain />
 
 Wiring keys use the **root contract name** (`Logger`, `Clock`). Values must structurally satisfy the contract: plain structs with matching methods, or Go types that implement an imported interface.
 
@@ -67,33 +43,13 @@ Contract methods without a return type (such as **`info(msg String)`**) must sta
 
 Nested **`with`** blocks merge with outer wiring. When the inner block supplies the **same contract key**, it **shadows** the outer value for that scope; other keys still forward from outside:
 
-```forst
-with {
-	Logger: &ProductionLogger {},
-	Clock:  &SystemClock {},
-} {
-	with { Clock: &FakeClock { fixedMs: 2000 } } {
-		// Clock shadows outer; Logger still &ProductionLogger
-		expireToken(Token { id: "t1", expiresAt: 500 })
-	}
-}
-```
+<ProvidersShadow />
 
 ## Tests
 
 Tests reuse the same `with` blocks to swap fakes without a separate DI framework:
 
-```forst
-func TestExpireToken_expired(t *testing.T) {
-	token := Token { id: "t1", expiresAt: 500 }
-	with {
-		Logger: &NopLogger {},
-		Clock:  &FakeClock { fixedMs: 1000 },
-	} {
-		expireToken(token)
-	}
-}
-```
+<ProvidersTest />
 
 ## Compared to other approaches
 

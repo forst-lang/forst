@@ -1,0 +1,29 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    type MutationArg = Shape
+
+    is (m MutationArg) Input(input Shape) {
+    	ensure m is { input }
+    }
+
+    is (m MutationArg) Context(ctx Shape) {
+    	ensure m is { ctx }
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func G_Input(m MutationArg, input Shape) error {
+    	// shape guard: m must include input field
+    	return nil
+    }
+
+    func G_Context(m MutationArg, ctx Shape) error {
+    	// shape guard: m must include ctx field
+    	return nil
+    }
+    ```
+  </Tab>
+</Tabs>

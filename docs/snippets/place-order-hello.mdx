@@ -1,19 +1,45 @@
-```forst
-package main
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    package main
 
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-}
+    type PlaceOrderInput = {
+    	stockKeepingUnit: String.Min(1).Max(64),
+    	quantity:         Int.Min(1).Max(99),
+    }
 
-func placeOrder(in: PlaceOrderInput) {
-	println("Order placed:", in.stockKeepingUnit, in.quantity)
-}
+    func placeOrder(in: PlaceOrderInput) {
+    	println("Order placed:", in.stockKeepingUnit, in.quantity)
+    }
 
-func main() {
-	placeOrder({
-		stockKeepingUnit: "ITEM-1",
-		quantity:         2,
-	})
-}
-```
+    func main() {
+    	placeOrder({
+    		stockKeepingUnit: "ITEM-1",
+    		quantity:         2,
+    	})
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    package main
+
+    type PlaceOrderInput struct {
+    	stockKeepingUnit string `json:"stockKeepingUnit"`
+    	quantity         int    `json:"quantity"`
+    }
+
+    func main() {
+    	placeOrder(PlaceOrderInput{
+    		stockKeepingUnit: "ITEM-1",
+    		quantity:         2,
+    	})
+    }
+
+    func placeOrder(in PlaceOrderInput) {
+    	println("Order placed:", in.stockKeepingUnit, in.quantity)
+    }
+    ```
+  </Tab>
+</Tabs>

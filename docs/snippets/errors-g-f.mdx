@@ -1,0 +1,25 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    func g(): Result(Int, Error) {
+    	return 1
+    }
+
+    func f() {
+    	g()
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func g() (int, error) {
+    	return 1, nil
+    }
+
+    func f() (int, error) {
+    	return g()
+    }
+    ```
+  </Tab>
+</Tabs>

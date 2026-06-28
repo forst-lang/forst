@@ -3,6 +3,8 @@ title: "Go interop"
 description: "Transpile to Go, import packages, and mix .ft with .go in one module."
 ---
 
+import InteropFmtHello from "/snippets/interop-fmt-hello.mdx";
+
 Forst transpiles to **Go**. You keep the same module graph, deployment, and ecosystem. See [Language overview](/language/overview) for syntax. This page covers import and mixing rules.
 
 ## Transpile to idiomatic Go
@@ -30,13 +32,7 @@ Forst adds structural typing, constraints, `ensure`, and nominal errors on top o
 
 Call into the standard library and third-party modules with qualified names:
 
-```forst
-import "fmt"
-
-func main() {
-	fmt.Println("Hello from Go")
-}
-```
+<InteropFmtHello />
 
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
 

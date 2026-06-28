@@ -1,0 +1,21 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    func mustNotExceedSpeedLimit(speed Int) {
+    	ensure speed is LessThan(100)
+    		or TooFast("Speed must not exceed 100 km/h")
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func mustNotExceedSpeedLimit(speed int) error {
+    	if !(speed < 100) {
+    		return TooFast{Message: "Speed must not exceed 100 km/h"}
+    	}
+    	return nil
+    }
+    ```
+  </Tab>
+</Tabs>

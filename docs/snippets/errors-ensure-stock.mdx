@@ -1,0 +1,27 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    ensure avail is Ok()
+    ensure in.quantity is Max(avail) or InsufficientStock({
+    	stockKeepingUnit: in.stockKeepingUnit,
+    	requested:        in.quantity,
+    	available:        avail,
+    })
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    if availErr != nil {
+    	return availErr
+    }
+    if in.Quantity > avail {
+    	return InsufficientStock{
+    		StockKeepingUnit: in.StockKeepingUnit,
+    		Requested:        in.Quantity,
+    		Available:        avail,
+    	}
+    }
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,21 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    import "fmt"
+
+    func logAndReport(msg String) {
+    	fmt.Println(msg)
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    import "fmt"
+
+    func logAndReport(msg string) (int, error) {
+    	return fmt.Println(msg)
+    }
+    ```
+  </Tab>
+</Tabs>

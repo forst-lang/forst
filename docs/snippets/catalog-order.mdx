@@ -1,10 +1,38 @@
-```forst
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-}
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    type PlaceOrderInput = {
+    	stockKeepingUnit: String.Min(1).Max(64),
+    	quantity:         Int.Min(1).Max(99),
+    }
 
-func placeOrder(in: PlaceOrderInput) {
-	// in is already validated; business logic starts here
-}
-```
+    func placeOrder(in: PlaceOrderInput) {
+    	// in is already validated; business logic starts here
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type PlaceOrderInput struct {
+    	stockKeepingUnit string `json:"stockKeepingUnit"`
+    	quantity         int    `json:"quantity"`
+    }
+
+    func placeOrder(in PlaceOrderInput) {
+    	if len(in.stockKeepingUnit) < 1 || len(in.stockKeepingUnit) > 64 { ... }
+    	if in.quantity < 1 || in.quantity > 99 { ... }
+    	// business logic starts here
+    }
+    ```
+  </Tab>
+  <Tab title="Generated TypeScript">
+    ```typescript
+    // forst generate → generated/types.d.ts
+    export interface PlaceOrderInput {
+      quantity: number;
+      stockKeepingUnit: string;
+    }
+    ```
+  </Tab>
+</Tabs>

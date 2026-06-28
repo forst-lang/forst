@@ -1,0 +1,32 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    error NotPositive {
+    	message: String
+    }
+
+    func validatePositive(n Int) {
+    	ensure n is GreaterThan(0) or NotPositive({
+    		message: "n must be greater than 0",
+    	})
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type NotPositive struct {
+    	Message string
+    }
+
+    func (e NotPositive) Error() string { return e.Message }
+
+    func validatePositive(n int) error {
+    	if !(n > 0) {
+    		return NotPositive{Message: "n must be greater than 0"}
+    	}
+    	return nil
+    }
+    ```
+  </Tab>
+</Tabs>

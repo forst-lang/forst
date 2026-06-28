@@ -3,11 +3,11 @@ title: "Why Forst?"
 description: "Design priorities, what you get from Forst, and what the language omits."
 ---
 
-While backend development covers a wide surface, three central issues affect everyone:
+While backend engineering covers a wide surface, some central issues affect everyone:
 
-- **Typed boundaries**: request and response shapes at the API edge need validation before bad data reaches domain logic
-- **Developer experience**: everyday work needs fast feedback and low boilerplate
-- **Production runtime**: production deploys need ops that hold when traffic spikes as complexity grows
+- **Developer experience**: everyday work needs fast feedback and low boilerplate.
+- **Performance**: prod needs to keep up when traffic spikes and complexity grows.
+- **Contracts**: boundaries need to validate bad data before it reaches domain logic.
 
 Forst is for teams who want all three, with one schema from server to client.
 
@@ -48,15 +48,19 @@ Backend capabilities at a glance.
 
 | Capability | TypeScript | Go | Forst |
 | --- | --- | --- | --- |
-| Production runtime | JS (Node, Bun, Deno) | Native (`go build`) | [Go (compiled from `.ft`)](/interop/go) |
+| Production runtime | V8, JavaScriptCore | Native | [Go (compiled from `.ft`)](/interop/go) |
+| Execution model | JIT | Native | Native (via Go) |
 | Structural typing | Built-in | Structs | [Built-in](/language/overview) |
 | Validation on types | Schema library (Zod, etc.) | Manual checks | [Built-in constraints](/language/shapes-and-constraints) |
 | Static binary deployment | No | Yes | [Yes (via Go output)](/interop/go) |
-| Server and client types from one source | N/A | Manual / separate | [`forst generate`](/interop/typescript) |
-| Error model | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
-| Type narrowing | Discriminated unions | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing) |
-| Go module ecosystem | No | Native | [Import Go packages](/interop/go) |
+| Isomorphism (shared types between server and client) | Straightforward | Manual / separate | [`forst generate`](/interop/typescript) |
+| Error handling | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
+| Type narrowing | Discriminated unions, type guards, `asserts` | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing) |
+| Go module ecosystem | No (WASM only) | Native | [Import Go packages](/interop/go) |
+| JS module ecosystem | Native (npm, JSR) | No | No |
 | Explicit service wiring | DI libraries | Manual / Fx / Wire | [`use` / `with`](/language/providers) |
+| Static typing | Yes | Yes | Yes |
+| Open source | Yes | Yes | Yes |
 
 <Info>
   Go import type-checking and Providers are **experimental**. See the [roadmap](/resources/roadmap) for current status.

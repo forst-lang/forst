@@ -1,0 +1,37 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    func okInt() {
+    	n := 42
+    	ensure n is GreaterThan(0)
+    	return n
+    }
+
+    func main() {
+    	x := okInt()
+    	ensure x is Ok()
+    	println(x)
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func okInt() (int, error) {
+    	n := 42
+    	if !(n > 0) {
+    		return 0, /* constraint error */
+    	}
+    	return n, nil
+    }
+
+    func main() {
+    	x, err := okInt()
+    	if err != nil {
+    		panic(err)
+    	}
+    	println(x)
+    }
+    ```
+  </Tab>
+</Tabs>

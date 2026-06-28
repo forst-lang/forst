@@ -1,0 +1,21 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    type PlaceOrderInput = {
+    	stockKeepingUnit: String.Min(1).Max(64),
+    	quantity:         Int.Min(1).Max(99),
+    	tags:             Array(String).Max(10),
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type PlaceOrderInput struct {
+    	stockKeepingUnit string   `json:"stockKeepingUnit"`
+    	quantity         int      `json:"quantity"`
+    	tags             []string `json:"tags"`
+    }
+    ```
+  </Tab>
+</Tabs>

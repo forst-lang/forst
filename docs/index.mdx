@@ -1,13 +1,25 @@
 ---
 title: "Introduction"
-description: "Write .ft files with validated types, compile to Go, and optionally emit TypeScript declarations."
+description: "Combine the powers of Go and TypeScript. Towards ergonomic backends."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
 
-You write **`.ft`** files with structural typing and validation at the boundary. The compiler emits Go you build with `go build`. You get less boilerplate at the HTTP boundary and in domain logic.
+Forst is a programming language that brings TypeScript's type safety and developer experience to Go.
+
+## Motivation
+
+Our primary goal is to help you move away from TypeScript on the backend:
+
+- Generate **instantly re-usable TypeScript types** from backend endpoints – enabling full-stack development without build steps.
+- **Strong static typing with aggressive inference and smart narrowing** – so you move fast while staying safe.
+- Data types that **automatically validate deeply nested input data** – to keep untrusted user input out of your application logic.
 
 <CatalogOrder />
+
+<Info>
+  Forst is actively developed. Some features (Result types, Go import loading, sidecar) are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+</Info>
 
 ## How it fits your stack
 
@@ -44,14 +56,6 @@ Run `forst generate` when clients need TypeScript types from the same source.
     Import Go packages. Mix `.ft` with `.go`.
   </Card>
 </CardGroup>
-
-## Who this is for
-
-For teams that want Go's runtime with less validation boilerplate and stronger types.
-
-<Info>
-  Forst is actively developed. Some features (Result types, Go import loading, sidecar) are **experimental**. See the [roadmap](/resources/roadmap) for current status.
-</Info>
 
 ## Examples and packages
 

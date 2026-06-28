@@ -4,6 +4,9 @@ description: "Define API boundaries as types with built-in validation."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
+import ShapesConstraintChaining from "/snippets/shapes-constraint-chaining.mdx";
+import ShapesPlaceOrderTags from "/snippets/shapes-place-order-tags.mdx";
+import ShapesAddressCustomer from "/snippets/shapes-address-customer.mdx";
 
 In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation at the boundary.
 
@@ -32,7 +35,7 @@ The struct says nothing about valid ranges. Every handler repeats the same `if` 
 
 <CatalogOrder />
 
-When `placeOrder` runs, the compiler has already proved the shape at compile time where values are known, and emits checks for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
+When `placeOrder` runs, the compiler has already proven the shape at compile time where values are known, and emits checks for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
 
 ## Built-in constraints
 
@@ -49,11 +52,7 @@ The same built-in names work in both. For `Result` narrowing (`Ok`, `Err`) and p
 
 Constraints **chain with dots** on the base type. All chained rules must pass:
 
-```forst
-name:     String.Min(3).Max(10).NotEmpty()
-quantity: Int.Min(1).Max(99)
-tags:     Array(String).Min(1).Max(10)
-```
+<ShapesConstraintChaining />
 
 ### Reference
 
@@ -74,13 +73,7 @@ tags:     Array(String).Min(1).Max(10)
 
 Use constraints on struct fields, function parameters, and nested shapes. Validation follows the data structure, including deeply nested records.
 
-```forst
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-	tags:             Array(String).Max(10),
-}
-```
+<ShapesPlaceOrderTags />
 
 <Info>
   **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards). Full semantic validation of every `ensure` built-in is still maturing; see the [roadmap](/resources/roadmap).
@@ -96,18 +89,7 @@ type PlaceOrderInput = {
 
 Forst shapes use **field names** (camelCase by convention) and compose like TypeScript interfaces:
 
-```forst
-type Address = {
-	line1:   String.Min(1),
-	city:    String.Min(1),
-	zipCode: String.Min(5).Max(10),
-}
-
-type Customer = {
-	name:    String.Min(1),
-	address: Address,
-}
-```
+<ShapesAddressCustomer />
 
 Invalid nested data fails at the same boundary. You do not re-walk the tree in application code.
 

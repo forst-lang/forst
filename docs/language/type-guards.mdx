@@ -3,16 +3,16 @@ title: "Type guards"
 description: "Reusable predicates that integrate with ensure and the type system."
 ---
 
+import TypeGuardsLoggedIn from "/snippets/type-guards-logged-in.mdx";
+import TypeGuardsMutation from "/snippets/type-guards-mutation.mdx";
+import TypeGuardsAppMutation from "/snippets/type-guards-app-mutation.mdx";
+import TypeGuardsCreateTask from "/snippets/type-guards-create-task.mdx";
+
 **Type guards** define domain specific predicates that work with **`ensure`** and narrow types. They extend built in string, integer, and presence constraints.
 
 ## Declare a type guard
 
-```forst
-is (ctx AppContext) LoggedIn() {
-	ensure ctx.sessionId is Present()
-	ensure ctx.user is Present()
-}
-```
+<TypeGuardsLoggedIn />
 
 Syntax: **`is (subject BaseType) GuardName(…)`**, a pure predicate tied to a base type. Use it with **`ensure subject is GuardName()`**.
 
@@ -20,34 +20,15 @@ Syntax: **`is (subject BaseType) GuardName(…)`**, a pure predicate tied to a b
 
 Guards can require extra fields on a shape, modeling cases like "this mutation must include input" or "this context must carry a session":
 
-```forst
-type MutationArg = Shape
-
-is (m MutationArg) Input(input Shape) {
-	ensure m is { input }
-}
-
-is (m MutationArg) Context(ctx Shape) {
-	ensure m is { ctx }
-}
-```
+<TypeGuardsMutation />
 
 Compose guards on types:
 
-```forst
-type AppMutation = MutationArg.Context(AppContext)
-```
+<TypeGuardsAppMutation />
 
 Then enforce them in handlers:
 
-```forst
-func createTask(op AppMutation.Input({
-	input: { name: String }
-})): Result(String, Error) {
-	ensure op.ctx is LoggedIn()
-	return op.input.name
-}
-```
+<TypeGuardsCreateTask />
 
 Unauthorized calls fail at the guard, before task creation logic runs.
 

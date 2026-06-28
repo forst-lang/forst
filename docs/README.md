@@ -51,7 +51,7 @@ Any doc URL also has a `.md` variant (example: `/quickstart.md`). See [Mintlify 
 - Use ` ```text` for directory trees and other non-code layout.
 - Shell, JSON, and TypeScript keep their native fence tags.
 
-Reuse repeated Forst examples via snippet files in [`snippets/`](./snippets/). Each snippet is a fenced `forst` block. Import with an absolute path:
+Reuse repeated Forst examples via snippet files in [`snippets/`](./snippets/). Each snippet uses **Forst** and **Generated Go** tabs (plus **Generated TypeScript** where relevant). Import with an absolute path:
 
 ```mdx
 import CatalogOrder from "/snippets/catalog-order.mdx";

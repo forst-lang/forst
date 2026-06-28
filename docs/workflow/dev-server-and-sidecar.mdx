@@ -3,6 +3,8 @@ title: "Dev server and sidecar"
 description: "Iterate on Forst handlers from Node with forst dev and @forst/sidecar."
 ---
 
+import SidecarGreet from "/snippets/sidecar-greet.mdx";
+
 Not every team rewrites their backend overnight. **`forst dev`** and **`@forst/sidecar`** let you call Forst functions from an existing Node/Express stack while you migrate route by route.
 
 ## forst dev
@@ -58,13 +60,7 @@ npm install @forst/sidecar
 
 The sidecar starts `forst dev` as a child process. Expose a handler in Forst:
 
-```forst
-package handlers
-
-func greet(name: String): String {
-	return "Hello, " + name
-}
-```
+<SidecarGreet />
 
 Call it from Node:
 

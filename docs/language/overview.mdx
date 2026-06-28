@@ -3,21 +3,17 @@ title: "Language overview"
 description: "Go shaped syntax, structural typing, and explicit control flow."
 ---
 
+import OverviewHelloFmt from "/snippets/overview-hello-fmt.mdx";
+import OverviewUserGreet from "/snippets/overview-user-greet.mdx";
+import OverviewPlaceOrderCall from "/snippets/overview-place-order-call.mdx";
+
 Forst extends familiar Go syntax with **structural typing**, constraints, and narrowing. Most `.ft` files look like Go. Where they differ, types behave like validated API schemas.
 
 ## Go shaped syntax
 
 Ordinary Forst programs look like Go. A minimal executable is identical on both sides:
 
-```forst
-package main
-
-import "fmt"
-
-func main() {
-	fmt.Println("Hello World!")
-}
-```
+<OverviewHelloFmt />
 
 Use **`.ft`** files with the Forst CLI. The plain Go subset builds with `go build`. Forst extensions transpile to Go for production.
 
@@ -25,25 +21,11 @@ Use **`.ft`** files with the Forst CLI. The plain Go subset builds with `go buil
 
 Forst types are defined by **shape**. Inheritance trees are not used. Function parameters and return values use record syntax:
 
-```forst
-type User = {
-	name: String,
-	email: String,
-}
-
-func greet(u: User): String {
-	return "Hello, " + u.name
-}
-```
+<OverviewUserGreet />
 
 Anonymous records work at call sites:
 
-```forst
-placeOrder({
-	stockKeepingUnit: "ITEM-1",
-	quantity:         2,
-})
-```
+<OverviewPlaceOrderCall />
 
 ## Explicit where it matters
 

@@ -1,0 +1,31 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    error UnknownStockKeepingUnit {}
+
+    error InsufficientStock {
+    	stockKeepingUnit: String,
+    	requested:        Int,
+    	available:        Int,
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type UnknownStockKeepingUnit struct{}
+
+    func (e UnknownStockKeepingUnit) Error() string {
+    	return "UnknownStockKeepingUnit"
+    }
+
+    type InsufficientStock struct {
+    	StockKeepingUnit string
+    	Requested        int
+    	Available        int
+    }
+
+    func (e InsufficientStock) Error() string { /* ... */ }
+    ```
+  </Tab>
+</Tabs>

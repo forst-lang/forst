@@ -1,0 +1,27 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    type User = {
+    	name: String,
+    	email: String,
+    }
+
+    func greet(u: User): String {
+    	return "Hello, " + u.name
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type User struct {
+    	name  string `json:"name"`
+    	email string `json:"email"`
+    }
+
+    func greet(u User) string {
+    	return "Hello, " + u.name
+    }
+    ```
+  </Tab>
+</Tabs>

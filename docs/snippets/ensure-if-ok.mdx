@@ -1,0 +1,17 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    if x is Ok() {
+    	println(x) // x narrowed inside this branch
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    if x, ok := x.(Ok); ok {
+    	println(x.Value)
+    }
+    ```
+  </Tab>
+</Tabs>

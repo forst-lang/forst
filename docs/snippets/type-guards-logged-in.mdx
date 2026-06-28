@@ -1,0 +1,24 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    is (ctx AppContext) LoggedIn() {
+    	ensure ctx.sessionId is Present()
+    	ensure ctx.user is Present()
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func G_LoggedIn(ctx AppContext) error {
+    	if ctx.SessionID == nil {
+    		return /* Present() failure */
+    	}
+    	if ctx.User == nil {
+    		return /* Present() failure */
+    	}
+    	return nil
+    }
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,17 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    name:     String.Min(3).Max(10).NotEmpty()
+    quantity: Int.Min(1).Max(99)
+    tags:     Array(String).Min(1).Max(10)
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build — constraints on struct fields
+    name     string   // len(name) checked at boundary
+    quantity int      // numeric range checked at boundary
+    tags     []string // len(tags) checked at boundary
+    ```
+  </Tab>
+</Tabs>

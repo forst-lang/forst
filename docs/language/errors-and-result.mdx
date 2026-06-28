@@ -3,66 +3,37 @@ title: "Errors and Result"
 description: "Nominal domain errors and explicit success/failure types."
 ---
 
+import ErrorsNominal from "/snippets/errors-nominal.mdx";
+import ErrorsEnsureStock from "/snippets/errors-ensure-stock.mdx";
+import ErrorsNotPositive from "/snippets/errors-not-positive.mdx";
+import ErrorsOkIntMain from "/snippets/errors-ok-int-main.mdx";
+import ErrorsGF from "/snippets/errors-g-f.mdx";
+import ErrorsOkIntReturn from "/snippets/errors-ok-int-return.mdx";
+import ErrorsLogReport from "/snippets/errors-log-report.mdx";
+
 Domain failures are **nominal error types** and **`Result`** values. Each variant has a name and payload in Go's "errors as values" style.
 
 ## Nominal errors
 
 Declare named failure kinds with payloads:
 
-```forst
-error UnknownStockKeepingUnit {}
-
-error InsufficientStock {
-	stockKeepingUnit: String,
-	requested:        Int,
-	available:        Int,
-}
-```
+<ErrorsNominal />
 
 Use them with **`ensure … or …`**:
 
-```forst
-ensure avail is Ok()
-ensure in.quantity is Max(avail) or InsufficientStock({
-	stockKeepingUnit: in.stockKeepingUnit,
-	requested:        in.quantity,
-	available:        avail,
-})
-```
+<ErrorsEnsureStock />
 
 Each error variant is a distinct type. Callers can branch on structure instead of parsing error strings.
 
 ### Simple payload example
 
-```forst
-error NotPositive {
-	message: String
-}
-
-func validatePositive(n Int) {
-	ensure n is GreaterThan(0) or NotPositive({
-		message: "n must be greater than 0",
-	})
-}
-```
+<ErrorsNotPositive />
 
 ## Result types
 
 Functions that can fail with typed errors return **`Result(Success, Failure)`**. The failure side is constrained to the **`Error`** family today.
 
-```forst
-func okInt() {
-	n := 42
-	ensure n is GreaterThan(0)
-	return n
-}
-
-func main() {
-	x := okInt()
-	ensure x is Ok()
-	println(x)
-}
-```
+<ErrorsOkIntMain />
 
 **`Ok`** and **`Err`** serve as discriminants for **`is`** / **`ensure`**. They are not yet general value constructors for building **`Result`** values at every call site.
 
@@ -80,39 +51,19 @@ Forst infers a function's return type from:
 
 When the last statement is an expression and the function has no declared return type, that expression's value becomes the function return. Generated Go emits an explicit **`return`** for it.
 
-```forst
-func g(): Result(Int, Error) {
-	return 1
-}
-
-func f() {
-	g()
-}
-```
+<ErrorsGF />
 
 Here **`f`** also returns **`Result(Int, Error)`**; generated Go contains **`return g()`**.
 
 Explicit **`return`** is still fine (and clearer when intent is ambiguous):
 
-```forst
-func okInt() {
-	n := 42
-	ensure n is GreaterThan(0)
-	return n
-}
-```
+<ErrorsOkIntReturn />
 
 ### Trailing calls and Go imports
 
 This differs from Go **statement** semantics. A trailing call whose Go signature is **`(T, error)`** is typed in Forst as **`Result(T, Error)`** when its result is used — including as an implicit return:
 
-```forst
-import "fmt"
-
-func logAndReport(msg String) {
-	fmt.Println(msg)
-}
-```
+<ErrorsLogReport />
 
 With no declared return type, **`logAndReport`** returns **`Result(Int, Error)`**, not void. To log for side effects only, use Forst **`println`** / **`print`**, or declare a void return on a [Provider contract method](/language/providers).
 

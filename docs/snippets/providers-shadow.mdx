@@ -1,0 +1,29 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    with {
+    	Logger: &ProductionLogger {},
+    	Clock:  &SystemClock {},
+    } {
+    	with { Clock: &FakeClock { fixedMs: 2000 } } {
+    		// Clock shadows outer; Logger still &ProductionLogger
+    		expireToken(Token { id: "t1", expiresAt: 500 })
+    	}
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    outer := Providers_expireToken{
+    	Logger: &ProductionLogger{},
+    	Clock:  &SystemClock{},
+    }
+    inner := Providers_expireToken{
+    	Logger: outer.Logger,
+    	Clock:  &FakeClock{FixedMs: 2000},
+    }
+    expireToken(inner, Token{ID: "t1", ExpiresAt: 500})
+    ```
+  </Tab>
+</Tabs>

@@ -3,16 +3,18 @@ title: "Ensure and narrowing"
 description: "Explicit validation and type refinement with ensure and is."
 ---
 
+import EnsureSpeed from "/snippets/ensure-speed.mdx";
+import EnsureNil from "/snippets/ensure-nil.mdx";
+import EnsureNotErr from "/snippets/ensure-not-err.mdx";
+import EnsureCatalog from "/snippets/ensure-catalog.mdx";
+import EnsurePlaceOrderOk from "/snippets/ensure-place-order-ok.mdx";
+import EnsureIfOk from "/snippets/ensure-if-ok.mdx";
+
 Use **`ensure`** with **`is`** to validate at runtime and narrow types. Forst has no exceptions. Coercion is never silent.
 
 ## Basic ensure
 
-```forst
-func mustNotExceedSpeedLimit(speed Int) {
-	ensure speed is LessThan(100)
-		or TooFast("Speed must not exceed 100 km/h")
-}
-```
+<EnsureSpeed />
 
 - **`ensure x is Condition`**: runtime check; failure returns or propagates an error depending on context
 - **`or …`**: attach a domain-specific failure when the condition does not hold
@@ -23,44 +25,23 @@ The compiler understands the **`is`** operator for built-in constraints (`LessTh
 
 Forst uses **`Nil`** for absence checks today. Full optional **value types** (`T | Nil`) are still [planned](/resources/roadmap); what works now is **`nil`** on nilable types (pointers, `Map`, `Array`, `Error`), **`ensure … is Nil()`**, and **`*T`** [`.Present()` / `.Nil()`](/language/shapes-and-constraints) on pointer fields.
 
-```forst
-ensure err is Nil()
-	or err
-```
+<EnsureNil />
 
 Negated forms work for error checks:
 
-```forst
-ensure !err
-	or err
-```
+<EnsureNotErr />
 
 ## Result and Ok narrowing
 
 Map lookups and other partial operations yield **`Result(V, Error)`** instead of comma-ok tuples:
 
-```forst
-avail := catalog[in.stockKeepingUnit]
-ensure avail is Ok()
-ensure in.quantity is Max(avail) or InsufficientStock({
-	stockKeepingUnit: in.stockKeepingUnit,
-	requested:        in.quantity,
-	available:        avail,
-})
-```
+<EnsureCatalog />
 
 **Comma-ok assignment (`v, ok := m[k]`) is not Forst syntax.** Handle failure explicitly with **`ensure avail is Ok()`** before using the success value.
 
 At call sites, narrow success payloads:
 
-```forst
-x := placeOrder({
-	stockKeepingUnit: "ITEM-1",
-	quantity:         2,
-})
-ensure x is Ok() or x
-// x is narrowed to the success type here
-```
+<EnsurePlaceOrderOk />
 
 <Info>
   **`Result`** and **`ensure x is Ok()`** narrowing are **experimental**. Behavior and diagnostics are still maturing. See the [roadmap](/resources/roadmap).
@@ -70,11 +51,7 @@ ensure x is Ok() or x
 
 `if x is …` can refine a variable's type inside the branch. That helps when you need conditional logic instead of early return:
 
-```forst
-if x is Ok() {
-	println(x) // x narrowed inside this branch
-}
-```
+<EnsureIfOk />
 
 Branch merge and narrowing after **`ensure`** successors are still being expanded across all compiler paths.
 

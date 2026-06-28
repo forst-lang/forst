@@ -1,0 +1,29 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    avail := catalog[in.stockKeepingUnit]
+    ensure avail is Ok()
+    ensure in.quantity is Max(avail) or InsufficientStock({
+    	stockKeepingUnit: in.stockKeepingUnit,
+    	requested:        in.quantity,
+    	available:        avail,
+    })
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    avail, ok := catalog[in.StockKeepingUnit]
+    if !ok {
+    	return /* missing key error */
+    }
+    if in.Quantity > avail {
+    	return InsufficientStock{
+    		StockKeepingUnit: in.StockKeepingUnit,
+    		Requested:        in.Quantity,
+    		Available:        avail,
+    	}
+    }
+    ```
+  </Tab>
+</Tabs>

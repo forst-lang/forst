@@ -1,0 +1,26 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    x := placeOrder({
+    	stockKeepingUnit: "ITEM-1",
+    	quantity:         2,
+    })
+    ensure x is Ok() or x
+    // x is narrowed to the success type here
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    x, err := placeOrder(PlaceOrderInput{
+    	StockKeepingUnit: "ITEM-1",
+    	Quantity:         2,
+    })
+    if err != nil {
+    	return err
+    }
+    // x is the success value here
+    _ = x
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,26 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    func main() {
+    	with {
+    		Logger: &ProductionLogger{},
+    		Clock:  &SystemClock {},
+    	} {
+    		expireToken(Token { id: "x", expiresAt: 1 })
+    	}
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func main() {
+    	providers := Providers_expireToken{
+    		Logger: &ProductionLogger{},
+    		Clock:  &SystemClock{},
+    	}
+    	expireToken(providers, Token{ID: "x", ExpiresAt: 1})
+    }
+    ```
+  </Tab>
+</Tabs>

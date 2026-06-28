@@ -1,0 +1,31 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    type Address = {
+    	line1:   String.Min(1),
+    	city:    String.Min(1),
+    	zipCode: String.Min(5).Max(10),
+    }
+
+    type Customer = {
+    	name:    String.Min(1),
+    	address: Address,
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type Address struct {
+    	line1   string `json:"line1"`
+    	city    string `json:"city"`
+    	zipCode string `json:"zipCode"`
+    }
+
+    type Customer struct {
+    	name    string  `json:"name"`
+    	address Address `json:"address"`
+    }
+    ```
+  </Tab>
+</Tabs>

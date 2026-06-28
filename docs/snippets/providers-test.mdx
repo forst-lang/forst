@@ -1,0 +1,28 @@
+<Tabs>
+  <Tab title="Forst">
+    ```forst
+    func TestExpireToken_expired(t *testing.T) {
+    	token := Token { id: "t1", expiresAt: 500 }
+    	with {
+    		Logger: &NopLogger {},
+    		Clock:  &FakeClock { fixedMs: 1000 },
+    	} {
+    		expireToken(token)
+    	}
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    func TestExpireToken_expired(t *testing.T) {
+    	token := Token{ID: "t1", ExpiresAt: 500}
+    	providers := Providers_expireToken{
+    		Logger: &NopLogger{},
+    		Clock:  &FakeClock{FixedMs: 1000},
+    	}
+    	expireToken(providers, token)
+    }
+    ```
+  </Tab>
+</Tabs>
