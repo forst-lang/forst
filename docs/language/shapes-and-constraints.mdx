@@ -1,0 +1,145 @@
+---
+title: "Shapes and constraints"
+description: "Define API boundaries as types with built-in validation."
+---
+
+The most common backend mistake is letting **untrusted input** reach business logic. In Go, you usually declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation and rejects invalid data at the boundary.
+
+## The problem in Go
+
+```forst
+type PlaceOrderInput struct {
+	StockKeepingUnit string
+	Quantity         int
+}
+
+func placeOrder(in PlaceOrderInput) (string, error) {
+	if len(in.StockKeepingUnit) < 1 || len(in.StockKeepingUnit) > 64 {
+		return "", errors.New("invalid stock keeping unit")
+	}
+	if in.Quantity < 1 || in.Quantity > 99 {
+		return "", errors.New("invalid quantity")
+	}
+	// business logic...
+}
+```
+
+The struct says nothing about valid ranges. Every handler repeats the same `if` chains, or you maintain a separate validator library.
+
+## The Forst approach
+
+```forst
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+}
+
+func placeOrder(in: PlaceOrderInput) {
+	// in is already validated
+}
+```
+
+When `placeOrder` runs, the compiler has already proved the shape at compile time where values are known, and emits checks for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
+
+## Built-in constraints
+
+Constraints appear in two places:
+
+| Context | Syntax | Purpose |
+| --- | --- | --- |
+| **On types** (shapes, params) | `String.Min(1).Max(64)` | Validate at the boundary when data enters |
+| **In function bodies** | `ensure x is Min(1)` | Assert invariants at runtime |
+
+The same built-in names work in both. For `Result` narrowing (`Ok`, `Err`) and pointer checks (`Nil`, `Present`), see [Ensure and narrowing](/language/ensure-and-narrowing).
+
+### Chaining
+
+Constraints **chain with dots** on the base type. All chained rules must pass:
+
+```forst
+name:     String.Min(3).Max(10).NotEmpty()
+quantity: Int.Min(1).Max(99)
+tags:     Array(String).Min(1).Max(10)
+```
+
+### Reference
+
+| Type | Constraints | Meaning |
+| --- | --- | --- |
+| **`String`** | `.Min(n)`, `.Max(n)` | String **length** bounds |
+| | `.HasPrefix("…")` | Must start with literal prefix |
+| | `.Contains("…")` | Must contain substring |
+| | `.NotEmpty()` | `len != 0` |
+| **`Int`** | `.Min(n)`, `.Max(n)` | Inclusive numeric bounds |
+| | `.LessThan(n)` | Strictly below `n` |
+| | `.GreaterThan(n)` | Strictly above `n` |
+| **`Float`** | `.Min(n)`, `.Max(n)`, `.GreaterThan(n)` | Same numeric semantics as `Int` |
+| **`Array(T)`** | `.Min(n)`, `.Max(n)` | **Element count** bounds |
+| | `.NotEmpty()` | At least one element |
+| **`Bool`** | `.True()`, `.False()` | Must be `true` or `false` |
+| **`*T` (pointers)** | `.Nil()`, `.Present()` | Optional vs required fields |
+
+Use constraints on struct fields, function parameters, and nested shapes. Validation follows the data structure, including deeply nested records.
+
+```forst
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+	tags:             Array(String).Max(10),
+}
+```
+
+<Info>
+  **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards). Full semantic validation of every `ensure` built-in is still maturing; see the [roadmap](/resources/roadmap).
+</Info>
+
+**Ensure-only or reserved** (not typically chained on types):
+
+- **`Ok()` / `Err()`**: `Result` discriminants; use in `ensure x is Ok()` ([Ensure and narrowing](/language/ensure-and-narrowing))
+- **`Valid()`**: reserved placeholder; prefer explicit guards
+- **`Value(…)`**: literal refinement in assertion types (advanced)
+
+## Structural shapes
+
+Forst shapes use **field names** (camelCase by convention) and compose like TypeScript interfaces:
+
+```forst
+type Address = {
+	line1:   String.Min(1),
+	city:    String.Min(1),
+	zipCode: String.Min(5).Max(10),
+}
+
+type Customer = {
+	name:    String.Min(1),
+	address: Address,
+}
+```
+
+Invalid nested data fails at the same boundary. You do not re-walk the tree in application code.
+
+## What gets emitted
+
+The compiler lowers constraints to plain Go checks before your function body runs: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import. Generated Go stays readable and uses standard error returns. There is no hidden magic at runtime.
+
+## Try it
+
+From the Forst repository:
+
+```bash
+task example:basic
+task example:ensure
+```
+
+Examples live under [`examples/in/`](https://github.com/forst-lang/forst/tree/main/examples/in/).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    Assert invariants inside functions with `ensure … is …`.
+  </Card>
+  <Card title="Type guards" icon="code-branch" href="/language/type-guards">
+    Reusable custom predicates on your domain types.
+  </Card>
+</CardGroup>

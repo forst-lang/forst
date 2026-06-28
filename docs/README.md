@@ -1,44 +1,53 @@
-# Mintlify Starter Kit
+# Forst documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Public documentation for [Forst](https://github.com/forst-lang/forst), built with [Mintlify](https://mintlify.com).
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Preview locally
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+Install the [Mintlify CLI](https://www.npmjs.com/package/mint):
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
-
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
+```bash
 npm i -g mint
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+From this directory:
 
-```
+```bash
+cd docs
 mint dev
 ```
 
-View your local preview at `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000). The preview updates as you edit MDX files.
 
-## Publishing changes
+## Validate links
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+```bash
+cd docs
+mint broken-links
+```
 
-## Need help?
+## Publishing
 
-### Troubleshooting
+Changes deploy via the Mintlify GitHub app when pushed to the default branch (if configured in your Mintlify dashboard).
 
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
+## Contributing
 
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
-- [Mintlify community](https://mintlify.com/community)
+- Source of truth for feature status: [`ROADMAP.md`](../ROADMAP.md)
+- Copy and examples: [`README.md`](../README.md) and [`examples/in/`](../examples/in/)
+- Keep experimental features labeled honestly. Match roadmap status.
+
+When adding pages, update [`docs.json`](./docs.json) navigation.
+
+## Code samples
+
+Use ` ```forst` for Forst source in MDX. Shell, JSON, and TypeScript keep their native fence tags.
+
+Syntax highlighting uses a TextMate grammar at [`languages/forst.tmLanguage.json`](./languages/forst.tmLanguage.json). When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) and keep `"name": "forst"` (lowercase for Mintlify/Shiki fence tags).
+
+Brand icons for cards live in [`icons/`](./icons/). TypeScript logo from [typescriptlang.org](https://www.typescriptlang.org/branding/) (Wikimedia). Go blue wordmark from [go.dev/brand](https://go.dev/brand) (Wikimedia).
+
+The navbar logo and favicon match the VS Code extension **FT** mark in [`packages/vscode-forst/icons/`](../packages/vscode-forst/icons/). When those icons change, sync [`logo/light.svg`](./logo/light.svg), [`logo/dark.svg`](./logo/dark.svg), and [`favicon.svg`](./favicon.svg).
+
+## Internal docs
+
+Adoption and planning notes live in [`adoption/`](./adoption/) (not linked from public nav).

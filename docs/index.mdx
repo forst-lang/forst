@@ -1,97 +1,70 @@
 ---
 title: "Introduction"
-description: "Welcome to the new home for your documentation"
+description: "An ergonomic language for backends with the type safety of TypeScript. Compiles to Go."
 ---
 
-## Setting up
+Forst is a **backend language** with structural types, validation built into the type system, and output that lives in the Go ecosystem. Write `.ft` files and ship with `go build`. Less boilerplate at the HTTP boundary and in your domain logic.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={3}>
+  <Card title="Validate at the boundary" icon="shield-check">
+    Attach constraints to your types so untrusted input is rejected before it reaches your logic.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Full Go ecosystem" icon="/icons/golang.svg">
+    Modules, packages, tests, CI, and deployment on the standard Go toolchain.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Explicit control flow" icon="filter">
+    `ensure`, nominal errors, and `Result` give you failures you can trace, written as values.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## How it fits your stack
 
-Everything you need to create world-class documentation.
+```mermaid
+flowchart LR
+  ft[".ft sources"]
+  goOut["Generated Go"]
+  deploy["go build / deploy"]
+  dts["generated/types.d.ts"]
+  clients["API clients"]
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+  ft --> goOut --> deploy
+  ft -.-> dts -.-> clients
+```
 
-## Need inspiration?
+You define shapes and handlers in Forst. The compiler validates them and emits Go for production. When you need shared client types, `forst generate` can emit declarations from the same source.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Why Forst?" icon="circle-question" href="/why">
+    Vision, principles, and what we refuse to build.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install, write your first `.ft` file, run it.
+  </Card>
+  <Card title="Language overview" icon="book" href="/language/overview">
+    Go shaped syntax, structural types, explicit control flow.
+  </Card>
+  <Card title="Validated shapes" icon="table-columns" href="/language/shapes-and-constraints">
+    Types as schemas with built-in constraints.
+  </Card>
+  <Card title="Go interop" icon="/icons/golang.svg" href="/interop/go">
+    Import Go packages; mix `.ft` with `.go`.
+  </Card>
+</CardGroup>
+
+## Who this is for
+
+Backend developers who want **Go's runtime and deployment** with **less validation boilerplate** and **stronger types**, whether you are starting fresh or mixing Forst into an existing module.
+
+<Info>
+  Forst is actively developed. Some features (Result types, Go import loading, sidecar) are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+</Info>
+
+## Examples and packages
+
+- **Compiler examples:** [github.com/forst-lang/forst/tree/main/examples/in](https://github.com/forst-lang/forst/tree/main/examples/in)
+- **npm compiler:** [`@forst/cli`](https://www.npmjs.com/package/@forst/cli)
+- **Gradual adoption:** [`@forst/sidecar`](https://www.npmjs.com/package/@forst/sidecar), for invoking Forst from Node during migration
+
+For client type generation, see [TypeScript interop](/interop/typescript).

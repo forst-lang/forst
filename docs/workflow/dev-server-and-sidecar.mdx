@@ -1,0 +1,129 @@
+---
+title: "Dev server and sidecar"
+description: "Iterate on Forst handlers from Node with forst dev and @forst/sidecar."
+---
+
+Not every team rewrites their backend overnight. **`forst dev`** and **`@forst/sidecar`** let you call Forst functions from an existing Node/Express stack while you migrate route by route.
+
+## forst dev
+
+The dev server watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract:
+
+```bash
+npx forst dev -root ./my-service -port 8080 -config ./ftconfig.json
+```
+
+### Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Server liveness |
+| `GET` | `/functions` | List invokable functions |
+| `POST` | `/invoke` | Execute a function with JSON payload |
+| `GET` | `/types` | Type information for tooling |
+| `GET` | `/version` | Compiler version and **`contractVersion`** |
+
+The invoke envelope uses JSON request/response bodies. Clients should check **`contractVersion`** on `/version` when upgrading sidecar or compiler versions.
+
+### Configuration
+
+Share discovery rules with `forst generate` via **`ftconfig.json`**:
+
+```json
+{
+  "server": {
+    "port": "8080",
+    "cors": true
+  },
+  "dev": {
+    "logLevel": "info",
+    "watch": false
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": ["**/node_modules/**", "**/client/**"]
+  }
+}
+```
+
+## @forst/sidecar
+
+Install in your Node project:
+
+```bash
+npm install @forst/sidecar
+```
+
+### Spawn mode (local development)
+
+The sidecar starts `forst dev` as a child process:
+
+```typescript
+import { ForstSidecar } from "@forst/sidecar";
+
+const sidecar = ForstSidecar({
+  mode: "development",
+  port: 8080,
+  root: "./forst-handlers",
+});
+
+await sidecar.start();
+const result = await sidecar.invoke("package", "functionName", { /* payload */ });
+await sidecar.stop();
+```
+
+### Connect mode (CI / monorepo)
+
+Point at an already-running server:
+
+```typescript
+const sidecar = ForstSidecar({
+  mode: "connect",
+  port: 8080,
+  host: "localhost",
+});
+```
+
+### Watch and generate
+
+Configure **`watchRoots`** and optional **`watchGenerate`** so the sidecar debounces **`forst generate`** after reloads. That keeps `generated/types.d.ts` aligned while you edit `.ft` files.
+
+Call **`generateTypes()`** with **`configPath`** to pass **`-config`** through to the compiler.
+
+## Error handling
+
+The sidecar client throws typed errors:
+
+- **`DevServerInvokeRejected`**: `success: false` in the invoke response
+- **`DevServerHttpFailure`**: HTTP errors, with optional parsed server error bodies
+
+After **`start()`**, a **version check** compares `/version` **`contractVersion`** and compiler semver when parseable.
+
+## When to use this vs pure Go
+
+| Scenario | Approach |
+| --- | --- |
+| New greenfield service | Compile to Go, deploy directly |
+| Existing Express/TS backend | Sidecar + `forst generate` for incremental routes |
+| Full stack type sync | `forst generate` in CI; import `generated/types` |
+
+<Warning>
+  Dev server and sidecar integration are **production-capable for early adopters** but still marked **experimental** on the roadmap. Pin versions and run integration tests in your pipeline.
+</Warning>
+
+## Examples
+
+- Sidecar tests: [`examples/in/rfc/sidecar/tests`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/sidecar/tests)
+- Client integration: [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration)
+- Run locally: `task example:sidecar-local`
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="TypeScript interop" icon="/icons/typescript.svg" href="/interop/typescript">
+    Generate `.d.ts` from the same sources.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli">
+    All `forst` subcommands.
+  </Card>
+</CardGroup>

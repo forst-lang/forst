@@ -1,0 +1,112 @@
+---
+title: "Ensure and narrowing"
+description: "Explicit validation and type refinement with ensure and is."
+---
+
+Forst uses **`ensure`** statements with the **`is`** operator to validate conditions at runtime and refine types in control flow. Validation stays explicit and traceable. There are no exceptions and no silent coercion.
+
+## Basic ensure
+
+```forst
+func mustNotExceedSpeedLimit(speed Int) {
+	ensure speed is LessThan(100)
+		or TooFast("Speed must not exceed 100 km/h")
+}
+```
+
+- **`ensure x is Condition`**: runtime check; failure returns or propagates an error depending on context
+- **`or …`**: attach a domain-specific failure when the condition does not hold
+
+The compiler understands the **`is`** operator for built-in constraints (`LessThan`, `Min`, `Present`, `Ok`, …).
+
+## Nil and presence
+
+Optional values use **`Nil`** instead of a separate `undefined` universe:
+
+```forst
+ensure err is Nil()
+	or err
+```
+
+Negated forms work for error checks:
+
+```forst
+ensure !err
+	or err
+```
+
+## Result and Ok narrowing
+
+Map lookups and other partial operations yield **`Result(V, Error)`** instead of comma-ok tuples:
+
+```forst
+avail := catalog[in.stockKeepingUnit]
+ensure avail is Ok()
+ensure in.quantity is Max(avail) or InsufficientStock({
+	stockKeepingUnit: in.stockKeepingUnit,
+	requested:        in.quantity,
+	available:        avail,
+})
+```
+
+**Comma-ok assignment (`v, ok := m[k]`) is not Forst syntax.** Handle failure explicitly with **`ensure avail is Ok()`** before using the success value.
+
+At call sites, narrow success payloads:
+
+```forst
+x := placeOrder({
+	stockKeepingUnit: "ITEM-1",
+	quantity:         2,
+})
+ensure x is Ok() or x
+// x is narrowed to the success type here
+```
+
+<Info>
+  **`Result`** and **`ensure x is Ok()`** narrowing are **experimental**. Behavior and diagnostics are still maturing. See the [roadmap](/resources/roadmap).
+</Info>
+
+## If-branch narrowing
+
+`if x is …` can refine a variable's type inside the branch. That helps when you need conditional logic instead of early return:
+
+```forst
+if x is Ok() {
+	println(x) // x narrowed inside this branch
+}
+```
+
+Branch merge and narrowing after **`ensure`** successors are still being expanded across all compiler paths.
+
+## Compared to Go and TypeScript
+
+| Approach | Drawback |
+| --- | --- |
+| Go type assertions `x.(T)` | Can panic; no compile-time narrowing |
+| TS type assertions `as T` | Bypasses checking; unsafe |
+| Exceptions | Non-local control flow; hard to trace |
+
+Forst requires **`ensure`** with English keywords so validation stays visible in the source.
+
+## What gets emitted
+
+Ensure statements lower to Go error returns and conditionals. Failures are structured values returned through Go's error path. Custom failures use nominal error types when you provide them with **`or`**.
+
+## Try it
+
+```bash
+task example:ensure
+task example:result-ensure
+task example:result-if
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Errors and Result" icon="triangle-exclamation" href="/language/errors-and-result">
+    Nominal error types and structured failures.
+  </Card>
+  <Card title="Type guards" icon="code-branch" href="/language/type-guards">
+    User-defined predicates for domain rules.
+  </Card>
+</CardGroup>

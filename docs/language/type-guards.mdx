@@ -1,0 +1,88 @@
+---
+title: "Type guards"
+description: "Reusable predicates that integrate with ensure and the type system."
+---
+
+Built-in constraints cover strings, integers, and presence. **Type guards** let you define **domain-specific predicates** that work with **`ensure`** and narrow types, without type assertions or branded-type hacks.
+
+## Declare a type guard
+
+```forst
+is (ctx AppContext) LoggedIn() {
+	ensure ctx.sessionId is Present()
+	ensure ctx.user is Present()
+}
+```
+
+Syntax: **`is (subject BaseType) GuardName(…)`**, a pure predicate tied to a base type. Use it with **`ensure subject is GuardName()`**.
+
+## Shape refinement guards
+
+Guards can require extra fields on a shape, modeling cases like "this mutation must include input" or "this context must carry a session":
+
+```forst
+type MutationArg = Shape
+
+is (m MutationArg) Input(input Shape) {
+	ensure m is { input }
+}
+
+is (m MutationArg) Context(ctx Shape) {
+	ensure m is { ctx }
+}
+```
+
+Compose guards on types:
+
+```forst
+type AppMutation = MutationArg.Context(AppContext)
+```
+
+Then enforce them in handlers:
+
+```forst
+func createTask(op AppMutation.Input({
+	input: { name: String }
+})): Result(String, Error) {
+	ensure op.ctx is LoggedIn()
+	return op.input.name
+}
+```
+
+Unauthorized calls fail at the guard, before task creation logic runs.
+
+## Why guards instead of free functions?
+
+A standalone `func isLoggedIn(ctx AppContext) bool` validates at runtime but does **not narrow** `ctx` for the typechecker. Type guards are first-class: the compiler records the refined type after a successful **`ensure`**.
+
+## Status
+
+<Info>
+  Type guards are **experimental**. Parsing, typechecking, and Go emission work for the patterns above. Narrowing across all control-flow positions is still being expanded. See [ROADMAP](https://github.com/forst-lang/forst/blob/main/ROADMAP.md#guards-ensure-and-narrowing).
+</Info>
+
+## What gets emitted
+
+Guards transpile to Go functions or inline checks used by **`ensure`** lowering, with structured errors where you supply **`or`** clauses.
+
+## Try it
+
+From the Forst repository:
+
+```bash
+task example:shape-guard
+task example:basic-guard
+```
+
+Sources: [`examples/in/rfc/guard/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/guard/)
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">
+    Built-in constraints on primitive fields.
+  </Card>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    Using `ensure … is …` at call sites.
+  </Card>
+</CardGroup>

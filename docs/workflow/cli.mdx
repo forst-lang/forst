@@ -1,0 +1,115 @@
+---
+title: "CLI reference"
+description: "forst run, build, generate, dev, lsp, and other commands."
+---
+
+The **`forst`** CLI transpiles `.ft` sources, runs programs, generates TypeScript output, and starts development services. Install via [`@forst/cli`](/installation) or a native binary.
+
+## Default compile and run
+
+With no subcommand, `forst` compiles a single `.ft` file:
+
+```bash
+forst path/to/file.ft          # compile
+forst run path/to/file.ft      # compile, build, and run
+forst build path/to/file.ft    # compile and build only
+```
+
+Common flags (see `forst --help`):
+
+| Flag | Purpose |
+| --- | --- |
+| `-root <dir>` | Merge same-package `.ft` files under a directory tree |
+| `-log-level` | `trace`, `debug`, `info`, `warn`, `error` |
+| `-watch` | Recompile on file changes |
+
+## `forst generate`
+
+Emit TypeScript declarations and client stubs from Forst sources:
+
+```bash
+forst generate ./my-service
+forst generate ./handlers/orders.ft
+forst generate -config ./ftconfig.json ./my-service
+```
+
+Uses the same file discovery rules as `forst dev`. Output typically lands in `generated/` and `client/` relative to the target.
+
+## `forst dev`
+
+Start the HTTP development server for function discovery, invocation, and types:
+
+```bash
+forst dev -root ./my-service -port 8080
+forst dev -config ./ftconfig.json -root .
+```
+
+See [Dev server and sidecar](/workflow/dev-server-and-sidecar).
+
+## `forst lsp`
+
+Start the language server (JSON-RPC over HTTP on `POST /`):
+
+```bash
+forst lsp -port 8081 -log-level info
+```
+
+Used by the VS Code extension. This is HTTP LSP rather than stdio. Other editors need a similar bridge.
+
+## `forst fmt`
+
+Format `.ft` sources:
+
+```bash
+forst fmt path/to/file.ft
+```
+
+## `forst test`
+
+Run Forst tests (discovery and emit bridge):
+
+```bash
+forst test ./...
+```
+
+## `forst dump`
+
+Debug compiler phases (lexer, parser, typechecker, transformer):
+
+```bash
+forst dump --file path/to/file.ft --format pretty
+forst dump --file path/to/file.ft --phase typechecker
+```
+
+Useful when reporting compiler bugs.
+
+## `forst version`
+
+```bash
+forst version
+forst --version
+```
+
+Prints semver, commit, and build date.
+
+## npm wrapper
+
+When installed via `@forst/cli`:
+
+```bash
+npx forst run hello.ft
+npx forst --forst-cli-info    # package version, binary path, compiler version
+```
+
+Set **`FORST_BINARY`** to skip download in CI.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    First commands in context.
+  </Card>
+  <Card title="Editor workflow" icon="code" href="/workflow/editor">
+    LSP integration in VS Code.
+  </Card>
+</CardGroup>

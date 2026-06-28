@@ -1,0 +1,109 @@
+---
+title: "Errors and Result"
+description: "Nominal domain errors and explicit success/failure types."
+---
+
+Backend code fails in domain specific ways: unknown SKU, insufficient stock, invalid session. Forst models those failures as **first class error types** and **`Result`** values, aligned with Go's error as value philosophy and without attaching meaning to generic strings.
+
+## Nominal errors
+
+Declare named failure kinds with payloads:
+
+```forst
+error UnknownStockKeepingUnit {}
+
+error InsufficientStock {
+	stockKeepingUnit: String,
+	requested:        Int,
+	available:        Int,
+}
+```
+
+Use them with **`ensure … or …`**:
+
+```forst
+ensure avail is Ok()
+ensure in.quantity is Max(avail) or InsufficientStock({
+	stockKeepingUnit: in.stockKeepingUnit,
+	requested:        in.quantity,
+	available:        avail,
+})
+```
+
+Each error variant is a distinct type. Callers can branch on structure instead of parsing error strings.
+
+### Simple payload example
+
+```forst
+error NotPositive {
+	message: String
+}
+
+func validatePositive(n Int) {
+	ensure n is GreaterThan(0) or NotPositive({
+		message: "n must be greater than 0",
+	})
+}
+```
+
+## Result types
+
+Functions that can fail with typed errors return **`Result(Success, Failure)`**. The failure side is constrained to the **`Error`** family today.
+
+```forst
+func okInt() {
+	n := 42
+	ensure n is GreaterThan(0)
+	return n
+}
+
+func main() {
+	x := okInt()
+	ensure x is Ok()
+	println(x)
+}
+```
+
+**`Ok`** and **`Err`** serve as discriminants for **`is`** / **`ensure`**. They are not yet general value constructors for building **`Result`** values at every call site.
+
+<Warning>
+  **Nominal errors** and **`Result`** are **experimental**. Gaps include arbitrary non-`Error` failure types, full RFC diagnostics for **`ensure`-only failure authoring**, and complete export rules for generated TypeScript tags. Check the [roadmap](/resources/roadmap) before relying on edge cases in production.
+</Warning>
+
+## Go interop
+
+Forst folds Go's **`(T, error)`** returns into **`Result(T, Error)`** at the boundary where wired. Generated Go uses idiomatic error returns. Your ops team still reads familiar code.
+
+## TypeScript interop
+
+Nominal errors can emit tagged shapes in generated `.d.ts` as the TS story matures. Today, prefer **`forst generate`** and treat error payloads as evolving. See [TypeScript interop](/interop/typescript).
+
+## Compared to Go error structs
+
+In Go you might write:
+
+```forst
+type InsufficientStock struct {
+	StockKeepingUnit string
+	Requested        int
+	Available        int
+}
+
+func (e InsufficientStock) Error() string { ... }
+```
+
+Forst's **`error Name { … }`** syntax makes the intent explicit: this is a **failure variant**, a dedicated type for a specific failure mode rather than a generic struct with an `Error()` method attached by convention.
+
+## Try it
+
+```bash
+task example:nominal-error
+task example:result-ensure
+task example:union-error-types
+```
+
+## Related
+
+<Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+  How `ensure` connects checks to control flow.
+</Card>

@@ -1,0 +1,117 @@
+---
+title: "Providers"
+description: "Swap loggers, clocks, and databases in tests with use and with."
+---
+
+Backend functions need **runtime services** like loggers, clocks, and database handles that must differ in tests vs production. Forst **Providers** let you declare those dependencies in the function body and wire implementations at entry points, without reflection DI or globals.
+
+## Two primitives
+
+| Keyword | Role |
+| --- | --- |
+| **`use`** | Bind a contract type inside a function: "this code depends on X" |
+| **`with { … } { … }`** | Wire concrete implementations at an entry point (handler, `main`, test) |
+
+**Parameters carry data** (order IDs, request bodies). **Providers carry services** the host supplies (logger, clock, repo). Keep them separate.
+
+## Declare dependencies with `use`
+
+Contracts are ordinary types: shapes with methods, or imported Go interfaces:
+
+```forst
+type Logger = {
+	info(msg String)
+}
+
+type Clock = {
+	now(): Int
+}
+
+func logExpiry(id String) {
+	use logger: Logger
+	logger.info("expire " + id)
+}
+
+func expireToken(token Token) {
+	use clock: Clock
+	if token.expiresAt < clock.now() {
+		logExpiry(token.id)
+	}
+}
+```
+
+The compiler aggregates `use` sites into **`Providers(f)`** for each function and propagates requirements transitively through calls.
+
+## Wire at the boundary with `with`
+
+Entry points satisfy every Provider the call graph needs:
+
+```forst
+func mainWiringDemo() {
+	with {
+		Logger: &NopLogger{},
+		Clock:  &FakeClock { fixedMs: 0 },
+	} {
+		expireToken(Token { id: "x", expiresAt: 1 })
+	}
+}
+```
+
+Wiring keys use the **root contract name** (`Logger`, `Clock`). Values must structurally satisfy the contract: plain structs with matching methods, or Go types that implement an imported interface.
+
+## Tests without a DI framework
+
+Swap fakes in tests the same way:
+
+```forst
+func TestExpireToken_expired(t *testing.T) {
+	token := Token { id: "t1", expiresAt: 500 }
+	with {
+		Logger: &NopLogger {},
+		Clock:  &FakeClock { fixedMs: 1000 },
+	} {
+		expireToken(token)
+	}
+}
+```
+
+Nested `with` blocks overlay wiring. Inner keys shadow outer ones when both supply the same contract:
+
+```forst
+with { Logger: &NopLogger {} } {
+	with { Clock: &FakeClock { fixedMs: 2000 } } {
+		expireToken(token)
+	}
+}
+```
+
+## What gets emitted
+
+Providers lower to a **deduped struct parameter** at the Go boundary. Production and test wiring compile to ordinary struct literals: readable Go, no runtime container.
+
+<Warning>
+  **Providers are experimental.** `use` / `with` compile end-to-end with goldens and `forst test`, but the RFC surface is still evolving. Pin your compiler version and run `task example:providers` when upgrading.
+</Warning>
+
+## Try it
+
+From the Forst repository:
+
+```bash
+task example:providers
+task example:providers-cross_pkg
+forst test examples/in/rfc/providers/
+```
+
+Deep dive: [Providers RFC hub](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers)
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Go interop" icon="/icons/golang.svg" href="/interop/go">
+    Import Go interfaces as Provider contracts.
+  </Card>
+  <Card title="Editor workflow" icon="code" href="/workflow/editor">
+    LSP hovers show Provider obligations and related diagnostics.
+  </Card>
+</CardGroup>

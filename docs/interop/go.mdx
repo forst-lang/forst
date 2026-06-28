@@ -1,0 +1,99 @@
+---
+title: "Go interop"
+description: "Transpile to Go, import packages, and mix .ft with .go in one module."
+---
+
+Forst's primary compilation target is **Go**. That is a deliberate adoption bet: you keep the Go module graph, deployment story, and ecosystem, while Forst handles typed boundaries and validation ergonomics.
+
+## Transpile to idiomatic Go
+
+Every `.ft` file compiles to Go source in your module. The output is meant to be **readable and reviewable**, an ordinary Go source file rather than an opaque IR dump. Struct fields, error returns, and control flow follow familiar Go patterns.
+
+```bash
+npx forst build handlers/orders.ft
+```
+
+Run the result with the standard toolchain:
+
+```bash
+go build ./...
+go test ./...
+```
+
+## Go shaped syntax
+
+Much of Forst mirrors Go syntax: `package`, `import`, `func`, `if`/`for`/`range`, `defer`, `go` goroutines. A minimal program can be identical in Forst and Go. See [Language overview](/language/overview).
+
+Forst adds structural types, constraints, `ensure`, and nominal errors on top of that base.
+
+## Import Go packages
+
+Call into the standard library and third-party modules with qualified names:
+
+```forst
+import "fmt"
+
+func main() {
+	fmt.Println("Hello from Go")
+}
+```
+
+The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
+
+<Warning>
+  **Go import loading is experimental.** Unmapped Go types report diagnostics; `unsafe` and some builtin edge cases are not fully wired. Put `unsafe` usage in hand written `.go` and call from Forst when needed.
+</Warning>
+
+## Mixed packages
+
+Place `.ft` files alongside `.go` in the same module:
+
+```
+my-service/
+├── go.mod
+├── handlers/
+│   ├── orders.ft
+│   └── legacy.go
+└── internal/
+    └── db.go
+```
+
+Use **`-root`** to merge all same-package sources under a tree, matching discovery for `forst run`, `forst build`, and the dev server:
+
+```bash
+npx forst run -root ./handlers handlers/orders.ft
+```
+
+The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`).
+
+## Runtime validation
+
+Type constraints in Forst emit **runtime checks** in generated Go. Untrusted input is validated at the boundary before your handler body executes. See [Shapes and constraints](/language/shapes-and-constraints).
+
+## Providers
+
+Forst **Providers** (`use` / `with`) let you swap loggers, clocks, and databases in tests without a DI framework. See [Providers](/language/providers).
+
+```bash
+task example:providers
+task example:providers-cross_pkg
+```
+
+## When to keep hand written Go
+
+- **`unsafe`** or low-level syscalls not yet mapped
+- Large existing packages you are migrating incrementally
+- Performance-critical paths already audited in Go
+
+Forst supports **gradual adoption**. You can migrate route by route without a big bang rewrite.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli">
+    `run`, `build`, `-root`, and compile flags.
+  </Card>
+  <Card title="TypeScript interop" icon="/icons/typescript.svg" href="/interop/typescript">
+    Generate client types from the same `.ft` sources.
+  </Card>
+</CardGroup>

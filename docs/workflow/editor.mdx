@@ -1,0 +1,66 @@
+---
+title: "Editor workflow"
+description: "Install the Forst VS Code extension and use diagnostics, hover, and navigation on .ft files."
+---
+
+Use the **Forst VS Code extension** to edit `.ft` files with diagnostics, hover, completion, go-to-definition, rename, and formatting. Install the extension, open a project folder, and start editing. The extension downloads the compiler automatically on first use.
+
+## 1. Install the extension
+
+Install [**Forst** on Open VSX](https://open-vsx.org/extension/forst/forst) in VS Code, Cursor, or another Open VSX compatible editor.
+
+In VS Code: **Extensions** → search **Forst** → **Install**. Or open the Open VSX page and click **Install**.
+
+## 2. Open your project
+
+Open a workspace folder that contains `.ft` files (for example a service repo or the Forst `examples/in/` tree).
+
+The extension starts the language server automatically and fetches the matching `forst` binary when needed. The status bar shows the LSP port (default **8081**) and connection state. Click it to open logs.
+
+## What you get while editing
+
+| Action | What happens |
+| --- | --- |
+| Open or edit a `.ft` file | Diagnostics update as you type |
+| Hover a symbol | Types, docs, and Go import info |
+| **Go to definition** / **Find references** | Jump across same-package `.ft` files |
+| **Rename symbol** | Rename across merged package sources |
+| **Format document** | Format the current file (experimental) |
+| **Command palette → Forst** | Focus logs or restart the language server |
+
+Completion covers keywords, locals, and same-package symbols. Go package completion after `.` is not available yet.
+
+## Settings
+
+Change these in **VS Code → Settings** when the defaults do not match your setup:
+
+| Setting | Default | When to change |
+| --- | --- | --- |
+| `forst.compiler.path` | _(empty)_ | Point at a specific `forst` binary (local build, CI cache) |
+| `forst.compiler.download` | `true` | Set `false` if you only want `PATH` or workspace `bin/forst` |
+| `forst.lsp.autoStart` | `true` | Set `false` if you run `forst lsp` yourself |
+| `forst.lsp.port` | `8081` | Use a different port when 8081 is taken |
+
+## Commands
+
+- **Forst: Focus output**: open the LSP log channel
+- **Forst: Restart language server**: use after upgrading the compiler or when diagnostics look stale
+
+## Troubleshooting
+
+**No diagnostics on `.ft` files:** confirm the language mode is **Forst** (not Plain Text). Run **Forst: Restart language server** and check the **Forst** output channel.
+
+**Stale errors after a compiler upgrade:** run **Forst: Restart language server**, or set **`forst.compiler.path`** to your new `bin/forst`.
+
+**Parse errors on Providers syntax:** update to a recent compiler build. Providers shapes need current parser support.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Forst on Open VSX" icon="puzzle-piece" href="https://open-vsx.org/extension/forst/forst">
+    Install or update the extension.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli">
+    Run `forst` from the terminal, including `forst lsp`.
+  </Card>
+</CardGroup>

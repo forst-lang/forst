@@ -1,0 +1,101 @@
+---
+title: "Language overview"
+description: "Go shaped syntax, structural types, and explicit control flow."
+---
+
+Forst gives backend developers a **Go compatible surface** with **TypeScript inspired structural typing**. Functions and types feel familiar if you know Go. Shapes, constraints, and narrowing work more like a typed API layer than raw structs.
+
+## Go shaped syntax
+
+Ordinary Forst programs look like Go. A minimal executable is identical on both sides:
+
+```forst
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello World!")
+}
+```
+
+Use **`.ft`** files with the Forst CLI (`forst run`, `forst generate`, …). The same text can often be built with `go build` when it stays within the Go subset. Forst extends Go for backend code while the Go runtime stays in charge.
+
+## Structural types
+
+Forst types are defined by **shape** rather than inheritance trees. Function parameters and return values use record syntax:
+
+```forst
+type User = {
+	name: String,
+	email: String,
+}
+
+func greet(u: User): String {
+	return "Hello, " + u.name
+}
+```
+
+Anonymous records work at call sites. That helps handlers that take a single payload without declaring a named struct:
+
+```forst
+placeOrder({
+	stockKeepingUnit: "ITEM-1",
+	quantity:         2,
+})
+```
+
+This matches how backend APIs are actually consumed: nested JSON-like data with known fields.
+
+## Explicit where it matters
+
+Forst embraces inference in clear cases (return types, obvious locals) but requires explicit annotations where ambiguity would hurt reliability:
+
+- Function **parameters** always declare types
+- Struct **fields** always declare types
+- **Nil** initializations need an explicit type
+
+When the compiler would have to guess, you annotate. That keeps large codebases readable and tooling fast.
+
+## Control flow you can trace
+
+Forst steers away from exceptions and implicit jumps. Errors are **values**; validation uses **`ensure`** and **`is`**; success and failure paths stay explicit. See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
+
+<Warning>
+  Forst does not support `panic`/`recover` or `try`/`catch` as language features. Generated Go may still interact with panicking third-party code.
+</Warning>
+
+## Packages and imports
+
+Forst uses Go style **packages** and **`import`** paths. Top-level functions, type definitions, and type guards compose across files in the same package, the same mental model as Go modules.
+
+You can also **import Go packages** and call qualified functions (`fmt.Println`, etc.). Coverage is growing; see [Go interop](/interop/go) for current limits.
+
+## File layout in a typical backend
+
+```
+my-service/
+├── go.mod
+├── handlers/
+│   ├── orders.ft      # validated API handlers
+│   └── catalog.ft
+├── internal/
+│   └── legacy.go      # existing Go code
+├── ftconfig.json      # generate / dev discovery
+└── generated/         # forst generate output (often gitignored)
+    └── types.d.ts
+```
+
+## What to read next
+
+<CardGroup cols={2}>
+  <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">
+    Types as schemas with validation and less boilerplate.
+  </Card>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    Runtime checks tied to the type system.
+  </Card>
+  <Card title="Providers" icon="plug" href="/language/providers">
+    Swap runtime services in tests with `use` and `with`.
+  </Card>
+</CardGroup>

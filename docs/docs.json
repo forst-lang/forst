@@ -1,68 +1,79 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Forst",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "styling": {
+    "codeblocks": {
+      "languages": {
+        "custom": ["/languages/forst.tmLanguage.json"]
+      }
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "index",
+              "why",
+              "language/overview"
+            ]
+          },
           {
             "group": "Getting started",
             "pages": [
-              "index",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Data Validation",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "language/shapes-and-constraints",
+              "language/ensure-and-narrowing",
+              "language/type-guards"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Behavior",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "language/errors-and-result",
+              "language/providers"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Interop",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "interop/go",
+              "interop/typescript"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "workflow/cli",
+              "workflow/dev-server-and-sidecar",
+              "workflow/editor"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Resources",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Project",
             "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "resources/roadmap"
             ]
           }
         ]
@@ -71,19 +82,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/forst-lang/forst",
+          "icon": "github"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "npm",
+          "href": "https://www.npmjs.com/package/@forst/cli",
+          "icon": "npm"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Roadmap",
+          "href": "https://github.com/forst-lang/forst/blob/main/ROADMAP.md",
+          "icon": "map"
         }
       ]
     }
@@ -95,33 +106,29 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "GitHub",
+        "href": "https://github.com/forst-lang/forst"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Quickstart",
+      "href": "/quickstart"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/forst-lang/forst"
     }
   }
 }

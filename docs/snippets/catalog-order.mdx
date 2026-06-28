@@ -1,0 +1,10 @@
+```forst
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+}
+
+func placeOrder(in: PlaceOrderInput) {
+	// in is already validated; business logic starts here
+}
+```

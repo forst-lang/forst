@@ -1,0 +1,138 @@
+---
+title: "TypeScript interop"
+description: "Generate .d.ts from Forst and integrate with Node clients."
+---
+
+Your backend types should not exist twice: once in Forst and again as hand written TypeScript interfaces. **`forst generate`** emits TypeScript declarations from the same definitions the compiler validates, so clients import shapes that match the server.
+
+## The problem
+
+Without generated types, every API change means updating TS by hand:
+
+```typescript
+interface PlaceOrderInput {
+  stockKeepingUnit: string; // any string
+  quantity: number;         // any number
+}
+```
+
+TypeScript cannot express `quantity` must be 1 to 99 unless you add Zod, Effect.Schema, or similar. That is another schema to maintain.
+
+## The Forst approach
+
+Define the shape once in Forst:
+
+```forst
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+}
+```
+
+Run:
+
+```bash
+npx forst generate ./path/to/project
+```
+
+Output layout (typical):
+
+```
+generated/
+├── types.d.ts      # merged type declarations
+└── ...
+client/             # optional client stubs
+```
+
+Import in your frontend or BFF:
+
+```typescript
+import type { PlaceOrderInput } from "./generated/types";
+
+async function submitOrder(input: PlaceOrderInput) {
+  // structural match with server-side Forst types
+}
+```
+
+<Info>
+  Generated TS types reflect **structure**. Runtime validation on the client still requires your own checks unless you call the Forst-backed server, which validates at the boundary.
+</Info>
+
+## Discovery with `ftconfig.json`
+
+`forst generate` and `forst dev` share **include/exclude** rules from `ftconfig.json`:
+
+```json
+{
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/client/**"
+    ]
+  }
+}
+```
+
+Pass **`-config`** explicitly or let the CLI search upward from your target directory.
+
+## Dev server and live iteration
+
+**`forst dev`** exposes an HTTP API for health, function discovery, invocation, and types while you edit `.ft` files:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Liveness |
+| `GET /functions` | Discover exported functions |
+| `POST /invoke` | Call a function with JSON body |
+| `GET /types` | Fetch generated type info |
+| `GET /version` | Compiler and contract version |
+
+Start locally:
+
+```bash
+npx forst dev -root ./my-service -port 8080
+```
+
+## Sidecar for gradual Node adoption
+
+**[`@forst/sidecar`](https://www.npmjs.com/package/@forst/sidecar)** wraps `forst dev` for Express/Node backends:
+
+```bash
+npm install @forst/sidecar
+```
+
+Two modes:
+
+| Mode | Use when |
+| --- | --- |
+| **Spawn** | Local dev: the sidecar starts `forst dev` as a child process |
+| **Connect** | CI or monorepo: the sidecar talks to an already-running server |
+
+The client discovers functions, invokes them over HTTP, and can run debounced **`forst generate`** after reloads (`watchGenerate`).
+
+<Warning>
+  **`@forst/sidecar`** and npm publishing are **experimental**. Pin versions in production and verify `contractVersion` compatibility via the sidecar's version check.
+</Warning>
+
+## End-to-end example
+
+The **tictactoe** example in the repository demonstrates merged-package generate:
+
+```bash
+task example:tictactoe:generate
+```
+
+See [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/examples/in/tictactoe) and [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Dev server and sidecar" icon="server" href="/workflow/dev-server-and-sidecar">
+    HTTP contract, watch mode, and Node integration details.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install `@forst/cli` in your project.
+  </Card>
+</CardGroup>

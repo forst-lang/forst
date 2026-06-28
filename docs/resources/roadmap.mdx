@@ -1,0 +1,47 @@
+---
+title: "Roadmap"
+description: "What exists, what is in flight, and what Forst deliberately omits."
+---
+
+Forst is under active development. The canonical roadmap lives in the repository and tracks **feature parity** with honest status labels, without shipping dates.
+
+## Status labels
+
+| Label | Meaning |
+| --- | --- |
+| **done** | Complete for current scope |
+| **in progress** | Actively being implemented |
+| **experimental** | Exists but not yet stable or complete |
+| **planned** | On the roadmap, not yet delivered |
+| **not planned** | Deliberately excluded (anti-feature) |
+
+## Major themes
+
+**Language and types:** Structural shapes, constraints, `ensure`, type guards, Result and nominal errors (experimental), user generics (planned).
+
+**Go interop:** Transpile to Go (done), import and type-check Go packages (experimental), mixed `.ft`/`.go` modules (experimental).
+
+**TypeScript interop:** `forst generate` (done), `forst dev` HTTP API (done), `@forst/sidecar` (experimental).
+
+**Tooling:** HTTP LSP with diagnostics, hover, navigation, rename (done); VS Code extension (experimental).
+
+## Anti-features
+
+Forst intentionally omits patterns that hide control flow or surprise with errors:
+
+- Exceptions (`try`/`catch`/`throw`)
+- `panic`/`recover` as language constructs
+- Macros and compile-time control-flow rewriting
+- TypeScript-style `undefined` as a separate value
+- Implicit numeric widening
+- Dependent types and type-level metaprogramming
+
+These align with [predictable, Go shaped error handling](/why).
+
+## Full roadmap
+
+<Card title="ROADMAP.md on GitHub" icon="github" href="https://github.com/forst-lang/forst/blob/main/ROADMAP.md">
+  Feature parity tables, experimental gaps, and links to RFCs.
+</Card>
+
+Report bugs and gaps as GitHub issues when shipped features do not match the roadmap's **done** bar.

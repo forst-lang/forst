@@ -1,0 +1,73 @@
+---
+title: "Installation"
+description: "Install the Forst compiler via npm or native binary."
+---
+
+Forst ships as a **native compiler** with an optional **npm wrapper** for Node/TypeScript workflows. Pick the path that matches how you deploy and develop.
+
+## npm (`@forst/cli`)
+
+Best for teams already on Node.js, npm scripts, or monorepos with TypeScript clients.
+
+```bash
+npm install -D @forst/cli
+```
+
+After install, invoke the compiler via:
+
+```bash
+npx forst version
+npx forst run path/to/file.ft
+npx forst generate path/to/project
+```
+
+On first use, `@forst/cli` downloads the native `forst` binary for your platform from [GitHub Releases](https://github.com/forst-lang/forst/releases) and caches it locally.
+
+### CI and offline environments
+
+Set `FORST_BINARY` to a pre-installed executable path to skip the download step:
+
+```bash
+export FORST_BINARY=/usr/local/bin/forst
+npx forst version
+```
+
+Other useful variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `FORST_BINARY` | Path to a pre-installed `forst` executable |
+| `FORST_CACHE_DIR` | Override binary cache location |
+| `FORST_CLI_VERIFY` | Control checksum verification on download |
+
+Full details: [`@forst/cli` README](https://github.com/forst-lang/forst/tree/main/packages/cli#readme).
+
+## Native binary
+
+Download the release artifact for your OS/arch from [GitHub Releases](https://github.com/forst-lang/forst/releases), extract it, and add it to your `PATH`.
+
+```bash
+forst version
+forst run examples/in/basic.ft
+```
+
+Use this path when you do not need npm integration, for example pure Go modules or system wide installs.
+
+## Editor support
+
+For diagnostics, hover, go-to-definition, and formatting in VS Code, install the Forst extension and run the language server. See [Editor workflow](/workflow/editor).
+
+## Verify your install
+
+```bash
+forst version
+forst run --help
+```
+
+You should see version output and subcommand help. If the npm wrapper fails to download, check network access to `github.com` or set `FORST_BINARY`.
+
+## Next
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Write and run your first validated handler.
+</Card>

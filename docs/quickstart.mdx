@@ -1,80 +1,107 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Install Forst, write a validated handler, and run it in five minutes."
 ---
 
-## Get started in three steps
+Get from zero to a running Forst program with validated input. This guide assumes you have **Node.js 18+** or access to a **native Forst binary**.
 
-Get your documentation site running locally and make your first customization.
+## 1. Install the compiler
 
-### Step 1: Set up your local environment
+<Tabs>
+  <Tab title="npm (recommended)">
+    ```bash
+    npm install -D @forst/cli
+    npx forst version
+    ```
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    The wrapper downloads the matching native binary on first use. See [Installation](/installation) for CI and offline setups.
+  </Tab>
+  <Tab title="Native binary">
+    Download the latest release for your platform from [GitHub Releases](https://github.com/forst-lang/forst/releases), add it to your `PATH`, then:
 
-### Step 2: Deploy your changes
+    ```bash
+    forst version
+    ```
+  </Tab>
+</Tabs>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## 2. Create your first file
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+Create `hello.ft`:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+```forst
+package main
 
-### Step 3: Go live
+func greet(): String {
+	return "Hello, World!"
+}
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+func main() {
+	println(greet())
+}
+```
+
+## 3. Run it
+
+```bash
+npx forst run hello.ft
+```
+
+Forst transpiles to Go, builds, and runs the program. You should see `Hello, World!` on stdout.
+
+## 4. Add validated input
+
+Replace the body of `hello.ft` with a handler that only accepts well-formed orders. Constraints live on the type. Invalid calls fail at compile time and runtime checks are emitted automatically.
+
+```forst
+package main
+
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+}
+
+func placeOrder(in: PlaceOrderInput) {
+	println("Order placed:", in.stockKeepingUnit, in.quantity)
+}
+
+func main() {
+	placeOrder({
+		stockKeepingUnit: "ITEM-1",
+		quantity:         2,
+	})
+}
+```
+
+Run again:
+
+```bash
+npx forst run hello.ft
+```
+
+Try changing `quantity` to `0` or `100`. The typechecker rejects out of range values before you ship.
+
+## 5. What you just gained
+
+| Without Forst | With Forst |
+| --- | --- |
+| Struct + manual `if len(sku) < 1` checks | Constraints on the type itself |
+| Separate Zod/Yup schema for TS clients | `forst generate` emits matching `.d.ts` |
+| Two sources of truth for API shapes | One `.ft` definition, Go + TS from the same tree |
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">
+    Deep dive on structural types and runtime validation.
+  </Card>
+  <Card title="Generate TypeScript types" icon="/icons/typescript.svg" href="/interop/typescript">
+    Emit `generated/types.d.ts` for your frontend or BFF.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli">
+    `run`, `build`, `generate`, `dev`, and more.
+  </Card>
+  <Card title="Go interop" icon="/icons/golang.svg" href="/interop/go">
+    Import Go packages and mix `.ft` with `.go`.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
