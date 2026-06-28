@@ -10,8 +10,9 @@
   "favicon": "/favicon.svg",
   "styling": {
     "codeblocks": {
+      "theme": "system",
       "languages": {
-        "custom": ["/languages/forst.tmLanguage.json"]
+        "custom": ["/languages/forst.json"]
       }
     }
   },

@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "forst",
   "scopeName": "source.forst",
+  "fileTypes": ["ft"],
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },

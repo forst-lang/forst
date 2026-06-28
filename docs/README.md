@@ -4,26 +4,22 @@ Public documentation for [Forst](https://github.com/forst-lang/forst), built wit
 
 ## Preview locally
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint):
-
-```bash
-npm i -g mint
-```
-
-From this directory:
+Use the Mintlify CLI via `npx` (the Homebrew `mint` package is unrelated and often broken on macOS):
 
 ```bash
 cd docs
-mint dev
+npx mintlify dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The preview updates as you edit MDX files.
+
+Custom `forst` highlighting works in local preview when `docs.json` registers the grammar (see **Syntax highlighting** below). Hosted production embeds grammars at deploy time, so push and redeploy after grammar or `docs.json` changes.
 
 ## Validate links
 
 ```bash
 cd docs
-mint broken-links
+npx mintlify broken-links
 ```
 
 ## Publishing
@@ -63,7 +59,11 @@ import CatalogOrder from "/snippets/catalog-order.mdx";
 <CatalogOrder />
 ```
 
-Syntax highlighting uses a TextMate grammar at [`languages/forst.tmLanguage.json`](./languages/forst.tmLanguage.json). When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) and keep `"name": "forst"` (lowercase for Mintlify/Shiki fence tags).
+Syntax highlighting uses a TextMate grammar at [`languages/forst.json`](./languages/forst.json), registered in [`docs.json`](./docs.json) under `styling.codeblocks.languages.custom`. The fence tag must be `forst` (matches the grammar `"name"` field).
+
+When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json`. Keep `"name": "forst"` lowercase.
+
+**Local works, production does not:** Mintlify embeds custom Shiki grammars during deploy, not at page load. Confirm `languages/forst.json` is committed, `styling.codeblocks` includes both `"theme"` and `"languages"`, and trigger a fresh deploy from the Mintlify dashboard. Custom Shiki languages is a recent platform feature; if prod still shows plain text after redeploy, the hosted build may lag the CLI.
 
 Brand icons for cards live in [`icons/`](./icons/). TypeScript logo from [typescriptlang.org](https://www.typescriptlang.org/branding/) (Wikimedia). Go blue wordmark from [go.dev/brand](https://go.dev/brand) (Wikimedia).
 
