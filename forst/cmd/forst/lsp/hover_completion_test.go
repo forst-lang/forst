@@ -270,6 +270,33 @@ func TestHoverTextForToken_builtinTypeNameIdentifier(t *testing.T) {
 	}
 }
 
+func TestHoverTextForToken_goPredeclaredLen(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := typechecker.New(log, false)
+	if _, ok := tc.GoHoverMarkdownPredeclaredBuiltin("len"); !ok {
+		t.Skip("GOROOT builtin package not available")
+	}
+	tokens := []ast.Token{
+		{Type: ast.TokenIdentifier, Value: "println", Line: 1, Column: 1},
+		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 8},
+		{Type: ast.TokenIdentifier, Value: "len", Line: 1, Column: 9},
+		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 12},
+		{Type: ast.TokenIdentifier, Value: "s", Line: 1, Column: 13},
+		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 14},
+		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 15},
+	}
+	tok := &tokens[2]
+	s := hoverTextForToken(tc, tokens, tok, nil)
+	if !strings.Contains(s, "predeclared `len`") {
+		t.Fatalf("expected predeclared len hover, got %q", s)
+	}
+	if !strings.Contains(s, "func len(") {
+		t.Fatalf("expected Go signature, got %q", s)
+	}
+}
+
 func TestHoverTextForToken_nilKeyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)

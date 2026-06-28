@@ -237,6 +237,47 @@ func (tc *TypeChecker) GoHoverMarkdownForForstReceiverMethod(receiverType ast.Ty
 	return b.String(), true
 }
 
+// GoHoverMarkdownPredeclaredBuiltin returns hover for a bare predeclared Go builtin call name
+// (e.g. len, min) when it is registered in BuiltinFunctions with an empty Package.
+// Documentation and signatures come from Go's package builtin via go/doc and go/ast.
+func (tc *TypeChecker) GoHoverMarkdownPredeclaredBuiltin(name string) (string, bool) {
+	if tc == nil || name == "" {
+		return "", false
+	}
+	bfn, ok := BuiltinFunctions[name]
+	if !ok || bfn.Package != "" {
+		return "", false
+	}
+	docText, sigGo, ok := builtinGoFuncDoc(tc.log, name)
+	if !ok {
+		return "", false
+	}
+	if docText != "" {
+		var cdocParser comment.Parser
+		var pr comment.Printer
+		docText = strings.TrimSpace(string(pr.Markdown(cdocParser.Parse(docText))))
+	}
+
+	var b strings.Builder
+	b.WriteString("**Go** (predeclared `")
+	b.WriteString(name)
+	b.WriteString("` — [package builtin](https://pkg.go.dev/builtin))\n\n")
+	if docText != "" {
+		b.WriteString(docText)
+		b.WriteString("\n\n")
+	}
+	if sigGo != "" {
+		b.WriteString("```go\n")
+		b.WriteString(sigGo)
+		b.WriteString("\n```\n\n")
+	}
+	b.WriteString("**Forst return** `")
+	b.WriteString(tc.FormatTypeNodeDisplay(bfn.ReturnType))
+	b.WriteString("`")
+
+	return b.String(), true
+}
+
 func goSignatureReturnsToForst(sig *types.Signature) []ast.TypeNode {
 	res := sig.Results()
 	if res.Len() == 0 {
