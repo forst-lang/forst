@@ -36,7 +36,7 @@
             ]
           },
           {
-            "group": "Data Validation",
+            "group": "Data validation",
             "pages": [
               "language/shapes-and-constraints",
               "language/ensure-and-narrowing",

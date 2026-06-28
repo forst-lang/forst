@@ -56,9 +56,9 @@ npx forst run hello.ft
 
 Try changing `quantity` to `0` or `100`. The typechecker rejects out of range values before you ship.
 
-## 5. What you just gained
+## 5. Summary
 
-| Without Forst | With Forst |
+| Manual Go | Forst |
 | --- | --- |
 | Struct + manual `if len(sku) < 1` checks | Constraints on the type itself |
 | Separate Zod/Yup schema for TS clients | `forst generate` emits matching `.d.ts` |
@@ -68,7 +68,7 @@ Try changing `quantity` to `0` or `100`. The typechecker rejects out of range va
 
 <CardGroup cols={2}>
   <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">
-    Deep dive on structural types and runtime validation.
+    Structural types and runtime validation.
   </Card>
   <Card title="Generate TypeScript types" icon="/icons/typescript.svg" href="/interop/typescript">
     Emit `generated/types.d.ts` for your frontend or BFF.

@@ -1,18 +1,20 @@
 ---
 title: "Why Forst?"
-description: "Vision and design principles. What Forst optimizes for and what it refuses to become."
+description: "Design priorities, what you get from Forst, and what the language omits."
 ---
+
+Backend work pulls in two directions: **typed boundaries** where API shapes and validation matter, and a **production runtime** where compile speed, binaries, and ops matter. Forst is for teams that need both without separate schemas for the server and clients.
 
 <Columns cols={2}>
   <Card title="TypeScript" icon="/icons/typescript.svg">
-    Efficient at **structuring data**. Gives you great ergonomics and low boilerplate.
+    Structures data with types and keeps client-side boilerplate low.
   </Card>
   <Card title="Go" icon="/icons/golang.svg">
-    Efficient at **compile and runtime**. Strong module system and ops that scale.
+    Compiles fast, ships static binaries, and scales in production.
   </Card>
 </Columns>
 
-Forst is the bet that backend developers should not have to choose: an **ergonomic language for backends** with the type safety of TypeScript, compiling to Go you can ship today.
+You define shapes, constraints, and handlers in **`.ft`**. The compiler validates them and emits Go for `go build`. Run **`forst generate`** when API clients need matching TypeScript types from the same definitions.
 
 ## The analogy
 
@@ -34,26 +36,34 @@ flowchart TB
   Forst -.->|"types + ergonomics"| Go
 ```
 
-TypeScript added types and ergonomics on top of JavaScript while keeping the same runtime. Forst does the same for Go: you still `go build`, with safer and clearer backend code layered on top.
+TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same for Go: you still `go build`, with typed boundaries layered on top.
 
-## What we're building toward
+## What you get
+
+If you already model APIs with TypeScript types, Forst gives you the same shape-first workflow on the server: structural types, validation built in, and a compile target your ops team can deploy.
 
 <CardGroup cols={2}>
-  <Card title="Types that guard" icon="shield-check">
-    Constraints on shapes catch bad input at the HTTP boundary, replacing scattered `if` checks.
+  <Card title="Structural types on the server" icon="table-columns">
+    Define request and response shapes as typed records. Field access, function signatures, and narrowing with **`is`** work the way you expect from TypeScript, without maintaining a parallel schema layer.
   </Card>
-  <Card title="Explicit control flow" icon="route">
-    `ensure`, nominal errors, and `Result` give you failures you can trace, written as values.
+  <Card title="Validation on the type" icon="shield-check">
+    Attach constraints (`Min`, `Max`, `Present`, custom guards) directly to fields. The compiler checks known values at compile time and emits runtime checks at the boundary before your handler logic runs.
   </Card>
-  <Card title="Full Go ecosystem" icon="/icons/golang.svg">
-    Your modules, packages, tests, CI, and deployment workflow stay on the standard Go toolchain.
+  <Card title="Matching TypeScript for clients" icon="/icons/typescript.svg">
+    Run **`forst generate`** to emit **`.d.ts`** from the same **`.ft`** definitions the server uses. Frontend and BFF code import types that structurally match production, not a hand-maintained copy.
   </Card>
-  <Card title="Optional client types" icon="arrows-left-right">
-    When callers need shared shapes, `forst generate` emits from the same source.
+  <Card title="Production Go output" icon="/icons/golang.svg">
+    Handlers and domain logic transpile to readable Go. Ship with **`go build`**: static binaries, existing modules, tests, and CI. You gain a Go backend without giving up typed boundaries.
+  </Card>
+  <Card title="Explicit failures" icon="route">
+    Use **`ensure`**, nominal **`error`** types, and **`Result`** to model failures as values in control flow. Narrow success and failure branches the way you would with discriminated unions in TypeScript.
+  </Card>
+  <Card title="Gradual adoption" icon="plug">
+    Mix **`.ft`** with hand-written **`.go`** in one module. Call **`forst dev`** or **`@forst/sidecar`** from Node while you migrate route by route. Type export stays optional until clients need it.
   </Card>
 </CardGroup>
 
-## What we optimize for
+## Design priorities
 
 <CardGroup cols={3}>
   <Card title="Structural typing" icon="table-columns">
@@ -72,7 +82,7 @@ TypeScript added types and ergonomics on top of JavaScript while keeping the sam
     Import Go packages, mix `.ft` with `.go`, and deploy with `go build`.
   </Card>
   <Card title="APIs for consumption" icon="plug">
-    Type export stays cheap when you need it. Interop supports adoption; it is not the whole story.
+    Export types when you need them. Interop supports adoption; it is not the whole story.
   </Card>
 </CardGroup>
 
@@ -90,28 +100,28 @@ flowchart LR
   ft -. optional .-> gen -.-> clients
 ```
 
-**Go first.** The full ecosystem stays in reach: module graph, third-party packages, tests, and ops. Add client declarations when full stack teams need shared shapes.
+**Go first.** You keep the full ecosystem: module graph, third-party packages, tests, and ops. Add client declarations when full stack teams need shared shapes.
 
-## What we deliberately avoid
+## What Forst omits
 
 <Columns cols={2}>
-  <Card title="Exceptions" icon="ban">
-    Errors are values you trace, without stack jumps via `try` / `catch`.
+  <Card title="Surprising errors" icon="ban">
+    No `try` / `catch` / `throw`. Failures are values you handle or explicitly ignore; `ensure` signals intent.
   </Card>
-  <Card title="Macros" icon="ban">
+  <Card title="Class hierarchies" icon="ban">
+    Inheritance trees obscure which fields an API actually has.
+  </Card>
+  <Card title="Macros and metaprogramming" icon="ban">
     Control flow changes use ordinary keywords you can read top to bottom.
   </Card>
+  <Card title="Runtime reflection" icon="ban">
+    Wiring and validation are compile-time, not discovered via introspection.
+  </Card>
   <Card title="Dependent types" icon="ban">
-    Typechecking stays decidable. Tooling stays fast.
+    Types cannot depend on runtime values.
   </Card>
   <Card title="Implicit coercions" icon="ban">
     Conversions stay visible because backend data integrity matters.
-  </Card>
-  <Card title="Runtime type mutation" icon="ban">
-    Types are fixed at compile time. No monkey patching.
-  </Card>
-  <Card title="Surprising errors" icon="ban">
-    Failures are handled or explicitly ignored. `ensure` signals intent.
   </Card>
 </Columns>
 
@@ -126,7 +136,7 @@ flowchart LR
     You still run Go: modules, packages, tests, and deployment unchanged.
   </Card>
   <Card title="Backend first" icon="circle-check">
-    Client types are generated when you need them.
+    You generate client types when you need them.
   </Card>
   <Card title="One integrated system" icon="circle-check">
     Types, validation, narrowing, and emit work together.
@@ -143,9 +153,9 @@ flowchart LR
     What exists, what's experimental, what's planned.
   </Card>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Try it in five minutes.
+    Install and run your first handler.
   </Card>
   <Card title="Full philosophy (GitHub)" icon="github" href="https://github.com/forst-lang/forst/blob/main/PHILOSOPHY.md">
-    Canonical long-form design doc in the repository.
+    Long-form design doc in the repository.
   </Card>
 </CardGroup>

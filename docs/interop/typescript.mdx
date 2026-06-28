@@ -7,7 +7,7 @@ import CatalogOrder from "/snippets/catalog-order.mdx";
 
 Your backend types should not exist twice: once in Forst and again as hand written TypeScript interfaces. **`forst generate`** emits TypeScript declarations from the same definitions the compiler validates, so clients import shapes that match the server.
 
-## The problem
+## Manual types in TypeScript
 
 Without generated types, every API change means updating TS by hand:
 
@@ -20,7 +20,7 @@ interface PlaceOrderInput {
 
 TypeScript cannot express `quantity` must be 1 to 99 unless you add Zod, Effect.Schema, or similar. That is another schema to maintain.
 
-## The Forst approach
+## Types from .ft
 
 Define the shape once in Forst:
 

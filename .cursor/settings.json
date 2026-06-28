@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "mintlify-cursor-plugin": {
+      "enabled": true
+    }
+  }
+}

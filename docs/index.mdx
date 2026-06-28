@@ -1,11 +1,11 @@
 ---
 title: "Introduction"
-description: "An ergonomic language for backends with the type safety of TypeScript. Compiles to Go."
+description: "Write .ft files with validated types, compile to Go, and optionally emit TypeScript declarations."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
 
-Forst is a **backend language** with structural types, validation built into the type system, and output that lives in the Go ecosystem. Write `.ft` files and ship with `go build`. Less boilerplate at the HTTP boundary and in your domain logic.
+You write **`.ft`** files with structural types and validation at the boundary. The compiler emits Go you build with `go build`. You get less boilerplate at the HTTP boundary and in domain logic.
 
 <CatalogOrder />
 
@@ -35,13 +35,13 @@ flowchart LR
   ft -.-> dts -.-> clients
 ```
 
-You define shapes and handlers in Forst. The compiler validates them and emits Go for production. When you need shared client types, `forst generate` can emit declarations from the same source.
+You define shapes and handlers in Forst. The compiler validates them and emits Go for production. When you need shared client types, run `forst generate` to emit declarations from the same source.
 
 ## Start here
 
 <CardGroup cols={2}>
   <Card title="Why Forst?" icon="circle-question" href="/why">
-    Vision, principles, and what we refuse to build.
+    Design priorities and what Forst omits.
   </Card>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Install, write your first `.ft` file, run it.
@@ -59,7 +59,7 @@ You define shapes and handlers in Forst. The compiler validates them and emits G
 
 ## Who this is for
 
-Backend developers who want **Go's runtime and deployment** with **less validation boilerplate** and **stronger types**, whether you are starting fresh or mixing Forst into an existing module.
+You want **Go's runtime and deployment** with **less validation boilerplate** and **stronger types**, whether you start fresh or mix Forst into an existing module.
 
 <Info>
   Forst is actively developed. Some features (Result types, Go import loading, sidecar) are **experimental**. See the [roadmap](/resources/roadmap) for current status.

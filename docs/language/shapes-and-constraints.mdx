@@ -7,7 +7,7 @@ import CatalogOrder from "/snippets/catalog-order.mdx";
 
 The most common backend mistake is letting **untrusted input** reach business logic. In Go, you usually declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation and rejects invalid data at the boundary.
 
-## The problem in Go
+## Manual validation in Go
 
 ```go
 type PlaceOrderInput struct {
@@ -28,7 +28,7 @@ func placeOrder(in PlaceOrderInput) (string, error) {
 
 The struct says nothing about valid ranges. Every handler repeats the same `if` chains, or you maintain a separate validator library.
 
-## The Forst approach
+## Constraints on types
 
 <CatalogOrder />
 
