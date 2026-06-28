@@ -1,6 +1,9 @@
 package ast
 
-import "sort"
+import (
+	"maps"
+	"slices"
+)
 
 // FormatShapeMemberName formats one shape field for typedef / contract source emission.
 // Method contracts omit the colon: `info(msg String)`. Data fields use `name: rhs`.
@@ -21,12 +24,7 @@ func ShapeFieldNamesInOrder(fields map[string]ShapeFieldNode, fieldOrder []strin
 	if len(fieldOrder) > 0 {
 		return fieldOrder
 	}
-	names := make([]string, 0, len(fields))
-	for name := range fields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(fields))
 }
 
 // ShapeFieldNamesForCompositeEmit orders payload fields for Go composite literals: shape
@@ -49,7 +47,7 @@ func ShapeFieldNamesForCompositeEmit(payloadFields map[string]ShapeFieldNode, sh
 			}
 			rest = append(rest, name)
 		}
-		sort.Strings(rest)
+		slices.Sort(rest)
 		return append(out, rest...)
 	}
 	return ShapeFieldNamesInOrder(payloadFields, nil)

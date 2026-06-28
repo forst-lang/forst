@@ -30,13 +30,13 @@ type FunctionInfo struct {
 	ReturnTypes        []string        `json:"returnTypes"`        // Track all return types
 	HasMultipleReturns bool            `json:"hasMultipleReturns"` // Whether function returns multiple values
 	// Providers lists root contract idents in Providers(f) (ordered); empty when runnable.
-	Providers []string `json:"providers,omitempty"`
+	Providers []string `json:"providers,omitzero"`
 	// Runnable is true iff Providers(f) is empty — eligible for TS/sidecar export.
-	Runnable bool `json:"runnable,omitempty"`
+	Runnable bool `json:"runnable,omitzero"`
 	// IsResult and the result* fields apply when the sole return type is Result(Success, Failure).
-	IsResult          bool   `json:"isResult,omitempty"`
-	ResultSuccessType string `json:"resultSuccessType,omitempty"`
-	ResultFailureType string `json:"resultFailureType,omitempty"`
+	IsResult          bool   `json:"isResult,omitzero"`
+	ResultSuccessType string `json:"resultSuccessType,omitzero"`
+	ResultFailureType string `json:"resultFailureType,omitzero"`
 	FilePath          string `json:"filePath"`
 }
 

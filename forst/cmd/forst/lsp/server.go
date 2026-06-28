@@ -29,22 +29,22 @@ type LSPRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      any             `json:"id"`
 	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
+	Params  json.RawMessage `json:"params,omitzero"`
 }
 
 // LSPResponse represents an LSP response
 type LSPServerResponse struct {
 	JSONRPC string    `json:"jsonrpc"`
 	ID      any       `json:"id"`
-	Result  any       `json:"result,omitempty"`
-	Error   *LSPError `json:"error,omitempty"`
+	Result  any       `json:"result,omitzero"`
+	Error   *LSPError `json:"error,omitzero"`
 }
 
 // LSPError represents an LSP error
 type LSPError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	Data    any    `json:"data,omitzero"`
 }
 
 // LSPServer represents the LSP server

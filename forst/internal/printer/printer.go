@@ -3,7 +3,8 @@ package printer
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"forst/internal/ast"
@@ -1029,12 +1030,7 @@ func shapeFieldNamesForPrint(s ast.ShapeNode) []string {
 }
 
 func sortedShapeFieldNames(fields map[string]ast.ShapeFieldNode) []string {
-	names := make([]string, 0, len(fields))
-	for name := range fields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(fields))
 }
 
 func (p *printer) printShape(s ast.ShapeNode) (string, error) {

@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -56,12 +57,7 @@ func sortedFieldNames(fields map[string]ast.ShapeFieldNode) []string {
 	if len(fields) == 0 {
 		return nil
 	}
-	names := make([]string, 0, len(fields))
-	for n := range fields {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(fields))
 }
 
 // extractInlineShapeFromAssertion returns a nested shape from parser/typechecker
