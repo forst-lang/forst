@@ -8,6 +8,14 @@ const RELEASES_LIST_API =
 const RELEASE_TAG_API =
   "https://api.github.com/repos/forst-lang/forst/releases/tags";
 
+/** https://docs.github.com/en/rest/about-the-rest-api/api-versions */
+const GITHUB_REST_API_VERSION = "2026-03-10";
+
+const GITHUB_JSON_HEADERS = {
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": GITHUB_REST_API_VERSION,
+} as const;
+
 /** Compiler release tags only: `v0.4.0`, not `vscode-forst-v…` or `cli-v…`. */
 export const COMPILER_RELEASE_TAG_PATTERN =
   /^v(\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)$/;
@@ -30,6 +38,77 @@ export function parseCompilerReleaseVersion(tagName: string): string | undefined
   return m?.[1];
 }
 
+async function fetchCompilerReleaseSemvers(
+  fetchImpl: FetchImpl
+): Promise<semver.SemVer[]> {
+  let page = 1;
+  const collected: semver.SemVer[] = [];
+
+  while (page <= 10) {
+    const apiUrl = `${RELEASES_LIST_API}?per_page=100&page=${page}`;
+    const res = await fetchWithRetry(fetchImpl, apiUrl, {
+      headers: GITHUB_JSON_HEADERS,
+    });
+    if (!res.ok) {
+      throw new CompilerBinaryDownloadFailed(
+        `GitHub releases list returned HTTP ${res.status} ${res.statusText}`
+      );
+    }
+    const data = (await res.json()) as Array<{ tag_name?: string }>;
+    if (!Array.isArray(data) || data.length === 0) {
+      break;
+    }
+    for (const release of data) {
+      const version = release.tag_name
+        ? parseCompilerReleaseVersion(release.tag_name)
+        : undefined;
+      if (!version) {
+        continue;
+      }
+      const coerced = semver.coerce(version);
+      if (!coerced) {
+        continue;
+      }
+      if (!collected.some((existing) => semver.eq(existing, coerced))) {
+        collected.push(coerced);
+      }
+    }
+    if (data.length < 100) {
+      break;
+    }
+    page++;
+  }
+
+  collected.sort((a, b) => semver.rcompare(a, b));
+  return collected;
+}
+
+/**
+ * Compiler release semvers (root `vX.Y.Z` tags only), highest first.
+ */
+export async function fetchCompilerReleaseVersions(
+  fetchImpl: FetchImpl = fetch,
+  limit = 10
+): Promise<string[]> {
+  try {
+    const collected = await fetchCompilerReleaseSemvers(fetchImpl);
+    if (collected.length === 0) {
+      throw new CompilerBinaryDownloadFailed(
+        "No compiler release tags (vX.Y.Z) found on GitHub"
+      );
+    }
+    return collected.slice(0, limit).map((version) => version.version);
+  } catch (e) {
+    if (e instanceof CompilerBinaryDownloadFailed) {
+      throw e;
+    }
+    throw new CompilerBinaryDownloadFailed(
+      "Failed to fetch Forst compiler release versions",
+      { cause: e }
+    );
+  }
+}
+
 /**
  * Semver of the latest published **compiler** release (root `vX.Y.Z` tags only).
  */
@@ -37,53 +116,8 @@ export async function fetchLatestCompilerReleaseVersion(
   fetchImpl: FetchImpl = fetch
 ): Promise<string> {
   try {
-    let page = 1;
-    let best: semver.SemVer | undefined;
-
-    while (page <= 10) {
-      const apiUrl = `${RELEASES_LIST_API}?per_page=100&page=${page}`;
-      const res = await fetchWithRetry(fetchImpl, apiUrl, {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-      if (!res.ok) {
-        throw new CompilerBinaryDownloadFailed(
-          `GitHub releases list returned HTTP ${res.status} ${res.statusText}`
-        );
-      }
-      const data = (await res.json()) as Array<{ tag_name?: string }>;
-      if (!Array.isArray(data) || data.length === 0) {
-        break;
-      }
-      for (const release of data) {
-        const version = release.tag_name
-          ? parseCompilerReleaseVersion(release.tag_name)
-          : undefined;
-        if (!version) {
-          continue;
-        }
-        const coerced = semver.coerce(version);
-        if (!coerced) {
-          continue;
-        }
-        if (!best || semver.gt(coerced, best)) {
-          best = coerced;
-        }
-      }
-      if (data.length < 100) {
-        break;
-      }
-      page++;
-    }
-
-    if (!best) {
-      throw new CompilerBinaryDownloadFailed(
-        "No compiler release tags (vX.Y.Z) found on GitHub"
-      );
-    }
-    return best.version;
+    const versions = await fetchCompilerReleaseVersions(fetchImpl, 1);
+    return versions[0]!;
   } catch (e) {
     if (e instanceof CompilerBinaryDownloadFailed) {
       throw e;
@@ -122,10 +156,7 @@ export async function fetchReleaseAssetSha256Hex(
   const tag = version.startsWith("v") ? version : `v${version}`;
   const apiUrl = `${RELEASE_TAG_API}/${tag}`;
   const res = await fetchWithRetry(fetchImpl, apiUrl, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: GITHUB_JSON_HEADERS,
   });
   if (!res.ok) {
     return { reason: "release_not_found" };

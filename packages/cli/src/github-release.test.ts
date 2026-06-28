@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   COMPILER_RELEASE_TAG_PATTERN,
+  fetchCompilerReleaseVersions,
   fetchLatestCompilerReleaseVersion,
   fetchReleaseAssetSha256Hex,
   parseCompilerReleaseVersion,
@@ -17,6 +18,34 @@ test("parseCompilerReleaseVersion accepts root compiler tags only", () => {
 test("COMPILER_RELEASE_TAG_PATTERN matches v-prefixed semver tags", () => {
   expect(COMPILER_RELEASE_TAG_PATTERN.test("v0.4.0")).toBe(true);
   expect(COMPILER_RELEASE_TAG_PATTERN.test("vscode-forst-v0.3.0")).toBe(false);
+});
+
+describe("fetchCompilerReleaseVersions", () => {
+  test("returns compiler tags sorted highest first", async () => {
+    const fetchImpl: FetchImpl = async (url) => {
+      const s = String(url);
+      if (s.includes("/repos/forst-lang/forst/releases?")) {
+        return new Response(
+          JSON.stringify([
+            { tag_name: "vscode-forst-v0.3.0" },
+            { tag_name: "v0.4.0" },
+            { tag_name: "v0.4.1" },
+            { tag_name: "v0.0.35" },
+            { tag_name: "v0.10.0" },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`unexpected fetch: ${s}`);
+    };
+
+    await expect(fetchCompilerReleaseVersions(fetchImpl)).resolves.toEqual([
+      "0.10.0",
+      "0.4.1",
+      "0.4.0",
+      "0.0.35",
+    ]);
+  });
 });
 
 describe("fetchLatestCompilerReleaseVersion", () => {

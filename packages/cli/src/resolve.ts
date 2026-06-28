@@ -22,7 +22,7 @@ import {
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
 } from "./errors.js";
-import { fetchReleaseAssetSha256Hex } from "./github-release.js";
+import { fetchCompilerReleaseVersions, fetchReleaseAssetSha256Hex } from "./github-release.js";
 import { fetchWithRetry, type FetchImpl } from "./http.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import { getBundledCompilerReleaseVersion } from "./version.js";
@@ -340,57 +340,68 @@ function writeBinaryAtomically(
   }
 }
 
+function isCompilerBinaryNotFoundHttpError(error: unknown): boolean {
+  return (
+    error instanceof CompilerBinaryDownloadHttpFailure && error.status === 404
+  );
+}
+
 /**
- * Resolves the native `forst` executable: `FORST_BINARY` if set, otherwise a
- * cached binary downloaded from GitHub Releases for this package version.
+ * When the resolved latest release has no artifact yet (common mid-publish),
+ * pick the newest published compiler semver below it.
  */
-export async function resolveForstBinary(
-  options: ResolveForstBinaryOptions = {}
-): Promise<string> {
-  const allowDownload = options.allowDownload !== false;
-  const env = options.env ?? process.env;
-  const override = env.FORST_BINARY?.trim();
-  if (override) {
-    if (!existsSync(override)) {
-      throw new CompilerBinaryDownloadFailed(
-        `FORST_BINARY is set to "${override}" but that file does not exist`
-      );
-    }
-    return override;
+export async function resolveFallbackCompilerVersion(
+  failedVersion: string,
+  fetchFn: FetchImpl
+): Promise<string | undefined> {
+  const versions = await fetchCompilerReleaseVersions(fetchFn, 2);
+  if (versions.length === 0) {
+    return undefined;
   }
 
-  const fs = options.fs ?? {
-    existsSync,
-    mkdirSync,
-    readFileSync,
-    writeFileSync,
-    chmodSync,
-    renameSync,
-    unlinkSync,
-    statSync,
-  };
-  const version = await resolveEffectiveCompilerVersion(options, allowDownload, fs);
+  const failed = semver.coerce(failedVersion);
+  const latest = semver.coerce(versions[0]!);
+  if (!failed || !latest) {
+    return undefined;
+  }
+
+  if (semver.gt(failed, latest)) {
+    return versions[0];
+  }
+
+  if (semver.eq(failed, latest) && versions.length >= 2) {
+    return versions[1];
+  }
+
+  return undefined;
+}
+
+interface DownloadCompilerBinaryOptions {
+  env: NodeJS.ProcessEnv;
+  fetchFn: FetchImpl;
+  fs: ResolveForstBinaryFs;
+  homedirFn?: () => string;
+}
+
+async function downloadCompilerBinaryForVersion(
+  version: string,
+  options: DownloadCompilerBinaryOptions
+): Promise<string> {
+  const { env, fetchFn, fs, homedirFn } = options;
   const artifact = getCompilerArtifactName(process.platform, process.arch);
-  const dest = getExpectedCompilerBinaryPath(version, process.platform, process.arch, {
-    env,
-    homedirFn: options.homedirFn,
-  });
+  const dest = getExpectedCompilerBinaryPath(
+    version,
+    process.platform,
+    process.arch,
+    { env, homedirFn }
+  );
 
   if (fs.existsSync(dest)) {
     return dest;
   }
 
-  if (!allowDownload) {
-    throw new CompilerBinaryNotFound(
-      `Forst compiler is not installed in the local cache (${dest}). ` +
-        `Set FORST_BINARY to the executable, enable downloads, or install the @forst/cli cache.`
-    );
-  }
-
   const url = buildCompilerArtifactDownloadUrl(version, artifact);
-  const fetchFn = options.fetchImpl ?? fetch;
   const lockPath = `${dest}.lock`;
-
   const { release, skippedDownload } = await acquireLockOrWaitForBinary(
     dest,
     lockPath,
@@ -423,7 +434,6 @@ export async function resolveForstBinary(
           lookup.reason ?? "digest_missing"
         );
       } else if (lookup.reason) {
-        // Digest unavailable — download proceeds without verification (default).
         expectedDigest = undefined;
       }
     }
@@ -455,5 +465,83 @@ export async function resolveForstBinary(
     return dest;
   } finally {
     await release();
+  }
+}
+
+/**
+ * Resolves the native `forst` executable: `FORST_BINARY` if set, otherwise a
+ * cached binary downloaded from GitHub Releases for this package version.
+ */
+export async function resolveForstBinary(
+  options: ResolveForstBinaryOptions = {}
+): Promise<string> {
+  const allowDownload = options.allowDownload !== false;
+  const env = options.env ?? process.env;
+  const override = env.FORST_BINARY?.trim();
+  if (override) {
+    if (!existsSync(override)) {
+      throw new CompilerBinaryDownloadFailed(
+        `FORST_BINARY is set to "${override}" but that file does not exist`
+      );
+    }
+    return override;
+  }
+
+  const fs = options.fs ?? {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    writeFileSync,
+    chmodSync,
+    renameSync,
+    unlinkSync,
+    statSync,
+  };
+  const version = await resolveEffectiveCompilerVersion(options, allowDownload, fs);
+  const fetchFn = options.fetchImpl ?? fetch;
+  const downloadOptions: DownloadCompilerBinaryOptions = {
+    env,
+    fetchFn,
+    fs,
+    homedirFn: options.homedirFn,
+  };
+
+  const dest = getExpectedCompilerBinaryPath(
+    version,
+    process.platform,
+    process.arch,
+    { env, homedirFn: options.homedirFn }
+  );
+
+  if (fs.existsSync(dest)) {
+    return dest;
+  }
+
+  if (!allowDownload) {
+    throw new CompilerBinaryNotFound(
+      `Forst compiler is not installed in the local cache (${dest}). ` +
+        `Set FORST_BINARY to the executable, enable downloads, or install the @forst/cli cache.`
+    );
+  }
+
+  const explicitVersion =
+    options.version !== undefined && options.version.length > 0;
+
+  try {
+    return await downloadCompilerBinaryForVersion(version, downloadOptions);
+  } catch (error) {
+    if (explicitVersion || !isCompilerBinaryNotFoundHttpError(error)) {
+      throw error;
+    }
+
+    const fallbackVersion = await resolveFallbackCompilerVersion(
+      version,
+      fetchFn
+    );
+    if (!fallbackVersion || fallbackVersion === version) {
+      throw error;
+    }
+
+    return downloadCompilerBinaryForVersion(fallbackVersion, downloadOptions);
   }
 }

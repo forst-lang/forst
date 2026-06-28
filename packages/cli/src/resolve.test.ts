@@ -15,6 +15,7 @@ import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import type { FetchImpl } from "./http.js";
 import {
   maxSemverCompilerVersion,
+  resolveFallbackCompilerVersion,
   resolveForstBinary,
 } from "./resolve.js";
 import { getBundledCompilerReleaseVersion } from "./version.js";
@@ -163,6 +164,124 @@ describe("resolveForstBinary", () => {
         homedirFn: () => "/unused",
       })
     ).rejects.toThrow(/Invalid Forst compiler version/);
+  });
+
+  test("falls back to previous release when latest binary returns 404", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const latest = getBundledCompilerReleaseVersion();
+      const fallback = "0.0.18";
+      const dest = join(cacheRoot, fallback, destName);
+      const fakeBinary = Buffer.from("fallback-forst-binary");
+
+      const fetchImpl: FetchImpl = async (url) => {
+        const s = String(url);
+        if (s.includes("/repos/forst-lang/forst/releases?")) {
+          return new Response(
+            JSON.stringify([
+              { tag_name: `v${latest}` },
+              { tag_name: `v${fallback}` },
+            ]),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (s.includes(`/download/v${latest}/`)) {
+          return new Response(null, { status: 404, statusText: "Not Found" });
+        }
+        if (s.includes(`/download/v${fallback}/`)) {
+          return new Response(fakeBinary, { status: 200 });
+        }
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({ assets: [{ name: destName }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        throw new Error(`unexpected fetch: ${s}`);
+      };
+
+      const p = await resolveForstBinary({
+        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(fakeBinary)).toBe(true);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("falls back to latest published release when bundled version is ahead of GitHub", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const bundled = getBundledCompilerReleaseVersion();
+      const published = "0.0.18";
+      const dest = join(cacheRoot, published, destName);
+      const fakeBinary = Buffer.from("published-forst-binary");
+
+      const fetchImpl: FetchImpl = async (url) => {
+        const s = String(url);
+        if (s.includes("/repos/forst-lang/forst/releases?")) {
+          return new Response(
+            JSON.stringify([{ tag_name: `v${published}` }]),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (s.includes(`/download/v${bundled}/`)) {
+          return new Response(null, { status: 404, statusText: "Not Found" });
+        }
+        if (s.includes(`/download/v${published}/`)) {
+          return new Response(fakeBinary, { status: 200 });
+        }
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({ assets: [{ name: destName }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        throw new Error(`unexpected fetch: ${s}`);
+      };
+
+      const p = await resolveForstBinary({
+        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(fakeBinary)).toBe(true);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("resolveFallbackCompilerVersion returns second latest when failed version is latest", async () => {
+    const fetchImpl: FetchImpl = async (url) => {
+      if (String(url).includes("/repos/forst-lang/forst/releases?")) {
+        return new Response(
+          JSON.stringify([
+            { tag_name: "v0.5.3" },
+            { tag_name: "v0.5.2" },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`unexpected fetch: ${String(url)}`);
+    };
+
+    await expect(
+      resolveFallbackCompilerVersion("0.5.3", fetchImpl)
+    ).resolves.toBe("0.5.2");
   });
 
   test("maps HTTP failure to CompilerBinaryDownloadHttpFailure", async () => {
