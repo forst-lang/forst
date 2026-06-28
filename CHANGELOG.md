@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5](https://github.com/forst-lang/forst/compare/v0.5.4...v0.5.5) (2026-06-28)
+
+
+### Features
+
+* **ci:** publish multi-arch Forst compiler images on GHCR ([#112](https://github.com/forst-lang/forst/issues/112)) ([6010d86](https://github.com/forst-lang/forst/commit/6010d869e03269a91603f610940b72b89ab2d670))
+* **lsp:** show hover for Go predeclared builtins ([#110](https://github.com/forst-lang/forst/issues/110)) ([555e4b3](https://github.com/forst-lang/forst/commit/555e4b36bc8cc78d0388936c944324e2a6f04bbd))
+
 ## [0.5.4](https://github.com/forst-lang/forst/compare/v0.5.3...v0.5.4) (2026-06-28)
 
 
