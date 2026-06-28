@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "forst": {
-    "compilerRelease": "0.5.5"
+    "compilerRelease": "0.5.6"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
