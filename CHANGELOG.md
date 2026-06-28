@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7](https://github.com/forst-lang/forst/compare/v0.5.6...v0.5.7) (2026-06-28)
+
+
+### Bug Fixes
+
+* **vscode-forst:** align VS Code engine and types to 1.74 ([589bca5](https://github.com/forst-lang/forst/commit/589bca50d82444c423aa464385d612b3d8ec18a3))
+* **vscode-forst:** bump engines.vscode to match @types/vscode ([d8700ba](https://github.com/forst-lang/forst/commit/d8700bae5a194663faeb6f9e929191288ab3a2fb))
+
 ## [0.5.6](https://github.com/forst-lang/forst/compare/v0.5.5...v0.5.6) (2026-06-28)
 
 
