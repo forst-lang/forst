@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "author": "haveyaseen",
   "license": "MIT",
-  "packageManager": "bun@1.3.11",
+  "packageManager": "bun@1.3.14",
   "workspaces": [
     "packages/cli",
     "packages/sidecar",
@@ -16,6 +16,6 @@
     "vscode-forst:compile": "bun run --filter forst compile"
   },
   "devDependencies": {
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.3"
   }
 }
