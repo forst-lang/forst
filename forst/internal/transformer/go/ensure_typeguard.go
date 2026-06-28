@@ -35,7 +35,7 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 	t.log.WithFields(logrus.Fields{
 		"requested": name,
 		"function":  "lookupTypeGuardNode",
-	}).Info("Starting lookup for type guard")
+	}).Debug("Starting lookup for type guard")
 
 	for _, def := range t.TypeChecker.Defs {
 		if tg, ok := def.(ast.TypeGuardNode); ok {
@@ -43,12 +43,12 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 				"requested": name,
 				"candidate": tg.GetIdent(),
 				"function":  "lookupTypeGuardNode",
-			}).Info("candidate check (value)")
+			}).Trace("candidate check (value)")
 			if tg.GetIdent() == name {
 				t.log.WithFields(logrus.Fields{
 					"requested": name,
 					"found":     true,
-				}).Info("lookupTypeGuardNode: found match (value)")
+				}).Debug("lookupTypeGuardNode: found match (value)")
 				return &tg, nil
 			}
 		}
@@ -57,13 +57,13 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 				"requested": name,
 				"candidate": tgp.GetIdent(),
 				"function":  "lookupTypeGuardNode",
-			}).Info("candidate check (pointer)")
+			}).Trace("candidate check (pointer)")
 			if tgp.GetIdent() == name {
 				t.log.WithFields(logrus.Fields{
 					"requested": name,
 					"found":     true,
 					"function":  "lookupTypeGuardNode",
-				}).Info("found match (pointer)")
+				}).Debug("found match (pointer)")
 				return tgp, nil
 			}
 		}
@@ -73,7 +73,7 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 		"requested": name,
 		"found":     false,
 		"function":  "lookupTypeGuardNode",
-	}).Info("not found")
+	}).Debug("not found")
 	return nil, fmt.Errorf("type guard not found: %s", name)
 }
 
@@ -82,14 +82,14 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 		"varType":   varType.Ident,
 		"typeGuard": typeGuard.GetIdent(),
 		"function":  "isTypeGuardCompatible",
-	}).Info("Checking type guard compatibility")
+	}).Debug("Checking type guard compatibility")
 
 	// Use varType directly as the base type
 	baseType := varType
 	t.log.WithFields(logrus.Fields{
 		"baseType": baseType.Ident,
 		"function": "isTypeGuardCompatible",
-	}).Info("Expected base type of type guard identified based on variable type")
+	}).Debug("Expected base type of type guard identified based on variable type")
 
 	// Check if the type guard is defined for the base type
 	for _, param := range typeGuard.Parameters() {
@@ -98,7 +98,7 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 			"paramType": paramType.Ident,
 			"baseType":  baseType.Ident,
 			"function":  "isTypeGuardCompatible",
-		}).Info("Checking parameter type")
+		}).Trace("Checking parameter type")
 
 		// Use the type checker's IsTypeCompatible function to handle type aliases and structural compatibility
 		compatible := t.TypeChecker.IsTypeCompatible(baseType, paramType)
@@ -108,7 +108,7 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 			"paramType":  paramType.Ident,
 			"compatible": compatible,
 			"function":   "isTypeGuardCompatible",
-		}).Info("Type compatibility check result")
+		}).Trace("Type compatibility check result")
 
 		if compatible {
 			t.log.WithFields(logrus.Fields{
@@ -116,7 +116,7 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 				"baseType":  baseType.Ident,
 				"paramType": paramType.Ident,
 				"function":  "isTypeGuardCompatible",
-			}).Info("Found compatible type guard")
+			}).Debug("Found compatible type guard")
 			return true
 		}
 
@@ -138,7 +138,7 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 											"baseType":  baseType.Ident,
 											"paramType": paramType.Ident,
 											"function":  "isTypeGuardCompatible",
-										}).Info("Found structurally compatible type guard")
+										}).Debug("Found structurally compatible type guard")
 										return true
 									}
 								}
@@ -154,6 +154,6 @@ func (t *Transformer) isTypeGuardCompatible(varType ast.TypeNode, typeGuard *ast
 		"typeGuard": typeGuard.GetIdent(),
 		"baseType":  baseType.Ident,
 		"function":  "isTypeGuardCompatible",
-	}).Info("No compatible type guard found")
+	}).Debug("No compatible type guard found")
 	return false
 }

@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "Install the Forst compiler via npm or native binary."
+description: "Install the Forst compiler via npm, Docker, or native binary."
 ---
 
 Forst ships as a **native compiler** with an optional **npm wrapper** for Node/TypeScript workflows. Pick the path that matches how you deploy and develop.
@@ -52,6 +52,40 @@ forst run examples/in/basic.ft
 ```
 
 Use this path when you do not need npm integration, for example pure Go modules or system wide installs.
+
+## Docker (GHCR)
+
+Official multi-arch images are published on [GitHub Container Registry](https://github.com/orgs/forst-lang/packages) when a compiler `v*` release ships.
+
+| Image | Use when |
+| --- | --- |
+| `ghcr.io/forst-lang/forst` | Default — `forst` plus the Go toolchain (`run`, `test`, `generate`, `dev`, …) |
+| `ghcr.io/forst-lang/forst-minimal` | Compiler only — smaller image when you do not need `go run` / `go test` |
+
+Pin the image tag to the compiler release (for example `v0.1.0`). `latest` tracks the latest stable compiler release.
+
+**Generate TypeScript types in CI:**
+
+```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  ghcr.io/forst-lang/forst:v0.x.y generate ./my-service
+```
+
+**Run Forst tests:**
+
+```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace \
+  ghcr.io/forst-lang/forst:v0.x.y test ./...
+```
+
+**Dev server:**
+
+```bash
+docker run --rm -p 8080:8080 -v "$PWD:/workspace" -w /workspace \
+  ghcr.io/forst-lang/forst:v0.x.y dev --port 8080 --root .
+```
+
+The default image includes Go for transpile-and-run workflows. Use `forst-minimal` only when you want a smaller image and will not call `forst run` or `forst test`. Generated Go for production deploys still requires `go build` in your own image if you only transpile to `.go` files.
 
 ## Editor support
 

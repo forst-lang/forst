@@ -532,6 +532,28 @@ tasks:
       - task build:release VERSION=1.0.0-test COMMIT=test-commit DATE=2024-01-01T00:00:00Z
       - echo "Test build completed with version info"
 
+  docker:build:
+    desc: Build local Docker images (default with Go, and minimal side image)
+    cmds:
+      - |
+        docker build -f docker/Dockerfile -t forst-local:default \
+          --build-arg VERSION=dev --build-arg COMMIT=local --build-arg DATE=unknown .
+      - |
+        docker build -f docker/Dockerfile --target minimal -t forst-local:minimal \
+          --build-arg VERSION=dev --build-arg COMMIT=local --build-arg DATE=unknown .
+
+  docker:smoke:
+    desc: Smoke test local Docker images
+    deps: [docker:build]
+    cmds:
+      - docker run --rm forst-local:default version
+      - |
+        docker run --rm \
+          -v "{{.TASKFILE_DIR}}/examples/in:/workspace" \
+          -w /workspace \
+          forst-local:default run basic.ft
+      - docker run --rm forst-local:minimal version
+
   install:bun:
     desc: Install bun dependencies
     cmds:

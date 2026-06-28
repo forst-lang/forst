@@ -1,0 +1,2 @@
+# Docker reads ignore rules from the build context root only.
+# Canonical whitelist: ../.dockerignore
