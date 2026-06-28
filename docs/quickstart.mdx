@@ -3,6 +3,9 @@ title: "Quickstart"
 description: "Install Forst, write a validated handler, and run it in five minutes."
 ---
 
+import { HelloFt } from "/snippets/hello.ft.mdx";
+import PlaceOrderHello from "/snippets/place-order-hello.mdx";
+
 Get from zero to a running Forst program with validated input. This guide assumes you have **Node.js 18+** or access to a **native Forst binary**.
 
 ## 1. Install the compiler
@@ -29,17 +32,7 @@ Get from zero to a running Forst program with validated input. This guide assume
 
 Create `hello.ft`:
 
-```forst
-package main
-
-func greet(): String {
-	return "Hello, World!"
-}
-
-func main() {
-	println(greet())
-}
-```
+<HelloFt />
 
 ## 3. Run it
 
@@ -53,25 +46,7 @@ Forst transpiles to Go, builds, and runs the program. You should see `Hello, Wor
 
 Replace the body of `hello.ft` with a handler that only accepts well-formed orders. Constraints live on the type. Invalid calls fail at compile time and runtime checks are emitted automatically.
 
-```forst
-package main
-
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-}
-
-func placeOrder(in: PlaceOrderInput) {
-	println("Order placed:", in.stockKeepingUnit, in.quantity)
-}
-
-func main() {
-	placeOrder({
-		stockKeepingUnit: "ITEM-1",
-		quantity:         2,
-	})
-}
-```
+<PlaceOrderHello />
 
 Run again:
 

@@ -1,9 +1,11 @@
 ---
-title: "Providers"
-description: "Swap loggers, clocks, and databases in tests with use and with."
+title: "Providers (DI)"
+description: "Declare shared runtime services with use and wire them at entry points using with blocks."
 ---
 
-Backend functions need **runtime services** like loggers, clocks, and database handles that must differ in tests vs production. Forst **Providers** let you declare those dependencies in the function body and wire implementations at entry points, without reflection DI or globals.
+Backend functions depend on **runtime services**: loggers, clocks, database handles, config readers. Passing those through every parameter list gets noisy and hides what is request data vs shared infrastructure.
+
+Forst **Providers** let you declare those dependencies in the function body and wire implementations at entry points. That keeps call sites focused on domain input, makes **data flow** explicit (what each function needs vs what callers pass), and avoids reflection DI or globals.
 
 ## Two primitives
 
@@ -12,7 +14,7 @@ Backend functions need **runtime services** like loggers, clocks, and database h
 | **`use`** | Bind a contract type inside a function: "this code depends on X" |
 | **`with { … } { … }`** | Wire concrete implementations at an entry point (handler, `main`, test) |
 
-**Parameters carry data** (order IDs, request bodies). **Providers carry services** the host supplies (logger, clock, repo). Keep them separate.
+**Parameters carry data** (order IDs, request bodies). **Providers carry services** the host supplies (logger, clock, repo). Keeping them separate clarifies what flows through your API boundary and what is ambient context.
 
 ## Declare dependencies with `use`
 
@@ -40,17 +42,17 @@ func expireToken(token Token) {
 }
 ```
 
-The compiler aggregates `use` sites into **`Providers(f)`** for each function and propagates requirements transitively through calls.
+The compiler aggregates `use` sites into **`Providers(f)`** for each function and propagates requirements transitively through calls. You can see the obligation chain in diagnostics and LSP hovers: which services a handler needs, and which entry point must supply them.
 
-## Wire at the boundary with `with`
+## Wire at the boundary
 
-Entry points satisfy every Provider the call graph needs:
+Entry points satisfy every Provider the call graph needs using a **`with { … } { … }`** block. Production wiring and test wiring use the same mechanism:
 
 ```forst
-func mainWiringDemo() {
+func main() {
 	with {
-		Logger: &NopLogger{},
-		Clock:  &FakeClock { fixedMs: 0 },
+		Logger: &ProductionLogger{},
+		Clock:  &SystemClock {},
 	} {
 		expireToken(Token { id: "x", expiresAt: 1 })
 	}
@@ -59,9 +61,25 @@ func mainWiringDemo() {
 
 Wiring keys use the **root contract name** (`Logger`, `Clock`). Values must structurally satisfy the contract: plain structs with matching methods, or Go types that implement an imported interface.
 
-## Tests without a DI framework
+### Shadowing
 
-Swap fakes in tests the same way:
+Nested **`with`** blocks merge with outer wiring. When the inner block supplies the **same contract key**, it **shadows** the outer value for that scope; other keys still forward from outside:
+
+```forst
+with {
+	Logger: &ProductionLogger {},
+	Clock:  &SystemClock {},
+} {
+	with { Clock: &FakeClock { fixedMs: 2000 } } {
+		// Clock shadows outer; Logger still &ProductionLogger
+		expireToken(Token { id: "t1", expiresAt: 500 })
+	}
+}
+```
+
+## Tests
+
+Tests reuse the same `with` blocks to swap fakes without a separate DI framework:
 
 ```forst
 func TestExpireToken_expired(t *testing.T) {
@@ -75,15 +93,25 @@ func TestExpireToken_expired(t *testing.T) {
 }
 ```
 
-Nested `with` blocks overlay wiring. Inner keys shadow outer ones when both supply the same contract:
+## Compared to other approaches
 
-```forst
-with { Logger: &NopLogger {} } {
-	with { Clock: &FakeClock { fixedMs: 2000 } } {
-		expireToken(token)
-	}
-}
-```
+The Providers RFC surveyed these patterns before settling on **`use`** and **`with`**. See the [Providers RFC hub](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers) for the full prior art writeup.
+
+| Approach | Limitation |
+| --- | --- |
+| **Per function parameters** | Every helper gains extra arguments. Domain input and infrastructure blur together as the call graph grows. |
+| **Go service struct** | Wiring lives in `main` as interface fields on one struct. A new dependency deep in the tree does not propagate to the compiler as a wiring obligation. |
+| **`context.Context`** | `WithValue` is untyped. Keys are easy to miss or collide. Nothing tracks who must supply what at compile time. |
+| **DI frameworks** (Fx, Wire, dig) | These tools rely on runtime containers or codegen indirection. Wiring and failures can be hard to trace in stack traces. |
+| **Effect / ZIO Layers** | Requirements live in the environment type and runtime. Layer graphs add ceremony compared to one struct literal at the boundary. |
+| **Kotlin context parameters** | Implicit context in signatures works on the JVM. Go has no native equivalent, and Forst lowers to explicit struct parameters. |
+| **Test harness DSLs** | Special test-only keywords split production wiring from test wiring. Readers and agents learn two different surfaces. |
+| **Mock frameworks** (Jest, testify) | Expectations couple tests to framework APIs. Structural fakes wired with the same boundary pattern as production are harder to reuse across integration tests. |
+| **Global singletons** | Dependencies hide in package state. Tests need globals, init hooks, or monkey patching. |
+| **Plain Go test helpers** | A hand written `newTestApp(t)` helper drifts from what handlers actually need. Nothing checks completeness when a leaf adds a new service. |
+| **Forst `use` / `with`** | Obligations are inferred at compile time. Wiring stays explicit at entry points. The compiler emits plain Go struct literals with no runtime container. |
+
+Forst treats `context.Context` separately from Providers. Declare services with **`use`** so requirements stay typed and visible. Use **`context`** for cancellation and request scoped values. Use **`with`** blocks for service wiring. Sidecar and TypeScript exports stay data only. The host wires Providers in Go before exposing a handler.
 
 ## What gets emitted
 

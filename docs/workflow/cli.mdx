@@ -3,11 +3,17 @@ title: "CLI reference"
 description: "forst run, build, generate, dev, lsp, and other commands."
 ---
 
+import HelloFt from "/snippets/hello.ft.mdx";
+
 The **`forst`** CLI transpiles `.ft` sources, runs programs, generates TypeScript output, and starts development services. Install via [`@forst/cli`](/installation) or a native binary.
 
 ## Default compile and run
 
-With no subcommand, `forst` compiles a single `.ft` file:
+With no subcommand, `forst` compiles a single `.ft` file. Given `hello.ft`:
+
+<HelloFt />
+
+Run it with:
 
 ```bash
 forst path/to/file.ft          # compile

@@ -38,9 +38,30 @@ Changes deploy via the Mintlify GitHub app when pushed to the default branch (if
 
 When adding pages, update [`docs.json`](./docs.json) navigation.
 
+## LLM and agent docs
+
+Mintlify auto-hosts these on deploy (see [For agents](./resources/llms.mdx)):
+
+- `/llms.txt` — auto-generated page index
+- `/llms-full.txt` — full corpus (Mintlify-generated; large)
+- `/resources/llms` — agent usage cheat sheet (`/resources/llms.md`)
+
+Any doc URL also has a `.md` variant (example: `/quickstart.md`). See [Mintlify llms.txt docs](https://www.mintlify.com/docs/ai/llmstxt).
+
 ## Code samples
 
-Use ` ```forst` for Forst source in MDX. Shell, JSON, and TypeScript keep their native fence tags.
+- Use ` ```forst` for all Forst source, including `.ft` examples on workflow pages.
+- Use ` ```go` only for literal Go comparison code (not Forst).
+- Use ` ```text` for directory trees and other non-code layout.
+- Shell, JSON, and TypeScript keep their native fence tags.
+
+Reuse repeated Forst examples via snippet files in [`snippets/`](./snippets/). Each snippet is a fenced `forst` block. Import with an absolute path:
+
+```mdx
+import CatalogOrder from "/snippets/catalog-order.mdx";
+
+<CatalogOrder />
+```
 
 Syntax highlighting uses a TextMate grammar at [`languages/forst.tmLanguage.json`](./languages/forst.tmLanguage.json). When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) and keep `"name": "forst"` (lowercase for Mintlify/Shiki fence tags).
 

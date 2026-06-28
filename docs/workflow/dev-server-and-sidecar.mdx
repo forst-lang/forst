@@ -56,7 +56,17 @@ npm install @forst/sidecar
 
 ### Spawn mode (local development)
 
-The sidecar starts `forst dev` as a child process:
+The sidecar starts `forst dev` as a child process. Expose a handler in Forst:
+
+```forst
+package handlers
+
+func greet(name: String): String {
+	return "Hello, " + name
+}
+```
+
+Call it from Node:
 
 ```typescript
 import { ForstSidecar } from "@forst/sidecar";
@@ -68,7 +78,7 @@ const sidecar = ForstSidecar({
 });
 
 await sidecar.start();
-const result = await sidecar.invoke("package", "functionName", { /* payload */ });
+const result = await sidecar.invoke("handlers", "greet", { name: "World" });
 await sidecar.stop();
 ```
 

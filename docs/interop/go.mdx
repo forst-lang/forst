@@ -48,7 +48,7 @@ The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go 
 
 Place `.ft` files alongside `.go` in the same module:
 
-```
+```text
 my-service/
 ├── go.mod
 ├── handlers/
@@ -72,7 +72,7 @@ Type constraints in Forst emit **runtime checks** in generated Go. Untrusted inp
 
 ## Providers
 
-Forst **Providers** (`use` / `with`) let you swap loggers, clocks, and databases in tests without a DI framework. See [Providers](/language/providers).
+Forst **Providers** (`use` / `with`) declare shared runtime services at function boundaries and wire implementations at entry points. See [Providers (DI)](/language/providers).
 
 ```bash
 task example:providers

@@ -73,7 +73,7 @@ You can also **import Go packages** and call qualified functions (`fmt.Println`,
 
 ## File layout in a typical backend
 
-```
+```text
 my-service/
 ├── go.mod
 ├── handlers/
@@ -95,7 +95,7 @@ my-service/
   <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
     Runtime checks tied to the type system.
   </Card>
-  <Card title="Providers" icon="plug" href="/language/providers">
-    Swap runtime services in tests with `use` and `with`.
+  <Card title="Providers (DI)" icon="plug" href="/language/providers">
+    Declare shared services with `use` and wire them at entry points.
   </Card>
 </CardGroup>

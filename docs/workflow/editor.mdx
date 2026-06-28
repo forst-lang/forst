@@ -3,6 +3,8 @@ title: "Editor workflow"
 description: "Install the Forst VS Code extension and use diagnostics, hover, and navigation on .ft files."
 ---
 
+import HelloFt from "/snippets/hello.ft.mdx";
+
 Use the **Forst VS Code extension** to edit `.ft` files with diagnostics, hover, completion, go-to-definition, rename, and formatting. Install the extension, open a project folder, and start editing. The extension downloads the compiler automatically on first use.
 
 ## 1. Install the extension
@@ -14,6 +16,10 @@ In VS Code: **Extensions** → search **Forst** → **Install**. Or open the Ope
 ## 2. Open your project
 
 Open a workspace folder that contains `.ft` files (for example a service repo or the Forst `examples/in/` tree).
+
+For example, open a file like `hello.ft`:
+
+<HelloFt />
 
 The extension starts the language server automatically and fetches the matching `forst` binary when needed. The status bar shows the LSP port (default **8081**) and connection state. Click it to open logs.
 

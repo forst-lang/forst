@@ -3,6 +3,8 @@ title: "TypeScript interop"
 description: "Generate .d.ts from Forst and integrate with Node clients."
 ---
 
+import CatalogOrder from "/snippets/catalog-order.mdx";
+
 Your backend types should not exist twice: once in Forst and again as hand written TypeScript interfaces. **`forst generate`** emits TypeScript declarations from the same definitions the compiler validates, so clients import shapes that match the server.
 
 ## The problem
@@ -22,12 +24,7 @@ TypeScript cannot express `quantity` must be 1 to 99 unless you add Zod, Effect.
 
 Define the shape once in Forst:
 
-```forst
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-}
-```
+<CatalogOrder />
 
 Run:
 
@@ -37,7 +34,7 @@ npx forst generate ./path/to/project
 
 Output layout (typical):
 
-```
+```text
 generated/
 ├── types.d.ts      # merged type declarations
 └── ...

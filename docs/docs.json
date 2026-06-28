@@ -73,6 +73,7 @@
           {
             "group": "Project",
             "pages": [
+              "resources/llms",
               "resources/roadmap"
             ]
           }
@@ -81,6 +82,11 @@
     ],
     "global": {
       "anchors": [
+        {
+          "anchor": "For agents",
+          "href": "/resources/llms",
+          "icon": "robot"
+        },
         {
           "anchor": "GitHub",
           "href": "https://github.com/forst-lang/forst",

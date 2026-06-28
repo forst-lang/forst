@@ -3,11 +3,13 @@ title: "Shapes and constraints"
 description: "Define API boundaries as types with built-in validation."
 ---
 
+import CatalogOrder from "/snippets/catalog-order.mdx";
+
 The most common backend mistake is letting **untrusted input** reach business logic. In Go, you usually declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation and rejects invalid data at the boundary.
 
 ## The problem in Go
 
-```forst
+```go
 type PlaceOrderInput struct {
 	StockKeepingUnit string
 	Quantity         int
@@ -28,16 +30,7 @@ The struct says nothing about valid ranges. Every handler repeats the same `if` 
 
 ## The Forst approach
 
-```forst
-type PlaceOrderInput = {
-	stockKeepingUnit: String.Min(1).Max(64),
-	quantity:         Int.Min(1).Max(99),
-}
-
-func placeOrder(in: PlaceOrderInput) {
-	// in is already validated
-}
-```
+<CatalogOrder />
 
 When `placeOrder` runs, the compiler has already proved the shape at compile time where values are known, and emits checks for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
 
