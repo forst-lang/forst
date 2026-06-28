@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -73,6 +74,29 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 		_, err := tc.inferEnsureType(ensure)
 		if err == nil {
 			t.Fatal("expected error: Present on non-pointer")
+		}
+	})
+
+	t.Run("Valid_reserved_placeholder", func(t *testing.T) {
+		tc := New(log, false)
+		fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: []ast.Node{}}
+		tc.scopeStack.pushScope(fn)
+		tc.CurrentScope().RegisterSymbol(ast.Identifier("s"), []ast.TypeNode{{Ident: ast.TypeString}}, SymbolVariable)
+
+		ensure := ast.EnsureNode{
+			Variable: ast.VariableNode{Ident: ast.Ident{ID: "s"}},
+			Assertion: ast.AssertionNode{
+				Constraints: []ast.ConstraintNode{
+					{Name: "Valid", Args: []ast.ConstraintArgumentNode{}},
+				},
+			},
+		}
+		_, err := tc.inferEnsureType(ensure)
+		if err == nil {
+			t.Fatal("expected error: Valid() is reserved")
+		}
+		if !strings.Contains(err.Error(), "Valid() is a reserved placeholder") {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
