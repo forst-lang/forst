@@ -9,6 +9,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestBuiltinGoFuncDoc_len(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	if _, err := loadBuiltinGoDocPackage(log); err != nil {
+		t.Skip("GOROOT builtin package not available:", err)
+	}
+	docText, sig, ok := builtinGoFuncDoc(log, "len")
+	if !ok {
+		t.Fatal("expected len in package builtin")
+	}
+	if docText == "" {
+		t.Fatal("expected doc text for len")
+	}
+	if !strings.Contains(sig, "func len(") {
+		t.Fatalf("sig = %q", sig)
+	}
+}
+
 func TestForstBuiltinReceiverGoType_errorAndScalars(t *testing.T) {
 	t.Parallel()
 	if _, name, ok := forstBuiltinReceiverGoType(ast.TypeNode{Ident: ast.TypeError}); !ok || name != "error" {

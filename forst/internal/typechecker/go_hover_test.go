@@ -198,6 +198,66 @@ func TestGoHoverMarkdownForForstReceiverMethod_wrongReceiver(t *testing.T) {
 	}
 }
 
+func TestGoHoverMarkdownPredeclaredBuiltin_len(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	if _, err := loadBuiltinGoDocPackage(log); err != nil {
+		t.Skip("GOROOT builtin package not available:", err)
+	}
+	tc := New(log, false)
+	md, ok := tc.GoHoverMarkdownPredeclaredBuiltin("len")
+	if !ok {
+		t.Fatal("expected hover for predeclared len")
+	}
+	if !strings.Contains(md, "predeclared `len`") {
+		t.Fatalf("expected predeclared len header, got %q", md)
+	}
+	if !strings.Contains(md, "pkg.go.dev/builtin") {
+		t.Fatalf("expected link to package builtin docs, got %q", md)
+	}
+	if !strings.Contains(strings.ToLower(md), "built-in") {
+		t.Fatalf("expected built-in doc excerpt, got %q", md)
+	}
+	if !strings.Contains(md, "func len(") {
+		t.Fatalf("expected Go signature for len, got %q", md)
+	}
+	if !strings.Contains(md, "**Forst return** `Int`") {
+		t.Fatalf("expected Forst Int return, got %q", md)
+	}
+}
+
+func TestGoHoverMarkdownPredeclaredBuiltin_min(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	if _, err := loadBuiltinGoDocPackage(log); err != nil {
+		t.Skip("GOROOT builtin package not available:", err)
+	}
+	tc := New(log, false)
+	md, ok := tc.GoHoverMarkdownPredeclaredBuiltin("min")
+	if !ok {
+		t.Fatal("expected hover for predeclared min")
+	}
+	if !strings.Contains(strings.ToLower(md), "ordered") {
+		t.Fatalf("expected ordered-type doc excerpt from Go, got %q", md)
+	}
+	if !strings.Contains(md, "func min[T") {
+		t.Fatalf("expected Go signature for min, got %q", md)
+	}
+}
+
+func TestGoHoverMarkdownPredeclaredBuiltin_unknownOrImported(t *testing.T) {
+	t.Parallel()
+	tc := New(logrus.New(), false)
+	if _, ok := tc.GoHoverMarkdownPredeclaredBuiltin("not_a_builtin"); ok {
+		t.Fatal("unexpected hover for unknown name")
+	}
+	if _, ok := tc.GoHoverMarkdownPredeclaredBuiltin("Println"); ok {
+		t.Fatal("fmt.Println local name should not match predeclared table")
+	}
+}
+
 func TestGoHoverMarkdown_packageOnly(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)

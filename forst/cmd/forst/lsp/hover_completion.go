@@ -372,6 +372,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		if doc := guardIdentifierHoverMarkdown(tc, tokens, tok); doc != "" {
 			return doc
 		}
+		if md, ok := tc.GoHoverMarkdownPredeclaredBuiltin(tok.Value); ok && md != "" {
+			return md
+		}
 		vn := ast.VariableNode{
 			Ident: ast.Ident{ID: id, Span: ast.SpanFromToken(*tok)},
 		}
