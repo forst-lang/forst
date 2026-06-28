@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4](https://github.com/forst-lang/forst/compare/v0.5.3...v0.5.4) (2026-06-28)
+
+
+### Features
+
+* **compiler:** add compound assignment and standalone inc/dec ([#108](https://github.com/forst-lang/forst/issues/108)) ([1c0dc46](https://github.com/forst-lang/forst/commit/1c0dc465c883b7fb98933fabc52ab0a40abcfdbf))
+
 ## [0.5.3](https://github.com/forst-lang/forst/compare/v0.5.2...v0.5.3) (2026-06-28)
 
 
