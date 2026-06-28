@@ -18,7 +18,6 @@ import (
 )
 
 func TestDeterministicShapeGuardExample(t *testing.T) {
-	t.Skip("Skipping deterministic shape guard example test – has to do with ordering of generated type definitions during typecheck")
 
 	// Load the shape guard example source
 	inputPath := filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "guard", "shape_guard.ft")
