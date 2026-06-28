@@ -15,7 +15,7 @@ func TestIsSpecialChar(t *testing.T) {
 }
 
 func TestIsTwoCharOperator(t *testing.T) {
-	yes := []string{"->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//", "++", "--"}
+	yes := []string{"->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//", "++", "--", "+=", "-="}
 	for _, s := range yes {
 		if !isTwoCharOperator(s) {
 			t.Errorf("isTwoCharOperator(%q) = false", s)

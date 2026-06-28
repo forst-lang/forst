@@ -139,6 +139,28 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}
 	}
 
+	// Assertion-typed values (e.g. Slug.Premium()) are compatible with their base type.
+	if actual.Ident == ast.TypeAssertion && actual.Assertion != nil && actual.Assertion.BaseType != nil {
+		if tc.IsTypeCompatible(ast.TypeNode{Ident: *actual.Assertion.BaseType}, expected) {
+			return true
+		}
+	}
+	if expected.Ident == ast.TypeAssertion && expected.Assertion != nil && expected.Assertion.BaseType != nil {
+		if tc.IsTypeCompatible(actual, ast.TypeNode{Ident: *expected.Assertion.BaseType}) {
+			return true
+		}
+	}
+	if actual.Assertion != nil && actual.Assertion.BaseType != nil {
+		if tc.IsTypeCompatible(ast.TypeNode{Ident: *actual.Assertion.BaseType}, expected) {
+			return true
+		}
+	}
+	if expected.Assertion != nil && expected.Assertion.BaseType != nil {
+		if tc.IsTypeCompatible(actual, ast.TypeNode{Ident: *expected.Assertion.BaseType}) {
+			return true
+		}
+	}
+
 	// Check if actual type is an alias of expected type
 	actualDef, actualExists := tc.Defs[actual.Ident]
 	if actualExists {
@@ -350,7 +372,7 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			return nil, diagnosticf(sp, "builtin-call", "string() expects one argument")
 		}
 		switch argType[0].Ident {
-		case ast.TypeInt:
+		case ast.TypeInt, ast.TypeBool:
 			return []ast.TypeNode{fn.ReturnType}, nil
 		default:
 			if argType[0].Ident == ast.TypeResult {

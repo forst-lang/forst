@@ -26,3 +26,6 @@ func (d DereferenceNode) GetIdent() string {
 
 // Implement ValueNode interface for DereferenceNode
 func (d DereferenceNode) isValue() { _ = d }
+
+// Implement ExpressionNode interface for DereferenceNode (e.g. **pp in expressions).
+func (d DereferenceNode) isExpression() { _ = d }

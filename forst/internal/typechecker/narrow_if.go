@@ -10,8 +10,8 @@ import (
 )
 
 // underlyingBuiltinTypeOfAliasAssertion returns the built-in type ident (e.g. String) when a named
-// type is defined only as a TypeDefAssertionExpr over a built-in (or a chain of such aliases)
-// with no constraints on that assertion. Otherwise returns empty.
+// type is defined as a TypeDefAssertionExpr whose base (directly or via alias chain) is a built-in.
+// Inline constraints (String.Min(1), Slug.Premium()) do not change the underlying Go representation.
 func (tc *TypeChecker) underlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent) ast.TypeIdent {
 	def, ok := tc.Defs[alias].(ast.TypeDefNode)
 	if !ok {
@@ -27,17 +27,21 @@ func (tc *TypeChecker) underlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent
 	default:
 		return ""
 	}
-	if ade == nil || ade.Assertion == nil {
+	if ade == nil || ade.Assertion == nil || ade.Assertion.BaseType == nil {
 		return ""
 	}
-	ann := ade.Assertion
-	if ann.BaseType == nil || len(ann.Constraints) != 0 {
-		return ""
+	base := *ade.Assertion.BaseType
+	if tc.isBuiltinType(base) {
+		return base
 	}
-	if tc.isBuiltinType(*ann.BaseType) {
-		return *ann.BaseType
+	if len(ade.Assertion.Constraints) != 0 {
+		return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(base))
 	}
-	return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(*ann.BaseType))
+	return tc.underlyingBuiltinTypeOfAliasAssertion(ast.TypeIdent(base))
+}
+
+func (tc *TypeChecker) UnderlyingBuiltinTypeOfAliasAssertion(alias ast.TypeIdent) ast.TypeIdent {
+	return tc.underlyingBuiltinTypeOfAliasAssertion(alias)
 }
 
 // refinedNarrowingTypeFromAliasAssertion maps `x is MyStr`-style narrowing to the underlying

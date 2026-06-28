@@ -87,7 +87,7 @@ func main() {
 	out := compileForstPipeline(t, src)
 	for _, sub := range []string{
 		`type Label string`,
-		`len(s) < 1`,
+		`len(string(s)) < 1`,
 		`os.Exit`,
 		`func main`,
 	} {

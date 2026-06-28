@@ -501,6 +501,50 @@ func main() {
 	fmt.Println("x")
 }`,
 		},
+		{
+			"alias_string_concat",
+			`package main
+type Slug = String
+func label(s Slug): String {
+	return "x-" + s
+}
+func main() {
+	println(label("hi"))
+}`,
+		},
+		{
+			"alias_guard_concat",
+			`package main
+type Slug = String.Min(1).Max(64)
+func label(s Slug): String {
+	return "★ " + s
+}
+func main() {
+	println(label("hi"))
+}`,
+		},
+		{
+			"place_order_input_shape",
+			`package main
+type PlaceOrderInput = {
+	stockKeepingUnit: String.Min(1).Max(64),
+	quantity:         Int.Min(1).Max(99),
+}
+func main() {
+	x := PlaceOrderInput{ stockKeepingUnit: "ITEM-1", quantity: 2 }
+	println(x.stockKeepingUnit)
+}`,
+		},
+		{
+			"compound_assign",
+			`package main
+func main() {
+	n := 0
+	n += 5
+	n -= 2
+	println(string(n))
+}`,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

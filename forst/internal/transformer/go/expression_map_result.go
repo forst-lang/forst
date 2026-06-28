@@ -73,6 +73,19 @@ func (t *Transformer) transformMapIndexResultCall(e ast.IndexExpressionNode, res
 	return &goast.CallExpr{Fun: fn}, nil
 }
 
+// transformIndexAssignTarget lowers map/slice index on assignment LHS without Result read IIFE.
+func (t *Transformer) transformIndexAssignTarget(e ast.IndexExpressionNode) (goast.Expr, error) {
+	tgt, err := t.transformExpression(e.Target)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := t.transformExpression(e.Index)
+	if err != nil {
+		return nil, err
+	}
+	return &goast.IndexExpr{X: tgt, Index: idx}, nil
+}
+
 // mapIndexExprCacheKey is stable for duplicate reads: avoid Variable(m) vs m spelling differences in String().
 func mapIndexExprCacheKey(e ast.IndexExpressionNode) string {
 	var target string

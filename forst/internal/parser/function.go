@@ -194,10 +194,19 @@ func (p *Parser) parseReturnType() []ast.TypeNode {
 func (p *Parser) parseReturnTypeSingle() ast.TypeNode {
 	// Special handling for shape types in return positions
 	if p.current().Type == ast.TokenLBrace {
-		p.parseShapeType() // Parse the shape but don't use it for return type
-		// For return types, create a simple shape type instead of an assertion
+		shape := p.parseShapeType()
+		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.TypeNode{
 			Ident: ast.TypeShape,
+			Assertion: &ast.AssertionNode{
+				BaseType: &baseType,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{
+						Shape: &shape,
+					}},
+				}},
+			},
 		}
 	}
 	return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})

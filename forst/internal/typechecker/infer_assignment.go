@@ -19,6 +19,21 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 		"function":   "inferAssignmentTypes",
 	}).Trace("Starting type inference for assignment")
 
+	if assign.CompoundOp != "" {
+		if assign.IsShort {
+			return fmt.Errorf("cannot use compound assignment with :=")
+		}
+		if len(assign.LValues) != 1 || len(assign.RValues) != 1 {
+			return fmt.Errorf("compound assignment requires a single left- and right-hand side")
+		}
+		for _, et := range assign.ExplicitTypes {
+			if et != nil {
+				return fmt.Errorf("compound assignment does not support explicit types")
+			}
+		}
+		return tc.inferCompoundAssignmentTypes(assign)
+	}
+
 	nValueGo := false
 	if len(assign.RValues) == 1 && len(assign.LValues) >= 2 {
 		if fc, ok := assign.RValues[0].(ast.FunctionCallNode); ok {
@@ -144,6 +159,22 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 			isVarDeclaration := len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil
 
 			if !assign.IsShort && !isVarDeclaration {
+				parts := strings.Split(string(l.Ident.ID), ".")
+				if len(parts) > 1 {
+					lhsType, _, _, err := tc.lookupVariableForExpression(&l, tc.CurrentScope())
+					if err != nil {
+						return err
+					}
+					if len(resolvedTypes[i]) != 1 {
+						return fmt.Errorf("field assignment: right-hand side must have a single type")
+					}
+					if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsType) {
+						return fmt.Errorf("assignment type mismatch: cannot assign %s to %s (expected %s)",
+							resolvedTypes[i][0].Ident, l.Ident.ID, lhsType.Ident)
+					}
+					tc.storeInferredType(l, []ast.TypeNode{lhsType})
+					break
+				}
 				_, exists := tc.scopeStack.LookupVariableType(l.Ident.ID)
 				if !exists {
 					return fmt.Errorf("assignment to undeclared variable '%s' is not allowed; use 'var' or ':='", l.Ident.ID)
@@ -211,6 +242,23 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 			}
 			if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsTypes[0]) {
 				return fmt.Errorf("assignment type mismatch: cannot assign %s to element (expected %s)",
+					resolvedTypes[i][0].Ident, lhsTypes[0].Ident)
+			}
+			tc.storeInferredType(l, lhsTypes)
+
+		case ast.DereferenceNode:
+			if assign.IsShort {
+				return fmt.Errorf("cannot use := on dereferenced assignment")
+			}
+			lhsTypes, err := tc.inferDerefExpressionAsAssignTarget(l)
+			if err != nil {
+				return err
+			}
+			if len(lhsTypes) != 1 || len(resolvedTypes[i]) != 1 {
+				return fmt.Errorf("dereference assignment: expected single type on both sides")
+			}
+			if !tc.IsTypeCompatible(resolvedTypes[i][0], lhsTypes[0]) {
+				return fmt.Errorf("assignment type mismatch: cannot assign %s through pointer (expected %s)",
 					resolvedTypes[i][0].Ident, lhsTypes[0].Ident)
 			}
 			tc.storeInferredType(l, lhsTypes)

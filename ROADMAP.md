@@ -52,7 +52,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Shape-based types | ✅ done | Structural shapes. |
 | Type definitions | ✅ done | User-defined types. |
 | Packages, imports, top-level `func` | ✅ done | Core compilation path (same role as Go). |
-| `var`, assignments, `:=`, short declarations | ✅ done | Forst uses typed `name: Type =` and inference-friendly forms alongside Go-like patterns. |
+| `var`, assignments, `:=`, short declarations | ✅ done | Forst uses typed `name: Type =` and inference-friendly forms alongside Go-like patterns. Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`) and postfix `++` / `--` are supported—see control-flow rows below. |
 
 ### Optional & Result Types
 
@@ -99,6 +99,9 @@ The language surface is organized around **structural types**, **explicit annota
 | --- | --- | --- |
 | `if` / `else` (incl. init statement) | ✅ done | Same structural forms as Go. |
 | `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Parser, typechecker, and Go emit cover the usual Go forms; `examples/in/loop.ft` + `task example:loop`. Gaps vs Go: labeled `break`/`continue`, channel `range` nuances, Go 1.22+ integer `range`—see issues if you need them. |
+| Postfix `++` / `--` | ✅ done | Increment/decrement as standalone statements and in `for` post clauses. `examples/in/loop.ft`, `lang_probe/59_inc_compound`. |
+| Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`) | ✅ done | Parse, typecheck (`lhs op= rhs` as `lhs = lhs op rhs`), Go emit (`ADD_ASSIGN`, …), and `forst fmt` round-trip. `lang_probe/59_inc_compound`. |
+| Shift / xor compound assignment (`^=`, `<<=`, `>>=`, `&^=`) | 📋 planned | Not lexed yet; needs `^`, `<<`, `>>`, `&^` tokens and three-character operator lexing. |
 | `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
 | `switch` / `case` / `default` / `fallthrough` | 📋 planned | Keywords exist in the lexer; no AST/typecheck/emit yet. **Design open:** may track Go’s **`switch`** closely, or lean toward a **`match`**-style construct (patterns, exhaustiveness) instead of—or layered on—classic **`switch`**; not decided. |
 | `select` | 📋 planned | Not a Forst keyword yet; needs lexer + full statement support (see also channel row below). |

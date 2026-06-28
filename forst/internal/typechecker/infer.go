@@ -93,11 +93,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			// Assertion-only alias with no shape fields (e.g. type MyStr = String via TypeDefAssertionExpr,
 			// or a chain of such aliases): do not replace Defs with an empty TypeDefShapeExpr — the collect
 			// pass already stored TypeDefAssertionExpr and alias-chain / narrowing logic needs it.
-			if len(mergedFields) == 0 && len(assertionExpr.Assertion.Constraints) == 0 &&
-				assertionExpr.Assertion.BaseType != nil {
+			if len(mergedFields) == 0 && assertionExpr.Assertion.BaseType != nil {
 				base := *assertionExpr.Assertion.BaseType
-				// Direct alias to a built-in (e.g. type Greeting = String): underlyingBuiltinTypeOfAliasAssertion
-				// only resolves named typedef chains via Defs and returns "" when base is itself a built-in ident.
+				// Direct alias to a built-in (e.g. type Greeting = String, or Slug = String.Min(1)):
+				// keep TypeDefAssertionExpr so alias-chain / narrowing / string concat still resolve.
 				if tc.isBuiltinType(base) {
 					return nil, nil
 				}

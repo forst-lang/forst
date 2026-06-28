@@ -82,6 +82,9 @@ func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode,
 		if tc.IsTypeCompatible(actual[i], expected[i]) {
 			continue
 		}
+		if tc.returnTypeMatchesInferredShape(actual[i], expected[i]) {
+			continue
+		}
 		if tc.isPlainSuccessCompatibleWithDeclaredResult(actual[i], expected[i]) {
 			continue
 		}
@@ -145,6 +148,25 @@ func (tc *TypeChecker) IsShapeCompatibleWithNamedType(shape ast.ShapeNode, named
 		}
 	}
 
+	return false
+}
+
+// returnTypeMatchesInferredShape accepts inferred hash shapes against parsed anonymous `{ ... }` return types (Match constraint).
+func (tc *TypeChecker) returnTypeMatchesInferredShape(actual ast.TypeNode, expected ast.TypeNode) bool {
+	if expected.Ident != ast.TypeShape || expected.Assertion == nil {
+		return false
+	}
+	for _, c := range expected.Assertion.Constraints {
+		if c.Name != ConstraintMatch || len(c.Args) == 0 || c.Args[0].Shape == nil {
+			continue
+		}
+		wantShape := c.Args[0].Shape
+		if actualDef, ok := tc.Defs[actual.Ident]; ok {
+			if gotShape, ok := tc.getShapeFromTypeDef(actualDef); ok {
+				return tc.shapesHaveSameStructure(*gotShape, *wantShape)
+			}
+		}
+	}
 	return false
 }
 

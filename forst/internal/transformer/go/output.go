@@ -3,6 +3,7 @@ package transformergo
 import (
 	goast "go/ast"
 	"go/token"
+	"sort"
 	"strings"
 )
 
@@ -174,8 +175,12 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 		decls = append(decls, goast.Decl(typeDecl))
 	}
 
-	// Add function declarations
-	for _, fn := range t.functions {
+	// Add function declarations (stable order for deterministic codegen)
+	funcs := append([]*goast.FuncDecl(nil), t.functions...)
+	sort.Slice(funcs, func(i, j int) bool {
+		return functionDeclSortKey(funcs[i]) < functionDeclSortKey(funcs[j])
+	})
+	for _, fn := range funcs {
 		decls = append(decls, goast.Decl(fn))
 	}
 
@@ -186,4 +191,17 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 	}
 
 	return file, nil
+}
+
+func functionDeclSortKey(fn *goast.FuncDecl) string {
+	if fn == nil || fn.Name == nil {
+		return ""
+	}
+	name := fn.Name.Name
+	if fn.Recv != nil && len(fn.Recv.List) > 0 {
+		if id, ok := fn.Recv.List[0].Type.(*goast.Ident); ok {
+			return id.Name + "." + name
+		}
+	}
+	return name
 }

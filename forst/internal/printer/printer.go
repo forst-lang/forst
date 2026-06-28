@@ -597,6 +597,9 @@ func (p *printer) printAssignment(a ast.AssignmentNode) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if a.CompoundOp != "" {
+		return lhs + " " + ast.CompoundAssignOperatorString(a.CompoundOp) + " " + rhs, nil
+	}
 	// var x: T = e
 	if !a.IsShort && len(a.LValues) == 1 && len(a.ExplicitTypes) > 0 && a.ExplicitTypes[0] != nil {
 		return "var " + lhs + " = " + rhs, nil
@@ -896,6 +899,9 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 		inner, err := p.printExpr(x.Operand)
 		if err != nil {
 			return "", err
+		}
+		if suffix, ok := incDecSuffix(x.Operator); ok {
+			return inner + suffix, nil
 		}
 		return tokenUnary(x.Operator) + inner, nil
 	case ast.BinaryExpressionNode:

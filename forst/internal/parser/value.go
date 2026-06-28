@@ -16,7 +16,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			ref := p.expect(ast.TokenIdentifier)
 			if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(ref.Value) {
 				typeIdent := ast.TypeIdent(ref.Value)
-				shape := p.parseShapeLiteral(&typeIdent, false)
+				shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
 				return ast.ReferenceNode{Value: shape}
 			}
 			return ast.ReferenceNode{
@@ -28,7 +28,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 			// Handle struct literal reference
 			// Check for identifier before left brace (e.g., MyShape { ... })
 			baseTypeIdent := p.parseTypeIdent()
-			shapeLiteral := p.parseShapeLiteral(baseTypeIdent, false)
+			shapeLiteral := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: baseTypeIdent})
 			return ast.ReferenceNode{
 				Value: shapeLiteral,
 			}
@@ -40,7 +40,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 
 		if p.current().Type == ast.TokenLBrace && isShapeLiteralTypePrefix(string(ident.ID)) {
 			typeIdent := ast.TypeIdent(string(ident.ID))
-			shape := p.parseShapeLiteral(&typeIdent, false)
+			shape := p.parseShapeLiteral(ShapeLiteralOpts{BaseType: &typeIdent})
 			return shape
 		}
 
@@ -87,7 +87,7 @@ func (p *Parser) parseValue() ast.ValueNode {
 		}
 	case ast.TokenLBrace:
 		// Handle shape literal
-		shape := p.parseShapeLiteral(nil, false)
+		shape := p.parseShapeLiteral(ShapeLiteralOpts{})
 		return shape
 	case ast.TokenStar:
 		p.advance() // Consume *

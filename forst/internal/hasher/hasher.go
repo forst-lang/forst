@@ -584,6 +584,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 	case ast.AssignmentNode:
 		h.writeHashes(hasher, NodeKind["Assignment"])
+		h.writeHashes(hasher, string(n.CompoundOp))
 		for _, lValue := range n.LValues {
 			hash, err := h.HashNode(lValue)
 			if err != nil {

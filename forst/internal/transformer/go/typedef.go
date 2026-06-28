@@ -34,6 +34,18 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		return nil, err
 	}
 
+	// Plain alias chains to a built-in (e.g. SessionId = UserId = String) emit the underlying Go type.
+	if _, ok := node.Expr.(ast.TypeDefAssertionExpr); ok {
+		if bu := t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(node.Ident); bu != "" {
+			goIdent, err := transformTypeIdent(bu)
+			if err != nil {
+				return nil, err
+			}
+			var asExpr goast.Expr = goIdent
+			expr = &asExpr
+		}
+	}
+
 	// Use original name for user-defined types, hash-based name for structural types
 	var typeName ast.TypeIdent
 	var typeNode = ast.TypeNode{Ident: node.Ident}
@@ -54,12 +66,16 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		},
 	}
 
+	if _, ok := node.Expr.(ast.TypeDefErrorExpr); ok {
+		t.emitNominalErrorErrorMethod(typeName)
+	}
+
 	return &goast.GenDecl{
 		Tok: token.TYPE,
 		Specs: []goast.Spec{
 			&goast.TypeSpec{
 				Name: &goast.Ident{
-					Name: string(typeName),
+				 Name: string(typeName),
 				},
 				Type: *expr,
 			},
@@ -68,6 +84,25 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 			List: comments,
 		},
 	}, nil
+}
+
+// emitNominalErrorErrorMethod emits `func (e T) Error() string` for nominal error structs.
+func (t *Transformer) emitNominalErrorErrorMethod(typeName ast.TypeIdent) {
+	name := string(typeName)
+	fn := &goast.FuncDecl{
+		Recv: &goast.FieldList{List: []*goast.Field{{
+			Names: []*goast.Ident{goast.NewIdent("e")},
+			Type:  goast.NewIdent(name),
+		}}},
+		Name: goast.NewIdent("Error"),
+		Type: &goast.FuncType{
+			Results: &goast.FieldList{List: []*goast.Field{{Type: goast.NewIdent("string")}}},
+		},
+		Body: &goast.BlockStmt{List: []goast.Stmt{
+			&goast.ReturnStmt{Results: []goast.Expr{&goast.BasicLit{Kind: token.STRING, Value: `"error"`}}},
+		}},
+	}
+	t.Output.AddFunction(fn)
 }
 
 func (t *Transformer) getAssertionBaseTypeIdent(assertion *ast.AssertionNode) (*goast.Ident, error) {
