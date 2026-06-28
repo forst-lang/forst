@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
-import { readForstConfig, resolveForstExecutable } from "./config";
+import { readForstConfig, resolveForstExecutable, getCachedCompilerPath } from "./config";
 
 export type ForstLspStatusKind = "ready" | "idle" | "error";
 
@@ -17,7 +17,7 @@ export function refreshForstStatusBar(
     return;
   }
   const cfg = readForstConfig();
-  const exe = resolveForstExecutable(cfg.forstPath);
+  const exe = getCachedCompilerPath() ?? resolveForstExecutable(cfg.forstPath);
   const icon =
     kind === "ready"
       ? "$(check)"

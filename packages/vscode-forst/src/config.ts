@@ -2,24 +2,24 @@ import * as fs from "fs";
 import * as path from "path";
 import type { LogOutputChannel } from "vscode";
 import * as vscode from "vscode";
+import {
+  compilerResolutionCacheKey,
+  handleCliResolutionFailure,
+  readCompilerResolutionCache,
+  writeCompilerResolutionCacheError,
+  writeCompilerResolutionCachePath,
+} from "./compilerResolution.js";
+import type { ForstExtensionConfig } from "./configTypes.js";
 
-/** Snapshot of `forst.*` workspace settings the LSP layer and spawn logic need in one place. */
-export interface ForstExtensionConfig {
-  forstPath: string;
-  port: number;
-  logLevel: string;
-  autoStart: boolean;
-  /**
-   * When true (default), use @forst/cli to resolve FORST_BINARY, cache, or download the compiler.
-   * When false, use workspace `bin/forst` / PATH only.
-   */
-  downloadCompiler: boolean;
-  /**
-   * When true (default) and downloads are enabled, compare the bundled @forst/cli semver with
-   * GitHub's latest release and use the higher version for the cache path (may fetch a newer binary).
-   */
-  preferLatestCompilerRelease: boolean;
-}
+export type { ForstExtensionConfig } from "./configTypes.js";
+export {
+  clearCompilerResolutionCache,
+  getCachedCompilerError,
+  getCachedCompilerPath,
+  compilerResolutionCacheKey,
+  shouldFallbackToPathOnCliError,
+  handleCliResolutionFailure,
+} from "./compilerResolution.js";
 
 /** Reads the current workspace configuration—call sites get fresh values after settings change. */
 export function readForstConfig(): ForstExtensionConfig {
@@ -106,6 +106,15 @@ export async function resolveForstExecutableWithCli(
     return resolved;
   }
 
+  const cacheKey = compilerResolutionCacheKey(cfg);
+  const cached = readCompilerResolutionCache(cacheKey);
+  if (cached) {
+    if ("path" in cached) {
+      return cached.path;
+    }
+    throw cached.error;
+  }
+
   try {
     const { resolveForstBinary } = await import("@forst/cli");
     const p = await resolveForstBinary({
@@ -116,12 +125,23 @@ export async function resolveForstExecutableWithCli(
     if (p !== resolved) {
       log?.info(`Resolved Forst compiler via @forst/cli: ${p}`);
     }
+    writeCompilerResolutionCachePath(cacheKey, p);
     return p;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    log?.warn(
-      `Forst CLI could not resolve the compiler (${msg}). Using "${resolved}" (PATH).`
-    );
-    return resolved;
+    const err = e instanceof Error ? e : new Error(String(e));
+    try {
+      const fallback = handleCliResolutionFailure(e, resolved, cfg.downloadCompiler);
+      log?.warn(
+        `Forst CLI could not resolve the compiler (${err.message}). Using "${fallback}" (PATH).`
+      );
+      writeCompilerResolutionCachePath(cacheKey, fallback);
+      return fallback;
+    } catch (rethrow) {
+      log?.error(
+        `Forst CLI could not resolve the compiler (${err.message}).`
+      );
+      writeCompilerResolutionCacheError(cacheKey, err);
+      throw rethrow;
+    }
   }
 }

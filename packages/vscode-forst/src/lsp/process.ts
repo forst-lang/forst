@@ -3,6 +3,7 @@ import type { LogOutputChannel } from "vscode";
 import type { ForstExtensionConfig } from "../config";
 import { lspBaseUrl, resolveForstExecutableWithCli } from "../config";
 import { waitForLspHealth } from "./health";
+import type { LspSessionState } from "./session";
 
 /**
  * Shared mutable handle for the spawned `forst lsp` child so restart and deactivate can tear
@@ -46,7 +47,8 @@ let ensureChain: Promise<void> = Promise.resolve();
 export async function ensureForstLspProcess(
   cfg: ForstExtensionConfig,
   log: LogOutputChannel,
-  state: ForstLspChildState
+  state: ForstLspChildState,
+  session?: LspSessionState
 ): Promise<void> {
   const prev = ensureChain;
   let release!: () => void;
@@ -55,7 +57,7 @@ export async function ensureForstLspProcess(
   });
   await prev;
   try {
-    await ensureForstLspProcessUnlocked(cfg, log, state);
+    await ensureForstLspProcessUnlocked(cfg, log, state, session);
   } finally {
     release();
   }
@@ -64,7 +66,8 @@ export async function ensureForstLspProcess(
 async function ensureForstLspProcessUnlocked(
   cfg: ForstExtensionConfig,
   log: LogOutputChannel,
-  state: ForstLspChildState
+  state: ForstLspChildState,
+  session?: LspSessionState
 ): Promise<void> {
   const base = lspBaseUrl(cfg.port);
   if (!cfg.autoStart) {

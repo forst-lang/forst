@@ -15,7 +15,7 @@ export {
 export {
   buildCompilerArtifactDownloadUrl,
 } from "./urls.js";
-export { getCliPackageVersion } from "./version.js";
+export { getCliPackageVersion, getBundledCompilerReleaseVersion } from "./version.js";
 export {
   getCompilerArtifactDownloadUrlForCurrentPlatform,
   getCompilerCacheBaseDir,
@@ -31,6 +31,7 @@ export type {
 } from "./resolve.js";
 export {
   CompilerBinaryChecksumMismatch,
+  CompilerBinaryDigestUnavailable,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,

@@ -12,13 +12,15 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
+import type { FetchImpl } from "./http.js";
 import {
   maxSemverCompilerVersion,
   resolveForstBinary,
 } from "./resolve.js";
-import { getCliPackageVersion } from "./version.js";
+import { getBundledCompilerReleaseVersion } from "./version.js";
 import {
   CompilerBinaryChecksumMismatch,
+  CompilerBinaryDigestUnavailable,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
@@ -98,7 +100,7 @@ describe("resolveForstBinary", () => {
       const dest = join(cacheRoot, "0.0.19", destName);
 
       const fakeBinary = Buffer.from("fake-forst-binary");
-      const fetchImpl: typeof fetch = async (url) => {
+      const fetchImpl: FetchImpl = async (url) => {
         expect(String(url)).toContain("/download/v0.0.19/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
@@ -133,7 +135,7 @@ describe("resolveForstBinary", () => {
       }
 
       let fetchCalled = false;
-      const fetchImpl: typeof fetch = async () => {
+      const fetchImpl: FetchImpl = async () => {
         fetchCalled = true;
         throw new Error("fetchImpl must not be called on cache hit");
       };
@@ -166,7 +168,7 @@ describe("resolveForstBinary", () => {
   test("maps HTTP failure to CompilerBinaryDownloadHttpFailure", async () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
     try {
-      const fetchImpl: typeof fetch = async () =>
+      const fetchImpl: FetchImpl = async () =>
         new Response(null, { status: 404, statusText: "Not Found" });
 
       await expect(
@@ -193,7 +195,7 @@ describe("resolveForstBinary", () => {
       const payload = Buffer.from("fake-forst-binary");
       const hex = createHash("sha256").update(payload).digest("hex");
 
-      const fetchImpl: typeof fetch = async (url) => {
+      const fetchImpl: FetchImpl = async (url) => {
         const s = String(url);
         if (s.includes("api.github.com")) {
           return new Response(
@@ -220,7 +222,45 @@ describe("resolveForstBinary", () => {
     }
   });
 
-  test("throws when GitHub API returns no digest and verification is required", async () => {
+  test("downloads without verification when GitHub API returns no digest", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+      const dest = join(cacheRoot, "0.0.19", destName);
+      const payload = Buffer.from("fake-forst-binary");
+
+      const fetchImpl: FetchImpl = async (url) => {
+        const s = String(url);
+        if (s.includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({
+              assets: [{ name: destName }],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        expect(s).toContain("/download/v0.0.19/" + destName);
+        return new Response(payload, { status: 200 });
+      };
+
+      const p = await resolveForstBinary({
+        version: "0.0.19",
+        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      });
+
+      expect(p).toBe(dest);
+      expect(readFileSync(dest).equals(payload)).toBe(true);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("throws when digest missing and FORST_CLI_VERIFY=strict", async () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
     try {
       const destName =
@@ -228,7 +268,7 @@ describe("resolveForstBinary", () => {
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
 
-      const fetchImpl: typeof fetch = async (url) => {
+      const fetchImpl: FetchImpl = async (url) => {
         const s = String(url);
         if (s.includes("api.github.com")) {
           return new Response(
@@ -244,11 +284,87 @@ describe("resolveForstBinary", () => {
       await expect(
         resolveForstBinary({
           version: "0.0.19",
-          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          env: {
+            ...process.env,
+            FORST_CACHE_DIR: cacheRoot,
+            FORST_CLI_VERIFY: "strict",
+          },
           fetchImpl,
           homedirFn: () => "/unused",
         })
-      ).rejects.toBeInstanceOf(CompilerBinaryDownloadFailed);
+      ).rejects.toMatchObject({
+        name: "CompilerBinaryDigestUnavailable",
+        reason: "digest_missing",
+      });
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("strict mode throws CompilerBinaryDigestUnavailable when release tag missing", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const fetchImpl: FetchImpl = async (url) => {
+        if (String(url).includes("api.github.com")) {
+          return new Response(null, { status: 404, statusText: "Not Found" });
+        }
+        return new Response(null, { status: 500 });
+      };
+
+      await expect(
+        resolveForstBinary({
+          version: "9.9.9",
+          env: {
+            ...process.env,
+            FORST_CACHE_DIR: cacheRoot,
+            FORST_CLI_VERIFY: "strict",
+          },
+          fetchImpl,
+          homedirFn: () => "/unused",
+        })
+      ).rejects.toMatchObject({
+        name: "CompilerBinaryDigestUnavailable",
+        reason: "release_not_found",
+      });
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("strict mode throws CompilerBinaryDigestUnavailable when asset missing on release", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
+    try {
+      const destName =
+        process.platform === "win32"
+          ? "forst-windows-amd64.exe"
+          : getCompilerArtifactName(process.platform, process.arch);
+
+      const fetchImpl: FetchImpl = async (url) => {
+        if (String(url).includes("api.github.com")) {
+          return new Response(
+            JSON.stringify({ assets: [{ name: "other-asset" }] }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(null, { status: 500 });
+      };
+
+      await expect(
+        resolveForstBinary({
+          version: "0.4.0",
+          env: {
+            ...process.env,
+            FORST_CACHE_DIR: cacheRoot,
+            FORST_CLI_VERIFY: "1",
+          },
+          fetchImpl,
+          homedirFn: () => "/unused",
+        })
+      ).rejects.toMatchObject({
+        name: "CompilerBinaryDigestUnavailable",
+        reason: "asset_not_found",
+        artifact: destName,
+      });
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }
@@ -265,11 +381,14 @@ describe("resolveForstBinary", () => {
       const fakeBinary = Buffer.from("fake-forst-binary");
       const hex = createHash("sha256").update(fakeBinary).digest("hex");
 
-      const fetchImpl: typeof fetch = async (url) => {
+      const fetchImpl: FetchImpl = async (url) => {
         const s = String(url);
-        if (s.includes("/repos/forst-lang/forst/releases/latest")) {
+        if (s.includes("/repos/forst-lang/forst/releases?")) {
           return new Response(
-            JSON.stringify({ tag_name: "v99.0.0" }),
+            JSON.stringify([
+              { tag_name: "vscode-forst-v0.3.0" },
+              { tag_name: "v99.0.0" },
+            ]),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
         }
@@ -306,7 +425,7 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const bundled = getCliPackageVersion();
+      const bundled = getBundledCompilerReleaseVersion();
       const dest = join(cacheRoot, bundled, destName);
       mkdirSync(dirname(dest), { recursive: true });
       const marker = Buffer.from("cached");
@@ -315,7 +434,7 @@ describe("resolveForstBinary", () => {
         chmodSync(dest, 0o755);
       }
 
-      const fetchImpl: typeof fetch = async () => {
+      const fetchImpl: FetchImpl = async () => {
         throw new Error("network must not be used when allowDownload is false");
       };
 
@@ -343,7 +462,7 @@ describe("resolveForstBinary", () => {
           : getCompilerArtifactName(process.platform, process.arch);
       const payload = Buffer.from("fake-forst-binary");
 
-      const fetchImpl: typeof fetch = async (url) => {
+      const fetchImpl: FetchImpl = async (url) => {
         const s = String(url);
         if (s.includes("api.github.com")) {
           return new Response(
@@ -358,14 +477,16 @@ describe("resolveForstBinary", () => {
         return new Response(payload, { status: 200 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "0.0.19",
-          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-          fetchImpl,
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toBeInstanceOf(CompilerBinaryChecksumMismatch);
+      const err = await resolveForstBinary({
+        version: "0.0.19",
+        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toBeInstanceOf(CompilerBinaryChecksumMismatch);
+      expect(String(err.message)).toContain("supply-chain");
+      expect(String(err.message)).toContain("Do not run");
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }

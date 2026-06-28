@@ -1,6 +1,12 @@
+/** Callable fetch shape for injection and tests (excludes Node fetch statics like `preconnect`). */
+export type FetchImpl = (
+  input: string | URL | Request,
+  init?: RequestInit
+) => Promise<Response>;
+
 /** Retries transient failures (network errors, 429, 502, 503). */
 export async function fetchWithRetry(
-  fetchFn: typeof fetch,
+  fetchFn: FetchImpl,
   url: string | URL,
   init?: RequestInit,
   maxAttempts = 5

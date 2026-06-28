@@ -15,6 +15,13 @@
       "create-github-release": true,
       "exclude-paths": [
         "packages/"
+      ],
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/cli/package.json",
+          "jsonpath": "$.forst.compilerRelease"
+        }
       ]
     },
     "packages/vscode-forst": {

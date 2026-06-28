@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { fetchWithRetry } from "./http.js";
+import { fetchWithRetry, type FetchImpl } from "./http.js";
 
 test("fetchWithRetry retries until success on 503", async () => {
   let calls = 0;
-  const fetchImpl: typeof fetch = async () => {
+  const fetchImpl: FetchImpl = async () => {
     calls++;
     if (calls < 3) {
       return new Response(null, { status: 503, statusText: "Service Unavailable" });

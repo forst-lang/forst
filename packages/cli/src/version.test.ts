@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "bun:test";
-import { getCliPackageVersion } from "./version.js";
+import { getCliPackageVersion, getBundledCompilerReleaseVersion } from "./version.js";
 
 test("getCliPackageVersion matches package.json version field", () => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -11,4 +11,18 @@ test("getCliPackageVersion matches package.json version field", () => {
   const expected = (JSON.parse(raw) as { version: string }).version;
 
   expect(getCliPackageVersion()).toBe(expected);
+});
+
+test("getBundledCompilerReleaseVersion prefers forst.compilerRelease", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgPath = join(here, "..", "package.json");
+  const raw = readFileSync(pkgPath, "utf8");
+  const pkg = JSON.parse(raw) as {
+    version: string;
+    forst?: { compilerRelease?: string };
+  };
+
+  expect(getBundledCompilerReleaseVersion()).toBe(
+    pkg.forst?.compilerRelease ?? pkg.version
+  );
 });

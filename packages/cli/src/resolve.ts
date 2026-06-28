@@ -17,21 +17,22 @@ import { getCompilerArtifactName } from "./artifact.js";
 import { COMPILER_RELEASES_BASE } from "./constants.js";
 import {
   CompilerBinaryChecksumMismatch,
+  CompilerBinaryDigestUnavailable,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
 } from "./errors.js";
 import { fetchReleaseAssetSha256Hex } from "./github-release.js";
-import { fetchWithRetry } from "./http.js";
+import { fetchWithRetry, type FetchImpl } from "./http.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
-import { getCliPackageVersion } from "./version.js";
+import { getBundledCompilerReleaseVersion } from "./version.js";
 
 /** Download URL for the compiler artifact matching this @forst/cli version and current OS/arch. */
 export function getCompilerArtifactDownloadUrlForCurrentPlatform(
   platform: NodeJS.Platform = process.platform,
   archName: string = process.arch
 ): string {
-  const version = getCliPackageVersion();
+  const version = getBundledCompilerReleaseVersion();
   const artifact = getCompilerArtifactName(platform, archName);
   return buildCompilerArtifactDownloadUrl(version, artifact);
 }
@@ -90,7 +91,7 @@ export interface ResolveForstBinaryOptions {
   allowDownload?: boolean;
   /** Override path to the native binary (skips download). */
   env?: NodeJS.ProcessEnv;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: FetchImpl;
   fs?: ResolveForstBinaryFs;
   homedirFn?: () => string;
 }
@@ -160,7 +161,7 @@ interface LatestReleaseDiskCache {
 }
 
 async function fetchLatestReleaseVersionWithDiskCache(
-  fetchFn: typeof fetch,
+  fetchFn: FetchImpl,
   env: NodeJS.ProcessEnv,
   homedirFn: () => string,
   fs: ResolveForstBinaryFs
@@ -210,7 +211,7 @@ async function resolveEffectiveCompilerVersion(
     return validateCompilerVersionForCachePath(options.version);
   }
 
-  const bundled = getCliPackageVersion();
+  const bundled = getBundledCompilerReleaseVersion();
   const prefer =
     options.preferLatestRelease === true && allowDownload;
   if (!prefer) {
@@ -302,10 +303,14 @@ async function acquireLockOrWaitForBinary(
   );
 }
 
-function verifySha256(buf: Buffer, expectedHex: string): void {
+function verifySha256(
+  buf: Buffer,
+  expectedHex: string,
+  context: { version: string; artifact: string }
+): void {
   const actual = createHash("sha256").update(buf).digest("hex");
   if (actual !== expectedHex) {
-    throw new CompilerBinaryChecksumMismatch(expectedHex, actual);
+    throw new CompilerBinaryChecksumMismatch(expectedHex, actual, context);
   }
 }
 
@@ -399,21 +404,28 @@ export async function resolveForstBinary(
 
     const verificationDisabled =
       env.FORST_CLI_VERIFY === "0" || env.FORST_CLI_VERIFY === "false";
+    const strictVerify =
+      env.FORST_CLI_VERIFY === "1" || env.FORST_CLI_VERIFY === "strict";
 
     let expectedDigest: string | undefined;
     if (!verificationDisabled) {
-      const hex = await fetchReleaseAssetSha256Hex(
+      const lookup = await fetchReleaseAssetSha256Hex(
         version,
         artifact,
         fetchFn
       );
-      if (!hex) {
-        throw new CompilerBinaryDownloadFailed(
-          `Cannot verify the Forst compiler download: GitHub did not provide a sha256 digest for ${artifact} (release v${version}). ` +
-            `Refusing to install an unverified binary. Set FORST_CLI_VERIFY=0 to skip verification.`
+      if (lookup.hex) {
+        expectedDigest = lookup.hex;
+      } else if (strictVerify) {
+        throw new CompilerBinaryDigestUnavailable(
+          version,
+          artifact,
+          lookup.reason ?? "digest_missing"
         );
+      } else if (lookup.reason) {
+        // Digest unavailable — download proceeds without verification (default).
+        expectedDigest = undefined;
       }
-      expectedDigest = hex;
     }
 
     let response: Response;
@@ -435,8 +447,8 @@ export async function resolveForstBinary(
 
     const buf = Buffer.from(await response.arrayBuffer());
 
-    if (!verificationDisabled) {
-      verifySha256(buf, expectedDigest!);
+    if (expectedDigest !== undefined) {
+      verifySha256(buf, expectedDigest, { version, artifact });
     }
 
     writeBinaryAtomically(dest, buf, fs);

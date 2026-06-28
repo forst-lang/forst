@@ -97,20 +97,20 @@ For full command coverage (`dev`, `generate`, `lsp`, `fmt`, …), see [Native co
 | --- | --- |
 | `FORST_BINARY` | Absolute path to a `forst` executable; skips download entirely. |
 | `FORST_CACHE_DIR` | Base directory for cached binaries. Default: `~/.cache/forst-cli` on Unix, `%LOCALAPPDATA%/forst-cli/cache` on Windows. Each compiler version is stored in a subdirectory. |
-| `FORST_CLI_VERIFY` | **Default:** SHA-256 verification is **required** using digests from [GitHub release metadata](https://docs.github.com/en/rest/releases/releases). Set to `0` or `false` to skip (not recommended for production). |
+| `FORST_CLI_VERIFY` | **Default (unset):** verify SHA-256 when GitHub release metadata includes a digest; **skip verification** and download anyway when no digest is available. Set `0` or `false` to never verify. Set `1` or `strict` to **require** a digest and refuse unverified downloads. |
 
-**Behavior:** downloads retry on transient HTTP errors, use an exclusive lock when two processes install concurrently, and write the binary atomically so a partial file never replaces a good one. In air-gapped or API-restricted environments, prefer `FORST_BINARY`, or use `FORST_CLI_VERIFY=0` only when release metadata has no digests or `api.github.com` is unreachable.
+**Behavior:** downloads retry on transient HTTP errors, use an exclusive lock when two processes install concurrently, and write the binary atomically so a partial file never replaces a good one. In air-gapped or API-restricted environments, prefer `FORST_BINARY`. Use `FORST_CLI_VERIFY=strict` only when you must refuse downloads without a digest.
 
 ## How the wrapper works
 
 By default, programmatic resolution (`resolveForstBinary` with no options) follows the same rules as the CLI shim:
 
-1. Read the **semver** of the installed `@forst/cli` package (not “latest” from the registry globally).
+1. Read the pinned **`forst.compilerRelease`** from `package.json` (falls back to the npm package semver when unset).
 2. Resolve the corresponding **release assets** on GitHub for that version.
-3. Download (unless `FORST_BINARY` is set), **verify** when `FORST_CLI_VERIFY` is enabled, and place the binary in the cache.
+3. Download (unless `FORST_BINARY` is set), **verify when a digest is available** (unless `FORST_CLI_VERIFY` disables verification), and place the binary in the cache.
 4. Execute the native `forst` with your arguments.
 
-**Optional: follow GitHub’s latest release (semantic versioning).** Pass **`preferLatestRelease: true`** to `resolveForstBinary` (and keep **`allowDownload: true`**). The wrapper then fetches **`releases/latest`** from GitHub, compares that tag to the bundled package semver using the **`semver`** library, and uses the **higher** of the two for the cache path and download. That way tooling can install a **newer** compiler than the bundled `@forst/cli` semver without downgrading when your npm package is already ahead. The latest-tag response is cached on disk under your cache root (`.latest-compiler-release.json`, refreshed about once per hour) so repeated calls do not hammer the API. If the latest check fails (offline, rate limits), resolution falls back to the bundled semver only.
+**Optional: follow GitHub’s latest compiler release (semantic versioning).** Pass **`preferLatestRelease: true`** to `resolveForstBinary` (and keep **`allowDownload: true`**). The wrapper scans GitHub releases for root compiler tags (`vX.Y.Z`), compares the highest tag to the bundled **`forst.compilerRelease`**, and uses the **higher** semver for the cache path and download. The response is cached on disk under your cache root (`.latest-compiler-release.json`, refreshed about once per hour). If the latest check fails (offline, rate limits), resolution falls back to the bundled compiler release only.
 
 Upgrading the **npm package** remains the supported way to move the **minimum** compiler version in Node workflows; `preferLatestRelease` is for integrations (for example the VS Code extension) that should track GitHub releases between extension publishes.
 
@@ -141,7 +141,7 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 
 ## Security
 
-- **Integrity:** binaries are verified by default using SHA-256 digests from GitHub’s release API (`FORST_CLI_VERIFY`).
+- **Integrity:** when GitHub exposes a digest on release assets, binaries are verified by default (`FORST_CLI_VERIFY` unset). Missing digests skip verification unless `FORST_CLI_VERIFY=strict`.
 - **Install safety:** atomic writes and locking reduce the risk of corrupted executables under parallel installs.
 - **Operational hardening:** in restricted environments, supply a vetted binary via `FORST_BINARY` and prefer OIDC or short-lived credentials in CI over long-lived tokens in logs.
 
@@ -163,7 +163,7 @@ Confirm that the reported package version, binary path, and `forst version` matc
 | --- | --- |
 | Download fails or 404 on an asset | A GitHub release must exist for this package version’s artifacts. Unpublished semvers or forks may need `FORST_BINARY` or a published CLI version. |
 | Wrong OS or architecture | Override with `FORST_BINARY` for custom builds or unsupported matrices. |
-| SHA-256 / verification errors | Digests must exist in release metadata; proxies blocking `api.github.com` often surface here. Disable verification only as a last resort (`FORST_CLI_VERIFY=0`). |
+| SHA-256 / verification errors | **Checksum mismatch** (`CompilerBinaryChecksumMismatch`): downloaded bytes differ from GitHub metadata — do not run the binary; clear the cache entry and retry, or use `FORST_BINARY`. May indicate corruption, proxy tampering, or supply-chain attack. **Strict mode, no digest** (`CompilerBinaryDigestUnavailable`): `FORST_CLI_VERIFY=strict` requires a digest but the release tag, asset name, or GitHub digest is missing — check `forst.compilerRelease`. Default (unset) skips verification when no digest is available and still downloads. |
 | Concurrent installs | Locking prevents corruption; different versions use separate cache subdirectories. |
 
 ## Relationship to `@forst/sidecar`

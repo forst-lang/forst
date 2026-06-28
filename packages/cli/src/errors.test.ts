@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   CompilerBinaryChecksumMismatch,
+  CompilerBinaryDigestUnavailable,
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
@@ -41,12 +42,48 @@ describe("CLI error types", () => {
     expect(e.name).toBe("CompilerBinaryNotFound");
   });
 
-  test("CompilerBinaryChecksumMismatch exposes hex digests", () => {
-    const e = new CompilerBinaryChecksumMismatch("aa", "bb");
+  test("CompilerBinaryChecksumMismatch exposes hex digests and security warning", () => {
+    const e = new CompilerBinaryChecksumMismatch("aa", "bb", {
+      version: "0.4.0",
+      artifact: "forst-darwin-arm64",
+    });
     expect(e.name).toBe("CompilerBinaryChecksumMismatch");
     expect(e.expectedHex).toBe("aa");
     expect(e.actualHex).toBe("bb");
+    expect(e.version).toBe("0.4.0");
+    expect(e.artifact).toBe("forst-darwin-arm64");
     expect(e.message).toContain("aa");
     expect(e.message).toContain("bb");
+    expect(e.message).toContain("supply-chain");
+    expect(e.message).toContain("Do not run");
+  });
+
+  test("CompilerBinaryDigestUnavailable includes strict mode and reason-specific detail", () => {
+    const releaseNotFound = new CompilerBinaryDigestUnavailable(
+      "0.0.35",
+      "forst-darwin-arm64",
+      "release_not_found"
+    );
+    expect(releaseNotFound.name).toBe("CompilerBinaryDigestUnavailable");
+    expect(releaseNotFound.reason).toBe("release_not_found");
+    expect(releaseNotFound.message).toContain("FORST_CLI_VERIFY=strict");
+    expect(releaseNotFound.message).toContain("v0.0.35");
+    expect(releaseNotFound.message).toContain("does not exist");
+
+    const assetNotFound = new CompilerBinaryDigestUnavailable(
+      "0.4.0",
+      "forst-darwin-arm64",
+      "asset_not_found"
+    );
+    expect(assetNotFound.message).toContain("no asset forst-darwin-arm64");
+    expect(assetNotFound.message).toContain("Wrong compiler version");
+
+    const digestMissing = new CompilerBinaryDigestUnavailable(
+      "0.4.0",
+      "forst-darwin-arm64",
+      "digest_missing"
+    );
+    expect(digestMissing.message).toContain("no sha256");
+    expect(digestMissing.message).toContain("FORST_BINARY");
   });
 });

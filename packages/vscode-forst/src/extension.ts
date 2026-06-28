@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
-import { readForstConfig, resolveForstExecutableWithCli } from "./config";
+import { readForstConfig, clearCompilerResolutionCache, resolveForstExecutableWithCli } from "./config";
 import { formatForstDebugInfo, gatherForstDebugInfo } from "./debugInfo";
 import { applyPublishDiagnostics } from "./lsp/diagnostics";
 import { registerForstLanguageFeatures } from "./lsp/languageFeatures";
 import type { ForstLspChildState } from "./lsp/process";
 import { stopForstLspProcess } from "./lsp/process";
 import type { LspSessionState } from "./lsp/session";
-import { getOrCreateLspClient } from "./lsp/session";
+import { getOrCreateLspClient, resetLspSessionState } from "./lsp/session";
 import { refreshForstStatusBar, registerForstStatusBar } from "./statusBar";
 
 /** Problems collection and log channel—module scope matches VS Code’s single extension instance lifecycle. */
@@ -16,6 +16,17 @@ let output: LogOutputChannel;
 
 /** Bumps invalidate in-flight `withClient` work after a restart so stale responses cannot apply. */
 let restartToken = 0;
+
+/** Avoid repeated error toasts when compiler resolution fails on every provider call. */
+let compilerErrorNotified = false;
+
+function notifyCompilerErrorOnce(msg: string): void {
+  if (compilerErrorNotified) {
+    return;
+  }
+  compilerErrorNotified = true;
+  void vscode.window.showErrorMessage(`Forst: ${msg}`);
+}
 
 const childState: ForstLspChildState = { process: undefined };
 
@@ -37,6 +48,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   output = vscode.window.createOutputChannel("Forst", { log: true });
   context.subscriptions.push(diagnosticsCollection, output);
   registerForstStatusBar(context, output);
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("forst")) {
+        clearCompilerResolutionCache();
+        resetLspSessionState(session);
+        compilerErrorNotified = false;
+      }
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("forst.copyDebugInfo", async () => {
@@ -74,6 +95,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerForstLanguageFeatures(context, {
     getClient: () => getOrCreateLspClient(readForstConfig(), output, session),
+    isCompilerUnavailable: () => session.compilerUnavailable != null,
     isTrackableForstDoc,
     log: output,
   });
@@ -99,7 +121,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const msg = e instanceof Error ? e.message : String(e);
       output.warn(`Document sync / LSP: ${msg}`);
       refreshForstStatusBar("error", msg);
-      void vscode.window.showWarningMessage(`Forst: ${msg}`);
+      notifyCompilerErrorOnce(msg);
     }
   };
 
@@ -183,8 +205,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
     vscode.commands.registerCommand("forst.restartLanguageServer", async () => {
       restartToken++;
-      session.initialized = false;
-      session.client = undefined;
+      resetLspSessionState(session);
+      clearCompilerResolutionCache();
+      compilerErrorNotified = false;
       diagnosticsCollection.clear();
       refreshForstStatusBar("idle");
       stopForstLspProcess(session.child, output);
@@ -227,6 +250,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         refreshForstStatusBar("error", msg);
+        notifyCompilerErrorOnce(msg);
         output.error(
           `Initial sync failed for ${doc.uri.fsPath}: ${msg}`
         );
@@ -238,8 +262,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 /** Resets client state and tears down the child process so reloading the window leaves no stray `forst lsp`. */
 export function deactivate(): void {
   output?.debug("Forst extension deactivate.");
-  session.initialized = false;
-  session.client = undefined;
+  resetLspSessionState(session);
+  clearCompilerResolutionCache();
   diagnosticsCollection?.clear();
   stopForstLspProcess(session.child, output);
 }

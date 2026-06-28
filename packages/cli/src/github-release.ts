@@ -1,57 +1,126 @@
+import semver from "semver";
 import { CompilerBinaryDownloadFailed } from "./errors.js";
-import { fetchWithRetry } from "./http.js";
+import { fetchWithRetry, type FetchImpl } from "./http.js";
 
-const LATEST_RELEASE_API =
-  "https://api.github.com/repos/forst-lang/forst/releases/latest";
+const RELEASES_LIST_API =
+  "https://api.github.com/repos/forst-lang/forst/releases";
+
+const RELEASE_TAG_API =
+  "https://api.github.com/repos/forst-lang/forst/releases/tags";
+
+/** Compiler release tags only: `v0.4.0`, not `vscode-forst-v…` or `cli-v…`. */
+export const COMPILER_RELEASE_TAG_PATTERN =
+  /^v(\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)$/;
+
+export type DigestLookupReason =
+  | "release_not_found"
+  | "asset_not_found"
+  | "digest_missing";
+
+export interface DigestLookupResult {
+  hex?: string;
+  reason?: DigestLookupReason;
+}
 
 /**
- * Semver of the latest published GitHub release (e.g. from `releases/latest`).
+ * Parses a GitHub tag into a compiler semver if it is a root compiler release.
+ */
+export function parseCompilerReleaseVersion(tagName: string): string | undefined {
+  const m = tagName.match(COMPILER_RELEASE_TAG_PATTERN);
+  return m?.[1];
+}
+
+/**
+ * Semver of the latest published **compiler** release (root `vX.Y.Z` tags only).
  */
 export async function fetchLatestCompilerReleaseVersion(
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: FetchImpl = fetch
 ): Promise<string> {
   try {
-    const res = await fetchWithRetry(fetchImpl, LATEST_RELEASE_API, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-    if (!res.ok) {
+    let page = 1;
+    let best: semver.SemVer | undefined;
+
+    while (page <= 10) {
+      const apiUrl = `${RELEASES_LIST_API}?per_page=100&page=${page}`;
+      const res = await fetchWithRetry(fetchImpl, apiUrl, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+      if (!res.ok) {
+        throw new CompilerBinaryDownloadFailed(
+          `GitHub releases list returned HTTP ${res.status} ${res.statusText}`
+        );
+      }
+      const data = (await res.json()) as Array<{ tag_name?: string }>;
+      if (!Array.isArray(data) || data.length === 0) {
+        break;
+      }
+      for (const release of data) {
+        const version = release.tag_name
+          ? parseCompilerReleaseVersion(release.tag_name)
+          : undefined;
+        if (!version) {
+          continue;
+        }
+        const coerced = semver.coerce(version);
+        if (!coerced) {
+          continue;
+        }
+        if (!best || semver.gt(coerced, best)) {
+          best = coerced;
+        }
+      }
+      if (data.length < 100) {
+        break;
+      }
+      page++;
+    }
+
+    if (!best) {
       throw new CompilerBinaryDownloadFailed(
-        `GitHub releases/latest returned HTTP ${res.status} ${res.statusText}`
+        "No compiler release tags (vX.Y.Z) found on GitHub"
       );
     }
-    const data = (await res.json()) as { tag_name?: string };
-    const tag = data.tag_name;
-    if (!tag) {
-      throw new CompilerBinaryDownloadFailed(
-        "GitHub releases/latest response missing tag_name"
-      );
-    }
-    return tag.replace(/^v/, "");
+    return best.version;
   } catch (e) {
     if (e instanceof CompilerBinaryDownloadFailed) {
       throw e;
     }
     throw new CompilerBinaryDownloadFailed(
-      "Failed to fetch latest Forst release version",
+      "Failed to fetch latest Forst compiler release version",
       { cause: e }
     );
   }
 }
 
+function digestLookupReasonMessage(
+  reason: DigestLookupReason,
+  version: string,
+  artifactName: string
+): string {
+  switch (reason) {
+    case "release_not_found":
+      return `GitHub release v${version} not found when looking up digest for ${artifactName}`;
+    case "asset_not_found":
+      return `GitHub release v${version} has no asset named ${artifactName}`;
+    case "digest_missing":
+      return `GitHub release v${version} asset ${artifactName} has no sha256 digest in API metadata`;
+  }
+}
+
 /**
- * Returns the sha256 hex digest (no prefix) for a release asset, if GitHub
- * exposes it on the API (GitHub attaches `digest` on release assets).
+ * Returns the sha256 hex digest (no prefix) for a release asset from GitHub
+ * release API metadata, plus a reason when lookup fails.
  */
 export async function fetchReleaseAssetSha256Hex(
   version: string,
   artifactName: string,
-  fetchImpl: typeof fetch
-): Promise<string | undefined> {
+  fetchImpl: FetchImpl
+): Promise<DigestLookupResult> {
   const tag = version.startsWith("v") ? version : `v${version}`;
-  const apiUrl = `https://api.github.com/repos/forst-lang/forst/releases/tags/${tag}`;
+  const apiUrl = `${RELEASE_TAG_API}/${tag}`;
   const res = await fetchWithRetry(fetchImpl, apiUrl, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -59,15 +128,23 @@ export async function fetchReleaseAssetSha256Hex(
     },
   });
   if (!res.ok) {
-    return undefined;
+    return { reason: "release_not_found" };
   }
+
   const data = (await res.json()) as {
-    assets?: Array<{ name: string; digest?: string }>;
+    assets?: Array<{ name: string; digest?: string | null }>;
   };
   const asset = data.assets?.find((a) => a.name === artifactName);
-  const digest = asset?.digest;
-  if (!digest?.startsWith("sha256:")) {
-    return undefined;
+  if (!asset) {
+    return { reason: "asset_not_found" };
   }
-  return digest.slice("sha256:".length);
+
+  const digest = asset.digest;
+  if (!digest?.startsWith("sha256:")) {
+    return { reason: "digest_missing" };
+  }
+
+  return { hex: digest.slice("sha256:".length) };
 }
+
+export { digestLookupReasonMessage };

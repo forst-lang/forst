@@ -95,6 +95,8 @@ function hoverToVs(h: LspHoverResult): vscode.Hover {
  */
 export interface ForstLanguageFeaturesOptions {
   getClient: () => Promise<ForstHttpLspClient>;
+  /** When true, provider calls skip work and avoid log spam after a compiler failure. */
+  isCompilerUnavailable?: () => boolean;
   isTrackableForstDoc: (doc: vscode.TextDocument) => boolean;
   /** Receives warnings when a provider cannot obtain the LSP client or the request fails. */
   log: LogOutputChannel;
@@ -108,7 +110,7 @@ export function registerForstLanguageFeatures(
   context: vscode.ExtensionContext,
   options: ForstLanguageFeaturesOptions
 ): void {
-  const { getClient, isTrackableForstDoc, log } = options;
+  const { getClient, isCompilerUnavailable, isTrackableForstDoc, log } = options;
 
   async function withDoc<T>(
     doc: vscode.TextDocument,
@@ -119,10 +121,16 @@ export function registerForstLanguageFeatures(
     if (!isTrackableForstDoc(doc)) {
       return empty;
     }
+    if (isCompilerUnavailable?.()) {
+      return empty;
+    }
     try {
       const c = await getClient();
       return await fn(c);
     } catch (e) {
+      if (isCompilerUnavailable?.()) {
+        return empty;
+      }
       const msg = e instanceof Error ? e.message : String(e);
       log.warn(`[${label}] ${doc.uri.fsPath}: ${msg}`);
       return empty;
@@ -134,10 +142,16 @@ export function registerForstLanguageFeatures(
     label: string,
     fn: (c: ForstHttpLspClient) => Promise<T>
   ): Promise<T> {
+    if (isCompilerUnavailable?.()) {
+      return empty;
+    }
     try {
       const c = await getClient();
       return await fn(c);
     } catch (e) {
+      if (isCompilerUnavailable?.()) {
+        return empty;
+      }
       const msg = e instanceof Error ? e.message : String(e);
       log.warn(`[${label}] ${msg}`);
       return empty;

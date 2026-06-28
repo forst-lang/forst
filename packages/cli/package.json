@@ -20,6 +20,9 @@
     "README.md",
     "LICENSE"
   ],
+  "forst": {
+    "compilerRelease": "0.4.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run sync-jsr-version && bun run build",
