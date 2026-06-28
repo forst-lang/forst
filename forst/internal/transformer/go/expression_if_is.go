@@ -13,8 +13,7 @@ import (
 var errMissingConstraintArgValue = errors.New("missing value argument for constraint argument")
 
 // transformIfIsCondition builds a Go bool for `left is <assertion>` when the RHS is an AssertionNode.
-// The typechecker already validated the branch; we emit an expression that evaluates the subject
-// (for side effects) and returns true. Constrained assertions need dedicated runtime checks (TODO).
+// The typechecker already validated the branch; builtin constraints reuse ensure codegen.
 func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion *ast.AssertionNode) (goast.Expr, error) {
 	if assertion == nil {
 		return nil, fmt.Errorf("if-is: nil assertion")
@@ -23,6 +22,24 @@ func (t *Transformer) transformIfIsCondition(left ast.ExpressionNode, assertion 
 		c := assertion.Constraints[0]
 		if c.Name == "Ok" || c.Name == "Err" {
 			return t.transformResultIsDiscriminator(left, c)
+		}
+		if vn, ok := left.(ast.VariableNode); ok {
+			ensure := ast.EnsureNode{
+				Variable:  vn,
+				Assertion: *assertion,
+			}
+			varType, err := t.TypeChecker.LookupEnsureBaseType(&ensure, t.currentScope())
+			if err != nil {
+				return nil, fmt.Errorf("if-is: %w", err)
+			}
+			if expr, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, vn, c); err == nil {
+				return &goast.UnaryExpr{Op: token.NOT, X: expr}, nil
+			}
+			for _, baseType := range t.TypeChecker.GetTypeAliasChain(*varType)[1:] {
+				if result, err := t.assertionTransformer.TransformBuiltinConstraint(ast.TypeIdent(baseType.Ident), vn, c); err == nil {
+					return &goast.UnaryExpr{Op: token.NOT, X: result}, nil
+				}
+			}
 		}
 	}
 	leftExpr, err := t.transformExpression(left)
