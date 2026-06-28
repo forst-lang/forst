@@ -140,7 +140,7 @@ func TestValidateShapeGuard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateShapeGuard(tt.node)
+			err := ValidateShapeGuard(tt.node, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateShapeGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -255,7 +255,7 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 				validReturn,
 			},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -265,7 +265,7 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 			Subject: shapeSubject,
 			Body:    []Node{IntLiteralNode{Value: 1}},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -277,7 +277,7 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 				ReturnNode{Values: []ExpressionNode{IntLiteralNode{Value: 1}, IntLiteralNode{Value: 2}}},
 			},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
