@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/typechecker"
 	goast "go/ast"
 	"go/token"
 
@@ -96,8 +97,8 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Always get the inferred return type from the typechecker
-		if sig, ok := t.TypeChecker.Functions[fn.Ident.ID]; ok && len(sig.ReturnTypes) > 0 {
-			expectedReturnTypes = sig.ReturnTypes
+		if retTypes, err := t.TypeChecker.LookupFunctionReturnType(&fn); err == nil && !typechecker.IsVoidReturnTypes(retTypes) {
+			expectedReturnTypes = retTypes
 
 			// DEBUG: Log function signature
 			if t.log != nil {
@@ -107,16 +108,11 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					"returnTypes":  fmt.Sprintf("%v", expectedReturnTypes),
 				}).Debug("Function signature for return statement")
 			}
-		} else {
-			// DEBUG: Log missing signature
-			if t.log != nil {
-				t.log.WithFields(logrus.Fields{
-					"function":       "transformReturnStatement",
-					"functionName":   fn.Ident.ID,
-					"hasSig":         ok,
-					"sigReturnTypes": len(sig.ReturnTypes),
-				}).Debug("No function signature found")
-			}
+		} else if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"function":     "transformReturnStatement",
+				"functionName": fn.Ident.ID,
+			}).Debug("No function return type found for return statement")
 		}
 
 		// Result(S, F) is one Forst return type but lowers to (S, error) in Go.

@@ -3,7 +3,7 @@ title: "Errors and Result"
 description: "Nominal domain errors and explicit success/failure types."
 ---
 
-Backend code fails in domain specific ways: unknown SKU, insufficient stock, invalid session. Forst models those failures as **first class error types** and **`Result`** values, aligned with Go's error as value philosophy and without attaching meaning to generic strings.
+Domain failures are **nominal error types** and **`Result`** values. Each variant has a name and payload in Go's "errors as values" style.
 
 ## Nominal errors
 
@@ -69,6 +69,52 @@ func main() {
 <Warning>
   **Nominal errors** and **`Result`** are **experimental**. Gaps include arbitrary non-`Error` failure types, full RFC diagnostics for **`ensure`-only failure authoring**, and complete export rules for generated TypeScript tags. Check the [roadmap](/resources/roadmap) before relying on edge cases in production.
 </Warning>
+
+## Return inference and implicit returns
+
+Forst infers a function's return type from:
+
+- explicit **`return`** statements
+- **`ensure`** (often producing **`Result(S, Error)`** when no return type is declared)
+- the **last expression** in the function body when no return type is declared in the signature
+
+When the last statement is an expression and the function has no declared return type, that expression's value becomes the function return. Generated Go emits an explicit **`return`** for it.
+
+```forst
+func g(): Result(Int, Error) {
+	return 1
+}
+
+func f() {
+	g()
+}
+```
+
+Here **`f`** also returns **`Result(Int, Error)`**; generated Go contains **`return g()`**.
+
+Explicit **`return`** is still fine (and clearer when intent is ambiguous):
+
+```forst
+func okInt() {
+	n := 42
+	ensure n is GreaterThan(0)
+	return n
+}
+```
+
+### Trailing calls and Go imports
+
+This differs from Go **statement** semantics. A trailing call whose Go signature is **`(T, error)`** is typed in Forst as **`Result(T, Error)`** when its result is used — including as an implicit return:
+
+```forst
+import "fmt"
+
+func logAndReport(msg String) {
+	fmt.Println(msg)
+}
+```
+
+With no declared return type, **`logAndReport`** returns **`Result(Int, Error)`**, not void. To log for side effects only, use Forst **`println`** / **`print`**, or declare a void return on a [Provider contract method](/language/providers).
 
 ## Go interop
 

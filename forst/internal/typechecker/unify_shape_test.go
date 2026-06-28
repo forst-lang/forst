@@ -63,3 +63,31 @@ func main() {
 		t.Fatalf("expected compatible shapes to unify: %v", err)
 	}
 }
+
+func TestUnifyShape_nestedShapeLiteralReturn(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+
+type Inner = { n: Int }
+type Outer = { inner: Inner }
+
+func mk(): Outer {
+	return { inner: { n: 2 } }
+}
+
+func main() {
+	o := mk()
+	println(o.inner.n)
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+}

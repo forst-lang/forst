@@ -8,6 +8,16 @@ import (
 
 // LookupFunctionReturnType looks up the return type of a function node
 func (tc *TypeChecker) LookupFunctionReturnType(function *ast.FunctionNode) ([]ast.TypeNode, error) {
+	if function.Receiver != nil {
+		recvType := receiverTypeIdentFromFn(function)
+		if sig, ok := tc.lookupTypeMethod(recvType, string(function.Ident.ID)); ok {
+			return sig.ReturnTypes, nil
+		}
+		if len(function.ReturnTypes) > 0 {
+			return function.ReturnTypes, nil
+		}
+		return nil, fmt.Errorf("undefined receiver method: %s on %s", function.Ident.ID, recvType)
+	}
 	sig, exists := tc.Functions[function.Ident.ID]
 	if !exists {
 		return nil, fmt.Errorf("undefined function: %s", function.Ident.ID)

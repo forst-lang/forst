@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/forstpkg"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
 )
@@ -59,6 +60,40 @@ func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string
 		t.Fatalf("transform: %v", err)
 	}
 
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
+		t.Fatalf("go/format: %v", err)
+	}
+	return buf.String()
+}
+
+// compileMergedForstFilesPipeline merges multiple .ft files in one package, then typechecks and transforms.
+func compileMergedForstFilesPipeline(t *testing.T, paths []string, opts pipelineOpts) string {
+	t.Helper()
+	log := ast.SetupTestLogger(nil)
+	if !testing.Verbose() {
+		log.SetOutput(bytes.NewBuffer(nil))
+	}
+	merged, _, err := forstpkg.ParseAndMergePackage(log, paths)
+	if err != nil {
+		t.Fatalf("merge package: %v", err)
+	}
+	tc := typechecker.New(log, false)
+	tc.GoWorkspaceDir = opts.goWorkspaceDir
+	if err := tc.CheckTypes(merged); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if opts.skipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.skipUnlessGoImport) {
+		t.Skipf("%s not loaded (go/packages or workspace)", opts.skipUnlessGoImport)
+	}
+	if opts.skipUnlessDotImport && !tc.HasDotImportPackages() {
+		t.Skip("dot-import packages not loaded (go/packages or workspace)")
+	}
+	tr := New(tc, log)
+	goFile, err := tr.TransformForstFileToGo(merged)
+	if err != nil {
+		t.Fatalf("transform: %v", err)
+	}
 	var buf bytes.Buffer
 	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
 		t.Fatalf("go/format: %v", err)
@@ -1009,4 +1044,68 @@ func main() {
 	if !bytes.Equal(formatted, again) {
 		t.Fatalf("emitted Go not stable under gofmt")
 	}
+}
+
+func TestPipeline_implicitReturn_delegatesToResultCallee(t *testing.T) {
+	src := `package main
+
+func g(): Result(Int, Error) {
+	return 1
+}
+
+func f() {
+	g()
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "return g()") {
+		t.Fatalf("expected implicit return g(), got:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestPipeline_implicitReturn_fmtPrintln_withGoWorkspace(t *testing.T) {
+	root := moduleRootFromWD(t)
+	src := `package main
+
+import "fmt"
+
+func f() {
+	fmt.Println("x")
+}
+
+func main() {}
+`
+	out := compileForstPipelineExt(t, src, pipelineOpts{goWorkspaceDir: root})
+	if !strings.Contains(out, "return fmt.Println") {
+		t.Fatalf("expected implicit return fmt.Println, got:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestPipeline_providers_noplLoggerPrintln_happyPath(t *testing.T) {
+	src := `package main
+
+type Logger = { info(msg String) }
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {
+	println(msg)
+}
+
+func main() {
+	with {
+		Logger: NopLogger{}
+	} {
+		println("ok")
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, "info(msg string) (int, error)") {
+		t.Fatalf("NopLogger.info should be void, got:\n%s", out)
+	}
+	assertGoParses(t, out)
 }

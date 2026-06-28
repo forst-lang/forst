@@ -1,9 +1,9 @@
 ---
 title: "Language overview"
-description: "Go shaped syntax, structural types, and explicit control flow."
+description: "Go shaped syntax, structural typing, and explicit control flow."
 ---
 
-If you know Go, Forst syntax looks familiar: **Go compatible surface** with **structural typing** inspired by TypeScript. Functions and types read like Go. Shapes, constraints, and narrowing work more like a typed API layer than raw structs.
+Forst extends familiar Go syntax with **structural typing**, constraints, and narrowing. Most `.ft` files look like Go. Where they differ, types behave like validated API schemas.
 
 ## Go shaped syntax
 
@@ -19,11 +19,11 @@ func main() {
 }
 ```
 
-Use **`.ft`** files with the Forst CLI (`forst run`, `forst generate`, …). The same text can often be built with `go build` when it stays within the Go subset. Forst extends Go for backend code while the Go runtime stays in charge.
+Use **`.ft`** files with the Forst CLI. The plain Go subset builds with `go build`. Forst extensions transpile to Go for production.
 
-## Structural types
+## Structural typing
 
-Forst types are defined by **shape** rather than inheritance trees. Function parameters and return values use record syntax:
+Forst types are defined by **shape**. Inheritance trees are not used. Function parameters and return values use record syntax:
 
 ```forst
 type User = {
@@ -36,7 +36,7 @@ func greet(u: User): String {
 }
 ```
 
-Anonymous records work at call sites. That helps handlers that take a single payload without declaring a named struct:
+Anonymous records work at call sites:
 
 ```forst
 placeOrder({
@@ -44,8 +44,6 @@ placeOrder({
 	quantity:         2,
 })
 ```
-
-This matches how backend APIs are actually consumed: nested JSON-like data with known fields.
 
 ## Explicit where it matters
 
@@ -55,11 +53,9 @@ Forst embraces inference in clear cases (return types, obvious locals) but requi
 - Struct **fields** always declare types
 - **Nil** initializations need an explicit type
 
-When the compiler would have to guess, you annotate. That keeps large codebases readable and tooling fast.
-
 ## Control flow you can trace
 
-Forst steers away from exceptions and implicit jumps. Errors are **values**; validation uses **`ensure`** and **`is`**; success and failure paths stay explicit. See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
+Forst steers away from exceptions and implicit jumps. Errors are **values**. Validation uses **`ensure`** and **`is`**. Success and failure paths stay explicit. See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
 
 <Warning>
   Forst does not support `panic`/`recover` or `try`/`catch` as language features. Generated Go may still interact with panicking third-party code.
@@ -67,9 +63,7 @@ Forst steers away from exceptions and implicit jumps. Errors are **values**; val
 
 ## Packages and imports
 
-Forst uses Go style **packages** and **`import`** paths. Top-level functions, type definitions, and type guards compose across files in the same package, the same mental model as Go modules.
-
-You can also **import Go packages** and call qualified functions (`fmt.Println`, etc.). Coverage is growing; see [Go interop](/interop/go) for current limits.
+Forst uses Go style **packages** and **`import`** paths. You can also **import Go packages** and call qualified functions (`fmt.Println`, etc.). See [Go interop](/interop/go) for current limits.
 
 ## File layout in a typical backend
 

@@ -5,21 +5,9 @@ description: "Write .ft files with validated types, compile to Go, and optionall
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
 
-You write **`.ft`** files with structural types and validation at the boundary. The compiler emits Go you build with `go build`. You get less boilerplate at the HTTP boundary and in domain logic.
+You write **`.ft`** files with structural typing and validation at the boundary. The compiler emits Go you build with `go build`. You get less boilerplate at the HTTP boundary and in domain logic.
 
 <CatalogOrder />
-
-<CardGroup cols={3}>
-  <Card title="Validate at the boundary" icon="shield-check">
-    Attach constraints to your types so untrusted input is rejected before it reaches your logic.
-  </Card>
-  <Card title="Full Go ecosystem" icon="/icons/golang.svg">
-    Modules, packages, tests, CI, and deployment on the standard Go toolchain.
-  </Card>
-  <Card title="Explicit control flow" icon="filter">
-    `ensure`, nominal errors, and `Result` give you failures you can trace, written as values.
-  </Card>
-</CardGroup>
 
 ## How it fits your stack
 
@@ -35,7 +23,7 @@ flowchart LR
   ft -.-> dts -.-> clients
 ```
 
-You define shapes and handlers in Forst. The compiler validates them and emits Go for production. When you need shared client types, run `forst generate` to emit declarations from the same source.
+Run `forst generate` when clients need TypeScript types from the same source.
 
 ## Start here
 
@@ -47,19 +35,19 @@ You define shapes and handlers in Forst. The compiler validates them and emits G
     Install, write your first `.ft` file, run it.
   </Card>
   <Card title="Language overview" icon="book" href="/language/overview">
-    Go shaped syntax, structural types, explicit control flow.
+    Go shaped syntax, structural typing, explicit control flow.
   </Card>
   <Card title="Validated shapes" icon="table-columns" href="/language/shapes-and-constraints">
     Types as schemas with built-in constraints.
   </Card>
   <Card title="Go interop" icon="/icons/golang.svg" href="/interop/go">
-    Import Go packages; mix `.ft` with `.go`.
+    Import Go packages. Mix `.ft` with `.go`.
   </Card>
 </CardGroup>
 
 ## Who this is for
 
-You want **Go's runtime and deployment** with **less validation boilerplate** and **stronger types**, whether you start fresh or mix Forst into an existing module.
+For teams that want Go's runtime with less validation boilerplate and stronger types.
 
 <Info>
   Forst is actively developed. Some features (Result types, Go import loading, sidecar) are **experimental**. See the [roadmap](/resources/roadmap) for current status.

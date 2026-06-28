@@ -26,6 +26,8 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 		"result_if.ft",
 		"nominal_error.ft",
 		"echo.ft",
+		"map_catalog.ft",
+		"tictactoe/engine.ft",
 		"rfc/guard/shape_guard.ft",
 		"rfc/guard/basic_guard.ft",
 	}

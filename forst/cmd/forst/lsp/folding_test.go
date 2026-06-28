@@ -207,6 +207,34 @@ func TestFoldingRangesForURI_parseError_returnsEmpty(t *testing.T) {
 	}
 }
 
+func TestFoldingRangesForURI_ensureBlockProducesRange(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "ensure.ft")
+	const src = `package main
+
+func main() {
+	x := 1
+	ensure x is Min(1) {
+		println("bad")
+	}
+}
+`
+	if err := os.WriteFile(ft, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ft)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uri] = src
+	s.documentMu.Unlock()
+
+	got := s.foldingRangesForURI(uri)
+	if len(got) == 0 {
+		t.Fatal("expected folding ranges for ensure block")
+	}
+}
+
 func TestFoldingRangesForURI_typeAndFuncProduceMultipleRanges(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

@@ -185,7 +185,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			"actual":   actual.Ident,
 			"expected": expected.Ident,
 			"function": "IsTypeCompatible",
-		}).Info("Checking structural compatibility")
+		}).Debug("Checking structural compatibility")
 
 		actualShape, actualShapeOk := tc.getShapeFromTypeDef(actualDef)
 		expectedShape, expectedShapeOk := tc.getShapeFromTypeDef(expectedDef)
@@ -196,7 +196,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			"actualShapeOk":   actualShapeOk,
 			"expectedShapeOk": expectedShapeOk,
 			"function":        "IsTypeCompatible",
-		}).Info("Shape extraction results")
+		}).Debug("Shape extraction results")
 
 		if actualShapeOk && expectedShapeOk {
 			// Prefer shapesHaveSameStructure: it resolves assertion fields and uses assignability for
@@ -207,14 +207,14 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				"expected":  expected.Ident,
 				"identical": identical,
 				"function":  "IsTypeCompatible",
-			}).Info("Structural compatibility check result")
+			}).Debug("Structural compatibility check result")
 
 			if identical {
 				tc.log.WithFields(logrus.Fields{
 					"actual":   actual.Ident,
 					"expected": expected.Ident,
 					"function": "IsTypeCompatible",
-				}).Info("Shapes are structurally identical")
+				}).Debug("Shapes are structurally identical")
 				return true
 			}
 			if (*expectedShape).IsMethodOnlyContract() &&
@@ -232,7 +232,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 				"actualShapeOk":   actualShapeOk,
 				"expectedShapeOk": expectedShapeOk,
 				"function":        "IsTypeCompatible",
-			}).Info("Could not extract shapes for structural comparison")
+			}).Debug("Could not extract shapes for structural comparison")
 		}
 	} else {
 		tc.log.WithFields(logrus.Fields{
@@ -241,7 +241,7 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 			"actualDef":   actualDef != nil,
 			"expectedDef": expectedDef != nil,
 			"function":    "IsTypeCompatible",
-		}).Info("Skipping structural compatibility - missing type definitions")
+		}).Debug("Skipping structural compatibility - missing type definitions")
 	}
 
 	if tc.shapeExpectationMatches(actual, expected) {

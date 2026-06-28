@@ -26,6 +26,8 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"union_error_types.ft",
 		"union_error_narrowing.ft",
 		"nominal_error.ft",
+		"map_catalog.ft",
+		"tictactoe/engine.ft",
 	}
 	root := filepath.Join("..", "..", "..", "examples", "in")
 	for _, name := range rel {

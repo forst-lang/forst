@@ -6,15 +6,31 @@ description: "Install Forst, write a validated handler, and run it in five minut
 import { HelloFt } from "/snippets/hello.ft.mdx";
 import PlaceOrderHello from "/snippets/place-order-hello.mdx";
 
-Get from zero to a running Forst program with validated input. This guide assumes you have **Node.js 18+** or access to a **native Forst binary**.
+Get from zero to a running Forst program with validated input.
 
 ## 1. Install the compiler
 
 <Tabs>
-  <Tab title="npm (recommended)">
+  <Tab title="npm">
     ```bash
     npm install -D @forst/cli
     npx forst version
+    ```
+
+    The wrapper downloads the matching native binary on first use. See [Installation](/installation) for CI and offline setups.
+  </Tab>
+  <Tab title="bun">
+    ```bash
+    bun add -d @forst/cli
+    bunx forst version
+    ```
+
+    The wrapper downloads the matching native binary on first use. See [Installation](/installation) for CI and offline setups.
+  </Tab>
+  <Tab title="pnpm">
+    ```bash
+    pnpm add -D @forst/cli
+    pnpm exec forst version
     ```
 
     The wrapper downloads the matching native binary on first use. See [Installation](/installation) for CI and offline setups.
@@ -68,7 +84,7 @@ Try changing `quantity` to `0` or `100`. The typechecker rejects out of range va
 
 <CardGroup cols={2}>
   <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">
-    Structural types and runtime validation.
+    Structural typing and runtime validation.
   </Card>
   <Card title="Generate TypeScript types" icon="/icons/typescript.svg" href="/interop/typescript">
     Emit `generated/types.d.ts` for your frontend or BFF.

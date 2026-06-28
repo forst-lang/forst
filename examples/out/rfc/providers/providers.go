@@ -29,19 +29,19 @@ type Token struct {
 	id        string `json:"id"`
 }
 
-func TestExpireToken_expired(t *testing.T)  {
+func TestExpireToken_expired(t *testing.T) {
 	token := Token{id: "t1", expiresAt: 500}
 	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
 }
-func TestExpireToken_valid(t *testing.T)  {
+func TestExpireToken_valid(t *testing.T) {
 	token := Token{id: "t1", expiresAt: 5000}
 	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
 }
-func TestTransitiveWith_expired(t *testing.T)  {
+func TestTransitiveWith_expired(t *testing.T) {
 	token := Token{id: "t2", expiresAt: 1500}
 	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 2000}, Logger: &NopLogger{}}, token)
 }
-func expireToken(providers Providers_Pm6dPg3hV64, token Token)  {
+func expireToken(providers Providers_Pm6dPg3hV64, token Token) {
 	clock := providers.Clock
 	if token.expiresAt < clock.now() {
 		logExpiry(Providers_2TAwF8pWZKc{Logger: providers.Logger}, token.id)
@@ -49,11 +49,11 @@ func expireToken(providers Providers_Pm6dPg3hV64, token Token)  {
 }
 func (NopLogger) info(msg string) {
 }
-func logExpiry(providers Providers_2TAwF8pWZKc, id string)  {
+func logExpiry(providers Providers_2TAwF8pWZKc, id string) {
 	logger := providers.Logger
 	logger.info("expire " + id)
 }
-func mainWiringDemo()  {
+func mainWiringDemo() {
 	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 0}, Logger: &NopLogger{}}, Token{id: "x", expiresAt: 1})
 }
 func (c FakeClock) now() int {

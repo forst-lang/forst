@@ -63,6 +63,33 @@ func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, ret
 			resolvedReturnTypes[i] = resolvedType
 		}
 	}
+	if IsVoidReturnTypes(resolvedReturnTypes) {
+		resolvedReturnTypes = nil
+	}
+
+	if fn.Receiver != nil {
+		recvType := receiverTypeIdentFromFn(fn)
+		methodName := string(fn.Ident.ID)
+		if tc.TypeMethods == nil {
+			tc.TypeMethods = make(map[ast.TypeIdent]map[string]FunctionSignature)
+		}
+		if tc.TypeMethods[recvType] == nil {
+			tc.TypeMethods[recvType] = make(map[string]FunctionSignature)
+		}
+		sig, ok := tc.TypeMethods[recvType][methodName]
+		if !ok {
+			sig = FunctionSignature{Ident: fn.Ident}
+		}
+		sig.ReturnTypes = resolvedReturnTypes
+		tc.TypeMethods[recvType][methodName] = sig
+		tc.log.WithFields(logrus.Fields{
+			"fn":          fn.Ident.ID,
+			"recvType":    recvType,
+			"returnTypes": resolvedReturnTypes,
+			"function":    "storeInferredFunctionReturnType",
+		}).Trace("Stored inferred receiver method return type")
+		return
+	}
 
 	sig := tc.Functions[fn.Ident.ID]
 	sig.ReturnTypes = resolvedReturnTypes

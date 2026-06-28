@@ -12,7 +12,7 @@ type Providers_2TAwF8pWZKc struct {
 
 func (NopLogger) Info(msg string) {
 }
-func LogExpiry(providers Providers_2TAwF8pWZKc, id string)  {
+func LogExpiry(providers Providers_2TAwF8pWZKc, id string) {
 	logger := providers.Logger
 	logger.Info("expire " + id)
 }

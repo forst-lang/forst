@@ -131,17 +131,23 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 	var results *goast.FieldList
 	isMainFunc := t.isMainPackage() && n.HasMainFunctionName()
-	if !isMainFunc {
+	if !isMainFunc && !typechecker.IsVoidReturnTypes(returnType) {
 		results, err = t.transformTypes(returnType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transform types: %s", err)
 		}
 	}
 
+	implicitIdx, hasTrailingExpr := lastImplicitReturnIndex(n.Body)
+	emitImplicitReturn := hasTrailingExpr && !isMainFunc && !typechecker.IsVoidReturnTypes(returnType)
+
 	// Create function body statements
 	stmts := []goast.Stmt{}
 
-	for _, stmt := range n.Body {
+	for i, stmt := range n.Body {
+		if emitImplicitReturn && i == implicitIdx {
+			continue
+		}
 		if err := t.restoreScope(n); err != nil {
 			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
 		}
@@ -171,6 +177,20 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		}
 	}
 
+	if emitImplicitReturn {
+		implicitExpr, ok := n.Body[implicitIdx].(ast.ExpressionNode)
+		if !ok {
+			return nil, fmt.Errorf("internal error: implicit return index is not an expression")
+		}
+		retStmt, err := t.transformStatement(ast.ReturnNode{
+			Values: []ast.ExpressionNode{implicitExpr},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform implicit return: %w", err)
+		}
+		stmts = append(stmts, retStmt)
+	}
+
 	var recv *goast.FieldList
 	if n.Receiver != nil {
 		recvType, err := t.transformType(n.Receiver.Type)
@@ -187,7 +207,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 	}
 
 	// Make sure that functions return nil if they return an error
-		if !isMainFunc && len(returnType) > 0 {
+	if !isMainFunc && !typechecker.IsVoidReturnTypes(returnType) && len(returnType) > 0 {
 		lastReturnType := returnType[len(returnType)-1]
 		if lastReturnType.IsError() {
 			var lastStmt ast.Node

@@ -102,7 +102,8 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		}
 	}
 
-	// Get last statement which should be the implicit return value
+	// Get last statement which should be the implicit return value when no explicit return type
+	// is declared. See docs/language/errors-and-result.mdx § Return inference and implicit returns.
 	lastStmt := fn.Body[len(fn.Body)-1]
 
 	// If last statement is an expression, its type is the return type

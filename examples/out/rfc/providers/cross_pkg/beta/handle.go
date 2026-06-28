@@ -12,6 +12,6 @@ type Providers_2TAwF8pWZKc struct {
 	Logger alpha.Logger
 }
 
-func Handle(providers Providers_2TAwF8pWZKc, id string)  {
+func Handle(providers Providers_2TAwF8pWZKc, id string) {
 	alpha.LogExpiry(alpha.Providers_2TAwF8pWZKc{Logger: providers.Logger}, id)
 }

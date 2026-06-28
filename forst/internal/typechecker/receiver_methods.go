@@ -9,6 +9,25 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+func receiverTypeIdentFromFn(fn *ast.FunctionNode) ast.TypeIdent {
+	if fn == nil || fn.Receiver == nil {
+		return ""
+	}
+	recvType := fn.Receiver.Type.Ident
+	if fn.Receiver.Type.Ident == ast.TypePointer && len(fn.Receiver.Type.TypeParams) == 1 {
+		recvType = fn.Receiver.Type.TypeParams[0].Ident
+	}
+	return recvType
+}
+
+// IsVoidReturnTypes reports whether a function return type list is empty or explicit Void.
+func IsVoidReturnTypes(types []ast.TypeNode) bool {
+	if len(types) == 0 {
+		return true
+	}
+	return len(types) == 1 && types[0].Ident == ast.TypeVoid
+}
+
 func (tc *TypeChecker) registerTypeMethod(recvType ast.TypeIdent, methodName string, fn ast.FunctionNode) {
 	if tc.TypeMethods == nil {
 		tc.TypeMethods = make(map[ast.TypeIdent]map[string]FunctionSignature)
@@ -172,6 +191,61 @@ func (tc *TypeChecker) typeMethodsSatisfyContract(typeIdent ast.TypeIdent, contr
 		}
 	}
 	return true
+}
+
+// validateInferredReceiverMethodReturn errors when a receiver method's inferred return
+// conflicts with a void method on a method-only contract type in the same package.
+func (tc *TypeChecker) validateInferredReceiverMethodReturn(fn ast.FunctionNode, inferred []ast.TypeNode) error {
+	if fn.Receiver == nil || len(fn.ReturnTypes) > 0 {
+		return nil
+	}
+	if IsVoidReturnTypes(inferred) {
+		return nil
+	}
+	recvType := receiverTypeIdentFromFn(&fn)
+	methodName := string(fn.Ident.ID)
+	sig, ok := tc.lookupTypeMethod(recvType, methodName)
+	if !ok {
+		return nil
+	}
+
+	for contractIdent, def := range tc.Defs {
+		shape, ok := tc.getShapeFromTypeDef(def)
+		if !ok || !shape.IsMethodOnlyContract() {
+			continue
+		}
+		contractField, ok := shape.Fields[methodName]
+		if !ok || !contractField.IsMethod {
+			continue
+		}
+		if len(contractField.MethodReturnTypes) > 0 {
+			continue
+		}
+		if len(contractField.MethodParams) != len(sig.Parameters) {
+			continue
+		}
+		paramsMatch := true
+		for i, param := range contractField.MethodParams {
+			sp, ok := param.(ast.SimpleParamNode)
+			if !ok {
+				paramsMatch = false
+				break
+			}
+			if !tc.IsTypeCompatible(sp.Type, sig.Parameters[i].Type) &&
+				!tc.IsTypeCompatible(sig.Parameters[i].Type, sp.Type) {
+				paramsMatch = false
+				break
+			}
+		}
+		if !paramsMatch {
+			continue
+		}
+		return fmt.Errorf(
+			"method %s on %s: inferred return %s from function body, but %s contract requires void (use println for side effects, or declare an explicit return type to opt in)",
+			methodName, recvType, formatTypeList(inferred), contractIdent,
+		)
+	}
+	return nil
 }
 
 func (tc *TypeChecker) registerGoQualifiedTypeAlias(ident ast.TypeIdent, base ast.TypeIdent) {

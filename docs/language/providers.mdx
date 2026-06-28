@@ -3,9 +3,7 @@ title: "Providers (DI)"
 description: "Declare shared runtime services with use and wire them at entry points using with blocks."
 ---
 
-Backend functions depend on **runtime services**: loggers, clocks, database handles, config readers. Passing those through every parameter list gets noisy and hides what is request data vs shared infrastructure.
-
-Forst **Providers** let you declare those dependencies in the function body and wire implementations at entry points. That keeps call sites focused on domain input, makes **data flow** explicit (what each function needs vs what callers pass), and avoids reflection DI or globals.
+Backend functions depend on runtime services (loggers, clocks, DB handles). **Providers** declare those dependencies with **`use`** and wire them at entry points with **`with`**. Request data stays separate from shared infrastructure.
 
 ## Two primitives
 
@@ -60,6 +58,10 @@ func main() {
 ```
 
 Wiring keys use the **root contract name** (`Logger`, `Clock`). Values must structurally satisfy the contract: plain structs with matching methods, or Go types that implement an imported interface.
+
+### Void contract methods
+
+Contract methods without a return type (such as **`info(msg String)`**) must stay void on implementations. A trailing **`fmt.Println(...)`** in the method body can infer a non-void **`Result`** return from Go's **`(int, error)`** signature; the compiler reports that mismatch. Use **`println`** for side-effect logging in void provider methods, or declare an explicit return type if you intend to return the call result. See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
 
 ### Shadowing
 

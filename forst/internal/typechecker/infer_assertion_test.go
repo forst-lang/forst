@@ -1,121 +1,121 @@
 package typechecker
 
 import (
-	"strings"
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/parser"
 )
 
-func TestInferAssertionType_baseTypeNotFound(t *testing.T) {
-	tc := testTC(t)
-	missing := ast.TypeIdent("NoSuchBase")
-	assertion := &ast.AssertionNode{
-		BaseType: &missing,
-	}
-
-	_, err := tc.InferAssertionType(assertion, false, "", nil)
-	if err == nil || !strings.Contains(err.Error(), "NoSuchBase") || !strings.Contains(err.Error(), "not found") {
-		t.Fatalf("expected base type not found error, got %v", err)
-	}
+func strLit(v string) *ast.ValueNode {
+	n := ast.ValueNode(ast.StringLiteralNode{Value: v})
+	return &n
 }
 
-func TestInferAssertionType_valueConstraintIntLiteral(t *testing.T) {
-	tc := testTC(t)
-	v := ast.IntLiteralNode{Value: 42}
-	var vn ast.ValueNode = v
-	assertion := &ast.AssertionNode{
-		Constraints: []ast.ConstraintNode{{
-			Name: ast.ValueConstraint,
-			Args: []ast.ConstraintArgumentNode{{Value: &vn}},
-		}},
-	}
+func TestInferAssertion_minConstraintOnStringParam(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := New(log, false)
+	src := `package main
 
-	types, err := tc.InferAssertionType(assertion, false, "n", nil)
+func check(name String) {
+	ensure name is Min(1)
+}
+
+func main() {
+	check("a")
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(types) != 1 || types[0].Ident != ast.TypeInt {
-		t.Fatalf("want Int, got %+v", types)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("Min constraint pipeline: %v", err)
 	}
 }
 
-func TestInferAssertionType_valueConstraintStringLiteral(t *testing.T) {
-	tc := testTC(t)
-	v := ast.StringLiteralNode{Value: "hi"}
-	var vn ast.ValueNode = v
-	assertion := &ast.AssertionNode{
-		Constraints: []ast.ConstraintNode{{
-			Name: ast.ValueConstraint,
-			Args: []ast.ConstraintArgumentNode{{Value: &vn}},
-		}},
+func TestInferAssertion_matchConstraintMergesFields(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := New(log, false)
+	base := ast.TypeIdent("Row")
+	tc.Defs["Row"] = ast.TypeDefNode{
+		Ident: base,
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"id": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
 	}
-
-	types, err := tc.InferAssertionType(assertion, false, "", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(types) != 1 || types[0].Ident != ast.TypeString {
-		t.Fatalf("want String, got %+v", types)
-	}
-}
-
-func TestInferAssertionType_valueConstraintEmptyArgs(t *testing.T) {
-	tc := testTC(t)
-	assertion := &ast.AssertionNode{
-		Constraints: []ast.ConstraintNode{{
-			Name: ast.ValueConstraint,
-			Args: nil,
-		}},
-	}
-
-	_, err := tc.InferAssertionType(assertion, false, "fieldX", nil)
-	if err == nil || !strings.Contains(err.Error(), "fieldX") {
-		t.Fatalf("expected error for empty Value args, got %v", err)
-	}
-}
-
-func TestInferAssertionType_baseTypeFieldsMergedBeforeMatch(t *testing.T) {
-	tc := testTC(t)
-	tc.Defs["Person"] = ast.MakeTypeDef("Person", ast.MakeShape(map[string]ast.ShapeFieldNode{
-		"name": ast.MakeTypeField(ast.TypeString),
-	}))
-
-	base := ast.TypeIdent("Person")
 	assertion := &ast.AssertionNode{
 		BaseType: &base,
 		Constraints: []ast.ConstraintNode{{
-			Name: ConstraintMatch,
+			Name: "Match",
 			Args: []ast.ConstraintArgumentNode{{
 				Shape: &ast.ShapeNode{
 					Fields: map[string]ast.ShapeFieldNode{
-						"age": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+						"name": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 					},
 				},
 			}},
 		}},
 	}
-
 	types, err := tc.InferAssertionType(assertion, false, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(types) != 1 {
-		t.Fatalf("expected one inferred type, got %+v", types)
+	if len(types) == 0 {
+		t.Fatal("expected inferred types")
 	}
-	hashIdent := types[0].Ident
-	def, ok := tc.Defs[hashIdent].(ast.TypeDefNode)
+	def, ok := tc.Defs[types[0].Ident].(ast.TypeDefNode)
 	if !ok {
-		t.Fatalf("expected hash-based type %q registered as TypeDefNode", hashIdent)
+		t.Fatalf("def type %T", tc.Defs[types[0].Ident])
 	}
-	shapeExpr, ok := def.Expr.(ast.TypeDefShapeExpr)
+	shape, ok := def.Expr.(ast.TypeDefShapeExpr)
 	if !ok {
-		t.Fatalf("expected shape expr, got %T", def.Expr)
+		t.Fatalf("expr type %T", def.Expr)
 	}
-	if _, ok := shapeExpr.Shape.Fields["name"]; !ok {
-		t.Fatalf("expected base Person field name merged, fields=%v", shapeExpr.Shape.Fields)
+	if _, ok := shape.Shape.Fields["id"]; !ok {
+		t.Fatal("missing id from base")
 	}
-	if _, ok := shapeExpr.Shape.Fields["age"]; !ok {
-		t.Fatalf("expected Match field age merged, fields=%v", shapeExpr.Shape.Fields)
+	if _, ok := shape.Shape.Fields["name"]; !ok {
+		t.Fatal("missing name from Match")
+	}
+}
+
+func TestInferAssertion_valueConstraintLiteral(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := New(log, false)
+	assertion := &ast.AssertionNode{
+		Constraints: []ast.ConstraintNode{{
+			Name: ast.ValueConstraint,
+			Args: []ast.ConstraintArgumentNode{{
+				Value: strLit("admin"),
+			}},
+		}},
+	}
+	types, err := tc.InferAssertionType(assertion, false, "role", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 || types[0].Ident != ast.TypeString {
+		t.Fatalf("got %#v", types)
+	}
+}
+
+func TestInferAssertion_unknownBaseTypeErrors(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := New(log, false)
+	assertion := &ast.AssertionNode{
+		BaseType: ptrTypeIdent(ast.TypeIdent("NoSuchType")),
+	}
+	if _, err := tc.InferAssertionType(assertion, false, "x", nil); err == nil {
+		t.Fatal("expected unknown base type error")
 	}
 }

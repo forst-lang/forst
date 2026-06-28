@@ -3,11 +3,11 @@ title: "Go interop"
 description: "Transpile to Go, import packages, and mix .ft with .go in one module."
 ---
 
-Forst's primary compilation target is **Go**. You keep the Go module graph, deployment story, and ecosystem. Forst handles typed boundaries and validation on your `.ft` sources.
+Forst transpiles to **Go**. You keep the same module graph, deployment, and ecosystem. See [Language overview](/language/overview) for syntax. This page covers import and mixing rules.
 
 ## Transpile to idiomatic Go
 
-Every `.ft` file compiles to Go source in your module. The output is meant to be **readable and reviewable**, an ordinary Go source file rather than an opaque IR dump. Struct fields, error returns, and control flow follow familiar Go patterns.
+Every `.ft` file compiles to Go source in your module. The output is an ordinary, readable Go source file. Struct fields, error returns, and control flow follow familiar Go patterns.
 
 ```bash
 npx forst build handlers/orders.ft
@@ -24,7 +24,7 @@ go test ./...
 
 Much of Forst mirrors Go syntax: `package`, `import`, `func`, `if`/`for`/`range`, `defer`, `go` goroutines. A minimal program can be identical in Forst and Go. See [Language overview](/language/overview).
 
-Forst adds structural types, constraints, `ensure`, and nominal errors on top of that base.
+Forst adds structural typing, constraints, `ensure`, and nominal errors on top of that base.
 
 ## Import Go packages
 
@@ -39,6 +39,8 @@ func main() {
 ```
 
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
+
+Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call. It applies when a trailing expression becomes an [implicit return](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
 
 <Warning>
   **Go import loading is experimental.** Unmapped Go types report diagnostics; `unsafe` and some builtin edge cases are not fully wired. Put `unsafe` usage in hand written `.go` and call from Forst when needed.

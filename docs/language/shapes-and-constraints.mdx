@@ -5,7 +5,7 @@ description: "Define API boundaries as types with built-in validation."
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
 
-The most common backend mistake is letting **untrusted input** reach business logic. In Go, you usually declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation and rejects invalid data at the boundary.
+In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation at the boundary.
 
 ## Manual validation in Go
 

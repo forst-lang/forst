@@ -6,6 +6,9 @@ import (
 	"forst/internal/ast"
 	"forst/internal/lexer"
 	"forst/internal/parser"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -160,5 +163,102 @@ func TestCheckContractShapeMethod_wrongArity_errors(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected arity error for contract method call")
+	}
+}
+
+func TestLookupFunctionReturnType_receiverMethod(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	tc := New(log, false)
+	fn := &ast.FunctionNode{
+		Ident: ast.Ident{ID: "info"},
+		Receiver: &ast.SimpleParamNode{
+			Type: ast.TypeNode{Ident: "NopLogger"},
+		},
+	}
+	tc.TypeMethods = map[ast.TypeIdent]map[string]FunctionSignature{
+		"NopLogger": {
+			"info": {ReturnTypes: []ast.TypeNode{{Ident: ast.TypeVoid}}},
+		},
+	}
+	got, err := tc.LookupFunctionReturnType(fn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !IsVoidReturnTypes(got) {
+		t.Fatalf("got %v, want void", formatTypeList(got))
+	}
+}
+
+func TestCheckTypes_receiverMethod_trailingPrintln_voidContract_errors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module recvtest\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+import "fmt"
+
+type Logger = { info(msg String) }
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {
+	fmt.Println(msg)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected typecheck error for void contract with inferred non-void return")
+	}
+	if !strings.Contains(err.Error(), "contract requires void") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCheckTypes_receiverMethod_trailingPrintln_storesReturnInTypeMethods(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module recvtest\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+import "fmt"
+
+type NopLogger = {}
+
+func (NopLogger) log(msg String): Result(Int, Error) {
+	fmt.Println(msg)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	sig, ok := tc.TypeMethods["NopLogger"]["log"]
+	if !ok {
+		t.Fatal("missing log method on NopLogger")
+	}
+	if len(sig.ReturnTypes) != 1 || !sig.ReturnTypes[0].IsResultType() {
+		t.Fatalf("log return types = %v, want Result(...)", formatTypeList(sig.ReturnTypes))
+	}
+	if _, ok := tc.Functions[ast.Identifier("log")]; ok {
+		t.Fatal("receiver method log should not pollute Functions map")
 	}
 }

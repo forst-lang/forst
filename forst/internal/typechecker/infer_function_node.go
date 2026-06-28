@@ -90,6 +90,9 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 		return nil, err
 	}
 	tc.storeInferredFunctionReturnType(&functionNode, inferredType)
+	if err := tc.validateInferredReceiverMethodReturn(functionNode, inferredType); err != nil {
+		return nil, err
+	}
 	tc.popScope()
 
 	tc.log.WithFields(logrus.Fields{
