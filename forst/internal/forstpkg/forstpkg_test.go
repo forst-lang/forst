@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/safefs"
 
 	"github.com/sirupsen/logrus"
 )
@@ -84,6 +85,45 @@ func main() {
 	}
 	if PackageNameFromNodes(nodes) != "main" {
 		t.Fatalf("package name: %#v", nodes)
+	}
+}
+
+func TestParseForstFileFromRoot(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	absPath := filepath.Join(dir, "scoped.ft")
+	const content = `package demo
+
+func F(): Int {
+	return 1
+}
+`
+	if err := os.WriteFile(absPath, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root, err := safefs.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	log := logrus.New()
+	log.SetOutput(nil)
+	nodes, err := ParseForstFileFromRoot(log, root, "scoped.ft", absPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if PackageNameFromNodes(nodes) != "demo" {
+		t.Fatalf("package: %#v", nodes)
+	}
+	var fnCount int
+	for _, n := range nodes {
+		if _, ok := n.(ast.FunctionNode); ok {
+			fnCount++
+		}
+	}
+	if fnCount != 1 {
+		t.Fatalf("expected one function, got %d nodes", fnCount)
 	}
 }
 

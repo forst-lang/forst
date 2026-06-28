@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"forst/internal/discovery"
+	"forst/internal/httpbody"
 )
 
 // jsonMarshalVersionPayload marshals the /version payload; tests may replace to inject errors.
@@ -93,8 +94,17 @@ func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	body, err := httpbody.ReadAll(r.Body, s.config.Server.MaxRequestSize)
+	if err != nil {
+		if httpbody.IsTooLarge(err) {
+			s.sendError(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		s.sendError(w, fmt.Sprintf("Failed to read request: %v", err), http.StatusBadRequest)
+		return
+	}
 	var req InvokeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		s.sendError(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
 		return
 	}

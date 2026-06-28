@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/safefs"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -131,6 +133,39 @@ func fromPeer(): Int {
 	}
 }
 
+func TestSamePackageOpenURIs_readsAnchorFromDiskWhenNotOpen(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module anchordisk\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	aPath := filepath.Join(dir, "anchor.ft")
+	const srcA = `package main
+
+func anchor(): Int {
+	return 1
+}
+`
+	if err := os.WriteFile(aPath, []byte(srcA), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriA := mustFileURI(t, aPath)
+
+	out := s.samePackageOpenURIs(uriA)
+	if len(out) < 1 {
+		t.Fatalf("expected anchor URI, got %v", out)
+	}
+	for _, u := range out {
+		if u == uriA {
+			return
+		}
+	}
+	t.Fatalf("expected %s in %v", uriA, out)
+}
+
 func TestReadForstFilePrefix_truncatesLargeFile(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -143,11 +178,64 @@ func TestReadForstFilePrefix_truncatesLargeFile(t *testing.T) {
 	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	head, err := readForstFilePrefix(p, 64*1024)
+	root, err := safefs.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	head, err := readForstFilePrefixFromRoot(root, "big.ft", 64*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(head) != 64*1024 {
 		t.Fatalf("want 64KiB prefix, got %d", len(head))
+	}
+}
+
+func TestReadFileUnderModuleRoot_readsFileInModule(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module readmod\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ftPath := filepath.Join(dir, "on_disk.ft")
+	const want = "package main\n"
+	if err := os.WriteFile(ftPath, []byte(want), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readFileUnderModuleRoot(ftPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestLoadPackageGroupContents_readsFromDiskWhenBufferEmpty(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module diskload\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ftPath := filepath.Join(dir, "disk.ft")
+	const want = `package main
+
+func Disk(): Int {
+	return 1
+}
+`
+	if err := os.WriteFile(ftPath, []byte(want), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uri := mustFileURI(t, ftPath)
+	s := NewLSPServer("8080", logrus.New())
+
+	contents, err := s.loadPackageGroupContents([]string{uri})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contents[uri] != want {
+		t.Fatalf("got %q want %q", contents[uri], want)
 	}
 }

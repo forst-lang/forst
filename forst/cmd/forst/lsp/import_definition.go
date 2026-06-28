@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/lexer"
+	"forst/internal/safefs"
 )
 
 // qualifiedImportSymbolAt reports pkgLocal.symbol when tokIdx is the right-hand identifier in an import qualifier.
@@ -70,21 +72,28 @@ func (s *LSPServer) forstFileURIsUnderModule(moduleRoot string) []string {
 	}
 	s.documentMu.RUnlock()
 
-	_ = filepath.WalkDir(moduleRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
+	root, err := safefs.OpenRoot(moduleRoot)
+	if err != nil {
+		return out
+	}
+	defer root.Close()
+
+	_ = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
 			return nil
 		}
 		if d.IsDir() {
 			switch d.Name() {
 			case ".git", "vendor", "node_modules":
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(path, ".ft") {
+		absPath := root.AbsPath(path)
+		if !strings.HasSuffix(absPath, ".ft") {
 			return nil
 		}
-		u := fileURIForLocalPath(path)
+		u := fileURIForLocalPath(absPath)
 		if _, ok := seen[u]; ok {
 			return nil
 		}

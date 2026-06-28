@@ -2,7 +2,7 @@ package compiler
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,6 +12,7 @@ import (
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
+	"forst/internal/safefs"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,17 +28,27 @@ func (c *Compiler) goWorkspaceDirForCheck() string {
 // collectSamePackageFtPaths finds all .ft files under rootDir that declare the same package
 // as entryPath (parsed). Paths are sorted for stable merges.
 func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([]string, error) {
-	entryNodes, err := forstpkg.ParseForstFile(log, entryPath)
+	rootDir = filepath.Clean(rootDir)
+	root, err := safefs.OpenRoot(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("open package root: %w", err)
+	}
+	defer root.Close()
+
+	entryRel, err := root.RelPath(entryPath)
+	if err != nil {
+		return nil, fmt.Errorf("entry file must be under -root: %w", err)
+	}
+	entryNodes, err := forstpkg.ParseForstFileFromRoot(log, root, entryRel, entryPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse entry file: %w", err)
 	}
 	pkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(entryNodes))
 
-	rootDir = filepath.Clean(rootDir)
 	var out []string
-	err = filepath.WalkDir(rootDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
+	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if d.IsDir() {
 			return nil
@@ -45,12 +56,13 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 		if !strings.HasSuffix(strings.ToLower(path), ".ft") {
 			return nil
 		}
-		nodes, err := forstpkg.ParseForstFile(log, path)
+		absPath := root.AbsPath(path)
+		nodes, err := forstpkg.ParseForstFileFromRoot(log, root, path, absPath)
 		if err != nil {
 			return nil
 		}
 		if forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)) == pkg {
-			out = append(out, path)
+			out = append(out, absPath)
 		}
 		return nil
 	})

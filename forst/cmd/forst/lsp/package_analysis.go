@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"forst/internal/lexer"
 	"forst/internal/modulecheck"
 	"forst/internal/parser"
+	"forst/internal/safefs"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -64,7 +66,7 @@ func (s *LSPServer) samePackageOpenURIs(anchorURI string) []string {
 
 	anchorContent := s.openDocumentContent(anchorURI)
 	if anchorContent == "" {
-		b, err := os.ReadFile(anchorPath)
+		b, err := readFileUnderModuleRoot(anchorPath)
 		if err != nil {
 			return []string{canonicalAnchor}
 		}
@@ -126,7 +128,12 @@ func (s *LSPServer) mergeSamePackageDiskFt(dir, pkg string, uris []string) []str
 	for _, u := range uris {
 		seen[u] = struct{}{}
 	}
-	entries, err := os.ReadDir(dir)
+	root, err := safefs.OpenRoot(dir)
+	if err != nil {
+		return uris
+	}
+	defer root.Close()
+	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
 		return uris
 	}
@@ -134,12 +141,12 @@ func (s *LSPServer) mergeSamePackageDiskFt(dir, pkg string, uris []string) []str
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".ft") {
 			continue
 		}
-		full := filepath.Join(dir, e.Name())
+		full := root.AbsPath(e.Name())
 		u := fileURIForLocalPath(full)
 		if _, ok := seen[u]; ok {
 			continue
 		}
-		head, err := readForstFilePrefix(full, 64*1024)
+		head, err := readForstFilePrefixFromRoot(root, e.Name(), 64*1024)
 		if err != nil {
 			continue
 		}
@@ -152,8 +159,8 @@ func (s *LSPServer) mergeSamePackageDiskFt(dir, pkg string, uris []string) []str
 	return uris
 }
 
-func readForstFilePrefix(path string, maxBytes int) (string, error) {
-	b, err := os.ReadFile(path)
+func readForstFilePrefixFromRoot(r *safefs.RootedFS, rel string, maxBytes int) (string, error) {
+	b, err := r.ReadFile(rel)
 	if err != nil {
 		return "", err
 	}
@@ -161,6 +168,24 @@ func readForstFilePrefix(path string, maxBytes int) (string, error) {
 		b = b[:maxBytes]
 	}
 	return string(b), nil
+}
+
+// readFileUnderModuleRoot reads absPath using safefs scoped to its Go module root.
+func readFileUnderModuleRoot(absPath string) ([]byte, error) {
+	moduleRoot := goload.FindModuleRoot(filepath.Dir(absPath))
+	if moduleRoot == "" {
+		return os.ReadFile(absPath)
+	}
+	root, err := safefs.OpenRoot(moduleRoot)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	rel, err := root.RelPath(absPath)
+	if err != nil {
+		return nil, err
+	}
+	return root.ReadFile(rel)
 }
 
 // loadPackageGroupContents returns the text used for lex/parse and fingerprinting: open buffer
@@ -178,7 +203,7 @@ func (s *LSPServer) loadPackageGroupContents(uris []string) (map[string]string, 
 			continue
 		}
 		p := filePathFromDocumentURI(u)
-		b, err := os.ReadFile(p)
+		b, err := readFileUnderModuleRoot(p)
 		if err != nil {
 			return nil, err
 		}
