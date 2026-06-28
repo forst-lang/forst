@@ -63,7 +63,7 @@ Syntax highlighting uses a TextMate grammar at [`languages/forst.json`](./langua
 
 When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json`. Keep `"name": "forst"` lowercase.
 
-**Local works, production does not:** Mintlify embeds custom Shiki grammars during deploy, not at page load. Confirm `languages/forst.json` is committed, `styling.codeblocks` includes both `"theme"` and `"languages"`, and trigger a fresh deploy from the Mintlify dashboard. Custom Shiki languages is a recent platform feature; if prod still shows plain text after redeploy, the hosted build may lag the CLI.
+**Local works, production does not:** Mintlify embeds custom Shiki grammars during deploy, not at page load. Confirm `languages/forst.json` is committed and trigger a fresh deploy from the Mintlify dashboard. To match site light/dark mode for other languages, set `styling.codeblocks` to `"system"` (string) or use a Shiki theme object; custom grammars go in the object form under `languages.custom` only.
 
 Brand icons for cards live in [`icons/`](./icons/). TypeScript logo from [typescriptlang.org](https://www.typescriptlang.org/branding/) (Wikimedia). Go blue wordmark from [go.dev/brand](https://go.dev/brand) (Wikimedia).
 

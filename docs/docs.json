@@ -10,7 +10,6 @@
   "favicon": "/favicon.svg",
   "styling": {
     "codeblocks": {
-      "theme": "system",
       "languages": {
         "custom": ["/languages/forst.json"]
       }
