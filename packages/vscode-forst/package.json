@@ -142,6 +142,7 @@
     "url": "https://github.com/forst-lang/forst.git",
     "directory": "packages/vscode-forst"
   },
+  "homepage": "https://forst-lang.org",
   "icon": "images/marketplace-icon.png",
   "license": "MIT"
 }
