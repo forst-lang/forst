@@ -87,9 +87,11 @@ try {
   if (!pkgJson.files.includes(cliFilesPattern)) {
     pkgJson.files.push(cliFilesPattern);
   }
+  // Marketplace rejects extensions marked private; monorepo keeps private: true for npm.
+  delete pkgJson.private;
   fs.writeFileSync(stagedPkgPath, `${JSON.stringify(pkgJson, null, 2)}\n`);
   console.log(
-    "package-vsix-from-stage: staged package.json — no vscode:prepublish; files include @forst/cli"
+    "package-vsix-from-stage: staged package.json — no vscode:prepublish; files include @forst/cli; not private"
   );
 
   const cliDest = path.join(stage, "node_modules", "@forst", "cli");
