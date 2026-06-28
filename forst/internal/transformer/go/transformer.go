@@ -85,8 +85,14 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		return nil, err
 	}
 
-	// Process all definitions first
-	for _, def := range t.TypeChecker.Defs {
+	// Process all definitions first (sorted for deterministic emission)
+	typeNames := make([]ast.TypeIdent, 0, len(t.TypeChecker.Defs))
+	for name := range t.TypeChecker.Defs {
+		typeNames = append(typeNames, name)
+	}
+	sort.Slice(typeNames, func(i, j int) bool { return typeNames[i] < typeNames[j] })
+	for _, name := range typeNames {
+		def := t.TypeChecker.Defs[name]
 		switch def := def.(type) {
 		case ast.TypeDefNode:
 			t.log.WithFields(logrus.Fields{

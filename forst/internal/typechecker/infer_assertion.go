@@ -16,7 +16,7 @@ const ConstraintMatch = "Match"
 func isBuiltinAssertionConstraintName(name string) bool {
 	switch name {
 	case "Min", "Max", "LessThan", "GreaterThan", "HasPrefix", "Contains",
-		"True", "False", "Nil", "Present", "NotEmpty", "Valid", ast.ValueConstraint:
+		"True", "False", "Nil", "Present", "NotEmpty", ast.ValueConstraint:
 		return true
 	default:
 		return false

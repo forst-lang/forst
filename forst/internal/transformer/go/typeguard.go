@@ -70,31 +70,50 @@ func (t *Transformer) transformTypeGuardParams(params []ast.ParamNode) (*goast.F
 	}
 
 	for _, param := range params {
-		var paramName string
-		var paramType ast.TypeNode
-
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			paramName = string(p.Ident.ID)
-			paramType = p.Type
-		case ast.DestructuredParamNode:
-			return nil, fmt.Errorf("DestructuredParamNode not supported in transformTypeGuardParams")
-		}
-
-		var ident *goast.Ident
-		if t != nil {
-			name, err := t.TypeChecker.GetAliasedTypeName(paramType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-			if err != nil {
-				return nil, fmt.Errorf("failed to get type alias name: %s", err)
+			paramName := string(p.Ident.ID)
+			paramType := p.Type
+			var ident *goast.Ident
+			if t != nil {
+				name, err := t.TypeChecker.GetAliasedTypeName(paramType, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get type alias name: %s", err)
+				}
+				ident = goast.NewIdent(name)
+			} else {
+				ident = goast.NewIdent(string(paramType.Ident))
 			}
-			ident = goast.NewIdent(name)
-		} else {
-			ident = goast.NewIdent(string(paramType.Ident))
+			fields.List = append(fields.List, &goast.Field{
+				Names: []*goast.Ident{goast.NewIdent(paramName)},
+				Type:  ident,
+			})
+		case ast.DestructuredParamNode:
+			shapeFields, ok := t.TypeChecker.ShapeFieldsFromParamType(p.Type)
+			if !ok {
+				return nil, fmt.Errorf("destructured type guard param has no shape fields in type %s", p.Type.Ident)
+			}
+			for _, fieldName := range p.Fields {
+				sf, ok := shapeFields[fieldName]
+				if !ok {
+					return nil, fmt.Errorf("destructured field %s not found in type guard param type", fieldName)
+				}
+				fieldType, ok := typechecker.ShapeFieldTypeNode(sf)
+				if !ok {
+					return nil, fmt.Errorf("destructured field %s has no type", fieldName)
+				}
+				typeExpr, err := t.transformType(fieldType)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform destructured field %s: %w", fieldName, err)
+				}
+				fields.List = append(fields.List, &goast.Field{
+					Names: []*goast.Ident{goast.NewIdent(fieldName)},
+					Type:  typeExpr,
+				})
+			}
+		default:
+			return nil, fmt.Errorf("unsupported type guard parameter type %T", param)
 		}
-		fields.List = append(fields.List, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  ident,
-		})
 	}
 
 	return fields, nil
@@ -120,8 +139,37 @@ func (t *Transformer) transformTypeGuard(guard ast.TypeGuardNode) (*goast.FuncDe
 		t.log.WithFields(logrus.Fields{
 			"guard":    guard.Ident,
 			"function": "transformTypeGuard",
-		}).Debug("Skipping function generation for type-level type guard")
-		return nil, nil // Return nil to indicate no function should be generated
+		}).Debug("Emitting stub for type-level type guard")
+
+		subjectParam, err := t.transformTypeGuardParams([]ast.ParamNode{guard.Subject})
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform subject parameter: %s", err)
+		}
+		additionalParams, err := t.transformTypeGuardParams(guard.Params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to transform type guard parameters: %s", err)
+		}
+		params := append(subjectParam.List, additionalParams.List...)
+
+		return &goast.FuncDecl{
+			Name: goast.NewIdent(string(guardIdent)),
+			Doc: &goast.CommentGroup{
+				List: []*goast.Comment{
+					{Text: "// Type-level shape guard stub; `ensure m is { field }` is not lowered to runtime checks yet."},
+				},
+			},
+			Type: &goast.FuncType{
+				Params: &goast.FieldList{List: params},
+				Results: &goast.FieldList{
+					List: []*goast.Field{{Type: goast.NewIdent("bool")}},
+				},
+			},
+			Body: &goast.BlockStmt{
+				List: []goast.Stmt{
+					&goast.ReturnStmt{Results: []goast.Expr{goast.NewIdent("true")}},
+				},
+			},
+		}, nil
 	}
 
 	// Transform subject parameter

@@ -439,8 +439,11 @@ is (password Password) Strong(min Int) {
 	}
 
 	decl, err := tr.transformTypeGuard(guard)
-	if err == nil {
-		t.Fatalf("expected known if-is codegen limitation error, got decl=%#v", decl)
+	if err != nil {
+		t.Fatalf("transformTypeGuard: %v", err)
+	}
+	if decl == nil {
+		t.Fatal("expected non-nil type guard decl")
 	}
 }
 

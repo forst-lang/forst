@@ -561,6 +561,29 @@ func main() {
 	}
 }
 
+func TestEmitValidation_ifIsMinOnString(t *testing.T) {
+	src := `package main
+
+func checkLen(name String) {
+	if name is Min(1) {
+		println("ok")
+	} else {
+		println("short")
+	}
+}
+
+func main() {
+	checkLen("hi")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{`func checkLen`, `len(`, `!`, `package main`} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
 func TestEmitValidation_builtinLessThanOnInt(t *testing.T) {
 	src := `package main
 

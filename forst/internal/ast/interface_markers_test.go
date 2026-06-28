@@ -22,4 +22,9 @@ func TestInterfaceMarkerMethodsExecute(t *testing.T) {
 	VariableNode{}.isValue()
 	DereferenceNode{}.isValue()
 	ReferenceNode{}.isValue()
+
+	DereferenceNode{}.isExpression()
+	IndexExpressionNode{}.isExpression()
+	OkExprNode{}.isExpression()
+	ErrExprNode{}.isExpression()
 }

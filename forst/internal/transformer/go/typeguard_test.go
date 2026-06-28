@@ -51,17 +51,12 @@ func TestTransformEnsureConstraintWithIsConstraint(t *testing.T) {
 	transformer := New(tc, nil)
 
 	// Try to transform the ensure constraint
-	// This should fail because "is" is not a built-in constraint
-	_, err := transformer.transformEnsureConstraint(ensure, ensure.Assertion.Constraints[0], ast.TypeNode{Ident: ast.TypeIdent("MutationArg")})
-
-	// This should fail with "no valid transformation found for constraint: is"
-	if err == nil {
-		t.Fatal("Expected error 'no valid transformation found for constraint: is', but got nil")
+	expr, err := transformer.transformEnsureConstraint(ensure, ensure.Assertion.Constraints[0], ast.TypeNode{Ident: ast.TypeIdent("MutationArg")})
+	if err != nil {
+		t.Fatalf("transformEnsureConstraint failed: %v", err)
 	}
-
-	expectedError := "no valid transformation found for constraint: is"
-	if err.Error() != expectedError {
-		t.Errorf("Expected error '%s', but got '%s'", expectedError, err.Error())
+	if ident, ok := expr.(*goast.Ident); !ok || ident.Name != "true" {
+		t.Fatalf("expected true literal for is constraint, got %#v", expr)
 	}
 }
 

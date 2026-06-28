@@ -19,12 +19,12 @@ Forst is under active development. This page is a **simplified** view. The canon
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Shapes and constraints](/language/shapes-and-constraints) | Structural types, built-in constraints, runtime validation at the boundary. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`ensure`, `is`, and shape guards](/language/ensure-and-narrowing) | Runtime checks tied to types; shape refinement on records. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Shapes and constraints](/language/shapes-and-constraints) | Structural types and built-in constraints; compile-time checks where values are static, runtime validation via `ensure` in the body today. Parameter prologue emission is future work. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`ensure`, `is`, and shape guards](/language/ensure-and-narrowing) | Runtime checks tied to types; shape refinement on records. Successor narrowing after `ensure` works for simple identifiers; compound paths still open. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Nil and presence checks](/language/ensure-and-narrowing) | `ensure x is Nil()`, `ensure !x`, and `*T` `.Present()` / `.Nil()` on pointers. Not full optional value types yet. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Type guards](/language/type-guards) | Domain predicates with `is (subject T) Name { … }`; narrowing polish still open. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Result and nominal errors](/language/errors-and-result) | `Result(S, F)`, `error X { … }`, and `ensure` / `if x is Ok()` narrowing. Closed nominal error unions (`ParseError \| IoError`) emit sealed Go interfaces. Failure-type and export rules still maturing. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Control-flow narrowing | If-branch refinement works; join across branches and post-`ensure` narrowing still open. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Control-flow narrowing | If-branch refinement works; ensure-successor narrowing for simple identifiers works; compound paths and join across branches still open. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Type aliases | Simple `type Name = BaseType` works end-to-end; broader alias semantics still evolving. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Binary types (`A \| B`, `A & B`) | Union and intersection typedefs type-check; closed nominal error unions emit to Go and TS. General unions, intersections, and narrowing still incomplete. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Optional types (`T \| Nil`) | Planned: Crystal-style `T \| Nil` / `T?` unions, narrowing, and Go lowering. See [optionals RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/optionals). |

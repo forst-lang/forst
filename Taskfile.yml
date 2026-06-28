@@ -223,6 +223,18 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/union_error_types.ft
 
+  example:union-error-narrowing:
+    desc: Compile union error narrowing example (golden examples/out/union_error_narrowing.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/union_error_narrowing.ft
+
+  example:map-catalog:
+    desc: Compile map catalog example (golden examples/out/map_catalog.go)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/map_catalog.ft
+
   example:result-ensure:
     desc: Compile Result + ensure Ok() example (golden examples/out/result_ensure/)
     dir: forst

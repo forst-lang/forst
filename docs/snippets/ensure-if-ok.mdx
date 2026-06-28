@@ -8,9 +8,10 @@
   </Tab>
   <Tab title="Generated Go">
     ```go
-    // forst build
-    if x, ok := x.(Ok); ok {
-    	println(x.Value)
+    // forst build — Result lowers to (T, error)
+    x, xErr := one()
+    if xErr == nil {
+    	println(x)
     }
     ```
   </Tab>

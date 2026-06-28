@@ -60,6 +60,23 @@ func TestIsPublicExportIdent(t *testing.T) {
 	if IsPublicExportIdent("handle") {
 		t.Fatal("handle is not public")
 	}
+	if IsPublicExportIdent("") {
+		t.Fatal("empty ident is not public")
+	}
+}
+
+func TestParamTypesFromFunction_simpleParamsOnly(t *testing.T) {
+	fn := FunctionNode{
+		Params: []ParamNode{
+			SimpleParamNode{Ident: Ident{ID: "a"}, Type: TypeNode{Ident: TypeInt}},
+			DestructuredParamNode{Fields: []string{"x"}, Type: TypeNode{Ident: TypeString}},
+			SimpleParamNode{Ident: Ident{ID: "b"}, Type: TypeNode{Ident: TypeString}},
+		},
+	}
+	types := ParamTypesFromFunction(fn)
+	if len(types) != 2 || types[0].Ident != TypeInt || types[1].Ident != TypeString {
+		t.Fatalf("got %+v", types)
+	}
 }
 
 func TestIsTestingTParamType(t *testing.T) {

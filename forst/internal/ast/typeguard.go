@@ -59,10 +59,15 @@ func (s ShapeGuardNode) String() string {
 	return fmt.Sprintf("ShapeGuardNode(%s, %s: %s)", s.Ident, s.FieldName, s.TypeArg)
 }
 
-// ValidateShapeGuard validates that a type guard is a valid shape guard
-func ValidateShapeGuard(node TypeGuardNode) error {
+// ValidateShapeGuard validates that a type guard is a valid shape guard.
+// When isShape is non-nil it resolves typedef aliases (e.g. via typechecker.IsShapeType).
+func ValidateShapeGuard(node TypeGuardNode, isShape func(TypeNode) bool) error {
+	check := isShapeType
+	if isShape != nil {
+		check = isShape
+	}
 	// Check if the receiver type is a Shape type
-	if !isShapeType(node.Subject.GetType()) {
+	if !check(node.Subject.GetType()) {
 		return fmt.Errorf("shape guard can only be used on Shape types, got %s", node.Subject.GetType())
 	}
 

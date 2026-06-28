@@ -140,7 +140,7 @@ func TestValidateShapeGuard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateShapeGuard(tt.node)
+			err := ValidateShapeGuard(tt.node, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateShapeGuard() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -255,7 +255,7 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 				validReturn,
 			},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -265,7 +265,7 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 			Subject: shapeSubject,
 			Body:    []Node{IntLiteralNode{Value: 1}},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -277,10 +277,37 @@ func TestValidateShapeGuard_extra_error_paths(t *testing.T) {
 				ReturnNode{Values: []ExpressionNode{IntLiteralNode{Value: 1}, IntLiteralNode{Value: 2}}},
 			},
 		}
-		if err := ValidateShapeGuard(node); err == nil {
+		if err := ValidateShapeGuard(node, nil); err == nil {
 			t.Fatal("expected error")
 		}
 	})
+}
+
+func TestValidateShapeGuard_customIsShapeResolver(t *testing.T) {
+	node := TypeGuardNode{
+		Ident: "HasField",
+		Subject: SimpleParamNode{
+			Ident: Ident{ID: "s"},
+			Type:  TypeNode{Ident: "MutationArg"},
+		},
+		Body: []Node{
+			ReturnNode{
+				Values: []ExpressionNode{
+					BinaryExpressionNode{
+						Left:     VariableNode{Ident: Ident{ID: "s"}},
+						Operator: TokenIs,
+						Right: ShapeNode{Fields: map[string]ShapeFieldNode{
+							"f": {Type: &TypeNode{Ident: TypeString}},
+						}},
+					},
+				},
+			},
+		},
+	}
+	isShape := func(t TypeNode) bool { return string(t.Ident) == "MutationArg" }
+	if err := ValidateShapeGuard(node, isShape); err != nil {
+		t.Fatalf("expected success with custom resolver: %v", err)
+	}
 }
 
 func TestIsShapeRefinement_left_not_variable(t *testing.T) {

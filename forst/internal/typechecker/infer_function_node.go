@@ -38,7 +38,7 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 				[]ast.TypeNode{typedParam.Type},
 				SymbolVariable)
 		case ast.DestructuredParamNode:
-			continue
+			tc.registerDestructuredParamSymbols(typedParam.Fields, typedParam.Type, SymbolVariable)
 		}
 	}
 	tc.DebugPrintCurrentScope()
@@ -61,13 +61,32 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 			"function":   "inferNodeType",
 		}).Trace("Storing param variable type")
 
-		tc.scopeStack.currentScope().RegisterSymbol(
-			ast.Identifier(param.GetIdent()),
-			inferredParamTypes,
-			SymbolVariable)
-
-		if simpleParam, ok := param.(ast.SimpleParamNode); ok && len(inferredParamTypes) > 0 {
-			tc.VariableTypes[simpleParam.Ident.ID] = append([]ast.TypeNode(nil), inferredParamTypes...)
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			tc.scopeStack.currentScope().RegisterSymbol(
+				p.Ident.ID,
+				inferredParamTypes,
+				SymbolVariable)
+			if len(inferredParamTypes) > 0 {
+				tc.VariableTypes[p.Ident.ID] = append([]ast.TypeNode(nil), inferredParamTypes...)
+			}
+		case ast.DestructuredParamNode:
+			if shapeFields, ok := tc.ShapeFieldsFromParamType(p.Type); ok {
+				for _, fieldName := range p.Fields {
+					sf, ok := shapeFields[fieldName]
+					if !ok {
+						continue
+					}
+					if tn, ok := ShapeFieldTypeNode(sf); ok {
+						fieldTypes := []ast.TypeNode{tn}
+						tc.scopeStack.currentScope().RegisterSymbol(
+							ast.Identifier(fieldName),
+							fieldTypes,
+							SymbolVariable)
+						tc.VariableTypes[ast.Identifier(fieldName)] = append([]ast.TypeNode(nil), fieldTypes...)
+					}
+				}
+			}
 		}
 	}
 

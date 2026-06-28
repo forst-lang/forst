@@ -42,6 +42,11 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 		}
 	}
 
+	// Type-level shape constraints (`ensure m is { field }`) are not lowered to runtime checks yet.
+	if constraint.Name == "is" {
+		return goast.NewIdent("true"), nil
+	}
+
 	// Try built-in constraints first
 	if transformed, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, ensure.Variable, constraint); err == nil {
 		return transformed, nil

@@ -8,7 +8,7 @@ type OkExprNode struct {
 	Value ExpressionNode
 }
 
-func (OkExprNode) isExpression() {}
+func (o OkExprNode) isExpression() { _ = o }
 
 func (OkExprNode) Kind() NodeKind { return NodeKindOkExpr }
 
@@ -25,7 +25,7 @@ type ErrExprNode struct {
 	Value ExpressionNode
 }
 
-func (ErrExprNode) isExpression() {}
+func (e ErrExprNode) isExpression() { _ = e }
 
 func (ErrExprNode) Kind() NodeKind { return NodeKindErrExpr }
 

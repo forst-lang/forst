@@ -16,4 +16,7 @@ func TestDestructuredParamNode_String_Kind_GetType(t *testing.T) {
 	if d.GetType().Ident != TypeInt {
 		t.Fatal(d.GetType())
 	}
+	if d.GetIdent() != "a, b" {
+		t.Fatalf("GetIdent() = %q", d.GetIdent())
+	}
 }

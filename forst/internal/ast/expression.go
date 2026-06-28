@@ -44,7 +44,7 @@ type IndexExpressionNode struct {
 	Index  ExpressionNode
 }
 
-func (IndexExpressionNode) isExpression() {}
+func (i IndexExpressionNode) isExpression() { _ = i }
 
 // Kind returns the node kind for index expressions.
 func (i IndexExpressionNode) Kind() NodeKind {

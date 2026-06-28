@@ -176,8 +176,10 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 				Type:  p.Type,
 			}
 		case ast.DestructuredParamNode:
-			// TODO: Handle destructured params
-			continue
+			params[i] = ParameterSignature{
+				Ident: ast.Ident{ID: ast.Identifier(p.GetIdent())},
+				Type:  p.Type,
+			}
 		}
 	}
 
@@ -204,8 +206,7 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 		case ast.SimpleParamNode:
 			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
 		case ast.DestructuredParamNode:
-			// Handle destructured params if needed
-			continue
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
 		}
 	}
 }
@@ -237,8 +238,7 @@ func (tc *TypeChecker) registerTypeGuard(guard *ast.TypeGuardNode) {
 				SymbolParameter,
 			)
 		case ast.DestructuredParamNode:
-			// Handle destructured params if needed
-			continue
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
 		}
 	}
 }

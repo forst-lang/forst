@@ -15,6 +15,15 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		return ast.NewPointerType(baseType)
 	}
 
+	// Array(T) — element type may be an inline shape `{ ... }`
+	if token.Type == ast.TokenArray {
+		p.advance()
+		p.expect(ast.TokenLParen)
+		elementType := p.parseType(opts)
+		p.expect(ast.TokenRParen)
+		return ast.NewArrayType(elementType)
+	}
+
 	// Handle shape types
 	if token.Type == ast.TokenLBrace {
 		shape := p.parseShapeType()
@@ -182,6 +191,7 @@ func isPossibleTypeIdentifier(token ast.Token, opts TypeIdentOpts) bool {
 		token.Type == ast.TokenFloat ||
 		token.Type == ast.TokenBool ||
 		token.Type == ast.TokenVoid ||
+		token.Type == ast.TokenArray ||
 		token.Type == ast.TokenLBracket ||
 		token.Type == ast.TokenMap ||
 		token.Type == ast.TokenChan

@@ -62,6 +62,12 @@ func TestTypeDefErrorExpr_Kind_and_PayloadShape(t *testing.T) {
 	}
 }
 
+func TestPayloadShape_nonShapeOrErrorReturnsFalse(t *testing.T) {
+	if _, ok := PayloadShape(TypeDefAssertionExpr{}); ok {
+		t.Fatal("assertion expr has no payload shape")
+	}
+}
+
 func TestTypeDefBinaryExpr_and_TypeDefShapeExpr_Kind(t *testing.T) {
 	bin := TypeDefBinaryExpr{
 		Op:    TokenBitwiseAnd,

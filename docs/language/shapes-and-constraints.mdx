@@ -8,7 +8,7 @@ import ShapesConstraintChaining from "/snippets/shapes-constraint-chaining.mdx";
 import ShapesPlaceOrderTags from "/snippets/shapes-place-order-tags.mdx";
 import ShapesAddressCustomer from "/snippets/shapes-address-customer.mdx";
 
-In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. The compiler emits runtime validation at the boundary.
+In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. Where values are known at compile time, the typechecker proves them statically; for dynamic input, use **`ensure … is …`** in the function body today. Automatic validation prologues on parameters are planned—not emitted yet.
 
 ## Manual validation in Go
 
@@ -35,7 +35,7 @@ The struct says nothing about valid ranges. Every handler repeats the same `if` 
 
 <CatalogOrder />
 
-When `placeOrder` runs, the compiler has already proven the shape at compile time where values are known, and emits checks for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
+When `placeOrder` runs, the compiler has already proven the shape at compile time where values are known; use `ensure` (or explicit checks) for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
 
 ## Built-in constraints
 
@@ -95,7 +95,7 @@ Invalid nested data fails at the same boundary. You do not re-walk the tree in a
 
 ## What gets emitted
 
-The compiler lowers constraints to plain Go checks before your function body runs: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import. Generated Go stays readable and uses standard error returns. There is no hidden magic at runtime.
+The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import. Parameter prologue validation (automatic checks before your function body) is not emitted yet—use `ensure` explicitly today.
 
 ## Try it
 

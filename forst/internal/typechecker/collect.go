@@ -47,9 +47,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
 				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
-			case ast.DestructuredParamNode:
-				// TODO: Handle destructured params
-				continue
+		case ast.DestructuredParamNode:
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolVariable)
 			}
 		}
 
@@ -83,13 +82,12 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 					"function": "collectExplicitTypes",
 				}).Debug("Storing symbol for simple param of type guard")
 				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
-			case ast.DestructuredParamNode:
-				// Handle destructured params if needed
-				tc.log.WithFields(logrus.Fields{
-					"node":     p.String(),
-					"function": "collectExplicitTypes",
-				}).Warn("Destructured params are not supported for type guards yet")
-				continue
+		case ast.DestructuredParamNode:
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
+			tc.log.WithFields(logrus.Fields{
+				"node":     p.String(),
+				"function": "collectExplicitTypes",
+			}).Debug("Registered destructured type guard param fields")
 			}
 		}
 
