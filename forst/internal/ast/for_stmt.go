@@ -7,6 +7,8 @@ import "fmt"
 // Range: IsRange true, RangeX required; RangeKey/RangeValue optional (nil means omitted, as in `for range ch`).
 // Use Ident ID "_" for blank identifiers.
 type ForNode struct {
+	Label *Ident
+
 	Init  Node
 	Cond  ExpressionNode
 	Post  Node

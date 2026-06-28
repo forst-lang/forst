@@ -31,6 +31,11 @@ func (tc *TypeChecker) inferForNode(n *ast.ForNode) ([]ast.TypeNode, error) {
 		}
 	}
 
+	if n.Label != nil {
+		tc.loopLabelStack = append(tc.loopLabelStack, n.Label.ID)
+		defer func() { tc.loopLabelStack = tc.loopLabelStack[:len(tc.loopLabelStack)-1] }()
+	}
+
 	tc.loopDepth++
 	for _, stmt := range n.Body {
 		if _, err := tc.inferNodeType(stmt); err != nil {
@@ -131,4 +136,13 @@ func (tc *TypeChecker) rangeTypesForTwoVars(t ast.TypeNode) (keyT, valT ast.Type
 		return ast.TypeNode{Ident: ast.TypeInt}, ast.TypeNode{Ident: ast.TypeInt}, nil
 	}
 	return ast.TypeNode{}, ast.TypeNode{}, fmt.Errorf("unsupported range over type %s (two-variable form)", t.Ident)
+}
+
+func (tc *TypeChecker) hasLoopLabel(label ast.Identifier) bool {
+	for _, l := range tc.loopLabelStack {
+		if l == label {
+			return true
+		}
+	}
+	return false
 }

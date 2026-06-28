@@ -48,7 +48,14 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return []ast.TypeNode{n.Type}, nil
 
 	case ast.DestructuredParamNode:
-		return nil, nil
+		if n.Type.Assertion != nil {
+			inferredType, err := tc.InferAssertionType(n.Type.Assertion, false, "", nil)
+			if err != nil {
+				return nil, err
+			}
+			return inferredType, nil
+		}
+		return []ast.TypeNode{n.Type}, nil
 
 	case ast.ExpressionNode:
 		tc.log.WithFields(logrus.Fields{
@@ -163,7 +170,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 
 	case *ast.BreakNode:
 		if n.Label != nil {
-			return nil, fmt.Errorf("labeled break is not implemented yet")
+			if !tc.hasLoopLabel(n.Label.ID) {
+				return nil, fmt.Errorf("undefined label %q for break", n.Label.ID)
+			}
+			return nil, nil
 		}
 		if tc.loopDepth == 0 {
 			return nil, fmt.Errorf("break is not inside a loop")
@@ -171,7 +181,10 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 	case *ast.ContinueNode:
 		if n.Label != nil {
-			return nil, fmt.Errorf("labeled continue is not implemented yet")
+			if !tc.hasLoopLabel(n.Label.ID) {
+				return nil, fmt.Errorf("undefined label %q for continue", n.Label.ID)
+			}
+			return nil, nil
 		}
 		if tc.loopDepth == 0 {
 			return nil, fmt.Errorf("continue is not inside a loop")

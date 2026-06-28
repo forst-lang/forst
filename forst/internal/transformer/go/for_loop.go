@@ -115,6 +115,7 @@ func (t *Transformer) transformForNode(fn *ast.ForNode) (goast.Stmt, error) {
 		}
 		body.List = append(body.List, gst)
 	}
+	var loop goast.Stmt
 	if fn.IsRange {
 		rs := &goast.RangeStmt{Body: body}
 		if fn.RangeKey != nil {
@@ -135,28 +136,35 @@ func (t *Transformer) transformForNode(fn *ast.ForNode) (goast.Stmt, error) {
 			return nil, err
 		}
 		rs.X = xe
-		return rs, nil
-	}
-
-	fs := &goast.ForStmt{Body: body}
-	var err error
-	if fn.Init != nil {
-		fs.Init, err = t.transformInitPostStmt(fn.Init)
-		if err != nil {
-			return nil, err
+		loop = rs
+	} else {
+		fs := &goast.ForStmt{Body: body}
+		var err error
+		if fn.Init != nil {
+			fs.Init, err = t.transformInitPostStmt(fn.Init)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
-	if fn.Cond != nil {
-		fs.Cond, err = t.transformExpression(fn.Cond)
-		if err != nil {
-			return nil, err
+		if fn.Cond != nil {
+			fs.Cond, err = t.transformExpression(fn.Cond)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
-	if fn.Post != nil {
-		fs.Post, err = t.transformInitPostStmt(fn.Post)
-		if err != nil {
-			return nil, err
+		if fn.Post != nil {
+			fs.Post, err = t.transformInitPostStmt(fn.Post)
+			if err != nil {
+				return nil, err
+			}
 		}
+		loop = fs
 	}
-	return fs, nil
+	if fn.Label != nil {
+		return &goast.LabeledStmt{
+			Label: goast.NewIdent(string(fn.Label.ID)),
+			Stmt:  loop,
+		}, nil
+	}
+	return loop, nil
 }

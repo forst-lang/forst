@@ -66,6 +66,26 @@ func main() {
 	assertGoParses(t, out)
 }
 
+func TestEmitValidation_labeledBreak(t *testing.T) {
+	src := `package main
+
+func main() {
+outer: for i := 0; i < 10; i = i + 1 {
+		for j := 0; j < 10; j = j + 1 {
+			if j == 5 {
+				break outer
+			}
+		}
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `outer:`) || !strings.Contains(out, `break outer`) {
+		t.Fatalf("expected labeled break:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
 func TestEmitValidation_pointerAndReference(t *testing.T) {
 	src := `package main
 

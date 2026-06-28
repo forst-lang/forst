@@ -36,18 +36,27 @@ func TestInferNodeType_breakAndContinueLoopGuards(t *testing.T) {
 	}
 }
 
-func TestInferNodeType_breakAndContinueLabeledNotImplemented(t *testing.T) {
+func TestInferNodeType_breakAndContinueLabeled(t *testing.T) {
 	tc := New(logrus.New(), false)
-	tc.loopDepth = 1
 
-	_, err := tc.inferNodeType(&ast.BreakNode{Label: &ast.Ident{ID: "outer"}})
-	if err == nil || !strings.Contains(err.Error(), "labeled break is not implemented yet") {
-		t.Fatalf("expected labeled break not implemented error, got %v", err)
+	outerFor := &ast.ForNode{
+		Label: &ast.Ident{ID: "outer"},
+		Body: []ast.Node{
+			&ast.ForNode{
+				Body: []ast.Node{
+					&ast.BreakNode{Label: &ast.Ident{ID: "outer"}},
+					&ast.ContinueNode{Label: &ast.Ident{ID: "outer"}},
+				},
+			},
+		},
+	}
+	if _, err := tc.inferNodeType(outerFor); err != nil {
+		t.Fatalf("labeled break/continue in nested loop: %v", err)
 	}
 
-	_, err = tc.inferNodeType(&ast.ContinueNode{Label: &ast.Ident{ID: "outer"}})
-	if err == nil || !strings.Contains(err.Error(), "labeled continue is not implemented yet") {
-		t.Fatalf("expected labeled continue not implemented error, got %v", err)
+	_, err := tc.inferNodeType(&ast.BreakNode{Label: &ast.Ident{ID: "missing"}})
+	if err == nil || !strings.Contains(err.Error(), `undefined label "missing"`) {
+		t.Fatalf("expected undefined label error, got %v", err)
 	}
 }
 

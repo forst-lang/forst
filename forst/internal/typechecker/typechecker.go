@@ -59,6 +59,8 @@ type TypeChecker struct {
 	reportPhases bool
 	// loopDepth counts nested for-loop bodies for break/continue validation
 	loopDepth int
+	// loopLabelStack records labels of nested for-loops (innermost last) for labeled break/continue
+	loopLabelStack []ast.Identifier
 	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
 	ifChainNarrowingStack [][]narrowingEvent
 	// currentFunction is set while inferring a function body (Ok/Err need Result(S,F) from the signature).

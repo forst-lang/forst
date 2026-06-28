@@ -44,6 +44,21 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		body = append(body, returnStatement)
 	case ast.TokenIdentifier:
 		next := p.peek()
+		if next.Type == ast.TokenColon && p.peek(2).Type == ast.TokenFor {
+			if p.context.IsTypeGuard() {
+				p.FailWithParseError(token, "For loop not allowed in type guards")
+			}
+			label := &ast.Ident{ID: ast.Identifier(token.Value), Span: ast.SpanFromToken(token)}
+			p.advance() // ident
+			p.advance() // colon
+			forStatement := p.parseForStatement()
+			if fn, ok := forStatement.(*ast.ForNode); ok {
+				fn.Label = label
+			}
+			p.logParsedNode(forStatement)
+			body = append(body, forStatement)
+			break
+		}
 		if next.Type == ast.TokenComma {
 			assignment := p.parseMultipleAssignment()
 			p.logParsedNode(assignment)
