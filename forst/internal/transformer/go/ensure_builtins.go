@@ -5,13 +5,19 @@ import (
 	"forst/internal/ast"
 	goast "go/ast"
 	"go/token"
+	"sync"
 )
 
 // Constraint types
 type ConstraintHandler func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error)
 
-// Map of builtin types to their constraints and handlers
-var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandler{
+var (
+	builtinConstraintsOnce sync.Once
+	builtinConstraints     map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandler
+)
+
+func initBuiltinConstraints() {
+	builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandler{
 	ast.TypePointer: {
 		NilConstraint: func(at *AssertionTransformer, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
 			if err := at.validateConstraintArgs(constraint, 0); err != nil {
@@ -47,19 +53,11 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
-			arg, err := at.expectValue(&constraint.Args[0])
-			if err != nil {
-				return nil, err
-			}
-			arg, err = expectIntLiteral(arg)
-			if err != nil {
-				return nil, err
-			}
 			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
-			argExpr, err := at.transformer.transformExpression(arg)
+			argExpr, err := at.constraintArgAsExpr(constraint.Args[0])
 			if err != nil {
 				return nil, err
 			}
@@ -78,19 +76,11 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			if err := at.validateConstraintArgs(constraint, 1); err != nil {
 				return nil, err
 			}
-			arg, err := at.expectValue(&constraint.Args[0])
-			if err != nil {
-				return nil, err
-			}
-			arg, err = expectIntLiteral(arg)
-			if err != nil {
-				return nil, err
-			}
 			variableExpr, err := at.transformStringBuiltinVariable(variable)
 			if err != nil {
 				return nil, err
 			}
-			argExpr, err := at.transformer.transformExpression(arg)
+			argExpr, err := at.constraintArgAsExpr(constraint.Args[0])
 			if err != nil {
 				return nil, err
 			}
@@ -189,14 +179,6 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 				Op: token.EQL,
 				Y:  &goast.BasicLit{Kind: token.INT, Value: "0"},
 			}, nil
-		},
-		ValidConstraint: func(at *AssertionTransformer, _ ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
-			if err := at.validateConstraintArgs(constraint, 0); err != nil {
-				return nil, err
-			}
-			// For now, just return a simple condition that will always be false
-			// This simulates a validation that always fails
-			return goast.NewIdent("false"), nil
 		},
 	},
 	// Slice/array: length constraints use len(...) like strings.
@@ -521,10 +503,12 @@ var builtinConstraints = map[ast.TypeIdent]map[BuiltinConstraint]ConstraintHandl
 			}, nil
 		},
 	},
+	}
 }
 
 // TransformBuiltinConstraint transforms a builtin constraint
 func (at *AssertionTransformer) TransformBuiltinConstraint(typeIdent ast.TypeIdent, variable ast.VariableNode, constraint ast.ConstraintNode) (goast.Expr, error) {
+	builtinConstraintsOnce.Do(initBuiltinConstraints)
 	handlerMap, ok := builtinConstraints[typeIdent]
 	if !ok {
 		return nil, fmt.Errorf("unknown typeIdent %s for built-in constraints: %s", typeIdent, constraint.Name)

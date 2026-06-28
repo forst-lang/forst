@@ -3,6 +3,7 @@ package transformergo
 import (
 	"fmt"
 	"forst/internal/ast"
+	goast "go/ast"
 )
 
 type BuiltinConstraint string
@@ -30,8 +31,6 @@ const (
 	PresentConstraint BuiltinConstraint = "Present"
 	// NotEmptyConstraint is the built-in NotEmpty constraint in Forst
 	NotEmptyConstraint BuiltinConstraint = "NotEmpty"
-	// ValidConstraint is the built-in Valid constraint in Forst
-	ValidConstraint BuiltinConstraint = "Valid"
 	// ValueConstraint is the built-in Value constraint in Forst
 	ValueConstraint BuiltinConstraint = ast.ValueConstraint
 )
@@ -66,4 +65,15 @@ func (at *AssertionTransformer) expectValue(arg *ast.ConstraintArgumentNode) (as
 	}
 
 	return *arg.Value, nil
+}
+
+// constraintArgAsExpr lowers a constraint argument (literal value or param ident parsed as Type).
+func (at *AssertionTransformer) constraintArgAsExpr(arg ast.ConstraintArgumentNode) (goast.Expr, error) {
+	if arg.Value != nil {
+		return at.transformer.transformExpression((*arg.Value).(ast.ExpressionNode))
+	}
+	if arg.Type != nil && arg.Shape == nil {
+		return goast.NewIdent(string(arg.Type.Ident)), nil
+	}
+	return nil, fmt.Errorf("expected argument to be a value")
 }
