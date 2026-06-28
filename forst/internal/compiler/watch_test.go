@@ -4,8 +4,38 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
+	"time"
 )
+
+func TestWatchDebounce_synctest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var timer *time.Timer
+		var count atomic.Int32
+		watchDebounce(&timer, 100*time.Millisecond, func() { count.Add(1) })
+		time.Sleep(200 * time.Millisecond)
+		synctest.Wait()
+		if count.Load() != 1 {
+			t.Fatalf("after first debounce count=%d want 1", count.Load())
+		}
+
+		count.Store(0)
+		watchDebounce(&timer, 100*time.Millisecond, func() { count.Add(1) })
+		watchDebounce(&timer, 100*time.Millisecond, func() { count.Add(1) })
+		time.Sleep(50 * time.Millisecond)
+		synctest.Wait()
+		if count.Load() != 0 {
+			t.Fatalf("after reschedule before fire count=%d want 0", count.Load())
+		}
+		time.Sleep(200 * time.Millisecond)
+		synctest.Wait()
+		if count.Load() != 1 {
+			t.Fatalf("after reschedule count=%d want 1", count.Load())
+		}
+	})
+}
 
 func TestWatchFile_rejectsPackageRoot(t *testing.T) {
 	c := New(Args{

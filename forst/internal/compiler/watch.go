@@ -40,10 +40,7 @@ func (c *Compiler) WatchFile() error {
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
-			if debounceTimer != nil {
-				debounceTimer.Stop()
-			}
-			debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
+			watchDebounce(&debounceTimer, 100*time.Millisecond, func() {
 				c.log.Info("File changed, recompiling...")
 				c.compileAndRunOnce()
 			})
@@ -51,6 +48,13 @@ func (c *Compiler) WatchFile() error {
 			c.log.Error("Error watching file:", err)
 		}
 	}
+}
+
+func watchDebounce(timer **time.Timer, d time.Duration, fn func()) {
+	if *timer != nil {
+		(*timer).Stop()
+	}
+	*timer = time.AfterFunc(d, fn)
 }
 
 func (c *Compiler) validateWatchConfig() error {

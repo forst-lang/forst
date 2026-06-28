@@ -39,9 +39,9 @@ type InvokeRequest struct {
 // DevServerResponse represents a response to the client
 type DevServerResponse struct {
 	Success bool            `json:"success"`
-	Output  string          `json:"output,omitempty"`
-	Error   string          `json:"error,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
+	Output  string          `json:"output,omitzero"`
+	Error   string          `json:"error,omitzero"`
+	Result  json.RawMessage `json:"result,omitzero"`
 }
 
 // DevServer handles HTTP communication for Forst applications
