@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/forst-lang/forst/compare/v0.4.0...v0.5.0) (2026-06-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* Providers (`use` / `with`) ([#97](https://github.com/forst-lang/forst/issues/97))
+
+### Features
+
+* Providers (`use` / `with`) ([#97](https://github.com/forst-lang/forst/issues/97)) ([82a1a97](https://github.com/forst-lang/forst/commit/82a1a971f80736e250534f9eb2663838f77e0b0d))
+
+
+### Bug Fixes
+
+* **docs:** register Forst grammar for Mintlify prod highlighting ([51d4dfc](https://github.com/forst-lang/forst/commit/51d4dfc3ed1bfb12d3d7af61d908b9f7f773ddc8))
+* **lsp:** isolate providers analyze test in temp module ([79aa1e0](https://github.com/forst-lang/forst/commit/79aa1e01e7895d48258b3dd72821b20d6333594d))
+
 ## [0.4.0](https://github.com/forst-lang/forst/compare/v0.3.0...v0.4.0) (2026-04-21)
 
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/forst-lang/forst/compare/vscode-forst-v0.2.1...vscode-forst-v0.3.0) (2026-06-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* Providers (`use` / `with`) ([#97](https://github.com/forst-lang/forst/issues/97))
+
+### Features
+
+* Providers (`use` / `with`) ([#97](https://github.com/forst-lang/forst/issues/97)) ([82a1a97](https://github.com/forst-lang/forst/commit/82a1a971f80736e250534f9eb2663838f77e0b0d))
+
 ## [0.2.1](https://github.com/forst-lang/forst/compare/vscode-forst-v0.2.0...vscode-forst-v0.2.1) (2026-04-19)
 
 
