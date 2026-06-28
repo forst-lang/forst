@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.37](https://github.com/forst-lang/forst/compare/cli-v0.0.36...cli-v0.0.37) (2026-06-28)
+
+
+### Bug Fixes
+
+* **cli:** fallback to prior release when latest binary 404s ([d072230](https://github.com/forst-lang/forst/commit/d0722305db1e8117ddb6c598e309ab5761270f04))
+
 ## [0.0.36](https://github.com/forst-lang/forst/compare/cli-v0.0.35...cli-v0.0.36) (2026-06-28)
 
 
