@@ -2,15 +2,16 @@ package providersgraph
 
 import (
 	"forst/internal/ast"
+	"maps"
 )
 
 // Graph is the shared Providers call graph for checker, discovery JSON, and LSP (ADR-036).
 type Graph struct {
-	slots      map[ast.Identifier][]Slot
-	direct     map[ast.Identifier]map[string]Slot
-	intraEdges []IntraPackageEdge
+	slots       map[ast.Identifier][]Slot
+	direct      map[ast.Identifier]map[string]Slot
+	intraEdges  []IntraPackageEdge
 	moduleEdges []ModuleCallEdge
-	callersOf  map[ast.Identifier][]ast.Identifier
+	callersOf   map[ast.Identifier][]ast.Identifier
 }
 
 // New returns an empty graph.
@@ -28,17 +29,15 @@ func (g *Graph) SetDirect(fn ast.Identifier, slots map[string]Slot) {
 		return
 	}
 	copied := make(map[string]Slot, len(slots))
-	for k, v := range slots {
-		copied[k] = v
-	}
+	maps.Copy(copied, slots)
 	g.direct[fn] = copied
 }
 
 // AddIntraCall records a call edge with scope keys at the call site.
 func (g *Graph) AddIntraCall(caller, callee ast.Identifier, scope ProviderScopeSnapshot) {
 	g.intraEdges = append(g.intraEdges, IntraPackageEdge{
-		Caller:  caller,
-		Callee:  callee,
+		Caller:        caller,
+		Callee:        callee,
 		ProviderScope: cloneProviderScope(scope),
 	})
 	g.callersOf[callee] = append(g.callersOf[callee], caller)
@@ -142,9 +141,7 @@ func cloneProviderScope(src ProviderScopeSnapshot) ProviderScopeSnapshot {
 		return nil
 	}
 	out := make(ProviderScopeSnapshot, len(src))
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 

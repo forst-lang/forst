@@ -61,7 +61,7 @@ func TestHandleHealth(t *testing.T) {
 		t.Errorf("Expected Content-Type application/json, got %s", contentType)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
@@ -121,18 +121,18 @@ func TestHandleInitialize(t *testing.T) {
 		t.Fatal("Expected result to be set")
 	}
 
-	result, ok := response.Result.(map[string]interface{})
+	result, ok := response.Result.(map[string]any)
 	if !ok {
 		t.Fatal("Expected result to be a map")
 	}
 
-	capabilities, ok := result["capabilities"].(map[string]interface{})
+	capabilities, ok := result["capabilities"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected capabilities to be a map")
 	}
 
 	// Check textDocumentSync
-	textDocSync, ok := capabilities["textDocumentSync"].(map[string]interface{})
+	textDocSync, ok := capabilities["textDocumentSync"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected textDocumentSync to be a map")
 	}
@@ -147,17 +147,17 @@ func TestHandleInitialize(t *testing.T) {
 	}
 
 	// Check completionProvider
-	completionProvider, ok := capabilities["completionProvider"].(map[string]interface{})
+	completionProvider, ok := capabilities["completionProvider"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected completionProvider to be a map")
 	}
 
-	triggerChars, ok := completionProvider["triggerCharacters"].([]interface{})
+	triggerChars, ok := completionProvider["triggerCharacters"].([]any)
 	if !ok {
 		// Try alternative type assertion
 		if triggerCharsStr, ok := completionProvider["triggerCharacters"].([]string); ok {
 			// Convert []string to []interface{} for comparison
-			triggerChars = make([]interface{}, len(triggerCharsStr))
+			triggerChars = make([]any, len(triggerCharsStr))
 			for i, s := range triggerCharsStr {
 				triggerChars[i] = s
 			}
@@ -179,7 +179,7 @@ func TestHandleInitialize(t *testing.T) {
 	}
 
 	// Check diagnosticProvider
-	diagnosticProvider, ok := capabilities["diagnosticProvider"].(map[string]interface{})
+	diagnosticProvider, ok := capabilities["diagnosticProvider"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected diagnosticProvider to be a map")
 	}
@@ -189,7 +189,7 @@ func TestHandleInitialize(t *testing.T) {
 	}
 
 	// Check serverInfo
-	serverInfo, ok := result["serverInfo"].(map[string]interface{})
+	serverInfo, ok := result["serverInfo"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected serverInfo to be a map")
 	}
@@ -335,7 +335,7 @@ func main() {
 	server.openDocuments[uri] = src
 	server.documentMu.Unlock()
 
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
 		"position":     map[string]int{"line": 3, "character": 2},
 	})
@@ -368,7 +368,7 @@ func main() {
 		t.Fatal("Expected result to be set")
 	}
 
-	result, ok := response.Result.(map[string]interface{})
+	result, ok := response.Result.(map[string]any)
 	if !ok {
 		t.Fatal("Expected result to be a map")
 	}
@@ -1136,7 +1136,7 @@ func exampleFunction(x: String) {
 	}
 
 	// Verify that we got comprehensive debug information
-	debugInfo, ok := debugResponse.Result.(map[string]interface{})
+	debugInfo, ok := debugResponse.Result.(map[string]any)
 	if !ok {
 		t.Fatal("Expected debug info to be a map")
 	}
@@ -1150,13 +1150,13 @@ func exampleFunction(x: String) {
 	}
 
 	// Check that output contains the expected data structure
-	output, ok := debugInfo["output"].(map[string]interface{})
+	output, ok := debugInfo["output"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected output to be a map")
 	}
 
 	// Check that output.data contains the detailed information
-	data, ok := output["data"].(map[string]interface{})
+	data, ok := output["data"].(map[string]any)
 	if !ok {
 		t.Fatal("Expected output.data to be a map")
 	}
@@ -1219,14 +1219,14 @@ func main() {
 	cs := s.handleCompilerState(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      1,
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
 		}),
 	})
 	if cs.Error != nil {
 		t.Fatalf("compilerState: %+v", cs.Error)
 	}
-	m, ok := cs.Result.(map[string]interface{})
+	m, ok := cs.Result.(map[string]any)
 	if !ok || m["uri"] == nil {
 		t.Fatalf("expected result map with uri, got %#v", cs.Result)
 	}
@@ -1234,15 +1234,15 @@ func main() {
 	pdAll := s.handlePhaseDetails(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      2,
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
 			"phase":        "",
 		}),
 	})
 	if pdAll.Error != nil {
 		t.Fatalf("phaseDetails all: %+v", pdAll.Error)
 	}
-	pdMap, ok := pdAll.Result.(map[string]interface{})
+	pdMap, ok := pdAll.Result.(map[string]any)
 	if !ok || pdMap["phases"] == nil {
 		t.Fatalf("expected phases for empty phase, got %#v", pdAll.Result)
 	}
@@ -1250,15 +1250,15 @@ func main() {
 	pdLex := s.handlePhaseDetails(LSPRequest{
 		JSONRPC: "2.0",
 		ID:      3,
-		Params: mustJSONParams(t, map[string]interface{}{
-			"textDocument": map[string]interface{}{"uri": uri},
+		Params: mustJSONParams(t, map[string]any{
+			"textDocument": map[string]any{"uri": uri},
 			"phase":        "lexer",
 		}),
 	})
 	if pdLex.Error != nil {
 		t.Fatalf("phaseDetails lexer: %+v", pdLex.Error)
 	}
-	if _, ok := pdLex.Result.(map[string]interface{})["details"]; !ok {
+	if _, ok := pdLex.Result.(map[string]any)["details"]; !ok {
 		t.Fatalf("expected details for lexer phase: %#v", pdLex.Result)
 	}
 }

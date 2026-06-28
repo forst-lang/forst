@@ -15,7 +15,7 @@ func main() {
 }
 `
 	first := compileForstPipeline(t, src)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		current := compileForstPipeline(t, src)
 		if current != first {
 			t.Fatalf("pipeline output changed between runs at iteration %d", i)
@@ -43,7 +43,7 @@ func main() {
 }
 `
 	first := compileForstPipeline(t, src)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		current := compileForstPipeline(t, src)
 		if current != first {
 			t.Fatalf("pipeline output changed between runs at iteration %d", i)

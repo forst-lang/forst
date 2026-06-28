@@ -88,8 +88,8 @@ func filePathFromDocumentURI(uri string) string {
 	if p, ok := localPathFromFileURI(uri); ok && p != "" {
 		return canonicalLocalPath(p)
 	}
-	if strings.HasPrefix(uri, "file://") {
-		p := strings.TrimPrefix(uri, "file://")
+	if after, ok := strings.CutPrefix(uri, "file://"); ok {
+		p := after
 		if runtime.GOOS == "windows" {
 			p = strings.TrimPrefix(p, "/")
 		}

@@ -70,10 +70,10 @@ func main() {
 	s.openDocuments[uri] = src
 	s.documentMu.Unlock()
 
-	params := map[string]interface{}{
-		"textDocument": map[string]interface{}{"uri": uri},
-		"position":     map[string]interface{}{"line": 7, "character": 2},
-		"context":      map[string]interface{}{"includeDeclaration": false},
+	params := map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     map[string]any{"line": 7, "character": 2},
+		"context":      map[string]any{"includeDeclaration": false},
 	}
 	resp := s.handleReferences(LSPRequest{
 		JSONRPC: "2.0",

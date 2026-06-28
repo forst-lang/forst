@@ -8,8 +8,8 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/goload"
-	"forst/internal/printer"
 	"forst/internal/hoverdoc"
+	"forst/internal/printer"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -87,7 +87,7 @@ func (s *LSPServer) handleCompletion(request LSPRequest) LSPServerResponse {
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result: map[string]interface{}{
+		Result: map[string]any{
 			"isIncomplete": incomplete,
 			"items":        completions,
 		},
@@ -212,10 +212,7 @@ func tokenAtLSPPosition(tokens []ast.Token, pos LSPPosition) *ast.Token {
 		if t.Type == ast.TokenEOF || t.Line != line1 {
 			continue
 		}
-		width := utf8.RuneCountInString(t.Value)
-		if width < 1 {
-			width = 1
-		}
+		width := max(utf8.RuneCountInString(t.Value), 1)
 		endCol := t.Column + width - 1
 		if char1 >= t.Column && char1 <= endCol {
 			if best == nil || t.Column >= best.Column {
@@ -861,8 +858,8 @@ func stripCommentBody(s string) string {
 	if strings.HasPrefix(s, "//") {
 		return strings.TrimSpace(s[2:])
 	}
-	if strings.HasPrefix(s, "/*") {
-		body := strings.TrimSuffix(strings.TrimPrefix(s, "/*"), "*/")
+	if after, ok := strings.CutPrefix(s, "/*"); ok {
+		body := strings.TrimSuffix(after, "*/")
 		return strings.TrimSpace(body)
 	}
 	return s

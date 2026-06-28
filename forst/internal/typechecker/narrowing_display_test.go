@@ -24,7 +24,7 @@ func TestNarrowingPredicateDisplayFromIsRHS_builtinBaseWithConstraint(t *testing
 	a := ast.AssertionNode{
 		BaseType: &str,
 		Constraints: []ast.ConstraintNode{
-			{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 12})}}},
+			{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 12}))}}},
 		},
 	}
 	got := tc.narrowingPredicateDisplayFromIsRHS(a)
@@ -40,7 +40,7 @@ func TestNarrowingPredicateDisplayFromIsRHS_nonBuiltinBaseWithConstraint(t *test
 	a := ast.AssertionNode{
 		BaseType: &ms,
 		Constraints: []ast.ConstraintNode{
-			{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 5})}}},
+			{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 5}))}}},
 		},
 	}
 	got := tc.narrowingPredicateDisplayFromIsRHS(a)
@@ -80,7 +80,7 @@ func TestNarrowingPredicateDisplayFromIsRHS_typeDefAssertionExprValue(t *testing
 		Assertion: &ast.AssertionNode{
 			BaseType: &ms,
 			Constraints: []ast.ConstraintNode{
-				{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 7})}}},
+				{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 7}))}}},
 			},
 		},
 	}
@@ -90,6 +90,7 @@ func TestNarrowingPredicateDisplayFromIsRHS_typeDefAssertionExprValue(t *testing
 	}
 }
 
+//go:fix inline
 func ptrVal(v ast.ValueNode) *ast.ValueNode {
-	return &v
+	return new(v)
 }

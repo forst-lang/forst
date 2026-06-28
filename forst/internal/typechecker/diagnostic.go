@@ -61,7 +61,7 @@ func spanForCallArg(argSpans []ast.SourceSpan, i int, args []ast.ExpressionNode,
 	return ast.SourceSpan{}
 }
 
-func diagnosticf(span ast.SourceSpan, code, format string, a ...interface{}) error {
+func diagnosticf(span ast.SourceSpan, code, format string, a ...any) error {
 	return &Diagnostic{
 		Msg:  fmt.Sprintf(format, a...),
 		Span: span,
@@ -69,7 +69,7 @@ func diagnosticf(span ast.SourceSpan, code, format string, a ...interface{}) err
 	}
 }
 
-func diagnosticfRelated(span ast.SourceSpan, code string, related []RelatedDiagnostic, format string, a ...interface{}) error {
+func diagnosticfRelated(span ast.SourceSpan, code string, related []RelatedDiagnostic, format string, a ...any) error {
 	return &Diagnostic{
 		Msg:     fmt.Sprintf(format, a...),
 		Span:    span,

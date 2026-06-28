@@ -548,7 +548,6 @@ func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
 	const wantBranch = `if n <= 0`
 	const wantMsg = `assertion failed: Int.GreaterThan(0)`
 	for _, path := range examples {
-		path := path
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			t.Parallel()
 			src, err := os.ReadFile(path)

@@ -76,12 +76,12 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 
 	// Try all base types in the alias chain
 	aliasChain := t.TypeChecker.GetTypeAliasChain(varType)
-	t.log.WithFields(map[string]interface{}{
+	t.log.WithFields(map[string]any{
 		"aliasChain": aliasChain,
 		"function":   "transformEnsureConstraint",
 	}).Debug("Alias chain for type alias")
 	for _, baseType := range aliasChain[1:] {
-		t.log.WithFields(map[string]interface{}{
+		t.log.WithFields(map[string]any{
 			"baseType":   baseType.Ident,
 			"constraint": constraint.Name,
 			"function":   "transformEnsureConstraint",
@@ -104,7 +104,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 			return callExpr, nil
 		}
 		// Retry built-in constraint for base type
-		t.log.WithFields(map[string]interface{}{
+		t.log.WithFields(map[string]any{
 			"baseType":   baseType.Ident,
 			"constraint": constraint.Name,
 			"function":   "transformEnsureConstraint",

@@ -26,16 +26,16 @@ func TestHandleCodeAction_providersExample_noPanic(t *testing.T) {
 	s := NewLSPServer("8080", logrus.New())
 	s.setOpenDocument(uri, string(src))
 
-	params, err := json.Marshal(map[string]interface{}{
+	params, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"range": map[string]interface{}{
-			"start": map[string]interface{}{"line": 7, "character": 0},
-			"end":   map[string]interface{}{"line": 10, "character": 1},
+		"range": map[string]any{
+			"start": map[string]any{"line": 7, "character": 0},
+			"end":   map[string]any{"line": 10, "character": 1},
 		},
-		"context": map[string]interface{}{
+		"context": map[string]any{
 			"only": []string{"source", "quickfix"},
 		},
-		"diagnostics": []map[string]interface{}{},
+		"diagnostics": []map[string]any{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -75,25 +75,25 @@ func TestHandleLSP_httpCodeAction_providersExample_returns200(t *testing.T) {
 	s := NewLSPServer("8080", logrus.New())
 	s.setOpenDocument(uri, string(src))
 
-	openParams, err := json.Marshal(map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri":         uri,
-			"languageId":  "forst",
-			"version":     1,
-			"text":        string(src),
+	openParams, err := json.Marshal(map[string]any{
+		"textDocument": map[string]any{
+			"uri":        uri,
+			"languageId": "forst",
+			"version":    1,
+			"text":       string(src),
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	actionParams, err := json.Marshal(map[string]interface{}{
+	actionParams, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
-		"range": map[string]interface{}{
-			"start": map[string]interface{}{"line": 7, "character": 0},
-			"end":   map[string]interface{}{"line": 10, "character": 1},
+		"range": map[string]any{
+			"start": map[string]any{"line": 7, "character": 0},
+			"end":   map[string]any{"line": 10, "character": 1},
 		},
-		"context": map[string]interface{}{
-			"diagnostics": []interface{}{},
+		"context": map[string]any{
+			"diagnostics": []any{},
 		},
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func TestHandleLSP_httpCodeAction_providersExample_returns200(t *testing.T) {
 	}
 
 	post := func(id int, method string, params []byte) *httptest.ResponseRecorder {
-		body, err := json.Marshal(map[string]interface{}{
+		body, err := json.Marshal(map[string]any{
 			"jsonrpc": "2.0",
 			"id":      id,
 			"method":  method,

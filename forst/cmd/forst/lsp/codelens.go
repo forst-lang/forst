@@ -40,7 +40,7 @@ func (s *LSPServer) handleCodeLens(request LSPRequest) LSPServerResponse {
 
 	lenses := s.codeLensesForURI(params.TextDocument.URI)
 	if lenses == nil {
-		lenses = []interface{}{}
+		lenses = []any{}
 	}
 	return LSPServerResponse{
 		JSONRPC: "2.0",
@@ -53,7 +53,7 @@ type declLens struct {
 	tok *ast.Token
 }
 
-func (s *LSPServer) codeLensesForURI(uri string) []interface{} {
+func (s *LSPServer) codeLensesForURI(uri string) []any {
 	ctx, ok := s.analyzeForstDocument(uri)
 	if !ok || ctx == nil || ctx.ParseErr != nil || ctx.TC == nil {
 		return nil
@@ -91,7 +91,7 @@ func (s *LSPServer) codeLensesForURI(uri string) []interface{} {
 		return ti.Column < tj.Column
 	})
 
-	out := make([]interface{}, 0, len(decls))
+	out := make([]any, 0, len(decls))
 	for _, d := range decls {
 		pos := lspPositionFromTokenStart(d.tok)
 		locs := s.findReferencesFromContext(ctx, uri, pos, true)
@@ -101,21 +101,21 @@ func (s *LSPServer) codeLensesForURI(uri string) []interface{} {
 			title = "1 reference"
 		}
 		rng := lspRangeFromToken(d.tok)
-		out = append(out, map[string]interface{}{
-			"range": map[string]interface{}{
-				"start": map[string]interface{}{
+		out = append(out, map[string]any{
+			"range": map[string]any{
+				"start": map[string]any{
 					"line":      rng.Start.Line,
 					"character": rng.Start.Character,
 				},
-				"end": map[string]interface{}{
+				"end": map[string]any{
 					"line":      rng.End.Line,
 					"character": rng.End.Character,
 				},
 			},
-			"command": map[string]interface{}{
+			"command": map[string]any{
 				"title":   title,
 				"command": "forst.showReferences",
-				"arguments": []interface{}{
+				"arguments": []any{
 					uri,
 					pos.Line,
 					pos.Character,

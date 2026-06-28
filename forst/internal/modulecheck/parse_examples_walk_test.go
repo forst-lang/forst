@@ -48,7 +48,7 @@ func walkExampleFt(root, dir string, visit func(path string)) error {
 	})
 }
 
-func fmtRecover(r interface{}) string {
+func fmtRecover(r any) string {
 	if s, ok := r.(string); ok {
 		return s
 	}

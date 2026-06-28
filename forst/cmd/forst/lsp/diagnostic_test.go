@@ -216,7 +216,7 @@ func (failingCompilerDebugger) GetAllOutput() (map[CompilerPhase][]byte, error) 
 
 func (failingCompilerDebugger) PrintAllSummaries() {}
 
-func (failingCompilerDebugger) LogWithStructuredDebug(*logrus.Logger, logrus.Level, CompilerPhase, string, string, string, map[string]interface{}) {
+func (failingCompilerDebugger) LogWithStructuredDebug(*logrus.Logger, logrus.Level, CompilerPhase, string, string, string, map[string]any) {
 }
 
 var errFakeDebugOutput = errors.New("output failed")

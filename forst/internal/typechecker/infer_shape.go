@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"slices"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -197,12 +198,7 @@ func (tc *TypeChecker) isBuiltinType(typeIdent ast.TypeIdent) bool {
 		ast.TypeTuple,
 	}
 
-	for _, builtinType := range builtinTypes {
-		if typeIdent == builtinType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(builtinTypes, typeIdent)
 }
 
 // matchingTypeDefForShapeLiteral picks a named typedef whose payload matches processedShape.

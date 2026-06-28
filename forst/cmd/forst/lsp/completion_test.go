@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/testmod"
 
 	"github.com/sirupsen/logrus"
 )
@@ -176,7 +177,7 @@ func TestListAtPosition_crossBufferSamePackage(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module t\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("t")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	aPath := filepath.Join(dir, "a.ft")
@@ -342,7 +343,7 @@ func TestIdentifierPrefixAt_grid(t *testing.T) {
 	src := "  foo_bar123  \n"
 	lines := strings.Count(src, "\n")
 	for line := 0; line <= lines; line++ {
-		for ch := 0; ch < 20; ch++ {
+		for ch := range 20 {
 			_ = identifierPrefixAt(src, LSPPosition{Line: line, Character: ch})
 		}
 	}
@@ -366,8 +367,8 @@ func main() {
 }
 `
 	toks := lexTokensForLSPHelperTest(src)
-	for line := 0; line < 6; line++ {
-		for ch := 0; ch < 40; ch++ {
+	for line := range 6 {
+		for ch := range 40 {
 			_ = tokenIndexAtLSPPosition(toks, LSPPosition{Line: line, Character: ch})
 		}
 	}
@@ -383,8 +384,8 @@ func main() {
 	toks := lexTokensForLSPHelperTest(src)
 	reqDot := &completionRequestContext{TriggerCharacter: "."}
 	reqNil := (*completionRequestContext)(nil)
-	for line := 0; line < 6; line++ {
-		for ch := 0; ch < 30; ch++ {
+	for line := range 6 {
+		for ch := range 30 {
 			pos := LSPPosition{Line: line, Character: ch}
 			_ = inferCompletionZone(toks, pos, src, reqDot)
 			_ = inferCompletionZone(toks, pos, src, reqNil)
@@ -456,7 +457,7 @@ func TestFindFirstToken_scan(t *testing.T) {
 func main() {}
 `
 	toks := lexTokensForLSPHelperTest(src)
-	for from := 0; from < len(toks); from++ {
+	for from := range toks {
 		for lim := from; lim <= len(toks)+2; lim++ {
 			_ = findFirstToken(toks, from, lim, ast.TokenFunc)
 		}
@@ -504,7 +505,7 @@ func main() {
 `
 	toks := lexTokensForLSPHelperTest(src)
 	n := len(toks)
-	for a := 0; a < n; a++ {
+	for a := range n {
 		for b := a; b < n; b++ {
 			_ = netBraceDepthBetween(toks, a, b)
 		}

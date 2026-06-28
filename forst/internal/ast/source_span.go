@@ -38,10 +38,7 @@ func (s SourceSpan) ContainsPosition(line, col int) bool {
 
 // SpanFromToken is a span covering a single token's text.
 func SpanFromToken(t Token) SourceSpan {
-	w := utf8.RuneCountInString(t.Value)
-	if w < 1 {
-		w = 1
-	}
+	w := max(utf8.RuneCountInString(t.Value), 1)
 	return SourceSpan{
 		StartLine: t.Line,
 		StartCol:  t.Column,
@@ -52,10 +49,7 @@ func SpanFromToken(t Token) SourceSpan {
 
 // SpanBetweenTokens is a span from the start of start through the end of end (inclusive of end's text).
 func SpanBetweenTokens(start, end Token) SourceSpan {
-	w := utf8.RuneCountInString(end.Value)
-	if w < 1 {
-		w = 1
-	}
+	w := max(utf8.RuneCountInString(end.Value), 1)
 	return SourceSpan{
 		StartLine: start.Line,
 		StartCol:  start.Column,

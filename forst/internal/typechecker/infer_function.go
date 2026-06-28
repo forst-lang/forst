@@ -60,7 +60,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					}
 					if len(retType) == 1 {
 						if tc.log != nil {
-							tc.log.WithFields(map[string]interface{}{
+							tc.log.WithFields(map[string]any{
 								"function":     fn.Ident.ID,
 								"returnIndex":  i,
 								"returnAST":    fmt.Sprintf("%T", value),
@@ -71,7 +71,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					} else if len(retType) > 1 && len(retStmt.Values) == 1 && len(retType) == len(parsedType) {
 						// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
 						if tc.log != nil {
-							tc.log.WithFields(map[string]interface{}{
+							tc.log.WithFields(map[string]any{
 								"function":      fn.Ident.ID,
 								"returnAST":     fmt.Sprintf("%T", value),
 								"inferredTypes": formatTypeList(retType),

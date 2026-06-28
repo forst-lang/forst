@@ -236,7 +236,8 @@ func generateClientIndex(clientStems []string) string {
 	}
 
 	// Create the main client class
-	clientClass := `export interface ForstClientConfig {
+	var clientClass strings.Builder
+	clientClass.WriteString(`export interface ForstClientConfig {
   baseUrl?: string;
   timeout?: number;
   retries?: number;
@@ -244,25 +245,25 @@ func generateClientIndex(clientStems []string) string {
 
 export class ForstClient {
   private client: SidecarClient;
-`
+`)
 
 	// Add package properties
-	clientClass += strings.Join(packageProperties, "\n")
-	clientClass += "\n\n  constructor(config?: ForstClientConfig) {\n"
-	clientClass += "    const defaultConfig = {\n"
-	clientClass += "      baseUrl: process.env.FORST_BASE_URL || 'http://localhost:8080',\n"
-	clientClass += "      timeout: 30000,\n"
-	clientClass += "      retries: 3,\n"
-	clientClass += "      ...config,\n"
-	clientClass += "    };\n\n"
-	clientClass += "    this.client = new SidecarClient(defaultConfig);\n"
+	clientClass.WriteString(strings.Join(packageProperties, "\n"))
+	clientClass.WriteString("\n\n  constructor(config?: ForstClientConfig) {\n")
+	clientClass.WriteString("    const defaultConfig = {\n")
+	clientClass.WriteString("      baseUrl: process.env.FORST_BASE_URL || 'http://localhost:8080',\n")
+	clientClass.WriteString("      timeout: 30000,\n")
+	clientClass.WriteString("      retries: 3,\n")
+	clientClass.WriteString("      ...config,\n")
+	clientClass.WriteString("    };\n\n")
+	clientClass.WriteString("    this.client = new SidecarClient(defaultConfig);\n")
 
 	// Initialize package properties
 	for _, export := range exports {
-		clientClass += fmt.Sprintf("    this.%s = %s(this.client);\n", export, export)
+		clientClass.WriteString(fmt.Sprintf("    this.%s = %s(this.client);\n", export, export))
 	}
 
-	clientClass += "  }\n}\n"
+	clientClass.WriteString("  }\n}\n")
 
 	// Combine all parts
 	content := "// Auto-generated Forst Client\n"
@@ -273,7 +274,7 @@ export class ForstClient {
 		content += strings.Join(imports, "\n") + "\n\n"
 	}
 
-	content += clientClass + "\n"
+	content += clientClass.String() + "\n"
 	content += "export type * from './types.d.ts';\n"
 
 	return content

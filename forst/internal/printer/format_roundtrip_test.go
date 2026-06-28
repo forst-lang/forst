@@ -150,7 +150,6 @@ func getCell(cells []String, idx Int): String {
 	log := logrus.New()
 	log.SetLevel(logrus.ErrorLevel)
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			out, err := FormatSource(tc.src, tc.name+".ft", log)

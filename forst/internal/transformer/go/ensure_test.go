@@ -8,8 +8,9 @@ import (
 	"testing"
 )
 
+//go:fix inline
 func newValueNode(v ast.ValueNode) *ast.ValueNode {
-	return &v
+	return new(v)
 }
 
 func TestAssertionTransformer(t *testing.T) {
@@ -35,7 +36,7 @@ func TestAssertionTransformer(t *testing.T) {
 						{
 							Name: string(MinConstraint),
 							Args: []ast.ConstraintArgumentNode{
-								{Value: newValueNode(ast.IntLiteralNode{Value: 5, Type: ast.TypeNode{Ident: ast.TypeInt}})},
+								{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 5, Type: ast.TypeNode{Ident: ast.TypeInt}}))},
 							},
 						},
 					},
@@ -70,7 +71,7 @@ func TestAssertionTransformer(t *testing.T) {
 						{
 							Name: string(MinConstraint),
 							Args: []ast.ConstraintArgumentNode{
-								{Value: newValueNode(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}})},
+								{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}}))},
 							},
 						},
 					},
@@ -105,7 +106,7 @@ func TestAssertionTransformer(t *testing.T) {
 						{
 							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
-								{Value: newValueNode(ast.IntLiteralNode{Value: 20, Type: ast.TypeNode{Ident: ast.TypeInt}})},
+								{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 20, Type: ast.TypeNode{Ident: ast.TypeInt}}))},
 							},
 						},
 					},
@@ -132,7 +133,7 @@ func TestAssertionTransformer(t *testing.T) {
 						{
 							Name: string(GreaterThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
-								{Value: newValueNode(ast.FloatLiteralNode{Value: 5.0, Type: ast.TypeNode{Ident: ast.TypeFloat}})},
+								{Value: new(ast.ValueNode(ast.FloatLiteralNode{Value: 5.0, Type: ast.TypeNode{Ident: ast.TypeFloat}}))},
 							},
 						},
 					},
@@ -263,7 +264,7 @@ func TestAssertionTransformer(t *testing.T) {
 						{
 							Name: string(LessThanConstraint),
 							Args: []ast.ConstraintArgumentNode{
-								{Value: newValueNode(ast.StringLiteralNode{Value: "20", Type: ast.TypeNode{Ident: ast.TypeString}})},
+								{Value: new(ast.ValueNode(ast.StringLiteralNode{Value: "20", Type: ast.TypeNode{Ident: ast.TypeString}}))},
 							},
 						},
 					},

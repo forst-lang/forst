@@ -6,12 +6,14 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
 func TestAnalyzeForstDocument_providersUnsatisfiedDiagnostic(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module providers_diag\n\ngo 1.23\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("providers_diag")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ft := filepath.Join(dir, "needs.ft")

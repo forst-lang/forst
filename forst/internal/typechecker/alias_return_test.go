@@ -78,7 +78,7 @@ func TestIsTypeCompatible_simpleTypeAliasToString(t *testing.T) {
 		Ident: ast.TypeIdent("Greeting"),
 		Expr: &ast.TypeDefAssertionExpr{
 			Assertion: &ast.AssertionNode{
-				BaseType: ptrTypeIdent(ast.TypeString),
+				BaseType: new(ast.TypeString),
 			},
 		},
 	}
@@ -90,6 +90,7 @@ func TestIsTypeCompatible_simpleTypeAliasToString(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func ptrTypeIdent(id ast.TypeIdent) *ast.TypeIdent {
-	return &id
+	return new(id)
 }

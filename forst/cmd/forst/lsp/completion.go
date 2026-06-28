@@ -35,13 +35,7 @@ func identifierPrefixAt(content string, pos LSPPosition) string {
 	}
 	line := lines[pos.Line]
 	runes := []rune(line)
-	col := pos.Character
-	if col < 0 {
-		col = 0
-	}
-	if col > len(runes) {
-		col = len(runes)
-	}
+	col := min(max(pos.Character, 0), len(runes))
 	start := col
 	for start > 0 && (unicode.IsLetter(runes[start-1]) || unicode.IsDigit(runes[start-1]) || runes[start-1] == '_') {
 		start--
@@ -66,10 +60,7 @@ func tokenIndexAtLSPPosition(tokens []ast.Token, pos LSPPosition) int {
 			break
 		}
 		lastIdxOnLine = i
-		width := utf8.RuneCountInString(t.Value)
-		if width < 1 {
-			width = 1
-		}
+		width := max(utf8.RuneCountInString(t.Value), 1)
 		endCol := t.Column + width - 1
 		if char1 >= t.Column && char1 <= endCol {
 			return i
@@ -77,10 +68,7 @@ func tokenIndexAtLSPPosition(tokens []ast.Token, pos LSPPosition) int {
 	}
 	if lastIdxOnLine >= 0 {
 		t := &tokens[lastIdxOnLine]
-		w := utf8.RuneCountInString(t.Value)
-		if w < 1 {
-			w = 1
-		}
+		w := max(utf8.RuneCountInString(t.Value), 1)
 		endCol := t.Column + w - 1
 		if char1 > endCol {
 			return lastIdxOnLine
@@ -111,13 +99,7 @@ func lineUpToCursor(content string, pos LSPPosition) string {
 	}
 	line := lines[pos.Line]
 	runes := []rune(line)
-	col := pos.Character
-	if col < 0 {
-		col = 0
-	}
-	if col > len(runes) {
-		col = len(runes)
-	}
+	col := min(max(pos.Character, 0), len(runes))
 	return string(runes[:col])
 }
 
@@ -671,7 +653,7 @@ func findInnermostScopeNode(nodes []ast.Node, tokens []ast.Token, tokIdx int, tc
 }
 
 func typeGuardBodyBraces(tokens []ast.Token, guardName string) (l, r int) {
-	for i := 0; i < len(tokens); i++ {
+	for i := range tokens {
 		if tokens[i].Type != ast.TokenIs || braceDepthAtIndex(tokens, i) != 0 {
 			continue
 		}
@@ -889,7 +871,7 @@ func dedupeCompletionItems(items []LSPCompletionItem) []LSPCompletionItem {
 
 // forstPackageNameFromContent returns the package identifier from the first `package` line, or "".
 func forstPackageNameFromContent(content string) string {
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue

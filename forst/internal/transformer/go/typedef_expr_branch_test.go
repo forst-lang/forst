@@ -26,7 +26,6 @@ func TestTransformTypeDefExpr_valueConstraintLiteralKinds(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			v := tc.value
 			expr, err := tr.transformTypeDefExpr(ast.TypeDefAssertionExpr{
@@ -130,4 +129,3 @@ func TestTransformTypeDefExpr_pointerAssertionExpr_deref(t *testing.T) {
 		t.Fatal("expected Go expr")
 	}
 }
-

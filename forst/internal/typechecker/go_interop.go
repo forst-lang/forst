@@ -252,7 +252,7 @@ func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast
 		if nArgs < fixed {
 			return nil, diagnosticf(e.CallSpan, "go-call", "%s: expects at least %d arguments, got %d", qual, fixed, nArgs)
 		}
-		for i := 0; i < fixed; i++ {
+		for i := range fixed {
 			if err := tc.checkOneGoParam(qual, i, params.At(i).Type(), argTypes[i], e, i); err != nil {
 				return nil, err
 			}
@@ -278,7 +278,7 @@ func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast
 			}
 			return nil, diagnosticf(sp, "go-call", "%s: expects %d arguments, got %d", qual, nParams, nArgs)
 		}
-		for i := 0; i < nParams; i++ {
+		for i := range nParams {
 			if err := tc.checkOneGoParam(qual, i, params.At(i).Type(), argTypes[i], e, i); err != nil {
 				return nil, err
 			}

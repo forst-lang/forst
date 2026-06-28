@@ -35,7 +35,6 @@ func TestStructuralHasher_HashNode_typeDefExprsAndCommonKinds(t *testing.T) {
 		{"IndexExpression", ast.IndexExpressionNode{Target: ast.VariableNode{Ident: ast.Ident{ID: "a"}}, Index: ast.IntLiteralNode{Value: 0}}},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := h.HashNode(tc.node)

@@ -1,8 +1,8 @@
 package transformergo
 
 import (
-	"go/format"
 	goast "go/ast"
+	"go/format"
 	"go/token"
 	"strings"
 	"testing"
@@ -98,15 +98,15 @@ func TestTransformerOutput_importsAndPackageName(t *testing.T) {
 	if f.Name.Name != "p" {
 		t.Fatalf("file package: %s", f.Name.Name)
 	}
-	src := ""
+	var src strings.Builder
 	for _, d := range f.Decls {
 		if gd, ok := d.(*goast.GenDecl); ok && gd.Tok == token.VAR {
 			var b strings.Builder
 			_ = format.Node(&b, token.NewFileSet(), gd)
-			src += b.String()
+			src.WriteString(b.String())
 		}
 	}
-	if !strings.Contains(src, "errMissingMapKey") || !strings.Contains(src, "missing map key") {
+	if !strings.Contains(src.String(), "errMissingMapKey") || !strings.Contains(src.String(), "missing map key") {
 		t.Fatalf("expected errMissingMapKey decl in file, got decls: %+v", f.Decls)
 	}
 }

@@ -55,7 +55,7 @@ func main() {
 }
 `
 	p := NewTestParser(src, log)
-	var recovered interface{}
+	var recovered any
 	func() {
 		defer func() { recovered = recover() }()
 		_, _ = p.ParseFile()
@@ -84,7 +84,7 @@ func main() {
 }
 `
 	p := NewTestParser(src, log)
-	var recovered interface{}
+	var recovered any
 	func() {
 		defer func() { recovered = recover() }()
 		_, _ = p.ParseFile()

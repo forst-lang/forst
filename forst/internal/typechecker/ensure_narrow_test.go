@@ -26,7 +26,7 @@ func TestApplyEnsureSuccessorNarrowing_minConstraintRegistersSymbol(t *testing.T
 		Assertion: ast.AssertionNode{
 			BaseType: &baseStr,
 			Constraints: []ast.ConstraintNode{
-				{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 1})}}},
+				{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 1}))}}},
 			},
 		},
 	}
@@ -113,7 +113,7 @@ func TestEnsureSuccessorNarrowing_followingStatementsSeeRefinedTypeWithoutBlock(
 	spanReturnX := ast.SourceSpan{StartLine: 1, StartCol: 40, EndLine: 1, EndCol: 41}
 
 	fn := ast.FunctionNode{
-		Ident: ast.Ident{ID: "f"},
+		Ident:       ast.Ident{ID: "f"},
 		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeError}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
@@ -176,7 +176,7 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 				Assertion: ast.AssertionNode{
 					BaseType: &baseStr,
 					Constraints: []ast.ConstraintNode{
-						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 1})}}},
+						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 1}))}}},
 					},
 				},
 			},
@@ -185,7 +185,7 @@ func TestEnsure_successiveSubjects_predicateDisplayReflectsPriorEnsuresOnly(t *t
 				Assertion: ast.AssertionNode{
 					BaseType: &baseStr,
 					Constraints: []ast.ConstraintNode{
-						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 10})}}},
+						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 10}))}}},
 					},
 				},
 			},
@@ -232,7 +232,7 @@ func TestEnsure_followingStatementUsesMergedPredicateDisplayForHover(t *testing.
 	spanRet := ast.SourceSpan{StartLine: 4, StartCol: 10, EndLine: 4, EndCol: 11}
 
 	fn := ast.FunctionNode{
-		Ident: ast.Ident{ID: "f"},
+		Ident:       ast.Ident{ID: "f"},
 		ReturnTypes: []ast.TypeNode{{Ident: ast.TypeString}, {Ident: ast.TypeError}},
 		Body: []ast.Node{
 			ast.AssignmentNode{
@@ -245,7 +245,7 @@ func TestEnsure_followingStatementUsesMergedPredicateDisplayForHover(t *testing.
 				Assertion: ast.AssertionNode{
 					BaseType: &baseStr,
 					Constraints: []ast.ConstraintNode{
-						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 1})}}},
+						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 1}))}}},
 					},
 				},
 			},
@@ -254,7 +254,7 @@ func TestEnsure_followingStatementUsesMergedPredicateDisplayForHover(t *testing.
 				Assertion: ast.AssertionNode{
 					BaseType: &baseStr,
 					Constraints: []ast.ConstraintNode{
-						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 10})}}},
+						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 10}))}}},
 					},
 				},
 			},
@@ -316,7 +316,7 @@ func TestEnsure_fieldPathSubjectSuccessorNarrowingPredicateHover(t *testing.T) {
 				Variable: ast.VariableNode{Ident: ast.Ident{ID: "g.cells", Span: spanCells1}},
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
-						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}})}}},
+						{Name: "Min", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}}))}}},
 					},
 				},
 			},
@@ -324,7 +324,7 @@ func TestEnsure_fieldPathSubjectSuccessorNarrowingPredicateHover(t *testing.T) {
 				Variable: ast.VariableNode{Ident: ast.Ident{ID: "g.cells", Span: spanCells2}},
 				Assertion: ast.AssertionNode{
 					Constraints: []ast.ConstraintNode{
-						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: ptrVal(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}})}}},
+						{Name: "Max", Args: []ast.ConstraintArgumentNode{{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 9, Type: ast.TypeNode{Ident: ast.TypeInt}}))}}},
 					},
 				},
 			},
@@ -399,7 +399,7 @@ func ApplyMove(req MoveRequest): Result(Int, Error) {
 	}
 	// Different span than ensure subject (line 21 vs line 22): predicate must still resolve.
 	vIf := ast.VariableNode{Ident: ast.Ident{
-		ID: ast.Identifier("req.state"),
+		ID:   ast.Identifier("req.state"),
 		Span: ast.SourceSpan{StartLine: 22, StartCol: 5, EndLine: 22, EndCol: 14},
 	}}
 	types, have := tc.InferredTypesForVariableNode(vIf)

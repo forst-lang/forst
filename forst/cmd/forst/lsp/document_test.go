@@ -14,8 +14,8 @@ func TestHandleDidOpen_StoresContentAndReturnsPublishDiagnosticsShape(t *testing
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "hover_doc.ft"))
-	openParams, err := json.Marshal(map[string]interface{}{
-		"textDocument": map[string]interface{}{
+	openParams, err := json.Marshal(map[string]any{
+		"textDocument": map[string]any{
 			"uri":     uri,
 			"version": 1,
 			"text":    "package main\n\nfunc main() {\n}\n",
@@ -88,8 +88,8 @@ func TestHandleDidChange_UsesLastContentChange(t *testing.T) {
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "didchange.ft"))
 	first := "package main\n"
 	second := "package main\n\nfunc main() {}\n"
-	raw, err := json.Marshal(map[string]interface{}{
-		"textDocument": map[string]interface{}{"uri": uri, "version": 2},
+	raw, err := json.Marshal(map[string]any{
+		"textDocument": map[string]any{"uri": uri, "version": 2},
 		"contentChanges": []map[string]string{
 			{"text": first},
 			{"text": second},
@@ -139,7 +139,7 @@ func TestHandleDidClose_RemovesOpenDocument(t *testing.T) {
 	s.openDocuments[uri] = "package main\n"
 	s.documentMu.Unlock()
 
-	closeRaw, err := json.Marshal(map[string]interface{}{
+	closeRaw, err := json.Marshal(map[string]any{
 		"textDocument": map[string]string{"uri": uri},
 	})
 	if err != nil {

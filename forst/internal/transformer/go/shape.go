@@ -366,7 +366,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 
 				// Use the existing IsTypeCompatible function which handles aliases, subtypes, etc.
 				if !t.TypeChecker.IsTypeCompatible(type1, type2) {
-					t.log.WithFields(map[string]interface{}{
+					t.log.WithFields(map[string]any{
 						"function":   "shapesMatch",
 						"fieldName":  fieldName,
 						"field1Type": field1.Type.Ident,
@@ -377,7 +377,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 			} else {
 				// Fallback to simple identifier comparison if typechecker not available
 				if field1.Type.Ident != field2.Type.Ident {
-					t.log.WithFields(map[string]interface{}{
+					t.log.WithFields(map[string]any{
 						"function":   "shapesMatch",
 						"fieldName":  fieldName,
 						"field1Type": field1.Type.Ident,
@@ -396,7 +396,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 						type1 := ast.TypeNode{Ident: field1.Type.Ident}
 						type2 := types[0]
 						if !t.TypeChecker.IsTypeCompatible(type1, type2) {
-							t.log.WithFields(map[string]interface{}{
+							t.log.WithFields(map[string]any{
 								"function":   "shapesMatch",
 								"fieldName":  fieldName,
 								"field1Type": field1.Type.Ident,
@@ -406,7 +406,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 						}
 					} else {
 						// If we can't determine the type, assume it's compatible
-						t.log.WithFields(map[string]interface{}{
+						t.log.WithFields(map[string]any{
 							"function":  "shapesMatch",
 							"fieldName": fieldName,
 						}).Debug("Cannot determine Node type, assuming compatible")
@@ -414,7 +414,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 				}
 			} else {
 				// For other node types, assume compatible
-				t.log.WithFields(map[string]interface{}{
+				t.log.WithFields(map[string]any{
 					"function":  "shapesMatch",
 					"fieldName": fieldName,
 				}).Debug("Non-variable Node type, assuming compatible")
@@ -430,7 +430,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 						type1 := types[0]
 						type2 := ast.TypeNode{Ident: field2.Type.Ident}
 						if !t.TypeChecker.IsTypeCompatible(type1, type2) {
-							t.log.WithFields(map[string]interface{}{
+							t.log.WithFields(map[string]any{
 								"function":   "shapesMatch",
 								"fieldName":  fieldName,
 								"field1Type": type1.Ident,
@@ -440,7 +440,7 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 						}
 					} else {
 						// If we can't determine the type, assume it's compatible
-						t.log.WithFields(map[string]interface{}{
+						t.log.WithFields(map[string]any{
 							"function":  "shapesMatch",
 							"fieldName": fieldName,
 						}).Debug("Cannot determine Node type, assuming compatible")
@@ -448,19 +448,19 @@ func (t *Transformer) shapesMatch(shape1, shape2 *ast.ShapeNode) bool {
 				}
 			} else if _, ok := field1.Node.(ast.StringLiteralNode); ok && field2.Type.Ident == ast.TypeString {
 				// String literal matches String type
-				t.log.WithFields(map[string]interface{}{
+				t.log.WithFields(map[string]any{
 					"function":  "shapesMatch",
 					"fieldName": fieldName,
 				}).Debug("String literal matches String type")
 			} else if _, ok := field1.Node.(ast.IntLiteralNode); ok && field2.Type.Ident == ast.TypeInt {
 				// Int literal matches Int type
-				t.log.WithFields(map[string]interface{}{
+				t.log.WithFields(map[string]any{
 					"function":  "shapesMatch",
 					"fieldName": fieldName,
 				}).Debug("Int literal matches Int type")
 			} else {
 				// For other node types, assume compatible
-				t.log.WithFields(map[string]interface{}{
+				t.log.WithFields(map[string]any{
 					"function":  "shapesMatch",
 					"fieldName": fieldName,
 				}).Debug("Non-variable Node type, assuming compatible")

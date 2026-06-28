@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"forst/internal/ast"
+	"maps"
 )
 
 func splitQualifiedCallee(s string) (importLocal, fnName string, ok bool) {
@@ -95,16 +96,12 @@ func MergeModuleKnownRoots(perPackage map[string]*TypeChecker) {
 		if tc.providers == nil {
 			continue
 		}
-		for k, v := range tc.providers.KnownRoots {
-			merged[k] = v
-		}
+		maps.Copy(merged, tc.providers.KnownRoots)
 	}
 	for _, tc := range perPackage {
 		if tc.providers == nil {
 			continue
 		}
-		for k, v := range merged {
-			tc.providers.KnownRoots[k] = v
-		}
+		maps.Copy(tc.providers.KnownRoots, merged)
 	}
 }

@@ -11,7 +11,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 	chain := []ast.TypeNode{typeNode}
 	visited := map[ast.TypeIdent]bool{typeNode.Ident: true}
 	current := typeNode
-	tc.log.WithFields(map[string]interface{}{
+	tc.log.WithFields(map[string]any{
 		"typeNode": current.Ident,
 		"function": "GetTypeAliasChain",
 	}).Debug("Starting type alias chain resolution")
@@ -24,7 +24,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 				if inferred, ok := tc.Types[hash]; ok && len(inferred) > 0 {
 					inferredType := inferred[0]
 					if !visited[inferredType.Ident] {
-						tc.log.WithFields(map[string]interface{}{
+						tc.log.WithFields(map[string]any{
 							"typeNode": inferredType.Ident,
 							"function": "GetTypeAliasChain",
 						}).Debug("Following inferred type in alias chain")
@@ -35,7 +35,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 					}
 				}
 			}
-			tc.log.WithFields(map[string]interface{}{
+			tc.log.WithFields(map[string]any{
 				"typeNode": current.Ident,
 				"function": "GetTypeAliasChain",
 			}).Debug("No definition or inferred type found for type")
@@ -43,7 +43,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 		}
 		typeDef, ok := def.(ast.TypeDefNode)
 		if !ok {
-			tc.log.WithFields(map[string]interface{}{
+			tc.log.WithFields(map[string]any{
 				"typeNode": current.Ident,
 				"function": "GetTypeAliasChain",
 			}).Debug("Definition is not a TypeDefNode")
@@ -57,7 +57,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 			assertionExpr = expr
 		}
 		if assertionExpr == nil || assertionExpr.Assertion == nil || assertionExpr.Assertion.BaseType == nil {
-			tc.log.WithFields(map[string]interface{}{
+			tc.log.WithFields(map[string]any{
 				"typeNode":  current.Ident,
 				"exprType":  fmt.Sprintf("%T", typeDef.Expr),
 				"exprValue": fmt.Sprintf("%#v", typeDef.Expr),
@@ -67,7 +67,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 		}
 		baseIdent := *assertionExpr.Assertion.BaseType
 		if visited[baseIdent] {
-			tc.log.WithFields(map[string]interface{}{
+			tc.log.WithFields(map[string]any{
 				"typeNode": current.Ident,
 				"function": "GetTypeAliasChain",
 			}).Debug("Cycle detected in type alias chain")
@@ -77,7 +77,7 @@ func (tc *TypeChecker) GetTypeAliasChain(typeNode ast.TypeNode) []ast.TypeNode {
 		chain = append(chain, baseType)
 		visited[baseIdent] = true
 		current = baseType
-		tc.log.WithFields(map[string]interface{}{
+		tc.log.WithFields(map[string]any{
 			"typeNode": current.Ident,
 			"function": "GetTypeAliasChain",
 		}).Debug("Added base type to alias chain")

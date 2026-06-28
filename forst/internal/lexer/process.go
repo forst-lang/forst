@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"forst/internal/ast"
+	"strings"
 	"unicode"
 )
 
@@ -64,16 +65,17 @@ func processSpecialChar(line []byte, startCol int, fileID string, lineNum int) (
 
 	// Special handling for line comments
 	if word == "//" {
-		commentContent := "//"
+		var commentContent strings.Builder
+		commentContent.WriteString("//")
 		for column < len(line) {
-			commentContent += string(line[column])
+			commentContent.WriteString(string(line[column]))
 			column++
 		}
 		return ast.Token{
 			FileID: fileID,
 			Line:   lineNum,
 			Column: startCol + 1,
-			Value:  commentContent,
+			Value:  commentContent.String(),
 			Type:   ast.TokenComment,
 		}, column
 	}

@@ -8,6 +8,7 @@ import (
 	"forst/internal/typechecker"
 	goast "go/ast"
 	goasttoken "go/token"
+	"maps"
 	"sort"
 	"strings"
 )
@@ -222,12 +223,8 @@ func mergeWiringFrames(outer, inner wiringFrame) wiringFrame {
 	merged := wiringFrame{
 		fields: make(map[string]goast.Expr),
 	}
-	for k, v := range outer.fields {
-		merged.fields[k] = v
-	}
-	for k, v := range inner.fields {
-		merged.fields[k] = v
-	}
+	maps.Copy(merged.fields, outer.fields)
+	maps.Copy(merged.fields, inner.fields)
 	if inner.baseExpr != nil {
 		merged.baseExpr = inner.baseExpr
 	} else {

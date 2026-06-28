@@ -59,11 +59,11 @@ func New(tc *typechecker.TypeChecker, log *logrus.Logger, exportReturnStructFiel
 		log.Warnf("No logger provided, using default logger")
 	}
 	t := &Transformer{
-		TypeChecker:         tc,
-		Output:              &TransformerOutput{},
-		log:                 log,
-		functionsWithEnsure: make(map[string]bool),
-		providersStructByKey:  make(map[string]string),
+		TypeChecker:          tc,
+		Output:               &TransformerOutput{},
+		log:                  log,
+		functionsWithEnsure:  make(map[string]bool),
+		providersStructByKey: make(map[string]string),
 	}
 	t.assertionTransformer = NewAssertionTransformer(t)
 	if len(exportReturnStructFields) > 0 {
@@ -194,7 +194,7 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 	scope := t.currentScope()
 
 	if scope.IsGlobal() {
-		t.log.WithFields(map[string]interface{}{
+		t.log.WithFields(map[string]any{
 			"scope":    scope,
 			"function": "closestFunction",
 		}).Debug("Current scope is global")
@@ -202,14 +202,14 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 	}
 
 	if scope.IsFunction() {
-		t.log.WithFields(map[string]interface{}{
+		t.log.WithFields(map[string]any{
 			"scope":    scope,
 			"function": "closestFunction",
 		}).Debug("Current scope is a function")
 		return *scope.Node, nil
 	}
 
-	t.log.WithFields(map[string]interface{}{
+	t.log.WithFields(map[string]any{
 		"scope":    scope,
 		"function": "closestFunction",
 	}).Debug("Current scope is not a function, searching up the scope stack")
@@ -217,14 +217,14 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 	for scope != nil && scope.Parent != nil {
 		scope = scope.Parent
 		if scope.Node != nil {
-			t.log.WithFields(map[string]interface{}{
+			t.log.WithFields(map[string]any{
 				"scope":      scope,
 				"isFunction": scope.IsFunction(),
 				"function":   "closestFunction",
 			}).Debug("Checking parent scope")
 
 			if scope.IsFunction() {
-				t.log.WithFields(map[string]interface{}{
+				t.log.WithFields(map[string]any{
 					"scope":    scope,
 					"function": "closestFunction",
 				}).Debug("Found function in scope stack")
@@ -233,7 +233,7 @@ func (t *Transformer) closestFunction() (ast.Node, error) {
 		}
 	}
 
-	t.log.WithFields(map[string]interface{}{
+	t.log.WithFields(map[string]any{
 		"function": "closestFunction",
 	}).Debug("No function found in scope stack")
 	return ast.FunctionNode{}, fmt.Errorf("no function found")
@@ -427,7 +427,7 @@ func (t *Transformer) ensureTypeEmittedFromGoType(goType goast.Expr, processed m
 }
 
 // emitTypeAndReferencedTypes recursively emits a type and all types it references
-func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def interface{}, processed map[ast.TypeIdent]bool) error {
+func (t *Transformer) emitTypeAndReferencedTypes(typeIdent ast.TypeIdent, def any, processed map[ast.TypeIdent]bool) error {
 	// Add debug log for type emission
 	t.log.WithFields(logrus.Fields{
 		"function":  "emitTypeAndReferencedTypes",

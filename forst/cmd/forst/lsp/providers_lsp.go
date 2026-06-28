@@ -75,7 +75,7 @@ func detectWithWiringCursor(tokens []ast.Token, pos LSPPosition, content string)
 	if idx < 0 {
 		return withWiringCursor{}, false
 	}
-	for wi := 0; wi < len(tokens); wi++ {
+	for wi := range tokens {
 		if tokens[wi].Type != ast.TokenWith {
 			continue
 		}

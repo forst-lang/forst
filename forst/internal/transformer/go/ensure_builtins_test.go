@@ -8,8 +8,9 @@ import (
 	"forst/internal/ast"
 )
 
+//go:fix inline
 func valueNode(v ast.ValueNode) *ast.ValueNode {
-	return &v
+	return new(v)
 }
 
 func TestTransformBuiltinConstraint_stringContains_emitsNegatedStringsContains(t *testing.T) {
@@ -24,7 +25,7 @@ func TestTransformBuiltinConstraint_stringContains_emitsNegatedStringsContains(t
 		ast.ConstraintNode{
 			Name: string(ContainsConstraint),
 			Args: []ast.ConstraintArgumentNode{
-				{Value: valueNode(ast.StringLiteralNode{Value: "x"})},
+				{Value: new(ast.ValueNode(ast.StringLiteralNode{Value: "x"}))},
 			},
 		},
 	)
@@ -80,7 +81,7 @@ func TestTransformBuiltinConstraint_hasPrefix_andNotEmpty(t *testing.T) {
 		ast.ConstraintNode{
 			Name: string(HasPrefixConstraint),
 			Args: []ast.ConstraintArgumentNode{
-				{Value: valueNode(ast.StringLiteralNode{Value: "pre"})},
+				{Value: new(ast.ValueNode(ast.StringLiteralNode{Value: "pre"}))},
 			},
 		},
 	)
@@ -136,7 +137,7 @@ func TestTransformBuiltinConstraint_numericComparators(t *testing.T) {
 				ast.ConstraintNode{
 					Name: string(testCase.constraint),
 					Args: []ast.ConstraintArgumentNode{
-						{Value: valueNode(testCase.arg)},
+						{Value: new(testCase.arg)},
 					},
 				},
 			)

@@ -55,11 +55,11 @@ type Discoverer struct {
 
 // Logger interface for discovery logging
 type Logger interface {
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Tracef(format string, args ...interface{})
+	Debugf(format string, args ...any)
+	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
+	Errorf(format string, args ...any)
+	Tracef(format string, args ...any)
 }
 
 // NewDiscoverer creates a new function discoverer

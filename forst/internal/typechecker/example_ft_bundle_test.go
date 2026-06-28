@@ -29,7 +29,6 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 	}
 	root := filepath.Join("..", "..", "..", "examples", "in")
 	for _, name := range rel {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			p := filepath.Join(root, name)

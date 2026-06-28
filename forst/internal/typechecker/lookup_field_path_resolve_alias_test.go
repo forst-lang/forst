@@ -7,8 +7,9 @@ import (
 	"forst/internal/logger"
 )
 
+//go:fix inline
 func ptrTypeIdentForAliasTest(id ast.TypeIdent) *ast.TypeIdent {
-	return &id
+	return new(id)
 }
 
 func TestResolveTypeAliasChain_unknown_ident_unchanged(t *testing.T) {
@@ -31,7 +32,7 @@ func TestResolveTypeAliasChain_follows_assertion_alias_to_builtin(t *testing.T) 
 			alias: ast.TypeDefNode{
 				Ident: alias,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(ast.TypeString)},
+					Assertion: &ast.AssertionNode{BaseType: new(ast.TypeString)},
 				},
 			},
 		},
@@ -51,13 +52,13 @@ func TestResolveTypeAliasChain_two_hops_to_builtin(t *testing.T) {
 			outer: ast.TypeDefNode{
 				Ident: outer,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(mid)},
+					Assertion: &ast.AssertionNode{BaseType: new(mid)},
 				},
 			},
 			mid: ast.TypeDefNode{
 				Ident: mid,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(ast.TypeString)},
+					Assertion: &ast.AssertionNode{BaseType: new(ast.TypeString)},
 				},
 			},
 		},
@@ -119,13 +120,13 @@ func TestResolveTypeAliasChain_breaks_on_alias_cycle(t *testing.T) {
 			a: ast.TypeDefNode{
 				Ident: a,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(b)},
+					Assertion: &ast.AssertionNode{BaseType: new(b)},
 				},
 			},
 			b: ast.TypeDefNode{
 				Ident: b,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(a)},
+					Assertion: &ast.AssertionNode{BaseType: new(a)},
 				},
 			},
 		},
@@ -145,7 +146,7 @@ func TestLookupFieldPath_resolves_field_type_alias_to_builtin(t *testing.T) {
 			innerAlias: ast.TypeDefNode{
 				Ident: innerAlias,
 				Expr: ast.TypeDefAssertionExpr{
-					Assertion: &ast.AssertionNode{BaseType: ptrTypeIdentForAliasTest(ast.TypeString)},
+					Assertion: &ast.AssertionNode{BaseType: new(ast.TypeString)},
 				},
 			},
 			root: ast.TypeDefNode{

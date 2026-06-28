@@ -1,5 +1,7 @@
 package providersgraph
 
+import "maps"
+
 import "forst/internal/ast"
 
 // ProviderScope holds merged Provider wiring keys in scope during a with-block.
@@ -22,9 +24,7 @@ func (s ProviderScope) Snapshot() ProviderScopeSnapshot {
 		return nil
 	}
 	out := make(ProviderScopeSnapshot, len(s.Keys))
-	for k, v := range s.Keys {
-		out[k] = v
-	}
+	maps.Copy(out, s.Keys)
 	return out
 }
 
@@ -37,9 +37,7 @@ func MergeProviderScope(outer, inner ProviderScope) ProviderScope {
 		}
 		out.Keys[k] = v
 	}
-	for k, v := range inner.Keys {
-		out.Keys[k] = v
-	}
+	maps.Copy(out.Keys, inner.Keys)
 	for k := range inner.Shadowed {
 		out.Shadowed[k] = true
 	}

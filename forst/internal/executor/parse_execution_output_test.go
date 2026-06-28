@@ -88,7 +88,7 @@ func TestFunctionExecutor_parseExecutionOutput_JSON_branches(t *testing.T) {
 func TestFunctionExecutor_parseExecutionOutput_result_array_default_branch(t *testing.T) {
 	e := &FunctionExecutor{log: logrus.New()}
 	raw := `{"result":[1,2]}`
-	var payload map[string]interface{}
+	var payload map[string]any
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		t.Fatal(err)
 	}

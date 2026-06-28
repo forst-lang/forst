@@ -68,9 +68,9 @@ type ExecutionResult struct {
 
 // StreamingResult represents a streaming result
 type StreamingResult struct {
-	Data   interface{} `json:"data"`
-	Status string      `json:"status"`
-	Error  string      `json:"error,omitempty"`
+	Data   any    `json:"data"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
 }
 
 // NewFunctionExecutor creates a new function executor

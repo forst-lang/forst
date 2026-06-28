@@ -25,7 +25,7 @@ func TestHandleDebugInfoDirect_invalidParams(t *testing.T) {
 func TestCreateCompressedDebugData_containsPayloadAndRatio(t *testing.T) {
 	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
-	out := s.createCompressedDebugData(map[string]interface{}{"a": 1, "b": "x"})
+	out := s.createCompressedDebugData(map[string]any{"a": 1, "b": "x"})
 	if out["encoding"] != "gzip+base64" {
 		t.Fatalf("encoding: %v", out["encoding"])
 	}
@@ -47,4 +47,3 @@ func TestGetPhaseSummaries_includesAllPhases(t *testing.T) {
 		}
 	}
 }
-

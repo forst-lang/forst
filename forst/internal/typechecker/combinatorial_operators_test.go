@@ -23,8 +23,8 @@ func TestCheckTypes_combinatorialMain(t *testing.T) {
 	}
 	cmp := []string{"<", ">", "<=", ">=", "==", "!="}
 	for _, o := range ops {
-		for a := 0; a < 8; a++ {
-			for b := 0; b < 8; b++ {
+		for a := range 8 {
+			for b := range 8 {
 				if !o.ok(a, b) {
 					continue
 				}
@@ -38,8 +38,8 @@ func main() {
 		}
 	}
 	for _, c := range cmp {
-		for a := 0; a < 6; a++ {
-			for b := 0; b < 6; b++ {
+		for a := range 6 {
+			for b := range 6 {
 				src := fmt.Sprintf(`package main
 func main() {
 	if %d %s %d {
@@ -54,7 +54,7 @@ func main() {
 
 func TestCheckTypes_combinatorialShapes(t *testing.T) {
 	t.Parallel()
-	for n := 0; n < 5; n++ {
+	for n := range 5 {
 		src := fmt.Sprintf(`package main
 type T = { n: Int }
 func main() {

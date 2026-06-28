@@ -123,7 +123,7 @@ func TestTransformAssertionType_valueConstraint_arrayLiteral_defaultsToString(t 
 	}
 }
 
-func goExprString(t *testing.T, expr interface{}) string {
+func goExprString(t *testing.T, expr any) string {
 	t.Helper()
 	var buf strings.Builder
 	if err := format.Node(&buf, token.NewFileSet(), expr); err != nil {

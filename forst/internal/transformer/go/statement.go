@@ -482,7 +482,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 					if succ.IsTupleType() {
 						k := len(succ.TypeParams)
 						successNames = make([]string, k)
-						for i := 0; i < k; i++ {
+						for i := range k {
 							successNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
 						}
 					} else {

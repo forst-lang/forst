@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"forst/internal/modulecheck"
+	"forst/internal/testmod"
 )
 
 func TestCheckModuleProviders_unusedWiringKey_intraPackage(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "go.mod"), "module unused_intra\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("unused_intra"))
 	writeFile(t, filepath.Join(dir, "demo.ft"), `package main
 
 import "testing"
@@ -62,7 +63,7 @@ func TestX(t *testing.T) {
 
 func TestCheckModuleProviders_unusedWiringKey_crossPackage(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "go.mod"), "module unused_cross\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("unused_cross"))
 	alphaDir := filepath.Join(dir, "alpha")
 	betaDir := filepath.Join(dir, "beta")
 	for _, d := range []string{alphaDir, betaDir} {

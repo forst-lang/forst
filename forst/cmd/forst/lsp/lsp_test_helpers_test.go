@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"forst/internal/testmod"
 )
 
 // mustFileURI returns a stable file:// URI for a path (typically under t.TempDir()).
@@ -37,7 +39,7 @@ func sharedImportTestDir(t *testing.T) string {
 		}
 		sharedImportTestModule.err = os.WriteFile(
 			filepath.Join(sharedImportTestModule.dir, "go.mod"),
-			[]byte("module lsp_import_test\n\ngo 1.23\n"),
+			[]byte(testmod.GoModContent("lsp_import_test")),
 			0o644,
 		)
 	})

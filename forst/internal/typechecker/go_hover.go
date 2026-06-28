@@ -243,8 +243,8 @@ func goSignatureReturnsToForst(sig *types.Signature) []ast.TypeNode {
 		return []ast.TypeNode{{Ident: ast.TypeVoid}}
 	}
 	out := make([]ast.TypeNode, 0, res.Len())
-	for i := 0; i < res.Len(); i++ {
-		t, ok := goTypeToForstType(res.At(i).Type())
+	for v := range res.Variables() {
+		t, ok := goTypeToForstType(v.Type())
 		if !ok {
 			return nil
 		}

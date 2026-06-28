@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"forst/internal/modulecheck"
+	"forst/internal/testmod"
 )
 
 func TestCheckModuleProviders_crossPackageWiringAtHostEntry(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "go.mod"), "module wiring_sibling\n\ngo 1.23\n")
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("wiring_sibling"))
 	libDir := filepath.Join(dir, "lib")
 	svcDir := filepath.Join(dir, "svc")
 	for _, d := range []string{libDir, svcDir} {

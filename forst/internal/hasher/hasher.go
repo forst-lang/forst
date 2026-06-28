@@ -87,7 +87,7 @@ func (h *StructuralHasher) hashNodes(nodes []ast.Node) (NodeHash, error) {
 }
 
 // writeHash is a helper function to handle binary.Write errors
-func writeHash(w io.Writer, data interface{}) error {
+func writeHash(w io.Writer, data any) error {
 	if err := binary.Write(w, binary.LittleEndian, data); err != nil {
 		return fmt.Errorf("failed to write hash: %v", err)
 	}
@@ -95,7 +95,7 @@ func writeHash(w io.Writer, data interface{}) error {
 }
 
 // writeHashes writes multiple values to the hasher, handling errors
-func (h *StructuralHasher) writeHashes(w io.Writer, values ...interface{}) error {
+func (h *StructuralHasher) writeHashes(w io.Writer, values ...any) error {
 	for _, v := range values {
 		if err := writeHash(w, v); err != nil {
 			return err
@@ -1017,7 +1017,7 @@ func (h NodeHash) ToProvidersIdent() string {
 }
 
 // Helper to check for typed nil pointers
-func isNilPointer(i interface{}) bool {
+func isNilPointer(i any) bool {
 	if i == nil {
 		return true
 	}

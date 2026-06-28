@@ -170,18 +170,9 @@ func lspLocationPtrFromToken(uri string, t *ast.Token) *LSPLocation {
 }
 
 func lspLocationFromToken(uri string, t *ast.Token) LSPLocation {
-	width := utf8.RuneCountInString(t.Value)
-	if width < 1 {
-		width = 1
-	}
-	line0 := t.Line - 1
-	if line0 < 0 {
-		line0 = 0
-	}
-	col0 := t.Column - 1
-	if col0 < 0 {
-		col0 = 0
-	}
+	width := max(utf8.RuneCountInString(t.Value), 1)
+	line0 := max(t.Line-1, 0)
+	col0 := max(t.Column-1, 0)
 	return LSPLocation{
 		URI: uri,
 		Range: LSPRange{

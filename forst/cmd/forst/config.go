@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"forst/internal/compiler"
@@ -327,13 +328,7 @@ func (c *ForstConfig) Validate() error {
 
 	// Validate log level
 	validLogLevels := []string{"debug", "info", "warn", "error", "trace"}
-	logLevelValid := false
-	for _, level := range validLogLevels {
-		if c.Dev.LogLevel == level {
-			logLevelValid = true
-			break
-		}
-	}
+	logLevelValid := slices.Contains(validLogLevels, c.Dev.LogLevel)
 	if !logLevelValid {
 		return fmt.Errorf("invalid log level: %s", c.Dev.LogLevel)
 	}

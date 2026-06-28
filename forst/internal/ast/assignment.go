@@ -1,5 +1,7 @@
 package ast
 
+import "strings"
+
 // AssignmentNode represents a variable assignment in the AST
 type AssignmentNode struct {
 	Node
@@ -16,37 +18,38 @@ func (n AssignmentNode) Kind() NodeKind {
 
 // String returns a string representation of the assignment
 func (n AssignmentNode) String() string {
-	result := "Assignment("
+	var result strings.Builder
+	result.WriteString("Assignment(")
 
 	// Build comma-separated list of names and types
 	for i, lv := range n.LValues {
 		if i > 0 {
-			result += ", "
+			result.WriteString(", ")
 		}
 		if vn, ok := lv.(VariableNode); ok {
-			result += vn.String()
+			result.WriteString(vn.String())
 			if len(n.ExplicitTypes) > i && n.ExplicitTypes[i] != nil {
-				result += ": " + n.ExplicitTypes[i].String()
+				result.WriteString(": " + n.ExplicitTypes[i].String())
 			}
 		} else {
-			result += lv.String()
+			result.WriteString(lv.String())
 		}
 	}
 
 	// Add appropriate assignment operator
 	if n.IsShort {
-		result += " := "
+		result.WriteString(" := ")
 	} else {
-		result += " = "
+		result.WriteString(" = ")
 	}
 
 	// Add comma-separated list of values
 	for i, val := range n.RValues {
 		if i > 0 {
-			result += ", "
+			result.WriteString(", ")
 		}
-		result += val.String()
+		result.WriteString(val.String())
 	}
 
-	return result + ")"
+	return result.String() + ")"
 }

@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 )
@@ -131,9 +132,7 @@ func (ps *PackageStore) GetAllFiles() map[FileID]*FileInfo {
 	defer ps.mu.RUnlock()
 
 	result := make(map[FileID]*FileInfo)
-	for id, file := range ps.files {
-		result[id] = file
-	}
+	maps.Copy(result, ps.files)
 	return result
 }
 
@@ -143,9 +142,7 @@ func (ps *PackageStore) GetAllPackages() map[PackageID]*PackageInfo {
 	defer ps.mu.RUnlock()
 
 	result := make(map[PackageID]*PackageInfo)
-	for id, pkg := range ps.packages {
-		result[id] = pkg
-	}
+	maps.Copy(result, ps.packages)
 	return result
 }
 
