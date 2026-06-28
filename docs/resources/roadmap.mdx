@@ -3,45 +3,104 @@ title: "Roadmap"
 description: "What exists, what is in flight, and what Forst deliberately omits."
 ---
 
-Forst is under active development. The canonical roadmap lives in the repository and tracks **feature parity** with honest status labels, without shipping dates.
+Forst is under active development. This page is a **simplified** view. The canonical parity tables, RFC links, and implementation notes live in [ROADMAP.md on GitHub](https://github.com/forst-lang/forst/blob/main/ROADMAP.md).
 
-## Status labels
+## Status icons
 
-| Label | Meaning |
-| --- | --- |
-| **done** | Complete for current scope |
-| **in progress** | Actively being implemented |
-| **experimental** | Exists but not yet stable or complete |
-| **planned** | On the roadmap, not yet delivered |
-| **not planned** | Deliberately excluded (anti-feature) |
+| | Status | Meaning |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | **Done** | Complete for current scope. Report gaps as bugs. |
+| <Icon icon="hourglass-half" iconType="solid" size={16} color="#CA8A04" /> | **In progress** | Actively being implemented toward the done bar. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | **Experimental** | Exists in some form; not at the done bar yet. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | **Planned** | On the roadmap; not delivered yet. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | **Omitted** | Deliberately excluded from the language design. |
 
-## Major themes
+## Language and types
 
-**Language and types:** Structural shapes, constraints, `ensure`, type guards, Result and nominal errors (experimental), user generics (planned).
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Shapes and constraints](/language/shapes-and-constraints) | Structural types, built-in constraints, runtime validation at the boundary. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`ensure`, `is`, and shape guards](/language/ensure-and-narrowing) | Runtime checks tied to types; shape refinement on records. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Nil and presence checks](/language/ensure-and-narrowing) | `ensure x is Nil()`, `ensure !x`, and `*T` `.Present()` / `.Nil()` on pointers. Not full optional value types yet. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Type guards](/language/type-guards) | Domain predicates with `is (subject T) Name { … }`; narrowing polish still open. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Result and nominal errors](/language/errors-and-result) | `Result(S, F)`, `error X { … }`, and `ensure` / `if x is Ok()` narrowing. Closed nominal error unions (`ParseError \| IoError`) emit sealed Go interfaces. Failure-type and export rules still maturing. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Control-flow narrowing | If-branch refinement works; join across branches and post-`ensure` narrowing still open. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Type aliases | Simple `type Name = BaseType` works end-to-end; broader alias semantics still evolving. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Binary types (`A \| B`, `A & B`) | Union and intersection typedefs type-check; closed nominal error unions emit to Go and TS. General unions, intersections, and narrowing still incomplete. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Optional types (`T \| Nil`) | Planned: Crystal-style `T \| Nil` / `T?` unions, narrowing, and Go lowering. See [optionals RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/optionals). |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | User-defined generics | Type parameters on types and functions. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | `switch` / `select` | Not implemented yet; design open for Go-style `switch` vs pattern `match`. |
 
-**Go interop:** Transpile to Go (done), Providers composition and wiring (`use` / `with`, experimental), import and type-check Go packages (experimental), mixed `.ft`/`.go` modules (experimental).
+## Go interoperability
 
-**TypeScript interop:** `forst generate` (done), `forst dev` HTTP API (done), `@forst/sidecar` (experimental).
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Transpile to Go](/interop/go) | Packages, types, and functions emit as readable Go for `go build`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Validation from constraints](/language/shapes-and-constraints) | Compiler emits runtime checks from type constraints. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Providers (`use` / `with`)](/language/providers) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common paths work, not full parity. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Selectable Go emit target version | Emit for older `go` toolchains than the compiler uses today. |
 
-**Tooling:** HTTP LSP with diagnostics, hover, navigation, rename (done); VS Code extension (experimental).
+## TypeScript interoperability
 
-## Anti-features
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` (`.d.ts`)](/interop/typescript) | Merged TypeScript declarations from `.ft` sources; shared `ftconfig` discovery with `forst dev`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/typescript) | TS emit and sidecar wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst dev` HTTP API](/workflow/dev-server-and-sidecar) | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Sidecar invoke contract](/interop/typescript) | Stable JSON `POST /invoke` from Node/TS clients to a running dev server. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`@forst/sidecar` and `@forst/cli`](/installation) | npm/JSR packages; watch reload, optional debounced `forst generate`, and version checks. Pin in production. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Client helper stubs](/interop/typescript) | Thin generated helpers next to `types.d.ts`. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Protobuf sidecar wire | gRPC / Connect as a future high-throughput alternative to JSON. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Native ES modules / Node addon | Forst → Go → addon → ESM path; design exploration only. |
 
-Forst intentionally omits patterns that hide control flow or surprise with errors:
+## Tooling
 
-- Exceptions (`try`/`catch`/`throw`)
-- `panic`/`recover` as language constructs
-- Macros and compile-time control-flow rewriting
-- TypeScript-style `undefined` as a separate value
-- Implicit numeric widening
-- Dependent types and type-level metaprogramming
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst lsp` core (HTTP)](/workflow/editor) | Diagnostics, hover, completion, definition, references, rename, symbols, folding. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [LSP formatting and code lens](/workflow/editor) | Format document advertised; code lens and some code actions still minimal. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [VS Code extension](/workflow/editor) | In-repo extension on Open VSX; marketplace discoverability still open. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`forst test`](/workflow/cli#forst-test) | Discover `Test*` in `*_test.ft`, emit Go tests and cross-package shims, run `go test`. Primary use: Providers wiring and cross-package integration. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [CLI (`run`, `build`, `generate`, `dev`, `lsp`, `test`, `fmt`)](/workflow/cli) | Core compiler commands via native binary or `@forst/cli`. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Error message quality | Incremental improvements; diagnostics still vary by code path. |
 
-These align with [predictable, Go shaped error handling](/why).
+## Infrastructure
+
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | CI pipeline | GitHub Actions: unit tests, examples, compiler build (`task ci:test`). |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Release automation | release-please, git tags, npm/JSR publish workflows. |
+| <Icon icon="hourglass-half" iconType="solid" size={16} color="#CA8A04" /> | Test coverage gate | Colocated Go tests and merged-statement coverage targets still expanding. |
+
+## Docs
+
+| Status | Feature | Notes |
+| --- | --- | --- |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [This docs site (Mintlify)](/quickstart) | Quickstart, language guides, interop, and workflow pages. Broader tutorials and migration guides still open. |
+| <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Contributing guide | Doc contribution notes exist; full dev-setup `CONTRIBUTING.md` still planned. |
+
+## What Forst omits
+
+These are deliberate **anti-features**—not backlog gaps. Forst excludes them when they would hide control flow, surprise with errors, or break compile-time reasoning.
+
+| Status | Topic | Notes |
+| --- | --- | --- |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | `panic` / `recover` as language constructs | Non-local, implicit control flow. Forst steers toward explicit `Result` and Go `error` returns. Generated Go or third-party code may still panic. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Exceptions (`try` / `catch` / `throw`) | Stack-unwinding surprises. Aligns with Go `(T, error)` and `Result(S, F)` instead of TS/Java-style exceptions. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Class hierarchies and deep inheritance | Inheritance obscures which fields an API has. Forst favors structural shapes and function-centric APIs. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Macros and preprocessors | Control-flow changes must use ordinary keywords, not compile-time rewrites that hide behavior. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Runtime reflection for wiring | Providers, constraints, and obligation tracking are compile-time—not discovered via introspection at runtime. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | TypeScript-style `undefined` | No dual null/undefined universe. Optionals direction is `Nil` and absence—see [optionals RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/optionals). |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Implicit numeric widening | Silent `int`↔`float` (and similar) conversions are rejected; casts stay explicit. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Dependent types and type-level computation | No type families or template metaprogramming—keeps typechecking decidable and tooling fast. |
+| <Icon icon="ban" iconType="solid" size={16} color="#DC2626" /> | Runtime type mutation | No monkey patching; type definitions are fixed at compile time. |
 
 ## Full roadmap
 
 <Card title="ROADMAP.md on GitHub" icon="github" href="https://github.com/forst-lang/forst/blob/main/ROADMAP.md">
-  Feature parity tables, experimental gaps, and links to RFCs.
+  Feature parity tables, experimental gaps, RFC links, and infrastructure status.
 </Card>
 
-Report bugs and gaps as GitHub issues when shipped features do not match the roadmap's **done** bar.
+Report bugs and gaps as GitHub issues when shipped features do not match the **done** bar.

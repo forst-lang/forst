@@ -38,27 +38,47 @@ flowchart TB
 
 TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same for Go: you still `go build`, with typed boundaries layered on top.
 
+## Feature comparison
+
+Backend capabilities at a glance.
+
+| Capability | TypeScript | Go | Forst |
+| --- | --- | --- | --- |
+| Production runtime | JS (Node, Bun, Deno) | Native (`go build`) | [Go (compiled from `.ft`)](/interop/go) |
+| Structural record types | Built-in | Structs | [Built-in](/language/overview) |
+| Validation on types | Schema library (Zod, etc.) | Manual checks | [Built-in constraints](/language/shapes-and-constraints) |
+| Static binary deployment | No | Yes | [Yes (via Go output)](/interop/go) |
+| Server and client types from one source | N/A | Manual / separate | [`forst generate`](/interop/typescript) |
+| Error model | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
+| Type narrowing | Discriminated unions | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing) |
+| Go module ecosystem | No | Native | [Import Go packages](/interop/go) |
+| Explicit service wiring | DI libraries | Manual / Fx / Wire | [`use` / `with`](/language/providers) |
+
+<Info>
+  Go import type-checking and Providers are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+</Info>
+
 ## What you get
 
 If you already model APIs with TypeScript types, Forst gives you the same shape-first workflow on the server: structural types, validation built in, and a compile target your ops team can deploy.
 
 <CardGroup cols={2}>
-  <Card title="Structural types on the server" icon="table-columns">
+  <Card title="Structural types on the server" icon="table-columns" href="/language/overview">
     Define request and response shapes as typed records. Field access, function signatures, and narrowing with **`is`** work the way you expect from TypeScript, without maintaining a parallel schema layer.
   </Card>
-  <Card title="Validation on the type" icon="shield-check">
+  <Card title="Validation on the type" icon="shield-check" href="/language/shapes-and-constraints">
     Attach constraints (`Min`, `Max`, `Present`, custom guards) directly to fields. The compiler checks known values at compile time and emits runtime checks at the boundary before your handler logic runs.
   </Card>
-  <Card title="Matching TypeScript for clients" icon="/icons/typescript.svg">
+  <Card title="Matching TypeScript for clients" icon="/icons/typescript.svg" href="/interop/typescript">
     Run **`forst generate`** to emit **`.d.ts`** from the same **`.ft`** definitions the server uses. Frontend and BFF code import types that structurally match production, not a hand-maintained copy.
   </Card>
-  <Card title="Production Go output" icon="/icons/golang.svg">
+  <Card title="Production Go output" icon="/icons/golang.svg" href="/interop/go">
     Handlers and domain logic transpile to readable Go. Ship with **`go build`**: static binaries, existing modules, tests, and CI. You gain a Go backend without giving up typed boundaries.
   </Card>
-  <Card title="Explicit failures" icon="route">
+  <Card title="Explicit failures" icon="route" href="/language/errors-and-result">
     Use **`ensure`**, nominal **`error`** types, and **`Result`** to model failures as values in control flow. Narrow success and failure branches the way you would with discriminated unions in TypeScript.
   </Card>
-  <Card title="Gradual adoption" icon="plug">
+  <Card title="Gradual adoption" icon="plug" href="/workflow/dev-server-and-sidecar">
     Mix **`.ft`** with hand-written **`.go`** in one module. Call **`forst dev`** or **`@forst/sidecar`** from Node while you migrate route by route. Type export stays optional until clients need it.
   </Card>
 </CardGroup>

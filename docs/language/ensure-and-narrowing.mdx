@@ -21,7 +21,7 @@ The compiler understands the **`is`** operator for built-in constraints (`LessTh
 
 ## Nil and presence
 
-Optional values use **`Nil`** instead of a separate `undefined` universe:
+Forst uses **`Nil`** for absence checks today. Full optional **value types** (`T | Nil`) are still [planned](/resources/roadmap); what works now is **`nil`** on nilable types (pointers, `Map`, `Array`, `Error`), **`ensure … is Nil()`**, and **`*T`** [`.Present()` / `.Nil()`](/language/shapes-and-constraints) on pointer fields.
 
 ```forst
 ensure err is Nil()
