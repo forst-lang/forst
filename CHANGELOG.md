@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6](https://github.com/forst-lang/forst/compare/v0.5.5...v0.5.6) (2026-06-28)
+
+
+### Features
+
+* **vscode-forst:** publish extension to VS Code Marketplace ([#113](https://github.com/forst-lang/forst/issues/113)) ([06abe0e](https://github.com/forst-lang/forst/commit/06abe0e5b9c1750766e6a1fccfe933293787250b))
+
 ## [0.5.5](https://github.com/forst-lang/forst/compare/v0.5.4...v0.5.5) (2026-06-28)
 
 

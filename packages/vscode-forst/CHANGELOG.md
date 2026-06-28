@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.1...vscode-forst-v0.3.2) (2026-06-28)
+
+
+### Features
+
+* **vscode-forst:** publish extension to VS Code Marketplace ([#113](https://github.com/forst-lang/forst/issues/113)) ([06abe0e](https://github.com/forst-lang/forst/commit/06abe0e5b9c1750766e6a1fccfe933293787250b))
+* **vscode-forst:** set extension homepage to forst-lang.org ([d895488](https://github.com/forst-lang/forst/commit/d89548899635aabb9f7f759b85a27b3b4f489737))
+
 ## [0.3.1](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.0...vscode-forst-v0.3.1) (2026-06-28)
 
 
