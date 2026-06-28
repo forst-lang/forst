@@ -1,6 +1,9 @@
 package ast
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ParamNode is the interface for parameter nodes
 type ParamNode interface {
@@ -54,4 +57,9 @@ func (p SimpleParamNode) GetType() TypeNode {
 // GetType returns the type of the destructured parameter
 func (p DestructuredParamNode) GetType() TypeNode {
 	return p.Type
+}
+
+// GetIdent returns a comma-separated list of destructured field names.
+func (p DestructuredParamNode) GetIdent() string {
+	return strings.Join(p.Fields, ", ")
 }

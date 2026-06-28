@@ -24,7 +24,7 @@ func (tc *TypeChecker) inferTypeGuardNode(typeGuardNode ast.Node) ([]ast.TypeNod
 				SymbolVariable)
 			tc.VariableTypes[typedParam.Ident.ID] = parameterTypes
 		case ast.DestructuredParamNode:
-			continue
+			tc.registerDestructuredParamSymbols(typedParam.Fields, typedParam.Type, SymbolVariable)
 		}
 	}
 

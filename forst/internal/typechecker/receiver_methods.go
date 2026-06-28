@@ -42,7 +42,10 @@ func (tc *TypeChecker) registerTypeMethod(recvType ast.TypeIdent, methodName str
 		case ast.SimpleParamNode:
 			params[i] = ParameterSignature{Ident: p.Ident, Type: p.Type}
 		case ast.DestructuredParamNode:
-			continue
+			params[i] = ParameterSignature{
+				Ident: ast.Ident{ID: ast.Identifier(p.GetIdent())},
+				Type:  p.Type,
+			}
 		}
 	}
 

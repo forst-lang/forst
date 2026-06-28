@@ -7,6 +7,48 @@ import (
 	goast "go/ast"
 )
 
+func (t *Transformer) transformFunctionParamField(paramName string, paramType ast.TypeNode) (*goast.Field, error) {
+	var inferredTypes []ast.TypeNode
+	var err error
+
+	if paramType.Assertion != nil {
+		if paramType.Assertion.BaseType != nil && len(paramType.Assertion.Constraints) == 0 {
+			baseType := *paramType.Assertion.BaseType
+			baseTypeNode := ast.TypeNode{Ident: baseType}
+			if !baseTypeNode.IsHashBased() {
+				name, err := t.TypeChecker.GetAliasedTypeName(baseTypeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
+				}
+				return &goast.Field{
+					Names: []*goast.Ident{goast.NewIdent(paramName)},
+					Type:  goast.NewIdent(name),
+				}, nil
+			}
+		}
+		inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false, "", nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
+		}
+	} else {
+		inferredTypes = []ast.TypeNode{paramType}
+	}
+
+	if len(inferredTypes) == 0 {
+		return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
+	}
+
+	typeExpr, err := t.transformType(inferredTypes[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform type for parameter %s: %w", paramName, err)
+	}
+
+	return &goast.Field{
+		Names: []*goast.Ident{goast.NewIdent(paramName)},
+		Type:  typeExpr,
+	}, nil
+}
+
 func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
 	t.log.Debugf("transformFunctionParams: processing %d parameters", len(params))
 
@@ -15,71 +57,38 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 	}
 
 	for i, param := range params {
-		var paramName string
-		var paramType ast.TypeNode
-
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			paramName = string(p.Ident.ID)
-			paramType = p.Type
-		case ast.DestructuredParamNode:
-			// Handle destructured params if needed
-			continue
-		}
-
-		// Add debug output for parameter type
-		t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, param.GetIdent(), paramType.Ident)
-
-		// Look up the inferred type from the type checker
-		var inferredTypes []ast.TypeNode
-		var err error
-
-		if paramType.Assertion != nil {
-			// For assertion types, check if we should preserve the original type name
-			// If the assertion has a base type that's a user-defined type AND no constraints, use that
-			if paramType.Assertion.BaseType != nil && len(paramType.Assertion.Constraints) == 0 {
-				baseType := *paramType.Assertion.BaseType
-				// Check if the base type is a user-defined type (not a hash-based type)
-				baseTypeNode := ast.TypeNode{Ident: baseType}
-				if !baseTypeNode.IsHashBased() {
-					// Use the original type name instead of inferring a hash-based type
-					name, err := t.TypeChecker.GetAliasedTypeName(baseTypeNode, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: true})
-					if err != nil {
-						return nil, fmt.Errorf("failed to get aliased type name for parameter %s: %w", paramName, err)
-					}
-					fields.List = append(fields.List, &goast.Field{
-						Names: []*goast.Ident{goast.NewIdent(paramName)},
-						Type:  goast.NewIdent(name),
-					})
-					continue
-				}
-			}
-
-			// For other assertion types (with constraints), use the inferred type from the type checker
-			inferredTypes, err = t.TypeChecker.InferAssertionType(paramType.Assertion, false, "", nil)
+			t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, p.Ident.ID, p.Type.Ident)
+			field, err := t.transformFunctionParamField(string(p.Ident.ID), p.Type)
 			if err != nil {
-				return nil, fmt.Errorf("failed to infer assertion type for parameter %s: %w", paramName, err)
+				return nil, err
 			}
-		} else {
-			// For non-assertion types, use the original type
-			inferredTypes = []ast.TypeNode{paramType}
+			fields.List = append(fields.List, field)
+		case ast.DestructuredParamNode:
+			shapeFields, ok := t.TypeChecker.ShapeFieldsFromParamType(p.Type)
+			if !ok {
+				return nil, fmt.Errorf("destructured parameter has no shape fields in type %s", p.Type.Ident)
+			}
+			for _, fieldName := range p.Fields {
+				sf, ok := shapeFields[fieldName]
+				if !ok {
+					return nil, fmt.Errorf("destructured field %s not found in parameter type", fieldName)
+				}
+				fieldType, ok := typechecker.ShapeFieldTypeNode(sf)
+				if !ok {
+					return nil, fmt.Errorf("destructured field %s has no type", fieldName)
+				}
+				t.log.Debugf("transformFunctionParams: destructured field %s has type %q", fieldName, fieldType.Ident)
+				field, err := t.transformFunctionParamField(fieldName, fieldType)
+				if err != nil {
+					return nil, err
+				}
+				fields.List = append(fields.List, field)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported parameter type %T", param)
 		}
-
-		// Use the first inferred type (should be only one for parameters)
-		if len(inferredTypes) == 0 {
-			return nil, fmt.Errorf("no inferred type found for parameter %s", paramName)
-		}
-
-		actualType := inferredTypes[0]
-		typeExpr, err := t.transformType(actualType)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform type for parameter %s: %w", paramName, err)
-		}
-
-		fields.List = append(fields.List, &goast.Field{
-			Names: []*goast.Ident{goast.NewIdent(paramName)},
-			Type:  typeExpr,
-		})
 	}
 
 	return fields, nil
