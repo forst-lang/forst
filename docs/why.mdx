@@ -3,7 +3,13 @@ title: "Why Forst?"
 description: "Design priorities, what you get from Forst, and what the language omits."
 ---
 
-Backend work pulls in two directions: **typed boundaries** where API shapes and validation matter, and a **production runtime** where compile speed, binaries, and ops matter. Forst is for teams that need both without separate schemas for the server and clients.
+While backend development covers a wide surface, three central issues affect everyone:
+
+- **Typed boundaries**: request and response shapes at the API edge need validation before bad data reaches domain logic
+- **Developer experience**: everyday work needs fast feedback and low boilerplate
+- **Production runtime**: production deploys need ops that hold when traffic spikes as complexity grows
+
+Forst is for teams who want all three, with one schema from server to client.
 
 <Columns cols={2}>
   <Card title="TypeScript" icon="/icons/typescript.svg">
