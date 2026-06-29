@@ -335,6 +335,25 @@ func TestLoadConfigForGenerate_findsConfigWalkingUpFromFileDir(t *testing.T) {
 	}
 }
 
+func TestForstConfig_matchesExcludePatterns(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Files.Exclude = []string{"**/skip/**"}
+	if !cfg.matchesExcludePatterns("/proj/skip/hidden.ft") {
+		t.Fatal("expected exclude match")
+	}
+	if cfg.matchesExcludePatterns("/proj/keep/ok.ft") {
+		t.Fatal("expected non-excluded path")
+	}
+}
+
+func TestForstConfig_matchesIncludePatterns_noMatch(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Files.Include = []string{"**/only/**"}
+	if cfg.matchesIncludePatterns("/proj/other/file.ft") {
+		t.Fatal("expected no include match")
+	}
+}
+
 func TestLoadConfigForGenerate_usesDefaultWhenNoConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	ftFile := filepath.Join(dir, "only.ft")

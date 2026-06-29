@@ -1,8 +1,70 @@
 package transformergo
 
 import (
+	"fmt"
+
 	"forst/internal/ast"
+	goast "go/ast"
+	"go/token"
 )
+
+// transformEnsureErrorFallback lowers `ensure … or bad("msg")` / `or errVar` to a Go expression.
+func (t *Transformer) transformEnsureErrorFallback(errorNode ast.EnsureErrorNode) (goast.Expr, error) {
+	switch e := errorNode.(type) {
+	case ast.EnsureErrorCall:
+		if len(e.ErrorArgs) == 1 {
+			if def, ok := t.TypeChecker.Defs[ast.TypeIdent(e.ErrorType)].(ast.TypeDefNode); ok {
+				if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
+					if shape, ok := e.ErrorArgs[0].(ast.ShapeNode); ok {
+						expected := &ast.TypeNode{Ident: def.Ident}
+						return t.transformShapeNodeWithExpectedType(&shape, expected)
+					}
+				}
+			}
+		}
+		args := make([]goast.Expr, len(e.ErrorArgs))
+		for i, arg := range e.ErrorArgs {
+			ex, err := t.transformExpression(arg)
+			if err != nil {
+				return nil, fmt.Errorf("ensure error fallback arg %d: %w", i, err)
+			}
+			args[i] = ex
+		}
+		return &goast.CallExpr{
+			Fun:  goast.NewIdent(e.ErrorType),
+			Args: args,
+		}, nil
+	case ast.EnsureErrorVar:
+		return goast.NewIdent(string(e)), nil
+	default:
+		return nil, fmt.Errorf("unsupported ensure error fallback: %T", errorNode)
+	}
+}
+
+func (t *Transformer) defaultAssertionErrorExpr(assertion *ast.AssertionNode) goast.Expr {
+	t.Output.EnsureImport("errors")
+	assertionMsg := t.getAssertionStringForError(assertion)
+	return &goast.CallExpr{
+		Fun: &goast.SelectorExpr{
+			X:   goast.NewIdent("errors"),
+			Sel: goast.NewIdent("New"),
+		},
+		Args: []goast.Expr{
+			&goast.BasicLit{
+				Kind:  token.STRING,
+				Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
+			},
+		},
+	}
+}
+
+// ensureFailureErrorExpr returns the Go expression used on ensure failure (custom or generic).
+func (t *Transformer) ensureFailureErrorExpr(stmt ast.EnsureNode) (goast.Expr, error) {
+	if stmt.Error != nil {
+		return t.transformEnsureErrorFallback(*stmt.Error)
+	}
+	return t.defaultAssertionErrorExpr(&stmt.Assertion), nil
+}
 
 // getAssertionStringForError returns a properly qualified assertion string for error messages
 func (t *Transformer) getAssertionStringForError(assertion *ast.AssertionNode) string {

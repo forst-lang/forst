@@ -39,7 +39,7 @@ func main() {
 	}
 }
 
-// "or NotOk(...)" is still lowered via an error return + errors.New today (nominal constructor not in failure path yet).
+// ensure-or with a nominal error payload lowers to returning the composite literal.
 func TestPipeline_ensureOrNominalPayload_emitsErrorReturningFunc(t *testing.T) {
 	t.Parallel()
 	src := `package main
@@ -62,7 +62,7 @@ func main() {
 		`type NotOk struct`,
 		`func check() error`,
 		`n <= 0`,
-		`return errors.New("assertion failed: Int.GreaterThan(0)")`,
+		`return NotOk{msg: "bad"}`,
 		`package main`,
 	} {
 		if !strings.Contains(out, sub) {

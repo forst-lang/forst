@@ -18,12 +18,7 @@ import (
 func ParseForstFile(log *logrus.Logger, path string) (nodes []ast.Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if pe, ok := r.(*parser.ParseError); ok {
-				err = pe
-				nodes = nil
-				return
-			}
-			err = fmt.Errorf("parse panic in %s: %v", path, r)
+			err = parseRecoverToError(path, r)
 			nodes = nil
 		}
 	}()
@@ -42,12 +37,7 @@ func ParseForstFile(log *logrus.Logger, path string) (nodes []ast.Node, err erro
 func ParseForstFileFromRoot(log *logrus.Logger, root *safefs.RootedFS, relPath, displayPath string) (nodes []ast.Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if pe, ok := r.(*parser.ParseError); ok {
-				err = pe
-				nodes = nil
-				return
-			}
-			err = fmt.Errorf("parse panic in %s: %v", displayPath, r)
+			err = parseRecoverToError(displayPath, r)
 			nodes = nil
 		}
 	}()

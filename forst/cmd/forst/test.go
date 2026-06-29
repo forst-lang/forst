@@ -10,8 +10,15 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+var (
+	runTestCommandGetwd    = os.Getwd
+	runTestCommandPathAbs  = filepath.Abs
+	runTestCommandPathRel  = filepath.Rel
+	runTestCommandRunner   = testrunner.Run
+)
+
 func runTestCommand(args []string, log *logrus.Logger) int {
-	cwd, err := os.Getwd()
+	cwd, err := runTestCommandGetwd()
 	if err != nil {
 		log.Error(err)
 		return 2
@@ -26,7 +33,7 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 		if p == "." {
 			candidate = cwd
 		}
-		abs, err := filepath.Abs(candidate)
+		abs, err := runTestCommandPathAbs(candidate)
 		if err != nil {
 			log.Error(err)
 			return 2
@@ -38,7 +45,7 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 				return 2
 			}
 			root = modRoot
-			rel, err := filepath.Rel(modRoot, abs)
+			rel, err := runTestCommandPathRel(modRoot, abs)
 			if err != nil {
 				log.Error(err)
 				return 2
@@ -53,7 +60,7 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 	}
 	root = goload.FindModuleRoot(root)
 
-	code, err := testrunner.Run(testrunner.Options{
+	code, err := runTestCommandRunner(testrunner.Options{
 		ModuleRoot: root,
 		Paths:      paths,
 		GoTestArgs: goTestArgs,

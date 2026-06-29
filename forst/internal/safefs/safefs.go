@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+var (
+	safefsPathAbs = filepath.Abs
+	safefsPathRel = filepath.Rel
+	safefsOpenRoot = os.OpenRoot
+)
+
 // RootedFS confines file operations to one directory tree using os.Root.
 type RootedFS struct {
 	root    *os.Root
@@ -17,7 +23,7 @@ type RootedFS struct {
 
 // OpenRoot opens absRoot as the filesystem root. absRoot must be an existing directory.
 func OpenRoot(absRoot string) (*RootedFS, error) {
-	abs, err := filepath.Abs(absRoot)
+	abs, err := safefsPathAbs(absRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +35,7 @@ func OpenRoot(absRoot string) (*RootedFS, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("safefs: not a directory: %s", abs)
 	}
-	root, err := os.OpenRoot(abs)
+	root, err := safefsOpenRoot(abs)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +69,12 @@ func (r *RootedFS) Stat(rel string) (fs.FileInfo, error) {
 
 // RelPath returns a slash-separated relative path when absPath is under the root.
 func (r *RootedFS) RelPath(absPath string) (string, error) {
-	abs, err := filepath.Abs(absPath)
+	abs, err := safefsPathAbs(absPath)
 	if err != nil {
 		return "", err
 	}
 	abs = filepath.Clean(abs)
-	rel, err := filepath.Rel(r.absRoot, abs)
+	rel, err := safefsPathRel(r.absRoot, abs)
 	if err != nil {
 		return "", err
 	}

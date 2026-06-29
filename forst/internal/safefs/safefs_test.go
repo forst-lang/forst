@@ -66,6 +66,80 @@ func TestOpenRoot_escapeDotDot(t *testing.T) {
 	}
 }
 
+func TestOpenRoot_missingDirectory(t *testing.T) {
+	_, err := OpenRoot(filepath.Join(t.TempDir(), "missing-subdir"))
+	if err == nil {
+		t.Fatal("expected error for missing directory")
+	}
+}
+
+func TestRelPath_dotDotSegmentRejected(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	parent := filepath.Dir(dir)
+	_, err = r.RelPath(parent)
+	if err == nil {
+		t.Fatal("expected outside-root error")
+	}
+}
+
+func TestOpenRoot_invalidPath(t *testing.T) {
+	orig := safefsPathAbs
+	safefsPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathAbs = orig })
+	_, err := OpenRoot("any")
+	if err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestOpenRoot_openRootError(t *testing.T) {
+	dir := t.TempDir()
+	orig := safefsOpenRoot
+	safefsOpenRoot = func(string) (*os.Root, error) { return nil, os.ErrInvalid }
+	t.Cleanup(func() { safefsOpenRoot = orig })
+	_, err := OpenRoot(dir)
+	if err == nil {
+		t.Fatal("expected OpenRoot error")
+	}
+}
+
+func TestRelPath_invalidAbsPath(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	orig := safefsPathAbs
+	safefsPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathAbs = orig })
+	_, err = r.RelPath("any")
+	if err == nil {
+		t.Fatal("expected abs error")
+	}
+}
+
+func TestRelPath_relError(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	orig := safefsPathRel
+	safefsPathRel = func(string, string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathRel = orig })
+	_, err = r.RelPath(filepath.Join(dir, "inside.ft"))
+	if err == nil {
+		t.Fatal("expected rel error")
+	}
+}
+
 func TestRelPath_insideAndOutside(t *testing.T) {
 	dir := t.TempDir()
 	r, err := OpenRoot(dir)

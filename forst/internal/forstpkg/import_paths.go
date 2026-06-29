@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// buildImportPathsRel is overridden in tests to exercise rel-error handling.
+var buildImportPathsRel = filepath.Rel
+
 // BuildForstPackageImportPaths maps Go import paths to Forst package names for packages
 // discovered under moduleRoot (modulePath is the go.mod module path, e.g. "example.com/app").
 // forstPkgToFiles maps Forst package name -> absolute .ft file paths (one dir per package).
@@ -16,7 +19,7 @@ func BuildForstPackageImportPaths(moduleRoot, modulePath string, forstPkgToFiles
 			continue
 		}
 		dir := filepath.Dir(files[0])
-		rel, err := filepath.Rel(moduleRoot, dir)
+		rel, err := buildImportPathsRel(moduleRoot, dir)
 		if err != nil {
 			continue
 		}

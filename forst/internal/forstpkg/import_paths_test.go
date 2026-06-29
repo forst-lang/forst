@@ -1,0 +1,59 @@
+package forstpkg
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestBuildForstPackageImportPaths(t *testing.T) {
+	root := filepath.Clean("/proj")
+	paths := map[string][]string{
+		"alpha": {filepath.Join(root, "alpha", "alpha.ft")},
+		"beta":  {filepath.Join(root, "beta", "beta.ft")},
+		"empty": {},
+	}
+	got := BuildForstPackageImportPaths(root, "example.com/app", paths)
+	if got["example.com/app/alpha"] != "alpha" {
+		t.Fatalf("alpha path: %v", got)
+	}
+	if got["example.com/app/beta"] != "beta" {
+		t.Fatalf("beta path: %v", got)
+	}
+	if _, ok := got["example.com/app/empty"]; ok {
+		t.Fatalf("empty file list should be skipped: %v", got)
+	}
+}
+
+func TestBuildForstPackageImportPaths_rootPackage(t *testing.T) {
+	root := filepath.Clean("/proj")
+	paths := map[string][]string{
+		"main": {filepath.Join(root, "main.ft")},
+	}
+	got := BuildForstPackageImportPaths(root, "example.com/app", paths)
+	if got["example.com/app"] != "main" {
+		t.Fatalf("root package import path: %v", got)
+	}
+}
+
+func TestBuildForstPackageImportPaths_skipsEmptyFileList(t *testing.T) {
+	got := BuildForstPackageImportPaths("/proj", "example.com/app", map[string][]string{
+		"empty": {},
+	})
+	if len(got) != 0 {
+		t.Fatalf("expected empty map, got %v", got)
+	}
+}
+
+func TestBuildForstPackageImportPaths_skipsRelError(t *testing.T) {
+	orig := buildImportPathsRel
+	buildImportPathsRel = func(string, string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { buildImportPathsRel = orig })
+
+	got := BuildForstPackageImportPaths("/proj", "example.com/app", map[string][]string{
+		"pkg": {filepath.Join("/proj", "pkg", "file.ft")},
+	})
+	if len(got) != 0 {
+		t.Fatalf("expected rel error to skip entry, got %v", got)
+	}
+}

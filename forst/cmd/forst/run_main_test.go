@@ -215,3 +215,85 @@ func TestRunMain_run_exitsZeroWhenGoRunSucceeds(t *testing.T) {
 		t.Fatalf("want exit 0, got %d", code)
 	}
 }
+
+func TestRunMain_dev_rootNotDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	file := filepath.Join(tmp, "file.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := runMain([]string{"forst", "dev", "-root", file}); code != 1 {
+		t.Fatalf("want exit 1, got %d", code)
+	}
+}
+
+func TestRunMain_test_subcommand(t *testing.T) {
+	dir := t.TempDir()
+	writeForstTestFixtureForRunMain(t, dir)
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldWd)
+	if code := runMain([]string{"forst", "test", "./auth"}); code != 0 {
+		t.Fatalf("want exit 0, got %d", code)
+	}
+}
+
+func TestRunMain_dump_writeError(t *testing.T) {
+	tmp := t.TempDir()
+	ftPath := filepath.Join(tmp, "sample.ft")
+	if err := os.WriteFile(ftPath, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := dumpCommandStdout
+	dumpCommandStdout = writeFailer{}
+	t.Cleanup(func() { dumpCommandStdout = old })
+	if code := runMain([]string{"forst", "dump", "--file", ftPath}); code != 1 {
+		t.Fatalf("want exit 1, got %d", code)
+	}
+}
+
+type writeFailer struct{}
+
+func (writeFailer) Write([]byte) (int, error) { return 0, fmt.Errorf("write failed") }
+
+func writeForstTestFixtureForRunMain(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testmod\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	authDir := filepath.Join(dir, "auth")
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "auth.ft"), []byte(`package auth
+
+type Logger = { info(msg String) }
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {}
+
+func expireToken() {
+	use logger: Logger
+	logger.info("ok")
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "auth_test.ft"), []byte(`package auth
+
+import "testing"
+
+func TestExpireWithWiring(t *testing.T) {
+	with { Logger: &NopLogger {} } {
+		expireToken()
+	}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

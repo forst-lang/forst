@@ -42,8 +42,8 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 		if len(valTypes) != 1 {
 			return ProviderScope{}, fmt.Errorf("wiring field %s must have a single type", fieldName)
 		}
-		contractType, ok := eng.KnownRoots[fieldName]
-		if !ok {
+		contractType, knownContract := eng.KnownRoots[fieldName]
+		if !knownContract {
 			if eng.DeferWiringRootCheck {
 				contractType = ast.TypeNode{Ident: ast.TypeIdent(fieldName)}
 			} else {
@@ -51,9 +51,11 @@ func (tc *TypeChecker) providerScopeFromShape(shape ast.ShapeNode) (ProviderScop
 					"unknown wiring key %q", fieldName)
 			}
 		}
-		if !tc.wiringValueAssignable(valTypes[0], contractType) {
-			return ProviderScope{}, diagnosticf(fieldSpan, "providers-wiring-type",
-				"wiring field %s: expected type %s, got %s", fieldName, contractType.Ident, valTypes[0].Ident)
+		if knownContract || !eng.DeferWiringRootCheck {
+			if !tc.wiringValueAssignable(valTypes[0], contractType) {
+				return ProviderScope{}, diagnosticf(fieldSpan, "providers-wiring-type",
+					"wiring field %s: expected type %s, got %s", fieldName, contractType.Ident, valTypes[0].Ident)
+			}
 		}
 		amb.Keys[fieldName] = contractType
 		amb.Shadowed[fieldName] = true

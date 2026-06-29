@@ -138,3 +138,22 @@ func TestUnifyTypes_comparisonErrNeNil(t *testing.T) {
 		t.Fatalf("want Bool, got %s", ty.Ident)
 	}
 }
+
+func TestUnifyTypes_arithmeticAddInt(t *testing.T) {
+	tc := New(logrus.New(), false)
+	ty, err := tc.unifyTypes(ast.IntLiteralNode{Value: 1}, ast.IntLiteralNode{Value: 2}, ast.TokenPlus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ty.Ident != ast.TypeInt {
+		t.Fatalf("got %s", ty.Ident)
+	}
+}
+
+func TestUnifyTypes_arithmeticAddBoolRejected(t *testing.T) {
+	tc := New(logrus.New(), false)
+	_, err := tc.unifyTypes(ast.BoolLiteralNode{Value: true}, ast.IntLiteralNode{Value: 1}, ast.TokenPlus)
+	if err == nil {
+		t.Fatal("expected error adding bool and int")
+	}
+}

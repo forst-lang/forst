@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/modulecheck"
 	"forst/internal/testmod"
 
 	"github.com/sirupsen/logrus"
@@ -125,6 +126,59 @@ func TestRun_providersWithWiringPasses(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "auth", generatedTestGoName)); !os.IsNotExist(err) {
 		t.Fatal("expected generated test file removed after run")
+	}
+}
+
+func TestRelPath(t *testing.T) {
+	moduleRoot := filepath.Clean("/proj")
+	if got := relPath(moduleRoot, filepath.Join(moduleRoot, "auth")); got != "auth" {
+		t.Fatalf("relPath = %q", got)
+	}
+	if got := relPath(moduleRoot, moduleRoot); got != "." {
+		t.Fatalf("same dir relPath = %q", got)
+	}
+}
+
+func TestIndexOf(t *testing.T) {
+	if indexOf([]string{"a", "--", "b"}, "--") != 1 {
+		t.Fatal("expected index 1")
+	}
+	if indexOf([]string{"a"}, "--") != -1 {
+		t.Fatal("expected -1")
+	}
+}
+
+func TestEmitDependencyPackages_writesLibraryGo(t *testing.T) {
+	dir := t.TempDir()
+	writeProvidersTestFixture(t, dir)
+	libDir := filepath.Join(dir, "lib")
+	if err := os.MkdirAll(libDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "lib.ft"), []byte(`package lib
+
+func Helper(): Int { return 1 }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+	log.SetLevel(logrus.PanicLevel)
+	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	testDirs := map[string]struct{}{filepath.Join(dir, "auth"): {}}
+	if err := emitDependencyPackages(dir, modResult, testDirs, log); err != nil {
+		t.Fatal(err)
+	}
+	genPath := filepath.Join(libDir, "z_forst_gen.go")
+	data, err := os.ReadFile(genPath)
+	if err != nil {
+		t.Fatalf("expected generated lib Go: %v", err)
+	}
+	if !strings.Contains(string(data), "Helper") {
+		t.Fatalf("generated code missing Helper:\n%s", data)
 	}
 }
 

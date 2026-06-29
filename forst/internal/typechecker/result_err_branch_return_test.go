@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/parser"
 )
 
@@ -180,5 +181,19 @@ func main() {
 	}
 	if !strings.Contains(err.Error(), "Err(...)") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestIsErrExprAST(t *testing.T) {
+	t.Parallel()
+	if !isErrExprAST(ast.ErrExprNode{Value: ast.StringLiteralNode{Value: "e"}}) {
+		t.Fatal("ErrExprNode should match")
+	}
+	e := ast.ErrExprNode{Value: ast.StringLiteralNode{Value: "e"}}
+	if !isErrExprAST(&e) {
+		t.Fatal("*ErrExprNode should match")
+	}
+	if isErrExprAST(ast.IntLiteralNode{Value: 1}) {
+		t.Fatal("int literal should not match")
 	}
 }

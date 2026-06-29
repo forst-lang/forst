@@ -14,15 +14,22 @@ func (t *Transformer) coerceGoStringAliasExpr(expr goast.Expr, node ast.Node) go
 	return t.coerceGoStringAliasExprForType(expr, types[0])
 }
 
+func (t *Transformer) typeIsStringAlias(ident ast.TypeIdent) bool {
+	if ident == ast.TypeString {
+		return true
+	}
+	return t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(ident) == ast.TypeString
+}
+
 func (t *Transformer) coerceGoStringAliasExprForType(expr goast.Expr, tn ast.TypeNode) goast.Expr {
 	if tn.Ident == ast.TypeString {
 		return expr
 	}
-	if t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(tn.Ident) == ast.TypeString {
+	if t.typeIsStringAlias(tn.Ident) {
 		return &goast.CallExpr{Fun: goast.NewIdent("string"), Args: []goast.Expr{expr}}
 	}
 	if tn.Assertion != nil && tn.Assertion.BaseType != nil {
-		if t.TypeChecker.UnderlyingBuiltinTypeOfAliasAssertion(*tn.Assertion.BaseType) == ast.TypeString {
+		if t.typeIsStringAlias(*tn.Assertion.BaseType) {
 			return &goast.CallExpr{Fun: goast.NewIdent("string"), Args: []goast.Expr{expr}}
 		}
 	}

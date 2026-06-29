@@ -129,3 +129,41 @@ func TestTransformTypeDefExpr_pointerAssertionExpr_deref(t *testing.T) {
 		t.Fatal("expected Go expr")
 	}
 }
+
+func TestTransformTypeDefExpr_shapeBaseEmptyStruct(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	base := ast.TypeIdent(ast.TypeShape)
+	expr, err := tr.transformTypeDefExpr(ast.TypeDefAssertionExpr{
+		Assertion: &ast.AssertionNode{BaseType: &base},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, ok := (*expr).(*goast.StructType)
+	if !ok || st.Fields == nil || len(st.Fields.List) != 0 {
+		t.Fatalf("expected empty struct for Shape base, got %#v", *expr)
+	}
+}
+
+func TestTransformTypeDefExpr_plainUserTypeAlias(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tc.Defs["RawId"] = ast.TypeDefNode{
+		Ident: "RawId",
+		Expr:  ast.TypeDefAssertionExpr{Assertion: &ast.AssertionNode{BaseType: ptrTypeIdent(ast.TypeString)}},
+	}
+	tr := setupTransformer(tc, log)
+	expr, err := tr.transformTypeDefExpr(ast.TypeDefAssertionExpr{
+		Assertion: &ast.AssertionNode{BaseType: ptrTypeIdent(ast.TypeIdent("RawId"))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id, ok := (*expr).(*goast.Ident); !ok || id.Name != "RawId" {
+		t.Fatalf("expected RawId alias, got %#v", *expr)
+	}
+}
