@@ -766,3 +766,29 @@ func TestStructuralHasher_ElseIfAndElseBlockNodes(t *testing.T) {
 		t.Fatalf("*ElseBlockNode: %v", err)
 	}
 }
+
+func TestStructuralHasher_nilNodeAndOptionalFields(t *testing.T) {
+	t.Parallel()
+	h := New()
+	if _, err := h.HashNode(nil); err != nil {
+		t.Fatalf("nil node: %v", err)
+	}
+	var nilFn *ast.FunctionNode
+	if _, err := h.HashNode(nilFn); err != nil {
+		t.Fatalf("nil pointer node: %v", err)
+	}
+	ifNode := ast.IfNode{
+		Condition: ast.BoolLiteralNode{Value: true},
+		Body:      []ast.Node{ast.IntLiteralNode{Value: 1}},
+	}
+	if _, err := h.HashNode(ifNode); err != nil {
+		t.Fatalf("IfNode without init/else: %v", err)
+	}
+	forNode := &ast.ForNode{
+		Cond: ast.BoolLiteralNode{Value: false},
+		Body: []ast.Node{&ast.BreakNode{}},
+	}
+	if _, err := h.HashNode(forNode); err != nil {
+		t.Fatalf("ForNode without init/post: %v", err)
+	}
+}

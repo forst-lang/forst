@@ -243,3 +243,242 @@ func main() {
 	}
 	assertGoParses(t, out)
 }
+
+func TestEmitValidation_nominalErrorConstructor(t *testing.T) {
+	src := `package main
+
+error NotFound {
+	id: String
+}
+
+func main() {
+	e := NotFound({ id: "x" })
+	println(e.id)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `type NotFound`) || !strings.Contains(out, `NotFound{`) {
+		t.Fatalf("expected nominal error emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_compoundAssignPlusEq(t *testing.T) {
+	src := `package main
+
+func main() {
+	n := 1
+	n += 2
+	println(n)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `+=`) {
+		t.Fatalf("expected += emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_ensureTypeGuardCall(t *testing.T) {
+	src := `package main
+
+is (n Int) Positive {
+	ensure n is GreaterThan(0)
+}
+
+func main() {
+	x := 5
+	ensure x is Positive()
+	println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `func G_`) || !strings.Contains(out, `os.Exit`) {
+		t.Fatalf("expected type guard ensure emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_stringBuiltinBool(t *testing.T) {
+	src := `package main
+
+func main() {
+	b := true
+	println(string(b))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `strconv.FormatBool`) {
+		t.Fatalf("expected FormatBool for string(bool):\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_providersCrossFunctionCall(t *testing.T) {
+	src := `package main
+
+type Logger = { info(msg String) }
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {}
+
+func callee() {
+	use logger: Logger
+	logger.info("callee")
+}
+
+func main() {
+	with { Logger: NopLogger{} } {
+		callee()
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `callee(providers`) {
+		t.Fatalf("expected providers param on callee:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_typedefAssertionAlias(t *testing.T) {
+	src := `package main
+
+type Slug = String.Min(1).Max(64)
+
+func main() {
+	s: Slug = "hello"
+	println(s)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `type Slug`) {
+		t.Fatalf("expected Slug typedef emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_receiverMethod(t *testing.T) {
+	src := `package main
+
+type Counter = { n: Int }
+
+func (Counter) bump(): Counter {
+	return { n: 1 }
+}
+
+func main() {
+	c := Counter{ n: 0 }
+	c = c.bump()
+	println(string(c.n))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `func (Counter) bump`) {
+		t.Fatalf("expected receiver method emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_resultAssign(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return 1
+}
+
+func main() {
+	x := f()
+	println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `x, xErr :=`) {
+		t.Fatalf("expected Result assign emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_typeAliasWithConstraints(t *testing.T) {
+	src := `package main
+
+type Slug = String.Min(1).Max(64)
+type Label = Slug
+
+func main() {
+	s: Label = "hello"
+	println(s)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `type Slug`) || !strings.Contains(out, `type Label`) {
+		t.Fatalf("expected alias emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_deferAndGoStmt(t *testing.T) {
+	src := `package main
+
+func cleanup() {}
+
+func main() {
+	defer cleanup()
+	go cleanup()
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `defer cleanup()`) || !strings.Contains(out, `go cleanup()`) {
+		t.Fatalf("expected defer/go emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_postfixIncDec(t *testing.T) {
+	src := `package main
+
+func main() {
+	i := 0
+	i++
+	i--
+	println(string(i))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `i++`) || !strings.Contains(out, `i--`) {
+		t.Fatalf("expected inc/dec emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_compoundAssignForPost(t *testing.T) {
+	src := `package main
+
+func main() {
+	for i := 0; i < 3; i += 1 {
+		println(string(i))
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `i += 1`) {
+		t.Fatalf("expected compound assign in for post:\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
+func TestEmitValidation_rangeTwoVars(t *testing.T) {
+	src := `package main
+
+func main() {
+	xs := [10, 20]
+	for i, v := range xs {
+		println(string(i) + string(v))
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `range xs`) {
+		t.Fatalf("expected range emit:\n%s", out)
+	}
+	assertGoParses(t, out)
+}

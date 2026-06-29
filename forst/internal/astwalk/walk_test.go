@@ -160,3 +160,54 @@ func TestWalkStmtsContaining_skipsWithOutsidePosition(t *testing.T) {
 		t.Fatalf("hits = %d, want 0 outside span", hits)
 	}
 }
+
+func TestWalkStmtsContaining_hitsInsideSpan(t *testing.T) {
+	t.Parallel()
+	with := ast.WithNode{
+		Span: ast.SourceSpan{StartLine: 10, StartCol: 1, EndLine: 12, EndCol: 2},
+	}
+	var hits int
+	WalkStmtsContaining([]ast.Node{with}, 11, 1, StmtVisitor{
+		OnWith: func(ast.WithNode) bool { hits++; return true },
+	})
+	if hits != 1 {
+		t.Fatalf("hits = %d, want 1 inside span", hits)
+	}
+}
+
+func TestWalkNode_topLevelFunction(t *testing.T) {
+	t.Parallel()
+	call := ast.FunctionCallNode{Function: ast.Ident{ID: "f"}}
+	fn := ast.FunctionNode{Body: []ast.Node{call}}
+	var fnHits int
+	WalkNode(fn, StmtVisitor{
+		OnFunction: func(ast.FunctionNode) bool { fnHits++; return true },
+		OnCall:     func(ast.FunctionCallNode) bool { return true },
+	})
+	if fnHits != 1 {
+		t.Fatalf("fnHits = %d", fnHits)
+	}
+}
+
+func TestWalkNode_ifWithInit(t *testing.T) {
+	t.Parallel()
+	call := ast.FunctionCallNode{Function: ast.Ident{ID: "f"}}
+	ifNode := ast.IfNode{
+		Init: ast.AssignmentNode{
+			IsShort: true,
+			LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "x"}}},
+			RValues: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
+		},
+		Condition: ast.BoolLiteralNode{Value: true},
+		Body:      []ast.Node{call},
+	}
+	var ifHits int
+	WalkNode(ifNode, StmtVisitor{
+		OnIf:   func(ast.IfNode) bool { ifHits++; return true },
+		OnCall: func(ast.FunctionCallNode) bool { return true },
+	})
+	if ifHits != 1 {
+		t.Fatalf("ifHits = %d", ifHits)
+	}
+}
+

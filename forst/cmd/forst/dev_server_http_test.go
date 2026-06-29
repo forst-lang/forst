@@ -112,6 +112,20 @@ func TestHandleFunctions_discoveryFailure_returns500(t *testing.T) {
 	}
 }
 
+func TestHandleInvoke_readBodyError(t *testing.T) {
+	s := testDevServer(t)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/invoke", io.NopCloser(failReader{}))
+	s.handleInvoke(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d body %s", rr.Code, rr.Body.String())
+	}
+}
+
+type failReader struct{}
+
+func (failReader) Read([]byte) (int, error) { return 0, fmt.Errorf("read failed") }
+
 func TestHandleInvoke_wrongMethod(t *testing.T) {
 	s := testDevServer(t)
 	rr := httptest.NewRecorder()

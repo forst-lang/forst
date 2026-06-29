@@ -120,8 +120,3 @@ func TestIsTypeCompatible_simpleTypeAliasToString(t *testing.T) {
 		t.Fatal("expected Greeting alias compatible with String")
 	}
 }
-
-//go:fix inline
-func ptrTypeIdent(id ast.TypeIdent) *ast.TypeIdent {
-	return new(id)
-}

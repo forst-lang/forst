@@ -111,7 +111,8 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 	if !p.context.IsMainFunction() && p.current().Type == ast.TokenOr {
 		p.expect(ast.TokenOr) // Expect `or`
 
-		errorType := p.expect(ast.TokenIdentifier).Value
+		errorTok := p.expect(ast.TokenIdentifier)
+		errorType := errorTok.Value
 		var err ast.EnsureErrorNode
 		if p.current().Type == ast.TokenLParen {
 			p.advance() // Consume left paren

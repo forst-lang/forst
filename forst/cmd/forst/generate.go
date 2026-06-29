@@ -260,7 +260,7 @@ export class ForstClient {
 
 	// Initialize package properties
 	for _, export := range exports {
-		clientClass.WriteString(fmt.Sprintf("    this.%s = %s(this.client);\n", export, export))
+		fmt.Fprintf(&clientClass, "    this.%s = %s(this.client);\n", export, export)
 	}
 
 	clientClass.WriteString("  }\n}\n")

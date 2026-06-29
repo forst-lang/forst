@@ -89,8 +89,3 @@ func TestNarrowingPredicateDisplayFromIsRHS_typeDefAssertionExprValue(t *testing
 		t.Fatal("expected display from TypeDefAssertionExpr value")
 	}
 }
-
-//go:fix inline
-func ptrVal(v ast.ValueNode) *ast.ValueNode {
-	return new(v)
-}

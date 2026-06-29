@@ -94,7 +94,7 @@ func main() {
 	}
 }
 
-func analyzeNodesForTest(t *testing.T, nodes []ast.Node, toks []ast.Token, src string) (*forstDocumentContext, bool) {
+func analyzeNodesForTest(t *testing.T, _ []ast.Node, _ []ast.Token, src string) (*forstDocumentContext, bool) {
 	t.Helper()
 	s := NewLSPServer("8080", logrus.New())
 	dir := t.TempDir()

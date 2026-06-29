@@ -113,9 +113,49 @@ func TestInferAssertion_unknownBaseTypeErrors(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := New(log, false)
 	assertion := &ast.AssertionNode{
-		BaseType: ptrTypeIdent(ast.TypeIdent("NoSuchType")),
+		BaseType: new(ast.TypeIdent("NoSuchType")),
 	}
 	if _, err := tc.InferAssertionType(assertion, false, "x", nil); err == nil {
 		t.Fatal("expected unknown base type error")
+	}
+}
+
+func TestInferAssertion_maxConstraintOnInt(t *testing.T) {
+	t.Parallel()
+	tc := New(setupTestLogger(nil), false)
+	base := ast.TypeInt
+	assertion := &ast.AssertionNode{
+		BaseType: &base,
+		Constraints: []ast.ConstraintNode{{
+			Name: "Max",
+			Args: []ast.ConstraintArgumentNode{{
+				Value: func() *ast.ValueNode {
+					v := ast.ValueNode(ast.IntLiteralNode{Value: 100})
+					return &v
+				}(),
+			}},
+		}},
+	}
+	types, err := tc.InferAssertionType(assertion, false, "n", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(types) != 1 {
+		t.Fatalf("got %#v", types)
+	}
+	if _, ok := tc.Defs[types[0].Ident]; !ok {
+		t.Fatalf("expected hash type def for Max constraint, got %q", types[0].Ident)
+	}
+}
+
+func TestIsBuiltinAssertionConstraintName(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"Min", "Max", "Nil", "Present", ast.ValueConstraint} {
+		if !isBuiltinAssertionConstraintName(name) {
+			t.Fatalf("%q should be builtin", name)
+		}
+	}
+	if isBuiltinAssertionConstraintName("CustomGuard") {
+		t.Fatal("custom guard should not be builtin")
 	}
 }

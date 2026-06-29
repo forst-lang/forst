@@ -352,12 +352,12 @@ func main() {
 
 import "errors"
 
-func bad(msg String): Error {
+func Bad(msg String): Error {
 	return errors.New(msg)
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or bad("x")
+	ensure row is GreaterThan(-1) or Bad("x")
 	return "ok"
 }
 

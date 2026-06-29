@@ -10,6 +10,8 @@ import (
 	"sort"
 )
 
+var formatGoNode = format.Node
+
 // GenerateGoCode generates Go code from a Go AST with consistent ordering
 func GenerateGoCode(goFile *goast.File) (string, error) {
 	var buf bytes.Buffer
@@ -20,7 +22,7 @@ func GenerateGoCode(goFile *goast.File) (string, error) {
 	sortDeclarations(goFile)
 	sortStructFields(goFile)
 
-	if err := format.Node(&buf, fset, goFile); err != nil {
+	if err := formatGoNode(&buf, fset, goFile); err != nil {
 		return "", fmt.Errorf("failed to format Go code: %w", err)
 	}
 	return buf.String(), nil

@@ -2,10 +2,8 @@
 name: generate-commit-message
 description: >-
   Produces a conventional semantic commit message from staged changes by reading
-  git diff --cached. When the change is a feature or bugfix, adds a minimal
-  illustrative snippet (e.g. Forst, Go, or config) that demonstrates the change.
-  Use when the user asks for a commit message, semantic commit, or summary of
-  staged files, or invokes /generate-commit-message.
+  git diff --cached. Use when the user asks for a commit message, semantic commit,
+  or summary of staged files, or invokes /generate-commit-message.
 ---
 
 ## Introduction
@@ -19,7 +17,7 @@ Use this skill to generate a **commit message from staged changes**. The agent m
 
 The header grammar is always `type` → optional `(scope)` → optional `!` → `: ` → description. Invalid examples: `feat!(scope):` (bang before scope) or `feat:(scope)!` (colon before scope). Valid with scope: `feat(scope)!: summary`.
 
-For any feature or bugfix in the commit, provide a **minimal illustrative example** (using Forst or another relevant language) when it helps clarify the change.
+**Do not include code examples** in commit messages — no fenced blocks, no inline snippets, no "Example:" sections. Describe behavior in prose only.
 
 ## Workflow
 
@@ -41,31 +39,18 @@ For any feature or bugfix in the commit, provide a **minimal illustrative exampl
 
 3. **Body** (when useful): Describe motivation, behavior, and rationale. Do not simply repeat the title. If the commit uses `!` in the header but no `BREAKING CHANGE:` footer, the **title line’s description** should still make the break clear (per the spec). Prefer a `BREAKING CHANGE:` footer when you need migration steps or multi-sentence detail.
 
-4. **Minimal code example (when applicable):**
-   - For each `feat` or `fix` entry, append an Example section with a short snippet that illustrates the relevant behavior.
-   - Use the project's main language (e.g., Forst `.ft`) or another relevant format (Go, TypeScript, JSON, etc.).
-   - Keep the example very short (approx. 3–12 lines); illustrate a single function, type, or config.
-   - Examples must use triple backticks in the output, and those backticks must be **escaped as \`\`\`** (no additional slashes, just one backslash per backtick), so that the message remains inside the outer code block.
-     - For example:
-         \`\`\`forst
-         func MyExample(): String {
-           return "preview"
-         }
-         \`\`\`
-   - Omit the example for non-feature/fix changes unless the user explicitly requests to include one.
-
-5. **Never** fabricate or assume diff content, or claim changes to files without reading `git diff --cached`.
+4. **Never** fabricate or assume diff content, or claim changes to files without reading `git diff --cached`.
 
 ## Output Format
 
-**Present the entire commit message in a single code block.**  
-- For multiple `feat` or `fix` areas within a single commit, each should receive its own semantic title and body (and example if appropriate) within the same code block, separated by a blank line.
+**Present the entire commit message in a single code block.**
+- For multiple `feat` or `fix` areas within a single commit, each should receive its own semantic title and body within the same code block, separated by a blank line.
 - For breaking changes: use `type!:` or `type(scope)!:` and/or a `BREAKING CHANGE:` footer as specified above (not a lowercase `breaking change:` footer token).
-- Example blocks must use escaped backticks (`\`\`\``) *without* extra slashes—just a single backslash per backtick—to avoid breaking the outer code block.
+- **No code examples** — title, body, and optional footer only.
 
 ## Common Mistakes to Avoid
 
 - Vague titles like `Update code`, `Fix stuff`, `WIP`
 - Repeating the title in the body with no extra info
-- Including full files or overly long examples—keep it concise and directly illustrative
+- **Including code examples, fenced blocks, or "Example:" sections** — use prose only
 - **Wrong breaking-change syntax:** `feat!(scope):` or `feat:(scope)!` — the `!` must appear only immediately before `:` (`feat(scope)!:`). **Wrong footer:** `Breaking change:` — the footer token must be **`BREAKING CHANGE:`** (uppercase) or **`BREAKING-CHANGE:`**

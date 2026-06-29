@@ -8,11 +8,6 @@ import (
 	"forst/internal/ast"
 )
 
-//go:fix inline
-func valueNode(v ast.ValueNode) *ast.ValueNode {
-	return new(v)
-}
-
 func TestTransformBuiltinConstraint_stringContains_emitsNegatedStringsContains(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)
@@ -152,6 +147,112 @@ func TestTransformBuiltinConstraint_numericComparators(t *testing.T) {
 				t.Fatalf("unexpected operator: got %s want %s", bin.Op, testCase.expectedOp)
 			}
 		})
+	}
+}
+
+func TestTransformBuiltinConstraint_stringMinMaxAndBool(t *testing.T) {
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	at := NewAssertionTransformer(tr)
+
+	minExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeString,
+		ast.VariableNode{Ident: ast.Ident{ID: "name"}},
+		ast.ConstraintNode{
+			Name: string(MinConstraint),
+			Args: []ast.ConstraintArgumentNode{
+				{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 3}))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("string Min: %v", err)
+	}
+	if bin, ok := minExpr.(*goast.BinaryExpr); !ok || bin.Op != token.LSS {
+		t.Fatalf("string Min: got %#v", minExpr)
+	}
+
+	maxExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeString,
+		ast.VariableNode{Ident: ast.Ident{ID: "name"}},
+		ast.ConstraintNode{
+			Name: string(MaxConstraint),
+			Args: []ast.ConstraintArgumentNode{
+				{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 10}))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("string Max: %v", err)
+	}
+	if bin, ok := maxExpr.(*goast.BinaryExpr); !ok || bin.Op != token.GTR {
+		t.Fatalf("string Max: got %#v", maxExpr)
+	}
+
+	trueExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeBool,
+		ast.VariableNode{Ident: ast.Ident{ID: "ok"}},
+		ast.ConstraintNode{Name: string(TrueConstraint)},
+	)
+	if err != nil {
+		t.Fatalf("bool True: %v", err)
+	}
+	if _, ok := trueExpr.(*goast.UnaryExpr); !ok {
+		t.Fatalf("bool True: expected negation, got %T", trueExpr)
+	}
+
+	falseExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeBool,
+		ast.VariableNode{Ident: ast.Ident{ID: "ok"}},
+		ast.ConstraintNode{Name: string(FalseConstraint)},
+	)
+	if err != nil {
+		t.Fatalf("bool False: %v", err)
+	}
+	if _, ok := falseExpr.(*goast.UnaryExpr); ok {
+		t.Fatalf("bool False: expected direct variable expr, got negation")
+	}
+}
+
+func TestTransformBuiltinConstraint_arrayMinMax(t *testing.T) {
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+	at := NewAssertionTransformer(tr)
+
+	minExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeArray,
+		ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		ast.ConstraintNode{
+			Name: string(MinConstraint),
+			Args: []ast.ConstraintArgumentNode{
+				{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 2}))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bin, ok := minExpr.(*goast.BinaryExpr); !ok || bin.Op != token.LSS {
+		t.Fatalf("array Min: got %#v", minExpr)
+	}
+
+	maxExpr, err := at.TransformBuiltinConstraint(
+		ast.TypeArray,
+		ast.VariableNode{Ident: ast.Ident{ID: "xs"}},
+		ast.ConstraintNode{
+			Name: string(MaxConstraint),
+			Args: []ast.ConstraintArgumentNode{
+				{Value: new(ast.ValueNode(ast.IntLiteralNode{Value: 5}))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bin, ok := maxExpr.(*goast.BinaryExpr); !ok || bin.Op != token.GTR {
+		t.Fatalf("array Max: got %#v", maxExpr)
 	}
 }
 

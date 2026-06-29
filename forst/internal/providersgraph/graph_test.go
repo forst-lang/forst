@@ -79,6 +79,80 @@ func TestGraphInvalidate_transitiveCallers(t *testing.T) {
 	}
 }
 
+func TestGraph_SetDirectAndSlots(t *testing.T) {
+	g := New()
+	g.SetDirect("fn", map[string]Slot{
+		"Logger": {RootIdent: "Logger", Key: "Logger"},
+	})
+	if len(g.direct["fn"]) != 1 {
+		t.Fatalf("direct slots: %v", g.direct["fn"])
+	}
+	g.SetDirect("empty", nil)
+	if _, ok := g.direct["empty"]; ok {
+		t.Fatal("empty direct map should not be stored")
+	}
+	g.ComputeIntraFixedPoint(ProviderScopeKeyPresent)
+	if len(g.Slots("fn")) != 1 {
+		t.Fatalf("Slots(fn) = %v", g.Slots("fn"))
+	}
+	all := g.AllSlots()
+	if len(all["fn"]) != 1 {
+		t.Fatalf("AllSlots = %v", all)
+	}
+}
+
+func TestGraph_AddModuleCallAndIntraCall(t *testing.T) {
+	g := New()
+	g.AddIntraCall("caller", "callee", ProviderScopeSnapshot{"K": {Ident: "K"}})
+	if len(g.intraEdges) != 1 {
+		t.Fatalf("intra edges: %v", g.intraEdges)
+	}
+	g.AddModuleCall(ModuleCallEdge{
+		CallerPkg: "beta",
+		CallerFn:  "Handle",
+		TargetPkg: "alpha",
+		TargetFn:  "ExpireToken",
+	})
+	if len(g.moduleEdges) != 1 {
+		t.Fatalf("module edges: %v", g.moduleEdges)
+	}
+}
+
+func TestModuleGraph_AllPackages(t *testing.T) {
+	perPkg := map[string]map[ast.Identifier][]Slot{
+		"alpha": {"F": {{RootIdent: "Logger", Key: "Logger"}}},
+	}
+	mg := NewModuleGraph(perPkg)
+	all := mg.AllPackages()
+	if len(all["alpha"]["F"]) != 1 {
+		t.Fatalf("AllPackages = %v", all)
+	}
+	all["alpha"]["F"][0].RootIdent = "mutated"
+	if mg.PerPackage("alpha")["F"][0].RootIdent != "Logger" {
+		t.Fatal("AllPackages should return a deep copy")
+	}
+}
+
+func TestModuleGraph_emptyPackageClone(t *testing.T) {
+	mg := NewModuleGraph(map[string]map[ast.Identifier][]Slot{
+		"empty": {},
+	})
+	all := mg.AllPackages()
+	if len(all["empty"]) != 0 {
+		t.Fatalf("expected empty fn map, got %v", all["empty"])
+	}
+}
+
+func TestGraph_Invalidate_skipsDuplicateCallers(t *testing.T) {
+	g := New()
+	g.AddIntraCall("a", "b", nil)
+	g.AddIntraCall("a", "b", nil)
+	invalid := g.Invalidate("b")
+	if len(invalid) != 2 {
+		t.Fatalf("got %v", invalid)
+	}
+}
+
 func TestModuleGraph_fixedPoint(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
 		"alpha": {"ExpireToken": {{RootIdent: "Logger", Key: "Logger"}}},

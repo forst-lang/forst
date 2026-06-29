@@ -44,6 +44,6 @@ type stubFatal struct {
 
 func (s *stubFatal) Helper() {}
 
-func (s *stubFatal) Fatal(args ...interface{}) {
+func (s *stubFatal) Fatal(_ ...interface{}) {
 	s.failed = true
 }

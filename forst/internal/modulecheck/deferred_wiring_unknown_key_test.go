@@ -16,13 +16,16 @@ func TestCheckModuleProviders_unknownWiringKeyRejectedAfterMerge(t *testing.T) {
 import "testing"
 
 type Logger = { info(msg String) }
+type NopLogger = {}
+
+func (NopLogger) info(msg String) {}
 
 func expireToken() {
 	use logger: Logger
 }
 
 func TestX(t *testing.T) {
-	with { BadKey: 1 } {
+	with { BadKey: &NopLogger {} } {
 		expireToken()
 	}
 }

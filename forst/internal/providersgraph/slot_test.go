@@ -53,6 +53,37 @@ func TestRootIdentsFromSlots_emptyReturnsNil(t *testing.T) {
 	}
 }
 
+func TestRootIdentsFromSlots_returnsOrderedIdents(t *testing.T) {
+	t.Parallel()
+	got := RootIdentsFromSlots([]Slot{
+		{RootIdent: "Logger"},
+		{RootIdent: "Clock"},
+	})
+	if len(got) != 2 || got[0] != "Logger" || got[1] != "Clock" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+func TestOrderSlots_singleElementPassthrough(t *testing.T) {
+	t.Parallel()
+	in := []Slot{{Key: "Only", RootIdent: "Only"}}
+	got := OrderSlots(in)
+	if len(got) != 1 || got[0].Key != "Only" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+func TestSlotsFromDirectMap_ordersKeys(t *testing.T) {
+	t.Parallel()
+	got := SlotsFromDirectMap(map[string]Slot{
+		"B": {Key: "B", RootIdent: "B"},
+		"A": {Key: "A", RootIdent: "A"},
+	})
+	if len(got) != 2 || got[0].Key != "A" || got[1].Key != "B" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
 func TestProviderScopeKeyPresent(t *testing.T) {
 	t.Parallel()
 	slot := Slot{RootIdent: "Logger"}

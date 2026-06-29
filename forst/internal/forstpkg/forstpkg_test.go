@@ -105,7 +105,7 @@ func F(): Int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
+	t.Cleanup(func() { _ = root.Close() })
 
 	log := logrus.New()
 	log.SetOutput(nil)
@@ -173,5 +173,78 @@ func TestParseAndMergePackage_emptyPaths(t *testing.T) {
 	}
 	if len(merged) != 0 || len(byPath) != 0 {
 		t.Fatalf("expected empty, got merged=%d byPath=%d", len(merged), len(byPath))
+	}
+}
+
+func TestParseForstFile_missingFile(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(nil)
+	_, err := ParseForstFile(log, filepath.Join(t.TempDir(), "missing.ft"))
+	if err == nil {
+		t.Fatal("expected read error for missing file")
+	}
+}
+
+func TestParseAndMergePackage_parseError(t *testing.T) {
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(bad, []byte("not valid forst {{{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(nil)
+	_, _, err := ParseAndMergePackage(log, []string{bad})
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestParseForstFileFromRoot_missingFile(t *testing.T) {
+	t.Parallel()
+	root, err := safefs.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	log := logrus.New()
+	log.SetOutput(nil)
+	_, err = ParseForstFileFromRoot(log, root, "missing.ft", "/display/missing.ft")
+	if err == nil {
+		t.Fatal("expected read error")
+	}
+}
+
+func TestParseForstFileFromRoot_parsePanicRecovery(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	absPath := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(absPath, []byte("package main\nfunc main() {"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root, err := safefs.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	log := logrus.New()
+	log.SetOutput(nil)
+	_, err = ParseForstFileFromRoot(log, root, "bad.ft", absPath)
+	if err == nil {
+		t.Fatal("expected parse error from panic recovery")
+	}
+}
+
+func TestParseForstFile_parsePanicRecovery(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.ft")
+	if err := os.WriteFile(path, []byte("package main\nfunc main() {"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(nil)
+	_, err := ParseForstFile(log, path)
+	if err == nil {
+		t.Fatal("expected parse error")
 	}
 }

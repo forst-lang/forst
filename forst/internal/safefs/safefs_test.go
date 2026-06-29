@@ -18,7 +18,7 @@ func TestOpenRoot_readInside(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	if got := r.AbsRoot(); got != filepath.Clean(dir) {
 		t.Fatalf("AbsRoot=%q want %q", got, filepath.Clean(dir))
@@ -58,11 +58,85 @@ func TestOpenRoot_escapeDotDot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	_, err = r.ReadFile("../outside")
 	if err == nil {
 		t.Fatal("expected error reading outside root via ..")
+	}
+}
+
+func TestOpenRoot_missingDirectory(t *testing.T) {
+	_, err := OpenRoot(filepath.Join(t.TempDir(), "missing-subdir"))
+	if err == nil {
+		t.Fatal("expected error for missing directory")
+	}
+}
+
+func TestRelPath_dotDotSegmentRejected(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = r.Close() })
+	parent := filepath.Dir(dir)
+	_, err = r.RelPath(parent)
+	if err == nil {
+		t.Fatal("expected outside-root error")
+	}
+}
+
+func TestOpenRoot_invalidPath(t *testing.T) {
+	orig := safefsPathAbs
+	safefsPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathAbs = orig })
+	_, err := OpenRoot("any")
+	if err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestOpenRoot_openRootError(t *testing.T) {
+	dir := t.TempDir()
+	orig := safefsOpenRoot
+	safefsOpenRoot = func(string) (*os.Root, error) { return nil, os.ErrInvalid }
+	t.Cleanup(func() { safefsOpenRoot = orig })
+	_, err := OpenRoot(dir)
+	if err == nil {
+		t.Fatal("expected OpenRoot error")
+	}
+}
+
+func TestRelPath_invalidAbsPath(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = r.Close() })
+	orig := safefsPathAbs
+	safefsPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathAbs = orig })
+	_, err = r.RelPath("any")
+	if err == nil {
+		t.Fatal("expected abs error")
+	}
+}
+
+func TestRelPath_relError(t *testing.T) {
+	dir := t.TempDir()
+	r, err := OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = r.Close() })
+	orig := safefsPathRel
+	safefsPathRel = func(string, string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { safefsPathRel = orig })
+	_, err = r.RelPath(filepath.Join(dir, "inside.ft"))
+	if err == nil {
+		t.Fatal("expected rel error")
 	}
 }
 
@@ -72,7 +146,7 @@ func TestRelPath_insideAndOutside(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	inside := filepath.Join(dir, "sub", "file.ft")
 	if err := os.MkdirAll(filepath.Dir(inside), 0o755); err != nil {
@@ -113,7 +187,7 @@ func TestWalkDir_collectsFt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	var ftPaths []string
 	err = fs.WalkDir(r.FS(), ".", func(path string, d fs.DirEntry, err error) error {
@@ -159,7 +233,7 @@ func TestSymlinkEscape_unix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	_, err = r.ReadFile("link")
 	if err == nil {

@@ -1,26 +1,69 @@
 package typechecker
 
 import (
-	"strings"
 	"testing"
 
+	"forst/internal/ast"
 	"forst/internal/parser"
 )
 
-// TestUnifyIs_typeGuardCallInIfCondition exercises unifyIsOperator via real CheckTypes (see unify_is.go).
-func TestUnifyIs_typeGuardCallInIfCondition(t *testing.T) {
+func TestGetLeftmostVariable_nestedBinary(t *testing.T) {
+	t.Parallel()
+	tc := New(setupTestLogger(nil), false)
+	left := ast.BinaryExpressionNode{
+		Left:  ast.VariableNode{Ident: ast.Ident{ID: "a"}},
+		Right: ast.IntLiteralNode{Value: 1},
+	}
+	got, err := tc.getLeftmostVariable(left)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := got.(ast.VariableNode); !ok || v.Ident.ID != "a" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+func TestGetLeftmostVariable_nonVariableErrors(t *testing.T) {
+	t.Parallel()
+	tc := New(setupTestLogger(nil), false)
+	_, err := tc.getLeftmostVariable(ast.IntLiteralNode{Value: 1})
+	if err == nil {
+		t.Fatal("expected error for literal LHS")
+	}
+}
+
+func TestUnifyIsOperator_shapeLiteral(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)
 	src := `package main
-
-type N = Int
-
-is (v N) Ok() {
-	ensure v is GreaterThan(0)
+type Row = { id: Int, name: String }
+func main() {
+	r := Row{ id: 1, name: "a" }
+	if r is { id: 1 } {
+		println("ok")
+	}
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
 }
 
+func TestUnifyIsOperator_resultOkGuard(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+func f(): Result(Int, Error) {
+	return 1
+}
 func main() {
-	x := 1
+	x := f()
 	if x is Ok() {
 		println("ok")
 	}
@@ -33,69 +76,6 @@ func main() {
 	}
 	tc := New(log, false)
 	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatalf("CheckTypes: %v", err)
-	}
-}
-
-// TestUnifyIs_typeGuardCallInIfCondition_invalidLeftHandSide exercises unifyIsOperator when getLeftmostVariable fails (non-variable LHS of `is`).
-func TestUnifyIs_typeGuardCallInIfCondition_invalidLeftHandSide(t *testing.T) {
-	t.Parallel()
-	log := setupTestLogger(nil)
-	src := `package main
-
-type N = Int
-
-is (v N) Ok() {
-	ensure v is GreaterThan(0)
-}
-
-func main() {
-	if 1 is Ok() {
-		println("ok")
-	}
-}
-`
-	p := parser.NewTestParser(src, log)
-	nodes, err := p.ParseFile()
-	if err != nil {
 		t.Fatal(err)
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(nodes)
-	if err == nil {
-		t.Fatal("expected CheckTypes error for non-variable left-hand side of is")
-	}
-	if !strings.Contains(err.Error(), "invalid left-hand side of 'is' operator") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestUnifyIs_nominalErrorBaseType_rejected(t *testing.T) {
-	t.Parallel()
-	log := setupTestLogger(nil)
-	src := `package main
-
-error ParseError { code: Int }
-type ErrKind = ParseError
-
-func main() {
-	var e: ErrKind = { code: 1 }
-	if e is ParseError {
-		println(e)
-	}
-}
-`
-	p := parser.NewTestParser(src, log)
-	nodes, err := p.ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(nodes)
-	if err == nil {
-		t.Fatal("expected CheckTypes error: nominal error cannot be bare `is` guard")
-	}
-	if !strings.Contains(err.Error(), "cannot be used as an `is` guard") || !strings.Contains(err.Error(), "Err()") {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }

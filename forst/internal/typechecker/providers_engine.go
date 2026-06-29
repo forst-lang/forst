@@ -32,7 +32,15 @@ func (tc *TypeChecker) providersEngine() *ProvidersEngine {
 }
 
 func (tc *TypeChecker) initProvidersInference() {
+	var deferCheck bool
+	var forstPkg string
+	if tc.providers != nil {
+		deferCheck = tc.providers.DeferWiringRootCheck
+		forstPkg = tc.providers.ForstPackage
+	}
 	tc.providers = newProvidersEngine()
+	tc.providers.DeferWiringRootCheck = deferCheck
+	tc.providers.ForstPackage = forstPkg
 	tc.Warnings = nil
 }
 

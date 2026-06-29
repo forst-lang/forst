@@ -58,3 +58,38 @@ func TestShapeFieldsFromParamType_inlineShape(t *testing.T) {
 		t.Fatalf("ShapeFieldsFromParamType: ok=%v fields=%d", ok, len(fields))
 	}
 }
+
+func TestShapeFieldsFromParamType_typedefShape(t *testing.T) {
+	t.Parallel()
+	tc := New(nil, false)
+	tc.registerType(ast.TypeDefNode{
+		Ident: "Point",
+		Expr: ast.TypeDefShapeExpr{
+			Shape: ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+					"y": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			},
+		},
+	})
+	fields, ok := tc.ShapeFieldsFromParamType(ast.TypeNode{Ident: "Point"})
+	if !ok || len(fields) != 2 {
+		t.Fatalf("typedef shape fields: ok=%v len=%d", ok, len(fields))
+	}
+}
+
+func TestShapeFieldTypeNode_nestedShape(t *testing.T) {
+	t.Parallel()
+	field := ast.ShapeFieldNode{
+		Shape: &ast.ShapeNode{
+			Fields: map[string]ast.ShapeFieldNode{
+				"z": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+			},
+		},
+	}
+	ty, ok := ShapeFieldTypeNode(field)
+	if !ok || ty.Ident != ast.TypeShape || ty.Assertion == nil {
+		t.Fatalf("nested shape field type: %#v ok=%v", ty, ok)
+	}
+}

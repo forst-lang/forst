@@ -545,6 +545,142 @@ func main() {
 	println(string(n))
 }`,
 		},
+		{
+			"nominal_error_constructor",
+			`package main
+error E { msg: String }
+func main() {
+	e := E({ msg: "x" })
+	println(e.msg)
+}`,
+		},
+		{
+			"pointer_deref",
+			`package main
+func main() {
+	n := 1
+	p := &n
+	println(string(*p))
+}`,
+		},
+		{
+			"star_div_mod_compound",
+			`package main
+func main() {
+	n := 10
+	n *= 2
+	n /= 4
+	n %= 3
+	println(string(n))
+}`,
+		},
+		{
+			"defer_and_go",
+			`package main
+func work() {}
+func main() {
+	defer work()
+	go work()
+}
+`,
+		},
+		{
+			"receiver_method_call",
+			`package main
+type Counter = { n: Int }
+func (Counter) inc(): Counter { return { n: 1 } }
+func main() {
+	c := Counter{ n: 0 }
+	c = c.inc()
+	println(string(c.n))
+}
+`,
+		},
+		{
+			"type_alias_chain",
+			`package main
+type RawId = String
+type UserId = RawId
+func main() {
+	id: UserId = "u1"
+	println(id)
+}
+`,
+		},
+		{
+			"for_range_index_value",
+			`package main
+func main() {
+	xs := [1, 2]
+	for i, v := range xs {
+		println(string(i) + string(v))
+	}
+}
+`,
+		},
+		{
+			"postfix_inc_dec",
+			`package main
+func main() {
+	i := 0
+	i++
+	i--
+	println(string(i))
+}
+`,
+		},
+		{
+			"compound_assign_for_post",
+			`package main
+func main() {
+	for i := 0; i < 3; i += 1 {
+		println(string(i))
+	}
+}
+`,
+		},
+		{
+			"labeled_break",
+			`package main
+func main() {
+outer: for i := 0; i < 3; i = i + 1 {
+		for j := 0; j < 3; j = j + 1 {
+			if j == 1 {
+				break outer
+			}
+		}
+	}
+}
+`,
+		},
+		{
+			"compound_assign_statements",
+			`package main
+func main() {
+	n := 1
+	n += 2
+	n -= 1
+	n *= 2
+	println(string(n))
+}
+`,
+		},
+		{
+			"result_err_narrowing",
+			`package main
+error ParseError { code: Int }
+error IoError { path: String }
+type ErrKind = ParseError | IoError
+func onlyParse(p ParseError) {}
+func mk(): Result(Int, ErrKind) { return 0 }
+func main() {
+	x := mk()
+	if x is Err(ParseError) {
+		onlyParse(x)
+	}
+}
+`,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

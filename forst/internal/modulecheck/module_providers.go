@@ -108,10 +108,8 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 	}
 
 	typechecker.MergeModuleKnownRoots(result.PerPackage)
-	for _, tc := range result.PerPackage {
-		if err := tc.RevalidateDeferredWiringKeysAfterModuleMerge(); err != nil {
-			return nil, err
-		}
+	if err := revalidateDeferredWiringKeys(result.PerPackage); err != nil {
+		return nil, err
 	}
 
 	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)

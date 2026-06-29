@@ -180,8 +180,26 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		}
 	}
 
-	// For void functions or functions with no return values, use panic
+	// For void functions or functions with no return values, use panic (or invoke custom fallback).
 	if len(returnTypes) == 0 || (len(returnTypes) == 1 && returnTypes[0].Ident == ast.TypeVoid) {
+		if stmt.Error != nil {
+			errExpr, err := t.transformEnsureErrorFallback(*stmt.Error)
+			if err != nil {
+				return &goast.ExprStmt{
+					X: &goast.CallExpr{
+						Fun: goast.NewIdent("panic"),
+						Args: []goast.Expr{
+							&goast.BasicLit{Kind: token.STRING, Value: "\"assertion failed\""},
+						},
+					},
+				}
+			}
+			return &goast.AssignStmt{
+				Tok: token.ASSIGN,
+				Lhs: []goast.Expr{goast.NewIdent("_")},
+				Rhs: []goast.Expr{errExpr},
+			}
+		}
 		return &goast.ExprStmt{
 			X: &goast.CallExpr{
 				Fun: goast.NewIdent("panic"),
@@ -203,19 +221,9 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		if err != nil {
 			zeroSucc = t.buildZeroCompositeLiteral(&succT)
 		}
-		t.Output.EnsureImport("errors")
-		assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
-		errExpr := &goast.CallExpr{
-			Fun: &goast.SelectorExpr{
-				X:   goast.NewIdent("errors"),
-				Sel: goast.NewIdent("New"),
-			},
-			Args: []goast.Expr{
-				&goast.BasicLit{
-					Kind:  token.STRING,
-					Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
-				},
-			},
+		errExpr, err := t.ensureFailureErrorExpr(stmt)
+		if err != nil {
+			errExpr = t.defaultAssertionErrorExpr(&stmt.Assertion)
 		}
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{zeroSucc, errExpr},
@@ -237,24 +245,11 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 
 		var result goast.Expr
 		if returnType.IsError() {
-			// For error types, return an error with the assertion message
-			assertionMsg := t.getAssertionStringForError(&stmt.Assertion)
-
-			// Ensure the errors package is imported
-			t.Output.EnsureImport("errors")
-
-			result = &goast.CallExpr{
-				Fun: &goast.SelectorExpr{
-					X:   goast.NewIdent("errors"),
-					Sel: goast.NewIdent("New"),
-				},
-				Args: []goast.Expr{
-					&goast.BasicLit{
-						Kind:  token.STRING,
-						Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
-					},
-				},
+			errExpr, err := t.ensureFailureErrorExpr(stmt)
+			if err != nil {
+				errExpr = t.defaultAssertionErrorExpr(&stmt.Assertion)
 			}
+			result = errExpr
 		} else {
 			// For non-error types, always use the function's declared return type (including hash-based types)
 			// Never structurally alias to a user-defined type for error returns

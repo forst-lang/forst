@@ -19,6 +19,9 @@ type loadByPkgPathCacheEntry struct {
 
 var loadByPkgPathCache sync.Map
 
+// packagesLoadFn loads packages; overridden in tests.
+var packagesLoadFn = packages.Load
+
 // ClearLoadCacheForTest drops cached LoadByPkgPath results (for tests that mutate module dirs).
 func ClearLoadCacheForTest() {
 	loadByPkgPathCache = sync.Map{}
@@ -110,7 +113,7 @@ func loadByPkgPathUncached(dir string, importPaths []string) (map[string]*packag
 		Dir:  dir,
 		Env:  loadPackagesEnv(dir),
 	}
-	pkgs, err := packages.Load(cfg, importPaths...)
+	pkgs, err := packagesLoadFn(cfg, importPaths...)
 	if err != nil {
 		return nil, err
 	}
