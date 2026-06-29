@@ -15,14 +15,14 @@ func TestTransformEnsureErrorFallback_callAndVar(t *testing.T) {
 	tr := setupTransformer(tc, log)
 
 	call, err := tr.transformEnsureErrorFallback(ast.EnsureErrorCall{
-		ErrorType: "bad",
+		ErrorType: "Bad",
 		ErrorArgs: []ast.ExpressionNode{ast.StringLiteralNode{Value: "nope"}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	callS := goExprString(t, call)
-	if !strings.Contains(callS, `bad("nope")`) {
+	if !strings.Contains(callS, `Bad("nope")`) {
 		t.Fatalf("call: %s", callS)
 	}
 
@@ -41,7 +41,7 @@ func TestEnsureFailureErrorExpr_customOrGeneric(t *testing.T) {
 	tr := setupTransformer(setupTypeChecker(log), log)
 
 	var errNode ast.EnsureErrorNode = ast.EnsureErrorCall{
-		ErrorType: "bad",
+		ErrorType: "Bad",
 		ErrorArgs: []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}},
 	}
 	custom, err := tr.ensureFailureErrorExpr(ast.EnsureNode{
@@ -51,7 +51,7 @@ func TestEnsureFailureErrorExpr_customOrGeneric(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := goExprString(t, custom); !strings.Contains(s, `bad("x")`) {
+	if s := goExprString(t, custom); !strings.Contains(s, `Bad("x")`) {
 		t.Fatalf("custom: %s", s)
 	}
 

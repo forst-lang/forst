@@ -8,7 +8,7 @@ import (
 	"go/token"
 )
 
-// transformEnsureErrorFallback lowers `ensure … or bad("msg")` / `or errVar` to a Go expression.
+// transformEnsureErrorFallback lowers `ensure … or Bad("msg")` / `or errVar` to a Go expression.
 func (t *Transformer) transformEnsureErrorFallback(errorNode ast.EnsureErrorNode) (goast.Expr, error) {
 	switch e := errorNode.(type) {
 	case ast.EnsureErrorCall:

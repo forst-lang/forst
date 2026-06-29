@@ -11,12 +11,12 @@ func TestParseFile_ensureWithOrClause_negativeIntConstraint(t *testing.T) {
 
 import "errors"
 
-func invalidMove(msg String): Error {
+func InvalidMove(msg String): Error {
 	return errors.New(msg)
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or invalidMove("bad")
+	ensure row is GreaterThan(-1) or InvalidMove("bad")
 	return ""
 }
 `

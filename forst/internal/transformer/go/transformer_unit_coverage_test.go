@@ -91,12 +91,12 @@ func TestPipeline_ensureWithOrFallback(t *testing.T) {
 
 import "errors"
 
-func bad(msg String): Error {
+func Bad(msg String): Error {
 	return errors.New(msg)
 }
 
 func f(row Int): Result(String, Error) {
-	ensure row is GreaterThan(-1) or bad("too small")
+	ensure row is GreaterThan(-1) or Bad("too small")
 	return "ok"
 }
 
@@ -105,7 +105,7 @@ func main() {
 }
 `
 	out := compileForstPipelineExt(t, src, pipelineOpts{goWorkspaceDir: moduleRootFromWD(t)})
-	if !strings.Contains(out, `bad("too small")`) {
+	if !strings.Contains(out, `Bad("too small")`) {
 		t.Fatalf("expected ensure-or fallback emit:\n%s", out)
 	}
 	assertGoParses(t, out)
