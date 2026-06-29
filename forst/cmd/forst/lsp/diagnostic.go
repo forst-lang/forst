@@ -297,9 +297,9 @@ func (ld *LSPDebugger) convertSeverityToLSP(errorInfo *ErrorInfo) LSPDiagnosticS
 // ConvertDebugEventToHover converts a debug event to an LSP hover.
 func (ld *LSPDebugger) ConvertDebugEventToHover(event DebugEvent) LSPHover {
 	var content strings.Builder
-	content.WriteString(fmt.Sprintf("**%s**\n\n", event.EventType))
-	content.WriteString(fmt.Sprintf("**Phase:** %s\n", event.Phase))
-	content.WriteString(fmt.Sprintf("**Message:** %s\n", event.Message))
+	fmt.Fprintf(&content, "**%s**\n\n", event.EventType)
+	fmt.Fprintf(&content, "**Phase:** %s\n", event.Phase)
+	fmt.Fprintf(&content, "**Message:** %s\n", event.Message)
 
 	if event.Function != "" {
 		content.WriteString(fmt.Sprintf("**Function:** %s\n", event.Function))

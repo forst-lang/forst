@@ -8,11 +8,6 @@ import (
 	"forst/internal/ast"
 )
 
-//go:fix inline
-func valueNode(v ast.ValueNode) *ast.ValueNode {
-	return new(v)
-}
-
 func TestTransformBuiltinConstraint_stringContains_emitsNegatedStringsContains(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)

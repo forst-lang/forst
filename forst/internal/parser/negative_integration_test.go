@@ -44,24 +44,6 @@ func run(x Int): Result(Int, Error) {
 	}
 }
 
-func TestParseFile_ensureOr_errorHandlerMustBeUppercase(t *testing.T) {
-	t.Parallel()
-	src := `package main
-
-func f(x Int): Result(Int, Error) {
-	ensure x is GreaterThan(1) or bad("nope")
-	return x
-}
-`
-	err := parseShouldFail(src)
-	if err == nil {
-		t.Fatal("expected parse error for lowercase ensure-or handler")
-	}
-	if !strings.Contains(err.Error(), "uppercase") {
-		t.Fatalf("expected uppercase requirement in error, got: %v", err)
-	}
-}
-
 func TestParseFile_elseIfMissingBlock_reportsTokenLocation(t *testing.T) {
 	t.Parallel()
 	src := `package main

@@ -18,7 +18,7 @@ func TestOpenRoot_readInside(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	if got := r.AbsRoot(); got != filepath.Clean(dir) {
 		t.Fatalf("AbsRoot=%q want %q", got, filepath.Clean(dir))
@@ -58,7 +58,7 @@ func TestOpenRoot_escapeDotDot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	_, err = r.ReadFile("../outside")
 	if err == nil {
@@ -79,7 +79,7 @@ func TestRelPath_dotDotSegmentRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 	parent := filepath.Dir(dir)
 	_, err = r.RelPath(parent)
 	if err == nil {
@@ -114,7 +114,7 @@ func TestRelPath_invalidAbsPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 	orig := safefsPathAbs
 	safefsPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
 	t.Cleanup(func() { safefsPathAbs = orig })
@@ -130,7 +130,7 @@ func TestRelPath_relError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 	orig := safefsPathRel
 	safefsPathRel = func(string, string) (string, error) { return "", os.ErrInvalid }
 	t.Cleanup(func() { safefsPathRel = orig })
@@ -146,7 +146,7 @@ func TestRelPath_insideAndOutside(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	inside := filepath.Join(dir, "sub", "file.ft")
 	if err := os.MkdirAll(filepath.Dir(inside), 0o755); err != nil {
@@ -187,7 +187,7 @@ func TestWalkDir_collectsFt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	var ftPaths []string
 	err = fs.WalkDir(r.FS(), ".", func(path string, d fs.DirEntry, err error) error {
@@ -233,7 +233,7 @@ func TestSymlinkEscape_unix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	t.Cleanup(func() { _ = r.Close() })
 
 	_, err = r.ReadFile("link")
 	if err == nil {

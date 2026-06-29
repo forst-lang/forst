@@ -237,7 +237,7 @@ func TestRunMain_test_subcommand(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 	if code := runMain([]string{"forst", "test", "./auth"}); code != 0 {
 		t.Fatalf("want exit 0, got %d", code)
 	}

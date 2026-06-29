@@ -105,7 +105,7 @@ func TestPropagateIntraPackageFixedPoint_customSatisfiesSkips(t *testing.T) {
 		Callee:        "callee",
 		ProviderScope: ProviderScopeSnapshot{"Logger": {Ident: "Logger"}},
 	}}
-	satisfies := func(slot Slot, scope map[string]ast.TypeNode) bool { return true }
+	satisfies := func(_ Slot, _ map[string]ast.TypeNode) bool { return true }
 	PropagateIntraPackageFixedPoint(slots, direct, edges, satisfies)
 	if len(slots["caller"]) != 0 {
 		t.Fatalf("expected satisfied scope to skip propagation, got %v", slots["caller"])

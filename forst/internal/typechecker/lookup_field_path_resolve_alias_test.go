@@ -7,11 +7,6 @@ import (
 	"forst/internal/logger"
 )
 
-//go:fix inline
-func ptrTypeIdentForAliasTest(id ast.TypeIdent) *ast.TypeIdent {
-	return new(id)
-}
-
 func TestResolveTypeAliasChain_unknown_ident_unchanged(t *testing.T) {
 	tc := &TypeChecker{
 		log:  logger.New(),

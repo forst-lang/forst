@@ -65,7 +65,7 @@ func TestRunTestCommand_success(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	code := runTestCommand([]string{"./auth"}, testCmdLogger())
 	if code != testrunner.ExitSuccess.Int() {
@@ -95,7 +95,7 @@ func F(): Int { return 1 }
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	code := runTestCommand(nil, testCmdLogger())
 	if code != testrunner.ExitError.Int() {
@@ -112,7 +112,7 @@ func TestRunTestCommand_invalidModuleRoot(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	// Path outside any go.mod — goload.ModuleRootWithGoMod fails for explicit dir arg.
 	code := runTestCommand([]string{"./missing"}, testCmdLogger())
@@ -132,7 +132,7 @@ func TestRunTestCommand_resolvesModuleRootFromSubdir(t *testing.T) {
 	if err := os.Chdir(authDir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	code := runTestCommand([]string{"."}, testCmdLogger())
 	if code != testrunner.ExitSuccess.Int() {
@@ -150,7 +150,7 @@ func TestRunTestCommand_passesGoTestArgs(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	// -run=NonExistent skips the only test → go test exits 0 with no tests run.
 	code := runTestCommand([]string{"--", "-run=NoSuchTest"}, testCmdLogger())
@@ -189,7 +189,7 @@ func TestBroken(t *testing.T) {}
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	code := runTestCommand([]string{"./bad"}, testCmdLogger())
 	if code != testrunner.ExitFailure.Int() {
@@ -207,7 +207,7 @@ func TestRunTestCommand_relDotNormalizesPaths(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	var captured []string
 	orig := runTestCommandRunner
@@ -245,7 +245,7 @@ func TestRunTestCommand_pathAbsError(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	orig := runTestCommandPathAbs
 	runTestCommandPathAbs = func(string) (string, error) { return "", os.ErrInvalid }
@@ -266,7 +266,7 @@ func TestRunTestCommand_pathRelError(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	orig := runTestCommandPathRel
 	runTestCommandPathRel = func(string, string) (string, error) { return "", os.ErrInvalid }
@@ -290,7 +290,7 @@ func TestRunTestCommand_dirWithoutGoMod(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	if code := runTestCommand([]string{"plain"}, testCmdLogger()); code != 2 {
 		t.Fatalf("exit code = %d, want 2 for directory without go.mod", code)
@@ -329,7 +329,7 @@ func TestRunTestCommand_skipsEmptyPathEntry(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWd)
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 
 	code := runTestCommand([]string{"", "./auth"}, testCmdLogger())
 	if code != testrunner.ExitSuccess.Int() {

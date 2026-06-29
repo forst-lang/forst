@@ -105,7 +105,7 @@ func F(): Int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
+	t.Cleanup(func() { _ = root.Close() })
 
 	log := logrus.New()
 	log.SetOutput(nil)
@@ -205,7 +205,7 @@ func TestParseForstFileFromRoot_missingFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
+	t.Cleanup(func() { _ = root.Close() })
 	log := logrus.New()
 	log.SetOutput(nil)
 	_, err = ParseForstFileFromRoot(log, root, "missing.ft", "/display/missing.ft")
@@ -225,7 +225,7 @@ func TestParseForstFileFromRoot_parsePanicRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
+	t.Cleanup(func() { _ = root.Close() })
 	log := logrus.New()
 	log.SetOutput(nil)
 	_, err = ParseForstFileFromRoot(log, root, "bad.ft", absPath)

@@ -112,9 +112,6 @@ func (p *Parser) parseEnsureStatement() ast.EnsureNode {
 		p.expect(ast.TokenOr) // Expect `or`
 
 		errorTok := p.expect(ast.TokenIdentifier)
-		if !isCapitalCase(errorTok.Value) {
-			p.FailWithParseError(errorTok, "ensure `or` error handler must start with an uppercase letter")
-		}
 		errorType := errorTok.Value
 		var err ast.EnsureErrorNode
 		if p.current().Type == ast.TokenLParen {

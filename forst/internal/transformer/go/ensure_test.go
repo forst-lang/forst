@@ -8,11 +8,6 @@ import (
 	"testing"
 )
 
-//go:fix inline
-func newValueNode(v ast.ValueNode) *ast.ValueNode {
-	return new(v)
-}
-
 func TestAssertionTransformer(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := setupTypeChecker(log)

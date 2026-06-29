@@ -113,7 +113,7 @@ func TestInferAssertion_unknownBaseTypeErrors(t *testing.T) {
 	log := setupTestLogger(nil)
 	tc := New(log, false)
 	assertion := &ast.AssertionNode{
-		BaseType: ptrTypeIdent(ast.TypeIdent("NoSuchType")),
+		BaseType: new(ast.TypeIdent("NoSuchType")),
 	}
 	if _, err := tc.InferAssertionType(assertion, false, "x", nil); err == nil {
 		t.Fatal("expected unknown base type error")
