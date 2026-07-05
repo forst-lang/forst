@@ -98,6 +98,9 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 		tc.GoWorkspaceDir = moduleRoot
 		tc.SetForstPackage(packageName)
 		tc.SetDeferProvidersWiringRootCheck(true)
+		if importPath := result.ImportPathForForstPackage(packageName); importPath != "" {
+			tc.SetSamePackageGoImportPath(importPath)
+		}
 		tc.SetModuleResult(result)
 		if err := tc.CheckTypes(merged); err != nil {
 			return nil, err
@@ -151,6 +154,19 @@ func (r *ModuleResult) ImportPathToForstPkg() map[string]string {
 		return nil
 	}
 	return r.importPathMap
+}
+
+// ImportPathForForstPackage returns the Go import path for a Forst package name, or "" if unknown.
+func (r *ModuleResult) ImportPathForForstPackage(forstPkg string) string {
+	if r == nil || forstPkg == "" {
+		return ""
+	}
+	for importPath, pkg := range r.importPathMap {
+		if pkg == forstPkg {
+			return importPath
+		}
+	}
+	return ""
 }
 
 // ForstPackageTypeChecker returns the typechecker for a Forst package name.

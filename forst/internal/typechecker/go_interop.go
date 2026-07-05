@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"errors"
 	"fmt"
 	"go/types"
 	"strings"
@@ -53,14 +54,10 @@ func (tc *TypeChecker) initGoImportPackages() {
 		return
 	}
 
-	forstSiblings := tc.forstSiblingImportPaths()
 	pathSet := make(map[string]struct{})
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
-			continue
-		}
-		if _, isForst := forstSiblings[ip]; isForst {
 			continue
 		}
 		pathSet[ip] = struct{}{}
@@ -84,9 +81,6 @@ func (tc *TypeChecker) initGoImportPackages() {
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
 		if ip == "" {
-			continue
-		}
-		if _, isForst := forstSiblings[ip]; isForst {
 			continue
 		}
 		pkgp, ok := loaded[ip]
@@ -117,6 +111,51 @@ func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = byLocal
 }
 
+// initSamePackageGoExports loads exported Go funcs from .go files co-located with this Forst package.
+func (tc *TypeChecker) initSamePackageGoExports() {
+	tc.samePackageGo = nil
+	if tc.samePackageGoImportPath == "" || tc.GoWorkspaceDir == "" {
+		return
+	}
+	loaded, err := goload.LoadByPkgPath(tc.GoWorkspaceDir, []string{tc.samePackageGoImportPath})
+	if err != nil {
+		tc.log.WithFields(logrus.Fields{
+			"function": "initSamePackageGoExports",
+			"path":     tc.samePackageGoImportPath,
+		}).WithError(err).Debug("go/packages load failed for same-package Go exports")
+		return
+	}
+	pkg, ok := loaded[tc.samePackageGoImportPath]
+	if !ok || !goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
+		return
+	}
+	tc.samePackageGo = pkg.Types
+}
+
+// trySamePackageGoCall resolves an unqualified call to an exported Go func co-located with this Forst package.
+// Returns found=false when no same-package Go is loaded or the name is absent/unexported/non-function.
+func (tc *TypeChecker) trySamePackageGoCall(funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, bool, error) {
+	if tc.samePackageGo == nil || !goIdentifierExported(funcName) {
+		return nil, false, nil
+	}
+	ret, err := tc.checkGoFuncCall(tc.samePackageGo, funcName, funcName, e, argTypes, foldErrorPair)
+	if err != nil {
+		var diag *Diagnostic
+		if errors.As(err, &diag) {
+			switch {
+			case strings.Contains(diag.Msg, "not found in Go package"):
+				return nil, false, nil
+			case strings.Contains(diag.Msg, "is not a function"):
+				return nil, false, nil
+			default:
+				return nil, true, err
+			}
+		}
+		return nil, true, err
+	}
+	return ret, true, nil
+}
+
 func (tc *TypeChecker) registerImportLocalsFromAST() {
 	for _, imp := range tc.imports {
 		path, local := fallbackImportLocal(imp)
@@ -124,19 +163,6 @@ func (tc *TypeChecker) registerImportLocalsFromAST() {
 			tc.importPathByLocal[local] = path
 		}
 	}
-}
-
-func (tc *TypeChecker) forstSiblingImportPaths() map[string]struct{} {
-	out := make(map[string]struct{})
-	if tc.moduleResult == nil {
-		return out
-	}
-	for path := range tc.moduleResult.ImportPathToForstPkg() {
-		if path != "" {
-			out[path] = struct{}{}
-		}
-	}
-	return out
 }
 
 // goPackageForImportLocal returns *types.Package for a Go import's local name (e.g. "strings", "fmt").
@@ -212,14 +238,18 @@ func (tc *TypeChecker) lookupDotImportFunc(funcName string, sp ast.SourceSpan) (
 
 // foldErrorPair: when true, Go (T, error) is represented as a single Result(T, Error) (expression / single-assignment).
 // When false, returns two separate type nodes so two-value assignments (v, err := pkg.F()) typecheck.
-func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) checkGoFuncCall(pkg *types.Package, qualDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
+	qual := funcName
+	if qualDisplay != funcName {
+		qual = qualDisplay + "." + funcName
+	}
 	obj := pkg.Scope().Lookup(funcName)
 	if obj == nil {
 		sp := e.Function.Span
 		if !sp.IsSet() {
 			sp = e.CallSpan
 		}
-		return nil, diagnosticf(sp, "go-call", "%s.%s not found in Go package", pkgDisplay, funcName)
+		return nil, diagnosticf(sp, "go-call", "%s not found in Go package", qual)
 	}
 	fn, ok := obj.(*types.Func)
 	if !ok {
@@ -227,19 +257,23 @@ func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, func
 		if !sp.IsSet() {
 			sp = e.CallSpan
 		}
-		return nil, diagnosticf(sp, "go-call", "%s.%s is not a function", pkgDisplay, funcName)
+		return nil, diagnosticf(sp, "go-call", "%s is not a function", qual)
 	}
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
-		return nil, diagnosticf(e.CallSpan, "go-call", "%s.%s: invalid signature", pkgDisplay, funcName)
+		return nil, diagnosticf(e.CallSpan, "go-call", "%s: invalid signature", qual)
 	}
-	mapped, err := tc.checkGoSignature(sig, pkgDisplay+"."+funcName, e, argTypes, foldErrorPair)
+	mapped, err := tc.checkGoSignature(sig, qual, e, argTypes, foldErrorPair)
 	if err != nil {
 		return nil, err
 	}
 	// go/types is authoritative here (package is loaded). Do not override with BuiltinFunctions
 	// entries that may omit error returns (e.g. strconv.Atoi is (int, error) -> Result(Int, Error)).
 	return mapped, nil
+}
+
+func (tc *TypeChecker) checkGoQualifiedCall(pkg *types.Package, pkgDisplay, funcName string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
+	return tc.checkGoFuncCall(pkg, pkgDisplay, funcName, e, argTypes, foldErrorPair)
 }
 
 func (tc *TypeChecker) checkGoSignature(sig *types.Signature, qual string, e ast.FunctionCallNode, argTypes [][]ast.TypeNode, foldErrorPair bool) ([]ast.TypeNode, error) {
@@ -523,7 +557,7 @@ func (tc *TypeChecker) checkGoMethodCall(recv types.Type, methodName string, e a
 	return tc.checkGoSignature(sig, qual, e, argTypes, foldErrorPair)
 }
 
-// bindVariableGoTypesFromCall records go/types result types for each LHS of `pkg.Func(...)` when
+// bindVariableGoTypesFromCall records go/types result types for each LHS of a Go function call when
 // the Go result arity matches the assignment (single- and multi-value).
 func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if len(assign.RValues) != 1 {
@@ -533,24 +567,8 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 	if !ok {
 		return
 	}
-	parts := strings.Split(string(fc.Function.ID), ".")
-	if len(parts) != 2 {
-		return
-	}
-	gp := tc.goPackageForImportLocal(parts[0])
-	if gp == nil {
-		return
-	}
-	obj := gp.Scope().Lookup(parts[1])
-	if obj == nil {
-		return
-	}
-	fn, ok := obj.(*types.Func)
-	if !ok {
-		return
-	}
-	sig, ok := fn.Type().(*types.Signature)
-	if !ok {
+	sig := tc.goFuncSignatureFromCall(fc)
+	if sig == nil {
 		return
 	}
 	res := sig.Results()
@@ -564,4 +582,39 @@ func (tc *TypeChecker) bindVariableGoTypesFromCall(assign ast.AssignmentNode) {
 		}
 		tc.variableGoTypes[vn.Ident.ID] = res.At(i).Type()
 	}
+}
+
+func (tc *TypeChecker) goFuncSignatureFromCall(fc ast.FunctionCallNode) *types.Signature {
+	parts := strings.Split(string(fc.Function.ID), ".")
+	switch len(parts) {
+	case 2:
+		gp := tc.goPackageForImportLocal(parts[0])
+		if gp == nil {
+			return nil
+		}
+		return tc.goFuncSignatureInPackage(gp, parts[1])
+	case 1:
+		if tc.samePackageGo == nil || !goIdentifierExported(parts[0]) {
+			return nil
+		}
+		return tc.goFuncSignatureInPackage(tc.samePackageGo, parts[0])
+	default:
+		return nil
+	}
+}
+
+func (tc *TypeChecker) goFuncSignatureInPackage(pkg *types.Package, funcName string) *types.Signature {
+	obj := pkg.Scope().Lookup(funcName)
+	if obj == nil {
+		return nil
+	}
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return nil
+	}
+	return sig
 }

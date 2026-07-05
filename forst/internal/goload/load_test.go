@@ -310,6 +310,24 @@ func TestPackageLoadOKAt_acceptsModuleSubpackageWithGoSources(t *testing.T) {
 	}
 }
 
+func TestPackageLoadOKAt_acceptsTypedPackageWithoutGoFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("loadok")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := &packages.Package{
+		Types: mustLoadokSubTypes(t),
+	}
+	if !packageLoadOKAt(p, "loadok/sub", dir) {
+		t.Fatal("expected typed in-module package without GoFiles to pass")
+	}
+	emptyName := types.NewPackage("loadok/sub", "")
+	p2 := &packages.Package{Types: emptyName}
+	if packageLoadOKAt(p2, "loadok/sub", dir) {
+		t.Fatal("expected empty Types.Name to fail")
+	}
+}
+
 func mustLoadokSubTypes(t *testing.T) *types.Package {
 	t.Helper()
 	return types.NewPackage("loadok/sub", "sub")

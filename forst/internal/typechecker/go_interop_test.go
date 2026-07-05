@@ -11,6 +11,7 @@ import (
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
+	"forst/internal/testmod"
 
 	"github.com/sirupsen/logrus"
 )
@@ -753,6 +754,180 @@ func main() {
 	tc.GoWorkspaceDir = dir
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("typecheck: %v", err)
+	}
+}
+
+func writeMixedPackageModule(t *testing.T) (root, importPath string) {
+	t.Helper()
+	root = t.TempDir()
+	testmod.WriteGoMod(t, root, "mixedtest")
+	mixedDir := filepath.Join(root, "mixed")
+	if err := os.MkdirAll(mixedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	goSrc := `package mixed
+
+func Add(a, b int) int {
+	return a + b
+}
+
+func unexported() int {
+	return 0
+}
+
+func OpenValue() (int, error) {
+	return 42, nil
+}
+`
+	if err := os.WriteFile(filepath.Join(mixedDir, "helpers.go"), []byte(goSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	goload.ClearLoadCacheForTest()
+	return root, "mixedtest/mixed"
+}
+
+func typecheckMixedPackageSource(t *testing.T, root, importPath, src string) (*TypeChecker, []ast.Node) {
+	t.Helper()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = root
+	tc.SetSamePackageGoImportPath(importPath)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.samePackageGo == nil {
+		t.Skip("same-package Go not loaded (go/packages or environment)")
+	}
+	return tc, nodes
+}
+
+func TestSamePackageGoCall_unqualifiedExportedFunc_typechecks(t *testing.T) {
+	root, importPath := writeMixedPackageModule(t)
+	src := `package mixed
+
+func main() {
+	x := Add(1, 2)
+	println(x)
+}
+`
+	tc, nodes := typecheckMixedPackageSource(t, root, importPath, src)
+	var call ast.FunctionCallNode
+	for _, n := range nodes {
+		fn, ok := n.(ast.FunctionNode)
+		if !ok || fn.Ident.ID != "main" {
+			continue
+		}
+		asg, ok := fn.Body[0].(ast.AssignmentNode)
+		if !ok {
+			t.Fatalf("expected assignment, got %T", fn.Body[0])
+		}
+		var ok2 bool
+		call, ok2 = asg.RValues[0].(ast.FunctionCallNode)
+		if !ok2 {
+			t.Fatalf("expected function call, got %T", asg.RValues[0])
+		}
+		break
+	}
+	ts, err := tc.LookupInferredType(call, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ts) != 1 || ts[0].Ident != ast.TypeInt {
+		t.Fatalf("want Int, got %v", ts)
+	}
+}
+
+func TestSamePackageGoCall_wrongArgType_returnsDiagnostic(t *testing.T) {
+	root, importPath := writeMixedPackageModule(t)
+	src := `package mixed
+
+func main() {
+	x := Add("a", 2)
+	println(x)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = root
+	tc.SetSamePackageGoImportPath(importPath)
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected type error for wrong argument type")
+	}
+	var diag *Diagnostic
+	if !errors.As(err, &diag) || diag == nil || diag.Code != "go-call" {
+		t.Fatalf("expected go-call diagnostic, got %T: %v", err, err)
+	}
+}
+
+func TestSamePackageGoCall_forstFuncShadowsGoFunc(t *testing.T) {
+	root, importPath := writeMixedPackageModule(t)
+	src := `package mixed
+
+func Add(x Int) {
+	println(string(x))
+}
+
+func main() {
+	Add(1)
+}
+`
+	typecheckMixedPackageSource(t, root, importPath, src)
+}
+
+func TestSamePackageGoCall_twoValueAssignment_recordsVariableGoTypes(t *testing.T) {
+	root, importPath := writeMixedPackageModule(t)
+	src := `package mixed
+
+func main() {
+	v, err := OpenValue()
+	println(v)
+	println(err)
+}
+`
+	tc, _ := typecheckMixedPackageSource(t, root, importPath, src)
+	if tc.variableGoTypes[ast.Identifier("v")] == nil {
+		t.Fatal("expected variableGoTypes[\"v\"] after same-package two-value Go call")
+	}
+	if tc.variableGoTypes[ast.Identifier("err")] == nil {
+		t.Fatal("expected variableGoTypes[\"err\"] after same-package two-value Go call")
+	}
+}
+
+func TestSamePackageGoCall_unexportedGoFunc_notFound(t *testing.T) {
+	root, importPath := writeMixedPackageModule(t)
+	src := `package mixed
+
+func main() {
+	x := unexported()
+	println(x)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = root
+	tc.SetSamePackageGoImportPath(importPath)
+	err = tc.CheckTypes(nodes)
+	if err == nil {
+		t.Fatal("expected type error for unexported same-package Go func")
 	}
 }
 

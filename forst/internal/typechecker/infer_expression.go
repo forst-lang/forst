@@ -170,10 +170,6 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
-			tc.log.WithFields(logrus.Fields{
-				"function": "inferExpressionType",
-				"expr":     expr,
-			}).Tracef("Found function signature for %s: %v", e.Function.ID, signature.ReturnTypes)
 			if len(argTypes) != len(signature.Parameters) {
 				var sp ast.SourceSpan
 				if len(argTypes) > len(signature.Parameters) {
@@ -205,6 +201,16 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			tc.recordFunctionCall(e.Function.ID, callSpan)
 			tc.storeInferredType(e, signature.ReturnTypes)
 			return signature.ReturnTypes, nil
+		}
+
+		// Resolution order: Forst func → same-package Go → type guard → local → qualified → dot-import → builtin.
+		if !strings.Contains(string(e.Function.ID), ".") {
+			if ret, found, err := tc.trySamePackageGoCall(string(e.Function.ID), e, argTypes, true); err != nil {
+				return nil, err
+			} else if found {
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
 		}
 
 		// For type guards, we need to ensure they return boolean

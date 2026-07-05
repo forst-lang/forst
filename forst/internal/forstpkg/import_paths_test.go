@@ -45,6 +45,35 @@ func TestBuildForstPackageImportPaths_skipsEmptyFileList(t *testing.T) {
 	}
 }
 
+func TestImportPathForDir_rootAndSubdir(t *testing.T) {
+	root := filepath.Clean("/proj")
+	got, err := ImportPathForDir(root, "example.com/app", root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "example.com/app" {
+		t.Fatalf("root: got %q", got)
+	}
+	got, err = ImportPathForDir(root, "example.com/app", filepath.Join(root, "alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "example.com/app/alpha" {
+		t.Fatalf("subdir: got %q", got)
+	}
+}
+
+func TestImportPathForDir_relError(t *testing.T) {
+	orig := buildImportPathsRel
+	buildImportPathsRel = func(string, string) (string, error) { return "", os.ErrInvalid }
+	t.Cleanup(func() { buildImportPathsRel = orig })
+
+	_, err := ImportPathForDir("/proj", "example.com/app", "/proj/pkg")
+	if err == nil {
+		t.Fatal("expected rel error")
+	}
+}
+
 func TestBuildForstPackageImportPaths_skipsRelError(t *testing.T) {
 	orig := buildImportPathsRel
 	buildImportPathsRel = func(string, string) (string, error) { return "", os.ErrInvalid }

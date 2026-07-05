@@ -79,6 +79,10 @@ type TypeChecker struct {
 	TypeMethods map[ast.TypeIdent]map[string]FunctionSignature
 	// goQualifiedTypeAliases maps Forst type ident -> Go qualified type name (e.g. io.Writer).
 	goQualifiedTypeAliases map[ast.TypeIdent]string
+	// samePackageGoImportPath is the Go import path for the Forst package directory (mixed .go + .ft).
+	samePackageGoImportPath string
+	// samePackageGo holds go/types for exported Go symbols in the same directory as this Forst package.
+	samePackageGo *types.Package
 	// FunctionProviders holds inferred Provider slots per function after fixed-point propagation.
 	FunctionProviders map[ast.Identifier][]ProviderSlot
 	// providers holds Providers inference state (cleared/rebuilt each CheckTypes pass).
@@ -151,6 +155,7 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	}
 
 	tc.initGoImportPackages()
+	tc.initSamePackageGoExports()
 
 	if err := tc.validateReferencedTypesAfterCollect(); err != nil {
 		return err

@@ -34,6 +34,9 @@ func TestCheckModuleProviders_crossPkg(t *testing.T) {
 	if path, ok := beta.ImportPathForLocal("alpha"); !ok || path != "providers_cross_pkg_demo/alpha" {
 		t.Fatalf("beta import path for alpha = %q ok=%v", path, ok)
 	}
+	if got := result.ImportPathForForstPackage("beta"); got != "providers_cross_pkg_demo/beta" {
+		t.Fatalf("ImportPathForForstPackage(beta) = %q", got)
+	}
 }
 
 func TestCheckModuleProviders_crossPkg_missingWiringAtRoot(t *testing.T) {

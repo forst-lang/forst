@@ -60,6 +60,11 @@ func (tc *TypeChecker) SetDeferProvidersWiringRootCheck(deferCheck bool) {
 	tc.providersEngine().DeferWiringRootCheck = deferCheck
 }
 
+// SetSamePackageGoImportPath sets the Go import path for mixed .go + .ft packages (e.g. lichtung/internal/graph).
+func (tc *TypeChecker) SetSamePackageGoImportPath(importPath string) {
+	tc.samePackageGoImportPath = importPath
+}
+
 // SetForstPackage records the Forst package name for cross-package edge resolution.
 func (tc *TypeChecker) SetForstPackage(name string) {
 	tc.providersEngine().ForstPackage = name

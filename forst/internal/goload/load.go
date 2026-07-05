@@ -94,7 +94,9 @@ func packageLoadOKAt(p *packages.Package, importPath, moduleRoot string) bool {
 	}
 	modPath := ModulePath(moduleRoot)
 	if modPath != "" && strings.HasPrefix(importPath, modPath+"/") {
-		return packageHasGoSources(p)
+		// In-module packages: accept when go/types is populated even if go/packages
+		// omitted GoFiles (common for mixed .go+.ft dirs).
+		return p.Types != nil && p.Types.Name() != "" && p.Types.Path() == importPath
 	}
 	return true
 }
