@@ -318,7 +318,7 @@ func TestSortStructTypeFields_directNestedStructField(t *testing.T) {
 }
 
 func TestGenerateGoCode_formatError(t *testing.T) {
-	t.Parallel()
+	// Serial: swaps package-level formatGoNode; must finish before t.Parallel() tests run.
 	orig := formatGoNode
 	formatGoNode = func(io.Writer, *token.FileSet, interface{}) error {
 		return fmt.Errorf("format failed")
