@@ -730,3 +730,29 @@ func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
 		t.Fatalf("expected *implicit assignable to %s", readerIface.String())
 	}
 }
+
+func TestLookupGoImportedPackageSelector_osArgs(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os"
+
+func main() {
+  n := len(os.Args)
+  println(n)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+}
+

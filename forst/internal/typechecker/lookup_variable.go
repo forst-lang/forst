@@ -48,6 +48,11 @@ func (tc *TypeChecker) lookupVariableForExpression(variable *ast.VariableNode, s
 
 	symbol, exists := scope.LookupVariable(baseIdent)
 	if !exists {
+		if len(parts) > 1 && tc.IsImportedLocalName(string(baseIdent)) {
+			if t, err := tc.lookupGoImportedPackageSelector(baseIdent, parts[1:]); err == nil {
+				return t, nil, "", nil
+			}
+		}
 		tc.log.WithFields(logrus.Fields{
 			"function":  "LookupVariableType",
 			"variable":  variable.Ident.ID,

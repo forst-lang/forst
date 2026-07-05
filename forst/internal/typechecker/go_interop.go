@@ -429,6 +429,38 @@ func goTypeAtFieldPath(recv types.Type, fieldPath []string) (types.Type, error) 
 	return goTypeAtFieldPath(ft, fieldPath[1:])
 }
 
+// lookupGoImportedPackageSelector resolves pkg.Symbol for an imported Go package (e.g. os.Args).
+func (tc *TypeChecker) lookupGoImportedPackageSelector(local ast.Identifier, fieldPath []string) (ast.TypeNode, error) {
+	if len(fieldPath) == 0 {
+		return ast.TypeNode{}, fmt.Errorf("package %s used as value", local)
+	}
+	gp := tc.goPackageForImportLocal(string(local))
+	if gp == nil {
+		return ast.TypeNode{}, fmt.Errorf("not an imported Go package: %s", local)
+	}
+	obj := gp.Scope().Lookup(fieldPath[0])
+	if obj == nil {
+		return ast.TypeNode{}, fmt.Errorf("%s.%s not found in Go package", local, fieldPath[0])
+	}
+	var goTyp types.Type
+	switch o := obj.(type) {
+	case *types.Var:
+		goTyp = o.Type()
+	case *types.Const:
+		goTyp = o.Type()
+	default:
+		return ast.TypeNode{}, fmt.Errorf("%s.%s is not a package variable", local, fieldPath[0])
+	}
+	if len(fieldPath) > 1 {
+		return tc.lookupFieldPathFromGoType(goTyp, fieldPath[1:])
+	}
+	ft, ok := goTypeToForstType(goTyp)
+	if !ok {
+		return ast.TypeNode{}, fmt.Errorf("cannot map Go type %s", goTyp)
+	}
+	return ft, nil
+}
+
 // lookupFieldPathFromGoType maps the final field's Go type to a Forst TypeNode using goTypeToForstType.
 func (tc *TypeChecker) lookupFieldPathFromGoType(goBase types.Type, fieldPath []string) (ast.TypeNode, error) {
 	last, err := goTypeAtFieldPath(goBase, fieldPath)
