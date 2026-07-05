@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"forst/internal/ast"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
@@ -14,7 +15,18 @@ import (
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
+	goast "go/ast"
+
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	filepathAbs  = filepath.Abs
+	filepathRel  = filepath.Rel
+	transformForstFileToGo = func(tr *transformer_go.Transformer, merged []ast.Node) (*goast.File, error) {
+		return tr.TransformForstFileToGo(merged)
+	}
+	generateGoCodeFn = generators.GenerateGoCode
 )
 
 // Options configures a forst test run.
@@ -34,7 +46,7 @@ func Run(opts Options) (ExitCode, error) {
 	if moduleRoot == "" {
 		moduleRoot = "."
 	}
-	moduleRoot, err := filepath.Abs(moduleRoot)
+	moduleRoot, err := filepathAbs(moduleRoot)
 	if err != nil {
 		return ExitError, err
 	}
@@ -135,11 +147,11 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 	if modResult != nil {
 		tr.SetModuleResult(modResult)
 	}
-	goAST, err := tr.TransformForstFileToGo(merged)
+	goAST, err := transformForstFileToGo(tr, merged)
 	if err != nil {
 		return "", fmt.Errorf("transform: %w", err)
 	}
-	return generators.GenerateGoCode(goAST)
+	return generateGoCodeFn(goAST)
 }
 
 func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
@@ -161,7 +173,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 		return ExitFailure, fmt.Errorf("%s: %w (forst test packages need a local go.mod)", pkg.RelPath, err)
 	}
 	importPath := "."
-	if rel, err := filepath.Rel(modRoot, pkg.Dir); err == nil && rel != "." {
+	if rel, err := filepathRel(modRoot, pkg.Dir); err == nil && rel != "." {
 		importPath = "./" + filepath.ToSlash(rel)
 	}
 	args := []string{"test"}
@@ -184,7 +196,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 }
 
 func relPath(moduleRoot, dir string) string {
-	rel, err := filepath.Rel(moduleRoot, dir)
+	rel, err := filepathRel(moduleRoot, dir)
 	if err != nil {
 		return dir
 	}

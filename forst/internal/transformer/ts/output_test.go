@@ -36,3 +36,25 @@ func TestTypeScriptOutput_AddExportedTypeName_ignoresEmptyString(t *testing.T) {
 		t.Fatalf("got %#v", o.ExportedTypeNames)
 	}
 }
+
+func TestFormatTypesDeclarationFile_streamAndEmptySections(t *testing.T) {
+	withStream := formatTypesDeclarationFile(nil, []FunctionSignature{
+		{
+			Name:             "StreamItems",
+			Parameters:       []Parameter{{Name: "limit", Type: "number"}},
+			ReturnType:       "AsyncIterable<string>",
+			StreamingRowType: "string",
+		},
+	})
+	if !strings.Contains(withStream, "export function StreamItems(") {
+		t.Fatalf("missing function signature:\n%s", withStream)
+	}
+	if !strings.Contains(withStream, "export function StreamItemsStream(") {
+		t.Fatalf("missing stream declaration:\n%s", withStream)
+	}
+
+	empty := formatTypesDeclarationFile(nil, nil)
+	if strings.Contains(empty, "Type definitions") || strings.Contains(empty, "Function signatures") {
+		t.Fatalf("did not expect section headers for empty inputs:\n%s", empty)
+	}
+}

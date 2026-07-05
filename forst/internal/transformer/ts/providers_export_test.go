@@ -28,3 +28,21 @@ func TestShouldEmitFunctionToTypeScript(t *testing.T) {
 		t.Fatal("private fn should not emit to TS")
 	}
 }
+
+func TestShouldEmitFunctionToTypeScript_nilTypeCheckerAndReceiver(t *testing.T) {
+	publicFn := ast.FunctionNode{Ident: ast.Ident{ID: "Echo"}}
+	if !ShouldEmitFunctionToTypeScript(publicFn, nil) {
+		t.Fatal("public function should emit when typechecker is nil")
+	}
+
+	methodFn := ast.FunctionNode{
+		Ident: ast.Ident{ID: "Method"},
+		Receiver: &ast.SimpleParamNode{
+			Ident: ast.Ident{ID: "r"},
+			Type:  ast.NewBuiltinType(ast.TypeString),
+		},
+	}
+	if ShouldEmitFunctionToTypeScript(methodFn, nil) {
+		t.Fatal("receiver methods should not emit")
+	}
+}

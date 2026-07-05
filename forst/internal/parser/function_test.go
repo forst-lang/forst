@@ -121,3 +121,129 @@ func TestParseFile_WithFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFunctionDefinition_AllowsKeywordNamesWithSignature(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "error keyword as function name",
+			src:  `func error(msg String) {}`,
+			want: "error",
+		},
+		{
+			name: "use keyword as function name",
+			src:  `func use(x Int) {}`,
+			want: "use",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := NewTestParser(tt.src, ast.SetupTestLogger(nil))
+			fn := p.parseFunctionDefinition()
+			if got := fn.GetIdent(); got != tt.want {
+				t.Fatalf("function name = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseParameterType_ShapeAssertionBranches(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`func f(x Amount.Min(1), y { id: Int }) {}`, ast.SetupTestLogger(nil))
+	fn := p.parseFunctionDefinition()
+	if len(fn.Params) != 2 {
+		t.Fatalf("expected 2 params, got %d", len(fn.Params))
+	}
+
+	x := fn.Params[0].(ast.SimpleParamNode)
+	if x.Type.Ident != ast.TypeAssertion || x.Type.Assertion == nil {
+		t.Fatalf("x parameter type = %+v", x.Type)
+	}
+	if x.Type.Assertion.BaseType == nil || *x.Type.Assertion.BaseType != "Amount" {
+		t.Fatalf("x assertion base type = %v", x.Type.Assertion.BaseType)
+	}
+
+	y := fn.Params[1].(ast.SimpleParamNode)
+	if y.Type.Ident != ast.TypeShape || y.Type.Assertion == nil {
+		t.Fatalf("y parameter type = %+v", y.Type)
+	}
+	if len(y.Type.Assertion.Constraints) != 1 || y.Type.Assertion.Constraints[0].Name != "Match" {
+		t.Fatalf("unexpected y assertion: %+v", y.Type.Assertion)
+	}
+}
+
+func TestParseParameterType_Branches(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		check func(t *testing.T, typ ast.TypeNode)
+	}{
+		{
+			name:  "assertion type branch",
+			input: `Amount.Min(1)`,
+			check: func(t *testing.T, typ ast.TypeNode) {
+				t.Helper()
+				if typ.Ident != ast.TypeAssertion || typ.Assertion == nil {
+					t.Fatalf("type = %+v", typ)
+				}
+				if typ.Assertion.BaseType == nil || *typ.Assertion.BaseType != "Amount" {
+					t.Fatalf("assertion base type = %v", typ.Assertion.BaseType)
+				}
+			},
+		},
+		{
+			name:  "shape literal type branch",
+			input: `{ id: Int }`,
+			check: func(t *testing.T, typ ast.TypeNode) {
+				t.Helper()
+				if typ.Ident != ast.TypeShape || typ.Assertion == nil {
+					t.Fatalf("type = %+v", typ)
+				}
+				if len(typ.Assertion.Constraints) != 1 || typ.Assertion.Constraints[0].Name != "Match" {
+					t.Fatalf("unexpected assertion: %+v", typ.Assertion)
+				}
+			},
+		},
+		{
+			name:  "shape identifier branch",
+			input: `Shape`,
+			check: func(t *testing.T, typ ast.TypeNode) {
+				t.Helper()
+				if typ.Ident != "Shape" {
+					t.Fatalf("type ident = %s", typ.Ident)
+				}
+			},
+		},
+		{
+			name:  "plain type fallback branch",
+			input: `String`,
+			check: func(t *testing.T, typ ast.TypeNode) {
+				t.Helper()
+				if typ.Ident != ast.TypeString {
+					t.Fatalf("type ident = %s", typ.Ident)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := NewTestParser(tt.input, ast.SetupTestLogger(nil))
+			typ := p.parseParameterType()
+			tt.check(t, typ)
+		})
+	}
+}

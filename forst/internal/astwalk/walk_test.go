@@ -211,3 +211,175 @@ func TestWalkNode_ifWithInit(t *testing.T) {
 	}
 }
 
+func TestWalkNode_earlyExitSkipsIfForEnsureFunction(t *testing.T) {
+	t.Parallel()
+	call := ast.FunctionCallNode{Function: ast.Ident{ID: "inner"}}
+	body := []ast.Node{call}
+
+	tests := []struct {
+		name string
+		node ast.Node
+		hook func(*StmtVisitor)
+	}{
+		{
+			name: "if",
+			node: ast.IfNode{Body: body},
+			hook: func(v *StmtVisitor) { v.OnIf = func(ast.IfNode) bool { return false } },
+		},
+		{
+			name: "for",
+			node: ast.ForNode{Body: body},
+			hook: func(v *StmtVisitor) { v.OnFor = func(ast.ForNode) bool { return false } },
+		},
+		{
+			name: "ensure",
+			node: ast.EnsureNode{Block: &ast.EnsureBlockNode{Body: body}},
+			hook: func(v *StmtVisitor) { v.OnEnsure = func(ast.EnsureNode) bool { return false } },
+		},
+		{
+			name: "function",
+			node: ast.FunctionNode{Body: body},
+			hook: func(v *StmtVisitor) { v.OnFunction = func(ast.FunctionNode) bool { return false } },
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			v := StmtVisitor{
+				OnCall: func(ast.FunctionCallNode) bool { t.Fatal("should not descend"); return true },
+			}
+			tc.hook(&v)
+			WalkNode(tc.node, v)
+		})
+	}
+}
+
+func TestWalkNode_nilOnCallStillWalksArgs(t *testing.T) {
+	t.Parallel()
+	nested := ast.FunctionCallNode{Function: ast.Ident{ID: "nested"}}
+	call := ast.FunctionCallNode{
+		Function:  ast.Ident{ID: "f"},
+		Arguments: []ast.ExpressionNode{nested},
+	}
+	WalkNode(call, StmtVisitor{})
+}
+
+func TestWalkNode_ensureWithoutBlock(t *testing.T) {
+	t.Parallel()
+	var ensureHits int
+	WalkNode(ast.EnsureNode{}, StmtVisitor{
+		OnEnsure: func(ast.EnsureNode) bool { ensureHits++; return true },
+	})
+	if ensureHits != 1 {
+		t.Fatalf("ensureHits = %d", ensureHits)
+	}
+}
+
+func TestWalkExpr_mapLiteralAndShapeFieldValues(t *testing.T) {
+	t.Parallel()
+	inner := ast.FunctionCallNode{Function: ast.Ident{ID: "inner"}}
+	expr := ast.MapLiteralNode{
+		Entries: []ast.MapEntryNode{
+			{Key: ast.StringLiteralNode{Value: "k"}, Value: ast.StringLiteralNode{Value: "v"}},
+			{Key: ast.IntLiteralNode{Value: 1}, Value: ast.IntLiteralNode{Value: 2}},
+		},
+	}
+	shapeExpr := ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"a": {Node: inner},
+		},
+	}
+	var calls int
+	WalkExpr(expr, ExprVisitor{
+		OnCall: func(ast.FunctionCallNode) bool { calls++; return true },
+	})
+	WalkExpr(shapeExpr, ExprVisitor{
+		OnCall: func(ast.FunctionCallNode) bool { calls++; return true },
+	})
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1 from shape field", calls)
+	}
+}
+
+func TestWalkExpr_onCallEarlyExitSkipsArgs(t *testing.T) {
+	t.Parallel()
+	outer := ast.FunctionCallNode{
+		Function: ast.Ident{ID: "outer"},
+		Arguments: []ast.ExpressionNode{
+			ast.FunctionCallNode{Function: ast.Ident{ID: "inner"}},
+		},
+	}
+	var calls int
+	WalkExpr(outer, ExprVisitor{
+		OnCall: func(c ast.FunctionCallNode) bool {
+			calls++
+			return c.Function.ID != "outer"
+		},
+	})
+	if calls != 1 {
+		t.Fatalf("calls = %d, want 1 (early exit before inner)", calls)
+	}
+}
+
+func TestWalkExpr_nilExpr(t *testing.T) {
+	t.Parallel()
+	WalkExpr(nil, ExprVisitor{
+		OnCall: func(ast.FunctionCallNode) bool { t.Fatal("unexpected call"); return true },
+	})
+}
+
+func TestWalkNodeContaining_descendsIfForFunctionEnsure(t *testing.T) {
+	t.Parallel()
+	innerWith := ast.WithNode{
+		Span: ast.SourceSpan{StartLine: 2, StartCol: 1, EndLine: 2, EndCol: 10},
+	}
+	body := []ast.Node{innerWith}
+
+	tests := []struct {
+		name string
+		node ast.Node
+	}{
+		{name: "if", node: ast.IfNode{Body: body}},
+		{name: "if-elseif", node: ast.IfNode{
+			Body:    []ast.Node{},
+			ElseIfs: []ast.ElseIfNode{{Body: body}},
+		}},
+		{name: "if-else", node: ast.IfNode{
+			Body: []ast.Node{},
+			Else: &ast.ElseBlockNode{Body: body},
+		}},
+		{name: "for", node: ast.ForNode{Body: body}},
+		{name: "function", node: ast.FunctionNode{Body: body}},
+		{name: "ensure", node: ast.EnsureNode{Block: &ast.EnsureBlockNode{Body: body}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var hits int
+			WalkNodeContaining(tc.node, 2, 5, StmtVisitor{
+				OnWith: func(ast.WithNode) bool { hits++; return true },
+			})
+			if hits != 1 {
+				t.Fatalf("hits = %d, want 1 nested with", hits)
+			}
+		})
+	}
+}
+
+func TestWalkNodeContaining_withEarlyExit(t *testing.T) {
+	t.Parallel()
+	with := ast.WithNode{
+		Span: ast.SourceSpan{StartLine: 1, StartCol: 1, EndLine: 3, EndCol: 1},
+		Body: []ast.Node{ast.FunctionCallNode{Function: ast.Ident{ID: "f"}}},
+	}
+	WalkNodeContaining(with, 2, 1, StmtVisitor{
+		OnWith: func(ast.WithNode) bool { return false },
+		OnCall: func(ast.FunctionCallNode) bool { t.Fatal("should not descend"); return true },
+	})
+}
+
+func TestWalkNodeContaining_ensureWithoutBlock(t *testing.T) {
+	t.Parallel()
+	WalkNodeContaining(ast.EnsureNode{}, 1, 1, StmtVisitor{
+		OnCall: func(ast.FunctionCallNode) bool { t.Fatal("no block"); return true },
+	})
+}
+

@@ -8,6 +8,11 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+var (
+	osExit              = os.Exit
+	filepathAbsForArgs  = filepath.Abs
+)
+
 // Import version variables from main package
 var (
 	version = "dev"
@@ -47,12 +52,12 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	command := argv[1]
 	if command == "--help" || command == "-h" {
 		printUsage(log)
-		os.Exit(0)
+		osExit(0)
 	}
 
 	if command == "--version" || command == "-v" {
 		printVersion(log)
-		os.Exit(0)
+		osExit(0)
 	}
 
 	if command != "run" && command != "build" {
@@ -62,7 +67,8 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	}
 
 	// Create a new FlagSet for the command
-	flags := flag.NewFlagSet(command, flag.ExitOnError)
+	flags := flag.NewFlagSet(command, flag.ContinueOnError)
+	flags.SetOutput(log.Writer())
 	logLevel := flags.String("loglevel", "info", "Log level (debug, info, warn, error, trace)")
 	watch := flags.Bool("watch", false, "Watch file for changes")
 	output := flags.String("o", "", "Output file path")
@@ -78,7 +84,7 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 
 	if *help {
 		flags.Usage()
-		os.Exit(0)
+		osExit(0)
 	}
 
 	args := flags.Args()
@@ -106,7 +112,7 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 
 	var pkgRoot string
 	if *packageRoot != "" {
-		abs, err := filepath.Abs(*packageRoot)
+		abs, err := filepathAbsForArgs(*packageRoot)
 		if err != nil {
 			log.Errorf("invalid -root: %v", err)
 			return Args{}

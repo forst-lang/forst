@@ -1,10 +1,14 @@
 package transformerts
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"forst/internal/ast"
+	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
 )
@@ -87,5 +91,51 @@ func PublicApi() {
 	}
 	if !strings.Contains(err.Error(), "cannot export PublicApi") {
 		t.Fatalf("expected sidecar export error, got: %v", err)
+	}
+}
+
+func TestGenerateTypeScriptOutputsPerFile_wrapsPerFileTransformErrors(t *testing.T) {
+	tc := typechecker.New(logrus.New(), false)
+	tc.Defs["Bad"] = ast.TypeDefNode{
+		Ident: "Bad",
+		Expr:  ast.TypeDefAssertionExpr{Assertion: nil},
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	chunks := []ForstFileChunk{{
+		Path: "bad.ft",
+		Stem: "bad",
+		Nodes: []ast.Node{
+			ast.PackageNode{Ident: ast.Ident{ID: "main"}},
+		},
+	}}
+	_, err := GenerateTypeScriptOutputsPerFile(chunks, tc, logger, nil)
+	if err == nil || !strings.Contains(err.Error(), "bad.ft:") {
+		t.Fatalf("expected wrapped chunk path error, got %v", err)
+	}
+}
+
+func TestParseMergedTypecheckProject_missingFileErrors(t *testing.T) {
+	_, _, err := ParseMergedTypecheckProject([]string{"/definitely/missing/file.ft"}, logrus.New())
+	if err == nil {
+		t.Fatal("expected parse/merge error for missing file")
+	}
+}
+
+func TestParseMergedTypecheckProject_typecheckFailure(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "bad.ft")
+	src := `package main
+
+func Broken(x UnknownType) {
+	return x
+}
+`
+	if err := os.WriteFile(p, []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ParseMergedTypecheckProject([]string{p}, logrus.New())
+	if err == nil || !strings.Contains(err.Error(), "failed to type check") {
+		t.Fatalf("expected typecheck failure, got %v", err)
 	}
 }

@@ -179,3 +179,77 @@ func TestParseShapeType_AsFunctionParam(t *testing.T) {
 		t.Fatalf("expected parameter to be shape type, got %+v", param.GetType())
 	}
 }
+
+func TestParseShapeType_FieldAssertionBaseType(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`{ age: Int.Min(1) }`, ast.SetupTestLogger(nil))
+	shape := p.parseShapeType()
+	field := shape.Fields["age"]
+	if field.Type == nil || field.Type.Ident != ast.TypeAssertion {
+		t.Fatalf("age field type = %+v", field.Type)
+	}
+	if field.Type.Assertion == nil || field.Type.Assertion.BaseType == nil {
+		t.Fatalf("missing assertion base type: %+v", field.Type.Assertion)
+	}
+	if *field.Type.Assertion.BaseType != ast.TypeInt {
+		t.Fatalf("base type = %v, want Int", *field.Type.Assertion.BaseType)
+	}
+	if len(field.Type.Assertion.Constraints) != 1 || field.Type.Assertion.Constraints[0].Name != "Min" {
+		t.Fatalf("unexpected constraints: %+v", field.Type.Assertion.Constraints)
+	}
+}
+
+func TestParseShapeType_ErrorMethodNameAllowed(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`{ error(msg String): Int }`, ast.SetupTestLogger(nil))
+	shape := p.parseShapeType()
+	field, ok := shape.Fields["error"]
+	if !ok {
+		t.Fatalf("missing error method field: %+v", shape.Fields)
+	}
+	if !field.IsMethod {
+		t.Fatalf("expected error field to parse as method, got %+v", field)
+	}
+	if len(field.MethodParams) != 1 {
+		t.Fatalf("expected 1 method param, got %d", len(field.MethodParams))
+	}
+	if len(field.MethodReturnTypes) != 1 || field.MethodReturnTypes[0].Ident != ast.TypeInt {
+		t.Fatalf("unexpected method return types: %+v", field.MethodReturnTypes)
+	}
+}
+
+func TestParseShapeTypeField_Branches(t *testing.T) {
+	t.Parallel()
+
+	p := NewTestParser(`{
+		method(msg String): Int,
+		typed: Int,
+		ptr: *Int,
+		nested {
+			child: Int
+		},
+		plain
+	}`, ast.SetupTestLogger(nil))
+	shape := p.parseShapeType()
+
+	if !shape.Fields["method"].IsMethod {
+		t.Fatalf("method field should be parsed as method: %+v", shape.Fields["method"])
+	}
+	if shape.Fields["typed"].Type == nil || shape.Fields["typed"].Type.Ident != ast.TypeInt {
+		t.Fatalf("typed field should be Int: %+v", shape.Fields["typed"].Type)
+	}
+	if shape.Fields["ptr"].Type == nil || shape.Fields["ptr"].Type.Ident != ast.TypePointer {
+		t.Fatalf("ptr field should be pointer Int: %+v", shape.Fields["ptr"].Type)
+	}
+	if got := shape.Fields["ptr"].Type.TypeParams; len(got) != 1 || got[0].Ident != ast.TypeInt {
+		t.Fatalf("ptr field type params = %+v", got)
+	}
+	if shape.Fields["nested"].Type == nil || shape.Fields["nested"].Type.Ident != ast.TypeShape {
+		t.Fatalf("nested field should be shape type: %+v", shape.Fields["nested"].Type)
+	}
+	if shape.Fields["plain"].Type == nil || shape.Fields["plain"].Type.Ident != "plain" {
+		t.Fatalf("plain shorthand field type = %+v", shape.Fields["plain"].Type)
+	}
+}

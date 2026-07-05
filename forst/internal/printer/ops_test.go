@@ -6,6 +6,14 @@ import (
 	"forst/internal/ast"
 )
 
+func TestIncDecSuffix_defaultReturnsFalse(t *testing.T) {
+	t.Parallel()
+	s, ok := incDecSuffix(ast.TokenPlus)
+	if ok || s != "" {
+		t.Fatalf("incDecSuffix(+) = %q, %v", s, ok)
+	}
+}
+
 func TestTokenBinary_mapsOperatorTokens(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
