@@ -62,6 +62,13 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeImplicit}},
 		AcceptSubtypes: true,
 	},
+	"[]byte": {
+		Name:           "[]byte",
+		Package:        "",
+		ReturnType:     ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: "byte"}}},
+		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeString}},
+		AcceptSubtypes: true,
+	},
 	"print": {
 		Name:           "print",
 		Package:        "",

@@ -82,17 +82,24 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		"fieldName":    fieldName.ID,
 	}).Debugf("Resolved type alias")
 
-	// Try type definition lookup
-	if def, exists := tc.Defs[resolvedType.Ident]; exists {
+	// Try type definition lookup (local package, then sibling Forst package).
+	defNode, defExists := tc.Defs[resolvedType.Ident]
+	if !defExists {
+		if td, ok := tc.typeDefForIdent(resolvedType.Ident); ok {
+			defNode = td
+			defExists = true
+		}
+	}
+	if defExists {
 		tc.log.WithFields(logrus.Fields{
 			"function":  "lookupFieldPath",
 			"baseType":  baseType.Ident,
 			"fieldName": fieldName.ID,
-			"defType":   fmt.Sprintf("%T", def),
-			"def":       fmt.Sprintf("%+v", def),
+			"defType":   fmt.Sprintf("%T", defNode),
+			"def":       fmt.Sprintf("%+v", defNode),
 		}).Debugf("Found type definition")
 
-		if typeDef, ok := def.(ast.TypeDefNode); ok {
+		if typeDef, ok := defNode.(ast.TypeDefNode); ok {
 			tc.log.WithFields(logrus.Fields{
 				"function":  "lookupFieldPath",
 				"baseType":  baseType.Ident,

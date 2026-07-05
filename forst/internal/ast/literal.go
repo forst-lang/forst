@@ -37,7 +37,7 @@ type BoolLiteralNode struct {
 
 // ArrayLiteralNode represents an array literal
 type ArrayLiteralNode struct {
-	Value []LiteralNode
+	Value []ExpressionNode
 	Type  TypeNode
 }
 

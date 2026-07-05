@@ -240,7 +240,7 @@ func TestInferValueConstraintType_unsupportedValueNodeErrors(t *testing.T) {
 		}
 	}
 	arr := ast.ArrayLiteralNode{
-		Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}},
+		Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
 	}
 	_, err := tc.inferValueConstraintType(valC(arr), "f", nil)
 	if err == nil {

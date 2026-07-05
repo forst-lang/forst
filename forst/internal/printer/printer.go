@@ -943,7 +943,7 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 			if i > 0 {
 				buf.WriteString(", ")
 			}
-			s, err := p.printExpr(lit.(ast.ExpressionNode))
+			s, err := p.printExpr(lit)
 			if err != nil {
 				return "", err
 			}

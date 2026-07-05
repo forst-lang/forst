@@ -17,7 +17,7 @@ func TestInferForNode_rangeOverIntSlice(t *testing.T) {
 				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}},
 				RValues: []ast.ExpressionNode{
 					ast.ArrayLiteralNode{
-						Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 10}},
+						Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 10}},
 						Type:  ast.TypeNode{Ident: ast.TypeImplicit},
 					},
 				},

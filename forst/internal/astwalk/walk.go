@@ -152,9 +152,7 @@ func WalkExpr(expr ast.ExpressionNode, v ExprVisitor) {
 		}
 	case ast.ArrayLiteralNode:
 		for _, el := range e.Value {
-			if ev, ok := el.(ast.ExpressionNode); ok {
-				WalkExpr(ev, v)
-			}
+			WalkExpr(el, v)
 		}
 	case ast.MapLiteralNode:
 		for _, entry := range e.Entries {

@@ -115,7 +115,64 @@ func (tc *TypeChecker) typeDefForIdent(ident ast.TypeIdent) (ast.TypeDefNode, bo
 			return td, true
 		}
 	}
-	return tc.resolveForstSiblingTypeDef(ident)
+	if td, ok := tc.resolveForstSiblingTypeDef(ident); ok {
+		return td, true
+	}
+	return tc.resolveForstSiblingTypeInImports(string(ident))
+}
+
+// resolveForstSiblingTypeInImports finds a unique type name exported from an imported Forst package
+// (e.g. ParsedArgs from orchestrator when typechecking main).
+func (tc *TypeChecker) resolveForstSiblingTypeInImports(typeName string) (ast.TypeDefNode, bool) {
+	if tc.siblingImportTypeDefCache != nil {
+		if cached, hit := tc.siblingImportTypeDefCache[typeName]; hit {
+			return cached.def, cached.ok
+		}
+	}
+	td, ok := tc.resolveForstSiblingTypeInImportsUncached(typeName)
+	if tc.siblingImportTypeDefCache == nil {
+		tc.siblingImportTypeDefCache = make(map[string]cachedSiblingTypeDef)
+	}
+	tc.siblingImportTypeDefCache[typeName] = cachedSiblingTypeDef{def: td, ok: ok}
+	return td, ok
+}
+
+func (tc *TypeChecker) resolveForstSiblingTypeInImportsUncached(typeName string) (ast.TypeDefNode, bool) {
+	if typeName == "" || tc.moduleResult == nil {
+		return ast.TypeDefNode{}, false
+	}
+	importMap := tc.importPathToForstPkgMap()
+	if importMap == nil {
+		return ast.TypeDefNode{}, false
+	}
+	var found ast.TypeDefNode
+	var count int
+	seenPkg := make(map[string]struct{})
+	for _, imp := range tc.imports {
+		path, _ := fallbackImportLocal(imp)
+		pkg := importMap[path]
+		if pkg == "" || pkg == tc.ForstPackage() {
+			continue
+		}
+		if _, ok := seenPkg[pkg]; ok {
+			continue
+		}
+		seenPkg[pkg] = struct{}{}
+		siblingTC := tc.moduleResult.ForstPackageTypeChecker(pkg)
+		if siblingTC == nil {
+			continue
+		}
+		if def, ok := siblingTC.Defs[ast.TypeIdent(typeName)]; ok {
+			if td, ok := def.(ast.TypeDefNode); ok {
+				found = td
+				count++
+			}
+		}
+	}
+	if count == 1 {
+		return found, true
+	}
+	return ast.TypeDefNode{}, false
 }
 
 // parseForstSiblingTypeRef splits importLocal.typeName when typeIdent is a qualified sibling ref.

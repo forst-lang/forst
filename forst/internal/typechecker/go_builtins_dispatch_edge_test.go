@@ -101,7 +101,7 @@ func TestCheckBuiltinFunctionCall_dispatchArityAndOperandErrors(t *testing.T) {
 	t.Run("append_not_enough_args", func(t *testing.T) {
 		fn := BuiltinFunctions["append"]
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 		}, nil, span)
 		if err == nil || !strings.Contains(err.Error(), "append() expects at least 2 arguments") {
 			t.Fatalf("got %v", err)
@@ -122,7 +122,7 @@ func TestCheckBuiltinFunctionCall_dispatchArityAndOperandErrors(t *testing.T) {
 	t.Run("append_elem_mismatch", func(t *testing.T) {
 		fn := BuiltinFunctions["append"]
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 			ast.StringLiteralNode{Value: "x"},
 		}, nil, span)
 		if err == nil || !strings.Contains(err.Error(), "must be assignable to slice element") {
@@ -133,7 +133,7 @@ func TestCheckBuiltinFunctionCall_dispatchArityAndOperandErrors(t *testing.T) {
 	t.Run("copy_wrong_arity", func(t *testing.T) {
 		fn := BuiltinFunctions["copy"]
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 		}, nil, span)
 		if err == nil || !strings.Contains(err.Error(), "copy() expects 2 arguments") {
 			t.Fatalf("got %v", err)
@@ -143,8 +143,8 @@ func TestCheckBuiltinFunctionCall_dispatchArityAndOperandErrors(t *testing.T) {
 	t.Run("copy_mismatched_slice_elems", func(t *testing.T) {
 		fn := BuiltinFunctions["copy"]
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.StringLiteralNode{Value: "a"}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.StringLiteralNode{Value: "a"}}},
 		}, nil, span)
 		if err == nil || !strings.Contains(err.Error(), "element types must match") {
 			t.Fatalf("got %v", err)

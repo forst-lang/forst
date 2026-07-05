@@ -181,6 +181,12 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		inner := p.parseExpr(0, depth+1)
 		p.expect(ast.TokenRParen)
 		base = inner
+	case p.current().Type == ast.TokenLBracket:
+		if conv, ok := p.tryParseSliceConversion(); ok {
+			base = conv
+		} else {
+			base = p.parseValue()
+		}
 	case p.current().Type == ast.TokenIdentifier:
 		base = p.parseIdentifierPrimary()
 	case p.current().Type == ast.TokenInt, p.current().Type == ast.TokenString,
@@ -284,5 +290,47 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 	}
 	return ast.VariableNode{
 		Ident: ident,
+	}
+}
+
+// tryParseSliceConversion parses Go-style []T(expr) slice conversions such as []byte(s).
+func (p *Parser) tryParseSliceConversion() (ast.ExpressionNode, bool) {
+	if p.peek().Type != ast.TokenRBracket {
+		return nil, false
+	}
+	saved := p.currentIndex
+	lbrack := p.current()
+	p.advance() // [
+	rbrack := p.expect(ast.TokenRBracket)
+	elemType := p.parseOptionalArrayElementTypeSuffix(rbrack)
+	if elemType.Ident == ast.TypeImplicit || p.current().Type != ast.TokenLParen {
+		p.currentIndex = saved
+		return nil, false
+	}
+	convName := ast.Identifier("[]" + sliceConvTypeSuffix(elemType))
+	lparen := p.current()
+	p.advance()
+	args, argSpans := p.parseCallArguments()
+	rparen := p.expect(ast.TokenRParen)
+	return ast.FunctionCallNode{
+		Function:  ast.Ident{ID: convName, Span: ast.SpanBetweenTokens(lbrack, rparen)},
+		Arguments: args,
+		CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+		ArgSpans:  argSpans,
+	}, true
+}
+
+func sliceConvTypeSuffix(t ast.TypeNode) string {
+	switch t.Ident {
+	case ast.TypeString:
+		return "String"
+	case ast.TypeInt:
+		return "Int"
+	case ast.TypeBool:
+		return "Bool"
+	case ast.TypeFloat:
+		return "Float"
+	default:
+		return string(t.Ident)
 	}
 }

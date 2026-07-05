@@ -98,9 +98,9 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		if neg {
 			p.FailWithParseError(token, "Invalid use of unary minus before array literal")
 		}
-		items := []ast.LiteralNode{}
+		items := []ast.ExpressionNode{}
 		for p.current().Type != ast.TokenRBracket {
-			items = append(items, p.parseLiteral())
+			items = append(items, p.parseExpression())
 
 			if p.current().Type == ast.TokenComma {
 				p.advance() // Consume comma
@@ -115,7 +115,7 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 				p.advance()
 			} else {
 				for p.current().Type != ast.TokenRBrace {
-					items = append(items, p.parseLiteral())
+					items = append(items, p.parseExpression())
 					if p.current().Type == ast.TokenComma {
 						p.advance()
 					}

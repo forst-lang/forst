@@ -981,3 +981,59 @@ func main() {
 	}
 }
 
+func TestGoTypeForQualifiedImportTypeIdent_testingT(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "testing"
+
+func TestDemo(t *testing.T) {}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CollectTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	tc.initGoImportPackages()
+	gt := tc.goTypeForQualifiedImportTypeIdent(ast.TypeIdent("testing.T"))
+	if gt == nil {
+		path, ok := tc.ImportPathForLocal("testing")
+		gp := tc.goPackageForImportLocal("testing")
+		t.Fatalf("goType nil; testing import=%q ok=%v goPkg=%v imports=%d", path, ok, gp != nil, len(tc.imports))
+	}
+}
+
+func TestCheckTypes_testingTParamBindsVariableGoType(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "testing"
+
+func TestDemo(t *testing.T) {
+	t.Helper()
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+	if gt := tc.variableGoTypes["t"]; gt == nil {
+		t.Fatal("expected variableGoTypes[t] for testing.T param")
+	}
+}
+

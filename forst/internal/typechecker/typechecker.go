@@ -91,6 +91,8 @@ type TypeChecker struct {
 	moduleResult ModuleResultView
 	// siblingTypeDefCache memoizes resolveForstSiblingTypeDef (hit and miss).
 	siblingTypeDefCache map[ast.TypeIdent]cachedSiblingTypeDef
+	// siblingImportTypeDefCache memoizes resolveForstSiblingTypeInImports (hit and miss).
+	siblingImportTypeDefCache map[string]cachedSiblingTypeDef
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
 	goPackagesPreloaded bool
 	Warnings              []Diagnostic

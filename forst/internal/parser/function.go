@@ -5,9 +5,17 @@ import (
 )
 
 func (p *Parser) parseParameterType() ast.TypeNode {
-	next := p.peek()
-	// TODO: Even if the next token is a dot this could be a type without any constraints
-	if next.Type == ast.TokenDot || next.Type == ast.TokenLParen {
+	if p.current().Type == ast.TokenIdentifier && p.peek().Type == ast.TokenDot {
+		if p.looksLikeAssertionTypeAfterIdent() {
+			assertion := p.parseAssertionChain(true)
+			return ast.TypeNode{
+				Ident:     ast.TypeAssertion,
+				Assertion: &assertion,
+			}
+		}
+		return p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+	}
+	if p.peek().Type == ast.TokenLParen {
 		assertion := p.parseAssertionChain(true)
 		return ast.TypeNode{
 			Ident:     ast.TypeAssertion,
@@ -80,7 +88,24 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	}
 
 	tok := p.current()
-	if tok.Type == ast.TokenIdentifier && (p.peek().Type == ast.TokenDot || p.peek().Type == ast.TokenLParen) {
+	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenDot {
+		if p.looksLikeAssertionTypeAfterIdent() {
+			assertion := p.parseAssertionChain(true)
+			return ast.SimpleParamNode{
+				Ident: ast.Ident{ID: ast.Identifier(name)},
+				Type: ast.TypeNode{
+					Ident:     ast.TypeAssertion,
+					Assertion: &assertion,
+				},
+			}
+		}
+		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+		return ast.SimpleParamNode{
+			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Type:  typ,
+		}
+	}
+	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLParen {
 		assertion := p.parseAssertionChain(true)
 		return ast.SimpleParamNode{
 			Ident: ast.Ident{ID: ast.Identifier(name)},
@@ -130,6 +155,14 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		Ident: ast.Ident{ID: ast.Identifier(name)},
 		Type:  typ,
 	}
+}
+
+// looksLikeAssertionTypeAfterIdent reports Ident . Ident ( constraint calls, not pkg.Type refs.
+func (p *Parser) looksLikeAssertionTypeAfterIdent() bool {
+	if p.current().Type != ast.TokenIdentifier || p.peek().Type != ast.TokenDot {
+		return false
+	}
+	return p.peek(2).Type == ast.TokenIdentifier && p.peek(3).Type == ast.TokenLParen
 }
 
 func (p *Parser) parseParameter() ast.ParamNode {

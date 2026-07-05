@@ -587,6 +587,44 @@ func (tc *TypeChecker) goTypeDisplayStringForVariablePath(id ast.Identifier) (st
 	return last.String(), true
 }
 
+// goTypeForQualifiedImportTypeIdent resolves pkg.Type from a Go import (e.g. testing.T) to go/types.
+// Returns nil when the qualifier is a Forst sibling package or the symbol is not found.
+func (tc *TypeChecker) goTypeForQualifiedImportTypeIdent(typeIdent ast.TypeIdent) types.Type {
+	importLocal, symbol, ok := parseForstSiblingTypeRef(typeIdent)
+	if !ok {
+		return nil
+	}
+	if importMap := tc.importPathToForstPkgMap(); importMap != nil {
+		if path, ok := tc.ImportPathForLocal(importLocal); ok && importMap[path] != "" {
+			return nil
+		}
+	}
+	gp := tc.goPackageForImportLocal(importLocal)
+	if gp == nil {
+		return nil
+	}
+	obj := gp.Scope().Lookup(symbol)
+	if obj == nil {
+		return nil
+	}
+	return obj.Type()
+}
+
+func (tc *TypeChecker) goTypeForParamTypeNode(typ ast.TypeNode) types.Type {
+	if typ.Ident == ast.TypePointer && len(typ.TypeParams) == 1 {
+		if gt := tc.goTypeForQualifiedImportTypeIdent(typ.TypeParams[0].Ident); gt != nil {
+			return types.NewPointer(gt)
+		}
+	}
+	return tc.goTypeForQualifiedImportTypeIdent(typ.Ident)
+}
+
+func (tc *TypeChecker) bindVariableGoTypeFromParamType(ident ast.Identifier, typ ast.TypeNode) {
+	if gt := tc.goTypeForParamTypeNode(typ); gt != nil {
+		tc.variableGoTypes[ident] = gt
+	}
+}
+
 // goTypeForExpression returns the go/types type of a Go interop expression when known.
 func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
 	if tc == nil || expr == nil {

@@ -141,3 +141,91 @@ func TestCheckModuleProviders_mainWiringRoot(t *testing.T) {
 		t.Fatalf("mainWiringDemo should be runnable, providers = %v", tc.FunctionProviders["mainWiringDemo"])
 	}
 }
+
+func TestCheckModuleProviders_genericSiblingImports(t *testing.T) {
+	dir := t.TempDir()
+	const mod = "generic_sibling_demo"
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent(mod))
+
+	internalDir := filepath.Join(dir, "internal")
+	modelsDir := filepath.Join(internalDir, "models")
+	apiDir := filepath.Join(internalDir, "api")
+	testDir := filepath.Join(dir, "cmd", "demo")
+	for _, d := range []string{internalDir, modelsDir, apiDir, testDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Package-named .ft in parent dir: internal/metadata.ft declares package metadata.
+	writeFile(t, filepath.Join(internalDir, "metadata.ft"), `package metadata
+
+var Revision = "1.0"
+`)
+	writeFile(t, filepath.Join(modelsDir, "models.ft"), `package models
+
+type Record = {
+	Name: String,
+}
+`)
+	writeFile(t, filepath.Join(apiDir, "api.ft"), `package api
+
+import "generic_sibling_demo/internal/metadata"
+import "generic_sibling_demo/internal/models"
+
+func LabelFor(rec models.Record): String {
+	return metadata.Revision + rec.Name
+}
+`)
+	writeFile(t, filepath.Join(testDir, "demo_test.ft"), `package demo
+
+import "testing"
+
+func TestSmoke(t *testing.T) {
+	t.Helper()
+}
+`)
+
+	result, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatalf("CheckModuleProviders: %v", err)
+	}
+
+	importMap := result.ImportPathToForstPkg()
+	if importMap[mod+"/internal/metadata"] != "metadata" {
+		t.Fatalf("package-named file import path: %v", importMap)
+	}
+
+	metadataTC := result.ForstPackageTypeChecker("metadata")
+	if metadataTC == nil {
+		t.Fatal("missing metadata typechecker")
+	}
+	if _, ok := metadataTC.CurrentScope().LookupVariableType("Revision"); !ok {
+		t.Fatal("Revision not registered in metadata package")
+	}
+
+	apiTC := result.ForstPackageTypeChecker("api")
+	if apiTC == nil {
+		t.Fatal("missing api typechecker")
+	}
+	path, ok := apiTC.ImportPathForLocal("metadata")
+	if !ok {
+		t.Fatal("api package missing import local metadata")
+	}
+	if importMap[path] != "metadata" {
+		t.Fatalf("import map[%q] = %q, want metadata", path, importMap[path])
+	}
+
+	modelsTC := result.ForstPackageTypeChecker("models")
+	if modelsTC == nil {
+		t.Fatal("missing models typechecker")
+	}
+	if _, ok := modelsTC.Defs["Record"]; !ok {
+		t.Fatal("Record missing from models Defs")
+	}
+
+	demoTC := result.ForstPackageTypeChecker("demo")
+	if demoTC == nil {
+		t.Fatal("missing demo typechecker")
+	}
+}

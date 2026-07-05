@@ -276,6 +276,12 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		}
 	}
 
+	if _, _, ok := parseForstSiblingTypeRef(actual.Ident); ok {
+		if tc.siblingShapeTypeMatches(expected, actual.Ident) {
+			return true
+		}
+	}
+
 	if expected.Assertion != nil && expected.Assertion.BaseType != nil {
 		if _, _, ok := parseForstSiblingTypeRef(*expected.Assertion.BaseType); ok {
 			if tc.siblingShapeTypeMatches(actual, *expected.Assertion.BaseType) {
@@ -419,6 +425,33 @@ func (tc *TypeChecker) checkBuiltinFunctionCall(fn BuiltinFunction, args []ast.E
 			}
 			return nil, diagnosticf(sp, "builtin-call", "string() unsupported operand type %s", argType[0].Ident)
 		}
+	}
+	if fn.Name == "Int" && len(args) == 1 {
+		argType, err := tc.inferExpressionType(args[0])
+		if err != nil {
+			return nil, err
+		}
+		sp := spanForCallArg(argSpans, 0, args, callSpan)
+		if len(argType) != 1 {
+			return nil, diagnosticf(sp, "builtin-call", "Int() expects one argument")
+		}
+		switch argType[0].Ident {
+		case ast.TypeInt, ast.TypeFloat, ast.TypeString, ast.TypeBool:
+			return []ast.TypeNode{fn.ReturnType}, nil
+		default:
+			return nil, diagnosticf(sp, "builtin-call", "Int() unsupported operand type %s", argType[0].Ident)
+		}
+	}
+	if fn.Name == "[]byte" && len(args) == 1 {
+		argType, err := tc.inferExpressionType(args[0])
+		if err != nil {
+			return nil, err
+		}
+		sp := spanForCallArg(argSpans, 0, args, callSpan)
+		if len(argType) != 1 || argType[0].Ident != ast.TypeString {
+			return nil, diagnosticf(sp, "builtin-call", "[]byte() expects a String argument")
+		}
+		return []ast.TypeNode{fn.ReturnType}, nil
 	}
 
 	// Go predeclared builtins (empty package): semantics are implemented in tryDispatchGoBuiltin, not ParamTypes.

@@ -216,7 +216,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 	t.Run("append slice", func(t *testing.T) {
 		fn := BuiltinFunctions["append"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 			ast.IntLiteralNode{Value: 2},
 		}, nil, ast.SourceSpan{})
 		if err != nil {
@@ -230,7 +230,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 	t.Run("append slice three elems", func(t *testing.T) {
 		fn := BuiltinFunctions["append"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 			ast.IntLiteralNode{Value: 2},
 			ast.IntLiteralNode{Value: 3},
 		}, nil, ast.SourceSpan{})
@@ -245,8 +245,8 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 	t.Run("copy two int slices", func(t *testing.T) {
 		fn := BuiltinFunctions["copy"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 0}}},
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 0}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 		}, nil, ast.SourceSpan{})
 		if err != nil {
 			t.Fatal(err)
@@ -272,7 +272,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 	t.Run("clear slice literal", func(t *testing.T) {
 		fn := BuiltinFunctions["clear"]
 		types, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{
-			ast.ArrayLiteralNode{Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}},
+			ast.ArrayLiteralNode{Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}},
 		}, nil, ast.SourceSpan{})
 		if err != nil {
 			t.Fatal(err)

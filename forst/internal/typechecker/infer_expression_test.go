@@ -83,7 +83,7 @@ func TestFunctionCallWithShapeLiteralArgument(t *testing.T) {
 func TestInferExpressionType_ArrayLiteralNode_homogeneousInts(t *testing.T) {
 	tc := New(logrus.New(), false)
 	arr := ast.ArrayLiteralNode{
-		Value: []ast.LiteralNode{
+		Value: []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 1},
 			ast.IntLiteralNode{Value: 2},
 		},
@@ -101,7 +101,7 @@ func TestInferExpressionType_ArrayLiteralNode_homogeneousInts(t *testing.T) {
 func TestInferExpressionType_ArrayLiteralNode_mixedElementTypes(t *testing.T) {
 	tc := New(logrus.New(), false)
 	arr := ast.ArrayLiteralNode{
-		Value: []ast.LiteralNode{
+		Value: []ast.ExpressionNode{
 			ast.IntLiteralNode{Value: 1},
 			ast.StringLiteralNode{Value: "x"},
 		},
@@ -116,7 +116,7 @@ func TestInferExpressionType_ArrayLiteralNode_mixedElementTypes(t *testing.T) {
 func TestInferExpressionType_ArrayLiteralNode_emptyDefaultsToIntElem(t *testing.T) {
 	tc := New(logrus.New(), false)
 	arr := ast.ArrayLiteralNode{
-		Value: []ast.LiteralNode{},
+		Value: []ast.ExpressionNode{},
 		Type:  ast.TypeNode{Ident: ast.TypeImplicit},
 	}
 	types, err := tc.inferExpressionType(arr)

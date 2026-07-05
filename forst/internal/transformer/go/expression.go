@@ -38,7 +38,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 	case ast.ArrayLiteralNode:
 		elts := make([]goast.Expr, 0, len(e.Value))
 		for _, item := range e.Value {
-			ex, err := t.transformExpression(item.(ast.ExpressionNode))
+			ex, err := t.transformExpression(item)
 			if err != nil {
 				return nil, err
 			}
@@ -226,6 +226,17 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				return nil, err
 			}
 			return &goast.CallExpr{Fun: goast.NewIdent("int"), Args: []goast.Expr{arg}}, nil
+		}
+		if len(e.Function.ID) > 2 && e.Function.ID[0] == '[' && e.Function.ID[1] == ']' && len(e.Arguments) == 1 {
+			elem := string(e.Function.ID[2:])
+			arg, err := t.transformExpression(e.Arguments[0])
+			if err != nil {
+				return nil, err
+			}
+			return &goast.CallExpr{
+				Fun:  &goast.ArrayType{Elt: goast.NewIdent(elem)},
+				Args: []goast.Expr{arg},
+			}, nil
 		}
 		if lit, ok, err := t.transformNominalErrorConstructorCall(e); ok {
 			if err != nil {

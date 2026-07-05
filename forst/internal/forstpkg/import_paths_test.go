@@ -36,6 +36,20 @@ func TestBuildForstPackageImportPaths_rootPackage(t *testing.T) {
 	}
 }
 
+func TestBuildForstPackageImportPaths_packageNamedFileInParentDir(t *testing.T) {
+	root := filepath.Clean("/proj")
+	paths := map[string][]string{
+		"version": {filepath.Join(root, "internal", "version.ft")},
+	}
+	got := BuildForstPackageImportPaths(root, "example.com/app", paths)
+	if got["example.com/app/internal"] != "version" {
+		t.Fatalf("dir import path: %v", got)
+	}
+	if got["example.com/app/internal/version"] != "version" {
+		t.Fatalf("package-named file import path: %v", got)
+	}
+}
+
 func TestBuildForstPackageImportPaths_skipsEmptyFileList(t *testing.T) {
 	got := BuildForstPackageImportPaths("/proj", "example.com/app", map[string][]string{
 		"empty": {},

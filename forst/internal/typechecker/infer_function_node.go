@@ -37,6 +37,7 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 				typedParam.Ident.ID,
 				[]ast.TypeNode{typedParam.Type},
 				SymbolVariable)
+			tc.bindVariableGoTypeFromParamType(typedParam.Ident.ID, typedParam.Type)
 		case ast.DestructuredParamNode:
 			tc.registerDestructuredParamSymbols(typedParam.Fields, typedParam.Type, SymbolVariable)
 		}
