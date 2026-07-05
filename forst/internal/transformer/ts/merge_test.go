@@ -164,3 +164,17 @@ func TestFunctionSignaturesEqual_falseWhenNameOrReturnOrArityDiffers(t *testing.
 		t.Fatal("param name")
 	}
 }
+
+func TestFunctionSignaturesEqual_falseWhenStreamingRowTypeDiffers(t *testing.T) {
+	a := FunctionSignature{
+		Name:             "f",
+		Parameters:       []Parameter{{Name: "a", Type: "string"}},
+		ReturnType:       "AsyncIterable<string>",
+		StreamingRowType: "string",
+	}
+	b := a
+	b.StreamingRowType = "number"
+	if functionSignaturesEqual(a, b) {
+		t.Fatal("expected stream row type mismatch to be unequal")
+	}
+}

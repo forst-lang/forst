@@ -6,6 +6,15 @@ import (
 	"forst/internal/generators"
 	transformer_go "forst/internal/transformer/go"
 	"os"
+
+	goast "go/ast"
+)
+
+var (
+	transformForstFileToGoCompile = func(tr *transformer_go.Transformer, nodes []ast.Node) (*goast.File, error) {
+		return tr.TransformForstFileToGo(nodes)
+	}
+	generateGoCodeCompile = generators.GenerateGoCode
 )
 
 // CompileFile compiles a Forst file and returns the Go code.
@@ -41,7 +50,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 	if modResult != nil {
 		transformer.SetModuleResult(modResult)
 	}
-	goAST, err := transformer.TransformForstFileToGo(forstNodes)
+	goAST, err := transformForstFileToGoCompile(transformer, forstNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +59,7 @@ func (c *Compiler) CompileFile() (*string, error) {
 		c.debugPrintGoAST(goAST)
 	}
 
-	goCode, err := generators.GenerateGoCode(goAST)
+	goCode, err := generateGoCodeCompile(goAST)
 	if err != nil {
 		return nil, err
 	}

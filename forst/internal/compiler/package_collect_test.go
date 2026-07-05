@@ -121,3 +121,72 @@ func TestLoadMergedPackageAST_entryOutsideRootReturnsError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestCollectSamePackageFtPaths_openRootError(t *testing.T) {
+	logger := silentCompilerTestLogger()
+	_, err := collectSamePackageFtPaths(logger, filepath.Join(t.TempDir(), "missing"), filepath.Join(t.TempDir(), "entry.ft"))
+	if err == nil || !strings.Contains(err.Error(), "open package root") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestCollectSamePackageFtPaths_walkError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses chmod")
+	}
+	root := t.TempDir()
+	logger := silentCompilerTestLogger()
+	entryPath := filepath.Join(root, "entry.ft")
+	if err := os.WriteFile(entryPath, []byte(`package demo
+
+func Entry(): String { return "ok" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(root, "blocked")
+	if err := os.Mkdir(blocked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(blocked, "peer.ft"), []byte(`package demo
+
+func Peer(): String { return "p" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(blocked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(blocked, 0o755) })
+
+	_, err := collectSamePackageFtPaths(logger, root, entryPath)
+	if err == nil {
+		t.Fatal("expected walk error from unreadable subdirectory")
+	}
+}
+
+func TestLoadMergedPackageAST_mergesSamePackage(t *testing.T) {
+	root := t.TempDir()
+	entryPath := filepath.Join(root, "entry.ft")
+	if err := os.WriteFile(entryPath, []byte(`package demo
+
+func Entry(): String { return "ok" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "peer.ft"), []byte(`package demo
+
+func Peer(): String { return "p" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := New(Args{
+		Command:     "build",
+		FilePath:    entryPath,
+		PackageRoot: root,
+		LogLevel:    "error",
+	}, silentCompilerTestLogger())
+	nodes, err := c.loadMergedPackageAST()
+	if err != nil || len(nodes) == 0 {
+		t.Fatalf("loadMergedPackageAST: err=%v len=%d", err, len(nodes))
+	}
+}

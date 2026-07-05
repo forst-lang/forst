@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/typechecker"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
+
+	goast "go/ast"
+	"go/token"
 
 	"github.com/sirupsen/logrus"
 )
@@ -176,6 +181,52 @@ func TestDebugPrintForstAST(t *testing.T) {
 	}
 	if !hook.ContainsMessage("(?)") {
 		t.Error("Expected AST log to mark inferred return types for functions without explicit returns")
+	}
+}
+
+func TestDebugPrintGoAST(t *testing.T) {
+	hook := &TestHook{}
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.DebugLevel})
+	log.AddHook(hook)
+	c := New(Args{LogLevel: "debug"}, log)
+
+	dir := t.TempDir()
+	ft := filepath.Join(dir, "ok.ft")
+	if err := os.WriteFile(ft, []byte(`package main
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c.Args = Args{Command: "build", FilePath: ft, LogLevel: "debug"}
+	code, err := c.CompileFile()
+	if err != nil || code == nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if !hook.ContainsMessage("Go AST") {
+		t.Error("expected Go AST debug output")
+	}
+	if !hook.ContainsMessage("Function") {
+		t.Error("expected function declaration in Go AST debug output")
+	}
+}
+
+func TestDebugPrintGoAST_genDecl(t *testing.T) {
+	hook := &TestHook{}
+	log := setupTestLogger(&ast.TestLoggerOptions{ForceLevel: logrus.DebugLevel})
+	log.AddHook(hook)
+	c := New(Args{LogLevel: "debug"}, log)
+	c.debugPrintGoAST(&goast.File{
+		Name: goast.NewIdent("p"),
+		Imports: []*goast.ImportSpec{
+			{Path: &goast.BasicLit{Kind: token.STRING, Value: `"fmt"`}},
+		},
+		Decls: []goast.Decl{
+			&goast.GenDecl{Tok: token.TYPE},
+		},
+	})
+	if !hook.ContainsMessage("GenDecl") {
+		t.Error("expected GenDecl in Go AST debug output")
 	}
 }
 

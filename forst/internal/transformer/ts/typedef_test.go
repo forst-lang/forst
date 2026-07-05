@@ -111,3 +111,50 @@ type ErrKind = ParseError | IoError
 		t.Fatalf("expected union export type, got:\n%s", out)
 	}
 }
+
+func TestTransformTypeDef_unsupportedExpr_errors(t *testing.T) {
+	tr := New(typechecker.New(logrus.New(), false), nil)
+	_, err := tr.transformTypeDef(ast.TypeDefNode{
+		Ident: "Bad",
+		Expr:  nil,
+	})
+	if err == nil || !strings.Contains(err.Error(), "unsupported type definition expression") {
+		t.Fatalf("expected unsupported expr error, got %v", err)
+	}
+}
+
+func TestTransformAssertionToTypeScript_defaultsToAnyWithoutBaseType(t *testing.T) {
+	tr := New(typechecker.New(logrus.New(), false), nil)
+	out, err := tr.transformAssertionToTypeScript(&ast.AssertionNode{}, "NoBase")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "export interface NoBase extends any {}" {
+		t.Fatalf("got %q", out)
+	}
+}
+
+func TestTransformAssertionToTypeScript_wrapsBaseTypeMappingErrors(t *testing.T) {
+	tr := New(typechecker.New(logrus.New(), false), nil)
+	tr.typeMapping = &alwaysErrMapper{err: errForcedMapping}
+	base := ast.TypeString
+	_, err := tr.transformAssertionToTypeScript(&ast.AssertionNode{BaseType: &base}, "Bad")
+	if err == nil || !strings.Contains(err.Error(), "failed to get TypeScript type for assertion base type") {
+		t.Fatalf("expected wrapped base type error, got %v", err)
+	}
+}
+
+func TestTransformTypeDef_binaryExpr_wrapsCanonicalizationErrors(t *testing.T) {
+	tr := New(typechecker.New(logrus.New(), false), nil)
+	_, err := tr.transformTypeDef(ast.TypeDefNode{
+		Ident: "BadUnion",
+		Expr: ast.TypeDefBinaryExpr{
+			Left:  nil,
+			Op:    ast.TokenBitwiseOr,
+			Right: nil,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "binary typedef BadUnion") {
+		t.Fatalf("expected wrapped binary typedef error, got %v", err)
+	}
+}

@@ -182,6 +182,56 @@ func TestPrintType_typeShape_withAssertion(t *testing.T) {
 	}
 }
 
+func TestFormatConstraintArg_branches(t *testing.T) {
+	t.Parallel()
+	p := printer{cfg: DefaultConfig()}
+
+	if got := p.formatConstraintArg(ast.ConstraintArgumentNode{
+		Type: &ast.TypeNode{Ident: ast.TypeInt},
+	}); got != "Int" {
+		t.Fatalf("type arg = %q", got)
+	}
+
+	if got := p.formatConstraintArg(ast.ConstraintArgumentNode{}); got != "?" {
+		t.Fatalf("empty arg = %q", got)
+	}
+
+	if got := p.formatConstraintArg(ast.ConstraintArgumentNode{
+		Value: ptrConstraintValue(ast.IntLiteralNode{Value: 3}),
+	}); got != "3" {
+		t.Fatalf("value arg = %q", got)
+	}
+}
+
+func TestFormatAssertion_nilBaseTypeUsesChainOnly(t *testing.T) {
+	t.Parallel()
+	p := printer{cfg: DefaultConfig()}
+	got := p.formatAssertion(ast.AssertionNode{
+		Constraints: []ast.ConstraintNode{{Name: "Present"}},
+	})
+	if got != "Present()" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestFormatConstraint_shapeArgument(t *testing.T) {
+	t.Parallel()
+	p := printer{cfg: DefaultConfig()}
+	got := p.formatConstraint(ast.ConstraintNode{
+		Name: "Input",
+		Args: []ast.ConstraintArgumentNode{
+			{Shape: &ast.ShapeNode{
+				Fields: map[string]ast.ShapeFieldNode{
+					"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+				},
+			}},
+		},
+	})
+	if !strings.Contains(got, "Input {") {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestFormatTypeGuardNode_roundTrip(t *testing.T) {
 	t.Parallel()
 	g := ast.TypeGuardNode{

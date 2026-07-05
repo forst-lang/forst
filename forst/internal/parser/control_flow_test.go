@@ -253,3 +253,134 @@ func TestParseFile_WithControlFlow(t *testing.T) {
 		})
 	}
 }
+
+func TestParseIncDecStmt_SplitTokens(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		tokens   []ast.Token
+		operator ast.TokenIdent
+	}{
+		{
+			name: "increment from split plus tokens",
+			tokens: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "i"},
+				{Type: ast.TokenPlus, Value: "+"},
+				{Type: ast.TokenPlus, Value: "+"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			operator: ast.TokenPlusPlus,
+		},
+		{
+			name: "decrement from split minus tokens",
+			tokens: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "i"},
+				{Type: ast.TokenMinus, Value: "-"},
+				{Type: ast.TokenMinus, Value: "-"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			operator: ast.TokenMinusMinus,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := setupParser(tt.tokens, ast.SetupTestLogger(nil))
+			node := p.parseIncDecStmt()
+			expr := assertNodeType[ast.UnaryExpressionNode](t, node, "ast.UnaryExpressionNode")
+			if expr.Operator != tt.operator {
+				t.Fatalf("operator = %s, want %s", expr.Operator, tt.operator)
+			}
+		})
+	}
+}
+
+func TestParseSimpleStatement_Branches(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		tokens []ast.Token
+		check  func(t *testing.T, node ast.Node)
+	}{
+		{
+			name: "var statement branch",
+			tokens: []ast.Token{
+				{Type: ast.TokenVar, Value: "var"},
+				{Type: ast.TokenIdentifier, Value: "x"},
+				{Type: ast.TokenColon, Value: ":"},
+				{Type: ast.TokenInt, Value: "Int"},
+				{Type: ast.TokenEquals, Value: "="},
+				{Type: ast.TokenIntLiteral, Value: "1"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			check: func(t *testing.T, node ast.Node) {
+				t.Helper()
+				_ = assertNodeType[ast.AssignmentNode](t, node, "ast.AssignmentNode")
+			},
+		},
+		{
+			name: "identifier split increment branch",
+			tokens: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "i"},
+				{Type: ast.TokenPlus, Value: "+"},
+				{Type: ast.TokenPlus, Value: "+"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			check: func(t *testing.T, node ast.Node) {
+				t.Helper()
+				_ = assertNodeType[ast.UnaryExpressionNode](t, node, "ast.UnaryExpressionNode")
+			},
+		},
+		{
+			name: "identifier split decrement branch",
+			tokens: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "i"},
+				{Type: ast.TokenMinus, Value: "-"},
+				{Type: ast.TokenMinus, Value: "-"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			check: func(t *testing.T, node ast.Node) {
+				t.Helper()
+				_ = assertNodeType[ast.UnaryExpressionNode](t, node, "ast.UnaryExpressionNode")
+			},
+		},
+		{
+			name: "send statement branch",
+			tokens: []ast.Token{
+				{Type: ast.TokenIdentifier, Value: "ch"},
+				{Type: ast.TokenArrow, Value: "<-"},
+				{Type: ast.TokenIntLiteral, Value: "1"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			check: func(t *testing.T, node ast.Node) {
+				t.Helper()
+				_ = assertNodeType[ast.BinaryExpressionNode](t, node, "ast.BinaryExpressionNode")
+			},
+		},
+		{
+			name: "expression fallback branch",
+			tokens: []ast.Token{
+				{Type: ast.TokenIntLiteral, Value: "42"},
+				{Type: ast.TokenEOF, Value: ""},
+			},
+			check: func(t *testing.T, node ast.Node) {
+				t.Helper()
+				_ = assertNodeType[ast.IntLiteralNode](t, node, "ast.IntLiteralNode")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := setupParser(tt.tokens, ast.SetupTestLogger(nil))
+			node := p.parseSimpleStatement()
+			tt.check(t, node)
+		})
+	}
+}

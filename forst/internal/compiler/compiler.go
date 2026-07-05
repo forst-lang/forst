@@ -10,6 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var mkdirTemp = os.MkdirTemp
+
 // Compiler represents the Forst compiler and its arguments.
 type Compiler struct {
 	Args Args
@@ -56,7 +58,7 @@ func (c *Compiler) reportPhase(phase string) {
 
 // CreateTempOutputFile creates a temporary directory and file for the output
 func CreateTempOutputFile(code string) (string, error) {
-	tempDir, err := os.MkdirTemp("", "forst-*")
+	tempDir, err := mkdirTemp("", "forst-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %v", err)
 	}
