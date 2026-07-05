@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"go/types"
 	"sort"
 	"strings"
 
@@ -121,4 +122,81 @@ func (tc *TypeChecker) ListFieldNamesForType(baseType ast.TypeNode) []string {
 // Used by the LSP after RestoreScope to resolve member completion types.
 func (tc *TypeChecker) InferExpressionTypeForCompletion(expr ast.ExpressionNode) ([]ast.TypeNode, error) {
 	return tc.inferExpressionType(expr)
+}
+
+// TopLevelPackageVariables returns package-level var names registered in the global scope.
+func (tc *TypeChecker) TopLevelPackageVariables() []ast.Identifier {
+	if tc == nil {
+		return nil
+	}
+	gs := tc.globalScope()
+	if gs == nil {
+		return nil
+	}
+	var out []ast.Identifier
+	for name, sym := range gs.Symbols {
+		if sym.Kind == SymbolVariable {
+			out = append(out, name)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return string(out[i]) < string(out[j]) })
+	return out
+}
+
+// IsTopLevelPackageVariable reports whether id is a package-level var in this file.
+func (tc *TypeChecker) IsTopLevelPackageVariable(id ast.Identifier) bool {
+	for _, v := range tc.TopLevelPackageVariables() {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+func goMemberNamesForType(t types.Type) []string {
+	if t == nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var names []string
+	add := func(s string) {
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		names = append(names, s)
+	}
+	mset := types.NewMethodSet(t)
+	for i := 0; i < mset.Len(); i++ {
+		add(mset.At(i).Obj().Name())
+	}
+	elem := t
+	if ptr, ok := t.(*types.Pointer); ok {
+		elem = ptr.Elem()
+	}
+	if st, ok := elem.Underlying().(*types.Struct); ok {
+		for i := 0; i < st.NumFields(); i++ {
+			f := st.Field(i)
+			if f.Exported() {
+				add(f.Name())
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ListMembersForExpression returns field and method names for member completion after `.`.
+func (tc *TypeChecker) ListMembersForExpression(expr ast.ExpressionNode) []string {
+	if tc == nil || expr == nil {
+		return nil
+	}
+	if gt := tc.goTypeForExpression(expr); gt != nil {
+		return goMemberNamesForType(gt)
+	}
+	types, err := tc.inferExpressionType(expr)
+	if err != nil || len(types) == 0 {
+		return nil
+	}
+	return tc.ListFieldNamesForType(types[0])
 }

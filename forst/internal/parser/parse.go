@@ -60,6 +60,9 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 			p.logParsedNodeWithMessage(function, "Parsed function")
 			scope.FunctionName = string(function.Ident.ID)
 			nodes = append(nodes, function)
+		case ast.TokenVar:
+			varDecl := p.parsePackageVarDeclaration()
+			nodes = append(nodes, varDecl)
 		case ast.TokenIs:
 			scope := NewScope("", false, true, p.log)
 			p.context.ScopeStack.PushScope(scope)

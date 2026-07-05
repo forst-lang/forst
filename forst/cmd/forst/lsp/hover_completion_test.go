@@ -241,7 +241,7 @@ func TestHoverTextForToken_keyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenFunc, Value: "func"}
-	s := hoverTextForToken(tc, nil, tok, nil)
+	s := hoverTextForToken(tc, nil, tok, nil, "")
 	if !strings.Contains(s, "**`func`**") || !strings.Contains(s, "Declares") {
 		t.Fatalf("got %q", s)
 	}
@@ -256,7 +256,7 @@ func TestHoverTextForToken_builtinGuardAfterIs(t *testing.T) {
 		{Type: ast.TokenIdentifier, Value: "Min", Line: 1, Column: 6},
 	}
 	tok := &tokens[2]
-	if s := hoverTextForToken(tc, tokens, tok, nil); !strings.Contains(s, "Min") || !strings.Contains(s, "guard") {
+	if s := hoverTextForToken(tc, tokens, tok, nil, ""); !strings.Contains(s, "Min") || !strings.Contains(s, "guard") {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -265,7 +265,7 @@ func TestHoverTextForToken_builtinTypeNameIdentifier(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenIdentifier, Value: "Tuple", Line: 1, Column: 1}
-	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "Tuple") || !strings.Contains(s, "built-in type") {
+	if s := hoverTextForToken(tc, nil, tok, nil, ""); !strings.Contains(s, "Tuple") || !strings.Contains(s, "built-in type") {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -288,7 +288,7 @@ func TestHoverTextForToken_goPredeclaredLen(t *testing.T) {
 		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 15},
 	}
 	tok := &tokens[2]
-	s := hoverTextForToken(tc, tokens, tok, nil)
+	s := hoverTextForToken(tc, tokens, tok, nil, "")
 	if !strings.Contains(s, "predeclared `len`") {
 		t.Fatalf("expected predeclared len hover, got %q", s)
 	}
@@ -301,7 +301,7 @@ func TestHoverTextForToken_nilKeyword(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenNil, Value: "nil", Line: 1, Column: 1}
-	if s := hoverTextForToken(tc, nil, tok, nil); !strings.Contains(s, "nil") || !strings.Contains(s, "zero value") {
+	if s := hoverTextForToken(tc, nil, tok, nil, ""); !strings.Contains(s, "nil") || !strings.Contains(s, "zero value") {
 		t.Fatalf("got %q", s)
 	}
 }
@@ -310,7 +310,7 @@ func TestHoverTextForToken_stringLiteralNonImportReturnsEmpty(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenStringLiteral, Value: `"hello"`}
-	if s := hoverTextForToken(tc, []ast.Token{{Type: ast.TokenStringLiteral, Value: `"hello"`}}, tok, nil); s != "" {
+	if s := hoverTextForToken(tc, []ast.Token{{Type: ast.TokenStringLiteral, Value: `"hello"`}}, tok, nil, ""); s != "" {
 		t.Fatalf("expected no hover for non-import string, got %q", s)
 	}
 }
@@ -319,7 +319,7 @@ func TestHoverTextForToken_intLiteralReturnsEmpty(t *testing.T) {
 	t.Parallel()
 	tc := typechecker.New(logrus.New(), false)
 	tok := &ast.Token{Type: ast.TokenIntLiteral, Value: "42"}
-	if s := hoverTextForToken(tc, nil, tok, nil); s != "" {
+	if s := hoverTextForToken(tc, nil, tok, nil, ""); s != "" {
 		t.Fatalf("got %q", s)
 	}
 }

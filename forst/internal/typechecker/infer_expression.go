@@ -75,11 +75,21 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return nil, fmt.Errorf("array literal: mixed element types %s and %s", elemType.Ident, ts[0].Ident)
 			}
 		}
+		if e.Type.Ident != ast.TypeImplicit && e.Type.Ident != "" {
+			elemType = e.Type
+		}
 		arr := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elemType}}
 		tc.storeInferredType(e, []ast.TypeNode{arr})
 		return []ast.TypeNode{arr}, nil
 
 	case ast.VariableNode:
+		parts := strings.Split(string(e.Ident.ID), ".")
+		if len(parts) == 2 {
+			if types, ok := tc.resolveForstSiblingQualifiedVar(parts[0], parts[1]); ok {
+				tc.storeInferredType(e, types)
+				return types, nil
+			}
+		}
 		// Look up the variable's type and store it for this node. Flow-sensitive facts and FFI
 		// invalidation (future) belong in FlowTypeFact / a separate layer — not in Meet/Join.
 		typ, narrowGuards, predDisplay, err := tc.lookupVariableForExpression(&e, tc.CurrentScope())
@@ -140,6 +150,43 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		elem := t.TypeParams[0]
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
+
+	case ast.MethodCallNode:
+		argTypes := make([][]ast.TypeNode, 0, len(e.Arguments))
+		for _, arg := range e.Arguments {
+			ts, err := tc.inferExpressionType(arg)
+			if err != nil {
+				return nil, err
+			}
+			argTypes = append(argTypes, ts)
+		}
+		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
+			fc := ast.FunctionCallNode{Arguments: e.Arguments, CallSpan: e.CallSpan, ArgSpans: e.ArgSpans}
+			ret, err := tc.checkGoMethodCall(goRecv, string(e.Method.ID), fc, argTypes, true)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+		if vn, ok := e.Receiver.(ast.VariableNode); ok {
+			recvTypes, err := tc.inferExpressionType(e.Receiver)
+			if err != nil {
+				return nil, err
+			}
+			fc := ast.FunctionCallNode{Function: ast.Ident{ID: ast.Identifier(string(vn.Ident.ID) + "." + string(e.Method.ID))}, Arguments: e.Arguments, CallSpan: e.CallSpan, ArgSpans: e.ArgSpans}
+			ret, err := tc.inferMethodCallType(vn.Ident.ID, recvTypes, string(e.Method.ID), fc, argTypes)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+		sp := e.Method.Span
+		if !sp.IsSet() {
+			sp = e.CallSpan
+		}
+		return nil, diagnosticf(sp, "undefined-identifier", "method %s on receiver type %T", e.Method.ID, e.Receiver)
 
 	case ast.FunctionCallNode:
 		tc.log.WithFields(logrus.Fields{

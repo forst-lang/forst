@@ -63,6 +63,7 @@ const (
 	NodeKindUnaryExpression   NodeKind = "UnaryExpression"
 	NodeKindBinaryExpression  NodeKind = "BinaryExpression"
 	NodeKindFunctionCall      NodeKind = "FunctionCall"
+	NodeKindMethodCall        NodeKind = "MethodCall"
 	NodeKindIntLiteral        NodeKind = "IntLiteral"
 	NodeKindFloatLiteral      NodeKind = "FloatLiteral"
 	NodeKindStringLiteral     NodeKind = "StringLiteral"

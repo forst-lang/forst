@@ -50,15 +50,13 @@ func (tc *TypeChecker) inferShapeType(shape ast.ShapeNode, expectedType *ast.Typ
 	// If expectedType is a named type, try to get its definition for field types
 	var expectedFields map[string]*ast.TypeNode
 	if expectedType != nil {
-		if def, ok := tc.Defs[expectedType.Ident]; ok {
-			if typeDef, ok := def.(ast.TypeDefNode); ok {
-				if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
-					expectedFields = make(map[string]*ast.TypeNode)
-					for fname, fdef := range payload.Fields {
-						if fdef.Type != nil {
-							t := *fdef.Type
-							expectedFields[fname] = &t
-						}
+		if typeDef, ok := tc.typeDefForIdent(expectedType.Ident); ok {
+			if payload, ok := ast.PayloadShape(typeDef.Expr); ok {
+				expectedFields = make(map[string]*ast.TypeNode)
+				for fname, fdef := range payload.Fields {
+					if fdef.Type != nil {
+						t := *fdef.Type
+						expectedFields[fname] = &t
 					}
 				}
 			}

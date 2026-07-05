@@ -725,6 +725,32 @@ func lhsExpressionBeforeDot(lineToCursor string) string {
 }
 
 func memberCompletionsAfterDot(ctx *forstDocumentContext, pos LSPPosition, prefix string) []LSPCompletionItem {
+	dotIdx := memberAccessDotIndex(ctx.Tokens, pos)
+	if dotIdx >= 0 {
+		if recv, ok := parseReceiverExpressionBeforeDot(ctx.Tokens, dotIdx, ctx.FileID); ok {
+			fields := ctx.TC.ListMembersForExpression(recv)
+			pl := strings.ToLower(prefix)
+			var out []LSPCompletionItem
+			for _, f := range fields {
+				if prefix != "" && !strings.HasPrefix(strings.ToLower(f), pl) {
+					continue
+				}
+				out = append(out, LSPCompletionItem{
+					Label:            f,
+					Kind:             LSPCompletionItemKindField,
+					Detail:           "member",
+					InsertText:       f,
+					InsertTextFormat: LSPInsertTextFormatPlainText,
+					FilterText:       f,
+					SortText:         "1" + f,
+				})
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+
 	line := lineUpToCursor(ctx.Content, pos)
 	lhs := lhsExpressionBeforeDot(line)
 	if lhs == "" {
@@ -792,6 +818,21 @@ func topLevelSymbolCompletionItems(ctx *forstDocumentContext, prefix string) []L
 			Label:            name,
 			Kind:             LSPCompletionItemKindFunction,
 			Detail:           tc.FormatFunctionSignatureDisplay(sig),
+			InsertText:       name,
+			InsertTextFormat: LSPInsertTextFormatPlainText,
+			FilterText:       name,
+			SortText:         "1" + name,
+		})
+	}
+	for _, id := range tc.TopLevelPackageVariables() {
+		name := string(id)
+		if prefix != "" && !strings.HasPrefix(strings.ToLower(name), pl) {
+			continue
+		}
+		out = append(out, LSPCompletionItem{
+			Label:            name,
+			Kind:             LSPCompletionItemKindVariable,
+			Detail:           "package var",
 			InsertText:       name,
 			InsertTextFormat: LSPInsertTextFormatPlainText,
 			FilterText:       name,

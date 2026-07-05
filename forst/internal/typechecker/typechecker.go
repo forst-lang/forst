@@ -89,7 +89,11 @@ type TypeChecker struct {
 	providers *ProvidersEngine
 	// moduleResult is set during module-level check for cross-package Forst call resolution.
 	moduleResult ModuleResultView
-	Warnings       []Diagnostic
+	// siblingTypeDefCache memoizes resolveForstSiblingTypeDef (hit and miss).
+	siblingTypeDefCache map[ast.TypeIdent]cachedSiblingTypeDef
+	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
+	goPackagesPreloaded bool
+	Warnings              []Diagnostic
 }
 
 // New creates a new TypeChecker.
@@ -137,14 +141,20 @@ func (tc *TypeChecker) HasDotImportPackages() bool {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
+	if err := tc.CollectTypes(nodes); err != nil {
+		return err
+	}
+	return tc.InferTypes(nodes)
+}
+
+// CollectTypes runs the first pass: explicit types, imports, and function signatures.
+func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 	if tc.reportPhases {
 		tc.log.WithFields(logrus.Fields{
-			"function": "CheckTypes",
+			"function": "CollectTypes",
 		}).Info("First pass: collecting explicit types and function signatures")
 	}
 
-	// Collect order is independent of source order: types and type guards before functions so
-	// signatures can reference any user-defined type in the program (multi-file or single file).
 	collectOrder := partitionTopLevelForCollect(nodes)
 	for _, node := range collectOrder {
 		tc.path = append(tc.path, node)
@@ -153,7 +163,11 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		}
 		tc.path = tc.path[:len(tc.path)-1]
 	}
+	return nil
+}
 
+// InferTypes runs the second pass after CollectTypes (local or module-wide).
+func (tc *TypeChecker) InferTypes(nodes []ast.Node) error {
 	tc.initGoImportPackages()
 	tc.initSamePackageGoExports()
 
@@ -166,12 +180,12 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 		"typeDefs":  len(tc.Defs),
 		"functions": len(tc.Functions),
 		"uses":      len(tc.Uses),
-		"function":  "CheckTypes",
+		"function":  "InferTypes",
 	}).Debug("Collected types and function signatures")
 
 	if tc.reportPhases {
 		tc.log.WithFields(logrus.Fields{
-			"function": "CheckTypes",
+			"function": "InferTypes",
 		}).Info("Starting second pass: inferring types")
 	}
 

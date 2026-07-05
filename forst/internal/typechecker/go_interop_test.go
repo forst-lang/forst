@@ -596,7 +596,7 @@ func main() {
 	}
 }
 
-func TestVariableGoTypes_twoValueOpenThenMethodCall_typechecks(t *testing.T) {
+func TestVariableGoTypes_twoValueOpenThenPostfixMethodCall_typechecks(t *testing.T) {
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -630,6 +630,56 @@ func main() {
 	}
 	if tc.variableGoTypes[ast.Identifier("err")] == nil {
 		t.Fatal("expected variableGoTypes[\"err\"]")
+	}
+}
+
+func TestGoMethodCall_postfixOnQualifiedCall_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "time"
+
+func main() {
+	s := time.Now().Format("20060102")
+	println(s)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["time"] == nil {
+		t.Skip("time not loaded (go/packages or workspace)")
+	}
+	var mainFn ast.FunctionNode
+	for _, n := range nodes {
+		if fn, ok := n.(ast.FunctionNode); ok && fn.Ident.ID == "main" {
+			mainFn = fn
+			break
+		}
+	}
+	asg, ok := mainFn.Body[0].(ast.AssignmentNode)
+	if !ok {
+		t.Fatalf("expected assignment, got %T", mainFn.Body[0])
+	}
+	mc, ok := asg.RValues[0].(ast.MethodCallNode)
+	if !ok || mc.Method.ID != "Format" {
+		t.Fatalf("want Format MethodCallNode, got %T", asg.RValues[0])
+	}
+	ty, err := tc.LookupInferredType(mc, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ty) != 1 || ty[0].Ident != ast.TypeString {
+		t.Fatalf("want String, got %v", ty)
 	}
 }
 

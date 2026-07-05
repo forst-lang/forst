@@ -183,6 +183,24 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		base = inner
 	case p.current().Type == ast.TokenIdentifier:
 		base = p.parseIdentifierPrimary()
+	case p.current().Type == ast.TokenInt, p.current().Type == ast.TokenString,
+		p.current().Type == ast.TokenBool, p.current().Type == ast.TokenFloat:
+		typeTok := p.current()
+		typeName := typeKeywordName(typeTok)
+		p.advance()
+		if p.current().Type != ast.TokenLParen {
+			p.FailWithParseError(typeTok, "type keyword in expression requires parentheses for conversion")
+		}
+		lparen := p.current()
+		p.advance()
+		args, argSpans := p.parseCallArguments()
+		rparen := p.expect(ast.TokenRParen)
+		base = ast.FunctionCallNode{
+			Function:  ast.Ident{ID: ast.Identifier(typeName), Span: ast.SpanFromToken(typeTok)},
+			Arguments: args,
+			CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+			ArgSpans:  argSpans,
+		}
 	case p.current().Type == ast.TokenNil:
 		p.advance()
 		base = ast.NilLiteralNode{}
@@ -190,7 +208,47 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		base = p.parseValue()
 	}
 
-	return p.parseIndexSuffixChain(base, depth)
+	return p.parsePostfixSuffixChain(base, depth)
+}
+
+func typeKeywordName(tok ast.Token) string {
+	switch tok.Type {
+	case ast.TokenString:
+		return "String"
+	case ast.TokenInt:
+		return "Int"
+	case ast.TokenBool:
+		return "Bool"
+	case ast.TokenFloat:
+		return "Float"
+	default:
+		return tok.Value
+	}
+}
+
+// parsePostfixSuffixChain parses [index], .method(), and .field suffixes.
+func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast.ExpressionNode {
+	base = p.parseIndexSuffixChain(base, depth)
+	for p.current().Type == ast.TokenDot {
+		p.advance()
+		memberTok := p.parseSelectorName()
+		if p.current().Type == ast.TokenLParen {
+			lparen := p.current()
+			p.advance()
+			args, argSpans := p.parseCallArguments()
+			rparen := p.expect(ast.TokenRParen)
+			base = ast.MethodCallNode{
+				Receiver:  base,
+				Method:    ast.Ident{ID: ast.Identifier(memberTok.Value), Span: ast.SpanFromToken(memberTok)},
+				Arguments: args,
+				CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+				ArgSpans:  argSpans,
+			}
+		} else {
+			p.FailWithParseError(memberTok, "field access on expressions is not supported; call a method")
+		}
+	}
+	return base
 }
 
 // parseIdentifierPrimary parses call, typed shape literal, or variable; caller must be positioned

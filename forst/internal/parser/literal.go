@@ -108,18 +108,20 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		}
 		rbrack := p.expect(ast.TokenRBracket)
 
-		var arrayType ast.TypeNode
-		next := p.current()
-		// Optional `[elem...]T` suffix: only when `T` is on the same line as `]`. Otherwise a
-		// closing `]` at end of line would consume the next statement's identifier (e.g. `xs` in
-		// `ys := [...]\n  xs := [...]`).
-		if next.Type == ast.TokenIdentifier && next.Line == rbrack.Line {
-			arrayType = ast.TypeNode{
-				Ident: ast.TypeIdent(next.Value),
-			}
+		arrayType := p.parseOptionalArrayElementTypeSuffix(rbrack)
+		if p.current().Type == ast.TokenLBrace {
 			p.advance()
-		} else {
-			arrayType = ast.TypeNode{Ident: ast.TypeImplicit}
+			if p.current().Type == ast.TokenRBrace {
+				p.advance()
+			} else {
+				for p.current().Type != ast.TokenRBrace {
+					items = append(items, p.parseLiteral())
+					if p.current().Type == ast.TokenComma {
+						p.advance()
+					}
+				}
+				p.expect(ast.TokenRBrace)
+			}
 		}
 
 		return ast.ArrayLiteralNode{
@@ -137,4 +139,28 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 		p.FailWithUnexpectedToken(token, "a literal")
 	}
 	panic("Reached unreachable path")
+}
+
+// parseOptionalArrayElementTypeSuffix parses optional `]T` on the same line as `]`.
+func (p *Parser) parseOptionalArrayElementTypeSuffix(rbrack ast.Token) ast.TypeNode {
+	next := p.current()
+	if next.Line != rbrack.Line {
+		return ast.TypeNode{Ident: ast.TypeImplicit}
+	}
+	switch next.Type {
+	case ast.TokenIdentifier:
+		p.advance()
+		return ast.TypeNode{Ident: ast.TypeIdent(next.Value)}
+	case ast.TokenString:
+		p.advance()
+		return ast.NewBuiltinType(ast.TypeString)
+	case ast.TokenInt:
+		p.advance()
+		return ast.NewBuiltinType(ast.TypeInt)
+	case ast.TokenBool:
+		p.advance()
+		return ast.NewBuiltinType(ast.TypeBool)
+	default:
+		return ast.TypeNode{Ident: ast.TypeImplicit}
+	}
 }

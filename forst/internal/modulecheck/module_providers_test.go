@@ -9,6 +9,46 @@ import (
 	"forst/internal/testmod"
 )
 
+func TestCheckModuleProviders_twoPhaseMultiPackageModule(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("sibling_demo"))
+	alphaDir := filepath.Join(dir, "alpha")
+	betaDir := filepath.Join(dir, "beta")
+	for _, d := range []string{alphaDir, betaDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(alphaDir, "types.ft"), `package alpha
+
+type Config = {
+	Version: String,
+}
+`)
+	writeFile(t, filepath.Join(betaDir, "use.ft"), `package beta
+
+import "sibling_demo/alpha"
+
+func Use(cfg: alpha.Config) {
+	println(cfg.Version)
+}
+
+func main() {
+	Use({ Version: "1.0" })
+}
+`)
+	result, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatalf("CheckModuleProviders: %v", err)
+	}
+	if result.ForstPackageTypeChecker("beta") == nil {
+		t.Fatalf("missing beta typechecker; packages=%v", result.ForstPkgToFiles)
+	}
+	if result.ForstPackageTypeChecker("alpha") == nil {
+		t.Fatalf("missing alpha typechecker; packages=%v", result.ForstPkgToFiles)
+	}
+}
+
 func TestCheckModuleProviders_crossPkg(t *testing.T) {
 	root := "../../../examples/in/rfc/providers/cross_pkg"
 	result, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: root})

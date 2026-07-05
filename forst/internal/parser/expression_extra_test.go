@@ -103,3 +103,45 @@ func f() {
 		t.Fatal(err)
 	}
 }
+
+func TestParseFile_typeConversionInt(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+func f(c String): Int {
+	return Int(c)
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := assertNodeType[ast.FunctionNode](t, nodes[1], "ast.FunctionNode")
+	ret := fn.Body[0].(ast.ReturnNode)
+	call, ok := ret.Values[0].(ast.FunctionCallNode)
+	if !ok || call.Function.ID != "Int" {
+		t.Fatalf("want Int(...) call, got %#v", ret.Values[0])
+	}
+}
+
+func TestParseFile_postfixMethodCallOnExpression(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+import "time"
+
+func f(): String {
+	return time.Now().Format("20060102")
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := assertNodeType[ast.FunctionNode](t, nodes[2], "ast.FunctionNode")
+	ret := fn.Body[0].(ast.ReturnNode)
+	mc, ok := ret.Values[0].(ast.MethodCallNode)
+	if !ok || mc.Method.ID != "Format" {
+		t.Fatalf("want Format method call, got %#v", ret.Values[0])
+	}
+}

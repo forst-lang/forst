@@ -221,3 +221,19 @@ func TestParseVarStatement(t *testing.T) {
 		})
 	}
 }
+
+func TestParseFile_packageLevelVar(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+var Version = "0.1.0"
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	asg, ok := nodes[1].(ast.AssignmentNode)
+	if !ok || !asg.IsPackageLevel {
+		t.Fatalf("want package-level AssignmentNode, got %T", nodes[1])
+	}
+}

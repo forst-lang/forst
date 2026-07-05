@@ -58,6 +58,7 @@ var NodeKind = map[string]uint8{
 	"TypeDefErrorExpr": 28,
 	"Use":              29,
 	"With":             30,
+	"MethodCall":       31,
 }
 
 func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
@@ -253,6 +254,29 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			NodeKind["FunctionCall"],
 			[]byte(n.Function.ID),
 		); err != nil {
+			return 0, err
+		}
+		nodes := make([]ast.Node, len(n.Arguments))
+		for i, arg := range n.Arguments {
+			nodes[i] = arg
+		}
+		hash, err := h.hashNodes(nodes)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, hash); err != nil {
+			return 0, err
+		}
+
+	case ast.MethodCallNode:
+		if err := h.writeHashes(hasher, NodeKind["MethodCall"], []byte(n.Method.ID)); err != nil {
+			return 0, err
+		}
+		recvHash, err := h.HashNode(n.Receiver)
+		if err != nil {
+			return 0, err
+		}
+		if err := h.writeHashes(hasher, recvHash); err != nil {
 			return 0, err
 		}
 		nodes := make([]ast.Node, len(n.Arguments))
@@ -840,6 +864,8 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 	case *ast.FunctionNode:
 		return h.HashNode(*n)
 	case *ast.FunctionCallNode:
+		return h.HashNode(*n)
+	case *ast.MethodCallNode:
 		return h.HashNode(*n)
 	case *ast.EnsureNode:
 		return h.HashNode(*n)

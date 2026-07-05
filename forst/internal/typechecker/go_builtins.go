@@ -270,6 +270,20 @@ func (tc *TypeChecker) IsTypeCompatible(actual ast.TypeNode, expected ast.TypeNo
 		return true
 	}
 
+	if _, _, ok := parseForstSiblingTypeRef(expected.Ident); ok {
+		if tc.siblingShapeTypeMatches(actual, expected.Ident) {
+			return true
+		}
+	}
+
+	if expected.Assertion != nil && expected.Assertion.BaseType != nil {
+		if _, _, ok := parseForstSiblingTypeRef(*expected.Assertion.BaseType); ok {
+			if tc.siblingShapeTypeMatches(actual, *expected.Assertion.BaseType) {
+				return true
+			}
+		}
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"actual":   actual.Ident,
 		"expected": expected.Ident,
@@ -297,6 +311,28 @@ func (tc *TypeChecker) shapeExpectationMatches(actual ast.TypeNode, expected ast
 		return false
 	}
 	return tc.shapesHaveSameStructure(*actualShape, expShape)
+}
+
+// siblingShapeTypeMatches reports whether actual is structurally compatible with a shape type
+// defined in another Forst package (pkg.TypeName).
+func (tc *TypeChecker) siblingShapeTypeMatches(actual ast.TypeNode, siblingType ast.TypeIdent) bool {
+	td, ok := tc.resolveForstSiblingTypeDef(siblingType)
+	if !ok {
+		return false
+	}
+	expectedShape, ok := tc.getShapeFromTypeDef(td)
+	if !ok {
+		return false
+	}
+	actualDef, ok := tc.Defs[actual.Ident]
+	if !ok {
+		return false
+	}
+	actualShape, ok := tc.getShapeFromTypeDef(actualDef)
+	if !ok {
+		return false
+	}
+	return tc.shapesHaveSameStructure(*actualShape, *expectedShape)
 }
 
 func isScalarTypeIdent(id ast.TypeIdent) bool {

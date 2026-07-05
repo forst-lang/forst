@@ -67,6 +67,11 @@ func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 	t.functions = append(t.functions, function)
 }
 
+// AddValueDecl adds a file-level var/const declaration.
+func (t *TransformerOutput) AddValueDecl(decl *goast.GenDecl) {
+	t.valueDecls = append(t.valueDecls, decl)
+}
+
 // AddType adds a type declaration to the TransformerOutput
 func (t *TransformerOutput) AddType(typeDecl *goast.GenDecl) {
 	// Check if this type is already defined

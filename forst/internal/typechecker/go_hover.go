@@ -195,6 +195,31 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 	return tc.goHoverMarkdownBodyForResolvedPackage(gp, pkgLocal, symbol)
 }
 
+// GoHoverMarkdownForMethodOnExpression returns hover for expr.method when expr has a tracked Go type
+// or a Forst builtin receiver type.
+func (tc *TypeChecker) GoHoverMarkdownForMethodOnExpression(recv ast.ExpressionNode, methodName string) (string, bool) {
+	if tc == nil || recv == nil || methodName == "" {
+		return "", false
+	}
+	if gt := tc.goTypeForExpression(recv); gt != nil {
+		obj, _, _ := types.LookupFieldOrMethod(gt, true, nil, methodName)
+		if obj == nil {
+			return "", false
+		}
+		line := types.ObjectString(obj, nil)
+		var b strings.Builder
+		b.WriteString("**Go method**\n\n```go\n")
+		b.WriteString(line)
+		b.WriteString("\n```")
+		return b.String(), true
+	}
+	types, err := tc.inferExpressionType(recv)
+	if err != nil || len(types) == 0 {
+		return "", false
+	}
+	return tc.GoHoverMarkdownForForstReceiverMethod(types[0], methodName)
+}
+
 // GoHoverMarkdownForForstReceiverMethod returns hover for recv.method when the receiver is a Forst
 // builtin that maps to a Go type (see forstBuiltinReceiverGoType) and methodName is in that type's
 // method set. Documentation text is taken from $GOROOT/src/builtin (package builtin) when

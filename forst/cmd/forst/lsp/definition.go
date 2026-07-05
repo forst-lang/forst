@@ -109,6 +109,15 @@ func (s *LSPServer) definingTopLevelLocationForPackage(tc *typechecker.TypeCheck
 		}
 		return nil
 	}
+	if tc.IsTopLevelPackageVariable(id) {
+		for _, u := range merge.MemberURIs {
+			tks := merge.TokensByURI[u]
+			if defTok := findPackageVarNameToken(tks, string(id)); defTok != nil {
+				return lspLocationPtrFromToken(u, defTok)
+			}
+		}
+		return nil
+	}
 	if strings.HasPrefix(tok.Value, "T_") {
 		return nil
 	}
@@ -146,6 +155,11 @@ func definingTokenForNavigableSymbol(tc *typechecker.TypeChecker, tokens []ast.T
 	id := ast.Identifier(tok.Value)
 	if _, ok := tc.Functions[id]; ok {
 		return findFuncNameToken(tokens, string(id))
+	}
+	if tc.IsTopLevelPackageVariable(id) {
+		if t := findPackageVarNameToken(tokens, string(id)); t != nil {
+			return t
+		}
 	}
 	if strings.HasPrefix(tok.Value, "T_") {
 		return nil
@@ -204,6 +218,18 @@ func findFuncNameToken(tokens []ast.Token, name string) *ast.Token {
 			continue
 		}
 		if tokens[i].Type == ast.TokenFunc && tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == name {
+			return &tokens[i+1]
+		}
+	}
+	return nil
+}
+
+func findPackageVarNameToken(tokens []ast.Token, name string) *ast.Token {
+	for i := 0; i+1 < len(tokens); i++ {
+		if braceDepthAtIndex(tokens, i) != 0 {
+			continue
+		}
+		if tokens[i].Type == ast.TokenVar && tokens[i+1].Type == ast.TokenIdentifier && tokens[i+1].Value == name {
 			return &tokens[i+1]
 		}
 	}

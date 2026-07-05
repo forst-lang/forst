@@ -184,6 +184,23 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Index: idx,
 		}, nil
 
+	case ast.MethodCallNode:
+		recv, err := t.transformExpression(e.Receiver)
+		if err != nil {
+			return nil, err
+		}
+		args, err := t.transformFunctionCallArgs(e.Method.ID, e.Arguments)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   recv,
+				Sel: goast.NewIdent(string(e.Method.ID)),
+			},
+			Args: args,
+		}, nil
+
 	case ast.FunctionCallNode:
 		if isPrintLikeBuiltinCall(e.Function) {
 			args, err := t.transformPrintBuiltinCallArgs(e.Arguments)
@@ -202,6 +219,13 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				}
 				return goExpr, nil
 			}
+		}
+		if e.Function.ID == "Int" && len(e.Arguments) == 1 {
+			arg, err := t.transformExpression(e.Arguments[0])
+			if err != nil {
+				return nil, err
+			}
+			return &goast.CallExpr{Fun: goast.NewIdent("int"), Args: []goast.Expr{arg}}, nil
 		}
 		if lit, ok, err := t.transformNominalErrorConstructorCall(e); ok {
 			if err != nil {

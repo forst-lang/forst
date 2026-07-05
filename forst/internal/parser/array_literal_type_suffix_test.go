@@ -43,3 +43,26 @@ func main() {
 		t.Fatalf("ParseFile: %v", err)
 	}
 }
+
+func TestParseFile_typedCompositeArrayLiteral(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+func f(): []String {
+	return []String{"bun"}
+}
+`
+	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn := assertNodeType[ast.FunctionNode](t, nodes[1], "ast.FunctionNode")
+	ret := fn.Body[0].(ast.ReturnNode)
+	arr := ret.Values[0].(ast.ArrayLiteralNode)
+	if arr.Type.Ident != ast.TypeString {
+		t.Fatalf("want String elem type, got %v", arr.Type.Ident)
+	}
+	if len(arr.Value) != 1 {
+		t.Fatalf("want 1 element, got %d", len(arr.Value))
+	}
+}

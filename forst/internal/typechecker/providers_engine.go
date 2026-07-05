@@ -1,6 +1,8 @@
 package typechecker
 
 import (
+	"strings"
+
 	"forst/internal/ast"
 	"forst/internal/providersgraph"
 )
@@ -60,7 +62,7 @@ func (tc *TypeChecker) SetDeferProvidersWiringRootCheck(deferCheck bool) {
 	tc.providersEngine().DeferWiringRootCheck = deferCheck
 }
 
-// SetSamePackageGoImportPath sets the Go import path for mixed .go + .ft packages (e.g. lichtung/internal/graph).
+// SetSamePackageGoImportPath sets the Go import path for mixed .go + .ft packages (e.g. mymodule/internal/graph).
 func (tc *TypeChecker) SetSamePackageGoImportPath(importPath string) {
 	tc.samePackageGoImportPath = importPath
 }
@@ -106,25 +108,54 @@ func (tc *TypeChecker) importPathToForstPkgMap() map[string]string {
 	return tc.moduleResult.ImportPathToForstPkg()
 }
 
-// resolveForstSiblingCall resolves alpha.Foo when alpha is a Forst package in the same module.
-func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, _ [][]ast.TypeNode) ([]ast.TypeNode, error) {
+// typeDefForIdent returns a type definition from local Defs or a sibling Forst package.
+func (tc *TypeChecker) typeDefForIdent(ident ast.TypeIdent) (ast.TypeDefNode, bool) {
+	if def, ok := tc.Defs[ident]; ok {
+		if td, ok := def.(ast.TypeDefNode); ok {
+			return td, true
+		}
+	}
+	return tc.resolveForstSiblingTypeDef(ident)
+}
+
+// parseForstSiblingTypeRef splits importLocal.typeName when typeIdent is a qualified sibling ref.
+func parseForstSiblingTypeRef(typeIdent ast.TypeIdent) (importLocal, typeName string, ok bool) {
+	name := string(typeIdent)
+	i := strings.IndexByte(name, '.')
+	if i <= 0 || i >= len(name)-1 || strings.Contains(name[i+1:], ".") {
+		return "", "", false
+	}
+	return name[:i], name[i+1:], true
+}
+
+// forstSiblingTypeChecker returns the typechecker for a sibling Forst package import local name.
+func (tc *TypeChecker) forstSiblingTypeChecker(importLocal string) (*TypeChecker, bool) {
 	importMap := tc.importPathToForstPkgMap()
 	if importMap == nil {
-		return nil, nil
+		return nil, false
 	}
 	importPath, ok := tc.ImportPathForLocal(importLocal)
 	if !ok {
-		return nil, nil
+		return nil, false
 	}
 	targetPkg := importMap[importPath]
 	if targetPkg == "" || targetPkg == tc.ForstPackage() {
-		return nil, nil
+		return nil, false
 	}
 	if tc.moduleResult == nil {
-		return nil, nil
+		return nil, false
 	}
 	siblingTC := tc.moduleResult.ForstPackageTypeChecker(targetPkg)
 	if siblingTC == nil {
+		return nil, false
+	}
+	return siblingTC, true
+}
+
+// resolveForstSiblingCall resolves alpha.Foo when alpha is a Forst package in the same module.
+func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, _ [][]ast.TypeNode) ([]ast.TypeNode, error) {
+	siblingTC, ok := tc.forstSiblingTypeChecker(importLocal)
+	if !ok {
 		return nil, nil
 	}
 	callee := ast.Identifier(funcName)
@@ -141,5 +172,57 @@ func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e a
 		return []ast.TypeNode{{Ident: ast.TypeVoid}}, nil
 	}
 	return sig.ReturnTypes, nil
+}
+
+type cachedSiblingTypeDef struct {
+	def ast.TypeDefNode
+	ok  bool
+}
+
+// resolveForstSiblingTypeDef looks up pkg.TypeName in a sibling Forst package of the same module.
+func (tc *TypeChecker) resolveForstSiblingTypeDef(typeIdent ast.TypeIdent) (ast.TypeDefNode, bool) {
+	if tc.siblingTypeDefCache != nil {
+		if cached, hit := tc.siblingTypeDefCache[typeIdent]; hit {
+			return cached.def, cached.ok
+		}
+	}
+	td, ok := tc.resolveForstSiblingTypeDefUncached(typeIdent)
+	if tc.siblingTypeDefCache == nil {
+		tc.siblingTypeDefCache = make(map[ast.TypeIdent]cachedSiblingTypeDef)
+	}
+	tc.siblingTypeDefCache[typeIdent] = cachedSiblingTypeDef{def: td, ok: ok}
+	return td, ok
+}
+
+func (tc *TypeChecker) resolveForstSiblingTypeDefUncached(typeIdent ast.TypeIdent) (ast.TypeDefNode, bool) {
+	importLocal, typeName, ok := parseForstSiblingTypeRef(typeIdent)
+	if !ok {
+		return ast.TypeDefNode{}, false
+	}
+	siblingTC, ok := tc.forstSiblingTypeChecker(importLocal)
+	if !ok {
+		return ast.TypeDefNode{}, false
+	}
+	def, ok := siblingTC.Defs[ast.TypeIdent(typeName)]
+	if !ok {
+		return ast.TypeDefNode{}, false
+	}
+	td, ok := def.(ast.TypeDefNode)
+	return td, ok
+}
+
+// resolveForstSiblingQualifiedVar resolves pkg.Name for a package-level symbol in a sibling Forst package.
+func (tc *TypeChecker) resolveForstSiblingQualifiedVar(importLocal, symbolName string) ([]ast.TypeNode, bool) {
+	siblingTC, ok := tc.forstSiblingTypeChecker(importLocal)
+	if !ok {
+		return nil, false
+	}
+	if sym, ok := siblingTC.globalScope().Symbols[ast.Identifier(symbolName)]; ok && len(sym.Types) > 0 {
+		return sym.Types, true
+	}
+	if sig, ok := siblingTC.Functions[ast.Identifier(symbolName)]; ok && len(sig.ReturnTypes) > 0 {
+		return sig.ReturnTypes, true
+	}
+	return nil, false
 }
 

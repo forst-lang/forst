@@ -37,6 +37,16 @@ type FunctionCallNode struct {
 func (u UnaryExpressionNode) isExpression()  { _ = u }
 func (b BinaryExpressionNode) isExpression() { _ = b }
 func (f FunctionCallNode) isExpression()     { _ = f }
+func (m MethodCallNode) isExpression()      { _ = m }
+
+// MethodCallNode is a method call on an arbitrary receiver expression: recv.Method(args).
+type MethodCallNode struct {
+	Receiver  ExpressionNode
+	Method    Ident
+	Arguments []ExpressionNode
+	CallSpan  SourceSpan
+	ArgSpans  []SourceSpan
+}
 
 // IndexExpressionNode is a subscript expression: target[index] (slice, array, or map).
 type IndexExpressionNode struct {
@@ -68,6 +78,26 @@ func (b BinaryExpressionNode) Kind() NodeKind {
 // Kind returns the node kind for function calls
 func (f FunctionCallNode) Kind() NodeKind {
 	return NodeKindFunctionCall
+}
+
+func (m MethodCallNode) Kind() NodeKind {
+	return NodeKindMethodCall
+}
+
+func (m MethodCallNode) String() string {
+	var b strings.Builder
+	b.WriteString(m.Receiver.String())
+	b.WriteByte('.')
+	b.WriteString(string(m.Method.ID))
+	b.WriteByte('(')
+	for i, a := range m.Arguments {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(a.String())
+	}
+	b.WriteByte(')')
+	return b.String()
 }
 
 func (u UnaryExpressionNode) String() string {

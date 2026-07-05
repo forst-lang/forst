@@ -10,6 +10,7 @@ type AssignmentNode struct {
 	ExplicitTypes []*TypeNode      // Optional explicit types for each name
 	IsShort       bool             // Whether this is a short := assignment
 	CompoundOp    TokenIdent       // Non-empty for +=, -=, etc.
+	IsPackageLevel bool            // Top-level var in a .ft file
 }
 
 // Kind returns the node kind for an assignment

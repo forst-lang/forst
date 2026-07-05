@@ -161,14 +161,14 @@ func (s *LSPServer) hoverFromAnalyzedContext(ctx *forstDocumentContext, tok *ast
 		}
 	}
 	if ctx.CheckErr != nil {
-		text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge)
+		text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge, ctx.FileID)
 		if text == "" {
 			return nil
 		}
 		return basicHoverMarkdown(text)
 	}
 
-	text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge)
+	text := hoverTextForToken(tc, tokens, tok, ctx.PackageMerge, ctx.FileID)
 	if text == "" {
 		return nil
 	}
@@ -322,7 +322,7 @@ func mapIndexLBracketHoverMarkdown(tc *typechecker.TypeChecker, tokens []ast.Tok
 	return "**Map lookup:** type `Result(V, Error)`; missing key is failure. Use `ensure … is Ok()` before using `V`."
 }
 
-func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo) string {
+func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo, fileID string) string {
 	if tok.Type == ast.TokenLBracket {
 		if s := mapIndexLBracketHoverMarkdown(tc, tokens, tok); s != "" {
 			return s
@@ -339,6 +339,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		}
 		if md, ok := tc.GoHoverMarkdownDotImportedSymbol(tok.Value); ok && md != "" {
 			return md
+		}
+		if s := goHoverFromExpressionMethod(tc, fileID, tokens, tok); s != "" {
+			return s
 		}
 		if s := goHoverFromForstReceiverMethod(tc, tokens, tok); s != "" {
 			return s
@@ -627,8 +630,34 @@ func goHoverFromQualifiedGoIdentifier(tc *typechecker.TypeChecker, tokens []ast.
 	return ""
 }
 
+// goHoverFromExpressionMethod adds hover for expr.method when expr is a non-trivial receiver
+// (e.g. time.Now().Format) with a tracked Go type.
+func goHoverFromExpressionMethod(tc *typechecker.TypeChecker, fileID string, tokens []ast.Token, tok *ast.Token) string {
+	if tok == nil || tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 2 || tokens[i-1].Type != ast.TokenDot {
+		return ""
+	}
+	// Simple recv.ident is handled by goHoverFromForstReceiverMethod.
+	if tokens[i-2].Type == ast.TokenIdentifier {
+		return ""
+	}
+	recv, ok := parseReceiverExpressionBeforeDot(tokens, i-1, fileID)
+	if !ok {
+		return ""
+	}
+	md, ok := tc.GoHoverMarkdownForMethodOnExpression(recv, tok.Value)
+	if !ok || md == "" {
+		return ""
+	}
+	return md
+}
+
 // goHoverFromForstReceiverMethod adds hover for recv.method when recv is a Forst variable and method
-// maps to a Go predeclared interface (e.g. err.Error with Forst Error → go error).
+// maps to a Go predeclared interface (e.g. err.Error with Forst Error → go error), or when recv is
+// an arbitrary expression with a tracked Go type (e.g. time.Now().Format).
 func goHoverFromForstReceiverMethod(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type != ast.TokenIdentifier {
 		return ""

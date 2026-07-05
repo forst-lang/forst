@@ -85,6 +85,7 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 	}
 	sort.Strings(packageNames)
 
+	mergedByPkg := make(map[string][]ast.Node, len(packageNames))
 	for _, packageName := range packageNames {
 		paths := byPackage[packageName]
 		sort.Strings(paths)
@@ -92,8 +93,10 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 		for _, p := range paths {
 			astLists = append(astLists, parsed[p])
 		}
-		merged := forstpkg.MergePackageASTs(astLists)
+		mergedByPkg[packageName] = forstpkg.MergePackageASTs(astLists)
+	}
 
+	for _, packageName := range packageNames {
 		tc := typechecker.New(log, false)
 		tc.GoWorkspaceDir = moduleRoot
 		tc.SetForstPackage(packageName)
@@ -102,11 +105,33 @@ func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, erro
 			tc.SetSamePackageGoImportPath(importPath)
 		}
 		tc.SetModuleResult(result)
-		if err := tc.CheckTypes(merged); err != nil {
+		result.PerPackage[packageName] = tc
+		result.PerPackageNodes[packageName] = mergedByPkg[packageName]
+	}
+
+	for _, packageName := range packageNames {
+		if err := result.PerPackage[packageName].CollectTypes(mergedByPkg[packageName]); err != nil {
 			return nil, err
 		}
-		result.PerPackage[packageName] = tc
-		result.PerPackageNodes[packageName] = merged
+	}
+
+	tcs := make([]*typechecker.TypeChecker, 0, len(packageNames))
+	for _, packageName := range packageNames {
+		tcs = append(tcs, result.PerPackage[packageName])
+	}
+	loaded, err := typechecker.BatchLoadGoPackagesForModule(moduleRoot, tcs)
+	if err != nil {
+		log.WithError(err).Debug("module-wide go/packages batch load failed; Forst↔Go boundary checks may be skipped")
+	}
+	for _, tc := range tcs {
+		tc.InitGoPackagesFromBatch(loaded)
+	}
+
+	for _, packageName := range packageNames {
+		tc := result.PerPackage[packageName]
+		if err := tc.InferTypes(mergedByPkg[packageName]); err != nil {
+			return nil, err
+		}
 		perPkgProviders[packageName] = cloneSlots(tc.FunctionProviders)
 	}
 

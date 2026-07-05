@@ -73,3 +73,10 @@ func (p *Parser) parseVarStatement() ast.AssignmentNode {
 
 	return node
 }
+
+// parsePackageVarDeclaration parses a package-level var (var x = … or var x: T = …).
+func (p *Parser) parsePackageVarDeclaration() ast.AssignmentNode {
+	node := p.parseVarStatement()
+	node.IsPackageLevel = true
+	return node
+}

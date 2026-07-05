@@ -171,6 +171,15 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
 			}
 			t.Output.AddFunction(decl)
+		case ast.AssignmentNode:
+			if !n.IsPackageLevel {
+				break
+			}
+			decl, err := t.transformPackageVarDecl(n)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform package var: %w", err)
+			}
+			t.Output.AddValueDecl(decl)
 		}
 	}
 

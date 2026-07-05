@@ -76,6 +76,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.WithNode:
 		return tc.inferWithNode(n)
 	case ast.AssignmentNode:
+		if n.IsPackageLevel {
+			if err := tc.ensurePackageLevelVarRegistered(n); err != nil {
+				return nil, err
+			}
+		}
 		if err := tc.inferAssignmentTypes(n); err != nil {
 			return nil, err
 		}

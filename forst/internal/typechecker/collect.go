@@ -28,6 +28,11 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			"function": "collectExplicitTypes",
 		}).Debug("Collecting import group")
 		tc.imports = append(tc.imports, n.Imports...)
+	case ast.AssignmentNode:
+		if !n.IsPackageLevel {
+			return nil
+		}
+		return tc.collectPackageLevelVar(n)
 	case ast.TypeDefNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

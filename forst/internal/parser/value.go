@@ -103,6 +103,31 @@ func (p *Parser) parseValue() ast.ValueNode {
 	panic("Reached unreachable path")
 }
 
+// parseSelectorName parses a single segment after `.` in a selector chain. Go method names
+// such as String collide with Forst type keywords; allow those tokens as member names here.
+func (p *Parser) parseSelectorName() ast.Token {
+	tok := p.current()
+	switch tok.Type {
+	case ast.TokenIdentifier:
+		p.advance()
+		return tok
+	case ast.TokenString:
+		p.advance()
+		return ast.Token{Type: ast.TokenIdentifier, Value: "String", Line: tok.Line, Column: tok.Column}
+	case ast.TokenInt:
+		p.advance()
+		return ast.Token{Type: ast.TokenIdentifier, Value: "Int", Line: tok.Line, Column: tok.Column}
+	case ast.TokenFloat:
+		p.advance()
+		return ast.Token{Type: ast.TokenIdentifier, Value: "Float", Line: tok.Line, Column: tok.Column}
+	case ast.TokenBool:
+		p.advance()
+		return ast.Token{Type: ast.TokenIdentifier, Value: "Bool", Line: tok.Line, Column: tok.Column}
+	default:
+		return p.expect(ast.TokenIdentifier)
+	}
+}
+
 func (p *Parser) parseIdentifier() ast.Ident {
 	first := p.current()
 	identifier := ast.Identifier(first.Value)
@@ -111,7 +136,7 @@ func (p *Parser) parseIdentifier() ast.Ident {
 	last := first
 	for p.current().Type == ast.TokenDot {
 		p.advance() // Consume dot
-		nextIdent := p.expect(ast.TokenIdentifier)
+		nextIdent := p.parseSelectorName()
 		identifier = ast.Identifier(string(identifier) + "." + nextIdent.Value)
 		last = nextIdent
 	}

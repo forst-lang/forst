@@ -14,6 +14,7 @@ const (
 	lspSymbolKindFunction = 12
 	lspSymbolKindStruct   = 23
 	lspSymbolKindMethod   = 6
+	lspSymbolKindVariable = 13
 )
 
 // LspSymbolInformation is the wire shape for documentSymbol (flat) and workspace/symbol.
@@ -86,6 +87,22 @@ func symbolsFromParsedDocument(uri string, tokens []ast.Token, nodes []ast.Node)
 				out = append(out, LspSymbolInformation{
 					Name:     name,
 					Kind:     lspSymbolKindStruct,
+					Location: lspLocationFromToken(uri, t),
+				})
+			}
+		case ast.AssignmentNode:
+			if !v.IsPackageLevel || len(v.LValues) != 1 {
+				continue
+			}
+			vn, ok := v.LValues[0].(ast.VariableNode)
+			if !ok {
+				continue
+			}
+			name := string(vn.Ident.ID)
+			if t := findPackageVarNameToken(tokens, name); t != nil {
+				out = append(out, LspSymbolInformation{
+					Name:     name,
+					Kind:     lspSymbolKindVariable,
 					Location: lspLocationFromToken(uri, t),
 				})
 			}

@@ -12,6 +12,7 @@ import (
 	"forst/internal/goload"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/tools/go/packages"
 )
 
 // goErrorInterfaceType returns the predeclared error interface type, or nil if unavailable.
@@ -45,6 +46,9 @@ func fallbackImportLocal(imp ast.ImportNode) (path, local string) {
 // Forst sibling imports are seeded from the AST and skip go/packages; stdlib and external Go imports
 // are loaded via go/packages for Forst↔Go boundary checks.
 func (tc *TypeChecker) initGoImportPackages() {
+	if tc.goPackagesPreloaded {
+		return
+	}
 	tc.goPkgsByLocal = nil
 	tc.dotImportPkgs = nil
 	tc.importPathByLocal = make(map[string]string)
@@ -77,6 +81,27 @@ func (tc *TypeChecker) initGoImportPackages() {
 		}).WithError(err).Debug("go/packages load failed; skipping Forst↔Go boundary checks")
 		return
 	}
+	tc.seedGoImportPackagesFromLoaded(loaded)
+}
+
+// InitGoPackagesFromBatch maps import locals from a preloaded go/packages batch (module-wide).
+func (tc *TypeChecker) InitGoPackagesFromBatch(loaded map[string]*packages.Package) {
+	tc.goPkgsByLocal = nil
+	tc.dotImportPkgs = nil
+	tc.importPathByLocal = make(map[string]string)
+	tc.registerImportLocalsFromAST()
+	if len(loaded) > 0 {
+		tc.seedGoImportPackagesFromLoaded(loaded)
+	}
+	if tc.samePackageGoImportPath != "" {
+		if pkg, ok := loaded[tc.samePackageGoImportPath]; ok && goload.PackageLoadOK(pkg, tc.samePackageGoImportPath) {
+			tc.samePackageGo = pkg.Types
+		}
+	}
+	tc.goPackagesPreloaded = true
+}
+
+func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*packages.Package) {
 	byLocal := make(map[string]*types.Package)
 	for _, imp := range tc.imports {
 		ip := goload.ImportPathFromForst(imp.Path)
@@ -89,8 +114,6 @@ func (tc *TypeChecker) initGoImportPackages() {
 		}
 		tp := pkgp.Types
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
-			// Dot-import does not introduce a package identifier (e.g. `strings` is not in scope).
-			// Do not register tp.Name() in importPathByLocal — that would break IsImportedLocalName / LSP.
 			tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
 			continue
 		}
@@ -111,8 +134,41 @@ func (tc *TypeChecker) initGoImportPackages() {
 	tc.goPkgsByLocal = byLocal
 }
 
+// BatchLoadGoPackagesForModule unions Go import paths from typecheckers and loads once.
+func BatchLoadGoPackagesForModule(moduleRoot string, tcs []*TypeChecker) (map[string]*packages.Package, error) {
+	if moduleRoot == "" || len(tcs) == 0 {
+		return nil, nil
+	}
+	pathSet := make(map[string]struct{})
+	for _, tc := range tcs {
+		if tc == nil {
+			continue
+		}
+		for _, imp := range tc.imports {
+			ip := goload.ImportPathFromForst(imp.Path)
+			if ip != "" {
+				pathSet[ip] = struct{}{}
+			}
+		}
+		if tc.samePackageGoImportPath != "" {
+			pathSet[tc.samePackageGoImportPath] = struct{}{}
+		}
+	}
+	if len(pathSet) == 0 {
+		return nil, nil
+	}
+	paths := make([]string, 0, len(pathSet))
+	for p := range pathSet {
+		paths = append(paths, p)
+	}
+	return goload.LoadByPkgPath(moduleRoot, paths)
+}
+
 // initSamePackageGoExports loads exported Go funcs from .go files co-located with this Forst package.
 func (tc *TypeChecker) initSamePackageGoExports() {
+	if tc.goPackagesPreloaded {
+		return
+	}
 	tc.samePackageGo = nil
 	if tc.samePackageGoImportPath == "" || tc.GoWorkspaceDir == "" {
 		return
@@ -529,6 +585,33 @@ func (tc *TypeChecker) goTypeDisplayStringForVariablePath(id ast.Identifier) (st
 		return "", false
 	}
 	return last.String(), true
+}
+
+// goTypeForExpression returns the go/types type of a Go interop expression when known.
+func (tc *TypeChecker) goTypeForExpression(expr ast.ExpressionNode) types.Type {
+	if tc == nil || expr == nil {
+		return nil
+	}
+	switch e := expr.(type) {
+	case ast.VariableNode:
+		if gt := tc.variableGoTypes[e.Ident.ID]; gt != nil {
+			return gt
+		}
+	case ast.FunctionCallNode:
+		if sig := tc.goFuncSignatureFromCall(e); sig != nil && sig.Results().Len() > 0 {
+			return sig.Results().At(0).Type()
+		}
+	case ast.MethodCallNode:
+		if goRecv := tc.goTypeForExpression(e.Receiver); goRecv != nil {
+			obj, _, _ := types.LookupFieldOrMethod(goRecv, true, nil, string(e.Method.ID))
+			if fn, ok := obj.(*types.Func); ok {
+				if sig, ok := fn.Type().(*types.Signature); ok && sig.Results().Len() > 0 {
+					return sig.Results().At(0).Type()
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // checkGoMethodCall type-checks a method call using go/types when the receiver has a tracked Go type.
