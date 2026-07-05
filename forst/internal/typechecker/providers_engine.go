@@ -108,6 +108,11 @@ func (tc *TypeChecker) importPathToForstPkgMap() map[string]string {
 	return tc.moduleResult.ImportPathToForstPkg()
 }
 
+// TypeDefForIdent returns a type definition from local Defs or a sibling Forst package.
+func (tc *TypeChecker) TypeDefForIdent(ident ast.TypeIdent) (ast.TypeDefNode, bool) {
+	return tc.typeDefForIdent(ident)
+}
+
 // typeDefForIdent returns a type definition from local Defs or a sibling Forst package.
 func (tc *TypeChecker) typeDefForIdent(ident ast.TypeIdent) (ast.TypeDefNode, bool) {
 	if def, ok := tc.Defs[ident]; ok {

@@ -278,7 +278,9 @@ func (t *Transformer) transformExpressionWithExpected(expr ast.ExpressionNode, e
 
 func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArrayType *ast.TypeNode) (goast.Expr, error) {
 	elemType := ast.TypeNode{Ident: ast.TypeInt}
-	if expectedArrayType != nil && expectedArrayType.Ident == ast.TypeArray && len(expectedArrayType.TypeParams) > 0 {
+	if e.Type.Ident != ast.TypeImplicit && e.Type.Ident != "" {
+		elemType = e.Type
+	} else if expectedArrayType != nil && expectedArrayType.Ident == ast.TypeArray && len(expectedArrayType.TypeParams) > 0 {
 		elemType = expectedArrayType.TypeParams[0]
 	} else if hash, err := t.TypeChecker.Hasher.HashNode(e); err == nil {
 		if types, ok := t.TypeChecker.Types[hash]; ok && len(types) == 1 &&

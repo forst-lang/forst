@@ -87,6 +87,9 @@ func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *as
 			typeName = string(expectedType.Ident)
 		} else {
 			// For regular named types, use as-is
+			if sel, ok := t.transformForstSiblingQualifiedType(expectedType.Ident); ok {
+				return sel, nil
+			}
 			typeName = string(expectedType.Ident)
 		}
 
@@ -101,7 +104,17 @@ func (t *Transformer) determineStructType(shape *ast.ShapeNode, expectedType *as
 
 	// If expectedType is provided but is hash-based, use it directly
 	if expectedType != nil {
+		if sel, ok := t.transformForstSiblingQualifiedType(expectedType.Ident); ok {
+			return sel, nil
+		}
 		return goast.NewIdent(string(expectedType.Ident)), nil
+	}
+
+	// If the shape names a sibling package type, use that selector directly.
+	if shape.BaseType != nil {
+		if sel, ok := t.transformForstSiblingQualifiedType(*shape.BaseType); ok {
+			return sel, nil
+		}
 	}
 
 	// When no expected type is provided, check if we should use a named type
@@ -138,21 +151,12 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 
 	fields := make([]*goast.KeyValueExpr, 0)
 
-	def, ok := t.TypeChecker.Defs[expectedType.Ident]
+	typeDef, ok := t.TypeChecker.TypeDefForIdent(expectedType.Ident)
 	if !ok {
 		t.log.WithFields(logrus.Fields{
 			"function":     "buildFieldsForExpectedType",
 			"expectedType": expectedType.Ident,
 		}).Debug("[PINPOINT] No type definition found")
-		return fields, nil
-	}
-
-	typeDef, ok := def.(ast.TypeDefNode)
-	if !ok {
-		t.log.WithFields(logrus.Fields{
-			"function": "buildFieldsForExpectedType",
-			"defType":  fmt.Sprintf("%T", def),
-		}).Debug("[PINPOINT] Definition is not a TypeDefNode")
 		return fields, nil
 	}
 
