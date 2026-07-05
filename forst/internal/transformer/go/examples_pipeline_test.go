@@ -8,9 +8,7 @@ import (
 )
 
 // examplesPipelineSkip lists example paths excluded from the known-good pipeline until fixed.
-var examplesPipelineSkip = map[string]string{
-	"rfc/guard/anonymous_objects.ft": "Tier 2a: anonymous object literal parser fix",
-}
+var examplesPipelineSkip = map[string]string{}
 
 // TestWriteUnionErrorNarrowingGolden regenerates examples/out/union_error_narrowing.go.
 // Run: UPDATE_UNION_ERROR_NARROWING_GOLDEN=1 go test ./internal/transformer/go -run TestWriteUnionErrorNarrowingGolden -count=1

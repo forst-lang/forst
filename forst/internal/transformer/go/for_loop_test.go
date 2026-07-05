@@ -22,7 +22,7 @@ func TestTransformForNode_infiniteAndRange(t *testing.T) {
 				LValues: []forstast.ExpressionNode{forstast.VariableNode{Ident: forstast.Ident{ID: "xs"}}},
 				RValues: []forstast.ExpressionNode{
 					forstast.ArrayLiteralNode{
-						Value: []forstast.LiteralNode{forstast.IntLiteralNode{Value: 1}},
+						Value: []forstast.ExpressionNode{forstast.IntLiteralNode{Value: 1}},
 						Type:  forstast.TypeNode{Ident: forstast.TypeImplicit},
 					},
 				},

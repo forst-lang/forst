@@ -7,6 +7,23 @@ import (
 	goast "go/ast"
 )
 
+func (t *Transformer) transformForstSiblingQualifiedType(typeIdent ast.TypeIdent) (goast.Expr, bool) {
+	if t.TypeChecker == nil {
+		return nil, false
+	}
+	if _, ok := t.TypeChecker.ResolveForstSiblingTypeDef(typeIdent); !ok {
+		return nil, false
+	}
+	importLocal, typeName, ok := typechecker.ParseForstSiblingTypeRef(typeIdent)
+	if !ok {
+		return nil, false
+	}
+	return &goast.SelectorExpr{
+		X:   goast.NewIdent(importLocal),
+		Sel: goast.NewIdent(typeName),
+	}, true
+}
+
 // transformType converts a Forst type node to a Go type declaration
 func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	if n.Ident == "" {
@@ -89,6 +106,9 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		var r goast.Expr = goast.NewIdent("any")
 		return r, nil
 	default:
+		if sel, ok := t.transformForstSiblingQualifiedType(n.Ident); ok {
+			return sel, nil
+		}
 		// Always use the unified type aliasing function from the typechecker for all non-builtin, non-special types
 		name, err := t.TypeChecker.GetAliasedTypeName(n, typechecker.GetAliasedTypeNameOptions{AllowStructuralAlias: false})
 		if err != nil {

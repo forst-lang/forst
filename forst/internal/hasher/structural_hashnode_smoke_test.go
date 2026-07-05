@@ -31,7 +31,7 @@ func TestStructuralHasher_HashNode_typeDefExprsAndCommonKinds(t *testing.T) {
 		{"Dereference", ast.DereferenceNode{Value: ast.VariableNode{Ident: ast.Ident{ID: "p"}}}},
 		{"OkExpr", ast.OkExprNode{Value: ast.IntLiteralNode{Value: 1}}},
 		{"ErrExpr", ast.ErrExprNode{Value: ast.StringLiteralNode{Value: "e"}}},
-		{"ArrayLiteral", ast.ArrayLiteralNode{Type: ast.TypeNode{Ident: ast.TypeInt}, Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}}},
+		{"ArrayLiteral", ast.ArrayLiteralNode{Type: ast.TypeNode{Ident: ast.TypeInt}, Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}}},
 		{"IndexExpression", ast.IndexExpressionNode{Target: ast.VariableNode{Ident: ast.Ident{ID: "a"}}, Index: ast.IntLiteralNode{Value: 0}}},
 		{"Import", ast.ImportNode{Path: "fmt"}},
 		{"MapLiteral", ast.MapLiteralNode{Type: ast.TypeNode{Ident: ast.TypeIdent("String")}, Entries: []ast.MapEntryNode{{Key: ast.StringLiteralNode{Value: "k"}, Value: ast.IntLiteralNode{Value: 1}}}}},

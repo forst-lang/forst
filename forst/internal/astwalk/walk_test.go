@@ -123,7 +123,7 @@ func TestWalkExpr_okErrArrayMapLiterals(t *testing.T) {
 	t.Parallel()
 	call := ast.FunctionCallNode{Function: ast.Ident{ID: "f"}}
 	expr := ast.OkExprNode{Value: ast.ErrExprNode{Value: ast.ArrayLiteralNode{
-		Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}},
+		Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}},
 	}}}
 	WalkExpr(expr, ExprVisitor{
 		OnCall: func(ast.FunctionCallNode) bool { return true },

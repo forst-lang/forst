@@ -145,8 +145,9 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 		}
 	case ast.TokenLBrace:
 		shape := p.parseShapeType()
-		// For shape types, nested shapes should be stored as Type with Assertion
+		// For shape types, nested shapes are stored on Shape and as Type with Assertion.
 		return ast.ShapeFieldNode{
+			Shape: &shape,
 			Type: &ast.TypeNode{
 				Ident: ast.TypeShape,
 				Assertion: &ast.AssertionNode{

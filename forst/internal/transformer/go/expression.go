@@ -36,29 +36,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 	case ast.NilLiteralNode:
 		return goast.NewIdent("nil"), nil
 	case ast.ArrayLiteralNode:
-		elts := make([]goast.Expr, 0, len(e.Value))
-		for _, item := range e.Value {
-			ex, err := t.transformExpression(item)
-			if err != nil {
-				return nil, err
-			}
-			elts = append(elts, ex)
-		}
-		elemType := ast.TypeNode{Ident: ast.TypeInt}
-		if hash, err := t.TypeChecker.Hasher.HashNode(e); err == nil {
-			if types, ok := t.TypeChecker.Types[hash]; ok && len(types) == 1 &&
-				types[0].Ident == ast.TypeArray && len(types[0].TypeParams) > 0 {
-				elemType = types[0].TypeParams[0]
-			}
-		}
-		eltGo, err := t.transformType(elemType)
-		if err != nil {
-			return nil, err
-		}
-		return &goast.CompositeLit{
-			Type: &goast.ArrayType{Elt: eltGo},
-			Elts: elts,
-		}, nil
+		return t.transformArrayLiteral(e, nil)
 	case ast.MapLiteralNode:
 		if e.Type.Ident != ast.TypeMap || len(e.Type.TypeParams) != 2 {
 			return nil, fmt.Errorf("map literal: invalid type %v", e.Type)
@@ -289,4 +267,44 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 	}
 
 	return nil, fmt.Errorf("unsupported expression type: %s", reflect.TypeOf(expr).String())
+}
+
+func (t *Transformer) transformExpressionWithExpected(expr ast.ExpressionNode, expected *ast.TypeNode) (goast.Expr, error) {
+	if arr, ok := expr.(ast.ArrayLiteralNode); ok {
+		return t.transformArrayLiteral(arr, expected)
+	}
+	return t.transformExpression(expr)
+}
+
+func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArrayType *ast.TypeNode) (goast.Expr, error) {
+	elemType := ast.TypeNode{Ident: ast.TypeInt}
+	if expectedArrayType != nil && expectedArrayType.Ident == ast.TypeArray && len(expectedArrayType.TypeParams) > 0 {
+		elemType = expectedArrayType.TypeParams[0]
+	} else if hash, err := t.TypeChecker.Hasher.HashNode(e); err == nil {
+		if types, ok := t.TypeChecker.Types[hash]; ok && len(types) == 1 &&
+			types[0].Ident == ast.TypeArray && len(types[0].TypeParams) > 0 {
+			elemType = types[0].TypeParams[0]
+		}
+	}
+	eltGo, err := t.transformType(elemType)
+	if err != nil {
+		return nil, err
+	}
+	elts := make([]goast.Expr, 0, len(e.Value))
+	for _, item := range e.Value {
+		var ex goast.Expr
+		if shapeNode, ok := item.(ast.ShapeNode); ok {
+			ex, err = t.transformShapeNodeWithExpectedType(&shapeNode, &elemType)
+		} else {
+			ex, err = t.transformExpression(item)
+		}
+		if err != nil {
+			return nil, err
+		}
+		elts = append(elts, ex)
+	}
+	return &goast.CompositeLit{
+		Type: &goast.ArrayType{Elt: eltGo},
+		Elts: elts,
+	}, nil
 }

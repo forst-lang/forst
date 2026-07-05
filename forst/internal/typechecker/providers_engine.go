@@ -175,6 +175,16 @@ func (tc *TypeChecker) resolveForstSiblingTypeInImportsUncached(typeName string)
 	return ast.TypeDefNode{}, false
 }
 
+// ParseForstSiblingTypeRef splits importLocal.typeName when typeIdent is a qualified sibling ref.
+func ParseForstSiblingTypeRef(typeIdent ast.TypeIdent) (importLocal, typeName string, ok bool) {
+	return parseForstSiblingTypeRef(typeIdent)
+}
+
+// ResolveForstSiblingTypeDef resolves pkg.TypeName from an imported Forst sibling package.
+func (tc *TypeChecker) ResolveForstSiblingTypeDef(typeIdent ast.TypeIdent) (ast.TypeDefNode, bool) {
+	return tc.resolveForstSiblingTypeDef(typeIdent)
+}
+
 // parseForstSiblingTypeRef splits importLocal.typeName when typeIdent is a qualified sibling ref.
 func parseForstSiblingTypeRef(typeIdent ast.TypeIdent) (importLocal, typeName string, ok bool) {
 	name := string(typeIdent)

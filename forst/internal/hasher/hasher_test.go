@@ -301,7 +301,7 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 		{"Import", ast.ImportNode{Path: "fmt"}},
 		{"Return", ast.ReturnNode{Values: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}}},
 		{"Dereference", ast.DereferenceNode{Value: ast.VariableNode{Ident: ast.Ident{ID: "p"}}}},
-		{"ArrayLiteral", ast.ArrayLiteralNode{Type: ast.TypeNode{Ident: ast.TypeInt}, Value: []ast.LiteralNode{ast.IntLiteralNode{Value: 1}}}},
+		{"ArrayLiteral", ast.ArrayLiteralNode{Type: ast.TypeNode{Ident: ast.TypeInt}, Value: []ast.ExpressionNode{ast.IntLiteralNode{Value: 1}}}},
 		{"TypeDefShapeExpr", ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: map[string]ast.ShapeFieldNode{}}}},
 		{"NilLiteral", ast.NilLiteralNode{}},
 		{"TypeDefAssertionExpr", ast.TypeDefAssertionExpr{Assertion: &ast.AssertionNode{}}},

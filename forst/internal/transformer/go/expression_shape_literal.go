@@ -38,7 +38,7 @@ func (t *Transformer) transformAssertionValue(assertion *ast.AssertionNode, expe
 					return innerExpr, nil
 				default:
 					// For other value types, transform normally
-					return t.transformExpression(*arg.Value)
+					return t.transformExpressionWithExpected(*arg.Value, expectedType)
 				}
 			}
 		}
@@ -292,7 +292,13 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 				value, err = t.transformExpression(field.Node.(ast.ExpressionNode))
 			}
 		} else {
-			value, err = t.transformExpression(field.Node.(ast.ExpressionNode))
+			var fieldExpectedType *ast.TypeNode
+			if fieldDef.Type != nil {
+				fieldExpectedType = fieldDef.Type
+			} else {
+				fieldExpectedType = expectedTypeForField
+			}
+			value, err = t.transformExpressionWithExpected(field.Node.(ast.ExpressionNode), fieldExpectedType)
 		}
 	} else if field.Shape != nil {
 		var fieldExpectedType *ast.TypeNode
@@ -306,7 +312,13 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 		}
 		return t.transformShapeNodeWithExpectedType(field.Shape, fieldExpectedType)
 	} else if field.Assertion != nil {
-		value, err = t.transformAssertionValue(field.Assertion, nil)
+		var fieldExpectedType *ast.TypeNode
+		if fieldDef.Type != nil {
+			fieldExpectedType = fieldDef.Type
+		} else {
+			fieldExpectedType = expectedTypeForField
+		}
+		value, err = t.transformAssertionValue(field.Assertion, fieldExpectedType)
 	} else if field.Type != nil {
 		value, err = t.buildTypeValue(field.Type)
 	} else {

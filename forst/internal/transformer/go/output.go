@@ -158,16 +158,19 @@ func (t *TransformerOutput) GenerateFile() (*goast.File, error) {
 
 	// Process import groups
 	for _, imp := range t.importGroups {
+		var kept []goast.Spec
 		for _, spec := range imp.Specs {
 			importSpec := spec.(*goast.ImportSpec)
 			importPath := importSpec.Path.Value
-			if !seenImports[importPath] {
-				imports = append(imports, importSpec)
-				seenImports[importPath] = true
+			if seenImports[importPath] {
+				continue
 			}
+			imports = append(imports, importSpec)
+			seenImports[importPath] = true
+			kept = append(kept, spec)
 		}
-		if len(imp.Specs) > 0 {
-			decls = append(decls, goast.Decl(imp))
+		if len(kept) > 0 {
+			decls = append(decls, &goast.GenDecl{Tok: imp.Tok, Specs: kept})
 		}
 	}
 

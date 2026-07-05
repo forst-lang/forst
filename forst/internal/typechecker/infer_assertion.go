@@ -84,25 +84,13 @@ func (tc *TypeChecker) InferAssertionType(assertion *ast.AssertionNode, isFuncti
 
 					// Merge shape fields directly into the mergedFields (preserving base type fields)
 					for k, v := range arg.Shape.Fields {
-						if v.Shape != nil {
-							// Register the nested shape type for any field
-							tc.log.WithFields(logrus.Fields{
-								"function": "inferAssertionType",
-								"shape":    fmt.Sprintf("%+v", *v.Shape),
-							}).Debugf("Calling inferShapeType with shape node")
-							nestedType, err := tc.inferShapeType(*v.Shape, nil)
-							if err != nil {
-								return nil, fmt.Errorf("failed to infer nested shape type: %w", err)
-							}
-							mergedFields[k] = ast.ShapeFieldNode{
-								Type:  &ast.TypeNode{Ident: nestedType.Ident},
-								Shape: v.Shape,
-							}
+						if resolved, ok := tc.resolveMatchConstraintFieldType(v); ok {
+							mergedFields[k] = resolved
 							tc.log.WithFields(logrus.Fields{
 								"function": "inferAssertionType",
 								"field":    k,
-								"type":     nestedType.Ident,
-							}).Debugf("Added nested shape field from Match constraint with registered shape type")
+								"type":     resolved.Type.Ident,
+							}).Debugf("Added resolved field from Match constraint shape")
 						} else if v.Type != nil {
 							// If the field already has a type, preserve it
 							mergedFields[k] = v

@@ -7,7 +7,7 @@ import (
 
 func TestArrayLiteralNode_String_multi_element(t *testing.T) {
 	arr := ArrayLiteralNode{
-		Value: []LiteralNode{IntLiteralNode{Value: 1}, IntLiteralNode{Value: 2}},
+		Value: []ExpressionNode{IntLiteralNode{Value: 1}, IntLiteralNode{Value: 2}},
 		Type:  NewBuiltinType(TypeInt),
 	}
 	if !strings.Contains(arr.String(), "1") || !strings.Contains(arr.String(), "2") {

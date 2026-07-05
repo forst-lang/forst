@@ -93,3 +93,31 @@ func TestShapeFieldTypeNode_nestedShape(t *testing.T) {
 		t.Fatalf("nested shape field type: %#v ok=%v", ty, ok)
 	}
 }
+
+func TestCheckTypes_functionParamNestedShapeFieldPath(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+func processOrder(order {
+  customer: { name: String, email: String },
+  items: Array({ id: String, quantity: Int }),
+}) {
+  println(order.customer.name)
+  for _, item := range order.items {
+    println(item.id)
+  }
+}
+
+func main() {}
+`
+	log := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+}

@@ -1455,7 +1455,7 @@ func TestTransformExpression_ArrayLiteralNode(t *testing.T) {
 				LValues: []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}},
 				RValues: []ast.ExpressionNode{
 					ast.ArrayLiteralNode{
-						Value: []ast.LiteralNode{
+						Value: []ast.ExpressionNode{
 							ast.IntLiteralNode{Value: 1},
 							ast.IntLiteralNode{Value: 2},
 						},

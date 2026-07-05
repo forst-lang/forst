@@ -243,6 +243,16 @@ func (tc *TypeChecker) inferValueConstraintType(constraint ast.ConstraintNode, f
 			"fieldName": fieldName,
 		}).Debugf("Processing BoolLiteralNode (non-pointer) in Value constraint")
 		return ast.TypeNode{Ident: ast.TypeBool}, nil
+	case *ast.ArrayLiteralNode:
+		if expectedType != nil {
+			return *expectedType, nil
+		}
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
+	case ast.ArrayLiteralNode:
+		if expectedType != nil {
+			return *expectedType, nil
+		}
+		return ast.TypeNode{}, fmt.Errorf("could not infer type for Value constraint on field '%s'", fieldName)
 	case *ast.NilLiteralNode:
 		tc.log.WithFields(logrus.Fields{
 			"function":  "inferValueConstraintType",
