@@ -313,7 +313,7 @@ func (s *LSPServer) buildPackageSnapshot(uris []string, results []fileParseResul
 	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
 	_ = modResult
 	tc = typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = workDir
+	tc.GoWorkspaceDir = moduleRoot
 	checkErr = tc.CheckTypes(merged)
 	if modErr != nil && checkErr == nil {
 		checkErr = modErr
