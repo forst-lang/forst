@@ -13,6 +13,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		"function": "inferExpressionType",
 		"expr":     expr,
 	}).Debugf("Starting type inference for expression")
+	if isLiteralExpression(expr) {
+		if cached, ok, err := tc.lookupCachedExpressionTypes(expr); err != nil {
+			return nil, err
+		} else if ok {
+			tc.storeInferredType(expr, cached)
+			return cached, nil
+		}
+	}
 	switch e := expr.(type) {
 	case ast.BinaryExpressionNode:
 		inferredType, err := tc.unifyTypes(e.Left, e.Right, e.Operator)

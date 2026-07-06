@@ -14,7 +14,7 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 	processedTypes := make([]ast.TypeNode, len(types))
 	for i, typ := range types {
 		// For user-defined types, ensure they're marked as user-defined
-		if !typ.IsHashBased() && !typ.IsGoBuiltin() {
+		if !typ.IsHashBased() && !typ.IsGoBuiltin() && !tc.isBuiltinType(typ.Ident) {
 			processedTypes[i] = ensureUserDefinedType(typ)
 		} else {
 			processedTypes[i] = typ

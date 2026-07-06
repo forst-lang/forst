@@ -13,17 +13,12 @@ import (
 // NodeHash is a unique identifier for an AST node
 type NodeHash uint64
 
-// StructuralHasher generates and tracks structural hashes
-type StructuralHasher struct {
-	// Map from hash to type (uint64 is the FNV-1a 64-bit hash)
-	hashes map[NodeHash]ast.TypeNode
-}
+// StructuralHasher generates structural hashes for AST nodes.
+type StructuralHasher struct{}
 
 // New creates a new StructuralHasher
 func New() *StructuralHasher {
-	return &StructuralHasher{
-		hashes: make(map[NodeHash]ast.TypeNode),
-	}
+	return &StructuralHasher{}
 }
 
 // NodeKind maps AST node types to unique uint8 identifiers for hashing
@@ -61,22 +56,35 @@ var NodeKind = map[string]uint8{
 	"MethodCall":       31,
 }
 
-func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
-	if node == nil {
-		return writeHash(w, NilHash)
+// hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
+type hashWalk struct {
+	h    *StructuralHasher
+	memo map[NodeIdentity]NodeHash
+}
+
+func newHashWalk(h *StructuralHasher) *hashWalk {
+	return &hashWalk{
+		h:    h,
+		memo: make(map[NodeIdentity]NodeHash),
 	}
-	hash, err := h.HashNode(node)
+}
+
+func (w *hashWalk) hashOptional(wr io.Writer, node ast.Node) error {
+	if node == nil {
+		return writeHash(wr, NilHash)
+	}
+	hash, err := w.hash(node)
 	if err != nil {
 		return err
 	}
-	return writeHash(w, hash)
+	return writeHash(wr, hash)
 }
 
 // hashNodes generates a structural hash for multiple AST nodes
-func (h *StructuralHasher) hashNodes(nodes []ast.Node) (NodeHash, error) {
+func (w *hashWalk) hashNodes(nodes []ast.Node) (NodeHash, error) {
 	hasher := fnv.New64a()
 	for _, node := range nodes {
-		hash, err := h.HashNode(node)
+		hash, err := w.hash(node)
 		if err != nil {
 			return 0, err
 		}
@@ -106,21 +114,46 @@ func (h *StructuralHasher) writeHashes(w io.Writer, values ...any) error {
 }
 
 // writeHashAndNode is a helper that writes a hash and a node's hash, handling errors
-func (h *StructuralHasher) writeHashAndNode(w io.Writer, kind uint8, node ast.Node) error {
-	if err := writeHash(w, kind); err != nil {
+func (w *hashWalk) writeHashAndNode(wr io.Writer, kind uint8, node ast.Node) error {
+	if err := writeHash(wr, kind); err != nil {
 		return err
 	}
-	hash, err := h.HashNode(node)
+	hash, err := w.hash(node)
 	if err != nil {
 		return err
 	}
-	return writeHash(w, hash)
+	return writeHash(wr, hash)
 }
 
 // HashNode generates a structural hash for an AST node.
+func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
+	return newHashWalk(h).hash(node)
+}
+
+// hash memoizes by node identity within a single top-level HashNode walk.
+func (w *hashWalk) hash(node ast.Node) (NodeHash, error) {
+	if node == nil || isNilPointer(node) {
+		return NodeHash(NilHash), nil
+	}
+	if key, ok := NodeIdentityKey(node); ok {
+		if cached, hit := w.memo[key]; hit {
+			return cached, nil
+		}
+	}
+	hash, err := w.hashUncached(node)
+	if err != nil {
+		return 0, err
+	}
+	if key, ok := NodeIdentityKey(node); ok {
+		w.memo[key] = hash
+	}
+	return hash, nil
+}
+
+// hashUncached generates a structural hash without consulting the walk-local memo.
 //
 //nolint:errcheck // Many branches hash into an in-memory FNV writer; unchecked writeHashes calls mirror checked ones nearby.
-func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
+func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 	hasher := fnv.New64a()
 
 	// Handle nil and typed nils
@@ -130,75 +163,75 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 
 	switch n := node.(type) {
 	case ast.TypeDefAssertionExpr:
-		if err := h.writeHashes(hasher, NodeKind["TypeDefAssertion"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["TypeDefAssertion"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Assertion)
+		hash, err := w.hash(n.Assertion)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 
 	case *ast.TypeDefAssertionExpr:
-		return h.HashNode(*n)
+		return w.hash(*n)
 
 	case ast.TypeDefBinaryExpr:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["TypeDefBinaryExpr"],
-			h.HashTokenType(n.Op),
+			w.h.HashTokenType(n.Op),
 		); err != nil {
 			return 0, err
 		}
-		leftHash, err := h.HashNode(n.Left.(ast.Node))
+		leftHash, err := w.hash(n.Left.(ast.Node))
 		if err != nil {
 			return 0, err
 		}
-		rightHash, err := h.HashNode(n.Right.(ast.Node))
+		rightHash, err := w.hash(n.Right.(ast.Node))
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, leftHash, rightHash); err != nil {
+		if err := w.h.writeHashes(hasher, leftHash, rightHash); err != nil {
 			return 0, err
 		}
 
 	case ast.BinaryExpressionNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["BinaryExpression"],
-			h.HashTokenType(n.Operator),
+			w.h.HashTokenType(n.Operator),
 		); err != nil {
 			return 0, err
 		}
-		leftHash, err := h.HashNode(n.Left)
+		leftHash, err := w.hash(n.Left)
 		if err != nil {
 			return 0, err
 		}
-		rightHash, err := h.HashNode(n.Right)
+		rightHash, err := w.hash(n.Right)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, leftHash, rightHash); err != nil {
+		if err := w.h.writeHashes(hasher, leftHash, rightHash); err != nil {
 			return 0, err
 		}
 
 	case ast.UnaryExpressionNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["UnaryExpression"],
-			h.HashTokenType(n.Operator),
+			w.h.HashTokenType(n.Operator),
 		); err != nil {
 			return 0, err
 		}
-		operandHash, err := h.HashNode(n.Operand)
+		operandHash, err := w.hash(n.Operand)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, operandHash); err != nil {
+		if err := w.h.writeHashes(hasher, operandHash); err != nil {
 			return 0, err
 		}
 
 	case ast.IntLiteralNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["IntLiteral"],
 			n.Value,
 		); err != nil {
@@ -206,7 +239,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.BoolLiteralNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["BoolLiteral"],
 			n.Value,
 		); err != nil {
@@ -214,7 +247,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.FloatLiteralNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["FloatLiteral"],
 			n.Value,
 		); err != nil {
@@ -222,7 +255,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.StringLiteralNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["StringLiteral"],
 			[]byte(n.Value),
 		); err != nil {
@@ -230,7 +263,7 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.VariableNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["Variable"],
 			[]byte(n.Ident.ID),
 		); err != nil {
@@ -238,19 +271,19 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		}
 
 	case ast.FunctionNode:
-		if err := h.writeHashes(hasher, NodeKind["Function"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Function"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 
 	case ast.FunctionCallNode:
-		if err := h.writeHashes(hasher,
+		if err := w.h.writeHashes(hasher,
 			NodeKind["FunctionCall"],
 			[]byte(n.Function.ID),
 		); err != nil {
@@ -260,91 +293,91 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := w.hashNodes(nodes)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 
 	case ast.MethodCallNode:
-		if err := h.writeHashes(hasher, NodeKind["MethodCall"], []byte(n.Method.ID)); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["MethodCall"], []byte(n.Method.ID)); err != nil {
 			return 0, err
 		}
-		recvHash, err := h.HashNode(n.Receiver)
+		recvHash, err := w.hash(n.Receiver)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, recvHash); err != nil {
+		if err := w.h.writeHashes(hasher, recvHash); err != nil {
 			return 0, err
 		}
 		nodes := make([]ast.Node, len(n.Arguments))
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := w.hashNodes(nodes)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 
 	case ast.IndexExpressionNode:
-		if err := h.writeHashes(hasher, NodeKind["IndexExpression"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["IndexExpression"]); err != nil {
 			return 0, err
 		}
-		th, err := h.HashNode(n.Target)
+		th, err := w.hash(n.Target)
 		if err != nil {
 			return 0, err
 		}
-		ih, err := h.HashNode(n.Index)
+		ih, err := w.hash(n.Index)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, th, ih); err != nil {
+		if err := w.h.writeHashes(hasher, th, ih); err != nil {
 			return 0, err
 		}
 
 	case ast.EnsureNode:
-		if err := h.writeHashes(hasher, NodeKind["Ensure"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Ensure"]); err != nil {
 			return 0, err
 		}
 		// Subject variable must participate in the hash; otherwise distinct ensures
 		// with the same assertion (e.g. `ensure a.name is Min(1)` vs `ensure b.name is Min(1)`)
 		// collide in scopeStack.scopes and restoreScope picks the wrong Ensure scope.
-		vh, err := h.HashNode(n.Variable)
+		vh, err := w.hash(n.Variable)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, vh); err != nil {
+		if err := w.h.writeHashes(hasher, vh); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Assertion)
+		hash, err := w.hash(n.Assertion)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 		if n.Error != nil {
-			if err := h.writeHashes(hasher, []byte((*n.Error).String())); err != nil {
+			if err := w.h.writeHashes(hasher, []byte((*n.Error).String())); err != nil {
 				return 0, err
 			}
 		}
 		if n.Block != nil {
-			hash, err := h.hashNodes(n.Block.Body)
+			hash, err := w.hashNodes(n.Block.Body)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 
 	case ast.ShapeNode:
-		if err := h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
 			return 0, err
 		}
 		// Convert map to sorted slice of fields for deterministic ordering
@@ -363,47 +396,47 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each field in sorted order
 		for _, f := range fields {
-			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
+			if err := w.h.writeHashes(hasher, []byte(f.name)); err != nil {
 				return 0, err
 			}
-			hash, err := h.HashNode(f.field)
+			hash, err := w.hash(f.field)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 
 	case ast.ShapeFieldNode:
-		if err := h.writeHashes(hasher, NodeKind["ShapeField"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["ShapeField"]); err != nil {
 			return 0, err
 		}
 		if n.Assertion != nil {
-			hash, err := h.HashNode(*n.Assertion)
+			hash, err := w.hash(*n.Assertion)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := w.hash(*n.Shape)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 
 	case ast.AssertionNode:
-		if err := h.writeHashes(hasher, NodeKind["Assertion"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Assertion"]); err != nil {
 			return 0, err
 		}
 		if n.BaseType != nil {
-			if err := h.writeHashes(hasher, []byte(*n.BaseType)); err != nil {
+			if err := w.h.writeHashes(hasher, []byte(*n.BaseType)); err != nil {
 				return 0, err
 			}
 		}
@@ -415,120 +448,120 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each constraint in sorted order
 		for _, constraint := range constraints {
-			hash, err := h.HashNode(constraint)
+			hash, err := w.hash(constraint)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 
 	case ast.ConstraintNode:
-		if err := h.writeHashes(hasher, NodeKind["Constraint"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Constraint"]); err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, []byte(n.Name)); err != nil {
+		if err := w.h.writeHashes(hasher, []byte(n.Name)); err != nil {
 			return 0, err
 		}
 		nodes := make([]ast.Node, len(n.Args))
 		for i, arg := range n.Args {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := w.hashNodes(nodes)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 
 	case ast.ConstraintArgumentNode:
-		if err := h.writeHashes(hasher, NodeKind["ConstraintArgument"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["ConstraintArgument"]); err != nil {
 			return 0, err
 		}
 		if n.Value != nil {
-			hash, err := h.HashNode(*n.Value)
+			hash, err := w.hash(*n.Value)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := w.hash(*n.Shape)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 	case ast.PackageNode:
-		h.writeHashes(hasher, NodeKind["Package"])
-		h.writeHashes(hasher, []byte(n.Ident.ID))
+		w.h.writeHashes(hasher, NodeKind["Package"])
+		w.h.writeHashes(hasher, []byte(n.Ident.ID))
 	case ast.ImportNode:
-		h.writeHashes(hasher, NodeKind["Import"])
-		h.writeHashes(hasher, []byte(n.Path))
+		w.h.writeHashes(hasher, NodeKind["Import"])
+		w.h.writeHashes(hasher, []byte(n.Path))
 		if n.Alias != nil {
-			h.writeHashes(hasher, []byte(n.Alias.ID))
+			w.h.writeHashes(hasher, []byte(n.Alias.ID))
 		}
 	case ast.TypeDefNode:
 		if n.Ident != "" {
 			// For named types, hash only the identifier
-			h.writeHashes(hasher, NodeKind["TypeDef"])
-			h.writeHashes(hasher, []byte(n.Ident))
+			w.h.writeHashes(hasher, NodeKind["TypeDef"])
+			w.h.writeHashes(hasher, []byte(n.Ident))
 			break
 		}
-		h.writeHashes(hasher, NodeKind["TypeDef"])
-		h.writeHashes(hasher, []byte(n.Expr.String()))
-		h.writeHashes(hasher, []byte(n.Ident))
+		w.h.writeHashes(hasher, NodeKind["TypeDef"])
+		w.h.writeHashes(hasher, []byte(n.Expr.String()))
+		w.h.writeHashes(hasher, []byte(n.Ident))
 	case ast.ReturnNode:
-		h.writeHashes(hasher, NodeKind["Return"])
+		w.h.writeHashes(hasher, NodeKind["Return"])
 		// Hash all return values
 		for _, value := range n.Values {
-			hash, err := h.HashNode(value)
+			hash, err := w.hash(value)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case ast.TypeNode:
 		if n.Ident != "" {
 			// For named types, hash only the identifier
-			h.writeHashes(hasher, NodeKind["Type"])
-			h.writeHashes(hasher, []byte(n.Ident))
+			w.h.writeHashes(hasher, NodeKind["Type"])
+			w.h.writeHashes(hasher, []byte(n.Ident))
 			break
 		}
-		h.writeHashes(hasher, NodeKind["Type"])
-		h.writeHashes(hasher, []byte(n.Ident))
+		w.h.writeHashes(hasher, NodeKind["Type"])
+		w.h.writeHashes(hasher, []byte(n.Ident))
 	case ast.SimpleParamNode:
-		h.writeHashes(hasher, NodeKind["SimpleParam"])
-		h.writeHashes(hasher, []byte(n.Ident.ID))
-		hash, err := h.HashNode(n.Type)
+		w.h.writeHashes(hasher, NodeKind["SimpleParam"])
+		w.h.writeHashes(hasher, []byte(n.Ident.ID))
+		hash, err := w.hash(n.Type)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.DestructuredParamNode:
-		h.writeHashes(hasher, NodeKind["DestructuredParam"])
+		w.h.writeHashes(hasher, NodeKind["DestructuredParam"])
 		// Sort fields for deterministic ordering
 		fields := make([]string, len(n.Fields))
 		copy(fields, n.Fields)
 		sort.Strings(fields)
 		for _, field := range fields {
-			h.writeHashes(hasher, []byte(field))
+			w.h.writeHashes(hasher, []byte(field))
 		}
-		hash, err := h.HashNode(n.Type)
+		hash, err := w.hash(n.Type)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.AssertionNode:
-		h.writeHashes(hasher, NodeKind["Assertion"])
+		w.h.writeHashes(hasher, NodeKind["Assertion"])
 		if n.BaseType != nil {
-			h.writeHashes(hasher, []byte(*n.BaseType))
+			w.h.writeHashes(hasher, []byte(*n.BaseType))
 		}
 		// Sort constraints for deterministic ordering
 		constraints := make([]ast.ConstraintNode, len(n.Constraints))
@@ -538,14 +571,14 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each constraint in sorted order
 		for _, constraint := range constraints {
-			hash, err := h.HashNode(constraint)
+			hash, err := w.hash(constraint)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.ShapeNode:
-		if err := h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Shape"]); err != nil {
 			return 0, err
 		}
 		// Convert map to sorted slice of fields for deterministic ordering
@@ -564,35 +597,35 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each field in sorted order
 		for _, f := range fields {
-			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
+			if err := w.h.writeHashes(hasher, []byte(f.name)); err != nil {
 				return 0, err
 			}
-			hash, err := h.HashNode(f.field)
+			hash, err := w.hash(f.field)
 			if err != nil {
 				return 0, err
 			}
-			if err := h.writeHashes(hasher, hash); err != nil {
+			if err := w.h.writeHashes(hasher, hash); err != nil {
 				return 0, err
 			}
 		}
 	case *ast.ShapeFieldNode:
-		h.writeHashes(hasher, NodeKind["ShapeField"])
+		w.h.writeHashes(hasher, NodeKind["ShapeField"])
 		if n.Assertion != nil {
-			hash, err := h.HashNode(*n.Assertion)
+			hash, err := w.hash(*n.Assertion)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := w.hash(*n.Shape)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case ast.ImportGroupNode:
-		h.writeHashes(hasher, NodeKind["ImportGroup"])
+		w.h.writeHashes(hasher, NodeKind["ImportGroup"])
 		// Sort imports for deterministic ordering
 		imports := make([]ast.ImportNode, len(n.Imports))
 		copy(imports, n.Imports)
@@ -600,41 +633,41 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return imports[i].Path < imports[j].Path
 		})
 		for _, importNode := range imports {
-			hash, err := h.HashNode(importNode)
+			hash, err := w.hash(importNode)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case ast.AssignmentNode:
-		h.writeHashes(hasher, NodeKind["Assignment"])
-		h.writeHashes(hasher, string(n.CompoundOp))
+		w.h.writeHashes(hasher, NodeKind["Assignment"])
+		w.h.writeHashes(hasher, string(n.CompoundOp))
 		for _, lValue := range n.LValues {
-			hash, err := h.HashNode(lValue)
+			hash, err := w.hash(lValue)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 		for _, rValue := range n.RValues {
-			hash, err := h.HashNode(rValue)
+			hash, err := w.hash(rValue)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.EnsureBlockNode:
-		h.writeHashes(hasher, NodeKind["EnsureBlock"])
+		w.h.writeHashes(hasher, NodeKind["EnsureBlock"])
 		for _, node := range n.Body {
-			hash, err := h.HashNode(node)
+			hash, err := w.hash(node)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case ast.TypeGuardNode:
-		h.writeHashes(hasher, NodeKind["TypeGuard"])
-		h.writeHashes(hasher, []byte(n.Ident))
+		w.h.writeHashes(hasher, NodeKind["TypeGuard"])
+		w.h.writeHashes(hasher, []byte(n.Ident))
 		// Sort parameters for deterministic ordering
 		params := make([]ast.ParamNode, len(n.Parameters()))
 		copy(params, n.Parameters())
@@ -655,169 +688,169 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 			return iName < jName
 		})
 		for _, param := range params {
-			hash, err := h.HashNode(param)
+			hash, err := w.hash(param)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.TypeGuardNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case ast.IfNode:
-		h.writeHashes(hasher, NodeKind["If"])
+		w.h.writeHashes(hasher, NodeKind["If"])
 		if n.Init != nil {
-			hash, err := h.HashNode(n.Init)
+			hash, err := w.hash(n.Init)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
-		hash, err := h.HashNode(n.Condition)
+		hash, err := w.hash(n.Condition)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
-		hash, err = h.hashNodes(n.Body)
+		w.h.writeHashes(hasher, hash)
+		hash, err = w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 		for _, elseIf := range n.ElseIfs {
-			hash, err := h.HashNode(elseIf.Condition)
+			hash, err := w.hash(elseIf.Condition)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
-			hash, err = h.hashNodes(elseIf.Body)
+			w.h.writeHashes(hasher, hash)
+			hash, err = w.hashNodes(elseIf.Body)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 		if n.Else != nil {
-			hash, err = h.hashNodes(n.Else.Body)
+			hash, err = w.hashNodes(n.Else.Body)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.IfNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case ast.ElseIfNode:
-		h.writeHashes(hasher, NodeKind["ElseIf"])
-		if err := h.hashOptionalNode(hasher, n.Condition); err != nil {
+		w.h.writeHashes(hasher, NodeKind["ElseIf"])
+		if err := w.hashOptional(hasher, n.Condition); err != nil {
 			return 0, err
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.ElseIfNode:
 		if n == nil {
 			return NodeHash(NilHash), nil
 		}
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case ast.ElseBlockNode:
-		h.writeHashes(hasher, NodeKind["ElseBlock"])
-		hash, err := h.hashNodes(n.Body)
+		w.h.writeHashes(hasher, NodeKind["ElseBlock"])
+		hash, err := w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.ElseBlockNode:
 		if n == nil {
 			return NodeHash(NilHash), nil
 		}
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.ForNode:
 		fn := *n
-		h.writeHashes(hasher, NodeKind["For"])
-		if err := h.hashOptionalNode(hasher, fn.Init); err != nil {
+		w.h.writeHashes(hasher, NodeKind["For"])
+		if err := w.hashOptional(hasher, fn.Init); err != nil {
 			return 0, err
 		}
 		if fn.Cond != nil {
-			hash, err := h.HashNode(fn.Cond)
+			hash, err := w.hash(fn.Cond)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
-		if err := h.hashOptionalNode(hasher, fn.Post); err != nil {
+		if err := w.hashOptional(hasher, fn.Post); err != nil {
 			return 0, err
 		}
 		if fn.IsRange {
-			h.writeHashes(hasher, byte(1))
+			w.h.writeHashes(hasher, byte(1))
 			if fn.RangeX != nil {
-				hash, err := h.HashNode(fn.RangeX)
+				hash, err := w.hash(fn.RangeX)
 				if err != nil {
 					return 0, err
 				}
-				h.writeHashes(hasher, hash)
+				w.h.writeHashes(hasher, hash)
 			}
 			if fn.RangeKey != nil {
-				h.writeHashes(hasher, string(fn.RangeKey.ID))
+				w.h.writeHashes(hasher, string(fn.RangeKey.ID))
 			}
 			if fn.RangeValue != nil {
-				h.writeHashes(hasher, string(fn.RangeValue.ID))
+				w.h.writeHashes(hasher, string(fn.RangeValue.ID))
 			}
 			var short byte
 			if fn.RangeShort {
 				short = 1
 			}
-			h.writeHashes(hasher, short)
+			w.h.writeHashes(hasher, short)
 		} else {
-			h.writeHashes(hasher, byte(0))
+			w.h.writeHashes(hasher, byte(0))
 		}
-		hash, err := h.hashNodes(fn.Body)
+		hash, err := w.hashNodes(fn.Body)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.BreakNode:
-		h.writeHashes(hasher, NodeKind["Break"])
+		w.h.writeHashes(hasher, NodeKind["Break"])
 		if n != nil && n.Label != nil {
-			h.writeHashes(hasher, string(n.Label.ID))
+			w.h.writeHashes(hasher, string(n.Label.ID))
 		}
 	case *ast.ContinueNode:
-		h.writeHashes(hasher, NodeKind["Continue"])
+		w.h.writeHashes(hasher, NodeKind["Continue"])
 		if n != nil && n.Label != nil {
-			h.writeHashes(hasher, string(n.Label.ID))
+			w.h.writeHashes(hasher, string(n.Label.ID))
 		}
 	case *ast.DeferNode:
-		h.writeHashes(hasher, NodeKind["Defer"])
-		hash, err := h.HashNode(n.Call)
+		w.h.writeHashes(hasher, NodeKind["Defer"])
+		hash, err := w.hash(n.Call)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case *ast.GoStmtNode:
-		h.writeHashes(hasher, NodeKind["GoStmt"])
-		hash, err := h.HashNode(n.Call)
+		w.h.writeHashes(hasher, NodeKind["GoStmt"])
+		hash, err := w.hash(n.Call)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.ReferenceNode:
-		h.writeHashes(hasher, NodeKind["Reference"])
-		hash, err := h.HashNode(n.Value)
+		w.h.writeHashes(hasher, NodeKind["Reference"])
+		hash, err := w.hash(n.Value)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.MapLiteralNode:
-		h.writeHashes(hasher, NodeKind["MapLiteral"])
+		w.h.writeHashes(hasher, NodeKind["MapLiteral"])
 		// Hash the type
-		hash, err := h.HashNode(n.Type)
+		hash, err := w.hash(n.Type)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 		// Sort entries by key for deterministic ordering
 		entries := make([]struct {
 			key   ast.Node
@@ -834,104 +867,104 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each entry in sorted order
 		for _, entry := range entries {
-			hash, err := h.HashNode(entry.key)
+			hash, err := w.hash(entry.key)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
-			hash, err = h.HashNode(entry.value)
+			w.h.writeHashes(hasher, hash)
+			hash, err = w.hash(entry.value)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.MapLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.VariableNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.BinaryExpressionNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.UnaryExpressionNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.IntLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.FloatLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.StringLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.BoolLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.FunctionNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.FunctionCallNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.MethodCallNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.EnsureNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case *ast.ReferenceNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case ast.ArrayLiteralNode:
-		h.writeHashes(hasher, NodeKind["ArrayLiteral"])
-		hash, err := h.HashNode(n.Type)
+		w.h.writeHashes(hasher, NodeKind["ArrayLiteral"])
+		hash, err := w.hash(n.Type)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 		for _, value := range n.Value {
-			hash, err := h.HashNode(value)
+			hash, err := w.hash(value)
 			if err != nil {
 				return 0, err
 			}
-			h.writeHashes(hasher, hash)
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.ArrayLiteralNode:
-		return h.HashNode(*n)
+		return w.hash(*n)
 	case ast.DereferenceNode:
-		h.writeHashes(hasher, NodeKind["Dereference"])
-		hash, err := h.HashNode(n.Value)
+		w.h.writeHashes(hasher, NodeKind["Dereference"])
+		hash, err := w.hash(n.Value)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.TypeDefShapeExpr:
-		h.writeHashes(hasher, NodeKind["TypeDefShapeExpr"])
-		hash, err := h.HashNode(n.Shape)
+		w.h.writeHashes(hasher, NodeKind["TypeDefShapeExpr"])
+		hash, err := w.hash(n.Shape)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.TypeDefErrorExpr:
-		h.writeHashes(hasher, NodeKind["TypeDefErrorExpr"])
-		hash, err := h.HashNode(n.Payload)
+		w.h.writeHashes(hasher, NodeKind["TypeDefErrorExpr"])
+		hash, err := w.hash(n.Payload)
 		if err != nil {
 			return 0, err
 		}
-		h.writeHashes(hasher, hash)
+		w.h.writeHashes(hasher, hash)
 	case ast.OkExprNode:
-		if err := h.writeHashes(hasher, NodeKind["OkExpr"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["OkExpr"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Value)
+		hash, err := w.hash(n.Value)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 	case ast.ErrExprNode:
-		if err := h.writeHashes(hasher, NodeKind["ErrExpr"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["ErrExpr"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Value)
+		hash, err := w.hash(n.Value)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, hash); err != nil {
+		if err := w.h.writeHashes(hasher, hash); err != nil {
 			return 0, err
 		}
 	case ast.NilLiteralNode:
-		if err := h.writeHashes(hasher, NodeKind["NilLiteral"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["NilLiteral"]); err != nil {
 			return 0, err
 		}
 		// All NilLiteralNode instances are structurally identical
@@ -943,33 +976,33 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 		hasher.Write([]byte(n.Text))
 		return NodeHash(hasher.Sum64()), nil
 	case ast.UseNode:
-		if err := h.writeHashes(hasher, NodeKind["Use"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["Use"]); err != nil {
 			return 0, err
 		}
 		if n.Ident != nil {
-			if err := h.writeHashes(hasher, []byte(n.Ident.ID)); err != nil {
+			if err := w.h.writeHashes(hasher, []byte(n.Ident.ID)); err != nil {
 				return 0, err
 			}
 		}
-		if err := h.writeHashes(hasher, []byte(n.ContractType.Ident)); err != nil {
+		if err := w.h.writeHashes(hasher, []byte(n.ContractType.Ident)); err != nil {
 			return 0, err
 		}
 	case ast.WithNode:
-		if err := h.writeHashes(hasher, NodeKind["With"]); err != nil {
+		if err := w.h.writeHashes(hasher, NodeKind["With"]); err != nil {
 			return 0, err
 		}
-		wiringHash, err := h.HashNode(n.Wiring)
+		wiringHash, err := w.hash(n.Wiring)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, wiringHash); err != nil {
+		if err := w.h.writeHashes(hasher, wiringHash); err != nil {
 			return 0, err
 		}
-		bodyHash, err := h.hashNodes(n.Body)
+		bodyHash, err := w.hashNodes(n.Body)
 		if err != nil {
 			return 0, err
 		}
-		if err := h.writeHashes(hasher, bodyHash); err != nil {
+		if err := w.h.writeHashes(hasher, bodyHash); err != nil {
 			return 0, err
 		}
 	default:

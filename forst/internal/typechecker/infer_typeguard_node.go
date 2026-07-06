@@ -8,11 +8,16 @@ import (
 func (tc *TypeChecker) inferTypeGuardNode(typeGuardNode ast.Node) ([]ast.TypeNode, error) {
 	var guardNode ast.TypeGuardNode
 	if ptr, ok := typeGuardNode.(*ast.TypeGuardNode); ok {
+		tc.pushScope(ptr)
 		guardNode = *ptr
 	} else {
 		guardNode = typeGuardNode.(ast.TypeGuardNode)
+		if stored, ok := tc.Defs[ast.TypeIdent(guardNode.Ident)].(*ast.TypeGuardNode); ok {
+			tc.pushScope(stored)
+		} else {
+			tc.pushScope(guardNode)
+		}
 	}
-	tc.pushScope(&guardNode)
 
 	for _, param := range guardNode.Parameters() {
 		switch typedParam := param.(type) {
