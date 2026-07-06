@@ -36,17 +36,26 @@ func BenchmarkHashNode_functionBody(b *testing.B) {
 	}
 }
 
-func BenchmarkHashNode_functionBody_warmCache(b *testing.B) {
-	fn := benchmarkFunctionBody(b, 200)
-	h := New()
-	var node ast.Node = fn
-	if _, err := h.HashNode(node); err != nil {
-		b.Fatalf("prime cache: %v", err)
+func BenchmarkHashNode_functionBody_walkMemo(b *testing.B) {
+	// Same ast.Node interface value referenced many times in one tree; walk-local memo
+	// should hit on repeated identities within a single HashNode call.
+	sharedLit := ast.IntLiteralNode{Value: 42}
+	var shared ast.ExpressionNode = sharedLit
+	body := make([]ast.Node, 200)
+	for i := range body {
+		body[i] = ast.ReturnNode{
+			Values: []ast.ExpressionNode{shared, shared},
+		}
 	}
+	fn := ast.FunctionNode{
+		Ident: ast.Ident{ID: "benchFn"},
+		Body:  body,
+	}
+	h := New()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := h.HashNode(node); err != nil {
+		if _, err := h.HashNode(fn); err != nil {
 			b.Fatalf("HashNode: %v", err)
 		}
 	}
