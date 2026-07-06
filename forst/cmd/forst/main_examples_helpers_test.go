@@ -10,14 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/ast"
 	"forst/internal/forstpkg"
-	"forst/internal/generators"
 	"forst/internal/goload"
 	"forst/internal/parser"
 	"forst/internal/printer"
 	transformergo "forst/internal/transformer/go"
-	"forst/internal/typechecker"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -122,46 +120,28 @@ func exampleFtFormattedSourceParses(p *parser.Parser) (ok bool) {
 func compileExampleForGolden(t *testing.T, absEntry string, opts exampleGoldenCompileOpts) string {
 	t.Helper()
 	log := exampleTestLogger()
-
-	var nodes []ast.Node
-	var err error
+	compileOpts := testutil.CompileOpts{
+		TypecheckOpts: testutil.TypecheckOpts{
+			FileID: filepath.Base(absEntry),
+			Logger: log,
+		},
+		ExportStructFields: opts.exportStructFields,
+	}
+	if modRoot := goload.FindModuleRoot(filepath.Dir(absEntry)); modRoot != "" {
+		compileOpts.GoWorkspaceDir = modRoot
+	}
 	if opts.packageRoot != "" {
 		paths, err := collectSamePackageExampleFtPaths(log, opts.packageRoot, absEntry)
 		if err != nil {
 			t.Fatalf("collectSamePackageExampleFtPaths(%s): %v", absEntry, err)
 		}
-		nodes, _, err = forstpkg.ParseAndMergePackage(log, paths)
-	} else {
-		data, err := os.ReadFile(absEntry)
-		if err != nil {
-			t.Fatalf("read %s: %v", absEntry, err)
-		}
-		p := parser.NewTestParser(string(data), log)
-		nodes, err = p.ParseFile()
+		return transformergo.MustCompileMergedGo(t, paths, compileOpts)
 	}
+	data, err := os.ReadFile(absEntry)
 	if err != nil {
-		t.Fatalf("parse %s: %v", absEntry, err)
+		t.Fatalf("read %s: %v", absEntry, err)
 	}
-
-	tc := typechecker.New(log, false)
-	if modRoot := goload.FindModuleRoot(filepath.Dir(absEntry)); modRoot != "" {
-		tc.GoWorkspaceDir = modRoot
-	}
-	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatalf("typecheck %s: %v", absEntry, err)
-	}
-
-	tr := transformergo.New(tc, log, opts.exportStructFields)
-	goFile, err := tr.TransformForstFileToGo(nodes)
-	if err != nil {
-		t.Fatalf("transform %s: %v", absEntry, err)
-	}
-
-	code, err := generators.GenerateGoCode(goFile)
-	if err != nil {
-		t.Fatalf("format %s: %v", absEntry, err)
-	}
-	return code
+	return transformergo.MustCompileGo(t, string(data), compileOpts)
 }
 
 func collectSamePackageExampleFtPaths(log *logrus.Logger, rootDir, entryPath string) ([]string, error) {

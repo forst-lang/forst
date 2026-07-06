@@ -1,49 +1,11 @@
 package typechecker
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"forst/internal/lexer"
-	"forst/internal/parser"
-
-	"github.com/sirupsen/logrus"
+	"forst/internal/testutil"
 )
-
-func moduleRootForProvidersTest(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("go.mod not found from cwd")
-		}
-		dir = parent
-	}
-}
-
-func parseAndCheck(t *testing.T, src string) (*TypeChecker, error) {
-	t.Helper()
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = moduleRootForProvidersTest(t)
-	err = tc.CheckTypes(nodes)
-	return tc, err
-}
 
 func providerRootNames(slots []ProviderSlot) []string {
 	out := make([]string, len(slots))
@@ -84,7 +46,7 @@ func expireToken(token Token) {
 	use clock: Clock
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -110,7 +72,7 @@ func outer() {
 	inner()
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	roots := providerRootNames(tc.FunctionProviders["outer"])
 	if !containsAll(roots, "Logger") {
 		t.Fatalf("FunctionProviders(outer) = %v, want Logger from inner()", roots)
@@ -140,7 +102,7 @@ func outer() {
 	}
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -180,7 +142,7 @@ func TestNestedWith(t *testing.T) {
 	}
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -199,7 +161,7 @@ func f() {
 	use x: AuditLogger
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -244,7 +206,7 @@ func TestExpireToken(t *testing.T) {
 	}
 }
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("vertical slice should typecheck: %v", err)
 	}
@@ -266,7 +228,7 @@ func TestX(t *testing.T) {
 type NopLogger = {}
 func (NopLogger) info(msg String) {}
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected error for unknown wiring key")
 	}
@@ -294,7 +256,7 @@ func TestX(t *testing.T) {
 	needsLogger()
 }
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected error for unsatisfied Logger")
 	}
@@ -337,7 +299,7 @@ func TestX(t *testing.T) {
 type NopLogger = {}
 func (NopLogger) info(msg String) {}
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected error for second unsatisfied needsLogger() call")
 	}
@@ -370,7 +332,7 @@ func TestX(t *testing.T) {
 	}
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -413,7 +375,7 @@ func TestAssignCall(t *testing.T) {
 	}
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -451,7 +413,7 @@ func TestX(t *testing.T) {
 	}
 }
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected error for alias wiring key")
 	}
@@ -477,7 +439,7 @@ func TestX(t *testing.T) {
 	}
 }
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected error for nil wiring")
 	}
@@ -498,7 +460,7 @@ import "testing"
 func TestX(t *testing.T) {
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -516,15 +478,7 @@ func PublicApi() {
 	use logger: Logger
 }
 `
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	err = tc.CheckTypes(nodes)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{})
 	if err == nil {
 		t.Fatal("expected sidecar export error")
 	}
@@ -556,7 +510,7 @@ func TestRoot(t *testing.T) {
 type NopLogger = {}
 func (NopLogger) info(msg String) {}
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected wiring root error for missing Clock")
 	}
@@ -593,7 +547,7 @@ func TestRoot(t *testing.T) {
 	}
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}
@@ -615,7 +569,7 @@ func TestRoot(t *testing.T) {
 	}
 }
 `
-	_, err := parseAndCheck(t, src)
+	_, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err == nil {
 		t.Fatal("expected unknown wiring key error")
 	}
@@ -636,7 +590,7 @@ func writeAudit(msg String) {
 	use w: AuditWriter
 }
 `
-	tc, err := parseAndCheck(t, src)
+	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
 	if err != nil {
 		t.Fatalf("typecheck: %v", err)
 	}

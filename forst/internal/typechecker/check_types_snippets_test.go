@@ -3,7 +3,7 @@ package typechecker
 import (
 	"testing"
 
-	"forst/internal/parser"
+	"forst/internal/testutil"
 )
 
 // TestCheckTypes_manyMinimalPrograms exercises common CheckTypes paths (parse → collect → infer).
@@ -685,16 +685,7 @@ func main() {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			log := setupTestLogger(nil)
-			p := parser.NewTestParser(tc.src, log)
-			nodes, err := p.ParseFile()
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			chk := New(log, false)
-			if err := chk.CheckTypes(nodes); err != nil {
-				t.Fatalf("CheckTypes: %v", err)
-			}
+			MustTypecheck(t, tc.src, testutil.TypecheckOpts{})
 		})
 	}
 }

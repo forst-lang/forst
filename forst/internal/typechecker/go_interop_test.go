@@ -3,15 +3,13 @@ package typechecker
 import (
 	"errors"
 	"go/types"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
-	"forst/internal/testmod"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -62,24 +60,6 @@ func main() {
 	}
 	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
 		t.Skip("strings not loaded")
-	}
-}
-
-func moduleRootFromWD(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("go.mod not found from cwd")
-		}
-		dir = parent
 	}
 }
 
@@ -807,58 +787,8 @@ func main() {
 	}
 }
 
-func writeMixedPackageModule(t *testing.T) (root, importPath string) {
-	t.Helper()
-	root = t.TempDir()
-	testmod.WriteGoMod(t, root, "mixedtest")
-	mixedDir := filepath.Join(root, "mixed")
-	if err := os.MkdirAll(mixedDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	goSrc := `package mixed
-
-func Add(a, b int) int {
-	return a + b
-}
-
-func unexported() int {
-	return 0
-}
-
-func OpenValue() (int, error) {
-	return 42, nil
-}
-`
-	if err := os.WriteFile(filepath.Join(mixedDir, "helpers.go"), []byte(goSrc), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	goload.ClearLoadCacheForTest()
-	return root, "mixedtest/mixed"
-}
-
-func typecheckMixedPackageSource(t *testing.T, root, importPath, src string) (*TypeChecker, []ast.Node) {
-	t.Helper()
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
-	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = root
-	tc.SetSamePackageGoImportPath(importPath)
-	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatalf("typecheck: %v", err)
-	}
-	if tc.samePackageGo == nil {
-		t.Skip("same-package Go not loaded (go/packages or environment)")
-	}
-	return tc, nodes
-}
-
 func TestSamePackageGoCall_unqualifiedExportedFunc_typechecks(t *testing.T) {
-	root, importPath := writeMixedPackageModule(t)
+	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
 	src := `package mixed
 
 func main() {
@@ -866,7 +796,7 @@ func main() {
 	println(x)
 }
 `
-	tc, nodes := typecheckMixedPackageSource(t, root, importPath, src)
+	tc, nodes := MustTypecheckMixedPackage(t, root, importPath, src)
 	var call ast.FunctionCallNode
 	for _, n := range nodes {
 		fn, ok := n.(ast.FunctionNode)
@@ -894,7 +824,7 @@ func main() {
 }
 
 func TestSamePackageGoCall_wrongArgType_returnsDiagnostic(t *testing.T) {
-	root, importPath := writeMixedPackageModule(t)
+	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
 	src := `package mixed
 
 func main() {
@@ -923,7 +853,7 @@ func main() {
 }
 
 func TestSamePackageGoCall_forstFuncShadowsGoFunc(t *testing.T) {
-	root, importPath := writeMixedPackageModule(t)
+	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
 	src := `package mixed
 
 func Add(x Int) {
@@ -934,11 +864,11 @@ func main() {
 	Add(1)
 }
 `
-	typecheckMixedPackageSource(t, root, importPath, src)
+	MustTypecheckMixedPackage(t, root, importPath, src)
 }
 
 func TestSamePackageGoCall_twoValueAssignment_recordsVariableGoTypes(t *testing.T) {
-	root, importPath := writeMixedPackageModule(t)
+	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
 	src := `package mixed
 
 func main() {
@@ -947,7 +877,7 @@ func main() {
 	println(err)
 }
 `
-	tc, _ := typecheckMixedPackageSource(t, root, importPath, src)
+	tc, _ := MustTypecheckMixedPackage(t, root, importPath, src)
 	if tc.variableGoTypes[ast.Identifier("v")] == nil {
 		t.Fatal("expected variableGoTypes[\"v\"] after same-package two-value Go call")
 	}
@@ -957,7 +887,7 @@ func main() {
 }
 
 func TestSamePackageGoCall_unexportedGoFunc_notFound(t *testing.T) {
-	root, importPath := writeMixedPackageModule(t)
+	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
 	src := `package mixed
 
 func main() {

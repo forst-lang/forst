@@ -2,10 +2,9 @@ package typechecker
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
-	"forst/internal/parser"
+	"forst/internal/testutil"
 )
 
 // TestCheckTypes_examplesBundle loads several large example files to cover builtin dispatch,
@@ -32,25 +31,17 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"rfc/guard/shape_guard.ft",
 		"rfc/providers/providers.ft",
 	}
-	root := filepath.Join("..", "..", "..", "examples", "in")
 	for _, name := range rel {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			p := filepath.Join(root, name)
-			src, err := os.ReadFile(p)
+			path := testutil.ExamplePath(t, name)
+			srcBytes, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			log := setupTestLogger(nil)
-			pr := parser.NewTestParser(string(src), log)
-			nodes, err := pr.ParseFile()
-			if err != nil {
-				t.Fatalf("parse %s: %v", name, err)
-			}
-			chk := New(log, false)
-			if err := chk.CheckTypes(nodes); err != nil {
-				t.Fatalf("CheckTypes %s: %v", name, err)
-			}
+			MustTypecheck(t, string(srcBytes), testutil.TypecheckOpts{
+				FileID: name,
+			})
 		})
 	}
 }

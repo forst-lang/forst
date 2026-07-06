@@ -1,32 +1,12 @@
 package typechecker
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
 	"forst/internal/parser"
 )
-
-func moduleRootForResultTests(t *testing.T) string {
-	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("go.mod not found from cwd")
-		}
-		dir = parent
-	}
-}
 
 func TestIfResult_isOk_narrowsSuccessType(t *testing.T) {
 	t.Parallel()

@@ -7,9 +7,10 @@ import (
 
 	"forst/internal/testmod"
 
-	"golang.org/x/tools/go/packages"
 	"go/types"
 	"strings"
+
+	"golang.org/x/tools/go/packages"
 )
 
 func moduleRootFromWD(t *testing.T) string {

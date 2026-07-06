@@ -4,15 +4,12 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
-	"forst/internal/forstpkg"
-	"forst/internal/generators"
 	"forst/internal/parser"
+	"forst/internal/testutil"
 	"forst/internal/typechecker"
 )
 
@@ -21,6 +18,16 @@ type pipelineOpts struct {
 	goWorkspaceDir      string
 	skipUnlessGoImport  string // if set, t.Skip when go/packages did not load this import local name
 	skipUnlessDotImport bool   // if true, t.Skip when go/packages did not populate dot-import packages
+}
+
+func pipelineOptsToCompile(opts pipelineOpts) testutil.CompileOpts {
+	return testutil.CompileOpts{
+		TypecheckOpts: testutil.TypecheckOpts{
+			GoWorkspaceDir:      opts.goWorkspaceDir,
+			SkipUnlessGoImport:  opts.skipUnlessGoImport,
+			SkipUnlessDotImport: opts.skipUnlessDotImport,
+		},
+	}
 }
 
 // compileForstPipeline runs parse → typecheck → transform → generators.GenerateGoCode on Forst source.
@@ -32,92 +39,18 @@ func compileForstPipeline(t *testing.T, src string) string {
 // compileForstPipelineExt runs parse → typecheck → transform → generators.GenerateGoCode with optional GoWorkspaceDir.
 func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string {
 	t.Helper()
-	log := ast.SetupTestLogger(nil)
-	if !testing.Verbose() {
-		log.SetOutput(bytes.NewBuffer(nil))
-	}
-
-	p := parser.NewTestParser(src, log)
-	nodes, err := p.ParseFile()
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-
-	tc := typechecker.New(log, false)
-	tc.GoWorkspaceDir = opts.goWorkspaceDir
-	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatalf("typecheck: %v", err)
-	}
-	if opts.skipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.skipUnlessGoImport) {
-		t.Skipf("%s not loaded (go/packages or workspace)", opts.skipUnlessGoImport)
-	}
-	if opts.skipUnlessDotImport && !tc.HasDotImportPackages() {
-		t.Skip("dot-import packages not loaded (go/packages or workspace)")
-	}
-
-	tr := New(tc, log)
-	goFile, err := tr.TransformForstFileToGo(nodes)
-	if err != nil {
-		t.Fatalf("transform: %v", err)
-	}
-
-	code, err := generators.GenerateGoCode(goFile)
-	if err != nil {
-		t.Fatalf("generate Go: %v", err)
-	}
-	return code
+	return MustCompileGo(t, src, pipelineOptsToCompile(opts))
 }
 
 // compileMergedForstFilesPipeline merges multiple .ft files in one package, then typechecks and transforms.
 func compileMergedForstFilesPipeline(t *testing.T, paths []string, opts pipelineOpts) string {
 	t.Helper()
-	log := ast.SetupTestLogger(nil)
-	if !testing.Verbose() {
-		log.SetOutput(bytes.NewBuffer(nil))
-	}
-	merged, _, err := forstpkg.ParseAndMergePackage(log, paths)
-	if err != nil {
-		t.Fatalf("merge package: %v", err)
-	}
-	tc := typechecker.New(log, false)
-	tc.GoWorkspaceDir = opts.goWorkspaceDir
-	if err := tc.CheckTypes(merged); err != nil {
-		t.Fatalf("typecheck: %v", err)
-	}
-	if opts.skipUnlessGoImport != "" && !tc.GoImportPackageLoaded(opts.skipUnlessGoImport) {
-		t.Skipf("%s not loaded (go/packages or workspace)", opts.skipUnlessGoImport)
-	}
-	if opts.skipUnlessDotImport && !tc.HasDotImportPackages() {
-		t.Skip("dot-import packages not loaded (go/packages or workspace)")
-	}
-	tr := New(tc, log)
-	goFile, err := tr.TransformForstFileToGo(merged)
-	if err != nil {
-		t.Fatalf("transform: %v", err)
-	}
-	code, err := generators.GenerateGoCode(goFile)
-	if err != nil {
-		t.Fatalf("generate Go: %v", err)
-	}
-	return code
+	return MustCompileMergedGo(t, paths, pipelineOptsToCompile(opts))
 }
 
 func moduleRootFromWD(t *testing.T) string {
 	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("go.mod not found from cwd")
-		}
-		dir = parent
-	}
+	return testutil.ModuleRoot(t)
 }
 
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
