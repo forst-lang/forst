@@ -5,7 +5,6 @@ import (
 
 	"forst/internal/ast"
 	goast "go/ast"
-	"go/token"
 )
 
 // transformEnsureErrorFallback lowers `ensure … or Bad("msg")` / `or errVar` to a Go expression.
@@ -41,19 +40,17 @@ func (t *Transformer) transformEnsureErrorFallback(errorNode ast.EnsureErrorNode
 	}
 }
 
-func (t *Transformer) defaultAssertionErrorExpr(assertion *ast.AssertionNode) goast.Expr {
+func (t *Transformer) defaultAssertionErrorExpr(stmt ast.EnsureNode) goast.Expr {
 	t.Output.EnsureImport("errors")
-	assertionMsg := t.getAssertionStringForError(assertion)
+	subjectLabel, assertionLabel, wantHint := t.ensureFailureMessage(stmt)
+	msg := fmt.Sprintf("ensure %s is %s: want %s", subjectLabel, assertionLabel, wantHint)
 	return &goast.CallExpr{
 		Fun: &goast.SelectorExpr{
 			X:   goast.NewIdent("errors"),
 			Sel: goast.NewIdent("New"),
 		},
 		Args: []goast.Expr{
-			&goast.BasicLit{
-				Kind:  token.STRING,
-				Value: fmt.Sprintf("\"assertion failed: %s\"", assertionMsg),
-			},
+			goQuotedStringLit(msg),
 		},
 	}
 }
@@ -63,7 +60,7 @@ func (t *Transformer) ensureFailureErrorExpr(stmt ast.EnsureNode) (goast.Expr, e
 	if stmt.Error != nil {
 		return t.transformEnsureErrorFallback(*stmt.Error)
 	}
-	return t.defaultAssertionErrorExpr(&stmt.Assertion), nil
+	return t.defaultAssertionErrorExpr(stmt), nil
 }
 
 // getAssertionStringForError returns a properly qualified assertion string for error messages

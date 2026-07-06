@@ -198,6 +198,15 @@ func TestSampleFields(t *testing.T) {
 		`func TestSampleFields(t *testing.T) {`,
 		`t.Helper()`,
 		`t.Fatalf(`,
+		`got %t`,
+		`"s.active"`,
+		`"Bool.False()"`,
+		`"false"`,
+		`"s.enabled"`,
+		`"Bool.True()"`,
+		`"true"`,
+		`s.active`,
+		`s.enabled`,
 	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
@@ -228,6 +237,11 @@ func TestEnsureBool(t *testing.T) {
 	for _, sub := range []string{
 		`t.Helper()`,
 		`t.Fatalf(`,
+		`got %t`,
+		`"ok"`,
+		`"Bool.True()"`,
+		`"true"`,
+		`ok`,
 	} {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
@@ -253,7 +267,214 @@ func main() {}
 	if !strings.Contains(out, `func check() error`) {
 		t.Fatalf("expected error return for ensure in non-test function, got:\n%s", out)
 	}
-	if !strings.Contains(out, `return errors.New`) {
-		t.Fatalf("expected errors.New for ensure failure in non-test function, got:\n%s", out)
+	if !strings.Contains(out, `ensure ok is Bool.True(): want true`) {
+		t.Fatalf("expected ensure want hint in non-test function, got:\n%s", out)
+	}
+}
+
+func TestPipeline_ensureStringMinInTest_emitsLenGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func TestEnsureStringMin(t *testing.T) {
+	s := ""
+	ensure s is Min(1)
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got len=%d (%q)`,
+		`len(`,
+		`s`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureResultOkInTest_emitsErrGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func f(): Result(Int, Error) {
+	return 1
+}
+
+func TestEnsureResultOk(t *testing.T) {
+	x := f()
+	ensure x is Ok()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got err=%v`,
+		`xErr`,
+		`"Ok()"`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureStringHasPrefixInTest_emitsQuotedGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func TestEnsureStringHasPrefix(t *testing.T) {
+	s := "http://"
+	ensure s is HasPrefix("https://")
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got %q`,
+		`s`,
+		`"prefix \"https://\""`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureStringAliasMinInTest_emitsStringCoercionInLenGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+type Label = String
+
+func TestEnsureStringAliasMin(t *testing.T) {
+	s: Label = ""
+	ensure s is Min(1)
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got len=%d (%q)`,
+		`len(string(s))`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureResultErrInTest_emitsErrGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func f(): Result(Int, Error) {
+	return 1
+}
+
+func TestEnsureResultErr(t *testing.T) {
+	x := f()
+	ensure x is Err()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got err=%v`,
+		`xErr`,
+		`"Err()"`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureResultOkWithPayloadInTest_emitsErrAndValGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func f(): Result(Int, Error) {
+	return 1
+}
+
+func TestEnsureResultOkPayload(t *testing.T) {
+	x := f()
+	ensure x is Ok(42)
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got err=%v, val=%v`,
+		`xErr`,
+		`x`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensurePointerNilInTest_emitsDefaultGot(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func TestEnsurePointerNil(t *testing.T) {
+	var p: *Int = nil
+	ensure p is Nil()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Fatalf(`,
+		`got %v, want %s`,
+		`p`,
+		`"nil"`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureInTest_usesCustomTestingTParamName(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func TestEnsureCustomHarness(tt *testing.T) {
+	ok := true
+	ensure ok is True()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`tt.Helper()`,
+		`tt.Fatalf(`,
+		`got %t`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+	if strings.Contains(out, `func TestEnsureCustomHarness(t *testing.T)`) {
+		t.Fatalf("expected custom harness param tt, not t:\n%s", out)
 	}
 }

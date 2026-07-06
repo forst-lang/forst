@@ -547,7 +547,7 @@ func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
 		filepath.Join(root, "result_ensure.ft"),
 	}
 	const wantBranch = `if n <= 0`
-	const wantMsg = `assertion failed: Int.GreaterThan(0)`
+	const wantMsg = `ensure n is Int.GreaterThan(0): want > 0`
 	for _, path := range examples {
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			t.Parallel()

@@ -56,6 +56,7 @@ func TestEnsureFailureErrorExpr_customOrGeneric(t *testing.T) {
 	}
 
 	generic, err := tr.ensureFailureErrorExpr(ast.EnsureNode{
+		Variable: ast.VariableNode{Ident: ast.Ident{ID: "n"}},
 		Assertion: ast.AssertionNode{
 			BaseType: typeIdentPtr(string(ast.TypeInt)),
 			Constraints: []ast.ConstraintNode{{
@@ -67,7 +68,7 @@ func TestEnsureFailureErrorExpr_customOrGeneric(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s := goExprString(t, generic); !strings.Contains(s, `errors.New`) || !strings.Contains(s, `assertion failed`) {
+	if s := goExprString(t, generic); !strings.Contains(s, `errors.New`) || !strings.Contains(s, `ensure n is Int.GreaterThan(1): want > 1`) {
 		t.Fatalf("generic: %s", s)
 	}
 }

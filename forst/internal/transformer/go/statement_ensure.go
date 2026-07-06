@@ -195,35 +195,13 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 					},
 				},
 			}
-			fatalMsg := "assertion failed"
 			if stmt.Error != nil {
 				if errExpr, err := t.transformEnsureErrorFallback(*stmt.Error); err == nil {
-					fatalCall := &goast.ExprStmt{
-						X: &goast.CallExpr{
-							Fun: &goast.SelectorExpr{
-								X:   testIdent,
-								Sel: goast.NewIdent("Fatalf"),
-							},
-							Args: []goast.Expr{
-								&goast.BasicLit{Kind: token.STRING, Value: "\"%v\""},
-								errExpr,
-							},
-						},
-					}
+					fatalCall := testFatalfCall(testIdent, "%v", errExpr)
 					return &goast.BlockStmt{List: []goast.Stmt{helperCall, fatalCall}}
 				}
 			}
-			fatalCall := &goast.ExprStmt{
-				X: &goast.CallExpr{
-					Fun: &goast.SelectorExpr{
-						X:   testIdent,
-						Sel: goast.NewIdent("Fatalf"),
-					},
-					Args: []goast.Expr{
-						&goast.BasicLit{Kind: token.STRING, Value: "\"" + fatalMsg + "\""},
-					},
-				},
-			}
+			fatalCall := t.ensureTestFatalfCall(testIdent, stmt)
 			return &goast.BlockStmt{List: []goast.Stmt{helperCall, fatalCall}}
 		}
 	}
@@ -271,7 +249,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		}
 		errExpr, err := t.ensureFailureErrorExpr(stmt)
 		if err != nil {
-			errExpr = t.defaultAssertionErrorExpr(&stmt.Assertion)
+			errExpr = t.defaultAssertionErrorExpr(stmt)
 		}
 		return &goast.ReturnStmt{
 			Results: []goast.Expr{zeroSucc, errExpr},
@@ -295,7 +273,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		if returnType.IsError() {
 			errExpr, err := t.ensureFailureErrorExpr(stmt)
 			if err != nil {
-				errExpr = t.defaultAssertionErrorExpr(&stmt.Assertion)
+				errExpr = t.defaultAssertionErrorExpr(stmt)
 			}
 			result = errExpr
 		} else {
