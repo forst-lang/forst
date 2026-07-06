@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.3...vscode-forst-v0.3.4) (2026-07-06)
+
+
+### Performance Improvements
+
+* **typechecker:** cache scope hashes, memoize HashNode ([#124](https://github.com/forst-lang/forst/issues/124)) ([923d6c9](https://github.com/forst-lang/forst/commit/923d6c9070351b7c9e68f3a0f77d53ef9ff7a49e))
+
 ## [0.3.3](https://github.com/forst-lang/forst/compare/vscode-forst-v0.3.2...vscode-forst-v0.3.3) (2026-06-28)
 
 
