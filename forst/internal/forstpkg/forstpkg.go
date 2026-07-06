@@ -103,3 +103,20 @@ func ParseAndMergePackage(log *logrus.Logger, paths []string) (merged []ast.Node
 	}
 	return MergePackageASTs(lists), byPath, nil
 }
+
+// MergePackageASTsFromPaths merges already-parsed per-file ASTs in path order.
+// Use this instead of re-parsing when transform must share node pointers with typecheck.
+func MergePackageASTsFromPaths(byPath map[string][]ast.Node, paths []string) ([]ast.Node, error) {
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no paths")
+	}
+	lists := make([][]ast.Node, 0, len(paths))
+	for _, p := range paths {
+		nodes, ok := byPath[p]
+		if !ok {
+			return nil, fmt.Errorf("path %s not in parse map", p)
+		}
+		lists = append(lists, nodes)
+	}
+	return MergePackageASTs(lists), nil
+}

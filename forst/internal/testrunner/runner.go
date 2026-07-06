@@ -154,7 +154,7 @@ func hasGeneratedLibrary(dir string) bool {
 }
 
 func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, log *logrus.Logger) (string, error) {
-	merged, _, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
+	merged, byPath, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
 	if err != nil {
 		return "", fmt.Errorf("parse: %w", err)
 	}
@@ -162,14 +162,23 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(merged))
 
 	var tc *typechecker.TypeChecker
-	if modResult != nil && modResult.PerPackage[forstPkg] != nil {
+	fromModule := modResult != nil && modResult.PerPackage[forstPkg] != nil
+	if fromModule {
 		tc = modResult.PerPackage[forstPkg]
 	} else {
 		tc = typechecker.New(log, false)
 		tc.GoWorkspaceDir = moduleRoot
-		if err := tc.CheckTypes(merged); err != nil {
-			return "", fmt.Errorf("typecheck: %w", err)
-		}
+	}
+	var savedProviders map[ast.Identifier][]typechecker.ProviderSlot
+	if fromModule {
+		savedProviders = cloneFunctionProviders(tc.FunctionProviders)
+	}
+	if err := tc.CheckTypes(merged); err != nil {
+		return "", fmt.Errorf("typecheck: %w", err)
+	}
+	if fromModule && savedProviders != nil {
+		tc.SetFunctionProviders(savedProviders)
+		tc.FunctionProviders = savedProviders
 	}
 
 	transformPaths := pkg.FtPaths
@@ -179,9 +188,12 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 		}
 		transformPaths = pkg.TestPaths
 	}
-	transformNodes, _, err := forstpkg.ParseAndMergePackage(log, transformPaths)
-	if err != nil {
-		return "", fmt.Errorf("parse transform: %w", err)
+	transformNodes := merged
+	if opts.TestOnly {
+		transformNodes, err = forstpkg.MergePackageASTsFromPaths(byPath, transformPaths)
+		if err != nil {
+			return "", fmt.Errorf("merge transform nodes: %w", err)
+		}
 	}
 
 	tr := transformer_go.New(tc, log, opts.ExportStructFields)
@@ -261,6 +273,19 @@ func ParseCLIArgs(args []string) (paths []string, goTestArgs []string) {
 		}
 	}
 	return paths, goTestArgs
+}
+
+func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
+	for k, v := range src {
+		slots := make([]typechecker.ProviderSlot, len(v))
+		copy(slots, v)
+		out[k] = slots
+	}
+	return out
 }
 
 func indexOf(ss []string, s string) int {

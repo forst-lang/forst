@@ -17,67 +17,37 @@ func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
 	if !isHashLike {
 		return typeNode
 	}
-	hashDef, hashExists := tc.Defs[typeNode.Ident]
-	if hashExists {
-		if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
-			if hashShapeExpr, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				hashShape := hashShapeExpr.Shape
-				for _, def := range tc.Defs {
-					if userDef, ok := def.(ast.TypeDefNode); ok && userDef.Ident != "" {
-						// RegisterHashBasedType stores the hash under T_… with a TypeDefShapeExpr; do not
-						// treat that entry (or any other hash typedef) as a display alias for itself.
-						if userDef.Ident == typeNode.Ident || strings.HasPrefix(string(userDef.Ident), "T_") {
-							continue
-						}
-						if userPayload, ok := ast.PayloadShape(userDef.Expr); ok {
-							if tc.shapesAreStructurallyIdentical(hashShape, *userPayload) {
-								tc.log.WithFields(logrus.Fields{
-									"hashType":    typeNode.Ident,
-									"aliasedType": userDef.Ident,
-									"function":    "resolveAliasedType",
-								}).Debug("Resolved hash-based type to aliased type")
-								return ast.TypeNode{
-									Ident:      userDef.Ident,
-									TypeKind:   ast.TypeKindUserDefined, // Mark as user-defined
-									Assertion:  typeNode.Assertion,
-									TypeParams: typeNode.TypeParams,
-								}
-							}
-						}
-					}
-				}
-			}
+	if alias, ok := tc.lookupShapeAliasForHashType(typeNode); ok {
+		if tc.log.IsLevelEnabled(logrus.DebugLevel) {
+			tc.log.WithFields(logrus.Fields{
+				"hashType":    typeNode.Ident,
+				"aliasedType": alias,
+				"function":    "resolveAliasedType",
+			}).Debug("Resolved hash-based type to aliased type")
+		}
+		return ast.TypeNode{
+			Ident:      alias,
+			TypeKind:   ast.TypeKindUserDefined,
+			Assertion:  typeNode.Assertion,
+			TypeParams: typeNode.TypeParams,
 		}
 	}
 	// type Name = <assertion>: narrowing `x is Name` uses InferAssertionType's structural hash (T_…).
 	// That hash matches HashNode(AssertionNode{BaseType: Name}), not the typedef's inner assertion.
 	if strings.HasPrefix(string(typeNode.Ident), "T_") {
-		for _, def := range tc.Defs {
-			userDef, ok := def.(ast.TypeDefNode)
-			if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
-				continue
-			}
-			if _, ok := typeDefAssertionFromExpr(userDef.Expr); !ok {
-				continue
-			}
-			bt := userDef.Ident
-			a := ast.AssertionNode{BaseType: &bt}
-			h, err := tc.Hasher.HashNode(a)
-			if err != nil {
-				continue
-			}
-			if h.ToTypeIdent() == typeNode.Ident {
+		if alias, ok := tc.lookupAssertionAliasForHashIdent(typeNode.Ident); ok {
+			if tc.log.IsLevelEnabled(logrus.DebugLevel) {
 				tc.log.WithFields(logrus.Fields{
 					"hashType":    typeNode.Ident,
-					"aliasedType": userDef.Ident,
+					"aliasedType": alias,
 					"function":    "resolveAliasedType",
 				}).Debug("Resolved assertion refinement hash to type alias")
-				return ast.TypeNode{
-					Ident:      userDef.Ident,
-					TypeKind:   ast.TypeKindUserDefined,
-					Assertion:  typeNode.Assertion,
-					TypeParams: typeNode.TypeParams,
-				}
+			}
+			return ast.TypeNode{
+				Ident:      alias,
+				TypeKind:   ast.TypeKindUserDefined,
+				Assertion:  typeNode.Assertion,
+				TypeParams: typeNode.TypeParams,
 			}
 		}
 	}

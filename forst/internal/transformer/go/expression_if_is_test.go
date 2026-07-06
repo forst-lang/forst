@@ -68,7 +68,7 @@ is (password Password) Strong(min Int) {
 		t.Fatalf("expected AssertionNode, got %T", bin.Right)
 	}
 
-	if err := tr.restoreScope(guard); err != nil {
+	if err := tr.restoreScope(typeGuardScopeNode(nodes, guard)); err != nil {
 		t.Fatalf("restoreScope: %v", err)
 	}
 	expr, err := tr.transformIfIsCondition(bin.Left, &asn)

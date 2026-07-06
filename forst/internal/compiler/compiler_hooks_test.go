@@ -124,7 +124,11 @@ func TestTypecheckForCompile_usesPerPackageWhenPresent(t *testing.T) {
 		t.Fatalf("typecheck: err=%v tc=%v modResult=%v", err, tc, modResult)
 	}
 	pkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
-	if modResult.PerPackage[pkg] != tc {
+	if modResult.PerPackage[pkg] == nil {
+		t.Fatal("expected module PerPackage entry")
+	}
+	// Rebind path reuses the module PerPackage checker after CheckTypes on entry nodes.
+	if tc != modResult.PerPackage[pkg] {
 		t.Fatal("expected typechecker from module PerPackage map")
 	}
 }

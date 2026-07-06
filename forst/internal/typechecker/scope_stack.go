@@ -44,22 +44,22 @@ func NewScopeStack(h *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
 
 // pushScope creates and pushes a new scope for the given AST node
 func (ss *ScopeStack) pushScope(node ast.Node) *Scope {
-	hash, err := ss.Hasher.HashNode(node)
+	hash, err := ss.resolveScopeHash(node)
 	if err != nil {
 		ss.log.WithError(err).Error("failed to hash node during pushScope")
 		return nil
+	}
+	if existing, ok := ss.scopes[hash]; ok && scopeNodesMatch(existing, node) && existing.Parent == ss.current {
+		ss.current = existing
+		ss.cacheNodeScopeHash(node, hash)
+		return existing
 	}
 	scope := NewScope(ss.current, &node, ss.log)
 	scope.hash = hash
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope
-	if ss.nodeScopeHash == nil {
-		ss.nodeScopeHash = make(map[hasher.NodeIdentity]NodeHash)
-	}
-	if key, ok := hasher.NodeIdentityKey(node); ok {
-		ss.nodeScopeHash[key] = hash
-	}
+	ss.cacheNodeScopeHash(node, hash)
 	return scope
 }
 
@@ -77,9 +77,17 @@ func (ss *ScopeStack) currentScope() *Scope {
 
 // restoreScope restores a scope by its AST node
 func (ss *ScopeStack) restoreScope(node ast.Node) error {
+	if node == nil {
+		ss.current = ss.globalScope()
+		return nil
+	}
 	scope, exists := ss.findScope(node)
 	if !exists {
-		return fmt.Errorf("scope not found for node %s", node.String())
+		desc := "<nil>"
+		if node != nil {
+			desc = node.String()
+		}
+		return fmt.Errorf("scope not found for node %s", desc)
 	}
 	ss.current = scope
 	return nil
@@ -97,18 +105,69 @@ func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
 			}
 		}
 	}
-	hash, err := ss.Hasher.HashNode(node)
+	baseHash, err := ss.Hasher.HashScopeKey(node)
 	if err != nil {
 		ss.log.WithError(err).Error("failed to hash node during findScope")
 		return nil, false
 	}
-	scope, exists := ss.scopes[hash]
-	if exists {
-		if key, ok := hasher.NodeIdentityKey(node); ok {
-			ss.nodeScopeHash[key] = hash
+	if scope, ok := ss.scopes[baseHash]; ok {
+		if scopeNodesMatch(scope, node) {
+			ss.cacheNodeScopeHash(node, baseHash)
+			return scope, true
 		}
+		disHash, err := ss.Hasher.HashScopeKeyDisambiguated(node, baseHash)
+		if err != nil {
+			ss.log.WithError(err).Error("failed to disambiguate scope hash during findScope")
+			return nil, false
+		}
+		if disScope, ok := ss.scopes[disHash]; ok {
+			ss.cacheNodeScopeHash(node, disHash)
+			return disScope, true
+		}
+		return nil, false
 	}
-	return scope, exists
+	disHash, err := ss.Hasher.HashScopeKeyDisambiguated(node, baseHash)
+	if err != nil {
+		ss.log.WithError(err).Error("failed to disambiguate scope hash during findScope")
+		return nil, false
+	}
+	if scope, ok := ss.scopes[disHash]; ok {
+		ss.cacheNodeScopeHash(node, disHash)
+		return scope, true
+	}
+	return nil, false
+}
+
+func (ss *ScopeStack) resolveScopeHash(node ast.Node) (NodeHash, error) {
+	baseHash, err := ss.Hasher.HashScopeKey(node)
+	if err != nil {
+		return 0, err
+	}
+	if existing, ok := ss.scopes[baseHash]; ok && !scopeNodesMatch(existing, node) {
+		return ss.Hasher.HashScopeKeyDisambiguated(node, baseHash)
+	}
+	return baseHash, nil
+}
+
+func (ss *ScopeStack) cacheNodeScopeHash(node ast.Node, hash NodeHash) {
+	if ss.nodeScopeHash == nil {
+		ss.nodeScopeHash = make(map[hasher.NodeIdentity]NodeHash)
+	}
+	if key, ok := hasher.NodeIdentityKey(node); ok {
+		ss.nodeScopeHash[key] = hash
+	}
+}
+
+func scopeNodesMatch(scope *Scope, node ast.Node) bool {
+	if scope == nil || scope.Node == nil {
+		return false
+	}
+	idNode, okNode := hasher.NodeIdentityKey(node)
+	idScope, okScope := hasher.NodeIdentityKey(*scope.Node)
+	if okNode && okScope {
+		return idNode == idScope
+	}
+	return false
 }
 
 // globalScope returns the root scope

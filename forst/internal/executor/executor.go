@@ -223,6 +223,12 @@ func (e *FunctionExecutor) compileFunction(packageName, functionName string) (*C
 	var checker *typechecker.TypeChecker
 	if modErr == nil && modResult != nil && modResult.PerPackage[packageName] != nil {
 		checker = modResult.PerPackage[packageName]
+		// Module check used merged-package AST nodes; re-bind scopes to this compile's nodes.
+		if err := compiler.RebindTypecheckerScopes(checker, forstNodes); err != nil {
+			e.log.Error("Encountered error re-binding scopes: ", err)
+			checker.DebugPrintCurrentScope()
+			return nil, err
+		}
 	} else {
 		checker = typechecker.New(e.log, false)
 		checker.GoWorkspaceDir = moduleRoot

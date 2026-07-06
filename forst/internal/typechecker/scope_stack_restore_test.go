@@ -10,6 +10,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestRestoreScope_nilGlobal_afterCheckTypes(t *testing.T) {
+	t.Parallel()
+	src := []byte(`package demo
+
+func main() {}
+`)
+	nodes := parseNodesForTest(t, src)
+	tc := testTypeChecker(t)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+	if err := tc.RestoreScope(nil); err != nil {
+		t.Fatalf("RestoreScope(nil): %v", err)
+	}
+	if !tc.CurrentScope().IsGlobal() {
+		t.Fatal("expected global scope after RestoreScope(nil)")
+	}
+}
+
 func TestRestoreScope_reusesCachedHash(t *testing.T) {
 	t.Parallel()
 	var body []ast.Node
@@ -20,18 +39,20 @@ func TestRestoreScope_reusesCachedHash(t *testing.T) {
 		})
 	}
 	fn := ast.FunctionNode{Ident: ast.Ident{ID: "f"}, Body: body}
+	nodes := []ast.Node{fn}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	tc := New(log, false)
-	if err := tc.CollectTypes([]ast.Node{fn}); err != nil {
+	if err := tc.CollectTypes(nodes); err != nil {
 		t.Fatalf("CollectTypes: %v", err)
 	}
-	want, ok := tc.scopeStack.findScope(fn)
+	scopeNode := nodes[0]
+	want, ok := tc.scopeStack.findScope(scopeNode)
 	if !ok {
 		t.Fatal("scope not found for fn after collect")
 	}
 	for i := 0; i < 1000; i++ {
-		if err := tc.RestoreScope(fn); err != nil {
+		if err := tc.RestoreScope(scopeNode); err != nil {
 			t.Fatalf("RestoreScope iteration %d: %v", i, err)
 		}
 		if tc.scopeStack.current != want {

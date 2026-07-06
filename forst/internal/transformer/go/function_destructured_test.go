@@ -31,15 +31,20 @@ func sum(a Int, {x, y}: { x: Int, y: Int }): Int {
 	}
 
 	tr := New(tc, log)
+	var scopeNode ast.Node
 	var fn ast.FunctionNode
 	for _, n := range nodes {
 		if f, ok := n.(ast.FunctionNode); ok && f.Ident.ID == "sum" {
+			scopeNode = n
 			fn = f
 			break
 		}
 	}
+	if scopeNode == nil {
+		t.Fatal("sum not found")
+	}
 
-	decl, err := tr.transformFunction(fn)
+	decl, err := tr.transformFunction(scopeNode, fn)
 	if err != nil {
 		t.Fatalf("transform: %v", err)
 	}
@@ -96,7 +101,7 @@ is (m MutationArg) Input(input Shape) {
 		t.Fatal("expected Input type guard")
 	}
 
-	decl, err := tr.transformTypeGuard(guard)
+	decl, err := tr.transformTypeGuard(typeGuardScopeNode(nodes, guard), guard)
 	if err != nil {
 		t.Fatalf("transformTypeGuard: %v", err)
 	}

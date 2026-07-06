@@ -163,11 +163,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesExpectedType(t *testi
 	delete(tc.Defs, ast.TypeIdent(typeName))
 
 	// Check types for the functions only (top-level *ast.ShapeNode is not a valid infer node).
-	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+	nodes := []ast.Node{fFunc, mainFunc}
+	if err := tr.TypeChecker.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+	if err := tr.TypeChecker.RestoreScope(functionScopeNode(nodes, mainFunc)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -251,11 +252,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UndefinedTypeError(t *tes
 	// Do NOT register the type T_ShapeArg in tc.Defs (simulate missing type)
 
 	// Check types for all nodes
-	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+	nodes := []ast.Node{fFunc, mainFunc}
+	if err := tr.TypeChecker.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+	if err := tr.TypeChecker.RestoreScope(functionScopeNode(nodes, mainFunc)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -399,11 +401,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesParameterTypeDef(t *t
 	}
 
 	// Check types for all nodes
-	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+	nodes := []ast.Node{fFunc, mainFunc}
+	if err := tr.TypeChecker.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+	if err := tr.TypeChecker.RestoreScope(functionScopeNode(nodes, mainFunc)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -602,11 +605,12 @@ func TestTransformFunctionCallWithShapeLiteralArgument_UsesInferredParameterType
 	}
 
 	// Check types for all nodes
-	if err := tr.TypeChecker.CheckTypes([]ast.Node{fFunc, mainFunc}); err != nil {
+	nodes := []ast.Node{fFunc, mainFunc}
+	if err := tr.TypeChecker.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := tr.TypeChecker.RestoreScope(mainFunc); err != nil {
+	if err := tr.TypeChecker.RestoreScope(functionScopeNode(nodes, mainFunc)); err != nil {
 		t.Fatal(err)
 	}
 

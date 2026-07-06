@@ -438,7 +438,7 @@ is (password Password) Strong(min Int) {
 		t.Fatal("expected parsed type guard")
 	}
 
-	decl, err := tr.transformTypeGuard(guard)
+	decl, err := tr.transformTypeGuard(typeGuardScopeNode(nodes, guard), guard)
 	if err != nil {
 		t.Fatalf("transformTypeGuard: %v", err)
 	}

@@ -1,12 +1,25 @@
 package typechecker
 
 import (
+	"fmt"
 	"forst/internal/ast"
 
 	logrus "github.com/sirupsen/logrus"
 )
 
-func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) {
+	var functionNode ast.FunctionNode
+	switch n := node.(type) {
+	case ast.FunctionNode:
+		functionNode = n
+	case *ast.FunctionNode:
+		if n == nil {
+			return nil, nil
+		}
+		functionNode = *n
+	default:
+		return nil, fmt.Errorf("inferFunctionNode: unexpected node type %T", node)
+	}
 	prevFn := tc.currentFunction
 	tc.currentFunction = &functionNode
 	prevErrBranchDepth := tc.resultErrIfBranchDepth
@@ -22,7 +35,7 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 		"phase":    "ENTER",
 	}).Debug("Function node type inference")
 
-	if err := tc.RestoreScope(functionNode); err != nil {
+	if err := tc.RestoreScope(node); err != nil {
 		return nil, err
 	}
 	tc.log.WithFields(logrus.Fields{
@@ -49,7 +62,7 @@ func (tc *TypeChecker) inferFunctionNode(functionNode ast.FunctionNode) ([]ast.T
 		params[index] = param
 	}
 
-	paramTypes, err := tc.inferNodeTypes(params, functionNode)
+	paramTypes, err := tc.inferNodeTypes(params, node)
 	if err != nil {
 		return nil, err
 	}

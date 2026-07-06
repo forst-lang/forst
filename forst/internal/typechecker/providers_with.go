@@ -7,7 +7,11 @@ import (
 	"forst/internal/astwalk"
 )
 
-func (tc *TypeChecker) inferWithNode(with ast.WithNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferWithNode(node ast.Node) ([]ast.TypeNode, error) {
+	with, ok := node.(ast.WithNode)
+	if !ok {
+		return nil, fmt.Errorf("inferWithNode: unexpected node type %T", node)
+	}
 	eng := tc.providersEngine()
 	inner, err := tc.ambientFromWiringExpr(with.Wiring, with.Span)
 	if err != nil {
@@ -32,7 +36,7 @@ func (tc *TypeChecker) inferWithNode(with ast.WithNode) ([]ast.TypeNode, error) 
 	})
 
 	eng.ScopeStack = append(eng.ScopeStack, merged)
-	tc.pushScope(with)
+	tc.pushScope(node)
 
 	for _, node := range with.Body {
 		if _, err := tc.inferNodeType(node); err != nil {

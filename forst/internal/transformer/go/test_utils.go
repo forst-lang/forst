@@ -21,6 +21,16 @@ func setupTransformer(tc *typechecker.TypeChecker, log *logrus.Logger) *Transfor
 	return New(tc, log)
 }
 
+// functionScopeNode returns the ast.Node from nodes that owns fn's scope (same interface as typecheck).
+func functionScopeNode(nodes []ast.Node, fn ast.FunctionNode) ast.Node {
+	for _, n := range nodes {
+		if f, ok := n.(ast.FunctionNode); ok && f.Ident.ID == fn.Ident.ID {
+			return n
+		}
+	}
+	return ast.Node(fn)
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)

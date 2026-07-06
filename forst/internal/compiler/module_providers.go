@@ -22,6 +22,10 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
 	if modResult != nil {
 		if tc := modResult.PerPackage[forstPkg]; tc != nil {
+			// Module check used merged-package AST nodes; re-bind scopes to this compile's nodes.
+			if err := RebindTypecheckerScopes(tc, nodes); err != nil {
+				return tc, modResult, err
+			}
 			return tc, modResult, nil
 		}
 	}
@@ -70,4 +74,56 @@ func isCompilerWorkspaceModule(modRoot string) bool {
 	}
 	_, err := os.Stat(filepath.Join(modRoot, "cmd", "forst"))
 	return err == nil
+}
+
+func entryDirFromArgs(args Args) string {
+	if args.FilePath == "" {
+		return ""
+	}
+	return filepath.Dir(args.FilePath)
+}
+
+// typecheckUsesFreshEntryChecker is true when modulecheck merges every same-package file
+// in examples/in during the providers pass, which would desync scopes from a single-file compile.
+func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
+	if c.Args.PackageRoot != "" || entryDir == "" {
+		return false
+	}
+	modRoot := goload.FindModuleRoot(entryDir)
+	if !isCompilerWorkspaceModule(modRoot) {
+		return false
+	}
+	examplesIn, err := filepath.Abs(filepath.Join(modRoot, "..", "examples", "in"))
+	if err != nil {
+		return false
+	}
+	absEntry, err := filepath.Abs(entryDir)
+	if err != nil {
+		return false
+	}
+	return absEntry == examplesIn
+}
+
+// RebindTypecheckerScopes re-runs CheckTypes on nodes so scope stacks match the compile AST.
+func RebindTypecheckerScopes(tc *typechecker.TypeChecker, nodes []ast.Node) error {
+	savedProviders := cloneFunctionProviders(tc.FunctionProviders)
+	if err := tc.CheckTypes(nodes); err != nil {
+		return err
+	}
+	tc.SetFunctionProviders(savedProviders)
+	tc.FunctionProviders = savedProviders
+	return nil
+}
+
+func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
+	for k, v := range src {
+		slots := make([]typechecker.ProviderSlot, len(v))
+		copy(slots, v)
+		out[k] = slots
+	}
+	return out
 }

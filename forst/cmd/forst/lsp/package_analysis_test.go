@@ -236,3 +236,62 @@ func Disk(): Int {
 		t.Fatalf("got %q want %q", contents[uri], want)
 	}
 }
+
+func TestBuildPackageSnapshot_GoWorkspaceDirUsesModuleRoot(t *testing.T) {
+	t.Parallel()
+	log := logrus.New()
+	s := NewLSPServer("8080", log)
+
+	moduleRoot := t.TempDir()
+	pkgDir := filepath.Join(moduleRoot, "sub")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleRoot, "go.mod"), []byte("module nestedlsp\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	aPath := filepath.Join(pkgDir, "a.ft")
+	bPath := filepath.Join(pkgDir, "b.ft")
+	const srcA = `package main
+
+func A(): Int {
+	return 1
+}
+`
+	const srcB = `package main
+
+func B(): Int {
+	return 2
+}
+`
+	if err := os.WriteFile(aPath, []byte(srcA), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bPath, []byte(srcB), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	uriA := mustFileURI(t, aPath)
+	uriB := mustFileURI(t, bPath)
+	uris := []string{uriA, uriB}
+	contents := map[string]string{uriA: srcA, uriB: srcB}
+
+	results, err := s.parsePackageGroupMembersParallel(uris, contents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range results {
+		if results[i].ParseErr != nil {
+			t.Fatalf("parse err file %d: %v", i, results[i].ParseErr)
+		}
+	}
+
+	snap := s.buildPackageSnapshot(uris, results, pkgDir)
+	if snap == nil || snap.tc == nil {
+		t.Fatal("expected non-nil snapshot with typechecker")
+	}
+	if snap.tc.GoWorkspaceDir != moduleRoot {
+		t.Fatalf("GoWorkspaceDir = %q, want module root %q", snap.tc.GoWorkspaceDir, moduleRoot)
+	}
+}

@@ -1,8 +1,15 @@
 package typechecker
 
-import "forst/internal/ast"
+import (
+	"fmt"
+	"forst/internal/ast"
+)
 
-func (tc *TypeChecker) inferEnsureNode(ensureNode ast.EnsureNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferEnsureNode(node ast.Node) ([]ast.TypeNode, error) {
+	ensureNode, ok := node.(ast.EnsureNode)
+	if !ok {
+		return nil, fmt.Errorf("inferEnsureNode: unexpected node type %T", node)
+	}
 	variableType, err := tc.inferEnsureType(ensureNode)
 	if err != nil {
 		return nil, err

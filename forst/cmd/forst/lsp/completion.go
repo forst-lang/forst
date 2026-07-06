@@ -486,7 +486,7 @@ func deepestScopeInBlock(body []ast.Node, tokens []ast.Token, tokIdx, bodyL, bod
 			if idx < 0 {
 				continue
 			}
-			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+			if n := matchIfChainFrom(&st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
 		case *ast.IfNode:
@@ -495,7 +495,7 @@ func deepestScopeInBlock(body []ast.Node, tokens []ast.Token, tokIdx, bodyL, bod
 			if idx < 0 {
 				continue
 			}
-			if n := matchIfChainFrom(*st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
 		case ast.EnsureNode:
@@ -515,7 +515,10 @@ func deepestScopeInBlock(body []ast.Node, tokens []ast.Token, tokIdx, bodyL, bod
 	return nil
 }
 
-func matchIfChainFrom(ifn ast.IfNode, tokens []ast.Token, tokIdx, ifIdx, limit int, tc *typechecker.TypeChecker) ast.Node {
+func matchIfChainFrom(ifn *ast.IfNode, tokens []ast.Token, tokIdx, ifIdx, limit int, tc *typechecker.TypeChecker) ast.Node {
+	if ifn == nil {
+		return nil
+	}
 	l, r := ifThenBraces(tokens, ifIdx)
 	if l < 0 {
 		return nil
@@ -531,7 +534,8 @@ func matchIfChainFrom(ifn ast.IfNode, tokens []ast.Token, tokIdx, ifIdx, limit i
 		return nil
 	}
 	next := r + 1
-	for _, ei := range ifn.ElseIfs {
+	for i := range ifn.ElseIfs {
+		ei := &ifn.ElseIfs[i]
 		eiIdx := findFirstElseIfKeywords(tokens, next, limit)
 		if eiIdx < 0 {
 			break
@@ -570,8 +574,8 @@ func matchIfChainFrom(ifn ast.IfNode, tokens []ast.Token, tokIdx, ifIdx, limit i
 	return nil
 }
 
-func deepestScopeInFunction(fn ast.FunctionNode, tokens []ast.Token, tokIdx int, bodyL, bodyR int, tc *typechecker.TypeChecker) ast.Node {
-	_ = tc.RestoreScope(fn)
+func deepestScopeInFunction(scopeNode ast.Node, fn ast.FunctionNode, tokens []ast.Token, tokIdx int, bodyL, bodyR int, tc *typechecker.TypeChecker) ast.Node {
+	_ = tc.RestoreScope(scopeNode)
 	ifIdx := 0
 	ensureIdx := 0
 	for _, stmt := range fn.Body {
@@ -582,7 +586,7 @@ func deepestScopeInFunction(fn ast.FunctionNode, tokens []ast.Token, tokIdx int,
 			if idx < 0 {
 				continue
 			}
-			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+			if n := matchIfChainFrom(&st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
 		case *ast.IfNode:
@@ -591,7 +595,7 @@ func deepestScopeInFunction(fn ast.FunctionNode, tokens []ast.Token, tokIdx int,
 			if idx < 0 {
 				continue
 			}
-			if n := matchIfChainFrom(*st, tokens, tokIdx, idx, bodyR, tc); n != nil {
+			if n := matchIfChainFrom(st, tokens, tokIdx, idx, bodyR, tc); n != nil {
 				return n
 			}
 		case ast.EnsureNode:
@@ -608,8 +612,8 @@ func deepestScopeInFunction(fn ast.FunctionNode, tokens []ast.Token, tokIdx int,
 			}
 		}
 	}
-	_ = tc.RestoreScope(fn)
-	return fn
+	_ = tc.RestoreScope(scopeNode)
+	return scopeNode
 }
 
 func findInnermostScopeNode(nodes []ast.Node, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
@@ -621,30 +625,30 @@ func findInnermostScopeNode(nodes []ast.Node, tokens []ast.Token, tokIdx int, tc
 				continue
 			}
 			if pOpen, pClose, ok := paramListParenRange(tokens, v); ok && tokIdx > pOpen && tokIdx < pClose {
-				return v
+				return n
 			}
 			if tokIdx <= lb || tokIdx >= rb {
 				continue
 			}
-			return deepestScopeInFunction(v, tokens, tokIdx, lb, rb, tc)
+			return deepestScopeInFunction(n, v, tokens, tokIdx, lb, rb, tc)
 		case *ast.FunctionNode:
 			lb, rb := functionBodyBraces(tokens, *v)
 			if lb < 0 {
 				continue
 			}
 			if pOpen, pClose, ok := paramListParenRange(tokens, *v); ok && tokIdx > pOpen && tokIdx < pClose {
-				return v
+				return n
 			}
 			if tokIdx <= lb || tokIdx >= rb {
 				continue
 			}
-			return deepestScopeInFunction(*v, tokens, tokIdx, lb, rb, tc)
+			return deepestScopeInFunction(n, *v, tokens, tokIdx, lb, rb, tc)
 		case ast.TypeGuardNode:
-			if n := typeGuardScopeForPosition(v, tokens, tokIdx, tc); n != nil {
+			if n := typeGuardScopeForPosition(n, v, tokens, tokIdx, tc); n != nil {
 				return n
 			}
 		case *ast.TypeGuardNode:
-			if n := typeGuardScopeForPosition(*v, tokens, tokIdx, tc); n != nil {
+			if n := typeGuardScopeForPosition(n, *v, tokens, tokIdx, tc); n != nil {
 				return n
 			}
 		}
@@ -695,16 +699,16 @@ func typeGuardBodyBraces(tokens []ast.Token, guardName string) (l, r int) {
 	return -1, -1
 }
 
-func typeGuardScopeForPosition(g ast.TypeGuardNode, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
+func typeGuardScopeForPosition(scopeNode ast.Node, g ast.TypeGuardNode, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
 	name := string(g.Ident)
 	lb, rb := typeGuardBodyBraces(tokens, name)
 	if lb < 0 || tokIdx <= lb || tokIdx >= rb {
 		return nil
 	}
-	if err := tc.RestoreScope(g); err != nil {
+	if err := tc.RestoreScope(scopeNode); err != nil {
 		return nil
 	}
-	return g
+	return scopeNode
 }
 
 func lhsExpressionBeforeDot(lineToCursor string) string {

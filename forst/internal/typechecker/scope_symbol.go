@@ -105,3 +105,9 @@ func (tc *TypeChecker) storeSymbol(ident ast.Identifier, types []ast.TypeNode, k
 func (tc *TypeChecker) CurrentScope() *Scope {
 	return tc.scopeStack.currentScope()
 }
+
+// HasScopeForNode reports whether a scope was registered for node during typecheck.
+func (tc *TypeChecker) HasScopeForNode(node ast.Node) bool {
+	_, ok := tc.scopeStack.findScope(node)
+	return ok
+}

@@ -53,6 +53,8 @@ type Transformer struct {
 
 	// OmitPackageTypeDefs skips emitting package types (when z_forst_gen.go already defines them).
 	OmitPackageTypeDefs bool
+	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
+	entryNodes []ast.Node
 }
 
 // New creates a new Transformer
@@ -83,6 +85,7 @@ func (t *Transformer) SetModuleResult(m *modulecheck.ModuleResult) {
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
+	t.entryNodes = nodes
 	// First, collect and register shape types from type definitions
 	if err := t.defineShapeTypes(); err != nil {
 		return nil, err
@@ -117,7 +120,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 					"guard":    def.GetIdent(),
 					"function": "TransformForstFileToGo",
 				}).Debug("Processing type guard definition (value)")
-				decl, err := t.transformTypeGuard(def)
+				scopeNode := t.resolveTypeGuardScopeNode(nodes, def)
+				decl, err := t.transformTypeGuard(scopeNode, def)
 				if err != nil {
 					return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 				}
@@ -129,7 +133,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 					"guard":    def.GetIdent(),
 					"function": "TransformForstFileToGo",
 				}).Debug("Processing type guard definition (pointer)")
-				decl, err := t.transformTypeGuard(*def)
+				scopeNode := t.resolveTypeGuardScopeNode(nodes, *def)
+				decl, err := t.transformTypeGuard(scopeNode, *def)
 				if err != nil {
 					return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
 				}
@@ -173,7 +178,8 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			decl := t.transformImportGroup(n)
 			t.Output.AddImportGroup(decl)
 		case ast.FunctionNode:
-			decl, err := t.transformFunction(n)
+			scopeNode := t.resolveFunctionScopeNode(nodes, n)
+			decl, err := t.transformFunction(scopeNode, n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
 			}
