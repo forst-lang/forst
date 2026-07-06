@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"forst/internal/compiler"
+	"forst/internal/ftconfig"
 	"io"
 	"os"
 	"os/exec"
@@ -581,24 +582,18 @@ func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
 // TestExampleTictactoeMergedPackage compiles examples/in/tictactoe with -root (same-package merge)
 // and checks generated Go against examples/out/tictactoe/server.go.
 // Regenerate the golden file: UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1
+// (also: task examples:update-goldens)
 func TestExampleTictactoeMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
 	entry := filepath.Join(root, "server.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "tictactoe", "server.go")
 
-	c := compiler.New(compiler.Args{
-		Command:     "run",
-		FilePath:    entry,
-		PackageRoot: root,
-		LogLevel:    "error",
-	}, nil)
-	code, err := c.CompileFile()
-	if err != nil {
-		t.Fatalf("CompileFile: %v", err)
-	}
-	actual := *code
+	actual := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{
+		packageRoot:        root,
+		exportStructFields: ftconfig.ExportStructFieldsFromDir(root),
+	})
 
-	if os.Getenv("UPDATE_TICTACTOE_GOLDEN") == "1" {
+	if os.Getenv("UPDATE_TICTACTOE_GOLDEN") == "1" || os.Getenv("UPDATE_EXAMPLES_GOLDENS") == "1" {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -627,19 +622,9 @@ func TestExampleProvidersMergedPackage(t *testing.T) {
 	entry := filepath.Join(root, "providers.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
-	c := compiler.New(compiler.Args{
-		Command:     "run",
-		FilePath:    entry,
-		PackageRoot: root,
-		LogLevel:    "error",
-	}, nil)
-	code, err := c.CompileFile()
-	if err != nil {
-		t.Fatalf("CompileFile: %v", err)
-	}
-	actual := *code
+	actual := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{packageRoot: root})
 
-	if os.Getenv("UPDATE_PROVIDERS_GOLDEN") == "1" {
+	if os.Getenv("UPDATE_PROVIDERS_GOLDEN") == "1" || os.Getenv("UPDATE_EXAMPLES_GOLDENS") == "1" {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -688,7 +673,7 @@ func TestExampleProvidersCrossPkgGolden(t *testing.T) {
 			t.Fatalf("%s: CompileFile: %v", tc.entry, err)
 		}
 		actual := *code
-		if os.Getenv("UPDATE_PROVIDERS_CROSS_PKG_GOLDEN") == "1" {
+		if os.Getenv("UPDATE_PROVIDERS_CROSS_PKG_GOLDEN") == "1" || os.Getenv("UPDATE_EXAMPLES_GOLDENS") == "1" {
 			if err := os.MkdirAll(filepath.Dir(tc.golden), 0o755); err != nil {
 				t.Fatal(err)
 			}

@@ -13,8 +13,8 @@ var examplesPipelineSkip = map[string]string{}
 // TestWriteUnionErrorNarrowingGolden regenerates examples/out/union_error_narrowing.go.
 // Run: UPDATE_UNION_ERROR_NARROWING_GOLDEN=1 go test ./internal/transformer/go -run TestWriteUnionErrorNarrowingGolden -count=1
 func TestWriteUnionErrorNarrowingGolden(t *testing.T) {
-	if os.Getenv("UPDATE_UNION_ERROR_NARROWING_GOLDEN") != "1" {
-		t.Skip("set UPDATE_UNION_ERROR_NARROWING_GOLDEN=1 to regenerate golden")
+	if os.Getenv("UPDATE_UNION_ERROR_NARROWING_GOLDEN") != "1" && os.Getenv("UPDATE_EXAMPLES_GOLDENS") != "1" {
+		t.Skip("set UPDATE_UNION_ERROR_NARROWING_GOLDEN=1 or UPDATE_EXAMPLES_GOLDENS=1 to regenerate golden")
 	}
 	examplesRoot := filepath.Join("..", "..", "..", "..", "examples", "in")
 	src, err := os.ReadFile(filepath.Join(examplesRoot, "union_error_narrowing.ft"))

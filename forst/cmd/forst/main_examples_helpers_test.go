@@ -2,11 +2,22 @@ package main
 
 import (
 	"bytes"
+	"go/format"
+	"go/token"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"forst/internal/ast"
+	"forst/internal/forstpkg"
+	"forst/internal/goload"
+	"forst/internal/parser"
+	"forst/internal/typechecker"
+	transformergo "forst/internal/transformer/go"
 
 	"github.com/sirupsen/logrus"
 )
@@ -42,6 +53,99 @@ func exampleTestLogger() *logrus.Logger {
 	log.SetOutput(io.Discard)
 	log.SetLevel(logrus.ErrorLevel)
 	return log
+}
+
+type exampleGoldenCompileOpts struct {
+	exportStructFields bool
+	packageRoot        string // non-empty merges same-package .ft under root (excludes *_test.ft)
+}
+
+// compileExampleForGolden emits Go for a single example using an isolated pipeline.
+// This avoids module-wide Providers merging that would emit every package main type
+// when compiling from the forst workspace (examples/in/*.ft).
+func compileExampleForGolden(t *testing.T, absEntry string, opts exampleGoldenCompileOpts) string {
+	t.Helper()
+	log := exampleTestLogger()
+
+	var nodes []ast.Node
+	var err error
+	if opts.packageRoot != "" {
+		paths, err := collectSamePackageExampleFtPaths(log, opts.packageRoot, absEntry)
+		if err != nil {
+			t.Fatalf("collectSamePackageExampleFtPaths(%s): %v", absEntry, err)
+		}
+		nodes, _, err = forstpkg.ParseAndMergePackage(log, paths)
+	} else {
+		data, err := os.ReadFile(absEntry)
+		if err != nil {
+			t.Fatalf("read %s: %v", absEntry, err)
+		}
+		p := parser.NewTestParser(string(data), log)
+		nodes, err = p.ParseFile()
+	}
+	if err != nil {
+		t.Fatalf("parse %s: %v", absEntry, err)
+	}
+
+	tc := typechecker.New(log, false)
+	if modRoot := goload.FindModuleRoot(filepath.Dir(absEntry)); modRoot != "" {
+		tc.GoWorkspaceDir = modRoot
+	}
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck %s: %v", absEntry, err)
+	}
+
+	tr := transformergo.New(tc, log, opts.exportStructFields)
+	goFile, err := tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatalf("transform %s: %v", absEntry, err)
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
+		t.Fatalf("format %s: %v", absEntry, err)
+	}
+	return buf.String()
+}
+
+func collectSamePackageExampleFtPaths(log *logrus.Logger, rootDir, entryPath string) ([]string, error) {
+	rootDir = filepath.Clean(rootDir)
+	entryPath = filepath.Clean(entryPath)
+	entryNodes, err := forstpkg.ParseForstFile(log, entryPath)
+	if err != nil {
+		return nil, err
+	}
+	pkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(entryNodes))
+
+	var out []string
+	err = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		lower := strings.ToLower(path)
+		if !strings.HasSuffix(lower, ".ft") || strings.HasSuffix(lower, "_test.ft") {
+			return nil
+		}
+		nodes, err := forstpkg.ParseForstFile(log, path)
+		if err != nil {
+			return nil
+		}
+		if forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)) == pkg {
+			out = append(out, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, fs.ErrNotExist
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // verifyTictactoeMergedGolden checks merged-package Go output without depending on hash-based

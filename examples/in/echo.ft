@@ -1,12 +1,7 @@
 package main
 
-type EchoRequest = {
-    message: String
-}
+type EchoRequest = {message: String}
 
 func Echo(input EchoRequest) {
-    return {
-        echo: input.message,
-		timestamp: 1234567890,
-	}
+    return {echo: input.message, timestamp: 1234567890}
 }

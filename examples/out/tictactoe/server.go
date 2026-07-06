@@ -2,27 +2,34 @@ package main
 
 import "errors"
 import "fmt"
-import os "os"
 // GameState: TypeDefShapeExpr({cells: Array(String), nextPlayer: String, status: String})
 type GameState struct {
-	cells      []string `json:"cells"`
-	nextPlayer string   `json:"nextPlayer"`
-	status     string   `json:"status"`
+	Cells      []string `json:"cells"`
+	NextPlayer string   `json:"nextPlayer"`
+	Status     string   `json:"status"`
 }
 // MoveRequest: TypeDefShapeExpr({state: GameState, row: Int, col: Int})
 type MoveRequest struct {
-	col   int       `json:"col"`
-	row   int       `json:"row"`
-	state GameState `json:"state"`
+	State GameState `json:"state"`
+	Row   int       `json:"row"`
+	Col   int       `json:"col"`
 }
-// MoveResponse: TypeDefShapeExpr({message: String, state: GameState, ok: Bool})
+// MoveResponse: TypeDefShapeExpr({state: GameState, message: String})
 type MoveResponse struct {
-	message string    `json:"message"`
-	ok      bool      `json:"ok"`
-	state   GameState `json:"state"`
+	State   GameState `json:"state"`
+	Message string    `json:"message"`
+}
+// T_457hjtXXHcE: TypeDefShapeExpr({})
+type T_457hjtXXHcE struct {
+}
+// T_9JeN9CCBNk: TypeDefShapeExpr({})
+type T_9JeN9CCBNk struct {
 }
 // T_CQ83zP8NNan: TypeDefShapeExpr({})
 type T_CQ83zP8NNan struct {
+}
+// T_DskdZ5MpPeD: TypeDefShapeExpr({})
+type T_DskdZ5MpPeD struct {
 }
 // T_JTaataA3nDc: TypeDefShapeExpr({})
 type T_JTaataA3nDc struct {
@@ -30,37 +37,59 @@ type T_JTaataA3nDc struct {
 // T_PNXTj8VxMub: TypeDefShapeExpr({})
 type T_PNXTj8VxMub struct {
 }
-// T_iw8no2aCk8H: TypeDefShapeExpr({})
-type T_iw8no2aCk8H struct {
-}
 
 func ApplyMove(req MoveRequest) (MoveResponse, error) {
-	row := req.row
+	if !G_cADKLRyByvZ(req.State) {
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, errors.New("assertion failed: GameState.ValidBoard()")
+	}
+	playing := req.State.Status == "playing"
+	if !playing {
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("game already finished")
+	}
+	row := req.Row
 	if row <= -1 {
-		return MoveResponse{state: GameState{nextPlayer: "", status: "", cells: nil}, ok: false, message: ""}, errors.New("assertion failed: Int.GreaterThan(-1)")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("row must be >= 0")
 	}
 	if row >= 3 {
-		return MoveResponse{ok: false, message: "", state: GameState{cells: nil, nextPlayer: "", status: ""}}, errors.New("assertion failed: Int.LessThan(3)")
+		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("row must be <= 2")
 	}
-	col := req.col
+	col := req.Col
 	if col <= -1 {
-		return MoveResponse{ok: false, message: "", state: GameState{cells: nil, nextPlayer: "", status: ""}}, errors.New("assertion failed: Int.GreaterThan(-1)")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
-		return MoveResponse{state: GameState{status: "", cells: nil, nextPlayer: ""}, ok: false, message: ""}, errors.New("assertion failed: Int.LessThan(3)")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
 	}
 	idx := cellIndex(row, col)
-	cellEmpty := req.state.cells[idx] == ""
+	cellEmpty := req.State.Cells[idx] == ""
 	if !cellEmpty {
-		return MoveResponse{state: GameState{cells: nil, nextPlayer: "", status: ""}, ok: false, message: ""}, errors.New("assertion failed: Bool.True()")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("cell already taken")
 	}
-	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
-	np := opponent(req.state.nextPlayer)
-	return MoveResponse{state: GameState{cells: next, nextPlayer: np, status: req.state.status}, ok: true, message: "ok"}, nil
+	next := setCell(cloneCells(req.State.Cells), idx, req.State.NextPlayer)
+	np := opponent(req.State.NextPlayer)
+	w := winnerOrEmpty(next)
+	status := req.State.Status
+	if w != "" {
+		status = terminalStatusForWinner(w)
+	} else if boardFull(next) {
+		status = "draw"
+	} else {
+		status = "playing"
+	}
+	return MoveResponse{Message: "ok", State: GameState{Cells: next, NextPlayer: np, Status: status}}, nil
+}
+func G_cADKLRyByvZ(g GameState) bool {
+	if len(g.Cells) < 9 {
+		return false
+	}
+	if len(g.Cells) > 9 {
+		return false
+	}
+	return true
 }
 func NewGame() GameState {
 	board := emptyBoard()
-	return GameState{cells: board, nextPlayer: "X", status: "playing"}
+	return GameState{Cells: board, NextPlayer: "X", Status: "playing"}
 }
 func PlayMove(req MoveRequest) (MoveResponse, error) {
 	return ApplyMove(req)
@@ -103,18 +132,16 @@ func lineWinner(cells []string, a int, b int, c int) string {
 func main() {
 	fmt.Println("=== tic-tac-toe merged-package example ===")
 	g := NewGame()
-	fmt.Println("initial | next:", g.nextPlayer, "| status:", g.status)
-	a0 := getCell(g.cells, 0)
-	a1 := getCell(g.cells, 1)
-	a2 := getCell(g.cells, 2)
+	fmt.Println("initial | next:", g.NextPlayer, "| status:", g.Status)
+	a0 := getCell(g.Cells, 0)
+	a1 := getCell(g.Cells, 1)
+	a2 := getCell(g.Cells, 2)
 	fmt.Println("top row |", a0, a1, a2)
-	move, errMove := PlayMove(MoveRequest{state: g, row: 1, col: 2})
-	if errMove != nil {
-		fmt.Println(errMove.Error())
-		os.Exit(1)
+	move, moveErr := PlayMove(MoveRequest{State: g, Row: 1, Col: 2})
+	if moveErr == nil {
+		fmt.Println("after X @ (1,2) | msg:", move.Message)
+		fmt.Println("then    | next:", move.State.NextPlayer, "| status:", move.State.Status)
 	}
-	fmt.Println("after X @ (1,2) | ok:", move.ok, "| msg:", move.message)
-	fmt.Println("then    | next:", move.state.nextPlayer, "| status:", move.state.status)
 }
 func opponent(p string) string {
 	if p == "X" {
@@ -127,6 +154,12 @@ func setCell(cells []string, idx int, val string) []string {
 	copy(out, cells)
 	out[idx] = val
 	return out
+}
+func terminalStatusForWinner(w string) string {
+	if w == "X" {
+		return "x_won"
+	}
+	return "o_won"
 }
 func winnerOrEmpty(cells []string) string {
 	lineA := []int{0, 3, 6, 0, 1, 2, 0, 2}

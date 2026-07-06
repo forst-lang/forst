@@ -1,14 +1,12 @@
 package main
-
 // EchoRequest: TypeDefShapeExpr({message: String})
 type EchoRequest struct {
-	message string `json:"message"`
+	message string
 }
-
 // T_LbdM2TnbF11: TypeDefShapeExpr({echo: Value(Variable(input.message)), timestamp: Value(1234567890)})
 type T_LbdM2TnbF11 struct {
-	echo      string `json:"echo"`
-	timestamp int    `json:"timestamp"`
+	echo      string
+	timestamp int
 }
 
 func Echo(input EchoRequest) T_LbdM2TnbF11 {

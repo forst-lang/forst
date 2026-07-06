@@ -50,7 +50,7 @@ The executor rewrites merged **`package main`** user code to a library package (
 
 ## Golden Go output
 
-`examples/out/tictactoe/server.go` is the merged-package Go emit for `server.ft` entry. Regenerate:
+`examples/out/tictactoe/server.go` is the merged-package Go emit for `server.ft` entry (uses `exportStructFields` from `ftconfig.json`). Regenerate all example goldens with **`task examples:update-goldens`**, or only tictactoe:
 
 ```bash
 cd forst && UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1

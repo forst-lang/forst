@@ -397,7 +397,7 @@ func TestCompileFile_map_catalog_golden(t *testing.T) {
 	}
 	actual := *code
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "map_catalog.go")
-	if os.Getenv("UPDATE_MAP_CATALOG_GOLDEN") == "1" {
+	if os.Getenv("UPDATE_MAP_CATALOG_GOLDEN") == "1" || os.Getenv("UPDATE_EXAMPLES_GOLDENS") == "1" {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatal(err)
 		}

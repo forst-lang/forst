@@ -313,6 +313,15 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/echo.ft
 
+  examples:update-goldens:
+    desc: Regenerate all examples/out Go golden files (after compiler output changes)
+    dir: forst
+    cmds:
+      - UPDATE_EXAMPLES_GOLDENS=1 go test ./cmd/forst -run TestUpdateExamplesGoldens -count=1
+      - UPDATE_EXAMPLES_GOLDENS=1 go test ./internal/transformer/go -run TestWriteUnionErrorNarrowingGolden -count=1
+      - go test ./cmd/forst -run 'TestExamples$|TestExampleTictactoeMergedPackage|TestExampleProvidersMergedPackage|TestExampleProvidersCrossPkgGolden' -count=1
+      - go test ./internal/compiler -run TestCompileFile_map_catalog_golden -count=1
+
   example:loop:
     desc: Compile for-loop / range example
     dir: forst
