@@ -73,13 +73,15 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case *ast.FunctionNode:
 		return tc.collectExplicitTypes(*n)
 	case ast.TypeGuardNode:
-		tc.pushScope(n)
+		guard := new(ast.TypeGuardNode)
+		*guard = n
+		tc.pushScope(guard)
 
 		// Register type guard symbol in global scope
-		tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+		tc.globalScope().RegisterSymbol(guard.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		// Register parameters in the current scope
-		for _, param := range n.Parameters() {
+		for _, param := range guard.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
 				tc.log.WithFields(logrus.Fields{
@@ -97,20 +99,21 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}
 
 		// Recursively collect explicit types for each node in the body
-		for _, node := range n.Body {
+		for _, node := range guard.Body {
 			if err := tc.collectExplicitTypes(node); err != nil {
 				return err
 			}
 		}
 
-		// Register the type guard in the type checker (stores pointer in Defs)
-		tc.registerTypeGuard(&n)
+		// Register the type guard in the type checker (heap-stable pointer in Defs)
+		tc.registerTypeGuard(guard)
 
 		tc.popScope()
 	case *ast.TypeGuardNode:
-		if err := tc.collectExplicitTypes(*n); err != nil {
-			return err
+		if n == nil {
+			return nil
 		}
+		return tc.collectExplicitTypes(*n)
 	case ast.EnsureNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

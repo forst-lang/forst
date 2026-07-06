@@ -49,9 +49,6 @@ func TestHashNode_memoizesSameNodePointer(t *testing.T) {
 	if first != second {
 		t.Fatalf("hash mismatch: %x vs %x", first, second)
 	}
-	if len(h.nodeHashCache) < 1 {
-		t.Fatalf("expected cache entries, got %d", len(h.nodeHashCache))
-	}
 }
 
 func TestHashNode_structurallyIdenticalDistinctNodes(t *testing.T) {

@@ -381,7 +381,8 @@ func TestHashNode_additional_structural_variants(t *testing.T) {
 func TestStructuralHasher_writeHashAndNode(t *testing.T) {
 	h := New()
 	var buf bytes.Buffer
-	if err := h.writeHashAndNode(&buf, 9, ast.IntLiteralNode{Value: 7}); err != nil {
+	local := make(map[NodeIdentity]NodeHash)
+	if err := h.writeHashAndNode(&buf, 9, ast.IntLiteralNode{Value: 7}, local); err != nil {
 		t.Fatal(err)
 	}
 	if buf.Len() == 0 {
@@ -623,7 +624,8 @@ func TestStructuralHasher_writeHashAndNode_propagates_HashNode_error(t *testing.
 		TypeArg:   ast.TypeNode{Ident: ast.TypeString},
 		FieldName: "f",
 	}
-	err := h.writeHashAndNode(&buf, 9, sg)
+	local := make(map[NodeIdentity]NodeHash)
+	err := h.writeHashAndNode(&buf, 9, sg, local)
 	if err == nil || !strings.Contains(err.Error(), "unsupported node type") {
 		t.Fatalf("expected unsupported propagation, got %v", err)
 	}

@@ -8,7 +8,6 @@ import (
 	"io"
 	"reflect"
 	"sort"
-	"sync"
 )
 
 // NodeHash is a unique identifier for an AST node
@@ -16,16 +15,13 @@ type NodeHash uint64
 
 // StructuralHasher generates and tracks structural hashes
 type StructuralHasher struct {
-	hashes        map[NodeHash]ast.TypeNode
-	nodeHashCache map[NodeIdentity]NodeHash
-	cacheMu       sync.RWMutex
+	hashes map[NodeHash]ast.TypeNode
 }
 
 // New creates a new StructuralHasher
 func New() *StructuralHasher {
 	return &StructuralHasher{
-		hashes:        make(map[NodeHash]ast.TypeNode),
-		nodeHashCache: make(map[NodeIdentity]NodeHash),
+		hashes: make(map[NodeHash]ast.TypeNode),
 	}
 }
 
@@ -64,11 +60,11 @@ var NodeKind = map[string]uint8{
 	"MethodCall":       31,
 }
 
-func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
+func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node, local map[NodeIdentity]NodeHash) error {
 	if node == nil {
 		return writeHash(w, NilHash)
 	}
-	hash, err := h.HashNode(node)
+	hash, err := h.hashNodeRecursive(node, local)
 	if err != nil {
 		return err
 	}
@@ -76,10 +72,10 @@ func (h *StructuralHasher) hashOptionalNode(w io.Writer, node ast.Node) error {
 }
 
 // hashNodes generates a structural hash for multiple AST nodes
-func (h *StructuralHasher) hashNodes(nodes []ast.Node) (NodeHash, error) {
+func (h *StructuralHasher) hashNodes(nodes []ast.Node, local map[NodeIdentity]NodeHash) (NodeHash, error) {
 	hasher := fnv.New64a()
 	for _, node := range nodes {
-		hash, err := h.HashNode(node)
+		hash, err := h.hashNodeRecursive(node, local)
 		if err != nil {
 			return 0, err
 		}
@@ -109,11 +105,11 @@ func (h *StructuralHasher) writeHashes(w io.Writer, values ...any) error {
 }
 
 // writeHashAndNode is a helper that writes a hash and a node's hash, handling errors
-func (h *StructuralHasher) writeHashAndNode(w io.Writer, kind uint8, node ast.Node) error {
+func (h *StructuralHasher) writeHashAndNode(w io.Writer, kind uint8, node ast.Node, local map[NodeIdentity]NodeHash) error {
 	if err := writeHash(w, kind); err != nil {
 		return err
 	}
-	hash, err := h.HashNode(node)
+	hash, err := h.hashNodeRecursive(node, local)
 	if err != nil {
 		return err
 	}
@@ -125,30 +121,34 @@ func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
 	if node == nil || isNilPointer(node) {
 		return NodeHash(NilHash), nil
 	}
+	local := make(map[NodeIdentity]NodeHash)
+	return h.hashNodeRecursive(node, local)
+}
+
+// hashNodeRecursive hashes node, memoizing by identity only for the current top-level walk.
+func (h *StructuralHasher) hashNodeRecursive(node ast.Node, local map[NodeIdentity]NodeHash) (NodeHash, error) {
+	if node == nil || isNilPointer(node) {
+		return NodeHash(NilHash), nil
+	}
 	if key, ok := NodeIdentityKey(node); ok {
-		h.cacheMu.RLock()
-		cached, hit := h.nodeHashCache[key]
-		h.cacheMu.RUnlock()
-		if hit {
+		if cached, hit := local[key]; hit {
 			return cached, nil
 		}
 	}
-	hash, err := h.hashNodeUncached(node)
+	hash, err := h.hashNodeUncached(node, local)
 	if err != nil {
 		return 0, err
 	}
 	if key, ok := NodeIdentityKey(node); ok {
-		h.cacheMu.Lock()
-		h.nodeHashCache[key] = hash
-		h.cacheMu.Unlock()
+		local[key] = hash
 	}
 	return hash, nil
 }
 
-// hashNodeUncached generates a structural hash without consulting the identity cache.
+// hashNodeUncached generates a structural hash without consulting the walk-local memo.
 //
 //nolint:errcheck // Many branches hash into an in-memory FNV writer; unchecked writeHashes calls mirror checked ones nearby.
-func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
+func (h *StructuralHasher) hashNodeUncached(node ast.Node, local map[NodeIdentity]NodeHash) (NodeHash, error) {
 	hasher := fnv.New64a()
 
 	// Handle nil and typed nils
@@ -161,7 +161,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["TypeDefAssertion"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Assertion)
+		hash, err := h.hashNodeRecursive(n.Assertion, local)
 		if err != nil {
 			return 0, err
 		}
@@ -170,7 +170,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		}
 
 	case *ast.TypeDefAssertionExpr:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 
 	case ast.TypeDefBinaryExpr:
 		if err := h.writeHashes(hasher,
@@ -179,11 +179,11 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		); err != nil {
 			return 0, err
 		}
-		leftHash, err := h.HashNode(n.Left.(ast.Node))
+		leftHash, err := h.hashNodeRecursive(n.Left.(ast.Node), local)
 		if err != nil {
 			return 0, err
 		}
-		rightHash, err := h.HashNode(n.Right.(ast.Node))
+		rightHash, err := h.hashNodeRecursive(n.Right.(ast.Node), local)
 		if err != nil {
 			return 0, err
 		}
@@ -198,11 +198,11 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		); err != nil {
 			return 0, err
 		}
-		leftHash, err := h.HashNode(n.Left)
+		leftHash, err := h.hashNodeRecursive(n.Left, local)
 		if err != nil {
 			return 0, err
 		}
-		rightHash, err := h.HashNode(n.Right)
+		rightHash, err := h.hashNodeRecursive(n.Right, local)
 		if err != nil {
 			return 0, err
 		}
@@ -217,7 +217,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		); err != nil {
 			return 0, err
 		}
-		operandHash, err := h.HashNode(n.Operand)
+		operandHash, err := h.hashNodeRecursive(n.Operand, local)
 		if err != nil {
 			return 0, err
 		}
@@ -269,7 +269,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["Function"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}
@@ -288,7 +288,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := h.hashNodes(nodes, local)
 		if err != nil {
 			return 0, err
 		}
@@ -300,7 +300,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["MethodCall"], []byte(n.Method.ID)); err != nil {
 			return 0, err
 		}
-		recvHash, err := h.HashNode(n.Receiver)
+		recvHash, err := h.hashNodeRecursive(n.Receiver, local)
 		if err != nil {
 			return 0, err
 		}
@@ -311,7 +311,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		for i, arg := range n.Arguments {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := h.hashNodes(nodes, local)
 		if err != nil {
 			return 0, err
 		}
@@ -323,11 +323,11 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["IndexExpression"]); err != nil {
 			return 0, err
 		}
-		th, err := h.HashNode(n.Target)
+		th, err := h.hashNodeRecursive(n.Target, local)
 		if err != nil {
 			return 0, err
 		}
-		ih, err := h.HashNode(n.Index)
+		ih, err := h.hashNodeRecursive(n.Index, local)
 		if err != nil {
 			return 0, err
 		}
@@ -342,14 +342,14 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		// Subject variable must participate in the hash; otherwise distinct ensures
 		// with the same assertion (e.g. `ensure a.name is Min(1)` vs `ensure b.name is Min(1)`)
 		// collide in scopeStack.scopes and restoreScope picks the wrong Ensure scope.
-		vh, err := h.HashNode(n.Variable)
+		vh, err := h.hashNodeRecursive(n.Variable, local)
 		if err != nil {
 			return 0, err
 		}
 		if err := h.writeHashes(hasher, vh); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Assertion)
+		hash, err := h.hashNodeRecursive(n.Assertion, local)
 		if err != nil {
 			return 0, err
 		}
@@ -362,7 +362,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			}
 		}
 		if n.Block != nil {
-			hash, err := h.hashNodes(n.Block.Body)
+			hash, err := h.hashNodes(n.Block.Body, local)
 			if err != nil {
 				return 0, err
 			}
@@ -394,7 +394,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
 				return 0, err
 			}
-			hash, err := h.HashNode(f.field)
+			hash, err := h.hashNodeRecursive(f.field, local)
 			if err != nil {
 				return 0, err
 			}
@@ -408,7 +408,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		if n.Assertion != nil {
-			hash, err := h.HashNode(*n.Assertion)
+			hash, err := h.hashNodeRecursive(*n.Assertion, local)
 			if err != nil {
 				return 0, err
 			}
@@ -417,7 +417,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			}
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := h.hashNodeRecursive(*n.Shape, local)
 			if err != nil {
 				return 0, err
 			}
@@ -443,7 +443,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each constraint in sorted order
 		for _, constraint := range constraints {
-			hash, err := h.HashNode(constraint)
+			hash, err := h.hashNodeRecursive(constraint, local)
 			if err != nil {
 				return 0, err
 			}
@@ -463,7 +463,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		for i, arg := range n.Args {
 			nodes[i] = arg
 		}
-		hash, err := h.hashNodes(nodes)
+		hash, err := h.hashNodes(nodes, local)
 		if err != nil {
 			return 0, err
 		}
@@ -476,7 +476,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		if n.Value != nil {
-			hash, err := h.HashNode(*n.Value)
+			hash, err := h.hashNodeRecursive(*n.Value, local)
 			if err != nil {
 				return 0, err
 			}
@@ -485,7 +485,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			}
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := h.hashNodeRecursive(*n.Shape, local)
 			if err != nil {
 				return 0, err
 			}
@@ -516,7 +516,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		h.writeHashes(hasher, NodeKind["Return"])
 		// Hash all return values
 		for _, value := range n.Values {
-			hash, err := h.HashNode(value)
+			hash, err := h.hashNodeRecursive(value, local)
 			if err != nil {
 				return 0, err
 			}
@@ -534,7 +534,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 	case ast.SimpleParamNode:
 		h.writeHashes(hasher, NodeKind["SimpleParam"])
 		h.writeHashes(hasher, []byte(n.Ident.ID))
-		hash, err := h.HashNode(n.Type)
+		hash, err := h.hashNodeRecursive(n.Type, local)
 		if err != nil {
 			return 0, err
 		}
@@ -548,7 +548,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		for _, field := range fields {
 			h.writeHashes(hasher, []byte(field))
 		}
-		hash, err := h.HashNode(n.Type)
+		hash, err := h.hashNodeRecursive(n.Type, local)
 		if err != nil {
 			return 0, err
 		}
@@ -566,7 +566,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each constraint in sorted order
 		for _, constraint := range constraints {
-			hash, err := h.HashNode(constraint)
+			hash, err := h.hashNodeRecursive(constraint, local)
 			if err != nil {
 				return 0, err
 			}
@@ -595,7 +595,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			if err := h.writeHashes(hasher, []byte(f.name)); err != nil {
 				return 0, err
 			}
-			hash, err := h.HashNode(f.field)
+			hash, err := h.hashNodeRecursive(f.field, local)
 			if err != nil {
 				return 0, err
 			}
@@ -606,14 +606,14 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 	case *ast.ShapeFieldNode:
 		h.writeHashes(hasher, NodeKind["ShapeField"])
 		if n.Assertion != nil {
-			hash, err := h.HashNode(*n.Assertion)
+			hash, err := h.hashNodeRecursive(*n.Assertion, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 		if n.Shape != nil {
-			hash, err := h.HashNode(*n.Shape)
+			hash, err := h.hashNodeRecursive(*n.Shape, local)
 			if err != nil {
 				return 0, err
 			}
@@ -628,7 +628,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			return imports[i].Path < imports[j].Path
 		})
 		for _, importNode := range imports {
-			hash, err := h.HashNode(importNode)
+			hash, err := h.hashNodeRecursive(importNode, local)
 			if err != nil {
 				return 0, err
 			}
@@ -638,14 +638,14 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		h.writeHashes(hasher, NodeKind["Assignment"])
 		h.writeHashes(hasher, string(n.CompoundOp))
 		for _, lValue := range n.LValues {
-			hash, err := h.HashNode(lValue)
+			hash, err := h.hashNodeRecursive(lValue, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 		for _, rValue := range n.RValues {
-			hash, err := h.HashNode(rValue)
+			hash, err := h.hashNodeRecursive(rValue, local)
 			if err != nil {
 				return 0, err
 			}
@@ -654,7 +654,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 	case *ast.EnsureBlockNode:
 		h.writeHashes(hasher, NodeKind["EnsureBlock"])
 		for _, node := range n.Body {
-			hash, err := h.HashNode(node)
+			hash, err := h.hashNodeRecursive(node, local)
 			if err != nil {
 				return 0, err
 			}
@@ -683,65 +683,65 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 			return iName < jName
 		})
 		for _, param := range params {
-			hash, err := h.HashNode(param)
+			hash, err := h.hashNodeRecursive(param, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 	case *ast.TypeGuardNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case ast.IfNode:
 		h.writeHashes(hasher, NodeKind["If"])
 		if n.Init != nil {
-			hash, err := h.HashNode(n.Init)
+			hash, err := h.hashNodeRecursive(n.Init, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
-		hash, err := h.HashNode(n.Condition)
+		hash, err := h.hashNodeRecursive(n.Condition, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
-		hash, err = h.hashNodes(n.Body)
+		hash, err = h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 		for _, elseIf := range n.ElseIfs {
-			hash, err := h.HashNode(elseIf.Condition)
+			hash, err := h.hashNodeRecursive(elseIf.Condition, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
-			hash, err = h.hashNodes(elseIf.Body)
+			hash, err = h.hashNodes(elseIf.Body, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 		if n.Else != nil {
-			hash, err = h.hashNodes(n.Else.Body)
+			hash, err = h.hashNodes(n.Else.Body, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 	case *ast.IfNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case ast.ElseIfNode:
 		h.writeHashes(hasher, NodeKind["ElseIf"])
-		if err := h.hashOptionalNode(hasher, n.Condition); err != nil {
+		if err := h.hashOptionalNode(hasher, n.Condition, local); err != nil {
 			return 0, err
 		}
-		hash, err := h.hashNodes(n.Body)
+		hash, err := h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}
@@ -750,10 +750,10 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if n == nil {
 			return NodeHash(NilHash), nil
 		}
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case ast.ElseBlockNode:
 		h.writeHashes(hasher, NodeKind["ElseBlock"])
-		hash, err := h.hashNodes(n.Body)
+		hash, err := h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}
@@ -762,27 +762,27 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if n == nil {
 			return NodeHash(NilHash), nil
 		}
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.ForNode:
 		fn := *n
 		h.writeHashes(hasher, NodeKind["For"])
-		if err := h.hashOptionalNode(hasher, fn.Init); err != nil {
+		if err := h.hashOptionalNode(hasher, fn.Init, local); err != nil {
 			return 0, err
 		}
 		if fn.Cond != nil {
-			hash, err := h.HashNode(fn.Cond)
+			hash, err := h.hashNodeRecursive(fn.Cond, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
-		if err := h.hashOptionalNode(hasher, fn.Post); err != nil {
+		if err := h.hashOptionalNode(hasher, fn.Post, local); err != nil {
 			return 0, err
 		}
 		if fn.IsRange {
 			h.writeHashes(hasher, byte(1))
 			if fn.RangeX != nil {
-				hash, err := h.HashNode(fn.RangeX)
+				hash, err := h.hashNodeRecursive(fn.RangeX, local)
 				if err != nil {
 					return 0, err
 				}
@@ -802,7 +802,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		} else {
 			h.writeHashes(hasher, byte(0))
 		}
-		hash, err := h.hashNodes(fn.Body)
+		hash, err := h.hashNodes(fn.Body, local)
 		if err != nil {
 			return 0, err
 		}
@@ -819,21 +819,21 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		}
 	case *ast.DeferNode:
 		h.writeHashes(hasher, NodeKind["Defer"])
-		hash, err := h.HashNode(n.Call)
+		hash, err := h.hashNodeRecursive(n.Call, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 	case *ast.GoStmtNode:
 		h.writeHashes(hasher, NodeKind["GoStmt"])
-		hash, err := h.HashNode(n.Call)
+		hash, err := h.hashNodeRecursive(n.Call, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 	case ast.ReferenceNode:
 		h.writeHashes(hasher, NodeKind["Reference"])
-		hash, err := h.HashNode(n.Value)
+		hash, err := h.hashNodeRecursive(n.Value, local)
 		if err != nil {
 			return 0, err
 		}
@@ -841,7 +841,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 	case ast.MapLiteralNode:
 		h.writeHashes(hasher, NodeKind["MapLiteral"])
 		// Hash the type
-		hash, err := h.HashNode(n.Type)
+		hash, err := h.hashNodeRecursive(n.Type, local)
 		if err != nil {
 			return 0, err
 		}
@@ -862,76 +862,76 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		})
 		// Hash each entry in sorted order
 		for _, entry := range entries {
-			hash, err := h.HashNode(entry.key)
+			hash, err := h.hashNodeRecursive(entry.key, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
-			hash, err = h.HashNode(entry.value)
+			hash, err = h.hashNodeRecursive(entry.value, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 	case *ast.MapLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.VariableNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.BinaryExpressionNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.UnaryExpressionNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.IntLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.FloatLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.StringLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.BoolLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.FunctionNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.FunctionCallNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.MethodCallNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.EnsureNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case *ast.ReferenceNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case ast.ArrayLiteralNode:
 		h.writeHashes(hasher, NodeKind["ArrayLiteral"])
-		hash, err := h.HashNode(n.Type)
+		hash, err := h.hashNodeRecursive(n.Type, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 		for _, value := range n.Value {
-			hash, err := h.HashNode(value)
+			hash, err := h.hashNodeRecursive(value, local)
 			if err != nil {
 				return 0, err
 			}
 			h.writeHashes(hasher, hash)
 		}
 	case *ast.ArrayLiteralNode:
-		return h.HashNode(*n)
+		return h.hashNodeRecursive(*n, local)
 	case ast.DereferenceNode:
 		h.writeHashes(hasher, NodeKind["Dereference"])
-		hash, err := h.HashNode(n.Value)
+		hash, err := h.hashNodeRecursive(n.Value, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 	case ast.TypeDefShapeExpr:
 		h.writeHashes(hasher, NodeKind["TypeDefShapeExpr"])
-		hash, err := h.HashNode(n.Shape)
+		hash, err := h.hashNodeRecursive(n.Shape, local)
 		if err != nil {
 			return 0, err
 		}
 		h.writeHashes(hasher, hash)
 	case ast.TypeDefErrorExpr:
 		h.writeHashes(hasher, NodeKind["TypeDefErrorExpr"])
-		hash, err := h.HashNode(n.Payload)
+		hash, err := h.hashNodeRecursive(n.Payload, local)
 		if err != nil {
 			return 0, err
 		}
@@ -940,7 +940,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["OkExpr"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Value)
+		hash, err := h.hashNodeRecursive(n.Value, local)
 		if err != nil {
 			return 0, err
 		}
@@ -951,7 +951,7 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["ErrExpr"]); err != nil {
 			return 0, err
 		}
-		hash, err := h.HashNode(n.Value)
+		hash, err := h.hashNodeRecursive(n.Value, local)
 		if err != nil {
 			return 0, err
 		}
@@ -986,14 +986,14 @@ func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 		if err := h.writeHashes(hasher, NodeKind["With"]); err != nil {
 			return 0, err
 		}
-		wiringHash, err := h.HashNode(n.Wiring)
+		wiringHash, err := h.hashNodeRecursive(n.Wiring, local)
 		if err != nil {
 			return 0, err
 		}
 		if err := h.writeHashes(hasher, wiringHash); err != nil {
 			return 0, err
 		}
-		bodyHash, err := h.hashNodes(n.Body)
+		bodyHash, err := h.hashNodes(n.Body, local)
 		if err != nil {
 			return 0, err
 		}

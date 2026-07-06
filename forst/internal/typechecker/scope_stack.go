@@ -102,10 +102,12 @@ func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
 		ss.log.WithError(err).Error("failed to hash node during findScope")
 		return nil, false
 	}
-	if key, ok := hasher.NodeIdentityKey(node); ok {
-		ss.nodeScopeHash[key] = hash
-	}
 	scope, exists := ss.scopes[hash]
+	if exists {
+		if key, ok := hasher.NodeIdentityKey(node); ok {
+			ss.nodeScopeHash[key] = hash
+		}
+	}
 	return scope, exists
 }
 
