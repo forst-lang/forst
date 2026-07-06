@@ -1,315 +1,39 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"slices"
-	"strings"
 
 	"forst/internal/compiler"
-	"forst/internal/configiface"
-	"forst/internal/httpbody"
-	"forst/internal/safefs"
-
-	"github.com/bmatcuk/doublestar/v4"
+	"forst/internal/ftconfig"
 )
 
-// ForstConfig represents the configuration for the Forst dev server
-// Similar to tsconfig.json format but in Go structs
+// ForstConfig is the ftconfig.json schema with CLI adapter methods.
 type ForstConfig struct {
-	// Compiler settings
-	Compiler CompilerConfig `json:"compiler"`
-
-	// Server settings
-	Server ServerConfig `json:"server"`
-
-	// File discovery settings
-	Files FilesConfig `json:"files"`
-
-	// Output settings
-	Output OutputConfig `json:"output"`
-
-	// Development settings
-	Dev DevConfig `json:"dev"`
+	ftconfig.Config
 }
 
-// CompilerConfig represents compiler-specific settings
-type CompilerConfig struct {
-	// Target language (go, wasm, etc.)
-	Target string `json:"target"`
-
-	// Optimization level (debug, release)
-	Optimization string `json:"optimization"`
-
-	// Report compilation phases
-	ReportPhases bool `json:"reportPhases"`
-
-	// Report memory usage
-	ReportMemoryUsage bool `json:"reportMemoryUsage"`
-
-	// Strict mode
-	Strict bool `json:"strict"`
-
-	// ExportStructFields makes the Go emitter use exported struct field names and json struct tags
-	// so encoding/json can marshal values (aligns with forst generate TypeScript field names).
-	ExportStructFields bool `json:"exportStructFields"`
-
-	// GenerateStreamingClients emits FuncNameStream async-generator helpers in generated TypeScript (requires typable chan T return).
-	GenerateStreamingClients bool `json:"generateStreamingClients"`
-}
-
-// ServerConfig represents HTTP server settings
-type ServerConfig struct {
-	// Port to listen on
-	Port string `json:"port"`
-
-	// Host to bind to
-	Host string `json:"host"`
-
-	// Enable CORS
-	CORS bool `json:"cors"`
-
-	// Read timeout in seconds
-	ReadTimeout int `json:"readTimeout"`
-
-	// Write timeout in seconds
-	WriteTimeout int `json:"writeTimeout"`
-
-	// MaxRequestSize is the maximum HTTP request body size in bytes (enforced on /invoke and LSP POST).
-	MaxRequestSize int64 `json:"maxRequestSize"`
-}
-
-// FilesConfig represents file discovery settings
-type FilesConfig struct {
-	// Include patterns
-	Include []string `json:"include"`
-
-	// Exclude patterns
-	Exclude []string `json:"exclude"`
-
-	// Maximum directory depth
-	MaxDepth int `json:"maxDepth"`
-}
-
-// OutputConfig represents output settings
-type OutputConfig struct {
-	// Output directory
-	Dir string `json:"dir"`
-
-	// Output file name pattern
-	FileName string `json:"fileName"`
-
-	// Generate source maps
-	SourceMaps bool `json:"sourceMaps"`
-
-	// Clean output directory before compilation
-	Clean bool `json:"clean"`
-}
-
-// DevConfig represents development-specific settings
-type DevConfig struct {
-	// Enable hot reloading
-	HotReload bool `json:"hotReload"`
-
-	// Watch for file changes
-	Watch bool `json:"watch"`
-
-	// Auto-restart on file changes
-	AutoRestart bool `json:"autoRestart"`
-
-	// Log level (debug, info, warn, error)
-	LogLevel string `json:"logLevel"`
-
-	// Enable verbose logging
-	Verbose bool `json:"verbose"`
-}
-
-// DefaultConfig returns the default configuration
+// DefaultConfig returns the default configuration.
 func DefaultConfig() *ForstConfig {
-	return &ForstConfig{
-		Compiler: CompilerConfig{
-			Target:             "go",
-			Optimization:       "debug",
-			ReportPhases:       false,
-			ReportMemoryUsage:  false,
-			Strict:             false,
-			ExportStructFields: false,
-		},
-		Server: ServerConfig{
-			Port:           "8080",
-			Host:           "localhost",
-			CORS:           true,
-			ReadTimeout:    30,
-			WriteTimeout:   30,
-			MaxRequestSize: 10 * 1024 * 1024, // 10MB
-		},
-		Files: FilesConfig{
-			Include:  []string{"**/*.ft"},
-			Exclude:  []string{"**/node_modules/**", "**/.git/**"},
-			MaxDepth: 10,
-		},
-		Output: OutputConfig{
-			Dir:        "dist",
-			FileName:   "{{name}}.go",
-			SourceMaps: false,
-			Clean:      true,
-		},
-		Dev: DevConfig{
-			HotReload:   true,
-			Watch:       false,
-			AutoRestart: true,
-			LogLevel:    "info",
-			Verbose:     false,
-		},
-	}
+	return &ForstConfig{Config: *ftconfig.Default()}
 }
 
 // FindConfigFile searches for ftconfig.json starting from the current directory
-// and traversing upwards until the root directory, similar to TypeScript's behavior
+// and traversing upwards until the root directory, similar to TypeScript's behavior.
 func FindConfigFile(startDir string) (string, error) {
-	currentDir := startDir
-
-	for {
-		configPath := filepath.Join(currentDir, "ftconfig.json")
-
-		// Check if config file exists
-		if _, err := os.Stat(configPath); err == nil {
-			return configPath, nil
-		}
-
-		// Move to parent directory
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			// We've reached the root directory
-			break
-		}
-		currentDir = parentDir
-	}
-
-	// No config file found
-	return "", nil
+	return ftconfig.FindConfigFile(startDir)
 }
 
-// LoadConfig loads configuration from a file or uses defaults
+// LoadConfig loads configuration from a file or uses defaults.
 func LoadConfig(configPath string) (*ForstConfig, error) {
-	config := DefaultConfig()
-
-	// If no config path provided, try to find one
-	if configPath == "" {
-		if cwd, err := os.Getwd(); err == nil {
-			if foundPath, err := FindConfigFile(cwd); err == nil && foundPath != "" {
-				configPath = foundPath
-			}
-		}
-	}
-
-	// Load config file if found
-	if configPath != "" {
-		if err := loadConfigFromFile(configPath, config); err != nil {
-			return nil, fmt.Errorf("failed to load config from %s: %v", configPath, err)
-		}
-	}
-
-	normalizeServerMaxRequestSize(config)
-
-	return config, nil
-}
-
-func normalizeServerMaxRequestSize(config *ForstConfig) {
-	if config.Server.MaxRequestSize <= 0 {
-		config.Server.MaxRequestSize = httpbody.DefaultMaxBytes
-	}
-}
-
-// loadConfigFromFile loads configuration from a JSON file
-func loadConfigFromFile(configPath string, config *ForstConfig) error {
-	// Read the config file
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file: %v", err)
-	}
-
-	// Parse JSON
-	if err := json.Unmarshal(data, config); err != nil {
-		return fmt.Errorf("failed to parse config file: %v", err)
-	}
-
-	return nil
-}
-
-// FindForstFiles recursively finds all .ft files in the configured directories under rootDir.
-func (c *ForstConfig) FindForstFiles(rootDir string) ([]string, error) {
-	root, err := safefs.OpenRoot(rootDir)
+	cfg, err := ftconfig.Load(configPath)
 	if err != nil {
 		return nil, err
 	}
-	defer root.Close()
-
-	var files []string
-	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		absPath := root.AbsPath(path)
-		if !strings.HasSuffix(strings.ToLower(absPath), ".ft") {
-			return nil
-		}
-		if !c.matchesIncludePatterns(absPath) {
-			return nil
-		}
-		if c.matchesExcludePatterns(absPath) {
-			return nil
-		}
-		files = append(files, absPath)
-		return nil
-	})
-	return files, err
+	return &ForstConfig{Config: *cfg}, nil
 }
 
-// matchesIncludePatterns checks if a file path matches any include patterns
-func (c *ForstConfig) matchesIncludePatterns(path string) bool {
-	if len(c.Files.Include) == 0 {
-		return true // No include patterns means include everything
-	}
-
-	for _, pattern := range c.Files.Include {
-		if c.matchesPattern(path, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// matchesExcludePatterns checks if a file path matches any exclude patterns
-func (c *ForstConfig) matchesExcludePatterns(path string) bool {
-	for _, pattern := range c.Files.Exclude {
-		if c.matchesPattern(path, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// matchesPattern checks if a file path matches a glob pattern using doublestar
-func (c *ForstConfig) matchesPattern(path, pattern string) bool {
-	// Use doublestar for proper glob pattern matching
-	matched, err := doublestar.Match(pattern, path)
-	if err != nil {
-		// If pattern is invalid, default to not matching
-		return false
-	}
-	return matched
-}
-
-// ToCompilerArgs converts the config to compiler arguments
+// ToCompilerArgs converts the config to compiler arguments.
 func (c *ForstConfig) ToCompilerArgs() compiler.Args {
 	return compiler.Args{
 		LogLevel:           c.Dev.LogLevel,
@@ -319,21 +43,14 @@ func (c *ForstConfig) ToCompilerArgs() compiler.Args {
 	}
 }
 
-// Validate validates the configuration
+// Validate validates the configuration for the dev server.
 func (c *ForstConfig) Validate() error {
-	// Validate server port
 	if c.Server.Port == "" {
 		return fmt.Errorf("server port is required")
 	}
-
-	// Validate log level
 	validLogLevels := []string{"debug", "info", "warn", "error", "trace"}
-	logLevelValid := slices.Contains(validLogLevels, c.Dev.LogLevel)
-	if !logLevelValid {
+	if !slices.Contains(validLogLevels, c.Dev.LogLevel) {
 		return fmt.Errorf("invalid log level: %s", c.Dev.LogLevel)
 	}
-
 	return nil
 }
-
-var _ configiface.ForstConfigIface = (*ForstConfig)(nil)

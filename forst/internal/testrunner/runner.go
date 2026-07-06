@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
@@ -31,10 +32,17 @@ var (
 
 // Options configures a forst test run.
 type Options struct {
-	ModuleRoot string
-	Paths      []string
-	GoTestArgs []string
-	Log        *logrus.Logger
+	ModuleRoot         string
+	Paths              []string
+	GoTestArgs         []string
+	Log                *logrus.Logger
+	ExportStructFields bool
+}
+
+// EmitOptions configures Go code generation for a package emit.
+type EmitOptions struct {
+	ExportStructFields bool // json-tagged exported struct fields (ftconfig / CLI)
+	TestOnly           bool // z_forst_gen.go exists: transform *_test.ft only, omit type defs
 }
 
 // Run discovers Forst tests, emits Go, and invokes go test.
@@ -52,6 +60,11 @@ func Run(opts Options) (ExitCode, error) {
 	}
 	moduleRoot = goload.FindModuleRoot(moduleRoot)
 
+	emit := EmitOptions{ExportStructFields: opts.ExportStructFields}
+	if !emit.ExportStructFields {
+		emit.ExportStructFields = ftconfig.ExportStructFieldsFromDir(moduleRoot)
+	}
+
 	pkgs, err := DiscoverPackages(moduleRoot, opts.Paths)
 	if err != nil {
 		return ExitError, err
@@ -62,20 +75,27 @@ func Run(opts Options) (ExitCode, error) {
 		return ExitFailure, fmt.Errorf("module providers: %w", modErr)
 	}
 
+	var emittedLibDirs map[string]struct{}
 	// Emit Go for dependency Forst packages (library .ft only, not test packages under run).
 	if modResult != nil {
 		testDirs := make(map[string]struct{}, len(pkgs))
 		for _, p := range pkgs {
 			testDirs[p.Dir] = struct{}{}
 		}
-		if err := emitDependencyPackages(moduleRoot, modResult, testDirs, opts.Log); err != nil {
-			return ExitFailure, err
+		var emitErr error
+		emittedLibDirs, emitErr = emitDependencyPackages(moduleRoot, modResult, testDirs, emit, opts.Log)
+		if emitErr != nil {
+			return ExitFailure, emitErr
 		}
 	}
 
 	var failed bool
 	for _, pkg := range pkgs {
-		code, err := runPackageTests(moduleRoot, pkg, modResult, opts.GoTestArgs, opts.Log)
+		pkgEmit := emit
+		// Test-only when this run emitted a library shim, or a prior run left z_forst_gen.go on disk.
+		_, emittedThisRun := emittedLibDirs[pkg.Dir]
+		pkgEmit.TestOnly = emittedThisRun || hasGeneratedLibrary(pkg.Dir)
+		code, err := runPackageTests(moduleRoot, pkg, modResult, pkgEmit, opts.GoTestArgs, opts.Log)
 		if err != nil {
 			return ExitError, err
 		}
@@ -89,7 +109,10 @@ func Run(opts Options) (ExitCode, error) {
 	return ExitSuccess, nil
 }
 
-func emitDependencyPackages(moduleRoot string, modResult *modulecheck.ModuleResult, skipDirs map[string]struct{}, log *logrus.Logger) error {
+func emitDependencyPackages(moduleRoot string, modResult *modulecheck.ModuleResult, skipDirs map[string]struct{}, opts EmitOptions, log *logrus.Logger) (map[string]struct{}, error) {
+	libOpts := opts
+	libOpts.TestOnly = false
+	emitted := make(map[string]struct{})
 	for _, paths := range modResult.ForstPkgToFiles {
 		if len(paths) == 0 {
 			continue
@@ -112,19 +135,25 @@ func emitDependencyPackages(moduleRoot string, modResult *modulecheck.ModuleResu
 			RelPath: relPath(moduleRoot, dir),
 			FtPaths: libPaths,
 		}
-		code, err := emitPackageGo(moduleRoot, pkg, modResult, log)
+		code, err := emitPackageGo(moduleRoot, pkg, modResult, libOpts, log)
 		if err != nil {
-			return fmt.Errorf("%s: %w", pkg.RelPath, err)
+			return nil, fmt.Errorf("%s: %w", pkg.RelPath, err)
 		}
 		genPath := filepath.Join(dir, "z_forst_gen.go")
 		if err := os.WriteFile(genPath, []byte(code), 0o644); err != nil {
-			return fmt.Errorf("%s: write generated: %w", pkg.RelPath, err)
+			return nil, fmt.Errorf("%s: write generated: %w", pkg.RelPath, err)
 		}
+		emitted[dir] = struct{}{}
 	}
-	return nil
+	return emitted, nil
 }
 
-func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, log *logrus.Logger) (string, error) {
+func hasGeneratedLibrary(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "z_forst_gen.go"))
+	return err == nil
+}
+
+func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, log *logrus.Logger) (string, error) {
 	merged, _, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
 	if err != nil {
 		return "", fmt.Errorf("parse: %w", err)
@@ -143,19 +172,34 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 		}
 	}
 
-	tr := transformer_go.New(tc, log, false)
+	transformPaths := pkg.FtPaths
+	if opts.TestOnly {
+		if len(pkg.TestPaths) == 0 {
+			return "", fmt.Errorf("no test paths")
+		}
+		transformPaths = pkg.TestPaths
+	}
+	transformNodes, _, err := forstpkg.ParseAndMergePackage(log, transformPaths)
+	if err != nil {
+		return "", fmt.Errorf("parse transform: %w", err)
+	}
+
+	tr := transformer_go.New(tc, log, opts.ExportStructFields)
+	if opts.TestOnly {
+		tr.OmitPackageTypeDefs = true
+	}
 	if modResult != nil {
 		tr.SetModuleResult(modResult)
 	}
-	goAST, err := transformForstFileToGo(tr, merged)
+	goAST, err := transformForstFileToGo(tr, transformNodes)
 	if err != nil {
 		return "", fmt.Errorf("transform: %w", err)
 	}
 	return generateGoCodeFn(goAST)
 }
 
-func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
-	code, err := emitPackageGo(moduleRoot, pkg, modResult, log)
+func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
+	code, err := emitPackageGo(moduleRoot, pkg, modResult, opts, log)
 	if err != nil {
 		return ExitFailure, fmt.Errorf("%s: %w", pkg.RelPath, err)
 	}

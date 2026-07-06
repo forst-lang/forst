@@ -126,7 +126,7 @@ func TestEmitPackageGo_parseError(t *testing.T) {
 	if err := os.WriteFile(pkg.FtPaths[0], []byte("package bad\nfunc {"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := emitPackageGo(dir, pkg, nil, testLog(t))
+	_, err := emitPackageGo(dir, pkg, nil, EmitOptions{}, testLog(t))
 	if err == nil || !strings.Contains(err.Error(), "parse") {
 		t.Fatalf("err = %v", err)
 	}
@@ -146,7 +146,7 @@ func TestRunPackageTests_emitFailure(t *testing.T) {
 	if err := os.WriteFile(pkg.FtPaths[0], []byte("package bad\n<<<"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	code, err := runPackageTests(dir, pkg, nil, nil, testLog(t))
+	code, err := runPackageTests(dir, pkg, nil, EmitOptions{}, nil, testLog(t))
 	if err == nil || code != ExitFailure {
 		t.Fatalf("code=%d err=%v", code, err)
 	}
@@ -230,7 +230,7 @@ func TestLib(t *testing.T) {}
 		t.Fatal(err)
 	}
 	testDirs := map[string]struct{}{filepath.Join(dir, "auth"): {}}
-	if err := emitDependencyPackages(dir, modResult, testDirs, testLog(t)); err != nil {
+	if _, err := emitDependencyPackages(dir, modResult, testDirs, EmitOptions{}, testLog(t)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(libDir, "z_forst_gen.go")); !os.IsNotExist(err) {
@@ -255,7 +255,7 @@ func TestEmitDependencyPackages_emitError(t *testing.T) {
 			"lib": {filepath.Join(libDir, "lib.ft")},
 		},
 	}
-	err := emitDependencyPackages(dir, modResult, nil, testLog(t))
+	_, err := emitDependencyPackages(dir, modResult, nil, EmitOptions{}, testLog(t))
 	if err == nil || !strings.Contains(err.Error(), "parse") {
 		t.Fatalf("err = %v", err)
 	}
@@ -288,7 +288,7 @@ func Helper(): Int { return 1 }
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(libDir, 0o755) })
-	err := emitDependencyPackages(dir, modResult, nil, testLog(t))
+	_, err := emitDependencyPackages(dir, modResult, nil, EmitOptions{}, testLog(t))
 	if err == nil || !strings.Contains(err.Error(), "write generated") {
 		t.Fatalf("err = %v", err)
 	}
@@ -347,7 +347,7 @@ func TestBroken(t *testing.T) {
 		t.Fatal(err)
 	}
 	pkg := PackageUnderTest{Dir: pkgDir, RelPath: "bad", FtPaths: []string{lib, ft}}
-	_, err := emitPackageGo(dir, pkg, nil, testLog(t))
+	_, err := emitPackageGo(dir, pkg, nil, EmitOptions{}, testLog(t))
 	if err == nil || !strings.Contains(err.Error(), "typecheck") {
 		t.Fatalf("err = %v", err)
 	}
@@ -369,7 +369,7 @@ func TestEmitPackageGo_usesModulePerPackageChecker(t *testing.T) {
 			filepath.Join(pkgDir, "auth_test.ft"),
 		},
 	}
-	code, err := emitPackageGo(dir, pkg, modResult, testLog(t))
+	code, err := emitPackageGo(dir, pkg, modResult, EmitOptions{}, testLog(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +383,7 @@ func TestEmitDependencyPackages_skipsEmptyFileList(t *testing.T) {
 	modResult := &modulecheck.ModuleResult{
 		ForstPkgToFiles: map[string][]string{"empty": {}},
 	}
-	if err := emitDependencyPackages(dir, modResult, nil, testLog(t)); err != nil {
+	if _, err := emitDependencyPackages(dir, modResult, nil, EmitOptions{}, testLog(t)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -399,7 +399,7 @@ func TestWriteGeneratedTestAndRun_successRemovesGeneratedFile(t *testing.T) {
 			filepath.Join(pkgDir, "auth.ft"),
 			filepath.Join(pkgDir, "auth_test.ft"),
 		},
-	}, nil, testLog(t))
+	}, nil, EmitOptions{}, testLog(t))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -50,6 +50,9 @@ type Transformer struct {
 	currentFnProvidersName string
 	// currentFnProvidersSlots is the slot set for the active function (for pass-through lowering).
 	currentFnProvidersSlots []typechecker.ProviderSlot
+
+	// OmitPackageTypeDefs skips emitting package types (when z_forst_gen.go already defines them).
+	OmitPackageTypeDefs bool
 }
 
 // New creates a new Transformer
@@ -91,67 +94,71 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		typeNames = append(typeNames, name)
 	}
 	sort.Slice(typeNames, func(i, j int) bool { return typeNames[i] < typeNames[j] })
-	for _, name := range typeNames {
-		def := t.TypeChecker.Defs[name]
-		switch def := def.(type) {
-		case ast.TypeDefNode:
-			t.log.WithFields(logrus.Fields{
-				"typeDef":  def.GetIdent(),
-				"function": "TransformForstFileToGo",
-			}).Debug("Processing type definition")
-			decl, err := t.transformTypeDef(def)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
-			}
-			t.Output.AddType(decl)
-			t.log.WithFields(logrus.Fields{
-				"typeDef":  def.GetIdent(),
-				"function": "TransformForstFileToGo",
-			}).Debug("Added type definition to output")
-		case ast.TypeGuardNode:
-			t.log.WithFields(logrus.Fields{
-				"guard":    def.GetIdent(),
-				"function": "TransformForstFileToGo",
-			}).Debug("Processing type guard definition (value)")
-			decl, err := t.transformTypeGuard(def)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
-			}
-			if decl != nil {
-				t.Output.AddFunction(decl)
-			}
-		case *ast.TypeGuardNode:
-			t.log.WithFields(logrus.Fields{
-				"guard":    def.GetIdent(),
-				"function": "TransformForstFileToGo",
-			}).Debug("Processing type guard definition (pointer)")
-			decl, err := t.transformTypeGuard(*def)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
-			}
-			if decl != nil {
-				t.Output.AddFunction(decl)
-			}
-		case ast.TypeDefShapeExpr:
-			decl, err := t.transformShapeType(&def.Shape)
-			if err != nil {
-				return nil, fmt.Errorf("failed to transform type def shape: %w", err)
-			}
-			t.Output.AddType(&goast.GenDecl{
-				Tok: goasttoken.TYPE,
-				Specs: []goast.Spec{
-					&goast.TypeSpec{
-						Name: goast.NewIdent(string(*def.Shape.BaseType)), // TODO: fix this
-						Type: *decl,
+	if !t.OmitPackageTypeDefs {
+		for _, name := range typeNames {
+			def := t.TypeChecker.Defs[name]
+			switch def := def.(type) {
+			case ast.TypeDefNode:
+				t.log.WithFields(logrus.Fields{
+					"typeDef":  def.GetIdent(),
+					"function": "TransformForstFileToGo",
+				}).Debug("Processing type definition")
+				decl, err := t.transformTypeDef(def)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
+				}
+				t.Output.AddType(decl)
+				t.log.WithFields(logrus.Fields{
+					"typeDef":  def.GetIdent(),
+					"function": "TransformForstFileToGo",
+				}).Debug("Added type definition to output")
+			case ast.TypeGuardNode:
+				t.log.WithFields(logrus.Fields{
+					"guard":    def.GetIdent(),
+					"function": "TransformForstFileToGo",
+				}).Debug("Processing type guard definition (value)")
+				decl, err := t.transformTypeGuard(def)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
+				}
+				if decl != nil {
+					t.Output.AddFunction(decl)
+				}
+			case *ast.TypeGuardNode:
+				t.log.WithFields(logrus.Fields{
+					"guard":    def.GetIdent(),
+					"function": "TransformForstFileToGo",
+				}).Debug("Processing type guard definition (pointer)")
+				decl, err := t.transformTypeGuard(*def)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform type guard %s: %w", def.GetIdent(), err)
+				}
+				if decl != nil {
+					t.Output.AddFunction(decl)
+				}
+			case ast.TypeDefShapeExpr:
+				decl, err := t.transformShapeType(&def.Shape)
+				if err != nil {
+					return nil, fmt.Errorf("failed to transform type def shape: %w", err)
+				}
+				t.Output.AddType(&goast.GenDecl{
+					Tok: goasttoken.TYPE,
+					Specs: []goast.Spec{
+						&goast.TypeSpec{
+							Name: goast.NewIdent(string(*def.Shape.BaseType)), // TODO: fix this
+							Type: *decl,
+						},
 					},
-				},
-			})
+				})
+			}
 		}
 	}
 
 	// Emit deduped Providers struct types before functions.
-	if err := t.emitAllProvidersStructs(); err != nil {
-		return nil, fmt.Errorf("failed to emit Providers structs: %w", err)
+	if !t.OmitPackageTypeDefs {
+		if err := t.emitAllProvidersStructs(); err != nil {
+			return nil, fmt.Errorf("failed to emit Providers structs: %w", err)
+		}
 	}
 
 	// Then process the rest of the nodes
@@ -191,8 +198,10 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	}).Debug("Generated Go file")
 
 	// Ensure all referenced types are emitted
-	if err := t.ensureAllReferencedTypesEmitted(); err != nil {
-		return nil, fmt.Errorf("failed to ensure all referenced types are emitted: %w", err)
+	if !t.OmitPackageTypeDefs {
+		if err := t.ensureAllReferencedTypesEmitted(); err != nil {
+			return nil, fmt.Errorf("failed to ensure all referenced types are emitted: %w", err)
+		}
 	}
 
 	return t.Output.GenerateFile()

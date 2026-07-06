@@ -56,6 +56,9 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 		if !strings.HasSuffix(strings.ToLower(path), ".ft") {
 			return nil
 		}
+		if strings.HasSuffix(strings.ToLower(path), "_test.ft") {
+			return nil
+		}
 		absPath := root.AbsPath(path)
 		nodes, err := forstpkg.ParseForstFileFromRoot(log, root, path, absPath)
 		if err != nil {

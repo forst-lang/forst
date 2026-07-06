@@ -78,7 +78,7 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(os.Stderr)
 	log.SetLevel(logrus.PanicLevel)
-	code, err := emitPackageGo(dir, pkgs[0], nil, log)
+	code, err := emitPackageGo(dir, pkgs[0], nil, EmitOptions{}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func Helper(): Int { return 1 }
 		t.Fatal(err)
 	}
 	testDirs := map[string]struct{}{filepath.Join(dir, "auth"): {}}
-	if err := emitDependencyPackages(dir, modResult, testDirs, log); err != nil {
+	if _, err := emitDependencyPackages(dir, modResult, testDirs, EmitOptions{}, log); err != nil {
 		t.Fatal(err)
 	}
 	genPath := filepath.Join(libDir, "z_forst_gen.go")
@@ -189,5 +189,135 @@ func TestParseCLIArgs_splitsPathsAndGoTestFlags(t *testing.T) {
 	}
 	if len(goArgs) != 2 || goArgs[0] != "-count=1" || goArgs[1] != "-v" {
 		t.Fatalf("goArgs = %v", goArgs)
+	}
+}
+
+func writeLibClientTestFixture(t *testing.T, dir string) (libpkgDir, clientDir string) {
+	t.Helper()
+	const mod = "generic_lib_test"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent(mod)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	libpkgDir = filepath.Join(dir, "libpkg")
+	clientDir = filepath.Join(dir, "client")
+	for _, d := range []string{libpkgDir, clientDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(libpkgDir, "lib.ft"), []byte(`package libpkg
+
+type Widget = {
+	Id: String,
+}
+
+func Ping() {
+	println("ping")
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libpkgDir, "lib_test.ft"), []byte(`package libpkg
+
+import "testing"
+
+func TestPing(t *testing.T) {
+	Ping()
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(clientDir, "client.ft"), []byte(`package client
+
+import "generic_lib_test/libpkg"
+
+func Run() {
+	libpkg.Ping()
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(clientDir, "client_test.ft"), []byte(`package client
+
+import "testing"
+
+func TestRun(t *testing.T) {
+	Run()
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return libpkgDir, clientDir
+}
+
+func TestEmitPackageGo_testOnlyOmitsPackageTypeDefs(t *testing.T) {
+	dir := t.TempDir()
+	libpkgDir, _ := writeLibClientTestFixture(t, dir)
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+	log.SetLevel(logrus.PanicLevel)
+
+	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgs, err := DiscoverPackages(dir, []string{"libpkg"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := pkgs[0]
+
+	libCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	genPath := filepath.Join(libpkgDir, "z_forst_gen.go")
+	if err := os.WriteFile(genPath, []byte(libCode), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(libCode, "type Widget") {
+		t.Fatalf("library emit should define Widget:\n%s", libCode)
+	}
+
+	testCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{TestOnly: true}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(testCode, "type Widget") {
+		t.Fatalf("test-only emit must not redeclare package types:\n%s", testCode)
+	}
+	if !strings.Contains(testCode, "func TestPing(t *testing.T)") {
+		t.Fatalf("test-only emit missing test function:\n%s", testCode)
+	}
+}
+
+func TestRun_dependencyEmitThenSelfTest_succeeds(t *testing.T) {
+	dir := t.TempDir()
+	libpkgDir, _ := writeLibClientTestFixture(t, dir)
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+	log.SetLevel(logrus.PanicLevel)
+
+	code, err := Run(Options{ModuleRoot: dir, Paths: []string{"client"}, Log: log})
+	if err != nil {
+		t.Fatalf("Run client: %v", err)
+	}
+	if code != ExitSuccess {
+		t.Fatalf("Run client exit = %d, want %d", code, ExitSuccess)
+	}
+	libGen, err := os.ReadFile(filepath.Join(libpkgDir, "z_forst_gen.go"))
+	if err != nil {
+		t.Fatalf("expected libpkg z_forst_gen.go after client test: %v", err)
+	}
+	if !strings.Contains(string(libGen), "type Widget") {
+		t.Fatalf("library shim missing Widget:\n%s", libGen)
+	}
+
+	code, err = Run(Options{ModuleRoot: dir, Paths: []string{"libpkg"}, Log: log})
+	if err != nil {
+		t.Fatalf("Run libpkg: %v", err)
+	}
+	if code != ExitSuccess {
+		t.Fatalf("Run libpkg exit = %d, want %d", code, ExitSuccess)
 	}
 }

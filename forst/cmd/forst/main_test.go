@@ -619,7 +619,8 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 }
 
 // TestExampleProvidersMergedPackage compiles examples/in/rfc/providers with -root
-// (providers.ft + providers_test.ft) and checks generated Go against examples/out/rfc/providers/providers.go.
+// (library .ft only; *_test.ft excluded from -root merge) and checks generated Go
+// against examples/out/rfc/providers/providers.go.
 // Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersMergedPackage -count=1
 func TestExampleProvidersMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")

@@ -31,7 +31,7 @@ func TestEmit_crossPkgHandleForwardsProviders(t *testing.T) {
 			filepath.Join(betaDir, "handle_test.ft"),
 		},
 	}
-	code, err := emitPackageGo(root, pkg, modResult, log)
+	code, err := emitPackageGo(root, pkg, modResult, EmitOptions{}, log)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -51,13 +51,27 @@ func A(): String {
 	if err := os.WriteFile(unparseablePath, []byte("@@@ invalid @@@"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	testPath := filepath.Join(root, "demo_test.ft")
+	if err := os.WriteFile(testPath, []byte(`package demo
+
+import "testing"
+
+func TestDemo(t *testing.T) {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := collectSamePackageFtPaths(logger, root, entryPath)
 	if err != nil {
 		t.Fatalf("collectSamePackageFtPaths: %v", err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("expected 2 same-package paths (entry + b), got %d: %+v", len(got), got)
+		t.Fatalf("expected 2 same-package paths (entry + b, excluding demo_test.ft), got %d: %+v", len(got), got)
+	}
+	for _, p := range got {
+		if strings.HasSuffix(p, "_test.ft") {
+			t.Fatalf("collectSamePackageFtPaths must skip *_test.ft, got %q", p)
+		}
 	}
 	if got[0] != filepath.Join(root, "b.ft") || got[1] != entryPath {
 		t.Fatalf("expected sorted same-package paths, got %+v", got)

@@ -1,6 +1,4 @@
 package providers_demo
-
-import "testing"
 // Clock: TypeDefShapeExpr({now: ?})
 type Clock interface {
 	now() int
@@ -29,18 +27,6 @@ type Token struct {
 	id        string `json:"id"`
 }
 
-func TestExpireToken_expired(t *testing.T) {
-	token := Token{id: "t1", expiresAt: 500}
-	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
-}
-func TestExpireToken_valid(t *testing.T) {
-	token := Token{id: "t1", expiresAt: 5000}
-	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 1000}, Logger: &NopLogger{}}, token)
-}
-func TestTransitiveWith_expired(t *testing.T) {
-	token := Token{id: "t2", expiresAt: 1500}
-	expireToken(Providers_Pm6dPg3hV64{Clock: &FakeClock{fixedMs: 2000}, Logger: &NopLogger{}}, token)
-}
 func expireToken(providers Providers_Pm6dPg3hV64, token Token) {
 	clock := providers.Clock
 	if token.expiresAt < clock.now() {

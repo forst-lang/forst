@@ -59,7 +59,7 @@ func TestOk(t *testing.T) {}
 		RelPath: "ok",
 		FtPaths: []string{lib, ft},
 	}
-	_, err := emitPackageGo(dir, pkg, nil, testLog(t))
+	_, err := emitPackageGo(dir, pkg, nil, EmitOptions{}, testLog(t))
 	if err == nil || !strings.Contains(err.Error(), "transform") {
 		t.Fatalf("err = %v", err)
 	}

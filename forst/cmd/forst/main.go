@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"forst/cmd/forst/lsp"
 	"forst/internal/compiler"
+	"forst/internal/ftconfig"
 	"io"
 	"os"
 	"path/filepath"
@@ -177,6 +178,16 @@ func runMain(argv []string) int {
 	}
 
 	args := compiler.ParseArgsFrom(argv, log)
+
+	if !args.ExportStructFields {
+		startDir, err := os.Getwd()
+		if err == nil && args.FilePath != "" {
+			if abs, err := pathAbs(args.FilePath); err == nil {
+				startDir = filepath.Dir(abs)
+			}
+		}
+		args.ExportStructFields = ftconfig.ExportStructFieldsFromDir(startDir)
+	}
 
 	p := compiler.New(args, log)
 
