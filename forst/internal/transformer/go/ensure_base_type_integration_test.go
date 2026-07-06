@@ -35,7 +35,7 @@ func main() {
 	}
 	tr := New(tc, log)
 
-	var ensureStmt ast.EnsureNode
+	var ensureNode ast.Node
 	var foundEnsure bool
 	for _, n := range nodes {
 		fn, ok := n.(ast.FunctionNode)
@@ -43,8 +43,8 @@ func main() {
 			continue
 		}
 		for _, st := range fn.Body {
-			if en, ok := st.(ast.EnsureNode); ok {
-				ensureStmt = en
+			if _, ok := st.(ast.EnsureNode); ok {
+				ensureNode = st
 				foundEnsure = true
 				break
 			}
@@ -55,10 +55,10 @@ func main() {
 		t.Fatal("ensure statement not found")
 	}
 
-	if err := tr.restoreScope(ensureStmt); err != nil {
+	if err := tr.restoreScope(ensureNode); err != nil {
 		t.Fatal(err)
 	}
-	got, err := tr.getEnsureBaseType(ensureStmt)
+	got, err := tr.getEnsureBaseType(ensureNode.(ast.EnsureNode))
 	if err != nil {
 		t.Fatal(err)
 	}

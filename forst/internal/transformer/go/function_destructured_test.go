@@ -101,7 +101,7 @@ is (m MutationArg) Input(input Shape) {
 		t.Fatal("expected Input type guard")
 	}
 
-	decl, err := tr.transformTypeGuard(guard)
+	decl, err := tr.transformTypeGuard(typeGuardScopeNode(nodes, guard), guard)
 	if err != nil {
 		t.Fatalf("transformTypeGuard: %v", err)
 	}

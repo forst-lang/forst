@@ -21,7 +21,14 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	}
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
 	if modResult != nil {
-		if tc := modResult.PerPackage[forstPkg]; tc != nil && !c.typecheckUsesFreshEntryChecker(entryDirFromArgs(c.Args)) {
+		if tc := modResult.PerPackage[forstPkg]; tc != nil {
+			savedProviders := cloneFunctionProviders(tc.FunctionProviders)
+			// Module check used merged-package AST nodes; re-bind scopes to this compile's nodes.
+			if err := tc.CheckTypes(nodes); err != nil {
+				return tc, modResult, err
+			}
+			tc.SetFunctionProviders(savedProviders)
+			tc.FunctionProviders = savedProviders
 			return tc, modResult, nil
 		}
 	}
@@ -98,4 +105,17 @@ func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
 		return false
 	}
 	return absEntry == examplesIn
+}
+
+func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
+	for k, v := range src {
+		slots := make([]typechecker.ProviderSlot, len(v))
+		copy(slots, v)
+		out[k] = slots
+	}
+	return out
 }
