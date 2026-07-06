@@ -50,6 +50,11 @@ is (password Password) Strong(min Int) {
 		t.Fatal("type guard node not found")
 	}
 
+	regGuard, ok := tc.ScopeNodeForTypeGuard(guard.Ident)
+	if !ok || regGuard != guardNode {
+		t.Fatalf("ScopeNodeForTypeGuard: got %v ok=%v want parse node %v", regGuard, ok, guardNode)
+	}
+
 	t.Run("guard param scope", func(t *testing.T) {
 		if err := tc.RestoreScope(guardNode); err != nil {
 			t.Fatalf("RestoreScope guard: %v", err)

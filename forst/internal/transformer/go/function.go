@@ -172,7 +172,7 @@ func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) 
 			}
 			stmts = append(stmts, goStmt)
 		case ast.WithNode:
-			withStmts, err := t.transformWithStatements(s)
+			withStmts, err := t.transformWithStatements(stmt, s)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform with block: %w", err)
 			}

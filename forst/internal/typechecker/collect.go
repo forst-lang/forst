@@ -40,80 +40,19 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}).Debug("Collecting type definition")
 		tc.registerType(n)
 	case ast.FunctionNode:
-		tc.pushScope(node)
-
-		if n.Receiver != nil {
-			if n.Receiver.Ident.ID != "" {
-				tc.storeSymbol(n.Receiver.Ident.ID, []ast.TypeNode{n.Receiver.Type}, SymbolVariable)
-			}
-		}
-
-		for _, param := range n.Params {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
-		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolVariable)
-			}
-		}
-
-		for _, node := range n.Body {
-			if err := tc.collectExplicitTypes(node); err != nil {
-				return err
-			}
-		}
-
-		tc.registerFunction(n)
-		tc.popScope()
-
-		if n.Receiver == nil {
-			// Store package-level function symbol
-			tc.storeSymbol(n.Ident.ID, n.ReturnTypes, SymbolFunction)
-		}
+		return tc.collectFunctionNode(node, n)
 	case *ast.FunctionNode:
-		return tc.collectExplicitTypes(*n)
+		if n == nil {
+			return nil
+		}
+		return tc.collectFunctionNode(node, *n)
 	case ast.TypeGuardNode:
-		tc.pushScope(node)
-
-		// Register type guard symbol in global scope
-		tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
-
-		// Register parameters in the current scope
-		for _, param := range n.Parameters() {
-			switch p := param.(type) {
-			case ast.SimpleParamNode:
-				tc.log.WithFields(logrus.Fields{
-					"node":     p.String(),
-					"function": "collectExplicitTypes",
-				}).Debug("Storing symbol for simple param of type guard")
-				tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
-		case ast.DestructuredParamNode:
-			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
-			tc.log.WithFields(logrus.Fields{
-				"node":     p.String(),
-				"function": "collectExplicitTypes",
-			}).Debug("Registered destructured type guard param fields")
-			}
-		}
-
-		// Recursively collect explicit types for each node in the body
-		for _, bodyNode := range n.Body {
-			if err := tc.collectExplicitTypes(bodyNode); err != nil {
-				return err
-			}
-		}
-
-		// Register the type guard in the type checker (heap-stable pointer in Defs)
-		guard := new(ast.TypeGuardNode)
-		*guard = n
-		tc.registerTypeGuard(guard)
-
-		tc.popScope()
+		return tc.collectTypeGuardNode(node, n)
 	case *ast.TypeGuardNode:
 		if n == nil {
 			return nil
 		}
-		return tc.collectExplicitTypes(*n)
+		return tc.collectTypeGuardNode(node, *n)
 	case ast.EnsureNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
@@ -257,6 +196,77 @@ func (tc *TypeChecker) collectForNode(n *ast.ForNode) error {
 			return err
 		}
 	}
+
+	tc.popScope()
+	return nil
+}
+
+func (tc *TypeChecker) collectFunctionNode(scopeNode ast.Node, n ast.FunctionNode) error {
+	tc.pushScope(scopeNode)
+	tc.registerFunctionScope(n.Ident.ID, scopeNode)
+
+	if n.Receiver != nil {
+		if n.Receiver.Ident.ID != "" {
+			tc.storeSymbol(n.Receiver.Ident.ID, []ast.TypeNode{n.Receiver.Type}, SymbolVariable)
+		}
+	}
+
+	for _, param := range n.Params {
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolVariable)
+		case ast.DestructuredParamNode:
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolVariable)
+		}
+	}
+
+	for _, bodyNode := range n.Body {
+		if err := tc.collectExplicitTypes(bodyNode); err != nil {
+			return err
+		}
+	}
+
+	tc.registerFunction(n)
+	tc.popScope()
+
+	if n.Receiver == nil {
+		tc.storeSymbol(n.Ident.ID, n.ReturnTypes, SymbolFunction)
+	}
+	return nil
+}
+
+func (tc *TypeChecker) collectTypeGuardNode(scopeNode ast.Node, n ast.TypeGuardNode) error {
+	tc.pushScope(scopeNode)
+	tc.registerTypeGuardScope(n.Ident, scopeNode)
+
+	tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+
+	for _, param := range n.Parameters() {
+		switch p := param.(type) {
+		case ast.SimpleParamNode:
+			tc.log.WithFields(logrus.Fields{
+				"node":     p.String(),
+				"function": "collectTypeGuardNode",
+			}).Debug("Storing symbol for simple param of type guard")
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
+		case ast.DestructuredParamNode:
+			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
+			tc.log.WithFields(logrus.Fields{
+				"node":     p.String(),
+				"function": "collectTypeGuardNode",
+			}).Debug("Registered destructured type guard param fields")
+		}
+	}
+
+	for _, bodyNode := range n.Body {
+		if err := tc.collectExplicitTypes(bodyNode); err != nil {
+			return err
+		}
+	}
+
+	guard := new(ast.TypeGuardNode)
+	*guard = n
+	tc.registerTypeGuard(guard)
 
 	tc.popScope()
 	return nil

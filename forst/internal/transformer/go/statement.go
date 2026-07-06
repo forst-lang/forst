@@ -628,7 +628,7 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 	case ast.UseNode:
 		return t.transformUseStatement(s)
 	case ast.WithNode:
-		withStmts, err := t.transformWithStatements(s)
+		withStmts, err := t.transformWithStatements(stmt, s)
 		if err != nil {
 			return nil, err
 		}

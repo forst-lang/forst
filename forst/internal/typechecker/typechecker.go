@@ -100,6 +100,10 @@ type TypeChecker struct {
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
 	goPackagesPreloaded bool
 	Warnings              []Diagnostic
+	// scopeOwners maps declaration idents to the ScopeNode registered at collect (for transform restore).
+	scopeOwners scopeOwners
+	// typecheckNodes is the nodes slice from the last CheckTypes call (scope identity for transform).
+	typecheckNodes []ast.Node
 }
 
 // New creates a new TypeChecker.
@@ -127,6 +131,7 @@ func New(log *logrus.Logger, reportPhases bool) *TypeChecker {
 		variableGoTypes:                             make(map[ast.Identifier]types.Type),
 		log:                                         log,
 		reportPhases:                                reportPhases,
+		scopeOwners:                                 newScopeOwners(),
 	}
 
 	return tc
@@ -147,6 +152,7 @@ func (tc *TypeChecker) HasDotImportPackages() bool {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
+	tc.typecheckNodes = nodes
 	tc.shapeAliasIndex = nil
 	tc.compatMemo = nil
 	if err := tc.CollectTypes(nodes); err != nil {
@@ -155,8 +161,14 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	return tc.InferTypes(nodes)
 }
 
+// TypecheckNodes returns the nodes slice from the last CheckTypes call.
+func (tc *TypeChecker) TypecheckNodes() []ast.Node {
+	return tc.typecheckNodes
+}
+
 // CollectTypes runs the first pass: explicit types, imports, and function signatures.
 func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
+	tc.resetScopeOwners()
 	if tc.reportPhases {
 		tc.log.WithFields(logrus.Fields{
 			"function": "CollectTypes",

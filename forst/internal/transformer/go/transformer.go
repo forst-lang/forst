@@ -53,6 +53,8 @@ type Transformer struct {
 
 	// OmitPackageTypeDefs skips emitting package types (when z_forst_gen.go already defines them).
 	OmitPackageTypeDefs bool
+	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
+	entryNodes []ast.Node
 }
 
 // New creates a new Transformer
@@ -83,6 +85,7 @@ func (t *Transformer) SetModuleResult(m *modulecheck.ModuleResult) {
 // TransformForstFileToGo converts a Forst AST to a Go AST
 // The nodes should already have their types inferred/checked
 func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, error) {
+	t.entryNodes = nodes
 	// First, collect and register shape types from type definitions
 	if err := t.defineShapeTypes(); err != nil {
 		return nil, err

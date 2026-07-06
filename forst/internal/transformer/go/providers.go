@@ -468,7 +468,16 @@ func splitQualifiedIdent(s string) []string {
 	return nil
 }
 
-func (t *Transformer) transformWithStatements(with ast.WithNode) ([]goast.Stmt, error) {
+func (t *Transformer) transformWithStatements(scopeNode typechecker.ScopeNode, with ast.WithNode) ([]goast.Stmt, error) {
+	if !t.TypeChecker.HasScopeForNode(scopeNode) {
+		scopeNode = t.resolveWithScopeNode(t.entryNodes, with)
+	}
+	if !t.TypeChecker.HasScopeForNode(scopeNode) {
+		return nil, fmt.Errorf("with block: no registered scope for %s", scopeNode)
+	}
+	if err := t.restoreScope(scopeNode); err != nil {
+		return nil, fmt.Errorf("with block: %w", err)
+	}
 	if err := t.pushWiringFrame(with); err != nil {
 		return nil, err
 	}
@@ -476,11 +485,8 @@ func (t *Transformer) transformWithStatements(with ast.WithNode) ([]goast.Stmt, 
 
 	stmts := make([]goast.Stmt, 0, len(with.Body))
 	for _, stmt := range with.Body {
-		if err := t.restoreScopeForWith(with); err != nil {
-			return nil, err
-		}
 		if withStmt, ok := stmt.(ast.WithNode); ok {
-			nested, err := t.transformWithStatements(withStmt)
+			nested, err := t.transformWithStatements(stmt, withStmt)
 			if err != nil {
 				return nil, err
 			}
@@ -499,8 +505,4 @@ func (t *Transformer) transformWithStatements(with ast.WithNode) ([]goast.Stmt, 
 		stmts = append(stmts, goStmt)
 	}
 	return stmts, nil
-}
-
-func (t *Transformer) restoreScopeForWith(with ast.WithNode) error {
-	return t.TypeChecker.RestoreScope(with)
 }
