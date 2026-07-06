@@ -148,6 +148,11 @@ func (tc *TypeChecker) HasDotImportPackages() bool {
 	return len(tc.dotImportPkgs) > 0
 }
 
+// SamePackageGoLoaded reports whether same-package Go interop loaded via SetSamePackageGoImportPath.
+func (tc *TypeChecker) SamePackageGoLoaded() bool {
+	return tc.samePackageGo != nil
+}
+
 // CheckTypes performs type inference in two passes:
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements

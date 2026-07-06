@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/parser"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -43,13 +43,12 @@ func TestCheckTypes_examplesInTree(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			nodes, err := parser.NewTestParser(string(src), log).ParseFile()
+			_, _, err = Typecheck(t, string(src), testutil.TypecheckOpts{
+				FileID:        filepath.Base(path),
+				UseModuleRoot: true,
+				Logger:        log,
+			})
 			if err != nil {
-				t.Skipf("parse: %v", err)
-			}
-			chk := New(log, false)
-			chk.GoWorkspaceDir = moduleRootForProvidersTest(t)
-			if err := chk.CheckTypes(nodes); err != nil {
 				t.Skipf("typecheck: %v", err)
 			}
 		})

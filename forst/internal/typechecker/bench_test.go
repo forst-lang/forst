@@ -3,20 +3,16 @@ package typechecker
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
-	"forst/internal/lexer"
-	"forst/internal/parser"
-
-	"github.com/sirupsen/logrus"
+	"forst/internal/testutil"
 )
 
 func benchExampleSource(b *testing.B, rel string) []byte {
 	b.Helper()
-	path := filepath.Join("..", "..", "..", "examples", "in", rel)
+	path := testutil.ExamplePath(b, rel)
 	src, err := os.ReadFile(path)
 	if err != nil {
 		b.Fatalf("read example %s: %v", rel, err)
@@ -26,23 +22,12 @@ func benchExampleSource(b *testing.B, rel string) []byte {
 
 func benchParseNodes(b *testing.B, src []byte) []ast.Node {
 	b.Helper()
-	log := logrus.New()
-	log.SetOutput(nil)
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New(src, "bench.ft", log).Lex()
-	nodes, err := parser.New(toks, "bench.ft", log).ParseFile()
-	if err != nil {
-		b.Fatalf("parse: %v", err)
-	}
-	return nodes
+	return testutil.ParseSourceForBench(b, src, "bench.ft")
 }
 
 func benchTypeChecker(b *testing.B) *TypeChecker {
 	b.Helper()
-	log := logrus.New()
-	log.SetOutput(nil)
-	log.SetLevel(logrus.PanicLevel)
-	return New(log, false)
+	return NewTypeCheckerForBench(b)
 }
 
 func BenchmarkCheckTypes_basic(b *testing.B) {
