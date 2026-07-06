@@ -164,6 +164,78 @@ func b(): Int { return 2 }
 	}
 }
 
+func TestMergePackageASTsFromPaths_returnsSamePointersAsMerged(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.ft")
+	testFt := filepath.Join(dir, "lib_test.ft")
+	if err := os.WriteFile(lib, []byte(`package demo
+
+func buildBody(label String): String { return label }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(testFt, []byte(`package demo
+
+import "testing"
+
+func TestBody(t *testing.T) {
+	body := buildBody("x")
+	if body == "" {
+		t.Fatal("empty")
+	}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(nil)
+	merged, byPath, err := ParseAndMergePackage(log, []string{lib, testFt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	subset, err := MergePackageASTsFromPaths(byPath, []string{testFt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	testNodes := byPath[testFt]
+	if len(subset) != len(testNodes) {
+		t.Fatalf("subset len=%d testNodes len=%d", len(subset), len(testNodes))
+	}
+	var ifInMerged *ast.IfNode
+	for _, n := range merged {
+		fn, ok := n.(ast.FunctionNode)
+		if !ok || fn.Ident.ID != "TestBody" {
+			continue
+		}
+		for _, stmt := range fn.Body {
+			if ifn, ok := stmt.(*ast.IfNode); ok {
+				ifInMerged = ifn
+				break
+			}
+		}
+	}
+	var ifInSubset *ast.IfNode
+	for _, n := range subset {
+		fn, ok := n.(ast.FunctionNode)
+		if !ok || fn.Ident.ID != "TestBody" {
+			continue
+		}
+		for _, stmt := range fn.Body {
+			if ifn, ok := stmt.(*ast.IfNode); ok {
+				ifInSubset = ifn
+				break
+			}
+		}
+	}
+	if ifInMerged == nil || ifInSubset == nil {
+		t.Fatal("expected if node in merged and subset")
+	}
+	if ifInMerged != ifInSubset {
+		t.Fatal("if node pointer in subset must match merged parse")
+	}
+}
+
 func TestParseAndMergePackage_emptyPaths(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(nil)

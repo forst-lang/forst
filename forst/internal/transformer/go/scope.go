@@ -47,6 +47,301 @@ func (t *Transformer) resolveTypeGuardScopeNode(entryNodes []ast.Node, guard ast
 	}, ast.Node(guard))
 }
 
+// resolveIfScopeNode finds the ast.Node whose scope was registered during typecheck.
+func (t *Transformer) resolveIfScopeNode(ifn *ast.IfNode) ast.Node {
+	target := ifn.String()
+	for _, list := range t.scopeSearchLists(t.entryNodes) {
+		if n := findRegisteredIfScopeNode(list, target, t.TypeChecker); n != nil {
+			return n
+		}
+	}
+	return ast.Node(ifn)
+}
+
+// resolveElseIfScopeNode finds the registered scope node for an else-if branch.
+func (t *Transformer) resolveElseIfScopeNode(ei *ast.ElseIfNode) ast.Node {
+	target := ei.String()
+	for _, list := range t.scopeSearchLists(t.entryNodes) {
+		if n := findRegisteredElseIfScopeNode(list, target, t.TypeChecker); n != nil {
+			return n
+		}
+	}
+	return ast.Node(ei)
+}
+
+// resolveElseBlockScopeNode finds the registered scope node for an else branch.
+func (t *Transformer) resolveElseBlockScopeNode(eb *ast.ElseBlockNode) ast.Node {
+	target := eb.String()
+	for _, list := range t.scopeSearchLists(t.entryNodes) {
+		if n := findRegisteredElseBlockScopeNode(list, target, t.TypeChecker); n != nil {
+			return n
+		}
+	}
+	return ast.Node(eb)
+}
+
+func findRegisteredIfScopeNode(nodes []ast.Node, ifStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, n := range nodes {
+		switch x := n.(type) {
+		case ast.FunctionNode:
+			if found := findRegisteredIfInStmts(x.Body, ifStr, tc); found != nil {
+				return found
+			}
+		case *ast.FunctionNode:
+			if x != nil {
+				if found := findRegisteredIfInStmts(x.Body, ifStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.TypeGuardNode:
+			if found := findRegisteredIfInStmts(x.Body, ifStr, tc); found != nil {
+				return found
+			}
+		case *ast.TypeGuardNode:
+			if x != nil {
+				if found := findRegisteredIfInStmts(x.Body, ifStr, tc); found != nil {
+					return found
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredIfInStmts(stmts []ast.Node, ifStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case *ast.IfNode:
+			if s.String() == ifStr && tc.HasScopeForNode(s) {
+				return s
+			}
+			if found := findRegisteredIfInIfNode(s, ifStr, tc); found != nil {
+				return found
+			}
+		case ast.IfNode:
+			if s.String() == ifStr && tc.HasScopeForNode(stmt) {
+				return stmt
+			}
+			if found := findRegisteredIfInIfNode(&s, ifStr, tc); found != nil {
+				return found
+			}
+		case ast.ForNode:
+			if found := findRegisteredIfInStmts(s.Body, ifStr, tc); found != nil {
+				return found
+			}
+		case *ast.ForNode:
+			if s != nil {
+				if found := findRegisteredIfInStmts(s.Body, ifStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.WithNode:
+			if found := findRegisteredIfInStmts(s.Body, ifStr, tc); found != nil {
+				return found
+			}
+		case ast.EnsureNode:
+			if s.Block != nil {
+				if found := findRegisteredIfInStmts(s.Block.Body, ifStr, tc); found != nil {
+					return found
+				}
+			}
+		case *ast.EnsureNode:
+			if s != nil && s.Block != nil {
+				if found := findRegisteredIfInStmts(s.Block.Body, ifStr, tc); found != nil {
+					return found
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredIfInIfNode(ifn *ast.IfNode, ifStr string, tc *typechecker.TypeChecker) ast.Node {
+	for i := range ifn.ElseIfs {
+		ei := &ifn.ElseIfs[i]
+		if ei.String() == ifStr && tc.HasScopeForNode(ei) {
+			return ei
+		}
+		if found := findRegisteredIfInStmts(ei.Body, ifStr, tc); found != nil {
+			return found
+		}
+	}
+	if ifn.Else != nil {
+		if ifn.Else.String() == ifStr && tc.HasScopeForNode(ifn.Else) {
+			return ifn.Else
+		}
+		if found := findRegisteredIfInStmts(ifn.Else.Body, ifStr, tc); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseIfScopeNode(nodes []ast.Node, elseIfStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, n := range nodes {
+		switch x := n.(type) {
+		case ast.FunctionNode:
+			if found := findRegisteredElseIfInStmts(x.Body, elseIfStr, tc); found != nil {
+				return found
+			}
+		case *ast.FunctionNode:
+			if x != nil {
+				if found := findRegisteredElseIfInStmts(x.Body, elseIfStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.TypeGuardNode:
+			if found := findRegisteredElseIfInStmts(x.Body, elseIfStr, tc); found != nil {
+				return found
+			}
+		case *ast.TypeGuardNode:
+			if x != nil {
+				if found := findRegisteredElseIfInStmts(x.Body, elseIfStr, tc); found != nil {
+					return found
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseIfInStmts(stmts []ast.Node, elseIfStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case *ast.IfNode:
+			for i := range s.ElseIfs {
+				ei := &s.ElseIfs[i]
+				if ei.String() == elseIfStr && tc.HasScopeForNode(ei) {
+					return ei
+				}
+			}
+			if found := findRegisteredElseIfInIfNode(s, elseIfStr, tc); found != nil {
+				return found
+			}
+		case ast.IfNode:
+			for i := range s.ElseIfs {
+				ei := &s.ElseIfs[i]
+				if ei.String() == elseIfStr && tc.HasScopeForNode(ei) {
+					return ei
+				}
+			}
+			if found := findRegisteredElseIfInIfNode(&s, elseIfStr, tc); found != nil {
+				return found
+			}
+		case ast.ForNode:
+			if found := findRegisteredElseIfInStmts(s.Body, elseIfStr, tc); found != nil {
+				return found
+			}
+		case *ast.ForNode:
+			if s != nil {
+				if found := findRegisteredElseIfInStmts(s.Body, elseIfStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.WithNode:
+			if found := findRegisteredElseIfInStmts(s.Body, elseIfStr, tc); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseIfInIfNode(ifn *ast.IfNode, elseIfStr string, tc *typechecker.TypeChecker) ast.Node {
+	if found := findRegisteredElseIfInStmts(ifn.Body, elseIfStr, tc); found != nil {
+		return found
+	}
+	for i := range ifn.ElseIfs {
+		ei := &ifn.ElseIfs[i]
+		if found := findRegisteredElseIfInStmts(ei.Body, elseIfStr, tc); found != nil {
+			return found
+		}
+	}
+	if ifn.Else != nil {
+		if found := findRegisteredElseIfInStmts(ifn.Else.Body, elseIfStr, tc); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseBlockScopeNode(nodes []ast.Node, elseStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, n := range nodes {
+		switch x := n.(type) {
+		case ast.FunctionNode:
+			if found := findRegisteredElseBlockInStmts(x.Body, elseStr, tc); found != nil {
+				return found
+			}
+		case *ast.FunctionNode:
+			if x != nil {
+				if found := findRegisteredElseBlockInStmts(x.Body, elseStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.TypeGuardNode:
+			if found := findRegisteredElseBlockInStmts(x.Body, elseStr, tc); found != nil {
+				return found
+			}
+		case *ast.TypeGuardNode:
+			if x != nil {
+				if found := findRegisteredElseBlockInStmts(x.Body, elseStr, tc); found != nil {
+					return found
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseBlockInStmts(stmts []ast.Node, elseStr string, tc *typechecker.TypeChecker) ast.Node {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case *ast.IfNode:
+			if s.Else != nil && s.Else.String() == elseStr && tc.HasScopeForNode(s.Else) {
+				return s.Else
+			}
+			if found := findRegisteredElseBlockInIfNode(s, elseStr, tc); found != nil {
+				return found
+			}
+		case ast.IfNode:
+			if s.Else != nil && s.Else.String() == elseStr && tc.HasScopeForNode(s.Else) {
+				return s.Else
+			}
+			if found := findRegisteredElseBlockInIfNode(&s, elseStr, tc); found != nil {
+				return found
+			}
+		case ast.ForNode:
+			if found := findRegisteredElseBlockInStmts(s.Body, elseStr, tc); found != nil {
+				return found
+			}
+		case *ast.ForNode:
+			if s != nil {
+				if found := findRegisteredElseBlockInStmts(s.Body, elseStr, tc); found != nil {
+					return found
+				}
+			}
+		case ast.WithNode:
+			if found := findRegisteredElseBlockInStmts(s.Body, elseStr, tc); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+func findRegisteredElseBlockInIfNode(ifn *ast.IfNode, elseStr string, tc *typechecker.TypeChecker) ast.Node {
+	if found := findRegisteredElseBlockInStmts(ifn.Body, elseStr, tc); found != nil {
+		return found
+	}
+	for i := range ifn.ElseIfs {
+		ei := &ifn.ElseIfs[i]
+		if found := findRegisteredElseBlockInStmts(ei.Body, elseStr, tc); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
 // resolveFunctionScopeNode finds the ast.Node whose scope was registered during typecheck.
 func (t *Transformer) resolveFunctionScopeNode(entryNodes []ast.Node, fn ast.FunctionNode) ast.Node {
 	if n, ok := t.TypeChecker.ScopeNodeForFunction(fn.Ident.ID); ok {

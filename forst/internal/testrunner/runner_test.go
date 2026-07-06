@@ -291,6 +291,73 @@ func TestEmitPackageGo_testOnlyOmitsPackageTypeDefs(t *testing.T) {
 	}
 }
 
+func writeIfScopeTestFixture(t *testing.T, dir string) string {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("ifscope_test")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkgDir := filepath.Join(dir, "demo")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "lib.ft"), []byte(`package demo
+
+func buildBody(label String): String {
+	return label
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "lib_test.ft"), []byte(`package demo
+
+import "testing"
+
+func TestBodyNonEmpty(t *testing.T) {
+	body := buildBody("x")
+	if body == "" {
+		t.Fatal("empty body")
+	}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return pkgDir
+}
+
+func TestEmitPackageGo_testOnlyIfScopeUsesMergedParseNodes(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := writeIfScopeTestFixture(t, dir)
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+	log.SetLevel(logrus.PanicLevel)
+
+	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgs, err := DiscoverPackages(dir, []string{"demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := pkgs[0]
+
+	libCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{}, log)
+	if err != nil {
+		t.Fatalf("emit lib: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "z_forst_gen.go"), []byte(libCode), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	testCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{TestOnly: true}, log)
+	if err != nil {
+		t.Fatalf("emit test-only: %v", err)
+	}
+	if !strings.Contains(testCode, "func TestBodyNonEmpty(t *testing.T)") {
+		t.Fatalf("test-only emit missing test function:\n%s", testCode)
+	}
+}
+
 func TestRun_dependencyEmitThenSelfTest_succeeds(t *testing.T) {
 	dir := t.TempDir()
 	libpkgDir, _ := writeLibClientTestFixture(t, dir)

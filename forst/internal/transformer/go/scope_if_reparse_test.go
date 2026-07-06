@@ -1,7 +1,6 @@
 package transformergo
 
 import (
-	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -54,7 +53,7 @@ func findFunctionNodeForTransform(t *testing.T, nodes []ast.Node, name string) a
 
 func TestTransformIfNode_checkerBoundToDifferentAST(t *testing.T) {
 	t.Parallel()
-	_, tc, _ := parseIfAfterAssign(t)
+	nodesA, tc, _ := parseIfAfterAssign(t)
 
 	log := ast.SetupTestLogger(nil)
 	p := parser.NewTestParser(ifAfterAssignSrc, log)
@@ -69,11 +68,28 @@ func TestTransformIfNode_checkerBoundToDifferentAST(t *testing.T) {
 	}
 
 	tr := New(tc, log)
-	_, err = tr.transformIfNode(ifNodeB)
-	if err == nil {
-		t.Fatal("expected transformIfNode to fail when checker bound to different AST")
+	tr.entryNodes = nodesB
+	if _, err = tr.transformIfNode(ifNodeB); err != nil {
+		t.Fatalf("transformIfNode with resolve: %v", err)
 	}
-	if !strings.Contains(err.Error(), "if scope restore") {
-		t.Fatalf("transformIfNode error = %q, want if scope restore", err)
+	_ = nodesA
+}
+
+func TestTransformForstFileToGo_reparsedTestIfSucceeds(t *testing.T) {
+	t.Parallel()
+	nodesA, tc, _ := parseIfAfterAssign(t)
+
+	log := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(ifAfterAssignSrc, log)
+	nodesB, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("re-parse B: %v", err)
 	}
+
+	tr := New(tc, log)
+	tr.entryNodes = nodesB
+	if _, err := tr.TransformForstFileToGo(nodesB); err != nil {
+		t.Fatalf("TransformForstFileToGo reparsed: %v", err)
+	}
+	_ = nodesA
 }

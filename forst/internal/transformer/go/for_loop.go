@@ -54,7 +54,7 @@ func (t *Transformer) transformIfNode(n *ast.IfNode) (goast.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := t.restoreScope(n); err != nil {
+	if err := t.restoreScope(t.resolveIfScopeNode(n)); err != nil {
 		return nil, fmt.Errorf("if scope restore: %w", err)
 	}
 	body := &goast.BlockStmt{}
@@ -71,7 +71,10 @@ func (t *Transformer) transformIfNode(n *ast.IfNode) (goast.Stmt, error) {
 	main := &goast.IfStmt{Init: init, Cond: condExpr, Body: body}
 	cur := main
 	for i := range n.ElseIfs {
-		ei := n.ElseIfs[i]
+		ei := &n.ElseIfs[i]
+		if err := t.restoreScope(t.resolveElseIfScopeNode(ei)); err != nil {
+			return nil, fmt.Errorf("else-if scope restore: %w", err)
+		}
 		econd, ok := ei.Condition.(ast.ExpressionNode)
 		if !ok {
 			return nil, fmt.Errorf("else-if condition is not an expression")
@@ -93,6 +96,9 @@ func (t *Transformer) transformIfNode(n *ast.IfNode) (goast.Stmt, error) {
 		cur = next
 	}
 	if n.Else != nil {
+		if err := t.restoreScope(t.resolveElseBlockScopeNode(n.Else)); err != nil {
+			return nil, fmt.Errorf("else scope restore: %w", err)
+		}
 		eb := &goast.BlockStmt{}
 		for _, st := range n.Else.Body {
 			gst, err := t.transformStatement(st)

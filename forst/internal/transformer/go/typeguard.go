@@ -201,7 +201,7 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 		case ast.CommentNode:
 			bodyStmts = append(bodyStmts, &goast.EmptyStmt{})
 		case *ast.IfNode:
-			if err := t.restoreScope(n); err != nil {
+			if err := t.restoreScope(t.resolveIfScopeNode(n)); err != nil {
 				return nil, fmt.Errorf("failed to restore if scope in type guard: %s", err)
 			}
 
@@ -218,7 +218,7 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 			var elseIfs []goast.Stmt
 			for i := range n.ElseIfs {
 				elseIf := &n.ElseIfs[i]
-				if err := t.restoreScope(elseIf); err != nil {
+				if err := t.restoreScope(t.resolveElseIfScopeNode(elseIf)); err != nil {
 					return nil, fmt.Errorf("failed to restore else-if scope in type guard: %s", err)
 				}
 
@@ -239,7 +239,7 @@ func (t *Transformer) transformTypeGuard(scopeNode ast.Node, guard ast.TypeGuard
 			// Transform else block
 			var elseBody *goast.BlockStmt
 			if n.Else != nil {
-				if err := t.restoreScope(n.Else); err != nil {
+				if err := t.restoreScope(t.resolveElseBlockScopeNode(n.Else)); err != nil {
 					return nil, fmt.Errorf("failed to restore else scope in type guard: %s", err)
 				}
 

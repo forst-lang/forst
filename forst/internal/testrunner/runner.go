@@ -154,7 +154,7 @@ func hasGeneratedLibrary(dir string) bool {
 }
 
 func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, log *logrus.Logger) (string, error) {
-	merged, _, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
+	merged, byPath, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
 	if err != nil {
 		return "", fmt.Errorf("parse: %w", err)
 	}
@@ -190,9 +190,9 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 	}
 	transformNodes := merged
 	if opts.TestOnly {
-		transformNodes, _, err = forstpkg.ParseAndMergePackage(log, transformPaths)
+		transformNodes, err = forstpkg.MergePackageASTsFromPaths(byPath, transformPaths)
 		if err != nil {
-			return "", fmt.Errorf("parse transform: %w", err)
+			return "", fmt.Errorf("merge transform nodes: %w", err)
 		}
 	}
 
