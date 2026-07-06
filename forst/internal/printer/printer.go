@@ -482,7 +482,7 @@ func (p *printer) printBlock(nodes []ast.Node) (string, error) {
 		}
 		if strings.Contains(line, "\n") {
 			switch node.(type) {
-			case ast.CommentNode:
+			case ast.CommentNode, ast.ReturnNode, ast.AssignmentNode:
 				b.WriteString(prefixEachLine(p.prefix(), line))
 			default:
 				b.WriteString(p.prefixFirstLineOnly(line))
@@ -938,6 +938,24 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 		return p.printShape(x)
 	case ast.ArrayLiteralNode:
 		var buf strings.Builder
+		if x.Type.Ident != ast.TypeImplicit {
+			// Go-style typed slice composite: []T{...} or []T{}
+			buf.WriteString("[]")
+			buf.WriteString(printType(x.Type))
+			buf.WriteByte('{')
+			for i, lit := range x.Value {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				s, err := p.printExpr(lit)
+				if err != nil {
+					return "", err
+				}
+				buf.WriteString(s)
+			}
+			buf.WriteByte('}')
+			return buf.String(), nil
+		}
 		buf.WriteByte('[')
 		for i, lit := range x.Value {
 			if i > 0 {
