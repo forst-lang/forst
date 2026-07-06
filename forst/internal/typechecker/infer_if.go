@@ -13,7 +13,10 @@ import (
 //     JoinAfterIfMerge (typeops.go) widens to the outer (pre-if) binding type (§3.2) until unions exist.
 //   - Kotlin/Swift analogy: refinement is scoped to branch bodies; after the full chain, merge
 //     restores the enclosing binding type for uses in the continuation.
-func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
+func (tc *TypeChecker) inferIfStatement(n *ast.IfNode) ([]ast.TypeNode, error) {
+	if n == nil {
+		return nil, nil
+	}
 	tc.beginIfChainForStatement()
 	defer tc.endIfChainApplyJoin()
 
@@ -30,7 +33,7 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 		}
 	}
 	incErr := tc.ifConditionIsBuiltinResultErrNarrowing(n.Condition)
-	tc.pushScope(&n)
+	tc.pushScope(n)
 	if incErr {
 		tc.resultErrIfBranchDepth++
 	}
@@ -50,7 +53,8 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 	}
 	tc.popScope()
 
-	for _, ei := range n.ElseIfs {
+	for i := range n.ElseIfs {
+		ei := &n.ElseIfs[i]
 		if ei.Condition != nil {
 			if ce, ok := ei.Condition.(ast.ExpressionNode); ok {
 				if _, err := tc.inferExpressionType(ce); err != nil {
@@ -59,7 +63,7 @@ func (tc *TypeChecker) inferIfStatement(n ast.IfNode) ([]ast.TypeNode, error) {
 			}
 		}
 		incErrEI := tc.ifConditionIsBuiltinResultErrNarrowing(ei.Condition)
-		tc.pushScope(&ei)
+		tc.pushScope(ei)
 		if incErrEI {
 			tc.resultErrIfBranchDepth++
 		}

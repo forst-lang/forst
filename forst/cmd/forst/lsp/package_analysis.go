@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"forst/internal/ast"
-	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/modulecheck"
@@ -308,20 +307,16 @@ func (s *LSPServer) buildPackageSnapshot(uris []string, results []fileParseResul
 		return &packageSnapshot{uris: uris, results: results}
 	}
 	moduleRoot := goload.FindModuleRoot(workDir)
-	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(merged))
 
 	var tc *typechecker.TypeChecker
 	var checkErr error
 	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
-	if modErr == nil && modResult != nil && modResult.PerPackage[forstPkg] != nil {
-		tc = modResult.PerPackage[forstPkg]
-	} else {
-		tc = typechecker.New(s.log, false)
-		tc.GoWorkspaceDir = workDir
-		checkErr = tc.CheckTypes(merged)
-		if modErr != nil && checkErr == nil {
-			checkErr = modErr
-		}
+	_ = modResult
+	tc = typechecker.New(s.log, false)
+	tc.GoWorkspaceDir = workDir
+	checkErr = tc.CheckTypes(merged)
+	if modErr != nil && checkErr == nil {
+		checkErr = modErr
 	}
 	return &packageSnapshot{
 		uris:        uris,

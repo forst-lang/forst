@@ -70,14 +70,16 @@ func BenchmarkRestoreScope_functionBody(b *testing.B) {
 		Ident: ast.Ident{ID: "benchFn"},
 		Body:  body,
 	}
+	nodes := []ast.Node{fn}
 	tc := benchTypeChecker(b)
-	if err := tc.CollectTypes([]ast.Node{fn}); err != nil {
+	if err := tc.CollectTypes(nodes); err != nil {
 		b.Fatalf("CollectTypes: %v", err)
 	}
+	scopeNode := nodes[0]
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := tc.RestoreScope(fn); err != nil {
+		if err := tc.RestoreScope(scopeNode); err != nil {
 			b.Fatalf("RestoreScope: %v", err)
 		}
 	}

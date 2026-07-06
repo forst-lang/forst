@@ -79,9 +79,9 @@ func visitNodeForScope(tc *typechecker.TypeChecker, n ast.Node, want *typechecke
 func visitStmtForScope(tc *typechecker.TypeChecker, st ast.Node, want *typechecker.Scope) ast.Node {
 	switch v := st.(type) {
 	case ast.IfNode:
-		return visitIfChainForScope(tc, v, want)
+		return visitIfChainForScope(tc, &v, want)
 	case *ast.IfNode:
-		return visitIfChainForScope(tc, *v, want)
+		return visitIfChainForScope(tc, v, want)
 	case ast.ForNode:
 		if err := tc.RestoreScope(v); err == nil && tc.CurrentScope() == want {
 			return v
@@ -113,9 +113,12 @@ func visitStmtForScope(tc *typechecker.TypeChecker, st ast.Node, want *typecheck
 	return nil
 }
 
-func visitIfChainForScope(tc *typechecker.TypeChecker, ifn ast.IfNode, want *typechecker.Scope) ast.Node {
-	if err := tc.RestoreScope(&ifn); err == nil && tc.CurrentScope() == want {
-		return &ifn
+func visitIfChainForScope(tc *typechecker.TypeChecker, ifn *ast.IfNode, want *typechecker.Scope) ast.Node {
+	if ifn == nil {
+		return nil
+	}
+	if err := tc.RestoreScope(ifn); err == nil && tc.CurrentScope() == want {
+		return ifn
 	}
 	for _, inner := range ifn.Body {
 		if r := visitStmtForScope(tc, inner, want); r != nil {
@@ -123,9 +126,9 @@ func visitIfChainForScope(tc *typechecker.TypeChecker, ifn ast.IfNode, want *typ
 		}
 	}
 	for i := range ifn.ElseIfs {
-		ei := ifn.ElseIfs[i]
-		if err := tc.RestoreScope(&ei); err == nil && tc.CurrentScope() == want {
-			return &ei
+		ei := &ifn.ElseIfs[i]
+		if err := tc.RestoreScope(ei); err == nil && tc.CurrentScope() == want {
+			return ei
 		}
 		for _, inner := range ei.Body {
 			if r := visitStmtForScope(tc, inner, want); r != nil {

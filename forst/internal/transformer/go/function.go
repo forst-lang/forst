@@ -95,8 +95,8 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 }
 
 // transformFunction converts a Forst function node to a Go function declaration
-func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, error) {
-	if err := t.restoreScope(n); err != nil {
+func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) (*goast.FuncDecl, error) {
+	if err := t.restoreScope(scopeNode); err != nil {
 		return nil, fmt.Errorf("failed to restore function scope: %s", err)
 	}
 
@@ -157,7 +157,7 @@ func (t *Transformer) transformFunction(n ast.FunctionNode) (*goast.FuncDecl, er
 		if emitImplicitReturn && i == implicitIdx {
 			continue
 		}
-		if err := t.restoreScope(n); err != nil {
+		if err := t.restoreScope(scopeNode); err != nil {
 			return nil, fmt.Errorf("failed to restore function scope in body: %s", err)
 		}
 

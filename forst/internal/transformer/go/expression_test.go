@@ -263,7 +263,7 @@ func TestTransformExpression_StructLiteralWithNamedType_NoExpectedType(t *testin
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(mainFn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{echoRequestType, mainFn}, mainFn), mainFn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestTransformExpression_StructLiteralTypeEmissionBug(t *testing.T) {
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(fn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{userType, createUserResponseType, fn}, fn), fn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestTransformExpression_StructLiteralWithFieldAssignments(t *testing.T) {
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(fn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{userType, createUserRequestType, createUserResponseType, fn}, fn), fn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}
@@ -627,7 +627,7 @@ func TestTransformExpression_ClientExampleBug(t *testing.T) {
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(fn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{userType, createUserRequestType, createUserResponseType, fn}, fn), fn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}
@@ -740,7 +740,7 @@ func TestTransformExpression_ClientExampleWithFieldAccess(t *testing.T) {
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(fn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{userType, createUserRequestType, createUserResponseType, fn}, fn), fn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}
@@ -831,7 +831,7 @@ func TestTransformExpression_UnifiedHelperWorking(t *testing.T) {
 	}
 
 	// Transform the function
-	result, err := transformer.transformFunction(fn)
+	result, err := transformer.transformFunction(functionScopeNode([]ast.Node{userType, createUserResponseType, fn}, fn), fn)
 	if err != nil {
 		t.Fatalf("Transform failed: %v", err)
 	}

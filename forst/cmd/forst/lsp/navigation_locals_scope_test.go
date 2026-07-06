@@ -6,6 +6,115 @@ import (
 	"forst/internal/ast"
 )
 
+func TestNavigationLocals_lookupSymbolAtToken_afterCheckTypes(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func outer(x Int): Int {
+	y := x
+	return y
+}
+`
+	nodes, tokens, tc := parseNodesAndTokensForNavigationTest(t, src)
+	usePos, ok := lspPosForNthIdentToken(tokens, "x", 1)
+	if !ok {
+		t.Fatal("use of x")
+	}
+	idx := tokenIndexAtLSPPosition(tokens, usePos)
+	if err := tc.RestoreScope(nil); err != nil {
+		t.Fatalf("RestoreScope(nil): %v", err)
+	}
+	sym, ok := lookupSymbolAtToken(tc, nodes, tokens, idx, ast.Identifier("x"))
+	if !ok {
+		t.Fatal("lookupSymbolAtToken failed")
+	}
+	if sym.Identifier != "x" {
+		t.Fatalf("sym=%#v", sym)
+	}
+}
+
+func TestNavigationLocals_findInnermostScopeRestores_twoFunctions(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func outer(x Int): Int {
+	y := x
+	return y
+}
+
+func main() {
+	println(outer(1))
+}
+`
+	nodes, tokens, tc := parseNodesAndTokensForNavigationTest(t, src)
+	usePos, ok := lspPosForNthIdentToken(tokens, "x", 1)
+	if !ok {
+		t.Fatal("use of x")
+	}
+	idx := tokenIndexAtLSPPosition(tokens, usePos)
+	scopeNode := findInnermostScopeNode(nodes, tokens, idx, tc)
+	if scopeNode == nil {
+		t.Fatal("expected scope node")
+	}
+	if err := tc.RestoreScope(scopeNode); err != nil {
+		t.Fatalf("RestoreScope(%T): %v", scopeNode, err)
+	}
+	if _, ok := tc.CurrentScope().LookupVariable(ast.Identifier("x")); !ok {
+		t.Fatal("expected param x after restore")
+	}
+}
+
+func TestNavigationLocals_findInnermostScopeRestores(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func f(x Int): Int {
+	return x
+}
+`
+	nodes, tokens, tc := parseNodesAndTokensForNavigationTest(t, src)
+	usePos, ok := lspPosForNthIdentToken(tokens, "x", 1)
+	if !ok {
+		t.Fatal("use of x")
+	}
+	idx := tokenIndexAtLSPPosition(tokens, usePos)
+	scopeNode := findInnermostScopeNode(nodes, tokens, idx, tc)
+	if scopeNode == nil {
+		t.Fatal("expected scope node")
+	}
+	if err := tc.RestoreScope(scopeNode); err != nil {
+		t.Fatalf("RestoreScope(%T): %v", scopeNode, err)
+	}
+	if _, ok := tc.CurrentScope().LookupVariable(ast.Identifier("x")); !ok {
+		t.Fatal("expected param x after restore")
+	}
+}
+
+func TestNavigationLocals_restoreScopeOnParsedFunctionNode(t *testing.T) {
+	t.Parallel()
+	const src = `package main
+
+func f(x Int): Int {
+	return x
+}
+`
+	nodes, _, tc := parseNodesAndTokensForNavigationTest(t, src)
+	for _, n := range nodes {
+		fn, ok := n.(ast.FunctionNode)
+		if !ok || fn.Ident.ID != "f" {
+			continue
+		}
+		if err := tc.RestoreScope(n); err != nil {
+			t.Fatalf("RestoreScope: %v", err)
+		}
+		if _, ok := tc.CurrentScope().LookupVariable(ast.Identifier("x")); !ok {
+			t.Fatal("expected param x in function scope")
+		}
+		return
+	}
+	t.Fatal("function f not found")
+}
+
 func TestNavigationLocals_lookupSymbolAndSameBinding(t *testing.T) {
 	t.Parallel()
 	const src = `package main

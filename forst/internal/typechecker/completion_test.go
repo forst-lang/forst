@@ -102,17 +102,17 @@ func foo(a: Int) {
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
-	var fooFn *ast.FunctionNode
+	var fooScope ast.Node
 	for _, n := range nodes {
 		if fn, ok := n.(ast.FunctionNode); ok && fn.Ident.ID == "foo" {
-			fooFn = &fn
+			fooScope = n
 			break
 		}
 	}
-	if fooFn == nil {
+	if fooScope == nil {
 		t.Fatal("foo not found")
 	}
-	if err := tc.RestoreScope(fooFn); err != nil {
+	if err := tc.RestoreScope(fooScope); err != nil {
 		t.Fatal(err)
 	}
 	ids := tc.VisibleVariableLikeSymbols()
@@ -145,14 +145,17 @@ func main() {
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatal(err)
 	}
-	var mainFn *ast.FunctionNode
+	var mainScope ast.Node
 	for _, n := range nodes {
 		if fn, ok := n.(ast.FunctionNode); ok && fn.Ident.ID == "main" {
-			mainFn = &fn
+			mainScope = n
 			break
 		}
 	}
-	if err := tc.RestoreScope(mainFn); err != nil {
+	if mainScope == nil {
+		t.Fatal("main not found")
+	}
+	if err := tc.RestoreScope(mainScope); err != nil {
 		t.Fatal(err)
 	}
 	types, err := tc.InferExpressionTypeForCompletion(ast.VariableNode{Ident: ast.Ident{ID: "y"}})

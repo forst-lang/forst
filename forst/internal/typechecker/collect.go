@@ -40,7 +40,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}).Debug("Collecting type definition")
 		tc.registerType(n)
 	case ast.FunctionNode:
-		tc.pushScope(n)
+		tc.pushScope(node)
 
 		if n.Receiver != nil {
 			if n.Receiver.Ident.ID != "" {
@@ -73,15 +73,13 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case *ast.FunctionNode:
 		return tc.collectExplicitTypes(*n)
 	case ast.TypeGuardNode:
-		guard := new(ast.TypeGuardNode)
-		*guard = n
-		tc.pushScope(guard)
+		tc.pushScope(node)
 
 		// Register type guard symbol in global scope
-		tc.globalScope().RegisterSymbol(guard.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
+		tc.globalScope().RegisterSymbol(n.Ident, []ast.TypeNode{{Ident: ast.TypeVoid}}, SymbolTypeGuard)
 
 		// Register parameters in the current scope
-		for _, param := range guard.Parameters() {
+		for _, param := range n.Parameters() {
 			switch p := param.(type) {
 			case ast.SimpleParamNode:
 				tc.log.WithFields(logrus.Fields{
@@ -99,13 +97,15 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}
 
 		// Recursively collect explicit types for each node in the body
-		for _, node := range guard.Body {
-			if err := tc.collectExplicitTypes(node); err != nil {
+		for _, bodyNode := range n.Body {
+			if err := tc.collectExplicitTypes(bodyNode); err != nil {
 				return err
 			}
 		}
 
 		// Register the type guard in the type checker (heap-stable pointer in Defs)
+		guard := new(ast.TypeGuardNode)
+		*guard = n
 		tc.registerTypeGuard(guard)
 
 		tc.popScope()
@@ -119,7 +119,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			"node":     n.String(),
 			"function": "collectExplicitTypes",
 		}).Debug("Storing scope for ensure")
-		tc.pushScope(n)
+		tc.pushScope(node)
 
 		if n.Block != nil {
 			tc.pushScope(n.Block)
@@ -135,7 +135,7 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 	case ast.UseNode:
 		return nil
 	case ast.WithNode:
-		tc.pushScope(n)
+		tc.pushScope(node)
 		for _, node := range n.Body {
 			if err := tc.collectExplicitTypes(node); err != nil {
 				return err
@@ -161,6 +161,13 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			return err
 		}
 	case ast.ElseIfNode:
+		if err := tc.collectExplicitTypes(&n); err != nil {
+			return err
+		}
+	case *ast.ElseIfNode:
+		if n == nil {
+			return nil
+		}
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
 			"function": "collectExplicitTypes",
@@ -178,8 +185,6 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		if n == nil {
 			return nil
 		}
-		return tc.collectExplicitTypes(*n)
-	case ast.ElseBlockNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
 			"function": "collectExplicitTypes",
@@ -193,6 +198,9 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		}
 
 		tc.popScope()
+	case ast.ElseBlockNode:
+		eb := n
+		return tc.collectExplicitTypes(&eb)
 	}
 
 	return nil
@@ -211,8 +219,8 @@ func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
 		}
 	}
 
-	for _, node := range n.ElseIfs {
-		if err := tc.collectExplicitTypes(node); err != nil {
+	for i := range n.ElseIfs {
+		if err := tc.collectExplicitTypes(&n.ElseIfs[i]); err != nil {
 			return err
 		}
 	}

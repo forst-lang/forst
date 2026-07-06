@@ -173,7 +173,7 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			decl := t.transformImportGroup(n)
 			t.Output.AddImportGroup(decl)
 		case ast.FunctionNode:
-			decl, err := t.transformFunction(n)
+			decl, err := t.transformFunction(node, n)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform function %s: %w", n.GetIdent(), err)
 			}

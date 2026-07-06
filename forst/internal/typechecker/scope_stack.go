@@ -77,9 +77,17 @@ func (ss *ScopeStack) currentScope() *Scope {
 
 // restoreScope restores a scope by its AST node
 func (ss *ScopeStack) restoreScope(node ast.Node) error {
+	if node == nil {
+		ss.current = ss.globalScope()
+		return nil
+	}
 	scope, exists := ss.findScope(node)
 	if !exists {
-		return fmt.Errorf("scope not found for node %s", node.String())
+		desc := "<nil>"
+		if node != nil {
+			desc = node.String()
+		}
+		return fmt.Errorf("scope not found for node %s", desc)
 	}
 	ss.current = scope
 	return nil
@@ -116,8 +124,7 @@ func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
 			ss.cacheNodeScopeHash(node, disHash)
 			return disScope, true
 		}
-		ss.cacheNodeScopeHash(node, baseHash)
-		return scope, true
+		return nil, false
 	}
 	disHash, err := ss.Hasher.HashScopeKeyDisambiguated(node, baseHash)
 	if err != nil {

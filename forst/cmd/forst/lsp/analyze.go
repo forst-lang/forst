@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"forst/internal/ast"
-	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/modulecheck"
@@ -90,21 +89,16 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 	}
 
 	moduleRoot := goload.FindModuleRoot(filepath.Dir(filePath))
-	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
 
 	var tc *typechecker.TypeChecker
 	var checkErr error
 	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
-	if modResult != nil && modResult.PerPackage[forstPkg] != nil {
-		tc = modResult.PerPackage[forstPkg]
+	_ = modResult
+	tc = typechecker.New(s.log, false)
+	tc.GoWorkspaceDir = moduleRoot
+	checkErr = tc.CheckTypes(nodes)
+	if modErr != nil && checkErr == nil {
 		checkErr = modErr
-	} else {
-		tc = typechecker.New(s.log, false)
-		tc.GoWorkspaceDir = moduleRoot
-		checkErr = tc.CheckTypes(nodes)
-		if modErr != nil && checkErr == nil {
-			checkErr = modErr
-		}
 	}
 	ctx.Nodes = nodes
 	ctx.TC = tc

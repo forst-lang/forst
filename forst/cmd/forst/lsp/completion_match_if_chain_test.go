@@ -47,7 +47,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromIfBody(t *testing.T) {
 		{Type: ast.TokenRBrace},
 		{Type: ast.TokenRBrace},
 	}
-	scopeNode := matchIfChainFrom(ifNode, tokens, 5, 0, len(tokens), tc)
+	scopeNode := matchIfChainFrom(&ifNode, tokens, 5, 0, len(tokens), tc)
 	if scopeNode == nil {
 		t.Fatal("expected ensure block scope node from if body")
 	}
@@ -94,7 +94,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromElseIfBody(t *testing.T) {
 		{Type: ast.TokenRBrace},
 		{Type: ast.TokenRBrace},
 	}
-	scopeNode := matchIfChainFrom(ifNode, tokens, 8, 0, len(tokens), tc)
+	scopeNode := matchIfChainFrom(&ifNode, tokens, 8, 0, len(tokens), tc)
 	if scopeNode == nil {
 		t.Fatal("expected ensure block scope node from else-if body")
 	}
@@ -139,7 +139,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromElseBody(t *testing.T) {
 		{Type: ast.TokenRBrace},
 		{Type: ast.TokenRBrace},
 	}
-	scopeNode := matchIfChainFrom(ifNode, tokens, 8, 0, len(tokens), tc)
+	scopeNode := matchIfChainFrom(&ifNode, tokens, 8, 0, len(tokens), tc)
 	if scopeNode == nil {
 		t.Fatal("expected ensure block scope node from else body")
 	}
@@ -195,17 +195,20 @@ is (p P) Strong {
 	}
 
 	var guardNode ast.TypeGuardNode
+	var guardScope ast.Node
 	guardFound := false
 	for _, node := range context.Nodes {
 		switch typedNode := node.(type) {
 		case ast.TypeGuardNode:
 			if string(typedNode.Ident) == "Strong" {
 				guardNode = typedNode
+				guardScope = node
 				guardFound = true
 			}
 		case *ast.TypeGuardNode:
 			if typedNode != nil && string(typedNode.Ident) == "Strong" {
 				guardNode = *typedNode
+				guardScope = node
 				guardFound = true
 			}
 		}
@@ -214,11 +217,15 @@ is (p P) Strong {
 		t.Fatal("expected to find Strong type guard node")
 	}
 
-	scopeNodeInside := typeGuardScopeForPosition(guardNode, context.Tokens, leftBrace+1, context.TC)
+	bodyL, _ := typeGuardBodyBraces(context.Tokens, "Strong")
+	if bodyL < 0 {
+		t.Fatal("expected type guard body braces in analyzed file")
+	}
+	scopeNodeInside := typeGuardScopeForPosition(guardScope, guardNode, context.Tokens, bodyL+1, context.TC)
 	if scopeNodeInside == nil {
 		t.Fatal("expected type guard scope node for position inside body")
 	}
-	outsideScope := typeGuardScopeForPosition(guardNode, context.Tokens, 0, context.TC)
+	outsideScope := typeGuardScopeForPosition(guardScope, guardNode, context.Tokens, 0, context.TC)
 	if outsideScope != nil {
 		t.Fatalf("expected nil scope outside type guard body, got %T", outsideScope)
 	}

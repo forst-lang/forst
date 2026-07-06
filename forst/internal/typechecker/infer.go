@@ -37,7 +37,7 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.PackageNode:
 		return nil, nil
 	case ast.FunctionNode:
-		return tc.inferFunctionNode(n)
+		return tc.inferFunctionNode(node)
 
 	case ast.SimpleParamNode:
 		if n.Type.Assertion != nil {
@@ -72,11 +72,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return inferredType, nil
 
 	case ast.EnsureNode:
-		return tc.inferEnsureNode(n)
+		return tc.inferEnsureNode(node)
 	case ast.UseNode:
 		return tc.inferUseNode(n)
 	case ast.WithNode:
-		return tc.inferWithNode(n)
+		return tc.inferWithNode(node)
 	case ast.AssignmentNode:
 		if n.IsPackageLevel {
 			if err := tc.ensurePackageLevelVarRegistered(n); err != nil {
@@ -163,12 +163,12 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		return nil, nil
 
 	case ast.TypeGuardNode, *ast.TypeGuardNode:
-		return tc.inferTypeGuardNode(n)
+		return tc.inferTypeGuardNode(node)
 
 	case ast.IfNode:
-		return tc.inferIfStatement(n)
+		return tc.inferIfStatement(&n)
 	case *ast.IfNode:
-		return tc.inferIfStatement(*n)
+		return tc.inferIfStatement(n)
 
 	case *ast.ForNode:
 		return tc.inferForNode(n)
@@ -227,8 +227,6 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		if n == nil {
 			return nil, nil
 		}
-		return tc.inferNodeType(*n)
-	case ast.ElseBlockNode:
 		tc.pushScope(n)
 		for _, node := range n.Body {
 			if _, err := tc.inferNodeType(node); err != nil {
@@ -237,6 +235,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		tc.popScope()
 		return nil, nil
+	case ast.ElseBlockNode:
+		eb := n
+		return tc.inferNodeType(&eb)
 
 	case ast.CommentNode:
 		return nil, nil

@@ -10,30 +10,28 @@ import "forst/internal/ast"
 // The inference pass still uses the original slice order (see CheckTypes).
 func partitionTopLevelForCollect(nodes []ast.Node) []ast.Node {
 	var pkg, imports, typeDefs, packageVars, typeGuards, funcs, rest []ast.Node
-	for _, n := range nodes {
-		switch n := n.(type) {
+	for _, node := range nodes {
+		switch n := node.(type) {
 		case ast.PackageNode:
-			pkg = append(pkg, n)
+			pkg = append(pkg, node)
 		case ast.ImportNode:
-			imports = append(imports, n)
+			imports = append(imports, node)
 		case ast.ImportGroupNode:
-			imports = append(imports, n)
+			imports = append(imports, node)
 		case ast.TypeDefNode:
-			typeDefs = append(typeDefs, n)
+			typeDefs = append(typeDefs, node)
 		case ast.AssignmentNode:
 			if n.IsPackageLevel {
-				packageVars = append(packageVars, n)
+				packageVars = append(packageVars, node)
 			} else {
-				rest = append(rest, n)
+				rest = append(rest, node)
 			}
-		case ast.TypeGuardNode:
-			typeGuards = append(typeGuards, n)
-		case ast.FunctionNode:
-			funcs = append(funcs, n)
-		case *ast.FunctionNode:
-			funcs = append(funcs, n)
+		case ast.TypeGuardNode, *ast.TypeGuardNode:
+			typeGuards = append(typeGuards, node)
+		case ast.FunctionNode, *ast.FunctionNode:
+			funcs = append(funcs, node)
 		default:
-			rest = append(rest, n)
+			rest = append(rest, node)
 		}
 	}
 	out := make([]ast.Node, 0, len(nodes))
