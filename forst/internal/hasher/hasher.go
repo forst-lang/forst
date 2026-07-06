@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"sync"
 )
 
 // NodeHash is a unique identifier for an AST node
@@ -15,14 +16,16 @@ type NodeHash uint64
 
 // StructuralHasher generates and tracks structural hashes
 type StructuralHasher struct {
-	// Map from hash to type (uint64 is the FNV-1a 64-bit hash)
-	hashes map[NodeHash]ast.TypeNode
+	hashes        map[NodeHash]ast.TypeNode
+	nodeHashCache map[NodeIdentity]NodeHash
+	cacheMu       sync.RWMutex
 }
 
 // New creates a new StructuralHasher
 func New() *StructuralHasher {
 	return &StructuralHasher{
-		hashes: make(map[NodeHash]ast.TypeNode),
+		hashes:        make(map[NodeHash]ast.TypeNode),
+		nodeHashCache: make(map[NodeIdentity]NodeHash),
 	}
 }
 
@@ -118,9 +121,34 @@ func (h *StructuralHasher) writeHashAndNode(w io.Writer, kind uint8, node ast.No
 }
 
 // HashNode generates a structural hash for an AST node.
+func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
+	if node == nil || isNilPointer(node) {
+		return NodeHash(NilHash), nil
+	}
+	if key, ok := NodeIdentityKey(node); ok {
+		h.cacheMu.RLock()
+		cached, hit := h.nodeHashCache[key]
+		h.cacheMu.RUnlock()
+		if hit {
+			return cached, nil
+		}
+	}
+	hash, err := h.hashNodeUncached(node)
+	if err != nil {
+		return 0, err
+	}
+	if key, ok := NodeIdentityKey(node); ok {
+		h.cacheMu.Lock()
+		h.nodeHashCache[key] = hash
+		h.cacheMu.Unlock()
+	}
+	return hash, nil
+}
+
+// hashNodeUncached generates a structural hash without consulting the identity cache.
 //
 //nolint:errcheck // Many branches hash into an in-memory FNV writer; unchecked writeHashes calls mirror checked ones nearby.
-func (h *StructuralHasher) HashNode(node ast.Node) (NodeHash, error) {
+func (h *StructuralHasher) hashNodeUncached(node ast.Node) (NodeHash, error) {
 	hasher := fnv.New64a()
 
 	// Handle nil and typed nils

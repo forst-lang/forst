@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/lexer"
+	"forst/internal/parser"
 
 	"github.com/sirupsen/logrus"
 )
@@ -119,4 +121,36 @@ func TestInferEnsureType_validatesConstraintsLikeBinaryIs(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+// TestCheckTypes_ensureBlockNestedControlFlow verifies inferNodeTypes restores ensure-block
+// scope once while still typechecking nested if/for statements inside the block.
+func TestCheckTypes_ensureBlockNestedControlFlow(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+func F(): Result(String, Error) {
+	s := "hello"
+	ensure s is Min(1) {
+		if s != "" {
+			for i := 0; i < 2; i++ {
+				s = s + "!"
+			}
+		}
+		return s
+	}
+	return s
+}
+`
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
 }

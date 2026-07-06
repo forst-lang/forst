@@ -37,36 +37,32 @@ func (t *Transformer) lookupTypeGuardNode(name string) (*ast.TypeGuardNode, erro
 		"function":  "lookupTypeGuardNode",
 	}).Debug("Starting lookup for type guard")
 
-	for _, def := range t.TypeChecker.Defs {
-		if tg, ok := def.(ast.TypeGuardNode); ok {
-			t.log.WithFields(logrus.Fields{
-				"requested": name,
-				"candidate": tg.GetIdent(),
-				"function":  "lookupTypeGuardNode",
-			}).Trace("candidate check (value)")
-			if tg.GetIdent() == name {
-				t.log.WithFields(logrus.Fields{
-					"requested": name,
-					"found":     true,
-				}).Debug("lookupTypeGuardNode: found match (value)")
-				return &tg, nil
-			}
+	def, ok := t.TypeChecker.Defs[ast.TypeIdent(name)]
+	if !ok {
+		t.log.WithFields(logrus.Fields{
+			"requested": name,
+			"found":     false,
+			"function":  "lookupTypeGuardNode",
+		}).Debug("not found")
+		return nil, fmt.Errorf("type guard not found: %s", name)
+	}
+	switch tg := def.(type) {
+	case ast.TypeGuardNode:
+		t.log.WithFields(logrus.Fields{
+			"requested": name,
+			"found":     true,
+		}).Debug("lookupTypeGuardNode: found match (value)")
+		return &tg, nil
+	case *ast.TypeGuardNode:
+		if tg == nil {
+			break
 		}
-		if tgp, ok := def.(*ast.TypeGuardNode); ok {
-			t.log.WithFields(logrus.Fields{
-				"requested": name,
-				"candidate": tgp.GetIdent(),
-				"function":  "lookupTypeGuardNode",
-			}).Trace("candidate check (pointer)")
-			if tgp.GetIdent() == name {
-				t.log.WithFields(logrus.Fields{
-					"requested": name,
-					"found":     true,
-					"function":  "lookupTypeGuardNode",
-				}).Debug("found match (pointer)")
-				return tgp, nil
-			}
-		}
+		t.log.WithFields(logrus.Fields{
+			"requested": name,
+			"found":     true,
+			"function":  "lookupTypeGuardNode",
+		}).Debug("found match (pointer)")
+		return tg, nil
 	}
 
 	t.log.WithFields(logrus.Fields{

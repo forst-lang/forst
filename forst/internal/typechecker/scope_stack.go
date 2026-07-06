@@ -13,28 +13,32 @@ type NodeHash = hasher.NodeHash
 
 // ScopeStack manages a stack of scopes during type checking
 type ScopeStack struct {
-	scopes  map[NodeHash]*Scope
-	current *Scope
-	Hasher  *hasher.StructuralHasher
-	log     *logrus.Logger
+	scopes        map[NodeHash]*Scope
+	nodeScopeHash map[hasher.NodeIdentity]NodeHash
+	current       *Scope
+	Hasher        *hasher.StructuralHasher
+	log           *logrus.Logger
 }
 
 // NewScopeStack creates a new stack with a global scope
-func NewScopeStack(hasher *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
+func NewScopeStack(h *hasher.StructuralHasher, log *logrus.Logger) *ScopeStack {
 	globalScope := NewScope(nil, nil, log)
 	scopes := make(map[NodeHash]*Scope)
-	hash, err := hasher.HashNode(nil)
+	nodeScopeHash := make(map[hasher.NodeIdentity]NodeHash)
+	hash, err := h.HashNode(nil)
 	if err != nil {
 		log.WithError(err).Error("failed to hash nil node during NewScopeStack")
 		return nil
 	}
 	scopes[hash] = globalScope
+	globalScope.hash = hash
 
 	return &ScopeStack{
-		scopes:  scopes,
-		current: globalScope,
-		Hasher:  hasher,
-		log:     log,
+		scopes:        scopes,
+		nodeScopeHash: nodeScopeHash,
+		current:       globalScope,
+		Hasher:        h,
+		log:           log,
 	}
 }
 
@@ -46,9 +50,16 @@ func (ss *ScopeStack) pushScope(node ast.Node) *Scope {
 		return nil
 	}
 	scope := NewScope(ss.current, &node, ss.log)
+	scope.hash = hash
 	ss.current.Children = append(ss.current.Children, scope)
 	ss.current = scope
 	ss.scopes[hash] = scope
+	if ss.nodeScopeHash == nil {
+		ss.nodeScopeHash = make(map[hasher.NodeIdentity]NodeHash)
+	}
+	if key, ok := hasher.NodeIdentityKey(node); ok {
+		ss.nodeScopeHash[key] = hash
+	}
 	return scope
 }
 
@@ -76,10 +87,23 @@ func (ss *ScopeStack) restoreScope(node ast.Node) error {
 
 // findScope looks up a scope by its AST node
 func (ss *ScopeStack) findScope(node ast.Node) (*Scope, bool) {
+	if ss.nodeScopeHash == nil {
+		ss.nodeScopeHash = make(map[hasher.NodeIdentity]NodeHash)
+	}
+	if key, ok := hasher.NodeIdentityKey(node); ok {
+		if hash, ok := ss.nodeScopeHash[key]; ok {
+			if scope, exists := ss.scopes[hash]; exists {
+				return scope, true
+			}
+		}
+	}
 	hash, err := ss.Hasher.HashNode(node)
 	if err != nil {
 		ss.log.WithError(err).Error("failed to hash node during findScope")
 		return nil, false
+	}
+	if key, ok := hasher.NodeIdentityKey(node); ok {
+		ss.nodeScopeHash[key] = hash
 	}
 	scope, exists := ss.scopes[hash]
 	return scope, exists
@@ -96,7 +120,6 @@ func (ss *ScopeStack) globalScope() *Scope {
 
 // LookupVariableType looks up a variable's type in the current scope stack
 func (ss *ScopeStack) LookupVariableType(name ast.Identifier) ([]ast.TypeNode, bool) {
-	// Start from the current scope and work up through parents
 	scope := ss.current
 	for scope != nil {
 		if types, exists := scope.LookupVariableType(name); exists {

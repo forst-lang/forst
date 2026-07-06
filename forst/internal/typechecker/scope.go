@@ -13,6 +13,7 @@ import (
 type Scope struct {
 	Parent   *Scope
 	Node     *ast.Node
+	hash     NodeHash
 	Symbols  map[ast.Identifier]Symbol
 	Children []*Scope
 	log      *logrus.Logger

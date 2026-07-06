@@ -13,6 +13,7 @@
       "prerelease": false,
       "create-pull-request": true,
       "create-github-release": true,
+<<<<<<< Updated upstream
       "exclude-paths": [
         "packages/"
       ],
@@ -23,6 +24,9 @@
           "jsonpath": "$.forst.compilerRelease"
         }
       ]
+=======
+      "exclude-paths": ["packages/"]
+>>>>>>> Stashed changes
     },
     "packages/vscode-forst": {
       "release-type": "node",
@@ -44,6 +48,7 @@
         "ROADMAP.md",
         "packages/cli/",
         "packages/sidecar/"
+<<<<<<< Updated upstream
       ]
     },
     "packages/cli": {
@@ -73,6 +78,8 @@
           "path": "jsr.json",
           "jsonpath": "$.version"
         }
+=======
+>>>>>>> Stashed changes
       ]
     },
     "packages/sidecar": {
