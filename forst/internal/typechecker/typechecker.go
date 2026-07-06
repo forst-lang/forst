@@ -93,6 +93,10 @@ type TypeChecker struct {
 	siblingTypeDefCache map[ast.TypeIdent]cachedSiblingTypeDef
 	// siblingImportTypeDefCache memoizes resolveForstSiblingTypeInImports (hit and miss).
 	siblingImportTypeDefCache map[string]cachedSiblingTypeDef
+	// shapeAliasIndex lazily maps structural shape / assertion hashes to user type names.
+	shapeAliasIndex *shapeAliasIndex
+	// compatMemo caches IsTypeCompatible results for a single CheckTypes pass.
+	compatMemo map[compatKey]bool
 	// goPackagesPreloaded skips go/packages load in InferTypes when set by InitGoPackagesFromBatch.
 	goPackagesPreloaded bool
 	Warnings              []Diagnostic
@@ -143,6 +147,8 @@ func (tc *TypeChecker) HasDotImportPackages() bool {
 // 1. Collects explicit type declarations and function signatures
 // 2. Infers types for expressions and statements
 func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
+	tc.shapeAliasIndex = nil
+	tc.compatMemo = nil
 	if err := tc.CollectTypes(nodes); err != nil {
 		return err
 	}

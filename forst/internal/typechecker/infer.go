@@ -26,10 +26,12 @@ func (tc *TypeChecker) inferNodeTypes(nodes []ast.Node, scopeNode ast.Node) ([][
 
 // inferNodeType handles type inference for a single node
 func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
-	tc.log.WithFields(logrus.Fields{
-		"node":     node.String(),
-		"function": "inferNodeType",
-	}).Trace("Inferring node type")
+	if tc.log.IsLevelEnabled(logrus.TraceLevel) {
+		tc.log.WithFields(logrus.Fields{
+			"node":     node.String(),
+			"function": "inferNodeType",
+		}).Trace("Inferring node type")
+	}
 
 	switch n := node.(type) {
 	case ast.PackageNode:

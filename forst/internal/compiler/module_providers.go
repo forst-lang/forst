@@ -21,7 +21,7 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	}
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
 	if modResult != nil {
-		if tc := modResult.PerPackage[forstPkg]; tc != nil {
+		if tc := modResult.PerPackage[forstPkg]; tc != nil && !c.typecheckUsesFreshEntryChecker(entryDirFromArgs(c.Args)) {
 			return tc, modResult, nil
 		}
 	}
@@ -70,4 +70,32 @@ func isCompilerWorkspaceModule(modRoot string) bool {
 	}
 	_, err := os.Stat(filepath.Join(modRoot, "cmd", "forst"))
 	return err == nil
+}
+
+func entryDirFromArgs(args Args) string {
+	if args.FilePath == "" {
+		return ""
+	}
+	return filepath.Dir(args.FilePath)
+}
+
+// typecheckUsesFreshEntryChecker is true when modulecheck merges every same-package file
+// in examples/in during the providers pass, which would desync scopes from a single-file compile.
+func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
+	if c.Args.PackageRoot != "" || entryDir == "" {
+		return false
+	}
+	modRoot := goload.FindModuleRoot(entryDir)
+	if !isCompilerWorkspaceModule(modRoot) {
+		return false
+	}
+	examplesIn, err := filepath.Abs(filepath.Join(modRoot, "..", "examples", "in"))
+	if err != nil {
+		return false
+	}
+	absEntry, err := filepath.Abs(entryDir)
+	if err != nil {
+		return false
+	}
+	return absEntry == examplesIn
 }

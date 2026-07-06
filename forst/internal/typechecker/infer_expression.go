@@ -9,10 +9,12 @@ import (
 )
 
 func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error) {
-	tc.log.WithFields(logrus.Fields{
-		"function": "inferExpressionType",
-		"expr":     expr,
-	}).Debugf("Starting type inference for expression")
+	if tc.log.IsLevelEnabled(logrus.DebugLevel) {
+		tc.log.WithFields(logrus.Fields{
+			"function": "inferExpressionType",
+			"expr":     expr,
+		}).Debugf("Starting type inference for expression")
+	}
 	if isLiteralExpression(expr) {
 		if cached, ok, err := tc.lookupCachedExpressionTypes(expr); err != nil {
 			return nil, err
