@@ -1,28 +1,23 @@
 // Providers showcase: `use` in body, `with` at boundary, nested transitive `with`.
 // Tests: providers_test.ft (`forst test`). Golden: examples/out/rfc/providers/providers.go (`task example:providers`).
-
 package providers_demo
 
-type Logger = {
-	info(msg String)
-}
+type Logger = {info(msg String)}
 
-type Clock = {
-	now(): Int
-}
+type Clock = {now(): Int}
 
-type Token = {
-	id:        String,
-	expiresAt: Int,
-}
+type Token = {id: String, expiresAt: Int}
 
 type NopLogger = {}
 
-func (NopLogger) info(msg String) {}
+func (NopLogger) info(msg String) {
+}
 
-type FakeClock = { fixedMs: Int }
+type FakeClock = {fixedMs: Int}
 
-func (c FakeClock) now(): Int { return c.fixedMs }
+func (c FakeClock) now(): Int {
+	return c.fixedMs
+}
 
 func logExpiry(id String) {
 	use logger: Logger

@@ -11,6 +11,7 @@ import (
 )
 
 // TestUpdateExamplesGoldens regenerates committed Go goldens under examples/out/.
+// Formats example .ft inputs (forst fmt) and emits Go via generators.GenerateGoCode (same as the compiler).
 // Run from forst/: UPDATE_EXAMPLES_GOLDENS=1 go test ./cmd/forst -run TestUpdateExamplesGoldens -count=1
 // Or: task examples:update-goldens
 func TestUpdateExamplesGoldens(t *testing.T) {
@@ -94,6 +95,7 @@ func writeExampleGolden(t *testing.T, inPath, outputBasePath string, opts exampl
 	if err != nil {
 		t.Fatal(err)
 	}
+	formatExampleGoldenInputs(t, absIn, opts)
 	code := compileExampleForGolden(t, absIn, opts)
 
 	dest, err := goldenDestForOutputBase(outputBasePath)
@@ -136,10 +138,12 @@ func updateTictactoeGolden(t *testing.T) {
 	entry := filepath.Join(root, "server.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "tictactoe", "server.go")
 
-	code := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{
+	opts := exampleGoldenCompileOpts{
 		packageRoot:        root,
 		exportStructFields: ftconfig.ExportStructFieldsFromDir(root),
-	})
+	}
+	formatExampleGoldenInputs(t, entry, opts)
+	code := compileExampleForGolden(t, entry, opts)
 	if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +159,9 @@ func updateProvidersMergedGolden(t *testing.T) {
 	entry := filepath.Join(root, "providers.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
-	code := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{packageRoot: root})
+	opts := exampleGoldenCompileOpts{packageRoot: root}
+	formatExampleGoldenInputs(t, entry, opts)
+	code := compileExampleForGolden(t, entry, opts)
 	if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -182,6 +188,7 @@ func updateProvidersCrossPkgGolden(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
+		formatExampleFtInPlace(t, tc.entry)
 		c := compiler.New(compiler.Args{
 			Command:  "run",
 			FilePath: tc.entry,
@@ -206,6 +213,7 @@ func updateMapCatalogGolden(t *testing.T) {
 	inPath := filepath.Join("..", "..", "..", "examples", "in", "map_catalog.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "map_catalog.go")
 
+	formatExampleFtInPlace(t, inPath)
 	code := compileExampleForGolden(t, inPath, exampleGoldenCompileOpts{})
 	if err := os.WriteFile(goldenPath, []byte(code), 0o644); err != nil {
 		t.Fatal(err)

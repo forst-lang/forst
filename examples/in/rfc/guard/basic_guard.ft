@@ -3,11 +3,11 @@ package main
 type Password = String
 
 is (password Password) Strong {
-    ensure password is Min(12)
+	ensure password is Min(12)
 }
 
 func main() {
-	password: Password = "12345abc"
+	var password: Password = "12345abc"
 	ensure password is Strong() {
 		println("Detected password as too weak, exiting...")
 	}

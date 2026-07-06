@@ -26,25 +26,25 @@ func main() {
 	}
 	// Slice literal (short decl avoids emitting an unresolved hash-based named type for `[]Int`)
 	xs := [1, 2, 3]
-	// range â no variables
+	// range - no variables
 	for range xs {
 		println("range")
 	}
-	// range â index only
+	// range - index only
 	for idx := range xs {
 		println(string(idx))
 	}
-	// range â index and value
+	// range - index and value
 	for ik, vv := range xs {
 		println(string(ik) + ":" + string(vv))
 	}
-	// range â blank index (use a distinct value name so `:=` is not reused in the same block)
+	// range - blank index (use a distinct value name so `:=` is not reused in the same block)
 	for _, elem := range xs {
 		println(string(elem))
 	}
 	// Go has no `for _ := range` (blank does not count as a new name with `:=`).
 	// Discarding the index is `for range xs` (already above) or bind the index: `for i := range xs` and use `_` only in two-value form.
-	// range â string (index only)
+	// range - string (index only)
 	for si := range "ab" {
 		println(string(si))
 	}

@@ -106,7 +106,7 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		}
 	if e.Operator == ast.TokenPlus {
 		left, right = t.coerceGoStringConcatOperands(e.Left, e.Right, left, right)
-		left, right = t.coerceGoStringPlusAlias(left, right)
+		left, right = t.coerceGoStringPlusAlias(e.Left, e.Right, left, right)
 	}
 		return &goast.BinaryExpr{
 			X:  left,

@@ -10,14 +10,14 @@ type GameState struct {
 }
 // MoveRequest: TypeDefShapeExpr({state: GameState, row: Int, col: Int})
 type MoveRequest struct {
-	State GameState `json:"state"`
-	Row   int       `json:"row"`
 	Col   int       `json:"col"`
+	Row   int       `json:"row"`
+	State GameState `json:"state"`
 }
 // MoveResponse: TypeDefShapeExpr({state: GameState, message: String})
 type MoveResponse struct {
-	State   GameState `json:"state"`
 	Message string    `json:"message"`
+	State   GameState `json:"state"`
 }
 // T_457hjtXXHcE: TypeDefShapeExpr({})
 type T_457hjtXXHcE struct {
@@ -44,18 +44,18 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	}
 	playing := req.State.Status == "playing"
 	if !playing {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("game already finished")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("game already finished")
 	}
 	row := req.Row
 	if row <= -1 {
 		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("row must be >= 0")
 	}
 	if row >= 3 {
-		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("row must be <= 2")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("row must be <= 2")
 	}
 	col := req.Col
 	if col <= -1 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be >= 0")
+		return MoveResponse{State: GameState{Status: "", Cells: nil, NextPlayer: ""}, Message: ""}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
 		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
@@ -63,7 +63,7 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	idx := cellIndex(row, col)
 	cellEmpty := req.State.Cells[idx] == ""
 	if !cellEmpty {
-		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("cell already taken")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("cell already taken")
 	}
 	next := setCell(cloneCells(req.State.Cells), idx, req.State.NextPlayer)
 	np := opponent(req.State.NextPlayer)

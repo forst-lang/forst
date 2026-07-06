@@ -13,10 +13,6 @@ type AppMutation struct {
 // MutationArg: TypeDefShapeExpr({})
 type MutationArg struct {
 }
-// User: TypeDefShapeExpr({name: String})
-type User struct {
-	name string
-}
 // T_488eVThFocF: TypeDefShapeExpr({ctx: AppContext, input: {name: String}})
 type T_488eVThFocF struct {
 	ctx   AppContext
@@ -31,6 +27,7 @@ type T_8XMnUftkRoa struct {
 type T_F1jpghi8Uyp struct {
 	input User
 }
+type T_PBoS2ej5ec7 string
 // T_WLVwGpNp6sG: TypeDefShapeExpr({})
 type T_WLVwGpNp6sG struct {
 }
@@ -40,7 +37,10 @@ type T_bTwM5AcoxRu struct {
 // T_bWZeLfb2t2d: TypeDefShapeExpr({})
 type T_bWZeLfb2t2d struct {
 }
-type T_PBoS2ej5ec7 string
+// User: TypeDefShapeExpr({name: String})
+type User struct {
+	name string
+}
 // Type-level shape guard stub; `ensure m is { field }` is not lowered to runtime checks yet.
 func G_3pdR3GAa1n5(m MutationArg, ctx T_PBoS2ej5ec7) bool {
 	return true
@@ -62,7 +62,7 @@ func createTask(op T_488eVThFocF) (string, error) {
 	if !G_PP94eAdBHT9(op.ctx) {
 		return "", errors.New("assertion failed: AppContext.LoggedIn()")
 	}
-	println("Creating task, logged in with sessionId: " + string(*op.ctx.sessionId))
+	println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 	return op.input.name, nil
 }
 func main() {

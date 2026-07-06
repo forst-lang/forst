@@ -11,6 +11,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/generators"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
 )
@@ -22,13 +23,13 @@ type pipelineOpts struct {
 	skipUnlessDotImport bool   // if true, t.Skip when go/packages did not populate dot-import packages
 }
 
-// compileForstPipeline runs parse → typecheck → transform → go/format on Forst source.
+// compileForstPipeline runs parse → typecheck → transform → generators.GenerateGoCode on Forst source.
 func compileForstPipeline(t *testing.T, src string) string {
 	t.Helper()
 	return compileForstPipelineExt(t, src, pipelineOpts{})
 }
 
-// compileForstPipelineExt runs parse → typecheck → transform → go/format with optional GoWorkspaceDir.
+// compileForstPipelineExt runs parse → typecheck → transform → generators.GenerateGoCode with optional GoWorkspaceDir.
 func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string {
 	t.Helper()
 	log := ast.SetupTestLogger(nil)
@@ -60,11 +61,11 @@ func compileForstPipelineExt(t *testing.T, src string, opts pipelineOpts) string
 		t.Fatalf("transform: %v", err)
 	}
 
-	var buf bytes.Buffer
-	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
-		t.Fatalf("go/format: %v", err)
+	code, err := generators.GenerateGoCode(goFile)
+	if err != nil {
+		t.Fatalf("generate Go: %v", err)
 	}
-	return buf.String()
+	return code
 }
 
 // compileMergedForstFilesPipeline merges multiple .ft files in one package, then typechecks and transforms.
@@ -94,11 +95,11 @@ func compileMergedForstFilesPipeline(t *testing.T, paths []string, opts pipeline
 	if err != nil {
 		t.Fatalf("transform: %v", err)
 	}
-	var buf bytes.Buffer
-	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
-		t.Fatalf("go/format: %v", err)
+	code, err := generators.GenerateGoCode(goFile)
+	if err != nil {
+		t.Fatalf("generate Go: %v", err)
 	}
-	return buf.String()
+	return code
 }
 
 func moduleRootFromWD(t *testing.T) string {

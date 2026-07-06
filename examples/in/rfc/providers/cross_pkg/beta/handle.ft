@@ -3,9 +3,7 @@ package beta
 
 import "providers_cross_pkg_demo/alpha"
 
-type Logger = {
-	Info(msg String),
-}
+type Logger = {Info(msg String)}
 
 func Handle(id String) {
 	alpha.LogExpiry(id)

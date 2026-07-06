@@ -314,6 +314,30 @@ func main() {
 	assertGoParses(t, out)
 }
 
+func TestEmitValidation_stringBuiltinInt(t *testing.T) {
+	src := `package main
+
+func main() {
+	println(string(42))
+	xs := [10, 20]
+	for i, v := range xs {
+		println(string(i) + ":" + string(v))
+	}
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `strconv.Itoa`) {
+		t.Fatalf("expected Itoa for string(int):\n%s", out)
+	}
+	if strings.Contains(out, `string(42)`) || strings.Contains(out, `string(i)`) || strings.Contains(out, `string(string(`) {
+		t.Fatalf("expected no Go string(int) or double-wrap:\n%s", out)
+	}
+	if !strings.Contains(out, `strconv.Itoa(i) + ":" + strconv.Itoa(v)`) {
+		t.Fatalf("expected Itoa concat for string(i) + \":\" + string(v):\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
 func TestEmitValidation_providersCrossFunctionCall(t *testing.T) {
 	src := `package main
 

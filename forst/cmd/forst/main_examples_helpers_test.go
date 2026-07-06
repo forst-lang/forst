@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"go/format"
-	"go/token"
 	"io"
 	"io/fs"
 	"os"
@@ -14,10 +12,12 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/generators"
 	"forst/internal/goload"
 	"forst/internal/parser"
-	"forst/internal/typechecker"
+	"forst/internal/printer"
 	transformergo "forst/internal/transformer/go"
+	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
 )
@@ -58,6 +58,62 @@ func exampleTestLogger() *logrus.Logger {
 type exampleGoldenCompileOpts struct {
 	exportStructFields bool
 	packageRoot        string // non-empty merges same-package .ft under root (excludes *_test.ft)
+}
+
+// formatExampleFtInPlace applies the same formatting as `forst fmt` (default flags).
+func formatExampleFtInPlace(t *testing.T, path string) {
+	t.Helper()
+	log := exampleTestLogger()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	src := string(b)
+	formatted := printer.FormatDocument(src, path, 8, false, log)
+	if formatted == src {
+		return
+	}
+	p := parser.NewTestParser(formatted, log)
+	if !exampleFtFormattedSourceParses(p) {
+		t.Logf("skip fmt %s: formatted source does not parse: %v", path, err)
+		return
+	}
+	perm := fs.FileMode(0o644)
+	if info, statErr := os.Stat(path); statErr == nil {
+		perm = info.Mode() & fs.ModePerm
+	}
+	if err := os.WriteFile(path, []byte(formatted), perm); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	t.Logf("formatted %s", path)
+}
+
+// formatExampleGoldenInputs runs forst fmt on the .ft sources that feed a golden compile.
+func formatExampleGoldenInputs(t *testing.T, absEntry string, opts exampleGoldenCompileOpts) {
+	t.Helper()
+	log := exampleTestLogger()
+	if opts.packageRoot != "" {
+		paths, err := collectSamePackageExampleFtPaths(log, opts.packageRoot, absEntry)
+		if err != nil {
+			t.Fatalf("collectSamePackageExampleFtPaths(%s): %v", absEntry, err)
+		}
+		for _, p := range paths {
+			formatExampleFtInPlace(t, p)
+		}
+		return
+	}
+	formatExampleFtInPlace(t, absEntry)
+}
+
+// exampleFtFormattedSourceParses returns false when ParseFile panics or returns an error.
+func exampleFtFormattedSourceParses(p *parser.Parser) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	_, err := p.ParseFile()
+	return err == nil
 }
 
 // compileExampleForGolden emits Go for a single example using an isolated pipeline.
@@ -101,11 +157,11 @@ func compileExampleForGolden(t *testing.T, absEntry string, opts exampleGoldenCo
 		t.Fatalf("transform %s: %v", absEntry, err)
 	}
 
-	var buf bytes.Buffer
-	if err := format.Node(&buf, token.NewFileSet(), goFile); err != nil {
+	code, err := generators.GenerateGoCode(goFile)
+	if err != nil {
 		t.Fatalf("format %s: %v", absEntry, err)
 	}
-	return buf.String()
+	return code
 }
 
 func collectSamePackageExampleFtPaths(log *logrus.Logger, rootDir, entryPath string) ([]string, error) {

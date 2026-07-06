@@ -1,5 +1,5 @@
 package main
 
 func greeting(): String {
-  return "Hello"
+	return "Hello"
 }

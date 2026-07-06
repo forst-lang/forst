@@ -2,10 +2,7 @@ package providers_demo
 
 // Wiring-root demo: satisfy expireToken's transitive Logger + Clock at a host entry point.
 func mainWiringDemo() {
-	with {
-		Logger: &NopLogger{},
-		Clock:  &FakeClock { fixedMs: 0 },
-	} {
-		expireToken(Token { id: "x", expiresAt: 1 })
+	with {Logger: &NopLogger{}, Clock: &FakeClock{fixedMs: 0}} {
+		expireToken(Token{id: "x", expiresAt: 1})
 	}
 }

@@ -3,28 +3,15 @@ package main
 import "errors"
 
 // --- Domain and wire types (stateless session: board + turn carried by the client)
-
 // GameState.status is one of: "playing" | "x_won" | "o_won" | "draw"
-type GameState = {
-	cells:      []String,
-	nextPlayer: String,
-	status:     String,
-}
+type GameState = {cells: []String, nextPlayer: String, status: String}
 
-type MoveRequest = {
-	state: GameState,
-	row:   Int,
-	col:   Int,
-}
+type MoveRequest = {state: GameState, row: Int, col: Int}
 
-type MoveResponse = {
-	state:   GameState,
-	message: String,
-}
+type MoveResponse = {state: GameState, message: String}
 
 // --- Shape guards (structural invariants)
-
-is (g GameState) ValidBoard() {
+is (g GameState) ValidBoard {
 	ensure g.cells is Min(9)
 	ensure g.cells is Max(9)
 }
@@ -38,7 +25,7 @@ func emptyBoard(): []String {
 }
 
 func cellIndex(row Int, col Int): Int {
-	return row*3 + col
+	return row * 3 + col
 }
 
 func getCell(cells []String, idx Int): String {
@@ -108,21 +95,24 @@ func terminalStatusForWinner(w String): String {
 func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	ensure req.state is ValidBoard()
 	playing := req.state.status == "playing"
-	ensure playing is True() or invalidMove("game already finished")
-
+	ensure playing is True()
+	    or invalidMove("game already finished")
 	row := req.row
-	ensure row is GreaterThan(-1) or invalidMove("row must be >= 0")
-	ensure row is LessThan(3) or invalidMove("row must be <= 2")
+	ensure row is GreaterThan(-1)
+	    or invalidMove("row must be >= 0")
+	ensure row is LessThan(3)
+	    or invalidMove("row must be <= 2")
 	col := req.col
-	ensure col is GreaterThan(-1) or invalidMove("col must be >= 0")
-	ensure col is LessThan(3) or invalidMove("col must be <= 2")
+	ensure col is GreaterThan(-1)
+	    or invalidMove("col must be >= 0")
+	ensure col is LessThan(3)
+	    or invalidMove("col must be <= 2")
 	idx := cellIndex(row, col)
 	cellEmpty := req.state.cells[idx] == ""
-	ensure cellEmpty is True() or invalidMove("cell already taken")
-
+	ensure cellEmpty is True()
+	    or invalidMove("cell already taken")
 	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
 	np := opponent(req.state.nextPlayer)
-
 	w := winnerOrEmpty(next)
 	status := req.state.status
 	if w != "" {
@@ -132,24 +122,15 @@ func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	} else {
 		status = "playing"
 	}
-
 	return {
-		message: "ok",
-		state: {
-			cells:      next,
-			nextPlayer: np,
-			status:     status,
-		},
-	}
+	message: "ok",
+	state: {cells: next, nextPlayer: np, status: status},
+}
 }
 
 func NewGame(): GameState {
 	board := emptyBoard()
-	return {
-		cells:      board,
-		nextPlayer: "X",
-		status:     "playing",
-	}
+	return {cells: board, nextPlayer: "X", status: "playing"}
 }
 
 func PlayMove(req MoveRequest): Result(MoveResponse, Error) {

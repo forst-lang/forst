@@ -3,32 +3,32 @@ package main
 import "fmt"
 
 func mustBeARealName(name String) {
-    ensure name is Min(1)
-        or TooShort("Name must be at least 1 character long")
+	ensure name is Min(1)
+	    or TooShort("Name must be at least 1 character long")
 }
 
 func mustNotExceedSpeedLimit(speed Int) {
-    ensure speed is LessThan(100)
-        or TooFast("Speed must not exceed 100 km/h")
+	ensure speed is LessThan(100)
+	    or TooFast("Speed must not exceed 100 km/h")
 }
 
 func checkConditions() {
-    err := mustBeARealName("John")
-    ensure err is Nil()
-        or err
-    speed := 80
-    err = mustNotExceedSpeedLimit(speed)
-    ensure !err
-        or err
-    return 20
+	err := mustBeARealName("John")
+	ensure err is Nil()
+	    or err
+	speed := 80
+	err = mustNotExceedSpeedLimit(speed)
+	ensure !err
+	    or err
+	return 20
 }
 
 func main() {
-    result := checkConditions()
-    ensure result is Ok() {
-        fmt.Printf("Conditions not met: %s", result.Error())
-        fmt.Println()
-    }
-    fmt.Printf("Conditions met (value %d), program exiting successfully", result)
-    fmt.Println()
+	result := checkConditions()
+	ensure result is Ok() {
+		fmt.Printf("Conditions not met: %s", result.Error())
+		fmt.Println()
+	}
+	fmt.Printf("Conditions met (value %d), program exiting successfully", result)
+	fmt.Println()
 }

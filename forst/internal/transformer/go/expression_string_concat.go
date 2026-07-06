@@ -24,15 +24,16 @@ func (t *Transformer) coerceGoStringConcatOperands(left, right ast.ExpressionNod
 }
 
 // coerceGoStringPlusAlias ensures `"text" + alias` lowers to Go string concatenation (not typed alias +).
-func (t *Transformer) coerceGoStringPlusAlias(leftGo, rightGo goast.Expr) (goast.Expr, goast.Expr) {
-	wrap := func(expr goast.Expr) goast.Expr {
-		return &goast.CallExpr{Fun: goast.NewIdent("string"), Args: []goast.Expr{expr}}
+func (t *Transformer) coerceGoStringPlusAlias(left, right ast.ExpressionNode, leftGo, rightGo goast.Expr) (goast.Expr, goast.Expr) {
+	if bl, ok := rightGo.(*goast.BasicLit); ok && bl.Kind == token.STRING {
+		if lt, err := t.TypeChecker.LookupInferredType(left, false); err == nil && len(lt) == 1 {
+			leftGo = t.coerceGoStringAliasExprForType(leftGo, lt[0])
+		}
 	}
 	if bl, ok := leftGo.(*goast.BasicLit); ok && bl.Kind == token.STRING {
-		rightGo = wrap(rightGo)
-	}
-	if bl, ok := rightGo.(*goast.BasicLit); ok && bl.Kind == token.STRING {
-		leftGo = wrap(leftGo)
+		if rt, err := t.TypeChecker.LookupInferredType(right, false); err == nil && len(rt) == 1 {
+			rightGo = t.coerceGoStringAliasExprForType(rightGo, rt[0])
+		}
 	}
 	return leftGo, rightGo
 }

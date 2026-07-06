@@ -3,6 +3,7 @@ package main
 import "fmt"
 import errors "errors"
 import os "os"
+import strconv "strconv"
 
 var errMissingMapKey = errors.New("missing map key")
 
@@ -19,6 +20,6 @@ func main() {
 	if !(availErr == nil) {
 		os.Exit(1)
 	}
-	fmt.Println(string(avail))
+	fmt.Println(strconv.Itoa(avail))
 	fmt.Println("ok")
 }
