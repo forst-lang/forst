@@ -17,35 +17,32 @@ func (tc *TypeChecker) resolveAliasedType(typeNode ast.TypeNode) ast.TypeNode {
 	if !isHashLike {
 		return typeNode
 	}
-	hashDef, hashExists := tc.Defs[typeNode.Ident]
-	if hashExists {
-		if hashTypeDef, ok := hashDef.(ast.TypeDefNode); ok {
-			if _, ok := hashTypeDef.Expr.(ast.TypeDefShapeExpr); ok {
-				if alias, ok := tc.lookupShapeAliasForHashType(typeNode); ok {
-					tc.log.WithFields(logrus.Fields{
-						"hashType":    typeNode.Ident,
-						"aliasedType": alias,
-						"function":    "resolveAliasedType",
-					}).Debug("Resolved hash-based type to aliased type")
-					return ast.TypeNode{
-						Ident:      alias,
-						TypeKind:   ast.TypeKindUserDefined,
-						Assertion:  typeNode.Assertion,
-						TypeParams: typeNode.TypeParams,
-					}
-				}
-			}
+	if alias, ok := tc.lookupShapeAliasForHashType(typeNode); ok {
+		if tc.log.IsLevelEnabled(logrus.DebugLevel) {
+			tc.log.WithFields(logrus.Fields{
+				"hashType":    typeNode.Ident,
+				"aliasedType": alias,
+				"function":    "resolveAliasedType",
+			}).Debug("Resolved hash-based type to aliased type")
+		}
+		return ast.TypeNode{
+			Ident:      alias,
+			TypeKind:   ast.TypeKindUserDefined,
+			Assertion:  typeNode.Assertion,
+			TypeParams: typeNode.TypeParams,
 		}
 	}
 	// type Name = <assertion>: narrowing `x is Name` uses InferAssertionType's structural hash (T_…).
 	// That hash matches HashNode(AssertionNode{BaseType: Name}), not the typedef's inner assertion.
 	if strings.HasPrefix(string(typeNode.Ident), "T_") {
 		if alias, ok := tc.lookupAssertionAliasForHashIdent(typeNode.Ident); ok {
-			tc.log.WithFields(logrus.Fields{
-				"hashType":    typeNode.Ident,
-				"aliasedType": alias,
-				"function":    "resolveAliasedType",
-			}).Debug("Resolved assertion refinement hash to type alias")
+			if tc.log.IsLevelEnabled(logrus.DebugLevel) {
+				tc.log.WithFields(logrus.Fields{
+					"hashType":    typeNode.Ident,
+					"aliasedType": alias,
+					"function":    "resolveAliasedType",
+				}).Debug("Resolved assertion refinement hash to type alias")
+			}
 			return ast.TypeNode{
 				Ident:      alias,
 				TypeKind:   ast.TypeKindUserDefined,

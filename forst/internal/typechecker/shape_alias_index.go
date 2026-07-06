@@ -3,6 +3,7 @@ package typechecker
 import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
+	"sort"
 	"strings"
 )
 
@@ -19,6 +20,8 @@ func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
 		byShapeHash:          make(map[hasher.NodeHash]ast.TypeIdent),
 		byAssertionTypeIdent: make(map[ast.TypeIdent]ast.TypeIdent),
 	}
+	shapeCandidates := make(map[hasher.NodeHash][]ast.TypeIdent)
+	assertionCandidates := make(map[ast.TypeIdent][]ast.TypeIdent)
 	for _, def := range tc.Defs {
 		userDef, ok := def.(ast.TypeDefNode)
 		if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
@@ -29,7 +32,7 @@ func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
 			if err != nil {
 				continue
 			}
-			idx.byShapeHash[h] = userDef.Ident
+			shapeCandidates[h] = append(shapeCandidates[h], userDef.Ident)
 		}
 		if _, ok := typeDefAssertionFromExpr(userDef.Expr); ok {
 			bt := userDef.Ident
@@ -38,11 +41,28 @@ func (tc *TypeChecker) shapeAliasIndexOrBuild() *shapeAliasIndex {
 			if err != nil {
 				continue
 			}
-			idx.byAssertionTypeIdent[h.ToTypeIdent()] = userDef.Ident
+			key := h.ToTypeIdent()
+			assertionCandidates[key] = append(assertionCandidates[key], userDef.Ident)
 		}
+	}
+	for h, idents := range shapeCandidates {
+		idx.byShapeHash[h] = stableTypeIdentWinner(idents)
+	}
+	for key, idents := range assertionCandidates {
+		idx.byAssertionTypeIdent[key] = stableTypeIdentWinner(idents)
 	}
 	tc.shapeAliasIndex = idx
 	return idx
+}
+
+func stableTypeIdentWinner(idents []ast.TypeIdent) ast.TypeIdent {
+	if len(idents) == 0 {
+		return ""
+	}
+	sort.Slice(idents, func(i, j int) bool {
+		return idents[i] < idents[j]
+	})
+	return idents[0]
 }
 
 func (tc *TypeChecker) lookupShapeAliasForHashType(typeNode ast.TypeNode) (ast.TypeIdent, bool) {

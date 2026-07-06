@@ -127,11 +127,8 @@ func TestTypecheckForCompile_usesPerPackageWhenPresent(t *testing.T) {
 	if modResult.PerPackage[pkg] == nil {
 		t.Fatal("expected module PerPackage entry")
 	}
-	if c.typecheckUsesFreshEntryChecker(filepath.Dir(basic)) {
-		if tc == modResult.PerPackage[pkg] {
-			t.Fatal("examples/in entry compile must re-typecheck the entry file AST")
-		}
-	} else if modResult.PerPackage[pkg] != tc {
+	// Rebind path reuses the module PerPackage checker after CheckTypes on entry nodes.
+	if tc != modResult.PerPackage[pkg] {
 		t.Fatal("expected typechecker from module PerPackage map")
 	}
 }
