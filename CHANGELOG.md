@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/forst-lang/forst/compare/v0.5.9...v0.6.0) (2026-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* Manual AST builders and walkers must use []ExpressionNode for array literal elements instead of []LiteralNode.
+
+### Features
+
+* **lsp:** support new syntax and module-wide analysis in the editor ([e21974b](https://github.com/forst-lang/forst/commit/e21974b3a90dd7d0e4b26cf03279969c9509cf29))
+* **parser:** add postfix calls, package vars, typed literals, and Int conversions ([e21974b](https://github.com/forst-lang/forst/commit/e21974b3a90dd7d0e4b26cf03279969c9509cf29))
+* **testrunner:** emit test-only Go when z_forst_gen.go exists ([1b2dd3e](https://github.com/forst-lang/forst/commit/1b2dd3e3467daf91644eaf49fa46a3e82b46a2bb))
+* **typechecker:** split collect/infer and resolve sibling Forst package types ([e21974b](https://github.com/forst-lang/forst/commit/e21974b3a90dd7d0e4b26cf03279969c9509cf29))
+* **typechecker:** typecheck unqualified Go calls in mixed .go+.ft packages ([65f1b48](https://github.com/forst-lang/forst/commit/65f1b48ceae2e24bd9cbd002cf6c2bee227c6ca9))
+
+
+### Bug Fixes
+
+* **compiler:** exclude *_test.ft from -root package merge ([1b2dd3e](https://github.com/forst-lang/forst/commit/1b2dd3e3467daf91644eaf49fa46a3e82b46a2bb))
+* infer nested inline shapes and emit typed array literals ([03b9eaf](https://github.com/forst-lang/forst/commit/03b9eafc25cb4971b8a42cb78f71e0bf52e13fce))
+* **parser:** disambiguate qualified params from shape-guard assertions ([61701f3](https://github.com/forst-lang/forst/commit/61701f3736e70f1872545006a854fe0a5c996e05))
+* **transformer:** lower string(int) to strconv.Itoa ([9ba951f](https://github.com/forst-lang/forst/commit/9ba951f2d4c8d56b999af6c5913cdb72f9213fc3))
+* **transformer:** omit json tags on unexported struct fields ([1439a70](https://github.com/forst-lang/forst/commit/1439a7086545d1bcac81915b7580cf8d6304f1c8))
+* **transformer:** resolve sibling package types in struct and array literals ([fa8c72f](https://github.com/forst-lang/forst/commit/fa8c72f36c924f1bce957e78acfaa8091b6a9e3e))
+* **typechecker:** improve Go interop for tests and builtins ([61701f3](https://github.com/forst-lang/forst/commit/61701f3736e70f1872545006a854fe0a5c996e05))
+* **typechecker:** resolve Go imported package selectors ([e7846f4](https://github.com/forst-lang/forst/commit/e7846f4c856d8fcb62b41f93e4f7f26000c40667))
+* **typechecker:** resolve sibling imports across Forst packages ([61701f3](https://github.com/forst-lang/forst/commit/61701f3736e70f1872545006a854fe0a5c996e05))
+
 ## [0.5.9](https://github.com/forst-lang/forst/compare/v0.5.8...v0.5.9) (2026-07-05)
 
 
