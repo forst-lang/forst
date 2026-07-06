@@ -16,10 +16,10 @@
     ```go
     // forst build
     func TestExpireToken_expired(t *testing.T) {
-    	token := Token{ID: "t1", ExpiresAt: 500}
+    	token := Token{id: "t1", expiresAt: 500}
     	providers := Providers_expireToken{
     		Logger: &NopLogger{},
-    		Clock:  &FakeClock{FixedMs: 1000},
+    		Clock:  &FakeClock{fixedMs: 1000},
     	}
     	expireToken(providers, token)
     }

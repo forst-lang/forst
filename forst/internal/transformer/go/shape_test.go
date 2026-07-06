@@ -94,6 +94,66 @@ func TestResolveFieldToShape_directAndTypedef(t *testing.T) {
 	}
 }
 
+func TestTransformShapeType_jsonTagsGatedOnExportStructFields(t *testing.T) {
+	shape := &ast.ShapeNode{
+		Fields: map[string]ast.ShapeFieldNode{
+			"id":        {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			"expiresAt": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
+		},
+		FieldOrder: []string{"id", "expiresAt"},
+	}
+
+	t.Run("default omits json tags", func(t *testing.T) {
+		tc := typechecker.New(setupTestLogger(nil), false)
+		tr := setupTransformer(tc, setupTestLogger(nil))
+
+		expr, err := tr.transformShapeType(shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st, ok := (*expr).(*goast.StructType)
+		if !ok {
+			t.Fatalf("expected StructType, got %T", *expr)
+		}
+		for _, f := range st.Fields.List {
+			if f.Tag != nil {
+				t.Fatalf("expected no json tag on unexported field %s, got %v", f.Names[0].Name, f.Tag.Value)
+			}
+			if f.Names[0].Name != "id" && f.Names[0].Name != "expiresAt" {
+				t.Fatalf("expected lowercase field names, got %s", f.Names[0].Name)
+			}
+		}
+	})
+
+	t.Run("export emits json tags", func(t *testing.T) {
+		tc := typechecker.New(setupTestLogger(nil), false)
+		tr := New(tc, setupTestLogger(nil), true)
+
+		expr, err := tr.transformShapeType(shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st, ok := (*expr).(*goast.StructType)
+		if !ok {
+			t.Fatalf("expected StructType, got %T", *expr)
+		}
+		want := map[string]string{
+			"Id":        "`json:\"id\"`",
+			"ExpiresAt": "`json:\"expiresAt\"`",
+		}
+		for _, f := range st.Fields.List {
+			name := f.Names[0].Name
+			tag, ok := want[name]
+			if !ok {
+				t.Fatalf("unexpected field %s", name)
+			}
+			if f.Tag == nil || f.Tag.Value != tag {
+				t.Fatalf("field %s: got tag %v, want %s", name, f.Tag, tag)
+			}
+		}
+	})
+}
+
 func TestTransformMethodOnlyShapeAsInterface_emitsGoInterface(t *testing.T) {
 	tc := typechecker.New(setupTestLogger(nil), false)
 	tr := setupTransformer(tc, setupTestLogger(nil))

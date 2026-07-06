@@ -15,11 +15,11 @@
     if availErr != nil {
     	return availErr
     }
-    if in.Quantity > avail {
+    if in.quantity > avail {
     	return InsufficientStock{
-    		StockKeepingUnit: in.StockKeepingUnit,
-    		Requested:        in.Quantity,
-    		Available:        avail,
+    		stockKeepingUnit: in.stockKeepingUnit,
+    		requested:        in.quantity,
+    		available:        avail,
     	}
     }
     ```

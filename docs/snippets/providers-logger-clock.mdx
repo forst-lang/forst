@@ -25,19 +25,27 @@
   <Tab title="Generated Go">
     ```go
     // forst build
-    type Logger struct{}
-    func (Logger) Info(msg string) { /* ... */ }
+    type Logger interface {
+    	info(msg string)
+    }
 
-    type Clock struct{}
-    func (Clock) Now() int { /* ... */ }
+    type Clock interface {
+    	now() int
+    }
+
+    type Token struct {
+    	expiresAt int
+    	id        string
+    }
 
     func logExpiry(providers Providers_logExpiry, id string) {
-    	providers.Logger.Info("expire " + id)
+    	providers.Logger.info("expire " + id)
     }
 
     func expireToken(providers Providers_expireToken, token Token) {
-    	if token.ExpiresAt < providers.Clock.Now() {
-    		logExpiry(providers, token.ID)
+    	clock := providers.Clock
+    	if token.expiresAt < clock.now() {
+    		logExpiry(providers, token.id)
     	}
     }
     ```

@@ -671,11 +671,14 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 		if t.ExportReturnStructFields {
 			goFieldName = capitalizeFirst(name)
 		}
-		fields = append(fields, &goast.Field{
+		goField := &goast.Field{
 			Names: []*goast.Ident{goast.NewIdent(goFieldName)},
 			Type:  *fieldType,
-			Tag:   &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"},
-		})
+		}
+		if t.ExportReturnStructFields {
+			goField.Tag = &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"}
+		}
+		fields = append(fields, goField)
 	}
 	result := goast.StructType{
 		Fields: &goast.FieldList{

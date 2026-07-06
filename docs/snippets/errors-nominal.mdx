@@ -20,9 +20,9 @@
     }
 
     type InsufficientStock struct {
-    	StockKeepingUnit string
-    	Requested        int
-    	Available        int
+    	stockKeepingUnit string
+    	requested        int
+    	available        int
     }
 
     func (e InsufficientStock) Error() string { /* ... */ }

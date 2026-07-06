@@ -5,7 +5,7 @@ type Clock interface {
 }
 // FakeClock: TypeDefShapeExpr({fixedMs: Int})
 type FakeClock struct {
-	fixedMs int `json:"fixedMs"`
+	fixedMs int
 }
 // Logger: TypeDefShapeExpr({info: ?})
 type Logger interface {
@@ -23,8 +23,8 @@ type Providers_Pm6dPg3hV64 struct {
 }
 // Token: TypeDefShapeExpr({id: String, expiresAt: Int})
 type Token struct {
-	expiresAt int    `json:"expiresAt"`
-	id        string `json:"id"`
+	expiresAt int
+	id        string
 }
 
 func expireToken(providers Providers_Pm6dPg3hV64, token Token) {

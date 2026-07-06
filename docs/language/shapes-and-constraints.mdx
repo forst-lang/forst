@@ -97,6 +97,8 @@ Invalid nested data fails at the same boundary. You do not re-walk the tree in a
 
 The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import. Parameter prologue validation (automatic checks before your function body) is not emitted yet—use `ensure` explicitly today.
 
+By default, shape struct fields lower to **unexported** Go identifiers (matching Forst camelCase field names) with **no** `json` tags. For wire serialization with `encoding/json`, pass **`-export-struct-fields`** on `forst run` / `forst build`, or set **`compiler.exportStructFields`: true** in `ftconfig.json` (used by `forst dev`). That emits exported field names and `json:"fieldName"` tags aligned with TypeScript generate output.
+
 ## Try it
 
 From the Forst repository:

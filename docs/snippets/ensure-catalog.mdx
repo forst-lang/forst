@@ -13,15 +13,15 @@
   <Tab title="Generated Go">
     ```go
     // forst build
-    avail, ok := catalog[in.StockKeepingUnit]
+    avail, ok := catalog[in.stockKeepingUnit]
     if !ok {
     	return /* missing key error */
     }
-    if in.Quantity > avail {
+    if in.quantity > avail {
     	return InsufficientStock{
-    		StockKeepingUnit: in.StockKeepingUnit,
-    		Requested:        in.Quantity,
-    		Available:        avail,
+    		stockKeepingUnit: in.stockKeepingUnit,
+    		requested:        in.quantity,
+    		available:        avail,
     	}
     }
     ```

@@ -11,6 +11,8 @@ Forst transpiles to **Go**. You keep the same module graph, deployment, and ecos
 
 Every `.ft` file compiles to Go source in your module. The output is an ordinary, readable Go source file. Struct fields, error returns, and control flow follow familiar Go patterns.
 
+Shape fields lower to unexported Go identifiers by default. For JSON marshaling (sidecar invoke, HTTP handlers), enable **`-export-struct-fields`** or **`compiler.exportStructFields`** in `ftconfig.json` to emit exported fields with `json` tags.
+
 ```bash
 npx forst build handlers/orders.ft
 ```

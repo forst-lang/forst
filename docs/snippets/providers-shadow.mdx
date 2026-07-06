@@ -21,9 +21,9 @@
     }
     inner := Providers_expireToken{
     	Logger: outer.Logger,
-    	Clock:  &FakeClock{FixedMs: 2000},
+    	Clock:  &FakeClock{fixedMs: 2000},
     }
-    expireToken(inner, Token{ID: "t1", ExpiresAt: 500})
+    expireToken(inner, Token{id: "t1", expiresAt: 500})
     ```
   </Tab>
 </Tabs>
