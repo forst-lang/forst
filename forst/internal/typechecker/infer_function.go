@@ -137,7 +137,11 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	// Handle ensure statements
 	if hasEnsure {
-		if len(inferredType) == 0 {
+		if fn.HasTestFunctionName() {
+			if len(inferredType) == 0 {
+				inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
+			}
+		} else if len(inferredType) == 0 {
 			if len(parsedType) == 1 && parsedType[0].IsResultType() {
 				inferredType = parsedType
 			} else {

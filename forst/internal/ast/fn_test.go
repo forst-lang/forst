@@ -31,4 +31,18 @@ func TestFunctionNode_helpers(t *testing.T) {
 	if other.HasExplicitReturnType() {
 		t.Fatal("no return type")
 	}
+	testFn := FunctionNode{
+		Ident: Ident{ID: "TestFoo"},
+		Params: []ParamNode{
+			SimpleParamNode{Ident: Ident{ID: "t"}, Type: TypeNode{Ident: TypePointer, TypeParams: []TypeNode{{Ident: "testing.T"}}}},
+		},
+		Body: []Node{},
+	}
+	if !testFn.HasTestFunctionName() {
+		t.Fatal("expected test function name")
+	}
+	noParams := FunctionNode{Ident: Ident{ID: "TestNoParams"}, Params: []ParamNode{}, Body: []Node{}}
+	if noParams.HasTestFunctionName() {
+		t.Fatal("Test* without *testing.T param is not a test function")
+	}
 }

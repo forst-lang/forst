@@ -38,6 +38,20 @@ func IsPublicExportIdent(id Identifier) bool {
 	return unicode.IsUpper(rune(s[0]))
 }
 
+// TestingTParamIdent returns the identifier of the first *testing.T simple param, if any.
+func TestingTParamIdent(fn FunctionNode) (Identifier, bool) {
+	for _, p := range fn.Params {
+		sp, ok := p.(SimpleParamNode)
+		if !ok {
+			continue
+		}
+		if IsTestingTParamType(sp.Type) {
+			return sp.Ident.ID, true
+		}
+	}
+	return "", false
+}
+
 // ParamTypesFromFunction collects parameter types from simple params (skips destructured).
 func ParamTypesFromFunction(fn FunctionNode) []TypeNode {
 	var types []TypeNode

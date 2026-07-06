@@ -43,3 +43,31 @@ func f() {
 		t.Fatalf("fixedMs field: %v", clockShape.Fields["fixedMs"].Node)
 	}
 }
+
+func TestParseValue_qualifiedPointerCompositeLiteral(t *testing.T) {
+	src := `package main
+func f() {
+	with {
+		Widget: &pkg.Widget {},
+	} {
+		x := 1
+	}
+}`
+	p := NewTestParser(src, nil)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	fn := assertNodeType[ast.FunctionNode](t, nodes[1], "FunctionNode")
+	with := assertNodeType[ast.WithNode](t, fn.Body[0], "WithNode")
+	shape, ok := with.Wiring.(ast.ShapeNode)
+	if !ok {
+		t.Fatalf("wiring type %T", with.Wiring)
+	}
+
+	widgetRef := assertNodeType[ast.ReferenceNode](t, shape.Fields["Widget"].Node, "ReferenceNode")
+	widgetShape := assertNodeType[ast.ShapeNode](t, widgetRef.Value, "ShapeNode")
+	if widgetShape.BaseType == nil || string(*widgetShape.BaseType) != "pkg.Widget" {
+		t.Fatalf("Widget base type: %v", widgetShape.BaseType)
+	}
+}

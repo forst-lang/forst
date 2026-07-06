@@ -174,3 +174,86 @@ func main() {
 		}
 	}
 }
+
+func TestPipeline_ensureFieldAccessInTest_emitsTestingFatalf(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+type Sample = { active: Bool, enabled: Bool }
+
+func makeSample(): Sample {
+  return Sample { active: false, enabled: true }
+}
+
+func TestSampleFields(t *testing.T) {
+  s := makeSample()
+  ensure s.active is False()
+  ensure s.enabled is True()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`func TestSampleFields(t *testing.T) {`,
+		`t.Helper()`,
+		`t.Fatalf(`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+	for _, sub := range []string{
+		`) error {`,
+		`return errors.New`,
+	} {
+		if strings.Contains(out, sub) {
+			t.Fatalf("generated Go should not contain %q\n----\n%s\n----", sub, out)
+		}
+	}
+}
+
+func TestPipeline_ensureBoolInTest_emitsTestingFatalf(t *testing.T) {
+	t.Parallel()
+	src := `package demo
+
+import "testing"
+
+func TestEnsureBool(t *testing.T) {
+	ok := true
+	ensure ok is True()
+}
+`
+	out := compileForstPipeline(t, src)
+	for _, sub := range []string{
+		`t.Helper()`,
+		`t.Fatalf(`,
+	} {
+		if !strings.Contains(out, sub) {
+			t.Fatalf("generated Go missing %q\n----\n%s\n----", sub, out)
+		}
+	}
+	if strings.Contains(out, `panic("assertion failed")`) {
+		t.Fatalf("expected no panic in test ensure, got:\n%s", out)
+	}
+}
+
+func TestPipeline_ensureInNonTestFunction_stillPanicsOrReturnsError(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+func check() {
+	ok := true
+	ensure ok is True()
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `func check() error`) {
+		t.Fatalf("expected error return for ensure in non-test function, got:\n%s", out)
+	}
+	if !strings.Contains(out, `return errors.New`) {
+		t.Fatalf("expected errors.New for ensure failure in non-test function, got:\n%s", out)
+	}
+}

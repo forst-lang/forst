@@ -341,8 +341,11 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 			case ast.TypeError:
 				value = goast.NewIdent("nil")
 			default:
-				// For user-defined types, use nil
-				value = goast.NewIdent("nil")
+				if fieldDef.Type != nil && fieldDef.Type.TypeKind != ast.TypeKindHashBased && !fieldDef.Type.IsGoBuiltin() {
+					value = &goast.CompositeLit{Type: goast.NewIdent(string(fieldDef.Type.Ident))}
+				} else {
+					value = goast.NewIdent("nil")
+				}
 			}
 		} else {
 			value = goast.NewIdent("nil")

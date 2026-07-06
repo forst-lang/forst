@@ -642,9 +642,14 @@ func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *
 			}
 			tc.storeInferredType(expr, []ast.TypeNode{inferredType})
 			return []ast.TypeNode{inferredType}, nil
+		case ast.ArrayLiteralNode:
+			if len(x.Value) == 0 && expected.Ident == ast.TypeArray && len(expected.TypeParams) == 1 {
+				arr := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{expected.TypeParams[0]}}
+				tc.storeInferredType(expr, []ast.TypeNode{arr})
+				return []ast.TypeNode{arr}, nil
+			}
+			return tc.inferExpressionType(x)
 		case ast.IndexExpressionNode:
-			// Extension point: map/slice index with an expected type (e.g. generic calls). Today
-			// expected is ignored; index inference is unchanged from inferExpressionType.
 			return tc.inferExpressionType(x)
 		}
 	}

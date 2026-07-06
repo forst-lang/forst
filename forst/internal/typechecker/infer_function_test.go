@@ -10,6 +10,42 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestInferFunctionReturnType_testFunctionWithEnsureBoolConstraints(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+import "testing"
+
+type Sample = { active: Bool, enabled: Bool }
+
+func makeSample(): Sample {
+  return Sample { active: false, enabled: true }
+}
+
+func TestSampleFields(t *testing.T) {
+  s := makeSample()
+  ensure s.active is False()
+  ensure s.enabled is True()
+}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	sig, ok := tc.Functions["TestSampleFields"]
+	if !ok {
+		t.Fatal("missing TestSampleFields signature")
+	}
+	if !IsVoidReturnTypes(sig.ReturnTypes) {
+		t.Fatalf("TestSampleFields return types = %#v, want void", sig.ReturnTypes)
+	}
+}
+
 func TestInferFunctionReturnType_emptyBodyNoReturnAnnotation(t *testing.T) {
 	t.Parallel()
 	tc := New(logrus.New(), false)

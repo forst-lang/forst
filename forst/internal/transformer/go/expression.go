@@ -235,13 +235,9 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
-		// Check if the inner expression is a struct literal (CompositeLit)
-		if _, isStructLiteral := expr.(*goast.CompositeLit); isStructLiteral {
-			// For struct literals, just return the struct literal
-			// The outer context will handle adding the & if needed
-			return expr, nil
+		if composite, ok := expr.(*goast.CompositeLit); ok {
+			return &goast.UnaryExpr{Op: token.AND, X: composite}, nil
 		}
-		// For other expressions, add the & operator
 		return &goast.UnaryExpr{
 			Op: token.AND,
 			X:  expr,

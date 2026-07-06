@@ -284,6 +284,18 @@ func (t *Transformer) isMainFunction() bool {
 	return false
 }
 
+func (t *Transformer) isTestFunction() bool {
+	function, err := t.closestFunction()
+	if err != nil {
+		return false
+	}
+	fn, ok := function.(ast.FunctionNode)
+	if !ok {
+		return false
+	}
+	return fn.HasTestFunctionName()
+}
+
 // ensureAllReferencedTypesEmitted ensures that all types referenced in the generated code are properly emitted
 func (t *Transformer) ensureAllReferencedTypesEmitted() error {
 	t.log.Debug("Starting ensureAllReferencedTypesEmitted")

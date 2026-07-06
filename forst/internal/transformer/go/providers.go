@@ -98,6 +98,9 @@ func (t *Transformer) emitProvidersStruct(slots []typechecker.ProviderSlot) erro
 	if t.Output.HasType(name) {
 		return nil
 	}
+	if t.OmitPackageTypeDefs {
+		return nil
+	}
 	fields := make([]*goast.Field, 0, len(slots))
 	for _, slot := range slots {
 		fieldType, err := t.transformProviderSlotType(slot)

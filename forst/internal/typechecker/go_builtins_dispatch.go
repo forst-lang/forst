@@ -49,6 +49,48 @@ func (tc *TypeChecker) dispatchAppend(args []ast.ExpressionNode, argSpans []ast.
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
 		return nil, true, diagnosticf(sp, "builtin-call", "append() slice must have an element type")
 	}
+	if elemType.Ident == ast.TypeInt && len(args) >= 2 {
+		// Empty [] defaults to []int; widen only for empty literals or variables (not [1]-style literals).
+		allowWiden := false
+		switch arg0 := args[0].(type) {
+		case ast.ArrayLiteralNode:
+			allowWiden = len(arg0.Value) == 0
+		case ast.VariableNode:
+			allowWiden = true
+		}
+		if allowWiden {
+			firstTypes, err := tc.inferBuiltinArgType(args, 1, argSpans, callSpan)
+			if err != nil {
+				return nil, true, err
+			}
+			if firstTypes.Ident != ast.TypeInt {
+				widened := firstTypes
+				consistent := true
+				for i := 2; i < len(args); i++ {
+					argType, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
+					if err != nil {
+						return nil, true, err
+					}
+					if !tc.IsTypeCompatible(argType, widened) {
+						consistent = false
+						break
+					}
+				}
+				if consistent {
+					elemType = widened
+					sliceType = ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elemType}}
+					if vn, ok := args[0].(ast.VariableNode); ok {
+						tc.storeInferredVariableType(vn, []ast.TypeNode{sliceType})
+						tc.storeInferredType(vn, []ast.TypeNode{sliceType})
+						if tc.VariableTypes == nil {
+							tc.VariableTypes = make(map[ast.Identifier][]ast.TypeNode)
+						}
+						tc.VariableTypes[vn.Ident.ID] = []ast.TypeNode{sliceType}
+					}
+				}
+			}
+		}
+	}
 	for i := 1; i < len(args); i++ {
 		argType, err := tc.inferBuiltinArgType(args, i, argSpans, callSpan)
 		if err != nil {

@@ -180,6 +180,54 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		}
 	}
 
+	if t.isTestFunction() {
+		paramID, ok := ast.TestingTParamIdent(fn)
+		if !ok {
+			// Should not happen when HasTestFunctionName is strict; fall through to default handling.
+		} else {
+			t.Output.EnsureImport("testing")
+			testIdent := goast.NewIdent(string(paramID))
+			helperCall := &goast.ExprStmt{
+				X: &goast.CallExpr{
+					Fun: &goast.SelectorExpr{
+						X:   testIdent,
+						Sel: goast.NewIdent("Helper"),
+					},
+				},
+			}
+			fatalMsg := "assertion failed"
+			if stmt.Error != nil {
+				if errExpr, err := t.transformEnsureErrorFallback(*stmt.Error); err == nil {
+					fatalCall := &goast.ExprStmt{
+						X: &goast.CallExpr{
+							Fun: &goast.SelectorExpr{
+								X:   testIdent,
+								Sel: goast.NewIdent("Fatalf"),
+							},
+							Args: []goast.Expr{
+								&goast.BasicLit{Kind: token.STRING, Value: "\"%v\""},
+								errExpr,
+							},
+						},
+					}
+					return &goast.BlockStmt{List: []goast.Stmt{helperCall, fatalCall}}
+				}
+			}
+			fatalCall := &goast.ExprStmt{
+				X: &goast.CallExpr{
+					Fun: &goast.SelectorExpr{
+						X:   testIdent,
+						Sel: goast.NewIdent("Fatalf"),
+					},
+					Args: []goast.Expr{
+						&goast.BasicLit{Kind: token.STRING, Value: "\"" + fatalMsg + "\""},
+					},
+				},
+			}
+			return &goast.BlockStmt{List: []goast.Stmt{helperCall, fatalCall}}
+		}
+	}
+
 	// For void functions or functions with no return values, use panic (or invoke custom fallback).
 	if len(returnTypes) == 0 || (len(returnTypes) == 1 && returnTypes[0].Ident == ast.TypeVoid) {
 		if stmt.Error != nil {
