@@ -213,11 +213,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Error messages (line numbers, suggestions) | 🔬 experimental | Incremental improvements; quality and completeness still vary. |
 | `forst test` (Go-native `Test*` in `*_test.ft`) | 🔬 experimental | Discovers `Test*` functions in `*_test.ft`, emits `*_test.go` (and cross-package **`z_forst_gen*.go`** shims when needed), resolves module root via **`goload`**, runs **`go test`**. Primary use today: Providers wiring in tests (`with` at test entry points) and cross-package integration (`cross_pkg/`). Command spec still draft ([forst-test RFC hub](./examples/in/rfc/forst-test/README.md)). `task test:providers`, `task test:providers-cross_pkg`. User docs: [CLI — `forst test`](./docs/workflow/cli.mdx). |
 | More real-world examples | 🔬 experimental | Some examples exist; broader set still wanted. |
-<<<<<<< Updated upstream
 | VS Code extension | 🔬 experimental | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **outline**, **folding** (when the server returns ranges), **go to definition**, **find references**, **rename**, **format document** / **format** code action, **workspace symbol** (open files) when the server resolves symbols. **Status bar:** LSP port + connection cue (idle / ready / error), click or **Forst: Focus output** opens the log. **Releases:** `vscode-forst-v*` + [publish-vscode-extension.yml](./.github/workflows/publish-vscode-extension.yml) (not tied to compiler `v*`). **Marketplace** / discoverability still open. |
-=======
-| VS Code extension | 🔬 experimental | In-repo **`packages/vscode-forst`**: `.ft` language + grammar, HTTP LSP client, and language providers; **outline**, **folding** (when the server returns ranges), **go to definition**, **find references**, **rename**, **format document** / **format** code action, **workspace symbol** (open files) when the server resolves symbols. **Releases:** `vscode-forst-v*` + [publish-vscode-extension.yml](./.github/workflows/publish-vscode-extension.yml) (not tied to compiler `v*`). **Marketplace** / discoverability still open. |
->>>>>>> Stashed changes
 
 ---
 

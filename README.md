@@ -237,13 +237,10 @@ task example:function                    # Run function example
 ## VS Code
 
 The workspace includes an optional extension in [`packages/vscode-forst`](./packages/vscode-forst): it registers `.ft` and talks to the compiler’s HTTP LSP (`forst lsp`) for diagnostics. Its **release cadence is separate** from compiler `v*` tags (see `vscode-forst-v*` in [`.github/workflows/publish-vscode-extension.yml`](./.github/workflows/publish-vscode-extension.yml)). After `bun install` at the repo root, run `task build:vscode` to compile it (or rely on the F5 **preLaunchTask** in [`.vscode/launch.json`](./.vscode/launch.json)). CI runs the same compile as the first step of `task ci:test`. See [`packages/vscode-forst/README.md`](./packages/vscode-forst/README.md) for F5 and troubleshooting.
-<<<<<<< Updated upstream
 
 ## npm
 
 **[`@forst/cli`](./packages/cli/README.md)** installs the Forst compiler in JS/TS projects: `npm i -D @forst/cli`, then `npx forst` / `node_modules/.bin/forst` (it pulls the matching native binary from GitHub Releases). For the dev-server + HTTP client, use **[`@forst/sidecar`](./packages/sidecar/README.md)** instead.
-=======
->>>>>>> Stashed changes
 
 ## TypeScript client output
 

@@ -1,13 +1,6 @@
 {
-<<<<<<< Updated upstream
   ".": "0.6.0",
   "packages/cli": "0.0.37",
   "packages/vscode-forst": "0.3.3",
   "packages/sidecar": "0.3.0"
 }
-=======
-  ".": "0.0.19",
-  "packages/vscode-forst": "0.1-",
-  "packages/sidecar": "0.1.2"
-}
->>>>>>> Stashed changes
