@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1](https://github.com/forst-lang/forst/compare/v0.6.0...v0.6.1) (2026-07-06)
+
+
+### Features
+
+* **transformer:** add ensure diagnostics in tests ([#123](https://github.com/forst-lang/forst/issues/123)) ([62803b6](https://github.com/forst-lang/forst/commit/62803b6094489b49a193b37d2c18dae6994db8b6))
+* **transformer:** lower ensure failures in Test* functions to t.Fatalf ([152f60e](https://github.com/forst-lang/forst/commit/152f60e6ecd68e7568194866b95651b01768b6e3))
+
+
+### Bug Fixes
+
+* **parser:** support qualified names in pointer composite literals ([152f60e](https://github.com/forst-lang/forst/commit/152f60e6ecd68e7568194866b95651b01768b6e3))
+* **printer:** preserve typed slice literals in forst fmt ([9e047f9](https://github.com/forst-lang/forst/commit/9e047f92be14b1b1c8a576051da4240e5a161767))
+* **transformer:** correct pointer composite and shape zero-value emission ([152f60e](https://github.com/forst-lang/forst/commit/152f60e6ecd68e7568194866b95651b01768b6e3))
+* **typechecker:** improve empty slice inference and append widening ([152f60e](https://github.com/forst-lang/forst/commit/152f60e6ecd68e7568194866b95651b01768b6e3))
+
+
+### Performance Improvements
+
+* **typechecker:** add scope-key hashing, compat memo ([#125](https://github.com/forst-lang/forst/issues/125)) ([872405c](https://github.com/forst-lang/forst/commit/872405c2605636302c64516dbf73b6b5d2ff90f1))
+* **typechecker:** cache scope hashes, memoize HashNode ([#124](https://github.com/forst-lang/forst/issues/124)) ([923d6c9](https://github.com/forst-lang/forst/commit/923d6c9070351b7c9e68f3a0f77d53ef9ff7a49e))
+
 ## [0.6.0](https://github.com/forst-lang/forst/compare/v0.5.9...v0.6.0) (2026-07-06)
 
 
