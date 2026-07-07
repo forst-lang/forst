@@ -111,7 +111,7 @@ func TestWriteGeneratedTestAndRun_requiresGoMod(t *testing.T) {
 	}
 }
 
-func TestRun_providersWithWiringPasses(t *testing.T) {
+func TestRun_e2e_realGoTest(t *testing.T) {
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	log := logrus.New()
@@ -129,7 +129,24 @@ func TestRun_providersWithWiringPasses(t *testing.T) {
 	}
 }
 
+func TestRun_orchestration_stubbedGoTest(t *testing.T) {
+	stubGoTestSuccess(t)
+	dir := t.TempDir()
+	writeProvidersTestFixture(t, dir)
+	code, err := Run(Options{ModuleRoot: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != ExitSuccess {
+		t.Fatalf("code = %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "auth", generatedTestGoName)); !os.IsNotExist(err) {
+		t.Fatal("expected generated test file removed after stubbed go test")
+	}
+}
+
 func TestRelPath(t *testing.T) {
+	t.Parallel()
 	moduleRoot := filepath.Clean("/proj")
 	if got := relPath(moduleRoot, filepath.Join(moduleRoot, "auth")); got != "auth" {
 		t.Fatalf("relPath = %q", got)
@@ -140,6 +157,7 @@ func TestRelPath(t *testing.T) {
 }
 
 func TestIndexOf(t *testing.T) {
+	t.Parallel()
 	if indexOf([]string{"a", "--", "b"}, "--") != 1 {
 		t.Fatal("expected index 1")
 	}
@@ -183,6 +201,7 @@ func Helper(): Int { return 1 }
 }
 
 func TestParseCLIArgs_splitsPathsAndGoTestFlags(t *testing.T) {
+	t.Parallel()
 	paths, goArgs := ParseCLIArgs([]string{"-v", "./auth", "--", "-count=1"})
 	if len(paths) != 1 || paths[0] != "./auth" {
 		t.Fatalf("paths = %v", paths)
@@ -359,6 +378,7 @@ func TestEmitPackageGo_testOnlyIfScopeUsesMergedParseNodes(t *testing.T) {
 }
 
 func TestRun_dependencyEmitThenSelfTest_succeeds(t *testing.T) {
+	stubGoTestSuccess(t)
 	dir := t.TempDir()
 	libpkgDir, _ := writeLibClientTestFixture(t, dir)
 	log := logrus.New()

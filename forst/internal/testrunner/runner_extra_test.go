@@ -66,19 +66,8 @@ func TestHostCase(t *testing.T) {}
 	}
 }
 
-func TestRun_usesDefaultLoggerWhenNil(t *testing.T) {
-	dir := t.TempDir()
-	writeProvidersTestFixture(t, dir)
-	code, err := Run(Options{ModuleRoot: dir})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if code != ExitSuccess {
-		t.Fatalf("code = %d", code)
-	}
-}
-
 func TestRun_onePackageFailsOthersStillRun(t *testing.T) {
+	stubGoTestFailImport(t, "fail")
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	failDir := filepath.Join(dir, "fail")
@@ -248,6 +237,7 @@ func TestWriteGeneratedTestAndRun_writeError(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_testFailureExitCode(t *testing.T) {
+	stubGoTestExit(t, 1)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("failmod")), 0o644); err != nil {
 		t.Fatal(err)
@@ -456,6 +446,7 @@ func TestEmitDependencyPackages_skipsEmptyFileList(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_successRemovesGeneratedFile(t *testing.T) {
+	stubGoTestSuccess(t)
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	pkgDir := filepath.Join(dir, "auth")
@@ -483,6 +474,7 @@ func TestWriteGeneratedTestAndRun_successRemovesGeneratedFile(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_nestedImportPath(t *testing.T) {
+	stubGoTestSuccess(t)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("nested")), 0o644); err != nil {
 		t.Fatal(err)

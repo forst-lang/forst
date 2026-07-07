@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,6 +14,32 @@ import (
 
 	goast "go/ast"
 )
+
+func TestWriteGeneratedTestAndRun_execGoTestError(t *testing.T) {
+	orig := execGoTest
+	t.Cleanup(func() { execGoTest = orig })
+	execGoTest = func(*exec.Cmd) error {
+		return errors.New("go test unavailable")
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module m\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	code, err := writeGeneratedTestAndRun(PackageUnderTest{
+		Dir:     pkgDir,
+		RelPath: "pkg",
+	}, "package pkg\n", nil, testLog(t))
+	if err == nil || code != ExitFailure {
+		t.Fatalf("code=%d err=%v", code, err)
+	}
+	if !strings.Contains(err.Error(), "go test") {
+		t.Fatalf("err = %v", err)
+	}
+}
 
 func TestRun_filepathAbsError(t *testing.T) {
 	orig := filepathAbs
@@ -167,6 +194,7 @@ func TestDiscoverPackages_skipsDirWhenSecondReadHasNoTestFiles(t *testing.T) {
 }
 
 func TestRelPath_fallbackWhenRelFails(t *testing.T) {
+	t.Parallel()
 	orig := filepathRel
 	t.Cleanup(func() { filepathRel = orig })
 	filepathRel = func(string, string) (string, error) {
