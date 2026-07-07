@@ -22,14 +22,15 @@ func ParseSource(tb testing.TB, src, fileID string, log *logrus.Logger) []ast.No
 	toks := lexer.New([]byte(src), fileID, log).Lex()
 	nodes, err := parser.New(toks, fileID, log).ParseFile()
 	if err != nil {
-		tb.Fatalf("parse %s: %v", fileID, err)
+		tbFailf(tb, "parse %s: %v", fileID, err)
+		return nil
 	}
 	return nodes
 }
 
 // ParseSourceForBench is like ParseSource but for benchmarks (no testing.TB fatals on setup).
-func ParseSourceForBench(b *testing.B, src []byte, fileID string) []ast.Node {
-	b.Helper()
+func ParseSourceForBench(tb testing.TB, src []byte, fileID string) []ast.Node {
+	tb.Helper()
 	if fileID == "" {
 		fileID = "bench.ft"
 	}
@@ -39,7 +40,8 @@ func ParseSourceForBench(b *testing.B, src []byte, fileID string) []ast.Node {
 	toks := lexer.New(src, fileID, log).Lex()
 	nodes, err := parser.New(toks, fileID, log).ParseFile()
 	if err != nil {
-		b.Fatalf("parse: %v", err)
+		tbFailf(tb, "parse: %v", err)
+		return nil
 	}
 	return nodes
 }

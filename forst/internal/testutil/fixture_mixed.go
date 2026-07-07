@@ -23,6 +23,11 @@ func OpenValue() (int, error) {
 }
 `
 
+var (
+	mixedGoMkdirAll  = os.MkdirAll
+	mixedGoWriteFile = os.WriteFile
+)
+
 // WriteMixedGoForstModule creates a temp module with mixedtest/<module>/helpers.go.
 func WriteMixedGoForstModule(tb testing.TB, module string) (root, importPath string) {
 	tb.Helper()
@@ -33,11 +38,13 @@ func WriteMixedGoForstModule(tb testing.TB, module string) (root, importPath str
 	modName := "mixedtest"
 	testmod.WriteGoMod(tb, root, modName)
 	mixedDir := filepath.Join(root, module)
-	if err := os.MkdirAll(mixedDir, 0o755); err != nil {
-		tb.Fatal(err)
+	if err := mixedGoMkdirAll(mixedDir, 0o755); err != nil {
+		tbFail(tb, err)
+		return "", ""
 	}
-	if err := os.WriteFile(filepath.Join(mixedDir, "helpers.go"), []byte(mixedGoHelpersSource), 0o644); err != nil {
-		tb.Fatal(err)
+	if err := mixedGoWriteFile(filepath.Join(mixedDir, "helpers.go"), []byte(mixedGoHelpersSource), 0o644); err != nil {
+		tbFail(tb, err)
+		return "", ""
 	}
 	return root, modName + "/" + module
 }

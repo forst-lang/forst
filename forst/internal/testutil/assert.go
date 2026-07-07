@@ -11,10 +11,11 @@ import (
 func AssertSingleType(tb testing.TB, types []ast.TypeNode, want ast.TypeIdent) {
 	tb.Helper()
 	if len(types) != 1 {
-		tb.Fatalf("expected exactly one type, got %d: %v", len(types), types)
+		tbFailf(tb, "expected exactly one type, got %d: %v", len(types), types)
+		return
 	}
 	if types[0].Ident != want {
-		tb.Fatalf("expected type %q, got %q", want, types[0].Ident)
+		tbFailf(tb, "expected type %q, got %q", want, types[0].Ident)
 	}
 }
 
