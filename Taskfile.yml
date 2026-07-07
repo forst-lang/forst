@@ -19,6 +19,26 @@ tasks:
     generates:
       - ../bin/{{.BINARY_NAME}}
 
+  build:optimized:
+    desc: Build stripped local binary with PGO (if default.pgo exists) and version ldflags
+    dir: forst
+    cmds:
+      - mkdir -p ../bin
+      - |
+        set -euo pipefail
+        PGO_FLAG=""
+        if [ -f default.pgo ]; then PGO_FLAG="-pgo=default.pgo"; fi
+        COMMIT=$(git rev-parse HEAD)
+        DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        LDFLAGS="-s -w -X main.Version=dev -X main.Commit=${COMMIT} -X main.Date=${DATE}"
+        go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../bin/{{.BINARY_NAME}} ./{{.BUILD_DIR}}
+      - ls -lh ../bin/{{.BINARY_NAME}}
+      - ../bin/{{.BINARY_NAME}} version
+    sources:
+      - ./**/*.go
+    generates:
+      - ../bin/{{.BINARY_NAME}}
+
   build:cli:
     desc: Build @forst/cli
     dir: packages/cli
