@@ -2,12 +2,21 @@ package transformergo
 
 import (
 	"fmt"
+
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
 )
 
 func (t *Transformer) transformFunctionParamField(paramName string, paramType ast.TypeNode) (*goast.Field, error) {
+	if ast.IsTestingTParamType(paramType) || typechecker.IsGoTypesTestingT(t.TypeChecker.GoTypeForVariable(ast.Identifier(paramName))) {
+		t.Output.EnsureImport("testing")
+		return &goast.Field{
+			Names: []*goast.Ident{goast.NewIdent(paramName)},
+			Type:  testingTGoTypeExpr(),
+		}, nil
+	}
+
 	var inferredTypes []ast.TypeNode
 	var err error
 
@@ -49,8 +58,13 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 	}, nil
 }
 
-func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.FieldList, error) {
+func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []ast.ParamNode) (*goast.FieldList, error) {
 	t.log.Debugf("transformFunctionParams: processing %d parameters", len(params))
+
+	var sig *typechecker.FunctionSignature
+	if s, ok := t.TypeChecker.Functions[fnIdent]; ok {
+		sig = &s
+	}
 
 	fields := &goast.FieldList{
 		List: []*goast.Field{},
@@ -59,8 +73,12 @@ func (t *Transformer) transformFunctionParams(params []ast.ParamNode) (*goast.Fi
 	for i, param := range params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, p.Ident.ID, p.Type.Ident)
-			field, err := t.transformFunctionParamField(string(p.Ident.ID), p.Type)
+			paramType := p.Type
+			if sig != nil && i < len(sig.Parameters) {
+				paramType = sig.Parameters[i].Type
+			}
+			t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, p.Ident.ID, paramType.Ident)
+			field, err := t.transformFunctionParamField(string(p.Ident.ID), paramType)
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +127,7 @@ func (t *Transformer) transformFunction(scopeNode ast.Node, n ast.FunctionNode) 
 	defer func() { t.mapIndexFuncLitCache = prevMapIndexCache }()
 
 	// Create function parameters
-	params, err := t.transformFunctionParams(n.Params)
+	params, err := t.transformFunctionParams(n.Ident.ID, n.Params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform function parameters: %s", err)
 	}

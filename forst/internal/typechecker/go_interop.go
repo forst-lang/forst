@@ -620,9 +620,36 @@ func (tc *TypeChecker) goTypeForParamTypeNode(typ ast.TypeNode) types.Type {
 }
 
 func (tc *TypeChecker) bindVariableGoTypeFromParamType(ident ast.Identifier, typ ast.TypeNode) {
+	if normalized, ok := tc.normalizeGoImportParamType(typ); ok {
+		typ = normalized
+	}
 	if gt := tc.goTypeForParamTypeNode(typ); gt != nil {
+		if named, ok := gt.(*types.Named); ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == "testing" && named.Obj().Name() == "T" {
+			gt = types.NewPointer(gt)
+		}
 		tc.variableGoTypes[ident] = gt
 	}
+}
+
+// normalizeGoImportParamType preserves Go import types in Forst AST form instead of lowering
+// them to structural hash aliases (e.g. testing.T → *testing.T for test params).
+func (tc *TypeChecker) normalizeGoImportParamType(typ ast.TypeNode) (ast.TypeNode, bool) {
+	if !ast.IsTestingTParamType(typ) {
+		return ast.TypeNode{}, false
+	}
+	if typ.Ident == ast.TypePointer {
+		if len(typ.TypeParams) == 1 {
+			tc.registerGoQualifiedTypeAlias(typ.TypeParams[0].Ident, typ.TypeParams[0].Ident)
+		}
+		return typ, true
+	}
+	qualified := typ.Ident
+	normalized := ast.TypeNode{
+		Ident:      ast.TypePointer,
+		TypeParams: []ast.TypeNode{{Ident: qualified}},
+	}
+	tc.registerGoQualifiedTypeAlias(qualified, qualified)
+	return normalized, true
 }
 
 // goTypeForExpression returns the go/types type of a Go interop expression when known.

@@ -3,6 +3,7 @@ package testrunner
 import "testing"
 
 func TestExitCode_Int(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		code ExitCode
 		want int

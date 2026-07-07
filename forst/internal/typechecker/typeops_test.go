@@ -16,7 +16,6 @@ func TestWidenToEnclosing_isIdentity(t *testing.T) {
 
 func TestJoinAfterIfMerge_table(t *testing.T) {
 	t.Parallel()
-	tc := New(discardLogger(), false)
 	outer := ast.TypeNode{Ident: ast.TypeIdent("Outer")}
 	cases := []struct {
 		name string
@@ -35,6 +34,7 @@ func TestJoinAfterIfMerge_table(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
+			tc := New(discardLogger(), false)
 			got := JoinAfterIfMerge(tc, outer, c.ref)
 			if !c.want(got) {
 				t.Fatalf("got %+v", got)

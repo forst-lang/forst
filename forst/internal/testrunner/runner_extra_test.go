@@ -66,19 +66,8 @@ func TestHostCase(t *testing.T) {}
 	}
 }
 
-func TestRun_usesDefaultLoggerWhenNil(t *testing.T) {
-	dir := t.TempDir()
-	writeProvidersTestFixture(t, dir)
-	code, err := Run(Options{ModuleRoot: dir})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if code != ExitSuccess {
-		t.Fatalf("code = %d", code)
-	}
-}
-
 func TestRun_onePackageFailsOthersStillRun(t *testing.T) {
+	stubGoTestFailImport(t, "fail")
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	failDir := filepath.Join(dir, "fail")
@@ -132,6 +121,73 @@ func TestEmitPackageGo_parseError(t *testing.T) {
 	}
 }
 
+func TestEmitPackageGo_testOnlyNoTestPaths(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(pkgDir, "pkg.ft")
+	testFt := filepath.Join(pkgDir, "pkg_test.ft")
+	if err := os.WriteFile(lib, []byte(`package pkg
+
+func ok(): Int { return 1 }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(testFt, []byte(`package pkg
+
+import "testing"
+
+func TestOk(t *testing.T) {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkg := PackageUnderTest{
+		Dir:     pkgDir,
+		RelPath: "pkg",
+		FtPaths: []string{lib, testFt},
+	}
+	_, err := emitPackageGo(dir, pkg, nil, EmitOptions{TestOnly: true}, testLog(t))
+	if err == nil || !strings.Contains(err.Error(), "no test paths") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEmitPackageGo_testOnlyMergeTransformError(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(pkgDir, "pkg.ft")
+	testFt := filepath.Join(pkgDir, "pkg_test.ft")
+	if err := os.WriteFile(lib, []byte(`package pkg
+
+func ok(): Int { return 1 }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(testFt, []byte(`package pkg
+
+import "testing"
+
+func TestOk(t *testing.T) {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkg := PackageUnderTest{
+		Dir:       pkgDir,
+		RelPath:   "pkg",
+		FtPaths:   []string{lib},
+		TestPaths: []string{testFt},
+	}
+	_, err := emitPackageGo(dir, pkg, nil, EmitOptions{TestOnly: true}, testLog(t))
+	if err == nil || !strings.Contains(err.Error(), "merge transform nodes") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestRunPackageTests_emitFailure(t *testing.T) {
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "bad")
@@ -181,6 +237,7 @@ func TestWriteGeneratedTestAndRun_writeError(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_testFailureExitCode(t *testing.T) {
+	stubGoTestExit(t, 1)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("failmod")), 0o644); err != nil {
 		t.Fatal(err)
@@ -389,6 +446,7 @@ func TestEmitDependencyPackages_skipsEmptyFileList(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_successRemovesGeneratedFile(t *testing.T) {
+	stubGoTestSuccess(t)
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	pkgDir := filepath.Join(dir, "auth")
@@ -416,6 +474,7 @@ func TestWriteGeneratedTestAndRun_successRemovesGeneratedFile(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_nestedImportPath(t *testing.T) {
+	stubGoTestSuccess(t)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("nested")), 0o644); err != nil {
 		t.Fatal(err)

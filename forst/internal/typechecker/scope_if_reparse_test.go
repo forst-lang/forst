@@ -57,9 +57,7 @@ func TestRestoreScope_ifNodeAfterRebind(t *testing.T) {
 	}
 
 	nodesB := parseNodesForTest(t, []byte(ifAfterAssignSrc))
-	if err := tc.CheckTypes(nodesB); err != nil {
-		t.Fatalf("CheckTypes(B): %v", err)
-	}
+	tc.RebindScopes(nodesA, nodesB)
 	ifNodeB := findIfAfterAssign(t, nodesB)
 
 	if err := tc.RestoreScope(ifNodeB); err != nil {

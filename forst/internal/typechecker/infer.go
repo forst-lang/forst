@@ -47,6 +47,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			}
 			return inferredType, nil
 		}
+		if normalized, ok := tc.normalizeGoImportParamType(n.Type); ok {
+			return []ast.TypeNode{normalized}, nil
+		}
 		return []ast.TypeNode{n.Type}, nil
 
 	case ast.DestructuredParamNode:
@@ -56,6 +59,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 				return nil, err
 			}
 			return inferredType, nil
+		}
+		if normalized, ok := tc.normalizeGoImportParamType(n.Type); ok {
+			return []ast.TypeNode{normalized}, nil
 		}
 		return []ast.TypeNode{n.Type}, nil
 

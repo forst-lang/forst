@@ -299,7 +299,7 @@ func (t *Transformer) isTestFunction() bool {
 	if !ok {
 		return false
 	}
-	return fn.HasTestFunctionName()
+	return t.isGoTestFunction(fn)
 }
 
 // ensureAllReferencedTypesEmitted ensures that all types referenced in the generated code are properly emitted

@@ -24,6 +24,7 @@ import (
 var (
 	filepathAbs  = filepath.Abs
 	filepathRel  = filepath.Rel
+	execGoTest   = func(cmd *exec.Cmd) error { return cmd.Run() }
 	transformForstFileToGo = func(tr *transformer_go.Transformer, merged []ast.Node) (*goast.File, error) {
 		return tr.TransformForstFileToGo(merged)
 	}
@@ -196,6 +197,10 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 		}
 	}
 
+	if opts.TestOnly {
+		tc.RebindScopes(merged, transformNodes)
+	}
+
 	tr := transformer_go.New(tc, log, opts.ExportStructFields)
 	if opts.TestOnly {
 		tr.OmitPackageTypeDefs = true
@@ -241,7 +246,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := execGoTest(cmd); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() >= 0 {
 			return ExitCode(exitErr.ExitCode()), nil
 		}

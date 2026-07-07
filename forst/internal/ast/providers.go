@@ -5,13 +5,17 @@ import (
 	"unicode"
 )
 
-// IsTestingTParamType reports whether t is *testing.T (or a pointer to a qualified testing.T).
+// IsTestingTParamType reports whether t is *testing.T (or a qualified testing.T).
 func IsTestingTParamType(t TypeNode) bool {
 	if t.Ident == TypePointer && len(t.TypeParams) == 1 {
-		inner := string(t.TypeParams[0].Ident)
-		return strings.HasSuffix(inner, "testing.T") || inner == "testing.T"
+		return isTestingTTypeIdent(t.TypeParams[0].Ident)
 	}
-	return false
+	return isTestingTTypeIdent(t.Ident)
+}
+
+func isTestingTTypeIdent(id TypeIdent) bool {
+	s := string(id)
+	return s == "testing.T" || strings.HasSuffix(s, "testing.T")
 }
 
 // IsProvidersWiringRoot reports whether fnIdent is a wiring root (main or Test* with *testing.T).

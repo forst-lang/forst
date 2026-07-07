@@ -181,7 +181,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 	}
 
 	if t.isTestFunction() {
-		paramID, ok := ast.TestingTParamIdent(fn)
+		paramID, ok := t.testingTParamIdent(fn)
 		if !ok {
 			// Should not happen when HasTestFunctionName is strict; fall through to default handling.
 		} else {
