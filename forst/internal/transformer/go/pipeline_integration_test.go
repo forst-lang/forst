@@ -773,6 +773,28 @@ func main() {
 	}
 }
 
+func TestPipeline_testFunction_ensureOnly_emitsTestingT(t *testing.T) {
+	src := `package main
+
+import "testing"
+
+func TestEnsureOnly(t:testing.T) {
+	s := "hello"
+	ensure s is Contains("ell")
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, "func TestEnsureOnly(t *testing.T)") {
+		t.Fatalf("expected *testing.T test signature, got:\n%s", out)
+	}
+	if strings.Contains(out, ") error {") {
+		t.Fatalf("test function must not return error, got:\n%s", out)
+	}
+	if !strings.Contains(out, "t.Helper()") && !strings.Contains(out, "t.Fatalf") {
+		t.Fatalf("expected t.Helper/t.Fatalf for ensure in test, got:\n%s", out)
+	}
+}
+
 func TestPipeline_ensure_string_min_infersBaseType(t *testing.T) {
 	src := `package main
 
@@ -815,6 +837,24 @@ func main() {}
 	}
 }
 
+func TestPipeline_ensure_contains_on_assertion_narrowed_string(t *testing.T) {
+	src := `package main
+
+type Item = { name: String.Min(1) }
+
+func check(item Item) {
+	n := item.name
+	ensure n is Contains("x")
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `strings.Contains(`) || !strings.Contains(out, `"x"`) {
+		t.Fatalf("expected strings.Contains on assertion-narrowed string, got:\n%s", out)
+	}
+}
+
 func TestPipeline_ensureResultIsOk_emitsErrNilCheck(t *testing.T) {
 	src := `package main
 
@@ -832,6 +872,26 @@ func main() {
 	// Ensure runs the error path when the predicate fails: !(xErr == nil) (equivalent to xErr != nil)
 	if !strings.Contains(out, `!(xErr == nil)`) && !strings.Contains(out, `xErr != nil`) {
 		t.Fatalf("expected ensure failure branch on non-Ok result (negated xErr == nil), got:\n%s", out)
+	}
+}
+
+func TestPipeline_shapeLiteral_pointerField_fromPointerVar(t *testing.T) {
+	src := `package main
+
+type Shard = { id: String }
+
+func build(shardVal: *Shard): { shard: *Shard } {
+	return { shard: shardVal }
+}
+
+func main() {}
+`
+	out := compileForstPipeline(t, src)
+	if strings.Contains(out, "&&") || strings.Contains(out, "&shardVal") {
+		t.Fatalf("pointer field must not double-wrap address, got:\n%s", out)
+	}
+	if !strings.Contains(out, "shard: shardVal") && !strings.Contains(out, "Shard: shardVal") {
+		t.Fatalf("expected pointer var passed through without &, got:\n%s", out)
 	}
 }
 

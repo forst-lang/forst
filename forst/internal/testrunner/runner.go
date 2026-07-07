@@ -196,6 +196,10 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 		}
 	}
 
+	if opts.TestOnly {
+		tc.RebindScopes(merged, transformNodes)
+	}
+
 	tr := transformer_go.New(tc, log, opts.ExportStructFields)
 	if opts.TestOnly {
 		tr.OmitPackageTypeDefs = true

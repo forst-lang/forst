@@ -129,6 +129,11 @@ func (tc *TypeChecker) GetAliasedTypeName(typeNode ast.TypeNode, opts GetAliased
 		}
 	}
 
+	// Preserve registered Go qualified import types (e.g. testing.T) instead of hashing.
+	if q, ok := tc.resolveGoQualifiedTypeName(typeNode.Ident); ok {
+		return q, nil
+	}
+
 	// If not found in Defs, fall back to hash-based name
 	hash, err := tc.Hasher.HashNode(typeNode)
 	if err != nil {

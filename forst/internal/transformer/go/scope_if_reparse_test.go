@@ -69,6 +69,7 @@ func TestTransformIfNode_checkerBoundToDifferentAST(t *testing.T) {
 
 	tr := New(tc, log)
 	tr.entryNodes = nodesB
+	tc.RebindScopes(nodesA, nodesB)
 	if _, err = tr.transformIfNode(ifNodeB); err != nil {
 		t.Fatalf("transformIfNode with resolve: %v", err)
 	}
@@ -88,6 +89,7 @@ func TestTransformForstFileToGo_reparsedTestIfSucceeds(t *testing.T) {
 
 	tr := New(tc, log)
 	tr.entryNodes = nodesB
+	tc.RebindScopes(nodesA, nodesB)
 	if _, err := tr.TransformForstFileToGo(nodesB); err != nil {
 		t.Fatalf("TransformForstFileToGo reparsed: %v", err)
 	}

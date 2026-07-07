@@ -375,6 +375,11 @@ func (t *Transformer) buildFieldValue(field ast.ShapeFieldNode, fieldDef *ast.Sh
 					return value, nil
 				}
 
+				// Variable already typed as *T — emit as-is (no &var).
+				if field.Node != nil && t.exprAlreadyPointerTyped(field.Node) {
+					return value, nil
+				}
+
 				if composite, ok := value.(*goast.CompositeLit); ok {
 					// For pointer fields with struct literals, wrap in & but ensure the composite literal
 					if ident, ok := composite.Type.(*goast.Ident); ok && strings.HasPrefix(ident.Name, "*") {
@@ -563,4 +568,32 @@ func (t *Transformer) findBestNamedTypeForStructLiteral(inferredType ast.TypeNod
 
 	// No compatible named type found, return the original inferred type
 	return inferredType
+}
+
+func (t *Transformer) exprAlreadyPointerTyped(node ast.Node) bool {
+	var vn ast.VariableNode
+	switch v := node.(type) {
+	case ast.VariableNode:
+		vn = v
+	case *ast.VariableNode:
+		if v == nil {
+			return false
+		}
+		vn = *v
+	default:
+		return false
+	}
+	ty, err := t.TypeChecker.LookupVariableType(&vn, t.currentScope())
+	if err != nil {
+		if vt, ok := t.TypeChecker.VariableTypes[vn.Ident.ID]; ok && len(vt) > 0 {
+			ty = vt[0]
+		} else {
+			return false
+		}
+	}
+	if ty.Ident == ast.TypePointer {
+		return true
+	}
+	identStr := string(ty.Ident)
+	return len(identStr) > 0 && identStr[0] == '*'
 }

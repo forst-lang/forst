@@ -30,6 +30,8 @@ func (at *AssertionTransformer) transformEnsureConstraints(ensure ast.EnsureNode
 
 // transformEnsureConstraint transforms a single constraint in an ensure statement
 func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constraint ast.ConstraintNode, varType ast.TypeNode) (goast.Expr, error) {
+	builtinSubject := unwrapAssertionTypeForBuiltin(varType)
+
 	// Result(S,F) discriminators: same lowering as `if x is Ok() / Err()` (success/err + error split).
 	// Ensure-successor narrowing may replace the subject's static type with S; use resultLocalSplit
 	// (from `x := f()` with Result) when present, else varType.IsResultType().
@@ -48,7 +50,7 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 	}
 
 	// Try built-in constraints first
-	if transformed, err := t.assertionTransformer.TransformBuiltinConstraint(varType.Ident, ensure.Variable, constraint); err == nil {
+	if transformed, err := t.assertionTransformer.TransformBuiltinConstraint(builtinSubject.Ident, ensure.Variable, constraint); err == nil {
 		return transformed, nil
 	}
 
@@ -121,6 +123,14 @@ func (t *Transformer) transformEnsureConstraint(ensure ast.EnsureNode, constrain
 	}
 
 	return nil, fmt.Errorf("no valid transformation found for constraint: %s", constraint.Name)
+}
+
+// unwrapAssertionTypeForBuiltin returns the underlying builtin type for constraint lowering.
+func unwrapAssertionTypeForBuiltin(varType ast.TypeNode) ast.TypeNode {
+	if varType.Ident == ast.TypeAssertion && varType.Assertion != nil && varType.Assertion.BaseType != nil {
+		return ast.TypeNode{Ident: *varType.Assertion.BaseType}
+	}
+	return varType
 }
 
 // transformConstraintArg transforms a constraint argument node into a Go expression
