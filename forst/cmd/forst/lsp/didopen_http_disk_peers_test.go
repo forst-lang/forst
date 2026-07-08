@@ -92,7 +92,7 @@ func TestHandleLSP_didOpen_probeExec_diskPeers_noGoImport(t *testing.T) {
 func TestHandleLSP_didOpen_probeExec_manyDiskPeers_noGoImport(t *testing.T) {
 	t.Parallel()
 	root, execPath := testutil.WriteProbeModuleFixture(t, true)
-	probeDir := filepath.Join(root, "internal", "probe")
+	jobsDir := filepath.Join(root, "internal", "jobs")
 	peers := []struct {
 		name    string
 		content string
@@ -103,7 +103,7 @@ func TestHandleLSP_didOpen_probeExec_manyDiskPeers_noGoImport(t *testing.T) {
 		{"helper_d.ft", "package jobs\n\nfunc helperD(): Int { return 4 }\n"},
 	}
 	for _, p := range peers {
-		if err := os.WriteFile(filepath.Join(probeDir, p.name), []byte(p.content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(jobsDir, p.name), []byte(p.content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

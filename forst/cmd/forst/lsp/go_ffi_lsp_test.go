@@ -66,7 +66,7 @@ func TestProcessForstFile_nestedProbeExecFt_noGoImportDiagnostic(t *testing.T) {
 func TestProcessForstFile_nestedProbeExecAndWrite_noGoImportOnExec(t *testing.T) {
 	t.Parallel()
 	root, execPath := testutil.WriteProbeModuleFixture(t, true)
-	writePath := filepath.Join(root, "internal", "probe", "write.ft")
+	writePath := filepath.Join(root, "internal", "jobs", "write.ft")
 	execSrc, err := os.ReadFile(execPath)
 	if err != nil {
 		t.Fatal(err)
