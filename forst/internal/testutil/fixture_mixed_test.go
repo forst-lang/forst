@@ -7,7 +7,7 @@ import (
 )
 
 func TestWriteMixedGoForstModule(t *testing.T) {
-	root, importPath := WriteMixedGoForstModule(t, "mixed")
+	root, importPath := WriteMixedGoForstModule(t, "memos")
 	if root == "" || importPath != "mixedtest/memos" {
 		t.Fatalf("got root=%q importPath=%q", root, importPath)
 	}
