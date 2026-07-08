@@ -8,7 +8,7 @@ import ShapesConstraintChaining from "/snippets/shapes-constraint-chaining.mdx";
 import ShapesPlaceOrderTags from "/snippets/shapes-place-order-tags.mdx";
 import ShapesAddressCustomer from "/snippets/shapes-address-customer.mdx";
 
-In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. Where values are known at compile time, the typechecker proves them statically; for dynamic input, use **`ensure … is …`** in the function body today. Automatic validation prologues on parameters are planned—not emitted yet.
+Whenever you deal with untrusted data, you need validation as far up as possible. Have the compiler prove these rules where values are known at compile time, and have it enforce them at runtime as well.
 
 ## Manual validation in Go
 
@@ -30,10 +30,7 @@ func placeOrder(in PlaceOrderInput) (string, error) {
 	// business logic...
 }
 ```
-
-Go structs only describe the *shape* of your data: they specify what fields exist, and their basic types. However, they cannot express deeper requirements about what makes a value *valid* for each field. For example, a struct can say "`StockKeepingUnit` is a `string`," but it cannot declare that it must be *between 1 and 64 characters*. This limitation means important constraints—like allowed value ranges, string lengths, or regex patterns—aren't part of the type system itself. As a result, validation must be enforced manually throughout your codebase with scattered `if` statements, making your data rules harder to see, reason about, and enforce at the API boundary.
-
-Even Go interfaces, which describe required methods and enable polymorphism, don't help here: interfaces only specify *behavior* (i.e., what a type can do), not additional field-level constraints or validation. Neither structs nor interfaces can declare that a string must match a certain format, that an integer falls within a specific range, or that a field is required only if another is set. In other words, Go's type system gives you *shapes* and *contracts* for methods, but not deep, declarative validation for data.
+Go structs define field names and types, and interfaces specify required methods, but neither can express detailed validation rules like value ranges or formats.
 
 ## Constraints on types
 
@@ -43,9 +40,9 @@ In Forst, types can declare exactly what makes data valid. You attach constraint
 
 When `placeOrder` runs, the compiler has already proven the shape at compile time where values are known; use `ensure` (or explicit checks) for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
 
-<Info>
+<Note>
   Forst also lets you define **your own** rules for types with [type guards](/language/type-guards).
-</Info>
+</Note>
 
 ## Built-in constraints
 
