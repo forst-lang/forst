@@ -145,7 +145,12 @@ func (tc *TypeChecker) GoImportPackageLoaded(local string) bool {
 
 // HasDotImportPackages reports whether go/packages loaded at least one dot-imported package (import . "path").
 func (tc *TypeChecker) HasDotImportPackages() bool {
-	return len(tc.dotImportPkgs) > 0
+	for _, pkg := range tc.dotImportPkgs {
+		if pkg != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // SamePackageGoLoaded reports whether same-package Go interop loaded via SetSamePackageGoImportPath.

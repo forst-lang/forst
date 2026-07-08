@@ -162,6 +162,9 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 			continue
 		}
 		tp := pkgp.Types
+		if tp == nil {
+			continue
+		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
 			tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
 			continue
@@ -322,6 +325,9 @@ func (tc *TypeChecker) lookupDotImportFunc(funcName string, sp ast.SourceSpan) (
 	}
 	var matched []*types.Package
 	for _, pkg := range tc.dotImportPkgs {
+		if pkg == nil {
+			continue
+		}
 		obj := pkg.Scope().Lookup(funcName)
 		if obj == nil {
 			continue

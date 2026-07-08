@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"forst/internal/testmod"
@@ -494,3 +495,17 @@ func TestLoadByPkgPathUncached_noTypedPackagesWithoutErrorMessages(t *testing.T)
 	}
 }
 
+func TestClearLoadCacheForTest_concurrentSafe(t *testing.T) {
+	t.Parallel()
+	dir := moduleRootFromWD(t)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ClearLoadCacheForTest()
+			_, _ = LoadByPkgPath(dir, []string{"fmt"})
+		}()
+	}
+	wg.Wait()
+}

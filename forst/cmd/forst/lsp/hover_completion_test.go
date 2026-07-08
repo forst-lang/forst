@@ -1118,7 +1118,7 @@ func main() {
 	println(Contains("a", "b"))
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1133,6 +1133,9 @@ func main() {
 	}
 	if ctx.TC == nil || !ctx.TC.HasDotImportPackages() {
 		t.Skip("dot-import packages not loaded")
+	}
+	if md, ok := ctx.TC.GoHoverMarkdownDotImportedSymbol("Contains"); !ok || md == "" {
+		t.Fatalf("expected dot-import hover from typechecker, got ok=%v md=%q", ok, md)
 	}
 
 	var idTok *ast.Token

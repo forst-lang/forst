@@ -23,7 +23,7 @@ var docPackageCache sync.Map
 
 // ClearDocCacheForTest drops cached LoadDocPackage results.
 func ClearDocCacheForTest() {
-	docPackageCache = sync.Map{}
+	clearSyncMap(&docPackageCache)
 }
 
 func docPackageCacheKey(moduleRoot, importPath string) string {

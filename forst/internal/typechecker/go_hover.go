@@ -68,6 +68,9 @@ func (tc *TypeChecker) loadedGoPackageByImportPath(path string) *types.Package {
 		}
 	}
 	for _, dp := range tc.dotImportPkgs {
+		if dp == nil {
+			continue
+		}
 		if dp.Path() == path {
 			return dp
 		}
@@ -81,6 +84,9 @@ func (tc *TypeChecker) dotImportPackageForUniqueFunc(symbol string) *types.Packa
 	}
 	var matched []*types.Package
 	for _, pkg := range tc.dotImportPkgs {
+		if pkg == nil {
+			continue
+		}
 		obj := pkg.Scope().Lookup(symbol)
 		if obj == nil {
 			continue

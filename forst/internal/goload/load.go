@@ -22,9 +22,17 @@ var loadByPkgPathCache sync.Map
 // packagesLoadFn loads packages; overridden in tests.
 var packagesLoadFn = packages.Load
 
+// clearSyncMap removes all entries without reassigning the map variable (safe under -race).
+func clearSyncMap(m *sync.Map) {
+	m.Range(func(key, value any) bool {
+		m.Delete(key)
+		return true
+	})
+}
+
 // ClearLoadCacheForTest drops cached LoadByPkgPath results (for tests that mutate module dirs).
 func ClearLoadCacheForTest() {
-	loadByPkgPathCache = sync.Map{}
+	clearSyncMap(&loadByPkgPathCache)
 	ClearDocCacheForTest()
 }
 

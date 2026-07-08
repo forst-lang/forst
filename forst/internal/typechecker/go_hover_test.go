@@ -164,3 +164,26 @@ func TestGoHoverMarkdownForGoTypeMethod_namedReceiver(t *testing.T) {
 		t.Fatalf("hover should mention Name: %q", md)
 	}
 }
+
+func TestGoHoverMarkdownDotImportedSymbol_stringsContains(t *testing.T) {
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	tc := typecheckSrc(t, `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "strings"})
+	if !tc.HasDotImportPackages() {
+		t.Skip("strings dot-import not loaded (go/packages or workspace)")
+	}
+	md, ok := tc.GoHoverMarkdownDotImportedSymbol("Contains")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for dot-imported Contains")
+	}
+	if !strings.Contains(md, "Contains") || !strings.Contains(md, "```go") {
+		t.Fatalf("hover should include Go signature: %q", md)
+	}
+}
