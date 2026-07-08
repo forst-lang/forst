@@ -31,6 +31,7 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | User-defined generics | Type parameters on types and functions. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | Postfix `++` / `--` and compound assignment | `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=` as standalone statements and in `for` post clauses (`lang_probe/59_inc_compound`). |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Shift / xor compound assignment | `^=`, `<<=`, `>>=`, `&^=`—planned when `^`, `<<`, `>>`, and `&^` tokens and three-character lexing land. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Slice subslice expressions | `xs[low:high]`, `xs[low:]`, `xs[:high]` on Forst `[]T` values. Example: `examples/in/slices.ft` (`task example:slices`). |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | `switch` / `select` | Not implemented yet; design open for Go-style `switch` vs pattern `match`. |
 
 ## Go interoperability
@@ -40,8 +41,9 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Transpile to Go](/interop/go) | Packages, types, and functions emit as readable Go for `go build`. |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Validation from constraints](/language/shapes-and-constraints) | Compiler emits runtime checks from type constraints. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Providers (`use` / `with`)](/language/providers) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common paths work, not full parity. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Go FFI expressions (subslice, spread, fields) | `xs[1:3]`, `argv[1:]...`, `cmd.ProcessState.ExitCode()`; LSP hover/completion for stdlib imports. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common paths work, not full parity. Forst sibling imports in the same module resolve from `.ft` sources (not committed Go stubs). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Variadic spread into Go calls](/interop/go#variadic-spread-into-go-calls) | `argv[1:]...` at Go call sites. Example: `examples/in/go_interop.ft` (`task example:go-interop`). |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Fields and methods on Go values](/interop/go#fields-and-methods-on-go-values) | Dotted chains on Go-typed bindings (e.g. `cmd.ProcessState.ExitCode()`). |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Selectable Go emit target version | Emit for older `go` toolchains than the compiler uses today. |
 
@@ -63,6 +65,7 @@ Forst is under active development. This page is a **simplified** view. The canon
 | Status | Feature | Notes |
 | --- | --- | --- |
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst lsp` core (HTTP)](/workflow/editor) | Diagnostics, hover, completion, definition, references, rename, symbols, folding. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [LSP Go interop hover](/workflow/editor) | Godoc and `go/types` signatures for qualified imports; module-level typecheck for cross-package Forst siblings. Go `pkg.` completion not yet. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [LSP formatting and code lens](/workflow/editor) | Format document advertised; code lens and some code actions still minimal. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [VS Code extension](/workflow/editor) | Marketplace + Open VSX publish on `vscode-forst-v*` releases. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`forst test`](/workflow/cli#forst-test) | Discover `Test*` in `*_test.ft`, emit Go tests and cross-package shims, run `go test`. Primary use: Providers wiring and cross-package integration. |
