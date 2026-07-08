@@ -19,7 +19,7 @@ func TestCapitalizeFirst(t *testing.T) {
 		{"f", "F"},
 		{"", ""},
 		{"ßeta", "SSeta"}, // Unicode: ß uppercases to SS (correct Unicode behavior)
-		{"αβγ", "Αβγ"},    // Greek alpha
+		{"αβγ", "Αβγ"},    // Greek letters
 		{"1foo", "1foo"},  // Non-letter first char
 	}
 	for _, tt := range tests {

@@ -1,6 +1,7 @@
 package goload
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +13,8 @@ import (
 
 	"golang.org/x/tools/go/packages"
 )
+
+var errInjectedForTest = errors.New("injected load failure for test")
 
 func moduleRootFromWD(t *testing.T) string {
 	t.Helper()
@@ -79,6 +82,37 @@ func TestImportPathFromForst_whitespaceAndQuotes(t *testing.T) {
 	t.Parallel()
 	if got := ImportPathFromForst(`  "encoding/json"  `); got != "encoding/json" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestLoadByPkgPath_osExec_withoutGoMod(t *testing.T) {
+	dir := t.TempDir()
+	ClearLoadCacheForTest()
+	m, err := LoadByPkgPath(dir, []string{"os/exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m["os/exec"] == nil {
+		t.Fatal("expected os/exec from GOROOT without go.mod")
+	}
+}
+
+func TestLoadByPkgPath_osExec_fromModuleWithGoMod(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(testmod.GoModContent("probemod")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ClearLoadCacheForTest()
+	m, err := LoadByPkgPath(root, []string{"os/exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := m["os/exec"]
+	if p == nil || p.Types == nil {
+		t.Fatalf("os/exec missing: %#v", m)
+	}
+	if p.Types.Scope().Lookup("Command") == nil {
+		t.Fatal("exec.Command not in scope")
 	}
 }
 
@@ -377,6 +411,70 @@ func TestLoadByPkgPath_noTypedPackagesWithoutMessages(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no typed packages") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadByPkgPath_doesNotCacheErrors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("nocacheerr")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ClearLoadCacheForTest()
+
+	orig := packagesLoadFn
+	call := 0
+	packagesLoadFn = func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error) {
+		call++
+		if call == 1 {
+			return nil, errInjectedForTest
+		}
+		return orig(cfg, patterns...)
+	}
+	t.Cleanup(func() { packagesLoadFn = orig })
+
+	_, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err == nil {
+		t.Fatal("expected first load error")
+	}
+	m, err := LoadByPkgPath(dir, []string{"fmt"})
+	if err != nil {
+		t.Fatalf("expected retry after uncached failure: %v", err)
+	}
+	if m["fmt"] == nil {
+		t.Fatal("expected fmt on retry")
+	}
+	if call != 2 {
+		t.Fatalf("expected 2 load attempts, got %d", call)
+	}
+}
+
+func TestLoadByPkgPath_deepTreeAndForstOnlyModuleImport_execStillLoads(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(testmod.GoModContent("deepmod")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Deep filesystem tree (module root unchanged).
+	probeDir := filepath.Join(root, "a", "b", "c", "d", "e", "f", "internal", "probe")
+	if err := os.MkdirAll(probeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Forst-only in-module path with no .go files.
+	if err := os.MkdirAll(filepath.Join(root, "internal", "deep", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ClearLoadCacheForTest()
+	paths := []string{"os/exec", "deepmod/internal/deep/nested"}
+	m, err := LoadByPkgPath(root, paths)
+	if err != nil {
+		t.Fatalf("batch load: %v", err)
+	}
+	if m["os/exec"] == nil {
+		t.Fatal("os/exec missing from batch with deep forst-only peer import")
+	}
+	// Module root from deep file path should still be root.
+	deepFile := filepath.Join(probeDir, "exec.ft")
+	if got := FindModuleRoot(filepath.Dir(deepFile)); got != root {
+		t.Fatalf("FindModuleRoot(deep) = %q, want %q", got, root)
 	}
 }
 

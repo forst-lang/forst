@@ -9,6 +9,20 @@ import (
 	"forst/internal/parser"
 )
 
+// lspPositionAfterDot returns the LSP position immediately after a `.` token (where member completion starts).
+func lspPositionAfterDot(content string, dot ast.Token) LSPPosition {
+	lines := strings.Split(content, "\n")
+	line := dot.Line - 1
+	if line < 0 || line >= len(lines) {
+		return LSPPosition{Line: line, Character: dot.Column}
+	}
+	byteCol := dot.Column - 1 + len(dot.Value)
+	if byteCol > len(lines[line]) {
+		byteCol = len(lines[line])
+	}
+	return LSPPosition{Line: line, Character: utf8.RuneCountInString(lines[line][:byteCol])}
+}
+
 // receiverExpressionSourceBeforeDot returns the source text of the receiver expression immediately
 // before the dot at dotIdx (tokens[dotIdx] must be TokenDot).
 func receiverExpressionSourceBeforeDot(tokens []ast.Token, dotIdx int) (string, bool) {
@@ -22,10 +36,15 @@ func receiverExpressionSourceBeforeDot(tokens []ast.Token, dotIdx int) (string, 
 	if end < 0 {
 		return "", false
 	}
+	dotLine := tokens[dotIdx].Line
 	start := end
 	paren, brack, brace := 0, 0, 0
 	for i := end; i >= 0; i-- {
 		tok := tokens[i]
+		if tok.Line != dotLine && paren == 0 && brack == 0 && brace == 0 {
+			start = i + 1
+			goto done
+		}
 		switch tok.Type {
 		case ast.TokenRParen:
 			paren++

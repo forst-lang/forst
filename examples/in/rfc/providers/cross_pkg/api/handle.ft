@@ -1,0 +1,10 @@
+// Cross-package Providers cookbook: api calls auth; Logger propagates to HandleRequest.
+package api
+
+import "providers_cross_pkg_demo/auth"
+
+type Logger = {Info(msg String)}
+
+func HandleRequest(id String) {
+	auth.LogEvent(id)
+}

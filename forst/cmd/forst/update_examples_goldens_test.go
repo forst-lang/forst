@@ -177,14 +177,14 @@ func updateProvidersCrossPkgGolden(t *testing.T) {
 		root, entry, golden string
 	}{
 		{
-			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha"),
-			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha", "log.ft"),
-			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "alpha", "log.go"),
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "auth"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "auth", "log.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "auth", "log.go"),
 		},
 		{
-			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta"),
-			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta", "handle.ft"),
-			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "beta", "handle.go"),
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "api"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "api", "handle.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "api", "handle.go"),
 		},
 	}
 	for _, tc := range cases {

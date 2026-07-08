@@ -64,34 +64,34 @@ func TestX(t *testing.T) {
 func TestCheckModuleProviders_unusedWiringKey_crossPackage(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go.mod"), testmod.GoModContent("unused_cross"))
-	alphaDir := filepath.Join(dir, "alpha")
-	betaDir := filepath.Join(dir, "beta")
-	for _, d := range []string{alphaDir, betaDir} {
+	authDir := filepath.Join(dir, "auth")
+	apiDir := filepath.Join(dir, "api")
+	for _, d := range []string{authDir, apiDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	writeFile(t, filepath.Join(alphaDir, "log.ft"), `package alpha
+	writeFile(t, filepath.Join(authDir, "log.ft"), `package auth
 
 type Logger = { Info(msg String) }
 
-func LogExpiry(id String) {
+func LogEvent(id String) {
 	use logger: Logger
 	logger.Info(id)
 }
 `)
-	writeFile(t, filepath.Join(betaDir, "handle.ft"), `package beta
+	writeFile(t, filepath.Join(apiDir, "handle.ft"), `package api
 
-import "unused_cross/alpha"
+import "unused_cross/auth"
 
 type Logger = { Info(msg String) }
 type Clock = { now(): Int }
 
-func Handle(id String) {
-	alpha.LogExpiry(id)
+func HandleRequest(id String) {
+	auth.LogEvent(id)
 }
 `)
-	writeFile(t, filepath.Join(betaDir, "handle_test.ft"), `package beta
+	writeFile(t, filepath.Join(apiDir, "handle_test.ft"), `package api
 
 import "testing"
 
@@ -103,12 +103,12 @@ type FakeClock = { fixedMs: Int }
 
 func (c FakeClock) now(): Int { return c.fixedMs }
 
-func TestHandle(t *testing.T) {
+func TestHandleRequest(t *testing.T) {
 	with {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
 	} {
-		Handle("tok")
+		HandleRequest("tok")
 	}
 }
 `)
@@ -116,20 +116,20 @@ func TestHandle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckModuleProviders: %v", err)
 	}
-	beta := result.ForstPackageTypeChecker("beta")
-	if beta == nil {
-		t.Fatal("missing beta tc")
+	apiTC := result.ForstPackageTypeChecker("api")
+	if apiTC == nil {
+		t.Fatal("missing api tc")
 	}
 	foundClock := false
-	for _, w := range beta.Warnings {
+	for _, w := range apiTC.Warnings {
 		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Clock") {
 			foundClock = true
 		}
 		if w.Code == "providers-unused-key" && strings.Contains(w.Msg, "Logger") {
-			t.Fatalf("Logger required via cross-package Handle → alpha.LogExpiry, got warning: %s", w.Msg)
+			t.Fatalf("Logger required via cross-package HandleRequest → auth.LogEvent, got warning: %s", w.Msg)
 		}
 	}
 	if !foundClock {
-		t.Fatalf("expected unused Clock warning, got: %+v", beta.Warnings)
+		t.Fatalf("expected unused Clock warning, got: %+v", apiTC.Warnings)
 	}
 }

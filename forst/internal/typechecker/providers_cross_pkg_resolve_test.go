@@ -13,34 +13,34 @@ func TestResolveForstSiblingCall_crossPkgExample(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
 	goRoot := goload.FindModuleRoot(root)
 
-	alphaMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "alpha", "log.ft")})
+	authMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "auth", "log.ft")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	alphaTC := typechecker.New(nil, false)
-	alphaTC.GoWorkspaceDir = goRoot
-	if err := alphaTC.CheckTypes(alphaMerged); err != nil {
-		t.Fatalf("alpha: %v", err)
+	authTC := typechecker.New(nil, false)
+	authTC.GoWorkspaceDir = goRoot
+	if err := authTC.CheckTypes(authMerged); err != nil {
+		t.Fatalf("auth: %v", err)
 	}
-	if _, ok := alphaTC.Functions["LogExpiry"]; !ok {
-		t.Fatalf("missing LogExpiry in %v", alphaTC.Functions)
+	if _, ok := authTC.Functions["LogEvent"]; !ok {
+		t.Fatalf("missing LogEvent in %v", authTC.Functions)
 	}
 
-	betaMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "beta", "handle.ft")})
+	apiMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "api", "handle.ft")})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	view := &stubModuleView{
-		importMap: map[string]string{"providers_cross_pkg_demo/alpha": "alpha"},
-		pkgs:      map[string]*typechecker.TypeChecker{"alpha": alphaTC},
+		importMap: map[string]string{"providers_cross_pkg_demo/auth": "auth"},
+		pkgs:      map[string]*typechecker.TypeChecker{"auth": authTC},
 	}
-	betaTC := typechecker.New(nil, false)
-	betaTC.GoWorkspaceDir = goRoot
-	betaTC.SetForstPackage("beta")
-	betaTC.SetModuleResult(view)
-	if err := betaTC.CheckTypes(betaMerged); err != nil {
-		t.Fatalf("beta: %v", err)
+	apiTC := typechecker.New(nil, false)
+	apiTC.GoWorkspaceDir = goRoot
+	apiTC.SetForstPackage("api")
+	apiTC.SetModuleResult(view)
+	if err := apiTC.CheckTypes(apiMerged); err != nil {
+		t.Fatalf("api: %v", err)
 	}
 }
 

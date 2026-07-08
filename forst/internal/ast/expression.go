@@ -56,6 +56,62 @@ type IndexExpressionNode struct {
 
 func (i IndexExpressionNode) isExpression() { _ = i }
 
+// SliceExpressionNode is a subslice expression: target[low:high], target[low:], or target[:high].
+type SliceExpressionNode struct {
+	Target ExpressionNode
+	Low    ExpressionNode // nil when omitted before ':'
+	High   ExpressionNode // nil when omitted after ':'
+}
+
+func (s SliceExpressionNode) isExpression() { _ = s }
+
+func (s SliceExpressionNode) Kind() NodeKind {
+	return NodeKindSliceExpression
+}
+
+func (s SliceExpressionNode) String() string {
+	low := ""
+	if s.Low != nil {
+		low = s.Low.String()
+	}
+	high := ""
+	if s.High != nil {
+		high = s.High.String()
+	}
+	return fmt.Sprintf("%s[%s:%s]", s.Target.String(), low, high)
+}
+
+// SpreadExpressionNode is a variadic spread argument: expr...
+type SpreadExpressionNode struct {
+	Expr ExpressionNode
+}
+
+func (s SpreadExpressionNode) isExpression() { _ = s }
+
+func (s SpreadExpressionNode) Kind() NodeKind {
+	return NodeKindSpreadExpression
+}
+
+func (s SpreadExpressionNode) String() string {
+	return s.Expr.String() + "..."
+}
+
+// FieldAccessNode is field selection on an expression: recv.field (Go FFI).
+type FieldAccessNode struct {
+	Target ExpressionNode
+	Field  Ident
+}
+
+func (f FieldAccessNode) isExpression() { _ = f }
+
+func (f FieldAccessNode) Kind() NodeKind {
+	return NodeKindFieldAccess
+}
+
+func (f FieldAccessNode) String() string {
+	return fmt.Sprintf("%s.%s", f.Target.String(), f.Field.ID)
+}
+
 // Kind returns the node kind for index expressions.
 func (i IndexExpressionNode) Kind() NodeKind {
 	return NodeKindIndexExpression

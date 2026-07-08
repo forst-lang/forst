@@ -56,10 +56,14 @@ func processStringLiteral(line []byte, startCol int, fileID string, lineNum int)
 
 func processSpecialChar(line []byte, startCol int, fileID string, lineNum int) (ast.Token, int) {
 	column := startCol
-	column++
-	// Handle two-character operators
-	if column < len(line) && isTwoCharOperator(string(line[startCol:column+1])) {
+	if isEllipsis(line, startCol) {
+		column = startCol + 3
+	} else {
 		column++
+		// Handle two-character operators
+		if column < len(line) && isTwoCharOperator(string(line[startCol:column+1])) {
+			column++
+		}
 	}
 	word := string(line[startCol:column])
 

@@ -22,26 +22,26 @@ func TestEmit_crossPkgHandleForwardsProviders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	betaDir := filepath.Join(root, "beta")
+	apiDir := filepath.Join(root, "api")
 	pkg := PackageUnderTest{
-		Dir:     betaDir,
-		RelPath: "beta",
+		Dir:     apiDir,
+		RelPath: "api",
 		FtPaths: []string{
-			filepath.Join(betaDir, "handle.ft"),
-			filepath.Join(betaDir, "handle_test.ft"),
+			filepath.Join(apiDir, "handle.ft"),
+			filepath.Join(apiDir, "handle_test.ft"),
 		},
 	}
 	code, err := emitPackageGo(root, pkg, modResult, EmitOptions{}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(code, "func Handle(providers ") {
-		t.Fatalf("Handle missing providers param:\n%s", code)
+	if !strings.Contains(code, "func HandleRequest(providers ") {
+		t.Fatalf("HandleRequest missing providers param:\n%s", code)
 	}
-	if !strings.Contains(code, "alpha.LogExpiry(") {
-		t.Fatalf("missing alpha.LogExpiry call:\n%s", code)
+	if !strings.Contains(code, "auth.LogEvent(") {
+		t.Fatalf("missing auth.LogEvent call:\n%s", code)
 	}
-	if !strings.Contains(code, "alpha.LogExpiry(alpha.Providers_") {
-		t.Fatalf("expected providers forwarded to alpha.LogExpiry, got:\n%s", code)
+	if !strings.Contains(code, "auth.LogEvent(auth.Providers_") {
+		t.Fatalf("expected providers forwarded to auth.LogEvent, got:\n%s", code)
 	}
 }

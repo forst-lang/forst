@@ -9,10 +9,10 @@ import (
 func TestPropagateModuleFixedPoint_emptyEdgesNoOp(t *testing.T) {
 	t.Parallel()
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"F": {{RootIdent: "Logger", Key: "Logger"}}},
+		"auth": {"F": {{RootIdent: "Logger", Key: "Logger"}}},
 	}
 	PropagateModuleFixedPoint(perPkg, nil, nil)
-	if len(perPkg["alpha"]["F"]) != 1 {
+	if len(perPkg["auth"]["F"]) != 1 {
 		t.Fatalf("unexpected mutation: %v", perPkg)
 	}
 }
@@ -20,69 +20,69 @@ func TestPropagateModuleFixedPoint_emptyEdgesNoOp(t *testing.T) {
 func TestPropagateModuleFixedPoint_nilSatisfiesUsesDefault(t *testing.T) {
 	t.Parallel()
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"Callee": {{RootIdent: "Logger", Key: "Logger"}}},
-		"beta":  {"Caller": nil},
+		"auth": {"Callee": {{RootIdent: "Logger", Key: "Logger"}}},
+		"api":  {"Caller": nil},
 	}
 	PropagateModuleFixedPoint(perPkg, []ModuleCallEdge{{
-		CallerPkg: "beta",
+		CallerPkg: "api",
 		CallerFn:  "Caller",
-		TargetPkg: "alpha",
+		TargetPkg: "auth",
 		TargetFn:  "Callee",
 	}}, nil)
-	if len(perPkg["beta"]["Caller"]) != 1 {
-		t.Fatalf("got %v", perPkg["beta"]["Caller"])
+	if len(perPkg["api"]["Caller"]) != 1 {
+		t.Fatalf("got %v", perPkg["api"]["Caller"])
 	}
 }
 
 func TestPropagateModuleFixedPoint_skipsCalleeWithNoSlots(t *testing.T) {
 	t.Parallel()
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"Callee": nil},
-		"beta":  {"Caller": nil},
+		"auth": {"Callee": nil},
+		"api":  {"Caller": nil},
 	}
 	PropagateModuleFixedPoint(perPkg, []ModuleCallEdge{{
-		CallerPkg: "beta",
+		CallerPkg: "api",
 		CallerFn:  "Caller",
-		TargetPkg: "alpha",
+		TargetPkg: "auth",
 		TargetFn:  "Callee",
 	}}, ProviderScopeKeyPresent)
-	if len(perPkg["beta"]["Caller"]) != 0 {
-		t.Fatalf("expected no propagation from empty callee slots, got %v", perPkg["beta"]["Caller"])
+	if len(perPkg["api"]["Caller"]) != 0 {
+		t.Fatalf("expected no propagation from empty callee slots, got %v", perPkg["api"]["Caller"])
 	}
 }
 
 func TestPropagateModuleFixedPoint_createsCallerPackageMap(t *testing.T) {
 	t.Parallel()
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {
-			"ExpireToken": {{RootIdent: "Logger", Key: "Logger", SourcePkg: "alpha"}},
+		"auth": {
+			"LogEvent": {{RootIdent: "Logger", Key: "Logger", SourcePkg: "auth"}},
 		},
 	}
 	PropagateModuleFixedPoint(perPkg, []ModuleCallEdge{{
-		CallerPkg: "beta",
-		CallerFn:  "Handle",
-		TargetPkg: "alpha",
-		TargetFn:  "ExpireToken",
+		CallerPkg: "api",
+		CallerFn:  "HandleRequest",
+		TargetPkg: "auth",
+		TargetFn:  "LogEvent",
 	}}, ProviderScopeKeyPresent)
-	if len(perPkg["beta"]["Handle"]) != 1 {
-		t.Fatalf("got %v", perPkg["beta"]["Handle"])
+	if len(perPkg["api"]["HandleRequest"]) != 1 {
+		t.Fatalf("got %v", perPkg["api"]["HandleRequest"])
 	}
 }
 
 func TestPropagateModuleFixedPoint_multiHopPropagation(t *testing.T) {
 	t.Parallel()
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"Leaf": {{RootIdent: "Clock", Key: "Clock"}}},
-		"beta":  {"Mid": nil},
-		"gamma": {"Root": nil},
+		"auth":    {"Leaf": {{RootIdent: "Clock", Key: "Clock"}}},
+		"api":     {"Mid": nil},
+		"gateway": {"Root": nil},
 	}
 	edges := []ModuleCallEdge{
-		{CallerPkg: "beta", CallerFn: "Mid", TargetPkg: "alpha", TargetFn: "Leaf"},
-		{CallerPkg: "gamma", CallerFn: "Root", TargetPkg: "beta", TargetFn: "Mid"},
+		{CallerPkg: "api", CallerFn: "Mid", TargetPkg: "auth", TargetFn: "Leaf"},
+		{CallerPkg: "gateway", CallerFn: "Root", TargetPkg: "api", TargetFn: "Mid"},
 	}
 	PropagateModuleFixedPoint(perPkg, edges, ProviderScopeKeyPresent)
-	if len(perPkg["gamma"]["Root"]) != 1 || perPkg["gamma"]["Root"][0].RootIdent != "Clock" {
-		t.Fatalf("got %v", perPkg["gamma"]["Root"])
+	if len(perPkg["gateway"]["Root"]) != 1 || perPkg["gateway"]["Root"][0].RootIdent != "Clock" {
+		t.Fatalf("got %v", perPkg["gateway"]["Root"])
 	}
 }
 

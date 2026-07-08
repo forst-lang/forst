@@ -60,7 +60,7 @@ func G_PP94eAdBHT9(ctx AppContext) bool {
 }
 func createTask(op T_488eVThFocF) (string, error) {
 	if !G_PP94eAdBHT9(op.ctx) {
-		return "", errors.New("assertion failed: AppContext.LoggedIn()")
+		return "", errors.New("ensure op.ctx is AppContext.LoggedIn(): want AppContext.LoggedIn()")
 	}
 	println("Creating task, logged in with sessionId: " + *op.ctx.sessionId)
 	return op.input.name, nil

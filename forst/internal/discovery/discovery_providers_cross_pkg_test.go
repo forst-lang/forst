@@ -10,78 +10,78 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func writeCrossPackageProvidersFixture(t *testing.T, dir string) (alphaFt, betaFt string) {
+func writeCrossPackageProvidersFixture(t *testing.T, dir string) (authFt, apiFt string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("testmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	alphaDir := filepath.Join(dir, "alpha")
-	betaDir := filepath.Join(dir, "beta")
-	if err := os.MkdirAll(alphaDir, 0o755); err != nil {
+	authDir := filepath.Join(dir, "auth")
+	apiDir := filepath.Join(dir, "api")
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(betaDir, 0o755); err != nil {
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	alphaFt = filepath.Join(alphaDir, "expire.ft")
-	if err := os.WriteFile(alphaFt, []byte(`package alpha
+	authFt = filepath.Join(authDir, "log.ft")
+	if err := os.WriteFile(authFt, []byte(`package auth
 
 type Logger = { Info(msg String) }
 
-func ExpireToken() {
+func LogEvent() {
 	use logger: Logger
 	logger.Info("expire")
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	betaFt = filepath.Join(betaDir, "handle.ft")
-	if err := os.WriteFile(betaFt, []byte(`package beta
+	apiFt = filepath.Join(apiDir, "handle.ft")
+	if err := os.WriteFile(apiFt, []byte(`package api
 
-import "testmod/alpha"
+import "testmod/auth"
 
-func Handle() {
-	alpha.ExpireToken()
+func HandleRequest() {
+	auth.LogEvent()
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return alphaFt, betaFt
+	return authFt, apiFt
 }
 
 func TestDiscoverer_DiscoverFunctions_crossPackageProvidersPropagation(t *testing.T) {
 	dir := t.TempDir()
-	alphaFt, betaFt := writeCrossPackageProvidersFixture(t, dir)
+	authFt, apiFt := writeCrossPackageProvidersFixture(t, dir)
 
 	logger := logrus.New()
 	logger.SetOutput(os.Stderr)
 	logger.SetLevel(logrus.PanicLevel)
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{alphaFt, betaFt}})
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{authFt, apiFt}})
 
 	functions, err := discoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions: %v", err)
 	}
-	handle, ok := functions["beta"]["Handle"]
+	handle, ok := functions["api"]["HandleRequest"]
 	if !ok {
-		t.Fatalf("expected beta.Handle, got %+v", functions)
+		t.Fatalf("expected api.HandleRequest, got %+v", functions)
 	}
 	if handle.Runnable {
-		t.Fatal("Handle should not be runnable after cross-package propagation")
+		t.Fatal("HandleRequest should not be runnable after cross-package propagation")
 	}
 	if len(handle.Providers) != 1 || handle.Providers[0] != "Logger" {
-		t.Fatalf("Handle providers = %v, want [Logger]", handle.Providers)
+		t.Fatalf("HandleRequest providers = %v, want [Logger]", handle.Providers)
 	}
 }
 
 func TestDiscoverer_DiscoverProvidersJSONV1_crossPackage(t *testing.T) {
 	dir := t.TempDir()
-	alphaFt, betaFt := writeCrossPackageProvidersFixture(t, dir)
+	authFt, apiFt := writeCrossPackageProvidersFixture(t, dir)
 
 	logger := logrus.New()
 	logger.SetOutput(os.Stderr)
 	logger.SetLevel(logrus.PanicLevel)
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{alphaFt, betaFt}})
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{authFt, apiFt}})
 
 	doc, err := discoverer.DiscoverProvidersJSONV1()
 	if err != nil {
@@ -90,9 +90,9 @@ func TestDiscoverer_DiscoverProvidersJSONV1_crossPackage(t *testing.T) {
 	if doc.Version != 1 {
 		t.Fatalf("version = %d", doc.Version)
 	}
-	betaPkg := doc.Packages["beta"]
-	handle := betaPkg.Functions["Handle"]
+	apiPkg := doc.Packages["api"]
+	handle := apiPkg.Functions["HandleRequest"]
 	if handle.Runnable || len(handle.Providers) != 1 || handle.Providers[0] != "Logger" {
-		t.Fatalf("Handle v1 doc = %+v", handle)
+		t.Fatalf("HandleRequest v1 doc = %+v", handle)
 	}
 }

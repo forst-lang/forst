@@ -133,13 +133,13 @@ func TestPrint_withCompactWiringInsideFunction(t *testing.T) {
 
 func TestFormatSource_withWiringCompact(t *testing.T) {
 	t.Parallel()
-	src := `package beta
+	src := `package api
 
-func TestHandle(t *testing.T) {
+func TestHandleRequest(t *testing.T) {
 	with {
 		Logger: &NopLogger{},
 	} {
-		Handle("tok-1")
+		HandleRequest("tok-1")
 	}
 }
 `

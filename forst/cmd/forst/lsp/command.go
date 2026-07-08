@@ -6,6 +6,7 @@ import (
 
 // StartLSPServer is the entry point for the LSP server command
 func StartLSPServer(port string, log *logrus.Logger) error {
+	LogBuildInfo(log)
 	server := NewLSPServer(port, log)
 
 	log.Infof("Starting Forst LSP server on port %s", port)

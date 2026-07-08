@@ -18,6 +18,8 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 		"result_ensure.ft",
 		"generics.ft",
 		"go_builtins.ft",
+		"slices.ft",
+		"go_interop.ft",
 		"ensure.ft",
 		"pointers.ft",
 		"union_error_types.ft",
@@ -36,7 +38,7 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			out := compileForstPipeline(t, string(src))
+			out := compileForstPipelineExt(t, string(src), pipelineOptsForExampleFile(t, name))
 			assertGoParses(t, out)
 		})
 	}

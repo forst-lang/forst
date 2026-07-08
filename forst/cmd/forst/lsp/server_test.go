@@ -77,6 +77,12 @@ func TestHandleHealth(t *testing.T) {
 	if response["version"] != "dev" {
 		t.Errorf("Expected version 'dev', got %v", response["version"])
 	}
+	if response["commit"] != "unknown" {
+		t.Errorf("Expected commit 'unknown', got %v", response["commit"])
+	}
+	if response["date"] != "unknown" {
+		t.Errorf("Expected date 'unknown', got %v", response["date"])
+	}
 
 	// Test POST request (should fail)
 	req, err = http.NewRequest("POST", "/health", nil)
@@ -200,6 +206,12 @@ func TestHandleInitialize(t *testing.T) {
 
 	if serverInfo["version"] != "dev" {
 		t.Errorf("Expected version 'dev', got %v", serverInfo["version"])
+	}
+	if serverInfo["commit"] != "unknown" {
+		t.Errorf("Expected commit 'unknown', got %v", serverInfo["commit"])
+	}
+	if serverInfo["date"] != "unknown" {
+		t.Errorf("Expected date 'unknown', got %v", serverInfo["date"])
 	}
 }
 

@@ -79,6 +79,8 @@ const (
 	TokenComma TokenIdent = "COMMA"
 	// TokenDot is the token for dot
 	TokenDot TokenIdent = "DOT"
+	// TokenEllipsis is the token for variadic spread (...)
+	TokenEllipsis TokenIdent = "ELLIPSIS"
 	// TokenColonEquals is the token for :=
 	TokenColonEquals TokenIdent = "COLON_EQUALS"
 	// TokenSemicolon is the token for semicolon

@@ -51,6 +51,8 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 			"serverInfo": map[string]any{
 				"name":    "forst-lsp",
 				"version": Version,
+				"commit":  Commit,
+				"date":    Date,
 			},
 		},
 	}

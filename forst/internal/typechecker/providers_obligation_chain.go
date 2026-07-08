@@ -14,7 +14,7 @@ type obligationStep struct {
 }
 
 // BuildProvidersObligationChain formats a transitive chain from rootFn to providerRoot
-// (e.g. TestHandle → Handle → alpha.LogExpiry → Logger).
+// (e.g. TestHandleRequest → HandleRequest → auth.LogEvent → Logger).
 func (tc *TypeChecker) BuildProvidersObligationChain(rootFn ast.Identifier, providerRoot string) string {
 	startPkg := tc.ForstPackage()
 	path := tc.walkToDirectProviderUse(startPkg, rootFn, providerRoot)

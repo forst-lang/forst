@@ -21,37 +21,37 @@ func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.
 	if err != nil {
 		t.Fatalf("CheckModuleProviders: %v", err)
 	}
-	modRoots := providerRoots(modResult.ForstPackageTypeChecker("beta").FunctionProviders, "Handle")
+	modRoots := providerRoots(modResult.ForstPackageTypeChecker("api").FunctionProviders, "HandleRequest")
 	if !sameStringSlice(modRoots, wantRoots) {
-		t.Fatalf("modulecheck Handle roots = %v, want %v", modRoots, wantRoots)
+		t.Fatalf("modulecheck HandleRequest roots = %v, want %v", modRoots, wantRoots)
 	}
-	modSlots := modResult.ForstPackageTypeChecker("beta").FunctionProviders["Handle"]
+	modSlots := modResult.ForstPackageTypeChecker("api").FunctionProviders["HandleRequest"]
 	if len(modSlots) != 1 || modSlots[0].Key != "Logger" {
-		t.Fatalf("modulecheck Handle slots = %v", modSlots)
+		t.Fatalf("modulecheck HandleRequest slots = %v", modSlots)
 	}
 
 	logger := logrus.New()
 	logger.SetOutput(nil)
 	logger.SetLevel(logrus.PanicLevel)
 	crossPkgFiles := []string{
-		filepath.Join(root, "alpha", "log.ft"),
-		filepath.Join(root, "beta", "handle.ft"),
-		filepath.Join(root, "beta", "handle_test.ft"),
+		filepath.Join(root, "auth", "log.ft"),
+		filepath.Join(root, "api", "handle.ft"),
+		filepath.Join(root, "api", "handle_test.ft"),
 	}
 	discoverer := discovery.NewDiscoverer(root, logger, discovery.NewStaticFilesConfig(crossPkgFiles))
 	functions, err := discoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions: %v", err)
 	}
-	handle, ok := functions["beta"]["Handle"]
+	handle, ok := functions["api"]["HandleRequest"]
 	if !ok {
-		t.Fatalf("missing beta.Handle in discovery: %+v", functions)
+		t.Fatalf("missing api.HandleRequest in discovery: %+v", functions)
 	}
 	if !sameStringSlice(handle.Providers, wantRoots) {
-		t.Fatalf("discovery Handle providers = %v, want %v", handle.Providers, wantRoots)
+		t.Fatalf("discovery HandleRequest providers = %v, want %v", handle.Providers, wantRoots)
 	}
 
-	entry := filepath.Join(root, "beta", "handle.ft")
+	entry := filepath.Join(root, "api", "handle.ft")
 	c := compiler.New(compiler.Args{
 		Command:  "run",
 		FilePath: entry,
@@ -64,19 +64,19 @@ func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.
 	if modFromCompile == nil {
 		t.Fatal("expected module result from compile typecheck")
 	}
-	compileTC := modFromCompile.ForstPackageTypeChecker("beta")
+	compileTC := modFromCompile.ForstPackageTypeChecker("api")
 	if compileTC == nil {
-		t.Fatal("missing beta tc from compile module pass")
+		t.Fatal("missing api tc from compile module pass")
 	}
-	compileRoots := providerRoots(compileTC.FunctionProviders, "Handle")
+	compileRoots := providerRoots(compileTC.FunctionProviders, "HandleRequest")
 	if !sameStringSlice(compileRoots, wantRoots) {
-		t.Fatalf("compile Handle roots = %v, want %v", compileRoots, wantRoots)
+		t.Fatalf("compile HandleRequest roots = %v, want %v", compileRoots, wantRoots)
 	}
 	if tc != compileTC {
 		// TypecheckForTest may return the same package tc; roots must still match direct lookup.
-		directRoots := providerRoots(tc.FunctionProviders, "Handle")
+		directRoots := providerRoots(tc.FunctionProviders, "HandleRequest")
 		if !sameStringSlice(directRoots, wantRoots) {
-			t.Fatalf("returned tc Handle roots = %v, want %v", directRoots, wantRoots)
+			t.Fatalf("returned tc HandleRequest roots = %v, want %v", directRoots, wantRoots)
 		}
 	}
 }

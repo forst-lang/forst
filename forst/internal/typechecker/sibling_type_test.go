@@ -13,116 +13,116 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestResolveForstSiblingTypeDef_returnsAlphaTypedef(t *testing.T) {
+func TestResolveForstSiblingTypeDef_returnsAuthTypedef(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
 	goRoot := goload.FindModuleRoot(root)
 
-	alphaMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "alpha", "log.ft")})
+	authMerged, _, err := forstpkg.ParseAndMergePackage(nil, []string{filepath.Join(root, "auth", "log.ft")})
 	if err != nil {
 		t.Fatal(err)
 	}
-	alphaTC := New(nil, false)
-	alphaTC.GoWorkspaceDir = goRoot
-	if err := alphaTC.CollectTypes(alphaMerged); err != nil {
-		t.Fatalf("alpha collect: %v", err)
+	authTC := New(nil, false)
+	authTC.GoWorkspaceDir = goRoot
+	if err := authTC.CollectTypes(authMerged); err != nil {
+		t.Fatalf("auth collect: %v", err)
 	}
 
 	view := &stubSiblingModuleView{
-		importMap: map[string]string{"providers_cross_pkg_demo/alpha": "alpha"},
-		pkgs:      map[string]*TypeChecker{"alpha": alphaTC},
+		importMap: map[string]string{"providers_cross_pkg_demo/auth": "auth"},
+		pkgs:      map[string]*TypeChecker{"auth": authTC},
 	}
-	betaTC := New(nil, false)
-	betaTC.GoWorkspaceDir = goRoot
-	betaTC.SetForstPackage("beta")
-	betaTC.SetModuleResult(view)
-	betaTC.imports = []ast.ImportNode{{Path: `"providers_cross_pkg_demo/alpha"`}}
-	betaTC.importPathByLocal = map[string]string{"alpha": "providers_cross_pkg_demo/alpha"}
+	apiTC := New(nil, false)
+	apiTC.GoWorkspaceDir = goRoot
+	apiTC.SetForstPackage("api")
+	apiTC.SetModuleResult(view)
+	apiTC.imports = []ast.ImportNode{{Path: `"providers_cross_pkg_demo/auth"`}}
+	apiTC.importPathByLocal = map[string]string{"auth": "providers_cross_pkg_demo/auth"}
 
-	td, ok := betaTC.resolveForstSiblingTypeDef(ast.TypeIdent("alpha.Logger"))
+	td, ok := apiTC.resolveForstSiblingTypeDef(ast.TypeIdent("auth.Logger"))
 	if !ok {
-		t.Fatal("expected alpha.Logger typedef")
+		t.Fatal("expected auth.Logger typedef")
 	}
 	if td.Ident != "Logger" {
 		t.Fatalf("want Logger typedef, got %q", td.Ident)
 	}
-	td2, ok2 := betaTC.resolveForstSiblingTypeDef(ast.TypeIdent("alpha.Logger"))
+	td2, ok2 := apiTC.resolveForstSiblingTypeDef(ast.TypeIdent("auth.Logger"))
 	if !ok2 || td2.Ident != td.Ident {
 		t.Fatalf("cache miss on second lookup: ok=%v ident=%q", ok2, td2.Ident)
 	}
 }
 
 func TestIsTypeCompatible_siblingShapeMatchesLocalHashType(t *testing.T) {
-	configShape := ast.ShapeNode{
+	planShape := ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
-			"Version": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			"tier": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 		},
 	}
-	alphaTC := New(nil, false)
-	alphaTC.SetForstPackage("alpha")
-	if err := alphaTC.CollectTypes([]ast.Node{ast.TypeDefNode{
-		Ident: "Config",
-		Expr:  ast.TypeDefShapeExpr{Shape: configShape},
+	billingTC := New(nil, false)
+	billingTC.SetForstPackage("billing")
+	if err := billingTC.CollectTypes([]ast.Node{ast.TypeDefNode{
+		Ident: "Plan",
+		Expr:  ast.TypeDefShapeExpr{Shape: planShape},
 	}}); err != nil {
 		t.Fatal(err)
 	}
 
-	betaTC := New(nil, false)
-	betaTC.SetForstPackage("beta")
-	betaTC.SetModuleResult(&stubSiblingModuleView{
-		importMap: map[string]string{"demo/alpha": "alpha"},
-		pkgs:      map[string]*TypeChecker{"alpha": alphaTC},
+	shippingTC := New(nil, false)
+	shippingTC.SetForstPackage("shipping")
+	shippingTC.SetModuleResult(&stubSiblingModuleView{
+		importMap: map[string]string{"demo/billing": "billing"},
+		pkgs:      map[string]*TypeChecker{"billing": billingTC},
 	})
-	betaTC.importPathByLocal = map[string]string{"alpha": "demo/alpha"}
+	shippingTC.importPathByLocal = map[string]string{"billing": "demo/billing"}
 
 	localShape := ast.TypeNode{Ident: "T_local123"}
-	betaTC.Defs[localShape.Ident] = ast.TypeDefNode{
+	shippingTC.Defs[localShape.Ident] = ast.TypeDefNode{
 		Ident: localShape.Ident,
-		Expr:  ast.TypeDefShapeExpr{Shape: configShape},
+		Expr:  ast.TypeDefShapeExpr{Shape: planShape},
 	}
-	expected := ast.TypeNode{Ident: ast.TypeIdent("alpha.Config")}
-	if !betaTC.IsTypeCompatible(localShape, expected) {
-		t.Fatal("expected local hash shape compatible with alpha.Config")
+	expected := ast.TypeNode{Ident: ast.TypeIdent("billing.Plan")}
+	if !shippingTC.IsTypeCompatible(localShape, expected) {
+		t.Fatal("expected local hash shape compatible with billing.Plan")
 	}
 }
 
 func TestIsTypeCompatible_siblingShapeMatchesExpectedHash(t *testing.T) {
-	configShape := ast.ShapeNode{
+	planShape := ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
-			"Version": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			"tier": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 		},
 	}
-	alphaTC := New(nil, false)
-	alphaTC.SetForstPackage("alpha")
-	if err := alphaTC.CollectTypes([]ast.Node{ast.TypeDefNode{
-		Ident: "Config",
-		Expr:  ast.TypeDefShapeExpr{Shape: configShape},
+	billingTC := New(nil, false)
+	billingTC.SetForstPackage("billing")
+	if err := billingTC.CollectTypes([]ast.Node{ast.TypeDefNode{
+		Ident: "Plan",
+		Expr:  ast.TypeDefShapeExpr{Shape: planShape},
 	}}); err != nil {
 		t.Fatal(err)
 	}
 
-	betaTC := New(nil, false)
-	betaTC.SetForstPackage("beta")
-	betaTC.SetModuleResult(&stubSiblingModuleView{
-		importMap: map[string]string{"demo/alpha": "alpha"},
-		pkgs:      map[string]*TypeChecker{"alpha": alphaTC},
+	shippingTC := New(nil, false)
+	shippingTC.SetForstPackage("shipping")
+	shippingTC.SetModuleResult(&stubSiblingModuleView{
+		importMap: map[string]string{"demo/billing": "billing"},
+		pkgs:      map[string]*TypeChecker{"billing": billingTC},
 	})
-	betaTC.importPathByLocal = map[string]string{"alpha": "demo/alpha"}
+	shippingTC.importPathByLocal = map[string]string{"billing": "demo/billing"}
 
 	localShape := ast.TypeNode{Ident: "T_local123"}
-	betaTC.Defs[localShape.Ident] = ast.TypeDefNode{
+	shippingTC.Defs[localShape.Ident] = ast.TypeDefNode{
 		Ident: localShape.Ident,
-		Expr:  ast.TypeDefShapeExpr{Shape: configShape},
+		Expr:  ast.TypeDefShapeExpr{Shape: planShape},
 	}
-	actual := ast.TypeNode{Ident: ast.TypeIdent("alpha.Config")}
-	if !betaTC.IsTypeCompatible(actual, localShape) {
+	actual := ast.TypeNode{Ident: ast.TypeIdent("billing.Plan")}
+	if !shippingTC.IsTypeCompatible(actual, localShape) {
 		t.Fatal("expected sibling shape compatible with local hash type")
 	}
 }
 
 func TestResolveForstSiblingQualifiedVar_packageLevelString(t *testing.T) {
-	alphaTC := New(nil, false)
-	alphaTC.SetForstPackage("alpha")
-	if err := alphaTC.collectPackageLevelVar(ast.AssignmentNode{
+	billingTC := New(nil, false)
+	billingTC.SetForstPackage("billing")
+	if err := billingTC.collectPackageLevelVar(ast.AssignmentNode{
 		IsPackageLevel: true,
 		LValues:        []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "Version"}}},
 		RValues:        []ast.ExpressionNode{ast.StringLiteralNode{Value: "1.0"}},
@@ -131,18 +131,18 @@ func TestResolveForstSiblingQualifiedVar_packageLevelString(t *testing.T) {
 	}
 
 	view := &stubSiblingModuleView{
-		importMap: map[string]string{"demo/alpha": "alpha"},
-		pkgs:      map[string]*TypeChecker{"alpha": alphaTC},
+		importMap: map[string]string{"demo/billing": "billing"},
+		pkgs:      map[string]*TypeChecker{"billing": billingTC},
 	}
-	betaTC := New(nil, false)
-	betaTC.SetForstPackage("beta")
-	betaTC.SetModuleResult(view)
-	betaTC.imports = []ast.ImportNode{{Path: `"demo/alpha"`}}
-	betaTC.importPathByLocal = map[string]string{"alpha": "demo/alpha"}
+	shippingTC := New(nil, false)
+	shippingTC.SetForstPackage("shipping")
+	shippingTC.SetModuleResult(view)
+	shippingTC.imports = []ast.ImportNode{{Path: `"demo/billing"`}}
+	shippingTC.importPathByLocal = map[string]string{"billing": "demo/billing"}
 
-	types, resolved := betaTC.resolveForstSiblingQualifiedVar("alpha", "Version")
+	types, resolved := shippingTC.resolveForstSiblingQualifiedVar("billing", "Version")
 	if !resolved {
-		t.Fatal("expected alpha.Version to resolve")
+		t.Fatal("expected billing.Version to resolve")
 	}
 	if len(types) != 1 || types[0].Ident != ast.TypeString {
 		t.Fatalf("got types %+v", types)
@@ -150,52 +150,52 @@ func TestResolveForstSiblingQualifiedVar_packageLevelString(t *testing.T) {
 }
 
 func TestInferTypes_qualifiedSiblingParamType(t *testing.T) {
-	runctxShape := ast.ShapeNode{
+	sessionShape := ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
-			"WorkDir": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			"workDir": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 		},
 	}
-	runctxTC := New(nil, false)
-	runctxTC.SetForstPackage("runctx")
-	if err := runctxTC.CollectTypes([]ast.Node{ast.TypeDefNode{
-		Ident: "RunContext",
-		Expr:  ast.TypeDefShapeExpr{Shape: runctxShape},
+	workspaceTC := New(nil, false)
+	workspaceTC.SetForstPackage("workspace")
+	if err := workspaceTC.CollectTypes([]ast.Node{ast.TypeDefNode{
+		Ident: "Session",
+		Expr:  ast.TypeDefShapeExpr{Shape: sessionShape},
 	}}); err != nil {
 		t.Fatal(err)
 	}
 
-	exportMerged := parseTestPackage(t, `package export
+	reportsMerged := parseTestPackage(t, `package reports
 
-func buildManifest(ctx runctx.RunContext): String {
-	return ctx.WorkDir
+func buildSummary(ctx workspace.Session): String {
+	return ctx.workDir
 }
 `)
 	view := &stubSiblingModuleView{
-		importMap: map[string]string{"demo/runctx": "runctx"},
-		pkgs:      map[string]*TypeChecker{"runctx": runctxTC},
+		importMap: map[string]string{"demo/workspace": "workspace"},
+		pkgs:      map[string]*TypeChecker{"workspace": workspaceTC},
 	}
-	exportTC := New(nil, false)
-	exportTC.SetForstPackage("export")
-	exportTC.SetModuleResult(view)
-	exportTC.imports = []ast.ImportNode{{Path: `"demo/runctx"`}}
-	exportTC.importPathByLocal = map[string]string{"runctx": "demo/runctx"}
-	if err := exportTC.CollectTypes(exportMerged); err != nil {
+	reportsTC := New(nil, false)
+	reportsTC.SetForstPackage("reports")
+	reportsTC.SetModuleResult(view)
+	reportsTC.imports = []ast.ImportNode{{Path: `"demo/workspace"`}}
+	reportsTC.importPathByLocal = map[string]string{"workspace": "demo/workspace"}
+	if err := reportsTC.CollectTypes(reportsMerged); err != nil {
 		t.Fatal(err)
 	}
-	if err := exportTC.InferTypes(exportMerged); err != nil {
+	if err := reportsTC.InferTypes(reportsMerged); err != nil {
 		t.Fatalf("infer: %v", err)
 	}
-	got := exportTC.Functions["buildManifest"].Parameters[0].Type.Ident
-	if got != ast.TypeIdent("runctx.RunContext") {
-		t.Fatalf("want runctx.RunContext param, got %q", got)
+	got := reportsTC.Functions["buildSummary"].Parameters[0].Type.Ident
+	if got != ast.TypeIdent("workspace.Session") {
+		t.Fatalf("want workspace.Session param, got %q", got)
 	}
 }
 
 func TestResolveForstSiblingTypeInImports_uniqueImportedType(t *testing.T) {
-	orchTC := New(nil, false)
-	orchTC.SetForstPackage("orchestrator")
-	if err := orchTC.CollectTypes([]ast.Node{ast.TypeDefNode{
-		Ident: "ParsedArgs",
+	modelsTC := New(nil, false)
+	modelsTC.SetForstPackage("models")
+	if err := modelsTC.CollectTypes([]ast.Node{ast.TypeDefNode{
+		Ident: "Options",
 		Expr: ast.TypeDefShapeExpr{Shape: ast.ShapeNode{
 			Fields: map[string]ast.ShapeFieldNode{
 				"Flags": {Type: &ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{{Ident: ast.TypeString}}}},
@@ -206,72 +206,72 @@ func TestResolveForstSiblingTypeInImports_uniqueImportedType(t *testing.T) {
 	}
 
 	view := &stubSiblingModuleView{
-		importMap: map[string]string{"demo/orchestrator": "orchestrator"},
-		pkgs:      map[string]*TypeChecker{"orchestrator": orchTC},
+		importMap: map[string]string{"demo/models": "models"},
+		pkgs:      map[string]*TypeChecker{"models": modelsTC},
 	}
 	mainTC := New(nil, false)
 	mainTC.SetForstPackage("main")
 	mainTC.SetModuleResult(view)
-	mainTC.imports = []ast.ImportNode{{Path: `"demo/orchestrator"`}}
-	mainTC.importPathByLocal = map[string]string{"orchestrator": "demo/orchestrator"}
+	mainTC.imports = []ast.ImportNode{{Path: `"demo/models"`}}
+	mainTC.importPathByLocal = map[string]string{"models": "demo/models"}
 
-	td, ok := mainTC.typeDefForIdent("ParsedArgs")
+	td, ok := mainTC.typeDefForIdent("Options")
 	if !ok {
-		t.Fatal("expected ParsedArgs from imported orchestrator package")
+		t.Fatal("expected Options from imported models package")
 	}
-	if td.Ident != "ParsedArgs" {
-		t.Fatalf("want ParsedArgs typedef, got %q", td.Ident)
+	if td.Ident != "Options" {
+		t.Fatalf("want Options typedef, got %q", td.Ident)
 	}
-	td2, ok2 := mainTC.typeDefForIdent("ParsedArgs")
+	td2, ok2 := mainTC.typeDefForIdent("Options")
 	if !ok2 || td2.Ident != td.Ident {
 		t.Fatalf("cache miss on second lookup: ok=%v ident=%q", ok2, td2.Ident)
 	}
 }
 
 func TestResolveForstSiblingTypeInImports_ambiguousImportedType(t *testing.T) {
-	configShape := ast.ShapeNode{
+	planShape := ast.ShapeNode{
 		Fields: map[string]ast.ShapeFieldNode{
-			"Version": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+			"tier": {Type: &ast.TypeNode{Ident: ast.TypeString}},
 		},
 	}
 	makePkg := func(name string) *TypeChecker {
 		tc := New(nil, false)
 		tc.SetForstPackage(name)
 		if err := tc.CollectTypes([]ast.Node{ast.TypeDefNode{
-			Ident: "Config",
-			Expr:  ast.TypeDefShapeExpr{Shape: configShape},
+			Ident: "Plan",
+			Expr:  ast.TypeDefShapeExpr{Shape: planShape},
 		}}); err != nil {
 			t.Fatal(err)
 		}
 		return tc
 	}
-	alphaTC := makePkg("alpha")
-	betaTC := makePkg("beta")
+	billingTC := makePkg("billing")
+	shippingTC := makePkg("shipping")
 
 	view := &stubSiblingModuleView{
 		importMap: map[string]string{
-			"demo/alpha": "alpha",
-			"demo/beta":  "beta",
+			"demo/billing":  "billing",
+			"demo/shipping": "shipping",
 		},
 		pkgs: map[string]*TypeChecker{
-			"alpha": alphaTC,
-			"beta":  betaTC,
+			"billing":  billingTC,
+			"shipping": shippingTC,
 		},
 	}
 	consumerTC := New(nil, false)
 	consumerTC.SetForstPackage("consumer")
 	consumerTC.SetModuleResult(view)
 	consumerTC.imports = []ast.ImportNode{
-		{Path: `"demo/alpha"`},
-		{Path: `"demo/beta"`},
+		{Path: `"demo/billing"`},
+		{Path: `"demo/shipping"`},
 	}
 	consumerTC.importPathByLocal = map[string]string{
-		"alpha": "demo/alpha",
-		"beta":  "demo/beta",
+		"billing":  "demo/billing",
+		"shipping": "demo/shipping",
 	}
 
-	if _, ok := consumerTC.typeDefForIdent("Config"); ok {
-		t.Fatal("expected ambiguous Config to not resolve")
+	if _, ok := consumerTC.typeDefForIdent("Plan"); ok {
+		t.Fatal("expected ambiguous Plan to not resolve")
 	}
 }
 

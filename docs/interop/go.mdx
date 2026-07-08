@@ -4,6 +4,7 @@ description: "Transpile to Go, import packages, and mix .ft with .go in one modu
 ---
 
 import InteropFmtHello from "/snippets/interop-fmt-hello.mdx";
+import InteropExecSpread from "/snippets/interop-exec-spread.mdx";
 
 Forst transpiles to **Go**. You keep the same module graph, deployment, and ecosystem. See [Language overview](/language/overview) for syntax. This page covers import and mixing rules.
 
@@ -37,6 +38,31 @@ Call into the standard library and third-party modules with qualified names:
 <InteropFmtHello />
 
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
+
+### Slice subslices and spread
+
+Forst slice values use Go lowering. You can take **subslices** with `xs[low:high]`, `xs[low:]`, or `xs[:high]` and pass them into Go APIs. In call arguments, **`xs[low:]...`** lowers to a Go variadic spread.
+
+```forst
+xs := [10, 20, 30]
+mid := xs[1:3]
+tail := xs[2:]
+```
+
+See **`examples/in/slices.ft`** (`task example:slices`) for subslices on Forst literals.
+
+### Field access and methods on Go values
+
+After a Go call or local binding, use **field access** and **methods** with dotted paths and postfix chains:
+
+- `cmd.Run()` — method on a `*exec.Cmd` binding
+- `cmd.ProcessState.ExitCode()` — field then method (parsed as a qualified path where needed)
+
+Qualified import paths such as `exec.Command(...)` are checked when the stdlib package is loaded from your module workspace.
+
+<InteropExecSpread />
+
+See **`examples/in/go_interop.ft`** (`task example:go-interop`).
 
 Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call. It applies when a trailing expression becomes an [implicit return](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
 

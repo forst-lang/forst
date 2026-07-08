@@ -21,6 +21,11 @@ func isTwoCharOperator(s string) bool {
 		s == "+=" || s == "-=" || s == "*=" || s == "/=" || s == "%=" || s == "&=" || s == "|="
 }
 
+// isEllipsis checks for Go-style variadic spread token.
+func isEllipsis(line []byte, start int) bool {
+	return start+2 < len(line) && line[start] == '.' && line[start+1] == '.' && line[start+2] == '.'
+}
+
 // isDigit checks if a character is a digit
 func isDigit(c byte) bool {
 	return unicode.IsDigit(rune(c))

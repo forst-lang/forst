@@ -41,6 +41,7 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Validation from constraints](/language/shapes-and-constraints) | Compiler emits runtime checks from type constraints. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Providers (`use` / `with`)](/language/providers) | Transitive obligation chains, Go lowering, and cross-package fixed-point (emit-time shims, no committed Go stubs). RFC GA gaps (LSP polish, discovery JSON, sidecar host patterns) remain. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Import and type-check Go packages](/interop/go) | `go/packages` loading and Forst↔Go call checking; common paths work, not full parity. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | Go FFI expressions (subslice, spread, fields) | `xs[1:3]`, `argv[1:]...`, `cmd.ProcessState.ExitCode()`; LSP hover/completion for stdlib imports. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Selectable Go emit target version | Emit for older `go` toolchains than the compiler uses today. |
 

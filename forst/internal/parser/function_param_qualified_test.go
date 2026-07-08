@@ -8,7 +8,7 @@ import (
 
 func TestParseSimpleParameter_qualifiedSiblingTypeNotAssertion(t *testing.T) {
 	t.Parallel()
-	p := NewTestParser(`ctx runctx.RunContext`, ast.SetupTestLogger(nil))
+	p := NewTestParser(`user users.User`, ast.SetupTestLogger(nil))
 	param := p.parseSimpleParameter()
 	sp, ok := param.(ast.SimpleParamNode)
 	if !ok {
@@ -17,7 +17,7 @@ func TestParseSimpleParameter_qualifiedSiblingTypeNotAssertion(t *testing.T) {
 	if sp.Type.Assertion != nil {
 		t.Fatalf("qualified sibling type parsed as assertion: %+v", sp.Type)
 	}
-	if string(sp.Type.Ident) != "runctx.RunContext" {
+	if string(sp.Type.Ident) != "users.User" {
 		t.Fatalf("got ident %q", sp.Type.Ident)
 	}
 }

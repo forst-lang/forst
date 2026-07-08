@@ -5,6 +5,8 @@ import (
 	"forst/internal/ast"
 	"strings"
 
+	"go/types"
+
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -168,6 +170,95 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		elem := t.TypeParams[0]
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
+
+	case ast.SliceExpressionNode:
+		if goT := tc.goTypeForExpression(e.Target); goT != nil {
+			var elem types.Type
+			switch u := goT.Underlying().(type) {
+			case *types.Slice:
+				elem = u.Elem()
+			case *types.Array:
+				elem = u.Elem()
+			default:
+				return nil, fmt.Errorf("slice expression: target must be a slice or array, got %s", goT.String())
+			}
+			if e.Low != nil {
+				lowTypes, err := tc.inferExpressionType(e.Low)
+				if err != nil {
+					return nil, err
+				}
+				if len(lowTypes) != 1 || lowTypes[0].Ident != ast.TypeInt {
+					return nil, fmt.Errorf("slice expression: low bound must be Int")
+				}
+			}
+			if e.High != nil {
+				highTypes, err := tc.inferExpressionType(e.High)
+				if err != nil {
+					return nil, err
+				}
+				if len(highTypes) != 1 || highTypes[0].Ident != ast.TypeInt {
+					return nil, fmt.Errorf("slice expression: high bound must be Int")
+				}
+			}
+			ft, ok := goTypeToForstType(types.NewSlice(elem))
+			if !ok {
+				return nil, fmt.Errorf("slice expression: cannot map Go slice element type")
+			}
+			tc.storeInferredType(e, []ast.TypeNode{ft})
+			return []ast.TypeNode{ft}, nil
+		}
+		targetTypes, err := tc.inferExpressionType(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		if len(targetTypes) != 1 || targetTypes[0].Ident != ast.TypeArray || len(targetTypes[0].TypeParams) < 1 {
+			return nil, fmt.Errorf("slice expression: target must be a slice or array")
+		}
+		if e.Low != nil {
+			lowTypes, err := tc.inferExpressionType(e.Low)
+			if err != nil {
+				return nil, err
+			}
+			if len(lowTypes) != 1 || lowTypes[0].Ident != ast.TypeInt {
+				return nil, fmt.Errorf("slice expression: low bound must be Int")
+			}
+		}
+		if e.High != nil {
+			highTypes, err := tc.inferExpressionType(e.High)
+			if err != nil {
+				return nil, err
+			}
+			if len(highTypes) != 1 || highTypes[0].Ident != ast.TypeInt {
+				return nil, fmt.Errorf("slice expression: high bound must be Int")
+			}
+		}
+		elem := targetTypes[0].TypeParams[0]
+		out := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{elem}}
+		tc.storeInferredType(e, []ast.TypeNode{out})
+		return []ast.TypeNode{out}, nil
+
+	case ast.SpreadExpressionNode:
+		ts, err := tc.inferExpressionType(e.Expr)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, ts)
+		return ts, nil
+
+	case ast.FieldAccessNode:
+		if goRecv := tc.goTypeForExpression(e.Target); goRecv != nil {
+			obj, _, _ := types.LookupFieldOrMethod(goRecv, false, nil, string(e.Field.ID))
+			if obj == nil {
+				return nil, diagnosticf(e.Field.Span, "go-field", "%s has no field %s", goRecv.String(), e.Field.ID)
+			}
+			ft, ok := goTypeToForstType(obj.Type())
+			if !ok {
+				return nil, diagnosticf(e.Field.Span, "go-field", "cannot map Go field type %s", obj.Type().String())
+			}
+			tc.storeInferredType(e, []ast.TypeNode{ft})
+			return []ast.TypeNode{ft}, nil
+		}
+		return nil, diagnosticf(e.Field.Span, "field-access", "field access on non-Go expression is not supported")
 
 	case ast.MethodCallNode:
 		argTypes := make([][]ast.TypeNode, 0, len(e.Arguments))
@@ -354,6 +445,48 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				}
 				tc.storeInferredType(e, returnType)
 				return returnType, nil
+			}
+			if tc.IsImportedLocalName(pkgName) {
+				callSpan := e.CallSpan
+				if !callSpan.IsSet() {
+					callSpan = e.Function.Span
+				}
+				importPath := pkgName
+				if tc.importPathByLocal != nil {
+					if p, ok := tc.importPathByLocal[pkgName]; ok && p != "" {
+						importPath = p
+					}
+				}
+				tc.log.WithFields(logrus.Fields{
+					"function":           "inferExpressionType",
+					"pkgLocal":           pkgName,
+					"importPath":         importPath,
+					"goWorkspaceDir":     tc.GoWorkspaceDir,
+					"goPac∏kagesPreloaded": tc.goPackagesPreloaded,
+					"missingGoImports":   tc.missingGoImportPaths(),
+				}).Debug("Go import package types not loaded")
+				return nil, diagnosticf(callSpan, "go-import", "Go package %q (%s) types not loaded; check go.mod workspace and go tooling", pkgName, importPath)
+			}
+		} else if len(parts) >= 3 {
+			base := ast.Identifier(parts[0])
+			if gt, ok := tc.variableGoTypes[base]; ok && gt != nil {
+				methodName := parts[len(parts)-1]
+				fieldPath := parts[1 : len(parts)-1]
+				recvGo, err := goTypeAtFieldPath(gt, fieldPath)
+				if err == nil {
+					fc := ast.FunctionCallNode{
+						Function:  e.Function,
+						Arguments: e.Arguments,
+						CallSpan:  e.CallSpan,
+						ArgSpans:  e.ArgSpans,
+					}
+					ret, err := tc.checkGoMethodCall(recvGo, methodName, fc, argTypes, true)
+					if err != nil {
+						return nil, err
+					}
+					tc.storeInferredType(e, ret)
+					return ret, nil
+				}
 			}
 		} else {
 			// Check for unqualified built-in functions (like len)

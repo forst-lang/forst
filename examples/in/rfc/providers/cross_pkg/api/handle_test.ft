@@ -1,4 +1,4 @@
-package beta
+package api
 
 import "testing"
 
@@ -6,8 +6,8 @@ type NopLogger = {}
 
 func (NopLogger) Info(msg String) {}
 
-func TestHandle_propagatesLoggerFromAlpha(t *testing.T) {
+func TestHandleRequest_propagatesLoggerFromAuth(t *testing.T) {
 	with {Logger: &NopLogger{}} {
-		Handle("tok-1")
+		HandleRequest("tok-1")
 	}
 }

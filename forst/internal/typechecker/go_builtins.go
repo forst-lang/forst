@@ -27,6 +27,11 @@ func (tc *TypeChecker) isTypeCompatibleImpl(actual ast.TypeNode, expected ast.Ty
 				}
 			}
 			return true
+		case ast.TypeArray:
+			if len(actual.TypeParams) != 1 || len(expected.TypeParams) != 1 {
+				return false
+			}
+			return tc.IsTypeCompatible(actual.TypeParams[0], expected.TypeParams[0])
 		case ast.TypeUnion, ast.TypeIntersection:
 			if len(actual.TypeParams) != len(expected.TypeParams) {
 				return false

@@ -1433,3 +1433,61 @@ func TestNestedWith(t *testing.T) {
 		t.Fatalf("expected shadow marker on inner Clock, got %q", val)
 	}
 }
+
+func TestFindHoverForPosition_contractMethodOnUseBinding(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	typesPath := filepath.Join(dir, "types.ft")
+	mainPath := filepath.Join(dir, "main.ft")
+	const typesSrc = `package main
+
+type Messenger = {
+  send(message String): Error,
+}
+`
+	const mainSrc = `package main
+
+func run() {
+  use messenger: Messenger
+  messenger.send("hello")
+}
+`
+	if err := os.WriteFile(typesPath, []byte(typesSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uriMain := mustFileURI(t, mainPath)
+	s := NewLSPServer("8080", logrus.New())
+	s.documentMu.Lock()
+	s.openDocuments[uriMain] = mainSrc
+	s.documentMu.Unlock()
+
+	var methodTok *ast.Token
+	ctx, ok := s.analyzeForstDocument(uriMain)
+	if !ok || ctx == nil {
+		t.Fatal("expected analyzed document")
+	}
+	if ctx.ParseErr != nil {
+		t.Fatalf("parse: %v", ctx.ParseErr)
+	}
+	for i := range ctx.Tokens {
+		tok := &ctx.Tokens[i]
+		if tok.Type == ast.TokenIdentifier && tok.Value == "send" {
+			methodTok = tok
+			break
+		}
+	}
+	if methodTok == nil {
+		t.Fatal("no send token")
+	}
+	h := s.findHoverForPosition(uriMain, LSPPosition{Line: methodTok.Line - 1, Character: methodTok.Column - 1})
+	if h == nil {
+		t.Fatal("nil hover on send")
+	}
+	val := h.Contents.Value
+	if !strings.Contains(val, "send") || !strings.Contains(val, "Messenger") {
+		t.Fatalf("expected contract method hover, got %q", val)
+	}
+}

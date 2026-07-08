@@ -63,21 +63,21 @@ func TestGenerateCommand_mergedMultiFileSyntheticPackage(t *testing.T) {
 `
 	typesSrc := `package main
 
-type Alpha = {
+type Catalog = {
 	id: Int
 }
 
-type Beta = {
+type Order = {
 	tag: String
 }
 `
 	apiSrc := `package main
 
-func GetId(a Alpha): Int {
+func GetId(a Catalog): Int {
 	return a.id
 }
 
-func Tag(b Beta): String {
+func Tag(b Order): String {
 	return b.tag
 }
 `
@@ -103,8 +103,8 @@ func Tag(b Beta): String {
 	}
 	s := string(b)
 	for _, needle := range []string{
-		"Alpha",
-		"Beta",
+		"Catalog",
+		"Order",
 		"GetId",
 		"Tag",
 	} {

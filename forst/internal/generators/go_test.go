@@ -19,7 +19,7 @@ func TestGenerateGoCode_sortsFuncDeclsByName(t *testing.T) {
 				Body: &ast.BlockStmt{},
 			},
 			&ast.FuncDecl{
-				Name: ast.NewIdent("Alpha"),
+				Name: ast.NewIdent("Auth"),
 				Type: &ast.FuncType{Params: &ast.FieldList{}},
 				Body: &ast.BlockStmt{},
 			},
@@ -31,12 +31,12 @@ func TestGenerateGoCode_sortsFuncDeclsByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	iZed := strings.Index(out, "func Zed")
-	iAlpha := strings.Index(out, "func Alpha")
-	if iAlpha == -1 || iZed == -1 {
+	iAuth := strings.Index(out, "func Auth")
+	if iAuth == -1 || iZed == -1 {
 		t.Fatalf("expected both funcs in output:\n%s", out)
 	}
-	if iAlpha >= iZed {
-		t.Fatalf("expected Alpha before Zed, got:\n%s", out)
+	if iAuth >= iZed {
+		t.Fatalf("expected Auth before Zed, got:\n%s", out)
 	}
 }
 

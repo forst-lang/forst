@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/forstpkg"
+	"forst/internal/goload"
 	"forst/internal/providersgraph"
 )
 
@@ -67,6 +69,19 @@ func (tc *TypeChecker) SetSamePackageGoImportPath(importPath string) {
 	tc.samePackageGoImportPath = importPath
 }
 
+// ConfigureForForstFile sets workspace, Forst package name, and same-package Go import path for a .ft file directory.
+func (tc *TypeChecker) ConfigureForForstFile(moduleRoot, fileDir string, nodes []ast.Node) {
+	tc.GoWorkspaceDir = moduleRoot
+	tc.SetForstPackage(forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)))
+	if moduleRoot == "" {
+		return
+	}
+	modPath := goload.ModulePath(moduleRoot)
+	if importPath, err := forstpkg.ImportPathForDir(moduleRoot, modPath, fileDir); err == nil {
+		tc.SetSamePackageGoImportPath(importPath)
+	}
+}
+
 // SetForstPackage records the Forst package name for cross-package edge resolution.
 func (tc *TypeChecker) SetForstPackage(name string) {
 	tc.providersEngine().ForstPackage = name
@@ -127,7 +142,7 @@ func (tc *TypeChecker) typeDefForIdent(ident ast.TypeIdent) (ast.TypeDefNode, bo
 }
 
 // resolveForstSiblingTypeInImports finds a unique type name exported from an imported Forst package
-// (e.g. ParsedArgs from orchestrator when typechecking main).
+// (e.g. Options from models when typechecking main).
 func (tc *TypeChecker) resolveForstSiblingTypeInImports(typeName string) (ast.TypeDefNode, bool) {
 	if tc.siblingImportTypeDefCache != nil {
 		if cached, hit := tc.siblingImportTypeDefCache[typeName]; hit {
@@ -224,7 +239,7 @@ func (tc *TypeChecker) forstSiblingTypeChecker(importLocal string) (*TypeChecker
 	return siblingTC, true
 }
 
-// resolveForstSiblingCall resolves alpha.Foo when alpha is a Forst package in the same module.
+// resolveForstSiblingCall resolves auth.Foo when auth is a Forst package in the same module.
 func (tc *TypeChecker) resolveForstSiblingCall(importLocal, funcName string, e ast.FunctionCallNode, _ [][]ast.TypeNode) ([]ast.TypeNode, error) {
 	siblingTC, ok := tc.forstSiblingTypeChecker(importLocal)
 	if !ok {

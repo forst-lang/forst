@@ -194,6 +194,16 @@ func (tc *TypeChecker) ListMembersForExpression(expr ast.ExpressionNode) []strin
 	if gt := tc.goTypeForExpression(expr); gt != nil {
 		return goMemberNamesForType(gt)
 	}
+	if vn, ok := expr.(ast.VariableNode); ok {
+		parts := strings.Split(string(vn.Ident.ID), ".")
+		if len(parts) >= 2 {
+			if gt := tc.variableGoTypes[ast.Identifier(parts[0])]; gt != nil {
+				if goT, err := goTypeAtFieldPath(gt, parts[1:]); err == nil {
+					return goMemberNamesForType(goT)
+				}
+			}
+		}
+	}
 	types, err := tc.inferExpressionType(expr)
 	if err != nil || len(types) == 0 {
 		return nil

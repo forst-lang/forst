@@ -21,6 +21,21 @@ func TestIdentifierPrefixAt(t *testing.T) {
 	}
 }
 
+func TestMemberIdentifierPrefixAfterDot(t *testing.T) {
+	t.Parallel()
+	const afterDot = "package main\n\nfunc main() {\n\tcmd.\n}\n"
+	if got := memberIdentifierPrefixAfterDot(afterDot, LSPPosition{Line: 3, Character: 5}); got != "" {
+		t.Fatalf("at dot after cmd, got %q want empty", got)
+	}
+	const partial = "package main\n\nfunc main() {\n\tcmd.Ru\n}\n"
+	if got := memberIdentifierPrefixAfterDot(partial, LSPPosition{Line: 3, Character: 7}); got != "Ru" {
+		t.Fatalf("partial member, got %q want Ru", got)
+	}
+	if got := memberIdentifierPrefixAfterDot("a.b.", LSPPosition{Line: 0, Character: 4}); got != "" {
+		t.Fatalf("qualified path, got %q", got)
+	}
+}
+
 func TestLhsExpressionBeforeDot(t *testing.T) {
 	if lhs := lhsExpressionBeforeDot("  foo."); lhs != "foo" {
 		t.Fatalf("got %q", lhs)

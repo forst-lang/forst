@@ -77,19 +77,19 @@ func TestValidateWiringRootFn_noProvidersOk(t *testing.T) {
 func TestValidateModuleProviders_crossPackageUnsatisfied(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.providers = newProvidersEngine()
-	tc.importPathByLocal = map[string]string{"alpha": "testmod/alpha"}
+	tc.importPathByLocal = map[string]string{"auth": "testmod/auth"}
 	tc.providers.CallEdges = []providersgraph.CallEdge{{
-		CallerFn:    "Handle",
-		CalleeFn:    "ExpireToken",
-		ImportLocal: "alpha",
+		CallerFn:    "HandleRequest",
+		CalleeFn:    "LogEvent",
+		ImportLocal: "auth",
 		Scope:       providersgraph.ProviderScopeSnapshot{},
 		Span:        ast.SourceSpan{StartLine: 5},
 	}}
 	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
-		"alpha": {"ExpireToken": {{RootIdent: "Logger", Key: "Logger"}}},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger"}}},
 	}
-	importMap := map[string]string{"testmod/alpha": "alpha"}
-	err := ValidateModuleProviders("beta", tc, importMap, perPkg)
+	importMap := map[string]string{"testmod/auth": "auth"}
+	err := ValidateModuleProviders("api", tc, importMap, perPkg)
 	if err == nil {
 		t.Fatal("expected cross-package unsatisfied error")
 	}

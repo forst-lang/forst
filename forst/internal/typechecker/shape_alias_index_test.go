@@ -42,14 +42,14 @@ func TestShapeAliasIndex_stableTieBreakForDuplicateShapeHash(t *testing.T) {
 		"x": {Type: &ast.TypeNode{Ident: ast.TypeInt}},
 	}}
 	tc.registerType(ast.TypeDefNode{Ident: "Zebra", Expr: ast.TypeDefShapeExpr{Shape: shape}})
-	tc.registerType(ast.TypeDefNode{Ident: "Alpha", Expr: ast.TypeDefShapeExpr{Shape: shape}})
+	tc.registerType(ast.TypeDefNode{Ident: "Catalog", Expr: ast.TypeDefShapeExpr{Shape: shape}})
 	idx := tc.shapeAliasIndexOrBuild()
 	if len(idx.byShapeHash) != 1 {
 		t.Fatalf("expected one shape hash entry, got %d", len(idx.byShapeHash))
 	}
 	for _, alias := range idx.byShapeHash {
-		if alias != "Alpha" {
-			t.Fatalf("stable winner = %q, want Alpha", alias)
+		if alias != "Catalog" {
+			t.Fatalf("stable winner = %q, want Catalog", alias)
 		}
 	}
 }

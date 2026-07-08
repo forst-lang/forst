@@ -15,8 +15,8 @@ func TestSplitQualifiedCallee(t *testing.T) {
 		wantFn      string
 		wantOK      bool
 	}{
-		{"alpha.LogExpiry", "alpha", "LogExpiry", true},
-		{"LogExpiry", "", "LogExpiry", false},
+		{"auth.LogEvent", "auth", "LogEvent", true},
+		{"LogEvent", "", "LogEvent", false},
 		{"", "", "", false},
 		{"a.b", "a", "b", true},
 	}
@@ -41,19 +41,19 @@ func TestProviderSlotsForCallee_intraPackage(t *testing.T) {
 }
 
 func TestProviderSlotsForCallee_crossPackageSibling(t *testing.T) {
-	alphaTC := New(nil, false)
-	alphaTC.FunctionProviders = map[ast.Identifier][]ProviderSlot{
-		"LogExpiry": {{RootIdent: "Logger", Key: "Logger"}},
+	authTC := New(nil, false)
+	authTC.FunctionProviders = map[ast.Identifier][]ProviderSlot{
+		"LogEvent": {{RootIdent: "Logger", Key: "Logger"}},
 	}
 	view := &testModuleView{
-		importMap: map[string]string{"demo/alpha": "alpha"},
-		pkgs:      map[string]*TypeChecker{"alpha": alphaTC},
+		importMap: map[string]string{"demo/auth": "auth"},
+		pkgs:      map[string]*TypeChecker{"auth": authTC},
 	}
-	betaTC := New(nil, false)
-	betaTC.SetModuleResult(view)
-	betaTC.importPathByLocal = map[string]string{"alpha": "demo/alpha"}
+	apiTC := New(nil, false)
+	apiTC.SetModuleResult(view)
+	apiTC.importPathByLocal = map[string]string{"auth": "demo/auth"}
 
-	slots := betaTC.providerSlotsForCallee("alpha.LogExpiry")
+	slots := apiTC.providerSlotsForCallee("auth.LogEvent")
 	if len(slots) != 1 || slots[0].RootIdent != "Logger" {
 		t.Fatalf("cross-package slots = %v", slots)
 	}
@@ -61,20 +61,20 @@ func TestProviderSlotsForCallee_crossPackageSibling(t *testing.T) {
 
 func TestProviderSlotsForCallee_crossPackageWithoutModuleReturnsNil(t *testing.T) {
 	tc := New(nil, false)
-	if slots := tc.providerSlotsForCallee("alpha.LogExpiry"); slots != nil {
+	if slots := tc.providerSlotsForCallee("auth.LogEvent"); slots != nil {
 		t.Fatalf("expected nil without module, got %v", slots)
 	}
 }
 
 func TestMergeModuleKnownRoots_unionsAcrossPackages(t *testing.T) {
-	alpha := New(nil, false)
-	alpha.providersEngine().KnownRoots["Logger"] = ast.TypeNode{Ident: "Logger"}
-	beta := New(nil, false)
-	beta.providersEngine().KnownRoots["Clock"] = ast.TypeNode{Ident: "Clock"}
+	authTC := New(nil, false)
+	authTC.providersEngine().KnownRoots["Logger"] = ast.TypeNode{Ident: "Logger"}
+	apiTC := New(nil, false)
+	apiTC.providersEngine().KnownRoots["Clock"] = ast.TypeNode{Ident: "Clock"}
 
-	MergeModuleKnownRoots(map[string]*TypeChecker{"alpha": alpha, "beta": beta})
+	MergeModuleKnownRoots(map[string]*TypeChecker{"auth": authTC, "api": apiTC})
 
-	for _, tc := range []*TypeChecker{alpha, beta} {
+	for _, tc := range []*TypeChecker{authTC, apiTC} {
 		if _, ok := tc.providers.KnownRoots["Logger"]; !ok {
 			t.Fatal("expected Logger in KnownRoots after merge")
 		}

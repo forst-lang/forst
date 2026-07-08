@@ -14,11 +14,11 @@ func TestParseForstSiblingTypeRef(t *testing.T) {
 		typeName    string
 		ok          bool
 	}{
-		{"alpha.Logger", "alpha", "Logger", true},
+		{"auth.Logger", "auth", "Logger", true},
 		{"Logger", "", "", false},
 		{"a.b.c", "", "", false},
 		{".Logger", "", "", false},
-		{"alpha.", "", "", false},
+		{"auth.", "", "", false},
 	}
 	for _, tt := range tests {
 		importLocal, typeName, ok := parseForstSiblingTypeRef(ast.TypeIdent(tt.in))

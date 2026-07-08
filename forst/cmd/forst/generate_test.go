@@ -344,12 +344,12 @@ func TestGenerateCommand_directoryMergesTypesIntoSingleTypesDotDts(t *testing.T)
 }
 
 func TestGenerateClientIndex_importsPackages(t *testing.T) {
-	idx := generateClientIndex([]string{"alpha", "beta"})
+	idx := generateClientIndex([]string{"catalog", "orders"})
 	for _, frag := range []string{
-		"import { alpha } from '../generated/alpha.client'",
-		"import { beta } from '../generated/beta.client'",
-		"public alpha:",
-		"public beta:",
+		"import { catalog } from '../generated/catalog.client'",
+		"import { orders } from '../generated/orders.client'",
+		"public catalog:",
+		"public orders:",
 		"export type * from './types.d.ts'",
 	} {
 		if !strings.Contains(idx, frag) {

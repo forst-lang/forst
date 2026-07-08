@@ -1,0 +1,12 @@
+package main
+
+import "os/exec"
+
+// Go FFI: field access, method calls, subslices, and variadic spread into Go calls.
+// Golden output: ../out/go_interop.go
+func main() {
+	argv := []String{"true", "extra"}
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Run()
+	cmd.ProcessState.ExitCode()
+}

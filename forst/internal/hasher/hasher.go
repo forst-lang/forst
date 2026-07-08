@@ -54,6 +54,9 @@ var NodeKind = map[string]uint8{
 	"Use":              29,
 	"With":             30,
 	"MethodCall":       31,
+	"SliceExpression":  32,
+	"SpreadExpression": 33,
+	"FieldAccess":      34,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -337,6 +340,48 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		if err := w.h.writeHashes(hasher, th, ih); err != nil {
+			return 0, err
+		}
+
+	case ast.SliceExpressionNode:
+		if err := w.h.writeHashes(hasher, NodeKind["SliceExpression"]); err != nil {
+			return 0, err
+		}
+		th, err := w.hash(n.Target)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, th); err != nil {
+			return 0, err
+		}
+		if err := w.hashOptional(hasher, n.Low); err != nil {
+			return 0, err
+		}
+		if err := w.hashOptional(hasher, n.High); err != nil {
+			return 0, err
+		}
+
+	case ast.SpreadExpressionNode:
+		if err := w.h.writeHashes(hasher, NodeKind["SpreadExpression"]); err != nil {
+			return 0, err
+		}
+		eh, err := w.hash(n.Expr)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, eh); err != nil {
+			return 0, err
+		}
+
+	case ast.FieldAccessNode:
+		if err := w.h.writeHashes(hasher, NodeKind["FieldAccess"], []byte(n.Field.ID)); err != nil {
+			return 0, err
+		}
+		th, err := w.hash(n.Target)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, th); err != nil {
 			return 0, err
 		}
 

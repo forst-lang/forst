@@ -8,7 +8,7 @@ import (
 	"forst/internal/testmod"
 )
 
-const mixedGoHelpersSource = `package mixed
+const mixedGoHelpersSource = `package memos
 
 func Add(a, b int) int {
 	return a + b
@@ -21,6 +21,11 @@ func unexported() int {
 func OpenValue() (int, error) {
 	return 42, nil
 }
+
+// StringFromBytes converts memo file bytes to a string for mixed-package tests.
+func StringFromBytes(b []byte) string {
+	return string(b)
+}
 `
 
 var (
@@ -32,17 +37,17 @@ var (
 func WriteMixedGoForstModule(tb testing.TB, module string) (root, importPath string) {
 	tb.Helper()
 	if module == "" {
-		module = "mixed"
+		module = "memos"
 	}
 	root = tb.TempDir()
 	modName := "mixedtest"
 	testmod.WriteGoMod(tb, root, modName)
-	mixedDir := filepath.Join(root, module)
-	if err := mixedGoMkdirAll(mixedDir, 0o755); err != nil {
+	pkgDir := filepath.Join(root, module)
+	if err := mixedGoMkdirAll(pkgDir, 0o755); err != nil {
 		tbFail(tb, err)
 		return "", ""
 	}
-	if err := mixedGoWriteFile(filepath.Join(mixedDir, "helpers.go"), []byte(mixedGoHelpersSource), 0o644); err != nil {
+	if err := mixedGoWriteFile(filepath.Join(pkgDir, "helpers.go"), []byte(mixedGoHelpersSource), 0o644); err != nil {
 		tbFail(tb, err)
 		return "", ""
 	}

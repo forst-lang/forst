@@ -162,6 +162,39 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Index: idx,
 		}, nil
 
+	case ast.SliceExpressionNode:
+		tgt, err := t.transformExpression(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		slice := &goast.SliceExpr{X: tgt}
+		if e.Low != nil {
+			slice.Low, err = t.transformExpression(e.Low)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if e.High != nil {
+			slice.High, err = t.transformExpression(e.High)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return slice, nil
+
+	case ast.SpreadExpressionNode:
+		return nil, fmt.Errorf("spread expression is only valid in function call arguments")
+
+	case ast.FieldAccessNode:
+		tgt, err := t.transformExpression(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.SelectorExpr{
+			X:   tgt,
+			Sel: goast.NewIdent(string(e.Field.ID)),
+		}, nil
+
 	case ast.MethodCallNode:
 		recv, err := t.transformExpression(e.Receiver)
 		if err != nil {
@@ -176,7 +209,8 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				X:   recv,
 				Sel: goast.NewIdent(string(e.Method.ID)),
 			},
-			Args: args,
+			Args:     args.exprs,
+			Ellipsis: args.ellipsis,
 		}, nil
 
 	case ast.FunctionCallNode:
@@ -222,13 +256,20 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			}
 			return lit, nil
 		}
+		if call, ok, err := t.transformGoBoundDottedMethodCall(e); ok {
+			if err != nil {
+				return nil, err
+			}
+			return call, nil
+		}
 		args, err := t.transformFunctionCallArgs(e.Function.ID, e.Arguments)
 		if err != nil {
 			return nil, err
 		}
 		return &goast.CallExpr{
-			Fun:  t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
-			Args: args,
+			Fun:      t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
+			Args:     args.exprs,
+			Ellipsis: args.ellipsis,
 		}, nil
 	case ast.ReferenceNode:
 		expr, err := t.transformExpression(e.Value)
@@ -305,4 +346,30 @@ func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArra
 		Type: &goast.ArrayType{Elt: eltGo},
 		Elts: elts,
 	}, nil
+}
+
+// transformGoBoundDottedMethodCall lowers cmd.ProcessState.ExitCode() when the parser folded
+// the selector chain into a single FunctionCall identifier.
+func (t *Transformer) transformGoBoundDottedMethodCall(e ast.FunctionCallNode) (goast.Expr, bool, error) {
+	parts := strings.Split(string(e.Function.ID), ".")
+	if len(parts) < 3 || t == nil || t.TypeChecker == nil {
+		return nil, false, nil
+	}
+	if t.TypeChecker.GoTypeForVariable(ast.Identifier(parts[0])) == nil {
+		return nil, false, nil
+	}
+	recv := goast.Expr(goast.NewIdent(parts[0]))
+	for _, field := range parts[1 : len(parts)-1] {
+		recv = &goast.SelectorExpr{X: recv, Sel: goast.NewIdent(field)}
+	}
+	method := parts[len(parts)-1]
+	args, err := t.transformFunctionCallArgs(e.Function.ID, e.Arguments)
+	if err != nil {
+		return nil, true, err
+	}
+	return &goast.CallExpr{
+		Fun:      &goast.SelectorExpr{X: recv, Sel: goast.NewIdent(method)},
+		Args:     args.exprs,
+		Ellipsis: args.ellipsis,
+	}, true, nil
 }

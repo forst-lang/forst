@@ -401,11 +401,24 @@ func main() {
 }`,
 		},
 		{
-			"slice_literal_spread",
+			"slice_literal_len",
 			`package main
 func main() {
 	xs := [1, 2, 3]
 	println(string(len(xs)))
+}`,
+		},
+		{
+			"forst_subslice",
+			`package main
+func main() {
+	xs := [10, 20, 30, 40]
+	mid := xs[1:3]
+	tail := xs[2:]
+	head := xs[:2]
+	println(string(len(mid)))
+	println(string(len(tail)))
+	println(string(len(head)))
 }`,
 		},
 		{

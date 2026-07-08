@@ -383,3 +383,14 @@ func TestWalkNodeContaining_ensureWithoutBlock(t *testing.T) {
 	})
 }
 
+func TestWalkExpr_sliceSpreadFieldAccess(t *testing.T) {
+	t.Parallel()
+	xs := ast.VariableNode{Ident: ast.Ident{ID: "xs"}}
+	slice := ast.SliceExpressionNode{Target: xs, Low: ast.IntLiteralNode{Value: 1}}
+	spread := ast.SpreadExpressionNode{Expr: slice}
+	field := ast.FieldAccessNode{Target: xs, Field: ast.Ident{ID: "ProcessState"}}
+	for _, expr := range []ast.ExpressionNode{slice, spread, field} {
+		WalkExpr(expr, ExprVisitor{})
+	}
+}
+

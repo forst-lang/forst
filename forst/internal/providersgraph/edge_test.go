@@ -11,7 +11,7 @@ func TestCallEdge_IsCrossPackage(t *testing.T) {
 	if intra.IsCrossPackage() {
 		t.Fatal("intra-package edge should not be cross-package")
 	}
-	cross := CallEdge{CalleePkg: "alpha"}
+	cross := CallEdge{CalleePkg: "auth"}
 	if !cross.IsCrossPackage() {
 		t.Fatal("expected cross-package edge")
 	}
@@ -20,17 +20,17 @@ func TestCallEdge_IsCrossPackage(t *testing.T) {
 func TestCallEdge_ToModuleCallEdge(t *testing.T) {
 	scope := ProviderScopeSnapshot{"Logger": {Ident: "Logger"}}
 	e := CallEdge{
-		CallerPkg:   "beta",
-		CallerFn:    "Handle",
-		CalleePkg:   "alpha",
-		CalleeFn:    "ExpireToken",
+		CallerPkg:   "api",
+		CallerFn:    "HandleRequest",
+		CalleePkg:   "auth",
+		CalleeFn:    "LogEvent",
 		Scope:       scope,
 	}
 	got := e.ToModuleCallEdge()
-	if got.CallerPkg != "beta" || got.CallerFn != "Handle" {
+	if got.CallerPkg != "api" || got.CallerFn != "HandleRequest" {
 		t.Fatalf("caller fields: %+v", got)
 	}
-	if got.TargetPkg != "alpha" || got.TargetFn != "ExpireToken" {
+	if got.TargetPkg != "auth" || got.TargetFn != "LogEvent" {
 		t.Fatalf("target fields: %+v", got)
 	}
 	if got.ProviderScope["Logger"].Ident != "Logger" {
@@ -57,10 +57,10 @@ func TestModuleEdgesFromCallEdges_filtersIntraPackage(t *testing.T) {
 	edges := []CallEdge{
 		{CallerFn: "a", CalleeFn: "b"},
 		{
-			CallerPkg:   "beta",
-			CallerFn:    "Handle",
-			CalleePkg:   "alpha",
-			CalleeFn:    "ExpireToken",
+			CallerPkg:   "api",
+			CallerFn:    "HandleRequest",
+			CalleePkg:   "auth",
+			CalleeFn:    "LogEvent",
 			Scope:       scope,
 		},
 	}
@@ -68,7 +68,7 @@ func TestModuleEdgesFromCallEdges_filtersIntraPackage(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected one module edge, got %d", len(got))
 	}
-	if got[0].TargetPkg != "alpha" || got[0].TargetFn != "ExpireToken" {
+	if got[0].TargetPkg != "auth" || got[0].TargetFn != "LogEvent" {
 		t.Fatalf("module edge: %+v", got[0])
 	}
 }

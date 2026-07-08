@@ -11,6 +11,10 @@ func (p *Parser) parseCallArguments() (args []ast.ExpressionNode, argSpans []ast
 	for p.current().Type != ast.TokenRParen {
 		startTok := p.current()
 		arg := p.parseExpression()
+		if p.current().Type == ast.TokenEllipsis {
+			p.advance()
+			arg = ast.SpreadExpressionNode{Expr: arg}
+		}
 		endTok := p.tokens[p.currentIndex-1]
 		args = append(args, arg)
 		argSpans = append(argSpans, ast.SpanBetweenTokens(startTok, endTok))
@@ -134,15 +138,35 @@ func (p *Parser) parseExpr(minPrec int, depth int) ast.ExpressionNode {
 	return lhs
 }
 
-// parseIndexSuffixChain parses zero or more `[expr]` suffixes (slice/array indexing).
+// parseIndexSuffixChain parses zero or more `[expr]` / `[low:high]` suffixes (slice/array indexing).
 func (p *Parser) parseIndexSuffixChain(base ast.ExpressionNode, _ int) ast.ExpressionNode {
 	for p.current().Type == ast.TokenLBracket {
 		p.advance()
-		idx := p.parseExpression()
+		if p.current().Type == ast.TokenColon {
+			p.advance()
+			var high ast.ExpressionNode
+			if p.current().Type != ast.TokenRBracket {
+				high = p.parseExpression()
+			}
+			p.expect(ast.TokenRBracket)
+			base = ast.SliceExpressionNode{Target: base, High: high}
+			continue
+		}
+		first := p.parseExpression()
+		if p.current().Type == ast.TokenColon {
+			p.advance()
+			var high ast.ExpressionNode
+			if p.current().Type != ast.TokenRBracket {
+				high = p.parseExpression()
+			}
+			p.expect(ast.TokenRBracket)
+			base = ast.SliceExpressionNode{Target: base, Low: first, High: high}
+			continue
+		}
 		p.expect(ast.TokenRBracket)
 		base = ast.IndexExpressionNode{
 			Target: base,
-			Index:  idx,
+			Index:  first,
 		}
 	}
 	return base
@@ -251,7 +275,10 @@ func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast
 				ArgSpans:  argSpans,
 			}
 		} else {
-			p.FailWithParseError(memberTok, "field access on expressions is not supported; call a method")
+			base = ast.FieldAccessNode{
+				Target: base,
+				Field:  ast.Ident{ID: ast.Identifier(memberTok.Value), Span: ast.SpanFromToken(memberTok)},
+			}
 		}
 	}
 	return base

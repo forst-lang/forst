@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"go/types"
+
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/hoverdoc"
@@ -338,6 +340,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 			return s
 		}
 		if md, ok := tc.GoHoverMarkdownDotImportedSymbol(tok.Value); ok && md != "" {
+			return md
+		}
+		if md, ok := tc.GoHoverMarkdownSamePackageFunc(tok.Value); ok && md != "" {
 			return md
 		}
 		if s := goHoverFromExpressionMethod(tc, fileID, tokens, tok); s != "" {
@@ -683,11 +688,27 @@ func goHoverFromForstReceiverMethod(tc *typechecker.TypeChecker, tokens []ast.To
 	if !ok || len(recvTypes) == 0 {
 		recvTypes, ok = tc.InferredTypesForVariableIdentifier(ast.Identifier(recvName))
 	}
+	if goType := tc.GoTypeForVariable(ast.Identifier(recvName)); goType != nil {
+		importPath := ""
+		if named, ok := goType.(*types.Named); ok && named.Obj().Pkg() != nil {
+			importPath = named.Obj().Pkg().Path()
+		} else if ptr, ok := goType.(*types.Pointer); ok {
+			if named, ok := ptr.Elem().(*types.Named); ok && named.Obj().Pkg() != nil {
+				importPath = named.Obj().Pkg().Path()
+			}
+		}
+		if md, ok := tc.GoHoverMarkdownForGoTypeMethod(goType, importPath, tok.Value); ok {
+			return md
+		}
+	}
 	if !ok {
 		return ""
 	}
 	for _, rt := range recvTypes {
 		if md, ok := tc.GoHoverMarkdownForForstReceiverMethod(rt, tok.Value); ok {
+			return md
+		}
+		if md, ok := tc.ForstReceiverMethodHoverMarkdown(rt, tok.Value); ok {
 			return md
 		}
 	}

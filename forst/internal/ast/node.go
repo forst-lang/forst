@@ -108,6 +108,9 @@ const (
 	NodeKindGoStmt            NodeKind = "GoStmt"
 	NodeKindComment           NodeKind = "Comment"
 	NodeKindIndexExpression   NodeKind = "IndexExpression"
+	NodeKindSliceExpression   NodeKind = "SliceExpression"
+	NodeKindSpreadExpression  NodeKind = "SpreadExpression"
+	NodeKindFieldAccess       NodeKind = "FieldAccess"
 	NodeKindOkExpr            NodeKind = "OkExpr"
 	NodeKindErrExpr           NodeKind = "ErrExpr"
 )

@@ -44,6 +44,8 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 		"ensure.ft",
 		"pointers.ft",
 		"go_builtins.ft",
+		"slices.ft",
+		"go_interop.ft",
 		"basic_function.ft",
 		"result_if.ft",
 		"nominal_error.ft",
@@ -65,7 +67,7 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read %s: %v", p, err)
 			}
-			out := compileForstPipeline(t, string(src))
+			out := compileForstPipelineExt(t, string(src), pipelineOptsForExampleFile(t, rel))
 			if !strings.Contains(out, "package ") {
 				t.Fatalf("unexpected output for %s", rel)
 			}

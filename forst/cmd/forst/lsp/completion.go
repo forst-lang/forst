@@ -103,6 +103,19 @@ func lineUpToCursor(content string, pos LSPPosition) string {
 	return string(runes[:col])
 }
 
+// memberIdentifierPrefixAfterDot returns the partial member name typed after the last `.` on the
+// current line before the cursor. Unlike identifierPrefixAt, it does not walk backward across `.`
+// into the receiver expression (e.g. at `cmd.` the prefix is empty, not `cmd`).
+func memberIdentifierPrefixAfterDot(content string, pos LSPPosition) string {
+	line := lineUpToCursor(content, pos)
+	line = strings.TrimRight(line, " \t")
+	i := strings.LastIndex(line, ".")
+	if i < 0 {
+		return ""
+	}
+	return line[i+1:]
+}
+
 func detectMemberAfterDot(linePrefix string, req *completionRequestContext) bool {
 	if req != nil && req.TriggerCharacter == "." {
 		return true
@@ -1042,7 +1055,7 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	}
 
 	if z == zoneMemberAfterDot {
-		return memberCompletionsAfterDot(ctx, position, prefix), false
+		return memberCompletionsAfterDot(ctx, position, memberIdentifierPrefixAfterDot(ctx.Content, position)), false
 	}
 
 	var items []LSPCompletionItem
