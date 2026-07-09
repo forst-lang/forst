@@ -148,6 +148,15 @@ func (tc *TypeChecker) allGoImportLocalsLoaded() bool {
 	return true
 }
 
+func (tc *TypeChecker) hasDotImportPath(path string) bool {
+	for _, pkg := range tc.dotImportPkgs {
+		if pkg != nil && pkg.Path() == path {
+			return true
+		}
+	}
+	return false
+}
+
 func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*packages.Package) {
 	if tc.goPkgsByLocal == nil {
 		tc.goPkgsByLocal = make(map[string]*types.Package)
@@ -166,7 +175,9 @@ func (tc *TypeChecker) seedGoImportPackagesFromLoaded(loaded map[string]*package
 			continue
 		}
 		if imp.Alias != nil && string(imp.Alias.ID) == "." {
-			tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+			if !tc.hasDotImportPath(tp.Path()) {
+				tc.dotImportPkgs = append(tc.dotImportPkgs, tp)
+			}
 			continue
 		}
 		var local string

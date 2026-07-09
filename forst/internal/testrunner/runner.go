@@ -10,25 +10,12 @@ import (
 	"forst/internal/ast"
 	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
-	"forst/internal/generators"
 	"forst/internal/goload"
 	"forst/internal/modulecheck"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
-	goast "go/ast"
-
 	"github.com/sirupsen/logrus"
-)
-
-var (
-	filepathAbs  = filepath.Abs
-	filepathRel  = filepath.Rel
-	execGoTest   = func(cmd *exec.Cmd) error { return cmd.Run() }
-	transformForstFileToGo = func(tr *transformer_go.Transformer, merged []ast.Node) (*goast.File, error) {
-		return tr.TransformForstFileToGo(merged)
-	}
-	generateGoCodeFn = generators.GenerateGoCode
 )
 
 // Options configures a forst test run.
@@ -55,7 +42,7 @@ func Run(opts Options) (ExitCode, error) {
 	if moduleRoot == "" {
 		moduleRoot = "."
 	}
-	moduleRoot, err := filepathAbs(moduleRoot)
+	moduleRoot, err := currentFilepathAbs()(moduleRoot)
 	if err != nil {
 		return ExitError, err
 	}
@@ -208,11 +195,11 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 	if modResult != nil {
 		tr.SetModuleResult(modResult)
 	}
-	goAST, err := transformForstFileToGo(tr, transformNodes)
+	goAST, err := currentTransformForstFileToGo()(tr, transformNodes)
 	if err != nil {
 		return "", fmt.Errorf("transform: %w", err)
 	}
-	return generateGoCodeFn(goAST)
+	return currentGenerateGoCodeFn()(goAST)
 }
 
 func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
@@ -234,7 +221,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 		return ExitFailure, fmt.Errorf("%s: %w (forst test packages need a local go.mod)", pkg.RelPath, err)
 	}
 	importPath := "."
-	if rel, err := filepathRel(modRoot, pkg.Dir); err == nil && rel != "." {
+	if rel, err := currentFilepathRel()(modRoot, pkg.Dir); err == nil && rel != "." {
 		importPath = "./" + filepath.ToSlash(rel)
 	}
 	args := []string{"test"}
@@ -246,7 +233,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := execGoTest(cmd); err != nil {
+	if err := currentExecGoTest()(cmd); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() >= 0 {
 			return ExitCode(exitErr.ExitCode()), nil
 		}
@@ -257,7 +244,7 @@ func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []
 }
 
 func relPath(moduleRoot, dir string) string {
-	rel, err := filepathRel(moduleRoot, dir)
+	rel, err := currentFilepathRel()(moduleRoot, dir)
 	if err != nil {
 		return dir
 	}

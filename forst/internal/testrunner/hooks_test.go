@@ -16,11 +16,9 @@ import (
 )
 
 func TestWriteGeneratedTestAndRun_execGoTestError(t *testing.T) {
-	orig := execGoTest
-	t.Cleanup(func() { execGoTest = orig })
-	execGoTest = func(*exec.Cmd) error {
+	swapHook(t, &execGoTestHook, execGoTestFn(func(*exec.Cmd) error {
 		return errors.New("go test unavailable")
-	}
+	}))
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module m\n\ngo 1.22\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -42,11 +40,9 @@ func TestWriteGeneratedTestAndRun_execGoTestError(t *testing.T) {
 }
 
 func TestRun_filepathAbsError(t *testing.T) {
-	orig := filepathAbs
-	t.Cleanup(func() { filepathAbs = orig })
-	filepathAbs = func(string) (string, error) {
+	swapHook(t, &filepathAbsHook, filepathAbsFn(func(string) (string, error) {
 		return "", errors.New("abs failed")
-	}
+	}))
 	code, err := Run(Options{ModuleRoot: ".", Log: testLog(t)})
 	if err == nil || code != ExitError {
 		t.Fatalf("code=%d err=%v", code, err)
@@ -54,11 +50,9 @@ func TestRun_filepathAbsError(t *testing.T) {
 }
 
 func TestEmitPackageGo_transformError(t *testing.T) {
-	orig := transformForstFileToGo
-	t.Cleanup(func() { transformForstFileToGo = orig })
-	transformForstFileToGo = func(*transformer_go.Transformer, []ast.Node) (*goast.File, error) {
+	swapHook(t, &transformForstFileToGoHook, transformForstFileToGoFn(func(*transformer_go.Transformer, []ast.Node) (*goast.File, error) {
 		return nil, errors.New("transform failed")
-	}
+	}))
 
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "ok")
@@ -93,11 +87,9 @@ func TestOk(t *testing.T) {}
 }
 
 func TestDiscoverPackages_explicitPathAbsError(t *testing.T) {
-	orig := filepathAbs
-	t.Cleanup(func() { filepathAbs = orig })
-	filepathAbs = func(string) (string, error) {
+	swapHook(t, &filepathAbsHook, filepathAbsFn(func(string) (string, error) {
 		return "", errors.New("abs failed")
-	}
+	}))
 	_, err := DiscoverPackages(t.TempDir(), []string{"pkg"})
 	if err == nil {
 		t.Fatal("expected abs error")
@@ -105,11 +97,9 @@ func TestDiscoverPackages_explicitPathAbsError(t *testing.T) {
 }
 
 func TestDiscoverPackages_relPathErrorInLoop(t *testing.T) {
-	orig := filepathRelDiscover
-	t.Cleanup(func() { filepathRelDiscover = orig })
-	filepathRelDiscover = func(string, string) (string, error) {
+	swapHook(t, &filepathRelDiscoverHook, filepathRelFn(func(string, string) (string, error) {
 		return "", errors.New("rel failed")
-	}
+	}))
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "pkg", "a_test.ft"), "package pkg\n")
 	if _, err := DiscoverPackages(root, nil); err == nil {
@@ -118,18 +108,15 @@ func TestDiscoverPackages_relPathErrorInLoop(t *testing.T) {
 }
 
 func TestDiscoverPackages_readDirErrorInPackageLoop(t *testing.T) {
-	orig := readDirFn
-	t.Cleanup(func() { readDirFn = orig })
 	root := t.TempDir()
 	pkgDir := filepath.Join(root, "pkg")
 	writeFile(t, filepath.Join(pkgDir, "a_test.ft"), "package pkg\n")
-
-	readDirFn = func(name string) ([]os.DirEntry, error) {
+	swapHook(t, &readDirFnHook, readDirFnType(func(name string) ([]os.DirEntry, error) {
 		if name == pkgDir {
 			return nil, fmt.Errorf("read failed")
 		}
 		return os.ReadDir(name)
-	}
+	}))
 	if _, err := DiscoverPackages(root, nil); err == nil {
 		t.Fatal("expected readdir error in package loop")
 	}
@@ -152,38 +139,18 @@ func TestDiscoverPackages_skipsSubdirectoryEntriesInLoop(t *testing.T) {
 }
 
 func TestDiscoverPackages_skipsDirWhenSecondReadHasNoTestFiles(t *testing.T) {
-	orig := readDirFn
-	t.Cleanup(func() { readDirFn = orig })
 	root := t.TempDir()
 	pkgDir := filepath.Join(root, "pkg")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-
-	var calls int
-	readDirFn = func(name string) ([]os.DirEntry, error) {
-		if name != pkgDir {
-			return os.ReadDir(name)
-		}
-		calls++
-		if calls == 1 {
-			// explicit-path style: first read finds a test file during walk... walk uses WalkDir not readDirFn
-			return os.ReadDir(name)
-		}
-		// Simulate dir listed from walk but second enumeration has only non-test .ft files.
-		return []os.DirEntry{fakeDirEntry{name: "plain.ft", isDir: false}}, nil
-	}
-
-	// Seed testDirs via walk by creating a test file, then stub second read.
 	writeFile(t, filepath.Join(pkgDir, "a_test.ft"), "package pkg\n")
-	// Override: after walk adds pkgDir, loop read returns no test files.
-	calls = 0
-	readDirFn = func(name string) ([]os.DirEntry, error) {
+	swapHook(t, &readDirFnHook, readDirFnType(func(name string) ([]os.DirEntry, error) {
 		if name == pkgDir {
 			return []os.DirEntry{fakeDirEntry{name: "plain.ft", isDir: false}}, nil
 		}
 		return os.ReadDir(name)
-	}
+	}))
 	pkgs, err := DiscoverPackages(root, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -195,11 +162,9 @@ func TestDiscoverPackages_skipsDirWhenSecondReadHasNoTestFiles(t *testing.T) {
 
 func TestRelPath_fallbackWhenRelFails(t *testing.T) {
 	t.Parallel()
-	orig := filepathRel
-	t.Cleanup(func() { filepathRel = orig })
-	filepathRel = func(string, string) (string, error) {
+	swapHook(t, &filepathRelHook, filepathRelFn(func(string, string) (string, error) {
 		return "", errors.New("rel failed")
-	}
+	}))
 	dir := filepath.Join(t.TempDir(), "auth")
 	if got := relPath(t.TempDir(), dir); got != dir {
 		t.Fatalf("relPath = %q, want %q", got, dir)

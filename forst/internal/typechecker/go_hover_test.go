@@ -187,3 +187,34 @@ func main() {
 		t.Fatalf("hover should include Go signature: %q", md)
 	}
 }
+
+func TestGoHoverMarkdownDotImportedSymbol_afterRebindCheckTypes(t *testing.T) {
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	const src = `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "test.ft", log).Lex()
+	nodes, err := parser.New(toks, "test.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := typecheckSrc(t, src, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "strings"})
+	if !tc.HasDotImportPackages() {
+		t.Skip("strings dot-import not loaded (go/packages or workspace)")
+	}
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("rebind CheckTypes: %v", err)
+	}
+	md, ok := tc.GoHoverMarkdownDotImportedSymbol("Contains")
+	if !ok || md == "" {
+		t.Fatal("expected dot-import hover after second CheckTypes")
+	}
+}

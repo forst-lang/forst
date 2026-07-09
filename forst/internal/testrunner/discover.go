@@ -10,11 +10,6 @@ import (
 
 const generatedTestGoName = "z_forst_gen_test.go"
 
-var (
-	filepathRelDiscover = filepath.Rel
-	readDirFn           = os.ReadDir
-)
-
 // PackageUnderTest is one Forst package directory containing *_test.ft files.
 type PackageUnderTest struct {
 	Dir       string   // absolute package directory
@@ -64,7 +59,7 @@ func DiscoverPackages(moduleRoot string, paths []string) ([]PackageUnderTest, er
 			if !filepath.IsAbs(abs) {
 				abs = filepath.Join(moduleRoot, p)
 			}
-			abs, err := filepathAbs(abs)
+			abs, err := currentFilepathAbs()(abs)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +68,7 @@ func DiscoverPackages(moduleRoot string, paths []string) ([]PackageUnderTest, er
 				dir = filepath.Dir(abs)
 			}
 			found := false
-			entries, err := readDirFn(dir)
+			entries, err := currentReadDirFn()(dir)
 			if err != nil {
 				return nil, fmt.Errorf("read package dir %s: %w", dir, err)
 			}
@@ -95,7 +90,7 @@ func DiscoverPackages(moduleRoot string, paths []string) ([]PackageUnderTest, er
 
 	var out []PackageUnderTest
 	for dir := range testDirs {
-		rel, err := filepathRelDiscover(moduleRoot, dir)
+		rel, err := currentFilepathRelDiscover()(moduleRoot, dir)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +98,7 @@ func DiscoverPackages(moduleRoot string, paths []string) ([]PackageUnderTest, er
 		if rel == "." {
 			rel = ""
 		}
-		entries, err := readDirFn(dir)
+		entries, err := currentReadDirFn()(dir)
 		if err != nil {
 			return nil, err
 		}
