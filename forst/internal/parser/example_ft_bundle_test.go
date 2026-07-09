@@ -19,6 +19,8 @@ func TestParseFile_examplesBundle(t *testing.T) {
 		"loop.ft",
 		"generics.ft",
 		"go_builtins.ft",
+		"slices.ft",
+		"go_interop.ft",
 		"ensure.ft",
 		"result_ensure.ft",
 		"result_if.ft",
@@ -41,8 +43,8 @@ func TestParseFile_examplesBundle(t *testing.T) {
 		"tictactoe/engine.ft",
 		"rfc/providers/providers.ft",
 		"rfc/providers/main_wiring.ft",
-		"rfc/providers/cross_pkg/alpha/log.ft",
-		"rfc/providers/cross_pkg/beta/handle.ft",
+		"rfc/providers/cross_pkg/auth/log.ft",
+		"rfc/providers/cross_pkg/api/handle.ft",
 	}
 	root := filepath.Join("..", "..", "..", "examples", "in")
 	for _, name := range rel {

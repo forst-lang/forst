@@ -8,18 +8,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"forst/internal/ast"
 	"forst/internal/httpbody"
-	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
 	transformer_go "forst/internal/transformer/go"
-	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
 )
@@ -424,9 +421,8 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 	}
 
 	// Type checking with detailed error capture
-	tc := typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = goload.FindModuleRoot(filepath.Dir(filePath))
-	if err := tc.CheckTypes(astNodes); err != nil {
+	tc, err := typecheckForLSP(s.log, filePath, astNodes)
+	if err != nil {
 		diagnostic := diagnosticForTypecheckError(fileURIForLocalPath(filePath), content, err, "forst-typechecker", ErrorCodeTypeMismatch)
 		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
 

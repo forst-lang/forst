@@ -86,7 +86,7 @@ func TestHandleDocumentSymbol_JSON(t *testing.T) {
 	ftPath := filepath.Join(dir, "doc.ft")
 	const src = `package main
 
-func alpha(): Int { return 0 }
+func countUsers(): Int { return 0 }
 `
 	if err := os.WriteFile(ftPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func alpha(): Int { return 0 }
 	if !ok {
 		t.Fatalf("result type %T", resp.Result)
 	}
-	if len(raw) != 1 || raw[0].Name != "alpha" {
+	if len(raw) != 1 || raw[0].Name != "countUsers" {
 		t.Fatalf("got %#v", raw)
 	}
 }

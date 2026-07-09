@@ -606,7 +606,7 @@ func TestLexer_UnsupportedTokens(t *testing.T) {
 			name:  "ellipsis",
 			input: "...",
 			expected: []ast.Token{
-				// {Type: ast.TokenEllipsis, Value: "...", Path: "test.forst", Line: 1, Column: 1},
+				{Type: ast.TokenEllipsis, Value: "...", FileID: testFileID, Line: 1, Column: 1},
 				{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
 			},
 		},
@@ -616,6 +616,56 @@ func TestLexer_UnsupportedTokens(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testLexerTokens(t, tt)
 		})
+	}
+}
+
+func TestLexer_ellipsisInCallArgument(t *testing.T) {
+	testLexerTokens(t, struct {
+		name     string
+		input    string
+		expected []ast.Token
+	}{
+		name:  "ellipsis in call",
+		input: "f(xs...)",
+		expected: []ast.Token{
+			{Type: ast.TokenIdentifier, Value: "f", FileID: testFileID, Line: 1, Column: 1},
+			{Type: ast.TokenLParen, Value: "(", FileID: testFileID, Line: 1, Column: 2},
+			{Type: ast.TokenIdentifier, Value: "xs", FileID: testFileID, Line: 1, Column: 3},
+			{Type: ast.TokenEllipsis, Value: "...", FileID: testFileID, Line: 1, Column: 5},
+			{Type: ast.TokenRParen, Value: ")", FileID: testFileID, Line: 1, Column: 8},
+			{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
+		},
+	})
+}
+
+func TestLexer_ellipsisAfterSubslice(t *testing.T) {
+	testLexerTokens(t, struct {
+		name     string
+		input    string
+		expected []ast.Token
+	}{
+		name:  "ellipsis after subslice",
+		input: "argv[1:]...",
+		expected: []ast.Token{
+			{Type: ast.TokenIdentifier, Value: "argv", FileID: testFileID, Line: 1, Column: 1},
+			{Type: ast.TokenLBracket, Value: "[", FileID: testFileID, Line: 1, Column: 5},
+			{Type: ast.TokenIntLiteral, Value: "1", FileID: testFileID, Line: 1, Column: 6},
+			{Type: ast.TokenColon, Value: ":", FileID: testFileID, Line: 1, Column: 7},
+			{Type: ast.TokenRBracket, Value: "]", FileID: testFileID, Line: 1, Column: 8},
+			{Type: ast.TokenEllipsis, Value: "...", FileID: testFileID, Line: 1, Column: 9},
+			{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
+		},
+	})
+}
+
+func TestLexer_threeDotsNotThreeDotTokens(t *testing.T) {
+	log := setupTestLogger(nil)
+	tokens := New([]byte("..."), testFileID, log).Lex()
+	if len(tokens) != 2 {
+		t.Fatalf("token count = %d, want 2 (ellipsis + EOF)", len(tokens))
+	}
+	if tokens[0].Type != ast.TokenEllipsis {
+		t.Fatalf("first token type = %q, want ELLIPSIS", tokens[0].Type)
 	}
 }
 

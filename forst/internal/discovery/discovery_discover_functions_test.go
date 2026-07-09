@@ -303,22 +303,22 @@ func Pub() {
 
 func TestDiscoverer_DiscoverFunctions_groupsFunctionsByPackage(t *testing.T) {
 	dir := t.TempDir()
-	alphaPath := filepath.Join(dir, "alpha.ft")
-	betaPath := filepath.Join(dir, "beta.ft")
-	if err := os.WriteFile(alphaPath, []byte(`package alpha
+	catalogPath := filepath.Join(dir, "catalog.ft")
+	ordersPath := filepath.Join(dir, "orders.ft")
+	if err := os.WriteFile(catalogPath, []byte(`package catalog
 
-func PublicAlpha(): String {
+func ListItems(): String {
 	return "a"
 }
 
-func privateAlpha() {
+func privateList() {
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(betaPath, []byte(`package beta
+	if err := os.WriteFile(ordersPath, []byte(`package orders
 
-func PublicBeta(): String {
+func PlaceOrder(): String {
 	return "b"
 }
 `), 0o644); err != nil {
@@ -326,50 +326,50 @@ func PublicBeta(): String {
 	}
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{alphaPath, betaPath}})
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{catalogPath, ordersPath}})
 	functionsByPackage, err := discoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions: %v", err)
 	}
-	alphaFuncs, alphaOK := functionsByPackage["alpha"]
-	if !alphaOK {
-		t.Fatalf("expected alpha package in discovery output, got %+v", functionsByPackage)
+	catalogFuncs, catalogOK := functionsByPackage["catalog"]
+	if !catalogOK {
+		t.Fatalf("expected catalog package in discovery output, got %+v", functionsByPackage)
 	}
-	if _, ok := alphaFuncs["PublicAlpha"]; !ok {
-		t.Fatalf("expected PublicAlpha in alpha package, got %+v", alphaFuncs)
+	if _, ok := catalogFuncs["ListItems"]; !ok {
+		t.Fatalf("expected ListItems in catalog package, got %+v", catalogFuncs)
 	}
-	if _, ok := alphaFuncs["privateAlpha"]; ok {
-		t.Fatalf("did not expect privateAlpha in alpha package, got %+v", alphaFuncs)
+	if _, ok := catalogFuncs["privateList"]; ok {
+		t.Fatalf("did not expect privateList in catalog package, got %+v", catalogFuncs)
 	}
 
-	betaFuncs, betaOK := functionsByPackage["beta"]
-	if !betaOK {
-		t.Fatalf("expected beta package in discovery output, got %+v", functionsByPackage)
+	ordersFuncs, ordersOK := functionsByPackage["orders"]
+	if !ordersOK {
+		t.Fatalf("expected orders package in discovery output, got %+v", functionsByPackage)
 	}
-	if _, ok := betaFuncs["PublicBeta"]; !ok {
-		t.Fatalf("expected PublicBeta in beta package, got %+v", betaFuncs)
+	if _, ok := ordersFuncs["PlaceOrder"]; !ok {
+		t.Fatalf("expected PlaceOrder in orders package, got %+v", ordersFuncs)
 	}
-	if _, leaked := betaFuncs["PublicAlpha"]; leaked {
-		t.Fatalf("unexpected cross-package leakage: beta has PublicAlpha: %+v", betaFuncs)
+	if _, leaked := ordersFuncs["ListItems"]; leaked {
+		t.Fatalf("unexpected cross-package leakage: orders has ListItems: %+v", ordersFuncs)
 	}
 }
 
 func TestDiscoverer_DiscoverFunctions_groupsPackagesEvenWhenOneFileIsUnparseable(t *testing.T) {
 	dir := t.TempDir()
-	alphaPath := filepath.Join(dir, "alpha.ft")
-	betaPath := filepath.Join(dir, "beta.ft")
+	catalogPath := filepath.Join(dir, "catalog.ft")
+	ordersPath := filepath.Join(dir, "orders.ft")
 	badPath := filepath.Join(dir, "broken.ft")
-	if err := os.WriteFile(alphaPath, []byte(`package alpha
+	if err := os.WriteFile(catalogPath, []byte(`package catalog
 
-func PublicAlpha(): String {
+func ListItems(): String {
 	return "a"
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(betaPath, []byte(`package beta
+	if err := os.WriteFile(ordersPath, []byte(`package orders
 
-func PublicBeta(): String {
+func PlaceOrder(): String {
 	return "b"
 }
 `), 0o644); err != nil {
@@ -380,34 +380,34 @@ func PublicBeta(): String {
 	}
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{badPath, alphaPath, betaPath}})
+	discoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{badPath, catalogPath, ordersPath}})
 	functionsByPackage, err := discoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions: %v", err)
 	}
-	if _, ok := functionsByPackage["alpha"]["PublicAlpha"]; !ok {
-		t.Fatalf("expected alpha.PublicAlpha despite unparseable sibling file, got %+v", functionsByPackage)
+	if _, ok := functionsByPackage["catalog"]["ListItems"]; !ok {
+		t.Fatalf("expected catalog.ListItems despite unparseable sibling file, got %+v", functionsByPackage)
 	}
-	if _, ok := functionsByPackage["beta"]["PublicBeta"]; !ok {
-		t.Fatalf("expected beta.PublicBeta despite unparseable sibling file, got %+v", functionsByPackage)
+	if _, ok := functionsByPackage["orders"]["PlaceOrder"]; !ok {
+		t.Fatalf("expected orders.PlaceOrder despite unparseable sibling file, got %+v", functionsByPackage)
 	}
 }
 
 func TestDiscoverer_DiscoverFunctions_shuffledFileOrderKeepsSameFunctionSet(t *testing.T) {
 	dir := t.TempDir()
-	alphaPath := filepath.Join(dir, "alpha.ft")
-	betaPath := filepath.Join(dir, "beta.ft")
-	if err := os.WriteFile(alphaPath, []byte(`package alpha
+	catalogPath := filepath.Join(dir, "catalog.ft")
+	ordersPath := filepath.Join(dir, "orders.ft")
+	if err := os.WriteFile(catalogPath, []byte(`package catalog
 
-func PublicAlpha(): String {
+func ListItems(): String {
 	return "a"
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(betaPath, []byte(`package beta
+	if err := os.WriteFile(ordersPath, []byte(`package orders
 
-func PublicBeta(): String {
+func PlaceOrder(): String {
 	return "b"
 }
 `), 0o644); err != nil {
@@ -416,29 +416,29 @@ func PublicBeta(): String {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 
-	firstDiscoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{alphaPath, betaPath}})
+	firstDiscoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{catalogPath, ordersPath}})
 	firstOut, err := firstDiscoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions first order: %v", err)
 	}
 
-	secondDiscoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{betaPath, alphaPath}})
+	secondDiscoverer := NewDiscoverer(dir, logger, &MockConfig{files: []string{ordersPath, catalogPath}})
 	secondOut, err := secondDiscoverer.DiscoverFunctions()
 	if err != nil {
 		t.Fatalf("DiscoverFunctions second order: %v", err)
 	}
 
-	if _, ok := firstOut["alpha"]["PublicAlpha"]; !ok {
-		t.Fatalf("first order missing alpha.PublicAlpha: %+v", firstOut)
+	if _, ok := firstOut["catalog"]["ListItems"]; !ok {
+		t.Fatalf("first order missing catalog.ListItems: %+v", firstOut)
 	}
-	if _, ok := firstOut["beta"]["PublicBeta"]; !ok {
-		t.Fatalf("first order missing beta.PublicBeta: %+v", firstOut)
+	if _, ok := firstOut["orders"]["PlaceOrder"]; !ok {
+		t.Fatalf("first order missing orders.PlaceOrder: %+v", firstOut)
 	}
-	if _, ok := secondOut["alpha"]["PublicAlpha"]; !ok {
-		t.Fatalf("second order missing alpha.PublicAlpha: %+v", secondOut)
+	if _, ok := secondOut["catalog"]["ListItems"]; !ok {
+		t.Fatalf("second order missing catalog.ListItems: %+v", secondOut)
 	}
-	if _, ok := secondOut["beta"]["PublicBeta"]; !ok {
-		t.Fatalf("second order missing beta.PublicBeta: %+v", secondOut)
+	if _, ok := secondOut["orders"]["PlaceOrder"]; !ok {
+		t.Fatalf("second order missing orders.PlaceOrder: %+v", secondOut)
 	}
 }
 

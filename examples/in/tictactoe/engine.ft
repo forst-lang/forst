@@ -123,9 +123,9 @@ func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 		status = "playing"
 	}
 	return {
-	message: "ok",
-	state: {cells: next, nextPlayer: np, status: status},
-}
+		message: "ok",
+		state: {cells: next, nextPlayer: np, status: status},
+	}
 }
 
 func NewGame(): GameState {

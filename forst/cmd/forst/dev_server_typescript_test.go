@@ -154,35 +154,35 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsA
 
 func TestTypeScriptGenerator_GenerateTypesForFunctions_conflictingSignatures_returnsError(t *testing.T) {
 	dir := t.TempDir()
-	alpha := filepath.Join(dir, "alpha.ft")
-	beta := filepath.Join(dir, "beta.ft")
-	srcAlpha := `package alphapkg
+	catalog := filepath.Join(dir, "catalog.ft")
+	orders := filepath.Join(dir, "orders.ft")
+	srcCatalog := `package catalogpkg
 
 func Echo(): String {
 	return "x"
 }
 `
-	srcBeta := `package betapkg
+	srcOrders := `package orderspkg
 
 func Echo(): Int {
 	return 1
 }
 `
-	if err := os.WriteFile(alpha, []byte(srcAlpha), 0o644); err != nil {
+	if err := os.WriteFile(catalog, []byte(srcCatalog), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(beta, []byte(srcBeta), 0o644); err != nil {
+	if err := os.WriteFile(orders, []byte(srcOrders), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	tg := NewTypeScriptGenerator(log)
 	functions := map[string]map[string]discovery.FunctionInfo{
-		"alphapkg": {
-			"Echo": {Package: "alphapkg", Name: "Echo", FilePath: alpha, Runnable: true},
+		"catalogpkg": {
+			"Echo": {Package: "catalogpkg", Name: "Echo", FilePath: catalog, Runnable: true},
 		},
-		"betapkg": {
-			"Echo": {Package: "betapkg", Name: "Echo", FilePath: beta, Runnable: true},
+		"orderspkg": {
+			"Echo": {Package: "orderspkg", Name: "Echo", FilePath: orders, Runnable: true},
 		},
 	}
 	_, err := tg.GenerateTypesForFunctions(functions, dir)

@@ -8,20 +8,20 @@ import (
 
 func TestPropagateModuleFixedPoint_cyclicCrossPackage(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {
-			"Log": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
+		"auth": {
+			"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
 		},
-		"beta": {},
+		"api": {},
 	}
 	edges := []ModuleCallEdge{
-		{CallerPkg: "beta", CallerFn: "Handle", TargetPkg: "alpha", TargetFn: "Log"},
-		{CallerPkg: "alpha", CallerFn: "Log", TargetPkg: "beta", TargetFn: "Handle"},
+		{CallerPkg: "api", CallerFn: "HandleRequest", TargetPkg: "auth", TargetFn: "LogEvent"},
+		{CallerPkg: "auth", CallerFn: "LogEvent", TargetPkg: "api", TargetFn: "HandleRequest"},
 	}
 	PropagateModuleFixedPoint(perPkg, edges, ProviderScopeKeyPresent)
-	if len(perPkg["beta"]["Handle"]) == 0 {
-		t.Fatal("beta.Handle should inherit Logger from cyclic cross-package graph")
+	if len(perPkg["api"]["HandleRequest"]) == 0 {
+		t.Fatal("api.HandleRequest should inherit Logger from cyclic cross-package graph")
 	}
-	if len(perPkg["alpha"]["Log"]) == 0 {
-		t.Fatal("alpha.Log should retain Logger")
+	if len(perPkg["auth"]["LogEvent"]) == 0 {
+		t.Fatal("auth.LogEvent should retain Logger")
 	}
 }

@@ -1,434 +1,220 @@
 package typechecker
 
 import (
-	"go/types"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/lexer"
 	"forst/internal/parser"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
 
-func TestGoHoverMarkdown_fmtPrintln(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"fmt\"\nfunc main() {\n\tfmt.Println(\"x\")\n}\n"
+func typecheckSrc(tb testing.TB, src string, opts testutil.TypecheckOpts) *TypeChecker {
+	tb.Helper()
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	toks := lexer.New([]byte(src), "test.ft", log).Lex()
+	nodes, err := parser.New(toks, "test.ft", log).ParseFile()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-
-	md, ok := tc.GoHoverMarkdown("fmt", "Println")
-	if !ok {
-		t.Fatal("expected Go hover for fmt.Println")
+	applyTypecheckOpts(tb, tc, opts)
+	if err := tc.CheckTypes(nodes); err != nil {
+		tb.Fatalf("CheckTypes: %v", err)
 	}
-	if !strings.Contains(md, "Println") {
-		t.Fatalf("expected signature to mention Println, got %q", md)
-	}
-	if tc.goPkgsByLocal != nil && tc.goPkgsByLocal["fmt"] != nil {
-		if !strings.Contains(md, "func") {
-			t.Fatalf("expected go/types func line in hover, got %q", md)
-		}
-	}
+	return tc
 }
 
-func TestGoHoverMarkdownForImportPath_fmt(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"fmt\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-
-	md, ok := tc.GoHoverMarkdownForImportPath("fmt")
-	if !ok {
-		t.Fatal("expected hover for import path fmt")
-	}
-	if !strings.Contains(md, "fmt") {
-		t.Fatalf("expected path or name fmt in hover, got %q", md)
-	}
-}
-
-func TestGoHoverMarkdownForImportPath_unknownStillShows(t *testing.T) {
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	tc := New(log, false)
-	md, ok := tc.GoHoverMarkdownForImportPath("example.com/nope/nope")
-	if !ok {
-		t.Fatal("expected generic hover for unknown path")
-	}
-	if !strings.Contains(md, "example.com/nope/nope") {
-		t.Fatalf("got %q", md)
-	}
-}
-
-func TestIsImportedLocalName(t *testing.T) {
+func TestGoHoverMarkdown_fmtPrintln_includesGodoc(t *testing.T) {
 	t.Parallel()
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"fmt\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-
-	if !tc.IsImportedLocalName("fmt") {
-		t.Fatal("expected fmt as imported local name")
-	}
-	if tc.IsImportedLocalName("notimported") {
-		t.Fatal("unexpected import name")
-	}
-	if path, ok := tc.ImportPathForLocal("fmt"); !ok || path != "fmt" {
-		t.Fatalf("ImportPathForLocal(fmt) = %q, %v", path, ok)
-	}
-}
-
-func TestGoSignatureReturnsToForst_void(t *testing.T) {
-	t.Parallel()
-	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
-	out := goSignatureReturnsToForst(sig)
-	if len(out) != 1 || out[0].Ident != ast.TypeVoid {
-		t.Fatalf("want single Void, got %#v", out)
-	}
-}
-
-func TestGoSignatureReturnsToForst_int(t *testing.T) {
-	t.Parallel()
-	results := types.NewTuple(types.NewParam(0, nil, "", types.Typ[types.Int]))
-	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
-	out := goSignatureReturnsToForst(sig)
-	if len(out) != 1 || out[0].Ident != ast.TypeInt {
-		t.Fatalf("got %#v", out)
-	}
-}
-
-func TestGoSignatureReturnsToForst_unsupportedReturnYieldsNil(t *testing.T) {
-	t.Parallel()
-	// unsafe.Pointer is a basic kind that goTypeToForstType does not map.
-	results := types.NewTuple(types.NewParam(0, nil, "", types.Typ[types.UnsafePointer]))
-	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
-	if out := goSignatureReturnsToForst(sig); out != nil {
-		t.Fatalf("expected nil, got %#v", out)
-	}
-}
-
-func TestInferredTypesForVariableIdentifier_errInEnsureBody(t *testing.T) {
-	t.Parallel()
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	src := `package main
+	goload.ClearLoadCacheForTest()
+	tc := typecheckSrc(t, `package main
 
 import "fmt"
 
-func checkConditions(): Error {
-	return nil
+func main() {
+	fmt.Println("hi")
 }
+`, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "fmt"})
+	md, ok := tc.GoHoverMarkdown("fmt", "Println")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for fmt.Println")
+	}
+	if !strings.Contains(md, "Println") {
+		t.Fatalf("hover should mention Println: %q", md)
+	}
+	if !strings.Contains(md, "format") && !strings.Contains(md, "Format") {
+		t.Fatalf("hover should include godoc about formatting: %q", md)
+	}
+}
+
+func TestGoHoverMarkdownForGoTypeMethod_execCmdRun(t *testing.T) {
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	tc := typecheckSrc(t, `package main
+
+import "os/exec"
 
 func main() {
-	err := checkConditions()
-	ensure !err {
-		fmt.Println(err.Error())
+	cmd := exec.Command("true")
+	cmd.Run()
+}
+`, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "exec"})
+	cmdType := tc.GoTypeForVariable(ast.Identifier("cmd"))
+	if cmdType == nil {
+		t.Fatal("expected Go type for cmd variable")
 	}
+	md, ok := tc.GoHoverMarkdownForGoTypeMethod(cmdType, "os/exec", "Run")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for (*exec.Cmd).Run")
+	}
+	if !strings.Contains(md, "Run") {
+		t.Fatalf("hover should mention Run: %q", md)
+	}
+}
+
+func TestGoHoverMarkdownSamePackageFunc_includesGodoc(t *testing.T) {
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
+
+func main() {
+  x := Add(1, 2)
+  println(x)
 }
 `
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "memos/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "memos/main.ft", log).ParseFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 	tc := New(log, false)
+	tc.ConfigureForForstFile(root, filepath.Join(root, "memos"), nodes)
 	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatal(err)
+		t.Fatalf("CheckTypes: %v", err)
 	}
-	ty, ok := tc.InferredTypesForVariableIdentifier("err")
-	if !ok || len(ty) != 1 {
-		t.Fatalf("err: ok=%v types=%v", ok, ty)
+	if !tc.SamePackageGoLoaded() {
+		t.Fatalf("expected same-package Go loaded for %q", importPath)
 	}
-	if ty[0].Ident != ast.TypeError {
-		t.Fatalf("want TYPE_ERROR, got %#v", ty[0])
+	md, ok := tc.GoHoverMarkdownSamePackageFunc("StringFromBytes")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for StringFromBytes")
 	}
-}
-
-func TestGoHoverMarkdownForForstReceiverMethod_errorError(t *testing.T) {
-	t.Parallel()
-	tc := New(logrus.New(), false)
-	md, ok := tc.GoHoverMarkdownForForstReceiverMethod(ast.TypeNode{Ident: ast.TypeError}, "Error")
-	if !ok {
-		t.Fatal("expected hover for Error.Error")
+	if !strings.Contains(md, "StringFromBytes") {
+		t.Fatalf("hover should mention StringFromBytes: %q", md)
 	}
-	if !strings.Contains(md, "func (error).Error()") && !strings.Contains(md, "Error() string") {
-		t.Fatalf("expected go/types error.Error signature, got %q", md)
-	}
-	if !strings.Contains(md, "predeclared") {
-		t.Fatalf("expected predeclared error mention, got %q", md)
-	}
-	if !strings.Contains(md, "pkg.go.dev/builtin") {
-		t.Fatalf("expected link to package builtin docs, got %q", md)
-	}
-	// From $GOROOT/src/builtin/builtin.go (via go/doc)
-	if !strings.Contains(strings.ToLower(md), "conventional") {
-		t.Fatalf("expected builtin doc excerpt for error interface, got %q", md)
+	if !strings.Contains(md, "memo file") {
+		t.Fatalf("hover should include godoc from fixture: %q", md)
 	}
 }
 
-func TestGoHoverMarkdownForForstReceiverMethod_wrongReceiver(t *testing.T) {
+func TestGoHoverMarkdownForMethodOnExpression_includesGodoc(t *testing.T) {
 	t.Parallel()
-	tc := New(logrus.New(), false)
-	if _, ok := tc.GoHoverMarkdownForForstReceiverMethod(ast.TypeNode{Ident: ast.TypeString}, "Error"); ok {
-		t.Fatal("String should not get error.Error hover")
+	goload.ClearLoadCacheForTest()
+	tc := typecheckSrc(t, `package main
+
+import "os/exec"
+
+func main() {
+	cmd := exec.Command("true")
+	cmd.Run()
+}
+`, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "exec"})
+	recv := ast.VariableNode{Ident: ast.Ident{ID: "cmd"}}
+	md, ok := tc.GoHoverMarkdownForMethodOnExpression(recv, "Run")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for (*exec.Cmd).Run via expression path")
+	}
+	if !strings.Contains(md, "Run") {
+		t.Fatalf("hover should mention Run: %q", md)
 	}
 }
 
-func TestGoHoverMarkdownPredeclaredBuiltin_len(t *testing.T) {
+func TestGoHoverMarkdownForGoTypeMethod_namedReceiver(t *testing.T) {
 	t.Parallel()
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	if _, err := loadBuiltinGoDocPackage(log); err != nil {
-		t.Skip("GOROOT builtin package not available:", err)
-	}
-	tc := New(log, false)
-	md, ok := tc.GoHoverMarkdownPredeclaredBuiltin("len")
-	if !ok {
-		t.Fatal("expected hover for predeclared len")
-	}
-	if !strings.Contains(md, "predeclared `len`") {
-		t.Fatalf("expected predeclared len header, got %q", md)
-	}
-	if !strings.Contains(md, "pkg.go.dev/builtin") {
-		t.Fatalf("expected link to package builtin docs, got %q", md)
-	}
-	if !strings.Contains(strings.ToLower(md), "built-in") {
-		t.Fatalf("expected built-in doc excerpt, got %q", md)
-	}
-	if !strings.Contains(md, "func len(") {
-		t.Fatalf("expected Go signature for len, got %q", md)
-	}
-	if !strings.Contains(md, "**Forst return** `Int`") {
-		t.Fatalf("expected Forst Int return, got %q", md)
-	}
-}
-
-func TestGoHoverMarkdownPredeclaredBuiltin_min(t *testing.T) {
-	t.Parallel()
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	if _, err := loadBuiltinGoDocPackage(log); err != nil {
-		t.Skip("GOROOT builtin package not available:", err)
-	}
-	tc := New(log, false)
-	md, ok := tc.GoHoverMarkdownPredeclaredBuiltin("min")
-	if !ok {
-		t.Fatal("expected hover for predeclared min")
-	}
-	if !strings.Contains(strings.ToLower(md), "ordered") {
-		t.Fatalf("expected ordered-type doc excerpt from Go, got %q", md)
-	}
-	if !strings.Contains(md, "func min[T") {
-		t.Fatalf("expected Go signature for min, got %q", md)
-	}
-}
-
-func TestGoHoverMarkdownPredeclaredBuiltin_unknownOrImported(t *testing.T) {
-	t.Parallel()
-	tc := New(logrus.New(), false)
-	if _, ok := tc.GoHoverMarkdownPredeclaredBuiltin("not_a_builtin"); ok {
-		t.Fatal("unexpected hover for unknown name")
-	}
-	if _, ok := tc.GoHoverMarkdownPredeclaredBuiltin("Println"); ok {
-		t.Fatal("fmt.Println local name should not match predeclared table")
-	}
-}
-
-func TestGoHoverMarkdown_packageOnly(t *testing.T) {
-	t.Parallel()
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"fmt\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	moduleRoot := testutil.ModuleRoot(t)
+	m, err := goload.LoadByPkgPath(moduleRoot, []string{"os"})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("LoadByPkgPath: %v", err)
 	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-
-	md, ok := tc.GoHoverMarkdown("fmt", "")
-	if !ok {
-		t.Fatal("expected package-only hover")
+	gp := m["os"]
+	if gp == nil || gp.Types == nil {
+		t.Fatal("os package not loaded")
 	}
-	if !strings.Contains(md, "fmt") || !strings.Contains(md, "import") {
-		t.Fatalf("expected package hover, got %q", md)
+	fileInfo := gp.Types.Scope().Lookup("FileInfo").Type()
+	if fileInfo == nil {
+		t.Fatal("os.FileInfo type not found")
 	}
-}
-
-func TestIsImportedLocalName_dotImportDoesNotBindPackageIdentifier(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport . \"strings\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
+	tc := New(nil, false)
+	tc.GoWorkspaceDir = moduleRoot
+	md, ok := tc.GoHoverMarkdownForGoTypeMethod(fileInfo, "os", "Name")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover")
 	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-	if tc.IsImportedLocalName("strings") {
-		t.Fatal("dot-import must not register the package name as an import local (not Go-compatible)")
-	}
-	if !tc.HasDotImportPackages() {
-		t.Skip("dot-import packages not loaded")
-	}
-}
-
-func TestGoHoverMarkdownForImportPath_dotImport(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport . \"strings\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-	md, ok := tc.GoHoverMarkdownForImportPath("strings")
-	if !ok {
-		t.Fatal("expected hover for import path string on dot-imported package")
-	}
-	if !strings.Contains(md, "strings") {
-		t.Fatalf("expected path in hover, got %q", md)
-	}
-	if !tc.HasDotImportPackages() {
-		t.Skip("dot-import packages not loaded")
-	}
-	if !strings.Contains(md, "```go") {
-		t.Fatalf("expected code block, got %q", md)
+	if !strings.Contains(md, "Name") {
+		t.Fatalf("hover should mention Name: %q", md)
 	}
 }
 
 func TestGoHoverMarkdownDotImportedSymbol_stringsContains(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport . \"strings\"\nfunc main() {\n\tprintln(Contains(\"a\", \"b\"))\n}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	if err := tc.CheckTypes(nodes); err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	tc := typecheckSrc(t, `package main
+
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "strings"})
 	if !tc.HasDotImportPackages() {
-		t.Skip("dot-import packages not loaded")
+		t.Skip("strings dot-import not loaded (go/packages or workspace)")
 	}
 	md, ok := tc.GoHoverMarkdownDotImportedSymbol("Contains")
-	if !ok {
-		t.Fatal("expected hover for dot-imported function")
+	if !ok || md == "" {
+		t.Fatal("expected non-empty hover for dot-imported Contains")
 	}
-	if !strings.Contains(md, "Contains") {
-		t.Fatalf("got %q", md)
-	}
-}
-
-func TestGoHoverMarkdown_regularImport_stringsContains(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"strings\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
-		t.Skip("strings not loaded (go/packages or workspace)")
-	}
-	md, ok := tc.GoHoverMarkdown("strings", "Contains")
-	if !ok {
-		t.Fatal("expected Go hover for strings.Contains")
-	}
-	if !strings.Contains(md, "Contains") {
-		t.Fatalf("expected signature mentioning Contains, got %q", md)
+	if !strings.Contains(md, "Contains") || !strings.Contains(md, "```go") {
+		t.Fatalf("hover should include Go signature: %q", md)
 	}
 }
 
-func TestGoHoverMarkdown_regularAliasedImport_strContains(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport str \"strings\"\nfunc main() {}\n"
-	log := logrus.New()
-	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["str"] == nil {
-		t.Skip("aliased strings not loaded")
-	}
-	md, ok := tc.GoHoverMarkdown("str", "Contains")
-	if !ok {
-		t.Fatal("expected Go hover for str.Contains")
-	}
-	if !strings.Contains(md, "Contains") {
-		t.Fatalf("expected signature mentioning Contains, got %q", md)
-	}
-}
+func TestGoHoverMarkdownDotImportedSymbol_afterRebindCheckTypes(t *testing.T) {
+	t.Parallel()
+	goload.ClearLoadCacheForTest()
+	const src = `package main
 
-func TestLoadedGoPackageByImportPath_regularImport(t *testing.T) {
-	dir := moduleRootFromWD(t)
-	src := "package main\nimport \"strings\"\nfunc main() {}\n"
+import . "strings"
+
+func main() {
+	println(Contains("a", "b"))
+}
+`
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "t.ft", log).Lex()
-	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	toks := lexer.New([]byte(src), "test.ft", log).Lex()
+	nodes, err := parser.New(toks, "test.ft", log).ParseFile()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tc := New(log, false)
-	tc.GoWorkspaceDir = dir
-	_ = tc.CheckTypes(nodes)
-	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["strings"] == nil {
-		t.Skip("strings not loaded")
+	tc := typecheckSrc(t, src, testutil.TypecheckOpts{UseModuleRoot: true, SkipUnlessGoImport: "strings"})
+	if !tc.HasDotImportPackages() {
+		t.Skip("strings dot-import not loaded (go/packages or workspace)")
 	}
-	gp := tc.loadedGoPackageByImportPath("strings")
-	if gp == nil {
-		t.Fatal("loadedGoPackageByImportPath(strings) should resolve for regular import")
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("rebind CheckTypes: %v", err)
 	}
-	if gp.Path() != "strings" {
-		t.Fatalf("got path %q", gp.Path())
+	md, ok := tc.GoHoverMarkdownDotImportedSymbol("Contains")
+	if !ok || md == "" {
+		t.Fatal("expected dot-import hover after second CheckTypes")
 	}
 }

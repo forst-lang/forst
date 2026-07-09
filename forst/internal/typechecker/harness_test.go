@@ -40,7 +40,7 @@ func main() {}
 
 func TestHarness_mustTypecheckMixedPackage(t *testing.T) {
 	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	src := `package memos
 
 func main() {
 	x := Add(1, 2)

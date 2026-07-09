@@ -53,6 +53,17 @@ func moduleRootFromWD(t *testing.T) string {
 	return testutil.ModuleRoot(t)
 }
 
+// pipelineOptsForExampleFile returns compile options for examples that need go/packages (e.g. os/exec).
+func pipelineOptsForExampleFile(t *testing.T, name string) pipelineOpts {
+	if name != "go_interop.ft" {
+		return pipelineOpts{}
+	}
+	return pipelineOpts{
+		goWorkspaceDir:     moduleRootFromWD(t),
+		skipUnlessGoImport: "exec",
+	}
+}
+
 func TestPipeline_parse_typecheck_transform_goFormat(t *testing.T) {
 	tests := []struct {
 		name    string

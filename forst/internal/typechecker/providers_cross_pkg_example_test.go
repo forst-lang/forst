@@ -7,12 +7,12 @@ import (
 	"forst/internal/parser"
 )
 
-func TestCheckTypes_crossPkgAlpha_logExpiry_allowedInLibraryPackage(t *testing.T) {
-	src := `package alpha
+func TestCheckTypes_crossPkgAuth_logEvent_allowedInLibraryPackage(t *testing.T) {
+	src := `package auth
 
 type Logger = { info(msg String) }
 
-func LogExpiry(id String) {
+func LogEvent(id String) {
 	use logger: Logger
 	logger.info("expire " + id)
 }
@@ -27,9 +27,9 @@ func LogExpiry(id String) {
 	if err := tc.CheckTypes(nodes); err != nil {
 		t.Fatalf("library package export with Providers should typecheck: %v", err)
 	}
-	slots := tc.FunctionProviders["LogExpiry"]
+	slots := tc.FunctionProviders["LogEvent"]
 	if len(slots) != 1 || slots[0].RootIdent != "Logger" {
-		t.Fatalf("LogExpiry providers = %v", slots)
+		t.Fatalf("LogEvent providers = %v", slots)
 	}
 }
 

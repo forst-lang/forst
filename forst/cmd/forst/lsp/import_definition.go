@@ -106,7 +106,7 @@ func (s *LSPServer) forstFileURIsUnderModule(moduleRoot string) []string {
 }
 
 // collectCrossPackageReferencesForExportedFunction finds qualified import call sites
-// (e.g. alpha.LogExpiry) that resolve to the callee package directory of ctx.
+// (e.g. auth.LogEvent) that resolve to the callee package directory of ctx.
 func (s *LSPServer) collectCrossPackageReferencesForExportedFunction(ctx *forstDocumentContext, calleeName string) []LSPLocation {
 	if ctx == nil || ctx.TC == nil || calleeName == "" {
 		return nil

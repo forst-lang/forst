@@ -1,4 +1,4 @@
-package alpha
+package auth
 // Logger: TypeDefShapeExpr({Info: ?})
 type Logger interface {
 	Info(msg string)
@@ -12,7 +12,7 @@ type Providers_2TAwF8pWZKc struct {
 
 func (NopLogger) Info(msg string) {
 }
-func LogExpiry(providers Providers_2TAwF8pWZKc, id string) {
+func LogEvent(providers Providers_2TAwF8pWZKc, id string) {
 	logger := providers.Logger
 	logger.Info("expire " + id)
 }

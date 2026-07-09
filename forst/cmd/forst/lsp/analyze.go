@@ -2,13 +2,10 @@ package lsp
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	"forst/internal/ast"
-	"forst/internal/goload"
 	"forst/internal/lexer"
-	"forst/internal/modulecheck"
 	"forst/internal/parser"
 	"forst/internal/typechecker"
 
@@ -88,18 +85,7 @@ func (s *LSPServer) analyzeForstDocument(uri string) (ctx *forstDocumentContext,
 		return ctx, true
 	}
 
-	moduleRoot := goload.FindModuleRoot(filepath.Dir(filePath))
-
-	var tc *typechecker.TypeChecker
-	var checkErr error
-	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
-	_ = modResult
-	tc = typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = moduleRoot
-	checkErr = tc.CheckTypes(nodes)
-	if modErr != nil && checkErr == nil {
-		checkErr = modErr
-	}
+	tc, checkErr := typecheckForLSP(s.log, filePath, nodes)
 	ctx.Nodes = nodes
 	ctx.TC = tc
 	ctx.CheckErr = checkErr

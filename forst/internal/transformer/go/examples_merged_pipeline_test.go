@@ -70,14 +70,14 @@ func TestPipeline_mergedTictactoePackage(t *testing.T) {
 
 func TestPipeline_crossPkgProvidersAlphaLog(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(examplesInRoot(t), "rfc", "providers", "cross_pkg", "alpha", "log.ft")
+	path := filepath.Join(examplesInRoot(t), "rfc", "providers", "cross_pkg", "auth", "log.ft")
 	src, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := compileForstPipeline(t, string(src))
-	if !strings.Contains(out, `func LogExpiry`) || !strings.Contains(out, `Providers_`) {
-		t.Fatalf("unexpected alpha log output:\n%s", out)
+	if !strings.Contains(out, `func LogEvent`) || !strings.Contains(out, `Providers_`) {
+		t.Fatalf("unexpected auth log output:\n%s", out)
 	}
 	assertGoParses(t, out)
 }

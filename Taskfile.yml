@@ -213,6 +213,18 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_builtins.ft
 
+  example:slices:
+    desc: Compile slices example (subslice expressions xs[low:high], xs[low:], xs[:high])
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/slices.ft
+
+  example:go-interop:
+    desc: Compile go_interop example (Go FFI field access, subslices, variadic spread)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_interop.ft
+
   example:generics:
     desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)
     dir: forst
@@ -291,18 +303,18 @@ tasks:
       - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
 
   test:providers-cross_pkg:
-    desc: Run forst test on cross-package Providers cookbook (cross_pkg/alpha + cross_pkg/beta)
+    desc: Run forst test on cross-package Providers cookbook (cross_pkg/auth + cross_pkg/api)
     deps: [build]
     dir: forst
     cmds:
-      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/api
 
   example:providers-cross_pkg:
     desc: Compile cross-package Providers cookbook (alpha + beta emit)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/beta/handle.ft
-      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/alpha/log.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/api -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/api/handle.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/auth -loglevel error -- {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/auth/log.ft
 
   test:forst:
     desc: Alias for test:providers (forst test on Providers golden)

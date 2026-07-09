@@ -8,45 +8,45 @@ import (
 
 func TestPropagateModuleFixedPoint_crossPackageCall(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {
-			"ExpireToken": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
+		"auth": {
+			"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
 		},
-		"beta": {
-			"Handle": nil,
+		"api": {
+			"HandleRequest": nil,
 		},
 	}
 	edges := []ModuleCallEdge{{
-		CallerPkg: "beta",
-		CallerFn:  "Handle",
-		TargetPkg: "alpha",
-		TargetFn:  "ExpireToken",
+		CallerPkg: "api",
+		CallerFn:  "HandleRequest",
+		TargetPkg: "auth",
+		TargetFn:  "LogEvent",
 	}}
 	PropagateModuleFixedPoint(perPkg, edges, ProviderScopeKeyPresent)
-	slots := perPkg["beta"]["Handle"]
+	slots := perPkg["api"]["HandleRequest"]
 	if len(slots) != 1 || slots[0].RootIdent != "Logger" {
-		t.Fatalf("Handle providers = %v", slots)
+		t.Fatalf("HandleRequest providers = %v", slots)
 	}
 }
 
 func TestPropagateModuleFixedPoint_ambientSatisfiesSkipsSlot(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {
-			"ExpireToken": {{RootIdent: "Logger", Key: "Logger"}},
+		"auth": {
+			"LogEvent": {{RootIdent: "Logger", Key: "Logger"}},
 		},
-		"beta": {
-			"Handle": nil,
+		"api": {
+			"HandleRequest": nil,
 		},
 	}
 	edges := []ModuleCallEdge{{
-		CallerPkg:   "beta",
-		CallerFn:    "Handle",
-		TargetPkg:   "alpha",
-		TargetFn:    "ExpireToken",
-		ProviderScope:     ProviderScopeSnapshot{"Logger": {Ident: "Logger"}},
+		CallerPkg:     "api",
+		CallerFn:      "HandleRequest",
+		TargetPkg:     "auth",
+		TargetFn:      "LogEvent",
+		ProviderScope: ProviderScopeSnapshot{"Logger": {Ident: "Logger"}},
 	}}
 	PropagateModuleFixedPoint(perPkg, edges, ProviderScopeKeyPresent)
-	if len(perPkg["beta"]["Handle"]) != 0 {
-		t.Fatalf("expected scope to satisfy Logger, got %v", perPkg["beta"]["Handle"])
+	if len(perPkg["api"]["HandleRequest"]) != 0 {
+		t.Fatalf("expected scope to satisfy Logger, got %v", perPkg["api"]["HandleRequest"])
 	}
 }
 
@@ -108,10 +108,10 @@ func TestGraph_AddModuleCallAndIntraCall(t *testing.T) {
 		t.Fatalf("intra edges: %v", g.intraEdges)
 	}
 	g.AddModuleCall(ModuleCallEdge{
-		CallerPkg: "beta",
-		CallerFn:  "Handle",
-		TargetPkg: "alpha",
-		TargetFn:  "ExpireToken",
+		CallerPkg: "api",
+		CallerFn:  "HandleRequest",
+		TargetPkg: "auth",
+		TargetFn:  "LogEvent",
 	})
 	if len(g.moduleEdges) != 1 {
 		t.Fatalf("module edges: %v", g.moduleEdges)
@@ -120,15 +120,15 @@ func TestGraph_AddModuleCallAndIntraCall(t *testing.T) {
 
 func TestModuleGraph_AllPackages(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"F": {{RootIdent: "Logger", Key: "Logger"}}},
+		"auth": {"F": {{RootIdent: "Logger", Key: "Logger"}}},
 	}
 	mg := NewModuleGraph(perPkg)
 	all := mg.AllPackages()
-	if len(all["alpha"]["F"]) != 1 {
+	if len(all["auth"]["F"]) != 1 {
 		t.Fatalf("AllPackages = %v", all)
 	}
-	all["alpha"]["F"][0].RootIdent = "mutated"
-	if mg.PerPackage("alpha")["F"][0].RootIdent != "Logger" {
+	all["auth"]["F"][0].RootIdent = "mutated"
+	if mg.PerPackage("auth")["F"][0].RootIdent != "Logger" {
 		t.Fatal("AllPackages should return a deep copy")
 	}
 }
@@ -155,19 +155,19 @@ func TestGraph_Invalidate_skipsDuplicateCallers(t *testing.T) {
 
 func TestModuleGraph_fixedPoint(t *testing.T) {
 	perPkg := map[string]map[ast.Identifier][]Slot{
-		"alpha": {"ExpireToken": {{RootIdent: "Logger", Key: "Logger"}}},
-		"beta":  {"Handle": nil},
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger"}}},
+		"api":  {"HandleRequest": nil},
 	}
 	mg := NewModuleGraph(perPkg)
 	mg.AddModuleCall(ModuleCallEdge{
-		CallerPkg: "beta",
-		CallerFn:  "Handle",
-		TargetPkg: "alpha",
-		TargetFn:  "ExpireToken",
+		CallerPkg: "api",
+		CallerFn:  "HandleRequest",
+		TargetPkg: "auth",
+		TargetFn:  "LogEvent",
 	})
 	mg.ComputeFixedPoint(ProviderScopeKeyPresent)
-	slots := mg.PerPackage("beta")["Handle"]
+	slots := mg.PerPackage("api")["HandleRequest"]
 	if len(slots) != 1 {
-		t.Fatalf("Handle providers = %v", slots)
+		t.Fatalf("HandleRequest providers = %v", slots)
 	}
 }

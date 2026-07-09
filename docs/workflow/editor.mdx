@@ -28,13 +28,15 @@ The extension starts the language server automatically and fetches the matching 
 | Action | What happens |
 | --- | --- |
 | Open or edit a `.ft` file | Diagnostics update as you type |
-| Hover a symbol | Types, docs, and Go import info |
-| **Go to definition** / **Find references** | Jump across same-package `.ft` files |
+| Hover a symbol | Types, docs, Provider obligations, and Go import signatures (with godoc when available) |
+| **Go to definition** / **Find references** | Jump across same-package `.ft` files and cross-package Forst imports in the same module |
 | **Rename symbol** | Rename across merged package sources |
 | **Format document** | Format the current file (experimental) |
 | **Command palette → Forst** | Focus logs or restart the language server |
 
-Completion covers keywords, locals, and same-package symbols. Go package completion after `.` is not available yet.
+Completion covers keywords, locals, same-package symbols, and members on Go-typed bindings where inference ran. Completion for Go package names after `pkg.` is not available yet.
+
+**Go interop in the editor:** qualified imports (`fmt.Println`) and same-package `.go` functions show `go/types` signatures; godoc is included when loads succeed. Cross-package Forst imports (e.g. Providers `auth` → `api`) use module-level typechecking so diagnostics match compile-time arity—not emitted `z_forst_gen.go` stubs. See [Go interop](/interop/go).
 
 ## Settings
 

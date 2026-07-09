@@ -18,24 +18,24 @@ func TestTransformForstSiblingQualifiedParamType(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	testmod.WriteGoMod(t, dir, "xpkg")
-	runctxDir := dir + "/runctx"
-	exportDir := dir + "/export"
-	for _, d := range []string{runctxDir, exportDir} {
+	workspaceDir := dir + "/workspace"
+	reportsDir := dir + "/reports"
+	for _, d := range []string{workspaceDir, reportsDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	writeSiblingTestFile(t, runctxDir+"/runctx.ft", `package runctx
+	writeSiblingTestFile(t, workspaceDir+"/session.ft", `package workspace
 
-type RunContext = {
-  runId: String,
+type Session = {
+  workDir: String,
 }
 `)
-	writeSiblingTestFile(t, exportDir+"/manifest.ft", `package export
+	writeSiblingTestFile(t, reportsDir+"/summary.ft", `package reports
 
-import "xpkg/runctx"
+import "xpkg/workspace"
 
-func WriteManifest(ctx runctx.RunContext): Error {
+func buildSummary(ctx workspace.Session): Error {
   return nil
 }
 `)
@@ -44,17 +44,17 @@ func WriteManifest(ctx runctx.RunContext): Error {
 	if err != nil {
 		t.Fatalf("CheckModuleProviders: %v", err)
 	}
-	exportTC := modResult.ForstPackageTypeChecker("export")
-	if exportTC == nil {
-		t.Fatal("missing export typechecker")
+	reportsTC := modResult.ForstPackageTypeChecker("reports")
+	if reportsTC == nil {
+		t.Fatal("missing reports typechecker")
 	}
-	merged, _, err := forstpkg.ParseAndMergePackage(nil, []string{exportDir + "/manifest.ft"})
+	merged, _, err := forstpkg.ParseAndMergePackage(nil, []string{reportsDir + "/summary.ft"})
 	if err != nil {
-		t.Fatalf("parse export: %v", err)
+		t.Fatalf("parse reports: %v", err)
 	}
 	log := ast.SetupTestLogger(nil)
 	log.SetOutput(bytes.NewBuffer(nil))
-	tr := New(exportTC, log, true)
+	tr := New(reportsTC, log, true)
 	tr.SetModuleResult(modResult)
 	goFile, err := tr.TransformForstFileToGo(merged)
 	if err != nil {
@@ -65,8 +65,8 @@ func WriteManifest(ctx runctx.RunContext): Error {
 		t.Fatalf("format: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "func WriteManifest(ctx runctx.RunContext)") {
-		t.Fatalf("expected runctx.RunContext param, got:\n%s", out)
+	if !strings.Contains(out, "func buildSummary(ctx workspace.Session)") {
+		t.Fatalf("expected workspace.Session param, got:\n%s", out)
 	}
 	if strings.Contains(out, "T_") {
 		t.Fatalf("expected no hash types, got:\n%s", out)

@@ -14,7 +14,6 @@ import (
 	"forst/internal/ast"
 	"forst/internal/goload"
 	"forst/internal/lexer"
-	"forst/internal/modulecheck"
 	"forst/internal/parser"
 	"forst/internal/safefs"
 	"forst/internal/typechecker"
@@ -306,18 +305,19 @@ func (s *LSPServer) buildPackageSnapshot(uris []string, results []fileParseResul
 	if len(merged) == 0 {
 		return &packageSnapshot{uris: uris, results: results}
 	}
-	moduleRoot := goload.FindModuleRoot(workDir)
-
-	var tc *typechecker.TypeChecker
-	var checkErr error
-	modResult, modErr := modulecheck.CheckModuleProviders(s.log, modulecheck.Options{ModuleRoot: moduleRoot})
-	_ = modResult
-	tc = typechecker.New(s.log, false)
-	tc.GoWorkspaceDir = moduleRoot
-	checkErr = tc.CheckTypes(merged)
-	if modErr != nil && checkErr == nil {
-		checkErr = modErr
+	fileDir := workDir
+	filePath := ""
+	if len(uris) > 0 {
+		if p := filePathFromDocumentURI(uris[0]); p != "" {
+			fileDir = filepath.Dir(p)
+			filePath = p
+		}
 	}
+	if filePath == "" {
+		filePath = filepath.Join(fileDir, "merged.ft")
+	}
+
+	tc, checkErr := typecheckForLSP(s.log, filePath, merged)
 	return &packageSnapshot{
 		uris:        uris,
 		results:     results,

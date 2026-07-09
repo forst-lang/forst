@@ -131,6 +131,14 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		}
 	}
 
+	if _, _, ok := parseForstSiblingTypeRef(resolvedType.Ident); ok {
+		if gt := tc.goTypeForQualifiedImportTypeIdent(resolvedType.Ident); gt != nil {
+			if ft, err := tc.lookupFieldPathFromGoType(gt, fieldPath); err == nil {
+				return ft, nil
+			}
+		}
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"function":  "lookupFieldPath",
 		"baseType":  baseType.Ident,

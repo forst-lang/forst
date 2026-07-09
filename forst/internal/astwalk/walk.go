@@ -136,6 +136,18 @@ func WalkExpr(expr ast.ExpressionNode, v ExprVisitor) {
 	case ast.IndexExpressionNode:
 		WalkExpr(e.Target, v)
 		WalkExpr(e.Index, v)
+	case ast.SliceExpressionNode:
+		WalkExpr(e.Target, v)
+		if e.Low != nil {
+			WalkExpr(e.Low, v)
+		}
+		if e.High != nil {
+			WalkExpr(e.High, v)
+		}
+	case ast.SpreadExpressionNode:
+		WalkExpr(e.Expr, v)
+	case ast.FieldAccessNode:
+		WalkExpr(e.Target, v)
 	case ast.ReferenceNode:
 		if inner, ok := e.Value.(ast.ExpressionNode); ok {
 			WalkExpr(inner, v)

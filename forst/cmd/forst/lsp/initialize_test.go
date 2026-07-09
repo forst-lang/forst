@@ -78,4 +78,9 @@ func TestHandleInitialize_ReturnsCapabilitiesAndServerInfo(t *testing.T) {
 	if !ok || info["name"] != "forst-lsp" {
 		t.Fatalf("serverInfo = %#v", res["serverInfo"])
 	}
+	for _, key := range []string{"version", "commit", "date"} {
+		if info[key] == nil || info[key] == "" {
+			t.Fatalf("serverInfo missing %q: %#v", key, info)
+		}
+	}
 }

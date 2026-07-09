@@ -13,7 +13,7 @@ import (
 
 func TestTypecheckForCompileEntry_crossPkgHandle(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
-	entry := filepath.Join(root, "beta", "handle.ft")
+	entry := filepath.Join(root, "api", "handle.ft")
 	logger := logrus.New()
 	logger.SetOutput(nil)
 	logger.SetLevel(logrus.PanicLevel)
@@ -30,19 +30,19 @@ func TestTypecheckForCompileEntry_crossPkgHandle(t *testing.T) {
 	if modResult == nil {
 		t.Fatal("expected module result")
 	}
-	beta := modResult.ForstPackageTypeChecker("beta")
-	if beta == nil {
-		t.Fatal("missing beta typechecker")
+	apiTC := modResult.ForstPackageTypeChecker("api")
+	if apiTC == nil {
+		t.Fatal("missing api typechecker")
 	}
-	slots := beta.FunctionProviders[ast.Identifier("Handle")]
+	slots := apiTC.FunctionProviders[ast.Identifier("HandleRequest")]
 	roots := typechecker.ProviderRootIdentsFromSlots(slots)
 	if len(roots) != 1 || roots[0] != "Logger" {
-		t.Fatalf("Handle roots = %v", roots)
+		t.Fatalf("HandleRequest roots = %v", roots)
 	}
-	if tc != beta {
-		direct := typechecker.ProviderRootIdentsFromSlots(tc.FunctionProviders[ast.Identifier("Handle")])
+	if tc != apiTC {
+		direct := typechecker.ProviderRootIdentsFromSlots(tc.FunctionProviders[ast.Identifier("HandleRequest")])
 		if len(direct) != 1 || direct[0] != "Logger" {
-			t.Fatalf("returned tc Handle roots = %v", direct)
+			t.Fatalf("returned tc HandleRequest roots = %v", direct)
 		}
 	}
 }

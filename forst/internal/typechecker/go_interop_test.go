@@ -3,6 +3,8 @@ package typechecker
 import (
 	"errors"
 	"go/types"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"forst/internal/ast"
@@ -788,8 +790,8 @@ func main() {
 }
 
 func TestSamePackageGoCall_unqualifiedExportedFunc_typechecks(t *testing.T) {
-	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
 
 func main() {
 	x := Add(1, 2)
@@ -824,8 +826,8 @@ func main() {
 }
 
 func TestSamePackageGoCall_wrongArgType_returnsDiagnostic(t *testing.T) {
-	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
 
 func main() {
 	x := Add("a", 2)
@@ -834,8 +836,8 @@ func main() {
 `
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
-	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
+	toks := lexer.New([]byte(src), "memos/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "memos/main.ft", log).ParseFile()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -853,8 +855,8 @@ func main() {
 }
 
 func TestSamePackageGoCall_forstFuncShadowsGoFunc(t *testing.T) {
-	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
 
 func Add(x Int) {
 	println(string(x))
@@ -868,8 +870,8 @@ func main() {
 }
 
 func TestSamePackageGoCall_twoValueAssignment_recordsVariableGoTypes(t *testing.T) {
-	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
 
 func main() {
 	v, err := OpenValue()
@@ -887,8 +889,8 @@ func main() {
 }
 
 func TestSamePackageGoCall_unexportedGoFunc_notFound(t *testing.T) {
-	root, importPath := testutil.WriteMixedGoForstModule(t, "mixed")
-	src := `package mixed
+	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
+	src := `package memos
 
 func main() {
 	x := unexported()
@@ -897,8 +899,8 @@ func main() {
 `
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
-	toks := lexer.New([]byte(src), "mixed/main.ft", log).Lex()
-	nodes, err := parser.New(toks, "mixed/main.ft", log).ParseFile()
+	toks := lexer.New([]byte(src), "memos/main.ft", log).Lex()
+	nodes, err := parser.New(toks, "memos/main.ft", log).ParseFile()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -964,6 +966,243 @@ func TestDemo(t *testing.T) {
 	}
 	if gt := tc.variableGoTypes["t"]; gt == nil {
 		t.Fatal("expected variableGoTypes[t] for testing.T param")
+	}
+}
+
+func TestGoQualifiedCall_osGetwd_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os"
+
+func main() {
+	cwd, err := os.Getwd()
+	println(cwd)
+	println(err)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["os"] == nil {
+		t.Skip("os not loaded (go/packages or workspace)")
+	}
+}
+
+func TestGoQualifiedCall_execCommand_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os/exec"
+
+func main() {
+	cmd := exec.Command("true")
+	err := cmd.Run()
+	println(err)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["exec"] == nil {
+		t.Skip("os/exec not loaded (go/packages or workspace)")
+	}
+}
+
+func TestCheckTypes_nestedProbeExecFt(t *testing.T) {
+	_, execPath := testutil.WriteProbeModuleFixture(t, false)
+	src, err := os.ReadFile(execPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New(src, "exec.ft", log).Lex()
+	nodes, err := parser.New(toks, "exec.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = goload.FindModuleRoot(filepath.Dir(execPath))
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if !tc.GoImportPackageLoaded("exec") {
+		t.Fatal("exec package not loaded")
+	}
+}
+
+func TestGoQualifiedCall_execCommand_afterMarkedPreloadedWithoutPackages_stillResolves(t *testing.T) {
+	src := testutil.ProbeExecFtSource
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "exec.ft", log).Lex()
+	nodes, err := parser.New(toks, "exec.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = moduleRootFromWD(t)
+	if err := tc.CollectTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a bad batch preload: flag set but exec not in goPkgsByLocal.
+	tc.goPackagesPreloaded = true
+	tc.goPkgsByLocal = map[string]*types.Package{}
+	if err := tc.InferTypes(nodes); err != nil {
+		var diag *Diagnostic
+		if errors.As(err, &diag) && diag != nil && diag.Code == "go-import" {
+			t.Fatalf("go-import after partial preload recovery: %v", err)
+		}
+		t.Fatalf("typecheck: %v", err)
+	}
+	if !tc.GoImportPackageLoaded("exec") {
+		t.Fatal("exec package not loaded after gap-fill")
+	}
+}
+
+func TestGoQualifiedCall_importedGoPackageWithoutWorkspace_typechecks(t *testing.T) {
+	src := `package main
+
+import "os/exec"
+
+func main() {
+	exec.Command("true")
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("expected typecheck without GoWorkspaceDir (stdlib via .): %v", err)
+	}
+	if !tc.GoImportPackageLoaded("exec") {
+		t.Skip("os/exec not loaded")
+	}
+}
+
+func TestGoQualifiedCall_osWriteFile_byteSlice_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os"
+
+func main() {
+	data := []byte("ok")
+	os.WriteFile("/tmp/forst-byte-test.txt", data, 420)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+}
+
+func TestGoTypeToForstType_byteSliceMapsToArrayInt(t *testing.T) {
+	t.Parallel()
+	slice := types.NewSlice(types.Typ[types.Byte])
+	got, ok := goTypeToForstType(slice)
+	if !ok {
+		t.Fatal("expected []byte mapping")
+	}
+	if got.Ident != ast.TypeArray || len(got.TypeParams) != 1 || got.TypeParams[0].Ident != ast.TypeInt {
+		t.Fatalf("want Array(Int), got %#v", got)
+	}
+}
+
+func TestGoQualifiedCall_execCommand_sliceSpread_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os/exec"
+
+func main() {
+	argv := []String{"true", "extra"}
+	cmd := exec.Command(argv[0], argv[1:]...)
+	err := cmd.Run()
+	println(err)
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+}
+
+func TestGoMethodCall_cmdProcessStateExitCode_typechecks(t *testing.T) {
+	dir := moduleRootFromWD(t)
+	src := `package main
+
+import "os/exec"
+
+func exitCode(argv []String): Int {
+	cmd := exec.Command(argv[0], argv[1:]...)
+	err := cmd.Run()
+	if err != nil {
+		if cmd.ProcessState != nil {
+			return cmd.ProcessState.ExitCode()
+		}
+		return 2
+	}
+	return 0
+}
+`
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	toks := lexer.New([]byte(src), "t.ft", log).Lex()
+	nodes, err := parser.New(toks, "t.ft", log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	tc.GoWorkspaceDir = dir
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	if tc.goPkgsByLocal == nil || tc.goPkgsByLocal["exec"] == nil {
+		t.Skip("os/exec not loaded (go/packages or workspace)")
+	}
+	if tc.variableGoTypes[ast.Identifier("cmd")] == nil {
+		t.Fatal("expected variableGoTypes[cmd] after exec.Command assignment")
 	}
 }
 

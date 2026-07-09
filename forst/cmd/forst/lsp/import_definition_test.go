@@ -35,48 +35,48 @@ func TestForstFileURIsUnderModule_listsDiskFt(t *testing.T) {
 	}
 }
 
-func writeXpkgCrossPackageFixture(t *testing.T, dir string) (alphaLogPath, betaHandlePath string) {
+func writeXpkgCrossPackageFixture(t *testing.T, dir string) (authLogPath, apiHandlePath string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("testmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	alphaDir := filepath.Join(dir, "alpha")
-	if err := os.MkdirAll(alphaDir, 0o755); err != nil {
+	authDir := filepath.Join(dir, "auth")
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	betaDir := filepath.Join(dir, "beta")
-	if err := os.MkdirAll(betaDir, 0o755); err != nil {
+	apiDir := filepath.Join(dir, "api")
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	alphaLogPath = filepath.Join(alphaDir, "log.ft")
-	betaHandlePath = filepath.Join(betaDir, "handle.ft")
-	const srcAlpha = `package alpha
+	authLogPath = filepath.Join(authDir, "log.ft")
+	apiHandlePath = filepath.Join(apiDir, "handle.ft")
+	const srcAuth = `package auth
 
 type Logger = { info(msg String) }
 
-func LogExpiry(id String) {
+func LogEvent(id String) {
 	use logger: Logger
 	logger.info("expire " + id)
 }
 `
-	const srcBeta = `package beta
+	const srcApi = `package api
 
-import "testmod/alpha"
+import "testmod/auth"
 
-func Handle(id String) {
-	alpha.LogExpiry(id)
+func HandleRequest(id String) {
+	auth.LogEvent(id)
 }
 `
-	if err := os.WriteFile(alphaLogPath, []byte(srcAlpha), 0o644); err != nil {
+	if err := os.WriteFile(authLogPath, []byte(srcAuth), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(alphaDir, "stub.go"), []byte("package alpha\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "stub.go"), []byte("package auth\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(betaHandlePath, []byte(srcBeta), 0o644); err != nil {
+	if err := os.WriteFile(apiHandlePath, []byte(srcApi), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return alphaLogPath, betaHandlePath
+	return authLogPath, apiHandlePath
 }
 
 func TestFindDefinition_crossPackageImport_diskPeer(t *testing.T) {
@@ -84,29 +84,29 @@ func TestFindDefinition_crossPackageImport_diskPeer(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	alphaLogPath, betaHandlePath := writeXpkgCrossPackageFixture(t, dir)
+	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
-	uriAlpha := mustFileURI(t, alphaLogPath)
-	uriBeta := mustFileURI(t, betaHandlePath)
-	srcBeta, err := os.ReadFile(betaHandlePath)
+	uriAuth := mustFileURI(t, authLogPath)
+	uriApi := mustFileURI(t, apiHandlePath)
+	srcApi, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
-	s.openDocuments[uriBeta] = string(srcBeta)
+	s.openDocuments[uriApi] = string(srcApi)
 	s.documentMu.Unlock()
 
-	pos := lspPositionOfIdentifier(string(srcBeta), "LogExpiry")
-	loc := s.findDefinitionForPosition(uriBeta, pos)
+	pos := lspPositionOfIdentifier(string(srcApi), "LogEvent")
+	loc := s.findDefinitionForPosition(uriApi, pos)
 	if loc == nil {
-		t.Fatal("expected definition for cross-package LogExpiry")
+		t.Fatal("expected definition for cross-package LogEvent")
 	}
-	if loc.URI != uriAlpha {
-		t.Fatalf("definition URI: got %q want %q", loc.URI, uriAlpha)
+	if loc.URI != uriAuth {
+		t.Fatalf("definition URI: got %q want %q", loc.URI, uriAuth)
 	}
 	if loc.Range.Start.Line != 4 {
-		t.Fatalf("definition line: got %d want 4 (func LogExpiry)", loc.Range.Start.Line)
+		t.Fatalf("definition line: got %d want 4 (func LogEvent)", loc.Range.Start.Line)
 	}
 }
 
@@ -115,31 +115,31 @@ func TestFindDefinition_crossPackageImport_bothBuffersOpen(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	alphaLogPath, betaHandlePath := writeXpkgCrossPackageFixture(t, dir)
+	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
-	uriAlpha := mustFileURI(t, alphaLogPath)
-	uriBeta := mustFileURI(t, betaHandlePath)
-	srcAlpha, err := os.ReadFile(alphaLogPath)
+	uriAuth := mustFileURI(t, authLogPath)
+	uriApi := mustFileURI(t, apiHandlePath)
+	srcAuth, err := os.ReadFile(authLogPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcBeta, err := os.ReadFile(betaHandlePath)
+	srcApi, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
-	s.openDocuments[uriAlpha] = string(srcAlpha)
-	s.openDocuments[uriBeta] = string(srcBeta)
+	s.openDocuments[uriAuth] = string(srcAuth)
+	s.openDocuments[uriApi] = string(srcApi)
 	s.documentMu.Unlock()
 
-	pos := lspPositionOfIdentifier(string(srcBeta), "LogExpiry")
-	loc := s.findDefinitionForPosition(uriBeta, pos)
+	pos := lspPositionOfIdentifier(string(srcApi), "LogEvent")
+	loc := s.findDefinitionForPosition(uriApi, pos)
 	if loc == nil {
-		t.Fatal("expected definition for cross-package LogExpiry")
+		t.Fatal("expected definition for cross-package LogEvent")
 	}
-	if loc.URI != uriAlpha {
-		t.Fatalf("definition URI: got %q want %q", loc.URI, uriAlpha)
+	if loc.URI != uriAuth {
+		t.Fatalf("definition URI: got %q want %q", loc.URI, uriAuth)
 	}
 }
 
@@ -148,42 +148,42 @@ func TestFindReferences_crossPackageImport_fromDefinition(t *testing.T) {
 	log := logrus.New()
 	s := NewLSPServer("8080", log)
 	dir := t.TempDir()
-	alphaLogPath, betaHandlePath := writeXpkgCrossPackageFixture(t, dir)
+	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
-	uriAlpha := mustFileURI(t, alphaLogPath)
-	uriBeta := mustFileURI(t, betaHandlePath)
-	srcAlpha, err := os.ReadFile(alphaLogPath)
+	uriAuth := mustFileURI(t, authLogPath)
+	uriApi := mustFileURI(t, apiHandlePath)
+	srcAuth, err := os.ReadFile(authLogPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcBeta, err := os.ReadFile(betaHandlePath)
+	srcApi, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
-	s.openDocuments[uriAlpha] = string(srcAlpha)
-	s.openDocuments[uriBeta] = string(srcBeta)
+	s.openDocuments[uriAuth] = string(srcAuth)
+	s.openDocuments[uriApi] = string(srcApi)
 	s.documentMu.Unlock()
 
-	pos := lspPositionOfIdentifier(string(srcAlpha), "LogExpiry")
-	locs := s.findReferencesForPosition(uriAlpha, pos, true)
+	pos := lspPositionOfIdentifier(string(srcAuth), "LogEvent")
+	locs := s.findReferencesForPosition(uriAuth, pos, true)
 	if len(locs) < 2 {
 		t.Fatalf("expected definition + cross-package call reference, got %d: %#v", len(locs), locs)
 	}
 	seenDef, seenCall := false, false
 	for _, l := range locs {
-		if l.URI == uriAlpha {
+		if l.URI == uriAuth {
 			seenDef = true
 		}
-		if l.URI == uriBeta {
+		if l.URI == uriApi {
 			seenCall = true
 		}
 	}
 	if !seenDef {
-		t.Fatal("expected LogExpiry definition in alpha")
+		t.Fatal("expected LogEvent definition in auth")
 	}
 	if !seenCall {
-		t.Fatal("expected LogExpiry call reference in beta handle.ft")
+		t.Fatal("expected LogEvent call reference in api handle.ft")
 	}
 }

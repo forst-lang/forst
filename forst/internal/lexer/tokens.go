@@ -77,6 +77,7 @@ var Operators = map[string]ast.TokenIdent{
 	":":  ast.TokenColon,
 	",":  ast.TokenComma,
 	".":  ast.TokenDot,
+	"...": ast.TokenEllipsis,
 	";":  ast.TokenSemicolon,
 	"=":  ast.TokenEquals,
 	"&":  ast.TokenBitwiseAnd,

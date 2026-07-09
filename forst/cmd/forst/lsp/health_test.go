@@ -28,6 +28,11 @@ func TestHandleHealth_GET_ReturnsHealthyJSON(t *testing.T) {
 	if body["service"] != "forst-lsp" {
 		t.Fatalf("service = %v", body["service"])
 	}
+	for _, key := range []string{"version", "commit", "date", "timestamp"} {
+		if body[key] == nil || body[key] == "" {
+			t.Fatalf("missing %q in health payload: %#v", key, body)
+		}
+	}
 	ct := rr.Header().Get("Content-Type")
 	if ct != "application/json" {
 		t.Fatalf("Content-Type = %q", ct)

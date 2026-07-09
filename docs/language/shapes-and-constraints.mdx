@@ -8,9 +8,11 @@ import ShapesConstraintChaining from "/snippets/shapes-constraint-chaining.mdx";
 import ShapesPlaceOrderTags from "/snippets/shapes-place-order-tags.mdx";
 import ShapesAddressCustomer from "/snippets/shapes-address-customer.mdx";
 
-In Go you declare a struct and write manual checks. In Forst, **constraints live on the type**. Where values are known at compile time, the typechecker proves them statically; for dynamic input, use **`ensure … is …`** in the function body today. Automatic validation prologues on parameters are planned—not emitted yet.
+Whenever you deal with untrusted data, you need validation as far up as possible. Have the compiler prove these rules where values are known at compile time, and have it enforce them at runtime as well.
 
 ## Manual validation in Go
+
+Go handlers often repeat input validation manually:
 
 ```go
 type PlaceOrderInput struct {
@@ -28,14 +30,19 @@ func placeOrder(in PlaceOrderInput) (string, error) {
 	// business logic...
 }
 ```
-
-The struct says nothing about valid ranges. Every handler repeats the same `if` chains, or you maintain a separate validator library.
+Go structs define field names and types, and interfaces specify required methods, but neither can express detailed validation rules like value ranges or formats.
 
 ## Constraints on types
+
+In Forst, types can declare exactly what makes data valid. You attach constraints directly to types, and the compiler enforces them at the API boundary and, where possible, at compile time. This keeps validation clear and central—no more scattered checks.
 
 <CatalogOrder />
 
 When `placeOrder` runs, the compiler has already proven the shape at compile time where values are known; use `ensure` (or explicit checks) for dynamic input. Invalid SKUs and quantities never reach your catalog logic.
+
+<Note>
+  Forst also lets you define **your own** rules for types with [type guards](/language/type-guards).
+</Note>
 
 ## Built-in constraints
 
@@ -53,6 +60,8 @@ The same built-in names work in both. For `Result` narrowing (`Ok`, `Err`) and p
 Constraints **chain with dots** on the base type. All chained rules must pass:
 
 <ShapesConstraintChaining />
+
+
 
 ### Reference
 

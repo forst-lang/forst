@@ -390,8 +390,9 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			return nil, err
 		}
 		call := &goast.CallExpr{
-			Fun:  goFunExprFromForstCallIdent(s.Function),
-			Args: args,
+			Fun:      goFunExprFromForstCallIdent(s.Function),
+			Args:     args.exprs,
+			Ellipsis: args.ellipsis,
 		}
 		return &goast.ExprStmt{X: call}, nil
 	case ast.AssignmentNode:

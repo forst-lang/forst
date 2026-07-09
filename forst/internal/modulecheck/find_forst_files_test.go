@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"forst/internal/testmod"
+	"forst/internal/testutil"
 )
 
 func TestModuleResult_nilSafeAccessors(t *testing.T) {
@@ -16,6 +17,14 @@ func TestModuleResult_nilSafeAccessors(t *testing.T) {
 	}
 	if r.ForstPackageTypeChecker("x") != nil {
 		t.Fatal("nil ForstPackageTypeChecker should return nil")
+	}
+}
+
+func TestCheckModuleProviders_nestedProbeModule(t *testing.T) {
+	root, _ := testutil.WriteProbeModuleFixture(t, true)
+	_, err := CheckModuleProviders(nil, Options{ModuleRoot: root})
+	if err != nil {
+		t.Fatalf("modulecheck: %v", err)
 	}
 }
 
@@ -101,30 +110,30 @@ func TestCheckModuleProviders_packageFilter(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("filtmod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	alphaDir := filepath.Join(dir, "alpha")
-	if err := os.MkdirAll(alphaDir, 0o755); err != nil {
+	catalogDir := filepath.Join(dir, "catalog")
+	if err := os.MkdirAll(catalogDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeModuleFile(t, filepath.Join(alphaDir, "a.ft"), `package alpha
+	writeModuleFile(t, filepath.Join(catalogDir, "a.ft"), `package catalog
 
 func A() {}
 `)
-	writeModuleFile(t, filepath.Join(dir, "beta.ft"), `package beta
+	writeModuleFile(t, filepath.Join(dir, "orders.ft"), `package orders
 
 func B() {}
 `)
 	result, err := CheckModuleProviders(nil, Options{
 		ModuleRoot:    dir,
-		PackageFilter: map[string]struct{}{"alpha": {}},
+		PackageFilter: map[string]struct{}{"catalog": {}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.ForstPackageTypeChecker("beta") != nil {
-		t.Fatal("beta should be filtered out")
+	if result.ForstPackageTypeChecker("orders") != nil {
+		t.Fatal("orders should be filtered out")
 	}
-	if result.ForstPackageTypeChecker("alpha") == nil {
-		t.Fatal("alpha should be included")
+	if result.ForstPackageTypeChecker("catalog") == nil {
+		t.Fatal("catalog should be included")
 	}
 }
 

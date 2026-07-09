@@ -792,3 +792,70 @@ func TestStructuralHasher_nilNodeAndOptionalFields(t *testing.T) {
 		t.Fatalf("ForNode without init/post: %v", err)
 	}
 }
+
+func TestHashNode_sliceExpression_stable(t *testing.T) {
+	h := New()
+	xs := ast.VariableNode{Ident: ast.Ident{ID: "xs"}}
+	n1 := ast.SliceExpressionNode{Target: xs, Low: ast.IntLiteralNode{Value: 1}, High: ast.IntLiteralNode{Value: 3}}
+	n2 := ast.SliceExpressionNode{Target: xs, Low: ast.IntLiteralNode{Value: 1}, High: ast.IntLiteralNode{Value: 3}}
+	h1, err := h.HashNode(n1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := h.HashNode(n2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != h2 {
+		t.Fatalf("same slice expr hashes differ: %v vs %v", h1, h2)
+	}
+	n3 := ast.SliceExpressionNode{Target: xs, Low: ast.IntLiteralNode{Value: 2}}
+	h3, err := h.HashNode(n3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 == h3 {
+		t.Fatal("different slice bounds should produce different hash")
+	}
+}
+
+func TestHashNode_spreadExpression_stable(t *testing.T) {
+	h := New()
+	inner := ast.VariableNode{Ident: ast.Ident{ID: "argv"}}
+	n1 := ast.SpreadExpressionNode{Expr: inner}
+	n2 := ast.SpreadExpressionNode{Expr: ast.VariableNode{Ident: ast.Ident{ID: "argv"}}}
+	h1, err := h.HashNode(n1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := h.HashNode(n2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != h2 {
+		t.Fatalf("same spread expr hashes differ: %v vs %v", h1, h2)
+	}
+}
+
+func TestHashNode_fieldAccess_stable(t *testing.T) {
+	h := New()
+	n1 := ast.FieldAccessNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "cmd"}},
+		Field:  ast.Ident{ID: "ProcessState"},
+	}
+	n2 := ast.FieldAccessNode{
+		Target: ast.VariableNode{Ident: ast.Ident{ID: "cmd"}},
+		Field:  ast.Ident{ID: "ProcessState"},
+	}
+	h1, err := h.HashNode(n1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := h.HashNode(n2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h1 != h2 {
+		t.Fatalf("same field access hashes differ: %v vs %v", h1, h2)
+	}
+}

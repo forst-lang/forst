@@ -30,15 +30,7 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 		}
 	}
 	checker := typechecker.New(c.log, c.Args.ReportPhases)
-	checker.GoWorkspaceDir = c.goWorkspaceDirForCheck()
-	checker.SetForstPackage(forstPkg)
-	if modRoot := checker.GoWorkspaceDir; modRoot != "" {
-		modPath := goload.ModulePath(modRoot)
-		entryDir := filepath.Dir(c.Args.FilePath)
-		if importPath, err := forstpkg.ImportPathForDir(modRoot, modPath, entryDir); err == nil {
-			checker.SetSamePackageGoImportPath(importPath)
-		}
-	}
+	checker.ConfigureForForstFile(c.goWorkspaceDirForCheck(), filepath.Dir(c.Args.FilePath), nodes)
 	if err := checker.CheckTypes(nodes); err != nil {
 		return checker, modResult, err
 	}

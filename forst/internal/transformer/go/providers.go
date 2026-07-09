@@ -19,6 +19,12 @@ type wiringFrame struct {
 	baseExpr goast.Expr
 }
 
+// transformedCallArgs is the lowered Go call argument list plus optional trailing variadic spread.
+type transformedCallArgs struct {
+	exprs    []goast.Expr
+	ellipsis goasttoken.Pos
+}
+
 func providersSlotSetKey(slots []typechecker.ProviderSlot) string {
 	return strings.Join(rootIdentsFromSlots(slots), ",")
 }
@@ -322,7 +328,7 @@ func (t *Transformer) buildProvidersStructLiteral(slots []typechecker.ProviderSl
 	}, nil
 }
 
-func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []ast.ExpressionNode) ([]goast.Expr, error) {
+func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []ast.ExpressionNode) (transformedCallArgs, error) {
 	slots := t.calleeProviderSlots(callee)
 	crossPkgLocal := crossPackageImportLocal(callee)
 	paramTypes := make([]ast.TypeNode, len(args))
@@ -340,9 +346,19 @@ func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []as
 			}
 		}
 	}
-	goArgs := make([]goast.Expr, len(args))
+	var out transformedCallArgs
+	goArgs := make([]goast.Expr, 0, len(args))
 	for i, arg := range args {
-		if shapeArg, ok := arg.(ast.ShapeNode); ok && paramTypes[i].Ident != ast.TypeImplicit {
+		if spread, ok := arg.(ast.SpreadExpressionNode); ok {
+			inner, err := t.transformExpression(spread.Expr)
+			if err != nil {
+				return transformedCallArgs{}, err
+			}
+			goArgs = append(goArgs, inner)
+			out.ellipsis = goasttoken.Pos(1)
+			continue
+		}
+		if shapeArg, ok := arg.(ast.ShapeNode); ok && i < len(paramTypes) && paramTypes[i].Ident != ast.TypeImplicit {
 			context := &ShapeContext{
 				ExpectedType:   &paramTypes[i],
 				FunctionName:   string(callee),
@@ -351,15 +367,15 @@ func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []as
 			expectedTypeForShape := t.getExpectedTypeForShape(&shapeArg, context)
 			argExpr, err := t.transformShapeNodeWithExpectedType(&shapeArg, expectedTypeForShape)
 			if err != nil {
-				return nil, err
+				return transformedCallArgs{}, err
 			}
-			goArgs[i] = argExpr
+			goArgs = append(goArgs, argExpr)
 		} else {
 			argExpr, err := t.transformExpression(arg)
 			if err != nil {
-				return nil, err
+				return transformedCallArgs{}, err
 			}
-			goArgs[i] = argExpr
+			goArgs = append(goArgs, argExpr)
 		}
 	}
 	if len(slots) > 0 {
@@ -371,11 +387,12 @@ func (t *Transformer) transformFunctionCallArgs(callee ast.Identifier, args []as
 			providersLit, err = t.buildProvidersStructLiteral(slots)
 		}
 		if err != nil {
-			return nil, err
+			return transformedCallArgs{}, err
 		}
 		goArgs = append([]goast.Expr{providersLit}, goArgs...)
 	}
-	return goArgs, nil
+	out.exprs = goArgs
+	return out, nil
 }
 
 func crossPackageImportLocal(callee ast.Identifier) string {

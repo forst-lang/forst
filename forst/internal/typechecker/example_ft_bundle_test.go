@@ -20,6 +20,8 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"result_ensure.ft",
 		"generics.ft",
 		"go_builtins.ft",
+		"slices.ft",
+		"go_interop.ft",
 		"ensure.ft",
 		"pointers.ft",
 		"union_error_types.ft",
@@ -39,9 +41,12 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			MustTypecheck(t, string(srcBytes), testutil.TypecheckOpts{
-				FileID: name,
-			})
+			opts := testutil.TypecheckOpts{FileID: name}
+			if name == "go_interop.ft" {
+				opts.UseModuleRoot = true
+				opts.SkipUnlessGoImport = "exec"
+			}
+			MustTypecheck(t, string(srcBytes), opts)
 		})
 	}
 }

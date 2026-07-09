@@ -19,6 +19,8 @@ func TestPipeline_examplesBundle(t *testing.T) {
 		"result_ensure.ft",
 		"generics.ft",
 		"go_builtins.ft",
+		"slices.ft",
+		"go_interop.ft",
 		"ensure.ft",
 		"pointers.ft",
 		"union_error_types.ft",
@@ -35,7 +37,7 @@ func TestPipeline_examplesBundle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			_ = compileForstPipeline(t, string(src))
+			_ = compileForstPipelineExt(t, string(src), pipelineOptsForExampleFile(t, name))
 		})
 	}
 }

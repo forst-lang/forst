@@ -20,6 +20,8 @@ func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"status":    "healthy",
 		"service":   "forst-lsp",
 		"version":   Version,
+		"commit":    Commit,
+		"date":      Date,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 

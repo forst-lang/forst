@@ -644,7 +644,7 @@ func TestExampleProvidersMergedPackage(t *testing.T) {
 	}
 }
 
-// TestExampleProvidersCrossPkgGolden compiles cross_pkg alpha/beta and checks generated Go goldens.
+// TestExampleProvidersCrossPkgGolden compiles cross_pkg auth/api and checks generated Go goldens.
 // Regenerate: UPDATE_PROVIDERS_CROSS_PKG_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersCrossPkgGolden -count=1
 func TestExampleProvidersCrossPkgGolden(t *testing.T) {
 	type pkgCase struct {
@@ -652,14 +652,14 @@ func TestExampleProvidersCrossPkgGolden(t *testing.T) {
 	}
 	cases := []pkgCase{
 		{
-			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha"),
-			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "alpha", "log.ft"),
-			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "alpha", "log.go"),
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "auth"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "auth", "log.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "auth", "log.go"),
 		},
 		{
-			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta"),
-			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "beta", "handle.ft"),
-			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "beta", "handle.go"),
+			root:   filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "api"),
+			entry:  filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg", "api", "handle.ft"),
+			golden: filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "cross_pkg", "api", "handle.go"),
 		},
 	}
 	for _, tc := range cases {

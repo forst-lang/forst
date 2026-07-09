@@ -7,15 +7,15 @@ import (
 )
 
 func TestWriteMixedGoForstModule(t *testing.T) {
-	root, importPath := WriteMixedGoForstModule(t, "mixed")
-	if root == "" || importPath != "mixedtest/mixed" {
+	root, importPath := WriteMixedGoForstModule(t, "memos")
+	if root == "" || importPath != "mixedtest/memos" {
 		t.Fatalf("got root=%q importPath=%q", root, importPath)
 	}
 }
 
 func TestWriteMixedGoForstModule_defaultModule(t *testing.T) {
 	root, importPath := WriteMixedGoForstModule(t, "")
-	if root == "" || importPath != "mixedtest/mixed" {
+	if root == "" || importPath != "mixedtest/memos" {
 		t.Fatalf("got root=%q importPath=%q", root, importPath)
 	}
 }
@@ -27,7 +27,7 @@ func TestWriteMixedGoForstModule_mkdirError(t *testing.T) {
 		return errors.New("mkdir failed")
 	}
 	msg := stubFail(t, func() {
-		WriteMixedGoForstModule(t, "mixed")
+		WriteMixedGoForstModule(t, "memos")
 	})
 	if msg != "mkdir failed" {
 		t.Fatalf("msg = %q", msg)
@@ -41,7 +41,7 @@ func TestWriteMixedGoForstModule_writeError(t *testing.T) {
 		return errors.New("write failed")
 	}
 	msg := stubFail(t, func() {
-		WriteMixedGoForstModule(t, "mixed")
+		WriteMixedGoForstModule(t, "memos")
 	})
 	if msg != "write failed" {
 		t.Fatalf("msg = %q", msg)

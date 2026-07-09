@@ -22,9 +22,18 @@ var loadByPkgPathCache sync.Map
 // packagesLoadFn loads packages; overridden in tests.
 var packagesLoadFn = packages.Load
 
+// clearSyncMap removes all entries without reassigning the map variable (safe under -race).
+func clearSyncMap(m *sync.Map) {
+	m.Range(func(key, value any) bool {
+		m.Delete(key)
+		return true
+	})
+}
+
 // ClearLoadCacheForTest drops cached LoadByPkgPath results (for tests that mutate module dirs).
 func ClearLoadCacheForTest() {
-	loadByPkgPathCache = sync.Map{}
+	clearSyncMap(&loadByPkgPathCache)
+	ClearDocCacheForTest()
 }
 
 func loadByPkgPathCacheKey(dir string, importPaths []string) string {
@@ -34,8 +43,13 @@ func loadByPkgPathCacheKey(dir string, importPaths []string) string {
 }
 
 func storeLoadCache(dir string, importPaths []string, out map[string]*packages.Package, err error) {
-	loadByPkgPathCache.Store(loadByPkgPathCacheKey(dir, importPaths), loadByPkgPathCacheEntry{out: out, err: err})
-	if err != nil || out == nil {
+	// Do not cache load failures: the LSP runs for the process lifetime and must retry
+	// after gap-fill fixes, module layout changes, or transient go/packages errors.
+	if err != nil {
+		return
+	}
+	loadByPkgPathCache.Store(loadByPkgPathCacheKey(dir, importPaths), loadByPkgPathCacheEntry{out: out, err: nil})
+	if out == nil {
 		return
 	}
 	for path, p := range out {

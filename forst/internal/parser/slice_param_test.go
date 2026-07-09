@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseFunction_sliceStringParam(t *testing.T) {
-	p := NewTestParser(`func ParseArgs(args []String): ParsedArgs { return ParsedArgs{} }`, ast.SetupTestLogger(nil))
+	p := NewTestParser(`func parseOptions(args []String): CommandOptions { return CommandOptions{} }`, ast.SetupTestLogger(nil))
 	fn := p.parseFunctionDefinition()
 	sp, ok := fn.Params[0].(ast.SimpleParamNode)
 	if !ok {

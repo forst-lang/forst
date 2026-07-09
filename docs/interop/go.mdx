@@ -4,8 +4,9 @@ description: "Transpile to Go, import packages, and mix .ft with .go in one modu
 ---
 
 import InteropFmtHello from "/snippets/interop-fmt-hello.mdx";
+import InteropExecSpread from "/snippets/interop-exec-spread.mdx";
 
-Forst transpiles to **Go**. You keep the same module graph, deployment, and ecosystem. See [Language overview](/language/overview) for syntax. This page covers import and mixing rules.
+Forst transpiles to **Go**. You keep the same module graph, deployment, and ecosystem. See [Language overview](/language/overview) for syntax. This page covers import paths, Go call lowering, and mixed modules.
 
 ## Transpile to idiomatic Go
 
@@ -38,11 +39,59 @@ Call into the standard library and third-party modules with qualified names:
 
 The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
 
-Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call. It applies when a trailing expression becomes an [implicit return](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
+Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call and to trailing expressions in [implicit returns](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
 
 <Warning>
   **Go import loading is experimental.** Unmapped Go types report diagnostics; `unsafe` and some builtin edge cases are not fully wired. Put `unsafe` usage in hand written `.go` and call from Forst when needed.
 </Warning>
+
+## Slice subslices
+
+Forst slice values (`[]T`) support three-index subslice syntax, lowered to Go slice expressions:
+
+- `xs[low:high]` — bounded range
+- `xs[low:]` — from index through end
+- `xs[:high]` — from start through index
+
+```forst
+xs := [10, 20, 30]
+mid := xs[1:3]
+tail := xs[2:]
+```
+
+See **`examples/in/slices.ft`** (`task example:slices`). Subslices are a **language** feature on Forst slice values. They are distinct from **variadic spread** at Go call sites (next section).
+
+## Variadic spread into Go calls
+
+When a Go function takes a variadic parameter, spread a Forst slice subslice at the call site with **`expr[low:]...`**. The compiler lowers this to a Go variadic argument list.
+
+<InteropExecSpread />
+
+See **`examples/in/go_interop.ft`** (`task example:go-interop`).
+
+## Fields and methods on Go values
+
+After a Go call or a local binding typed from Go, use **field access** and **methods** with dotted paths:
+
+- `cmd.Run()` — method on a `*exec.Cmd` binding
+- `cmd.ProcessState.ExitCode()` — field then method
+
+Qualified import calls such as `exec.Command(...)` are checked when the stdlib package loads from your module workspace (`go.mod` walk-up sets `GoWorkspaceDir`).
+
+## Forst packages in the same module
+
+An `import "module/path"` can refer to **another Forst package** in the same Go module—not only hand-written Go. The compiler resolves these as **Forst siblings** from `.ft` sources and the module import map (`modulecheck`). Cross-package calls type-check against the sibling package’s Forst signatures.
+
+This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` may emit gitignored `z_forst_gen*.go` at test time; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
+
+```bash
+task example:providers-cross_pkg
+task test:providers-cross_pkg
+```
+
+Cookbook: `examples/in/rfc/providers/cross_pkg/` (`auth` + `api`).
+
+Do not confuse sibling Forst imports with **Go package** imports: `import "fmt"` loads Go via `go/packages`; `import "yourmod/auth"` loads a Forst package when `auth/` contains `.ft` files declaring `package auth`.
 
 ## Mixed packages
 
@@ -64,7 +113,7 @@ Use **`-root`** to merge all same-package sources under a tree, matching discove
 npx forst run -root ./handlers handlers/orders.ft
 ```
 
-The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`).
+The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`). Same-package `.go` symbols participate in typechecking and [LSP hover](/workflow/editor) when the mixed package import path is set.
 
 ## Runtime validation
 
@@ -92,6 +141,9 @@ Forst supports **gradual adoption**. You can migrate route by route without a bi
 <CardGroup cols={2}>
   <Card title="CLI reference" icon="terminal" href="/workflow/cli">
     `run`, `build`, `-root`, and compile flags.
+  </Card>
+  <Card title="Editor workflow" icon="puzzle-piece" href="/workflow/editor">
+    LSP hover for Go imports, godoc, and cross-package Forst siblings.
   </Card>
   <Card title="TypeScript interop" icon="/icons/typescript.svg" href="/interop/typescript">
     Generate client types from the same `.ft` sources.
