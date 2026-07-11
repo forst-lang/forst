@@ -6,6 +6,7 @@ vars:
   ROOT_DIR: ..
   EXAMPLES_DIR: ../examples/in
   OUTPUT_DIR: ../examples/out
+  NFPM_VERSION: "2.46.3"
 
 tasks:
   # Build tasks
@@ -798,6 +799,103 @@ tasks:
       - ../dist/*.tar.gz
       - ../dist/forst-module-*.tar.gz
       - ../dist/*.zip
+
+  install:nfpm:
+    desc: Install pinned nfpm to /usr/local/bin (requires sudo)
+    cmds:
+      - |
+        set -euo pipefail
+        NFPM_VERSION="{{.NFPM_VERSION}}"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64) NFPM_ARCH=x86_64 ;;
+          aarch64|arm64) NFPM_ARCH=arm64 ;;
+          *) echo "unsupported arch for nfpm install: $ARCH" >&2; exit 1 ;;
+        esac
+        TARBALL="nfpm_${NFPM_VERSION}_Linux_${NFPM_ARCH}.tar.gz"
+        BASE="https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}"
+        curl -fsSL -o "/tmp/${TARBALL}" "${BASE}/${TARBALL}"
+        curl -fsSL -o /tmp/nfpm-checksums.txt "${BASE}/checksums.txt"
+        ( cd /tmp && grep " ${TARBALL}\$" nfpm-checksums.txt | sha256sum -c - )
+        tar -xzf "/tmp/${TARBALL}" -C /tmp nfpm
+        sudo install -m 0755 /tmp/nfpm /usr/local/bin/nfpm
+        nfpm --version
+
+  build:deb:
+    desc: Package pre-built Linux binaries as .deb (requires nfpm on PATH)
+    cmds:
+      - |
+        set -euo pipefail
+        VERSION="{{.VERSION | default "dev"}}"
+        for pair in "amd64:dist/forst-linux-amd64" "arm64:dist/forst-linux-arm64"; do
+          ARCH="${pair%%:*}"
+          GO_BINARY="${pair#*:}"
+          if [ ! -f "$GO_BINARY" ]; then
+            echo "missing binary: $GO_BINARY (run task build:release first)" >&2
+            exit 1
+          fi
+          export VERSION ARCH GO_BINARY
+          nfpm package --packager deb --config nfpm.yaml --target dist/
+        done
+        ls -la dist/forst_*.deb
+    generates:
+      - dist/forst_*.deb
+
+  test:deb:
+    desc: Build a dev .deb and assert package metadata (Linux only)
+    cmds:
+      - |
+        set -euo pipefail
+        if [ "$(uname -s)" != Linux ]; then
+          echo "test:deb requires Linux (dpkg-deb); run in CI or a Linux container" >&2
+          exit 1
+        fi
+        VERSION="{{.VERSION | default "0.0.0-test"}}"
+        NFPM_VERSION="{{.NFPM_VERSION}}"
+        BINARY="dist/forst-linux-amd64"
+        if [ ! -f "$BINARY" ]; then
+          echo "building $BINARY for deb test..." >&2
+          task build:release VERSION="$VERSION" COMMIT=test DATE=test
+        fi
+        if ! command -v nfpm >/dev/null 2>&1; then
+          ARCH="$(uname -m)"
+          case "$ARCH" in
+            x86_64) NFPM_ARCH=x86_64 ;;
+            aarch64|arm64) NFPM_ARCH=arm64 ;;
+            *) echo "unsupported arch for nfpm: $ARCH" >&2; exit 1 ;;
+          esac
+          TARBALL="nfpm_${NFPM_VERSION}_Linux_${NFPM_ARCH}.tar.gz"
+          BASE="https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}"
+          curl -fsSL -o "/tmp/${TARBALL}" "${BASE}/${TARBALL}"
+          tar -xzf "/tmp/${TARBALL}" -C /tmp nfpm
+          export PATH="/tmp:${PATH}"
+        fi
+        rm -f dist/forst_*_amd64.deb
+        export VERSION ARCH=amd64 GO_BINARY="$BINARY"
+        nfpm package --packager deb --config nfpm.yaml --target dist/
+        DEB="$(ls -1t dist/forst_*_amd64.deb | head -1)"
+        if [ -z "$DEB" ] || [ ! -f "$DEB" ]; then
+          echo "expected amd64 deb not found under dist/" >&2
+          ls -la dist/ >&2
+          exit 1
+        fi
+        PKG="$(dpkg-deb -f "$DEB" Package)"
+        if [ "$PKG" != forst ]; then
+          echo "unexpected Package field: $PKG" >&2
+          exit 1
+        fi
+        DESC="$(dpkg-deb -f "$DEB" Description)"
+        for needle in "ergonomic backend language" "compiles to Go" "TypeScript"; do
+          if ! printf '%s' "$DESC" | grep -Fq "$needle"; then
+            echo "Description missing expected text: $needle" >&2
+            printf '%s\n' "$DESC" >&2
+            exit 1
+          fi
+        done
+        rm -rf /tmp/forst-deb-test
+        dpkg-deb -x "$DEB" /tmp/forst-deb-test
+        /tmp/forst-deb-test/usr/bin/forst version
+        echo "deb package test passed: $DEB"
 
   build:vsix:
     desc: |

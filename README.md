@@ -242,6 +242,18 @@ The workspace includes an optional extension in [`packages/vscode-forst`](./pack
 
 **[`@forst/cli`](./packages/cli/README.md)** installs the Forst compiler in JS/TS projects: `npm i -D @forst/cli`, then `npx forst` / `node_modules/.bin/forst` (it pulls the matching native binary from GitHub Releases). For the dev-server + HTTP client, use **[`@forst/sidecar`](./packages/sidecar/README.md)** instead.
 
+## Linux (.deb)
+
+On Debian or Ubuntu, install the compiler from [GitHub Releases](https://github.com/forst-lang/forst/releases) (pick `amd64` or `arm64`):
+
+```bash
+wget https://github.com/forst-lang/forst/releases/download/vX.Y.Z/forst_X.Y.Z-1_amd64.deb
+sudo apt install ./forst_X.Y.Z-1_amd64.deb
+forst version
+```
+
+See [docs/installation.mdx](docs/installation.mdx) for other install paths (npm, native binary, Docker).
+
 ## TypeScript client output
 
 You can generate **TypeScript types and a small client** from your Forst code so front ends or Node callers get the same shapes your server uses, without copying types by hand.

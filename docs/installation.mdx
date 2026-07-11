@@ -1,9 +1,9 @@
 ---
 title: "Installation"
-description: "Install the Forst compiler via npm, Docker, or native binary."
+description: "Install the Forst compiler via npm, .deb, Docker, or native binary."
 ---
 
-Forst ships as a **native compiler** with an optional **npm wrapper** for Node/TypeScript workflows. Pick the path that matches how you deploy and develop.
+Forst ships as a **native compiler** with an optional **npm wrapper** for Node/TypeScript workflows. Pick the path that matches how you deploy and develop: npm, Debian package, native binary, or Docker.
 
 ## npm (`@forst/cli`)
 
@@ -56,6 +56,16 @@ forst run examples/in/basic.ft
 ```
 
 Use this path when you do not need npm integration, for example pure Go modules or system wide installs.
+
+## Debian / Ubuntu (.deb)
+
+Best for system-wide installs on Debian or Ubuntu without npm. Installs `forst` to `/usr/bin`. Pick `amd64` or `arm64` from [GitHub Releases](https://github.com/forst-lang/forst/releases) when a compiler `v*` release ships.
+
+```bash
+wget https://github.com/forst-lang/forst/releases/download/v0.x.y/forst_0.x.y-1_amd64.deb
+sudo apt install ./forst_0.x.y-1_amd64.deb
+forst version
+```
 
 ## Docker (GHCR)
 

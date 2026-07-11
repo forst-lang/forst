@@ -1,0 +1,41 @@
+# nfpm config — produces .deb packages for the Forst compiler.
+#
+# Export before running:
+#   VERSION — e.g. "0.7.0" (git tag minus the leading "v")
+#   ARCH    — Debian arch: amd64 or arm64
+#   GO_BINARY — path to the pre-built Linux binary for that arch
+#
+# Run as:
+#   nfpm package --packager deb --config nfpm.yaml --target dist/
+
+name: forst
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+release: "1"
+section: devel
+priority: optional
+maintainer: Forst Contributors <https://github.com/forst-lang/forst>
+description: |
+  An ergonomic backend language that compiles to Go
+  Incrementally migrate from TypeScript on the backend. Structural typing,
+  constraints that validate input at boundaries, generated TypeScript
+  client types, built-in DI, and explicit error handling.
+homepage: https://github.com/forst-lang/forst
+license: MIT
+
+contents:
+  - src: ${GO_BINARY}
+    dst: /usr/bin/forst
+    expand: true
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  - src: LICENSE
+    dst: /usr/share/doc/forst/copyright
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
