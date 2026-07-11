@@ -1,0 +1,60 @@
+name: CI Go Bun setup
+description: Checkout, Go, Task, caches, Bun, and Node setup shared by Forst CI jobs.
+inputs:
+  github-token:
+    description: GitHub token for setup-task
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+    - name: Set up Go
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      with:
+        go-version: "1.26"
+        check-latest: true
+
+    - name: Install Task
+      uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2
+      with:
+        repo-token: ${{ inputs.github-token }}
+
+    - name: Cache Go modules
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('forst/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install Go dependencies
+      working-directory: forst
+      run: go mod download
+      shell: bash
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      # Resolves version from root package.json "packageManager" (e.g. bun@1.3.11)
+
+    - name: Cache Bun dependencies
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: |
+          ~/.bun/install/cache
+          node_modules
+          */node_modules
+        key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - name: Install Bun dependencies
+      run: bun install
+      shell: bash
+
+    - name: Set up Node.js
+      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      with:
+        node-version: "24.x"

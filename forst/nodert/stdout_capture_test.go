@@ -24,7 +24,7 @@ func readAvailableWithDeadline(r io.Reader, deadline time.Duration, buf []byte) 
 	return f.Read(buf)
 }
 
-func TestBootstrapStdout_staysIdleUntilRpcResponse(t *testing.T) {
+func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node not on PATH")
 	}
@@ -81,16 +81,26 @@ func TestBootstrapStdout_staysIdleUntilRpcResponse(t *testing.T) {
 			hex.EncodeToString(buf[:n]), string(buf[:n]))
 	}
 
-	errBuf := make([]byte, 4096)
-	errN, errReadErr := readAvailableWithDeadline(stderr, 200*time.Millisecond, errBuf)
-	if errReadErr != nil && !errors.Is(errReadErr, os.ErrDeadlineExceeded) {
-		t.Fatalf("stderr read: %v", errReadErr)
+	errCollected := make([]byte, 0, 4096)
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		chunk := make([]byte, 512)
+		errN, errReadErr := readAvailableWithDeadline(stderr, 200*time.Millisecond, chunk)
+		if errReadErr != nil && !errors.Is(errReadErr, os.ErrDeadlineExceeded) {
+			t.Fatalf("stderr read: %v", errReadErr)
+		}
+		if errN > 0 {
+			errCollected = append(errCollected, chunk[:errN]...)
+			if strings.Contains(string(errCollected), "spawn") {
+				break
+			}
+		}
 	}
-	if errN == 0 {
+	if len(errCollected) == 0 {
 		t.Fatal("expected bootstrap logs on stderr")
 	}
-	if !strings.Contains(string(errBuf[:errN]), "spawn") {
-		t.Fatalf("stderr missing spawn log, got %q", string(errBuf[:errN]))
+	if !strings.Contains(string(errCollected), "spawn") {
+		t.Fatalf("stderr missing spawn log, got %q", string(errCollected))
 	}
 
 	_ = stdin.Close()

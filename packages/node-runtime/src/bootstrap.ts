@@ -17,10 +17,17 @@ export const bootstrapFatal = Effect.fn("Bootstrap.fatal")(function* (
   cause: unknown
 ) {
   const message = cause instanceof Error ? cause.message : String(cause);
+  const stack =
+    cause instanceof Error && cause.stack !== undefined ? cause.stack : undefined;
   yield* Effect.annotateCurrentSpan("message", message);
-  yield* Effect.logError("fatal").pipe(
-    Effect.annotateLogs({ event: "fatal", message })
-  );
+  if (stack !== undefined) {
+    yield* Effect.annotateCurrentSpan("stack", stack);
+  }
+  const logFields: Record<string, string> = { event: "fatal", message };
+  if (stack !== undefined) {
+    logFields.stack = stack;
+  }
+  yield* Effect.logError("fatal").pipe(Effect.annotateLogs(logFields));
   yield* Effect.sync(() => process.exit(1));
 });
 

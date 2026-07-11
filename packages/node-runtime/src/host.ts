@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { AddressInfo } from "node:net";
-import { Effect, Layer } from "effect";
+import { Effect, Fiber, Layer } from "effect";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
 import {
   createNodeRuntimeSetup,
@@ -41,6 +41,7 @@ interface HostCloseContext {
 let startPromise: Promise<HostHandle> | null = null;
 let activeServer: net.Server | null = null;
 let activeConnection: net.Socket | null = null;
+let activeRpcFiber: Fiber.RuntimeFiber<void, never> | null = null;
 let activeReadyPath = "";
 let activeSocketPath = "";
 let appReadySignaled = false;
@@ -156,7 +157,7 @@ function attachConnectionHandler(server: net.Server): void {
         activeConnection = null;
       }
     });
-    Effect.runFork(
+    activeRpcFiber = Effect.runFork(
       startRpcServer(conn, conn, {
         exitProcessOnShutdown: false,
         runtime: hostRuntime,
@@ -176,6 +177,10 @@ function attachConnectionHandler(server: net.Server): void {
 }
 
 export function resetHostForTest(): void {
+  if (activeRpcFiber) {
+    void Effect.runPromise(Fiber.interrupt(activeRpcFiber));
+    activeRpcFiber = null;
+  }
   if (activeConnection) {
     activeConnection.destroy();
     activeConnection = null;
@@ -194,6 +199,10 @@ export function resetHostForTest(): void {
 
 const closeHostHandle = Effect.fn("Host.close")(function* (ctx: HostCloseContext) {
   yield* Effect.annotateCurrentSpan("socket", ctx.socketPath);
+  if (activeRpcFiber) {
+    yield* Fiber.interrupt(activeRpcFiber);
+    activeRpcFiber = null;
+  }
   yield* Effect.tryPromise({
     try: async () => {
       if (activeConnection) {
@@ -272,8 +281,10 @@ const hostStart = Effect.fn("Host.start")(function* (options: HostOptions) {
   attachConnectionHandler(server);
 
   if (readyPath && !deferAppReady) {
-    yield* Effect.sync(() => writeReadyFile(readyPath, socketPath, "app"));
-    appReadySignaled = true;
+    yield* Effect.sync(() => {
+      writeReadyFile(readyPath, socketPath, "app");
+      appReadySignaled = true;
+    });
   }
 
   yield* Effect.annotateCurrentSpan("socket", socketPath);
@@ -322,10 +333,10 @@ export const signalForstAppReady = Effect.fn("Host.signalAppReady")(function* ()
     );
   }
 
-  yield* Effect.sync(() =>
-    writeReadyFile(activeReadyPath, activeSocketPath, "app")
-  );
-  appReadySignaled = true;
+  yield* Effect.sync(() => {
+    writeReadyFile(activeReadyPath, activeSocketPath, "app");
+    appReadySignaled = true;
+  });
   yield* Effect.annotateCurrentSpan("socket", activeSocketPath);
   yield* Effect.logInfo("host_app_ready").pipe(
     Effect.annotateLogs({

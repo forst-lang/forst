@@ -88,7 +88,11 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
       );
     }
 
-    const manifest = validateManifest(params.manifest);
+    const manifest = yield* Effect.try({
+      try: () => validateManifest(params.manifest),
+      catch: (cause) =>
+        cause instanceof JsonRpcError ? cause : invalidParams(String(cause)),
+    });
     if (manifest.boundaryRoot !== params.boundaryRoot) {
       return yield* Effect.fail(
         invalidParams("manifest.boundaryRoot must match boundaryRoot", {

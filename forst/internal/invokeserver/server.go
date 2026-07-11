@@ -278,7 +278,7 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.log != nil {
-		s.log.Infof("call %s.%s streaming=%v", req.Package, req.Function, req.Streaming)
+		s.log.Debugf("call %s.%s streaming=%v", req.Package, req.Function, req.Streaming)
 	}
 
 	functions := s.backend.Functions()

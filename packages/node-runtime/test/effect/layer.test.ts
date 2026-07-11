@@ -12,7 +12,14 @@ function captureStderr(run: () => void | Promise<void>): Promise<string> {
   const restore = setWriteStderrForTest((text) => {
     lines.push(text);
   });
-  return Promise.resolve(run())
+  let outcome: void | Promise<void>;
+  try {
+    outcome = run();
+  } catch (err) {
+    restore();
+    throw err;
+  }
+  return Promise.resolve(outcome)
     .finally(restore)
     .then(() => lines.join(""));
 }

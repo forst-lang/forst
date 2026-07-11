@@ -4,6 +4,10 @@ import { JsonRpcError } from "../rpc/errors.js";
 import type { ManifestIndex } from "./manifest.js";
 import { assertExportAllowed } from "./manifest.js";
 
+/**
+ * Policy check as Effect. Error normalization preserves `JsonRpcError` instances;
+ * all other failures become `JsonRpcError(-32000, String(err))`.
+ */
 export const assertExportAllowedEffect = Effect.fn("Policy.assertExportAllowed")(
   function* (
     index: ManifestIndex,

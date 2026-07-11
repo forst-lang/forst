@@ -22,6 +22,7 @@ import type { JsonRpcResponse } from "./protocol.js";
 import {
   JsonRpcError,
   METHOD_NOT_FOUND,
+  internalError,
   notImplemented,
   notInitialized,
 } from "./errors.js";
@@ -147,6 +148,16 @@ export function createDispatcher(options: DispatcherOptions = {}) {
     }
 
     const outcome = yield* handleMethod(state, method, request.params).pipe(
+      Effect.catchAllDefect((cause) =>
+        Effect.fail(
+          cause instanceof JsonRpcError
+            ? cause
+            : internalError(
+                cause instanceof Error ? cause.message : String(cause),
+                cause instanceof Error ? { stack: cause.stack } : undefined
+              )
+        )
+      ),
       Effect.either
     );
 

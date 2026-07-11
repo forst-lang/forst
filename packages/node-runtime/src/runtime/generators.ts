@@ -5,7 +5,7 @@ import {
   modulePathToFileUrl,
   resolveModulePath,
 } from "../policy/paths.js";
-import { applicationError, type JsonRpcError } from "../rpc/errors.js";
+import { applicationError, JsonRpcError } from "../rpc/errors.js";
 import type {
   CallParams,
   GenCloseParams,
@@ -59,8 +59,8 @@ function serializeThrownError(
   moduleId: string,
   exportName: string
 ): JsonRpcError {
-  if (err instanceof Error && "code" in err) {
-    return err as JsonRpcError;
+  if (err instanceof JsonRpcError) {
+    return err;
   }
   if (err instanceof Error) {
     return applicationError(err.message, {
@@ -109,8 +109,12 @@ const loadGeneratorExport = Effect.fn("Runtime.loadGeneratorExport")(
     const mod = yield* importModule(fileUrl).pipe(
       Effect.mapError((cause) => serializeThrownError(cause, moduleId, exportName))
     );
+    const fn = yield* Effect.try({
+      try: () => getExportFunction(mod, exportName),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
     return {
-      fn: getExportFunction(mod, exportName),
+      fn,
       isAsync: entry.kind === "asyncGenerator",
     };
   }

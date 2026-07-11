@@ -5,6 +5,7 @@ import { createDispatcher } from "../../src/rpc/dispatcher.js";
 import {
   APPLICATION_ERROR,
   FORBIDDEN,
+  INTERNAL_ERROR,
   METHOD_NOT_FOUND,
   NOT_IMPLEMENTED,
   NOT_INITIALIZED,
@@ -50,6 +51,21 @@ function initializeParams(boundaryRoot: string) {
 }
 
 describe("createDispatcher initialize gate", () => {
+  test("rejects initialize with missing params", async () => {
+    const { dispatch } = createDispatcher();
+    const response = await runTestEffect(dispatch({
+      jsonrpc: "2.0",
+      id: 99,
+      method: METHOD_INITIALIZE,
+    }));
+
+    expect(response).toMatchObject({
+      jsonrpc: "2.0",
+      id: 99,
+      error: { code: INTERNAL_ERROR },
+    });
+  });
+
   test("rejects call before initialize", async () => {
     const { dispatch } = createDispatcher();
     const response = await runTestEffect(dispatch({

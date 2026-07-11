@@ -136,7 +136,7 @@ if [[ "$DEV_MODE" == true ]]; then
 else
   (
     cd "$TMP"
-    "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main.ft"
+    exec "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main.ft"
   ) >"$LOG_FILE" 2>&1 &
   FORST_PID=$!
 fi

@@ -1,6 +1,9 @@
 package invokeserver
 
 import (
+	"bufio"
+	"errors"
+	"net"
 	"net/http"
 	"time"
 )
@@ -22,6 +25,19 @@ func (w *statusResponseWriter) Write(p []byte) (int, error) {
 	return w.ResponseWriter.Write(p)
 }
 
+func (w *statusResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *statusResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("ResponseWriter does not implement http.Hijacker")
+}
+
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -34,6 +50,6 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		s.log.Infof("http %s %s %d %s", r.Method, r.URL.Path, status, time.Since(start).Round(time.Millisecond))
+		s.log.Debugf("http %s %s %d %s", r.Method, r.URL.Path, status, time.Since(start).Round(time.Millisecond))
 	})
 }
