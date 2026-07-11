@@ -11,9 +11,9 @@
     "@forst/client": "file:../../../../../packages/client",
     "@forst/node-runtime": "file:../../../../../packages/node-runtime",
     "@forst/sidecar": "file:../../../../../packages/sidecar",
-    "@remix-run/node": "2.17.3",
-    "@remix-run/react": "2.17.3",
-    "@remix-run/serve": "2.17.3",
+    "@remix-run/node": "2.17.5",
+    "@remix-run/react": "2.17.5",
+    "@remix-run/serve": "2.17.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -23,7 +23,7 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "typescript": "^5.9.3",
-    "vite": "^5.4.21"
+    "vite": "^8.1.4"
   },
   "overrides": {
     "@forst/sidecar": "file:../../../../../packages/sidecar",
