@@ -99,6 +99,15 @@ func (s ServerConfig) EffectiveInvokeHost() string {
 	return s.Host
 }
 
+// EffectiveDevListenHost returns the bind host for forst dev.
+// Empty or "localhost" defaults to loopback; explicit values (e.g. 0.0.0.0) are preserved.
+func (s ServerConfig) EffectiveDevListenHost() string {
+	if s.Host == "" || s.Host == "localhost" {
+		return "127.0.0.1"
+	}
+	return s.Host
+}
+
 // EffectiveInvokePort returns the listen port; embedded defaults to 8081 to avoid clashing with forst dev (8080).
 func (s ServerConfig) EffectiveInvokePort() string {
 	if s.Port != "" {

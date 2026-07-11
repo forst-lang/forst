@@ -126,7 +126,10 @@ describe("resolveForstBinary", () => {
         resolveForstBinary({
           version: "0.6.0",
           allowDownload: false,
-          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+          env: {
+            ...process.env,
+            FORST_CACHE_DIR: cacheRoot
+          },
           homedirFn: () => "/unused",
         })
       ).rejects.toBeInstanceOf(CompilerBinaryNotFound);
@@ -188,7 +191,11 @@ describe("resolveForstBinary", () => {
 
       const p = await resolveForstBinary({
         version: "0.6.0",
-        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        env: {
+          ...process.env,
+          ...verifyOff,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       });
@@ -338,7 +345,11 @@ describe("resolveForstBinary", () => {
       await expect(
         resolveForstBinary({
           version: "0.6.0",
-          env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+          env: {
+            ...process.env,
+            ...verifyOff,
+            FORST_CACHE_DIR: cacheRoot
+          },
           fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
           homedirFn: () => "/unused",
         })
@@ -454,18 +465,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "0.6.0",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "strict",
-          },
-          fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "strict",
+        },
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "digest_missing",
       });
@@ -484,18 +495,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "9.9.9",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "strict",
-          },
-          fetchImpl: withModuleTarballFetch("9.9.9", fetchImpl),
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "9.9.9",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "strict",
+        },
+        fetchImpl: withModuleTarballFetch("9.9.9", fetchImpl),
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "release_not_found",
       });
@@ -522,18 +533,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "0.4.0",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "1",
-          },
-          fetchImpl: withModuleTarballFetch("0.4.0", fetchImpl),
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "0.4.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "1",
+        },
+        fetchImpl: withModuleTarballFetch("0.4.0", fetchImpl),
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "asset_not_found",
         artifact: destName,
@@ -582,7 +593,10 @@ describe("resolveForstBinary", () => {
 
       const p = await resolveForstBinary({
         preferLatestRelease: true,
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl: withModuleTarballFetch("99.0.0", fetchImpl),
         homedirFn: () => "/unused",
       });

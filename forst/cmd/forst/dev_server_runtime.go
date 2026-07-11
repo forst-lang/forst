@@ -12,6 +12,11 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// listenAddr returns host:port for the dev HTTP listener.
+func (s *DevServer) listenAddr() string {
+	return s.host + ":" + s.port
+}
+
 // Start starts the HTTP server.
 func (s *DevServer) Start() error {
 	if err := s.refreshFunctions(); err != nil {
@@ -28,7 +33,7 @@ func (s *DevServer) Start() error {
 	writeTimeout := time.Duration(s.config.Server.WriteTimeout) * time.Second
 
 	s.server = &http.Server{
-		Addr:         ":" + s.port,
+		Addr:         s.listenAddr(),
 		Handler:      mux,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
@@ -40,7 +45,7 @@ func (s *DevServer) Start() error {
 
 // logStartupInfo logs information about the server startup.
 func (s *DevServer) logStartupInfo() {
-	s.log.Infof("HTTP server listening on port %s", s.port)
+	s.log.Infof("HTTP server listening on %s", s.listenAddr())
 	s.log.Info("Available endpoints:")
 	s.log.Info("  GET  /functions  - Discover available functions")
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
@@ -97,7 +102,7 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 
 	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
 
-	log.Debugf("Starting Forst dev server on port %s", config.Server.Port)
+	log.Debugf("Starting Forst dev server on %s", config.Server.EffectiveDevListenHost()+":"+config.Server.Port)
 	log.Debugf("Root directory: %s", rootDir)
 
 	if err := devServerStartFn(server); err != nil {
@@ -138,6 +143,7 @@ func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, l
 	sections := []configSection{
 		{"Server", []string{
 			fmt.Sprintf("%-15s %s", "Port:", config.Server.Port),
+			fmt.Sprintf("%-15s %s", "Host:", config.Server.EffectiveDevListenHost()),
 			fmt.Sprintf("%-15s %v", "CORS enabled:", config.Server.CORS),
 		}},
 		{"Compiler", []string{

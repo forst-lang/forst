@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -136,6 +137,50 @@ func TestLoadAndValidateConfig_invalidLogLevelExits(t *testing.T) {
 	}
 }
 
+func TestDevServer_Start_bindsLoopbackByDefault(t *testing.T) {
+	s := testDevServer(t)
+	if s.host != "127.0.0.1" {
+		t.Fatalf("host = %q want 127.0.0.1", s.host)
+	}
+	s.port = "0"
+
+	ln, err := net.Listen("tcp", s.listenAddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	if !tcpAddr.IP.IsLoopback() {
+		t.Fatalf("bound to non-loopback %v", tcpAddr.IP)
+	}
+}
+
+func TestDevServer_Start_respectsExplicitZeroHost(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	cfg := DefaultConfig()
+	cfg.Server.Host = "0.0.0.0"
+	cfg.Server.ReadTimeout = 1
+	cfg.Server.WriteTimeout = 1
+	comp := compiler.New(cfg.ToCompilerArgs(), log)
+	s := NewHTTPServer("0", comp, log, cfg, t.TempDir())
+	if s.host != "0.0.0.0" {
+		t.Fatalf("host = %q want 0.0.0.0", s.host)
+	}
+
+	ln, err := net.Listen("tcp", s.listenAddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	if tcpAddr.IP.IsLoopback() {
+		t.Fatalf("expected non-loopback bind for 0.0.0.0, got %v", tcpAddr.IP)
+	}
+}
+
 func TestDevServer_Start_invalidPortReturnsError_andInitializesTypesGenerator(t *testing.T) {
 	s := testDevServer(t)
 	s.port = "invalid-port"
@@ -158,7 +203,7 @@ func TestDevServer_logStartupInfo_includesEndpoints(t *testing.T) {
 
 	output := buf.String()
 	for _, fragment := range []string{
-		"HTTP server listening on port 8080",
+		"HTTP server listening on 127.0.0.1:8080",
 		"GET  /functions",
 		"POST /invoke",
 		"GET  /types",

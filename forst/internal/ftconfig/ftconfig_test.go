@@ -546,3 +546,32 @@ func TestEffectiveInvokeHost_nonEmbeddedUsesConfiguredHost(t *testing.T) {
 		t.Fatalf("EffectiveInvokeHost() = %q", got)
 	}
 }
+
+func TestEffectiveDevListenHost_defaultsLoopback(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+	}{
+		{"empty", ""},
+		{"localhost", "localhost"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ServerConfig{Host: tc.host}.EffectiveDevListenHost()
+			if got != "127.0.0.1" {
+				t.Fatalf("EffectiveDevListenHost() = %q", got)
+			}
+		})
+	}
+}
+
+func TestEffectiveDevListenHost_preservesExplicitHost(t *testing.T) {
+	got := ServerConfig{Host: "127.0.0.1"}.EffectiveDevListenHost()
+	if got != "127.0.0.1" {
+		t.Fatalf("EffectiveDevListenHost() = %q", got)
+	}
+	got = ServerConfig{Host: "0.0.0.0"}.EffectiveDevListenHost()
+	if got != "0.0.0.0" {
+		t.Fatalf("EffectiveDevListenHost() = %q", got)
+	}
+}

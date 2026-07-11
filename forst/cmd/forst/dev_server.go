@@ -39,6 +39,7 @@ type devTypesGenerator interface {
 type DevServer struct {
 	invoke         *invokeserver.Server
 	devBackend     *invokeserver.DevBackend
+	host           string
 	port           string
 	server         *http.Server
 	compiler       *compiler.Compiler
@@ -59,8 +60,9 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 	discoverer := discovery.NewDiscoverer(rootDir, log, config)
 	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, config)
 	backend := invokeserver.NewDevBackend(fnExec, discoverer)
+	listenHost := config.Server.EffectiveDevListenHost()
 	invokeCfg := invokeserver.Config{
-		Host:           config.Server.Host,
+		Host:           listenHost,
 		Port:           port,
 		CORS:           config.Server.CORS,
 		ReadTimeout:    config.Server.ReadTimeout,
@@ -78,6 +80,7 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 	invokeServer := invokeserver.New(invokeCfg, backend, version, log)
 
 	return &DevServer{
+		host:       listenHost,
 		port:       port,
 		invoke:     invokeServer,
 		devBackend: backend,
