@@ -1,4 +1,30 @@
-export { main as bootstrapNodeRuntime } from "./bootstrap.js";
+export {
+  bootstrapFatal,
+  bootstrapMain,
+  bootstrapProgram,
+  makeBootstrapProgram,
+} from "./bootstrap.js";
+export type { BootstrapOptions } from "./bootstrap.js";
+export {
+  ForstNodeRuntimeLayer,
+  makeForstNodeRuntimeLayer,
+  envLogLevel,
+  envLogFormat,
+  parseEnvLevel,
+  stderrJsonLogger,
+  stderrPrettyLogger,
+} from "./effect/layer.js";
+export type { LogFields } from "./effect/layer.js";
+export {
+  createNodeRuntimeSetup,
+  defaultNodeRuntimeSetup,
+  forstNodeRuntime,
+  makeForstNodeRuntime,
+} from "./effect/runtime.js";
+export type {
+  ForstNodeRuntime,
+  NodeRuntimeSetup,
+} from "./effect/runtime.js";
 export { createDispatcher } from "./rpc/dispatcher.js";
 export {
   FORBIDDEN,
@@ -7,12 +33,19 @@ export {
   NOT_INITIALIZED,
 } from "./rpc/errors.js";
 export {
+  DEFAULT_MAX_MESSAGE_BYTES,
+  runProtoLoop,
+} from "./rpc/proto_loop.js";
+export type { ProtoLoopOptions } from "./rpc/proto_loop.js";
+export {
   METHOD_CALL,
   METHOD_INITIALIZE,
   METHOD_PING,
   METHOD_SHUTDOWN,
   PROTOCOL_VERSION,
 } from "./rpc/protocol.js";
+export { startRpcServer } from "./rpc/server.js";
+export type { RpcServerOptions } from "./rpc/server.js";
 export {
   assertExportAllowed,
   buildManifestIndex,
@@ -43,6 +76,7 @@ export type {
 export {
   parseCliArgs,
   runCli,
+  runCliEffect,
   runIndexerCli,
 } from "./indexer/cli.js";
 export { createIndexerProject, toPosixModuleId } from "./indexer/project.js";
@@ -51,3 +85,9 @@ export {
   emitForstIndexV1Json,
   type ForstIndexV1,
 } from "./indexer/emit-forst-index-v1.js";
+export {
+  startForstNodeHost,
+  signalForstAppReady,
+  resetHostForTest,
+} from "./host.js";
+export type { HostHandle, HostOptions, HostReadyPhase } from "./host.js";

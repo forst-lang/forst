@@ -3,6 +3,7 @@ package compiler
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -243,6 +244,22 @@ func TestRunBoundaryRoot_fallsBackToEntryDir(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestFormatRunProgramError_wrapsExitError(t *testing.T) {
+	t.Parallel()
+	cmd := exec.Command("sh", "-c", "exit 1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected exit error")
+	}
+	wrapped := formatRunProgramError(err)
+	if !strings.Contains(wrapped.Error(), "generated program exited with code 1") {
+		t.Fatalf("got %q", wrapped)
+	}
+	if !strings.Contains(wrapped.Error(), "tsx") {
+		t.Fatalf("expected hint, got %q", wrapped)
 	}
 }
 

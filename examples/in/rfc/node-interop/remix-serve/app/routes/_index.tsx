@@ -6,6 +6,7 @@ import {
   GetDashboard,
   ListTodos,
 } from "../lib/forst.invoke";
+import { logServer } from "../lib/log.server";
 
 type TodoRow = { id: string; title: string; status: string };
 
@@ -24,6 +25,7 @@ function parseTodos(encoded: string): TodoRow[] {
 }
 
 export async function loader(_args: LoaderFunctionArgs) {
+  logServer("route/_index", "loader");
   forstEnv();
   const list = await ListTodos();
   const dashboard = await GetDashboard();
@@ -36,18 +38,25 @@ export async function loader(_args: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  logServer("route/_index", "action");
   forstEnv();
   const form = await request.formData();
   const intent = form.get("intent");
 
   if (intent === "add") {
     const title = String(form.get("title") ?? "").trim();
-    if (title) await AddTodo({ title });
+    if (title) {
+      logServer("route/_index", "AddTodo", { title });
+      await AddTodo({ title });
+    }
   }
 
   if (intent === "complete") {
     const id = String(form.get("id") ?? "");
-    if (id) await CompleteTodo({ id });
+    if (id) {
+      logServer("route/_index", "CompleteTodo", { id });
+      await CompleteTodo({ id });
+    }
   }
 
   return null;

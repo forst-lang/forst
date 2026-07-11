@@ -1,6 +1,7 @@
 package main
 
 import "strconv"
+import fmt "fmt"
 import os "os"
 // AddTodoRequest: TypeDefShapeExpr({title: String})
 type AddTodoRequest struct {
@@ -61,38 +62,42 @@ type T_LKhz7DyfNqT struct {
 }
 
 func AddTodo(input AddTodoRequest) AddTodoResponse {
+	println("api:AddTodo:" + input.Title)
 	created, createdErr := forst_node_callsync_legacy_todos_ts_addTodo(input.Title)
 	if !(createdErr == nil) {
 		return AddTodoResponse{Id: "", Title: "", Status: ""}
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
 }
-func CompleteTodo(input CompleteTodoRequest) AddTodoResponse {
+func CompleteTodo(input CompleteTodoRequest) CompleteTodoResponse {
+	println("api:CompleteTodo:" + input.Id)
 	updated, updatedErr := forst_node_callsync_legacy_todos_ts_toggleTodo(input.Id)
 	if !(updatedErr == nil) {
-		return AddTodoResponse{Id: "", Title: "", Status: ""}
+		return CompleteTodoResponse{Status: "", Id: "", Title: ""}
 	}
-	return AddTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
+	return CompleteTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
 }
 func GetDashboard() T_7nWLvcjQ76D {
+	println("api:GetDashboard")
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {
-		return T_7nWLvcjQ76D{Open: 0.0, RecentTitles: "", ActivityKinds: "", SavedAt: ""}
+		return T_7nWLvcjQ76D{ActivityKinds: "", SavedAt: "", Open: 0.0, RecentTitles: ""}
 	}
 	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
 	if !(snapErr == nil) {
-		return T_7nWLvcjQ76D{Open: 0.0, RecentTitles: "", ActivityKinds: "", SavedAt: ""}
+		return T_7nWLvcjQ76D{ActivityKinds: "", SavedAt: "", Open: 0.0, RecentTitles: ""}
 	}
 	return T_7nWLvcjQ76D{Open: open, RecentTitles: "", ActivityKinds: "ready", SavedAt: snap.SavedAt}
 }
 func ListTodos() T_D415raHQ7uQ {
+	println("api:ListTodos")
 	encoded, encodedErr := forst_node_callsync_legacy_todos_ts_formatTodoList()
 	if !(encodedErr == nil) {
 		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {
-		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
+		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
 	}
 	total, totalErr := forst_node_callsync_legacy_todos_ts_todoCount()
 	if !(totalErr == nil) {
@@ -104,23 +109,35 @@ func ListTodos() T_D415raHQ7uQ {
 func main() {
 	first, firstErr := forst_node_callsync_legacy_todos_ts_bumpEditCount()
 	if !(firstErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", firstErr)
+			os.Exit(1)
+		}
 	}
 	println("sync:" + strconv.FormatFloat(first, 'f', 0, 64))
 	second, secondErr := forst_node_callsync_legacy_todos_ts_bumpEditCount()
 	if !(secondErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", secondErr)
+			os.Exit(1)
+		}
 	}
 	println("sync:" + strconv.FormatFloat(second, 'f', 0, 64))
 	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
 	if !(snapErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", snapErr)
+			os.Exit(1)
+		}
 	}
 	println("async:" + snap.SavedAt)
 	var titleCount int = 0
 	titleSeq, titleSeqErr := forst_node_open_seq_legacy_activity_ts_recentTitles()
 	if !(titleSeqErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", titleSeqErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := titleSeq
@@ -159,7 +176,10 @@ func main() {
 	var feedCount int = 0
 	feed, feedErr := forst_node_open_seq_legacy_activity_ts_activityFeed()
 	if !(feedErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", feedErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := feed

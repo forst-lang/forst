@@ -1,7 +1,9 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import { logServer } from "../lib/log.server";
 
 export async function loader(_args: LoaderFunctionArgs) {
+  logServer("route/api.health", "loader");
   const base =
     process.env.FORST_BASE_URL ??
     process.env.FORST_INVOKE_URL ??

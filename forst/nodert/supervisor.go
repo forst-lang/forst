@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -31,10 +32,11 @@ type RPCConfig struct {
 }
 
 var (
-	supervisorOnce sync.Once
-	supervisorInst *Supervisor
-	supervisorErr  error
-	supervisorCfg  SupervisorConfig
+	supervisorOnce       sync.Once
+	supervisorInst       *Supervisor
+	supervisorErr        error
+	supervisorErrPrinted sync.Once
+	supervisorCfg        SupervisorConfig
 )
 
 // ConfigureSupervisor sets options used by the first GetClient call.
@@ -61,6 +63,9 @@ func GetClient() (*Client, error) {
 		}
 	})
 	if supervisorErr != nil {
+		supervisorErrPrinted.Do(func() {
+			fmt.Fprintf(os.Stderr, "forst node runtime: %v\n", supervisorErr)
+		})
 		return nil, supervisorErr
 	}
 	return supervisorInst.client, nil
@@ -216,6 +221,7 @@ func resetSupervisorForTest() {
 	supervisorOnce = sync.Once{}
 	supervisorInst = nil
 	supervisorErr = nil
+	supervisorErrPrinted = sync.Once{}
 	configureOnce = sync.Once{}
 	configureErr = nil
 }

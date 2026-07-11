@@ -2,7 +2,10 @@ package main
 
 import "fmt"
 
+import node "./test"
+
 func greeting(): String {
+	println(test.test())
 	return "Hello"
 }
 

@@ -36,6 +36,28 @@ task example:node-interop-remix-serve:generate
 task example:node-interop-remix-serve:build-remix
 ```
 
+## Standalone / out-of-tree
+
+Run the same example from a copy outside the monorepo tree (or use `task example:node-interop-remix-serve:standalone-e2e` in CI — local `@forst/*` only, no registry downloads). For interactive debugging with automatic teardown on Ctrl+C: `task example:node-interop-remix-serve:standalone-dev`.
+
+1. Copy this directory (exclude `node_modules`, `build`, `client`, `generated`, `app/lib/forst.invoke.ts`, `.forst`)
+2. Repoint `@forst/*`:
+   - **Monorepo / CI:** absolute `file:` paths to `$REPO/packages/*` — see [`scripts/patch-remix-serve-standalone-deps.mjs`](../../../../../scripts/patch-remix-serve-standalone-deps.mjs)
+   - **External:** published npm versions (`@forst/cli`, `@forst/client`, `@forst/node-runtime`; `@forst/sidecar` via client)
+3. `bun install` (requires `tsx` in `devDependencies` for nodert host spawn)
+4. `forst generate <project-dir>` — **no `-root`** (`generate` takes the project path only)
+5. `bun run build` (produces `build/server/index.js`)
+6. Run with the repo-built compiler when developing Forst itself:
+
+```bash
+export FORST_BINARY=<repo>/bin/forst
+export FORST_BOUNDARY_ROOT=<project-dir>
+export FORST_GOMOD_ROOT=<repo>/forst   # when binary is not adjacent to the Go module
+"$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main.ft
+```
+
+Expected stdout and curl checks match [Run](#run) below. Troubleshooting: [Call JavaScript from Forst](/interop/node/call-javascript) (tsx, host ready timeout).
+
 ## Compile
 
 ```bash

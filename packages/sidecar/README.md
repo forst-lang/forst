@@ -48,14 +48,14 @@ Two runtime modes matter in practice:
 
 **Compiler dependency:** [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) supplies the native `forst` binary (download/cache). Shared environment variables: [`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`](../cli/README.md#environment-variables). Published `@forst/sidecar` packages declare `@forst/cli` with a **caret** range (`^x.y.z`) fixed at release time—bump **sidecar** for API changes, adjust **`@forst/cli`** when you only need a newer compiler.
 
-**Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^5**—install Express in the host application; it is not bundled here.
+**Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^4.20.0 or ^5** (optional)—install Express in the host application when using `createExpressMiddleware`; it is not bundled here.
 
 ## At a glance
 
 | | |
 | --- | --- |
 | **Role** | Dev server lifecycle + HTTP client + optional Express middleware |
-| **Typical stack** | Node.js 18+, Express 5, `@forst/cli` (transitive or direct) |
+| **Typical stack** | Node.js 18+, Express 4.20+ or 5, `@forst/cli` (transitive or direct) |
 | **Protocols** | JSON over HTTP to `forst dev` ([contract](../../examples/in/rfc/typescript-client/02-forst-dev-http-contract.md)) |
 | **Registries** | [npm](https://www.npmjs.com/package/@forst/sidecar) · [JSR](https://jsr.io/@forst/sidecar) |
 
@@ -68,7 +68,7 @@ Two runtime modes matter in practice:
 ## Requirements
 
 - **Node.js** 18 or later (`engines` in `package.json`)
-- **Express** 5.x in the host application (`peerDependencies`)
+- **Express** 4.20+ or 5.x in the host application when using Express middleware (`peerDependencies`, optional)
 - **`@forst/cli`** resolvable at runtime (dependency of this package or pinned explicitly) so the native compiler can be located
 
 ## Features
@@ -88,7 +88,7 @@ Two runtime modes matter in practice:
 npm install @forst/sidecar express
 ```
 
-Express is a **peer dependency**—if your app already satisfies `express@^5`, you do not need a second install line.
+Express is an **optional peer dependency**—install it when you use `createExpressMiddleware`. Remix and other frameworks on Express 4.x satisfy `^4.20.0 || ^5.0.0`.
 
 **Working inside this monorepo** (contributors):
 

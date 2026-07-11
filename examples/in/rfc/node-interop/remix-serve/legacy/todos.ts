@@ -22,25 +22,30 @@ function store() {
 
 /** Sync counter shared with Remix — used by host-mode integration tests. */
 export function bumpEditCount(): number {
+  console.error("[legacy/todos] bumpEditCount");
   return ++store().editCount;
 }
 
 export function openCount(): number {
+  console.error("[legacy/todos] openCount");
   return store().items.filter((t) => t.status === "open").length;
 }
 
 export function todoCount(): number {
+  console.error("[legacy/todos] todoCount");
   return store().items.length;
 }
 
 /** Tab-separated rows: id, title, status — one line per todo. */
 export function formatTodoList(): string {
+  console.error("[legacy/todos] formatTodoList");
   return store()
     .items.map((t) => t.id + "\t" + t.title + "\t" + t.status)
     .join("\n");
 }
 
 export function addTodo(title: string) {
+  console.error("[legacy/todos] addTodo", { title });
   const s = store();
   const id = String(s.nextId++);
   s.items.push({ id, title, status: "open" });
@@ -49,6 +54,7 @@ export function addTodo(title: string) {
 }
 
 export function toggleTodo(id: string) {
+  console.error("[legacy/todos] toggleTodo", { id });
   const s = store();
   const todo = s.items.find((t) => t.id === id);
   if (!todo) {
@@ -67,6 +73,7 @@ export function* allTodos(): Generator<Todo> {
 
 /** Simulates async persistence to a legacy notification service. */
 export async function persistSnapshot(): Promise<{ savedAt: string }> {
+  console.error("[legacy/todos] persistSnapshot");
   await new Promise((resolve) => setTimeout(resolve, 1));
   return { savedAt: "ok" };
 }

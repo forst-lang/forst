@@ -1,6 +1,7 @@
 import type { EntryContext } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import { renderToString } from "react-dom/server";
+import { logRequest } from "./lib/log.server";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -15,6 +16,8 @@ export default function handleRequest(
   responseHeaders: Headers,
   remixContext: EntryContext
 ) {
+  logRequest(request.method, new URL(request.url).pathname);
+
   if (!globalThis.__forstTodos) {
     globalThis.__forstTodos = {
       nextId: 2,

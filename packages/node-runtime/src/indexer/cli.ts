@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { NodeRuntime } from "@effect/platform-node";
+import { Effect } from "effect";
+import { ForstNodeRuntimeLayer } from "../effect/layer.js";
 import { emitForstIndexV1Json } from "./emit-forst-index-v1.js";
 
 export interface CliOptions {
@@ -67,7 +70,7 @@ Options:
 `);
 }
 
-export function runCli(argv: string[]): number {
+export const runCliEffect = Effect.fn("Indexer.runCli")(function* (argv: string[]) {
   try {
     const options = parseCliArgs(argv);
 
@@ -75,22 +78,39 @@ export function runCli(argv: string[]): number {
       throw new Error(`unsupported format: ${options.format}`);
     }
 
-    const json = emitForstIndexV1Json({
-      root: options.root,
-      files: options.files,
-    });
+    yield* Effect.annotateCurrentSpan("root", options.root);
+    yield* Effect.annotateCurrentSpan("file_count", options.files.length);
+
+    const json = yield* Effect.sync(() =>
+      emitForstIndexV1Json({
+        root: options.root,
+        files: options.files,
+      })
+    );
     process.stdout.write(`${json}\n`);
     return 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    yield* Effect.annotateCurrentSpan("message", message);
+    yield* Effect.logError("cli_error").pipe(
+      Effect.annotateLogs({ event: "cli_error", message })
+    );
     process.stderr.write(`forst-node-index: ${message}\n`);
     return 1;
   }
+});
+
+export function runCli(argv: string[]): number {
+  return Effect.runSync(
+    runCliEffect(argv).pipe(Effect.provide(ForstNodeRuntimeLayer))
+  );
 }
 
 /** Async wrapper for programmatic callers. */
 export async function runIndexerCli(argv: string[]): Promise<number> {
-  return runCli(argv);
+  return Effect.runPromise(
+    runCliEffect(argv).pipe(Effect.provide(ForstNodeRuntimeLayer))
+  );
 }
 
 const isDirectExecution =
@@ -99,5 +119,14 @@ const isDirectExecution =
     process.argv[1].endsWith("/indexer/cli.ts"));
 
 if (isDirectExecution) {
-  process.exit(runCli(process.argv.slice(2)));
+  NodeRuntime.runMain(
+    runCliEffect(process.argv.slice(2)).pipe(
+      Effect.flatMap((code) =>
+        Effect.sync(() => {
+          process.exit(code);
+        })
+      ),
+      Effect.provide(ForstNodeRuntimeLayer)
+    )
+  );
 }

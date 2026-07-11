@@ -2,7 +2,12 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import type { AddressInfo } from "node:net";
-import { log } from "./logging/logger.js";
+import { Effect, Layer } from "effect";
+import { ForstNodeRuntimeLayer } from "./effect/layer.js";
+import {
+  createNodeRuntimeSetup,
+  type ForstNodeRuntime,
+} from "./effect/runtime.js";
 import { startRpcServer } from "./rpc/server.js";
 
 const envHostEnabled = "FORST_NODE_HOST";
@@ -16,11 +21,21 @@ export interface HostOptions {
   readyPath?: string;
   /** When true, listen on the socket but defer the ready file until signalForstAppReady(). */
   deferAppReady?: boolean;
+  /**
+   * Effect layer for host RPC forks (logging, tracing, …).
+   * Defaults to `ForstNodeRuntimeLayer`. Provide the same layer you use at the app boundary.
+   */
+  runtimeLayer?: Layer.Layer<never>;
 }
 
 export interface HostHandle {
   socketPath: string;
-  close(): Promise<void>;
+  close(): Effect.Effect<void, Error, never>;
+}
+
+interface HostCloseContext {
+  socketPath: string;
+  readyPath: string;
 }
 
 let startPromise: Promise<HostHandle> | null = null;
@@ -29,6 +44,10 @@ let activeConnection: net.Socket | null = null;
 let activeReadyPath = "";
 let activeSocketPath = "";
 let appReadySignaled = false;
+let hostRuntimeLayer: Layer.Layer<never> = ForstNodeRuntimeLayer;
+let hostRuntime: ForstNodeRuntime = createNodeRuntimeSetup(
+  ForstNodeRuntimeLayer
+).runtime;
 
 function hostEnabled(): boolean {
   return process.env[envHostEnabled] === "1";
@@ -69,34 +88,43 @@ function chmodSocket(socketPath: string): void {
   }
 }
 
-async function listenUnix(socketPath: string): Promise<net.Server> {
-  const dir = path.dirname(socketPath);
-  fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
-  if (fs.existsSync(socketPath)) {
+function listenUnix(socketPath: string): Effect.Effect<net.Server, Error, never> {
+  return Effect.async<net.Server, Error>((resume) => {
+    const dir = path.dirname(socketPath);
     try {
-      fs.unlinkSync(socketPath);
-    } catch {
-      // stale socket may be removed by Go before spawn
+      fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+      if (fs.existsSync(socketPath)) {
+        try {
+          fs.unlinkSync(socketPath);
+        } catch {
+          // stale socket may be removed by Go before spawn
+        }
+      }
+    } catch (err) {
+      resume(Effect.fail(err instanceof Error ? err : new Error(String(err))));
+      return;
     }
-  }
 
-  return new Promise((resolve, reject) => {
     const server = net.createServer();
-    server.on("error", reject);
+    server.on("error", (err) => resume(Effect.fail(err)));
     server.listen(socketPath, () => {
       chmodSocket(socketPath);
-      resolve(server);
+      resume(Effect.succeed(server));
     });
   });
 }
 
-async function listenTcp(): Promise<{ server: net.Server; port: number }> {
-  return new Promise((resolve, reject) => {
+function listenTcp(): Effect.Effect<
+  { server: net.Server; port: number },
+  Error,
+  never
+> {
+  return Effect.async((resume) => {
     const server = net.createServer();
-    server.on("error", reject);
+    server.on("error", (err) => resume(Effect.fail(err)));
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address() as AddressInfo;
-      resolve({ server, port: addr.port });
+      resume(Effect.succeed({ server, port: addr.port }));
     });
   });
 }
@@ -104,22 +132,46 @@ async function listenTcp(): Promise<{ server: net.Server; port: number }> {
 function attachConnectionHandler(server: net.Server): void {
   server.on("connection", (conn) => {
     if (activeConnection) {
-      log("host_reject_duplicate_client", { pid: process.pid });
+      void Effect.runFork(
+        Effect.logWarning("host_reject_duplicate_client").pipe(
+          Effect.annotateLogs({
+            event: "host_reject_duplicate_client",
+            pid: process.pid,
+          }),
+          Effect.provide(hostRuntimeLayer)
+        )
+      );
       conn.destroy();
       return;
     }
     activeConnection = conn;
-    log("host_client_connected", { pid: process.pid });
+    void Effect.runFork(
+      Effect.logInfo("host_client_connected").pipe(
+        Effect.annotateLogs({ event: "host_client_connected", pid: process.pid }),
+        Effect.provide(hostRuntimeLayer)
+      )
+    );
     conn.on("close", () => {
       if (activeConnection === conn) {
         activeConnection = null;
       }
     });
-    void startRpcServer(conn, conn, { exitProcessOnShutdown: false }).catch((err) => {
-      log("host_rpc_fatal", {
-        message: err instanceof Error ? err.message : String(err),
-      });
-    });
+    Effect.runFork(
+      startRpcServer(conn, conn, {
+        exitProcessOnShutdown: false,
+        runtime: hostRuntime,
+      }).pipe(
+        Effect.provide(hostRuntimeLayer),
+        Effect.catchAllDefect((cause) =>
+          Effect.logError("host_rpc_fatal").pipe(
+            Effect.annotateLogs({
+              event: "host_rpc_fatal",
+              message: cause instanceof Error ? cause.message : String(cause),
+            })
+          )
+        )
+      )
+    );
   });
 }
 
@@ -136,125 +188,185 @@ export function resetHostForTest(): void {
   activeReadyPath = "";
   activeSocketPath = "";
   appReadySignaled = false;
+  hostRuntimeLayer = ForstNodeRuntimeLayer;
+  hostRuntime = createNodeRuntimeSetup(ForstNodeRuntimeLayer).runtime;
 }
 
-/**
- * Marks app initialization complete and writes the ready file with phase "app".
- * Idempotent. Requires a prior startForstNodeHost() with deferAppReady or a ready path.
- */
-export async function signalForstAppReady(): Promise<void> {
+const closeHostHandle = Effect.fn("Host.close")(function* (ctx: HostCloseContext) {
+  yield* Effect.annotateCurrentSpan("socket", ctx.socketPath);
+  yield* Effect.tryPromise({
+    try: async () => {
+      if (activeConnection) {
+        activeConnection.destroy();
+        activeConnection = null;
+      }
+      await new Promise<void>((resolve, reject) => {
+        if (!activeServer) {
+          resolve();
+          return;
+        }
+        activeServer.close((err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve();
+        });
+      });
+      activeServer = null;
+      if (!isWindows() && ctx.socketPath && fs.existsSync(ctx.socketPath)) {
+        try {
+          fs.unlinkSync(ctx.socketPath);
+        } catch {
+          // best effort
+        }
+      }
+      if (ctx.readyPath && fs.existsSync(ctx.readyPath)) {
+        try {
+          fs.unlinkSync(ctx.readyPath);
+        } catch {
+          // best effort
+        }
+      }
+      activeReadyPath = "";
+      activeSocketPath = "";
+      appReadySignaled = false;
+    },
+    catch: (cause) =>
+      cause instanceof Error ? cause : new Error(String(cause)),
+  });
+});
+
+const hostStartNoop = Effect.fn("Host.startNoop")(function* () {
+  yield* Effect.logDebug("host_skip").pipe(
+    Effect.annotateLogs({ event: "host_skip", reason: "FORST_NODE_HOST unset" })
+  );
+  return {
+    socketPath: "",
+    close: () => Effect.void,
+  } satisfies HostHandle;
+});
+
+const hostStart = Effect.fn("Host.start")(function* (options: HostOptions) {
+  const readyPath = options.readyPath ?? process.env[envReadyPath] ?? "";
+  let socketPath = options.socketPath ?? process.env[envSocketPath] ?? "";
+  const deferAppReady = options.deferAppReady ?? false;
+
+  let server: net.Server;
+  if (isWindows()) {
+    const tcp = yield* listenTcp();
+    server = tcp.server;
+    socketPath = `tcp://127.0.0.1:${tcp.port}`;
+  } else {
+    if (!socketPath) {
+      return yield* Effect.fail(
+        new Error("FORST_NODE_SOCKET is required on Unix")
+      );
+    }
+    server = yield* listenUnix(socketPath);
+  }
+
+  activeServer = server;
+  activeReadyPath = readyPath;
+  activeSocketPath = socketPath;
+  attachConnectionHandler(server);
+
+  if (readyPath && !deferAppReady) {
+    yield* Effect.sync(() => writeReadyFile(readyPath, socketPath, "app"));
+    appReadySignaled = true;
+  }
+
+  yield* Effect.annotateCurrentSpan("socket", socketPath);
+  yield* Effect.annotateCurrentSpan("defer_app_ready", deferAppReady);
+
+  yield* Effect.logInfo("host_listening").pipe(
+    Effect.annotateLogs({
+      event: "host_listening",
+      socket: socketPath,
+      pid: process.pid,
+      defer_app_ready: deferAppReady,
+    })
+  );
+
+  const closeCtx: HostCloseContext = { socketPath, readyPath };
+  return {
+    socketPath,
+    close: () => closeHostHandle(closeCtx),
+  } satisfies HostHandle;
+});
+
+/** Marks app initialization complete and writes the ready file with phase "app". */
+export const signalForstAppReady = Effect.fn("Host.signalAppReady")(function* () {
   if (!hostEnabled()) {
-    log("host_app_ready_skip", { reason: "FORST_NODE_HOST unset" });
+    yield* Effect.logDebug("host_app_ready_skip").pipe(
+      Effect.annotateLogs({
+        event: "host_app_ready_skip",
+        reason: "FORST_NODE_HOST unset",
+      })
+    );
     return;
   }
   if (appReadySignaled) {
     return;
   }
   if (!activeReadyPath) {
-    throw new Error(
-      "signalForstAppReady: host not started or ready path unset; call startForstNodeHost first"
+    return yield* Effect.fail(
+      new Error(
+        "signalForstAppReady: host not started or ready path unset; call startForstNodeHost first"
+      )
     );
   }
   if (!activeSocketPath) {
-    throw new Error("signalForstAppReady: host socket path unset");
+    return yield* Effect.fail(
+      new Error("signalForstAppReady: host socket path unset")
+    );
   }
 
-  writeReadyFile(activeReadyPath, activeSocketPath, "app");
+  yield* Effect.sync(() =>
+    writeReadyFile(activeReadyPath, activeSocketPath, "app")
+  );
   appReadySignaled = true;
-  log("host_app_ready", { socket: activeSocketPath, pid: process.pid });
-}
+  yield* Effect.annotateCurrentSpan("socket", activeSocketPath);
+  yield* Effect.logInfo("host_app_ready").pipe(
+    Effect.annotateLogs({
+      event: "host_app_ready",
+      socket: activeSocketPath,
+      pid: process.pid,
+    })
+  );
+});
 
 /**
  * No-op unless FORST_NODE_HOST=1. Idempotent. Logs to stderr only. Single client connection.
  */
-export function startForstNodeHost(options: HostOptions = {}): Promise<HostHandle> {
+export function startForstNodeHost(
+  options: HostOptions = {}
+): Effect.Effect<HostHandle, Error, never> {
   if (!hostEnabled()) {
-    log("host_skip", { reason: "FORST_NODE_HOST unset" });
-    return Promise.resolve({
-      socketPath: "",
-      close: async () => {},
-    });
+    return hostStartNoop();
   }
 
   if (startPromise) {
-    return startPromise;
+    return Effect.tryPromise({
+      try: () => startPromise!,
+      catch: (cause) =>
+        cause instanceof Error ? cause : new Error(String(cause)),
+    });
   }
 
-  startPromise = (async () => {
-    const readyPath =
-      options.readyPath ?? process.env[envReadyPath] ?? "";
-    let socketPath = options.socketPath ?? process.env[envSocketPath] ?? "";
-    const deferAppReady = options.deferAppReady ?? false;
+  const setup = createNodeRuntimeSetup(
+    options.runtimeLayer ?? ForstNodeRuntimeLayer
+  );
+  hostRuntimeLayer = setup.layer;
+  hostRuntime = setup.runtime;
 
-    let server: net.Server;
-    if (isWindows()) {
-      const tcp = await listenTcp();
-      server = tcp.server;
-      socketPath = `tcp://127.0.0.1:${tcp.port}`;
-    } else {
-      if (!socketPath) {
-        throw new Error("FORST_NODE_SOCKET is required on Unix");
-      }
-      server = await listenUnix(socketPath);
-    }
+  startPromise = Effect.runPromise(
+    hostStart(options).pipe(Effect.provide(hostRuntimeLayer))
+  );
 
-    activeServer = server;
-    activeReadyPath = readyPath;
-    activeSocketPath = socketPath;
-    attachConnectionHandler(server);
-
-    if (readyPath && !deferAppReady) {
-      writeReadyFile(readyPath, socketPath, "app");
-      appReadySignaled = true;
-    }
-
-    log("host_listening", {
-      socket: socketPath,
-      pid: process.pid,
-      defer_app_ready: deferAppReady,
-    });
-
-    return {
-      socketPath,
-      close: async () => {
-        if (activeConnection) {
-          activeConnection.destroy();
-          activeConnection = null;
-        }
-        await new Promise<void>((resolve, reject) => {
-          if (!activeServer) {
-            resolve();
-            return;
-          }
-          activeServer.close((err) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve();
-          });
-        });
-        activeServer = null;
-        if (!isWindows() && socketPath && fs.existsSync(socketPath)) {
-          try {
-            fs.unlinkSync(socketPath);
-          } catch {
-            // best effort
-          }
-        }
-        if (readyPath && fs.existsSync(readyPath)) {
-          try {
-            fs.unlinkSync(readyPath);
-          } catch {
-            // best effort
-          }
-        }
-        activeReadyPath = "";
-        activeSocketPath = "";
-        appReadySignaled = false;
-      },
-    };
-  })();
-
-  return startPromise;
+  return Effect.tryPromise({
+    try: () => startPromise!,
+    catch: (cause) =>
+      cause instanceof Error ? cause : new Error(String(cause)),
+  });
 }

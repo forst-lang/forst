@@ -3,7 +3,7 @@ package nodert
 // Host mode invariants (local trust zone only):
 //   - One Go supervisor client per process; the host rejects a second socket connection.
 //   - RPC uses a single bidirectional net.Conn (Unix domain socket or loopback TCP on Windows).
-//   - Host-mode logs go to stderr only so app stdout stays free for frameworks (morgan, vitest, etc.).
+//   - Host child stdout/stderr are piped and forwarded to the parent process (bootstrap keeps stdout for RPC).
 //   - Manifest allowlist and path rules are unchanged; initialize is required before calls.
 
 import (
@@ -135,12 +135,18 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 	}
 	execCmd.Env = cmd.Env
 
+	stdout, err := execCmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("create stdout pipe: %w", err)
+	}
 	stderr, err := execCmd.StderrPipe()
 	if err != nil {
+		_ = stdout.Close()
 		return nil, fmt.Errorf("create stderr pipe: %w", err)
 	}
 
 	if err := execCmd.Start(); err != nil {
+		_ = stdout.Close()
 		_ = stderr.Close()
 		return nil, fmt.Errorf("start host process (executable=%s): %w", cmd.Executable, err)
 	}
@@ -157,10 +163,12 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 		"socket_path":     cmd.SocketPath,
 	}).Debug("spawned host app process")
 
-	go forwardStderr(log, stderr)
+	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
+	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
 
 	return &managedProcess{
 		cmd:    execCmd,
+		stdout: stdout,
 		stderr: stderr,
 		log:    log,
 	}, nil
