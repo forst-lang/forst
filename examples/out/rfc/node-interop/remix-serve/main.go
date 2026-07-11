@@ -63,7 +63,7 @@ type T_LKhz7DyfNqT struct {
 func AddTodo(input AddTodoRequest) AddTodoResponse {
 	created, createdErr := forst_node_callsync_legacy_todos_ts_addTodo(input.Title)
 	if !(createdErr == nil) {
-		return AddTodoResponse{Title: "", Status: "", Id: ""}
+		return AddTodoResponse{Id: "", Title: "", Status: ""}
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
 }
@@ -88,7 +88,7 @@ func GetDashboard() T_7nWLvcjQ76D {
 func ListTodos() T_D415raHQ7uQ {
 	encoded, encodedErr := forst_node_callsync_legacy_todos_ts_formatTodoList()
 	if !(encodedErr == nil) {
-		return T_D415raHQ7uQ{Done: 0.0, Encoded: "", Open: 0.0}
+		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {

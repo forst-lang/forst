@@ -142,6 +142,14 @@ func TestExampleEmbeddedInvokeCompileGolden(t *testing.T) {
 				t.Fatalf("read golden %s: %v (set UPDATE_EMBEDDED_INVOKE_GOLDEN=1 to create)", goldenPath, err)
 			}
 			verifyEmbeddedInvokePackageCompileGolden(t, string(expectedMain), actual.Main, goldenPath, tc.mainMarkers)
+			verifyCompanionPackageGoBuild(t, "fresh compile/"+tc.name, actual.Main, "", actual.Invoke)
+			verifyCompanionGoldenFilesGoBuild(
+				t,
+				"committed goldens/"+tc.name,
+				goldenPath,
+				"",
+				invokeGoldenPath,
+			)
 
 			if len(tc.invokeMarkers) > 0 {
 				if actual.Invoke == "" {

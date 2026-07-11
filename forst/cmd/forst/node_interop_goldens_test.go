@@ -287,6 +287,23 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 				t.Fatalf("read golden %s: %v (set UPDATE_NODE_INTEROP_GOLDEN=1 to create)", goldenPath, err)
 			}
 			verifyNodeInteropPackageCompileGolden(t, string(expectedMain), actual.Main, goldenPath, tc.mainMarkers)
+			verifyCompanionPackageGoBuild(t, "fresh compile/"+tc.name, actual.Main, actual.Runtime, actual.Invoke)
+
+			runtimeGoldenPathForBuild := ""
+			if len(tc.runtimeMarkers) > 0 {
+				runtimeGoldenPathForBuild = runtimeGoldenPath
+			}
+			invokeGoldenPathForBuild := ""
+			if len(tc.invokeMarkers) > 0 {
+				invokeGoldenPathForBuild = invokeServerGoldenPath(goldenPath)
+			}
+			verifyCompanionGoldenFilesGoBuild(
+				t,
+				"committed goldens/"+tc.name,
+				goldenPath,
+				runtimeGoldenPathForBuild,
+				invokeGoldenPathForBuild,
+			)
 
 			if len(tc.runtimeMarkers) > 0 {
 				if actual.Runtime == "" {

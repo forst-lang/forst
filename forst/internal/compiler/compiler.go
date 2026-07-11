@@ -79,6 +79,33 @@ func runGoSourceFiles(outputPath string) ([]string, error) {
 	return matches, nil
 }
 
+// BuildGoProgram writes main and optional companion Go files and runs `go build` to verify they compile.
+func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string) error {
+	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode)
+	if err != nil {
+		return err
+	}
+	tempDir := filepath.Dir(outputPath)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	sources, err := runGoSourceFiles(outputPath)
+	if err != nil {
+		return err
+	}
+	modRoot := goModuleRootForRun(outputPath)
+	if modRoot == "" {
+		return fmt.Errorf("go build: no module root for generated program")
+	}
+	outBin := filepath.Join(tempDir, "forst-build")
+	cmd := exec.Command("go", append([]string{"build", "-o", outBin}, sources...)...)
+	cmd.Dir = modRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("go build failed: %w\n%s", err, out)
+	}
+	return nil
+}
+
 func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered := make([]string, 0, len(env)+1)
 	prefix := nodert.EnvBoundaryRoot + "="

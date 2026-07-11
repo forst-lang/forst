@@ -17,7 +17,7 @@ type (
 		Value   float64
 	}
 	forstNodeSeq_float64 struct {
-		inner nodert.Seq[float64]
+		inner *nodert.Seq[float64]
 	}
 )
 

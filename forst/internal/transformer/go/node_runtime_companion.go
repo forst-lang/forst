@@ -496,10 +496,10 @@ func (t *Transformer) ensureForstNodeSeqTypes(ret ast.TypeNode) (string, *goast.
 				&goast.TypeSpec{
 					Name: seqIdent,
 					Type: &goast.StructType{Fields: &goast.FieldList{List: []*goast.Field{
-						{Names: []*goast.Ident{goast.NewIdent("inner")}, Type: &goast.IndexExpr{
+						{Names: []*goast.Ident{goast.NewIdent("inner")}, Type: &goast.StarExpr{X: &goast.IndexExpr{
 							X:     &goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent("Seq")},
 							Index: elemGoType,
-						}},
+						}}},
 					}}},
 				},
 			},

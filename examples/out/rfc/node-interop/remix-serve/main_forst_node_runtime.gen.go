@@ -17,7 +17,7 @@ type (
 		Value   string
 	}
 	forstNodeSeq_string struct {
-		inner nodert.Seq[string]
+		inner *nodert.Seq[string]
 	}
 )
 type (
@@ -27,7 +27,7 @@ type (
 		Value   T_LKhz7DyfNqT
 	}
 	forstNodeSeq_t_lkhz7dyfnqt struct {
-		inner nodert.Seq[T_LKhz7DyfNqT]
+		inner *nodert.Seq[T_LKhz7DyfNqT]
 	}
 )
 

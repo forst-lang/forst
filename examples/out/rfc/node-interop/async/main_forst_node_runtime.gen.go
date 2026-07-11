@@ -16,7 +16,7 @@ type (
 		Value   T_G2n6vMumV8n
 	}
 	forstNodeSeq_t_g2n6vmumv8n struct {
-		inner nodert.Seq[T_G2n6vMumV8n]
+		inner *nodert.Seq[T_G2n6vMumV8n]
 	}
 )
 

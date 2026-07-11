@@ -3,7 +3,6 @@ package compiler
 import (
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -530,31 +529,13 @@ func TestGoModuleRootForRun_companionFiles(t *testing.T) {
 }
 
 func TestRunGoProgram_companionImportsCompile(t *testing.T) {
-	forstMod := forstCompilerModuleFromTest(t)
-	tempDir, err := os.MkdirTemp("", "forst-build-*")
+	forstCompilerModuleFromTest(t)
+	err := BuildGoProgram(
+		"package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n",
+		"package main\n",
+		"",
+	)
 	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
-
-	mainPath := filepath.Join(tempDir, "main.go")
-	mainCode := "package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n"
-	if err := os.WriteFile(mainPath, []byte(mainCode), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	runtimePath := filepath.Join(tempDir, transformer_go.ForstNodeRuntimeFileName()+".go")
-	if err := os.WriteFile(runtimePath, []byte("package main\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	sources, err := runGoSourceFiles(mainPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("go", append([]string{"build", "-o", filepath.Join(tempDir, "out")}, sources...)...)
-	cmd.Dir = forstMod
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go build failed: %v\n%s", err, out)
+		t.Fatalf("BuildGoProgram: %v", err)
 	}
 }
