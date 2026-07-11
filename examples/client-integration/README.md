@@ -66,7 +66,7 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node)
 
 Forst code:
 
-```forst
+```ft
 package echo
 
 type EchoRequest = {
@@ -193,7 +193,7 @@ main().catch(console.error);
 
 Forst code:
 
-```forst
+```ft
 package validation
 
 type User = {
@@ -308,7 +308,7 @@ function processData(records: DataRecord[]): ProcessedData[] {
 
 ### Step 3: Create Forst Implementation
 
-```forst
+```ft
 // functions/data_processing.ft
 package dataprocessing
 

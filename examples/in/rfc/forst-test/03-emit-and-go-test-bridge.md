@@ -39,7 +39,7 @@ flowchart LR
 
 Forst:
 
-```forst
+```ft
 func TestExpireToken(t *testing.T) { ... }
 ```
 

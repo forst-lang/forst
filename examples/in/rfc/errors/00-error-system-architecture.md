@@ -71,7 +71,7 @@ The **implementation** supplies a base **`Error`** with fields along these lines
 
 **Explicit:** declare the nominal and its payload shape in source (**inherits** the base **`Error`** automatically):
 
-```forst
+```ft
 error NotPositive {
     field: String
 }
@@ -83,7 +83,7 @@ Other domains can use the same pattern (`RateLimited({ … })`, …). **Retryabi
 
 The classification examples later use a second illustrative nominal:
 
-```forst
+```ft
 error IoTimeout {
     op: String
 }
@@ -95,7 +95,7 @@ error IoTimeout {
 
 ### 1. Error Context Structure
 
-```forst
+```ft
 struct ErrorContext {
     // Tracing identifiers
     traceId: String
@@ -144,7 +144,7 @@ Requiring **`ensure`** steers authors toward **what must hold** for the function
 
 Illustrative (syntax follows the normative errors / `ensure` RFCs):
 
-```forst
+```ft
 func parsePositive(n: Int): Result(Int, NotPositive)
   ensure n > 0 or NotPositive({
     field: "n",
@@ -162,7 +162,7 @@ This document does **not** prescribe **factory functions** (`newXError`, `NewXEr
 
 ### 1. Error Processing Pipeline
 
-```forst
+```ft
 func handleError(error: Error) Error {
     // 1. Log error with context
     logError(error)
@@ -188,7 +188,7 @@ func handleError(error: Error) Error {
 
 Retry and alerting are **not** fixed by the language. You match on **nominal types you declared** (here `NotPositive` is the illustrative error from §2 above; `IoTimeout` stands in for another error you might define elsewhere).
 
-```forst
+```ft
 func isRetryableError(error: Error) Bool {
     switch error {
     case NotPositive:

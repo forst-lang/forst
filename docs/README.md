@@ -13,7 +13,7 @@ npx mintlify dev
 
 Open [http://localhost:3000](http://localhost:3000). The preview updates as you edit MDX files.
 
-Custom `forst` highlighting works in local preview when `docs.json` registers the grammar (see **Syntax highlighting** below). Hosted production embeds grammars at deploy time, so push and redeploy after grammar or `docs.json` changes.
+Custom `ft` highlighting works in local preview when `docs.json` registers the grammar (see **Syntax highlighting** below). Hosted production embeds grammars at deploy time, so push and redeploy after grammar or `docs.json` changes.
 
 ## Validate links
 
@@ -46,7 +46,7 @@ Any doc URL also has a `.md` variant (example: `/quickstart.md`). See [Mintlify 
 
 ## Code samples
 
-- Use ` ```forst` for all Forst source, including `.ft` examples on workflow pages.
+- Use ` ```ft` for all Forst source, including `.ft` examples on workflow pages.
 - Use ` ```go` only for literal Go comparison code (not Forst).
 - Use ` ```text` for directory trees and other non-code layout.
 - Shell, JSON, and TypeScript keep their native fence tags.
@@ -59,9 +59,9 @@ import CatalogOrder from "/snippets/catalog-order.mdx";
 <CatalogOrder />
 ```
 
-Syntax highlighting uses a TextMate grammar at [`languages/forst.json`](./languages/forst.json), registered in [`docs.json`](./docs.json) under `styling.codeblocks.languages.custom`. The fence tag must be `forst` (matches the grammar `"name"` field).
+Syntax highlighting uses a TextMate grammar at [`languages/forst.json`](./languages/forst.json), registered in [`docs.json`](./docs.json) under `styling.codeblocks.languages.custom`. The fence tag must be `ft` (matches the grammar `"name"` field).
 
-When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json`. Keep `"name": "forst"` lowercase.
+When Forst keywords change, sync from [`packages/vscode-forst/syntaxes/forst.tmLanguage.json`](../packages/vscode-forst/syntaxes/forst.tmLanguage.json) into `languages/forst.json`. Keep `"name": "ft"` lowercase.
 
 **Local works, production does not:** Mintlify embeds custom Shiki grammars during deploy, not at page load. Confirm `languages/forst.json` is committed and trigger a fresh deploy from the Mintlify dashboard. To match site light/dark mode for other languages, set `styling.codeblocks` to `"system"` (string) or use a Shiki theme object; custom grammars go in the object form under `languages.custom` only.
 

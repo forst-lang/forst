@@ -78,7 +78,7 @@ The transformer fails to match shape literals to named type definitions when gen
 
 ## Original Forst Code
 
-```forst
+```ft
 type User = {
   name: String,
 }

@@ -236,7 +236,7 @@ Reader-oriented expansion of §Requirements. Normative detail and examples: [SPE
 
 #### `use`
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     use logger: Logger
     use clock: Clock
@@ -251,7 +251,7 @@ func expireToken(token Token): Result(Token, Error) {
 
 #### `with`
 
-```forst
+```ft
 with ciUserApiServices() {
     with { Clock: &FakeClock { fixedMs: 2000 } } {
         expireToken(token)
@@ -387,7 +387,7 @@ Full examples: [SPEC § Examples](./SPEC.md#examples). Token expiry and user API
 
 Minimal sketch:
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     use logger: Logger
     use clock: Clock

@@ -55,7 +55,7 @@ The typechecker and runtime treat a single abstract **base `Error`** (fields and
 
 Every user error is introduced as **`error X { … }`**. The language ties that nominal to the abstract base **`Error`** for typing and lowering; there is **no** separate **`extends`** syntax and **no** inheritance between **two** user-defined error nominals—if you need a “more specific” failure, declare **another** nominal (and a distinct constructor) rather than refining an existing one through inheritance.
 
-```forst
+```ft
 error NotPositive {
     field: String
 }
@@ -65,7 +65,7 @@ error NotPositive {
 
 If **`N`** is **not** yet declared, the **first** use of a constructor on the **`or`** side **introduces** **`error N { … }`** whose **payload shape** is inferred from that constructor (typed compatibly with **`Error`** / **`F`** per §5). Example:
 
-```forst
+```ft
 ensure n > 0 or NotPositive({
     field: "n",
 })

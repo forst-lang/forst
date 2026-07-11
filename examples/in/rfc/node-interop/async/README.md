@@ -2,7 +2,7 @@
 
 Blocking sync Forst calling multiple TypeScript modules — async functions and async generators.
 
-```forst
+```ft
 import node "./legacy/payment"
 import node "./legacy/events"
 

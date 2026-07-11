@@ -18,7 +18,7 @@ const dest = path.join(repoRoot, "docs/languages/forst.json");
 const grammar = JSON.parse(fs.readFileSync(source, "utf8"));
 const docsGrammar = {
   ...grammar,
-  name: "forst",
+  name: "ft",
   fileTypes: ["ft"],
 };
 fs.writeFileSync(dest, JSON.stringify(docsGrammar, null, 2) + "\n");

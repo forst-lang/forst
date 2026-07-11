@@ -552,7 +552,7 @@ npm install @forst/example
 
 ### Forst Source
 
-```forst
+```ft
 // example.ft
 func processUser(id: Int) String {
     user := getUserById(id)

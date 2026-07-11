@@ -333,7 +333,7 @@ func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
 		t.Fatalf("keyword: got %q", s)
 	}
 	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
-	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "```forst") || !strings.Contains(s, "foo") || !strings.Contains(s, "parses") {
+	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "```ft") || !strings.Contains(s, "foo") || !strings.Contains(s, "parses") {
 		t.Fatalf("identifier: got %q", s)
 	}
 	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenIntLiteral, Value: "1"}); s != "" {
@@ -371,7 +371,7 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 	}
 	// Line 2: `unexpected` — lexical identifier hover
 	h := s.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 2})
-	if h == nil || !strings.Contains(h.Contents.Value, "```forst") || !strings.Contains(h.Contents.Value, "unexpected") {
+	if h == nil || !strings.Contains(h.Contents.Value, "```ft") || !strings.Contains(h.Contents.Value, "unexpected") {
 		if h == nil {
 			t.Fatal("expected hover when parse fails")
 		}
@@ -1429,7 +1429,7 @@ func TestNestedWith(t *testing.T) {
 		t.Fatal("nil hover on inner with")
 	}
 	val := h.Contents.Value
-	if !strings.Contains(val, "Effective scope") || !strings.Contains(val, "```forst") {
+	if !strings.Contains(val, "Effective scope") || !strings.Contains(val, "```ft") {
 		t.Fatalf("expected effective scope hover, got %q", val)
 	}
 	if !strings.Contains(val, "Logger") || !strings.Contains(val, "Clock") {

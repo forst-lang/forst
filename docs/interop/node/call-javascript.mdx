@@ -20,7 +20,7 @@ Namespace binding is always used (all exports on the module). There is no `impor
 
 Wire opted-in modules in source and call them from `main`:
 
-```forst
+```ft
 import node "./legacy/payment"
 import node checkout "./legacy/api/checkout"
 
@@ -268,7 +268,7 @@ Node function exports return **`Result(T, Error)`** — the outer layer for RPC 
 
 Sync call from Forst:
 
-```forst
+```ft
 import node "./legacy/payment"
 
 func main() {
@@ -284,7 +284,7 @@ Phase 3 **`callAsync`**: call an `async function` export from ordinary Forst cod
 
 The call site looks the same:
 
-```forst
+```ft
 import node "./legacy/payment"
 
 func main() {
@@ -311,7 +311,7 @@ If a TypeScript `async function` resolves to a tagged union or Result-like value
 
 Combine async RPC and async generator iteration in ordinary sync Forst — no `async func` / `await` required:
 
-```forst
+```ft
 import node "./legacy/payment"
 import node "./legacy/events"
 
@@ -341,7 +341,7 @@ Generator exports open to **`Result(Seq[T], Error)`** — the same outer error m
 
 Pull values from a generator export:
 
-```forst
+```ft
 import node "./legacy/generators"
 
 func main() {

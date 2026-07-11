@@ -94,7 +94,7 @@ Like `strict` TypeScript or `-race` in Go tests — opt in when you’re ready, 
 - When set: any function needing services must have them supplied by a `with` block (or equivalent) — else **compile error**.
 - Default **off** during compiler bring-up; **on** for application packages in CI.
 
-```forst
+```ft
 package users complete requirements
 
 func createUserInternal(...) {
@@ -115,7 +115,7 @@ You have a standard CI test setup (logger, fake DB, blocked HTTP, …). One test
 
 Today that means **blocks inside blocks**:
 
-```forst
+```ft
 with bigSetup {
     with { only Clock changed } {
         run test
@@ -129,7 +129,7 @@ In normal Go tests you’d write one struct literal per table row. Nested blocks
 
 Allow **several maps in one `with`**, merged left to right — like spreading overrides on top of defaults:
 
-```forst
+```ft
 with bigSetup, { Clock: &FakeClock { fixedMs: 2000 } } {
     run test
 }
@@ -141,7 +141,7 @@ Same idea as “start from defaults, override clock” — **one line, one block
 
 **Solution: Comma-merge `with`**
 
-```forst
+```ft
 with ciUserApiServices(), { Clock: &FakeClock { fixedMs: 2000 } } {
     result := expireToken(token)
     ensure result is Err(Expired {})
@@ -176,7 +176,7 @@ Think: Excel template with named columns vs. a freeform JSON blob.
 
 **Solution: Closed fixture type + open overlay**
 
-```forst
+```ft
 type CI = Needs<Logger, UserRepo, HttpClient, EmailSender, Metrics>
 
 func ciUserApiServices(): CI {
@@ -261,7 +261,7 @@ Map values remain `&NopLogger{}`; assign into interface fields at call site.
 
 You read:
 
-```forst
+```ft
 func handleCreateUser(input CreateUserRequest): Result(...)
 ```
 
@@ -281,7 +281,7 @@ You still write `use` in the body once; docs stay in sync automatically.
 
 **Solution: Read-only `needs` stub (derived, not authored)**
 
-```forst
+```ft
 // derived — do not edit
 needs handleCreateUser = { Logger, UserRepo, EmailSender }
 ```
@@ -302,7 +302,7 @@ You can’t say “inside **this** block, only Logger and UserRepo exist — not
 
 A small library helper **`pick`**: take the big map, keep **only** the keys you name:
 
-```forst
+```ft
 with needs.pick(ciUserApiServices(), Logger, UserRepo) {
     auditOnly(...)  // HttpClient not in the smaller map
 }
@@ -314,7 +314,7 @@ Not “remove HttpClient from the universe” — **start a smaller scope** with
 
 **Solution: `pick` projection at scope entry**
 
-```forst
+```ft
 import "forst/needs"
 
 with needs.pick(ciUserApiServices(), Logger, UserRepo) {
@@ -378,7 +378,7 @@ type AppServices struct {
 }
 ```
 
-```forst
+```ft
 with needsFromApp(app) {
     handleCreateUser(req)
 }

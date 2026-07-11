@@ -153,7 +153,7 @@ Assume: `main → handleGetUser → getUser → repo.find`, needs `Logger` + `Us
 
 **Flow A — `provide ctx` at handler (normative §6.5):**
 
-```forst
+```ft
 func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserResponse, Error) {
     provide ctx {
         return createUserInternal(input)
@@ -167,7 +167,7 @@ func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserRespo
 
 **Flow B — `main` entry:**
 
-```forst
+```ft
 func main() {
     ctx := AppContext { logger: StdLogger{}, clock: SystemClock{}, db: PostgresDatabase{…} }
     provide ctx { runServer() }
@@ -184,7 +184,7 @@ func main() {
 
 ### Test wiring
 
-```forst
+```ft
 test "expireToken rejects expired token" {
     result := expireToken(token) provide {
         Logger: NopLogger {},
@@ -196,7 +196,7 @@ test "expireToken rejects expired token" {
 
 Or block form:
 
-```forst
+```ft
 provide { UserRepo: FakeUserRepo { users: … } } {
     result := getUser("42")
     …
@@ -209,7 +209,7 @@ provide { UserRepo: FakeUserRepo { users: … } } {
 
 ### Partial override at call site
 
-```forst
+```ft
 func auditAction(action String, ctx AppContext) {
     require logger: Logger
     doAction(action, provide { Logger: AuditLogger { sink: ctx.logger } })
@@ -276,7 +276,7 @@ The trio is **internally consistent** (declare → bind → satisfy) but **not**
 
 #### 1. **`capability` / `use` / `supply`** (recommended)
 
-```forst
+```ft
 capability Logger { info(msg String) }
 
 func greet(name String) {
@@ -299,7 +299,7 @@ func main() {
 
 #### 2. **`service` / `use` / `with`**
 
-```forst
+```ft
 service Logger { … }
 // body: use logger: Logger
 // test: with { Logger: Fake {} } { … }
@@ -313,7 +313,7 @@ service Logger { … }
 
 #### 3. **`need` / `need` / `given`** (minimal decl)
 
-```forst
+```ft
 type Logger = { … methods … }   // no separate decl
 func f() {
     need logger: Logger           // or: given logger from ctx
@@ -357,7 +357,7 @@ This matches what `02-examples.ft` already shows: `StdLogger` implements logging
 
 #### A. Method-bearing type alias (preferred)
 
-```forst
+```ft
 type Logger = capability {
     info(msg String)
     error(msg String)
@@ -372,7 +372,7 @@ type Logger = {
 
 Implementations unchanged:
 
-```forst
+```ft
 type StdLogger = { level: String }
 func (l StdLogger) info(msg String) { … }
 func (l StdLogger) error(msg String) { … }
@@ -380,7 +380,7 @@ func (l StdLogger) error(msg String) { … }
 
 #### B. Body binding — `use` with inference
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     use logger: Logger
     use clock: Clock
@@ -392,7 +392,7 @@ func expireToken(token Token): Result(Token, Error) {
 
 **Inference rule I2 (optional, high value):** If `use` omitted but body contains `logger.info(…)` and `logger` resolves to a field access on an in-scope **`ctx`** parameter whose type structurally satisfies `Logger`, infer `Logger ∈ Needs(f)` and desugar to `ctx.logger`.
 
-```forst
+```ft
 func handleGetUser(id String, ctx AppContext): Result(User, Error) {
     // inferred: Needs = { Logger, UserRepo } from ctx.db.find / ctx.logger
     return ctx.db.find(id)
@@ -403,7 +403,7 @@ This reduces **`use`** boilerplate where **`AppContext` already documents deps**
 
 #### C. Wiring — unchanged semantics, renamed
 
-```forst
+```ft
 supply ctx {
     getUser(id)
 }
@@ -414,7 +414,7 @@ audit(id, supply { Logger: AuditLogger { sink: ctx.logger } })
 
 #### D. Optional export clause
 
-```forst
+```ft
 func expireToken(token Token) uses Logger, Clock : Result(Token, Error) {
     use logger: Logger
     use clock: Clock
@@ -466,7 +466,7 @@ func expireToken(token Token) uses Logger, Clock : Result(Token, Error) {
 
 ### Ambitious alternative: infer from calls only (no `use`)
 
-```forst
+```ft
 func expireToken(token Token, ctx AppContext): Result(Token, Error) {
     if token.expiresAt < ctx.clock.now() {
         ctx.logger.info("expired")

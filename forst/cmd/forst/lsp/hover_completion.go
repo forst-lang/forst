@@ -265,7 +265,7 @@ func leadingCommentDocBeforeTypeGuard(tokens []ast.Token, guardName string) stri
 }
 
 // variableHoverMarkdownWithGuardDocs puts leading // or /* */ docs first (one block per predicate in
-// the full chain, stacked vertically), then a ```forst``` line with the same predicate chain in the
+// the full chain, stacked vertically), then a ```ft``` line with the same predicate chain in the
 // type using dotted calls (see FormatVariableOccurrenceTypeForHover).
 func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []ast.Token, merge *packageMergeInfo, tok *ast.Token, types []ast.TypeNode) string {
 	vn := ast.VariableNode{

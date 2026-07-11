@@ -61,7 +61,7 @@ func main() {
 	if md == "" {
 		t.Fatal("expected hover markdown")
 	}
-	if !strings.Contains(md, "Effective scope") || !strings.Contains(md, "```forst") {
+	if !strings.Contains(md, "Effective scope") || !strings.Contains(md, "```ft") {
 		t.Fatalf("got %q", md)
 	}
 	if !strings.Contains(md, "shadows outer") {

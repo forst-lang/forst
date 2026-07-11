@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { describe, expect, test } from "bun:test";
 import {
   chmodSync,
@@ -12,7 +11,6 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
-import { getCompilerModuleArtifactName } from "./compiler-module.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import type { FetchImpl } from "./http.js";
 import {
@@ -35,42 +33,6 @@ function seedCompilerModuleCache(cacheRoot: string, version: string): void {
   mkdirSync(join(cacheRoot, version, "module", "cmd", "forst"), {
     recursive: true,
   });
-}
-
-function createCompilerModuleTarball(): Buffer {
-  const root = mkdtempSync(join(tmpdir(), "forst-mod-tar-"));
-  try {
-    mkdirSync(join(root, "cmd", "forst"), { recursive: true });
-    const tarPath = join(root, "mod.tgz");
-    execFileSync("tar", ["-czf", tarPath, "-C", root, "."], { stdio: "pipe" });
-    return readFileSync(tarPath);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-}
-
-function withModuleTarballFetch(
-  version: string,
-  inner: FetchImpl
-): FetchImpl {
-  const moduleArtifact = getCompilerModuleArtifactName(version);
-  return async (url, init) => {
-    const s = String(url);
-    if (s.includes(moduleArtifact)) {
-      return new Response(createCompilerModuleTarball(), { status: 200 });
-    }
-    return inner(url, init);
-  };
-}
-
-function withModuleTarballFetchVersions(
-  versions: string[],
-  inner: FetchImpl
-): FetchImpl {
-  return versions.reduce(
-    (wrapped, version) => withModuleTarballFetch(version, wrapped),
-    inner
-  );
 }
 
 test("getCompilerArtifactName matches release task naming", () => {
@@ -152,11 +114,12 @@ describe("resolveForstBinary", () => {
         expect(String(url)).toContain("/download/v0.6.0/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
         version: "0.6.0",
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -196,7 +159,7 @@ describe("resolveForstBinary", () => {
           ...verifyOff,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -255,10 +218,11 @@ describe("resolveForstBinary", () => {
         }
         throw new Error(`unexpected fetch: ${s}`);
       };
+      seedCompilerModuleCache(cacheRoot, fallback);
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl: withModuleTarballFetch(fallback, fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -303,10 +267,11 @@ describe("resolveForstBinary", () => {
         }
         throw new Error(`unexpected fetch: ${s}`);
       };
+      seedCompilerModuleCache(cacheRoot, published);
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl: withModuleTarballFetch(published, fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -348,7 +313,7 @@ describe("resolveForstBinary", () => {
           ...verifyOff,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);
 
@@ -385,6 +350,7 @@ describe("resolveForstBinary", () => {
         expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
         version: "0.6.0",
@@ -392,7 +358,7 @@ describe("resolveForstBinary", () => {
           ...process.env,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -425,6 +391,7 @@ describe("resolveForstBinary", () => {
         expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
         version: "0.6.0",
@@ -432,7 +399,7 @@ describe("resolveForstBinary", () => {
           ...process.env,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -471,7 +438,7 @@ describe("resolveForstBinary", () => {
           FORST_CACHE_DIR: cacheRoot,
           FORST_CLI_VERIFY: "strict",
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);
 
@@ -501,7 +468,7 @@ describe("resolveForstBinary", () => {
           FORST_CACHE_DIR: cacheRoot,
           FORST_CLI_VERIFY: "strict",
         },
-        fetchImpl: withModuleTarballFetch("9.9.9", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);
 
@@ -539,7 +506,7 @@ describe("resolveForstBinary", () => {
           FORST_CACHE_DIR: cacheRoot,
           FORST_CLI_VERIFY: "1",
         },
-        fetchImpl: withModuleTarballFetch("0.4.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);
 
@@ -589,6 +556,7 @@ describe("resolveForstBinary", () => {
         expect(s).toContain("/download/v99.0.0/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "99.0.0");
 
       const p = await resolveForstBinary({
         preferLatestRelease: true,
@@ -596,7 +564,7 @@ describe("resolveForstBinary", () => {
           ...process.env,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("99.0.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       });
 
@@ -676,7 +644,7 @@ describe("resolveForstBinary", () => {
           ...process.env,
           FORST_CACHE_DIR: cacheRoot
         },
-        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
+        fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);
 

@@ -5,7 +5,7 @@ import "strings"
 
 // Fence language ids used for syntax highlighting in LSP markdown hovers.
 const (
-	LangForst      = "forst"
+	LangForst      = "ft"
 	LangGo         = "go"
 	LangTypeScript = "typescript"
 )
@@ -18,7 +18,7 @@ func CodeBlock(lang string, lines ...string) string {
 	return "```" + lang + "\n" + strings.Join(lines, "\n") + "\n```"
 }
 
-// ForstBlock returns a ```forst fenced block.
+// ForstBlock returns a ```ft fenced block.
 func ForstBlock(lines ...string) string {
 	return CodeBlock(LangForst, lines...)
 }

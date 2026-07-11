@@ -37,15 +37,21 @@
           "textMateRules": [
             {
               "scope": "entity.name.function.constraint.forst",
-              "settings": { "foreground": "#C586C0" }
+              "settings": {
+                "foreground": "#C586C0"
+              }
             },
             {
               "scope": "entity.name.function.typeguard.forst",
-              "settings": { "foreground": "#B5CEA8" }
+              "settings": {
+                "foreground": "#B5CEA8"
+              }
             },
             {
               "scope": "entity.name.type.error.forst",
-              "settings": { "foreground": "#F44747" }
+              "settings": {
+                "foreground": "#F44747"
+              }
             }
           ]
         }

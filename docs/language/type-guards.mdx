@@ -50,7 +50,7 @@ A guard runs once at the **`ensure`** or **`if`** site. After it passes, the com
 
 If you reassign the variable or mutate its fields afterward, runtime state can fall out of sync with what the compiler still believes:
 
-```forst
+```ft
 ensure ctx is LoggedIn()
 ctx.sessionId = nil   // runtime: no longer logged in
 // compiler may still treat ctx as LoggedIn here

@@ -96,7 +96,7 @@ Requirements **lower to struct fields** on a synthesized needs struct or on an e
 
 A **requirement** is a package-scoped declaration naming a **method set** the runtime must supply. It is **not** a value type.
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
     error(msg String)
@@ -125,7 +125,7 @@ requirement UserRepo {
 
 Inside a function body, **`require`** binds a local name to an implementation supplied by the caller’s **`provide`**:
 
-```forst
+```ft
 require <name>: <RequirementIdent>
 require <RequirementIdent>          // shorthand: name = lowerCamel(RequirementIdent)
 ```
@@ -146,7 +146,7 @@ require <RequirementIdent>          // shorthand: name = lowerCamel(RequirementI
 
 #### 3.3.1 Postfix on calls (primary)
 
-```forst
+```ft
 <callee>(<args>) provide { <RequirementIdent>: <expr>, ... }
 <callee>(<args>) provide forward
 ```
@@ -157,7 +157,7 @@ require <RequirementIdent>          // shorthand: name = lowerCamel(RequirementI
 
 #### 3.3.2 Block forms
 
-```forst
+```ft
 provide <expr> { <body> }           // satisfy inner calls from struct fields
 provide { <RequirementIdent>: <expr>, ... } { <body> }
 ```
@@ -170,7 +170,7 @@ provide { <RequirementIdent>: <expr>, ... } { <body> }
 
 For **exported** functions, an optional clause documents the inferred set (Agent C traceability + Agent A public API honesty):
 
-```forst
+```ft
 func expireToken(token Token) requires Logger, Clock
     : Result(Token, Error) {
     require logger: Logger
@@ -265,7 +265,7 @@ When package **`api`** calls package **`domain`**’s **`getUser`** needing **`L
 
 ### 6.1 Requirement → interface
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
 }
@@ -281,7 +281,7 @@ type Logger interface {
 
 For `expireToken` with **`Req = { Logger, Clock }`**:
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     require logger: Logger
     require clock: Clock
@@ -314,7 +314,7 @@ Functions with **empty** **`Req(F)`** emit **no** synthetic struct — zero over
 
 ### 6.3 Call-site `provide` → struct literal
 
-```forst
+```ft
 expireToken(token) provide {
     Logger: ctx.logger,
     Clock:  ctx.clock,
@@ -330,7 +330,7 @@ expireToken(expireTokenNeeds{
 
 ### 6.4 `provide ctx { … }` block
 
-```forst
+```ft
 provide ctx {
     saveOrder(req)
     notify(req.id)
@@ -350,7 +350,7 @@ Compiler may reuse temporaries when the same field subset repeats (optimization 
 
 Exported handlers keep **public** data parameters only:
 
-```forst
+```ft
 func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserResponse, Error) {
     provide ctx {
         return createUserInternal(input)
@@ -371,7 +371,7 @@ External JSON-RPC / HTTP clients send **data**; the sidecar host builds **`AppCo
 
 **Forst**
 
-```forst
+```ft
 package demo
 
 requirement Logger {
@@ -415,7 +415,7 @@ func main() {
 
 Tests **`provide`** fake implementations as **plain struct literals** — isomorphic to Effect’s **`Layer.succeed`**, but visible in source:
 
-```forst
+```ft
 test "expireToken rejects expired token" {
     token := Token { id: "t1", expiresAt: 1000 }
 
@@ -432,7 +432,7 @@ test "expireToken rejects expired token" {
 
 An agent (or human) reads the **`requirement`** block and emits a struct + methods:
 
-```forst
+```ft
 type FakeClock = { fixedMs: Int }
 func (c FakeClock) now(): Int { return c.fixedMs }
 

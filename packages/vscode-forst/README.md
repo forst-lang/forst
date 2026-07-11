@@ -76,7 +76,7 @@ task sync:forst-grammar
 
 ## Syntax coloring
 
-The extension registers a TextMate grammar (`syntaxes/forst.tmLanguage.json`) for `.ft` buffers and for LSP hover fenced blocks tagged ` ```forst `. Hover coloring requires this extension (or another grammar provider for `source.forst`); the Forst LSP emits markdown fences but does not paint tokens itself.
+The extension registers a TextMate grammar (`syntaxes/forst.tmLanguage.json`) for `.ft` buffers (`languageId: forst`). LSP hovers emit ` ```ft ` fences; VS Code markdown does **not** map language aliases to fence tags, so hover blocks are plain text unless you register a separate `ft` language (or rename the primary language id to `ft`).
 
 ### Layer 1 — theme-inherited scopes (TS/Go convention)
 
@@ -107,7 +107,7 @@ Pinned via `configurationDefaults.editor.tokenColorCustomizations` in `package.j
 
 | Hover content | Fence language | Grammar |
 | --- | --- | --- |
-| Forst signatures, variables, fields, guards | `forst` | This extension |
+| Forst signatures, variables, fields, guards | `ft` (Mintlify / Shiki; VS Code hovers: no coloring yet) | This extension |
 | Go FFI / imports | `go` | Built-in Go grammar |
 | Node interop exports / aliases | `typescript` | Built-in TypeScript grammar |
 

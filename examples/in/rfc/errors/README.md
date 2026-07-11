@@ -108,7 +108,7 @@ See **[02 — First-class errors (normative)](./02-first-class-errors-normative.
 
 Explicit:
 
-```forst
+```ft
 error BadEmail {
     field: String
 }
@@ -118,7 +118,7 @@ Or introduce **`BadEmail`** implicitly from the first **`ensure … or BadEmail(
 
 ### 2. Fail only via `ensure` on `Result`
 
-```forst
+```ft
 func parsePositive(n: Int): Result(Int, NotPositive)
   ensure n > 0 or NotPositive({ field: "n" })
   return n

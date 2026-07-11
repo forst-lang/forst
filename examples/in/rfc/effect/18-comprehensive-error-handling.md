@@ -38,7 +38,7 @@ This document provides a comprehensive approach to error handling in Forst that 
 
 The language supplies an abstract base **`Error`** for typing and lowering; **authors do not write `error Error { … }`**. User nominals use **`error X { … }`** only (no **`extends`**, no inheritance between user nominals)—see [errors / 02 — normative](../errors/02-first-class-errors-normative.md).
 
-```forst
+```ft
 // User nominals (each implicitly inherits the language base Error)
 error ValidationError {
     field: String
@@ -82,7 +82,7 @@ enum Severity {
 
 ### 2. Error Context and Tracing
 
-```forst
+```ft
 // Error context and tracing support
 struct ErrorContext {
     traceId: String
@@ -120,7 +120,7 @@ func enrichError(error: Error, context: ErrorContext) Error {
 
 ### 3. Error Factory Functions
 
-```forst
+```ft
 // Error factory functions
 func newValidationError(field: String, value: String?, constraint: String) ValidationError {
     context := createErrorContext()
@@ -206,7 +206,7 @@ func newSystemError(component: String, severity: Severity, retryable: Bool, mess
 
 ### 4. Error Handling Patterns
 
-```forst
+```ft
 // Error handling patterns
 func handleError(error: Error) Error {
     // Log error with context

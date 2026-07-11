@@ -26,7 +26,7 @@ test("docs/languages/forst.json stays in sync with extension grammar", () => {
   assert.deepStrictEqual(docs.repository, source.repository);
   assert.deepStrictEqual(docs.scopeName, source.scopeName);
   assert.deepStrictEqual(docs.fileTypes, ["ft"]);
-  assert.equal(docs.name, "forst");
+  assert.equal(docs.name, "ft");
 });
 
 test("hover field type: result.id: String", async () => {

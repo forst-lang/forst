@@ -33,7 +33,7 @@ Inspired by Unison abilities and Roc’s context scopes, but lowered to idiomati
 
 A **requirement** is a named capability — a shape of methods the runtime must supply. It is *not* a value type; it is a contract.
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
     error(msg String)
@@ -54,7 +54,7 @@ Requirements are package-scoped (like `type` and `error`). They may reference ot
 
 Inside a function body, **`using`** binds a requirement from the caller’s context into a local name:
 
-```forst
+```ft
 using <name> := <RequirementIdent>
 ```
 
@@ -64,7 +64,7 @@ using <name> := <RequirementIdent>
 
 No second keyword. Test/production overrides reuse `using` with a **`with`** clause (not a keyword — parsed as part of the `using` statement):
 
-```forst
+```ft
 using clock := Clock with FakeClock { fixedMs: 1_700_000_000_000 }
 ```
 
@@ -74,7 +74,7 @@ using clock := Clock with FakeClock { fixedMs: 1_700_000_000_000 }
 
 ### 2.1 Basic usage
 
-```forst
+```ft
 package orders
 
 requirement Logger {
@@ -99,7 +99,7 @@ func expireToken(token Token): Result(Token, Error) {
 
 Call site — **no requirement arguments**:
 
-```forst
+```ft
 func handleRefresh(body RefreshBody, ctx RequestContext): Result(Session, Error) {
     token, err := parseToken(body.token)
     ensure err is Nil() or err
@@ -112,7 +112,7 @@ func handleRefresh(body RefreshBody, ctx RequestContext): Result(Session, Error)
 
 When a handler already has a context struct, requirements are **fields**, not parallel DI:
 
-```forst
+```ft
 type RequestContext = {
     requestId: String,
     logger: Logger,      // satisfies requirement Logger
@@ -140,7 +140,7 @@ func saveOrder(req OrderRequest, ctx RequestContext): Result(Receipt, Error) {
 
 For localized capability use (e.g. a transaction):
 
-```forst
+```ft
 func transfer(from String, to String, amount Int) {
     using db := Database
     using tx := Database.Transaction from db {
@@ -155,7 +155,7 @@ The block inherits outer `using` bindings; inner `using` adds to the scope only 
 
 ### 2.4 Production wiring (entry point)
 
-```forst
+```ft
 func main() {
     ctx := AppContext {
         logger: StdLogger { level: "info" },
@@ -170,7 +170,7 @@ func main() {
 
 ### 2.5 Tests — override with `with`
 
-```forst
+```ft
 test "expireToken rejects expired token" {
     using clock := Clock with FakeClock { fixedMs: 2000 }
     using logger := Logger with NopLogger {}
@@ -191,7 +191,7 @@ Tests do not need a framework-specific mock registry: they **rebind context** at
 
 ### 2.6 Fake implementations (minimal boilerplate)
 
-```forst
+```ft
 type FakeClock = {
     fixedMs: Int,
 }
@@ -448,7 +448,7 @@ Diagnostics anchor on the `using` line for missing bindings and on call sites fo
 
 **Forst**
 
-```forst
+```ft
 package demo
 
 requirement Logger {

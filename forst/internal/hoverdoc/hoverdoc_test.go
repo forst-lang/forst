@@ -9,7 +9,7 @@ import (
 
 func TestCodeBlocks_languageFences(t *testing.T) {
 	t.Parallel()
-	if got := ForstBlock("x: Int"); !strings.Contains(got, "```forst") {
+	if got := ForstBlock("x: Int"); !strings.Contains(got, "```ft") {
 		t.Fatalf("ForstBlock: %q", got)
 	}
 	if got := GoBlock("import \"fmt\""); !strings.Contains(got, "```go") {
@@ -90,7 +90,7 @@ func TestIsBuiltinTypeSurfaceName(t *testing.T) {
 func TestForstBlock(t *testing.T) {
 	t.Parallel()
 	s := forstBlock("a", "b")
-	if !strings.Contains(s, "```forst") || !strings.Contains(s, "a\nb") {
+	if !strings.Contains(s, "```ft") || !strings.Contains(s, "a\nb") {
 		t.Fatalf("got %q", s)
 	}
 }

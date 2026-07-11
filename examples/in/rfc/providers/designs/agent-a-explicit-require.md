@@ -41,7 +41,7 @@ The design reads like **`ensure`**: a short, English verb at the point of use. W
 
 A **requirement** is a named capability contract — methods only, no instance data in the declaration. Same role as a Go interface or Effect `Context.Tag` service shape.
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
     error(msg String)
@@ -75,7 +75,7 @@ Requirements are **package-scoped** (like `type`, `error`). Implementations are 
 
 **In the body**, `require` is a **statement** (like `ensure`), not an expression:
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     require logger is Logger
     require clock is Clock
@@ -90,7 +90,7 @@ func expireToken(token Token): Result(Token, Error) {
 
 Shorthand when the local name matches convention:
 
-```forst
+```ft
 require Logger   // ≡ require logger is Logger
 require Clock
 ```
@@ -109,7 +109,7 @@ require Clock
 | **`provide { R: impl, S: impl }`** | Block with brace map (Effect-style service record). |
 | **`f(args, provide { R: impl })`** | Call-site suffix when the caller is not already inside a `provide` block. |
 
-```forst
+```ft
 provide Logger: NopLogger {}, Clock: FakeClock { fixedMs: 1_700_000_000_000 } {
     result := expireToken(token)
     ensure result is Err(Expired {})
@@ -118,7 +118,7 @@ provide Logger: NopLogger {}, Clock: FakeClock { fixedMs: 1_700_000_000_000 } {
 
 Call-site suffix (explicit wiring at a single call):
 
-```forst
+```ft
 receipt := saveOrder(order, provide { Database: txDb, Logger: reqLogger })
 ```
 
@@ -132,7 +132,7 @@ receipt := saveOrder(order, provide { Database: txDb, Logger: reqLogger })
 
 No signature clause required; the compiler infers `Needs(f)` from `require` statements:
 
-```forst
+```ft
 package orders
 
 requirement Logger {
@@ -161,7 +161,7 @@ func expireToken(token Token): Result(Token, Error) {
 
 For public APIs and sidecar exports, authors may write needs explicitly:
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) require Logger, Clock {
     require Logger
     require Clock
@@ -180,7 +180,7 @@ Signature-only documentation without body `require` is **not** allowed — `requ
 
 Once an ancestor `provide` block or handler bundle satisfies `Logger` and `Clock`, **internal calls do not repeat `provide`**:
 
-```forst
+```ft
 func handleRefresh(body RefreshBody): Result(Session, Error) require Logger, Clock {
     require Logger
 
@@ -203,7 +203,7 @@ func parseToken(raw String): Result(Token, Error) {
 
 HTTP handlers may take a **named deps struct** instead of relying only on `provide` blocks. Fields satisfy requirements; **`require … from deps`** connects them (sugar, not a third keyword — parsed as part of `require`):
 
-```forst
+```ft
 type RequestDeps = {
     logger: Logger,
     clock: Clock,
@@ -230,7 +230,7 @@ This matches the Go pattern in [13-simple-effect-cli.md](../../effect/13-simple-
 
 ### 2.5 Production wiring — `main`
 
-```forst
+```ft
 func main() {
     provide {
         Logger:   StdLogger { level: "info" },
@@ -257,7 +257,7 @@ http.HandleFunc("/refresh", orders.WrapHandleRefresh(deps))
 
 Tests use the **same `provide` syntax** as production with different implementations:
 
-```forst
+```ft
 test "expireToken rejects expired token" {
     provide {
         Clock:  FakeClock { fixedMs: 2000 },
@@ -285,7 +285,7 @@ test "expireToken accepts valid token" {
 
 Minimal fakes:
 
-```forst
+```ft
 type FakeClock = { fixedMs: Int }
 func (c FakeClock) now(): Int { return c.fixedMs }
 
@@ -298,7 +298,7 @@ func (l NopLogger) error(msg String) {}
 
 When only one call needs a different implementation (e.g. audit logger on a single code path):
 
-```forst
+```ft
 func auditAction(action String, deps RequestDeps) {
     require Logger from deps
 
@@ -310,7 +310,7 @@ The inner `provide` **shadows** `Logger` for the callee’s bundle only; outer s
 
 ### 2.8 Orthogonality with `ensure` / `Result`
 
-```forst
+```ft
 func loadUser(id Int): Result(User, Error) require Database {
     require Database
 
@@ -333,7 +333,7 @@ Requirements do **not** appear in `Result`’s type parameters (contrast Effect�
 
 ### 3.1 Requirement → Go interface
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
     error(msg String)
@@ -409,7 +409,7 @@ func handleOrder(deps RequestDeps, req OrderRequest) (...) {
 
 ### 3.5 `provide` block lowering
 
-```forst
+```ft
 provide {
     Logger: NopLogger {},
     Clock:  FakeClock { fixedMs: 2000 },
@@ -433,7 +433,7 @@ For multi-function test blocks, the compiler merges **`Needs(union of block)`** 
 
 ### 3.6 Call-site `provide` suffix
 
-```forst
+```ft
 saveOrder(order, provide { Database: txDb })
 ```
 
@@ -564,7 +564,7 @@ Comparison baseline: **implicit context threading** ([Agent B](agent-b-using-con
 
 ### 6.1 Duplicate `require` in one scope
 
-```forst
+```ft
 require Logger
 require Logger
 ```
@@ -573,7 +573,7 @@ Error: *"`Logger` already required in this function"*.
 
 ### 6.2 Shadowing with inner `provide`
 
-```forst
+```ft
 provide Logger: AppLogger {} {
     ...
     doAudit(provide { Logger: AuditLogger {} })
@@ -584,7 +584,7 @@ Inner call sees **`AuditLogger`**; outer block unchanged after call returns. Go 
 
 ### 6.3 Partial `provide` at call site
 
-```forst
+```ft
 f(x, provide { Database: txDb })
 ```
 
@@ -596,7 +596,7 @@ f(x, provide { Database: txDb })
 
 ### 6.5 Conditional `require`
 
-```forst
+```ft
 if debug {
     require AuditLog
     auditLog.record(...)
@@ -702,7 +702,7 @@ Diagnostics anchor on **`require`** for missing capabilities and on **`provide`*
 
 **Forst**
 
-```forst
+```ft
 package demo
 
 requirement Logger {
@@ -740,7 +740,7 @@ func main() {
 
 **Test**
 
-```forst
+```ft
 test "greet logs" {
     provide Logger: CapturingLogger { lines: [] } {
         greet("Ada")

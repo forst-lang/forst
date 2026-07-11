@@ -14,7 +14,7 @@
 
 **Syntax stays shape literals** ([ADR-015](./ADR.md#adr-015-with-takes-provider-shape-literals-only)). **Typing** is an ordinary **shape** whose fields are requirement contracts — we call that shape a **Provider**.
 
-```forst
+```ft
 type CIProviders = {
     Logger:      Logger,
     UserRepo:    UserRepo,
@@ -188,7 +188,7 @@ Forst already has **binary type expressions** on typedef bodies — the same **`
 
 **Surface:** Map literal with requirement idents as keys; values any expression assignable to contract type.
 
-```forst
+```ft
 with {
     Logger:   NopLogger {},
     UserRepo: pg,
@@ -212,7 +212,7 @@ with {
 
 **Surface:** Hypothetical generic listing allowed keys ( **not** the same as typedef `|` unions today).
 
-```forst
+```ft
 type CI = NeedsMap<Logger, UserRepo, HttpClient, Metrics>
 ```
 
@@ -236,7 +236,7 @@ type CI = NeedsMap<Logger, UserRepo, HttpClient, Metrics>
 
 **Surface:** Wiring is a **shape literal** (or variable/call) that must **satisfy** a **Provider** — a shape whose fields are requirement contracts.
 
-```forst
+```ft
 type CIProviders = {
     Logger:     Logger,
     UserRepo:   UserRepo,
@@ -280,7 +280,7 @@ This replaces the old “tagged union of implementations” sketch with options 
 
 Typedef union whose members are **requirement contract types** (shapes / interfaces with methods):
 
-```forst
+```ft
 type AppContracts = Logger | UserRepo | HttpClient | EmailSender | Metrics
 
 func ciUserApiServices(): NeedsMapFor<AppContracts> {
@@ -307,7 +307,7 @@ func ciUserApiServices(): NeedsMapFor<AppContracts> {
 
 When one slot accepts multiple concrete implementations:
 
-```forst
+```ft
 // conceptual: field type is ClientDoer; value may be any structurally compatible type
 with { HttpClient: clientDoerOrBlocked() } { ... }
 ```
@@ -346,7 +346,7 @@ type ErrKind interface { isErrKind() }
 
 **Recommended union-first alternative to Option B.**
 
-```forst
+```ft
 type CIContracts = Logger | UserRepo | HttpClient | EmailSender | Metrics
 
 func ciUserApiServices() {

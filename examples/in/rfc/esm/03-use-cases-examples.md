@@ -10,7 +10,7 @@ This document explores practical use cases and examples of using Forst as native
 
 #### Database Operations
 
-```forst
+```ft
 // database.ft
 func getUserById(id: Int) (User, Error) {
     // High-performance database query
@@ -104,7 +104,7 @@ if (result.success) {
 
 #### Data Validation
 
-```forst
+```ft
 // validation.ft
 func validateUser(user: User) (User, Error) {
     // Email validation
@@ -195,7 +195,7 @@ if (emailCheck.success && emailCheck.data) {
 
 #### Mathematical Functions
 
-```forst
+```ft
 // math.ft
 func calculateDistance(point1: Point, point2: Point) Float {
     dx := point2.X - point1.X
@@ -322,7 +322,7 @@ console.log("Statistics:", stats.data);
 
 #### File Operations
 
-```forst
+```ft
 // file.ft
 func readFile(path: String) (String, Error) {
     content, err := ioutil.ReadFile(path)
@@ -438,7 +438,7 @@ if (csvData.success) {
 
 #### HTTP Client
 
-```forst
+```ft
 // http.ft
 func makeRequest(url: String, method: String, headers: Map[String, String], body: String) (Response, Error) {
     req, err := http.NewRequest(method, url, strings.NewReader(body))
