@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: npm
+    directory: /examples/in/rfc/node-interop/remix-serve
+    schedule:
+      interval: weekly
+    groups:
+      remix:
+        patterns:
+          - "@remix-run/*"
