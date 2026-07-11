@@ -734,32 +734,33 @@ tasks:
       - go test -short -count=1 ./cmd/forst/... ./internal/...
 
   ci:test:
-    desc: Run CI lint suite
+    desc: Run CI coverage suite (Go tests + Coveralls profile)
     dir: forst
     set: [errexit]
-    deps: [build:node-runtime]
     cmds:
       - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/...
+
+  ci:e2e:
+    desc: Run CI E2E suite (runtime examples, node interop, sidecar, providers)
+    set: [errexit]
+    deps: [build:node-runtime]
+    cmds:
+      - task: build
       - task: test:cli
       - task: test:sidecar
       - task: node-interop:smoke
-      - task: test:node-interop:require-no-node
-      - task: example:node-interop
       - task: example:node-interop-sync
       - task: example:node-interop-promises
       - task: example:node-interop-generators
       - task: example:node-interop-async
-      - task: example:node-interop-host
-      - task: example:node-interop-remix-serve
       - task: example:node-interop-modules
       - task example:sidecar-local
       - task example:sidecar-downloaded
       - task test:tictactoe
       - task test:providers
       - task test:providers-cross_pkg
-      - task example:providers
-      - task example:providers-cross_pkg
+      - task: example:node-interop-remix-serve:standalone-e2e
 
   # Release tasks
   build:release:

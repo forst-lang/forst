@@ -220,7 +220,8 @@ Run tests:
 
 ```bash
 task test                  # Go tests: forst/internal/... and forst/cmd/forst/...
-task ci:test               # Full CI suite (Go tests + VS Code extension build + @forst/cli & @forst/sidecar + examples)
+task ci:test               # CI coverage suite (Go tests + VS Code extension build + Coveralls profile)
+task ci:e2e                # CI E2E suite (runtime examples, sidecar, providers, remix-serve standalone)
 task test:unit             # Run compiler unit tests (internal only)
 task test:unit:parser      # Run parser tests
 task test:unit:typechecker # Run typechecker tests

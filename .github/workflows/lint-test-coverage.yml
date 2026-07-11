@@ -47,8 +47,8 @@ jobs:
           path-to-profile: profile.cov
           working-directory: forst
 
-  remix-serve-standalone-e2e:
-    name: Remix-serve standalone E2E
+  e2e-tests:
+    name: E2E Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -57,8 +57,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run standalone remix-serve E2E
-        run: task example:node-interop-remix-serve:standalone-e2e
+      - name: Run E2E tests
+        run: task ci:e2e
 
   docker-smoke:
     name: Docker image smoke

@@ -244,7 +244,7 @@ The language surface is organized around **structural types**, **explicit annota
 
 | Feature | Status | Notes |
 | --- | --- | --- |
-| CI pipeline (lint, tests, compiler build) | ✅ done | GitHub Actions; `task ci:test` in `forst/`. |
+| CI pipeline (lint, tests, compiler build) | ✅ done | GitHub Actions; `task ci:test` (coverage) and `task ci:e2e` (E2E). |
 | Release automation | ✅ done | release-please + git tags. |
 
 ### Tests and merge gate
