@@ -64,3 +64,37 @@ func TestFormatNodeRuntimeLogLine_requiredWithModules(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+type nodeRuntimeLogSpy struct {
+	info  []string
+	debug []string
+}
+
+func (s *nodeRuntimeLogSpy) Info(args ...any)  { s.info = append(s.info, args[0].(string)) }
+func (s *nodeRuntimeLogSpy) Debug(args ...any) { s.debug = append(s.debug, args[0].(string)) }
+
+func TestLogNodeRuntimeRequirement_notRequiredUsesDebug(t *testing.T) {
+	t.Parallel()
+	spy := &nodeRuntimeLogSpy{}
+	logNodeRuntimeRequirement(spy, typechecker.New(nil, false))
+	if len(spy.info) != 0 {
+		t.Fatalf("info = %v, want none", spy.info)
+	}
+	if len(spy.debug) != 1 || spy.debug[0] != "node runtime: not required" {
+		t.Fatalf("debug = %v", spy.debug)
+	}
+}
+
+func TestLogNodeRuntimeRequirement_requiredUsesInfo(t *testing.T) {
+	t.Parallel()
+	tc := typechecker.New(nil, false)
+	tc.SetNodeRuntimeInfo(typechecker.NodeRuntimeInfo{NeedsNodeRuntime: true})
+	spy := &nodeRuntimeLogSpy{}
+	logNodeRuntimeRequirement(spy, tc)
+	if len(spy.debug) != 0 {
+		t.Fatalf("debug = %v, want none", spy.debug)
+	}
+	if len(spy.info) != 1 || !strings.HasPrefix(spy.info[0], "node runtime: required") {
+		t.Fatalf("info = %v", spy.info)
+	}
+}

@@ -234,8 +234,14 @@ func checkRequireNoNode(args Args, checker *typechecker.TypeChecker) error {
 
 func logNodeRuntimeRequirement(log interface {
 	Info(args ...any)
+	Debug(args ...any)
 }, checker *typechecker.TypeChecker) {
-	log.Info(FormatNodeRuntimeLogLine(checker))
+	line := FormatNodeRuntimeLogLine(checker)
+	if checker == nil || !checker.NeedsNodeRuntime() {
+		log.Debug(line)
+		return
+	}
+	log.Info(line)
 }
 
 // FormatNodeRuntimeLogLine returns the post-typecheck node runtime summary for CLI output.
