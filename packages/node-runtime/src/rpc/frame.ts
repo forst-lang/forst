@@ -1,5 +1,6 @@
 import type { Writable } from "node:stream";
-import { JsonRpcError } from "./errors.js";
+import * as Errors from "./errors.js";
+import * as FrameErrors from "./frame_errors.js";
 
 export const DEFAULT_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
@@ -65,7 +66,7 @@ function decodeSignedVarint(
     }
     shift += 7n;
     if (shift > 70n) {
-      throw new Error("varint overflow");
+      throw FrameErrors.protoVarintOverflow();
     }
   }
   const u32 = Number(result & 0xffffffffn);
@@ -99,10 +100,10 @@ function decodeVarint(
     }
     shift += 7;
     if (shift > 35) {
-      throw new Error("varint overflow");
+      throw FrameErrors.protoVarintOverflow();
     }
   }
-  throw new Error("truncated varint");
+  throw FrameErrors.protoTruncatedVarint();
 }
 
 function encodeField(tag: number, value: Uint8Array): Uint8Array {
@@ -198,7 +199,7 @@ function readLengthDelimited(
   const start = lenInfo.next;
   const end = start + lenInfo.value;
   if (end > buf.length) {
-    throw new Error("truncated length-delimited field");
+    throw FrameErrors.protoTruncatedLengthDelimitedField();
   }
   return { value: buf.subarray(start, end), next: end };
 }
@@ -213,7 +214,7 @@ function decodeWireRequest(buf: Uint8Array): WireRequest {
     const fieldNumber = tagInfo.value >>> 3;
     const wireType = tagInfo.value & 0x7;
     if (wireType !== 2) {
-      throw new Error(`unexpected wire type ${wireType} in WireRequest`);
+      throw FrameErrors.protoUnexpectedWireType("WireRequest", wireType);
     }
     const field = readLengthDelimited(buf, pos);
     pos = field.next;
@@ -254,7 +255,7 @@ function decodeErrorDetail(buf: Uint8Array): ErrorDetail {
       const val = decodeVarint(buf, pos);
       pos = val.next;
     } else {
-      throw new Error(`unsupported wire type ${wireType} in ErrorDetail`);
+      throw FrameErrors.protoUnsupportedWireType("ErrorDetail", wireType);
     }
   }
   const detail: ErrorDetail = { code, message };
@@ -274,7 +275,7 @@ function decodeWireResponse(buf: Uint8Array): WireResponse {
     const fieldNumber = tagInfo.value >>> 3;
     const wireType = tagInfo.value & 0x7;
     if (wireType !== 2) {
-      throw new Error(`unexpected wire type ${wireType} in WireResponse`);
+      throw FrameErrors.protoUnexpectedWireType("WireResponse", wireType);
     }
     const field = readLengthDelimited(buf, pos);
     pos = field.next;
@@ -313,7 +314,7 @@ export function decodeFrame(buf: Uint8Array): Frame {
         response = decodeWireResponse(field.value);
       }
     } else {
-      throw new Error(`unsupported wire type ${wireType} in Frame`);
+      throw FrameErrors.protoUnsupportedWireType("Frame", wireType);
     }
   }
   const frame: Frame = { id };
@@ -333,7 +334,7 @@ export function writeProtoFrame(
 ): void {
   const body = encodeFrame(frame);
   if (body.length > maxLen) {
-    throw new Error(`proto frame exceeds max size ${maxLen} bytes`);
+    throw FrameErrors.protoFrameTooLarge(maxLen);
   }
   const header = Buffer.alloc(4);
   header.writeUInt32BE(body.length, 0);
@@ -363,7 +364,7 @@ export function newOkResponseFrame(id: number, result: unknown): Frame {
 
 export function newErrorResponseFrame(
   id: number,
-  err: JsonRpcError
+  err: Errors.JsonRpcError
 ): Frame {
   const detail: ErrorDetail = {
     code: err.code,
@@ -384,11 +385,11 @@ export function parseRequestFrame(frame: Frame): {
   params: unknown;
 } {
   if (frame.request === undefined) {
-    throw new JsonRpcError(-32600, "frame missing request");
+    throw Errors.frameMissingRequest();
   }
   const { method, payloadJson } = frame.request;
   if (method === "") {
-    throw new JsonRpcError(-32600, "method must be a string");
+    throw Errors.requestMethodRequired();
   }
   if (payloadJson.length === 0) {
     return { id: frame.id, method, params: undefined };
@@ -396,7 +397,7 @@ export function parseRequestFrame(frame: Frame): {
   try {
     return { id: frame.id, method, params: JSON.parse(new TextDecoder().decode(payloadJson)) };
   } catch {
-    throw new JsonRpcError(-32700, "invalid JSON in request payload");
+    throw Errors.invalidRequestPayloadJson();
   }
 }
 
@@ -413,10 +414,10 @@ export class ProtoFrameReader {
     }
     const bodyLen = this.buffer.readUInt32BE(0);
     if (bodyLen === 0) {
-      throw new Error("empty proto frame");
+      throw FrameErrors.protoEmptyFrame();
     }
     if (bodyLen > maxLen) {
-      throw new Error(`proto frame exceeds max size ${maxLen} bytes`);
+      throw FrameErrors.protoFrameTooLarge(maxLen);
     }
     const totalLen = 4 + bodyLen;
     if (this.buffer.length < totalLen) {

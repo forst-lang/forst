@@ -3,12 +3,14 @@ import * as net from "node:net";
 import * as path from "node:path";
 import type { AddressInfo } from "node:net";
 import { Effect, Fiber, Layer } from "effect";
+import { causeToError } from "./errors/cause.js";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
 import {
   createNodeRuntimeSetup,
   type ForstNodeRuntime,
 } from "./effect/runtime.js";
 import { startRpcServer } from "./rpc/server.js";
+import * as HostErrors from "./host/errors.js";
 
 const envHostEnabled = "FORST_NODE_HOST";
 const envSocketPath = "FORST_NODE_SOCKET";
@@ -102,7 +104,7 @@ function listenUnix(socketPath: string): Effect.Effect<net.Server, Error, never>
         }
       }
     } catch (err) {
-      resume(Effect.fail(err instanceof Error ? err : new Error(String(err))));
+      resume(Effect.fail(causeToError(err)));
       return;
     }
 
@@ -241,8 +243,7 @@ const closeHostHandle = Effect.fn("Host.close")(function* (ctx: HostCloseContext
       activeSocketPath = "";
       appReadySignaled = false;
     },
-    catch: (cause) =>
-      cause instanceof Error ? cause : new Error(String(cause)),
+    catch: (cause) => causeToError(cause),
   });
 });
 
@@ -268,9 +269,7 @@ const hostStart = Effect.fn("Host.start")(function* (options: HostOptions) {
     socketPath = `tcp://127.0.0.1:${tcp.port}`;
   } else {
     if (!socketPath) {
-      return yield* Effect.fail(
-        new Error("FORST_NODE_SOCKET is required on Unix")
-      );
+      return yield* Effect.fail(HostErrors.hostSocketRequired());
     }
     server = yield* listenUnix(socketPath);
   }
@@ -321,16 +320,10 @@ export const signalForstAppReady = Effect.fn("Host.signalAppReady")(function* ()
     return;
   }
   if (!activeReadyPath) {
-    return yield* Effect.fail(
-      new Error(
-        "signalForstAppReady: host not started or ready path unset; call startForstNodeHost first"
-      )
-    );
+    return yield* Effect.fail(HostErrors.hostReadyPathUnset());
   }
   if (!activeSocketPath) {
-    return yield* Effect.fail(
-      new Error("signalForstAppReady: host socket path unset")
-    );
+    return yield* Effect.fail(HostErrors.hostSocketPathUnset());
   }
 
   yield* Effect.sync(() => {
@@ -360,8 +353,7 @@ export function startForstNodeHost(
   if (startPromise) {
     return Effect.tryPromise({
       try: () => startPromise!,
-      catch: (cause) =>
-        cause instanceof Error ? cause : new Error(String(cause)),
+      catch: (cause) => causeToError(cause),
     });
   }
 
@@ -377,7 +369,6 @@ export function startForstNodeHost(
 
   return Effect.tryPromise({
     try: () => startPromise!,
-    catch: (cause) =>
-      cause instanceof Error ? cause : new Error(String(cause)),
+    catch: (cause) => causeToError(cause),
   });
 }

@@ -5,7 +5,7 @@ import {
   modulePathToFileUrl,
   resolveModulePath,
 } from "../policy/paths.js";
-import { applicationError, JsonRpcError } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 import type {
   CallParams,
   GenCloseParams,
@@ -47,7 +47,7 @@ function getExportFunction(
 ): (...args: unknown[]) => unknown {
   const value = resolveExportValue(mod, exportName);
   if (typeof value !== "function") {
-    throw applicationError(`export is not a function: ${exportName}`, {
+    throw Errors.applicationError(`export is not a function: ${exportName}`, {
       exportName,
     });
   }
@@ -58,31 +58,31 @@ function serializeThrownError(
   err: unknown,
   moduleId: string,
   exportName: string
-): JsonRpcError {
-  if (err instanceof JsonRpcError) {
+): Errors.JsonRpcError {
+  if (err instanceof Errors.JsonRpcError) {
     return err;
   }
   if (err instanceof Error) {
-    return applicationError(err.message, {
+    return Errors.applicationError(err.message, {
       name: err.name,
       stack: err.stack,
       moduleId,
       exportName,
     });
   }
-  return applicationError(String(err), { moduleId, exportName });
+  return Errors.applicationError(String(err), { moduleId, exportName });
 }
 
 const loadGeneratorExport = Effect.fn("Runtime.loadGeneratorExport")(
   function* (index: ManifestIndex, params: CallParams) {
     if (params === null || typeof params !== "object") {
-      return yield* Effect.fail(applicationError("gen params must be an object"));
+      return yield* Effect.fail(Errors.applicationError("gen params must be an object"));
     }
 
     const { moduleId, exportName } = params;
     if (typeof moduleId !== "string" || typeof exportName !== "string") {
       return yield* Effect.fail(
-        applicationError("gen requires moduleId and exportName strings")
+        Errors.applicationError("gen requires moduleId and exportName strings")
       );
     }
 
@@ -93,7 +93,7 @@ const loadGeneratorExport = Effect.fn("Runtime.loadGeneratorExport")(
     );
     if (entry.kind !== "generator" && entry.kind !== "asyncGenerator") {
       return yield* Effect.fail(
-        applicationError("export is not a generator", {
+        Errors.applicationError("export is not a generator", {
           moduleId,
           exportName,
           kind: entry.kind,
@@ -140,7 +140,7 @@ const requireStream = Effect.fn("Runtime.requireStream")(function* (
   const stream = streams.get(streamId);
   if (!stream || stream.closed) {
     return yield* Effect.fail(
-      applicationError("invalid or closed streamId", { streamId })
+      Errors.applicationError("invalid or closed streamId", { streamId })
     );
   }
   return stream;
@@ -174,7 +174,7 @@ export const handleGenOpen = Effect.fn("Runtime.handleGenOpen")(
           typeof value !== "object" ||
           typeof (value as AsyncIterator<unknown>).next !== "function"
         ) {
-          throw applicationError("export did not return an iterator", {
+          throw Errors.applicationError("export did not return an iterator", {
             moduleId: params.moduleId,
             exportName: params.exportName,
           });
@@ -197,13 +197,13 @@ export const handleGenNext = Effect.fn("Runtime.handleGenNext")(
   function* (params: GenNextParams) {
     if (params === null || typeof params !== "object") {
       return yield* Effect.fail(
-        applicationError("genNext params must be an object")
+        Errors.applicationError("genNext params must be an object")
       );
     }
     const { streamId } = params;
     if (typeof streamId !== "string" || streamId === "") {
       return yield* Effect.fail(
-        applicationError("genNext requires streamId string")
+        Errors.applicationError("genNext requires streamId string")
       );
     }
 
@@ -238,7 +238,7 @@ export const handleGenNext = Effect.fn("Runtime.handleGenNext")(
         }
       },
       catch: (cause) =>
-        applicationError(cause instanceof Error ? cause.message : String(cause)),
+        Errors.applicationError(cause instanceof Error ? cause.message : String(cause)),
     });
   }
 );
@@ -247,13 +247,13 @@ export const handleGenNextBatch = Effect.fn("Runtime.handleGenNextBatch")(
   function* (params: GenNextBatchParams) {
     if (params === null || typeof params !== "object") {
       return yield* Effect.fail(
-        applicationError("genNextBatch params must be an object")
+        Errors.applicationError("genNextBatch params must be an object")
       );
     }
     const { streamId } = params;
     if (typeof streamId !== "string" || streamId === "") {
       return yield* Effect.fail(
-        applicationError("genNextBatch requires streamId string")
+        Errors.applicationError("genNextBatch requires streamId string")
       );
     }
 
@@ -293,13 +293,13 @@ export const handleGenClose = Effect.fn("Runtime.handleGenClose")(
   function* (params: GenCloseParams) {
     if (params === null || typeof params !== "object") {
       return yield* Effect.fail(
-        applicationError("genClose params must be an object")
+        Errors.applicationError("genClose params must be an object")
       );
     }
     const { streamId } = params;
     if (typeof streamId !== "string" || streamId === "") {
       return yield* Effect.fail(
-        applicationError("genClose requires streamId string")
+        Errors.applicationError("genClose requires streamId string")
       );
     }
 

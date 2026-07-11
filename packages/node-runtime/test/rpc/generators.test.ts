@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDispatcher } from "../../src/rpc/dispatcher.js";
-import { APPLICATION_ERROR, METHOD_NOT_FOUND } from "../../src/rpc/errors.js";
+import * as Errors from "../../src/rpc/errors.js";
 import {
   METHOD_GEN_CLOSE,
   METHOD_GEN_NEXT,
@@ -245,7 +245,7 @@ describe("generator RPC", () => {
       params: { streamId: "missing" },
     }));
     expect(next).toMatchObject({
-      error: { code: APPLICATION_ERROR },
+      error: { code: Errors.APPLICATION_ERROR },
     });
   });
 
@@ -320,7 +320,7 @@ describe("generator RPC", () => {
       },
     }));
     expect(response).not.toMatchObject({
-      error: { code: METHOD_NOT_FOUND },
+      error: { code: Errors.METHOD_NOT_FOUND },
     });
   });
 });

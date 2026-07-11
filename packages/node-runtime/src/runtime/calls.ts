@@ -5,7 +5,7 @@ import {
   modulePathToFileUrl,
   resolveModulePath,
 } from "../policy/paths.js";
-import { applicationError, JsonRpcError } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 import type { CallParams, CallResult } from "../rpc/protocol.js";
 import { importModule } from "./module_cache.js";
 import { resolveExportValue } from "./export_value.js";
@@ -16,7 +16,7 @@ function getExportFunction(
 ): (...args: unknown[]) => unknown {
   const value = resolveExportValue(mod, exportName);
   if (typeof value !== "function") {
-    throw applicationError(`export is not a function: ${exportName}`, {
+    throw Errors.applicationError(`export is not a function: ${exportName}`, {
       exportName,
     });
   }
@@ -27,32 +27,32 @@ function serializeThrownError(
   err: unknown,
   moduleId: string,
   exportName: string
-): JsonRpcError {
-  if (err instanceof JsonRpcError) {
+): Errors.JsonRpcError {
+  if (err instanceof Errors.JsonRpcError) {
     return err;
   }
   if (err instanceof Error) {
-    return applicationError(err.message, {
+    return Errors.applicationError(err.message, {
       name: err.name,
       stack: err.stack,
       moduleId,
       exportName,
     });
   }
-  return applicationError(String(err), { moduleId, exportName });
+  return Errors.applicationError(String(err), { moduleId, exportName });
 }
 
 /** Async call handler — awaits the returned Promise before responding. */
 export const handleAsyncCall = Effect.fn("Runtime.handleAsyncCall")(
   function* (index: ManifestIndex, params: CallParams) {
     if (params === null || typeof params !== "object") {
-      return yield* Effect.fail(applicationError("call params must be an object"));
+      return yield* Effect.fail(Errors.applicationError("call params must be an object"));
     }
 
     const { moduleId, exportName } = params;
     if (typeof moduleId !== "string" || typeof exportName !== "string") {
       return yield* Effect.fail(
-        applicationError("call requires moduleId and exportName strings")
+        Errors.applicationError("call requires moduleId and exportName strings")
       );
     }
 
@@ -102,13 +102,13 @@ export const handleAsyncCall = Effect.fn("Runtime.handleAsyncCall")(
 export const handleSyncCall = Effect.fn("Runtime.handleSyncCall")(
   function* (index: ManifestIndex, params: CallParams) {
     if (params === null || typeof params !== "object") {
-      return yield* Effect.fail(applicationError("call params must be an object"));
+      return yield* Effect.fail(Errors.applicationError("call params must be an object"));
     }
 
     const { moduleId, exportName } = params;
     if (typeof moduleId !== "string" || typeof exportName !== "string") {
       return yield* Effect.fail(
-        applicationError("call requires moduleId and exportName strings")
+        Errors.applicationError("call requires moduleId and exportName strings")
       );
     }
 

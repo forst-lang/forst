@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { forbidden, invalidParams } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js"]);
 
@@ -100,7 +100,7 @@ function matchesExcludePatterns(
 /** Reject path traversal, absolute paths, and file:// URLs in RPC payloads. */
 export function validateModuleIdSyntax(moduleId: string): void {
   if (typeof moduleId !== "string" || moduleId.trim() === "") {
-    throw invalidParams("moduleId must be a non-empty string");
+    throw Errors.invalidParams("moduleId must be a non-empty string");
   }
 
   if (
@@ -108,26 +108,26 @@ export function validateModuleIdSyntax(moduleId: string): void {
     moduleId.startsWith("file://") ||
     moduleId.includes("\\")
   ) {
-    throw forbidden("moduleId must be a project-relative POSIX path", {
+    throw Errors.forbidden("moduleId must be a project-relative POSIX path", {
       moduleId,
     });
   }
 
   if (moduleId.split("/").some((segment) => segment === "..")) {
-    throw forbidden("moduleId must not contain .. segments", { moduleId });
+    throw Errors.forbidden("moduleId must not contain .. segments", { moduleId });
   }
 
   const ext = path.posix.extname(moduleId);
   if (!ALLOWED_EXTENSIONS.has(ext)) {
-    throw forbidden("moduleId extension not allowed", { moduleId, ext });
+    throw Errors.forbidden("moduleId extension not allowed", { moduleId, ext });
   }
 
   if (moduleId.includes("node_modules/")) {
-    throw forbidden("moduleId must not reference node_modules", { moduleId });
+    throw Errors.forbidden("moduleId must not reference node_modules", { moduleId });
   }
 
   if (matchesExcludePatterns(moduleId, getFilesExcludePatterns())) {
-    throw forbidden("moduleId matches files.exclude pattern", { moduleId });
+    throw Errors.forbidden("moduleId matches files.exclude pattern", { moduleId });
   }
 }
 
@@ -149,7 +149,7 @@ export async function resolveModulePath(
   try {
     resolvedRoot = await fs.realpath(boundaryRoot);
   } catch {
-    throw invalidParams("boundaryRoot does not exist", { boundaryRoot });
+    throw Errors.invalidParams("boundaryRoot does not exist", { boundaryRoot });
   }
 
   const candidate = path.resolve(resolvedRoot, moduleId);
@@ -158,13 +158,13 @@ export async function resolveModulePath(
   try {
     realCandidate = await fs.realpath(candidate);
   } catch {
-    throw forbidden("moduleId does not resolve to an existing file", {
+    throw Errors.forbidden("moduleId does not resolve to an existing file", {
       moduleId,
     });
   }
 
   if (!isUnderRoot(resolvedRoot, realCandidate)) {
-    throw forbidden("moduleId escapes boundaryRoot", {
+    throw Errors.forbidden("moduleId escapes boundaryRoot", {
       moduleId,
       boundaryRoot: resolvedRoot,
     });
@@ -172,7 +172,7 @@ export async function resolveModulePath(
 
   const stat = await fs.stat(realCandidate);
   if (!stat.isFile()) {
-    throw forbidden("moduleId must refer to a regular file", { moduleId });
+    throw Errors.forbidden("moduleId must refer to a regular file", { moduleId });
   }
 
   return realCandidate;

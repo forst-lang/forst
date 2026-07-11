@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import type { ForstNodeExportKind, ForstNodeManifestExportV1 } from "../manifest/schema.js";
-import { JsonRpcError } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 import type { ManifestIndex } from "./manifest.js";
 import { assertExportAllowed } from "./manifest.js";
 
@@ -23,9 +23,9 @@ export const assertExportAllowedEffect = Effect.fn("Policy.assertExportAllowed")
     return yield* Effect.try({
       try: () => assertExportAllowed(index, moduleId, exportName, expectedKind),
       catch: (err) =>
-        err instanceof JsonRpcError
+        err instanceof Errors.JsonRpcError
           ? err
-          : new JsonRpcError(-32000, String(err)),
+          : Errors.applicationError(String(err)),
     });
   }
 );

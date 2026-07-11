@@ -2,14 +2,7 @@ import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDispatcher } from "../../src/rpc/dispatcher.js";
-import {
-  APPLICATION_ERROR,
-  FORBIDDEN,
-  INTERNAL_ERROR,
-  METHOD_NOT_FOUND,
-  NOT_IMPLEMENTED,
-  NOT_INITIALIZED,
-} from "../../src/rpc/errors.js";
+import * as Errors from "../../src/rpc/errors.js";
 import {
   METHOD_CALL,
   METHOD_CALL_ASYNC,
@@ -62,7 +55,7 @@ describe("createDispatcher initialize gate", () => {
     expect(response).toMatchObject({
       jsonrpc: "2.0",
       id: 99,
-      error: { code: INTERNAL_ERROR },
+      error: { code: Errors.INTERNAL_ERROR },
     });
   });
 
@@ -82,7 +75,7 @@ describe("createDispatcher initialize gate", () => {
     expect(response).toMatchObject({
       jsonrpc: "2.0",
       id: 1,
-      error: { code: NOT_INITIALIZED },
+      error: { code: Errors.NOT_INITIALIZED },
     });
   });
 
@@ -95,7 +88,7 @@ describe("createDispatcher initialize gate", () => {
     }));
 
     expect(response).toMatchObject({
-      error: { code: NOT_INITIALIZED },
+      error: { code: Errors.NOT_INITIALIZED },
     });
   });
 });
@@ -111,7 +104,7 @@ describe("createDispatcher method policy", () => {
     }));
 
     expect(response).toMatchObject({
-      error: { code: METHOD_NOT_FOUND },
+      error: { code: Errors.METHOD_NOT_FOUND },
     });
   });
 
@@ -206,7 +199,7 @@ describe("createDispatcher method policy", () => {
 
     expect(response).toMatchObject({
       error: {
-        code: APPLICATION_ERROR,
+        code: Errors.APPLICATION_ERROR,
         message: "Payment provider timeout",
         data: {
           moduleId: asyncModuleId,
@@ -240,7 +233,7 @@ describe("createDispatcher method policy", () => {
     }));
 
     expect(response).toMatchObject({
-      error: { code: APPLICATION_ERROR, message: "export is not a generator" },
+      error: { code: Errors.APPLICATION_ERROR, message: "export is not a generator" },
     });
   });
 });
@@ -311,7 +304,7 @@ describe("createDispatcher happy path", () => {
     }));
 
     expect(response).toMatchObject({
-      error: { code: FORBIDDEN },
+      error: { code: Errors.FORBIDDEN },
     });
   });
 });

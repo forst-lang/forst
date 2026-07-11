@@ -1,3 +1,5 @@
+import { Data } from "effect";
+
 /** JSON-RPC 2.0 standard error codes. */
 export const PARSE_ERROR = -32700;
 export const INVALID_REQUEST = -32600;
@@ -17,18 +19,11 @@ export interface JsonRpcErrorObject {
   data?: unknown;
 }
 
-export class JsonRpcError extends Error {
+export class JsonRpcError extends Data.TaggedError("JsonRpcError")<{
   readonly code: number;
-  readonly data: unknown | undefined;
-
-  constructor(code: number, message: string, data?: unknown) {
-    super(message);
-    this.name = "JsonRpcError";
-    this.code = code;
-    this.data = data;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-
+  readonly message: string;
+  readonly data?: unknown;
+}> {
   toObject(): JsonRpcErrorObject {
     const obj: JsonRpcErrorObject = { code: this.code, message: this.message };
     if (this.data !== undefined) {
@@ -39,28 +34,66 @@ export class JsonRpcError extends Error {
 }
 
 export function forbidden(message: string, data?: unknown): JsonRpcError {
-  return new JsonRpcError(FORBIDDEN, message, data);
+  return new JsonRpcError({ code: FORBIDDEN, message, data });
 }
 
 export function notInitialized(message = "Runtime not initialized"): JsonRpcError {
-  return new JsonRpcError(NOT_INITIALIZED, message);
+  return new JsonRpcError({ code: NOT_INITIALIZED, message });
 }
 
 export function notImplemented(method: string): JsonRpcError {
-  return new JsonRpcError(NOT_IMPLEMENTED, `Method not implemented: ${method}`);
+  return new JsonRpcError({
+    code: NOT_IMPLEMENTED,
+    message: `Method not implemented: ${method}`,
+  });
 }
 
 export function invalidParams(message: string, data?: unknown): JsonRpcError {
-  return new JsonRpcError(INVALID_PARAMS, message, data);
+  return new JsonRpcError({ code: INVALID_PARAMS, message, data });
 }
 
 export function internalError(message: string, data?: unknown): JsonRpcError {
-  return new JsonRpcError(INTERNAL_ERROR, message, data);
+  return new JsonRpcError({ code: INTERNAL_ERROR, message, data });
 }
 
 export function applicationError(
   message: string,
   data?: Record<string, unknown>
 ): JsonRpcError {
-  return new JsonRpcError(APPLICATION_ERROR, message, data);
+  return new JsonRpcError({ code: APPLICATION_ERROR, message, data });
+}
+
+export function invalidRequest(message: string): JsonRpcError {
+  return new JsonRpcError({ code: INVALID_REQUEST, message });
+}
+
+export function frameMissingRequest(): JsonRpcError {
+  return invalidRequest("frame missing request");
+}
+
+export function requestMethodRequired(): JsonRpcError {
+  return invalidRequest("method must be a string");
+}
+
+export function invalidRequestPayloadJson(): JsonRpcError {
+  return new JsonRpcError({
+    code: PARSE_ERROR,
+    message: "invalid JSON in request payload",
+  });
+}
+
+export function parseError(message = "parse error"): JsonRpcError {
+  return new JsonRpcError({ code: PARSE_ERROR, message });
+}
+
+export function methodNotFound(message = "Method not found"): JsonRpcError {
+  return new JsonRpcError({ code: METHOD_NOT_FOUND, message });
+}
+
+export function fromJsonRpcErrorObject(error: JsonRpcErrorObject): JsonRpcError {
+  return new JsonRpcError({
+    code: error.code,
+    message: error.message,
+    data: error.data,
+  });
 }

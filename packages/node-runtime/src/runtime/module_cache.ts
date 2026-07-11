@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { causeToError } from "../errors/cause.js";
 
 const moduleCache = new Map<string, Record<string, unknown>>();
 
@@ -20,8 +21,7 @@ export const importModule = Effect.fn("Runtime.importModule")(
     );
     const mod = yield* Effect.tryPromise({
       try: () => import(key) as Promise<Record<string, unknown>>,
-      catch: (cause) =>
-        cause instanceof Error ? cause : new Error(String(cause)),
+      catch: (cause) => causeToError(cause),
     });
     moduleCache.set(key, mod);
     return mod;

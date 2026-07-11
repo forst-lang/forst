@@ -4,10 +4,7 @@ import {
   defaultNodeRuntimeSetup,
   type ForstNodeRuntime,
 } from "../effect/runtime.js";
-import {
-  JsonRpcError,
-  PARSE_ERROR,
-} from "./errors.js";
+import * as Errors from "./errors.js";
 import {
   DEFAULT_MAX_MESSAGE_BYTES,
   newErrorResponseFrame,
@@ -48,11 +45,7 @@ export function writeJsonRpcResponse(
 ): void {
   const id = typeof response.id === "number" ? response.id : 0;
   if ("error" in response && response.error !== undefined) {
-    const err = new JsonRpcError(
-      response.error.code,
-      response.error.message,
-      response.error.data
-    );
+    const err = Errors.fromJsonRpcErrorObject(response.error);
     writeProtoFrame(stdout, newErrorResponseFrame(id, err), maxLen);
     return;
   }
@@ -63,7 +56,7 @@ export function writeJsonRpcResponse(
 
 export function errorResponse(
   id: JsonRpcId,
-  err: JsonRpcError
+  err: Errors.JsonRpcError
 ): JsonRpcResponse {
   return {
     jsonrpc: "2.0",
@@ -109,9 +102,7 @@ export async function runProtoLoop(
           options.onParseError?.(err, null) ??
           errorResponse(
             null,
-            err instanceof JsonRpcError
-              ? err
-              : new JsonRpcError(PARSE_ERROR, "parse error")
+            err instanceof Errors.JsonRpcError ? err : Errors.parseError()
           );
         writeJsonRpcResponse(stdout, response, maxBytes);
         continue;
@@ -129,9 +120,7 @@ export async function runProtoLoop(
           options.onParseError?.(err, frame) ??
           errorResponse(
             frame.id,
-            err instanceof JsonRpcError
-              ? err
-              : new JsonRpcError(PARSE_ERROR, "parse error")
+            err instanceof Errors.JsonRpcError ? err : Errors.parseError()
           );
         writeJsonRpcResponse(stdout, response, maxBytes);
         continue;

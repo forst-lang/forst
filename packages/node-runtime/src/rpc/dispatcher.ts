@@ -19,13 +19,7 @@ import {
   successResponse,
 } from "./proto_loop.js";
 import type { JsonRpcResponse } from "./protocol.js";
-import {
-  JsonRpcError,
-  METHOD_NOT_FOUND,
-  internalError,
-  notImplemented,
-  notInitialized,
-} from "./errors.js";
+import * as Errors from "./errors.js";
 import {
   METHOD_CALL,
   METHOD_CALL_ASYNC,
@@ -78,9 +72,7 @@ const handleMethod = Effect.fn("Rpc.handleMethod")(
       case METHOD_SHUTDOWN:
         return yield* shutdownRuntime(state);
       default:
-        return yield* Effect.fail(
-          new JsonRpcError(METHOD_NOT_FOUND, "Method not found")
-        );
+        return yield* Effect.fail(Errors.methodNotFound());
     }
   }
 );
@@ -117,10 +109,7 @@ export function createDispatcher(options: DispatcherOptions = {}) {
           reason: "unknown_method",
         })
       );
-      return errorResponse(
-        id,
-        new JsonRpcError(METHOD_NOT_FOUND, "Method not found")
-      );
+      return errorResponse(id, Errors.methodNotFound());
     }
 
     if (isStubMethod(method)) {
@@ -132,7 +121,7 @@ export function createDispatcher(options: DispatcherOptions = {}) {
           reason: "not_implemented",
         })
       );
-      return errorResponse(id, notImplemented(method));
+      return errorResponse(id, Errors.notImplemented(method));
     }
 
     if (method !== METHOD_INITIALIZE && !state.initialized) {
@@ -144,15 +133,15 @@ export function createDispatcher(options: DispatcherOptions = {}) {
           reason: "not_initialized",
         })
       );
-      return errorResponse(id, notInitialized());
+      return errorResponse(id, Errors.notInitialized());
     }
 
     const outcome = yield* handleMethod(state, method, request.params).pipe(
       Effect.catchAllDefect((cause) =>
         Effect.fail(
-          cause instanceof JsonRpcError
+          cause instanceof Errors.JsonRpcError
             ? cause
-            : internalError(
+            : Errors.internalError(
                 cause instanceof Error ? cause.message : String(cause),
                 cause instanceof Error ? { stack: cause.stack } : undefined
               )

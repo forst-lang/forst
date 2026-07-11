@@ -3,6 +3,7 @@
 import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "../effect/layer.js";
+import * as CliErrors from "./errors.js";
 import { emitForstIndexV1Json } from "./emit-forst-index-v1.js";
 
 export interface CliOptions {
@@ -21,7 +22,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     if (arg === "--root") {
       const value = argv[++i];
       if (!value) {
-        throw new Error("missing value for --root");
+        throw CliErrors.cliMissingRootValue();
       }
       root = value;
       continue;
@@ -29,7 +30,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     if (arg === "--format") {
       const value = argv[++i];
       if (!value) {
-        throw new Error("missing value for --format");
+        throw CliErrors.cliMissingFormatValue();
       }
       format = value;
       continue;
@@ -37,7 +38,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     if (arg === "--files") {
       const value = argv[++i];
       if (!value) {
-        throw new Error("missing value for --files");
+        throw CliErrors.cliMissingFilesValue();
       }
       files = value
         .split(",")
@@ -49,11 +50,11 @@ export function parseCliArgs(argv: string[]): CliOptions {
       printHelp();
       process.exit(0);
     }
-    throw new Error(`unknown argument: ${arg}`);
+    throw CliErrors.cliUnknownArgument(arg);
   }
 
   if (files.length === 0) {
-    throw new Error("at least one file is required via --files");
+    throw CliErrors.cliFilesRequired();
   }
 
   return { root, format, files };
@@ -75,7 +76,7 @@ export const runCliEffect = Effect.fn("Indexer.runCli")(function* (argv: string[
     const options = parseCliArgs(argv);
 
     if (options.format !== "forst-index-v1") {
-      throw new Error(`unsupported format: ${options.format}`);
+      throw CliErrors.cliUnsupportedFormat(options.format);
     }
 
     yield* Effect.annotateCurrentSpan("root", options.root);

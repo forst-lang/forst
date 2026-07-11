@@ -6,7 +6,7 @@ import {
   ProtoFrameReader,
   writeProtoFrame,
 } from "../../src/rpc/frame.js";
-import { INTERNAL_ERROR } from "../../src/rpc/errors.js";
+import * as Errors from "../../src/rpc/errors.js";
 import { runProtoLoop } from "../../src/rpc/proto_loop.js";
 import {
   METHOD_INITIALIZE,
@@ -96,6 +96,6 @@ describe("runProtoLoop", () => {
 
     await loopDone;
 
-    expect(errors).toEqual([{ id: 3, code: INTERNAL_ERROR }]);
+    expect(errors).toEqual([{ id: 3, code: Errors.INTERNAL_ERROR }]);
   });
 });

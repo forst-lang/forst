@@ -5,7 +5,7 @@ import {
   type ForstNodeManifestExportV1,
   type ForstNodeManifestV1,
 } from "../manifest/schema.js";
-import { forbidden, invalidParams } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 
 export interface ManifestIndex {
   boundaryRoot: string;
@@ -22,7 +22,7 @@ export function validateManifest(manifest: unknown): ForstNodeManifestV1 {
     return parseForstNodeManifestV1(manifest);
   } catch (err) {
     if (err instanceof ForstNodeSchemaValidationError) {
-      throw invalidParams(err.message);
+      throw Errors.invalidParams(err.message);
     }
     throw err;
   }
@@ -48,14 +48,14 @@ export function assertExportAllowed(
 ): ForstNodeManifestExportV1 {
   const entry = index.byKey.get(exportKey(moduleId, exportName));
   if (!entry) {
-    throw forbidden("export not in manifest allowlist", {
+    throw Errors.forbidden("export not in manifest allowlist", {
       moduleId,
       exportName,
     });
   }
 
   if (expectedKind !== undefined && entry.kind !== expectedKind) {
-    throw forbidden("export kind mismatch for RPC method", {
+    throw Errors.forbidden("export kind mismatch for RPC method", {
       moduleId,
       exportName,
       expectedKind,

@@ -8,7 +8,7 @@ import {
 } from "../../src/policy/manifest.js";
 import type { ForstNodeManifestExportV1 } from "../../src/manifest/schema.js";
 import { validateModuleIdSyntax } from "../../src/policy/paths.js";
-import { FORBIDDEN } from "../../src/rpc/errors.js";
+import * as Errors from "../../src/rpc/errors.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = path.resolve(testDir, "..");
@@ -59,7 +59,7 @@ describe("assertExportAllowed", () => {
       assertExportAllowed(index, syncModuleId, "missing", "function");
       expect.unreachable();
     } catch (err) {
-      expect(err).toMatchObject({ code: FORBIDDEN });
+      expect(err).toMatchObject({ code: Errors.FORBIDDEN });
     }
   });
 
@@ -75,7 +75,7 @@ describe("assertExportAllowed", () => {
       assertExportAllowed(index, syncModuleId, "add", "function");
       expect.unreachable();
     } catch (err) {
-      expect(err).toMatchObject({ code: FORBIDDEN });
+      expect(err).toMatchObject({ code: Errors.FORBIDDEN });
     }
   });
 });
@@ -86,7 +86,7 @@ describe("validateModuleIdSyntax", () => {
       validateModuleIdSyntax("../secret.ts");
       expect.unreachable();
     } catch (err) {
-      expect(err).toMatchObject({ code: FORBIDDEN });
+      expect(err).toMatchObject({ code: Errors.FORBIDDEN });
     }
   });
 
@@ -95,7 +95,7 @@ describe("validateModuleIdSyntax", () => {
       validateModuleIdSyntax("/etc/passwd.ts");
       expect.unreachable();
     } catch (err) {
-      expect(err).toMatchObject({ code: FORBIDDEN });
+      expect(err).toMatchObject({ code: Errors.FORBIDDEN });
     }
   });
 
@@ -104,7 +104,7 @@ describe("validateModuleIdSyntax", () => {
       validateModuleIdSyntax("file:///tmp/x.ts");
       expect.unreachable();
     } catch (err) {
-      expect(err).toMatchObject({ code: FORBIDDEN });
+      expect(err).toMatchObject({ code: Errors.FORBIDDEN });
     }
   });
 });

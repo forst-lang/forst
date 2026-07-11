@@ -5,7 +5,7 @@ import {
   type ManifestIndex,
 } from "../policy/manifest.js";
 import { setFilesExcludePatterns } from "../policy/paths.js";
-import { invalidParams, JsonRpcError, notInitialized } from "../rpc/errors.js";
+import * as Errors from "../rpc/errors.js";
 import {
   PROTOCOL_VERSION,
   WIRE_PROTOCOL_PROTO_V1,
@@ -57,12 +57,12 @@ function pickWireProtocol(
 export const initializeRuntime = Effect.fn("Runtime.initialize")(
   function* (state: RuntimeState, params: InitializeParams) {
     if (state.initialized) {
-      return yield* Effect.fail(invalidParams("runtime already initialized"));
+      return yield* Effect.fail(Errors.invalidParams("runtime already initialized"));
     }
 
     if (params.protocolVersion !== PROTOCOL_VERSION) {
       return yield* Effect.fail(
-        invalidParams("unsupported protocol version", {
+        Errors.invalidParams("unsupported protocol version", {
           expected: PROTOCOL_VERSION,
           received: params.protocolVersion,
         })
@@ -75,7 +75,7 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
     );
     if (protocol === "") {
       return yield* Effect.fail(
-        invalidParams("no mutually supported wire protocol", {
+        Errors.invalidParams("no mutually supported wire protocol", {
           supportedProtocols: params.supportedProtocols,
           serverProtocols: resolveServerWireProtocols(),
         })
@@ -84,18 +84,18 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
 
     if (typeof params.boundaryRoot !== "string" || params.boundaryRoot === "") {
       return yield* Effect.fail(
-        invalidParams("boundaryRoot must be a non-empty string")
+        Errors.invalidParams("boundaryRoot must be a non-empty string")
       );
     }
 
     const manifest = yield* Effect.try({
       try: () => validateManifest(params.manifest),
       catch: (cause) =>
-        cause instanceof JsonRpcError ? cause : invalidParams(String(cause)),
+        cause instanceof Errors.JsonRpcError ? cause : Errors.invalidParams(String(cause)),
     });
     if (manifest.boundaryRoot !== params.boundaryRoot) {
       return yield* Effect.fail(
-        invalidParams("manifest.boundaryRoot must match boundaryRoot", {
+        Errors.invalidParams("manifest.boundaryRoot must match boundaryRoot", {
           boundaryRoot: params.boundaryRoot,
           manifestBoundaryRoot: manifest.boundaryRoot,
         })
@@ -127,7 +127,7 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
 
 export function assertInitialized(state: RuntimeState): ManifestIndex {
   if (!state.initialized || state.index === null) {
-    throw notInitialized();
+    throw Errors.notInitialized();
   }
   return state.index;
 }

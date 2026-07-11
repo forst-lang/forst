@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { PassThrough } from "node:stream";
-import { JsonRpcError, METHOD_NOT_FOUND } from "../../src/rpc/errors.js";
+import * as Errors from "../../src/rpc/errors.js";
 import {
   decodeFrame,
   encodeFrame,
   newErrorResponseFrame,
   newOkResponseFrame,
   newRequestFrame,
+  parseRequestFrame,
   ProtoFrameReader,
   writeProtoFrame,
 } from "../../src/rpc/frame.js";
@@ -33,11 +34,51 @@ describe("proto frame codec", () => {
   });
 
   test("error response preserves negative code", () => {
-    const err = new JsonRpcError(METHOD_NOT_FOUND, "Method not found");
+    const err = Errors.methodNotFound();
     const frame = newErrorResponseFrame(7, err);
     const decoded = decodeFrame(encodeFrame(frame));
-    expect(decoded.response?.err?.code).toBe(METHOD_NOT_FOUND);
+    expect(decoded.response?.err?.code).toBe(Errors.METHOD_NOT_FOUND);
     expect(decoded.response?.err?.message).toBe("Method not found");
+  });
+
+  test("parseRequestFrame rejects missing request", () => {
+    expect(() => parseRequestFrame({ id: 1 })).toThrow(
+      expect.objectContaining({
+        code: Errors.INVALID_REQUEST,
+        message: "frame missing request",
+      })
+    );
+  });
+
+  test("parseRequestFrame rejects empty method", () => {
+    expect(() =>
+      parseRequestFrame({
+        id: 1,
+        request: { method: "", payloadJson: new Uint8Array(0) },
+      })
+    ).toThrow(
+      expect.objectContaining({
+        code: Errors.INVALID_REQUEST,
+        message: "method must be a string",
+      })
+    );
+  });
+
+  test("parseRequestFrame rejects invalid payload JSON", () => {
+    expect(() =>
+      parseRequestFrame({
+        id: 1,
+        request: {
+          method: METHOD_PING,
+          payloadJson: new TextEncoder().encode("{"),
+        },
+      })
+    ).toThrow(
+      expect.objectContaining({
+        code: Errors.PARSE_ERROR,
+        message: "invalid JSON in request payload",
+      })
+    );
   });
 
   test("length prefix read/write", () => {
