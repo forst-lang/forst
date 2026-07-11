@@ -634,6 +634,7 @@ tasks:
 
   example:node-interop-remix-serve:standalone-e2e:
     desc: E2E — temp-dir remix-serve with local @forst/* file deps (no registry)
+    deps: [install:bun]
     cmds:
       - bash scripts/remix-serve-standalone-e2e.sh
 

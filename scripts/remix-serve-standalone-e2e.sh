@@ -80,6 +80,9 @@ trap 'cleanup $?' EXIT
 trap 'cleanup 130' INT
 trap 'cleanup 143' TERM
 
+echo "=== build monorepo artifacts ==="
+(cd "$REPO" && task build:node-runtime build:client build:sidecar build)
+
 if [[ ! -x "$FORST_BINARY" ]]; then
   echo "missing compiler binary: $FORST_BINARY (run: task build)" >&2
   exit 1
@@ -88,9 +91,6 @@ if [[ ! -f "$REGISTER_MJS" ]]; then
   echo "missing node-runtime host register: $REGISTER_MJS (run: task build:node-runtime)" >&2
   exit 1
 fi
-
-echo "=== build monorepo artifacts ==="
-(cd "$REPO" && task build:node-runtime build:client build:sidecar build)
 
 TMP="$(mktemp -d)"
 
