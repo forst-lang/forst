@@ -53,8 +53,11 @@ const isDirectExecution =
   (process.argv[1].endsWith("/bootstrap.js") ||
     process.argv[1].endsWith("/bootstrap.ts"));
 
+// NodeRuntime.runMain adds Logger.prettyLoggerDefault to stdout by default; disable it
+// so stdout stays reserved for RPC length-prefixed frames.
 if (isDirectExecution) {
   NodeRuntime.runMain(
-    bootstrapProgram.pipe(Effect.provide(ForstNodeRuntimeLayer))
+    bootstrapProgram.pipe(Effect.provide(ForstNodeRuntimeLayer)),
+    { disablePrettyLogger: true }
   );
 }

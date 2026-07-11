@@ -58,11 +58,13 @@ export const startRpcServer = Effect.fn("Rpc.startServer")(
     );
 
     const { dispatch, state } = createDispatcher();
-    yield* runProtoLoop(input, output, {
-      runtime: options.runtime ?? defaultNodeRuntimeSetup.runtime,
-      onRequest: (request) =>
-        onRequest(request, dispatch, state, exitOnShutdown),
-    });
+    yield* Effect.promise(() =>
+      runProtoLoop(input, output, {
+        runtime: options.runtime ?? defaultNodeRuntimeSetup.runtime,
+        onRequest: (request) =>
+          onRequest(request, dispatch, state, exitOnShutdown),
+      })
+    );
 
     yield* Effect.logInfo("rpc_server_closed").pipe(
       Effect.annotateLogs({ event: "rpc_server_closed" })

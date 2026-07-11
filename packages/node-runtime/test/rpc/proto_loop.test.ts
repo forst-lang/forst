@@ -13,7 +13,6 @@ import {
   PROTOCOL_VERSION,
   WIRE_PROTOCOL_PROTO_V1,
 } from "../../src/rpc/protocol.js";
-import { runTestEffect } from "../helpers/run-effect.js";
 
 describe("runProtoLoop", () => {
   test("initialize and ping over length-prefixed frames", async () => {
@@ -21,9 +20,7 @@ describe("runProtoLoop", () => {
     const stdout = new PassThrough();
     const { dispatch } = createDispatcher();
 
-    const loopDone = runTestEffect(
-      runProtoLoop(stdin, stdout, { onRequest: dispatch })
-    );
+    const loopDone = runProtoLoop(stdin, stdout, { onRequest: dispatch });
     const reader = new ProtoFrameReader();
     const frames: Array<{ id: number; result: unknown }> = [];
 

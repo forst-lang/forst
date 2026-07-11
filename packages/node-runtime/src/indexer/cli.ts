@@ -127,6 +127,7 @@ if (isDirectExecution) {
         })
       ),
       Effect.provide(ForstNodeRuntimeLayer)
-    )
+    ),
+    { disablePrettyLogger: true }
   );
 }

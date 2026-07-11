@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { HashMap, Layer, Logger, LogLevel } from "effect";
 
 export type LogFields = Record<
@@ -34,8 +35,59 @@ function annotationValue(value: unknown): string | number | boolean | null {
   return String(value);
 }
 
-/** Human-readable stderr logger (default). */
-export const stderrPrettyLogger = Logger.prettyLogger({ stderr: true });
+function formatTimestamp(date: Date): string {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  const seconds = `${date.getSeconds()}`.padStart(2, "0");
+  const millis = `${date.getMilliseconds()}`.padStart(3, "0");
+  return `${hours}:${minutes}:${seconds}.${millis}`;
+}
+
+function formatPrettyLogLine(
+  logLevel: LogLevel.LogLevel,
+  message: unknown,
+  annotations: HashMap.HashMap<string, unknown>,
+  date: Date
+): string {
+  const parts = Array.isArray(message) ? message : [message];
+  const headline = parts.map(String).join(" ");
+  const lines = [`[${formatTimestamp(date)}] ${logLevel.label}: ${headline}`];
+
+  for (const [key, value] of HashMap.entries(annotations)) {
+    lines.push(`  ${key}: ${annotationValue(value)}`);
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function writeStderrImpl(text: string): void {
+  fs.writeSync(2, text);
+}
+
+let writeStderrHook: (text: string) => void = writeStderrImpl;
+
+/** Test-only hook to capture stderr output without patching fs. */
+export function setWriteStderrForTest(writer: (text: string) => void): () => void {
+  const prev = writeStderrHook;
+  writeStderrHook = writer;
+  return () => {
+    writeStderrHook = prev;
+  };
+}
+
+function writeStderr(text: string): void {
+  writeStderrHook(text);
+}
+
+/**
+ * Human-readable stderr logger (default).
+ * Writes to fd 2 directly so stdout stays reserved for RPC frames.
+ */
+export const stderrPrettyLogger = Logger.make(
+  ({ logLevel, message, annotations, date }) => {
+    writeStderr(formatPrettyLogLine(logLevel, message, annotations, date));
+  }
+);
 
 /** Structured JSON stderr logger; set `FORST_NODE_LOG_FORMAT=json` or compose manually. */
 export const stderrJsonLogger = Logger.make(
@@ -54,7 +106,7 @@ export const stderrJsonLogger = Logger.make(
     fields.level = logLevel.label;
     fields.ts = date.getTime();
 
-    process.stderr.write(`${JSON.stringify(fields)}\n`);
+    writeStderr(`${JSON.stringify(fields)}\n`);
   }
 );
 

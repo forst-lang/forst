@@ -83,69 +83,64 @@ export function successResponse(
   };
 }
 
-export function runProtoLoop(
+/** Runs the length-prefixed proto RPC loop until stdin closes. */
+export async function runProtoLoop(
   stdin: NodeJS.ReadableStream,
   stdout: Writable,
   options: ProtoLoopOptions
-): Effect.Effect<void, never, never> {
-  return Effect.tryPromise({
-    try: async () => {
-      const maxBytes = options.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
-      const reader = new ProtoFrameReader();
+): Promise<void> {
+  const maxBytes = options.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
+  const reader = new ProtoFrameReader();
+  const runtime = options.runtime ?? defaultNodeRuntimeSetup.runtime;
 
-      const runtime = options.runtime ?? defaultNodeRuntimeSetup.runtime;
+  if ("resume" in stdin && typeof stdin.resume === "function") {
+    stdin.resume();
+  }
 
-      for await (const chunk of stdin) {
-        reader.append(Buffer.from(chunk as Buffer));
+  for await (const chunk of stdin) {
+    reader.append(Buffer.from(chunk as Buffer));
 
-        for (;;) {
-          let frame: Frame | null;
-          try {
-            frame = reader.tryReadFrame(maxBytes);
-          } catch (err) {
-            const response =
-              options.onParseError?.(err, null) ??
-              errorResponse(
-                null,
-                err instanceof JsonRpcError
-                  ? err
-                  : new JsonRpcError(PARSE_ERROR, "parse error")
-              );
-            writeJsonRpcResponse(stdout, response, maxBytes);
-            continue;
-          }
-
-          if (frame === null) {
-            break;
-          }
-
-          let request: JsonRpcRequest;
-          try {
-            request = frameToJsonRpcRequest(frame);
-          } catch (err) {
-            const response =
-              options.onParseError?.(err, frame) ??
-              errorResponse(
-                frame.id,
-                err instanceof JsonRpcError
-                  ? err
-                  : new JsonRpcError(PARSE_ERROR, "parse error")
-              );
-            writeJsonRpcResponse(stdout, response, maxBytes);
-            continue;
-          }
-
-          const response = await runtime.runPromise(options.onRequest(request));
-          if (response !== null) {
-            writeJsonRpcResponse(stdout, response, maxBytes);
-          }
-        }
+    for (;;) {
+      let frame: Frame | null;
+      try {
+        frame = reader.tryReadFrame(maxBytes);
+      } catch (err) {
+        const response =
+          options.onParseError?.(err, null) ??
+          errorResponse(
+            null,
+            err instanceof JsonRpcError
+              ? err
+              : new JsonRpcError(PARSE_ERROR, "parse error")
+          );
+        writeJsonRpcResponse(stdout, response, maxBytes);
+        continue;
       }
-    },
-    catch: () => new Error("proto loop failed"),
-  }).pipe(
-    Effect.withSpan("Rpc.runProtoLoop"),
-    Effect.catchAll(() => Effect.void),
-    Effect.asVoid
-  );
+
+      if (frame === null) {
+        break;
+      }
+
+      let request: JsonRpcRequest;
+      try {
+        request = frameToJsonRpcRequest(frame);
+      } catch (err) {
+        const response =
+          options.onParseError?.(err, frame) ??
+          errorResponse(
+            frame.id,
+            err instanceof JsonRpcError
+              ? err
+              : new JsonRpcError(PARSE_ERROR, "parse error")
+          );
+        writeJsonRpcResponse(stdout, response, maxBytes);
+        continue;
+      }
+
+      const response = await runtime.runPromise(options.onRequest(request));
+      if (response !== null) {
+        writeJsonRpcResponse(stdout, response, maxBytes);
+      }
+    }
+  }
 }

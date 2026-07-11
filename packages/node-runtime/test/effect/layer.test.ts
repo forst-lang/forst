@@ -1,23 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import { envLogFormat, envLogLevel } from "../../src/effect/layer.js";
+import {
+  envLogFormat,
+  envLogLevel,
+  setWriteStderrForTest,
+} from "../../src/effect/layer.js";
 import { runTestEffect } from "../helpers/run-effect.js";
 
 function captureStderr(run: () => void | Promise<void>): Promise<string> {
   const lines: string[] = [];
-  const originalError = console.error;
-  console.error = (...args: unknown[]) => {
-    lines.push(`${args.map(String).join(" ")}\n`);
-  };
-  const originalWrite = process.stderr.write.bind(process.stderr);
-  process.stderr.write = ((chunk: string | Uint8Array) => {
-    lines.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
-    return true;
-  }) as typeof process.stderr.write;
-  return Promise.resolve(run()).finally(() => {
-    console.error = originalError;
-    process.stderr.write = originalWrite;
-  }).then(() => lines.join(""));
+  const restore = setWriteStderrForTest((text) => {
+    lines.push(text);
+  });
+  return Promise.resolve(run())
+    .finally(restore)
+    .then(() => lines.join(""));
 }
 
 describe("ForstNodeRuntimeLayer logging", () => {
@@ -119,5 +116,32 @@ describe("ForstNodeRuntimeLayer logging", () => {
     expect(payload.event).toBe("spawn");
     expect(payload.pid).toBe(42);
     expect(payload.level).toBe("INFO");
+  });
+
+  test("pretty logs write to stderr only (stdout reserved for RPC)", async () => {
+    delete process.env[envLogLevel];
+    delete process.env[envLogFormat];
+    const stdoutLines: string[] = [];
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      stdoutLines.push(
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8")
+      );
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await captureStderr(() =>
+        runTestEffect(
+          Effect.logInfo("spawn").pipe(
+            Effect.annotateLogs({ event: "spawn", pid: 42 })
+          )
+        )
+      );
+    } finally {
+      process.stdout.write = originalStdoutWrite;
+    }
+
+    expect(stdoutLines.join("")).toBe("");
   });
 });

@@ -46,12 +46,13 @@ import {
 const myLayer = makeForstNodeRuntimeLayer();
 const { layer, runtime } = createNodeRuntimeSetup(myLayer);
 
-// Bootstrap child (stdin/stdout RPC)
+// Bootstrap child (stdin/stdout RPC). disablePrettyLogger keeps stdout for frames only.
 NodeRuntime.runMain(
   bootstrapMain({ runtime }).pipe(
     Effect.catchAllDefect((cause) => bootstrapFatal(cause)),
     Effect.provide(layer)
-  )
+  ),
+  { disablePrettyLogger: true }
 );
 
 // Or wire RPC directly
@@ -59,7 +60,8 @@ NodeRuntime.runMain(
   startRpcServer(process.stdin, process.stdout, {
     exitProcessOnShutdown: true,
     runtime,
-  }).pipe(Effect.provide(layer))
+  }).pipe(Effect.provide(layer)),
+  { disablePrettyLogger: true }
 );
 
 // Host mode: pass runtimeLayer so RPC forks use the same setup
