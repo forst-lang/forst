@@ -2,7 +2,9 @@ package compiler
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"forst/internal/ast"
 	"forst/internal/forstcheck"
@@ -17,6 +19,9 @@ import (
 func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
 	// Explicit -root compiles use a fresh checker scoped to the package boundary (Node interop, merged examples).
 	if c.Args.PackageRoot != "" {
+		if c.packageRootHasStandaloneModuleProviders() {
+			return c.typecheckPackageRootWithModuleProviders(nodes)
+		}
 		checker := typechecker.New(c.log, c.Args.ReportPhases)
 		absRoot, err := filepath.Abs(c.Args.PackageRoot)
 		if err != nil {
@@ -104,4 +109,82 @@ func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
 // RebindTypecheckerScopes re-runs CheckTypes on nodes so scope stacks match the compile AST.
 func RebindTypecheckerScopes(tc *typechecker.TypeChecker, nodes []ast.Node) error {
 	return forstcheck.RebindScopes(tc, nodes)
+}
+
+// packageRootHasStandaloneModuleProviders is true when -root lies in a Go module with its own
+// go.mod (e.g. providers cross_pkg). False when FindModuleRoot falls back to the start directory
+// (node-interop under forst/go.mod) or when the module is the forst compiler repo.
+func (c *Compiler) packageRootHasStandaloneModuleProviders() bool {
+	modRoot := goload.FindModuleRoot(c.Args.PackageRoot)
+	if !moduleRootHasGoMod(modRoot) {
+		return false
+	}
+	return !goload.IsForstCompilerModule(modRoot)
+}
+
+func moduleRootHasGoMod(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(dir, "go.mod"))
+	return err == nil && !st.IsDir()
+}
+
+// typecheckPackageRootWithModuleProviders typechecks a -root compile via modulecheck so Forst sibling
+// imports resolve from .ft sources (not emitted z_forst_gen.go Go stubs).
+func (c *Compiler) typecheckPackageRootWithModuleProviders(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
+	moduleRoot := goload.FindModuleRoot(c.Args.PackageRoot)
+	modResult, err := modulecheck.CheckModuleProviders(c.log, modulecheck.Options{ModuleRoot: moduleRoot})
+	if err != nil {
+		return nil, modResult, err
+	}
+	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
+	if modResult != nil {
+		if tc := modResult.PerPackage[forstPkg]; tc != nil && packageFilesUnderRoot(modResult, forstPkg, c.Args.PackageRoot) {
+			absRoot, err := filepath.Abs(c.Args.PackageRoot)
+			if err != nil {
+				return nil, modResult, fmt.Errorf("package root: %w", err)
+			}
+			tc.NodeBoundaryRoot = absRoot
+			tc.ConfigureForForstFile(c.goWorkspaceDirForCheck(), filepath.Dir(c.Args.FilePath), nodes)
+			if err := forstcheck.RebindScopes(tc, nodes); err != nil {
+				return tc, modResult, err
+			}
+			return tc, modResult, nil
+		}
+	}
+	checker := typechecker.New(c.log, c.Args.ReportPhases)
+	absRoot, err := filepath.Abs(c.Args.PackageRoot)
+	if err != nil {
+		return nil, modResult, fmt.Errorf("package root: %w", err)
+	}
+	checker.NodeBoundaryRoot = absRoot
+	checker.ConfigureForForstFile(c.goWorkspaceDirForCheck(), filepath.Dir(c.Args.FilePath), nodes)
+	if modResult != nil {
+		checker.SetModuleResult(modResult)
+	}
+	if err := checker.CheckTypes(nodes); err != nil {
+		return checker, modResult, err
+	}
+	return checker, modResult, nil
+}
+
+func packageFilesUnderRoot(modResult *modulecheck.ModuleResult, forstPkg, packageRoot string) bool {
+	if modResult == nil || forstPkg == "" || packageRoot == "" {
+		return false
+	}
+	absRoot, err := filepath.Abs(packageRoot)
+	if err != nil {
+		return false
+	}
+	for _, filePath := range modResult.ForstPkgToFiles[forstPkg] {
+		absFile, err := filepath.Abs(filePath)
+		if err != nil {
+			continue
+		}
+		if absFile == absRoot || strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
