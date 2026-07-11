@@ -227,7 +227,10 @@ func (t *Transformer) registerNodeCallWrapper(
 		}
 		callArgs = nil
 	} else {
-		params, paramIdents := t.nodeWrapperParamFields(e.Arguments)
+		params, paramIdents, err := t.nodeWrapperParamFieldsFromIndex(target, len(e.Arguments))
+		if err != nil {
+			return "", nil, err
+		}
 		inner = &goast.CallExpr{
 			Fun: &goast.IndexExpr{
 				X: &goast.SelectorExpr{
@@ -293,23 +296,30 @@ func (t *Transformer) nodeBridgeCallArgsFromParamIdents(target typechecker.NodeC
 	return goArgs
 }
 
-func (t *Transformer) nodeWrapperParamFields(args []ast.ExpressionNode) ([]*goast.Field, []goast.Expr) {
-	fields := make([]*goast.Field, 0, len(args))
-	idents := make([]goast.Expr, 0, len(args))
-	for i, arg := range args {
-		argTypes, err := t.TypeChecker.LookupInferredType(arg, false)
-		if err != nil || len(argTypes) != 1 {
-			panic(fmt.Errorf("codegen: node wrapper arg %d: missing inferred type", i+1))
-		}
-		goType, err := t.transformType(argTypes[0])
+func (t *Transformer) nodeWrapperParamFieldsFromIndex(target typechecker.NodeCallTarget, argCount int) ([]*goast.Field, []goast.Expr, error) {
+	if t == nil || t.TypeChecker == nil {
+		return nil, nil, fmt.Errorf("codegen: node wrapper: missing typechecker")
+	}
+	forstParams, err := t.TypeChecker.NodeExportParamTypes(target.ModuleID, target.ExportName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("codegen: node wrapper %s.%s: %w", target.ModuleID, target.ExportName, err)
+	}
+	if len(forstParams) != argCount {
+		return nil, nil, fmt.Errorf("codegen: node wrapper %s.%s: index has %d params, call has %d args",
+			target.ModuleID, target.ExportName, len(forstParams), argCount)
+	}
+	fields := make([]*goast.Field, 0, len(forstParams))
+	idents := make([]goast.Expr, 0, len(forstParams))
+	for i, paramType := range forstParams {
+		goType, err := t.transformType(paramType)
 		if err != nil {
-			panic(err)
+			return nil, nil, err
 		}
 		pname := goast.NewIdent(fmt.Sprintf("arg%d", i))
 		fields = append(fields, &goast.Field{Names: []*goast.Ident{pname}, Type: goType})
 		idents = append(idents, pname)
 	}
-	return fields, idents
+	return fields, idents, nil
 }
 
 func (t *Transformer) tryEmitStaticNodeCallArgsJSONInRuntime(args []ast.ExpressionNode) (goast.Expr, bool) {
@@ -375,7 +385,10 @@ func (t *Transformer) registerNodeOpenSeqWrapper(
 		}
 		callArgs = nil
 	} else {
-		params, paramIdents := t.nodeWrapperParamFields(e.Arguments)
+		params, paramIdents, err := t.nodeWrapperParamFieldsFromIndex(target, len(e.Arguments))
+		if err != nil {
+			return "", nil, err
+		}
 		goArgs := t.nodeBridgeCallArgsFromParamIdents(target, paramIdents)
 		goArgs = append(goArgs[:2], append([]goast.Expr{
 			&goast.SelectorExpr{X: goast.NewIdent("nodert"), Sel: goast.NewIdent(kindSel)},

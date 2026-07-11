@@ -111,6 +111,42 @@ func main() {
 	_ = mainCode
 }
 
+func TestCodegen_nodeWrapperUsesIndexParamTypesForFloatArg(t *testing.T) {
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "payment.ts")
+	if err := os.WriteFile(tsFile, []byte("export async function concurrentEcho(n: number): Promise<{ echo: number }> { return { echo: n }; }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := `package main
+import node "./legacy/payment"
+import "strconv"
+
+func echo(n Float): String {
+	res := payment.concurrentEcho(n)
+	ensure res is Ok()
+	return strconv.FormatFloat(res.echo, 'f', 0, 64)
+}
+`
+	tc, nodes := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tr := New(tc, nil)
+	file, err := tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatalf("TransformForstFileToGo: %v", err)
+	}
+	_, runtimeCode := formatTransformerGoFiles(t, tr, file)
+	if !strings.Contains(runtimeCode, "concurrentEcho(arg0 float64)") {
+		t.Fatalf("wrapper should use float64 from TS index, got:\n%s", runtimeCode)
+	}
+}
+
 func TestCodegen_blockingForInOverAsyncIterator(t *testing.T) {
 	root := t.TempDir()
 	writeNodeBridgeAsyncGenFixture(t, root)

@@ -1,12 +1,26 @@
 package typechecker
 
-import "forst/internal/nodeinterop"
+import (
+	"fmt"
+
+	"forst/internal/ast"
+	"forst/internal/nodeinterop"
+)
 
 // NodeCallTarget describes a resolved opted-in TypeScript call target.
 type NodeCallTarget struct {
 	ModuleID   string
 	ExportName string
 	Kind       string
+}
+
+// NodeExportParamTypes returns Forst parameter types from the loaded TS index for an export.
+func (tc *TypeChecker) NodeExportParamTypes(moduleID, exportName string) ([]ast.TypeNode, error) {
+	if tc == nil || tc.nodeIndexResolver == nil {
+		return nil, fmt.Errorf("node index resolver not initialized")
+	}
+	params, _, _, err := tc.nodeIndexResolver.ExportSignature(moduleID, exportName)
+	return params, err
 }
 
 // NodeCallTarget returns compile-time facts for pkgLocal.exportName when it is a node import call.

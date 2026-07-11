@@ -39,7 +39,7 @@ func forst_node_callasync_legacy_events_ts_dispatch(arg0 T_G2n6vMumV8n) (struct 
 	return nodert.CallAsync[struct {
 	}]("legacy/events.ts", "dispatch", arg0)
 }
-func forst_node_callasync_legacy_payment_ts_concurrentEcho(arg0 int) (T_NTbLJjyksQg, error) {
+func forst_node_callasync_legacy_payment_ts_concurrentEcho(arg0 float64) (T_NTbLJjyksQg, error) {
 	return nodert.CallAsync[T_NTbLJjyksQg]("legacy/payment.ts", "concurrentEcho", arg0)
 }
 func forst_node_callasync_legacy_payment_ts_create(arg0 float64, arg1 string) (T_BSiWS9EsB18, error) {
