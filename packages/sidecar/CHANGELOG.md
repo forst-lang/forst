@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/forst-lang/forst/compare/sidecar-v0.3.0...sidecar-v0.4.0) (2026-07-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **node-runtime:** adopt Effect for RPC, logging, host runtime ([#136](https://github.com/forst-lang/forst/issues/136))
+
+### Features
+
+* **node-runtime:** adopt Effect for RPC, logging, host runtime ([#136](https://github.com/forst-lang/forst/issues/136)) ([75a4032](https://github.com/forst-lang/forst/commit/75a403238038225ffc753b5382c279f659438f0b))
+
 ## [0.3.0](https://github.com/forst-lang/forst/compare/sidecar-v0.2.0...sidecar-v0.3.0) (2026-06-28)
 
 

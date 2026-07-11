@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/forst-lang/forst/compare/v0.7.0...v0.8.0) (2026-07-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **node-runtime:** adopt Effect for RPC, logging, host runtime ([#136](https://github.com/forst-lang/forst/issues/136))
+
+### Features
+
+* **node-runtime:** adopt Effect for RPC, logging, host runtime ([#136](https://github.com/forst-lang/forst/issues/136)) ([75a4032](https://github.com/forst-lang/forst/commit/75a403238038225ffc753b5382c279f659438f0b))
+* **release:** ship amd64 and arm64 deb packages on compiler release ([7c77310](https://github.com/forst-lang/forst/commit/7c773102619cd14455f15981d3015ad2b4a6fe4e))
+
 ## [0.7.0](https://github.com/forst-lang/forst/compare/v0.6.1...v0.7.0) (2026-07-11)
 
 
