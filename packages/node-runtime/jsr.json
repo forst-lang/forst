@@ -5,7 +5,6 @@
     ".": "./src/index.ts",
     "./bootstrap": "./src/bootstrap.ts",
     "./host": "./src/host.ts",
-    "./host/register.cjs": "./src/host/register.cjs",
     "./host/register.mjs": "./src/host/register.mjs"
   },
   "publish": {
@@ -14,8 +13,7 @@
       "README.md",
       "package.json",
       "src/**/*.ts",
-      "src/**/*.cjs",
-      "src/**/*.mjs"
+      "src/host/register.mjs"
     ],
     "exclude": [
       "src/**/*.test.ts",
