@@ -1,6 +1,6 @@
 {
   "name": "@forst/node-runtime",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Node.js runtime bootstrap and TypeScript indexer for Forst Node interop",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

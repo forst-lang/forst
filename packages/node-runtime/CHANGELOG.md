@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/forst-lang/forst/compare/node-runtime-v0.2.0...node-runtime-v0.2.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* **node-runtime:** drop register.cjs from JSR publish ([d4da94f](https://github.com/forst-lang/forst/commit/d4da94f57d0418bccef2dcf78d39c05b7deb3b9c))
+
 ## [0.2.0](https://github.com/forst-lang/forst/compare/node-runtime-v0.1.0...node-runtime-v0.2.0) (2026-07-11)
 
 
