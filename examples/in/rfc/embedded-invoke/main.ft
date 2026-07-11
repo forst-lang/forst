@@ -1,0 +1,21 @@
+package main
+
+type EchoRequest = {
+  message: String
+}
+
+type EchoResponse = {
+  echo: String,
+  timestamp: Int
+}
+
+func Echo(input EchoRequest) {
+  return {
+    echo: input.message,
+    timestamp: 42
+  }
+}
+
+func main() {
+  println("embedded invoke listening on :8081")
+}

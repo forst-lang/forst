@@ -18,6 +18,96 @@ func TestDefault_saneDefaults(t *testing.T) {
 	if len(c.Files.Include) == 0 || c.Dev.LogLevel != "info" {
 		t.Fatalf("Files/Dev defaults unexpected: %+v %+v", c.Files, c.Dev)
 	}
+	if c.Node.Enabled || c.Node.RuntimeEnabled {
+		t.Fatalf("Node defaults should be disabled: %+v", c.Node)
+	}
+	if c.Node.ImportPolicy != "explicit" {
+		t.Fatalf("Node.ImportPolicy: %q", c.Node.ImportPolicy)
+	}
+	if c.Node.Binary != "node" {
+		t.Fatalf("Node.Binary: %q", c.Node.Binary)
+	}
+	if c.Node.Bootstrap != "node_modules/@forst/node-runtime/dist/bootstrap.js" {
+		t.Fatalf("Node.Bootstrap: %q", c.Node.Bootstrap)
+	}
+	if c.Node.Loader != "tsx" {
+		t.Fatalf("Node.Loader: %q", c.Node.Loader)
+	}
+	if c.Node.RPC.MaxMessageBytes != 16<<20 {
+		t.Fatalf("Node.RPC.MaxMessageBytes: %d", c.Node.RPC.MaxMessageBytes)
+	}
+	if c.Node.RPC.CallTimeoutSeconds != 120 {
+		t.Fatalf("Node.RPC.CallTimeoutSeconds: %d", c.Node.RPC.CallTimeoutSeconds)
+	}
+	if c.Node.HostSocket != ".forst/node.sock" {
+		t.Fatalf("Node.HostSocket: %q", c.Node.HostSocket)
+	}
+	if c.Node.HostReadyTimeoutSeconds != 120 {
+		t.Fatalf("Node.HostReadyTimeoutSeconds: %d", c.Node.HostReadyTimeoutSeconds)
+	}
+}
+
+func TestLoad_nodeStanza_parsesAndMergesWithDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, configFileName)
+	json := `{
+  "node": {
+    "enabled": true,
+    "importPolicy": "implicit",
+    "runtimeEnabled": true,
+    "binary": "/usr/local/bin/node",
+    "bootstrap": "node_modules/@forst/node-runtime/dist/bootstrap.js",
+    "loader": "tsx",
+    "rpc": {
+      "maxMessageBytes": 1048576,
+      "callTimeoutSeconds": 30
+    }
+  }
+}`
+	if err := os.WriteFile(path, []byte(json), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Node.Enabled || !cfg.Node.RuntimeEnabled {
+		t.Fatalf("node overrides: %+v", cfg.Node)
+	}
+	if cfg.Node.ImportPolicy != "implicit" {
+		t.Fatalf("importPolicy: %q", cfg.Node.ImportPolicy)
+	}
+	if cfg.Node.Binary != "/usr/local/bin/node" {
+		t.Fatalf("binary: %q", cfg.Node.Binary)
+	}
+	if cfg.Node.RPC.MaxMessageBytes != 1048576 {
+		t.Fatalf("rpc.maxMessageBytes: %d", cfg.Node.RPC.MaxMessageBytes)
+	}
+	if cfg.Node.RPC.CallTimeoutSeconds != 30 {
+		t.Fatalf("rpc.callTimeoutSeconds: %d", cfg.Node.RPC.CallTimeoutSeconds)
+	}
+	if cfg.Compiler.Target != "go" {
+		t.Fatalf("expected default compiler target, got %q", cfg.Compiler.Target)
+	}
+}
+
+func TestLoad_nodeRPCZeroValues_normalizedToDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, configFileName)
+	json := `{"node": {"rpc": {"maxMessageBytes": 0, "callTimeoutSeconds": 0}}}`
+	if err := os.WriteFile(path, []byte(json), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Node.RPC.MaxMessageBytes != 16<<20 {
+		t.Fatalf("maxMessageBytes: %d", cfg.Node.RPC.MaxMessageBytes)
+	}
+	if cfg.Node.RPC.CallTimeoutSeconds != 120 {
+		t.Fatalf("callTimeoutSeconds: %d", cfg.Node.RPC.CallTimeoutSeconds)
+	}
 }
 
 func TestLoad_fromJSONFile_mergesWithDefaults(t *testing.T) {
@@ -224,6 +314,33 @@ func TestFindConfigFile(t *testing.T) {
 	}
 }
 
+func TestBoundaryRootFromDir_foundInAncestor(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := filepath.Join(root, configFileName)
+	if err := os.WriteFile(cfgPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "a", "b")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := BoundaryRootFromDir(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != root {
+		t.Fatalf("BoundaryRootFromDir = %q want %q", got, root)
+	}
+}
+
+func TestBoundaryRootFromDir_notFound(t *testing.T) {
+	dir := t.TempDir()
+	_, err := BoundaryRootFromDir(dir)
+	if err == nil {
+		t.Fatal("expected error when ftconfig.json missing")
+	}
+}
+
 func TestConfig_FindForstFiles_respectsIncludeExclude(t *testing.T) {
 	root := t.TempDir()
 	includeDir := filepath.Join(root, "src")
@@ -289,6 +406,28 @@ func TestConfig_matchesIncludePatterns_noMatch(t *testing.T) {
 	}
 }
 
+func TestImportPolicyFromDir_defaultExplicit(t *testing.T) {
+	dir := t.TempDir()
+	if got := ImportPolicyFromDir(dir); got != "explicit" {
+		t.Fatalf("ImportPolicyFromDir = %q, want explicit", got)
+	}
+}
+
+func TestImportPolicyFromDir_readsNestedConfig(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "pkg", "tests")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := `{"node":{"importPolicy":"implicit"}}`
+	if err := os.WriteFile(filepath.Join(root, configFileName), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := ImportPolicyFromDir(sub); got != "implicit" {
+		t.Fatalf("ImportPolicyFromDir = %q, want implicit", got)
+	}
+}
+
 func TestExportStructFieldsFromDir_defaultFalse(t *testing.T) {
 	dir := t.TempDir()
 	if ExportStructFieldsFromDir(dir) {
@@ -337,5 +476,42 @@ func TestLoadFromDir_loadsAncestorConfig(t *testing.T) {
 	}
 	if cfg.Server.Port != "4002" {
 		t.Fatalf("expected parent ftconfig, got %+v", cfg.Server)
+	}
+}
+
+func TestLoad_hostModeRequiresArgs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, configFileName)
+	json := `{
+  "node": {
+    "hostMode": true,
+    "args": []
+  }
+}`
+	if err := os.WriteFile(path, []byte(json), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "hostMode requires non-empty node.args") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestNodeConfig_EffectiveHostAutoRegister(t *testing.T) {
+	falseVal := false
+	cfg := Default()
+	if cfg.Node.EffectiveHostAutoRegister() {
+		t.Fatal("expected false when hostMode unset and hostAutoRegister unset")
+	}
+	cfg.Node.HostMode = true
+	if !cfg.Node.EffectiveHostAutoRegister() {
+		t.Fatal("expected true by default when hostMode enabled")
+	}
+	cfg.Node.HostAutoRegister = &falseVal
+	if cfg.Node.EffectiveHostAutoRegister() {
+		t.Fatal("expected false when hostAutoRegister explicitly false")
 	}
 }

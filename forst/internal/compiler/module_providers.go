@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -14,13 +15,30 @@ import (
 // typecheckForCompile runs module-level Providers checking when multiple Forst packages exist,
 // returning the typechecker for the compiled package.
 func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
+	// Explicit -root compiles use a fresh checker scoped to the package boundary (Node interop, merged examples).
+	if c.Args.PackageRoot != "" {
+		checker := typechecker.New(c.log, c.Args.ReportPhases)
+		absRoot, err := filepath.Abs(c.Args.PackageRoot)
+		if err != nil {
+			return nil, nil, fmt.Errorf("package root: %w", err)
+		}
+		checker.NodeBoundaryRoot = absRoot
+		checker.ConfigureForForstFile(c.goWorkspaceDirForCheck(), filepath.Dir(c.Args.FilePath), nodes)
+		if err := checker.CheckTypes(nodes); err != nil {
+			return checker, nil, err
+		}
+		return checker, nil, nil
+	}
+
 	moduleRoot := c.moduleRootForProvidersPass()
 	modResult, err := modulecheck.CheckModuleProviders(c.log, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err != nil {
 		return nil, modResult, err
 	}
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
-	if modResult != nil {
+	entryDir := entryDirFromArgs(c.Args)
+
+	if modResult != nil && !c.typecheckUsesFreshEntryChecker(entryDir) {
 		if tc := modResult.PerPackage[forstPkg]; tc != nil {
 			// Module check used merged-package AST nodes; re-bind scopes to this compile's nodes.
 			if err := RebindTypecheckerScopes(tc, nodes); err != nil {

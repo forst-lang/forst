@@ -8,8 +8,13 @@ import (
 func (p *Parser) parseImport() ast.ImportNode {
 	var alias *ast.Ident
 	var sideEffectOnly bool
+	var nodeOptIn bool
+	var nodeOptInSource string
 
 	switch p.current().Type {
+	case ast.TokenStar:
+		p.FailWithParseError(p.current(),
+			`import * as … from is removed; use import node "./path" or import node alias "./path"`)
 	case ast.TokenDot:
 		// Go dot-import: import . "path" — symbols from path are in the file scope unqualified.
 		p.advance()
@@ -17,35 +22,41 @@ func (p *Parser) parseImport() ast.ImportNode {
 	case ast.TokenIdentifier:
 		id := p.current().Value
 		p.advance()
-		alias = &ast.Ident{ID: ast.Identifier(id)}
-		if id == "_" {
-			sideEffectOnly = true
+		if id == "node" {
+			nodeOptIn = true
+			nodeOptInSource = "import_node"
+			if p.current().Type == ast.TokenIdentifier {
+				aliasID := p.current().Value
+				p.advance()
+				alias = &ast.Ident{ID: ast.Identifier(aliasID)}
+			}
+		} else {
+			alias = &ast.Ident{ID: ast.Identifier(id)}
+			if id == "_" {
+				sideEffectOnly = true
+			}
 		}
 	}
 
 	pathToken := p.expect(ast.TokenStringLiteral)
-	rawPath := pathToken.Value
-	path := rawPath
-	if unquoted, err := strconv.Unquote(rawPath); err == nil {
-		path = unquoted
-	}
+	path := unquoteImportPath(pathToken.Value)
 
-	node := ast.ImportNode{
-		Path:           path,
-		Alias:          alias,
-		SideEffectOnly: sideEffectOnly,
+	return ast.ImportNode{
+		Path:            path,
+		Alias:           alias,
+		SideEffectOnly:  sideEffectOnly,
+		NodeOptIn:       nodeOptIn,
+		NodeOptInSource: nodeOptInSource,
 	}
-
-	return node
 }
 
 func (p *Parser) parseImportGroup() ast.ImportGroupNode {
 	p.advance() // Move past '('
 	imports := []ast.ImportNode{}
 
-	// Parse imports until we hit the closing paren
 	for p.current().Type != ast.TokenRParen {
-		imports = append(imports, p.parseImport())
+		imp := p.parseImport()
+		imports = append(imports, imp)
 	}
 
 	p.expect(ast.TokenRParen)
@@ -57,7 +68,6 @@ func (p *Parser) parseImports() []ast.Node {
 
 	p.advance() // Move past `import`
 
-	// Check if this is a grouped import with parentheses
 	if p.current().Type == ast.TokenLParen {
 		importGroup := p.parseImportGroup()
 		p.logParsedNodeWithMessage(importGroup, "Parsed import group")
@@ -69,4 +79,11 @@ func (p *Parser) parseImports() []ast.Node {
 	}
 
 	return nodes
+}
+
+func unquoteImportPath(raw string) string {
+	if unquoted, err := strconv.Unquote(raw); err == nil {
+		return unquoted
+	}
+	return raw
 }

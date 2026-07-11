@@ -487,6 +487,14 @@ func TestExamples(t *testing.T) {
 				t.Skip("covered by TestExampleProvidersMergedPackage (-root merged package)")
 				return
 			}
+			if strings.HasPrefix(relPath, "rfc/node-interop/") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleNodeInteropPackagesCompileGolden (-root merged package)")
+				return
+			}
+			if strings.HasPrefix(relPath, "rfc/embedded-invoke/") && strings.HasSuffix(relPath, ".ft") {
+				t.Skip("covered by TestExampleEmbeddedInvokeCompileGolden (-root merged package)")
+				return
+			}
 
 			// Find expected output file(s)
 			expectedFiles, err := findExpectedOutputFiles(outputBasePath)

@@ -47,16 +47,17 @@ Forst is under active development. This page is a **simplified** view. The canon
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Mixed `.ft` and `.go` modules](/interop/go) | Adopt beside hand-written Go in one module tree. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Selectable Go emit target version | Emit for older `go` toolchains than the compiler uses today. |
 
-## TypeScript interoperability
+## Node interoperability
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` (`.d.ts`)](/interop/typescript) | Merged TypeScript declarations from `.ft` sources; shared `ftconfig` discovery with `forst dev`. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/typescript) | TS emit and sidecar wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst dev` HTTP API](/workflow/dev-server-and-sidecar) | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration. |
-| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Sidecar invoke contract](/interop/typescript) | Stable JSON `POST /invoke` from Node/TS clients to a running dev server. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst generate` (`.d.ts`)](/interop/node/generate-types) | Merged TypeScript declarations from `.ft` sources; shared `ftconfig` discovery with `forst dev`. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Provider-free client surface](/interop/node/generate-types) | TS emit and sidecar wire stay data-only; functions with unsatisfied `Providers(f)` are omitted from exports. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [`forst dev` HTTP API](/workflow/dev-server) | `/health`, `/functions`, `/invoke`, `/types`, `/version` for local iteration. |
+| <Icon icon="circle-check" iconType="solid" size={16} color="#16A34A" /> | [Sidecar invoke contract](/interop/node/call-forst) | Stable JSON `POST /invoke` from Node clients to a running dev server. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Built-in HTTP server + `@forst/client`](/interop/node/call-forst) | In-process `/invoke` in compiled Go binaries; generated flat exports. Pin in production. |
 | <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [`@forst/sidecar` and `@forst/cli`](/installation) | npm/JSR packages; watch reload, optional debounced `forst generate`, and version checks. Pin in production. |
-| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Client helper stubs](/interop/typescript) | Thin generated helpers next to `types.d.ts`. |
+| <Icon icon="flask" iconType="solid" size={16} color="#7C3AED" /> | [Client helper stubs](/interop/node/generate-types) | Thin generated helpers next to `types.d.ts`. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Protobuf sidecar wire | gRPC / Connect as a future high-throughput alternative to JSON. |
 | <Icon icon="calendar" iconType="solid" size={16} color="#64748B" /> | Native ES modules / Node addon | Forst → Go → addon → ESM path; design exploration only. |
 

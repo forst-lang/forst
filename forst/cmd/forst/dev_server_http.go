@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"forst/internal/discovery"
 	"forst/internal/httpbody"
+	"forst/internal/invokedispatch"
 )
 
 // jsonMarshalVersionPayload marshals the /version payload; tests may replace to inject errors.
@@ -16,22 +18,10 @@ var jsonMarshalVersionPayload = json.Marshal
 // jsonMarshalFunctionsList encodes the function list for /functions; tests may replace to inject errors.
 var jsonMarshalFunctionsList = json.Marshal
 
-// handleHealth handles health check requests.
 func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	response := DevServerResponse{
-		Success: true,
-		Output:  "Forst HTTP server is healthy",
-	}
-
-	s.sendJSONResponse(w, response)
+	s.invoke.HandleHealth(w, r)
 }
 
-// handleVersion returns compiler build metadata and the dev HTTP contract version.
 func (s *DevServer) handleVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -42,20 +32,16 @@ func (s *DevServer) handleVersion(w http.ResponseWriter, r *http.Request) {
 		"commit":          Commit,
 		"date":            Date,
 		"contractVersion": devHTTPContractVersion,
+		"runtime":         "dev",
 	}
 	data, err := jsonMarshalVersionPayload(payload)
 	if err != nil {
 		s.sendError(w, fmt.Sprintf("failed to marshal version: %v", err), http.StatusInternalServerError)
 		return
 	}
-	response := DevServerResponse{
-		Success: true,
-		Result:  data,
-	}
-	s.sendJSONResponse(w, response)
+	s.sendJSONResponse(w, DevServerResponse{Success: true, Result: data})
 }
 
-// handleFunctions handles function discovery requests.
 func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -76,97 +62,16 @@ func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
-	response := DevServerResponse{
-		Success: true,
-	}
-
+	response := DevServerResponse{Success: true}
 	if resultData, err := jsonMarshalFunctionsList(functions); err == nil {
 		response.Result = resultData
 	}
-
 	s.sendJSONResponse(w, response)
 }
 
-// handleInvoke handles function invocation requests.
 func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := httpbody.ReadAll(r.Body, s.config.Server.MaxRequestSize)
-	if err != nil {
-		if httpbody.IsTooLarge(err) {
-			s.sendError(w, "request body too large", http.StatusRequestEntityTooLarge)
-			return
-		}
-		s.sendError(w, fmt.Sprintf("Failed to read request: %v", err), http.StatusBadRequest)
-		return
-	}
-	var req InvokeRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		s.sendError(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	s.mu.RLock()
-	pkgFuncs, ok := s.functions[req.Package]
-	if !ok {
-		s.mu.RUnlock()
-		s.sendError(w, fmt.Sprintf("Package %s not found", req.Package), http.StatusNotFound)
-		return
-	}
-
-	fn, ok := pkgFuncs[req.Function]
-	s.mu.RUnlock()
-	if !ok {
-		s.sendError(w, fmt.Sprintf("Function %s not found in package %s", req.Function, req.Package), http.StatusNotFound)
-		return
-	}
-
-	if req.Streaming && !fn.SupportsStreaming {
-		s.sendError(w, fmt.Sprintf("Function %s does not support streaming", req.Function), http.StatusBadRequest)
-		return
-	}
-
-	if req.Streaming {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Transfer-Encoding", "chunked")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			s.sendError(w, "Streaming not supported by server", http.StatusInternalServerError)
-			return
-		}
-
-		results, err := s.fnExec.ExecuteStreamingFunction(r.Context(), req.Package, req.Function, req.Args)
-		if err != nil {
-			s.sendError(w, fmt.Sprintf("Streaming execution failed: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		encoder := json.NewEncoder(w)
-		for result := range results {
-			if err := encoder.Encode(result); err != nil {
-				s.log.Errorf("Failed to encode streaming result: %v", err)
-				return
-			}
-			flusher.Flush()
-		}
-	} else {
-		result, err := s.fnExec.ExecuteFunction(req.Package, req.Function, req.Args)
-		if err != nil {
-			s.sendError(w, fmt.Sprintf("Function execution failed: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		response := DevServerResponse{
-			Success: result.Success,
-			Output:  result.Output,
-			Error:   result.Error,
-			Result:  result.Result,
-		}
-		s.sendJSONResponse(w, response)
-	}
+	s.applyTestBackend(s.functions, s.fnExec)
+	s.invoke.HandleInvoke(w, r)
 }
 
 // handleTypes handles TypeScript type generation requests.
@@ -217,12 +122,7 @@ func (s *DevServer) handleTypes(w http.ResponseWriter, r *http.Request) {
 	typesContent := s.typesCache["types"]
 	s.typesCacheMu.RUnlock()
 
-	response := DevServerResponse{
-		Success: true,
-		Output:  typesContent,
-	}
-
-	s.sendJSONResponse(w, response)
+	s.sendJSONResponse(w, DevServerResponse{Success: true, Output: typesContent})
 }
 
 // sendJSONResponse sends a JSON response to the client.
@@ -243,11 +143,65 @@ func (s *DevServer) sendJSONResponse(w http.ResponseWriter, response DevServerRe
 
 // sendError sends an error response to the client.
 func (s *DevServer) sendError(w http.ResponseWriter, errorMsg string, statusCode int) {
-	response := DevServerResponse{
-		Success: false,
-		Error:   errorMsg,
-	}
-
+	response := DevServerResponse{Success: false, Error: errorMsg}
 	w.WriteHeader(statusCode)
 	s.sendJSONResponse(w, response)
 }
+
+// applyTestBackend wires test doubles into the invoke server (dev_server_http_test).
+func (s *DevServer) applyTestBackend(functions map[string]map[string]discovery.FunctionInfo, exec devFunctionExecutor) {
+	stub := &testInvokeBackend{functions: functions, exec: exec}
+	s.setInvokeBackendForTest(stub)
+	s.mu.Lock()
+	s.functions = functions
+	s.mu.Unlock()
+}
+
+type testInvokeBackend struct {
+	functions map[string]map[string]discovery.FunctionInfo
+	exec      devFunctionExecutor
+}
+
+func (b *testInvokeBackend) Functions() map[string]map[string]discovery.FunctionInfo {
+	return b.functions
+}
+
+func (b *testInvokeBackend) RefreshFunctions(context.Context) error {
+	return nil
+}
+
+func (b *testInvokeBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
+	if b.exec == nil {
+		return nil, fmt.Errorf("no executor")
+	}
+	result, err := b.exec.ExecuteFunction(pkg, fn, args)
+	if err != nil {
+		return nil, err
+	}
+	return &invokedispatch.InvokeResult{
+		Success: result.Success,
+		Output:  result.Output,
+		Error:   result.Error,
+		Result:  result.Result,
+	}, nil
+}
+
+func (b *testInvokeBackend) InvokeStream(ctx context.Context, pkg, fn string, args json.RawMessage) (<-chan invokedispatch.StreamChunk, error) {
+	if b.exec == nil {
+		return nil, fmt.Errorf("no executor")
+	}
+	ch, err := b.exec.ExecuteStreamingFunction(ctx, pkg, fn, args)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan invokedispatch.StreamChunk)
+	go func() {
+		defer close(out)
+		for item := range ch {
+			out <- invokedispatch.StreamChunk{Data: item.Data, Status: item.Status, Error: item.Error}
+		}
+	}()
+	return out, nil
+}
+
+var _ = httpbody.DefaultMaxBytes

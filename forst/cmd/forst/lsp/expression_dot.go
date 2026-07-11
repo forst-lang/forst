@@ -70,7 +70,7 @@ func receiverExpressionSourceBeforeDot(tokens []ast.Token, dotIdx int) (string, 
 				start = i
 				goto done
 			}
-		case ast.TokenIdentifier, ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral,
+		case ast.TokenIdentifier, ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral, ast.TokenRuneLiteral,
 			ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
 			if paren == 0 && brack == 0 && brace == 0 {
 				start = i

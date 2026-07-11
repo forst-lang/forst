@@ -54,14 +54,22 @@
             "group": "Interop",
             "pages": [
               "interop/go",
-              "interop/typescript"
+              {
+                "group": "Node",
+                "root": "interop/node",
+                "pages": [
+                  "interop/node/generate-types",
+                  "interop/node/call-forst",
+                  "interop/node/call-javascript"
+                ]
+              }
             ]
           },
           {
             "group": "Workflow",
             "pages": [
               "workflow/cli",
-              "workflow/dev-server-and-sidecar",
+              "workflow/dev-server",
               "workflow/editor"
             ]
           }
@@ -136,5 +144,27 @@
     "socials": {
       "github": "https://github.com/forst-lang/forst"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/interop/typescript",
+      "destination": "/interop/node/generate-types",
+      "permanent": true
+    },
+    {
+      "source": "/interop/typescript-client",
+      "destination": "/interop/node/call-forst",
+      "permanent": true
+    },
+    {
+      "source": "/interop/typescript-runtime",
+      "destination": "/interop/node/call-javascript",
+      "permanent": true
+    },
+    {
+      "source": "/workflow/dev-server-and-sidecar",
+      "destination": "/workflow/dev-server",
+      "permanent": true
+    }
+  ]
 }

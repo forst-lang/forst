@@ -15,6 +15,8 @@ Our primary goal is to help you move away from TypeScript on the backend:
 - **Strong static typing with aggressive inference and smart narrowing** – so you move fast while staying safe.
 - Data types that **automatically validate deeply nested input data** – to keep untrusted user input out of your application logic.
 
+Constraints on the type replace scattered validation checks at the boundary:
+
 <CatalogOrder />
 
 <Info>
@@ -22,6 +24,8 @@ Our primary goal is to help you move away from TypeScript on the backend:
 </Info>
 
 ## How it fits your stack
+
+Forst compiles `.ft` sources to Go, and optionally emits TypeScript types for clients:
 
 ```mermaid
 flowchart LR
@@ -47,12 +51,12 @@ Run `forst generate` when clients need TypeScript types from the same source.
     Install, write your first `.ft` file, run it.
   </Card>
   <Card title="Language overview" icon="book" href="/language/overview">
-    Go shaped syntax, structural typing, explicit control flow.
+    Aligned with Go, structural typing, explicit control flow.
   </Card>
   <Card title="Validated shapes" icon="table-columns" href="/language/shapes-and-constraints">
     Types as schemas with built-in constraints.
   </Card>
-  <Card title="Go interop" icon="/icons/golang.svg" href="/interop/go">
+  <Card title="Mix with Go packages" icon="/icons/golang.svg" href="/interop/go">
     Import Go packages. Mix `.ft` with `.go`.
   </Card>
 </CardGroup>
@@ -63,4 +67,4 @@ Run `forst generate` when clients need TypeScript types from the same source.
 - **npm compiler:** [`@forst/cli`](https://www.npmjs.com/package/@forst/cli)
 - **Gradual adoption:** [`@forst/sidecar`](https://www.npmjs.com/package/@forst/sidecar), for invoking Forst from Node during migration
 
-For client type generation, see [TypeScript interop](/interop/typescript).
+For client type generation, see [Generate client types](/interop/node/generate-types).

@@ -73,6 +73,18 @@ func TestUpdateExamplesGoldens(t *testing.T) {
 	t.Run("map_catalog.ft", func(t *testing.T) {
 		updateMapCatalogGolden(t)
 	})
+	for _, tc := range nodeInteropGoldenCases() {
+		tc := tc
+		t.Run(tc.entryRel, func(t *testing.T) {
+			writeNodeInteropPackageGolden(t, tc)
+		})
+	}
+	for _, tc := range embeddedInvokeGoldenCases() {
+		tc := tc
+		t.Run(tc.entryRel, func(t *testing.T) {
+			writeEmbeddedInvokePackageGolden(t, tc)
+		})
+	}
 }
 
 func shouldSkipExampleGoldenUpdate(relPath string) bool {
@@ -83,6 +95,12 @@ func shouldSkipExampleGoldenUpdate(relPath string) bool {
 		return true
 	}
 	if strings.HasPrefix(relPath, "rfc/providers/") {
+		return true
+	}
+	if strings.HasPrefix(relPath, "rfc/node-interop/") {
+		return true
+	}
+	if strings.HasPrefix(relPath, "rfc/embedded-invoke/") {
 		return true
 	}
 	return false

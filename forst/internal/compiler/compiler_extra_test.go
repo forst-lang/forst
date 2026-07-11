@@ -21,7 +21,7 @@ func TestParseArgs_delegatesToOsArgs(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	args := ParseArgs(log)
-	if args.Command != "build" || args.FilePath != "main.ft" || args.OutputPath != "out.go" {
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || args.OutputPath != "out.go" {
 		t.Fatalf("args = %+v", args)
 	}
 }
@@ -35,7 +35,7 @@ func TestParseArgsFrom_invalidRootPath(t *testing.T) {
 	args := ParseArgsFrom([]string{"forst", "run", "-root", longRoot, "x.ft"}, log)
 	if args.PackageRoot != "" {
 		// Platform accepted the path; still exercised ParseArgsFrom run branch.
-		if args.Command != "run" || args.FilePath != "x.ft" {
+		if args.Command != "run" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "x.ft" {
 			t.Fatalf("args = %+v", args)
 		}
 		return
@@ -202,7 +202,7 @@ func TestWatchFile_recompilesOnWrite(t *testing.T) {
 	origRun := runGoProgramForWatch
 	t.Cleanup(func() { runGoProgramForWatch = origRun })
 	var runs atomic.Int32
-	runGoProgramForWatch = func(string) error {
+	runGoProgramForWatch = func(string, string) error {
 		runs.Add(1)
 		return nil
 	}

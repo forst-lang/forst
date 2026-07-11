@@ -1,0 +1,53 @@
+package main
+
+import node "./legacy/todos"
+
+func ListTodos() {
+	encoded := todos.formatTodoList()
+	ensure encoded is Ok()
+	open := todos.openCount()
+	ensure open is Ok()
+	total := todos.todoCount()
+	ensure total is Ok()
+	done := total - open
+	return {
+		open: open,
+		done: done,
+		encoded: encoded
+	}
+}
+
+func AddTodo(input AddTodoRequest) {
+	created := todos.addTodo(input.title)
+	ensure created is Ok()
+	return {
+		id: created.id,
+		title: created.title,
+		status: created.status
+	}
+}
+
+func CompleteTodo(input CompleteTodoRequest) {
+	updated := todos.toggleTodo(input.id)
+	ensure updated is Ok()
+	return {
+		id: updated.id,
+		title: updated.title,
+		status: updated.status
+	}
+}
+
+func GetDashboard() {
+	open := todos.openCount()
+	ensure open is Ok()
+
+	snap := todos.persistSnapshot()
+	ensure snap is Ok()
+
+	return {
+		open: open,
+		recentTitles: "",
+		activityKinds: "ready",
+		savedAt: snap.savedAt
+	}
+}

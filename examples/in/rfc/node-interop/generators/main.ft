@@ -1,0 +1,41 @@
+package main
+
+import node "./legacy/generators"
+import "strconv"
+
+func main() {
+	var syncSum: Float = 0.0
+	syncSeq := generators.syncNumbers(3.0)
+	ensure syncSeq is Ok()
+	for _, n := range syncSeq {
+		syncSum = syncSum + n
+	}
+	println("sync:" + strconv.FormatFloat(syncSum, 'f', 0, 64))
+
+	var asyncSum: Float = 0.0
+	asyncSeq := generators.asyncNumbers(3.0)
+	ensure asyncSeq is Ok()
+	for _, n := range asyncSeq {
+		asyncSum = asyncSum + n
+	}
+	println("async:" + strconv.FormatFloat(asyncSum, 'f', 0, 64))
+
+	var emptyCount: Int = 0
+	emptySeq := generators.emptyGen()
+	ensure emptySeq is Ok()
+	for range emptySeq {
+		emptyCount = emptyCount + 1
+	}
+	println("empty:" + string(emptyCount))
+
+	var breakCount: Int = 0
+	finallySeq := generators.withFinally()
+	ensure finallySeq is Ok()
+	for _, n := range finallySeq {
+		breakCount = breakCount + 1
+		if n == 2.0 {
+			break
+		}
+	}
+	println("break:" + string(breakCount))
+}

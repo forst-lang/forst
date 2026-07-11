@@ -385,6 +385,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				},
 			}, nil
 		}
+		if call, ok, err := t.transformNodeQualifiedCall(s); ok {
+			if err != nil {
+				return nil, err
+			}
+			return &goast.ExprStmt{X: call}, nil
+		}
 		args, err := t.transformFunctionCallArgs(s.Function.ID, s.Arguments)
 		if err != nil {
 			return nil, err

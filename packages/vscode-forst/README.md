@@ -68,6 +68,51 @@ When the extension activates, the status bar shows the configured LSP port (righ
 
 From the repo root: `task build:vscode` compiles this package. The same compile runs at the start of `task ci:test` (see [Taskfile.yml](../../Taskfile.yml)). GitHub Actions uses `package.json` `packageManager` with [setup-bun](https://github.com/oven-sh/setup-bun) to pin the Bun version.
 
+Keep the Mintlify/docs grammar in sync after editing `syntaxes/forst.tmLanguage.json`:
+
+```bash
+task sync:forst-grammar
+```
+
+## Syntax coloring
+
+The extension registers a TextMate grammar (`syntaxes/forst.tmLanguage.json`) for `.ft` buffers and for LSP hover fenced blocks tagged ` ```forst `. Hover coloring requires this extension (or another grammar provider for `source.forst`); the Forst LSP emits markdown fences but does not paint tokens itself.
+
+### Layer 1 — theme-inherited scopes (TS/Go convention)
+
+These scopes intentionally omit a `.forst` suffix so Dark+, Light+, and Cursor defaults reuse familiar TypeScript/Go colors:
+
+| Construct | TextMate scope | Typical theme color |
+| --- | --- | --- |
+| Variables, locals, hover names (`result`, `result.id:`) | `variable.other.readwrite` | light blue / purple |
+| Parameters (`amount` in `amount Float`) | `variable.parameter` | light blue / purple |
+| Fields after `.` (`result.id`, not calls) | `variable.other.property` | same family as variables |
+| Functions and methods | `entity.name.function` | yellow / orange |
+| Builtin types (`String`, `Int`, `Result`, …) | `support.type.primitive` | teal |
+| User-defined types (`GameState`, `MoveResponse`) | `entity.name.type` | teal / green |
+| Control keywords (`ensure`, `is`, `import`, `use`, `with`) | `keyword.control`, `keyword.declaration` | blue / purple |
+| Strings, numbers | `string.*`, `constant.numeric.*` | green, orange literals |
+
+### Layer 2 — Forst-specific accent scopes
+
+Pinned via `configurationDefaults.editor.tokenColorCustomizations` in `package.json` so they stay consistent across user themes:
+
+| Construct | TextMate scope | Default accent |
+| --- | --- | --- |
+| Builtin guards / constraints (`Min`, `Ok`, `Err`, …) | `entity.name.function.constraint.forst` | `#C586C0` (magenta) |
+| User type guards in type strings (future) | `entity.name.function.typeguard.forst` | `#B5CEA8` (green) |
+| Nominal errors (`error NotFound`) | `entity.name.type.error.forst` | `#F44747` (red) |
+
+### Layer 3 — hover fence languages
+
+| Hover content | Fence language | Grammar |
+| --- | --- | --- |
+| Forst signatures, variables, fields, guards | `forst` | This extension |
+| Go FFI / imports | `go` | Built-in Go grammar |
+| Node interop exports / aliases | `typescript` | Built-in TypeScript grammar |
+
+Grammar fixture tests in `test/grammar.test.mjs` assert scopes on strings mirroring real LSP hovers (`result.id: String`, `checkout(amount Float, …) -> String`, `String.Min(1).Max(10)`).
+
 ## Releases (VS Code Marketplace and Open VSX)
 
 The extension is versioned separately from the compiler: Release Please uses **`packages/vscode-forst`** and tags like **`vscode-forst-v0.0.19`**. When that GitHub Release is published, [`.github/workflows/publish-vscode-extension.yml`](../../.github/workflows/publish-vscode-extension.yml) builds `dist/forst-vscode-<version>.vsix`, uploads it to the release, and publishes the **same VSIX** to:

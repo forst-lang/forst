@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package forst.node.v1;
+
+option go_package = "forst/internal/nodert/pb;pb";
+
+// Frame is the length-prefixed v2 wire envelope.
+message Frame {
+  uint64 id = 1;
+  oneof body {
+    WireRequest request = 2;
+    WireResponse response = 3;
+  }
+}
+
+message WireRequest {
+  string method = 1;
+  bytes payload_json = 2;
+}
+
+message WireResponse {
+  oneof result {
+    bytes ok_json = 1;
+    ErrorDetail err = 2;
+  }
+}
+
+message ErrorDetail {
+  int32 code = 1;
+  string message = 2;
+  bytes data_json = 3;
+}
+
+message InitializeResult {
+  string protocol = 1;
+}
+
+message GenNextBatchResult {
+  repeated GenStepWire steps = 1;
+}
+
+message GenStepWire {
+  string kind = 1;
+  bytes value_json = 2;
+  string message = 3;
+  bytes data_json = 4;
+}

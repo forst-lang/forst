@@ -28,6 +28,11 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			Kind:  token.STRING,
 			Value: strconv.Quote(e.Value),
 		}, nil
+	case ast.RuneLiteralNode:
+		return &goast.BasicLit{
+			Kind:  token.CHAR,
+			Value: strconv.QuoteRune(rune(e.Value)),
+		}, nil
 	case ast.BoolLiteralNode:
 		if e.Value {
 			return goast.NewIdent("true"), nil
@@ -232,21 +237,13 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				return goExpr, nil
 			}
 		}
-		if e.Function.ID == "Int" && len(e.Arguments) == 1 {
-			arg, err := t.transformExpression(e.Arguments[0])
-			if err != nil {
-				return nil, err
-			}
-			return &goast.CallExpr{Fun: goast.NewIdent("int"), Args: []goast.Expr{arg}}, nil
-		}
-		if len(e.Function.ID) > 2 && e.Function.ID[0] == '[' && e.Function.ID[1] == ']' && len(e.Arguments) == 1 {
-			elem := string(e.Function.ID[2:])
+		if e.Function.ID == "[]byte" && len(e.Arguments) == 1 {
 			arg, err := t.transformExpression(e.Arguments[0])
 			if err != nil {
 				return nil, err
 			}
 			return &goast.CallExpr{
-				Fun:  &goast.ArrayType{Elt: goast.NewIdent(elem)},
+				Fun:  &goast.ArrayType{Elt: goast.NewIdent("byte")},
 				Args: []goast.Expr{arg},
 			}, nil
 		}
@@ -255,6 +252,12 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 				return nil, err
 			}
 			return lit, nil
+		}
+		if call, ok, err := t.transformNodeQualifiedCall(e); ok {
+			if err != nil {
+				return nil, err
+			}
+			return call, nil
 		}
 		if call, ok, err := t.transformGoBoundDottedMethodCall(e); ok {
 			if err != nil {
@@ -266,11 +269,12 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		if err != nil {
 			return nil, err
 		}
-		return &goast.CallExpr{
+		call := &goast.CallExpr{
 			Fun:      t.goFunExprFromForstCallIdentWithNarrowing(e.Function),
 			Args:     args.exprs,
 			Ellipsis: args.ellipsis,
-		}, nil
+		}
+		return call, nil
 	case ast.ReferenceNode:
 		expr, err := t.transformExpression(e.Value)
 		if err != nil {

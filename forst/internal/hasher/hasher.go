@@ -27,6 +27,7 @@ var NodeKind = map[string]uint8{
 	"IntLiteral":       2,
 	"FloatLiteral":     3,
 	"StringLiteral":    4,
+	"RuneLiteral":      36,
 	"Variable":         5,
 	"UnaryExpression":  6,
 	"FunctionCall":     7,
@@ -261,6 +262,14 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		if err := w.h.writeHashes(hasher,
 			NodeKind["StringLiteral"],
 			[]byte(n.Value),
+		); err != nil {
+			return 0, err
+		}
+
+	case ast.RuneLiteralNode:
+		if err := w.h.writeHashes(hasher,
+			NodeKind["RuneLiteral"],
+			n.Value,
 		); err != nil {
 			return 0, err
 		}
@@ -936,6 +945,8 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 	case *ast.FloatLiteralNode:
 		return w.hash(*n)
 	case *ast.StringLiteralNode:
+		return w.hash(*n)
+	case *ast.RuneLiteralNode:
 		return w.hash(*n)
 	case *ast.BoolLiteralNode:
 		return w.hash(*n)

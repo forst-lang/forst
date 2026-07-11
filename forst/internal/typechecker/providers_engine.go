@@ -5,7 +5,9 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/ftconfig"
 	"forst/internal/goload"
+	"forst/internal/nodeinterop"
 	"forst/internal/providersgraph"
 )
 
@@ -72,6 +74,13 @@ func (tc *TypeChecker) SetSamePackageGoImportPath(importPath string) {
 // ConfigureForForstFile sets workspace, Forst package name, and same-package Go import path for a .ft file directory.
 func (tc *TypeChecker) ConfigureForForstFile(moduleRoot, fileDir string, nodes []ast.Node) {
 	tc.GoWorkspaceDir = moduleRoot
+	tc.ForstFileDir = fileDir
+	if tc.NodeImportPolicy == "" {
+		tc.NodeImportPolicy = ftconfig.ImportPolicyFromDir(fileDir)
+	}
+	if boundary, err := nodeinterop.BoundaryRootFromEntry(fileDir); err == nil {
+		tc.NodeBoundaryRoot = boundary
+	}
 	tc.SetForstPackage(forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes)))
 	if moduleRoot == "" {
 		return

@@ -20,6 +20,17 @@ func TestProcessStringLiteral_doubleQuoted(t *testing.T) {
 	}
 }
 
+func TestProcessStringLiteral_singleQuotedRune(t *testing.T) {
+	line := []byte(`'f'`)
+	tok, next := processStringLiteral(line, 0, "f.ft", 1)
+	if next != len(line) {
+		t.Fatalf("next col: got %d want %d", next, len(line))
+	}
+	if tok.Type != ast.TokenRuneLiteral || tok.Value != `'f'` {
+		t.Fatalf("token: %+v", tok)
+	}
+}
+
 func TestProcessStringLiteral_backtick(t *testing.T) {
 	line := []byte("`a\nb`")
 	tok, next := processStringLiteral(line, 0, "f.ft", 2)

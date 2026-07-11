@@ -205,6 +205,9 @@ func TestGenerateCommand_singleFtFileWritesGeneratedAndClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
+	if !strings.Contains(string(client), "@forst/client") {
+		t.Fatalf("client module should import @forst/client; got:\n%s", client)
+	}
 	if !strings.Contains(string(client), "export const sample") {
 		t.Fatalf("client export should match .ft stem sample; got:\n%s", client)
 	}
@@ -343,14 +346,27 @@ func TestGenerateCommand_directoryMergesTypesIntoSingleTypesDotDts(t *testing.T)
 	}
 }
 
+func testClientPackageOutputs(stem string, fnNames ...string) []*transformerts.TypeScriptOutput {
+	fns := make([]transformerts.FunctionSignature, len(fnNames))
+	for i, name := range fnNames {
+		fns[i] = transformerts.FunctionSignature{Name: name, ReturnType: "unknown"}
+	}
+	return []*transformerts.TypeScriptOutput{{SourceFileStem: stem, Functions: fns}}
+}
+
 func TestGenerateClientIndex_importsPackages(t *testing.T) {
-	idx := generateClientIndex([]string{"catalog", "orders"})
+	idx := generateClientIndex([]*transformerts.TypeScriptOutput{
+		{SourceFileStem: "catalog", Functions: []transformerts.FunctionSignature{{Name: "List", ReturnType: "unknown"}}},
+		{SourceFileStem: "orders", Functions: []transformerts.FunctionSignature{{Name: "Create", ReturnType: "unknown"}}},
+	})
 	for _, frag := range []string{
 		"import { catalog } from '../generated/catalog.client'",
 		"import { orders } from '../generated/orders.client'",
 		"public catalog:",
 		"public orders:",
-		"export type * from './types.d.ts'",
+		"export { catalog, List } from '../generated/catalog.client'",
+		"export { orders, Create } from '../generated/orders.client'",
+		"export type * from './types'",
 	} {
 		if !strings.Contains(idx, frag) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)
@@ -358,9 +374,65 @@ func TestGenerateClientIndex_importsPackages(t *testing.T) {
 	}
 }
 
+func TestGenerateSSRInvokeModule_writesAppLibWhenPresent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "app", "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	outputs := []*transformerts.TypeScriptOutput{{
+		PackageName:    "main",
+		SourceFileStem: "api",
+		ExportedTypeNames: []string{
+			"AddTodoRequest", "AddTodoResponse", "CompleteTodoRequest",
+		},
+		Functions: []transformerts.FunctionSignature{
+			{Name: "ListTodos", ReturnType: "ListTodosResponse"},
+			{
+				Name:       "AddTodo",
+				ReturnType: "AddTodoResponse",
+				Parameters: []transformerts.Parameter{{Name: "input", Type: "AddTodoRequest"}},
+			},
+		},
+	}}
+	if err := generateSSRInvokeModule(dir, outputs, log); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "app", "lib", "forst.invoke.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(got)
+	for _, frag := range []string{
+		"import type { AddTodoRequest, AddTodoResponse, CompleteTodoRequest, ListTodosResponse }",
+		"from '../../generated/types'",
+		"export async function ListTodos",
+		"export async function AddTodo",
+		"getDefaultInvokeClient",
+		"'main', 'ListTodos'",
+	} {
+		if !strings.Contains(text, frag) {
+			t.Fatalf("missing %q in SSR module:\n%s", frag, text)
+		}
+	}
+}
+
+func TestGenerateSSRInvokeModule_skipsWithoutAppLib(t *testing.T) {
+	dir := t.TempDir()
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	if err := generateSSRInvokeModule(dir, testClientPackageOutputs("api"), log); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "app", "lib", "forst.invoke.ts")); !os.IsNotExist(err) {
+		t.Fatalf("expected no SSR module, stat err=%v", err)
+	}
+}
+
 func TestGenerateClientPackageJson_isValidJSONShape(t *testing.T) {
 	j := generateClientPackageJSON()
-	if !strings.Contains(j, `"name": "@forst/client"`) || !strings.Contains(j, `"@forst/sidecar"`) {
+	if !strings.Contains(j, `"name": "@forst/generated-client"`) || !strings.Contains(j, `"@forst/client"`) {
 		t.Fatalf("unexpected package.json:\n%s", j)
 	}
 }
@@ -634,7 +706,7 @@ func TestGenerateClientPackage_mkdirFails(t *testing.T) {
 	orig := generateIO.MkdirAll
 	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
 	t.Cleanup(func() { generateIO.MkdirAll = orig })
-	err := generateClientPackage(t.TempDir(), []string{"a"}, log)
+	err := generateClientPackage(t.TempDir(), testClientPackageOutputs("a"), log)
 	if err == nil || !strings.Contains(err.Error(), "client directory") {
 		t.Fatalf("got %v", err)
 	}
@@ -652,7 +724,7 @@ func TestGenerateClientPackage_writeIndexFails(t *testing.T) {
 		return origW(name, data, perm)
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
-	err := generateClientPackage(dir, []string{"a"}, log)
+	err := generateClientPackage(dir, testClientPackageOutputs("a"), log)
 	if err == nil || !strings.Contains(err.Error(), "client index") {
 		t.Fatalf("got %v", err)
 	}
@@ -670,7 +742,7 @@ func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
 		return origW(name, data, perm)
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
-	err := generateClientPackage(dir, []string{"a"}, log)
+	err := generateClientPackage(dir, testClientPackageOutputs("a"), log)
 	if err == nil || !strings.Contains(err.Error(), "package.json") {
 		t.Fatalf("got %v", err)
 	}
@@ -696,7 +768,7 @@ func TestGenerateClientPackage_copyTypesFails(t *testing.T) {
 		return origW(name, data, perm)
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
-	err := generateClientPackage(dir, []string{"a"}, log)
+	err := generateClientPackage(dir, testClientPackageOutputs("a"), log)
 	if err == nil || !strings.Contains(err.Error(), "copy types") {
 		t.Fatalf("got %v", err)
 	}
@@ -763,7 +835,7 @@ func TestGenerateCommand_generateClientPackageLogsError(t *testing.T) {
 		t.Fatal(err)
 	}
 	orig := generateClientPackageHook
-	generateClientPackageHook = func(string, []string, *logrus.Logger) error {
+	generateClientPackageHook = func(string, []*transformerts.TypeScriptOutput, *logrus.Logger) error {
 		return fmt.Errorf("client")
 	}
 	t.Cleanup(func() { generateClientPackageHook = orig })

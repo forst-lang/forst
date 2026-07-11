@@ -148,6 +148,7 @@ func TestHandleInvoke_invalidJSON(t *testing.T) {
 func TestHandleInvoke_oversizedBody(t *testing.T) {
 	s := testDevServer(t)
 	s.config.Server.MaxRequestSize = 64
+	s.invoke.SetMaxRequestSize(64)
 
 	body := strings.Repeat("x", 128)
 	rr := httptest.NewRecorder()

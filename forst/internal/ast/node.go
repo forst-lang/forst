@@ -67,6 +67,7 @@ const (
 	NodeKindIntLiteral        NodeKind = "IntLiteral"
 	NodeKindFloatLiteral      NodeKind = "FloatLiteral"
 	NodeKindStringLiteral     NodeKind = "StringLiteral"
+	NodeKindRuneLiteral       NodeKind = "RuneLiteral"
 	NodeKindBoolLiteral       NodeKind = "BoolLiteral"
 	NodeKindArrayLiteral      NodeKind = "ArrayLiteral"
 	NodeKindIdentifier        NodeKind = "Identifier"

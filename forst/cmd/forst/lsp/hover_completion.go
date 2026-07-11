@@ -3,6 +3,7 @@ package lsp
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -131,7 +132,7 @@ func lexicalHoverMarkdown(tok *ast.Token) string {
 		return kw
 	}
 	if tok.Type == ast.TokenIdentifier {
-		return fmt.Sprintf("Lexical identifier `%s` (types unavailable until the file parses)", tok.Value)
+		return hoverdoc.ForstBlock(fmt.Sprintf("%s  // types unavailable until the file parses", tok.Value))
 	}
 	return ""
 }
@@ -271,7 +272,7 @@ func variableHoverMarkdownWithGuardDocs(tc *typechecker.TypeChecker, tokens []as
 		Ident: ast.Ident{ID: ast.Identifier(tok.Value), Span: ast.SpanFromToken(*tok)},
 	}
 	display := tc.FormatVariableOccurrenceTypeForHover(vn, types)
-	body := fmt.Sprintf("```forst\n%s: %s\n```", tok.Value, display)
+	body := hoverdoc.ForstBlock(fmt.Sprintf("%s: %s", tok.Value, display))
 
 	chain := tc.PredicateChainForVariableHover(vn, types)
 	var docBlocks []string
@@ -321,7 +322,10 @@ func mapIndexLBracketHoverMarkdown(tc *typechecker.TypeChecker, tokens []ast.Tok
 	if types[0].Ident != ast.TypeMap {
 		return ""
 	}
-	return "**Map lookup:** type `Result(V, Error)`; missing key is failure. Use `ensure … is Ok()` before using `V`."
+	return hoverdoc.Section("Map lookup") + "\n\n" + hoverdoc.ForstBlock(
+		"m[k]: Result(V, Error)",
+		"// missing key is failure — ensure … is Ok() before using V",
+	)
 }
 
 func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token, merge *packageMergeInfo, fileID string) string {
@@ -336,6 +340,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		}
 	}
 	if tok.Type == ast.TokenIdentifier {
+		if s := nodeHoverFromQualifiedNodeIdentifier(tc, tokens, tok); s != "" {
+			return s
+		}
 		if s := goHoverFromQualifiedGoIdentifier(tc, tokens, tok); s != "" {
 			return s
 		}
@@ -364,7 +371,7 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 				}
 			}
 			doc := leadingCommentDocBeforeFunc(docTokens, string(id))
-			body := fmt.Sprintf("```forst\n%s\n```", tc.FormatFunctionSignatureDisplay(sig))
+			body := hoverdoc.ForstBlock(tc.FormatFunctionSignatureDisplay(sig))
 			if slots := tc.FunctionProviders[id]; len(slots) > 0 {
 				roots := typechecker.ProviderRootIdentsFromSlots(slots)
 				body += fmt.Sprintf("\n\n**Providers:** %s", strings.Join(roots, ", "))
@@ -603,6 +610,66 @@ func leadingCommentDocBeforeShapeField(tokens []ast.Token, parentTypeName, field
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
+// nodeHoverFromQualifiedNodeIdentifier adds hover for payment.create when payment is a node import.
+func nodeHoverFromQualifiedNodeIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
+	if tok.Type != ast.TokenIdentifier {
+		return ""
+	}
+	i := tokenSliceIndex(tokens, tok)
+	if i < 0 {
+		return ""
+	}
+	// … module . NAME — cursor on export name
+	if i >= 2 && tokens[i-1].Type == ast.TokenDot && tokens[i-2].Type == ast.TokenIdentifier {
+		moduleLocal := tokens[i-2].Value
+		if !tc.IsNodeImportLocal(moduleLocal) {
+			return ""
+		}
+		if md, ok := tc.NodeHoverMarkdown(moduleLocal, tok.Value); ok && md != "" {
+			return md
+		}
+	}
+	moduleLocal := tok.Value
+	if !tc.IsNodeImportLocal(moduleLocal) {
+		return ""
+	}
+	// MODULE . name … — cursor on module local before member access
+	if i+2 < len(tokens) && tokens[i+1].Type == ast.TokenDot && tokens[i+2].Type == ast.TokenIdentifier {
+		if md, ok := tc.NodeModuleHoverMarkdown(moduleLocal); ok && md != "" {
+			return md
+		}
+	}
+	// import node NAME "…" or import node "…" or import NAME "…"
+	if nodeImportAliasBindingAt(tokens, i) {
+		if md, ok := tc.NodeModuleHoverMarkdown(moduleLocal); ok && md != "" {
+			return md
+		}
+	}
+	return ""
+}
+
+// nodeImportAliasBindingAt reports whether the identifier at i is a node/TS import local name
+// in an import clause (e.g. import node payment "…" or import node checkout "…").
+func nodeImportAliasBindingAt(tokens []ast.Token, i int) bool {
+	if i < 0 || i >= len(tokens) || tokens[i].Type != ast.TokenIdentifier {
+		return false
+	}
+	// import node NAME "path" — explicit alias after node keyword
+	if i >= 2 &&
+		tokens[i-2].Type == ast.TokenImport &&
+		tokens[i-1].Type == ast.TokenIdentifier && tokens[i-1].Value == "node" {
+		return i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral
+	}
+	// import NAME "path" (including grouped imports; Go alias — not node unless preceded by node)
+	if i >= 1 && i+1 < len(tokens) && tokens[i+1].Type == ast.TokenStringLiteral {
+		switch tokens[i-1].Type {
+		case ast.TokenImport, ast.TokenLParen, ast.TokenComma:
+			return true
+		}
+	}
+	return false
+}
+
 // goHoverFromQualifiedGoIdentifier adds hover for import.pkg.sel (e.g. fmt.Println) when pkg is a Go import.
 func goHoverFromQualifiedGoIdentifier(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast.Token) string {
 	if tok.Type != ast.TokenIdentifier {
@@ -720,33 +787,39 @@ func goHoverFromImportString(tc *typechecker.TypeChecker, tokens []ast.Token, to
 		return ""
 	}
 	i := tokenSliceIndex(tokens, tok)
-	if i < 0 {
+	if i < 0 || !importPathStringInImportClause(tokens, i) {
 		return ""
 	}
+	rawPath := tok.Value
+	if unquoted, err := strconv.Unquote(rawPath); err == nil {
+		rawPath = unquoted
+	}
+	if md, ok := tc.NodeImportPathHoverMarkdown(rawPath); ok && md != "" {
+		return md
+	}
+	path := goload.ImportPathFromForst(tok.Value)
+	if md, ok := tc.GoHoverMarkdownForImportPath(path); ok {
+		return md
+	}
+	return ""
+}
+
+// importPathStringInImportClause reports whether the string literal at i is an import path.
+func importPathStringInImportClause(tokens []ast.Token, i int) bool {
 	for j := i - 1; j >= 0; {
 		switch tokens[j].Type {
 		case ast.TokenComment:
 			j--
 		case ast.TokenImport:
-			path := goload.ImportPathFromForst(tok.Value)
-			if md, ok := tc.GoHoverMarkdownForImportPath(path); ok {
-				return md
-			}
-			return ""
-		case ast.TokenLParen, ast.TokenComma, ast.TokenRParen, ast.TokenStringLiteral:
-			// StringLiteral: sibling path in `import ( "a", "b" )`; keep scanning for `import`.
-			j--
-		case ast.TokenDot:
-			// `import . "pkg"`
-			j--
-		case ast.TokenIdentifier:
-			// `import alias "pkg"`, `import _ "pkg"`
+			return true
+		case ast.TokenLParen, ast.TokenComma, ast.TokenRParen, ast.TokenStringLiteral,
+			ast.TokenStar, ast.TokenDot, ast.TokenIdentifier:
 			j--
 		default:
-			return ""
+			return false
 		}
 	}
-	return ""
+	return false
 }
 
 func typeDefHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, def ast.Node) string {
@@ -764,7 +837,7 @@ func typeDefHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, def ast.N
 		default:
 			kindIntro = "**Type**\n\n"
 		}
-		block := kindIntro + "```forst\n" + body + "\n```"
+		block := kindIntro + hoverdoc.ForstBlock(body)
 		if doc == "" {
 			return block
 		}
@@ -796,7 +869,7 @@ func typeGuardHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, g *ast.
 	if err != nil || strings.TrimSpace(body) == "" {
 		body = fmt.Sprintf("is ... %s\n", name)
 	}
-	block := "**Type guard**\n\n```forst\n" + body + "```"
+	block := hoverdoc.Section("Type guard") + "\n\n" + hoverdoc.ForstBlock(body)
 	if doc == "" {
 		return block
 	}
@@ -807,7 +880,7 @@ func typeGuardHoverMarkdown(tokens []ast.Token, merge *packageMergeInfo, g *ast.
 // tokens are documented via keywordHover instead.
 func literalHover(tok *ast.Token) bool {
 	switch tok.Type {
-	case ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral:
+	case ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral, ast.TokenRuneLiteral:
 		return true
 	default:
 		return false

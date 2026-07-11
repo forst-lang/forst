@@ -93,6 +93,11 @@ func MakeStringLiteral(value string) StringLiteralNode {
 	return StringLiteralNode{Value: value}
 }
 
+// MakeRuneLiteral creates a rune literal
+func MakeRuneLiteral(r rune) RuneLiteralNode {
+	return RuneLiteralNode{Value: int64(r)}
+}
+
 // MakeAddressOf creates an address-of expression
 func MakeAddressOf(operand ExpressionNode) UnaryExpressionNode {
 	return UnaryExpressionNode{

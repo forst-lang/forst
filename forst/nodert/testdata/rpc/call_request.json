@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":3,"method":"forst.node/call","params":{"moduleId":"legacy/payment.ts","exportName":"create","args":[42,"usd"]}}

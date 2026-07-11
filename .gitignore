@@ -118,10 +118,6 @@ web_modules/
 
 # Next.js build output
 .next
-# Keep committed Forst example goldens (see examples/README.md)
-!examples/out/
-!examples/out/**
-out
 
 # Nuxt.js build / generate output
 .nuxt
@@ -234,10 +230,6 @@ web_modules/
 .parcel-cache
 # Next.js build output
 .next
-# Keep committed Forst example goldens (see examples/README.md)
-!examples/out/
-!examples/out/**
-out
 # Nuxt.js build / generate output
 .nuxt
 dist
@@ -285,8 +277,20 @@ vite.config.ts.timestamp-*
 
 generated/
 
-# forst generate output for the tictactoe example (see task example:tictactoe:generate)
+# forst generate output (see task example:tictactoe:generate, example:node-interop-remix-serve:generate)
 examples/in/**/client/
+examples/in/**/app/lib/forst.invoke.ts
+
+# Build / emit output directories named "out" (except committed example Go goldens)
+out
+!examples/out/
+!examples/out/**
+
+# Compiler / nodert / invoke runtime state (.forst/run, node.sock, invoke.ready, …)
+.forst/
+
+# Remix / Vite example build output
+examples/in/**/build/
 
 # Local Go toolchain dirs (e.g. GOCACHE=$PWD/.gocache when default cache is unavailable)
 forst/.gocache/

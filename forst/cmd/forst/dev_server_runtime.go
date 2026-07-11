@@ -20,17 +20,17 @@ func (s *DevServer) Start() error {
 	s.typesGenerator = NewTypeScriptGenerator(s.log)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.handleHealth)
-	mux.HandleFunc("/version", s.handleVersion)
-	mux.HandleFunc("/functions", s.handleFunctions)
-	mux.HandleFunc("/invoke", s.handleInvoke)
+	s.invoke.RegisterRoutes(mux)
 	mux.HandleFunc("/types", s.handleTypes)
+
+	readTimeout := time.Duration(s.config.Server.ReadTimeout) * time.Second
+	writeTimeout := time.Duration(s.config.Server.WriteTimeout) * time.Second
 
 	s.server = &http.Server{
 		Addr:         ":" + s.port,
 		Handler:      mux,
-		ReadTimeout:  time.Duration(s.config.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(s.config.Server.WriteTimeout) * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
 	}
 
 	s.logStartupInfo()
@@ -58,6 +58,9 @@ func (s *DevServer) Stop() error {
 
 // discoverFunctions discovers all available functions.
 func (s *DevServer) discoverFunctions() error {
+	if s.discoverer == nil {
+		return fmt.Errorf("discoverer not configured")
+	}
 	functions, err := s.discoverer.DiscoverFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to discover functions: %v", err)

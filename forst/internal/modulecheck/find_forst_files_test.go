@@ -96,6 +96,31 @@ func TestFindForstFiles_skipsNestedGoMod(t *testing.T) {
 	}
 }
 
+func TestFindForstFiles_skipsNestedFtconfig(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	nested := filepath.Join(root, "rfc", "node-interop")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, "ftconfig.json"), []byte(`{"node":{"enabled":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(nested, "main.ft"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "root.ft"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := findForstFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || filepath.Base(got[0]) != "root.ft" {
+		t.Fatalf("got %v", got)
+	}
+}
+
 func TestCloneSlots_emptyReturnsEmptyMap(t *testing.T) {
 	t.Parallel()
 	got := cloneSlots(nil)

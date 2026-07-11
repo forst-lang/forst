@@ -55,13 +55,6 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeInt}},
 		AcceptSubtypes: true,
 	},
-	"Int": {
-		Name:           "Int",
-		Package:        "",
-		ReturnType:     ast.TypeNode{Ident: ast.TypeInt},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeImplicit}},
-		AcceptSubtypes: true,
-	},
 	"[]byte": {
 		Name:           "[]byte",
 		Package:        "",
@@ -346,7 +339,12 @@ var BuiltinFunctions = map[string]BuiltinFunction{
 		Name:           "FormatFloat",
 		Package:        "strconv",
 		ReturnType:     ast.TypeNode{Ident: ast.TypeString},
-		ParamTypes:     []ast.TypeNode{{Ident: ast.TypeFloat}}, // f
+		ParamTypes: []ast.TypeNode{
+			{Ident: ast.TypeFloat}, // f
+			{Ident: ast.TypeInt},   // fmt (byte)
+			{Ident: ast.TypeInt},   // prec
+			{Ident: ast.TypeInt},   // bitSize
+		},
 		AcceptSubtypes: false,
 	},
 	"strconv.ParseBool": {

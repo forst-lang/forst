@@ -1,6 +1,6 @@
 ---
 title: "Language overview"
-description: "Go shaped syntax, structural typing, and explicit control flow."
+description: "Aligned with Go, structural typing, and explicit control flow."
 ---
 
 import OverviewHelloFmt from "/snippets/overview-hello-fmt.mdx";
@@ -9,7 +9,7 @@ import OverviewPlaceOrderCall from "/snippets/overview-place-order-call.mdx";
 
 Forst extends familiar Go syntax with **structural typing**, constraints, and narrowing. Most `.ft` files look like Go. Where they differ, types behave like validated API schemas.
 
-## Go shaped syntax
+## Aligned with Go
 
 Ordinary Forst programs look like Go. A minimal executable is identical on both sides:
 
@@ -39,15 +39,13 @@ Forst embraces inference in clear cases (return types, obvious locals) but requi
 
 Forst steers away from exceptions and implicit jumps. Errors are **values**. Validation uses **`ensure`** and **`is`**. Success and failure paths stay explicit. See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
 
-<Warning>
-  Forst does not support `panic`/`recover` or `try`/`catch` as language features. Generated Go may still interact with panicking third-party code.
-</Warning>
-
 ## Packages and imports
 
 Forst uses Go style **packages** and **`import`** paths. You can also **import Go packages** and call qualified functions (`fmt.Println`, etc.). See [Go interop](/interop/go) for current limits.
 
 ## File layout in a typical backend
+
+A mixed Forst and Go service often looks like this:
 
 ```text
 my-service/
@@ -61,6 +59,14 @@ my-service/
 └── generated/         # forst generate output (often gitignored)
     └── types.d.ts
 ```
+
+## Caveats
+
+Forst is not a full Go clone. Several areas are experimental or intentionally different.
+
+- **No `panic` / `recover` / `try` / `catch`** as language features. Generated Go may still call panicking third party code.
+- **Go import loading** is partial. See [Mix with Go packages § Caveats](/interop/go#caveats).
+- **Validation and narrowing** have real limits. See [Shapes and constraints](/language/shapes-and-constraints#caveats), [Ensure and narrowing](/language/ensure-and-narrowing#caveats), and [Errors and Result](/language/errors-and-result#caveats).
 
 ## What to read next
 

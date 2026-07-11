@@ -218,6 +218,30 @@ func Main(): Greeting {
 	}
 }
 
+func TestRunBoundaryRoot_prefersPackageRoot(t *testing.T) {
+	dir := t.TempDir()
+	got := RunBoundaryRoot(Args{
+		PackageRoot: "/project/root",
+		FilePath:    filepath.Join(dir, "main.ft"),
+	})
+	if got != "/project/root" {
+		t.Fatalf("got %q want package root", got)
+	}
+}
+
+func TestRunBoundaryRoot_fallsBackToEntryDir(t *testing.T) {
+	dir := t.TempDir()
+	entry := filepath.Join(dir, "main.ft")
+	got := RunBoundaryRoot(Args{FilePath: entry})
+	want, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestRunGoProgram(t *testing.T) {
 	// Create a temporary test program
 	testCode := "package main\n\nfunc main() {\n\tprintln(\"Hello, World!\")\n}"
@@ -234,7 +258,7 @@ func TestRunGoProgram(t *testing.T) {
 	}()
 
 	// Test running the program
-	err = RunGoProgram(outputPath)
+	err = RunGoProgram(outputPath, "")
 	if err != nil {
 		t.Errorf("RunGoProgram() error = %v", err)
 	}

@@ -3,6 +3,10 @@
     {
       "path": "tictactoe",
       "mustContain": ["GameState", "PlayMove", "export const engine"]
+    },
+    {
+      "path": "rfc/node-interop/remix-serve",
+      "mustContain": ["ListTodos", "AddTodo", "CompleteTodo", "GetDashboard", "export const api"]
     }
   ]
 }

@@ -1,0 +1,89 @@
+---
+title: "Dev server"
+description: "Local iteration with forst dev — HTTP contract, endpoints, and ftconfig."
+---
+
+**`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. To call Forst from Node (including **`@forst/sidecar`** spawn/connect), see [Call Forst from Node](/interop/node/call-forst).
+
+## Start the server
+
+The dev server watches your `.ft` tree, recompiles on change, and listens for invoke requests:
+
+```bash
+npx forst dev -root ./my-service -port 8080 -config ./ftconfig.json
+```
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Server liveness |
+| `GET` | `/functions` | List invokable functions |
+| `POST` | `/invoke` | Execute a function with JSON payload |
+| `GET` | `/types` | Type information for tooling |
+| `GET` | `/version` | Compiler version and **`contractVersion`** |
+
+The invoke envelope uses JSON request/response bodies. The same contract applies to the built-in HTTP server in a compiled binary. See [Call Forst from Node](/interop/node/call-forst).
+
+Clients should check **`contractVersion`** on `/version` when upgrading the compiler or Node packages.
+
+## Configuration
+
+Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
+
+```json
+{
+  "server": {
+    "port": "8080",
+    "cors": true
+  },
+  "dev": {
+    "logLevel": "info",
+    "watch": false
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": ["**/node_modules/**", "**/client/**"]
+  }
+}
+```
+
+## When to use dev vs pure Go
+
+| Scenario | Approach |
+| --- | --- |
+| New greenfield service | Compile to Go, deploy directly |
+| Local iteration from Node or scripts | **`forst dev`** on **`8080`** |
+| Production Node → Forst | Built-in HTTP server + **`@forst/client`** — see [Call Forst from Node](/interop/node/call-forst) |
+| Full stack type sync | **`forst generate`** in CI |
+
+## Caveats
+
+**`forst dev`** is **experimental**. Pin compiler versions. Run integration tests in your pipeline.
+
+### Same port convention
+
+**`forst dev`** defaults to **`8080`**. The built-in server in a compiled binary defaults to **`8081`**. Point **`FORST_BASE_URL`** at the server you actually run. See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats).
+
+### Providers in Go host
+
+Invoke carries request payloads only. Wire **`with`** blocks in Go before exposing handlers. See [Providers § Caveats](/language/providers#caveats).
+
+## Examples
+
+- Repository invoke example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke) (`task example:embedded-invoke:run`)
+- Client integration: [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration)
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+    Generated client, `@forst/sidecar`, and built-in HTTP server.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli">
+    `forst dev` and other subcommands.
+  </Card>
+  <Card title="Generate client types" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Emit `.d.ts` from the same sources.
+  </Card>
+</CardGroup>

@@ -217,6 +217,10 @@ func findForstFiles(root string) ([]string, error) {
 				if _, statErr := os.Stat(filepath.Join(path, "go.mod")); statErr == nil {
 					return filepath.SkipDir
 				}
+				// Nested ftconfig.json marks an isolated project boundary (node-interop, tictactoe, …).
+				if _, statErr := os.Stat(filepath.Join(path, "ftconfig.json")); statErr == nil {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}

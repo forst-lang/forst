@@ -23,7 +23,7 @@ var dumpCommandStdout io.Writer = os.Stdout
 var (
 	startDevServerFunc     = StartDevServer
 	startLSPFunc           = lsp.StartLSPServer
-	createTempOutputFileFn = compiler.CreateTempOutputFile
+	createTempOutputFileFn = compiler.CreateTempOutputFiles
 	runGoProgramFn         = compiler.RunGoProgram
 	jsonMarshalDumpParams  = json.Marshal
 	jsonMarshalDumpResult  = json.Marshal
@@ -210,7 +210,7 @@ func runMain(argv []string) int {
 			return 1
 		}
 	} else {
-		code, err := p.CompileFile()
+		mainCode, nodeRuntimeCode, invokeServerCode, err := p.CompileWithNodeRuntime()
 		if err != nil {
 			log.Error(err)
 			return 1
@@ -219,7 +219,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFileFn(*code)
+			outputPath, err = createTempOutputFileFn(mainCode, nodeRuntimeCode, invokeServerCode)
 			if err != nil {
 				log.Error(err)
 				return 1
@@ -227,7 +227,7 @@ func runMain(argv []string) int {
 		}
 
 		if args.Command == "run" {
-			if err := runGoProgramFn(outputPath); err != nil {
+			if err := runGoProgramFn(outputPath, compiler.RunBoundaryRoot(args)); err != nil {
 				log.Error(err)
 				return 1
 			}

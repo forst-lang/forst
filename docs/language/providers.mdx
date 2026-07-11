@@ -75,9 +75,23 @@ Forst treats `context.Context` separately from Providers. Declare services with 
 
 Providers lower to a **deduped struct parameter** at the Go boundary. Production and test wiring compile to ordinary struct literals: readable Go, no runtime container.
 
-<Warning>
-  **Providers are experimental.** `use` / `with` compile end-to-end with goldens and `forst test`, but the RFC surface is still evolving. Pin your compiler version and run `task example:providers` when upgrading.
-</Warning>
+## Caveats
+
+**Providers** are **experimental**. The RFC surface is still evolving. Pin your compiler version and run `task example:providers` when upgrading.
+
+### Host wiring only
+
+Providers lower in Go. They are **not** exported to TypeScript or sidecar invoke payloads. Functions with unsatisfied **`Providers(f)`** are omitted from generated clients. Wire **`with`** blocks in Go **`main`** before exposing handlers.
+
+See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats) and [Generate client types § Caveats](/interop/node/generate-types#caveats).
+
+### Void contract methods
+
+A trailing **`fmt.Println(...)`** in a void provider method can infer a non-void **`Result`** return from Go's **`(int, error)`** signature. Use **`println`** for side effect logging, or declare an explicit return type. See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
+
+### `context.Context` is separate
+
+Providers are typed services declared with **`use`**. Cancellation and request scoped values stay in **`context`**, not in Provider wiring.
 
 ## Try it
 

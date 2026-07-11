@@ -40,6 +40,8 @@ const (
 	TokenFloatLiteral TokenIdent = "FLOAT_LITERAL"
 	// TokenStringLiteral is the token for string literals
 	TokenStringLiteral TokenIdent = "STRING_LITERAL"
+	// TokenRuneLiteral is the token for Go-style rune literals ('f', '\n')
+	TokenRuneLiteral TokenIdent = "RUNE_LITERAL"
 	// TokenTrue is the token for true boolean literal
 	TokenTrue TokenIdent = "TRUE_LITERAL"
 	// TokenFalse is the token for false boolean literal
@@ -199,7 +201,7 @@ func (t TokenIdent) IsUnaryOperator() bool {
 
 // IsLiteral returns true if the token is a literal
 func (t TokenIdent) IsLiteral() bool {
-	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenTrue || t == TokenFalse || t == TokenNil
+	return t == TokenIntLiteral || t == TokenFloatLiteral || t == TokenStringLiteral || t == TokenRuneLiteral || t == TokenTrue || t == TokenFalse || t == TokenNil
 }
 
 // IsArithmeticBinaryOperator returns true if the token is an arithmetic binary operator

@@ -108,6 +108,10 @@ func (tc *TypeChecker) registerRangeBinding(id *ast.Ident, typ ast.TypeNode, isS
 
 func (tc *TypeChecker) rangeTypesForOneVar(t ast.TypeNode) (ast.TypeNode, error) {
 	switch t.Ident {
+	case "Seq":
+		if len(t.TypeParams) >= 1 {
+			return t.TypeParams[0], nil
+		}
 	case ast.TypeArray:
 		if len(t.TypeParams) >= 1 {
 			return ast.TypeNode{Ident: ast.TypeInt}, nil
@@ -124,6 +128,10 @@ func (tc *TypeChecker) rangeTypesForOneVar(t ast.TypeNode) (ast.TypeNode, error)
 
 func (tc *TypeChecker) rangeTypesForTwoVars(t ast.TypeNode) (keyT, valT ast.TypeNode, err error) {
 	switch t.Ident {
+	case "Seq":
+		if len(t.TypeParams) >= 1 {
+			return ast.TypeNode{Ident: ast.TypeInt}, t.TypeParams[0], nil
+		}
 	case ast.TypeArray:
 		if len(t.TypeParams) >= 1 {
 			return ast.TypeNode{Ident: ast.TypeInt}, t.TypeParams[0], nil

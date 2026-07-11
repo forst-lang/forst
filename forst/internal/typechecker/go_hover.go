@@ -8,6 +8,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/goload"
+	"forst/internal/hoverdoc"
 )
 
 // IsImportedLocalName reports whether id is a Go import's local identifier in this file.
@@ -145,7 +146,7 @@ func (tc *TypeChecker) goHoverMarkdownBodyForResolvedPackage(gp *types.Package, 
 		b.WriteString(docText)
 		b.WriteString("\n\n")
 	}
-	b.WriteString("```go\n" + head + "\n```")
+	b.WriteString(hoverdoc.GoBlock(head))
 
 	qual := pkgQual + "." + symbol
 	if bfn, ok := BuiltinFunctions[qual]; ok {
@@ -169,16 +170,12 @@ func (tc *TypeChecker) goHoverMarkdownBodyForResolvedPackage(gp *types.Package, 
 				for i := 0; i < res.Len(); i++ {
 					parts[i] = types.TypeString(res.At(i).Type(), qf)
 				}
-				b.WriteString("\n\n**Go return types** `" + strings.Join(parts, ", ") + "`")
+				b.WriteString("\n\n**Go return types**\n\n")
+				b.WriteString(hoverdoc.GoBlock(strings.Join(parts, ", ")))
 			}
 			if mapped := goSignatureReturnsToForst(sig); len(mapped) > 0 {
-				b.WriteString("\n\n**Forst-mapped returns** ")
-				for i, m := range mapped {
-					if i > 0 {
-						b.WriteString(", ")
-					}
-					b.WriteString("`" + tc.FormatTypeNodeDisplay(m) + "`")
-				}
+				b.WriteString("\n\n**Forst-mapped returns**\n\n")
+				b.WriteString(hoverdoc.ForstBlock(mappedForstReturnLines(tc, mapped)...))
 			}
 		}
 	}
@@ -249,9 +246,7 @@ func (tc *TypeChecker) GoHoverMarkdownForGoTypeMethod(goType types.Type, importP
 			b.WriteString("\n\n")
 		}
 	}
-	b.WriteString("```go\n")
-	b.WriteString(line)
-	b.WriteString("\n```")
+	b.WriteString(hoverdoc.GoBlock(line))
 	return b.String(), true
 }
 
@@ -289,7 +284,8 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 		var b strings.Builder
 		b.WriteString("**Go package** `" + pkgLocal + "`")
 		if path != "" {
-			fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
+			b.WriteString("\n\n")
+			b.WriteString(hoverdoc.GoBlock(fmt.Sprintf("import %q", path)))
 		}
 		if gp == nil {
 			b.WriteString("\n\n*(Go types not loaded — check `go/packages` / `GoWorkspaceDir`.)*")
@@ -299,7 +295,8 @@ func (tc *TypeChecker) GoHoverMarkdown(pkgLocal, symbol string) (string, bool) {
 
 	if gp == nil {
 		if path != "" {
-			return fmt.Sprintf("**Go** `%s.%s`\n\n```go\nimport %q\n```\n\n*(Go types not loaded.)*", pkgLocal, symbol, path), true
+			return fmt.Sprintf("**Go** `%s.%s`\n\n%s\n\n*(Go types not loaded.)*",
+				pkgLocal, symbol, hoverdoc.GoBlock(fmt.Sprintf("import %q", path))), true
 		}
 		return "", false
 	}
@@ -355,12 +352,11 @@ func (tc *TypeChecker) GoHoverMarkdownForForstReceiverMethod(receiverType ast.Ty
 		b.WriteString(docText)
 		b.WriteString("\n\n")
 	}
-	b.WriteString("```go\n")
-	b.WriteString(line)
-	b.WriteString("\n```")
+	b.WriteString(hoverdoc.GoBlock(line))
 
 	if goDocName == "error" && methodName == "Error" {
-		b.WriteString("\n\n**Forst** `Error` maps to Go `error`; `Error()` returns `String`.")
+		b.WriteString("\n\n")
+		b.WriteString(hoverdoc.ForstBlock("Error maps to Go error; Error() returns String"))
 	}
 
 	return b.String(), true
@@ -396,15 +392,21 @@ func (tc *TypeChecker) GoHoverMarkdownPredeclaredBuiltin(name string) (string, b
 		b.WriteString("\n\n")
 	}
 	if sigGo != "" {
-		b.WriteString("```go\n")
-		b.WriteString(sigGo)
-		b.WriteString("\n```\n\n")
+		b.WriteString(hoverdoc.GoBlock(sigGo))
+		b.WriteString("\n\n")
 	}
-	b.WriteString("**Forst return** `")
-	b.WriteString(tc.FormatTypeNodeDisplay(bfn.ReturnType))
-	b.WriteString("`")
+	b.WriteString("**Forst return**\n\n")
+	b.WriteString(hoverdoc.ForstBlock(tc.FormatTypeNodeDisplay(bfn.ReturnType)))
 
 	return b.String(), true
+}
+
+func mappedForstReturnLines(tc *TypeChecker, mapped []ast.TypeNode) []string {
+	parts := make([]string, len(mapped))
+	for i, m := range mapped {
+		parts[i] = tc.FormatTypeNodeDisplay(m)
+	}
+	return []string{strings.Join(parts, ", ")}
 }
 
 func goSignatureReturnsToForst(sig *types.Signature) []ast.TypeNode {
@@ -438,8 +440,9 @@ func (tc *TypeChecker) GoHoverMarkdownForImportPath(path string) (string, bool) 
 	if gp := tc.loadedGoPackageByImportPath(path); gp != nil {
 		var b strings.Builder
 		b.WriteString("**Go package** `" + gp.Name() + "`")
-		fmt.Fprintf(&b, "\n\n```go\nimport %q\n```", path)
+		b.WriteString("\n\n")
+		b.WriteString(hoverdoc.GoBlock(fmt.Sprintf("import %q", path)))
 		return b.String(), true
 	}
-	return fmt.Sprintf("**Go import path** `%s`", path), true
+	return hoverdoc.Section("Go import path") + "\n\n" + hoverdoc.GoBlock(fmt.Sprintf("import %q", path)), true
 }

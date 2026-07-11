@@ -1,0 +1,36 @@
+{
+  "compiler": {
+    "target": "go",
+    "optimization": "debug",
+    "strict": false,
+    "reportPhases": false,
+    "reportMemoryUsage": false
+  },
+  "server": {
+    "embedded": true,
+    "host": "127.0.0.1",
+    "port": "8081"
+  },
+  "files": {
+    "include": [
+      "**/*.ft",
+      "**/*.ts"
+    ],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/*.skip.ft"
+    ],
+    "maxDepth": 10
+  },
+  "node": {
+    "enabled": true,
+    "importPolicy": "explicit",
+    "runtimeEnabled": true,
+    "hostMode": true,
+    "binary": "node_modules/.bin/remix-serve",
+    "args": ["build/server/index.js", "--port", "3000"],
+    "hostSocket": ".forst/node.sock",
+    "hostReadyTimeoutSeconds": 120
+  }
+}

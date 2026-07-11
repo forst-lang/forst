@@ -139,6 +139,10 @@ func (tc *TypeChecker) lookupFieldPath(baseType ast.TypeNode, fieldPath []string
 		}
 	}
 
+	if resolvedType.Assertion != nil {
+		return tc.lookupFieldInAssertion(resolvedType, fieldName, resolvedType.Assertion)
+	}
+
 	tc.log.WithFields(logrus.Fields{
 		"function":  "lookupFieldPath",
 		"baseType":  baseType.Ident,

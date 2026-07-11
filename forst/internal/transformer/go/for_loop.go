@@ -113,6 +113,11 @@ func (t *Transformer) transformIfNode(n *ast.IfNode) (goast.Stmt, error) {
 }
 
 func (t *Transformer) transformForNode(fn *ast.ForNode) (goast.Stmt, error) {
+	if fn.IsRange {
+		if lowered, ok, err := t.tryTransformNodeIteratorFor(fn); ok {
+			return lowered, err
+		}
+	}
 	body := &goast.BlockStmt{}
 	for _, st := range fn.Body {
 		gst, err := t.transformStatement(st)

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"forst/internal/ast"
+	"forst/internal/hoverdoc"
 )
 
 // FieldHoverMarkdown returns markdown for a dotted field path rooted at a variable (e.g. move.state
@@ -31,6 +32,29 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 	}
 	last := fieldPath[len(fieldPath)-1]
 	displayPath := string(root) + "." + strings.Join(fieldPath, ".")
+	if dottedSpan.IsSet() {
+		fullID := ast.Identifier(displayPath)
+		vn := ast.VariableNode{Ident: ast.Ident{ID: fullID, Span: dottedSpan}}
+		if types, have := tc.InferredTypesForVariableNode(vn); have && len(types) > 0 {
+			typeStr := tc.FormatVariableOccurrenceTypeForHover(vn, types)
+			if goStr, ok := tc.goTypeDisplayStringForVariablePath(fullID); ok {
+				typeStr = goStr
+			}
+			var b strings.Builder
+			b.WriteString("**`")
+			b.WriteString(last)
+			b.WriteString("`** (field)\n\n")
+			b.WriteString(hoverdoc.ForstBlock(displayPath + ": " + typeStr))
+			pid := ast.TypeIdent("")
+			for _, bt := range baseTypes {
+				if p, ok := tc.ParentTypeIdentForFieldPath(bt, fieldPath); ok {
+					pid = p
+					break
+				}
+			}
+			return b.String(), pid, true
+		}
+	}
 	for _, bt := range baseTypes {
 		var resolved ast.TypeNode
 		var err error
@@ -59,11 +83,7 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 		b.WriteString("**`")
 		b.WriteString(last)
 		b.WriteString("`** (field)\n\n")
-		b.WriteString("```forst\n")
-		b.WriteString(displayPath)
-		b.WriteString(": ")
-		b.WriteString(typeStr)
-		b.WriteString("\n```")
+		b.WriteString(hoverdoc.ForstBlock(displayPath + ": " + typeStr))
 		return b.String(), pid, true
 	}
 	return "", "", false

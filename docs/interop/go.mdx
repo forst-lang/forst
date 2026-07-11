@@ -1,5 +1,5 @@
 ---
-title: "Go interop"
+title: "Mix with Go packages"
 description: "Transpile to Go, import packages, and mix .ft with .go in one module."
 ---
 
@@ -14,6 +14,8 @@ Every `.ft` file compiles to Go source in your module. The output is an ordinary
 
 Shape fields lower to unexported Go identifiers by default. For JSON marshaling (sidecar invoke, HTTP handlers), enable **`-export-struct-fields`** or **`compiler.exportStructFields`** in `ftconfig.json` to emit exported fields with `json` tags.
 
+Compile a `.ft` file to Go:
+
 ```bash
 npx forst build handlers/orders.ft
 ```
@@ -25,7 +27,7 @@ go build ./...
 go test ./...
 ```
 
-## Go shaped syntax
+## Aligned with Go
 
 Much of Forst mirrors Go syntax: `package`, `import`, `func`, `if`/`for`/`range`, `defer`, `go` goroutines. A minimal program can be identical in Forst and Go. See [Language overview](/language/overview).
 
@@ -41,10 +43,6 @@ The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go 
 
 Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call and to trailing expressions in [implicit returns](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
 
-<Warning>
-  **Go import loading is experimental.** Unmapped Go types report diagnostics; `unsafe` and some builtin edge cases are not fully wired. Put `unsafe` usage in hand written `.go` and call from Forst when needed.
-</Warning>
-
 ## Slice subslices
 
 Forst slice values (`[]T`) support three-index subslice syntax, lowered to Go slice expressions:
@@ -52,6 +50,8 @@ Forst slice values (`[]T`) support three-index subslice syntax, lowered to Go sl
 - `xs[low:high]` — bounded range
 - `xs[low:]` — from index through end
 - `xs[:high]` — from start through index
+
+Given a slice, subslicing looks like this:
 
 ```forst
 xs := [10, 20, 30]
@@ -83,6 +83,8 @@ Qualified import calls such as `exec.Command(...)` are checked when the stdlib p
 An `import "module/path"` can refer to **another Forst package** in the same Go module—not only hand-written Go. The compiler resolves these as **Forst siblings** from `.ft` sources and the module import map (`modulecheck`). Cross-package calls type-check against the sibling package’s Forst signatures.
 
 This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` may emit gitignored `z_forst_gen*.go` at test time; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
+
+Try the cross-package provider examples:
 
 ```bash
 task example:providers-cross_pkg
@@ -123,6 +125,8 @@ Type constraints in Forst emit **runtime checks** in generated Go. Untrusted inp
 
 Forst **Providers** (`use` / `with`) declare shared runtime services at function boundaries and wire implementations at entry points. See [Providers (DI)](/language/providers).
 
+Run the provider examples:
+
 ```bash
 task example:providers
 task example:providers-cross_pkg
@@ -136,6 +140,26 @@ task example:providers-cross_pkg
 
 Forst supports **gradual adoption**. You can migrate route by route without a big bang rewrite.
 
+## Caveats
+
+**Go import loading** is **experimental**. Unmapped Go types report diagnostics. This is not a full Go loader yet.
+
+### `unsafe` not end to end
+
+Put **`unsafe`** usage in hand written **`.go`** and call from Forst. Qualified **`unsafe.*`** calls and **`unsafe.Pointer`** mapping are not wired through the Forst import path yet.
+
+### `make` and `new` type args
+
+**`make`** and **`new`** with a type argument are rejected until Forst type syntax works in that position (e.g. **`Array(Int)`**, not Go **`[]T`**).
+
+### Slice subslices experimental
+
+Three index subslice syntax on Forst **`[]T`** values is experimental. It is distinct from variadic **spread** at Go call sites.
+
+### JSON field export
+
+Shape fields lower to unexported Go identifiers by default. For JSON marshaling, see [Shapes and constraints § Caveats](/language/shapes-and-constraints#caveats).
+
 ## Related
 
 <CardGroup cols={2}>
@@ -145,7 +169,10 @@ Forst supports **gradual adoption**. You can migrate route by route without a bi
   <Card title="Editor workflow" icon="puzzle-piece" href="/workflow/editor">
     LSP hover for Go imports, godoc, and cross-package Forst siblings.
   </Card>
-  <Card title="TypeScript interop" icon="/icons/typescript.svg" href="/interop/typescript">
-    Generate client types from the same `.ft` sources.
+  <Card title="Node overview" icon="server" href="/interop/node">
+    Share types, call Forst from Node, or call JavaScript from Forst.
+  </Card>
+  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/node/call-javascript">
+    Call legacy `.ts`/`.js` from Forst at runtime.
   </Card>
 </CardGroup>

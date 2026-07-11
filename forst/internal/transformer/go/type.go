@@ -91,6 +91,18 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 			Dir:   goast.SEND | goast.RECV,
 			Value: elt,
 		}, nil
+	case ast.TypeIdent("Seq"):
+		if len(n.TypeParams) < 1 {
+			return nil, fmt.Errorf("Seq type must have element type parameter")
+		}
+		_, seqIdent, _, err := t.ensureForstNodeSeqTypes(ast.NewResultType(
+			ast.TypeNode{Ident: "Seq", TypeParams: []ast.TypeNode{n.TypeParams[0]}},
+			ast.NewBuiltinType(ast.TypeError),
+		))
+		if err != nil {
+			return nil, err
+		}
+		return &goast.StarExpr{X: seqIdent}, nil
 	case ast.TypeResult:
 		return nil, fmt.Errorf("result types are expanded at function boundaries; use transformTypes, not transformType, or transformResultAsStructFieldGoType for struct fields")
 	case ast.TypeTuple:
@@ -199,6 +211,8 @@ func transformTypeIdent(ident ast.TypeIdent) (*goast.Ident, error) {
 		return &goast.Ident{Name: "void"}, nil
 	case ast.TypeError:
 		return &goast.Ident{Name: "error"}, nil
+	case ast.TypeBytes:
+		return &goast.Ident{Name: "[]byte"}, nil
 	case ast.TypeObject:
 		return nil, fmt.Errorf("TypeObject should not be used as a Go type")
 	case ast.TypeAssertion:

@@ -16,6 +16,8 @@ func literalExpressionTypes(expr ast.ExpressionNode) ([]ast.TypeNode, bool) {
 		return []ast.TypeNode{{Ident: ast.TypeFloat}}, true
 	case ast.StringLiteralNode:
 		return []ast.TypeNode{{Ident: ast.TypeString}}, true
+	case ast.RuneLiteralNode:
+		return []ast.TypeNode{{Ident: ast.TypeInt}}, true
 	case ast.BoolLiteralNode:
 		return []ast.TypeNode{{Ident: ast.TypeBool}}, true
 	case ast.NilLiteralNode:

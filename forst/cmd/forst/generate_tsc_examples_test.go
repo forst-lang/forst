@@ -97,12 +97,15 @@ func copyGenerateExampleSources(srcRoot, dstRoot string) error {
 			return nil
 		}
 		base := filepath.Base(path)
-		if !strings.HasSuffix(base, ".ft") && base != "ftconfig.json" {
-			return nil
-		}
 		rel, err := filepath.Rel(srcRoot, path)
 		if err != nil {
 			return err
+		}
+		isFT := strings.HasSuffix(base, ".ft")
+		isFTConfig := base == "ftconfig.json"
+		isLegacyTS := strings.HasSuffix(base, ".ts") && strings.HasPrefix(rel, "legacy"+string(filepath.Separator))
+		if !isFT && !isFTConfig && !isLegacyTS {
+			return nil
 		}
 		dst := filepath.Join(dstRoot, rel)
 		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {

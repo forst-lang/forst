@@ -26,6 +26,8 @@ Go-interoperable backend language. Source: `.ft` files. Output: Go you build wit
 
 ## Install and run
 
+Minimal install and compile commands:
+
 ```bash
 npm install -D @forst/cli
 npx forst version
@@ -38,6 +40,8 @@ npx forst test ./...
 CI: set `FORST_BINARY` to a preinstalled compiler path.
 
 ## Typical layout
+
+Common project tree for a Forst backend:
 
 ```text
 my-service/
@@ -121,5 +125,5 @@ Flags: `-root` merges same-package `.ft` files; `-export-struct-fields` emits ex
 | Errors and Result | [Errors and Result](/language/errors-and-result) |
 | Providers | [Providers (DI)](/language/providers) |
 | Go interop | [Go interop](/interop/go) — subslices, variadic spread into Go calls, fields/methods on Go values, sibling Forst packages |
-| TypeScript emit | [TypeScript interop](/interop/typescript) |
+| TypeScript emit | [Generate client types](/interop/node/generate-types) |
 | Examples in repo | [github.com/forst-lang/forst/tree/main/examples/in](https://github.com/forst-lang/forst/tree/main/examples/in) |

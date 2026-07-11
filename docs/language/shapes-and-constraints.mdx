@@ -82,11 +82,9 @@ Constraints **chain with dots** on the base type. All chained rules must pass:
 
 Use constraints on struct fields, function parameters, and nested shapes. Validation follows the data structure, including deeply nested records.
 
-<ShapesPlaceOrderTags />
+Nested constraints on an order input, including tags on the payload:
 
-<Info>
-  **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards). Full semantic validation of every `ensure` built-in is still maturing; see the [roadmap](/resources/roadmap).
-</Info>
+<ShapesPlaceOrderTags />
 
 **Ensure-only or reserved** (not typically chained on types):
 
@@ -102,11 +100,33 @@ Forst shapes use **field names** (camelCase by convention) and compose like Type
 
 Invalid nested data fails at the same boundary. You do not re-walk the tree in application code.
 
+## Caveats
+
+### Use `ensure` for runtime checks today
+
+Constraints on types document the rules. The compiler does **not** emit automatic parameter checks before your function body yet. Use **`ensure`** explicitly inside handlers for runtime validation.
+
+### Compile time vs runtime
+
+The compiler proves constraints only where values are known at compile time. Dynamic or untrusted input still needs **`ensure`** at the boundary.
+
+### Wire serialization
+
+By default, shape struct fields lower to **unexported** Go identifiers with **no** `json` tags. For HTTP or JSON marshaling, pass **`-export-struct-fields`** on `forst run` / `forst build`, or set **`compiler.exportStructFields`: true** in `ftconfig.json`.
+
+### Built-in semantics still maturing
+
+The typechecker does not fully validate every built-in constraint beyond presence wiring. **`Valid()`** is a reserved placeholder. Prefer explicit constraints or [type guards](/language/type-guards).
+
+Generated TypeScript types reflect structure only. Client-side validation is your job unless you call the Forst server. See [Generate client types § Caveats](/interop/node/generate-types#caveats).
+
+<Info>
+  Constraint and emission behavior is still expanding. See the [roadmap](/resources/roadmap).
+</Info>
+
 ## What gets emitted
 
-The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import. Parameter prologue validation (automatic checks before your function body) is not emitted yet—use `ensure` explicitly today.
-
-By default, shape struct fields lower to **unexported** Go identifiers (matching Forst camelCase field names) with **no** `json` tags. For wire serialization with `encoding/json`, pass **`-export-struct-fields`** on `forst run` / `forst build`, or set **`compiler.exportStructFields`: true** in `ftconfig.json` (used by `forst dev`). That emits exported field names and `json:"fieldName"` tags aligned with TypeScript generate output.
+The compiler lowers **`ensure`** checks in the function body to plain Go: `String.Min(1)` becomes a `len(field)` comparison, `Int.Min(1)` a numeric comparison, and `HasPrefix` / `Contains` call `strings.*` with an auto-added import.
 
 ## Try it
 

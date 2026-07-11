@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"method":"forst.node/initialize","params":{"protocolVersion":1,"boundaryRoot":"/tmp/project","manifest":{"version":1,"boundaryRoot":"/tmp/project","exports":[{"moduleId":"legacy/payment.ts","name":"create","kind":"function"}]}}}

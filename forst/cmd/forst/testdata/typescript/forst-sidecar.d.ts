@@ -23,4 +23,17 @@ export class ForstSidecarClient {
     functionName: string,
     args: unknown
   ): Promise<InvokeSuccess<T>>;
+  invokeStream<T>(
+    packageName: string,
+    functionName: string,
+    args: unknown
+  ): AsyncGenerator<T, void, unknown>;
+  healthCheck(): Promise<boolean>;
+  getVersion(): Promise<ServerVersionInfo>;
 }
+
+export type ServerVersionInfo = {
+  contractVersion: string;
+  version?: string;
+  runtime?: string;
+};

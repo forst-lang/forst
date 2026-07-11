@@ -3,6 +3,7 @@ package typechecker
 import (
 	"forst/internal/ast"
 	"forst/internal/hasher"
+	"forst/internal/nodeinterop"
 	"go/types"
 
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,18 @@ type TypeChecker struct {
 	FunctionReturnTypes map[ast.Identifier][]ast.TypeNode
 	// List of imported packages
 	imports []ast.ImportNode
+	// nodeImports lists opted-in TypeScript imports (stored separately from Go imports).
+	nodeImports []ast.ImportNode
+	// nodeImportsByLocal maps import local name (e.g. payment) to resolved TS module + index.
+	nodeImportsByLocal map[string]nodeImportBinding
+	// nodeIndexResolver holds in-memory forst-index-v1 data for node imports.
+	nodeIndexResolver *nodeinterop.IndexResolver
+	// NodeBoundaryRoot is the project root for resolving TS import paths (defaults to GoWorkspaceDir).
+	NodeBoundaryRoot string
+	// ForstFileDir is the directory containing the Forst source file (for relative TS imports).
+	ForstFileDir string
+	// NodeImportPolicy is ftconfig node.importPolicy ("explicit" or "implicit").
+	NodeImportPolicy string
 	// GoWorkspaceDir is the directory used as go/packages Config.Dir for Forst <-> Go boundary checks (optional).
 	GoWorkspaceDir string
 	// goPkgsByLocal maps Forst import local name (e.g. fmt, bar) to loaded *types.Package for Forst <-> Go boundary checks (optional).
@@ -104,6 +117,8 @@ type TypeChecker struct {
 	scopeOwners scopeOwners
 	// typecheckNodes is the nodes slice from the last CheckTypes call (scope identity for transform).
 	typecheckNodes []ast.Node
+	// nodeRuntime holds compile-time Node interop facts (needsNodeRuntime, manifest JSON).
+	nodeRuntime NodeRuntimeInfo
 }
 
 // New creates a new TypeChecker.
@@ -165,7 +180,17 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	tc.typecheckNodes = nodes
 	tc.shapeAliasIndex = nil
 	tc.compatMemo = nil
+	tc.imports = nil
+	tc.nodeImports = nil
+	if tc.nodeImportsByLocal != nil {
+		for k := range tc.nodeImportsByLocal {
+			delete(tc.nodeImportsByLocal, k)
+		}
+	}
 	if err := tc.CollectTypes(nodes); err != nil {
+		return err
+	}
+	if err := tc.resolveNodeImports(); err != nil {
 		return err
 	}
 	tc.preloadGoImportPackages()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"forst/internal/ast"
@@ -188,6 +189,12 @@ func (p *printer) printTopLevel(node ast.Node) (string, error) {
 }
 
 func (p *printer) printImport(i ast.ImportNode) string {
+	if i.NodeOptIn && i.NodeOptInSource == "import_node" {
+		if i.Alias != nil {
+			return fmt.Sprintf(`import node %s "%s"`, i.Alias.ID, i.Path)
+		}
+		return fmt.Sprintf(`import node "%s"`, i.Path)
+	}
 	if i.SideEffectOnly {
 		return fmt.Sprintf(`import _ "%s"`, i.Path)
 	}
@@ -203,7 +210,13 @@ func (p *printer) printImportGroup(g ast.ImportGroupNode) string {
 	p.push()
 	for _, im := range g.Imports {
 		b.WriteString(p.prefix())
-		if im.SideEffectOnly {
+		if im.NodeOptIn && im.NodeOptInSource == "import_node" {
+			if im.Alias != nil {
+				fmt.Fprintf(&b, `node %s "%s"`, im.Alias.ID, im.Path)
+			} else {
+				fmt.Fprintf(&b, `node "%s"`, im.Path)
+			}
+		} else if im.SideEffectOnly {
 			b.WriteString(`_ "` + im.Path + `"`)
 		} else if im.Alias != nil {
 			fmt.Fprintf(&b, `%s "%s"`, im.Alias.ID, im.Path)
@@ -892,6 +905,8 @@ func (p *printer) printExpr(e ast.ExpressionNode) (string, error) {
 		return fmt.Sprintf("%g", x.Value), nil
 	case ast.StringLiteralNode:
 		return quoteString(x.Value), nil
+	case ast.RuneLiteralNode:
+		return strconv.QuoteRune(rune(x.Value)), nil
 	case ast.BoolLiteralNode:
 		if x.Value {
 			return "true", nil

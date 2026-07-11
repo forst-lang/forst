@@ -35,6 +35,46 @@ func TestParseLiteral_primitives_and_nil(t *testing.T) {
 		}
 	})
 
+	t.Run("rune_literal", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenRuneLiteral, Value: `'f'`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		r, ok := lit.(ast.RuneLiteralNode)
+		if !ok || r.Value != int64('f') {
+			t.Fatalf("got %#v", lit)
+		}
+	})
+
+	t.Run("rune_literal_escaped_newline", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenRuneLiteral, Value: `'\n'`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		lit := p.parseLiteral()
+		r := lit.(ast.RuneLiteralNode)
+		if r.Value != int64('\n') {
+			t.Fatalf("got %#v", lit)
+		}
+	})
+
+	t.Run("rune_literal_illegal_multi_char", func(t *testing.T) {
+		toks := []ast.Token{
+			{Type: ast.TokenRuneLiteral, Value: `'ab'`},
+			{Type: ast.TokenEOF},
+		}
+		p := setupParser(toks, logger)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected parse error for illegal rune literal")
+			}
+		}()
+		p.parseLiteral()
+	})
+
 	t.Run("int_literal", func(t *testing.T) {
 		toks := []ast.Token{
 			{Type: ast.TokenIntLiteral, Value: "7"},
