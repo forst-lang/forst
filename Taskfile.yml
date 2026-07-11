@@ -737,6 +737,7 @@ tasks:
     desc: Run CI coverage suite (Go tests + Coveralls profile)
     dir: forst
     set: [errexit]
+    deps: [build:node-runtime]
     cmds:
       - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/...
