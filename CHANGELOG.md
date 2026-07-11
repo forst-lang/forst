@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/forst-lang/forst/compare/v0.6.1...v0.7.0) (2026-07-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130))
+* add slice spread fields and sibling Go FFI ([#129](https://github.com/forst-lang/forst/issues/129))
+
+### Features
+
+* add slice spread fields and sibling Go FFI ([#129](https://github.com/forst-lang/forst/issues/129)) ([322b03f](https://github.com/forst-lang/forst/commit/322b03f4d2942e04c4770776de097ddbe5c5a86b))
+* **node-interop:** import node, nodert runtime, embedded invoke ([#130](https://github.com/forst-lang/forst/issues/130)) ([85bcdcc](https://github.com/forst-lang/forst/commit/85bcdcc81ed9551eecdd1f38e1bc15378e42ef8c))
+* **node-runtime:** add npm and JSR publish pipeline ([1744924](https://github.com/forst-lang/forst/commit/1744924ef613deab88722a3adb97bac147ee3abe))
+
+
+### Bug Fixes
+
+* **testrunner:** support Forst `Test*` functions with `testing.T` ([#127](https://github.com/forst-lang/forst/issues/127)) ([e43155d](https://github.com/forst-lang/forst/commit/e43155d0f3bdb47646eb2b7ac68d89c91d41e67b))
+
 ## [0.6.1](https://github.com/forst-lang/forst/compare/v0.6.0...v0.6.1) (2026-07-06)
 
 
