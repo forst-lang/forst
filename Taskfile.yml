@@ -150,6 +150,7 @@ tasks:
   test:
     desc: Run all tests
     dir: forst
+    deps: [build:node-runtime]
     cmds:
       - go test -v ./internal/...
       - go test -v ./cmd/forst/...
@@ -157,6 +158,7 @@ tasks:
   test:unit:
     desc: Run unit tests only
     dir: forst
+    deps: [build:node-runtime]
     cmds:
       - go test -v ./internal/...
 
@@ -169,6 +171,7 @@ tasks:
   test:unit:typechecker:
     desc: Run unit tests for typechecker
     dir: forst
+    deps: [build:node-runtime]
     cmds:
       - go test -v ./internal/typechecker/...
 
@@ -720,6 +723,7 @@ tasks:
     desc: Run CI lint suite
     dir: forst
     set: [errexit]
+    deps: [build:node-runtime]
     cmds:
       - task: build:vscode
       - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/...
