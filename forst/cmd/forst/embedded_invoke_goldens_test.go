@@ -117,8 +117,12 @@ func writeEmbeddedInvokePackageGolden(t *testing.T, tc embeddedInvokeGoldenCase)
 }
 
 func TestExampleEmbeddedInvokeCompileGolden(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping embedded-invoke goldens in -short mode")
+	}
 	for _, tc := range embeddedInvokeGoldenCases() {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			inDir := examplesInDir(t)
 			outDir := examplesOutDir(t)
 			entry := filepath.Join(inDir, tc.entryRel)

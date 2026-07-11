@@ -81,7 +81,7 @@ func main() {
 	}
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -135,7 +135,7 @@ func main() {
 	println(errMove.Error())
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1073,7 +1073,7 @@ func main() {
 	println(Contains("a", "b"))
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1171,7 +1171,7 @@ func main() {
 	f.Println("x")
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1218,7 +1218,7 @@ func main() {
 	println(strings.Contains("a", "b"))
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1331,7 +1331,7 @@ func expireToken() {
 	use logger: Logger
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1392,7 +1392,7 @@ func TestNestedWith(t *testing.T) {
 	}
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src

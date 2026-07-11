@@ -5,6 +5,7 @@ import (
 	"forst/internal/ast"
 	"forst/internal/ftconfig"
 	"forst/internal/generators"
+	"forst/internal/modulecheck"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 	"os"
@@ -28,6 +29,25 @@ func (c *Compiler) CompileFile() (*string, error) {
 		return nil, err
 	}
 	return &out.Main, nil
+}
+
+// LoadAndParse loads compile input and parses to AST nodes.
+func (c *Compiler) LoadAndParse() ([]ast.Node, error) {
+	return c.loadInputNodesForCompile()
+}
+
+// Typecheck runs module-aware typechecking on parsed nodes.
+func (c *Compiler) Typecheck(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
+	return c.typecheckForCompile(nodes)
+}
+
+// Transform generates Go source from a typechecked AST.
+func (c *Compiler) Transform(checker *typechecker.TypeChecker, nodes []ast.Node) (string, error) {
+	out, err := c.transformCheckedNodes(checker, nil, nodes)
+	if err != nil {
+		return "", err
+	}
+	return out.Main, nil
 }
 
 // CompileWithNodeRuntime compiles a Forst file and returns main and optional companion Go sources.
@@ -78,6 +98,47 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	c.reportPhase("Performing code generation...")
 	memBefore = getMemStats()
 
+	out, err := c.transformCheckedNodes(checker, modResult, forstNodes)
+	if err != nil {
+		return compileGoOutput{}, err
+	}
+
+	memAfter = getMemStats()
+	c.logMemUsage("code generation", memBefore, memAfter)
+
+	if c.Args.OutputPath != "" {
+		if err := os.WriteFile(c.Args.OutputPath, []byte(out.Main), 0644); err != nil {
+			return compileGoOutput{}, fmt.Errorf("error writing output file: %v", err)
+		}
+		if out.NodeRuntime != "" {
+			runtimePath := nodeRuntimeOutputPath(c.Args.OutputPath)
+			if err := os.WriteFile(runtimePath, []byte(out.NodeRuntime), 0644); err != nil {
+				return compileGoOutput{}, fmt.Errorf("error writing node runtime file: %v", err)
+			}
+		}
+		if out.InvokeServer != "" {
+			invokePath := invokeServerOutputPath(c.Args.OutputPath)
+			if err := os.WriteFile(invokePath, []byte(out.InvokeServer), 0644); err != nil {
+				return compileGoOutput{}, fmt.Errorf("error writing invoke server file: %v", err)
+			}
+		}
+	} else if c.Args.LogLevel == "trace" {
+		c.log.Info("Generated Go code:")
+		fmt.Println(out.Main)
+		if out.NodeRuntime != "" {
+			c.log.Info("Generated node runtime Go code:")
+			fmt.Println(out.NodeRuntime)
+		}
+		if out.InvokeServer != "" {
+			c.log.Info("Generated invoke server Go code:")
+			fmt.Println(out.InvokeServer)
+		}
+	}
+
+	return out, nil
+}
+
+func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modResult *modulecheck.ModuleResult, forstNodes []ast.Node) (compileGoOutput, error) {
 	transformer := transformer_go.New(checker, c.log, c.Args.ExportStructFields)
 	transformer.EmbedInvokeServer = c.embedInvokeEnabled()
 	if modResult != nil {
@@ -105,38 +166,6 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	invokeServerCode, err := c.generateInvokeServerCode(transformer, forstNodes)
 	if err != nil {
 		return compileGoOutput{}, err
-	}
-
-	memAfter = getMemStats()
-	c.logMemUsage("code generation", memBefore, memAfter)
-
-	if c.Args.OutputPath != "" {
-		if err := os.WriteFile(c.Args.OutputPath, []byte(goCode), 0644); err != nil {
-			return compileGoOutput{}, fmt.Errorf("error writing output file: %v", err)
-		}
-		if nodeRuntimeCode != "" {
-			runtimePath := nodeRuntimeOutputPath(c.Args.OutputPath)
-			if err := os.WriteFile(runtimePath, []byte(nodeRuntimeCode), 0644); err != nil {
-				return compileGoOutput{}, fmt.Errorf("error writing node runtime file: %v", err)
-			}
-		}
-		if invokeServerCode != "" {
-			invokePath := invokeServerOutputPath(c.Args.OutputPath)
-			if err := os.WriteFile(invokePath, []byte(invokeServerCode), 0644); err != nil {
-				return compileGoOutput{}, fmt.Errorf("error writing invoke server file: %v", err)
-			}
-		}
-	} else if c.Args.LogLevel == "trace" {
-		c.log.Info("Generated Go code:")
-		fmt.Println(goCode)
-		if nodeRuntimeCode != "" {
-			c.log.Info("Generated node runtime Go code:")
-			fmt.Println(nodeRuntimeCode)
-		}
-		if invokeServerCode != "" {
-			c.log.Info("Generated invoke server Go code:")
-			fmt.Println(invokeServerCode)
-		}
 	}
 
 	return compileGoOutput{Main: goCode, NodeRuntime: nodeRuntimeCode, InvokeServer: invokeServerCode}, nil

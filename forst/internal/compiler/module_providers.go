@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"forst/internal/ast"
+	"forst/internal/forstcheck"
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/modulecheck"
@@ -40,7 +41,7 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	if modResult != nil && !c.typecheckUsesFreshEntryChecker(entryDir) {
 		if tc := modResult.PerPackage[forstPkg]; tc != nil {
 			// Module check used merged-package AST nodes; re-bind scopes to this compile's nodes.
-			if err := RebindTypecheckerScopes(tc, nodes); err != nil {
+			if err := forstcheck.RebindScopes(tc, nodes); err != nil {
 				return tc, modResult, err
 			}
 			return tc, modResult, nil
@@ -69,12 +70,7 @@ func (c *Compiler) moduleRootForProvidersPass() string {
 	if c.Args.PackageRoot != "" {
 		return goload.FindModuleRoot(c.Args.PackageRoot)
 	}
-	entryDir := filepath.Dir(c.Args.FilePath)
-	modRoot := goload.FindModuleRoot(entryDir)
-	if goload.IsForstCompilerModule(modRoot) {
-		return entryDir
-	}
-	return modRoot
+	return forstcheck.ModuleRootForSingleFile(c.Args.FilePath)
 }
 
 func entryDirFromArgs(args Args) string {
@@ -107,13 +103,7 @@ func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
 
 // RebindTypecheckerScopes re-runs CheckTypes on nodes so scope stacks match the compile AST.
 func RebindTypecheckerScopes(tc *typechecker.TypeChecker, nodes []ast.Node) error {
-	savedProviders := cloneFunctionProviders(tc.FunctionProviders)
-	if err := tc.CheckTypes(nodes); err != nil {
-		return err
-	}
-	tc.SetFunctionProviders(savedProviders)
-	tc.FunctionProviders = savedProviders
-	return nil
+	return forstcheck.RebindScopes(tc, nodes)
 }
 
 func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {

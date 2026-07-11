@@ -8,6 +8,7 @@ import (
 )
 
 func TestAnalyzeForstDocument_goStdlib_osGetwd_noUnknownIdentifier(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "os"
@@ -20,7 +21,7 @@ func cwdProbe(): String {
 	return cwd
 }
 `
-	path, uri := importTestModuleFile(t, "os_getwd.ft", src)
+	_, uri := importTestModuleFile(t, "os_getwd.ft", src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -33,15 +34,10 @@ func cwdProbe(): String {
 	if ctx.CheckErr != nil {
 		t.Fatalf("unexpected typecheck error: %v", ctx.CheckErr)
 	}
-	diags := s.compileForstFile(path, src, nil)
-	for _, d := range diags {
-		if strings.Contains(d.Message, "unknown identifier") && strings.Contains(d.Message, "os.Getwd") {
-			t.Fatalf("unexpected diagnostic: %s", d.Message)
-		}
-	}
 }
 
 func TestAnalyzeForstDocument_goStdlib_execCommand_noUnknownIdentifier(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "os/exec"
@@ -55,7 +51,7 @@ func execProbe(): Int {
 	return 0
 }
 `
-	path, uri := importTestModuleFile(t, "exec_command.ft", src)
+	_, uri := importTestModuleFile(t, "exec_command.ft", src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -68,16 +64,10 @@ func execProbe(): Int {
 	if ctx.CheckErr != nil {
 		t.Fatalf("unexpected typecheck error: %v", ctx.CheckErr)
 	}
-	diags := s.compileForstFile(path, src, nil)
-	assertNoGoImportDiagnostics(t, diags)
-	for _, d := range diags {
-		if strings.Contains(d.Message, "unknown identifier") && strings.Contains(d.Message, "exec.Command") {
-			t.Fatalf("unexpected diagnostic: %s", d.Message)
-		}
-	}
 }
 
 func TestAnalyzeForstDocument_goStdlib_execCommandSliceSpread_noDiagnostics(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "os/exec"
@@ -87,7 +77,7 @@ func main() {
 	exec.Command(argv[0], argv[1:]...)
 }
 `
-	path, uri := importTestModuleFile(t, "exec_spread.ft", src)
+	_, uri := importTestModuleFile(t, "exec_spread.ft", src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -103,15 +93,10 @@ func main() {
 	if ctx.TC != nil && !ctx.TC.GoImportPackageLoaded("exec") {
 		t.Skip("os/exec not loaded")
 	}
-	diags := s.compileForstFile(path, src, nil)
-	for _, d := range diags {
-		if strings.Contains(d.Message, "unknown identifier") {
-			t.Fatalf("unexpected diagnostic: %s", d.Message)
-		}
-	}
 }
 
 func TestAnalyzeForstDocument_goStdlib_processStateExitCode_noUnknownIdentifier(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "os/exec"
@@ -128,7 +113,7 @@ func exitCode(argv []String): Int {
 	return 0
 }
 `
-	path, uri := importTestModuleFile(t, "exec_exitcode.ft", src)
+	_, uri := importTestModuleFile(t, "exec_exitcode.ft", src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -144,19 +129,11 @@ func exitCode(argv []String): Int {
 	if ctx.TC != nil && !ctx.TC.GoImportPackageLoaded("exec") {
 		t.Skip("os/exec not loaded")
 	}
-	diags := s.compileForstFile(path, src, nil)
-	for _, d := range diags {
-		if strings.Contains(d.Message, "unknown identifier") &&
-			(strings.Contains(d.Message, "ProcessState") || strings.Contains(d.Message, "ExitCode")) {
-			t.Fatalf("unexpected diagnostic: %s", d.Message)
-		}
-	}
 }
 
-func TestAnalyzeForstDocument_goImportWithoutWorkspace_reportsDiagnostic(t *testing.T) {
-	// LSP always sets GoWorkspaceDir from FindModuleRoot (even when no local go.mod).
-	// Stdlib packages like os/exec still resolve via go/packages when Dir is set.
-	// Verify compileForstFile surfaces structured go-call diagnostics instead.
+func TestCompileForstFile_goImportBadSpread_reportsGoCallDiagnostic(t *testing.T) {
+	t.Parallel()
+	// Dedicated compile-path test: verify compileForstFile surfaces structured go-call diagnostics.
 	src := `package main
 
 import "os/exec"

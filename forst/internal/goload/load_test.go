@@ -36,6 +36,7 @@ func moduleRootFromWD(t *testing.T) string {
 }
 
 func TestLoadByPkgPath_fmt(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	m, err := LoadByPkgPath(dir, []string{"fmt"})
 	if err != nil {
@@ -65,6 +66,7 @@ func TestLoadByPkgPath_emptyPaths(t *testing.T) {
 }
 
 func TestLoadByPkgPath_strconv(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	m, err := LoadByPkgPath(dir, []string{"strconv"})
 	if err != nil {
@@ -87,8 +89,8 @@ func TestImportPathFromForst_whitespaceAndQuotes(t *testing.T) {
 }
 
 func TestLoadByPkgPath_osExec_withoutGoMod(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
-	ClearLoadCacheForTest()
 	m, err := LoadByPkgPath(dir, []string{"os/exec"})
 	if err != nil {
 		t.Fatal(err)
@@ -99,11 +101,11 @@ func TestLoadByPkgPath_osExec_withoutGoMod(t *testing.T) {
 }
 
 func TestLoadByPkgPath_osExec_fromModuleWithGoMod(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(testmod.GoModContent("probemod")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ClearLoadCacheForTest()
 	m, err := LoadByPkgPath(root, []string{"os/exec"})
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +120,7 @@ func TestLoadByPkgPath_osExec_fromModuleWithGoMod(t *testing.T) {
 }
 
 func TestLoadByPkgPath_os(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	m, err := LoadByPkgPath(dir, []string{"os"})
 	if err != nil {
@@ -133,6 +136,7 @@ func TestLoadByPkgPath_os(t *testing.T) {
 }
 
 func TestLoadByPkgPath_cacheHit(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	m1, err := LoadByPkgPath(dir, []string{"fmt"})
 	if err != nil {
@@ -155,6 +159,7 @@ func TestPackageLoadOK(t *testing.T) {
 }
 
 func TestPackageLoadOK_acceptsStdlib(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	m, err := LoadByPkgPath(dir, []string{"fmt"})
 	if err != nil {
@@ -166,6 +171,7 @@ func TestPackageLoadOK_acceptsStdlib(t *testing.T) {
 }
 
 func TestPackageLoadOK_rejectsGhostWithoutSources(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("ghostmod")), 0o644); err != nil {
 		t.Fatal(err)
@@ -174,7 +180,6 @@ func TestPackageLoadOK_rejectsGhostWithoutSources(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ClearLoadCacheForTest()
 	cfg := &packages.Config{Mode: packages.NeedTypes, Dir: dir, Env: loadPackagesEnv(dir)}
 	pkgs, err := packages.Load(cfg, "ghostmod/sub")
 	if err != nil {
@@ -188,6 +193,7 @@ func TestPackageLoadOK_rejectsGhostWithoutSources(t *testing.T) {
 }
 
 func TestLoadByPkgPath_normalizesSubdir(t *testing.T) {
+	t.Parallel()
 	root := moduleRootFromWD(t)
 	sub := filepath.Join(root, "internal", "goload")
 	m, err := LoadByPkgPath(sub, []string{"fmt"})
@@ -216,6 +222,7 @@ func TestLoadByPkgPath_singlePathCacheFromBatch(t *testing.T) {
 }
 
 func TestLoadByPkgPath_modulePackageWithoutGoSources(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("testmod")), 0o644); err != nil {
 		t.Fatal(err)
@@ -224,13 +231,11 @@ func TestLoadByPkgPath_modulePackageWithoutGoSources(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ClearLoadCacheForTest()
 	m, err := LoadByPkgPath(dir, []string{"testmod/sub"})
 	if err == nil && m["testmod/sub"] != nil {
 		t.Fatalf("expected unresolved package omitted, got %#v", m)
 	}
 	// Mixed load: stdlib succeeds, module subpackage without Go sources is omitted.
-	ClearLoadCacheForTest()
 	m, err = LoadByPkgPath(dir, []string{"testing", "testmod/sub"})
 	if err != nil {
 		t.Fatal(err)
@@ -397,6 +402,7 @@ func TestStoreLoadCache_skipsEmptyPathKey(t *testing.T) {
 }
 
 func TestLoadByPkgPath_noTypedPackagesWithoutMessages(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("ghostonly")), 0o644); err != nil {
 		t.Fatal(err)
@@ -405,7 +411,6 @@ func TestLoadByPkgPath_noTypedPackagesWithoutMessages(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ClearLoadCacheForTest()
 	_, err := LoadByPkgPath(dir, []string{"ghostonly/sub"})
 	if err == nil {
 		t.Fatal("expected error when no typed packages resolve")
@@ -450,6 +455,7 @@ func TestLoadByPkgPath_doesNotCacheErrors(t *testing.T) {
 }
 
 func TestLoadByPkgPath_deepTreeAndForstOnlyModuleImport_execStillLoads(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(testmod.GoModContent("deepmod")), 0o644); err != nil {
 		t.Fatal(err)
@@ -463,7 +469,6 @@ func TestLoadByPkgPath_deepTreeAndForstOnlyModuleImport_execStillLoads(t *testin
 	if err := os.MkdirAll(filepath.Join(root, "internal", "deep", "nested"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	ClearLoadCacheForTest()
 	paths := []string{"os/exec", "deepmod/internal/deep/nested"}
 	m, err := LoadByPkgPath(root, paths)
 	if err != nil {
@@ -486,7 +491,7 @@ func TestLoadByPkgPathUncached_noTypedPackagesWithoutErrorMessages(t *testing.T)
 	}
 	t.Cleanup(func() { packagesLoadFn = orig })
 
-	_, err := loadByPkgPathUncached(t.TempDir(), []string{"ghost"})
+	_, err := loadByPkgPathUncached(t.TempDir(), []string{"ghost"}, packages.Load)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -498,14 +503,33 @@ func TestLoadByPkgPathUncached_noTypedPackagesWithoutErrorMessages(t *testing.T)
 func TestClearLoadCacheForTest_concurrentSafe(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)
+	// Warm cache once, then verify concurrent reads return the same package pointer.
+	if _, err := LoadByPkgPath(dir, []string{"fmt"}); err != nil {
+		t.Fatal(err)
+	}
 	var wg sync.WaitGroup
+	results := make([]*packages.Package, 8)
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func() {
+		go func(idx int) {
 			defer wg.Done()
-			ClearLoadCacheForTest()
-			_, _ = LoadByPkgPath(dir, []string{"fmt"})
-		}()
+			m, err := LoadByPkgPath(dir, []string{"fmt"})
+			if err != nil {
+				t.Errorf("concurrent load: %v", err)
+				return
+			}
+			results[idx] = m["fmt"]
+		}(i)
 	}
 	wg.Wait()
+	base := results[0]
+	if base == nil {
+		t.Fatal("expected fmt package")
+	}
+	for i := 1; i < len(results); i++ {
+		if results[i] != base {
+			t.Fatalf("expected cached fmt pointer at %d, got %p vs %p", i, results[i], base)
+		}
+	}
+	ClearLoadCacheForTest()
 }

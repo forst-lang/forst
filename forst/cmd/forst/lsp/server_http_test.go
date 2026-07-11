@@ -14,6 +14,7 @@ import (
 )
 
 func TestHandleLSP_rejectsOversizedBody(t *testing.T) {
+	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	s.maxRequestBodyBytes = 32
 
@@ -29,6 +30,7 @@ func TestHandleLSP_rejectsOversizedBody(t *testing.T) {
 }
 
 func TestHandleLSP_acceptsBodyUnderLimit(t *testing.T) {
+	t.Parallel()
 	s := NewLSPServer("8080", logrus.New())
 	s.maxRequestBodyBytes = 1024
 
@@ -44,6 +46,7 @@ func TestHandleLSP_acceptsBodyUnderLimit(t *testing.T) {
 }
 
 func TestReadAll_usesDefaultWhenLSPServerMaxZero(t *testing.T) {
+	t.Parallel()
 	_, err := httpbody.ReadAll(bytes.NewReader([]byte("ok")), 0)
 	if err != nil {
 		t.Fatalf("ReadAll: %v", err)
@@ -51,6 +54,7 @@ func TestReadAll_usesDefaultWhenLSPServerMaxZero(t *testing.T) {
 }
 
 func TestLimitReader_interface(t *testing.T) {
+	t.Parallel()
 	r := httpbody.LimitReader(strings.NewReader("ab"), 1)
 	_, err := io.ReadAll(r)
 	if err == nil || !httpbody.IsTooLarge(err) {

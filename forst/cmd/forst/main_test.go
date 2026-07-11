@@ -440,6 +440,9 @@ func TestRunCommandLogic(t *testing.T) {
 }
 
 func TestExamples(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping example compiles in -short mode")
+	}
 	// Get all example input files
 	inputDir := "../../../examples/in"
 	outputDir := "../../../examples/out"
@@ -473,6 +476,7 @@ func TestExamples(t *testing.T) {
 		outputBasePath := filepath.Join(outputDir, baseName)
 
 		t.Run(relPath, func(t *testing.T) {
+			t.Parallel()
 			if strings.HasSuffix(info.Name(), ".skip.ft") || strings.HasSuffix(info.Name(), ".skip.go") {
 				t.Skip("Skipping test file", relPath)
 				return

@@ -59,6 +59,7 @@ func TestGenerate_exampleManifest(t *testing.T) {
 			t.Fatal("manifest entry missing path")
 		}
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			srcDir := filepath.Join(root, filepath.Clean(name))
 			if st, err := os.Stat(srcDir); err != nil || !st.IsDir() {
 				t.Fatalf("example dir %s: %v", srcDir, err)

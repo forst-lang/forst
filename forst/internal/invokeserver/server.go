@@ -10,117 +10,14 @@ import (
 	"time"
 
 	"forst/internal/discovery"
-	"forst/internal/executor"
 	"forst/internal/httpbody"
-	"forst/internal/invokedispatch"
 )
 
-// DevBackend wraps the dev FunctionExecutor and discovery.
-type DevBackend struct {
-	exec       *executor.FunctionExecutor
-	discoverer *discovery.Discoverer
-	functions  map[string]map[string]discovery.FunctionInfo
-	mu         sync.RWMutex
-}
+// marshalVersionPayload encodes VersionInfo for GET /version; tests may replace to inject errors.
+var marshalVersionPayload = func(v VersionInfo) ([]byte, error) { return json.Marshal(v) }
 
-// NewDevBackend creates a backend that recompiles and go-runs on each invoke.
-func NewDevBackend(exec *executor.FunctionExecutor, discoverer *discovery.Discoverer) *DevBackend {
-	return &DevBackend{
-		exec:       exec,
-		discoverer: discoverer,
-		functions:  make(map[string]map[string]discovery.FunctionInfo),
-	}
-}
-
-// RefreshFunctions re-discovers public functions.
-func (b *DevBackend) RefreshFunctions(_ context.Context) error {
-	functions, err := b.discoverer.DiscoverFunctions()
-	if err != nil {
-		return fmt.Errorf("discover functions: %w", err)
-	}
-	b.mu.Lock()
-	b.functions = functions
-	b.mu.Unlock()
-	return nil
-}
-
-// Functions returns the cached function map.
-func (b *DevBackend) Functions() map[string]map[string]discovery.FunctionInfo {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	out := make(map[string]map[string]discovery.FunctionInfo, len(b.functions))
-	for pkg, fns := range b.functions {
-		out[pkg] = make(map[string]discovery.FunctionInfo, len(fns))
-		for name, info := range fns {
-			out[pkg][name] = info
-		}
-	}
-	return out
-}
-
-// Invoke runs a function via the dev executor.
-func (b *DevBackend) Invoke(_ context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
-	result, err := b.exec.ExecuteFunction(pkg, fn, args)
-	if err != nil {
-		return nil, err
-	}
-	return &invokedispatch.InvokeResult{
-		Success: result.Success,
-		Output:  result.Output,
-		Error:   result.Error,
-		Result:  result.Result,
-	}, nil
-}
-
-// InvokeStream runs a streaming function via the dev executor.
-func (b *DevBackend) InvokeStream(ctx context.Context, pkg, fn string, args json.RawMessage) (<-chan invokedispatch.StreamChunk, error) {
-	ch, err := b.exec.ExecuteStreamingFunction(ctx, pkg, fn, args)
-	if err != nil {
-		return nil, err
-	}
-	out := make(chan invokedispatch.StreamChunk)
-	go func() {
-		defer close(out)
-		for item := range ch {
-			out <- invokedispatch.StreamChunk{
-				Data:   item.Data,
-				Status: item.Status,
-				Error:  item.Error,
-			}
-		}
-	}()
-	return out, nil
-}
-
-// RegistryBackend adapts invokedispatch.Registry to DispatchBackend.
-type RegistryBackend struct {
-	registry *invokedispatch.Registry
-}
-
-// NewRegistryBackend wraps a registry.
-func NewRegistryBackend(registry *invokedispatch.Registry) *RegistryBackend {
-	return &RegistryBackend{registry: registry}
-}
-
-// RefreshFunctions is a no-op for embedded registry.
-func (b *RegistryBackend) RefreshFunctions(context.Context) error {
-	return nil
-}
-
-// Functions returns registered metadata.
-func (b *RegistryBackend) Functions() map[string]map[string]discovery.FunctionInfo {
-	return b.registry.Functions()
-}
-
-// Invoke calls an in-process handler.
-func (b *RegistryBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
-	return b.registry.Invoke(ctx, pkg, fn, args)
-}
-
-// InvokeStream delegates to the registry.
-func (b *RegistryBackend) InvokeStream(ctx context.Context, pkg, fn string, args json.RawMessage) (<-chan invokedispatch.StreamChunk, error) {
-	return b.registry.InvokeStream(ctx, pkg, fn, args)
-}
+// marshalFunctionList encodes the function list for GET /functions; tests may replace to inject errors.
+var marshalFunctionList = func(list []discovery.FunctionInfo) ([]byte, error) { return json.Marshal(list) }
 
 // Server is the shared HTTP invoke server for dev and embedded runtimes.
 type Server struct {
@@ -211,22 +108,8 @@ func (s *Server) StartOnMux(mux *http.ServeMux) error {
 	}
 	s.RegisterRoutes(mux)
 
-	readTimeout := time.Duration(s.cfg.ReadTimeout) * time.Second
-	writeTimeout := time.Duration(s.cfg.WriteTimeout) * time.Second
-	if readTimeout <= 0 {
-		readTimeout = 30 * time.Second
-	}
-	if writeTimeout <= 0 {
-		writeTimeout = 30 * time.Second
-	}
-
 	s.mu.Lock()
-	s.server = &http.Server{
-		Addr:         s.cfg.Addr(),
-		Handler:      mux,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-	}
+	s.server = s.buildHTTPServer(mux)
 	s.started = true
 	s.mu.Unlock()
 
@@ -251,27 +134,14 @@ func (s *Server) StartAsync() error {
 	mux := http.NewServeMux()
 	s.RegisterRoutes(mux)
 
-	readTimeout := time.Duration(s.cfg.ReadTimeout) * time.Second
-	writeTimeout := time.Duration(s.cfg.WriteTimeout) * time.Second
-	if readTimeout <= 0 {
-		readTimeout = 30 * time.Second
-	}
-	if writeTimeout <= 0 {
-		writeTimeout = 30 * time.Second
-	}
-
 	ln, err := net.Listen("tcp", s.cfg.Addr())
 	if err != nil {
 		return fmt.Errorf("invoke server: listen %s: %w", s.cfg.Addr(), err)
 	}
 
 	s.mu.Lock()
-	s.server = &http.Server{
-		Addr:         s.cfg.Addr(),
-		Handler:      mux,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-	}
+	s.server = s.buildHTTPServer(mux)
+	s.server.Addr = ln.Addr().String()
 	s.started = true
 	s.mu.Unlock()
 
@@ -301,6 +171,38 @@ func (s *Server) Config() Config {
 	return s.cfg
 }
 
+// BoundAddr returns the actual listen address after StartAsync, else Config().Addr().
+func (s *Server) BoundAddr() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.server != nil && s.server.Addr != "" {
+		return s.server.Addr
+	}
+	return s.cfg.Addr()
+}
+
+func (s *Server) effectiveTimeouts() (read, write time.Duration) {
+	read = time.Duration(s.cfg.ReadTimeout) * time.Second
+	write = time.Duration(s.cfg.WriteTimeout) * time.Second
+	if read <= 0 {
+		read = 30 * time.Second
+	}
+	if write <= 0 {
+		write = 30 * time.Second
+	}
+	return read, write
+}
+
+func (s *Server) buildHTTPServer(mux *http.ServeMux) *http.Server {
+	readTimeout, writeTimeout := s.effectiveTimeouts()
+	return &http.Server{
+		Addr:         s.cfg.Addr(),
+		Handler:      mux,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+	}
+}
+
 // handleHealth handles GET /health.
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -316,7 +218,7 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	payload, err := json.Marshal(s.version)
+	payload, err := marshalVersionPayload(s.version)
 	if err != nil {
 		s.sendError(w, fmt.Sprintf("failed to marshal version: %v", err), http.StatusInternalServerError)
 		return
@@ -341,7 +243,7 @@ func (s *Server) handleFunctions(w http.ResponseWriter, r *http.Request) {
 			list = append(list, fn)
 		}
 	}
-	resultData, err := json.Marshal(list)
+	resultData, err := marshalFunctionList(list)
 	if err != nil {
 		s.sendError(w, fmt.Sprintf("Failed to marshal functions: %v", err), http.StatusInternalServerError)
 		return

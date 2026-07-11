@@ -13,9 +13,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.T) {
+func crossPkgWantRoots() []string {
+	return []string{"Logger"}
+}
+
+func TestModuleProviders_crossPkg_modulecheck(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
-	wantRoots := []string{"Logger"}
+	wantRoots := crossPkgWantRoots()
 
 	modResult, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: root})
 	if err != nil {
@@ -29,6 +33,11 @@ func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.
 	if len(modSlots) != 1 || modSlots[0].Key != "Logger" {
 		t.Fatalf("modulecheck HandleRequest slots = %v", modSlots)
 	}
+}
+
+func TestModuleProviders_crossPkg_discovery(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
+	wantRoots := crossPkgWantRoots()
 
 	logger := logrus.New()
 	logger.SetOutput(nil)
@@ -50,7 +59,15 @@ func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.
 	if !sameStringSlice(handle.Providers, wantRoots) {
 		t.Fatalf("discovery HandleRequest providers = %v, want %v", handle.Providers, wantRoots)
 	}
+}
 
+func TestModuleProviders_crossPkg_compileTypecheck(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "cross_pkg")
+	wantRoots := crossPkgWantRoots()
+
+	logger := logrus.New()
+	logger.SetOutput(nil)
+	logger.SetLevel(logrus.PanicLevel)
 	entry := filepath.Join(root, "api", "handle.ft")
 	c := compiler.New(compiler.Args{
 		Command:  "run",
@@ -73,7 +90,6 @@ func TestModuleProviders_parity_discoveryCompileModulecheck_crossPkg(t *testing.
 		t.Fatalf("compile HandleRequest roots = %v, want %v", compileRoots, wantRoots)
 	}
 	if tc != compileTC {
-		// TypecheckForTest may return the same package tc; roots must still match direct lookup.
 		directRoots := providerRoots(tc.FunctionProviders, "HandleRequest")
 		if !sameStringSlice(directRoots, wantRoots) {
 			t.Fatalf("returned tc HandleRequest roots = %v, want %v", directRoots, wantRoots)

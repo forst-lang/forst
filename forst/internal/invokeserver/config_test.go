@@ -44,6 +44,24 @@ func TestConfig_BaseURL_embeddedForcesLocalhost(t *testing.T) {
 	}
 }
 
+func TestConfig_listenHost_devRuntime(t *testing.T) {
+	cfg := Config{Runtime: "dev", Host: ""}
+	if got := cfg.Addr(); !strings.HasPrefix(got, embeddedListenHost+":") {
+		t.Fatalf("empty host Addr() = %q", got)
+	}
+	cfg = Config{Runtime: "dev", Host: "0.0.0.0", Port: "9090"}
+	if got := cfg.Addr(); got != "0.0.0.0:9090" {
+		t.Fatalf("explicit host Addr() = %q", got)
+	}
+}
+
+func TestConfig_listenPort_defaults(t *testing.T) {
+	cfg := Config{Host: "127.0.0.1", Port: "", Runtime: "dev"}
+	if got := cfg.Addr(); got != "127.0.0.1:8081" {
+		t.Fatalf("Addr() = %q", got)
+	}
+}
+
 func TestStartAsync_embeddedBindsLoopbackOnly(t *testing.T) {
 	backend := &stubBackend{
 		functions: map[string]map[string]discovery.FunctionInfo{},

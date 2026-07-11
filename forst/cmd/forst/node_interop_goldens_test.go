@@ -262,8 +262,12 @@ func writeNodeInteropPackageGolden(t *testing.T, tc nodeInteropGoldenCase) {
 }
 
 func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping node-interop goldens in -short mode")
+	}
 	for _, tc := range nodeInteropGoldenCases() {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			inDir := examplesInDir(t)
 			outDir := examplesOutDir(t)
 			entry := filepath.Join(inDir, tc.entryRel)

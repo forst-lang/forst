@@ -6,6 +6,7 @@ import (
 )
 
 func TestDebugEventBuilder(t *testing.T) {
+	t.Parallel()
 	// Test basic builder creation
 	builder := NewDebugEventBuilder(PhaseLexer, "/test/file.ft")
 
@@ -48,6 +49,7 @@ func TestDebugEventBuilder(t *testing.T) {
 }
 
 func TestDebugEventBuilderWithScope(t *testing.T) {
+	t.Parallel()
 	builder := NewDebugEventBuilder(PhaseTypechecker, "/test/file.ft")
 
 	scopeInfo := NewScopeInfoBuilder().
@@ -84,6 +86,7 @@ func TestDebugEventBuilderWithScope(t *testing.T) {
 }
 
 func TestDebugEventBuilderWithError(t *testing.T) {
+	t.Parallel()
 	builder := NewDebugEventBuilder(PhaseParser, "/test/file.ft")
 
 	errorInfo := NewErrorInfoBuilder(ErrorCodeUnexpectedToken, "Unexpected token").
@@ -126,6 +129,7 @@ func TestDebugEventBuilderWithError(t *testing.T) {
 }
 
 func TestScopeInfoBuilder(t *testing.T) {
+	t.Parallel()
 	builder := NewScopeInfoBuilder()
 
 	scope := builder.
@@ -178,6 +182,7 @@ func TestScopeInfoBuilder(t *testing.T) {
 }
 
 func TestErrorInfoBuilder(t *testing.T) {
+	t.Parallel()
 	builder := NewErrorInfoBuilder(ErrorCodeTypeMismatch, "Type mismatch error")
 
 	errorInfo := builder.
@@ -215,6 +220,7 @@ func TestErrorInfoBuilder(t *testing.T) {
 }
 
 func TestCreateTokenEvent(t *testing.T) {
+	t.Parallel()
 	event := CreateTokenEvent(PhaseLexer, "/test/file.ft", "IDENTIFIER", "myVar", 5, 10)
 
 	if event.Phase != PhaseLexer {
@@ -251,6 +257,7 @@ func TestCreateTokenEvent(t *testing.T) {
 }
 
 func TestCreateFunctionEvent(t *testing.T) {
+	t.Parallel()
 	parameters := []string{"Int", "String"}
 	returnTypes := []string{"Bool"}
 
@@ -288,6 +295,7 @@ func TestCreateFunctionEvent(t *testing.T) {
 }
 
 func TestCreateTypeErrorEvent(t *testing.T) {
+	t.Parallel()
 	event := CreateTypeErrorEvent(PhaseTypechecker, "/test/file.ft", "Int", "String", "variable assignment")
 
 	if event.Phase != PhaseTypechecker {
@@ -347,6 +355,7 @@ func TestCreateTypeErrorEvent(t *testing.T) {
 }
 
 func TestCreateScopeEvent(t *testing.T) {
+	t.Parallel()
 	variables := map[string]string{
 		"x": "Int",
 		"y": "String",
@@ -393,6 +402,7 @@ func TestCreateScopeEvent(t *testing.T) {
 }
 
 func TestFormatDebugEvent(t *testing.T) {
+	t.Parallel()
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Phase:     PhaseLexer,
@@ -422,6 +432,7 @@ func TestFormatDebugEvent(t *testing.T) {
 }
 
 func TestFormatDebugEventMinimal(t *testing.T) {
+	t.Parallel()
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Phase:     PhaseParser,
@@ -445,6 +456,7 @@ func TestFormatDebugEventMinimal(t *testing.T) {
 }
 
 func TestValidateEventType(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name      string
 		eventType string
@@ -478,6 +490,7 @@ func TestValidateEventType(t *testing.T) {
 }
 
 func TestValidateErrorCode(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name      string
 		errorCode string
@@ -509,6 +522,7 @@ func TestValidateErrorCode(t *testing.T) {
 }
 
 func TestDebugEventBuilderChaining(t *testing.T) {
+	t.Parallel()
 	// Test that all builder methods can be chained
 	event := NewDebugEventBuilder(PhaseTransformer, "/test/file.ft").
 		WithEventType(EventFunctionTransformed).
@@ -564,6 +578,7 @@ func TestDebugEventBuilderChaining(t *testing.T) {
 }
 
 func TestScopeInfoBuilderChaining(t *testing.T) {
+	t.Parallel()
 	// Test that all scope builder methods can be chained
 	scope := NewScopeInfoBuilder().
 		WithFunctionName("testFunc").
@@ -593,6 +608,7 @@ func TestScopeInfoBuilderChaining(t *testing.T) {
 }
 
 func TestErrorInfoBuilderChaining(t *testing.T) {
+	t.Parallel()
 	// Test that all error builder methods can be chained
 	errorInfo := NewErrorInfoBuilder(ErrorCodeUndefinedVariable, "Variable not found").
 		WithSeverity(SeverityWarning).

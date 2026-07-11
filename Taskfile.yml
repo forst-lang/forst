@@ -715,6 +715,12 @@ tasks:
         test -f profile.cov || go test -coverprofile=profile.cov ./cmd/forst/... ./internal/... -count=1
       - bash scripts/check_coverage_threshold.sh profile.cov {{.MIN_COVERAGE}}
 
+  test:go:short:
+    desc: Fast Go unit tests (skips -short gated integration tests)
+    dir: forst
+    cmds:
+      - go test -short -count=1 ./cmd/forst/... ./internal/...
+
   ci:test:
     desc: Run CI lint suite
     dir: forst

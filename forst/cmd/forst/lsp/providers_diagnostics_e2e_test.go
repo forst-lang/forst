@@ -12,6 +12,7 @@ import (
 )
 
 func TestAnalyzeForstDocument_providersUnsatisfiedDiagnostic(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("providers_diag")), 0o644); err != nil {
 		t.Fatal(err)
@@ -28,6 +29,7 @@ func needsLogger() {
 }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	needsLogger()
 }
 `

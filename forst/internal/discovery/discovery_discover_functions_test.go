@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/testmod"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -444,6 +446,7 @@ func PlaceOrder(): String {
 
 func TestDiscoverer_DiscoverFunctions_typecheckFailure_logsDebug(t *testing.T) {
 	dir := t.TempDir()
+	testmod.WriteGoMod(t, dir, "badmod")
 	path := filepath.Join(dir, "bad_typecheck.ft")
 	content := `package main
 
@@ -462,7 +465,7 @@ func Bad(): String {
 	}
 	found := false
 	for _, m := range ml.debugMsgs {
-		if strings.Contains(m, "Type checking failed") {
+		if strings.Contains(m, "Type checking failed") || strings.Contains(m, "Module providers check") {
 			found = true
 			break
 		}

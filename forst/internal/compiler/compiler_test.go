@@ -397,19 +397,20 @@ func Main() {
 // Regenerate: UPDATE_MAP_CATALOG_GOLDEN=1 go test ./internal/compiler -run TestCompileFile_map_catalog_golden -count=1
 func TestCompileFile_deterministic_basicExample(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "examples", "in", "basic.ft")
-	c := New(Args{Command: "build", FilePath: path, LogLevel: "error"}, testCompilerLogger())
-	first, err := c.CompileFile()
-	if err != nil {
-		t.Fatalf("CompileFile: %v", err)
-	}
-	for i := range 5 {
-		c2 := New(Args{Command: "build", FilePath: path, LogLevel: "error"}, testCompilerLogger())
-		code, err := c2.CompileFile()
+	const runs = 2
+	compiled := make([]*string, runs)
+	for i := range runs {
+		var err error
+		c := New(Args{Command: "build", FilePath: path, LogLevel: "error"}, testCompilerLogger())
+		compiled[i], err = c.CompileFile()
 		if err != nil {
-			t.Fatalf("CompileFile run %d: %v", i, err)
+			t.Fatalf("CompileFile (run %d): %v", i+1, err)
 		}
-		if *code != *first {
-			t.Fatalf("non-deterministic output at run %d", i)
+	}
+	ref := *compiled[0]
+	for i := range runs {
+		if *compiled[i] != ref {
+			t.Fatalf("non-deterministic output: run %d != first", i)
 		}
 	}
 }

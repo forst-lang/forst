@@ -226,6 +226,39 @@ func BatchLoadGoPackagesForModule(moduleRoot string, tcs []*TypeChecker) (map[st
 	return goload.LoadByPkgPath(moduleRoot, paths)
 }
 
+// BatchLoadGoPackagesForModuleWithLoader is like BatchLoadGoPackagesForModule but accepts a custom loader.
+func BatchLoadGoPackagesForModuleWithLoader(moduleRoot string, tcs []*TypeChecker, loader goload.PackagesLoader) (map[string]*packages.Package, error) {
+	if moduleRoot == "" || len(tcs) == 0 {
+		return nil, nil
+	}
+	pathSet := make(map[string]struct{})
+	for _, tc := range tcs {
+		if tc == nil {
+			continue
+		}
+		for _, imp := range tc.imports {
+			ip := goload.ImportPathFromForst(imp.Path)
+			if ip != "" {
+				pathSet[ip] = struct{}{}
+			}
+		}
+		if tc.samePackageGoImportPath != "" {
+			pathSet[tc.samePackageGoImportPath] = struct{}{}
+		}
+	}
+	if len(pathSet) == 0 {
+		return nil, nil
+	}
+	paths := make([]string, 0, len(pathSet))
+	for p := range pathSet {
+		paths = append(paths, p)
+	}
+	if loader == nil {
+		return goload.LoadByPkgPath(moduleRoot, paths)
+	}
+	return goload.LoadByPkgPath(moduleRoot, paths, goload.WithPackagesLoader(loader))
+}
+
 // initSamePackageGoExports loads exported Go funcs from .go files co-located with this Forst package.
 func (tc *TypeChecker) initSamePackageGoExports() {
 	if tc.goPackagesPreloaded {

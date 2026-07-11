@@ -10,63 +10,19 @@ import (
 	"forst/internal/discovery"
 	"forst/internal/httpbody"
 	"forst/internal/invokedispatch"
+	"forst/internal/invokeserver"
 )
-
-// jsonMarshalVersionPayload marshals the /version payload; tests may replace to inject errors.
-var jsonMarshalVersionPayload = json.Marshal
-
-// jsonMarshalFunctionsList encodes the function list for /functions; tests may replace to inject errors.
-var jsonMarshalFunctionsList = json.Marshal
 
 func (s *DevServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.invoke.HandleHealth(w, r)
 }
 
 func (s *DevServer) handleVersion(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	payload := map[string]string{
-		"version":         Version,
-		"commit":          Commit,
-		"date":            Date,
-		"contractVersion": devHTTPContractVersion,
-		"runtime":         "dev",
-	}
-	data, err := jsonMarshalVersionPayload(payload)
-	if err != nil {
-		s.sendError(w, fmt.Sprintf("failed to marshal version: %v", err), http.StatusInternalServerError)
-		return
-	}
-	s.sendJSONResponse(w, DevServerResponse{Success: true, Result: data})
+	s.invoke.HandleVersion(w, r)
 }
 
 func (s *DevServer) handleFunctions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if err := s.discoverFunctions(); err != nil {
-		s.sendError(w, fmt.Sprintf("Failed to discover functions: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	s.mu.RLock()
-	functions := make([]discovery.FunctionInfo, 0)
-	for _, pkgFuncs := range s.functions {
-		for _, fn := range pkgFuncs {
-			functions = append(functions, fn)
-		}
-	}
-	s.mu.RUnlock()
-
-	response := DevServerResponse{Success: true}
-	if resultData, err := jsonMarshalFunctionsList(functions); err == nil {
-		response.Result = resultData
-	}
-	s.sendJSONResponse(w, response)
+	s.invoke.HandleFunctions(w, r)
 }
 
 func (s *DevServer) handleInvoke(w http.ResponseWriter, r *http.Request) {
@@ -158,8 +114,9 @@ func (s *DevServer) applyTestBackend(functions map[string]map[string]discovery.F
 }
 
 type testInvokeBackend struct {
-	functions map[string]map[string]discovery.FunctionInfo
-	exec      devFunctionExecutor
+	functions  map[string]map[string]discovery.FunctionInfo
+	exec       devFunctionExecutor
+	refreshErr error
 }
 
 func (b *testInvokeBackend) Functions() map[string]map[string]discovery.FunctionInfo {
@@ -167,7 +124,7 @@ func (b *testInvokeBackend) Functions() map[string]map[string]discovery.Function
 }
 
 func (b *testInvokeBackend) RefreshFunctions(context.Context) error {
-	return nil
+	return b.refreshErr
 }
 
 func (b *testInvokeBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
@@ -194,14 +151,7 @@ func (b *testInvokeBackend) InvokeStream(ctx context.Context, pkg, fn string, ar
 	if err != nil {
 		return nil, err
 	}
-	out := make(chan invokedispatch.StreamChunk)
-	go func() {
-		defer close(out)
-		for item := range ch {
-			out <- invokedispatch.StreamChunk{Data: item.Data, Status: item.Status, Error: item.Error}
-		}
-	}()
-	return out, nil
+	return invokeserver.AdaptExecutorStream(ch), nil
 }
 
 var _ = httpbody.DefaultMaxBytes

@@ -103,7 +103,7 @@ func TestHandleFunctions_get_success_returnsJSONResultWithFunctionList(t *testin
 
 func TestHandleFunctions_discoveryFailure_returns500(t *testing.T) {
 	s := testDevServer(t)
-	s.discoverer = discovery.NewDiscoverer(t.TempDir(), s.log, nil)
+	s.setInvokeBackendForTest(&testInvokeBackend{refreshErr: fmt.Errorf("discover failed")})
 	rr := httptest.NewRecorder()
 
 	s.handleFunctions(rr, httptest.NewRequest(http.MethodGet, "/functions", nil))
@@ -255,19 +255,6 @@ func TestHandleInvoke_executeFunctionFailure_returns500(t *testing.T) {
 	}
 }
 
-func TestHandleVersion_marshalError_returns500(t *testing.T) {
-	orig := jsonMarshalVersionPayload
-	jsonMarshalVersionPayload = func(any) ([]byte, error) { return nil, fmt.Errorf("marshal") }
-	t.Cleanup(func() { jsonMarshalVersionPayload = orig })
-
-	s := testDevServer(t)
-	rr := httptest.NewRecorder()
-	s.handleVersion(rr, httptest.NewRequest(http.MethodGet, "/version", nil))
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
-	}
-}
-
 func TestHandleFunctions_twoPublicFuncsSamePackage(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "a.ft"), []byte(generateTestMinimalValidForst), 0o644); err != nil {
@@ -297,29 +284,6 @@ func TestHandleFunctions_twoPublicFuncsSamePackage(t *testing.T) {
 	}
 	if len(list) < 2 {
 		t.Fatalf("want at least 2 functions, got %d (%v)", len(list), list)
-	}
-}
-
-func TestHandleFunctions_marshalListError_returnsResponseWithoutResult(t *testing.T) {
-	orig := jsonMarshalFunctionsList
-	jsonMarshalFunctionsList = func(any) ([]byte, error) { return nil, fmt.Errorf("no") }
-	t.Cleanup(func() { jsonMarshalFunctionsList = orig })
-
-	s := testDevServer(t)
-	s.functions = map[string]map[string]discovery.FunctionInfo{
-		"p": {"F": {Package: "p", Name: "F"}},
-	}
-	rr := httptest.NewRecorder()
-	s.handleFunctions(rr, httptest.NewRequest(http.MethodGet, "/functions", nil))
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status: %d", rr.Code)
-	}
-	var resp DevServerResponse
-	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-		t.Fatal(err)
-	}
-	if !resp.Success || len(resp.Result) != 0 {
-		t.Fatalf("expected success with empty result on marshal failure, got %+v", resp)
 	}
 }
 

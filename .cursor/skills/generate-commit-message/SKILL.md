@@ -1,4 +1,3 @@
-
 ---
 name: generate-commit-message
 description: >-

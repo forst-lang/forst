@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewLSPServer(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -40,6 +41,7 @@ func TestNewLSPServer(t *testing.T) {
 }
 
 func TestHandleHealth(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -99,6 +101,7 @@ func TestHandleHealth(t *testing.T) {
 }
 
 func TestHandleInitialize(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -216,6 +219,7 @@ func TestHandleInitialize(t *testing.T) {
 }
 
 func TestHandleDidOpen(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -275,6 +279,7 @@ func TestHandleDidOpen(t *testing.T) {
 }
 
 func TestHandleHover(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	server.documentMu.Lock()
@@ -329,6 +334,7 @@ func TestHandleHover(t *testing.T) {
 }
 
 func TestHandleTextDocumentListRequest(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -415,6 +421,7 @@ func main() {
 }
 
 func TestHandleLSPMethod(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -485,6 +492,7 @@ func TestHandleLSPMethod(t *testing.T) {
 }
 
 func TestHandleLSP(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -585,6 +593,7 @@ func TestHandleLSP_NotificationNoIDNoJSONBody(t *testing.T) {
 }
 
 func TestProcessForstFile(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -606,6 +615,7 @@ func TestProcessForstFile(t *testing.T) {
 }
 
 func TestFindHoverForPosition(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	server.documentMu.Lock()
@@ -635,6 +645,7 @@ func TestFindHoverForPosition(t *testing.T) {
 }
 
 func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	uri := mustFileURI(t, filepath.Join(t.TempDir(), "hover_sync.ft"))
@@ -656,8 +667,9 @@ func TestFindHoverForPositionUsesSyncedDocument(t *testing.T) {
 }
 
 func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
+	t.Parallel()
 	const src = "package main\n\nimport \"fmt\"\n\nfunc main() {\n  fmt.Println(\"x\")\n}\n"
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	server.documentMu.Lock()
@@ -676,6 +688,7 @@ func TestFindHoverForPosition_goFmtPrintln(t *testing.T) {
 }
 
 func TestListAtPosition_keywordKinds(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -720,6 +733,7 @@ func main() {
 }
 
 func TestHandleLSP_getReturnsProbeJSON(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -734,6 +748,7 @@ func TestHandleLSP_getReturnsProbeJSON(t *testing.T) {
 }
 
 func TestHandleLSP_invalidMethod405(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	req := httptest.NewRequest(http.MethodPut, "/", nil)
@@ -745,6 +760,7 @@ func TestHandleLSP_invalidMethod405(t *testing.T) {
 }
 
 func TestHandleLSP_invalidJSONBody400(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("not-json{"))
@@ -757,6 +773,7 @@ func TestHandleLSP_invalidJSONBody400(t *testing.T) {
 }
 
 func TestRecoveryMiddleware(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -788,6 +805,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 }
 
 func TestCompileForstFileWithPanic(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -803,6 +821,7 @@ func TestCompileForstFileWithPanic(t *testing.T) {
 }
 
 func TestHandleDidChange(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -850,6 +869,7 @@ func TestHandleDidChange(t *testing.T) {
 }
 
 func TestHandleDidClose(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -894,6 +914,7 @@ func TestHandleDidClose(t *testing.T) {
 }
 
 func TestHandleShutdown(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -924,6 +945,7 @@ func TestHandleShutdown(t *testing.T) {
 }
 
 func TestHandleExit(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -978,6 +1000,7 @@ func TestSendDiagnosticsNotification(_ *testing.T) {
 }
 
 func TestProcessForstFileWithNonFtFile(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -997,6 +1020,7 @@ func TestProcessForstFileWithNonFtFile(t *testing.T) {
 }
 
 func TestFindHoverForPositionWithDifferentPaths(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 
@@ -1029,6 +1053,7 @@ func TestFindHoverForPositionWithDifferentPaths(t *testing.T) {
 }
 
 func TestListAtPosition_zoneByCursor(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	server := NewLSPServer("8080", log)
 	dir := t.TempDir()
@@ -1095,11 +1120,12 @@ func main() {
 }
 
 func TestLSPServerDebugInfoForLLM(t *testing.T) {
+	t.Parallel()
 	// This test demonstrates how the enhanced LSP server provides comprehensive
 	// debugging information that can be used by an LLM to debug compiler issues
 
 	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
+	logger.SetLevel(logrus.ErrorLevel)
 	server := NewLSPServer("8080", logger)
 
 	// Test file with a typical compiler bug (type mismatch)
@@ -1138,7 +1164,8 @@ func exampleFunction(x: String) {
 			"textDocument": {
 				"uri": "file:///test.ft"
 			},
-			"compression": false
+			"compression": true,
+			"summary": true
 		}`),
 	}
 
@@ -1173,27 +1200,20 @@ func exampleFunction(x: String) {
 		t.Fatal("Expected output.data to be a map")
 	}
 
-	// Check that data contains the expected fields
-	expectedDataFields := []string{"diagnostics"}
-	for _, field := range expectedDataFields {
-		if _, exists := data[field]; !exists {
-			t.Errorf("Expected output.data to contain field: %s", field)
-		}
+	// Summary + compression: data is gzip+base64 wrapper (see createCompressedDebugData).
+	if _, exists := data["data"]; !exists {
+		t.Errorf("Expected compressed wrapper field data, got %#v", data)
+	}
+	if data["encoding"] != "gzip+base64" {
+		t.Fatalf("expected gzip+base64 encoding, got %#v", data["encoding"])
 	}
 
-	// Verify that diagnostics contain the type error
-	diagnostics, ok := data["diagnostics"].([]LSPDiagnostic)
+	encoding, ok := output["encoding"].(map[string]any)
 	if !ok {
-		t.Fatal("Expected diagnostics to be a slice")
+		t.Fatal("Expected output.encoding to be a map")
 	}
-
-	if len(diagnostics) == 0 {
-		t.Log("No diagnostics found - this might be expected if the test file compiles successfully")
-	} else {
-		t.Logf("Found %d diagnostics", len(diagnostics))
-		for i, diag := range diagnostics {
-			t.Logf("Diagnostic %d: %s (severity: %d)", i, diag.Message, diag.Severity)
-		}
+	if encoding["compression"] != true {
+		t.Fatalf("expected compression=true, got %#v", encoding["compression"])
 	}
 
 	// Note: compilerState and phaseDetails are not currently provided in the debug info

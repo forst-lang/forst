@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"forst/internal/goload"
 	"forst/internal/testmod"
 	"forst/internal/testutil"
 
@@ -47,7 +46,6 @@ func assertNoUnknownIdentifier(t *testing.T, diags []LSPDiagnostic, name string)
 
 func TestCompileForstFile_samePackageGoCall_resolvesExportedFunc(t *testing.T) {
 	t.Parallel()
-	goload.ClearLoadCacheForTest()
 	ftPath, _ := writeSamePackageGoLSPFixture(t)
 	s := NewLSPServer("8080", logrus.New())
 	diags := s.compileForstFile(ftPath, samePkgGoFtSource, nil)
@@ -56,7 +54,6 @@ func TestCompileForstFile_samePackageGoCall_resolvesExportedFunc(t *testing.T) {
 
 func TestProcessForstFile_samePackageGoCall_resolvesExportedFunc(t *testing.T) {
 	t.Parallel()
-	goload.ClearLoadCacheForTest()
 	_, uri := writeSamePackageGoLSPFixture(t)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
@@ -69,7 +66,6 @@ func TestProcessForstFile_samePackageGoCall_resolvesExportedFunc(t *testing.T) {
 
 func TestAnalyzeForstDocument_samePackageGoCall_resolvesExportedFunc(t *testing.T) {
 	t.Parallel()
-	goload.ClearLoadCacheForTest()
 	_, uri := writeSamePackageGoLSPFixture(t)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
@@ -90,7 +86,6 @@ func TestAnalyzeForstDocument_samePackageGoCall_resolvesExportedFunc(t *testing.
 
 func TestBuildPackageSnapshot_samePackageGoLoaded_withMergedPeers(t *testing.T) {
 	t.Parallel()
-	goload.ClearLoadCacheForTest()
 	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
 	pkgDir := filepath.Join(root, "memos")
 	mainPath := filepath.Join(pkgDir, "main.ft")
@@ -138,7 +133,6 @@ func peerMarker(): Int {
 
 func TestBuildPackageSnapshot_samePackageGoLoaded_moduleRootFromNestedDir(t *testing.T) {
 	t.Parallel()
-	goload.ClearLoadCacheForTest()
 	root := t.TempDir()
 	testmod.WriteGoMod(t, root, "nestedlsp")
 	pkgDir := filepath.Join(root, "internal", "memos")

@@ -1,11 +1,7 @@
 package invokeserver
 
 import (
-	"context"
 	"encoding/json"
-
-	"forst/internal/discovery"
-	"forst/internal/invokedispatch"
 )
 
 // HTTPContractVersion is the normative dev HTTP API revision.
@@ -76,12 +72,4 @@ func (c Config) Addr() string {
 // BaseURL returns http://host:port for ready files and clients.
 func (c Config) BaseURL() string {
 	return "http://" + c.listenHost() + ":" + c.listenPort()
-}
-
-// DispatchBackend executes invoke requests.
-type DispatchBackend interface {
-	Functions() map[string]map[string]discovery.FunctionInfo
-	RefreshFunctions(ctx context.Context) error
-	Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error)
-	InvokeStream(ctx context.Context, pkg, fn string, args json.RawMessage) (<-chan invokedispatch.StreamChunk, error)
 }
