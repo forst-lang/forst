@@ -17,6 +17,7 @@
     "vscode-forst:compile": "bun run --filter forst compile"
   },
   "devDependencies": {
+    "tsx": "^4.22.4",
     "typescript": "~6.0.3"
   }
 }
