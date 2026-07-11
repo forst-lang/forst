@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"forst/internal/goload"
 	"forst/internal/logger"
@@ -63,7 +64,24 @@ func RunGoProgram(outputPath string, boundaryRoot string) error {
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return formatRunProgramError(err)
+	}
+	return nil
+}
+
+// formatRunProgramError wraps go run exit failures with actionable hints for forst run.
+func formatRunProgramError(err error) error {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return err
+	}
+	code := exitErr.ExitCode()
+	hint := "see stderr above for details"
+	if code == 1 {
+		hint = "node runtime or ensure check failed — verify tsx, @forst/node-runtime, and host shim args in ftconfig.json"
+	}
+	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
 
 func runGoSourceFiles(outputPath string) ([]string, error) {

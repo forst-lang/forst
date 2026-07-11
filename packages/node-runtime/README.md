@@ -25,6 +25,53 @@ Requires **Node.js 18+**. When your Forst program uses `import node`, you also n
 
 ## What you get
 
+The runtime is built on [Effect](https://effect.website): structured logs via `Effect.log*` and `Effect.fn` programs, with `ForstNodeRuntimeLayer` (stderr pretty logging + `FORST_NODE_LOG_LEVEL`) provided at process boundaries via `NodeRuntime.runMain` or `Effect.runPromise`.
+
+### Custom Effect runtime
+
+Default entrypoints (`bootstrap.js`, `@forst/node-runtime/host`) use `ForstNodeRuntimeLayer`. To bring your own logging, tracing, or services, build a setup and pass it at the process boundary:
+
+```typescript
+import { NodeRuntime } from "@effect/platform-node";
+import { Effect, Layer, Logger } from "effect";
+import {
+  bootstrapMain,
+  bootstrapFatal,
+  createNodeRuntimeSetup,
+  makeForstNodeRuntimeLayer,
+  startRpcServer,
+  startForstNodeHost,
+} from "@forst/node-runtime";
+
+const myLayer = makeForstNodeRuntimeLayer();
+const { layer, runtime } = createNodeRuntimeSetup(myLayer);
+
+// Bootstrap child (stdin/stdout RPC). disablePrettyLogger keeps stdout for frames only.
+NodeRuntime.runMain(
+  bootstrapMain({ runtime }).pipe(
+    Effect.catchAllDefect((cause) => bootstrapFatal(cause)),
+    Effect.provide(layer)
+  ),
+  { disablePrettyLogger: true }
+);
+
+// Or wire RPC directly
+NodeRuntime.runMain(
+  startRpcServer(process.stdin, process.stdout, {
+    exitProcessOnShutdown: true,
+    runtime,
+  }).pipe(Effect.provide(layer)),
+  { disablePrettyLogger: true }
+);
+
+// Host mode: pass runtimeLayer so RPC forks use the same setup
+await Effect.runPromise(
+  startForstNodeHost({ runtimeLayer: layer }).pipe(Effect.provide(layer))
+);
+```
+
+Use the same `layer` for `Effect.provide` and the matching `runtime` for async RPC dispatch sites (`startRpcServer`, host connection forks).
+
 | Piece | Role |
 | --- | --- |
 | `bootstrap.js` | RPC server process Go spawns in bootstrap mode |
@@ -85,6 +132,8 @@ The compiler calls this during type checking. You rarely run it yourself.
 
 | Variable | Purpose |
 | --- | --- |
+| `FORST_NODE_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC trace (`rpc_recv`, `call`, `module_cache_hit`, …) requires `debug`. |
+| `FORST_NODE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
 | `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` |
 | `FORST_NODE_HOST` | Set by Go when host mode is active |
 | `FORST_NODE_SOCKET` | Socket path for host mode RPC |

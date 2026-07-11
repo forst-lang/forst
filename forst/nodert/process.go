@@ -94,7 +94,7 @@ func spawnBootstrapProcess(opts ProcessOptions) (*managedProcess, error) {
 		"loader":          opts.Loader,
 	}).Debug("spawned node runtime")
 
-	go forwardStderr(log, stderr)
+	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
 
 	return &managedProcess{
 		cmd:    cmd,
@@ -199,16 +199,24 @@ func setEnvVar(env []string, key, value string) []string {
 	return append(filtered, prefix+value)
 }
 
-func forwardStderr(log *logrus.Logger, stderr io.ReadCloser) {
-	defer func() { _ = stderr.Close() }()
+func forwardChildOutput(src io.ReadCloser, dst io.Writer, log *logrus.Logger, stream string) {
+	defer func() { _ = src.Close() }()
 	buf := make([]byte, 4096)
 	for {
-		n, err := stderr.Read(buf)
+		n, err := src.Read(buf)
 		if n > 0 {
-			log.WithFields(logrus.Fields{
-				"component": "nodert",
-				"event":     "stderr",
-			}).Debug(string(buf[:n]))
+			if _, werr := dst.Write(buf[:n]); werr != nil && log != nil {
+				log.WithFields(logrus.Fields{
+					"component": "nodert",
+					"event":     "forward_" + stream,
+				}).Debugf("write failed: %v", werr)
+			}
+			if log != nil {
+				log.WithFields(logrus.Fields{
+					"component": "nodert",
+					"event":     stream,
+				}).Debug(string(buf[:n]))
+			}
 		}
 		if err != nil {
 			return

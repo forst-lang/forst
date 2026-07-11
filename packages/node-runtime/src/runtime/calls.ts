@@ -1,12 +1,12 @@
+import { Effect } from "effect";
 import type { ManifestIndex } from "../policy/manifest.js";
-import { assertExportAllowed } from "../policy/manifest.js";
+import { assertExportAllowedEffect } from "../policy/export_allowed.js";
 import {
   modulePathToFileUrl,
   resolveModulePath,
 } from "../policy/paths.js";
-import { applicationError } from "../rpc/errors.js";
+import { applicationError, JsonRpcError } from "../rpc/errors.js";
 import type { CallParams, CallResult } from "../rpc/protocol.js";
-import { log } from "../logging/logger.js";
 import { importModule } from "./module_cache.js";
 import { resolveExportValue } from "./export_value.js";
 
@@ -23,89 +23,14 @@ function getExportFunction(
   return value as (...args: unknown[]) => unknown;
 }
 
-/**
- * Async call handler — awaits the returned Promise before responding.
- * Works with ordinary `export async function` TypeScript exports.
- */
-export async function handleAsyncCall(
-  index: ManifestIndex,
-  params: CallParams
-): Promise<CallResult> {
-  if (params === null || typeof params !== "object") {
-    throw applicationError("call params must be an object");
-  }
-
-  const { moduleId, exportName } = params;
-  if (typeof moduleId !== "string" || typeof exportName !== "string") {
-    throw applicationError("call requires moduleId and exportName strings");
-  }
-
-  assertExportAllowed(index, moduleId, exportName, "asyncFunction");
-
-  const absPath = await resolveModulePath(index.boundaryRoot, moduleId);
-  const fileUrl = modulePathToFileUrl(absPath);
-  const mod = await importModule(fileUrl);
-  const fn = getExportFunction(mod, exportName);
-  const args = Array.isArray(params.args) ? params.args : [];
-
-  log("callAsync", {
-    module_id: moduleId,
-    export_name: exportName,
-    arg_count: args.length,
-  });
-
-  try {
-    const value = await fn(...args);
-    return { value };
-  } catch (err) {
-    throw serializeThrownError(err, moduleId, exportName);
-  }
-}
-
-/**
- * Synchronous call handler — does NOT await the return value.
- * Works with ordinary `export function` TypeScript exports.
- */
-export async function handleSyncCall(
-  index: ManifestIndex,
-  params: CallParams
-): Promise<CallResult> {
-  if (params === null || typeof params !== "object") {
-    throw applicationError("call params must be an object");
-  }
-
-  const { moduleId, exportName } = params;
-  if (typeof moduleId !== "string" || typeof exportName !== "string") {
-    throw applicationError("call requires moduleId and exportName strings");
-  }
-
-  assertExportAllowed(index, moduleId, exportName, "function");
-
-  const absPath = await resolveModulePath(index.boundaryRoot, moduleId);
-  const fileUrl = modulePathToFileUrl(absPath);
-  const mod = await importModule(fileUrl);
-  const fn = getExportFunction(mod, exportName);
-  const args = Array.isArray(params.args) ? params.args : [];
-
-  log("call", {
-    module_id: moduleId,
-    export_name: exportName,
-    arg_count: args.length,
-  });
-
-  try {
-    const value = fn(...args);
-    return { value };
-  } catch (err) {
-    throw serializeThrownError(err, moduleId, exportName);
-  }
-}
-
 function serializeThrownError(
   err: unknown,
   moduleId: string,
   exportName: string
-): ReturnType<typeof applicationError> {
+): JsonRpcError {
+  if (err instanceof JsonRpcError) {
+    return err;
+  }
   if (err instanceof Error) {
     return applicationError(err.message, {
       name: err.name,
@@ -116,3 +41,110 @@ function serializeThrownError(
   }
   return applicationError(String(err), { moduleId, exportName });
 }
+
+/** Async call handler — awaits the returned Promise before responding. */
+export const handleAsyncCall = Effect.fn("Runtime.handleAsyncCall")(
+  function* (index: ManifestIndex, params: CallParams) {
+    if (params === null || typeof params !== "object") {
+      return yield* Effect.fail(applicationError("call params must be an object"));
+    }
+
+    const { moduleId, exportName } = params;
+    if (typeof moduleId !== "string" || typeof exportName !== "string") {
+      return yield* Effect.fail(
+        applicationError("call requires moduleId and exportName strings")
+      );
+    }
+
+    yield* assertExportAllowedEffect(
+      index,
+      moduleId,
+      exportName,
+      "asyncFunction"
+    );
+
+    const absPath = yield* Effect.tryPromise({
+      try: () => resolveModulePath(index.boundaryRoot, moduleId),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    const fileUrl = modulePathToFileUrl(absPath);
+    const mod = yield* importModule(fileUrl).pipe(
+      Effect.mapError((cause) => serializeThrownError(cause, moduleId, exportName))
+    );
+    const fn = yield* Effect.try({
+      try: () => getExportFunction(mod, exportName),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    const args = Array.isArray(params.args) ? params.args : [];
+
+    yield* Effect.annotateCurrentSpan("module_id", moduleId);
+    yield* Effect.annotateCurrentSpan("export_name", exportName);
+    yield* Effect.annotateCurrentSpan("arg_count", args.length);
+
+    yield* Effect.logDebug("callAsync").pipe(
+      Effect.annotateLogs({
+        event: "callAsync",
+        module_id: moduleId,
+        export_name: exportName,
+        arg_count: args.length,
+      })
+    );
+
+    const value = yield* Effect.tryPromise({
+      try: () => Promise.resolve(fn(...args)),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    return { value } satisfies CallResult;
+  }
+);
+
+/** Synchronous call handler — does NOT await the return value. */
+export const handleSyncCall = Effect.fn("Runtime.handleSyncCall")(
+  function* (index: ManifestIndex, params: CallParams) {
+    if (params === null || typeof params !== "object") {
+      return yield* Effect.fail(applicationError("call params must be an object"));
+    }
+
+    const { moduleId, exportName } = params;
+    if (typeof moduleId !== "string" || typeof exportName !== "string") {
+      return yield* Effect.fail(
+        applicationError("call requires moduleId and exportName strings")
+      );
+    }
+
+    yield* assertExportAllowedEffect(index, moduleId, exportName, "function");
+
+    const absPath = yield* Effect.tryPromise({
+      try: () => resolveModulePath(index.boundaryRoot, moduleId),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    const fileUrl = modulePathToFileUrl(absPath);
+    const mod = yield* importModule(fileUrl).pipe(
+      Effect.mapError((cause) => serializeThrownError(cause, moduleId, exportName))
+    );
+    const fn = yield* Effect.try({
+      try: () => getExportFunction(mod, exportName),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    const args = Array.isArray(params.args) ? params.args : [];
+
+    yield* Effect.annotateCurrentSpan("module_id", moduleId);
+    yield* Effect.annotateCurrentSpan("export_name", exportName);
+    yield* Effect.annotateCurrentSpan("arg_count", args.length);
+
+    yield* Effect.logDebug("call").pipe(
+      Effect.annotateLogs({
+        event: "call",
+        module_id: moduleId,
+        export_name: exportName,
+        arg_count: args.length,
+      })
+    );
+
+    const value = yield* Effect.try({
+      try: () => fn(...args),
+      catch: (cause) => serializeThrownError(cause, moduleId, exportName),
+    });
+    return { value } satisfies CallResult;
+  }
+);

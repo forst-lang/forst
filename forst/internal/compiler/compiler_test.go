@@ -1,10 +1,13 @@
 package compiler
 
 import (
+	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -243,6 +246,63 @@ func TestRunBoundaryRoot_fallsBackToEntryDir(t *testing.T) {
 	}
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestFormatRunProgramError_wrapsExitError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		err        error
+		runExit    int
+		wantSubstr []string
+		wantSame   bool
+	}{
+		{
+			name:       "exit code 1",
+			runExit:    1,
+			wantSubstr: []string{"generated program exited with code 1", "tsx"},
+		},
+		{
+			name:       "exit code 2 generic hint",
+			runExit:    2,
+			wantSubstr: []string{"generated program exited with code 2", "see stderr above for details"},
+		},
+		{
+			name:     "non-exit error passthrough",
+			err:      errors.New("boom"),
+			wantSame: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var err error
+			if tc.err != nil {
+				err = tc.err
+			} else {
+				cmd := exec.Command("sh", "-c", "exit "+strconv.Itoa(tc.runExit))
+				err = cmd.Run()
+				if err == nil {
+					t.Fatal("expected exit error")
+				}
+			}
+
+			wrapped := formatRunProgramError(err)
+			if tc.wantSame {
+				if wrapped != err {
+					t.Fatalf("got %v want same %v", wrapped, err)
+				}
+				return
+			}
+			for _, substr := range tc.wantSubstr {
+				if !strings.Contains(wrapped.Error(), substr) {
+					t.Fatalf("got %q, want substring %q", wrapped, substr)
+				}
+			}
+		})
 	}
 }
 

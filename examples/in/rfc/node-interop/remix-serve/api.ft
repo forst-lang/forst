@@ -3,6 +3,7 @@ package main
 import node "./legacy/todos"
 
 func ListTodos() {
+	println("api:ListTodos")
 	encoded := todos.formatTodoList()
 	ensure encoded is Ok()
 	open := todos.openCount()
@@ -18,6 +19,7 @@ func ListTodos() {
 }
 
 func AddTodo(input AddTodoRequest) {
+	println("api:AddTodo:" + input.title)
 	created := todos.addTodo(input.title)
 	ensure created is Ok()
 	return {
@@ -28,6 +30,7 @@ func AddTodo(input AddTodoRequest) {
 }
 
 func CompleteTodo(input CompleteTodoRequest) {
+	println("api:CompleteTodo:" + input.id)
 	updated := todos.toggleTodo(input.id)
 	ensure updated is Ok()
 	return {
@@ -38,6 +41,7 @@ func CompleteTodo(input CompleteTodoRequest) {
 }
 
 func GetDashboard() {
+	println("api:GetDashboard")
 	open := todos.openCount()
 	ensure open is Ok()
 

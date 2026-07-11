@@ -161,23 +161,9 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 		}
 	}
 
-	// For main function, use os.Exit(1)
+	// For main function, print failure context then os.Exit(1).
 	if t.isMainFunction() {
-		t.Output.EnsureImport("os")
-		return &goast.ExprStmt{
-			X: &goast.CallExpr{
-				Fun: &goast.SelectorExpr{
-					X:   goast.NewIdent("os"),
-					Sel: goast.NewIdent("Exit"),
-				},
-				Args: []goast.Expr{
-					&goast.BasicLit{
-						Kind:  token.INT,
-						Value: "1",
-					},
-				},
-			},
-		}
+		return t.mainEnsureExitStmt(stmt)
 	}
 
 	if t.isTestFunction() {
@@ -305,4 +291,58 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 	return &goast.ReturnStmt{
 		Results: results,
 	}
+}
+
+// mainEnsureExitStmt emits stderr diagnostics before os.Exit(1) for failed ensure in main.
+func (t *Transformer) mainEnsureExitStmt(stmt ast.EnsureNode) goast.Stmt {
+	t.Output.EnsureImport("os")
+
+	exitCall := &goast.ExprStmt{
+		X: &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("os"),
+				Sel: goast.NewIdent("Exit"),
+			},
+			Args: []goast.Expr{
+				&goast.BasicLit{
+					Kind:  token.INT,
+					Value: "1",
+				},
+			},
+		},
+	}
+
+	var errExpr goast.Expr
+	if t.resultLocalSplit != nil {
+		if split, ok := t.resultLocalSplit[string(stmt.Variable.Ident.ID)]; ok && split.errGoName != "" {
+			errExpr = goast.NewIdent(split.errGoName)
+		}
+	}
+	if errExpr == nil {
+		if e, err := t.ensureFailureErrorExpr(stmt); err == nil {
+			errExpr = e
+		}
+	}
+	if errExpr == nil {
+		return exitCall
+	}
+
+	t.Output.EnsureImport("fmt")
+	fprintfCall := &goast.ExprStmt{
+		X: &goast.CallExpr{
+			Fun: &goast.SelectorExpr{
+				X:   goast.NewIdent("fmt"),
+				Sel: goast.NewIdent("Fprintf"),
+			},
+			Args: []goast.Expr{
+				&goast.SelectorExpr{
+					X:   goast.NewIdent("os"),
+					Sel: goast.NewIdent("Stderr"),
+				},
+				goQuotedStringLit("ensure failed: %v\n"),
+				errExpr,
+			},
+		},
+	}
+	return &goast.BlockStmt{List: []goast.Stmt{fprintfCall, exitCall}}
 }

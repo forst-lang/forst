@@ -17,6 +17,7 @@ import {
   openStreamCount,
   resetGeneratorStateForTest,
 } from "../../src/runtime/generators.js";
+import { runTestEffect } from "../helpers/run-effect.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = path.resolve(testDir, "..");
@@ -50,14 +51,14 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const open = await dispatch({
+    const open = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
@@ -66,7 +67,7 @@ describe("generator RPC", () => {
         exportName: "syncNumbers",
         args: [3],
       },
-    });
+    }));
     expect(open).toMatchObject({
       result: { streamId: "1" },
     });
@@ -74,12 +75,12 @@ describe("generator RPC", () => {
 
     const values: number[] = [];
     for (let i = 0; i < 4; i++) {
-      const next = await dispatch({
+      const next = await runTestEffect(dispatch({
         jsonrpc: "2.0",
         id: 10 + i,
         method: METHOD_GEN_NEXT,
         params: { streamId: "1" },
-      });
+      }));
       if (i < 3) {
         expect(next).toMatchObject({ result: { kind: "yield", value: i } });
         values.push((next as { result: { value: number } }).result.value);
@@ -89,12 +90,12 @@ describe("generator RPC", () => {
     }
     expect(values).toEqual([0, 1, 2]);
 
-    const close = await dispatch({
+    const close = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 20,
       method: METHOD_GEN_CLOSE,
       params: { streamId: "1" },
-    });
+    }));
     expect(close).toMatchObject({ result: { ok: true } });
     expect(openStreamCount).toBe(0);
   });
@@ -103,14 +104,14 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const open = await dispatch({
+    const open = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
@@ -119,39 +120,39 @@ describe("generator RPC", () => {
         exportName: "asyncNumbers",
         args: [2],
       },
-    });
+    }));
     const streamId = (open as { result: { streamId: string } }).result.streamId;
 
-    const first = await dispatch({
+    const first = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 3,
       method: METHOD_GEN_NEXT,
       params: { streamId },
-    });
+    }));
     expect(first).toMatchObject({ result: { kind: "yield", value: 0 } });
 
-    const second = await dispatch({
+    const second = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 4,
       method: METHOD_GEN_NEXT,
       params: { streamId },
-    });
+    }));
     expect(second).toMatchObject({ result: { kind: "yield", value: 1 } });
 
-    const done = await dispatch({
+    const done = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 5,
       method: METHOD_GEN_NEXT,
       params: { streamId },
-    });
+    }));
     expect(done).toMatchObject({ result: { kind: "done" } });
 
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 6,
       method: METHOD_GEN_CLOSE,
       params: { streamId },
-    });
+    }));
     expect(openStreamCount).toBe(0);
   });
 
@@ -159,35 +160,35 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const open = await dispatch({
+    const open = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
       params: { moduleId, exportName: "emptyGen", args: [] },
-    });
+    }));
     const streamId = (open as { result: { streamId: string } }).result.streamId;
 
-    const next = await dispatch({
+    const next = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 3,
       method: METHOD_GEN_NEXT,
       params: { streamId },
-    });
+    }));
     expect(next).toMatchObject({ result: { kind: "done" } });
 
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 4,
       method: METHOD_GEN_CLOSE,
       params: { streamId },
-    });
+    }));
     expect(openStreamCount).toBe(0);
   });
 
@@ -195,34 +196,34 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const open = await dispatch({
+    const open = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
       params: { moduleId, exportName: "withFinally", args: [] },
-    });
+    }));
     const streamId = (open as { result: { streamId: string } }).result.streamId;
 
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 3,
       method: METHOD_GEN_NEXT,
       params: { streamId },
-    });
+    }));
 
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 4,
       method: METHOD_GEN_CLOSE,
       params: { streamId },
-    });
+    }));
     expect(openStreamCount).toBe(0);
   });
 
@@ -230,19 +231,19 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const next = await dispatch({
+    const next = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_NEXT,
       params: { streamId: "missing" },
-    });
+    }));
     expect(next).toMatchObject({
       error: { code: APPLICATION_ERROR },
     });
@@ -252,14 +253,14 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const open = await dispatch({
+    const open = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
@@ -268,15 +269,15 @@ describe("generator RPC", () => {
         exportName: "syncNumbers",
         args: [3],
       },
-    });
+    }));
     const streamId = (open as { result: { streamId: string } }).result.streamId;
 
-    const batch = await dispatch({
+    const batch = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 3,
       method: METHOD_GEN_NEXT_BATCH,
       params: { streamId, maxItems: 5 },
-    });
+    }));
     expect(batch).toMatchObject({
       result: {
         steps: [
@@ -288,12 +289,12 @@ describe("generator RPC", () => {
       },
     });
 
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 4,
       method: METHOD_GEN_CLOSE,
       params: { streamId },
-    });
+    }));
     expect(openStreamCount).toBe(0);
   });
 
@@ -301,14 +302,14 @@ describe("generator RPC", () => {
     clearModuleCache();
     resetGeneratorStateForTest();
     const { dispatch } = createDispatcher();
-    await dispatch({
+    await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 1,
       method: METHOD_INITIALIZE,
       params: initializeParams(fixtureRoot),
-    });
+    }));
 
-    const response = await dispatch({
+    const response = await runTestEffect(dispatch({
       jsonrpc: "2.0",
       id: 2,
       method: METHOD_GEN_OPEN,
@@ -317,7 +318,7 @@ describe("generator RPC", () => {
         exportName: "syncNumbers",
         args: [],
       },
-    });
+    }));
     expect(response).not.toMatchObject({
       error: { code: METHOD_NOT_FOUND },
     });

@@ -632,6 +632,17 @@ tasks:
         cd "$FT_ROOT" && FORST_BASE_URL=http://127.0.0.1:8081 bun test e2e/
         EOS
 
+  example:node-interop-remix-serve:standalone-e2e:
+    desc: E2E — temp-dir remix-serve with local @forst/* file deps (no registry)
+    deps: [install:bun]
+    cmds:
+      - bash scripts/remix-serve-standalone-e2e.sh
+
+  example:node-interop-remix-serve:standalone-dev:
+    desc: Dev — temp-dir remix-serve; keeps running until Ctrl+C (cleans up after)
+    cmds:
+      - bash scripts/remix-serve-standalone-e2e.sh --dev
+
   example:node-interop-modules:
     desc: Run node-interop modules example (nested TS module resolution E2E)
     dir: forst

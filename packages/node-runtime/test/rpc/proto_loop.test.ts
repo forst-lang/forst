@@ -6,6 +6,7 @@ import {
   ProtoFrameReader,
   writeProtoFrame,
 } from "../../src/rpc/frame.js";
+import { INTERNAL_ERROR } from "../../src/rpc/errors.js";
 import { runProtoLoop } from "../../src/rpc/proto_loop.js";
 import {
   METHOD_INITIALIZE,
@@ -63,5 +64,38 @@ describe("runProtoLoop", () => {
       { id: 1, result: { ok: true, protocol: WIRE_PROTOCOL_PROTO_V1 } },
       { id: 2, result: { pong: true } },
     ]);
+  });
+
+  test("malformed initialize returns error frame without terminating loop", async () => {
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const { dispatch } = createDispatcher();
+
+    const loopDone = runProtoLoop(stdin, stdout, { onRequest: dispatch });
+    const reader = new ProtoFrameReader();
+    const errors: Array<{ id: number; code: number }> = [];
+
+    stdout.on("data", (chunk) => {
+      reader.append(Buffer.from(chunk));
+      for (;;) {
+        const frame = reader.tryReadFrame();
+        if (frame === null) {
+          break;
+        }
+        if (frame.response?.err !== undefined) {
+          errors.push({ id: frame.id, code: frame.response.err.code });
+        }
+      }
+    });
+
+    writeProtoFrame(stdin, {
+      id: 3,
+      request: { method: METHOD_INITIALIZE, payloadJson: new Uint8Array(0) },
+    });
+    stdin.end();
+
+    await loopDone;
+
+    expect(errors).toEqual([{ id: 3, code: INTERNAL_ERROR }]);
   });
 });

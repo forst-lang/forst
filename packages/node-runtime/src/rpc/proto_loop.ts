@@ -1,4 +1,9 @@
 import type { Writable } from "node:stream";
+import { Effect } from "effect";
+import {
+  defaultNodeRuntimeSetup,
+  type ForstNodeRuntime,
+} from "../effect/runtime.js";
 import {
   JsonRpcError,
   PARSE_ERROR,
@@ -18,8 +23,12 @@ export { DEFAULT_MAX_MESSAGE_BYTES } from "./frame.js";
 
 export interface ProtoLoopOptions {
   maxMessageBytes?: number;
-  onRequest: (request: JsonRpcRequest) => Promise<JsonRpcResponse | null>;
+  onRequest: (
+    request: JsonRpcRequest
+  ) => Effect.Effect<JsonRpcResponse | null, never, never>;
   onParseError?: (err: unknown, frame: Frame | null) => JsonRpcResponse;
+  /** Runtime for async dispatch; must match the layer provided at the process boundary. */
+  runtime?: ForstNodeRuntime;
 }
 
 export function frameToJsonRpcRequest(frame: Frame): JsonRpcRequest {
@@ -74,6 +83,7 @@ export function successResponse(
   };
 }
 
+/** Runs the length-prefixed proto RPC loop until stdin closes. */
 export async function runProtoLoop(
   stdin: NodeJS.ReadableStream,
   stdout: Writable,
@@ -81,6 +91,11 @@ export async function runProtoLoop(
 ): Promise<void> {
   const maxBytes = options.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
   const reader = new ProtoFrameReader();
+  const runtime = options.runtime ?? defaultNodeRuntimeSetup.runtime;
+
+  if ("resume" in stdin && typeof stdin.resume === "function") {
+    stdin.resume();
+  }
 
   for await (const chunk of stdin) {
     reader.append(Buffer.from(chunk as Buffer));
@@ -122,7 +137,7 @@ export async function runProtoLoop(
         continue;
       }
 
-      const response = await options.onRequest(request);
+      const response = await runtime.runPromise(options.onRequest(request));
       if (response !== null) {
         writeJsonRpcResponse(stdout, response, maxBytes);
       }

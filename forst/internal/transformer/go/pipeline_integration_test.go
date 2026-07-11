@@ -866,6 +866,28 @@ func main() {}
 	}
 }
 
+func TestPipeline_mainEnsureFailure_printsStderrBeforeExit(t *testing.T) {
+	src := `package main
+
+func f(): Result(Int, Error) {
+	return 1
+}
+
+func main() {
+	x := f()
+	ensure x is Ok()
+	println(x)
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `fmt.Fprintf(os.Stderr, "ensure failed: %v\n", xErr)`) {
+		t.Fatalf("expected main ensure failure to print xErr, got:\n%s", out)
+	}
+	if !strings.Contains(out, "os.Exit(1)") {
+		t.Fatalf("expected os.Exit(1), got:\n%s", out)
+	}
+}
+
 func TestPipeline_ensureResultIsOk_emitsErrNilCheck(t *testing.T) {
 	src := `package main
 

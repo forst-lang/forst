@@ -8,6 +8,7 @@ import {
   signalForstAppReady,
   resetHostForTest,
 } from "./host.js";
+import { runTestEffect } from "../test/helpers/run-effect.js";
 
 function tempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "forst-host-test-"));
@@ -43,9 +44,9 @@ describe("startForstNodeHost", () => {
 
   test("noop when FORST_NODE_HOST unset", async () => {
     delete process.env.FORST_NODE_HOST;
-    const handle = await startForstNodeHost();
+    const handle = await runTestEffect(startForstNodeHost());
     expect(handle.socketPath).toBe("");
-    await handle.close();
+    await runTestEffect(handle.close());
   });
 
   test("idempotent start returns same promise", async () => {
@@ -58,8 +59,8 @@ describe("startForstNodeHost", () => {
     process.env.FORST_NODE_SOCKET = socketPath;
     process.env.FORST_NODE_HOST_READY = readyPath;
 
-    const a = await startForstNodeHost();
-    const b = await startForstNodeHost();
+    const a = await runTestEffect(startForstNodeHost());
+    const b = await runTestEffect(startForstNodeHost());
     expect(a.socketPath).toBe(socketPath);
     expect(b.socketPath).toBe(socketPath);
     expect(fs.existsSync(readyPath)).toBe(true);
@@ -72,7 +73,7 @@ describe("startForstNodeHost", () => {
     expect(ready.socket).toBe(socketPath);
     expect(ready.phase).toBe("app");
 
-    await a.close();
+    await runTestEffect(a.close());
   });
 
   test("deferAppReady delays ready file until signalForstAppReady", async () => {
@@ -85,10 +86,10 @@ describe("startForstNodeHost", () => {
     process.env.FORST_NODE_SOCKET = socketPath;
     process.env.FORST_NODE_HOST_READY = readyPath;
 
-    await startForstNodeHost({ deferAppReady: true });
+    await runTestEffect(startForstNodeHost({ deferAppReady: true }));
     expect(fs.existsSync(readyPath)).toBe(false);
 
-    await signalForstAppReady();
+    await runTestEffect(signalForstAppReady());
     expect(fs.existsSync(readyPath)).toBe(true);
     const ready = JSON.parse(fs.readFileSync(readyPath, "utf8")) as {
       phase: string;
@@ -97,7 +98,7 @@ describe("startForstNodeHost", () => {
     expect(ready.phase).toBe("app");
     expect(ready.socket).toBe(socketPath);
 
-    await signalForstAppReady();
+    await runTestEffect(signalForstAppReady());
     const readyAgain = JSON.parse(fs.readFileSync(readyPath, "utf8")) as {
       phase: string;
     };
@@ -112,7 +113,7 @@ describe("startForstNodeHost", () => {
     const socketPath = path.join(dir, "node.sock");
     process.env.FORST_NODE_SOCKET = socketPath;
 
-    await startForstNodeHost();
+    await runTestEffect(startForstNodeHost());
 
     const first = net.createConnection(socketPath);
     await new Promise<void>((resolve, reject) => {

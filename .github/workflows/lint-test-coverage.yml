@@ -17,57 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: ./.github/actions/ci-go-bun-setup
         with:
-          go-version: "1.26"
-          check-latest: true
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('forst/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Install Go dependencies
-        working-directory: forst
-        run: go mod download
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build compiler
         working-directory: forst
         run: task build
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        # Resolves version from root package.json "packageManager" (e.g. bun@1.3.11)
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            */node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install Bun dependencies
-        run: bun install
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24.x"
 
       - name: Echo package versions (smoke)
         run: |
@@ -90,6 +46,19 @@ jobs:
         with:
           path-to-profile: profile.cov
           working-directory: forst
+
+  remix-serve-standalone-e2e:
+    name: Remix-serve standalone E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/ci-go-bun-setup
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run standalone remix-serve E2E
+        run: task example:node-interop-remix-serve:standalone-e2e
 
   docker-smoke:
     name: Docker image smoke

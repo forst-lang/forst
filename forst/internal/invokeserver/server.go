@@ -197,7 +197,7 @@ func (s *Server) buildHTTPServer(mux *http.ServeMux) *http.Server {
 	readTimeout, writeTimeout := s.effectiveTimeouts()
 	return &http.Server{
 		Addr:         s.cfg.Addr(),
-		Handler:      mux,
+		Handler:      s.loggingMiddleware(mux),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 	}
@@ -276,6 +276,9 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &req); err != nil {
 		s.sendError(w, fmt.Sprintf("Failed to decode request: %v", err), http.StatusBadRequest)
 		return
+	}
+	if s.log != nil {
+		s.log.Debugf("call %s.%s streaming=%v", req.Package, req.Function, req.Streaming)
 	}
 
 	functions := s.backend.Functions()
