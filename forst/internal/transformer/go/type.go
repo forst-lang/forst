@@ -93,7 +93,7 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		}, nil
 	case ast.TypeIdent("Seq"):
 		if len(n.TypeParams) < 1 {
-			return nil, fmt.Errorf("Seq type must have element type parameter")
+			return nil, fmt.Errorf("seq type must have element type parameter")
 		}
 		_, seqIdent, _, err := t.ensureForstNodeSeqTypes(ast.NewResultType(
 			ast.TypeNode{Ident: "Seq", TypeParams: []ast.TypeNode{n.TypeParams[0]}},

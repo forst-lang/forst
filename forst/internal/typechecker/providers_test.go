@@ -29,6 +29,7 @@ func containsAll(haystack []string, needles ...string) bool {
 }
 
 func TestProviders_N1_useSitesInFunctionProviders(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 type Token = { id: String }
@@ -58,6 +59,7 @@ func expireToken(token Token) {
 }
 
 func TestProviders_N3_transitiveCallPropagation(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 type Logger = {
@@ -82,6 +84,7 @@ func outer() {
 }
 
 func TestProviders_N3_innerWithSubtractsLocallySatisfied(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 type Logger = {
@@ -113,6 +116,7 @@ func outer() {
 }
 
 func TestProviders_N5_nestedWithMergeAndShadow(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -132,6 +136,7 @@ func expireToken() {
 }
 
 func TestNestedWith(t *testing.T) {
+	t.Parallel()
 	with {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
@@ -152,6 +157,7 @@ func TestNestedWith(t *testing.T) {
 }
 
 func TestProviders_N8_aliasSharesSlot(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 type Logger = { info(msg String) }
@@ -175,6 +181,7 @@ func f() {
 }
 
 func TestProviders_N10_verticalSliceExpireToken(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -197,6 +204,7 @@ func expireToken(token Token) {
 error Expired { tokenId: String }
 
 func TestExpireToken(t *testing.T) {
+	t.Parallel()
 	token := Token { id: "t1", expiresAt: 1000 }
 	with {
 		Logger: &NopLogger {},
@@ -213,6 +221,7 @@ func TestExpireToken(t *testing.T) {
 }
 
 func TestProviders_diagnostic_unknownWiringKey(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -220,6 +229,7 @@ import "testing"
 type Logger = { info(msg String) }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	with { NotAContract: &NopLogger {} } {
 		x := 1
 	}
@@ -242,6 +252,7 @@ func (NopLogger) info(msg String) {}
 }
 
 func TestProviders_diagnostic_unsatisfiedAtCallSite(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -253,6 +264,7 @@ func needsLogger() {
 }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	needsLogger()
 }
 `
@@ -279,6 +291,7 @@ func TestX(t *testing.T) {
 }
 
 func TestProviders_diagnostic_unsatisfiedWiringRoot(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -290,6 +303,7 @@ func needsLogger() {
 }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	with { Logger: &NopLogger {} } {
 		needsLogger()
 	}
@@ -306,6 +320,7 @@ func (NopLogger) info(msg String) {}
 }
 
 func TestProviders_warning_unusedWiringKey(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -324,6 +339,7 @@ func expireToken() {
 }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	with {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
@@ -349,6 +365,7 @@ func TestX(t *testing.T) {
 }
 
 func TestProviders_unusedKey_detectsCallInAssignment(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -367,6 +384,7 @@ func expireToken() {
 }
 
 func TestAssignCall(t *testing.T) {
+	t.Parallel()
 	with {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
@@ -397,6 +415,7 @@ func TestAssignCall(t *testing.T) {
 }
 
 func TestProviders_ADR041_rejectsAliasWiringKey(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -408,6 +427,7 @@ type NopLogger = {}
 func (NopLogger) info(msg String) {}
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	with { AuditLogger: &NopLogger {} } {
 		x := 1
 	}
@@ -427,6 +447,7 @@ func TestX(t *testing.T) {
 }
 
 func TestProviders_ADR037_rejectsNilWiring(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -434,6 +455,7 @@ import "testing"
 type Logger = { info(msg String) }
 
 func TestX(t *testing.T) {
+	t.Parallel()
 	with { Logger: nil } {
 		x := 1
 	}
@@ -453,11 +475,13 @@ func TestX(t *testing.T) {
 }
 
 func TestProviders_testingTExcludedFromProviders(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
 
 func TestX(t *testing.T) {
+	t.Parallel()
 }
 `
 	tc, _, err := Typecheck(t, src, testutil.TypecheckOpts{UseModuleRoot: true})
@@ -470,6 +494,7 @@ func TestX(t *testing.T) {
 }
 
 func TestProviders_sidecarExport_errorsOnPublicWithProviders(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 type Logger = { info(msg String) }
@@ -489,6 +514,7 @@ func PublicApi() {
 }
 
 func TestProviders_N4_wiringRootMustSatisfyAllProviders(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -502,6 +528,7 @@ func needsBoth() {
 }
 
 func TestRoot(t *testing.T) {
+	t.Parallel()
 	with { Logger: &NopLogger {} } {
 		needsBoth()
 	}
@@ -521,6 +548,7 @@ func (NopLogger) info(msg String) {}
 }
 
 func TestProviders_N6_wiringSupersetAllowed(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -539,6 +567,7 @@ func needsLogger() {
 }
 
 func TestRoot(t *testing.T) {
+	t.Parallel()
 	with {
 		Logger: &NopLogger {},
 		Clock:  &FakeClock { fixedMs: 1 },
@@ -557,6 +586,7 @@ func TestRoot(t *testing.T) {
 }
 
 func TestProviders_N9_unknownWiringKeyHardError(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "testing"
@@ -564,6 +594,7 @@ import "testing"
 type Logger = { info(msg String) }
 
 func TestRoot(t *testing.T) {
+	t.Parallel()
 	with { UnknownKey: 1 } {
 		x := 1
 	}
@@ -580,6 +611,7 @@ func TestRoot(t *testing.T) {
 }
 
 func TestProviders_ioWriterTypedefUse(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "io"

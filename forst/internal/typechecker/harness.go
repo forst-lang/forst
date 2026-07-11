@@ -74,10 +74,6 @@ func runCheckTypes(tb testing.TB, log *logrus.Logger, nodes []ast.Node, opts tes
 // Typecheck parses and typechecks src. Returns typecheck/module errors without fataling.
 func Typecheck(tb testing.TB, src string, opts testutil.TypecheckOpts) (*TypeChecker, []ast.Node, error) {
 	tb.Helper()
-	fileID := opts.FileID
-	if fileID == "" {
-		fileID = "test.ft"
-	}
 	log := opts.Logger
 	if log == nil {
 		log = testutil.TestLogger(tb, nil)

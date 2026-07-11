@@ -40,7 +40,7 @@ func TestStartAsync_refreshFailure_logs(t *testing.T) {
 	if err := s.StartAsync(); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Stop()
+	defer func() { _ = s.Stop() }()
 	if len(log.errors) == 0 {
 		t.Fatal("expected refresh error log")
 	}

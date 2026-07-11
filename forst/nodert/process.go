@@ -166,13 +166,6 @@ func (p *managedProcess) terminate() error {
 	}
 }
 
-// nodeProcess is an alias for backward compatibility in tests.
-type nodeProcess = managedProcess
-
-func spawnNodeProcess(opts ProcessOptions) (*nodeProcess, error) {
-	return spawnBootstrapProcess(opts)
-}
-
 const shutdownGracePeriod = 5 * time.Second
 
 func buildNodeChildEnv(opts ProcessOptions) []string {

@@ -102,7 +102,7 @@ func TestParseArgsFrom_shortHelpExits(t *testing.T) {
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	defer func() { recover() }()
+	defer func() { _ = recover() }()
 	_ = ParseArgsFrom([]string{"forst", "-h"}, log)
 	if exitCode != 0 {
 		t.Fatalf("exitCode = %d", exitCode)

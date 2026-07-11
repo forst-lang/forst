@@ -28,7 +28,7 @@ func TestConfig_Addr_embeddedForcesLocalhost(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer ln.Close()
+			defer func() { _ = ln.Close() }()
 			tcpAddr := ln.Addr().(*net.TCPAddr)
 			if !tcpAddr.IP.IsLoopback() {
 				t.Fatalf("bound to non-loopback %v", tcpAddr.IP)
@@ -70,7 +70,7 @@ func TestStartAsync_embeddedBindsLoopbackOnly(t *testing.T) {
 	if err := s.StartAsync(); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Stop()
+	defer func() { _ = s.Stop() }()
 
 	if got := s.Config().Addr(); !strings.HasPrefix(got, embeddedListenHost+":") {
 		t.Fatalf("Config().Addr() = %q", got)

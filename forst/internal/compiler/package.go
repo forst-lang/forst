@@ -34,7 +34,7 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 	if err != nil {
 		return nil, fmt.Errorf("open package root: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	entryRel, err := root.RelPath(entryPath)
 	if err != nil {

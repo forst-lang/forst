@@ -60,7 +60,7 @@ export function* withFinally(): Generator<number> {
 	if err != nil {
 		t.Fatalf("OpenGen: %v", err)
 	}
-	defer it.Close()
+	defer func() { _ = it.Close() }()
 	for {
 		step, err := it.Next()
 		if err != nil {
@@ -81,7 +81,7 @@ export function* withFinally(): Generator<number> {
 	if err != nil {
 		t.Fatalf("OpenAsyncGen: %v", err)
 	}
-	defer ait.Close()
+	defer func() { _ = ait.Close() }()
 	var asyncSum float64
 	for {
 		step, err := ait.Next()

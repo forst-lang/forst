@@ -89,7 +89,7 @@ func validateModuleID(moduleID string) error {
 		return fmt.Errorf("moduleId must be project-relative")
 	}
 	if strings.Contains(moduleID, "..") {
-		return fmt.Errorf("moduleId must not contain ..")
+		return fmt.Errorf("moduleId must not contain dot-dot path segments")
 	}
 	if strings.HasPrefix(moduleID, "file://") {
 		return fmt.Errorf("moduleId must not be a file URL")

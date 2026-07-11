@@ -47,15 +47,15 @@ func AnalyzeNeedsNodeRuntime(nodes []ast.Node, boundaryRoot string) NeedsNodeRun
 	return result
 }
 
-func resolveTSImportUnderBoundary(entryDir, importPath, boundaryRoot string) (moduleId string, absPath string, err error) {
-	moduleId, absPath, err = ResolveTSImport(entryDir, importPath)
+func resolveTSImportUnderBoundary(entryDir, importPath, boundaryRoot string) (string, string, error) {
+	id, absPath, err := ResolveTSImport(entryDir, importPath)
 	if err != nil {
 		return "", "", err
 	}
 	if boundaryRoot == "" {
-		return moduleId, absPath, nil
+		return id, absPath, nil
 	}
-	relBoundary, relErr := moduleID(filepath.Clean(boundaryRoot), absPath)
+	relBoundary, relErr := relModuleID(filepath.Clean(boundaryRoot), absPath)
 	if relErr != nil {
 		return "", "", relErr
 	}

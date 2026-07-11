@@ -124,12 +124,12 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	}
 
 	filePath := args[0]
-	if abs, err := filepathAbsForArgs(filePath); err != nil {
+	abs, err := filepathAbsForArgs(filePath)
+	if err != nil {
 		log.Errorf("invalid file path: %v", err)
 		return Args{}
-	} else {
-		filePath = abs
 	}
+	filePath = abs
 
 	return Args{
 		Command:            command,

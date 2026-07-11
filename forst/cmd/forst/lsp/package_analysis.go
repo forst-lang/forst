@@ -130,7 +130,7 @@ func (s *LSPServer) mergeSamePackageDiskFt(dir, pkg string, uris []string) []str
 	if err != nil {
 		return uris
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
 		return uris
@@ -178,7 +178,7 @@ func readFileUnderModuleRoot(absPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	rel, err := root.RelPath(absPath)
 	if err != nil {
 		return nil, err

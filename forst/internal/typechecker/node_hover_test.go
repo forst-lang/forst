@@ -83,6 +83,92 @@ func main() {}
 	}
 }
 
+func TestNodeHoverMarkdown_asyncGeneratorExport(t *testing.T) {
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "events.ts")
+	if err := os.WriteFile(tsFile, []byte(
+		"export async function* subscribe(userId: string): AsyncGenerator<{ type: string }> { yield { type: userId }; }\n",
+	), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := `package main
+import node "./legacy/events"
+func main() {
+  events.subscribe("u1")
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+
+	md, ok := tc.NodeHoverMarkdown("events", "subscribe")
+	if !ok {
+		t.Fatal("expected hover for events.subscribe")
+	}
+	for _, want := range []string{
+		"(alias)",
+		"async function* subscribe",
+		"userId: string",
+		"AsyncGenerator<{ type: string }>",
+	} {
+		if !contains(md, want) {
+			t.Fatalf("hover missing %q:\n%s", want, md)
+		}
+	}
+	if contains(md, ": Generator<") {
+		t.Fatalf("async generator hover should use AsyncGenerator, not Generator:\n%s", md)
+	}
+}
+
+func TestNodeHoverMarkdown_syncGeneratorExport(t *testing.T) {
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "generators.ts")
+	if err := os.WriteFile(tsFile, []byte(
+		"export function* syncNumbers(limit: number): Generator<number> { for (let i = 0; i < limit; i++) yield i; }\n",
+	), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := `package main
+import node "./legacy/generators"
+func main() {
+  generators.syncNumbers(3.0)
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+
+	md, ok := tc.NodeHoverMarkdown("generators", "syncNumbers")
+	if !ok {
+		t.Fatal("expected hover for generators.syncNumbers")
+	}
+	for _, want := range []string{
+		"(alias)",
+		"function* syncNumbers",
+		"limit: number",
+		"Generator<number>",
+	} {
+		if !contains(md, want) {
+			t.Fatalf("hover missing %q:\n%s", want, md)
+		}
+	}
+	if contains(md, "AsyncGenerator") {
+		t.Fatalf("sync generator hover should use Generator, not AsyncGenerator:\n%s", md)
+	}
+}
+
 func TestNodeTypecheck_indexesFromTSSource(t *testing.T) {
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, "legacy")

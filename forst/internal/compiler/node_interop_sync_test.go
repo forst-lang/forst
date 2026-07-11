@@ -73,14 +73,6 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
-
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-func collectSamePackagePathsForTest(root, entryPath string) ([]string, error) {
+func collectSamePackagePathsForTest(_ string, entryPath string) ([]string, error) {
 	return []string{entryPath}, nil
 }

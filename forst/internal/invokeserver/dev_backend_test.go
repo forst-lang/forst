@@ -51,6 +51,14 @@ func newDevBackendWithStubs(d *stubDiscoverer, e *stubDevExecutor) *DevBackend {
 	}
 }
 
+func TestNewDevBackend_initializesEmptyFunctions(t *testing.T) {
+	t.Parallel()
+	b := NewDevBackend(nil, nil)
+	if b == nil || b.functions == nil {
+		t.Fatal("expected backend with empty functions map")
+	}
+}
+
 func TestDevBackend_refreshFunctions_success(t *testing.T) {
 	want := map[string]map[string]discovery.FunctionInfo{
 		"main": {"Echo": {Package: "main", Name: "Echo"}},

@@ -76,7 +76,7 @@ func (s *LSPServer) forstFileURIsUnderModule(moduleRoot string) []string {
 	if err != nil {
 		return out
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	_ = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {

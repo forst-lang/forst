@@ -110,22 +110,6 @@ func (t *Transformer) transformNodeGenOpen(e ast.FunctionCallNode, target typech
 	}, true, nil
 }
 
-func (t *Transformer) nodeBridgeCallArgs(target typechecker.NodeCallTarget, args []ast.ExpressionNode) []goast.Expr {
-	goArgs := make([]goast.Expr, 0, len(args)+2)
-	goArgs = append(goArgs,
-		nodeBridgeStringLit(target.ModuleID),
-		nodeBridgeStringLit(target.ExportName),
-	)
-	for _, arg := range args {
-		expr, err := t.transformExpression(arg)
-		if err != nil {
-			panic(err)
-		}
-		goArgs = append(goArgs, expr)
-	}
-	return goArgs
-}
-
 func nodeSeqElementType(ret ast.TypeNode) (ast.TypeNode, error) {
 	if ret.Ident == "Seq" && len(ret.TypeParams) >= 1 {
 		return ret.TypeParams[0], nil
@@ -251,33 +235,4 @@ func staticNodeCallArgValue(arg ast.ExpressionNode) (any, bool) {
 	default:
 		return nil, false
 	}
-}
-
-func (t *Transformer) ensureJSONImport() {
-	if t == nil || t.Output == nil {
-		return
-	}
-	for _, imp := range t.Output.imports {
-		if len(imp.Specs) == 0 {
-			continue
-		}
-		spec, ok := imp.Specs[0].(*goast.ImportSpec)
-		if !ok || spec.Path == nil {
-			continue
-		}
-		if strings.Trim(spec.Path.Value, `"`) == "encoding/json" {
-			return
-		}
-	}
-	t.Output.AddImport(&goast.GenDecl{
-		Tok: goasttoken.IMPORT,
-		Specs: []goast.Spec{
-			&goast.ImportSpec{
-				Path: &goast.BasicLit{
-					Kind:  goasttoken.STRING,
-					Value: `"encoding/json"`,
-				},
-			},
-		},
-	})
 }

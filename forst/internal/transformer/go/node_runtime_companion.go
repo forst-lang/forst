@@ -614,8 +614,3 @@ func (t *Transformer) emitForstNodeSeqMethods(seqIdent, stepIdent *goast.Ident, 
 	})
 	_ = nodertGenStep
 }
-
-func (t *Transformer) forstNodeSeqStepTypeIdent(ret ast.TypeNode) (*goast.Ident, error) {
-	_, _, stepIdent, err := t.ensureForstNodeSeqTypes(ret)
-	return stepIdent, err
-}

@@ -45,8 +45,7 @@ func (t *Transformer) tryTransformNodeIteratorFor(fn *ast.ForNode) (goast.Stmt, 
 
 	batchType := &goast.ArrayType{Elt: stepGoType}
 
-	var openStmt goast.Stmt
-	openStmt = &goast.AssignStmt{
+	openStmt := &goast.AssignStmt{
 		Lhs: []goast.Expr{itIdent},
 		Tok: token.DEFINE,
 		Rhs: []goast.Expr{info.openExpr},
@@ -290,7 +289,7 @@ func (t *Transformer) emitNodeIteratorLoopBindings(
 	fn *ast.ForNode,
 	stepIdent *goast.Ident,
 	idxIdent *goast.Ident,
-	elemGoType goast.Expr,
+	_ goast.Expr,
 ) error {
 	valueFromStep := &goast.SelectorExpr{X: stepIdent, Sel: goast.NewIdent("Value")}
 	noKey := fn.RangeKey == nil

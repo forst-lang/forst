@@ -24,7 +24,7 @@ var packagesLoadFn = packages.Load
 
 // clearSyncMap removes all entries without reassigning the map variable (safe under -race).
 func clearSyncMap(m *sync.Map) {
-	m.Range(func(key, value any) bool {
+	m.Range(func(key, _ any) bool {
 		m.Delete(key)
 		return true
 	})

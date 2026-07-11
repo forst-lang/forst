@@ -192,18 +192,83 @@ func TestMustStartEmbedded_idempotent(t *testing.T) {
 
 func TestWaitForShutdown_notifyShutdown(t *testing.T) {
 	rt := &EmbeddedRuntime{}
+	ready := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
 		rt.WaitForShutdown(func(shutdown <-chan struct{}) {
+			close(ready)
 			<-shutdown
 		})
 		close(done)
 	}()
-	time.Sleep(20 * time.Millisecond)
+	<-ready
 	rt.NotifyShutdown()
 	select {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("WaitForShutdown did not unblock")
 	}
+}
+
+func TestWaitForShutdown_stopsServer(t *testing.T) {
+	workDir := t.TempDir()
+	rt := newEmbeddedRuntime(embeddedDeps{
+		resolveRoot: func() (string, error) { return workDir, nil },
+		loadConfig: func(string) (*ftconfig.Config, error) {
+			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "0"}}, nil
+		},
+		writeReady: writeInvokeReady,
+		newServer:  New,
+	})
+	if err := rt.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if rt.server == nil {
+		t.Fatal("expected server")
+	}
+	ready := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		rt.WaitForShutdown(func(shutdown <-chan struct{}) {
+			close(ready)
+			<-shutdown
+		})
+		close(done)
+	}()
+	<-ready
+	rt.NotifyShutdown()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForShutdown did not return")
+	}
+}
+
+func TestNotifyShutdown_idempotent(t *testing.T) {
+	rt := &EmbeddedRuntime{}
+	rt.NotifyShutdown()
+	rt.NotifyShutdown()
+	ch := rt.shutdownCh()
+	if ch == nil {
+		t.Fatal("expected new shutdown channel after idempotent notify")
+	}
+}
+
+func TestPackageNotifyShutdown_unblocksWaitForShutdown(t *testing.T) {
+	done := make(chan struct{})
+	go func() {
+		WaitForShutdown()
+		close(done)
+	}()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		NotifyShutdown()
+		select {
+		case <-done:
+			return
+		default:
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	t.Fatal("package WaitForShutdown did not return after NotifyShutdown")
 }

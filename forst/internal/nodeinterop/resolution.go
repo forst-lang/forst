@@ -26,7 +26,7 @@ var (
 // ResolveTSImport resolves a relative TypeScript import path from entryDir.
 // Opt-in (// forst:node / import node) must be enforced by the caller.
 // moduleId is a POSIX path relative to the discovered ftconfig boundary root.
-func ResolveTSImport(entryDir, importPath string) (moduleId string, absPath string, err error) {
+func ResolveTSImport(entryDir, importPath string) (moduleID string, absPath string, err error) {
 	entryDir = filepath.Clean(entryDir)
 	path := normalizeImportPath(importPath)
 	if path == "" {
@@ -61,11 +61,11 @@ func ResolveTSImport(entryDir, importPath string) (moduleId string, absPath stri
 			return "", "", fmt.Errorf("%w: %s", ErrResolvedToNonTS, filepath.ToSlash(mustRelModuleID(boundaryRoot, candidate)))
 		case ".ts", ".tsx":
 			absPath = candidate
-			moduleId, err = moduleID(boundaryRoot, candidate)
+			resolvedID, err := relModuleID(boundaryRoot, candidate)
 			if err != nil {
 				return "", "", err
 			}
-			return moduleId, absPath, nil
+			return resolvedID, absPath, nil
 		case ".js":
 			continue
 		}
@@ -128,7 +128,7 @@ func tsResolutionCandidates(base string) []string {
 	return out
 }
 
-func moduleID(boundaryRoot, absPath string) (string, error) {
+func relModuleID(boundaryRoot, absPath string) (string, error) {
 	boundaryRoot = filepath.Clean(boundaryRoot)
 	absPath = filepath.Clean(absPath)
 
@@ -143,7 +143,7 @@ func moduleID(boundaryRoot, absPath string) (string, error) {
 }
 
 func mustRelModuleID(boundaryRoot, absPath string) string {
-	id, err := moduleID(boundaryRoot, absPath)
+	id, err := relModuleID(boundaryRoot, absPath)
 	if err != nil {
 		return absPath
 	}

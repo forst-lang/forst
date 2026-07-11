@@ -7,7 +7,7 @@ import (
 	"forst/internal/ast"
 )
 
-func benchmarkFunctionBody(b *testing.B, stmtCount int) ast.FunctionNode {
+func benchmarkFunctionBody(_ *testing.B, stmtCount int) ast.FunctionNode {
 	body := make([]ast.Node, stmtCount)
 	for i := 0; i < stmtCount; i++ {
 		body[i] = ast.AssignmentNode{

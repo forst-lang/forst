@@ -25,7 +25,7 @@ func TestWaitForHostReady_success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	go func() {
 		conn, acceptErr := listener.Accept()
@@ -62,7 +62,7 @@ func TestWaitForHostReady_ignoresListeningPhase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	if err := os.WriteFile(readyPath, []byte(`{"pid":`+strconv.Itoa(os.Getpid())+`,"socket":"`+socketPath+`","phase":"listening"}`+"\n"), 0o644); err != nil {
 		t.Fatal(err)

@@ -70,34 +70,34 @@ type GenCloseResult struct {
 }
 
 // OpenSeqArgs starts a generator stream with pre-marshaled JSON args (codegen fast path).
-func OpenSeqArgs[T any](moduleID, exportName string, kind ExportKind, argsJSON json.RawMessage) (Seq[T], error) {
+func OpenSeqArgs[T any](moduleID, exportName string, kind ExportKind, argsJSON json.RawMessage) (*Seq[T], error) {
 	streamID, err := openGenStreamJSON(moduleID, exportName, kind, argsJSON)
 	if err != nil {
-		return Seq[T]{}, err
+		return nil, err
 	}
-	it := Seq[T]{streamID: streamID}
-	runtime.SetFinalizer(&it, (*Seq[T]).finalize)
+	it := &Seq[T]{streamID: streamID}
+	runtime.SetFinalizer(it, (*Seq[T]).finalize)
 	return it, nil
 }
 
 // OpenSeq starts a generator stream via forst.node/genOpen.
-func OpenSeq[T any](moduleID, exportName string, kind ExportKind, args ...any) (Seq[T], error) {
+func OpenSeq[T any](moduleID, exportName string, kind ExportKind, args ...any) (*Seq[T], error) {
 	streamID, err := openGenStream(moduleID, exportName, kind, args...)
 	if err != nil {
-		return Seq[T]{}, err
+		return nil, err
 	}
-	it := Seq[T]{streamID: streamID}
-	runtime.SetFinalizer(&it, (*Seq[T]).finalize)
+	it := &Seq[T]{streamID: streamID}
+	runtime.SetFinalizer(it, (*Seq[T]).finalize)
 	return it, nil
 }
 
 // OpenGen starts a sync generator stream.
-func OpenGen[T any](moduleID, exportName string, args ...any) (Seq[T], error) {
+func OpenGen[T any](moduleID, exportName string, args ...any) (*Seq[T], error) {
 	return OpenSeq[T](moduleID, exportName, ExportKindGenerator, args...)
 }
 
 // MustOpenGen is like OpenGen but panics on error (for hand-written Go callers).
-func MustOpenGen[T any](moduleID, exportName string, args ...any) Seq[T] {
+func MustOpenGen[T any](moduleID, exportName string, args ...any) *Seq[T] {
 	it, err := OpenGen[T](moduleID, exportName, args...)
 	if err != nil {
 		panic(err)
@@ -106,12 +106,12 @@ func MustOpenGen[T any](moduleID, exportName string, args ...any) Seq[T] {
 }
 
 // OpenAsyncGen starts an async generator stream.
-func OpenAsyncGen[T any](moduleID, exportName string, args ...any) (Seq[T], error) {
+func OpenAsyncGen[T any](moduleID, exportName string, args ...any) (*Seq[T], error) {
 	return OpenSeq[T](moduleID, exportName, ExportKindAsyncGenerator, args...)
 }
 
 // MustOpenAsyncGen is like OpenAsyncGen but panics on error (for hand-written Go callers).
-func MustOpenAsyncGen[T any](moduleID, exportName string, args ...any) Seq[T] {
+func MustOpenAsyncGen[T any](moduleID, exportName string, args ...any) *Seq[T] {
 	it, err := OpenAsyncGen[T](moduleID, exportName, args...)
 	if err != nil {
 		panic(err)

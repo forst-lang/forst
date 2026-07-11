@@ -17,7 +17,7 @@ func TestEmbeddedInvoke_e2e(t *testing.T) {
 		Package:  "main",
 		Name:     "Echo",
 		Runnable: true,
-	}, func(args json.RawMessage) (any, error) {
+	}, func(_ json.RawMessage) (any, error) {
 		return map[string]any{"echo": "hi"}, nil
 	})
 
@@ -37,7 +37,7 @@ func TestEmbeddedInvoke_e2e(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status %d", resp.StatusCode)
 	}

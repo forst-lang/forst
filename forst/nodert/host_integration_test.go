@@ -223,12 +223,6 @@ setInterval(() => { console.log("host-spam"); }, 50);
 `, fileURL(hostJS))
 }
 
-func hostIdleServerWithoutHost(hostJS string) string {
-	_ = hostJS
-	return `setInterval(() => {}, 60_000);
-`
-}
-
 func hostExitsImmediately(hostJS string) string {
 	_ = hostJS
 	return "// exits immediately — no host, no keepalive\n"
@@ -279,7 +273,7 @@ func writeHostFtconfig(t *testing.T, root string, args []string, readyTimeoutSec
 	}
 }
 
-func runHostCounterRPC(t *testing.T, root string, manifest Manifest, firstWant, secondWant int) {
+func runHostCounterRPC(t *testing.T, _ string, manifest Manifest, firstWant, secondWant int) {
 	t.Helper()
 
 	resetSupervisorForTest()
@@ -315,7 +309,7 @@ func runHostCounterRPC(t *testing.T, root string, manifest Manifest, firstWant, 
 	}
 }
 
-func runHostEditCountRPC(t *testing.T, root string, manifest Manifest, firstWant, secondWant int) {
+func runHostEditCountRPC(t *testing.T, _ string, manifest Manifest, firstWant, secondWant int) {
 	t.Helper()
 
 	resetSupervisorForTest()

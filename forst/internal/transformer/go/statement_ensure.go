@@ -182,9 +182,7 @@ func (t *Transformer) transformErrorStatement(fn ast.FunctionNode, stmt ast.Ensu
 
 	if t.isTestFunction() {
 		paramID, ok := t.testingTParamIdent(fn)
-		if !ok {
-			// Should not happen when HasTestFunctionName is strict; fall through to default handling.
-		} else {
+		if ok {
 			t.Output.EnsureImport("testing")
 			testIdent := goast.NewIdent(string(paramID))
 			helperCall := &goast.ExprStmt{

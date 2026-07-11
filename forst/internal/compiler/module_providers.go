@@ -105,16 +105,3 @@ func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
 func RebindTypecheckerScopes(tc *typechecker.TypeChecker, nodes []ast.Node) error {
 	return forstcheck.RebindScopes(tc, nodes)
 }
-
-func cloneFunctionProviders(src map[ast.Identifier][]typechecker.ProviderSlot) map[ast.Identifier][]typechecker.ProviderSlot {
-	if len(src) == 0 {
-		return nil
-	}
-	out := make(map[ast.Identifier][]typechecker.ProviderSlot, len(src))
-	for k, v := range src {
-		slots := make([]typechecker.ProviderSlot, len(v))
-		copy(slots, v)
-		out[k] = slots
-	}
-	return out
-}

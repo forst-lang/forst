@@ -343,7 +343,7 @@ func (c *Config) FindForstFiles(rootDir string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	var files []string
 	err = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {

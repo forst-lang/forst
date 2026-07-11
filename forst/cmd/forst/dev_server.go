@@ -100,13 +100,3 @@ func (s *DevServer) setInvokeBackendForTest(backend invokeserver.DispatchBackend
 		s.invoke.SetBackend(backend)
 	}
 }
-
-// syncFunctionsCache mirrors backend discovery into the legacy functions field for tests.
-func (s *DevServer) syncFunctionsCache() {
-	if s.invoke == nil {
-		return
-	}
-	s.mu.Lock()
-	s.functions = s.invoke.BackendFunctions()
-	s.mu.Unlock()
-}

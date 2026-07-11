@@ -88,10 +88,6 @@ func formatTSExportSignatureBody(exp nodeinterop.IndexExport) string {
 	return sig
 }
 
-func formatTSExportSignature(exp nodeinterop.IndexExport) string {
-	return "export " + formatTSExportSignatureBody(exp)
-}
-
 func exportTSKeywordBody(kind string) string {
 	switch kind {
 	case nodeinterop.ExportKindAsyncFunction:
@@ -105,17 +101,12 @@ func exportTSKeywordBody(kind string) string {
 	}
 }
 
-func exportTSKeyword(kind string) string {
-	return "export " + exportTSKeywordBody(kind)
-}
-
 func formatExportReturnTS(exp nodeinterop.IndexExport) string {
 	switch exp.Kind {
-	case nodeinterop.ExportKindGenerator, nodeinterop.ExportKindAsyncGenerator:
-		if exp.YieldType != nil {
-			return "Generator<" + formatIndexTypeTS(*exp.YieldType) + ">"
-		}
-		return "Generator"
+	case nodeinterop.ExportKindGenerator:
+		return formatGeneratorReturnTS("Generator", exp)
+	case nodeinterop.ExportKindAsyncGenerator:
+		return formatGeneratorReturnTS("AsyncGenerator", exp)
 	case nodeinterop.ExportKindAsyncFunction:
 		if exp.ReturnType != nil {
 			return "Promise<" + formatIndexTypeTS(*exp.ReturnType) + ">"
@@ -127,6 +118,13 @@ func formatExportReturnTS(exp nodeinterop.IndexExport) string {
 		}
 		return "void"
 	}
+}
+
+func formatGeneratorReturnTS(typeName string, exp nodeinterop.IndexExport) string {
+	if exp.YieldType != nil {
+		return typeName + "<" + formatIndexTypeTS(*exp.YieldType) + ">"
+	}
+	return typeName
 }
 
 func formatIndexTypeTS(t nodeinterop.IndexType) string {

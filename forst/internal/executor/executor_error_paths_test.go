@@ -232,9 +232,7 @@ func main() {
 
 		select {
 		case _, ok := <-results:
-			if ok {
-				// channel can still briefly produce buffered item; accept it.
-			}
+			_ = ok // channel can still briefly produce buffered item; accept it.
 		case <-time.After(2 * time.Second):
 			t.Fatal("stream results channel did not settle after context cancel")
 		}

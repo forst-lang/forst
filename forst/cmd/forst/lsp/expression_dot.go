@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"forst/internal/ast"
@@ -145,9 +144,4 @@ func memberAccessDotIndex(tokens []ast.Token, pos LSPPosition) int {
 		}
 	}
 	return -1
-}
-
-// isIdentStart reports whether r can start a Forst identifier (for simple recv fallback).
-func isIdentStart(r rune) bool {
-	return unicode.IsLetter(r) || r == '_'
 }

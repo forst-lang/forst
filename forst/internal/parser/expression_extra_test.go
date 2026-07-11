@@ -27,9 +27,7 @@ func TestParseExpression_parseIdentifierPrimaryBranches(t *testing.T) {
 	t.Run("index_and_call_chain", func(t *testing.T) {
 		t.Parallel()
 		p := NewTestParser(`xs[0]()`, logger)
-		if _, err := p.ParseFile(); err == nil {
-			// expression-only parse may succeed at expr level
-		}
+		_ = p
 		expr := p.parseExpression()
 		if expr == nil {
 			t.Fatal("nil expr")

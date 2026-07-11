@@ -148,7 +148,7 @@ func TestDevServer_Start_bindsLoopbackByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	tcpAddr := ln.Addr().(*net.TCPAddr)
 	if !tcpAddr.IP.IsLoopback() {
@@ -173,7 +173,7 @@ func TestDevServer_Start_respectsExplicitZeroHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	tcpAddr := ln.Addr().(*net.TCPAddr)
 	if tcpAddr.IP.IsLoopback() {

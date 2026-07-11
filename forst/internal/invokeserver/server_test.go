@@ -30,7 +30,7 @@ func (b *stubBackend) RefreshFunctions(context.Context) error {
 	return b.refreshErr
 }
 
-func (b *stubBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
+func (b *stubBackend) Invoke(_ context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
 	if b.invoke != nil {
 		return b.invoke(pkg, fn, args)
 	}
@@ -119,7 +119,7 @@ func pollHealthOK(t *testing.T, baseURL string) {
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(baseURL + "/health")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return
 			}
@@ -163,11 +163,11 @@ func TestRegistryBackend_invokeHandler(t *testing.T) {
 		Package:  "main",
 		Name:     "Echo",
 		Runnable: true,
-	}, func(args json.RawMessage) (any, error) {
+	}, func(_ json.RawMessage) (any, error) {
 		return map[string]string{"echo": "hi"}, nil
 	})
 	backend := NewRegistryBackend(reg)
-	result, err := backend.Invoke(nil, "main", "Echo", json.RawMessage(`[]`))
+	result, err := backend.Invoke(context.TODO(), "main", "Echo", json.RawMessage(`[]`))
 	if err != nil || !result.Success {
 		t.Fatalf("invoke: %+v err=%v", result, err)
 	}

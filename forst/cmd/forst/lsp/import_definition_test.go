@@ -59,7 +59,7 @@ func LogEvent(id String) {
 	logger.info("expire " + id)
 }
 `
-	const srcApi = `package api
+	const srcAPI = `package api
 
 import "testmod/auth"
 
@@ -73,7 +73,7 @@ func HandleRequest(id String) {
 	if err := os.WriteFile(filepath.Join(authDir, "stub.go"), []byte("package auth\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(apiHandlePath, []byte(srcApi), 0o644); err != nil {
+	if err := os.WriteFile(apiHandlePath, []byte(srcAPI), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return authLogPath, apiHandlePath
@@ -87,18 +87,18 @@ func TestFindDefinition_crossPackageImport_diskPeer(t *testing.T) {
 	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
 	uriAuth := mustFileURI(t, authLogPath)
-	uriApi := mustFileURI(t, apiHandlePath)
-	srcApi, err := os.ReadFile(apiHandlePath)
+	uriAPI := mustFileURI(t, apiHandlePath)
+	srcAPI, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
-	s.openDocuments[uriApi] = string(srcApi)
+	s.openDocuments[uriAPI] = string(srcAPI)
 	s.documentMu.Unlock()
 
-	pos := lspPositionOfIdentifier(string(srcApi), "LogEvent")
-	loc := s.findDefinitionForPosition(uriApi, pos)
+	pos := lspPositionOfIdentifier(string(srcAPI), "LogEvent")
+	loc := s.findDefinitionForPosition(uriAPI, pos)
 	if loc == nil {
 		t.Fatal("expected definition for cross-package LogEvent")
 	}
@@ -118,23 +118,23 @@ func TestFindDefinition_crossPackageImport_bothBuffersOpen(t *testing.T) {
 	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
 	uriAuth := mustFileURI(t, authLogPath)
-	uriApi := mustFileURI(t, apiHandlePath)
+	uriAPI := mustFileURI(t, apiHandlePath)
 	srcAuth, err := os.ReadFile(authLogPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcApi, err := os.ReadFile(apiHandlePath)
+	srcAPI, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
 	s.openDocuments[uriAuth] = string(srcAuth)
-	s.openDocuments[uriApi] = string(srcApi)
+	s.openDocuments[uriAPI] = string(srcAPI)
 	s.documentMu.Unlock()
 
-	pos := lspPositionOfIdentifier(string(srcApi), "LogEvent")
-	loc := s.findDefinitionForPosition(uriApi, pos)
+	pos := lspPositionOfIdentifier(string(srcAPI), "LogEvent")
+	loc := s.findDefinitionForPosition(uriAPI, pos)
 	if loc == nil {
 		t.Fatal("expected definition for cross-package LogEvent")
 	}
@@ -151,19 +151,19 @@ func TestFindReferences_crossPackageImport_fromDefinition(t *testing.T) {
 	authLogPath, apiHandlePath := writeXpkgCrossPackageFixture(t, dir)
 
 	uriAuth := mustFileURI(t, authLogPath)
-	uriApi := mustFileURI(t, apiHandlePath)
+	uriAPI := mustFileURI(t, apiHandlePath)
 	srcAuth, err := os.ReadFile(authLogPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcApi, err := os.ReadFile(apiHandlePath)
+	srcAPI, err := os.ReadFile(apiHandlePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s.documentMu.Lock()
 	s.openDocuments[uriAuth] = string(srcAuth)
-	s.openDocuments[uriApi] = string(srcApi)
+	s.openDocuments[uriAPI] = string(srcAPI)
 	s.documentMu.Unlock()
 
 	pos := lspPositionOfIdentifier(string(srcAuth), "LogEvent")
@@ -176,7 +176,7 @@ func TestFindReferences_crossPackageImport_fromDefinition(t *testing.T) {
 		if l.URI == uriAuth {
 			seenDef = true
 		}
-		if l.URI == uriApi {
+		if l.URI == uriAPI {
 			seenCall = true
 		}
 	}
