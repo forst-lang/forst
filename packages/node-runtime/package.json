@@ -29,11 +29,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && mkdir -p dist/host && cp src/host/register.cjs dist/host/register.cjs && cp src/host/register.mjs dist/host/register.mjs",
+    "prepublishOnly": "bun run sync-jsr-version && bun run build",
+    "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
     "dev": "tsc -p tsconfig.build.json --watch",
     "clean": "rm -rf dist",
     "build:clean": "bun run clean && bun run build",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "pack:dry": "npm pack --dry-run --ignore-scripts"
   },
   "keywords": [
     "forst",
@@ -61,7 +64,8 @@
   },
   "files": [
     "dist/**/*",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",

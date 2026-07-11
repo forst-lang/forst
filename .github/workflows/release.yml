@@ -30,6 +30,7 @@ jobs:
       sidecar_tag_name: ${{ steps.pkg_tags.outputs.sidecar_tag_name }}
       cli_tag_name: ${{ steps.pkg_tags.outputs.cli_tag_name }}
       vscode_tag_name: ${{ steps.pkg_tags.outputs.vscode_tag_name }}
+      node_runtime_tag_name: ${{ steps.pkg_tags.outputs.node_runtime_tag_name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,6 +50,7 @@ jobs:
           echo "cli_tag_name=${{ steps.release.outputs['packages/cli--tag_name'] }}" >> "$GITHUB_OUTPUT"
           echo "sidecar_tag_name=${{ steps.release.outputs['packages/sidecar--tag_name'] }}" >> "$GITHUB_OUTPUT"
           echo "vscode_tag_name=${{ steps.release.outputs['packages/vscode-forst--tag_name'] }}" >> "$GITHUB_OUTPUT"
+          echo "node_runtime_tag_name=${{ steps.release.outputs['packages/node-runtime--tag_name'] }}" >> "$GITHUB_OUTPUT"
 
   # Go compiler binaries: only when the root package (`.`) is in this release — not vscode/cli/sidecar-only tags.
   # `startsWith(tag_name, 'v')` is wrong here (`vscode-forst-v…` also starts with `v`).
@@ -158,11 +160,12 @@ jobs:
   publish-packages:
     needs: release-please
     # Prefer non-empty tags over *_release_created == 'true' (output quirks between runs).
-    if: ${{ needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' }}
+    if: ${{ needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' || needs.release-please.outputs.node_runtime_tag_name != '' }}
     uses: ./.github/workflows/publish-packages.yml
     with:
       sidecar_tag: ${{ needs.release-please.outputs.sidecar_tag_name }}
       cli_tag: ${{ needs.release-please.outputs.cli_tag_name }}
+      node_runtime_tag: ${{ needs.release-please.outputs.node_runtime_tag_name }}
       # Push to main: verbose npm (true). Manual run: use checkbox (default true).
       npm_publish_verbose: ${{ github.event_name != 'workflow_dispatch' || inputs.npm_publish_verbose }}
     secrets: inherit

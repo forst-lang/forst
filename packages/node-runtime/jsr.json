@@ -1,0 +1,27 @@
+{
+  "name": "@forst/node-runtime",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bootstrap": "./src/bootstrap.ts",
+    "./host": "./src/host.ts",
+    "./host/register.cjs": "./src/host/register.cjs",
+    "./host/register.mjs": "./src/host/register.mjs"
+  },
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "package.json",
+      "src/**/*.ts",
+      "src/**/*.cjs",
+      "src/**/*.mjs"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts",
+      "test/**/*",
+      "dist"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
-# Publish @forst/sidecar and @forst/cli (npm + JSR). Called from release.yml via workflow_call, or
-# run manually: Actions → "Publish packages (npm / JSR)" → Run workflow.
+# Publish @forst/cli, @forst/sidecar, and @forst/node-runtime (npm + JSR). Called from release.yml via
+# workflow_call, or run manually: Actions → "Publish packages (npm / JSR)" → Run workflow.
 # Inputs: pass the tag for each package that released (omit or leave empty for the other).
 # Optional: npm_publish_verbose — pass --verbose to npm publish (default true).
 #
@@ -25,8 +25,13 @@ on:
         required: false
         type: string
         default: ""
+      node_runtime_tag:
+        description: "Git tag for node-runtime (e.g. node-runtime-v0.1.0)"
+        required: false
+        type: string
+        default: ""
       npm_publish_verbose:
-        description: "Pass --verbose to npm publish (both @forst/cli and @forst/sidecar)"
+        description: "Pass --verbose to npm publish (@forst/cli, @forst/sidecar, @forst/node-runtime)"
         required: false
         type: boolean
         default: true
@@ -42,8 +47,13 @@ on:
         required: false
         type: string
         default: ""
+      node_runtime_tag:
+        description: "Git tag for node-runtime (e.g. node-runtime-v0.1.0). Leave empty to skip."
+        required: false
+        type: string
+        default: ""
       npm_publish_verbose:
-        description: "Pass --verbose to npm publish (both @forst/cli and @forst/sidecar)"
+        description: "Pass --verbose to npm publish (@forst/cli, @forst/sidecar, @forst/node-runtime)"
         required: false
         type: boolean
         default: true
@@ -62,8 +72,8 @@ jobs:
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             exit 0
           fi
-          if [ -z "${{ inputs.cli_tag }}" ] && [ -z "${{ inputs.sidecar_tag }}" ]; then
-            echo "::error::Set cli_tag and/or sidecar_tag — both empty publishes nothing."
+          if [ -z "${{ inputs.cli_tag }}" ] && [ -z "${{ inputs.sidecar_tag }}" ] && [ -z "${{ inputs.node_runtime_tag }}" ]; then
+            echo "::error::Set cli_tag, sidecar_tag, and/or node_runtime_tag — all empty publishes nothing."
             exit 1
           fi
 
@@ -229,4 +239,72 @@ jobs:
       - uses: ./.github/actions/jsr-publish-package
         with:
           working-directory: packages/sidecar
+          jsr-token: ${{ secrets.JSR_TOKEN }}
+
+  node-runtime-npm:
+    name: "@forst/node-runtime → npm"
+    runs-on: ubuntu-latest
+    needs: [validate-dispatch]
+    permissions:
+      contents: read
+      id-token: write
+    if: inputs.node_runtime_tag != ''
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.node_runtime_tag }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Clear token-based auth for OIDC publish
+        run: |
+          rm -f "$HOME/.npmrc" || true
+          rm -f .npmrc || true
+          rm -f "$NPM_CONFIG_USERCONFIG" || true
+          echo "NODE_AUTH_TOKEN=" >> "$GITHUB_ENV"
+
+      - name: Build @forst/node-runtime
+        working-directory: packages/node-runtime
+        run: bun run build
+
+      - name: Publish package to NPM
+        working-directory: packages/node-runtime
+        run: |
+          set -euo pipefail
+          NPM_VERBOSE=""
+          if [ "${{ inputs.npm_publish_verbose }}" != "false" ]; then
+            NPM_VERBOSE="--verbose"
+          fi
+          NODE_AUTH_TOKEN="" npm publish --access public --workspaces=false --provenance ${NPM_VERBOSE}
+
+  node-runtime-jsr:
+    name: "@forst/node-runtime → JSR"
+    runs-on: ubuntu-latest
+    needs: [validate-dispatch]
+    if: inputs.node_runtime_tag != ''
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.node_runtime_tag }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - uses: ./.github/actions/jsr-publish-package
+        with:
+          working-directory: packages/node-runtime
           jsr-token: ${{ secrets.JSR_TOKEN }}

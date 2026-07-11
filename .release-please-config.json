@@ -127,6 +127,13 @@
         "packages/vscode-forst/",
         "packages/cli/",
         "packages/sidecar/"
+      ],
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "jsr.json",
+          "jsonpath": "$.version"
+        }
       ]
     }
   }
