@@ -55,6 +55,14 @@ type Transformer struct {
 	OmitPackageTypeDefs bool
 	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
 	entryNodes []ast.Node
+
+	// NodeRuntimeOutput holds generated forst_node_runtime.gen.go content (nodert import, wrappers).
+	NodeRuntimeOutput *TransformerOutput
+	nodeWrappersEmitted map[string]bool
+	nodeSeqTypesEmitted map[string]bool
+
+	// EmbedInvokeServer when true appends ForstInvokeWaitForShutdown() to main for long-lived binaries.
+	EmbedInvokeServer bool
 }
 
 // New creates a new Transformer
@@ -172,6 +180,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.ImportNode:
+			if n.NodeOptIn {
+				break
+			}
 			decl := t.transformImport(n)
 			t.Output.AddImport(decl)
 		case ast.ImportGroupNode:
@@ -209,6 +220,9 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 			return nil, fmt.Errorf("failed to ensure all referenced types are emitted: %w", err)
 		}
 	}
+
+	t.appendNodeBridgeIfNeeded()
+	t.appendInvokeShutdownIfNeeded()
 
 	return t.Output.GenerateFile()
 }

@@ -2,6 +2,7 @@ package transformergo
 
 import (
 	"bytes"
+	goast "go/ast"
 	"go/format"
 	"go/token"
 	"strings"
@@ -1537,5 +1538,24 @@ func TestTransformExpression_tupleResultBindingRejectsBareVariable(t *testing.T)
 	}
 	if !strings.Contains(err.Error(), "multiple left-hand names") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTransformExpression_runeLiteral_emitsGoChar(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	tr := setupTransformer(tc, log)
+
+	out, err := tr.transformExpression(ast.RuneLiteralNode{Value: int64('f')})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lit, ok := out.(*goast.BasicLit)
+	if !ok {
+		t.Fatalf("expected *ast.BasicLit, got %T", out)
+	}
+	if lit.Kind != token.CHAR || lit.Value != `'f'` {
+		t.Fatalf("got kind=%v value=%q", lit.Kind, lit.Value)
 	}
 }

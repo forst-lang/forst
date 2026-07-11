@@ -1,0 +1,114 @@
+---
+title: "Generate client types"
+description: "Emit .d.ts from Forst with forst generate so Node clients match server shapes."
+---
+
+import CatalogOrder from "/snippets/catalog-order.mdx";
+
+**`forst generate`** emits TypeScript declarations from the same definitions the compiler validates, so Node clients import shapes that match the server.
+
+To call these functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/node/call-javascript).
+
+## Manual types in TypeScript
+
+Without generated types, every API change means updating TS by hand:
+
+```typescript
+interface PlaceOrderInput {
+  stockKeepingUnit: string; // any string
+  quantity: number;         // any number
+}
+```
+
+TypeScript cannot express `quantity` must be 1 to 99 unless you add Zod, Effect.Schema, or similar. That is another schema to maintain.
+
+## Types from .ft
+
+Define the shape once in Forst:
+
+<CatalogOrder />
+
+Run:
+
+```bash
+npx forst generate ./path/to/project
+```
+
+Output layout (typical):
+
+```text
+generated/
+├── types.d.ts      # merged type declarations
+└── ...
+client/             # optional client stubs (see Call Forst from Node)
+```
+
+Import in your frontend or BFF:
+
+```typescript
+import type { PlaceOrderInput } from "./generated/types";
+
+async function submitOrder(input: PlaceOrderInput) {
+  // structural match with server-side Forst types
+}
+```
+
+## Discovery with `ftconfig.json`
+
+`forst generate` and `forst dev` share **include/exclude** rules from `ftconfig.json`:
+
+```json
+{
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/client/**"
+    ]
+  }
+}
+```
+
+Pass **`-config`** explicitly or let the CLI search upward from your target directory.
+
+## End-to-end example
+
+The **tictactoe** example in the repository demonstrates merged-package generate:
+
+```bash
+task example:tictactoe:generate
+```
+
+See [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/examples/in/tictactoe) and [`examples/client-integration/`](https://github.com/forst-lang/forst/tree/main/examples/client-integration).
+
+## Caveats
+
+### Structure only in TypeScript
+
+Generated **`.d.ts`** files reflect field names and types. They do **not** carry runtime rules like **`String.Min(1)`** or **`Int.Max(99)`**. Add client validation yourself, or call the Forst server which validates at the boundary.
+
+### Provider gated exports
+
+Functions that need wired **`Providers(f)`** are excluded from TypeScript emit. The invoke wire stays payload only. See [Providers § Caveats](/language/providers#caveats).
+
+### Nominal error tags
+
+TypeScript **`_tag`** export for nominal errors is still maturing. Treat error payloads as evolving. See [Errors and Result § Caveats](/language/errors-and-result#caveats).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+    Invoke generated functions — dev server or built-in HTTP server.
+  </Card>
+  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/node/call-javascript">
+    Call legacy `.ts`/`.js` from compiled Forst (`import node`).
+  </Card>
+  <Card title="Node overview" icon="server" href="/interop/node">
+    Pick your migration path.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install `@forst/cli` in your project.
+  </Card>
+</CardGroup>

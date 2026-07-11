@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forst/internal/goload"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +23,7 @@ func TestParseArgs_delegatesToOsArgs(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	args := ParseArgs(log)
-	if args.Command != "build" || args.FilePath != "main.ft" || args.OutputPath != "out.go" {
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || args.OutputPath != "out.go" {
 		t.Fatalf("args = %+v", args)
 	}
 }
@@ -35,7 +37,7 @@ func TestParseArgsFrom_invalidRootPath(t *testing.T) {
 	args := ParseArgsFrom([]string{"forst", "run", "-root", longRoot, "x.ft"}, log)
 	if args.PackageRoot != "" {
 		// Platform accepted the path; still exercised ParseArgsFrom run branch.
-		if args.Command != "run" || args.FilePath != "x.ft" {
+		if args.Command != "run" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "x.ft" {
 			t.Fatalf("args = %+v", args)
 		}
 		return
@@ -67,10 +69,10 @@ func TestGoWorkspaceDirForCheck_usesPackageRootOrEntryDir(t *testing.T) {
 func TestIsCompilerWorkspaceModule_detectsForstRepo(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
-	if !isCompilerWorkspaceModule(moduleRoot) {
+	if !goload.IsForstCompilerModule(moduleRoot) {
 		t.Fatal("expected forst module to be detected as compiler workspace")
 	}
-	if isCompilerWorkspaceModule(t.TempDir()) {
+	if goload.IsForstCompilerModule(t.TempDir()) {
 		t.Fatal("temp dir should not be compiler workspace")
 	}
 }
@@ -202,7 +204,7 @@ func TestWatchFile_recompilesOnWrite(t *testing.T) {
 	origRun := runGoProgramForWatch
 	t.Cleanup(func() { runGoProgramForWatch = origRun })
 	var runs atomic.Int32
-	runGoProgramForWatch = func(string) error {
+	runGoProgramForWatch = func(string, string) error {
 		runs.Add(1)
 		return nil
 	}

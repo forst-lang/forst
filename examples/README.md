@@ -4,7 +4,7 @@
 
 - **`in/`** — Forst `.ft` sources used by Task targets (e.g. `task example:basic`). Paths are mirrored under **`out/`** with expected Go output for integration checks (`in` → `out`).
 
-- **`in/*.ft`** at the root of `in/` (e.g. `basic.ft`, `go_builtins.ft`, `generics.ft`, `slices.ft`, `go_interop.ft`, `ensure.ft`, `nominal_error.ft`, `union_error_types.ft`) are the small, primary examples referenced by the Taskfile and [testing rules](../.cursor/rules/testing.mdc). Full compile integration for these lives in **`cmd/forst` `TestExamples`**; `internal/compiler` keeps a minimal smoke compile only. Regenerate committed Go goldens under **`out/`** with **`task examples:update-goldens`** (from repo root).
+- **`in/*.ft`** at the root of `in/` (e.g. `basic.ft`, `go_builtins.ft`, `generics.ft`, `slices.ft`, `go_interop.ft`, `ensure.ft`, `nominal_error.ft`, `union_error_types.ft`) are the small, primary examples referenced by the Taskfile and [testing rules](../.cursor/rules/testing.mdc). Full compile integration for these lives in **`cmd/forst` `TestExamples`**; `internal/compiler` keeps a minimal smoke compile only. Regenerate committed Go goldens under **`out/`** with **`task examples:update-goldens`** (from repo root). That task runs `git add -f examples/out/` so new or updated goldens are staged even though the root `out` ignore rule would otherwise hide them from `git status`.
 
 - **`in/imports/`** — multi-file “imports” demo (LSP merged package + `task example:imports` via `cli.ft`); see `in/imports/README.md`.
 

@@ -18,6 +18,7 @@ func testTypeCheckerForCompletionScopeAlgorithms() *typechecker.TypeChecker {
 }
 
 func TestMatchIfChainFrom_returnsEnsureBlockFromIfBody(t *testing.T) {
+	t.Parallel()
 	tc := testTypeCheckerForCompletionScopeAlgorithms()
 	baseType := ast.TypeIdent("Int")
 	ensureBlock := &ast.EnsureBlockNode{
@@ -57,6 +58,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromIfBody(t *testing.T) {
 }
 
 func TestMatchIfChainFrom_returnsEnsureBlockFromElseIfBody(t *testing.T) {
+	t.Parallel()
 	tc := testTypeCheckerForCompletionScopeAlgorithms()
 	baseType := ast.TypeIdent("Int")
 	elseIfEnsureBlock := &ast.EnsureBlockNode{
@@ -104,6 +106,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromElseIfBody(t *testing.T) {
 }
 
 func TestMatchIfChainFrom_returnsEnsureBlockFromElseBody(t *testing.T) {
+	t.Parallel()
 	tc := testTypeCheckerForCompletionScopeAlgorithms()
 	baseType := ast.TypeIdent("Int")
 	elseEnsureBlock := &ast.EnsureBlockNode{
@@ -149,6 +152,7 @@ func TestMatchIfChainFrom_returnsEnsureBlockFromElseBody(t *testing.T) {
 }
 
 func TestTypeGuardBodyBraces_andScopeForPosition(t *testing.T) {
+	t.Parallel()
 	tokens := lexTokensForLSPHelperTest(`package main
 
 type P = String

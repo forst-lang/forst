@@ -1,0 +1,36 @@
+package main
+
+import node store "./legacy/todos"
+import node "./legacy/activity"
+import "strconv"
+
+func main() {
+	first := store.bumpEditCount()
+	ensure first is Ok()
+	println("sync:" + strconv.FormatFloat(first, 'f', 0, 64))
+
+	second := store.bumpEditCount()
+	ensure second is Ok()
+	println("sync:" + strconv.FormatFloat(second, 'f', 0, 64))
+
+	snap := store.persistSnapshot()
+	ensure snap is Ok()
+	println("async:" + snap.savedAt)
+
+	var titleCount: Int = 0
+	titleSeq := activity.recentTitles(3.0)
+	ensure titleSeq is Ok()
+	for range titleSeq {
+		titleCount = titleCount + 1
+	}
+	println("gen:" + string(titleCount))
+
+	var feedCount: Int = 0
+	feed := activity.activityFeed("demo")
+	ensure feed is Ok()
+	for _, evt := range feed {
+		activity.dispatchActivity(evt)
+		feedCount = feedCount + 1
+	}
+	println("events:" + string(feedCount))
+}

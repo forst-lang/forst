@@ -3,6 +3,7 @@ package compiler
 import (
 	"bytes"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -106,7 +107,7 @@ func TestParseArgs_runSuccess(t *testing.T) {
 		"-root", "/tmp/pkg",
 		"main.ft",
 	}, log)
-	if args.Command != "run" || args.FilePath != "main.ft" {
+	if args.Command != "run" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" {
 		t.Fatalf("got %+v", args)
 	}
 	if args.LogLevel != "debug" || !args.ReportMemoryUsage || !args.ReportPhases || !args.ExportStructFields {
@@ -121,8 +122,21 @@ func TestParseArgs_buildSuccess(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	args := ParseArgsFrom([]string{"forst", "build", "-o", "out.go", "main.ft"}, log)
-	if args.Command != "build" || args.OutputPath != "out.go" || args.FilePath != "main.ft" {
+	if args.Command != "build" || args.OutputPath != "out.go" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" {
 		t.Fatalf("got %+v", args)
+	}
+}
+
+func TestParseArgs_requireNoNodeFlag(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	args := ParseArgsFrom([]string{"forst", "build", "-require-no-node", "main.ft"}, log)
+	if args.Command != "build" || !filepath.IsAbs(args.FilePath) || filepath.Base(args.FilePath) != "main.ft" || !args.RequireNoNode {
+		t.Fatalf("got %+v", args)
+	}
+	args = ParseArgsFrom([]string{"forst", "run", "-require-no-node", "main.ft"}, log)
+	if args.Command != "run" || !args.RequireNoNode {
+		t.Fatalf("run with -require-no-node: got %+v", args)
 	}
 }
 

@@ -21,13 +21,18 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			"node":     n.String(),
 			"function": "collectExplicitTypes",
 		}).Debug("Collecting import")
-		tc.imports = append(tc.imports, n)
+		return tc.collectImportNode(n)
 	case ast.ImportGroupNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),
 			"function": "collectExplicitTypes",
 		}).Debug("Collecting import group")
-		tc.imports = append(tc.imports, n.Imports...)
+		for _, imp := range n.Imports {
+			if err := tc.collectImportNode(imp); err != nil {
+				return err
+			}
+		}
+		return nil
 	case ast.AssignmentNode:
 		if !n.IsPackageLevel {
 			return nil

@@ -10,6 +10,7 @@ import (
 )
 
 func TestReceiverExpressionSourceBeforeDot_qualifiedCall(t *testing.T) {
+	t.Parallel()
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "time", Line: 1, Column: 1},
 		{Type: ast.TokenDot, Value: ".", Line: 1, Column: 5},
@@ -29,6 +30,7 @@ func TestReceiverExpressionSourceBeforeDot_qualifiedCall(t *testing.T) {
 }
 
 func TestReceiverExpressionSourceBeforeDot_simpleIdent(t *testing.T) {
+	t.Parallel()
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "x", Line: 1, Column: 1},
 		{Type: ast.TokenDot, Value: ".", Line: 1, Column: 2},
@@ -41,6 +43,7 @@ func TestReceiverExpressionSourceBeforeDot_simpleIdent(t *testing.T) {
 }
 
 func TestReceiverExpressionSourceBeforeDot_cmdProcessState(t *testing.T) {
+	t.Parallel()
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "cmd", Line: 1, Column: 1},
 		{Type: ast.TokenDot, Value: ".", Line: 1, Column: 4},
@@ -58,6 +61,7 @@ func TestReceiverExpressionSourceBeforeDot_cmdProcessState(t *testing.T) {
 }
 
 func TestLspPositionAfterDot_cmdProcessStateExitCode(t *testing.T) {
+	t.Parallel()
 	const src = "package main\n\nimport \"os/exec\"\n\nfunc main() {\n\tcmd := exec.Command(\"true\")\n\tcmd.ProcessState.ExitCode()\n}\n"
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -87,6 +91,7 @@ func TestLspPositionAfterDot_cmdProcessStateExitCode(t *testing.T) {
 }
 
 func TestLspPositionAfterDot_execCommandCallResult(t *testing.T) {
+	t.Parallel()
 	const src = "package main\n\nimport \"os/exec\"\n\nfunc main() {\n\texec.Command(\"true\").Run()\n}\n"
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -116,6 +121,7 @@ func TestLspPositionAfterDot_execCommandCallResult(t *testing.T) {
 }
 
 func TestReceiverExpressionSourceBeforeDot_argvSubslice(t *testing.T) {
+	t.Parallel()
 	tokens := []ast.Token{
 		{Type: ast.TokenIdentifier, Value: "argv", Line: 1, Column: 1},
 		{Type: ast.TokenLBracket, Value: "[", Line: 1, Column: 5},

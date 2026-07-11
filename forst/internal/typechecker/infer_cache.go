@@ -24,7 +24,7 @@ func (tc *TypeChecker) lookupCachedExpressionTypes(expr ast.Node) ([]ast.TypeNod
 // isLiteralExpression reports whether expr is a literal with a fixed builtin type.
 func isLiteralExpression(expr ast.Node) bool {
 	switch expr.(type) {
-	case ast.IntLiteralNode, ast.FloatLiteralNode, ast.StringLiteralNode, ast.BoolLiteralNode, ast.NilLiteralNode:
+	case ast.IntLiteralNode, ast.FloatLiteralNode, ast.StringLiteralNode, ast.RuneLiteralNode, ast.BoolLiteralNode, ast.NilLiteralNode:
 		return true
 	default:
 		return false

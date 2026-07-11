@@ -169,7 +169,7 @@ func TestExpireTokenRejectsExpired(t *testing.T) {
 
 ### B. Normative v0 (`requirement` + `require` + `provide`)
 
-```forst
+```ft
 requirement Logger {
     info(msg String)
     error(msg String)
@@ -222,7 +222,7 @@ test "expireToken rejects expired token" {
 
 Handler-first profile: leaf uses explicit `use` only where no `ctx`; handler tests build one `TestContext`.
 
-```forst
+```ft
 type Logger = capability {
     info(msg String)
     error(msg String)
@@ -355,7 +355,7 @@ Comparable line count to `supply { … }`; Layers add **more** boilerplate for g
 
 **Primary path — `supply ctx` at handler:**
 
-```forst
+```ft
 func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserResponse, Error) {
     supply ctx {
         return createUserInternal(input)
@@ -369,7 +369,7 @@ func CreateUser(input CreateUserRequest, ctx AppContext): Result(CreateUserRespo
 
 **`main` entry:**
 
-```forst
+```ft
 func main() {
     ctx := AppContext {
         logger: StdLogger { level: "info" },
@@ -388,7 +388,7 @@ func main() {
 
 **Suite test** — shared `TestAppContext` / `supply ctx` at describe scope (Forst `test` block nesting TBD).
 
-```forst
+```ft
 test "user flows" {
   ctx := TestAppContext { logger: NopLogger {}, clock: FakeClock { fixedMs: 0 }, db: FakeUserRepo {…} }
   supply ctx {
@@ -400,7 +400,7 @@ test "user flows" {
 
 ### Partial override
 
-```forst
+```ft
 func auditAction(action String, ctx AppContext) {
     use logger: Logger
     doAction(action) supply { Logger: AuditLogger { sink: ctx.logger } }
@@ -514,7 +514,7 @@ Harness merge reuses **`supply` shadow rules** from [App-level override flows](#
 
 #### Declaring a harness preset
 
-```forst
+```ft
 harness CI uses Logger, Clock, UserRepo, HttpClient, EmailSender, Metrics {
     Logger:      NopLogger {},
     Clock:       FakeClock { fixedMs: 1_700_000_000_000 },
@@ -527,7 +527,7 @@ harness CI uses Logger, Clock, UserRepo, HttpClient, EmailSender, Metrics {
 
 Optional **local integration** profile — same shape, selective real deps:
 
-```forst
+```ft
 harness LocalIntegration uses Logger, Clock, UserRepo, HttpClient, EmailSender, Metrics {
     Logger:      StdLogger { level: "debug" },
     Clock:       SystemClock {},
@@ -540,7 +540,7 @@ harness LocalIntegration uses Logger, Clock, UserRepo, HttpClient, EmailSender, 
 
 **Environment selection** (optional sugar — can stay manual in v1):
 
-```forst
+```ft
 // Resolved at test compile or via build tag / env("FORST_TEST_HARNESS")
 default harness CI
 
@@ -552,7 +552,7 @@ Prefer **`default harness CI`** plus **`test "…" uses LocalIntegration`** for 
 
 #### Binding tests to a harness
 
-```forst
+```ft
 test "createUser returns 201" uses CI {
     ctx := harnessContext(CI)   // lowered: merged AppContext literal
     resp := handleCreateUser(req, ctx)
@@ -562,7 +562,7 @@ test "createUser returns 201" uses CI {
 
 **Sugar** — implicit context when the test body calls handlers with `supply harness`:
 
-```forst
+```ft
 test "createUser returns 201" uses CI {
     supply CI {
         resp := handleCreateUser(req)
@@ -575,7 +575,7 @@ test "createUser returns 201" uses CI {
 
 #### Selective override (deltas only)
 
-```forst
+```ft
 test "createUser sends welcome email" uses CI {
     override {
         EmailSender: RecordingEmail { sent: [] },
@@ -590,7 +590,7 @@ test "createUser sends welcome email" uses CI {
 
 Single-capability override sugar:
 
-```forst
+```ft
 test "retries on 503" uses CI {
     override HttpClient with FlakyHttp { failures: 2, then: CI.HttpClient } {
         supply CI { handleCreateUser(req) }
@@ -602,7 +602,7 @@ test "retries on 503" uses CI {
 
 #### Suite-level harness scope
 
-```forst
+```ft
 test suite "User API" uses CI {
     override HttpClient with RecordingHttp { calls: [] }
 
@@ -704,7 +704,7 @@ Agents fail integration tests when they:
 
 Handler pulls **Logger**, **Clock**, **UserRepo**, **HttpClient**, **EmailSender** (plus **Metrics** in harness for realism).
 
-```forst
+```ft
 package users
 
 // --- capabilities (unchanged redesign) ---
@@ -879,7 +879,7 @@ Normative syntax using **existing `type` + shapes + methods**. Inference-first; 
 
 ### 1. Capability contracts — drop `requirement`
 
-```forst
+```ft
 type Logger = capability {
     info(msg String)
     error(msg String)
@@ -906,7 +906,7 @@ type UserRepo = capability {
 
 ### 2. Body binding — `use` (optional with inference)
 
-```forst
+```ft
 use <name>: <CapabilityType>
 use <CapabilityType>          // name = lowerCamel(type ident)
 ```
@@ -918,7 +918,7 @@ use <CapabilityType>          // name = lowerCamel(type ident)
 
 **When optional (inference I2):**
 
-```forst
+```ft
 func handleGetUser(id String, ctx AppContext): Result(User, Error) {
     ctx.logger.info("getUser")
     return ctx.db.find(id)
@@ -943,7 +943,7 @@ func handleGetUser(id String, ctx AppContext): Result(User, Error) {
 
 **Keyword choice:** **`supply`** avoids “provide data” ambiguity next to data params; **`provide`** keeps Effect-TS vocabulary. Pick one; this doc uses **`supply`**. Aliases acceptable in parser if both documented.
 
-```forst
+```ft
 // Postfix on call
 getUser(id) supply { UserRepo: ctx.db }
 
@@ -968,7 +968,7 @@ expireToken(token) supply forward
 
 ### 4. Optional export clause — `uses`
 
-```forst
+```ft
 func expireToken(token Token) uses Logger, Clock : Result(Token, Error) {
     use logger: Logger
     use clock: Clock
@@ -980,7 +980,7 @@ Must match inferred set exactly. Omitted on internal helpers. Feeds LSP / discov
 
 ### 5. End-to-end example
 
-```forst
+```ft
 package demo
 
 type Logger = capability { info(msg String) }

@@ -27,9 +27,7 @@ func TestParseExpression_parseIdentifierPrimaryBranches(t *testing.T) {
 	t.Run("index_and_call_chain", func(t *testing.T) {
 		t.Parallel()
 		p := NewTestParser(`xs[0]()`, logger)
-		if _, err := p.ParseFile(); err == nil {
-			// expression-only parse may succeed at expr level
-		}
+		_ = p
 		expr := p.parseExpression()
 		if expr == nil {
 			t.Fatal("nil expr")
@@ -104,7 +102,7 @@ func f() {
 	}
 }
 
-func TestParseFile_typeConversionInt(t *testing.T) {
+func TestParseFile_rejectsTypeConversionInt(t *testing.T) {
 	t.Parallel()
 	src := `package main
 
@@ -112,15 +110,12 @@ func f(c String): Int {
 	return Int(c)
 }
 `
-	nodes, err := NewTestParser(src, ast.SetupTestLogger(nil)).ParseFile()
-	if err != nil {
-		t.Fatal(err)
+	err := parseShouldFail(src)
+	if err == nil {
+		t.Fatal("expected parse error for Int(c)")
 	}
-	fn := assertNodeType[ast.FunctionNode](t, nodes[1], "ast.FunctionNode")
-	ret := fn.Body[0].(ast.ReturnNode)
-	call, ok := ret.Values[0].(ast.FunctionCallNode)
-	if !ok || call.Function.ID != "Int" {
-		t.Fatalf("want Int(...) call, got %#v", ret.Values[0])
+	if !strings.Contains(err.Error(), "not a conversion") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

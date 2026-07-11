@@ -1,13 +1,13 @@
 package lsp
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"forst/internal/ast"
 	"forst/internal/astwalk"
+	"forst/internal/hoverdoc"
 	"forst/internal/typechecker"
 )
 
@@ -24,17 +24,17 @@ func withScopeHoverMarkdown(tc *typechecker.TypeChecker, nodes []ast.Node, tok *
 		return ""
 	}
 	if len(labels) == 0 {
-		return "**Effective scope:** (empty)"
+		return hoverdoc.Section("Effective scope") + "\n\n" + hoverdoc.ForstBlock("// empty")
 	}
 	parts := make([]string, len(labels))
 	for i, l := range labels {
 		if l.Shadowed {
-			parts[i] = l.Key + " (shadows outer)"
+			parts[i] = l.Key + " // shadows outer"
 		} else {
 			parts[i] = l.Key
 		}
 	}
-	return fmt.Sprintf("**Effective scope:** %s", strings.Join(parts, ", "))
+	return hoverdoc.Section("Effective scope") + "\n\n" + hoverdoc.ForstBlock(strings.Join(parts, "\n"))
 }
 
 func collectWithChainContainingPosition(nodes []ast.Node, line, col int) []ast.WithNode {

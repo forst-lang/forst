@@ -19,3 +19,18 @@ func sortDedupeStrings(s []string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// CollectInvokeTypeNames gathers type identifiers referenced by invoke function signatures.
+func CollectInvokeTypeNames(outputs []*TypeScriptOutput) []string {
+	var names []string
+	for _, out := range outputs {
+		names = append(names, out.ExportedTypeNames...)
+		for _, fn := range out.Functions {
+			names = append(names, fn.ReturnType)
+			for _, param := range fn.Parameters {
+				names = append(names, param.Type)
+			}
+		}
+	}
+	return sortDedupeStrings(names)
+}

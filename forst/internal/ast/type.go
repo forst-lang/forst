@@ -22,6 +22,8 @@ const (
 	TypeVoid TypeIdent = "TYPE_VOID"
 	// TypeError is the built-in error type
 	TypeError TypeIdent = "TYPE_ERROR"
+	// TypeBytes is the built-in byte slice type (maps to Go []byte).
+	TypeBytes TypeIdent = "TYPE_BYTES"
 	// TypeObject is the built-in object type
 	TypeObject TypeIdent = "TYPE_OBJECT"
 	// TypeArray is the built-in array type
@@ -112,6 +114,8 @@ func (t TypeNode) String() string {
 	case TypeVoid:
 		return t.Ident.String()
 	case TypeError:
+		return t.Ident.String()
+	case TypeBytes:
 		return t.Ident.String()
 	case TypeObject:
 		return t.Ident.String()
@@ -209,6 +213,8 @@ func (ti TypeIdent) String() string {
 		return "Void"
 	case TypeError:
 		return "Error"
+	case TypeBytes:
+		return "Bytes"
 	case TypeObject:
 		return "Object(?)"
 	case TypeArray:

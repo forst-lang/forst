@@ -45,12 +45,17 @@ func processStringLiteral(line []byte, startCol int, fileID string, lineNum int)
 
 	word := string(line[startCol:column])
 
+	tokType := ast.TokenStringLiteral
+	if quoteChar == '\'' {
+		tokType = ast.TokenRuneLiteral
+	}
+
 	return ast.Token{
 		FileID: fileID,
 		Line:   lineNum,
 		Column: startCol + 1,
 		Value:  word,
-		Type:   ast.TokenStringLiteral,
+		Type:   tokType,
 	}, column
 }
 

@@ -36,7 +36,8 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 
 		switch token.Type {
 		case ast.TokenComment:
-			nodes = append(nodes, ast.CommentNode{Text: p.current().Value})
+			commentText := p.current().Value
+			nodes = append(nodes, ast.CommentNode{Text: commentText})
 			p.advance()
 			continue
 		case ast.TokenPackage:

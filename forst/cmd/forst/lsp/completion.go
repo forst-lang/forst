@@ -85,7 +85,7 @@ func isCursorInCommentOrString(tokens []ast.Token, idx int) bool {
 		return false
 	}
 	switch tokens[idx].Type {
-	case ast.TokenComment, ast.TokenStringLiteral:
+	case ast.TokenComment, ast.TokenStringLiteral, ast.TokenRuneLiteral:
 		return true
 	default:
 		return false

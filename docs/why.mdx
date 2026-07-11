@@ -9,7 +9,7 @@ While backend engineering covers a wide surface, some central issues affect ever
 - **Performance**: prod needs to keep up when traffic spikes and complexity grows.
 - **Contracts**: boundaries need to validate bad data before it reaches domain logic.
 
-Forst is for teams who want all three, with one schema from server to client.
+Forst is for teams who want all three: one `.ft` source that ships as native Go while allowing incremental migration within your existing TS or Go codebase.
 
 <Columns cols={2}>
   <Card title="TypeScript" icon="/icons/typescript.svg">
@@ -21,6 +21,8 @@ Forst is for teams who want all three, with one schema from server to client.
 </Columns>
 
 ## The analogy
+
+Similar to TypeScript, Forst allows working within your existing codebase and replacing more and more code over time:
 
 ```mermaid
 flowchart TB
@@ -40,30 +42,60 @@ flowchart TB
   Forst -.->|"types + ergonomics"| Go
 ```
 
-TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same for Go: you still `go build`, with typed boundaries layered on top.
+TypeScript added types on top of JavaScript while keeping the same runtime. Forst does the same on both sides of your stack:
+
+- **Go:** Ship native binaries with `go build` and typed boundaries layered on top. See [Go interop](/interop/go).
+- **Node:** Stay type-aligned with the frontend and migrate route by route without a big bang rewrite. See [Node interop](/interop/node).
 
 ## Feature comparison
 
-Backend capabilities at a glance.
+Compare Forst to TypeScript and Go.
+
+### Compatibility
+
+How each stack talks to other languages and adopts code incrementally.
 
 | Capability | TypeScript | Go | Forst |
 | --- | --- | --- | --- |
-| Production runtime | V8, JavaScriptCore | Native | [Go (compiled from `.ft`)](/interop/go) |
-| Execution model | JIT | Native | Native (via Go) |
-| Structural typing | Built-in | Structs | [Built-in](/language/overview) |
-| Validation on types | Schema library (Zod, etc.) | Manual checks | [Built-in constraints](/language/shapes-and-constraints) |
-| Static binary deployment | No | Yes | [Yes (via Go output)](/interop/go) |
-| Isomorphism (shared types between server and client) | Straightforward | Manual / separate | [`forst generate`](/interop/typescript) |
-| Error handling | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
-| Type narrowing | Discriminated unions, type guards, `asserts` | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing) |
+| Incremental migration | Adopt TS file by file | Mix packages over time | [Mix `.ft`, `.go`, and legacy JS/TS](/interop/node) |
 | Go module ecosystem | No (WASM only) | Native | [Import Go packages](/interop/go) |
-| JS module ecosystem | Native (npm, JSR) | No | No |
-| Explicit service wiring | DI libraries | Manual / Fx / Wire | [`use` / `with`](/language/providers) |
+| JS / npm ecosystem | Native | No | [Call legacy JS/TS](/interop/node/call-javascript) via `import node` |
+| Call backend from Node | Same runtime | No | [Generated client + HTTP invoke](/interop/node/call-forst) |
+| Shared types (server ↔ client) | Straightforward | Manual / separate | [`forst generate`](/interop/node/generate-types) |
+
+### Language
+
+How each language models data, errors, and concurrency.
+
+| Capability | TypeScript | Go | Forst |
+| --- | --- | --- | --- |
 | Static typing | Yes | Yes | Yes |
+| Structural typing | Built-in | Structs (nominal) | [Built-in](/language/overview) (flexible) |
+| Mocking & DI | DI libraries | Manual / Fx / Wire | [`use` / `with`](/language/providers) |
+| Validation on types | Schema library (Zod, etc.) | Manual checks | [Built-in constraints](/language/shapes-and-constraints) |
+| Error handling | Exceptions (`try`/`catch`) | `(T, error)` values | [`ensure`, `Result`, nominal errors`](/language/errors-and-result) |
+| Type narrowing | Discriminated unions, type guards, `asserts` | Type assertions | [`is` / `ensure`](/language/ensure-and-narrowing), [type guards](/language/type-guards) |
+| Exceptions | Yes (`try`/`catch`) | Yes (`panic`/`recover`) | No |
+| User-defined generics | Yes | Yes | No ([built-ins](/language/overview), [planned](/resources/roadmap)) |
+| Class inheritance | Yes | No (composition) | No ([shapes](/language/overview)) |
+| Goroutines | Via async/await | Native (`go`) | Native ([`go` / `defer`](/interop/go)) |
+| Channels | No | Native | No ([planned](/resources/roadmap)) |
+| Runtime reflection | Limited | Native (`reflect`) | No (compile-time focus) |
+
+### Infrastructure
+
+How you ship, debug, and adopt each stack day to day.
+
+| Capability | TypeScript | Go | Forst |
+| --- | --- | --- | --- |
+| Production runtime | V8, JavaScriptCore | Native | [Native Go](/interop/go) (compiled from `.ft`) |
+| Execution model | JIT | Native | Native (via Go) |
+| Static binary deployment | No | Yes | [Yes](/interop/go) (via Go output) |
+| Language server (LSP) | Yes | Yes (gopls) | Yes ([`forst lsp`](/workflow/editor)) |
 | Open source | Yes | Yes | Yes |
 
 <Info>
-  Go import type-checking and Providers are **experimental**. See the [roadmap](/resources/roadmap) for current status.
+  Go import loading, Node interop, Providers, and several invoke paths are **experimental**. See the [roadmap](/resources/roadmap) for current status.
 </Info>
 
 ## What you get
@@ -75,7 +107,7 @@ Backend capabilities at a glance.
   <Card title="Validation on the type" icon="shield-check" href="/language/shapes-and-constraints">
     Constraints on fields. The compiler checks known values at compile time and emits runtime checks at the boundary.
   </Card>
-  <Card title="Matching TypeScript for clients" icon="/icons/typescript.svg" href="/interop/typescript">
+  <Card title="Generate client types" icon="/icons/typescript.svg" href="/interop/node/generate-types">
     **`forst generate`** emits **`.d.ts`** from the same **`.ft`** definitions the server uses.
   </Card>
   <Card title="Production Go output" icon="/icons/golang.svg" href="/interop/go">
@@ -84,7 +116,7 @@ Backend capabilities at a glance.
   <Card title="Explicit failures" icon="route" href="/language/errors-and-result">
     **`ensure`**, nominal **`error`** types, and **`Result`**. Failures are values you handle in control flow.
   </Card>
-  <Card title="Gradual adoption" icon="plug" href="/workflow/dev-server-and-sidecar">
+  <Card title="Gradual adoption" icon="plug" href="/interop/node/call-forst">
     Mix **`.ft`** with **`.go`**. Migrate route by route with **`forst dev`** or **`@forst/sidecar`**.
   </Card>
 </CardGroup>

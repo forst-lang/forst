@@ -210,3 +210,155 @@ func TestParseImports(t *testing.T) {
 		})
 	}
 }
+
+func TestParseImport_importStarAsFrom_rejected(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenStar, Value: "*", Line: 1, Column: 1},
+		{Type: ast.TokenIdentifier, Value: "as", Line: 1, Column: 3},
+		{Type: ast.TokenIdentifier, Value: "payment", Line: 1, Column: 6},
+		{Type: ast.TokenIdentifier, Value: "from", Line: 1, Column: 14},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 19},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 39},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected parse error for import * as … from")
+		}
+	}()
+	_ = p.parseImport()
+}
+
+func TestParseImport_importNodeWithAlias_setsNodeOptIn(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
+		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 6},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/api/checkout"`, Line: 1, Column: 15},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 40},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	importNode := p.parseImport()
+
+	if importNode.Path != "./legacy/api/checkout" {
+		t.Errorf("expected path ./legacy/api/checkout, got %q", importNode.Path)
+	}
+	if importNode.Alias == nil || importNode.Alias.ID != "checkout" {
+		t.Fatalf("expected alias checkout, got %+v", importNode.Alias)
+	}
+	if !importNode.NodeOptIn {
+		t.Error("expected NodeOptIn true")
+	}
+	if importNode.NodeOptInSource != "import_node" {
+		t.Errorf("expected NodeOptInSource import_node, got %q", importNode.NodeOptInSource)
+	}
+}
+
+func TestParseImport_importNodeModifier_setsNodeOptIn(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 1},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 1, Column: 6},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 26},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	importNode := p.parseImport()
+
+	if importNode.Path != "./legacy/payment" {
+		t.Errorf("expected path ./legacy/payment, got %q", importNode.Path)
+	}
+	if importNode.Alias != nil {
+		t.Errorf("expected no alias for import node modifier, got %v", importNode.Alias)
+	}
+	if !importNode.NodeOptIn {
+		t.Error("expected NodeOptIn true")
+	}
+	if importNode.NodeOptInSource != "import_node" {
+		t.Errorf("expected NodeOptInSource import_node, got %q", importNode.NodeOptInSource)
+	}
+}
+
+func TestParseImport_importNodeModifier_groupedImport(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenLParen, Value: "(", Line: 1, Column: 1},
+		{Type: ast.TokenStringLiteral, Value: `"strconv"`, Line: 1, Column: 2},
+		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 11},
+		{Type: ast.TokenStringLiteral, Value: `"./a.ts"`, Line: 1, Column: 16},
+		{Type: ast.TokenIdentifier, Value: "node", Line: 1, Column: 25},
+		{Type: ast.TokenIdentifier, Value: "checkout", Line: 1, Column: 30},
+		{Type: ast.TokenStringLiteral, Value: `"./b.ts"`, Line: 1, Column: 39},
+		{Type: ast.TokenRParen, Value: ")", Line: 1, Column: 48},
+		{Type: ast.TokenEOF, Value: "", Line: 1, Column: 49},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	importGroup := p.parseImportGroup()
+
+	if len(importGroup.Imports) != 3 {
+		t.Fatalf("expected 3 imports, got %d", len(importGroup.Imports))
+	}
+	if importGroup.Imports[0].NodeOptIn {
+		t.Error("strconv import should not have NodeOptIn")
+	}
+	if !importGroup.Imports[1].NodeOptIn || importGroup.Imports[1].NodeOptInSource != "import_node" {
+		t.Errorf("second import: expected import_node opt-in, got optIn=%v source=%q",
+			importGroup.Imports[1].NodeOptIn, importGroup.Imports[1].NodeOptInSource)
+	}
+	if importGroup.Imports[1].Alias != nil {
+		t.Errorf("second import: expected no alias, got %v", importGroup.Imports[1].Alias)
+	}
+	if !importGroup.Imports[2].NodeOptIn || importGroup.Imports[2].Alias == nil || importGroup.Imports[2].Alias.ID != "checkout" {
+		t.Errorf("third import: expected import_node with alias checkout, got %+v", importGroup.Imports[2])
+	}
+}
+
+func TestParseImport_commentDirective_doesNotApplyOptIn(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenComment, Value: "// forst:node", Line: 1, Column: 1},
+		{Type: ast.TokenImport, Value: "import", Line: 2, Column: 1},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 2, Column: 8},
+		{Type: ast.TokenEOF, Value: "", Line: 3, Column: 1},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	if len(nodes) != 2 {
+		t.Fatalf("expected 2 nodes (comment + import), got %d", len(nodes))
+	}
+
+	firstImport := assertNodeType[ast.ImportNode](t, nodes[1], "ast.ImportNode")
+	if firstImport.NodeOptIn {
+		t.Error("expected forst:node directive to be ignored; use import node")
+	}
+}
+
+func TestParseImport_commentDirective_fileScope_ignored(t *testing.T) {
+	tokens := []ast.Token{
+		{Type: ast.TokenComment, Value: "// forst:node file", Line: 1, Column: 1},
+		{Type: ast.TokenImport, Value: "import", Line: 2, Column: 1},
+		{Type: ast.TokenStringLiteral, Value: `"./legacy/payment"`, Line: 2, Column: 8},
+		{Type: ast.TokenEOF, Value: "", Line: 3, Column: 1},
+	}
+
+	logger := ast.SetupTestLogger(nil)
+	p := setupParser(tokens, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	firstImport := assertNodeType[ast.ImportNode](t, nodes[1], "ast.ImportNode")
+	if firstImport.NodeOptIn {
+		t.Error("expected forst:node file directive to be ignored; use import node")
+	}
+}

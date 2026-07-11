@@ -7,6 +7,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/ftconfig"
 	"forst/internal/goload"
 	"forst/internal/parser"
 	"forst/internal/testutil"
@@ -21,6 +22,17 @@ func applyTypecheckOpts(tb testing.TB, tc *TypeChecker, opts testutil.TypecheckO
 		tc.GoWorkspaceDir = opts.GoWorkspaceDir
 	case opts.UseModuleRoot:
 		tc.GoWorkspaceDir = testutil.ModuleRoot(tb)
+	}
+	if opts.NodeBoundaryRoot != "" {
+		tc.NodeBoundaryRoot = opts.NodeBoundaryRoot
+	}
+	if opts.ForstFileDir != "" {
+		tc.ForstFileDir = opts.ForstFileDir
+	}
+	if opts.NodeImportPolicy != "" {
+		tc.NodeImportPolicy = opts.NodeImportPolicy
+	} else if opts.ForstFileDir != "" {
+		tc.NodeImportPolicy = ftconfig.ImportPolicyFromDir(opts.ForstFileDir)
 	}
 	if opts.SamePackageGoImport != "" {
 		tc.SetSamePackageGoImportPath(opts.SamePackageGoImport)
@@ -62,10 +74,6 @@ func runCheckTypes(tb testing.TB, log *logrus.Logger, nodes []ast.Node, opts tes
 // Typecheck parses and typechecks src. Returns typecheck/module errors without fataling.
 func Typecheck(tb testing.TB, src string, opts testutil.TypecheckOpts) (*TypeChecker, []ast.Node, error) {
 	tb.Helper()
-	fileID := opts.FileID
-	if fileID == "" {
-		fileID = "test.ft"
-	}
 	log := opts.Logger
 	if log == nil {
 		log = testutil.TestLogger(tb, nil)

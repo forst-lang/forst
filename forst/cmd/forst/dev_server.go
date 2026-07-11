@@ -10,9 +10,19 @@ import (
 	"forst/internal/compiler"
 	"forst/internal/discovery"
 	"forst/internal/executor"
+	"forst/internal/invokeserver"
 
 	logrus "github.com/sirupsen/logrus"
 )
+
+// devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
+const devHTTPContractVersion = invokeserver.HTTPContractVersion
+
+// InvokeRequest represents a request to call a Forst function.
+type InvokeRequest = invokeserver.InvokeRequest
+
+// DevServerResponse represents a response to the client.
+type DevServerResponse = invokeserver.Response
 
 // devFunctionExecutor is implemented by *executor.FunctionExecutor; HTTP tests may substitute stubs.
 type devFunctionExecutor interface {
@@ -25,56 +35,68 @@ type devTypesGenerator interface {
 	GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error)
 }
 
-// devHTTPContractVersion is the normative HTTP API revision (see examples/in/rfc/typescript-client/02-forst-dev-http-contract.md).
-const devHTTPContractVersion = "1"
-
-// InvokeRequest represents a request to call a Forst function
-type InvokeRequest struct {
-	Package   string          `json:"package"`
-	Function  string          `json:"function"`
-	Args      json.RawMessage `json:"args"`
-	Streaming bool            `json:"streaming,omitempty"`
-}
-
-// DevServerResponse represents a response to the client
-type DevServerResponse struct {
-	Success bool            `json:"success"`
-	Output  string          `json:"output,omitzero"`
-	Error   string          `json:"error,omitzero"`
-	Result  json.RawMessage `json:"result,omitzero"`
-}
-
-// DevServer handles HTTP communication for Forst applications
+// DevServer handles HTTP communication for Forst applications.
 type DevServer struct {
-	port       string
-	server     *http.Server
-	compiler   *compiler.Compiler
-	log        *logrus.Logger
-	config     *ForstConfig
-	discoverer *discovery.Discoverer
-	fnExec     devFunctionExecutor
-	functions  map[string]map[string]discovery.FunctionInfo
-	mu         sync.RWMutex
-	// TypeScript generation cache
-	typesCache     map[string]string // file path -> generated types
+	invoke         *invokeserver.Server
+	devBackend     *invokeserver.DevBackend
+	host           string
+	port           string
+	server         *http.Server
+	compiler       *compiler.Compiler
+	log            *logrus.Logger
+	config         *ForstConfig
+	discoverer     *discovery.Discoverer
+	fnExec         devFunctionExecutor
+	functions      map[string]map[string]discovery.FunctionInfo
+	mu             sync.RWMutex
+	typesCache     map[string]string
 	typesCacheMu   sync.RWMutex
 	lastTypesGen   time.Time
 	typesGenerator devTypesGenerator
 }
 
-// NewHTTPServer creates a new HTTP server
+// NewHTTPServer creates a new HTTP server.
 func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *DevServer {
 	discoverer := discovery.NewDiscoverer(rootDir, log, config)
 	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, config)
+	backend := invokeserver.NewDevBackend(fnExec, discoverer)
+	listenHost := config.Server.EffectiveDevListenHost()
+	invokeCfg := invokeserver.Config{
+		Host:           listenHost,
+		Port:           port,
+		CORS:           config.Server.CORS,
+		ReadTimeout:    config.Server.ReadTimeout,
+		WriteTimeout:   config.Server.WriteTimeout,
+		MaxRequestSize: config.Server.MaxRequestSize,
+		Runtime:        "dev",
+	}
+	version := invokeserver.VersionInfo{
+		Version:         Version,
+		Commit:          Commit,
+		Date:            Date,
+		ContractVersion: devHTTPContractVersion,
+		Runtime:         "dev",
+	}
+	invokeServer := invokeserver.New(invokeCfg, backend, version, log)
 
 	return &DevServer{
+		host:       listenHost,
 		port:       port,
+		invoke:     invokeServer,
+		devBackend: backend,
+		fnExec:     fnExec,
 		compiler:   comp,
 		log:        log,
 		config:     config,
 		discoverer: discoverer,
-		fnExec:     fnExec,
 		functions:  make(map[string]map[string]discovery.FunctionInfo),
 		typesCache: make(map[string]string),
+	}
+}
+
+// setInvokeBackendForTest swaps the invoke dispatch backend (tests only).
+func (s *DevServer) setInvokeBackendForTest(backend invokeserver.DispatchBackend) {
+	if s.invoke != nil {
+		s.invoke.SetBackend(backend)
 	}
 }

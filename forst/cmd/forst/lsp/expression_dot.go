@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"forst/internal/ast"
@@ -70,7 +69,7 @@ func receiverExpressionSourceBeforeDot(tokens []ast.Token, dotIdx int) (string, 
 				start = i
 				goto done
 			}
-		case ast.TokenIdentifier, ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral,
+		case ast.TokenIdentifier, ast.TokenIntLiteral, ast.TokenFloatLiteral, ast.TokenStringLiteral, ast.TokenRuneLiteral,
 			ast.TokenTrue, ast.TokenFalse, ast.TokenNil:
 			if paren == 0 && brack == 0 && brace == 0 {
 				start = i
@@ -145,9 +144,4 @@ func memberAccessDotIndex(tokens []ast.Token, pos LSPPosition) int {
 		}
 	}
 	return -1
-}
-
-// isIdentStart reports whether r can start a Forst identifier (for simple recv fallback).
-func isIdentStart(r rune) bool {
-	return unicode.IsLetter(r) || r == '_'
 }

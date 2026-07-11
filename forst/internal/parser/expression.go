@@ -216,21 +216,11 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 	case p.current().Type == ast.TokenInt, p.current().Type == ast.TokenString,
 		p.current().Type == ast.TokenBool, p.current().Type == ast.TokenFloat:
 		typeTok := p.current()
-		typeName := typeKeywordName(typeTok)
 		p.advance()
-		if p.current().Type != ast.TokenLParen {
-			p.FailWithParseError(typeTok, "type keyword in expression requires parentheses for conversion")
+		if p.current().Type == ast.TokenLParen {
+			p.FailWithParseError(typeTok, typeTok.Value+" is a type, not a conversion; use Go stdlib (e.g. strconv) or string() for formatting")
 		}
-		lparen := p.current()
-		p.advance()
-		args, argSpans := p.parseCallArguments()
-		rparen := p.expect(ast.TokenRParen)
-		base = ast.FunctionCallNode{
-			Function:  ast.Ident{ID: ast.Identifier(typeName), Span: ast.SpanFromToken(typeTok)},
-			Arguments: args,
-			CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
-			ArgSpans:  argSpans,
-		}
+		p.FailWithParseError(typeTok, typeTok.Value+" is a type name, not an expression")
 	case p.current().Type == ast.TokenNil:
 		p.advance()
 		base = ast.NilLiteralNode{}
@@ -239,21 +229,6 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 	}
 
 	return p.parsePostfixSuffixChain(base, depth)
-}
-
-func typeKeywordName(tok ast.Token) string {
-	switch tok.Type {
-	case ast.TokenString:
-		return "String"
-	case ast.TokenInt:
-		return "Int"
-	case ast.TokenBool:
-		return "Bool"
-	case ast.TokenFloat:
-		return "Float"
-	default:
-		return tok.Value
-	}
 }
 
 // parsePostfixSuffixChain parses [index], .method(), and .field suffixes.
@@ -334,7 +309,10 @@ func (p *Parser) tryParseSliceConversion() (ast.ExpressionNode, bool) {
 		p.currentIndex = saved
 		return nil, false
 	}
-	convName := ast.Identifier("[]" + sliceConvTypeSuffix(elemType))
+	if isBuiltinTypeKeywordIdent(elemType.Ident) {
+		p.FailWithParseError(rbrack, "[]"+string(elemType.Ident)+" is not a slice conversion; use Go stdlib or []byte(s) for string-to-bytes")
+	}
+	convName := ast.Identifier("[]" + string(elemType.Ident))
 	lparen := p.current()
 	p.advance()
 	args, argSpans := p.parseCallArguments()
@@ -347,17 +325,11 @@ func (p *Parser) tryParseSliceConversion() (ast.ExpressionNode, bool) {
 	}, true
 }
 
-func sliceConvTypeSuffix(t ast.TypeNode) string {
-	switch t.Ident {
-	case ast.TypeString:
-		return "String"
-	case ast.TypeInt:
-		return "Int"
-	case ast.TypeBool:
-		return "Bool"
-	case ast.TypeFloat:
-		return "Float"
+func isBuiltinTypeKeywordIdent(ident ast.TypeIdent) bool {
+	switch ident {
+	case ast.TypeInt, ast.TypeString, ast.TypeFloat, ast.TypeBool:
+		return true
 	default:
-		return string(t.Ident)
+		return false
 	}
 }

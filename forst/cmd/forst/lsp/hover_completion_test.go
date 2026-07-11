@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,9 @@ import (
 	"unicode/utf8"
 
 	"forst/internal/ast"
+	"forst/internal/lexer"
 	"forst/internal/typechecker"
+	"forst/internal/testutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -78,7 +81,7 @@ func main() {
 	}
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -132,7 +135,7 @@ func main() {
 	println(errMove.Error())
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -330,7 +333,7 @@ func TestLexicalHoverMarkdown_keywordAndIdentifier(t *testing.T) {
 		t.Fatalf("keyword: got %q", s)
 	}
 	id := &ast.Token{Type: ast.TokenIdentifier, Value: "foo"}
-	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "`foo`") || !strings.Contains(s, "parses") {
+	if s := lexicalHoverMarkdown(id); !strings.Contains(s, "```ft") || !strings.Contains(s, "foo") || !strings.Contains(s, "parses") {
 		t.Fatalf("identifier: got %q", s)
 	}
 	if s := lexicalHoverMarkdown(&ast.Token{Type: ast.TokenIntLiteral, Value: "1"}); s != "" {
@@ -368,7 +371,7 @@ func TestFindHoverForPosition_parseError_keywordHover(t *testing.T) {
 	}
 	// Line 2: `unexpected` — lexical identifier hover
 	h := s.findHoverForPosition(uri, LSPPosition{Line: 2, Character: 2})
-	if h == nil || !strings.Contains(h.Contents.Value, "`unexpected`") {
+	if h == nil || !strings.Contains(h.Contents.Value, "```ft") || !strings.Contains(h.Contents.Value, "unexpected") {
 		if h == nil {
 			t.Fatal("expected hover when parse fails")
 		}
@@ -1070,7 +1073,7 @@ func main() {
 	println(Contains("a", "b"))
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1168,7 +1171,7 @@ func main() {
 	f.Println("x")
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1215,7 +1218,7 @@ func main() {
 	println(strings.Contains("a", "b"))
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1328,7 +1331,7 @@ func expireToken() {
 	use logger: Logger
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1389,7 +1392,7 @@ func TestNestedWith(t *testing.T) {
 	}
 }
 `
-	_, uri := sharedImportTestFile(t, sharedImportTestFileName(t, ".ft"), src)
+	_, uri := importTestModuleFile(t, sharedImportTestFileName(t, ".ft"), src)
 	s := NewLSPServer("8080", logrus.New())
 	s.documentMu.Lock()
 	s.openDocuments[uri] = src
@@ -1426,7 +1429,7 @@ func TestNestedWith(t *testing.T) {
 		t.Fatal("nil hover on inner with")
 	}
 	val := h.Contents.Value
-	if !strings.Contains(val, "**Effective scope:**") {
+	if !strings.Contains(val, "Effective scope") || !strings.Contains(val, "```ft") {
 		t.Fatalf("expected effective scope hover, got %q", val)
 	}
 	if !strings.Contains(val, "Logger") || !strings.Contains(val, "Clock") {
@@ -1492,5 +1495,164 @@ func run() {
 	val := h.Contents.Value
 	if !strings.Contains(val, "send") || !strings.Contains(val, "Messenger") {
 		t.Fatalf("expected contract method hover, got %q", val)
+	}
+}
+
+func TestNodeHoverFromImportAlias_matchesUsageHover(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "payment.ts")
+	if err := os.WriteFile(tsFile, []byte(`export function create(amount: number, currency: string) {
+  return { id: "pay_1", amount, currency };
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	const src = `package main
+import node payment "./legacy/payment"
+func main() {
+  payment.create(1.0, "USD")
+}
+`
+	tc, _ := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tokens := lexer.New([]byte(src), "main.ft", logrus.New()).Lex()
+
+	var importPaymentTok, usagePaymentTok *ast.Token
+	for i := range tokens {
+		tok := &tokens[i]
+		if tok.Type != ast.TokenIdentifier || tok.Value != "payment" {
+			continue
+		}
+		idx := tokenSliceIndex(tokens, tok)
+		if nodeImportAliasBindingAt(tokens, idx) {
+			importPaymentTok = tok
+			continue
+		}
+		if idx+1 < len(tokens) && tokens[idx+1].Type == ast.TokenDot {
+			usagePaymentTok = tok
+		}
+	}
+	if importPaymentTok == nil {
+		t.Fatal("missing payment token in import clause")
+	}
+	if usagePaymentTok == nil {
+		t.Fatal("missing payment token in usage")
+	}
+
+	importHover := nodeHoverFromQualifiedNodeIdentifier(tc, tokens, importPaymentTok)
+	usageHover := nodeHoverFromQualifiedNodeIdentifier(tc, tokens, usagePaymentTok)
+	if importHover == "" {
+		t.Fatal("expected hover on payment in import clause")
+	}
+	if usageHover == "" {
+		t.Fatal("expected hover on payment in usage")
+	}
+	if importHover != usageHover {
+		t.Fatalf("import hover %q != usage hover %q", importHover, usageHover)
+	}
+	for _, want := range []string{"module payment", "```typescript"} {
+		if !strings.Contains(importHover, want) {
+			t.Fatalf("hover missing %q:\n%s", want, importHover)
+		}
+	}
+	if strings.Contains(importHover, "export function create") {
+		t.Fatalf("module alias hover should not list exports:\n%s", importHover)
+	}
+}
+
+func TestNodeHoverFromImportPathString_absolutePath(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "payment.ts")
+	if err := os.WriteFile(tsFile, []byte(`export function create() { return { id: "pay_1" }; }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	const src = `package main
+import node "./legacy/payment"
+func main() {}
+`
+	tc, _ := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tokens := lexer.New([]byte(src), "main.ft", logrus.New()).Lex()
+
+	var pathTok *ast.Token
+	for i := range tokens {
+		tok := &tokens[i]
+		if tok.Type == ast.TokenStringLiteral && tok.Value == `"./legacy/payment"` {
+			pathTok = tok
+			break
+		}
+	}
+	if pathTok == nil {
+		t.Fatal("missing import path string token")
+	}
+	hover := goHoverFromImportString(tc, tokens, pathTok)
+	wantPath := filepath.ToSlash(filepath.Join(root, "legacy", "payment"))
+	if !strings.Contains(hover, fmt.Sprintf(`module "%s"`, wantPath)) || !strings.Contains(hover, "```typescript") {
+		t.Fatalf("expected absolute module path hover, got %q", hover)
+	}
+}
+
+func TestNodeHoverFromExportAlias_signatureOnly(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "payment.ts")
+	if err := os.WriteFile(tsFile, []byte(`export function create(amount: number, currency: string) {
+  return { id: "pay_1", amount, currency };
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	const src = `package main
+import node "./legacy/payment"
+func main() {
+  payment.create(1.0, "USD")
+}
+`
+	tc, _ := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tokens := lexer.New([]byte(src), "main.ft", logrus.New()).Lex()
+
+	var createTok *ast.Token
+	for i := range tokens {
+		tok := &tokens[i]
+		if tok.Type == ast.TokenIdentifier && tok.Value == "create" &&
+			i >= 2 && tokens[i-1].Type == ast.TokenDot && tokens[i-2].Value == "payment" {
+			createTok = tok
+			break
+		}
+	}
+	if createTok == nil {
+		t.Fatal("missing create token")
+	}
+	hover := nodeHoverFromQualifiedNodeIdentifier(tc, tokens, createTok)
+	if !strings.Contains(hover, "(alias)") || !strings.Contains(hover, "function create") {
+		t.Fatalf("expected alias export hover, got %q", hover)
+	}
+	if strings.Contains(hover, "module ") {
+		t.Fatalf("export hover should not include module path: %q", hover)
 	}
 }

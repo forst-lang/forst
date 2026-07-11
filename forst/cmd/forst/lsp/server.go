@@ -14,8 +14,6 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/httpbody"
-	"forst/internal/lexer"
-	"forst/internal/parser"
 	transformer_go "forst/internal/transformer/go"
 
 	"github.com/sirupsen/logrus"
@@ -328,189 +326,50 @@ func (s *LSPServer) handlePublishDiagnostics(request LSPRequest) LSPServerRespon
 
 // compileForstFile compiles a Forst file and returns diagnostics
 func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSPDiagnostic {
-	// Add panic recovery to prevent LSP server crashes
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.Errorf("Panic in compileForstFile for %s: %v", filePath, r)
 		}
 	}()
 
-	// Clear previous debug events for this file
 	s.debugEvents = make([]DebugEvent, 0)
 	if cd, ok := s.debugger.(*CompilerDebugger); ok {
 		cd.ResetStructuredOutputs()
 	}
 
-	// Get file ID from package store
-	packageStore := s.debugger.(*CompilerDebugger).packageStore
-	fileID := packageStore.RegisterFile(filePath, extractPackagePath(filePath))
-
-	// Lexical analysis
-	lex := lexer.New([]byte(content), string(fileID), s.log)
-	tokens := lex.Lex()
-
-	// Log detailed lexer information
-	lexerDebugger := s.debugger.GetDebugger(PhaseLexer, filePath)
-	lexerDebugger.LogEvent(EventLexerComplete, "Lexical analysis completed", map[string]any{
-		"token_count": len(tokens),
-		"file_id":     fileID,
-		"tokens":      tokens,
-	})
-
-	// Capture lexer debug events
-	if lexerOutput, err := lexerDebugger.GetOutput(); err == nil {
-		var lexerEvents []DebugEvent
-		if json.Unmarshal(lexerOutput, &lexerEvents) == nil {
-			s.debugEvents = append(s.debugEvents, lexerEvents...)
-		}
+	ctx, ok := s.analyzeForstContent(filePath, content)
+	if !ok || ctx == nil {
+		return nil
 	}
-
-	// Parsing with panic recovery
-	psr := parser.New(tokens, string(fileID), s.log)
-	var astNodes []ast.Node
-	var err error
-
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				s.log.Errorf("Parser panic for %s: %v", filePath, r)
-				if pe, ok := r.(*parser.ParseError); ok {
-					// Preserve *ParseError so LSP diagnostics get token line/column (fmt.Errorf would stringify it).
-					err = pe
-				} else {
-					err = fmt.Errorf("parser panic: %v", r)
-				}
-			}
-		}()
-		astNodes, err = psr.ParseFile()
-	}()
-
-	if err != nil {
-		diagnostic := diagnosticForParseFailure(fileURIForLocalPath(filePath), content, err)
-
-		// Log parser error event
+	if ctx.ParseErr != nil {
+		diagnostic := diagnosticForParseFailure(fileURIForLocalPath(filePath), content, ctx.ParseErr)
 		parserDebugger := s.debugger.GetDebugger(PhaseParser, filePath)
 		parserDebugger.LogError(EventParserError, "Parsing failed", &ErrorInfo{
 			Code:     ErrorCodeInvalidSyntax,
-			Message:  err.Error(),
+			Message:  ctx.ParseErr.Error(),
 			Severity: SeverityError,
-			Suggestions: []string{
-				"Check syntax for missing brackets, parentheses, or semicolons",
-				"Verify all keywords are properly spelled",
-				"Ensure proper indentation and structure",
-			},
 		})
-
 		return []LSPDiagnostic{diagnostic}
 	}
-
-	// Log detailed parser information
-	parserDebugger := s.debugger.GetDebugger(PhaseParser, filePath)
-	parserDebugger.LogEvent(EventParserComplete, "Parsing completed", map[string]any{
-		"node_count": len(astNodes),
-		"file":       filePath,
-		"ast_nodes":  astNodes,
-	})
-
-	// Capture parser debug events
-	if parserOutput, err := parserDebugger.GetOutput(); err == nil {
-		var parserEvents []DebugEvent
-		if json.Unmarshal(parserOutput, &parserEvents) == nil {
-			s.debugEvents = append(s.debugEvents, parserEvents...)
-		}
-	}
-
-	// Type checking with detailed error capture
-	tc, err := typecheckForLSP(s.log, filePath, astNodes)
-	if err != nil {
-		diagnostic := diagnosticForTypecheckError(fileURIForLocalPath(filePath), content, err, "forst-typechecker", ErrorCodeTypeMismatch)
-		diagnostic.Message = fmt.Sprintf("Type checking error: %v", err)
-
-		// Log typechecker error event with detailed information
+	if ctx.CheckErr != nil {
+		diagnostic := diagnosticForTypecheckError(fileURIForLocalPath(filePath), content, ctx.CheckErr, "forst-typechecker", ErrorCodeTypeMismatch)
+		diagnostic.Message = fmt.Sprintf("Type checking error: %v", ctx.CheckErr)
 		typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
 		typecheckerDebugger.LogError(EventTypeError, "Type checking failed", &ErrorInfo{
 			Code:     ErrorCodeTypeMismatch,
-			Message:  err.Error(),
+			Message:  ctx.CheckErr.Error(),
 			Severity: SeverityError,
-			Suggestions: []string{
-				"Check variable types and declarations",
-				"Verify function signatures match call sites",
-				"Ensure all types are properly defined",
-				"Check for type assertion issues",
-			},
 		})
-
-		// Add typechecker state information
-		typecheckerDebugger.LogScope(EventScopeEntered, "Current scope at error", &ScopeInfo{
-			FunctionName: "unknown",
-			Variables:    convertVariableTypes(tc.VariableTypes),
-			Types:        make(map[string]string),
-			Stack:        []string{"global"},
-		})
-
+		if ctx.TC != nil {
+			typecheckerDebugger.LogScope(EventScopeEntered, "Current scope at error", &ScopeInfo{
+				Variables: convertVariableTypes(ctx.TC.VariableTypes),
+				Types:   make(map[string]string),
+				Stack:   []string{"global"},
+			})
+		}
 		return []LSPDiagnostic{diagnostic}
 	}
-
-	// Log detailed typechecker information
-	typecheckerDebugger := s.debugger.GetDebugger(PhaseTypechecker, filePath)
-	typecheckerDebugger.LogEvent(EventTypecheckerComplete, "Type checking completed", map[string]any{
-		"file":           filePath,
-		"inferred_types": tc.InferredTypes,
-		"variable_types": convertVariableTypes(tc.VariableTypes),
-		"function_types": tc.FunctionReturnTypes,
-		"type_defs":      tc.Defs,
-	})
-
-	// Capture typechecker debug events
-	if typecheckerOutput, err := typecheckerDebugger.GetOutput(); err == nil {
-		var typecheckerEvents []DebugEvent
-		if json.Unmarshal(typecheckerOutput, &typecheckerEvents) == nil {
-			s.debugEvents = append(s.debugEvents, typecheckerEvents...)
-		}
-	}
-
-	// Code transformation with detailed error capture
-	transformer := transformer_go.New(tc, s.log, false)
-	_, err = transformer.TransformForstFileToGo(astNodes)
-	if err != nil {
-		diagnostic := diagnosticForTypecheckOrTransform(fileURIForLocalPath(filePath), content, err, "forst-transformer", ErrorCodeTransformationFailed)
-		diagnostic.Message = fmt.Sprintf("Transformation error: %v", err)
-
-		// Log transformer error event
-		transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
-		transformerDebugger.LogError(EventTransformerError, "Code transformation failed", &ErrorInfo{
-			Code:     ErrorCodeTransformationFailed,
-			Message:  err.Error(),
-			Severity: SeverityError,
-			Suggestions: []string{
-				"Check for unsupported language constructs",
-				"Verify type definitions are complete",
-				"Ensure all referenced types are defined",
-				"Check for recursive type definitions",
-			},
-		})
-
-		return []LSPDiagnostic{diagnostic}
-	}
-
-	// Log detailed transformer information
-	transformerDebugger := s.debugger.GetDebugger(PhaseTransformer, filePath)
-	transformerDebugger.LogEvent(EventTransformerComplete, "Code transformation completed", map[string]any{
-		"file":               filePath,
-		"transformer_status": "completed",
-	})
-
-	// Capture transformer debug events
-	if transformerOutput, err := transformerDebugger.GetOutput(); err == nil {
-		var transformerEvents []DebugEvent
-		if json.Unmarshal(transformerOutput, &transformerEvents) == nil {
-			s.debugEvents = append(s.debugEvents, transformerEvents...)
-		}
-	}
-
-	// Process debug events and convert to LSP diagnostics
-	_ = s.lspDebugger.ProcessDebugEvents()
-	return s.lspDebugger.GetDiagnostics()
+	return s.transformDiagnostics(ctx, filePath)
 }
 
 // compileForstFilePackageGroup runs typecheck/transform on the merged same-package AST when multiple

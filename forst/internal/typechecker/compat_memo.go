@@ -24,7 +24,7 @@ func typeNodeCompatKey(t ast.TypeNode) string {
 	var b strings.Builder
 	b.WriteString(string(t.Ident))
 	b.WriteByte(':')
-	b.WriteString(fmt.Sprint(t.TypeKind))
+	fmt.Fprint(&b, t.TypeKind)
 	if t.Assertion != nil && t.Assertion.BaseType != nil {
 		b.WriteByte('@')
 		b.WriteString(string(*t.Assertion.BaseType))

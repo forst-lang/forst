@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-//go:embed testdata/typescript/forst-sidecar.d.ts testdata/typescript/node-process-shim.d.ts
+//go:embed testdata/typescript/forst-sidecar.d.ts testdata/typescript/forst-client.d.ts testdata/typescript/node-process-shim.d.ts
 var tsE2EStubs embed.FS
 
 func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
@@ -96,7 +96,7 @@ func copyTSE2EStubs(projectRoot string) error {
 	if err := os.MkdirAll(stubsDir, 0755); err != nil {
 		return err
 	}
-	for _, name := range []string{"forst-sidecar.d.ts", "node-process-shim.d.ts"} {
+	for _, name := range []string{"forst-sidecar.d.ts", "forst-client.d.ts", "node-process-shim.d.ts"} {
 		b, err := tsE2EStubs.ReadFile(filepath.Join("testdata/typescript", name))
 		if err != nil {
 			return err
@@ -138,6 +138,7 @@ func writeTSConfig(projectRoot string) error {
 			Types:            []string{},
 			Paths: map[string][]string{
 				"@forst/sidecar": {"./stubs/forst-sidecar.d.ts"},
+				"@forst/client":  {"./stubs/forst-client.d.ts"},
 			},
 		},
 		Include: []string{

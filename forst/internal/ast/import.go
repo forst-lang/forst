@@ -13,6 +13,13 @@ type ImportNode struct {
 	// Indicates if this is a blank import (import _ "pkg")
 	// used only for its initialization side effects
 	SideEffectOnly bool
+
+	// NodeOptIn marks this import as opted in to Node/TypeScript interop.
+	NodeOptIn bool
+	// NodeOptInSource records how opt-in was declared:
+	// "import_node" (import node "..." or import node alias "..."),
+	// "implicit_policy" (ftconfig implicit import policy), or "" when not opted in.
+	NodeOptInSource string
 }
 
 // Kind returns the node kind for imports

@@ -302,28 +302,28 @@ func (ld *LSPDebugger) ConvertDebugEventToHover(event DebugEvent) LSPHover {
 	fmt.Fprintf(&content, "**Message:** %s\n", event.Message)
 
 	if event.Function != "" {
-		content.WriteString(fmt.Sprintf("**Function:** %s\n", event.Function))
+		fmt.Fprintf(&content, "**Function:** %s\n", event.Function)
 	}
 
 	if event.TypeInfo != nil {
-		content.WriteString(fmt.Sprintf("**Expected Type:** %s\n", event.TypeInfo.ExpectedType))
-		content.WriteString(fmt.Sprintf("**Actual Type:** %s\n", event.TypeInfo.ActualType))
-		content.WriteString(fmt.Sprintf("**Inferred Type:** %s\n", event.TypeInfo.InferredType))
+		fmt.Fprintf(&content, "**Expected Type:** %s\n", event.TypeInfo.ExpectedType)
+		fmt.Fprintf(&content, "**Actual Type:** %s\n", event.TypeInfo.ActualType)
+		fmt.Fprintf(&content, "**Inferred Type:** %s\n", event.TypeInfo.InferredType)
 	}
 
 	if event.Scope != nil {
-		content.WriteString(fmt.Sprintf("**Function:** %s\n", event.Scope.FunctionName))
+		fmt.Fprintf(&content, "**Function:** %s\n", event.Scope.FunctionName)
 		content.WriteString("**Variables:**\n")
 		for name, typeName := range event.Scope.Variables {
-			content.WriteString(fmt.Sprintf("  - %s: %s\n", name, typeName))
+			fmt.Fprintf(&content, "  - %s: %s\n", name, typeName)
 		}
 	}
 
 	if event.Error != nil {
-		content.WriteString(fmt.Sprintf("**Error:** %s\n", event.Error.Message))
+		fmt.Fprintf(&content, "**Error:** %s\n", event.Error.Message)
 		content.WriteString("**Suggestions:**\n")
 		for _, suggestion := range event.Error.Suggestions {
-			content.WriteString(fmt.Sprintf("  - %s\n", suggestion))
+			fmt.Fprintf(&content, "  - %s\n", suggestion)
 		}
 	}
 
@@ -585,14 +585,14 @@ func CreateTypeErrorDiagnostic(fileURI string, line int, expectedType, actualTyp
 // CreateFunctionHover creates an LSP hover for function information.
 func CreateFunctionHover(_ string, line int, functionName string, parameters, returnTypes []string) LSPHover {
 	var content strings.Builder
-	content.WriteString(fmt.Sprintf("**Function:** %s\n\n", functionName))
-	content.WriteString(fmt.Sprintf("**Parameters:** %d\n", len(parameters)))
+	fmt.Fprintf(&content, "**Function:** %s\n\n", functionName)
+	fmt.Fprintf(&content, "**Parameters:** %d\n", len(parameters))
 	for _, param := range parameters {
-		content.WriteString(fmt.Sprintf("  - %s\n", param))
+		fmt.Fprintf(&content, "  - %s\n", param)
 	}
-	content.WriteString(fmt.Sprintf("**Return Types:** %d\n", len(returnTypes)))
+	fmt.Fprintf(&content, "**Return Types:** %d\n", len(returnTypes))
 	for _, retType := range returnTypes {
-		content.WriteString(fmt.Sprintf("  - %s\n", retType))
+		fmt.Fprintf(&content, "  - %s\n", retType)
 	}
 
 	return LSPHover{

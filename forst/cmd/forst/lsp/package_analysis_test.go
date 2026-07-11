@@ -179,7 +179,7 @@ func TestReadForstFilePrefix_truncatesLargeFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	head, err := readForstFilePrefixFromRoot(root, "big.ft", 64*1024)
 	if err != nil {
 		t.Fatal(err)

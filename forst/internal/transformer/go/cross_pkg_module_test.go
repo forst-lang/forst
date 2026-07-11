@@ -57,7 +57,7 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-func transformApiPackage(t *testing.T, moduleRoot string) string {
+func transformAPIPackage(t *testing.T, moduleRoot string) string {
 	t.Helper()
 	modResult, err := modulecheck.CheckModuleProviders(nil, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err != nil {
@@ -91,7 +91,7 @@ func TestCrossPkgModule_HandleForwardsProvidersToAlpha(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	writeCrossPkgModule(t, dir)
-	out := transformApiPackage(t, dir)
+	out := transformAPIPackage(t, dir)
 	for _, sub := range []string{
 		`func HandleRequest(providers`,
 		`Providers_`,

@@ -36,6 +36,7 @@ The header grammar is always `type` → optional `(scope)` → optional `!` → 
    - **Breaking change footer** (optional but use when migration detail does not fit the title): after a blank line following the body, add a line whose token is exactly **`BREAKING CHANGE:`** (uppercase words, ASCII colon, single space) then the explanation, e.g. `BREAKING CHANGE: config field X was renamed to Y`. The spec treats **`BREAKING-CHANGE:`** as an equivalent footer token.
    - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`
    - The `scope` is optional but should be concise (e.g., `typechecker`, `compiler`).
+   - Do not include multiple scopes.
 
 3. **Body** (when useful): Describe motivation, behavior, and rationale. Do not simply repeat the title. If the commit uses `!` in the header but no `BREAKING CHANGE:` footer, the **title line’s description** should still make the break clear (per the spec). Prefer a `BREAKING CHANGE:` footer when you need migration steps or multi-sentence detail.
 

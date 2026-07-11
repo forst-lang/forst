@@ -1,16 +1,12 @@
 package modulecheck
 
 import (
-	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"forst/internal/ast"
-	"forst/internal/forstpkg"
 	"forst/internal/goload"
-	"forst/internal/providersgraph"
 	"forst/internal/typechecker"
 
 	"github.com/sirupsen/logrus"
@@ -21,6 +17,14 @@ type Options struct {
 	ModuleRoot string
 	// PackageFilter limits to these Forst package names; empty means all packages under ModuleRoot.
 	PackageFilter map[string]struct{}
+	// SkipGoLoad skips go/packages batch load (Forst-only provider tests).
+	SkipGoLoad bool
+	// SkipValidate skips final ValidateModuleProviders (infer/merge-only tests).
+	SkipValidate bool
+	// ParsedFiles bypasses disk walk when non-nil (path -> AST nodes).
+	ParsedFiles map[string][]ast.Node
+	// GoLoader overrides go/packages load for tests; nil uses default.
+	GoLoader goload.PackagesLoader
 }
 
 // ModuleResult holds per-package typecheckers after module-level Providers merge.
@@ -35,142 +39,7 @@ type ModuleResult struct {
 
 // CheckModuleProviders typechecks all Forst packages in a module and runs cross-package fixed-point.
 func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, error) {
-	if log == nil {
-		log = logrus.New()
-		log.SetOutput(io.Discard)
-	}
-	scanRoot := filepath.Clean(opts.ModuleRoot)
-	moduleRoot := goload.FindModuleRoot(scanRoot)
-	modulePath := goload.ModulePath(moduleRoot)
-
-	ftFiles, err := findForstFiles(scanRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	parsed := make(map[string][]ast.Node)
-	for _, filePath := range ftFiles {
-		nodes, err := forstpkg.ParseForstFile(log, filePath)
-		if err != nil {
-			continue
-		}
-		parsed[filePath] = nodes
-	}
-
-	byPackage := make(map[string][]string)
-	for path, nodes := range parsed {
-		pkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(nodes))
-		if opts.PackageFilter != nil {
-			if _, ok := opts.PackageFilter[pkg]; !ok {
-				continue
-			}
-		}
-		byPackage[pkg] = append(byPackage[pkg], path)
-	}
-
-	result := &ModuleResult{
-		ModuleRoot:      moduleRoot,
-		ModulePath:      modulePath,
-		importPathMap:   forstpkg.BuildForstPackageImportPaths(moduleRoot, modulePath, byPackage),
-		ForstPkgToFiles: byPackage,
-		PerPackage:      make(map[string]*typechecker.TypeChecker),
-		PerPackageNodes: make(map[string][]ast.Node),
-	}
-
-	perPkgProviders := make(map[string]map[ast.Identifier][]typechecker.ProviderSlot)
-
-	packageNames := make([]string, 0, len(byPackage))
-	for name := range byPackage {
-		packageNames = append(packageNames, name)
-	}
-	sort.Strings(packageNames)
-
-	mergedByPkg := make(map[string][]ast.Node, len(packageNames))
-	for _, packageName := range packageNames {
-		paths := byPackage[packageName]
-		sort.Strings(paths)
-		var astLists [][]ast.Node
-		for _, p := range paths {
-			astLists = append(astLists, parsed[p])
-		}
-		mergedByPkg[packageName] = forstpkg.MergePackageASTs(astLists)
-	}
-
-	for _, packageName := range packageNames {
-		tc := typechecker.New(log, false)
-		tc.GoWorkspaceDir = moduleRoot
-		tc.SetForstPackage(packageName)
-		tc.SetDeferProvidersWiringRootCheck(true)
-		if importPath := result.ImportPathForForstPackage(packageName); importPath != "" {
-			tc.SetSamePackageGoImportPath(importPath)
-		}
-		tc.SetModuleResult(result)
-		result.PerPackage[packageName] = tc
-		result.PerPackageNodes[packageName] = mergedByPkg[packageName]
-	}
-
-	for _, packageName := range packageNames {
-		if err := result.PerPackage[packageName].CollectTypes(mergedByPkg[packageName]); err != nil {
-			return nil, err
-		}
-	}
-
-	tcs := make([]*typechecker.TypeChecker, 0, len(packageNames))
-	for _, packageName := range packageNames {
-		tcs = append(tcs, result.PerPackage[packageName])
-	}
-	loaded, err := typechecker.BatchLoadGoPackagesForModule(moduleRoot, tcs)
-	if err != nil {
-		log.WithError(err).Debug("module-wide go/packages batch load failed; Forst↔Go boundary checks may be skipped")
-	}
-	for _, tc := range tcs {
-		tc.InitGoPackagesFromBatch(loaded)
-	}
-
-	for _, packageName := range packageNames {
-		tc := result.PerPackage[packageName]
-		if err := tc.InferTypes(mergedByPkg[packageName]); err != nil {
-			return nil, err
-		}
-		perPkgProviders[packageName] = cloneSlots(tc.FunctionProviders)
-	}
-
-	typechecker.MergeModuleKnownRoots(result.PerPackage)
-	if err := revalidateDeferredWiringKeys(result.PerPackage); err != nil {
-		return nil, err
-	}
-
-	moduleGraph := providersgraph.NewModuleGraph(perPkgProviders)
-	for packageName, tc := range result.PerPackage {
-		for _, call := range typechecker.BuildModuleCrossCalls(packageName, tc, result.importPathMap) {
-			moduleGraph.AddModuleCall(call)
-		}
-	}
-
-	satisfies := providersgraph.ProviderScopeKeyPresent
-	if len(result.PerPackage) > 0 {
-		for _, tc := range result.PerPackage {
-			satisfies = typechecker.ModuleSatisfiesFromTypeChecker(tc)
-			break
-		}
-	}
-	moduleGraph.ComputeFixedPoint(satisfies)
-
-	for packageName, tc := range result.PerPackage {
-		slots := moduleGraph.PerPackage(packageName)
-		tc.SetFunctionProviders(slots)
-		tc.FunctionProviders = slots
-		perPkgProviders[packageName] = slots
-		tc.RevalidateUnusedWiringKeysAfterModuleMerge()
-	}
-
-	for packageName, tc := range result.PerPackage {
-		if err := typechecker.ValidateModuleProviders(packageName, tc, result.importPathMap, perPkgProviders); err != nil {
-			return result, err
-		}
-	}
-
-	return result, nil
+	return runModulePipeline(log, opts)
 }
 
 // ImportPathToForstPkg returns the import path → Forst package map.
@@ -215,6 +84,10 @@ func findForstFiles(root string) ([]string, error) {
 			}
 			if path != root {
 				if _, statErr := os.Stat(filepath.Join(path, "go.mod")); statErr == nil {
+					return filepath.SkipDir
+				}
+				// Nested ftconfig.json marks an isolated project boundary (node-interop, tictactoe, …).
+				if _, statErr := os.Stat(filepath.Join(path, "ftconfig.json")); statErr == nil {
 					return filepath.SkipDir
 				}
 			}

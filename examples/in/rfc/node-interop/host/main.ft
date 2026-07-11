@@ -1,0 +1,14 @@
+package main
+
+import node "./legacy/counter"
+import "strconv"
+
+func main() {
+	first := counter.inc()
+	ensure first is Ok()
+	println(strconv.FormatFloat(first, 'f', 0, 64))
+
+	second := counter.inc()
+	ensure second is Ok()
+	println(strconv.FormatFloat(second, 'f', 0, 64))
+}

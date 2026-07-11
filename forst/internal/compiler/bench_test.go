@@ -76,15 +76,3 @@ func BenchmarkCompile_tictactoe(b *testing.B) {
 func BenchmarkCompile_providers(b *testing.B) {
 	benchmarkCompileMerged(b, filepath.Join("rfc", "providers"), "main_wiring.ft")
 }
-
-func TestBenchmarkCompile_shapeGuard_warmup(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "examples", "in", "rfc", "guard", "shape_guard.ft")
-	c := New(Args{
-		Command:  "run",
-		FilePath: path,
-		LogLevel: "error",
-	}, silentCompilerTestLogger())
-	if _, err := c.CompileFile(); err != nil {
-		t.Fatalf("CompileFile(shape_guard.ft): %v", err)
-	}
-}

@@ -17,6 +17,7 @@ import (
 )
 
 func TestGoPackageForImportLocal_lazyLoadsWhenBatchMapEmpty(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -38,6 +39,7 @@ func TestGoPackageForImportLocal_lazyLoadsWhenBatchMapEmpty(t *testing.T) {
 }
 
 func TestGoQualifiedCall_stringsNewReader_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -66,6 +68,7 @@ func main() {
 }
 
 func TestGoQualifiedCall_wrongArgType(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	// Use crypto/md5 (not in BuiltinFunctions): wrong arg types must fail via go/types or unknown identifier.
 	src := "package main\nimport \"crypto/md5\"\nfunc main() {\n  md5.Sum(1)\n}\n"
@@ -92,6 +95,7 @@ func TestGoQualifiedCall_wrongArgType(t *testing.T) {
 }
 
 func TestGoQualifiedCall_twoValueErrorFoldsToResult(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 import "strconv"
@@ -153,6 +157,7 @@ func main() {
 }
 
 func TestGoRegularImport_stringsQualifiedCall_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -211,6 +216,7 @@ func main() {
 }
 
 func TestGoRegularImport_aliasedQualifiedCall_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -245,6 +251,7 @@ func main() {
 }
 
 func TestGoDotImport_unqualifiedCall(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -273,6 +280,7 @@ func main() {
 }
 
 func TestGoQualifiedCall_twoValueAssignmentUnfoldsToPair(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 import "strconv"
@@ -349,6 +357,7 @@ func main() {
 }
 
 func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
 	tc := New(log, false)
@@ -380,6 +389,7 @@ func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
 }
 
 func TestCheckGoSignature_foldsPairIntErrorNoTuple(t *testing.T) {
+	t.Parallel()
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
 	tc := New(log, false)
@@ -428,6 +438,7 @@ func TestGoPackageForImportLocal_returnsNilWhenUnknownLocal(t *testing.T) {
 }
 
 func TestGoTypeAtFieldPath_netURLPathField(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"net/url"})
 	if err != nil || len(loaded) == 0 {
@@ -461,6 +472,7 @@ func TestGoTypeAtFieldPath_netURLPathField(t *testing.T) {
 }
 
 func TestGoTypeToForstType_namedGoTypeMapsToImplicit(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
 	if err != nil || len(loaded) == 0 {
@@ -502,6 +514,7 @@ func TestGoTypeToForstType_emptyInterfaceMapsToImplicit(t *testing.T) {
 }
 
 func TestGoMethodCall_sliceResult_stringsJoin_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -579,6 +592,7 @@ func main() {
 }
 
 func TestVariableGoTypes_twoValueOpenThenPostfixMethodCall_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -616,6 +630,7 @@ func main() {
 }
 
 func TestGoMethodCall_postfixOnQualifiedCall_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -666,6 +681,7 @@ func main() {
 }
 
 func TestGoMethodCall_missingMethodOnTrackedReceiver_errors(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -713,6 +729,7 @@ func TestForstAssignableToGoType_implicitRejectsUnmappedGoParam(t *testing.T) {
 }
 
 func TestForstAssignableToGoType_implicitAssignsToGoSliceParam(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
 	if err != nil || len(loaded) == 0 {
@@ -740,6 +757,7 @@ func TestForstAssignableToGoType_implicitAssignsToGoSliceParam(t *testing.T) {
 }
 
 func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"io"})
 	if err != nil || len(loaded) == 0 {
@@ -765,6 +783,7 @@ func TestForstAssignableToGoType_opaquePointerSatisfiesIOReader(t *testing.T) {
 }
 
 func TestLookupGoImportedPackageSelector_osArgs(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -826,6 +845,7 @@ func main() {
 }
 
 func TestSamePackageGoCall_wrongArgType_returnsDiagnostic(t *testing.T) {
+	t.Parallel()
 	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
 	src := `package memos
 
@@ -889,6 +909,7 @@ func main() {
 }
 
 func TestSamePackageGoCall_unexportedGoFunc_notFound(t *testing.T) {
+	t.Parallel()
 	root, importPath := testutil.WriteMixedGoForstModule(t, "memos")
 	src := `package memos
 
@@ -914,6 +935,7 @@ func main() {
 }
 
 func TestGoTypeForQualifiedImportTypeIdent_testingT(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -943,12 +965,14 @@ func TestDemo(t *testing.T) {}
 }
 
 func TestCheckTypes_testingTParamBindsVariableGoType(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
 import "testing"
 
 func TestDemo(t *testing.T) {
+	t.Parallel()
 	t.Helper()
 }
 `
@@ -970,6 +994,7 @@ func TestDemo(t *testing.T) {
 }
 
 func TestGoQualifiedCall_osGetwd_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -999,6 +1024,7 @@ func main() {
 }
 
 func TestGoQualifiedCall_execCommand_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -1028,6 +1054,7 @@ func main() {
 }
 
 func TestCheckTypes_nestedProbeExecFt(t *testing.T) {
+	t.Parallel()
 	_, execPath := testutil.WriteProbeModuleFixture(t, false)
 	src, err := os.ReadFile(execPath)
 	if err != nil {
@@ -1051,6 +1078,7 @@ func TestCheckTypes_nestedProbeExecFt(t *testing.T) {
 }
 
 func TestGoQualifiedCall_execCommand_afterMarkedPreloadedWithoutPackages_stillResolves(t *testing.T) {
+	t.Parallel()
 	src := testutil.ProbeExecFtSource
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -1080,6 +1108,7 @@ func TestGoQualifiedCall_execCommand_afterMarkedPreloadedWithoutPackages_stillRe
 }
 
 func TestGoQualifiedCall_importedGoPackageWithoutWorkspace_typechecks(t *testing.T) {
+	t.Parallel()
 	src := `package main
 
 import "os/exec"
@@ -1105,6 +1134,7 @@ func main() {
 }
 
 func TestGoQualifiedCall_osWriteFile_byteSlice_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -1142,6 +1172,7 @@ func TestGoTypeToForstType_byteSliceMapsToArrayInt(t *testing.T) {
 }
 
 func TestGoQualifiedCall_execCommand_sliceSpread_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 
@@ -1169,6 +1200,7 @@ func main() {
 }
 
 func TestGoMethodCall_cmdProcessStateExitCode_typechecks(t *testing.T) {
+	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
 

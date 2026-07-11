@@ -18,6 +18,7 @@ func testTC(t *testing.T) *TypeChecker {
 }
 
 func TestValidateReferencedTypesAfterCollect_unknownFieldType(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"x": ast.MakeTypeField("NoSuchType"),
@@ -33,6 +34,7 @@ func TestValidateReferencedTypesAfterCollect_unknownFieldType(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_unknownParamType(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Functions[ast.Identifier("f")] = FunctionSignature{
 		Ident: ast.Ident{ID: "f"},
@@ -52,6 +54,7 @@ func TestValidateReferencedTypesAfterCollect_unknownParamType(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_unknownReturnType(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Functions[ast.Identifier("g")] = FunctionSignature{
 		Ident:       ast.Ident{ID: "g"},
@@ -69,6 +72,7 @@ func TestValidateReferencedTypesAfterCollect_unknownReturnType(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_okUserDefinedAndBuiltin(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["User"] = ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"name": ast.MakeTypeField(ast.TypeString),
@@ -83,6 +87,7 @@ func TestValidateReferencedTypesAfterCollect_okUserDefinedAndBuiltin(t *testing.
 }
 
 func TestValidateReferencedTypesAfterCollect_arrayElementUnknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"items": {Type: &ast.TypeNode{
@@ -100,6 +105,7 @@ func TestValidateReferencedTypesAfterCollect_arrayElementUnknown(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_mapKeyValue(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["BadMap"] = ast.MakeTypeDef("BadMap", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"m": {Type: &ast.TypeNode{
@@ -118,6 +124,7 @@ func TestValidateReferencedTypesAfterCollect_mapKeyValue(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_pointerStringForm(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["User"] = ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"name": ast.MakeTypeField(ast.TypeString),
@@ -132,6 +139,7 @@ func TestValidateReferencedTypesAfterCollect_pointerStringForm(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_pointerStringForm_unknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"u": {Type: &ast.TypeNode{Ident: "*Ghost"}},
@@ -144,6 +152,7 @@ func TestValidateReferencedTypesAfterCollect_pointerStringForm_unknown(t *testin
 }
 
 func TestValidateReferencedTypesAfterCollect_typePointerForm(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["User"] = ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"name": ast.MakeTypeField(ast.TypeString),
@@ -163,6 +172,7 @@ func TestValidateReferencedTypesAfterCollect_typePointerForm(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_assertionBaseType(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["User"] = ast.MakeTypeDef("User", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"name": ast.MakeTypeField(ast.TypeString),
@@ -183,6 +193,7 @@ func TestValidateReferencedTypesAfterCollect_assertionBaseType(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_defIsNotTypeName(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	// Register ident "User" as something that is not a TypeDefNode (simulates inconsistent state).
 	tc.Defs["User"] = ast.FunctionNode{Ident: ast.Ident{ID: "User"}}
@@ -197,6 +208,7 @@ func TestValidateReferencedTypesAfterCollect_defIsNotTypeName(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_implicitTypeSkipped(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Functions[ast.Identifier("f")] = FunctionSignature{
 		Ident: ast.Ident{ID: "f"},
@@ -212,6 +224,7 @@ func TestValidateReferencedTypesAfterCollect_implicitTypeSkipped(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_hashBasedMissingDef(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"x": {Type: &ast.TypeNode{
@@ -227,6 +240,7 @@ func TestValidateReferencedTypesAfterCollect_hashBasedMissingDef(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_T_prefixSkipped(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"x": {Type: &ast.TypeNode{Ident: "T_inferredLater"}},
@@ -238,6 +252,7 @@ func TestValidateReferencedTypesAfterCollect_T_prefixSkipped(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_resultFailureUnknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"r": {Type: &ast.TypeNode{
@@ -255,6 +270,7 @@ func TestValidateReferencedTypesAfterCollect_resultFailureUnknown(t *testing.T) 
 }
 
 func TestValidateReferencedTypesAfterCollect_tupleMemberUnknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"t": {Type: &ast.TypeNode{
@@ -272,6 +288,7 @@ func TestValidateReferencedTypesAfterCollect_tupleMemberUnknown(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_unionMemberUnknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"u": {Type: &ast.TypeNode{
@@ -289,6 +306,7 @@ func TestValidateReferencedTypesAfterCollect_unionMemberUnknown(t *testing.T) {
 }
 
 func TestValidateReferencedTypesAfterCollect_intersectionMemberUnknown(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"i": {Type: &ast.TypeNode{
@@ -306,6 +324,7 @@ func TestValidateReferencedTypesAfterCollect_intersectionMemberUnknown(t *testin
 }
 
 func TestValidateReferencedTypesAfterCollect_syntheticParenTypeSkipped(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"x": {Type: &ast.TypeNode{Ident: "Pointer(String)"}},
@@ -316,6 +335,7 @@ func TestValidateReferencedTypesAfterCollect_syntheticParenTypeSkipped(t *testin
 }
 
 func TestValidateReferencedTypesAfterCollect_pointerBuiltinScalarStringForm(t *testing.T) {
+	t.Parallel()
 	tc := testTC(t)
 	tc.Defs["Row"] = ast.MakeTypeDef("Row", ast.MakeShape(map[string]ast.ShapeFieldNode{
 		"p": {Type: &ast.TypeNode{Ident: "*String"}},

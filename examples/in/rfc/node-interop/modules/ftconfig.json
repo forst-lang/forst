@@ -1,0 +1,26 @@
+{
+  "compiler": {
+    "target": "go",
+    "optimization": "debug",
+    "strict": false,
+    "reportPhases": false,
+    "reportMemoryUsage": false
+  },
+  "files": {
+    "include": [
+      "**/*.ft",
+      "**/*.ts"
+    ],
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/*.skip.ft"
+    ],
+    "maxDepth": 10
+  },
+  "node": {
+    "enabled": true,
+    "importPolicy": "explicit",
+    "runtimeEnabled": true
+  }
+}

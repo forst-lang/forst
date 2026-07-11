@@ -14,6 +14,8 @@ Use **`ensure`** with **`is`** to validate at runtime and narrow types. Forst ha
 
 ## Basic ensure
 
+Reject invalid input at runtime and attach a domain error with **`or`**:
+
 <EnsureSpeed />
 
 - **`ensure x is Condition`**: runtime check; failure returns or propagates an error depending on context
@@ -43,17 +45,11 @@ At call sites, narrow success payloads:
 
 <EnsurePlaceOrderOk />
 
-<Info>
-  **`Result`** and **`ensure x is Ok()`** narrowing are **experimental**. Behavior and diagnostics are still maturing. See the [roadmap](/resources/roadmap).
-</Info>
-
 ## If-branch narrowing
 
 `if x is …` can refine a variable's type inside the branch. That helps when you need conditional logic instead of early return:
 
 <EnsureIfOk />
-
-Branch merge and narrowing after **`ensure`** successors are still being expanded across all compiler paths.
 
 ## Compared to Go and TypeScript
 
@@ -65,11 +61,45 @@ Branch merge and narrowing after **`ensure`** successors are still being expande
 
 Forst requires **`ensure`** with English keywords so validation stays visible in the source.
 
+## Caveats
+
+**`ensure`** and narrowing are **experimental**. Behavior and diagnostics are still maturing. See the [roadmap](/resources/roadmap).
+
+### Checks run once
+
+A successful **`ensure`** or **`if`** check narrows the type for following lines. The compiler does **not** watch the value for later changes. Reassignment or field mutation can leave runtime state out of sync with the narrowed type.
+
+See [Type guards § Checks run once](/language/type-guards#checks-run-once) for a concrete example with guards.
+
+<Warning>
+  Narrowing reflects a single check at compile time. It does not lock the value at runtime.
+</Warning>
+
+### Simple names
+
+Successor narrowing after **`ensure`** works best on **simple identifiers** (`ensure x is …`, then use `x`).
+
+Compound paths like **`ensure req.state is …`** have partial support. Hover may show the predicate, but the typechecker does not fully re-register a refined type on the path.
+
+### After `if` chains
+
+Narrowing inside an **`if`** branch does not always carry past the end of the chain. The continuation may see the pre-**`if`** type until union types exist. Branch merge after **`ensure`** successors is also still expanding.
+
+### No comma-ok
+
+**`v, ok := m[k]`** is not Forst syntax. Map lookups and similar partial operations return **`Result(V, Error)`**. Use **`ensure avail is Ok()`** before using the success value.
+
+### Optionals still partial
+
+Full optional value types (**`T | Nil`**) are [planned](/resources/roadmap). Today use **`nil`** on nilable types, **`ensure … is Nil()`**, and **`*T`** [`.Present()` / `.Nil()`](/language/shapes-and-constraints) on pointer fields.
+
 ## What gets emitted
 
 Ensure statements lower to Go error returns and conditionals. Failures are structured values returned through Go's error path. Custom failures use nominal error types when you provide them with **`or`**.
 
 ## Try it
+
+From the Forst repository:
 
 ```bash
 task example:ensure

@@ -102,6 +102,7 @@ func TestFail(t *testing.T) {
 }
 
 func TestEmitPackageGo_parseError(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "bad")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -122,6 +123,7 @@ func TestEmitPackageGo_parseError(t *testing.T) {
 }
 
 func TestEmitPackageGo_testOnlyNoTestPaths(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -155,6 +157,7 @@ func TestOk(t *testing.T) {}
 }
 
 func TestEmitPackageGo_testOnlyMergeTransformError(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -267,6 +270,7 @@ func TestFail(t *testing.T) {
 }
 
 func TestEmitDependencyPackages_skipsTestDirsAndEmptyLib(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	libDir := filepath.Join(dir, "lib")
@@ -296,6 +300,7 @@ func TestLib(t *testing.T) {}
 }
 
 func TestEmitDependencyPackages_emitError(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(testmod.GoModContent("emiterr")), 0o644); err != nil {
 		t.Fatal(err)
@@ -319,6 +324,7 @@ func TestEmitDependencyPackages_emitError(t *testing.T) {
 }
 
 func TestEmitDependencyPackages_writeError(t *testing.T) {
+	t.Parallel()
 	if os.Getuid() == 0 {
 		t.Skip("root bypasses chmod 000")
 	}
@@ -378,6 +384,7 @@ func TestRun_discoverPackagesError(t *testing.T) {
 }
 
 func TestEmitPackageGo_typecheckFailureInFallback(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "bad")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -411,6 +418,7 @@ func TestBroken(t *testing.T) {
 }
 
 func TestEmitPackageGo_usesModulePerPackageChecker(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	modResult, err := modulecheck.CheckModuleProviders(testLog(t), modulecheck.Options{ModuleRoot: dir})
@@ -436,6 +444,7 @@ func TestEmitPackageGo_usesModulePerPackageChecker(t *testing.T) {
 }
 
 func TestEmitDependencyPackages_skipsEmptyFileList(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	modResult := &modulecheck.ModuleResult{
 		ForstPkgToFiles: map[string][]string{"empty": {}},

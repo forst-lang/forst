@@ -59,6 +59,7 @@ func TestGenerate_exampleManifest(t *testing.T) {
 			t.Fatal("manifest entry missing path")
 		}
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			srcDir := filepath.Join(root, filepath.Clean(name))
 			if st, err := os.Stat(srcDir); err != nil || !st.IsDir() {
 				t.Fatalf("example dir %s: %v", srcDir, err)
@@ -97,12 +98,15 @@ func copyGenerateExampleSources(srcRoot, dstRoot string) error {
 			return nil
 		}
 		base := filepath.Base(path)
-		if !strings.HasSuffix(base, ".ft") && base != "ftconfig.json" {
-			return nil
-		}
 		rel, err := filepath.Rel(srcRoot, path)
 		if err != nil {
 			return err
+		}
+		isFT := strings.HasSuffix(base, ".ft")
+		isFTConfig := base == "ftconfig.json"
+		isLegacyTS := strings.HasSuffix(base, ".ts") && strings.HasPrefix(rel, "legacy"+string(filepath.Separator))
+		if !isFT && !isFTConfig && !isLegacyTS {
+			return nil
 		}
 		dst := filepath.Join(dstRoot, rel)
 		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {

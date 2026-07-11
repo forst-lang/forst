@@ -7,6 +7,19 @@ import (
 	"forst/internal/ast"
 )
 
+func TestCodeBlocks_languageFences(t *testing.T) {
+	t.Parallel()
+	if got := ForstBlock("x: Int"); !strings.Contains(got, "```ft") {
+		t.Fatalf("ForstBlock: %q", got)
+	}
+	if got := GoBlock("import \"fmt\""); !strings.Contains(got, "```go") {
+		t.Fatalf("GoBlock: %q", got)
+	}
+	if got := TypeScriptModuleBlock("/tmp/payment"); !strings.Contains(got, "```typescript") || !strings.Contains(got, `module "/tmp/payment"`) {
+		t.Fatalf("TypeScriptModuleBlock: %q", got)
+	}
+}
+
 func TestBuiltinTypeDocs_nonempty(t *testing.T) {
 	t.Parallel()
 	keys := []string{
@@ -77,7 +90,7 @@ func TestIsBuiltinTypeSurfaceName(t *testing.T) {
 func TestForstBlock(t *testing.T) {
 	t.Parallel()
 	s := forstBlock("a", "b")
-	if !strings.Contains(s, "```forst") || !strings.Contains(s, "a\nb") {
+	if !strings.Contains(s, "```ft") || !strings.Contains(s, "a\nb") {
 		t.Fatalf("got %q", s)
 	}
 }

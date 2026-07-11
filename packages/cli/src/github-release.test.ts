@@ -39,7 +39,8 @@ describe("fetchCompilerReleaseVersions", () => {
       throw new Error(`unexpected fetch: ${s}`);
     };
 
-    await expect(fetchCompilerReleaseVersions(fetchImpl)).resolves.toEqual([
+    const versions = await fetchCompilerReleaseVersions(fetchImpl);
+    expect(versions).toEqual([
       "0.10.0",
       "0.4.1",
       "0.4.0",

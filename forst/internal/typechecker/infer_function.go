@@ -143,12 +143,14 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		} else if len(inferredType) == 0 {
 			if len(parsedType) == 1 && parsedType[0].IsResultType() {
 				inferredType = parsedType
+			} else if !tc.functionEnsureImpliesResultReturn(fn) {
+				inferredType = []ast.TypeNode{{Ident: ast.TypeVoid}}
 			} else {
 				inferredType = []ast.TypeNode{
 					{Ident: ast.TypeError},
 				}
 			}
-		} else if (len(parsedType) != 1 || !parsedType[0].IsResultType()) && (len(inferredType) != 1 || !inferredType[0].IsResultType()) {
+		} else if tc.functionEnsureImpliesResultReturn(fn) && (len(parsedType) != 1 || !parsedType[0].IsResultType()) && (len(inferredType) != 1 || !inferredType[0].IsResultType()) {
 			if len(inferredType) < 1 || len(inferredType) > 2 {
 				return nil, fmt.Errorf("ensure statements require the function to return an error or a tuple with an error as the second type, got %s", formatTypeList(inferredType))
 			}
@@ -169,6 +171,39 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	}
 
 	return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return type")
+}
+
+// functionEnsureImpliesResultReturn reports whether ensure statements in fn should promote the
+// function's inferred return to Result(S, Error). Pure Result discriminators (`ensure x is Ok()` /
+// `Err()` on a Result binding) only narrow locals and do not change the function return type.
+func (tc *TypeChecker) functionEnsureImpliesResultReturn(fn ast.FunctionNode) bool {
+	for _, stmt := range fn.Body {
+		if stmt.Kind() != ast.NodeKindEnsure {
+			continue
+		}
+		ensureNode, ok := stmt.(ast.EnsureNode)
+		if !ok {
+			if ptr, ok := stmt.(*ast.EnsureNode); ok && ptr != nil {
+				ensureNode = *ptr
+			} else {
+				return true
+			}
+		}
+		if ensureLooksLikeResultDiscriminator(ensureNode) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// ensureLooksLikeResultDiscriminator reports `ensure x is Ok()` / `Err()` shape (narrowing only).
+func ensureLooksLikeResultDiscriminator(n ast.EnsureNode) bool {
+	if n.Error != nil || n.Assertion.BaseType != nil || len(n.Assertion.Constraints) != 1 {
+		return false
+	}
+	c := n.Assertion.Constraints[0].Name
+	return c == "Ok" || c == "Err"
 }
 
 // Helper: isNilableType checks if a type can be assigned nil

@@ -6,6 +6,9 @@ import "github.com/sirupsen/logrus"
 type TypecheckOpts struct {
 	FileID              string // default "test.ft"
 	GoWorkspaceDir      string // explicit; use UseModuleRoot to set from cwd walk
+	NodeBoundaryRoot    string // project root for TS imports; defaults to GoWorkspaceDir
+	ForstFileDir        string // directory of the Forst source file for relative TS imports
+	NodeImportPolicy    string // ftconfig node.importPolicy override ("explicit" or "implicit")
 	UseModuleRoot       bool   // set GoWorkspaceDir from ModuleRoot(tb)
 	SamePackageGoImport string // sets tc.SetSamePackageGoImportPath
 	ModuleProviders     bool   // run modulecheck.CheckModuleProviders before CheckTypes

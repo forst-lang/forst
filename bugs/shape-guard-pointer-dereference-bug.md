@@ -41,7 +41,7 @@ The issue occurs in the pointer field handling logic in `transformShapeNodeWithE
 
 ## Original Forst Code
 
-```forst
+```ft
 func main() {
   sessionId := "479569ae-cbf0-471e-b849-38a698e0cb69"
   name, err := createTask({
@@ -61,7 +61,7 @@ func main() {
 
 The `user` field is a plain struct literal `{ name: "Alice" }` that should be converted to a pointer to match the `AppContext` type definition:
 
-```forst
+```ft
 type AppContext = {
   sessionId: *String,
   user: *User,

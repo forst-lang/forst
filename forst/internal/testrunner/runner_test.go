@@ -51,6 +51,7 @@ func TestExpireWithWiring(t *testing.T) {
 }
 
 func TestDiscoverPackages_findsTestPackage(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	pkgs, err := DiscoverPackages(dir, nil)
@@ -69,6 +70,7 @@ func TestDiscoverPackages_findsTestPackage(t *testing.T) {
 }
 
 func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	pkgs, err := DiscoverPackages(dir, nil)
@@ -91,6 +93,7 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 }
 
 func TestWriteGeneratedTestAndRun_requiresGoMod(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
@@ -167,6 +170,7 @@ func TestIndexOf(t *testing.T) {
 }
 
 func TestEmitDependencyPackages_writesLibraryGo(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
 	libDir := filepath.Join(dir, "lib")
@@ -270,6 +274,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestEmitPackageGo_testOnlyOmitsPackageTypeDefs(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	libpkgDir, _ := writeLibClientTestFixture(t, dir)
 	log := logrus.New()
@@ -344,6 +349,7 @@ func TestBodyNonEmpty(t *testing.T) {
 }
 
 func TestEmitPackageGo_testOnlyIfScopeUsesMergedParseNodes(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	pkgDir := writeIfScopeTestFixture(t, dir)
 	log := logrus.New()

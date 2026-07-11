@@ -1,0 +1,75 @@
+{
+  "name": "@forst/node-runtime",
+  "version": "0.1.0",
+  "description": "Node.js runtime bootstrap and TypeScript indexer for Forst Node interop",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "forst-node-index": "dist/indexer/cli.js",
+    "forst-node-bootstrap": "dist/bootstrap.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./bootstrap": {
+      "types": "./dist/bootstrap.d.ts",
+      "import": "./dist/bootstrap.js",
+      "default": "./dist/bootstrap.js"
+    },
+    "./host": {
+      "types": "./dist/host.d.ts",
+      "import": "./dist/host.js",
+      "default": "./dist/host.js"
+    },
+    "./host/register.cjs": "./dist/host/register.cjs",
+    "./host/register.mjs": "./dist/host/register.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && mkdir -p dist/host && cp src/host/register.cjs dist/host/register.cjs && cp src/host/register.mjs dist/host/register.mjs",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "clean": "rm -rf dist",
+    "build:clean": "bun run clean && bun run build",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "keywords": [
+    "forst",
+    "node",
+    "typescript",
+    "interop",
+    "indexer"
+  ],
+  "author": "haveyaseen",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "ts-morph": "^27.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^25.9.4",
+    "typescript": "^6.0.3"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forst-lang/forst.git",
+    "directory": "packages/node-runtime"
+  },
+  "homepage": "https://github.com/forst-lang/forst/tree/main/packages/node-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/forst-lang/forst/issues"
+  }
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/compiler"
 	"forst/internal/discovery"
 
 	"github.com/sirupsen/logrus"
@@ -135,6 +137,50 @@ func TestLoadAndValidateConfig_invalidLogLevelExits(t *testing.T) {
 	}
 }
 
+func TestDevServer_Start_bindsLoopbackByDefault(t *testing.T) {
+	s := testDevServer(t)
+	if s.host != "127.0.0.1" {
+		t.Fatalf("host = %q want 127.0.0.1", s.host)
+	}
+	s.port = "0"
+
+	ln, err := net.Listen("tcp", s.listenAddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	if !tcpAddr.IP.IsLoopback() {
+		t.Fatalf("bound to non-loopback %v", tcpAddr.IP)
+	}
+}
+
+func TestDevServer_Start_respectsExplicitZeroHost(t *testing.T) {
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	cfg := DefaultConfig()
+	cfg.Server.Host = "0.0.0.0"
+	cfg.Server.ReadTimeout = 1
+	cfg.Server.WriteTimeout = 1
+	comp := compiler.New(cfg.ToCompilerArgs(), log)
+	s := NewHTTPServer("0", comp, log, cfg, t.TempDir())
+	if s.host != "0.0.0.0" {
+		t.Fatalf("host = %q want 0.0.0.0", s.host)
+	}
+
+	ln, err := net.Listen("tcp", s.listenAddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	if tcpAddr.IP.IsLoopback() {
+		t.Fatalf("expected non-loopback bind for 0.0.0.0, got %v", tcpAddr.IP)
+	}
+}
+
 func TestDevServer_Start_invalidPortReturnsError_andInitializesTypesGenerator(t *testing.T) {
 	s := testDevServer(t)
 	s.port = "invalid-port"
@@ -157,7 +203,7 @@ func TestDevServer_logStartupInfo_includesEndpoints(t *testing.T) {
 
 	output := buf.String()
 	for _, fragment := range []string{
-		"HTTP server listening on port 8080",
+		"HTTP server listening on 127.0.0.1:8080",
 		"GET  /functions",
 		"POST /invoke",
 		"GET  /types",
@@ -282,5 +328,31 @@ func TestDevServer_discoverFunctions_errorPropagates(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to discover functions") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDevServer_refreshFunctions_syncsDevBackendForInvoke(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
+	if _, err := os.Stat(root); err != nil {
+		t.Skip("tictactoe example not available")
+	}
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	cfg := DefaultConfig()
+	comp := compiler.New(cfg.ToCompilerArgs(), log)
+	s := NewHTTPServer("8090", comp, log, cfg, root)
+
+	if err := s.refreshFunctions(); err != nil {
+		t.Fatalf("refreshFunctions: %v", err)
+	}
+
+	fns := s.devBackend.Functions()
+	mainPkg, ok := fns["main"]
+	if !ok {
+		t.Fatalf("expected main package in dev backend, got %+v", fns)
+	}
+	if _, ok := mainPkg["NewGame"]; !ok {
+		t.Fatalf("expected main.NewGame in dev backend, got %+v", mainPkg)
 	}
 }

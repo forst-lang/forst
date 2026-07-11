@@ -4,7 +4,87 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+const EnvForstGOModRoot = "FORST_GOMOD_ROOT"
+
+var (
+	modRootExecutable = os.Executable
+	modRootGetwd      = os.Getwd
+	modRootGetenv     = os.Getenv
+)
+
+// IsForstCompilerModule reports whether dir is the Forst compiler Go module (contains cmd/forst).
+func IsForstCompilerModule(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(dir, "cmd", "forst"))
+	return err == nil && st.IsDir()
+}
+
+// ForstCompilerModuleRoot returns the filesystem root of the Forst compiler Go module
+// (module forst). Used when generated companion Go imports forst/nodert or forst/internal/*.
+func ForstCompilerModuleRoot() string {
+	if root := strings.TrimSpace(modRootGetenv(EnvForstGOModRoot)); root != "" {
+		if IsForstCompilerModule(root) {
+			return filepath.Clean(root)
+		}
+	}
+	if exe, err := modRootExecutable(); err == nil {
+		if root := findForstCompilerModuleFrom(exe); root != "" {
+			return root
+		}
+		if root := forstCompilerModuleAdjacentToExecutable(exe); root != "" {
+			return root
+		}
+	}
+	if wd, err := modRootGetwd(); err == nil {
+		if root := findForstCompilerModuleFrom(wd); root != "" {
+			return root
+		}
+	}
+	return ""
+}
+
+func forstCompilerModuleAdjacentToExecutable(executable string) string {
+	dir, err := filepath.Abs(filepath.Dir(executable))
+	if err != nil {
+		return ""
+	}
+	for _, candidate := range []string{
+		filepath.Join(dir, "module"),
+		filepath.Join(filepath.Dir(dir), "module"),
+	} {
+		if IsForstCompilerModule(candidate) {
+			return filepath.Clean(candidate)
+		}
+	}
+	return ""
+}
+
+func findForstCompilerModuleFrom(start string) string {
+	startDir := start
+	if info, err := os.Stat(start); err == nil && !info.IsDir() {
+		startDir = filepath.Dir(start)
+	}
+	dir := filepath.Clean(startDir)
+	for {
+		if IsForstCompilerModule(dir) {
+			return dir
+		}
+		nested := filepath.Join(dir, "forst")
+		if IsForstCompilerModule(nested) {
+			return nested
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
 
 // ModuleRootWithGoMod walks upward from start until a directory containing go.mod
 // is found. Unlike FindModuleRoot, this returns an error when no go.mod exists.

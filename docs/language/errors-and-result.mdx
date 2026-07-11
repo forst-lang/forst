@@ -27,6 +27,8 @@ Each error variant is a distinct type. Callers can branch on structure instead o
 
 ### Simple payload example
 
+A minimal nominal error with one payload field:
+
 <ErrorsNotPositive />
 
 ## Result types
@@ -36,10 +38,6 @@ Functions that can fail with typed errors return **`Result(Success, Failure)`**.
 <ErrorsOkIntMain />
 
 **`Ok`** and **`Err`** serve as discriminants for **`is`** / **`ensure`**. They are not yet general value constructors for building **`Result`** values at every call site.
-
-<Warning>
-  **Nominal errors** and **`Result`** are **experimental**. Gaps include arbitrary non-`Error` failure types, full RFC diagnostics for **`ensure`-only failure authoring**, and complete export rules for generated TypeScript tags. Check the [roadmap](/resources/roadmap) before relying on edge cases in production.
-</Warning>
 
 ## Return inference and implicit returns
 
@@ -71,9 +69,9 @@ With no declared return type, **`logAndReport`** returns **`Result(Int, Error)`*
 
 Forst folds Go's **`(T, error)`** returns into **`Result(T, Error)`** at the boundary where wired. Generated Go uses idiomatic error returns. Your ops team still reads familiar code.
 
-## TypeScript interop
+## Generate client types
 
-Nominal errors can emit tagged shapes in generated `.d.ts` as the TS story matures. Today, prefer **`forst generate`** and treat error payloads as evolving. See [TypeScript interop](/interop/typescript).
+Nominal errors can emit tagged shapes in generated `.d.ts` as the TS story matures. Today, prefer **`forst generate`** and treat error payloads as evolving. See [Generate client types](/interop/node/generate-types).
 
 ## Compared to Go error structs
 
@@ -91,7 +89,31 @@ func (e InsufficientStock) Error() string { ... }
 
 Forst's **`error Name { … }`** syntax makes the intent explicit: this is a **failure variant**, a dedicated type for a specific failure mode rather than a generic struct with an `Error()` method attached by convention.
 
+## Caveats
+
+**Nominal errors** and **`Result`** are **experimental**. Check the [roadmap](/resources/roadmap) before relying on edge cases in production.
+
+### `Result` failure side
+
+The failure type parameter is constrained to the **`Error`** family today. Arbitrary non-**`Error`** failure types are not supported yet.
+
+### `Ok` and `Err` role
+
+**`Ok`** and **`Err`** are discriminants for **`is`** and **`ensure`**. They are not general value constructors at every call site yet.
+
+### Implicit return trap
+
+When a function has no declared return type, a trailing Go call that returns **`(T, error)`** can make the whole function return **`Result(T, Error)`**. That includes **`fmt.Println`** and similar calls. Use **`println`** for void side effects, or declare an explicit return type.
+
+### Nominal errors incomplete
+
+**`ensure`** only failure authoring, **`or`** LUB rules, and TypeScript **`_tag`** export are still maturing. Treat generated error payloads as evolving. See [Generate client types § Caveats](/interop/node/generate-types#caveats).
+
+For **`ensure x is Ok()`** narrowing limits, see [Ensure and narrowing § Caveats](/language/ensure-and-narrowing#caveats).
+
 ## Try it
+
+From the Forst repository:
 
 ```bash
 task example:nominal-error

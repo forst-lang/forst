@@ -42,7 +42,7 @@ func TestLexer_BasicTokens(t *testing.T) {
 			input: `"hello" 'world' ` + "`raw\nstring`",
 			expected: []ast.Token{
 				{Type: ast.TokenStringLiteral, Value: `"hello"`, FileID: testFileID, Line: 1, Column: 1},
-				{Type: ast.TokenStringLiteral, Value: "'world'", FileID: testFileID, Line: 1, Column: 9},
+				{Type: ast.TokenRuneLiteral, Value: "'world'", FileID: testFileID, Line: 1, Column: 9},
 				{Type: ast.TokenStringLiteral, Value: "`raw\nstring`", FileID: testFileID, Line: 1, Column: 17},
 				{Type: ast.TokenEOF, Value: "", FileID: testFileID, Line: 2, Column: 1},
 			},

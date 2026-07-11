@@ -29,7 +29,7 @@ Requirements are **not** injected through a framework container. They lower to a
 
 A **requirement** is a named interface-like contract: methods are the capability surface; there is no instance data in the declaration itself.
 
-```forst
+```ft
 requirement UserRepo {
   Find(id Int) Result(User, Error)
   Save(user User) Result(User, Error)
@@ -55,7 +55,7 @@ requirement Clock {
 
 **`@require T`** is a **prefix expression** that yields a value of type **`T`** (the requirement interface) by reading from the function’s scope **`ReqSet`**.
 
-```forst
+```ft
 repo := @require UserRepo
 ```
 
@@ -90,7 +90,7 @@ type ReqSet struct {
 
 ### 2.1 Basic: infer needs from `@require`
 
-```forst
+```ft
 requirement UserRepo {
   Find(id Int) Result(User, Error)
 }
@@ -105,7 +105,7 @@ func getUser(id Int) Result(User, Error) {
 
 ### 2.2 Explicit `needs` clause (documentation + early errors)
 
-```forst
+```ft
 func getUser(id Int) Result(User, Error) needs ?UserRepo {
   repo := @require UserRepo
   return repo.Find(id)
@@ -116,7 +116,7 @@ If the body uses `@require Clock` but `needs` omits `?Clock`, that is a **compil
 
 ### 2.3 Multiple requirements — set merge
 
-```forst
+```ft
 func auditGetUser(id Int) Result(User, Error) needs ?UserRepo, ?Clock, ?AuditLog {
   repo := @require UserRepo
   clock := @require Clock
@@ -133,7 +133,7 @@ func auditGetUser(id Int) Result(User, Error) needs ?UserRepo, ?Clock, ?AuditLog
 
 ### 2.4 Chained internal calls
 
-```forst
+```ft
 func getUser(id Int) Result(User, Error) {
   repo := @require UserRepo
   return repo.Find(id)
@@ -151,7 +151,7 @@ The checker **unions** requirement sets along the call graph within a package.
 
 ### 2.5 Test stub (minimal boilerplate)
 
-```forst
+```ft
 requirement UserRepo {
   Find(id Int) Result(User, Error)
 }
@@ -194,7 +194,7 @@ Alternative spelling for tests: pass `req` as an extra parameter only in **`test
 
 ### 2.6 HTTP handler edge (sidecar)
 
-```forst
+```ft
 func handleGetUser(req HttpRequest) Result(HttpResponse, Error) needs ?UserRepo {
   id := parseId(req.path)
   user := getUser(id)   // still ?UserRepo — same bundle
@@ -312,7 +312,7 @@ If `PostgresUserRepo` implements `UserRepo`, the field type is **`UserRepo`** (i
 
 Requirements are **orthogonal** to error types. A function may be:
 
-```forst
+```ft
 func getUser(id Int) Result(User, Error) needs ?UserRepo
 ```
 
@@ -364,7 +364,7 @@ Only **`requirement`**, **`needs`**, and boundary **`with`** are new keywords. *
 
 ### 6.1 Duplicate `@require` in one function
 
-```forst
+```ft
 a := @require UserRepo
 b := @require UserRepo
 ```
@@ -373,7 +373,7 @@ Allowed. **`a`** and **`b`** are the same interface value; compiler may reuse on
 
 ### 6.2 Requirement used conditionally
 
-```forst
+```ft
 if debug {
   log := @require AuditLog
   log.Record(…)
@@ -388,7 +388,7 @@ if debug {
 
 Two different **`UserRepo`** contracts in one program should use **distinct requirement names**:
 
-```forst
+```ft
 requirement ReadUserRepo { … }
 requirement WriteUserRepo { … }
 ```
@@ -397,7 +397,7 @@ Do not overload one interface for unrelated capabilities — field slots are **t
 
 ### 6.4 Recursive / circular requirements
 
-```forst
+```ft
 requirement A { B() }
 requirement B { A() }
 ```

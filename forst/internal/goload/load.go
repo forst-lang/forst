@@ -24,7 +24,7 @@ var packagesLoadFn = packages.Load
 
 // clearSyncMap removes all entries without reassigning the map variable (safe under -race).
 func clearSyncMap(m *sync.Map) {
-	m.Range(func(key, value any) bool {
+	m.Range(func(key, _ any) bool {
 		m.Delete(key)
 		return true
 	})
@@ -64,17 +64,18 @@ func storeLoadCache(dir string, importPaths []string, out map[string]*packages.P
 
 // LoadByPkgPath loads packages by import path (e.g. "fmt", "strconv") and returns import path -> *packages.Package.
 // Results are cached per (module root Dir, import path set) for the process lifetime; single-path loads reuse batch results.
-func LoadByPkgPath(dir string, importPaths []string) (map[string]*packages.Package, error) {
+func LoadByPkgPath(dir string, importPaths []string, opts ...LoadOpt) (map[string]*packages.Package, error) {
 	if len(importPaths) == 0 {
 		return nil, nil
 	}
+	cfg := resolveLoadConfig(opts)
 	dir = FindModuleRoot(dir)
 	key := loadByPkgPathCacheKey(dir, importPaths)
 	if v, ok := loadByPkgPathCache.Load(key); ok {
 		e := v.(loadByPkgPathCacheEntry)
 		return e.out, e.err
 	}
-	out, err := loadByPkgPathUncached(dir, importPaths)
+	out, err := loadByPkgPathUncached(dir, importPaths, cfg.loader)
 	storeLoadCache(dir, importPaths, out, err)
 	return out, err
 }
@@ -123,13 +124,16 @@ func loadPackagesEnv(dir string) []string {
 	return env
 }
 
-func loadByPkgPathUncached(dir string, importPaths []string) (map[string]*packages.Package, error) {
+func loadByPkgPathUncached(dir string, importPaths []string, loader PackagesLoader) (map[string]*packages.Package, error) {
+	if loader == nil {
+		loader = packagesLoadFn
+	}
 	cfg := &packages.Config{
 		Mode: packages.NeedTypes | packages.NeedDeps | packages.NeedImports,
 		Dir:  dir,
 		Env:  loadPackagesEnv(dir),
 	}
-	pkgs, err := packagesLoadFn(cfg, importPaths...)
+	pkgs, err := loader(cfg, importPaths...)
 	if err != nil {
 		return nil, err
 	}

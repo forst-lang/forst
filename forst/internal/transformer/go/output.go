@@ -67,9 +67,40 @@ func (t *TransformerOutput) AddFunction(function *goast.FuncDecl) {
 	t.functions = append(t.functions, function)
 }
 
+// HasFunction reports whether a function with the given name was already emitted.
+func (t *TransformerOutput) HasFunction(name string) bool {
+	for _, fn := range t.functions {
+		if fn != nil && fn.Name != nil && fn.Name.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // AddValueDecl adds a file-level var/const declaration.
 func (t *TransformerOutput) AddValueDecl(decl *goast.GenDecl) {
 	t.valueDecls = append(t.valueDecls, decl)
+}
+
+// HasValueDecl reports whether a file-level var/const with the given name was already emitted.
+func (t *TransformerOutput) HasValueDecl(name string) bool {
+	for _, d := range t.valueDecls {
+		if d.Tok != token.VAR && d.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range d.Specs {
+			vs, ok := spec.(*goast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for _, n := range vs.Names {
+				if n != nil && n.Name == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // AddType adds a type declaration to the TransformerOutput

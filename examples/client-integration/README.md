@@ -27,6 +27,8 @@ await sidecar.stop();
 
 ### Target Approach (Seamless Integration)
 
+**Status:** `forst generate` + `@forst/client` **`createInvokeClient`** + optional **embedded invoke** (`server.embedded` in `ftconfig.json`) — see `examples/in/rfc/embedded-invoke`.
+
 ```typescript
 // Simple import - no setup required
 import { Echo, GetUserAge } from "@forst/client";
@@ -35,6 +37,8 @@ import { Echo, GetUserAge } from "@forst/client";
 const result = await Echo({ message: "Hello, Forst!" });
 const age = await GetUserAge();
 ```
+
+Set `FORST_BASE_URL=http://127.0.0.1:8081` when calling a compiled binary with embedded invoke; omit it in dev to spawn `forst dev` automatically.
 
 ## Implementation Plan
 
@@ -62,7 +66,7 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node)
 
 Forst code:
 
-```forst
+```ft
 package echo
 
 type EchoRequest = {
@@ -189,7 +193,7 @@ main().catch(console.error);
 
 Forst code:
 
-```forst
+```ft
 package validation
 
 type User = {
@@ -304,7 +308,7 @@ function processData(records: DataRecord[]): ProcessedData[] {
 
 ### Step 3: Create Forst Implementation
 
-```forst
+```ft
 // functions/data_processing.ft
 package dataprocessing
 

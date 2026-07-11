@@ -12,6 +12,8 @@ import TypeGuardsCreateTask from "/snippets/type-guards-create-task.mdx";
 
 ## Declare a type guard
 
+A guard is a pure predicate tied to a base type. **`LoggedIn`** requires a present session and user on **`AppContext`**:
+
 <TypeGuardsLoggedIn />
 
 Syntax: **`is (subject BaseType) GuardName(…)`**, a pure predicate tied to a base type. Use it with **`ensure subject is GuardName()`**.
@@ -36,11 +38,55 @@ Unauthorized calls fail at the guard, before task creation logic runs.
 
 A standalone `func isLoggedIn(ctx AppContext) bool` validates at runtime but does **not narrow** `ctx` for the typechecker. Type guards are first-class: the compiler records the refined type after a successful **`ensure`**.
 
-## Status
+## Caveats
+
+Type guards are **experimental**. Parsing, typechecking, and Go emission work for the patterns above. Narrowing across all control flow positions is still being expanded. See the [roadmap](/resources/roadmap).
+
+In the examples above, **`MutationArg`** and **`AppMutation`** refer to API **mutation request** shapes, like a GraphQL or tRPC mutation argument. They have nothing to do with changing values after a guard passes.
+
+### Checks run once
+
+A guard runs once at the **`ensure`** or **`if`** site. After it passes, the compiler remembers the narrowed type for later lines. It does **not** watch the value for changes.
+
+If you reassign the variable or mutate its fields afterward, runtime state can fall out of sync with what the compiler still believes:
+
+```ft
+ensure ctx is LoggedIn()
+ctx.sessionId = nil   // runtime: no longer logged in
+// compiler may still treat ctx as LoggedIn here
+```
+
+Pointer fields (like `sessionId: *String`) are especially risky. Clearing or replacing the pointer does not undo the narrowing. Planned **`ensure`** scoped immutability may address this later. It is not available today.
+
+<Warning>
+  Narrowing reflects a single check at compile time. It does not lock the value at runtime.
+</Warning>
+
+### Narrowing on simple names
+
+Successor narrowing after **`ensure`** works best on **simple identifiers** (`ensure x is …`, then use `x`).
+
+Compound paths like **`ensure req.state is …`** have partial support. Hover may show the guard predicate, but the typechecker does not fully re-register a refined type on the path. The examples use **`ensure op.ctx is LoggedIn()`** because **`op`** is the simple binding. Do not assume every dotted path behaves the same.
 
 <Info>
-  Type guards are **experimental**. Parsing, typechecking, and Go emission work for the patterns above. Narrowing across all control-flow positions is still being expanded. See [ROADMAP](https://github.com/forst-lang/forst/blob/main/ROADMAP.md#guards-ensure-and-narrowing).
+  Full narrowing on compound **`ensure`** subjects is still being expanded. See the [roadmap](/resources/roadmap).
 </Info>
+
+### Guards are pure predicates
+
+Inside a guard body you cannot modify the receiver or its parameters. Guards must be deterministic and side effect free. Only **`if`**, **`else if`**, and **`else`** branches with **`is`** assertions and **`ensure`** refinements are allowed. No **`return`**, no **`or`** clauses inside guard **`ensure`**, and no references to variables outside the receiver and guard parameters.
+
+### Shape guards work at the type level
+
+Shape guards like **`Input(input Shape)`** add a required field to the **type**. They validate that the value has that structure at runtime. They do not insert data. **`ensure m is { input }`** checks presence and shape. It does not populate **`input`**.
+
+Even when a shape guard passes, mutating **`op.input`** or **`op.ctx`** afterward is not tracked. See the checks run once caveat above.
+
+### Control flow limits
+
+Narrowing inside an **`if`** branch does not always carry past the end of the chain. The continuation may see the pre-**`if`** type until union types exist. Branch merge after **`ensure`** successors is also still expanding.
+
+See [Ensure and narrowing § Caveats](/language/ensure-and-narrowing#caveats) for general narrowing behavior.
 
 ## What gets emitted
 

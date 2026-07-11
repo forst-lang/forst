@@ -7,7 +7,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-var createTempOutputFileForWatch = CreateTempOutputFile
+var createTempOutputFileForWatch = CreateTempOutputFiles
 var runGoProgramForWatch = RunGoProgram
 
 // WatchFile watches the Forst file for changes and recompiles it.
@@ -65,28 +65,28 @@ func (c *Compiler) validateWatchConfig() error {
 }
 
 func (c *Compiler) compileAndRunOnce() {
-	code, err := c.CompileFile()
+	mainCode, nodeRuntimeCode, invokeServerCode, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		c.log.Error(err)
 		c.log.Warn("Not running program because of errors during compilation")
 		return
 	}
-	if err := c.runCompiledOutput(*code); err != nil {
+	if err := c.runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode); err != nil {
 		c.log.Error(err)
 	}
 }
 
-func (c *Compiler) resolveOutputPathForRun(code string) (string, error) {
+func (c *Compiler) resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
 	if c.Args.OutputPath != "" {
 		return c.Args.OutputPath, nil
 	}
-	return createTempOutputFileForWatch(code)
+	return createTempOutputFileForWatch(mainCode, nodeRuntimeCode, invokeServerCode)
 }
 
-func (c *Compiler) runCompiledOutput(code string) error {
-	outputPath, err := c.resolveOutputPathForRun(code)
+func (c *Compiler) runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode string) error {
+	outputPath, err := c.resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode)
 	if err != nil {
 		return err
 	}
-	return runGoProgramForWatch(outputPath)
+	return runGoProgramForWatch(outputPath, RunBoundaryRoot(c.Args))
 }

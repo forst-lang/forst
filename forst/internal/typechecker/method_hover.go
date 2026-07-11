@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"forst/internal/ast"
+	"forst/internal/hoverdoc"
 )
 
 // ForstReceiverMethodHoverMarkdown returns hover text for recv.method on a Forst type: registered
@@ -23,7 +24,7 @@ func (tc *TypeChecker) ForstReceiverMethodHoverMarkdown(receiverType ast.TypeNod
 	if sig, ok := tc.lookupTypeMethod(typeIdent, methodName); ok {
 		display := tc.FormatFunctionSignatureDisplay(sig)
 		body := fmt.Sprintf("func (%s) %s", typeIdent, display)
-		return fmt.Sprintf("**Method** on `%s`\n\n```forst\n%s\n```", typeIdent, body), true
+		return fmt.Sprintf("**Method** on `%s`\n\n%s", typeIdent, hoverdoc.ForstBlock(body)), true
 	}
 
 	def, ok := tc.Defs[typeIdent]
@@ -43,5 +44,5 @@ func (tc *TypeChecker) ForstReceiverMethodHoverMarkdown(receiverType ast.TypeNod
 		return "", false
 	}
 	sigLine := methodName + field.MethodSignatureString()
-	return fmt.Sprintf("**Contract method** on `%s`\n\n```forst\n%s\n```", typeIdent, sigLine), true
+	return fmt.Sprintf("**Contract method** on `%s`\n\n%s", typeIdent, hoverdoc.ForstBlock(sigLine)), true
 }

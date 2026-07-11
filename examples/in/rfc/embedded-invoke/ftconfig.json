@@ -1,0 +1,11 @@
+{
+  "server": {
+    "embedded": true,
+    "port": "8081",
+    "host": "127.0.0.1"
+  },
+  "files": {
+    "include": ["**/*.ft"],
+    "exclude": ["**/node_modules/**"]
+  }
+}

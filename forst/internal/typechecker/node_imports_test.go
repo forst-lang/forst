@@ -1,0 +1,247 @@
+package typechecker
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"forst/internal/ast"
+	"forst/internal/testutil"
+)
+
+func writeNodeFixture(t *testing.T, root string) {
+	t.Helper()
+	legacyDir := filepath.Join(root, "legacy")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsFile := filepath.Join(legacyDir, "payment.ts")
+	if err := os.WriteFile(tsFile, []byte(`export async function create(amount: number, currency: string): Promise<{ id: string }> {
+  return { id: "x" };
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNodeImports_registersLocalAndTypechecksCall(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func main() {
+	payment.create(10.0, "usd")
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	if !tc.NeedsNodeRuntime() {
+		t.Fatal("expected NeedsNodeRuntime")
+	}
+	state := tc.NodeRuntimeState()
+	if !state.NeedsNodeRuntime {
+		t.Fatal("NodeRuntimeState.NeedsNodeRuntime = false")
+	}
+	if len(state.Manifest.Exports) != 1 {
+		t.Fatalf("manifest exports: %+v", state.Manifest.Exports)
+	}
+	if _, ok := tc.nodeModuleForLocal("payment"); !ok {
+		t.Fatal("payment node module not registered")
+	}
+	if tc.IsImportedLocalName("payment") {
+		t.Fatal("node import local should not be registered as Go import")
+	}
+}
+
+func TestNodeImports_rejectsTSWithoutOptIn(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+	if err := os.WriteFile(filepath.Join(root, "ftconfig.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := `package main
+import "./legacy/payment"
+
+func main() {}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      "cannot import TypeScript module without import node or import node alias (payment.ts found)",
+	})
+}
+
+func TestNodeImports_implicitPolicyAllowsWithoutOptIn(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+	if err := os.WriteFile(filepath.Join(root, "ftconfig.json"), []byte(`{"node":{"importPolicy":"implicit"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := `package main
+import "./legacy/payment"
+
+func main() {
+	payment.create(10.0, "usd")
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	if !tc.NeedsNodeRuntime() {
+		t.Fatal("expected NeedsNodeRuntime under implicit importPolicy")
+	}
+	if tc.NodeImportPolicy != "implicit" {
+		t.Fatalf("NodeImportPolicy = %q", tc.NodeImportPolicy)
+	}
+}
+
+func TestNodeImports_rejectsMissingModule(t *testing.T) {
+	root := t.TempDir()
+	src := `package main
+import node "./legacy/payment"
+
+func main() {}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      "TypeScript module not found",
+	})
+}
+
+func TestNodeImports_rejectsWrongArity(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func main() {
+	payment.create(10.0)
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      "expects 2 arguments",
+	})
+}
+
+func TestNodeImports_rejectsWrongArgumentType(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func main() {
+	payment.create("ten", "usd")
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      "argument 1",
+	})
+}
+
+func TestNodeImports_rejectsUnknownExport(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func main() {
+	payment.refund()
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+		ExpectError:      "not found",
+	})
+}
+
+func TestNodeImports_qualifiedCallReturnTypeIsResultOfPromiseElement(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func main() {
+	x := payment.create(1.0, "usd")
+	ensure x is Ok()
+	println(x.id)
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	vt, ok := tc.VariableTypes["x"]
+	if !ok || len(vt) != 1 {
+		t.Fatalf("variable x types: %+v ok=%v", vt, ok)
+	}
+	if !vt[0].IsResultType() {
+		t.Fatalf("expected Result type, got %+v", vt[0])
+	}
+	if len(vt[0].TypeParams) != 2 || vt[0].TypeParams[1].Ident != ast.TypeError {
+		t.Fatalf("expected Result(_, Error), got %+v", vt[0])
+	}
+}
+
+func TestNodeImports_checkoutHelperWithEnsureOkReturnString(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import node "./legacy/payment"
+
+func checkout(): String {
+	result := payment.create(1.0, "usd")
+	ensure result is Ok()
+	return result.id
+}
+`
+	MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+}
+
+func TestNodeImports_goImportStillSeparate(t *testing.T) {
+	root := t.TempDir()
+	writeNodeFixture(t, root)
+
+	src := `package main
+import "fmt"
+import node "./legacy/payment"
+
+func main() {
+	fmt.Println("ok")
+	payment.create(1.0, "usd")
+}
+`
+	tc, _ := MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	if !tc.IsImportedLocalName("fmt") {
+		t.Fatal("fmt should remain a Go import local")
+	}
+	if len(tc.imports) != 1 {
+		t.Fatalf("expected 1 Go import, got %d", len(tc.imports))
+	}
+	if len(tc.nodeImports) != 1 {
+		t.Fatalf("expected 1 node import, got %d", len(tc.nodeImports))
+	}
+}

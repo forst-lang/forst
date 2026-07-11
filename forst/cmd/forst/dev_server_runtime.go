@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,26 +12,31 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// listenAddr returns host:port for the dev HTTP listener.
+func (s *DevServer) listenAddr() string {
+	return s.host + ":" + s.port
+}
+
 // Start starts the HTTP server.
 func (s *DevServer) Start() error {
-	if err := s.discoverFunctions(); err != nil {
+	if err := s.refreshFunctions(); err != nil {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
 	}
 
 	s.typesGenerator = NewTypeScriptGenerator(s.log)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.handleHealth)
-	mux.HandleFunc("/version", s.handleVersion)
-	mux.HandleFunc("/functions", s.handleFunctions)
-	mux.HandleFunc("/invoke", s.handleInvoke)
+	s.invoke.RegisterRoutes(mux)
 	mux.HandleFunc("/types", s.handleTypes)
 
+	readTimeout := time.Duration(s.config.Server.ReadTimeout) * time.Second
+	writeTimeout := time.Duration(s.config.Server.WriteTimeout) * time.Second
+
 	s.server = &http.Server{
-		Addr:         ":" + s.port,
+		Addr:         s.listenAddr(),
 		Handler:      mux,
-		ReadTimeout:  time.Duration(s.config.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(s.config.Server.WriteTimeout) * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
 	}
 
 	s.logStartupInfo()
@@ -39,7 +45,7 @@ func (s *DevServer) Start() error {
 
 // logStartupInfo logs information about the server startup.
 func (s *DevServer) logStartupInfo() {
-	s.log.Infof("HTTP server listening on port %s", s.port)
+	s.log.Infof("HTTP server listening on %s", s.listenAddr())
 	s.log.Info("Available endpoints:")
 	s.log.Info("  GET  /functions  - Discover available functions")
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
@@ -58,6 +64,9 @@ func (s *DevServer) Stop() error {
 
 // discoverFunctions discovers all available functions.
 func (s *DevServer) discoverFunctions() error {
+	if s.discoverer == nil {
+		return fmt.Errorf("discoverer not configured")
+	}
 	functions, err := s.discoverer.DiscoverFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to discover functions: %v", err)
@@ -70,6 +79,20 @@ func (s *DevServer) discoverFunctions() error {
 	return nil
 }
 
+// refreshFunctions updates invoke DevBackend discovery and mirrors into s.functions.
+func (s *DevServer) refreshFunctions() error {
+	if s.devBackend != nil {
+		if err := s.devBackend.RefreshFunctions(context.Background()); err != nil {
+			return fmt.Errorf("failed to discover functions: %v", err)
+		}
+		s.mu.Lock()
+		s.functions = s.devBackend.Functions()
+		s.mu.Unlock()
+		return nil
+	}
+	return s.discoverFunctions()
+}
+
 // StartDevServer is the entry point for the dev server command.
 func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) error {
 	config := loadAndValidateConfig(configPath, log, port, logLevel)
@@ -79,7 +102,7 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 
 	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
 
-	log.Debugf("Starting Forst dev server on port %s", config.Server.Port)
+	log.Debugf("Starting Forst dev server on %s", config.Server.EffectiveDevListenHost()+":"+config.Server.Port)
 	log.Debugf("Root directory: %s", rootDir)
 
 	if err := devServerStartFn(server); err != nil {
@@ -120,6 +143,7 @@ func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, l
 	sections := []configSection{
 		{"Server", []string{
 			fmt.Sprintf("%-15s %s", "Port:", config.Server.Port),
+			fmt.Sprintf("%-15s %s", "Host:", config.Server.EffectiveDevListenHost()),
 			fmt.Sprintf("%-15s %v", "CORS enabled:", config.Server.CORS),
 		}},
 		{"Compiler", []string{

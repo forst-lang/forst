@@ -31,6 +31,22 @@ func (p *Parser) parseLiteral() ast.LiteralNode {
 			Value: value,
 		}
 
+	case ast.TokenRuneLiteral:
+		if neg {
+			p.FailWithParseError(token, "Invalid use of unary minus before rune literal")
+		}
+		content := token.Value
+		if len(content) >= 2 {
+			content = content[1 : len(content)-1]
+		}
+		r, _, tail, err := strconv.UnquoteChar(content, '\'')
+		if err != nil || tail != "" {
+			p.FailWithParseError(token, "illegal rune literal")
+		}
+		return ast.RuneLiteralNode{
+			Value: int64(r),
+		}
+
 	case ast.TokenIntLiteral:
 		value := token.Value
 

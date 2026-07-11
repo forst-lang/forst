@@ -1,0 +1,39 @@
+package main
+
+import node "./legacy/payment"
+import node "./legacy/events"
+import "strconv"
+
+func checkout(amount Float, currency String): String {
+	result := payment.create(amount, currency)
+	ensure result is Ok()
+	return result.id
+}
+
+func echo(n Float): String {
+	res := payment.concurrentEcho(n)
+	ensure res is Ok()
+	return strconv.FormatFloat(res.echo, 'f', 0, 64)
+}
+
+func drainEvents(userId String): Int {
+	seq := events.subscribe(userId)
+	ensure seq is Ok()
+	var count: Int = 0
+	for _, evt := range seq {
+		events.dispatch(evt)
+		count = count + 1
+	}
+	return count
+}
+
+func main() {
+	id := checkout(100.0, "USD")
+	println("payment:" + id)
+
+	msg := echo(7.0)
+	println("echo:" + msg)
+
+	n := drainEvents("user-42")
+	println("events:" + string(n))
+}

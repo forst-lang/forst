@@ -29,6 +29,12 @@ type StringLiteralNode struct {
 	Type  TypeNode
 }
 
+// RuneLiteralNode represents a Go-style rune literal ('f', '\n')
+type RuneLiteralNode struct {
+	Value int64
+	Type  TypeNode
+}
+
 // BoolLiteralNode represents a boolean literal
 type BoolLiteralNode struct {
 	Value bool
@@ -72,6 +78,11 @@ func (s StringLiteralNode) Kind() NodeKind {
 	return NodeKindStringLiteral
 }
 
+// Kind returns the node kind for a rune literal
+func (r RuneLiteralNode) Kind() NodeKind {
+	return NodeKindRuneLiteral
+}
+
 // Kind returns the node kind for a boolean literal
 func (b BoolLiteralNode) Kind() NodeKind {
 	return NodeKindBoolLiteral
@@ -96,6 +107,7 @@ func (n NilLiteralNode) Kind() NodeKind {
 func (i IntLiteralNode) isLiteral()    { _ = i }
 func (f FloatLiteralNode) isLiteral()  { _ = f }
 func (s StringLiteralNode) isLiteral() { _ = s }
+func (r RuneLiteralNode) isLiteral()  { _ = r }
 func (b BoolLiteralNode) isLiteral()   { _ = b }
 func (a ArrayLiteralNode) isLiteral()  { _ = a }
 func (m MapLiteralNode) isLiteral()    { _ = m }
@@ -105,6 +117,7 @@ func (n NilLiteralNode) isLiteral()    { _ = n }
 func (i IntLiteralNode) isValue()    { _ = i }
 func (f FloatLiteralNode) isValue()  { _ = f }
 func (s StringLiteralNode) isValue() { _ = s }
+func (r RuneLiteralNode) isValue()  { _ = r }
 func (b BoolLiteralNode) isValue()   { _ = b }
 func (a ArrayLiteralNode) isValue()  { _ = a }
 func (m MapLiteralNode) isValue()    { _ = m }
@@ -114,6 +127,7 @@ func (n NilLiteralNode) isValue()    { _ = n }
 func (i IntLiteralNode) isExpression()    { _ = i }
 func (f FloatLiteralNode) isExpression()  { _ = f }
 func (s StringLiteralNode) isExpression() { _ = s }
+func (r RuneLiteralNode) isExpression()  { _ = r }
 func (b BoolLiteralNode) isExpression()   { _ = b }
 func (a ArrayLiteralNode) isExpression()  { _ = a }
 func (m MapLiteralNode) isExpression()    { _ = m }
@@ -129,6 +143,10 @@ func (f FloatLiteralNode) String() string {
 
 func (s StringLiteralNode) String() string {
 	return fmt.Sprintf("\"%s\"", s.Value)
+}
+
+func (r RuneLiteralNode) String() string {
+	return fmt.Sprintf("'%c'", r.Value)
 }
 
 func (b BoolLiteralNode) String() string {

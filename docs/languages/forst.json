@@ -1,16 +1,59 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "forst",
+  "name": "ft",
   "scopeName": "source.forst",
-  "fileTypes": ["ft"],
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#strings" },
-    { "include": "#numbers" },
-    { "include": "#func-name" },
-    { "include": "#nominal-error-decl" },
-    { "include": "#keywords" },
-    { "include": "#operators" }
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#hover-dotted-field-type"
+    },
+    {
+      "include": "#hover-field-type"
+    },
+    {
+      "include": "#constraints"
+    },
+    {
+      "include": "#func-signature"
+    },
+    {
+      "include": "#func-name"
+    },
+    {
+      "include": "#nominal-error-decl"
+    },
+    {
+      "include": "#function-call"
+    },
+    {
+      "include": "#short-var-decl"
+    },
+    {
+      "include": "#param-type-pair"
+    },
+    {
+      "include": "#field-access"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types-builtin"
+    },
+    {
+      "include": "#types-user"
+    },
+    {
+      "include": "#operators"
+    }
   ],
   "repository": {
     "comments": {
@@ -89,48 +132,181 @@
         }
       ]
     },
+    "hover-dotted-field-type": {
+      "comment": "LSP hover: result.id: String (dotted receiver before colon)",
+      "match": "\\b([A-Za-z_][\\w]*)\\.([A-Za-z_][\\w]*)\\s*:",
+      "captures": {
+        "1": {
+          "name": "variable.other.readwrite"
+        },
+        "2": {
+          "name": "variable.other.property"
+        }
+      }
+    },
+    "hover-field-type": {
+      "comment": "LSP hover: result.id: String or name: Type",
+      "match": "\\b([A-Za-z_][\\w]*)\\s*:\\s*(?=[A-Za-z_(])",
+      "captures": {
+        "1": {
+          "name": "variable.other.readwrite"
+        }
+      }
+    },
+    "constraints": {
+      "comment": "Builtin guards and Result discriminators in type strings (String.Min(1).Ok())",
+      "match": "\\.(Min|Max|LessThan|GreaterThan|HasPrefix|Contains|True|False|Nil|Present|NotEmpty|Valid|Value|Match|Ok|Err)\\s*\\(",
+      "captures": {
+        "1": {
+          "name": "entity.name.function.constraint.forst"
+        }
+      }
+    },
+    "func-signature": {
+      "comment": "LSP hover / source: func name(params) -> Return",
+      "begin": "\\b(func)\\s+([A-Za-z_][\\w]*)\\s*\\(",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.declaration"
+        },
+        "2": {
+          "name": "entity.name.function"
+        }
+      },
+      "end": "\\)",
+      "patterns": [
+        {
+          "include": "#param-type-pair"
+        },
+        {
+          "include": "#types-builtin"
+        },
+        {
+          "include": "#types-user"
+        },
+        {
+          "include": "#constraints"
+        }
+      ]
+    },
     "func-name": {
       "match": "\\b(func)\\s+([A-Za-z_][\\w]*)",
       "captures": {
-        "1": { "name": "keyword.declaration.function.forst" },
-        "2": { "name": "entity.name.function.forst" }
+        "1": {
+          "name": "keyword.declaration"
+        },
+        "2": {
+          "name": "entity.name.function"
+        }
       }
     },
     "nominal-error-decl": {
-      "comment": "RFC nominal errors: error Name { ... } — highlight the declared name like a type.",
+      "comment": "RFC nominal errors: error Name { ... }",
       "match": "\\b(error)\\s+([A-Za-z_][\\w]*)",
       "captures": {
-        "1": { "name": "keyword.declaration.forst" },
-        "2": { "name": "entity.name.type.forst" }
+        "1": {
+          "name": "keyword.declaration"
+        },
+        "2": {
+          "name": "entity.name.type.error.forst"
+        }
+      }
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "comment": "Method call: recv.method(",
+          "match": "\\.([A-Za-z_][\\w]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function"
+            }
+          }
+        },
+        {
+          "comment": "Call: name( — exclude keywords",
+          "match": "(?<!\\.)\\b(?!(?:if|else|for|range|break|continue|switch|case|default|fallthrough|return|ensure|is|or|go|defer|goto|use|with|func|type|error|var|const|import|package|nil|true|false|map|chan|interface|struct)\\b)([A-Za-z_][\\w]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function"
+            }
+          }
+        }
+      ]
+    },
+    "short-var-decl": {
+      "match": "\\b([A-Za-z_][\\w]*)\\s*:=",
+      "captures": {
+        "1": {
+          "name": "variable.other.readwrite"
+        }
+      }
+    },
+    "param-type-pair": {
+      "comment": "Parameter name before type: amount Float",
+      "match": "\\b([A-Za-z_][\\w]*)\\s+(?=(?:String|Int|Float|Bool|Void|Array|Error|Result|Tuple|Map|Pointer|Object|Shape|[A-Z][A-Za-z0-9_]*)(?:\\.|\\s|,|\\)|->))",
+      "captures": {
+        "1": {
+          "name": "variable.parameter"
+        }
+      }
+    },
+    "field-access": {
+      "comment": "Field access: recv.field (not a call)",
+      "match": "\\.([A-Za-z_][\\w]*)(?!\\s*\\()",
+      "captures": {
+        "1": {
+          "name": "variable.other.property"
+        }
       }
     },
     "keywords": {
       "patterns": [
         {
-          "name": "keyword.control.forst",
+          "name": "keyword.control",
           "match": "\\b(else if|if|else|for|range|break|continue|switch|case|default|fallthrough|return|ensure|is|or|go|defer|goto|use|with)\\b"
         },
         {
-          "name": "keyword.declaration.forst",
-          "match": "\\b(func|type|error|var|const|import|package)\\b"
+          "name": "keyword.declaration",
+          "match": "\\b(func|type|error|var|const|import|package|async)\\b"
         },
         {
-          "name": "storage.type.builtin.forst",
-          "match": "\\b(String|Int|Float|Bool|Void|Array|Error|Result|Tuple)\\b"
+          "name": "keyword.other",
+          "match": "\\b(as|from)\\b"
         },
         {
-          "name": "storage.type.forst",
-          "match": "\\b(map|chan|interface|struct)\\b"
-        },
-        {
-          "name": "constant.language.forst",
+          "name": "constant.language",
           "match": "\\b(nil|true|false)\\b"
         }
       ]
     },
+    "types-builtin": {
+      "patterns": [
+        {
+          "name": "support.type.primitive",
+          "match": "\\b(String|Int|Float|Bool|Void|Array|Error|Result|Tuple|Map|Pointer|Object|Shape)\\b"
+        },
+        {
+          "name": "storage.type",
+          "match": "\\b(map|chan|interface|struct)\\b"
+        }
+      ]
+    },
+    "types-user": {
+      "comment": "User-defined PascalCase types",
+      "match": "(?<!\\.)\\b([A-Z][A-Za-z0-9_]*)\\b",
+      "captures": {
+        "1": {
+          "name": "entity.name.type"
+        }
+      }
+    },
     "operators": {
       "match": "(==|!=|>=|<=|&&|\\|\\||:=|\\+\\+|--|->|[+\\-*/%&|^!~<>=?:;,.\\(\\)\\[\\]{}])",
-      "name": "keyword.operator.forst"
+      "name": "keyword.operator"
     }
-  }
+  },
+  "fileTypes": [
+    "ft"
+  ]
 }

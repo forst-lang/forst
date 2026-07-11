@@ -157,19 +157,18 @@ func DocForObject(docPkg *doc.Package, obj types.Object) string {
 	if docPkg == nil || obj == nil {
 		return ""
 	}
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *types.Func:
-		fn := obj.(*types.Func)
-		if recv := fn.Signature().Recv(); recv != nil {
+		if recv := obj.Signature().Recv(); recv != nil {
 			recvType := recv.Type()
 			typeName := types.TypeString(recvType, func(*types.Package) string { return "" })
 			typeName = strings.TrimPrefix(typeName, "*")
 			if idx := strings.LastIndex(typeName, "."); idx >= 0 {
 				typeName = typeName[idx+1:]
 			}
-			return DocForMethod(docPkg, typeName, fn.Name())
+			return DocForMethod(docPkg, typeName, obj.Name())
 		}
-		return DocForFunc(docPkg, fn.Name())
+		return DocForFunc(docPkg, obj.Name())
 	case *types.Const, *types.Var:
 		// Vars/consts at package level may appear in docPkg.Vars
 		name := obj.Name()

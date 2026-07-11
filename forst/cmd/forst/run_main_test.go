@@ -183,7 +183,7 @@ func TestRunMain_build_createTempFails(t *testing.T) {
 		t.Skip("examples not present:", err)
 	}
 	orig := createTempOutputFileFn
-	createTempOutputFileFn = func(string) (string, error) { return "", fmt.Errorf("temp") }
+	createTempOutputFileFn = func(string, string, string) (string, error) { return "", fmt.Errorf("temp") }
 	t.Cleanup(func() { createTempOutputFileFn = orig })
 	if code := runMain([]string{"forst", "build", echoPath}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
@@ -196,7 +196,7 @@ func TestRunMain_run_goProgramFails(t *testing.T) {
 		t.Skip("examples not present:", err)
 	}
 	orig := runGoProgramFn
-	runGoProgramFn = func(string) error { return fmt.Errorf("no run") }
+	runGoProgramFn = func(string, string) error { return fmt.Errorf("no run") }
 	t.Cleanup(func() { runGoProgramFn = orig })
 	if code := runMain([]string{"forst", "run", echoPath}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
@@ -209,7 +209,7 @@ func TestRunMain_run_exitsZeroWhenGoRunSucceeds(t *testing.T) {
 		t.Skip("examples not present:", err)
 	}
 	orig := runGoProgramFn
-	runGoProgramFn = func(string) error { return nil }
+	runGoProgramFn = func(string, string) error { return nil }
 	t.Cleanup(func() { runGoProgramFn = orig })
 	if code := runMain([]string{"forst", "run", echoPath}); code != 0 {
 		t.Fatalf("want exit 0, got %d", code)

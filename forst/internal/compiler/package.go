@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -33,7 +34,7 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 	if err != nil {
 		return nil, fmt.Errorf("open package root: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	entryRel, err := root.RelPath(entryPath)
 	if err != nil {
@@ -51,6 +52,19 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 			return walkErr
 		}
 		if d.IsDir() {
+			name := d.Name()
+			if name == ".git" || name == "vendor" || name == "node_modules" {
+				return fs.SkipDir
+			}
+			if path != "." {
+				if _, statErr := os.Stat(filepath.Join(root.AbsPath(path), "go.mod")); statErr == nil {
+					return fs.SkipDir
+				}
+				// Nested ftconfig.json marks an isolated project (node-interop/promises, tictactoe, …).
+				if _, statErr := os.Stat(filepath.Join(root.AbsPath(path), "ftconfig.json")); statErr == nil {
+					return fs.SkipDir
+				}
+			}
 			return nil
 		}
 		if !strings.HasSuffix(strings.ToLower(path), ".ft") {

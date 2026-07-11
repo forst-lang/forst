@@ -10,6 +10,9 @@ import (
 )
 
 func TestParseExamplesIn_noPanicsOnWalk(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping full examples/in walk in -short mode")
+	}
 	root := filepath.Join("..", "..", "..", "examples", "in")
 	var panics []string
 	_ = walkExampleFt(root, root, func(path string) {

@@ -93,7 +93,7 @@ No `capability` keyword. No `requirement` block. Authors write **types** the com
 
 ### Forst shapes and nominal types
 
-```forst
+```ft
 type Logger = {
     info(msg String)
     error(msg String)
@@ -114,7 +114,7 @@ func (l StdLogger) error(msg String) {
 
 ### Imported Go interfaces
 
-```forst
+```ft
 import "io"
 
 func writeReport(title String) {
@@ -127,7 +127,7 @@ The contract **is** `io.Writer`. Tests pass `bytes.Buffer` or a small fake struc
 
 ### Imported concrete and pointer types
 
-```forst
+```ft
 import (
     "database/sql"
     "net/http"
@@ -145,7 +145,7 @@ When the contract is `*sql.DB`, tests supply `sql.Open` on SQLite in-memory or a
 
 There is **no** `with ctx` struct sugar and **no** postfix `f() with { … }` (avoids conflict with `ensure` and keeps one wiring shape).
 
-```forst
+```ft
 // Shape literal at wiring root
 with {
     Logger:   &StdLogger { level: "info" },
@@ -177,7 +177,7 @@ with ciUserApiServices() {
 
 Fat CI fixtures are **Providers bundles** — returned from a function or written inline; no conversion helpers.
 
-```forst
+```ft
 func ciUserApiServices(): CIProviders {
     return {
         Logger:      &NopLogger {},
@@ -188,7 +188,7 @@ func ciUserApiServices(): CIProviders {
 }
 ```
 
-```forst
+```ft
 func handleGetUser(id String): Result(User, Error) {
     return getUser(id)   // caller must enclose in `with wiring { … }`
 }
@@ -210,7 +210,7 @@ Foreign code:
 
 Forst wrapper:
 
-```forst
+```ft
 import "net/http"
 
 // Contract: anything that can perform HTTP round-trips the way we need.
@@ -238,7 +238,7 @@ func fetchHealth(url String) {
 
 ### Pattern: wrap a Go repository type
 
-```forst
+```ft
 import "example.com/internal/store"
 
 // Re-export the Go interface as the contract (preferred when the Go module already defines it).
@@ -252,7 +252,7 @@ func saveUser(user User) {
 
 If the Go package exports only a concrete `*store.Postgres`:
 
-```forst
+```ft
 type UserStore = {
     save(u User): Result(Void, Error)
     find(id String): Result(User, Error)
@@ -317,7 +317,7 @@ Nested `with` is **associative up to shadowing**: merged scope at inner scope eq
 
 ### Entry-point wiring
 
-```forst
+```ft
 func main() {
     with {
         Logger:   &StdLogger { level: "info" },
@@ -464,7 +464,7 @@ The struct is passed **by value** as the first argument (`providers Providers_a1
 
 ### Function signature
 
-```forst
+```ft
 func expireToken(token Token): Result(Token, Error) {
     use logger: Logger
     use clock: Clock
@@ -525,7 +525,7 @@ In Forst, `ciUserApiServices()` + `with wiring { … }` shares one scope Provide
 
 ### `with` block lowering
 
-```forst
+```ft
 with wiring {
     expireToken(token)
 }
@@ -544,7 +544,7 @@ expireToken(Providers_a1b2c3{
 
 ### Shape literal lowering
 
-```forst
+```ft
 with {
     Logger: &NopLogger{},
     Clock:  &FakeClock { fixedMs: 2000 },
@@ -574,7 +574,7 @@ There are **no** `test`, `harness`, or `override` keywords. Tests are **Go tests
 
 Import `testing` like any Go package. Test functions use Go’s naming and signature rules:
 
-```forst
+```ft
 import "testing"
 
 func TestExpireTokenRejectsExpired(t *testing.T) {
@@ -603,7 +603,7 @@ func TestExpireTokenRejectsExpired(t *testing.T) {
 
 Use **`t.Run` + nested `with`** as the **permanent** table-test override path ([ADR-044](./ADR.md#adr-044-test-entrypoints-use-test-and-testingt)):
 
-```forst
+```ft
 func TestExpireToken_table(t *testing.T) {
     token := Token { id: "t1", expiresAt: 1000 }
     cases := [] {
@@ -637,7 +637,7 @@ Production **`use` / `with`** work unchanged inside test bodies:
 - **Fat fixture** — `with ciUserApiServices() { … }` for integration breadth.
 - **Nested overlay** — inner `with { Clock: fake } { … }` shadows one capability ([ADR-008](./ADR.md#adr-008-nested-with-overlays-outer-wiring)).
 
-```forst
+```ft
 func TestExpireTokenWithSharedFixture(t *testing.T) {
     token := Token { id: "t1", expiresAt: 1000 }
     with ciUserApiServices() {
@@ -653,7 +653,7 @@ func TestExpireTokenWithSharedFixture(t *testing.T) {
 
 Define **plain functions** returning Provider-shaped literals. Helpers **do not** take `t` unless the author wants it for logging.
 
-```forst
+```ft
 // auth_test.ft or testfixtures/context.ft
 
 func ciUserApiServices(): CIProviders {
@@ -676,7 +676,7 @@ func (BlockedHttp) get(url String): Result(Bytes, Error) {
 
 Handler-level test:
 
-```forst
+```ft
 func TestCreateUserPersists(t *testing.T) {
     req := CreateUserRequest { name: "Ada", email: "a@b.c" }
     with ciUserApiServices() {
@@ -688,7 +688,7 @@ func TestCreateUserPersists(t *testing.T) {
 
 Selective override — nested `with` (no postfix override syntax):
 
-```forst
+```ft
 func TestCreateUserRecordsEmail(t *testing.T) {
     recording := &RecordingEmail { messages: [] }
     with ciUserApiServices() {
@@ -773,7 +773,7 @@ Recommended agent workflow:
 
 ### End-to-end: token expiry
 
-```forst
+```ft
 package auth
 
 import (
@@ -856,7 +856,7 @@ error Expired { tokenId: String }
 
 ### HTTP + email handler (five requirements)
 
-```forst
+```ft
 package users
 
 import (

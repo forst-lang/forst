@@ -1,0 +1,34 @@
+package main
+
+type ListTodosResponse = {
+	open: Int,
+	done: Int,
+	encoded: String
+}
+
+type AddTodoRequest = {
+	title: String
+}
+
+type AddTodoResponse = {
+	id: String,
+	title: String,
+	status: String
+}
+
+type CompleteTodoRequest = {
+	id: String
+}
+
+type CompleteTodoResponse = {
+	id: String,
+	title: String,
+	status: String
+}
+
+type DashboardResponse = {
+	open: Int,
+	recentTitles: String,
+	activityKinds: String,
+	savedAt: String
+}

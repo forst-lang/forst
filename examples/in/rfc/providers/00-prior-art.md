@@ -363,7 +363,7 @@ Best-in-class systems keep **operation inputs** as ordinary parameters and **cap
 
 Today **`ensure`** is a **guard / narrowing / failure-propagation** construct, not a capability system:
 
-```forst
+```ft
 ensure name is Min(1)
     or TooShort("Name must be at least 1 character long")
 

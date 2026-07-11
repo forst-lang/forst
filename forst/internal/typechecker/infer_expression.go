@@ -57,6 +57,11 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		tc.storeInferredType(e, []ast.TypeNode{typ})
 		return []ast.TypeNode{typ}, nil
 
+	case ast.RuneLiteralNode:
+		typ := ast.TypeNode{Ident: ast.TypeInt}
+		tc.storeInferredType(e, []ast.TypeNode{typ})
+		return []ast.TypeNode{typ}, nil
+
 	case ast.BoolLiteralNode:
 		typ := ast.TypeNode{Ident: ast.TypeBool}
 		tc.storeInferredType(e, []ast.TypeNode{typ})
@@ -355,8 +360,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				callSpan = e.Function.Span
 			}
 			tc.recordFunctionCall(e.Function.ID, callSpan)
-			tc.storeInferredType(e, signature.ReturnTypes)
-			return signature.ReturnTypes, nil
+			retTypes := signature.ReturnTypes
+			tc.storeInferredType(e, retTypes)
+			return retTypes, nil
 		}
 
 		// Resolution order: Forst func → same-package Go → type guard → local → qualified → dot-import → builtin.
@@ -417,6 +423,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				return ret, nil
 			}
 
+			// Node TypeScript import (before Go package resolution)
+			if ret, found, err := tc.tryNodeQualifiedCall(pkgName, funcName, e, argTypes); err != nil {
+				return nil, err
+			} else if found {
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
+
 			// Imported Go package (Forst↔Go boundary): batch or lazy go/packages load
 			if gp := tc.goPackageForImportLocal(pkgName); gp != nil {
 				ret, err := tc.checkGoQualifiedCall(gp, pkgName, funcName, e, argTypes, true)
@@ -446,7 +460,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 				tc.storeInferredType(e, returnType)
 				return returnType, nil
 			}
-			if tc.IsImportedLocalName(pkgName) {
+			if tc.IsImportedLocalName(pkgName) && !tc.isNodeImportLocal(pkgName) {
 				callSpan := e.CallSpan
 				if !callSpan.IsSet() {
 					callSpan = e.Function.Span

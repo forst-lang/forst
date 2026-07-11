@@ -29,6 +29,12 @@ import {
 
 const verifyOff = { FORST_CLI_VERIFY: "0" } as const;
 
+function seedCompilerModuleCache(cacheRoot: string, version: string): void {
+  mkdirSync(join(cacheRoot, version, "module", "cmd", "forst"), {
+    recursive: true,
+  });
+}
+
 test("getCompilerArtifactName matches release task naming", () => {
   expect(getCompilerArtifactName("darwin", "arm64")).toBe("forst-darwin-arm64");
   expect(getCompilerArtifactName("linux", "x64")).toBe("forst-linux-amd64");
@@ -37,9 +43,9 @@ test("getCompilerArtifactName matches release task naming", () => {
 
 test("buildCompilerArtifactDownloadUrl", () => {
   expect(
-    buildCompilerArtifactDownloadUrl("0.0.19", "forst-darwin-arm64")
+    buildCompilerArtifactDownloadUrl("0.6.0", "forst-darwin-arm64")
   ).toBe(
-    "https://github.com/forst-lang/forst/releases/download/v0.0.19/forst-darwin-arm64"
+    "https://github.com/forst-lang/forst/releases/download/v0.6.0/forst-darwin-arm64"
   );
 });
 
@@ -68,24 +74,27 @@ describe("resolveForstBinary", () => {
   });
 
   test("throws when FORST_BINARY points at missing file", async () => {
-    await expect(
-      resolveForstBinary({
-        env: { ...process.env, FORST_BINARY: "/nonexistent/forst-binary-xyz" },
-      })
-    ).rejects.toThrow(/FORST_BINARY/);
+    const err = await resolveForstBinary({
+      env: { ...process.env, FORST_BINARY: "/nonexistent/forst-binary-xyz" },
+    }).catch((e) => e);
+
+    expect(String(err)).toMatch(/FORST_BINARY/);
   });
 
   test("allowDownload false throws when cache miss and no FORST_BINARY", async () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), "forst-cli-cache-"));
     try {
-      await expect(
-        resolveForstBinary({
-          version: "0.0.19",
-          allowDownload: false,
-          env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toBeInstanceOf(CompilerBinaryNotFound);
+      const err = await resolveForstBinary({
+        version: "0.6.0",
+        allowDownload: false,
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toBeInstanceOf(CompilerBinaryNotFound);
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }
@@ -98,16 +107,17 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
 
       const fakeBinary = Buffer.from("fake-forst-binary");
       const fetchImpl: FetchImpl = async (url) => {
-        expect(String(url)).toContain("/download/v0.0.19/" + destName);
+        expect(String(url)).toContain("/download/v0.6.0/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
+        version: "0.6.0",
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
         fetchImpl,
         homedirFn: () => "/unused",
@@ -127,13 +137,14 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       mkdirSync(dirname(dest), { recursive: true });
       const marker = Buffer.from("cached-binary-contents");
       writeFileSync(dest, marker);
       if (process.platform !== "win32") {
         chmodSync(dest, 0o755);
       }
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       let fetchCalled = false;
       const fetchImpl: FetchImpl = async () => {
@@ -142,8 +153,12 @@ describe("resolveForstBinary", () => {
       };
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          ...verifyOff,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl,
         homedirFn: () => "/unused",
       });
@@ -157,13 +172,13 @@ describe("resolveForstBinary", () => {
   });
 
   test("rejects invalid version strings used for cache paths", async () => {
-    await expect(
-      resolveForstBinary({
-        version: "../../../evil",
-        env: { ...process.env, FORST_CACHE_DIR: "/tmp" },
-        homedirFn: () => "/unused",
-      })
-    ).rejects.toThrow(/Invalid Forst compiler version/);
+    const err = await resolveForstBinary({
+      version: "../../../evil",
+      env: { ...process.env, FORST_CACHE_DIR: "/tmp" },
+      homedirFn: () => "/unused",
+    }).catch((e) => e);
+
+    expect(String(err)).toMatch(/Invalid Forst compiler version/);
   });
 
   test("falls back to previous release when latest binary returns 404", async () => {
@@ -203,6 +218,7 @@ describe("resolveForstBinary", () => {
         }
         throw new Error(`unexpected fetch: ${s}`);
       };
+      seedCompilerModuleCache(cacheRoot, fallback);
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
@@ -251,6 +267,7 @@ describe("resolveForstBinary", () => {
         }
         throw new Error(`unexpected fetch: ${s}`);
       };
+      seedCompilerModuleCache(cacheRoot, published);
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
@@ -279,9 +296,8 @@ describe("resolveForstBinary", () => {
       throw new Error(`unexpected fetch: ${String(url)}`);
     };
 
-    await expect(
-      resolveFallbackCompilerVersion("0.5.3", fetchImpl)
-    ).resolves.toBe("0.5.2");
+    const version = await resolveFallbackCompilerVersion("0.5.3", fetchImpl);
+    expect(version).toBe("0.5.2");
   });
 
   test("maps HTTP failure to CompilerBinaryDownloadHttpFailure", async () => {
@@ -290,14 +306,18 @@ describe("resolveForstBinary", () => {
       const fetchImpl: FetchImpl = async () =>
         new Response(null, { status: 404, statusText: "Not Found" });
 
-      await expect(
-        resolveForstBinary({
-          version: "0.0.19",
-          env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-          fetchImpl,
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toBeInstanceOf(CompilerBinaryDownloadHttpFailure);
+      const err = await resolveForstBinary({
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          ...verifyOff,
+          FORST_CACHE_DIR: cacheRoot
+        },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toBeInstanceOf(CompilerBinaryDownloadHttpFailure);
     } finally {
       rmSync(cacheRoot, { recursive: true, force: true });
     }
@@ -310,7 +330,7 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       const payload = Buffer.from("fake-forst-binary");
       const hex = createHash("sha256").update(payload).digest("hex");
 
@@ -319,18 +339,25 @@ describe("resolveForstBinary", () => {
         if (s.includes("api.github.com")) {
           return new Response(
             JSON.stringify({
-              assets: [{ name: destName, digest: `sha256:${hex}` }],
+              assets: [{
+                name: destName,
+                digest: `sha256:${hex}`
+              }],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
         }
-        expect(s).toContain("/download/v0.0.19/" + destName);
+        expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl,
         homedirFn: () => "/unused",
       });
@@ -348,7 +375,7 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       const payload = Buffer.from("fake-forst-binary");
 
       const fetchImpl: FetchImpl = async (url) => {
@@ -361,13 +388,17 @@ describe("resolveForstBinary", () => {
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
         }
-        expect(s).toContain("/download/v0.0.19/" + destName);
+        expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl,
         homedirFn: () => "/unused",
       });
@@ -400,18 +431,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "0.0.19",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "strict",
-          },
-          fetchImpl,
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "strict",
+        },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "digest_missing",
       });
@@ -430,18 +461,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "9.9.9",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "strict",
-          },
-          fetchImpl,
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "9.9.9",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "strict",
+        },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "release_not_found",
       });
@@ -468,18 +499,18 @@ describe("resolveForstBinary", () => {
         return new Response(null, { status: 500 });
       };
 
-      await expect(
-        resolveForstBinary({
-          version: "0.4.0",
-          env: {
-            ...process.env,
-            FORST_CACHE_DIR: cacheRoot,
-            FORST_CLI_VERIFY: "1",
-          },
-          fetchImpl,
-          homedirFn: () => "/unused",
-        })
-      ).rejects.toMatchObject({
+      const err = await resolveForstBinary({
+        version: "0.4.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot,
+          FORST_CLI_VERIFY: "1",
+        },
+        fetchImpl,
+        homedirFn: () => "/unused",
+      }).catch((e) => e);
+
+      expect(err).toMatchObject({
         name: "CompilerBinaryDigestUnavailable",
         reason: "asset_not_found",
         artifact: destName,
@@ -514,7 +545,10 @@ describe("resolveForstBinary", () => {
         if (s.includes("/repos/forst-lang/forst/releases/tags/v99.0.0")) {
           return new Response(
             JSON.stringify({
-              assets: [{ name: destName, digest: `sha256:${hex}` }],
+              assets: [{
+                name: destName,
+                digest: `sha256:${hex}`
+              }],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
@@ -522,10 +556,14 @@ describe("resolveForstBinary", () => {
         expect(s).toContain("/download/v99.0.0/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
+      seedCompilerModuleCache(cacheRoot, "99.0.0");
 
       const p = await resolveForstBinary({
         preferLatestRelease: true,
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl,
         homedirFn: () => "/unused",
       });
@@ -552,6 +590,7 @@ describe("resolveForstBinary", () => {
       if (process.platform !== "win32") {
         chmodSync(dest, 0o755);
       }
+      seedCompilerModuleCache(cacheRoot, bundled);
 
       const fetchImpl: FetchImpl = async () => {
         throw new Error("network must not be used when allowDownload is false");
@@ -587,7 +626,10 @@ describe("resolveForstBinary", () => {
           return new Response(
             JSON.stringify({
               assets: [
-                { name: destName, digest: "sha256:" + "00".repeat(32) },
+                {
+                  name: destName,
+                  digest: "sha256:" + "00".repeat(32)
+                },
               ],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
@@ -597,8 +639,11 @@ describe("resolveForstBinary", () => {
       };
 
       const err = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
         fetchImpl,
         homedirFn: () => "/unused",
       }).catch((e) => e);

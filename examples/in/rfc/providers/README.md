@@ -72,7 +72,7 @@ From **[04](./04-redesign.md)**:
 
 See **[04 — Redesign](./04-redesign.md)** for full rules. Sketch:
 
-```forst
+```ft
 type Logger = capability {
     info(msg String)
 }
@@ -91,7 +91,7 @@ func main() {
 
 Tests supply fakes the same way — handler suites can share a test context:
 
-```forst
+```ft
 test "greet logs" {
     supply { Logger: NopLogger {} } {
         greet("Ada")

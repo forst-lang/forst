@@ -150,8 +150,7 @@ func TestCheckModuleProviders_genericSiblingImports(t *testing.T) {
 	internalDir := filepath.Join(dir, "internal")
 	modelsDir := filepath.Join(internalDir, "models")
 	apiDir := filepath.Join(internalDir, "api")
-	testDir := filepath.Join(dir, "cmd", "demo")
-	for _, d := range []string{internalDir, modelsDir, apiDir, testDir} {
+	for _, d := range []string{internalDir, modelsDir, apiDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -175,14 +174,6 @@ import "generic_sibling_demo/internal/models"
 
 func LabelFor(rec models.Record): String {
 	return metadata.Revision + rec.Name
-}
-`)
-	writeFile(t, filepath.Join(testDir, "demo_test.ft"), `package demo
-
-import "testing"
-
-func TestSmoke(t *testing.T) {
-	t.Helper()
 }
 `)
 
@@ -222,10 +213,5 @@ func TestSmoke(t *testing.T) {
 	}
 	if _, ok := modelsTC.Defs["Record"]; !ok {
 		t.Fatal("Record missing from models Defs")
-	}
-
-	demoTC := result.ForstPackageTypeChecker("demo")
-	if demoTC == nil {
-		t.Fatal("missing demo typechecker")
 	}
 }

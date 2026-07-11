@@ -1,0 +1,12 @@
+package main
+
+import node checkout "./legacy/api/checkout"
+import "strconv"
+
+func main() {
+	order := checkout.createOrder(100.0, "USD")
+	ensure order is Ok()
+	println(order.id)
+	println(order.total)
+	println(strconv.FormatFloat(order.totalCents, 'f', 0, 64))
+}
