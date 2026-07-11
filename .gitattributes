@@ -1,0 +1,10 @@
+# Forst source — highlight as Go (closest grammar), exclude from language bar
+*.ft linguist-language=Go linguist-vendored
+
+# Golden / generated Go output — real Go, but don't inflate diff noise
+examples/out/** linguist-generated
+**/*_forst_node_runtime.gen.go linguist-generated
+**/*_forst_invoke_server.gen.go linguist-generated
+
+# RFC markdown in examples — documentation, not code stats
+examples/in/rfc/** linguist-documentation
