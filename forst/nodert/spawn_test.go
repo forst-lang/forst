@@ -208,7 +208,27 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
 	}
+	if lookupEnvValue(cmd.Env, "HOST") != "127.0.0.1" {
+		t.Fatalf("HOST = %q want 127.0.0.1", lookupEnvValue(cmd.Env, "HOST"))
+	}
 	if lookupEnvValue(cmd.Env, envNodeSocket) == "" {
 		t.Fatalf("missing socket env: %#v", cmd.Env)
+	}
+}
+
+func TestBuildSpawnEnv_defaultsHostWhenUnset(t *testing.T) {
+	env := buildSpawnEnv(spawnEnvInput{HostMode: true})
+	if lookupEnvValue(env, "HOST") != "127.0.0.1" {
+		t.Fatalf("HOST = %q want 127.0.0.1", lookupEnvValue(env, "HOST"))
+	}
+}
+
+func TestBuildSpawnEnv_preservesExplicitHost(t *testing.T) {
+	env := buildSpawnEnv(spawnEnvInput{
+		HostMode: true,
+		Env:      []string{"HOST=0.0.0.0"},
+	})
+	if lookupEnvValue(env, "HOST") != "0.0.0.0" {
+		t.Fatalf("HOST = %q want 0.0.0.0", lookupEnvValue(env, "HOST"))
 	}
 }

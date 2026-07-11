@@ -87,9 +87,10 @@ type ServerConfig struct {
 	MaxRequestSize int64  `json:"maxRequestSize"`
 }
 
-// EffectiveInvokeHost returns the bind host for embedded invoke (127.0.0.1 when embedded, else configured host).
+// EffectiveInvokeHost returns the bind host for embedded invoke.
+// Embedded node-to-forst RPC always listens on loopback only.
 func (s ServerConfig) EffectiveInvokeHost() string {
-	if s.Embedded && (s.Host == "" || s.Host == "localhost") {
+	if s.Embedded {
 		return "127.0.0.1"
 	}
 	if s.Host == "" {

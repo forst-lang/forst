@@ -16,7 +16,6 @@ import (
 
 const (
 	envInvokeEnabled = "FORST_INVOKE_ENABLED"
-	envInvokeHost    = "FORST_INVOKE_HOST"
 	envInvokePort    = "FORST_INVOKE_PORT"
 	envBoundaryRoot  = "FORST_BOUNDARY_ROOT"
 	invokeReadyFile  = ".forst/invoke.ready"
@@ -63,7 +62,7 @@ func startEmbedded() error {
 	}
 
 	serverCfg := Config{
-		Host:           effectiveHost(cfg.Server),
+		Host:           embeddedListenHost,
 		Port:           effectivePort(cfg.Server),
 		CORS:           cfg.Server.CORS,
 		ReadTimeout:    cfg.Server.ReadTimeout,
@@ -85,13 +84,6 @@ func shouldStartEmbedded(ftconfigEnabled bool) bool {
 	}
 	v := os.Getenv(envInvokeEnabled)
 	return v == "1" || v == "true"
-}
-
-func effectiveHost(s ftconfig.ServerConfig) string {
-	if h := os.Getenv(envInvokeHost); h != "" {
-		return h
-	}
-	return s.EffectiveInvokeHost()
 }
 
 func effectivePort(s ftconfig.ServerConfig) string {

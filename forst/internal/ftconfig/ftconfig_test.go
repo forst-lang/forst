@@ -515,3 +515,34 @@ func TestNodeConfig_EffectiveHostAutoRegister(t *testing.T) {
 		t.Fatal("expected false when hostAutoRegister explicitly false")
 	}
 }
+
+func TestEffectiveInvokeHost_embeddedAlwaysLocalhost(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+	}{
+		{"empty", ""},
+		{"localhost", "localhost"},
+		{"zero", "0.0.0.0"},
+		{"public", "192.168.1.1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ServerConfig{Embedded: true, Host: tc.host}.EffectiveInvokeHost()
+			if got != "127.0.0.1" {
+				t.Fatalf("EffectiveInvokeHost() = %q", got)
+			}
+		})
+	}
+}
+
+func TestEffectiveInvokeHost_nonEmbeddedUsesConfiguredHost(t *testing.T) {
+	got := ServerConfig{Embedded: false, Host: "0.0.0.0"}.EffectiveInvokeHost()
+	if got != "0.0.0.0" {
+		t.Fatalf("EffectiveInvokeHost() = %q", got)
+	}
+	got = ServerConfig{Embedded: false, Host: ""}.EffectiveInvokeHost()
+	if got != "localhost" {
+		t.Fatalf("EffectiveInvokeHost() = %q", got)
+	}
+}

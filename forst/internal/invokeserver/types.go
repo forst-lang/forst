@@ -36,6 +36,9 @@ type VersionInfo struct {
 	Runtime         string `json:"runtime,omitempty"`
 }
 
+// embeddedListenHost is the only bind address for embedded node-to-forst RPC.
+const embeddedListenHost = "127.0.0.1"
+
 // Config holds HTTP listener settings.
 type Config struct {
 	Host           string
@@ -47,30 +50,32 @@ type Config struct {
 	Runtime        string
 }
 
-// Addr returns host:port for Listen.
-func (c Config) Addr() string {
-	host := c.Host
-	if host == "" {
-		host = "127.0.0.1"
+func (c Config) listenHost() string {
+	if c.Runtime == "embedded" {
+		return embeddedListenHost
 	}
+	if c.Host == "" {
+		return embeddedListenHost
+	}
+	return c.Host
+}
+
+func (c Config) listenPort() string {
 	port := c.Port
 	if port == "" {
 		port = "8081"
 	}
-	return host + ":" + port
+	return port
+}
+
+// Addr returns host:port for Listen.
+func (c Config) Addr() string {
+	return c.listenHost() + ":" + c.listenPort()
 }
 
 // BaseURL returns http://host:port for ready files and clients.
 func (c Config) BaseURL() string {
-	host := c.Host
-	if host == "" {
-		host = "127.0.0.1"
-	}
-	port := c.Port
-	if port == "" {
-		port = "8081"
-	}
-	return "http://" + host + ":" + port
+	return "http://" + c.listenHost() + ":" + c.listenPort()
 }
 
 // DispatchBackend executes invoke requests.

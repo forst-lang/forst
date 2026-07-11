@@ -26,6 +26,7 @@ import { fetchCompilerReleaseVersions, fetchReleaseAssetSha256Hex } from "./gith
 import { fetchWithRetry, type FetchImpl } from "./http.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import { getBundledCompilerReleaseVersion } from "./version.js";
+import { ensureCompilerModuleForVersion } from "./compiler-module.js";
 
 /** Download URL for the compiler artifact matching this @forst/cli version and current OS/arch. */
 export function getCompilerArtifactDownloadUrlForCurrentPlatform(
@@ -468,26 +469,8 @@ async function downloadCompilerBinaryForVersion(
   }
 }
 
-/**
- * Resolves the native `forst` executable: `FORST_BINARY` if set, otherwise a
- * cached binary downloaded from GitHub Releases for this package version.
- */
-export async function resolveForstBinary(
-  options: ResolveForstBinaryOptions = {}
-): Promise<string> {
-  const allowDownload = options.allowDownload !== false;
-  const env = options.env ?? process.env;
-  const override = env.FORST_BINARY?.trim();
-  if (override) {
-    if (!existsSync(override)) {
-      throw new CompilerBinaryDownloadFailed(
-        `FORST_BINARY is set to "${override}" but that file does not exist`
-      );
-    }
-    return override;
-  }
-
-  const fs = options.fs ?? {
+function defaultResolveForstBinaryFs(): ResolveForstBinaryFs {
+  return {
     existsSync,
     mkdirSync,
     readFileSync,
@@ -497,14 +480,48 @@ export async function resolveForstBinary(
     unlinkSync,
     statSync,
   };
-  const version = await resolveEffectiveCompilerVersion(options, allowDownload, fs);
-  const fetchFn = options.fetchImpl ?? fetch;
-  const downloadOptions: DownloadCompilerBinaryOptions = {
+}
+
+/** Returns `FORST_BINARY` when set and present on disk; otherwise `undefined`. */
+function resolveForstBinaryEnvOverride(
+  env: NodeJS.ProcessEnv,
+  fs: ResolveForstBinaryFs
+): string | undefined {
+  const override = env.FORST_BINARY?.trim();
+  if (!override) {
+    return undefined;
+  }
+  if (!fs.existsSync(override)) {
+    throw new CompilerBinaryDownloadFailed(
+      `FORST_BINARY is set to "${override}" but that file does not exist`
+    );
+  }
+  return override;
+}
+
+interface ObtainCachedCompilerBinaryParams {
+  version: string;
+  options: ResolveForstBinaryOptions;
+  allowDownload: boolean;
+  env: NodeJS.ProcessEnv;
+  fetchFn: FetchImpl;
+  fs: ResolveForstBinaryFs;
+  downloadOptions: DownloadCompilerBinaryOptions;
+}
+
+/** Uses a cached binary or downloads one, with optional fallback to an older release. */
+async function obtainCachedCompilerBinary(
+  params: ObtainCachedCompilerBinaryParams
+): Promise<{ binaryPath: string; version: string }> {
+  const {
+    version,
+    options,
+    allowDownload,
     env,
     fetchFn,
     fs,
-    homedirFn: options.homedirFn,
-  };
+    downloadOptions,
+  } = params;
 
   const dest = getExpectedCompilerBinaryPath(
     version,
@@ -514,13 +531,13 @@ export async function resolveForstBinary(
   );
 
   if (fs.existsSync(dest)) {
-    return dest;
+    return { binaryPath: dest, version };
   }
 
   if (!allowDownload) {
     throw new CompilerBinaryNotFound(
       `Forst compiler is not installed in the local cache (${dest}). ` +
-        `Set FORST_BINARY to the executable, enable downloads, or install the @forst/cli cache.`
+      `Set FORST_BINARY to the executable, enable downloads, or install the @forst/cli cache.`
     );
   }
 
@@ -528,7 +545,11 @@ export async function resolveForstBinary(
     options.version !== undefined && options.version.length > 0;
 
   try {
-    return await downloadCompilerBinaryForVersion(version, downloadOptions);
+    const binaryPath = await downloadCompilerBinaryForVersion(
+      version,
+      downloadOptions
+    );
+    return { binaryPath, version };
   } catch (error) {
     if (explicitVersion || !isCompilerBinaryNotFoundHttpError(error)) {
       throw error;
@@ -542,6 +563,83 @@ export async function resolveForstBinary(
       throw error;
     }
 
-    return downloadCompilerBinaryForVersion(fallbackVersion, downloadOptions);
+    const binaryPath = await downloadCompilerBinaryForVersion(
+      fallbackVersion,
+      downloadOptions
+    );
+    return { binaryPath, version: fallbackVersion };
   }
+}
+
+async function installCompilerModuleIfDownloading(
+  allowDownload: boolean,
+  version: string,
+  env: NodeJS.ProcessEnv,
+  fetchFn: FetchImpl,
+  fs: ResolveForstBinaryFs,
+  homedirFn?: () => string
+): Promise<void> {
+  if (!allowDownload) {
+    return;
+  }
+  await ensureCompilerModuleForVersion({
+    version,
+    env,
+    fetchFn,
+    fs,
+    homedirFn,
+  });
+}
+
+/**
+ * Resolves the native `forst` executable: `FORST_BINARY` if set, otherwise a
+ * cached binary downloaded from GitHub Releases for this package version.
+ */
+export async function resolveForstBinary(
+  options: ResolveForstBinaryOptions = {}
+): Promise<string> {
+  const allowDownload = options.allowDownload !== false;
+  const env = options.env ?? process.env;
+  const fs = options.fs ?? defaultResolveForstBinaryFs();
+
+  const override = resolveForstBinaryEnvOverride(env, fs);
+  if (override !== undefined) {
+    return override;
+  }
+
+  const fetchFn = options.fetchImpl ?? fetch;
+  const version = await resolveEffectiveCompilerVersion(
+    options,
+    allowDownload,
+    fs
+  );
+
+  const downloadOptions: DownloadCompilerBinaryOptions = {
+    env,
+    fetchFn,
+    fs,
+    homedirFn: options.homedirFn,
+  };
+
+  const { binaryPath, version: resolvedVersion } =
+    await obtainCachedCompilerBinary({
+      version,
+      options,
+      allowDownload,
+      env,
+      fetchFn,
+      fs,
+      downloadOptions,
+    });
+
+  await installCompilerModuleIfDownloading(
+    allowDownload,
+    resolvedVersion,
+    env,
+    fetchFn,
+    fs,
+    options.homedirFn
+  );
+
+  return binaryPath;
 }

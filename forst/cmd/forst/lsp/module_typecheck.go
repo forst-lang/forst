@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"os"
 	"path/filepath"
 
 	"forst/internal/ast"
@@ -20,18 +19,10 @@ import (
 func moduleRootForLSPTypecheck(filePath string) string {
 	entryDir := filepath.Dir(filePath)
 	modRoot := goload.FindModuleRoot(entryDir)
-	if isCompilerWorkspaceModule(modRoot) {
+	if goload.IsForstCompilerModule(modRoot) {
 		return entryDir
 	}
 	return modRoot
-}
-
-func isCompilerWorkspaceModule(modRoot string) bool {
-	if modRoot == "" {
-		return false
-	}
-	_, err := os.Stat(filepath.Join(modRoot, "cmd", "forst"))
-	return err == nil
 }
 
 // typecheckForLSP runs module-level checking when the file lives in a multi-package Forst

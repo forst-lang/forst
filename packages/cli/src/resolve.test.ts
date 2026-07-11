@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { describe, expect, test } from "bun:test";
 import {
   chmodSync,
@@ -11,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { getCompilerArtifactName } from "./artifact.js";
+import { getCompilerModuleArtifactName } from "./compiler-module.js";
 import { buildCompilerArtifactDownloadUrl } from "./urls.js";
 import type { FetchImpl } from "./http.js";
 import {
@@ -29,6 +31,48 @@ import {
 
 const verifyOff = { FORST_CLI_VERIFY: "0" } as const;
 
+function seedCompilerModuleCache(cacheRoot: string, version: string): void {
+  mkdirSync(join(cacheRoot, version, "module", "cmd", "forst"), {
+    recursive: true,
+  });
+}
+
+function createCompilerModuleTarball(): Buffer {
+  const root = mkdtempSync(join(tmpdir(), "forst-mod-tar-"));
+  try {
+    mkdirSync(join(root, "cmd", "forst"), { recursive: true });
+    const tarPath = join(root, "mod.tgz");
+    execFileSync("tar", ["-czf", tarPath, "-C", root, "."], { stdio: "pipe" });
+    return readFileSync(tarPath);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function withModuleTarballFetch(
+  version: string,
+  inner: FetchImpl
+): FetchImpl {
+  const moduleArtifact = getCompilerModuleArtifactName(version);
+  return async (url, init) => {
+    const s = String(url);
+    if (s.includes(moduleArtifact)) {
+      return new Response(createCompilerModuleTarball(), { status: 200 });
+    }
+    return inner(url, init);
+  };
+}
+
+function withModuleTarballFetchVersions(
+  versions: string[],
+  inner: FetchImpl
+): FetchImpl {
+  return versions.reduce(
+    (wrapped, version) => withModuleTarballFetch(version, wrapped),
+    inner
+  );
+}
+
 test("getCompilerArtifactName matches release task naming", () => {
   expect(getCompilerArtifactName("darwin", "arm64")).toBe("forst-darwin-arm64");
   expect(getCompilerArtifactName("linux", "x64")).toBe("forst-linux-amd64");
@@ -37,9 +81,9 @@ test("getCompilerArtifactName matches release task naming", () => {
 
 test("buildCompilerArtifactDownloadUrl", () => {
   expect(
-    buildCompilerArtifactDownloadUrl("0.0.19", "forst-darwin-arm64")
+    buildCompilerArtifactDownloadUrl("0.6.0", "forst-darwin-arm64")
   ).toBe(
-    "https://github.com/forst-lang/forst/releases/download/v0.0.19/forst-darwin-arm64"
+    "https://github.com/forst-lang/forst/releases/download/v0.6.0/forst-darwin-arm64"
   );
 });
 
@@ -80,7 +124,7 @@ describe("resolveForstBinary", () => {
     try {
       await expect(
         resolveForstBinary({
-          version: "0.0.19",
+          version: "0.6.0",
           allowDownload: false,
           env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
           homedirFn: () => "/unused",
@@ -98,18 +142,18 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
 
       const fakeBinary = Buffer.from("fake-forst-binary");
       const fetchImpl: FetchImpl = async (url) => {
-        expect(String(url)).toContain("/download/v0.0.19/" + destName);
+        expect(String(url)).toContain("/download/v0.6.0/" + destName);
         return new Response(fakeBinary, { status: 200 });
       };
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
+        version: "0.6.0",
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -127,13 +171,14 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       mkdirSync(dirname(dest), { recursive: true });
       const marker = Buffer.from("cached-binary-contents");
       writeFileSync(dest, marker);
       if (process.platform !== "win32") {
         chmodSync(dest, 0o755);
       }
+      seedCompilerModuleCache(cacheRoot, "0.6.0");
 
       let fetchCalled = false;
       const fetchImpl: FetchImpl = async () => {
@@ -142,9 +187,9 @@ describe("resolveForstBinary", () => {
       };
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
+        version: "0.6.0",
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -206,7 +251,7 @@ describe("resolveForstBinary", () => {
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        fetchImpl: withModuleTarballFetch(fallback, fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -254,7 +299,7 @@ describe("resolveForstBinary", () => {
 
       const p = await resolveForstBinary({
         env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        fetchImpl: withModuleTarballFetch(published, fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -292,9 +337,9 @@ describe("resolveForstBinary", () => {
 
       await expect(
         resolveForstBinary({
-          version: "0.0.19",
+          version: "0.6.0",
           env: { ...process.env, ...verifyOff, FORST_CACHE_DIR: cacheRoot },
-          fetchImpl,
+          fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
           homedirFn: () => "/unused",
         })
       ).rejects.toBeInstanceOf(CompilerBinaryDownloadHttpFailure);
@@ -310,7 +355,7 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       const payload = Buffer.from("fake-forst-binary");
       const hex = createHash("sha256").update(payload).digest("hex");
 
@@ -319,19 +364,25 @@ describe("resolveForstBinary", () => {
         if (s.includes("api.github.com")) {
           return new Response(
             JSON.stringify({
-              assets: [{ name: destName, digest: `sha256:${hex}` }],
+              assets: [{
+                name: destName,
+                digest: `sha256:${hex}`
+              }],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
         }
-        expect(s).toContain("/download/v0.0.19/" + destName);
+        expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -348,7 +399,7 @@ describe("resolveForstBinary", () => {
         process.platform === "win32"
           ? "forst-windows-amd64.exe"
           : getCompilerArtifactName(process.platform, process.arch);
-      const dest = join(cacheRoot, "0.0.19", destName);
+      const dest = join(cacheRoot, "0.6.0", destName);
       const payload = Buffer.from("fake-forst-binary");
 
       const fetchImpl: FetchImpl = async (url) => {
@@ -361,14 +412,17 @@ describe("resolveForstBinary", () => {
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
         }
-        expect(s).toContain("/download/v0.0.19/" + destName);
+        expect(s).toContain("/download/v0.6.0/" + destName);
         return new Response(payload, { status: 200 });
       };
 
       const p = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -402,13 +456,13 @@ describe("resolveForstBinary", () => {
 
       await expect(
         resolveForstBinary({
-          version: "0.0.19",
+          version: "0.6.0",
           env: {
             ...process.env,
             FORST_CACHE_DIR: cacheRoot,
             FORST_CLI_VERIFY: "strict",
           },
-          fetchImpl,
+          fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
           homedirFn: () => "/unused",
         })
       ).rejects.toMatchObject({
@@ -438,7 +492,7 @@ describe("resolveForstBinary", () => {
             FORST_CACHE_DIR: cacheRoot,
             FORST_CLI_VERIFY: "strict",
           },
-          fetchImpl,
+          fetchImpl: withModuleTarballFetch("9.9.9", fetchImpl),
           homedirFn: () => "/unused",
         })
       ).rejects.toMatchObject({
@@ -476,7 +530,7 @@ describe("resolveForstBinary", () => {
             FORST_CACHE_DIR: cacheRoot,
             FORST_CLI_VERIFY: "1",
           },
-          fetchImpl,
+          fetchImpl: withModuleTarballFetch("0.4.0", fetchImpl),
           homedirFn: () => "/unused",
         })
       ).rejects.toMatchObject({
@@ -514,7 +568,10 @@ describe("resolveForstBinary", () => {
         if (s.includes("/repos/forst-lang/forst/releases/tags/v99.0.0")) {
           return new Response(
             JSON.stringify({
-              assets: [{ name: destName, digest: `sha256:${hex}` }],
+              assets: [{
+                name: destName,
+                digest: `sha256:${hex}`
+              }],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
           );
@@ -526,7 +583,7 @@ describe("resolveForstBinary", () => {
       const p = await resolveForstBinary({
         preferLatestRelease: true,
         env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        fetchImpl: withModuleTarballFetch("99.0.0", fetchImpl),
         homedirFn: () => "/unused",
       });
 
@@ -552,6 +609,7 @@ describe("resolveForstBinary", () => {
       if (process.platform !== "win32") {
         chmodSync(dest, 0o755);
       }
+      seedCompilerModuleCache(cacheRoot, bundled);
 
       const fetchImpl: FetchImpl = async () => {
         throw new Error("network must not be used when allowDownload is false");
@@ -587,7 +645,10 @@ describe("resolveForstBinary", () => {
           return new Response(
             JSON.stringify({
               assets: [
-                { name: destName, digest: "sha256:" + "00".repeat(32) },
+                {
+                  name: destName,
+                  digest: "sha256:" + "00".repeat(32)
+                },
               ],
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
@@ -597,9 +658,12 @@ describe("resolveForstBinary", () => {
       };
 
       const err = await resolveForstBinary({
-        version: "0.0.19",
-        env: { ...process.env, FORST_CACHE_DIR: cacheRoot },
-        fetchImpl,
+        version: "0.6.0",
+        env: {
+          ...process.env,
+          FORST_CACHE_DIR: cacheRoot
+        },
+        fetchImpl: withModuleTarballFetch("0.6.0", fetchImpl),
         homedirFn: () => "/unused",
       }).catch((e) => e);
 

@@ -105,16 +105,65 @@ func RunBoundaryRoot(args Args) string {
 	return filepath.Dir(abs)
 }
 
+const errForstCompilerModuleRequired = "forst run: node runtime / invoke server require the Forst Go module; set FORST_GOMOD_ROOT or reinstall the compiler"
+
+func needsForstCompilerModule(nodeRuntimeCode, invokeServerCode string) bool {
+	return nodeRuntimeCode != "" || invokeServerCode != ""
+}
+
+func tempDirHasForstCompanionFiles(tempDir string) bool {
+	for _, stem := range []string{
+		transformer_go.ForstNodeRuntimeFileName(),
+		transformer_go.ForstInvokeServerFileName(),
+	} {
+		if _, err := os.Stat(filepath.Join(tempDir, stem+".go")); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 func goModuleRootForRun(outputPath string) string {
 	if outputPath != "" {
-		if root := goload.FindModuleRoot(filepath.Dir(outputPath)); root != "" {
-			return root
+		tempDir := filepath.Dir(outputPath)
+		if tempDirHasForstCompanionFiles(tempDir) {
+			if root := goload.ForstCompilerModuleRoot(); root != "" {
+				return root
+			}
+		}
+		if root := goload.FindModuleRoot(tempDir); root != "" {
+			if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
+				return root
+			}
 		}
 	}
 	if wd, err := os.Getwd(); err == nil {
 		return goload.FindModuleRoot(wd)
 	}
 	return ""
+}
+
+func runTempBaseDir(needsCompilerModule bool) (string, error) {
+	if needsCompilerModule {
+		root := goload.ForstCompilerModuleRoot()
+		if root == "" {
+			return "", fmt.Errorf("%s", errForstCompilerModuleRequired)
+		}
+		runDir := filepath.Join(root, ".forst", "run")
+		if err := os.MkdirAll(runDir, 0o755); err != nil {
+			return "", fmt.Errorf("create run dir: %w", err)
+		}
+		return runDir, nil
+	}
+	if wd, err := os.Getwd(); err == nil {
+		if modRoot := goload.FindModuleRoot(wd); modRoot != "" {
+			runDir := filepath.Join(modRoot, ".forst", "run")
+			if err := os.MkdirAll(runDir, 0o755); err == nil {
+				return runDir, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 func (c *Compiler) reportPhase(phase string) {
@@ -125,14 +174,10 @@ func (c *Compiler) reportPhase(phase string) {
 
 // CreateTempOutputFiles writes main and optional companion Go files into a temp dir for `go run`.
 func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
-	baseDir := ""
-	if wd, err := os.Getwd(); err == nil {
-		if modRoot := goload.FindModuleRoot(wd); modRoot != "" {
-			runDir := filepath.Join(modRoot, ".forst", "run")
-			if err := os.MkdirAll(runDir, 0o755); err == nil {
-				baseDir = runDir
-			}
-		}
+	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
+	baseDir, err := runTempBaseDir(needsCompiler)
+	if err != nil {
+		return "", err
 	}
 	tempDir, err := mkdirTemp(baseDir, "forst-*")
 	if err != nil {

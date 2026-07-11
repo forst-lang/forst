@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"forst/internal/ast"
@@ -72,18 +71,10 @@ func (c *Compiler) moduleRootForProvidersPass() string {
 	}
 	entryDir := filepath.Dir(c.Args.FilePath)
 	modRoot := goload.FindModuleRoot(entryDir)
-	if isCompilerWorkspaceModule(modRoot) {
+	if goload.IsForstCompilerModule(modRoot) {
 		return entryDir
 	}
 	return modRoot
-}
-
-func isCompilerWorkspaceModule(modRoot string) bool {
-	if modRoot == "" {
-		return false
-	}
-	_, err := os.Stat(filepath.Join(modRoot, "cmd", "forst"))
-	return err == nil
 }
 
 func entryDirFromArgs(args Args) string {
@@ -100,7 +91,7 @@ func (c *Compiler) typecheckUsesFreshEntryChecker(entryDir string) bool {
 		return false
 	}
 	modRoot := goload.FindModuleRoot(entryDir)
-	if !isCompilerWorkspaceModule(modRoot) {
+	if !goload.IsForstCompilerModule(modRoot) {
 		return false
 	}
 	examplesIn, err := filepath.Abs(filepath.Join(modRoot, "..", "examples", "in"))

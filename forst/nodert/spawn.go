@@ -45,6 +45,13 @@ func lookupEnvValue(env []string, key string) string {
 	return ""
 }
 
+func setEnvDefault(env []string, key, value string) []string {
+	if lookupEnvValue(env, key) != "" {
+		return env
+	}
+	return setEnvVar(env, key, value)
+}
+
 // ResolveNodeBinary returns the Node or shim executable path.
 // Priority: FORST_NODE_BINARY env → configured → "node".
 func ResolveNodeBinary(boundaryRoot, configured string) (string, error) {
@@ -295,6 +302,7 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 	env = setEnvVar(env, "NODE_OPTIONS", merged)
 	if in.HostMode {
 		env = setEnvVar(env, envNodeHost, "1")
+		env = setEnvDefault(env, "HOST", "127.0.0.1")
 		if in.SocketPath != "" {
 			env = setEnvVar(env, envNodeSocket, in.SocketPath)
 		}

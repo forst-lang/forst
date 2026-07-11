@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"forst/internal/goload"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -67,10 +69,10 @@ func TestGoWorkspaceDirForCheck_usesPackageRootOrEntryDir(t *testing.T) {
 func TestIsCompilerWorkspaceModule_detectsForstRepo(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
-	if !isCompilerWorkspaceModule(moduleRoot) {
+	if !goload.IsForstCompilerModule(moduleRoot) {
 		t.Fatal("expected forst module to be detected as compiler workspace")
 	}
-	if isCompilerWorkspaceModule(t.TempDir()) {
+	if goload.IsForstCompilerModule(t.TempDir()) {
 		t.Fatal("temp dir should not be compiler workspace")
 	}
 }

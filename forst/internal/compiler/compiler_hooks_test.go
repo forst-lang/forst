@@ -11,6 +11,7 @@ import (
 
 	"forst/internal/ast"
 	"forst/internal/forstpkg"
+	"forst/internal/goload"
 	transformer_go "forst/internal/transformer/go"
 
 	goast "go/ast"
@@ -91,7 +92,7 @@ func TestCreateTempOutputFile_writeError(t *testing.T) {
 }
 
 func TestIsCompilerWorkspaceModule_emptyRoot(t *testing.T) {
-	if isCompilerWorkspaceModule("") {
+	if goload.IsForstCompilerModule("") {
 		t.Fatal("empty root should be false")
 	}
 }

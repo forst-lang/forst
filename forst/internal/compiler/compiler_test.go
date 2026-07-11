@@ -3,9 +3,14 @@ package compiler
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"forst/internal/goload"
+	transformer_go "forst/internal/transformer/go"
 
 	"github.com/sirupsen/logrus"
 )
@@ -459,5 +464,96 @@ func verifyMapCatalogGolden(t *testing.T, expected, actual, goldenPath string) {
 	}
 	if len(expected) > 0 && len(actual) < len(expected)/2 {
 		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
+	}
+}
+
+func forstCompilerModuleFromTest(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, _ := runtime.Caller(0)
+	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
+	if !goload.IsForstCompilerModule(moduleRoot) {
+		t.Skip("forst compiler module not found from test location")
+	}
+	return moduleRoot
+}
+
+func TestCreateTempOutputFiles_companionUsesForstModuleRoot(t *testing.T) {
+	forstMod := forstCompilerModuleFromTest(t)
+	t.Setenv(goload.EnvForstGOModRoot, forstMod)
+	outside := t.TempDir()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(outside); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	outputPath, err := CreateTempOutputFiles(
+		"package main\n\nfunc main() {}\n",
+		"package main\n",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("CreateTempOutputFiles: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Dir(outputPath)) })
+
+	wantPrefix := filepath.Join(forstMod, ".forst", "run")
+	if !strings.HasPrefix(outputPath, wantPrefix) {
+		t.Fatalf("outputPath %q not under %q", outputPath, wantPrefix)
+	}
+}
+
+func TestGoModuleRootForRun_companionFiles(t *testing.T) {
+	forstMod := forstCompilerModuleFromTest(t)
+	tempDir, err := os.MkdirTemp("", "forst-companion-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+
+	invokePath := filepath.Join(tempDir, transformer_go.ForstInvokeServerFileName()+".go")
+	if err := os.WriteFile(invokePath, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(tempDir, "main.go")
+	if err := os.WriteFile(mainPath, []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := goModuleRootForRun(mainPath); got != forstMod {
+		t.Fatalf("goModuleRootForRun() = %q want %q", got, forstMod)
+	}
+}
+
+func TestRunGoProgram_companionImportsCompile(t *testing.T) {
+	forstMod := forstCompilerModuleFromTest(t)
+	tempDir, err := os.MkdirTemp("", "forst-build-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+
+	mainPath := filepath.Join(tempDir, "main.go")
+	mainCode := "package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n"
+	if err := os.WriteFile(mainPath, []byte(mainCode), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runtimePath := filepath.Join(tempDir, transformer_go.ForstNodeRuntimeFileName()+".go")
+	if err := os.WriteFile(runtimePath, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sources, err := runGoSourceFiles(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("go", append([]string{"build", "-o", filepath.Join(tempDir, "out")}, sources...)...)
+	cmd.Dir = forstMod
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go build failed: %v\n%s", err, out)
 	}
 }

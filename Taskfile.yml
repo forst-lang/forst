@@ -595,8 +595,6 @@ tasks:
     desc: Run remix-serve todo example (three-channel IPC; blocks on invoke server)
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
-    env:
-      HOST: '127.0.0.1'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main.ft
 
@@ -604,8 +602,6 @@ tasks:
     desc: E2E — invoke :8081, Remix :3000, generated client
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
-    env:
-      HOST: '127.0.0.1'
     cmds:
       - |
         FT_ROOT="{{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve"
@@ -775,8 +771,15 @@ tasks:
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
       - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
       - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
+      - |
+        set -euo pipefail
+        VERSION="{{.VERSION | default "dev"}}"
+        tar -czf ../dist/forst-module-${VERSION}.tar.gz \
+          --exclude='.forst' \
+          -C . .
     generates:
       - ../dist/*.tar.gz
+      - ../dist/forst-module-*.tar.gz
       - ../dist/*.zip
 
   build:vsix:

@@ -44,9 +44,25 @@ task example:node-interop-remix-serve
 
 ## Run
 
+From repo root (recommended):
+
 ```bash
 task example:node-interop-remix-serve:run
 ```
+
+Or from any directory — `forst run` resolves the compiler Go module from the binary path; `-root` points at this project:
+
+```bash
+# from examples/in/rfc/
+../../../bin/forst run \
+  -export-struct-fields \
+  -root node-interop/remix-serve \
+  -- node-interop/remix-serve/main.ft
+```
+
+Remix binds `127.0.0.1:3000` and embedded invoke binds `127.0.0.1:8081` automatically (no `HOST=` needed).
+
+For custom compiler installs, set `FORST_GOMOD_ROOT` to the directory containing `cmd/forst` and `go.mod` (`module forst`).
 
 Expected stdout before the process blocks:
 
