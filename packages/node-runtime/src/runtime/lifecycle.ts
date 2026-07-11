@@ -5,7 +5,7 @@ import {
   type ManifestIndex,
 } from "../policy/manifest.js";
 import { setFilesExcludePatterns } from "../policy/paths.js";
-import { invalidParams, notInitialized, type JsonRpcError } from "../rpc/errors.js";
+import { invalidParams, JsonRpcError, notInitialized } from "../rpc/errors.js";
 import {
   PROTOCOL_VERSION,
   WIRE_PROTOCOL_PROTO_V1,
