@@ -10,7 +10,10 @@
   "favicon": "/favicon.png",
   "styling": {
     "codeblocks": {
-      "theme": "css-variables",
+      "theme": {
+        "light": "github-light-default",
+        "dark": "dark-plus"
+      },
       "languages": {
         "custom": ["/languages/forst.json"]
       }
