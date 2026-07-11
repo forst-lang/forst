@@ -99,7 +99,7 @@ tasks:
   build:client:
     desc: Build the Forst client
     dir: packages/client
-    deps: [install:bun]
+    deps: [install:bun, build:sidecar]
     cmds:
       - bun run build
     sources:
