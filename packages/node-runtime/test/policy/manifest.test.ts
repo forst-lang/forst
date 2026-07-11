@@ -6,6 +6,7 @@ import {
   buildManifestIndex,
   validateManifest,
 } from "../../src/policy/manifest.js";
+import type { ForstNodeManifestExportV1 } from "../../src/manifest/schema.js";
 import { validateModuleIdSyntax } from "../../src/policy/paths.js";
 import { FORBIDDEN } from "../../src/rpc/errors.js";
 
@@ -64,7 +65,7 @@ describe("assertExportAllowed", () => {
 
   test("rejects kind mismatch for sync call", () => {
     const manifest = sampleManifest(fixtureRoot);
-    manifest.exports[0] = {
+    (manifest.exports as ForstNodeManifestExportV1[])[0] = {
       moduleId: syncModuleId,
       name: "add",
       kind: "asyncFunction",
