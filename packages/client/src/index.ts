@@ -43,7 +43,17 @@ export class ForstClient {
       ...config,
     };
 
-    this.invokeClient = createInvokeClient(defaultConfig);
+    const invokeConfig: ForstInvokeClientConfig = { ...defaultConfig };
+    const explicitConnect =
+      config?.transport === "http" ||
+      config?.sidecarRuntime === "connect" ||
+      config?.baseUrl !== undefined ||
+      config?.devServerUrl !== undefined;
+    if (!defaultConfig.customSidecar && !explicitConnect) {
+      invokeConfig.transport = "dev";
+    }
+
+    this.invokeClient = createInvokeClient(invokeConfig);
 
     if (defaultConfig.customSidecar) {
       clientLogger.warn(

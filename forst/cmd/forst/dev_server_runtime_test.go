@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/compiler"
 	"forst/internal/discovery"
 
 	"github.com/sirupsen/logrus"
@@ -282,5 +283,31 @@ func TestDevServer_discoverFunctions_errorPropagates(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to discover functions") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDevServer_refreshFunctions_syncsDevBackendForInvoke(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
+	if _, err := os.Stat(root); err != nil {
+		t.Skip("tictactoe example not available")
+	}
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	cfg := DefaultConfig()
+	comp := compiler.New(cfg.ToCompilerArgs(), log)
+	s := NewHTTPServer("8090", comp, log, cfg, root)
+
+	if err := s.refreshFunctions(); err != nil {
+		t.Fatalf("refreshFunctions: %v", err)
+	}
+
+	fns := s.devBackend.Functions()
+	mainPkg, ok := fns["main"]
+	if !ok {
+		t.Fatalf("expected main package in dev backend, got %+v", fns)
+	}
+	if _, ok := mainPkg["NewGame"]; !ok {
+		t.Fatalf("expected main.NewGame in dev backend, got %+v", mainPkg)
 	}
 }

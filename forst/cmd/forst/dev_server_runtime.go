@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 // Start starts the HTTP server.
 func (s *DevServer) Start() error {
-	if err := s.discoverFunctions(); err != nil {
+	if err := s.refreshFunctions(); err != nil {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
 	}
 
@@ -71,6 +72,20 @@ func (s *DevServer) discoverFunctions() error {
 	s.mu.Unlock()
 
 	return nil
+}
+
+// refreshFunctions updates invoke DevBackend discovery and mirrors into s.functions.
+func (s *DevServer) refreshFunctions() error {
+	if s.devBackend != nil {
+		if err := s.devBackend.RefreshFunctions(context.Background()); err != nil {
+			return fmt.Errorf("failed to discover functions: %v", err)
+		}
+		s.mu.Lock()
+		s.functions = s.devBackend.Functions()
+		s.mu.Unlock()
+		return nil
+	}
+	return s.discoverFunctions()
 }
 
 // StartDevServer is the entry point for the dev server command.

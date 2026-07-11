@@ -415,7 +415,7 @@ tasks:
 
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (forst dev + client)
-    deps: [build, example:tictactoe:generate]
+    deps: [build, build:client, example:tictactoe:generate]
     cmds:
       - bun install
       - bun test examples/in/tictactoe/tests/

@@ -47,6 +47,9 @@ function shouldConnect(config?: ForstInvokeClientConfig): boolean {
   if (config?.transport === "http") {
     return Boolean(resolveBaseUrl(config));
   }
+  if (config?.transport === "dev") {
+    return false;
+  }
   if (config?.sidecarRuntime === "spawn") {
     return false;
   }
@@ -54,6 +57,9 @@ function shouldConnect(config?: ForstInvokeClientConfig): boolean {
     return true;
   }
   if (process.env.FORST_SKIP_SPAWN === "1") {
+    return true;
+  }
+  if (config?.baseUrl !== undefined || config?.devServerUrl !== undefined) {
     return true;
   }
   return Boolean(
