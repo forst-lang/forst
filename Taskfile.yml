@@ -481,7 +481,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go test ./nodert/... -run 'Integration' -count=1
 
@@ -551,7 +551,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/sync -- {{.EXAMPLES_DIR}}/rfc/node-interop/sync/main.ft
 
@@ -560,7 +560,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/promises -- {{.EXAMPLES_DIR}}/rfc/node-interop/promises/main.ft
 
@@ -569,7 +569,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/generators -- {{.EXAMPLES_DIR}}/rfc/node-interop/generators/main.ft
 
@@ -578,7 +578,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/async -- {{.EXAMPLES_DIR}}/rfc/node-interop/async/main.ft
 
@@ -674,7 +674,7 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build]
     env:
-      FORST_NODE_BOOTSTRAP: '{{.ROOT_DIR}}/packages/node-runtime/dist/bootstrap.js'
+      FORST_NODE_BOOTSTRAP: '{{.TASKFILE_DIR}}/packages/node-runtime/dist/bootstrap.js'
     cmds:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/modules -- {{.EXAMPLES_DIR}}/rfc/node-interop/modules/main.ft
 

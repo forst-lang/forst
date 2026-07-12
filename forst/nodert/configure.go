@@ -132,11 +132,19 @@ func configureFromManifest(manifestJSON string) error {
 // ResolveBootstrapPath returns the Node bootstrap script path.
 // Priority: FORST_NODE_BOOTSTRAP env → ftconfig.node.bootstrap (relative to boundaryRoot) → monorepo walk-up.
 func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, error) {
-	if path := os.Getenv(envNodeBootstrap); path != "" {
-		if _, err := os.Stat(path); err != nil {
-			return "", fmt.Errorf("node runtime: bootstrap not found at %s: %w", path, err)
+	if path := strings.TrimSpace(os.Getenv(envNodeBootstrap)); path != "" {
+		if abs, err := firstExistingBootstrap(resolveBootstrapCandidates(boundaryRoot, path)...); err == nil {
+			return abs, nil
 		}
-		return path, nil
+		if abs, ok := findMonorepoBootstrap(boundaryRoot); ok {
+			return abs, nil
+		}
+		if cwd, err := os.Getwd(); err == nil {
+			if abs, ok := findMonorepoBootstrap(cwd); ok {
+				return abs, nil
+			}
+		}
+		return "", fmt.Errorf("node runtime: bootstrap not found at %s (set %s to an absolute path or build packages/node-runtime)", path, envNodeBootstrap)
 	}
 
 	if configuredBootstrap != "" {
@@ -175,11 +183,75 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 	if err != nil {
 		return "", err
 	}
-	for dir := startDir; ; dir = filepath.Dir(dir) {
+	if abs, ok := findMonorepoBootstrap(startDir); ok {
+		return abs, nil
+	}
+	return "", fmt.Errorf("node runtime: bootstrap not found (set %s or node.bootstrap in ftconfig.json)", envNodeBootstrap)
+}
+
+func resolveBootstrapCandidates(boundaryRoot, path string) []string {
+	seen := make(map[string]struct{})
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return
+		}
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			return
+		}
+		if _, ok := seen[abs]; ok {
+			return
+		}
+		seen[abs] = struct{}{}
+	}
+	add(path)
+	if !filepath.IsAbs(path) {
+		if boundaryRoot != "" {
+			add(filepath.Join(boundaryRoot, path))
+		}
+		if cwd, err := os.Getwd(); err == nil {
+			add(filepath.Join(cwd, path))
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	return out
+}
+
+func firstExistingBootstrap(candidates ...string) (string, error) {
+	for _, candidate := range candidates {
+		st, err := os.Stat(candidate)
+		if err != nil {
+			continue
+		}
+		if st.IsDir() {
+			continue
+		}
+		return candidate, nil
+	}
+	return "", fmt.Errorf("bootstrap not found")
+}
+
+func findMonorepoBootstrap(startDir string) (string, bool) {
+	if startDir == "" {
+		return "", false
+	}
+	absStart, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", false
+	}
+	for dir := absStart; ; dir = filepath.Dir(dir) {
 		for _, base := range []string{dir, filepath.Dir(dir)} {
 			candidate := filepath.Join(base, "packages", "node-runtime", "dist", "bootstrap.js")
 			if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
-				return candidate, nil
+				abs, err := filepath.Abs(candidate)
+				if err != nil {
+					return candidate, true
+				}
+				return abs, true
 			}
 		}
 		parent := filepath.Dir(dir)
@@ -187,7 +259,7 @@ func ResolveBootstrapPath(boundaryRoot, configuredBootstrap string) (string, err
 			break
 		}
 	}
-	return "", fmt.Errorf("node runtime: bootstrap not found (set %s or node.bootstrap in ftconfig.json)", envNodeBootstrap)
+	return "", false
 }
 
 func resolveHostAppReadyModule(boundaryRoot, configured string) (string, error) {
