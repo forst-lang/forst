@@ -303,4 +303,5 @@ z_forst_gen_test.go
 # Local release backfill artifacts (never commit checksum files)
 scripts/backfill/
 
+.gotmp/
 .tmp/

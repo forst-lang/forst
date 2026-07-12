@@ -27,13 +27,7 @@ func runCustomDemo() {
 }
 `
 
-func writeGoInteropLSPFixture(t *testing.T) (ftPath, helpersPath, src string) {
-	t.Helper()
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module go_interop\n\ngo 1.26\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	const helpersGo = `package main
+const goInteropHelpersGo = `package main
 
 import "strings"
 
@@ -47,8 +41,15 @@ func AddInts(a, b int) int {
 	return a + b
 }
 `
+
+func writeGoInteropLSPFixture(t *testing.T) (ftPath, helpersPath, src string) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module go_interop\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	helpersPath = filepath.Join(dir, "helpers.go")
-	if err := os.WriteFile(helpersPath, []byte(helpersGo), 0o644); err != nil {
+	if err := os.WriteFile(helpersPath, []byte(goInteropHelpersGo), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ftPath = filepath.Join(dir, "cli.ft")
@@ -108,9 +109,20 @@ func TestFindDefinition_goSamePackageFunc_addInts(t *testing.T) {
 	if loc.URI != wantURI {
 		t.Fatalf("definition URI: got %q want %q", loc.URI, wantURI)
 	}
-	if loc.Range.Start.Line != 8 {
-		t.Fatalf("expected AddInts at line 9 (0-based 8), got %d", loc.Range.Start.Line)
+	wantLine := goFuncDefLineInSource(goInteropHelpersGo, "AddInts")
+	if loc.Range.Start.Line != wantLine {
+		t.Fatalf("expected AddInts at 0-based line %d, got %d", wantLine, loc.Range.Start.Line)
 	}
+}
+
+func goFuncDefLineInSource(src, name string) int {
+	needle := "func " + name
+	for li, line := range strings.Split(src, "\n") {
+		if strings.Contains(line, needle) {
+			return li
+		}
+	}
+	return -1
 }
 
 func TestFindDefinition_goReceiverMethod_run(t *testing.T) {
