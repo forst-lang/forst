@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"forst/internal/codegen/layout"
 	"forst/internal/goload"
 )
 
@@ -39,9 +40,11 @@ func ResolveForstRuntimeLink(boundaryRoot string) (ForstRuntimeLink, error) {
 	if userMod != "" {
 		if link, ok := goload.ForstModuleLinkFromGoMod(userMod); ok {
 			if link.ReplaceDir != "" {
-				return ForstRuntimeLink{ReplaceDir: link.ReplaceDir}, nil
-			}
-			if link.RequireVersion != "" {
+				if validForstRuntimeReplaceDir(link.ReplaceDir) {
+					return ForstRuntimeLink{ReplaceDir: link.ReplaceDir}, nil
+				}
+				// Broken replace in user go.mod — fall through to compiler module discovery.
+			} else if link.RequireVersion != "" {
 				return ForstRuntimeLink{RequireVersion: link.RequireVersion}, nil
 			}
 		}
@@ -50,6 +53,13 @@ func ResolveForstRuntimeLink(boundaryRoot string) (ForstRuntimeLink, error) {
 		return ForstRuntimeLink{ReplaceDir: compilerMod}, nil
 	}
 	return ForstRuntimeLink{}, fmt.Errorf("%s", errForstRuntimeLinkNotFound)
+}
+
+func validForstRuntimeReplaceDir(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	return goload.IsForstCompilerModule(dir) || goload.DirHasGoMod(dir)
 }
 
 // PlanForRun picks module linking for a sandbox under boundaryRoot/sessionDir.
@@ -73,11 +83,61 @@ func PlanForRun(boundaryRoot, sessionDir string, needsCompiler bool) (LinkPlan, 
 		return LinkPlan{Mode: LinkNone, GoModPath: goMod}, nil
 	}
 
+	if shouldUseWorkspaceMode(boundaryRoot, userMod, link) {
+		return LinkPlan{
+			Mode:      LinkWorkspace,
+			GoModPath: goMod,
+			Workspace: layout.NewRoot(boundaryRoot).GoWork(),
+		}, nil
+	}
+
 	// Mode A: temp module with replace forst =>
 	return LinkPlan{
 		Mode:      LinkReplace,
 		GoModPath: goMod,
 	}, nil
+}
+
+func shouldUseWorkspaceMode(boundaryRoot, userMod string, link ForstRuntimeLink) bool {
+	if link.ReplaceDir == "" {
+		return false
+	}
+	if userMod == "" || goload.IsForstGoModShim(userMod) {
+		return false
+	}
+	return goload.ModuleRootHasGoMod(boundaryRoot) || goload.DirHasGoMod(userMod)
+}
+
+// WorkspaceUseDirs returns module directories for a Mode B go.work file.
+func WorkspaceUseDirs(boundaryRoot, sessionDir string, link ForstRuntimeLink) ([]string, error) {
+	if link.ReplaceDir == "" {
+		return nil, fmt.Errorf("workspace mode requires local forst runtime module")
+	}
+	uses := []string{sessionDir, link.ReplaceDir}
+	return uses, nil
+}
+
+// WriteGoWork writes .forst/go.work listing sandbox and compiler modules (Mode B).
+func WriteGoWork(workPath string, useDirs []string) error {
+	if len(useDirs) == 0 {
+		return fmt.Errorf("go.work requires at least one use directory")
+	}
+	if err := os.MkdirAll(filepath.Dir(workPath), 0o755); err != nil {
+		return err
+	}
+	workDir := filepath.Dir(workPath)
+	var b strings.Builder
+	b.WriteString("go 1.26.0\n\n")
+	b.WriteString("use (\n")
+	for _, dir := range useDirs {
+		usePath, err := goModReplacePath(workDir, dir)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&b, "\t%s\n", usePath)
+	}
+	b.WriteString(")\n")
+	return os.WriteFile(workPath, []byte(b.String()), 0o644)
 }
 
 // ChildEnv returns environment for child go subprocesses.
@@ -128,6 +188,56 @@ func stripEnvPrefixes(env []string, prefixes ...string) []string {
 	return out
 }
 
+// resolveCanonicalPath cleans path and follows symlinks when possible.
+func resolveCanonicalPath(path string) string {
+	path = filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return filepath.Clean(resolved)
+	}
+	return path
+}
+
+// goModReplacePath returns a replace target Go's module loader can resolve from modDir.
+// Uses a relative path when it round-trips; otherwise falls back to absolute.
+func goModReplacePath(modDir, target string) (string, error) {
+	modDir = resolveCanonicalPath(modDir)
+	target = resolveCanonicalPath(target)
+	rel, err := filepath.Rel(modDir, target)
+	if err != nil {
+		return filepath.ToSlash(target), nil
+	}
+	if !strings.HasPrefix(rel, "..") {
+		return filepath.ToSlash(rel), nil
+	}
+	joined := resolveCanonicalPath(filepath.Join(modDir, rel))
+	if joined != target {
+		return filepath.ToSlash(target), nil
+	}
+	// Go's module loader resolves replace from the go.mod directory. On macOS,
+	// sandboxes under /var/... are often /private/var/... after symlink resolution;
+	// long "../" chains can land on /private/Users/... instead of /Users/... when
+	// the target lies outside /private.
+	if goModReplaceNeedsAbsolute(modDir, target) {
+		return filepath.ToSlash(target), nil
+	}
+	return filepath.ToSlash(rel), nil
+}
+
+func goModReplaceNeedsAbsolute(modDir, target string) bool {
+	if !filepath.IsAbs(target) {
+		return false
+	}
+	if strings.HasPrefix(modDir, "/private/") && !strings.HasPrefix(target, "/private/") {
+		return true
+	}
+	modParts := strings.Split(strings.TrimPrefix(modDir, string(filepath.Separator)), string(filepath.Separator))
+	targetParts := strings.Split(strings.TrimPrefix(target, string(filepath.Separator)), string(filepath.Separator))
+	if len(modParts) > 0 && len(targetParts) > 0 && modParts[0] != targetParts[0] {
+		return true
+	}
+	return false
+}
+
 // PackageReplace maps a Go import path to a directory holding generated .go for that package.
 type PackageReplace struct {
 	ImportPath string
@@ -143,7 +253,11 @@ func WriteTestGoMod(path, compilerMod string, replaces []PackageReplace, testImp
 	var b strings.Builder
 	b.WriteString("module forst.test.temp\n\ngo 1.26.0\n\n")
 	if compilerMod != "" {
-		b.WriteString("replace forst => " + filepath.ToSlash(compilerMod) + "\n")
+		replacePath, err := goModReplacePath(modDir, compilerMod)
+		if err != nil {
+			return err
+		}
+		b.WriteString("replace forst => " + replacePath + "\n")
 	}
 	seen := make(map[string]struct{})
 	for _, rep := range replaces {
@@ -154,11 +268,11 @@ func WriteTestGoMod(path, compilerMod string, replaces []PackageReplace, testImp
 			continue
 		}
 		seen[rep.ImportPath] = struct{}{}
-		rel, err := filepath.Rel(modDir, rep.Dir)
+		rel, err := goModReplacePath(modDir, rep.Dir)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(&b, "replace %s => %s\n", rep.ImportPath, filepath.ToSlash(rel))
+		fmt.Fprintf(&b, "replace %s => %s\n", rep.ImportPath, rel)
 	}
 	b.WriteString("\nrequire (\n")
 	if compilerMod != "" {
@@ -206,12 +320,11 @@ func AppendGoModReplaces(path string, replaces []PackageReplace) error {
 		if _, ok := seen[rep.ImportPath]; ok {
 			continue
 		}
-		rel, err := filepath.Rel(modDir, rep.Dir)
+		rel, err := goModReplacePath(modDir, rep.Dir)
 		if err != nil {
 			return err
 		}
-		rel = filepath.ToSlash(rel)
-		if rel != "." && !strings.HasPrefix(rel, "./") && !strings.HasPrefix(rel, "../") {
+		if !filepath.IsAbs(rel) && rel != "." && !strings.HasPrefix(rel, "./") && !strings.HasPrefix(rel, "../") {
 			rel = "./" + rel
 		}
 		extra = append(extra, fmt.Sprintf("replace %s => %s", rep.ImportPath, rel))
@@ -227,7 +340,8 @@ func AppendGoModReplaces(path string, replaces []PackageReplace) error {
 }
 
 // WriteRunGoMod writes a temp module go.mod linking the forst runtime.
-func WriteRunGoMod(path string, forstLink ForstRuntimeLink, userModulePath, userModuleDir string) error {
+// When workspaceMode is true, omit replace forst — .forst/go.work provides the link.
+func WriteRunGoMod(path string, forstLink ForstRuntimeLink, userModulePath, userModuleDir string, workspaceMode bool) error {
 	if forstLink.ReplaceDir == "" && forstLink.RequireVersion == "" {
 		return fmt.Errorf("%s", errForstRuntimeLinkNotFound)
 	}
@@ -237,19 +351,19 @@ func WriteRunGoMod(path string, forstLink ForstRuntimeLink, userModulePath, user
 	modDir := filepath.Dir(path)
 	var b strings.Builder
 	b.WriteString("module forst.run.temp\n\ngo 1.26.0\n\n")
-	if forstLink.ReplaceDir != "" {
-		relCompiler, err := filepath.Rel(modDir, forstLink.ReplaceDir)
+	if forstLink.ReplaceDir != "" && !workspaceMode {
+		replacePath, err := goModReplacePath(modDir, forstLink.ReplaceDir)
 		if err != nil {
 			return err
 		}
-		b.WriteString("replace forst => " + filepath.ToSlash(relCompiler) + "\n")
+		b.WriteString("replace forst => " + replacePath + "\n")
 	}
 	if userModulePath != "" && userModuleDir != "" {
-		relUser, relErr := filepath.Rel(modDir, userModuleDir)
+		replacePath, relErr := goModReplacePath(modDir, userModuleDir)
 		if relErr != nil {
 			return relErr
 		}
-		fmt.Fprintf(&b, "replace %s => %s\n", userModulePath, filepath.ToSlash(relUser))
+		fmt.Fprintf(&b, "replace %s => %s\n", userModulePath, replacePath)
 	}
 	b.WriteString("\nrequire forst ")
 	if forstLink.RequireVersion != "" && forstLink.ReplaceDir == "" {

@@ -52,7 +52,7 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 		"echo.ft",
 		"map_catalog.ft",
 		"rfc/guard/anonymous_objects.ft",
-		"tictactoe/engine.ft",
+		"tictactoe/main/engine.ft",
 		"rfc/guard/shape_guard.ft",
 		"rfc/guard/basic_guard.ft",
 	}

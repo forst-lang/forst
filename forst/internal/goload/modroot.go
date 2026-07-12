@@ -130,6 +130,14 @@ func ModuleRootWithGoMod(start string) (string, error) {
 // same module as the surrounding Go project (e.g. sidecar / monorepo roots).
 const forstGoModDir = ".forst-gomod"
 
+// ForstGoModDir is the subdirectory name for Node-primary Go module shims.
+const ForstGoModDir = forstGoModDir
+
+// IsForstGoModShim reports whether moduleRoot is a .forst-gomod shim (no user Go packages).
+func IsForstGoModShim(moduleRoot string) bool {
+	return filepath.Base(filepath.Clean(moduleRoot)) == forstGoModDir
+}
+
 func FindModuleRoot(start string) string {
 	startDir := start
 	if info, err := os.Stat(start); err == nil && !info.IsDir() {

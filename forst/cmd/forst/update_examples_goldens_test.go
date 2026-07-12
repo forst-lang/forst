@@ -61,7 +61,7 @@ func TestUpdateExamplesGoldens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("tictactoe/server.ft", func(t *testing.T) {
+	t.Run("tictactoe/main/server.ft", func(t *testing.T) {
 		updateTictactoeGolden(t)
 	})
 	t.Run("rfc/providers/providers.ft", func(t *testing.T) {
@@ -153,7 +153,7 @@ func goldenDestForOutputBase(outputBasePath string) (string, error) {
 func updateTictactoeGolden(t *testing.T) {
 	t.Helper()
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
-	entry := filepath.Join(root, "server.ft")
+	entry := filepath.Join(root, "main", "server.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "tictactoe", "server.go")
 
 	opts := exampleGoldenCompileOpts{

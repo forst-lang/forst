@@ -59,23 +59,24 @@ func Open(log *logrus.Logger, opts OpenOpts) (*Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	moduleRoot := goload.FindModuleRoot(absBoundary)
-	if moduleRoot == "" {
-		moduleRoot = absBoundary
+	layout, err := goload.ResolveProjectLayout(absBoundary)
+	if err != nil {
+		return nil, err
 	}
-	cfg, err := loadConfig(opts.ConfigPath, absBoundary)
+	cfg, err := loadConfig(opts.ConfigPath, layout.Boundary)
 	if err != nil {
 		return nil, err
 	}
 	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{
-		ModuleRoot: moduleRoot,
+		ModuleRoot:   layout.ScanRoot,
+		BoundaryRoot: layout.Boundary,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("module check: %w", err)
 	}
 	p := &Project{
-		BoundaryRoot: absBoundary,
-		ModuleRoot:   moduleRoot,
+		BoundaryRoot: layout.Boundary,
+		ModuleRoot:   layout.GoModRoot,
 		ModulePath:   modResult.ModulePath,
 		Config:       cfg,
 		Module:       modResult,

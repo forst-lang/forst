@@ -597,7 +597,7 @@ func TestResultExamplesIncludeEnsureLowering(t *testing.T) {
 // (also: task examples:update-goldens)
 func TestExampleTictactoeMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
-	entry := filepath.Join(root, "server.ft")
+	entry := filepath.Join(root, "main", "server.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "tictactoe", "server.go")
 
 	actual := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{

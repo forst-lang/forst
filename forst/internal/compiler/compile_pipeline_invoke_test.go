@@ -565,7 +565,7 @@ func main() {
 
 func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 	root := filepath.Join("..", "..", "examples", "in", "rfc", "node-interop", "remix-serve")
-	mainPath := filepath.Join(root, "main.ft")
+	mainPath := filepath.Join(root, "main", "main.ft")
 	if _, err := os.Stat(mainPath); err != nil {
 		t.Skip("remix-serve example not present:", err)
 	}

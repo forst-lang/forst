@@ -3,6 +3,8 @@ package devserver
 import (
 	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,29 +127,21 @@ func TestRemoveInvokeReady(t *testing.T) {
 
 func TestWaitForInvokeReady_usesInvokeReadyURL(t *testing.T) {
 	dir := t.TempDir()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = ln.Close() }()
-
-	baseURL := "http://" + ln.Addr().String()
-	go func() {
-		for {
-			conn, acceptErr := ln.Accept()
-			if acceptErr != nil {
-				return
-			}
-			_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"success\":true}"))
-			_ = conn.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" {
+			http.NotFound(w, r)
+			return
 		}
-	}()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true}`))
+	}))
+	defer srv.Close()
 
 	readyPath := invokeReadyPath(dir)
 	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	payload, _ := json.Marshal(map[string]string{"url": baseURL})
+	payload, _ := json.Marshal(map[string]string{"url": srv.URL})
 	if err := os.WriteFile(readyPath, payload, 0o644); err != nil {
 		t.Fatal(err)
 	}

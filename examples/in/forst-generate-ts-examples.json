@@ -2,12 +2,10 @@
   "examples": [
     {
       "path": "tictactoe",
-      "allowStemPackageMismatch": true,
       "mustContain": ["GameState", "PlayMove", "export const main"]
     },
     {
       "path": "rfc/node-interop/remix-serve",
-      "allowStemPackageMismatch": true,
       "mustContain": ["ListTodos", "AddTodo", "CompleteTodo", "GetDashboard", "export const main"]
     }
   ]

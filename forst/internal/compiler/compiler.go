@@ -313,6 +313,7 @@ func CreateDevReloadOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode stri
 func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, _ map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
 	sandboxStart := time.Now()
 	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
+	var linkPlan gowork.LinkPlan
 	var tempDir string
 	var goModPath string
 	if boundaryRoot != "" {
@@ -338,13 +339,31 @@ func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 	}
 
 	if needsCompiler && boundaryRoot != "" {
+		var err error
+		linkPlan, err = gowork.PlanForRun(boundaryRoot, tempDir, true)
+		if err != nil {
+			return "", err
+		}
 		forstLink, err := gowork.ResolveForstRuntimeLink(boundaryRoot)
 		if err != nil {
 			return "", err
 		}
+		if linkPlan.Mode == gowork.LinkWorkspace {
+			uses, err := gowork.WorkspaceUseDirs(boundaryRoot, tempDir, forstLink)
+			if err != nil {
+				return "", err
+			}
+			if err := gowork.WriteGoWork(linkPlan.Workspace, uses); err != nil {
+				return "", err
+			}
+		}
 		userMod := goload.FindModuleRoot(boundaryRoot)
-		userPath := goload.ModulePath(userMod)
-		if err := gowork.WriteRunGoMod(goModPath, forstLink, userPath, userMod); err != nil {
+		var userPath, userModDir string
+		if userMod != "" && !goload.IsForstGoModShim(userMod) {
+			userPath = goload.ModulePath(userMod)
+			userModDir = userMod
+		}
+		if err := gowork.WriteRunGoMod(goModPath, forstLink, userPath, userModDir, linkPlan.Mode == gowork.LinkWorkspace); err != nil {
 			return "", err
 		}
 	}
@@ -385,7 +404,7 @@ func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 		}
 		if needsTidy {
 			tidyStart := time.Now()
-			if err := tidyRunSandboxGoMod(goModPath, boundaryRoot); err != nil {
+			if err := tidyRunSandboxGoMod(goModPath, boundaryRoot, linkPlan); err != nil {
 				return "", err
 			}
 			if opts.modTidyCache != nil {
@@ -402,11 +421,14 @@ func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 	return outputPath, nil
 }
 
-func tidyRunSandboxGoMod(goModPath, boundaryRoot string) error {
+func tidyRunSandboxGoMod(goModPath, boundaryRoot string, plan gowork.LinkPlan) error {
 	dir := filepath.Dir(goModPath)
 	env := os.Environ()
 	if boundaryRoot != "" {
-		env = gowork.ChildEnv(env, gowork.LinkPlan{Mode: gowork.LinkReplace}, boundaryRoot)
+		if plan.Mode == gowork.LinkNone && plan.GoModPath == "" {
+			plan, _ = gowork.PlanForRun(boundaryRoot, dir, true)
+		}
+		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
 	for _, args := range [][]string{
 		{"go", "get", "forst@v0.0.0"},

@@ -119,7 +119,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 		},
 		{
 			name:               "remix-serve",
-			entryRel:           "rfc/node-interop/remix-serve/main.ft",
+			entryRel:           "rfc/node-interop/remix-serve/main/main.ft",
 			goldenRel:          "rfc/node-interop/remix-serve/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{

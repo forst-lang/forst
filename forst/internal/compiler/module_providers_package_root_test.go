@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"forst/internal/goload"
 )
 
 func TestModuleScanRootForPackageRoot_nestedEntryUsesModuleRoot(t *testing.T) {
@@ -16,7 +18,7 @@ func TestModuleScanRootForPackageRoot_nestedEntryUsesModuleRoot(t *testing.T) {
 	if err := os.MkdirAll(apiDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := moduleScanRootForPackageRoot(apiDir)
+	got := goload.ScanRootForPackageRoot(apiDir)
 	if got != dir {
 		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q", apiDir, got, dir)
 	}
@@ -31,7 +33,7 @@ func TestModuleScanRootForPackageRoot_forstGomodUsesProjectBoundary(t *testing.T
 	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n\ngo 1.26\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got := moduleScanRootForPackageRoot(dir)
+	got := goload.ScanRootForPackageRoot(dir)
 	if got != dir {
 		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q (not %q)", dir, got, dir, forstGomod)
 	}
@@ -42,7 +44,7 @@ func TestModuleScanRootForPackageRoot_flatLayoutUsesPackageRoot(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module flat\n\ngo 1.26\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got := moduleScanRootForPackageRoot(dir)
+	got := goload.ScanRootForPackageRoot(dir)
 	if got != dir {
 		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q", dir, got, dir)
 	}

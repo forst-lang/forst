@@ -225,7 +225,7 @@ tasks:
   # Example compilation tasks
   #
   # Multi-file merged package + TypeScript (examples/in/tictactoe):
-  #   task example:tictactoe          — run entry server.ft (forst run -root …/tictactoe)
+  #   task example:tictactoe          — run entry main/server.ft (forst run -root …/tictactoe)
   #   task example:tictactoe:generate — forst generate …/tictactoe (generated/*.ts, client/)
   #
   example:
@@ -413,17 +413,16 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/imports/cli.ft
 
   example:tictactoe:
-    desc: Run tic-tac-toe demo (merged package under examples/in/tictactoe; entry server.ft)
+    desc: Run tic-tac-toe demo (merged package under examples/in/tictactoe; entry main/server.ft)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/server.ft
+      - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/main/server.ft
 
-  # Merged package main with descriptive stems (engine.ft, server.ft); flag required — see examples/in/forst-generate-ts-examples.json
   example:tictactoe:generate:
     desc: Regenerate generated/ and client/ TypeScript for tictactoe (forst generate on the package dir)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} generate -allow-stem-package-mismatch {{.EXAMPLES_DIR}}/tictactoe
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
 
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (forst dev + client)
@@ -596,6 +595,7 @@ tasks:
     cmds:
       - bun install
 
+  # Merged package main with descriptive stems (api.ft, types.ft); flag required — see examples/in/forst-generate-ts-examples.json
   example:node-interop-remix-serve:generate:
     desc: Generate TypeScript client for remix-serve example
     dir: forst
@@ -616,17 +616,17 @@ tasks:
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
     cmds:
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main.ft
+      - go run ./{{.BUILD_DIR}} build -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main/main.ft
 
   example:node-interop-remix-serve:run:
     desc: Run remix-serve todo example (three-channel IPC; blocks on invoke server)
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
     cmds:
-      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main.ft
+      - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main/main.ft
 
   example:node-interop-remix-serve:e2e:
-    desc: E2E — invoke :8081, Remix :3000, generated client
+    desc: E2E — invoke :6321, Remix :3000, generated client
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
     cmds:
@@ -635,14 +635,14 @@ tasks:
         FORST_BIN="../bin/{{.BINARY_NAME}}"
         export FT_ROOT FORST_BIN
         bash -eo pipefail <<'EOS'
-        lsof -ti tcp:8081 2>/dev/null | xargs kill -9 2>/dev/null || true
+        lsof -ti tcp:6321 2>/dev/null | xargs kill -9 2>/dev/null || true
         lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
         pkill -f 'forst run.*node-interop/remix-serve' 2>/dev/null || true
         pkill -f 'remix-serve build/server/index.js' 2>/dev/null || true
         sleep 0.3
 
         FORST_BOUNDARY_ROOT="$FT_ROOT" "$FORST_BIN" run \
-          -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
+          -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main/main.ft" &
         FORST_PID=$!
         cleanup() {
           kill -TERM "$FORST_PID" 2>/dev/null || true
@@ -652,11 +652,11 @@ tasks:
         trap cleanup INT
         trap cleanup TERM
 
-        bash ../scripts/wait-for-url.sh http://127.0.0.1:8081/health "invoke :8081" 120
+        bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health "invoke :6321" 120
         bash ../scripts/wait-for-url.sh http://127.0.0.1:3000/ "remix :3000" 120
 
         curl -sf http://127.0.0.1:3000/ | grep -q 'Todos'
-        cd "$FT_ROOT" && FORST_BASE_URL=http://127.0.0.1:8081 bun test e2e/
+        cd "$FT_ROOT" && FORST_BASE_URL=http://127.0.0.1:6321 bun test e2e/
         EOS
 
   example:node-interop-remix-serve:standalone-e2e:

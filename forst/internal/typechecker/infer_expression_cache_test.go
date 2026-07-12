@@ -84,8 +84,8 @@ func TestCheckTypes_tictactoeEngine_withExpressionCache(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
 	paths := []string{
-		filepath.Join(root, "engine.ft"),
-		filepath.Join(root, "server.ft"),
+		filepath.Join(root, "main", "engine.ft"),
+		filepath.Join(root, "main", "server.ft"),
 	}
 	log := logrus.New()
 	log.SetOutput(io.Discard)

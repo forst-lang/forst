@@ -1,8 +1,7 @@
 package discovery
 
 import (
-	"path/filepath"
-
+	"forst/internal/goload"
 	"forst/internal/modulecheck"
 
 	"github.com/sirupsen/logrus"
@@ -28,10 +27,13 @@ func CollectInvokeFunctionsFromModule(log *logrus.Logger, boundaryRoot string) (
 	if boundaryRoot == "" {
 		return nil, nil
 	}
-	boundaryRoot = filepath.Clean(boundaryRoot)
+	layout, err := goload.ResolveProjectLayout(boundaryRoot)
+	if err != nil {
+		return nil, err
+	}
 	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{
-		ModuleRoot:   boundaryRoot,
-		BoundaryRoot: boundaryRoot,
+		ModuleRoot:   layout.ScanRoot,
+		BoundaryRoot: layout.Boundary,
 	})
 	if err != nil {
 		return nil, err

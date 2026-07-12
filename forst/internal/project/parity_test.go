@@ -56,3 +56,50 @@ func Hash() { return {h: "x"} }
 		}
 	}
 }
+
+func TestResolutionParity_forstGomodSubdirLayout(t *testing.T) {
+	dir := t.TempDir()
+	forstGomod := filepath.Join(dir, ".forst-gomod")
+	if err := os.MkdirAll(forstGomod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	forstDir := filepath.Join(dir, "forst")
+	if err := os.MkdirAll(forstDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstDir, "helper.ft"), []byte(`package helper
+
+func Ping() {
+  return {ok: "yes"}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	proj, err := Open(nil, OpenOpts{BoundaryRoot: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proj.ModuleRoot != forstGomod {
+		t.Fatalf("ModuleRoot = %q want %q", proj.ModuleRoot, forstGomod)
+	}
+	runnable, err := proj.RunnableFunctions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, fn := range runnable {
+		if fn.Package == "helper" && fn.Name == "Ping" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected helper.Ping in runnable set: %v", runnable)
+	}
+}

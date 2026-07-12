@@ -53,7 +53,7 @@ func ForstModuleLinkFromGoMod(moduleRoot string) (ForstModuleLink, bool) {
 			link.RequireVersion = ver
 			continue
 		}
-		if replaceDir := parseReplaceForst(line, goModReplaceBase(moduleRoot)); replaceDir != "" {
+		if replaceDir := parseReplaceForst(line, GoModReplaceBase(moduleRoot)); replaceDir != "" {
 			link.ReplaceDir = replaceDir
 		}
 	}
@@ -100,14 +100,4 @@ func parseReplaceForst(line, moduleRoot string) string {
 		return ""
 	}
 	return filepath.Clean(abs)
-}
-
-// goModReplaceBase is the directory relative to which replace => paths are resolved.
-// .forst-gomod/go.mod paths are authored from the project boundary root, not from .forst-gomod/.
-func goModReplaceBase(moduleRoot string) string {
-	moduleRoot = filepath.Clean(moduleRoot)
-	if filepath.Base(moduleRoot) == forstGoModDir {
-		return filepath.Dir(moduleRoot)
-	}
-	return moduleRoot
 }
