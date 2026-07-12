@@ -130,12 +130,29 @@ func moduleRootHasGoMod(dir string) bool {
 	return err == nil && !st.IsDir()
 }
 
+// moduleScanRootForPackageRoot returns where modulecheck should walk for .ft files.
+// Nested entry dirs inside go.mod (cross_pkg/api) scan from the module root; .forst-gomod
+// layouts scan from the project boundary because .ft files live outside .forst-gomod.
+func moduleScanRootForPackageRoot(packageRoot string) string {
+	packageRoot = filepath.Clean(packageRoot)
+	goModRoot := goload.FindModuleRoot(packageRoot)
+	if goModRoot == "" || goModRoot == packageRoot {
+		return packageRoot
+	}
+	rel, err := filepath.Rel(goModRoot, packageRoot)
+	if err == nil && rel != "." && !strings.HasPrefix(rel, "..") {
+		return goModRoot
+	}
+	return packageRoot
+}
+
 // typecheckPackageRootWithModuleProviders typechecks a -root compile via modulecheck so Forst sibling
 // imports resolve from .ft sources via modulecheck (not generated Go stubs).
 func (c *Compiler) typecheckPackageRootWithModuleProviders(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
-	moduleRoot := goload.FindModuleRoot(c.Args.PackageRoot)
-	modResult, err := c.checkModuleProvidersWithSession(moduleRoot, modulecheck.Options{
-		ModuleRoot:   moduleRoot,
+	goModRoot := goload.FindModuleRoot(c.Args.PackageRoot)
+	scanRoot := moduleScanRootForPackageRoot(c.Args.PackageRoot)
+	modResult, err := c.checkModuleProvidersWithSession(goModRoot, modulecheck.Options{
+		ModuleRoot:   scanRoot,
 		BoundaryRoot: c.Args.PackageRoot,
 	})
 	if err != nil {
