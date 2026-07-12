@@ -82,7 +82,7 @@ func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 
 // WaitReady blocks until the coordinator is Ready or Degraded, or ctx is canceled.
 // Returns ErrNotReady immediately while Draining or Regenerating.
-func (c *ReloadCoordinator) WaitReady(ctx context.Context) error {
+func (c *ReloadCoordinator) WaitReady(_ context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

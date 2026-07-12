@@ -180,18 +180,6 @@ func dirUnderRoot(dir, root string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-func skipWatchDir(absPath string, cfg *ftconfig.Config) bool {
-	base := filepath.Base(absPath)
-	switch base {
-	case "node_modules", ".git", "dist", ".forst":
-		return true
-	}
-	if cfg != nil && cfg.MatchesExcludePatterns(absPath) {
-		return true
-	}
-	return false
-}
-
 // RuntimeWatchEnabled reports whether runtime dev should watch and hot-reload.
 func RuntimeWatchEnabled(cfg *ftconfig.Config) bool {
 	if cfg == nil {

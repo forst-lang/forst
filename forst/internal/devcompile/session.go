@@ -205,9 +205,7 @@ func moduleFingerprint(result *modulecheck.ModuleResult) string {
 	}
 	var paths []string
 	for _, files := range result.ForstPkgToFiles {
-		for _, p := range files {
-			paths = append(paths, p)
-		}
+		paths = append(paths, files...)
 	}
 	sort.Strings(paths)
 	h := sha256.New()
@@ -217,7 +215,7 @@ func moduleFingerprint(result *modulecheck.ModuleResult) string {
 			h.Write([]byte("err:" + p))
 			continue
 		}
-		h.Write([]byte(fmt.Sprintf("%s:%d:%d\n", fp.Path, fp.Mtime, fp.Size)))
+		_, _ = fmt.Fprintf(h, "%s:%d:%d\n", fp.Path, fp.Mtime, fp.Size)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

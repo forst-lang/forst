@@ -79,7 +79,7 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 			return filepath.Join(dir, "out.go"), nil
 		},
 		BuildProgram: func(string, string, string) error { return nil },
-		StartProgram: func(outputPath, boundaryRoot string) (*runningChild, error) {
+		StartProgram: func(outputPath, _ string) (*runningChild, error) {
 			record("start")
 			mu.Lock()
 			startedPath = outputPath
@@ -155,9 +155,7 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 
 func TestReloadProfileEnabled(t *testing.T) {
 	t.Setenv(envReloadTrace, "")
-	if reloadProfileEnabled(&ftconfig.Config{Dev: ftconfig.DevConfig{HotReload: true}}) {
-		// ok
-	} else {
+	if !reloadProfileEnabled(&ftconfig.Config{Dev: ftconfig.DevConfig{HotReload: true}}) {
 		t.Fatal("expected hotReload to enable profile")
 	}
 	if reloadProfileEnabled(&ftconfig.Config{}) {

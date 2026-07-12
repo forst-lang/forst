@@ -310,7 +310,7 @@ func CreateDevReloadOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode stri
 	})
 }
 
-func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
+func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, _ map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
 	sandboxStart := time.Now()
 	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
 	var tempDir string

@@ -187,7 +187,7 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, nodert, invoke string, extra map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			compileCount.Add(1)
 			if main == "" {
 				return "", errors.New("empty main")
@@ -239,7 +239,7 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(_, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			return filepath.Join(boundary, "out.go"), nil
 		},
 		StartProgram: func(string, string) (*runningChild, error) {
@@ -305,7 +305,7 @@ func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(_, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			record("compile")
 			return filepath.Join(boundary, "out.go"), nil
 		},
@@ -380,7 +380,7 @@ func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(_, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			return filepath.Join(boundary, "out.go"), nil
 		},
 		StartProgram: func(string, string) (*runningChild, error) {

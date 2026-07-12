@@ -28,7 +28,7 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
-		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(_, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			compileCount.Add(1)
 			<-blockCompile
 			return filepath.Join(boundary, "out.go"), nil

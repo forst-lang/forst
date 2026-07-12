@@ -42,7 +42,9 @@ func TestWaitPortFree_detectsReleasedPort(t *testing.T) {
 	if err := waitPortFree(addr, 50*time.Millisecond); err == nil {
 		t.Fatal("expected timeout while port is bound")
 	}
-	ln.Close()
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -59,7 +61,7 @@ func canListen(addr string) bool {
 	if err != nil {
 		return false
 	}
-	ln.Close()
+	_ = ln.Close()
 	return true
 }
 
@@ -72,7 +74,7 @@ func TestFindNextFreeInvokePort_skipsBoundPort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	next, err := FindNextFreeInvokePort("127.0.0.1", boundPort)
 	if err != nil {
@@ -127,7 +129,7 @@ func TestWaitForInvokeReady_usesInvokeReadyURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	baseURL := "http://" + ln.Addr().String()
 	go func() {

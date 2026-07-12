@@ -107,7 +107,7 @@ func TestRunRuntimeDev_callsCompileAndRun(t *testing.T) {
 			gotArgs = args
 			return compiler.New(args, log)
 		},
-		CreateOutput: func(main, nodert, invoke string, extra map[string]string, _ map[string]string, boundary string) (string, error) {
+		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
 			if main == "" {
 				return "", errors.New("empty main")
 			}

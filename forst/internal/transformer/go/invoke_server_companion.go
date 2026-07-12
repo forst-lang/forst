@@ -145,26 +145,6 @@ func sanitizeInvokeIdent(s string) string {
 	return strings.Trim(out, "_")
 }
 
-func emitInvokeHandler(fn discovery.FunctionInfo) string {
-	handlerName := invokeHandlerName(fn)
-	paramNames := make([]string, len(fn.Parameters))
-	for i, p := range fn.Parameters {
-		paramNames[i] = p.Name
-	}
-	decode := invokecodec.DecodeArgsFromJSON("forstInvokeArgs", fn.Parameters)
-	call := invokecodec.CallExpression(fn, paramNames)
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "func %s(args json.RawMessage) (any, error) {\n", handlerName)
-	if decode != "" {
-		b.WriteString(decode)
-	}
-	b.WriteString("\t")
-	b.WriteString(call)
-	b.WriteString("\n}\n")
-	return b.String()
-}
-
 func (t *Transformer) invokeImportPath(forstPkg string) string {
 	if t == nil || forstPkg == "" {
 		return ""

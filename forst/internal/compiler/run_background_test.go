@@ -44,11 +44,13 @@ func TestStartGoProgram_stopReleasesListeningPort(t *testing.T) {
 		t.Fatal(err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	ln.Close()
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "main.go")
-	src := fmt.Sprintf(`package main
+	src := `package main
 import (
 	"net/http"
 	"os"
@@ -57,7 +59,7 @@ func main() {
 	port := os.Getenv("TEST_LISTEN_PORT")
 	http.ListenAndServe("127.0.0.1:" + port, nil)
 }
-`)
+`
 	if err := os.WriteFile(outPath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,7 @@ func main() {
 	for time.Now().Before(deadline) {
 		conn, dialErr := net.DialTimeout("tcp", addr, 200*time.Millisecond)
 		if dialErr == nil {
-			conn.Close()
+			_ = conn.Close()
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -105,7 +107,7 @@ func main() {
 			}
 			t.Fatalf("unexpected dial error: %v", dialErr)
 		}
-		conn.Close()
+		_ = conn.Close()
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("port %s still in use after Stop", addr)

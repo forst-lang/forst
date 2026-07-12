@@ -17,9 +17,7 @@ func CollectInvokeFunctionsFromModuleResult(modResult *modulecheck.ModuleResult)
 	var out []FunctionInfo
 	for pkg, nodes := range modResult.PerPackageNodes {
 		tc := modResult.PerPackage[pkg]
-		for _, fn := range CollectInvokeFunctionsFromNodes(nodes, tc) {
-			out = append(out, fn)
-		}
+		out = append(out, CollectInvokeFunctionsFromNodes(nodes, tc)...)
 	}
 	return out
 }

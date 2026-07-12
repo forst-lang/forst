@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestHelper_devRuntimeEmbedded(t *testing.T) {
+func TestHelper_devRuntimeEmbedded(_ *testing.T) {
 	if os.Getenv("FORST_DEV_RUNTIME_EMBEDDED") != "1" {
 		return
 	}
