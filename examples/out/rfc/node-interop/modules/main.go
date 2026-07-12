@@ -1,6 +1,7 @@
 package main
 
 import "strconv"
+import fmt "fmt"
 import os "os"
 
 type T_Zn4FXrBCht3 struct {
@@ -12,7 +13,10 @@ type T_Zn4FXrBCht3 struct {
 func main() {
 	order, orderErr := forst_node_callsync_legacy_api_checkout_ts_createOrder()
 	if !(orderErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", orderErr)
+			os.Exit(1)
+		}
 	}
 	println(order.Id)
 	println(order.Total)

@@ -32,7 +32,7 @@ func embeddedInvokeGoldenCases() []embeddedInvokeGoldenCase {
 				"func main()",
 			},
 			invokeMarkers: []string{
-				"invokeserver.MustStartEmbedded",
+				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_Echo",
 				"reg.RegisterMeta",
 				"ForstInvokeWaitForShutdown",

@@ -10,6 +10,9 @@ const (
 
 var forstNodeManifestJSON string = "{\"version\":1,\"exports\":[{\"moduleId\":\"legacy/counter.ts\",\"name\":\"inc\",\"kind\":\"function\"}]}"
 
+func ForstNodeWaitForShutdown() {
+	nodert.WaitForShutdown()
+}
 func forst_node_callsync_legacy_counter_ts_inc() (float64, error) {
 	return nodert.CallSyncArgs[float64]("legacy/counter.ts", "inc", json.RawMessage("[]"))
 }

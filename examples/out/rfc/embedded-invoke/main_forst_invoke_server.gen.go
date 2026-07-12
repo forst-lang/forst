@@ -6,8 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"forst/internal/invokedispatch"
-	"forst/internal/invokeserver"
+	"forst/invokeembed"
 )
 
 var forstInvokeRegistryInit bool
@@ -34,12 +33,12 @@ func init() {
 		return
 	}
 	forstInvokeRegistryInit = true
-	reg := invokeserver.GlobalRegistry()
-	reg.RegisterMeta(invokedispatch.FunctionMeta{Package:"main",Name:"Echo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_Echo)
-	invokeserver.MustStartEmbedded()
+	reg := invokeembed.GlobalRegistry()
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"Echo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_Echo)
+	invokeembed.MustStartEmbedded()
 }
 
 // ForstInvokeWaitForShutdown blocks until SIGINT/SIGTERM. Use in long-lived host-mode binaries.
 func ForstInvokeWaitForShutdown() {
-	invokeserver.WaitForShutdown()
+	invokeembed.WaitForShutdown()
 }

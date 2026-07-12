@@ -65,7 +65,7 @@ func AddTodo(input AddTodoRequest) AddTodoResponse {
 	println("api:AddTodo:" + input.Title)
 	created, createdErr := forst_node_callsync_legacy_todos_ts_addTodo(input.Title)
 	if !(createdErr == nil) {
-		return AddTodoResponse{Id: "", Title: "", Status: ""}
+		return AddTodoResponse{Title: "", Status: "", Id: ""}
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
 }
@@ -73,7 +73,7 @@ func CompleteTodo(input CompleteTodoRequest) CompleteTodoResponse {
 	println("api:CompleteTodo:" + input.Id)
 	updated, updatedErr := forst_node_callsync_legacy_todos_ts_toggleTodo(input.Id)
 	if !(updatedErr == nil) {
-		return CompleteTodoResponse{Status: "", Id: "", Title: ""}
+		return CompleteTodoResponse{Title: "", Status: "", Id: ""}
 	}
 	return CompleteTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
 }
@@ -81,11 +81,11 @@ func GetDashboard() T_7nWLvcjQ76D {
 	println("api:GetDashboard")
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {
-		return T_7nWLvcjQ76D{ActivityKinds: "", SavedAt: "", Open: 0.0, RecentTitles: ""}
+		return T_7nWLvcjQ76D{Open: 0.0, RecentTitles: "", ActivityKinds: "", SavedAt: ""}
 	}
 	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
 	if !(snapErr == nil) {
-		return T_7nWLvcjQ76D{ActivityKinds: "", SavedAt: "", Open: 0.0, RecentTitles: ""}
+		return T_7nWLvcjQ76D{Open: 0.0, RecentTitles: "", ActivityKinds: "", SavedAt: ""}
 	}
 	return T_7nWLvcjQ76D{Open: open, RecentTitles: "", ActivityKinds: "ready", SavedAt: snap.SavedAt}
 }
@@ -93,11 +93,11 @@ func ListTodos() T_D415raHQ7uQ {
 	println("api:ListTodos")
 	encoded, encodedErr := forst_node_callsync_legacy_todos_ts_formatTodoList()
 	if !(encodedErr == nil) {
-		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
+		return T_D415raHQ7uQ{Done: 0.0, Encoded: "", Open: 0.0}
 	}
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {
-		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
+		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	total, totalErr := forst_node_callsync_legacy_todos_ts_todoCount()
 	if !(totalErr == nil) {

@@ -138,7 +138,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"legacy/todos.ts",
 			},
 			invokeMarkers: []string{
-				"invokeserver.MustStartEmbedded",
+				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_ListTodos",
 				"ForstInvokeWaitForShutdown",
 			},
