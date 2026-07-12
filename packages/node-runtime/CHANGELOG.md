@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.0...node-runtime-v0.3.1) (2026-07-12)
+
+
+### Features
+
+* **lsp:** add go-to-definition for import node bindings ([#138](https://github.com/forst-lang/forst/issues/138)) ([fdcd35d](https://github.com/forst-lang/forst/commit/fdcd35d80147589f42bca8b9cc571065cb1b21cb))
+
+
+### Bug Fixes
+
+* **nodert:** prevent duplicate host binds, restore piped colors ([#141](https://github.com/forst-lang/forst/issues/141)) ([3ecb2ff](https://github.com/forst-lang/forst/commit/3ecb2ff505b3bd8fa60c8bd51292cd60285b999d))
+
 ## [0.3.0](https://github.com/forst-lang/forst/compare/node-runtime-v0.2.1...node-runtime-v0.3.0) (2026-07-11)
 
 
