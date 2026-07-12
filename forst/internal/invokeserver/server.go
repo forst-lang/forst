@@ -209,7 +209,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	s.sendJSON(w, Response{Success: true, Output: "Forst HTTP server is healthy"})
+	resp := Response{Success: true, Output: "Forst HTTP server is healthy"}
+	if root, err := resolveBoundaryRoot(); err == nil {
+		if reloading, generation := ReadReloadMarker(root); reloading {
+			resp.Reloading = true
+			resp.Generation = generation
+		}
+	}
+	s.sendJSON(w, resp)
 }
 
 // handleVersion handles GET /version.
@@ -255,6 +262,9 @@ func (s *Server) handleFunctions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.rejectInvokeIfReloading(w) {
 		return
 	}
 	s.mu.RLock()
@@ -349,4 +359,27 @@ func (s *Server) sendJSON(w http.ResponseWriter, response Response) {
 func (s *Server) sendError(w http.ResponseWriter, errorMsg string, statusCode int) {
 	w.WriteHeader(statusCode)
 	s.sendJSON(w, Response{Success: false, Error: errorMsg})
+}
+
+func (s *Server) sendReloading(w http.ResponseWriter, generation uint64) {
+	w.Header().Set("Retry-After", "1")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	s.sendJSON(w, Response{
+		Success:    false,
+		Error:      "reloading",
+		Reloading:  true,
+		Generation: generation,
+	})
+}
+
+func (s *Server) rejectInvokeIfReloading(w http.ResponseWriter) bool {
+	root, err := resolveBoundaryRoot()
+	if err != nil {
+		return false
+	}
+	if reloading, gen := ReadReloadMarker(root); reloading {
+		s.sendReloading(w, gen)
+		return true
+	}
+	return false
 }

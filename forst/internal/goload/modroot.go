@@ -162,3 +162,39 @@ func moduleRootInDir(dir string) string {
 	}
 	return ""
 }
+
+// DirHasGoMod reports whether dir contains a go.mod file.
+func DirHasGoMod(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(dir, "go.mod"))
+	return err == nil && !st.IsDir()
+}
+
+// ModuleRootHasGoMod reports whether FindModuleRoot(start) resolved to a directory with go.mod.
+func ModuleRootHasGoMod(start string) bool {
+	return DirHasGoMod(FindModuleRoot(start))
+}
+
+// MissingGoModuleSetupHint returns setup guidance when boundaryRoot has no Go module.
+func MissingGoModuleSetupHint(boundaryRoot string) string {
+	if boundaryRoot == "" || ModuleRootHasGoMod(boundaryRoot) {
+		return ""
+	}
+	return "create .forst-gomod/go.mod at " + filepath.Clean(boundaryRoot) +
+		" with require for Go imports and replace forst => ... (see docs/interop/node/call-forst.mdx)"
+}
+
+// GoImportTypesNotLoadedMsg formats the go-import diagnostic for unloaded Go package types.
+func GoImportTypesNotLoadedMsg(pkgName, importPath, workspaceDir, boundaryRoot string) string {
+	msg := fmt.Sprintf("Go package %q (%s) types not loaded; check go.mod workspace and go tooling", pkgName, importPath)
+	hintRoot := boundaryRoot
+	if hintRoot == "" {
+		hintRoot = workspaceDir
+	}
+	if hint := MissingGoModuleSetupHint(hintRoot); hint != "" {
+		msg += "; " + hint
+	}
+	return msg
+}

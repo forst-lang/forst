@@ -161,6 +161,8 @@ replace forst => ../../forst/forst   // monorepo: path to forst Go module
 // require forst v0.0.37            // production: published release (no compiler checkout)
 ```
 
+If any `.ft` file under `-root` uses Go FFI (`import "golang.org/x/crypto/bcrypt"`, etc.), declare those modules in `.forst-gomod/go.mod` and run `go mod download` or `go mod tidy` there. Required for embedded invoke discovery across packages in Node-only projects.
+
 `forst dev` / `forst run` copy this into the `.forst/run` sandbox `go.mod` automatically. With `@forst/cli`, the shim also wires the cached runtime module internally — you do not set `FORST_GOMOD_ROOT` in app scripts.
 
 `FORST_GOMOD_ROOT` is for **Forst compiler development** only (working on the compiler itself).

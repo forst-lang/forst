@@ -73,16 +73,36 @@ async function readReloadingFromBody(response: Response): Promise<boolean> {
   }
 }
 
+function isConnectionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes("econnrefused") ||
+    msg.includes("fetch failed") ||
+    msg.includes("network") ||
+    msg.includes("failed to fetch")
+  );
+}
+
 async function defaultFetchHealth(
   transport: InvokeTransport
 ): Promise<DevServerHealthSnapshot> {
-  const response = await Effect.runPromise(
-    transport.request("/health", { method: "GET" })
-  );
-  if (!response.ok) {
-    return { success: false, reloading: true };
+  try {
+    const response = await Effect.runPromise(
+      transport.request("/health", { method: "GET" })
+    );
+    if (!response.ok) {
+      return { success: false, reloading: true };
+    }
+    return (await response.json()) as DevServerHealthSnapshot;
+  } catch (error) {
+    if (isConnectionError(error)) {
+      return { success: false, reloading: true };
+    }
+    throw error instanceof Error ? error : new Error(String(error));
   }
-  return (await response.json()) as DevServerHealthSnapshot;
 }
 
 function defaultFetchHealthEffect(
@@ -138,25 +158,37 @@ export function createReloadAwareTransport(
 
   const replayParked = (parked: ParkedRequest) =>
     Effect.gen(function* () {
-      yield* waitUntilReady;
       while (true) {
-        const response = yield* inner.request(parked.endpoint, parked.init);
-        if (!isReloadHttpStatus(response.status)) {
-          yield* Deferred.succeed(parked.deferred, response);
-          return;
-        }
-        const reloading = yield* Effect.tryPromise({
-          try: () => readReloadingFromBody(response),
-          catch: (error) =>
-            error instanceof Error ? error : new Error(String(error)),
-        });
-        if (!reloading) {
-          yield* Deferred.succeed(parked.deferred, response);
-          return;
-        }
-        const retryAfterMs = parseRetryAfterMs(response);
-        if (retryAfterMs !== undefined) {
-          yield* Effect.sleep(retryAfterMs);
+        yield* waitUntilReady;
+        while (true) {
+          const response = yield* inner.request(parked.endpoint, parked.init).pipe(
+            Effect.catchAll((error) => {
+              if (!isConnectionError(error)) {
+                return Effect.fail(error);
+              }
+              return Effect.succeed(null as Response | null);
+            })
+          );
+          if (response === null) {
+            break;
+          }
+          if (!isReloadHttpStatus(response.status)) {
+            yield* Deferred.succeed(parked.deferred, response);
+            return;
+          }
+          const reloading = yield* Effect.tryPromise({
+            try: () => readReloadingFromBody(response),
+            catch: (error) =>
+              error instanceof Error ? error : new Error(String(error)),
+          });
+          if (!reloading) {
+            yield* Deferred.succeed(parked.deferred, response);
+            return;
+          }
+          const retryAfterMs = parseRetryAfterMs(response);
+          if (retryAfterMs !== undefined) {
+            yield* Effect.sleep(retryAfterMs);
+          }
         }
       }
     });
@@ -200,7 +232,19 @@ export function createReloadAwareTransport(
   return {
     request(endpoint, init) {
       return Effect.gen(function* () {
-        const response = yield* inner.request(endpoint, init);
+        const response = yield* inner.request(endpoint, init).pipe(
+          Effect.catchAll((error) => {
+            if (!isConnectionError(error)) {
+              return Effect.fail(error);
+            }
+            return Effect.gen(function* () {
+              const { parkQueue, drainFiber } = yield* Effect.promise(() =>
+                ensureRuntime()
+              );
+              return yield* parkRequest(endpoint, init, parkQueue, drainFiber);
+            });
+          })
+        );
         if (!isReloadHttpStatus(response.status)) {
           return response;
         }

@@ -2,14 +2,16 @@ package devserver
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"forst/internal/compiler"
 	"forst/internal/ftconfig"
+	"forst/nodert"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
@@ -38,13 +40,16 @@ func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Con
 	if err != nil {
 		return err
 	}
+	if len(dirs) == 0 {
+		return fmt.Errorf("no directories to watch under %s", boundaryRoot)
+	}
 	for _, dir := range dirs {
 		if err := watcher.Add(dir); err != nil {
 			return fmt.Errorf("watch %s: %w", dir, err)
 		}
 	}
 	if log != nil {
-		log.Infof("Watching Forst sources under %s (%d directories)...", boundaryRoot, len(dirs))
+		log.Infof("Watching %d Forst source directories under %s...", len(dirs), boundaryRoot)
 	}
 
 	var debounceTimer *time.Timer
@@ -65,7 +70,7 @@ func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Con
 				continue
 			}
 			if log != nil {
-				log.Infof("Detected change in %s, triggering reload...", event.Name)
+				log.Debugf("Detected change in %s", event.Name)
 			}
 			trigger()
 		case err, ok := <-watcher.Errors:
@@ -109,21 +114,55 @@ func collectWatchDirs(root string, cfg *ftconfig.Config) ([]string, error) {
 		return nil, fmt.Errorf("watch root is not a directory: %s", root)
 	}
 
-	var dirs []string
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	effective := cfg
+	if effective == nil {
+		effective = ftconfig.Default()
+	}
+	files, err := effective.FindForstFiles(root)
+	if err != nil {
+		return nil, fmt.Errorf("find Forst files under %s: %w", root, err)
+	}
+
+	seen := make(map[string]struct{})
+	addDir := func(dir string) {
+		dir = filepath.Clean(dir)
+		if !dirUnderRoot(dir, root) {
+			return
 		}
-		if !d.IsDir() {
-			return nil
+		seen[dir] = struct{}{}
+	}
+	addDir(root)
+	for _, file := range files {
+		dir := filepath.Dir(filepath.Clean(file))
+		for {
+			addDir(dir)
+			if dir == root {
+				break
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
 		}
-		if path != root && skipWatchDir(path, cfg) {
-			return filepath.SkipDir
-		}
-		dirs = append(dirs, path)
-		return nil
-	})
-	return dirs, err
+	}
+
+	dirs := make([]string, 0, len(seen))
+	for dir := range seen {
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+	return dirs, nil
+}
+
+func dirUnderRoot(dir, root string) bool {
+	dir = filepath.Clean(dir)
+	root = filepath.Clean(root)
+	if dir == root {
+		return true
+	}
+	rel, err := filepath.Rel(root, dir)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func skipWatchDir(absPath string, cfg *ftconfig.Config) bool {
@@ -148,7 +187,9 @@ func RuntimeWatchEnabled(cfg *ftconfig.Config) bool {
 
 // runningChild wraps a background go run process with injectable stop for tests.
 type runningChild struct {
-	stop func() error
+	stop            func() error
+	exited          <-chan error
+	intentionalStop atomic.Bool
 }
 
 func defaultStartProgram(outputPath, boundaryRoot string) (*runningChild, error) {
@@ -157,6 +198,56 @@ func defaultStartProgram(outputPath, boundaryRoot string) (*runningChild, error)
 		return nil, err
 	}
 	return &runningChild{
-		stop: func() error { return proc.Stop(compiler.DefaultGoProgramStopGrace()) },
+		stop: func() error {
+			return proc.Stop(compiler.DefaultGoProgramStopGrace(), compiler.StopOpts{})
+		},
+		exited: proc.Done(),
 	}, nil
+}
+
+func (c *runningChild) stopForReload(log *logrus.Logger) {
+	if c == nil {
+		return
+	}
+	c.intentionalStop.Store(true)
+	_ = c.stop()
+	if log != nil {
+		if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+			log.Debug("Stopped previous build for reload (attach-only host preserved)")
+		} else {
+			log.Debug("Stopped previous build for reload")
+		}
+	}
+	go drainChildExit(c)
+}
+
+func drainChildExit(child *runningChild) {
+	if child == nil || child.exited == nil {
+		return
+	}
+	<-child.exited
+}
+
+func monitorChildExit(log *logrus.Logger, child *runningChild) {
+	if log == nil || child == nil || child.exited == nil {
+		return
+	}
+	go func(c *runningChild) {
+		err := <-c.exited
+		if err != nil && !c.intentionalStop.Load() {
+			log.Error(err)
+			log.Warn("Generated program exited; fix errors and save a .ft file to reload")
+		}
+	}(child)
+}
+
+func hostModeEnabled(boundaryRoot string) bool {
+	if boundaryRoot == "" {
+		return false
+	}
+	cfg, err := ftconfig.LoadFromDir(boundaryRoot)
+	if err != nil {
+		return false
+	}
+	return cfg.Node.HostMode
 }

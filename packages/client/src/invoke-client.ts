@@ -77,7 +77,8 @@ class HttpInvokeClient {
     this.client = new ForstSidecarClient({
       baseUrl,
       timeout: config?.timeout ?? 30000,
-      retries: config?.retries ?? 1,
+      retries: config?.retries ?? 0,
+      reloadAware: true,
     });
   }
 

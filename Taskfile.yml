@@ -515,6 +515,13 @@ tasks:
       - mkdir -p {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev
       - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main.ft
 
+  example:multipackage-dev:run:
+    desc: Run multi-package-dev via forst dev (embedded invoke + hostMode)
+    dir: forst
+    deps: [build:node-runtime, build]
+    cmds:
+      - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -entry main.ft -log-level error
+
   example:embedded-invoke:
     desc: Compile embedded-invoke example (embedded HTTP /invoke in compiled binary)
     dir: forst

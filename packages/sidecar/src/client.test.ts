@@ -313,4 +313,48 @@ describe("ForstSidecarClient", () => {
     expect(invokeCalls).toBe(2);
     expect(healthCalls).toBeGreaterThanOrEqual(1);
   });
+
+  it("defaultReloadAware_parksOnLongConnectionRefusedWithoutRetryExhaustion", async () => {
+    let invokeCalls = 0;
+    let healthCalls = 0;
+
+    global.fetch = jest.fn((url: string | URL | Request) => {
+      const path = String(url);
+      if (path.endsWith("/health")) {
+        healthCalls += 1;
+        if (healthCalls < 3) {
+          return Promise.reject(new Error("fetch failed: ECONNREFUSED"));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, reloading: false }),
+        });
+      }
+      if (path.endsWith("/invoke")) {
+        invokeCalls += 1;
+        if (invokeCalls === 1) {
+          return Promise.reject(new Error("fetch failed: ECONNREFUSED"));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, result: 99 }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${path}`));
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+    });
+    const out = await client.invokeFunction("demo", "Echo", []);
+    expect(out.result).toBe(99);
+    expect(invokeCalls).toBe(2);
+    expect(healthCalls).toBeGreaterThanOrEqual(3);
+  });
 });

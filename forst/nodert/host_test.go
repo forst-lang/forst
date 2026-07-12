@@ -49,6 +49,63 @@ func TestWaitForHostReady_success(t *testing.T) {
 	_ = conn.Close()
 }
 
+func TestConnectExistingHost_success(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix socket test")
+	}
+
+	dir := t.TempDir()
+	socketPath := filepath.Join(dir, "node.sock")
+	readyPath := socketPath + ".ready"
+
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		_ = conn.Close()
+	}()
+
+	if err := os.WriteFile(readyPath, []byte(`{"pid":`+strconv.Itoa(os.Getpid())+`,"socket":"`+socketPath+`","phase":"app"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn, ok, err := connectExistingHost(ctx, socketPath, readyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || conn == nil {
+		t.Fatal("expected existing host connection")
+	}
+	_ = conn.Close()
+}
+
+func TestConnectExistingHost_absent(t *testing.T) {
+	dir := t.TempDir()
+	socketPath := filepath.Join(dir, "node.sock")
+	readyPath := socketPath + ".ready"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	conn, ok, err := connectExistingHost(ctx, socketPath, readyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok || conn != nil {
+		t.Fatalf("expected no attach, ok=%v conn=%v", ok, conn)
+	}
+}
+
 func TestWaitForHostReady_ignoresListeningPhase(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix socket test")

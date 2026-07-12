@@ -45,6 +45,9 @@ export class ForstSidecarClient {
       reloadAware: true,
       ...config,
     };
+    if (this.config.reloadAware !== false && config.retries === undefined) {
+      this.config.retries = 0;
+    }
     const httpTransport = createHttpInvokeTransport({
       baseUrl: this.config.baseUrl,
       timeout: this.config.timeout,

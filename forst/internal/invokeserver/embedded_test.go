@@ -39,7 +39,7 @@ func TestEffectivePort(t *testing.T) {
 		t.Fatalf("port = %q", got)
 	}
 	t.Setenv(envInvokePort, "")
-	if got := effectivePort(ftconfig.ServerConfig{Embedded: true}); got != "8081" {
+	if got := effectivePort(ftconfig.ServerConfig{Embedded: true}); got != ftconfig.DefaultEmbeddedInvokePort {
 		t.Fatalf("default port = %q", got)
 	}
 }

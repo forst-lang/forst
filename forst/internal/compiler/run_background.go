@@ -19,6 +19,13 @@ func DefaultGoProgramStopGrace() time.Duration {
 	return defaultGoProgramStopGrace
 }
 
+// StopOpts configures how a background go run child is terminated.
+type StopOpts struct {
+	// NarrowKill signals only the direct child PID (not the process group).
+	// Reserved for unit tests; runtime dev uses process-group stop.
+	NarrowKill bool
+}
+
 // GoProgramProcess is a background go run child.
 type GoProgramProcess struct {
 	cmd    *exec.Cmd
@@ -48,23 +55,55 @@ func StartGoProgram(outputPath, boundaryRoot string) (*GoProgramProcess, error) 
 	return proc, nil
 }
 
-// Stop sends SIGTERM, waits up to grace, then SIGKILL.
-func (p *GoProgramProcess) Stop(grace time.Duration) error {
+// Done returns a channel that receives the go run exit error (if any).
+func (p *GoProgramProcess) Done() <-chan error {
+	if p == nil {
+		ch := make(chan error)
+		close(ch)
+		return ch
+	}
+	return p.done
+}
+
+func (p *GoProgramProcess) Stop(grace time.Duration, opts StopOpts) error {
 	if p == nil || p.cmd == nil || p.cmd.Process == nil {
 		return nil
 	}
 	if grace <= 0 {
 		grace = defaultGoProgramStopGrace
 	}
-	_ = p.cmd.Process.Signal(syscall.SIGTERM)
+	signal := signalProcessGroup
+	if opts.NarrowKill {
+		signal = signalProcessOnly
+	}
+	_ = signal(p.cmd.Process, syscall.SIGTERM)
 	select {
 	case <-p.done:
-		return nil
 	case <-time.After(grace):
-		_ = p.cmd.Process.Kill()
-		<-p.done
+	}
+	_ = signal(p.cmd.Process, syscall.SIGKILL)
+	select {
+	case <-p.done:
+	case <-time.After(2 * time.Second):
+	}
+	return nil
+}
+
+func signalProcessOnly(proc *os.Process, sig syscall.Signal) error {
+	if proc == nil {
 		return nil
 	}
+	return proc.Signal(sig)
+}
+
+func signalProcessGroup(proc *os.Process, sig syscall.Signal) error {
+	if proc == nil {
+		return nil
+	}
+	if err := syscall.Kill(-proc.Pid, sig); err != nil {
+		return proc.Signal(sig)
+	}
+	return nil
 }
 
 func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
@@ -73,6 +112,7 @@ func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
 		return nil, err
 	}
 	cmd := exec.Command("go", append([]string{"run"}, runSources...)...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Dir = dir
 	env := os.Environ()
 	if boundaryRoot != "" {

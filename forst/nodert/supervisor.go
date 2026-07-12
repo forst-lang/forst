@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ type SupervisorConfig struct {
 	HostAutoRegister   bool
 	HostAppReadyModule string
 	ShimArgs           []string
+	AttachOnly         bool
 	ProcessOptions     ProcessOptions
 	Manifest           Manifest
 	RPC                RPCConfig
@@ -102,59 +104,94 @@ func newHostSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 		log.SetLevel(logrus.ErrorLevel)
 	}
 
-	socketPath := cfg.HostSocketPath
-	readyPath := cfg.HostReadyPath
-	if socketPath == "" || readyPath == "" {
-		var err error
-		socketPath, readyPath, err = ResolveHostSocketPath(cfg.ProcessOptions.BoundaryRoot, "")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err := PrepareHostSocket(socketPath, readyPath); err != nil {
-		return nil, err
-	}
-
-	hostCmd, err := BuildHostSpawnCommand(HostSpawnInput{
-		BoundaryRoot:       cfg.ProcessOptions.BoundaryRoot,
-		Executable:         cfg.ProcessOptions.NodePath,
-		ShimArgs:           cfg.ShimArgs,
-		WorkDir:            cfg.ProcessOptions.WorkDir,
-		Loader:             cfg.ProcessOptions.Loader,
-		SocketPath:         socketPath,
-		ReadyPath:          readyPath,
-		FilesExclude:       cfg.ProcessOptions.FilesExclude,
-		Env:                cfg.ProcessOptions.Env,
-		HostAutoRegister:   cfg.HostAutoRegister,
-		HostAppReadyModule: cfg.HostAppReadyModule,
-	})
+	socketPath, readyPath, timeout, err := resolveHostSupervisorPaths(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	proc, err := spawnHostProcess(hostCmd, cfg.ProcessOptions.WorkDir, log)
-	if err != nil {
-		return nil, err
-	}
-
-	timeout := cfg.HostReadyTimeout
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	if skip := ReattachSkipReason(readyPath); skip != "" {
+		log.Infof("node host reattach skipped (%s)", skip)
+	} else if marker, ok := readHostReadyMarker(readyPath); ok {
+		log.Infof("node host reattach attempt (pid=%d, socket=%s)", marker.PID, socketPath)
+	}
+
+	if conn, attached, err := connectExistingHost(ctx, socketPath, readyPath); attached {
+		if err != nil {
+			if marker, has := readHostReadyMarker(readyPath); has && processAlive(marker.PID) {
+				log.Warnf("node host pid=%d alive but reattach failed: %v", marker.PID, err)
+			}
+			return nil, err
+		}
+		marker, _ := readHostReadyMarker(readyPath)
+		log.Infof("Reattached to node host (pid=%d, socket=%s)", marker.PID, socketPath)
+		return dialAndInitHost(cfg, conn, nil, log)
+	}
+
+	if cfg.AttachOnly {
+		return nil, fmt.Errorf("node host not running (attach-only); forst dev should have started it")
+	}
+
+	hostCfg := hostProcessConfigFromSupervisor(cfg, socketPath, readyPath, log)
+	spawned, spawnedProc, err := EnsureHostProcessRunning(hostCfg)
+	if err != nil {
+		return nil, err
+	}
+
 	conn, err := waitForHostReady(ctx, socketPath, readyPath)
 	if err != nil {
-		_ = proc.terminate()
+		if spawned && spawnedProc != nil {
+			_ = spawnedProc.Terminate()
+		}
 		cleanupHostSocketFiles(socketPath, readyPath)
 		return nil, err
 	}
 
-	go func() {
-		_ = proc.waitAsync(log)
-	}()
+	var proc *managedProcess
+	if spawned && spawnedProc != nil {
+		proc = spawnedProc.proc
+	}
 
+	return dialAndInitHost(cfg, conn, proc, log)
+}
+
+func resolveHostSupervisorPaths(cfg SupervisorConfig) (socketPath, readyPath string, timeout time.Duration, err error) {
+	socketPath = cfg.HostSocketPath
+	readyPath = cfg.HostReadyPath
+	if socketPath == "" || readyPath == "" {
+		socketPath, readyPath, err = ResolveHostSocketPath(cfg.ProcessOptions.BoundaryRoot, "")
+		if err != nil {
+			return "", "", 0, err
+		}
+	}
+	timeout = cfg.HostReadyTimeout
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	return socketPath, readyPath, timeout, nil
+}
+
+func hostProcessConfigFromSupervisor(cfg SupervisorConfig, socketPath, readyPath string, log *logrus.Logger) HostProcessConfig {
+	return HostProcessConfig{
+		BoundaryRoot:       cfg.ProcessOptions.BoundaryRoot,
+		WorkDir:            cfg.ProcessOptions.WorkDir,
+		NodePath:           cfg.ProcessOptions.NodePath,
+		Loader:             cfg.ProcessOptions.Loader,
+		ShimArgs:           append([]string(nil), cfg.ShimArgs...),
+		SocketPath:         socketPath,
+		ReadyPath:          readyPath,
+		HostAutoRegister:   cfg.HostAutoRegister,
+		HostAppReadyModule: cfg.HostAppReadyModule,
+		FilesExclude:       append([]string(nil), cfg.ProcessOptions.FilesExclude...),
+		ExtraEnv:           append([]string(nil), cfg.ProcessOptions.Env...),
+		ReadyTimeout:       cfg.HostReadyTimeout,
+		Log:                log,
+	}
+}
+
+func dialAndInitHost(cfg SupervisorConfig, conn net.Conn, proc *managedProcess, log *logrus.Logger) (*Supervisor, error) {
 	client := NewClient(conn, conn, log)
 	return finishSupervisorInit(cfg, client, proc, conn, log)
 }
@@ -170,14 +207,18 @@ func finishSupervisorInit(cfg SupervisorConfig, client *Client, proc *managedPro
 		if conn != nil {
 			_ = conn.Close()
 		}
-		_ = proc.terminate()
+		if proc != nil {
+			_ = proc.terminate()
+		}
 		return nil, fmt.Errorf("manifest: %w", err)
 	}
 	if err := client.Initialize(cfg.Manifest, cfg.ProcessOptions.FilesExclude); err != nil {
 		if conn != nil {
 			_ = conn.Close()
 		}
-		_ = proc.terminate()
+		if proc != nil {
+			_ = proc.terminate()
+		}
 		return nil, err
 	}
 

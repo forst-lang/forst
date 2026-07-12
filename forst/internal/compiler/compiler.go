@@ -178,7 +178,22 @@ func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 			filtered = append(filtered, entry)
 		}
 	}
-	return append(filtered, prefix+boundaryRoot)
+	filtered = append(filtered, prefix+boundaryRoot)
+	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
+		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
+	}
+	return filtered
+}
+
+func appendRunEnvVar(env []string, key, value string) []string {
+	prefix := key + "="
+	out := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, prefix) {
+			out = append(out, entry)
+		}
+	}
+	return append(out, prefix+value)
 }
 
 // RunBoundaryRoot returns the ftconfig project root to pass when running generated Go.

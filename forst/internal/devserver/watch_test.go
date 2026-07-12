@@ -3,10 +3,12 @@ package devserver
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -69,6 +71,8 @@ func TestWatchPackageRoot_ignoresNonFt(t *testing.T) {
 func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 	dir := t.TempDir()
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+	restore := stubInvokeReadyWaiter(t)
+	defer restore()
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
@@ -100,6 +104,8 @@ func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 	dir := t.TempDir()
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+	restore := stubInvokeReadyWaiter(t)
+	defer restore()
 
 	var buf bytes.Buffer
 	log := logrus.New()
@@ -131,8 +137,8 @@ func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 	if !strings.Contains(buf.String(), "type error: injected") {
 		t.Fatalf("expected compile error in logs, got: %s", buf.String())
 	}
-	if !strings.Contains(buf.String(), "Not running program because of errors during compilation") {
-		t.Fatalf("expected warn about not running, got: %s", buf.String())
+	if !strings.Contains(buf.String(), "Invoke server is down until compilation succeeds on next save") {
+		t.Fatalf("expected warn about invoke down, got: %s", buf.String())
 	}
 }
 
@@ -140,6 +146,8 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+	restore := stubInvokeReadyWaiter(t)
+	defer restore()
 
 	var compileCount atomic.Int32
 	var startCount atomic.Int32
@@ -195,6 +203,8 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+	restore := stubInvokeReadyWaiter(t)
+	defer restore()
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
@@ -225,23 +235,169 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 	}
 }
 
-func TestCollectWatchDirs_skipsNodeModules(t *testing.T) {
+func TestCollectWatchDirs_onlyParentsOfForstFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeEntry(t, dir, "main.ft", "package main\n")
+	writeEntry(t, dir, "forst/main.ft", "package main\n")
+	writeEntry(t, dir, "forst/pkg/util.ft", "package pkg\n")
 	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "pkg"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "node_modules", "pkg", "skip.ft"), []byte("x"), 0o644); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "app", "routes"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	dirs, err := collectWatchDirs(dir, nil)
+	cfg := ftconfig.Default()
+	dirs, err := collectWatchDirs(dir, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, d := range dirs {
-		if strings.Contains(d, "node_modules") {
-			t.Fatalf("node_modules should be skipped, got dirs: %v", dirs)
+		if strings.Contains(d, "node_modules") || strings.Contains(d, "app") {
+			t.Fatalf("should only watch .ft parent dirs, got %v", dirs)
 		}
+	}
+	if len(dirs) > 5 {
+		t.Fatalf("expected few watch dirs, got %d: %v", len(dirs), dirs)
+	}
+}
+
+func stubInvokeReadyWaiter(t *testing.T) func() {
+	t.Helper()
+	origReady := invokeReadyWaiter
+	origPort := portFreeWaiter
+	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error { return nil }
+	portFreeWaiter = func(string, time.Duration) error { return nil }
+	return func() {
+		invokeReadyWaiter = origReady
+		portFreeWaiter = origPort
+	}
+}
+
+func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+	restore := stubInvokeReadyWaiter(t)
+	defer restore()
+
+	var order []string
+	var mu sync.Mutex
+	record := func(step string) {
+		mu.Lock()
+		order = append(order, step)
+		mu.Unlock()
+	}
+
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+			record("compile")
+			return filepath.Join(boundary, "out.go"), nil
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			record("start")
+			return &runningChild{stop: func() error {
+				record("stop")
+				return nil
+			}}, nil
+		},
+	}
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	go func() {
+		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mu.Lock()
+		ready := len(order) >= 2 && order[0] == "compile" && order[1] == "start"
+		mu.Unlock()
+		if ready || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() { println(\"v2\") }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline = time.Now().Add(3 * time.Second)
+	for {
+		mu.Lock()
+		n := len(order)
+		mu.Unlock()
+		if n >= 5 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	mu.Lock()
+	got := append([]string(nil), order...)
+	mu.Unlock()
+	// initial: compile, start; reload: stop before second compile
+	want := []string{"compile", "start", "stop", "compile", "start"}
+	if len(got) < len(want) {
+		t.Fatalf("order=%v want at least %v", got, want)
+	}
+	for i, step := range want {
+		if got[i] != step {
+			t.Fatalf("order=%v want prefix %v", got, want)
+		}
+	}
+}
+
+func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+
+	origReady := invokeReadyWaiter
+	origPort := portFreeWaiter
+	invokeReadyWaiter = WaitForInvokeReady
+	portFreeWaiter = func(string, time.Duration) error { return nil }
+	t.Cleanup(func() {
+		invokeReadyWaiter = origReady
+		portFreeWaiter = origPort
+	})
+
+	exited := make(chan error, 1)
+	exited <- fmt.Errorf("bind: address already in use")
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	log.SetLevel(logrus.ErrorLevel)
+
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+			return filepath.Join(boundary, "out.go"), nil
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			return &runningChild{
+				stop:   func() error { return nil },
+				exited: exited,
+			}, nil
+		},
+	}
+
+	go func() {
+		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for !strings.Contains(buf.String(), "reload failed") && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if !strings.Contains(buf.String(), "reload failed") {
+		t.Fatalf("expected reload failure log, got: %s", buf.String())
 	}
 }

@@ -60,6 +60,7 @@ func spawnBootstrapProcess(opts ProcessOptions) (*managedProcess, error) {
 		cmd.Dir = opts.WorkDir
 	}
 	cmd.Env = spawnCmd.Env
+	cmd.SysProcAttr = hostSessionAttrs()
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

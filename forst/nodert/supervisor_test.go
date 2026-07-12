@@ -4,10 +4,44 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 )
+
+func TestNewHostSupervisor_attachOnlyNeverSpawns(t *testing.T) {
+	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
+	dir := t.TempDir()
+	readyPath := filepath.Join(dir, ".forst", "node.sock.ready")
+
+	ConfigureSupervisor(SupervisorConfig{
+		HostMode:   true,
+		AttachOnly: true,
+		ShimArgs:   []string{"./missing-shim.js"},
+		HostReadyPath: readyPath,
+		HostSocketPath: filepath.Join(dir, ".forst", "node.sock"),
+		ProcessOptions: ProcessOptions{
+			BoundaryRoot: dir,
+			Loader:       "tsx",
+			NodePath:     "node",
+			WorkDir:      dir,
+		},
+		Manifest: Manifest{
+			Version:      ManifestVersion,
+			BoundaryRoot: dir,
+		},
+	})
+
+	_, err := GetClient()
+	if err == nil {
+		t.Fatal("expected attach-only error when host is not running")
+	}
+	if !strings.Contains(err.Error(), "attach-only") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
 
 func TestGetClient_supervisorFailurePrintsStderr(t *testing.T) {
 	resetSupervisorForTest()

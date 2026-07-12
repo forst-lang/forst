@@ -7,6 +7,7 @@ import (
 	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
+	"forst/internal/goload"
 	"forst/internal/modulecheck"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
@@ -304,7 +305,7 @@ func (c *Compiler) embeddedInvokeMisconfigDiagnostic(transformer *transformer_go
 	return fmt.Sprintf(
 		"embedded invoke: runnable exports found in other packages (%s) but not in compiled package %q\n"+
 			"  boundary: %s\n"+
-			"  help: move invoke exports to package main, or upgrade to multi-package invoke support",
+			"  help: rebuild local forst (task build) or set FORST_BINARY to a compiler with cross-package embedded invoke support",
 		strings.Join(names, ", "), compiledPkg, boundary,
 	)
 }
@@ -362,6 +363,9 @@ func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transfor
 	if boundary != "" && c.Args.PackageRoot != "" {
 		functions, err := discovery.CollectInvokeFunctionsFromModule(c.log, boundary)
 		if err != nil {
+			if hint := goload.MissingGoModuleSetupHint(boundary); hint != "" && !strings.Contains(err.Error(), ".forst-gomod") {
+				return "", fmt.Errorf("embedded invoke: discover exports: %w; %s", err, hint)
+			}
 			return "", fmt.Errorf("embedded invoke: discover exports: %w", err)
 		}
 		if len(functions) > 0 {

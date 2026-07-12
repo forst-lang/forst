@@ -98,30 +98,20 @@ func configureFromManifest(manifestJSON string) error {
 		return fmt.Errorf("node runtime: hostMode requires non-empty node.args in ftconfig.json")
 	}
 
-	hostSocket := ""
-	hostReady := ""
-	hostAppReadyModule := ""
-	if cfg.Node.HostMode {
-		hostSocket, hostReady, err = ResolveHostSocketPath(boundaryRoot, cfg.Node.HostSocket)
-		if err != nil {
-			return err
-		}
-		if module := strings.TrimSpace(cfg.Node.HostAppReadyModule); module != "" {
-			hostAppReadyModule, err = resolveHostAppReadyModule(boundaryRoot, module)
-			if err != nil {
-				return err
-			}
-		}
+	hostProcessCfg, err := HostProcessConfigFromFTConfig(cfg, boundaryRoot, nil)
+	if err != nil && cfg.Node.HostMode {
+		return err
 	}
 
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: cfg.Node.HostMode,
-		HostSocketPath: hostSocket,
-		HostReadyPath:  hostReady,
-		HostReadyTimeout: time.Duration(cfg.Node.HostReadyTimeoutSeconds) * time.Second,
-		HostAutoRegister: cfg.Node.EffectiveHostAutoRegister(),
-		HostAppReadyModule: hostAppReadyModule,
-		ShimArgs: append([]string(nil), cfg.Node.Args...),
+		HostSocketPath: hostProcessCfg.SocketPath,
+		HostReadyPath:  hostProcessCfg.ReadyPath,
+		HostReadyTimeout: hostProcessCfg.ReadyTimeout,
+		HostAutoRegister: hostProcessCfg.HostAutoRegister,
+		HostAppReadyModule: hostProcessCfg.HostAppReadyModule,
+		ShimArgs: hostProcessCfg.ShimArgs,
+		AttachOnly: os.Getenv(EnvNodeAttachOnly) == "1",
 		ProcessOptions: ProcessOptions{
 			NodePath:      nodeBinary,
 			BootstrapPath: bootstrap,

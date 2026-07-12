@@ -1,7 +1,13 @@
 {
   "server": {
     "embedded": true,
-    "port": 6321
+    "port": "6321"
+  },
+  "node": {
+    "enabled": true,
+    "hostMode": true,
+    "binary": "node",
+    "args": ["scripts/host.mjs"]
   },
   "dev": {
     "watch": true,

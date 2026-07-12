@@ -36,6 +36,19 @@ func hostMarkerReadyForRPC(marker hostReadyMarker) bool {
 	return phase == "app"
 }
 
+// connectExistingHost dials a node host left running across forst dev reload.
+func connectExistingHost(ctx context.Context, socketPath, readyPath string) (net.Conn, bool, error) {
+	marker, ok := readHostReadyMarker(readyPath)
+	if !ok || !processAlive(marker.PID) || !hostMarkerReadyForRPC(marker) {
+		return nil, false, nil
+	}
+	conn, err := waitForHostReady(ctx, socketPath, readyPath)
+	if err != nil {
+		return nil, true, err
+	}
+	return conn, true, nil
+}
+
 func waitForHostReady(ctx context.Context, socketPath, readyPath string) (net.Conn, error) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
@@ -134,6 +147,7 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 		execCmd.Dir = workDir
 	}
 	execCmd.Env = cmd.Env
+	execCmd.SysProcAttr = hostSessionAttrs()
 
 	stdout, err := execCmd.StdoutPipe()
 	if err != nil {
@@ -161,7 +175,7 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 		"node_pid":        execCmd.Process.Pid,
 		"node_executable": cmd.Executable,
 		"socket_path":     cmd.SocketPath,
-	}).Debug("spawned host app process")
+	}).Infof("Spawned new node host (pid=%d)", execCmd.Process.Pid)
 
 	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
 	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
@@ -181,4 +195,13 @@ func cleanupHostSocketFiles(socketPath, readyPath string) {
 	if readyPath != "" {
 		_ = os.Remove(readyPath)
 	}
+}
+
+// hostSessionAttrs puts the Node host in its own session so forst dev reload
+// (process-group stop on go run) does not kill Vite/Remix children.
+func hostSessionAttrs() *syscall.SysProcAttr {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return &syscall.SysProcAttr{Setsid: true}
 }

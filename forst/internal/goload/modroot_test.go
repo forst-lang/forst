@@ -3,6 +3,7 @@ package goload
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -81,6 +82,45 @@ func TestFindModuleRoot_forstGomod(t *testing.T) {
 	}
 	if got := ModulePath(forstGomod); got != "example.com/app/forst" {
 		t.Fatalf("ModulePath: got %q want example.com/app/forst", got)
+	}
+}
+
+func TestModuleRootHasGoMod_forstGomod(t *testing.T) {
+	root := t.TempDir()
+	forstGomod := filepath.Join(root, ".forst-gomod")
+	if err := os.MkdirAll(forstGomod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !ModuleRootHasGoMod(root) {
+		t.Fatal("expected true when .forst-gomod/go.mod exists")
+	}
+}
+
+func TestMissingGoModuleSetupHint_noGoMod(t *testing.T) {
+	root := t.TempDir()
+	hint := MissingGoModuleSetupHint(root)
+	if hint == "" {
+		t.Fatal("expected hint when no go.mod")
+	}
+	if !strings.Contains(hint, ".forst-gomod/go.mod") {
+		t.Fatalf("hint should mention .forst-gomod/go.mod: %q", hint)
+	}
+}
+
+func TestMissingGoModuleSetupHint_withForstGomod(t *testing.T) {
+	root := t.TempDir()
+	forstGomod := filepath.Join(root, ".forst-gomod")
+	if err := os.MkdirAll(forstGomod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if hint := MissingGoModuleSetupHint(root); hint != "" {
+		t.Fatalf("expected empty hint, got %q", hint)
 	}
 }
 

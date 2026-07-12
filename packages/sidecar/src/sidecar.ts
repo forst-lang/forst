@@ -91,7 +91,6 @@ export class ForstSidecar {
       this.client = new ForstSidecarClient({
         baseUrl,
         timeout: 30000,
-        retries: 3,
         reloadAware: true,
       });
       const ok = await this.client.healthCheck();
@@ -136,7 +135,6 @@ export class ForstSidecar {
     this.client = new ForstSidecarClient({
       baseUrl: this.server.getServerUrl(),
       timeout: 30000,
-      retries: 3,
       reloadAware: true,
     });
 
