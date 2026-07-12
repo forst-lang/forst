@@ -65,26 +65,26 @@ func (c *Compiler) validateWatchConfig() error {
 }
 
 func (c *Compiler) compileAndRunOnce() {
-	mainCode, nodeRuntimeCode, invokeServerCode, err := c.CompileWithNodeRuntime()
+	mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		c.log.Error(err)
 		c.log.Warn("Not running program because of errors during compilation")
 		return
 	}
-	if err := c.runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode); err != nil {
+	if err := c.runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports); err != nil {
 		c.log.Error(err)
 	}
 }
 
-func (c *Compiler) resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
+func (c *Compiler) resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) (string, error) {
 	if c.Args.OutputPath != "" {
 		return c.Args.OutputPath, nil
 	}
-	return createTempOutputFileForWatch(mainCode, nodeRuntimeCode, invokeServerCode)
+	return createTempOutputFileForWatch(mainCode, nodeRuntimeCode, invokeServerCode, extra, extraImports, RunBoundaryRoot(c.Args))
 }
 
-func (c *Compiler) runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode string) error {
-	outputPath, err := c.resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode)
+func (c *Compiler) runCompiledOutput(mainCode, nodeRuntimeCode, invokeServerCode string, extra map[string]string, extraImports map[string]string) error {
+	outputPath, err := c.resolveOutputPathForRun(mainCode, nodeRuntimeCode, invokeServerCode, extra, extraImports)
 	if err != nil {
 		return err
 	}

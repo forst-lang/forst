@@ -10,10 +10,19 @@ import (
 const EnvForstGOModRoot = "FORST_GOMOD_ROOT"
 
 var (
-	modRootExecutable = os.Executable
-	modRootGetwd      = os.Getwd
-	modRootGetenv     = os.Getenv
+	modRootExecutable     = os.Executable
+	modRootGetwd          = os.Getwd
+	modRootGetenv         = os.Getenv
+	forstCompilerRootHook func() string
 )
+
+// SetForstCompilerModuleRootHookForTest overrides ForstCompilerModuleRoot in tests.
+// Returns a restore function.
+func SetForstCompilerModuleRootHookForTest(fn func() string) func() {
+	prev := forstCompilerRootHook
+	forstCompilerRootHook = fn
+	return func() { forstCompilerRootHook = prev }
+}
 
 // IsForstCompilerModule reports whether dir is the Forst compiler Go module (contains cmd/forst).
 func IsForstCompilerModule(dir string) bool {
@@ -27,12 +36,18 @@ func IsForstCompilerModule(dir string) bool {
 // ForstCompilerModuleRoot returns the filesystem root of the Forst compiler Go module
 // (module forst). Used when generated companion Go imports forst/nodert or forst/internal/*.
 func ForstCompilerModuleRoot() string {
+	if forstCompilerRootHook != nil {
+		return forstCompilerRootHook()
+	}
 	if root := strings.TrimSpace(modRootGetenv(EnvForstGOModRoot)); root != "" {
 		if IsForstCompilerModule(root) {
 			return filepath.Clean(root)
 		}
 	}
 	if exe, err := modRootExecutable(); err == nil {
+		if resolved, symErr := filepath.EvalSymlinks(exe); symErr == nil {
+			exe = resolved
+		}
 		if root := findForstCompilerModuleFrom(exe); root != "" {
 			return root
 		}
@@ -113,21 +128,37 @@ func ModuleRootWithGoMod(start string) (string, error) {
 //
 // This is used as go/packages Config.Dir so Forst imports resolve against the
 // same module as the surrounding Go project (e.g. sidecar / monorepo roots).
+const forstGoModDir = ".forst-gomod"
+
 func FindModuleRoot(start string) string {
 	startDir := start
 	if info, err := os.Stat(start); err == nil && !info.IsDir() {
 		startDir = filepath.Dir(start)
 	}
 	startDir = filepath.Clean(startDir)
+	if modRoot := moduleRootInDir(startDir); modRoot != "" {
+		return modRoot
+	}
 	dir := startDir
 	for {
-		if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
-			return dir
-		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return startDir
 		}
 		dir = parent
+		if modRoot := moduleRootInDir(dir); modRoot != "" {
+			return modRoot
+		}
 	}
+}
+
+func moduleRootInDir(dir string) string {
+	if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
+		return dir
+	}
+	forstMod := filepath.Join(dir, forstGoModDir)
+	if st, err := os.Stat(filepath.Join(forstMod, "go.mod")); err == nil && !st.IsDir() {
+		return forstMod
+	}
+	return ""
 }

@@ -128,9 +128,9 @@ func TestLSPCommandParsing(t *testing.T) {
 		expectedPort     string
 		expectedLogLevel string
 	}{
-		{"default lsp", []string{"forst", "lsp"}, "8081", "info"},
+		{"default lsp", []string{"forst", "lsp"}, ftconfig.DefaultLSPPort, "info"},
 		{"lsp with custom port", []string{"forst", "lsp", "-port", "9999"}, "9999", "info"},
-		{"lsp with custom log level", []string{"forst", "lsp", "-log-level", "debug"}, "8081", "debug"},
+		{"lsp with custom log level", []string{"forst", "lsp", "-log-level", "debug"}, ftconfig.DefaultLSPPort, "debug"},
 		{"lsp with both", []string{"forst", "lsp", "-port", "8888", "-log-level", "error"}, "8888", "error"},
 	}
 
@@ -139,7 +139,7 @@ func TestLSPCommandParsing(t *testing.T) {
 			// Test the flag parsing logic that would be used in main
 			if len(tc.args) > 1 && tc.args[1] == "lsp" {
 				// Simulate flag parsing
-				port := "8081"     // default
+				port := ftconfig.DefaultLSPPort // default
 				logLevel := "info" // default
 
 				// Simple flag parsing simulation
@@ -177,10 +177,10 @@ func TestDevCommandParsing(t *testing.T) {
 		expectedConfig string
 		expectedRoot   string
 	}{
-		{"default dev", []string{"forst", "dev"}, "8080", "", "."},
+		{"default dev", []string{"forst", "dev"}, "", "", "."},
 		{"dev with custom port", []string{"forst", "dev", "-port", "9999"}, "9999", "", "."},
-		{"dev with config", []string{"forst", "dev", "-config", "/path/to/config"}, "8080", "/path/to/config", "."},
-		{"dev with root", []string{"forst", "dev", "-root", "/custom/root"}, "8080", "", "/custom/root"},
+		{"dev with config", []string{"forst", "dev", "-config", "/path/to/config"}, "", "/path/to/config", "."},
+		{"dev with root", []string{"forst", "dev", "-root", "/custom/root"}, "", "", "/custom/root"},
 		{"dev with all", []string{"forst", "dev", "-port", "8888", "-config", "/config", "-root", "/root"}, "8888", "/config", "/root"},
 	}
 
@@ -189,7 +189,7 @@ func TestDevCommandParsing(t *testing.T) {
 			// Test the flag parsing logic that would be used in main
 			if len(tc.args) > 1 && tc.args[1] == "dev" {
 				// Simulate flag parsing
-				port := "8080"   // default
+				port := "" // default: unset; EffectiveListenPort uses ftconfig
 				configPath := "" // default
 				rootDir := "."   // default
 
@@ -956,7 +956,7 @@ func TestMain_helperProcess(t *testing.T) {
 		if tmp == "" {
 			t.Fatal("FORST_MAIN_HELPER_TMP required")
 		}
-		os.Args = []string{"forst", "generate", filepath.Join(tmp, "sample.ft")}
+		os.Args = []string{"forst", "generate", filepath.Join(tmp, "main.ft")}
 	case "run-no-file":
 		os.Args = []string{"forst", "run"}
 	default:
@@ -1051,7 +1051,7 @@ func TestMain_fmtList_subcommand(t *testing.T) {
 
 func TestMain_generateOk_subcommand(t *testing.T) {
 	tmp := t.TempDir()
-	ftPath := filepath.Join(tmp, "sample.ft")
+	ftPath := filepath.Join(tmp, "main.ft")
 	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0o644); err != nil {
 		t.Fatal(err)
 	}

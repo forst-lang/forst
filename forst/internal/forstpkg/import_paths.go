@@ -23,6 +23,23 @@ func ImportPathForDir(moduleRoot, modulePath, dir string) (string, error) {
 	return importPath, nil
 }
 
+// ForstImportPathRoot returns the filesystem root used to build Go import paths for Forst packages.
+// When go.mod lives in boundary/.forst-gomod, Forst sources are under boundary, not under .forst-gomod.
+func ForstImportPathRoot(boundaryRoot, moduleRoot string) string {
+	boundaryRoot = filepath.Clean(boundaryRoot)
+	moduleRoot = filepath.Clean(moduleRoot)
+	if boundaryRoot == "" {
+		return moduleRoot
+	}
+	if moduleRoot == "" {
+		return boundaryRoot
+	}
+	if moduleRoot == filepath.Join(boundaryRoot, ".forst-gomod") {
+		return boundaryRoot
+	}
+	return moduleRoot
+}
+
 // BuildForstPackageImportPaths maps Go import paths to Forst package names for packages
 // discovered under moduleRoot (modulePath is the go.mod module path, e.g. "example.com/app").
 // forstPkgToFiles maps Forst package name -> absolute .ft file paths (one dir per package).

@@ -197,6 +197,11 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	return tc.InferTypes(nodes)
 }
 
+// ResolveNodeImportsAfterCollect resolves opted-in TypeScript imports after CollectTypes.
+func (tc *TypeChecker) ResolveNodeImportsAfterCollect() error {
+	return tc.resolveNodeImports()
+}
+
 // preloadGoImportPackages batch-loads Go packages for import lines collected in CollectTypes.
 // LSP and single-file CheckTypes use the same path as module-wide typechecking so qualified
 // calls like exec.Command resolve when go/packages is available.

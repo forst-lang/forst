@@ -1,12 +1,16 @@
 package compiler
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"forst/internal/codegen/layout"
 	"forst/internal/goload"
+	"forst/internal/gowork"
 	"forst/internal/logger"
 	"forst/nodert"
 	transformer_go "forst/internal/transformer/go"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,44 +55,87 @@ func getMemStats() runtime.MemStats {
 }
 
 func RunGoProgram(outputPath string, boundaryRoot string) error {
-	runSources, err := runGoSourceFiles(outputPath)
+	dir, runSources, err := runGoSourceFiles(outputPath)
 	if err != nil {
 		return err
 	}
 	cmd := exec.Command("go", append([]string{"run"}, runSources...)...)
-	if dir := goModuleRootForRun(outputPath); dir != "" {
-		cmd.Dir = dir
-	}
+	cmd.Dir = dir
+	env := os.Environ()
 	if boundaryRoot != "" {
-		cmd.Env = setRunEnvBoundaryRoot(os.Environ(), boundaryRoot)
+		env = setRunEnvBoundaryRoot(env, boundaryRoot)
+		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(outputPath))
+		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(outputPath), needsCompiler)
+		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
+	cmd.Env = env
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var stderr bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 	if err := cmd.Run(); err != nil {
-		return formatRunProgramError(err)
+		return formatRunProgramError(err, stderr.String())
 	}
 	return nil
 }
 
 // formatRunProgramError wraps go run exit failures with actionable hints for forst run.
-func formatRunProgramError(err error) error {
+func formatRunProgramError(err error, stderr string) error {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
 		return err
 	}
 	code := exitErr.ExitCode()
 	hint := "see stderr above for details"
-	if code == 1 {
+	if strings.Contains(stderr, "go.mod") || strings.Contains(stderr, "module not found") {
+		hint = "Go module linking failed — add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
+	} else if code == 1 {
 		hint = "node runtime or ensure check failed — verify tsx, @forst/node-runtime, and host shim args in ftconfig.json"
 	}
 	return fmt.Errorf("generated program exited with code %d (%s)", code, hint)
 }
 
-func runGoSourceFiles(outputPath string) ([]string, error) {
+func runGoSourceFiles(outputPath string) (workDir string, sources []string, err error) {
 	tempDir := filepath.Dir(outputPath)
-	matches, err := filepath.Glob(filepath.Join(tempDir, "*.go"))
+	if _, statErr := os.Stat(filepath.Join(tempDir, "go.mod")); statErr == nil {
+		return tempDir, []string{"."}, nil
+	}
+	sources, err = runGoSourceFilesList(outputPath)
 	if err != nil {
-		return nil, fmt.Errorf("glob run sources: %w", err)
+		return "", nil, err
+	}
+	modRoot := goModuleRootForRun(outputPath)
+	if modRoot == "" {
+		return "", nil, fmt.Errorf("no module root for generated program")
+	}
+	abs := make([]string, len(sources))
+	for i, rel := range sources {
+		abs[i] = filepath.Join(tempDir, filepath.FromSlash(rel))
+	}
+	return modRoot, abs, nil
+}
+
+func runGoSourceFilesList(outputPath string) ([]string, error) {
+	tempDir := filepath.Dir(outputPath)
+	var matches []string
+	err := filepath.WalkDir(tempDir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(strings.ToLower(path), ".go") {
+			return nil
+		}
+		rel, err := filepath.Rel(tempDir, path)
+		if err != nil {
+			return err
+		}
+		matches = append(matches, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk run sources: %w", err)
 	}
 	if len(matches) == 0 {
 		return nil, fmt.Errorf("no go files in %s", tempDir)
@@ -99,24 +146,23 @@ func runGoSourceFiles(outputPath string) ([]string, error) {
 
 // BuildGoProgram writes main and optional companion Go files and runs `go build` to verify they compile.
 func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string) error {
-	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode)
+	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, nil, nil, "")
 	if err != nil {
 		return err
 	}
 	tempDir := filepath.Dir(outputPath)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	sources, err := runGoSourceFiles(outputPath)
+	dir, sources, err := runGoSourceFiles(outputPath)
 	if err != nil {
 		return err
 	}
-	modRoot := goModuleRootForRun(outputPath)
-	if modRoot == "" {
+	if dir == "" {
 		return fmt.Errorf("go build: no module root for generated program")
 	}
 	outBin := filepath.Join(tempDir, "forst-build")
 	cmd := exec.Command("go", append([]string{"build", "-o", outBin}, sources...)...)
-	cmd.Dir = modRoot
+	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go build failed: %w\n%s", err, out)
@@ -150,7 +196,7 @@ func RunBoundaryRoot(args Args) string {
 	return filepath.Dir(abs)
 }
 
-const errForstCompilerModuleRequired = "forst run: node runtime / invoke server require the Forst Go module; set FORST_GOMOD_ROOT or reinstall the compiler"
+const errForstCompilerModuleRequired = "forst run: node runtime / invoke server require the forst runtime module; add replace forst or require forst to .forst-gomod/go.mod, or install via @forst/cli"
 
 func needsForstCompilerModule(nodeRuntimeCode, invokeServerCode string) bool {
 	return nodeRuntimeCode != "" || invokeServerCode != ""
@@ -218,19 +264,62 @@ func (c *Compiler) reportPhase(phase string) {
 }
 
 // CreateTempOutputFiles writes main and optional companion Go files into a temp dir for `go run`.
-func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
+func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string) (string, error) {
 	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
-	baseDir, err := runTempBaseDir(needsCompiler)
-	if err != nil {
+	var tempDir string
+	var goModPath string
+	if boundaryRoot != "" {
+		layoutRoot := layout.NewRoot(boundaryRoot)
+		runBase := filepath.Join(layoutRoot.Boundary, ".forst", "run")
+		if err := os.MkdirAll(runBase, 0o755); err != nil {
+			return "", err
+		}
+		var err error
+		tempDir, err = mkdirTemp(runBase, "forst-*")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temp directory: %v", err)
+		}
+		goModPath = filepath.Join(tempDir, "go.mod")
+	} else {
+		baseDir, err := runTempBaseDir(needsCompiler)
+		if err != nil {
+			return "", err
+		}
+		tempDir, err = mkdirTemp(baseDir, "forst-*")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temp directory: %v", err)
+		}
+		goModPath = filepath.Join(tempDir, "go.mod")
+	}
+	if err := os.MkdirAll(tempDir, 0o755); err != nil {
 		return "", err
 	}
-	tempDir, err := mkdirTemp(baseDir, "forst-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %v", err)
+
+	if needsCompiler && boundaryRoot != "" {
+		forstLink, err := gowork.ResolveForstRuntimeLink(boundaryRoot)
+		if err != nil {
+			return "", err
+		}
+		userMod := goload.FindModuleRoot(boundaryRoot)
+		userPath := goload.ModulePath(userMod)
+		if err := gowork.WriteRunGoMod(goModPath, forstLink, userPath, userMod); err != nil {
+			return "", err
+		}
 	}
+
 	outputPath := filepath.Join(tempDir, "main.go")
 	if err := os.WriteFile(outputPath, []byte(mainCode), 0644); err != nil {
 		return "", fmt.Errorf("failed to write temp file: %v", err)
+	}
+	for pkg, code := range extraPackages {
+		pkgDir := filepath.Join(tempDir, pkg)
+		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+			return "", err
+		}
+		pkgPath := filepath.Join(pkgDir, pkg+layout.SuffixGen)
+		if err := os.WriteFile(pkgPath, []byte(code), 0644); err != nil {
+			return "", fmt.Errorf("write extra package %q: %w", pkg, err)
+		}
 	}
 	if nodeRuntimeCode != "" {
 		runtimePath := filepath.Join(tempDir, transformer_go.ForstNodeRuntimeFileName()+".go")
@@ -244,12 +333,42 @@ func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string) (
 			return "", fmt.Errorf("failed to write invoke server temp file: %v", err)
 		}
 	}
+	if needsCompiler && boundaryRoot != "" {
+		if err := tidyRunSandboxGoMod(goModPath, boundaryRoot); err != nil {
+			return "", err
+		}
+	}
 	return outputPath, nil
+}
+
+func tidyRunSandboxGoMod(goModPath, boundaryRoot string) error {
+	dir := filepath.Dir(goModPath)
+	env := os.Environ()
+	if boundaryRoot != "" {
+		env = gowork.ChildEnv(env, gowork.LinkPlan{Mode: gowork.LinkReplace}, boundaryRoot)
+	}
+	for _, args := range [][]string{
+		{"go", "get", "forst@v0.0.0"},
+		{"go", "mod", "tidy"},
+	} {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		cmd.Env = env
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("%s in run sandbox: %w\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	return nil
+}
+
+// CreateTempOutputFilesLegacy preserves the old 3-arg signature for gradual migration.
+func CreateTempOutputFilesLegacy(mainCode, nodeRuntimeCode, invokeServerCode string) (string, error) {
+	return CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, nil, nil, "")
 }
 
 // CreateTempOutputFile creates a temporary directory and file for the output.
 // When running inside the Forst Go module, files are placed under .forst/run so
 // generated code may import forst/nodert during `go run`.
 func CreateTempOutputFile(code string) (string, error) {
-	return CreateTempOutputFiles(code, "", "")
+	return CreateTempOutputFiles(code, "", "", nil, nil, "")
 }

@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import {
   ForstClientConfig,
   InvokeRequest,
@@ -15,10 +16,6 @@ import {
   sanitizeRequestBodyString,
 } from "./sanitizeLogPayload";
 import {
-  SIDECAR_PACKAGE_VERSION,
-  SIDECAR_VERSION_HTTP_HEADER,
-} from "./constants";
-import {
   DevServerFunctionsRejected,
   DevServerHttpFailure,
   DevServerInvokeRejected,
@@ -29,20 +26,34 @@ import {
   InvalidFunctionNameFormat,
   DevServerStreamingInvokeNoResponseBody,
 } from "./errors";
+import type { InvokeTransport } from "./transport";
+import { createHttpInvokeTransport } from "./transport";
+import { createReloadAwareTransport } from "./reload-transport";
 
 /**
  * HTTP client for the Forst dev server (`/invoke`, `/functions`, `/types`, `/health`).
  */
 export class ForstSidecarClient {
   private config: ForstClientConfig;
+  private transport: InvokeTransport;
   private functions: Map<string, FunctionInfo> = new Map();
 
   constructor(config: ForstClientConfig) {
     this.config = {
       timeout: 30000,
       retries: 3,
+      reloadAware: true,
       ...config,
     };
+    const httpTransport = createHttpInvokeTransport({
+      baseUrl: this.config.baseUrl,
+      timeout: this.config.timeout,
+      fetchFn: this.config.fetchFn,
+    });
+    this.transport =
+      this.config.reloadAware === false
+        ? httpTransport
+        : createReloadAwareTransport(httpTransport);
   }
 
   /**
@@ -171,7 +182,7 @@ export class ForstSidecarClient {
       `Starting streaming invocation of ${packageName}.${functionName}`
     );
 
-    const response = await fetch(`${this.config.baseUrl}/invoke`, {
+    const response = await this.fetchViaTransport("/invoke", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -359,7 +370,7 @@ export class ForstSidecarClient {
   }
 
   /**
-   * Make an HTTP request with retry logic
+   * Make an HTTP request with retry logic (reload-aware transport parks on 503).
    */
   private async makeRequest<T>(
     endpoint: string,
@@ -390,15 +401,7 @@ export class ForstSidecarClient {
           `🔄 Request attempt ${attempt + 1}/${this.config.retries! + 1}`
         );
 
-        const response = await fetch(url, {
-          ...options,
-          headers: {
-            [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
-            "Content-Type": "application/json",
-            ...options.headers,
-          },
-          signal: AbortSignal.timeout(this.config.timeout!),
-        });
+        const response = await this.fetchViaTransport(endpoint, options);
 
         logger.debug(
           `📥 Response status: ${response.status} ${response.statusText}`
@@ -448,6 +451,13 @@ export class ForstSidecarClient {
       }
     }
     throw new DevServerRequestRetriesExhausted(lastError);
+  }
+
+  private fetchViaTransport(
+    endpoint: string,
+    options: RequestInit
+  ): Promise<Response> {
+    return Effect.runPromise(this.transport.request(endpoint, options));
   }
 
   /**

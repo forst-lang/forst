@@ -29,7 +29,7 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
     }
   }
 
-  const port = partial.port ?? parsePortEnv() ?? 8080;
+  const port = partial.port ?? parsePortEnv() ?? 6320;
   const host = partial.host ?? "localhost";
   const forstDir = partial.forstDir ?? process.env.FORST_DIR;
 

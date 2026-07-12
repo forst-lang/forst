@@ -6,6 +6,27 @@ import (
 	"testing"
 )
 
+func TestForstImportPathRoot_forstGomodUnderBoundary(t *testing.T) {
+	boundary := filepath.Clean("/proj/app")
+	forstGomod := filepath.Join(boundary, ".forst-gomod")
+	if got := ForstImportPathRoot(boundary, forstGomod); got != boundary {
+		t.Fatalf("got %q want %q", got, boundary)
+	}
+}
+
+func TestBuildForstPackageImportPaths_forstGomodLayout(t *testing.T) {
+	boundary := filepath.Clean("/proj/app")
+	forstDir := filepath.Join(boundary, "forst")
+	paths := map[string][]string{
+		"bcrypt": {filepath.Join(forstDir, "bcrypt.ft")},
+		"main":   {filepath.Join(forstDir, "main.ft")},
+	}
+	got := BuildForstPackageImportPaths(boundary, "example.com/app/forst", paths)
+	if got["example.com/app/forst/forst/bcrypt"] != "bcrypt" {
+		t.Fatalf("bcrypt import path: %v", got)
+	}
+}
+
 func TestBuildForstPackageImportPaths(t *testing.T) {
 	root := filepath.Clean("/proj")
 	paths := map[string][]string{

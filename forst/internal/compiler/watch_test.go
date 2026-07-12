@@ -121,7 +121,7 @@ func TestRunCompiledOutput_usesExplicitOutputPath(t *testing.T) {
 	c := New(Args{
 		OutputPath: goFile,
 	}, nil)
-	if err := c.runCompiledOutput("ignored because output path is set", "", ""); err != nil {
+	if err := c.runCompiledOutput("ignored because output path is set", "", "", nil, nil); err != nil {
 		t.Fatalf("runCompiledOutput: %v", err)
 	}
 }
@@ -135,7 +135,7 @@ func TestValidateWatchConfig_acceptsNoPackageRoot(t *testing.T) {
 
 func TestResolveOutputPathForRun_prefersExplicitPath(t *testing.T) {
 	c := New(Args{OutputPath: "/tmp/out.go"}, nil)
-	got, err := c.resolveOutputPathForRun("ignored", "", "")
+	got, err := c.resolveOutputPathForRun("ignored", "", "", nil, nil)
 	if err != nil {
 		t.Fatalf("resolveOutputPathForRun: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestRunCompiledOutput_tempCreationFailureReturnsError(t *testing.T) {
 		runGoProgramForWatch = origRun
 	})
 
-	createTempOutputFileForWatch = func(string, string, string) (string, error) {
+	createTempOutputFileForWatch = func(string, string, string, map[string]string, map[string]string, string) (string, error) {
 		return "", fmt.Errorf("temp create failed")
 	}
 	runGoProgramForWatch = func(string, string) error {
@@ -161,7 +161,7 @@ func TestRunCompiledOutput_tempCreationFailureReturnsError(t *testing.T) {
 	}
 
 	c := New(Args{}, nil)
-	err := c.runCompiledOutput("package main\nfunc main(){}\n", "", "")
+	err := c.runCompiledOutput("package main\nfunc main(){}\n", "", "", nil, nil)
 	if err == nil {
 		t.Fatal("expected temp creation error")
 	}
@@ -178,7 +178,7 @@ func TestRunCompiledOutput_runFailureReturnsError(t *testing.T) {
 		runGoProgramForWatch = origRun
 	})
 
-	createTempOutputFileForWatch = func(string, string, string) (string, error) {
+	createTempOutputFileForWatch = func(string, string, string, map[string]string, map[string]string, string) (string, error) {
 		return "/tmp/generated.go", nil
 	}
 	runGoProgramForWatch = func(string, string) error {
@@ -186,7 +186,7 @@ func TestRunCompiledOutput_runFailureReturnsError(t *testing.T) {
 	}
 
 	c := New(Args{}, nil)
-	err := c.runCompiledOutput("package main\nfunc main(){}\n", "", "")
+	err := c.runCompiledOutput("package main\nfunc main(){}\n", "", "", nil, nil)
 	if err == nil {
 		t.Fatal("expected run failure")
 	}

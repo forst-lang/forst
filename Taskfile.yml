@@ -339,11 +339,20 @@ tasks:
       - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
 
   test:providers-cross_pkg:
-    desc: Run forst test on cross-package Providers cookbook (cross_pkg/auth + cross_pkg/api)
-    deps: [build]
+    desc: Run cross-package Providers forst test (session sandbox under .forst/gen)
     dir: forst
+    deps: [build]
     cmds:
-      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg/api
+      - go run ./{{.BUILD_DIR}} test -root {{.EXAMPLES_DIR}}/rfc/providers/cross_pkg ./api
+
+  test:multipackage-dev:
+    desc: Compile multi-package-dev example and run forst test parity gate
+    dir: forst
+    deps: [build]
+    cmds:
+      - task: example:multipackage-dev
+      - go test ./internal/project/... -run TestResolutionParity -count=1
+      - go test ./internal/testrunner/... -run TestRunWithProject_crossPkg_noZFilesInSourceTree -count=1
 
   example:providers-cross_pkg:
     desc: Compile cross-package Providers cookbook (alpha + beta emit)
@@ -497,6 +506,14 @@ tasks:
     deps: [build:node-runtime, build]
     cmds:
       - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/node-interop -- {{.EXAMPLES_DIR}}/rfc/node-interop/main.ft
+
+  example:multipackage-dev:
+    desc: Compile multi-package-dev example (main host + package bcrypt)
+    dir: forst
+    deps: [build]
+    cmds:
+      - mkdir -p {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev
+      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main.ft
 
   example:embedded-invoke:
     desc: Compile embedded-invoke example (embedded HTTP /invoke in compiled binary)

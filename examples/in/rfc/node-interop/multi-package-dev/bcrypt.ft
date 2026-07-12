@@ -1,0 +1,7 @@
+package bcrypt
+
+type HashInput = {password: String}
+
+func Hash(input HashInput) {
+	return {hash: input.password}
+}

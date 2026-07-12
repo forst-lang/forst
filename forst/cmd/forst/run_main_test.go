@@ -43,7 +43,7 @@ func TestRunMain_fmt_list(t *testing.T) {
 
 func TestRunMain_generate_minimal(t *testing.T) {
 	tmp := t.TempDir()
-	ftPath := filepath.Join(tmp, "sample.ft")
+	ftPath := filepath.Join(tmp, "main.ft")
 	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -61,6 +61,34 @@ func TestRunMain_run_missingFileArg(t *testing.T) {
 func TestRunMain_dump_requiresFile(t *testing.T) {
 	if code := runMain([]string{"forst", "dump"}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
+	}
+}
+
+func TestRunMain_clean_removesDotForst(t *testing.T) {
+	tmp := t.TempDir()
+	dotForst := filepath.Join(tmp, ".forst")
+	if err := os.MkdirAll(filepath.Join(dotForst, "run", "s1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if code := runMain([]string{"forst", "clean", "-root", tmp}); code != 0 {
+		t.Fatalf("want exit 0, got %d", code)
+	}
+	if _, err := os.Stat(dotForst); !os.IsNotExist(err) {
+		t.Fatalf(".forst still exists: %v", err)
+	}
+}
+
+func TestRunMain_clean_dryRun_preservesDotForst(t *testing.T) {
+	tmp := t.TempDir()
+	dotForst := filepath.Join(tmp, ".forst")
+	if err := os.MkdirAll(dotForst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if code := runMain([]string{"forst", "clean", "-root", tmp, "-dry-run"}); code != 0 {
+		t.Fatalf("want exit 0, got %d", code)
+	}
+	if _, err := os.Stat(dotForst); err != nil {
+		t.Fatalf(".forst should still exist after dry-run: %v", err)
 	}
 }
 
@@ -130,7 +158,7 @@ func TestRunMain_dev_pathAbsFails(t *testing.T) {
 
 func TestRunMain_dev_startReturnsNilExitsZero(t *testing.T) {
 	orig := startDevServerFunc
-	startDevServerFunc = func(string, *logrus.Logger, string, string, *string) error { return nil }
+	startDevServerFunc = func(string, *logrus.Logger, string, string, *string, bool, string) error { return nil }
 	t.Cleanup(func() { startDevServerFunc = orig })
 	if code := runMain([]string{"forst", "dev", "-root", t.TempDir()}); code != 0 {
 		t.Fatalf("want exit 0, got %d", code)
@@ -183,7 +211,7 @@ func TestRunMain_build_createTempFails(t *testing.T) {
 		t.Skip("examples not present:", err)
 	}
 	orig := createTempOutputFileFn
-	createTempOutputFileFn = func(string, string, string) (string, error) { return "", fmt.Errorf("temp") }
+	createTempOutputFileFn = func(string, string, string, map[string]string, map[string]string, string) (string, error) { return "", fmt.Errorf("temp") }
 	t.Cleanup(func() { createTempOutputFileFn = orig })
 	if code := runMain([]string{"forst", "build", echoPath}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)

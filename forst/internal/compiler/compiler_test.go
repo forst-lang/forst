@@ -290,7 +290,7 @@ func TestFormatRunProgramError_wrapsExitError(t *testing.T) {
 				}
 			}
 
-			wrapped := formatRunProgramError(err)
+			wrapped := formatRunProgramError(err, "")
 			if tc.wantSame {
 				if wrapped != err {
 					t.Fatalf("got %v want same %v", wrapped, err)
@@ -554,6 +554,9 @@ func TestCreateTempOutputFiles_companionUsesForstModuleRoot(t *testing.T) {
 		"package main\n\nfunc main() {}\n",
 		"package main\n",
 		"",
+		nil,
+		nil,
+		"",
 	)
 	if err != nil {
 		t.Fatalf("CreateTempOutputFiles: %v", err)
@@ -597,5 +600,30 @@ func TestRunGoProgram_companionImportsCompile(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("BuildGoProgram: %v", err)
+	}
+}
+
+func TestCreateTempOutputFiles_emptyForstLink_returnsError(t *testing.T) {
+	root := t.TempDir()
+	restore := goload.SetForstCompilerModuleRootHookForTest(func() string { return "" })
+	defer restore()
+
+	boundary := filepath.Join(root, "app")
+	if err := os.MkdirAll(boundary, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := CreateTempOutputFiles(
+		"package main\n\nfunc main() {}\n",
+		"package main\n",
+		"",
+		nil,
+		nil,
+		boundary,
+	)
+	if err == nil {
+		t.Fatal("expected error when forst runtime link is missing")
+	}
+	if !strings.Contains(err.Error(), ".forst-gomod/go.mod") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

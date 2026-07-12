@@ -53,7 +53,7 @@ Follow these steps from a public Forst function to a Node call:
     **Development** — hot reload while you edit `.ft` files:
 
     ```bash
-    npx forst dev -root ./src -port 8080
+    npx forst dev -root ./src -port 6320
     ```
 
     **Production** — built-in HTTP server in your compiled binary (see [Built-in HTTP server](#built-in-http-server) below):
@@ -66,9 +66,9 @@ Follow these steps from a public Forst function to a Node call:
   </Step>
   <Step title="Set the URL and call">
     ```bash
-    export FORST_BASE_URL=http://127.0.0.1:8081   # built-in server in binary
+    export FORST_BASE_URL=http://127.0.0.1:6321   # built-in server in binary
     # or
-    export FORST_BASE_URL=http://localhost:8080    # forst dev
+    export FORST_BASE_URL=http://localhost:6320    # forst dev
     ```
 
     ```typescript
@@ -81,6 +81,37 @@ Follow these steps from a public Forst function to a Node call:
 
 Repository example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/embedded-invoke). Run `task example:embedded-invoke:run` from the monorepo root.
 
+## Multi-package projects
+
+Forst packages are independent compilation units under one `go.mod`. A typical host layout:
+
+```text
+myapp/
+  ftconfig.json
+  go.mod
+  main.ft          # package main — nodert host bootstrap
+  bcrypt.ft        # package bcrypt — invoke exports
+  types.ft         # package types — shared shapes (no client unless exported)
+```
+
+| Command | Multi-package behavior |
+| --- | --- |
+| `forst run -root .` | Compiles entry package plus cross-package invoke companions |
+| `forst dev -root .` | Discovers runnable exports in **all** packages under `-root` |
+| `forst generate .` | Emits **one client module per Forst package** (`bcrypt.client.ts`, not per file stem) |
+| `forst test -root .` | Same `modulecheck` graph as run/dev; ephemeral Go under `.forst/gen/test/` |
+
+File stems should match package names (`bcrypt.ft` → `package bcrypt`). `forst generate` errors on mismatch unless you pass `--allow-stem-package-mismatch`.
+
+Repository example: [`examples/in/rfc/node-interop/multi-package-dev`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/multi-package-dev). Run `task example:multipackage-dev` from the monorepo root.
+
+```bash
+forst generate -root ./forst .
+forst run -root . -- ./forst/main.ft
+```
+
+Generated clients use the **Forst package name** in invoke RPC metadata (`package: "bcrypt"`, `function: "Hash"`).
+
 ## How the client picks a server
 
 `createInvokeClient` (used inside generated `client/index.ts`) picks transport automatically:
@@ -88,12 +119,45 @@ Repository example: [`examples/in/rfc/embedded-invoke`](https://github.com/forst
 | You run | Set env | Client behavior |
 | --- | --- | --- |
 | Nothing | — | Spawns `forst dev` via `@forst/sidecar` (local dev only) |
-| `forst dev` | `FORST_BASE_URL=http://localhost:8080` | HTTP connect |
-| Compiled Go binary | `FORST_BASE_URL=http://127.0.0.1:8081` | HTTP connect, in-process dispatch |
+| `forst dev` | `FORST_BASE_URL=http://localhost:6320` | HTTP connect |
+| Compiled Go binary | `FORST_BASE_URL=http://127.0.0.1:6321` | HTTP connect, in-process dispatch |
 
 **`FORST_SKIP_SPAWN=1`** forces HTTP connect and never auto-spawns **`forst dev`**.
 
 The **`forst dev`** HTTP contract (`/invoke`, `/version`, …) is documented in [Dev server](/workflow/dev-server).
+
+### Runtime dev profile (embedded / host mode)
+
+When `server.embedded` or `node.hostMode` is true in `ftconfig.json`, `forst dev` **compiles and runs** the project entry (same pipeline as `forst run`) instead of the per-invoke executor on `:6320`. Embedded invoke listens on `server.port` (default **6321**). The CLI `-port` flag overrides only when you pass it explicitly; omitting `-port` uses `ftconfig.json`.
+
+Entry resolution order:
+
+1. CLI `-entry`
+2. `dev.entry` in `ftconfig.json`
+3. `forst/main.ft` under `-root`
+4. `main.ft` under `-root`
+
+```bash
+export FORST_BASE_URL=http://127.0.0.1:6321
+FORST_HOST_MODE=dev forst dev -export-struct-fields -root .
+```
+
+Node runtime binaries import `forst/nodert`. Declare that dependency in **`.forst-gomod/go.mod`** at your project root (monorepo dev example):
+
+```go
+module myapp/forst
+
+go 1.26.0
+
+replace forst => ../../forst/forst   // monorepo: path to forst Go module
+// require forst v0.0.37            // production: published release (no compiler checkout)
+```
+
+`forst dev` / `forst run` copy this into the `.forst/run` sandbox `go.mod` automatically. With `@forst/cli`, the shim also wires the cached runtime module internally — you do not set `FORST_GOMOD_ROOT` in app scripts.
+
+`FORST_GOMOD_ROOT` is for **Forst compiler development** only (working on the compiler itself).
+
+Set `dev.profile` to `"executor"` to force the legacy sidecar HTTP server even when `server.embedded` is enabled.
 
 ## `@forst/sidecar`
 
@@ -118,7 +182,7 @@ import { ForstSidecar } from "@forst/sidecar";
 
 const sidecar = ForstSidecar({
   mode: "development",
-  port: 8080,
+  port: 6320,
   root: "./forst-handlers",
 });
 
@@ -134,7 +198,7 @@ Point at an already-running **`forst dev`** or built-in server:
 ```typescript
 const sidecar = ForstSidecar({
   mode: "connect",
-  port: 8080,
+  port: 6320,
   host: "localhost",
 });
 ```
@@ -156,7 +220,7 @@ After **`start()`**, a version check compares **`/version`** **`contractVersion`
 
 ## Built-in HTTP server
 
-Your compiled Go binary can listen on localhost (default `:8081`) and run Forst functions directly when Node sends `POST /invoke` — no separate `forst dev` process and no `go run` per request.
+Your compiled Go binary can listen on localhost (default `:6321`) and run Forst functions directly when Node sends `POST /invoke` — no separate `forst dev` process and no `go run` per request.
 
 Enable with `server.embedded` in `ftconfig.json`:
 
@@ -165,7 +229,7 @@ Enable with `server.embedded` in `ftconfig.json`:
   "server": {
     "embedded": true,
     "host": "127.0.0.1",
-    "port": "8081"
+    "port": "6321"
   }
 }
 ```
@@ -180,7 +244,7 @@ The companion `init()` starts the server. **`ForstInvokeWaitForShutdown()`** is 
 Same JSON contract as `forst dev`. Smoke test:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8081/invoke \
+curl -s -X POST http://127.0.0.1:6321/invoke \
   -H 'Content-Type: application/json' \
   -d '{"package":"main","function":"Echo","args":[{"message":"hello"}]}'
 ```
@@ -215,7 +279,7 @@ Flat exports let you write `import { Echo } from "./client"`. The optional `Fors
 | --- | --- | --- |
 | `embedded` | `false` | Emit invoke companion file (`server.embedded`) |
 | `host` | `127.0.0.1` when embedded | Binds localhost only |
-| `port` | `8081` when embedded | Avoids `forst dev` default `8080` |
+| `port` | `6321` when embedded | Avoids `forst dev` default `6320` |
 | `cors` | `false` | Off unless enabled |
 
 ### Environment variables
@@ -237,11 +301,11 @@ Incremental migration often runs three channels in one deployment:
 
 | Channel | Direction | Typical endpoint |
 | --- | --- | --- |
-| App HTTP | Browser → Node app | `:3000` (e.g. remix-serve) |
-| Built-in HTTP server | Node → Forst | `http://127.0.0.1:8081/invoke` |
+| App HTTP | Browser → Node app | `:6322` (e.g. remix-serve in local forst host mode) |
+| Built-in HTTP server | Node → Forst | `http://127.0.0.1:6321/invoke` |
 | Nodert host socket | Forst → legacy JavaScript | `.forst/node.sock` |
 
-Enable both `server.embedded` and `node.hostMode` in `ftconfig.json`. Remix loaders call generated client functions over `:8081`; Forst `main` calls legacy JS over the nodert socket.
+Enable both `server.embedded` and `node.hostMode` in `ftconfig.json`. Remix loaders call generated client functions over `:6321`; Forst `main` calls legacy JS over the nodert socket.
 
 Full combined demo: [`examples/in/rfc/node-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/remix-serve) — a todo app with Remix loaders, embedded invoke, and nodert host mode (`task example:node-interop-remix-serve:e2e`).
 
@@ -253,7 +317,7 @@ Only **public** functions with no unsatisfied [Providers](/language/providers) a
 
 ## Troubleshooting
 
-<Accordion title="Connection refused on port 8081">
+<Accordion title="Connection refused on port 6321">
   The compiled binary is not running, or `main` exited before the invoke server could accept traffic. Ensure `server.embedded` is true and the process blocks on `ForstInvokeWaitForShutdown()` (auto-appended by the compiler).
 </Accordion>
 
@@ -270,7 +334,7 @@ Only **public** functions with no unsatisfied [Providers](/language/providers) a
 </Accordion>
 
 <Accordion title="Works in dev but not with the compiled binary">
-  Confirm `FORST_BASE_URL` points at the built-in server (`http://127.0.0.1:8081`), not `forst dev` on `8080`. Rebuild the Go binary after changing `.ft` sources.
+  Confirm `FORST_BASE_URL` points at the built-in server (`http://127.0.0.1:6321`), not `forst dev` on `6320`. Rebuild the Go binary after changing `.ft` sources.
 </Accordion>
 
 ## Caveats
@@ -295,7 +359,7 @@ Wire **`with`** blocks in Go **`main`** before the server starts. Functions with
 
 ### Dev vs production URL
 
-**`forst dev`** listens on **`8080`** by default. The built-in server in a compiled binary uses **`8081`**. A wrong **`FORST_BASE_URL`** looks like "works in dev, fails in prod".
+**Executor profile** (`forst dev` without embedded/host mode) listens on **`6320`** by default. **Runtime profile** (embedded or host mode) uses **`server.port`** from `ftconfig.json` (default **`6321`**). A wrong **`FORST_BASE_URL`** looks like "works in dev, fails in prod".
 
 ## Examples
 

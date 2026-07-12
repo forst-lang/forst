@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"forst/internal/compiler"
+	"forst/internal/devserver"
 	"forst/internal/discovery"
 	"forst/internal/executor"
 	"forst/internal/invokeserver"
@@ -57,31 +58,37 @@ type DevServer struct {
 
 // NewHTTPServer creates a new HTTP server.
 func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, config *ForstConfig, rootDir string) *DevServer {
+	profile := devserver.ResolveProfile(&config.Config)
+	listenPort := devserver.EffectiveListenPort(&config.Config, port)
+	if log != nil {
+		log.Infof("forst dev: profile=%s", profile)
+	}
+
 	discoverer := discovery.NewDiscoverer(rootDir, log, config)
 	fnExec := executor.NewFunctionExecutor(rootDir, comp, log, config)
 	backend := invokeserver.NewDevBackend(fnExec, discoverer)
 	listenHost := config.Server.EffectiveDevListenHost()
 	invokeCfg := invokeserver.Config{
 		Host:           listenHost,
-		Port:           port,
+		Port:           listenPort,
 		CORS:           config.Server.CORS,
 		ReadTimeout:    config.Server.ReadTimeout,
 		WriteTimeout:   config.Server.WriteTimeout,
 		MaxRequestSize: config.Server.MaxRequestSize,
-		Runtime:        "dev",
+		Runtime:        string(profile),
 	}
 	version := invokeserver.VersionInfo{
 		Version:         Version,
 		Commit:          Commit,
 		Date:            Date,
 		ContractVersion: devHTTPContractVersion,
-		Runtime:         "dev",
+		Runtime:         string(profile),
 	}
 	invokeServer := invokeserver.New(invokeCfg, backend, version, log)
 
 	return &DevServer{
 		host:       listenHost,
-		port:       port,
+		port:       listenPort,
 		invoke:     invokeServer,
 		devBackend: backend,
 		fnExec:     fnExec,

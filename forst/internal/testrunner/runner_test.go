@@ -1,6 +1,7 @@
 package testrunner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,28 +93,6 @@ func TestEmit_mergedPackageTestFunctionSignature(t *testing.T) {
 	}
 }
 
-func TestWriteGeneratedTestAndRun_requiresGoMod(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	pkgDir := filepath.Join(dir, "pkg")
-	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	log := logrus.New()
-	log.SetOutput(os.Stderr)
-	log.SetLevel(logrus.PanicLevel)
-	code, err := writeGeneratedTestAndRun(PackageUnderTest{
-		Dir:     pkgDir,
-		RelPath: "pkg",
-	}, "package pkg\n", nil, log)
-	if err == nil || code == ExitSuccess {
-		t.Fatalf("expected go.mod error, code=%d err=%v", code, err)
-	}
-	if !strings.Contains(err.Error(), "no go.mod") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
 func TestRun_e2e_realGoTest(t *testing.T) {
 	dir := t.TempDir()
 	writeProvidersTestFixture(t, dir)
@@ -127,9 +106,7 @@ func TestRun_e2e_realGoTest(t *testing.T) {
 	if code != ExitSuccess {
 		t.Fatalf("exit code = %d, want %d", code, ExitSuccess)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "auth", generatedTestGoName)); !os.IsNotExist(err) {
-		t.Fatal("expected generated test file removed after run")
-	}
+	assertNoZGenFiles(t, dir)
 }
 
 func TestRun_orchestration_stubbedGoTest(t *testing.T) {
@@ -143,13 +120,26 @@ func TestRun_orchestration_stubbedGoTest(t *testing.T) {
 	if code != ExitSuccess {
 		t.Fatalf("code = %d", code)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "auth", generatedTestGoName)); !os.IsNotExist(err) {
-		t.Fatal("expected generated test file removed after stubbed go test")
+	assertNoZGenFiles(t, dir)
+}
+
+func assertNoZGenFiles(t *testing.T, root string) {
+	t.Helper()
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasPrefix(filepath.Base(path), "z_forst_gen") {
+			return fmt.Errorf("unexpected legacy generated file: %s", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestRelPath(t *testing.T) {
-	t.Parallel()
 	moduleRoot := filepath.Clean("/proj")
 	if got := relPath(moduleRoot, filepath.Join(moduleRoot, "auth")); got != "auth" {
 		t.Fatalf("relPath = %q", got)
@@ -166,41 +156,6 @@ func TestIndexOf(t *testing.T) {
 	}
 	if indexOf([]string{"a"}, "--") != -1 {
 		t.Fatal("expected -1")
-	}
-}
-
-func TestEmitDependencyPackages_writesLibraryGo(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	writeProvidersTestFixture(t, dir)
-	libDir := filepath.Join(dir, "lib")
-	if err := os.MkdirAll(libDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(libDir, "lib.ft"), []byte(`package lib
-
-func Helper(): Int { return 1 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	log := logrus.New()
-	log.SetOutput(os.Stderr)
-	log.SetLevel(logrus.PanicLevel)
-	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: dir})
-	if err != nil {
-		t.Fatal(err)
-	}
-	testDirs := map[string]struct{}{filepath.Join(dir, "auth"): {}}
-	if _, err := emitDependencyPackages(dir, modResult, testDirs, EmitOptions{}, log); err != nil {
-		t.Fatal(err)
-	}
-	genPath := filepath.Join(libDir, "z_forst_gen.go")
-	data, err := os.ReadFile(genPath)
-	if err != nil {
-		t.Fatalf("expected generated lib Go: %v", err)
-	}
-	if !strings.Contains(string(data), "Helper") {
-		t.Fatalf("generated code missing Helper:\n%s", data)
 	}
 }
 
@@ -276,7 +231,7 @@ func TestRun(t *testing.T) {
 func TestEmitPackageGo_testOnlyOmitsPackageTypeDefs(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	libpkgDir, _ := writeLibClientTestFixture(t, dir)
+	_, _ = writeLibClientTestFixture(t, dir)
 	log := logrus.New()
 	log.SetOutput(os.Stderr)
 	log.SetLevel(logrus.PanicLevel)
@@ -293,10 +248,6 @@ func TestEmitPackageGo_testOnlyOmitsPackageTypeDefs(t *testing.T) {
 
 	libCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{}, log)
 	if err != nil {
-		t.Fatal(err)
-	}
-	genPath := filepath.Join(libpkgDir, "z_forst_gen.go")
-	if err := os.WriteFile(genPath, []byte(libCode), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(libCode, "type Widget") {
@@ -351,7 +302,7 @@ func TestBodyNonEmpty(t *testing.T) {
 func TestEmitPackageGo_testOnlyIfScopeUsesMergedParseNodes(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	pkgDir := writeIfScopeTestFixture(t, dir)
+	_ = writeIfScopeTestFixture(t, dir)
 	log := logrus.New()
 	log.SetOutput(os.Stderr)
 	log.SetLevel(logrus.PanicLevel)
@@ -366,12 +317,9 @@ func TestEmitPackageGo_testOnlyIfScopeUsesMergedParseNodes(t *testing.T) {
 	}
 	pkg := pkgs[0]
 
-	libCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{}, log)
+	_, err = emitPackageGo(dir, pkg, modResult, EmitOptions{}, log)
 	if err != nil {
 		t.Fatalf("emit lib: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(pkgDir, "z_forst_gen.go"), []byte(libCode), 0o644); err != nil {
-		t.Fatal(err)
 	}
 
 	testCode, err := emitPackageGo(dir, pkg, modResult, EmitOptions{TestOnly: true}, log)
@@ -398,12 +346,8 @@ func TestRun_dependencyEmitThenSelfTest_succeeds(t *testing.T) {
 	if code != ExitSuccess {
 		t.Fatalf("Run client exit = %d, want %d", code, ExitSuccess)
 	}
-	libGen, err := os.ReadFile(filepath.Join(libpkgDir, "z_forst_gen.go"))
-	if err != nil {
-		t.Fatalf("expected libpkg z_forst_gen.go after client test: %v", err)
-	}
-	if !strings.Contains(string(libGen), "type Widget") {
-		t.Fatalf("library shim missing Widget:\n%s", libGen)
+	if _, err := os.Stat(filepath.Join(libpkgDir, "z_forst_gen.go")); !os.IsNotExist(err) {
+		t.Fatal("forst test must not write legacy z_forst_gen.go in source tree")
 	}
 
 	code, err = Run(Options{ModuleRoot: dir, Paths: []string{"libpkg"}, Log: log})

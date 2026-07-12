@@ -195,7 +195,7 @@ func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string,
 		ExportStructFields: exportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, runtimeCode, invokeCode, err := c.CompileWithNodeRuntime()
+	mainCode, runtimeCode, invokeCode, _, _, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
 	}

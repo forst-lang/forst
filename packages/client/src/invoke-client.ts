@@ -73,7 +73,7 @@ class HttpInvokeClient {
   private client: ForstSidecarClient;
 
   constructor(config?: ForstInvokeClientConfig) {
-    const baseUrl = resolveBaseUrl(config) ?? "http://127.0.0.1:8081";
+    const baseUrl = resolveBaseUrl(config) ?? "http://127.0.0.1:6321";
     this.client = new ForstSidecarClient({
       baseUrl,
       timeout: config?.timeout ?? 30000,
@@ -104,7 +104,7 @@ class SidecarInvokeClient {
   constructor(config?: ForstInvokeClientConfig) {
     this.sidecar = new ForstSidecar({
       mode: config?.mode ?? "development",
-      port: config?.port ?? 8080,
+      port: config?.port ?? 6320,
       host: config?.host ?? "localhost",
       logLevel: config?.logLevel ?? "info",
       rootDir: config?.rootDir ?? process.cwd(),

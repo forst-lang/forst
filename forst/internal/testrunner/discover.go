@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-const generatedTestGoName = "z_forst_gen_test.go"
-
 // PackageUnderTest is one Forst package directory containing *_test.ft files.
 type PackageUnderTest struct {
 	Dir       string   // absolute package directory

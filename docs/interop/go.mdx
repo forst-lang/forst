@@ -82,7 +82,7 @@ Qualified import calls such as `exec.Command(...)` are checked when the stdlib p
 
 An `import "module/path"` can refer to **another Forst package** in the same Go module—not only hand-written Go. The compiler resolves these as **Forst siblings** from `.ft` sources and the module import map (`modulecheck`). Cross-package calls type-check against the sibling package’s Forst signatures.
 
-This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` may emit gitignored `z_forst_gen*.go` at test time; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
+This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` emits ephemeral lib shims under `.forst/gen/test/`; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
 
 Try the cross-package provider examples:
 

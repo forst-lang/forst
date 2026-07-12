@@ -51,7 +51,7 @@ type Transformer struct {
 	// currentFnProvidersSlots is the slot set for the active function (for pass-through lowering).
 	currentFnProvidersSlots []typechecker.ProviderSlot
 
-	// OmitPackageTypeDefs skips emitting package types (when z_forst_gen.go already defines them).
+	// OmitPackageTypeDefs skips emitting package types when a lib shim already defines them.
 	OmitPackageTypeDefs bool
 	// entryNodes is the slice passed to TransformForstFileToGo (for scope-node fallback lookups).
 	entryNodes []ast.Node
@@ -63,6 +63,10 @@ type Transformer struct {
 
 	// EmbedInvokeServer when true appends ForstInvokeWaitForShutdown() to main for long-lived binaries.
 	EmbedInvokeServer bool
+	// EmbedNodeHostMode when true emits ForstNodeWaitForShutdown for host-mode nodert binaries.
+	EmbedNodeHostMode bool
+	// SandboxModulePath when set rewrites cross-package invoke imports (e.g. forst.run.temp/bcrypt).
+	SandboxModulePath string
 }
 
 // New creates a new Transformer
@@ -222,9 +226,12 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 	}
 
 	t.appendNodeBridgeIfNeeded()
-	t.appendInvokeShutdownIfNeeded()
 
 	return t.Output.GenerateFile()
+}
+
+func (t *Transformer) IsMainPackage() bool {
+	return t.isMainPackage()
 }
 
 func (t *Transformer) isMainPackage() bool {

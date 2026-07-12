@@ -10,13 +10,13 @@ import {
   FORST_CLI_GO_BUILDINFO_FLAG,
   FORST_CLI_VERSION_FLAGS,
 } from "./constants.js";
-import { resolveForstBinary } from "./resolve.js";
+import { buildForstSpawnEnv } from "./spawn-env.js";
 
 const argv = process.argv.slice(2);
 
 export async function runForstCli(): Promise<number> {
-  const bin = await resolveForstBinary();
-  const child = spawn(bin, process.argv.slice(2), { stdio: "inherit" });
+  const { bin, env } = await buildForstSpawnEnv();
+  const child = spawn(bin, process.argv.slice(2), { stdio: "inherit", env });
   const forward = (sig: NodeJS.Signals) => {
     child.kill(sig);
   };

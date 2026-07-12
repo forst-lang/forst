@@ -108,15 +108,15 @@ func (s ServerConfig) EffectiveDevListenHost() string {
 	return s.Host
 }
 
-// EffectiveInvokePort returns the listen port; embedded defaults to 8081 to avoid clashing with forst dev (8080).
+// EffectiveInvokePort returns the listen port; embedded defaults to 6321 to avoid clashing with forst dev (6320).
 func (s ServerConfig) EffectiveInvokePort() string {
 	if s.Port != "" {
 		return s.Port
 	}
 	if s.Embedded {
-		return "8081"
+		return DefaultEmbeddedInvokePort
 	}
-	return "8080"
+	return DefaultDevExecutorPort
 }
 
 // FilesConfig represents file discovery settings.
@@ -136,6 +136,8 @@ type OutputConfig struct {
 
 // DevConfig represents development-specific settings.
 type DevConfig struct {
+	Profile     string `json:"profile"` // auto | executor | runtime
+	Entry       string `json:"entry"`   // optional runtime dev entry .ft (relative to boundary)
 	HotReload   bool   `json:"hotReload"`
 	Watch       bool   `json:"watch"`
 	AutoRestart bool   `json:"autoRestart"`
@@ -157,7 +159,7 @@ func Default() *Config {
 			ExportStructFields: false,
 		},
 		Server: ServerConfig{
-			Port:           "8080",
+			Port:           DefaultDevExecutorPort,
 			Host:           "localhost",
 			CORS:           true,
 			ReadTimeout:    30,

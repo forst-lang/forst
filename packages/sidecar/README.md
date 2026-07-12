@@ -106,7 +106,7 @@ import { autoStart } from "@forst/sidecar";
 async function main() {
   const sidecar = await autoStart({
     forstDir: "./forst",
-    port: 8080,
+    port: 6320,
   });
 
   const functions = await sidecar.discoverFunctions();
@@ -133,7 +133,7 @@ const app = express();
 
 const sidecar = new ForstSidecar({
   forstDir: "./forst",
-  port: 8080,
+  port: 6320,
 });
 await sidecar.start();
 
@@ -207,7 +207,7 @@ await new ForstSidecar({
 // Another terminal or package — attach only
 await new ForstSidecar({
   sidecarRuntime: "connect",
-  devServerUrl: "http://127.0.0.1:8080",
+  devServerUrl: "http://127.0.0.1:6320",
 }).start();
 ```
 
@@ -220,14 +220,14 @@ const config: ForstConfig = {
   mode: "development",
   forstDir: "./forst",
   outputDir: "./dist/forst",
-  port: 8080,
+  port: 6320,
   host: "localhost",
   logLevel: "info",
   transports: {
     development: {
       mode: "http",
       http: {
-        port: 8080,
+        port: 6320,
         cors: true,
         healthCheck: "/health",
       },
@@ -235,7 +235,7 @@ const config: ForstConfig = {
     production: {
       mode: "http",
       http: {
-        port: 8080,
+        port: 6320,
         cors: true,
         healthCheck: "/health",
       },
@@ -253,7 +253,7 @@ Precedence: explicit fields on `ForstConfig` override these (see `mergeForstSide
 | `NODE_ENV` | Influences default `mode` where applicable. |
 | `FORST_DIR` | Default for `forstDir` when not set in config. |
 | `FORST_PORT` | Default `port` when not set (spawn and health checks). |
-| `FORST_DEV_URL` | Base URL of an existing `forst dev` (e.g. `http://127.0.0.1:8080`). When set, **`sidecarRuntime` defaults to `connect`** unless you pass `sidecarRuntime: "spawn"`. |
+| `FORST_DEV_URL` | Base URL of an existing `forst dev` (e.g. `http://127.0.0.1:6320`). When set, **`sidecarRuntime` defaults to `connect`** unless you pass `sidecarRuntime: "spawn"`. |
 | `FORST_SKIP_SPAWN` | If `1`, forces **connect** semantics; you must still supply `devServerUrl` or `FORST_DEV_URL`. |
 
 If `FORST_DEV_URL` is set but you need a local **spawn** anyway, set `sidecarRuntime: "spawn"` in code.

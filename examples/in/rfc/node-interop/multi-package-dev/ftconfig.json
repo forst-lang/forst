@@ -1,0 +1,19 @@
+{
+  "server": {
+    "embedded": true,
+    "port": 6321
+  },
+  "dev": {
+    "watch": true,
+    "hotReload": true,
+    "watchGenerate": true,
+    "profile": "auto"
+  },
+  "output": {
+    "typescript": {
+      "enabled": true,
+      "outputDir": "generated",
+      "clientDir": "client"
+    }
+  }
+}
