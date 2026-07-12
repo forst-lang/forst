@@ -164,9 +164,25 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 	}
 	wantRegister := filepath.Join(root, "node_modules", "@forst", "node-runtime", "dist", "host", "register.mjs")
 	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
-	if len(cmd.Args) != 5 || cmd.Args[0] != "--import" || cmd.Args[1] != wantLoader ||
-		cmd.Args[2] != "--import" || cmd.Args[3] != wantRegister || cmd.Args[4] != "server.js" {
-		t.Fatalf("args = %#v", cmd.Args)
+	nodeBin, err := ResolveNodeBinary(root, "node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Executable != nodeBin {
+		t.Fatalf("executable = %q want node %q", cmd.Executable, nodeBin)
+	}
+	wantShim, err := filepath.EvalSymlinks(nodePath)
+	if err != nil {
+		wantShim = nodePath
+	}
+	wantArgs := []string{"--import", wantLoader, "--import", wantRegister, wantShim, "server.js"}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("args = %#v want %#v", cmd.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
+		}
 	}
 	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
@@ -211,8 +227,25 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
-	if len(cmd.Args) != 3 || cmd.Args[0] != "--import" || cmd.Args[1] != wantLoader || cmd.Args[2] != "server.js" {
-		t.Fatalf("args = %#v", cmd.Args)
+	nodeBin, err := ResolveNodeBinary(root, "node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Executable != nodeBin {
+		t.Fatalf("executable = %q want node %q", cmd.Executable, nodeBin)
+	}
+	wantShim, err := filepath.EvalSymlinks(nodePath)
+	if err != nil {
+		wantShim = nodePath
+	}
+	wantArgs := []string{"--import", wantLoader, wantShim, "server.js"}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("args = %#v want %#v", cmd.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
+		}
 	}
 	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
@@ -291,6 +324,97 @@ func TestPrependNodeImportArgs(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("got %#v want %#v", got, want)
+		}
+	}
+}
+
+func TestBuildHostSpawnCommand_directNodeBinary(t *testing.T) {
+	root := t.TempDir()
+	tsxDir := filepath.Join(root, "node_modules", "tsx", "dist")
+	if err := os.MkdirAll(tsxDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tsxDir, "loader.mjs"), []byte("//"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	nodeBin, err := ResolveNodeBinary(root, "node")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot: root,
+		Executable:   "node",
+		ShimArgs:     []string{"server.js"},
+		WorkDir:      root,
+		Loader:       "tsx",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Executable != nodeBin {
+		t.Fatalf("executable = %q want %q", cmd.Executable, nodeBin)
+	}
+	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
+	wantArgs := []string{"--import", wantLoader, "server.js"}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("args = %#v want %#v", cmd.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("args[%d] = %q want %q", i, cmd.Args[i], wantArgs[i])
+		}
+	}
+}
+
+func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
+	root := t.TempDir()
+	shim := filepath.Join(root, "node_modules", ".bin", "remix-serve")
+	if err := os.MkdirAll(filepath.Dir(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(shim, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsxDir := filepath.Join(root, "node_modules", "tsx", "dist")
+	if err := os.MkdirAll(tsxDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tsxDir, "loader.mjs"), []byte("//"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	nodeBin, err := ResolveNodeBinary(root, "node")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot: root,
+		Executable:   "node_modules/.bin/remix-serve",
+		ShimArgs:     []string{"build/server/index.js", "--port", "3000"},
+		WorkDir:      root,
+		Loader:       "tsx",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Executable != nodeBin {
+		t.Fatalf("executable = %q want node %q", cmd.Executable, nodeBin)
+	}
+	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
+	wantShim, err := filepath.EvalSymlinks(shim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantArgs := []string{"--import", wantLoader, wantShim, "build/server/index.js", "--port", "3000"}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("args = %#v want %#v", cmd.Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
 		}
 	}
 }

@@ -335,6 +335,43 @@ func prependNodeImportArgs(shimArgs []string, importPaths ...string) []string {
 	return append(args, shimArgs...)
 }
 
+func sameResolvedExecutable(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return filepath.Clean(a) == filepath.Clean(b)
+	}
+	evalA, errA := filepath.EvalSymlinks(absA)
+	evalB, errB := filepath.EvalSymlinks(absB)
+	if errA != nil {
+		evalA = absA
+	}
+	if errB != nil {
+		evalB = absB
+	}
+	return evalA == evalB
+}
+
+// hostSpawnExecutableAndArgs returns argv for host mode. --import flags are Node
+// flags; when ftconfig node.binary is a shim (e.g. remix-serve), spawn the real
+// node interpreter with the shim script as the first positional argument.
+func hostSpawnExecutableAndArgs(boundaryRoot, shimExecutable string, shimArgs, importPaths []string) (string, []string, error) {
+	nodeBin, err := ResolveNodeBinary(boundaryRoot, "node")
+	if err != nil {
+		return "", nil, err
+	}
+	args := append([]string(nil), shimArgs...)
+	executable := shimExecutable
+	if !sameResolvedExecutable(shimExecutable, nodeBin) {
+		executable = nodeBin
+		args = append([]string{shimExecutable}, args...)
+	}
+	return executable, prependNodeImportArgs(args, importPaths...), nil
+}
+
 // BootstrapSpawnInput configures bootstrap-mode child spawn.
 type BootstrapSpawnInput struct {
 	BoundaryRoot  string
@@ -467,7 +504,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 	if len(in.ShimArgs) == 0 {
 		return HostSpawnCommand{}, fmt.Errorf("node runtime: hostMode requires non-empty node.args")
 	}
-	executable, err := ResolveNodeBinary(in.BoundaryRoot, in.Executable)
+	shimExecutable, err := ResolveNodeBinary(in.BoundaryRoot, in.Executable)
 	if err != nil {
 		return HostSpawnCommand{}, err
 	}
@@ -518,9 +555,14 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		ReadyPath:    readyPath,
 	})
 
+	executable, args, err := hostSpawnExecutableAndArgs(in.BoundaryRoot, shimExecutable, in.ShimArgs, importPaths)
+	if err != nil {
+		return HostSpawnCommand{}, err
+	}
+
 	return HostSpawnCommand{
 		Executable: executable,
-		Args:       prependNodeImportArgs(in.ShimArgs, importPaths...),
+		Args:       args,
 		Env:        env,
 		SocketPath: socketPath,
 		ReadyPath:  readyPath,
