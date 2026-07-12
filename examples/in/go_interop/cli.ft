@@ -1,0 +1,25 @@
+package main
+
+import "os/exec"
+
+// Go FFI: field access, method calls, subslices, and variadic spread into Go calls.
+// Same-package hand-written Go: exported funcs from helpers.go resolve without import.
+// Golden output: ../../out/go_interop/cli.go
+func runExecDemo() {
+	argv := []String{"true", "extra"}
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Run()
+	cmd.ProcessState.ExitCode()
+}
+
+func runCustomDemo() {
+	sum := AddInts(40, 2)
+	println(sum)
+	message := GreetUpper("forst")
+	println(message)
+}
+
+func main() {
+	runExecDemo()
+	runCustomDemo()
+}

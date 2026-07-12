@@ -20,7 +20,7 @@ func TestPipeline_examplesBundle(t *testing.T) {
 		"generics.ft",
 		"go_builtins.ft",
 		"slices.ft",
-		"go_interop.ft",
+		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",
 		"union_error_types.ft",

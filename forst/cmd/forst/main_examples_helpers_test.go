@@ -128,7 +128,14 @@ func compileExampleForGolden(t *testing.T, absEntry string, opts exampleGoldenCo
 		ExportStructFields: opts.exportStructFields,
 	}
 	if modRoot := goload.FindModuleRoot(filepath.Dir(absEntry)); modRoot != "" {
+		entryDir := filepath.Dir(absEntry)
 		compileOpts.GoWorkspaceDir = modRoot
+		compileOpts.ForstFileDir = entryDir
+		if modPath := goload.ModulePath(modRoot); modPath != "" {
+			if importPath, err := forstpkg.ImportPathForDir(modRoot, modPath, entryDir); err == nil {
+				compileOpts.SamePackageGoImport = importPath
+			}
+		}
 	}
 	if opts.packageRoot != "" {
 		paths, err := collectSamePackageExampleFtPaths(log, opts.packageRoot, absEntry)

@@ -26,7 +26,7 @@ examples/in/basic.ft
 examples/in/go_builtins.ft
 examples/in/generics.ft
 examples/in/slices.ft (`task example:slices` — subslice expressions)
-examples/in/go_interop.ft (`task example:go-interop` — Go FFI spread and field access)
+examples/in/go_interop/cli.ft (`task example:go-interop` — Go FFI spread, field access, same-package hand-written Go)
 examples/in/basic_function.ft
 examples/in/ensure.ft
 examples/in/nominal_error.ft (`task example:nominal-error` — nominal `error X { … }` type)

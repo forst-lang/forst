@@ -255,10 +255,11 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/slices.ft
 
   example:go-interop:
-    desc: Compile go_interop example (Go FFI field access, subslices, variadic spread)
+    desc: Run go_interop example (Go FFI + same-package hand-written Go)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/go_interop.ft
+      - go run ./{{.BUILD_DIR}} build -o {{.EXAMPLES_DIR}}/go_interop/main.gen.go -- {{.EXAMPLES_DIR}}/go_interop/cli.ft
+      - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop && go run .'
 
   example:generics:
     desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)

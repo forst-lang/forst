@@ -20,7 +20,7 @@ func TestParseFile_examplesBundle(t *testing.T) {
 		"generics.ft",
 		"go_builtins.ft",
 		"slices.ft",
-		"go_interop.ft",
+		"go_interop/cli.ft",
 		"ensure.ft",
 		"result_ensure.ft",
 		"result_if.ft",

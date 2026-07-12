@@ -55,7 +55,7 @@ func moduleRootFromWD(t *testing.T) string {
 
 // pipelineOptsForExampleFile returns compile options for examples that need go/packages (e.g. os/exec).
 func pipelineOptsForExampleFile(t *testing.T, name string) pipelineOpts {
-	if name != "go_interop.ft" {
+	if name != "go_interop/cli.ft" {
 		return pipelineOpts{}
 	}
 	return pipelineOpts{
