@@ -25,9 +25,10 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 	}
 
 	var (
-		mu     sync.Mutex
-		events []string
-		fields []logrus.Fields
+		mu          sync.Mutex
+		events      []string
+		fields      []logrus.Fields
+		startedPath string
 	)
 	record := func(name string) {
 		mu.Lock()
@@ -86,8 +87,11 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 			return filepath.Join(dir, "out.go"), nil
 		},
 		BuildProgram: func(string, string, string) error { return nil },
-		StartProgram: func(string, string) (*runningChild, error) {
+		StartProgram: func(outputPath, boundaryRoot string) (*runningChild, error) {
 			record("start")
+			mu.Lock()
+			startedPath = outputPath
+			mu.Unlock()
 			return &runningChild{
 				stop:   func() error { return nil },
 				exited: make(chan error),
@@ -138,7 +142,7 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 		t.Fatalf("reload_timing_start generation=%v want 1", startFields["generation"])
 	}
 	for _, key := range []string{
-		"mark_reloading_ms", "forst_compile_ms", "child_stop_ms",
+		"mark_reloading_ms", "forst_compile_ms", "go_build_ms", "child_stop_ms",
 		"port_pick_ms", "go_start_ms", "invoke_ready_ms", "total_ms", "modulecheck_passes",
 	} {
 		if _, ok := completeFields[key]; !ok {
@@ -147,6 +151,13 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 	}
 	if completeFields["success"] != true {
 		t.Fatalf("reload_timing success=%v want true", completeFields["success"])
+	}
+	wantBin := compiler.DevBinPath(dir)
+	mu.Lock()
+	gotStarted := startedPath
+	mu.Unlock()
+	if gotStarted != wantBin {
+		t.Fatalf("StartProgram path=%q want dev bin %q", gotStarted, wantBin)
 	}
 }
 

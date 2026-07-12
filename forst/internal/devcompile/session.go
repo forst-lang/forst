@@ -32,7 +32,6 @@ type Session struct {
 	modResult    *modulecheck.ModuleResult
 	modRoot      string
 	modPrint     string
-	dirty        bool
 }
 
 type fileEntry struct {
@@ -57,12 +56,10 @@ func (s *Session) NoteChange(path string) {
 	defer s.mu.Unlock()
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		s.dirty = true
 		delete(s.fileCache, path)
 		return
 	}
 	delete(s.fileCache, abs)
-	s.dirty = true
 }
 
 // ParseFile returns cached or freshly parsed AST for path.
@@ -138,20 +135,23 @@ func (s *Session) ParsedFilesForModule(moduleRoot string) (map[string][]ast.Node
 	return out, len(out) > 0
 }
 
-// CachedModuleResult returns the last module result when the module is not dirty.
+// CachedModuleResult returns the last module result when on-disk files still match.
 func (s *Session) CachedModuleResult(moduleRoot string) (*modulecheck.ModuleResult, bool) {
 	if s == nil {
 		return nil, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.dirty || s.modResult == nil || s.modRoot != filepath.Clean(moduleRoot) {
+	if s.modResult == nil || s.modRoot != filepath.Clean(moduleRoot) {
+		return nil, false
+	}
+	if moduleFingerprint(s.modResult) != s.modPrint {
 		return nil, false
 	}
 	return s.modResult, true
 }
 
-// StoreModuleResult records a successful modulecheck and clears the dirty flag.
+// StoreModuleResult records a successful modulecheck result for fingerprint-based reuse.
 func (s *Session) StoreModuleResult(moduleRoot string, result *modulecheck.ModuleResult) {
 	if s == nil || result == nil {
 		return
@@ -161,7 +161,30 @@ func (s *Session) StoreModuleResult(moduleRoot string, result *modulecheck.Modul
 	s.modRoot = filepath.Clean(moduleRoot)
 	s.modResult = result
 	s.modPrint = moduleFingerprint(result)
-	s.dirty = false
+}
+
+// ParsedFilesForModuleCheck returns cached parses for all .ft files under moduleRoot.
+func (s *Session) ParsedFilesForModuleCheck(log *logrus.Logger, moduleRoot string) (map[string][]ast.Node, error) {
+	if s == nil {
+		return nil, nil
+	}
+	moduleRoot = filepath.Clean(moduleRoot)
+	paths, err := modulecheck.FindForstFiles(moduleRoot)
+	if err != nil {
+		return nil, err
+	}
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	out := make(map[string][]ast.Node, len(paths))
+	for _, path := range paths {
+		nodes, err := s.ParseFile(log, path)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		out[path] = nodes
+	}
+	return out, nil
 }
 
 func fingerprintFile(path string) (FileFingerprint, error) {

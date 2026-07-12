@@ -108,7 +108,7 @@ func RunRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ftco
 	if hostOrch != nil {
 		defer shutdownHostOrchestrator(log, hostOrch)
 	}
-	outputPath, err := compileRuntimeOutput(log, boundaryRoot, entryPath, cfg, deps, false)
+	outputPath, _, err := compileRuntimeOutput(log, boundaryRoot, entryPath, cfg, deps, false)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func shutdownHostOrchestrator(log *logrus.Logger, hostOrch *HostOrchestrator) {
 	}
 }
 
-func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ftconfig.Config, deps RuntimeRunDeps, reloadProfile bool) (string, error) {
+func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ftconfig.Config, deps RuntimeRunDeps, reloadProfile bool) (startPath string, goBuildMs int64, err error) {
 	devReload := reloadProfile
 	args := compiler.Args{
 		Command:            "run",
@@ -269,7 +269,7 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 	comp := deps.NewCompiler(args, log)
 	mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, err := comp.CompileWithNodeRuntime()
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if devReload {
 		var sandbox compiler.CompileSandboxTiming
@@ -280,7 +280,7 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 			outputPath, err = compiler.CreateDevReloadOutputFiles(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot, deps.ModTidyCache, &sandbox)
 		}
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 		binPath := compiler.DevBinPath(boundaryRoot)
 		buildStart := time.Now()
@@ -290,17 +290,21 @@ func compileRuntimeOutput(log *logrus.Logger, boundaryRoot, entryPath string, cf
 			err = deps.BuildProgram(outputPath, binPath, boundaryRoot)
 		}
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
+		goBuildMs = time.Since(buildStart).Milliseconds()
 		timings := comp.TakeCompileTimings()
 		timings.WriteSandboxMs = sandbox.WriteSandboxMs
 		timings.GoModTidyMs = sandbox.GoModTidyMs
-		timings.GoBuildMs = time.Since(buildStart).Milliseconds()
+		timings.GoBuildMs = goBuildMs
 		comp.LogCompilePhaseTiming(timings)
-		// Return main.go path; StartGoProgram (go run) reuses the build cache from BuildGoProgramInSandbox.
-		return outputPath, nil
+		return binPath, goBuildMs, nil
 	}
-	return deps.CreateOutput(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
+	outputPath, err := deps.CreateOutput(mainCode, nodeRuntime, invokeCode, extraPkgs, extraImports, boundaryRoot)
+	if err != nil {
+		return "", 0, err
+	}
+	return outputPath, 0, nil
 }
 
 type reloadParams struct {
@@ -344,9 +348,9 @@ func performDevReload(p reloadParams) *runningChild {
 	}
 
 	compileStart := time.Now()
-	outputPath, err := compileRuntimeOutput(log, boundaryRoot, p.entryPath, p.cfg, p.deps, profile)
+	outputPath, goBuildMs, err := compileRuntimeOutput(log, boundaryRoot, p.entryPath, p.cfg, p.deps, profile)
 	if rt != nil {
-		rt.recordForstCompile(compileStart)
+		rt.recordForstCompile(compileStart, goBuildMs)
 	}
 	if err != nil {
 		log.Error(err)

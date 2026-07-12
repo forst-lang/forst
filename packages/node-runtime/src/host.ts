@@ -10,6 +10,7 @@ import {
   type ForstNodeRuntime,
 } from "./effect/runtime.js";
 import { startRpcServer } from "./rpc/server.js";
+import { resetHostInitCacheForTest } from "./runtime/lifecycle.js";
 import * as HostErrors from "./host/errors.js";
 
 const envHostEnabled = "FORST_NODE_HOST";
@@ -267,6 +268,7 @@ function attachConnectionHandler(server: net.Server): void {
 }
 
 export function resetHostForTest(): void {
+  resetHostInitCacheForTest();
   if (activeRpcFiber) {
     void Effect.runPromise(Fiber.interrupt(activeRpcFiber));
     activeRpcFiber = null;

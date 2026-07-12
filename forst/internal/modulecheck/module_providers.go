@@ -74,6 +74,11 @@ func (r *ModuleResult) ForstPackageTypeChecker(pkg string) *typechecker.TypeChec
 	return r.PerPackage[pkg]
 }
 
+// FindForstFiles lists .ft paths under root (used by dev reload parse cache).
+func FindForstFiles(root string) ([]string, error) {
+	return findForstFiles(root)
+}
+
 func findForstFiles(root string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {

@@ -16,6 +16,7 @@ type reloadTiming struct {
 	start           time.Time
 	markReloadingMs int64
 	forstCompileMs  int64
+	goBuildMs       int64
 	childStopMs     int64
 	portPickMs      int64
 	goStartMs       int64
@@ -37,8 +38,9 @@ func (rt *reloadTiming) recordMarkReloading(since time.Time) {
 	rt.markReloadingMs = time.Since(since).Milliseconds()
 }
 
-func (rt *reloadTiming) recordForstCompile(since time.Time) {
+func (rt *reloadTiming) recordForstCompile(since time.Time, goBuildMs int64) {
 	rt.forstCompileMs = time.Since(since).Milliseconds()
+	rt.goBuildMs = goBuildMs
 }
 
 func (rt *reloadTiming) recordChildStop(since time.Time) {
@@ -67,6 +69,7 @@ func (rt *reloadTiming) logComplete(log *logrus.Logger, gen uint64, success bool
 		"success":            success,
 		"mark_reloading_ms":  rt.markReloadingMs,
 		"forst_compile_ms":   rt.forstCompileMs,
+		"go_build_ms":        rt.goBuildMs,
 		"child_stop_ms":      rt.childStopMs,
 		"port_pick_ms":       rt.portPickMs,
 		"go_start_ms":        rt.goStartMs,

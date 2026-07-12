@@ -37,17 +37,30 @@ func TestSession_ParseFile_cachesByFingerprint(t *testing.T) {
 	}
 }
 
-func TestSession_CachedModuleResult_skipsWhenDirty(t *testing.T) {
+func TestSession_CachedModuleResult_invalidatesOnFileEdit(t *testing.T) {
 	dir := t.TempDir()
+	path := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(path, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	s := NewSession(dir)
-	modResult := &modulecheck.ModuleResult{ModuleRoot: dir}
+	modResult := &modulecheck.ModuleResult{
+		ModuleRoot:      dir,
+		ForstPkgToFiles: map[string][]string{"main": {path}},
+	}
 	s.StoreModuleResult(dir, modResult)
 	if _, ok := s.CachedModuleResult(dir); !ok {
 		t.Fatal("expected cached module result")
 	}
-	s.NoteChange(filepath.Join(dir, "main.ft"))
+	s.NoteChange(path)
+	if _, ok := s.CachedModuleResult(dir); !ok {
+		t.Fatal("expected cache hit when file unchanged on disk after NoteChange")
+	}
+	if err := os.WriteFile(path, []byte("package main\n// edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, ok := s.CachedModuleResult(dir); ok {
-		t.Fatal("expected cache miss after NoteChange")
+		t.Fatal("expected cache miss after file edit on disk")
 	}
 }
 

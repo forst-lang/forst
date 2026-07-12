@@ -26,8 +26,13 @@ func (c *Compiler) checkModuleProvidersWithSession(moduleRoot string, opts modul
 		if cached, ok := c.Args.DevSession.CachedModuleResult(moduleRoot); ok {
 			return cached, nil
 		}
-		// Do not pass DevSession.ParsedFiles here: entry-package parse caching runs before
-		// modulecheck and would hide sibling packages (e.g. forst/bcrypt.ft) from ScanModule.
+		if opts.ParsedFiles == nil {
+			if parsed, err := c.Args.DevSession.ParsedFilesForModuleCheck(c.log, moduleRoot); err != nil {
+				return nil, err
+			} else if len(parsed) > 0 {
+				opts.ParsedFiles = parsed
+			}
+		}
 	}
 	result, err := modulecheck.CheckModuleProviders(c.log, opts)
 	if err == nil && result != nil && c.Args.DevSession != nil {
