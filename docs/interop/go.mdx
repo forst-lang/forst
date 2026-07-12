@@ -67,7 +67,7 @@ When a Go function takes a variadic parameter, spread a Forst slice subslice at 
 
 <InteropExecSpread />
 
-See **`examples/in/go_interop.ft`** (`task example:go-interop`).
+See **`examples/in/go_interop/cli.ft`** and **`helpers.go`** (`task example:go-interop`).
 
 ## Fields and methods on Go values
 
@@ -115,7 +115,7 @@ Use **`-root`** to merge all same-package sources under a tree, matching discove
 npx forst run -root ./handlers handlers/orders.ft
 ```
 
-The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`). Same-package `.go` symbols participate in typechecking and [LSP hover](/workflow/editor) when the mixed package import path is set.
+The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`). Exported funcs from co-located **`.go`** files resolve **without** an import line (same package). Example: `examples/in/go_interop/helpers.go` called from `custom.ft` / `cli.ft`.
 
 ## Runtime validation
 

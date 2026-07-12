@@ -254,6 +254,9 @@ func (tc *TypeChecker) importPathForGoType(goType types.Type) string {
 	if goType == nil {
 		return ""
 	}
+	if ptr, ok := goType.(*types.Pointer); ok {
+		goType = ptr.Elem()
+	}
 	if named, ok := goType.(*types.Named); ok {
 		if pkg := named.Obj().Pkg(); pkg != nil {
 			return pkg.Path()

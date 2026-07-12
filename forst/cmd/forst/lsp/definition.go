@@ -72,6 +72,9 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 		if loc := s.definingLocationForNodeImportPath(ctx, tok); loc != nil {
 			return loc
 		}
+		if loc := s.definingLocationForGoImportPath(ctx, tok); loc != nil {
+			return loc
+		}
 		return nil
 	}
 	if tok.Type != ast.TokenIdentifier {
@@ -97,6 +100,18 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 		return loc
 	}
 	if loc := s.definingLocationForNodeImportLocal(ctx, tokIdx, tok); loc != nil {
+		return loc
+	}
+	if loc := s.definingLocationForQualifiedGoImport(ctx, tokIdx); loc != nil {
+		return loc
+	}
+	if loc := s.definingLocationForGoReceiverMethod(ctx, tokIdx); loc != nil {
+		return loc
+	}
+	if loc := s.definingLocationForGoImportLocal(ctx, tokIdx, tok); loc != nil {
+		return loc
+	}
+	if loc := s.definingLocationForGoUnqualifiedExport(ctx, tok); loc != nil {
 		return loc
 	}
 	if loc := s.definingLocationForQualifiedImport(ctx, tokIdx); loc != nil {

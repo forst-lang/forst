@@ -1,0 +1,9 @@
+package main
+
+// runCustomDemo calls exported funcs from helpers.go in the same package (no import line).
+func runCustomDemo() {
+	sum := AddInts(40, 2)
+	println(sum)
+	message := GreetUpper("forst")
+	println(message)
+}

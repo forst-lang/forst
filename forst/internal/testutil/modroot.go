@@ -50,6 +50,7 @@ func ModuleRootFrom(tb testing.TB, start string) string {
 func ExamplePath(tb testing.TB, rel string) string {
 	tb.Helper()
 	candidates := []string{
+		filepath.Join("..", "..", "..", "..", "examples", "in", rel),
 		filepath.Join("..", "..", "..", "examples", "in", rel),
 		filepath.Join("..", "..", "examples", "in", rel),
 		filepath.Join("examples", "in", rel),

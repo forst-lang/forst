@@ -2,8 +2,10 @@ package typechecker
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
+	"forst/internal/goload"
 	"forst/internal/testutil"
 )
 
@@ -21,7 +23,7 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"generics.ft",
 		"go_builtins.ft",
 		"slices.ft",
-		"go_interop.ft",
+		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",
 		"union_error_types.ft",
@@ -42,8 +44,10 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 				t.Fatalf("read: %v", err)
 			}
 			opts := testutil.TypecheckOpts{FileID: name}
-			if name == "go_interop.ft" {
-				opts.UseModuleRoot = true
+			if name == "go_interop/cli.ft" {
+				dir := filepath.Dir(path)
+				opts.GoWorkspaceDir = goload.FindModuleRoot(dir)
+				opts.SamePackageGoImport = "go_interop"
 				opts.SkipUnlessGoImport = "exec"
 			}
 			MustTypecheck(t, string(srcBytes), opts)

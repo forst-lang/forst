@@ -45,7 +45,7 @@ func TestPipeline_examplesInKnownGood(t *testing.T) {
 		"pointers.ft",
 		"go_builtins.ft",
 		"slices.ft",
-		"go_interop.ft",
+		"go_interop/cli.ft",
 		"basic_function.ft",
 		"result_if.ft",
 		"nominal_error.ft",
