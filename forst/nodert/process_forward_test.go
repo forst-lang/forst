@@ -40,6 +40,30 @@ func TestForwardChildOutput_copiesToDestination(t *testing.T) {
 	}
 }
 
+func TestForwardChildOutput_preservesAnsi(t *testing.T) {
+	pr, pw := io.Pipe()
+	done := make(chan struct{})
+	rec := &writeRecorder{}
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+
+	go func() {
+		forwardChildOutput(pr, rec, log, "stdout")
+		close(done)
+	}()
+
+	colored := "\x1b[32mgreen\x1b[0m\n"
+	if _, err := pw.Write([]byte(colored)); err != nil {
+		t.Fatal(err)
+	}
+	_ = pw.Close()
+	<-done
+
+	if got := rec.buf.String(); got != colored {
+		t.Fatalf("forwarded = %q want %q", got, colored)
+	}
+}
+
 func TestForwardChildOutput_logsAtDebug(t *testing.T) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
