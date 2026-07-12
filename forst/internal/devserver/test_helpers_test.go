@@ -8,6 +8,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type testLogHook struct {
+	callback func(*logrus.Entry)
+}
+
+func (h *testLogHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
+func (h *testLogHook) Fire(entry *logrus.Entry) error {
+	if h.callback != nil {
+		h.callback(entry)
+	}
+	return nil
+}
+
 // newTestLogCapture returns a logger and a thread-safe snapshot of logged lines.
 func newTestLogCapture(level logrus.Level) (*logrus.Logger, func() string) {
 	var (

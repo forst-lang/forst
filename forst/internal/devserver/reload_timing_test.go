@@ -153,21 +153,6 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 	}
 }
 
-type testLogHook struct {
-	callback func(*logrus.Entry)
-}
-
-func (h *testLogHook) Levels() []logrus.Level {
-	return logrus.AllLevels
-}
-
-func (h *testLogHook) Fire(entry *logrus.Entry) error {
-	if h.callback != nil {
-		h.callback(entry)
-	}
-	return nil
-}
-
 func TestReloadProfileEnabled(t *testing.T) {
 	t.Setenv(envReloadTrace, "")
 	if reloadProfileEnabled(&ftconfig.Config{Dev: ftconfig.DevConfig{HotReload: true}}) {
