@@ -9,19 +9,22 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"forst/internal/ftconfig"
+	"forst/internal/invokeserver"
 )
 
 const (
-	defaultPortFreeTimeout   = 10 * time.Second
-	defaultInvokeReadyWait   = 30 * time.Second
-	invokeReadyPollInterval  = 100 * time.Millisecond
-	reloadingMarkerName      = "reloading"
-	invokeReadyMarkerName    = "invoke.ready"
+	defaultPortFreeTimeout  = 10 * time.Second
+	defaultInvokeReadyWait  = 30 * time.Second
+	invokeReadyPollInterval = 100 * time.Millisecond
+	maxInvokePortAttempts   = 64
+	reloadingMarkerName       = "reloading"
+	invokeReadyMarkerName     = "invoke.ready"
 )
 
 // ReloadMarker is written to boundaryRoot/.forst/reloading during hot reload.
@@ -77,10 +80,96 @@ func InvokeListenAddr(cfg *ftconfig.Config) string {
 // InvokeBaseURL returns http://host:port for health polling.
 func InvokeBaseURL(cfg *ftconfig.Config) string {
 	host, port, _ := net.SplitHostPort(InvokeListenAddr(cfg))
+	return InvokeBaseURLFromHostPort(host, port)
+}
+
+// InvokeBaseURLFromHostPort builds http://host:port for invoke health checks.
+func InvokeBaseURLFromHostPort(host, port string) string {
 	if host == "" {
 		host = "127.0.0.1"
 	}
+	if port == "" {
+		port = ftconfig.DefaultEmbeddedInvokePort
+	}
 	return "http://" + net.JoinHostPort(host, port)
+}
+
+// PickInvokePort returns the first bindable port >= preferred on host.
+func PickInvokePort(cfg *ftconfig.Config, cliPortOverride string) (host, port string, err error) {
+	preferred := EffectiveListenPort(cfg, cliPortOverride)
+	host = "127.0.0.1"
+	if cfg != nil {
+		host = cfg.Server.EffectiveInvokeHost()
+	}
+	port, err = FindNextFreeInvokePort(host, preferred)
+	return host, port, err
+}
+
+// findNextFreeInvokePortFn may be replaced in tests.
+var findNextFreeInvokePortFn = findNextFreeInvokePortDefault
+
+// FindNextFreeInvokePort returns the first bindable TCP port >= preferred.
+func FindNextFreeInvokePort(host, preferred string) (string, error) {
+	return findNextFreeInvokePortFn(host, preferred)
+}
+
+func findNextFreeInvokePortDefault(host, preferred string) (string, error) {
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	start, err := strconv.Atoi(preferred)
+	if err != nil || start <= 0 {
+		start, _ = strconv.Atoi(ftconfig.DefaultEmbeddedInvokePort)
+		if start <= 0 {
+			start = 6321
+		}
+	}
+	reserved := reservedInvokePorts()
+	for i := 0; i < maxInvokePortAttempts; i++ {
+		port := strconv.Itoa(start + i)
+		if _, skip := reserved[port]; skip {
+			continue
+		}
+		if portCanListen(host, port) {
+			return port, nil
+		}
+	}
+	return "", fmt.Errorf("no free invoke port near %s on %s after %d attempts", preferred, host, maxInvokePortAttempts)
+}
+
+func reservedInvokePorts() map[string]struct{} {
+	reserved := make(map[string]struct{})
+	for _, key := range []string{"PORT", "FORST_DEV_PORT", "VITE_PORT"} {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			reserved[v] = struct{}{}
+		}
+	}
+	return reserved
+}
+
+func portCanListen(host, port string) bool {
+	ln, err := net.Listen("tcp", net.JoinHostPort(host, port))
+	if err != nil {
+		return false
+	}
+	_ = ln.Close()
+	return true
+}
+
+// ReadInvokeReadyURL returns the invoke base URL from boundaryRoot/.forst/invoke.ready.
+func ReadInvokeReadyURL(boundaryRoot string) (string, error) {
+	raw, err := os.ReadFile(invokeReadyPath(boundaryRoot))
+	if err != nil {
+		return "", err
+	}
+	var payload invokeserver.InvokeReadyPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return "", fmt.Errorf("parse invoke.ready: %w", err)
+	}
+	if payload.URL == "" {
+		return "", fmt.Errorf("invoke.ready missing url")
+	}
+	return strings.TrimRight(payload.URL, "/"), nil
 }
 
 // WaitPortFree blocks until nothing accepts TCP connections on addr.
@@ -122,7 +211,7 @@ func isConnRefused(err error) bool {
 // invokeReadyWaiter may be replaced in tests to avoid polling a real HTTP server.
 var invokeReadyWaiter = WaitForInvokeReady
 
-// WaitForInvokeReady polls /health and invoke.ready until the new child is serving.
+// WaitForInvokeReady polls invoke.ready and /health until the new child is serving.
 func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, timeout time.Duration) error {
 	if timeout <= 0 {
 		timeout = defaultInvokeReadyWait
@@ -130,6 +219,7 @@ func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, tim
 	deadline := time.Now().Add(timeout)
 	client := &http.Client{Timeout: 2 * time.Second}
 	readyPath := invokeReadyPath(boundaryRoot)
+	lastHealthURL := healthURL
 
 	for time.Now().Before(deadline) {
 		select {
@@ -146,7 +236,11 @@ func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, tim
 			continue
 		}
 
-		resp, err := client.Get(healthURL)
+		if url, err := ReadInvokeReadyURL(boundaryRoot); err == nil && url != "" {
+			lastHealthURL = strings.TrimRight(url, "/") + "/health"
+		}
+
+		resp, err := client.Get(lastHealthURL)
 		if err != nil {
 			time.Sleep(invokeReadyPollInterval)
 			continue
@@ -167,5 +261,5 @@ func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, tim
 		}
 		return nil
 	}
-	return fmt.Errorf("invoke server not ready at %s within %v", healthURL, timeout)
+	return fmt.Errorf("invoke server not ready at %s within %v", lastHealthURL, timeout)
 }

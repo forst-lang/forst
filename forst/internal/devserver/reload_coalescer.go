@@ -16,10 +16,25 @@ func newReloadCoalescer(fn func()) *reloadCoalescer {
 }
 
 // runSync executes fn once on the caller goroutine (initial startup).
+// Concurrent schedule() calls coalesce into one follow-up reload.
 func (c *reloadCoalescer) runSync() {
 	if c == nil || c.fn == nil {
 		return
 	}
+	c.mu.Lock()
+	c.running = true
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		if c.pending {
+			c.pending = false
+			c.mu.Unlock()
+			go c.loop()
+			return
+		}
+		c.running = false
+		c.mu.Unlock()
+	}()
 	c.fn()
 }
 

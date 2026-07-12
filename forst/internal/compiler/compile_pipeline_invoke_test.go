@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"forst/internal/discovery"
+	"forst/internal/devcompile"
+	"forst/internal/modulecheck"
 )
 
 func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
@@ -41,6 +43,52 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		if !strings.Contains(invokeCode, want) {
 			t.Fatalf("missing %q in invoke companion:\n%s", want, invokeCode)
 		}
+	}
+}
+
+// TestCompile_embeddedInvoke_reloadProfile_modulecheckPassCount documents redundant
+// CheckModuleProviders runs during a typical embedded-invoke dev reload compile.
+// Phase 1 fix: dedupe via CollectInvokeFunctionsFromModuleResult (expect passes == 1).
+func TestCompile_embeddedInvoke_reloadProfile_modulecheckPassCount(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module reloadprofiletest\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+  return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	modulecheck.ResetPassCountForTest()
+	c := New(Args{
+		Command:       "run",
+		FilePath:      filepath.Join(dir, "main.ft"),
+		PackageRoot:   dir,
+		ReloadProfile: true,
+		LogLevel:      "error",
+	}, nil)
+	_, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if invokeCode == "" {
+		t.Fatal("expected invoke companion")
+	}
+	passes := modulecheck.PassCount()
+	if passes != 1 {
+		t.Fatalf("expected exactly 1 CheckModuleProviders pass after dedupe, got %d", passes)
 	}
 }
 
@@ -235,6 +283,91 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	if !strings.Contains(nodeRuntime, "forstNodeManifestJSON") {
 		t.Fatalf("node runtime missing manifest:\n%s", nodeRuntime)
+	}
+}
+
+// DevSession caches entry-package parses before modulecheck; modulecheck must still see sibling packages.
+func TestCompile_embeddedInvoke_devSession_crossPackageExports(t *testing.T) {
+	dir := t.TempDir()
+	forstGomod := filepath.Join(dir, ".forst-gomod")
+	forstDir := filepath.Join(dir, "forst")
+	scriptsDir := filepath.Join(dir, "scripts")
+	for _, d := range []string{forstGomod, forstDir, scriptsDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	forstModule := forstCompilerModuleRoot(t)
+	goMod := "module example.com/app/forst\n\ngo 1.26.0\n\nrequire forst v0.0.0\n\nreplace forst => " + forstModule + "\n"
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ftconfig := `{
+  "server": {"embedded": true, "port": "6321"},
+  "node": {
+    "enabled": true,
+    "hostMode": true,
+    "binary": "node",
+    "args": ["scripts/host.mjs"]
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(ftconfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainSrc := `package main
+
+func main() {
+	println("ready")
+}
+`
+	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bcryptSrc := `package bcrypt
+
+type ComparePasswordRequest = {
+	plainPassword: String,
+	passwordHash: String
+}
+
+type ComparePasswordResponse = {
+	valid: Bool
+}
+
+func ComparePassword(input ComparePasswordRequest) {
+	return { valid: true }
+}
+`
+	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	session := devcompile.NewSession(dir)
+	mainPath := filepath.Join(forstDir, "main.ft")
+	if _, err := session.ParseFile(nil, mainPath); err != nil {
+		t.Fatalf("prime session cache with entry file: %v", err)
+	}
+
+	c := New(Args{
+		Command:       "run",
+		FilePath:      mainPath,
+		PackageRoot:   dir,
+		ReloadProfile: true,
+		DevSession:    session,
+		LogLevel:      "error",
+	}, nil)
+	_, _, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if invokeCode == "" {
+		t.Fatal("expected invoke companion when sibling package has runnable exports")
+	}
+	if _, ok := extraPkgs["bcrypt"]; !ok {
+		t.Fatalf("expected extra bcrypt package, got %v", extraPkgs)
+	}
+	if !strings.Contains(invokeCode, "forst_invoke_bcrypt_ComparePassword") {
+		t.Fatalf("missing bcrypt handler in companion:\n%s", invokeCode)
 	}
 }
 

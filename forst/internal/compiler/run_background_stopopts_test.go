@@ -93,3 +93,14 @@ func TestStopOpts_groupKillTerminatesChild(t *testing.T) {
 		t.Fatal("timed out stopping go program")
 	}
 }
+
+func TestReloadStopGrace_attachOnlyUsesShorterGrace(t *testing.T) {
+	t.Setenv("FORST_NODE_ATTACH_ONLY", "1")
+	if ReloadStopGrace() != reloadStopGrace {
+		t.Fatalf("expected %v, got %v", reloadStopGrace, ReloadStopGrace())
+	}
+	t.Setenv("FORST_NODE_ATTACH_ONLY", "")
+	if ReloadStopGrace() != defaultGoProgramStopGrace {
+		t.Fatalf("expected default grace %v, got %v", defaultGoProgramStopGrace, ReloadStopGrace())
+	}
+}

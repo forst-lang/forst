@@ -40,10 +40,11 @@ func TestWatchPackageRoot_ignoresNonFt(t *testing.T) {
 
 	var triggers atomic.Int32
 	done := make(chan struct{})
+	stop := make(chan struct{})
 	go func() {
-		_ = WatchPackageRoot(nil, dir, nil, 50*time.Millisecond, func() {
+		_ = WatchPackageRoot(nil, dir, nil, 50*time.Millisecond, func(string) {
 			triggers.Add(1)
-		})
+		}, stop)
 		close(done)
 	}()
 
@@ -65,6 +66,44 @@ func TestWatchPackageRoot_ignoresNonFt(t *testing.T) {
 	}
 	if triggers.Load() < 1 {
 		t.Fatal("expected .ft write to trigger reload")
+	}
+	close(stop)
+	<-done
+}
+
+func TestWatchPackageRoot_detectsAtomicRenameSave(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	writeEntry(t, dir, "main.ft", "package main\n")
+
+	var triggers atomic.Int32
+	done := make(chan struct{})
+	stop := make(chan struct{})
+	go func() {
+		_ = WatchPackageRoot(nil, dir, nil, 50*time.Millisecond, func(string) {
+			triggers.Add(1)
+		}, stop)
+		close(done)
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+
+	tmpPath := mainPath + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte("package main\n// renamed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmpPath, mainPath); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for triggers.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	close(stop)
+	<-done
+	if triggers.Load() < 1 {
+		t.Fatal("expected atomic rename save to trigger reload")
 	}
 }
 
@@ -264,12 +303,12 @@ func TestCollectWatchDirs_onlyParentsOfForstFiles(t *testing.T) {
 func stubInvokeReadyWaiter(t *testing.T) func() {
 	t.Helper()
 	origReady := invokeReadyWaiter
-	origPort := portFreeWaiter
+	origPortPick := findNextFreeInvokePortFn
 	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error { return nil }
-	portFreeWaiter = func(string, time.Duration) error { return nil }
+	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
 	return func() {
 		invokeReadyWaiter = origReady
-		portFreeWaiter = origPort
+		findNextFreeInvokePortFn = origPortPick
 	}
 }
 
@@ -340,8 +379,8 @@ func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 	mu.Lock()
 	got := append([]string(nil), order...)
 	mu.Unlock()
-	// initial: compile, start; reload: stop before second compile
-	want := []string{"compile", "start", "stop", "compile", "start"}
+	// initial: compile, start; reload: compile (incl. build) before stop
+	want := []string{"compile", "start", "compile", "stop", "start"}
 	if len(got) < len(want) {
 		t.Fatalf("order=%v want at least %v", got, want)
 	}
@@ -358,12 +397,12 @@ func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
 
 	origReady := invokeReadyWaiter
-	origPort := portFreeWaiter
+	origPortPick := findNextFreeInvokePortFn
 	invokeReadyWaiter = WaitForInvokeReady
-	portFreeWaiter = func(string, time.Duration) error { return nil }
+	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
 	t.Cleanup(func() {
 		invokeReadyWaiter = origReady
-		portFreeWaiter = origPort
+		findNextFreeInvokePortFn = origPortPick
 	})
 
 	exited := make(chan error, 1)

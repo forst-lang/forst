@@ -26,7 +26,7 @@ func TestRunningChild_stopForReload_suppressesExitAlarm(t *testing.T) {
 	log.SetOutput(&buf)
 	log.SetLevel(logrus.DebugLevel)
 
-	child.stopForReload(log)
+	child.stopForReload(log, t.TempDir())
 	time.Sleep(50 * time.Millisecond)
 
 	if strings.Contains(buf.String(), "Generated program exited") {

@@ -241,6 +241,10 @@ function attachConnectionHandler(server: net.Server): void {
     conn.on("close", () => {
       if (activeConnection === conn) {
         activeConnection = null;
+        if (activeRpcFiber) {
+          void Effect.runPromise(Fiber.interrupt(activeRpcFiber));
+          activeRpcFiber = null;
+        }
       }
     });
     activeRpcFiber = Effect.runFork(

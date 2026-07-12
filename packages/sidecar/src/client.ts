@@ -50,13 +50,24 @@ export class ForstSidecarClient {
     }
     const httpTransport = createHttpInvokeTransport({
       baseUrl: this.config.baseUrl,
+      resolveBaseUrl: this.config.resolveBaseUrl,
       timeout: this.config.timeout,
       fetchFn: this.config.fetchFn,
     });
     this.transport =
       this.config.reloadAware === false
         ? httpTransport
-        : createReloadAwareTransport(httpTransport);
+        : createReloadAwareTransport(httpTransport, {
+            resolveBaseUrl: this.config.resolveBaseUrl,
+          });
+  }
+
+  private effectiveBaseUrl(): string {
+    return (
+      this.config.resolveBaseUrl?.() ??
+      this.config.baseUrl ??
+      "http://127.0.0.1:6321"
+    ).replace(/\/$/, "");
   }
 
   /**
@@ -65,7 +76,7 @@ export class ForstSidecarClient {
   async discoverFunctions(): Promise<FunctionInfo[]> {
     try {
       logger.debug(
-        `🔍 Discovering functions from ${this.config.baseUrl}/functions`
+        `🔍 Discovering functions from ${this.effectiveBaseUrl()}/functions`
       );
       const response = await this.makeRequest("/functions", {
         method: "GET",
@@ -356,7 +367,7 @@ export class ForstSidecarClient {
   async healthCheck(): Promise<boolean> {
     try {
       logger.debug(
-        `🏥 Performing health check to ${this.config.baseUrl}/health`
+        `🏥 Performing health check to ${this.effectiveBaseUrl()}/health`
       );
       const response = await this.makeRequest("/health", {
         method: "GET",
@@ -379,7 +390,7 @@ export class ForstSidecarClient {
     endpoint: string,
     options: RequestInit
   ): Promise<InvokeResponse<T>> {
-    const url = `${this.config.baseUrl}${endpoint}`;
+    const url = `${this.effectiveBaseUrl()}${endpoint}`;
     let lastError: Error | null = null;
 
     logger.debug(`🌐 Making request to: ${url}`);

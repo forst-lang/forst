@@ -11,7 +11,8 @@ export type FetchImpl = (
 ) => Promise<Response>;
 
 export interface HttpInvokeTransportConfig {
-  baseUrl: string;
+  baseUrl?: string;
+  resolveBaseUrl?: () => string | undefined;
   timeout?: number;
   fetchFn?: FetchImpl;
   extraHeaders?: Record<string, string>;
@@ -31,7 +32,6 @@ const defaultFetch: FetchImpl = (input, init) => fetch(input, init);
 export function createHttpInvokeTransport(
   config: HttpInvokeTransportConfig
 ): InvokeTransport {
-  const baseUrl = config.baseUrl.replace(/\/$/, "");
   const timeoutMs = config.timeout ?? 30_000;
   const fetchFn = config.fetchFn ?? defaultFetch;
   const defaultHeaders: Record<string, string> = {
@@ -40,9 +40,17 @@ export function createHttpInvokeTransport(
     ...config.extraHeaders,
   };
 
+  const resolveBaseUrl = (): string => {
+    const raw = config.resolveBaseUrl?.() ?? config.baseUrl;
+    if (!raw) {
+      throw new Error("invoke transport: missing baseUrl");
+    }
+    return raw.replace(/\/$/, "");
+  };
+
   return {
     request(endpoint, init) {
-      const url = `${baseUrl}${endpoint}`;
+      const url = `${resolveBaseUrl()}${endpoint}`;
       return Effect.tryPromise({
         try: () =>
           fetchFn(url, {

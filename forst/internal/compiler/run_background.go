@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"forst/internal/gowork"
+	"forst/nodert"
 )
 
 const defaultGoProgramStopGrace = 5 * time.Second
@@ -33,6 +35,68 @@ type GoProgramProcess struct {
 	done   chan error
 }
 
+// BuildGoProgramInSandbox compiles generated Go sources to binPath without running.
+func BuildGoProgramInSandbox(mainGoPath, binPath, boundaryRoot string) error {
+	dir, sources, err := runGoSourceFiles(mainGoPath)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("go", append([]string{"build", "-o", binPath}, sources...)...)
+	cmd.Dir = dir
+	env := os.Environ()
+	if boundaryRoot != "" {
+		env = setRunEnvBoundaryRoot(env, boundaryRoot)
+		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(mainGoPath))
+		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(mainGoPath), needsCompiler)
+		env = gowork.ChildEnv(env, plan, boundaryRoot)
+	}
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("go build in sandbox: %w\n%s", err, out)
+	}
+	return nil
+}
+
+// ExecBuiltProgram runs a prebuilt binary in the background (non-blocking).
+func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
+	cmd := exec.Command(binPath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Dir = filepath.Dir(binPath)
+	env := os.Environ()
+	if boundaryRoot != "" {
+		env = setRunEnvBoundaryRoot(env, boundaryRoot)
+		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(binPath))
+		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(binPath), needsCompiler)
+		env = gowork.ChildEnv(env, plan, boundaryRoot)
+	}
+	cmd.Env = env
+	proc := &GoProgramProcess{
+		cmd:  cmd,
+		done: make(chan error, 1),
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = io.MultiWriter(os.Stderr, &proc.stderr)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	go func() {
+		waitErr := cmd.Wait()
+		proc.done <- formatRunProgramError(waitErr, proc.stderr.String())
+	}()
+	return proc, nil
+}
+
+const reloadStopGrace = 1 * time.Second
+
+// ReloadStopGrace returns the SIGTERM grace for dev reload child stop.
+func ReloadStopGrace() time.Duration {
+	if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
+		return reloadStopGrace
+	}
+	return defaultGoProgramStopGrace
+}
+
 // StartGoProgram runs generated Go in the background (non-blocking).
 func StartGoProgram(outputPath, boundaryRoot string) (*GoProgramProcess, error) {
 	cmd, err := newGoRunCommand(outputPath, boundaryRoot)
@@ -53,6 +117,14 @@ func StartGoProgram(outputPath, boundaryRoot string) (*GoProgramProcess, error) 
 		proc.done <- formatRunProgramError(waitErr, proc.stderr.String())
 	}()
 	return proc, nil
+}
+
+// PID returns the child process id, or 0 when unknown.
+func (p *GoProgramProcess) PID() int {
+	if p == nil || p.cmd == nil || p.cmd.Process == nil {
+		return 0
+	}
+	return p.cmd.Process.Pid
 }
 
 // Done returns a channel that receives the go run exit error (if any).

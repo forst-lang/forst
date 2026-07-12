@@ -86,7 +86,7 @@ func TestWriteInvokeReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var payload invokeReadyPayload
+	var payload InvokeReadyPayload
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
 	}

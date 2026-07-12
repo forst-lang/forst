@@ -63,6 +63,47 @@ func canListen(addr string) bool {
 	return true
 }
 
+func TestFindNextFreeInvokePort_skipsBoundPort(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, boundPort, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	next, err := FindNextFreeInvokePort("127.0.0.1", boundPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next == boundPort {
+		t.Fatalf("expected port after %s, got same port", boundPort)
+	}
+	if !portCanListen("127.0.0.1", next) {
+		t.Fatalf("picked port %s is not bindable", next)
+	}
+}
+
+func TestReadInvokeReadyURL_parsesPayload(t *testing.T) {
+	dir := t.TempDir()
+	path := invokeReadyPath(dir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"url":"http://127.0.0.1:6323","contractVersion":"1","runtime":"embedded"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadInvokeReadyURL(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "http://127.0.0.1:6323" {
+		t.Fatalf("url=%q", got)
+	}
+}
+
 func TestRemoveInvokeReady(t *testing.T) {
 	dir := t.TempDir()
 	path := invokeReadyPath(dir)
@@ -77,5 +118,40 @@ func TestRemoveInvokeReady(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("expected invoke.ready removed, err=%v", err)
+	}
+}
+
+func TestWaitForInvokeReady_usesInvokeReadyURL(t *testing.T) {
+	dir := t.TempDir()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	baseURL := "http://" + ln.Addr().String()
+	go func() {
+		for {
+			conn, acceptErr := ln.Accept()
+			if acceptErr != nil {
+				return
+			}
+			_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"success\":true}"))
+			_ = conn.Close()
+		}
+	}()
+
+	readyPath := invokeReadyPath(dir)
+	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(map[string]string{"url": baseURL})
+	if err := os.WriteFile(readyPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exited <-chan error
+	if err := WaitForInvokeReady(dir, "http://127.0.0.1:1/health", exited, time.Second); err != nil {
+		t.Fatalf("WaitForInvokeReady: %v", err)
 	}
 }

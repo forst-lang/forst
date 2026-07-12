@@ -43,14 +43,7 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 		if err != nil {
 			return nil, err
 		}
-		parsed = make(map[string][]ast.Node)
-		for _, filePath := range ftFiles {
-			nodes, err := forstpkg.ParseForstFile(log, filePath)
-			if err != nil {
-				continue
-			}
-			parsed[filePath] = nodes
-		}
+		parsed = forstpkg.ParseFilesLenientParallel(log, ftFiles)
 	}
 
 	byPackage := make(map[string][]string)

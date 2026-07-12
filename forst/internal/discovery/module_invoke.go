@@ -8,6 +8,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// CollectInvokeFunctionsFromModuleResult returns runnable public exports from an existing
+// modulecheck result without re-running CheckModuleProviders.
+func CollectInvokeFunctionsFromModuleResult(modResult *modulecheck.ModuleResult) []FunctionInfo {
+	if modResult == nil {
+		return nil
+	}
+	var out []FunctionInfo
+	for pkg, nodes := range modResult.PerPackageNodes {
+		tc := modResult.PerPackage[pkg]
+		for _, fn := range CollectInvokeFunctionsFromNodes(nodes, tc) {
+			out = append(out, fn)
+		}
+	}
+	return out
+}
+
 // CollectInvokeFunctionsFromModule returns runnable public exports across all Forst packages
 // under boundaryRoot (modulecheck graph).
 func CollectInvokeFunctionsFromModule(log *logrus.Logger, boundaryRoot string) ([]FunctionInfo, error) {
@@ -22,14 +38,7 @@ func CollectInvokeFunctionsFromModule(log *logrus.Logger, boundaryRoot string) (
 	if err != nil {
 		return nil, err
 	}
-	var out []FunctionInfo
-	for pkg, nodes := range modResult.PerPackageNodes {
-		tc := modResult.PerPackage[pkg]
-		for _, fn := range CollectInvokeFunctionsFromNodes(nodes, tc) {
-			out = append(out, fn)
-		}
-	}
-	return out, nil
+	return CollectInvokeFunctionsFromModuleResult(modResult), nil
 }
 
 // CrossPackageInvokeExports returns runnable exports in packages other than compiledPkg.

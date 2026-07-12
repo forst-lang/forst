@@ -1,10 +1,10 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/discovery"
-	"forst/internal/ftconfig"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
@@ -14,7 +14,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
+	"golang.org/x/sync/errgroup"
 	goast "go/ast"
 )
 
@@ -71,15 +74,26 @@ type compileGoOutput struct {
 }
 
 func (c *Compiler) compileToGo() (compileGoOutput, error) {
+	profile := c.reloadProfileEnabled()
+	var timings CompilePhaseTimings
+
+	loadStart := time.Now()
 	forstNodes, err := c.loadInputNodesForCompile()
 	if err != nil {
 		return compileGoOutput{}, err
+	}
+	if profile {
+		timings.LoadParseMs = elapsedMs(loadStart)
 	}
 
 	c.reportPhase("Performing semantic analysis...")
 	memBefore := getMemStats()
 
+	typecheckStart := time.Now()
 	checker, modResult, err := c.typecheckForCompile(forstNodes)
+	if profile {
+		timings.TypecheckMs = elapsedMs(typecheckStart)
+	}
 	if err != nil {
 		c.log.Error("Encountered error checking types: ", err)
 		if checker != nil {
@@ -103,7 +117,11 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	c.reportPhase("Performing code generation...")
 	memBefore = getMemStats()
 
+	codegenStart := time.Now()
 	out, err := c.transformCheckedNodes(checker, modResult, forstNodes)
+	if profile {
+		timings.CodegenMs = elapsedMs(codegenStart)
+	}
 	if err != nil {
 		return compileGoOutput{}, err
 	}
@@ -140,6 +158,10 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 		}
 	}
 
+	if profile {
+		c.lastCompileTimings = timings
+	}
+
 	return out, nil
 }
 
@@ -172,13 +194,18 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 		return compileGoOutput{}, err
 	}
 
-	invokeServerCode, err := c.generateInvokeServerCode(transformer, forstNodes)
+	moduleInvokeFns, err := c.resolveModuleInvokeFunctions(modResult)
+	if err != nil {
+		return compileGoOutput{}, err
+	}
+
+	invokeServerCode, err := c.generateInvokeServerCode(transformer, forstNodes, moduleInvokeFns)
 	if err != nil {
 		return compileGoOutput{}, err
 	}
 
 	if invokeServerCode == "" && c.embedInvokeEnabled() {
-		if diag := c.embeddedInvokeMisconfigDiagnostic(transformer, forstNodes); diag != "" {
+		if diag := c.embeddedInvokeMisconfigDiagnostic(transformer, forstNodes, moduleInvokeFns); diag != "" {
 			return compileGoOutput{}, fmt.Errorf("%s", diag)
 		}
 	}
@@ -200,7 +227,7 @@ func (c *Compiler) transformCheckedNodes(checker *typechecker.TypeChecker, modRe
 		}
 	}
 
-	extraPkgs, extraImports, err := c.compileExtraInvokePackages(modResult, forstNodes, invokeServerCode != "")
+	extraPkgs, extraImports, err := c.compileExtraInvokePackages(modResult, forstNodes, invokeServerCode != "", moduleInvokeFns)
 	if err != nil {
 		return compileGoOutput{}, err
 	}
@@ -233,16 +260,30 @@ func canonicalForstPackageImportPath(modResult *modulecheck.ModuleResult, forstP
 	return best
 }
 
-func (c *Compiler) compileExtraInvokePackages(modResult *modulecheck.ModuleResult, entryNodes []ast.Node, hasCompanion bool) (map[string]string, map[string]string, error) {
+func (c *Compiler) resolveModuleInvokeFunctions(modResult *modulecheck.ModuleResult) ([]discovery.FunctionInfo, error) {
+	if !c.embedInvokeEnabled() || RunBoundaryRoot(c.Args) == "" || c.Args.PackageRoot == "" {
+		return nil, nil
+	}
+	if modResult != nil {
+		return discovery.CollectInvokeFunctionsFromModuleResult(modResult), nil
+	}
+	boundary := RunBoundaryRoot(c.Args)
+	fns, err := discovery.CollectInvokeFunctionsFromModule(c.log, boundary)
+	if err != nil {
+		if hint := goload.MissingGoModuleSetupHint(boundary); hint != "" && !strings.Contains(err.Error(), ".forst-gomod") {
+			return nil, fmt.Errorf("embedded invoke: discover exports: %w; %s", err, hint)
+		}
+		return nil, fmt.Errorf("embedded invoke: discover exports: %w", err)
+	}
+	return fns, nil
+}
+
+func (c *Compiler) compileExtraInvokePackages(modResult *modulecheck.ModuleResult, entryNodes []ast.Node, hasCompanion bool, moduleFns []discovery.FunctionInfo) (map[string]string, map[string]string, error) {
 	if !hasCompanion || modResult == nil || c.Args.PackageRoot == "" {
 		return nil, nil, nil
 	}
 	entryPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(entryNodes))
 	needed := make(map[string]struct{})
-	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(c.log, RunBoundaryRoot(c.Args))
-	if err != nil {
-		return nil, nil, err
-	}
 	for _, fn := range moduleFns {
 		if fn.Package != entryPkg && fn.Package != "" {
 			needed[fn.Package] = struct{}{}
@@ -253,29 +294,44 @@ func (c *Compiler) compileExtraInvokePackages(modResult *modulecheck.ModuleResul
 	}
 	out := make(map[string]string)
 	imports := make(map[string]string)
+	var mu sync.Mutex
+	g, ctx := errgroup.WithContext(context.Background())
+	g.SetLimit(4)
 	for pkg := range needed {
+		pkg := pkg
 		nodes := modResult.PerPackageNodes[pkg]
 		tc := modResult.PerPackage[pkg]
 		if nodes == nil || tc == nil {
 			continue
 		}
-		tr := transformer_go.New(tc, c.log, c.Args.ExportStructFields)
-		tr.SetModuleResult(modResult)
-		goAST, err := transformForstFileToGoCompile(tr, nodes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("extra package %q: %w", pkg, err)
-		}
-		code, err := generateGoCodeCompile(goAST)
-		if err != nil {
-			return nil, nil, fmt.Errorf("extra package %q emit: %w", pkg, err)
-		}
-		out[pkg] = code
-		imports[pkg] = canonicalForstPackageImportPath(modResult, pkg)
+		g.Go(func() error {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			tr := transformer_go.New(tc, c.log, c.Args.ExportStructFields)
+			tr.SetModuleResult(modResult)
+			goAST, err := transformForstFileToGoCompile(tr, nodes)
+			if err != nil {
+				return fmt.Errorf("extra package %q: %w", pkg, err)
+			}
+			code, err := generateGoCodeCompile(goAST)
+			if err != nil {
+				return fmt.Errorf("extra package %q emit: %w", pkg, err)
+			}
+			mu.Lock()
+			out[pkg] = code
+			imports[pkg] = canonicalForstPackageImportPath(modResult, pkg)
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
 	}
 	return out, imports, nil
 }
 
-func (c *Compiler) embeddedInvokeMisconfigDiagnostic(transformer *transformer_go.Transformer, entryNodes []ast.Node) string {
+func (c *Compiler) embeddedInvokeMisconfigDiagnostic(transformer *transformer_go.Transformer, entryNodes []ast.Node, moduleFns []discovery.FunctionInfo) string {
 	if transformer == nil || !transformer.EmbedInvokeServer || !transformer.IsMainPackage() {
 		return ""
 	}
@@ -286,8 +342,7 @@ func (c *Compiler) embeddedInvokeMisconfigDiagnostic(transformer *transformer_go
 	if boundary == "" {
 		return ""
 	}
-	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(c.log, boundary)
-	if err != nil || len(moduleFns) == 0 {
+	if len(moduleFns) == 0 {
 		return ""
 	}
 	compiledPkg := transformer.Output.PackageName()
@@ -355,45 +410,30 @@ func invokeServerOutputPath(outputPath string) string {
 	return base + "_forst_invoke_server.gen" + ext
 }
 
-func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node) (string, error) {
+func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node, moduleFns []discovery.FunctionInfo) (string, error) {
 	if transformer == nil || !c.embedInvokeEnabled() {
 		return "", nil
 	}
 	boundary := RunBoundaryRoot(c.Args)
 	if boundary != "" && c.Args.PackageRoot != "" {
-		functions, err := discovery.CollectInvokeFunctionsFromModule(c.log, boundary)
-		if err != nil {
-			if hint := goload.MissingGoModuleSetupHint(boundary); hint != "" && !strings.Contains(err.Error(), ".forst-gomod") {
-				return "", fmt.Errorf("embedded invoke: discover exports: %w; %s", err, hint)
-			}
-			return "", fmt.Errorf("embedded invoke: discover exports: %w", err)
-		}
-		if len(functions) > 0 {
-			return transformer.InvokeServerSourceFromFunctions(true, functions)
+		if len(moduleFns) > 0 {
+			return transformer.InvokeServerSourceFromFunctions(true, moduleFns)
 		}
 	}
 	return transformer.InvokeServerSource(c.embedInvokeEnabled(), nodes)
 }
 
 func (c *Compiler) embedInvokeEnabled() bool {
-	root := RunBoundaryRoot(c.Args)
-	if root == "" {
-		return false
-	}
-	cfg, err := ftconfig.LoadFromDir(root)
-	if err != nil {
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil {
 		return false
 	}
 	return cfg.Server.Embedded
 }
 
 func (c *Compiler) nodeHostModeEnabled() bool {
-	root := RunBoundaryRoot(c.Args)
-	if root == "" {
-		return false
-	}
-	cfg, err := ftconfig.LoadFromDir(root)
-	if err != nil {
+	cfg, err := c.loadFtconfig()
+	if err != nil || cfg == nil {
 		return false
 	}
 	return cfg.Node.HostMode

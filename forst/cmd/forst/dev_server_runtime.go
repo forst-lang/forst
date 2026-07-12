@@ -10,6 +10,7 @@ import (
 	"forst/internal/compiler"
 	"forst/internal/devserver"
 	"forst/internal/ftconfig"
+	"forst/internal/invokeserver"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -103,8 +104,17 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 	log.Infof("forst dev: profile=%s", profile)
 
 	if profile == devserver.ProfileRuntime {
-		invokePort := devserver.EffectiveListenPort(&config.Config, port)
-		_ = os.Setenv("FORST_INVOKE_PORT", invokePort)
+		host, invokePort, err := devserver.PickInvokePort(&config.Config, port)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		preferred := devserver.EffectiveListenPort(&config.Config, port)
+		if invokePort != preferred {
+			log.Info(devserver.FormatInvokePortShiftLog(preferred, invokePort))
+		}
+		_ = os.Setenv(invokeserver.EnvInvokePort, invokePort)
+		_ = host // embedded invoke always binds loopback; host kept for future use
 		entry, err := devserver.ResolveEntry(rootDir, &config.Config, entryCLI)
 		if err != nil {
 			log.Error(err)

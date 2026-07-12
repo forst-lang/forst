@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"forst/internal/codegen/layout"
+	"forst/internal/ftconfig"
 	"forst/internal/goload"
 	"forst/internal/gowork"
 	"forst/internal/logger"
@@ -17,6 +18,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,6 +30,11 @@ var mkdirTemp = os.MkdirTemp
 type Compiler struct {
 	Args Args
 	log  *logrus.Logger
+	// lastCompileTimings holds sub-phase durations from the most recent compileToGo when ReloadProfile is on.
+	lastCompileTimings CompilePhaseTimings
+	ftconfigOnce       sync.Once
+	ftconfigCache      *ftconfig.Config
+	ftconfigErr        error
 }
 
 func New(args Args, log *logrus.Logger) *Compiler {
@@ -170,6 +178,8 @@ func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string) error {
 	return nil
 }
 
+const envInvokePort = "FORST_INVOKE_PORT"
+
 func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered := make([]string, 0, len(env)+1)
 	prefix := nodert.EnvBoundaryRoot + "="
@@ -181,6 +191,9 @@ func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered = append(filtered, prefix+boundaryRoot)
 	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
 		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
+	}
+	if v := os.Getenv(envInvokePort); v != "" {
+		filtered = appendRunEnvVar(filtered, envInvokePort, v)
 	}
 	return filtered
 }
@@ -280,19 +293,33 @@ func (c *Compiler) reportPhase(phase string) {
 
 // CreateTempOutputFiles writes main and optional companion Go files into a temp dir for `go run`.
 func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string) (string, error) {
+	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{})
+}
+
+// CreateTempOutputFilesProfiled writes temp output files and records sandbox write timing.
+func CreateTempOutputFilesProfiled(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, sandboxTiming *CompileSandboxTiming) (string, error) {
+	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{sandboxTiming: sandboxTiming})
+}
+
+// CreateDevReloadOutputFiles writes into the stable dev sandbox and skips redundant go mod tidy.
+func CreateDevReloadOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, modTidyCache *SandboxModCache, sandboxTiming *CompileSandboxTiming) (string, error) {
+	return createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, extraImportPaths, boundaryRoot, sandboxWriteOpts{
+		stableDir:     true,
+		modTidyCache:  modTidyCache,
+		sandboxTiming: sandboxTiming,
+	})
+}
+
+func createTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, extraImportPaths map[string]string, boundaryRoot string, opts sandboxWriteOpts) (string, error) {
+	sandboxStart := time.Now()
 	needsCompiler := needsForstCompilerModule(nodeRuntimeCode, invokeServerCode)
 	var tempDir string
 	var goModPath string
 	if boundaryRoot != "" {
-		layoutRoot := layout.NewRoot(boundaryRoot)
-		runBase := filepath.Join(layoutRoot.Boundary, ".forst", "run")
-		if err := os.MkdirAll(runBase, 0o755); err != nil {
-			return "", err
-		}
 		var err error
-		tempDir, err = mkdirTemp(runBase, "forst-*")
+		tempDir, err = resolveSandboxDir(boundaryRoot, opts.stableDir)
 		if err != nil {
-			return "", fmt.Errorf("failed to create temp directory: %v", err)
+			return "", err
 		}
 		goModPath = filepath.Join(tempDir, "go.mod")
 	} else {
@@ -349,9 +376,28 @@ func CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode string, e
 		}
 	}
 	if needsCompiler && boundaryRoot != "" {
-		if err := tidyRunSandboxGoMod(goModPath, boundaryRoot); err != nil {
-			return "", err
+		needsTidy, err := true, error(nil)
+		if opts.modTidyCache != nil {
+			needsTidy, err = opts.modTidyCache.NeedsTidy(goModPath)
+			if err != nil {
+				return "", err
+			}
 		}
+		if needsTidy {
+			tidyStart := time.Now()
+			if err := tidyRunSandboxGoMod(goModPath, boundaryRoot); err != nil {
+				return "", err
+			}
+			if opts.modTidyCache != nil {
+				_ = opts.modTidyCache.Record(goModPath)
+			}
+			if opts.sandboxTiming != nil {
+				opts.sandboxTiming.GoModTidyMs = time.Since(tidyStart).Milliseconds()
+			}
+		}
+	}
+	if opts.sandboxTiming != nil {
+		opts.sandboxTiming.WriteSandboxMs = time.Since(sandboxStart).Milliseconds()
 	}
 	return outputPath, nil
 }

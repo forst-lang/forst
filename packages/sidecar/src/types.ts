@@ -67,7 +67,9 @@ export interface StreamingResult {
 /** HTTP client options for `ForstSidecarClient`. */
 export interface ForstClientConfig {
   /** Base URL of the Forst dev server (e.g. `http://localhost:6320`). */
-  baseUrl: string;
+  baseUrl?: string;
+  /** Re-resolve base URL per request (e.g. from `.forst/invoke.ready` after dev reload). */
+  resolveBaseUrl?: () => string | undefined;
   /** Per-request timeout in ms. */
   timeout?: number;
   /** Retries after transient failures (exponential backoff). Reload 503s are parked separately. */

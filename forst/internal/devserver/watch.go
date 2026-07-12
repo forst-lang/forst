@@ -20,7 +20,9 @@ import (
 const defaultWatchDebounce = 100 * time.Millisecond
 
 // WatchPackageRoot watches .ft writes under boundaryRoot and calls onChange (debounced).
-func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config, debounce time.Duration, onChange func()) error {
+// onChange receives the changed file path when available.
+// When stop is closed, watching ends and returns nil.
+func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config, debounce time.Duration, onChange func(changedPath string), stop <-chan struct{}) error {
 	boundaryRoot = filepath.Clean(boundaryRoot)
 	if debounce <= 0 {
 		debounce = defaultWatchDebounce
@@ -53,17 +55,26 @@ func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Con
 	}
 
 	var debounceTimer *time.Timer
-	trigger := func() {
-		watchDebounce(&debounceTimer, debounce, onChange)
+	var pendingPath string
+	trigger := func(changedPath string) {
+		if changedPath != "" {
+			pendingPath = changedPath
+		}
+		path := pendingPath
+		watchDebounce(&debounceTimer, debounce, func() {
+			onChange(path)
+		})
 	}
 
 	for {
 		select {
+		case <-stop:
+			return nil
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil
 			}
-			if event.Op&fsnotify.Write != fsnotify.Write {
+			if !isRelevantWatchOp(event.Op) {
 				continue
 			}
 			if !isWatchedForstFile(event.Name, cfg) {
@@ -72,7 +83,7 @@ func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Con
 			if log != nil {
 				log.Debugf("Detected change in %s", event.Name)
 			}
-			trigger()
+			trigger(event.Name)
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return nil
@@ -82,6 +93,10 @@ func WatchPackageRoot(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Con
 			}
 		}
 	}
+}
+
+func isRelevantWatchOp(op fsnotify.Op) bool {
+	return op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0
 }
 
 func watchDebounce(timer **time.Timer, d time.Duration, fn func()) {
@@ -190,27 +205,36 @@ type runningChild struct {
 	stop            func() error
 	exited          <-chan error
 	intentionalStop atomic.Bool
+	pid             int
 }
 
 func defaultStartProgram(outputPath, boundaryRoot string) (*runningChild, error) {
-	proc, err := compiler.StartGoProgram(outputPath, boundaryRoot)
+	var proc *compiler.GoProgramProcess
+	var err error
+	if compiler.IsDevBinPath(outputPath, boundaryRoot) {
+		proc, err = compiler.ExecBuiltProgram(outputPath, boundaryRoot)
+	} else {
+		proc, err = compiler.StartGoProgram(outputPath, boundaryRoot)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &runningChild{
 		stop: func() error {
-			return proc.Stop(compiler.DefaultGoProgramStopGrace(), compiler.StopOpts{})
+			return proc.Stop(compiler.ReloadStopGrace(), compiler.StopOpts{})
 		},
 		exited: proc.Done(),
+		pid:    proc.PID(),
 	}, nil
 }
 
-func (c *runningChild) stopForReload(log *logrus.Logger) {
+func (c *runningChild) stopForReload(log *logrus.Logger, boundaryRoot string) {
 	if c == nil {
 		return
 	}
 	c.intentionalStop.Store(true)
 	_ = c.stop()
+	_ = ClearGoChildPID(boundaryRoot)
 	if log != nil {
 		if os.Getenv(nodert.EnvNodeAttachOnly) == "1" {
 			log.Debug("Stopped previous build for reload (attach-only host preserved)")

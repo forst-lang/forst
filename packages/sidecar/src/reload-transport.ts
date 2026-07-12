@@ -19,6 +19,8 @@ export interface DevServerHealthSnapshot {
 export interface ReloadAwareTransportConfig {
   /** Poll interval cap while waiting for reload to finish (ms). */
   maxPollIntervalMs?: number;
+  /** Re-resolve invoke base URL each health poll (e.g. from invoke.ready). */
+  resolveBaseUrl?: () => string | undefined;
   fetchHealth?: (transport: InvokeTransport) => Effect.Effect<DevServerHealthSnapshot, Error>;
 }
 

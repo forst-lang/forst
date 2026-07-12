@@ -42,15 +42,15 @@ func TestPerformDevReload_compilesBeforeChildStop(t *testing.T) {
 	}
 
 	origInvokeReady := invokeReadyWaiter
-	origPortFree := portFreeWaiter
+	origPortPick := findNextFreeInvokePortFn
 	t.Cleanup(func() {
 		invokeReadyWaiter = origInvokeReady
-		portFreeWaiter = origPortFree
+		findNextFreeInvokePortFn = origPortPick
 	})
 	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error {
 		return nil
 	}
-	portFreeWaiter = func(string, time.Duration) error { return nil }
+	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)

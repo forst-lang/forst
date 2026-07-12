@@ -41,6 +41,7 @@ type ModuleResult struct {
 
 // CheckModuleProviders typechecks all Forst packages in a module and runs cross-package fixed-point.
 func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, error) {
+	incPassCount(log)
 	return runModulePipeline(log, opts)
 }
 
