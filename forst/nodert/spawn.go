@@ -9,10 +9,43 @@ import (
 	"strings"
 )
 
+// Host-mode environment variable names.
+//
+// Go sets these on the direct app-shim child when ftconfig node.hostMode is true
+// (BuildHostSpawnCommand → buildSpawnEnv). @forst/node-runtime reads them in
+// host/register.mjs and host.ts. Child processes spawned by the shim (Vite workers,
+// cluster forks, etc.) may inherit the values but must not act as host leaders —
+// see FORST_NODE_HOST_LEADER and register preload via argv, not NODE_OPTIONS.
+//
+//   FORST_NODE_HOST
+//     Gate for host RPC in Node. When "1", startForstNodeHost() may bind the RPC
+//     socket; when unset, host code no-ops. Set only in host mode; bootstrap mode
+//     uses stdio RPC and does not set this variable.
+//
+//   FORST_NODE_HOST_LEADER
+//     Marks the process Go spawned as the sole host leader. startForstNodeHost()
+//     requires "1" and register.mjs in process.execArgv; workers that inherit
+//     FORST_NODE_HOST without leader/preload skip binding (host_skip_non_leader).
+//     Do not set manually except for tests.
+//
+//   FORST_NODE_SOCKET
+//     Absolute path to the Unix domain socket (loopback TCP URL on Windows) where
+//     the in-process host listens for Go RPC. Defaults from node.hostSocket under
+//     the boundary root (.forst/node.sock). Go dials this after readiness; may
+//     also be read at spawn planning time via ResolveHostSocketPath when set in
+//     the parent environment.
+//
+//   FORST_NODE_HOST_READY
+//     Absolute path to a JSON readiness marker (typically socketPath + ".ready").
+//     The host writes {"pid", "socket", "phase"} after listen and/or app init;
+//     Go polls until phase is "app" before connecting. Used to avoid dialing
+//     before third-party shims (Remix, Vite) finish bootstrapping when
+//     hostAppReadyModule or signalForstAppReady() defer readiness.
 const (
-	envNodeHost      = "FORST_NODE_HOST"
-	envNodeSocket    = "FORST_NODE_SOCKET"
-	envNodeHostReady = "FORST_NODE_HOST_READY"
+	envNodeHost       = "FORST_NODE_HOST"
+	envNodeHostLeader = "FORST_NODE_HOST_LEADER"
+	envNodeSocket     = "FORST_NODE_SOCKET"
+	envNodeHostReady  = "FORST_NODE_HOST_READY"
 )
 
 // mergeNodeOptions appends import flags idempotently to existing NODE_OPTIONS.
@@ -35,6 +68,65 @@ func mergeNodeOptions(existing string, additions ...string) string {
 	return result
 }
 
+func stripNodeOptionImports(existing string, substrings ...string) string {
+	existing = strings.TrimSpace(existing)
+	if existing == "" {
+		return ""
+	}
+	parts := strings.Fields(existing)
+	var kept []string
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+		if part == "--import" && i+1 < len(parts) {
+			path := parts[i+1]
+			if nodeOptionImportMatches(path, substrings...) {
+				i++
+				continue
+			}
+			kept = append(kept, part, path)
+			i++
+			continue
+		}
+		if strings.HasPrefix(part, "--import=") {
+			path := strings.TrimPrefix(part, "--import=")
+			if nodeOptionImportMatches(path, substrings...) {
+				continue
+			}
+		}
+		kept = append(kept, part)
+	}
+	return strings.Join(kept, " ")
+}
+
+func nodeOptionImportMatches(path string, substrings ...string) bool {
+	for _, sub := range substrings {
+		if sub != "" && strings.Contains(path, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+func sanitizeHostChildEnv(env []string) []string {
+	env = stripNodeOptionImportsEnv(env, "register.mjs", "register.cjs")
+	return env
+}
+
+func stripNodeOptionImportsEnv(env []string, substrings ...string) []string {
+	opts := lookupEnvValue(env, "NODE_OPTIONS")
+	if opts == "" {
+		return env
+	}
+	cleaned := stripNodeOptionImports(opts, substrings...)
+	if cleaned == opts {
+		return env
+	}
+	if cleaned == "" {
+		return filterEnv(env, "NODE_OPTIONS")
+	}
+	return setEnvVar(env, "NODE_OPTIONS", cleaned)
+}
+
 func lookupEnvValue(env []string, key string) string {
 	prefix := key + "="
 	for _, entry := range env {
@@ -43,6 +135,18 @@ func lookupEnvValue(env []string, key string) string {
 		}
 	}
 	return ""
+}
+
+func filterEnv(env []string, dropKey string) []string {
+	prefix := dropKey + "="
+	out := make([]string, 0, len(env))
+	for _, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func setEnvDefault(env []string, key, value string) []string {
@@ -171,7 +275,13 @@ func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, err
 }
 
 // PrepareHostSocket removes stale socket and ready marker files.
+// If the ready marker references a live process, returns an error instead of clobbering it.
 func PrepareHostSocket(socketPath, readyPath string) error {
+	if readyPath != "" {
+		if marker, ok := readHostReadyMarker(readyPath); ok && processAlive(marker.PID) {
+			return fmt.Errorf("node runtime: host already running (pid=%d, socket=%s)", marker.PID, socketPath)
+		}
+	}
 	if socketPath != "" {
 		if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("node runtime: remove stale host socket: %w", err)
@@ -187,6 +297,42 @@ func PrepareHostSocket(socketPath, readyPath string) error {
 		return fmt.Errorf("node runtime: create host socket dir: %w", err)
 	}
 	return nil
+}
+
+func stdoutIsTTY() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func applyHostSpawnColorEnv(env []string) []string {
+	if lookupEnvValue(env, "NO_COLOR") != "" {
+		return env
+	}
+	if lookupEnvValue(env, "FORCE_COLOR") != "" {
+		return env
+	}
+	if !stdoutIsTTY() {
+		return env
+	}
+	return setEnvDefault(env, "FORCE_COLOR", "1")
+}
+
+func prependNodeImportArgs(shimArgs []string, importPaths ...string) []string {
+	args := make([]string, 0, len(importPaths)*2+len(shimArgs))
+	for _, importPath := range importPaths {
+		importPath = strings.TrimSpace(importPath)
+		if importPath == "" {
+			continue
+		}
+		if strings.HasPrefix(importPath, "--import ") {
+			importPath = strings.TrimSpace(strings.TrimPrefix(importPath, "--import "))
+		}
+		args = append(args, "--import", importPath)
+	}
+	return append(args, shimArgs...)
 }
 
 // BootstrapSpawnInput configures bootstrap-mode child spawn.
@@ -302,6 +448,7 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 	env = setEnvVar(env, "NODE_OPTIONS", merged)
 	if in.HostMode {
 		env = setEnvVar(env, envNodeHost, "1")
+		env = setEnvVar(env, envNodeHostLeader, "1")
 		env = setEnvDefault(env, "HOST", "127.0.0.1")
 		if in.SocketPath != "" {
 			env = setEnvVar(env, envNodeSocket, in.SocketPath)
@@ -309,6 +456,8 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 		if in.ReadyPath != "" {
 			env = setEnvVar(env, envNodeHostReady, in.ReadyPath)
 		}
+		env = sanitizeHostChildEnv(env)
+		env = applyHostSpawnColorEnv(env)
 	}
 	return env
 }
@@ -336,26 +485,25 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 	if loader == "" {
 		loader = "tsx"
 	}
-	var tsxImport string
+	var importPaths []string
 	switch loader {
 	case "tsx":
 		tsxLoader, err := ResolveTsxLoaderPath(in.BoundaryRoot, in.WorkDir)
 		if err != nil {
 			return HostSpawnCommand{}, err
 		}
-		tsxImport = "--import " + tsxLoader
+		importPaths = append(importPaths, tsxLoader)
 	default:
 		return HostSpawnCommand{}, fmt.Errorf("unsupported node loader %q", loader)
 	}
 
-	nodeOptions := []string{tsxImport}
 	childEnv := append([]string(nil), in.Env...)
 	if in.HostAutoRegister {
 		registerPath, err := ResolveHostRegisterPath(in.BoundaryRoot)
 		if err != nil {
 			return HostSpawnCommand{}, err
 		}
-		nodeOptions = append(nodeOptions, "--import "+registerPath)
+		importPaths = append(importPaths, registerPath)
 	}
 	if in.HostAppReadyModule != "" {
 		childEnv = setEnvVar(childEnv, envNodeAppReadyModule, in.HostAppReadyModule)
@@ -365,7 +513,6 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		BoundaryRoot: in.BoundaryRoot,
 		FilesExclude: in.FilesExclude,
 		Env:          childEnv,
-		NodeOptions:  nodeOptions,
 		HostMode:     true,
 		SocketPath:   socketPath,
 		ReadyPath:    readyPath,
@@ -373,7 +520,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 
 	return HostSpawnCommand{
 		Executable: executable,
-		Args:       append([]string(nil), in.ShimArgs...),
+		Args:       prependNodeImportArgs(in.ShimArgs, importPaths...),
 		Env:        env,
 		SocketPath: socketPath,
 		ReadyPath:  readyPath,

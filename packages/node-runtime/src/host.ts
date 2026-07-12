@@ -13,6 +13,7 @@ import { startRpcServer } from "./rpc/server.js";
 import * as HostErrors from "./host/errors.js";
 
 const envHostEnabled = "FORST_NODE_HOST";
+const envHostLeader = "FORST_NODE_HOST_LEADER";
 const envSocketPath = "FORST_NODE_SOCKET";
 const envReadyPath = "FORST_NODE_HOST_READY";
 
@@ -56,6 +57,58 @@ function hostEnabled(): boolean {
   return process.env[envHostEnabled] === "1";
 }
 
+let hostLeaderOverrideForTest: boolean | null = null;
+
+function registerPreloaded(): boolean {
+  const argv = process.execArgv;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i] ?? "";
+    if (arg === "--import" && argv[i + 1]?.includes("register.mjs")) {
+      return true;
+    }
+    if (arg.includes("register.mjs")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hostLeaderEnabled(): boolean {
+  if (hostLeaderOverrideForTest != null) {
+    return hostLeaderOverrideForTest;
+  }
+  if (process.env[envHostLeader] !== "1") {
+    return false;
+  }
+  return registerPreloaded();
+}
+
+interface HostReadyMarker {
+  pid?: number;
+  socket?: string;
+  phase?: string;
+}
+
+function readReadyMarker(readyPath: string): HostReadyMarker | null {
+  try {
+    return JSON.parse(fs.readFileSync(readyPath, "utf8")) as HostReadyMarker;
+  } catch {
+    return null;
+  }
+}
+
+function processAlive(pid: number): boolean {
+  if (pid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isWindows(): boolean {
   return process.platform === "win32";
 }
@@ -94,8 +147,26 @@ function chmodSocket(socketPath: string): void {
 function listenUnix(socketPath: string): Effect.Effect<net.Server, Error, never> {
   return Effect.async<net.Server, Error>((resume) => {
     const dir = path.dirname(socketPath);
+    const readyPath = process.env[envReadyPath] ?? "";
     try {
       fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+      if (readyPath) {
+        const marker = readReadyMarker(readyPath);
+        if (
+          marker?.pid &&
+          marker.pid !== process.pid &&
+          processAlive(marker.pid)
+        ) {
+          resume(
+            Effect.fail(
+              new Error(
+                `host already running (pid=${marker.pid}, socket=${socketPath})`
+              )
+            )
+          );
+          return;
+        }
+      }
       if (fs.existsSync(socketPath)) {
         try {
           fs.unlinkSync(socketPath);
@@ -109,7 +180,20 @@ function listenUnix(socketPath: string): Effect.Effect<net.Server, Error, never>
     }
 
     const server = net.createServer();
-    server.on("error", (err) => resume(Effect.fail(err)));
+    server.on("error", (err) => {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "EADDRINUSE") {
+        resume(
+          Effect.fail(
+            new Error(
+              `host socket already in use (socket=${socketPath}); another host process may be running`
+            )
+          )
+        );
+        return;
+      }
+      resume(Effect.fail(err));
+    });
     server.listen(socketPath, () => {
       chmodSocket(socketPath);
       resume(Effect.succeed(server));
@@ -197,6 +281,12 @@ export function resetHostForTest(): void {
   appReadySignaled = false;
   hostRuntimeLayer = ForstNodeRuntimeLayer;
   hostRuntime = createNodeRuntimeSetup(ForstNodeRuntimeLayer).runtime;
+  hostLeaderOverrideForTest = null;
+}
+
+/** Test-only: bypass register preload check for direct startForstNodeHost calls. */
+export function setHostLeaderOverrideForTest(value: boolean | null): void {
+  hostLeaderOverrideForTest = value;
 }
 
 const closeHostHandle = Effect.fn("Host.close")(function* (ctx: HostCloseContext) {
@@ -245,6 +335,20 @@ const closeHostHandle = Effect.fn("Host.close")(function* (ctx: HostCloseContext
     },
     catch: (cause) => causeToError(cause),
   });
+});
+
+const hostStartNonLeaderNoop = Effect.fn("Host.startNonLeaderNoop")(function* () {
+  yield* Effect.logDebug("host_skip_non_leader").pipe(
+    Effect.annotateLogs({
+      event: "host_skip_non_leader",
+      reason: "FORST_NODE_HOST_LEADER unset",
+      pid: process.pid,
+    })
+  );
+  return {
+    socketPath: "",
+    close: () => Effect.void,
+  } satisfies HostHandle;
 });
 
 const hostStartNoop = Effect.fn("Host.startNoop")(function* () {
@@ -348,6 +452,10 @@ export function startForstNodeHost(
 ): Effect.Effect<HostHandle, Error, never> {
   if (!hostEnabled()) {
     return hostStartNoop();
+  }
+
+  if (!hostLeaderEnabled()) {
+    return hostStartNonLeaderNoop();
   }
 
   if (startPromise) {

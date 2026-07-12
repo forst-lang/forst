@@ -1,8 +1,10 @@
 package nodert
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -160,18 +162,24 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cmd.Args) != 1 || cmd.Args[0] != "server.js" {
+	wantRegister := filepath.Join(root, "node_modules", "@forst", "node-runtime", "dist", "host", "register.mjs")
+	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
+	if len(cmd.Args) != 5 || cmd.Args[0] != "--import" || cmd.Args[1] != wantLoader ||
+		cmd.Args[2] != "--import" || cmd.Args[3] != wantRegister || cmd.Args[4] != "server.js" {
 		t.Fatalf("args = %#v", cmd.Args)
 	}
 	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
 	}
+	if lookupEnvValue(cmd.Env, envNodeHostLeader) != "1" {
+		t.Fatalf("missing leader env: %#v", cmd.Env)
+	}
 	if lookupEnvValue(cmd.Env, envNodeSocket) == "" {
 		t.Fatalf("missing socket env: %#v", cmd.Env)
 	}
 	nodeOpts := lookupEnvValue(cmd.Env, "NODE_OPTIONS")
-	if !strings.Contains(nodeOpts, "--import") || !strings.Contains(nodeOpts, "register.mjs") {
-		t.Fatalf("NODE_OPTIONS = %q", nodeOpts)
+	if strings.Contains(nodeOpts, "register.mjs") {
+		t.Fatalf("register.mjs must not be in NODE_OPTIONS, got %q", nodeOpts)
 	}
 	if got := lookupEnvValue(cmd.Env, envNodeAppReadyModule); got != appReadyModule {
 		t.Fatalf("FORST_NODE_APP_READY_MODULE = %q want %q", got, appReadyModule)
@@ -202,11 +210,15 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cmd.Args) != 1 || cmd.Args[0] != "server.js" {
+	wantLoader := filepath.Join(root, "node_modules", "tsx", "dist", "loader.mjs")
+	if len(cmd.Args) != 3 || cmd.Args[0] != "--import" || cmd.Args[1] != wantLoader || cmd.Args[2] != "server.js" {
 		t.Fatalf("args = %#v", cmd.Args)
 	}
 	if lookupEnvValue(cmd.Env, envNodeHost) != "1" {
 		t.Fatalf("env = %#v", cmd.Env)
+	}
+	if lookupEnvValue(cmd.Env, envNodeHostLeader) != "1" {
+		t.Fatalf("missing leader env: %#v", cmd.Env)
 	}
 	if lookupEnvValue(cmd.Env, "HOST") != "127.0.0.1" {
 		t.Fatalf("HOST = %q want 127.0.0.1", lookupEnvValue(cmd.Env, "HOST"))
@@ -223,6 +235,29 @@ func TestBuildSpawnEnv_defaultsHostWhenUnset(t *testing.T) {
 	}
 }
 
+func TestStripNodeOptionImports_removesRegister(t *testing.T) {
+	existing := "--require ./a.cjs --import /path/to/register.mjs --import /tsx/loader.mjs"
+	got := stripNodeOptionImports(existing, "register.mjs")
+	want := "--require ./a.cjs --import /tsx/loader.mjs"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestSanitizeHostChildEnv_stripsRegisterFromInheritedNodeOptions(t *testing.T) {
+	env := sanitizeHostChildEnv([]string{
+		"NODE_OPTIONS=--import /app/register.mjs --max-old-space-size=4096",
+		"PATH=/usr/bin",
+	})
+	nodeOpts := lookupEnvValue(env, "NODE_OPTIONS")
+	if strings.Contains(nodeOpts, "register.mjs") {
+		t.Fatalf("NODE_OPTIONS = %q", nodeOpts)
+	}
+	if !strings.Contains(nodeOpts, "max-old-space-size=4096") {
+		t.Fatalf("NODE_OPTIONS = %q", nodeOpts)
+	}
+}
+
 func TestBuildSpawnEnv_preservesExplicitHost(t *testing.T) {
 	env := buildSpawnEnv(spawnEnvInput{
 		HostMode: true,
@@ -230,5 +265,52 @@ func TestBuildSpawnEnv_preservesExplicitHost(t *testing.T) {
 	})
 	if lookupEnvValue(env, "HOST") != "0.0.0.0" {
 		t.Fatalf("HOST = %q want 0.0.0.0", lookupEnvValue(env, "HOST"))
+	}
+}
+
+func TestApplyHostSpawnColorEnv_respectsNoColor(t *testing.T) {
+	env := applyHostSpawnColorEnv([]string{"NO_COLOR=1"})
+	if lookupEnvValue(env, "FORCE_COLOR") != "" {
+		t.Fatalf("FORCE_COLOR = %q want unset", lookupEnvValue(env, "FORCE_COLOR"))
+	}
+}
+
+func TestApplyHostSpawnColorEnv_preservesExistingForceColor(t *testing.T) {
+	env := applyHostSpawnColorEnv([]string{"FORCE_COLOR=2"})
+	if lookupEnvValue(env, "FORCE_COLOR") != "2" {
+		t.Fatalf("FORCE_COLOR = %q want 2", lookupEnvValue(env, "FORCE_COLOR"))
+	}
+}
+
+func TestPrependNodeImportArgs(t *testing.T) {
+	got := prependNodeImportArgs([]string{"server.js"}, "/tsx/loader.mjs", "/host/register.mjs")
+	want := []string{"--import", "/tsx/loader.mjs", "--import", "/host/register.mjs", "server.js"}
+	if len(got) != len(want) {
+		t.Fatalf("got %#v want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %#v want %#v", got, want)
+		}
+	}
+}
+
+func TestPrepareHostSocket_rejectsLiveHost(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix socket test")
+	}
+	dir := t.TempDir()
+	socketPath := filepath.Join(dir, "node.sock")
+	readyPath := socketPath + ".ready"
+	marker := fmt.Sprintf(`{"pid":%d,"socket":%q,"phase":"app"}`+"\n", os.Getpid(), socketPath)
+	if err := os.WriteFile(readyPath, []byte(marker), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := PrepareHostSocket(socketPath, readyPath)
+	if err == nil {
+		t.Fatal("expected error for live host")
+	}
+	if !strings.Contains(err.Error(), "host already running") {
+		t.Fatalf("err = %v", err)
 	}
 }

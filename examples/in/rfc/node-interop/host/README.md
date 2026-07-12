@@ -11,6 +11,10 @@ Fixture for **host mode**: Go spawns an app shim (`node app/server.mjs`) and con
 | `legacy/counter.ts` | TypeScript export reading `globalThis.__forstTest` |
 | `main.ft` | Forst entry calling `counter.inc` at runtime |
 
+## Host environment variables
+
+Go sets `FORST_NODE_HOST`, `FORST_NODE_HOST_LEADER`, `FORST_NODE_SOCKET`, and `FORST_NODE_HOST_READY` on the direct shim child. See [Call JavaScript from Forst — host mode environment variables](https://docs.forst.dev/interop/node/call-javascript#host-mode-environment-variables) for semantics, readiness phases, and worker vs leader behavior.
+
 ## Compile
 
 From repo root:

@@ -46,6 +46,7 @@ process.exit(0);
         env: {
           ...process.env,
           FORST_NODE_HOST: "1",
+          FORST_NODE_HOST_LEADER: "1",
           FORST_NODE_SOCKET: socketPath,
           FORST_NODE_HOST_READY: readyPath,
           FORST_NODE_APP_READY_MODULE: appReadyModule,
@@ -95,6 +96,7 @@ process.exit(0);
         env: {
           ...process.env,
           FORST_NODE_HOST: "1",
+          FORST_NODE_HOST_LEADER: "1",
           FORST_NODE_SOCKET: socketPath,
           FORST_NODE_HOST_READY: readyPath,
           NODE_OPTIONS: "",

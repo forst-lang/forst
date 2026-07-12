@@ -147,7 +147,7 @@ Use host mode when the legacy app must share **module cache, globals, and instru
 
 **Readiness model:** the host socket may listen before the app is safe for RPC. The ready file uses `phase: "app"`; Go dials only after app readiness is signaled.
 
-**Default (third-party shims like remix-serve):** Go auto-injects a blocking `register.mjs` preload when `hostMode` is enabled (`hostAutoRegister`, default `true`). For shims that do not need a custom init hook, omit `hostAppReadyModule` — `register.mjs` signals readiness as soon as the host socket is listening. Only set `hostAppReadyModule` when you need to run setup code **before** RPC (must be a tiny, side-effect-free module — never your full server bundle):
+**Default (third-party shims like remix-serve):** Go auto-injects a blocking `register.mjs` preload when `hostMode` is enabled (`hostAutoRegister`, default `true`). The preload is passed as a **`node --import`** flag on the **direct** shim spawn only — not via `NODE_OPTIONS` — so Vite/Remix worker processes do not each try to bind the host socket. For shims that do not need a custom init hook, omit `hostAppReadyModule` — `register.mjs` signals readiness as soon as the host socket is listening. Only set `hostAppReadyModule` when you need to run setup code **before** RPC (must be a tiny, side-effect-free module — never your full server bundle):
 
 ```json
 {
@@ -175,19 +175,38 @@ await signalForstAppReady();
 **Manual preload** (advanced; opt out with `hostAutoRegister: false`):
 
 ```text
-NODE_OPTIONS="--import @forst/node-runtime/host/register.mjs"
+node --import @forst/node-runtime/host/register.mjs ./your-server.mjs
 ```
 
 | Field | Purpose |
 | --- | --- |
 | `node.hostMode` | When `true`, Go spawns `node.binary` with `node.args` instead of bootstrap |
 | `node.args` | **Required** when `hostMode` is true — argv passed to the app shim |
-| `node.hostAutoRegister` | Inject blocking `register.mjs` via `NODE_OPTIONS --import` (default `true` when `hostMode`) |
+| `node.hostAutoRegister` | Prepend `--import register.mjs` on the direct shim argv (default `true` when `hostMode`) |
 | `node.hostAppReadyModule` | Optional module loaded before `signalForstAppReady()` when auto-register needs deferred readiness (not your server entry) |
 | `node.hostSocket` | Relative path under boundary root for the Unix socket (default `.forst/node.sock`) |
 | `node.hostReadyTimeoutSeconds` | Max wait for `phase: "app"` ready marker (default `120`) |
 
-Go sets `FORST_NODE_HOST=1`, `FORST_NODE_SOCKET`, and `FORST_NODE_HOST_READY` on the spawned child. The host listens on the socket; Go dials after the ready file reports `phase: "app"`.
+### Host mode environment variables
+
+Go sets the following on the **direct** app-shim child when `node.hostMode` is true. They are read by `@forst/node-runtime/host` and `host/register.mjs`. Do not set them manually in normal workflows.
+
+| Variable | Set by | Purpose |
+| --- | --- | --- |
+| `FORST_NODE_HOST` | Go (`"1"`) | Enables in-process host RPC. When unset, `startForstNodeHost()` no-ops. Bootstrap mode does not set this. |
+| `FORST_NODE_HOST_LEADER` | Go (`"1"`) | Marks the process Go spawned as the **sole** host leader. `startForstNodeHost()` requires this **and** `register.mjs` in `process.execArgv`. Child Node processes (Vite workers, etc.) may inherit `FORST_NODE_HOST` but must not bind the socket — they lack leader + preload and skip with `host_skip_non_leader`. |
+| `FORST_NODE_SOCKET` | Go | Absolute path to the Unix socket (TCP URL on Windows) where the host listens for Go RPC. Defaults to `{boundaryRoot}/{node.hostSocket}` (default `.forst/node.sock`). If set in the **parent** environment before spawn, `ResolveHostSocketPath` uses it for planning. |
+| `FORST_NODE_HOST_READY` | Go | Absolute path to a JSON readiness file (typically `{socket}.ready`). The host writes `{"pid", "socket", "phase"}`; Go polls until `phase` is `"app"` before dialing. Defers RPC until Remix/Vite or your entry calls `signalForstAppReady()` when `hostAppReadyModule` is set. |
+| `FORST_NODE_APP_READY_MODULE` | Go (optional) | When `node.hostAppReadyModule` is set in ftconfig, path to a small module `register.mjs` loads before signaling app readiness. |
+| `FORCE_COLOR` | Go (optional) | Set to `"1"` when the Forst parent stdout is a TTY and `NO_COLOR` is unset, so piped Vite/Remix output keeps ANSI colors. |
+
+Typical spawn layout:
+
+```text
+node --import tsx/loader.mjs --import @forst/node-runtime/dist/host/register.mjs node_modules/.bin/vite dev
+```
+
+Go dials `FORST_NODE_SOCKET` after `FORST_NODE_HOST_READY` reports `phase: "app"`.
 
 <Warning>
   **Do not use stdio RPC inside app shims** (remix-serve, vitest reporters, morgan, etc.). Those tools write to stdout and corrupt the wire protocol. Host mode uses a **socket** so app stdout stays free.
@@ -202,6 +221,8 @@ Go sets `FORST_NODE_HOST=1`, `FORST_NODE_SOCKET`, and `FORST_NODE_HOST_READY` on
 | `host ready timeout` | App never signaled readiness (`phase: "app"`) | For third-party shims, omit `hostAppReadyModule`; or call `signalForstAppReady()` after init |
 | `ErrNodeRuntimeDied` during RPC | App process crashed; socket closed |
 | Second Go client | Host rejects duplicate connections (single client invariant) |
+| `EADDRINUSE` on `.forst/node.sock` | Stale host or duplicate leader (often from putting `register.mjs` in `NODE_OPTIONS`) | Use default `hostAutoRegister` (argv preload); ensure only one `forst run` owns the socket |
+| Multiple `host_listening` lines | Vite/Remix workers attempted host bind | Fixed when register is argv-only; workers should log `host_skip_non_leader` if they inherit host env |
 
 Compile-time **indexing always uses bootstrap mode** — the indexer runs `forst-node-index` CLI, never the app shim.
 

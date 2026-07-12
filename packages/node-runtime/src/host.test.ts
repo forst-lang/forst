@@ -7,6 +7,7 @@ import {
   startForstNodeHost,
   signalForstAppReady,
   resetHostForTest,
+  setHostLeaderOverrideForTest,
 } from "./host.js";
 import { runTestEffect } from "../test/helpers/run-effect.js";
 
@@ -16,11 +17,14 @@ function tempDir(): string {
 
 describe("startForstNodeHost", () => {
   const prevHost = process.env.FORST_NODE_HOST;
+  const prevLeader = process.env.FORST_NODE_HOST_LEADER;
   const prevSocket = process.env.FORST_NODE_SOCKET;
   const prevReady = process.env.FORST_NODE_HOST_READY;
 
   beforeEach(() => {
     process.env.FORST_NODE_HOST = "1";
+    process.env.FORST_NODE_HOST_LEADER = "1";
+    setHostLeaderOverrideForTest(true);
   });
 
   afterEach(() => {
@@ -29,6 +33,11 @@ describe("startForstNodeHost", () => {
       delete process.env.FORST_NODE_HOST;
     } else {
       process.env.FORST_NODE_HOST = prevHost;
+    }
+    if (prevLeader === undefined) {
+      delete process.env.FORST_NODE_HOST_LEADER;
+    } else {
+      process.env.FORST_NODE_HOST_LEADER = prevLeader;
     }
     if (prevSocket === undefined) {
       delete process.env.FORST_NODE_SOCKET;
@@ -44,6 +53,14 @@ describe("startForstNodeHost", () => {
 
   test("noop when FORST_NODE_HOST unset", async () => {
     delete process.env.FORST_NODE_HOST;
+    const handle = await runTestEffect(startForstNodeHost());
+    expect(handle.socketPath).toBe("");
+    await runTestEffect(handle.close());
+  });
+
+  test("noop when FORST_NODE_HOST_LEADER unset and register not preloaded", async () => {
+    delete process.env.FORST_NODE_HOST_LEADER;
+    setHostLeaderOverrideForTest(null);
     const handle = await runTestEffect(startForstNodeHost());
     expect(handle.socketPath).toBe("");
     await runTestEffect(handle.close());

@@ -130,14 +130,25 @@ The compiler calls this during type checking. You rarely run it yourself.
 
 ## Environment variables
 
+### Bootstrap and logging
+
 | Variable | Purpose |
 | --- | --- |
 | `FORST_NODE_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC trace (`rpc_recv`, `call`, `module_cache_hit`, …) requires `debug`. |
 | `FORST_NODE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
-| `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` |
-| `FORST_NODE_HOST` | Set by Go when host mode is active |
-| `FORST_NODE_SOCKET` | Socket path for host mode RPC |
-| `FORST_NODE_HOST_READY` | Ready file path for host mode |
+| `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` (bootstrap mode spawn planning) |
+
+### Host mode (set by Go on the direct app-shim child)
+
+| Variable | Purpose |
+| --- | --- |
+| `FORST_NODE_HOST` | When `"1"`, enables in-process host RPC (`startForstNodeHost`). Unset in bootstrap mode. |
+| `FORST_NODE_HOST_LEADER` | When `"1"`, marks the Go-spawned leader process. Required together with `register.mjs` in `process.execArgv`; workers skip binding. |
+| `FORST_NODE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC in host mode. |
+| `FORST_NODE_HOST_READY` | Absolute path to JSON readiness file (`{socket}.ready`); Go waits for `phase: "app"`. |
+| `FORST_NODE_APP_READY_MODULE` | Optional path to a module loaded before app readiness when `node.hostAppReadyModule` is configured. |
+
+See [Call JavaScript from Forst — host mode environment variables](https://docs.forst.dev/interop/node/call-javascript#host-mode-environment-variables) for spawn layout, readiness phases, and troubleshooting.
 
 ## Development
 
