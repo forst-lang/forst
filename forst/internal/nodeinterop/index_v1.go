@@ -3,6 +3,7 @@ package nodeinterop
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -17,11 +18,26 @@ type IndexV1 struct {
 
 // IndexExport describes one callable export from a TypeScript module.
 type IndexExport struct {
-	Name       string       `json:"name"`
-	Kind       string       `json:"kind"`
-	Parameters []IndexParam `json:"parameters,omitempty"`
-	ReturnType *IndexType   `json:"returnType,omitempty"`
-	YieldType  *IndexType   `json:"yieldType,omitempty"`
+	Name       string               `json:"name"`
+	Kind       string               `json:"kind"`
+	Parameters []IndexParam         `json:"parameters,omitempty"`
+	ReturnType *IndexType           `json:"returnType,omitempty"`
+	YieldType  *IndexType           `json:"yieldType,omitempty"`
+	Definition *IndexSourceLocation `json:"definition,omitempty"`
+}
+
+// IndexSourceLocation is a source span for go-to-definition (1-based line, 0-based column).
+type IndexSourceLocation struct {
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line"`
+	Column    int    `json:"column"`
+	EndLine   int    `json:"endLine,omitempty"`
+	EndColumn int    `json:"endColumn,omitempty"`
+}
+
+// IsSet reports whether the location has a usable start position.
+func (loc IndexSourceLocation) IsSet() bool {
+	return loc.Line > 0
 }
 
 // IndexParam is a function parameter in the index.
@@ -89,4 +105,23 @@ func (idx *IndexV1) ExportByName(name string) (*IndexExport, bool) {
 		}
 	}
 	return nil, false
+}
+
+// DefinitionAbsPath resolves the absolute path for an export definition location.
+// When def is nil or unset, returns moduleAbsPath.
+func DefinitionAbsPath(boundaryRoot, moduleID, moduleAbsPath string, def *IndexSourceLocation) (string, bool) {
+	if moduleAbsPath == "" {
+		return "", false
+	}
+	if def == nil || !def.IsSet() {
+		return moduleAbsPath, true
+	}
+	rel := moduleID
+	if strings.TrimSpace(def.File) != "" {
+		rel = def.File
+	}
+	if boundaryRoot == "" {
+		return moduleAbsPath, true
+	}
+	return filepath.Join(boundaryRoot, filepath.FromSlash(rel)), true
 }

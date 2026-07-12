@@ -99,6 +99,12 @@ describe("forst-index-v1", () => {
             kind: "object",
             fields: { id: { kind: "string" } },
           },
+          definition: {
+            line: 1,
+            column: 17,
+            endLine: 1,
+            endColumn: 23,
+          },
         },
         {
           name: "readChunks",
@@ -115,7 +121,35 @@ describe("forst-index-v1", () => {
     expect(FORST_INDEX_V1_FORMAT).toBe("forst-index-v1");
     expect(index.moduleId).toBe("legacy/payment.ts");
     expect(index.exports[0]?.returnType?.fields?.id?.kind).toBe("string");
+    expect(index.exports[0]?.definition).toMatchObject({
+      line: 1,
+      column: 17,
+      endLine: 1,
+      endColumn: 23,
+    });
     expect(index.exports[1]?.yieldType?.$binary).toBe(true);
+  });
+
+  it("parses definition with cross-file file field", () => {
+    const index = parseForstIndexModuleV1({
+      moduleId: "re-export-barrel.ts",
+      exports: [
+        {
+          name: "greet",
+          kind: "function",
+          parameters: [{ name: "name", type: { kind: "string" } }],
+          returnType: { kind: "string" },
+          definition: {
+            file: "re-export-source.ts",
+            line: 1,
+            column: 17,
+            endLine: 1,
+            endColumn: 22,
+          },
+        },
+      ],
+    });
+    expect(index.exports[0]?.definition?.file).toBe("re-export-source.ts");
   });
 
   it("rejects invalid moduleId in index", () => {

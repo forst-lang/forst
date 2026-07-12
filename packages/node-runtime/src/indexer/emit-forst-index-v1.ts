@@ -4,6 +4,7 @@ import type {
   ForstIndexExportV1,
   ForstIndexModuleV1,
   ForstIndexParameterV1,
+  ForstIndexSourceLocationV1,
   ForstIndexTypeNode,
   ForstNodeExportKind,
 } from "../manifest/schema.js";
@@ -242,7 +243,43 @@ function getFunctionLikeFromExport(node: Node):
   return undefined;
 }
 
-function indexCallableExport(name: string, node: Node): ForstIndexExportV1 | undefined {
+function exportNameNode(node: Node): Node | undefined {
+  if (Node.isFunctionDeclaration(node)) {
+    return node.getNameNode() ?? undefined;
+  }
+  if (Node.isVariableDeclaration(node)) {
+    return node.getNameNode();
+  }
+  return undefined;
+}
+
+function sourceLocationForNameNode(
+  nameNode: Node,
+  indexedModuleId: string,
+  root: string,
+): ForstIndexSourceLocationV1 | undefined {
+  const sourceFile = nameNode.getSourceFile();
+  const file = toPosixModuleId(root, sourceFile.getFilePath());
+  const startPos = sourceFile.getLineAndColumnAtPos(nameNode.getStart());
+  const endPos = sourceFile.getLineAndColumnAtPos(nameNode.getEnd());
+  const loc: ForstIndexSourceLocationV1 = {
+    line: startPos.line,
+    column: startPos.column,
+    endLine: endPos.line,
+    endColumn: endPos.column,
+  };
+  if (file !== indexedModuleId) {
+    loc.file = file;
+  }
+  return loc;
+}
+
+function indexCallableExport(
+  name: string,
+  node: Node,
+  indexedModuleId: string,
+  root: string,
+): ForstIndexExportV1 | undefined {
   if (!isCallableExport(node)) {
     return undefined;
   }
@@ -263,6 +300,14 @@ function indexCallableExport(name: string, node: Node): ForstIndexExportV1 | und
     kind,
     parameters,
   };
+
+  const nameNode = exportNameNode(node);
+  if (nameNode) {
+    const definition = sourceLocationForNameNode(nameNode, indexedModuleId, root);
+    if (definition) {
+      exportEntry.definition = definition;
+    }
+  }
 
   if (kind === "generator" || kind === "asyncGenerator") {
     const yieldType = generatorYieldType(fn.returnTypeNode);
@@ -317,7 +362,7 @@ function indexSourceFile(sourceFile: SourceFile, root: string): ForstIndexModule
   for (const [name, declarations] of sourceFile.getExportedDeclarations()) {
     for (const declaration of declarations) {
       const target = resolveCallableExportDeclaration(declaration);
-      const indexed = indexCallableExport(name, target);
+      const indexed = indexCallableExport(name, target, moduleId, root);
       if (indexed) {
         exports.push(indexed);
         break;

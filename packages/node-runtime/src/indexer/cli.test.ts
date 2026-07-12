@@ -53,6 +53,12 @@ describe("forst-node-index CLI", () => {
           id: { kind: "string" },
         },
       },
+      definition: {
+        line: 1,
+        column: 17,
+        endLine: 1,
+        endColumn: 23,
+      },
     });
 
     expect(parseForstIndexModuleV1(module).exports[0]?.name).toBe("create");
@@ -95,6 +101,13 @@ describe("forst-node-index CLI", () => {
       kind: "function",
       parameters: [{ name: "name", type: { kind: "string" } }],
       returnType: { kind: "string" },
+      definition: {
+        file: "re-export-source.ts",
+        line: 1,
+        column: 17,
+        endLine: 1,
+        endColumn: 22,
+      },
     });
   });
 

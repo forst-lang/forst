@@ -54,12 +54,23 @@ export interface ForstIndexParameterV1 {
   type: ForstIndexTypeNode;
 }
 
+/** Source span for go-to-definition (1-based line, 0-based column). */
+export interface ForstIndexSourceLocationV1 {
+  /** Project-relative POSIX path; omitted when same as the indexed module. */
+  file?: string;
+  line: number;
+  column: number;
+  endLine?: number;
+  endColumn?: number;
+}
+
 export interface ForstIndexExportV1 {
   name: string;
   kind: ForstNodeExportKind;
   parameters: ForstIndexParameterV1[];
   returnType?: ForstIndexTypeNode;
   yieldType?: ForstIndexTypeNode;
+  definition?: ForstIndexSourceLocationV1;
 }
 
 export interface ForstIndexModuleV1 {
@@ -232,6 +243,48 @@ function parseIndexParameter(value: unknown, path: string): ForstIndexParameterV
   };
 }
 
+function assertNonNegativeInt(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new ForstNodeSchemaValidationError(path, "expected non-negative integer");
+  }
+  return value;
+}
+
+function assertPositiveInt(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new ForstNodeSchemaValidationError(path, "expected positive integer");
+  }
+  return value;
+}
+
+function parseIndexSourceLocation(
+  value: unknown,
+  path: string,
+): ForstIndexSourceLocationV1 {
+  const record = assertRecord(value, path);
+  const parsed: ForstIndexSourceLocationV1 = {
+    line: assertPositiveInt(record.line, `${path}.line`),
+    column: assertNonNegativeInt(record.column, `${path}.column`),
+  };
+  if (record.file !== undefined) {
+    const file = assertString(record.file, `${path}.file`);
+    if (!isValidModuleId(file)) {
+      throw new ForstNodeSchemaValidationError(
+        `${path}.file`,
+        "must be a project-relative POSIX path without .. or absolute segments",
+      );
+    }
+    parsed.file = file;
+  }
+  if (record.endLine !== undefined) {
+    parsed.endLine = assertPositiveInt(record.endLine, `${path}.endLine`);
+  }
+  if (record.endColumn !== undefined) {
+    parsed.endColumn = assertNonNegativeInt(record.endColumn, `${path}.endColumn`);
+  }
+  return parsed;
+}
+
 function parseIndexExport(value: unknown, path: string): ForstIndexExportV1 {
   const record = assertRecord(value, path);
   if (!Array.isArray(record.parameters)) {
@@ -256,6 +309,9 @@ function parseIndexExport(value: unknown, path: string): ForstIndexExportV1 {
   }
   if (record.yieldType !== undefined) {
     parsed.yieldType = parseIndexTypeNode(record.yieldType, `${path}.yieldType`);
+  }
+  if (record.definition !== undefined) {
+    parsed.definition = parseIndexSourceLocation(record.definition, `${path}.definition`);
   }
   return parsed;
 }

@@ -65,7 +65,16 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	}
 	tokens := ctx.Tokens
 	tok := tokenAtLSPPosition(tokens, position)
-	if tok == nil || tok.Type != ast.TokenIdentifier {
+	if tok == nil {
+		return nil
+	}
+	if tok.Type == ast.TokenStringLiteral {
+		if loc := s.definingLocationForNodeImportPath(ctx, tok); loc != nil {
+			return loc
+		}
+		return nil
+	}
+	if tok.Type != ast.TokenIdentifier {
 		return nil
 	}
 	if ctx.PackageMerge != nil {
@@ -83,6 +92,12 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	}
 	if defTok := definingTokenForLocalBinding(ctx, tokIdx, tok); defTok != nil {
 		return lspLocationPtrFromToken(uri, defTok)
+	}
+	if loc := s.definingLocationForQualifiedNodeImport(ctx, tokIdx); loc != nil {
+		return loc
+	}
+	if loc := s.definingLocationForNodeImportLocal(ctx, tokIdx, tok); loc != nil {
+		return loc
 	}
 	if loc := s.definingLocationForQualifiedImport(ctx, tokIdx); loc != nil {
 		return loc
