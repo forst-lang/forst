@@ -44,17 +44,9 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 		exited: make(chan error),
 	}
 
-	origInvokeReady := invokeReadyWaiter
-	origPortPick := findNextFreeInvokePortFn
 	t.Cleanup(func() {
-		invokeReadyWaiter = origInvokeReady
-		findNextFreeInvokePortFn = origPortPick
 		modulecheck.ResetPassCountForTest()
 	})
-	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error {
-		return nil
-	}
-	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
@@ -75,7 +67,7 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 		mu.Unlock()
 	}})
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			if !args.ReloadProfile {
 				t.Fatal("expected ReloadProfile enabled for watch reload")
@@ -97,7 +89,7 @@ func TestPerformDevReload_emitsReloadTiming(t *testing.T) {
 				exited: make(chan error),
 			}, nil
 		},
-	}
+	})
 
 	cfg := &ftconfig.Config{Dev: ftconfig.DevConfig{HotReload: true}}
 	performDevReload(reloadParams{

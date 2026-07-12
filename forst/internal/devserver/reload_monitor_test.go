@@ -54,15 +54,12 @@ func TestMonitorChildExit_unexpectedCrashStillLogs(t *testing.T) {
 	exited := make(chan error, 1)
 	exited <- fmt.Errorf("generated program exited with code 1")
 
-	var buf bytes.Buffer
-	log := logrus.New()
-	log.SetOutput(&buf)
-	log.SetLevel(logrus.WarnLevel)
+	log, snapshot := newTestLogCapture(logrus.WarnLevel)
 
 	monitorChildExit(log, &runningChild{exited: exited})
 	time.Sleep(50 * time.Millisecond)
 
-	if !strings.Contains(buf.String(), "Generated program exited") {
-		t.Fatalf("expected crash warn, got: %s", buf.String())
+	if !strings.Contains(snapshot(), "Generated program exited") {
+		t.Fatalf("expected crash warn, got: %s", snapshot())
 	}
 }

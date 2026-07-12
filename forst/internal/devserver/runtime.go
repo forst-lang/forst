@@ -50,6 +50,10 @@ type RuntimeRunDeps struct {
 	NewHostOrchestrator func(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config) *HostOrchestrator
 	DevSession          *devcompile.Session
 	ModTidyCache        *compiler.SandboxModCache
+	// InvokeReadyWait polls until the reloaded invoke server is ready (tests may stub).
+	InvokeReadyWait func(boundaryRoot, healthURL string, exited <-chan error, timeout time.Duration) error
+	// FindInvokePort picks a bindable invoke TCP port (tests may stub).
+	FindInvokePort func(host, preferred string) (string, error)
 }
 
 type devReloadState struct {
@@ -65,6 +69,8 @@ var defaultRuntimeRunDeps = RuntimeRunDeps{
 	BuildProgram:        compiler.BuildGoProgramInSandbox,
 	StartProgram:        defaultStartProgram,
 	NewHostOrchestrator: NewHostOrchestrator,
+	InvokeReadyWait:     WaitForInvokeReady,
+	FindInvokePort:      findNextFreeInvokePortDefault,
 }
 
 // ResolveEntry picks the .ft entry for runtime dev.
@@ -227,6 +233,12 @@ func fillRuntimeRunDeps(deps RuntimeRunDeps) RuntimeRunDeps {
 	if deps.NewHostOrchestrator == nil {
 		deps.NewHostOrchestrator = defaultRuntimeRunDeps.NewHostOrchestrator
 	}
+	if deps.InvokeReadyWait == nil {
+		deps.InvokeReadyWait = defaultRuntimeRunDeps.InvokeReadyWait
+	}
+	if deps.FindInvokePort == nil {
+		deps.FindInvokePort = defaultRuntimeRunDeps.FindInvokePort
+	}
 	return deps
 }
 
@@ -326,6 +338,7 @@ func performDevReload(p reloadParams) *runningChild {
 	boundaryRoot := p.boundaryRoot
 	gen := p.gen
 	child := p.child
+	deps := fillRuntimeRunDeps(p.deps)
 	profile := reloadProfileEnabled(p.cfg)
 
 	var rt *reloadTiming
@@ -348,7 +361,7 @@ func performDevReload(p reloadParams) *runningChild {
 	}
 
 	compileStart := time.Now()
-	outputPath, goBuildMs, err := compileRuntimeOutput(log, boundaryRoot, p.entryPath, p.cfg, p.deps, profile)
+	outputPath, goBuildMs, err := compileRuntimeOutput(log, boundaryRoot, p.entryPath, p.cfg, deps, profile)
 	if rt != nil {
 		rt.recordForstCompile(compileStart, goBuildMs)
 	}
@@ -393,7 +406,7 @@ func performDevReload(p reloadParams) *runningChild {
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	invokePort, err := FindNextFreeInvokePort(host, preferred)
+	invokePort, err := deps.FindInvokePort(host, preferred)
 	if rt != nil {
 		rt.recordPortPick(portStart)
 	}
@@ -414,7 +427,7 @@ func performDevReload(p reloadParams) *runningChild {
 	healthURL := InvokeBaseURLFromHostPort(host, invokePort) + "/health"
 
 	goStart := time.Now()
-	next, err := p.deps.StartProgram(outputPath, boundaryRoot)
+	next, err := deps.StartProgram(outputPath, boundaryRoot)
 	if rt != nil {
 		rt.recordGoStart(goStart)
 	}
@@ -435,7 +448,7 @@ func performDevReload(p reloadParams) *runningChild {
 	}
 
 	readyStart := time.Now()
-	if err := invokeReadyWaiter(boundaryRoot, healthURL, next.exited, defaultInvokeReadyWait); err != nil {
+	if err := deps.InvokeReadyWait(boundaryRoot, healthURL, next.exited, defaultInvokeReadyWait); err != nil {
 		log.Errorf("reload failed: invoke server did not become ready: %v", err)
 		_ = next.stop()
 		if clearErr := MarkReloading(boundaryRoot, false, gen); clearErr != nil {

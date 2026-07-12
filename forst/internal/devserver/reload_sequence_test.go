@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"forst/internal/compiler"
 	"forst/internal/ftconfig"
@@ -41,20 +40,9 @@ func TestPerformDevReload_compilesBeforeChildStop(t *testing.T) {
 		exited: make(chan error),
 	}
 
-	origInvokeReady := invokeReadyWaiter
-	origPortPick := findNextFreeInvokePortFn
-	t.Cleanup(func() {
-		invokeReadyWaiter = origInvokeReady
-		findNextFreeInvokePortFn = origPortPick
-	})
-	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error {
-		return nil
-	}
-	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
-
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -78,7 +66,7 @@ func TestPerformDevReload_compilesBeforeChildStop(t *testing.T) {
 				exited: make(chan error),
 			}, nil
 		},
-	}
+	})
 
 	performDevReload(reloadParams{
 		log:          log,

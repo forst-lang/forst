@@ -105,12 +105,9 @@ func PickInvokePort(cfg *ftconfig.Config, cliPortOverride string) (host, port st
 	return host, port, err
 }
 
-// findNextFreeInvokePortFn may be replaced in tests.
-var findNextFreeInvokePortFn = findNextFreeInvokePortDefault
-
 // FindNextFreeInvokePort returns the first bindable TCP port >= preferred.
 func FindNextFreeInvokePort(host, preferred string) (string, error) {
-	return findNextFreeInvokePortFn(host, preferred)
+	return findNextFreeInvokePortDefault(host, preferred)
 }
 
 func findNextFreeInvokePortDefault(host, preferred string) (string, error) {
@@ -207,9 +204,6 @@ func isConnRefused(err error) bool {
 	return errors.Is(err, syscall.ECONNREFUSED) ||
 		strings.Contains(strings.ToLower(err.Error()), "connection refused")
 }
-
-// invokeReadyWaiter may be replaced in tests to avoid polling a real HTTP server.
-var invokeReadyWaiter = WaitForInvokeReady
 
 // WaitForInvokeReady polls invoke.ready and /health until the new child is serving.
 func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, timeout time.Duration) error {

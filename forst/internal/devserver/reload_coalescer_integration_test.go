@@ -19,14 +19,12 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
 	var compileCount atomic.Int32
 	blockCompile := make(chan struct{}, 1)
 	blockCompile <- struct{}{}
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -38,7 +36,7 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 		StartProgram: func(string, string) (*runningChild, error) {
 			return &runningChild{stop: func() error { return nil }}, nil
 		},
-	}
+	})
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	logrus "github.com/sirupsen/logrus"
@@ -26,12 +27,13 @@ type ProcessOptions struct {
 
 // managedProcess holds a spawned child process and optional stdio pipes.
 type managedProcess struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	stderr io.ReadCloser
-	log    *logrus.Logger
-	waited bool
+	cmd     *exec.Cmd
+	stdin   io.WriteCloser
+	stdout  io.ReadCloser
+	stderr  io.ReadCloser
+	log     *logrus.Logger
+	waitMu  sync.Mutex
+	waited  bool
 	waitErr error
 }
 
@@ -110,6 +112,8 @@ func (p *managedProcess) wait() error {
 	if p == nil || p.cmd == nil || p.cmd.Process == nil {
 		return nil
 	}
+	p.waitMu.Lock()
+	defer p.waitMu.Unlock()
 	if p.waited {
 		return p.waitErr
 	}

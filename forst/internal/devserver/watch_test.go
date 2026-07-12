@@ -1,7 +1,6 @@
 package devserver
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -110,12 +109,10 @@ func TestWatchPackageRoot_detectsAtomicRenameSave(t *testing.T) {
 func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 	dir := t.TempDir()
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -126,7 +123,7 @@ func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 			t.Fatal("StartProgram should not run when compile fails")
 			return nil, nil
 		},
-	}
+	})
 
 	done := make(chan error, 1)
 	go func() {
@@ -143,15 +140,10 @@ func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 	dir := t.TempDir()
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
-	var buf bytes.Buffer
-	log := logrus.New()
-	log.SetOutput(&buf)
-	log.SetLevel(logrus.WarnLevel)
+	log, snapshot := newTestLogCapture(logrus.WarnLevel)
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -161,7 +153,7 @@ func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 		StartProgram: func(string, string) (*runningChild, error) {
 			return nil, errors.New("should not start")
 		},
-	}
+	})
 
 	done := make(chan struct{})
 	go func() {
@@ -170,14 +162,14 @@ func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 	}()
 
 	deadline := time.Now().Add(500 * time.Millisecond)
-	for !strings.Contains(buf.String(), "type error: injected") && time.Now().Before(deadline) {
+	for !strings.Contains(snapshot(), "type error: injected") && time.Now().Before(deadline) {
 		time.Sleep(25 * time.Millisecond)
 	}
-	if !strings.Contains(buf.String(), "type error: injected") {
-		t.Fatalf("expected compile error in logs, got: %s", buf.String())
+	if !strings.Contains(snapshot(), "type error: injected") {
+		t.Fatalf("expected compile error in logs, got: %s", snapshot())
 	}
-	if !strings.Contains(buf.String(), "Invoke server is down until compilation succeeds on next save") {
-		t.Fatalf("expected warn about invoke down, got: %s", buf.String())
+	if !strings.Contains(snapshot(), "Invoke server is down until compilation succeeds on next save") {
+		t.Fatalf("expected warn about invoke down, got: %s", snapshot())
 	}
 }
 
@@ -185,15 +177,13 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
 	var compileCount atomic.Int32
 	var startCount atomic.Int32
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -208,7 +198,7 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 			startCount.Add(1)
 			return &runningChild{stop: func() error { return nil }}, nil
 		},
-	}
+	})
 
 	go func() {
 		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
@@ -242,12 +232,10 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -258,7 +246,7 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 			t.Fatal("StartProgram should not run when autoRestart is false")
 			return nil, nil
 		},
-	}
+	})
 
 	done := make(chan struct{})
 	go func() {
@@ -300,24 +288,10 @@ func TestCollectWatchDirs_onlyParentsOfForstFiles(t *testing.T) {
 	}
 }
 
-func stubInvokeReadyWaiter(t *testing.T) func() {
-	t.Helper()
-	origReady := invokeReadyWaiter
-	origPortPick := findNextFreeInvokePortFn
-	invokeReadyWaiter = func(string, string, <-chan error, time.Duration) error { return nil }
-	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
-	return func() {
-		invokeReadyWaiter = origReady
-		findNextFreeInvokePortFn = origPortPick
-	}
-}
-
 func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
-	restore := stubInvokeReadyWaiter(t)
-	defer restore()
 
 	var order []string
 	var mu sync.Mutex
@@ -327,7 +301,7 @@ func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 		mu.Unlock()
 	}
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -342,7 +316,7 @@ func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 				return nil
 			}}, nil
 		},
-	}
+	})
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
@@ -396,24 +370,13 @@ func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
 	mainPath := filepath.Join(dir, "main.ft")
 	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
 
-	origReady := invokeReadyWaiter
-	origPortPick := findNextFreeInvokePortFn
-	invokeReadyWaiter = WaitForInvokeReady
-	findNextFreeInvokePortFn = func(_, preferred string) (string, error) { return preferred, nil }
-	t.Cleanup(func() {
-		invokeReadyWaiter = origReady
-		findNextFreeInvokePortFn = origPortPick
-	})
-
 	exited := make(chan error, 1)
 	exited <- fmt.Errorf("bind: address already in use")
 
-	var buf bytes.Buffer
-	log := logrus.New()
-	log.SetOutput(&buf)
-	log.SetLevel(logrus.ErrorLevel)
+	log, snapshot := newTestLogCapture(logrus.ErrorLevel)
 
-	deps := RuntimeRunDeps{
+	deps := stubReloadHooks(RuntimeRunDeps{
+		InvokeReadyWait: WaitForInvokeReady,
 		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
 			return compiler.New(args, l)
 		},
@@ -426,17 +389,17 @@ func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
 				exited: exited,
 			}, nil
 		},
-	}
+	})
 
 	go func() {
 		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
 	}()
 
 	deadline := time.Now().Add(2 * time.Second)
-	for !strings.Contains(buf.String(), "reload failed") && time.Now().Before(deadline) {
+	for !strings.Contains(snapshot(), "reload failed") && time.Now().Before(deadline) {
 		time.Sleep(25 * time.Millisecond)
 	}
-	if !strings.Contains(buf.String(), "reload failed") {
-		t.Fatalf("expected reload failure log, got: %s", buf.String())
+	if !strings.Contains(snapshot(), "reload failed") {
+		t.Fatalf("expected reload failure log, got: %s", snapshot())
 	}
 }
