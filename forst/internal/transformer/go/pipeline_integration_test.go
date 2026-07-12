@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"go/format"
 	"go/token"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"forst/internal/parser"
 	"forst/internal/testutil"
 	"forst/internal/typechecker"
@@ -16,6 +18,8 @@ import (
 // pipelineOpts configures compileForstPipelineExt (Go workspace / optional skip for FFI tests).
 type pipelineOpts struct {
 	goWorkspaceDir      string
+	forstFileDir        string
+	samePackageGoImport string
 	skipUnlessGoImport  string // if set, t.Skip when go/packages did not load this import local name
 	skipUnlessDotImport bool   // if true, t.Skip when go/packages did not populate dot-import packages
 }
@@ -24,6 +28,8 @@ func pipelineOptsToCompile(opts pipelineOpts) testutil.CompileOpts {
 	return testutil.CompileOpts{
 		TypecheckOpts: testutil.TypecheckOpts{
 			GoWorkspaceDir:      opts.goWorkspaceDir,
+			ForstFileDir:        opts.forstFileDir,
+			SamePackageGoImport: opts.samePackageGoImport,
 			SkipUnlessGoImport:  opts.skipUnlessGoImport,
 			SkipUnlessDotImport: opts.skipUnlessDotImport,
 		},
@@ -58,9 +64,13 @@ func pipelineOptsForExampleFile(t *testing.T, name string) pipelineOpts {
 	if name != "go_interop/cli.ft" {
 		return pipelineOpts{}
 	}
+	path := testutil.ExamplePath(t, name)
+	dir := filepath.Dir(path)
 	return pipelineOpts{
-		goWorkspaceDir:     moduleRootFromWD(t),
-		skipUnlessGoImport: "exec",
+		goWorkspaceDir:      goload.FindModuleRoot(dir),
+		forstFileDir:        dir,
+		samePackageGoImport: "go_interop",
+		skipUnlessGoImport:  "exec",
 	}
 }
 
