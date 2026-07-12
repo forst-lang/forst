@@ -379,7 +379,7 @@ func TestDevServer_refreshFunctions_syncsDevBackendForInvoke(t *testing.T) {
 
 func TestStartDevServer_runtimeProfile_callsRunRuntimeDev(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	mainPath := filepath.Join(dir, "main.ft")
@@ -416,9 +416,54 @@ func TestStartDevServer_runtimeProfile_callsRunRuntimeDev(t *testing.T) {
 	}
 }
 
+func TestStartDevServer_runtimeProfile_usesWatchWhenHotReload(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{
+  "server": {"embedded": true},
+  "dev": {"hotReload": true}
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var watchCalled bool
+	origWatch := watchRuntimeDevFn
+	watchRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ftconfig.Config) error {
+		if boundaryRoot != dir {
+			t.Fatalf("boundaryRoot = %q want %q", boundaryRoot, dir)
+		}
+		if entry != mainPath {
+			t.Fatalf("entry = %q want %q", entry, mainPath)
+		}
+		watchCalled = true
+		return nil
+	}
+	t.Cleanup(func() { watchRuntimeDevFn = origWatch })
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+		t.Fatal("RunRuntimeDev must not run when hotReload is enabled")
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !watchCalled {
+		t.Fatal("expected WatchRuntimeDev for hotReload runtime profile")
+	}
+}
+
 func TestStartDevServer_runtimeProfile_missingEntry(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	logger := logrus.New()
@@ -459,7 +504,7 @@ func TestStartDevServer_executorProfile_unchanged(t *testing.T) {
 
 func TestStartDevServer_runtimeProfile_setsInvokePort(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
@@ -483,7 +528,7 @@ func TestStartDevServer_runtimeProfile_setsInvokePort(t *testing.T) {
 
 func TestStartDevServer_runtimeProfile_usesFtconfigPortWhenNoCliOverride(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
@@ -547,7 +592,7 @@ func TestStartDevServer_discoversFtconfigFromRootDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfgPath := filepath.Join(root, "ftconfig.json")
-	if err := os.WriteFile(cfgPath, []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	otherCwd := filepath.Join(outer, "other")

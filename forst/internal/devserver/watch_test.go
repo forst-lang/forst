@@ -1,0 +1,247 @@
+package devserver
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"forst/internal/compiler"
+	"forst/internal/ftconfig"
+
+	"github.com/sirupsen/logrus"
+)
+
+func TestRuntimeWatchEnabled(t *testing.T) {
+	if RuntimeWatchEnabled(nil) {
+		t.Fatal("nil config should not enable watch")
+	}
+	if RuntimeWatchEnabled(&ftconfig.Config{}) {
+		t.Fatal("zero config should not enable watch")
+	}
+	if !RuntimeWatchEnabled(&ftconfig.Config{Dev: ftconfig.DevConfig{HotReload: true}}) {
+		t.Fatal("hotReload should enable watch")
+	}
+	if !RuntimeWatchEnabled(&ftconfig.Config{Dev: ftconfig.DevConfig{Watch: true}}) {
+		t.Fatal("watch should enable watch")
+	}
+}
+
+func TestWatchPackageRoot_ignoresNonFt(t *testing.T) {
+	dir := t.TempDir()
+	writeEntry(t, dir, "main.ft", "package main\n")
+
+	var triggers atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		_ = WatchPackageRoot(nil, dir, nil, 50*time.Millisecond, func() {
+			triggers.Add(1)
+		})
+		close(done)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if triggers.Load() != 0 {
+		t.Fatalf("non-.ft change should not trigger reload, got %d", triggers.Load())
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\n// edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for triggers.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if triggers.Load() < 1 {
+		t.Fatal("expected .ft write to trigger reload")
+	}
+}
+
+func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
+	dir := t.TempDir()
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(string, string, string, map[string]string, map[string]string, string) (string, error) {
+			return "", errors.New("injected compile failure")
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			t.Fatal("StartProgram should not run when compile fails")
+			return nil, nil
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- WatchRuntimeDev(log, dir, filepath.Join(dir, "main.ft"), nil, deps)
+	}()
+
+	select {
+	case err := <-done:
+		t.Fatalf("watch loop returned early: %v", err)
+	case <-time.After(400 * time.Millisecond):
+	}
+}
+
+func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
+	dir := t.TempDir()
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+
+	var buf bytes.Buffer
+	log := logrus.New()
+	log.SetOutput(&buf)
+	log.SetLevel(logrus.WarnLevel)
+
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(string, string, string, map[string]string, map[string]string, string) (string, error) {
+			return "", errors.New("type error: injected")
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			return nil, errors.New("should not start")
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		_ = WatchRuntimeDev(log, dir, filepath.Join(dir, "main.ft"), nil, deps)
+		close(done)
+	}()
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for !strings.Contains(buf.String(), "type error: injected") && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if !strings.Contains(buf.String(), "type error: injected") {
+		t.Fatalf("expected compile error in logs, got: %s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "Not running program because of errors during compilation") {
+		t.Fatalf("expected warn about not running, got: %s", buf.String())
+	}
+}
+
+func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+
+	var compileCount atomic.Int32
+	var startCount atomic.Int32
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(main, nodert, invoke string, extra map[string]string, _ map[string]string, boundary string) (string, error) {
+			compileCount.Add(1)
+			if main == "" {
+				return "", errors.New("empty main")
+			}
+			return filepath.Join(boundary, ".forst", "run", "test", "main.go"), nil
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			startCount.Add(1)
+			return &runningChild{stop: func() error { return nil }}, nil
+		},
+	}
+
+	go func() {
+		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for compileCount.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+	}
+	if compileCount.Load() < 1 {
+		t.Fatal("expected initial compile")
+	}
+
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() { println(\"v2\") }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline = time.Now().Add(3 * time.Second)
+	for compileCount.Load() < 2 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if compileCount.Load() < 2 {
+		t.Fatalf("expected recompile after file change, compileCount=%d", compileCount.Load())
+	}
+	if startCount.Load() < 2 {
+		t.Fatalf("expected process restart after file change, startCount=%d", startCount.Load())
+	}
+}
+
+func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	writeEntry(t, dir, "main.ft", "package main\nfunc main() {}\n")
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	deps := RuntimeRunDeps{
+		NewCompiler: func(args compiler.Args, l *logrus.Logger) *compiler.Compiler {
+			return compiler.New(args, l)
+		},
+		CreateOutput: func(main, _, _ string, _ map[string]string, _ map[string]string, boundary string) (string, error) {
+			return filepath.Join(boundary, "out.go"), nil
+		},
+		StartProgram: func(string, string) (*runningChild, error) {
+			t.Fatal("StartProgram should not run when autoRestart is false")
+			return nil, nil
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: false}}, deps)
+		close(done)
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	select {
+	case <-done:
+		t.Fatal("watch returned early")
+	default:
+	}
+}
+
+func TestCollectWatchDirs_skipsNodeModules(t *testing.T) {
+	dir := t.TempDir()
+	writeEntry(t, dir, "main.ft", "package main\n")
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules", "pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "node_modules", "pkg", "skip.ft"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dirs, err := collectWatchDirs(dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range dirs {
+		if strings.Contains(d, "node_modules") {
+			t.Fatalf("node_modules should be skipped, got dirs: %v", dirs)
+		}
+	}
+}

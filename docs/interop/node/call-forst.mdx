@@ -142,6 +142,14 @@ export FORST_BASE_URL=http://127.0.0.1:6321
 FORST_HOST_MODE=dev forst dev -export-struct-fields -root .
 ```
 
+**Hot reload:** with default `ftconfig.json`, `dev.hotReload` is true and `forst dev` watches `.ft` files under `-root`, recompiles on change, and restarts the embedded binary. Set `"watch": true` explicitly or rely on `hotReload`. Compile failures are logged to stderr; the watcher stays alive so you can fix errors and save again.
+
+To disable watching and run once (same as `forst run`):
+
+```json
+"dev": { "hotReload": false, "watch": false }
+```
+
 Node runtime binaries import `forst/nodert`. Declare that dependency in **`.forst-gomod/go.mod`** at your project root (monorepo dev example):
 
 ```go

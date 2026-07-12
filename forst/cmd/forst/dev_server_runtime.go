@@ -111,7 +111,14 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 			return err
 		}
 		log.Infof("forst dev: runtime entry %s", entry)
-		return runRuntimeDevFn(log, rootDir, entry, &config.Config)
+		if devserver.RuntimeWatchEnabled(&config.Config) {
+			return watchRuntimeDevFn(log, rootDir, entry, &config.Config)
+		}
+		if err := runRuntimeDevFn(log, rootDir, entry, &config.Config); err != nil {
+			log.Error(err)
+			return err
+		}
+		return nil
 	}
 
 	args := config.ToCompilerArgs()
@@ -136,6 +143,11 @@ var devServerStartFn = func(s *DevServer) error { return s.Start() }
 // runRuntimeDevFn runs compile+go run for runtime profile; tests may stub.
 var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
 	return devserver.RunRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
+}
+
+// watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
+var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
+	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
 }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string, rootDir string, exportStructFieldsCLI bool) *ForstConfig {

@@ -392,6 +392,16 @@ func (c *Config) matchesExcludePatterns(path string) bool {
 	return false
 }
 
+// MatchesIncludePatterns reports whether path matches configured include globs.
+func (c *Config) MatchesIncludePatterns(path string) bool {
+	return c.matchesIncludePatterns(path)
+}
+
+// MatchesExcludePatterns reports whether path matches configured exclude globs.
+func (c *Config) MatchesExcludePatterns(path string) bool {
+	return c.matchesExcludePatterns(path)
+}
+
 func (c *Config) matchesPattern(path, pattern string) bool {
 	matched, err := doublestar.Match(pattern, path)
 	if err != nil {
