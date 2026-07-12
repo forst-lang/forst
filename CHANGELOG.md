@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1](https://github.com/forst-lang/forst/compare/v0.8.0...v0.8.1) (2026-07-12)
+
+
+### Features
+
+* **lsp:** add go-to-definition for Go import bindings ([#140](https://github.com/forst-lang/forst/issues/140)) ([099418a](https://github.com/forst-lang/forst/commit/099418a7791adf41e395534a6c2da8a3395b8e29))
+* **lsp:** add go-to-definition for import node bindings ([#138](https://github.com/forst-lang/forst/issues/138)) ([fdcd35d](https://github.com/forst-lang/forst/commit/fdcd35d80147589f42bca8b9cc571065cb1b21cb))
+
+
+### Bug Fixes
+
+* **nodert:** prevent duplicate host binds, restore piped colors ([#141](https://github.com/forst-lang/forst/issues/141)) ([3ecb2ff](https://github.com/forst-lang/forst/commit/3ecb2ff505b3bd8fa60c8bd51292cd60285b999d))
+
 ## [0.8.0](https://github.com/forst-lang/forst/compare/v0.7.0...v0.8.0) (2026-07-11)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@forst/node-runtime",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "exports": {
     ".": "./src/index.ts",
     "./bootstrap": "./src/bootstrap.ts",
