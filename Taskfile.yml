@@ -418,11 +418,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/server.ft
 
+  # Merged package main with descriptive stems (engine.ft, server.ft); flag required — see examples/in/forst-generate-ts-examples.json
   example:tictactoe:generate:
     desc: Regenerate generated/ and client/ TypeScript for tictactoe (forst generate on the package dir)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
+      - go run ./{{.BUILD_DIR}} generate -allow-stem-package-mismatch {{.EXAMPLES_DIR}}/tictactoe
 
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (forst dev + client)

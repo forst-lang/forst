@@ -841,6 +841,41 @@ func Hello() {
 	}
 }
 
+func TestGenerateCommand_mergedPackageMain_requiresFlagUnlessAllowed(t *testing.T) {
+	dir := t.TempDir()
+	typesSrc := `package main
+
+type R = {
+	x: Int
+}
+`
+	usesSrc := `package main
+
+func GetX(r R): Int {
+	return r.x
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "types.ft"), []byte(typesSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "uses.ft"), []byte(usesSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{dir})
+	if err == nil {
+		t.Fatal("expected stem/package mismatch error for merged package main without flag")
+	}
+	if !strings.Contains(err.Error(), "must match declared package") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+		t.Fatalf("generateCommand with flag: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "generated", "main.client.ts")); err != nil {
+		t.Fatalf("expected main.client.ts: %v", err)
+	}
+}
+
 func TestGenerateCommand_allowStemPackageMismatch_generatesPackageClient(t *testing.T) {
 	dir := t.TempDir()
 	ftPath := filepath.Join(dir, "bcrypt.ft")
