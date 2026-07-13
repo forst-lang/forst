@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/forst-lang/forst/compare/sidecar-v0.4.0...sidecar-v0.4.1) (2026-07-13)
+
+
+### Features
+
+* **dev:** add runtime profile for embedded invoke and host mode ([#142](https://github.com/forst-lang/forst/issues/142)) ([fcfc8c0](https://github.com/forst-lang/forst/commit/fcfc8c08fc72eaba997a7bebb6303542a2684781))
+
 ## [0.4.0](https://github.com/forst-lang/forst/compare/sidecar-v0.3.0...sidecar-v0.4.0) (2026-07-11)
 
 

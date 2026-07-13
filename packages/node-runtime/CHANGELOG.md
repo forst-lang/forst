@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.1...node-runtime-v0.3.2) (2026-07-13)
+
+
+### Features
+
+* **dev:** add runtime profile for embedded invoke and host mode ([#142](https://github.com/forst-lang/forst/issues/142)) ([fcfc8c0](https://github.com/forst-lang/forst/commit/fcfc8c08fc72eaba997a7bebb6303542a2684781))
+
 ## [0.3.1](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.0...node-runtime-v0.3.1) (2026-07-12)
 
 
