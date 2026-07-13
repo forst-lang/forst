@@ -15,6 +15,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 type ModuleScan struct {
+	scanRoot        string
 	ModuleRoot      string
 	ModulePath      string
 	importPathMap   map[string]string
@@ -42,14 +43,7 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 		if err != nil {
 			return nil, err
 		}
-		parsed = make(map[string][]ast.Node)
-		for _, filePath := range ftFiles {
-			nodes, err := forstpkg.ParseForstFile(log, filePath)
-			if err != nil {
-				continue
-			}
-			parsed[filePath] = nodes
-		}
+		parsed = forstpkg.ParseFilesLenientParallel(log, ftFiles)
 	}
 
 	byPackage := make(map[string][]string)
@@ -64,9 +58,10 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 	}
 
 	result := &ModuleScan{
+		scanRoot:        scanRoot,
 		ModuleRoot:      moduleRoot,
 		ModulePath:      modulePath,
-		importPathMap:   forstpkg.BuildForstPackageImportPaths(moduleRoot, modulePath, byPackage),
+		importPathMap:   forstpkg.BuildForstPackageImportPaths(forstpkg.ForstImportPathRoot(scanRoot, moduleRoot), modulePath, byPackage),
 		ForstPkgToFiles: byPackage,
 		PerPackage:      make(map[string]*typechecker.TypeChecker),
 		PerPackageNodes: make(map[string][]ast.Node),
@@ -117,6 +112,29 @@ func (s *ModuleScan) asModuleResult() *ModuleResult {
 		PerPackage:      s.PerPackage,
 		PerPackageNodes: s.PerPackageNodes,
 	}
+}
+
+// ResolveNodeImports resolves opted-in TypeScript imports after CollectTypes.
+func (s *ModuleScan) ResolveNodeImports() error {
+	boundary := s.opts.BoundaryRoot
+	if boundary == "" {
+		boundary = s.scanRoot
+	}
+	for _, packageName := range s.packageNames {
+		tc := s.PerPackage[packageName]
+		nodes := s.PerPackageNodes[packageName]
+		paths := s.ForstPkgToFiles[packageName]
+		if tc == nil || len(paths) == 0 {
+			continue
+		}
+		fileDir := filepath.Dir(paths[0])
+		tc.NodeBoundaryRoot = boundary
+		tc.ConfigureForForstFile(s.ModuleRoot, fileDir, nodes)
+		if err := tc.ResolveNodeImportsAfterCollect(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // InitAndCollectTypes runs CollectTypes for each package.
@@ -233,6 +251,9 @@ func runModulePipeline(log *logrus.Logger, opts Options) (*ModuleResult, error) 
 		return nil, err
 	}
 	if err := scan.InitAndCollectTypes(); err != nil {
+		return nil, err
+	}
+	if err := scan.ResolveNodeImports(); err != nil {
 		return nil, err
 	}
 	if err := scan.LoadGoPackages(); err != nil {

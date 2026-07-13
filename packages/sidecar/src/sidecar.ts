@@ -55,7 +55,7 @@ export class ForstSidecar {
   constructor(config?: Partial<ForstConfig>) {
     this.config = {
       mode: "development",
-      port: 8080,
+      port: 6320,
       host: "localhost",
       logLevel: "info",
       ...config,
@@ -91,7 +91,7 @@ export class ForstSidecar {
       this.client = new ForstSidecarClient({
         baseUrl,
         timeout: 30000,
-        retries: 1,
+        reloadAware: true,
       });
       const ok = await this.client.healthCheck();
       if (!ok) {
@@ -135,7 +135,7 @@ export class ForstSidecar {
     this.client = new ForstSidecarClient({
       baseUrl: this.server.getServerUrl(),
       timeout: 30000,
-      retries: 1,
+      reloadAware: true,
     });
 
     await this.maybeCheckVersion();

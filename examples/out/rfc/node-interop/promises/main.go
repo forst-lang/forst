@@ -1,5 +1,6 @@
 package main
 
+import fmt "fmt"
 import os "os"
 
 type T_BSiWS9EsB18 struct {
@@ -14,12 +15,18 @@ type T_NTbLJjyksQg struct {
 func main() {
 	result, resultErr := forst_node_callasync_legacy_payment_ts_create()
 	if !(resultErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", resultErr)
+			os.Exit(1)
+		}
 	}
 	println(result.Id)
 	echo, echoErr := forst_node_callasync_legacy_payment_ts_concurrentEcho()
 	if !(echoErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", echoErr)
+			os.Exit(1)
+		}
 	}
 	println(echo.Echo)
 }

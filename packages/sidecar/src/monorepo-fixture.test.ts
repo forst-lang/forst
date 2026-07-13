@@ -29,7 +29,7 @@ describe("testdata/monorepo fixture", () => {
       rootDir: monorepoRoot,
       configPath: join(monorepoRoot, "ftconfig.json"),
     };
-    const { args, cwd } = buildForstDevSpawnArgs(cfg, 8081);
+    const { args, cwd } = buildForstDevSpawnArgs(cfg, 6321);
     expect(effectiveProjectRootDir(cfg)).toBe(monorepoRoot);
     expect(cwd).toBe(monorepoRoot);
     expect(args).toContain("-config");

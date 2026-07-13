@@ -39,7 +39,7 @@ func TestEffectivePort(t *testing.T) {
 		t.Fatalf("port = %q", got)
 	}
 	t.Setenv(envInvokePort, "")
-	if got := effectivePort(ftconfig.ServerConfig{Embedded: true}); got != "8081" {
+	if got := effectivePort(ftconfig.ServerConfig{Embedded: true}); got != ftconfig.DefaultEmbeddedInvokePort {
 		t.Fatalf("default port = %q", got)
 	}
 }
@@ -86,7 +86,7 @@ func TestWriteInvokeReady(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var payload invokeReadyPayload
+	var payload InvokeReadyPayload
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
 	}

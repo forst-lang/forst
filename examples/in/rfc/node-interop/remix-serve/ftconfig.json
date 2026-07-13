@@ -9,7 +9,7 @@
   "server": {
     "embedded": true,
     "host": "127.0.0.1",
-    "port": "8081"
+    "port": "6321"
   },
   "files": {
     "include": [
@@ -29,7 +29,7 @@
     "runtimeEnabled": true,
     "hostMode": true,
     "binary": "node_modules/.bin/remix-serve",
-    "args": ["build/server/index.js", "--port", "3000"],
+    "args": ["build/server/index.js", "--port", "6322"],
     "hostSocket": ".forst/node.sock",
     "hostReadyTimeoutSeconds": 120
   }

@@ -23,6 +23,41 @@ export interface RuntimeState {
   index: ManifestIndex | null;
 }
 
+interface HostInitSnapshot {
+  fingerprint: string;
+  manifest: ForstNodeManifestV1;
+  index: ManifestIndex;
+  wireProtocol: string;
+}
+
+let hostInitSnapshot: HostInitSnapshot | null = null;
+
+/** Test-only: clears process-wide host initialize cache. */
+export function resetHostInitCacheForTest(): void {
+  hostInitSnapshot = null;
+}
+
+function initializeFingerprint(params: InitializeParams): string {
+  return JSON.stringify({
+    protocolVersion: params.protocolVersion,
+    boundaryRoot: params.boundaryRoot,
+    manifest: params.manifest,
+    filesExclude: params.filesExclude ?? null,
+    supportedProtocols: params.supportedProtocols ?? null,
+  });
+}
+
+function applyHostInitSnapshot(
+  state: RuntimeState,
+  snap: HostInitSnapshot
+): InitializeResult {
+  state.manifest = snap.manifest;
+  state.index = snap.index;
+  state.wireProtocol = snap.wireProtocol;
+  state.initialized = true;
+  return { ok: true as const, protocol: snap.wireProtocol };
+}
+
 export function createRuntimeState(): RuntimeState {
   return {
     initialized: false,
@@ -88,6 +123,20 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
       );
     }
 
+    const fingerprint = initializeFingerprint(params);
+    if (hostInitSnapshot?.fingerprint === fingerprint) {
+      const result = applyHostInitSnapshot(state, hostInitSnapshot);
+      yield* Effect.logInfo("initialize_cache_hit").pipe(
+        Effect.annotateLogs({
+          event: "initialize_cache_hit",
+          boundary_root: params.boundaryRoot,
+          export_count: hostInitSnapshot.manifest.exports.length,
+          protocol: hostInitSnapshot.wireProtocol,
+        })
+      );
+      return result;
+    }
+
     const manifest = yield* Effect.try({
       try: () => validateManifest(params.manifest),
       catch: (cause) =>
@@ -107,6 +156,13 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
     state.wireProtocol = protocol;
     setFilesExcludePatterns(params.filesExclude);
     state.initialized = true;
+
+    hostInitSnapshot = {
+      fingerprint,
+      manifest,
+      index: state.index,
+      wireProtocol: protocol,
+    };
 
     yield* Effect.annotateCurrentSpan("boundary_root", params.boundaryRoot);
     yield* Effect.annotateCurrentSpan("export_count", manifest.exports.length);

@@ -16,7 +16,7 @@ var tsE2EStubs embed.FS
 
 func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 	dir := t.TempDir()
-	ftPath := filepath.Join(dir, "sample.ft")
+	ftPath := filepath.Join(dir, "main.ft")
 	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -29,10 +29,14 @@ func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 
 func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "a.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+	mainDir := filepath.Join(dir, "main")
+	if err := os.MkdirAll(mainDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "b.ft"), []byte(generateTestSecondForstFile), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "echo.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "ping.ft"), []byte(generateTestSecondForstFile), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {

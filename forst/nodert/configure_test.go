@@ -73,6 +73,41 @@ func TestResolveBootstrapPath_relativeToBoundaryRoot(t *testing.T) {
 	}
 }
 
+func TestResolveBootstrapPath_envRelativeFallsBackToMonorepo(t *testing.T) {
+	repo := t.TempDir()
+	bootstrapFile := filepath.Join(repo, "packages", "node-runtime", "dist", "bootstrap.js")
+	if err := os.MkdirAll(filepath.Dir(bootstrapFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bootstrapFile, []byte("// bootstrap"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	boundary := filepath.Join(repo, "examples", "sync")
+	if err := os.MkdirAll(boundary, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sandbox := filepath.Join(boundary, ".forst", "run", "forst-1")
+	if err := os.MkdirAll(sandbox, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(sandbox); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envNodeBootstrap, "../packages/node-runtime/dist/bootstrap.js")
+
+	got, err := ResolveBootstrapPath(boundary, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.Abs(bootstrapFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 	env := buildNodeChildEnv(ProcessOptions{
 		BoundaryRoot: "/tmp/project",

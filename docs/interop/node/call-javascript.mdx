@@ -198,7 +198,19 @@ Go sets the following on the **direct** app-shim child when `node.hostMode` is t
 | `FORST_NODE_SOCKET` | Go | Absolute path to the Unix socket (TCP URL on Windows) where the host listens for Go RPC. Defaults to `{boundaryRoot}/{node.hostSocket}` (default `.forst/node.sock`). If set in the **parent** environment before spawn, `ResolveHostSocketPath` uses it for planning. |
 | `FORST_NODE_HOST_READY` | Go | Absolute path to a JSON readiness file (typically `{socket}.ready`). The host writes `{"pid", "socket", "phase"}`; Go polls until `phase` is `"app"` before dialing. Defers RPC until Remix/Vite or your entry calls `signalForstAppReady()` when `hostAppReadyModule` is set. |
 | `FORST_NODE_APP_READY_MODULE` | Go (optional) | When `node.hostAppReadyModule` is set in ftconfig, path to a small module `register.mjs` loads before signaling app readiness. |
+| `FORST_NODE_ATTACH_ONLY` | `forst dev` parent (`"1"`) | Set on **`go run` children** during watch reload. Nodert **reattaches only** — it does not spawn a new host. Unset for one-shot `forst run`. |
 | `FORCE_COLOR` | Go (optional) | Set to `"1"` when the Forst parent stdout is a TTY and `NO_COLOR` is unset, so piped Vite/Remix output keeps ANSI colors. |
+
+### Dev reload host ownership
+
+With `node.hostMode` and `forst dev` watch reload:
+
+- **`forst dev` (parent)** spawns and owns the Node/Vite host before starting the compiled `go run` child.
+- Each reload **`go run` child** inherits `FORST_NODE_ATTACH_ONLY=1` and dials the existing host socket — it never spawns a second host.
+- Reload stop uses **process-group SIGTERM/SIGKILL on `go run` only**; the host is not a descendant of that child, so Vite does not cold-start on every `.ft` save.
+- **`forst dev` exit always stops the host** (whether the parent spawned it or reattached to an existing marker).
+
+One-shot `forst run` with `hostMode` is unchanged: the compiled binary may spawn the host on first `GetClient()` when attach-only is unset.
 
 Typical spawn layout:
 

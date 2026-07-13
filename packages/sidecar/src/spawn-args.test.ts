@@ -31,7 +31,7 @@ describe("buildForstDevSpawnArgs", () => {
 
   it("omits -config when configPath is absent", () => {
     const cfg: ForstConfig = { forstDir: "./forst" };
-    const { args } = buildForstDevSpawnArgs(cfg, 8080);
+    const { args } = buildForstDevSpawnArgs(cfg, 6320);
     expect(args).not.toContain("-config");
   });
 });

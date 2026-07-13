@@ -12,7 +12,7 @@ Shows two ways Forst calls Go:
 
 ## CLI
 
-`forst run` only emits transpiled Go into a temp dir, so **`helpers.go` is not included**. Build into this module, then run with Go:
+`forst run` emits transpiled Go into a temp sandbox (`.forst/run/`); **hand-written `.go` is not included**. For same-package Go stubs, use `forst build` and the standard Go toolchain:
 
 ```bash
 task example:go-interop

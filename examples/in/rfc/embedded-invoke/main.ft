@@ -17,5 +17,5 @@ func Echo(input EchoRequest) {
 }
 
 func main() {
-  println("embedded invoke listening on :8081")
+  println("embedded invoke listening on :6321")
 }

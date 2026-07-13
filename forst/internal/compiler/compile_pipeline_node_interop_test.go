@@ -19,7 +19,7 @@ func TestCompileNodeInteropExample(t *testing.T) {
 		PackageRoot: exampleRoot,
 		LogLevel:    "error",
 	}, nil)
-	main, runtime, _, err := c.CompileWithNodeRuntime()
+	main, runtime, _, _, _, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		t.Fatalf("CompileWithNodeRuntime: %v", err)
 	}

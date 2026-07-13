@@ -82,7 +82,7 @@ Qualified import calls such as `exec.Command(...)` are checked when the stdlib p
 
 An `import "module/path"` can refer to **another Forst package** in the same Go module—not only hand-written Go. The compiler resolves these as **Forst siblings** from `.ft` sources and the module import map (`modulecheck`). Cross-package calls type-check against the sibling package’s Forst signatures.
 
-This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` may emit gitignored `z_forst_gen*.go` at test time; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
+This matters for [Providers](/language/providers) cross-package wiring: `api` can call `auth.LogEvent` without a committed Go stub. `forst test` emits ephemeral lib shims under `.forst/gen/test/`; the LSP uses the same module-level pass so editor diagnostics match compile-time arity.
 
 Try the cross-package provider examples:
 
@@ -116,6 +116,20 @@ npx forst run -root ./handlers handlers/orders.ft
 ```
 
 The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`). Exported funcs from co-located **`.go`** files resolve **without** an import line (same package). Example: `examples/in/go_interop/helpers.go` called from `custom.ft` / `cli.ft`.
+
+## Project layout profiles
+
+Forst supports three common Go module layouts. Pick one and stay consistent within a project.
+
+| Profile | `go.mod` location | `.ft` location | Typical workflow |
+| --- | --- | --- | --- |
+| **Go-native** | project root | mixed with `.go` | `forst build` + `go run .` / `go test ./...` |
+| **Node-primary** | `.forst-gomod/` | project root (`main/`, `forst/`) | `forst generate` + `forst run`; `replace` paths in `.forst-gomod/go.mod` are relative to the **project boundary**, not to `.forst-gomod/` |
+| **Compiler dev** | either | either | `FORST_GOMOD_ROOT=<path-to-forst-module>` when the `forst` binary is not adjacent to `module forst` |
+
+**`forst run`** writes a temp sandbox under `.forst/run/` with its own `go.mod` and links the `forst` runtime module. **Go-native** projects (root `go.mod`, not only `.forst-gomod/`) use **Mode B**: an auto-managed `.forst/go.work` workspace instead of a fragile `replace` in the sandbox. **Node-primary** projects keep **Mode A** (`replace forst => …` in the sandbox `go.mod`). For mixed `.ft` + hand-written `.go`, prefer **`forst build`** and the normal Go toolchain — `forst run` emits transpiled `.go` only.
+
+Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/node-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
 
 ## Runtime validation
 

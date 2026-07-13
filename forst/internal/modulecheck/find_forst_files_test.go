@@ -258,3 +258,35 @@ func writeModuleFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestCheckModuleProviders_forstGomodSubdirLayout(t *testing.T) {
+	dir := t.TempDir()
+	forstGomod := filepath.Join(dir, ".forst-gomod")
+	if err := os.MkdirAll(forstGomod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	forstDir := filepath.Join(dir, "forst")
+	if err := os.MkdirAll(forstDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeModuleFile(t, filepath.Join(forstDir, "main.ft"), "package main\nfunc main() {}\n")
+	writeModuleFile(t, filepath.Join(forstDir, "helper.ft"), `package helper
+
+func Ping() {
+  return {ok: "yes"}
+}
+`)
+	result, err := CheckModuleProviders(nil, Options{ModuleRoot: dir, BoundaryRoot: dir})
+	if err != nil {
+		t.Fatalf("modulecheck: %v", err)
+	}
+	if result.ModuleRoot != forstGomod {
+		t.Fatalf("ModuleRoot = %q want %q", result.ModuleRoot, forstGomod)
+	}
+	if result.ForstPackageTypeChecker("helper") == nil {
+		t.Fatalf("missing helper package, got %v", result.ForstPkgToFiles)
+	}
+}

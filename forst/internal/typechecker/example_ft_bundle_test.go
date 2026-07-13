@@ -30,7 +30,7 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"union_error_narrowing.ft",
 		"nominal_error.ft",
 		"map_catalog.ft",
-		"tictactoe/engine.ft",
+		"tictactoe/main/engine.ft",
 		"rfc/guard/basic_guard.ft",
 		"rfc/guard/shape_guard.ft",
 		"rfc/providers/providers.ft",

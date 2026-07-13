@@ -273,14 +273,14 @@ export class ForstUtils {
         process.env.NODE_ENV === "production" ? "production" : "development",
       forstDir: "./forst",
       outputDir: "./dist/forst",
-      port: 8080,
+      port: 6320,
       host: "localhost",
       logLevel: "info",
       transports: {
         development: {
           mode: "http",
           http: {
-            port: 8080,
+            port: 6320,
             cors: true,
             healthCheck: "/health",
           },
@@ -288,7 +288,7 @@ export class ForstUtils {
         production: {
           mode: "http",
           http: {
-            port: 8080,
+            port: 6320,
             cors: true,
             healthCheck: "/health",
           },

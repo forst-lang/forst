@@ -70,7 +70,7 @@ func BenchmarkCompile_generics(b *testing.B) {
 }
 
 func BenchmarkCompile_tictactoe(b *testing.B) {
-	benchmarkCompileMerged(b, "tictactoe", "server.ft")
+	benchmarkCompileMerged(b, "tictactoe", filepath.Join("main", "server.ft"))
 }
 
 func BenchmarkCompile_providers(b *testing.B) {

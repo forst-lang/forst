@@ -34,7 +34,7 @@ func TestValidBoardEnsureHash_stableBeforeAndAfterCollect(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "engine.ft")})
+	merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "main", "engine.ft")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestValidBoardEnsureScopes_afterCollectOnly(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	for iter := 0; iter < 500; iter++ {
-		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "engine.ft")})
+		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "main", "engine.ft")})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +120,7 @@ func TestValidBoardEnsureScopes_afterFullCheck(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	for iter := 0; iter < 500; iter++ {
-		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "engine.ft")})
+		merged, _, err := forstpkg.ParseAndMergePackage(log, []string{filepath.Join(root, "main", "engine.ft")})
 		if err != nil {
 			t.Fatal(err)
 		}

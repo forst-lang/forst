@@ -119,7 +119,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 		},
 		{
 			name:               "remix-serve",
-			entryRel:           "rfc/node-interop/remix-serve/main.ft",
+			entryRel:           "rfc/node-interop/remix-serve/main/main.ft",
 			goldenRel:          "rfc/node-interop/remix-serve/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
@@ -138,7 +138,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"legacy/todos.ts",
 			},
 			invokeMarkers: []string{
-				"invokeserver.MustStartEmbedded",
+				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_ListTodos",
 				"ForstInvokeWaitForShutdown",
 			},
@@ -195,7 +195,7 @@ func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string,
 		ExportStructFields: exportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, runtimeCode, invokeCode, err := c.CompileWithNodeRuntime()
+	mainCode, runtimeCode, invokeCode, _, _, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
 	}

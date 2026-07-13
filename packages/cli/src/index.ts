@@ -23,12 +23,19 @@ export {
   getExpectedCompilerBinaryPath,
   maxSemverCompilerVersion,
   resolveForstBinary,
+  resolveForstBinaryDetailed,
   validateCompilerVersionForCachePath,
 } from "./resolve.js";
 export type {
   ResolveForstBinaryOptions,
   ResolveForstBinaryFs,
+  ResolvedForstBinary,
 } from "./resolve.js";
+export { buildForstSpawnEnv } from "./spawn-env.js";
+export {
+  getCompilerModuleDirForVersion,
+  ensureCompilerModuleForVersion,
+} from "./compiler-module.js";
 export {
   CompilerBinaryChecksumMismatch,
   CompilerBinaryDigestUnavailable,
@@ -42,7 +49,8 @@ export { fetchLatestCompilerReleaseVersion } from "./github-release.js";
 export { fetchWithRetry } from "./http.js";
 
 import { spawn, type SpawnOptions } from "node:child_process";
-import { resolveForstBinary, type ResolveForstBinaryOptions } from "./resolve.js";
+import { buildForstSpawnEnv } from "./spawn-env.js";
+import { type ResolveForstBinaryOptions } from "./resolve.js";
 
 /**
  * Spawns the resolved native `forst` binary with the given args.
@@ -53,6 +61,10 @@ export async function spawnForst(
   spawnOptions: SpawnOptions = {},
   resolveOptions?: ResolveForstBinaryOptions
 ): Promise<ReturnType<typeof spawn>> {
-  const bin = await resolveForstBinary(resolveOptions);
-  return spawn(bin, args, { stdio: "inherit", ...spawnOptions });
+  const { bin, env } = await buildForstSpawnEnv(resolveOptions);
+  return spawn(bin, args, {
+    stdio: "inherit",
+    ...spawnOptions,
+    env: { ...env, ...spawnOptions.env },
+  });
 }

@@ -16,8 +16,9 @@ import (
 // large trees (e.g. tictactoe) in every CI race run.
 type generateTSExamplesManifest struct {
 	Examples []struct {
-		Path        string   `json:"path"`
-		MustContain []string `json:"mustContain,omitempty"`
+		Path                      string   `json:"path"`
+		MustContain               []string `json:"mustContain,omitempty"`
+		AllowStemPackageMismatch  bool     `json:"allowStemPackageMismatch,omitempty"`
 	} `json:"examples"`
 }
 
@@ -73,7 +74,11 @@ func TestGenerate_exampleManifest(t *testing.T) {
 			if err := copyGenerateExampleSources(srcDir, dir); err != nil {
 				t.Fatalf("copy sources: %v", err)
 			}
-			if err := generateCommand([]string{dir}); err != nil {
+			args := []string{dir}
+			if ex.AllowStemPackageMismatch {
+				args = append([]string{"-allow-stem-package-mismatch"}, args...)
+			}
+			if err := generateCommand(args); err != nil {
 				t.Fatalf("generateCommand: %v", err)
 			}
 			if len(ex.MustContain) > 0 {

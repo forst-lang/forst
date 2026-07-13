@@ -34,7 +34,7 @@ func TestTypecheckForLSP_crossPkgForstSiblingCall_ignoresEmittedGoArity(t *testi
 	}
 }
 
-func TestTypecheckForLSP_crossPkgWithEmittedGoStub(t *testing.T) {
+func TestTypecheckForLSP_crossPkgWithHandWrittenGoStub(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module cross_stub\n\ngo 1.26\n"), 0o644); err != nil {
@@ -55,7 +55,7 @@ type Providers_stub struct {
 
 func LogEvent(providers Providers_stub, id string) {}
 `
-	if err := os.WriteFile(filepath.Join(authDir, "z_forst_gen.go"), []byte(emittedGo), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "auth_stub.go"), []byte(emittedGo), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	const authFt = `package auth

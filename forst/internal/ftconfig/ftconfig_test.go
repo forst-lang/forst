@@ -12,7 +12,7 @@ func TestDefault_saneDefaults(t *testing.T) {
 	if c.Compiler.Target != "go" {
 		t.Fatalf("Compiler.Target: %s", c.Compiler.Target)
 	}
-	if c.Server.Port != "8080" || c.Server.CORS != true {
+	if c.Server.Port != DefaultDevExecutorPort || c.Server.CORS != true {
 		t.Fatalf("Server: %+v", c.Server)
 	}
 	if len(c.Files.Include) == 0 || c.Dev.LogLevel != "info" {
@@ -450,13 +450,28 @@ func TestExportStructFieldsFromDir_readsNestedConfig(t *testing.T) {
 	}
 }
 
+func TestLoad_devEntry_roundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, configFileName)
+	if err := os.WriteFile(path, []byte(`{"dev":{"entry":"./forst/main.ft"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Dev.Entry != "./forst/main.ft" {
+		t.Fatalf("Dev.Entry = %q", cfg.Dev.Entry)
+	}
+}
+
 func TestLoadFromDir_usesDefaultWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	cfg, err := LoadFromDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Server.Port != "8080" {
+	if cfg.Server.Port != DefaultDevExecutorPort {
 		t.Fatalf("expected default port, got %+v", cfg.Server)
 	}
 }

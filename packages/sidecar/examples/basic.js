@@ -9,7 +9,7 @@ async function basicExample() {
         // Create and start the sidecar
         const sidecar = await (0, index_1.autoStart)({
             forstDir: "../../forst", // Point to the main Forst directory
-            port: 8080,
+            port: 6320,
             logLevel: "info",
         });
         console.log("✅ Sidecar started successfully");

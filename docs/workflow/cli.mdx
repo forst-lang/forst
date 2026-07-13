@@ -90,6 +90,16 @@ forst dump --file path/to/file.ft --phase typechecker
 
 Useful when reporting compiler bugs.
 
+## `forst clean`
+
+Remove compiler-generated artifacts under `.forst/` (run sandboxes, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
+
+```bash
+forst clean
+forst clean -root ./my-service
+forst clean -dry-run
+```
+
 ## `forst version`
 
 Print compiler version info:

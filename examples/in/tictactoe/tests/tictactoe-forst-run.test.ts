@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const exampleRoot = join(import.meta.dir, "..");
-const serverFt = join(exampleRoot, "server.ft");
+const serverFt = join(exampleRoot, "main", "server.ft");
 
 function resolveForstBinary(): string {
   const env = process.env.FORST_BINARY?.trim();

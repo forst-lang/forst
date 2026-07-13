@@ -36,7 +36,7 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	}
 
 	moduleRoot := c.moduleRootForProvidersPass()
-	modResult, err := modulecheck.CheckModuleProviders(c.log, modulecheck.Options{ModuleRoot: moduleRoot})
+	modResult, err := c.checkModuleProvidersWithSession(moduleRoot, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err != nil {
 		return nil, modResult, err
 	}
@@ -131,10 +131,14 @@ func moduleRootHasGoMod(dir string) bool {
 }
 
 // typecheckPackageRootWithModuleProviders typechecks a -root compile via modulecheck so Forst sibling
-// imports resolve from .ft sources (not emitted z_forst_gen.go Go stubs).
+// imports resolve from .ft sources via modulecheck (not generated Go stubs).
 func (c *Compiler) typecheckPackageRootWithModuleProviders(nodes []ast.Node) (*typechecker.TypeChecker, *modulecheck.ModuleResult, error) {
-	moduleRoot := goload.FindModuleRoot(c.Args.PackageRoot)
-	modResult, err := modulecheck.CheckModuleProviders(c.log, modulecheck.Options{ModuleRoot: moduleRoot})
+	goModRoot := goload.FindModuleRoot(c.Args.PackageRoot)
+	scanRoot := goload.ScanRootForPackageRoot(c.Args.PackageRoot)
+	modResult, err := c.checkModuleProvidersWithSession(goModRoot, modulecheck.Options{
+		ModuleRoot:   scanRoot,
+		BoundaryRoot: c.Args.PackageRoot,
+	})
 	if err != nil {
 		return nil, modResult, err
 	}

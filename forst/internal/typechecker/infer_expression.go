@@ -3,6 +3,7 @@ package typechecker
 import (
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/goload"
 	"strings"
 
 	"go/types"
@@ -476,10 +477,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					"pkgLocal":           pkgName,
 					"importPath":         importPath,
 					"goWorkspaceDir":     tc.GoWorkspaceDir,
-					"goPac∏kagesPreloaded": tc.goPackagesPreloaded,
+					"goPackagesPreloaded": tc.goPackagesPreloaded,
 					"missingGoImports":   tc.missingGoImportPaths(),
 				}).Debug("Go import package types not loaded")
-				return nil, diagnosticf(callSpan, "go-import", "Go package %q (%s) types not loaded; check go.mod workspace and go tooling", pkgName, importPath)
+				return nil, diagnosticf(callSpan, "go-import", "%s", goload.GoImportTypesNotLoadedMsg(pkgName, importPath, tc.GoWorkspaceDir, tc.NodeBoundaryRoot))
 			}
 		} else if len(parts) >= 3 {
 			base := ast.Identifier(parts[0])

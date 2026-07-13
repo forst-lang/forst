@@ -17,10 +17,12 @@ type InvokeRequest struct {
 
 // Response is the JSON envelope for invoke HTTP endpoints.
 type Response struct {
-	Success bool            `json:"success"`
-	Output  string          `json:"output,omitzero"`
-	Error   string          `json:"error,omitzero"`
-	Result  json.RawMessage `json:"result,omitzero"`
+	Success    bool            `json:"success"`
+	Output     string          `json:"output,omitzero"`
+	Error      string          `json:"error,omitzero"`
+	Result     json.RawMessage `json:"result,omitzero"`
+	Reloading  bool            `json:"reloading,omitempty"`
+	Generation uint64          `json:"generation,omitempty"`
 }
 
 // VersionInfo is returned by GET /version.

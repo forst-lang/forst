@@ -37,6 +37,9 @@ func (s *forstNodeSeq_string) Close() {
 func (s *forstNodeSeq_t_lkhz7dyfnqt) Close() {
 	s.inner.Close()
 }
+func ForstNodeWaitForShutdown() {
+	nodert.WaitForShutdown()
+}
 func (s *forstNodeSeq_t_lkhz7dyfnqt) NextBatch(maxItems int) ([]forstNodeGenStep_t_lkhz7dyfnqt, error) {
 	var raw, err = s.inner.NextBatch(maxItems)
 	if err != nil {

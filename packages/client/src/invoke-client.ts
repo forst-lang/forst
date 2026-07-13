@@ -1,4 +1,4 @@
-import { ForstSidecar, ForstSidecarClient } from "@forst/sidecar";
+import { ForstSidecar, ForstSidecarClient, readInvokeReadyUrl } from "@forst/sidecar";
 import type {
   ForstSidecar as ForstSidecarType,
   InvokeSuccess,
@@ -33,13 +33,30 @@ export interface ForstInvokeClientConfig {
 
 export type ForstClientConfig = ForstInvokeClientConfig;
 
-function resolveBaseUrl(config?: ForstInvokeClientConfig): string | undefined {
+const defaultInvokeBaseUrl = "http://127.0.0.1:6321";
+
+function resolveEnvBaseUrl(): string | undefined {
   return (
-    config?.baseUrl ??
-    config?.devServerUrl ??
     process.env.FORST_INVOKE_URL ??
     process.env.FORST_BASE_URL ??
     process.env.FORST_DEV_URL
+  );
+}
+
+function resolveExplicitBaseUrl(config?: ForstInvokeClientConfig): string | undefined {
+  return config?.baseUrl ?? config?.devServerUrl ?? resolveEnvBaseUrl();
+}
+
+function createInvokeBaseUrlResolver(config?: ForstInvokeClientConfig) {
+  const fallback =
+    resolveExplicitBaseUrl(config) ?? defaultInvokeBaseUrl;
+  return () =>
+    readInvokeReadyUrl(config?.rootDir) ?? resolveExplicitBaseUrl(config) ?? fallback;
+}
+
+function resolveBaseUrl(config?: ForstInvokeClientConfig): string | undefined {
+  return (
+    resolveExplicitBaseUrl(config) ?? readInvokeReadyUrl(config?.rootDir)
   );
 }
 
@@ -62,22 +79,23 @@ function shouldConnect(config?: ForstInvokeClientConfig): boolean {
   if (config?.baseUrl !== undefined || config?.devServerUrl !== undefined) {
     return true;
   }
-  return Boolean(
-    process.env.FORST_INVOKE_URL ||
-      process.env.FORST_BASE_URL ||
-      process.env.FORST_DEV_URL
-  );
+  if (readInvokeReadyUrl(config?.rootDir)) {
+    return true;
+  }
+  return Boolean(resolveEnvBaseUrl());
 }
 
 class HttpInvokeClient {
   private client: ForstSidecarClient;
 
   constructor(config?: ForstInvokeClientConfig) {
-    const baseUrl = resolveBaseUrl(config) ?? "http://127.0.0.1:8081";
+    const resolveBaseUrlFn = createInvokeBaseUrlResolver(config);
     this.client = new ForstSidecarClient({
-      baseUrl,
+      baseUrl: resolveBaseUrlFn(),
+      resolveBaseUrl: resolveBaseUrlFn,
       timeout: config?.timeout ?? 30000,
-      retries: config?.retries ?? 1,
+      retries: config?.retries ?? 0,
+      reloadAware: true,
     });
   }
 
@@ -104,7 +122,7 @@ class SidecarInvokeClient {
   constructor(config?: ForstInvokeClientConfig) {
     this.sidecar = new ForstSidecar({
       mode: config?.mode ?? "development",
-      port: config?.port ?? 8080,
+      port: config?.port ?? 6320,
       host: config?.host ?? "localhost",
       logLevel: config?.logLevel ?? "info",
       rootDir: config?.rootDir ?? process.cwd(),

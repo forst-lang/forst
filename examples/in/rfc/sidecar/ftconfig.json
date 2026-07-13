@@ -7,7 +7,7 @@
     "reportMemoryUsage": false
   },
   "server": {
-    "port": "8080",
+    "port": "6320",
     "readTimeout": 30,
     "writeTimeout": 30,
     "cors": true

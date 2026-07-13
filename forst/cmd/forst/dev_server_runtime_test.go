@@ -13,6 +13,7 @@ import (
 
 	"forst/internal/compiler"
 	"forst/internal/discovery"
+	"forst/internal/ftconfig"
 
 	"github.com/sirupsen/logrus"
 )
@@ -47,7 +48,7 @@ func TestLoadAndValidateConfig_overridesPortAndLogLevel(t *testing.T) {
 	logger.SetOutput(io.Discard)
 
 	overrideLevel := "debug"
-	cfg := loadAndValidateConfig(configPath, logger, "9090", &overrideLevel)
+	cfg := loadAndValidateConfig(configPath, logger, "9090", &overrideLevel, dir, false)
 	if cfg == nil {
 		t.Fatal("expected config, got nil")
 	}
@@ -74,7 +75,7 @@ func TestLoadAndValidateConfig_setsLoggerLevelFromConfig(t *testing.T) {
 	logger.SetOutput(io.Discard)
 	logger.SetLevel(logrus.ErrorLevel)
 
-	cfg := loadAndValidateConfig(configPath, logger, "", nil)
+	cfg := loadAndValidateConfig(configPath, logger, "", nil, dir, false)
 	if cfg == nil {
 		t.Fatal("expected config, got nil")
 	}
@@ -83,6 +84,25 @@ func TestLoadAndValidateConfig_setsLoggerLevelFromConfig(t *testing.T) {
 	}
 	if logger.GetLevel() != logrus.TraceLevel {
 		t.Fatalf("expected logger level trace, got %s", logger.GetLevel())
+	}
+}
+
+func TestLoadAndValidateConfig_exportStructFieldsCLI(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "ftconfig.json")
+	configJSON := `{
+  "server": { "port": "8080" },
+  "compiler": { "exportStructFields": false },
+  "dev": { "logLevel": "info" }
+}`
+	if err := os.WriteFile(configPath, []byte(configJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	cfg := loadAndValidateConfig(configPath, logger, "", nil, dir, true)
+	if cfg == nil || !cfg.Compiler.ExportStructFields {
+		t.Fatalf("expected CLI exportStructFields override, got %+v", cfg)
 	}
 }
 
@@ -101,7 +121,7 @@ func TestLoadAndValidateConfig_warnAndInvalidLogLevelBehavior(t *testing.T) {
 		logger.SetOutput(io.Discard)
 		logger.SetLevel(logrus.DebugLevel)
 
-		_ = loadAndValidateConfig(configPath, logger, "", nil)
+		_ = loadAndValidateConfig(configPath, logger, "", nil, dir, false)
 		if logger.GetLevel() != logrus.WarnLevel {
 			t.Fatalf("expected warn level, got %s", logger.GetLevel())
 		}
@@ -115,7 +135,7 @@ func TestLoadAndValidateConfig_helperProcess_invalidLogLevel(_ *testing.T) {
 	configPath := os.Getenv("FORST_DEVCFG_PATH")
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	_ = loadAndValidateConfig(configPath, logger, "", nil)
+	_ = loadAndValidateConfig(configPath, logger, "", nil, ".", false)
 }
 
 func TestLoadAndValidateConfig_invalidLogLevelExits(t *testing.T) {
@@ -228,7 +248,7 @@ func TestStartDevServer_helperProcess(t *testing.T) {
 
 	switch helperCase {
 	case "invalid-config-path":
-		_ = StartDevServer("8080", logger, "/path/that/does/not/exist/ftconfig.json", ".", &level)
+		_ = StartDevServer(ftconfig.DefaultDevExecutorPort, logger, "/path/that/does/not/exist/ftconfig.json", ".", &level, false, "")
 	default:
 		t.Fatalf("unknown helper case: %s", helperCase)
 	}
@@ -247,7 +267,7 @@ func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	level := "info"
-	err := StartDevServer("invalid-port", logger, "", t.TempDir(), &level)
+	err := StartDevServer("invalid-port", logger, "", t.TempDir(), &level, false, "")
 	if err == nil {
 		t.Fatal("expected error when listen address is invalid")
 	}
@@ -261,7 +281,7 @@ func TestStartDevServer_returnsNilWhenStartHookSucceeds(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	level := "info"
-	if err := StartDevServer("8080", logger, "", t.TempDir(), &level); err != nil {
+	if err := StartDevServer(ftconfig.DefaultDevExecutorPort, logger, "", t.TempDir(), &level, false, ""); err != nil {
 		t.Fatalf("expected nil when start hook succeeds, got %v", err)
 	}
 }
@@ -354,5 +374,258 @@ func TestDevServer_refreshFunctions_syncsDevBackendForInvoke(t *testing.T) {
 	}
 	if _, ok := mainPkg["NewGame"]; !ok {
 		t.Fatalf("expected main.NewGame in dev backend, got %+v", mainPkg)
+	}
+}
+
+func TestStartDevServer_runtimeProfile_callsRunRuntimeDev(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotEntry string
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ftconfig.Config) error {
+		if boundaryRoot != dir {
+			t.Fatalf("boundaryRoot = %q want %q", boundaryRoot, dir)
+		}
+		gotEntry = entry
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	origStart := devServerStartFn
+	devServerStartFn = func(*DevServer) error {
+		t.Fatal("executor HTTP server must not start in runtime profile")
+		return nil
+	}
+	t.Cleanup(func() { devServerStartFn = origStart })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if gotEntry != mainPath {
+		t.Fatalf("entry = %q want %q", gotEntry, mainPath)
+	}
+}
+
+func TestStartDevServer_runtimeProfile_usesWatchWhenHotReload(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{
+  "server": {"embedded": true},
+  "dev": {"hotReload": true}
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var watchCalled bool
+	origWatch := watchRuntimeDevFn
+	watchRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ftconfig.Config) error {
+		if boundaryRoot != dir {
+			t.Fatalf("boundaryRoot = %q want %q", boundaryRoot, dir)
+		}
+		if entry != mainPath {
+			t.Fatalf("entry = %q want %q", entry, mainPath)
+		}
+		watchCalled = true
+		return nil
+	}
+	t.Cleanup(func() { watchRuntimeDevFn = origWatch })
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+		t.Fatal("RunRuntimeDev must not run when hotReload is enabled")
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !watchCalled {
+		t.Fatal("expected WatchRuntimeDev for hotReload runtime profile")
+	}
+}
+
+func TestStartDevServer_runtimeProfile_missingEntry(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, "")
+	if err == nil || !strings.Contains(err.Error(), "no entry .ft found") {
+		t.Fatalf("want missing entry error, got %v", err)
+	}
+}
+
+func TestStartDevServer_executorProfile_unchanged(t *testing.T) {
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+		t.Fatal("runtime dev must not run in executor profile")
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	var executorStarted bool
+	origStart := devServerStartFn
+	devServerStartFn = func(*DevServer) error {
+		executorStarted = true
+		return nil
+	}
+	t.Cleanup(func() { devServerStartFn = origStart })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, "", t.TempDir(), &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !executorStarted {
+		t.Fatal("expected executor HTTP path")
+	}
+}
+
+func TestStartDevServer_runtimeProfile_setsInvokePort(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error { return nil }
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("6391", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("FORST_INVOKE_PORT"); got != "6391" {
+		t.Fatalf("FORST_INVOKE_PORT = %q want 6391", got)
+	}
+}
+
+func TestStartDevServer_runtimeProfile_usesFtconfigPortWhenNoCliOverride(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"6321"},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error { return nil }
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("FORST_INVOKE_PORT"); got != "6321" {
+		t.Fatalf("FORST_INVOKE_PORT = %q want 6321", got)
+	}
+}
+
+func TestStartDevServer_explicitExecutorOverride(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true},"dev":{"profile":"executor"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+		t.Fatal("runtime dev must not run when profile is executor")
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	var executorStarted bool
+	origStart := devServerStartFn
+	devServerStartFn = func(*DevServer) error {
+		executorStarted = true
+		return nil
+	}
+	t.Cleanup(func() { devServerStartFn = origStart })
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "error"
+	if err := StartDevServer("", logger, filepath.Join(dir, "ftconfig.json"), dir, &level, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !executorStarted {
+		t.Fatal("expected executor path with dev.profile executor override")
+	}
+}
+
+func TestStartDevServer_discoversFtconfigFromRootDir(t *testing.T) {
+	outer := t.TempDir()
+	root := filepath.Join(outer, "project")
+	if err := os.MkdirAll(filepath.Join(root, "forst"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "forst", "main.ft"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(root, "ftconfig.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"server":{"embedded":true},"dev":{"hotReload":false,"watch":false}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	otherCwd := filepath.Join(outer, "other")
+	if err := os.MkdirAll(otherCwd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(otherCwd); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	var logBuf bytes.Buffer
+	logger := logrus.New()
+	logger.SetOutput(&logBuf)
+	level := "error"
+
+	origRun := runRuntimeDevFn
+	runRuntimeDevFn = func(_ *logrus.Logger, _, _ string, cfg *ftconfig.Config) error {
+		if !cfg.Server.Embedded {
+			t.Fatal("expected embedded from ftconfig discovered via -root")
+		}
+		return nil
+	}
+	t.Cleanup(func() { runRuntimeDevFn = origRun })
+
+	if err := StartDevServer("", logger, "", root, &level, false, ""); err != nil {
+		t.Fatalf("StartDevServer: %v", err)
+	}
+	if !strings.Contains(logBuf.String(), "Loaded config from:") {
+		t.Fatalf("expected loaded config log, got: %s", logBuf.String())
 	}
 }

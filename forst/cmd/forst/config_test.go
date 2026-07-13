@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"forst/internal/ftconfig"
 )
 
 func TestLoadConfig_compilerExportStructFields(t *testing.T) {
@@ -112,7 +114,7 @@ func TestLoadConfigForGenerate_usesDefaultWhenNoConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Server.Port != "8080" {
+	if cfg.Server.Port != ftconfig.DefaultDevExecutorPort {
 		t.Fatalf("expected default port, got %+v", cfg.Server)
 	}
 }

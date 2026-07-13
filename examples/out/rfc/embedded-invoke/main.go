@@ -13,6 +13,6 @@ func Echo(input EchoRequest) EchoResponse {
 	return EchoResponse{Echo: input.Message, Timestamp: 42}
 }
 func main() {
-	println("embedded invoke listening on :8081")
+	println("embedded invoke listening on :6321")
 	ForstInvokeWaitForShutdown()
 }

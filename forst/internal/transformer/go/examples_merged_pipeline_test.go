@@ -56,8 +56,8 @@ func TestPipeline_mergedTictactoePackage(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join(examplesInRoot(t), "tictactoe")
 	paths := []string{
-		filepath.Join(root, "engine.ft"),
-		filepath.Join(root, "server.ft"),
+		filepath.Join(root, "main", "engine.ft"),
+		filepath.Join(root, "main", "server.ft"),
 	}
 	out := compileMergedForstFilesPipeline(t, paths, pipelineOpts{goWorkspaceDir: moduleRootFromWD(t)})
 	for _, sub := range []string{`func NewGame`, `func PlayMove`, `func main`, `fmt.Println`} {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"path/filepath"
 
@@ -18,13 +19,26 @@ var (
 )
 
 func runTestCommand(args []string, log *logrus.Logger) int {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	root := fs.String("root", "", "ftconfig boundary root (default: inferred from paths or cwd)")
+	exportStructFields := fs.Bool("export-struct-fields", false, "emit json-tagged exported struct fields")
+	if err := fs.Parse(args); err != nil {
+		log.Error(err)
+		return 2
+	}
+	args = fs.Args()
+
 	cwd, err := runTestCommandGetwd()
 	if err != nil {
 		log.Error(err)
 		return 2
 	}
 	paths, goTestArgs := testrunner.ParseCLIArgs(args)
-	root := cwd
+	boundary := *root
+	if boundary == "" {
+		boundary = cwd
+	}
+	moduleRoot := boundary
 	for _, p := range paths {
 		if p == "" {
 			continue
@@ -44,7 +58,7 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 				log.Error(err)
 				return 2
 			}
-			root = modRoot
+			moduleRoot = modRoot
 			rel, err := runTestCommandPathRel(modRoot, abs)
 			if err != nil {
 				log.Error(err)
@@ -58,13 +72,25 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 			break
 		}
 	}
-	root = goload.FindModuleRoot(root)
+	moduleRoot = goload.FindModuleRoot(moduleRoot)
+	if *root != "" {
+		absRoot, err := runTestCommandPathAbs(*root)
+		if err != nil {
+			log.Error(err)
+			return 2
+		}
+		boundary = absRoot
+	} else {
+		boundary = moduleRoot
+	}
 
 	code, err := runTestCommandRunner(testrunner.Options{
-		ModuleRoot: root,
-		Paths:      paths,
-		GoTestArgs: goTestArgs,
-		Log:        log,
+		ModuleRoot:         moduleRoot,
+		BoundaryRoot:       boundary,
+		Paths:              paths,
+		GoTestArgs:         goTestArgs,
+		Log:                log,
+		ExportStructFields: *exportStructFields,
 	})
 	if err != nil {
 		log.Error(err)

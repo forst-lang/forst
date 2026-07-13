@@ -39,7 +39,7 @@ func Echo(input EchoRequest) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"invokeserver.MustStartEmbedded",
+		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_Echo",
 		"ForstInvokeWaitForShutdown",
 		"reg.RegisterMeta",

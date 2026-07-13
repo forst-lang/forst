@@ -23,6 +23,8 @@ type Options struct {
 	SkipValidate bool
 	// ParsedFiles bypasses disk walk when non-nil (path -> AST nodes).
 	ParsedFiles map[string][]ast.Node
+	// BoundaryRoot is the ftconfig project root for node import resolution (defaults to ModuleRoot).
+	BoundaryRoot string
 	// GoLoader overrides go/packages load for tests; nil uses default.
 	GoLoader goload.PackagesLoader
 }
@@ -39,6 +41,7 @@ type ModuleResult struct {
 
 // CheckModuleProviders typechecks all Forst packages in a module and runs cross-package fixed-point.
 func CheckModuleProviders(log *logrus.Logger, opts Options) (*ModuleResult, error) {
+	incPassCount(log)
 	return runModulePipeline(log, opts)
 }
 
@@ -69,6 +72,11 @@ func (r *ModuleResult) ForstPackageTypeChecker(pkg string) *typechecker.TypeChec
 		return nil
 	}
 	return r.PerPackage[pkg]
+}
+
+// FindForstFiles lists .ft paths under root (used by dev reload parse cache).
+func FindForstFiles(root string) ([]string, error) {
+	return findForstFiles(root)
 }
 
 func findForstFiles(root string) ([]string, error) {

@@ -24,7 +24,7 @@ for arg in "$@"; do
     --dev) DEV_MODE=true ;;
     -h|--help)
       echo "usage: $0 [--dev]"
-      echo "  (default) build temp project, smoke-test :8081/:3000, clean up"
+      echo "  (default) build temp project, smoke-test :6321/:3000, clean up"
       echo "  --dev     same setup, print URLs, block until Ctrl+C, then clean up"
       exit 0
       ;;
@@ -39,7 +39,8 @@ FORST_PID=""
 CLEANED_UP=false
 
 free_ports() {
-  lsof -ti tcp:8081 2>/dev/null | xargs kill -9 2>/dev/null || true
+  lsof -ti tcp:6321 2>/dev/null | xargs kill -9 2>/dev/null || true
+  lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
 }
 
@@ -65,7 +66,7 @@ cleanup() {
   echo "=== cleanup ==="
   kill_forst_tree
   if [[ -n "$TMP" ]]; then
-    pkill -f "forst run.*${TMP}/main.ft" 2>/dev/null || true
+    pkill -f "forst run.*${TMP}/main/main.ft" 2>/dev/null || true
     pkill -f "remix-serve ${TMP}/build/server/index.js" 2>/dev/null || true
   fi
   free_ports
@@ -130,18 +131,18 @@ export FORST_GOMOD_ROOT
 if [[ "$DEV_MODE" == true ]]; then
   (
     cd "$TMP"
-    exec "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main.ft"
+    exec "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main/main.ft"
   ) &
   FORST_PID=$!
 else
   (
     cd "$TMP"
-    exec "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main.ft"
+    exec "$FORST_BINARY" run -export-struct-fields -root "$TMP" -- "$TMP/main/main.ft"
   ) >"$LOG_FILE" 2>&1 &
   FORST_PID=$!
 fi
 
-bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:8081/health "invoke :8081" 120
+bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6321/health "invoke :6321" 120
 bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:3000/ "remix :3000" 120
 
 if [[ "$DEV_MODE" == true ]]; then
@@ -149,7 +150,7 @@ if [[ "$DEV_MODE" == true ]]; then
   echo "=== standalone remix-serve dev ==="
   echo "temp project: $TMP"
   echo "Remix:        http://127.0.0.1:3000/"
-  echo "Invoke:       http://127.0.0.1:8081/health"
+  echo "Invoke:       http://127.0.0.1:6321/health"
   echo "log:         stdout/stderr (this terminal)"
   echo "Press Ctrl+C to stop — temp dir and listeners will be cleaned up."
   echo ""
@@ -165,7 +166,7 @@ for line in sync:2 sync:3 async:ok gen:1 events:2; do
   }
 done
 
-curl -sf http://127.0.0.1:8081/health | grep -q 'healthy'
+curl -sf http://127.0.0.1:6321/health | grep -q 'healthy'
 curl -sf http://127.0.0.1:3000/ | grep -q 'Todos'
 
 echo "=== standalone remix-serve e2e OK ==="

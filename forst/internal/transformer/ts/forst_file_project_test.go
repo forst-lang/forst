@@ -13,6 +13,69 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestGenerateTypeScriptOutputsByPackage_twoFilesSamePackage(t *testing.T) {
+	dir := t.TempDir()
+	authDir := filepath.Join(dir, "auth")
+	if err := os.MkdirAll(authDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "types.ft"), []byte(`package auth
+
+type Token = { value: String }
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(authDir, "api.ft"), []byte(`package auth
+
+func Login(t Token) {
+	return { ok: true }
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	paths := []string{
+		filepath.Join(authDir, "types.ft"),
+		filepath.Join(authDir, "api.ft"),
+	}
+	outputs, err := GenerateTypeScriptOutputsByPackage(paths, logrus.New(), nil)
+	if err != nil {
+		t.Fatalf("GenerateTypeScriptOutputsByPackage: %v", err)
+	}
+	if len(outputs) != 1 {
+		t.Fatalf("outputs: got %d want 1", len(outputs))
+	}
+	if outputs[0].PackageName != "auth" || outputs[0].SourceFileStem != "auth" {
+		t.Fatalf("package output: %#v", outputs[0])
+	}
+	if !strings.Contains(strings.Join(outputs[0].Types, "\n"), "Token") {
+		t.Fatal("expected Token type")
+	}
+	if len(outputs[0].Functions) != 1 || outputs[0].Functions[0].Name != "Login" {
+		t.Fatalf("functions: %#v", outputs[0].Functions)
+	}
+}
+
+func TestValidateDiscoveredFileStems_mismatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "foo.ft")
+	if err := os.WriteFile(path, []byte("package bar\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := ValidateDiscoveredFileStems([]string{path}, false, logrus.New())
+	if err == nil || !strings.Contains(err.Error(), "must match declared package") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestStemMatchesPackage_parentDirectory(t *testing.T) {
+	if !StemMatchesPackage("/proj/auth/login.ft", "auth") {
+		t.Fatal("expected parent directory match")
+	}
+	if StemMatchesPackage("/proj/foo.ft", "bar") {
+		t.Fatal("expected mismatch")
+	}
+}
+
 func TestParseMergedTypecheckProject_emptyInput(t *testing.T) {
 	_, _, err := ParseMergedTypecheckProject(nil, logrus.New())
 	if err == nil {

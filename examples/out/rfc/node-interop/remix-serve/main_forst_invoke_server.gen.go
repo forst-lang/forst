@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"forst/internal/invokedispatch"
-	"forst/internal/invokeserver"
+	"forst/invokeembed"
 )
 
 var forstInvokeRegistryInit bool
+
+func forst_invoke_main_ListTodos(args json.RawMessage) (any, error) {
+	return ListTodos(), nil
+}
 
 func forst_invoke_main_AddTodo(args json.RawMessage) (any, error) {
 var forstInvokeArgs []interface{}
@@ -50,24 +53,20 @@ func forst_invoke_main_GetDashboard(args json.RawMessage) (any, error) {
 	return GetDashboard(), nil
 }
 
-func forst_invoke_main_ListTodos(args json.RawMessage) (any, error) {
-	return ListTodos(), nil
-}
-
 func init() {
 	if forstInvokeRegistryInit {
 		return
 	}
 	forstInvokeRegistryInit = true
-	reg := invokeserver.GlobalRegistry()
-	reg.RegisterMeta(invokedispatch.FunctionMeta{Package:"main",Name:"AddTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_AddTodo)
-	reg.RegisterMeta(invokedispatch.FunctionMeta{Package:"main",Name:"CompleteTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_CompleteTodo)
-	reg.RegisterMeta(invokedispatch.FunctionMeta{Package:"main",Name:"GetDashboard",SupportsStreaming:false,Runnable:true}, forst_invoke_main_GetDashboard)
-	reg.RegisterMeta(invokedispatch.FunctionMeta{Package:"main",Name:"ListTodos",SupportsStreaming:false,Runnable:true}, forst_invoke_main_ListTodos)
-	invokeserver.MustStartEmbedded()
+	reg := invokeembed.GlobalRegistry()
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"ListTodos",SupportsStreaming:false,Runnable:true}, forst_invoke_main_ListTodos)
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"AddTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_AddTodo)
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"CompleteTodo",SupportsStreaming:false,Runnable:true}, forst_invoke_main_CompleteTodo)
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"main",Name:"GetDashboard",SupportsStreaming:false,Runnable:true}, forst_invoke_main_GetDashboard)
+	invokeembed.MustStartEmbedded()
 }
 
 // ForstInvokeWaitForShutdown blocks until SIGINT/SIGTERM. Use in long-lived host-mode binaries.
 func ForstInvokeWaitForShutdown() {
-	invokeserver.WaitForShutdown()
+	invokeembed.WaitForShutdown()
 }

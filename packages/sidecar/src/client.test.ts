@@ -39,13 +39,13 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     await client.healthCheck();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/health",
+      "http://127.0.0.1:6320/health",
       expect.objectContaining({
         headers: expect.objectContaining({
           [SIDECAR_VERSION_HTTP_HEADER]: SIDECAR_PACKAGE_VERSION,
@@ -67,7 +67,7 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     const out = await client.discoverFunctions();
@@ -76,7 +76,7 @@ describe("ForstSidecarClient", () => {
     expect(out[0].package).toBe("demo");
     expect(out[0].name).toBe("Echo");
     expect(global.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/functions",
+      "http://127.0.0.1:6320/functions",
       expect.objectContaining({ method: "GET" })
     );
   });
@@ -94,7 +94,7 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     await client.discoverFunctions();
@@ -115,13 +115,13 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     await client.invokeFunction("demo", "Echo", ["hello"]);
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/invoke",
+      "http://127.0.0.1:6320/invoke",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -145,7 +145,7 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     try {
@@ -168,7 +168,7 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     try {
@@ -194,7 +194,7 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     try {
@@ -225,14 +225,14 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     const v = await client.getVersion();
     expect(v.version).toBe("0.9.0");
     expect(v.contractVersion).toBe("1");
     expect(global.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/version",
+      "http://127.0.0.1:6320/version",
       expect.objectContaining({ method: "GET" })
     );
   });
@@ -246,14 +246,115 @@ describe("ForstSidecarClient", () => {
     }) as unknown as typeof fetch;
 
     const client = new ForstSidecarClient({
-      baseUrl: "http://127.0.0.1:8080",
+      baseUrl: "http://127.0.0.1:6320",
       retries: 0,
     });
     await client.healthCheck();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8080/health",
+      "http://127.0.0.1:6320/health",
       expect.objectContaining({ method: "GET" })
     );
+  });
+
+  it("TestClient_parksInvokeOn503", async () => {
+    let invokeCalls = 0;
+    let healthCalls = 0;
+
+    global.fetch = jest.fn((url: string | URL | Request) => {
+      const path = String(url);
+      if (path.endsWith("/health")) {
+        healthCalls += 1;
+        const reloading = healthCalls < 2;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            success: true,
+            result: { reloading, generation: 1 },
+          }),
+        });
+      }
+      if (path.endsWith("/invoke")) {
+        invokeCalls += 1;
+        if (invokeCalls === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: new Headers({
+              "content-type": "application/json",
+              "Retry-After": "0",
+            }),
+            text: async () =>
+              JSON.stringify({ success: false, error: "reloading" }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, result: 42 }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${path}`));
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+      retries: 0,
+      reloadAware: true,
+    });
+    const out = await client.invokeFunction("demo", "Echo", []);
+    expect(out.result).toBe(42);
+    expect(invokeCalls).toBe(2);
+    expect(healthCalls).toBeGreaterThanOrEqual(1);
+  });
+
+  it("defaultReloadAware_parksOnLongConnectionRefusedWithoutRetryExhaustion", async () => {
+    let invokeCalls = 0;
+    let healthCalls = 0;
+
+    global.fetch = jest.fn((url: string | URL | Request) => {
+      const path = String(url);
+      if (path.endsWith("/health")) {
+        healthCalls += 1;
+        if (healthCalls < 3) {
+          return Promise.reject(new Error("fetch failed: ECONNREFUSED"));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, reloading: false }),
+        });
+      }
+      if (path.endsWith("/invoke")) {
+        invokeCalls += 1;
+        if (invokeCalls === 1) {
+          return Promise.reject(new Error("fetch failed: ECONNREFUSED"));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, result: 99 }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${path}`));
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+    });
+    const out = await client.invokeFunction("demo", "Echo", []);
+    expect(out.result).toBe(99);
+    expect(invokeCalls).toBe(2);
+    expect(healthCalls).toBeGreaterThanOrEqual(3);
   });
 });

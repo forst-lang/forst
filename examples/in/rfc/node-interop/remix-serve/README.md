@@ -4,8 +4,8 @@ A small **todo app** that runs three IPC channels in one deployment:
 
 | Channel | Direction | Endpoint |
 | --- | --- | --- |
-| App HTTP | Browser → Remix | `:3000` (`remix-serve`) |
-| Built-in invoke | Remix loader → Forst | `http://127.0.0.1:8081/invoke` |
+| App HTTP | Browser → Remix | `:6322` (`remix-serve`) |
+| Built-in invoke | Remix loader → Forst | `http://127.0.0.1:6321/invoke` |
 | Nodert host socket | Forst → legacy TypeScript | `.forst/node.sock` |
 
 **Story:** Remix loaders call exported Forst functions (`ListTodos`, `AddTodo`, `CompleteTodo`) via generated `client/` stubs. Forst orchestrates business logic and calls legacy TypeScript (`legacy/todos.ts`, `legacy/activity.ts`) over nodert — sync, async, sync generators, and async generators.
@@ -14,9 +14,10 @@ A small **todo app** that runs three IPC channels in one deployment:
 
 | Path | Purpose |
 | --- | --- |
-| `types.ft` | Invoke request/response types |
-| `api.ft` | Exported invoke handlers (`ListTodos`, `AddTodo`, …) |
-| `main.ft` | Process entry + nodert startup demo (`import node store` alias avoids duplicate `todos` binding with `api.ft`) |
+| `.forst-gomod/go.mod` | Go module for Forst runtime / nodert (`replace` paths are relative to this project root, not `.forst-gomod/`) |
+| `main/types.ft` | Invoke request/response types |
+| `main/api.ft` | Exported invoke handlers (`ListTodos`, `AddTodo`, …) |
+| `main/main.ft` | Process entry + nodert startup demo (`import node store` alias avoids duplicate `todos` binding with `api.ft`) |
 | `legacy/todos.ts` | In-memory todo store on `globalThis.__forstTodos` |
 | `legacy/activity.ts` | Activity feed generators |
 | `app/routes/_index.tsx` | Todo UI — loader/action via generated `client/` |
@@ -45,7 +46,7 @@ Run the same example from a copy outside the monorepo tree (or use `task example
    - **Monorepo / CI:** absolute `file:` paths to `$REPO/packages/*` — see [`scripts/patch-remix-serve-standalone-deps.mjs`](../../../../../scripts/patch-remix-serve-standalone-deps.mjs)
    - **External:** published npm versions (`@forst/cli`, `@forst/client`, `@forst/node-runtime`; `@forst/sidecar` via client)
 3. `bun install` (requires `tsx` in `devDependencies` for nodert host spawn)
-4. `forst generate <project-dir>` — **no `-root`** (`generate` takes the project path only)
+4. `forst generate <project-dir>` — merged `package main` under `main/`; no `-root` (`generate` takes the project path only)
 5. `bun run build` (produces `build/server/index.js`)
 6. Run with the repo-built compiler when developing Forst itself:
 
@@ -53,7 +54,7 @@ Run the same example from a copy outside the monorepo tree (or use `task example
 export FORST_BINARY=<repo>/bin/forst
 export FORST_BOUNDARY_ROOT=<project-dir>
 export FORST_GOMOD_ROOT=<repo>/forst   # when binary is not adjacent to the Go module
-"$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main.ft
+"$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main/main.ft
 ```
 
 Expected stdout and curl checks match [Run](#run) below. Troubleshooting: [Call JavaScript from Forst](/interop/node/call-javascript) (tsx, host ready timeout).
@@ -79,10 +80,10 @@ Or from any directory — `forst run` resolves the compiler Go module from the b
 ../../../bin/forst run \
   -export-struct-fields \
   -root node-interop/remix-serve \
-  -- node-interop/remix-serve/main.ft
+  -- node-interop/remix-serve/main/main.ft
 ```
 
-Remix binds `127.0.0.1:3000` and embedded invoke binds `127.0.0.1:8081` automatically (no `HOST=` needed).
+Remix binds `127.0.0.1:6322` and embedded invoke binds `127.0.0.1:6321` automatically (no `HOST=` needed).
 
 For custom compiler installs, set `FORST_GOMOD_ROOT` to the directory containing `cmd/forst` and `go.mod` (`module forst`).
 
@@ -96,7 +97,7 @@ gen:1
 events:2
 ```
 
-Open `http://127.0.0.1:3000` — add and complete todos. Each action round-trips through Forst invoke → legacy TS.
+Open `http://127.0.0.1:6322` — add and complete todos. Each action round-trips through Forst invoke → legacy TS.
 
 ## E2E
 
@@ -104,18 +105,18 @@ Open `http://127.0.0.1:3000` — add and complete todos. Each action round-trips
 task example:node-interop-remix-serve:e2e
 ```
 
-Hits `POST /invoke`, fetches `:3000/`, and runs `e2e/client.test.ts` against the generated client. Uses `scripts/wait-for-url.sh` and kills stale listeners before start.
+Hits `POST /invoke`, fetches `:6322/`, and runs `e2e/client.test.ts` against the generated client. Uses `scripts/wait-for-url.sh` and kills stale listeners before start.
 
 ## curl smoke tests
 
 ```bash
 # Node → Forst
-curl -s -X POST http://127.0.0.1:8081/invoke \
+curl -s -X POST http://127.0.0.1:6321/invoke \
   -H 'Content-Type: application/json' \
   -d '{"package":"main","function":"ListTodos","args":[]}'
 
 # Browser → Remix (HTML)
-curl -s http://127.0.0.1:3000/ | head
+curl -s http://127.0.0.1:6322/ | head
 ```
 
 ## Feature map

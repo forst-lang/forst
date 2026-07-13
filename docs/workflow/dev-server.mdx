@@ -39,7 +39,8 @@ Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
   },
   "dev": {
     "logLevel": "info",
-    "watch": false
+    "watch": false,
+    "hotReload": true
   },
   "files": {
     "include": ["**/*.ft"],
@@ -47,6 +48,16 @@ Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
   }
 }
 ```
+
+### Runtime profile (embedded / host mode)
+
+When `server.embedded` or `node.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor on `:6320`.
+
+By default, `dev.hotReload` is **true** in `ftconfig.json`, so the CLI watches `.ft` files under `-root`, recompiles on change, and restarts the generated program. Set `"dev": { "hotReload": false, "watch": false }` for a one-shot compile+run (no file watching).
+
+Compile errors during reload are printed to **stderr** (`log.Error` + a one-line warning). The watch loop keeps running; if a previous build was already running, it stays up until a successful recompile replaces it.
+
+`@forst/sidecar` spawn mode is an alternative: it restarts the whole `forst dev` child on `.ft` changes. You do not need the sidecar for native CLI watch in runtime profile.
 
 ## When to use dev vs pure Go
 

@@ -598,13 +598,30 @@ async function installCompilerModuleIfDownloading(
 export async function resolveForstBinary(
   options: ResolveForstBinaryOptions = {}
 ): Promise<string> {
+  const { binaryPath } = await resolveForstBinaryDetailed(options);
+  return binaryPath;
+}
+
+export interface ResolvedForstBinary {
+  binaryPath: string;
+  /** Empty when FORST_BINARY override is used. */
+  version: string;
+}
+
+/**
+ * Like resolveForstBinary but also returns the resolved compiler release version
+ * (for wiring FORST_GOMOD_ROOT to the cached module directory).
+ */
+export async function resolveForstBinaryDetailed(
+  options: ResolveForstBinaryOptions = {}
+): Promise<ResolvedForstBinary> {
   const allowDownload = options.allowDownload !== false;
   const env = options.env ?? process.env;
   const fs = options.fs ?? defaultResolveForstBinaryFs();
 
   const override = resolveForstBinaryEnvOverride(env, fs);
   if (override !== undefined) {
-    return override;
+    return { binaryPath: override, version: "" };
   }
 
   const fetchFn = options.fetchImpl ?? fetch;
@@ -641,5 +658,5 @@ export async function resolveForstBinary(
     options.homedirFn
   );
 
-  return binaryPath;
+  return { binaryPath, version: resolvedVersion };
 }

@@ -37,4 +37,63 @@ describe("ForstSidecar connect mode", () => {
     });
     await expect(sidecar.start()).rejects.toThrow(/Connect mode requires/);
   });
+
+  it("parks invoke on 503 during reload instead of exhausting retries", async () => {
+    let invokeCalls = 0;
+    let healthCalls = 0;
+
+    global.fetch = jest.fn((url: string | URL | Request) => {
+      const path = String(url);
+      if (path.endsWith("/health")) {
+        healthCalls += 1;
+        const reloading = path.includes("/health") && healthCalls === 1;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({
+            success: true,
+            result: { reloading: reloading && healthCalls < 2 },
+          }),
+          text: async () => '{"success":true}',
+        });
+      }
+      if (path.endsWith("/invoke")) {
+        invokeCalls += 1;
+        if (invokeCalls === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: new Headers({
+              "content-type": "application/json",
+              "Retry-After": "0",
+            }),
+            text: async () =>
+              JSON.stringify({ success: false, error: "reloading" }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: async () => ({ success: true, result: "ok" }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${path}`));
+    }) as unknown as typeof fetch;
+
+    const sidecar = new ForstSidecar({
+      sidecarRuntime: "connect",
+      devServerUrl: "http://127.0.0.1:65520",
+      versionCheck: "off",
+    });
+    await sidecar.start();
+    const out = await sidecar.invoke("demo", "Echo", []);
+    expect(out.result).toBe("ok");
+    expect(invokeCalls).toBe(2);
+    await sidecar.stop();
+  });
 });

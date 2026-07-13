@@ -99,7 +99,7 @@ func runIndexerCLI(boundaryRoot string, moduleIDs []string) ([]*IndexV1, error) 
 }
 
 func indexerCommand(boundaryRoot string, moduleIDs []string) (*exec.Cmd, error) {
-	cliPath, err := findNodeRuntimeIndexerCLI()
+	cliPath, err := findNodeRuntimeIndexerCLI(boundaryRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -128,20 +128,22 @@ func indexerCommand(boundaryRoot string, moduleIDs []string) (*exec.Cmd, error) 
 	return cmd, nil
 }
 
-func findNodeRuntimeIndexerCLI() (string, error) {
-	if path, ok := lookPathIndexer("forst-node-index"); ok {
+func findNodeRuntimeIndexerCLI(boundaryRoot string) (string, error) {
+	if p := filepath.Join(boundaryRoot, "node_modules", "@forst", "node-runtime", "dist", "indexer", "cli.js"); fileExists(p) {
+		return p, nil
+	}
+	if p := filepath.Join(repoRoot(), "packages", "node-runtime", "dist", "indexer", "cli.js"); fileExists(p) {
+		return p, nil
+	}
+	if path, ok := lookPathIndexer("forst-node-index"); ok && strings.HasSuffix(path, ".js") {
 		return path, nil
 	}
-	candidates := []string{
-		filepath.Join(repoRoot(), "packages", "node-runtime", "dist", "indexer", "cli.js"),
-		filepath.Join(repoRoot(), "node_modules", "@forst", "node-runtime", "dist", "indexer", "cli.js"),
-	}
-	for _, candidate := range candidates {
-		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
-			return candidate, nil
-		}
-	}
 	return "", fmt.Errorf("indexer: node-runtime CLI not found (build packages/node-runtime or install @forst/node-runtime)")
+}
+
+func fileExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
 }
 
 func lookPathIndexer(name string) (string, bool) {

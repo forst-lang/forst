@@ -1,0 +1,9 @@
+package main
+
+import node host "./host"
+
+func main() {
+	ready := host.hostPing()
+	ensure ready is Ok()
+	println("multipackage-dev ready: " + ready)
+}

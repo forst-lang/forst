@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"forst/internal/compiler"
+	"forst/internal/devserver"
+	"forst/internal/ftconfig"
+	"forst/internal/invokeserver"
 
 	logrus "github.com/sirupsen/logrus"
 )
@@ -94,15 +97,47 @@ func (s *DevServer) refreshFunctions() error {
 }
 
 // StartDevServer is the entry point for the dev server command.
-func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string) error {
-	config := loadAndValidateConfig(configPath, log, port, logLevel)
+func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir string, logLevel *string, exportStructFieldsCLI bool, entryCLI string) error {
+	config := loadAndValidateConfig(configPath, log, port, logLevel, rootDir, exportStructFieldsCLI)
+
+	profile := devserver.ResolveProfile(&config.Config)
+	log.Infof("forst dev: profile=%s", profile)
+
+	if profile == devserver.ProfileRuntime {
+		host, invokePort, err := devserver.PickInvokePort(&config.Config, port)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		preferred := devserver.EffectiveListenPort(&config.Config, port)
+		if invokePort != preferred {
+			log.Info(devserver.FormatInvokePortShiftLog(preferred, invokePort))
+		}
+		_ = os.Setenv(invokeserver.EnvInvokePort, invokePort)
+		_ = host // embedded invoke always binds loopback; host kept for future use
+		entry, err := devserver.ResolveEntry(rootDir, &config.Config, entryCLI)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		log.Infof("forst dev: runtime entry %s", entry)
+		if devserver.RuntimeWatchEnabled(&config.Config) {
+			return watchRuntimeDevFn(log, rootDir, entry, &config.Config)
+		}
+		if err := runRuntimeDevFn(log, rootDir, entry, &config.Config); err != nil {
+			log.Error(err)
+			return err
+		}
+		return nil
+	}
 
 	args := config.ToCompilerArgs()
 	comp := compiler.New(args, log)
 
-	server := NewHTTPServer(config.Server.Port, comp, log, config, rootDir)
+	listenPort := devserver.EffectiveListenPort(&config.Config, port)
+	server := NewHTTPServer(listenPort, comp, log, config, rootDir)
 
-	log.Debugf("Starting Forst dev server on %s", config.Server.EffectiveDevListenHost()+":"+config.Server.Port)
+	log.Debugf("Starting Forst dev server on %s", config.Server.EffectiveDevListenHost()+":"+listenPort)
 	log.Debugf("Root directory: %s", rootDir)
 
 	if err := devServerStartFn(server); err != nil {
@@ -115,17 +150,40 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 // devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
 var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
-func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string) *ForstConfig {
-	config, err := LoadConfig(configPath)
+// runRuntimeDevFn runs compile+go run for runtime profile; tests may stub.
+var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
+	return devserver.RunRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
+}
+
+// watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
+var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
+	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
+}
+
+func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string, rootDir string, exportStructFieldsCLI bool) *ForstConfig {
+	resolvedConfigPath := configPath
+	if resolvedConfigPath == "" && rootDir != "" {
+		if found, _ := FindConfigFile(rootDir); found != "" {
+			resolvedConfigPath = found
+		}
+	}
+
+	config, err := LoadConfig(resolvedConfigPath)
 	if err != nil {
 		log.Errorf("Failed to load configuration: %v", err)
 		os.Exit(1)
 	}
 
-	if configPath == "" {
+	if exportStructFieldsCLI {
+		config.Compiler.ExportStructFields = true
+	} else if !config.Compiler.ExportStructFields && rootDir != "" {
+		config.Compiler.ExportStructFields = ftconfig.ExportStructFieldsFromDir(rootDir)
+	}
+
+	if resolvedConfigPath == "" {
 		log.Infof("No config file provided, using default configuration")
 	} else {
-		log.Infof("Loaded config from: %s", configPath)
+		log.Infof("Loaded config from: %s", resolvedConfigPath)
 	}
 
 	if port != "" && port != config.Server.Port {
@@ -163,6 +221,8 @@ func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, l
 			fmt.Sprintf("%-15s %v", "Clean:", config.Output.Clean),
 		}},
 		{"Dev", []string{
+			fmt.Sprintf("%-15s %s", "Profile:", config.Dev.Profile),
+			fmt.Sprintf("%-15s %s", "Entry:", config.Dev.Entry),
 			fmt.Sprintf("%-15s %v", "Hot reload:", config.Dev.HotReload),
 			fmt.Sprintf("%-15s %v", "Watch:", config.Dev.Watch),
 			fmt.Sprintf("%-15s %v", "Auto restart:", config.Dev.AutoRestart),

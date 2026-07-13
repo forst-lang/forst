@@ -123,7 +123,12 @@ func (c *Compiler) loadMergedPackageAST() ([]ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	merged, _, err := forstpkg.ParseAndMergePackage(c.log, paths)
+	var merged []ast.Node
+	if c.Args.DevSession != nil {
+		merged, _, err = c.Args.DevSession.ParseAndMerge(c.log, paths)
+	} else {
+		merged, _, err = forstpkg.ParseAndMergePackage(c.log, paths)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -11,11 +11,14 @@ import (
 
 // Host-mode environment variable names.
 //
-// Go sets these on the direct app-shim child when ftconfig node.hostMode is true
-// (BuildHostSpawnCommand → buildSpawnEnv). @forst/node-runtime reads them in
-// host/register.mjs and host.ts. Child processes spawned by the shim (Vite workers,
-// cluster forks, etc.) may inherit the values but must not act as host leaders —
-// see FORST_NODE_HOST_LEADER and register preload via argv, not NODE_OPTIONS.
+// Go sets FORST_NODE_HOST, FORST_NODE_HOST_LEADER, FORST_NODE_SOCKET, and
+// FORST_NODE_HOST_READY on the direct app-shim child when ftconfig node.hostMode
+// is true (BuildHostSpawnCommand → buildSpawnEnv). @forst/node-runtime reads them
+// in host/register.mjs and host.ts. Child processes spawned by the shim (Vite
+// workers, cluster forks, etc.) may inherit the values but must not act as host
+// leaders — see FORST_NODE_HOST_LEADER and register preload via argv, not
+// NODE_OPTIONS. FORST_NODE_ATTACH_ONLY is separate: forst dev sets it on the
+// parent process for watch-reload go run children (see below).
 //
 //   FORST_NODE_HOST
 //     Gate for host RPC in Node. When "1", startForstNodeHost() may bind the RPC
@@ -41,12 +44,25 @@ import (
 //     Go polls until phase is "app" before connecting. Used to avoid dialing
 //     before third-party shims (Remix, Vite) finish bootstrapping when
 //     hostAppReadyModule or signalForstAppReady() defer readiness.
+//
+//   FORST_NODE_ATTACH_ONLY
+//     Attach-only gate for Go-side host supervision. When "1", nodert dials an
+//     existing host via FORST_NODE_SOCKET / FORST_NODE_HOST_READY but never
+//     spawns a new shim. forst dev sets this on the parent after EnsureRunning
+//     so each watch-reload go run child inherits it; one-shot forst run leaves
+//     it unset so the binary may spawn the host on first GetClient(). If no
+//     live host is reachable, GetClient fails with an attach-only error instead
+//     of starting a second Vite process.
 const (
 	envNodeHost       = "FORST_NODE_HOST"
 	envNodeHostLeader = "FORST_NODE_HOST_LEADER"
 	envNodeSocket     = "FORST_NODE_SOCKET"
 	envNodeHostReady  = "FORST_NODE_HOST_READY"
+	envNodeAttachOnly = "FORST_NODE_ATTACH_ONLY"
 )
+
+// EnvNodeAttachOnly is FORST_NODE_ATTACH_ONLY; see block comment above.
+const EnvNodeAttachOnly = envNodeAttachOnly
 
 // mergeNodeOptions appends import flags idempotently to existing NODE_OPTIONS.
 func mergeNodeOptions(existing string, additions ...string) string {

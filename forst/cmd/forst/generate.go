@@ -18,17 +18,23 @@ var generateIO = struct {
 	MkdirAll  func(string, os.FileMode) error
 	WriteFile func(string, []byte, os.FileMode) error
 	ReadFile  func(string) ([]byte, error)
+	Remove    func(string) error
+	ReadDir   func(string) ([]os.DirEntry, error)
 }{
 	MkdirAll:  os.MkdirAll,
 	WriteFile: os.WriteFile,
 	ReadFile:  os.ReadFile,
+	Remove:    os.Remove,
+	ReadDir:   os.ReadDir,
 }
 
 var (
-	absPathForGenerate           = filepath.Abs
-	mergeTypeScriptOutputsHook   = transformerts.MergeTypeScriptOutputs
-	generateTSOutputsPerFileHook = transformerts.GenerateTypeScriptOutputsPerFile
-	generateClientPackageHook    = generateClientPackage
+	absPathForGenerate              = filepath.Abs
+	mergeTypeScriptOutputsHook      = transformerts.MergeTypeScriptOutputs
+	generateTSOutputsByPackageHook  = transformerts.GenerateTypeScriptOutputsByPackage
+	validateDiscoveredFileStemsHook = transformerts.ValidateDiscoveredFileStems
+	generateClientPackageHook       = generateClientPackage
+	pruneStaleClientModulesHook     = pruneStaleClientModules
 )
 
 // loadConfigForGenerate resolves ftconfig: explicit -config, else search upward from target, else defaults.
@@ -93,6 +99,7 @@ func generateCommand(args []string) error {
 	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	configPath := fs.String("config", "", "Path to ftconfig.json")
+	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -130,14 +137,11 @@ func generateCommand(args []string) error {
 
 	log.Infof("Found %d Forst files", len(forstFiles))
 
-	// Stable order for generated *.client.ts and client index (not required for typechecking).
-	sort.Strings(forstFiles)
-
-	chunks, tc, err := transformerts.ParseMergedTypecheckProject(forstFiles, log)
-	if err != nil {
+	if err := validateDiscoveredFileStemsHook(forstFiles, *allowStemMismatch, log); err != nil {
 		return err
 	}
-	outputs, err := generateTSOutputsPerFileHook(chunks, tc, log, &transformerts.GenerateTSOptions{
+
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
 		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
 	})
 	if err != nil {
@@ -161,9 +165,12 @@ func generateCommand(args []string) error {
 	}
 	log.Infof("Generated types declaration file: %s", typesPath)
 
-	for _, out := range outputs {
-		stem := out.SourceFileStem
-		clientPath := filepath.Join(generatedDir, stem+".client.ts")
+	clientOutputs := runnableClientOutputs(outputs)
+	activePackages := make(map[string]struct{}, len(clientOutputs))
+	for _, out := range clientOutputs {
+		pkg := out.PackageName
+		activePackages[pkg] = struct{}{}
+		clientPath := filepath.Join(generatedDir, pkg+".client.ts")
 		clientCode := out.GenerateClientFile()
 		if err := generateIO.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
 			log.Errorf("Failed to write client module %s: %v", clientPath, err)
@@ -172,18 +179,60 @@ func generateCommand(args []string) error {
 		log.Infof("Generated client module: %s", clientPath)
 	}
 
-	stems := make([]string, len(outputs))
-	for i, o := range outputs {
-		stems[i] = o.SourceFileStem
+	if err := pruneStaleClientModulesHook(generatedDir, activePackages, log); err != nil {
+		return fmt.Errorf("prune stale client modules: %w", err)
 	}
-	sort.Strings(stems)
 
-	// Generate client package structure (only entries that produced output)
-	if err := generateClientPackageHook(outputDir, outputs, log); err != nil {
+	// Generate client package structure (only packages with runnable exports)
+	if err := generateClientPackageHook(outputDir, clientOutputs, log); err != nil {
 		log.Errorf("Failed to generate client package: %v", err)
 	}
 
 	log.Info("TypeScript declaration files and client implementations generation completed")
+	return nil
+}
+
+// runnableClientOutputs returns package outputs that have public invoke exports.
+func runnableClientOutputs(outputs []*transformerts.TypeScriptOutput) []*transformerts.TypeScriptOutput {
+	var out []*transformerts.TypeScriptOutput
+	for _, o := range outputs {
+		if transformerts.PackageHasRunnableExports(o) {
+			out = append(out, o)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].PackageName < out[j].PackageName
+	})
+	return out
+}
+
+// pruneStaleClientModules removes generated/*.client.ts files for packages no longer emitted.
+func pruneStaleClientModules(generatedDir string, activePackages map[string]struct{}, log *logrus.Logger) error {
+	entries, err := generateIO.ReadDir(generatedDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".client.ts") {
+			continue
+		}
+		pkg := strings.TrimSuffix(name, ".client.ts")
+		if _, ok := activePackages[pkg]; ok {
+			continue
+		}
+		path := filepath.Join(generatedDir, name)
+		if err := generateIO.Remove(path); err != nil {
+			return err
+		}
+		log.Infof("Pruned stale client module: %s", path)
+	}
 	return nil
 }
 
@@ -236,7 +285,7 @@ func generateSSRInvokeModule(outputDir string, outputs []*transformerts.TypeScri
 
 	sorted := append([]*transformerts.TypeScriptOutput(nil), outputs...)
 	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].SourceFileStem < sorted[j].SourceFileStem
+		return sorted[i].PackageName < sorted[j].PackageName
 	})
 
 	var body strings.Builder
@@ -273,7 +322,7 @@ import { getDefaultInvokeClient } from '@forst/client';
 func generateClientIndex(outputs []*transformerts.TypeScriptOutput) string {
 	sorted := append([]*transformerts.TypeScriptOutput(nil), outputs...)
 	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].SourceFileStem < sorted[j].SourceFileStem
+		return sorted[i].PackageName < sorted[j].PackageName
 	})
 
 	var imports []string
@@ -282,7 +331,7 @@ func generateClientIndex(outputs []*transformerts.TypeScriptOutput) string {
 	var reexports strings.Builder
 
 	for _, out := range sorted {
-		baseName := out.SourceFileStem
+		baseName := out.PackageName
 		imports = append(imports, fmt.Sprintf("import { %s } from '../generated/%s.client';", baseName, baseName))
 		exports = append(exports, baseName)
 		packageProperties = append(packageProperties, fmt.Sprintf("  public %s: ReturnType<typeof %s>;", baseName, baseName))

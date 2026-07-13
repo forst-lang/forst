@@ -32,7 +32,7 @@ func embeddedInvokeGoldenCases() []embeddedInvokeGoldenCase {
 				"func main()",
 			},
 			invokeMarkers: []string{
-				"invokeserver.MustStartEmbedded",
+				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_Echo",
 				"reg.RegisterMeta",
 				"ForstInvokeWaitForShutdown",
@@ -63,7 +63,7 @@ func compileEmbeddedInvokePackageForGolden(t *testing.T, entryPath, root string,
 		ExportStructFields: exportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, _, invokeCode, err := c.CompileWithNodeRuntime()
+	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
 	}

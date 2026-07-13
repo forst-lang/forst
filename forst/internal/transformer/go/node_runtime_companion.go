@@ -49,6 +49,27 @@ func (t *Transformer) appendNodeBridgeIfNeeded() {
 	t.ensureNodeRuntimeScaffold()
 	t.appendNodeManifestToRuntime()
 	t.appendNodeRuntimeInitIfNeeded()
+	t.appendNodeHostShutdownHelperIfNeeded()
+}
+
+func (t *Transformer) appendNodeHostShutdownHelperIfNeeded() {
+	out := t.nodeRuntimeOut()
+	if out == nil || !t.EmbedNodeHostMode || out.HasFunction("ForstNodeWaitForShutdown") {
+		return
+	}
+	t.ensureNodertImportInRuntime()
+	out.AddFunction(&goast.FuncDecl{
+		Name: goast.NewIdent("ForstNodeWaitForShutdown"),
+		Type: &goast.FuncType{Params: &goast.FieldList{}},
+		Body: &goast.BlockStmt{List: []goast.Stmt{
+			&goast.ExprStmt{X: &goast.CallExpr{
+				Fun: &goast.SelectorExpr{
+					X:   goast.NewIdent("nodert"),
+					Sel: goast.NewIdent("WaitForShutdown"),
+				},
+			}},
+		}},
+	})
 }
 
 func (t *Transformer) ensureNodeRuntimeScaffold() {

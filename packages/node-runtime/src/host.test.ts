@@ -148,4 +148,34 @@ describe("startForstNodeHost", () => {
 
     first.destroy();
   });
+
+  test("accepts second client after first disconnects", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const dir = tempDir();
+    const socketPath = path.join(dir, "node.sock");
+    process.env.FORST_NODE_SOCKET = socketPath;
+
+    await runTestEffect(startForstNodeHost());
+
+    const first = net.createConnection(socketPath);
+    await new Promise<void>((resolve, reject) => {
+      first.once("connect", () => resolve());
+      first.once("error", reject);
+    });
+
+    await new Promise<void>((resolve) => {
+      first.once("close", () => resolve());
+      first.destroy();
+    });
+
+    const second = net.createConnection(socketPath);
+    await new Promise<void>((resolve, reject) => {
+      second.once("connect", () => resolve());
+      second.once("error", reject);
+    });
+
+    second.destroy();
+  });
 });

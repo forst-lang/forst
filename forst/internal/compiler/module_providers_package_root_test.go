@@ -5,9 +5,52 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"forst/internal/goload"
 )
 
-func TestCompileFile_packageRoot_crossPkgWithEmittedGoStub(t *testing.T) {
+func TestModuleScanRootForPackageRoot_nestedEntryUsesModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module cross_stub\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	apiDir := filepath.Join(dir, "api")
+	if err := os.MkdirAll(apiDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := goload.ScanRootForPackageRoot(apiDir)
+	if got != dir {
+		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q", apiDir, got, dir)
+	}
+}
+
+func TestModuleScanRootForPackageRoot_forstGomodUsesProjectBoundary(t *testing.T) {
+	dir := t.TempDir()
+	forstGomod := filepath.Join(dir, ".forst-gomod")
+	if err := os.MkdirAll(forstGomod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte("module example.com/app/forst\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := goload.ScanRootForPackageRoot(dir)
+	if got != dir {
+		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q (not %q)", dir, got, dir, forstGomod)
+	}
+}
+
+func TestModuleScanRootForPackageRoot_flatLayoutUsesPackageRoot(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module flat\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := goload.ScanRootForPackageRoot(dir)
+	if got != dir {
+		t.Fatalf("moduleScanRootForPackageRoot(%q) = %q, want %q", dir, got, dir)
+	}
+}
+
+func TestCompileFile_packageRoot_crossPkgWithHandWrittenGoStub(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module cross_stub\n\ngo 1.26\n"), 0o644); err != nil {
@@ -28,7 +71,7 @@ type Providers_stub struct {
 
 func LogEvent(providers Providers_stub, id string) {}
 `
-	if err := os.WriteFile(filepath.Join(authDir, "z_forst_gen.go"), []byte(emittedGo), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(authDir, "auth_stub.go"), []byte(emittedGo), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	const authFt = `package auth

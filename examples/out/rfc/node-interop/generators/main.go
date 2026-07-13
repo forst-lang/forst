@@ -1,13 +1,17 @@
 package main
 
 import "strconv"
+import fmt "fmt"
 import os "os"
 
 func main() {
 	var syncSum float64 = 0
 	syncSeq, syncSeqErr := forst_node_open_seq_legacy_generators_ts_syncNumbers()
 	if !(syncSeqErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", syncSeqErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := syncSeq
@@ -47,7 +51,10 @@ func main() {
 	var asyncSum float64 = 0
 	asyncSeq, asyncSeqErr := forst_node_open_seq_legacy_generators_ts_asyncNumbers()
 	if !(asyncSeqErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", asyncSeqErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := asyncSeq
@@ -87,7 +94,10 @@ func main() {
 	var emptyCount int = 0
 	emptySeq, emptySeqErr := forst_node_open_seq_legacy_generators_ts_emptyGen()
 	if !(emptySeqErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", emptySeqErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := emptySeq
@@ -126,7 +136,10 @@ func main() {
 	var breakCount int = 0
 	finallySeq, finallySeqErr := forst_node_open_seq_legacy_generators_ts_withFinally()
 	if !(finallySeqErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", finallySeqErr)
+			os.Exit(1)
+		}
 	}
 	{
 		_nodeIt := finallySeq

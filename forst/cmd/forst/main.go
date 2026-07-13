@@ -63,10 +63,12 @@ func runMain(argv []string) int {
 		// Parse flags for dev server
 		devFlags := flag.NewFlagSet("dev", flag.ContinueOnError)
 		devFlags.SetOutput(io.Discard)
-		port := devFlags.String("port", "8080", "Port to listen on")
+		port := devFlags.String("port", "", "Port to listen on (default: from ftconfig or 6320/6321 by profile)")
 		configPath := devFlags.String("config", "", "Path to configuration file")
 		rootDir := devFlags.String("root", ".", "Root directory for file discovery")
 		logLevel := devFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
+		exportStructFields := devFlags.Bool("export-struct-fields", false, "Emit exported struct fields with json tags (for encoding/json and TS-aligned wire shapes)")
+		entry := devFlags.String("entry", "", "Entry .ft file for runtime dev profile (optional)")
 
 		// Parse the dev subcommand flags
 		if err := devFlags.Parse(argv[2:]); err != nil {
@@ -88,7 +90,7 @@ func runMain(argv []string) int {
 			return 1
 		}
 
-		if err := startDevServerFunc(*port, log, *configPath, absRootDir, logLevel); err != nil {
+		if err := startDevServerFunc(*port, log, *configPath, absRootDir, logLevel, *exportStructFields, *entry); err != nil {
 			return 1
 		}
 		return 0
@@ -115,12 +117,20 @@ func runMain(argv []string) int {
 		return runTestCommand(argv[2:], log)
 	}
 
+	if len(argv) > 1 && argv[1] == "project" {
+		return runProjectInfo(argv[2:], log)
+	}
+
+	if len(argv) > 1 && argv[1] == "clean" {
+		return runClean(argv[2:], log)
+	}
+
 	// Check if we should start LSP server
 	if len(argv) > 1 && argv[1] == "lsp" {
 		// Parse flags for LSP server
 		lspFlags := flag.NewFlagSet("lsp", flag.ContinueOnError)
 		lspFlags.SetOutput(io.Discard)
-		port := lspFlags.String("port", "8081", "Port to listen on")
+		port := lspFlags.String("port", ftconfig.DefaultLSPPort, "Port to listen on")
 		logLevel := lspFlags.String("log-level", "info", "Log level (trace, debug, info, warn, error)")
 
 		// Parse the lsp subcommand flags
@@ -210,7 +220,7 @@ func runMain(argv []string) int {
 			return 1
 		}
 	} else {
-		mainCode, nodeRuntimeCode, invokeServerCode, err := p.CompileWithNodeRuntime()
+		mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, err := p.CompileWithNodeRuntime()
 		if err != nil {
 			log.Error(err)
 			return 1
@@ -219,7 +229,7 @@ func runMain(argv []string) int {
 		outputPath := args.OutputPath
 		if outputPath == "" {
 			var err error
-			outputPath, err = createTempOutputFileFn(mainCode, nodeRuntimeCode, invokeServerCode)
+			outputPath, err = createTempOutputFileFn(mainCode, nodeRuntimeCode, invokeServerCode, extraPkgs, extraImports, compiler.RunBoundaryRoot(args))
 			if err != nil {
 				log.Error(err)
 				return 1

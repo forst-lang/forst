@@ -10,10 +10,19 @@ import (
 const EnvForstGOModRoot = "FORST_GOMOD_ROOT"
 
 var (
-	modRootExecutable = os.Executable
-	modRootGetwd      = os.Getwd
-	modRootGetenv     = os.Getenv
+	modRootExecutable     = os.Executable
+	modRootGetwd          = os.Getwd
+	modRootGetenv         = os.Getenv
+	forstCompilerRootHook func() string
 )
+
+// SetForstCompilerModuleRootHookForTest overrides ForstCompilerModuleRoot in tests.
+// Returns a restore function.
+func SetForstCompilerModuleRootHookForTest(fn func() string) func() {
+	prev := forstCompilerRootHook
+	forstCompilerRootHook = fn
+	return func() { forstCompilerRootHook = prev }
+}
 
 // IsForstCompilerModule reports whether dir is the Forst compiler Go module (contains cmd/forst).
 func IsForstCompilerModule(dir string) bool {
@@ -27,12 +36,18 @@ func IsForstCompilerModule(dir string) bool {
 // ForstCompilerModuleRoot returns the filesystem root of the Forst compiler Go module
 // (module forst). Used when generated companion Go imports forst/nodert or forst/internal/*.
 func ForstCompilerModuleRoot() string {
+	if forstCompilerRootHook != nil {
+		return forstCompilerRootHook()
+	}
 	if root := strings.TrimSpace(modRootGetenv(EnvForstGOModRoot)); root != "" {
 		if IsForstCompilerModule(root) {
 			return filepath.Clean(root)
 		}
 	}
 	if exe, err := modRootExecutable(); err == nil {
+		if resolved, symErr := filepath.EvalSymlinks(exe); symErr == nil {
+			exe = resolved
+		}
 		if root := findForstCompilerModuleFrom(exe); root != "" {
 			return root
 		}
@@ -113,21 +128,81 @@ func ModuleRootWithGoMod(start string) (string, error) {
 //
 // This is used as go/packages Config.Dir so Forst imports resolve against the
 // same module as the surrounding Go project (e.g. sidecar / monorepo roots).
+const forstGoModDir = ".forst-gomod"
+
+// ForstGoModDir is the subdirectory name for Node-primary Go module shims.
+const ForstGoModDir = forstGoModDir
+
+// IsForstGoModShim reports whether moduleRoot is a .forst-gomod shim (no user Go packages).
+func IsForstGoModShim(moduleRoot string) bool {
+	return filepath.Base(filepath.Clean(moduleRoot)) == forstGoModDir
+}
+
 func FindModuleRoot(start string) string {
 	startDir := start
 	if info, err := os.Stat(start); err == nil && !info.IsDir() {
 		startDir = filepath.Dir(start)
 	}
 	startDir = filepath.Clean(startDir)
+	if modRoot := moduleRootInDir(startDir); modRoot != "" {
+		return modRoot
+	}
 	dir := startDir
 	for {
-		if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
-			return dir
-		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return startDir
 		}
 		dir = parent
+		if modRoot := moduleRootInDir(dir); modRoot != "" {
+			return modRoot
+		}
 	}
+}
+
+func moduleRootInDir(dir string) string {
+	if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
+		return dir
+	}
+	forstMod := filepath.Join(dir, forstGoModDir)
+	if st, err := os.Stat(filepath.Join(forstMod, "go.mod")); err == nil && !st.IsDir() {
+		return forstMod
+	}
+	return ""
+}
+
+// DirHasGoMod reports whether dir contains a go.mod file.
+func DirHasGoMod(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	st, err := os.Stat(filepath.Join(dir, "go.mod"))
+	return err == nil && !st.IsDir()
+}
+
+// ModuleRootHasGoMod reports whether FindModuleRoot(start) resolved to a directory with go.mod.
+func ModuleRootHasGoMod(start string) bool {
+	return DirHasGoMod(FindModuleRoot(start))
+}
+
+// MissingGoModuleSetupHint returns setup guidance when boundaryRoot has no Go module.
+func MissingGoModuleSetupHint(boundaryRoot string) string {
+	if boundaryRoot == "" || ModuleRootHasGoMod(boundaryRoot) {
+		return ""
+	}
+	return "create .forst-gomod/go.mod at " + filepath.Clean(boundaryRoot) +
+		" with require for Go imports and replace forst => ... (see docs/interop/node/call-forst.mdx)"
+}
+
+// GoImportTypesNotLoadedMsg formats the go-import diagnostic for unloaded Go package types.
+func GoImportTypesNotLoadedMsg(pkgName, importPath, workspaceDir, boundaryRoot string) string {
+	msg := fmt.Sprintf("Go package %q (%s) types not loaded; check go.mod workspace and go tooling", pkgName, importPath)
+	hintRoot := boundaryRoot
+	if hintRoot == "" {
+		hintRoot = workspaceDir
+	}
+	if hint := MissingGoModuleSetupHint(hintRoot); hint != "" {
+		msg += "; " + hint
+	}
+	return msg
 }

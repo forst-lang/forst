@@ -1,6 +1,6 @@
 /**
  * End-to-end: TypeScript uses **`ForstClient`** from **`client/`** only (no `generated/` imports).
- * Calls **`engine.NewGame`** / **`engine.PlayMove`** via **`forst dev`** → **`POST /invoke`** (same as production).
+ * Calls **`main.NewGame`** / **`main.PlayMove`** via **`forst dev`** → **`POST /invoke`** (same as production).
  *
  * Requires `task example:tictactoe:generate` so `client/types.d.ts` and `client/index.ts` exist.
  * Spawns **`forst dev`** with the example `ftconfig.json` (see `beforeAll`).
@@ -127,17 +127,17 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
     expect(client).not.toBeNull();
     const c = client!;
 
-    let state = await c.engine.NewGame();
+    let state = await c.main.NewGame();
     expect(state.cells).toHaveLength(9);
     expect(state.nextPlayer).toBe("X");
 
     const req: MoveRequest = { state, row: 1, col: 2 };
-    const r1 = await c.engine.PlayMove(req);
+    const r1 = await c.main.PlayMove(req);
     expect(r1.state.nextPlayer).toBe("O");
     expect(r1.state.cells[5]).toBe("X");
 
     try {
-      await c.engine.PlayMove({ state: r1.state, row: 1, col: 2 });
+      await c.main.PlayMove({ state: r1.state, row: 1, col: 2 });
       expect.unreachable("expected duplicate move to fail");
     } catch (e) {
       expect(e).toBeInstanceOf(DevServerHttpFailure);
@@ -152,7 +152,7 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
     expect(client).not.toBeNull();
     const c = client!;
 
-    let state: GameState = await c.engine.NewGame();
+    let state: GameState = await c.main.NewGame();
     const moves: [number, number][] = [
       [0, 0],
       [1, 0],
@@ -161,7 +161,7 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
       [0, 2],
     ];
     for (const [row, col] of moves) {
-      const r = await c.engine.PlayMove({ state, row, col });
+      const r = await c.main.PlayMove({ state, row, col });
       state = r.state;
     }
     expect(state.cells[0]).toBe("X");

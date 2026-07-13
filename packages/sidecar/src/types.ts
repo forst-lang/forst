@@ -66,12 +66,18 @@ export interface StreamingResult {
 
 /** HTTP client options for `ForstSidecarClient`. */
 export interface ForstClientConfig {
-  /** Base URL of the Forst dev server (e.g. `http://localhost:8080`). */
-  baseUrl: string;
+  /** Base URL of the Forst dev server (e.g. `http://localhost:6320`). */
+  baseUrl?: string;
+  /** Re-resolve base URL per request (e.g. from `.forst/invoke.ready` after dev reload). */
+  resolveBaseUrl?: () => string | undefined;
   /** Per-request timeout in ms. */
   timeout?: number;
-  /** Retries after transient failures (exponential backoff). */
+  /** Retries after transient failures (exponential backoff). Reload 503s are parked separately. */
   retries?: number;
+  /** When true (default), park invokes on 503/reloading until the dev server is ready. */
+  reloadAware?: boolean;
+  /** Injectable fetch for tests. */
+  fetchFn?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 }
 
 /** How the sidecar attaches to `forst dev`: spawn a child process or connect to an existing server. */
@@ -109,7 +115,7 @@ export interface ForstConfig {
    * `connect`: only attach the HTTP client; set {@link devServerUrl} or `FORST_DEV_URL`.
    */
   sidecarRuntime?: SidecarRuntime;
-  /** Base URL of an already-running `forst dev` (e.g. `http://127.0.0.1:8080`). Used when `sidecarRuntime` is `connect`. */
+  /** Base URL of an already-running `forst dev` (e.g. `http://127.0.0.1:6320`). Used when `sidecarRuntime` is `connect`. */
   devServerUrl?: string;
   /** TCP port for the embedded HTTP dev server. */
   port?: number;

@@ -10,6 +10,10 @@ import (
 // Cross-file types must typecheck when merged (types.ft + consumer).
 func TestGenerateCommand_directory_crossFileTypes_mergedTypecheck(t *testing.T) {
 	dir := t.TempDir()
+	mainDir := filepath.Join(dir, "main")
+	if err := os.MkdirAll(mainDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	typesSrc := `package main
 
 type R = {
@@ -22,10 +26,10 @@ func GetX(r R): Int {
 	return r.x
 }
 `
-	if err := os.WriteFile(filepath.Join(dir, "uses.ft"), []byte(usesSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "uses.ft"), []byte(usesSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "types.ft"), []byte(typesSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "types.ft"), []byte(typesSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {
@@ -86,12 +90,20 @@ func Tag(b Order): String {
 		body string
 	}{
 		{"ftconfig.json", ftconfig},
-		{"types.ft", typesSrc},
-		{"api.ft", apiSrc},
 	} {
 		if err := os.WriteFile(filepath.Join(dir, pair.name), []byte(pair.body), 0644); err != nil {
 			t.Fatal(err)
 		}
+	}
+	mainDir := filepath.Join(dir, "main")
+	if err := os.MkdirAll(mainDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "types.ft"), []byte(typesSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "api.ft"), []byte(apiSrc), 0644); err != nil {
+		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)

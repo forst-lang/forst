@@ -1,6 +1,6 @@
 # Tic-tac-toe example
 
-Stateless game rules in `engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `server.ft` (same `package main`). For `encoding/json`, use **`forst run -export-struct-fields`** / **`forst build -export-struct-fields`** (or `compiler.exportStructFields` in `ftconfig.json`, used by `forst dev`) so emitted struct fields are exported and tagged for JSON—matching the field names `forst generate` produces for TypeScript.
+Stateless game rules in `main/engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `main/server.ft` (same `package main`, under `main/` so stems match the package). For `encoding/json`, use **`forst run -export-struct-fields`** / **`forst build -export-struct-fields`** (or `compiler.exportStructFields` in `ftconfig.json`, used by `forst dev`) so emitted struct fields are exported and tagged for JSON—matching the field names `forst generate` produces for TypeScript.
 
 ## Run
 
@@ -13,12 +13,12 @@ task example:tictactoe
 Equivalent:
 
 ```bash
-cd forst && go run ./cmd/forst run -root ../examples/in/tictactoe -- ../examples/in/tictactoe/server.ft
+cd forst && go run ./cmd/forst run -root ../examples/in/tictactoe -- ../examples/in/tictactoe/main/server.ft
 ```
 
 ## TypeScript client (`forst generate`)
 
-`generated/` and `client/` under this folder are **gitignored**; run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerateCommand_tictactoeMergedPackage`).
+`generated/` and `client/` under this folder are **gitignored**; run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
 
 From the repo root, regenerate `generated/*.ts` and `client/` (merged `types.d.ts`, per-file `*.client.ts`, and `@forst/client` wrapper):
 
@@ -44,13 +44,13 @@ task test:tictactoe
 ```
 
 - **`tests/tictactoe-game.simulation.test.ts`** — full game in TypeScript using **`import type`** from **`client/types`** (merged declarations from `forst generate`) and rule logic aligned with `engine.ft` (invalid square + X wins top row).
-- **`tests/tictactoe-forst-run.test.ts`** — runs **`forst run -root … server.ft`** and checks stdout (merged-package smoke).
+- **`tests/tictactoe-forst-run.test.ts`** — runs **`forst run -root … main/server.ft`** and checks stdout (merged-package smoke).
 
 The executor rewrites merged **`package main`** user code to a library package (`forstexec`) so **`POST /invoke`** can import it; the simulation still exercises the **same shapes** TypeScript gets from `forst generate`. Optional: `FORST_BINARY`, or `FORST_SKIP_TICTACTOE_E2E=1` to skip.
 
 ## Golden Go output
 
-`examples/out/tictactoe/server.go` is the merged-package Go emit for `server.ft` entry (uses `exportStructFields` from `ftconfig.json`). Regenerate all example goldens with **`task examples:update-goldens`**, or only tictactoe:
+`examples/out/tictactoe/server.go` is the merged-package Go emit for `main/server.ft` entry (uses `exportStructFields` from `ftconfig.json`). Regenerate all example goldens with **`task examples:update-goldens`**, or only tictactoe:
 
 ```bash
 cd forst && UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1

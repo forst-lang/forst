@@ -14,8 +14,8 @@ import (
 func TestRestoreScope_tictactoeValidBoardEnsures(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "tictactoe")
 	paths := []string{
-		filepath.Join(root, "engine.ft"),
-		filepath.Join(root, "server.ft"),
+		filepath.Join(root, "main", "engine.ft"),
+		filepath.Join(root, "main", "server.ft"),
 	}
 	log := logrus.New()
 	log.SetOutput(io.Discard)

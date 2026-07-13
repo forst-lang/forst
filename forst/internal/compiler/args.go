@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"forst/internal/devcompile"
+
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -35,6 +37,14 @@ type Args struct {
 	PackageRoot string
 	// RequireNoNode, when true, fails the build if the program needs the Node runtime (opted-in TS imports).
 	RequireNoNode bool
+	// ReloadProfile enables structured compile sub-phase timing logs for forst dev hot reload.
+	ReloadProfile bool
+	// DevStableSandbox reuses boundaryRoot/.forst/run/dev/ instead of a new temp dir each reload.
+	DevStableSandbox bool
+	// DevModTidyCache skips go mod tidy when go.mod content is unchanged across reloads.
+	DevModTidyCache *SandboxModCache
+	// DevSession holds incremental parse/module caches for dev reload (optional).
+	DevSession *devcompile.Session
 }
 
 // ParseArgs parses os.Args for the run/build CLI path.

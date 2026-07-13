@@ -2,8 +2,6 @@ package testrunner
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +10,7 @@ import (
 	"forst/internal/forstpkg"
 	"forst/internal/goload"
 	"forst/internal/modulecheck"
+	"forst/internal/project"
 	transformer_go "forst/internal/transformer/go"
 	"forst/internal/typechecker"
 
@@ -21,19 +20,20 @@ import (
 // Options configures a forst test run.
 type Options struct {
 	ModuleRoot         string
+	BoundaryRoot       string // ftconfig boundary (-root); defaults to ModuleRoot
 	Paths              []string
 	GoTestArgs         []string
 	Log                *logrus.Logger
 	ExportStructFields bool
 }
 
-// EmitOptions configures Go code generation for a package emit.
+// EmitOptions configures Go code generation for a package emit (unit tests).
 type EmitOptions struct {
-	ExportStructFields bool // json-tagged exported struct fields (ftconfig / CLI)
-	TestOnly           bool // z_forst_gen.go exists: transform *_test.ft only, omit type defs
+	ExportStructFields bool
+	TestOnly           bool // emit *_test.ft nodes only, omit package type defs
 }
 
-// Run discovers Forst tests, emits Go, and invokes go test.
+// Run discovers Forst tests, emits Go under .forst/gen/test/, and invokes go test.
 func Run(opts Options) (ExitCode, error) {
 	if opts.Log == nil {
 		opts.Log = logrus.New()
@@ -47,100 +47,28 @@ func Run(opts Options) (ExitCode, error) {
 		return ExitError, err
 	}
 	moduleRoot = goload.FindModuleRoot(moduleRoot)
-
-	emit := EmitOptions{ExportStructFields: opts.ExportStructFields}
-	if !emit.ExportStructFields {
-		emit.ExportStructFields = ftconfig.ExportStructFieldsFromDir(moduleRoot)
+	if !opts.ExportStructFields {
+		opts.ExportStructFields = ftconfig.ExportStructFieldsFromDir(moduleRoot)
 	}
 
-	pkgs, err := DiscoverPackages(moduleRoot, opts.Paths)
+	proj, err := project.Open(opts.Log, project.OpenOpts{
+		BoundaryRoot: boundaryRoot(opts),
+		Cwd:          moduleRoot,
+	})
 	if err != nil {
-		return ExitError, err
+		return ExitFailure, fmt.Errorf("project open: %w", err)
 	}
-
-	modResult, modErr := modulecheck.CheckModuleProviders(opts.Log, modulecheck.Options{ModuleRoot: moduleRoot})
-	if modErr != nil {
-		return ExitFailure, fmt.Errorf("module providers: %w", modErr)
-	}
-
-	var emittedLibDirs map[string]struct{}
-	// Emit Go for dependency Forst packages (library .ft only, not test packages under run).
-	if modResult != nil {
-		testDirs := make(map[string]struct{}, len(pkgs))
-		for _, p := range pkgs {
-			testDirs[p.Dir] = struct{}{}
-		}
-		var emitErr error
-		emittedLibDirs, emitErr = emitDependencyPackages(moduleRoot, modResult, testDirs, emit, opts.Log)
-		if emitErr != nil {
-			return ExitFailure, emitErr
-		}
-	}
-
-	var failed bool
-	for _, pkg := range pkgs {
-		pkgEmit := emit
-		// Test-only when this run emitted a library shim, or a prior run left z_forst_gen.go on disk.
-		_, emittedThisRun := emittedLibDirs[pkg.Dir]
-		pkgEmit.TestOnly = emittedThisRun || hasGeneratedLibrary(pkg.Dir)
-		code, err := runPackageTests(moduleRoot, pkg, modResult, pkgEmit, opts.GoTestArgs, opts.Log)
-		if err != nil {
-			return ExitError, err
-		}
-		if code != ExitSuccess {
-			failed = true
-		}
-	}
-	if failed {
-		return ExitFailure, nil
-	}
-	return ExitSuccess, nil
+	return RunWithProject(proj, opts)
 }
 
-func emitDependencyPackages(moduleRoot string, modResult *modulecheck.ModuleResult, skipDirs map[string]struct{}, opts EmitOptions, log *logrus.Logger) (map[string]struct{}, error) {
-	libOpts := opts
-	libOpts.TestOnly = false
-	emitted := make(map[string]struct{})
-	for _, paths := range modResult.ForstPkgToFiles {
-		if len(paths) == 0 {
-			continue
-		}
-		dir := filepath.Dir(paths[0])
-		if _, skip := skipDirs[dir]; skip {
-			continue
-		}
-		var libPaths []string
-		for _, p := range paths {
-			if !IsTestForstFile(p) {
-				libPaths = append(libPaths, p)
-			}
-		}
-		if len(libPaths) == 0 {
-			continue
-		}
-		pkg := PackageUnderTest{
-			Dir:     dir,
-			RelPath: relPath(moduleRoot, dir),
-			FtPaths: libPaths,
-		}
-		code, err := emitPackageGo(moduleRoot, pkg, modResult, libOpts, log)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", pkg.RelPath, err)
-		}
-		genPath := filepath.Join(dir, "z_forst_gen.go")
-		if err := os.WriteFile(genPath, []byte(code), 0o644); err != nil {
-			return nil, fmt.Errorf("%s: write generated: %w", pkg.RelPath, err)
-		}
-		emitted[dir] = struct{}{}
+func boundaryRoot(opts Options) string {
+	if opts.BoundaryRoot != "" {
+		return opts.BoundaryRoot
 	}
-	return emitted, nil
+	return opts.ModuleRoot
 }
 
-func hasGeneratedLibrary(dir string) bool {
-	_, err := os.Stat(filepath.Join(dir, "z_forst_gen.go"))
-	return err == nil
-}
-
+// emitPackageGo transforms a package for unit tests of the emit pipeline.
 func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, log *logrus.Logger) (string, error) {
 	merged, byPath, err := forstpkg.ParseAndMergePackage(log, pkg.FtPaths)
 	if err != nil {
@@ -200,47 +128,6 @@ func emitPackageGo(moduleRoot string, pkg PackageUnderTest, modResult *moduleche
 		return "", fmt.Errorf("transform: %w", err)
 	}
 	return currentGenerateGoCodeFn()(goAST)
-}
-
-func runPackageTests(moduleRoot string, pkg PackageUnderTest, modResult *modulecheck.ModuleResult, opts EmitOptions, goTestArgs []string, log *logrus.Logger) (ExitCode, error) {
-	code, err := emitPackageGo(moduleRoot, pkg, modResult, opts, log)
-	if err != nil {
-		return ExitFailure, fmt.Errorf("%s: %w", pkg.RelPath, err)
-	}
-	return writeGeneratedTestAndRun(pkg, code, goTestArgs, log)
-}
-
-func writeGeneratedTestAndRun(pkg PackageUnderTest, goCode string, goTestArgs []string, _ *logrus.Logger) (ExitCode, error) {
-	genPath := filepath.Join(pkg.Dir, generatedTestGoName)
-	if err := os.WriteFile(genPath, []byte(goCode), 0o644); err != nil {
-		return ExitFailure, fmt.Errorf("%s: write generated test: %w", pkg.RelPath, err)
-	}
-
-	modRoot, err := goload.ModuleRootWithGoMod(pkg.Dir)
-	if err != nil {
-		return ExitFailure, fmt.Errorf("%s: %w (forst test packages need a local go.mod)", pkg.RelPath, err)
-	}
-	importPath := "."
-	if rel, err := currentFilepathRel()(modRoot, pkg.Dir); err == nil && rel != "." {
-		importPath = "./" + filepath.ToSlash(rel)
-	}
-	args := []string{"test"}
-	args = append(args, goTestArgs...)
-	args = append(args, importPath)
-
-	cmd := exec.Command("go", args...)
-	cmd.Dir = modRoot
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := currentExecGoTest()(cmd); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() >= 0 {
-			return ExitCode(exitErr.ExitCode()), nil
-		}
-		return ExitFailure, fmt.Errorf("%s: go test: %w", pkg.RelPath, err)
-	}
-	_ = os.Remove(genPath)
-	return ExitSuccess, nil
 }
 
 func relPath(moduleRoot, dir string) string {

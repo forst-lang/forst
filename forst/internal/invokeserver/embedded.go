@@ -15,8 +15,10 @@ import (
 
 const (
 	envInvokeEnabled = "FORST_INVOKE_ENABLED"
-	envInvokePort    = "FORST_INVOKE_PORT"
-	envBoundaryRoot  = "FORST_BOUNDARY_ROOT"
+	// EnvInvokePort overrides the embedded invoke listen port (dev reload port pick).
+	EnvInvokePort   = "FORST_INVOKE_PORT"
+	envInvokePort   = EnvInvokePort
+	envBoundaryRoot = "FORST_BOUNDARY_ROOT"
 )
 
 // GlobalRegistry returns the registry populated by generated init code.
@@ -59,7 +61,8 @@ func resolveBoundaryRoot() (string, error) {
 	return ftconfig.BoundaryRootFromDir(cwd)
 }
 
-type invokeReadyPayload struct {
+// InvokeReadyPayload is written to boundaryRoot/.forst/invoke.ready when embedded invoke starts.
+type InvokeReadyPayload struct {
 	URL             string `json:"url"`
 	ContractVersion string `json:"contractVersion"`
 	Runtime         string `json:"runtime"`
@@ -73,7 +76,7 @@ func writeInvokeReady(workDir string, cfg Config) error {
 	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
 		return err
 	}
-	payload := invokeReadyPayload{
+	payload := InvokeReadyPayload{
 		URL:             cfg.BaseURL(),
 		ContractVersion: HTTPContractVersion,
 		Runtime:         "embedded",
