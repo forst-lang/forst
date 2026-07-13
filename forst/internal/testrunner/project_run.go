@@ -205,7 +205,8 @@ func runGoTestSandbox(proj *project.Project, paths layout.TestPaths, testImport 
 	if err := gowork.WriteTestGoMod(paths.GoMod, compilerMod, replaces, testImport); err != nil {
 		return ExitFailure, err
 	}
-	plan, _ := gowork.PlanForRun(proj.BoundaryRoot, paths.ModDir, compilerMod != "")
+	// forst test sandboxes link via WriteTestGoMod replaces, not workspace mode.
+	plan := gowork.LinkPlan{Mode: gowork.LinkReplace}
 	args := []string{"test"}
 	args = append(args, goTestArgs...)
 	args = append(args, testImport)

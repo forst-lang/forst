@@ -83,7 +83,7 @@ func PlanForRun(boundaryRoot, sessionDir string, needsCompiler bool) (LinkPlan, 
 		return LinkPlan{Mode: LinkNone, GoModPath: goMod}, nil
 	}
 
-	if shouldUseWorkspaceMode(boundaryRoot, userMod, link) {
+	if shouldUseWorkspaceMode(boundaryRoot, sessionDir, userMod, link) {
 		return LinkPlan{
 			Mode:      LinkWorkspace,
 			GoModPath: goMod,
@@ -98,14 +98,23 @@ func PlanForRun(boundaryRoot, sessionDir string, needsCompiler bool) (LinkPlan, 
 	}, nil
 }
 
-func shouldUseWorkspaceMode(boundaryRoot, userMod string, link ForstRuntimeLink) bool {
+func shouldUseWorkspaceMode(boundaryRoot, sessionDir, userMod string, link ForstRuntimeLink) bool {
 	if link.ReplaceDir == "" {
 		return false
 	}
 	if userMod == "" || goload.IsForstGoModShim(userMod) {
 		return false
 	}
+	if !isRunSandboxSession(sessionDir) {
+		return false
+	}
 	return goload.ModuleRootHasGoMod(boundaryRoot) || goload.DirHasGoMod(userMod)
+}
+
+func isRunSandboxSession(sessionDir string) bool {
+	sessionDir = filepath.Clean(sessionDir)
+	seg := string(filepath.Separator) + ".forst" + string(filepath.Separator) + "run" + string(filepath.Separator)
+	return strings.Contains(sessionDir, seg)
 }
 
 // WorkspaceUseDirs returns module directories for a Mode B go.work file.

@@ -190,6 +190,31 @@ func TestGoWork_planForRun_usesWorkspaceForGoNativeModule(t *testing.T) {
 	}
 }
 
+func TestPlanForRun_testSessionUsesReplace(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	compilerDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(compilerDir, "cmd", "forst"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(compilerDir, "go.mod"), []byte("module forst\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	restore := goload.SetForstCompilerModuleRootHookForTest(func() string { return compilerDir })
+	defer restore()
+
+	session := filepath.Join(dir, ".forst", "gen", "test", "s1", "mod")
+	plan, err := PlanForRun(dir, session, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Mode != LinkReplace {
+		t.Fatalf("want LinkReplace for forst test session, got %v", plan.Mode)
+	}
+}
+
 func TestGoWork_planForRun_forstGomodShimUsesReplace(t *testing.T) {
 	dir := t.TempDir()
 	forstGomod := filepath.Join(dir, ".forst-gomod")
