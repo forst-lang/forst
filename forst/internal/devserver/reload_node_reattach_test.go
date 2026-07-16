@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"testing"
 )
 
@@ -73,11 +72,10 @@ await signalForstAppReady();
 		}
 	}
 
-	sockDir := filepath.Join("/tmp", "forst-reload-host-"+strconv.Itoa(os.Getpid()))
+	sockDir := filepath.Join(root, ".forst")
 	if err := os.MkdirAll(sockDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
 	t.Setenv("FORST_NODE_SOCKET", filepath.Join(sockDir, "node.sock"))
 
 	argsJSON, _ := json.Marshal([]string{"app/server.mjs"})

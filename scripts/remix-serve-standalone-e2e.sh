@@ -39,7 +39,7 @@ FORST_PID=""
 CLEANED_UP=false
 
 free_ports() {
-  lsof -ti tcp:6321 2>/dev/null | xargs kill -9 2>/dev/null || true
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" 6321
   lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
 }

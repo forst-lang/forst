@@ -25,13 +25,13 @@ func (d *stubDiscoverer) DiscoverFunctions() (map[string]map[string]discovery.Fu
 }
 
 type stubDevExecutor struct {
-	executeFn          func(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
-	executeStreamingFn func(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
+	executeFn          func(context.Context, string, string, json.RawMessage) (*executor.ExecutionResult, error)
+	executeStreamingFn func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 
-func (e *stubDevExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error) {
+func (e *stubDevExecutor) ExecuteFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error) {
 	if e.executeFn != nil {
-		return e.executeFn(packageName, functionName, args)
+		return e.executeFn(ctx, packageName, functionName, args)
 	}
 	return nil, errors.New("no executeFn")
 }
@@ -99,7 +99,7 @@ func TestDevBackend_functionsSnapshot(t *testing.T) {
 
 func TestDevBackend_invoke_success(t *testing.T) {
 	b := newDevBackendWithStubs(&stubDiscoverer{}, &stubDevExecutor{
-		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+		executeFn: func(_ context.Context, _, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
 			return &executor.ExecutionResult{Success: true, Result: json.RawMessage(`{"ok":true}`)}, nil
 		},
 	})
@@ -111,7 +111,7 @@ func TestDevBackend_invoke_success(t *testing.T) {
 
 func TestDevBackend_invoke_error(t *testing.T) {
 	b := newDevBackendWithStubs(&stubDiscoverer{}, &stubDevExecutor{
-		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+		executeFn: func(_ context.Context, _, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
 			return nil, fmt.Errorf("exec failed")
 		},
 	})

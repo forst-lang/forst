@@ -7,6 +7,7 @@ import {
 import {
   DevServerHttpFailure,
   DevServerInvokeRejected,
+  DevServerRequestRetriesExhausted,
 } from "./errors";
 import type { FunctionInfo } from "./types";
 
@@ -356,5 +357,81 @@ describe("ForstSidecarClient", () => {
     expect(out.result).toBe(99);
     expect(invokeCalls).toBe(2);
     expect(healthCalls).toBeGreaterThanOrEqual(3);
+  });
+
+  it("makeRequest_exhaustsRetries_throwsDevServerRequestRetriesExhausted", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("network down")) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+      retries: 2,
+      reloadAware: false,
+    });
+    try {
+      await client.invokeFunction("demo", "Echo", []);
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerRequestRetriesExhausted);
+    }
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("makeRequest_timeout_abortsBeforeSuccess", async () => {
+    global.fetch = jest.fn((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }
+      });
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+      retries: 0,
+      reloadAware: false,
+      timeout: 50,
+    });
+    const start = Date.now();
+    try {
+      await client.discoverFunctions();
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(Error);
+    }
+    expect(Date.now() - start).toBeLessThan(2000);
+  });
+
+  it("nonReloadAware_doesNotParkOnHardHttpFailure", async () => {
+    let invokeCalls = 0;
+    global.fetch = jest.fn((url: string | URL | Request) => {
+      const path = String(url);
+      if (path.endsWith("/invoke")) {
+        invokeCalls += 1;
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: new Headers({ "content-type": "application/json" }),
+          text: async () => JSON.stringify({ success: false, error: "boom" }),
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${path}`));
+    }) as unknown as typeof fetch;
+
+    const client = new ForstSidecarClient({
+      baseUrl: "http://127.0.0.1:6320",
+      retries: 0,
+      reloadAware: false,
+    });
+    try {
+      await client.invokeFunction("demo", "Echo", []);
+      expect(true).toBe(false);
+    } catch (e) {
+      expect(e).toBeInstanceOf(DevServerHttpFailure);
+    }
+    expect(invokeCalls).toBe(1);
   });
 });

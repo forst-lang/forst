@@ -136,6 +136,13 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
       );
       return result;
     }
+    if (hostInitSnapshot !== null && hostInitSnapshot.fingerprint !== fingerprint) {
+      return yield* Effect.fail(
+        Errors.forbidden("initialize cannot widen export allowlist", {
+          boundaryRoot: params.boundaryRoot,
+        })
+      );
+    }
 
     const manifest = yield* Effect.try({
       try: () => validateManifest(params.manifest),

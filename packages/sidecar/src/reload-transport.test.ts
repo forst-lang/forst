@@ -101,4 +101,30 @@ describe("createReloadAwareTransport", () => {
     expect(response.status).toBe(200);
     expect(invokeCalls).toBe(3);
   });
+
+  it("nonReload503ErrorDoesNotPark", async () => {
+    let invokeCalls = 0;
+
+    const inner: InvokeTransport = {
+      request(endpoint) {
+        invokeCalls += 1;
+        if (endpoint === "/invoke") {
+          return Effect.succeed(
+            new Response(JSON.stringify({ success: false, error: "boom" }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+        }
+        return Effect.fail(new Error(`unexpected endpoint: ${endpoint}`));
+      },
+    };
+
+    const transport = createReloadAwareTransport(inner);
+    const response = await Effect.runPromise(
+      transport.request("/invoke", { method: "POST", body: "{}" })
+    );
+    expect(response.status).toBe(500);
+    expect(invokeCalls).toBe(1);
+  });
 });

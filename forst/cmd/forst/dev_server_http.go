@@ -127,11 +127,11 @@ func (b *testInvokeBackend) RefreshFunctions(context.Context) error {
 	return b.refreshErr
 }
 
-func (b *testInvokeBackend) Invoke(_ context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
+func (b *testInvokeBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
 	if b.exec == nil {
 		return nil, fmt.Errorf("no executor")
 	}
-	result, err := b.exec.ExecuteFunction(pkg, fn, args)
+	result, err := b.exec.ExecuteFunction(ctx, pkg, fn, args)
 	if err != nil {
 		return nil, err
 	}

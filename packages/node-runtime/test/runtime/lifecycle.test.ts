@@ -58,4 +58,43 @@ describe("initializeRuntime host cache", () => {
     expect(second.state.initialized).toBe(true);
     expect(second.state.index).toBe(first.state.index);
   });
+
+  test("rejects initialize that widens export allowlist", async () => {
+    resetHostInitCacheForTest();
+    const params = initializeParams(fixtureRoot);
+
+    const first = createDispatcher();
+    await runTestEffect(first.dispatch({
+      jsonrpc: "2.0",
+      id: 1,
+      method: METHOD_INITIALIZE,
+      params,
+    }));
+
+    const widened = {
+      ...params,
+      manifest: {
+        ...params.manifest,
+        exports: [
+          ...params.manifest.exports,
+          {
+            moduleId: "fixtures/async-payment.ts",
+            name: "pay",
+            kind: "function" as const,
+          },
+        ],
+      },
+    };
+
+    const second = createDispatcher();
+    const init2 = await runTestEffect(second.dispatch({
+      jsonrpc: "2.0",
+      id: 2,
+      method: METHOD_INITIALIZE,
+      params: widened,
+    }));
+    expect(init2).toMatchObject({
+      error: { code: expect.any(Number), message: expect.stringContaining("allowlist") },
+    });
+  });
 });

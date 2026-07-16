@@ -479,13 +479,13 @@ func TestSendJSONResponse_doesNotSetCORSWhenDisabled(t *testing.T) {
 }
 
 type stubDevExecutor struct {
-	executeFn          func(string, string, json.RawMessage) (*executor.ExecutionResult, error)
+	executeFn          func(context.Context, string, string, json.RawMessage) (*executor.ExecutionResult, error)
 	executeStreamingFn func(context.Context, string, string, json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 
-func (s *stubDevExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error) {
+func (s *stubDevExecutor) ExecuteFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error) {
 	if s.executeFn != nil {
-		return s.executeFn(packageName, functionName, args)
+		return s.executeFn(ctx, packageName, functionName, args)
 	}
 	return nil, fmt.Errorf("stub: no executeFn")
 }
@@ -506,7 +506,7 @@ func TestHandleInvoke_executeFunctionSuccess_returns200(t *testing.T) {
 		},
 	}
 	s.fnExec = &stubDevExecutor{
-		executeFn: func(_, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
+		executeFn: func(_ context.Context, _, _ string, _ json.RawMessage) (*executor.ExecutionResult, error) {
 			return &executor.ExecutionResult{
 				Success: true,
 				Result:  json.RawMessage(`{"ok":true}`),

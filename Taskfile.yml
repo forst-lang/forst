@@ -522,6 +522,12 @@ tasks:
     cmds:
       - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -entry main.ft -log-level error
 
+  example:multipackage-dev:reload-e2e:
+    desc: E2E — multipackage-dev forst dev reload keeps Node host pid alive
+    deps: [build:node-runtime, build]
+    cmds:
+      - bash scripts/multipackage-dev-reload-e2e.sh
+
   example:embedded-invoke:
     desc: Compile embedded-invoke example (embedded HTTP /invoke in compiled binary)
     dir: forst
@@ -536,13 +542,14 @@ tasks:
     deps: [build, example:embedded-invoke]
     cmds:
       - |
-        set -e
+        set -euo pipefail
+        bash ../scripts/kill-forst-tcp-listeners.sh 6321
         FT_ROOT="{{.EXAMPLES_DIR}}/rfc/embedded-invoke"
         FORST_BOUNDARY_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
         PID=$!
         trap 'kill -TERM $PID 2>/dev/null || true' EXIT
-        sleep 2
-        curl -sf -X POST http://127.0.0.1:8081/invoke \
+        bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health invoke 30
+        curl -sf -X POST http://127.0.0.1:6321/invoke \
           -H 'Content-Type: application/json' \
           -d '{"package":"main","function":"Echo","args":[{"message":"hello"}]}'
 
@@ -635,7 +642,7 @@ tasks:
         FORST_BIN="../bin/{{.BINARY_NAME}}"
         export FT_ROOT FORST_BIN
         bash -eo pipefail <<'EOS'
-        lsof -ti tcp:6321 2>/dev/null | xargs kill -9 2>/dev/null || true
+        bash ../scripts/kill-forst-tcp-listeners.sh 6321
         lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
         pkill -f 'forst run.*node-interop/remix-serve' 2>/dev/null || true
         pkill -f 'remix-serve build/server/index.js' 2>/dev/null || true
@@ -766,7 +773,7 @@ tasks:
     deps: [build:node-runtime]
     cmds:
       - task: build:vscode
-      - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/...
+      - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/... ./nodert/...
 
   ci:e2e:
     desc: Run CI E2E suite (runtime examples, node interop, sidecar, providers)
@@ -777,11 +784,14 @@ tasks:
       - task: test:cli
       - task: test:sidecar
       - task: node-interop:smoke
+      - task: test:multipackage-dev
+      - task: example:embedded-invoke:run
       - task: example:node-interop-sync
       - task: example:node-interop-promises
       - task: example:node-interop-generators
       - task: example:node-interop-async
       - task: example:node-interop-modules
+      - task: example:multipackage-dev:reload-e2e
       - task example:sidecar-local
       - task example:sidecar-downloaded
       - task test:tictactoe
