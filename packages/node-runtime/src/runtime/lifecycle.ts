@@ -47,6 +47,19 @@ function initializeFingerprint(params: InitializeParams): string {
   });
 }
 
+function exportAllowlistKey(exp: { moduleId: string; name: string }): string {
+  return `${exp.moduleId}\0${exp.name}`;
+}
+
+/** True when incoming adds exports not present in the frozen manifest (same boundary). */
+function manifestWidensAllowlist(
+  frozen: ForstNodeManifestV1,
+  incoming: ForstNodeManifestV1
+): boolean {
+  const frozenKeys = new Set(frozen.exports.map(exportAllowlistKey));
+  return incoming.exports.some((exp) => !frozenKeys.has(exportAllowlistKey(exp)));
+}
+
 function applyHostInitSnapshot(
   state: RuntimeState,
   snap: HostInitSnapshot
@@ -136,13 +149,6 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
       );
       return result;
     }
-    if (hostInitSnapshot !== null && hostInitSnapshot.fingerprint !== fingerprint) {
-      return yield* Effect.fail(
-        Errors.forbidden("initialize cannot widen export allowlist", {
-          boundaryRoot: params.boundaryRoot,
-        })
-      );
-    }
 
     const manifest = yield* Effect.try({
       try: () => validateManifest(params.manifest),
@@ -154,6 +160,18 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
         Errors.invalidParams("manifest.boundaryRoot must match boundaryRoot", {
           boundaryRoot: params.boundaryRoot,
           manifestBoundaryRoot: manifest.boundaryRoot,
+        })
+      );
+    }
+
+    if (
+      hostInitSnapshot !== null &&
+      hostInitSnapshot.manifest.boundaryRoot === manifest.boundaryRoot &&
+      manifestWidensAllowlist(hostInitSnapshot.manifest, manifest)
+    ) {
+      return yield* Effect.fail(
+        Errors.forbidden("initialize cannot widen export allowlist", {
+          boundaryRoot: params.boundaryRoot,
         })
       );
     }
