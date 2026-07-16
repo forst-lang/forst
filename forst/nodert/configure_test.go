@@ -90,6 +90,11 @@ func TestResolveBootstrapPath_envRelativeFallsBackToMonorepo(t *testing.T) {
 	if err := os.MkdirAll(sandbox, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 	if err := os.Chdir(sandbox); err != nil {
 		t.Fatal(err)
 	}
@@ -261,6 +266,11 @@ func TestConfigureFromManifest_discoversBoundaryRootWhenEmbeddedOmitsIt(t *testi
 	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
 	if err := os.Chdir(subDir); err != nil {
 		t.Fatal(err)
 	}

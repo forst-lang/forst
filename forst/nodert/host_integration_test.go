@@ -277,6 +277,7 @@ func runHostCounterRPC(t *testing.T, _ string, manifest Manifest, firstWant, sec
 	t.Helper()
 
 	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
 	t.Setenv(envNodeBootstrap, "")
 	t.Setenv(envNodeBinary, "")
 
@@ -313,6 +314,7 @@ func runHostEditCountRPC(t *testing.T, _ string, manifest Manifest, firstWant, s
 	t.Helper()
 
 	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
 	t.Setenv(envNodeBootstrap, "")
 	t.Setenv(envNodeBinary, "")
 
