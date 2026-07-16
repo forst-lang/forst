@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2](https://github.com/forst-lang/forst/compare/v0.8.1...v0.8.2) (2026-07-13)
+
+
+### Features
+
+* **dev:** add runtime profile for embedded invoke and host mode ([#142](https://github.com/forst-lang/forst/issues/142)) ([fcfc8c0](https://github.com/forst-lang/forst/commit/fcfc8c08fc72eaba997a7bebb6303542a2684781))
+
 ## [0.8.1](https://github.com/forst-lang/forst/compare/v0.8.0...v0.8.1) (2026-07-12)
 
 
