@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"forst/internal/ast"
+	"forst/internal/codegen/layout"
 	"forst/internal/discovery"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
@@ -144,6 +145,9 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 			if err := os.WriteFile(invokePath, []byte(out.InvokeServer), 0644); err != nil {
 				return compileGoOutput{}, fmt.Errorf("error writing invoke server file: %v", err)
 			}
+		}
+		if err := WriteExtraPackagesForOutput(c.Args.OutputPath, out.ExtraPackages); err != nil {
+			return compileGoOutput{}, err
 		}
 	} else if c.Args.LogLevel == "trace" {
 		c.log.Info("Generated Go code:")
@@ -408,6 +412,25 @@ func invokeServerOutputPath(outputPath string) string {
 		return base + "_forst_invoke_server.gen.go"
 	}
 	return base + "_forst_invoke_server.gen" + ext
+}
+
+// WriteExtraPackagesForOutput writes cross-package invoke Go sources beside a -o main output path.
+func WriteExtraPackagesForOutput(outputPath string, extraPackages map[string]string) error {
+	if len(extraPackages) == 0 {
+		return nil
+	}
+	outDir := filepath.Dir(outputPath)
+	for pkg, code := range extraPackages {
+		pkgDir := filepath.Join(outDir, pkg)
+		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+			return fmt.Errorf("mkdir extra package %q: %w", pkg, err)
+		}
+		pkgPath := filepath.Join(pkgDir, pkg+layout.SuffixGen)
+		if err := os.WriteFile(pkgPath, []byte(code), 0644); err != nil {
+			return fmt.Errorf("write extra package %q: %w", pkg, err)
+		}
+	}
+	return nil
 }
 
 func (c *Compiler) generateInvokeServerCode(transformer *transformer_go.Transformer, nodes []ast.Node, moduleFns []discovery.FunctionInfo) (string, error) {

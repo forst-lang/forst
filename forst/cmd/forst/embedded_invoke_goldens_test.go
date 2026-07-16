@@ -46,13 +46,26 @@ type embeddedInvokeCompileOutput struct {
 	Invoke string
 }
 
-func compileEmbeddedInvokePackageForGolden(t *testing.T, entryPath, root string, exportStructFields bool) embeddedInvokeCompileOutput {
+type compileEmbeddedInvokeOpts struct {
+	EntryPath          string
+	PackageRoot        string
+	ExportStructFields bool
+}
+
+type embeddedInvokeCompileVerifyOpts struct {
+	Expected   string
+	Actual     string
+	GoldenPath string
+	Markers    []string
+}
+
+func compileEmbeddedInvokePackageForGolden(t *testing.T, opts compileEmbeddedInvokeOpts) embeddedInvokeCompileOutput {
 	t.Helper()
-	absEntry, err := filepath.Abs(entryPath)
+	absEntry, err := filepath.Abs(opts.EntryPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	absRoot, err := filepath.Abs(root)
+	absRoot, err := filepath.Abs(opts.PackageRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +73,7 @@ func compileEmbeddedInvokePackageForGolden(t *testing.T, entryPath, root string,
 		Command:            "build",
 		FilePath:           absEntry,
 		PackageRoot:        absRoot,
-		ExportStructFields: exportStructFields,
+		ExportStructFields: opts.ExportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
 	mainCode, _, invokeCode, _, _, err := c.CompileWithNodeRuntime()
@@ -79,15 +92,15 @@ func invokeServerGoldenPath(mainGoldenPath string) string {
 	return base + "_forst_invoke_server.gen" + ext
 }
 
-func verifyEmbeddedInvokePackageCompileGolden(t *testing.T, expected, actual, goldenPath string, markers []string) {
+func verifyEmbeddedInvokePackageCompileGolden(t *testing.T, opts embeddedInvokeCompileVerifyOpts) {
 	t.Helper()
-	for _, marker := range markers {
-		if !strings.Contains(actual, marker) {
-			t.Errorf("output missing %q (golden %s)", marker, goldenPath)
+	for _, marker := range opts.Markers {
+		if !strings.Contains(opts.Actual, marker) {
+			t.Errorf("output missing %q (golden %s)", marker, opts.GoldenPath)
 		}
 	}
-	if len(expected) > 0 && len(actual) < len(expected)/2 {
-		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(actual), len(expected))
+	if len(opts.Expected) > 0 && len(opts.Actual) < len(opts.Expected)/2 {
+		t.Errorf("output much shorter than golden (%d vs %d bytes)", len(opts.Actual), len(opts.Expected))
 	}
 }
 
@@ -100,7 +113,11 @@ func writeEmbeddedInvokePackageGolden(t *testing.T, tc embeddedInvokeGoldenCase)
 	goldenPath := filepath.Join(outDir, tc.goldenRel)
 	invokeGoldenPath := invokeServerGoldenPath(goldenPath)
 
-	out := compileEmbeddedInvokePackageForGolden(t, entry, root, tc.exportStructFields)
+	out := compileEmbeddedInvokePackageForGolden(t, compileEmbeddedInvokeOpts{
+		EntryPath:          entry,
+		PackageRoot:        root,
+		ExportStructFields: tc.exportStructFields,
+	})
 	if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +147,11 @@ func TestExampleEmbeddedInvokeCompileGolden(t *testing.T) {
 			goldenPath := filepath.Join(outDir, tc.goldenRel)
 			invokeGoldenPath := invokeServerGoldenPath(goldenPath)
 
-			actual := compileEmbeddedInvokePackageForGolden(t, entry, root, tc.exportStructFields)
+			actual := compileEmbeddedInvokePackageForGolden(t, compileEmbeddedInvokeOpts{
+				EntryPath:          entry,
+				PackageRoot:        root,
+				ExportStructFields: tc.exportStructFields,
+			})
 
 			if os.Getenv("UPDATE_EMBEDDED_INVOKE_GOLDEN") == "1" || os.Getenv("UPDATE_EXAMPLES_GOLDENS") == "1" {
 				writeEmbeddedInvokePackageGolden(t, tc)
@@ -141,15 +162,22 @@ func TestExampleEmbeddedInvokeCompileGolden(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read golden %s: %v (set UPDATE_EMBEDDED_INVOKE_GOLDEN=1 to create)", goldenPath, err)
 			}
-			verifyEmbeddedInvokePackageCompileGolden(t, string(expectedMain), actual.Main, goldenPath, tc.mainMarkers)
-			verifyCompanionPackageGoBuild(t, "fresh compile/"+tc.name, actual.Main, "", actual.Invoke)
-			verifyCompanionGoldenFilesGoBuild(
-				t,
-				"committed goldens/"+tc.name,
-				goldenPath,
-				"",
-				invokeGoldenPath,
-			)
+			verifyEmbeddedInvokePackageCompileGolden(t, embeddedInvokeCompileVerifyOpts{
+				Expected:   string(expectedMain),
+				Actual:     actual.Main,
+				GoldenPath: goldenPath,
+				Markers:    tc.mainMarkers,
+			})
+			verifyCompanionPackageGoBuild(t, companionGoBuildOpts{
+				Label:            "fresh compile/" + tc.name,
+				MainCode:         actual.Main,
+				InvokeServerCode: actual.Invoke,
+			})
+			verifyCompanionGoldenFilesGoBuild(t, companionGoldenFilesGoBuildOpts{
+				Label:            "committed goldens/" + tc.name,
+				MainGoldenPath:   goldenPath,
+				InvokeGoldenPath: invokeGoldenPath,
+			})
 
 			if len(tc.invokeMarkers) > 0 {
 				if actual.Invoke == "" {
@@ -159,7 +187,12 @@ func TestExampleEmbeddedInvokeCompileGolden(t *testing.T) {
 				if err != nil {
 					t.Fatalf("read invoke golden %s: %v (set UPDATE_EMBEDDED_INVOKE_GOLDEN=1 to create)", invokeGoldenPath, err)
 				}
-				verifyEmbeddedInvokePackageCompileGolden(t, string(expectedInvoke), actual.Invoke, invokeGoldenPath, tc.invokeMarkers)
+				verifyEmbeddedInvokePackageCompileGolden(t, embeddedInvokeCompileVerifyOpts{
+					Expected:   string(expectedInvoke),
+					Actual:     actual.Invoke,
+					GoldenPath: invokeGoldenPath,
+					Markers:    tc.invokeMarkers,
+				})
 			}
 		})
 	}

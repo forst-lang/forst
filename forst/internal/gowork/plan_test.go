@@ -190,6 +190,34 @@ func TestGoWork_planForRun_usesWorkspaceForGoNativeModule(t *testing.T) {
 	}
 }
 
+func TestGoWork_planForRun_ftconfigBoundaryUsesReplace(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module multi_package_dev\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	compilerDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(compilerDir, "cmd", "forst"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(compilerDir, "go.mod"), []byte("module forst\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	restore := goload.SetForstCompilerModuleRootHookForTest(func() string { return compilerDir })
+	defer restore()
+
+	session := filepath.Join(dir, ".forst", "run", "dev")
+	plan, err := PlanForRun(dir, session, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Mode != LinkReplace {
+		t.Fatalf("want LinkReplace for ftconfig boundary, got %v", plan.Mode)
+	}
+}
+
 func TestPlanForRun_testSessionUsesReplace(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/app\n\ngo 1.26.0\n"), 0o644); err != nil {

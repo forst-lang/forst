@@ -597,6 +597,8 @@ func TestRunGoProgram_companionImportsCompile(t *testing.T) {
 		"package main\n\nimport _ \"forst/nodert\"\n\nfunc main() {}\n",
 		"package main\n",
 		"",
+		nil,
+		"",
 	)
 	if err != nil {
 		t.Fatalf("BuildGoProgram: %v", err)

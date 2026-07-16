@@ -598,3 +598,101 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 		}
 	}
 }
+
+func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
+	dir := t.TempDir()
+	forstGomod := filepath.Join(dir, ".forst-gomod")
+	forstDir := filepath.Join(dir, "forst")
+	scriptsDir := filepath.Join(dir, "scripts")
+	for _, d := range []string{forstGomod, forstDir, scriptsDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	forstModule := forstCompilerModuleRoot(t)
+	goMod := "module example.com/app/forst\n\ngo 1.26.0\n\nrequire forst v0.0.0\n\nreplace forst => " + forstModule + "\n"
+	if err := os.WriteFile(filepath.Join(forstGomod, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ftconfig := `{
+  "server": {"embedded": true, "port": "6321"},
+  "node": {
+    "enabled": true,
+    "hostMode": true,
+    "binary": "node",
+    "args": ["scripts/host.mjs"]
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(ftconfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "host.mjs"), []byte("// host shim stub\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainSrc := `package main
+
+import node host "./host"
+
+func main() {
+	ready := host.hostPing()
+	ensure ready is Ok()
+	println("forst:app ready: " + ready)
+}
+`
+	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bcryptSrc := `package bcrypt
+
+type ComparePasswordRequest = {
+	plainPassword: String,
+	passwordHash: String
+}
+
+type ComparePasswordResponse = {
+	valid: Bool
+}
+
+func ComparePassword(input ComparePasswordRequest) {
+	return { valid: true }
+}
+`
+	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(outDir, "main.go")
+	c := New(Args{
+		Command:            "build",
+		FilePath:           filepath.Join(forstDir, "main.ft"),
+		PackageRoot:        dir,
+		OutputPath:         outPath,
+		ExportStructFields: true,
+		LogLevel:           "error",
+	}, nil)
+	mainCode, nodeRuntime, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	bcryptPath := filepath.Join(outDir, "bcrypt", "bcrypt.gen.go")
+	bcryptDisk, err := os.ReadFile(bcryptPath)
+	if err != nil {
+		t.Fatalf("read extra package output %s: %v", bcryptPath, err)
+	}
+	if !strings.Contains(string(bcryptDisk), "package bcrypt") {
+		t.Fatalf("bcrypt.gen.go missing package declaration:\n%s", bcryptDisk)
+	}
+	if extraPkgs["bcrypt"] != string(bcryptDisk) {
+		t.Fatalf("written bcrypt package differs from compile output")
+	}
+	if err := BuildGoProgram(mainCode, nodeRuntime, invokeCode, extraPkgs, dir); err != nil {
+		t.Fatalf("BuildGoProgram with extras: %v", err)
+	}
+}

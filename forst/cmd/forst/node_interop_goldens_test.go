@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/codegen/layout"
 	"forst/internal/compiler"
 )
 
@@ -13,10 +14,12 @@ type nodeInteropGoldenCase struct {
 	name               string
 	entryRel           string // under examples/in
 	goldenRel          string // under examples/out
+	packageRootRel     string // optional; defaults to dirname(entryRel)
 	exportStructFields bool
 	mainMarkers        []string
 	runtimeMarkers     []string
 	invokeMarkers      []string
+	extraPackageNames  []string
 }
 
 func nodeInteropGoldenCases() []nodeInteropGoldenCase {
@@ -159,6 +162,29 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"legacy/api/checkout.ts",
 			},
 		},
+		{
+			name:               "multi-package-dev",
+			entryRel:           "rfc/node-interop/multi-package-dev/main.ft",
+			goldenRel:          "rfc/node-interop/multi-package-dev/main.go",
+			exportStructFields: true,
+			mainMarkers: []string{
+				"package main",
+				"forst_node_callsync_",
+				"func main()",
+				"ForstInvokeWaitForShutdown",
+			},
+			runtimeMarkers: []string{
+				"forstNodeManifestJSON",
+				"nodert.CallSync",
+				"hostPing",
+			},
+			invokeMarkers: []string{
+				"invokeembed.MustStartEmbedded",
+				"forst_invoke_bcrypt_Hash",
+				"forst.run.temp/bcrypt",
+			},
+			extraPackageNames: []string{"bcrypt"},
+		},
 	}
 }
 
@@ -176,6 +202,15 @@ type nodeInteropCompileOutput struct {
 	Main    string
 	Runtime string
 	Invoke  string
+	Extra   map[string]string
+}
+
+func nodeInteropPackageRoot(t *testing.T, inDir string, tc nodeInteropGoldenCase) string {
+	t.Helper()
+	if tc.packageRootRel != "" {
+		return filepath.Join(inDir, tc.packageRootRel)
+	}
+	return filepath.Dir(filepath.Join(inDir, tc.entryRel))
 }
 
 func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string, exportStructFields bool) nodeInteropCompileOutput {
@@ -195,11 +230,11 @@ func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string,
 		ExportStructFields: exportStructFields,
 		LogLevel:           "error",
 	}, exampleTestLogger())
-	mainCode, runtimeCode, invokeCode, _, _, err := c.CompileWithNodeRuntime()
+	mainCode, runtimeCode, invokeCode, extraPkgs, _, err := c.CompileWithNodeRuntime()
 	if err != nil {
 		t.Fatalf("CompileWithNodeRuntime(%s): %v", absEntry, err)
 	}
-	return nodeInteropCompileOutput{Main: mainCode, Runtime: runtimeCode, Invoke: invokeCode}
+	return nodeInteropCompileOutput{Main: mainCode, Runtime: runtimeCode, Invoke: invokeCode, Extra: extraPkgs}
 }
 
 func nodeRuntimeGoldenPath(mainGoldenPath string) string {
@@ -234,7 +269,7 @@ func writeNodeInteropPackageGolden(t *testing.T, tc nodeInteropGoldenCase) {
 	inDir := examplesInDir(t)
 	outDir := examplesOutDir(t)
 	entry := filepath.Join(inDir, tc.entryRel)
-	root := filepath.Dir(entry)
+	root := nodeInteropPackageRoot(t, inDir, tc)
 	goldenPath := filepath.Join(outDir, tc.goldenRel)
 	runtimeGoldenPath := nodeRuntimeGoldenPath(goldenPath)
 
@@ -258,7 +293,17 @@ func writeNodeInteropPackageGolden(t *testing.T, tc nodeInteropGoldenCase) {
 		}
 		t.Logf("wrote %s", invokeGoldenPath)
 	}
+	if err := writeNodeInteropExtraPackageGoldens(goldenPath, out.Extra); err != nil {
+		t.Fatal(err)
+	}
+	for pkg := range out.Extra {
+		t.Logf("wrote %s", filepath.Join(filepath.Dir(goldenPath), pkg, pkg+layout.SuffixGen))
+	}
 	t.Logf("wrote %s", goldenPath)
+}
+
+func writeNodeInteropExtraPackageGoldens(mainGoldenPath string, extraPackages map[string]string) error {
+	return compiler.WriteExtraPackagesForOutput(mainGoldenPath, extraPackages)
 }
 
 func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
@@ -271,7 +316,11 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 			inDir := examplesInDir(t)
 			outDir := examplesOutDir(t)
 			entry := filepath.Join(inDir, tc.entryRel)
-			root := filepath.Dir(entry)
+			root := nodeInteropPackageRoot(t, inDir, tc)
+			absRoot, err := filepath.Abs(root)
+			if err != nil {
+				t.Fatal(err)
+			}
 			goldenPath := filepath.Join(outDir, tc.goldenRel)
 			runtimeGoldenPath := nodeRuntimeGoldenPath(goldenPath)
 
@@ -287,7 +336,14 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 				t.Fatalf("read golden %s: %v (set UPDATE_NODE_INTEROP_GOLDEN=1 to create)", goldenPath, err)
 			}
 			verifyNodeInteropPackageCompileGolden(t, string(expectedMain), actual.Main, goldenPath, tc.mainMarkers)
-			verifyCompanionPackageGoBuild(t, "fresh compile/"+tc.name, actual.Main, actual.Runtime, actual.Invoke)
+			verifyCompanionPackageGoBuild(t, companionGoBuildOpts{
+				Label:            "fresh compile/" + tc.name,
+				MainCode:         actual.Main,
+				NodeRuntimeCode:  actual.Runtime,
+				InvokeServerCode: actual.Invoke,
+				ExtraPackages:    actual.Extra,
+				BoundaryRoot:     absRoot,
+			})
 
 			runtimeGoldenPathForBuild := ""
 			if len(tc.runtimeMarkers) > 0 {
@@ -297,13 +353,30 @@ func TestExampleNodeInteropPackagesCompileGolden(t *testing.T) {
 			if len(tc.invokeMarkers) > 0 {
 				invokeGoldenPathForBuild = invokeServerGoldenPath(goldenPath)
 			}
-			verifyCompanionGoldenFilesGoBuild(
-				t,
-				"committed goldens/"+tc.name,
-				goldenPath,
-				runtimeGoldenPathForBuild,
-				invokeGoldenPathForBuild,
-			)
+			verifyCompanionGoldenFilesGoBuild(t, companionGoldenFilesGoBuildOpts{
+				Label:             "committed goldens/" + tc.name,
+				MainGoldenPath:    goldenPath,
+				RuntimeGoldenPath: runtimeGoldenPathForBuild,
+				InvokeGoldenPath:  invokeGoldenPathForBuild,
+				BoundaryRoot:      absRoot,
+			})
+
+			for _, pkg := range tc.extraPackageNames {
+				if actual.Extra[pkg] == "" {
+					t.Fatalf("expected extra package %q for %s", pkg, tc.name)
+				}
+				if !strings.Contains(actual.Extra[pkg], "package "+pkg) {
+					t.Fatalf("extra package %q missing package declaration for %s", pkg, tc.name)
+				}
+				genPath := filepath.Join(filepath.Dir(goldenPath), pkg, pkg+layout.SuffixGen)
+				expectedExtra, err := os.ReadFile(genPath)
+				if err != nil {
+					t.Fatalf("read extra package golden %s: %v (set UPDATE_NODE_INTEROP_GOLDEN=1 to create)", genPath, err)
+				}
+				if len(expectedExtra) > 0 && len(actual.Extra[pkg]) < len(expectedExtra)/2 {
+					t.Errorf("extra package %q much shorter than golden (%d vs %d bytes)", pkg, len(actual.Extra[pkg]), len(expectedExtra))
+				}
+			}
 
 			if len(tc.runtimeMarkers) > 0 {
 				if actual.Runtime == "" {
