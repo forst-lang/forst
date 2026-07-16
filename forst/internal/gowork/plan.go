@@ -108,6 +108,10 @@ func shouldUseWorkspaceMode(boundaryRoot, sessionDir, userMod string, link Forst
 	if !isRunSandboxSession(sessionDir) {
 		return false
 	}
+	// Forst ftconfig boundaries use replace sandboxes (forst.run.temp), not go.work.
+	if st, err := os.Stat(filepath.Join(boundaryRoot, "ftconfig.json")); err == nil && !st.IsDir() {
+		return false
+	}
 	return goload.ModuleRootHasGoMod(boundaryRoot) || goload.DirHasGoMod(userMod)
 }
 

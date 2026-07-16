@@ -153,8 +153,13 @@ func runGoSourceFilesList(outputPath string) ([]string, error) {
 }
 
 // BuildGoProgram writes main and optional companion Go files and runs `go build` to verify they compile.
-func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string) error {
-	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, nil, nil, "")
+// When extraPackages is non-empty, boundaryRoot must be the ftconfig project root so cross-package
+// invoke imports resolve under module forst.run.temp.
+func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string, extraPackages map[string]string, boundaryRoot string) error {
+	if len(extraPackages) > 0 && boundaryRoot == "" {
+		return fmt.Errorf("go build: boundaryRoot required when extra invoke packages are present")
+	}
+	outputPath, err := CreateTempOutputFiles(mainCode, nodeRuntimeCode, invokeServerCode, extraPackages, nil, boundaryRoot)
 	if err != nil {
 		return err
 	}
@@ -171,6 +176,14 @@ func BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode string) error {
 	outBin := filepath.Join(tempDir, "forst-build")
 	cmd := exec.Command("go", append([]string{"build", "-o", outBin}, sources...)...)
 	cmd.Dir = dir
+	env := os.Environ()
+	if boundaryRoot != "" {
+		env = setRunEnvBoundaryRoot(env, boundaryRoot)
+		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(outputPath))
+		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(outputPath), needsCompiler)
+		env = gowork.ChildEnv(env, plan, boundaryRoot)
+	}
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go build failed: %w\n%s", err, out)
@@ -430,10 +443,11 @@ func tidyRunSandboxGoMod(goModPath, boundaryRoot string, plan gowork.LinkPlan) e
 		}
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
-	for _, args := range [][]string{
-		{"go", "get", "forst@v0.0.0"},
-		{"go", "mod", "tidy"},
-	} {
+	steps := [][]string{{"go", "mod", "tidy"}}
+	if plan.Mode != gowork.LinkWorkspace {
+		steps = append([][]string{{"go", "get", "forst@v0.0.0"}}, steps...)
+	}
+	for _, args := range steps {
 		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Dir = dir
 		cmd.Env = env

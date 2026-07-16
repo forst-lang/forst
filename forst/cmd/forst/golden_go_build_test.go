@@ -2,41 +2,98 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"forst/internal/codegen/layout"
 	"forst/internal/compiler"
 )
 
-func verifyCompanionPackageGoBuild(t *testing.T, label, mainCode, nodeRuntimeCode, invokeServerCode string) {
+type companionGoBuildOpts struct {
+	Label            string
+	MainCode         string
+	NodeRuntimeCode  string
+	InvokeServerCode string
+	ExtraPackages    map[string]string
+	BoundaryRoot     string
+}
+
+type companionGoldenFilesGoBuildOpts struct {
+	Label             string
+	MainGoldenPath    string
+	RuntimeGoldenPath string
+	InvokeGoldenPath  string
+	ExtraPackages     map[string]string
+	BoundaryRoot      string
+}
+
+func verifyCompanionPackageGoBuild(t *testing.T, opts companionGoBuildOpts) {
 	t.Helper()
-	if err := compiler.BuildGoProgram(mainCode, nodeRuntimeCode, invokeServerCode); err != nil {
-		t.Fatalf("go build %s failed:\n%v", label, err)
+	if err := compiler.BuildGoProgram(opts.MainCode, opts.NodeRuntimeCode, opts.InvokeServerCode, opts.ExtraPackages, opts.BoundaryRoot); err != nil {
+		t.Fatalf("go build %s failed:\n%v", opts.Label, err)
 	}
 }
 
-func verifyCompanionGoldenFilesGoBuild(t *testing.T, label, mainGoldenPath, runtimeGoldenPath, invokeGoldenPath string) {
+func verifyCompanionGoldenFilesGoBuild(t *testing.T, opts companionGoldenFilesGoBuildOpts) {
 	t.Helper()
-	mainCode, err := os.ReadFile(mainGoldenPath)
+	mainCode, err := os.ReadFile(opts.MainGoldenPath)
 	if err != nil {
-		t.Fatalf("read main golden %s: %v", mainGoldenPath, err)
+		t.Fatalf("read main golden %s: %v", opts.MainGoldenPath, err)
 	}
 	var nodeRuntimeCode, invokeServerCode string
-	if runtimeGoldenPath != "" {
-		runtimeCode, err := os.ReadFile(runtimeGoldenPath)
+	if opts.RuntimeGoldenPath != "" {
+		runtimeCode, err := os.ReadFile(opts.RuntimeGoldenPath)
 		if err != nil {
-			t.Fatalf("read runtime golden %s: %v", runtimeGoldenPath, err)
+			t.Fatalf("read runtime golden %s: %v", opts.RuntimeGoldenPath, err)
 		}
 		nodeRuntimeCode = string(runtimeCode)
 	}
-	if invokeGoldenPath != "" {
-		invokeCode, err := os.ReadFile(invokeGoldenPath)
+	if opts.InvokeGoldenPath != "" {
+		invokeCode, err := os.ReadFile(opts.InvokeGoldenPath)
 		if err != nil {
-			t.Fatalf("read invoke golden %s: %v", invokeGoldenPath, err)
+			t.Fatalf("read invoke golden %s: %v", opts.InvokeGoldenPath, err)
 		}
 		invokeServerCode = string(invokeCode)
 	}
-	verifyCompanionPackageGoBuild(t, label, string(mainCode), nodeRuntimeCode, invokeServerCode)
+	extraPackages := opts.ExtraPackages
+	if extraPackages == nil {
+		extraPackages = readExtraPackagesFromGoldenDir(t, opts.MainGoldenPath)
+	}
+	verifyCompanionPackageGoBuild(t, companionGoBuildOpts{
+		Label:            opts.Label,
+		MainCode:         string(mainCode),
+		NodeRuntimeCode:  nodeRuntimeCode,
+		InvokeServerCode: invokeServerCode,
+		ExtraPackages:    extraPackages,
+		BoundaryRoot:     opts.BoundaryRoot,
+	})
+}
+
+func readExtraPackagesFromGoldenDir(t *testing.T, mainGoldenPath string) map[string]string {
+	t.Helper()
+	outDir := filepath.Dir(mainGoldenPath)
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("read golden output dir %s: %v", outDir, err)
+	}
+	extras := make(map[string]string)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pkg := entry.Name()
+		genPath := filepath.Join(outDir, pkg, pkg+layout.SuffixGen)
+		code, err := os.ReadFile(genPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			t.Fatalf("read extra package golden %s: %v", genPath, err)
+		}
+		extras[pkg] = string(code)
+	}
+	return extras
 }
 
 func TestBuildGoProgram_nodeSeqInnerPointerMismatch(t *testing.T) {
@@ -60,7 +117,7 @@ func forst_node_open_seq_legacy_generators_ts_syncNumbers() (*forstNodeSeq_float
 	return &forstNodeSeq_float64{inner: seq}, nil
 }
 `
-	err := compiler.BuildGoProgram(mainCode, runtimeCode, "")
+	err := compiler.BuildGoProgram(mainCode, runtimeCode, "", nil, "")
 	if err == nil {
 		t.Fatal("expected go build to fail when inner stores *nodert.Seq as value")
 	}

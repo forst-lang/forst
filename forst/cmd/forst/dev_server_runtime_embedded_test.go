@@ -86,7 +86,7 @@ func main() {
 	if !strings.Contains(mainCode, "ForstInvokeWaitForShutdown") {
 		t.Fatalf("main missing shutdown hook:\n%s", mainCode)
 	}
-	if err := compiler.BuildGoProgram(mainCode, invokeCode, ""); err != nil {
+	if err := compiler.BuildGoProgram(mainCode, "", invokeCode, nil, ""); err != nil {
 		t.Fatalf("BuildGoProgram: %v", err)
 	}
 }
