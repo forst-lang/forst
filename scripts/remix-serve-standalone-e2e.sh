@@ -24,8 +24,9 @@ for arg in "$@"; do
     --dev) DEV_MODE=true ;;
     -h|--help)
       echo "usage: $0 [--dev]"
-      echo "  (default) build temp project, smoke-test :6321/:3000, clean up"
+      echo "  (default) build temp project, smoke-test :6321/:6322, clean up"
       echo "  --dev     same setup, print URLs, block until Ctrl+C, then clean up"
+      echo "  KEEP_TMP=1  preserve temp project dir on exit (CI failures preserve automatically)"
       exit 0
       ;;
   esac
@@ -37,11 +38,14 @@ fi
 TMP=""
 FORST_PID=""
 CLEANED_UP=false
+DIAGNOSTICS_DUMPED=false
+INVOKE_PORT=6321
+REMIX_PORT=6322
+EXPECTED_HOST=127.0.0.1
 
 free_ports() {
-  lsof -ti tcp:6321 2>/dev/null | xargs kill -9 2>/dev/null || true
-  lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
-  lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" "$INVOKE_PORT" --force
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" "$REMIX_PORT" --force
 }
 
 kill_forst_tree() {
@@ -64,6 +68,9 @@ cleanup() {
   trap - EXIT INT TERM
 
   echo "=== cleanup ==="
+  if [[ "$code" != "0" && "$DIAGNOSTICS_DUMPED" != true ]]; then
+    dump_failure_diagnostics "exit $code"
+  fi
   kill_forst_tree
   if [[ -n "$TMP" ]]; then
     pkill -f "forst run.*${TMP}/main/main.ft" 2>/dev/null || true
@@ -71,11 +78,86 @@ cleanup() {
   fi
   free_ports
   if [[ -n "$TMP" && -d "$TMP" ]]; then
-    rm -rf "$TMP"
-    echo "removed temp project: $TMP"
+    if [[ "$code" != "0" && ( "${CI:-}" == "true" || "${KEEP_TMP:-}" == "1" ) ]]; then
+      echo "preserved temp project: $TMP" >&2
+    else
+      rm -rf "$TMP"
+      echo "removed temp project: $TMP"
+    fi
   fi
   echo "=== cleanup done ==="
   exit "$code"
+}
+
+dump_failure_diagnostics() {
+  if [[ "$DIAGNOSTICS_DUMPED" == true ]]; then
+    return 0
+  fi
+  DIAGNOSTICS_DUMPED=true
+  local label="${1:-failure}"
+  echo "=== diagnostics: $label ===" >&2
+  echo "expected: invoke http://${EXPECTED_HOST}:${INVOKE_PORT}/health remix http://${EXPECTED_HOST}:${REMIX_PORT}/" >&2
+  echo "parent env: HOST=${HOST:-<unset>} PORT=${PORT:-<unset>}" >&2
+  echo "FORST_PID=${FORST_PID:-} LOG_FILE=$LOG_FILE TMP=${TMP:-}" >&2
+  if [[ -n "$TMP" ]]; then
+    echo "--- $TMP/.forst/ ---" >&2
+    ls -la "$TMP/.forst/" 2>&1 >&2 || true
+    if [[ -f "$TMP/.forst/node.sock.ready" ]]; then
+      echo "node.sock.ready: present" >&2
+    else
+      echo "node.sock.ready: missing" >&2
+    fi
+  fi
+  echo "--- listening TCP ports ---" >&2
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP -sTCP:LISTEN -P -n 2>&1 >&2 || true
+  elif command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>&1 >&2 || true
+  else
+    echo "(no lsof or ss available)" >&2
+  fi
+  if [[ -f "$LOG_FILE" ]]; then
+    echo "--- tail -200 $LOG_FILE ---" >&2
+    tail -200 "$LOG_FILE" >&2 || true
+  else
+    echo "LOG_FILE missing: $LOG_FILE" >&2
+  fi
+  echo "=== end diagnostics ===" >&2
+}
+
+fail_with_diagnostics() {
+  local label="${1:-failure}"
+  dump_failure_diagnostics "$label"
+  exit 1
+}
+
+wait_for_url_or_diagnose() {
+  local url="$1"
+  local label="$2"
+  local timeout="${3:-120}"
+  if bash "$SCRIPT_DIR/wait-for-url.sh" "$url" "$label" "$timeout"; then
+    return 0
+  fi
+  dump_failure_diagnostics "$label"
+  return 1
+}
+
+wait_for_file_or_diagnose() {
+  local path="$1"
+  local label="$2"
+  local timeout="${3:-120}"
+  if bash "$SCRIPT_DIR/wait-for-file.sh" "$path" "$label" "$timeout"; then
+    return 0
+  fi
+  dump_failure_diagnostics "$label"
+  return 1
+}
+
+assert_forst_pid_alive() {
+  local label="${1:-forst run}"
+  if [[ -z "$FORST_PID" ]] || ! kill -0 "$FORST_PID" 2>/dev/null; then
+    fail_with_diagnostics "$label exited early (pid=${FORST_PID:-})"
+  fi
 }
 trap 'cleanup $?' EXIT
 trap 'cleanup 130' INT
@@ -125,6 +207,7 @@ free_ports
 sleep 0.3
 
 echo "=== forst run ==="
+echo "expected: invoke http://${EXPECTED_HOST}:${INVOKE_PORT}/health remix http://${EXPECTED_HOST}:${REMIX_PORT}/ (HOST=${EXPECTED_HOST} PORT=${REMIX_PORT} for remix-serve)"
 export FORST_BOUNDARY_ROOT="$TMP"
 export FORST_GOMOD_ROOT
 
@@ -142,14 +225,18 @@ else
   FORST_PID=$!
 fi
 
-bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6321/health "invoke :6321" 120
-bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:3000/ "remix :3000" 120
+assert_forst_pid_alive "forst run before readiness"
+wait_for_file_or_diagnose "$TMP/.forst/node.sock.ready" "node.sock.ready" 120
+assert_forst_pid_alive "forst run after node.sock.ready"
+wait_for_url_or_diagnose "http://${EXPECTED_HOST}:${INVOKE_PORT}/health" "invoke :${INVOKE_PORT}" 120
+assert_forst_pid_alive "forst run after invoke health"
+wait_for_url_or_diagnose "http://${EXPECTED_HOST}:${REMIX_PORT}/" "remix :${REMIX_PORT}" 120
 
 if [[ "$DEV_MODE" == true ]]; then
   echo ""
   echo "=== standalone remix-serve dev ==="
   echo "temp project: $TMP"
-  echo "Remix:        http://127.0.0.1:3000/"
+  echo "Remix:        http://127.0.0.1:6322/"
   echo "Invoke:       http://127.0.0.1:6321/health"
   echo "log:         stdout/stderr (this terminal)"
   echo "Press Ctrl+C to stop — temp dir and listeners will be cleaned up."
@@ -159,15 +246,13 @@ if [[ "$DEV_MODE" == true ]]; then
 fi
 
 for line in sync:2 sync:3 async:ok gen:1 events:2; do
-  grep -q "$line" "$LOG_FILE" || {
-    echo "missing stdout line: $line" >&2
-    tail -50 "$LOG_FILE" >&2 || true
-    exit 1
-  }
+  grep -q "$line" "$LOG_FILE" || fail_with_diagnostics "missing stdout line: $line"
 done
 
+grep -q "\[remix-serve\] http://localhost:${REMIX_PORT}" "$LOG_FILE" || fail_with_diagnostics "missing remix-serve listen log for port ${REMIX_PORT}"
+
 curl -sf http://127.0.0.1:6321/health | grep -q 'healthy'
-curl -sf http://127.0.0.1:3000/ | grep -q 'Todos'
+curl -sf http://127.0.0.1:6322/ | grep -q 'Todos'
 
 echo "=== standalone remix-serve e2e OK ==="
 # EXIT trap runs cleanup before the shell terminates.

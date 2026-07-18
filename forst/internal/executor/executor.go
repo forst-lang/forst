@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -45,6 +46,7 @@ type FunctionExecutor struct {
 	mu            sync.RWMutex
 	config        configiface.ForstConfigIface
 	moduleManager *GoModuleManager
+	runner        CommandRunner
 }
 
 // CompiledFunction represents a compiled Forst function
@@ -82,11 +84,17 @@ func NewFunctionExecutor(rootDir string, comp *compiler.Compiler, log *logrus.Lo
 		cache:         make(map[string]*CompiledFunction),
 		config:        config,
 		moduleManager: NewGoModuleManager(log),
+		runner:        OSCommandRunner{},
 	}
 }
 
+// SetCommandRunnerForTest replaces subprocess execution (tests only).
+func (e *FunctionExecutor) SetCommandRunnerForTest(runner CommandRunner) {
+	e.runner = runner
+}
+
 // ExecuteFunction executes a Forst function with the given arguments
-func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, args json.RawMessage) (*ExecutionResult, error) {
+func (e *FunctionExecutor) ExecuteFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (*ExecutionResult, error) {
 	e.log.Debugf("ExecuteFunction: %s.%s", packageName, functionName)
 
 	// Get or compile the function
@@ -145,7 +153,7 @@ func (e *FunctionExecutor) ExecuteFunction(packageName, functionName string, arg
 	// Execute the Go code
 	hasParams := len(compiledFn.Parameters) > 0
 	e.log.Infof("executeGoCode: hasParams=%v, args=%s", hasParams, string(args))
-	output, err := e.executeGoCode(tempDir, args, compiledFn.Parameters)
+	output, err := e.executeGoCode(ctx, tempDir, args, compiledFn.Parameters)
 	if err != nil {
 		e.log.Errorf("Failed to execute Go code: %v", err)
 		return nil, fmt.Errorf("failed to execute Go code: %v", err)
@@ -322,11 +330,15 @@ func (e *FunctionExecutor) createStreamingTempGoFile(compiledFn *CompiledFunctio
 }
 
 // executeGoCode executes Go code and returns the output
-func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, params ...any) (string, error) {
+func (e *FunctionExecutor) executeGoCode(ctx context.Context, tempDir string, args json.RawMessage, params ...any) (string, error) {
+	runner := e.runner
+	if runner == nil {
+		runner = OSCommandRunner{}
+	}
 	var cmd *exec.Cmd
 	if len(params) > 0 {
 		e.log.Tracef("Executing Go program with args: %s", string(args))
-		cmd = exec.Command("go", "run", ".")
+		cmd = runner.CommandContext(ctx, "go", "run", ".")
 		cmd.Dir = tempDir
 		// Set up output buffers
 		var stdoutBuf, stderrBuf bytes.Buffer
@@ -360,6 +372,12 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 		err = cmd.Wait()
 		output := stdoutBuf.String() + stderrBuf.String()
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", err
+			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return "", ctxErr
+			}
 			e.log.Errorf("Go program failed: %v", err)
 			return "", fmt.Errorf("execution failed: %v, output (stdout+stderr): %s", err, output)
 		}
@@ -368,10 +386,16 @@ func (e *FunctionExecutor) executeGoCode(tempDir string, args json.RawMessage, p
 	}
 
 	e.log.Tracef("Executing Go program without args")
-	cmd = exec.Command("go", "run", ".")
+	cmd = runner.CommandContext(ctx, "go", "run", ".")
 	cmd.Dir = tempDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
 		e.log.Errorf("Go program failed: %v", err)
 		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))
 	}
@@ -383,10 +407,14 @@ func (e *FunctionExecutor) executeStreamingGoCode(ctx context.Context, tempDir s
 	results := make(chan StreamingResult, 100)
 
 	var cmd *exec.Cmd
+	runner := e.runner
+	if runner == nil {
+		runner = OSCommandRunner{}
+	}
 	if hasParams {
-		cmd = exec.CommandContext(ctx, "go", "run", ".", string(args))
+		cmd = runner.CommandContext(ctx, "go", "run", ".", string(args))
 	} else {
-		cmd = exec.CommandContext(ctx, "go", "run", ".")
+		cmd = runner.CommandContext(ctx, "go", "run", ".")
 	}
 	cmd.Dir = tempDir
 	stdout, err := cmd.StdoutPipe()

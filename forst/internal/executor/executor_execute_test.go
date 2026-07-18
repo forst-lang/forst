@@ -12,7 +12,7 @@ func TestFunctionExecutor_ExecuteFunction_unknownPackage(t *testing.T) {
 	root := t.TempDir()
 	ex := testExecutor(t, root)
 
-	_, err := ex.ExecuteFunction("missingpkg", "Fn", json.RawMessage("null"))
+	_, err := ex.ExecuteFunction(context.Background(), "missingpkg", "Fn", json.RawMessage("null"))
 	if err == nil {
 		t.Fatal("expected error for unknown package")
 	}
@@ -31,7 +31,7 @@ func Greet(): String {
 `)
 	ex := testExecutor(t, root)
 
-	_, err := ex.ExecuteFunction("demo", "NoSuchFn", json.RawMessage("null"))
+	_, err := ex.ExecuteFunction(context.Background(), "demo", "NoSuchFn", json.RawMessage("null"))
 	if err == nil {
 		t.Fatal("expected error for unknown function")
 	}
@@ -50,7 +50,7 @@ func Broken(): String {
 `)
 	ex := testExecutor(t, root)
 
-	_, err := ex.ExecuteFunction("demo", "Broken", json.RawMessage("null"))
+	_, err := ex.ExecuteFunction(context.Background(), "demo", "Broken", json.RawMessage("null"))
 	if err == nil {
 		t.Fatal("expected error when typecheck fails")
 	}
@@ -73,7 +73,7 @@ func Hello(): Greeting {
 `)
 	ex := testExecutor(t, root)
 
-	res, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	res, err := ex.ExecuteFunction(context.Background(), "demo", "Hello", json.RawMessage("null"))
 	if err != nil {
 		t.Fatalf("ExecuteFunction: %v", err)
 	}
@@ -101,7 +101,7 @@ func Hello(): String {
 `)
 	ex := testExecutor(t, root)
 
-	res, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	res, err := ex.ExecuteFunction(context.Background(), "demo", "Hello", json.RawMessage("null"))
 	if err != nil {
 		t.Fatalf("ExecuteFunction: %v", err)
 	}
@@ -123,7 +123,7 @@ func Greet(): String {
 `)
 	ex := testExecutor(t, root)
 
-	res, err := ex.ExecuteFunction("demo", "Greet", json.RawMessage("null"))
+	res, err := ex.ExecuteFunction(context.Background(), "demo", "Greet", json.RawMessage("null"))
 	if err != nil {
 		t.Fatalf("ExecuteFunction: %v", err)
 	}
@@ -178,7 +178,7 @@ func Hello(): String {
 	writeFile(t, filepath.Join(root, "bad.ft"), `@@@ this is not valid forst @@`)
 
 	ex := testExecutor(t, root)
-	res, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	res, err := ex.ExecuteFunction(context.Background(), "demo", "Hello", json.RawMessage("null"))
 	if err != nil {
 		t.Fatalf("ExecuteFunction should succeed despite bad file: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestFunctionExecutor_ExecuteFunction_allFilesUnparseableReturnsNoParseableE
 	writeFile(t, filepath.Join(root, "bad2.ft"), `!!! also invalid !!!`)
 
 	ex := testExecutor(t, root)
-	_, err := ex.ExecuteFunction("demo", "AnyFn", json.RawMessage("null"))
+	_, err := ex.ExecuteFunction(context.Background(), "demo", "AnyFn", json.RawMessage("null"))
 	if err == nil {
 		t.Fatal("expected error when all package files are unparseable")
 	}

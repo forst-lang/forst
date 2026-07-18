@@ -24,7 +24,7 @@ type functionDiscoverer interface {
 }
 
 type devFunctionExecutor interface {
-	ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
+	ExecuteFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
 	ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 
@@ -72,8 +72,8 @@ func (b *DevBackend) Functions() map[string]map[string]discovery.FunctionInfo {
 }
 
 // Invoke runs a function via the dev executor.
-func (b *DevBackend) Invoke(_ context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
-	result, err := b.exec.ExecuteFunction(pkg, fn, args)
+func (b *DevBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMessage) (*invokedispatch.InvokeResult, error) {
+	result, err := b.exec.ExecuteFunction(ctx, pkg, fn, args)
 	if err != nil {
 		return nil, err
 	}

@@ -35,7 +35,7 @@
     "clean": "rm -rf dist",
     "build:clean": "bun run clean && bun run build",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test --preload ./test/preload.ts",
     "pack:dry": "npm pack --dry-run --ignore-scripts"
   },
   "keywords": [

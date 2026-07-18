@@ -24,7 +24,7 @@ func main() {
 }
 `)
 
-	outNoParams, err := e.executeGoCode(dir, nil)
+	outNoParams, err := e.executeGoCode(context.Background(), dir, nil)
 	if err != nil {
 		t.Fatalf("executeGoCode without params: %v", err)
 	}
@@ -32,7 +32,7 @@ func main() {
 		t.Fatal("expected output without params")
 	}
 
-	outWithParams, err := e.executeGoCode(dir, json.RawMessage(`null`), 1)
+	outWithParams, err := e.executeGoCode(context.Background(), dir, json.RawMessage(`null`), 1)
 	if err != nil {
 		t.Fatalf("executeGoCode with params: %v", err)
 	}

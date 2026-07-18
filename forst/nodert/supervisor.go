@@ -34,7 +34,7 @@ type RPCConfig struct {
 }
 
 var (
-	supervisorOnce       sync.Once
+	supervisorMu         sync.Mutex
 	supervisorInst       *Supervisor
 	supervisorErr        error
 	supervisorErrPrinted sync.Once
@@ -43,6 +43,8 @@ var (
 
 // ConfigureSupervisor sets options used by the first GetClient call.
 func ConfigureSupervisor(cfg SupervisorConfig) {
+	supervisorMu.Lock()
+	defer supervisorMu.Unlock()
 	supervisorCfg = cfg
 }
 
@@ -57,13 +59,26 @@ type Supervisor struct {
 
 // GetClient returns the singleton RPC client, spawning Node on first use.
 func GetClient() (*Client, error) {
-	supervisorOnce.Do(func() {
-		if supervisorCfg.HostMode {
-			supervisorInst, supervisorErr = newHostSupervisor(supervisorCfg)
-		} else {
-			supervisorInst, supervisorErr = newBootstrapSupervisor(supervisorCfg)
+	supervisorMu.Lock()
+	defer supervisorMu.Unlock()
+	return getClientLocked()
+}
+
+func getClientLocked() (*Client, error) {
+	if supervisorInst != nil {
+		if supervisorInst.isAlive() {
+			return supervisorInst.client, nil
 		}
-	})
+		discardDeadSupervisorLocked()
+	}
+
+	var err error
+	if supervisorCfg.HostMode {
+		supervisorInst, err = newHostSupervisor(supervisorCfg)
+	} else {
+		supervisorInst, err = newBootstrapSupervisor(supervisorCfg)
+	}
+	supervisorErr = err
 	if supervisorErr != nil {
 		supervisorErrPrinted.Do(func() {
 			fmt.Fprintf(os.Stderr, "forst node runtime: %v\n", supervisorErr)
@@ -75,10 +90,51 @@ func GetClient() (*Client, error) {
 
 // Shutdown terminates the supervised Node process.
 func Shutdown() error {
+	supervisorMu.Lock()
+	defer supervisorMu.Unlock()
 	if supervisorInst == nil {
 		return nil
 	}
-	return supervisorInst.shutdown()
+	err := supervisorInst.shutdown()
+	supervisorInst = nil
+	supervisorErr = nil
+	return err
+}
+
+func discardDeadSupervisorLocked() {
+	if supervisorInst == nil {
+		return
+	}
+	_ = supervisorInst.shutdown()
+	supervisorInst = nil
+	supervisorErr = nil
+}
+
+func (s *Supervisor) isAlive() bool {
+	if s == nil || s.client == nil {
+		return false
+	}
+	if s.client.readLoopExited() {
+		return false
+	}
+	if s.proc != nil && s.proc.cmd != nil && s.proc.cmd.Process != nil {
+		if !processAlive(s.proc.cmd.Process.Pid) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Supervisor) watchProcess(proc *managedProcess) {
+	if proc == nil {
+		return
+	}
+	_ = proc.wait()
+	supervisorMu.Lock()
+	defer supervisorMu.Unlock()
+	if supervisorInst == s {
+		discardDeadSupervisorLocked()
+	}
 }
 
 func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
@@ -94,7 +150,12 @@ func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 	}
 
 	client := NewClient(proc.stdout, proc.stdin, log)
-	return finishSupervisorInit(cfg, client, proc, nil, log)
+	s, err := finishSupervisorInit(cfg, client, proc, nil, log)
+	if err != nil {
+		return nil, err
+	}
+	go s.watchProcess(proc)
+	return s, nil
 }
 
 func newHostSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
@@ -154,7 +215,14 @@ func newHostSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 		proc = spawnedProc.proc
 	}
 
-	return dialAndInitHost(cfg, conn, proc, log)
+	s, err := dialAndInitHost(cfg, conn, proc, log)
+	if err != nil {
+		return nil, err
+	}
+	if proc != nil {
+		go s.watchProcess(proc)
+	}
+	return s, nil
 }
 
 func resolveHostSupervisorPaths(cfg SupervisorConfig) (socketPath, readyPath string, timeout time.Duration, err error) {
@@ -256,10 +324,11 @@ func (s *Supervisor) shutdown() error {
 
 // resetSupervisorForTest clears singleton state for unit tests.
 func resetSupervisorForTest() {
+	supervisorMu.Lock()
+	defer supervisorMu.Unlock()
 	if supervisorInst != nil {
 		_ = supervisorInst.shutdown()
 	}
-	supervisorOnce = sync.Once{}
 	supervisorInst = nil
 	supervisorErr = nil
 	supervisorErrPrinted = sync.Once{}

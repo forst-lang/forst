@@ -417,6 +417,72 @@ func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
 			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
 		}
 	}
+	assertEnvVar(t, cmd.Env, "PORT", "3000")
+	assertEnvVar(t, cmd.Env, "HOST", "127.0.0.1")
+}
+
+func TestBuildHostSpawnCommand_overridesInheritedHostFromParentEnv(t *testing.T) {
+	t.Setenv("HOST", "runnerspecific")
+	root := t.TempDir()
+	shim := filepath.Join(root, "node_modules", ".bin", "remix-serve")
+	if err := os.MkdirAll(filepath.Dir(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(shim, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsxDir := filepath.Join(root, "node_modules", "tsx", "dist")
+	if err := os.MkdirAll(tsxDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tsxDir, "loader.mjs"), []byte("//"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot: root,
+		Executable:   "node_modules/.bin/remix-serve",
+		ShimArgs:     []string{"build/server/index.js", "--port", "6322"},
+		WorkDir:      root,
+		Loader:       "tsx",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEnvVar(t, cmd.Env, "HOST", "127.0.0.1")
+	assertEnvVar(t, cmd.Env, "PORT", "6322")
+}
+
+func TestBuildHostSpawnCommand_preservesExplicitHostInSpawnEnv(t *testing.T) {
+	t.Setenv("HOST", "runnerspecific")
+	root := t.TempDir()
+	shim := filepath.Join(root, "node_modules", ".bin", "remix-serve")
+	if err := os.MkdirAll(filepath.Dir(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(shim, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsxDir := filepath.Join(root, "node_modules", "tsx", "dist")
+	if err := os.MkdirAll(tsxDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tsxDir, "loader.mjs"), []byte("//"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot: root,
+		Executable:   "node_modules/.bin/remix-serve",
+		ShimArgs:     []string{"build/server/index.js", "--port", "6322"},
+		WorkDir:      root,
+		Loader:       "tsx",
+		Env:          []string{"HOST=0.0.0.0"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEnvVar(t, cmd.Env, "HOST", "0.0.0.0")
 }
 
 func TestPrepareHostSocket_rejectsLiveHost(t *testing.T) {

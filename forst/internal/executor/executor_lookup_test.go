@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"strings"
@@ -132,7 +133,7 @@ func Hello(): String {
 `)
 	ex := testExecutor(t, root)
 
-	_, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage("null"))
+	_, err := ex.ExecuteFunction(context.Background(), "demo", "Hello", json.RawMessage("null"))
 	if err != nil {
 		t.Fatalf("ExecuteFunction: %v", err)
 	}

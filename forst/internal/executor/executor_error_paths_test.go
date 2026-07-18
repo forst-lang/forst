@@ -76,7 +76,7 @@ func TestFunctionExecutor_executeGoCode_startAndWaitFailures(t *testing.T) {
 		dir := t.TempDir()
 		t.Setenv("PATH", "")
 
-		_, err := e.executeGoCode(dir, json.RawMessage(`[1]`), 1)
+		_, err := e.executeGoCode(context.Background(), dir, json.RawMessage(`[1]`), 1)
 		if err == nil {
 			t.Fatal("expected start failure")
 		}
@@ -95,7 +95,7 @@ func main() {
 }
 `)
 
-		_, err := e.executeGoCode(dir, json.RawMessage(`[1]`), 1)
+		_, err := e.executeGoCode(context.Background(), dir, json.RawMessage(`[1]`), 1)
 		if err == nil {
 			t.Fatal("expected wait failure with compile error")
 		}
@@ -114,7 +114,7 @@ func main() {
 }
 `)
 
-		_, err := e.executeGoCode(dir, nil)
+		_, err := e.executeGoCode(context.Background(), dir, nil)
 		if err == nil {
 			t.Fatal("expected failure")
 		}
@@ -403,7 +403,7 @@ func Hello() string {
 
 	t.Run("create_temp_dir_failure", func(t *testing.T) {
 		t.Setenv("TMPDIR", "/path/that/does/not/exist")
-		_, err := ex.ExecuteFunction("demo", "Hello", json.RawMessage(`null`))
+		_, err := ex.ExecuteFunction(context.Background(), "demo", "Hello", json.RawMessage(`null`))
 		if err == nil {
 			t.Fatal("expected create temp dir failure")
 		}
@@ -423,7 +423,7 @@ func Broken() string {
 }
 `,
 		}
-		_, err := ex.ExecuteFunction("demo", "Broken", json.RawMessage(`null`))
+		_, err := ex.ExecuteFunction(context.Background(), "demo", "Broken", json.RawMessage(`null`))
 		if err == nil {
 			t.Fatal("expected go execution failure")
 		}

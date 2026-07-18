@@ -7,9 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestHostMode_sharedSingletonVisibleToRPC(t *testing.T) {
@@ -87,14 +88,29 @@ func TestHostMode_hostNotStarted_timesOut(t *testing.T) {
 	}
 }
 
+type hostSocketFixture struct {
+	dir  string
+	once sync.Once
+}
+
+var hostSocketFixtures sync.Map
+
 func shortHostSocketPath(t *testing.T) string {
 	t.Helper()
-	dir := filepath.Join("/tmp", "forst-host-"+strconv.Itoa(os.Getpid()))
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	return filepath.Join(dir, "node.sock")
+	fixAny, _ := hostSocketFixtures.LoadOrStore(t, &hostSocketFixture{})
+	fix := fixAny.(*hostSocketFixture)
+	fix.once.Do(func() {
+		// Keep the full path under the Unix socket length limit (104 bytes on macOS).
+		fix.dir = filepath.Join("/tmp", fmt.Sprintf("fh-%d", time.Now().UnixNano()))
+		if err := os.MkdirAll(fix.dir, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			hostSocketFixtures.Delete(t)
+			_ = os.RemoveAll(fix.dir)
+		})
+	})
+	return filepath.Join(fix.dir, "s.sock")
 }
 
 func linkTsxFromRepo(t *testing.T, root string) {
@@ -277,6 +293,7 @@ func runHostCounterRPC(t *testing.T, _ string, manifest Manifest, firstWant, sec
 	t.Helper()
 
 	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
 	t.Setenv(envNodeBootstrap, "")
 	t.Setenv(envNodeBinary, "")
 
@@ -313,6 +330,7 @@ func runHostEditCountRPC(t *testing.T, _ string, manifest Manifest, firstWant, s
 	t.Helper()
 
 	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
 	t.Setenv(envNodeBootstrap, "")
 	t.Setenv(envNodeBinary, "")
 

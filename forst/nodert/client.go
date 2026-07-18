@@ -12,8 +12,8 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
-// DefaultCallTimeout is the maximum wait for a single RPC response.
-var DefaultCallTimeout = 5 * time.Minute
+// DefaultCallTimeout is the maximum wait for a single RPC response when not overridden by ftconfig.
+var DefaultCallTimeout = 30 * time.Second
 
 type callResult struct {
 	result json.RawMessage
@@ -101,6 +101,19 @@ func (c *Client) PendingCount() int {
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()
 	return len(c.pending)
+}
+
+// readLoopExited reports whether the RPC read loop has stopped (connection dead).
+func (c *Client) readLoopExited() bool {
+	if c == nil {
+		return true
+	}
+	select {
+	case <-c.readDone:
+		return true
+	default:
+		return false
+	}
 }
 
 // Initialized reports whether initialize completed successfully.

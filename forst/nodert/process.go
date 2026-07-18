@@ -167,7 +167,8 @@ func (p *managedProcess) terminate() error {
 		if err := p.cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("kill node process: %w", err)
 		}
-		return <-done
+		<-done
+		return nil
 	}
 }
 

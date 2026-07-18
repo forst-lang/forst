@@ -27,7 +27,7 @@ type DevServerResponse = invokeserver.Response
 
 // devFunctionExecutor is implemented by *executor.FunctionExecutor; HTTP tests may substitute stubs.
 type devFunctionExecutor interface {
-	ExecuteFunction(packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
+	ExecuteFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (*executor.ExecutionResult, error)
 	ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 

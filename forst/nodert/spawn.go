@@ -351,6 +351,21 @@ func prependNodeImportArgs(shimArgs []string, importPaths ...string) []string {
 	return append(args, shimArgs...)
 }
 
+// portFromShimArgs extracts --port / -p from host shim argv for shims that honor PORT (e.g. remix-serve).
+func portFromShimArgs(args []string) string {
+	for i, arg := range args {
+		switch {
+		case arg == "--port" && i+1 < len(args):
+			return strings.TrimSpace(args[i+1])
+		case strings.HasPrefix(arg, "--port="):
+			return strings.TrimSpace(strings.TrimPrefix(arg, "--port="))
+		case (arg == "-p" || arg == "-P") && i+1 < len(args):
+			return strings.TrimSpace(args[i+1])
+		}
+	}
+	return ""
+}
+
 func sameResolvedExecutable(a, b string) bool {
 	if a == "" || b == "" {
 		return false
@@ -560,6 +575,14 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 	}
 	if in.HostAppReadyModule != "" {
 		childEnv = setEnvVar(childEnv, envNodeAppReadyModule, in.HostAppReadyModule)
+	}
+	if port := portFromShimArgs(in.ShimArgs); port != "" {
+		childEnv = setEnvVar(childEnv, "PORT", port)
+	}
+	// App shims (e.g. remix-serve) honor HOST for bind address. Force loopback unless
+	// ftconfig/explicit spawn env already set HOST — parent CI env must not leak in.
+	if lookupEnvValue(childEnv, "HOST") == "" {
+		childEnv = setEnvVar(childEnv, "HOST", "127.0.0.1")
 	}
 
 	env := buildSpawnEnv(spawnEnvInput{

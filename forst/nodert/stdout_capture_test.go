@@ -28,6 +28,9 @@ func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node not on PATH")
 	}
+	resetSupervisorForTest()
+	t.Cleanup(resetSupervisorForTest)
+
 	bootstrap, err := ResolveBootstrapPath(repoRoot(t), "")
 	if err != nil {
 		t.Skipf("bootstrap not available: %v", err)
@@ -51,6 +54,7 @@ func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 	}
 
 	cmd := exec.Command(spawnCmd.Executable, spawnCmd.Args...)
+	cmd.Dir = root
 	cmd.Env = spawnCmd.Env
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -69,41 +73,59 @@ func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 	}
 	defer func() { _ = cmd.Process.Kill() }()
 
-	time.Sleep(500 * time.Millisecond)
+	errCollected, stderrErr := collectUntilSubstring(stderr, "spawn", 15*time.Second)
+	if stderrErr != nil {
+		failBootstrapProcessDied(t, cmd, errCollected, "stderr read: "+stderrErr.Error())
+	}
+	if len(errCollected) == 0 {
+		failBootstrapProcessDied(t, cmd, errCollected, "expected bootstrap logs on stderr")
+	}
+	if !strings.Contains(string(errCollected), "spawn") {
+		failBootstrapProcessDied(t, cmd, errCollected, "stderr missing spawn log")
+	}
 
 	buf := make([]byte, 64)
 	n, readErr := readAvailableWithDeadline(stdout, 200*time.Millisecond, buf)
 	if readErr != nil && !errors.Is(readErr, os.ErrDeadlineExceeded) {
-		t.Fatalf("stdout read: %v", readErr)
+		failBootstrapProcessDied(t, cmd, errCollected, "stdout read: "+readErr.Error())
 	}
 	if n > 0 {
 		t.Fatalf("stdout must stay empty before RPC frames, got hex=%s text=%q",
 			hex.EncodeToString(buf[:n]), string(buf[:n]))
 	}
 
-	errCollected := make([]byte, 0, 4096)
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		chunk := make([]byte, 512)
-		errN, errReadErr := readAvailableWithDeadline(stderr, 200*time.Millisecond, chunk)
-		if errReadErr != nil && !errors.Is(errReadErr, os.ErrDeadlineExceeded) {
-			t.Fatalf("stderr read: %v", errReadErr)
-		}
-		if errN > 0 {
-			errCollected = append(errCollected, chunk[:errN]...)
-			if strings.Contains(string(errCollected), "spawn") {
-				break
-			}
-		}
-	}
-	if len(errCollected) == 0 {
-		t.Fatal("expected bootstrap logs on stderr")
-	}
-	if !strings.Contains(string(errCollected), "spawn") {
-		t.Fatalf("stderr missing spawn log, got %q", string(errCollected))
-	}
-
 	_ = stdin.Close()
 	_, _ = io.Copy(io.Discard, stdout)
 	_ = cmd.Wait()
+}
+
+func collectUntilSubstring(r io.Reader, needle string, timeout time.Duration) ([]byte, error) {
+	collected := make([]byte, 0, 4096)
+	chunk := make([]byte, 512)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		n, err := readAvailableWithDeadline(r, 200*time.Millisecond, chunk)
+		if n > 0 {
+			collected = append(collected, chunk[:n]...)
+			if strings.Contains(string(collected), needle) {
+				return collected, nil
+			}
+		}
+		if err != nil {
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				continue
+			}
+			return collected, err
+		}
+	}
+	return collected, nil
+}
+
+func failBootstrapProcessDied(t *testing.T, cmd *exec.Cmd, stderr []byte, reason string) {
+	t.Helper()
+	if cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+	waitErr := cmd.Wait()
+	t.Fatalf("%s (wait=%v stderr=%q)", reason, waitErr, string(stderr))
 }

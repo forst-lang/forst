@@ -2,6 +2,7 @@ package nodert
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,12 +13,22 @@ import (
 	"time"
 )
 
+func testUnixSocketDir(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join("/tmp", fmt.Sprintf("fhut-%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func TestWaitForHostReady_success(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix socket test")
 	}
 
-	dir := t.TempDir()
+	dir := testUnixSocketDir(t)
 	socketPath := filepath.Join(dir, "node.sock")
 	readyPath := socketPath + ".ready"
 
@@ -54,7 +65,7 @@ func TestConnectExistingHost_success(t *testing.T) {
 		t.Skip("unix socket test")
 	}
 
-	dir := t.TempDir()
+	dir := testUnixSocketDir(t)
 	socketPath := filepath.Join(dir, "node.sock")
 	readyPath := socketPath + ".ready"
 
@@ -90,7 +101,7 @@ func TestConnectExistingHost_success(t *testing.T) {
 }
 
 func TestConnectExistingHost_absent(t *testing.T) {
-	dir := t.TempDir()
+	dir := testUnixSocketDir(t)
 	socketPath := filepath.Join(dir, "node.sock")
 	readyPath := socketPath + ".ready"
 
@@ -111,7 +122,7 @@ func TestWaitForHostReady_ignoresListeningPhase(t *testing.T) {
 		t.Skip("unix socket test")
 	}
 
-	dir := t.TempDir()
+	dir := testUnixSocketDir(t)
 	socketPath := filepath.Join(dir, "node.sock")
 	readyPath := socketPath + ".ready"
 
@@ -154,7 +165,7 @@ func TestWaitForHostReady_timeout(t *testing.T) {
 		t.Skip("unix socket test")
 	}
 
-	dir := t.TempDir()
+	dir := testUnixSocketDir(t)
 	socketPath := filepath.Join(dir, "missing.sock")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
