@@ -633,7 +633,7 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve -- {{.EXAMPLES_DIR}}/rfc/node-interop/remix-serve/main/main.ft
 
   example:node-interop-remix-serve:e2e:
-    desc: E2E — invoke :6321, Remix :3000, generated client
+    desc: E2E — invoke :6321, Remix :6322, generated client
     dir: forst
     deps: [build:node-runtime, build, example:node-interop-remix-serve:build-remix]
     cmds:
@@ -643,7 +643,7 @@ tasks:
         export FT_ROOT FORST_BIN
         bash -eo pipefail <<'EOS'
         bash ../scripts/kill-forst-tcp-listeners.sh 6321
-        lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
+        lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
         pkill -f 'forst run.*node-interop/remix-serve' 2>/dev/null || true
         pkill -f 'remix-serve build/server/index.js' 2>/dev/null || true
         sleep 0.3
@@ -660,9 +660,9 @@ tasks:
         trap cleanup TERM
 
         bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health "invoke :6321" 120
-        bash ../scripts/wait-for-url.sh http://127.0.0.1:3000/ "remix :3000" 120
+        bash ../scripts/wait-for-url.sh http://127.0.0.1:6322/ "remix :6322" 120
 
-        curl -sf http://127.0.0.1:3000/ | grep -q 'Todos'
+        curl -sf http://127.0.0.1:6322/ | grep -q 'Todos'
         cd "$FT_ROOT" && FORST_BASE_URL=http://127.0.0.1:6321 bun test e2e/
         EOS
 

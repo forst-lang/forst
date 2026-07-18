@@ -417,6 +417,7 @@ func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
 			t.Fatalf("args[%d] = %q want %q (full args = %#v)", i, cmd.Args[i], wantArgs[i], cmd.Args)
 		}
 	}
+	assertEnvVar(t, cmd.Env, "PORT", "3000")
 }
 
 func TestPrepareHostSocket_rejectsLiveHost(t *testing.T) {

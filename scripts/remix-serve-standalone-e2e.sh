@@ -24,7 +24,7 @@ for arg in "$@"; do
     --dev) DEV_MODE=true ;;
     -h|--help)
       echo "usage: $0 [--dev]"
-      echo "  (default) build temp project, smoke-test :6321/:3000, clean up"
+      echo "  (default) build temp project, smoke-test :6321/:6322, clean up"
       echo "  --dev     same setup, print URLs, block until Ctrl+C, then clean up"
       exit 0
       ;;
@@ -41,7 +41,6 @@ CLEANED_UP=false
 free_ports() {
   bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" 6321
   lsof -ti tcp:6322 2>/dev/null | xargs kill -9 2>/dev/null || true
-  lsof -ti tcp:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
 }
 
 kill_forst_tree() {
@@ -143,13 +142,13 @@ else
 fi
 
 bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6321/health "invoke :6321" 120
-bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:3000/ "remix :3000" 120
+bash "$SCRIPT_DIR/wait-for-url.sh" http://127.0.0.1:6322/ "remix :6322" 120
 
 if [[ "$DEV_MODE" == true ]]; then
   echo ""
   echo "=== standalone remix-serve dev ==="
   echo "temp project: $TMP"
-  echo "Remix:        http://127.0.0.1:3000/"
+  echo "Remix:        http://127.0.0.1:6322/"
   echo "Invoke:       http://127.0.0.1:6321/health"
   echo "log:         stdout/stderr (this terminal)"
   echo "Press Ctrl+C to stop — temp dir and listeners will be cleaned up."
@@ -167,7 +166,7 @@ for line in sync:2 sync:3 async:ok gen:1 events:2; do
 done
 
 curl -sf http://127.0.0.1:6321/health | grep -q 'healthy'
-curl -sf http://127.0.0.1:3000/ | grep -q 'Todos'
+curl -sf http://127.0.0.1:6322/ | grep -q 'Todos'
 
 echo "=== standalone remix-serve e2e OK ==="
 # EXIT trap runs cleanup before the shell terminates.
