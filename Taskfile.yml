@@ -212,6 +212,11 @@ tasks:
     cmds:
       - go test -v ./cmd/forst/...
 
+  test:scripts:
+    desc: Run shell script unit tests (port cleanup, etc.)
+    cmds:
+      - bash scripts/kill-forst-tcp-listeners_test.sh
+
   test:coverage:
     desc: Run tests with coverage
     dir: forst

@@ -15,8 +15,25 @@ FORST_PID=""
 CLEANED_UP=false
 MAIN_FT_BACKUP=""
 
+reap_go_child() {
+  local pid_file="$FT_ROOT/.forst/go-child.pid"
+  if [[ ! -f "$pid_file" ]]; then
+    return 0
+  fi
+  local child_pid
+  child_pid="$(tr -d '[:space:]' <"$pid_file" 2>/dev/null || true)"
+  if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
+    kill -TERM "$child_pid" 2>/dev/null || true
+    sleep 0.3
+    kill -KILL "$child_pid" 2>/dev/null || true
+    wait "$child_pid" 2>/dev/null || true
+  fi
+  rm -f "$pid_file"
+}
+
 free_port() {
-  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" 6321
+  reap_go_child
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" 6321 --force
 }
 
 cleanup() {
@@ -157,6 +174,8 @@ if kill -0 "$pid1" 2>/dev/null; then
   echo "node host pid=$pid1 still alive after forst dev SIGINT" >&2
   exit 1
 fi
+
+reap_go_child
 
 if [[ -n "$MAIN_FT_BACKUP" && -f "$MAIN_FT_BACKUP" ]]; then
   cp "$MAIN_FT_BACKUP" "$FT_ROOT/main.ft"

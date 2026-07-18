@@ -44,8 +44,8 @@ REMIX_PORT=6322
 EXPECTED_HOST=127.0.0.1
 
 free_ports() {
-  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" "$INVOKE_PORT"
-  lsof -ti tcp:"$REMIX_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" "$INVOKE_PORT" --force
+  bash "$SCRIPT_DIR/kill-forst-tcp-listeners.sh" "$REMIX_PORT" --force
 }
 
 kill_forst_tree() {
@@ -141,6 +141,24 @@ wait_for_url_or_diagnose() {
   dump_failure_diagnostics "$label"
   return 1
 }
+
+wait_for_file_or_diagnose() {
+  local path="$1"
+  local label="$2"
+  local timeout="${3:-120}"
+  if bash "$SCRIPT_DIR/wait-for-file.sh" "$path" "$label" "$timeout"; then
+    return 0
+  fi
+  dump_failure_diagnostics "$label"
+  return 1
+}
+
+assert_forst_pid_alive() {
+  local label="${1:-forst run}"
+  if [[ -z "$FORST_PID" ]] || ! kill -0 "$FORST_PID" 2>/dev/null; then
+    fail_with_diagnostics "$label exited early (pid=${FORST_PID:-})"
+  fi
+}
 trap 'cleanup $?' EXIT
 trap 'cleanup 130' INT
 trap 'cleanup 143' TERM
@@ -207,7 +225,11 @@ else
   FORST_PID=$!
 fi
 
+assert_forst_pid_alive "forst run before readiness"
+wait_for_file_or_diagnose "$TMP/.forst/node.sock.ready" "node.sock.ready" 120
+assert_forst_pid_alive "forst run after node.sock.ready"
 wait_for_url_or_diagnose "http://${EXPECTED_HOST}:${INVOKE_PORT}/health" "invoke :${INVOKE_PORT}" 120
+assert_forst_pid_alive "forst run after invoke health"
 wait_for_url_or_diagnose "http://${EXPECTED_HOST}:${REMIX_PORT}/" "remix :${REMIX_PORT}" 120
 
 if [[ "$DEV_MODE" == true ]]; then
