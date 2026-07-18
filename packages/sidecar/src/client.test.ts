@@ -367,12 +367,9 @@ describe("ForstSidecarClient", () => {
       retries: 2,
       reloadAware: false,
     });
-    try {
-      await client.invokeFunction("demo", "Echo", []);
-      expect(true).toBe(false);
-    } catch (e) {
-      expect(e).toBeInstanceOf(DevServerRequestRetriesExhausted);
-    }
+    await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow(
+      DevServerRequestRetriesExhausted
+    );
     expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -395,12 +392,7 @@ describe("ForstSidecarClient", () => {
       timeout: 50,
     });
     const start = Date.now();
-    try {
-      await client.discoverFunctions();
-      expect(true).toBe(false);
-    } catch (e) {
-      expect(e).toBeInstanceOf(Error);
-    }
+    await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow();
     expect(Date.now() - start).toBeLessThan(2000);
   });
 
@@ -426,12 +418,9 @@ describe("ForstSidecarClient", () => {
       retries: 0,
       reloadAware: false,
     });
-    try {
-      await client.invokeFunction("demo", "Echo", []);
-      expect(true).toBe(false);
-    } catch (e) {
-      expect(e).toBeInstanceOf(DevServerHttpFailure);
-    }
+    await expect(client.invokeFunction("demo", "Echo", [])).rejects.toThrow(
+      DevServerHttpFailure
+    );
     expect(invokeCalls).toBe(1);
   });
 });

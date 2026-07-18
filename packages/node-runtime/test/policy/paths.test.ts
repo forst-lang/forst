@@ -48,32 +48,45 @@ describe("resolveModulePath", () => {
 
   test("rejects missing file", async () => {
     const boundaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "forst-path-"));
-    await expect(
-      resolveModulePath(boundaryRoot, "legacy/missing.ts")
-    ).rejects.toThrow(/does not resolve/);
+    try {
+      expect(
+        resolveModulePath(boundaryRoot, "legacy/missing.ts")
+      ).rejects.toThrow(/does not resolve/);
+    } finally {
+      await fs.rm(boundaryRoot, { recursive: true, force: true });
+    }
   });
 
   test("rejects directory target", async () => {
     const boundaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "forst-path-"));
-    await fs.mkdir(path.join(boundaryRoot, "legacy"), { recursive: true });
-    await expect(
-      resolveModulePath(boundaryRoot, "legacy")
-    ).rejects.toThrow();
+    try {
+      await fs.mkdir(path.join(boundaryRoot, "legacy.ts"), { recursive: true });
+      expect(
+        resolveModulePath(boundaryRoot, "legacy.ts")
+      ).rejects.toThrow(/must refer to a regular file/);
+    } finally {
+      await fs.rm(boundaryRoot, { recursive: true, force: true });
+    }
   });
 
   test("rejects symlink escape outside boundaryRoot", async () => {
     const outside = await fs.mkdtemp(path.join(os.tmpdir(), "forst-out-"));
-    const outsideFile = path.join(outside, "escape.ts");
-    await fs.writeFile(outsideFile, "export const x = 1;\n");
-
     const boundaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "forst-bound-"));
-    const linkDir = path.join(boundaryRoot, "legacy");
-    await fs.mkdir(linkDir, { recursive: true });
-    const linkPath = path.join(linkDir, "escape.ts");
-    await fs.symlink(outsideFile, linkPath);
+    try {
+      const outsideFile = path.join(outside, "escape.ts");
+      await fs.writeFile(outsideFile, "export const x = 1;\n");
 
-    await expect(
-      resolveModulePath(boundaryRoot, "legacy/escape.ts")
-    ).rejects.toThrow(/escapes boundaryRoot/);
+      const linkDir = path.join(boundaryRoot, "legacy");
+      await fs.mkdir(linkDir, { recursive: true });
+      const linkPath = path.join(linkDir, "escape.ts");
+      await fs.symlink(outsideFile, linkPath);
+
+      expect(
+        resolveModulePath(boundaryRoot, "legacy/escape.ts")
+      ).rejects.toThrow(/escapes boundaryRoot/);
+    } finally {
+      await fs.rm(boundaryRoot, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 });

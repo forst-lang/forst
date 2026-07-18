@@ -47,6 +47,12 @@ function initializeFingerprint(params: InitializeParams): string {
   });
 }
 
+/**
+ * Stable dedup key for manifest export allowlist entries.
+ * Uses a null separator so moduleId/name pairs cannot collide across boundaries.
+ * Parameter type is narrowed to `{ moduleId; name }` so callers can pass manifest
+ * exports and other export-like shapes without importing the full export entry type.
+ */
 function exportAllowlistKey(exp: { moduleId: string; name: string }): string {
   return `${exp.moduleId}\0${exp.name}`;
 }

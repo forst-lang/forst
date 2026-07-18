@@ -49,8 +49,8 @@ func TestFunctionExecutor_ExecuteFunction_contextCancelKillsGoRun(t *testing.T) 
 	if err == nil {
 		t.Fatal("expected cancel error")
 	}
-	if !errors.Is(ctx.Err(), context.Canceled) {
-		t.Fatalf("expected ctx canceled, ctx.Err=%v err=%v", ctx.Err(), err)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected ctx canceled, err=%v", err)
 	}
 }
 
@@ -69,7 +69,7 @@ func TestFunctionExecutor_ExecuteFunction_deadlineExceeded(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected deadline error")
 	}
-	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		t.Fatalf("expected ctx deadline, ctx.Err=%v err=%v", ctx.Err(), err)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected ctx deadline, err=%v", err)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -82,7 +81,7 @@ func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 		failBootstrapProcessDied(t, cmd, errCollected, "expected bootstrap logs on stderr")
 	}
 	if !strings.Contains(string(errCollected), "spawn") {
-		failBootstrapProcessDied(t, cmd, errCollected, "stderr missing spawn log, got "+strconv.Quote(string(errCollected)))
+		failBootstrapProcessDied(t, cmd, errCollected, "stderr missing spawn log")
 	}
 
 	buf := make([]byte, 64)
@@ -102,9 +101,9 @@ func TestBootstrapStdout_staysIdleBeforeRpcFrames(t *testing.T) {
 
 func collectUntilSubstring(r io.Reader, needle string, timeout time.Duration) ([]byte, error) {
 	collected := make([]byte, 0, 4096)
+	chunk := make([]byte, 512)
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		chunk := make([]byte, 512)
 		n, err := readAvailableWithDeadline(r, 200*time.Millisecond, chunk)
 		if n > 0 {
 			collected = append(collected, chunk[:n]...)

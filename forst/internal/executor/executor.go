@@ -375,6 +375,9 @@ func (e *FunctionExecutor) executeGoCode(ctx context.Context, tempDir string, ar
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return "", err
 			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return "", ctxErr
+			}
 			e.log.Errorf("Go program failed: %v", err)
 			return "", fmt.Errorf("execution failed: %v, output (stdout+stderr): %s", err, output)
 		}
@@ -389,6 +392,9 @@ func (e *FunctionExecutor) executeGoCode(ctx context.Context, tempDir string, ar
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return "", err
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
 		}
 		e.log.Errorf("Go program failed: %v", err)
 		return "", fmt.Errorf("execution failed: %v, output: %s", err, string(output))

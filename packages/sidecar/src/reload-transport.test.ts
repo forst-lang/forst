@@ -102,7 +102,7 @@ describe("createReloadAwareTransport", () => {
     expect(invokeCalls).toBe(3);
   });
 
-  it("nonReload503ErrorDoesNotPark", async () => {
+  it("nonReload500ErrorDoesNotPark", async () => {
     let invokeCalls = 0;
 
     const inner: InvokeTransport = {
