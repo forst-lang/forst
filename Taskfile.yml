@@ -547,7 +547,7 @@ tasks:
         FT_ROOT="{{.EXAMPLES_DIR}}/rfc/embedded-invoke"
         FORST_BOUNDARY_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
         PID=$!
-        trap 'kill -TERM $PID 2>/dev/null || true' EXIT
+        trap 'kill -TERM $PID 2>/dev/null || true; bash ../scripts/kill-forst-tcp-listeners.sh 6321' EXIT
         bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health invoke 30
         curl -sf -X POST http://127.0.0.1:6321/invoke \
           -H 'Content-Type: application/json' \

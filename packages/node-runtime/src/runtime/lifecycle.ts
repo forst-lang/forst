@@ -51,12 +51,18 @@ function exportAllowlistKey(exp: { moduleId: string; name: string }): string {
   return `${exp.moduleId}\0${exp.name}`;
 }
 
-/** True when incoming adds exports not present in the frozen manifest (same boundary). */
+/** True when incoming adds exports while retaining every frozen export (same boundary). */
 function manifestWidensAllowlist(
   frozen: ForstNodeManifestV1,
   incoming: ForstNodeManifestV1
 ): boolean {
   const frozenKeys = new Set(frozen.exports.map(exportAllowlistKey));
+  const incomingKeys = new Set(incoming.exports.map(exportAllowlistKey));
+  for (const key of frozenKeys) {
+    if (!incomingKeys.has(key)) {
+      return false;
+    }
+  }
   return incoming.exports.some((exp) => !frozenKeys.has(exportAllowlistKey(exp)));
 }
 

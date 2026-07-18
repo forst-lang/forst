@@ -10,15 +10,26 @@ process.stderr.write(
   })}\n`
 );
 
-void import("../host.js")
-  .then(async ({ startForstNodeHost, signalForstAppReady }) => {
+void Promise.all([import("../host.js"), import("effect"), import("../effect/layer.js")])
+  .then(async ([hostMod, effectMod, layerMod]) => {
+    const { startForstNodeHost, signalForstAppReady } = hostMod;
+    const { Effect } = effectMod;
+    const { ForstNodeRuntimeLayer } = layerMod;
     const appReadyModule = process.env.FORST_NODE_APP_READY_MODULE?.trim();
-    await startForstNodeHost({ deferAppReady: true });
+
+    await Effect.runPromise(
+      startForstNodeHost({ deferAppReady: Boolean(appReadyModule) }).pipe(
+        Effect.provide(ForstNodeRuntimeLayer)
+      )
+    );
+
     if (appReadyModule) {
       const { resolve } = await import("node:path");
       const { pathToFileURL } = await import("node:url");
       await import(pathToFileURL(resolve(appReadyModule)).href);
-      await signalForstAppReady();
+      await Effect.runPromise(
+        signalForstAppReady().pipe(Effect.provide(ForstNodeRuntimeLayer))
+      );
     }
   })
   .catch((err) => {
