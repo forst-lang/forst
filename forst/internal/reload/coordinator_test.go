@@ -2,7 +2,6 @@ package reload
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -55,12 +54,10 @@ func TestReloadCoordinator_concurrentBeginDrain_singleFlight(t *testing.T) {
 	t.Parallel()
 	c := NewCoordinator()
 
-	var drains atomic.Int32
 	errs := make(chan error, 2)
 	for range 2 {
 		go func() {
 			errs <- c.BeginDrain(context.Background())
-			drains.Add(1)
 		}()
 	}
 
@@ -76,9 +73,6 @@ func TestReloadCoordinator_concurrentBeginDrain_singleFlight(t *testing.T) {
 		t.Fatal("timed out waiting for second BeginDrain")
 	}
 
-	if drains.Load() != 2 {
-		t.Fatalf("drains = %d, want 2", drains.Load())
-	}
 	if (first == nil) == (second == nil) {
 		t.Fatalf("expected exactly one successful drain, got first=%v second=%v", first, second)
 	}
