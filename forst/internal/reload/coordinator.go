@@ -51,6 +51,7 @@ func (c *ReloadCoordinator) State() State {
 }
 
 // BeginDrain enters Draining, waits for in-flight work, then moves to Regenerating.
+// On context cancel the prior phase (Ready or Degraded) is restored.
 func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 	c.mu.Lock()
 	if c.state != StateReady && c.state != StateDegraded {
@@ -58,6 +59,7 @@ func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 		c.mu.Unlock()
 		return errors.New("cannot drain: state " + state.String())
 	}
+	prior := c.state
 	c.state = StateDraining
 	c.mu.Unlock()
 
@@ -69,6 +71,10 @@ func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		c.mu.Lock()
+		c.state = prior
+		c.cond.Broadcast()
+		c.mu.Unlock()
 		return ctx.Err()
 	case <-done:
 	}
@@ -80,24 +86,24 @@ func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 	return nil
 }
 
-// WaitReady blocks until the coordinator is Ready or Degraded, or ctx is canceled.
-// Returns ErrNotReady immediately while Draining or Regenerating.
+// WaitReady is a non-blocking reload gate: returns nil when Ready, the degraded
+// error when Degraded, or ErrNotReady immediately while Draining or Regenerating.
 func (c *ReloadCoordinator) WaitReady(_ context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for {
-		switch c.state {
-		case StateReady:
-			return nil
-		case StateDegraded:
-			if c.degraded != nil {
-				return c.degraded
-			}
-			return nil
-		case StateDraining, StateRegenerating:
-			return ErrNotReady
+	switch c.state {
+	case StateReady:
+		return nil
+	case StateDegraded:
+		if c.degraded != nil {
+			return c.degraded
 		}
+		return nil
+	case StateDraining, StateRegenerating:
+		return ErrNotReady
+	default:
+		return ErrNotReady
 	}
 }
 

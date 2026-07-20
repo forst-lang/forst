@@ -230,6 +230,75 @@ func main() {
 	}
 }
 
+func TestCodegen_nodeIteratorFor_bindsIndexAndValue(t *testing.T) {
+	root := t.TempDir()
+	writeNodeBridgeGeneratorFixture(t, root)
+
+	src := `package main
+import node "./legacy/generators"
+
+func main() {
+	seq := generators.syncNumbers(2.0)
+	ensure seq is Ok()
+	for i, n := range seq {
+		println(i)
+		println(n)
+	}
+}
+`
+	tc, nodes := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tr := New(tc, nil)
+	file, err := tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatalf("TransformForstFileToGo: %v", err)
+	}
+	mainCode, _ := formatTransformerGoFiles(t, tr, file)
+	for _, want := range []string{
+		"_nodeIdx",
+		"_nodeStep",
+		"_nodeStep.Value",
+	} {
+		if !strings.Contains(mainCode, want) {
+			t.Fatalf("missing %q in main:\n%s", want, mainCode)
+		}
+	}
+}
+
+func TestCodegen_nodeIteratorFor_emitsErrorKindPanic(t *testing.T) {
+	root := t.TempDir()
+	writeNodeBridgeGeneratorFixture(t, root)
+
+	src := `package main
+import node "./legacy/generators"
+
+func main() {
+	seq := generators.syncNumbers(2.0)
+	ensure seq is Ok()
+	for range seq {
+	}
+}
+`
+	tc, nodes := typechecker.MustTypecheck(t, src, testutil.TypecheckOpts{
+		NodeBoundaryRoot: root,
+		ForstFileDir:     root,
+	})
+	tr := New(tc, nil)
+	file, err := tr.TransformForstFileToGo(nodes)
+	if err != nil {
+		t.Fatalf("TransformForstFileToGo: %v", err)
+	}
+	mainCode, _ := formatTransformerGoFiles(t, tr, file)
+	if !strings.Contains(mainCode, forstNodeGenStepErrorIdent) {
+		t.Fatalf("missing error-kind branch in main:\n%s", mainCode)
+	}
+	if !strings.Contains(mainCode, "panic") {
+		t.Fatalf("missing panic on generator error step in main:\n%s", mainCode)
+	}
+}
+
 func writeNodeBridgeAsyncGenFixture(t *testing.T, root string) {
 	t.Helper()
 	legacyDir := filepath.Join(root, "legacy")
