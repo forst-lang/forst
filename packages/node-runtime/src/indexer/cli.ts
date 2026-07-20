@@ -6,12 +6,17 @@ import { ForstNodeRuntimeLayer } from "../effect/layer.js";
 import * as CliErrors from "./errors.js";
 import { emitForstIndexV1Json } from "./emit-forst-index-v1.js";
 
+/** Parsed `forst-node-index` CLI arguments. */
 export interface CliOptions {
+  /** Project boundary root directory. */
   root: string;
+  /** Index output format (only `forst-index-v1` is supported). */
   format: string;
+  /** Project-relative TypeScript files to index. */
   files: string[];
 }
 
+/** Parses indexer CLI argv into {@link CliOptions}. */
 export function parseCliArgs(argv: string[]): CliOptions {
   let root = ".";
   let format = "forst-index-v1";
@@ -71,7 +76,11 @@ Options:
 `);
 }
 
-export const runCliEffect = Effect.fn("Indexer.runCli")(function* (argv: string[]) {
+/** Effect program that runs the indexer CLI and returns an exit code. */
+export const runCliEffect: (
+  argv: string[]
+) => Effect.Effect<0 | 1, never, never> = Effect.fn("Indexer.runCli")(
+  function* (argv: string[]) {
   try {
     const options = parseCliArgs(argv);
 
@@ -101,6 +110,7 @@ export const runCliEffect = Effect.fn("Indexer.runCli")(function* (argv: string[
   }
 });
 
+/** Runs the indexer CLI synchronously and returns the exit code. */
 export function runCli(argv: string[]): number {
   return Effect.runSync(
     runCliEffect(argv).pipe(Effect.provide(ForstNodeRuntimeLayer))

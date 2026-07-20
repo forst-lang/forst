@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+/* @ts-self-types="./register.d.ts" */
 import { Effect } from "effect";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

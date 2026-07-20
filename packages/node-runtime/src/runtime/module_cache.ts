@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { causeToError } from "../errors/cause.js";
+import type { URL } from "node:url";
 
 const moduleCache = new Map<string, Record<string, unknown>>();
 

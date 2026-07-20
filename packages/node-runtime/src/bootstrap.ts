@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+/**
+ * Bootstrap child process entrypoint for the Forst Node RPC server.
+ *
+ * Reads `FORST_NODE_SOCKET` / `FORST_NODE_READY`, starts the socket RPC server,
+ * and runs until shutdown. Used by the Go sidecar as a managed child process.
+ *
+ * @module forst_node_bootstrap
+ */
 import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
@@ -10,14 +18,15 @@ import {
   startSocketRpcServer,
 } from "./rpc/socket_server.js";
 
+/** Options passed to bootstrap Effect programs. */
 export interface BootstrapOptions {
   /** Runtime for proto-loop dispatch; must match the layer at the process boundary. */
   runtime?: import("./effect/runtime.js").ForstNodeRuntime;
 }
 
-export const bootstrapFatal = Effect.fn("Bootstrap.fatal")(function* (
-  cause: unknown
-) {
+/** Logs a fatal error and exits the process with code 1. */
+export const bootstrapFatal: (cause: unknown) => Effect.Effect<void, never, never> =
+  Effect.fn("Bootstrap.fatal")(function* (cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause);
   const stack =
     cause instanceof Error && cause.stack !== undefined ? cause.stack : undefined;
@@ -33,7 +42,10 @@ export const bootstrapFatal = Effect.fn("Bootstrap.fatal")(function* (
   yield* Effect.sync(() => process.exit(1));
 });
 
-export const bootstrapMain = Effect.fn("Bootstrap.main")(function* (
+/** Starts the bootstrap socket RPC server and runs until shutdown. */
+export const bootstrapMain: (
+  options?: BootstrapOptions
+) => Effect.Effect<void, Error, never> = Effect.fn("Bootstrap.main")(function* (
   options: BootstrapOptions = {}
 ) {
   yield* Effect.annotateCurrentSpan("pid", process.pid);
@@ -66,6 +78,7 @@ export const bootstrapMain = Effect.fn("Bootstrap.main")(function* (
   );
 });
 
+/** Builds a bootstrap program with fatal error handling. */
 export function makeBootstrapProgram(
   options: BootstrapOptions = {}
 ): Effect.Effect<void, never, never> {
@@ -76,7 +89,8 @@ export function makeBootstrapProgram(
 }
 
 /** Default bootstrap program (stderr pretty logging via `ForstNodeRuntimeLayer`). */
-export const bootstrapProgram = makeBootstrapProgram();
+export const bootstrapProgram: Effect.Effect<void, never, never> =
+  makeBootstrapProgram();
 
 const isDirectExecution =
   typeof process.argv[1] === "string" &&

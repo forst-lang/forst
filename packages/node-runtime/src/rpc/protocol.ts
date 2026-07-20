@@ -3,8 +3,11 @@ export const PROTOCOL_VERSION = 1;
 
 export const WIRE_PROTOCOL_PROTO_V1 = "forst-node-proto-v1";
 
+/** RPC method: initialize runtime with manifest and boundary root. */
 export const METHOD_INITIALIZE = "forst.node/initialize";
+/** RPC method: health check ping. */
 export const METHOD_PING = "forst.node/ping";
+/** RPC method: synchronous export call. */
 export const METHOD_CALL = "forst.node/call";
 export const METHOD_CALL_ASYNC = "forst.node/callAsync";
 export const METHOD_GEN_OPEN = "forst.node/genOpen";
@@ -12,14 +15,21 @@ export const METHOD_GEN_NEXT = "forst.node/genNext";
 export const METHOD_GEN_NEXT_BATCH = "forst.node/genNextBatch";
 export const METHOD_GEN_RETURN = "forst.node/genReturn";
 export const METHOD_GEN_CLOSE = "forst.node/genClose";
+/** RPC method: shut down the runtime. */
 export const METHOD_SHUTDOWN = "forst.node/shutdown";
 
+/** JSON-RPC request identifier. */
 export type JsonRpcId = string | number | null;
 
+/** Incoming JSON-RPC 2.0 request. */
 export interface JsonRpcRequest {
+  /** Protocol version marker. */
   jsonrpc: "2.0";
+  /** Request id; omitted for notifications. */
   id?: JsonRpcId;
+  /** Method name. */
   method: string;
+  /** Method parameters. */
   params?: unknown;
 }
 
@@ -39,6 +49,7 @@ export interface JsonRpcErrorResponse {
   };
 }
 
+/** JSON-RPC success or error response. */
 export type JsonRpcResponse = JsonRpcSuccessResponse | JsonRpcErrorResponse;
 
 export interface InitializeParams {

@@ -10,6 +10,7 @@ import { METHOD_SHUTDOWN } from "./protocol.js";
 import type { JsonRpcRequest } from "./protocol.js";
 import type { RuntimeState } from "../runtime/lifecycle.js";
 
+/** Options for {@link startRpcServer}. */
 export interface RpcServerOptions {
   /** When true (bootstrap child), exit the process after shutdown RPC completes. */
   exitProcessOnShutdown?: boolean;
@@ -38,7 +39,11 @@ const onRequest = Effect.fn("Rpc.onRequest")(
 );
 
 /** Runs the Forst Node RPC loop on the given streams. */
-export const startRpcServer = Effect.fn("Rpc.startServer")(
+export const startRpcServer: (
+  input: NodeJS.ReadableStream,
+  output: Writable,
+  options?: RpcServerOptions
+) => Effect.Effect<void, never, never> = Effect.fn("Rpc.startServer")(
   function* (
     input: NodeJS.ReadableStream,
     output: Writable,

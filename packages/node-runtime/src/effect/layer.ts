@@ -1,14 +1,18 @@
 import * as fs from "node:fs";
 import { HashMap, Layer, Logger, LogLevel } from "effect";
 
+/** Structured log annotation fields written by node-runtime loggers. */
 export type LogFields = Record<
   string,
   string | number | boolean | null | undefined
 >;
 
+/** Environment variable name for minimum log level. */
 export const envLogLevel = "FORST_NODE_LOG_LEVEL";
+/** Environment variable name for log output format (`json` or pretty). */
 export const envLogFormat = "FORST_NODE_LOG_FORMAT";
 
+/** Parses `FORST_NODE_LOG_LEVEL` into an Effect log level. */
 export function parseEnvLevel(raw: string | undefined): LogLevel.LogLevel {
   switch (raw?.trim().toLowerCase()) {
     case "debug":
@@ -83,14 +87,14 @@ function writeStderr(text: string): void {
  * Human-readable stderr logger (default).
  * Writes to fd 2 directly.
  */
-export const stderrPrettyLogger = Logger.make(
+export const stderrPrettyLogger: Logger.Logger<unknown, void> = Logger.make(
   ({ logLevel, message, annotations, date }) => {
     writeStderr(formatPrettyLogLine(logLevel, message, annotations, date));
   }
 );
 
 /** Structured JSON stderr logger; set `FORST_NODE_LOG_FORMAT=json` or compose manually. */
-export const stderrJsonLogger = Logger.make(
+export const stderrJsonLogger: Logger.Logger<unknown, void> = Logger.make(
   ({ logLevel, message, annotations, date }) => {
     const fields: LogFields = { component: "node-runtime" };
 
@@ -117,6 +121,7 @@ function resolveDefaultLogger(): Logger.Logger<unknown, void> {
   return stderrPrettyLogger;
 }
 
+/** Builds the default Effect layer for node-runtime logging. */
 export function makeForstNodeRuntimeLayer(): Layer.Layer<never> {
   return Layer.mergeAll(
     Logger.replace(Logger.defaultLogger, resolveDefaultLogger()),
@@ -124,4 +129,6 @@ export function makeForstNodeRuntimeLayer(): Layer.Layer<never> {
   );
 }
 
-export const ForstNodeRuntimeLayer = makeForstNodeRuntimeLayer();
+/** Default Effect layer: stderr logging and `FORST_NODE_LOG_LEVEL`. */
+export const ForstNodeRuntimeLayer: Layer.Layer<never, never, never> =
+  makeForstNodeRuntimeLayer();

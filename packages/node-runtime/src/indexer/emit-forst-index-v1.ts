@@ -15,13 +15,19 @@ import {
   toPosixModuleId,
 } from "./project.js";
 
+/** Top-level Forst index v1 document emitted by the indexer. */
 export interface ForstIndexV1 {
+  /** Index format discriminator. */
   format: typeof FORST_INDEX_V1_FORMAT;
+  /** Indexed modules keyed by project-relative paths. */
   modules: ForstIndexModuleV1[];
 }
 
+/** Options for {@link emitForstIndexV1} and {@link emitForstIndexV1Json}. */
 export interface EmitForstIndexV1Options {
+  /** Project boundary root directory. */
   root: string;
+  /** Project-relative TypeScript files to index. */
   files: string[];
 }
 
@@ -375,6 +381,7 @@ function indexSourceFile(sourceFile: SourceFile, root: string): ForstIndexModule
   return { moduleId, exports };
 }
 
+/** Builds a Forst index v1 object from the given source files. */
 export function emitForstIndexV1(options: EmitForstIndexV1Options): ForstIndexV1 {
   const root = path.resolve(options.root);
   const project = createIndexerProject({ root });
@@ -392,6 +399,7 @@ export function emitForstIndexV1(options: EmitForstIndexV1Options): ForstIndexV1
   };
 }
 
+/** Serializes a Forst index v1 object to formatted JSON. */
 export function emitForstIndexV1Json(options: EmitForstIndexV1Options): string {
   return JSON.stringify(emitForstIndexV1(options), null, 2);
 }

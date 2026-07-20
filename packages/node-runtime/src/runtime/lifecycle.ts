@@ -14,12 +14,19 @@ import {
 } from "../rpc/protocol.js";
 import type { ForstNodeManifestV1 } from "../manifest/schema.js";
 
+/** Mutable RPC runtime state updated by initialize and shutdown. */
 export interface RuntimeState {
+  /** Whether initialize RPC has completed successfully. */
   initialized: boolean;
+  /** Whether shutdown RPC has been accepted. */
   shuttingDown: boolean;
+  /** Negotiated protocol major version. */
   protocolVersion: number;
+  /** Selected wire protocol identifier, if any. */
   wireProtocol: string | null;
+  /** Parsed manifest from initialize, if initialized. */
   manifest: ForstNodeManifestV1 | null;
+  /** Manifest lookup index, if initialized. */
   index: ManifestIndex | null;
 }
 

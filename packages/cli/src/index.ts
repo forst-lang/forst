@@ -1,3 +1,12 @@
+/**
+ * Programmatic API for resolving, downloading, and spawning the native Forst compiler.
+ *
+ * Re-exports binary resolution (`resolveForstBinary`), cache paths, GitHub release
+ * helpers, spawn utilities, and typed errors. Use {@link spawnForst} to run the
+ * resolved `forst` executable from Node.js tooling.
+ *
+ * @module
+ */
 export {
   COMPILER_RELEASES_BASE,
   FORST_CLI_INFO_FLAG,

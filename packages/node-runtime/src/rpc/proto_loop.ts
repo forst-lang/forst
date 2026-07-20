@@ -18,11 +18,15 @@ import type { JsonRpcId, JsonRpcRequest, JsonRpcResponse } from "./protocol.js";
 
 export { DEFAULT_MAX_MESSAGE_BYTES } from "./frame.js";
 
+/** Options for {@link runProtoLoop}. */
 export interface ProtoLoopOptions {
+  /** Maximum decoded frame payload size in bytes. */
   maxMessageBytes?: number;
+  /** Handler invoked for each parsed JSON-RPC request. */
   onRequest: (
     request: JsonRpcRequest
   ) => Effect.Effect<JsonRpcResponse | null, never, never>;
+  /** Optional handler when frame or request parsing fails. */
   onParseError?: (err: unknown, frame: Frame | null) => JsonRpcResponse;
   /** Runtime for async dispatch; must match the layer provided at the process boundary. */
   runtime?: ForstNodeRuntime;

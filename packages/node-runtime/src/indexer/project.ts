@@ -28,10 +28,13 @@ function findTsConfigFile(root: string): string | undefined {
   }
 }
 
+/** Options for {@link createIndexerProject}. */
 export interface CreateIndexerProjectOptions {
+  /** Project boundary root directory. */
   root: string;
 }
 
+/** Creates a ts-morph project for indexing under the given root. */
 export function createIndexerProject(options: CreateIndexerProjectOptions): Project {
   const root = path.resolve(options.root);
   const tsConfigFilePath = findTsConfigFile(root);
@@ -61,6 +64,7 @@ export function addSourceFiles(
   }
 }
 
+/** Converts an absolute file path to a project-relative POSIX module id. */
 export function toPosixModuleId(root: string, absolutePath: string): string {
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(absolutePath);
