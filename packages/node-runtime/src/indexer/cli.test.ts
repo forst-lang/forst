@@ -103,9 +103,9 @@ describe("forst-node-index CLI", () => {
       returnType: { kind: "string" },
       definition: {
         file: "re-export-source.ts",
-        line: 1,
+        line: 2,
         column: 17,
-        endLine: 1,
+        endLine: 2,
         endColumn: 22,
       },
     });
