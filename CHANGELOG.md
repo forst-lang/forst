@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2](https://github.com/forst-lang/forst/compare/v0.9.1...v0.9.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* gate POSIX process APIs behind OS build tags ([c2e7fcb](https://github.com/forst-lang/forst/commit/c2e7fcb75c7738d58f70244bf3d3fd467f637688))
+
 ## [0.9.1](https://github.com/forst-lang/forst/compare/v0.9.0...v0.9.1) (2026-07-20)
 
 
