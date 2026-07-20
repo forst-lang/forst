@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import type { URL } from "node:url";
 import * as Errors from "../rpc/errors.js";
 
 const ALLOWED_EXTENSIONS = new Set([".ts", ".tsx", ".js"]);

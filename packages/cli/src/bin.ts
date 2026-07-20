@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+/**
+ * CLI shim that forwards argv to the resolved native `forst` binary.
+ *
+ * Handles `--info`, `--version`, and `--go-buildinfo` locally; all other flags
+ * are passed through after downloading or locating the platform artifact.
+ *
+ * @module forst_cli_bin
+ */
 import { spawn } from "node:child_process";
 import {
   printForstCliInfo,

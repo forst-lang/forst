@@ -10,6 +10,7 @@ import { startRpcServer } from "./server.js";
 export const envSocketPath = "FORST_NODE_SOCKET";
 export const envReadyPath = "FORST_NODE_HOST_READY";
 
+/** Phase recorded in the host/bootstrap ready file. */
 export type ReadyPhase = "listening" | "app";
 
 export interface ReadyMarker {

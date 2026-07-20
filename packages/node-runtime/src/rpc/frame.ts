@@ -2,10 +2,14 @@ import type { Writable } from "node:stream";
 import * as Errors from "./errors.js";
 import * as FrameErrors from "./frame_errors.js";
 
+/** Default maximum decoded proto frame size (16 MiB). */
 export const DEFAULT_MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
 
+/** Decoded request payload inside a proto frame. */
 export interface WireRequest {
+  /** JSON-RPC method name. */
   method: string;
+  /** UTF-8 JSON params payload. */
   payloadJson: Uint8Array;
 }
 
@@ -20,9 +24,13 @@ export interface WireResponse {
   err?: ErrorDetail;
 }
 
+/** Length-prefixed proto frame carrying a request or response. */
 export interface Frame {
+  /** Monotonic frame identifier matching JSON-RPC id. */
   id: number;
+  /** Present on inbound client requests. */
   request?: WireRequest;
+  /** Present on outbound server responses. */
   response?: WireResponse;
 }
 

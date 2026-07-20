@@ -3,12 +3,16 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
+import { Effect, Either } from "effect";
 import {
   startForstNodeHost,
   signalForstAppReady,
   resetHostForTest,
   setHostLeaderOverrideForTest,
 } from "./host.js";
+import {
+  HostReadyPathUnsetError,
+} from "./host/errors.js";
 import { runTestEffect } from "../test/helpers/run-effect.js";
 
 function tempDir(): string {
@@ -177,5 +181,51 @@ describe("startForstNodeHost", () => {
     });
 
     second.destroy();
+  });
+
+  test("fails when FORST_NODE_SOCKET unset on Unix", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    delete process.env.FORST_NODE_SOCKET;
+    const result = await runTestEffect(startForstNodeHost().pipe(Effect.either));
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(String(result.left)).toContain("FORST_NODE_SOCKET is required on Unix");
+    }
+  });
+
+  test("signalForstAppReady fails before host start", async () => {
+    const result = await runTestEffect(signalForstAppReady().pipe(Effect.either));
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(HostReadyPathUnsetError);
+    }
+  });
+
+  test("signalForstAppReady fails when ready path unset after start", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const dir = tempDir();
+    const socketPath = path.join(dir, "node.sock");
+    process.env.FORST_NODE_SOCKET = socketPath;
+    delete process.env.FORST_NODE_HOST_READY;
+
+    const handle = await runTestEffect(startForstNodeHost());
+    const result = await runTestEffect(signalForstAppReady().pipe(Effect.either));
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(HostReadyPathUnsetError);
+    }
+    await runTestEffect(handle.close());
+  });
+
+  test("noop when leader env set but register not preloaded", async () => {
+    process.env.FORST_NODE_HOST_LEADER = "1";
+    setHostLeaderOverrideForTest(null);
+    const handle = await runTestEffect(startForstNodeHost());
+    expect(handle.socketPath).toBe("");
+    await runTestEffect(handle.close());
   });
 });

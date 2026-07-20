@@ -1,3 +1,9 @@
+/**
+ * Public API for the Forst Node runtime: RPC server, manifest policy, TypeScript
+ * indexer, bootstrap child process, and in-process host integration.
+ *
+ * @module
+ */
 export {
   bootstrapFatal,
   bootstrapMain,
@@ -26,6 +32,7 @@ export type {
   NodeRuntimeSetup,
 } from "./effect/runtime.js";
 export { createDispatcher } from "./rpc/dispatcher.js";
+export type { DispatcherOptions } from "./rpc/dispatcher.js";
 export {
   FORBIDDEN,
   METHOD_NOT_FOUND,
@@ -37,6 +44,7 @@ export {
   runProtoLoop,
 } from "./rpc/proto_loop.js";
 export type { ProtoLoopOptions } from "./rpc/proto_loop.js";
+export type { Frame } from "./rpc/frame.js";
 export {
   METHOD_CALL,
   METHOD_INITIALIZE,
@@ -44,6 +52,7 @@ export {
   METHOD_SHUTDOWN,
   PROTOCOL_VERSION,
 } from "./rpc/protocol.js";
+export type { JsonRpcRequest, JsonRpcResponse } from "./rpc/protocol.js";
 export { startRpcServer } from "./rpc/server.js";
 export type { RpcServerOptions } from "./rpc/server.js";
 export {
@@ -51,8 +60,10 @@ export {
   buildManifestIndex,
   validateManifest,
 } from "./policy/manifest.js";
+export type { ManifestIndex } from "./policy/manifest.js";
 export { validateModuleIdSyntax } from "./policy/paths.js";
 export { clearModuleCache } from "./runtime/module_cache.js";
+export type { RuntimeState } from "./runtime/lifecycle.js";
 export {
   FORST_INDEX_V1_FORMAT,
   FORST_NODE_EXPORT_KINDS,
@@ -67,6 +78,7 @@ export type {
   ForstIndexExportV1,
   ForstIndexModuleV1,
   ForstIndexParameterV1,
+  ForstIndexSourceLocationV1,
   ForstIndexTypeKind,
   ForstIndexTypeNode,
   ForstNodeExportKind,
@@ -79,15 +91,18 @@ export {
   runCliEffect,
   runIndexerCli,
 } from "./indexer/cli.js";
+export type { CliOptions } from "./indexer/cli.js";
 export { createIndexerProject, toPosixModuleId } from "./indexer/project.js";
 export {
   emitForstIndexV1,
   emitForstIndexV1Json,
   type ForstIndexV1,
 } from "./indexer/emit-forst-index-v1.js";
+export type { EmitForstIndexV1Options } from "./indexer/emit-forst-index-v1.js";
 export {
   startForstNodeHost,
   signalForstAppReady,
   resetHostForTest,
 } from "./host.js";
 export type { HostHandle, HostOptions, HostReadyPhase } from "./host.js";
+export type { ReadyPhase } from "./rpc/socket_server.js";

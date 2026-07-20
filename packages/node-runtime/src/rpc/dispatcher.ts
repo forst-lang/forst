@@ -39,7 +39,9 @@ import {
   type JsonRpcRequest,
 } from "./protocol.js";
 
+/** Options passed to {@link createDispatcher}. */
 export interface DispatcherOptions {
+  /** Optional pre-initialized runtime state (for tests). */
   state?: RuntimeState;
 }
 
@@ -81,7 +83,11 @@ function rpcIdSpanValue(id: JsonRpcRequest["id"]): number | string | null {
   return typeof id === "number" || typeof id === "string" ? id : null;
 }
 
-export function createDispatcher(options: DispatcherOptions = {}) {
+/** Creates an RPC dispatcher with optional shared runtime state. */
+export function createDispatcher(options: DispatcherOptions = {}): {
+  dispatch: (request: JsonRpcRequest) => Effect.Effect<JsonRpcResponse, never, never>;
+  state: RuntimeState;
+} {
   const state = options.state ?? createRuntimeState();
 
   const dispatch = Effect.fn("Rpc.dispatch")(function* (request: JsonRpcRequest) {

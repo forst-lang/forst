@@ -28,7 +28,7 @@
     "./host/register.mjs": "./dist/host/register.mjs"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && mkdir -p dist/host && cp src/host/register.cjs dist/host/register.cjs && cp src/host/register.mjs dist/host/register.mjs",
+    "build": "tsc -p tsconfig.build.json && mkdir -p dist/host && cp src/host/register.cjs dist/host/register.cjs && cp src/host/register.mjs dist/host/register.mjs && cp src/host/register.d.ts dist/host/register.d.ts",
     "prepublishOnly": "bun run sync-jsr-version && bun run build",
     "sync-jsr-version": "node ./scripts/sync-jsr-version.mjs",
     "dev": "tsc -p tsconfig.build.json --watch",

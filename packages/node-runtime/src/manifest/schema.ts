@@ -4,12 +4,14 @@ export const FORST_NODE_MANIFEST_V1_VERSION = 1 as const;
 /** TypeScript index format consumed by the Forst compiler. */
 export const FORST_INDEX_V1_FORMAT = "forst-index-v1" as const;
 
+/** Callable export kind recorded in manifest and index artifacts. */
 export type ForstNodeExportKind =
   | "function"
   | "asyncFunction"
   | "generator"
   | "asyncGenerator";
 
+/** All supported {@link ForstNodeExportKind} values. */
 export const FORST_NODE_EXPORT_KINDS: readonly ForstNodeExportKind[] = [
   "function",
   "asyncFunction",
@@ -17,18 +19,27 @@ export const FORST_NODE_EXPORT_KINDS: readonly ForstNodeExportKind[] = [
   "asyncGenerator",
 ] as const;
 
+/** Single export entry in a Forst Node manifest v1 allowlist. */
 export interface ForstNodeManifestExportV1 {
+  /** Project-relative POSIX module path. */
   moduleId: string;
+  /** Exported symbol name within the module. */
   name: string;
+  /** Callable kind of the export. */
   kind: ForstNodeExportKind;
 }
 
+/** Runtime execution allowlist shipped from the Go sidecar. */
 export interface ForstNodeManifestV1 {
+  /** Manifest schema version; must be {@link FORST_NODE_MANIFEST_V1_VERSION}. */
   version: typeof FORST_NODE_MANIFEST_V1_VERSION;
+  /** Absolute project boundary root used for module resolution. */
   boundaryRoot: string;
+  /** Callable exports permitted at runtime. */
   exports: ForstNodeManifestExportV1[];
 }
 
+/** Primitive and composite kinds in a Forst index type tree. */
 export type ForstIndexTypeKind =
   | "string"
   | "number"
@@ -40,17 +51,25 @@ export type ForstIndexTypeKind =
   | "union"
   | "unknown";
 
+/** Recursive type node in a Forst index export signature. */
 export interface ForstIndexTypeNode {
+  /** Type kind discriminator when not inferred from shape. */
   kind?: ForstIndexTypeKind;
+  /** Object field types keyed by name. */
   fields?: Record<string, ForstIndexTypeNode>;
+  /** Element type for arrays and binary buffers. */
   element?: ForstIndexTypeNode;
+  /** Union member types. */
   members?: ForstIndexTypeNode[];
   /** When true, `element` describes the binary element type (e.g. bytes). */
   $binary?: boolean;
 }
 
+/** Function parameter in a Forst index export signature. */
 export interface ForstIndexParameterV1 {
+  /** Parameter name. */
   name: string;
+  /** Parameter type tree. */
   type: ForstIndexTypeNode;
 }
 
@@ -58,29 +77,50 @@ export interface ForstIndexParameterV1 {
 export interface ForstIndexSourceLocationV1 {
   /** Project-relative POSIX path; omitted when same as the indexed module. */
   file?: string;
+  /** 1-based start line. */
   line: number;
+  /** 0-based start column. */
   column: number;
+  /** 1-based end line. */
   endLine?: number;
+  /** 0-based end column. */
   endColumn?: number;
 }
 
+/** Indexed callable export within a module. */
 export interface ForstIndexExportV1 {
+  /** Export name. */
   name: string;
+  /** Callable kind. */
   kind: ForstNodeExportKind;
+  /** Function parameters. */
   parameters: ForstIndexParameterV1[];
+  /** Return type for functions and async functions. */
   returnType?: ForstIndexTypeNode;
+  /** Yielded element type for generators. */
   yieldType?: ForstIndexTypeNode;
+  /** Source span for go-to-definition (1-based line, 0-based column). */
   definition?: ForstIndexSourceLocationV1;
 }
 
+/** Indexed module section in a Forst index v1 document. */
 export interface ForstIndexModuleV1 {
+  /** Project-relative POSIX module path. */
   moduleId: string;
+  /** Callable exports discovered in the module. */
   exports: ForstIndexExportV1[];
 }
 
+/** Thrown when manifest or index JSON fails schema validation. */
 export class ForstNodeSchemaValidationError extends Error {
+  /** JSON path to the invalid value. */
   readonly path: string;
 
+  /**
+   * Creates a schema validation error.
+   * @param path JSON path to the invalid value.
+   * @param message Validation error message.
+   */
   constructor(path: string, message: string) {
     super(`${path}: ${message}`);
     this.name = "ForstNodeSchemaValidationError";
@@ -88,6 +128,7 @@ export class ForstNodeSchemaValidationError extends Error {
   }
 }
 
+/** Type guard for {@link ForstNodeExportKind}. */
 export function isForstNodeExportKind(value: unknown): value is ForstNodeExportKind {
   return (
     typeof value === "string" &&
@@ -95,6 +136,7 @@ export function isForstNodeExportKind(value: unknown): value is ForstNodeExportK
   );
 }
 
+/** Returns true when `moduleId` is a safe project-relative POSIX path. */
 export function isValidModuleId(moduleId: string): boolean {
   if (moduleId.length === 0) {
     return false;
@@ -155,6 +197,7 @@ function parseManifestExport(
   };
 }
 
+/** Parses and validates a Forst Node manifest v1 JSON value. */
 export function parseForstNodeManifestV1(value: unknown): ForstNodeManifestV1 {
   const record = assertRecord(value, "manifest");
   const version = record.version;
@@ -316,6 +359,7 @@ function parseIndexExport(value: unknown, path: string): ForstIndexExportV1 {
   return parsed;
 }
 
+/** Parses and validates a single Forst index module v1 JSON value. */
 export function parseForstIndexModuleV1(value: unknown): ForstIndexModuleV1 {
   const record = assertRecord(value, "index");
   const moduleId = assertString(record.moduleId, "index.moduleId");

@@ -7,9 +7,13 @@ import {
 } from "../manifest/schema.js";
 import * as Errors from "../rpc/errors.js";
 
+/** Parsed manifest allowlist used for export policy checks. */
 export interface ManifestIndex {
+  /** Absolute project boundary root from the manifest. */
   boundaryRoot: string;
+  /** Flat list of allowed exports. */
   exports: ForstNodeManifestExportV1[];
+  /** Lookup map keyed by moduleId and export name. */
   byKey: Map<string, ForstNodeManifestExportV1>;
 }
 
@@ -17,6 +21,7 @@ function exportKey(moduleId: string, name: string): string {
   return `${moduleId}\0${name}`;
 }
 
+/** Validates manifest JSON and maps schema errors to RPC invalid-params errors. */
 export function validateManifest(manifest: unknown): ForstNodeManifestV1 {
   try {
     return parseForstNodeManifestV1(manifest);
@@ -28,6 +33,7 @@ export function validateManifest(manifest: unknown): ForstNodeManifestV1 {
   }
 }
 
+/** Builds a lookup index from a validated manifest. */
 export function buildManifestIndex(manifest: ForstNodeManifestV1): ManifestIndex {
   const byKey = new Map<string, ForstNodeManifestExportV1>();
   for (const entry of manifest.exports) {
@@ -40,6 +46,7 @@ export function buildManifestIndex(manifest: ForstNodeManifestV1): ManifestIndex
   };
 }
 
+/** Ensures an export is allowlisted and optionally matches the expected kind. */
 export function assertExportAllowed(
   index: ManifestIndex,
   moduleId: string,

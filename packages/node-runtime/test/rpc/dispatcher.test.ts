@@ -7,6 +7,7 @@ import {
   METHOD_CALL,
   METHOD_CALL_ASYNC,
   METHOD_GEN_OPEN,
+  METHOD_GEN_RETURN,
   METHOD_INITIALIZE,
   METHOD_PING,
   METHOD_SHUTDOWN,
@@ -105,6 +106,30 @@ describe("createDispatcher method policy", () => {
 
     expect(response).toMatchObject({
       error: { code: Errors.METHOD_NOT_FOUND },
+    });
+  });
+
+  test("returns not implemented for stub genReturn RPC", async () => {
+    const { dispatch } = createDispatcher();
+    await runTestEffect(dispatch({
+      jsonrpc: "2.0",
+      id: 30,
+      method: METHOD_INITIALIZE,
+      params: initializeParams(fixtureRoot),
+    }));
+
+    const response = await runTestEffect(dispatch({
+      jsonrpc: "2.0",
+      id: 31,
+      method: METHOD_GEN_RETURN,
+      params: { genId: "g1", value: 1 },
+    }));
+
+    expect(response).toMatchObject({
+      error: {
+        code: Errors.NOT_IMPLEMENTED,
+        message: expect.stringContaining(METHOD_GEN_RETURN),
+      },
     });
   });
 

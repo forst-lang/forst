@@ -485,6 +485,38 @@ func TestBuildHostSpawnCommand_preservesExplicitHostInSpawnEnv(t *testing.T) {
 	assertEnvVar(t, cmd.Env, "HOST", "0.0.0.0")
 }
 
+func TestReadyPathForSocket_emptyReturnsEmpty(t *testing.T) {
+	if got := readyPathForSocket(""); got != "" {
+		t.Fatalf("readyPathForSocket(\"\") = %q want empty", got)
+	}
+}
+
+func TestEnsureUnixSocketPathLength_truncatesLongPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix socket path shortening")
+	}
+	long := filepath.Join("/tmp", strings.Repeat("a", 120), "node-bootstrap.sock")
+	if len(long) <= maxUnixSocketPathLen {
+		t.Fatalf("test path too short: len=%d", len(long))
+	}
+
+	got := ensureUnixSocketPathLength(long)
+	wantPrefix := filepath.Join("/tmp", "forst-bs-")
+	if !strings.HasPrefix(got, wantPrefix) || !strings.HasSuffix(got, ".sock") {
+		t.Fatalf("got %q want prefix %q and .sock suffix", got, wantPrefix)
+	}
+	if len(got) > maxUnixSocketPathLen {
+		t.Fatalf("truncated path still too long: len=%d path=%q", len(got), got)
+	}
+	if ensureUnixSocketPathLength(long) != got {
+		t.Fatal("expected deterministic shortening")
+	}
+	other := ensureUnixSocketPathLength(long + "x")
+	if other == got {
+		t.Fatalf("different inputs should not collide: %q", got)
+	}
+}
+
 func TestPrepareHostSocket_rejectsLiveHost(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix socket test")

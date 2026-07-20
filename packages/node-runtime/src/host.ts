@@ -1,3 +1,9 @@
+/**
+ * In-process Forst Node host: starts an RPC server inside the user's Node app
+ * when `FORST_NODE_HOST=1`, with optional deferred app-ready signaling.
+ *
+ * @module forst_node_host
+ */
 import { Effect, Layer } from "effect";
 import { causeToError } from "./errors/cause.js";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
@@ -16,10 +22,14 @@ import {
 const envHostEnabled = "FORST_NODE_HOST";
 const envHostLeader = "FORST_NODE_HOST_LEADER";
 
+/** Ready-file phase written by the host or bootstrap process. */
 export type HostReadyPhase = ReadyPhase;
 
+/** Options for {@link startForstNodeHost}. */
 export interface HostOptions {
+  /** Unix socket path or Windows pipe name override. */
   socketPath?: string;
+  /** Ready-file path override. */
   readyPath?: string;
   /** When true, listen on the socket but defer the ready file until signalForstAppReady(). */
   deferAppReady?: boolean;
@@ -30,8 +40,11 @@ export interface HostOptions {
   runtimeLayer?: Layer.Layer<never>;
 }
 
+/** Handle returned when the in-process host RPC server is active. */
 export interface HostHandle {
+  /** Bound socket path or pipe name. */
   socketPath: string;
+  /** Stops the host RPC server and releases resources. */
   close(): Effect.Effect<void, Error, never>;
 }
 
@@ -70,6 +83,7 @@ function hostLeaderEnabled(): boolean {
   return registerPreloaded();
 }
 
+/** Resets host singleton state between tests. */
 export function resetHostForTest(): void {
   resetHostInitCacheForTest();
   resetSocketRpcServersForTest();
@@ -138,7 +152,11 @@ const hostStart = Effect.fn("Host.start")(function* (options: HostOptions) {
 });
 
 /** Marks app initialization complete and writes the ready file with phase "app". */
-export const signalForstAppReady = Effect.fn("Host.signalAppReady")(function* () {
+export const signalForstAppReady: () => Effect.Effect<
+  undefined,
+  HostErrors.HostReadyPathUnsetError | HostErrors.HostSocketPathUnsetError,
+  never
+> = Effect.fn("Host.signalAppReady")(function* () {
   if (!hostEnabled()) {
     yield* Effect.logDebug("host_app_ready_skip").pipe(
       Effect.annotateLogs({

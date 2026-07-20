@@ -3,15 +3,19 @@ import { Data } from "effect";
 /** JSON-RPC 2.0 standard error codes. */
 export const PARSE_ERROR = -32700;
 export const INVALID_REQUEST = -32600;
-export const METHOD_NOT_FOUND = -32601;
+/** JSON-RPC method not found. */
+export const METHOD_NOT_FOUND: number = -32601;
 export const INVALID_PARAMS = -32602;
 export const INTERNAL_ERROR = -32603;
 
 /** Forst node-runtime application error codes. */
 export const APPLICATION_ERROR = -32000;
-export const FORBIDDEN = -32001;
-export const NOT_INITIALIZED = -32002;
-export const NOT_IMPLEMENTED = -32003;
+/** Export or module access denied by manifest policy. */
+export const FORBIDDEN: number = -32001;
+/** RPC issued before initialize completed. */
+export const NOT_INITIALIZED: number = -32002;
+/** RPC method recognized but not implemented in this build. */
+export const NOT_IMPLEMENTED: number = -32003;
 
 export interface JsonRpcErrorObject {
   code: number;
