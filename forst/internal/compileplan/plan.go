@@ -55,5 +55,13 @@ func EmitGo(log *logrus.Logger, plan Plan, mode EmitMode) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if tr.EmbedInvokeServer {
+		tr.AppendInvokeShutdownIfNeeded()
+		var regenErr error
+		goAST, regenErr = tr.Output.GenerateFile()
+		if regenErr != nil {
+			return "", regenErr
+		}
+	}
 	return generateFn(goAST)
 }

@@ -116,3 +116,64 @@ func TestModuleFingerprint_changesOnEdit(t *testing.T) {
 		t.Fatal("fingerprint should change when file content changes")
 	}
 }
+
+func TestParsedFilesForModule_skipsEditedFiles(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(path, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession(dir)
+	if _, err := s.ParseFile(nil, path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("package main\n// edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.ParsedFilesForModule(dir)
+	if ok {
+		t.Fatalf("expected stale cache miss, got %d files", len(got))
+	}
+}
+
+func TestParsedFilesForModuleCheck_parsesAllForstFiles(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.ft")
+	apiPath := filepath.Join(dir, "api.ft")
+	if err := os.WriteFile(mainPath, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(apiPath, []byte("package api\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession(dir)
+	got, err := s.ParsedFilesForModuleCheck(nil, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("parsed %d files, want 2: %v", len(got), got)
+	}
+	if _, ok := got[mainPath]; !ok {
+		t.Fatalf("missing main.ft in %v", got)
+	}
+	if _, ok := got[apiPath]; !ok {
+		t.Fatalf("missing api.ft in %v", got)
+	}
+}
+
+func TestNilSession_ParseFile_delegates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.ft")
+	if err := os.WriteFile(path, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var s *Session
+	nodes, err := s.ParseFile(nil, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) == 0 {
+		t.Fatal("expected parsed nodes from nil session fallback")
+	}
+}
