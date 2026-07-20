@@ -2,15 +2,17 @@
 import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
+import { createNodeRuntimeSetup } from "./effect/runtime.js";
 import {
-  defaultNodeRuntimeSetup,
-  type ForstNodeRuntime,
-} from "./effect/runtime.js";
-import { startRpcServer } from "./rpc/server.js";
+  envReadyPath,
+  envSocketPath,
+  isWindows,
+  startSocketRpcServer,
+} from "./rpc/socket_server.js";
 
 export interface BootstrapOptions {
   /** Runtime for proto-loop dispatch; must match the layer at the process boundary. */
-  runtime?: ForstNodeRuntime;
+  runtime?: import("./effect/runtime.js").ForstNodeRuntime;
 }
 
 export const bootstrapFatal = Effect.fn("Bootstrap.fatal")(function* (
@@ -38,16 +40,37 @@ export const bootstrapMain = Effect.fn("Bootstrap.main")(function* (
   yield* Effect.logInfo("spawn").pipe(
     Effect.annotateLogs({ event: "spawn", pid: process.pid })
   );
-  yield* startRpcServer(process.stdin, process.stdout, {
+
+  const socketPath = process.env[envSocketPath] ?? "";
+  const readyPath = process.env[envReadyPath] ?? "";
+  if (!socketPath && !isWindows()) {
+    return yield* bootstrapFatal(
+      new Error("FORST_NODE_SOCKET is required on Unix")
+    );
+  }
+
+  const setup = createNodeRuntimeSetup(ForstNodeRuntimeLayer);
+  const runtime = options.runtime ?? setup.runtime;
+
+  yield* startSocketRpcServer({
+    socketPath,
+    readyPath,
+    deferAppReady: false,
     exitProcessOnShutdown: true,
-    runtime: options.runtime ?? defaultNodeRuntimeSetup.runtime,
-  });
+    runtime,
+    runtimeLayer: setup.layer,
+    logPrefix: "bootstrap",
+  }).pipe(
+    Effect.flatMap(() => Effect.never),
+    Effect.provide(setup.layer)
+  );
 });
 
 export function makeBootstrapProgram(
   options: BootstrapOptions = {}
 ): Effect.Effect<void, never, never> {
   return bootstrapMain(options).pipe(
+    Effect.catchAll((err) => bootstrapFatal(err)),
     Effect.catchAllDefect((cause) => bootstrapFatal(cause))
   );
 }
@@ -60,8 +83,6 @@ const isDirectExecution =
   (process.argv[1].endsWith("/bootstrap.js") ||
     process.argv[1].endsWith("/bootstrap.ts"));
 
-// NodeRuntime.runMain adds Logger.prettyLoggerDefault to stdout by default; disable it
-// so stdout stays reserved for RPC length-prefixed frames.
 if (isDirectExecution) {
   NodeRuntime.runMain(
     bootstrapProgram.pipe(Effect.provide(ForstNodeRuntimeLayer)),

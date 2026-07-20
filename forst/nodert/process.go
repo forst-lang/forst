@@ -37,13 +37,15 @@ type managedProcess struct {
 	waitErr error
 }
 
-func spawnBootstrapProcess(opts ProcessOptions) (*managedProcess, error) {
+func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*managedProcess, error) {
 	spawnCmd, err := BuildBootstrapSpawnCommand(BootstrapSpawnInput{
 		BoundaryRoot:  opts.BoundaryRoot,
 		Executable:    opts.NodePath,
 		BootstrapPath: opts.BootstrapPath,
 		WorkDir:       opts.WorkDir,
 		Loader:        opts.Loader,
+		SocketPath:    socketPath,
+		ReadyPath:     readyPath,
 		FilesExclude:  opts.FilesExclude,
 		Env:           opts.Env,
 	})
@@ -64,24 +66,17 @@ func spawnBootstrapProcess(opts ProcessOptions) (*managedProcess, error) {
 	cmd.Env = spawnCmd.Env
 	cmd.SysProcAttr = hostSessionAttrs()
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("create stdin pipe: %w", err)
-	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		_ = stdin.Close()
 		return nil, fmt.Errorf("create stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		_ = stdin.Close()
 		_ = stdout.Close()
 		return nil, fmt.Errorf("create stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		_ = stdin.Close()
 		_ = stdout.Close()
 		_ = stderr.Close()
 		return nil, fmt.Errorf("start node process (executable=%s): %w", spawnCmd.Executable, err)
@@ -95,13 +90,14 @@ func spawnBootstrapProcess(opts ProcessOptions) (*managedProcess, error) {
 		"node_executable": spawnCmd.Executable,
 		"bootstrap_path":  spawnCmd.Args[0],
 		"loader":          opts.Loader,
+		"socket_path":     socketPath,
 	}).Debug("spawned node runtime")
 
+	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
 	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
 
 	return &managedProcess{
 		cmd:    cmd,
-		stdin:  stdin,
 		stdout: stdout,
 		stderr: stderr,
 		log:    log,

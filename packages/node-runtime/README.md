@@ -46,21 +46,12 @@ import {
 const myLayer = makeForstNodeRuntimeLayer();
 const { layer, runtime } = createNodeRuntimeSetup(myLayer);
 
-// Bootstrap child (stdin/stdout RPC). disablePrettyLogger keeps stdout for frames only.
+// Bootstrap child (local socket RPC). disablePrettyLogger avoids duplicate stdout logging.
 NodeRuntime.runMain(
   bootstrapMain({ runtime }).pipe(
     Effect.catchAllDefect((cause) => bootstrapFatal(cause)),
     Effect.provide(layer)
   ),
-  { disablePrettyLogger: true }
-);
-
-// Or wire RPC directly
-NodeRuntime.runMain(
-  startRpcServer(process.stdin, process.stdout, {
-    exitProcessOnShutdown: true,
-    runtime,
-  }).pipe(Effect.provide(layer)),
   { disablePrettyLogger: true }
 );
 
@@ -70,7 +61,7 @@ await Effect.runPromise(
 );
 ```
 
-Use the same `layer` for `Effect.provide` and the matching `runtime` for async RPC dispatch sites (`startRpcServer`, host connection forks).
+Use the same `layer` for `Effect.provide` and the matching `runtime` for async RPC dispatch sites (`bootstrapMain`, host connection forks).
 
 | Piece | Role |
 | --- | --- |
@@ -114,7 +105,7 @@ npx forst run -root . ./main.ft
 
 ## Runtime modes
 
-**Bootstrap (default):** Go starts a dedicated Node child that runs `dist/bootstrap.js`. Isolated process. Logs on stderr. Stdout is RPC only.
+**Bootstrap (default):** Go starts a dedicated Node child that runs `dist/bootstrap.js`. Isolated process. RPC over a local socket (default `.forst/node-bootstrap.sock`); child stdout and stderr are forwarded as logs.
 
 **Host:** Go starts your app (`node.binary` + `node.args`). RPC listens on a local socket inside that process so module cache and globals stay shared. Import from `@forst/node-runtime/host` and call `signalForstAppReady()` when your app is ready.
 
@@ -137,6 +128,8 @@ The compiler calls this during type checking. You rarely run it yourself.
 | `FORST_NODE_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC trace (`rpc_recv`, `call`, `module_cache_hit`, …) requires `debug`. |
 | `FORST_NODE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
 | `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` (bootstrap mode spawn planning) |
+| `FORST_NODE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC. Bootstrap default: `{boundaryRoot}/.forst/node-bootstrap.sock`. Host default: `{boundaryRoot}/.forst/node.sock`. |
+| `FORST_NODE_HOST_READY` | Absolute path to JSON readiness file (`{socket}.ready`); Go waits for `phase: "app"` before dialing. |
 
 ### Host mode (set by Go on the direct app-shim child)
 
@@ -144,8 +137,6 @@ The compiler calls this during type checking. You rarely run it yourself.
 | --- | --- |
 | `FORST_NODE_HOST` | When `"1"`, enables in-process host RPC (`startForstNodeHost`). Unset in bootstrap mode. |
 | `FORST_NODE_HOST_LEADER` | When `"1"`, marks the Go-spawned leader process. Required together with `register.mjs` in `process.execArgv`; workers skip binding. |
-| `FORST_NODE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC in host mode. |
-| `FORST_NODE_HOST_READY` | Absolute path to JSON readiness file (`{socket}.ready`); Go waits for `phase: "app"`. |
 | `FORST_NODE_APP_READY_MODULE` | Optional path to a module loaded before app readiness when `node.hostAppReadyModule` is configured. |
 
 See [Call JavaScript from Forst — host mode environment variables](https://docs.forst.dev/interop/node/call-javascript#host-mode-environment-variables) for spawn layout, readiness phases, and troubleshooting.

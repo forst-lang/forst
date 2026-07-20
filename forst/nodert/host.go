@@ -3,7 +3,7 @@ package nodert
 // Host mode invariants (local trust zone only):
 //   - One Go supervisor client per process; the host rejects a second socket connection.
 //   - RPC uses a single bidirectional net.Conn (Unix domain socket or loopback TCP on Windows).
-//   - Host child stdout/stderr are piped and forwarded to the parent process (bootstrap keeps stdout for RPC).
+//   - Child stdout/stderr are piped and forwarded to the parent process (both bootstrap and host).
 //   - Manifest allowlist and path rules are unchanged; initialize is required before calls.
 
 import (

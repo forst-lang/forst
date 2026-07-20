@@ -1,6 +1,7 @@
 package nodert
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,27 @@ import (
 	"runtime"
 	"strings"
 )
+
+// maxUnixSocketPathLen stays under the macOS AF_UNIX path limit (104 bytes).
+const maxUnixSocketPathLen = 100
+
+func ensureUnixSocketPathLength(abs string) string {
+	if runtime.GOOS == "windows" || abs == "" {
+		return abs
+	}
+	if len(abs) <= maxUnixSocketPathLen {
+		return abs
+	}
+	sum := sha256.Sum256([]byte(abs))
+	return filepath.Join("/tmp", fmt.Sprintf("forst-bs-%x.sock", sum[:8]))
+}
+
+func readyPathForSocket(socketPath string) string {
+	if socketPath == "" {
+		return ""
+	}
+	return socketPath + ".ready"
+}
 
 // Host-mode environment variable names.
 //
@@ -23,7 +45,7 @@ import (
 //   FORST_NODE_HOST
 //     Gate for host RPC in Node. When "1", startForstNodeHost() may bind the RPC
 //     socket; when unset, host code no-ops. Set only in host mode; bootstrap mode
-//     uses stdio RPC and does not set this variable.
+//     does not set this variable (bootstrap listens unconditionally via bootstrap.js).
 //
 //   FORST_NODE_HOST_LEADER
 //     Marks the process Go spawned as the sole host leader. startForstNodeHost()
@@ -33,17 +55,16 @@ import (
 //
 //   FORST_NODE_SOCKET
 //     Absolute path to the Unix domain socket (loopback TCP URL on Windows) where
-//     the in-process host listens for Go RPC. Defaults from node.hostSocket under
-//     the boundary root (.forst/node.sock). Go dials this after readiness; may
-//     also be read at spawn planning time via ResolveHostSocketPath when set in
-//     the parent environment.
+//     Node listens for Go RPC. Host defaults from node.hostSocket under the boundary
+//     root (.forst/node.sock); bootstrap defaults to .forst/node-bootstrap.sock.
+//     Go dials this after readiness; may also be read at spawn planning time via
+//     ResolveHostSocketPath / ResolveBootstrapSocketPath when set in the parent environment.
 //
 //   FORST_NODE_HOST_READY
 //     Absolute path to a JSON readiness marker (typically socketPath + ".ready").
-//     The host writes {"pid", "socket", "phase"} after listen and/or app init;
-//     Go polls until phase is "app" before connecting. Used to avoid dialing
-//     before third-party shims (Remix, Vite) finish bootstrapping when
-//     hostAppReadyModule or signalForstAppReady() defer readiness.
+//     The Node process writes {"pid", "socket", "phase"} after listen and/or app init;
+//     Go polls until phase is "app" before connecting. Bootstrap writes phase "app"
+//     immediately after listen; host may defer until app shims finish bootstrapping.
 //
 //   FORST_NODE_ATTACH_ONLY
 //     Attach-only gate for Go-side host supervision. When "1", nodert dials an
@@ -264,7 +285,8 @@ func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, err
 		if err != nil {
 			return "", "", fmt.Errorf("node runtime: resolve host socket: %w", err)
 		}
-		return abs, abs + ".ready", nil
+		abs = ensureUnixSocketPathLength(abs)
+		return abs, readyPathForSocket(abs), nil
 	}
 	if configured == "" {
 		configured = ".forst/node.sock"
@@ -287,7 +309,13 @@ func ResolveHostSocketPath(boundaryRoot, configured string) (string, string, err
 	if err != nil {
 		return "", "", fmt.Errorf("node runtime: resolve host socket: %w", err)
 	}
-	return socketPath, socketPath + ".ready", nil
+	socketPath = ensureUnixSocketPathLength(socketPath)
+	return socketPath, readyPathForSocket(socketPath), nil
+}
+
+// ResolveBootstrapSocketPath returns the absolute Unix socket path for bootstrap mode.
+func ResolveBootstrapSocketPath(boundaryRoot string) (string, string, error) {
+	return ResolveHostSocketPath(boundaryRoot, ".forst/node-bootstrap.sock")
 }
 
 // PrepareHostSocket removes stale socket and ready marker files.
@@ -410,6 +438,8 @@ type BootstrapSpawnInput struct {
 	BootstrapPath string
 	WorkDir       string
 	Loader        string
+	SocketPath    string
+	ReadyPath     string
 	FilesExclude  []string
 	Env           []string
 	ExtraArgs     []string
@@ -460,6 +490,8 @@ func BuildBootstrapSpawnCommand(in BootstrapSpawnInput) (BootstrapSpawnCommand, 
 		FilesExclude: in.FilesExclude,
 		Env:          in.Env,
 		NodeOptions:  []string{tsxImport},
+		SocketPath:   in.SocketPath,
+		ReadyPath:    in.ReadyPath,
 	})
 
 	args := append([]string{bootstrapPath}, in.ExtraArgs...)
@@ -514,16 +546,16 @@ func buildSpawnEnv(in spawnEnvInput) []string {
 	existing := lookupEnvValue(env, "NODE_OPTIONS")
 	merged := mergeNodeOptions(existing, in.NodeOptions...)
 	env = setEnvVar(env, "NODE_OPTIONS", merged)
+	if in.SocketPath != "" {
+		env = setEnvVar(env, envNodeSocket, in.SocketPath)
+	}
+	if in.ReadyPath != "" {
+		env = setEnvVar(env, envNodeHostReady, in.ReadyPath)
+	}
 	if in.HostMode {
 		env = setEnvVar(env, envNodeHost, "1")
 		env = setEnvVar(env, envNodeHostLeader, "1")
 		env = setEnvDefault(env, "HOST", "127.0.0.1")
-		if in.SocketPath != "" {
-			env = setEnvVar(env, envNodeSocket, in.SocketPath)
-		}
-		if in.ReadyPath != "" {
-			env = setEnvVar(env, envNodeHostReady, in.ReadyPath)
-		}
 		env = sanitizeHostChildEnv(env)
 		env = applyHostSpawnColorEnv(env)
 	}

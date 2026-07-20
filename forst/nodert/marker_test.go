@@ -13,7 +13,10 @@ func TestReadHostMarkerPID(t *testing.T) {
 		t.Fatalf("expected 0 without marker, got %d", pid)
 	}
 
-	readyPath := filepath.Join(dir, ".forst", "node.sock.ready")
+	_, readyPath, err := ResolveHostSocketPath(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
