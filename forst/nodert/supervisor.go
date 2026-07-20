@@ -137,6 +137,8 @@ func (s *Supervisor) watchProcess(proc *managedProcess) {
 	}
 }
 
+const bootstrapReadyTimeout = 30 * time.Second
+
 func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 	log := cfg.ProcessOptions.Log
 	if log == nil {
@@ -144,14 +146,33 @@ func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 		log.SetLevel(logrus.ErrorLevel)
 	}
 
-	proc, err := spawnBootstrapProcess(cfg.ProcessOptions)
+	socketPath, readyPath, err := ResolveBootstrapSocketPath(cfg.ProcessOptions.BoundaryRoot)
 	if err != nil {
 		return nil, err
 	}
+	if err := PrepareHostSocket(socketPath, readyPath); err != nil {
+		return nil, err
+	}
 
-	client := NewClient(proc.stdout, proc.stdin, log)
-	s, err := finishSupervisorInit(cfg, client, proc, nil, log)
+	proc, err := spawnBootstrapProcess(cfg.ProcessOptions, socketPath, readyPath)
 	if err != nil {
+		cleanupHostSocketFiles(socketPath, readyPath)
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), bootstrapReadyTimeout)
+	defer cancel()
+
+	conn, err := waitForHostReady(ctx, socketPath, readyPath)
+	if err != nil {
+		_ = proc.terminate()
+		cleanupHostSocketFiles(socketPath, readyPath)
+		return nil, err
+	}
+
+	s, err := dialAndInitHost(cfg, conn, proc, log)
+	if err != nil {
+		cleanupHostSocketFiles(socketPath, readyPath)
 		return nil, err
 	}
 	go s.watchProcess(proc)

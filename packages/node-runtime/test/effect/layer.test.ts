@@ -125,7 +125,7 @@ describe("ForstNodeRuntimeLayer logging", () => {
     expect(payload.level).toBe("INFO");
   });
 
-  test("pretty logs write to stderr only (stdout reserved for RPC)", async () => {
+  test("pretty logs write to stderr only", async () => {
     delete process.env[envLogLevel];
     delete process.env[envLogFormat];
     const stdoutLines: string[] = [];

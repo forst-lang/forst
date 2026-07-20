@@ -81,7 +81,7 @@ function writeStderr(text: string): void {
 
 /**
  * Human-readable stderr logger (default).
- * Writes to fd 2 directly so stdout stays reserved for RPC frames.
+ * Writes to fd 2 directly.
  */
 export const stderrPrettyLogger = Logger.make(
   ({ logLevel, message, annotations, date }) => {

@@ -128,12 +128,12 @@ Node interop supports two runtime transports. Both use the same RPC protocol and
 
 | Mode | `node.hostMode` | Child process | RPC transport | Shared memory with app |
 | --- | --- | --- | --- | --- |
-| **Bootstrap** (default) | `false` | `node` + Forst `bootstrap.js` | stdio pipes | No — isolated Node child |
+| **Bootstrap** (default) | `false` | `node` + Forst `bootstrap.js` | Unix socket (TCP on Windows) | No — isolated Node child |
 | **Host** | `true` | App shim (`node.binary` + `node.args`) | Unix socket (TCP on Windows) | **Yes** — RPC runs inside the app process |
 
 ### Bootstrap mode (default)
 
-Go spawns a **dedicated Node child** that runs only the Forst bootstrap script. Stdout is RPC-only; logs go to stderr. This is what `task example:node-interop-sync` and other bootstrap examples use.
+Go spawns a **dedicated Node child** that runs only the Forst bootstrap script. RPC uses a local socket (default `.forst/node-bootstrap.sock`); child stdout and stderr are forwarded as logs. This is what `task example:node-interop-sync` and other bootstrap examples use.
 
 Bootstrap process layout:
 
@@ -221,7 +221,7 @@ node --import tsx/loader.mjs --import @forst/node-runtime/dist/host/register.mjs
 Go dials `FORST_NODE_SOCKET` after `FORST_NODE_HOST_READY` reports `phase: "app"`.
 
 <Warning>
-  **Do not use stdio RPC inside app shims** (remix-serve, vitest reporters, morgan, etc.). Those tools write to stdout and corrupt the wire protocol. Host mode uses a **socket** so app stdout stays free.
+  **Use host mode for app shims** (remix-serve, Vite, custom servers) when the legacy app must share module cache and globals with Forst RPC. Both bootstrap and host use **socket RPC** so app stdout/stderr stay free for normal logging.
 </Warning>
 
 **Shared memory semantics:** RPC dispatcher, `require`/`import` cache, and `globalThis` state in the app process are visible to legacy TypeScript modules loaded via RPC. A separate bootstrap child would reload modules in an isolated process.
@@ -258,7 +258,7 @@ Typical spawn command:
 node --import tsx node_modules/@forst/node-runtime/dist/bootstrap.js
 ```
 
-User TypeScript loads only via controlled `import()` inside the bootstrap, triggered by an allowed RPC. Stdout is RPC-only; bootstrap logs go to stderr.
+User TypeScript loads only via controlled `import()` inside the bootstrap, triggered by an allowed RPC. Bootstrap RPC uses a local socket; runtime logs go to stderr and child stdout/stderr are forwarded to the Forst parent.
 
 In **host mode**, Go spawns your app shim (`node.binary` + `node.args`) and connects via a local socket. The app must import `@forst/node-runtime/host` so RPC runs in-process. Manifest and path rules are unchanged.
 
@@ -477,7 +477,7 @@ The embedded manifest lists every **`(moduleId, exportName, kind)`** the bridge 
 
 ### Bootstrap vs host mode
 
-**Bootstrap mode** spawns an isolated Node child with stdio RPC. **Host mode** runs RPC inside your app process over a socket. App shims that write to stdout (remix-serve, log middleware) corrupt stdio RPC. Use host mode with a socket for those apps.
+**Bootstrap mode** spawns an isolated Node child with socket RPC (default `.forst/node-bootstrap.sock`). **Host mode** runs RPC inside your app process over a socket (default `.forst/node.sock`) so module cache and globals stay shared.
 
 ### Type mapping limits
 
