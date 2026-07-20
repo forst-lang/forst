@@ -114,3 +114,22 @@ func Ping() {
 		t.Fatalf("expected helper.Ping, got %v", names)
 	}
 }
+
+func TestCrossPackageInvokeExports_filtersCompiledPackageAndMain(t *testing.T) {
+	fns := []FunctionInfo{
+		{Package: "main", Name: "main", Runnable: true},
+		{Package: "main", Name: "Run", Runnable: true},
+		{Package: "bcrypt", Name: "Hash", Runnable: true},
+		{Package: "types", Name: "Skip", Runnable: false},
+		{Package: "helper", Name: "Ping", Runnable: true},
+	}
+	out := CrossPackageInvokeExports(fns, "main")
+	if len(out) != 2 {
+		t.Fatalf("len = %d want 2: %#v", len(out), out)
+	}
+	got := namesFromFns(out)
+	want := "bcrypt.Hash,helper.Ping"
+	if strings.Join(got, ",") != want {
+		t.Fatalf("got %v want %s", got, want)
+	}
+}

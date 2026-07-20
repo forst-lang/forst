@@ -187,19 +187,19 @@ node --import @forst/node-runtime/host/register.mjs ./your-server.mjs
 | `node.hostSocket` | Relative path under boundary root for the Unix socket (default `.forst/node.sock`) |
 | `node.hostReadyTimeoutSeconds` | Max wait for `phase: "app"` ready marker (default `120`) |
 
-### Host mode environment variables
+### Socket RPC environment variables
 
-Go sets the following on the **direct** app-shim child when `node.hostMode` is true. They are read by `@forst/node-runtime/host` and `host/register.mjs`. Do not set them manually in normal workflows.
+Go sets the following on Node children for **both bootstrap and host mode**. Bootstrap uses `@forst/node-runtime/dist/bootstrap.js`; host mode uses `@forst/node-runtime/host` and `host/register.mjs`. Do not set these manually in normal workflows.
 
 | Variable | Set by | Purpose |
 | --- | --- | --- |
-| `FORST_NODE_HOST` | Go (`"1"`) | Enables in-process host RPC. When unset, `startForstNodeHost()` no-ops. Bootstrap mode does not set this. |
-| `FORST_NODE_HOST_LEADER` | Go (`"1"`) | Marks the process Go spawned as the **sole** host leader. `startForstNodeHost()` requires this **and** `register.mjs` in `process.execArgv`. Child Node processes (Vite workers, etc.) may inherit `FORST_NODE_HOST` but must not bind the socket — they lack leader + preload and skip with `host_skip_non_leader`. |
-| `FORST_NODE_SOCKET` | Go | Absolute path to the Unix socket (TCP URL on Windows) where the host listens for Go RPC. Defaults to `{boundaryRoot}/{node.hostSocket}` (default `.forst/node.sock`). If set in the **parent** environment before spawn, `ResolveHostSocketPath` uses it for planning. |
-| `FORST_NODE_HOST_READY` | Go | Absolute path to a JSON readiness file (typically `{socket}.ready`). The host writes `{"pid", "socket", "phase"}`; Go polls until `phase` is `"app"` before dialing. Defers RPC until Remix/Vite or your entry calls `signalForstAppReady()` when `hostAppReadyModule` is set. |
-| `FORST_NODE_APP_READY_MODULE` | Go (optional) | When `node.hostAppReadyModule` is set in ftconfig, path to a small module `register.mjs` loads before signaling app readiness. |
+| `FORST_NODE_HOST` | Go (`"1"`, host only) | Enables in-process host RPC. When unset, `startForstNodeHost()` no-ops. **Bootstrap mode does not set this.** |
+| `FORST_NODE_HOST_LEADER` | Go (`"1"`, host only) | Marks the process Go spawned as the **sole** host leader. `startForstNodeHost()` requires this **and** `register.mjs` in `process.execArgv`. Child Node processes (Vite workers, etc.) may inherit `FORST_NODE_HOST` but must not bind the socket — they lack leader + preload and skip with `host_skip_non_leader`. |
+| `FORST_NODE_SOCKET` | Go | Absolute path to the Unix socket (TCP URL on Windows) where Node listens for Go RPC. **Bootstrap** defaults to `{boundaryRoot}/.forst/node-bootstrap.sock`; **host** defaults to `{boundaryRoot}/{node.hostSocket}` (default `.forst/node.sock`). If set in the **parent** environment before spawn, `ResolveHostSocketPath` / `ResolveBootstrapSocketPath` use it for planning. |
+| `FORST_NODE_HOST_READY` | Go | Absolute path to a JSON readiness file (typically `{socket}.ready`). Node writes `{"pid", "socket", "phase"}` after listen; Go polls until `phase` is `"app"` before dialing. **Bootstrap** signals `phase: "app"` immediately after listen. **Host** may defer until Remix/Vite or your entry calls `signalForstAppReady()` when `hostAppReadyModule` is set. |
+| `FORST_NODE_APP_READY_MODULE` | Go (optional, host only) | When `node.hostAppReadyModule` is set in ftconfig, path to a small module `register.mjs` loads before signaling app readiness. |
 | `FORST_NODE_ATTACH_ONLY` | `forst dev` parent (`"1"`) | Set on **`go run` children** during watch reload. Nodert **reattaches only** — it does not spawn a new host. Unset for one-shot `forst run`. |
-| `FORCE_COLOR` | Go (optional) | Set to `"1"` when the Forst parent stdout is a TTY and `NO_COLOR` is unset, so piped Vite/Remix output keeps ANSI colors. |
+| `FORCE_COLOR` | Go (optional, host only) | Set to `"1"` when the Forst parent stdout is a TTY and `NO_COLOR` is unset, so piped Vite/Remix output keeps ANSI colors. |
 
 ### Dev reload host ownership
 
@@ -230,7 +230,7 @@ Go dials `FORST_NODE_SOCKET` after `FORST_NODE_HOST_READY` reports `phase: "app"
 
 | Symptom | Likely cause |
 | --- | --- |
-| `host ready timeout` | App never signaled readiness (`phase: "app"`) | For third-party shims, omit `hostAppReadyModule`; or call `signalForstAppReady()` after init |
+| `host ready timeout` | Node never wrote `phase: "app"` to the ready marker (bootstrap crash/hang, or host app readiness not signaled) | Bootstrap: check `@forst/node-runtime` build and `FORST_NODE_SOCKET`; host: omit `hostAppReadyModule` or call `signalForstAppReady()` after init |
 | `ErrNodeRuntimeDied` during RPC | App process crashed; socket closed |
 | Second Go client | Host rejects duplicate connections (single client invariant) |
 | `EADDRINUSE` on `.forst/node.sock` | Stale host or duplicate leader (often from putting `register.mjs` in `NODE_OPTIONS`) | Use default `hostAutoRegister` (argv preload); ensure only one `forst run` owns the socket |
@@ -258,7 +258,7 @@ Typical spawn command:
 node --import tsx node_modules/@forst/node-runtime/dist/bootstrap.js
 ```
 
-User TypeScript loads only via controlled `import()` inside the bootstrap, triggered by an allowed RPC. Bootstrap RPC uses a local socket; runtime logs go to stderr and child stdout/stderr are forwarded to the Forst parent.
+User TypeScript loads only via controlled `import()` inside the bootstrap, triggered by an allowed RPC. Bootstrap RPC uses a local socket (`FORST_NODE_SOCKET` / `FORST_NODE_HOST_READY`, default `.forst/node-bootstrap.sock`); runtime logs go to stderr and child stdout/stderr are forwarded to the Forst parent.
 
 In **host mode**, Go spawns your app shim (`node.binary` + `node.args`) and connects via a local socket. The app must import `@forst/node-runtime/host` so RPC runs in-process. Manifest and path rules are unchanged.
 
@@ -424,7 +424,7 @@ Union members that cannot be mapped, or unions with no members, widen to **`Obje
 | `cannot import TypeScript module without import node or import node alias` | `.ts` exists but import is not opted in | Use `import node "./path"` or `import node alias "./path"` |
 | `node runtime: bootstrap not found` | `@forst/node-runtime` not installed or not built | `npm install @forst/node-runtime`; set `FORST_NODE_BOOTSTRAP` to an absolute bootstrap path for custom layouts |
 | `node runtime: tsx loader not found` | `tsx` missing from project | Install `tsx` at the project root |
-| `host ready timeout` | Host mode: app readiness not signaled | Omit `hostAppReadyModule` for third-party shims, or call `signalForstAppReady()` in your entry |
+| `host ready timeout` | Bootstrap or host: ready marker never reached `phase: "app"` | Bootstrap: verify Node bootstrap spawn and socket env; host: omit `hostAppReadyModule` for third-party shims, or call `signalForstAppReady()` in your entry |
 | `node.hostMode requires non-empty node.args` | `hostMode: true` without shim argv | Set `node.args` to your app entry (e.g. `["./build/server/index.js"]`) |
 | Node spawn fails / `executable file not found` | `node` not on `PATH` | Install Node ≥ 20; ensure `PATH` in production matches dev |
 | `forst.node/forbidden` / `ErrForbidden` at runtime | Call not in embedded manifest | Rebuild after adding exports; ensure the call site was compiled with opt-in |

@@ -2,12 +2,14 @@ package nodert
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"forst/nodert/pb"
 )
@@ -220,6 +222,92 @@ func TestManifest_AllowCall_rejectsBeforeRPCSend(t *testing.T) {
 	}
 }
 
+func TestClient_pingAfterServerClose_fails(t *testing.T) {
+	t.Helper()
+	client, server := pairedClientServer(t, func(req Request) Response {
+		return okResponse(req)
+	})
+	if err := client.Initialize(sampleManifest(), nil); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	if err := server.Close(); err != nil {
+		t.Fatalf("close server: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	err := client.Ping()
+	if err == nil {
+		t.Fatal("expected Ping error after server closed")
+	}
+	if !errors.Is(err, ErrNodeRuntimeDied) && !strings.Contains(err.Error(), "closed") {
+		t.Fatalf("Ping after close: %v", err)
+	}
+}
+
+func TestClient_inFlightCallFailsWithNodeRuntimeDied(t *testing.T) {
+	t.Helper()
+	client, server := pairedClientServer(t, func(req Request) Response {
+		if req.Method == MethodCall {
+			time.Sleep(200 * time.Millisecond)
+		}
+		return okResponse(req)
+	})
+	if err := client.Initialize(sampleManifest(), nil); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.CallSync("legacy/payment.ts", "create", json.RawMessage(`[1,2]`))
+		done <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	if err := server.Close(); err != nil {
+		t.Fatalf("close server: %v", err)
+	}
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected in-flight call to fail")
+		}
+		if !errors.Is(err, ErrNodeRuntimeDied) {
+			t.Fatalf("in-flight err = %v want ErrNodeRuntimeDied", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("in-flight call did not fail")
+	}
+}
+
+func TestClient_callTimesOutWhenServerSilent(t *testing.T) {
+	t.Helper()
+	client, server := pairedClientServer(t, func(req Request) Response {
+		if req.Method == MethodInitialize {
+			return okResponse(req)
+		}
+		if req.Method == MethodPing {
+			return Response{} // no response written
+		}
+		return okResponse(req)
+	})
+	defer func() { _ = server.Close() }()
+	client.SetCallTimeout(50 * time.Millisecond)
+	if err := client.Initialize(sampleManifest(), nil); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	start := time.Now()
+	err := client.Ping()
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected ping timeout")
+	}
+	if !errors.Is(err, ErrCallTimeout) {
+		t.Fatalf("Ping timeout err = %v want ErrCallTimeout", err)
+	}
+	if elapsed < 40*time.Millisecond {
+		t.Fatalf("timeout returned too quickly: %s", elapsed)
+	}
+}
+
 func TestFixtures_matchWireFormat(t *testing.T) {
 	t.Helper()
 	var req Request
@@ -286,11 +374,8 @@ func (s *mockServer) serve(tb testing.TB) {
 			s.mu.Lock()
 			closed := s.closed
 			s.mu.Unlock()
-			if closed {
+			if closed || err == io.EOF {
 				return
-			}
-			if err != io.EOF {
-				tb.Errorf("mock server read: %v", err)
 			}
 			return
 		}
@@ -307,14 +392,12 @@ func (s *mockServer) serve(tb testing.TB) {
 		resp := s.handler(req)
 		out, err := responseToProtoFrame(resp)
 		if err != nil {
-			tb.Errorf("mock server encode: %v", err)
 			return
 		}
 		s.writeMu.Lock()
 		err = WriteProtoFrame(s.serverWr, out, DefaultMaxMsgLen)
 		s.writeMu.Unlock()
 		if err != nil {
-			tb.Errorf("mock server write: %v", err)
 			return
 		}
 	}

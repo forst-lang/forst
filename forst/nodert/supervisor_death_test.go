@@ -74,6 +74,11 @@ export function add(a: number, b: number): { sum: number } {
 	if proc == nil || proc.cmd == nil || proc.cmd.Process == nil {
 		t.Fatal("expected supervised bootstrap process")
 	}
+	deadPID := proc.cmd.Process.Pid
+	socketPath, readyPath, err := ResolveBootstrapSocketPath(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hangErr := make(chan error, 1)
 	go func() {
@@ -105,6 +110,34 @@ export function add(a: number, b: number): { sum: number } {
 	}
 	if got2.Sum != 42 {
 		t.Fatalf("respawn sum = %v want 42", got2.Sum)
+	}
+
+	marker, ok := readHostReadyMarker(readyPath)
+	if !ok {
+		t.Fatalf("missing ready marker after respawn: %s", readyPath)
+	}
+	if marker.PID == deadPID {
+		t.Fatalf("ready marker pid = %d still references killed process", deadPID)
+	}
+	if _, err := os.Stat(socketPath); err != nil {
+		t.Fatalf("socket missing after respawn: %v", err)
+	}
+
+	supervisorMu.Lock()
+	respawnProc := supervisorInst.proc
+	supervisorMu.Unlock()
+	if respawnProc == nil || respawnProc.cmd == nil || respawnProc.cmd.Process == nil {
+		t.Fatal("expected respawned bootstrap process")
+	}
+	if respawnProc.cmd.Process.Pid == deadPID {
+		t.Fatalf("respawn pid = %d same as killed pid", deadPID)
+	}
+	client, err := GetClient()
+	if err != nil {
+		t.Fatalf("GetClient after respawn: %v", err)
+	}
+	if err := client.Ping(); err != nil {
+		t.Fatalf("Ping after respawn: %v", err)
 	}
 
 	if err := Shutdown(); err != nil {

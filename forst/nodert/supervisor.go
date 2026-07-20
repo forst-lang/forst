@@ -160,7 +160,11 @@ func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), bootstrapReadyTimeout)
+	timeout := cfg.HostReadyTimeout
+	if timeout <= 0 {
+		timeout = bootstrapReadyTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	conn, err := waitForHostReady(ctx, socketPath, readyPath)
