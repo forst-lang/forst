@@ -90,6 +90,7 @@ export class CompilerBinaryDigestUnavailable extends Error {
   }
 }
 
+/** Version/artifact pair threaded through checksum errors so failures name which download they belong to. */
 export interface CompilerBinaryChecksumContext {
   version: string;
   artifact: string;

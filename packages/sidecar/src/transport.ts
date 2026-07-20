@@ -10,6 +10,10 @@ export type FetchImpl = (
   init?: RequestInit
 ) => Promise<Response>;
 
+/**
+ * Configuration for {@link createHttpInvokeTransport}: base URL resolution
+ * (static or via `invoke.ready`), timeouts, injectable fetch, and RPC headers.
+ */
 export interface HttpInvokeTransportConfig {
   baseUrl?: string;
   resolveBaseUrl?: () => string | undefined;

@@ -7,11 +7,13 @@ import {
 } from "./errors";
 import { serverLogger, forstLogger } from "./logger";
 
+/** argv/cwd passed to `spawn` when the sidecar starts an embedded `forst dev` process. */
 export type ForstDevSpawnPlan = {
   args: string[];
   cwd: string;
 };
 
+/** Coarse lifecycle of the supervised child process; drives health waits and error surfacing. */
 export type ProcessSupervisorStatus =
   | "stopped"
   | "starting"

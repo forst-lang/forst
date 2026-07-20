@@ -16,6 +16,10 @@ async function* invokeStreamRows<T>(
   }
 }
 
+/**
+ * Chooses how the client reaches Forst: connect to an existing HTTP invoke endpoint,
+ * spawn a dev sidecar, or inject a custom sidecar—plus timeouts and reload behavior.
+ */
 export interface ForstInvokeClientConfig {
   baseUrl?: string;
   timeout?: number;
@@ -31,6 +35,7 @@ export interface ForstInvokeClientConfig {
   customSidecar?: ForstSidecarType;
 }
 
+/** Public alias for {@link ForstInvokeClientConfig} used by {@link ForstClient}. */
 export type ForstClientConfig = ForstInvokeClientConfig;
 
 const defaultInvokeBaseUrl = "http://127.0.0.1:6321";
@@ -152,6 +157,10 @@ class SidecarInvokeClient {
   }
 }
 
+/**
+ * Minimal invoke surface shared by HTTP-connect and sidecar-spawn backends so
+ * {@link ForstClient} can call functions without caring which transport won.
+ */
 export interface ForstInvokeClient {
   invokeFunction<T>(
     pkg: string,
@@ -169,6 +178,7 @@ export interface ForstInvokeClient {
 
 let defaultClient: ForstInvokeClient | undefined;
 
+/** Instantiates HTTP or sidecar invoke client from config and env (`FORST_*`, `invoke.ready`). */
 export function createInvokeClient(
   config?: ForstInvokeClientConfig
 ): ForstInvokeClient {
@@ -178,6 +188,7 @@ export function createInvokeClient(
   return new SidecarInvokeClient(config);
 }
 
+/** Lazy process-wide default client for scripts and quick calls without explicit wiring. */
 export function getDefaultInvokeClient(): ForstInvokeClient {
   if (!defaultClient) {
     defaultClient = createInvokeClient();
@@ -185,6 +196,7 @@ export function getDefaultInvokeClient(): ForstInvokeClient {
   return defaultClient;
 }
 
+/** Clears the default singleton so tests can swap transport config between cases. */
 export function resetDefaultInvokeClientForTest(): void {
   defaultClient = undefined;
 }

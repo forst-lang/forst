@@ -1,3 +1,7 @@
+/**
+ * Resolves a named export from a dynamically imported module because ESM
+ * loaders expose values on both top-level keys and nested `default` objects.
+ */
 export function resolveExportValue(
   mod: Record<string, unknown>,
   exportName: string

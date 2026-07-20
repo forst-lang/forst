@@ -10,6 +10,9 @@ import (
 	"forst/internal/goload"
 )
 
+// LinkMode selects how a run/dev sandbox's go.mod links to the forst runtime
+// module: no link, a local replace directive, or a shared go.work workspace
+// (needed when the sandbox also has to see the user's own module).
 type LinkMode int
 
 const (
@@ -18,6 +21,9 @@ const (
 	LinkWorkspace
 )
 
+// LinkPlan is the module-linking strategy resolved by PlanForRun; callers
+// use it to write go.mod/go.work and to build the child process environment
+// via ChildEnv.
 type LinkPlan struct {
 	Mode      LinkMode
 	GoModPath string

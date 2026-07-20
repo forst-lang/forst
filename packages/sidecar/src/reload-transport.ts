@@ -5,6 +5,10 @@ import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import type { InvokeTransport } from "./transport";
 
+/**
+ * Parsed `/health` body used by reload-aware transport to decide whether the dev
+ * server is mid-recompile (503/reloading) or ready to accept invoke RPC again.
+ */
 export interface DevServerHealthSnapshot {
   success?: boolean;
   reloading?: boolean;
@@ -16,6 +20,10 @@ export interface DevServerHealthSnapshot {
   };
 }
 
+/**
+ * Options for {@link createReloadAwareTransport}: tune reload polling and plug in
+ * health checks / dynamic base URLs while `forst dev` restarts after file changes.
+ */
 export interface ReloadAwareTransportConfig {
   /** Poll interval cap while waiting for reload to finish (ms). */
   maxPollIntervalMs?: number;

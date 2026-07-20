@@ -6,6 +6,9 @@ import (
 	goast "go/ast"
 )
 
+// BuiltinConstraint names a compiler-recognized ensure/guard constraint (Min,
+// Max, ...) so it can be told apart from user-defined TypeGuardNode entries
+// in TypeChecker.Defs.
 type BuiltinConstraint string
 
 const (

@@ -10,6 +10,7 @@ export interface LspDiagnosticRelatedInformation {
   message: string;
 }
 
+/** Diagnostic entry as emitted by the server before mapping onto `vscode.Diagnostic`. */
 export interface LspDiagnostic {
   range: {
     start: { line: number; character: number };

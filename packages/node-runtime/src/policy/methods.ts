@@ -30,10 +30,12 @@ export const STUB_METHODS = new Set<string>([
   METHOD_GEN_RETURN,
 ]);
 
+/** Returns whether `method` is part of the closed RPC surface accepted by the dispatcher. */
 export function isClosedMethod(method: string): boolean {
   return CLOSED_METHODS.has(method);
 }
 
+/** Returns whether `method` is registered but intentionally rejected until a later phase. */
 export function isStubMethod(method: string): boolean {
   return STUB_METHODS.has(method);
 }

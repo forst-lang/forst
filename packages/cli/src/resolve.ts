@@ -64,6 +64,7 @@ export function validateCompilerVersionForCachePath(version: string): string {
   return v;
 }
 
+/** Subset of `node:fs` this module needs, injected so tests can fake disk state without touching the real filesystem. */
 export type ResolveForstBinaryFs = Pick<
   typeof import("node:fs"),
   | "existsSync"
@@ -76,6 +77,7 @@ export type ResolveForstBinaryFs = Pick<
   | "statSync"
 >;
 
+/** Options controlling how resolveForstBinary locates or downloads the native compiler. */
 export interface ResolveForstBinaryOptions {
   /** Compiler version to fetch (default: @forst/cli package version). */
   version?: string;
@@ -602,6 +604,7 @@ export async function resolveForstBinary(
   return binaryPath;
 }
 
+/** Result of resolveForstBinaryDetailed: the binary location plus the compiler version it resolved to. */
 export interface ResolvedForstBinary {
   binaryPath: string;
   /** Empty when FORST_BINARY override is used. */

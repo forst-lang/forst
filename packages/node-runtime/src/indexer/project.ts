@@ -51,6 +51,7 @@ export function createIndexerProject(options: CreateIndexerProjectOptions): Proj
   });
 }
 
+/** Loads project-relative source files into a ts-morph project for indexing. */
 export function addSourceFiles(
   project: Project,
   root: string,

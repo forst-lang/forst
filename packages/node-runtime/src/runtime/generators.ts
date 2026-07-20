@@ -35,6 +35,7 @@ let nextStreamId = 1;
 /** Tracks open streams for leak-detection tests. */
 export let openStreamCount = 0;
 
+/** Test-only cleanup so stream maps and leak counters do not leak across test cases. */
 export function resetGeneratorStateForTest(): void {
   streams.clear();
   nextStreamId = 1;
@@ -146,6 +147,7 @@ const requireStream = Effect.fn("Runtime.requireStream")(function* (
   return stream;
 });
 
+/** `genOpen` RPC handler: loads an allowlisted generator export and registers a server-side stream id for later steps. */
 export const handleGenOpen = Effect.fn("Runtime.handleGenOpen")(
   function* (index: ManifestIndex, params: GenOpenParams) {
     const { fn, isAsync } = yield* loadGeneratorExport(index, params);
@@ -193,6 +195,7 @@ export const handleGenOpen = Effect.fn("Runtime.handleGenOpen")(
   }
 );
 
+/** `genNext` RPC handler: advances one iterator step and serializes yield, done, or error for the client. */
 export const handleGenNext = Effect.fn("Runtime.handleGenNext")(
   function* (params: GenNextParams) {
     if (params === null || typeof params !== "object") {
@@ -243,6 +246,7 @@ export const handleGenNext = Effect.fn("Runtime.handleGenNext")(
   }
 );
 
+/** Batch `genNext` for fewer round trips when the client wants multiple yields per RPC. */
 export const handleGenNextBatch = Effect.fn("Runtime.handleGenNextBatch")(
   function* (params: GenNextBatchParams) {
     if (params === null || typeof params !== "object") {
@@ -289,6 +293,7 @@ export const handleGenNextBatch = Effect.fn("Runtime.handleGenNextBatch")(
   }
 );
 
+/** `genClose` RPC handler: tears down the stream and invokes `iterator.return()` so generator cleanup runs on the host. */
 export const handleGenClose = Effect.fn("Runtime.handleGenClose")(
   function* (params: GenCloseParams) {
     if (params === null || typeof params !== "object") {

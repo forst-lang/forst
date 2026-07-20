@@ -16,6 +16,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ErrNilForstConfig is returned by discovery functions that require a
+// non-nil configiface.ForstConfigIface to resolve file globs and excludes.
 var ErrNilForstConfig = errors.New("ForstConfig is required for file discovery")
 
 // FunctionInfo represents a discovered public function

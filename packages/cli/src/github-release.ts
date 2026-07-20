@@ -20,11 +20,13 @@ const GITHUB_JSON_HEADERS = {
 export const COMPILER_RELEASE_TAG_PATTERN =
   /^v(\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)$/;
 
+/** Why fetchReleaseAssetSha256Hex could not return a digest, surfaced to callers deciding whether to fail strictly. */
 export type DigestLookupReason =
   | "release_not_found"
   | "asset_not_found"
   | "digest_missing";
 
+/** Result of a checksum lookup against GitHub release assets: the digest if found, or a reason it wasn't. */
 export interface DigestLookupResult {
   hex?: string;
   reason?: DigestLookupReason;

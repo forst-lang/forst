@@ -32,6 +32,7 @@ export function getCachedCompilerError(): Error | undefined {
   return compilerResolutionCache?.error;
 }
 
+/** Returns the cached path/error for `cacheKey`, or undefined on a cache miss or key mismatch (settings changed). */
 export function readCompilerResolutionCache(
   cacheKey: string
 ): { path: string } | { error: Error } | undefined {
@@ -47,6 +48,7 @@ export function readCompilerResolutionCache(
   return undefined;
 }
 
+/** Records a successful compiler resolution so subsequent calls with the same cacheKey skip re-resolving. */
 export function writeCompilerResolutionCachePath(
   cacheKey: string,
   resolvedPath: string
@@ -54,6 +56,7 @@ export function writeCompilerResolutionCachePath(
   compilerResolutionCache = { key: cacheKey, path: resolvedPath };
 }
 
+/** Records a failed compiler resolution so subsequent calls with the same cacheKey surface the same error instead of retrying. */
 export function writeCompilerResolutionCacheError(
   cacheKey: string,
   error: Error

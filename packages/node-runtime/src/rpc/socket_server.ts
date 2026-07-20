@@ -7,12 +7,15 @@ import { causeToError } from "../errors/cause.js";
 import type { ForstNodeRuntime } from "../effect/runtime.js";
 import { startRpcServer } from "./server.js";
 
+/** Environment variable name for the Unix socket path (or tcp URL on Windows). */
 export const envSocketPath = "FORST_NODE_SOCKET";
+/** Environment variable name for the host ready-marker file path. */
 export const envReadyPath = "FORST_NODE_HOST_READY";
 
 /** Phase recorded in the host/bootstrap ready file. */
 export type ReadyPhase = "listening" | "app";
 
+/** JSON payload written to the ready file so the Go host can discover pid, socket, and phase. */
 export interface ReadyMarker {
   pid?: number;
   socket?: string;
@@ -20,6 +23,7 @@ export interface ReadyMarker {
   tcpPort?: number;
 }
 
+/** Configuration for starting a socket-backed RPC server (host or bootstrap child). */
 export interface SocketRpcOptions {
   socketPath?: string;
   readyPath?: string;
@@ -31,6 +35,7 @@ export interface SocketRpcOptions {
   logPrefix?: string;
 }
 
+/** Live handle to a socket RPC server: paths, deferred app-ready signal, and graceful close. */
 export interface SocketRpcHandle {
   socketPath: string;
   readyPath: string;
@@ -84,10 +89,12 @@ export function resetSocketRpcServersForTest(): void {
   activeStates.clear();
 }
 
+/** Returns true on Windows where TCP loopback replaces Unix domain sockets. */
 export function isWindows(): boolean {
   return process.platform === "win32";
 }
 
+/** Checks whether a pid from a stale ready marker still owns the socket (avoid double bind). */
 export function processAlive(pid: number): boolean {
   if (pid <= 0) {
     return false;
@@ -100,6 +107,7 @@ export function processAlive(pid: number): boolean {
   }
 }
 
+/** Reads and parses the host ready-marker file; returns null if missing or corrupt. */
 export function readReadyMarker(readyPath: string): ReadyMarker | null {
   try {
     return JSON.parse(fs.readFileSync(readyPath, "utf8")) as ReadyMarker;
@@ -108,6 +116,7 @@ export function readReadyMarker(readyPath: string): ReadyMarker | null {
   }
 }
 
+/** Writes the ready file after listen (or app phase) so the Go parent can connect. */
 export function writeReadyFile(
   readyPath: string,
   socketPath: string,
@@ -121,6 +130,7 @@ export function writeReadyFile(
   });
 }
 
+/** Writes arbitrary JSON to the ready file (used when deferring the app-ready phase). */
 export function writeReadyFilePayload(
   readyPath: string,
   payload: Record<string, unknown>
@@ -141,6 +151,7 @@ function chmodSocket(socketPath: string): void {
   }
 }
 
+/** Binds a Unix domain socket, cleans stale paths, and rejects duplicate live hosts. */
 export function listenUnix(
   socketPath: string,
   readyPath: string
@@ -200,6 +211,7 @@ export function listenUnix(
   });
 }
 
+/** Binds an ephemeral TCP listener on loopback (Windows fallback when Unix sockets are unavailable). */
 export function listenTcp(): Effect.Effect<
   { server: net.Server; port: number },
   Error,
@@ -315,6 +327,7 @@ const closeSocketServer = Effect.fn("SocketServer.close")(function* (
   });
 });
 
+/** Starts the socket RPC server: Unix on non-Windows, TCP on Windows; wires ready-marker lifecycle. */
 export const startSocketRpcServer = Effect.fn("SocketServer.start")(
   function* (options: SocketRpcOptions) {
     const readyPath =

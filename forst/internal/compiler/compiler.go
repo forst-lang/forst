@@ -37,6 +37,8 @@ type Compiler struct {
 	ftconfigErr        error
 }
 
+// New constructs a Compiler for the given CLI Args, defaulting to the
+// package logger when log is nil.
 func New(args Args, log *logrus.Logger) *Compiler {
 	if log == nil {
 		log = logger.New()
@@ -62,6 +64,10 @@ func getMemStats() runtime.MemStats {
 	return mem
 }
 
+// RunGoProgram runs the generated Go program for `forst run`. When
+// boundaryRoot is set, it resolves how the sandbox links the forst runtime
+// module (replace vs. workspace) via gowork.PlanForRun and applies that to
+// the child process environment.
 func RunGoProgram(outputPath string, boundaryRoot string) error {
 	dir, runSources, err := runGoSourceFiles(outputPath)
 	if err != nil {

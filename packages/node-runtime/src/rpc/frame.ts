@@ -13,12 +13,14 @@ export interface WireRequest {
   payloadJson: Uint8Array;
 }
 
+/** JSON-RPC error fields embedded inside a proto response frame (code, message, optional data bytes). */
 export interface ErrorDetail {
   code: number;
   message: string;
   dataJson?: Uint8Array;
 }
 
+/** Outbound half of a proto frame: either a success JSON blob or structured error detail. */
 export interface WireResponse {
   okJson?: Uint8Array;
   err?: ErrorDetail;
@@ -186,6 +188,7 @@ function encodeWireResponse(resp: WireResponse): Uint8Array {
   return encodeBytesField(1, resp.okJson ?? new Uint8Array(0));
 }
 
+/** Serializes a {@link Frame} to protobuf bytes (no length prefix; used by {@link writeProtoFrame}). */
 export function encodeFrame(frame: Frame): Uint8Array {
   const chunks: Uint8Array[] = [];
   if (frame.id !== 0) {
@@ -299,6 +302,7 @@ function decodeWireResponse(buf: Uint8Array): WireResponse {
   return { okJson: okJson ?? new Uint8Array(0) };
 }
 
+/** Parses protobuf frame bytes into a {@link Frame}; throws {@link FrameErrors} on schema violations. */
 export function decodeFrame(buf: Uint8Array): Frame {
   let id = 0;
   let request: WireRequest | undefined;
@@ -335,6 +339,7 @@ export function decodeFrame(buf: Uint8Array): Frame {
   return frame;
 }
 
+/** Writes the Go<->Node framing contract: 4-byte big-endian length followed by protobuf body. */
 export function writeProtoFrame(
   stdout: Writable,
   frame: Frame,
@@ -350,6 +355,7 @@ export function writeProtoFrame(
   stdout.write(body);
 }
 
+/** Builds an outbound request frame with JSON-serialized params for client-side RPC calls. */
 export function newRequestFrame(
   id: number,
   method: string,
@@ -362,6 +368,7 @@ export function newRequestFrame(
   };
 }
 
+/** Builds a success response frame wrapping a JSON-serialized RPC result. */
 export function newOkResponseFrame(id: number, result: unknown): Frame {
   const okJson = new TextEncoder().encode(JSON.stringify(result ?? null));
   return {
@@ -370,6 +377,7 @@ export function newOkResponseFrame(id: number, result: unknown): Frame {
   };
 }
 
+/** Builds an error response frame from a {@link JsonRpcError} for the wire protocol. */
 export function newErrorResponseFrame(
   id: number,
   err: Errors.JsonRpcError
@@ -387,6 +395,7 @@ export function newErrorResponseFrame(
   };
 }
 
+/** Extracts JSON-RPC method and params from an inbound request frame; returns {@link JsonRpcError} helpers on failure. */
 export function parseRequestFrame(frame: Frame): {
   id: number;
   method: string;
@@ -409,6 +418,7 @@ export function parseRequestFrame(frame: Frame): {
   }
 }
 
+/** Incrementally buffers stdin/socket chunks until a complete length-prefixed proto frame is available. */
 export class ProtoFrameReader {
   private buffer = Buffer.alloc(0);
 
@@ -437,6 +447,7 @@ export class ProtoFrameReader {
   }
 }
 
+/** Reads one complete proto frame from a stream (used when the caller owns the read loop). */
 export async function readProtoFrameFromStream(
   stream: NodeJS.ReadableStream,
   maxLen = DEFAULT_MAX_MESSAGE_BYTES

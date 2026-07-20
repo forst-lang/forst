@@ -16,11 +16,13 @@ type IfNode struct {
 	Init Node
 }
 
+// ElseIfNode represents one `else if` branch of an IfNode.
 type ElseIfNode struct {
 	Condition Node
 	Body      []Node
 }
 
+// ElseBlockNode represents the final `else` branch of an IfNode.
 type ElseBlockNode struct {
 	Body []Node
 }

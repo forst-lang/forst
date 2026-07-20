@@ -12,6 +12,9 @@ import (
 	
 )
 
+// WireProtocolProtoV1 is the protobuf-framed wire protocol version this Go
+// supervisor speaks; pickWireProtocol negotiates it against the versions the
+// Node host advertises before falling back to plain JSON framing.
 const WireProtocolProtoV1 = "forst-node-proto-v1"
 
 // WriteProtoFrame marshals a protobuf Frame with a 4-byte big-endian length prefix.

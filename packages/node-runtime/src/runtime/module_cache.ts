@@ -4,6 +4,10 @@ import type { URL } from "node:url";
 
 const moduleCache = new Map<string, Record<string, unknown>>();
 
+/**
+ * Imports a module by file URL with process-wide caching so repeated RPC calls
+ * reuse the same module instance and avoid redundant dynamic import work.
+ */
 export const importModule = Effect.fn("Runtime.importModule")(
   function* (fileUrl: URL) {
     const key = fileUrl.href;

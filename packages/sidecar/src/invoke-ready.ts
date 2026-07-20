@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+/**
+ * JSON written to `.forst/invoke.ready` when the dev server binds its invoke port;
+ * lets sidecar/client discover the HTTP base URL without hard-coding localhost.
+ */
 export interface InvokeReadyPayload {
   url?: string;
   contractVersion?: string;

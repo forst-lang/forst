@@ -90,6 +90,7 @@ function applyHostInitSnapshot(
   return { ok: true as const, protocol: snap.wireProtocol };
 }
 
+/** Fresh {@link RuntimeState} for one host process, before initialize has run. */
 export function createRuntimeState(): RuntimeState {
   return {
     initialized: false,
@@ -121,6 +122,11 @@ function pickWireProtocol(
   return "";
 }
 
+/**
+ * Handles the initialize RPC: validates protocol and manifest, reuses the
+ * process-wide initialize cache on dev reload, and rejects allowlist widening so
+ * the host cannot expand exports after the boundary was frozen.
+ */
 export const initializeRuntime = Effect.fn("Runtime.initialize")(
   function* (state: RuntimeState, params: InitializeParams) {
     if (state.initialized) {
@@ -225,6 +231,7 @@ export const initializeRuntime = Effect.fn("Runtime.initialize")(
   }
 );
 
+/** Returns the manifest index or throws {@link Errors.notInitialized} so call handlers fail fast instead of running policy checks on empty state. */
 export function assertInitialized(state: RuntimeState): ManifestIndex {
   if (!state.initialized || state.index === null) {
     throw Errors.notInitialized();
@@ -232,6 +239,7 @@ export function assertInitialized(state: RuntimeState): ManifestIndex {
   return state.index;
 }
 
+/** Marks the runtime as shutting down; the caller decides when to exit so in-flight RPCs can drain first. */
 export const shutdownRuntime = Effect.fn("Runtime.shutdown")(
   function* (state: RuntimeState) {
     state.shuttingDown = true;
@@ -242,6 +250,7 @@ export const shutdownRuntime = Effect.fn("Runtime.shutdown")(
   }
 );
 
+/** True once shutdown RPC was accepted, so the host loop can stop accepting work and exit cleanly. */
 export function shouldExitAfterShutdown(state: RuntimeState): boolean {
   return state.shuttingDown;
 }

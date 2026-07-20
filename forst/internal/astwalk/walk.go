@@ -99,6 +99,11 @@ func WalkNode(n ast.Node, v StmtVisitor) {
 	}
 }
 
+// WalkExprCall reports expr to v.OnCall when expr is itself a bare function
+// call (e.g. a call used as an expression statement rather than nested
+// inside another expression), then walks its arguments for further nested
+// calls. Unlike WalkExpr, callers that already hold a StmtVisitor's OnCall
+// can drive it directly without wrapping it in an ExprVisitor first.
 func WalkExprCall(expr ast.ExpressionNode, v StmtVisitor) {
 	if expr == nil {
 		return

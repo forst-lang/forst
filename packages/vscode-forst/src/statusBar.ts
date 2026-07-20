@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { LogOutputChannel } from "vscode";
 import { readForstConfig, resolveForstExecutable, getCachedCompilerPath } from "./config";
 
+/** Status kinds the Forst status bar item can display: connected/idle/error. */
 export type ForstLspStatusKind = "ready" | "idle" | "error";
 
 let item: vscode.StatusBarItem | undefined;

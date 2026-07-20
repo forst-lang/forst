@@ -8,6 +8,7 @@ import {
   type ForstInvokeClientConfig,
 } from "./invoke-client";
 
+/** Re-exported invoke/sidecar wiring options for {@link ForstClient} constructors. */
 export type ForstClientConfig = ForstInvokeClientConfig;
 
 export {

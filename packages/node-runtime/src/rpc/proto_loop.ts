@@ -16,6 +16,7 @@ import {
 } from "./frame.js";
 import type { JsonRpcId, JsonRpcRequest, JsonRpcResponse } from "./protocol.js";
 
+/** Re-exported default frame size limit for callers configuring {@link runProtoLoop}. */
 export { DEFAULT_MAX_MESSAGE_BYTES } from "./frame.js";
 
 /** Options for {@link runProtoLoop}. */
@@ -32,6 +33,7 @@ export interface ProtoLoopOptions {
   runtime?: ForstNodeRuntime;
 }
 
+/** Converts a decoded proto frame into a JSON-RPC request object for the dispatcher. */
 export function frameToJsonRpcRequest(frame: Frame): JsonRpcRequest {
   const parsed = parseRequestFrame(frame);
   return {
@@ -42,6 +44,7 @@ export function frameToJsonRpcRequest(frame: Frame): JsonRpcRequest {
   };
 }
 
+/** Encodes a JSON-RPC response back onto the length-prefixed proto stdout stream. */
 export function writeJsonRpcResponse(
   stdout: Writable,
   response: JsonRpcResponse,
@@ -58,6 +61,7 @@ export function writeJsonRpcResponse(
   }
 }
 
+/** Builds a JSON-RPC error response object (not yet written to the wire). */
 export function errorResponse(
   id: JsonRpcId,
   err: Errors.JsonRpcError
@@ -69,6 +73,7 @@ export function errorResponse(
   };
 }
 
+/** Builds a JSON-RPC success response object (not yet written to the wire). */
 export function successResponse(
   id: JsonRpcId,
   result: unknown

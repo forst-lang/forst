@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// EnvForstGOModRoot overrides ForstCompilerModuleRoot's auto-detection with
+// an explicit path, for CI/sandboxes where the compiler binary isn't
+// adjacent to its own Go module.
 const EnvForstGOModRoot = "FORST_GOMOD_ROOT"
 
 var (
@@ -122,12 +125,8 @@ func ModuleRootWithGoMod(start string) (string, error) {
 	}
 }
 
-// FindModuleRoot walks upward from start (file or directory) until a directory
-// containing go.mod is found. If none is found, it returns the directory that
-// contained start (the starting folder for a directory, or the file's parent).
-//
-// This is used as go/packages Config.Dir so Forst imports resolve against the
-// same module as the surrounding Go project (e.g. sidecar / monorepo roots).
+// forstGoModDir is the folder name of a Go-module shim Forst creates when the
+// user's project isn't itself a Go module (Node-primary projects).
 const forstGoModDir = ".forst-gomod"
 
 // ForstGoModDir is the subdirectory name for Node-primary Go module shims.
@@ -138,6 +137,12 @@ func IsForstGoModShim(moduleRoot string) bool {
 	return filepath.Base(filepath.Clean(moduleRoot)) == forstGoModDir
 }
 
+// FindModuleRoot walks upward from start (file or directory) until a directory
+// containing go.mod is found. If none is found, it returns the directory that
+// contained start (the starting folder for a directory, or the file's parent).
+//
+// This is used as go/packages Config.Dir so Forst imports resolve against the
+// same module as the surrounding Go project (e.g. sidecar / monorepo roots).
 func FindModuleRoot(start string) string {
 	startDir := start
 	if info, err := os.Stat(start); err == nil && !info.IsDir() {

@@ -10,6 +10,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+// EmitMode selects which Go artifacts EmitGo produces for a Plan: a bare
+// executor, an executor plus generated companions (invoke server, node
+// runtime), a lib shim for embedding, or a test wrapper.
 type EmitMode int
 
 const (

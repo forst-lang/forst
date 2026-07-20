@@ -18,6 +18,9 @@ type Root struct {
 	Boundary string
 }
 
+// NewRoot builds a Root anchored at the ftconfig boundary directory; every
+// generated-file path helper (.forst/run, .forst/exec, .forst/gen) is
+// derived from this one boundary.
 func NewRoot(boundary string) Root {
 	return Root{Boundary: filepath.Clean(boundary)}
 }
@@ -79,14 +82,20 @@ func (r Root) GoWork() string {
 	return filepath.Join(r.dotForst(), "go.work")
 }
 
+// SessionPaths are the generated file locations for one forst run/dev
+// runtime sandbox, as returned by Root.RunSession.
 type SessionPaths struct {
 	Dir, GoMod, HostMain, InvokeServer, NodeRuntime string
 }
 
+// ExecPaths are the generated file locations for one dev-executor temp
+// module, as returned by Root.ExecModule.
 type ExecPaths struct {
 	Dir, GoMod, Main, ExecGo string
 }
 
+// TestPaths are the generated file locations for one ephemeral forst test
+// run, as returned by Root.TestRun.
 type TestPaths struct {
 	RunDir, ModDir, GoMod, TestFile, LibDir string
 }

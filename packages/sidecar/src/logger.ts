@@ -14,8 +14,10 @@ const baseLogger = pino({
   },
 });
 
+/** Root pino logger for the sidecar package; level from `FORST_LOG_LEVEL`. */
 export const logger = baseLogger;
 
+/** Builds a scoped logger so spawn, transport, and RPC layers tag log lines consistently. */
 export function createLogger(scope: string) {
   return {
     info: (msg: string, ...args: any[]) =>
@@ -31,7 +33,14 @@ export function createLogger(scope: string) {
   };
 }
 
+/** Logs sidecar HTTP server lifecycle (listen, shutdown, health waits). */
 export const serverLogger = createLogger("server");
+
+/** Forwards stdout/stderr from the supervised `forst dev` child process. */
 export const forstLogger = createLogger("forst");
+
+/** Shared helpers used across sidecar modules (paths, config, misc). */
 export const utilsLogger = createLogger("utils");
+
+/** Sidecar-side messages when acting as the invoke client toward a dev server. */
 export const clientLogger = createLogger("client");

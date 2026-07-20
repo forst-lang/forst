@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// IndexVersionV1 is the schema version constant for forst-index-v1, stamped
+// into IndexV1.Version by the TypeScript indexer that produces these files.
 const IndexVersionV1 = 1
 
 // IndexV1 is the compile-time TypeScript module index (forst-index-v1).

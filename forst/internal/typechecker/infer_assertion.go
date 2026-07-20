@@ -9,6 +9,9 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
+// ConstraintMatch names the "Match" guard constraint whose sole argument is
+// a nested Shape, used by shape-pattern narrowing (`is` guards) to bind and
+// narrow a value against that shape rather than a plain named type guard.
 const ConstraintMatch = "Match"
 
 // isBuiltinAssertionConstraintName reports built-in value/refinement constraints that are not

@@ -20,6 +20,7 @@ import {
 } from "./resolve.js";
 import { buildCompilerModuleDownloadUrl } from "./urls.js";
 
+/** Cache directory holding the extracted Forst compiler Go module sources for one release version. */
 export function getCompilerModuleDirForVersion(
   version: string,
   options?: { env?: NodeJS.ProcessEnv; homedirFn?: () => string }
@@ -27,6 +28,7 @@ export function getCompilerModuleDirForVersion(
   return join(getCompilerCacheDirForVersion(version, options), "module");
 }
 
+/** Filename of the downloaded module tarball for a given compiler version. */
 export function getCompilerModuleArtifactName(version: string): string {
   return `forst-module-${version}.tar.gz`;
 }
@@ -45,6 +47,7 @@ async function extractModuleTarball(
   });
 }
 
+/** Options for ensureCompilerModuleForVersion; mirrors resolveForstBinary's fs/fetch/env injection points for testability. */
 export interface EnsureCompilerModuleOptions {
   version: string;
   env?: NodeJS.ProcessEnv;

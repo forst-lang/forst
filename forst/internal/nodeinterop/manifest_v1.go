@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// ManifestVersionV1 is the forst-node-manifest-v1 schema version; Validate
+// and ValidateEmbedded reject any manifest whose Version field doesn't
+// match.
 const ManifestVersionV1 = 1
 
 // Export kind constants for forst-node-manifest-v1.

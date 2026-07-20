@@ -14,8 +14,10 @@ const baseLogger = pino({
   },
 });
 
+/** Root pino logger for the client package; level from `FORST_LOG_LEVEL`. */
 export const logger = baseLogger;
 
+/** Builds a scoped logger so {@link ForstClient} and invoke paths share structured tags. */
 export function createLogger(scope: string) {
   return {
     info: (msg: string, ...args: any[]) =>
@@ -31,4 +33,5 @@ export function createLogger(scope: string) {
   };
 }
 
+/** Primary logger for user-facing client operations (invoke, cleanup, sidecar wiring). */
 export const clientLogger = createLogger("client");

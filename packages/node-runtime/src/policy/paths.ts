@@ -37,6 +37,7 @@ export function setFilesExcludePatterns(patterns: string[] | undefined): void {
   activeFilesExclude = envFilesExclude;
 }
 
+/** Returns active `files.exclude` glob patterns used to reject disallowed module ids. */
 export function getFilesExcludePatterns(): readonly string[] {
   return activeFilesExclude;
 }
@@ -179,6 +180,7 @@ export async function resolveModulePath(
   return realCandidate;
 }
 
+/** Converts a resolved on-disk module path to a `file://` URL for dynamic import. */
 export function modulePathToFileUrl(absPath: string): URL {
   return pathToFileURL(absPath);
 }

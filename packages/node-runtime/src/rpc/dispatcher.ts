@@ -187,4 +187,5 @@ export function createDispatcher(options: DispatcherOptions = {}): {
   return { dispatch, state };
 }
 
+/** Handle returned by {@link createDispatcher}: dispatch function plus shared runtime state. */
 export type Dispatcher = ReturnType<typeof createDispatcher>;
