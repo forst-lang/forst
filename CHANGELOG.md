@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3](https://github.com/forst-lang/forst/compare/v0.9.2...v0.9.3) (2026-07-20)
+
+
+### Bug Fixes
+
+* **compileplan:** append invoke shutdown in companions emit mode ([ba798c6](https://github.com/forst-lang/forst/commit/ba798c608eabf6f9b4b4cc24da8c9a6aaab7e890))
+* **reload:** restore coordinator state on drain cancel ([#152](https://github.com/forst-lang/forst/issues/152)) ([ba798c6](https://github.com/forst-lang/forst/commit/ba798c608eabf6f9b4b4cc24da8c9a6aaab7e890))
+
 ## [0.9.2](https://github.com/forst-lang/forst/compare/v0.9.1...v0.9.2) (2026-07-20)
 
 
