@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"forst/internal/ftconfig"
@@ -15,15 +14,15 @@ import (
 
 // HostProcessConfig configures parent-owned node host spawn (no RPC dial).
 type HostProcessConfig struct {
-	BoundaryRoot, WorkDir string
-	NodePath, Loader      string
-	ShimArgs              []string
-	SocketPath, ReadyPath string
-	HostAutoRegister      bool
-	HostAppReadyModule    string
+	BoundaryRoot, WorkDir  string
+	NodePath, Loader       string
+	ShimArgs               []string
+	SocketPath, ReadyPath  string
+	HostAutoRegister       bool
+	HostAppReadyModule     string
 	FilesExclude, ExtraEnv []string
-	ReadyTimeout          time.Duration
-	Log                   *logrus.Logger
+	ReadyTimeout           time.Duration
+	Log                    *logrus.Logger
 }
 
 // SpawnedHostProcess is a node host started by EnsureHostProcessRunning.
@@ -177,34 +176,6 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 	}()
 
 	return true, &SpawnedHostProcess{proc: managed}, nil
-}
-
-// TerminateHostPID sends SIGTERM then SIGKILL to an external node host pid.
-func TerminateHostPID(pid int, grace time.Duration) error {
-	if pid <= 0 {
-		return nil
-	}
-	if grace <= 0 {
-		grace = shutdownGracePeriod
-	}
-	_ = syscall.Kill(pid, syscall.SIGTERM)
-	deadline := time.Now().Add(grace)
-	for time.Now().Before(deadline) {
-		if err := syscall.Kill(pid, 0); err != nil {
-			return nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
-		return err
-	}
-	for i := 0; i < 40; i++ {
-		if err := syscall.Kill(pid, 0); err != nil {
-			return nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	return nil
 }
 
 func waitForHostMarkerReady(ctx context.Context, readyPath string) error {

@@ -196,12 +196,3 @@ func cleanupHostSocketFiles(socketPath, readyPath string) {
 		_ = os.Remove(readyPath)
 	}
 }
-
-// hostSessionAttrs puts the Node host in its own session so forst dev reload
-// (process-group stop on go run) does not kill Vite/Remix children.
-func hostSessionAttrs() *syscall.SysProcAttr {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	return &syscall.SysProcAttr{Setsid: true}
-}

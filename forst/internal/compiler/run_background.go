@@ -61,7 +61,7 @@ func BuildGoProgramInSandbox(mainGoPath, binPath, boundaryRoot string) error {
 // ExecBuiltProgram runs a prebuilt binary in the background (non-blocking).
 func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
 	cmd := exec.Command(binPath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = newProcessGroupAttrs()
 	cmd.Dir = filepath.Dir(binPath)
 	env := os.Environ()
 	if boundaryRoot != "" {
@@ -168,23 +168,13 @@ func signalProcessOnly(proc *os.Process, sig syscall.Signal) error {
 	return proc.Signal(sig)
 }
 
-func signalProcessGroup(proc *os.Process, sig syscall.Signal) error {
-	if proc == nil {
-		return nil
-	}
-	if err := syscall.Kill(-proc.Pid, sig); err != nil {
-		return proc.Signal(sig)
-	}
-	return nil
-}
-
 func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
 	dir, runSources, err := runGoSourceFiles(outputPath)
 	if err != nil {
 		return nil, err
 	}
 	cmd := exec.Command("go", append([]string{"run"}, runSources...)...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = newProcessGroupAttrs()
 	cmd.Dir = dir
 	env := os.Environ()
 	if boundaryRoot != "" {
