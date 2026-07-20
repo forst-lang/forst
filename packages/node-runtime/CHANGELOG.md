@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.2...node-runtime-v0.4.0) (2026-07-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **nodert:** move bootstrap Node interop to socket RPC ([#147](https://github.com/forst-lang/forst/issues/147))
+
+### Features
+
+* **nodert:** move bootstrap Node interop to socket RPC ([#147](https://github.com/forst-lang/forst/issues/147)) ([5071ed6](https://github.com/forst-lang/forst/commit/5071ed603f8be1bd305f30195b0620bae654a9d6))
+
 ## [0.3.2](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.1...node-runtime-v0.3.2) (2026-07-13)
 
 

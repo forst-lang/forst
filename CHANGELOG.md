@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/forst-lang/forst/compare/v0.8.3...v0.9.0) (2026-07-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **nodert:** move bootstrap Node interop to socket RPC ([#147](https://github.com/forst-lang/forst/issues/147))
+
+### Features
+
+* **nodert:** move bootstrap Node interop to socket RPC ([#147](https://github.com/forst-lang/forst/issues/147)) ([5071ed6](https://github.com/forst-lang/forst/commit/5071ed603f8be1bd305f30195b0620bae654a9d6))
+
 ## [0.8.3](https://github.com/forst-lang/forst/compare/v0.8.2...v0.8.3) (2026-07-18)
 
 
