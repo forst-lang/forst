@@ -316,3 +316,45 @@ func TestDedupeTypesPreservingOrder_table(t *testing.T) {
 		})
 	}
 }
+
+func TestJoinAfterIfMerge_collapsesWhenAllMembersAssignableToOuter(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	str := ast.TypeString
+	tc.registerType(ast.TypeDefNode{
+		Ident: "MyStr",
+		Expr: &ast.TypeDefAssertionExpr{
+			Assertion: &ast.AssertionNode{BaseType: &str},
+		},
+	})
+	outer := ast.TypeNode{Ident: ast.TypeIdent("MyStr")}
+	refined := []ast.TypeNode{
+		{Ident: ast.TypeString},
+		{Ident: ast.TypeIdent("MyStr")},
+	}
+	got := JoinAfterIfMerge(tc, outer, refined)
+	if got.Ident != outer.Ident {
+		t.Fatalf("JoinAfterIfMerge: got %s want %s", got.Ident, outer.Ident)
+	}
+}
+
+func TestJoinAfterIfMerge_keepsUnionWhenMemberNotAssignable(t *testing.T) {
+	t.Parallel()
+	tc := New(discardLogger(), false)
+	outer := ast.TypeNode{Ident: ast.TypeString}
+	refined := []ast.TypeNode{{Ident: ast.TypeInt}}
+	got := JoinAfterIfMerge(tc, outer, refined)
+	if got.Ident != ast.TypeUnion || len(got.TypeParams) != 2 {
+		t.Fatalf("JoinAfterIfMerge: got %+v", got)
+	}
+}
+
+func TestJoinAfterIfMerge_nilTcConservative(t *testing.T) {
+	t.Parallel()
+	outer := ast.TypeNode{Ident: ast.TypeString}
+	refined := []ast.TypeNode{{Ident: ast.TypeInt}}
+	got := JoinAfterIfMerge(nil, outer, refined)
+	if got.Ident != outer.Ident {
+		t.Fatalf("JoinAfterIfMerge(nil tc): got %s want %s", got.Ident, outer.Ident)
+	}
+}

@@ -124,3 +124,55 @@ func TestCallerForwardsSlots(t *testing.T) {
 		t.Fatal("caller should not forward missing slot")
 	}
 }
+
+func TestValidateModuleProviders_nilTcReturnsNil(t *testing.T) {
+	if err := ValidateModuleProviders("api", nil, nil, nil); err != nil {
+		t.Fatalf("ValidateModuleProviders(nil tc): %v", err)
+	}
+}
+
+func TestValidateModuleProviders_satisfiedCrossPackageOk(t *testing.T) {
+	tc := New(logrus.New(), false)
+	tc.providers = newProvidersEngine()
+	tc.importPathByLocal = map[string]string{"auth": "testmod/auth"}
+	tc.providers.CallEdges = []providersgraph.CallEdge{{
+		CallerFn:    "HandleRequest",
+		CalleeFn:    "LogEvent",
+		ImportLocal: "auth",
+		Scope:       map[string]ast.TypeNode{"Logger": {Ident: "Logger"}},
+	}}
+	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
+		},
+	}
+	importMap := map[string]string{"testmod/auth": "auth"}
+	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {
+		t.Fatalf("ValidateModuleProviders: %v", err)
+	}
+}
+
+func TestValidateModuleProviders_callerForwardsCrossPackage(t *testing.T) {
+	tc := New(logrus.New(), false)
+	tc.providers = newProvidersEngine()
+	tc.importPathByLocal = map[string]string{"auth": "testmod/auth"}
+	tc.providers.CallEdges = []providersgraph.CallEdge{{
+		CallerFn:    "HandleRequest",
+		CalleeFn:    "LogEvent",
+		ImportLocal: "auth",
+		Scope:       providersgraph.ProviderScopeSnapshot{},
+	}}
+	tc.FunctionProviders = map[ast.Identifier][]ProviderSlot{
+		"HandleRequest": {
+			{RootIdent: "Logger", Key: "Logger"},
+			{RootIdent: "Clock", Key: "Clock"},
+		},
+	}
+	perPkg := map[string]map[ast.Identifier][]ProviderSlot{
+		"auth": {"LogEvent": {{RootIdent: "Logger", Key: "Logger", ContractType: ast.TypeNode{Ident: "Logger"}}},
+		},
+	}
+	importMap := map[string]string{"testmod/auth": "auth"}
+	if err := ValidateModuleProviders("api", tc, importMap, perPkg); err != nil {
+		t.Fatalf("ValidateModuleProviders: %v", err)
+	}
+}
