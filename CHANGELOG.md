@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1](https://github.com/forst-lang/forst/compare/v0.9.0...v0.9.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **nodert:** honor `HostReadyTimeout` for bootstrap ready wait ([#149](https://github.com/forst-lang/forst/issues/149)) ([120c4c8](https://github.com/forst-lang/forst/commit/120c4c8e2e470c8d6ec16e881b117ac26f15fda0))
+
 ## [0.9.0](https://github.com/forst-lang/forst/compare/v0.8.3...v0.9.0) (2026-07-20)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/forst-lang/forst/compare/cli-v0.1.1...cli-v0.1.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* **nodert:** honor `HostReadyTimeout` for bootstrap ready wait ([#149](https://github.com/forst-lang/forst/issues/149)) ([120c4c8](https://github.com/forst-lang/forst/commit/120c4c8e2e470c8d6ec16e881b117ac26f15fda0))
+
 ## [0.1.1](https://github.com/forst-lang/forst/compare/cli-v0.1.0...cli-v0.1.1) (2026-07-13)
 
 

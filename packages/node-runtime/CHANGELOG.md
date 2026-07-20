@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/forst-lang/forst/compare/node-runtime-v0.4.0...node-runtime-v0.4.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **nodert:** honor `HostReadyTimeout` for bootstrap ready wait ([#149](https://github.com/forst-lang/forst/issues/149)) ([120c4c8](https://github.com/forst-lang/forst/commit/120c4c8e2e470c8d6ec16e881b117ac26f15fda0))
+
 ## [0.4.0](https://github.com/forst-lang/forst/compare/node-runtime-v0.3.2...node-runtime-v0.4.0) (2026-07-20)
 
 
