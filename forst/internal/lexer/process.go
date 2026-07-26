@@ -64,11 +64,11 @@ func processSpecialChar(line []byte, startCol int, fileID string, lineNum int) (
 	if isEllipsis(line, startCol) {
 		column = startCol + 3
 	} else {
-		column++
-		// Handle two-character operators
-		if column < len(line) && isTwoCharOperator(string(line[startCol:column+1])) {
-			column++
+		span := operatorSpan(line, startCol)
+		if span <= 0 {
+			span = 1
 		}
+		column = startCol + span
 	}
 	word := string(line[startCol:column])
 

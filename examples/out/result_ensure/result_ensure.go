@@ -1,6 +1,7 @@
 package main
 
 import errors "errors"
+import fmt "fmt"
 import os "os"
 // T_H4c2uQ34ZJV: TypeDefShapeExpr({})
 type T_H4c2uQ34ZJV struct {
@@ -9,7 +10,10 @@ type T_H4c2uQ34ZJV struct {
 func main() {
 	x, xErr := okInt()
 	if !(xErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", xErr)
+			os.Exit(1)
+		}
 	}
 	println(x)
 }

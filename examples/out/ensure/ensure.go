@@ -32,7 +32,10 @@ func main() {
 	if !(resultErr == nil) {
 		fmt.Printf("Conditions not met: %s", resultErr.Error())
 		fmt.Println()
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", resultErr)
+			os.Exit(1)
+		}
 	}
 	fmt.Printf("Conditions met (value %d), program exiting successfully", result)
 	fmt.Println()

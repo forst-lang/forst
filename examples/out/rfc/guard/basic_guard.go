@@ -1,5 +1,7 @@
 package main
 
+import errors "errors"
+import fmt "fmt"
 import os "os"
 // Password: TypeDefAssertionExpr(String)
 type Password string
@@ -20,7 +22,10 @@ func main() {
 	var password Password = "12345abc"
 	if !G_AAqSwpSKPZ9(password) {
 		println("Detected password as too weak, exiting...")
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", errors.New("ensure password is Password.Strong(): want Password.Strong()"))
+			os.Exit(1)
+		}
 	}
 	println("We have a strong password, continuing...")
 }

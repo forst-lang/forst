@@ -101,7 +101,8 @@ The language surface is organized around **structural types**, **explicit annota
 | `for` loops (infinite, condition-only, three-clause, `range`) | ✅ done | Covers the usual Go forms. **Gaps vs Go:** labeled `break`/`continue`, channel `range`, Go 1.22+ integer `range`. |
 | Postfix `++` / `--` | ✅ done | Increment/decrement as standalone statements and in `for` post clauses. |
 | Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`) | ✅ done | Parse, typecheck, emit, and **`forst fmt`** round-trip for **`+=`**, **`-=`**, etc. |
-| Shift / xor compound assignment (`^=`, `<<=`, `>>=`, `&^=`) | 📋 planned | Not lexed yet; needs `^`, `<<`, `>>`, `&^` tokens and three-character operator lexing. |
+| Shift / xor compound assignment (`^=`, `<<=`, `>>=`, `&^=`) | ✅ done | Parse, typecheck, emit, and **`forst fmt`** round-trip for bitwise shift/xor compound forms. |
+| Bitwise operators (^, <<, >>, &, \|, &^) | ✅ done | Go-faithful precedence; integer operands only. |
 | `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
 | `switch` / `case` / `default` / `fallthrough` | ✅ done | Tag and boolean **`switch`** statements work like Go, including **`fallthrough`**. Type switches (`switch v := x.(type)`) are not supported—use hand-written Go. |
 | `select` | 📋 planned | Not a Forst keyword yet; needs full statement support (see also channel row below). |

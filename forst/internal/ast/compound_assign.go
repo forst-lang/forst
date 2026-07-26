@@ -9,13 +9,17 @@ const (
 	TokenModuloEq     TokenIdent = "MODULO_EQ"      // %=
 	TokenBitwiseAndEq TokenIdent = "BITWISE_AND_EQ" // &=
 	TokenBitwiseOrEq  TokenIdent = "BITWISE_OR_EQ"  // |=
+	TokenXorEq        TokenIdent = "XOR_EQ"         // ^=
+	TokenLShiftEq     TokenIdent = "LSHIFT_EQ"      // <<=
+	TokenRShiftEq     TokenIdent = "RSHIFT_EQ"      // >>=
+	TokenAndNotEq     TokenIdent = "AND_NOT_EQ"     // &^=
 )
 
 // IsCompoundAssignToken reports whether t is a compound assignment operator token.
 func IsCompoundAssignToken(t TokenIdent) bool {
 	switch t {
 	case TokenPlusEq, TokenMinusEq, TokenStarEq, TokenDivideEq, TokenModuloEq,
-		TokenBitwiseAndEq, TokenBitwiseOrEq:
+		TokenBitwiseAndEq, TokenBitwiseOrEq, TokenXorEq, TokenLShiftEq, TokenRShiftEq, TokenAndNotEq:
 		return true
 	default:
 		return false
@@ -51,6 +55,14 @@ func CompoundAssignBinaryOp(t TokenIdent) (TokenIdent, bool) {
 		return TokenBitwiseAnd, true
 	case TokenBitwiseOrEq:
 		return TokenBitwiseOr, true
+	case TokenXorEq:
+		return TokenXor, true
+	case TokenLShiftEq:
+		return TokenLShift, true
+	case TokenRShiftEq:
+		return TokenRShift, true
+	case TokenAndNotEq:
+		return TokenAndNot, true
 	default:
 		return "", false
 	}
@@ -73,6 +85,14 @@ func CompoundAssignOperatorString(t TokenIdent) string {
 		return "&="
 	case TokenBitwiseOrEq:
 		return "|="
+	case TokenXorEq:
+		return "^="
+	case TokenLShiftEq:
+		return "<<="
+	case TokenRShiftEq:
+		return ">>="
+	case TokenAndNotEq:
+		return "&^="
 	default:
 		return string(t)
 	}

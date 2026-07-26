@@ -18,7 +18,10 @@ func main() {
 		return v, nil
 	}()
 	if !(availErr == nil) {
-		os.Exit(1)
+		{
+			fmt.Fprintf(os.Stderr, "ensure failed: %v\n", availErr)
+			os.Exit(1)
+		}
 	}
 	fmt.Println(strconv.Itoa(avail))
 	fmt.Println("ok")

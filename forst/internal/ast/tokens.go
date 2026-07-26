@@ -127,6 +127,14 @@ const (
 	TokenBitwiseAnd TokenIdent = "BITWISE_AND" // &
 	// TokenBitwiseOr is the token for bitwise or operator
 	TokenBitwiseOr TokenIdent = "BITWISE_OR" // |
+	// TokenXor is the token for bitwise xor operator
+	TokenXor TokenIdent = "XOR" // ^
+	// TokenLShift is the token for left shift operator
+	TokenLShift TokenIdent = "LSHIFT" // <<
+	// TokenRShift is the token for right shift operator
+	TokenRShift TokenIdent = "RSHIFT" // >>
+	// TokenAndNot is the token for bitwise and-not operator
+	TokenAndNot TokenIdent = "AND_NOT" // &^
 
 	// TokenComment is the token for comments
 	TokenComment TokenIdent = "COMMENT" // //
@@ -191,7 +199,10 @@ func (t TokenIdent) IsBinaryOperator() bool {
 		t == TokenNotEquals || t == TokenGreater ||
 		t == TokenLess || t == TokenGreaterEqual ||
 		t == TokenLessEqual || t == TokenLogicalAnd ||
-		t == TokenLogicalOr || t == TokenIs
+		t == TokenLogicalOr || t == TokenIs ||
+		t == TokenBitwiseAnd || t == TokenBitwiseOr ||
+		t == TokenXor || t == TokenLShift || t == TokenRShift ||
+		t == TokenAndNot
 }
 
 // IsUnaryOperator returns true if the token is a unary operator
@@ -219,12 +230,27 @@ func (t TokenIdent) IsLogicalBinaryOperator() bool {
 	return t == TokenLogicalAnd || t == TokenLogicalOr
 }
 
+// IsBitwiseBinaryOperator returns true if the token is a bitwise binary operator
+func (t TokenIdent) IsBitwiseBinaryOperator() bool {
+	return t == TokenBitwiseAnd || t == TokenBitwiseOr ||
+		t == TokenXor || t == TokenLShift || t == TokenRShift ||
+		t == TokenAndNot
+}
+
 func (t TokenIdent) String() string {
 	switch t {
 	case TokenBitwiseAnd:
 		return "&"
 	case TokenBitwiseOr:
 		return "|"
+	case TokenXor:
+		return "^"
+	case TokenLShift:
+		return "<<"
+	case TokenRShift:
+		return ">>"
+	case TokenAndNot:
+		return "&^"
 	case TokenLogicalAnd:
 		return "&&"
 	case TokenLogicalOr:

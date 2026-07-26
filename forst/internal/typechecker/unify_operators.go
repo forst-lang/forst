@@ -89,9 +89,22 @@ func (tc *TypeChecker) unifyTypes(left ast.Node, right ast.Node, operator ast.To
 		return tc.unifyComparisonOperator(leftType, rightType)
 	} else if operator.IsLogicalBinaryOperator() {
 		return tc.unifyLogicalOperator(leftType, rightType)
+	} else if operator.IsBitwiseBinaryOperator() {
+		return tc.unifyBitwiseOperator(leftType, rightType)
 	}
 
 	panic(typecheckError("unsupported operator"))
+}
+
+// unifyBitwiseOperator handles type unification for bitwise operators (Go integer ops).
+func (tc *TypeChecker) unifyBitwiseOperator(leftType, rightType ast.TypeNode) (ast.TypeNode, error) {
+	leftType = tc.normalizeAliasForArithmetic(leftType)
+	rightType = tc.normalizeAliasForArithmetic(rightType)
+	if leftType.Ident != ast.TypeInt || rightType.Ident != ast.TypeInt {
+		return ast.TypeNode{}, fmt.Errorf("bitwise operator requires Int operands, got %s and %s",
+			leftType.Ident, rightType.Ident)
+	}
+	return ast.TypeNode{Ident: ast.TypeInt}, nil
 }
 
 // unifyArithmeticOperator handles type unification for arithmetic operators

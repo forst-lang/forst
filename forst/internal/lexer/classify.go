@@ -11,14 +11,34 @@ func isSpecialChar(c byte) bool {
 	return c == '(' || c == ')' || c == '{' || c == '}' || c == ':' || c == ',' ||
 		c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' ||
 		c == '!' || c == '>' || c == '<' || c == '&' || c == '|' || c == '.' ||
-		c == '[' || c == ']' || c == ';'
+		c == '[' || c == ']' || c == ';' || c == '^'
+}
+
+// operatorSpan returns the byte length of the operator starting at line[start].
+func operatorSpan(line []byte, start int) int {
+	if start >= len(line) {
+		return 0
+	}
+	if start+2 < len(line) {
+		switch string(line[start : start+3]) {
+		case "<<=", ">>=", "&^=":
+			return 3
+		}
+	}
+	if start+1 < len(line) {
+		switch string(line[start : start+2]) {
+		case "->", "==", "!=", ">=", "<=", "&&", "||", ":=", "//",
+			"++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=",
+			"<<", ">>", "&^", "^=":
+			return 2
+		}
+	}
+	return 1
 }
 
 // isTwoCharOperator checks if a string is a two-character operator
 func isTwoCharOperator(s string) bool {
-	return s == "->" || s == "==" || s == "!=" || s == ">=" || s == "<=" || s == "&&" || s == "||" || s == ":=" || s == "//" ||
-		s == "++" || s == "--" ||
-		s == "+=" || s == "-=" || s == "*=" || s == "/=" || s == "%=" || s == "&=" || s == "|="
+	return len(s) == 2 && operatorSpan([]byte(s), 0) == 2
 }
 
 // isEllipsis checks for Go-style variadic spread token.

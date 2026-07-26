@@ -19,6 +19,10 @@ func TestCompoundAssignGoToken(t *testing.T) {
 		{ast.TokenModuloEq, token.REM_ASSIGN},
 		{ast.TokenBitwiseAndEq, token.AND_ASSIGN},
 		{ast.TokenBitwiseOrEq, token.OR_ASSIGN},
+		{ast.TokenXorEq, token.XOR_ASSIGN},
+		{ast.TokenLShiftEq, token.SHL_ASSIGN},
+		{ast.TokenRShiftEq, token.SHR_ASSIGN},
+		{ast.TokenAndNotEq, token.AND_NOT_ASSIGN},
 	}
 	for _, tc := range cases {
 		got, ok := compoundAssignGoToken(tc.op)

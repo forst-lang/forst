@@ -78,6 +78,18 @@ func (t *Transformer) transformOperator(op ast.TokenIdent) (token.Token, error) 
 		return token.LOR, nil
 	case ast.TokenLogicalNot:
 		return token.NOT, nil
+	case ast.TokenBitwiseAnd:
+		return token.AND, nil
+	case ast.TokenBitwiseOr:
+		return token.OR, nil
+	case ast.TokenXor:
+		return token.XOR, nil
+	case ast.TokenLShift:
+		return token.SHL, nil
+	case ast.TokenRShift:
+		return token.SHR, nil
+	case ast.TokenAndNot:
+		return token.AND_NOT, nil
 	}
 
 	return 0, fmt.Errorf("unsupported operator: %s", op)

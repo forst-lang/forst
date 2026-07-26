@@ -53,7 +53,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 					return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", expectedType.Ident)
 				}
 			} else {
-				retType, err := tc.inferExpressionType(value)
+				retType, err := tc.inferReturnValueTypes(value)
 				if err != nil {
 					return nil, err
 				}
@@ -106,7 +106,7 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	// If last statement is an expression, its type is the return type
 	if expr, ok := lastStmt.(ast.ExpressionNode); ok {
-		exprTypes, err := tc.inferExpressionType(expr)
+		exprTypes, err := tc.inferReturnValueTypes(expr)
 		if err != nil {
 			return nil, err
 		}
@@ -184,6 +184,17 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 	}
 
 	return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return type")
+}
+
+// inferReturnValueTypes returns types for a return expression, preferring types inferred
+// during the body pass (while lexical scopes for loops, if branches, etc. were active).
+func (tc *TypeChecker) inferReturnValueTypes(value ast.ExpressionNode) ([]ast.TypeNode, error) {
+	if cached, err := tc.LookupInferredType(value, false); err != nil {
+		return nil, err
+	} else if cached != nil {
+		return cached, nil
+	}
+	return tc.inferExpressionType(value)
 }
 
 // functionEnsureImpliesResultReturn reports whether ensure statements in fn should promote the

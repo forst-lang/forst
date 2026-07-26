@@ -48,6 +48,10 @@ func TestCompoundAssignBinaryOp_allOperators(t *testing.T) {
 		{TokenModuloEq, TokenModulo},
 		{TokenBitwiseAndEq, TokenBitwiseAnd},
 		{TokenBitwiseOrEq, TokenBitwiseOr},
+		{TokenXorEq, TokenXor},
+		{TokenLShiftEq, TokenLShift},
+		{TokenRShiftEq, TokenRShift},
+		{TokenAndNotEq, TokenAndNot},
 	}
 	for _, tc := range cases {
 		op, ok := CompoundAssignBinaryOp(tc.compound)
@@ -70,6 +74,10 @@ func TestCompoundAssignOperatorString_allSpellings(t *testing.T) {
 		TokenModuloEq:     "%=",
 		TokenBitwiseAndEq: "&=",
 		TokenBitwiseOrEq:  "|=",
+		TokenXorEq:        "^=",
+		TokenLShiftEq:     "<<=",
+		TokenRShiftEq:     ">>=",
+		TokenAndNotEq:     "&^=",
 	}
 	for tok, want := range cases {
 		if got := CompoundAssignOperatorString(tok); got != want {

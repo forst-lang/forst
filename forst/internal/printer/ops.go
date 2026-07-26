@@ -40,6 +40,14 @@ func tokenBinary(op ast.TokenIdent) string {
 		return "&"
 	case ast.TokenBitwiseOr:
 		return "|"
+	case ast.TokenXor:
+		return "^"
+	case ast.TokenLShift:
+		return "<<"
+	case ast.TokenRShift:
+		return ">>"
+	case ast.TokenAndNot:
+		return "&^"
 	default:
 		return string(op)
 	}

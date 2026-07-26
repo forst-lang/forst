@@ -40,9 +40,10 @@ func binaryPrecedence(op ast.TokenIdent) int {
 	case ast.TokenEquals, ast.TokenNotEquals, ast.TokenGreater, ast.TokenLess,
 		ast.TokenGreaterEqual, ast.TokenLessEqual, ast.TokenIs:
 		return 30
-	case ast.TokenPlus, ast.TokenMinus:
+	case ast.TokenPlus, ast.TokenMinus, ast.TokenBitwiseOr, ast.TokenXor:
 		return 40
-	case ast.TokenStar, ast.TokenDivide, ast.TokenModulo:
+	case ast.TokenStar, ast.TokenDivide, ast.TokenModulo,
+		ast.TokenLShift, ast.TokenRShift, ast.TokenBitwiseAnd, ast.TokenAndNot:
 		return 50
 	default:
 		return 0

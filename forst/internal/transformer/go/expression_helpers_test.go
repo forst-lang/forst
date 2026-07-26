@@ -72,6 +72,12 @@ func TestTransformOperator_mappingAndError(t *testing.T) {
 		{ast.TokenLogicalAnd, token.LAND},
 		{ast.TokenLogicalOr, token.LOR},
 		{ast.TokenLogicalNot, token.NOT},
+		{ast.TokenBitwiseAnd, token.AND},
+		{ast.TokenBitwiseOr, token.OR},
+		{ast.TokenXor, token.XOR},
+		{ast.TokenLShift, token.SHL},
+		{ast.TokenRShift, token.SHR},
+		{ast.TokenAndNot, token.AND_NOT},
 	}
 	for _, tt := range tests {
 		got, err := tr.transformOperator(tt.op)

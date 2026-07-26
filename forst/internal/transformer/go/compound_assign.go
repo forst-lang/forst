@@ -23,6 +23,14 @@ func compoundAssignGoToken(op ast.TokenIdent) (token.Token, bool) {
 		return token.AND_ASSIGN, true
 	case ast.TokenBitwiseOrEq:
 		return token.OR_ASSIGN, true
+	case ast.TokenXorEq:
+		return token.XOR_ASSIGN, true
+	case ast.TokenLShiftEq:
+		return token.SHL_ASSIGN, true
+	case ast.TokenRShiftEq:
+		return token.SHR_ASSIGN, true
+	case ast.TokenAndNotEq:
+		return token.AND_NOT_ASSIGN, true
 	default:
 		return 0, false
 	}
