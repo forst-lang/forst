@@ -85,16 +85,27 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		returnStmtTypes = append(returnStmtTypes, retTypes)
 	}
 
-	// If we found return statements, verify they all have the same type
+	// If we found return statements, verify they all have the same type (or valid Result arms).
 	if len(returnStmtTypes) > 1 {
-		firstType := returnStmtTypes[0]
-		for _, retTypes := range returnStmtTypes[1:] {
-			for i, retType := range retTypes {
-				if i >= len(firstType) {
-					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
+		if len(parsedType) == 1 && parsedType[0].IsResultType() {
+			for _, retTypes := range returnStmtTypes {
+				if len(retTypes) != 1 {
+					return nil, fmt.Errorf("Result-returning function expects single-value returns, got %d values", len(retTypes))
 				}
-				if !tc.IsTypeCompatible(retType, firstType[i]) {
-					return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
+				if !tc.isCompatibleResultReturnArm(retTypes[0], parsedType[0]) {
+					return nil, failWithTypeMismatch(fn, retTypes, parsedType, "Inconsistent type of return statements")
+				}
+			}
+		} else {
+			firstType := returnStmtTypes[0]
+			for _, retTypes := range returnStmtTypes[1:] {
+				for i, retType := range retTypes {
+					if i >= len(firstType) {
+						return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
+					}
+					if !tc.IsTypeCompatible(retType, firstType[i]) {
+						return nil, failWithTypeMismatch(fn, inferredType, firstType, "Inconsistent type of return statements")
+					}
 				}
 			}
 		}
@@ -128,9 +139,13 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		return ensureMatching(tc, fn, inferredType, parsedType, "Invalid return expression type")
 	}
 
-	// If we found return statements, use the first return type
+	// If we found return statements, use the first return type (or declared Result when arms differ).
 	if len(returnStmtTypes) > 0 {
-		inferredType = returnStmtTypes[0]
+		if len(parsedType) == 1 && parsedType[0].IsResultType() && len(returnStmtTypes) > 1 {
+			inferredType = parsedType
+		} else {
+			inferredType = returnStmtTypes[0]
+		}
 	}
 
 	// Multi-value return against a declared Tuple(S...) return type: keep Tuple as the single return type.

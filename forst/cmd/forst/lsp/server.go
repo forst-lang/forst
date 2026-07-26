@@ -371,6 +371,9 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 	}
 	diags := lspDiagnosticsFromTypecheckerWarnings(fileURIForLocalPath(filePath), ctx.TC)
 	diags = append(diags, s.transformDiagnostics(ctx, filePath)...)
+	if diags == nil {
+		return []LSPDiagnostic{}
+	}
 	return diags
 }
 
@@ -399,6 +402,9 @@ func (s *LSPServer) compileForstFilePackageGroup(uri, filePath, content string) 
 		d := diagnosticForTypecheckOrTransform(fileURIForLocalPath(filePath), content, err, "forst-transformer", ErrorCodeTransformationFailed)
 		d.Message = fmt.Sprintf("Transformation error: %v", err)
 		return append(diags, d)
+	}
+	if diags == nil {
+		return []LSPDiagnostic{}
 	}
 	return diags
 }

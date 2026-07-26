@@ -67,6 +67,16 @@ func (tc *TypeChecker) isPlainFailureCompatibleWithDeclaredResult(actual ast.Typ
 	return tc.IsTypeCompatible(actual, fail)
 }
 
+// isCompatibleResultReturnArm reports whether actual is a valid constructor-free Result return
+// (plain success S, plain failure F, or a full Result value) for declared Result(S,F).
+func (tc *TypeChecker) isCompatibleResultReturnArm(actual ast.TypeNode, declaredResult ast.TypeNode) bool {
+	if actual.IsResultType() {
+		return tc.IsTypeCompatible(actual, declaredResult)
+	}
+	return tc.isPlainSuccessCompatibleWithDeclaredResult(actual, declaredResult) ||
+		tc.isPlainFailureCompatibleWithDeclaredResult(actual, declaredResult)
+}
+
 // Ensures that the first type matches the expected type, otherwise returns an error
 func ensureMatching(tc *TypeChecker, fn ast.FunctionNode, actual []ast.TypeNode, expected []ast.TypeNode, prefix string) ([]ast.TypeNode, error) {
 	if len(expected) == 0 {

@@ -45,11 +45,13 @@ func (tc *TypeChecker) storeInferredType(node ast.Node, types []ast.TypeNode) {
 
 // storeInferredFunctionReturnType stores the return types for a function in its signature.
 func (tc *TypeChecker) storeInferredFunctionReturnType(fn *ast.FunctionNode, returnTypes []ast.TypeNode) {
-	// Constructor-free Result returns: the body infers plain S but the function type stays Result(S,F).
+	// Constructor-free Result returns: the body infers plain S or F but the function type stays Result(S,F).
 	if len(fn.ReturnTypes) == 1 && len(returnTypes) == 1 &&
-		fn.ReturnTypes[0].IsResultType() && !returnTypes[0].IsResultType() &&
-		tc.isPlainSuccessCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) {
-		returnTypes = []ast.TypeNode{fn.ReturnTypes[0]}
+		fn.ReturnTypes[0].IsResultType() && !returnTypes[0].IsResultType() {
+		if tc.isPlainSuccessCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) ||
+			tc.isPlainFailureCompatibleWithDeclaredResult(returnTypes[0], fn.ReturnTypes[0]) {
+			returnTypes = []ast.TypeNode{fn.ReturnTypes[0]}
+		}
 	}
 	// Resolve aliased types for return types
 	resolvedReturnTypes := make([]ast.TypeNode, len(returnTypes))

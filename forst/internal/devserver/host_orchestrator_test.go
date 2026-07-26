@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -107,40 +108,38 @@ func TestHostOrchestrator_shutdownTerminatesSpawnedHost(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	readyPath := filepath.Join(dir, ".forst", "node.sock.ready")
+	_, readyPath, err := nodert.ResolveHostSocketPath(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	done := make(chan struct{})
-	go func() {
-		cmd := exec.Command("sleep", "60")
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-		if err := cmd.Start(); err != nil {
-			close(done)
-			return
-		}
-		payload, _ := json.Marshal(map[string]any{
-			"pid":    cmd.Process.Pid,
-			"socket": filepath.Join(dir, ".forst", "node.sock"),
-			"phase":  "app",
-		})
-		_ = os.WriteFile(readyPath, payload, 0o644)
-		_ = cmd.Wait()
-		close(done)
-	}()
-
-	deadline := time.Now().Add(2 * time.Second)
-	var pid int
-	for time.Now().Before(deadline) {
-		pid = nodert.ReadHostMarkerPID(dir)
-		if pid > 0 {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
+	cmd := exec.Command("sleep", "60")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = cmd.Process.Kill() })
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	payload, err := json.Marshal(map[string]any{
+		"pid":    cmd.Process.Pid,
+		"socket": strings.TrimSuffix(readyPath, ".ready"),
+		"phase":  "app",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(readyPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pid := nodert.ReadHostMarkerPID(dir)
 	if pid <= 0 {
-		t.Fatal("marker pid not ready")
+		t.Fatalf("marker pid not ready (sleep pid=%d)", cmd.Process.Pid)
 	}
 
 	cfg, err := loadHostModeConfig(dir)
@@ -154,14 +153,14 @@ func TestHostOrchestrator_shutdownTerminatesSpawnedHost(t *testing.T) {
 	if err := orch.Shutdown(); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		t.Fatal(err)
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected wait error after orchestrator shutdown")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("pid=%d still running after orchestrator shutdown", pid)
 	}
-	if err := proc.Signal(syscall.Signal(0)); err == nil {
-		t.Fatalf("pid=%d should be terminated after orchestrator shutdown", pid)
-	}
-	<-done
 }
 
 func loadHostModeConfig(root string) (*ftconfig.Config, error) {
