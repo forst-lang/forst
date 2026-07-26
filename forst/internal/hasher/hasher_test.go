@@ -859,3 +859,33 @@ func TestHashNode_fieldAccess_stable(t *testing.T) {
 		t.Fatalf("same field access hashes differ: %v vs %v", h1, h2)
 	}
 }
+
+func TestHashNode_sliceTypeUnaffectedByNilArrayLen(t *testing.T) {
+	t.Parallel()
+	h := New()
+	slice := ast.NewArrayType(ast.NewBuiltinType(ast.TypeInt))
+	hashSlice, err := h.HashNode(slice)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixed := ast.NewFixedArrayType(ast.NewBuiltinType(ast.TypeInt), 3)
+	hashFixed, err := h.HashNode(fixed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashSlice == hashFixed {
+		t.Fatal("fixed array hash should differ from slice")
+	}
+	sliceCopy := ast.TypeNode{
+		Ident:      ast.TypeArray,
+		TypeParams: []ast.TypeNode{ast.NewBuiltinType(ast.TypeInt)},
+		TypeKind:   ast.TypeKindBuiltin,
+	}
+	hashSliceCopy, err := h.HashNode(sliceCopy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashSlice != hashSliceCopy {
+		t.Fatalf("nil ArrayLen slice hashes differ: %v vs %v", hashSlice, hashSliceCopy)
+	}
+}

@@ -1157,8 +1157,8 @@ func TestGoTypeToForstType_byteSliceMapsToArrayInt(t *testing.T) {
 	if !ok {
 		t.Fatal("expected []byte mapping")
 	}
-	if got.Ident != ast.TypeArray || len(got.TypeParams) != 1 || got.TypeParams[0].Ident != ast.TypeInt {
-		t.Fatalf("want Array(Int), got %#v", got)
+	if got.Ident != ast.TypeArray || len(got.TypeParams) != 1 || got.TypeParams[0].Ident != ast.TypeIdent("byte") {
+		t.Fatalf("want Array(byte), got %#v", got)
 	}
 }
 

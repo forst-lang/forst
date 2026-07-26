@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 )
 
 // NodeHash is a unique identifier for an AST node
@@ -588,9 +589,11 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		}
 	case ast.TypeNode:
 		if n.Ident != "" {
-			// For named types, hash only the identifier
 			w.h.writeHashes(hasher, NodeKind["Type"])
 			w.h.writeHashes(hasher, []byte(n.Ident))
+			if n.Ident == ast.TypeArray && n.ArrayLen != nil {
+				w.h.writeHashes(hasher, []byte(strconv.FormatInt(*n.ArrayLen, 10)))
+			}
 			break
 		}
 		w.h.writeHashes(hasher, NodeKind["Type"])

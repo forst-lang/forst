@@ -115,8 +115,18 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 
 	if !nValueGo {
 		resolvedTypes = make([][]ast.TypeNode, 0, len(assign.RValues))
-		for _, rvalue := range assign.RValues {
-			types, err := tc.inferExpressionType(rvalue)
+		for i, rvalue := range assign.RValues {
+			var expected *ast.TypeNode
+			if len(assign.ExplicitTypes) > i && assign.ExplicitTypes[i] != nil {
+				expected = assign.ExplicitTypes[i]
+			}
+			var types []ast.TypeNode
+			var err error
+			if expected != nil {
+				types, err = tc.inferExpressionTypeWithExpected(rvalue, expected)
+			} else {
+				types, err = tc.inferExpressionType(rvalue)
+			}
 			if err != nil {
 				return err
 			}

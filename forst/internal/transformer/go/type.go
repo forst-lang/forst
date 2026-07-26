@@ -2,9 +2,12 @@ package transformergo
 
 import (
 	"fmt"
+	"strconv"
+
 	"forst/internal/ast"
 	"forst/internal/typechecker"
 	goast "go/ast"
+	"go/token"
 )
 
 func (t *Transformer) transformForstSiblingQualifiedType(typeIdent ast.TypeIdent) (goast.Expr, bool) {
@@ -65,7 +68,11 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &goast.ArrayType{Elt: elt}, nil
+		arr := &goast.ArrayType{Elt: elt}
+		if n.ArrayLen != nil {
+			arr.Len = &goast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(*n.ArrayLen, 10)}
+		}
+		return arr, nil
 	case ast.TypeMap:
 		if len(n.TypeParams) < 2 {
 			return nil, fmt.Errorf("map type must have key and value type parameters")

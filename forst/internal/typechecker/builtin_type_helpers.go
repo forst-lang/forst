@@ -63,14 +63,20 @@ func capOperandAllowed(t ast.TypeNode) bool {
 	}
 }
 
-// clearOperandAllowed: Go 1.21+ clear on map or slice.
+// clearOperandAllowed: Go 1.21+ clear on map or slice (not fixed arrays).
 func clearOperandAllowed(t ast.TypeNode) bool {
-	return t.Ident == ast.TypeMap || t.Ident == ast.TypeArray
+	if t.Ident == ast.TypeMap {
+		return true
+	}
+	return t.Ident == ast.TypeArray && t.ArrayLen == nil
 }
 
 // builtinTypesIdenticalOrdered checks structural identity for min/max (same ordered type).
 func builtinTypesIdenticalOrdered(a, b ast.TypeNode) bool {
 	if a.Ident != b.Ident {
+		return false
+	}
+	if a.Ident == ast.TypeArray && !arrayLengthsCompatible(a, b) {
 		return false
 	}
 	if len(a.TypeParams) != len(b.TypeParams) {

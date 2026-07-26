@@ -427,11 +427,25 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 				expectedType = s.ExplicitTypes[0]
 			}
 
+			vn, vok := s.LValues[0].(ast.VariableNode)
+			if !vok {
+				return nil, fmt.Errorf("assignment: explicit type requires a simple variable on the left")
+			}
+			if len(s.RValues) == 0 {
+				return &goast.DeclStmt{
+					Decl: &goast.GenDecl{
+						Tok: token.VAR,
+						Specs: []goast.Spec{
+							&goast.ValueSpec{
+								Names: []*goast.Ident{goast.NewIdent(vn.Ident.String())},
+								Type:  typeExpr,
+							},
+						},
+					},
+				}, nil
+			}
+
 			if shapeRHS, ok := s.RValues[0].(ast.ShapeNode); ok {
-				vn, vok := s.LValues[0].(ast.VariableNode)
-				if !vok {
-					return nil, fmt.Errorf("assignment: explicit type requires a simple variable on the left")
-				}
 				// Use the unified helper to determine the expected type
 				context := &ShapeContext{
 					ExpectedType: expectedType,
@@ -459,16 +473,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			if err != nil {
 				return nil, err
 			}
-			vn2, ok := s.LValues[0].(ast.VariableNode)
-			if !ok {
-				return nil, fmt.Errorf("assignment: explicit type requires a simple variable on the left")
-			}
 			return &goast.DeclStmt{
 				Decl: &goast.GenDecl{
 					Tok: token.VAR,
 					Specs: []goast.Spec{
 						&goast.ValueSpec{
-							Names:  []*goast.Ident{goast.NewIdent(vn2.Ident.String())},
+							Names:  []*goast.Ident{goast.NewIdent(vn.Ident.String())},
 							Type:   typeExpr,
 							Values: []goast.Expr{rhs},
 						},

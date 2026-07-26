@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strconv"
+
 	"forst/internal/ast"
 )
 
@@ -56,11 +58,20 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		p.advance()
 		return ast.NewBuiltinType(ast.TypeVoid)
 	case ast.TokenLBracket:
-		// Parse slice type
-		p.advance()                 // consume [
-		p.expect(ast.TokenRBracket) // expect ]
+		p.advance() // consume [
+		if p.current().Type == ast.TokenRBracket {
+			p.advance() // consume ]
+			elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
+			return ast.NewArrayType(elementType)
+		}
+		lenTok := p.expect(ast.TokenIntLiteral)
+		length, err := strconv.ParseInt(lenTok.Value, 10, 64)
+		if err != nil || length < 0 {
+			p.FailWithParseError(lenTok, "fixed array length must be a non-negative integer literal")
+		}
+		p.expect(ast.TokenRBracket)
 		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-		return ast.NewArrayType(elementType)
+		return ast.NewFixedArrayType(elementType, length)
 	case ast.TokenMap:
 		// Parse map type
 		p.advance()                 // consume map

@@ -174,6 +174,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		if indexTypes[0].Ident != ast.TypeInt {
 			return nil, fmt.Errorf("index expression: slice/array index must be Int, got %s", indexTypes[0].Ident)
 		}
+		if err := checkFixedArrayIndexBounds(t, e.Index); err != nil {
+			return nil, err
+		}
 		elem := t.TypeParams[0]
 		tc.storeInferredType(e, []ast.TypeNode{elem})
 		return []ast.TypeNode{elem}, nil
@@ -803,8 +806,16 @@ func (tc *TypeChecker) inferExpressionTypeWithExpected(expr ast.Node, expected *
 		case ast.ArrayLiteralNode:
 			if len(x.Value) == 0 && expected.Ident == ast.TypeArray && len(expected.TypeParams) == 1 {
 				arr := ast.TypeNode{Ident: ast.TypeArray, TypeParams: []ast.TypeNode{expected.TypeParams[0]}}
+				if expected.ArrayLen != nil {
+					arr.ArrayLen = expected.ArrayLen
+				}
 				tc.storeInferredType(expr, []ast.TypeNode{arr})
 				return []ast.TypeNode{arr}, nil
+			}
+			if expected.IsFixedArray() && len(expected.TypeParams) == 1 {
+				if err := checkFixedArrayLiteralLength(*expected, len(x.Value)); err != nil {
+					return nil, err
+				}
 			}
 			return tc.inferExpressionType(x)
 		case ast.IndexExpressionNode:

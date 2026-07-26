@@ -83,6 +83,8 @@ type TypeNode struct {
 	Assertion  *AssertionNode
 	TypeParams []TypeNode // Generic type parameters
 	TypeKind   TypeKind
+	// ArrayLen, when non-nil, is the fixed length N for [N]T; nil means slice []T.
+	ArrayLen *int64
 }
 
 // IsExplicit returns true if the type has been specified explicitly
@@ -124,6 +126,9 @@ func (t TypeNode) String() string {
 	case TypeObject:
 		return t.Ident.String()
 	case TypeArray:
+		if t.ArrayLen != nil && len(t.TypeParams) > 0 {
+			return fmt.Sprintf("[%d]%s", *t.ArrayLen, t.TypeParams[0].String())
+		}
 		if len(t.TypeParams) > 0 {
 			return fmt.Sprintf("Array(%s)", t.TypeParams[0].String())
 		}
@@ -296,13 +301,34 @@ func NewPointerType(baseType TypeNode) TypeNode {
 	}
 }
 
-// NewArrayType creates a new TypeNode for an array type
+// NewArrayType creates a new TypeNode for a slice type []T.
 func NewArrayType(elementType TypeNode) TypeNode {
 	return TypeNode{
 		Ident:      TypeArray,
 		TypeParams: []TypeNode{elementType},
 		TypeKind:   TypeKindBuiltin, // Array is a built-in type construct
 	}
+}
+
+// NewFixedArrayType creates a new TypeNode for a fixed-size array [N]T.
+func NewFixedArrayType(elementType TypeNode, length int64) TypeNode {
+	n := length
+	return TypeNode{
+		Ident:      TypeArray,
+		TypeParams: []TypeNode{elementType},
+		ArrayLen:   &n,
+		TypeKind:   TypeKindBuiltin,
+	}
+}
+
+// IsFixedArray reports whether t is a fixed-size array [N]T.
+func (t TypeNode) IsFixedArray() bool {
+	return t.Ident == TypeArray && t.ArrayLen != nil
+}
+
+// IsSlice reports whether t is a slice []T (not a fixed array).
+func (t TypeNode) IsSlice() bool {
+	return t.Ident == TypeArray && t.ArrayLen == nil
 }
 
 // NewChannelType creates a new TypeNode for chan T (element type T).

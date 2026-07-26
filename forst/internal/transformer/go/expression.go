@@ -358,8 +358,12 @@ func (t *Transformer) transformArrayLiteral(e ast.ArrayLiteralNode, expectedArra
 		}
 		elts = append(elts, ex)
 	}
+	litType := &goast.ArrayType{Elt: eltGo}
+	if expectedArrayType != nil && expectedArrayType.ArrayLen != nil {
+		litType.Len = &goast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(*expectedArrayType.ArrayLen, 10)}
+	}
 	return &goast.CompositeLit{
-		Type: &goast.ArrayType{Elt: eltGo},
+		Type: litType,
 		Elts: elts,
 	}, nil
 }

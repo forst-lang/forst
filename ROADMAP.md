@@ -117,6 +117,7 @@ The language surface is organized around **structural types**, **explicit annota
 | --- | --- | --- |
 | Built-in calls (`make`, `new`, `append`, `copy`, `len`, `cap`, `close`, …) | 🔬 experimental | Go predeclared builtins type-check and emit. **`make`** / **`new`** take a Forst type as the first argument (`make(Array(Int), n)`, `make(map[String]Int)`, `new(Int)`). Other builtins unchanged. |
 | Slice subslice expressions (`xs[low:high]`, `xs[low:]`, `xs[:high]`) | 🔬 experimental | Slice bounds syntax on Forst arrays/slices; lowered to Go slice expressions. Distinct from variadic **spread** at Go call sites (see [Go interoperability](#go-interoperability)). |
+| Fixed-size arrays `[N]T` | ✅ done | Parses, typechecks with Go assignability rules (not interchangeable with `[]T`), emits Go `[N]T`. |
 | Channels (`chan`, `<-`, `range` on channel) | 📋 planned | No end-to-end channel support yet—channel types are not fully modeled, **`select`** is missing, and there is no user-facing syntax to rely on. |
 | Build tags, `//go:build`, assembly | 📋 planned | See “Go backwards compatibility” / emit targets. |
 | `unsafe` package (via `import "unsafe"` + qualified calls) | 📋 planned | **Not working end-to-end yet:** calls like **`unsafe.Sizeof`** and **`unsafe.Pointer`** are not wired through Forst↔Go typing. **Workaround:** use **`unsafe` in hand-written Go** and call from Forst. **Intended** model: same as Go—**only** the **`unsafe` package**, lexically **`import "unsafe"`** + **`unsafe.*`**—see [Go interoperability](#go-interoperability). |

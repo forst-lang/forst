@@ -34,6 +34,10 @@ func typeNodeCompatKey(t ast.TypeNode) string {
 		b.WriteString(typeNodeCompatKey(p))
 		b.WriteByte(']')
 	}
+	if t.ArrayLen != nil {
+		b.WriteString("#len=")
+		b.WriteString(fmt.Sprintf("%d", *t.ArrayLen))
+	}
 	return b.String()
 }
 

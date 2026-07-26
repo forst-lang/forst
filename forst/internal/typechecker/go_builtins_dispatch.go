@@ -40,8 +40,11 @@ func (tc *TypeChecker) dispatchAppend(args []ast.ExpressionNode, argSpans []ast.
 	if err != nil {
 		return nil, true, err
 	}
-	if sliceType.Ident != ast.TypeArray {
+	if sliceType.Ident != ast.TypeArray || sliceType.ArrayLen != nil {
 		sp := spanForCallArg(argSpans, 0, args, callSpan)
+		if sliceType.ArrayLen != nil {
+			return nil, true, diagnosticf(sp, "builtin-call", "append() first argument must be a slice, not a fixed array")
+		}
 		return nil, true, diagnosticf(sp, "builtin-call", "append() first argument must be a slice, got %s", sliceType.Ident)
 	}
 	elemType, ok := sliceElementType(sliceType)
