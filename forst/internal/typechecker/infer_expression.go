@@ -594,6 +594,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		// Return a special marker (empty slice) to indicate untyped nil; context must resolve
 		return nil, nil
 
+	case ast.IotaLiteralNode:
+		return nil, fmt.Errorf("iota is only valid in const declarations")
+
 	case ast.TypeExpressionNode:
 		tc.storeInferredType(e, []ast.TypeNode{e.Type})
 		return []ast.TypeNode{e.Type}, nil

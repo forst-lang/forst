@@ -201,6 +201,9 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 				if !exists {
 					return fmt.Errorf("assignment to undeclared variable '%s' is not allowed; use 'var' or ':='", l.Ident.ID)
 				}
+				if tc.isPackageConst(l.Ident.ID) {
+					return fmt.Errorf("cannot assign to const %s", l.Ident.ID)
+				}
 			}
 
 			if isVarDeclaration {

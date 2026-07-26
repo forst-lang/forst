@@ -166,6 +166,8 @@ const (
 	TokenVar TokenIdent = "VAR"
 	// TokenConst is the token for const keyword
 	TokenConst TokenIdent = "CONST"
+	// TokenIota is the predeclared iota identifier in const groups
+	TokenIota TokenIdent = "IOTA"
 	// TokenMap is the token for map keyword
 	TokenMap TokenIdent = "MAP"
 	// TokenChan is the token for chan keyword

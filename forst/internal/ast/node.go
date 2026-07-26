@@ -115,4 +115,6 @@ const (
 	NodeKindOkExpr            NodeKind = "OkExpr"
 	NodeKindErrExpr           NodeKind = "ErrExpr"
 	NodeKindTypeExpression    NodeKind = "TypeExpression"
+	NodeKindConstGroup        NodeKind = "ConstGroup"
+	NodeKindIotaLiteral       NodeKind = "IotaLiteral"
 )

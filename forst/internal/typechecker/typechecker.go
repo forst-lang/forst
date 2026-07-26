@@ -119,6 +119,8 @@ type TypeChecker struct {
 	scopeOwners scopeOwners
 	// typecheckNodes is the nodes slice from the last CheckTypes call (scope identity for transform).
 	typecheckNodes []ast.Node
+	// packageConsts tracks top-level const names (reject reassignment).
+	packageConsts map[ast.Identifier]struct{}
 	// nodeRuntime holds compile-time Node interop facts (needsNodeRuntime, manifest JSON).
 	nodeRuntime NodeRuntimeInfo
 }
@@ -226,6 +228,7 @@ func (tc *TypeChecker) TypecheckNodes() []ast.Node {
 // CollectTypes runs the first pass: explicit types, imports, and function signatures.
 func (tc *TypeChecker) CollectTypes(nodes []ast.Node) error {
 	tc.resetScopeOwners()
+	tc.packageConsts = nil
 	if tc.reportPhases {
 		tc.log.WithFields(logrus.Fields{
 			"function": "CollectTypes",

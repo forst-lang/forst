@@ -61,6 +61,8 @@ var NodeKind = map[string]uint8{
 	"Switch":           37,
 	"Fallthrough":      38,
 	"TypeExpression": 39,
+	"ConstGroup":      40,
+	"IotaLiteral":     41,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -907,6 +909,38 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		w.h.writeHashes(hasher, hash)
+	case ast.ConstGroupNode:
+		if err := w.h.writeHashes(hasher, NodeKind["ConstGroup"]); err != nil {
+			return 0, err
+		}
+		for _, spec := range n.Specs {
+			if err := w.h.writeHashes(hasher, []byte(spec.Name.ID)); err != nil {
+				return 0, err
+			}
+			if spec.Type != nil {
+				typeHash, err := w.hash(*spec.Type)
+				if err != nil {
+					return 0, err
+				}
+				if err := w.h.writeHashes(hasher, typeHash); err != nil {
+					return 0, err
+				}
+			}
+			if spec.Value != nil {
+				valueHash, err := w.hash(spec.Value)
+				if err != nil {
+					return 0, err
+				}
+				if err := w.h.writeHashes(hasher, valueHash); err != nil {
+					return 0, err
+				}
+			}
+		}
+	case ast.IotaLiteralNode:
+		if err := w.h.writeHashes(hasher, NodeKind["IotaLiteral"]); err != nil {
+			return 0, err
+		}
+		return NodeHash(hasher.Sum64()), nil
 	case *ast.BreakNode:
 		w.h.writeHashes(hasher, NodeKind["Break"])
 		if n != nil && n.Label != nil {

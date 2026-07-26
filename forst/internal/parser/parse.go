@@ -64,6 +64,10 @@ func (p *Parser) ParseFile() ([]ast.Node, error) {
 		case ast.TokenVar:
 			varDecl := p.parsePackageVarDeclaration()
 			nodes = append(nodes, varDecl)
+		case ast.TokenConst:
+			constDecl := p.parseConstDeclaration()
+			p.logParsedNodeWithMessage(constDecl, "Parsed const")
+			nodes = append(nodes, constDecl)
 		case ast.TokenIs:
 			scope := NewScope("", false, true, p.log)
 			p.context.ScopeStack.PushScope(scope)

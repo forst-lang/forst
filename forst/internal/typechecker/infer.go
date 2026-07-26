@@ -93,6 +93,11 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 			return nil, err
 		}
 		return nil, nil
+	case ast.ConstGroupNode:
+		if err := tc.inferConstGroup(n); err != nil {
+			return nil, err
+		}
+		return nil, nil
 
 	case ast.TypeNode:
 		return nil, nil

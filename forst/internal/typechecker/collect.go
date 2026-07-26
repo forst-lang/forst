@@ -38,6 +38,8 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 			return nil
 		}
 		return tc.collectPackageLevelVar(n)
+	case ast.ConstGroupNode:
+		return tc.collectConstGroup(n)
 	case ast.TypeDefNode:
 		tc.log.WithFields(logrus.Fields{
 			"node":     n.String(),

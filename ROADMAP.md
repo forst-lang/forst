@@ -89,7 +89,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
-| `const` / `iota` | 🔬 experimental | `const` exists lexically; full `const`/`iota` story not aligned with Go. |
+| `const` / `iota` | ✅ done | Top-level `const` (single and grouped) with Go `iota` semantics; emits literally to Go. |
 
 ### Control flow & statements
 

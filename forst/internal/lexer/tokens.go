@@ -36,6 +36,7 @@ var Keywords = map[string]ast.TokenIdent{
 	"fallthrough": ast.TokenFallthrough,
 	"var":         ast.TokenVar,
 	"const":       ast.TokenConst,
+	"iota":        ast.TokenIota,
 	"map":         ast.TokenMap,
 	"chan":        ast.TokenChan,
 	"interface":   ast.TokenInterface,

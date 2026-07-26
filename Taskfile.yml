@@ -430,6 +430,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/make-new-types/make-new-types.ft
 
+  example:const-iota:
+    desc: Compile const/iota example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/const-iota/const-iota.ft
+
   example:imports:
     desc: Run single-file imports example (cli.ft); split fmt_only/greeting/main are for the LSP editor
     dir: forst

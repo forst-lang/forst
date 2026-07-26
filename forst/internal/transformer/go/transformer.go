@@ -208,6 +208,12 @@ func (t *Transformer) TransformForstFileToGo(nodes []ast.Node) (*goast.File, err
 				return nil, fmt.Errorf("failed to transform package var: %w", err)
 			}
 			t.Output.AddValueDecl(decl)
+		case ast.ConstGroupNode:
+			decl, err := t.transformConstGroup(n)
+			if err != nil {
+				return nil, fmt.Errorf("failed to transform const group: %w", err)
+			}
+			t.Output.AddValueDecl(decl)
 		}
 	}
 

@@ -225,6 +225,9 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 	case p.current().Type == ast.TokenNil:
 		p.advance()
 		base = ast.NilLiteralNode{}
+	case p.current().Type == ast.TokenIota:
+		p.advance()
+		base = ast.IotaLiteralNode{}
 	default:
 		base = p.parseValue()
 	}
