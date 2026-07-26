@@ -174,6 +174,11 @@ func (tc *TypeChecker) lookupFieldPathFromPayload(
 
 	field, exists := payload.Fields[string(fieldName.ID)]
 	if !exists {
+		if promoted, perr := tc.lookupPromotedFieldInPayload(baseType, payload, fieldPath); perr == nil {
+			return promoted, nil
+		} else if isAmbiguousSelectorError(perr) {
+			return ast.TypeNode{}, perr
+		}
 		tc.log.WithFields(logrus.Fields{
 			"function":        "lookupFieldPath",
 			"baseType":        baseType.Ident,
@@ -253,6 +258,11 @@ func (tc *TypeChecker) lookupFieldPathOnShape(shape *ast.ShapeNode, fieldPath []
 	fieldName := fieldPath[0]
 	field, exists := shape.Fields[fieldName]
 	if !exists {
+		if promoted, perr := tc.lookupPromotedFieldInShape(shape, fieldPath); perr == nil {
+			return promoted, nil
+		} else if isAmbiguousSelectorError(perr) {
+			return ast.TypeNode{}, perr
+		}
 		return ast.TypeNode{}, fmt.Errorf("field %s not found in shape", fieldName)
 	}
 	if field.Type != nil && len(fieldPath) == 1 {

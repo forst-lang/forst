@@ -25,6 +25,8 @@ type ShapeFieldNode struct {
 	IsMethod           bool
 	MethodParams       []ParamNode
 	MethodReturnTypes  []TypeNode
+	// Embedded is true for anonymous Go-style embedded fields (type only, no colon).
+	Embedded bool
 }
 
 // IsMethodField reports whether this shape entry is a method signature (not a data field).

@@ -162,12 +162,13 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 			},
 		}
 	}
-	// If no colon, use the field name as both key and value (type assertion)
+	// If no colon, type-only member in a shape type context is an embedded field.
 	typeIdent := ast.TypeIdent(name)
 	return ast.ShapeFieldNode{
 		Type: &ast.TypeNode{
 			Ident: typeIdent,
 		},
+		Embedded: true,
 	}
 }
 

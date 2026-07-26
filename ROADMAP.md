@@ -87,6 +87,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Generic types | 📋 planned | User-declared type parameters on types and functions; see [generics RFC](./examples/in/rfc/generics/00-user-generics-and-type-parameters.md). |
 | Type aliases | 🔬 experimental | Simple **`type Name = BaseType`** aliases resolve through chains for field access and type compatibility where wired. |
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
+| Struct embedding (anonymous fields) | ✅ done | Type-only shape fields embed and promote fields like Go; emits anonymous struct fields. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
 | `const` / `iota` | ✅ done | Top-level `const` (single and grouped) with Go `iota` semantics; emits literally to Go. |

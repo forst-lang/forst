@@ -472,6 +472,11 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		if err := w.h.writeHashes(hasher, NodeKind["ShapeField"]); err != nil {
 			return 0, err
 		}
+		if n.Embedded {
+			if err := w.h.writeHashes(hasher, []byte{1}); err != nil {
+				return 0, err
+			}
+		}
 		if n.Assertion != nil {
 			hash, err := w.hash(*n.Assertion)
 			if err != nil {

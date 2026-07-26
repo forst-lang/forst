@@ -23,6 +23,7 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 		"make-new-types/make-new-types.ft",
 		"const-iota/const-iota.ft",
 		"fixed-arrays/fixed-arrays.ft",
+		"struct-embedding/struct-embedding.ft",
 		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",

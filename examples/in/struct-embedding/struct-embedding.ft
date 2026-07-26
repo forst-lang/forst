@@ -1,0 +1,14 @@
+package main
+
+type Inner = {
+	Value: Int
+}
+
+type Outer = {
+	Inner
+}
+
+func main() {
+	o := Outer{ Inner: { Value: 10 } }
+	println(o.Value)
+}
