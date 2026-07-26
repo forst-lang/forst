@@ -614,8 +614,12 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 	case *ast.IfNode:
 		return t.transformIfNode(s)
+	case *ast.SwitchNode:
+		return t.transformSwitchNode(s)
 	case *ast.ForNode:
 		return t.transformForNode(s)
+	case ast.FallthroughNode:
+		return &goast.BranchStmt{Tok: token.FALLTHROUGH}, nil
 	case *ast.DeferNode:
 		ex, err := t.transformExpression(s.Call)
 		if err != nil {

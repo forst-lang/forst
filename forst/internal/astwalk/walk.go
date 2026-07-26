@@ -58,6 +58,14 @@ func WalkNode(n ast.Node, v StmtVisitor) {
 			return
 		}
 		WalkStmts(node.Body, v)
+	case *ast.SwitchNode:
+		for _, clause := range node.Clauses {
+			WalkStmts(clause.Body, v)
+		}
+	case ast.SwitchNode:
+		for _, clause := range node.Clauses {
+			WalkStmts(clause.Body, v)
+		}
 	case ast.EnsureNode:
 		if v.OnEnsure != nil && !v.OnEnsure(node) {
 			return

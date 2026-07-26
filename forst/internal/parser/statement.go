@@ -113,6 +113,13 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		ifStatement := p.parseIfStatement()
 		p.logParsedNode(ifStatement)
 		body = append(body, ifStatement)
+	case ast.TokenSwitch:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "switch not allowed in type guards")
+		}
+		sw := p.parseSwitchStatement()
+		p.logParsedNode(sw)
+		body = append(body, sw)
 	case ast.TokenFor:
 		if p.context.IsTypeGuard() {
 			p.FailWithParseError(token, "For loop not allowed in type guards")

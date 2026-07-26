@@ -106,6 +106,13 @@ func indexScopedStmt(out map[scopePath]ast.Node, path scopePath, stmt ast.Node) 
 		indexStmtPaths(out, path+"/for", s.Body)
 	case ast.ForNode:
 		indexScopedStmt(out, path, &s)
+	case *ast.SwitchNode:
+		out[path+":switch"] = stmt
+		for j, clause := range s.Clauses {
+			indexStmtPaths(out, scopePath(fmt.Sprintf("%s/switch-case:%d", path, j)), clause.Body)
+		}
+	case ast.SwitchNode:
+		indexScopedStmt(out, path, &s)
 	case ast.WithNode:
 		out[path+":with"] = stmt
 		indexStmtPaths(out, path+"/with", s.Body)

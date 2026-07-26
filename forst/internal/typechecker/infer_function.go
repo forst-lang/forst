@@ -29,62 +29,60 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 
 	// Find all return statements and collect their types
 	returnStmtTypes := make([][]ast.TypeNode, 0)
-	for _, stmt := range fn.Body {
-		if retStmt, ok := stmt.(ast.ReturnNode); ok {
-			// Get types of all return values
-			retTypes := make([]ast.TypeNode, 0)
-			for i, value := range retStmt.Values {
-				// Contextual typing for nil
-				if value.Kind() == ast.NodeKindNilLiteral {
-					// Try to get expected type from parsedType, function signature, or previous returns
-					var expectedType ast.TypeNode
-					if len(parsedType) > i {
-						expectedType = parsedType[i]
-					} else if len(fn.ReturnTypes) > i {
-						expectedType = fn.ReturnTypes[i]
-					} else if len(returnStmtTypes) > 0 && len(returnStmtTypes[0]) > i {
-						expectedType = returnStmtTypes[0][i]
-					} else if hasEnsure && i == 1 {
-						// If there's an ensure statement and this is the second return value, expect Error
-						expectedType = ast.TypeNode{Ident: ast.TypeError}
-					}
-					if isNilableType(tc, expectedType) {
-						retTypes = append(retTypes, expectedType)
-					} else {
-						return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", expectedType.Ident)
-					}
+	for _, retStmt := range collectReturnStatements(fn.Body) {
+		// Get types of all return values
+		retTypes := make([]ast.TypeNode, 0)
+		for i, value := range retStmt.Values {
+			// Contextual typing for nil
+			if value.Kind() == ast.NodeKindNilLiteral {
+				// Try to get expected type from parsedType, function signature, or previous returns
+				var expectedType ast.TypeNode
+				if len(parsedType) > i {
+					expectedType = parsedType[i]
+				} else if len(fn.ReturnTypes) > i {
+					expectedType = fn.ReturnTypes[i]
+				} else if len(returnStmtTypes) > 0 && len(returnStmtTypes[0]) > i {
+					expectedType = returnStmtTypes[0][i]
+				} else if hasEnsure && i == 1 {
+					// If there's an ensure statement and this is the second return value, expect Error
+					expectedType = ast.TypeNode{Ident: ast.TypeError}
+				}
+				if isNilableType(tc, expectedType) {
+					retTypes = append(retTypes, expectedType)
 				} else {
-					retType, err := tc.inferExpressionType(value)
-					if err != nil {
-						return nil, err
+					return nil, fmt.Errorf("'nil' used as return value but expected type is not nilable (got %s)", expectedType.Ident)
+				}
+			} else {
+				retType, err := tc.inferExpressionType(value)
+				if err != nil {
+					return nil, err
+				}
+				if len(retType) == 1 {
+					if tc.log != nil {
+						tc.log.WithFields(map[string]any{
+							"function":     fn.Ident.ID,
+							"returnIndex":  i,
+							"returnAST":    fmt.Sprintf("%T", value),
+							"inferredType": retType[0].Ident,
+						}).Debug("[PINPOINT] Inferred return type for function")
 					}
-					if len(retType) == 1 {
-						if tc.log != nil {
-							tc.log.WithFields(map[string]any{
-								"function":     fn.Ident.ID,
-								"returnIndex":  i,
-								"returnAST":    fmt.Sprintf("%T", value),
-								"inferredType": retType[0].Ident,
-							}).Debug("[PINPOINT] Inferred return type for function")
-						}
-						retTypes = append(retTypes, retType[0])
-					} else if len(retType) > 1 && len(retStmt.Values) == 1 && len(retType) == len(parsedType) {
-						// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
-						if tc.log != nil {
-							tc.log.WithFields(map[string]any{
-								"function":      fn.Ident.ID,
-								"returnAST":     fmt.Sprintf("%T", value),
-								"inferredTypes": formatTypeList(retType),
-							}).Debug("[PINPOINT] Multi-value return from single expression")
-						}
-						retTypes = append(retTypes, retType...)
-					} else {
-						return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
+					retTypes = append(retTypes, retType[0])
+				} else if len(retType) > 1 && len(retStmt.Values) == 1 && len(retType) == len(parsedType) {
+					// e.g. `return f()` where f returns (T, U, ...) and this function has the same arity
+					if tc.log != nil {
+						tc.log.WithFields(map[string]any{
+							"function":      fn.Ident.ID,
+							"returnAST":     fmt.Sprintf("%T", value),
+							"inferredTypes": formatTypeList(retType),
+						}).Debug("[PINPOINT] Multi-value return from single expression")
 					}
+					retTypes = append(retTypes, retType...)
+				} else {
+					return nil, fmt.Errorf("return value expression must return exactly one type, got %d", len(retType))
 				}
 			}
-			returnStmtTypes = append(returnStmtTypes, retTypes)
 		}
+		returnStmtTypes = append(returnStmtTypes, retTypes)
 	}
 
 	// If we found return statements, verify they all have the same type

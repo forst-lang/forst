@@ -104,6 +104,14 @@ func (tc *TypeChecker) collectExplicitTypes(node ast.Node) error {
 		if err := tc.collectForNode(n); err != nil {
 			return err
 		}
+	case ast.SwitchNode:
+		if err := tc.collectSwitchNode(&n); err != nil {
+			return err
+		}
+	case *ast.SwitchNode:
+		if err := tc.collectSwitchNode(n); err != nil {
+			return err
+		}
 	case ast.ElseIfNode:
 		if err := tc.collectExplicitTypes(&n); err != nil {
 			return err

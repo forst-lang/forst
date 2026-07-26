@@ -184,6 +184,17 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 	case ast.ForNode:
 		return tc.inferForNode(&n)
 
+	case *ast.SwitchNode:
+		return tc.inferSwitchStatement(n)
+	case ast.SwitchNode:
+		return tc.inferSwitchStatement(&n)
+
+	case ast.FallthroughNode:
+		if tc.switchDepth == 0 {
+			return nil, fmt.Errorf("fallthrough statement not inside a switch")
+		}
+		return nil, nil
+
 	case *ast.BreakNode:
 		if n.Label != nil {
 			if !tc.hasLoopLabel(n.Label.ID) {

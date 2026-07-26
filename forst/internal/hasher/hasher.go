@@ -58,6 +58,8 @@ var NodeKind = map[string]uint8{
 	"SliceExpression":  32,
 	"SpreadExpression": 33,
 	"FieldAccess":      34,
+	"Switch":           37,
+	"Fallthrough":      38,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -866,6 +868,37 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 		w.h.writeHashes(hasher, hash)
+	case *ast.SwitchNode:
+		sw := *n
+		w.h.writeHashes(hasher, NodeKind["Switch"])
+		if err := w.hashOptional(hasher, sw.Init); err != nil {
+			return 0, err
+		}
+		if sw.Tag != nil {
+			hash, err := w.hash(sw.Tag)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
+		}
+		for _, clause := range sw.Clauses {
+			for _, val := range clause.Values {
+				hash, err := w.hash(val)
+				if err != nil {
+					return 0, err
+				}
+				w.h.writeHashes(hasher, hash)
+			}
+			hash, err := w.hashNodes(clause.Body)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
+		}
+	case ast.SwitchNode:
+		return w.hash(&n)
+	case ast.FallthroughNode:
+		w.h.writeHashes(hasher, NodeKind["Fallthrough"])
 	case *ast.BreakNode:
 		w.h.writeHashes(hasher, NodeKind["Break"])
 		if n != nil && n.Label != nil {
