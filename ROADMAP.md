@@ -108,7 +108,8 @@ The language surface is organized around **structural types**, **explicit annota
 | `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
 | `switch` / `case` / `default` / `fallthrough` | ✅ done | Tag and boolean **`switch`** statements work like Go, including **`fallthrough`**. Type switches (`switch v := x.(type)`) are not supported—use hand-written Go. |
 | `select` | 📋 planned | Not a Forst keyword yet; needs full statement support (see also channel row below). |
-| `defer` / `go` statements | ✅ done | **`go`** starts a goroutine; **`defer`** runs a call when the surrounding function returns—runtime behavior is Go’s. Operand must be a **function or method call** (not e.g. `<-ch`). Parenthesized calls like **`defer (f())`** are rejected. Same predeclared builtins Go forbids as standalone expression statements (`append`, `len`, `make`, …) cannot be deferred or run in a goroutine this way. Anonymous **`go func(){ … }()`** / **`defer func(){ … }()`** need function literals (not shipped yet). |
+| `defer` / `go` statements | ✅ done | **`go`** starts a goroutine; **`defer`** runs a call when the surrounding function returns—runtime behavior is Go’s. Operand must be a **function or method call** (not e.g. `<-ch`). Parenthesized calls like **`defer (f())`** are rejected. Same predeclared builtins Go forbids as standalone expression statements (`append`, `len`, `make`, …) cannot be deferred or run in a goroutine this way. Anonymous **`go func(){ … }()`** / **`defer func(){ … }()`** work via function literals. |
+| Function literals / closures | ✅ done | **`func(params): T { … }`** in expression position; closure over outer variables; **`func() { … }()`** IIFE; **`func(T): U`** function types for parameters. |
 | Labeled statements + `goto` | 📋 planned | `goto` is lexed; no parser support. |
 
 ### Builtins, runtime, and platform

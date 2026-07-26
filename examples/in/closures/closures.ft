@@ -1,0 +1,21 @@
+package main
+
+func twice(fn func(Int): Int, x Int): Int {
+	return fn(fn(x))
+}
+
+func main() {
+	n := 10
+	inc := func(x Int): Int { return x + 1 }
+	println(inc(n))
+
+	addN := func(x Int): Int { return x + n }
+	println(addN(5))
+
+	println(twice(inc, 3))
+
+	func() { println("iife") }()
+
+	go func() { println("go") }()
+	defer func() { println("defer") }()
+}

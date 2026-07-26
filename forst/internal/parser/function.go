@@ -311,6 +311,19 @@ func (p *Parser) parseFunctionName() ast.Token {
 	panic("unreachable")
 }
 
+// parseFunctionLiteral parses func(params): ReturnType { body } in expression position.
+func (p *Parser) parseFunctionLiteral() ast.FunctionLiteralNode {
+	p.expect(ast.TokenFunc)
+	params := p.parseFunctionSignature()
+	returnTypes := p.parseReturnType()
+	body := p.parseFunctionBody()
+	return ast.FunctionLiteralNode{
+		Params:      params,
+		ReturnTypes: returnTypes,
+		Body:        body,
+	}
+}
+
 // Parse a function definition
 func (p *Parser) parseFunctionDefinition() ast.FunctionNode {
 	p.expect(ast.TokenFunc) // Expect `func`

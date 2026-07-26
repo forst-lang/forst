@@ -321,6 +321,15 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return nil, diagnosticf(sp, "undefined-identifier", "method %s on receiver type %T", e.Method.ID, e.Receiver)
 
 	case ast.FunctionCallNode:
+		if e.Callee != nil {
+			ret, err := tc.inferCalleeCall(e.Callee, e.Arguments, e.ArgSpans, e.CallSpan)
+			if err != nil {
+				return nil, err
+			}
+			tc.storeInferredType(e, ret)
+			return ret, nil
+		}
+
 		tc.log.WithFields(logrus.Fields{
 			"function": "inferExpressionType",
 			"expr":     expr,
@@ -382,8 +391,16 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			return []ast.TypeNode{{Ident: ast.TypeBool}}, nil
 		}
 
-		// First check if this is a local variable or method call
+		// First check if this is a local variable holding a function value.
 		if varType, exists := tc.scopeStack.LookupVariableType(e.Function.ID); exists {
+			if len(varType) == 1 && varType[0].IsFunctionType() {
+				ret, err := tc.inferCalleeCall(ast.VariableNode{Ident: e.Function}, e.Arguments, e.ArgSpans, e.CallSpan)
+				if err != nil {
+					return nil, err
+				}
+				tc.storeInferredType(e, ret)
+				return ret, nil
+			}
 			tc.log.WithFields(logrus.Fields{
 				"function": "inferExpressionType",
 				"expr":     expr,
@@ -596,6 +613,14 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 	case ast.NilLiteralNode:
 		// Return a special marker (empty slice) to indicate untyped nil; context must resolve
 		return nil, nil
+
+	case ast.FunctionLiteralNode:
+		ret, err := tc.inferFunctionLiteral(e, expr)
+		if err != nil {
+			return nil, err
+		}
+		tc.storeInferredType(e, ret)
+		return ret, nil
 
 	case ast.IotaLiteralNode:
 		return nil, fmt.Errorf("iota is only valid in const declarations")

@@ -85,6 +85,9 @@ type TypeNode struct {
 	TypeKind   TypeKind
 	// ArrayLen, when non-nil, is the fixed length N for [N]T; nil means slice []T.
 	ArrayLen *int64
+	// FuncParams and FuncReturns describe a function type when Ident == TypeFunc.
+	FuncParams  []ParamNode
+	FuncReturns []TypeNode
 }
 
 // IsExplicit returns true if the type has been specified explicitly
@@ -160,6 +163,12 @@ func (t TypeNode) String() string {
 			return fmt.Sprintf("Result(%s, %s)", t.TypeParams[0].String(), t.TypeParams[1].String())
 		}
 		return "Result(?, ?)"
+	case TypeFunc:
+		ret := ""
+		if len(t.FuncReturns) > 0 {
+			ret = t.FuncReturns[0].String()
+		}
+		return fmt.Sprintf("func(%s): %s", formatFuncTypeParams(t.FuncParams), ret)
 	case TypeTuple:
 		if len(t.TypeParams) > 0 {
 			params := make([]string, len(t.TypeParams))

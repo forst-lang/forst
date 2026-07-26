@@ -45,6 +45,8 @@ func (tc *TypeChecker) isTypeCompatibleImpl(actual ast.TypeNode, expected ast.Ty
 				}
 			}
 			return true
+		case ast.TypeFunc:
+			return tc.checkFunctionTypeCompatible(actual, expected)
 		default:
 			if tc.log.IsLevelEnabled(logrus.DebugLevel) {
 				tc.debugCompat("Direct type match", logrus.Fields{"actual":   actual.Ident,

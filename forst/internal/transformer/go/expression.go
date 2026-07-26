@@ -42,6 +42,8 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		return goast.NewIdent("nil"), nil
 	case ast.IotaLiteralNode:
 		return goast.NewIdent("iota"), nil
+	case ast.FunctionLiteralNode:
+		return t.transformFunctionLiteral(expr, e)
 	case ast.TypeExpressionNode:
 		return t.transformType(e.Type)
 	case ast.ArrayLiteralNode:
@@ -230,6 +232,21 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		}, nil
 
 	case ast.FunctionCallNode:
+		if e.Callee != nil {
+			funExpr, err := t.transformExpression(e.Callee)
+			if err != nil {
+				return nil, err
+			}
+			args, err := t.transformFunctionCallArgs(ast.Identifier("_callee"), e.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.CallExpr{
+				Fun:      funExpr,
+				Args:     args.exprs,
+				Ellipsis: args.ellipsis,
+			}, nil
+		}
 		if isPrintLikeBuiltinCall(e.Function) {
 			args, err := t.transformPrintBuiltinCallArgs(e.Arguments)
 			if err != nil {

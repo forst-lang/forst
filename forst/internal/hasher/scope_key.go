@@ -43,6 +43,13 @@ func (h *StructuralHasher) HashScopeKey(node ast.Node) (NodeHash, error) {
 			return NodeHash(NilHash), nil
 		}
 		return w.hashScopeTypeGuard(*n)
+	case ast.FunctionLiteralNode:
+		return w.hashScopeFunctionLiteral(n)
+	case *ast.FunctionLiteralNode:
+		if n == nil {
+			return NodeHash(NilHash), nil
+		}
+		return w.hashScopeFunctionLiteral(*n)
 	default:
 		return h.HashNode(node)
 	}
@@ -183,6 +190,41 @@ func (w *hashWalk) hashScopeTypeGuard(n ast.TypeGuardNode) (NodeHash, error) {
 		return 0, err
 	}
 	if err := w.h.writeHashes(hasher, paramHash); err != nil {
+		return 0, err
+	}
+	return NodeHash(hasher.Sum64()), nil
+}
+
+func (w *hashWalk) hashScopeFunctionLiteral(n ast.FunctionLiteralNode) (NodeHash, error) {
+	hasher := fnv.New64a()
+	if err := w.h.writeHashes(hasher, NodeKind["FunctionLiteral"]); err != nil {
+		return 0, err
+	}
+	params := make([]ast.Node, len(n.Params))
+	for i, p := range n.Params {
+		params[i] = p
+	}
+	paramHash, err := w.hashNodes(params)
+	if err != nil {
+		return 0, err
+	}
+	if err := w.h.writeHashes(hasher, paramHash); err != nil {
+		return 0, err
+	}
+	for _, rt := range n.ReturnTypes {
+		rtHash, err := w.hash(rt)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, rtHash); err != nil {
+			return 0, err
+		}
+	}
+	bodyHash, err := w.hashNodes(n.Body)
+	if err != nil {
+		return 0, err
+	}
+	if err := w.h.writeHashes(hasher, bodyHash); err != nil {
 		return 0, err
 	}
 	return NodeHash(hasher.Sum64()), nil

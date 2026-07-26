@@ -194,6 +194,7 @@ func (tc *TypeChecker) isBuiltinType(typeIdent ast.TypeIdent) bool {
 		ast.TypeObject,
 		ast.TypeResult,
 		ast.TypeTuple,
+		ast.TypeFunc,
 	}
 
 	return slices.Contains(builtinTypes, typeIdent)

@@ -85,6 +85,24 @@ func (p *Parser) parseType(opts TypeIdentOpts) ast.TypeNode {
 		p.advance()
 		elementType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		return ast.NewChannelType(elementType)
+	case ast.TokenFunc:
+		p.advance()
+		p.expect(ast.TokenLParen)
+		var params []ast.ParamNode
+		if p.current().Type != ast.TokenRParen {
+			for {
+				paramType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
+				params = append(params, ast.SimpleParamNode{Type: paramType})
+				if p.current().Type == ast.TokenComma {
+					p.advance()
+					continue
+				}
+				break
+			}
+		}
+		p.expect(ast.TokenRParen)
+		returnTypes := p.parseReturnType()
+		return ast.NewFunctionType(params, returnTypes)
 	case ast.TokenInterface:
 		// Parse interface type
 		p.advance() // consume interface keyword

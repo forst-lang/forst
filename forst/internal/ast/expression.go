@@ -29,6 +29,7 @@ type BinaryExpressionNode struct {
 // FunctionCallNode represents a function call expression
 type FunctionCallNode struct {
 	Function  Ident
+	Callee    ExpressionNode // non-nil for calls on arbitrary expressions (e.g. func literals)
 	Arguments []ExpressionNode
 	CallSpan  SourceSpan   // from '(' through ')' of this call; zero if unset
 	ArgSpans  []SourceSpan // parallel to Arguments when set by parser
@@ -183,6 +184,9 @@ func (f FunctionCallNode) String() string {
 	args := make([]string, len(f.Arguments))
 	for i, arg := range f.Arguments {
 		args[i] = arg.String()
+	}
+	if f.Callee != nil {
+		return fmt.Sprintf("%s(%s)", f.Callee.String(), strings.Join(args, ", "))
 	}
 	return fmt.Sprintf("{%s}(%s)", f.Function.ID, strings.Join(args, ", "))
 }

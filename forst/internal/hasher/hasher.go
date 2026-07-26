@@ -64,6 +64,7 @@ var NodeKind = map[string]uint8{
 	"TypeExpression": 39,
 	"ConstGroup":      40,
 	"IotaLiteral":     41,
+	"FunctionLiteral": 42,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -300,8 +301,51 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 			return 0, err
 		}
 
+	case ast.FunctionLiteralNode:
+		if err := w.h.writeHashes(hasher, NodeKind["FunctionLiteral"]); err != nil {
+			return 0, err
+		}
+		params := make([]ast.Node, len(n.Params))
+		for i, p := range n.Params {
+			params[i] = p
+		}
+		paramHash, err := w.hashNodes(params)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, paramHash); err != nil {
+			return 0, err
+		}
+		for _, rt := range n.ReturnTypes {
+			rtHash, err := w.hash(rt)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, rtHash); err != nil {
+				return 0, err
+			}
+		}
+		bodyHash, err := w.hashNodes(n.Body)
+		if err != nil {
+			return 0, err
+		}
+		if err := w.h.writeHashes(hasher, bodyHash); err != nil {
+			return 0, err
+		}
+
 	case ast.FunctionCallNode:
-		if err := w.h.writeHashes(hasher,
+		if n.Callee != nil {
+			if err := w.h.writeHashes(hasher, NodeKind["FunctionCall"]); err != nil {
+				return 0, err
+			}
+			calleeHash, err := w.hash(n.Callee)
+			if err != nil {
+				return 0, err
+			}
+			if err := w.h.writeHashes(hasher, calleeHash); err != nil {
+				return 0, err
+			}
+		} else if err := w.h.writeHashes(hasher,
 			NodeKind["FunctionCall"],
 			[]byte(n.Function.ID),
 		); err != nil {

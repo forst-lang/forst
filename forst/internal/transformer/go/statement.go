@@ -380,6 +380,23 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}, nil
 
 	case ast.FunctionCallNode:
+		if s.Callee != nil {
+			funExpr, err := t.transformExpression(s.Callee)
+			if err != nil {
+				return nil, err
+			}
+			args, err := t.transformFunctionCallArgs(ast.Identifier("_callee"), s.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			return &goast.ExprStmt{
+				X: &goast.CallExpr{
+					Fun:      funExpr,
+					Args:     args.exprs,
+					Ellipsis: args.ellipsis,
+				},
+			}, nil
+		}
 		if isPrintLikeBuiltinCall(s.Function) {
 			args, err := t.transformPrintBuiltinCallArgs(s.Arguments)
 			if err != nil {

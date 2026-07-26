@@ -212,6 +212,8 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 		} else {
 			base = p.parseValue()
 		}
+	case p.current().Type == ast.TokenFunc:
+		base = p.parseFunctionLiteral()
 	case p.current().Type == ast.TokenIdentifier:
 		base = p.parseIdentifierPrimary()
 	case p.current().Type == ast.TokenInt, p.current().Type == ast.TokenString,
@@ -238,7 +240,32 @@ func (p *Parser) parseUnaryOrPrimary(depth int) ast.ExpressionNode {
 // parsePostfixSuffixChain parses [index], .method(), and .field suffixes.
 func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast.ExpressionNode {
 	base = p.parseIndexSuffixChain(base, depth)
-	for p.current().Type == ast.TokenDot {
+	for {
+		if p.current().Type == ast.TokenLParen {
+			lparen := p.current()
+			p.advance()
+			args, argSpans := p.parseCallArguments()
+			rparen := p.expect(ast.TokenRParen)
+			if vn, ok := base.(ast.VariableNode); ok {
+				base = ast.FunctionCallNode{
+					Function:  vn.Ident,
+					Arguments: args,
+					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+					ArgSpans:  argSpans,
+				}
+			} else {
+				base = ast.FunctionCallNode{
+					Callee:    base,
+					Arguments: args,
+					CallSpan:  ast.SpanBetweenTokens(lparen, rparen),
+					ArgSpans:  argSpans,
+				}
+			}
+			continue
+		}
+		if p.current().Type != ast.TokenDot {
+			break
+		}
 		p.advance()
 		if p.current().Type == ast.TokenIntLiteral {
 			tok := p.current()

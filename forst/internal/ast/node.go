@@ -117,4 +117,5 @@ const (
 	NodeKindTypeExpression    NodeKind = "TypeExpression"
 	NodeKindConstGroup        NodeKind = "ConstGroup"
 	NodeKindIotaLiteral       NodeKind = "IotaLiteral"
+	NodeKindFunctionLiteral   NodeKind = "FunctionLiteral"
 )

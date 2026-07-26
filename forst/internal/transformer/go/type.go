@@ -124,6 +124,8 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	case ast.TypeIntersection:
 		var r goast.Expr = goast.NewIdent("any")
 		return r, nil
+	case ast.TypeFunc:
+		return t.transformFunctionType(n)
 	default:
 		if sel, ok := t.transformForstSiblingQualifiedType(n.Ident); ok {
 			return sel, nil

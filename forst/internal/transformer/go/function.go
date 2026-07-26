@@ -55,10 +55,11 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 		typeExpr = &goast.Ellipsis{Elt: typeExpr}
 	}
 
-	return &goast.Field{
-		Names: []*goast.Ident{goast.NewIdent(paramName)},
-		Type:  typeExpr,
-	}, nil
+	field := &goast.Field{Type: typeExpr}
+	if paramName != "" {
+		field.Names = []*goast.Ident{goast.NewIdent(paramName)}
+	}
+	return field, nil
 }
 
 func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []ast.ParamNode) (*goast.FieldList, error) {
