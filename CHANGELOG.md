@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/forst-lang/forst/compare/v0.9.3...v0.10.0) (2026-07-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **typechecker:** strconv.Atoi(s) and similar single-value Go multi-return bindings now infer Tuple(Int, Error) instead of Result(Int, Error). Use n-value assignment or the ensure bridge to obtain Result ergonomics.
+
+### Features
+
+* **compiler:** accept Forst types in make/new calls ([7785f53](https://github.com/forst-lang/forst/commit/7785f53ae92c26bac2833da79a13905a70a14b4d))
+* **compiler:** add bitwise operators and shift/xor compound assignment ([564b7b4](https://github.com/forst-lang/forst/commit/564b7b4095e6c69e1e2747f7d46640925edcc2a3))
+* **compiler:** add fixed-size array types [N]T ([cb4d1ec](https://github.com/forst-lang/forst/commit/cb4d1ecb6fa4a85e074eb0873809a74ae49c4bb5))
+* **compiler:** add function literals, closures, and func types ([b777329](https://github.com/forst-lang/forst/commit/b77732900d69ca1a163ffba6c47aa2fdd47a71ba))
+* **compiler:** add Go-faithful switch/case/default/fallthrough ([94e1f03](https://github.com/forst-lang/forst/commit/94e1f03f716854a7248044569c6fe3444cb0261c))
+* **compiler:** add Go-style struct embedding in shapes ([b56a466](https://github.com/forst-lang/forst/commit/b56a466a5696bd3d45744af831f59ab48ed9c863))
+* **compiler:** add top-level const and iota ([4b357db](https://github.com/forst-lang/forst/commit/4b357db95fe8ce348ae27cd318ff9a5d937f497a))
+* **compiler:** add user-authored struct tags on shape fields ([245bcde](https://github.com/forst-lang/forst/commit/245bcde13d90d52df90369c5e33ad1cdcb95efae))
+* **compiler:** add variadic decls and deepen Go FFI type resolution ([13a4020](https://github.com/forst-lang/forst/commit/13a402012531da42715336d8e687af65cf5fcdef))
+* **typechecker:** map Go multi-return to Tuple, keep Result exclusive ([ce82a2b](https://github.com/forst-lang/forst/commit/ce82a2bed20c63d8b084c597e658aeb418ec8097))
+
+
+### Bug Fixes
+
+* **devserver:** stabilize host orchestrator shutdown test ([6f74e15](https://github.com/forst-lang/forst/commit/6f74e158a0c66c8c21ab5da1f10b25b3435ffff6))
+* **lsp:** return empty diagnostics slice instead of nil ([6f74e15](https://github.com/forst-lang/forst/commit/6f74e158a0c66c8c21ab5da1f10b25b3435ffff6))
+* **typechecker:** allow mixed Result success and failure return arms ([6f74e15](https://github.com/forst-lang/forst/commit/6f74e158a0c66c8c21ab5da1f10b25b3435ffff6))
+* **typechecker:** reuse body-pass types when inferring return expressions ([564b7b4](https://github.com/forst-lang/forst/commit/564b7b4095e6c69e1e2747f7d46640925edcc2a3))
+
 ## [0.9.3](https://github.com/forst-lang/forst/compare/v0.9.2...v0.9.3) (2026-07-20)
 
 
