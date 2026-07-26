@@ -661,17 +661,16 @@ func (t *Transformer) transformShapeType(shape *ast.ShapeNode) (*goast.Expr, err
 			}).WithError(err).Error("transforming shape field type failed")
 			return nil, err
 		}
-		goFieldName := name
-		if t.ExportReturnStructFields && !field.Embedded {
-			goFieldName = capitalizeFirst(name)
-		}
+		goFieldName := t.goShapeDataFieldName(name, field)
 		goField := &goast.Field{
 			Type: *fieldType,
 		}
 		if !field.Embedded {
 			goField.Names = []*goast.Ident{goast.NewIdent(goFieldName)}
 		}
-		if t.ExportReturnStructFields && !field.Embedded {
+		if field.Tag != "" {
+			goField.Tag = &goast.BasicLit{Kind: token.STRING, Value: "`" + field.Tag + "`"}
+		} else if t.ExportReturnStructFields && !field.Embedded {
 			goField.Tag = &goast.BasicLit{Kind: token.STRING, Value: "`json:\"" + name + "\"`"}
 		}
 		fields = append(fields, goField)

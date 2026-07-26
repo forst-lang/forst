@@ -189,13 +189,38 @@ func lspRangeFromASTSpan(span ast.SourceSpan) LSPRange {
 
 // lspDiagnosticFromASTSpan maps a 1-based half-open ast.SourceSpan to an LSP range (0-based; character = UTF-8 byte offset within line for ASCII-aligned lexer columns).
 func lspDiagnosticFromASTSpan(_ string, msg, source, code string, span ast.SourceSpan) LSPDiagnostic {
+	return lspDiagnosticFromASTSpanWithSeverity(msg, source, code, span, LSPDiagnosticSeverityError)
+}
+
+func lspDiagnosticFromASTSpanWithSeverity(msg, source, code string, span ast.SourceSpan, severity LSPDiagnosticSeverity) LSPDiagnostic {
 	return LSPDiagnostic{
 		Range:    lspRangeFromASTSpan(span),
-		Severity: LSPDiagnosticSeverityError,
+		Severity: severity,
 		Source:   source,
 		Code:     code,
 		Message:  msg,
 	}
+}
+
+func lspDiagnosticsFromTypecheckerWarnings(fileURI string, tc *typechecker.TypeChecker) []LSPDiagnostic {
+	if tc == nil || len(tc.Warnings) == 0 {
+		return nil
+	}
+	out := make([]LSPDiagnostic, 0, len(tc.Warnings))
+	for _, w := range tc.Warnings {
+		code := w.Code
+		if code == "" {
+			code = "forst-warning"
+		}
+		if w.Span.IsSet() {
+			out = append(out, lspDiagnosticFromASTSpanWithSeverity(w.Msg, "forst-typechecker", code, w.Span, LSPDiagnosticSeverityWarning))
+			continue
+		}
+		d := simpleDiagnosticOnLine(fileURI, 1, 1, w.Msg, "forst-typechecker", code)
+		d.Severity = LSPDiagnosticSeverityWarning
+		out = append(out, d)
+	}
+	return out
 }
 
 func simpleDiagnosticOnLine(_ string, line1, col1 int, message, source, code string) LSPDiagnostic {

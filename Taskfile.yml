@@ -448,6 +448,12 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/struct-embedding/struct-embedding.ft
 
+  example:struct-tags:
+    desc: Compile struct tags example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/struct-tags/struct-tags.ft
+
   example:imports:
     desc: Run single-file imports example (cli.ft); split fmt_only/greeting/main are for the LSP editor
     dir: forst

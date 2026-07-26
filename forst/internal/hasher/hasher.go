@@ -477,6 +477,11 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 				return 0, err
 			}
 		}
+		if n.Tag != "" {
+			if err := w.h.writeHashes(hasher, []byte(n.Tag)); err != nil {
+				return 0, err
+			}
+		}
 		if n.Assertion != nil {
 			hash, err := w.hash(*n.Assertion)
 			if err != nil {

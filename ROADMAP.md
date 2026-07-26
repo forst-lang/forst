@@ -88,6 +88,7 @@ The language surface is organized around **structural types**, **explicit annota
 | Type aliases | 🔬 experimental | Simple **`type Name = BaseType`** aliases resolve through chains for field access and type compatibility where wired. |
 | Methods (`func (t T) M()`) | 📋 planned | Forst is function-centric; no method declarations. |
 | Struct embedding (anonymous fields) | ✅ done | Type-only shape fields embed and promote fields like Go; emits anonymous struct fields. |
+| Struct tags (user-authored) | ✅ done | Optional backtick or quoted string after a field type; explicit tag emits to Go and overrides auto-`json` when `-export-struct-fields` is on. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
 | Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
 | `const` / `iota` | ✅ done | Top-level `const` (single and grouped) with Go `iota` semantics; emits literally to Go. |

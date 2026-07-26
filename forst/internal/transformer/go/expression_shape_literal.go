@@ -214,10 +214,7 @@ func (t *Transformer) buildFieldsForExpectedType(shape *ast.ShapeNode, expectedT
 			return nil, fmt.Errorf("failed to build field %s: %v", fieldName, err)
 		}
 
-		goFieldName := fieldName
-		if t.ExportReturnStructFields {
-			goFieldName = capitalizeFirst(fieldName)
-		}
+		goFieldName := t.goShapeDataFieldName(fieldName, resolvedFieldDef)
 
 		fields = append(fields, &goast.KeyValueExpr{
 			Key:   goast.NewIdent(goFieldName),
@@ -245,10 +242,7 @@ func (t *Transformer) buildFieldsForShape(shape *ast.ShapeNode) ([]*goast.KeyVal
 			return nil, err
 		}
 
-		goFieldName := fieldName
-		if t.ExportReturnStructFields {
-			goFieldName = capitalizeFirst(fieldName)
-		}
+		goFieldName := t.goShapeDataFieldName(fieldName, field)
 
 		fields = append(fields, &goast.KeyValueExpr{
 			Key:   goast.NewIdent(goFieldName),

@@ -369,7 +369,9 @@ func (s *LSPServer) compileForstFile(filePath, content string, _ Debugger) []LSP
 		}
 		return []LSPDiagnostic{diagnostic}
 	}
-	return s.transformDiagnostics(ctx, filePath)
+	diags := lspDiagnosticsFromTypecheckerWarnings(fileURIForLocalPath(filePath), ctx.TC)
+	diags = append(diags, s.transformDiagnostics(ctx, filePath)...)
+	return diags
 }
 
 // compileForstFilePackageGroup runs typecheck/transform on the merged same-package AST when multiple
@@ -391,13 +393,14 @@ func (s *LSPServer) compileForstFilePackageGroup(uri, filePath, content string) 
 		d.Message = fmt.Sprintf("Type checking error: %v", snap.checkErr)
 		return []LSPDiagnostic{d}
 	}
+	diags := lspDiagnosticsFromTypecheckerWarnings(fileURIForLocalPath(filePath), snap.tc)
 	transformer := transformer_go.New(snap.tc, s.log, false)
 	if _, err := transformer.TransformForstFileToGo(snap.mergedNodes); err != nil {
 		d := diagnosticForTypecheckOrTransform(fileURIForLocalPath(filePath), content, err, "forst-transformer", ErrorCodeTransformationFailed)
 		d.Message = fmt.Sprintf("Transformation error: %v", err)
-		return []LSPDiagnostic{d}
+		return append(diags, d)
 	}
-	return []LSPDiagnostic{}
+	return diags
 }
 
 // convertVariableTypes converts the typechecker's variable types to a string map for debugging

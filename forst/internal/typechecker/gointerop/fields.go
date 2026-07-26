@@ -36,6 +36,11 @@ func jsonFieldNameFromStructTag(tag string) string {
 	return name
 }
 
+// StructTagHasNonIgnoredJSON reports whether tag contains a json key other than "-".
+func StructTagHasNonIgnoredJSON(tag string) bool {
+	return jsonFieldNameFromStructTag(tag) != ""
+}
+
 func structType(recv types.Type) *types.Struct {
 	if recv == nil {
 		return nil

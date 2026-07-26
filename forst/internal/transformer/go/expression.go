@@ -141,15 +141,14 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 			return &goast.Ident{Name: parts[0]}, nil
 		}
 		var sel goast.Expr = goast.NewIdent(parts[0])
+		ownerTypes := t.TypeChecker.VariableTypes[ast.Identifier(parts[0])]
 		for _, field := range parts[1:] {
-			fieldName := field
-			if t.ExportReturnStructFields {
-				fieldName = capitalizeFirst(field)
-			}
+			fieldName := t.goSelectorFieldName(ownerTypes, field)
 			sel = &goast.SelectorExpr{
 				X:   sel,
 				Sel: goast.NewIdent(fieldName),
 			}
+			ownerTypes = t.ownerTypesAfterField(ownerTypes, field)
 		}
 		sel = t.appendResultStoragePayloadSelector(e, sel)
 		return sel, nil

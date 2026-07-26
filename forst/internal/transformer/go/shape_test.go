@@ -152,6 +152,52 @@ func TestTransformShapeType_jsonTagsGatedOnExportStructFields(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("explicit tag overrides auto json", func(t *testing.T) {
+		tc := typechecker.New(setupTestLogger(nil), false)
+		tr := New(tc, setupTestLogger(nil), true)
+
+		shape := &ast.ShapeNode{
+			Fields: map[string]ast.ShapeFieldNode{
+				"id": {Type: &ast.TypeNode{Ident: ast.TypeString}, Tag: `json:"wire_id"`},
+			},
+			FieldOrder: []string{"id"},
+		}
+		expr, err := tr.transformShapeType(shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st := (*expr).(*goast.StructType)
+		f := st.Fields.List[0]
+		want := "`json:\"wire_id\"`"
+		if f.Tag == nil || f.Tag.Value != want {
+			t.Fatalf("got tag %v, want %s", f.Tag, want)
+		}
+	})
+
+	t.Run("explicit tag exports field without export flag", func(t *testing.T) {
+		tc := typechecker.New(setupTestLogger(nil), false)
+		tr := setupTransformer(tc, setupTestLogger(nil))
+
+		shape := &ast.ShapeNode{
+			Fields: map[string]ast.ShapeFieldNode{
+				"name": {Type: &ast.TypeNode{Ident: ast.TypeString}, Tag: `json:"name"`, GoExport: true},
+			},
+			FieldOrder: []string{"name"},
+		}
+		expr, err := tr.transformShapeType(shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st := (*expr).(*goast.StructType)
+		f := st.Fields.List[0]
+		if f.Names[0].Name != "Name" {
+			t.Fatalf("field name = %q, want Name", f.Names[0].Name)
+		}
+		if f.Tag == nil || f.Tag.Value != "`json:\"name\"`" {
+			t.Fatalf("got tag %v, want explicit json tag", f.Tag)
+		}
+	})
 }
 
 func TestTransformMethodOnlyShapeAsInterface_emitsGoInterface(t *testing.T) {

@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"forst/internal/ast"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -75,39 +76,63 @@ func tokenCanStartAssertionBaseType(tok ast.Token) bool {
 	}
 }
 
+func parseStructTagLiteral(tokenValue string) string {
+	if len(tokenValue) >= 2 && tokenValue[0] == '`' && tokenValue[len(tokenValue)-1] == '`' {
+		return tokenValue[1 : len(tokenValue)-1]
+	}
+	if unquoted, err := strconv.Unquote(tokenValue); err == nil {
+		return unquoted
+	}
+	return tokenValue
+}
+
+func (p *Parser) attachOptionalStructTag(field ast.ShapeFieldNode) ast.ShapeFieldNode {
+	if p.current().Type == ast.TokenStringLiteral {
+		tok := p.current()
+		field.Tag = parseStructTagLiteral(tok.Value)
+		field.TagSpan = ast.SpanFromToken(tok)
+		p.advance()
+	}
+	return field
+}
+
 // parseShapeFieldTypeAfterColon parses a type annotation after `:` in a shape field (typedef or literal-as-types).
 func (p *Parser) parseShapeFieldTypeAfterColon(name string, opts ShapeFieldTypeOpts) ast.ShapeFieldNode {
+	var field ast.ShapeFieldNode
 	if p.current().Type == ast.TokenLBrace {
 		var shape ast.ShapeNode
 		if opts.InShapeLiteral {
 			shape = p.parseShapeLiteral(ShapeLiteralOpts{ParseAsTypes: true})
-			return ast.ShapeFieldNode{Shape: &shape}
-		}
-		shape = p.parseShapeType()
-		return ast.ShapeFieldNode{
-			Type: &ast.TypeNode{
-				Ident: ast.TypeShape,
-				Assertion: &ast.AssertionNode{
-					BaseType: nil,
-					Constraints: []ast.ConstraintNode{{
-						Name: "Shape",
-						Args: []ast.ConstraintArgumentNode{{
-							Shape: &shape,
+			field = ast.ShapeFieldNode{Shape: &shape}
+		} else {
+			shape = p.parseShapeType()
+			field = ast.ShapeFieldNode{
+				Type: &ast.TypeNode{
+					Ident: ast.TypeShape,
+					Assertion: &ast.AssertionNode{
+						BaseType: nil,
+						Constraints: []ast.ConstraintNode{{
+							Name: "Shape",
+							Args: []ast.ConstraintArgumentNode{{
+								Shape: &shape,
+							}},
 						}},
-					}},
+					},
 				},
-			},
+			}
 		}
+		return p.attachOptionalStructTag(field)
 	}
 	tok := p.current()
 	if p.peek().Type == ast.TokenDot && tokenCanStartAssertionBaseType(tok) {
 		assertion := p.parseAssertionChain(true)
-		return ast.ShapeFieldNode{
+		field = ast.ShapeFieldNode{
 			Type: &ast.TypeNode{
 				Ident:     ast.TypeAssertion,
 				Assertion: &assertion,
 			},
 		}
+		return p.attachOptionalStructTag(field)
 	}
 	if isPossibleTypeIdentifier(p.current(), TypeIdentOpts{AllowLowercaseTypes: false}) ||
 		p.current().Type == ast.TokenStar ||
@@ -115,9 +140,10 @@ func (p *Parser) parseShapeFieldTypeAfterColon(name string, opts ShapeFieldTypeO
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
 		typeIdent := typ.Ident
 		p.logParsedNodeWithMessage(typ, fmt.Sprintf("Parsed type for shape field %s and type ident %s (type: %+v)", name, typeIdent, typ))
-		return ast.ShapeFieldNode{
+		field = ast.ShapeFieldNode{
 			Type: &typ,
 		}
+		return p.attachOptionalStructTag(field)
 	}
 	p.FailWithParseError(p.current(), "Expected type annotation in shape type context")
 	panic("unreachable")
@@ -140,13 +166,13 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 	case ast.TokenStar:
 		// Handle pointer types
 		fieldType := p.parseType(TypeIdentOpts{AllowLowercaseTypes: true})
-		return ast.ShapeFieldNode{
+		return p.attachOptionalStructTag(ast.ShapeFieldNode{
 			Type: &fieldType,
-		}
+		})
 	case ast.TokenLBrace:
 		shape := p.parseShapeType()
 		// For shape types, nested shapes are stored on Shape and as Type with Assertion.
-		return ast.ShapeFieldNode{
+		return p.attachOptionalStructTag(ast.ShapeFieldNode{
 			Shape: &shape,
 			Type: &ast.TypeNode{
 				Ident: ast.TypeShape,
@@ -160,7 +186,7 @@ func (p *Parser) parseShapeTypeField(name string) ast.ShapeFieldNode {
 					}},
 				},
 			},
-		}
+		})
 	}
 	// If no colon, type-only member in a shape type context is an embedded field.
 	typeIdent := ast.TypeIdent(name)

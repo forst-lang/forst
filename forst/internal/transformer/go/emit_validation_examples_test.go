@@ -24,6 +24,7 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 		"const-iota/const-iota.ft",
 		"fixed-arrays/fixed-arrays.ft",
 		"struct-embedding/struct-embedding.ft",
+		"struct-tags/struct-tags.ft",
 		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",

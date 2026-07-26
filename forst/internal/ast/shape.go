@@ -27,6 +27,12 @@ type ShapeFieldNode struct {
 	MethodReturnTypes  []TypeNode
 	// Embedded is true for anonymous Go-style embedded fields (type only, no colon).
 	Embedded bool
+	// Tag is the Go struct tag body (inside backticks), e.g. json:"name".
+	Tag string
+	// TagSpan is the source span of the tag literal when parsed from Forst source.
+	TagSpan SourceSpan
+	// GoExport marks fields that must lower to exported Go identifiers (e.g. json-tagged fields).
+	GoExport bool
 }
 
 // IsMethodField reports whether this shape entry is a method signature (not a data field).

@@ -25,3 +25,24 @@ func (tc *TypeChecker) FieldTypeForNamedShape(shapeTypeIdent ast.TypeIdent, fiel
 	}
 	return *f.Type, true
 }
+
+// ShapeFieldForNamedShape returns the shape field node for a named shape/alias type, if found.
+func (tc *TypeChecker) ShapeFieldForNamedShape(shapeTypeIdent ast.TypeIdent, fieldName string) (ast.ShapeFieldNode, bool) {
+	if tc == nil {
+		return ast.ShapeFieldNode{}, false
+	}
+	def, ok := tc.Defs[shapeTypeIdent]
+	if !ok {
+		return ast.ShapeFieldNode{}, false
+	}
+	td, ok := def.(ast.TypeDefNode)
+	if !ok {
+		return ast.ShapeFieldNode{}, false
+	}
+	shapePtr, ok := ast.PayloadShape(td.Expr)
+	if !ok {
+		return ast.ShapeFieldNode{}, false
+	}
+	f, ok := shapePtr.Fields[fieldName]
+	return f, ok
+}
