@@ -1,0 +1,26 @@
+package main
+
+import "strconv"
+import "strings"
+
+// Tuple at the FFI boundary: single-value multi-return is always Tuple.
+func demoAtoi(s: String) {
+  pair := strconv.Atoi(s)
+  n := pair.0
+  println(n)
+}
+
+func demoCut(s: String, sep: String) {
+  t := strings.Cut(s, sep)
+  before := t.0
+  after := t.1
+  found := t.2
+  println(before)
+  println(after)
+  println(found)
+}
+
+func main() {
+  demoAtoi("42")
+  demoCut("a,b", ",")
+}

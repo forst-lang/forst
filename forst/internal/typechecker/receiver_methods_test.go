@@ -237,6 +237,7 @@ type NopLogger = {}
 
 func (NopLogger) log(msg String): Result(Int, Error) {
 	fmt.Println(msg)
+	return 0
 }
 `
 	log := logrus.New()

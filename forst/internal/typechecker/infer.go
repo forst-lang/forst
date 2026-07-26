@@ -160,6 +160,9 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		if err := tc.checkReturnDisallowedInResultErrBranch(n); err != nil {
 			return nil, err
 		}
+		if err := tc.checkMultiValueReturnLegality(n); err != nil {
+			return nil, err
+		}
 		return nil, nil
 
 	case ast.ImportNode:

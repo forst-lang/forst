@@ -266,6 +266,13 @@ tasks:
       - go run ./{{.BUILD_DIR}} build -o {{.EXAMPLES_DIR}}/go_interop/main.gen.go -- {{.EXAMPLES_DIR}}/go_interop/cli.ft
       - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop && go run .'
 
+  test:errors-compat:
+    desc: Stdlib error interop tests + third-party errors-compat module compile check
+    dir: forst
+    cmds:
+      - go test ./internal/typechecker/... -run ErrorsCompat -count=1
+      - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop/errors-compat && GOWORK=off go mod tidy && GOWORK=off go test ./... -count=1'
+
   example:generics:
     desc: Compile generics example (built-in []T / *T, append/copy/cap/range; not user-defined type parameters)
     dir: forst

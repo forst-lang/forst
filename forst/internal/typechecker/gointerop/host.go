@@ -1,0 +1,21 @@
+package gointerop
+
+import (
+	"forst/internal/ast"
+	"go/types"
+)
+
+// AssignabilityHost supplies type compatibility checks for Go FFI parameters.
+type AssignabilityHost interface {
+	ForstTypeForGoType(g types.Type) (ast.TypeNode, bool)
+	IsTypeCompatible(a, b ast.TypeNode) bool
+}
+
+// Host supplies typechecker callbacks needed for Go FFI call checking.
+type Host interface {
+	AssignabilityHost
+	InferExpressionType(expr ast.ExpressionNode) ([]ast.TypeNode, error)
+}
+
+// Diagnose formats a Go-interop diagnostic. Callers typically wrap this as typechecker.Diagnostic.
+type Diagnose func(span ast.SourceSpan, code, format string, args ...any) error

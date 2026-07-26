@@ -250,9 +250,12 @@ func (p *Parser) parseReturnStatement() ast.ReturnNode {
 
 	var values []ast.ExpressionNode
 	if p.current().Type != ast.TokenSemicolon && p.current().Type != ast.TokenRBrace {
-		values = append(values, p.parseExpression())
-		if p.current().Type == ast.TokenComma {
-			p.FailWithParseError(p.current(), "multiple return values are not supported; use a single Result(S, F) success value or delegate to a Result-returning call")
+		for {
+			values = append(values, p.parseExpression())
+			if p.current().Type != ast.TokenComma {
+				break
+			}
+			p.advance()
 		}
 	}
 

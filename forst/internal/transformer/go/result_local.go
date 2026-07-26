@@ -111,6 +111,25 @@ func (t *Transformer) hasResultLocalSplitForSimpleVariable(vn ast.VariableNode) 
 	return ok && s.errGoName != ""
 }
 
+// rhsCallIsFoldedTuple reports whether fc is typed as a single Forst Tuple (including Go multi-return FFI).
+func (t *Transformer) rhsCallIsFoldedTuple(fc ast.FunctionCallNode) bool {
+	ts, err := t.TypeChecker.LookupInferredType(fc, false)
+	if err != nil || len(ts) != 1 || !ts[0].IsTupleType() {
+		return false
+	}
+	return true
+}
+
+// rhsExprIsFoldedTuple reports whether rv is a single Forst Tuple (function call or Go FFI).
+func (t *Transformer) rhsExprIsFoldedTuple(rv ast.ExpressionNode) bool {
+	switch e := rv.(type) {
+	case ast.FunctionCallNode:
+		return t.rhsCallIsFoldedTuple(e)
+	default:
+		return false
+	}
+}
+
 // rhsCallIsFoldedResult reports whether fc is typed as a single Forst Result (including Go (T, error) FFI).
 func (t *Transformer) rhsCallIsFoldedResult(fc ast.FunctionCallNode) bool {
 	ts, err := t.TypeChecker.LookupInferredType(fc, false)

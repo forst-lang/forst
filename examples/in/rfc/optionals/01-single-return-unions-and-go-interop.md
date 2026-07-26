@@ -117,7 +117,11 @@ So **today**: **`(T, error)`** is **two** return types in the **typechecker**, *
 
 To get a **stable, predictable** Forst type **`Result(Success, Failure)`** ([02](./02-result-and-error-types.md)) from **Go** **without** guessing:
 
-**Rule R2 (recommended strawman)**
+**Rule R2 (superseded — locked 2026-07-26)**
+
+> **Superseded by [ERROR-INTEROP.md](../../../../.plans/go-compat/ERROR-INTEROP.md) decisions E-1…E-15.** Go multi-return in **single-value** expression position is always **`Tuple(T₁…Tₙ)`**, with **no** inspection of a trailing **`error`**. **`Result(S, F)`** stays a Forst-native exclusive sum; the bridge from FFI is **`n, err := …; ensure !err or err; return n`**. The strawman below is kept for historical context only.
+
+**Rule R2 (original strawman)**
 
 1. Let **`n = sig.Results().Len()`**.
 2. Map each **`go/types`** result with **`goTypeToForstType`** to **`F₀ … F_{n-1}`**. If **any** fails → **no** `Result` shortcut (keep **error** / **tuple** story as today, or **diagnostic**).

@@ -94,7 +94,7 @@ func TestGoQualifiedCall_wrongArgType(t *testing.T) {
 	}
 }
 
-func TestGoQualifiedCall_twoValueErrorFoldsToResult(t *testing.T) {
+func TestGoQualifiedCall_multiReturnMapsToTuple(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)
 	src := `package main
@@ -145,14 +145,14 @@ func main() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ts) != 1 || !ts[0].IsResultType() {
-		t.Fatalf("want single Result, got %v", ts)
+	if len(ts) != 1 || !ts[0].IsTupleType() {
+		t.Fatalf("want single Tuple, got %v", ts)
 	}
-	if ts[0].TypeParams[0].Ident != ast.TypeInt || ts[0].TypeParams[1].Ident != ast.TypeError {
-		t.Fatalf("want Result(Int, Error), got %s", ts[0].String())
+	if len(ts[0].TypeParams) != 2 || ts[0].TypeParams[0].Ident != ast.TypeInt || ts[0].TypeParams[1].Ident != ast.TypeError {
+		t.Fatalf("want Tuple(Int, Error), got %s", ts[0].String())
 	}
 	if tc.variableGoTypes[ast.Identifier("x")] != nil {
-		t.Fatal("expected no variableGoTypes[\"x\"] when Go arity does not match LHS count (folded Result)")
+		t.Fatal("expected no variableGoTypes[\"x\"] when Go arity does not match LHS count (wrapped Tuple)")
 	}
 }
 
@@ -356,7 +356,7 @@ func main() {
 	}
 }
 
-func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
+func TestCheckGoSignature_multiReturnThreeValuesMapsToTuple(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -372,23 +372,18 @@ func TestCheckGoSignature_foldsThreeIntErrorToResultTuple(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || !got[0].IsResultType() {
-		t.Fatalf("want single Result, got %v", got)
+	if len(got) != 1 || !got[0].IsTupleType() {
+		t.Fatalf("want single Tuple, got %v", got)
 	}
-	succ := got[0].TypeParams[0]
-	fail := got[0].TypeParams[1]
-	if !succ.IsTupleType() || len(succ.TypeParams) != 2 {
-		t.Fatalf("want Tuple(Int,Int), got %s", succ.String())
+	if len(got[0].TypeParams) != 3 {
+		t.Fatalf("want Tuple with 3 elements, got %s", got[0].String())
 	}
-	if succ.TypeParams[0].Ident != ast.TypeInt || succ.TypeParams[1].Ident != ast.TypeInt {
-		t.Fatalf("Tuple elems: %v", succ.TypeParams)
-	}
-	if fail.Ident != ast.TypeError {
-		t.Fatalf("want Error failure, got %s", fail.String())
+	if got[0].TypeParams[0].Ident != ast.TypeInt || got[0].TypeParams[1].Ident != ast.TypeInt || got[0].TypeParams[2].Ident != ast.TypeError {
+		t.Fatalf("Tuple elems: %v", got[0].TypeParams)
 	}
 }
 
-func TestCheckGoSignature_foldsPairIntErrorNoTuple(t *testing.T) {
+func TestCheckGoSignature_multiReturnPairMapsToTuple(t *testing.T) {
 	t.Parallel()
 	log := logrus.New()
 	log.SetLevel(logrus.PanicLevel)
@@ -403,15 +398,11 @@ func TestCheckGoSignature_foldsPairIntErrorNoTuple(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || !got[0].IsResultType() {
-		t.Fatalf("want single Result, got %v", got)
+	if len(got) != 1 || !got[0].IsTupleType() {
+		t.Fatalf("want single Tuple, got %v", got)
 	}
-	succ := got[0].TypeParams[0]
-	if succ.IsTupleType() {
-		t.Fatalf("pair should not use Tuple for success, got %s", succ.String())
-	}
-	if succ.Ident != ast.TypeInt {
-		t.Fatalf("want Int success, got %s", succ.String())
+	if len(got[0].TypeParams) != 2 || got[0].TypeParams[0].Ident != ast.TypeInt || got[0].TypeParams[1].Ident != ast.TypeError {
+		t.Fatalf("want Tuple(Int, Error), got %s", got[0].String())
 	}
 }
 

@@ -191,6 +191,14 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		return nil, fmt.Errorf("spread expression is only valid in function call arguments")
 
 	case ast.FieldAccessNode:
+		if idx, convErr := strconv.Atoi(string(e.Field.ID)); convErr == nil {
+			if vn, ok := e.Target.(ast.VariableNode); ok && t.resultLocalSplit != nil {
+				if split, ok := t.resultLocalSplit[string(vn.Ident.ID)]; ok && split.errGoName == "" &&
+					idx >= 0 && idx < len(split.successGoNames) {
+					return goast.NewIdent(split.successGoNames[idx]), nil
+				}
+			}
+		}
 		tgt, err := t.transformExpression(e.Target)
 		if err != nil {
 			return nil, err

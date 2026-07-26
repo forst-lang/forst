@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"forst/internal/ast"
 	"forst/internal/goload"
+	"strconv"
 	"strings"
 
 	"go/types"
@@ -252,6 +253,19 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		return ts, nil
 
 	case ast.FieldAccessNode:
+		targetTypes, err := tc.inferExpressionType(e.Target)
+		if err != nil {
+			return nil, err
+		}
+		if len(targetTypes) == 1 && targetTypes[0].IsTupleType() {
+			idx, convErr := strconv.Atoi(string(e.Field.ID))
+			if convErr != nil || idx < 0 || idx >= len(targetTypes[0].TypeParams) {
+				return nil, diagnosticf(e.Field.Span, "tuple-index", "tuple index %s out of range for %s", e.Field.ID, targetTypes[0].String())
+			}
+			ft := targetTypes[0].TypeParams[idx]
+			tc.storeInferredType(e, []ast.TypeNode{ft})
+			return []ast.TypeNode{ft}, nil
+		}
 		if goRecv := tc.goTypeForExpression(e.Target); goRecv != nil {
 			obj, _, _ := types.LookupFieldOrMethod(goRecv, false, nil, string(e.Field.ID))
 			if obj == nil {

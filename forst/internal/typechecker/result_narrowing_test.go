@@ -144,7 +144,9 @@ func TestIfResult_isErr_hoverShowsFailureTypeNotErrSuffix(t *testing.T) {
 import "strconv"
 
 func f(): Result(Int, Error) {
-	return strconv.Atoi("notint")
+	n, err := strconv.Atoi("notint")
+	ensure !err or err
+	return n
 }
 
 func main() {
@@ -384,7 +386,9 @@ func TestIfResult_elseIf_isErr_narrowsFailureType(t *testing.T) {
 import "strconv"
 
 func f(): Result(Int, Error) {
-	return strconv.Atoi("notint")
+	n, err := strconv.Atoi("notint")
+	ensure !err or err
+	return n
 }
 
 func main() {
@@ -548,7 +552,9 @@ func TestEnsureResult_isErr_narrowsFailureInSuccessor(t *testing.T) {
 import "strconv"
 
 func bad(): Result(Int, Error) {
-	return strconv.Atoi("notint")
+	n, err := strconv.Atoi("notint")
+	ensure !err or err
+	return n
 }
 
 func main() {
@@ -629,7 +635,9 @@ type WrapErr = {
 }
 
 func bad(): Result(Int, Error) {
-	return strconv.Atoi("notint")
+	n, err := strconv.Atoi("notint")
+	ensure !err or err
+	return n
 }
 
 func main() {
@@ -776,7 +784,9 @@ func TestEnsureResult_blockBody_seesFailureBranchNarrowing_whenErr(t *testing.T)
 import "strconv"
 
 func bad(): Result(Int, Error) {
-	return strconv.Atoi("x")
+	n, err := strconv.Atoi("x")
+	ensure !err or err
+	return n
 }
 
 func main() {
@@ -819,7 +829,9 @@ type WrapErr = {
 }
 
 func bad(): Result(Int, Error) {
-	return strconv.Atoi("notint")
+	n, err := strconv.Atoi("notint")
+	ensure !err or err
+	return n
 }
 
 func main() {

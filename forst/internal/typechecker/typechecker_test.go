@@ -302,7 +302,28 @@ func TestMultipleReturnValues(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "function with multiple return values",
+			name: "function with multiple return values into Tuple",
+			function: ast.FunctionNode{
+				Ident: ast.Ident{ID: "test"},
+				ReturnTypes: []ast.TypeNode{
+					ast.NewTupleType(
+						ast.TypeNode{Ident: ast.TypeInt},
+						ast.TypeNode{Ident: ast.TypeInt},
+					),
+				},
+				Body: []ast.Node{
+					ast.ReturnNode{
+						Values: []ast.ExpressionNode{
+							ast.IntLiteralNode{Value: 1},
+							ast.IntLiteralNode{Value: 2},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "function with multiple return values without Tuple declared",
 			function: ast.FunctionNode{
 				Ident: ast.Ident{ID: "test"},
 				Body: []ast.Node{
@@ -314,7 +335,7 @@ func TestMultipleReturnValues(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name: "assignment with multiple return values",

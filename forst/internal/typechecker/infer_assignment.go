@@ -88,6 +88,28 @@ func (tc *TypeChecker) inferAssignmentTypes(assign ast.AssignmentNode) error {
 					}
 				}
 			}
+			if !nValueGo && len(parts) == 1 {
+				argTypes := make([][]ast.TypeNode, 0, len(fc.Arguments))
+				for _, arg := range fc.Arguments {
+					ts, err := tc.inferExpressionType(arg)
+					if err != nil {
+						return err
+					}
+					argTypes = append(argTypes, ts)
+				}
+				raw, found, err := tc.trySamePackageGoCall(string(fc.Function.ID), fc, argTypes, false)
+				if err != nil {
+					return err
+				}
+				if found && len(raw) == len(assign.LValues) {
+					resolvedTypes = make([][]ast.TypeNode, len(raw))
+					for i := range raw {
+						resolvedTypes[i] = []ast.TypeNode{raw[i]}
+					}
+					nValueGo = true
+					tc.storeInferredType(fc, raw)
+				}
+			}
 		}
 	}
 

@@ -136,6 +136,9 @@ func (p *Parser) parseIdentifier() ast.Ident {
 
 	last := first
 	for p.current().Type == ast.TokenDot {
+		if p.peek().Type == ast.TokenIntLiteral {
+			break
+		}
 		p.advance() // Consume dot
 		nextIdent := p.parseSelectorName()
 		identifier = ast.Identifier(string(identifier) + "." + nextIdent.Value)

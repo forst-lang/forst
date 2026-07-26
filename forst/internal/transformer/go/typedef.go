@@ -66,8 +66,9 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 		},
 	}
 
-	if _, ok := node.Expr.(ast.TypeDefErrorExpr); ok {
+	if errEx, ok := node.Expr.(ast.TypeDefErrorExpr); ok {
 		t.emitNominalErrorErrorMethod(typeName)
+		t.emitNominalErrorUnwrapMethod(typeName, errEx.Payload)
 	}
 
 	return &goast.GenDecl{
@@ -100,6 +101,36 @@ func (t *Transformer) emitNominalErrorErrorMethod(typeName ast.TypeIdent) {
 		},
 		Body: &goast.BlockStmt{List: []goast.Stmt{
 			&goast.ReturnStmt{Results: []goast.Expr{&goast.BasicLit{Kind: token.STRING, Value: `"error"`}}},
+		}},
+	}
+	t.Output.AddFunction(fn)
+}
+
+// emitNominalErrorUnwrapMethod emits `func (e T) Unwrap() error` when the payload declares `cause: Error`.
+func (t *Transformer) emitNominalErrorUnwrapMethod(typeName ast.TypeIdent, payload ast.ShapeNode) {
+	field, ok := payload.Fields["cause"]
+	if !ok || field.Type == nil || field.Type.Ident != ast.TypeError {
+		return
+	}
+	name := string(typeName)
+	goField := "cause"
+	if t.ExportReturnStructFields {
+		goField = capitalizeFirst("cause")
+	}
+	fn := &goast.FuncDecl{
+		Recv: &goast.FieldList{List: []*goast.Field{{
+			Names: []*goast.Ident{goast.NewIdent("e")},
+			Type:  goast.NewIdent(name),
+		}}},
+		Name: goast.NewIdent("Unwrap"),
+		Type: &goast.FuncType{
+			Results: &goast.FieldList{List: []*goast.Field{{Type: goast.NewIdent("error")}}},
+		},
+		Body: &goast.BlockStmt{List: []goast.Stmt{
+			&goast.ReturnStmt{Results: []goast.Expr{&goast.SelectorExpr{
+				X:   goast.NewIdent("e"),
+				Sel: goast.NewIdent(goField),
+			}}},
 		}},
 	}
 	t.Output.AddFunction(fn)

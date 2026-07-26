@@ -9,7 +9,6 @@ import ErrorsNotPositive from "/snippets/errors-not-positive.mdx";
 import ErrorsOkIntMain from "/snippets/errors-ok-int-main.mdx";
 import ErrorsGF from "/snippets/errors-g-f.mdx";
 import ErrorsOkIntReturn from "/snippets/errors-ok-int-return.mdx";
-import ErrorsLogReport from "/snippets/errors-log-report.mdx";
 
 Domain failures are **nominal error types** and **`Result`** values. Each variant has a name and payload in Go's "errors as values" style.
 
@@ -59,15 +58,28 @@ Explicit **`return`** is still fine (and clearer when intent is ambiguous):
 
 ### Trailing calls and Go imports
 
-This differs from Go **statement** semantics. A trailing call whose Go signature is **`(T, error)`** is typed in Forst as **`Result(T, Error)`** when its result is used — including as an implicit return:
+Go multi-return in **single-value** expression position (including a trailing call used as an implicit return) maps to **`Tuple(T₁…Tₙ)`**, not **`Result`**. To return **`Result(T, Error)`** from a Forst function, use the n-value bridge:
 
-<ErrorsLogReport />
+```forst
+n, err := pkg.F()
+ensure !err or err
+return n
+```
 
-With no declared return type, **`logAndReport`** returns **`Result(Int, Error)`**, not void. To log for side effects only, use Forst **`println`** / **`print`**, or declare a void return on a [Provider contract method](/language/providers).
+With no declared return type, a trailing Go multi-return call makes the function return a **`Tuple`**, not **`Result`**. To log for side effects only, use Forst **`println`** / **`print`**, or declare an explicit return type on a [Provider contract method](/language/providers).
+
+## Result and Tuple (permanently disjoint)
+
+**`Result(S, F)`** and **`Tuple(T₁…Tₙ)`** are **different types** with **no conversion either way**.
+
+- **`Result`** is Forst-native: an exclusive success/failure sum built via **`return`** + **`ensure`** inside functions whose return type is **`Result(...)`**.
+- **`Tuple`** is what Go FFI honestly returns when a multi-return call is bound in **single-value** context (`x := pkg.F()`).
+- **`Ok()` / `Err()`** narrowing applies only to **`Result`**. Using them on a **`Tuple`** is a normal type error.
+- Bridge FFI to **`Result`** with **`n, err := …; ensure !err or err; return n`** (see [Go interop](#go-interop)).
 
 ## Go interop
 
-Forst folds Go's **`(T, error)`** returns into **`Result(T, Error)`** at the boundary where wired. Generated Go uses idiomatic error returns. Your ops team still reads familiar code.
+Go multi-return in **single-value** expression position maps to **`Tuple(T₁…Tₙ)`** uniformly at the FFI boundary—there is **no** auto-fold to **`Result`**. Use **`n, err := pkg.F(); ensure !err or err; return n`** inside a **`Result`-returning** Forst function to bridge FFI to **`Result`** ergonomics. **`v, err := pkg.F()`** (n-value context) behaves like Go. Generated Go uses idiomatic error returns.
 
 ## Generate client types
 
@@ -103,7 +115,7 @@ The failure type parameter is constrained to the **`Error`** family today. Arbit
 
 ### Implicit return trap
 
-When a function has no declared return type, a trailing Go call that returns **`(T, error)`** can make the whole function return **`Result(T, Error)`**. That includes **`fmt.Println`** and similar calls. Use **`println`** for void side effects, or declare an explicit return type.
+When a function has no declared return type, a trailing Go **multi-return** call bound in single-value position types as **`Tuple`**, not **`Result`**. Declare an explicit return type, or use the **`n, err := …; ensure !err or err; return n`** bridge when you need **`Result`**. Use **`println`** for void side effects.
 
 ### Nominal errors incomplete
 

@@ -135,6 +135,21 @@ func (tc *TypeChecker) inferFunctionReturnType(fn ast.FunctionNode) ([]ast.TypeN
 		inferredType = returnStmtTypes[0]
 	}
 
+	// Multi-value return against a declared Tuple(S...) return type: keep Tuple as the single return type.
+	if len(parsedType) == 1 && parsedType[0].IsTupleType() && len(returnStmtTypes) > 0 {
+		retVals := returnStmtTypes[0]
+		tup := parsedType[0]
+		if len(retVals) == len(tup.TypeParams) {
+			for i, elem := range retVals {
+				if !tc.IsTypeCompatible(elem, tup.TypeParams[i]) {
+					return nil, failWithTypeMismatch(fn, retVals, tup.TypeParams, "Tuple return element mismatch")
+				}
+			}
+			inferredType = parsedType
+			return inferredType, nil
+		}
+	}
+
 	// Handle ensure statements
 	if hasEnsure {
 		if tc.IsGoTestFunction(fn) {

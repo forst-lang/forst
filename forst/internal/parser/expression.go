@@ -236,6 +236,15 @@ func (p *Parser) parsePostfixSuffixChain(base ast.ExpressionNode, depth int) ast
 	base = p.parseIndexSuffixChain(base, depth)
 	for p.current().Type == ast.TokenDot {
 		p.advance()
+		if p.current().Type == ast.TokenIntLiteral {
+			tok := p.current()
+			p.advance()
+			base = ast.FieldAccessNode{
+				Target: base,
+				Field:  ast.Ident{ID: ast.Identifier(tok.Value), Span: ast.SpanFromToken(tok)},
+			}
+			continue
+		}
 		memberTok := p.parseSelectorName()
 		if p.current().Type == ast.TokenLParen {
 			lparen := p.current()

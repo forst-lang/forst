@@ -115,6 +115,13 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 			}).Debug("No function return type found for return statement")
 		}
 
+		if len(expectedReturnTypes) == 1 && expectedReturnTypes[0].IsTupleType() && len(s.Values) > 1 {
+			tup := expectedReturnTypes[0]
+			if len(s.Values) == len(tup.TypeParams) {
+				expectedReturnTypes = tup.TypeParams
+			}
+		}
+
 		// Result(S, F) is one Forst return type but lowers to (S, error) in Go.
 		// Constructor-free success: plain `S` becomes `return succ, nil`.
 		// `return g()` where `g()` is already `Result` stays a single Go return (`return g()`), not `g(), nil`.
@@ -471,10 +478,44 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		}
 
 		// Handle assignment without explicit types (normal assignment)
-		// Result(S,F) is one Forst value but lowers to (success..., error) in Go: multi-value assignment.
+		// Tuple(T1..Tn) is one Forst value but lowers to (T1, ..., Tn) in Go: multi-value assignment.
 		if len(s.LValues) == 1 && len(s.RValues) == 1 {
 			if vn, ok := s.LValues[0].(ast.VariableNode); ok {
 				rhs := s.RValues[0]
+				if t.rhsExprIsFoldedTuple(rhs) {
+					ts, err := t.TypeChecker.LookupInferredType(rhs, false)
+					if err != nil || len(ts) != 1 || !ts[0].IsTupleType() {
+						return nil, fmt.Errorf("assignment: expected Tuple from RHS")
+					}
+					k := len(ts[0].TypeParams)
+					slotNames := make([]string, k)
+					for i := range k {
+						slotNames[i] = fmt.Sprintf("%s%d", string(vn.Ident.ID), i)
+					}
+					rhsExpr, err := t.transformExpression(rhs)
+					if err != nil {
+						return nil, err
+					}
+					if t.resultLocalSplit == nil {
+						t.resultLocalSplit = make(map[string]resultLocalSplit)
+					}
+					t.resultLocalSplit[string(vn.Ident.ID)] = resultLocalSplit{
+						successGoNames: slotNames,
+					}
+					op := token.ASSIGN
+					if s.IsShort {
+						op = token.DEFINE
+					}
+					lhs := make([]goast.Expr, len(slotNames))
+					for i, n := range slotNames {
+						lhs[i] = goast.NewIdent(n)
+					}
+					return &goast.AssignStmt{
+						Lhs: lhs,
+						Tok: op,
+						Rhs: []goast.Expr{rhsExpr},
+					}, nil
+				}
 				if t.rhsExprIsFoldedResult(rhs) {
 					ts, err := t.TypeChecker.LookupInferredType(rhs, false)
 					if err != nil || len(ts) != 1 || !ts[0].IsResultType() {
