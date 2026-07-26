@@ -1,0 +1,17 @@
+package main
+
+// Exercises make/new with Forst type syntax in call-argument position.
+func main() {
+	xs := make(Array(Int), 10)
+	xsCap := make(Array(Int), 10, 20)
+	m := make(map[String]Int)
+	mHint := make(map[String]Int, 4)
+	p := new(Int)
+	println(len(xs))
+	println(len(xsCap))
+	println(len(m))
+	println(len(mHint))
+	if p != nil {
+		println("ok")
+	}
+}

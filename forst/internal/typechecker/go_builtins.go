@@ -553,9 +553,10 @@ func (tc *TypeChecker) tryDispatchGoBuiltin(fn BuiltinFunction, args []ast.Expre
 		return tc.dispatchPrintLike(args, argSpans, callSpan)
 	case "recover":
 		return tc.dispatchRecover(args, callSpan)
-	case "make", "new":
-		return nil, true, diagnosticf(callSpan, "builtin-call",
-			"%s() with a type argument is not supported yet: use Forst type syntax (e.g. Array(Int)) when the parser accepts types in call position, or use a small Go helper via import", fn.Name)
+	case "make":
+		return tc.dispatchMake(args, argSpans, callSpan)
+	case "new":
+		return tc.dispatchNew(args, argSpans, callSpan)
 
 	default:
 		return nil, false, nil

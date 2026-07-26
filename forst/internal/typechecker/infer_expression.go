@@ -594,6 +594,10 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		// Return a special marker (empty slice) to indicate untyped nil; context must resolve
 		return nil, nil
 
+	case ast.TypeExpressionNode:
+		tc.storeInferredType(e, []ast.TypeNode{e.Type})
+		return []ast.TypeNode{e.Type}, nil
+
 	case ast.MapLiteralNode:
 		if e.Type.Ident != ast.TypeMap || len(e.Type.TypeParams) != 2 {
 			return nil, fmt.Errorf("map literal: invalid type %v", e.Type)

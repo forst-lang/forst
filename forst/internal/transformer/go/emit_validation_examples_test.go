@@ -20,6 +20,7 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 		"go_builtins.ft",
 		"slices.ft",
 		"switch/switch.ft",
+		"make-new-types/make-new-types.ft",
 		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",

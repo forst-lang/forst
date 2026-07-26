@@ -275,7 +275,13 @@ func (p *Parser) parseIdentifierPrimary() ast.ExpressionNode {
 	if p.current().Type == ast.TokenLParen {
 		lparen := p.current()
 		p.advance()
-		args, argSpans := p.parseCallArguments()
+		var args []ast.ExpressionNode
+		var argSpans []ast.SourceSpan
+		if ident.ID == "make" || ident.ID == "new" {
+			args, argSpans = p.parseMakeNewCallArguments(ident.ID)
+		} else {
+			args, argSpans = p.parseCallArguments()
+		}
 		rparen := p.expect(ast.TokenRParen)
 		if ident.ID == "Ok" || ident.ID == "Err" {
 			if len(args) != 1 {

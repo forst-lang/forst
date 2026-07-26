@@ -96,6 +96,21 @@ func (s SpreadExpressionNode) String() string {
 	return s.Expr.String() + "..."
 }
 
+// TypeExpressionNode is a type literal in expression position (make/new first argument).
+type TypeExpressionNode struct {
+	Type TypeNode
+}
+
+func (TypeExpressionNode) isExpression() {}
+
+func (TypeExpressionNode) Kind() NodeKind {
+	return NodeKindTypeExpression
+}
+
+func (t TypeExpressionNode) String() string {
+	return t.Type.String()
+}
+
 // FieldAccessNode is field selection on an expression: recv.field (Go FFI).
 type FieldAccessNode struct {
 	Target ExpressionNode

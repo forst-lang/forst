@@ -40,6 +40,8 @@ func (t *Transformer) transformExpression(expr ast.ExpressionNode) (goast.Expr, 
 		return goast.NewIdent("false"), nil
 	case ast.NilLiteralNode:
 		return goast.NewIdent("nil"), nil
+	case ast.TypeExpressionNode:
+		return t.transformType(e.Type)
 	case ast.ArrayLiteralNode:
 		return t.transformArrayLiteral(e, nil)
 	case ast.MapLiteralNode:

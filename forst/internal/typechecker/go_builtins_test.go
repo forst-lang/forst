@@ -374,7 +374,7 @@ func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 		}
 	})
 
-	t.Run("make unsupported", func(t *testing.T) {
+	t.Run("make rejects non-type first arg", func(t *testing.T) {
 		fn := BuiltinFunctions["make"]
 		_, err := tc.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.StringLiteralNode{Value: "x"}}, nil, ast.SourceSpan{})
 		if err == nil {

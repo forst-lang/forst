@@ -60,6 +60,7 @@ var NodeKind = map[string]uint8{
 	"FieldAccess":      34,
 	"Switch":           37,
 	"Fallthrough":      38,
+	"TypeExpression": 39,
 }
 
 // hashWalk carries per-top-level-HashNode memo state; safe for concurrent HashNode calls.
@@ -899,6 +900,13 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		return w.hash(&n)
 	case ast.FallthroughNode:
 		w.h.writeHashes(hasher, NodeKind["Fallthrough"])
+	case ast.TypeExpressionNode:
+		w.h.writeHashes(hasher, NodeKind["TypeExpression"])
+		hash, err := w.hash(n.Type)
+		if err != nil {
+			return 0, err
+		}
+		w.h.writeHashes(hasher, hash)
 	case *ast.BreakNode:
 		w.h.writeHashes(hasher, NodeKind["Break"])
 		if n != nil && n.Label != nil {

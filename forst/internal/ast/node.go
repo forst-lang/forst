@@ -114,4 +114,5 @@ const (
 	NodeKindFieldAccess       NodeKind = "FieldAccess"
 	NodeKindOkExpr            NodeKind = "OkExpr"
 	NodeKindErrExpr           NodeKind = "ErrExpr"
+	NodeKindTypeExpression    NodeKind = "TypeExpression"
 )
