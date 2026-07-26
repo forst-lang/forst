@@ -16,12 +16,16 @@ type FunctionSignature struct {
 
 // ParameterSignature represents a function parameter's type information
 type ParameterSignature struct {
-	Ident ast.Ident
-	Type  ast.TypeNode
+	Ident    ast.Ident
+	Type     ast.TypeNode
+	Variadic bool // true for trailing ...T parameters (Type is the element type)
 }
 
 // String returns a string representation of the parameter signature
 func (p ParameterSignature) String() string {
+	if p.Variadic {
+		return fmt.Sprintf("%s ...%s", p.Ident.ID, p.Type.String())
+	}
 	return fmt.Sprintf("%s %s", p.Ident.ID, p.Type.String())
 }
 

@@ -23,7 +23,7 @@ func TestTransformFunctionParamField_userShapeType(t *testing.T) {
 		},
 	}
 	tr := setupTransformer(tc, log)
-	field, err := tr.transformFunctionParamField("u", ast.TypeNode{Ident: "User", TypeKind: ast.TypeKindUserDefined})
+	field, err := tr.transformFunctionParamField("u", ast.TypeNode{Ident: "User", TypeKind: ast.TypeKindUserDefined}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

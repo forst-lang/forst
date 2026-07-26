@@ -194,7 +194,7 @@ func TestTransformFunctionParamField_assertionBaseTypeOnly(t *testing.T) {
 	base := ast.TypeIdent("User")
 	field, err := tr.transformFunctionParamField("u", ast.TypeNode{
 		Assertion: &ast.AssertionNode{BaseType: &base},
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

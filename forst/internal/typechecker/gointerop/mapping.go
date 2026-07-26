@@ -19,6 +19,18 @@ func ErrorInterfaceType() types.Type {
 	return tn.Type()
 }
 
+func isUniverseBasicType(t types.Type, name string) bool {
+	obj := types.Universe.Lookup(name)
+	if obj == nil {
+		return false
+	}
+	tn, ok := obj.(*types.TypeName)
+	if !ok {
+		return false
+	}
+	return types.Identical(t, tn.Type())
+}
+
 // TypeToForstType maps a go/types value to a Forst type at the FFI boundary.
 func TypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	if t == nil {
@@ -32,6 +44,12 @@ func TypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	}
 	switch u := t.Underlying().(type) {
 	case *types.Basic:
+		if isUniverseBasicType(t, "byte") {
+			return ast.TypeNode{Ident: ast.TypeIdent("byte")}, true
+		}
+		if isUniverseBasicType(t, "rune") {
+			return ast.TypeNode{Ident: ast.TypeIdent("rune")}, true
+		}
 		switch u.Kind() {
 		case types.Bool, types.UntypedBool:
 			return ast.TypeNode{Ident: ast.TypeBool}, true
@@ -41,6 +59,10 @@ func TypeToForstType(t types.Type) (ast.TypeNode, bool) {
 			return ast.TypeNode{Ident: ast.TypeInt}, true
 		case types.Float32, types.Float64, types.UntypedFloat:
 			return ast.TypeNode{Ident: ast.TypeFloat}, true
+		case types.Complex64:
+			return ast.TypeNode{Ident: ast.TypeComplex64}, true
+		case types.Complex128:
+			return ast.TypeNode{Ident: ast.TypeComplex128}, true
 		case types.String, types.UntypedString:
 			return ast.TypeNode{Ident: ast.TypeString}, true
 		case types.UnsafePointer:

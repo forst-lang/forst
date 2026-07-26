@@ -15,8 +15,9 @@ type ParamNode interface {
 // SimpleParamNode represents a basic named parameter
 type SimpleParamNode struct {
 	ParamNode
-	Ident Ident    // Parameter name
-	Type  TypeNode // Parameter type
+	Ident    Ident    // Parameter name
+	Type     TypeNode // Parameter type (element type when Variadic)
+	Variadic bool     // true for trailing ...T parameters
 }
 
 // DestructuredParamNode represents a parameter that destructures an object
@@ -32,6 +33,9 @@ func (p SimpleParamNode) Kind() NodeKind {
 }
 
 func (p SimpleParamNode) String() string {
+	if p.Variadic {
+		return fmt.Sprintf("%s ...%s", p.Ident.ID, p.Type.String())
+	}
 	return fmt.Sprintf("%s %s", p.Ident.ID, p.Type.String())
 }
 

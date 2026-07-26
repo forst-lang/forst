@@ -24,6 +24,10 @@ const (
 	TypeError TypeIdent = "TYPE_ERROR"
 	// TypeBytes is the built-in byte slice type (maps to Go []byte).
 	TypeBytes TypeIdent = "TYPE_BYTES"
+	// TypeComplex64 is Go complex64 (maps to Forst Complex64 at FFI boundary).
+	TypeComplex64 TypeIdent = "TYPE_COMPLEX64"
+	// TypeComplex128 is Go complex128 (maps to Forst Complex128 at FFI boundary).
+	TypeComplex128 TypeIdent = "TYPE_COMPLEX128"
 	// TypeObject is the built-in object type
 	TypeObject TypeIdent = "TYPE_OBJECT"
 	// TypeArray is the built-in array type

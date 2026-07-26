@@ -92,6 +92,11 @@ func (tc *TypeChecker) isTypeCompatibleImpl(actual ast.TypeNode, expected ast.Ty
 		return false
 	}
 
+	// byte/rune are Int-compatible at the Forst layer while preserving Go emit spelling.
+	if isIntFamilyIdent(actual.Ident) && isIntFamilyIdent(expected.Ident) {
+		return true
+	}
+
 	// RFC 02: nominal `error X { ... }` (`TypeDefErrorExpr`) is assignable to the built-in `Error` type.
 	if expected.Ident == ast.TypeError {
 		if def, ok := tc.Defs[actual.Ident].(ast.TypeDefNode); ok {
@@ -311,6 +316,17 @@ func (tc *TypeChecker) siblingShapeTypeMatches(actual ast.TypeNode, siblingType 
 func isScalarTypeIdent(id ast.TypeIdent) bool {
 	switch id {
 	case ast.TypeString, ast.TypeInt, ast.TypeFloat, ast.TypeBool:
+		return true
+	case ast.TypeIdent("byte"), ast.TypeIdent("rune"):
+		return true
+	default:
+		return false
+	}
+}
+
+func isIntFamilyIdent(id ast.TypeIdent) bool {
+	switch id {
+	case ast.TypeInt, ast.TypeIdent("byte"), ast.TypeIdent("rune"):
 		return true
 	default:
 		return false

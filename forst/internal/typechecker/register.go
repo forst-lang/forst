@@ -172,8 +172,9 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
 			params[i] = ParameterSignature{
-				Ident: p.Ident,
-				Type:  p.Type,
+				Ident:    p.Ident,
+				Type:     p.Type,
+				Variadic: p.Variadic,
 			}
 		case ast.DestructuredParamNode:
 			params[i] = ParameterSignature{
@@ -204,7 +205,11 @@ func (tc *TypeChecker) registerFunction(fn ast.FunctionNode) {
 	for _, param := range fn.Params {
 		switch p := param.(type) {
 		case ast.SimpleParamNode:
-			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{p.Type}, SymbolParameter)
+			paramType := p.Type
+			if p.Variadic {
+				paramType = ast.NewArrayType(p.Type)
+			}
+			tc.storeSymbol(p.Ident.ID, []ast.TypeNode{paramType}, SymbolParameter)
 		case ast.DestructuredParamNode:
 			tc.registerDestructuredParamSymbols(p.Fields, p.Type, SymbolParameter)
 		}

@@ -86,6 +86,11 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	if p.current().Type == ast.TokenColon {
 		p.advance()
 	}
+	variadic := false
+	if p.current().Type == ast.TokenEllipsis {
+		variadic = true
+		p.advance()
+	}
 
 	tok := p.current()
 	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenDot {
@@ -97,12 +102,14 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 					Ident:     ast.TypeAssertion,
 					Assertion: &assertion,
 				},
+				Variadic: variadic,
 			}
 		}
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 		return ast.SimpleParamNode{
-			Ident: ast.Ident{ID: ast.Identifier(name)},
-			Type:  typ,
+			Ident:    ast.Ident{ID: ast.Identifier(name)},
+			Type:     typ,
+			Variadic: variadic,
 		}
 	}
 	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLParen {
@@ -113,6 +120,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 				Ident:     ast.TypeAssertion,
 				Assertion: &assertion,
 			},
+			Variadic: variadic,
 		}
 	}
 
@@ -125,8 +133,9 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		p.advance()
 		typeIdent := ast.TypeIdent("Shape")
 		return ast.SimpleParamNode{
-			Ident: ast.Ident{ID: ast.Identifier(name)},
-			Type:  ast.TypeNode{Ident: typeIdent},
+			Ident:    ast.Ident{ID: ast.Identifier(name)},
+			Type:     ast.TypeNode{Ident: typeIdent},
+			Variadic: variadic,
 		}
 	}
 	if tok.Type == ast.TokenLBrace {
@@ -146,14 +155,16 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 					}},
 				},
 			},
+			Variadic: variadic,
 		}
 	}
 	// Parse the type, which may include dots (e.g. AppMutation.Input)
 	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 	p.logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
 	return ast.SimpleParamNode{
-		Ident: ast.Ident{ID: ast.Identifier(name)},
-		Type:  typ,
+		Ident:    ast.Ident{ID: ast.Identifier(name)},
+		Type:     typ,
+		Variadic: variadic,
 	}
 }
 
@@ -208,6 +219,11 @@ func (p *Parser) parseFunctionSignature() []ast.ParamNode {
 	}
 
 	p.expect(ast.TokenRParen)
+	for i, param := range params {
+		if sp, ok := param.(ast.SimpleParamNode); ok && sp.Variadic && i != len(params)-1 {
+			p.FailWithParseError(p.current(), "variadic parameter must be the last parameter in the list")
+		}
+	}
 	return params
 }
 

@@ -346,29 +346,8 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 		}
 
 		if signature, exists := tc.Functions[e.Function.ID]; exists {
-			if len(argTypes) != len(signature.Parameters) {
-				var sp ast.SourceSpan
-				if len(argTypes) > len(signature.Parameters) {
-					sp = spanForCallArg(e.ArgSpans, len(signature.Parameters), e.Arguments, e.CallSpan)
-				} else {
-					sp = e.CallSpan
-				}
-				if !sp.IsSet() {
-					sp = e.Function.Span
-				}
-				return nil, diagnosticf(sp, "call-arity", "function %s expects %d arguments, got %d",
-					e.Function.ID, len(signature.Parameters), len(argTypes))
-			}
-			for i, param := range signature.Parameters {
-				sp := spanForCallArg(e.ArgSpans, i, e.Arguments, e.CallSpan)
-				if len(argTypes[i]) != 1 {
-					return nil, diagnosticf(sp, "call-type", "argument %d to %s must have a single type, got %d",
-						i+1, e.Function.ID, len(argTypes[i]))
-				}
-				if !tc.IsTypeCompatible(argTypes[i][0], param.Type) {
-					return nil, diagnosticf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
-						i+1, e.Function.ID, param.Type.Ident, argTypes[i][0].Ident)
-				}
+			if err := tc.checkUserFunctionCall(e.Function.ID, signature, e, argTypes); err != nil {
+				return nil, err
 			}
 			callSpan := e.CallSpan
 			if !callSpan.IsSet() {

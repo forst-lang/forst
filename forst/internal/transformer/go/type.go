@@ -205,6 +205,14 @@ func transformTypeIdent(ident ast.TypeIdent) (*goast.Ident, error) {
 		return &goast.Ident{Name: "int"}, nil
 	case ast.TypeFloat:
 		return &goast.Ident{Name: "float64"}, nil
+	case ast.TypeComplex64:
+		return &goast.Ident{Name: "complex64"}, nil
+	case ast.TypeComplex128:
+		return &goast.Ident{Name: "complex128"}, nil
+	case ast.TypeIdent("byte"):
+		return &goast.Ident{Name: "byte"}, nil
+	case ast.TypeIdent("rune"):
+		return &goast.Ident{Name: "rune"}, nil
 	case ast.TypeBool:
 		return &goast.Ident{Name: "bool"}, nil
 	case ast.TypeVoid:

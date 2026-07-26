@@ -87,6 +87,17 @@ func structFieldTypeForForstNameOnStruct(st *types.Struct, forstName string) (ty
 			return f.Type(), true
 		}
 	}
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if f == nil || !f.Anonymous() {
+			continue
+		}
+		if embedded := structType(f.Type()); embedded != nil {
+			if ft, found := structFieldTypeForForstNameOnStruct(embedded, forstName); found {
+				return ft, true
+			}
+		}
+	}
 	return nil, false
 }
 
@@ -103,11 +114,14 @@ func TypeAtFieldPath(recv types.Type, fieldPath []string) (types.Type, error) {
 		if obj == nil {
 			return nil, fmt.Errorf("no field or method %q on %s", name, recv)
 		}
-		v, ok := obj.(*types.Var)
-		if !ok {
-			return nil, fmt.Errorf("%q is not a struct field (got %T)", name, obj)
+		switch o := obj.(type) {
+		case *types.Var:
+			ft = o.Type()
+		case *types.Func:
+			ft = o.Type()
+		default:
+			return nil, fmt.Errorf("%q is not a struct field or method (got %T)", name, obj)
 		}
-		ft = v.Type()
 	}
 	if len(fieldPath) == 1 {
 		return ft, nil

@@ -8,7 +8,7 @@ import (
 	goast "go/ast"
 )
 
-func (t *Transformer) transformFunctionParamField(paramName string, paramType ast.TypeNode) (*goast.Field, error) {
+func (t *Transformer) transformFunctionParamField(paramName string, paramType ast.TypeNode, variadic bool) (*goast.Field, error) {
 	if ast.IsTestingTParamType(paramType) || typechecker.IsGoTypesTestingT(t.TypeChecker.GoTypeForVariable(ast.Identifier(paramName))) {
 		t.Output.EnsureImport("testing")
 		return &goast.Field{
@@ -51,6 +51,9 @@ func (t *Transformer) transformFunctionParamField(paramName string, paramType as
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform type for parameter %s: %w", paramName, err)
 	}
+	if variadic {
+		typeExpr = &goast.Ellipsis{Elt: typeExpr}
+	}
 
 	return &goast.Field{
 		Names: []*goast.Ident{goast.NewIdent(paramName)},
@@ -78,7 +81,7 @@ func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []a
 				paramType = sig.Parameters[i].Type
 			}
 			t.log.Debugf("transformFunctionParams: param %d '%s' has type %q", i, p.Ident.ID, paramType.Ident)
-			field, err := t.transformFunctionParamField(string(p.Ident.ID), paramType)
+			field, err := t.transformFunctionParamField(string(p.Ident.ID), paramType, p.Variadic)
 			if err != nil {
 				return nil, err
 			}
@@ -98,7 +101,7 @@ func (t *Transformer) transformFunctionParams(fnIdent ast.Identifier, params []a
 					return nil, fmt.Errorf("destructured field %s has no type", fieldName)
 				}
 				t.log.Debugf("transformFunctionParams: destructured field %s has type %q", fieldName, fieldType.Ident)
-				field, err := t.transformFunctionParamField(fieldName, fieldType)
+				field, err := t.transformFunctionParamField(fieldName, fieldType, false)
 				if err != nil {
 					return nil, err
 				}

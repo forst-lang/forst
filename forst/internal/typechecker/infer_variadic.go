@@ -1,0 +1,111 @@
+package typechecker
+
+import (
+	"fmt"
+
+	"forst/internal/ast"
+)
+
+func functionHasVariadicTail(params []ParameterSignature) (fixed int, elem ast.TypeNode, ok bool) {
+	if len(params) == 0 {
+		return 0, ast.TypeNode{}, false
+	}
+	last := params[len(params)-1]
+	if !last.Variadic {
+		return 0, ast.TypeNode{}, false
+	}
+	return len(params) - 1, last.Type, true
+}
+
+func (tc *TypeChecker) checkUserFunctionCall(fn ast.Identifier, sig FunctionSignature, e ast.FunctionCallNode, argTypes [][]ast.TypeNode) error {
+	fixed, elem, variadic := functionHasVariadicTail(sig.Parameters)
+	nArgs := len(argTypes)
+
+	if !variadic {
+		if nArgs != len(sig.Parameters) {
+			sp := e.CallSpan
+			if nArgs > len(sig.Parameters) {
+				sp = spanForCallArg(e.ArgSpans, len(sig.Parameters), e.Arguments, e.CallSpan)
+			}
+			if !sp.IsSet() {
+				sp = e.Function.Span
+			}
+			return diagnosticf(sp, "call-arity", "function %s expects %d arguments, got %d",
+				fn, len(sig.Parameters), nArgs)
+		}
+		for i, param := range sig.Parameters {
+			if err := tc.checkUserCallArg(fn, i, param.Type, argTypes[i], e); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if nArgs < fixed {
+		sp := e.CallSpan
+		if !sp.IsSet() {
+			sp = e.Function.Span
+		}
+		return diagnosticf(sp, "call-arity", "function %s expects at least %d arguments, got %d",
+			fn, fixed, nArgs)
+	}
+
+	for i := 0; i < fixed; i++ {
+		if err := tc.checkUserCallArg(fn, i, sig.Parameters[i].Type, argTypes[i], e); err != nil {
+			return err
+		}
+	}
+
+	if nArgs == fixed {
+		return nil
+	}
+
+	if nArgs > fixed {
+		if spread, isSpread := e.Arguments[nArgs-1].(ast.SpreadExpressionNode); isSpread {
+			if nArgs != fixed+1 {
+				sp := spanForCallArg(e.ArgSpans, fixed+1, e.Arguments, e.CallSpan)
+				return diagnosticf(sp, "call-arity", "function %s: variadic spread must be the only trailing argument", fn)
+			}
+			spreadTypes, err := tc.inferExpressionType(spread.Expr)
+			if err != nil {
+				return err
+			}
+			wantSlice := ast.NewArrayType(elem)
+			if len(spreadTypes) != 1 || !tc.IsTypeCompatible(spreadTypes[0], wantSlice) {
+				sp := spanForCallArg(e.ArgSpans, fixed, e.Arguments, e.CallSpan)
+				return diagnosticf(sp, "call-type", "function %s: cannot spread %s into ...%s",
+					fn, formatTypeForDiag(spreadTypes), elem.Ident)
+			}
+			return nil
+		}
+		for j := fixed; j < nArgs; j++ {
+			if err := tc.checkUserCallArg(fn, j, elem, argTypes[j], e); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func formatTypeForDiag(types []ast.TypeNode) string {
+	if len(types) == 0 {
+		return "?"
+	}
+	if len(types) == 1 {
+		return string(types[0].Ident)
+	}
+	return fmt.Sprintf("%d types", len(types))
+}
+
+func (tc *TypeChecker) checkUserCallArg(fn ast.Identifier, argIdx int, want ast.TypeNode, got []ast.TypeNode, e ast.FunctionCallNode) error {
+	sp := spanForCallArg(e.ArgSpans, argIdx, e.Arguments, e.CallSpan)
+	if len(got) != 1 {
+		return diagnosticf(sp, "call-type", "argument %d to %s must have a single type, got %d",
+			argIdx+1, fn, len(got))
+	}
+	if !tc.IsTypeCompatible(got[0], want) {
+		return diagnosticf(sp, "call-type", "argument %d to %s: expected type %s, got %s",
+			argIdx+1, fn, want.Ident, got[0].Ident)
+	}
+	return nil
+}
