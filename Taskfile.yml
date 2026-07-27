@@ -460,6 +460,18 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/closures/closures.ft
 
+  example:goto-labels:
+    desc: Compile goto and labeled statements example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/goto-labels/goto-labels.ft
+
+  example:bitwise-ops:
+    desc: Compile bitwise operators and shift/xor compound assignment example
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} run -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/bitwise-ops/bitwise-ops.ft
+
   example:imports:
     desc: Run single-file imports example (cli.ft); split fmt_only/greeting/main are for the LSP editor
     dir: forst

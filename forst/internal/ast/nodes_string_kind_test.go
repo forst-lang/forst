@@ -48,6 +48,8 @@ func TestNodeKindAndString_representativeNodes(t *testing.T) {
 		{"For_range", ForNode{IsRange: true, RangeX: VariableNode{Ident: Ident{ID: "xs"}}, Body: []Node{}}, NodeKindFor, "range"},
 		{"Break", BreakNode{}, NodeKindBreak, "Break"},
 		{"Continue", ContinueNode{}, NodeKindContinue, "Continue"},
+		{"Goto", GotoNode{Label: &Ident{ID: "L"}}, NodeKindGoto, "Goto(L)"},
+		{"LabeledStmt", LabeledStmtNode{Label: &Ident{ID: "L"}, Stmt: BreakNode{}}, NodeKindLabeledStmt, "Labeled(L"},
 		{"Defer", DeferNode{Call: FunctionCallNode{Function: Ident{ID: "f"}, Arguments: []ExpressionNode{}}}, NodeKindDefer, "Defer"},
 		{"GoStmt", GoStmtNode{Call: FunctionCallNode{Function: Ident{ID: "f"}, Arguments: []ExpressionNode{}}}, NodeKindGoStmt, "Go"},
 		{"Comment", CommentNode{Text: "// x"}, NodeKindComment, "Comment"},

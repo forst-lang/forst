@@ -1,0 +1,19 @@
+package main
+
+func main() {
+	goto done
+	println("skip")
+done:
+	println("done")
+	i := 0
+retry:
+	if i < 3 {
+		i = i + 1
+		goto retry
+	}
+	println(i)
+outer:
+	for {
+		break outer
+	}
+}

@@ -127,4 +127,7 @@ func main() {
 	if !strings.Contains(pe.Msg, "type switches") {
 		t.Fatalf("unexpected error: %s", pe.Msg)
 	}
+	if !strings.Contains(pe.Msg, "is Foo()") {
+		t.Fatalf("error should recommend narrowing with is: %s", pe.Msg)
+	}
 }

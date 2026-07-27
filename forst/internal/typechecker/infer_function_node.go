@@ -24,9 +24,11 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 	tc.currentFunction = &functionNode
 	prevErrBranchDepth := tc.resultErrIfBranchDepth
 	tc.resultErrIfBranchDepth = 0
+	restoreLabels := tc.pushLoopLabelScope()
 	defer func() {
 		tc.currentFunction = prevFn
 		tc.resultErrIfBranchDepth = prevErrBranchDepth
+		restoreLabels()
 	}()
 
 	tc.log.WithFields(logrus.Fields{
@@ -116,6 +118,9 @@ func (tc *TypeChecker) inferFunctionNode(node ast.Node) ([]ast.TypeNode, error) 
 		if _, err := tc.inferNodeType(bodyNode); err != nil {
 			return nil, err
 		}
+	}
+	if err := tc.checkFunctionLabels(functionNode.Body); err != nil {
+		return nil, err
 	}
 
 	inferredType, err := tc.inferFunctionReturnType(functionNode)

@@ -44,6 +44,8 @@ var NodeKind = map[string]uint8{
 	"For":              17,
 	"Break":            18,
 	"Continue":         19,
+	"Goto":             43,
+	"LabeledStmt":      44,
 	"ElseIf":           20,
 	"ElseBlock":        21,
 	"Comment":          22,
@@ -1007,6 +1009,23 @@ func (w *hashWalk) hashUncached(node ast.Node) (NodeHash, error) {
 		w.h.writeHashes(hasher, NodeKind["Continue"])
 		if n != nil && n.Label != nil {
 			w.h.writeHashes(hasher, string(n.Label.ID))
+		}
+	case *ast.GotoNode:
+		w.h.writeHashes(hasher, NodeKind["Goto"])
+		if n != nil && n.Label != nil {
+			w.h.writeHashes(hasher, string(n.Label.ID))
+		}
+	case *ast.LabeledStmtNode:
+		w.h.writeHashes(hasher, NodeKind["LabeledStmt"])
+		if n != nil && n.Label != nil {
+			w.h.writeHashes(hasher, string(n.Label.ID))
+		}
+		if n != nil && n.Stmt != nil {
+			hash, err := w.hash(n.Stmt)
+			if err != nil {
+				return 0, err
+			}
+			w.h.writeHashes(hasher, hash)
 		}
 	case *ast.DeferNode:
 		w.h.writeHashes(hasher, NodeKind["Defer"])

@@ -26,6 +26,8 @@ func TestEmitValidation_examplesBundle(t *testing.T) {
 		"struct-embedding/struct-embedding.ft",
 		"struct-tags/struct-tags.ft",
 		"closures/closures.ft",
+		"goto-labels/goto-labels.ft",
+		"bitwise-ops/bitwise-ops.ft",
 		"go_interop/cli.ft",
 		"ensure.ft",
 		"pointers.ft",

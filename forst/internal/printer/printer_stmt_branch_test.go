@@ -116,6 +116,30 @@ func TestPrintStmt_LabeledBreakContinue(t *testing.T) {
 	}
 }
 
+func TestPrintStmt_GotoAndLabeled(t *testing.T) {
+	t.Parallel()
+
+	p := printer{cfg: DefaultConfig()}
+	gotoOut, err := p.printStmt(&ast.GotoNode{Label: &ast.Ident{ID: "done"}})
+	if err != nil {
+		t.Fatalf("print goto: %v", err)
+	}
+	if gotoOut != "goto done" {
+		t.Fatalf("goto output = %q", gotoOut)
+	}
+
+	labeled, err := p.printStmt(&ast.LabeledStmtNode{
+		Label: &ast.Ident{ID: "done"},
+		Stmt:  ast.ReturnNode{},
+	})
+	if err != nil {
+		t.Fatalf("print labeled: %v", err)
+	}
+	if !strings.Contains(labeled, "done:") || !strings.Contains(labeled, "return") {
+		t.Fatalf("labeled output = %q", labeled)
+	}
+}
+
 func TestPrintExpr_OkErrUnsupported(t *testing.T) {
 	t.Parallel()
 

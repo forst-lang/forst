@@ -12,6 +12,7 @@ Each section below is a **feature parity** table: **Feature** | **Status** | **N
 - ⏳ **in progress** — Actively being implemented **toward** the **done** bar; remaining gaps are temporary.
 - 🔬 **experimental** — Something **exists** (often prototype), but scope, stability, or polish are **not** at the **done** bar yet—may be a thin surface, partial behavior, or “works, but don’t rely on the contract long-term” while the surface is still maturing.
 - 📋 **planned** — On the roadmap but **not yet delivered**: no implementation yet.
+- ❓ **unclear** — The use cases or design implications are not understood well enough to decide whether the feature belongs on the roadmap.
 - 🚫 **not planned (anti-feature)** — Intentionally **omitted** from the language design; not a backlog gap—see [Anti-features](#anti-features) and [PHILOSOPHY.md](./PHILOSOPHY.md).
 
 **In progress vs experimental:** **In progress** means implementation is **underway** toward **done**. **Experimental** means the feature is **out in the wild** in some form, but we are **not** yet treating it as complete—whether because large pieces are missing, behavior may change, or advertised capabilities are still stubs.
@@ -90,7 +91,8 @@ The language surface is organized around **structural types**, **explicit annota
 | Struct embedding (anonymous fields) | ✅ done | Type-only shape fields embed and promote fields like Go; emits anonymous struct fields. |
 | Struct tags (user-authored) | ✅ done | Optional backtick or quoted string after a field type; explicit tag emits to Go and overrides auto-`json` when `-export-struct-fields` is on. |
 | `interface{ }` satisfaction / embedding | 🔬 experimental | Structural shapes and Go interop differ from Go’s interface model. |
-| Type assertions `x.(T)`, type switch | 📋 planned | Distinct from Forst’s `is` / `ensure` / narrowing. |
+| Type assertions `x.(T)` | ❓ unclear | The implications for Go interoperability and Forst narrowing need investigation before deciding whether to support them. |
+| Type switches `switch v := x.(type)` | 🚫 not planned | Use Forst’s explicit `is` / `ensure` narrowing instead. |
 | `const` / `iota` | ✅ done | Top-level `const` (single and grouped) with Go `iota` semantics; emits literally to Go. |
 
 ### Control flow & statements
@@ -105,12 +107,12 @@ The language surface is organized around **structural types**, **explicit annota
 | Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`) | ✅ done | Parse, typecheck, emit, and **`forst fmt`** round-trip for **`+=`**, **`-=`**, etc. |
 | Shift / xor compound assignment (`^=`, `<<=`, `>>=`, `&^=`) | ✅ done | Parse, typecheck, emit, and **`forst fmt`** round-trip for bitwise shift/xor compound forms. |
 | Bitwise operators (^, <<, >>, &, \|, &^) | ✅ done | Go-faithful precedence; integer operands only. |
-| `break` / `continue` | ✅ done | Unguarded form. **Labeled** `break`/`continue` parse but are rejected in the typechecker until labels are implemented end-to-end. |
-| `switch` / `case` / `default` / `fallthrough` | ✅ done | Tag and boolean **`switch`** statements work like Go, including **`fallthrough`**. Type switches (`switch v := x.(type)`) are not supported—use hand-written Go. |
+| `break` / `continue` | ✅ done | Unguarded and **labeled** forms. Labels attach to `for` loops; labeled `break`/`continue` resolve against the enclosing function's loop labels (closures cannot see outer labels). |
+| `switch` / `case` / `default` / `fallthrough` | ✅ done | Tag and boolean **`switch`** statements work like Go, including **`fallthrough`**. Type switches (`switch v := x.(type)`) are deliberately unsupported; use `is` narrowing instead. |
 | `select` | 📋 planned | Not a Forst keyword yet; needs full statement support (see also channel row below). |
 | `defer` / `go` statements | ✅ done | **`go`** starts a goroutine; **`defer`** runs a call when the surrounding function returns—runtime behavior is Go’s. Operand must be a **function or method call** (not e.g. `<-ch`). Parenthesized calls like **`defer (f())`** are rejected. Same predeclared builtins Go forbids as standalone expression statements (`append`, `len`, `make`, …) cannot be deferred or run in a goroutine this way. Anonymous **`go func(){ … }()`** / **`defer func(){ … }()`** work via function literals. |
 | Function literals / closures | ✅ done | **`func(params): T { … }`** in expression position; closure over outer variables; **`func() { … }()`** IIFE; **`func(T): U`** function types for parameters. |
-| Labeled statements + `goto` | 📋 planned | `goto` is lexed; no parser support. |
+| Labeled statements + `goto` | ✅ done | **`goto label`** and **`label:`** on arbitrary statements. Same-function scope (excludes nested func literals); no jump into a block; no jump over a variable declaration that remains in scope at the target; unused labels are errors — matching the Go spec. |
 
 ### Builtins, runtime, and platform
 

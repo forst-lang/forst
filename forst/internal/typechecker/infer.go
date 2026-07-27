@@ -223,6 +223,21 @@ func (tc *TypeChecker) inferNodeType(node ast.Node) ([]ast.TypeNode, error) {
 		}
 		return nil, nil
 
+	case *ast.GotoNode:
+		if n.Label == nil {
+			return nil, fmt.Errorf("goto requires a label")
+		}
+		tc.log.WithFields(logrus.Fields{
+			"stmt":  "goto",
+			"label": n.Label.ID,
+		}).Debug("Typechecking goto statement")
+		return nil, nil
+	case *ast.LabeledStmtNode:
+		if n.Stmt == nil {
+			return nil, fmt.Errorf("labeled statement missing body")
+		}
+		return tc.inferNodeType(n.Stmt)
+
 	case *ast.DeferNode:
 		fc, ok := n.Call.(ast.FunctionCallNode)
 		if !ok {

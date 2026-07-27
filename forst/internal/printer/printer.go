@@ -540,6 +540,20 @@ func (p *printer) printStmt(node ast.Node) (string, error) {
 			return "continue " + string(n.Label.ID), nil
 		}
 		return "continue", nil
+	case *ast.GotoNode:
+		if n.Label == nil {
+			return "", fmt.Errorf("printer: goto missing label")
+		}
+		return "goto " + string(n.Label.ID), nil
+	case *ast.LabeledStmtNode:
+		if n.Label == nil || n.Stmt == nil {
+			return "", fmt.Errorf("printer: labeled statement incomplete")
+		}
+		inner, err := p.printStmt(n.Stmt)
+		if err != nil {
+			return "", err
+		}
+		return string(n.Label.ID) + ":\n" + p.prefix() + inner, nil
 	case *ast.DeferNode:
 		s, err := p.printExpr(n.Call)
 		if err != nil {

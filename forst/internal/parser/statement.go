@@ -42,21 +42,22 @@ func (p *Parser) parseBlockStatement() []ast.Node {
 		returnStatement := p.parseReturnStatement()
 		p.logParsedNode(returnStatement)
 		body = append(body, returnStatement)
+	case ast.TokenGoto:
+		if p.context.IsTypeGuard() {
+			p.FailWithParseError(token, "goto not allowed in type guards")
+		}
+		g := p.parseGotoStatement()
+		p.logParsedNode(g)
+		body = append(body, g)
 	case ast.TokenIdentifier:
 		next := p.peek()
-		if next.Type == ast.TokenColon && p.peek(2).Type == ast.TokenFor {
+		if next.Type == ast.TokenColon && p.looksLikeLabeledStatement() {
 			if p.context.IsTypeGuard() {
-				p.FailWithParseError(token, "For loop not allowed in type guards")
+				p.FailWithParseError(token, "labeled statements not allowed in type guards")
 			}
-			label := &ast.Ident{ID: ast.Identifier(token.Value), Span: ast.SpanFromToken(token)}
-			p.advance() // ident
-			p.advance() // colon
-			forStatement := p.parseForStatement()
-			if fn, ok := forStatement.(*ast.ForNode); ok {
-				fn.Label = label
-			}
-			p.logParsedNode(forStatement)
-			body = append(body, forStatement)
+			labeled := p.parseLabeledStatement()
+			p.logParsedNode(labeled)
+			body = append(body, labeled)
 			break
 		}
 		if next.Type == ast.TokenComma {

@@ -8,7 +8,7 @@ func (p *Parser) parseSwitchStatement() ast.Node {
 	p.advance() // switch
 
 	if p.switchHeaderContainsTypeSwitch() {
-		p.FailWithParseError(p.current(), "type switches (switch v := x.(type)) are not supported; use hand-written Go")
+		p.FailWithParseError(p.current(), "type switches (switch v := x.(type)) are not supported; use narrowing instead: if x is Foo() { } else if x is Bar() { }")
 	}
 
 	var init ast.Node

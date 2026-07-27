@@ -7,6 +7,8 @@ import (
 func (tc *TypeChecker) inferFunctionLiteral(lit ast.FunctionLiteralNode, scopeNode ast.Node) ([]ast.TypeNode, error) {
 	tc.pushScope(scopeNode)
 	defer tc.popScope()
+	restoreLabels := tc.pushLoopLabelScope()
+	defer restoreLabels()
 
 	for _, param := range lit.Params {
 		switch typedParam := param.(type) {
@@ -30,6 +32,9 @@ func (tc *TypeChecker) inferFunctionLiteral(lit ast.FunctionLiteralNode, scopeNo
 		if _, err := tc.inferNodeType(bodyNode); err != nil {
 			return nil, err
 		}
+	}
+	if err := tc.checkFunctionLabels(lit.Body); err != nil {
+		return nil, err
 	}
 
 	inferredReturns, err := tc.inferFunctionReturnType(fn)

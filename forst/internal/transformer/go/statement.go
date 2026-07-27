@@ -645,6 +645,32 @@ func (t *Transformer) transformStatement(stmt ast.Node) (goast.Stmt, error) {
 		return t.transformSwitchNode(s)
 	case *ast.ForNode:
 		return t.transformForNode(s)
+	case *ast.GotoNode:
+		if s.Label == nil {
+			return nil, fmt.Errorf("goto requires a label")
+		}
+		if t.log != nil {
+			t.log.WithFields(logrus.Fields{
+				"stmt":  "goto",
+				"label": s.Label.ID,
+			}).Debug("Emitting goto BranchStmt")
+		}
+		return &goast.BranchStmt{
+			Tok:   token.GOTO,
+			Label: goast.NewIdent(string(s.Label.ID)),
+		}, nil
+	case *ast.LabeledStmtNode:
+		if s.Label == nil || s.Stmt == nil {
+			return nil, fmt.Errorf("labeled statement requires label and body")
+		}
+		inner, err := t.transformStatement(s.Stmt)
+		if err != nil {
+			return nil, err
+		}
+		return &goast.LabeledStmt{
+			Label: goast.NewIdent(string(s.Label.ID)),
+			Stmt:  inner,
+		}, nil
 	case ast.FallthroughNode:
 		return &goast.BranchStmt{Tok: token.FALLTHROUGH}, nil
 	case *ast.DeferNode:

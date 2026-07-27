@@ -53,6 +53,8 @@ We acknowledge that TypeScript is the de facto standard for frontend development
 - Generate clean, idiomatic Go code that's easy to understand and maintain
 - Support direct use of Go packages and types with minimal overhead
 - Work seamlessly with existing Go tools, testing and deployment
+- Stay as close to Go's syntax and semantics as practical to maximize backward compatibility and make existing Go code easy to port
+- Prefer established Go syntax over adding Forst-specific syntax when both would express the same concept, avoiding unnecessary complexity in the language and its tooling
 
 ## Anti-Features
 
@@ -60,13 +62,11 @@ These are patterns that we deliberately choose not to support in the language be
 
 ### No unpredictable behavior
 
-In order to be reliable, a system must be predictable.
+In order for software to be reliable, developers must be able to reason about its behavior. We therefore encourage language constructs with predictable execution paths and avoid hidden or difficult-to-trace control flow.
 
-While we don't forbid features like panics or goto statements, we prioritize language constructs that encourage predictable execution paths. Our goal is to have the compiler and type system guide developers toward explicit error handling (using Go's standard error return values) and structured control flow that is easy to reason about, debug, and maintain.
+While we don't strictly forbid features like panics or goto statements, our compiler and type system should guide developers toward explicit error handling and structured control flow that is easy to reason about, debug, and maintain.
 
-We do not like implicit control flows that require going on wild goose chases to find the right execution path.
-
-- So we do not support macros, and when control flow is changed, we require this to be done using English keywords.
+Constructs that change control flow must use explicit English keywords.
 
 #### No surprising errors
 
