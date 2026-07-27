@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1](https://github.com/forst-lang/forst/compare/v0.10.0...v0.10.1) (2026-07-27)
+
+
+### Features
+
+* support goto and labels ([ef6d9ff](https://github.com/forst-lang/forst/commit/ef6d9ffdc8a96e743719fc6f1552bd853f014a94))
+
+
+### Bug Fixes
+
+* **nodert:** remove t.Parallel from tests sharing supervisor singleton ([7e9818f](https://github.com/forst-lang/forst/commit/7e9818fc7658991492c482cf4b5fbe5ba8291d8e))
+
 ## [0.10.0](https://github.com/forst-lang/forst/compare/v0.9.3...v0.10.0) (2026-07-26)
 
 
