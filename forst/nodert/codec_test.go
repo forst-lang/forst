@@ -27,7 +27,6 @@ func TestMarshalNodeCallArgsJSON_encodesPositionalArray(t *testing.T) {
 }
 
 func TestCallSyncArgs_nullResultReturnsZeroValue(t *testing.T) {
-	t.Parallel()
 	client, server := pairedClientServer(t, func(req Request) Response {
 		switch req.Method {
 		case MethodInitialize:

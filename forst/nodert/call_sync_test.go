@@ -24,7 +24,6 @@ func setTestSupervisorClient(t *testing.T, client *Client) {
 }
 
 func TestCallSync_nullResultReturnsZeroValue(t *testing.T) {
-	t.Parallel()
 	client, server := pairedClientServer(t, func(req Request) Response {
 		switch req.Method {
 		case MethodInitialize:
@@ -55,7 +54,6 @@ func TestCallSync_nullResultReturnsZeroValue(t *testing.T) {
 }
 
 func TestCallSync_emptyResultReturnsZeroValue(t *testing.T) {
-	t.Parallel()
 	client, server := pairedClientServer(t, func(req Request) Response {
 		switch req.Method {
 		case MethodInitialize:
@@ -86,7 +84,6 @@ func TestCallSync_emptyResultReturnsZeroValue(t *testing.T) {
 }
 
 func TestMustCallSync_panicsOnError(t *testing.T) {
-	t.Parallel()
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
 
