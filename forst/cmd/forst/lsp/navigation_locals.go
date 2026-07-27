@@ -109,6 +109,88 @@ func visitStmtForScope(tc *typechecker.TypeChecker, st ast.Node, want *typecheck
 		}
 	case *ast.EnsureNode:
 		return visitStmtForScope(tc, *v, want)
+	case ast.AssignmentNode:
+		for _, rv := range v.RValues {
+			if r := visitExprForScope(tc, rv, want); r != nil {
+				return r
+			}
+		}
+	case *ast.AssignmentNode:
+		return visitStmtForScope(tc, *v, want)
+	case ast.ReturnNode:
+		for _, val := range v.Values {
+			if r := visitExprForScope(tc, val, want); r != nil {
+				return r
+			}
+		}
+	case *ast.ReturnNode:
+		return visitStmtForScope(tc, *v, want)
+	}
+	return nil
+}
+
+func visitExprForScope(tc *typechecker.TypeChecker, expr ast.ExpressionNode, want *typechecker.Scope) ast.Node {
+	if expr == nil {
+		return nil
+	}
+	switch e := expr.(type) {
+	case ast.FunctionLiteralNode:
+		// Use expr (original interface), not e (value copy), for RestoreScope identity.
+		if err := tc.RestoreScope(expr); err == nil && tc.CurrentScope() == want {
+			return expr
+		}
+		for _, inner := range e.Body {
+			if r := visitStmtForScope(tc, inner, want); r != nil {
+				return r
+			}
+		}
+	case *ast.FunctionLiteralNode:
+		if e == nil {
+			return nil
+		}
+		if err := tc.RestoreScope(expr); err == nil && tc.CurrentScope() == want {
+			return expr
+		}
+		for _, inner := range e.Body {
+			if r := visitStmtForScope(tc, inner, want); r != nil {
+				return r
+			}
+		}
+	case ast.FunctionCallNode:
+		if e.Callee != nil {
+			if r := visitExprForScope(tc, e.Callee, want); r != nil {
+				return r
+			}
+		}
+		for _, a := range e.Arguments {
+			if r := visitExprForScope(tc, a, want); r != nil {
+				return r
+			}
+		}
+	case *ast.FunctionCallNode:
+		return visitExprForScope(tc, *e, want)
+	case ast.MethodCallNode:
+		if r := visitExprForScope(tc, e.Receiver, want); r != nil {
+			return r
+		}
+		for _, a := range e.Arguments {
+			if r := visitExprForScope(tc, a, want); r != nil {
+				return r
+			}
+		}
+	case *ast.MethodCallNode:
+		return visitExprForScope(tc, *e, want)
+	case ast.BinaryExpressionNode:
+		if r := visitExprForScope(tc, e.Left, want); r != nil {
+			return r
+		}
+		return visitExprForScope(tc, e.Right, want)
+	case *ast.BinaryExpressionNode:
+		return visitExprForScope(tc, *e, want)
+	case ast.UnaryExpressionNode:
+		return visitExprForScope(tc, e.Operand, want)
+	case *ast.UnaryExpressionNode:
+		return visitExprForScope(tc, *e, want)
 	}
 	return nil
 }
@@ -159,6 +241,18 @@ func definingTokenFromASTNode(n ast.Node, tc *typechecker.TypeChecker, fileNodes
 		if lb >= 0 && rb >= 0 {
 			return findFirstShortDeclIdentToken(tokens, lb+1, rb, name)
 		}
+	case ast.FunctionLiteralNode:
+		if t := findParamIdentTokenForFunctionLiteral(tokens, v, name); t != nil {
+			return t
+		}
+		_, _, _, lb, rb := functionLiteralTokenRanges(tokens, v)
+		if lb >= 0 && rb >= 0 {
+			return findFirstShortDeclIdentToken(tokens, lb+1, rb, name)
+		}
+	case *ast.FunctionLiteralNode:
+		if v != nil {
+			return definingTokenFromASTNode(*v, tc, fileNodes, tokens, name)
+		}
 	case *ast.TypeGuardNode:
 		return definingTokenForTypeGuardParams(tokens, *v, name)
 	case ast.TypeGuardNode:
@@ -183,6 +277,19 @@ func definingTokenFromASTNode(n ast.Node, tc *typechecker.TypeChecker, fileNodes
 		return findShortDeclTokenInBlockBody(fileNodes, tokens, v.Body, name, tc.Hasher)
 	case ast.EnsureBlockNode:
 		return findShortDeclTokenInBlockBody(fileNodes, tokens, v.Body, name, tc.Hasher)
+	}
+	return nil
+}
+
+func findParamIdentTokenForFunctionLiteral(tokens []ast.Token, lit ast.FunctionLiteralNode, name string) *ast.Token {
+	_, pOpen, pClose, _, _ := functionLiteralTokenRanges(tokens, lit)
+	if pOpen < 0 || pClose < 0 {
+		return nil
+	}
+	for i := pOpen + 1; i < pClose; i++ {
+		if tokens[i].Type == ast.TokenIdentifier && tokens[i].Value == name {
+			return &tokens[i]
+		}
 	}
 	return nil
 }

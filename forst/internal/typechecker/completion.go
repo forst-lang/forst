@@ -90,6 +90,7 @@ func (tc *TypeChecker) ListFieldNamesForType(baseType ast.TypeNode) []string {
 			for k := range payload.Fields {
 				add(k)
 			}
+			tc.appendPromotedEmbeddedFieldNames(payload, add, seen)
 		}
 		if assertionExpr, ok := d.Expr.(ast.TypeDefAssertionExpr); ok && assertionExpr.Assertion != nil {
 			merged := tc.resolveShapeFieldsFromAssertion(assertionExpr.Assertion)
@@ -115,6 +116,64 @@ func (tc *TypeChecker) ListFieldNamesForType(baseType ast.TypeNode) []string {
 	}
 
 	sort.Strings(names)
+	return names
+}
+
+// appendPromotedEmbeddedFieldNames adds names reachable via Embedded fields, skipping
+// names already present (direct fields win) and names promoted from more than one embed
+// (ambiguous selectors).
+func (tc *TypeChecker) appendPromotedEmbeddedFieldNames(payload *ast.ShapeNode, add func(string), seen map[string]bool) {
+	if payload == nil {
+		return
+	}
+	counts := make(map[string]int)
+	for _, embedName := range ast.ShapeFieldNamesInOrder(payload.Fields, payload.FieldOrder) {
+		field := payload.Fields[embedName]
+		if !field.Embedded {
+			continue
+		}
+		innerShape, innerType, err := tc.shapePayloadForEmbeddedField(field)
+		if err != nil {
+			continue
+		}
+		var nested []string
+		if innerShape != nil {
+			nested = tc.listShapeFieldNamesIncludingPromotion(innerShape)
+		} else {
+			nested = tc.ListFieldNamesForType(innerType)
+		}
+		for _, n := range nested {
+			if seen[n] {
+				continue
+			}
+			counts[n]++
+		}
+	}
+	for n, c := range counts {
+		if c == 1 {
+			add(n)
+		}
+	}
+}
+
+func (tc *TypeChecker) listShapeFieldNamesIncludingPromotion(payload *ast.ShapeNode) []string {
+	seen := make(map[string]bool)
+	var names []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		names = append(names, s)
+	}
+	if payload == nil {
+		return names
+	}
+	for k := range payload.Fields {
+		add(k)
+	}
+	tc.appendPromotedEmbeddedFieldNames(payload, add, seen)
 	return names
 }
 

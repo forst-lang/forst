@@ -80,6 +80,9 @@ func (s *LSPServer) findDefinitionForPosition(uri string, position LSPPosition) 
 	if tok.Type != ast.TokenIdentifier {
 		return nil
 	}
+	if loc := definingLocationForLabel(ctx.TC, uri, ctx.Tokens, tok); loc != nil {
+		return loc
+	}
 	if ctx.PackageMerge != nil {
 		if loc := s.definingTopLevelLocationForPackage(ctx.TC, uri, tokens, tok, ctx.PackageMerge); loc != nil {
 			return loc
@@ -142,7 +145,7 @@ func (s *LSPServer) definingTopLevelLocationForPackage(tc *typechecker.TypeCheck
 	if tc.IsTopLevelPackageVariable(id) {
 		for _, u := range merge.MemberURIs {
 			tks := merge.TokensByURI[u]
-			if defTok := findPackageVarNameToken(tks, string(id)); defTok != nil {
+			if defTok := findPackageVarOrConstNameToken(tks, string(id)); defTok != nil {
 				return lspLocationPtrFromToken(u, defTok)
 			}
 		}
@@ -187,7 +190,7 @@ func definingTokenForNavigableSymbol(tc *typechecker.TypeChecker, tokens []ast.T
 		return findFuncNameToken(tokens, string(id))
 	}
 	if tc.IsTopLevelPackageVariable(id) {
-		if t := findPackageVarNameToken(tokens, string(id)); t != nil {
+		if t := findPackageVarOrConstNameToken(tokens, string(id)); t != nil {
 			return t
 		}
 	}
@@ -264,6 +267,55 @@ func findPackageVarNameToken(tokens []ast.Token, name string) *ast.Token {
 		}
 	}
 	return nil
+}
+
+// findPackageConstNameToken finds a top-level const identifier (single or grouped).
+func findPackageConstNameToken(tokens []ast.Token, name string) *ast.Token {
+	inConst := false
+	parenDepth := 0
+	for i := 0; i < len(tokens); i++ {
+		if braceDepthAtIndex(tokens, i) != 0 {
+			continue
+		}
+		tok := tokens[i]
+		switch tok.Type {
+		case ast.TokenConst:
+			inConst = true
+			parenDepth = 0
+			continue
+		case ast.TokenLParen:
+			if inConst {
+				parenDepth++
+			}
+		case ast.TokenRParen:
+			if inConst && parenDepth > 0 {
+				parenDepth--
+				if parenDepth == 0 {
+					inConst = false
+				}
+			}
+		case ast.TokenFunc, ast.TokenType, ast.TokenVar, ast.TokenIs, ast.TokenError:
+			if inConst && parenDepth == 0 {
+				inConst = false
+			}
+		case ast.TokenIdentifier:
+			if inConst && tok.Value == name {
+				return &tokens[i]
+			}
+			if inConst && parenDepth == 0 {
+				// Single-line `const Name = …` — next top-level decl ends the const region.
+				inConst = false
+			}
+		}
+	}
+	return nil
+}
+
+func findPackageVarOrConstNameToken(tokens []ast.Token, name string) *ast.Token {
+	if t := findPackageVarNameToken(tokens, name); t != nil {
+		return t
+	}
+	return findPackageConstNameToken(tokens, name)
 }
 
 func findTypeNameToken(tokens []ast.Token, name string) *ast.Token {

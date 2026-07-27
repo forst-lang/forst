@@ -138,6 +138,44 @@ L:
 	if err == nil || !strings.Contains(err.Error(), "jumps over declaration") {
 		t.Fatalf("expected jump over declaration, got %v", err)
 	}
+	d, ok := err.(*Diagnostic)
+	if !ok || !d.Span.IsSet() {
+		t.Fatalf("expected Diagnostic with span, got %T %v", err, err)
+	}
+	if d.Span.StartLine < 2 {
+		t.Fatalf("diagnostic should not be at line 1 only, got line %d", d.Span.StartLine)
+	}
+}
+
+func TestCheckTypes_gotoPersistsLabelBindings(t *testing.T) {
+	src := `package main
+
+func main() {
+	goto done
+	println(1)
+done:
+	println(2)
+}
+`
+	nodes := testutil.ParseSource(t, src, "goto_persist.ft", nil)
+	tc := New(logrus.New(), false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("CheckTypes: %v", err)
+	}
+	if len(tc.LabelScopes) == 0 || len(tc.LabelScopes[0].Labels) == 0 {
+		t.Fatal("expected persisted label bindings")
+	}
+	b := tc.LabelScopes[0].Labels[0]
+	if b.Name != "done" {
+		t.Fatalf("label name = %q", b.Name)
+	}
+	if !b.DeclSpan.IsSet() || len(b.UseSpans) == 0 {
+		t.Fatalf("expected decl+use spans, decl=%v uses=%v", b.DeclSpan, b.UseSpans)
+	}
+	found := tc.LabelBindingAtSpan(b.UseSpans[0])
+	if found == nil || found.Name != "done" {
+		t.Fatalf("LabelBindingAtSpan use: %+v", found)
+	}
 }
 
 func TestCheckTypes_closureCannotSeeOuterLoopLabel(t *testing.T) {

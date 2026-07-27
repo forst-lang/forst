@@ -52,6 +52,14 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 					break
 				}
 			}
+			if pid != "" {
+				if f, ok := tc.ShapeFieldFromTypeDef(pid, last); ok && f.Tag != "" {
+					b.WriteString("\n\n")
+					b.WriteString("**Tag:** `")
+					b.WriteString(f.Tag)
+					b.WriteString("`")
+				}
+			}
 			return b.String(), pid, true
 		}
 	}
@@ -84,6 +92,14 @@ func (tc *TypeChecker) FieldHoverMarkdown(root ast.Identifier, span ast.SourceSp
 		b.WriteString(last)
 		b.WriteString("`** (field)\n\n")
 		b.WriteString(hoverdoc.ForstBlock(displayPath + ": " + typeStr))
+		if pid != "" {
+			if f, ok := tc.ShapeFieldFromTypeDef(pid, last); ok && f.Tag != "" {
+				b.WriteString("\n\n")
+				b.WriteString("**Tag:** `")
+				b.WriteString(f.Tag)
+				b.WriteString("`")
+			}
+		}
 		return b.String(), pid, true
 	}
 	return "", "", false

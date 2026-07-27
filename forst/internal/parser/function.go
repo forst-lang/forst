@@ -81,7 +81,9 @@ func (p *Parser) parseDestructuredParameter() ast.ParamNode {
 }
 
 func (p *Parser) parseSimpleParameter() ast.ParamNode {
-	name := p.expect(ast.TokenIdentifier).Value
+	nameTok := p.expect(ast.TokenIdentifier)
+	name := nameTok.Value
+	ident := ast.Ident{ID: ast.Identifier(name), Span: ast.SpanFromToken(nameTok)}
 	// Go-style parameter declarations (name Type). Optional ':' before the type is accepted for legacy sources.
 	if p.current().Type == ast.TokenColon {
 		p.advance()
@@ -97,7 +99,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		if p.looksLikeAssertionTypeAfterIdent() {
 			assertion := p.parseAssertionChain(true)
 			return ast.SimpleParamNode{
-				Ident: ast.Ident{ID: ast.Identifier(name)},
+				Ident: ident,
 				Type: ast.TypeNode{
 					Ident:     ast.TypeAssertion,
 					Assertion: &assertion,
@@ -107,7 +109,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		}
 		typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 		return ast.SimpleParamNode{
-			Ident:    ast.Ident{ID: ast.Identifier(name)},
+			Ident:    ident,
 			Type:     typ,
 			Variadic: variadic,
 		}
@@ -115,7 +117,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	if tok.Type == ast.TokenIdentifier && p.peek().Type == ast.TokenLParen {
 		assertion := p.parseAssertionChain(true)
 		return ast.SimpleParamNode{
-			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Ident: ident,
 			Type: ast.TypeNode{
 				Ident:     ast.TypeAssertion,
 				Assertion: &assertion,
@@ -133,7 +135,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		p.advance()
 		typeIdent := ast.TypeIdent("Shape")
 		return ast.SimpleParamNode{
-			Ident:    ast.Ident{ID: ast.Identifier(name)},
+			Ident:    ident,
 			Type:     ast.TypeNode{Ident: typeIdent},
 			Variadic: variadic,
 		}
@@ -142,7 +144,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 		shape := p.parseShapeType()
 		baseType := ast.TypeIdent(ast.TypeShape)
 		return ast.SimpleParamNode{
-			Ident: ast.Ident{ID: ast.Identifier(name)},
+			Ident: ident,
 			Type: ast.TypeNode{
 				Ident: ast.TypeShape,
 				Assertion: &ast.AssertionNode{
@@ -162,7 +164,7 @@ func (p *Parser) parseSimpleParameter() ast.ParamNode {
 	typ := p.parseType(TypeIdentOpts{AllowLowercaseTypes: false})
 	p.logParsedNodeWithMessage(typ, "Parsed parameter type, next token: "+p.current().Type.String()+" ("+p.current().Value+")")
 	return ast.SimpleParamNode{
-		Ident:    ast.Ident{ID: ast.Identifier(name)},
+		Ident:    ident,
 		Type:     typ,
 		Variadic: variadic,
 	}

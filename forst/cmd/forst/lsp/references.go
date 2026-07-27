@@ -60,6 +60,9 @@ func (s *LSPServer) findReferencesFromContext(ctx *forstDocumentContext, uri str
 	if tok == nil || tok.Type != ast.TokenIdentifier {
 		return nil
 	}
+	if locs := labelReferences(uri, ctx.TC, ctx.Tokens, tok, includeDecl); len(locs) > 0 {
+		return locs
+	}
 	if ctx.PackageMerge != nil {
 		if decl := s.definingTopLevelLocationForPackage(ctx.TC, uri, ctx.Tokens, tok, ctx.PackageMerge); decl != nil {
 			locs := collectTopLevelReferencesAcrossPackage(ctx.PackageMerge, tok.Value, decl, includeDecl)

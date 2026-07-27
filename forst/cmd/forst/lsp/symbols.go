@@ -12,9 +12,10 @@ import (
 // LSP SymbolKind subset (see LSP spec).
 const (
 	lspSymbolKindFunction = 12
+	lspSymbolKindVariable = 13
+	lspSymbolKindConstant = 14
 	lspSymbolKindStruct   = 23
 	lspSymbolKindMethod   = 6
-	lspSymbolKindVariable = 13
 )
 
 // LspSymbolInformation is the wire shape for documentSymbol (flat) and workspace/symbol.
@@ -105,6 +106,17 @@ func symbolsFromParsedDocument(uri string, tokens []ast.Token, nodes []ast.Node)
 					Kind:     lspSymbolKindVariable,
 					Location: lspLocationFromToken(uri, t),
 				})
+			}
+		case ast.ConstGroupNode:
+			for _, spec := range v.Specs {
+				name := string(spec.Name.ID)
+				if t := findPackageConstNameToken(tokens, name); t != nil {
+					out = append(out, LspSymbolInformation{
+						Name:     name,
+						Kind:     lspSymbolKindConstant,
+						Location: lspLocationFromToken(uri, t),
+					})
+				}
 			}
 		case *ast.TypeGuardNode:
 			name := string(v.Ident)

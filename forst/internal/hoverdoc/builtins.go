@@ -23,6 +23,10 @@ const (
 	NameResult  = "Result"
 	NameTuple   = "Tuple"
 	NameObject  = "Object"
+	NameBytes   = "Bytes"
+	NameComplex64  = "Complex64"
+	NameComplex128 = "Complex128"
+	NameRune    = "Rune"
 )
 
 // BuiltinTypeMarkdown returns user-facing markdown for a built-in Forst type, keyed by its
@@ -269,6 +273,51 @@ func MarkdownForKeywordToken(t ast.TokenIdent) string {
 		return keywordDoc("goto", strings.Join([]string{
 			"Jumps to a label (Go `goto`). Uncommon; prefer structured control flow.",
 		}, "\n"))
+	case ast.TokenIota:
+		return keywordDoc("iota", strings.Join([]string{
+			"Predeclared identifier in `const` groups. Starts at `0` and increments by one for each successive spec.",
+			"",
+			"**Example**",
+			"",
+			forstBlock(
+				"const (",
+				"  A = iota // 0",
+				"  B        // 1",
+				")",
+			),
+		}, "\n"))
+	case ast.TokenEllipsis:
+		return keywordDoc("...", strings.Join([]string{
+			"Variadic parameter marker (`args ...T`) or unpack/spread where the grammar allows.",
+			"",
+			"**Example**",
+			"",
+			forstBlock("func sum(xs ...Int): Int { }"),
+		}, "\n"))
+	case ast.TokenBitwiseAnd:
+		return keywordDoc("&", "Bitwise AND on integers.")
+	case ast.TokenBitwiseOr:
+		return keywordDoc("|", "Bitwise OR on integers.")
+	case ast.TokenXor:
+		return keywordDoc("^", "Bitwise XOR on integers (also unary bitwise complement in Go-shaped expressions).")
+	case ast.TokenLShift:
+		return keywordDoc("<<", "Left shift.")
+	case ast.TokenRShift:
+		return keywordDoc(">>", "Right shift.")
+	case ast.TokenAndNot:
+		return keywordDoc("&^", "Bitwise AND-NOT (`x &^ y` clears bits of `y` in `x`).")
+	case ast.TokenBitwiseAndEq:
+		return keywordDoc("&=", "Compound assign: bitwise AND.")
+	case ast.TokenBitwiseOrEq:
+		return keywordDoc("|=", "Compound assign: bitwise OR.")
+	case ast.TokenXorEq:
+		return keywordDoc("^=", "Compound assign: bitwise XOR.")
+	case ast.TokenLShiftEq:
+		return keywordDoc("<<=", "Compound assign: left shift.")
+	case ast.TokenRShiftEq:
+		return keywordDoc(">>=", "Compound assign: right shift.")
+	case ast.TokenAndNotEq:
+		return keywordDoc("&^=", "Compound assign: bitwise AND-NOT.")
 	case ast.TokenArrow:
 		return keywordDoc("<-", strings.Join([]string{
 			"Channel send/receive operator in Go-shaped code (`ch <- v`, `v := <-ch`).",
@@ -466,5 +515,21 @@ var builtinTypeDocs = map[string]string{
 	}, "\n")),
 	NameObject: typeDoc(NameObject, strings.Join([]string{
 		"Loose object interop slot. Prefer `Shape` or `Map` when you want precise static typing.",
+	}, "\n")),
+	NameBytes: typeDoc(NameBytes, strings.Join([]string{
+		"Byte slice type. Lowers to Go `[]byte`.",
+		"",
+		"**Example**",
+		"",
+		forstBlock("buf: Bytes"),
+	}, "\n")),
+	NameComplex64: typeDoc(NameComplex64, strings.Join([]string{
+		"Complex number with `float32` components. Lowers to Go `complex64`.",
+	}, "\n")),
+	NameComplex128: typeDoc(NameComplex128, strings.Join([]string{
+		"Complex number with `float64` components. Lowers to Go `complex128`.",
+	}, "\n")),
+	NameRune: typeDoc(NameRune, strings.Join([]string{
+		"Unicode code point. Often written with a rune literal (`'a'`). Lowers to Go `rune` (`int32`).",
 	}, "\n")),
 }

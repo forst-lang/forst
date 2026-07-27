@@ -340,6 +340,9 @@ func hoverTextForToken(tc *typechecker.TypeChecker, tokens []ast.Token, tok *ast
 		}
 	}
 	if tok.Type == ast.TokenIdentifier {
+		if s := labelHoverMarkdown(tc, tokens, tok); s != "" {
+			return s
+		}
 		if s := nodeHoverFromQualifiedNodeIdentifier(tc, tokens, tok); s != "" {
 			return s
 		}

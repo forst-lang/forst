@@ -26,6 +26,7 @@ func TestBuiltinTypeDocs_nonempty(t *testing.T) {
 		NameInt, NameFloat, NameString, NameBool, NameVoid,
 		NameArray, NameMap, NameStruct,
 		NameError, NamePointer, NameShape, NameResult, NameTuple, NameObject,
+		NameBytes, NameComplex64, NameComplex128, NameRune,
 	}
 	for _, k := range keys {
 		if s := BuiltinTypeMarkdown(k); s == "" || !strings.Contains(s, k) {
@@ -44,6 +45,12 @@ func TestMarkdownForKeywordToken_typesAndKeywords(t *testing.T) {
 		{ast.TokenMap, NameMap},
 		{ast.TokenEnsure, "ensure"},
 		{ast.TokenIs, "is"},
+		{ast.TokenIota, "iota"},
+		{ast.TokenEllipsis, "..."},
+		{ast.TokenXor, "^"},
+		{ast.TokenAndNot, "&^"},
+		{ast.TokenLShift, "<<"},
+		{ast.TokenBitwiseAndEq, "&="},
 	}
 	for _, tc := range cases {
 		got := MarkdownForKeywordToken(tc.tok)

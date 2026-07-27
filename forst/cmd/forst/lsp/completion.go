@@ -524,6 +524,9 @@ func deepestScopeInBlock(body []ast.Node, tokens []ast.Token, tokIdx, bodyL, bod
 				return st.Block
 			}
 		}
+		if n := deepestScopeInFuncLitsOfStmt(stmt, tokens, tokIdx, tc); n != nil {
+			return n
+		}
 	}
 	return nil
 }
@@ -624,9 +627,239 @@ func deepestScopeInFunction(scopeNode ast.Node, fn ast.FunctionNode, tokens []as
 				return st.Block
 			}
 		}
+		if n := deepestScopeInFuncLitsOfStmt(stmt, tokens, tokIdx, tc); n != nil {
+			return n
+		}
 	}
 	_ = tc.RestoreScope(scopeNode)
 	return scopeNode
+}
+
+// deepestScopeInFuncLitsOfStmt descends into FunctionLiteralNode expressions in a statement.
+func deepestScopeInFuncLitsOfStmt(stmt ast.Node, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
+	var found ast.Node
+	walkExprsInStmt(stmt, func(expr ast.ExpressionNode) bool {
+		switch expr.(type) {
+		case ast.FunctionLiteralNode, *ast.FunctionLiteralNode:
+		default:
+			return true
+		}
+		if n := deepestScopeInFunctionLiteral(expr, tokens, tokIdx, tc); n != nil {
+			found = n
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func deepestScopeInFunctionLiteral(scopeNode ast.Node, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
+	lit, ok := scopeNode.(ast.FunctionLiteralNode)
+	if !ok {
+		if p, ok := scopeNode.(*ast.FunctionLiteralNode); ok && p != nil {
+			lit = *p
+		} else {
+			return nil
+		}
+	}
+	funcIdx, pOpen, pClose, lb, rb := functionLiteralTokenRanges(tokens, lit)
+	if funcIdx < 0 {
+		return nil
+	}
+	inParams := pOpen >= 0 && tokIdx > pOpen && tokIdx < pClose
+	inBody := lb >= 0 && tokIdx > lb && tokIdx < rb
+	if !inParams && !inBody {
+		return nil
+	}
+	// Restore using the original ExpressionNode interface (not a value copy) so NodeIdentity matches.
+	if err := tc.RestoreScope(scopeNode); err != nil {
+		return nil
+	}
+	if inBody {
+		if inner := deepestScopeInBlock(lit.Body, tokens, tokIdx, lb, rb, tc); inner != nil {
+			return inner
+		}
+		if n := deepestScopeInFuncLitsOfBody(lit.Body, tokens, tokIdx, tc); n != nil {
+			return n
+		}
+	}
+	return scopeNode
+}
+
+func deepestScopeInFuncLitsOfBody(body []ast.Node, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
+	for _, stmt := range body {
+		if n := deepestScopeInFuncLitsOfStmt(stmt, tokens, tokIdx, tc); n != nil {
+			return n
+		}
+	}
+	return nil
+}
+
+// functionLiteralTokenRanges locates `func (…)` / body braces for a function literal via param spans.
+func functionLiteralTokenRanges(tokens []ast.Token, lit ast.FunctionLiteralNode) (funcIdx, pOpen, pClose, lb, rb int) {
+	funcIdx = -1
+	pOpen, pClose, lb, rb = -1, -1, -1, -1
+	for _, p := range lit.Params {
+		sp, ok := p.(ast.SimpleParamNode)
+		if !ok || !sp.Ident.Span.IsSet() {
+			continue
+		}
+		pi := tokenIndexForSourceSpan(tokens, sp.Ident.Span)
+		if pi < 0 {
+			continue
+		}
+		for i := pi; i >= 0; i-- {
+			if tokens[i].Type == ast.TokenFunc {
+				funcIdx = i
+				break
+			}
+		}
+		if funcIdx >= 0 {
+			break
+		}
+	}
+	if funcIdx < 0 {
+		return -1, -1, -1, -1, -1
+	}
+	j := funcIdx + 1
+	for j < len(tokens) && tokens[j].Type == ast.TokenComment {
+		j++
+	}
+	if j >= len(tokens) || tokens[j].Type != ast.TokenLParen {
+		return funcIdx, -1, -1, -1, -1
+	}
+	pOpen = j
+	pClose = skipBalancedParens(tokens, j)
+	if pClose < 0 {
+		return funcIdx, pOpen, -1, -1, -1
+	}
+	k := pClose + 1
+	for k < len(tokens) && tokens[k].Type == ast.TokenComment {
+		k++
+	}
+	if k < len(tokens) && tokens[k].Type == ast.TokenColon {
+		k++
+		for k < len(tokens) && tokens[k].Type != ast.TokenLBrace {
+			k++
+		}
+	}
+	if k < len(tokens) && tokens[k].Type == ast.TokenLBrace {
+		lb = k
+		rb = matchingRBrace(tokens, lb)
+	}
+	return funcIdx, pOpen, pClose, lb, rb
+}
+
+func tokenIndexForSourceSpan(tokens []ast.Token, span ast.SourceSpan) int {
+	if !span.IsSet() {
+		return -1
+	}
+	for i := range tokens {
+		if tokens[i].Line == span.StartLine && tokens[i].Column == span.StartCol {
+			return i
+		}
+	}
+	return -1
+}
+
+// walkExprsInStmt invokes visit for each expression nested in stmt (shallow statement forms).
+// visit returns false to stop walking.
+func walkExprsInStmt(stmt ast.Node, visit func(ast.ExpressionNode) bool) {
+	switch st := stmt.(type) {
+	case ast.AssignmentNode:
+		for _, lv := range st.LValues {
+			if !walkExpr(lv, visit) {
+				return
+			}
+		}
+		for _, rv := range st.RValues {
+			if !walkExpr(rv, visit) {
+				return
+			}
+		}
+	case *ast.AssignmentNode:
+		walkExprsInStmt(*st, visit)
+	case ast.ReturnNode:
+		for _, v := range st.Values {
+			if !walkExpr(v, visit) {
+				return
+			}
+		}
+	case *ast.ReturnNode:
+		walkExprsInStmt(*st, visit)
+	case ast.IfNode:
+		if e, ok := st.Condition.(ast.ExpressionNode); ok {
+			_ = walkExpr(e, visit)
+		}
+		if st.Init != nil {
+			walkExprsInStmt(st.Init, visit)
+		}
+	case *ast.IfNode:
+		if st != nil {
+			walkExprsInStmt(*st, visit)
+		}
+	case ast.EnsureNode:
+		_ = walkExpr(st.Variable, visit)
+	case *ast.EnsureNode:
+		if st != nil {
+			_ = walkExpr(st.Variable, visit)
+		}
+	case ast.ForNode:
+		if st.Init != nil {
+			walkExprsInStmt(st.Init, visit)
+		}
+	case *ast.ForNode:
+		if st != nil && st.Init != nil {
+			walkExprsInStmt(st.Init, visit)
+		}
+	}
+}
+
+func walkExpr(expr ast.ExpressionNode, visit func(ast.ExpressionNode) bool) bool {
+	if expr == nil {
+		return true
+	}
+	if !visit(expr) {
+		return false
+	}
+	switch e := expr.(type) {
+	case ast.FunctionLiteralNode, *ast.FunctionLiteralNode:
+		return true // body handled separately via deepestScopeInFunctionLiteral
+	case ast.FunctionCallNode:
+		if e.Callee != nil && !walkExpr(e.Callee, visit) {
+			return false
+		}
+		for _, a := range e.Arguments {
+			if !walkExpr(a, visit) {
+				return false
+			}
+		}
+	case *ast.FunctionCallNode:
+		return walkExpr(*e, visit)
+	case ast.MethodCallNode:
+		if !walkExpr(e.Receiver, visit) {
+			return false
+		}
+		for _, a := range e.Arguments {
+			if !walkExpr(a, visit) {
+				return false
+			}
+		}
+	case *ast.MethodCallNode:
+		return walkExpr(*e, visit)
+	case ast.BinaryExpressionNode:
+		if !walkExpr(e.Left, visit) {
+			return false
+		}
+		return walkExpr(e.Right, visit)
+	case *ast.BinaryExpressionNode:
+		return walkExpr(*e, visit)
+	case ast.UnaryExpressionNode:
+		return walkExpr(e.Operand, visit)
+	case *ast.UnaryExpressionNode:
+		return walkExpr(*e, visit)
+	}
+	return true
 }
 
 func findInnermostScopeNode(nodes []ast.Node, tokens []ast.Token, tokIdx int, tc *typechecker.TypeChecker) ast.Node {
@@ -1059,6 +1292,9 @@ func (s *LSPServer) getCompletionsForPosition(uri string, position LSPPosition, 
 	}
 
 	var items []LSPCompletionItem
+	if afterGotoBreakContinue(ctx.Tokens, tokIdx) {
+		items = append(items, labelCompletionItems(ctx.TC, position.Line+1, prefix)...)
+	}
 	items = append(items, completionItemsFromKeywords(keywordsForZone(z), prefix)...)
 	items = append(items, topLevelSymbolCompletionItems(ctx, prefix)...)
 	items = append(items, localVariableCompletionItems(ctx, prefix)...)

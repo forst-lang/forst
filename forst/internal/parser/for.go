@@ -175,7 +175,7 @@ func (p *Parser) parseBreakStatement() ast.Node {
 	p.advance() // break
 	if p.current().Type == ast.TokenIdentifier {
 		id := p.expect(ast.TokenIdentifier)
-		return &ast.BreakNode{Label: &ast.Ident{ID: ast.Identifier(id.Value)}}
+		return &ast.BreakNode{Label: &ast.Ident{ID: ast.Identifier(id.Value), Span: ast.SpanFromToken(id)}}
 	}
 	return &ast.BreakNode{}
 }
@@ -184,7 +184,7 @@ func (p *Parser) parseContinueStatement() ast.Node {
 	p.advance() // continue
 	if p.current().Type == ast.TokenIdentifier {
 		id := p.expect(ast.TokenIdentifier)
-		return &ast.ContinueNode{Label: &ast.Ident{ID: ast.Identifier(id.Value)}}
+		return &ast.ContinueNode{Label: &ast.Ident{ID: ast.Identifier(id.Value), Span: ast.SpanFromToken(id)}}
 	}
 	return &ast.ContinueNode{}
 }

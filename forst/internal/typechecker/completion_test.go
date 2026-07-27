@@ -74,12 +74,63 @@ func main() {}
 	}
 }
 
-func TestListFieldNamesForType_missingDefReturnsEmptySorted(t *testing.T) {
+func TestListFieldNamesForType_promotesEmbeddedFields(t *testing.T) {
 	t.Parallel()
-	tc := New(logrus.New(), false)
-	names := tc.ListFieldNamesForType(ast.TypeNode{Ident: "NoSuchType"})
-	if len(names) != 0 {
-		t.Fatalf("got %#v", names)
+	log := setupTestLogger(nil)
+	src := `package main
+
+type Base = {
+  Name: String
+}
+
+type Outer = {
+  Base
+}
+
+func main() {}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	names := tc.ListFieldNamesForType(ast.TypeNode{Ident: "Outer"})
+	slices.Sort(names)
+	if !slices.Contains(names, "Name") || !slices.Contains(names, "Base") {
+		t.Fatalf("expected Base + promoted Name, got %#v", names)
+	}
+}
+
+func TestListFieldNamesForType_skipsAmbiguousPromotedFields(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	src := `package main
+
+type A = { X: Int }
+type B = { X: Int }
+type Outer = {
+  A
+  B
+}
+
+func main() {}
+`
+	p := parser.NewTestParser(src, log)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	names := tc.ListFieldNamesForType(ast.TypeNode{Ident: "Outer"})
+	if slices.Contains(names, "X") {
+		t.Fatalf("ambiguous X should not appear in completion: %#v", names)
 	}
 }
 

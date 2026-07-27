@@ -76,6 +76,9 @@ type TypeChecker struct {
 	switchDepth int
 	// loopLabelStack records labels of nested for-loops (innermost last) for labeled break/continue
 	loopLabelStack []ast.Identifier
+	// LabelScopes holds per-function label bindings after checkFunctionLabels (for LSP).
+	LabelScopes []LabelScope
+	labelScopeSeq int
 	// ifChainNarrowingStack records per-if-chain narrowing events (`x is …`) for merge/join (narrow_if.go).
 	ifChainNarrowingStack [][]narrowingEvent
 	// currentFunction is set while inferring a function body (Ok/Err need Result(S,F) from the signature).
@@ -186,6 +189,8 @@ func (tc *TypeChecker) CheckTypes(nodes []ast.Node) error {
 	tc.compatMemo = nil
 	tc.imports = nil
 	tc.nodeImports = nil
+	tc.LabelScopes = nil
+	tc.labelScopeSeq = 0
 	if tc.nodeImportsByLocal != nil {
 		for k := range tc.nodeImportsByLocal {
 			delete(tc.nodeImportsByLocal, k)

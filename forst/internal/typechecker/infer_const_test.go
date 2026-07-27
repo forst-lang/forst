@@ -58,6 +58,40 @@ const Greeting = "hello"
 	}
 }
 
+func TestCollectConstGroup_registersIotaNames(t *testing.T) {
+	t.Parallel()
+	src := `package main
+
+const (
+  A = iota
+  B
+)
+`
+	log := setupTestLogger(nil)
+	nodes, err := parser.NewTestParser(src, log).ParseFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := New(log, false)
+	// Collect only (no full CheckTypes): iota names must still be registered for LSP.
+	for _, n := range nodes {
+		if cg, ok := n.(ast.ConstGroupNode); ok {
+			if err := tc.collectConstGroup(cg); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if !tc.isPackageConst("A") || !tc.isPackageConst("B") {
+		t.Fatal("expected iota consts registered during collect")
+	}
+	for _, name := range []ast.Identifier{"A", "B"} {
+		ty, ok := tc.VariableTypes[name]
+		if !ok || len(ty) != 1 || ty[0].Ident != ast.TypeInt {
+			t.Fatalf("%s types = %#v ok=%v", name, ty, ok)
+		}
+	}
+}
+
 func TestInferConstGroup_rejectsIotaOutsideConst(t *testing.T) {
 	t.Parallel()
 	src := `package main
