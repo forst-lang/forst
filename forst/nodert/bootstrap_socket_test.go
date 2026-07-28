@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -265,13 +266,13 @@ export function ping(): { ok: boolean } { return { ok: true }; }
 
 	log := logrus.New()
 	log.SetLevel(logrus.DebugLevel)
-	var sawStdoutLog, sawStderrLog bool
+	var sawStdoutLog, sawStderrLog atomic.Bool
 	log.Hooks.Add(&testHook{onFire: func(e *logrus.Entry) {
 		switch e.Data["event"] {
 		case "stdout":
-			sawStdoutLog = true
+			sawStdoutLog.Store(true)
 		case "stderr":
-			sawStderrLog = true
+			sawStderrLog.Store(true)
 		}
 	}})
 
@@ -299,12 +300,7 @@ export function ping(): { ok: boolean } { return { ok: true }; }
 	if !got.OK {
 		t.Fatalf("ping = %#v", got)
 	}
-	if !sawStdoutLog {
-		t.Fatal("expected stdout log from bootstrap child")
-	}
-	if !sawStderrLog {
-		t.Fatal("expected stderr log from bootstrap child")
-	}
+	waitForChildStreamLogs(t, &sawStdoutLog, &sawStderrLog)
 	if err := client.Ping(); err != nil {
 		t.Fatalf("Ping after call: %v", err)
 	}
@@ -312,6 +308,25 @@ export function ping(): { ok: boolean } { return { ok: true }; }
 	if err := Shutdown(); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
+}
+
+func waitForChildStreamLogs(t *testing.T, sawStdout, sawStderr *atomic.Bool) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if sawStdout.Load() && sawStderr.Load() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	var missing []string
+	if !sawStdout.Load() {
+		missing = append(missing, "stdout")
+	}
+	if !sawStderr.Load() {
+		missing = append(missing, "stderr")
+	}
+	t.Fatalf("expected %s log(s) from bootstrap child within 10s", strings.Join(missing, " and "))
 }
 
 type bootstrapTestConfig struct {
