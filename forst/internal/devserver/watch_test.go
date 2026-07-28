@@ -125,10 +125,7 @@ func TestWatchRuntimeDev_compileErrorOnStart_keepsWatching(t *testing.T) {
 		},
 	})
 
-	done := make(chan error, 1)
-	go func() {
-		done <- WatchRuntimeDev(log, dir, filepath.Join(dir, "main.ft"), nil, deps)
-	}()
+	done := startWatchRuntimeDev(t, log, dir, filepath.Join(dir, "main.ft"), nil, deps)
 
 	select {
 	case err := <-done:
@@ -155,11 +152,7 @@ func TestWatchRuntimeDev_compileError_logsError(t *testing.T) {
 		},
 	})
 
-	done := make(chan struct{})
-	go func() {
-		_ = WatchRuntimeDev(log, dir, filepath.Join(dir, "main.ft"), nil, deps)
-		close(done)
-	}()
+	startWatchRuntimeDev(t, log, dir, filepath.Join(dir, "main.ft"), nil, deps)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
 	for !strings.Contains(snapshot(), "type error: injected") && time.Now().Before(deadline) {
@@ -200,9 +193,7 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 		},
 	})
 
-	go func() {
-		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
-	}()
+	startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for compileCount.Load() < 1 && time.Now().Before(deadline) {
@@ -222,6 +213,11 @@ func TestWatchRuntimeDev_fileChange_recompilesAndRestarts(t *testing.T) {
 	}
 	if compileCount.Load() < 2 {
 		t.Fatalf("expected recompile after file change, compileCount=%d", compileCount.Load())
+	}
+
+	deadline = time.Now().Add(2 * time.Second)
+	for startCount.Load() < 2 && time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
 	}
 	if startCount.Load() < 2 {
 		t.Fatalf("expected process restart after file change, startCount=%d", startCount.Load())
@@ -248,11 +244,7 @@ func TestWatchRuntimeDev_autoRestartFalse_doesNotStartProcess(t *testing.T) {
 		},
 	})
 
-	done := make(chan struct{})
-	go func() {
-		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: false}}, deps)
-		close(done)
-	}()
+	done := startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: false}}, deps)
 
 	time.Sleep(300 * time.Millisecond)
 	select {
@@ -320,9 +312,7 @@ func TestWatchRuntimeDev_reloadStopsBeforeCompile(t *testing.T) {
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	go func() {
-		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
-	}()
+	startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for {
@@ -391,9 +381,7 @@ func TestWatchRuntimeDev_childExitBeforeReady_logsFailure(t *testing.T) {
 		},
 	})
 
-	go func() {
-		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
-	}()
+	startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for !strings.Contains(snapshot(), "reload failed") && time.Now().Before(deadline) {

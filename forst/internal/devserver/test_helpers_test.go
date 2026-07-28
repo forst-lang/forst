@@ -1,9 +1,13 @@
 package devserver
 
 import (
+	"io"
 	"strings"
 	"sync"
+	"testing"
 	"time"
+
+	"forst/internal/ftconfig"
 
 	"github.com/sirupsen/logrus"
 )
@@ -32,6 +36,7 @@ func newTestLogCapture(level logrus.Level) (*logrus.Logger, func() string) {
 	)
 	log := logrus.New()
 	log.SetLevel(level)
+	log.SetOutput(io.Discard)
 	log.AddHook(&testLogHook{callback: func(entry *logrus.Entry) {
 		b, err := format.Format(entry)
 		if err != nil {
@@ -57,4 +62,29 @@ func stubReloadHooks(deps RuntimeRunDeps) RuntimeRunDeps {
 		deps.FindInvokePort = func(_, preferred string) (string, error) { return preferred, nil }
 	}
 	return deps
+}
+
+// startWatchRuntimeDev runs WatchRuntimeDev in the background and registers a
+// t.Cleanup that stops it via deps.StopCh and waits for the goroutine to
+// exit. Without this, WatchRuntimeDev's watch loop (fsnotify watcher, signal
+// handler, etc.) leaks for the remaining lifetime of the test binary, which
+// causes flaky cross-test interference (stray log output, contended invoke
+// ports) in later tests.
+func startWatchRuntimeDev(t *testing.T, log *logrus.Logger, boundaryRoot, entryPath string, cfg *ftconfig.Config, deps RuntimeRunDeps) <-chan error {
+	t.Helper()
+	stopCh := make(chan struct{})
+	deps.StopCh = stopCh
+	done := make(chan error, 1)
+	go func() {
+		done <- WatchRuntimeDev(log, boundaryRoot, entryPath, cfg, deps)
+	}()
+	t.Cleanup(func() {
+		close(stopCh)
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Log("WatchRuntimeDev did not exit within cleanup timeout")
+		}
+	})
+	return done
 }

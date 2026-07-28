@@ -40,9 +40,7 @@ func TestWatchRuntimeDev_burstFileChanges_coalescesReloads(t *testing.T) {
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	go func() {
-		_ = WatchRuntimeDev(log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
-	}()
+	startWatchRuntimeDev(t, log, dir, mainPath, &ftconfig.Config{Dev: ftconfig.DevConfig{AutoRestart: true}}, deps)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for compileCount.Load() < 1 && time.Now().Before(deadline) {

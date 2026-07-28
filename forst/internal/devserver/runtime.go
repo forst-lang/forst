@@ -54,6 +54,11 @@ type RuntimeRunDeps struct {
 	InvokeReadyWait func(boundaryRoot, healthURL string, exited <-chan error, timeout time.Duration) error
 	// FindInvokePort picks a bindable invoke TCP port (tests may stub).
 	FindInvokePort func(host, preferred string) (string, error)
+	// StopCh, when closed, triggers the same graceful shutdown path as
+	// SIGINT/SIGTERM. Primarily used by tests to stop WatchRuntimeDev
+	// deterministically instead of leaking its background goroutines for
+	// the lifetime of the test binary.
+	StopCh <-chan struct{}
 }
 
 type devReloadState struct {
@@ -151,7 +156,7 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 	ReapOrphanedGoChild(boundaryRoot, 0, log)
 
 	var (
-		child      *runningChild
+		child      atomic.Pointer[runningChild]
 		generation uint64
 	)
 	runReload := func(changedPath string) {
@@ -160,7 +165,7 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 			state.lastChanged = changedPath
 		}
 		gen := atomic.AddUint64(&generation, 1)
-		child = performDevReload(reloadParams{
+		next := performDevReload(reloadParams{
 			log:          log,
 			boundaryRoot: boundaryRoot,
 			entryPath:    entryPath,
@@ -170,9 +175,10 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 			invokeAddr:   invokeAddr,
 			healthURL:    healthURL,
 			gen:          gen,
-			child:        child,
+			child:        child.Load(),
 			state:        state,
 		})
+		child.Store(next)
 	}
 
 	coalescer := newReloadCoalescer(func() { runReload(state.lastChanged) })
@@ -182,15 +188,18 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 	go func() {
-		<-sigCh
-		if log != nil {
-			log.Info("Shutting down forst dev...")
+		select {
+		case <-sigCh:
+			if log != nil {
+				log.Info("Shutting down forst dev...")
+			}
+		case <-deps.StopCh:
 		}
 		performDevShutdown(devShutdownState{
 			log:          log,
 			boundaryRoot: boundaryRoot,
 			hostOrch:     hostOrch,
-			child:        child,
+			child:        child.Load(),
 		})
 		close(stopCh)
 	}()
