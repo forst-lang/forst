@@ -4,7 +4,8 @@
 # Optional: MIN_COVERAGE=80 exits 1 if total is below the threshold.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-go test -coverprofile=profile.cov ./cmd/forst/... ./internal/... -count=1 >/dev/null
+PKGS=$(go list ./cmd/forst/... ./internal/... ./nodert/... | paste -sd, -)
+go test -coverprofile=profile.cov -coverpkg="$PKGS" ./cmd/forst/... ./internal/... ./nodert/... -count=1 >/dev/null
 total_line=$(go tool cover -func=profile.cov | tail -1)
 echo "$total_line"
 pct=$(echo "$total_line" | grep -oE '[0-9]+\.[0-9]+%' | head -1 | tr -d '%')

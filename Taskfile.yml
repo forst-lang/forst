@@ -823,7 +823,10 @@ tasks:
       MIN_COVERAGE: '{{.MIN_COVERAGE | default "72"}}'
     cmds:
       - |
-        test -f profile.cov || go test -coverprofile=profile.cov ./cmd/forst/... ./internal/... -count=1
+        if [ ! -f profile.cov ]; then
+          PKGS=$(go list ./cmd/forst/... ./internal/... ./nodert/... | paste -sd, -)
+          go test -coverprofile=profile.cov -coverpkg="$PKGS" ./cmd/forst/... ./internal/... ./nodert/... -count=1
+        fi
       - bash scripts/check_coverage_threshold.sh profile.cov {{.MIN_COVERAGE}}
 
   test:go:short:
@@ -839,7 +842,9 @@ tasks:
     deps: [build:node-runtime]
     cmds:
       - task: build:vscode
-      - go test -race -covermode atomic -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/... ./nodert/...
+      - |
+        PKGS=$(go list ./cmd/forst/... ./internal/... ./nodert/... | paste -sd, -)
+        go test -race -covermode atomic -coverpkg="$PKGS" -coverprofile=profile.cov -timeout=10m ./cmd/forst/... ./internal/... ./nodert/...
 
   ci:e2e:
     desc: Run CI E2E suite (runtime examples, node interop, sidecar, providers)
