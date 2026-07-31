@@ -1,18 +1,52 @@
 package lsp
 
-import "github.com/sirupsen/logrus"
+import (
+	"sync"
+
+	"github.com/sirupsen/logrus"
+)
+
+type buildMetadata struct {
+	version string
+	commit  string
+	date    string
+}
+
+var (
+	buildInfoMu sync.RWMutex
+	buildInfo   = buildMetadata{
+		version: "dev",
+		commit:  "unknown",
+		date:    "unknown",
+	}
+)
+
+// SetBuildMetadata sets injected compiler build metadata (version, commit, date).
+func SetBuildMetadata(version, commit, date string) {
+	buildInfoMu.Lock()
+	buildInfo = buildMetadata{version: version, commit: commit, date: date}
+	buildInfoMu.Unlock()
+}
+
+func buildMetadataSnapshot() buildMetadata {
+	buildInfoMu.RLock()
+	defer buildInfoMu.RUnlock()
+	return buildInfo
+}
 
 // BuildInfo returns injected compiler build metadata (version, commit, date).
 func BuildInfo() (version, commit, date string) {
-	return Version, Commit, Date
+	meta := buildMetadataSnapshot()
+	return meta.version, meta.commit, meta.date
 }
 
 // BuildInfoMap returns build metadata as a JSON-friendly map.
 func BuildInfoMap() map[string]string {
+	meta := buildMetadataSnapshot()
 	return map[string]string{
-		"version": Version,
-		"commit":  Commit,
-		"date":    Date,
+		"version": meta.version,
+		"commit":  meta.commit,
+		"date":    meta.date,
 	}
 }
 
@@ -21,5 +55,6 @@ func LogBuildInfo(log *logrus.Logger) {
 	if log == nil {
 		return
 	}
-	log.Infof("forst %s %s %s", Version, Commit, Date)
+	meta := buildMetadataSnapshot()
+	log.Infof("forst %s %s %s", meta.version, meta.commit, meta.date)
 }

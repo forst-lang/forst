@@ -16,12 +16,13 @@ func (s *LSPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
+	meta := buildMetadataSnapshot()
 	response := map[string]any{
 		"status":    "healthy",
 		"service":   "forst-lsp",
-		"version":   Version,
-		"commit":    Commit,
-		"date":      Date,
+		"version":   meta.version,
+		"commit":    meta.commit,
+		"date":      meta.date,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 

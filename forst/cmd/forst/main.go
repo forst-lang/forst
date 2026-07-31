@@ -143,9 +143,7 @@ func runMain(argv []string) int {
 		setLogLevel(log, *logLevel)
 
 		// Set version information in LSP package
-		lsp.Version = Version
-		lsp.Commit = Commit
-		lsp.Date = Date
+		lsp.SetBuildMetadata(Version, Commit, Date)
 
 		if err := startLSPFunc(*port, log); err != nil {
 			return 1
@@ -176,9 +174,7 @@ func runMain(argv []string) int {
 		}
 
 		// Set version information in LSP package
-		lsp.Version = Version
-		lsp.Commit = Commit
-		lsp.Date = Date
+		lsp.SetBuildMetadata(Version, Commit, Date)
 
 		if err := handleDumpCommand(*filePath, *compression, *format, *phase, *summary, log); err != nil {
 			log.Error(err)

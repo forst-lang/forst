@@ -43,6 +43,8 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 		},
 	}
 
+	meta := buildMetadataSnapshot()
+
 	return LSPServerResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
@@ -50,9 +52,9 @@ func (s *LSPServer) handleInitialize(request LSPRequest) LSPServerResponse {
 			"capabilities": capabilities,
 			"serverInfo": map[string]any{
 				"name":    "forst-lsp",
-				"version": Version,
-				"commit":  Commit,
-				"date":    Date,
+				"version": meta.version,
+				"commit":  meta.commit,
+				"date":    meta.date,
 			},
 		},
 	}
