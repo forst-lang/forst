@@ -10,13 +10,10 @@ import (
 
 func TestLogBuildInfo_logsVersionCommitDate(t *testing.T) {
 	t.Parallel()
-	Version = "1.2.3"
-	Commit = "abc123"
-	Date = "2026-07-08"
+	origVersion, origCommit, origDate := BuildInfo()
+	SetBuildMetadata("1.2.3", "abc123", "2026-07-08")
 	t.Cleanup(func() {
-		Version = "dev"
-		Commit = "unknown"
-		Date = "unknown"
+		SetBuildMetadata(origVersion, origCommit, origDate)
 	})
 
 	var buf bytes.Buffer
@@ -35,13 +32,10 @@ func TestLogBuildInfo_logsVersionCommitDate(t *testing.T) {
 
 func TestBuildInfoMap(t *testing.T) {
 	t.Parallel()
-	Version = "v"
-	Commit = "c"
-	Date = "d"
+	origVersion, origCommit, origDate := BuildInfo()
+	SetBuildMetadata("v", "c", "d")
 	t.Cleanup(func() {
-		Version = "dev"
-		Commit = "unknown"
-		Date = "unknown"
+		SetBuildMetadata(origVersion, origCommit, origDate)
 	})
 	m := BuildInfoMap()
 	if m["version"] != "v" || m["commit"] != "c" || m["date"] != "d" {

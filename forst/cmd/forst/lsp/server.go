@@ -76,16 +76,6 @@ type peerAnalysisCacheEntry struct {
 	ctx     *forstDocumentContext
 }
 
-// Version information for LSP server
-var (
-	// Version is the current version of Forst
-	Version = "dev"
-	// Commit is the git commit hash
-	Commit = "unknown"
-	// Date is the build date
-	Date = "unknown"
-)
-
 // NewLSPServer creates a new LSP server
 func NewLSPServer(port string, log *logrus.Logger) *LSPServer {
 	debugger := NewCompilerDebugger(true)

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"forst/cmd/forst/lsp"
 	"forst/internal/compiler"
 	"forst/internal/ftconfig"
 	"io"
@@ -329,25 +330,14 @@ func TestCompilerArgsParsing(t *testing.T) {
 
 func TestLSPVersionInjection(t *testing.T) {
 	// Test that version information is correctly injected into LSP package
-	originalVersion := Version
-	originalCommit := Commit
-	originalDate := Date
-	defer func() {
-		Version = originalVersion
-		Commit = originalCommit
-		Date = originalDate
-	}()
+	origVersion, origCommit, origDate := lsp.BuildInfo()
+	t.Cleanup(func() {
+		lsp.SetBuildMetadata(origVersion, origCommit, origDate)
+	})
 
-	// Set test values
-	Version = "test-version"
-	Commit = "test-commit"
-	Date = "test-date"
+	lsp.SetBuildMetadata("test-version", "test-commit", "test-date")
 
-	// Test the version injection logic that would be used in main
-	// This simulates the logic: lsp.Version = Version, etc.
-	lspVersion := Version
-	lspCommit := Commit
-	lspDate := Date
+	lspVersion, lspCommit, lspDate := lsp.BuildInfo()
 
 	if lspVersion != "test-version" {
 		t.Errorf("Expected LSP version test-version, got %s", lspVersion)

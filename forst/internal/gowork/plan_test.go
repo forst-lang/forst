@@ -392,12 +392,144 @@ func TestWriteRunGoMod_absoluteReplaceWhenCrossTree(t *testing.T) {
 	if !strings.Contains(s, want) {
 		t.Fatalf("missing absolute replace forst => %s:\n%s", compilerDir, s)
 	}
-	if _, err := exec.LookPath("go"); err == nil {
+		if _, err := exec.LookPath("go"); err == nil {
 		cmd := exec.Command("go", "mod", "tidy")
 		cmd.Dir = sandbox
 		cmd.Env = append(os.Environ(), "GOWORK=off")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("go mod tidy in cross-tree sandbox: %v\n%s", err, out)
 		}
+	}
+}
+
+func TestAppendGoModReplaces_appendsAndDedupes(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "gen", "api")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(path, []byte("module example.com/app\n\ngo 1.26.0\n\nreplace demo/api => ./old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	replaces := []PackageReplace{
+		{ImportPath: "demo/api", Dir: pkgDir},
+		{ImportPath: "demo/auth", Dir: filepath.Join(dir, "gen", "auth")},
+	}
+	if err := AppendGoModReplaces(path, replaces); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if strings.Contains(s, "replace demo/api =>") && strings.Count(s, "replace demo/api =>") > 1 {
+		t.Fatalf("duplicate demo/api replace:\n%s", s)
+	}
+	if !strings.Contains(s, "replace demo/auth =>") {
+		t.Fatalf("missing demo/auth replace:\n%s", s)
+	}
+}
+
+func TestAppendGoModReplaces_emptySliceNoOp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "go.mod")
+	if err := os.WriteFile(path, []byte("module m\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendGoModReplaces(path, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAppendGoModReplaces_missingFileErrors(t *testing.T) {
+	if err := AppendGoModReplaces(filepath.Join(t.TempDir(), "missing.mod"), []PackageReplace{
+		{ImportPath: "x", Dir: t.TempDir()},
+	}); err == nil {
+		t.Fatal("expected error for missing go.mod")
+	}
+}
+
+func TestAppendGoModReplaces_relativePathGetsDotPrefix(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(path, []byte("module m\n\ngo 1.26.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendGoModReplaces(path, []PackageReplace{{ImportPath: "demo/pkg", Dir: pkgDir}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "replace demo/pkg => ./pkg") {
+		t.Fatalf("expected ./pkg prefix:\n%s", data)
+	}
+}
+
+func TestWorkspaceUseDirs(t *testing.T) {
+	t.Parallel()
+	_, err := WorkspaceUseDirs("/root", "/session", ForstRuntimeLink{})
+	if err == nil {
+		t.Fatal("expected error when ReplaceDir empty")
+	}
+	uses, err := WorkspaceUseDirs("/root", "/session", ForstRuntimeLink{ReplaceDir: "/forst"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(uses) != 2 || uses[0] != "/session" || uses[1] != "/forst" {
+		t.Fatalf("uses = %#v", uses)
+	}
+}
+
+func TestWriteGoWork_emptyUseDirsErrors(t *testing.T) {
+	if err := WriteGoWork(filepath.Join(t.TempDir(), "go.work"), nil); err == nil {
+		t.Fatal("expected error for empty use dirs")
+	}
+}
+
+func TestChildEnv_workspaceModeSetsGOWORK(t *testing.T) {
+	work := filepath.Join(t.TempDir(), "go.work")
+	env := ChildEnv([]string{"GOWORK=/parent/go.work"}, LinkPlan{
+		Mode:      LinkWorkspace,
+		Workspace: work,
+	}, "/app")
+	found := false
+	for _, e := range env {
+		if e == "GOWORK="+work {
+			found = true
+		}
+		if strings.HasPrefix(e, "GOWORK=") && e != "GOWORK="+work {
+			t.Fatalf("unexpected GOWORK: %s", e)
+		}
+	}
+	if !found {
+		t.Fatalf("expected GOWORK=%s in %v", work, env)
+	}
+}
+
+func TestChildEnv_stripsReadonlyGOFLAGS(t *testing.T) {
+	env := ChildEnv([]string{"GOFLAGS=-mod=readonly -v"}, LinkPlan{Mode: LinkReplace}, "")
+	for _, e := range env {
+		if strings.Contains(e, "-mod=readonly") {
+			t.Fatalf("readonly GOFLAGS leaked: %s", e)
+		}
+	}
+}
+
+func TestGoModReplaceNeedsAbsolute(t *testing.T) {
+	if !goModReplaceNeedsAbsolute("/private/var/tmp", "/home/example/module") {
+		t.Fatal("expected absolute replace when sandbox is under /private and target is not")
+	}
+	if goModReplaceNeedsAbsolute("/a/b", "relative") {
+		t.Fatal("relative target should not need absolute")
+	}
+	if !goModReplaceNeedsAbsolute("/a/b", "/c/d") {
+		t.Fatal("expected absolute replace when mod and target roots differ")
 	}
 }
