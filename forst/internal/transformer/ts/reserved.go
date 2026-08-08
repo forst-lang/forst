@@ -38,12 +38,11 @@ func ValidateReservedSubpaths(packages []string, reserved map[string]string) err
 		if !ok {
 			continue
 		}
-		_ = reason
 		return fmt.Errorf(
-			"generate: Forst package %q collides with the reserved client subpath \"./%s\"\n"+
+			"generate: Forst package %q collides with the reserved client subpath \"./%s\" (%s)\n"+
 				"  the generated package exports a test double at <packageName>/%s\n"+
 				"  rename the Forst package, or set generate.testingSubpath to a different key",
-			pkg, pkg, pkg,
+			pkg, pkg, reason, pkg,
 		)
 	}
 	return nil

@@ -167,6 +167,9 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
       const r = await c.main.PlayMove({ state, row, col });
       state = r.state;
     }
+    expect(state.cells[0]).toBe("X");
+    expect(state.cells[1]).toBe("X");
+    expect(state.cells[2]).toBe("X");
     expect(state.winner).toBe("X");
   });
 });

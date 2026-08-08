@@ -172,12 +172,8 @@ func EmitErrorsDTS() string {
 		b.WriteString("}\n\n")
 	}
 	b.WriteString("export type InvokeFailure =\n")
-	for i, c := range ErrorCatalog {
-		prefix := "  | "
-		if i == 0 {
-			prefix = "  | "
-		}
-		fmt.Fprintf(&b, "%s%s\n", prefix, c.Name)
+	for _, c := range ErrorCatalog {
+		fmt.Fprintf(&b, "  | %s\n", c.Name)
 	}
 	b.WriteString(";\n\n")
 	b.WriteString("export declare function isInvokeFailure(u: unknown): u is InvokeFailure;\n")

@@ -8,12 +8,13 @@ import {
 } from "@forst/gen/main";
 import { logServer } from "../lib/log.server";
 
+/** Tab-separated todo row from ListTodos.encoded; fields widened to string with no runtime validation. */
 type TodoRow = { id: string; title: string; status: string };
 
 function forstEnv() {
   process.env.FORST_SKIP_SPAWN = "1";
   process.env.FORST_BASE_URL =
-    process.env.FORST_BASE_URL ?? "http://127.0.0.1:6321";
+    process.env.FORST_BASE_URL?.trim() || "http://127.0.0.1:6321";
 }
 
 function parseTodos(encoded: string): TodoRow[] {

@@ -112,7 +112,7 @@ func linkGeneratedClient(boundaryRoot, outDir, packageName string, log *logrus.L
 		"linkPath":    linkPath,
 		"target":      outDir,
 		"action":      action,
-	}).Info("node_modules link ready")
+	}).Debug("node_modules link ready")
 	return nil
 }
 
@@ -178,7 +178,7 @@ func ensureGeneratedClientLink(linkPath, outDir, boundaryRoot, packageName strin
 }
 
 // assertLinkReplaceable checks .forst-generated ownership at markerDir.
-// foreignIsDir is true when markerDir is a symlink target; false when markerDir is the link path itself.
+// isSymlinkTarget is true when markerDir is a symlink target; false when markerDir is the link path itself.
 func assertLinkReplaceable(markerDir, linkPath, boundaryRoot, packageName string, isSymlinkTarget bool) error {
 	marker, err := readForstGeneratedMarker(markerDir)
 	if err != nil {
@@ -372,5 +372,8 @@ func copyFileContents(src, dst string) error {
 	}
 	defer out.Close()
 	_, err = io.Copy(out, in)
-	return err
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }

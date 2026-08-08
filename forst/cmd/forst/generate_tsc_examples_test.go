@@ -129,7 +129,7 @@ func mustContainInGeneratedTypeScript(t *testing.T, projectRoot string, want []s
 	t.Helper()
 	var combined strings.Builder
 	srcDir := defaultClientDistDir(projectRoot)
-	_ = filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -142,7 +142,9 @@ func mustContainInGeneratedTypeScript(t *testing.T, projectRoot string, want []s
 			combined.WriteByte('\n')
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatalf("walk generated output: %v", err)
+	}
 	s := combined.String()
 	for _, w := range want {
 		if !strings.Contains(s, w) {

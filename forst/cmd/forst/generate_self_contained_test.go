@@ -20,6 +20,14 @@ func defaultClientOutDir(boundary string) string {
 	return filepath.Join(boundary, ".forst", "client")
 }
 
+func clientDistIncludeGlob(projectRoot string) string {
+	rel, err := filepath.Rel(projectRoot, defaultClientDistDir(projectRoot))
+	if err != nil {
+		return ".forst/client/dist/**/*.d.ts"
+	}
+	return filepath.ToSlash(rel) + "/**/*.d.ts"
+}
+
 func defaultClientDistDir(boundary string) string {
 	return filepath.Join(defaultClientOutDir(boundary), "dist")
 }

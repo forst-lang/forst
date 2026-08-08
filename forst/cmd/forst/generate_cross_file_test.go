@@ -40,7 +40,7 @@ func GetX(r R): Int {
 		t.Fatal(err)
 	}
 	s := string(types)
-	if !strings.Contains(s, "R") {
+	if !strings.Contains(s, "export interface R") && !strings.Contains(s, "export type R") {
 		t.Fatalf("expected merged types with R; got:\n%s", s)
 	}
 	if strings.Contains(s, "export function GetX") {

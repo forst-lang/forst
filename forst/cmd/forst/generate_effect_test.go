@@ -7,21 +7,24 @@ import (
 
 func TestEffectVersionAtLeast(t *testing.T) {
 	cases := []struct {
+		name    string
 		version string
 		floor   string
 		want    bool
 	}{
-		{"3.17.0", "3.17.0", true},
-		{"3.21.4", "3.17.0", true},
-		{"3.14.2", "3.17.0", false},
-		{"4.0.0", "3.17.0", true},
-		{"3.17.0-beta.1", "3.17.0", true},
-		{"v3.18.0", "3.17.0", true},
+		{"equal", "3.17.0", "3.17.0", true},
+		{"above", "3.21.4", "3.17.0", true},
+		{"below", "3.14.2", "3.17.0", false},
+		{"major_above", "4.0.0", "3.17.0", true},
+		{"prerelease", "3.17.0-beta.1", "3.17.0", false},
+		{"v_prefix", "v3.18.0", "3.17.0", true},
 	}
 	for _, tc := range cases {
-		if got := effectVersionAtLeast(tc.version, tc.floor); got != tc.want {
-			t.Fatalf("effectVersionAtLeast(%q, %q) = %v, want %v", tc.version, tc.floor, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got := effectVersionAtLeast(tc.version, tc.floor); got != tc.want {
+				t.Errorf("effectVersionAtLeast(%q, %q) = %v, want %v", tc.version, tc.floor, got, tc.want)
+			}
+		})
 	}
 }
 

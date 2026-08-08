@@ -64,6 +64,24 @@ func TestGenerate_effectMode_tscFixtureAndRuntime(t *testing.T) {
 		t.Fatalf("effect tsc fixture failed: %v", err)
 	}
 
+	strictCfg := `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["` + clientDistIncludeGlob(dir) + `"]
+}`
+	if err := os.WriteFile(filepath.Join(dir, "tsconfig.strict-dts.json"), []byte(strictCfg), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runTscConfig(t, dir, filepath.Join(dir, "tsconfig.strict-dts.json")); err != nil {
+		t.Fatalf("strict generated .d.ts tsc failed: %v", err)
+	}
+
 	runtime, err := os.ReadFile(filepath.Join("testdata", "effect", "runtime.mjs"))
 	if err != nil {
 		t.Fatal(err)

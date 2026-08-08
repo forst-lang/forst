@@ -64,16 +64,22 @@ func TestPackageNames_dedupesAndSorts(t *testing.T) {
 }
 
 func TestServiceClassName_pascalCase(t *testing.T) {
-	cases := map[string]string{
-		"bcrypt":    "Bcrypt",
-		"user_auth": "UserAuth",
-		"userAuth":  "UserAuth",
-		"main":      "Main",
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"bcrypt", "bcrypt", "Bcrypt"},
+		{"user_auth", "user_auth", "UserAuth"},
+		{"userAuth", "userAuth", "UserAuth"},
+		{"main", "main", "Main"},
 	}
-	for in, want := range cases {
-		if got := ServiceClassName(in); got != want {
-			t.Fatalf("ServiceClassName(%q) = %q, want %q", in, got, want)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ServiceClassName(tc.in); got != tc.want {
+				t.Fatalf("ServiceClassName(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 

@@ -387,7 +387,7 @@ func TestEmitInvokeCall_formatsArgsAndOptions(t *testing.T) {
 	}
 }
 
-func TestEmitCoreESM_identicalWithoutRuntimeModeArg(t *testing.T) {
+func TestEmitCoreESM_isByteStableForSameModuleEmit(t *testing.T) {
 	// EmitCoreESM has no mode parameter; Promise and Effect share this emit.
 	a := EmitCoreESM(sampleBcryptModule(), "6321")
 	b := EmitCoreESM(sampleBcryptModule(), "6321")

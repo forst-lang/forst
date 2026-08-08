@@ -102,13 +102,11 @@ func writeGeneratedDistModules(
 
 		coreJS := filepath.Join(coreDir, pkg+".js")
 		if err := writeGeneratedFile(coreJS, []byte(transformerts.EmitCoreESM(mod, invokePort)), stats); err != nil {
-			log.Errorf("Failed to write core module %s: %v", coreJS, err)
-			continue
+			return fmt.Errorf("failed to write core module %s: %w", coreJS, err)
 		}
 		coreDTS := filepath.Join(coreDir, pkg+".d.ts")
 		if err := writeGeneratedFile(coreDTS, []byte(transformerts.EmitCoreDTS(mod)), stats); err != nil {
-			log.Errorf("Failed to write core declarations %s: %v", coreDTS, err)
-			continue
+			return fmt.Errorf("failed to write core declarations %s: %w", coreDTS, err)
 		}
 		log.WithFields(logrus.Fields{
 			"forstPackage":  pkg,
@@ -118,13 +116,11 @@ func writeGeneratedDistModules(
 
 		pkgJS := filepath.Join(pkgDir, pkg+".js")
 		if err := writeGeneratedFile(pkgJS, []byte(transformerts.EmitPackageESM(mod, runtime, genCfg.PackageName)), stats); err != nil {
-			log.Errorf("Failed to write package module %s: %v", pkgJS, err)
-			continue
+			return fmt.Errorf("failed to write package module %s: %w", pkgJS, err)
 		}
 		pkgDTS := filepath.Join(pkgDir, pkg+".d.ts")
 		if err := writeGeneratedFile(pkgDTS, []byte(transformerts.EmitPackageDTS(mod, runtime, genCfg.PackageName)), stats); err != nil {
-			log.Errorf("Failed to write package declarations %s: %v", pkgDTS, err)
-			continue
+			return fmt.Errorf("failed to write package declarations %s: %w", pkgDTS, err)
 		}
 		log.WithFields(logrus.Fields{
 			"forstPackage":  pkg,

@@ -19,6 +19,19 @@ func TestEmitEffectSupportESM_exportsTransportService(t *testing.T) {
 	assertContainsNone(t, got, []string{"AbortController"})
 }
 
+func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
+	got := EmitIndexEffectDTS([]string{"auth", "bcrypt"})
+	assertContainsAll(t, got, []string{
+		"ForstClientLive",
+		"layerForstClient",
+		"makeForstClientRuntime",
+		"config?: ForstInvokeClientConfig",
+	})
+	if strings.Contains(got, `import type { ForstInvokeClientConfig`) {
+		t.Fatalf("EmitIndexEffectDTS must not duplicate transport import when appended to index.d.ts:\n%s", got)
+	}
+}
+
 func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 	got := EmitIndexEffectESM([]string{"auth", "bcrypt"}, "@forst/gen")
 	assertContainsAll(t, got, []string{

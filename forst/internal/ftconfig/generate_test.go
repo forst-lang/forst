@@ -281,3 +281,28 @@ func TestReservedSubpaths_followsTestingSubpathConfig(t *testing.T) {
 		t.Fatalf("old testing key should not remain: %#v", reserved)
 	}
 }
+
+func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
+	g := Default().Generate
+	g.Effect = true
+	reserved := g.ReservedSubpaths()
+	if _, ok := reserved["testing"]; !ok {
+		t.Fatalf("effect mode must reserve testing: %#v", reserved)
+	}
+	if _, ok := reserved["effect"]; !ok {
+		t.Fatalf("effect mode must reserve effect subpath: %#v", reserved)
+	}
+}
+
+func TestGenerateConfig_Validate_rejectsEffectWithTestingSubpathEffect(t *testing.T) {
+	g := Default().Generate
+	g.Effect = true
+	g.TestingSubpath = "effect"
+	err := g.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for testingSubpath effect with generate.effect")
+	}
+	if !strings.Contains(err.Error(), "effect") {
+		t.Fatalf("error must mention effect conflict: %v", err)
+	}
+}

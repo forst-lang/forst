@@ -35,9 +35,19 @@ func (r Root) ClientDir() string {
 	return filepath.Join(r.dotForst(), "client")
 }
 
-// ReservedDotForstEntries are the only names the compiler may create directly
+// IsReservedDotForstEntry reports whether name is reserved for compiler-owned .forst entries.
+func IsReservedDotForstEntry(name string) bool {
+	for _, entry := range reservedDotForstEntries {
+		if entry == name {
+			return true
+		}
+	}
+	return false
+}
+
+// reservedDotForstEntries are the only names the compiler may create directly
 // under .forst. Nothing derived from user input may occupy one of them.
-var ReservedDotForstEntries = []string{
+var reservedDotForstEntries = []string{
 	"run", "exec", "gen", "client",
 	"go.work", "invoke.ready", "reloading",
 	"node.sock", "node-bootstrap.sock", "go-child.pid",

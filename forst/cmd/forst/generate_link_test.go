@@ -25,13 +25,6 @@ func TestGenerateLink_createsSymlinkForScopedName(t *testing.T) {
 	}
 
 	linkPath := filepath.Join(nodeModules, "@forst", "gen")
-	info, err := os.Lstat(linkPath)
-	if err != nil {
-		t.Fatalf("lstat link: %v", err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected symlink at %s", linkPath)
-	}
 	resolved, err := filepath.EvalSymlinks(linkPath)
 	if err != nil {
 		t.Fatalf("eval symlink: %v", err)
@@ -95,7 +88,7 @@ func TestGenerateLink_leavesCorrectLinkUntouched(t *testing.T) {
 	var buf bytes.Buffer
 	log = logrus.New()
 	log.SetOutput(&buf)
-	log.SetLevel(logrus.InfoLevel)
+	log.SetLevel(logrus.DebugLevel)
 
 	if err := linkGeneratedClient(boundary, outDir, packageName, log); err != nil {
 		t.Fatalf("second link: %v", err)
@@ -127,14 +120,12 @@ func TestGenerateLink_replacesLinkPointingElsewhere(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(otherOut, linkPath); err != nil {
-		t.Fatal(err)
-	}
+	linkFixtureTarget(t, otherOut, linkPath)
 
 	var buf bytes.Buffer
 	log = logrus.New()
 	log.SetOutput(&buf)
-	log.SetLevel(logrus.InfoLevel)
+	log.SetLevel(logrus.DebugLevel)
 
 	if err := linkGeneratedClient(boundary, outDir, packageName, log); err != nil {
 		t.Fatalf("linkGeneratedClient: %v", err)
@@ -285,9 +276,7 @@ func TestGenerateLink_failsWhenLinkBelongsToAnotherBoundary(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(otherOut, linkPath); err != nil {
-		t.Fatal(err)
-	}
+	linkFixtureTarget(t, otherOut, linkPath)
 
 	err := linkGeneratedClient(boundary, outDir, packageName, log)
 	if err == nil {
@@ -378,6 +367,13 @@ func setupLinkFixture(t *testing.T) (boundary, outDir, nodeModules string) {
 		t.Fatal(err)
 	}
 	return boundary, outDir, nodeModules
+}
+
+func linkFixtureTarget(t *testing.T, target, linkPath string) {
+	t.Helper()
+	if err := createDirLink(target, linkPath, discardLinkLog()); err != nil {
+		t.Fatalf("createDirLink(%q -> %q): %v", target, linkPath, err)
+	}
 }
 
 func discardLinkLog() *logrus.Logger {

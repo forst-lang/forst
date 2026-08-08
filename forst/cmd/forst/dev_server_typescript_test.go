@@ -152,7 +152,7 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsA
 	}
 }
 
-func TestTypeScriptGenerator_GenerateTypesForFunctions_conflictingSignatures_returnsError(t *testing.T) {
+func TestTypeScriptGenerator_GenerateTypesForFunctions_crossPackageEcho_mergesWithoutError(t *testing.T) {
 	dir := t.TempDir()
 	catalog := filepath.Join(dir, "catalog.ft")
 	orders := filepath.Join(dir, "orders.ft")

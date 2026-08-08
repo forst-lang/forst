@@ -132,6 +132,15 @@ func (g GenerateConfig) Validate() error {
 	if err := validateTestingSubpath(g.TestingSubpath); err != nil {
 		return err
 	}
+	if g.Effect {
+		key := g.TestingSubpath
+		if key == "" {
+			key = "testing"
+		}
+		if key == "effect" {
+			return fmt.Errorf("generate: testingSubpath %q conflicts with generate.effect reserved subpath \"effect\"", g.TestingSubpath)
+		}
+	}
 	return nil
 }
 

@@ -357,7 +357,7 @@ import { InvokeRejected } from "./errors.js";
 			continue
 		}
 		className := ServiceClassName(pkg)
-		fmt.Fprintf(&b, "  layers.push(mockPackageLayer(%s, packages.%s));\n", className, pkg)
+		fmt.Fprintf(&b, "  layers.push(mockPackageLayer(%s, packages[%q]));\n", className, pkg)
 	}
 	b.WriteString("  if (layers.length === 0) {\n")
 	b.WriteString("    return Layer.empty;\n")

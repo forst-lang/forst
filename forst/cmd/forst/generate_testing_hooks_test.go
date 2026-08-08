@@ -90,6 +90,9 @@ func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) 
 	}
 	ifaceStart := strings.Index(got, "export interface ForstTestOverrides")
 	fnStart := strings.Index(got, "export declare function withForstTestScope")
+	if ifaceStart < 0 || fnStart < 0 {
+		t.Fatalf("missing ForstTestOverrides or withForstTestScope in:\n%s", got)
+	}
 	body := got[ifaceStart:fnStart]
 	if strings.Contains(body, "\n  bcrypt?:") {
 		t.Fatalf("bcrypt must be under packages, not top-level:\n%s", body)

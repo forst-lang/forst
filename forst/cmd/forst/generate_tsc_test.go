@@ -16,9 +16,7 @@ var tsE2EStubs embed.FS
 
 func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	ensureNodeModulesDir(t, dir)
 	ftPath := filepath.Join(dir, "main.ft")
 	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
@@ -82,10 +80,12 @@ func requireGenerateOutputForTSC(t *testing.T, projectRoot string, wantSubstring
 	}
 	// Function signatures live on package modules, not types.d.ts.
 	corePath := filepath.Join(defaultClientDistDir(projectRoot), "core", "main.js")
-	if core, err := os.ReadFile(corePath); err == nil {
-		if !strings.Contains(string(core), "export async function") && !strings.Contains(string(core), "invokeFunction") {
-			t.Fatalf("expected invoke helpers in %s:\n%s", corePath, core)
-		}
+	core, err := os.ReadFile(corePath)
+	if err != nil {
+		t.Fatalf("expected invoke helpers in %s (read error: %v)", corePath, err)
+	}
+	if !strings.Contains(string(core), "export async function") && !strings.Contains(string(core), "invokeFunction") {
+		t.Fatalf("expected invoke helpers in %s:\n%s", corePath, core)
 	}
 }
 
@@ -162,7 +162,7 @@ export const echo = Echo;
 		},
 		Include: []string{
 			"app-smoke.ts",
-			".forst/client/dist/**/*.d.ts",
+			clientDistIncludeGlob(projectRoot),
 			"stubs/node-process-shim.d.ts",
 		},
 	}
@@ -175,10 +175,15 @@ export const echo = Echo;
 
 func runTsc(t *testing.T, projectRoot string) error {
 	t.Helper()
-	tsconfigPath := filepath.Join(projectRoot, "tsconfig.json")
+	return runTscConfig(t, projectRoot, filepath.Join(projectRoot, "tsconfig.json"))
+}
+
+func runTscConfig(t *testing.T, workDir, tsconfigPath string) error {
+	t.Helper()
 
 	if p, ok := findLocalTypescriptCompiler(); ok {
 		cmd := exec.Command(p, "--noEmit", "-p", tsconfigPath)
+		cmd.Dir = workDir
 		return runTscCmd(t, cmd)
 	}
 
@@ -193,11 +198,13 @@ func runTsc(t *testing.T, projectRoot string) error {
 
 	if p, err := exec.LookPath("tsc"); err == nil {
 		cmd := exec.Command(p, "--noEmit", "-p", tsconfigPath)
+		cmd.Dir = workDir
 		return runTscCmd(t, cmd)
 	}
 
 	if _, err := exec.LookPath("npx"); err == nil {
 		cmd := exec.Command("npx", "-y", "typescript@6.0.2", "tsc", "--noEmit", "-p", tsconfigPath)
+		cmd.Dir = workDir
 		return runTscCmd(t, cmd)
 	}
 

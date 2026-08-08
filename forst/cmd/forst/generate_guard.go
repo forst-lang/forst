@@ -18,12 +18,8 @@ func warnMissingLifecycleScript(boundaryRoot string, genCfg ftconfig.GenerateCon
 		return
 	}
 
-	pkgPath, ok := findNearestPackageJSON(boundaryRoot)
-	if ok {
-		has, err := packageJSONRunsForstGenerate(pkgPath)
-		if err == nil && has {
-			return
-		}
+	if has, err := anyAncestorRunsForstGenerate(boundaryRoot); err == nil && has {
+		return
 	}
 
 	pkgName := genCfg.PackageName
@@ -53,6 +49,28 @@ func findNearestPackageJSON(start string) (string, bool) {
 		}
 		dir = parent
 	}
+}
+
+func anyAncestorRunsForstGenerate(start string) (bool, error) {
+	dir := filepath.Clean(start)
+	for {
+		candidate := filepath.Join(dir, "package.json")
+		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+			has, checkErr := packageJSONRunsForstGenerate(candidate)
+			if checkErr != nil {
+				return false, checkErr
+			}
+			if has {
+				return true, nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return false, nil
 }
 
 func packageJSONRunsForstGenerate(pkgPath string) (bool, error) {

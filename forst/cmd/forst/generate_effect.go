@@ -77,8 +77,14 @@ func resolveEffectPackage(boundaryRoot string) (pkgJSONPath string, version stri
 }
 
 func effectVersionAtLeast(version, floor string) bool {
-	vParts := parseSemverPrefix(version)
-	fParts := parseSemverPrefix(floor)
+	vParts, ok := parseStableSemver(version)
+	if !ok {
+		return false
+	}
+	fParts, ok := parseStableSemver(floor)
+	if !ok {
+		return false
+	}
 	for i := 0; i < 3; i++ {
 		if vParts[i] > fParts[i] {
 			return true
@@ -90,20 +96,23 @@ func effectVersionAtLeast(version, floor string) bool {
 	return true
 }
 
-func parseSemverPrefix(v string) [3]int {
+// parseStableSemver parses a strict three-component semver without prerelease or build metadata.
+func parseStableSemver(v string) ([3]int, bool) {
 	v = strings.TrimPrefix(v, "v")
-	if i := strings.IndexAny(v, "-+"); i >= 0 {
-		v = v[:i]
+	if strings.ContainsAny(v, "-+") {
+		return [3]int{}, false
 	}
 	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return [3]int{}, false
+	}
 	var out [3]int
-	for i := 0; i < 3 && i < len(parts); i++ {
+	for i := 0; i < 3; i++ {
 		n, err := strconv.Atoi(parts[i])
-		if err != nil {
-			out[i] = 0
-			continue
+		if err != nil || parts[i] == "" || n < 0 {
+			return [3]int{}, false
 		}
 		out[i] = n
 	}
-	return out
+	return out, true
 }

@@ -262,7 +262,7 @@ If `FORST_DEV_URL` is set but you need a local **spawn** anyway, set `sidecarRun
 
 **`versionCheck`** on `ForstConfig` (`off` | `warn` | `strict`, default **`warn`**): after `start()`, compares `GET /version`’s **`contractVersion`** with what this `@forst/sidecar` build expects, then compares the local `forst` binary (`forst version`) to the server’s version (semver when both parse, else exact string). **`strict`** throws `ContractVersionMismatch` or `ServerVersionMismatch`. Older `forst dev` builds without a proper `/version` log a warning unless `versionCheck` is `off`.
 
-**`generateTypes()`** runs `forst generate` with the same effective project root as `forst dev -root` (`rootDir` / `forstDir`). If **`configPath`** is set, `-config` is passed so include/exclude matches `forst dev`. Output goes under `generated/`—no HTTP server required. In monorepos, pair with **connect** mode: one task runs `forst dev`, another runs codegen.
+**`generateTypes()`** runs `forst generate` with the same effective project root as `forst dev -root` (`rootDir` / `forstDir`). If **`configPath`** is set, `-config` is passed so include/exclude matches `forst dev`. Output goes under `.forst/client` (or the configured `generate.outDir`)—no HTTP server required. In monorepos, pair with **connect** mode: one task runs `forst dev`, another runs codegen.
 
 **`watchGenerate`:** when `true`, runs `forst generate` after debounced hot-reload restarts when `.ft` files change (**spawn** mode only; same roots as `generateTypes`). Defaults to `true` in `development` mode.
 

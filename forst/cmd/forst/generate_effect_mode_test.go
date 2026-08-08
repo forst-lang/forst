@@ -42,6 +42,18 @@ func generateEffectProject(t *testing.T, dir string) string {
 	return defaultClientDistDir(dir)
 }
 
+func generatePromiseProject(t *testing.T, dir string) string {
+	t.Helper()
+	writeMainFt(t, dir, generateTestMinimalValidForst)
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	return defaultClientDistDir(dir)
+}
+
 func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
 	if transformerts.RuntimeFromConfig(cfg) != transformerts.RuntimePromise {
@@ -80,9 +92,6 @@ func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q in pkg d.ts:\n%s", frag, got)
 		}
-	}
-	if strings.Contains(got, "): Promise<") && strings.Contains(got, "export declare const Echo") {
-		// namespace factory may still mention Promise; named export must be Effect
 	}
 	echoIdx := strings.Index(got, "export declare const Echo:")
 	if echoIdx < 0 {
@@ -250,13 +259,7 @@ func TestGenerate_effectMode_emitsNoHandWrittenAbortController(t *testing.T) {
 
 func TestGenerate_effectMode_coreModuleIsByteIdenticalToPromiseMode(t *testing.T) {
 	promiseDir := t.TempDir()
-	writeMainFt(t, promiseDir, generateTestMinimalValidForst)
-	if err := os.WriteFile(filepath.Join(promiseDir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := generateCommand([]string{promiseDir}); err != nil {
-		t.Fatalf("promise generate: %v", err)
-	}
+	generatePromiseProject(t, promiseDir)
 
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
@@ -275,13 +278,7 @@ func TestGenerate_effectMode_coreModuleIsByteIdenticalToPromiseMode(t *testing.T
 
 func TestGenerate_effectMode_transportAndErrorsAreByteIdenticalToPromiseMode(t *testing.T) {
 	promiseDir := t.TempDir()
-	writeMainFt(t, promiseDir, generateTestMinimalValidForst)
-	if err := os.WriteFile(filepath.Join(promiseDir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := generateCommand([]string{promiseDir}); err != nil {
-		t.Fatalf("promise generate: %v", err)
-	}
+	generatePromiseProject(t, promiseDir)
 
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
@@ -297,13 +294,7 @@ func TestGenerate_effectMode_transportAndErrorsAreByteIdenticalToPromiseMode(t *
 
 func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 	promiseDir := t.TempDir()
-	writeMainFt(t, promiseDir, generateTestMinimalValidForst)
-	if err := os.WriteFile(filepath.Join(promiseDir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := generateCommand([]string{promiseDir}); err != nil {
-		t.Fatalf("promise generate: %v", err)
-	}
+	generatePromiseProject(t, promiseDir)
 
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
@@ -377,8 +368,8 @@ func TestGenerate_promiseMode_emitsNoEffectImport(t *testing.T) {
 func TestGenerate_effectMode_coreModulesContainNoEffectImport(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	core := mustRead(t, filepath.Join(dist, "core", "main.js"))
-	if strings.Contains(core, "effect") {
-		t.Fatalf("core must not mention effect:\n%s", core)
+	if strings.Contains(core, `from "effect"`) || strings.Contains(core, "from 'effect'") {
+		t.Fatalf("core must not import effect:\n%s", core)
 	}
 }
 

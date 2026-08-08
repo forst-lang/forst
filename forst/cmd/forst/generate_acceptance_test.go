@@ -227,7 +227,7 @@ func assertTypeScriptCompilesSmoke(t *testing.T, projectRoot, smoke string) {
 		},
 		Include: []string{
 			"app-smoke.ts",
-			".forst/client/dist/**/*.d.ts",
+			clientDistIncludeGlob(projectRoot),
 			"stubs/node-process-shim.d.ts",
 		},
 	}
@@ -357,72 +357,87 @@ console.log("ok");
 
 // A-04c
 func TestGenerate_acceptance_packageName(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acme/web","version":"1.0.0"}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	writeMainFt(t, dir, generateTestMinimalValidForst)
-
-	var buf bytes.Buffer
-	prev := generateReportWriter
-	t.Cleanup(func() { generateReportWriter = prev })
-	generateReportWriter = &buf
-
-	if err := generateCommand([]string{dir}); err != nil {
-		t.Fatalf("generateCommand: %v", err)
-	}
-	pkg := readGeneratedPackageJSON(t, dir)
-	if pkg["name"] != ftconfig.DefaultPackageName {
-		t.Fatalf("name=%v, want %s", pkg["name"], ftconfig.DefaultPackageName)
-	}
-	out := buf.String()
-	if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
-		t.Fatalf("stdout must name specifier and example import:\n%s", out)
-	}
-
-	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acmecorp/web","version":"1.0.0"}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := generateCommand([]string{dir}); err != nil {
-		t.Fatalf("second generate: %v", err)
-	}
-	pkg = readGeneratedPackageJSON(t, dir)
-	if pkg["name"] != ftconfig.DefaultPackageName {
-		t.Fatalf("adopter rename must not change packageName: %v", pkg["name"])
-	}
-
-	// Directory name with spaces and no package.json must still yield @forst/gen.
-	weird := filepath.Join(t.TempDir(), "My App")
-	if err := os.MkdirAll(weird, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeMainFt(t, weird, generateTestMinimalValidForst)
-	if err := generateCommand([]string{weird}); err != nil {
-		t.Fatalf("generate in My App: %v", err)
-	}
-	pkg = readGeneratedPackageJSON(t, weird)
-	if pkg["name"] != ftconfig.DefaultPackageName {
-		t.Fatalf("directory name must not become packageName: %v", pkg["name"])
-	}
-	tree := readDistTree(t, defaultClientOutDir(weird))
-	for path, body := range tree {
-		if strings.Contains(body, "My App") {
-			t.Fatalf("directory name leaked into %s", path)
+	t.Run("default", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acme/web","version":"1.0.0"}`), 0644); err != nil {
+			t.Fatal(err)
 		}
-	}
+		writeMainFt(t, dir, generateTestMinimalValidForst)
 
-	custom := t.TempDir()
-	if err := os.WriteFile(filepath.Join(custom, "ftconfig.json"), []byte(`{"generate":{"packageName":"@acme/api-client","link":"never"}}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	writeMainFt(t, custom, generateTestMinimalValidForst)
-	if err := generateCommand([]string{custom}); err != nil {
-		t.Fatalf("custom packageName: %v", err)
-	}
-	pkg = readGeneratedPackageJSON(t, custom)
-	if pkg["name"] != "@acme/api-client" {
-		t.Fatalf("custom packageName not applied: %v", pkg["name"])
-	}
+		var buf bytes.Buffer
+		prev := generateReportWriter
+		t.Cleanup(func() { generateReportWriter = prev })
+		generateReportWriter = &buf
+
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("generateCommand: %v", err)
+		}
+		pkg := readGeneratedPackageJSON(t, dir)
+		if pkg["name"] != ftconfig.DefaultPackageName {
+			t.Fatalf("name=%v, want %s", pkg["name"], ftconfig.DefaultPackageName)
+		}
+		out := buf.String()
+		if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
+			t.Fatalf("stdout must name specifier and example import:\n%s", out)
+		}
+	})
+
+	t.Run("adopter_rename", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acme/web","version":"1.0.0"}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		writeMainFt(t, dir, generateTestMinimalValidForst)
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("generateCommand: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acmecorp/web","version":"1.0.0"}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("second generate: %v", err)
+		}
+		pkg := readGeneratedPackageJSON(t, dir)
+		if pkg["name"] != ftconfig.DefaultPackageName {
+			t.Fatalf("adopter rename must not change packageName: %v", pkg["name"])
+		}
+	})
+
+	t.Run("spaced_directory", func(t *testing.T) {
+		weird := filepath.Join(t.TempDir(), "My App")
+		if err := os.MkdirAll(weird, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		writeMainFt(t, weird, generateTestMinimalValidForst)
+		if err := generateCommand([]string{weird}); err != nil {
+			t.Fatalf("generate in My App: %v", err)
+		}
+		pkg := readGeneratedPackageJSON(t, weird)
+		if pkg["name"] != ftconfig.DefaultPackageName {
+			t.Fatalf("directory name must not become packageName: %v", pkg["name"])
+		}
+		tree := readDistTree(t, defaultClientOutDir(weird))
+		for path, body := range tree {
+			if strings.Contains(body, "My App") {
+				t.Fatalf("directory name leaked into %s", path)
+			}
+		}
+	})
+
+	t.Run("configured_packageName", func(t *testing.T) {
+		custom := t.TempDir()
+		if err := os.WriteFile(filepath.Join(custom, "ftconfig.json"), []byte(`{"generate":{"packageName":"@acme/api-client","link":"never"}}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		writeMainFt(t, custom, generateTestMinimalValidForst)
+		if err := generateCommand([]string{custom}); err != nil {
+			t.Fatalf("custom packageName: %v", err)
+		}
+		pkg := readGeneratedPackageJSON(t, custom)
+		if pkg["name"] != "@acme/api-client" {
+			t.Fatalf("custom packageName not applied: %v", pkg["name"])
+		}
+	})
 }
 
 // A-05 (manual / heavy bundler)
@@ -491,10 +506,10 @@ console.log("ok");
 
 // A-07
 func TestGenerate_acceptance_crossPackageNameCollisions(t *testing.T) {
-	// Same function name across packages succeeds via subpaths.
-	dir := t.TempDir()
-	for _, pkg := range []string{"bcrypt", "crypto"} {
-		src := `package ` + pkg + `
+	t.Run("duplicate_function_name", func(t *testing.T) {
+		dir := t.TempDir()
+		for _, pkg := range []string{"bcrypt", "crypto"} {
+			src := `package ` + pkg + `
 
 type HashRequest = {
 	password: String
@@ -504,24 +519,25 @@ func Hash(input HashRequest) {
 	return { digest: input.password }
 }
 `
-		writePkgFT(t, dir, pkg, src)
-	}
-	if err := generateCommand([]string{dir}); err != nil {
-		t.Fatalf("same Hash in two packages must succeed: %v", err)
-	}
-	for _, pkg := range []string{"bcrypt", "crypto"} {
-		data, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "core", pkg+".js"))
-		if err != nil {
-			t.Fatal(err)
+			writePkgFT(t, dir, pkg, src)
 		}
-		if !strings.Contains(string(data), "Hash") {
-			t.Fatalf("%s missing Hash", pkg)
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("same Hash in two packages must succeed: %v", err)
 		}
-	}
+		for _, pkg := range []string{"bcrypt", "crypto"} {
+			data, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "core", pkg+".js"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), "Hash") {
+				t.Fatalf("%s missing Hash", pkg)
+			}
+		}
+	})
 
-	// Conflicting type name Config fails naming both packages.
-	conflict := t.TempDir()
-	writePkgFT(t, conflict, "billing", `package billing
+	t.Run("conflicting_Config_type", func(t *testing.T) {
+		conflict := t.TempDir()
+		writePkgFT(t, conflict, "billing", `package billing
 
 type Config = {
 	x: Int
@@ -531,7 +547,7 @@ func Ping() {
 	return 1
 }
 `)
-	writePkgFT(t, conflict, "auth", `package auth
+		writePkgFT(t, conflict, "auth", `package auth
 
 type Config = {
 	y: String
@@ -541,104 +557,110 @@ func Ping() {
 	return 1
 }
 `)
-	err := generateCommand([]string{conflict})
-	if err == nil {
-		t.Fatal("expected conflicting Config type to fail generate")
-	}
-	msg := err.Error()
-	for _, frag := range []string{"Config", "billing", "auth"} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("conflict error missing %q:\n%s", frag, msg)
+		err := generateCommand([]string{conflict})
+		if err == nil {
+			t.Fatal("expected conflicting Config type to fail generate")
 		}
-	}
+		msg := err.Error()
+		for _, frag := range []string{"Config", "billing", "auth"} {
+			if !strings.Contains(msg, frag) {
+				t.Fatalf("conflict error missing %q:\n%s", frag, msg)
+			}
+		}
+	})
 
-	// Identical Address shape merges once.
-	same := t.TempDir()
-	addr := `type Address = {
+	t.Run("identical_Address_merge", func(t *testing.T) {
+		same := t.TempDir()
+		addr := `type Address = {
 	street: String
 }
 `
-	writePkgFT(t, same, "alpha", "package alpha\n\n"+addr+"\nfunc A() {\n\treturn 1\n}\n")
-	writePkgFT(t, same, "beta", "package beta\n\n"+addr+"\nfunc B() {\n\treturn 1\n}\n")
-	if err := generateCommand([]string{same}); err != nil {
-		t.Fatalf("identical Address must merge: %v", err)
-	}
-	types, err := os.ReadFile(filepath.Join(defaultClientDistDir(same), "types.d.ts"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c := strings.Count(string(types), "export interface Address"); c != 1 {
-		t.Fatalf("want exactly one Address declaration, got %d:\n%s", c, types)
-	}
+		writePkgFT(t, same, "alpha", "package alpha\n\n"+addr+"\nfunc A() {\n\treturn 1\n}\n")
+		writePkgFT(t, same, "beta", "package beta\n\n"+addr+"\nfunc B() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{same}); err != nil {
+			t.Fatalf("identical Address must merge: %v", err)
+		}
+		types, err := os.ReadFile(filepath.Join(defaultClientDistDir(same), "types.d.ts"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c := strings.Count(string(types), "export interface Address"); c != 1 {
+			t.Fatalf("want exactly one Address declaration, got %d:\n%s", c, types)
+		}
+	})
 }
 
 // A-07b
 func TestGenerate_acceptance_reservedPackageNames(t *testing.T) {
-	dir := t.TempDir()
-	ensureNodeModulesDir(t, dir)
-	for _, pkg := range []string{"types", "index", "transport"} {
-		writePkgFT(t, dir, pkg, "package "+pkg+"\n\nfunc Ping() {\n\treturn 1\n}\n")
-	}
-	if err := generateCommand([]string{dir}); err != nil {
-		t.Fatalf("near-reserved packages must succeed: %v", err)
-	}
-	for _, pkg := range []string{"types", "index", "transport"} {
-		if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "pkg", pkg+".js")); err != nil {
-			t.Fatalf("missing pkg/%s.js: %v", pkg, err)
+	t.Run("near_reserved_names", func(t *testing.T) {
+		dir := t.TempDir()
+		ensureNodeModulesDir(t, dir)
+		for _, pkg := range []string{"types", "index", "transport"} {
+			writePkgFT(t, dir, pkg, "package "+pkg+"\n\nfunc Ping() {\n\treturn 1\n}\n")
 		}
-	}
-	if _, err := exec.LookPath("node"); err == nil {
-		script := filepath.Join(dir, "a07b-types.mjs")
-		if err := os.WriteFile(script, []byte(`
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("near-reserved packages must succeed: %v", err)
+		}
+		for _, pkg := range []string{"types", "index", "transport"} {
+			if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "pkg", pkg+".js")); err != nil {
+				t.Fatalf("missing pkg/%s.js: %v", pkg, err)
+			}
+		}
+		if _, err := exec.LookPath("node"); err == nil {
+			script := filepath.Join(dir, "a07b-types.mjs")
+			if err := os.WriteFile(script, []byte(`
 import { Ping } from "@forst/gen/types";
 if (typeof Ping !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runNodeRequireSmoke(t, dir, script)
+			if err != nil {
+				t.Fatalf("@forst/gen/types import failed: %v\n%s", err, out)
+			}
+		}
+	})
+
+	t.Run("rejected_testing_package", func(t *testing.T) {
+		bad := t.TempDir()
+		writePkgFT(t, bad, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		err := generateCommand([]string{bad})
+		if err == nil {
+			t.Fatal("expected reserved package testing to fail")
+		}
+		msg := err.Error()
+		for _, frag := range []string{"testing", "testingSubpath"} {
+			if !strings.Contains(msg, frag) {
+				t.Fatalf("reserved error missing %q:\n%s", frag, msg)
+			}
+		}
+	})
+
+	t.Run("testingSubpath_override", func(t *testing.T) {
+		ok := t.TempDir()
+		ensureNodeModulesDir(t, ok)
+		if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"test-double"}}`), 0644); err != nil {
 			t.Fatal(err)
 		}
-		out, err := runNodeRequireSmoke(t, dir, script)
-		if err != nil {
-			t.Fatalf("@forst/gen/types import failed: %v\n%s", err, out)
+		writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{ok}); err != nil {
+			t.Fatalf("testing allowed when testingSubpath overridden: %v", err)
 		}
-	}
-
-	// Package named testing collides with reserved subpath.
-	bad := t.TempDir()
-	writePkgFT(t, bad, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
-	err := generateCommand([]string{bad})
-	if err == nil {
-		t.Fatal("expected reserved package testing to fail")
-	}
-	msg := err.Error()
-	for _, frag := range []string{"testing", "testingSubpath"} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("reserved error missing %q:\n%s", frag, msg)
+		for _, rel := range []string{"pkg/testing.js", "test-double.js"} {
+			if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), rel)); err != nil {
+				t.Fatalf("missing %s: %v", rel, err)
+			}
 		}
-	}
-
-	// Override testingSubpath so package testing and test-double both work.
-	ok := t.TempDir()
-	ensureNodeModulesDir(t, ok)
-	if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"test-double"}}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
-	if err := generateCommand([]string{ok}); err != nil {
-		t.Fatalf("testing allowed when testingSubpath overridden: %v", err)
-	}
-	for _, rel := range []string{"pkg/testing.js", "test-double.js"} {
-		if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), rel)); err != nil {
-			t.Fatalf("missing %s: %v", rel, err)
+		pkgJSON := readGeneratedPackageJSON(t, ok)
+		exports, _ := pkgJSON["exports"].(map[string]any)
+		if _, ok := exports["./testing"]; !ok {
+			t.Fatalf("exports missing ./testing:\n%v", exports)
 		}
-	}
-	pkgJSON := readGeneratedPackageJSON(t, ok)
-	exports, _ := pkgJSON["exports"].(map[string]any)
-	if _, ok := exports["./testing"]; !ok {
-		t.Fatalf("exports missing ./testing:\n%v", exports)
-	}
-	if _, ok := exports["./test-double"]; !ok {
-		t.Fatalf("exports missing ./test-double:\n%v", exports)
-	}
+		if _, ok := exports["./test-double"]; !ok {
+			t.Fatalf("exports missing ./test-double:\n%v", exports)
+		}
+	})
 }
 
 // A-07c (generate path)

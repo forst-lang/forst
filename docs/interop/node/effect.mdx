@@ -132,7 +132,7 @@ Same three levels as [Testing](/interop/node/testing), expressed as layers.
 
 ```typescript
 import { Effect, Layer } from "effect";
-import { Auth } from "@forst/gen/auth";
+import { Auth, VerifyPassword } from "@forst/gen/auth";
 
 const AuthTest = Layer.mock(Auth, {
   VerifyPassword: () => Effect.succeed({ valid: true }),

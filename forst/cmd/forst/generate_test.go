@@ -601,7 +601,7 @@ func TestGenerateCommand_writeTypesFails(t *testing.T) {
 	}
 }
 
-func TestGenerateCommand_writeClientModuleLogsError(t *testing.T) {
+func TestGenerateCommand_writeClientModuleFails(t *testing.T) {
 	dir := t.TempDir()
 	ft := writeMainFt(t, dir, generateTestMinimalValidForst)
 	orig := generateIO.WriteFile
@@ -612,8 +612,9 @@ func TestGenerateCommand_writeClientModuleLogsError(t *testing.T) {
 		return orig(name, data, perm)
 	}
 	t.Cleanup(func() { generateIO.WriteFile = orig })
-	if err := generateCommand([]string{ft}); err != nil {
-		t.Fatalf("generateCommand completes with log+continue on client write: %v", err)
+	err := generateCommand([]string{ft})
+	if err == nil || !strings.Contains(err.Error(), "failed to write core module") {
+		t.Fatalf("generateCommand must fail on core write error, got %v", err)
 	}
 }
 

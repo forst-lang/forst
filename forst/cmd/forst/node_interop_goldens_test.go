@@ -180,10 +180,10 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 			},
 			invokeMarkers: []string{
 				"invokeembed.MustStartEmbedded",
-				"forst_invoke_bcrypt_Hash",
-				"forst.run.temp/bcrypt",
+				"forst_invoke_auth_Hash",
+				"forst.run.temp/auth",
 			},
-			extraPackageNames: []string{"bcrypt"},
+			extraPackageNames: []string{"auth"},
 		},
 	}
 }

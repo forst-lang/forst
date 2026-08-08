@@ -51,7 +51,7 @@ func TestLayout_noPathHelperCollidesWithReservedEntry(t *testing.T) {
 	r := NewRoot("/app/forst")
 	dotForst := filepath.Join("/app/forst", ".forst")
 	reserved := map[string]bool{}
-	for _, name := range ReservedDotForstEntries {
+	for _, name := range reservedDotForstEntries {
 		reserved[name] = true
 	}
 
