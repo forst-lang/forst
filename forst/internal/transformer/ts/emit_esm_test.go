@@ -175,7 +175,7 @@ func TestEmitPackageESM_golden(t *testing.T) {
 	got := EmitPackageESM(sampleBcryptModule(), RuntimePromise, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`export * from "../core/bcrypt.js"`,
-		"Promise mode: re-export core",
+		"Promise mode re-exports core",
 	})
 	assertContainsNone(t, got, []string{
 		"@forst/client",

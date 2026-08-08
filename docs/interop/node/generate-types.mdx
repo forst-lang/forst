@@ -24,15 +24,15 @@ npx forst generate .
 ```
 
 ```typescript
-import { ComparePassword } from "@forst/gen/bcrypt";
-import type { ComparePasswordRequest } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
+import type { VerifyPasswordRequest } from "@forst/gen/auth";
 
-const input: ComparePasswordRequest = {
+const input: VerifyPasswordRequest = {
   plainPassword: "secret",
   passwordHash: "$2a$...",
 };
 
-const { valid } = await ComparePassword(input);
+const { valid } = await VerifyPassword(input);
 ```
 
 The `postinstall` line is required. The client lives under `.forst/client` (gitignored) and is linked into `node_modules`. A fresh `npm ci` removes the link. Without `postinstall`, imports of `@forst/gen` fail until someone runs generate by hand.
@@ -47,15 +47,15 @@ Each Forst package becomes a subpath under `@forst/gen`:
 
 | Forst package | Import |
 | --- | --- |
-| `package bcrypt` | `@forst/gen/bcrypt` |
+| `package auth` | `@forst/gen/auth` |
 | `package auth` | `@forst/gen/auth` |
 
 Types for that package export from the same subpath. Shared shapes also re-export from `@forst/gen`.
 
 ```typescript
-import type { ComparePasswordRequest } from "@forst/gen/bcrypt";
+import type { VerifyPasswordRequest } from "@forst/gen/auth";
 // or
-import type { ComparePasswordRequest } from "@forst/gen";
+import type { VerifyPasswordRequest } from "@forst/gen";
 ```
 
 Output on disk (default):

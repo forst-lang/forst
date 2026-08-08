@@ -8,7 +8,7 @@ const DefaultInvokePort = "6321"
 
 // TransportModuleSpecifier is the relative ESM import path for the inlined transport
 // module written next to generated clients. The .js extension is required for Node
-// ESM resolution (Phase 1 .ts sources and Phase 3 .js emit).
+// ESM resolution. The .js extension is required for Node when importing the inlined transport module.
 const TransportModuleSpecifier = "./transport.js"
 
 // ErrorsModuleSpecifier is the relative ESM import path for tagged invoke failures.
@@ -83,10 +83,10 @@ func EmitTransportDTS() string {
 }
 
 // EmitTransportTypeScript returns the TypeScript source for the generated package's
-// inlined connect-only HTTP invoke transport (Phase 1/2 src/transport.ts).
+// inlined connect-only HTTP invoke transport (src/transport.ts during development).
 //
 // Built from the same runtime body as EmitTransportESM plus the type surface so the
-// .ts source and the Phase 3 .js/.d.ts pair cannot drift. The shared runtime is plain
+// checked-in .ts source and the generated .js/.d.ts pair cannot drift. The shared runtime is plain
 // JS, so the file starts with @ts-nocheck.
 //
 // invokePort is the default listen port embedded in the fallback base URL

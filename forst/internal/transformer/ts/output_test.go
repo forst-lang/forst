@@ -20,7 +20,7 @@ func TestTypeScriptOutput_GenerateTypesFile_buildsFromSlicesOnly(t *testing.T) {
 		t.Fatalf("unexpected types file:\n%s", s)
 	}
 	if strings.Contains(s, "export function Bar") || strings.Contains(s, "Function signatures") {
-		t.Fatalf("types file must be shapes only:\n%s", s)
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", s)
 	}
 }
 

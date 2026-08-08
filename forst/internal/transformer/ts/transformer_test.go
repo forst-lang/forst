@@ -53,7 +53,7 @@ func Echo(input EchoRequest) {
 		}
 	}
 	if strings.Contains(typesFile, "export function Echo(") {
-		t.Fatalf("types file must be shapes only:\n%s", typesFile)
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", typesFile)
 	}
 
 	clientFile := out.GenerateClientFile()

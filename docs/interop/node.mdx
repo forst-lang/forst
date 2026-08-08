@@ -22,9 +22,9 @@ npx forst generate .
 ```
 
 ```typescript
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
-const { valid } = await ComparePassword({
+const { valid } = await VerifyPassword({
   plainPassword: "secret",
   passwordHash: "$2a$...",
 });

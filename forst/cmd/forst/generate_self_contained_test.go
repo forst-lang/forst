@@ -123,7 +123,7 @@ func TestGenerateClientPackage_noImportEscapesOutDir(t *testing.T) {
 			if strings.HasPrefix(spec, "@") {
 				t.Fatalf("%s imports package specifier %q (must stay relative inside outDir)", path, spec)
 			}
-			// node: builtins are allowed for the testing module (Phase 5 AsyncLocalStorage).
+			// node: builtins are allowed for the testing module (AsyncLocalStorage).
 			if strings.HasPrefix(spec, "node:") {
 				continue
 			}

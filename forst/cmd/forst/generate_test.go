@@ -230,7 +230,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 		t.Fatalf("types.d.ts should mention EchoRequest; got:\n%s", types)
 	}
 	if strings.Contains(string(types), "export function Echo(") {
-		t.Fatalf("types.d.ts must be shapes only; got:\n%s", types)
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", types)
 	}
 
 	client, err := os.ReadFile(filepath.Join(outDir, "dist", "core", "main.js"))
@@ -387,7 +387,7 @@ func TestGenerateCommand_directoryMergesTypesIntoSingleTypesDotDts(t *testing.T)
 		t.Fatalf("merged types.d.ts should include shapes from both files; got:\n%s", s)
 	}
 	if strings.Contains(s, "export function") {
-		t.Fatalf("merged types.d.ts must be shapes only; got:\n%s", s)
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", s)
 	}
 	core, err := os.ReadFile(filepath.Join(srcDir, "core", "main.js"))
 	if err != nil {

@@ -191,6 +191,6 @@ func Echo(): Int {
 		t.Fatalf("cross-package Echo must merge without error: %v", err)
 	}
 	if strings.Contains(types, "export function Echo(") {
-		t.Fatalf("types must be shapes only after Phase 2:\n%s", types)
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", types)
 	}
 }

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ⚠ BREAKING CHANGES
 
-* **generate:** The TypeScript client layout is replaced. `forst generate` emits a self-contained package under `generate.outDir` (default ephemeral `.forst/client`, gitignored) with compiled `dist/*.{js,d.ts}` and links it into `node_modules` as `@forst/gen`. Import functions and types from `@forst/gen/<forstPackage>` (for example `@forst/gen/bcrypt`). The previous dual `generated/` plus `client/` (or `@forst/generated-client`) layout is no longer written.
+* **generate:** The TypeScript client layout is replaced. `forst generate` emits a self-contained package under `generate.outDir` (default ephemeral `.forst/client`, gitignored) with compiled `dist/*.{js,d.ts}` and links it into `node_modules` as `@forst/gen`. Import functions and types from `@forst/gen/<forstPackage>` (for example `@forst/gen/auth`). The previous dual `generated/` plus `client/` (or `@forst/generated-client`) layout is no longer written.
 
   **Migration**
   1. Add a lifecycle script so a fresh checkout regenerates the link, for example `"postinstall": "forst generate ."`. Ephemeral output is not committed.

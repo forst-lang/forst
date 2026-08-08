@@ -1,5 +1,5 @@
 /**
- * Example Phase 5 test double: same production import specifier, no HTTP.
+ * Example test double: same production import specifier, no HTTP.
  * Copied next to generated dist/ by TestGenerate_acceptance_testdataExampleRunsWithoutHTTP.
  */
 import { withForstTestScope } from "./testing.js";

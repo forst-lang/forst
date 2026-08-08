@@ -574,7 +574,7 @@ tasks:
       - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/node-interop -- {{.EXAMPLES_DIR}}/rfc/node-interop/main.ft
 
   example:multipackage-dev:
-    desc: Compile multi-package-dev example (main host + package bcrypt)
+    desc: Compile multi-package-dev example (main host + package auth)
     dir: forst
     deps: [build]
     cmds:

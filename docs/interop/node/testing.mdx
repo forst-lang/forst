@@ -23,7 +23,7 @@ npx forst generate .
 
 ```typescript
 import { withForstTestScope } from "@forst/gen/testing";
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
 const input = {
   plainPassword: "secret",
@@ -33,18 +33,18 @@ const input = {
 await withForstTestScope(
   {
     packages: {
-      bcrypt: {
-        ComparePassword: async () => ({ valid: true }),
+      auth: {
+        VerifyPassword: async () => ({ valid: true }),
       },
     },
   },
   async () => {
-    expect(await ComparePassword(input)).toEqual({ valid: true });
+    expect(await VerifyPassword(input)).toEqual({ valid: true });
   }
 );
 ```
 
-The test imports the same specifier as production (`@forst/gen/bcrypt`). The scope restores itself even when the test throws. Concurrent tests do not leak overrides into each other.
+The test imports the same specifier as production (`@forst/gen/auth`). The scope restores itself even when the test throws. Concurrent tests do not leak overrides into each other.
 
 ## Three levels
 
@@ -60,13 +60,13 @@ The test imports the same specifier as production (`@forst/gen/bcrypt`). The sco
 await withForstTestScope(
   {
     packages: {
-      bcrypt: {
-        ComparePassword: async () => ({ valid: true }),
+      auth: {
+        VerifyPassword: async () => ({ valid: true }),
       },
     },
   },
   async () => {
-    await ComparePassword(input);
+    await VerifyPassword(input);
   }
 );
 ```
@@ -79,14 +79,14 @@ Handler maps are typed from generated signatures. A stub that returns the wrong 
 await withForstTestScope(
   {
     packages: {
-      bcrypt: {
-        ComparePassword: async () => ({ valid: true }),
+      auth: {
+        VerifyPassword: async () => ({ valid: true }),
         Hash: async () => ({ hash: "stub" }),
       },
     },
   },
   async () => {
-    // every bcrypt export you call must be listed, or it fails loudly
+    // every auth export you call must be listed, or it fails loudly
   }
 );
 ```
@@ -111,7 +111,7 @@ await withForstTestScope(
     },
   },
   async () => {
-    await expect(ComparePassword(input)).rejects.toMatchObject({
+    await expect(VerifyPassword(input)).rejects.toMatchObject({
       _tag: "InvokeTimedOut",
     });
   }
@@ -126,12 +126,12 @@ If your code uses `createForstClient`, build a test double with the same handler
 import { createTestForstClient } from "@forst/gen/testing";
 
 const forst = createTestForstClient({
-  bcrypt: {
-    ComparePassword: async () => ({ valid: true }),
+  auth: {
+    VerifyPassword: async () => ({ valid: true }),
   },
 });
 
-await forst.bcrypt.ComparePassword(input);
+await forst.auth.VerifyPassword(input);
 ```
 
 ## Effect mode

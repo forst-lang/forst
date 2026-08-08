@@ -32,10 +32,10 @@ npx forst generate .
 ```typescript
 import { Effect } from "effect";
 import { ForstClientLive } from "@forst/gen";
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
 const program = Effect.gen(function* () {
-  const { valid } = yield* ComparePassword({
+  const { valid } = yield* VerifyPassword({
     plainPassword: "secret",
     passwordHash: "$2a$...",
   });
@@ -66,7 +66,7 @@ Full `generate` fields live on the [CLI reference](/workflow/cli#generate-config
 | Wiring | `createForstClient(config)` | `ForstClientLive` / `layerForstClient(config)` |
 | Mocking | `withForstTestScope` | `Layer.mock` / `layerForstTest` |
 
-Imports stay the same. `import { ComparePassword } from "@forst/gen/bcrypt"` works in both modes.
+Imports stay the same. `import { VerifyPassword } from "@forst/gen/auth"` works in both modes.
 
 ## Errors
 
@@ -74,9 +74,9 @@ Catch by tag in either mode:
 
 ```typescript
 import { Effect } from "effect";
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
-const program = ComparePassword(input).pipe(
+const program = VerifyPassword(input).pipe(
   Effect.catchTag("InvokeRejected", (e) =>
     Effect.succeed({ valid: false as const, reason: e.serverError })
   ),
@@ -99,7 +99,7 @@ Promise mode uses the same tags with `isInvokeFailure` and a `switch` on `_tag`.
 ```typescript
 import { Effect } from "effect";
 import { layerForstClient, makeForstClientRuntime } from "@forst/gen";
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
 const layer = layerForstClient({
   baseUrl: process.env.FORST_BASE_URL,
@@ -107,14 +107,14 @@ const layer = layerForstClient({
 
 // Effect call sites
 Effect.runPromise(
-  ComparePassword(input).pipe(Effect.provide(layer))
+  VerifyPassword(input).pipe(Effect.provide(layer))
 );
 
 // Non-Effect call sites
 const runtime = makeForstClientRuntime({
   baseUrl: process.env.FORST_BASE_URL,
 });
-const result = await runtime.runPromise(ComparePassword(input));
+const result = await runtime.runPromise(VerifyPassword(input));
 ```
 
 Set **`FORST_BASE_URL`** in production. The client never spawns a server when `NODE_ENV` is `production`.
@@ -127,14 +127,14 @@ Same three levels as [Testing](/interop/node/testing), expressed as layers.
 
 ```typescript
 import { Effect, Layer } from "effect";
-import { Bcrypt } from "@forst/gen/bcrypt";
+import { Auth } from "@forst/gen/auth";
 
-const BcryptTest = Layer.mock(Bcrypt, {
-  ComparePassword: () => Effect.succeed({ valid: true }),
+const AuthTest = Layer.mock(Auth, {
+  VerifyPassword: () => Effect.succeed({ valid: true }),
 });
 
 await Effect.runPromise(
-  ComparePassword(input).pipe(Effect.provide(BcryptTest))
+  VerifyPassword(input).pipe(Effect.provide(AuthTest))
 );
 ```
 
@@ -145,18 +145,18 @@ An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode
 ```typescript
 import { Effect } from "effect";
 import { layerForstTest } from "@forst/gen/testing";
-import { ComparePassword } from "@forst/gen/bcrypt";
+import { VerifyPassword } from "@forst/gen/auth";
 
 const Test = layerForstTest({
   packages: {
-    bcrypt: {
-      ComparePassword: async () => ({ valid: true }),
+    auth: {
+      VerifyPassword: async () => ({ valid: true }),
     },
   },
 });
 
 await Effect.runPromise(
-  ComparePassword(input).pipe(Effect.provide(Test))
+  VerifyPassword(input).pipe(Effect.provide(Test))
 );
 ```
 

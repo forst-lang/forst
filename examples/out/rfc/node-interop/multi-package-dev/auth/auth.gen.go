@@ -1,4 +1,4 @@
-package bcrypt
+package auth
 // HashInput: TypeDefShapeExpr({password: String})
 type HashInput struct {
 	Password string `json:"password"`
