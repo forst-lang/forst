@@ -34,16 +34,17 @@ func ValidateReservedSubpaths(packages []string, reserved map[string]string) err
 	}
 	sort.Strings(names)
 	for _, pkg := range names {
-		reason, ok := reserved[pkg]
-		if !ok {
-			continue
+		for key, reason := range reserved {
+			if !strings.EqualFold(pkg, key) {
+				continue
+			}
+			return fmt.Errorf(
+				"generate: Forst package %q collides with the reserved client subpath \"./%s\" (%s)\n"+
+					"  the generated package exports a test double at <packageName>/%s\n"+
+					"  rename the Forst package, or set generate.testingSubpath to a different key",
+				pkg, key, reason, key,
+			)
 		}
-		return fmt.Errorf(
-			"generate: Forst package %q collides with the reserved client subpath \"./%s\" (%s)\n"+
-				"  the generated package exports a test double at <packageName>/%s\n"+
-				"  rename the Forst package, or set generate.testingSubpath to a different key",
-			pkg, pkg, reason, pkg,
-		)
 	}
 	return nil
 }
@@ -128,6 +129,13 @@ func ValidateServiceClassNames(packages []string) error {
 	class := classes[0]
 	pkgs := byClass[class]
 	sort.Strings(pkgs)
+	if class == "" {
+		return fmt.Errorf(
+			"generate: Forst packages %q and %q both map to an empty Effect service class\n"+
+				"  rename one package so its name contains at least one letter or digit",
+			pkgs[0], pkgs[1],
+		)
+	}
 	return fmt.Errorf(
 		"generate: Forst packages %q and %q both produce Effect service class %s\n"+
 			"  rename one of the packages so their PascalCase forms differ",

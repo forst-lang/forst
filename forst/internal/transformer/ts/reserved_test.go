@@ -101,3 +101,36 @@ func TestValidateServiceClassNames_allowsDistinct(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestServiceClassName_symbolOnlyNameProducesEmptyString(t *testing.T) {
+	for _, name := range []string{"___", "...", "---"} {
+		if got := ServiceClassName(name); got != "" {
+			t.Fatalf("ServiceClassName(%q) = %q, want empty", name, got)
+		}
+	}
+}
+
+func TestValidateServiceClassNames_collidesWhenBothProduceEmptyClass(t *testing.T) {
+	err := ValidateServiceClassNames([]string{"___", "..."})
+	if err == nil {
+		t.Fatal("expected collision error for symbol-only package names")
+	}
+	msg := err.Error()
+	for _, frag := range []string{"___", "...", "empty Effect service class"} {
+		if !strings.Contains(msg, frag) {
+			t.Fatalf("missing %q in %s", frag, msg)
+		}
+	}
+}
+
+func TestValidateReservedSubpaths_rejectsCaseVariantOfTesting(t *testing.T) {
+	for _, pkg := range []string{"Testing", "TESTING", "tEsTiNg"} {
+		err := ValidateReservedSubpaths([]string{pkg}, ReservedClientSubpaths)
+		if err == nil {
+			t.Fatalf("expected error for case variant %q of reserved testing subpath", pkg)
+		}
+		if !strings.Contains(err.Error(), pkg) {
+			t.Fatalf("error should name package %q: %v", pkg, err)
+		}
+	}
+}

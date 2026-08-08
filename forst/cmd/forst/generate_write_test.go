@@ -171,6 +171,38 @@ func TestGenerateWrite_byteStableAcrossTwoWrites(t *testing.T) {
 	}
 }
 
+func TestGenerateWrite_cleansTempWhenWriteFileFails(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.js")
+
+	origWrite := generateIO.WriteFile
+	t.Cleanup(func() { generateIO.WriteFile = origWrite })
+	generateIO.WriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.HasPrefix(filepath.Base(name), filepath.Base(path)+".tmp-") {
+			return fmt.Errorf("no space left on device")
+		}
+		return origWrite(name, data, perm)
+	}
+
+	err := writeGeneratedFile(path, []byte("x\n"), nil)
+	if err == nil {
+		t.Fatal("expected WriteFile error")
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".tmp-") {
+			t.Fatalf("temp file left after failed WriteFile: %s", e.Name())
+		}
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("target should not exist after failed WriteFile, stat err=%v", err)
+	}
+}
+
 func TestGenerateWrite_cleansTempWhenRenameFails(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "out.js")

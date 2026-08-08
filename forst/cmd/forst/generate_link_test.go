@@ -146,6 +146,53 @@ func TestGenerateLink_replacesLinkPointingElsewhere(t *testing.T) {
 	}
 }
 
+func TestGenerateLink_refusesToReplaceRegularFile(t *testing.T) {
+	boundary, outDir, nodeModules := setupLinkFixture(t)
+	log := discardLinkLog()
+	linkPath := filepath.Join(nodeModules, "@forst", "gen")
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(linkPath, []byte("not a package"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := linkGeneratedClient(boundary, outDir, "@forst/gen", log)
+	if err == nil {
+		t.Fatal("expected error for regular file at link path")
+	}
+	if !strings.Contains(err.Error(), "not a Forst-managed link or directory") {
+		t.Fatalf("error = %v", err)
+	}
+	got, readErr := os.ReadFile(linkPath)
+	if readErr != nil {
+		t.Fatalf("link path should still exist: %v", readErr)
+	}
+	if string(got) != "not a package" {
+		t.Fatalf("regular file was modified: %q", got)
+	}
+}
+
+func TestGenerateLink_treatsCorruptMarkerAsForeign(t *testing.T) {
+	boundary, outDir, nodeModules := setupLinkFixture(t)
+	log := discardLinkLog()
+	linkPath := filepath.Join(nodeModules, "@forst", "gen")
+	if err := os.MkdirAll(linkPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(linkPath, ".forst-generated"), []byte(`{"boundaryRoot": `), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := linkGeneratedClient(boundary, outDir, "@forst/gen", log)
+	if err == nil {
+		t.Fatal("expected error for directory with corrupt Forst marker")
+	}
+	if !strings.Contains(err.Error(), "real directory that Forst did not create") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestGenerateLink_refusesToReplaceRealDirectory(t *testing.T) {
 	boundary, outDir, nodeModules := setupLinkFixture(t)
 	log := discardLinkLog()

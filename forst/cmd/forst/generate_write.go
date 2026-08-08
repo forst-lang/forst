@@ -49,6 +49,7 @@ func writeFileAtomic(path string, data []byte) (written bool, err error) {
 	if err != nil {
 		return false, err
 	}
+	defer func() { _ = generateIO.Remove(tmpPath) }()
 
 	if err := generateIO.WriteFile(tmpPath, data, 0644); err != nil {
 		return false, fmt.Errorf("failed to write temp file for %s: %w", path, err)
@@ -57,7 +58,6 @@ func writeFileAtomic(path string, data []byte) (written bool, err error) {
 	syncFileBestEffort(tmpPath)
 
 	if err := generateIO.Rename(tmpPath, path); err != nil {
-		_ = generateIO.Remove(tmpPath)
 		return false, fmt.Errorf("failed to rename temp file over %s: %w", path, err)
 	}
 	return true, nil

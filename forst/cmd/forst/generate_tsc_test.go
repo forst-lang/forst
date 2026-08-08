@@ -140,6 +140,43 @@ type tsCompilerOptions struct {
 	Types []string `json:"types"`
 }
 
+func writeTSConfigWithModuleResolution(projectRoot, moduleResolution string) error {
+	smoke := `import { createForstClient } from "@forst/gen";
+import { Echo } from "@forst/gen/main";
+export const client = createForstClient();
+export const echo = Echo;
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "app-smoke.ts"), []byte(smoke), 0644); err != nil {
+		return err
+	}
+	module := "ESNext"
+	if moduleResolution == "nodenext" {
+		module = "NodeNext"
+	}
+	cfg := tsConfig{
+		CompilerOptions: tsCompilerOptions{
+			Target:           "ES2022",
+			Module:           module,
+			ModuleResolution: moduleResolution,
+			Strict:           true,
+			NoEmit:           true,
+			SkipLibCheck:     true,
+			Types:            []string{},
+		},
+		Include: []string{
+			"app-smoke.ts",
+			clientDistIncludeGlob(projectRoot),
+			"stubs/node-process-shim.d.ts",
+		},
+	}
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	name := "tsconfig." + moduleResolution + ".json"
+	return os.WriteFile(filepath.Join(projectRoot, name), b, 0644)
+}
+
 func writeTSConfig(projectRoot string) error {
 	// Consumer smoke file resolves @forst/gen through the node_modules link from generate (no paths).
 	smoke := `import { createForstClient } from "@forst/gen";
@@ -264,6 +301,39 @@ func findLocalTypescriptCompiler() (string, bool) {
 		dir = parent
 	}
 	return "", false
+}
+
+func TestGenerate_tsc_supportedModuleResolutions(t *testing.T) {
+	if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
+		t.Skip("FORST_SKIP_TS_E2E=1")
+	}
+	dir := t.TempDir()
+	ensureNodeModulesDir(t, dir)
+	writeMainFt(t, dir, generateTestMinimalValidForst)
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	pkg := readGeneratedPackageJSON(t, dir)
+	if _, ok := pkg["typesVersions"]; ok {
+		t.Fatalf("package.json must not declare typesVersions: %v", pkg)
+	}
+	if err := copyTSE2EStubs(dir); err != nil {
+		t.Fatalf("copy stubs: %v", err)
+	}
+	for _, modRes := range []string{"bundler", "nodenext", "preserve"} {
+		t.Run(modRes, func(t *testing.T) {
+			if err := writeTSConfigWithModuleResolution(dir, modRes); err != nil {
+				t.Fatal(err)
+			}
+			err := runTscConfig(t, dir, filepath.Join(dir, "tsconfig."+modRes+".json"))
+			if err != nil {
+				if modRes == "preserve" && strings.Contains(err.Error(), "TS6046") {
+					t.Skip("moduleResolution preserve requires a newer TypeScript than this host provides")
+				}
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func findMonorepoRootWithPackageJSON() string {

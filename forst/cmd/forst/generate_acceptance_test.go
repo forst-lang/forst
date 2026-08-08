@@ -881,3 +881,222 @@ func Echo(input EchoRequest) {
 		t.Fatalf("types.d.ts missing new field after edit:\n%s", types)
 	}
 }
+
+// A-12 — consolidated Effect compatibility acceptance gate.
+func TestGenerate_acceptance_effectCompatibility(t *testing.T) {
+	t.Run("promise_mode_generated_package_has_no_effect_import", func(t *testing.T) {
+		dir := t.TempDir()
+		generatePromiseProject(t, dir)
+		err := filepath.WalkDir(defaultClientOutDir(dir), func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			if !strings.HasSuffix(path, ".js") && !strings.HasSuffix(path, ".d.ts") {
+				return nil
+			}
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return readErr
+			}
+			if strings.Contains(string(data), `from "effect"`) || strings.Contains(string(data), "from 'effect'") {
+				t.Fatalf("promise mode must not import effect: %s", path)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("promise_mode_catchTag_compiles", func(t *testing.T) {
+		if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
+			t.Skip("FORST_SKIP_TS_E2E=1")
+		}
+		repoEffect := findRepoEffectModule()
+		if repoEffect == "" {
+			t.Skip("repo effect package not found (bun install at monorepo root)")
+		}
+		dir := t.TempDir()
+		ensureNodeModulesDir(t, dir)
+		writeMainFt(t, dir, generateTestMinimalValidForst)
+		if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"always"}}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("generateCommand: %v", err)
+		}
+		if err := os.Symlink(repoEffect, filepath.Join(dir, "node_modules", "effect")); err != nil {
+			t.Fatalf("symlink effect: %v", err)
+		}
+		consumer, err := os.ReadFile(filepath.Join("testdata", "effect", "promise-catchtag.ts"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "promise-catchtag.ts"), consumer, 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg := `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["promise-catchtag.ts", ".forst/client/dist/**/*.d.ts"]
+}`
+		if err := os.WriteFile(filepath.Join(dir, "tsconfig.json"), []byte(cfg), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := runTsc(t, dir); err != nil {
+			t.Fatalf("promise catchTag fixture failed: %v", err)
+		}
+	})
+
+	t.Run("effect_mode_return_types_and_byte_identical_core", func(t *testing.T) {
+		promiseDir := t.TempDir()
+		generatePromiseProject(t, promiseDir)
+		effectDir := t.TempDir()
+		generateEffectProject(t, effectDir)
+
+		effectDTS, err := os.ReadFile(filepath.Join(defaultClientDistDir(effectDir), "pkg", "main.d.ts"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := string(effectDTS)
+		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "Main", "export declare const Echo:"} {
+			if !strings.Contains(got, frag) {
+				t.Fatalf("missing %q in effect pkg d.ts:\n%s", frag, got)
+			}
+		}
+
+		for _, rel := range []string{
+			"core/main.js", "core/main.d.ts",
+			"transport.js", "transport.d.ts",
+			"errors.js", "errors.d.ts",
+			"types.d.ts",
+		} {
+			p := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
+			e := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
+			if p != e {
+				t.Fatalf("%s must be byte-identical across runtimes", rel)
+			}
+		}
+
+		promiseTree := readDistTree(t, defaultClientOutDir(promiseDir))
+		effectTree := readDistTree(t, defaultClientOutDir(effectDir))
+		changed := map[string]struct{}{}
+		for path, content := range promiseTree {
+			if effectTree[path] != content {
+				changed[path] = struct{}{}
+			}
+		}
+		for path := range effectTree {
+			if _, ok := promiseTree[path]; !ok {
+				changed[path] = struct{}{}
+			}
+		}
+		allowed := map[string]struct{}{
+			"dist/pkg/main.js": {}, "dist/pkg/main.d.ts": {},
+			"dist/index.js": {}, "dist/index.d.ts": {},
+			"dist/testing.js": {}, "dist/testing.d.ts": {},
+			"dist/effect.js": {}, "dist/effect.d.ts": {},
+			"package.json": {}, "README.md": {},
+		}
+		for path := range changed {
+			if _, ok := allowed[path]; !ok {
+				t.Fatalf("unexpected differing path %q", path)
+			}
+		}
+	})
+
+	t.Run("effect_mode_tsc_fixture_and_runtime", func(t *testing.T) {
+		if os.Getenv("FORST_SKIP_EFFECT_E2E") == "1" {
+			t.Skip("FORST_SKIP_EFFECT_E2E=1")
+		}
+		if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
+			t.Skip("FORST_SKIP_TS_E2E=1")
+		}
+		repoEffect := findRepoEffectModule()
+		if repoEffect == "" {
+			t.Skip("repo effect package not found (bun install at monorepo root)")
+		}
+
+		dir := t.TempDir()
+		ensureNodeModulesDir(t, dir)
+		writeMainFt(t, dir, generateTestMinimalValidForst)
+		if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"effect":true,"link":"always"}}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(repoEffect, filepath.Join(dir, "node_modules", "effect")); err != nil {
+			t.Fatalf("symlink effect: %v", err)
+		}
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("generateCommand: %v", err)
+		}
+
+		consumer, err := os.ReadFile(filepath.Join("testdata", "effect", "consumer.ts"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "consumer.ts"), consumer, 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg := `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["consumer.ts", ".forst/client/dist/**/*.d.ts"]
+}`
+		if err := os.WriteFile(filepath.Join(dir, "tsconfig.json"), []byte(cfg), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := runTsc(t, dir); err != nil {
+			t.Fatalf("effect tsc fixture failed: %v", err)
+		}
+
+		runtime, err := os.ReadFile(filepath.Join("testdata", "effect", "runtime.mjs"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtimePath := filepath.Join(dir, "runtime.mjs")
+		if err := os.WriteFile(runtimePath, runtime, 0644); err != nil {
+			t.Fatal(err)
+		}
+		out, err := runNodeRequireSmoke(t, dir, runtimePath)
+		if err != nil {
+			t.Fatalf("effect runtime fixture failed: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "effect-runtime-ok") {
+			t.Fatalf("unexpected runtime output:\n%s", out)
+		}
+	})
+
+	t.Run("effect_mode_fails_when_resolved_version_below_floor", func(t *testing.T) {
+		dir := t.TempDir()
+		writeMainFt(t, dir, generateTestMinimalValidForst)
+		writeEffectConfig(t, dir)
+		installEffectFixture(t, dir, "3.14.2")
+		if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"dependencies":{"effect":"^3.12.0"}}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		err := generateCommand([]string{dir})
+		if err == nil {
+			t.Fatal("expected error for effect below floor")
+		}
+		msg := err.Error()
+		for _, frag := range []string{"effect@3.14.2", ">=3.17.0"} {
+			if !strings.Contains(msg, frag) {
+				t.Fatalf("missing %q in:\n%s", frag, msg)
+			}
+		}
+	})
+}

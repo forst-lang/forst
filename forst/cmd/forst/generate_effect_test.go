@@ -18,6 +18,10 @@ func TestEffectVersionAtLeast(t *testing.T) {
 		{"major_above", "4.0.0", "3.17.0", true},
 		{"prerelease", "3.17.0-beta.1", "3.17.0", false},
 		{"v_prefix", "v3.18.0", "3.17.0", true},
+		{"leading_zero", "3.017.0", "3.17.0", true},
+		{"empty_segment", "3..0", "3.17.0", false},
+		{"overflow_component", "99999999999999999999.0.0", "3.17.0", false},
+		{"plus_build_metadata", "3.17.0+abc123", "3.17.0", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
