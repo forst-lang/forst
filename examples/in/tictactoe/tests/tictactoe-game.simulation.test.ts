@@ -8,9 +8,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { DevServerHttpFailure } from "@forst/sidecar";
 import {
   createForstClient,
+  InvokeHttpFailure,
   type ForstClient,
   type GameState,
   type MoveRequest,
@@ -144,10 +144,9 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
       await c.main.PlayMove({ state: r1.state, row: 1, col: 2 });
       expect.unreachable("expected duplicate move to fail");
     } catch (e) {
-      expect(e).toBeInstanceOf(DevServerHttpFailure);
-      const http = e as DevServerHttpFailure;
-      const blob = `${http.serverErrorFromBody ?? ""} ${http.responseText}`;
-      expect(blob).toMatch(/cell already taken|Bool\.True\(\)|assertion failed/);
+      expect(e).toBeInstanceOf(InvokeHttpFailure);
+      const http = e as InvokeHttpFailure;
+      expect(http.responseText).toMatch(/cell already taken|Bool\.True\(\)|assertion failed/);
     }
   });
 
@@ -170,6 +169,6 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
     expect(state.cells[0]).toBe("X");
     expect(state.cells[1]).toBe("X");
     expect(state.cells[2]).toBe("X");
-    expect(state.winner).toBe("X");
+    expect(state.status).toBe("x_won");
   });
 });
