@@ -44,7 +44,8 @@
             "pages": [
               "language/shapes-and-constraints",
               "language/ensure-and-narrowing",
-              "language/type-guards"
+              "language/type-guards",
+              "language/union-and-intersection-types"
             ]
           },
           {

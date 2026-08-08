@@ -1,0 +1,44 @@
+---
+description: Human readable documentation standards for Forst
+globs: "docs/**/*.{md,mdx}"
+alwaysApply: false
+---
+
+# Documentation readability
+
+Write for developers who use Forst. Do not assume compiler knowledge.
+## Lead with the reader
+- Keep the page description broad. State the reader's goal without listing syntax, configuration, or implementation details.
+- Use the opening paragraph to explain the goal, practical benefit, and when the reader needs the feature.
+- Show the smallest useful example near the start of the page.
+- Start every section with a plain explanation before flags, types, protocols, or internals.
+- Put setup before usage. Put advanced design and implementation details later.
+- Use progressive detail. Let readers stop after completing their task.
+## Use plain language
+- Prefer short sentences with one idea each.
+- Use active voice and speak directly to the reader.
+- Define a technical term before using it. Remove jargon that does not help a task.
+- Prefer a concrete noun over words like system, surface, mechanism, or layer.
+- Avoid marketing language, filler, rhetorical questions, and vague claims.
+- Avoid semicolons, long parenthetical notes, and overloaded sentences.
+- Avoid “not X but Y” phrasing. State the intended behavior directly.
+- Avoid the word “today”. Describe the current behavior directly.
+- Use hyphens only when grammar or a technical name requires them.
+## Make structure useful
+- Use task or outcome based headings. Prefer “Choose how Node runs” over “Runtime modes”.
+- Use numbered steps for sequences and bullets for independent rules.
+- Use tables only for real comparisons. Introduce each table in plain language.
+- Move caveats after the main workflow. Explain impact and the action to take.
+- Link to one canonical setup page instead of repeating installation blocks.
+## Make examples teach
+- Name files and paths when an import depends on them.
+- Explain what a code block does before showing it.
+- Use realistic names consistently across related pages.
+- Keep examples focused and runnable. Verify syntax against tests or examples.
+- Explain the observable result after code when it is not obvious.
+- Show Promise and Effect examples together when both forms are supported.
+## Review checklist
+- Can a Node or Go developer understand the opening without compiler context?
+- Does every section explain why the following detail matters?
+- Can the reader find the shortest path to a working result?
+- Are setup steps linked instead of copied?

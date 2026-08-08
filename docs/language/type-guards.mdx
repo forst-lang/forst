@@ -1,6 +1,6 @@
 ---
 title: "Type guards"
-description: "Reusable predicates that integrate with ensure and the type system."
+description: "Define reusable checks for your application data."
 ---
 
 import TypeGuardsLoggedIn from "/snippets/type-guards-logged-in.mdx";
@@ -8,47 +8,87 @@ import TypeGuardsMutation from "/snippets/type-guards-mutation.mdx";
 import TypeGuardsAppMutation from "/snippets/type-guards-app-mutation.mdx";
 import TypeGuardsCreateTask from "/snippets/type-guards-create-task.mdx";
 
-**Type guards** define domain specific predicates that work with **`ensure`** and narrow types. They extend built in string, integer, and presence constraints.
+Type guards give a reusable name to a rule about your data. When a guard
+passes, Forst remembers what the check proved. Your code can then use required
+fields without repeating the same validation.
 
-## Declare a type guard
+In language design, a type guard is a predicate that narrows a base type to the
+values that satisfy it. This is the idea behind
+[refinement types](https://en.wikipedia.org/wiki/Refinement_type).
 
-A guard is a pure predicate tied to a base type. **`LoggedIn`** requires a present session and user on **`AppContext`**:
+Use a guard for rules such as “this request has input” or “this user is logged
+in.” A failed guard stops an `ensure` before the rest of the function runs.
+
+## Define a reusable check
+
+This `LoggedIn` guard requires an `AppContext` with both a session and a user.
 
 <TypeGuardsLoggedIn />
 
-Syntax: **`is (subject BaseType) GuardName(…)`**, a pure predicate tied to a base type. Use it with **`ensure subject is GuardName()`**.
+The declaration starts with `is`, followed by the value, its base type, and the
+guard name.
 
-## Shape refinement guards
+```forst
+is (subject BaseType) GuardName() {
+    // checks
+}
+```
 
-Guards can require extra fields on a shape, modeling cases like "this mutation must include input" or "this context must carry a session":
+Use the guard anywhere you can use an `is` check.
+
+```forst
+ensure ctx is LoggedIn()
+```
+
+After this line, Forst knows that `ctx.sessionId` and `ctx.user` are present.
+
+## Require fields on a shape
+
+A shape guard describes fields that a value must contain. This is useful when
+several operations share a basic request shape and add their own requirements.
+
+In this example, `MutationArg` means a request passed to an API operation.
+`Input` requires an `input` field. `Context` requires a `ctx` field.
 
 <TypeGuardsMutation />
 
-Compose guards on types:
+### Build a more specific request type
+
+Apply a guard to a type when every value of that type needs the same fields.
+`AppMutation` requires an `AppContext` in its `ctx` field.
 
 <TypeGuardsAppMutation />
 
-Then enforce them in handlers:
+### Check the request in a handler
+
+The handler adds an input requirement and checks that the request belongs to a
+logged in user.
 
 <TypeGuardsCreateTask />
 
-Unauthorized calls fail at the guard, before task creation logic runs.
+The guard fails before task creation when the session or user is missing. After
+the check, the handler can safely read `op.input.name`.
 
-## Why guards instead of free functions?
+## Why a normal function is not enough
 
-A standalone `func isLoggedIn(ctx AppContext) bool` validates at runtime but does **not narrow** `ctx` for the typechecker. Type guards are first-class: the compiler records the refined type after a successful **`ensure`**.
+A function that returns `Bool` can report whether a value passed. Its return
+type does not explain what a true value proves about the input.
 
-## Caveats
+A type guard records that relationship. When `LoggedIn()` passes, Forst knows
+which fields are present and lets later code use them with the refined type.
 
-Type guards are **experimental**. Parsing, typechecking, and Go emission work for the patterns above. Narrowing across all control flow positions is still being expanded. See the [roadmap](/resources/roadmap).
+## Current limits
 
-In the examples above, **`MutationArg`** and **`AppMutation`** refer to API **mutation request** shapes, like a GraphQL or tRPC mutation argument. They have nothing to do with changing values after a guard passes.
+Type guards are experimental. The examples above can be parsed, checked, and
+emitted as Go. Narrowing in more complex control flow is still being expanded.
+See the [roadmap](/resources/roadmap).
 
-### Checks run once
+### A check applies to the current value
 
-A guard runs once at the **`ensure`** or **`if`** site. After it passes, the compiler remembers the narrowed type for later lines. It does **not** watch the value for changes.
+A guard checks the value once at an `ensure` or `if`. Later changes do not run
+the guard again.
 
-If you reassign the variable or mutate its fields afterward, runtime state can fall out of sync with what the compiler still believes:
+Changing a field after the check can make the earlier result outdated.
 
 ```ft
 ensure ctx is LoggedIn()
@@ -56,54 +96,76 @@ ctx.sessionId = nil   // runtime: no longer logged in
 // compiler may still treat ctx as LoggedIn here
 ```
 
-Pointer fields (like `sessionId: *String`) are especially risky. Clearing or replacing the pointer does not undo the narrowing. Planned **`ensure`** scoped immutability may address this later. It is not available today.
+Pointer fields such as `sessionId: *String` need particular care. Clearing the
+pointer does not undo the narrowing. Scoped immutability for `ensure` may
+address this later.
 
 <Warning>
   Narrowing reflects a single check at compile time. It does not lock the value at runtime.
 </Warning>
 
-### Narrowing on simple names
+### Prefer simple variables
 
-Successor narrowing after **`ensure`** works best on **simple identifiers** (`ensure x is …`, then use `x`).
+Narrowing works best when `ensure` checks a simple variable.
 
-Compound paths like **`ensure req.state is …`** have partial support. Hover may show the guard predicate, but the typechecker does not fully re-register a refined type on the path. The examples use **`ensure op.ctx is LoggedIn()`** because **`op`** is the simple binding. Do not assume every dotted path behaves the same.
+```forst
+ensure x is LoggedIn()
+```
+
+Paths such as `ensure req.state is ...` have partial support. Editor hover may
+show the guard while later code still sees the original field type.
 
 <Info>
-  Full narrowing on compound **`ensure`** subjects is still being expanded. See the [roadmap](/resources/roadmap).
+  Narrowing for compound `ensure` subjects is still being expanded. See the
+  [roadmap](/resources/roadmap).
 </Info>
 
-### Guards are pure predicates
+### Keep guards free of side effects
 
-Inside a guard body you cannot modify the receiver or its parameters. Guards must be deterministic and side effect free. Only **`if`**, **`else if`**, and **`else`** branches with **`is`** assertions and **`ensure`** refinements are allowed. No **`return`**, no **`or`** clauses inside guard **`ensure`**, and no references to variables outside the receiver and guard parameters.
+A guard only checks its subject and parameters. The same input must always
+produce the same result.
 
-### Shape guards work at the type level
+Inside a guard you can use `if`, `else if`, `else`, `is`, and `ensure`. A guard
+cannot change values, use `return`, add an `or` clause, or read unrelated
+variables.
 
-Shape guards like **`Input(input Shape)`** add a required field to the **type**. They validate that the value has that structure at runtime. They do not insert data. **`ensure m is { input }`** checks presence and shape. It does not populate **`input`**.
+### Shape guards verify fields
 
-Even when a shape guard passes, mutating **`op.input`** or **`op.ctx`** afterward is not tracked. See the checks run once caveat above.
+A shape guard such as `Input(input Shape)` verifies that a field exists with the
+required shape. It never creates or fills that field.
 
-### Control flow limits
+Changes to `op.input` or `op.ctx` after the guard are not tracked. Check the
+value again after changing it.
 
-Narrowing inside an **`if`** branch does not always carry past the end of the chain. The continuation may see the pre-**`if`** type until union types exist. Branch merge after **`ensure`** successors is also still expanding.
+### Narrowing after branches
 
-See [Ensure and narrowing § Caveats](/language/ensure-and-narrowing#caveats) for general narrowing behavior.
+Narrowing inside an `if` branch may end with that branch. Code after the full
+chain can see the earlier type. Branch merging will improve as union type
+support expands.
 
-## What gets emitted
+See [Ensure and narrowing](/language/ensure-and-narrowing#current-limits) for
+general narrowing limits.
 
-Guards transpile to Go functions or inline checks used by **`ensure`** lowering, with structured errors where you supply **`or`** clauses.
+## Generated Go
 
-## Try it
+Generated Go uses functions or inline conditions for guard checks. An `ensure`
+that uses the guard follows the normal Go error return path.
 
-From the Forst repository:
+## Run the examples
+
+Run these commands from the Forst repository.
 
 ```bash
 task example:shape-guard
 task example:basic-guard
 ```
 
-Sources: [`examples/in/rfc/guard/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/guard/)
+The source files are in
+[`examples/in/rfc/guard/`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/guard/).
 
 ## Related
+
+Continue with built in constraints or learn how to apply guards with `ensure`.
 
 <CardGroup cols={2}>
   <Card title="Shapes and constraints" icon="table-columns" href="/language/shapes-and-constraints">

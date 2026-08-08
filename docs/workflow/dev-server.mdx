@@ -3,19 +3,11 @@ title: "Dev server"
 description: "Local iteration with forst dev — HTTP contract, regenerate on save, and ftconfig."
 ---
 
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
+<NodeClientSetupNote />
+
 Start the server, then call a function from Node with the generated client:
-
-```bash
-npm install @forst/cli
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate ."
-  }
-}
-```
 
 ```bash
 npx forst generate .
@@ -124,7 +116,7 @@ Invoke carries request payloads only. Wire **`with`** blocks in Go before exposi
   <Card title="CLI reference" icon="terminal" href="/workflow/cli">
     `forst generate`, `--watch`, and config fields.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    Install, postinstall, and `@forst/gen`.
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
   </Card>
 </CardGroup>

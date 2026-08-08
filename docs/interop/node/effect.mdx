@@ -1,20 +1,25 @@
 ---
 title: "Effect mode"
-description: "Use Effect with the generated Forst client — tagged errors by default, or generate.effect for Effect return types."
+description: "Use Effect to call Forst with typed errors, managed services, retries, and cancellation."
 ---
 
-Install `@forst/cli`, add the lifecycle script, generate with Effect mode, then call a function through a layer:
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
+[Effect](https://effect.website) is a TypeScript library for programs with typed
+errors, managed dependencies, retries, cancellation, and safe resource use. It
+makes these needs visible in your types and gives you tools to combine them.
+
+Forst already gives you typed backend functions and generated clients. Effect
+mode carries those types into Node. Each generated call has typed Forst failures
+and declares the service it needs. This makes calls easier to provide, retry,
+cancel, and replace in tests.
+
+<NodeClientSetupNote />
+
+Install `effect`, enable Effect mode, then regenerate:
 
 ```bash
-npm install @forst/cli effect
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate ."
-  }
-}
+npm install effect
 ```
 
 ```json
@@ -181,9 +186,13 @@ If the resolved `effect` version is missing or too old, generate fails and names
   <Card title="Testing" icon="flask" href="/interop/node/testing">
     `withForstTestScope` for Promise mode.
   </Card>
-  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    Install, postinstall, and `@forst/gen` imports.
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
   </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Subpaths and `@forst/gen` imports.
+  </Card>
+
   <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
     Full `generate` configuration table.
   </Card>

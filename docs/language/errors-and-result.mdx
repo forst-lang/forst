@@ -1,6 +1,6 @@
 ---
 title: "Errors and Result"
-description: "Nominal domain errors and explicit success/failure types."
+description: "Model expected failures as named errors and handle them with Result."
 ---
 
 import ErrorsNominal from "/snippets/errors-nominal.mdx";
@@ -8,57 +8,88 @@ import ErrorsEnsureStock from "/snippets/errors-ensure-stock.mdx";
 import ErrorsNotPositive from "/snippets/errors-not-positive.mdx";
 import ErrorsOkIntMain from "/snippets/errors-ok-int-main.mdx";
 import ErrorsGF from "/snippets/errors-g-f.mdx";
-import ErrorsOkIntReturn from "/snippets/errors-ok-int-return.mdx";
 
-Domain failures are **nominal error types** and **`Result`** values. Each variant has a name and payload in Go's "errors as values" style.
+Use a named error for an expected failure that your application can handle.
+Examples include missing stock, invalid input, and a declined payment. A
+`Result` records that a function can either return a value or one of these
+errors.
 
-## Nominal errors
+This gives each failure a stable name. Callers can respond to the error without
+parsing its message.
 
-Declare named failure kinds with payloads:
+## Declare an expected error
+
+Declare each kind of failure with `error`. Add fields when the caller needs
+details about what went wrong.
 
 <ErrorsNominal />
 
-Use them with **`ensure … or …`**:
+These two errors remain different types even if their fields later become the
+same. This is called a nominal type. The generated Go types implement the
+standard `error` interface.
 
-<ErrorsEnsureStock />
+### Start with a small error
 
-Each error variant is a distinct type. Callers can branch on structure instead of parsing error strings.
-
-### Simple payload example
-
-A minimal nominal error with one payload field:
+An error can carry only the data needed to explain or handle the failure.
 
 <ErrorsNotPositive />
 
-## Result types
+Here `validatePositive` returns `NotPositive` when the check fails. Generated Go
+returns the same error as an ordinary Go `error`.
 
-Functions that can fail with typed errors return **`Result(Success, Failure)`**. The failure side is constrained to the **`Error`** family today.
+## Return a value or an error
+
+A function that can fail returns `Result(Success, Failure)`. The first type is
+the successful value. The second type is the error. The failure type must belong
+to the `Error` family.
+
+Forst can infer this return type when `ensure` introduces a failure path.
 
 <ErrorsOkIntMain />
 
-**`Ok`** and **`Err`** serve as discriminants for **`is`** / **`ensure`**. They are not yet general value constructors for building **`Result`** values at every call site.
+The check in `okInt` can fail, so Forst infers `Result(Int, Error)`. The caller
+uses `ensure x is Ok()` before using the successful value.
 
-## Return inference and implicit returns
+`Ok()` and `Err()` identify the two sides of a `Result` during `is` and
+`ensure` checks. They are currently checks. General `Ok(value)` and
+`Err(error)` constructors are still in development.
 
-Forst infers a function's return type from:
+## Return a specific error with ensure
 
-- explicit **`return`** statements
-- **`ensure`** (often producing **`Result(S, Error)`** when no return type is declared)
-- the **last expression** in the function body when no return type is declared in the signature
+Use `ensure condition or error` when a failed check should return a known error.
+The function stops at that point and gives the error to its caller.
 
-When the last statement is an expression and the function has no declared return type, that expression's value becomes the function return. Generated Go emits an explicit **`return`** for it.
+<ErrorsEnsureStock />
+
+The first check requires `avail` to contain a successful value. The second
+check returns `InsufficientStock` with details that the caller can use.
+
+## Let Forst infer the return type
+
+Forst looks at three places when a function has no declared return type.
+
+- Each explicit `return`
+- Each `ensure` that can fail
+- The final expression in the function body
+
+If the final statement is an expression, its value becomes the return value.
+Generated Go adds the explicit `return`.
 
 <ErrorsGF />
 
-Here **`f`** also returns **`Result(Int, Error)`**; generated Go contains **`return g()`**.
+Here `g` returns `Result(Int, Error)`. The final call to `g()` means that `f`
+returns the same type. Generated Go contains `return g()`.
 
-Explicit **`return`** is still fine (and clearer when intent is ambiguous):
+Use an explicit `return` whenever it makes the intent easier to see.
 
-<ErrorsOkIntReturn />
+## Handle Go functions with several returns
 
-### Trailing calls and Go imports
+Go functions often return a value and an error. Forst preserves all returned
+values when you capture the call in one variable. The resulting type is
+`Tuple(T₁…Tₙ)`.
 
-Go multi-return in **single-value** expression position (including a trailing call used as an implicit return) maps to **`Tuple(T₁…Tₙ)`**, not **`Result`**. To return **`Result(T, Error)`** from a Forst function, use the n-value bridge:
+Split the values and check the error when your Forst function should return a
+`Result`.
 
 ```forst
 n, err := pkg.F()
@@ -66,66 +97,102 @@ ensure !err or err
 return n
 ```
 
-With no declared return type, a trailing Go multi-return call makes the function return a **`Tuple`**, not **`Result`**. To log for side effects only, use Forst **`println`** / **`print`**, or declare an explicit return type on a [Provider contract method](/language/providers).
+This is the same shape as ordinary Go error handling. Generated Go uses the
+usual value and error returns.
 
-## Result and Tuple (permanently disjoint)
+### Result and Tuple stay separate
 
-**`Result(S, F)`** and **`Tuple(T₁…Tₙ)`** are **different types** with **no conversion either way**.
+The two types make different promises. A `Result` contains one outcome. It is
+either a success or a failure. A `Tuple` preserves every returned position, and
+several positions may contain meaningful values at the same time.
 
-- **`Result`** is Forst-native: an exclusive success/failure sum built via **`return`** + **`ensure`** inside functions whose return type is **`Result(...)`**.
-- **`Tuple`** is what Go FFI honestly returns when a multi-return call is bound in **single-value** context (`x := pkg.F()`).
-- **`Ok()` / `Err()`** narrowing applies only to **`Result`**. Using them on a **`Tuple`** is a normal type error.
-- Bridge FFI to **`Result`** with **`n, err := …; ensure !err or err; return n`** (see [Go interop](#go-interop)).
+| Type | Where it comes from | How to inspect it |
+| --- | --- | --- |
+| `Result(S, F)` | Forst functions with success and failure paths | Use `Ok()` and `Err()` checks |
+| `Tuple(T₁…Tₙ)` | A call with several returns captured in one value | Read or split its ordered values |
 
-## Go interop
+#### Problems caused by mixing them
 
-Go multi-return in **single-value** expression position maps to **`Tuple(T₁…Tₙ)`** uniformly at the FFI boundary—there is **no** auto-fold to **`Result`**. Use **`n, err := pkg.F(); ensure !err or err; return n`** inside a **`Result`-returning** Forst function to bridge FFI to **`Result`** ergonomics. **`v, err := pkg.F()`** (n-value context) behaves like Go. Generated Go uses idiomatic error returns.
+`Result` means that you get a value or an error. Some calls can return both.
+For example, a read can return its final bytes together with an end of input
+signal. The bytes still need to be processed.
 
-## Generate client types
+Forst cannot learn this behavior from the return types. A pair containing a
+value and an error looks the same in both cases. Keeping a list of special calls
+would miss new packages and functions.
 
-Nominal errors can emit tagged shapes in generated `.d.ts` as the TS story matures. Today, prefer **`forst generate`** and treat error payloads as evolving. See [Generate client types](/interop/node/generate-types).
+Forst therefore never turns several return values into a `Result`
+automatically. This keeps `Ok()` and `Err()` trustworthy. `Ok()` always means
+that there is no error. `Err()` always means that there is no success value.
 
-## Compared to Go error structs
+#### How Forst keeps the meaning clear
 
-In Go you might write:
+- A call with several returns always becomes a `Tuple` when captured in one
+  value. Every returned value stays available.
+- A `Result` comes from a function with exclusive success and failure paths.
+  `return` and `ensure` make those paths explicit.
+- Conversion between `Tuple` and `Result` is unavailable. `Ok()` and `Err()`
+  only apply to `Result`.
+- When you know a call has exclusive outcomes, split its values and use
+  `ensure !err or err` before returning the success value.
+- The rule applies to every package. It needs no catalog or project setting.
 
-```go
-type InsufficientStock struct {
-	StockKeepingUnit string
-	Requested        int
-	Available        int
-}
+This preserves all possible states of a return with several values. It also keeps
+`Result` reliable for narrowing and for generated client types.
 
-func (e InsufficientStock) Error() string { ... }
-```
+If a call with several returns is the final expression of an inferred function,
+the function also returns a `Tuple`. Split the values as shown above when you
+want a `Result`.
 
-Forst's **`error Name { … }`** syntax makes the intent explicit: this is a **failure variant**, a dedicated type for a specific failure mode rather than a generic struct with an `Error()` method attached by convention.
+For calls used only for side effects, prefer Forst `println` or `print`. A
+[Provider contract method](/language/providers) can also declare an explicit
+return type.
 
-## Caveats
+## Use errors from TypeScript
 
-**Nominal errors** and **`Result`** are **experimental**. Check the [roadmap](/resources/roadmap) before relying on edge cases in production.
+Generated TypeScript clients can expose error payloads as tagged shapes. This
+part of the client API is still evolving. Generate the client with
+`forst generate` and see [Generate client types](/interop/node/generate-types)
+for the current output.
+
+## How this compares with Go
+
+In Go, you usually declare a struct and add an `Error()` method. Forst's
+`error Name { … }` declaration creates both parts from one declaration. The
+generated result remains an ordinary Go error.
+
+## Current limits
+
+Named errors and `Result` are experimental. Check the
+[roadmap](/resources/roadmap) before relying on edge cases in production.
 
 ### `Result` failure side
 
-The failure type parameter is constrained to the **`Error`** family today. Arbitrary non-**`Error`** failure types are not supported yet.
+The failure type must belong to the `Error` family. Other failure types are not
+supported yet.
 
 ### `Ok` and `Err` role
 
-**`Ok`** and **`Err`** are discriminants for **`is`** and **`ensure`**. They are not general value constructors at every call site yet.
+`Ok` and `Err` support `is` and `ensure` checks. General value constructors are
+still in development.
 
-### Implicit return trap
+### Final Go calls
 
-When a function has no declared return type, a trailing Go **multi-return** call bound in single-value position types as **`Tuple`**, not **`Result`**. Declare an explicit return type, or use the **`n, err := …; ensure !err or err; return n`** bridge when you need **`Result`**. Use **`println`** for void side effects.
+A final Go call with several return values produces a `Tuple` during return
+inference. Split the values and check the error when you need a `Result`.
 
-### Nominal errors incomplete
+### Generated error details
 
-**`ensure`** only failure authoring, **`or`** LUB rules, and TypeScript **`_tag`** export are still maturing. Treat generated error payloads as evolving. See [Generate client types § Caveats](/interop/node/generate-types#caveats).
+Error creation through `ensure`, type merging after `or`, and TypeScript `_tag`
+output are still maturing. Treat generated payloads as evolving. See
+[Generate client types](/interop/node/generate-types#caveats).
 
-For **`ensure x is Ok()`** narrowing limits, see [Ensure and narrowing § Caveats](/language/ensure-and-narrowing#caveats).
+For limits around `ensure x is Ok()`, see
+[Ensure and narrowing](/language/ensure-and-narrowing#caveats).
 
-## Try it
+## Run the examples
 
-From the Forst repository:
+Run these commands from the Forst repository.
 
 ```bash
 task example:nominal-error
@@ -135,6 +202,13 @@ task example:union-error-types
 
 ## Related
 
-<Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
-  How `ensure` connects checks to control flow.
-</Card>
+Learn how `ensure` checks a value and returns early when a condition fails.
+
+<CardGroup cols={2}>
+  <Card title="Union and intersection types" icon="code-branch" href="/language/union-and-intersection-types">
+    Define a closed set of named errors.
+  </Card>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    How `ensure` connects checks to control flow.
+  </Card>
+</CardGroup>

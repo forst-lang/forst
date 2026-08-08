@@ -1,6 +1,6 @@
 ---
 title: "Providers (DI)"
-description: "Declare shared runtime services and wire them at entry points."
+description: "Declare shared runtime services and supply them at entry points."
 ---
 
 import ProvidersLoggerClock from "/snippets/providers-logger-clock.mdx";
@@ -8,7 +8,7 @@ import ProvidersWithMain from "/snippets/providers-with-main.mdx";
 import ProvidersShadow from "/snippets/providers-shadow.mdx";
 import ProvidersTest from "/snippets/providers-test.mdx";
 
-Backend functions depend on runtime services (loggers, clocks, DB handles). **Providers** declare those dependencies with **`use`** and wire them at entry points with **`with`**. Request data stays separate from shared infrastructure.
+Backend functions often depend on shared runtime services like loggers, database handles and other resources. **Providers** let you declare such dependencies with **`use`** and supply them at entry points using **`with`**. This way services don't need to be threaded through every parameter list, and tests can swap in fakes or mocks without changing the function under test.
 
 ## Two primitives
 
@@ -17,7 +17,7 @@ Backend functions depend on runtime services (loggers, clocks, DB handles). **Pr
 | **`use`** | Bind a contract type inside a function: "this code depends on X" |
 | **`with { … } { … }`** | Wire concrete implementations at an entry point (handler, `main`, test) |
 
-**Parameters carry data** (order IDs, request bodies). **Providers carry services** the host supplies (logger, clock, repo). Keeping them separate clarifies what flows through your API boundary and what is ambient context.
+**Parameters continue carrying highly dynamic data** like request bodies. **Providers carry services** that typically rarely change (e.g. loggers, clocks and repositories). Keeping them separate clarifies what flows through your API boundary and what is ambient context.
 
 ## Declare dependencies with `use`
 
@@ -37,7 +37,12 @@ Wiring keys use the **root contract name** (`Logger`, `Clock`). Values must stru
 
 ### Void contract methods
 
-Contract methods without a return type (such as **`info(msg String)`**) must stay void on implementations. A trailing **`fmt.Println(...)`** in the method body can infer a non-void **`Result`** return from Go's **`(int, error)`** signature; the compiler reports that mismatch. Use **`println`** for side-effect logging in void provider methods, or declare an explicit return type if you intend to return the call result. See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
+Contract methods without a return type (such as **`info(msg String)`**) must stay void on implementations.
+
+- Do not end a void method with a Go call that returns values, such as **`fmt.Println(...)`**. With no declared return type, that trailing call becomes an implicit return, so the method no longer matches the void contract.
+- Prefer Forst **`println`** / **`print`** when you only need a side effect, or declare an explicit return type when you intend to return the call result.
+
+See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
 
 ### Shadowing
 
@@ -53,7 +58,7 @@ Tests reuse the same `with` blocks to swap fakes without a separate DI framework
 
 ## Compared to other approaches
 
-The Providers RFC surveyed these patterns before settling on **`use`** and **`with`**. See the [Providers RFC hub](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers) for the full prior art writeup.
+We surveyed these patterns before settling on **`use`** and **`with`**. See the [Providers RFC](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/providers) for the full prior art writeup.
 
 | Approach | Limitation |
 | --- | --- |
@@ -87,11 +92,20 @@ See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats) and [Gen
 
 ### Void contract methods
 
-A trailing **`fmt.Println(...)`** in a void provider method can infer a non-void **`Result`** return from Go's **`(int, error)`** signature. Use **`println`** for side effect logging, or declare an explicit return type. See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
+- A trailing Go multi-return call such as **`fmt.Println(...)`** becomes an implicit return and breaks a void contract method.
+- Prefer Forst **`println`** / **`print`** for side effects, or declare an explicit return type.
+
+See [Return inference and implicit returns](/language/errors-and-result#return-inference-and-implicit-returns).
 
 ### `context.Context` is separate
 
-Providers are typed services declared with **`use`**. Cancellation and request scoped values stay in **`context`**, not in Provider wiring.
+Providers do not replace Go's **`context.Context`**. They solve a different problem.
+
+- **`context.Context`** remains the right place for cancellation, deadlines, and request-scoped values such as a request ID or trace span. Keep passing `ctx` as a normal parameter when a function needs those signals.
+- **Providers** are for stable typed services declared with **`use`**: loggers, clocks, repositories, and similar host-supplied dependencies. The compiler tracks who must supply them at entry points.
+- Avoid stuffing those services into **`context.WithValue`**. That pattern is untyped, easy to miss at call sites, and has no compile-time obligation chain. Providers exist so you do not need to overload `context` for DI.
+
+A handler can take both. Use `context` for the request lifecycle, and Providers for the services the host supplies once and reuses across calls.
 
 ## Try it
 

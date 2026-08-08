@@ -44,6 +44,42 @@ Other useful variables:
 
 Full details: [`@forst/cli` README](https://github.com/forst-lang/forst/tree/main/packages/cli#readme).
 
+### Generated TypeScript client
+
+When a Node app imports `@forst/gen`, install the CLI, add a lifecycle script, then generate:
+
+```bash
+npm install @forst/cli
+```
+
+```json
+{
+  "scripts": {
+    "postinstall": "forst generate ."
+  }
+}
+```
+
+```bash
+npx forst generate .
+```
+
+The `postinstall` line is required. The client lives under `.forst/client` (gitignored) and is linked into `node_modules`. A fresh `npm ci` removes that link. Without `postinstall`, imports of `@forst/gen` fail until someone runs generate by hand.
+
+Optional scripts for local workflows:
+
+```json
+{
+  "scripts": {
+    "postinstall": "forst generate .",
+    "predev": "forst generate .",
+    "prebuild": "forst generate ."
+  }
+}
+```
+
+Import shape, subpaths, and layout: [Generate a TypeScript client](/interop/node/generate-types). Calling functions at runtime: [Call Forst from Node](/interop/node/call-forst).
+
 ## Native binary
 
 Download the release artifact for your OS/arch from [GitHub Releases](https://github.com/forst-lang/forst/releases), extract it, and add it to your `PATH`.
@@ -118,6 +154,11 @@ You should see version output and subcommand help. If the npm wrapper fails to d
 
 ## Next
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  Write and run your first validated handler.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Write and run your first validated handler.
+  </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Import from `@forst/gen` after install and generate.
+  </Card>
+</CardGroup>

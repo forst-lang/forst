@@ -3,22 +3,12 @@ title: "Call Forst from Node"
 description: "Call Forst functions from Node applications."
 ---
 
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
+
 Forst generates either Promise-based calls or Effect values. Both modes use the
 same package subpaths and function names.
 
-Install `@forst/cli` and add the lifecycle script:
-
-```bash
-npm install @forst/cli
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate ."
-  }
-}
-```
+<NodeClientSetupNote />
 
 Promise mode is the default. To generate Effect values, install `effect` and
 enable Effect mode in `ftconfig.json`:
@@ -42,10 +32,9 @@ enable Effect mode in `ftconfig.json`:
   </Card>
 </Columns>
 
-Generate the client and point it at a server:
+Point the client at a server:
 
 ```bash
-npx forst generate .
 export FORST_BASE_URL=http://127.0.0.1:6321
 ```
 
@@ -83,8 +72,7 @@ const valid = await Effect.runPromise(
 </CodeGroup>
 
 Named imports from `@forst/gen/<package>` are the recommended style in both
-modes. The `postinstall` line must run before those imports resolve on a fresh
-checkout. See [Generate a TypeScript client](/interop/node/generate-types) and
+modes. See [Generate a TypeScript client](/interop/node/generate-types) and
 [Effect mode](/interop/node/effect).
 
 ## Quick start
@@ -113,18 +101,8 @@ checkout. See [Generate a TypeScript client](/interop/node/generate-types) and
     }
     ```
   </Step>
-  <Step title="Add postinstall and generate">
-    ```json
-    {
-      "scripts": {
-        "postinstall": "forst generate ."
-      }
-    }
-    ```
-
-    ```bash
-    npx forst generate .
-    ```
+  <Step title="Install and generate">
+    Follow [Installation § Generated TypeScript client](/installation#generated-typescript-client).
 
     Promise mode is enabled by default. For Effect return types, set
     `"generate": { "effect": true }` in `ftconfig.json` before generating.
@@ -443,7 +421,7 @@ Only **public** functions with no unsatisfied [Providers](/language/providers) a
 ## Troubleshooting
 
 <Accordion title="Cannot find module '@forst/gen/...'">
-  Run `npx forst generate .` and confirm `package.json` has `"postinstall": "forst generate ."`. Fresh checkouts need that script because `.forst/client` is gitignored and `npm ci` deletes the `node_modules` link.
+  Follow [Installation § Generated TypeScript client](/installation#generated-typescript-client). Fresh checkouts need `postinstall` because `.forst/client` is gitignored and `npm ci` deletes the `node_modules` link.
 </Accordion>
 
 <Accordion title="Connection refused / InvokeUnreachable">
@@ -493,8 +471,11 @@ Wire **`with`** blocks in Go **`main`** before the server starts. See [Providers
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
+  </Card>
   <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    Install, postinstall, and `@forst/gen` imports.
+    Subpaths, types, and `@forst/gen` layout.
   </Card>
   <Card title="Testing" icon="flask" href="/interop/node/testing">
     Stub calls with `withForstTestScope`.

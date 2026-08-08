@@ -1,27 +1,12 @@
 ---
 title: "Generate a TypeScript client"
-description: "Install @forst/cli, add postinstall, run forst generate, and import from @forst/gen."
+description: "Run forst generate and import typed clients from @forst/gen."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-Install `@forst/cli`, add the lifecycle script, generate, then import:
-
-```bash
-npm install @forst/cli
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate ."
-  }
-}
-```
-
-```bash
-npx forst generate .
-```
+<NodeClientSetupNote />
 
 ```typescript
 import { VerifyPassword } from "@forst/gen/auth";
@@ -34,10 +19,6 @@ const input: VerifyPasswordRequest = {
 
 const { valid } = await VerifyPassword(input);
 ```
-
-The `postinstall` line is required. The client lives under `.forst/client` (gitignored) and is linked into `node_modules`. A fresh `npm ci` removes the link. Without `postinstall`, imports of `@forst/gen` fail until someone runs generate by hand.
-
-Honest setup is one line in `package.json`.
 
 To call functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/node/call-javascript).
 
@@ -92,17 +73,8 @@ Only **exported** functions (capitalized names) appear in the client. Provider g
 
 Pass **`-config`** explicitly or let the CLI search upward from your target directory.
 
-Optional lifecycle scripts for local workflows:
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate .",
-    "predev": "forst generate .",
-    "prebuild": "forst generate ."
-  }
-}
-```
+Lifecycle scripts (`postinstall`, optional `predev` / `prebuild`) live on
+[Installation § Generated TypeScript client](/installation#generated-typescript-client).
 
 ## End-to-end example
 
@@ -131,6 +103,9 @@ TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat t
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
+  </Card>
   <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
     Invoke generated functions over HTTP.
   </Card>

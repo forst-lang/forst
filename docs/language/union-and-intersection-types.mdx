@@ -1,0 +1,155 @@
+---
+title: "Union and intersection types"
+description: "Combine related types under one name."
+---
+
+Use a union when a value can belong to one of several types. Use an
+intersection when a value must satisfy several types at once. These forms help
+describe alternatives and shared requirements without merging the original
+types.
+
+Forst supports both forms in named type declarations. Current end to end support
+focuses on unions of named errors. General unions and intersections remain
+experimental.
+
+<Warning>
+  Use named error unions in application code. Other unions and
+  intersections can lose type detail in generated Go.
+</Warning>
+
+## Choose either or both
+
+The operator describes how the member types relate.
+
+| Syntax | Meaning | Current use |
+| --- | --- | --- |
+| `A \| B` | A value belongs to either type | Named error unions |
+| `A & B` | A value satisfies both types | Experimental type composition |
+
+Both forms currently require a named declaration.
+
+```forst
+type Identifier = String | Int
+```
+
+Inline forms such as a function parameter typed as `A | B` are unavailable.
+
+## Define a closed set of errors
+
+A named error union lists every failure that a function may return.
+
+```forst
+error ParseError {
+    code: Int,
+}
+
+error IoError {
+    path: String,
+}
+
+type LoadError = ParseError | IoError
+```
+
+`LoadError` accepts `ParseError` or `IoError`. Each member keeps its own name
+and fields. Other error types do not belong to this union.
+
+Use the union as the failure type of a `Result`.
+
+```forst
+func load(): Result(Int, LoadError) {
+    return 0
+}
+```
+
+This tells callers the complete set of expected failures. See
+[Errors and Result](/language/errors-and-result) for how to create and return
+named errors.
+
+## Narrow to one error
+
+Use `Err(ErrorName)` to handle one member of an error union.
+
+```forst
+func handleParseError(err ParseError) {}
+
+func inspect() {
+    result := load()
+    if result is Err(ParseError) {
+        handleParseError(result)
+    }
+}
+```
+
+Inside the branch, `result` is a `ParseError`. The direct form
+`result is ParseError` is unavailable for error unions.
+
+## Understand the generated types
+
+Generated Go uses an interface that only the listed error types implement. This
+keeps the error set closed while preserving ordinary Go error behavior.
+
+Generated TypeScript represents the same declaration as a union.
+
+```typescript
+type LoadError = ParseError | IoError;
+```
+
+The two targets therefore preserve the same set of named failures.
+
+## General unions and intersections
+
+Forst can parse and check declarations such as these.
+
+```forst
+type Named = {
+    name: String,
+}
+
+type Entity = {
+    id: Int,
+}
+
+type TextOrNumber = String | Int
+type NamedEntity = Named & Entity
+```
+
+Their full behavior is still in development. Generated Go currently uses `any`
+for arbitrary unions and intersections. Narrowing also works only in a limited
+set of cases.
+
+Use the tested named error union path for production code. Treat other
+combinations as experiments until their Go output and narrowing rules are
+complete.
+
+## Current limits
+
+- Union and intersection syntax works only in named type declarations.
+- Named error unions are the supported end to end path.
+- Error union narrowing uses `Err(ErrorName)` on a `Result`.
+- Arbitrary unions and intersections lose detail in generated Go.
+- Optional types such as `T | Nil` are still planned.
+- Type merging after control flow branches is still being expanded.
+
+See the [roadmap](/resources/roadmap) for the current implementation status.
+
+## Run the examples
+
+Run the tested error union examples from the Forst repository.
+
+```bash
+task example:union-error-types
+task example:union-error-narrowing
+```
+
+## Related
+
+Continue with typed failures or narrowing.
+
+<CardGroup cols={2}>
+  <Card title="Errors and Result" icon="triangle-exclamation" href="/language/errors-and-result">
+    Return and handle named failures.
+  </Card>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    Refine values after runtime checks.
+  </Card>
+</CardGroup>

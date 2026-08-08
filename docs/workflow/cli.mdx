@@ -5,27 +5,16 @@ description: "forst run, build, generate, dev, lsp, and other commands."
 
 import HelloFt from "/snippets/hello.ft.mdx";
 
-Install `@forst/cli` (or a native binary), then compile a file:
-
-```bash
-npm install @forst/cli
-```
-
-```json
-{
-  "scripts": {
-    "postinstall": "forst generate ."
-  }
-}
-```
+Install `@forst/cli` or a native binary ([Installation](/installation)), then compile a file:
 
 ```bash
 npx forst path/to/hello.ft
 ```
 
-The **`forst`** CLI transpiles `.ft` sources, runs programs, generates the TypeScript client package, and starts development services. See [`@forst/cli`](/installation) for install options.
+The **`forst`** CLI transpiles `.ft` sources, runs programs, generates the TypeScript client package, and starts development services.
 
-Add `postinstall` whenever your Node app imports `@forst/gen`. Without it, a fresh checkout has no linked client. See [Generate a TypeScript client](/interop/node/generate-types).
+Node apps that import `@forst/gen` also need the `postinstall` generate script. See
+[Installation § Generated TypeScript client](/installation#generated-typescript-client).
 
 ## Default compile and run
 
@@ -189,8 +178,11 @@ Set **`FORST_BINARY`** to skip download in CI.
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    npm, binary, Docker, and the generated client setup.
+  </Card>
   <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    Install, postinstall, and imports.
+    `@forst/gen` imports and layout.
   </Card>
   <Card title="Dev server" icon="server" href="/workflow/dev-server">
     HTTP contract and regenerate on save.
