@@ -182,9 +182,6 @@ rsync -a \
   --exclude node_modules \
   --exclude .forst \
   --exclude build \
-  --exclude client \
-  --exclude generated \
-  --exclude 'app/lib/forst.invoke.ts' \
   "$EXAMPLE_SRC/" "$TMP/"
 
 echo "=== patch @forst/* deps ==="

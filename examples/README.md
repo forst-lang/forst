@@ -20,7 +20,7 @@ In **Node-primary** layouts, `replace` paths in `.forst-gomod/go.mod` are relati
 
 - **`in/tictactoe/`** — multi-file `package main` under `main/` (types + engine + `fmt` demo `server.ft`). Run with `task example:tictactoe` (`forst run -root …/tictactoe -- …/main/server.ft`). Regenerate TS with `task example:tictactoe:generate`. Golden Go for the merged compile is `out/tictactoe/server.go` (uses `exportStructFields` from `in/tictactoe/ftconfig.json`). Refresh all Go goldens with **`task examples:update-goldens`** from the repo root, or only tictactoe with `UPDATE_TICTACTOE_GOLDEN=1 go test ./cmd/forst -run TestExampleTictactoeMergedPackage -count=1` from `forst/`.
 
-- **`in/forst-generate-ts-examples.json`** — lists example directories (under `in/`) that CI exercises with `forst generate` plus optional `mustContain` checks (`TestGenerate_exampleManifest` in `forst/cmd/forst`). Add a path when an example has `ftconfig.json` + `.ft` sources and should keep emitting valid `generated/` + `client/` TypeScript. Separate `tsc --noEmit` smoke runs in `generate_tsc_test.go`.
+- **`in/forst-generate-ts-examples.json`** — lists example directories (under `in/`) that CI exercises with `forst generate` plus optional `mustContain` checks (`TestGenerate_exampleManifest` in `forst/cmd/forst`). Add a path when an example has `ftconfig.json` + `.ft` sources and should keep emitting a valid `@forst/gen` client under `.forst/client`. Separate `tsc --noEmit` smoke runs in `generate_tsc_test.go`.
 
 ## `in/rfc/`
 

@@ -1,0 +1,156 @@
+---
+title: "Testing"
+description: "Stub Forst calls in tests with withForstTestScope — same import path as production."
+---
+
+Install `@forst/cli`, add the lifecycle script, generate, then stub one function in a test:
+
+```bash
+npm install @forst/cli
+```
+
+```json
+{
+  "scripts": {
+    "postinstall": "forst generate ."
+  }
+}
+```
+
+```bash
+npx forst generate .
+```
+
+```typescript
+import { withForstTestScope } from "@forst/gen/testing";
+import { ComparePassword } from "@forst/gen/bcrypt";
+
+const input = {
+  plainPassword: "secret",
+  passwordHash: "$2a$...",
+};
+
+await withForstTestScope(
+  {
+    packages: {
+      bcrypt: {
+        ComparePassword: async () => ({ valid: true }),
+      },
+    },
+  },
+  async () => {
+    expect(await ComparePassword(input)).toEqual({ valid: true });
+  }
+);
+```
+
+The test imports the same specifier as production (`@forst/gen/bcrypt`). The scope restores itself even when the test throws. Concurrent tests do not leak overrides into each other.
+
+## Three levels
+
+| Level | Replaces | Typical use |
+| --- | --- | --- |
+| Function | One entry in one package map | Most unit tests |
+| Package | Every function in one package map | Fake a whole subsystem |
+| Transport | Raw `invokeFunction` / `invokeStream` | Assert the payload or simulate a failure |
+
+### Function
+
+```typescript
+await withForstTestScope(
+  {
+    packages: {
+      bcrypt: {
+        ComparePassword: async () => ({ valid: true }),
+      },
+    },
+  },
+  async () => {
+    await ComparePassword(input);
+  }
+);
+```
+
+Handler maps are typed from generated signatures. A stub that returns the wrong shape fails `tsc`.
+
+### Package
+
+```typescript
+await withForstTestScope(
+  {
+    packages: {
+      bcrypt: {
+        ComparePassword: async () => ({ valid: true }),
+        Hash: async () => ({ hash: "stub" }),
+      },
+    },
+  },
+  async () => {
+    // every bcrypt export you call must be listed, or it fails loudly
+  }
+);
+```
+
+An unstubbed call fails with `InvokeRejected` naming the package and function. Tests exercise the same tagged error path as production.
+
+### Transport
+
+```typescript
+import { InvokeTimedOut } from "@forst/gen";
+
+await withForstTestScope(
+  {
+    transport: {
+      invokeFunction: async (pkg, fn) => {
+        throw new InvokeTimedOut({
+          packageName: pkg,
+          functionName: fn,
+          timeoutMs: 50,
+        });
+      },
+    },
+  },
+  async () => {
+    await expect(ComparePassword(input)).rejects.toMatchObject({
+      _tag: "InvokeTimedOut",
+    });
+  }
+);
+```
+
+## Namespaced client
+
+If your code uses `createForstClient`, build a test double with the same handler maps:
+
+```typescript
+import { createTestForstClient } from "@forst/gen/testing";
+
+const forst = createTestForstClient({
+  bcrypt: {
+    ComparePassword: async () => ({ valid: true }),
+  },
+});
+
+await forst.bcrypt.ComparePassword(input);
+```
+
+## Effect mode
+
+With `generate.effect: true`, use layers instead of `withForstTestScope`. Same three levels. See [Effect mode](/interop/node/effect#testing).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+    Production calls, failures, and options.
+  </Card>
+  <Card title="Effect mode" icon="bolt" href="/interop/node/effect">
+    `Layer.mock` and `layerForstTest`.
+  </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Install and `@forst/gen` imports.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    `testingSubpath` and other `generate` fields.
+  </Card>
+</CardGroup>

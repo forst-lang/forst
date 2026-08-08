@@ -25,6 +25,20 @@ type Config struct {
 	Output   OutputConfig   `json:"output"`
 	Dev      DevConfig      `json:"dev"`
 	Node     NodeConfig     `json:"node"`
+	Generate GenerateConfig `json:"generate"`
+}
+
+// GenerateConfig controls TypeScript client package generation (forst generate).
+type GenerateConfig struct {
+	PackageName    string `json:"packageName"`
+	OutDir         string `json:"outDir"`
+	Link           string `json:"link"`
+	Emit           string `json:"emit"`
+	TestingSubpath string `json:"testingSubpath"`
+	Effect         bool   `json:"effect"`
+	SSRModule      string `json:"ssrModule"`
+	// OmitStubs emits commented stubs for provider-gated omissions in package modules (SPEC §12).
+	OmitStubs bool `json:"omitStubs"`
 }
 
 // NodeRPCConfig represents Node stdio RPC limits.
@@ -198,6 +212,7 @@ func Default() *Config {
 				CallTimeoutSeconds: 120,
 			},
 		},
+		Generate: defaultGenerateConfig(),
 	}
 }
 

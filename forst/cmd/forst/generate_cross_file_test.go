@@ -35,13 +35,23 @@ func GetX(r R): Int {
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
-	types, err := os.ReadFile(filepath.Join(dir, "generated", "types.d.ts"))
+	types, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "types.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(types)
-	if !strings.Contains(s, "R") || !strings.Contains(s, "GetX") {
-		t.Fatalf("expected merged types with R and GetX; got:\n%s", s)
+	if !strings.Contains(s, "R") {
+		t.Fatalf("expected merged types with R; got:\n%s", s)
+	}
+	if strings.Contains(s, "export function GetX") {
+		t.Fatalf("types.d.ts must not include function signatures; got:\n%s", s)
+	}
+	core, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "core", "main.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(core), "GetX") {
+		t.Fatalf("expected GetX in core module; got:\n%s", core)
 	}
 }
 
@@ -108,7 +118,7 @@ func Tag(b Order): String {
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
-	typesPath := filepath.Join(dir, "generated", "types.d.ts")
+	typesPath := filepath.Join(defaultClientDistDir(dir), "types.d.ts")
 	b, err := os.ReadFile(typesPath)
 	if err != nil {
 		t.Fatal(err)
@@ -117,11 +127,19 @@ func Tag(b Order): String {
 	for _, needle := range []string{
 		"Catalog",
 		"Order",
-		"GetId",
-		"Tag",
 	} {
 		if !strings.Contains(s, needle) {
 			t.Fatalf("generated types.d.ts missing %q; snippet:\n%s", needle, truncateForTestLog(s, 2000))
+		}
+	}
+	core, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "core", "main.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	coreText := string(core)
+	for _, needle := range []string{"GetId", "Tag"} {
+		if !strings.Contains(coreText, needle) {
+			t.Fatalf("core module missing %q; snippet:\n%s", needle, truncateForTestLog(coreText, 2000))
 		}
 	}
 }

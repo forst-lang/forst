@@ -42,9 +42,15 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
       : process.env.FORST_DOWNLOAD_COMPILER === "1" ||
         process.env.FORST_DOWNLOAD_COMPILER === "true";
 
+  const mode = partial.mode ?? "development";
+  const watchGenerate =
+    partial.watchGenerate !== undefined
+      ? partial.watchGenerate
+      : mode === "development";
+
   return {
     ...partial,
-    mode: partial.mode ?? "development",
+    mode,
     port,
     host,
     logLevel: partial.logLevel ?? "info",
@@ -53,6 +59,7 @@ export function mergeForstSidecarEnv(partial: Partial<ForstConfig>): ForstConfig
     sidecarRuntime,
     versionCheck,
     downloadCompiler,
+    watchGenerate,
   };
 }
 

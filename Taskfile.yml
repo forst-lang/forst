@@ -231,7 +231,7 @@ tasks:
   #
   # Multi-file merged package + TypeScript (examples/in/tictactoe):
   #   task example:tictactoe          — run entry main/server.ft (forst run -root …/tictactoe)
-  #   task example:tictactoe:generate — forst generate …/tictactoe (generated/*.ts, client/)
+  #   task example:tictactoe:generate — forst generate …/tictactoe (.forst/client dist/)
   #
   example:
     desc: Compile a specific example file (use task example:tictactoe for merged-package demo)
@@ -485,7 +485,7 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/main/server.ft
 
   example:tictactoe:generate:
-    desc: Regenerate generated/ and client/ TypeScript for tictactoe (forst generate on the package dir)
+    desc: Regenerate @forst/gen client under .forst/client for tictactoe (forst generate)
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe

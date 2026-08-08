@@ -22,7 +22,7 @@
     "exclude": [
       "**/node_modules/**",
       "**/.git/**",
-      "**/client/**",
+      "**/.forst/**",
       "**/*.skip.ft"
     ],
     "maxDepth": 10

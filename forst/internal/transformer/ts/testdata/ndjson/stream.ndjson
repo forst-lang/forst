@@ -1,0 +1,3 @@
+{"data":{"id":"1","text":"hello"},"status":"ok"}
+{"data":{"id":"2","text":"world"},"status":"ok"}
+{"data":null,"status":"done"}

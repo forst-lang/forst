@@ -5,7 +5,27 @@ description: "forst run, build, generate, dev, lsp, and other commands."
 
 import HelloFt from "/snippets/hello.ft.mdx";
 
-The **`forst`** CLI transpiles `.ft` sources, runs programs, generates TypeScript output, and starts development services. Install via [`@forst/cli`](/installation) or a native binary.
+Install `@forst/cli` (or a native binary), then compile a file:
+
+```bash
+npm install @forst/cli
+```
+
+```json
+{
+  "scripts": {
+    "postinstall": "forst generate ."
+  }
+}
+```
+
+```bash
+npx forst path/to/hello.ft
+```
+
+The **`forst`** CLI transpiles `.ft` sources, runs programs, generates the TypeScript client package, and starts development services. See [`@forst/cli`](/installation) for install options.
+
+Add `postinstall` whenever your Node app imports `@forst/gen`. Without it, a fresh checkout has no linked client. See [Generate a TypeScript client](/interop/node/generate-types).
 
 ## Default compile and run
 
@@ -32,15 +52,57 @@ Common flags (see `forst --help`):
 
 ## `forst generate`
 
-Emit TypeScript declarations and client stubs from Forst sources:
+Emit a TypeScript client package from Forst sources:
 
 ```bash
+forst generate .
 forst generate ./my-service
-forst generate ./handlers/orders.ft
 forst generate -config ./ftconfig.json ./my-service
+forst generate --watch .
 ```
 
-Uses the same file discovery rules as `forst dev`. Output typically lands in `generated/` and `client/` relative to the target.
+Uses the same file discovery rules as `forst dev`. Import from `@forst/gen/<package>` after generate (and after `postinstall` on a fresh machine).
+
+`--watch` regenerates when `.ft` files change. Use it when the dev server runs separately, or rely on regenerate-on-save from [Dev server](/workflow/dev-server#generated-client).
+
+### Output modes
+
+| Mode | `outDir` | Committed | Linked into `node_modules` |
+| --- | --- | --- | --- |
+| Ephemeral (default) | `.forst/client` | No | Yes (`node_modules/@forst/gen` → outDir) |
+| Committed | for example `packages/forst-client` | Yes | No (`link: "auto"` skips linking outside `.forst`) |
+
+Ephemeral output is removed by `forst clean` and restored by the next generate. Committed mode is a normal workspace package you check in.
+
+### Generate configuration
+
+Set these under `"generate"` in `ftconfig.json`:
+
+```json
+{
+  "generate": {
+    "packageName": "@forst/gen",
+    "outDir": ".forst/client",
+    "link": "auto",
+    "emit": "js",
+    "testingSubpath": "testing",
+    "effect": false,
+    "ssrModule": ""
+  }
+}
+```
+
+| Field | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `packageName` | `string` | `"@forst/gen"` | Name written into the generated `package.json` and used as the `node_modules` link name |
+| `outDir` | `string` | `.forst/client` | Single output directory relative to the ftconfig boundary root |
+| `link` | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Whether to write the `node_modules` link. `auto` links when `outDir` is inside `.forst` |
+| `emit` | `"js"` | `"js"` | Always emit built JS. `"ts"` is rejected |
+| `testingSubpath` | `string` | `"testing"` | Subpath key for the test scope (`@forst/gen/testing`). Change it when a Forst package is named `testing` |
+| `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
+| `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
+
+Task pages link here instead of repeating this table.
 
 ## `forst dev`
 
@@ -92,13 +154,15 @@ Useful when reporting compiler bugs.
 
 ## `forst clean`
 
-Remove compiler-generated artifacts under `.forst/` (run sandboxes, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
+Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
 
 ```bash
 forst clean
 forst clean -root ./my-service
 forst clean -dry-run
 ```
+
+After `forst clean`, run `forst generate` (or rely on `postinstall`) to restore `@forst/gen`.
 
 ## `forst version`
 
@@ -125,6 +189,12 @@ Set **`FORST_BINARY`** to skip download in CI.
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Install, postinstall, and imports.
+  </Card>
+  <Card title="Dev server" icon="server" href="/workflow/dev-server">
+    HTTP contract and regenerate on save.
+  </Card>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     First commands in context.
   </Card>

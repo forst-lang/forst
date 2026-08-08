@@ -2,7 +2,15 @@ package transformerts
 
 import "fmt"
 
+// DirectInvokeClientImportLine returns the ESM import for getDefaultInvokeClient
+// from the inlined transport module (not @forst/client).
+func DirectInvokeClientImportLine() string {
+	return fmt.Sprintf("import { getDefaultInvokeClient } from '%s';", TransportModuleSpecifier)
+}
+
 // DirectInvokeExportLines emits SSR-safe named invoke helpers with lazy client init.
+// Call sites must also emit DirectInvokeClientImportLine() (or an equivalent import
+// from TransportModuleSpecifier).
 func DirectInvokeExportLines(packageName string, functions []FunctionSignature) []string {
 	lines := make([]string, 0, len(functions))
 	for _, function := range functions {

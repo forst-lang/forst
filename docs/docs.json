@@ -64,6 +64,8 @@
                 "pages": [
                   "interop/node/generate-types",
                   "interop/node/call-forst",
+                  "interop/node/testing",
+                  "interop/node/effect",
                   "interop/node/call-javascript"
                 ]
               }

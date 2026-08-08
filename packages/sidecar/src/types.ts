@@ -135,6 +135,7 @@ export interface ForstConfig {
   /**
    * After a debounced watcher-driven `forst dev` restart, run `forst generate` on the project root
    * (same argv shape as {@link ForstSidecar.generateTypes}, including `-config` when set).
+   * Defaults to `true` when {@link mode} is `development`, otherwise `false`.
    */
   watchGenerate?: boolean;
   /** Reserved for future non-HTTP transports (IPC, etc.). Not implemented; HTTP only today. */

@@ -1,19 +1,23 @@
 /**
- * End-to-end: TypeScript uses **`ForstClient`** from **`client/`** only (no `generated/` imports).
- * Calls **`main.NewGame`** / **`main.PlayMove`** via **`forst dev`** → **`POST /invoke`** (same as production).
+ * End-to-end: TypeScript uses createForstClient from @forst/gen (linked under .forst/client).
+ * Calls main.NewGame / main.PlayMove via forst dev → POST /invoke.
  *
- * Requires `task example:tictactoe:generate` so `client/types.d.ts` and `client/index.ts` exist.
- * Spawns **`forst dev`** with the example `ftconfig.json` (see `beforeAll`).
+ * Requires `task example:tictactoe:generate` so node_modules/@forst/gen exists.
+ * Spawns forst dev with the example ftconfig.json (see beforeAll).
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { DevServerHttpFailure } from "@forst/sidecar";
-import { ForstClient } from "../client";
-import type { GameState, MoveRequest } from "../client/types";
+import {
+  createForstClient,
+  type ForstClient,
+  type GameState,
+  type MoveRequest,
+} from "@forst/gen";
 
 const exampleRoot = join(import.meta.dir, "..");
-const typesFile = join(exampleRoot, "client", "types.d.ts");
+const typesFile = join(exampleRoot, ".forst", "client", "dist", "types.d.ts");
 const ftconfigPath = join(exampleRoot, "ftconfig.json");
 
 function resolveForstBinary(): string {
@@ -98,7 +102,7 @@ beforeAll(async () => {
 
   await waitForHealth(baseUrl, 60_000);
 
-  client = new ForstClient({
+  client = createForstClient({
     baseUrl,
     retries: 0,
     timeout: 60_000,
@@ -143,7 +147,6 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
       expect(e).toBeInstanceOf(DevServerHttpFailure);
       const http = e as DevServerHttpFailure;
       const blob = `${http.serverErrorFromBody ?? ""} ${http.responseText}`;
-      // Duplicate square fails `ensure` in engine.ft (runtime reports Bool.True / assertion; message text may vary by emit).
       expect(blob).toMatch(/cell already taken|Bool\.True\(\)|assertion failed/);
     }
   });
@@ -164,8 +167,6 @@ describe("tictactoe game (ForstClient + forst dev)", () => {
       const r = await c.main.PlayMove({ state, row, col });
       state = r.state;
     }
-    expect(state.cells[0]).toBe("X");
-    expect(state.cells[1]).toBe("X");
-    expect(state.cells[2]).toBe("X");
+    expect(state.winner).toBe("X");
   });
 });

@@ -24,4 +24,20 @@ func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
 			t.Fatalf("missing %q in:\n%s", frag, text)
 		}
 	}
+	for _, banned := range []string{"@forst/client", "@forst/sidecar"} {
+		if strings.Contains(text, banned) {
+			t.Fatalf("direct invoke exports must not contain %q:\n%s", banned, text)
+		}
+	}
+}
+
+func TestDirectInvokeClientImportLine_usesInlinedTransport(t *testing.T) {
+	got := DirectInvokeClientImportLine()
+	want := "import { getDefaultInvokeClient } from './transport.js';"
+	if got != want {
+		t.Fatalf("DirectInvokeClientImportLine() = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "@forst/client") {
+		t.Fatalf("import must not use @forst/client: %q", got)
+	}
 }

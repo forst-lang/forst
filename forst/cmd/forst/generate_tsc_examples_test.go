@@ -16,9 +16,9 @@ import (
 // large trees (e.g. tictactoe) in every CI race run.
 type generateTSExamplesManifest struct {
 	Examples []struct {
-		Path                      string   `json:"path"`
-		MustContain               []string `json:"mustContain,omitempty"`
-		AllowStemPackageMismatch  bool     `json:"allowStemPackageMismatch,omitempty"`
+		Path                     string   `json:"path"`
+		MustContain              []string `json:"mustContain,omitempty"`
+		AllowStemPackageMismatch bool     `json:"allowStemPackageMismatch,omitempty"`
 	} `json:"examples"`
 }
 
@@ -97,7 +97,7 @@ func copyGenerateExampleSources(srcRoot, dstRoot string) error {
 		}
 		if d.IsDir() {
 			base := filepath.Base(path)
-			if base == "generated" || base == "client" || base == "node_modules" || base == ".git" {
+			if base == "generated" || base == "client" || base == "node_modules" || base == ".git" || base == ".forst" {
 				return fs.SkipDir
 			}
 			return nil
@@ -128,23 +128,21 @@ func copyGenerateExampleSources(srcRoot, dstRoot string) error {
 func mustContainInGeneratedTypeScript(t *testing.T, projectRoot string, want []string) {
 	t.Helper()
 	var combined strings.Builder
-	for _, sub := range []string{"generated", "client"} {
-		dir := filepath.Join(projectRoot, sub)
-		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+	srcDir := defaultClientDistDir(projectRoot)
+	_ = filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".d.ts") {
+			b, err := os.ReadFile(path)
+			if err != nil {
 				return err
 			}
-			if strings.HasSuffix(path, ".ts") {
-				b, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				combined.Write(b)
-				combined.WriteByte('\n')
-			}
-			return nil
-		})
-	}
+			combined.Write(b)
+			combined.WriteByte('\n')
+		}
+		return nil
+	})
 	s := combined.String()
 	for _, w := range want {
 		if !strings.Contains(s, w) {

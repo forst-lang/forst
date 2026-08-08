@@ -49,7 +49,8 @@ my-service/
 ├── handlers/orders.ft
 ├── internal/legacy.go
 ├── ftconfig.json          # optional: generate / dev discovery
-└── generated/types.d.ts   # often gitignored
+├── package.json           # scripts.postinstall: forst generate .
+└── .forst/client/         # gitignored, linked as @forst/gen
 ```
 
 Same-package `.ft` files merge when you pass `-root`. Go files and Forst files can live in one module.

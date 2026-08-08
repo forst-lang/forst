@@ -18,9 +18,9 @@ cd forst && go run ./cmd/forst run -root ../examples/in/tictactoe -- ../examples
 
 ## TypeScript client (`forst generate`)
 
-`generated/` and `client/` under this folder are **gitignored**; run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
+Output lands in gitignored `.forst/client` (linked as `node_modules/@forst/gen`). Run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
 
-From the repo root, regenerate `generated/*.ts` and `client/` (merged `types.d.ts`, per-file `*.client.ts`, and `@forst/client` wrapper):
+From the repo root:
 
 ```bash
 task example:tictactoe:generate
@@ -32,7 +32,7 @@ Equivalent:
 cd forst && go run ./cmd/forst generate ../examples/in/tictactoe
 ```
 
-Use `npm install` or `pnpm install` inside `client/` if you want to type-check against `@forst/sidecar` (see `client/package.json`). Point `FORST_BASE_URL` at a running `forst dev` sidecar when calling `NewGame()` / `PlayMove()` from TypeScript.
+Import with `import { createForstClient } from "@forst/gen"` or `import { PlayMove } from "@forst/gen/main"`. Point `FORST_BASE_URL` at a running `forst dev` when calling the client.
 
 ### Tests (bun)
 

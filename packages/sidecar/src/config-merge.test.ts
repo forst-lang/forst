@@ -70,4 +70,20 @@ describe("mergeForstSidecarEnv", () => {
     const m = mergeForstSidecarEnv({ downloadCompiler: false });
     expect(m.downloadCompiler).toBe(false);
   });
+
+  it("defaults watchGenerate to true in development", () => {
+    const m = mergeForstSidecarEnv({});
+    expect(m.mode).toBe("development");
+    expect(m.watchGenerate).toBe(true);
+  });
+
+  it("defaults watchGenerate to false outside development", () => {
+    const m = mergeForstSidecarEnv({ mode: "production" });
+    expect(m.watchGenerate).toBe(false);
+  });
+
+  it("respects explicit watchGenerate false in development", () => {
+    const m = mergeForstSidecarEnv({ mode: "development", watchGenerate: false });
+    expect(m.watchGenerate).toBe(false);
+  });
 });

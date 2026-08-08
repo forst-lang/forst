@@ -10,9 +10,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@forst/client": path.resolve(dir, "app/lib/forst-client.ts"),
+      "@forst/gen": path.resolve(dir, ".forst/client"),
     },
   },
   ssr: {
-    noExternal: ["@forst/sidecar", "@forst/client"],
+    noExternal: ["@forst/sidecar", "@forst/client", "@forst/gen"],
   },
 });

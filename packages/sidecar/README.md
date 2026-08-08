@@ -264,7 +264,7 @@ If `FORST_DEV_URL` is set but you need a local **spawn** anyway, set `sidecarRun
 
 **`generateTypes()`** runs `forst generate` with the same effective project root as `forst dev -root` (`rootDir` / `forstDir`). If **`configPath`** is set, `-config` is passed so include/exclude matches `forst dev`. Output goes under `generated/`—no HTTP server required. In monorepos, pair with **connect** mode: one task runs `forst dev`, another runs codegen.
 
-**`watchGenerate`:** when `true`, runs `forst generate` after debounced hot-reload restarts when `.ft` files change (**spawn** mode only; same roots as `generateTypes`).
+**`watchGenerate`:** when `true`, runs `forst generate` after debounced hot-reload restarts when `.ft` files change (**spawn** mode only; same roots as `generateTypes`). Defaults to `true` in `development` mode.
 
 ## Troubleshooting
 

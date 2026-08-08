@@ -82,15 +82,49 @@ func TestMergeTypeScriptOutputs_duplicateFunctionSameSignature_ok(t *testing.T) 
 	}
 }
 
-func TestMergeTypeScriptOutputs_duplicateFunctionConflictingSignature_errors(t *testing.T) {
-	a := &TypeScriptOutput{Functions: []FunctionSignature{{Name: "Echo", ReturnType: "string"}}}
-	b := &TypeScriptOutput{Functions: []FunctionSignature{{Name: "Echo", ReturnType: "number"}}}
+func TestMergeTypeScriptOutputs_duplicateFunctionConflictingSignature_allowedAcrossPackages(t *testing.T) {
+	a := &TypeScriptOutput{PackageName: "alpha", Functions: []FunctionSignature{{Name: "Echo", ReturnType: "string"}}}
+	b := &TypeScriptOutput{PackageName: "beta", Functions: []FunctionSignature{{Name: "Echo", ReturnType: "number"}}}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{a, b})
+	if err != nil {
+		t.Fatalf("cross-package function name collisions must be allowed: %v", err)
+	}
+	if len(out.Functions) != 1 {
+		t.Fatalf("want first Echo kept for streaming markers, got %d", len(out.Functions))
+	}
+}
+
+func TestMergeTypeScriptOutputs_identicalTypeInTwoPackagesMergesOnce(t *testing.T) {
+	body := "export interface Config { x: number; }"
+	a := &TypeScriptOutput{PackageName: "billing", Types: []string{body}, ExportedTypeNames: []string{"Config"}}
+	b := &TypeScriptOutput{PackageName: "auth", Types: []string{body}, ExportedTypeNames: []string{"Config"}}
+	out, err := MergeTypeScriptOutputs([]*TypeScriptOutput{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Types) != 1 {
+		t.Fatalf("want 1 merged Config, got %d: %v", len(out.Types), out.Types)
+	}
+}
+
+func TestMergeTypeScriptOutputs_conflictingTypeNameFailsNamingBothPackages(t *testing.T) {
+	a := &TypeScriptOutput{
+		PackageName: "billing",
+		Types:       []string{"export interface Config { x: number; }"},
+	}
+	b := &TypeScriptOutput{
+		PackageName: "auth",
+		Types:       []string{"export interface Config { y: string; }"},
+	}
 	_, err := MergeTypeScriptOutputs([]*TypeScriptOutput{a, b})
 	if err == nil {
-		t.Fatal("expected error for conflicting Echo signatures")
+		t.Fatal("expected conflicting type error")
 	}
-	if !strings.Contains(err.Error(), "Echo") {
-		t.Fatalf("unexpected error: %v", err)
+	msg := err.Error()
+	for _, frag := range []string{"Config", "billing", "auth", "collide"} {
+		if !strings.Contains(msg, frag) {
+			t.Fatalf("error missing %q:\n%s", frag, msg)
+		}
 	}
 }
 

@@ -5,7 +5,7 @@ import {
   CompleteTodo,
   GetDashboard,
   ListTodos,
-} from "../lib/forst.invoke";
+} from "@forst/gen/main";
 import { logServer } from "../lib/log.server";
 
 type TodoRow = { id: string; title: string; status: string };
@@ -13,7 +13,7 @@ type TodoRow = { id: string; title: string; status: string };
 function forstEnv() {
   process.env.FORST_SKIP_SPAWN = "1";
   process.env.FORST_BASE_URL =
-    process.env.FORST_BASE_URL ?? "http://127.0.0.1:8081";
+    process.env.FORST_BASE_URL ?? "http://127.0.0.1:6321";
 }
 
 function parseTodos(encoded: string): TodoRow[] {
@@ -69,7 +69,7 @@ export default function Index() {
     <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: 640 }}>
       <h1>Todos</h1>
       <p style={{ color: "#555" }}>
-        Remix loader calls Forst on <code>:8081</code>; Forst reads legacy TS on{" "}
+        Remix loader calls Forst on <code>:6321</code>; Forst reads legacy TS on{" "}
         <code>.forst/node.sock</code>.
       </p>
 

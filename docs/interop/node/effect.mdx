@@ -1,0 +1,190 @@
+---
+title: "Effect mode"
+description: "Use Effect with the generated Forst client — tagged errors by default, or generate.effect for Effect return types."
+---
+
+Install `@forst/cli`, add the lifecycle script, generate with Effect mode, then call a function through a layer:
+
+```bash
+npm install @forst/cli effect
+```
+
+```json
+{
+  "scripts": {
+    "postinstall": "forst generate ."
+  }
+}
+```
+
+```json
+{
+  "generate": {
+    "effect": true
+  }
+}
+```
+
+```bash
+npx forst generate .
+```
+
+```typescript
+import { Effect } from "effect";
+import { ForstClientLive } from "@forst/gen";
+import { ComparePassword } from "@forst/gen/bcrypt";
+
+const program = Effect.gen(function* () {
+  const { valid } = yield* ComparePassword({
+    plainPassword: "secret",
+    passwordHash: "$2a$...",
+  });
+  return valid;
+});
+
+Effect.runPromise(program.pipe(Effect.provide(ForstClientLive)));
+```
+
+Without `Effect.provide`, TypeScript reports an unsatisfied `R` channel. That is expected. Provide `ForstClientLive` (or a custom layer) before you run the program.
+
+Full `generate` fields live on the [CLI reference](/workflow/cli#generate-configuration).
+
+## Two separate points
+
+**Everyone gets tagged errors.** Every invoke failure carries a readonly `_tag` that matches the `Data.TaggedError` contract. `Effect.catchTag` works on a client generated in the default Promise mode. No flag, no `generate.effect`, and no `effect` dependency inside the generated package.
+
+**`generate.effect: true` is optional.** It makes every generated function return an `Effect`, with a typed error channel and one `Effect.Service` per Forst package.
+
+## What changes
+
+| Aspect | Promise mode (default) | Effect mode (`generate.effect: true`) |
+| --- | --- | --- |
+| Function return | `Promise<Response>` | `Effect.Effect<Response, InvokeFailure, Pkg>` |
+| Failure encoding | Thrown tagged error, plus `.safe()` | Typed `E` channel. No `.safe()`. |
+| Retries | `options.retries` | `Effect.retry` with a `Schedule` |
+| Dependencies | None | Peer dependency `effect` `>=3.17.0` |
+| Wiring | `createForstClient(config)` | `ForstClientLive` / `layerForstClient(config)` |
+| Mocking | `withForstTestScope` | `Layer.mock` / `layerForstTest` |
+
+Imports stay the same. `import { ComparePassword } from "@forst/gen/bcrypt"` works in both modes.
+
+## Errors
+
+Catch by tag in either mode:
+
+```typescript
+import { Effect } from "effect";
+import { ComparePassword } from "@forst/gen/bcrypt";
+
+const program = ComparePassword(input).pipe(
+  Effect.catchTag("InvokeRejected", (e) =>
+    Effect.succeed({ valid: false as const, reason: e.serverError })
+  ),
+  Effect.catchTag("InvokeUnreachable", () =>
+    Effect.fail(new Error("forst server unreachable"))
+  )
+);
+```
+
+Promise mode uses the same tags with `isInvokeFailure` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
+
+## Wiring
+
+| Export | Use when |
+| --- | --- |
+| `ForstClientLive` | Default transport for every Forst package |
+| `layerForstClient(config)` | Explicit base URL, timeouts, or middleware |
+| `makeForstClientRuntime(config)` | Call Forst from code that is not written in Effect |
+
+```typescript
+import { Effect } from "effect";
+import { layerForstClient, makeForstClientRuntime } from "@forst/gen";
+import { ComparePassword } from "@forst/gen/bcrypt";
+
+const layer = layerForstClient({
+  baseUrl: process.env.FORST_BASE_URL,
+});
+
+// Effect call sites
+Effect.runPromise(
+  ComparePassword(input).pipe(Effect.provide(layer))
+);
+
+// Non-Effect call sites
+const runtime = makeForstClientRuntime({
+  baseUrl: process.env.FORST_BASE_URL,
+});
+const result = await runtime.runPromise(ComparePassword(input));
+```
+
+Set **`FORST_BASE_URL`** in production. The client never spawns a server when `NODE_ENV` is `production`.
+
+## Testing
+
+Same three levels as [Testing](/interop/node/testing), expressed as layers.
+
+**One method** with `Layer.mock`:
+
+```typescript
+import { Effect, Layer } from "effect";
+import { Bcrypt } from "@forst/gen/bcrypt";
+
+const BcryptTest = Layer.mock(Bcrypt, {
+  ComparePassword: () => Effect.succeed({ valid: true }),
+});
+
+await Effect.runPromise(
+  ComparePassword(input).pipe(Effect.provide(BcryptTest))
+);
+```
+
+An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode requires `effect` `>=3.17.0`.
+
+**Whole client** with `layerForstTest`:
+
+```typescript
+import { Effect } from "effect";
+import { layerForstTest } from "@forst/gen/testing";
+import { ComparePassword } from "@forst/gen/bcrypt";
+
+const Test = layerForstTest({
+  packages: {
+    bcrypt: {
+      ComparePassword: async () => ({ valid: true }),
+    },
+  },
+});
+
+await Effect.runPromise(
+  ComparePassword(input).pipe(Effect.provide(Test))
+);
+```
+
+Handlers may return a value, a `Promise`, or an `Effect`.
+
+**Wire level** with a fake transport, when you need to assert payloads or simulate a specific failure. Provide a mock `ForstTransport` under the real package services. See [Testing](/interop/node/testing) for the Promise mode equivalents.
+
+## Requirements
+
+- Install `effect` in your app (`>=3.17.0`).
+- Set `"generate": { "effect": true }` in `ftconfig.json`.
+- Run `npx forst generate .` after changing that flag.
+
+If the resolved `effect` version is missing or too old, generate fails and names the version it found, the floor (`>=3.17.0`), and why.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+    Promise mode calls, tagged errors, and `.safe()`.
+  </Card>
+  <Card title="Testing" icon="flask" href="/interop/node/testing">
+    `withForstTestScope` for Promise mode.
+  </Card>
+  <Card title="Generate a TypeScript client" icon="/icons/typescript.svg" href="/interop/node/generate-types">
+    Install, postinstall, and `@forst/gen` imports.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    Full `generate` configuration table.
+  </Card>
+</CardGroup>

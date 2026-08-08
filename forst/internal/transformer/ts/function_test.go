@@ -33,7 +33,7 @@ func TestFunctionSignature_StreamTypesDeclaration_table(t *testing.T) {
 				},
 				StreamingRowType: "{ id: string }",
 			},
-			want: "export function StreamEventsStream(limit: number, topic: string): AsyncGenerator<import('@forst/sidecar').StreamingResult & { data?: { id: string } }, void, undefined>;",
+			want: "export function StreamEventsStream(limit: number, topic: string): AsyncGenerator<StreamingResult & { data?: { id: string } }, void, undefined>;",
 		},
 	}
 
@@ -42,6 +42,9 @@ func TestFunctionSignature_StreamTypesDeclaration_table(t *testing.T) {
 			got := tt.sig.StreamTypesDeclaration()
 			if got != tt.want {
 				t.Fatalf("StreamTypesDeclaration() = %q, want %q", got, tt.want)
+			}
+			if strings.Contains(got, "@forst/sidecar") {
+				t.Fatalf("stream declaration must not reference @forst/sidecar, got %q", got)
 			}
 		})
 	}

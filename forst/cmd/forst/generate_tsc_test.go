@@ -16,6 +16,9 @@ var tsE2EStubs embed.FS
 
 func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	ftPath := filepath.Join(dir, "main.ft")
 	if err := os.WriteFile(ftPath, []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
@@ -29,6 +32,9 @@ func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 
 func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	mainDir := filepath.Join(dir, "main")
 	if err := os.MkdirAll(mainDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -51,30 +57,34 @@ func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 // are smoke checks that generate emitted expected declarations.
 var minimalEchoFixtureTypeScriptChecks = []string{
 	"export interface EchoRequest",
-	"export function Echo(",
 }
 
 var mergedDirectoryFixtureTypeScriptChecks = []string{
 	"export interface EchoRequest",
-	"export function Echo(",
 	"export interface Ping",
-	"export function PingServer(",
 }
 
 // requireGenerateOutputForTSC fails if forst generate produced no usable output.
 func requireGenerateOutputForTSC(t *testing.T, projectRoot string, wantSubstrings []string) {
 	t.Helper()
-	typesPath := filepath.Join(projectRoot, "generated", "types.d.ts")
+	typesPath := filepath.Join(defaultClientDistDir(projectRoot), "types.d.ts")
 	b, err := os.ReadFile(typesPath)
 	if err != nil {
-		t.Fatalf("expected generated/types.d.ts after generate (got error: %v). "+
+		t.Fatalf("expected .forst/client/dist/types.d.ts after generate (got error: %v). "+
 			"If generate failed (parse/typecheck), generateCommand returns an error.", err)
 	}
 	typesSrc := string(b)
 	for _, frag := range wantSubstrings {
 		if !strings.Contains(typesSrc, frag) {
-			t.Fatalf("generated/types.d.ts missing %q (run with -count=1 to avoid stale cache). Full file:\n%s",
+			t.Fatalf(".forst/client/dist/types.d.ts missing %q (run with -count=1 to avoid stale cache). Full file:\n%s",
 				frag, typesSrc)
+		}
+	}
+	// Function signatures live on package modules, not types.d.ts.
+	corePath := filepath.Join(defaultClientDistDir(projectRoot), "core", "main.js")
+	if core, err := os.ReadFile(corePath); err == nil {
+		if !strings.Contains(string(core), "export async function") && !strings.Contains(string(core), "invokeFunction") {
+			t.Fatalf("expected invoke helpers in %s:\n%s", corePath, core)
 		}
 	}
 }
@@ -131,6 +141,15 @@ type tsCompilerOptions struct {
 }
 
 func writeTSConfig(projectRoot string) error {
+	// Consumer smoke file resolves @forst/gen through the node_modules link from generate (no paths).
+	smoke := `import { createForstClient } from "@forst/gen";
+import { Echo } from "@forst/gen/main";
+export const client = createForstClient();
+export const echo = Echo;
+`
+	if err := os.WriteFile(filepath.Join(projectRoot, "app-smoke.ts"), []byte(smoke), 0644); err != nil {
+		return err
+	}
 	cfg := tsConfig{
 		CompilerOptions: tsCompilerOptions{
 			Target:           "ES2022",
@@ -140,14 +159,10 @@ func writeTSConfig(projectRoot string) error {
 			NoEmit:           true,
 			SkipLibCheck:     true,
 			Types:            []string{},
-			Paths: map[string][]string{
-				"@forst/sidecar": {"./stubs/forst-sidecar.d.ts"},
-				"@forst/client":  {"./stubs/forst-client.d.ts"},
-			},
 		},
 		Include: []string{
-			"generated/**/*.ts",
-			"client/**/*.ts",
+			"app-smoke.ts",
+			".forst/client/dist/**/*.d.ts",
 			"stubs/node-process-shim.d.ts",
 		},
 	}
