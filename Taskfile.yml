@@ -51,11 +51,13 @@ tasks:
     generates:
       - packages/cli/dist/index.js
       - packages/cli/dist/index.d.ts
+      - packages/cli/dist/invoke.js
+      - packages/cli/dist/invoke.d.ts
 
   test:cli:
     desc: Run Bun tests for @forst/cli
     dir: packages/cli
-    deps: [install:bun]
+    deps: [install:bun, build:cli]
     cmds:
       - bun run test
 
