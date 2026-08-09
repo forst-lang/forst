@@ -107,12 +107,34 @@ func TestEmitInvokeErrorsESM_and_DTS_tagNamesMatch(t *testing.T) {
 }
 
 func TestEmitDomainErrorsDTS_exportsForstErrorUnion(t *testing.T) {
-	got := EmitDomainErrorsDTS(testNpmPackage, nil, RuntimePromise)
+	cellTaken := ErrorClass{
+		Name: "CellTaken",
+		Tag:  "CellTaken",
+		Fields: []ErrorField{
+			{Name: "row", TSType: "number"},
+			{Name: "col", TSType: "number"},
+		},
+	}
+	got := EmitDomainErrorsDTS(testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export type ForstError =",
-		"ForstUnknownFailure",
 		"export declare function decodeDomainError",
 	})
+	unionIdx := strings.Index(got, "export type ForstError =")
+	if unionIdx < 0 {
+		t.Fatal("missing ForstError type")
+	}
+	rest := got[unionIdx:]
+	end := strings.Index(rest, ";\n\n")
+	if end < 0 {
+		t.Fatalf("malformed ForstError type:\n%s", rest)
+	}
+	forstErrorDecl := rest[:end+1]
+	for _, frag := range []string{"| CellTaken", "| ForstUnknownFailure"} {
+		if !strings.Contains(forstErrorDecl, frag) {
+			t.Fatalf("ForstError union missing %q:\n%s", frag, forstErrorDecl)
+		}
+	}
 	assertContainsNone(t, got, []string{
 		"InvokeRejected",
 		"InvokeFailure",
