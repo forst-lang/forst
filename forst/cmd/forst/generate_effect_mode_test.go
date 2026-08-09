@@ -162,6 +162,9 @@ func TestGenerate_effectMode_packageJSONHasEffectPeerDependency(t *testing.T) {
 	if peers["effect"] != transformerts.EffectPeerDependencyRange {
 		t.Fatalf("effect peer = %#v, want %s", peers["effect"], transformerts.EffectPeerDependencyRange)
 	}
+	if peers["@forst/cli"] != transformerts.CliPeerDependencyRange {
+		t.Fatalf("@forst/cli peer = %#v, want %s", peers["@forst/cli"], transformerts.CliPeerDependencyRange)
+	}
 }
 
 func TestGenerate_effectMode_packageJSONHasNoRuntimeDependencies(t *testing.T) {
@@ -177,14 +180,29 @@ func TestGenerate_effectMode_packageJSONHasNoRuntimeDependencies(t *testing.T) {
 	}
 }
 
-func TestGenerate_promiseMode_packageJSONHasNoPeerDependencies(t *testing.T) {
+func TestGenerate_promiseMode_packageJSONHasOptionalCliPeerOnly(t *testing.T) {
 	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := pkg["peerDependencies"]; ok {
-		t.Fatalf("promise mode must not have peerDependencies:\n%s", j)
+	peers, ok := pkg["peerDependencies"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing peerDependencies:\n%s", j)
+	}
+	if peers["@forst/cli"] != transformerts.CliPeerDependencyRange {
+		t.Fatalf("@forst/cli peer = %#v", peers["@forst/cli"])
+	}
+	if _, hasEffect := peers["effect"]; hasEffect {
+		t.Fatalf("promise mode must not declare effect peer:\n%s", j)
+	}
+	meta, ok := pkg["peerDependenciesMeta"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing peerDependenciesMeta:\n%s", j)
+	}
+	cliMeta, ok := meta["@forst/cli"].(map[string]any)
+	if !ok || cliMeta["optional"] != true {
+		t.Fatalf("@forst/cli must be optional peer:\n%s", j)
 	}
 }
 
@@ -530,7 +548,7 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
 	}}
 	promiseDTS := transformerts.EmitTestingDTS(mods)
-	effectDTS := transformerts.EmitTestingEffectDTS(mods)
+	effectDTS := transformerts.EmitTestingEffectDTS(mods, "@forst/gen")
 	for _, frag := range []string{
 		"export interface ForstTestOverrides",
 		"packages?:",
@@ -552,7 +570,7 @@ func TestGenerate_effectMode_testHandlerAcceptsValuePromiseOrEffect(t *testing.T
 			ReturnType: "ComparePasswordResponse",
 		}},
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
-	}})
+	}}, "@forst/gen")
 	for _, frag := range []string{
 		"| ComparePasswordResponse",
 		"| Promise<ComparePasswordResponse>",
@@ -572,12 +590,22 @@ func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 			Parameters: []transformerts.Parameter{{Name: "input", Type: "ComparePasswordRequest"}},
 			ReturnType: "ComparePasswordResponse",
 		}},
-	}})
+	}}, "@forst/gen")
 	if !strings.Contains(js, "export function ForstTestLayer") {
 		t.Fatal("missing ForstTestLayer")
 	}
-	if strings.Contains(js, "ForstTransport") || strings.Contains(js, "FORST_BASE_URL") {
-		t.Fatalf("ForstTestLayer must not require transport:\n%s", js)
+	// ForstTestLayer body must stay mock-only; ForstTestServerLayer may use layerTransport.
+	layerIdx := strings.Index(js, "export function ForstTestLayer")
+	serverIdx := strings.Index(js, "export function ForstTestServerLayer")
+	if layerIdx < 0 {
+		t.Fatal("missing ForstTestLayer")
+	}
+	layerBody := js[layerIdx:]
+	if serverIdx > layerIdx {
+		layerBody = js[layerIdx:serverIdx]
+	}
+	if strings.Contains(layerBody, "ForstTransport") || strings.Contains(layerBody, "FORST_BASE_URL") || strings.Contains(layerBody, "layerTransport") {
+		t.Fatalf("ForstTestLayer must not require transport:\n%s", layerBody)
 	}
 	if !strings.Contains(js, "Layer.mock") {
 		t.Fatal("must delegate to Layer.mock")

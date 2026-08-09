@@ -169,6 +169,20 @@ Handlers may return a value, a `Promise`, or an `Effect`.
 
 **Wire level** with a fake transport, when you need to assert payloads or simulate a specific failure. Provide a mock `ForstTransport` under the real package services. See [Testing](/interop/node/testing) for the Promise mode equivalents.
 
+**Real invoke server** with the test trio that mirrors `ForstClientLive` / `ForstClientLayer` / `makeForstClientRuntime`. Install optional `@forst/cli`, then:
+
+```typescript
+import { Effect } from "effect";
+import { ForstTestServerLayer } from "@forst/gen/testing";
+import { Echo } from "@forst/gen/main";
+
+await Effect.runPromise(
+  Echo({ message: "hi" }).pipe(Effect.provide(ForstTestServerLayer()))
+);
+```
+
+For Vitest or Jest hooks, use `makeForstTestServer()` and call `dispose()` in `afterAll`. See [Testing](/interop/node/testing#call-a-real-forst-server).
+
 ## Requirements
 
 - Install `effect` in your app (`>=3.17.0`).

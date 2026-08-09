@@ -127,7 +127,7 @@ func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 	if !strings.Contains(errorsJS, "export const isInvokeFailure") {
 		t.Fatalf("missing isInvokeFailure:\n%s", errorsJS)
 	}
-	for _, name := range transformerts.ErrorClassNames() {
+	for _, name := range transformerts.AllExportedErrorClassNames() {
 		if !strings.Contains(indexJS, name) {
 			t.Fatalf("index.js must re-export %s", name)
 		}

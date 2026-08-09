@@ -22,7 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
+* **generate:** Real-server testing helpers on `@forst/gen/testing`: Promise mode `startForstTestServer`, Effect mode `ForstTestServer` / `ForstTestServerLayer` / `makeForstTestServer`. Optional peer `@forst/cli` (`peerDependenciesMeta.optional`) lazy-imports `@forst/cli/invoke`. Harness failures use `ForstTestServerFailed` outside `InvokeFailure`.
 * **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).
+
+### Bug Fixes
+
+* **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
 
 ## [0.10.2](https://github.com/forst-lang/forst/compare/v0.10.1...v0.10.2) (2026-07-28)
 

@@ -51,6 +51,8 @@ Output on disk (default):
 
 The generated package is a real npm-style module: subpath imports like `@forst/gen/auth` resolve through `package.json` **`exports`** to files under `dist/pkg/`. TypeScript and Node resolve it from `node_modules/@forst/gen` after `forst generate` creates the link.
 
+The generated `package.json` declares an optional peer on `@forst/cli` so real-server helpers under `@forst/gen/testing` can load `@forst/cli/invoke`. Install it only when those helpers are used.
+
 **Do not** add a bundler `resolve.alias` that maps `@forst/gen` to `.forst/client`. Plain directory aliases skip the exports map, so `@forst/gen/main` incorrectly becomes `.forst/client/main` (which does not exist). Let normal package resolution handle `@forst/gen`.
 
 For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.

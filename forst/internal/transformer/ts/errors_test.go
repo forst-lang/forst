@@ -29,7 +29,7 @@ func TestEmitErrorsESM_emitsTaggedErrorClasses(t *testing.T) {
 
 func TestEmitErrorsESM_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 	re := regexp.MustCompile(`Error$`)
-	for _, name := range ErrorClassNames() {
+	for _, name := range AllExportedErrorClassNames() {
 		if re.MatchString(name) {
 			t.Fatalf("class name %q must not end in Error", name)
 		}
@@ -86,6 +86,14 @@ func TestEmitErrorsDTS_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 		}
 		if !strings.Contains(got, `readonly _tag: "`+name+`"`) {
 			t.Fatalf("missing literal _tag for %s:\n%s", name, got)
+		}
+	}
+	for _, name := range HarnessErrorClassNames() {
+		if !strings.Contains(got, "export declare class "+name) {
+			t.Fatalf("missing harness DTS class %s:\n%s", name, got)
+		}
+		if strings.Contains(got, "| "+name+"\n") || strings.Contains(got, "| "+name+";") {
+			t.Fatalf("InvokeFailure must not include harness class %s:\n%s", name, got)
 		}
 	}
 }

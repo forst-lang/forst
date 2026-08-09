@@ -293,7 +293,7 @@ func EmitIndexESM(packages []string, invokePort string) string {
 	b.WriteString("}\n\n")
 	b.WriteString("export { configureDefaultInvokeClient };\n\n")
 	b.WriteString("export {\n")
-	for _, name := range ErrorClassNames() {
+	for _, name := range AllExportedErrorClassNames() {
 		fmt.Fprintf(&b, "  %s,\n", name)
 	}
 	b.WriteString("  isInvokeFailure,\n")
@@ -349,7 +349,7 @@ func EmitIndexDTS(packages []string) string {
 	b.WriteString("  TaggedError,\n")
 	b.WriteString(`} from "./errors.js";` + "\n")
 	b.WriteString("export {\n")
-	for _, name := range ErrorClassNames() {
+	for _, name := range AllExportedErrorClassNames() {
 		fmt.Fprintf(&b, "  %s,\n", name)
 	}
 	b.WriteString("  isInvokeFailure,\n")

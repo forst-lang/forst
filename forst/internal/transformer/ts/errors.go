@@ -86,13 +86,41 @@ var ErrorCatalog = []ErrorClass{
 	},
 }
 
-// ErrorClassNames returns every class name from ErrorCatalog in catalog order.
+// HarnessErrorCatalog is emitted beside ErrorCatalog but kept out of InvokeFailure.
+// These are test/harness failures (starting a server), not call failures.
+var HarnessErrorCatalog = []ErrorClass{
+	{
+		Name: "ForstTestServerFailed",
+		Tag:  "ForstTestServerFailed",
+		Fields: []ErrorField{
+			{Name: "reason", TSType: "\"cli_missing\" | \"spawn_failed\" | \"ready_timeout\" | \"unreachable\""},
+			{Name: "installCommand", TSType: "string", Optional: true},
+			{Name: "causeMessage", TSType: "string", Optional: true},
+		},
+	},
+}
+
+// ErrorClassNames returns every invoke failure class name from ErrorCatalog in catalog order.
 func ErrorClassNames() []string {
 	names := make([]string, len(ErrorCatalog))
 	for i, c := range ErrorCatalog {
 		names[i] = c.Name
 	}
 	return names
+}
+
+// HarnessErrorClassNames returns harness-only error class names (not in InvokeFailure).
+func HarnessErrorClassNames() []string {
+	names := make([]string, len(HarnessErrorCatalog))
+	for i, c := range HarnessErrorCatalog {
+		names[i] = c.Name
+	}
+	return names
+}
+
+// AllExportedErrorClassNames returns invoke + harness error classes for root re-exports.
+func AllExportedErrorClassNames() []string {
+	return append(ErrorClassNames(), HarnessErrorClassNames()...)
 }
 
 // EmitErrorsESM returns dist/errors.js (tagged failures, no Effect dependency).
@@ -124,6 +152,9 @@ func EmitErrorsESM() string {
 	for _, c := range ErrorCatalog {
 		fmt.Fprintf(&b, "export class %s extends tagged(%q) {}\n", c.Name, c.Tag)
 	}
+	for _, c := range HarnessErrorCatalog {
+		fmt.Fprintf(&b, "export class %s extends tagged(%q) {}\n", c.Name, c.Tag)
+	}
 	b.WriteString("\n")
 	b.WriteString("const INVOKE_FAILURE_TAGS = new Set([\n")
 	for _, c := range ErrorCatalog {
@@ -149,7 +180,7 @@ func EmitErrorsDTS() string {
 > = Error & { readonly _tag: Tag } & Readonly<A>;
 
 `)
-	for _, c := range ErrorCatalog {
+	emitErrorClassDTS := func(c ErrorClass) {
 		fmt.Fprintf(&b, "export declare class %s extends Error {\n", c.Name)
 		fmt.Fprintf(&b, "  readonly _tag: %q;\n", c.Tag)
 		for _, f := range c.Fields {
@@ -170,6 +201,12 @@ func EmitErrorsDTS() string {
 		b.WriteString("    readonly message?: string;\n")
 		b.WriteString("  });\n")
 		b.WriteString("}\n\n")
+	}
+	for _, c := range ErrorCatalog {
+		emitErrorClassDTS(c)
+	}
+	for _, c := range HarnessErrorCatalog {
+		emitErrorClassDTS(c)
 	}
 	b.WriteString("export type InvokeFailure =\n")
 	for _, c := range ErrorCatalog {

@@ -255,6 +255,18 @@ func TestGenerate_installablePackage(t *testing.T) {
 	if _, ok := pkg["devDependencies"]; ok {
 		t.Fatalf("generated package.json must omit devDependencies:\n%v", pkg)
 	}
+	peers, _ := pkg["peerDependencies"].(map[string]any)
+	if peers["@forst/cli"] == nil {
+		t.Fatalf("expected optional @forst/cli peer:\n%v", pkg)
+	}
+	if _, hasEffect := peers["effect"]; hasEffect {
+		t.Fatalf("promise mode must not declare effect peer:\n%v", pkg)
+	}
+	meta, _ := pkg["peerDependenciesMeta"].(map[string]any)
+	cliMeta, _ := meta["@forst/cli"].(map[string]any)
+	if cliMeta["optional"] != true {
+		t.Fatalf("@forst/cli peer must be optional:\n%v", pkg)
+	}
 	link := assertNodeModulesLink(t, dir, "@forst/gen")
 	outDir := defaultClientOutDir(dir)
 	resolved, err := filepath.EvalSymlinks(link)

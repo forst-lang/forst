@@ -49,7 +49,7 @@ func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 }
 
 func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
-	got := EmitTestingEffectDTS([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingEffectDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"ForstTestOverrides",
 		"packages?:",

@@ -66,8 +66,8 @@ func generateClientPackage(
 	var testingJS string
 	var testingDTS string
 	if runtime == transformerts.RuntimeEffect {
-		testingJS = transformerts.EmitTestingEffectESM(modules)
-		testingDTS = transformerts.EmitTestingEffectDTS(modules)
+		testingJS = transformerts.EmitTestingEffectESM(modules, genCfg.PackageName)
+		testingDTS = transformerts.EmitTestingEffectDTS(modules, genCfg.PackageName)
 	} else {
 		testingJS = transformerts.EmitTestingESM(modules)
 		testingDTS = transformerts.EmitTestingDTS(modules)
@@ -148,14 +148,22 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 	if genCfg.Effect {
 		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
 	}
-	b.WriteString("\n  }")
+	b.WriteString("\n  },\n")
+	b.WriteString("  \"peerDependencies\": {\n")
+	fmt.Fprintf(&b, "    \"@forst/cli\": %s", jsonString(transformerts.CliPeerDependencyRange))
 	if genCfg.Effect {
 		b.WriteString(",\n")
-		b.WriteString("  \"peerDependencies\": {\n")
 		fmt.Fprintf(&b, "    \"effect\": %s\n", jsonString(transformerts.EffectPeerDependencyRange))
-		b.WriteString("  }")
+	} else {
+		b.WriteString("\n")
 	}
-	b.WriteString("\n}\n")
+	b.WriteString("  },\n")
+	b.WriteString("  \"peerDependenciesMeta\": {\n")
+	b.WriteString("    \"@forst/cli\": {\n")
+	b.WriteString("      \"optional\": true\n")
+	b.WriteString("    }\n")
+	b.WriteString("  }\n")
+	b.WriteString("}\n")
 	return b.String()
 }
 
@@ -204,12 +212,16 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 	b.WriteString("```json\n")
 	b.WriteString(`{ "scripts": { "postinstall": "forst generate ." } }`)
 	b.WriteString("\n```\n")
+	b.WriteString("\n## Real-server tests\n\n")
+	fmt.Fprintf(&b, "Optional peer: `@forst/cli` %s (install with `%s` to use `startForstTestServer` / `ForstTestServerLayer`).\n",
+		transformerts.CliPeerDependencyRange, transformerts.CliInstallCommand)
 	if genCfg.Effect {
 		b.WriteString("\n## Effect mode\n\n")
 		b.WriteString("This package was generated with `generate.effect: true`.\n\n")
 		fmt.Fprintf(&b, "- Peer dependency: `effect` %s (required for `Layer.mock`).\n", transformerts.EffectPeerDependencyRange)
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
 		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire.\n")
+		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
 		b.WriteString("- Tagged invoke errors match Promise mode. They carry `_tag` for `Effect.catchTag` but are not `Data.TaggedError`, so `Equal.equals` compares by reference.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")
 	}

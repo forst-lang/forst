@@ -1,6 +1,6 @@
 ---
 title: "Testing"
-description: "Replace Forst calls in tests without starting a server."
+description: "Replace Forst calls in tests, or start a real invoke server."
 ---
 
 import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
@@ -161,6 +161,39 @@ await forst.auth.VerifyPassword({
 
 An Effect Layer supplies replacement services to the code under test. You can
 replace one service, a set of package functions, or the connection. See
+[Effect mode](/interop/node/effect#testing).
+
+## Call a real Forst server
+
+Mocks replace the server. When a test should exercise compiled Forst code over
+HTTP, start or attach to an invoke server from the same testing module.
+
+Install the optional peer once:
+
+```bash
+npm i -D @forst/cli
+```
+
+```typescript
+import { startForstTestServer } from "@forst/gen/testing";
+import { Echo } from "@forst/gen/main";
+
+await using _ = await startForstTestServer();
+expect(await Echo({ message: "hi" })).toEqual({
+  echo: "hi",
+  timestamp: 42,
+});
+```
+
+`startForstTestServer` lazy-loads `@forst/cli/invoke`, starts or attaches to the
+invoke server, and points the default client at it. Flat imports keep working.
+
+If a server is already running (CI, Docker, or a `globalSetup`), set
+`FORST_BASE_URL` or `FORST_SKIP_SPAWN=1`. The same call attaches instead of
+spawning. `@forst/node-runtime` is the other direction (Forst calling Node) and
+is not used here.
+
+In Effect mode use `ForstTestServerLayer` or `makeForstTestServer` instead. See
 [Effect mode](/interop/node/effect#testing).
 
 ## Related
