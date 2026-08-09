@@ -7,18 +7,18 @@ import (
 	"fmt"
 
 	"forst/invokeembed"
-	"forst.run.temp/bcrypt"
+	"forst.run.temp/auth"
 )
 
 var forstInvokeRegistryInit bool
 
-func forst_invoke_bcrypt_Hash(args json.RawMessage) (any, error) {
+func forst_invoke_auth_Hash(args json.RawMessage) (any, error) {
 var forstInvokeArgs []interface{}
 	if err := json.Unmarshal(args, &forstInvokeArgs); err != nil {
 		return nil, fmt.Errorf("decode invoke args: %w", err)
 	}
 
-	var input bcrypt.HashInput
+	var input auth.HashInput
 	paramBytes, err := json.Marshal(forstInvokeArgs[0])
 	if err != nil {
 		return nil, fmt.Errorf("marshal parameter %q: %w", "input", err)
@@ -26,7 +26,7 @@ var forstInvokeArgs []interface{}
 	if err := json.Unmarshal(paramBytes, &input); err != nil {
 		return nil, fmt.Errorf("unmarshal parameter %q: %w", "input", err)
 	}
-	return bcrypt.Hash(input), nil
+	return auth.Hash(input), nil
 }
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 	}
 	forstInvokeRegistryInit = true
 	reg := invokeembed.GlobalRegistry()
-	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"bcrypt",Name:"Hash",SupportsStreaming:false,Runnable:true}, forst_invoke_bcrypt_Hash)
+	reg.RegisterMeta(invokeembed.FunctionMeta{Package:"auth",Name:"Hash",SupportsStreaming:false,Runnable:true}, forst_invoke_auth_Hash)
 	invokeembed.MustStartEmbedded()
 }
 

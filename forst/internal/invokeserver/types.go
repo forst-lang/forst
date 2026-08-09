@@ -7,6 +7,9 @@ import (
 // HTTPContractVersion is the normative dev HTTP API revision.
 const HTTPContractVersion = "1"
 
+// ContractVersionHTTPHeader is sent on every invoke HTTP response.
+const ContractVersionHTTPHeader = "X-Forst-Contract-Version"
+
 // InvokeRequest is the POST /invoke body.
 type InvokeRequest struct {
 	Package   string          `json:"package"`

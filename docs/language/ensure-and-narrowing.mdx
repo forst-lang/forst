@@ -1,6 +1,6 @@
 ---
 title: "Ensure and narrowing"
-description: "Explicit validation and type refinement with ensure and is."
+description: "Validate values before your program continues."
 ---
 
 import EnsureSpeed from "/snippets/ensure-speed.mdx";
@@ -10,96 +10,134 @@ import EnsureCatalog from "/snippets/ensure-catalog.mdx";
 import EnsurePlaceOrderOk from "/snippets/ensure-place-order-ok.mdx";
 import EnsureIfOk from "/snippets/ensure-if-ok.mdx";
 
-Use **`ensure`** with **`is`** to validate at runtime and narrow types. Forst has no exceptions. Coercion is never silent.
+Use `ensure` when your program should continue only after a value passes a
+check. A failed check returns an error. A successful check gives Forst more
+precise information about the value on the following lines.
 
-## Basic ensure
+This keeps validation beside the code that depends on it. Use `if x is ...`
+when you want to choose a branch instead of returning early.
 
-Reject invalid input at runtime and attach a domain error with **`or`**:
+## Stop when a check fails
+
+Write `ensure value is Condition` to check a value. Add `or` when you want to
+return a specific error.
 
 <EnsureSpeed />
 
-- **`ensure x is Condition`**: runtime check; failure returns or propagates an error depending on context
-- **`or …`**: attach a domain-specific failure when the condition does not hold
+The function returns `TooFast` when `speed` fails the check. Code after the
+`ensure` only runs for a valid speed.
 
-The compiler understands the **`is`** operator for built-in constraints (`LessThan`, `Min`, `Present`, `Ok`, …).
+<Note>
+  See [Errors and Result](/language/errors-and-result) for how to define named
+  errors such as `TooFast`.
+</Note>
 
-## Nil and presence
+Forst provides conditions such as `LessThan`, `Min`, `Present`, and `Ok`. The
+`is` operator runs the condition and refines the value's type after success.
 
-Forst uses **`Nil`** for absence checks today. Full optional **value types** (`T | Nil`) are still [planned](/resources/roadmap); what works now is **`nil`** on nilable types (pointers, `Map`, `Array`, `Error`), **`ensure … is Nil()`**, and **`*T`** [`.Present()` / `.Nil()`](/language/shapes-and-constraints) on pointer fields.
+## Check for missing values
+
+Use `Nil()` when a value must be absent. This works with nilable values such as
+pointers, `Map`, `Array`, and `Error`.
 
 <EnsureNil />
 
-Negated forms work for error checks:
+The example returns `err` when it contains an error. You can write the same
+check in its shorter negated form.
 
 <EnsureNotErr />
 
-## Result and Ok narrowing
+Pointer fields also support
+[`.Present()` and `.Nil()`](/language/shapes-and-constraints). Full optional
+value types such as `T | Nil` are still [planned](/resources/roadmap).
 
-Map lookups and other partial operations yield **`Result(V, Error)`** instead of comma-ok tuples:
+## Use a successful Result value
+
+Map lookups and other operations that may fail return `Result(V, Error)`.
+Check for `Ok()` before using the successful value.
 
 <EnsureCatalog />
 
-**Comma-ok assignment (`v, ok := m[k]`) is not Forst syntax.** Handle failure explicitly with **`ensure avail is Ok()`** before using the success value.
+After `ensure avail is Ok()`, `avail` has the value type stored in the map. The
+next check can safely compare the requested quantity with it.
 
-At call sites, narrow success payloads:
+Use the same pattern for function calls that return a `Result`.
 
 <EnsurePlaceOrderOk />
 
-## If-branch narrowing
+## Choose a branch after a check
 
-`if x is …` can refine a variable's type inside the branch. That helps when you need conditional logic instead of early return:
+Use `if x is ...` when both outcomes belong in the current function. Forst
+refines the value inside the matching branch.
 
 <EnsureIfOk />
 
-## Compared to Go and TypeScript
+The original type remains available outside the branch.
+
+## Keep checks explicit
+
+Forst keeps validation visible in normal control flow. `ensure` returns an
+error. `if` selects a branch. Values are never silently coerced.
+
+This avoids common problems from other approaches.
 
 | Approach | Drawback |
 | --- | --- |
-| Go type assertions `x.(T)` | Can panic; no compile-time narrowing |
-| TS type assertions `as T` | Bypasses checking; unsafe |
-| Exceptions | Non-local control flow; hard to trace |
+| A single value Go assertion such as `x.(T)` | Can panic when the value has another type |
+| A TypeScript assertion such as `value as T` | Bypasses runtime validation |
+| Exceptions | Move failure handling away from the check |
 
-Forst requires **`ensure`** with English keywords so validation stays visible in the source.
+## Current limits
 
-## Caveats
+`ensure` and narrowing are experimental. Behavior and diagnostics are still
+maturing. See the [roadmap](/resources/roadmap).
 
-**`ensure`** and narrowing are **experimental**. Behavior and diagnostics are still maturing. See the [roadmap](/resources/roadmap).
+### Checks apply to the current value
 
-### Checks run once
+A successful `ensure` or `if` check narrows the value at that point. Later
+reassignment or field changes may invalidate what the earlier check proved.
 
-A successful **`ensure`** or **`if`** check narrows the type for following lines. The compiler does **not** watch the value for later changes. Reassignment or field mutation can leave runtime state out of sync with the narrowed type.
-
-See [Type guards § Checks run once](/language/type-guards#checks-run-once) for a concrete example with guards.
+See [Type guards](/language/type-guards#checks-run-once) for a concrete example.
 
 <Warning>
   Narrowing reflects a single check at compile time. It does not lock the value at runtime.
 </Warning>
 
-### Simple names
+### Prefer simple variables
 
-Successor narrowing after **`ensure`** works best on **simple identifiers** (`ensure x is …`, then use `x`).
+Narrowing after `ensure` works best with a simple variable such as
+`ensure x is ...`.
 
-Compound paths like **`ensure req.state is …`** have partial support. Hover may show the predicate, but the typechecker does not fully re-register a refined type on the path.
+Paths such as `ensure req.state is ...` have partial support. Editor hover may
+show the condition while later code still sees the original field type.
 
-### After `if` chains
+### Narrowing after branches
 
-Narrowing inside an **`if`** branch does not always carry past the end of the chain. The continuation may see the pre-**`if`** type until union types exist. Branch merge after **`ensure`** successors is also still expanding.
+Narrowing inside an `if` branch may end with that branch. Code after the full
+chain can see the earlier type. Branch merging will improve as union type
+support expands.
 
-### No comma-ok
+### Map lookups use Result
 
-**`v, ok := m[k]`** is not Forst syntax. Map lookups and similar partial operations return **`Result(V, Error)`**. Use **`ensure avail is Ok()`** before using the success value.
+Forst map lookups return `Result(V, Error)`. Go style comma assignment such as
+`v, ok := m[k]` is unsupported. Use `ensure avail is Ok()` before reading the
+value.
 
-### Optionals still partial
+### Optional values are partial
 
-Full optional value types (**`T | Nil`**) are [planned](/resources/roadmap). Today use **`nil`** on nilable types, **`ensure … is Nil()`**, and **`*T`** [`.Present()` / `.Nil()`](/language/shapes-and-constraints) on pointer fields.
+Full optional value types such as `T | Nil` are
+[planned](/resources/roadmap). Use `nil` with nilable types, `ensure ... is
+Nil()`, or [`.Present()` and `.Nil()`](/language/shapes-and-constraints) on
+pointer fields.
 
-## What gets emitted
+## Generated Go
 
-Ensure statements lower to Go error returns and conditionals. Failures are structured values returned through Go's error path. Custom failures use nominal error types when you provide them with **`or`**.
+Generated Go uses ordinary conditionals and error returns for `ensure`.
+A custom failure after `or` becomes a named Go error type.
 
-## Try it
+## Run the examples
 
-From the Forst repository:
+Run these commands from the Forst repository.
 
 ```bash
 task example:ensure
@@ -108,6 +146,8 @@ task example:result-if
 ```
 
 ## Related
+
+Continue with named errors or reusable conditions.
 
 <CardGroup cols={2}>
   <Card title="Errors and Result" icon="triangle-exclamation" href="/language/errors-and-result">

@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -111,14 +109,4 @@ func reloadRepoRoot(t *testing.T) string {
 		}
 		dir = parent
 	}
-}
-
-func TestReload_nodeHostSurvivesHostModeStopAndReattaches(t *testing.T) {
-	if _, err := exec.LookPath("node"); err != nil {
-		t.Skip("node not on PATH")
-	}
-	if runtime.GOOS == "windows" {
-		t.Skip("unix host sockets")
-	}
-	TestReload_parentOwnedHostSurvivesGroupKill(t)
 }

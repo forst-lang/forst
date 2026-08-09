@@ -1,17 +1,39 @@
 ---
 title: "Dev server"
-description: "Local iteration with forst dev — HTTP contract, endpoints, and ftconfig."
+description: "Local iteration with forst dev — HTTP contract, regenerate on save, and ftconfig."
 ---
 
-**`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. To call Forst from Node (including **`@forst/sidecar`** spawn/connect), see [Call Forst from Node](/interop/node/call-forst).
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-## Start the server
+<NodeClientSetupNote />
 
-The dev server watches your `.ft` tree, recompiles on change, and listens for invoke requests:
+Start the server, then call a function from Node with the generated client:
 
 ```bash
-npx forst dev -root ./my-service -port 8080 -config ./ftconfig.json
+npx forst generate .
+npx forst dev -root ./my-service -port 6320
+export FORST_BASE_URL=http://localhost:6320
 ```
+
+```typescript
+import { Echo } from "@forst/gen/main";
+
+await Echo({ message: "hello" });
+```
+
+**`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. Full call and failure docs: [Call Forst from Node](/interop/node/call-forst).
+
+## Generated client
+
+Editing a `.ft` file regenerates the TypeScript client so the editor stays in step with the server. In development, sidecar **`watchGenerate`** defaults to **true** and runs `forst generate` after a debounced reload. You can also run a standalone watcher:
+
+```bash
+npx forst generate --watch .
+```
+
+`forst clean` removes `.forst/client` with the rest of `.forst`. The next `forst generate` (or `postinstall`) restores `@forst/gen`.
+
+See [CLI reference § Generate configuration](/workflow/cli#generate-configuration) for `outDir`, `packageName`, and related fields.
 
 ## Endpoints
 
@@ -25,7 +47,7 @@ npx forst dev -root ./my-service -port 8080 -config ./ftconfig.json
 
 The invoke envelope uses JSON request/response bodies. The same contract applies to the built-in HTTP server in a compiled binary. See [Call Forst from Node](/interop/node/call-forst).
 
-Clients should check **`contractVersion`** on `/version` when upgrading the compiler or Node packages.
+Clients should check **`contractVersion`** on `/version` when upgrading the compiler.
 
 ## Configuration
 
@@ -34,39 +56,39 @@ Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
 ```json
 {
   "server": {
-    "port": "8080",
+    "port": "6320",
     "cors": true
   },
   "dev": {
     "logLevel": "info",
-    "watch": false,
+    "watch": true,
     "hotReload": true
   },
   "files": {
     "include": ["**/*.ft"],
-    "exclude": ["**/node_modules/**", "**/client/**"]
+    "exclude": ["**/node_modules/**", "**/.git/**"]
   }
 }
 ```
 
 ### Runtime profile (embedded / host mode)
 
-When `server.embedded` or `node.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor on `:6320`.
+When `server.embedded` or `node.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor.
 
 By default, `dev.hotReload` is **true** in `ftconfig.json`, so the CLI watches `.ft` files under `-root`, recompiles on change, and restarts the generated program. Set `"dev": { "hotReload": false, "watch": false }` for a one-shot compile+run (no file watching).
 
-Compile errors during reload are printed to **stderr** (`log.Error` + a one-line warning). The watch loop keeps running; if a previous build was already running, it stays up until a successful recompile replaces it.
+Compile errors during reload are printed to **stderr**. The watch loop keeps running; if a previous build was already running, it stays up until a successful recompile replaces it.
 
-`@forst/sidecar` spawn mode is an alternative: it restarts the whole `forst dev` child on `.ft` changes. You do not need the sidecar for native CLI watch in runtime profile.
+`@forst/sidecar` spawn mode is an alternative: it restarts the whole `forst dev` child on `.ft` changes and can run **`watchGenerate`** after those reloads.
 
 ## When to use dev vs pure Go
 
 | Scenario | Approach |
 | --- | --- |
 | New greenfield service | Compile to Go, deploy directly |
-| Local iteration from Node or scripts | **`forst dev`** on **`8080`** |
-| Production Node → Forst | Built-in HTTP server + **`@forst/client`** — see [Call Forst from Node](/interop/node/call-forst) |
-| Full stack type sync | **`forst generate`** in CI |
+| Local iteration from Node or scripts | **`forst dev`** plus `@forst/gen` |
+| Production Node → Forst | Built-in HTTP server + **`FORST_BASE_URL`** — see [Call Forst from Node](/interop/node/call-forst) |
+| Full stack type sync | **`forst generate`** in `postinstall` / CI |
 
 ## Caveats
 
@@ -74,7 +96,7 @@ Compile errors during reload are printed to **stderr** (`log.Error` + a one-line
 
 ### Same port convention
 
-**`forst dev`** defaults to **`8080`**. The built-in server in a compiled binary defaults to **`8081`**. Point **`FORST_BASE_URL`** at the server you actually run. See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats).
+Point **`FORST_BASE_URL`** at the server you actually run. Executor profile and embedded profile often use different defaults (`6320` vs `6321`). See [Call Forst from Node § Caveats](/interop/node/call-forst#caveats).
 
 ### Providers in Go host
 
@@ -89,12 +111,12 @@ Invoke carries request payloads only. Wire **`with`** blocks in Go before exposi
 
 <CardGroup cols={2}>
   <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
-    Generated client, `@forst/sidecar`, and built-in HTTP server.
+    Generated client, failures, and built-in HTTP server.
   </Card>
   <Card title="CLI reference" icon="terminal" href="/workflow/cli">
-    `forst dev` and other subcommands.
+    `forst generate`, `--watch`, and config fields.
   </Card>
-  <Card title="Generate client types" icon="/icons/typescript.svg" href="/interop/node/generate-types">
-    Emit `.d.ts` from the same sources.
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
   </Card>
 </CardGroup>

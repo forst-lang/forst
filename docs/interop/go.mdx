@@ -39,9 +39,18 @@ Call into the standard library and third-party modules with qualified names:
 
 <InteropFmtHello />
 
-The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings today include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
+The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
 
-Go functions that return **`(T, error)`** map to **`Result(T, Error)`** in Forst at call sites. That applies to the **result type** of the call and to trailing expressions in [implicit returns](/language/errors-and-result#return-inference-and-implicit-returns). This differs from using **`println`** / **`print`** for void side effects inside a function that should not return a value.
+Calls with several return values become a `Tuple` when captured in one
+variable. Split the values and use `ensure !err or err` when your function
+should expose an exclusive `Result`.
+
+<Info>
+  Keeping `Result` and `Tuple` separate prevents useful values from being
+  ignored and keeps success checks reliable. Read [why the types stay
+  separate](/language/errors-and-result#result-and-tuple-stay-separate) for the
+  common pitfalls and the rules Forst uses to avoid them.
+</Info>
 
 ## Slice subslices
 

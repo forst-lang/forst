@@ -71,7 +71,24 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 		case ast.PackageNode:
 			t.Output.SetPackageName(string(n.Ident.ID))
 		case ast.FunctionNode:
-			if !ShouldEmitFunctionToTypeScript(n, t.TypeChecker) {
+			reason, emit := ProviderOmissionReason(n, t.TypeChecker)
+			if !emit {
+				if reason != "" {
+					pkg := t.Output.PackageName
+					if pkg == "" {
+						pkg = sourceFileStem
+					}
+					omitted := OmittedFunction{
+						PackageName:  pkg,
+						FunctionName: string(n.Ident.ID),
+						Reason:       reason,
+					}
+					// Capture a declaration for optional omitStubs comments (SPEC §12).
+					if result, err := t.transformFunction(n); err == nil && result != nil && result.Signature != nil {
+						omitted.ExportDecl = result.Signature.ToString()
+					}
+					t.Output.OmittedFunctions = append(t.Output.OmittedFunctions, omitted)
+				}
 				continue
 			}
 			funcResult, err := t.transformFunction(n)

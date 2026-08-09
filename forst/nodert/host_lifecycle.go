@@ -165,7 +165,12 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 		return false, nil, err
 	}
 
-	if err := waitForHostMarkerReady(ctx, readyPath); err != nil {
+	exitCh := make(chan error, 1)
+	go func() {
+		exitCh <- managed.wait()
+	}()
+
+	if err := waitForHostMarkerReady(ctx, readyPath, exitCh, managed.stderrTail); err != nil {
 		_ = managed.terminate()
 		cleanupHostSocketFiles(socketPath, readyPath)
 		return false, nil, err
@@ -178,22 +183,36 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 	return true, &SpawnedHostProcess{proc: managed}, nil
 }
 
-func waitForHostMarkerReady(ctx context.Context, readyPath string) error {
+func waitForHostMarkerReady(ctx context.Context, readyPath string, exitCh <-chan error, stderrTail func() string) error {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			msg := fmt.Sprintf("node runtime: host ready timeout (ready=%s)", readyPath)
-			if data, err := os.ReadFile(readyPath); err == nil {
-				msg += fmt.Sprintf("; ready=%s", string(data))
-			}
-			return fmt.Errorf("%s", msg)
+			return hostReadyWaitError("host ready timeout", readyPath, nil, stderrTail)
+		case exitErr := <-exitCh:
+			return hostReadyWaitError("host process exited before ready", readyPath, exitErr, stderrTail)
 		case <-ticker.C:
 			if ReattachSkipReason(readyPath) == "" {
 				return nil
 			}
 		}
 	}
+}
+
+func hostReadyWaitError(reason, readyPath string, exitErr error, stderrTail func() string) error {
+	msg := fmt.Sprintf("node runtime: %s (ready=%s)", reason, readyPath)
+	if exitErr != nil {
+		msg += fmt.Sprintf("; exit=%v", exitErr)
+	}
+	if data, err := os.ReadFile(readyPath); err == nil && len(data) > 0 {
+		msg += fmt.Sprintf("; ready=%s", string(data))
+	}
+	if stderrTail != nil {
+		if tail := stderrTail(); tail != "" {
+			msg += fmt.Sprintf("; stderr=%q", tail)
+		}
+	}
+	return fmt.Errorf("%s", msg)
 }

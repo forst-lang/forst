@@ -29,6 +29,30 @@ func (r Root) dotForst() string {
 	return filepath.Join(r.Boundary, ".forst")
 }
 
+// ClientDir returns the default generated TypeScript/JS client output directory
+// under .forst, anchored at the same boundary as every other layout path.
+func (r Root) ClientDir() string {
+	return filepath.Join(r.dotForst(), "client")
+}
+
+// IsReservedDotForstEntry reports whether name is reserved for compiler-owned .forst entries.
+func IsReservedDotForstEntry(name string) bool {
+	for _, entry := range reservedDotForstEntries {
+		if entry == name {
+			return true
+		}
+	}
+	return false
+}
+
+// reservedDotForstEntries are the only names the compiler may create directly
+// under .forst. Nothing derived from user input may occupy one of them.
+var reservedDotForstEntries = []string{
+	"run", "exec", "gen", "client",
+	"go.work", "invoke.ready", "reloading",
+	"node.sock", "node-bootstrap.sock", "go-child.pid",
+}
+
 // RunSession returns paths for a forst run / dev runtime sandbox.
 func (r Root) RunSession(sessionID string) SessionPaths {
 	dir := filepath.Join(r.dotForst(), "run", sessionID)

@@ -75,9 +75,6 @@ func TestDevServer_methodNotAllowed_returnsJSONEnvelope(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := testDevServer(t)
-			if tc.name == "types" {
-				s.typesGenerator = NewTypeScriptGenerator(s.log)
-			}
 			rr := httptest.NewRecorder()
 			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
 			tc.handler(s, rr, req)
@@ -101,7 +98,7 @@ func TestDevServer_methodNotAllowed_returnsJSONEnvelope(t *testing.T) {
 func TestDevServer_typesGET_JSONEnvelope_notRawTypeScriptFile(t *testing.T) {
 	t.Parallel()
 	s := testDevServer(t)
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	writeTestGeneratedTypes(t, s.discoverer.GetRootDir(), "export interface Ping {}\n")
 	rr := httptest.NewRecorder()
 	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types", nil))
 	if rr.Code != http.StatusOK {

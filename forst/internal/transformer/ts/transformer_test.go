@@ -47,12 +47,13 @@ func Echo(input EchoRequest) {
 	typesFile := out.GenerateTypesFile()
 	for _, fragment := range []string{
 		"export interface EchoRequest",
-		"export function Echo(",
-		"Promise<",
 	} {
 		if !strings.Contains(typesFile, fragment) {
 			t.Fatalf("types file missing %q:\n%s", fragment, typesFile)
 		}
+	}
+	if strings.Contains(typesFile, "export function Echo(") {
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", typesFile)
 	}
 
 	clientFile := out.GenerateClientFile()
@@ -62,7 +63,7 @@ func Echo(input EchoRequest) {
 		"Echo",
 		"import type {",
 		"EchoRequest",
-		"from './types'",
+		"from '../types.js'",
 	} {
 		if !strings.Contains(clientFile, fragment) {
 			t.Fatalf("client file missing %q:\n%s", fragment, clientFile)

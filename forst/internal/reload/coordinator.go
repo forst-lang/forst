@@ -26,7 +26,7 @@ type ReloadCoordinator struct {
 	state      State
 	generation uint64
 	degraded   error
-	inFlight   sync.WaitGroup
+	inFlightN  int
 }
 
 // NewCoordinator returns a coordinator in the Ready state.
@@ -65,7 +65,11 @@ func (c *ReloadCoordinator) BeginDrain(ctx context.Context) error {
 
 	done := make(chan struct{})
 	go func() {
-		c.inFlight.Wait()
+		c.mu.Lock()
+		for c.inFlightN > 0 {
+			c.cond.Wait()
+		}
+		c.mu.Unlock()
 		close(done)
 	}()
 
@@ -124,9 +128,16 @@ func (c *ReloadCoordinator) SetState(state State, err error) {
 
 // TrackInFlight runs fn while counted as in-flight for drain.
 func (c *ReloadCoordinator) TrackInFlight(fn func()) {
-	c.inFlight.Add(1)
-	defer c.inFlight.Done()
+	c.mu.Lock()
+	c.inFlightN++
+	c.mu.Unlock()
+
 	fn()
+
+	c.mu.Lock()
+	c.inFlightN--
+	c.cond.Broadcast()
+	c.mu.Unlock()
 }
 
 func (s State) String() string {

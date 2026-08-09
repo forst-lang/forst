@@ -46,7 +46,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - uses: arduino/setup-task@v2
+      - uses: arduino/setup-task@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 

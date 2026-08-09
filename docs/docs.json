@@ -44,7 +44,8 @@
             "pages": [
               "language/shapes-and-constraints",
               "language/ensure-and-narrowing",
-              "language/type-guards"
+              "language/type-guards",
+              "language/union-and-intersection-types"
             ]
           },
           {
@@ -64,6 +65,8 @@
                 "pages": [
                   "interop/node/generate-types",
                   "interop/node/call-forst",
+                  "interop/node/testing",
+                  "interop/node/effect",
                   "interop/node/call-javascript"
                 ]
               }

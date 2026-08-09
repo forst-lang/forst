@@ -1,6 +1,7 @@
 package transformerts
 
 import (
+	"strings"
 	"testing"
 
 	"forst/internal/ast"
@@ -44,5 +45,68 @@ func TestShouldEmitFunctionToTypeScript_nilTypeCheckerAndReceiver(t *testing.T) 
 	}
 	if ShouldEmitFunctionToTypeScript(methodFn, nil) {
 		t.Fatal("receiver methods should not emit")
+	}
+}
+
+func TestProviderOmissionReason_namesUnsatisfiedProvider(t *testing.T) {
+	tc := typechecker.New(nil, false)
+	tc.FunctionProviders = map[ast.Identifier][]typechecker.ProviderSlot{
+		"Login": {{RootIdent: "db", Key: "db"}},
+	}
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "Login"}}
+	reason, emit := ProviderOmissionReason(fn, tc)
+	if emit {
+		t.Fatal("expected omission")
+	}
+	if reason != `provider "db" not satisfied` {
+		t.Fatalf("reason = %q", reason)
+	}
+}
+
+func TestProviderOmissionReason_multipleProviders(t *testing.T) {
+	tc := typechecker.New(nil, false)
+	tc.FunctionProviders = map[ast.Identifier][]typechecker.ProviderSlot{
+		"Register": {
+			{RootIdent: "Clock", Key: "Clock"},
+			{RootIdent: "Logger", Key: "Logger"},
+		},
+	}
+	fn := ast.FunctionNode{Ident: ast.Ident{ID: "Register"}}
+	reason, emit := ProviderOmissionReason(fn, tc)
+	if emit {
+		t.Fatal("expected omission")
+	}
+	if !strings.Contains(reason, "providers ") || !strings.Contains(reason, `"Clock"`) || !strings.Contains(reason, `"Logger"`) {
+		t.Fatalf("reason = %q", reason)
+	}
+}
+
+func TestCollectOmittedFunctions_listsProviderGatedOnly(t *testing.T) {
+	tc := typechecker.New(nil, false)
+	tc.FunctionProviders = map[ast.Identifier][]typechecker.ProviderSlot{
+		"Login":    {{RootIdent: "db", Key: "db"}},
+		"Register": {{RootIdent: "db", Key: "db"}},
+	}
+	nodes := []ast.Node{
+		ast.PackageNode{Ident: ast.Ident{ID: "auth"}},
+		ast.FunctionNode{Ident: ast.Ident{ID: "Echo"}},
+		ast.FunctionNode{Ident: ast.Ident{ID: "helper"}},
+		ast.FunctionNode{Ident: ast.Ident{ID: "Login"}},
+		ast.FunctionNode{Ident: ast.Ident{ID: "Register"}},
+	}
+	got := CollectOmittedFunctions("auth", nodes, tc)
+	if len(got) != 2 {
+		t.Fatalf("got %d omissions, want 2: %#v", len(got), got)
+	}
+	if got[0].FunctionName != "Login" || got[1].FunctionName != "Register" {
+		t.Fatalf("order/names = %#v", got)
+	}
+	for _, o := range got {
+		if o.PackageName != "auth" {
+			t.Fatalf("package = %q", o.PackageName)
+		}
+		if o.Reason != `provider "db" not satisfied` {
+			t.Fatalf("reason = %q", o.Reason)
+		}
 	}
 }

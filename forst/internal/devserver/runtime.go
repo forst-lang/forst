@@ -59,6 +59,8 @@ type RuntimeRunDeps struct {
 	// deterministically instead of leaking its background goroutines for
 	// the lifetime of the test binary.
 	StopCh <-chan struct{}
+	// AfterReload runs after a successful hot reload (watchGenerate hook).
+	AfterReload func(boundaryRoot string, cfg *ftconfig.Config) error
 }
 
 type devReloadState struct {
@@ -479,6 +481,11 @@ func performDevReload(p reloadParams) *runningChild {
 	}
 	if rt != nil {
 		rt.logComplete(log, gen, true)
+	}
+	if p.cfg != nil && p.cfg.Dev.EffectiveWatchGenerate() && deps.AfterReload != nil {
+		if err := deps.AfterReload(boundaryRoot, p.cfg); err != nil {
+			log.Warnf("watchGenerate: forst generate failed: %v", err)
+		}
 	}
 	monitorChildExit(log, next)
 	return next

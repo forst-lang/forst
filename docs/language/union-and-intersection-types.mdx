@@ -1,0 +1,157 @@
+---
+title: "Combining types"
+description: "Describe values with alternatives or shared requirements."
+---
+
+Sometimes one value can have several valid forms. In other cases, a value must
+meet several requirements at once. Forst uses unions for alternatives and
+intersections for combined requirements.
+
+In language design, these ideas follow set theory. A
+[union type](https://en.wikipedia.org/wiki/Union_type) contains values from
+either member set. An
+[intersection type](https://en.wikipedia.org/wiki/Intersection_type) contains
+only values that belong to every member set.
+
+The most complete use case is a union of named errors. It lets a function list
+the failures callers should handle. Other unions and intersections remain
+experimental.
+
+<Warning>
+  Named error unions are the supported path for application code. General
+  unions and intersections can lose type detail in generated Go.
+</Warning>
+
+## List the errors a function can return
+
+Use a union when a function has a small set of expected failures. The `|`
+operator means that the value can belong to either named type.
+
+```forst
+error ParseError {
+    code: Int,
+}
+
+error IoError {
+    path: String,
+}
+
+type LoadError = ParseError | IoError
+
+func load(): Result(Int, LoadError) {
+    return 0
+}
+```
+
+`LoadError` accepts `ParseError` or `IoError`. Each error keeps its own fields.
+The `Result` tells callers that `load` returns an integer or one of these two
+failures.
+
+Other error types do not belong to `LoadError`. This gives the function a
+closed and predictable failure set. See
+[Errors and Result](/language/errors-and-result) for how to create and return
+the errors.
+
+## Handle one error from the list
+
+Use `Err(ErrorName)` when each error needs a different response.
+
+```forst
+func handleParseError(err ParseError) {}
+
+func inspect() {
+    result := load()
+    if result is Err(ParseError) {
+        handleParseError(result)
+    }
+}
+```
+
+Inside the branch, `result` is a `ParseError`. The direct form
+`result is ParseError` is unavailable for error unions.
+
+Generated Go uses an interface that only the listed errors implement. Generated
+TypeScript uses the same alternatives.
+
+## Accept several kinds of value
+
+A general union can describe a value with several possible types. For example,
+an identifier might come from text input or a numeric database column.
+
+```forst
+type Identifier = String | Int
+```
+
+Forst can parse and check this named declaration. Generated Go currently uses
+`any` for a general union, so type detail is lost after generation. Avoid this
+form in application contracts until general Go output and narrowing are
+complete.
+
+## Require several sets of fields
+
+An intersection uses `&`. It describes a value that must satisfy every member.
+
+```forst
+type Named = {
+    name: String,
+}
+
+type Entity = {
+    id: Int,
+}
+
+type NamedEntity = Named & Entity
+```
+
+`NamedEntity` is intended to require both `name` and `id`. Intersection parsing
+and type checking exist, while complete narrowing and generated Go types remain
+in development. Treat intersections as experimental.
+
+## Choose the type for the job
+
+Start from the behavior your function needs.
+
+| Need | Type |
+| --- | --- |
+| Return a success value or a failure | `Result(Success, Failure)` |
+| Limit a `Result` to known error types | A named error union |
+| Keep several returned values together | `Tuple(T₁…Tₙ)` |
+| Require all listed type rules | An intersection |
+
+`Result` and `Tuple` have different guarantees. See
+[why they stay separate](/language/errors-and-result#result-and-tuple-stay-separate)
+before wrapping calls with several return values.
+
+## Current limits
+
+- Union and intersection syntax only works in named type declarations.
+- Inline forms such as a parameter typed as `A | B` are unavailable.
+- Named error unions are the complete end to end path.
+- Error union narrowing uses `Err(ErrorName)` on a `Result`.
+- Arbitrary unions and intersections lose detail in generated Go.
+- Optional types such as `T | Nil` are still planned.
+- Type merging after control flow branches is still being expanded.
+
+See the [roadmap](/resources/roadmap) for the current implementation status.
+
+## Run the examples
+
+Run the tested error union examples from the Forst repository.
+
+```bash
+task example:union-error-types
+task example:union-error-narrowing
+```
+
+## Related
+
+Continue with typed failures or runtime narrowing.
+
+<CardGroup cols={2}>
+  <Card title="Errors and Result" icon="triangle-exclamation" href="/language/errors-and-result">
+    Return and handle named failures.
+  </Card>
+  <Card title="Ensure and narrowing" icon="filter" href="/language/ensure-and-narrowing">
+    Refine values after runtime checks.
+  </Card>
+</CardGroup>

@@ -1,11 +1,15 @@
 package nodert
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,5 +86,33 @@ func TestTerminateHostPID_terminatesSleepChild(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatalf("pid=%d still running after TerminateHostPID", pid)
+	}
+}
+
+func TestWaitForHostMarkerReady_failsFastWhenProcessExits(t *testing.T) {
+	exitCh := make(chan error, 1)
+	exitCh <- fmt.Errorf("%w: exit status 1", ErrNodeRuntimeDied)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err := waitForHostMarkerReady(ctx, "/tmp/missing.ready", exitCh, func() string { return "listen EPERM" })
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "host process exited before ready") {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(err.Error(), "listen EPERM") {
+		t.Fatalf("stderr not in error: %v", err)
+	}
+	if !errors.Is(err, ErrNodeRuntimeDied) && !strings.Contains(err.Error(), "node runtime process exited") {
+		t.Fatalf("exit reason not in error: %v", err)
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("wait took %v, expected immediate fail", elapsed)
 	}
 }

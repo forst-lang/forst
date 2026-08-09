@@ -48,7 +48,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 
 // TestCompile_embeddedInvoke_reloadProfile_modulecheckPassCount documents redundant
 // CheckModuleProviders runs during a typical embedded-invoke dev reload compile.
-// Phase 1 fix: dedupe via CollectInvokeFunctionsFromModuleResult (expect passes == 1).
+// Regression: dedupe via CollectInvokeFunctionsFromModuleResult (expect passes == 1).
 func TestCompile_embeddedInvoke_reloadProfile_modulecheckPassCount(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module reloadprofiletest\n\ngo 1.26.0\n"), 0o644); err != nil {
@@ -426,16 +426,10 @@ func main() {
 
 import "golang.org/x/crypto/bcrypt"
 
-type ComparePasswordRequest = {
+func ComparePassword(input {
 	plainPassword: String,
 	passwordHash: String
-}
-
-type ComparePasswordResponse = {
-	valid: Bool
-}
-
-func ComparePassword(input ComparePasswordRequest) {
+}) {
 	hashBytes := []byte(input.passwordHash)
 	plainBytes := []byte(input.plainPassword)
 

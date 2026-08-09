@@ -1,4 +1,4 @@
-package bcrypt
+package auth
 
 type HashInput = {password: String}
 

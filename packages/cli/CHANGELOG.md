@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
+
 ## [0.1.2](https://github.com/forst-lang/forst/compare/cli-v0.1.1...cli-v0.1.2) (2026-07-20)
 
 

@@ -1,26 +1,132 @@
 ---
-title: "Generate client types"
-description: "Emit .d.ts from Forst with forst generate so Node clients match server shapes."
+title: "Generate a TypeScript client"
+description: "Run forst generate and import typed clients from @forst/gen."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
+import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
-**`forst generate`** emits TypeScript declarations from the same definitions the compiler validates, so Node clients import shapes that match the server.
-
-To call these functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/node/call-javascript).
-
-## Manual types in TypeScript
-
-Without generated types, every API change means updating TS by hand:
+<NodeClientSetupNote />
 
 ```typescript
-interface PlaceOrderInput {
-  stockKeepingUnit: string; // any string
-  quantity: number;         // any number
+import { VerifyPassword } from "@forst/gen/auth";
+import type { VerifyPasswordRequest } from "@forst/gen/auth";
+
+const input: VerifyPasswordRequest = {
+  plainPassword: "secret",
+  passwordHash: "$2a$...",
+};
+
+const { valid } = await VerifyPassword(input);
+```
+
+To call functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/node/call-javascript).
+
+## What you get
+
+Each Forst package becomes a subpath under `@forst/gen`:
+
+| Forst package | Import |
+| --- | --- |
+| `package auth` | `@forst/gen/auth` |
+| `package bcrypt` | `@forst/gen/bcrypt` |
+
+Types for that package export from the same subpath. Shared shapes also re-export from `@forst/gen`.
+
+```typescript
+import type { VerifyPasswordRequest } from "@forst/gen/auth";
+// or
+import type { VerifyPasswordRequest } from "@forst/gen";
+```
+
+Output on disk (default):
+
+```text
+.forst/client/          gitignored, regenerated, linked into node_modules
+```
+
+`forst generate` writes `node_modules/@forst/gen` → `.forst/client` so the specifier resolves. Full output modes and every `generate` field are on the [CLI reference](/workflow/cli#generate-configuration).
+
+## Bundlers (Vite, Remix, webpack)
+
+The generated package is a real npm-style module: subpath imports like `@forst/gen/auth` resolve through `package.json` **`exports`** to files under `dist/pkg/`. TypeScript and Node resolve it from `node_modules/@forst/gen` after `forst generate` creates the link.
+
+The generated `package.json` declares an optional peer on `@forst/cli` so real-server helpers under `@forst/gen/testing` can load `@forst/cli/invoke`. Install it only when those helpers are used.
+
+**Do not** add a bundler `resolve.alias` that maps `@forst/gen` to `.forst/client`. Plain directory aliases skip the exports map, so `@forst/gen/main` incorrectly becomes `.forst/client/main` (which does not exist). Let normal package resolution handle `@forst/gen`.
+
+For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
+
+Working reference: [`examples/in/rfc/node-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/remix-serve) (`vite.config.ts`, `task example:node-interop-remix-serve:standalone-e2e` in CI).
+
+## Runtime targets
+
+Default output is for **Node.js 20.19+** on the server (SSR loaders, API routes, background jobs). The transport uses `fetch`, `process.env`, and Node timing APIs.
+
+Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles are **not** supported by the generated client today. Run `forst generate` in a Node boundary and call Forst from a supported backend. See [Call Forst from Node § Runtime support](/interop/node/call-forst#runtime-support).
+
+## Monorepos and multiple Forst projects
+
+### One `.forst` tree per boundary
+
+Every `ftconfig.json` boundary gets **one** compiler-owned `.forst/` directory under that boundary root. The default client output is `.forst/client`. Do not add a second `.forst` tree manually. A second Forst project needs a second boundary (another `ftconfig.json` at its project root).
+
+A Forst **package** named `client` is fine. It emits to `dist/pkg/client.js` and resolves as `@forst/gen/client`. That is separate from the compiler-owned `.forst/client` output directory.
+
+### How the `node_modules` link is placed
+
+`forst generate` walks **up** from the ftconfig boundary root until it finds a `node_modules` directory, then writes:
+
+```text
+node_modules/@forst/gen  →  <boundaryRoot>/.forst/client
+```
+
+The link is a symlink or junction when the OS allows it, with a directory copy fallback that warns it goes stale until the next generate. A `.forst-generated` marker inside the output records which boundary owns the link. If the link already points at the correct output, generate leaves it untouched.
+
+Treat the link like `.forst` itself: **regenerated infrastructure**, not something npm installed. `postinstall: forst generate .` restores it after `npm ci` deletes `node_modules`.
+
+### Single app in a monorepo
+
+When one boundary lives inside a larger repo (for example `apps/remix-serve/`), the link usually lands in that app's nearest `node_modules`. Hoisting to the repo root only changes **where** the link is created, not **what** it points at. Each app's link still targets **that** boundary's `.forst/client`.
+
+### Two Forst boundaries, same repo
+
+If two boundaries both use the default name `@forst/gen` and share a hoisted `node_modules`, the **second** `forst generate` fails with an ownership error naming both boundary paths. That is intentional. Silent overwrite would point both apps at one generated client.
+
+Pick one fix:
+
+| Approach | When to use |
+| --- | --- |
+| **Distinct `generate.packageName`** per boundary (for example `@acme/app-a-gen` and `@acme/app-b-gen`) | Each app keeps ephemeral output and its own link slot under `node_modules` |
+| **Committed mode** per boundary (`outDir` outside `.forst`, `link: "never"`) plus a workspace `file:` dependency | pnpm, Yarn Plug'n'Play, or when you want the client checked in and resolved like any local package |
+
+Committed mode example:
+
+```json
+{
+  "generate": {
+    "outDir": "packages/forst-client",
+    "link": "never"
+  }
 }
 ```
 
-TypeScript cannot express `quantity` must be 1 to 99 unless you add Zod, Effect.Schema, or similar. That is another schema to maintain.
+Register `packages/forst-client` in the workspace. TypeScript and bundlers resolve it without a symlink. You still run `forst generate` when `.ft` sources change.
+
+### Package managers and environments
+
+| Environment | Ephemeral link mode |
+| --- | --- |
+| npm or bun, single boundary, `postinstall` | Reliable (default path) |
+| `npm ci` without `postinstall` | Link missing until you run generate |
+| Yarn Plug'n'Play | Link skipped; use committed mode |
+| pnpm strict / isolated | Variable; committed mode is the safe path |
+| Windows without Developer Mode | Junction or copy fallback |
+| Docker / CI | Run `forst generate` in the build step, or use committed mode |
+
+### Nested packages without their own `ftconfig.json`
+
+Commands run from a subdirectory still discover the **ancestor** `ftconfig.json`. One boundary, one `.forst` tree, one link. No extra setup.
 
 ## Types from .ft
 
@@ -28,30 +134,7 @@ Define the shape once in Forst:
 
 <CatalogOrder />
 
-Run:
-
-```bash
-npx forst generate ./path/to/project
-```
-
-Output layout (typical):
-
-```text
-generated/
-├── types.d.ts      # merged type declarations
-└── ...
-client/             # optional client stubs (see Call Forst from Node)
-```
-
-Import in your frontend or BFF:
-
-```typescript
-import type { PlaceOrderInput } from "./generated/types";
-
-async function submitOrder(input: PlaceOrderInput) {
-  // structural match with server-side Forst types
-}
-```
+Only **exported** functions (capitalized names) appear in the client. Provider gated functions are omitted. See [Caveats](#caveats).
 
 ## Discovery with `ftconfig.json`
 
@@ -63,8 +146,7 @@ async function submitOrder(input: PlaceOrderInput) {
     "include": ["**/*.ft"],
     "exclude": [
       "**/node_modules/**",
-      "**/.git/**",
-      "**/client/**"
+      "**/.git/**"
     ]
   }
 }
@@ -72,9 +154,12 @@ async function submitOrder(input: PlaceOrderInput) {
 
 Pass **`-config`** explicitly or let the CLI search upward from your target directory.
 
+Lifecycle scripts (`postinstall`, optional `predev` / `prebuild`) live on
+[Installation § Generated TypeScript client](/installation#generated-typescript-client).
+
 ## End-to-end example
 
-The **tictactoe** example in the repository demonstrates merged-package generate:
+The **tictactoe** example regenerates the client after you change `.ft` files:
 
 ```bash
 task example:tictactoe:generate
@@ -86,7 +171,7 @@ See [`examples/in/tictactoe/`](https://github.com/forst-lang/forst/tree/main/exa
 
 ### Structure only in TypeScript
 
-Generated **`.d.ts`** files reflect field names and types. They do **not** carry runtime rules like **`String.Min(1)`** or **`Int.Max(99)`**. Add client validation yourself, or call the Forst server which validates at the boundary.
+Generated types reflect field names and TypeScript shapes. They do **not** carry runtime rules like **`String.Min(1)`** or **`Int.Max(99)`**. Add client validation yourself, or call the Forst server which validates at the boundary.
 
 ### Provider gated exports
 
@@ -94,21 +179,24 @@ Functions that need wired **`Providers(f)`** are excluded from TypeScript emit. 
 
 ### Nominal error tags
 
-TypeScript **`_tag`** export for nominal errors is still maturing. Treat error payloads as evolving. See [Errors and Result § Caveats](/language/errors-and-result#caveats).
+TypeScript **`_tag`** export for nominal Forst errors is still maturing. Treat those payloads as evolving. Invoke transport failures (`InvokeRejected`, …) already use stable tags. See [Errors and Result § Caveats](/language/errors-and-result#caveats) and [Call Forst from Node](/interop/node/call-forst#failures).
 
 ## Related
 
 <CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation#generated-typescript-client">
+    `@forst/cli`, `postinstall`, and first generate.
+  </Card>
   <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
-    Invoke generated functions — dev server or built-in HTTP server.
+    Invoke generated functions over HTTP.
   </Card>
-  <Card title="Call JavaScript from Forst" icon="/icons/typescript.svg" href="/interop/node/call-javascript">
-    Call legacy `.ts`/`.js` from compiled Forst (`import node`).
+  <Card title="Testing" icon="flask" href="/interop/node/testing">
+    Stub calls with `withForstTestScope`.
   </Card>
-  <Card title="Node overview" icon="server" href="/interop/node">
-    Pick your migration path.
+  <Card title="Effect mode" icon="bolt" href="/interop/node/effect">
+    `generate.effect` and `ForstClientLive`.
   </Card>
-  <Card title="Installation" icon="download" href="/installation">
-    Install `@forst/cli` in your project.
+  <Card title="CLI reference" icon="terminal" href="/workflow/cli#generate-configuration">
+    Full `generate` configuration table.
   </Card>
 </CardGroup>

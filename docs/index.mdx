@@ -32,14 +32,14 @@ flowchart LR
   ft[".ft sources"]
   goOut["Generated Go"]
   deploy["go build / deploy"]
-  dts["generated/types.d.ts"]
+  dts["@forst/gen"]
   clients["API clients"]
 
   ft --> goOut --> deploy
   ft -.-> dts -.-> clients
 ```
 
-Run `forst generate` when clients need TypeScript types from the same source.
+Run `forst generate` (and add `postinstall`) when clients need TypeScript from the same source.
 
 ## Start here
 

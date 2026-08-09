@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** The TypeScript client layout is replaced. `forst generate` emits a self-contained package under `generate.outDir` (default ephemeral `.forst/client`, gitignored) with compiled `dist/*.{js,d.ts}` and links it into `node_modules` as `@forst/gen`. Import functions and types from `@forst/gen/<forstPackage>` (for example `@forst/gen/auth`). The previous dual `generated/` plus `client/` (or `@forst/generated-client`) layout is no longer written.
+
+  **Migration**
+  1. Add a lifecycle script so a fresh checkout regenerates the link, for example `"postinstall": "forst generate ."`. Ephemeral output is not committed.
+  2. Update imports to `@forst/gen` / `@forst/gen/<pkg>`. Drop `tsconfig` `paths`, bundler aliases, and allowlists that pointed at the old folders.
+  3. Delete any local `generated/` and `client/` directories yourself if you no longer need them. **Forst deletes nothing** on disk, including recognized legacy trees.
+  4. Optional. Set `generate.effect: true` for Effect-returning callables (`effect` peer `>=3.17.0`). Use `@forst/gen/testing` (or `generate.testingSubpath`) for `withForstTestScope` overrides.
+  5. Use `forst generate --watch` or sidecar `watchGenerate` (default on in development) to refresh types on `.ft` edits.
+
+* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`. Regenerate the client after upgrading.
+
+### Features
+
+* **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
+* **generate:** Real-server testing helpers on `@forst/gen/testing`: Promise mode `startForstTestServer`, Effect mode `ForstTestServer` / `ForstTestServerLayer` / `makeForstTestServer`. Optional peer `@forst/cli` (`peerDependenciesMeta.optional`) lazy-imports `@forst/cli/invoke`. Harness failures use `ForstTestServerFailed` outside `InvokeFailure`.
+* **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).
+
+### Bug Fixes
+
+* **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
+
 ## [0.10.2](https://github.com/forst-lang/forst/compare/v0.10.1...v0.10.2) (2026-07-28)
 
 

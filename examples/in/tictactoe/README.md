@@ -18,9 +18,9 @@ cd forst && go run ./cmd/forst run -root ../examples/in/tictactoe -- ../examples
 
 ## TypeScript client (`forst generate`)
 
-`generated/` and `client/` under this folder are **gitignored**; run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
+Output lands in gitignored `.forst/client` (linked as `node_modules/@forst/tictactoe`). Run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
 
-From the repo root, regenerate `generated/*.ts` and `client/` (merged `types.d.ts`, per-file `*.client.ts`, and `@forst/client` wrapper):
+From the repo root:
 
 ```bash
 task example:tictactoe:generate
@@ -32,7 +32,7 @@ Equivalent:
 cd forst && go run ./cmd/forst generate ../examples/in/tictactoe
 ```
 
-Use `npm install` or `pnpm install` inside `client/` if you want to type-check against `@forst/sidecar` (see `client/package.json`). Point `FORST_BASE_URL` at a running `forst dev` sidecar when calling `NewGame()` / `PlayMove()` from TypeScript.
+Import with `import { createForstClient } from "@forst/tictactoe"` or `import { PlayMove } from "@forst/tictactoe/main"`. For tests, prefer `startForstTestServer` from `@forst/tictactoe/testing` (needs optional peer `@forst/cli`). Or point `FORST_BASE_URL` at a running invoke server.
 
 ### Tests (bun)
 
@@ -43,10 +43,10 @@ bun install
 task test:tictactoe
 ```
 
-- **`tests/tictactoe-game.simulation.test.ts`** — full game in TypeScript using **`import type`** from **`client/types`** (merged declarations from `forst generate`) and rule logic aligned with `engine.ft` (invalid square + X wins top row).
+- **`tests/tictactoe-game.simulation.test.ts`** — real-server game via `startForstTestServer` and flat imports from `@forst/tictactoe/main`.
 - **`tests/tictactoe-forst-run.test.ts`** — runs **`forst run -root … main/server.ft`** and checks stdout (merged-package smoke).
 
-The executor rewrites merged **`package main`** user code to a library package (`forstexec`) so **`POST /invoke`** can import it; the simulation still exercises the **same shapes** TypeScript gets from `forst generate`. Optional: `FORST_BINARY`, or `FORST_SKIP_TICTACTOE_E2E=1` to skip.
+Optional: `FORST_BINARY`, or `FORST_SKIP_TICTACTOE_E2E=1` to skip.
 
 ## Golden Go output
 

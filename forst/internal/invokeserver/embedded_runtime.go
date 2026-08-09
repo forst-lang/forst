@@ -2,6 +2,7 @@ package invokeserver
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	"forst/internal/ftconfig"
@@ -73,6 +74,10 @@ func (r *EmbeddedRuntime) Start() error {
 	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), StderrLogger{})
 	if err := r.server.StartAsync(); err != nil {
 		return fmt.Errorf("invoke server: start: %w", err)
+	}
+	// StartAsync binds synchronously; record the real port when FORST_INVOKE_PORT=0.
+	if _, port, err := net.SplitHostPort(r.server.BoundAddr()); err == nil && port != "" {
+		serverCfg.Port = port
 	}
 	return r.deps.writeReady(workDir, serverCfg)
 }

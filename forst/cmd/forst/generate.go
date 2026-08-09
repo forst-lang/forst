@@ -3,12 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"forst/internal/ftconfig"
 	transformerts "forst/internal/transformer/ts"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -20,13 +19,18 @@ var generateIO = struct {
 	ReadFile  func(string) ([]byte, error)
 	Remove    func(string) error
 	ReadDir   func(string) ([]os.DirEntry, error)
+	Rename    func(oldpath, newpath string) error
 }{
 	MkdirAll:  os.MkdirAll,
 	WriteFile: os.WriteFile,
 	ReadFile:  os.ReadFile,
 	Remove:    os.Remove,
 	ReadDir:   os.ReadDir,
+	Rename:    os.Rename,
 }
+
+// generateReportWriter receives the post-emit specifier summary (defaults to stdout).
+var generateReportWriter io.Writer = os.Stdout
 
 var (
 	absPathForGenerate              = filepath.Abs
@@ -35,6 +39,11 @@ var (
 	validateDiscoveredFileStemsHook = transformerts.ValidateDiscoveredFileStems
 	generateClientPackageHook       = generateClientPackage
 	pruneStaleClientModulesHook     = pruneStaleClientModules
+	newGenerateLogger               = func() *logrus.Logger {
+		log := logrus.New()
+		log.SetLevel(logrus.InfoLevel)
+		return log
+	}
 )
 
 // loadConfigForGenerate resolves ftconfig: explicit -config, else search upward from target, else defaults.
@@ -94,41 +103,120 @@ func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) 
 	return nil, "", fmt.Errorf("file %s is not included by ftconfig discovery rules (include/exclude)", target)
 }
 
-// generateCommand handles the "forst generate" command
-func generateCommand(args []string) error {
+type generateOptions struct {
+	configPath        string
+	allowStemMismatch bool
+	watch             bool
+	listJSON          bool
+	target            string
+}
+
+func parseGenerateArgs(args []string) (generateOptions, error) {
 	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	configPath := fs.String("config", "", "Path to ftconfig.json")
 	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name")
+	watch := fs.Bool("watch", false, "Regenerate when .ft files change")
+	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
+	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return generateOptions{}, err
 	}
 	tail := fs.Args()
 	if len(tail) < 1 {
-		return fmt.Errorf("generate command requires a target file or directory")
+		return generateOptions{}, fmt.Errorf("generate command requires a target file or directory")
 	}
+	return generateOptions{
+		configPath:        *configPath,
+		allowStemMismatch: *allowStemMismatch,
+		watch:             *watch,
+		listJSON:          *list || *listJSON,
+		target:            tail[0],
+	}, nil
+}
 
-	target := tail[0]
-
-	// Create logger
-	log := logrus.New()
-	log.SetLevel(logrus.InfoLevel)
-
-	// Check if target is a file or directory
-	fileInfo, err := os.Stat(target)
+// generateCommand handles the "forst generate" command
+func generateCommand(args []string) error {
+	opts, err := parseGenerateArgs(args)
 	if err != nil {
-		return fmt.Errorf("failed to stat target %s: %w", target, err)
+		return err
 	}
 
-	cfg, err := loadConfigForGenerate(*configPath, target, fileInfo.IsDir())
+	log := newGenerateLogger()
+
+	fileInfo, err := os.Stat(opts.target)
+	if err != nil {
+		return fmt.Errorf("failed to stat target %s: %w", opts.target, err)
+	}
+
+	cfg, err := loadConfigForGenerate(opts.configPath, opts.target, fileInfo.IsDir())
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, target, fileInfo.IsDir())
+	if opts.watch {
+		return watchGenerate(opts, cfg, fileInfo.IsDir(), log)
+	}
+
+	if opts.listJSON {
+		return runGenerateList(opts, cfg, fileInfo.IsDir(), log)
+	}
+	return runGenerateOnce(opts, cfg, fileInfo.IsDir(), log)
+}
+
+// runGenerateList discovers exports and prints a JSON manifest without writing client output.
+func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
 	if err != nil {
 		return err
 	}
+	boundaryRoot := outputDir
+	if root, rootErr := ftconfig.BoundaryRootFromDir(outputDir); rootErr == nil {
+		boundaryRoot = root
+	}
+	genCfg := ftconfig.EffectiveGenerateConfig(&cfg.Config, boundaryRoot)
+	if err := genCfg.Validate(); err != nil {
+		return fmt.Errorf("generate config: %w", err)
+	}
+	if len(forstFiles) == 0 {
+		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
+		return printGenerateManifest(boundaryRoot, genCfg, nil, log)
+	}
+	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
+		return err
+	}
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
+		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
+	})
+	if err != nil {
+		return err
+	}
+	return printGenerateManifest(boundaryRoot, genCfg, outputs, log)
+}
+
+// runGenerateOnce performs a single generate pass into outDir/dist/.
+func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	if err != nil {
+		return err
+	}
+
+	boundaryRoot := outputDir
+	if root, rootErr := ftconfig.BoundaryRootFromDir(outputDir); rootErr == nil {
+		boundaryRoot = root
+	}
+	genCfg := ftconfig.EffectiveGenerateConfig(&cfg.Config, boundaryRoot)
+	if err := genCfg.Validate(); err != nil {
+		return fmt.Errorf("generate config: %w", err)
+	}
+	log.WithFields(logrus.Fields{
+		"packageName": genCfg.PackageName,
+		"outDir":      genCfg.OutDir,
+		"ephemeral":   genCfg.IsEphemeral(boundaryRoot),
+		"link":        genCfg.ShouldLink(boundaryRoot),
+		"emit":        genCfg.Emit,
+		"effect":      genCfg.Effect,
+	}).Info("Resolved generate config")
 
 	if len(forstFiles) == 0 {
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
@@ -137,7 +225,7 @@ func generateCommand(args []string) error {
 
 	log.Infof("Found %d Forst files", len(forstFiles))
 
-	if err := validateDiscoveredFileStemsHook(forstFiles, *allowStemMismatch, log); err != nil {
+	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
 
@@ -147,274 +235,92 @@ func generateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	reportProviderOmissions(outputs, log)
+
+	// Guards run before any emit so a failing project leaves no partial output.
+	packageNames := transformerts.PackageNames(outputs)
+	if err := transformerts.ValidateReservedSubpaths(packageNames, genCfg.ReservedSubpaths()); err != nil {
+		log.WithFields(logrus.Fields{
+			"reserved": transformerts.FormatReservedSubpathKeys(genCfg.ReservedSubpaths()),
+		}).Error(err.Error())
+		return err
+	}
+	runtime := transformerts.RuntimeFromConfig(genCfg)
+	if runtime == transformerts.RuntimeEffect {
+		if err := transformerts.ValidateServiceClassNames(packageNames); err != nil {
+			log.Error(err.Error())
+			return err
+		}
+		if err := requireEffectRuntime(boundaryRoot); err != nil {
+			log.Error(err.Error())
+			return err
+		}
+	}
 
 	merged, err := mergeTypeScriptOutputsHook(outputs)
 	if err != nil {
+		log.WithError(err).Error("Type name conflict while merging TypeScript outputs")
 		return fmt.Errorf("merge TypeScript outputs: %w", err)
 	}
 
-	generatedDir := filepath.Join(outputDir, "generated")
-	if err := generateIO.MkdirAll(generatedDir, 0755); err != nil {
-		return fmt.Errorf("failed to create generated directory: %w", err)
+	outDir := genCfg.EffectiveOutDir(boundaryRoot)
+	distDir := filepath.Join(outDir, "dist")
+	coreDir := filepath.Join(distDir, "core")
+	pkgDir := filepath.Join(distDir, "pkg")
+	invokePort := cfg.Server.EffectiveInvokePort()
+
+	if err := generateIO.MkdirAll(coreDir, 0755); err != nil {
+		return fmt.Errorf("failed to create dist/core directory: %w", err)
+	}
+	if err := generateIO.MkdirAll(pkgDir, 0755); err != nil {
+		return fmt.Errorf("failed to create dist/pkg directory: %w", err)
 	}
 
-	typesPath := filepath.Join(generatedDir, "types.d.ts")
-	typesCode := merged.GenerateTypesFile()
-	if err := generateIO.WriteFile(typesPath, []byte(typesCode), 0644); err != nil {
-		return fmt.Errorf("failed to write types declaration file: %w", err)
-	}
-	log.Infof("Generated types declaration file: %s", typesPath)
+	var stats generateWriteStats
 
 	clientOutputs := runnableClientOutputs(outputs)
-	activePackages := make(map[string]struct{}, len(clientOutputs))
-	for _, out := range clientOutputs {
-		pkg := out.PackageName
-		activePackages[pkg] = struct{}{}
-		clientPath := filepath.Join(generatedDir, pkg+".client.ts")
-		clientCode := out.GenerateClientFile()
-		if err := generateIO.WriteFile(clientPath, []byte(clientCode), 0644); err != nil {
-			log.Errorf("Failed to write client module %s: %v", clientPath, err)
-			continue
-		}
-		log.Infof("Generated client module: %s", clientPath)
+	if err := writeGeneratedDistModules(distDir, coreDir, pkgDir, merged, clientOutputs, genCfg, runtime, invokePort, log, &stats); err != nil {
+		return err
 	}
 
-	if err := pruneStaleClientModulesHook(generatedDir, activePackages, log); err != nil {
+	activePackages := make(map[string]struct{}, len(clientOutputs))
+	for _, out := range clientOutputs {
+		activePackages[out.PackageName] = struct{}{}
+	}
+	if err := pruneStaleClientModulesHook(distDir, activePackages, genCfg.TestingSubpath, log); err != nil {
 		return fmt.Errorf("prune stale client modules: %w", err)
 	}
 
-	// Generate client package structure (only packages with runnable exports)
-	if err := generateClientPackageHook(outputDir, clientOutputs, log); err != nil {
-		log.Errorf("Failed to generate client package: %v", err)
+	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, invokePort, log, &stats); err != nil {
+		return fmt.Errorf("generate client package: %w", err)
 	}
 
-	log.Info("TypeScript declaration files and client implementations generation completed")
-	return nil
-}
-
-// runnableClientOutputs returns package outputs that have public invoke exports.
-func runnableClientOutputs(outputs []*transformerts.TypeScriptOutput) []*transformerts.TypeScriptOutput {
-	var out []*transformerts.TypeScriptOutput
-	for _, o := range outputs {
-		if transformerts.PackageHasRunnableExports(o) {
-			out = append(out, o)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].PackageName < out[j].PackageName
-	})
-	return out
-}
-
-// pruneStaleClientModules removes generated/*.client.ts files for packages no longer emitted.
-func pruneStaleClientModules(generatedDir string, activePackages map[string]struct{}, log *logrus.Logger) error {
-	entries, err := generateIO.ReadDir(generatedDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".client.ts") {
-			continue
-		}
-		pkg := strings.TrimSuffix(name, ".client.ts")
-		if _, ok := activePackages[pkg]; ok {
-			continue
-		}
-		path := filepath.Join(generatedDir, name)
-		if err := generateIO.Remove(path); err != nil {
+	if genCfg.SSRModule != "" {
+		if err := writeSSRModule(boundaryRoot, genCfg.SSRModule, outDir, clientOutputs, invokePort, log, &stats); err != nil {
 			return err
 		}
-		log.Infof("Pruned stale client module: %s", path)
-	}
-	return nil
-}
-
-// generateClientPackage creates the main client package structure
-func generateClientPackage(outputDir string, outputs []*transformerts.TypeScriptOutput, log *logrus.Logger) error {
-	// Create client package directory
-	clientDir := filepath.Join(outputDir, "client")
-	if err := generateIO.MkdirAll(clientDir, 0755); err != nil {
-		return fmt.Errorf("failed to create client directory: %w", err)
 	}
 
-	// Generate main client index file
-	indexContent := generateClientIndex(outputs)
-	indexPath := filepath.Join(clientDir, "index.ts")
-	if err := generateIO.WriteFile(indexPath, []byte(indexContent), 0644); err != nil {
-		return fmt.Errorf("failed to write client index: %w", err)
-	}
-	log.Infof("Generated client index: %s", indexPath)
-
-	// Generate package.json for the client
-	packageContent := generateClientPackageJSON()
-	packagePath := filepath.Join(clientDir, "package.json")
-	if err := generateIO.WriteFile(packagePath, []byte(packageContent), 0644); err != nil {
-		return fmt.Errorf("failed to write client package.json: %w", err)
-	}
-	log.Infof("Generated client package.json: %s", packagePath)
-
-	// Copy types declaration file to client directory
-	typesSource := filepath.Join(outputDir, "generated", "types.d.ts")
-	typesDest := filepath.Join(clientDir, "types.d.ts")
-	if err := copyFile(typesSource, typesDest); err != nil {
-		return fmt.Errorf("failed to copy types declaration file: %w", err)
-	}
-	log.Infof("Copied types declaration file to client directory")
-
-	if err := generateSSRInvokeModule(outputDir, outputs, log); err != nil {
+	if err := writeForstGeneratedMarker(outDir, boundaryRoot, genCfg.PackageName, &stats); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-// generateSSRInvokeModule writes app/lib/forst.invoke.ts when app/lib exists.
-// Remix/Vite only bundles modules under app/ — this gives SSR loaders a stable surface.
-func generateSSRInvokeModule(outputDir string, outputs []*transformerts.TypeScriptOutput, log *logrus.Logger) error {
-	appLibDir := filepath.Join(outputDir, "app", "lib")
-	if st, err := os.Stat(appLibDir); err != nil || !st.IsDir() {
-		return nil
-	}
-
-	sorted := append([]*transformerts.TypeScriptOutput(nil), outputs...)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].PackageName < sorted[j].PackageName
-	})
-
-	var body strings.Builder
-	body.WriteString(`// Auto-generated Forst SSR invoke surface
-// Generated by forst generate — import from ../lib/forst.invoke in Remix loaders
-// Embedded invoke: set FORST_BASE_URL=http://127.0.0.1:8081
-
-import { getDefaultInvokeClient } from '@forst/client';
-`)
-	typeNames := transformerts.CollectInvokeTypeNames(sorted)
-	if len(typeNames) > 0 {
-		fmt.Fprintf(&body, "import type { %s } from '../../generated/types';\n", strings.Join(typeNames, ", "))
-	}
-	body.WriteString("\n")
-	for _, out := range sorted {
-		if len(out.Functions) == 0 {
-			continue
-		}
-		for _, line := range transformerts.DirectInvokeExportLines(out.PackageName, out.Functions) {
-			body.WriteString(line)
-			body.WriteString("\n\n")
-		}
-	}
-
-	modulePath := filepath.Join(appLibDir, "forst.invoke.ts")
-	if err := generateIO.WriteFile(modulePath, []byte(body.String()), 0644); err != nil {
-		return fmt.Errorf("failed to write SSR invoke module: %w", err)
-	}
-	log.Infof("Generated SSR invoke module: %s", modulePath)
-	return nil
-}
-
-// generateClientIndex creates the main client index file.
-func generateClientIndex(outputs []*transformerts.TypeScriptOutput) string {
-	sorted := append([]*transformerts.TypeScriptOutput(nil), outputs...)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].PackageName < sorted[j].PackageName
-	})
-
-	var imports []string
-	var exports []string
-	var packageProperties []string
-	var reexports strings.Builder
-
-	for _, out := range sorted {
-		baseName := out.PackageName
-		imports = append(imports, fmt.Sprintf("import { %s } from '../generated/%s.client';", baseName, baseName))
-		exports = append(exports, baseName)
-		packageProperties = append(packageProperties, fmt.Sprintf("  public %s: ReturnType<typeof %s>;", baseName, baseName))
-		names := make([]string, 0, len(out.Functions)+1)
-		names = append(names, baseName)
-		for _, fn := range out.Functions {
-			names = append(names, fn.Name)
-		}
-		fmt.Fprintf(&reexports, "export { %s } from '../generated/%s.client';\n", strings.Join(names, ", "), baseName)
-	}
-
-	// Create the main client class
-	var clientClass strings.Builder
-	clientClass.WriteString(`export interface ForstClientConfig {
-  baseUrl?: string;
-  timeout?: number;
-  retries?: number;
-}
-
-export class ForstClient {
-`)
-
-	// Add package properties
-	clientClass.WriteString(strings.Join(packageProperties, "\n"))
-	clientClass.WriteString("\n\n  constructor(config?: ForstClientConfig) {\n")
-	clientClass.WriteString("    const client = createInvokeClient(config);\n")
-
-	// Initialize package properties
-	for _, export := range exports {
-		fmt.Fprintf(&clientClass, "    this.%s = %s(client);\n", export, export)
-	}
-
-	clientClass.WriteString("  }\n}\n")
-
-	// Combine all parts
-	content := "// Auto-generated Forst Client\n"
-	content += "// Generated by Forst TypeScript Transformer\n"
-	content += "// Embedded invoke: set FORST_BASE_URL=http://127.0.0.1:8081\n\n"
-	content += "import { createInvokeClient } from '@forst/client';\n"
-
-	if len(imports) > 0 {
-		content += strings.Join(imports, "\n") + "\n\n"
-	}
-
-	content += clientClass.String() + "\n"
-	if reexports.Len() > 0 {
-		content += "\n" + reexports.String()
-	}
-	content += "export type * from './types';\n"
-
-	return content
-}
-
-// generateClientPackageJSON creates the package.json for the client
-func generateClientPackageJSON() string {
-	return `{
-  "name": "@forst/generated-client",
-  "private": true,
-  "version": "0.1.0",
-  "description": "Auto-generated Forst client",
-  "sideEffects": true,
-  "main": "index.ts",
-  "types": "index.ts",
-  "dependencies": {
-    "@forst/client": "^0.1.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0"
-  }
-}`
-}
-
-// copyFile copies a file from source to destination
-func copyFile(src, dst string) error {
-	input, err := generateIO.ReadFile(src)
-	if err != nil {
+	if err := maybeLinkGeneratedClient(boundaryRoot, outDir, genCfg, log); err != nil {
 		return err
 	}
+	warnMissingLifecycleScript(boundaryRoot, genCfg, log)
 
-	err = generateIO.WriteFile(dst, input, 0644)
-	if err != nil {
-		return err
-	}
+	printGenerateSummary(genCfg, clientOutputs)
 
+	log.WithFields(logrus.Fields{
+		"filesWritten": stats.Written,
+		"filesSkipped": stats.Skipped,
+	}).Info("Generate write summary")
+	log.WithFields(logrus.Fields{
+		"filesWritten": stats.Written,
+		"filesSkipped": stats.Skipped,
+	}).Debug("Generate write summary (debug)")
+
+	log.Info("TypeScript client generation completed")
 	return nil
 }

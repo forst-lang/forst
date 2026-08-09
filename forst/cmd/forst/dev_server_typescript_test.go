@@ -152,7 +152,7 @@ func TestTypeScriptGenerator_GenerateTypesForFunctions_partialFileFailure_warnsA
 	}
 }
 
-func TestTypeScriptGenerator_GenerateTypesForFunctions_conflictingSignatures_returnsError(t *testing.T) {
+func TestTypeScriptGenerator_GenerateTypesForFunctions_crossPackageEcho_mergesWithoutError(t *testing.T) {
 	dir := t.TempDir()
 	catalog := filepath.Join(dir, "catalog.ft")
 	orders := filepath.Join(dir, "orders.ft")
@@ -185,11 +185,12 @@ func Echo(): Int {
 			"Echo": {Package: "orderspkg", Name: "Echo", FilePath: orders, Runnable: true},
 		},
 	}
-	_, err := tg.GenerateTypesForFunctions(functions, dir)
-	if err == nil {
-		t.Fatal("expected merge error for duplicate Echo with different TS signatures")
+	// Same function name across packages is allowed once subpaths isolate them.
+	types, err := tg.GenerateTypesForFunctions(functions, dir)
+	if err != nil {
+		t.Fatalf("cross-package Echo must merge without error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Echo") {
-		t.Fatalf("unexpected error: %v", err)
+	if strings.Contains(types, "export function Echo(") {
+		t.Fatalf("types must be shapes only; function signatures live on package modules, not types.d.ts:\n%s", types)
 	}
 }

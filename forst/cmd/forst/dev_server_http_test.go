@@ -307,12 +307,11 @@ func TestHandleInvoke_streamingExecuteError_returns500(t *testing.T) {
 	}
 }
 
-func TestHandleTypes_generateTypesError_returns500(t *testing.T) {
+func TestHandleTypes_missingGeneratedClient_returns500(t *testing.T) {
 	s := testDevServer(t)
-	s.typesGenerator = &stubTypesGen{err: fmt.Errorf("types")}
 	s.typesCacheMu.Lock()
 	s.typesCache["types"] = ""
-	s.lastTypesGen = time.Now()
+	s.lastTypesGen = time.Time{}
 	s.typesCacheMu.Unlock()
 
 	rr := httptest.NewRecorder()
@@ -320,14 +319,6 @@ func TestHandleTypes_generateTypesError_returns500(t *testing.T) {
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("want 500, got %d body=%s", rr.Code, rr.Body.String())
 	}
-}
-
-type stubTypesGen struct {
-	err error
-}
-
-func (s *stubTypesGen) GenerateTypesForFunctions(map[string]map[string]discovery.FunctionInfo, string) (string, error) {
-	return "", s.err
 }
 
 func TestHandleVersion_getAndWrongMethod(t *testing.T) {
@@ -362,7 +353,7 @@ func TestHandleVersion_getAndWrongMethod(t *testing.T) {
 
 func TestHandleTypes_get_returnsJSON_wrongMethod(t *testing.T) {
 	s := testDevServer(t)
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	writeTestGeneratedTypes(t, s.discoverer.GetRootDir(), "export interface Ping {}\n")
 
 	rr := httptest.NewRecorder()
 	s.handleTypes(rr, httptest.NewRequest(http.MethodGet, "/types", nil))
@@ -408,7 +399,8 @@ func TestHandleTypes_freshCache_returnsCachedWithoutGenerator(t *testing.T) {
 
 func TestHandleTypes_forceRegenerate_overwritesCache(t *testing.T) {
 	s := testDevServer(t)
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	root := s.discoverer.GetRootDir()
+	writeTestGeneratedTypes(t, root, "export interface Fresh {}\n")
 	s.typesCacheMu.Lock()
 	s.typesCache["types"] = "stale-cache"
 	s.lastTypesGen = time.Now()
@@ -427,14 +419,15 @@ func TestHandleTypes_forceRegenerate_overwritesCache(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("expected success response, got %+v", resp)
 	}
-	if resp.Output == "stale-cache" {
-		t.Fatalf("expected regenerated output, got stale cache")
+	if !strings.Contains(resp.Output, "Fresh") {
+		t.Fatalf("expected regenerated output from disk, got %q", resp.Output)
 	}
 }
 
 func TestHandleTypes_staleCache_regeneratesWithoutForce(t *testing.T) {
 	s := testDevServer(t)
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	root := s.discoverer.GetRootDir()
+	writeTestGeneratedTypes(t, root, "export interface StaleRefresh {}\n")
 	s.typesCacheMu.Lock()
 	s.typesCache["types"] = "stale-cache"
 	s.lastTypesGen = time.Now().Add(-6 * time.Minute)
@@ -614,7 +607,6 @@ func TestHandleInvoke_streamingEncodeError_stopsAfterFirstChunk(t *testing.T) {
 
 func TestHandleTypes_discoveryFailureOnRegenerate_returns500(t *testing.T) {
 	s := testDevServer(t)
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
 	s.discoverer = discovery.NewDiscoverer(t.TempDir(), s.log, nil)
 
 	rr := httptest.NewRecorder()

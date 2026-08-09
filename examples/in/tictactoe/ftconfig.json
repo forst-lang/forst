@@ -17,12 +17,15 @@
     "logLevel": "info",
     "watch": false
   },
+  "generate": {
+    "packageName": "@forst/tictactoe"
+  },
   "files": {
     "include": ["**/*.ft"],
     "exclude": [
       "**/node_modules/**",
       "**/.git/**",
-      "**/client/**",
+      "**/.forst/**",
       "**/*.skip.ft"
     ],
     "maxDepth": 10

@@ -144,8 +144,15 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(raw) == 0 {
-		t.Fatal("empty ready file")
+	var payload InvokeReadyPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.URL == "" || strings.HasSuffix(payload.URL, ":0") || strings.Contains(payload.URL, "://127.0.0.1:0") {
+		t.Fatalf("ready URL must use bound port, got %q", payload.URL)
+	}
+	if !strings.HasPrefix(payload.URL, "http://127.0.0.1:") {
+		t.Fatalf("ready URL = %q", payload.URL)
 	}
 }
 

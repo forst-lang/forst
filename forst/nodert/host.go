@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -178,13 +179,15 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 	}).Infof("Spawned new node host (pid=%d)", execCmd.Process.Pid)
 
 	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
-	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
+	stderrRing := newOutputRing(childStderrRingCap)
+	go forwardChildOutput(stderr, io.MultiWriter(os.Stderr, stderrRing), log, "stderr")
 
 	return &managedProcess{
-		cmd:    execCmd,
-		stdout: stdout,
-		stderr: stderr,
-		log:    log,
+		cmd:        execCmd,
+		stdout:     stdout,
+		stderr:     stderr,
+		stderrRing: stderrRing,
+		log:        log,
 	}, nil
 }
 

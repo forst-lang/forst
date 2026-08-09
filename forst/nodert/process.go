@@ -27,14 +27,67 @@ type ProcessOptions struct {
 
 // managedProcess holds a spawned child process and optional stdio pipes.
 type managedProcess struct {
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	stdout  io.ReadCloser
-	stderr  io.ReadCloser
-	log     *logrus.Logger
-	waitMu  sync.Mutex
-	waited  bool
-	waitErr error
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	stdout     io.ReadCloser
+	stderr     io.ReadCloser
+	stderrRing stderrRingBuffer
+	log        *logrus.Logger
+	waitMu     sync.Mutex
+	waited     bool
+	waitErr    error
+}
+
+const childStderrRingCap = 2048
+
+// stderrRingBuffer captures recent stderr for error diagnostics.
+type stderrRingBuffer interface {
+	io.Writer
+	tail() string
+}
+
+type outputRing struct {
+	mu  sync.Mutex
+	buf []byte
+	cap int
+}
+
+var _ stderrRingBuffer = (*outputRing)(nil)
+
+func newOutputRing(cap int) *outputRing {
+	if cap <= 0 {
+		cap = childStderrRingCap
+	}
+	return &outputRing{cap: cap}
+}
+
+func (r *outputRing) Write(p []byte) (int, error) {
+	if r == nil {
+		return len(p), nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.buf = append(r.buf, p...)
+	if len(r.buf) > r.cap {
+		r.buf = r.buf[len(r.buf)-r.cap:]
+	}
+	return len(p), nil
+}
+
+func (r *outputRing) tail() string {
+	if r == nil {
+		return ""
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return strings.TrimSpace(string(r.buf))
+}
+
+func (p *managedProcess) stderrTail() string {
+	if p == nil || p.stderrRing == nil {
+		return ""
+	}
+	return p.stderrRing.tail()
 }
 
 func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*managedProcess, error) {
@@ -94,13 +147,15 @@ func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*
 	}).Debug("spawned node runtime")
 
 	go forwardChildOutput(stdout, os.Stdout, log, "stdout")
-	go forwardChildOutput(stderr, os.Stderr, log, "stderr")
+	stderrRing := newOutputRing(childStderrRingCap)
+	go forwardChildOutput(stderr, io.MultiWriter(os.Stderr, stderrRing), log, "stderr")
 
 	return &managedProcess{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		log:    log,
+		cmd:        cmd,
+		stdout:     stdout,
+		stderr:     stderr,
+		stderrRing: stderrRing,
+		log:        log,
 	}, nil
 }
 

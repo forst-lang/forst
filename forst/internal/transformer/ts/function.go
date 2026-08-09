@@ -120,7 +120,8 @@ func (fs *FunctionSignature) ToString() string {
 }
 
 // StreamTypesDeclaration returns an extra export for the streaming API, or empty.
-// Uses AsyncGenerator + StreamingResult from @forst/sidecar so row typing matches the runtime NDJSON envelope.
+// Uses AsyncGenerator + local StreamingResult (emitted into types.d.ts) so row typing
+// matches the inlined transport NDJSON envelope without @forst/sidecar.
 func (fs *FunctionSignature) StreamTypesDeclaration() string {
 	if fs.StreamingRowType == "" {
 		return ""
@@ -131,7 +132,7 @@ func (fs *FunctionSignature) StreamTypesDeclaration() string {
 	}
 	paramStr := strings.Join(params, ", ")
 	return fmt.Sprintf(
-		"export function %sStream(%s): AsyncGenerator<import('@forst/sidecar').StreamingResult & { data?: %s }, void, undefined>;",
+		"export function %sStream(%s): AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;",
 		fs.Name, paramStr, fs.StreamingRowType,
 	)
 }
