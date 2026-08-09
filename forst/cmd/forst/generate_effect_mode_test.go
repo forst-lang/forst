@@ -85,7 +85,7 @@ func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
 	got := string(dts)
 	for _, frag := range []string{
 		"Effect.Effect<",
-		"InvokeRejected",
+		"InvokeFailure",
 		"Main",
 		"export declare const Echo:",
 	} {
@@ -122,13 +122,14 @@ func TestGenerate_effectMode_errorChannelIncludesTransportFailures(t *testing.T)
 	echoDecl := rest[:end+1]
 	for _, frag := range []string{
 		"Effect.Effect<",
-		"InvokeRejected",
-		"InvokeHttpFailure",
-		"ContractVersionMismatch",
+		"InvokeFailure",
 	} {
 		if !strings.Contains(echoDecl, frag) {
 			t.Fatalf("Echo error channel missing %q:\n%s", frag, echoDecl)
 		}
+	}
+	if strings.Contains(echoDecl, "InvokeRejected") || strings.Contains(echoDecl, "InvokeHttpFailure") {
+		t.Fatalf("Echo error channel must use compact InvokeFailure alias, not expanded invoke members:\n%s", echoDecl)
 	}
 }
 
@@ -319,7 +320,7 @@ func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
 
-	for _, rel := range []string{"domain-errors.js", "invoke-errors.js"} {
+	for _, rel := range []string{"domain-errors.js", "errors.js"} {
 		promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
 		if !strings.Contains(promise, "const tagged =") {
 			t.Fatalf("promise %s must use inlined tagged helper", rel)
@@ -380,8 +381,8 @@ func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 		"dist/transport.d.ts": {},
 		"dist/domain-errors.js":   {},
 		"dist/domain-errors.d.ts": {},
-		"dist/invoke-errors.js":   {},
-		"dist/invoke-errors.d.ts": {},
+		"dist/errors.js":   {},
+		"dist/errors.d.ts": {},
 		"package.json":       {},
 		"README.md":          {},
 	}
@@ -551,10 +552,10 @@ func TestGenerate_effectMode_layerSharesOneTransportAcrossPackages(t *testing.T)
 		t.Fatalf("generateCommand: %v", err)
 	}
 	js := mustRead(t, filepath.Join(defaultClientDistDir(dir), "index.js"))
-	if !strings.Contains(js, "const transportLayer = layerTransport(config)") {
+	if !strings.Contains(js, "const transportLayer = ForstTransportLayer(config)") {
 		t.Fatal("expected single transportLayer binding")
 	}
-	if strings.Count(js, "layerTransport(config)") != 1 {
+	if strings.Count(js, "ForstTransportLayer(config)") != 1 {
 		t.Fatalf("transport must be created once:\n%s", js)
 	}
 	if !strings.Contains(js, "Layer.provide(transportLayer)") {
@@ -580,20 +581,20 @@ func TestGenerate_effectMode_testingModuleEmitsPartialOverrides(t *testing.T) {
 
 func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 	mods := []transformerts.ModuleEmit{{
-		PackageName: "bcrypt",
+		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
-			Name:       "ComparePassword",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "ComparePasswordRequest"}},
-			ReturnType: "ComparePasswordResponse",
+			Name:       "VerifyToken",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
+			ReturnType: "VerifyTokenResponse",
 		}},
-		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
+		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
 	}}
 	promiseDTS := transformerts.EmitTestingDTS(mods, "@forst/gen", transformerts.RuntimePromise)
 	effectDTS := transformerts.EmitTestingEffectDTS(mods, "@forst/gen")
 	for _, frag := range []string{
 		"export interface ForstTestOverrides",
 		"packages?:",
-		"bcrypt?: Partial<BcryptHandlers>",
+		"auth?: Partial<AuthHandlers>",
 		"transport?: Partial<ForstInvokeClient>",
 	} {
 		if !strings.Contains(promiseDTS, frag) || !strings.Contains(effectDTS, frag) {
@@ -604,18 +605,18 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 
 func TestGenerate_effectMode_testHandlerAcceptsValuePromiseOrEffect(t *testing.T) {
 	dts := transformerts.EmitTestingEffectDTS([]transformerts.ModuleEmit{{
-		PackageName: "bcrypt",
+		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
-			Name:       "ComparePassword",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "ComparePasswordRequest"}},
-			ReturnType: "ComparePasswordResponse",
+			Name:       "VerifyToken",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
+			ReturnType: "VerifyTokenResponse",
 		}},
-		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
+		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
 	}}, "@forst/gen")
 	for _, frag := range []string{
-		"| ComparePasswordResponse",
-		"| Promise<ComparePasswordResponse>",
-		"| Effect.Effect<ComparePasswordResponse, InvokeFailure>",
+		"| VerifyTokenResponse",
+		"| Promise<VerifyTokenResponse>",
+		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
 	} {
 		if !strings.Contains(dts, frag) {
 			t.Fatalf("missing %q:\n%s", frag, dts)
@@ -625,17 +626,17 @@ func TestGenerate_effectMode_testHandlerAcceptsValuePromiseOrEffect(t *testing.T
 
 func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 	js := transformerts.EmitTestingEffectESM([]transformerts.ModuleEmit{{
-		PackageName: "bcrypt",
+		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
-			Name:       "ComparePassword",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "ComparePasswordRequest"}},
-			ReturnType: "ComparePasswordResponse",
+			Name:       "VerifyToken",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
+			ReturnType: "VerifyTokenResponse",
 		}},
 	}}, "@forst/gen")
 	if !strings.Contains(js, "export function ForstTestLayer") {
 		t.Fatal("missing ForstTestLayer")
 	}
-	// ForstTestLayer body must stay mock-only; ForstTestServerLayer may use layerTransport.
+	// ForstTestLayer body must stay mock-only; ForstTestServerLayer may use ForstTransportLayer.
 	layerIdx := strings.Index(js, "export function ForstTestLayer")
 	serverIdx := strings.Index(js, "export function ForstTestServerLayer")
 	if layerIdx < 0 {
@@ -645,7 +646,7 @@ func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 	if serverIdx > layerIdx {
 		layerBody = js[layerIdx:serverIdx]
 	}
-	if strings.Contains(layerBody, "ForstTransport") || strings.Contains(layerBody, "FORST_BASE_URL") || strings.Contains(layerBody, "layerTransport") {
+	if strings.Contains(layerBody, "ForstTransport") || strings.Contains(layerBody, "FORST_BASE_URL") || strings.Contains(layerBody, "ForstTransportLayer") {
 		t.Fatalf("ForstTestLayer must not require transport:\n%s", layerBody)
 	}
 	if !strings.Contains(js, "Layer.mock") {

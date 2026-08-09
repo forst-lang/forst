@@ -29,6 +29,34 @@ func TestDomainErrorClassFromTypeDef(t *testing.T) {
 	}
 }
 
+func TestFormatFunctionErrorUnion_compactsInvokeCatalog(t *testing.T) {
+	domain := map[string]ErrorClass{
+		"EmptyMessage": {Name: "EmptyMessage", Tag: "EmptyMessage"},
+	}
+	sig := typechecker.FunctionSignature{
+		ErrorSet: typechecker.FunctionErrorSet{
+			NominalErrors: []ast.TypeIdent{"EmptyMessage"},
+		},
+	}
+	got := FormatFunctionErrorUnion(sig, domain)
+	want := "EmptyMessage | InvokeFailure"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	for _, name := range []string{"InvokeRejected", "InvokeHttpFailure", "ContractVersionMismatch"} {
+		if stringsContains(got, name) {
+			t.Fatalf("union must not expand invoke catalog member %q: %q", name, got)
+		}
+	}
+}
+
+func TestFormatFunctionErrorUnion_invokeOnly(t *testing.T) {
+	got := FormatFunctionErrorUnion(typechecker.FunctionSignature{}, nil)
+	if got != "InvokeFailure" {
+		t.Fatalf("got %q, want InvokeFailure", got)
+	}
+}
+
 func TestEmitDomainErrorsESM_includesDomainErrorAndRegistry(t *testing.T) {
 	out := EmitDomainErrorsESM(testNpmPackage, []ErrorClass{{
 		Name: "CellTaken",

@@ -5,19 +5,19 @@ import (
 	"testing"
 )
 
-func sampleBcryptModule() ModuleEmit {
+func sampleAuthModule() ModuleEmit {
 	return ModuleEmit{
-		PackageName: "bcrypt",
+		PackageName: "auth",
 		Functions: []FunctionSignature{
 			{
-				Name: "ComparePassword",
+				Name: "VerifyToken",
 				Parameters: []Parameter{
-					{Name: "input", Type: "ComparePasswordRequest"},
+					{Name: "input", Type: "VerifyTokenRequest"},
 				},
-				ReturnType: "ComparePasswordResponse",
+				ReturnType: "VerifyTokenResponse",
 			},
 		},
-		TypeImports: []string{"ComparePasswordResponse", "ComparePasswordRequest"},
+		TypeImports: []string{"VerifyTokenResponse", "VerifyTokenRequest"},
 	}
 }
 
@@ -55,15 +55,15 @@ func assertContainsNone(t *testing.T, got string, banned []string) {
 }
 
 func TestEmitCoreESM_golden(t *testing.T) {
-	got := EmitCoreESM(sampleBcryptModule(), "6321")
+	got := EmitCoreESM(sampleAuthModule(), "6321")
 	assertContainsAll(t, got, []string{
 		`import { getDefaultInvokeClient } from "../transport.js"`,
-		"export const bcrypt = (client) => ({",
-		"export async function ComparePassword(input, options)",
+		"export const auth = (client) => ({",
+		"export async function VerifyToken(input, options)",
 		`options?.transport ?? getDefaultInvokeClient()`,
-		`client.invokeFunction("bcrypt", "ComparePassword", [input], options)`,
-		"ComparePassword.safe = async (input, options)",
-		`{ ok: true, value: await ComparePassword(input, options) }`,
+		`client.invokeFunction("auth", "VerifyToken", [input], options)`,
+		"VerifyToken.safe = async (input, options)",
+		`{ ok: true, value: await VerifyToken(input, options) }`,
 		`{ ok: false, error }`,
 		"http://127.0.0.1:6321",
 	})
@@ -78,7 +78,7 @@ func TestEmitCoreESM_golden(t *testing.T) {
 }
 
 func TestEmitCoreESM_headerCommentUsesInvokePort(t *testing.T) {
-	got := EmitCoreESM(sampleBcryptModule(), "9999")
+	got := EmitCoreESM(sampleAuthModule(), "9999")
 	if !strings.Contains(got, "http://127.0.0.1:9999") {
 		t.Fatalf("expected invoke port 9999 in header, got:\n%s", got)
 	}
@@ -88,7 +88,7 @@ func TestEmitCoreESM_headerCommentUsesInvokePort(t *testing.T) {
 }
 
 func TestEmitCoreESM_emptyPortDefaultsTo6321(t *testing.T) {
-	got := EmitCoreESM(sampleBcryptModule(), "")
+	got := EmitCoreESM(sampleAuthModule(), "")
 	if !strings.Contains(got, "http://127.0.0.1:6321") {
 		t.Fatalf("empty port should default to 6321:\n%s", got)
 	}
@@ -118,37 +118,39 @@ func TestEmitCoreESM_zeroArityUsesEmptyArgsArray(t *testing.T) {
 }
 
 func TestEmitCoreDTS_golden(t *testing.T) {
-	got := EmitCoreDTS(sampleBcryptModule())
+	got := EmitCoreDTS(sampleAuthModule())
 	assertContainsAll(t, got, []string{
 		`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js"`,
-		`import type { ComparePasswordRequest, ComparePasswordResponse } from "../types.js"`,
-		"export declare const bcrypt:",
+		`import type { VerifyTokenRequest, VerifyTokenResponse } from "../types.js"`,
+		"export declare const auth:",
 		"/** @throws {InvokeFailure} */",
-		"export declare function ComparePassword(",
+		"export declare function VerifyToken(",
 		"options?: InvokeCallOptions",
-		"Promise<ComparePasswordResponse>",
-		"export declare namespace ComparePassword",
+		"Promise<VerifyTokenResponse>",
+		"export declare namespace VerifyToken",
 		"function safe(",
-		"{ ok: true; value: ComparePasswordResponse }",
+		"{ ok: true; value: VerifyTokenResponse }",
 		"{ ok: false; error: InvokeFailure }",
-		`import type { InvokeFailure } from "../invoke-errors.js"`,
+		`import type { InvokeFailure } from "../errors.js"`,
 	})
 	// TypeImports are sorted.
-	reqIdx := strings.Index(got, "ComparePasswordRequest")
-	respIdx := strings.Index(got, "ComparePasswordResponse")
+	reqIdx := strings.Index(got, "VerifyTokenRequest")
+	respIdx := strings.Index(got, "VerifyTokenResponse")
 	if reqIdx < 0 || respIdx < 0 || reqIdx > respIdx {
 		t.Fatalf("TypeImports should be sorted Request before Response:\n%s", got)
 	}
 }
 
 func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
-	m := sampleBcryptModule()
-	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure"
+	m := sampleAuthModule()
+	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
 		`import type { CellTaken, ForstUnknownFailure } from "../domain-errors.js"`,
-		`import type { InvokeHttpFailure, InvokeRejected } from "../invoke-errors.js"`,
-		"{ ok: false; error: CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure }",
+		`import type { InvokeFailure } from "../errors.js"`,
+		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
+		"/** @throws {VerifyTokenFailure} */",
+		"{ ok: false; error: VerifyTokenFailure }",
 	})
 }
 
@@ -162,9 +164,9 @@ func TestEmitCoreDTS_importsStreamingResultWhenNeeded(t *testing.T) {
 }
 
 func TestEmitPackageESM_omitStubsAppendCommentedLines(t *testing.T) {
-	m := sampleBcryptModule()
+	m := sampleAuthModule()
 	m.Omitted = []OmittedFunction{{
-		PackageName:  "bcrypt",
+		PackageName:  "auth",
 		FunctionName: "NeedsDb",
 		Reason:       `provider "db" not satisfied`,
 		ExportDecl:   "export function NeedsDb(input: NeedsDbRequest): Promise<NeedsDbResponse>;",
@@ -184,9 +186,9 @@ func TestEmitPackageESM_omitStubsAppendCommentedLines(t *testing.T) {
 }
 
 func TestEmitPackageESM_golden(t *testing.T) {
-	got := EmitPackageESM(sampleBcryptModule(), RuntimePromise, "@forst/gen")
+	got := EmitPackageESM(sampleAuthModule(), RuntimePromise, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`export * from "../core/bcrypt.js"`,
+		`export * from "../core/auth.js"`,
 		"Promise mode re-exports core",
 	})
 	assertContainsNone(t, got, []string{
@@ -197,27 +199,27 @@ func TestEmitPackageESM_golden(t *testing.T) {
 }
 
 func TestEmitPackageDTS_golden(t *testing.T) {
-	got := EmitPackageDTS(sampleBcryptModule(), RuntimePromise, "@forst/gen")
+	got := EmitPackageDTS(sampleAuthModule(), RuntimePromise, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`export * from "../core/bcrypt.js"`,
-		"export type { ComparePasswordRequest, ComparePasswordResponse }",
+		`export * from "../core/auth.js"`,
+		"export type { VerifyTokenRequest, VerifyTokenResponse }",
 		`from "../types.js"`,
 	})
 }
 
 func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
-	got := EmitPackageESM(sampleBcryptModule(), RuntimeEffect, "@forst/gen")
+	got := EmitPackageESM(sampleAuthModule(), RuntimeEffect, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import { Effect } from "effect"`,
 		`import { ForstTransport, withTransport } from "../effect.js"`,
-		`import * as core from "../core/bcrypt.js"`,
-		`export class Bcrypt extends Effect.Service()`,
-		`"@forst/gen/Bcrypt"`,
+		`import * as core from "../core/auth.js"`,
+		`export class Auth extends Effect.Service()`,
+		`"@forst/gen/Auth"`,
 		"Effect.tryPromise",
 		"accessors: true",
 		"dependencies: [ForstTransport.Default]",
-		"export const { ComparePassword } = Bcrypt",
-		`export { bcrypt } from "../core/bcrypt.js"`,
+		"export const { VerifyToken } = Auth",
+		`export { auth } from "../core/auth.js"`,
 	})
 	assertContainsNone(t, got, []string{
 		".safe",
@@ -226,15 +228,15 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 }
 
 func TestEmitIndexESM_golden(t *testing.T) {
-	got := EmitIndexESM([]string{"auth", "bcrypt"}, "6321", nil, RuntimePromise)
+	got := EmitIndexESM([]string{"auth", "billing"}, "6321", nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport.js"`,
 		`import { auth } from "./pkg/auth.js"`,
-		`import { bcrypt } from "./pkg/bcrypt.js"`,
+		`import { billing } from "./pkg/billing.js"`,
 		"export function createForstClient(config)",
 		"export { configureDefaultInvokeClient }",
 		"auth: auth(client)",
-		"bcrypt: bcrypt(client)",
+		"billing: billing(client)",
 		"http://127.0.0.1:6321",
 		"ForstUnknownFailure",
 		`from "./domain-errors.js"`,
@@ -245,17 +247,17 @@ func TestEmitIndexESM_golden(t *testing.T) {
 		`from "./errors.js"`,
 	})
 	assertContainsNone(t, got, []string{
-		"export { ComparePassword",
+		"export { VerifyToken",
 		"@forst/client",
 		".cjs",
 	})
 }
 
 func TestEmitIndexESM_sortsPackages(t *testing.T) {
-	got := EmitIndexESM([]string{"bcrypt", "auth"}, "6321", nil, RuntimePromise)
+	got := EmitIndexESM([]string{"billing", "auth"}, "6321", nil, RuntimePromise)
 	authImport := strings.Index(got, `import { auth } from "./pkg/auth.js"`)
-	bcryptImport := strings.Index(got, `import { bcrypt } from "./pkg/bcrypt.js"`)
-	if authImport < 0 || bcryptImport < 0 || authImport > bcryptImport {
+	billingImport := strings.Index(got, `import { billing } from "./pkg/billing.js"`)
+	if authImport < 0 || billingImport < 0 || authImport > billingImport {
 		t.Fatalf("packages should be sorted alphabetically:\n%s", got)
 	}
 }
@@ -271,19 +273,19 @@ func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
 }
 
 func TestEmitIndexDTS_golden(t *testing.T) {
-	got := EmitIndexDTS([]string{"bcrypt"}, nil, RuntimePromise)
+	got := EmitIndexDTS([]string{"auth"}, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"ForstInvokeClientConfig",
 		"ForstInvokeMiddleware",
 		"InvokeCallOptions",
 		"InvokeContext",
 		`from "./transport.js"`,
-		`import { bcrypt } from "./pkg/bcrypt.js"`,
+		`import { auth } from "./pkg/auth.js"`,
 		"export interface ForstClientConfig",
 		"middleware?: ForstInvokeMiddleware[]",
 		"export declare function createForstClient(",
 		"export declare function configureDefaultInvokeClient(",
-		"readonly bcrypt: ReturnType<typeof bcrypt>",
+		"readonly auth: ReturnType<typeof auth>",
 		"export type ForstClient = ReturnType<typeof createForstClient>",
 		"TaggedError",
 		"ForstUnknownFailure",
@@ -304,7 +306,7 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
 		"export function resetDefaultInvokeClientForTest",
-		`from "./invoke-errors.js"`,
+		`from "./errors.js"`,
 		`from "./domain-errors.js"`,
 		"new InvokeStreamAborted",
 		"new InvokeRejected",
@@ -378,15 +380,15 @@ func TestEmitTransportDTS_declaresPublicSurface(t *testing.T) {
 
 func TestEmitTypesDTS_golden(t *testing.T) {
 	shapes := []string{
-		"export interface ComparePasswordRequest {\n  plainPassword: string;\n}",
-		"export interface ComparePasswordResponse {\n  valid: boolean;\n}",
+		"export interface VerifyTokenRequest {\n  token: string;\n}",
+		"export interface VerifyTokenResponse {\n  valid: boolean;\n}",
 	}
 	got := EmitTypesDTS(shapes)
 	assertContainsAll(t, got, []string{
 		"// Auto-generated types for Forst client",
-		"export interface ComparePasswordRequest",
-		"export interface ComparePasswordResponse",
-		"plainPassword: string",
+		"export interface VerifyTokenRequest",
+		"export interface VerifyTokenResponse",
+		"token: string",
 		"valid: boolean",
 	})
 	assertContainsNone(t, got, []string{
@@ -406,8 +408,8 @@ func TestEmitTypesDTS_emptyShapesStillHasHeader(t *testing.T) {
 }
 
 func TestEmitInvokeCall_formatsArgsAndOptions(t *testing.T) {
-	got := emitInvokeCall("bcrypt", "ComparePassword", "input")
-	want := `client.invokeFunction("bcrypt", "ComparePassword", [input], options)`
+	got := emitInvokeCall("auth", "VerifyToken", "input")
+	want := `client.invokeFunction("auth", "VerifyToken", [input], options)`
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
@@ -420,8 +422,8 @@ func TestEmitInvokeCall_formatsArgsAndOptions(t *testing.T) {
 
 func TestEmitCoreESM_isByteStableForSameModuleEmit(t *testing.T) {
 	// EmitCoreESM has no mode parameter; Promise and Effect share this emit.
-	a := EmitCoreESM(sampleBcryptModule(), "6321")
-	b := EmitCoreESM(sampleBcryptModule(), "6321")
+	a := EmitCoreESM(sampleAuthModule(), "6321")
+	b := EmitCoreESM(sampleAuthModule(), "6321")
 	if a != b {
 		t.Fatal("EmitCoreESM must be byte-stable for the same ModuleEmit")
 	}

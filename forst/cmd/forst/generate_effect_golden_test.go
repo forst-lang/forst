@@ -9,8 +9,8 @@ import (
 
 // effectGenerateGoldenFiles are dist modules whose Effect-mode emit is snapshotted under testdata/effect/golden/.
 var effectGenerateGoldenFiles = []string{
-	"invoke-errors.js",
-	"invoke-errors.d.ts",
+	"errors.js",
+	"errors.d.ts",
 	"domain-errors.js",
 	"domain-errors.d.ts",
 }

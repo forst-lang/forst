@@ -153,7 +153,7 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 		testingKey = "testing"
 	}
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
-	appendPackageJSONExport(&b, "./invoke", "./dist/invoke-errors.d.ts", "./dist/invoke-errors.js")
+	appendPackageJSONExport(&b, "./invoke", "./dist/errors.d.ts", "./dist/errors.js")
 	if genCfg.Effect {
 		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
 	}

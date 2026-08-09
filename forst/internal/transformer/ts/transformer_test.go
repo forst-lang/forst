@@ -74,6 +74,56 @@ func Echo(input EchoRequest) {
 	}
 }
 
+func TestTransformForstFileToTypeScript_omitsNominalErrorsFromTypesFile(t *testing.T) {
+	const src = `package main
+
+error EmptyMessage { message: String }
+
+type EchoRequest = { message: String }
+
+func Echo(input EchoRequest): Result(EchoResponse, Error) {
+	ensure input.message is Min(1) or EmptyMessage({ message: "empty" })
+	return { echo: input.message, timestamp: 0 }
+}
+
+type EchoResponse = { echo: String, timestamp: Int }
+`
+	logger := ast.SetupTestLogger(nil)
+	p := parser.NewTestParser(src, logger)
+	nodes, err := p.ParseFile()
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	tc := typechecker.New(nil, false)
+	if err := tc.CheckTypes(nodes); err != nil {
+		t.Fatalf("typecheck: %v", err)
+	}
+	tr := New(tc, logger)
+	out, err := tr.TransformForstFileToTypeScript(nodes, "")
+	if err != nil {
+		t.Fatalf("transform: %v", err)
+	}
+	typesFile := out.GenerateTypesFile()
+	if strings.Contains(typesFile, "export interface EmptyMessage") {
+		t.Fatalf("nominal errors belong in domain-errors, not types.d.ts:\n%s", typesFile)
+	}
+	found := false
+	for _, c := range out.DomainErrors {
+		if c.Name == "EmptyMessage" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected EmptyMessage in DomainErrors")
+	}
+	for _, name := range out.ExportedTypeNames {
+		if name == "EmptyMessage" {
+			t.Fatalf("EmptyMessage must not be in ExportedTypeNames: %v", out.ExportedTypeNames)
+		}
+	}
+}
+
 func TestTransformForstFileToTypeScript_setsPackageName(t *testing.T) {
 	const src = `package sidecartest
 

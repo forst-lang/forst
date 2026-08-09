@@ -56,17 +56,20 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 				"typeDef":  def.GetIdent(),
 				"function": "TransformForstFileToTypeScript",
 			}).Debug("Processing type definition")
+			if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
+				typeName := string(def.Ident)
+				t.typeMapping.AddUserType(typeName, typeName)
+				if cls, err := DomainErrorClassFromTypeDef(def, t.TypeChecker); err == nil {
+					t.Output.DomainErrors = append(t.Output.DomainErrors, cls)
+				}
+				continue
+			}
 			tsType, err := t.transformTypeDef(def)
 			if err != nil {
 				return nil, fmt.Errorf("failed to transform type def %s: %w", def.GetIdent(), err)
 			}
 			t.Output.AddType(tsType)
 			t.Output.AddExportedTypeName(def.GetIdent())
-			if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
-				if cls, err := DomainErrorClassFromTypeDef(def, t.TypeChecker); err == nil {
-					t.Output.DomainErrors = append(t.Output.DomainErrors, cls)
-				}
-			}
 		}
 	}
 

@@ -2,7 +2,9 @@ package main
 
 type Inner = {Value: Int}
 
-type Outer = {Inner: Inner}
+type Outer = {
+	Inner
+}
 
 func main() {
 	o := Outer{Inner: {Value: 10}}

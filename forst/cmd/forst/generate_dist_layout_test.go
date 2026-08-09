@@ -33,8 +33,8 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 		"dist/index.d.ts",
 		"dist/domain-errors.js",
 		"dist/domain-errors.d.ts",
-		"dist/invoke-errors.js",
-		"dist/invoke-errors.d.ts",
+		"dist/errors.js",
+		"dist/errors.d.ts",
 		"dist/transport.js",
 		"dist/transport.d.ts",
 		"dist/types.d.ts",
@@ -46,11 +46,6 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 	} {
 		if _, err := os.Stat(filepath.Join(outDir, rel)); err != nil {
 			t.Fatalf("expected %s: %v", rel, err)
-		}
-	}
-	for _, rel := range []string{"dist/errors.js", "dist/errors.d.ts"} {
-		if _, err := os.Stat(filepath.Join(outDir, rel)); !os.IsNotExist(err) {
-			t.Fatalf("legacy %s must not be generated: %v", rel, err)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "src")); !os.IsNotExist(err) {
@@ -96,17 +91,17 @@ func TestGenerate_userModulesEmittedUnderDistPkgAndDistCore(t *testing.T) {
 }
 
 func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	entry := exports["./bcrypt"].(map[string]any)
-	if entry["types"] != "./dist/pkg/bcrypt.d.ts" {
+	entry := exports["./auth"].(map[string]any)
+	if entry["types"] != "./dist/pkg/auth.d.ts" {
 		t.Fatalf("types = %#v", entry["types"])
 	}
-	if entry["default"] != "./dist/pkg/bcrypt.js" {
+	if entry["default"] != "./dist/pkg/auth.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 	root := exports["."].(map[string]any)

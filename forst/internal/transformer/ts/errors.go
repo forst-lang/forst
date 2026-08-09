@@ -9,7 +9,7 @@ import (
 const DomainErrorsModuleSpecifier = "./domain-errors.js"
 
 // InvokeErrorsModuleSpecifier is the relative import path for generated invoke transport errors.
-const InvokeErrorsModuleSpecifier = "./invoke-errors.js"
+const InvokeErrorsModuleSpecifier = "./errors.js"
 
 // ErrorField describes one constructor prop on a tagged invoke failure class.
 type ErrorField struct {
@@ -96,7 +96,7 @@ var ErrorCatalog = []ErrorClass{
 	},
 }
 
-// HarnessErrorCatalog describes test harness failures (emitted in testing.js, not invoke-errors).
+// HarnessErrorCatalog describes test harness failures (emitted in testing.js, not errors.js).
 var HarnessErrorCatalog = []ErrorClass{
 	{
 		Name: "ForstTestServerFailed",
@@ -411,7 +411,7 @@ func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runti
 	return b.String()
 }
 
-// EmitInvokeErrorsESM returns dist/invoke-errors.js.
+// EmitInvokeErrorsESM returns dist/errors.js.
 func EmitInvokeErrorsESM(npmPackageName string, runtime ClientRuntime) string {
 	catalog := invokeCatalogWithTags(npmPackageName)
 	var b strings.Builder
@@ -442,7 +442,7 @@ func EmitInvokeErrorsESM(npmPackageName string, runtime ClientRuntime) string {
 	return b.String()
 }
 
-// EmitInvokeErrorsDTS returns dist/invoke-errors.d.ts.
+// EmitInvokeErrorsDTS returns dist/errors.d.ts.
 func EmitInvokeErrorsDTS(npmPackageName string, runtime ClientRuntime) string {
 	catalog := invokeCatalogWithTags(npmPackageName)
 	var b strings.Builder

@@ -104,13 +104,13 @@ func TestGeneratedTypes_containsStreamingResultAndNoSidecarImport(t *testing.T) 
 
 func TestTypeScriptOutput_GeneratePackageModule_reExportsCoreAndTypes(t *testing.T) {
 	o := &TypeScriptOutput{
-		PackageName:       "bcrypt",
-		ExportedTypeNames: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
+		PackageName:       "auth",
+		ExportedTypeNames: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
 	}
 	got := o.GeneratePackageModule()
 	for _, frag := range []string{
-		`export * from "../core/bcrypt.js"`,
-		"export type { ComparePasswordRequest, ComparePasswordResponse }",
+		`export * from "../core/auth.js"`,
+		"export type { VerifyTokenRequest, VerifyTokenResponse }",
 		`from "../types.js"`,
 	} {
 		if !strings.Contains(got, frag) {

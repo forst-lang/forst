@@ -989,7 +989,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(effectDTS)
-		for _, frag := range []string{"Effect.Effect<", "InvokeRejected", "Main", "export declare const Echo:"} {
+		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "Main", "export declare const Echo:"} {
 			if !strings.Contains(got, frag) {
 				t.Fatalf("missing %q in effect pkg d.ts:\n%s", frag, got)
 			}
@@ -1003,7 +1003,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			}
 		}
 
-		for _, rel := range []string{"domain-errors.js", "invoke-errors.js"} {
+		for _, rel := range []string{"domain-errors.js", "errors.js"} {
 			promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
 			effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
 			if !strings.Contains(promise, "const tagged =") {
@@ -1036,7 +1036,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			"dist/effect.js": {}, "dist/effect.d.ts": {},
 			"dist/transport.js": {}, "dist/transport.d.ts": {},
 			"dist/domain-errors.js": {}, "dist/domain-errors.d.ts": {},
-			"dist/invoke-errors.js": {}, "dist/invoke-errors.d.ts": {},
+			"dist/errors.js": {}, "dist/errors.d.ts": {},
 			"package.json": {}, "README.md": {},
 		}
 		for path := range changed {

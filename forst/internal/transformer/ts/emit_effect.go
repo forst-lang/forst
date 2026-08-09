@@ -14,7 +14,7 @@ const EffectPeerDependencyRange = ">=3.17.0"
 // Effect and Promise modes share core invoke logic; error modules differ by runtime.
 const EffectModuleStem = "effect"
 
-// EmitEffectSupportESM returns dist/effect.js (ForstTransport + withTransport + layerTransport).
+// EmitEffectSupportESM returns dist/effect.js (ForstTransport + withTransport + ForstTransportLayer).
 // Written only when generate.effect is true.
 func EmitEffectSupportESM(npmPackageName string) string {
 	tagPrefix := effectTagPrefix(npmPackageName)
@@ -43,7 +43,7 @@ export class ForstTransport extends Effect.Service()(` + fmt.Sprintf("%q", tagPr
 }) {}
 
 /** Build a configured ForstTransport layer (one instance shared across packages). */
-export const layerTransport = (config) =>
+export const ForstTransportLayer = (config) =>
   Layer.effect(
     ForstTransport,
     Effect.sync(() => ({
@@ -80,7 +80,7 @@ export declare class ForstTransport extends Context.Tag(` + fmt.Sprintf("%q", ta
   static readonly Default: Layer.Layer<ForstTransport>;
 }
 
-export declare const layerTransport: (
+export declare const ForstTransportLayer: (
   config?: ForstInvokeClientConfig
 ) => Layer.Layer<ForstTransport>;
 `
@@ -158,6 +158,26 @@ func effectFailureType(fn FunctionSignature) string {
 		return fn.FailureType
 	}
 	return "InvokeFailure"
+}
+
+// functionFailureTypeAlias returns a per-function exported alias name when the
+// failure union is compound, otherwise the compact failure type string.
+func functionFailureTypeAlias(fn FunctionSignature) string {
+	ft := effectFailureType(fn)
+	if strings.Contains(ft, " | ") {
+		return fn.Name + "Failure"
+	}
+	return ft
+}
+
+func emitFunctionFailureAliases(b *strings.Builder, functions []FunctionSignature) {
+	for _, fn := range functions {
+		ft := effectFailureType(fn)
+		if !strings.Contains(ft, " | ") {
+			continue
+		}
+		fmt.Fprintf(b, "export type %sFailure = %s;\n\n", fn.Name, ft)
+	}
 }
 
 func failureTypeIdentNames(failureType string) []string {
@@ -247,7 +267,7 @@ func writeTestingErrorsImports(b *strings.Builder, functions []FunctionSignature
 	}
 	domain = filter(domain)
 	invoke = filter(invoke)
-	b.WriteString(`import { InvokeRejected } from "./invoke-errors.js";` + "\n")
+	b.WriteString(`import { InvokeRejected } from "./errors.js";` + "\n")
 	if len(domain) > 0 {
 		fmt.Fprintf(b, `import type { %s } from "./domain-errors.js";`+"\n", strings.Join(domain, ", "))
 	}
@@ -256,7 +276,7 @@ func writeTestingErrorsImports(b *strings.Builder, functions []FunctionSignature
 		for i, name := range invoke {
 			typeOnly[i] = "type " + name
 		}
-		fmt.Fprintf(b, `import { %s } from "./invoke-errors.js";`+"\n", strings.Join(typeOnly, ", "))
+		fmt.Fprintf(b, `import { %s } from "./errors.js";`+"\n", strings.Join(typeOnly, ", "))
 	}
 }
 
@@ -273,7 +293,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	b.WriteString(`import { Context, Effect, Layer } from "effect";` + "\n")
 	b.WriteString(`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js";` + "\n")
 	b.WriteString(`import { ForstTransport } from "../effect.js";` + "\n")
-	writeFailureTypeImports(&b, m.Functions, "../domain-errors.js", "../invoke-errors.js")
+	writeFailureTypeImports(&b, m.Functions, "../domain-errors.js", "../errors.js")
 	typeNames := append([]string(nil), typeImports...)
 	if functionsNeedStreamingResult(m.Functions) {
 		typeNames = append(typeNames, "StreamingResult")
@@ -286,6 +306,8 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 
 	b.WriteString("/** Per-call options in Effect mode. retries is omitted; use Effect.retry. */\n")
 	b.WriteString("export type EffectInvokeCallOptions = Omit<InvokeCallOptions, \"retries\">;\n\n")
+
+	emitFunctionFailureAliases(&b, m.Functions)
 
 	// Namespace factory type from core (createForstClient).
 	b.WriteString(fmt.Sprintf("export declare const %s: (client: ForstInvokeClient) => {\n", pkg))
@@ -310,7 +332,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 		params := emitEffectParamListDTS(fn.Parameters)
 		b.WriteString(fmt.Sprintf(
 			"    readonly %s: (%s) => Effect.Effect<%s, %s>;\n",
-			fn.Name, params, fn.ReturnType, effectFailureType(fn),
+			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn),
 		))
 	}
 	b.WriteString("  }\n")
@@ -324,7 +346,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 		params := emitEffectParamListDTS(fn.Parameters)
 		b.WriteString(fmt.Sprintf(
 			"  static readonly %s: (%s) => Effect.Effect<%s, %s, %s>;\n",
-			fn.Name, params, fn.ReturnType, effectFailureType(fn), className,
+			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn), className,
 		))
 	}
 	b.WriteString("}\n\n")
@@ -335,7 +357,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 		b.WriteString(fmt.Sprintf("  %s\n", params))
 		b.WriteString(fmt.Sprintf(
 			") => Effect.Effect<%s, %s, %s>;\n\n",
-			fn.ReturnType, effectFailureType(fn), className,
+			fn.ReturnType, functionFailureTypeAlias(fn), className,
 		))
 		if fn.StreamingRowType != "" {
 			streamParams := emitParamListDTS(fn.Parameters, true)
@@ -370,7 +392,7 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 	var b strings.Builder
 	b.WriteString("\n// --- Effect mode root layers ---\n")
 	b.WriteString(`import { Layer, ManagedRuntime } from "effect";` + "\n")
-	b.WriteString(`import { layerTransport } from "./effect.js";` + "\n")
+	b.WriteString(`import { ForstTransportLayer } from "./effect.js";` + "\n")
 	for _, pkg := range pkgs {
 		className := ServiceClassName(pkg)
 		b.WriteString(fmt.Sprintf("import { %s } from \"./pkg/%s.js\";\n", className, pkg))
@@ -380,7 +402,7 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 	if len(pkgs) == 0 {
 		b.WriteString("export const ForstClientLive = Layer.empty;\n\n")
 		b.WriteString("export const ForstClientLayer = (config) =>\n")
-		b.WriteString("  Layer.provide(Layer.empty, layerTransport(config));\n\n")
+		b.WriteString("  Layer.provide(Layer.empty, ForstTransportLayer(config));\n\n")
 		b.WriteString("export const makeForstClientRuntime = (config) =>\n")
 		b.WriteString("  ManagedRuntime.make(ForstClientLayer(config));\n")
 		return b.String()
@@ -395,7 +417,7 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 	}
 	b.WriteString(fmt.Sprintf("export const ForstClientLive = Layer.mergeAll(%s);\n\n", strings.Join(defaults, ", ")))
 	b.WriteString("export const ForstClientLayer = (config) => {\n")
-	b.WriteString("  const transportLayer = layerTransport(config);\n")
+	b.WriteString("  const transportLayer = ForstTransportLayer(config);\n")
 	b.WriteString(fmt.Sprintf("  return Layer.mergeAll(%s).pipe(\n", strings.Join(withoutDeps, ", ")))
 	b.WriteString("    Layer.provide(transportLayer)\n")
 	b.WriteString("  );\n")
@@ -443,8 +465,8 @@ func EmitTestingEffectESM(modules []ModuleEmit, npmPackageName string) string {
 // Do not edit by hand.
 
 import { Context, Effect, Layer, ManagedRuntime } from "effect";
-import { layerTransport } from "./effect.js";
-import { InvokeRejected } from "./invoke-errors.js";
+import { ForstTransportLayer } from "./effect.js";
+import { InvokeRejected } from "./errors.js";
 `)
 	b.WriteString(EmitHarnessErrorESM(npmPackageName, RuntimeEffect))
 	b.WriteString("\n")
@@ -509,7 +531,7 @@ import { InvokeRejected } from "./invoke-errors.js";
 	b.WriteString("export function ForstTestServerLayer(options) {\n")
 	b.WriteString("  const base = forstTestServerScopedLayer(options);\n")
 	b.WriteString("  const transport = Layer.unwrapEffect(\n")
-	b.WriteString("    Effect.map(ForstTestServer, ({ baseUrl }) => layerTransport({ baseUrl }))\n")
+	b.WriteString("    Effect.map(ForstTestServer, ({ baseUrl }) => ForstTransportLayer({ baseUrl }))\n")
 	b.WriteString("  ).pipe(Layer.provide(base));\n")
 	withoutDeps := make([]string, 0, len(mods))
 	for _, m := range mods {

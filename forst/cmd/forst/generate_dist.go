@@ -21,8 +21,8 @@ var reservedDistFiles = map[string]struct{}{
 	"types.d.ts":     {},
 	"domain-errors.js":   {},
 	"domain-errors.d.ts": {},
-	"invoke-errors.js":   {},
-	"invoke-errors.d.ts": {},
+	"errors.js":   {},
+	"errors.d.ts": {},
 	"effect.js":      {},
 	"effect.d.ts":    {},
 	"testing.js":     {},
@@ -74,15 +74,15 @@ func writeGeneratedDistModules(
 		return fmt.Errorf("failed to write domain-errors.d.ts: %w", err)
 	}
 
-	invokeErrorsJSPath := filepath.Join(distDir, "invoke-errors.js")
-	if err := writeGeneratedFile(invokeErrorsJSPath, []byte(transformerts.EmitInvokeErrorsESM(genCfg.PackageName, runtime)), stats); err != nil {
-		return fmt.Errorf("failed to write invoke-errors.js: %w", err)
+	errorsJSPath := filepath.Join(distDir, "errors.js")
+	if err := writeGeneratedFile(errorsJSPath, []byte(transformerts.EmitInvokeErrorsESM(genCfg.PackageName, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write errors.js: %w", err)
 	}
-	log.WithFields(logrus.Fields{"path": invokeErrorsJSPath}).Info("Generated invoke errors module")
+	log.WithFields(logrus.Fields{"path": errorsJSPath}).Info("Generated invoke errors module")
 
-	invokeErrorsDTSPath := filepath.Join(distDir, "invoke-errors.d.ts")
-	if err := writeGeneratedFile(invokeErrorsDTSPath, []byte(transformerts.EmitInvokeErrorsDTS(genCfg.PackageName, runtime)), stats); err != nil {
-		return fmt.Errorf("failed to write invoke-errors.d.ts: %w", err)
+	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
+	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitInvokeErrorsDTS(genCfg.PackageName, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write errors.d.ts: %w", err)
 	}
 
 	transportJSPath := filepath.Join(distDir, "transport.js")

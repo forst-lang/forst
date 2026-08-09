@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
+	got := EmitTestingDTS([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export interface ForstTestServerOptions",
 		"export interface ForstTestServer",
@@ -17,7 +17,7 @@ func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
 }
 
 func TestEmitTestingESM_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
+	got := EmitTestingESM([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export async function startForstTestServer",
 		`const CLI_INVOKE = "` + CliInvokeModuleSpecifier + `"`,
@@ -31,7 +31,7 @@ func TestEmitTestingESM_includesStartForstTestServer(t *testing.T) {
 }
 
 func TestEmitTestingEffectDTS_includesForstTestServerLayer(t *testing.T) {
-	got := EmitTestingEffectDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingEffectDTS([]ModuleEmit{sampleAuthModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"export declare class ForstTestServer",
 		`"@forst/gen/TestServer"`,
@@ -46,12 +46,12 @@ func TestEmitTestingEffectDTS_includesForstTestServerLayer(t *testing.T) {
 }
 
 func TestEmitTestingEffectESM_includesForstTestServerLayer(t *testing.T) {
-	got := EmitTestingEffectESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingEffectESM([]ModuleEmit{sampleAuthModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"export class ForstTestServer",
 		"export function ForstTestServerLayer",
 		"export const makeForstTestServer",
-		"layerTransport({ baseUrl })",
+		"ForstTransportLayer({ baseUrl })",
 		"DefaultWithoutDependencies",
 		"ManagedRuntime.make",
 		CliInvokeModuleSpecifier,

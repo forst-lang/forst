@@ -18,9 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   4. Optional. Set `generate.effect: true` for Effect-returning callables (`effect` peer `>=3.17.0`). Use `@forst/gen/testing` (or `generate.testingSubpath`) for `withForstTestScope` overrides.
   5. Use `forst generate --watch` or sidecar `watchGenerate` (default on in development) to refresh types on `.ft` edits.
 
-* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`. Regenerate the client after upgrading.
+* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`, `layerTransport` → `ForstTransportLayer`. Regenerate the client after upgrading.
 
-* **generate:** Split generated client errors into internal `dist/domain-errors.*` and `dist/invoke-errors.*`. Domain errors (`CellTaken`, `ForstUnknownFailure`, …) re-export from the package root. Invoke transport failures import from `@forst/gen/invoke`. Built-in invoke, harness, and unknown-failure `_tag` strings use `@forst/ErrorName` (for example `@forst/InvokeRejected`). Domain error `_tag` strings are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`). The monolithic `dist/errors.js` and root re-exports of invoke classes are removed.
+* **generate:** Split generated client errors into internal `dist/domain-errors.*` and `dist/errors.*`. Domain errors (`CellTaken`, `ForstUnknownFailure`, …) re-export from the package root. Invoke transport failures import from `@forst/gen/invoke` (resolved to `dist/errors.*`). Built-in invoke, harness, and unknown-failure `_tag` strings use `@forst/ErrorName` (for example `@forst/InvokeRejected`). Domain error `_tag` strings are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`).
 
   **Migration**
   1. `import { isInvokeFailure, InvokeRejected } from "@forst/gen/invoke"` (not from the package root).

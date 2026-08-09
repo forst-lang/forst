@@ -111,12 +111,7 @@ func FormatFunctionErrorUnion(sig typechecker.FunctionSignature, domainByName ma
 	if sig.ErrorSet.UnknownPossible {
 		parts = append(parts, UnknownFailureClass.Name)
 	}
-	for _, c := range ErrorCatalog {
-		parts = append(parts, c.Name)
-	}
-	if len(parts) == 0 {
-		return "InvokeFailure"
-	}
+	parts = append(parts, "InvokeFailure")
 	if len(parts) == 1 {
 		return parts[0]
 	}
