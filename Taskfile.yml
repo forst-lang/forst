@@ -59,6 +59,16 @@ tasks:
     cmds:
       - bun run test
 
+  test:cli:invoke-e2e:
+    desc: Opt-in real spawn of startForstInvokeServer against embedded-invoke
+    dir: packages/cli
+    deps: [build, build:cli]
+    env:
+      FORST_CLI_INVOKE_E2E: "1"
+      FORST_BINARY: '{{.TASKFILE_DIR}}/bin/forst'
+    cmds:
+      - bun test src/test-server.e2e.test.ts
+
   build:sidecar:
     desc: Build the Forst sidecar
     dir: packages/sidecar
@@ -491,8 +501,10 @@ tasks:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
 
   test:tictactoe:
-    desc: Generate TypeScript for tictactoe and run bun integration tests (forst dev + client)
-    deps: [build, build:client, example:tictactoe:generate]
+    desc: Generate TypeScript for tictactoe and run bun integration tests (startForstTestServer + client)
+    deps: [build, build:cli, build:client, example:tictactoe:generate]
+    env:
+      FORST_BINARY: '{{.TASKFILE_DIR}}/bin/forst'
     cmds:
       - bun install
       - bun test examples/in/tictactoe/tests/
@@ -848,6 +860,7 @@ tasks:
     cmds:
       - task: build
       - task: test:cli
+      - task: test:cli:invoke-e2e
       - task: test:sidecar
       - task: node-interop:smoke
       - task: test:multipackage-dev

@@ -135,6 +135,27 @@ describe("resolveAttachTarget", () => {
   });
 });
 
+describe("startForstInvokeServer options.env", () => {
+  test("options.env FORST_BASE_URL triggers attach without deps.env", async () => {
+    let spawned = false;
+    const handle = await startForstInvokeServer(
+      { env: { FORST_BASE_URL: "http://127.0.0.1:9" } },
+      {
+        spawn: (() => {
+          spawned = true;
+          throw new Error("must not spawn");
+        }) as SpawnFn,
+        fetch: okHealthFetch({ n: 0 }),
+        env: {},
+        sleep: async () => {},
+      }
+    );
+    expect(spawned).toBe(false);
+    expect(handle.connection).toBe("connect");
+    await handle.stop();
+  });
+});
+
 describe("buildSpawnArgs", () => {
   test("dev argv", () => {
     expect(__test__.buildSpawnArgs("dev", { logLevel: "error" }, "/proj", 6320)).toEqual([

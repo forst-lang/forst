@@ -322,7 +322,8 @@ export async function startForstInvokeServer(
   deps: StartForstInvokeServerDeps = {}
 ): Promise<ForstInvokeServerHandle> {
   const root = resolve(options.root ?? process.cwd());
-  const env = deps.env ?? process.env;
+  // options.env overlays process/deps env for both attach discovery and spawn.
+  const env = { ...(deps.env ?? process.env), ...options.env };
   const exists = deps.existsSync ?? existsSync;
   const readFile = deps.readFileSync ?? readFileSync;
   const fetchFn = deps.fetch ?? fetch.bind(globalThis);
