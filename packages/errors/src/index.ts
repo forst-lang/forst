@@ -2,8 +2,13 @@ import { ERRORS_TAG_PREFIX, errorsTag } from "./tags.js";
 
 export { ERRORS_TAG_PREFIX, errorsTag };
 
+/** Constructor returned by {@link tagged}. */
+export type TaggedBaseConstructor = new (
+  props?: { message?: string } & Record<string, unknown>,
+) => Error;
+
 /** Promise-mode tagged error helper used by generated Forst clients. */
-export const tagged = (tag: string) =>
+export const tagged = (tag: string): TaggedBaseConstructor =>
   class extends Error {
     constructor(props?: { message?: string } & Record<string, unknown>) {
       super(props?.message ?? tag);
@@ -27,14 +32,16 @@ export type TaggedError<
   A extends Record<string, unknown> = Record<string, unknown>,
 > = Error & { readonly _tag: Tag } & Readonly<A>;
 
-export class InvokeRejected extends tagged(errorsTag("InvokeRejected")) {
+const InvokeRejectedBase: TaggedBaseConstructor = tagged(errorsTag("InvokeRejected"));
+export class InvokeRejected extends InvokeRejectedBase {
   declare readonly _tag: "@forst/errors/InvokeRejected";
   declare readonly packageName: string;
   declare readonly functionName: string;
   declare readonly serverError?: string;
 }
 
-export class InvokeHttpFailure extends tagged(errorsTag("InvokeHttpFailure")) {
+const InvokeHttpFailureBase: TaggedBaseConstructor = tagged(errorsTag("InvokeHttpFailure"));
+export class InvokeHttpFailure extends InvokeHttpFailureBase {
   declare readonly _tag: "@forst/errors/InvokeHttpFailure";
   declare readonly packageName: string;
   declare readonly functionName: string;
@@ -42,47 +49,56 @@ export class InvokeHttpFailure extends tagged(errorsTag("InvokeHttpFailure")) {
   declare readonly responseText: string;
 }
 
-export class InvokeTimedOut extends tagged(errorsTag("InvokeTimedOut")) {
+const InvokeTimedOutBase: TaggedBaseConstructor = tagged(errorsTag("InvokeTimedOut"));
+export class InvokeTimedOut extends InvokeTimedOutBase {
   declare readonly _tag: "@forst/errors/InvokeTimedOut";
   declare readonly packageName: string;
   declare readonly functionName: string;
   declare readonly timeoutMs?: number;
 }
 
-export class InvokeUnreachable extends tagged(errorsTag("InvokeUnreachable")) {
+const InvokeUnreachableBase: TaggedBaseConstructor = tagged(errorsTag("InvokeUnreachable"));
+export class InvokeUnreachable extends InvokeUnreachableBase {
   declare readonly _tag: "@forst/errors/InvokeUnreachable";
   declare readonly packageName: string;
   declare readonly functionName: string;
   declare readonly baseUrl: string;
 }
 
-export class InvokeBaseUrlMissing extends tagged(errorsTag("InvokeBaseUrlMissing")) {
+const InvokeBaseUrlMissingBase: TaggedBaseConstructor = tagged(errorsTag("InvokeBaseUrlMissing"));
+export class InvokeBaseUrlMissing extends InvokeBaseUrlMissingBase {
   declare readonly _tag: "@forst/errors/InvokeBaseUrlMissing";
   declare readonly envVar: string;
   declare readonly nodeEnv: string;
 }
 
-export class InvokeStreamAborted extends tagged(errorsTag("InvokeStreamAborted")) {
+const InvokeStreamAbortedBase: TaggedBaseConstructor = tagged(errorsTag("InvokeStreamAborted"));
+export class InvokeStreamAborted extends InvokeStreamAbortedBase {
   declare readonly _tag: "@forst/errors/InvokeStreamAborted";
   declare readonly packageName: string;
   declare readonly functionName: string;
   declare readonly rowIndex: number;
 }
 
-export class ContractVersionMismatch extends tagged(errorsTag("ContractVersionMismatch")) {
+const ContractVersionMismatchBase: TaggedBaseConstructor = tagged(
+  errorsTag("ContractVersionMismatch"),
+);
+export class ContractVersionMismatch extends ContractVersionMismatchBase {
   declare readonly _tag: "@forst/errors/ContractVersionMismatch";
   declare readonly expectedContractVersion: string;
   declare readonly serverContractVersion: string;
 }
 
-export class ForstTestServerFailed extends tagged(errorsTag("ForstTestServerFailed")) {
+const ForstTestServerFailedBase: TaggedBaseConstructor = tagged(errorsTag("ForstTestServerFailed"));
+export class ForstTestServerFailed extends ForstTestServerFailedBase {
   declare readonly _tag: "@forst/errors/ForstTestServerFailed";
   declare readonly reason: "cli_missing" | "spawn_failed" | "ready_timeout" | "unreachable";
   declare readonly installCommand?: string;
   declare readonly causeMessage?: string;
 }
 
-export class ForstUnknownFailure extends tagged(errorsTag("ForstUnknownFailure")) {
+const ForstUnknownFailureBase: TaggedBaseConstructor = tagged(errorsTag("ForstUnknownFailure"));
+export class ForstUnknownFailure extends ForstUnknownFailureBase {
   declare readonly _tag: "@forst/errors/ForstUnknownFailure";
   declare readonly message: string;
   declare readonly serverError?: string;

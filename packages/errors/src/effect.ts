@@ -3,68 +3,127 @@ import { errorsTag } from "./tags.js";
 
 export { ERRORS_TAG_PREFIX, errorsTag } from "./tags.js";
 
-export class InvokeRejected extends Data.TaggedError(errorsTag("InvokeRejected"))<{
+/** Effect TaggedError constructor shape used for JSR-friendly superclass extraction. */
+type EffectTaggedBase<A extends Record<string, unknown>> = new (
+  args: A,
+) => Error & { readonly _tag: string } & Readonly<A>;
+
+const InvokeRejectedBase: EffectTaggedBase<{
   readonly packageName: string;
   readonly functionName: string;
   readonly serverError?: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeRejected"))<{
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly serverError?: string;
+  readonly message?: string;
+}>;
+export class InvokeRejected extends InvokeRejectedBase {}
 
-export class InvokeHttpFailure extends Data.TaggedError(errorsTag("InvokeHttpFailure"))<{
+const InvokeHttpFailureBase: EffectTaggedBase<{
   readonly packageName: string;
   readonly functionName: string;
   readonly status: number;
   readonly responseText: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeHttpFailure"))<{
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly status: number;
+  readonly responseText: string;
+  readonly message?: string;
+}>;
+export class InvokeHttpFailure extends InvokeHttpFailureBase {}
 
-export class InvokeTimedOut extends Data.TaggedError(errorsTag("InvokeTimedOut"))<{
+const InvokeTimedOutBase: EffectTaggedBase<{
   readonly packageName: string;
   readonly functionName: string;
   readonly timeoutMs?: number;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeTimedOut"))<{
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly timeoutMs?: number;
+  readonly message?: string;
+}>;
+export class InvokeTimedOut extends InvokeTimedOutBase {}
 
-export class InvokeUnreachable extends Data.TaggedError(errorsTag("InvokeUnreachable"))<{
+const InvokeUnreachableBase: EffectTaggedBase<{
   readonly packageName: string;
   readonly functionName: string;
   readonly baseUrl: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeUnreachable"))<{
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly baseUrl: string;
+  readonly message?: string;
+}>;
+export class InvokeUnreachable extends InvokeUnreachableBase {}
 
-export class InvokeBaseUrlMissing extends Data.TaggedError(errorsTag("InvokeBaseUrlMissing"))<{
+const InvokeBaseUrlMissingBase: EffectTaggedBase<{
   readonly envVar: string;
   readonly nodeEnv: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeBaseUrlMissing"))<{
+  readonly envVar: string;
+  readonly nodeEnv: string;
+  readonly message?: string;
+}>;
+export class InvokeBaseUrlMissing extends InvokeBaseUrlMissingBase {}
 
-export class InvokeStreamAborted extends Data.TaggedError(errorsTag("InvokeStreamAborted"))<{
+const InvokeStreamAbortedBase: EffectTaggedBase<{
   readonly packageName: string;
   readonly functionName: string;
   readonly rowIndex: number;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("InvokeStreamAborted"))<{
+  readonly packageName: string;
+  readonly functionName: string;
+  readonly rowIndex: number;
+  readonly message?: string;
+}>;
+export class InvokeStreamAborted extends InvokeStreamAbortedBase {}
 
-export class ContractVersionMismatch extends Data.TaggedError(errorsTag("ContractVersionMismatch"))<{
+const ContractVersionMismatchBase: EffectTaggedBase<{
   readonly expectedContractVersion: string;
   readonly serverContractVersion: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("ContractVersionMismatch"))<{
+  readonly expectedContractVersion: string;
+  readonly serverContractVersion: string;
+  readonly message?: string;
+}>;
+export class ContractVersionMismatch extends ContractVersionMismatchBase {}
 
-export class ForstTestServerFailed extends Data.TaggedError(errorsTag("ForstTestServerFailed"))<{
+const ForstTestServerFailedBase: EffectTaggedBase<{
   readonly reason: "cli_missing" | "spawn_failed" | "ready_timeout" | "unreachable";
   readonly installCommand?: string;
   readonly causeMessage?: string;
   readonly message?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("ForstTestServerFailed"))<{
+  readonly reason: "cli_missing" | "spawn_failed" | "ready_timeout" | "unreachable";
+  readonly installCommand?: string;
+  readonly causeMessage?: string;
+  readonly message?: string;
+}>;
+export class ForstTestServerFailed extends ForstTestServerFailedBase {}
 
-export class ForstUnknownFailure extends Data.TaggedError(errorsTag("ForstUnknownFailure"))<{
+const ForstUnknownFailureBase: EffectTaggedBase<{
   readonly message: string;
   readonly serverError?: string;
   readonly tag?: string;
   readonly packageName?: string;
   readonly functionName?: string;
-}> {}
+}> = Data.TaggedError(errorsTag("ForstUnknownFailure"))<{
+  readonly message: string;
+  readonly serverError?: string;
+  readonly tag?: string;
+  readonly packageName?: string;
+  readonly functionName?: string;
+}>;
+export class ForstUnknownFailure extends ForstUnknownFailureBase {}
 
 export type InvokeFailure =
   | InvokeRejected
