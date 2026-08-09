@@ -52,23 +52,26 @@ func TestGenerate_effectMode_matchesCommittedGoldens(t *testing.T) {
 	goldenDir := effectGenerateGoldenDir()
 
 	for _, rel := range effectGenerateGoldenFiles {
-		goldenPath := filepath.Join(goldenDir, rel)
-		expected, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("read golden %s: %v (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)", goldenPath, err)
-		}
-		actual, err := os.ReadFile(filepath.Join(dist, rel))
-		if err != nil {
-			t.Fatalf("read generated %s: %v", rel, err)
-		}
-		if string(expected) != string(actual) {
-			t.Fatalf("golden mismatch for %s (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)\n--- expected ---\n%s\n--- actual ---\n%s",
-				rel, string(expected), string(actual))
-		}
-		for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
-			if !strings.Contains(string(actual), frag) {
-				t.Fatalf("effect golden %s missing %q", rel, frag)
+		rel := rel
+		t.Run(rel, func(t *testing.T) {
+			goldenPath := filepath.Join(goldenDir, rel)
+			expected, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read golden %s: %v (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)", goldenPath, err)
 			}
-		}
+			actual, err := os.ReadFile(filepath.Join(dist, rel))
+			if err != nil {
+				t.Fatalf("read generated %s: %v", rel, err)
+			}
+			if string(expected) != string(actual) {
+				t.Fatalf("golden mismatch for %s (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)\n--- expected ---\n%s\n--- actual ---\n%s",
+					rel, string(expected), string(actual))
+			}
+			for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
+				if !strings.Contains(string(actual), frag) {
+					t.Fatalf("effect golden %s missing %q", rel, frag)
+				}
+			}
+		})
 	}
 }
