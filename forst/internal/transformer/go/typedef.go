@@ -68,6 +68,7 @@ func (t *Transformer) transformTypeDef(node ast.TypeDefNode) (*goast.GenDecl, er
 
 	if errEx, ok := node.Expr.(ast.TypeDefErrorExpr); ok {
 		t.emitNominalErrorErrorMethod(typeName)
+		t.emitNominalErrorForstErrorTagMethod(typeName)
 		t.emitNominalErrorUnwrapMethod(typeName, errEx.Payload)
 	}
 
@@ -101,6 +102,25 @@ func (t *Transformer) emitNominalErrorErrorMethod(typeName ast.TypeIdent) {
 		},
 		Body: &goast.BlockStmt{List: []goast.Stmt{
 			&goast.ReturnStmt{Results: []goast.Expr{&goast.BasicLit{Kind: token.STRING, Value: `"error"`}}},
+		}},
+	}
+	t.Output.AddFunction(fn)
+}
+
+// emitNominalErrorForstErrorTagMethod emits `func (e T) ForstErrorTag() string` for wire encoding.
+func (t *Transformer) emitNominalErrorForstErrorTagMethod(typeName ast.TypeIdent) {
+	name := string(typeName)
+	fn := &goast.FuncDecl{
+		Recv: &goast.FieldList{List: []*goast.Field{{
+			Names: []*goast.Ident{goast.NewIdent("e")},
+			Type:  goast.NewIdent(name),
+		}}},
+		Name: goast.NewIdent("ForstErrorTag"),
+		Type: &goast.FuncType{
+			Results: &goast.FieldList{List: []*goast.Field{{Type: goast.NewIdent("string")}}},
+		},
+		Body: &goast.BlockStmt{List: []goast.Stmt{
+			&goast.ReturnStmt{Results: []goast.Expr{goQuotedStringLit(name)}},
 		}},
 	}
 	t.Output.AddFunction(fn)

@@ -178,7 +178,8 @@ func TestGenerate_coreModuleHasSafeVariant(t *testing.T) {
 	for _, frag := range []string{
 		"export declare namespace Echo",
 		"function safe(",
-		"error: InvokeFailure",
+		"ok: false; error:",
+		"InvokeRejected",
 	} {
 		if !strings.Contains(dts, frag) {
 			t.Fatalf("core.d.ts missing safe fragment %q:\n%s", frag, dts)

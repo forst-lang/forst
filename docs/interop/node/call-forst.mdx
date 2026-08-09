@@ -311,6 +311,36 @@ const program = VerifyPassword(input).pipe(
 | `InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
 | `ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
 
+### Domain errors
+
+When a Forst function raises a nominal `error X { ... }`, the server includes structured `errorValue` on the invoke envelope (HTTP contract version `"2"`). The generated client decodes it into a tagged class with the same name as the Forst error type.
+
+```typescript
+import { CellTaken } from "@forst/tictactoe";
+import { PlayMove } from "@forst/tictactoe/main";
+
+try {
+  await PlayMove({ state, row: 1, col: 2 });
+} catch (error) {
+  if (error instanceof CellTaken) {
+    console.log(error.row, error.col);
+  }
+}
+```
+
+In Effect mode the function error channel includes each inferred domain error, `ForstUnknownFailure`, and transport failures:
+
+```typescript
+import { Effect } from "effect";
+import { PlayMove } from "@forst/tictactoe/main";
+
+const program = PlayMove(req).pipe(
+  Effect.catchTag("CellTaken", (e) => Effect.succeed({ row: e.row, col: e.col }))
+);
+```
+
+Unmapped server failures (generic Go errors, panics) surface as `ForstUnknownFailure`.
+
 These tags match the Effect `Data.TaggedError` shape. Promise mode can also
 wrap calls with Effect and use `Effect.catchTag`. See
 [Effect mode](/interop/node/effect).

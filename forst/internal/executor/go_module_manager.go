@@ -29,6 +29,39 @@ func NewGoModuleManager(log *logrus.Logger) *GoModuleManager {
 // we rewrite the user file to this library name and import `module/forstexec` from the wrapper main.
 const libraryExecutorUserPackage = "forstexec"
 
+const forstWireHelperGo = `
+func forstWireEncodeError(err error) (map[string]any, bool) {
+	type tagged interface {
+		error
+		ForstErrorTag() string
+	}
+	t, ok := err.(tagged)
+	if !ok {
+		return nil, false
+	}
+	payload, _ := json.Marshal(t)
+	return map[string]any{
+		"tag":     t.ForstErrorTag(),
+		"payload": json.RawMessage(payload),
+		"message": err.Error(),
+	}, true
+}
+
+func forstWireFailureExit(err error) {
+	if wire, ok := forstWireEncodeError(err); ok {
+		out, _ := json.Marshal(map[string]any{
+			"success":    false,
+			"error":      err.Error(),
+			"errorValue": wire,
+		})
+		fmt.Println(string(out))
+		os.Exit(0)
+	}
+	fmt.Fprintf(os.Stderr, "Function execution failed: %v\n", err)
+	os.Exit(1)
+}
+`
+
 func libraryImportPackageName(forstPackage string) string {
 	if forstPackage == "main" {
 		return libraryExecutorUserPackage
@@ -161,19 +194,18 @@ func (m *GoModuleManager) generateStandardMainGo(importPkg, alias string, config
 
 		if config.HasMultipleReturns {
 			return fmt.Sprintf(`%s
-
+%s
 func main() {
 	%s
 	result, err := %s.%s(%s)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
-		os.Exit(1)
+		forstWireFailureExit(err)
 	}
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
+`, buildMainGoHeader(importPkg, alias), forstWireHelperGo, buildParameterExtraction(containerName, paramNames, paramTypes), alias, config.FunctionName, strings.Join(paramNames, ", "))
 		}
 		return fmt.Sprintf(`%s
 
@@ -189,18 +221,17 @@ func main() {
 
 	if config.HasMultipleReturns {
 		return fmt.Sprintf(`%s
-
+%s
 func main() {
 	result, err := %s.%s()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Function execution failed: %%v\n", err)
-		os.Exit(1)
+		forstWireFailureExit(err)
 	}
 	output, _ := json.Marshal(result)
 	fmt.Printf("{\"result\":%%s}\n", string(output))
 	os.Exit(0)
 }
-`, buildMainGoHeader(importPkg, alias), alias, config.FunctionName)
+`, buildMainGoHeader(importPkg, alias), forstWireHelperGo, alias, config.FunctionName)
 	}
 	return fmt.Sprintf(`%s
 

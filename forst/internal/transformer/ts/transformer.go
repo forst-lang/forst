@@ -62,6 +62,11 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 			}
 			t.Output.AddType(tsType)
 			t.Output.AddExportedTypeName(def.GetIdent())
+			if _, ok := def.Expr.(ast.TypeDefErrorExpr); ok {
+				if cls, err := DomainErrorClassFromTypeDef(def, t.TypeChecker); err == nil {
+					t.Output.DomainErrors = append(t.Output.DomainErrors, cls)
+				}
+			}
 		}
 	}
 

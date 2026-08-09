@@ -15,6 +15,7 @@ type TypeScriptOutput struct {
 	// ExportedTypeNames lists identifiers emitted in Types (e.g. interface names) for import type { … }.
 	ExportedTypeNames []string
 	Functions         []FunctionSignature
+	DomainErrors      []ErrorClass
 	// OmittedFunctions lists public functions skipped for unsatisfied Providers (F-17).
 	OmittedFunctions []OmittedFunction
 	ClientCode       []string // Per-package core module (Promise implementation)

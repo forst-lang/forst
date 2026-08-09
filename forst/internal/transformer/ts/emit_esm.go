@@ -185,6 +185,9 @@ func EmitCoreDTS(m ModuleEmit) string {
 
 	for _, fn := range m.Functions {
 		params := emitParamListDTS(fn.Parameters, true)
+		if fn.FailureType != "" {
+			b.WriteString(fmt.Sprintf("/** @throws {%s} */\n", fn.FailureType))
+		}
 		b.WriteString(fmt.Sprintf("export declare function %s(\n", fn.Name))
 		b.WriteString(fmt.Sprintf("  %s\n", params))
 		b.WriteString(fmt.Sprintf("): Promise<%s>;\n\n", fn.ReturnType))
@@ -193,7 +196,7 @@ func EmitCoreDTS(m ModuleEmit) string {
 		b.WriteString(fmt.Sprintf("    %s\n", params))
 		b.WriteString("  ): Promise<\n")
 		b.WriteString(fmt.Sprintf("    | { ok: true; value: %s }\n", fn.ReturnType))
-		b.WriteString("    | { ok: false; error: InvokeFailure }\n")
+		b.WriteString("    | { ok: false; error: " + effectFailureType(fn) + " }\n")
 		b.WriteString("  >;\n")
 		b.WriteString("}\n\n")
 		if fn.StreamingRowType != "" {

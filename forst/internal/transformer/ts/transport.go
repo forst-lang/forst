@@ -78,7 +78,7 @@ func transportFileHeader(invokePort string) string {
 }
 
 func transportErrorsImport() string {
-	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"./errors.js\";\n\n"
+	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n  decodeDomainError,\n} from \"./errors.js\";\n\n"
 }
 
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).
@@ -589,6 +589,13 @@ class HttpInvokeClient {
       });
     }
     if (!envelope.success) {
+      if (envelope.errorValue) {
+        throw decodeDomainError(envelope.errorValue, {
+          packageName,
+          functionName,
+          serverError: envelope.error,
+        });
+      }
       throw new InvokeRejected({
         packageName,
         functionName,

@@ -59,8 +59,8 @@ func TestEmitTestingEffectESM_includesForstTestServerLayer(t *testing.T) {
 }
 
 func TestEmitErrors_harnessOutsideInvokeFailure(t *testing.T) {
-	esm := EmitErrorsESM()
-	dts := EmitErrorsDTS()
+	esm := EmitErrorsESM(nil)
+	dts := EmitErrorsDTS(nil)
 	assertContainsAll(t, esm, []string{"export class ForstTestServerFailed"})
 	assertContainsAll(t, dts, []string{"export declare class ForstTestServerFailed"})
 	unionStart := strings.Index(dts, "export type InvokeFailure =")

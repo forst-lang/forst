@@ -61,13 +61,13 @@ func writeGeneratedDistModules(
 	log.WithFields(logrus.Fields{"path": typesPath}).Info("Generated types declaration file")
 
 	errorsJSPath := filepath.Join(distDir, "errors.js")
-	if err := writeGeneratedFile(errorsJSPath, []byte(transformerts.EmitErrorsESM()), stats); err != nil {
+	if err := writeGeneratedFile(errorsJSPath, []byte(transformerts.EmitErrorsESM(merged.DomainErrors)), stats); err != nil {
 		return fmt.Errorf("failed to write errors.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": errorsJSPath}).Info("Generated errors module")
 
 	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
-	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitErrorsDTS()), stats); err != nil {
+	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitErrorsDTS(merged.DomainErrors)), stats); err != nil {
 		return fmt.Errorf("failed to write errors.d.ts: %w", err)
 	}
 

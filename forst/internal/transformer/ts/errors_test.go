@@ -7,7 +7,7 @@ import (
 )
 
 func TestEmitErrorsESM_emitsTaggedErrorClasses(t *testing.T) {
-	got := EmitErrorsESM()
+	got := EmitErrorsESM(nil)
 	assertContainsNone(t, got, []string{"from \"effect\"", "from 'effect'", "require(\"effect\")"})
 	for _, name := range ErrorClassNames() {
 		frag := "export class " + name + " extends tagged(\"" + name + "\")"
@@ -34,7 +34,7 @@ func TestEmitErrorsESM_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 			t.Fatalf("class name %q must not end in Error", name)
 		}
 	}
-	got := EmitErrorsESM()
+	got := EmitErrorsESM(nil)
 	classRe := regexp.MustCompile(`export class (\w+)`)
 	for _, m := range classRe.FindAllStringSubmatch(got, -1) {
 		if re.MatchString(m[1]) {
@@ -44,7 +44,7 @@ func TestEmitErrorsESM_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 }
 
 func TestEmitErrorsESM_taggedErrorCarriesLiteralTag(t *testing.T) {
-	got := EmitErrorsESM()
+	got := EmitErrorsESM(nil)
 	// Props assigned before _tag defineProperty so caller _tag cannot overwrite.
 	assignIdx := strings.Index(got, "Object.assign(this, props)")
 	tagIdx := strings.Index(got, `Object.defineProperty(this, "_tag"`)
@@ -59,7 +59,7 @@ func TestEmitErrorsESM_taggedErrorCarriesLiteralTag(t *testing.T) {
 }
 
 func TestEmitErrorsESM_taggedErrorPropsCannotOverwriteTag(t *testing.T) {
-	got := EmitErrorsESM()
+	got := EmitErrorsESM(nil)
 	assignIdx := strings.Index(got, "Object.assign(this, props)")
 	defineIdx := strings.Index(got, `Object.defineProperty(this, "_tag"`)
 	if assignIdx < 0 || defineIdx < 0 || assignIdx > defineIdx {
@@ -71,7 +71,7 @@ func TestEmitErrorsESM_taggedErrorPropsCannotOverwriteTag(t *testing.T) {
 }
 
 func TestEmitErrorsDTS_emitsInvokeFailureUnionAndGuard(t *testing.T) {
-	got := EmitErrorsDTS()
+	got := EmitErrorsDTS(nil)
 	assertContainsAll(t, got, []string{
 		"export type TaggedError<",
 		"export type InvokeFailure =",
@@ -99,7 +99,7 @@ func TestEmitErrorsDTS_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 }
 
 func TestEmitErrorsDTS_emitsInvokeStreamAborted(t *testing.T) {
-	got := EmitErrorsDTS()
+	got := EmitErrorsDTS(nil)
 	assertContainsAll(t, got, []string{
 		"export declare class InvokeStreamAborted",
 		`readonly _tag: "InvokeStreamAborted"`,
@@ -109,14 +109,14 @@ func TestEmitErrorsDTS_emitsInvokeStreamAborted(t *testing.T) {
 }
 
 func TestEmitErrorsDTS_extendsErrorAndKeepsInstanceofContract(t *testing.T) {
-	got := EmitErrorsDTS()
+	got := EmitErrorsDTS(nil)
 	for _, name := range ErrorClassNames() {
 		frag := "export declare class " + name + " extends Error"
 		if !strings.Contains(got, frag) {
 			t.Fatalf("expected %q to extend Error", name)
 		}
 	}
-	esm := EmitErrorsESM()
+	esm := EmitErrorsESM(nil)
 	assertContainsAll(t, esm, []string{
 		"class extends Error",
 		"Object.setPrototypeOf(this, new.target.prototype)",
@@ -125,8 +125,8 @@ func TestEmitErrorsDTS_extendsErrorAndKeepsInstanceofContract(t *testing.T) {
 }
 
 func TestEmitErrors_catalogDrivesBothEmits(t *testing.T) {
-	esm := EmitErrorsESM()
-	dts := EmitErrorsDTS()
+	esm := EmitErrorsESM(nil)
+	dts := EmitErrorsDTS(nil)
 	for _, c := range ErrorCatalog {
 		if !strings.Contains(esm, c.Name) || !strings.Contains(dts, c.Name) {
 			t.Fatalf("catalog class %s missing from ESM or DTS", c.Name)

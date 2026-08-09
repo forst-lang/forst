@@ -339,10 +339,11 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sendJSON(w, Response{
-		Success: result.Success,
-		Output:  result.Output,
-		Error:   result.Error,
-		Result:  result.Result,
+		Success:    result.Success,
+		Output:     result.Output,
+		Error:      result.Error,
+		ErrorValue: result.ErrorValue,
+		Result:     result.Result,
 	})
 }
 

@@ -10,6 +10,8 @@ type MoveRequest = {state: GameState, row: Int, col: Int}
 
 type MoveResponse = {state: GameState, message: String}
 
+error CellTaken {row: Int, col: Int}
+
 // --- Shape guards (structural invariants)
 is (g GameState) ValidBoard {
 	ensure g.cells is Min(9)
@@ -110,7 +112,7 @@ func ApplyMove(req MoveRequest): Result(MoveResponse, Error) {
 	idx := cellIndex(row, col)
 	cellEmpty := req.state.cells[idx] == ""
 	ensure cellEmpty is True()
-	    or invalidMove("cell already taken")
+	    or CellTaken({row: row, col: col})
 	next := setCell(cloneCells(req.state.cells), idx, req.state.nextPlayer)
 	np := opponent(req.state.nextPlayer)
 	w := winnerOrEmpty(next)

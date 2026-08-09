@@ -153,6 +153,13 @@ func EmitPackageEffectESM(m ModuleEmit, npmPackageName string) string {
 	return b.String()
 }
 
+func effectFailureType(fn FunctionSignature) string {
+	if fn.FailureType != "" {
+		return fn.FailureType
+	}
+	return "InvokeFailure"
+}
+
 // EmitPackageEffectDTS returns dist/pkg/<pkg>.d.ts for Effect mode.
 func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	pkg := m.PackageName
@@ -202,8 +209,8 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	for _, fn := range m.Functions {
 		params := emitEffectParamListDTS(fn.Parameters)
 		b.WriteString(fmt.Sprintf(
-			"    readonly %s: (%s) => Effect.Effect<%s, InvokeFailure>;\n",
-			fn.Name, params, fn.ReturnType,
+			"    readonly %s: (%s) => Effect.Effect<%s, %s>;\n",
+			fn.Name, params, fn.ReturnType, effectFailureType(fn),
 		))
 	}
 	b.WriteString("  }\n")
@@ -216,8 +223,8 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	for _, fn := range m.Functions {
 		params := emitEffectParamListDTS(fn.Parameters)
 		b.WriteString(fmt.Sprintf(
-			"  static readonly %s: (%s) => Effect.Effect<%s, InvokeFailure, %s>;\n",
-			fn.Name, params, fn.ReturnType, className,
+			"  static readonly %s: (%s) => Effect.Effect<%s, %s, %s>;\n",
+			fn.Name, params, fn.ReturnType, effectFailureType(fn), className,
 		))
 	}
 	b.WriteString("}\n\n")
@@ -227,8 +234,8 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 		b.WriteString(fmt.Sprintf("export declare const %s: (\n", fn.Name))
 		b.WriteString(fmt.Sprintf("  %s\n", params))
 		b.WriteString(fmt.Sprintf(
-			") => Effect.Effect<%s, InvokeFailure, %s>;\n\n",
-			fn.ReturnType, className,
+			") => Effect.Effect<%s, %s, %s>;\n\n",
+			fn.ReturnType, effectFailureType(fn), className,
 		))
 		if fn.StreamingRowType != "" {
 			streamParams := emitParamListDTS(fn.Parameters, true)
@@ -469,7 +476,7 @@ export { ForstTestServerFailed, InvokeRejected };
 			fmt.Fprintf(&b, "  %s: (%s) =>\n", fn.Name, params)
 			fmt.Fprintf(&b, "    | %s\n", fn.ReturnType)
 			fmt.Fprintf(&b, "    | Promise<%s>\n", fn.ReturnType)
-			fmt.Fprintf(&b, "    | Effect.Effect<%s, InvokeFailure>;\n", fn.ReturnType)
+			fmt.Fprintf(&b, "    | Effect.Effect<%s, %s>;\n", fn.ReturnType, effectFailureType(fn))
 			if fn.StreamingRowType != "" {
 				fmt.Fprintf(&b,
 					"  %sStream: (%s) => AsyncGenerator<import(\"./transport.js\").StreamingResult & { data?: %s }, void, undefined>;\n",

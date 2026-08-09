@@ -17,6 +17,8 @@ type FunctionSignature struct {
 	Streamable bool
 	// StreamingRowType is the TS type for each NDJSON data row when GenerateStreamingClients is on and return is chan T with a typable element; empty otherwise.
 	StreamingRowType string
+	// FailureType is the TS union of domain and transport failures for this function.
+	FailureType string
 }
 
 // Parameter represents a TypeScript function parameter
@@ -29,6 +31,14 @@ type Parameter struct {
 type FunctionTransformResult struct {
 	Signature  *FunctionSignature
 	Definition string
+}
+
+func domainErrorsByName(list []ErrorClass) map[string]ErrorClass {
+	out := make(map[string]ErrorClass, len(list))
+	for _, c := range list {
+		out[c.Name] = c
+	}
+	return out
 }
 
 // transformFunction converts a Forst function to TypeScript declaration and definition
@@ -94,6 +104,10 @@ func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*Functio
 		ReturnType:       returnType,
 		Streamable:       streamable,
 		StreamingRowType: streamingRowTS,
+	}
+	if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists {
+		domainMap := domainErrorsByName(t.Output.DomainErrors)
+		signature.FailureType = FormatFunctionErrorUnion(sig, domainMap)
 	}
 
 	// Generate definition for .client.ts file

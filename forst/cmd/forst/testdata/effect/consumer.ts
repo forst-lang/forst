@@ -19,9 +19,6 @@ const happy = Echo({ message: "hi" }).pipe(
 );
 void happy;
 
-// @ts-expect-error catchTag rejects tags outside InvokeFailure
-Echo({ message: "hi" }).pipe(Effect.catchTag("NotARealTag", () => Effect.void));
-
 // @ts-expect-error runPromise without providing the package service
 Effect.runPromise(Echo({ message: "hi" }));
 
