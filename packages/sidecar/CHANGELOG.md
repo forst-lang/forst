@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/forst-lang/forst/compare/sidecar-v0.4.2...sidecar-v0.5.0) (2026-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** emit self-contained @forst/gen TS client package ([#158](https://github.com/forst-lang/forst/issues/158))
+
+### Features
+
+* **generate:** emit self-contained @forst/gen TS client package ([#158](https://github.com/forst-lang/forst/issues/158)) ([f89bf85](https://github.com/forst-lang/forst/commit/f89bf8574b0aeaa80ba8c8f7c6c1c04700c04b2c))
+
 ## [0.4.2](https://github.com/forst-lang/forst/compare/sidecar-v0.4.1...sidecar-v0.4.2) (2026-07-20)
 
 
