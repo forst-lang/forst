@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
 
+## [0.11.0](https://github.com/forst-lang/forst/compare/v0.10.2...v0.11.0) (2026-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** emit self-contained @forst/gen TS client package ([#158](https://github.com/forst-lang/forst/issues/158))
+
+### Features
+
+* **generate:** emit self-contained @forst/gen TS client package ([#158](https://github.com/forst-lang/forst/issues/158)) ([f89bf85](https://github.com/forst-lang/forst/commit/f89bf8574b0aeaa80ba8c8f7c6c1c04700c04b2c))
+
 ## [0.10.2](https://github.com/forst-lang/forst/compare/v0.10.1...v0.10.2) (2026-07-28)
 
 
