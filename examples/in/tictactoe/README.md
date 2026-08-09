@@ -18,7 +18,7 @@ cd forst && go run ./cmd/forst run -root ../examples/in/tictactoe -- ../examples
 
 ## TypeScript client (`forst generate`)
 
-Output lands in gitignored `.forst/client` (linked as `node_modules/@forst/gen`). Run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
+Output lands in gitignored `.forst/client` (linked as `node_modules/@forst/tictactoe`). Run the task below after editing `.ft` sources (CI covers merge + generate via `TestGenerate_exampleManifest` and `TestExampleTictactoeMergedPackage`).
 
 From the repo root:
 
@@ -32,7 +32,7 @@ Equivalent:
 cd forst && go run ./cmd/forst generate ../examples/in/tictactoe
 ```
 
-Import with `import { createForstClient } from "@forst/gen"` or `import { PlayMove } from "@forst/gen/main"`. Point `FORST_BASE_URL` at a running `forst dev` when calling the client.
+Import with `import { createForstClient } from "@forst/tictactoe"` or `import { PlayMove } from "@forst/tictactoe/main"`. Point `FORST_BASE_URL` at a running `forst dev` when calling the client.
 
 ### Tests (bun)
 

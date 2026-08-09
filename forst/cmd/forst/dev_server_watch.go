@@ -27,7 +27,8 @@ func (s *DevServer) startWatchGenerate() {
 	if err := runGenerateForDev(root, s.config, s.log); err != nil {
 		s.log.Warnf("watchGenerate: initial forst generate failed: %v", err)
 	}
-	s.watchStop = make(chan struct{})
+	stop := make(chan struct{})
+	s.watchStop = stop
 	go func() {
 		_ = devserver.WatchPackageRoot(s.log, root, &s.config.Config, 0, func(_ string) {
 			if err := runGenerateForDev(root, s.config, s.log); err != nil {
@@ -38,7 +39,7 @@ func (s *DevServer) startWatchGenerate() {
 			delete(s.typesCache, "types")
 			s.lastTypesGen = time.Time{}
 			s.typesCacheMu.Unlock()
-		}, s.watchStop)
+		}, stop)
 	}()
 }
 

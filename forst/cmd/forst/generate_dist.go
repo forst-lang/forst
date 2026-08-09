@@ -153,10 +153,10 @@ func printGenerateSummary(genCfg ftconfig.GenerateConfig, outputs []*transformer
 	for _, out := range outputs {
 		fnCount += len(out.Functions)
 	}
-	fmt.Fprintf(generateReportWriter, "generate: wrote %s -> %s (%d packages, %d functions)\n",
+	_, _ = fmt.Fprintf(generateReportWriter, "generate: wrote %s -> %s (%d packages, %d functions)\n",
 		genCfg.PackageName, genCfg.OutDir, pkgCount, fnCount)
 	if example, ok := exampleImportLine(genCfg.PackageName, outputs); ok {
-		fmt.Fprintf(generateReportWriter, "  %s\n", example)
+		_, _ = fmt.Fprintf(generateReportWriter, "  %s\n", example)
 	}
 }
 

@@ -485,7 +485,7 @@ tasks:
       - go run ./{{.BUILD_DIR}} run -root {{.EXAMPLES_DIR}}/tictactoe -- {{.EXAMPLES_DIR}}/tictactoe/main/server.ft
 
   example:tictactoe:generate:
-    desc: Regenerate @forst/gen client under .forst/client for tictactoe (forst generate)
+    desc: Regenerate @forst/tictactoe client under .forst/client for tictactoe (forst generate)
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe

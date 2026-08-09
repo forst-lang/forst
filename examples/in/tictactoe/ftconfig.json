@@ -17,6 +17,9 @@
     "logLevel": "info",
     "watch": false
   },
+  "generate": {
+    "packageName": "@forst/tictactoe"
+  },
   "files": {
     "include": ["**/*.ft"],
     "exclude": [

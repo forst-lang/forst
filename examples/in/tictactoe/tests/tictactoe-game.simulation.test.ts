@@ -1,8 +1,8 @@
 /**
- * End-to-end: TypeScript uses createForstClient from @forst/gen (linked under .forst/client).
+ * End-to-end: TypeScript uses createForstClient from @forst/tictactoe (linked under .forst/client).
  * Calls main.NewGame / main.PlayMove via forst dev → POST /invoke.
  *
- * Requires `task example:tictactoe:generate` so node_modules/@forst/gen exists.
+ * Requires `task example:tictactoe:generate` so node_modules/@forst/tictactoe exists.
  * Spawns forst dev with the example ftconfig.json (see beforeAll).
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
@@ -14,7 +14,7 @@ import {
   type ForstClient,
   type GameState,
   type MoveRequest,
-} from "@forst/gen";
+} from "@forst/tictactoe";
 
 const exampleRoot = join(import.meta.dir, "..");
 const typesFile = join(exampleRoot, ".forst", "client", "dist", "types.d.ts");
