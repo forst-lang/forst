@@ -68,8 +68,8 @@ Full `generate` fields live on the [CLI reference](/workflow/cli#generate-config
 | Failure encoding | Thrown tagged error, plus `.safe()` | Typed `E` channel. No `.safe()`. |
 | Retries | `options.retries` | `Effect.retry` with a `Schedule` |
 | Dependencies | None | Peer dependency `effect` `>=3.17.0` |
-| Wiring | `createForstClient(config)` | `ForstClientLive` / `layerForstClient(config)` |
-| Mocking | `withForstTestScope` | `Layer.mock` / `layerForstTest` |
+| Wiring | `createForstClient(config)` | `ForstClientLive` / `ForstClientLayer(config)` |
+| Mocking | `withForstTestScope` | `Layer.mock` / `ForstTestLayer` |
 
 Imports stay the same. `import { VerifyPassword } from "@forst/gen/auth"` works in both modes.
 
@@ -98,15 +98,15 @@ Promise mode uses the same tags with `isInvokeFailure` and a `switch` on `_tag`.
 | Export | Use when |
 | --- | --- |
 | `ForstClientLive` | Default transport for every Forst package |
-| `layerForstClient(config)` | Explicit base URL, timeouts, or middleware |
+| `ForstClientLayer(config)` | Explicit base URL, timeouts, or middleware |
 | `makeForstClientRuntime(config)` | Call Forst from code that is not written in Effect |
 
 ```typescript
 import { Effect } from "effect";
-import { layerForstClient, makeForstClientRuntime } from "@forst/gen";
+import { ForstClientLayer, makeForstClientRuntime } from "@forst/gen";
 import { VerifyPassword } from "@forst/gen/auth";
 
-const layer = layerForstClient({
+const layer = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
 });
 
@@ -145,14 +145,14 @@ await Effect.runPromise(
 
 An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode requires `effect` `>=3.17.0`.
 
-**Whole client** with `layerForstTest`:
+**Whole client** with `ForstTestLayer`:
 
 ```typescript
 import { Effect } from "effect";
-import { layerForstTest } from "@forst/gen/testing";
+import { ForstTestLayer } from "@forst/gen/testing";
 import { VerifyPassword } from "@forst/gen/auth";
 
-const Test = layerForstTest({
+const Test = ForstTestLayer({
   packages: {
     auth: {
       VerifyPassword: async () => ({ valid: true }),

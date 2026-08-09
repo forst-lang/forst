@@ -1,7 +1,7 @@
 import { Effect, Layer, Exit } from "effect";
 import { Echo, Main } from "@forst/gen/main";
 import { ForstTransport } from "@forst/gen/effect";
-import { layerForstTest } from "@forst/gen/testing";
+import { ForstTestLayer } from "@forst/gen/testing";
 
 function assert(cond, msg) {
   if (!cond) {
@@ -55,8 +55,8 @@ const timed = await Effect.runPromiseExit(program);
 assert(Exit.isFailure(timed), "timeout must fail the effect");
 assert(aborted, "interruption must abort the in-flight request");
 
-// layerForstTest value handler works without transport / base URL.
-const testLayer = layerForstTest({
+// ForstTestLayer value handler works without transport / base URL.
+const testLayer = ForstTestLayer({
   packages: {
     main: {
       Echo: () => ({ echo: "from-test", timestamp: 42 }),
@@ -66,6 +66,6 @@ const testLayer = layerForstTest({
 const result = await Effect.runPromise(
   Echo({ message: "n" }).pipe(Effect.provide(testLayer))
 );
-assert(result.echo === "from-test", "layerForstTest handler must run");
+assert(result.echo === "from-test", "ForstTestLayer handler must run");
 
 console.log("effect-runtime-ok");

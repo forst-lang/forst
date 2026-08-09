@@ -184,10 +184,10 @@ await forst.auth.VerifyPassword({
 
 ```typescript Effect
 import { Effect } from "effect";
-import { layerForstClient } from "@forst/gen";
+import { ForstClientLayer } from "@forst/gen";
 import { VerifyPassword } from "@forst/gen/auth";
 
-const ForstLive = layerForstClient({
+const ForstLive = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
   headers: {
     Authorization: `Bearer ${process.env.API_TOKEN}`,
@@ -230,10 +230,10 @@ await VerifyPassword(input, {
 ```
 
 ```typescript Effect
-import { layerForstClient } from "@forst/gen";
+import { ForstClientLayer } from "@forst/gen";
 import { VerifyPassword } from "@forst/gen/auth";
 
-const ForstLive = layerForstClient({
+const ForstLive = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
   headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
 });

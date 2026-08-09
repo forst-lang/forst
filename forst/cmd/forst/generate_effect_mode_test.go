@@ -467,7 +467,7 @@ func TestGenerate_effectMode_rootEmitsForstClientLiveAndRuntime(t *testing.T) {
 	js := mustRead(t, filepath.Join(dist, "index.js"))
 	for _, frag := range []string{
 		"export const ForstClientLive",
-		"export const layerForstClient",
+		"export const ForstClientLayer",
 		"export const makeForstClientRuntime",
 		"ManagedRuntime.make",
 	} {
@@ -476,7 +476,7 @@ func TestGenerate_effectMode_rootEmitsForstClientLiveAndRuntime(t *testing.T) {
 		}
 	}
 	dts := mustRead(t, filepath.Join(dist, "index.d.ts"))
-	for _, frag := range []string{"ForstClientLive", "layerForstClient", "makeForstClientRuntime"} {
+	for _, frag := range []string{"ForstClientLive", "ForstClientLayer", "makeForstClientRuntime"} {
 		if !strings.Contains(dts, frag) {
 			t.Fatalf("missing %q in index.d.ts", frag)
 		}
@@ -511,7 +511,7 @@ func TestGenerate_effectMode_testingModuleEmitsPartialOverrides(t *testing.T) {
 		"packages?:",
 		"main?: Partial<MainHandlers>",
 		"transport?: Partial<ForstInvokeClient>",
-		"layerForstTest",
+		"ForstTestLayer",
 	} {
 		if !strings.Contains(dts, frag) {
 			t.Fatalf("missing %q:\n%s", frag, dts)
@@ -564,7 +564,7 @@ func TestGenerate_effectMode_testHandlerAcceptsValuePromiseOrEffect(t *testing.T
 	}
 }
 
-func TestGenerate_effectMode_layerForstTestNeedsNoTransport(t *testing.T) {
+func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 	js := transformerts.EmitTestingEffectESM([]transformerts.ModuleEmit{{
 		PackageName: "bcrypt",
 		Functions: []transformerts.FunctionSignature{{
@@ -573,11 +573,11 @@ func TestGenerate_effectMode_layerForstTestNeedsNoTransport(t *testing.T) {
 			ReturnType: "ComparePasswordResponse",
 		}},
 	}})
-	if !strings.Contains(js, "export function layerForstTest") {
-		t.Fatal("missing layerForstTest")
+	if !strings.Contains(js, "export function ForstTestLayer") {
+		t.Fatal("missing ForstTestLayer")
 	}
 	if strings.Contains(js, "ForstTransport") || strings.Contains(js, "FORST_BASE_URL") {
-		t.Fatalf("layerForstTest must not require transport:\n%s", js)
+		t.Fatalf("ForstTestLayer must not require transport:\n%s", js)
 	}
 	if !strings.Contains(js, "Layer.mock") {
 		t.Fatal("must delegate to Layer.mock")

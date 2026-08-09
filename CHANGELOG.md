@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   4. Optional. Set `generate.effect: true` for Effect-returning callables (`effect` peer `>=3.17.0`). Use `@forst/gen/testing` (or `generate.testingSubpath`) for `withForstTestScope` overrides.
   5. Use `forst generate --watch` or sidecar `watchGenerate` (default on in development) to refresh types on `.ft` edits.
 
+* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`. Regenerate the client after upgrading.
+
 ### Features
 
 * **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).

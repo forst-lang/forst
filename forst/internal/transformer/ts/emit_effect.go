@@ -272,10 +272,10 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 
 	if len(pkgs) == 0 {
 		b.WriteString("export const ForstClientLive = Layer.empty;\n\n")
-		b.WriteString("export const layerForstClient = (config) =>\n")
+		b.WriteString("export const ForstClientLayer = (config) =>\n")
 		b.WriteString("  Layer.provide(Layer.empty, layerTransport(config));\n\n")
 		b.WriteString("export const makeForstClientRuntime = (config) =>\n")
-		b.WriteString("  ManagedRuntime.make(layerForstClient(config));\n")
+		b.WriteString("  ManagedRuntime.make(ForstClientLayer(config));\n")
 		return b.String()
 	}
 
@@ -287,14 +287,14 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 		withoutDeps[i] = className + ".DefaultWithoutDependencies"
 	}
 	b.WriteString(fmt.Sprintf("export const ForstClientLive = Layer.mergeAll(%s);\n\n", strings.Join(defaults, ", ")))
-	b.WriteString("export const layerForstClient = (config) => {\n")
+	b.WriteString("export const ForstClientLayer = (config) => {\n")
 	b.WriteString("  const transportLayer = layerTransport(config);\n")
 	b.WriteString(fmt.Sprintf("  return Layer.mergeAll(%s).pipe(\n", strings.Join(withoutDeps, ", ")))
 	b.WriteString("    Layer.provide(transportLayer)\n")
 	b.WriteString("  );\n")
 	b.WriteString("};\n\n")
 	b.WriteString("export const makeForstClientRuntime = (config) =>\n")
-	b.WriteString("  ManagedRuntime.make(layerForstClient(config));\n")
+	b.WriteString("  ManagedRuntime.make(ForstClientLayer(config));\n")
 	_ = npmPackageName
 	return b.String()
 }
@@ -317,7 +317,7 @@ func EmitIndexEffectDTS(packages []string) string {
 		req = strings.Join(serviceTypes, " | ")
 	}
 	b.WriteString(fmt.Sprintf("export declare const ForstClientLive: Layer.Layer<%s>;\n\n", req))
-	b.WriteString("export declare const layerForstClient: (\n")
+	b.WriteString("export declare const ForstClientLayer: (\n")
 	b.WriteString("  config?: ForstInvokeClientConfig\n")
 	b.WriteString(fmt.Sprintf(") => Layer.Layer<%s>;\n\n", req))
 	b.WriteString("export declare const makeForstClientRuntime: (\n")
@@ -326,7 +326,7 @@ func EmitIndexEffectDTS(packages []string) string {
 	return b.String()
 }
 
-// EmitTestingEffectESM returns dist/testing.js for Effect mode (layerForstTest).
+// EmitTestingEffectESM returns dist/testing.js for Effect mode (ForstTestLayer).
 func EmitTestingEffectESM(modules []ModuleEmit) string {
 	mods := sortModulesByPackage(modules)
 	var b strings.Builder
@@ -348,7 +348,7 @@ import { InvokeRejected } from "./errors.js";
 	b.WriteString("\n")
 	b.WriteString(testingEffectRuntimeESM)
 	b.WriteString("\n")
-	b.WriteString("export function layerForstTest(overrides) {\n")
+	b.WriteString("export function ForstTestLayer(overrides) {\n")
 	b.WriteString("  const packages = overrides?.packages ?? {};\n")
 	b.WriteString("  const layers = [];\n")
 	for _, m := range mods {
@@ -443,7 +443,7 @@ export { InvokeRejected };
 	if len(serviceTypes) > 0 {
 		req = strings.Join(serviceTypes, " | ")
 	}
-	b.WriteString("export declare const layerForstTest: (\n")
+	b.WriteString("export declare const ForstTestLayer: (\n")
 	b.WriteString("  overrides: ForstTestOverrides\n")
 	b.WriteString(fmt.Sprintf(") => Layer.Layer<%s>;\n", req))
 	return b.String()

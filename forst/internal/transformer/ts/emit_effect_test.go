@@ -23,7 +23,7 @@ func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
 	got := EmitIndexEffectDTS([]string{"auth", "bcrypt"})
 	assertContainsAll(t, got, []string{
 		"ForstClientLive",
-		"layerForstClient",
+		"ForstClientLayer",
 		"makeForstClientRuntime",
 		"config?: ForstInvokeClientConfig",
 	})
@@ -36,7 +36,7 @@ func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 	got := EmitIndexEffectESM([]string{"auth", "bcrypt"}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"ForstClientLive",
-		"layerForstClient",
+		"ForstClientLayer",
 		"makeForstClientRuntime",
 		"const transportLayer = layerTransport(config)",
 		"Layer.provide(transportLayer)",
@@ -58,6 +58,6 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"| ComparePasswordResponse",
 		"| Promise<ComparePasswordResponse>",
 		"| Effect.Effect<ComparePasswordResponse, InvokeFailure>",
-		"layerForstTest",
+		"ForstTestLayer",
 	})
 }

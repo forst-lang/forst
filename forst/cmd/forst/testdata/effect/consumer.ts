@@ -6,7 +6,7 @@ import { Effect, Layer } from "effect";
 import { ForstClientLive } from "@forst/gen";
 import { Echo, Main } from "@forst/gen/main";
 import { ForstTransport } from "@forst/gen/effect";
-import { layerForstTest } from "@forst/gen/testing";
+import { ForstTestLayer } from "@forst/gen/testing";
 import type { MainHandlers } from "@forst/gen/testing";
 
 // Happy path: catchTag + retry + provide compiles.
@@ -46,8 +46,8 @@ const withFakeTransport = Echo({ message: "hi" }).pipe(
 );
 void withFakeTransport;
 
-// layerForstTest override shape
-void layerForstTest({
+// ForstTestLayer override shape
+void ForstTestLayer({
   packages: {
     main: {
       Echo: () => ({ echo: "stub", timestamp: 1 }),
