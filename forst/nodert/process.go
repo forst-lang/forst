@@ -31,7 +31,7 @@ type managedProcess struct {
 	stdin      io.WriteCloser
 	stdout     io.ReadCloser
 	stderr     io.ReadCloser
-	stderrRing *outputRing
+	stderrRing stderrRingBuffer
 	log        *logrus.Logger
 	waitMu     sync.Mutex
 	waited     bool
@@ -40,11 +40,19 @@ type managedProcess struct {
 
 const childStderrRingCap = 2048
 
+// stderrRingBuffer captures recent stderr for error diagnostics.
+type stderrRingBuffer interface {
+	io.Writer
+	tail() string
+}
+
 type outputRing struct {
 	mu  sync.Mutex
 	buf []byte
 	cap int
 }
+
+var _ stderrRingBuffer = (*outputRing)(nil)
 
 func newOutputRing(cap int) *outputRing {
 	if cap <= 0 {
@@ -66,20 +74,20 @@ func (r *outputRing) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (r *outputRing) String() string {
+func (r *outputRing) tail() string {
 	if r == nil {
 		return ""
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return string(r.buf)
+	return strings.TrimSpace(string(r.buf))
 }
 
 func (p *managedProcess) stderrTail() string {
-	if p == nil {
+	if p == nil || p.stderrRing == nil {
 		return ""
 	}
-	return strings.TrimSpace(p.stderrRing.String())
+	return p.stderrRing.tail()
 }
 
 func spawnBootstrapProcess(opts ProcessOptions, socketPath, readyPath string) (*managedProcess, error) {
