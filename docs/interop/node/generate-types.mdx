@@ -47,6 +47,16 @@ Output on disk (default):
 
 `forst generate` writes `node_modules/@forst/gen` → `.forst/client` so the specifier resolves. Full output modes and every `generate` field are on the [CLI reference](/workflow/cli#generate-configuration).
 
+## Bundlers (Vite, Remix, webpack)
+
+The generated package is a real npm-style module: subpath imports like `@forst/gen/auth` resolve through `package.json` **`exports`** to files under `dist/pkg/`. TypeScript and Node resolve it from `node_modules/@forst/gen` after `forst generate` creates the link.
+
+**Do not** add a bundler `resolve.alias` that maps `@forst/gen` to `.forst/client`. Plain directory aliases skip the exports map, so `@forst/gen/main` incorrectly becomes `.forst/client/main` (which does not exist). Let normal package resolution handle `@forst/gen`.
+
+For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
+
+Working reference: [`examples/in/rfc/node-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/remix-serve) (`vite.config.ts`, `task example:node-interop-remix-serve:standalone-e2e` in CI).
+
 ## Types from .ft
 
 Define the shape once in Forst:
