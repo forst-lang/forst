@@ -12,6 +12,13 @@ type FunctionSignature struct {
 	Ident       ast.Ident
 	Parameters  []ParameterSignature
 	ReturnTypes []ast.TypeNode
+	ErrorSet    FunctionErrorSet
+}
+
+// FunctionErrorSet is the inferred set of nominal errors a function may raise at runtime.
+type FunctionErrorSet struct {
+	NominalErrors   []ast.TypeIdent
+	UnknownPossible bool
 }
 
 // ParameterSignature represents a function parameter's type information

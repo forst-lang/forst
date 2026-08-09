@@ -291,5 +291,7 @@ func (tc *TypeChecker) InferTypes(nodes []ast.Node) error {
 
 	tc.checkShapeStructTags()
 
+	tc.inferAllFunctionErrorSets(nodes)
+
 	return nil
 }

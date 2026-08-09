@@ -15,6 +15,7 @@ import (
 	"forst/internal/compiler"
 	"forst/internal/configiface"
 	"forst/internal/discovery"
+	"forst/internal/forsterr"
 	"forst/internal/forstpkg"
 	"forst/internal/generators"
 	"forst/internal/goload"
@@ -62,10 +63,11 @@ type CompiledFunction struct {
 
 // ExecutionResult represents the result of a function execution
 type ExecutionResult struct {
-	Success bool            `json:"success"`
-	Output  string          `json:"output,omitempty"`
-	Error   string          `json:"error,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
+	Success    bool                `json:"success"`
+	Output     string              `json:"output,omitempty"`
+	Error      string              `json:"error,omitempty"`
+	ErrorValue *forsterr.WireError `json:"errorValue,omitempty"`
+	Result     json.RawMessage     `json:"result,omitempty"`
 }
 
 // StreamingResult represents a streaming result

@@ -18,11 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   4. Optional. Set `generate.effect: true` for Effect-returning callables (`effect` peer `>=3.17.0`). Use `@forst/gen/testing` (or `generate.testingSubpath`) for `withForstTestScope` overrides.
   5. Use `forst generate --watch` or sidecar `watchGenerate` (default on in development) to refresh types on `.ft` edits.
 
-* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`. Regenerate the client after upgrading.
+* **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`, `layerTransport` → `ForstTransportLayer`. Regenerate the client after upgrading.
+
+* **generate:** Shared built-in errors via `@forst/errors` (`>=0.1.0` runtime dependency). Generated clients emit `dist/errors.*` only (domain errors + re-exports from `@forst/errors`). Package export `./errors` is the common surface. Built-in invoke/harness/unknown-failure classes live in `@forst/errors` with `_tag` values namespaced as `@forst/errors/InvokeRejected`, `@forst/errors/ForstUnknownFailure`, … Domain error `_tag` strings stay namespaced per npm package (`@forst/tictactoe/CellTaken`). `generate.packageName` cannot be `@forst/errors`. Effect mode uses `@forst/errors/effect`.
+
+  **Migration**
+  1. Add `@forst/errors` to your app lockfile (generated `package.json` declares it under `dependencies`, or install `@forst/cli` which pulls it in transitively).
+  2. Prefer `import { CellTaken, InvokeRejected } from "@forst/gen/errors"`.
+  3. Update `Effect.catchTag` / `switch (error._tag)` for invoke failures to namespaced tags (`@forst/errors/InvokeRejected`, not `@forst/InvokeRejected`). Domain errors still use `@<packageName>/ErrorName`.
+  4. Domain errors still re-export from the package root (`import { CellTaken } from "@forst/tictactoe"`).
 
 ### Features
 
+* **errors:** New `@forst/errors` package with shared invoke, harness, and unknown-failure tagged error classes. Promise mode at package root, Effect mode at `@forst/errors/effect`.
+* **cli:** `@forst/cli` depends on `@forst/errors` so consumers with the CLI installed get shared error classes without adding Effect.
 * **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
+* **generate (Effect mode):** Invoke, domain, and harness errors use `Data.TaggedError` from the `effect` peer instead of the inlined tagged helper. Promise mode is unchanged. Regenerate Effect-mode clients after upgrading.
 * **generate:** Real-server testing helpers on `@forst/gen/testing`: Promise mode `startForstTestServer`, Effect mode `ForstTestServer` / `ForstTestServerLayer` / `makeForstTestServer`. Optional peer `@forst/cli` (`peerDependenciesMeta.optional`) lazy-imports `@forst/cli/invoke`. Harness failures use `ForstTestServerFailed` outside `InvokeFailure`.
 * **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).
 

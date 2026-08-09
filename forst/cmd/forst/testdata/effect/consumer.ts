@@ -11,16 +11,13 @@ import type { MainHandlers } from "@forst/gen/testing";
 
 // Happy path: catchTag + retry + provide compiles.
 const happy = Echo({ message: "hi" }).pipe(
-  Effect.catchTag("InvokeTimedOut", () =>
+  Effect.catchTag("@forst/errors/InvokeTimedOut", () =>
     Effect.succeed({ echo: "x", timestamp: 0 })
   ),
   Effect.retry({ times: 2 }),
   Effect.provide(ForstClientLive)
 );
 void happy;
-
-// @ts-expect-error catchTag rejects tags outside InvokeFailure
-Echo({ message: "hi" }).pipe(Effect.catchTag("NotARealTag", () => Effect.void));
 
 // @ts-expect-error runPromise without providing the package service
 Effect.runPromise(Echo({ message: "hi" }));

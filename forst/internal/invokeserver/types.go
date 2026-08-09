@@ -2,10 +2,12 @@ package invokeserver
 
 import (
 	"encoding/json"
+
+	"forst/internal/forsterr"
 )
 
 // HTTPContractVersion is the normative dev HTTP API revision.
-const HTTPContractVersion = "1"
+const HTTPContractVersion = "2"
 
 // ContractVersionHTTPHeader is sent on every invoke HTTP response.
 const ContractVersionHTTPHeader = "X-Forst-Contract-Version"
@@ -18,14 +20,18 @@ type InvokeRequest struct {
 	Streaming bool            `json:"streaming,omitempty"`
 }
 
+// ErrorValue is a structured nominal error on the invoke wire (contract v2).
+type ErrorValue = forsterr.WireError
+
 // Response is the JSON envelope for invoke HTTP endpoints.
 type Response struct {
-	Success    bool            `json:"success"`
-	Output     string          `json:"output,omitzero"`
-	Error      string          `json:"error,omitzero"`
-	Result     json.RawMessage `json:"result,omitzero"`
-	Reloading  bool            `json:"reloading,omitempty"`
-	Generation uint64          `json:"generation,omitempty"`
+	Success    bool              `json:"success"`
+	Output     string            `json:"output,omitzero"`
+	Error      string            `json:"error,omitzero"`
+	ErrorValue *ErrorValue       `json:"errorValue,omitempty"`
+	Result     json.RawMessage   `json:"result,omitzero"`
+	Reloading  bool              `json:"reloading,omitempty"`
+	Generation uint64            `json:"generation,omitempty"`
 }
 
 // VersionInfo is returned by GET /version.

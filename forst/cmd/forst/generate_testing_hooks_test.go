@@ -13,7 +13,7 @@ import (
 )
 
 func TestGenerate_testingSubpathInExportsMap(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func TestGenerate_testingSubpathHonoursConfig(t *testing.T) {
 
 func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -77,14 +77,14 @@ func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 
 func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
 	got := transformerts.EmitTestingDTS([]transformerts.ModuleEmit{{
-		PackageName: "bcrypt",
+		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
-			Name:       "ComparePassword",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "ComparePasswordRequest"}},
-			ReturnType: "ComparePasswordResponse",
+			Name:       "VerifyToken",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
+			ReturnType: "VerifyTokenResponse",
 		}},
-		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
-	}})
+		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
+	}}, "@forst/gen", transformerts.RuntimePromise)
 	if !strings.Contains(got, "packages?:") {
 		t.Fatal("missing packages key")
 	}
@@ -94,11 +94,11 @@ func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) 
 		t.Fatalf("missing ForstTestOverrides or withForstTestScope in:\n%s", got)
 	}
 	body := got[ifaceStart:fnStart]
-	if strings.Contains(body, "\n  bcrypt?:") {
-		t.Fatalf("bcrypt must be under packages, not top-level:\n%s", body)
+	if strings.Contains(body, "\n  auth?:") {
+		t.Fatalf("auth must be under packages, not top-level:\n%s", body)
 	}
-	if !strings.Contains(body, "bcrypt?: Partial<BcryptHandlers>") {
-		t.Fatalf("missing packages.bcrypt:\n%s", body)
+	if !strings.Contains(body, "auth?: Partial<AuthHandlers>") {
+		t.Fatalf("missing packages.auth:\n%s", body)
 	}
 }
 
@@ -119,7 +119,7 @@ func TestGenerate_transportEmitsMiddlewareTypes(t *testing.T) {
 }
 
 func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
-	got := transformerts.EmitTransportESM("6321")
+	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise)
 	for _, frag := range []string{
 		"packageName",
 		"functionName",
@@ -139,7 +139,7 @@ func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
 
 func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestGenerate_acceptance_testdataExampleRunsWithoutHTTP(t *testing.T) {
 		t.Skip("node not found")
 	}
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -439,7 +439,7 @@ func runPhase5NodeAcceptance(t *testing.T, name, body string) {
 		t.Skip("node not found")
 	}
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}

@@ -55,6 +55,7 @@
   "author": "haveyaseen",
   "license": "MIT",
   "dependencies": {
+    "@forst/errors": ">=0.1.0",
     "semver": "^7.8.5"
   },
   "engines": {

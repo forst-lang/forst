@@ -5,5 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@forst/errors": "workspace:*"
   }
 }

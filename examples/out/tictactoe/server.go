@@ -2,6 +2,11 @@ package main
 
 import "errors"
 import "fmt"
+// CellTaken: TypeDefErrorExpr({row: Int, col: Int})
+type CellTaken struct {
+	Col int `json:"col"`
+	Row int `json:"row"`
+}
 // GameState: TypeDefShapeExpr({cells: Array(String), nextPlayer: String, status: String})
 type GameState struct {
 	Cells      []string `json:"cells"`
@@ -40,7 +45,7 @@ type T_PNXTj8VxMub struct {
 
 func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	if !G_cADKLRyByvZ(req.State) {
-		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, errors.New("ensure req.state is GameState.ValidBoard(): want GameState.ValidBoard()")
 	}
 	playing := req.State.Status == "playing"
 	if !playing {
@@ -48,22 +53,22 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 	}
 	row := req.Row
 	if row <= -1 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("row must be >= 0")
+		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("row must be >= 0")
 	}
 	if row >= 3 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("row must be <= 2")
+		return MoveResponse{Message: "", State: GameState{Cells: nil, NextPlayer: "", Status: ""}}, invalidMove("row must be <= 2")
 	}
 	col := req.Col
 	if col <= -1 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be >= 0")
+		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("col must be >= 0")
 	}
 	if col >= 3 {
-		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, invalidMove("col must be <= 2")
+		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("col must be <= 2")
 	}
 	idx := cellIndex(row, col)
 	cellEmpty := req.State.Cells[idx] == ""
 	if !cellEmpty {
-		return MoveResponse{State: GameState{NextPlayer: "", Status: "", Cells: nil}, Message: ""}, invalidMove("cell already taken")
+		return MoveResponse{State: GameState{Cells: nil, NextPlayer: "", Status: ""}, Message: ""}, CellTaken{Row: row, Col: col}
 	}
 	next := setCell(cloneCells(req.State.Cells), idx, req.State.NextPlayer)
 	np := opponent(req.State.NextPlayer)
@@ -77,6 +82,12 @@ func ApplyMove(req MoveRequest) (MoveResponse, error) {
 		status = "playing"
 	}
 	return MoveResponse{Message: "ok", State: GameState{Cells: next, NextPlayer: np, Status: status}}, nil
+}
+func (e CellTaken) Error() string {
+	return "error"
+}
+func (e CellTaken) ForstErrorTag() string {
+	return "CellTaken"
 }
 func G_cADKLRyByvZ(g GameState) bool {
 	if len(g.Cells) < 9 {

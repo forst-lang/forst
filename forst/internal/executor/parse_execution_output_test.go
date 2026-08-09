@@ -8,6 +8,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestFunctionExecutor_parseExecutionOutput_structuredFailure(t *testing.T) {
+	e := &FunctionExecutor{log: logrus.New()}
+	raw := `{"success":false,"error":"taken","errorValue":{"tag":"CellTaken","payload":{"row":1,"col":2},"message":"taken"}}`
+	res, err := e.parseExecutionOutput(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Success {
+		t.Fatal("expected Success false")
+	}
+	if res.ErrorValue == nil || res.ErrorValue.Tag != "CellTaken" {
+		t.Fatalf("ErrorValue = %+v", res.ErrorValue)
+	}
+}
+
 func TestFunctionExecutor_parseExecutionOutput_JSON_branches(t *testing.T) {
 	e := &FunctionExecutor{log: logrus.New()}
 

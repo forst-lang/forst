@@ -17,6 +17,9 @@ type T_iw8no2aCk8H struct {
 func (e NotPositive) Error() string {
 	return "error"
 }
+func (e NotPositive) ForstErrorTag() string {
+	return "NotPositive"
+}
 func Test() error {
 	n := 0
 	if n <= 0 {

@@ -41,6 +41,7 @@ The wrapper is responsible for resolution, verification, and concurrency-safe in
 | **`forst` on `PATH`** | Via `node_modules/.bin/forst` when installed as a dependency, or `npx @forst/cli` / `npx forst` without a global install. |
 | **JavaScript API** | `resolveForstBinary`, `spawnForst`, `getCliPackageVersion`, etc., for tools that need to locate or run the binary programmatically. |
 | **`@forst/cli/invoke`** | `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle in tests and `globalSetup`. |
+| **`@forst/errors` (transitive)** | Shared invoke/harness failure classes. Installed with `@forst/cli`; import from `@forst/errors` (Promise mode, no Effect peer). Effect mode stays at `@forst/errors/effect` when you add the `effect` peer. |
 | **Diagnostics** | `npx forst --forst-cli-info` prints package semver, resolved binary path, and `forst version` output—use this in bug reports and CI logs. |
 
 ## Requirements

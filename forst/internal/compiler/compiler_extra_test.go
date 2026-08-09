@@ -79,6 +79,9 @@ func TestIsCompilerWorkspaceModule_detectsForstRepo(t *testing.T) {
 
 func TestTypecheckForCompile_moduleProvidersError(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module hosttest\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	ft := filepath.Join(dir, "host.ft")
 	if err := os.WriteFile(ft, []byte(`package host
 

@@ -6,45 +6,45 @@ import (
 )
 
 func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingDTS([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
-		"export type BcryptHandlers",
-		"ComparePassword: (",
-		"Promise<ComparePasswordResponse>",
+		"export type AuthHandlers",
+		"VerifyToken: (",
+		"Promise<VerifyTokenResponse>",
 		"export interface ForstTestOverrides",
 		"packages?:",
-		"bcrypt?: Partial<BcryptHandlers>",
+		"auth?: Partial<AuthHandlers>",
 		"transport?: Partial<ForstInvokeClient>",
 		"export declare function withForstTestScope",
 		"export declare function createTestForstClient",
 		"InvokeRejected",
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 	})
 }
 
 func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingDTS([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	packagesIdx := strings.Index(got, "packages?:")
-	bcryptIdx := strings.Index(got, "bcrypt?: Partial<BcryptHandlers>")
-	if packagesIdx < 0 || bcryptIdx < 0 || bcryptIdx < packagesIdx {
-		t.Fatalf("bcrypt override must sit under packages?:\n%s", got)
+	authIdx := strings.Index(got, "auth?: Partial<AuthHandlers>")
+	if packagesIdx < 0 || authIdx < 0 || authIdx < packagesIdx {
+		t.Fatalf("auth override must sit under packages?:\n%s", got)
 	}
-	// Top-level ForstTestOverrides must not list bcrypt beside packages/transport.
+	// Top-level ForstTestOverrides must not list auth beside packages/transport.
 	iface := got[strings.Index(got, "export interface ForstTestOverrides"):]
 	end := strings.Index(iface, "export declare function withForstTestScope")
 	if end < 0 {
 		t.Fatal("missing withForstTestScope")
 	}
 	body := iface[:end]
-	if strings.Contains(body, "\n  bcrypt?:") {
-		t.Fatalf("bcrypt must not be a top-level ForstTestOverrides key:\n%s", body)
+	if strings.Contains(body, "\n  auth?:") {
+		t.Fatalf("auth must not be a top-level ForstTestOverrides key:\n%s", body)
 	}
 }
 
 func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
-	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingESM([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 		"setActiveTestTransportResolver",
 		"export async function withForstTestScope",
 		"export function createTestForstClient",
@@ -52,8 +52,8 @@ func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 		"AsyncLocalStorage",
 		"createScopeTransport",
 		"mergeOverrides",
-		`import { bcrypt } from "./pkg/bcrypt.js"`,
-		"bcrypt: bcrypt(transport)",
+		`import { auth } from "./pkg/auth.js"`,
+		"auth: auth(transport)",
 		"new InvokeRejected",
 	})
 	assertContainsNone(t, got, []string{
@@ -63,8 +63,8 @@ func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 }
 
 func TestEmitTestingESM_handlersTypeNameCapitalizesPackage(t *testing.T) {
-	if got := handlersTypeName("bcrypt"); got != "BcryptHandlers" {
-		t.Fatalf("handlersTypeName(bcrypt)=%q", got)
+	if got := handlersTypeName("billing"); got != "BillingHandlers" {
+		t.Fatalf("handlersTypeName(billing)=%q", got)
 	}
 	if got := handlersTypeName("main"); got != "MainHandlers" {
 		t.Fatalf("handlersTypeName(main)=%q", got)

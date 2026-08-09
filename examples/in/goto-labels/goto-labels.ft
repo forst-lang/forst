@@ -3,19 +3,16 @@ package main
 func main() {
 	goto done
 	println("skip")
-done:
+	done:
 	println("done")
-
 	i := 0
-retry:
+	retry:
 	if i < 3 {
 		i = i + 1
 		goto retry
 	}
 	println(i)
-
-outer:
-	for {
+	outer: for  {
 		break outer
 	}
 }

@@ -18,6 +18,12 @@ func (e IoError) Error() string {
 func (e ParseError) Error() string {
 	return "error"
 }
+func (e IoError) ForstErrorTag() string {
+	return "IoError"
+}
+func (e ParseError) ForstErrorTag() string {
+	return "ParseError"
+}
 func demo() {
 	x, xErr := mk()
 	if func() bool {

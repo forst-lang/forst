@@ -36,6 +36,15 @@ func TypecheckFile(log *logrus.Logger, opts TypecheckFileOpts) (*typechecker.Typ
 	moduleRoot := ModuleRootForSingleFile(opts.FilePath)
 	forstPkg := forstpkg.PackageNameOrDefault(forstpkg.PackageNameFromNodes(opts.Nodes))
 
+	if !goload.ModuleRootHasGoMod(moduleRoot) {
+		tc := typechecker.New(log, false)
+		tc.ConfigureForForstFile(moduleRoot, filepath.Dir(opts.FilePath), opts.Nodes)
+		if err := tc.CheckTypes(opts.Nodes); err != nil {
+			return tc, nil, err
+		}
+		return tc, nil, nil
+	}
+
 	modResult, err := modulecheck.CheckModuleProviders(log, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err == nil && modResult != nil {
 		if tc := modResult.PerPackage[forstPkg]; tc != nil {

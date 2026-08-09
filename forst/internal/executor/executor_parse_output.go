@@ -3,21 +3,46 @@ package executor
 import (
 	"encoding/json"
 	"fmt"
+
+	"forst/internal/forsterr"
 )
 
 // parseExecutionOutput parses the output of a function execution.
 func (e *FunctionExecutor) parseExecutionOutput(output string) (*ExecutionResult, error) {
-	var parsed map[string]any
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &raw); err != nil {
 		return &ExecutionResult{
 			Success: true,
 			Output:  output,
 		}, nil
 	}
 
-	resultValue, hasResult := parsed["result"]
+	if successRaw, ok := raw["success"]; ok {
+		var success bool
+		if err := json.Unmarshal(successRaw, &success); err == nil && !success {
+			var envelope struct {
+				Success    bool                `json:"success"`
+				Output     string              `json:"output"`
+				Error      string              `json:"error"`
+				ErrorValue *forsterr.WireError `json:"errorValue"`
+				Result     json.RawMessage     `json:"result"`
+			}
+			if err := json.Unmarshal([]byte(output), &envelope); err != nil {
+				return nil, err
+			}
+			return &ExecutionResult{
+				Success:    false,
+				Output:     envelope.Output,
+				Error:      envelope.Error,
+				ErrorValue: envelope.ErrorValue,
+				Result:     envelope.Result,
+			}, nil
+		}
+	}
+
+	resultValueRaw, hasResult := raw["result"]
 	if !hasResult {
-		resultData, _ := json.Marshal(parsed)
+		resultData, _ := json.Marshal(raw)
 		return &ExecutionResult{
 			Success: true,
 			Output:  output,
@@ -25,7 +50,19 @@ func (e *FunctionExecutor) parseExecutionOutput(output string) (*ExecutionResult
 		}, nil
 	}
 
-	return executionResultFromValue(resultValue), nil
+	return executionResultFromRawResult(resultValueRaw), nil
+}
+
+func executionResultFromRawResult(raw json.RawMessage) *ExecutionResult {
+	var resultValue any
+	if err := json.Unmarshal(raw, &resultValue); err != nil {
+		return &ExecutionResult{
+			Success: true,
+			Output:  string(raw),
+			Result:  raw,
+		}
+	}
+	return executionResultFromValue(resultValue)
 }
 
 func executionResultFromValue(resultValue any) *ExecutionResult {

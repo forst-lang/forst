@@ -20,7 +20,7 @@ const ndjsonPartialRowFixture = `{"data":{"id":"1"},"status":"ok"}
 {"data":{"id":"2","status":"ok"`
 
 func TestEmitTransportTypeScript_exportsCreateInvokeClientAndDefaults(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
@@ -59,11 +59,12 @@ func TestEmitTransportDTS_emitsMiddlewareTypes(t *testing.T) {
 }
 
 func TestEmitTransportTypeScript_inlinesStreamingResultAndInvokeStreamAborted(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		"export interface StreamingResult",
 		"data: any",
 		"status: string",
+		`from "@forst/errors"`,
 		`from "./errors.js"`,
 		"InvokeStreamAborted",
 		"rowIndex",
@@ -78,7 +79,7 @@ func TestEmitTransportTypeScript_inlinesStreamingResultAndInvokeStreamAborted(t 
 }
 
 func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		`"/invoke"`,
 		`method: "POST"`,
@@ -111,7 +112,7 @@ func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
 }
 
 func TestEmitTransportTypeScript_ndjsonReaderThrowsInvokeStreamAbortedOnMidRowOrParseFailure(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		`indexOf("\n")`,
 		"JSON.parse(line)",
@@ -126,7 +127,7 @@ func TestEmitTransportTypeScript_ndjsonReaderThrowsInvokeStreamAbortedOnMidRowOr
 }
 
 func TestEmitTransportTypeScript_honoursOptionsSignalAbort(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		"options?.signal",
 		"signal?.aborted",
@@ -139,41 +140,43 @@ func TestEmitTransportTypeScript_honoursOptionsSignalAbort(t *testing.T) {
 	}
 }
 
-func TestEmitTransportTypeScript_hasZeroRuntimePackageImports(t *testing.T) {
-	src := EmitTransportTypeScript("6321")
+func TestEmitTransportTypeScript_importsSharedInvokeErrors(t *testing.T) {
+	src := EmitTransportTypeScript("6321", RuntimePromise)
+	if !strings.Contains(src, `from "@forst/errors"`) {
+		t.Fatal("transport must import invoke errors from @forst/errors")
+	}
+	if !strings.Contains(src, `from "./errors.js"`) {
+		t.Fatal("transport must import decodeDomainError from ./errors.js")
+	}
 	for _, banned := range []string{
 		"@forst/client",
 		"@forst/sidecar",
-		"from \"@forst/",
-		"from '@forst/",
+		"from \"@forst/gen",
 		"require(",
 		"import(",
 		"from \"effect\"",
 		"from 'effect'",
 	} {
 		if strings.Contains(src, banned) {
-			t.Fatalf("zero-dependency transport must not contain %q", banned)
+			t.Fatalf("transport must not contain %q", banned)
 		}
-	}
-	if !strings.Contains(src, `from "./errors.js"`) {
-		t.Fatal("transport must import tagged errors from ./errors.js")
 	}
 	for _, line := range strings.Split(src, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "import ") {
 			continue
 		}
-		if !strings.Contains(trimmed, `from "./errors.js"`) && !strings.HasPrefix(trimmed, "import {") {
-			// Multi-line import from errors.js is OK; any other module is not.
-			if strings.Contains(trimmed, " from ") && !strings.Contains(trimmed, `"./errors.js"`) {
-				t.Fatalf("transport may only import ./errors.js, got:\n%s", line)
-			}
+		if strings.Contains(trimmed, " from ") &&
+			!strings.Contains(trimmed, `"@forst/errors"`) &&
+			!strings.Contains(trimmed, `"./errors.js"`) &&
+			!strings.HasPrefix(trimmed, "import {") {
+			t.Fatalf("transport may only import error modules, got:\n%s", line)
 		}
 	}
 }
 
 func TestEmitTransportTypeScript_usesInvokePortInDefaultBaseUrl(t *testing.T) {
-	src := EmitTransportTypeScript("8081")
+	src := EmitTransportTypeScript("8081", RuntimePromise)
 	if !strings.Contains(src, "http://127.0.0.1:8081") {
 		t.Fatalf("expected custom invoke port in default base URL, got no 8081")
 	}
@@ -186,7 +189,7 @@ func TestEmitTransportTypeScript_usesInvokePortInDefaultBaseUrl(t *testing.T) {
 }
 
 func TestEmitTransportTypeScript_emptyPortDefaultsTo6321(t *testing.T) {
-	src := EmitTransportTypeScript("")
+	src := EmitTransportTypeScript("", RuntimePromise)
 	if !strings.Contains(src, "http://127.0.0.1:"+DefaultInvokePort) {
 		t.Fatalf("empty port should default to %s", DefaultInvokePort)
 	}
@@ -215,7 +218,7 @@ func TestTransport_ndjsonFixtureDocumentsStreamingWireFormat(t *testing.T) {
 		t.Fatalf("partial-row fixture should be truncated JSON without closing brace")
 	}
 	// Emitted reader must be able to consume complete fixture lines and reject partial ones.
-	src := EmitTransportTypeScript("6321")
+	src := EmitTransportTypeScript("6321", RuntimePromise)
 	if !strings.Contains(src, "JSON.parse(line)") {
 		t.Fatalf("emitted transport must parse each NDJSON line")
 	}

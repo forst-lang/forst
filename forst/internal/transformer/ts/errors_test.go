@@ -1,140 +1,171 @@
 package transformerts
 
 import (
-	"regexp"
+	"fmt"
 	"strings"
 	"testing"
 )
 
-func TestEmitErrorsESM_emitsTaggedErrorClasses(t *testing.T) {
-	got := EmitErrorsESM()
-	assertContainsNone(t, got, []string{"from \"effect\"", "from 'effect'", "require(\"effect\")"})
-	for _, name := range ErrorClassNames() {
-		frag := "export class " + name + " extends tagged(\"" + name + "\")"
-		if !strings.Contains(got, frag) {
-			t.Fatalf("missing class emit for %s:\n%s", name, got)
-		}
-	}
+const testNpmPackage = "@forst/gen"
+
+func TestEmitErrorsESM_reExportsInvokeFromSharedPackage(t *testing.T) {
+	got := EmitErrorsESM(testNpmPackage, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
-		"const tagged = (tag) =>",
-		"Object.defineProperty(this, \"_tag\"",
-		"enumerable: true",
-		"writable: false",
-		"Object.assign(this, props)",
-		"Object.setPrototypeOf(this, new.target.prototype)",
-		"export const isInvokeFailure",
-		"INVOKE_FAILURE_TAGS",
+		`from "@forst/errors"`,
+		"InvokeRejected",
+		"isInvokeFailure",
+		"ForstUnknownFailure",
+		"ForstTestServerFailed",
+	})
+	assertContainsNone(t, got, []string{
+		"const tagged =",
+		`from "./invoke-errors.js"`,
+		"export class InvokeRejected",
 	})
 }
 
-func TestEmitErrorsESM_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
-	re := regexp.MustCompile(`Error$`)
-	for _, name := range AllExportedErrorClassNames() {
-		if re.MatchString(name) {
-			t.Fatalf("class name %q must not end in Error", name)
-		}
-	}
-	got := EmitErrorsESM()
-	classRe := regexp.MustCompile(`export class (\w+)`)
-	for _, m := range classRe.FindAllStringSubmatch(got, -1) {
-		if re.MatchString(m[1]) {
-			t.Fatalf("emitted class %q ends in Error", m[1])
-		}
-	}
-}
-
-func TestEmitErrorsESM_taggedErrorCarriesLiteralTag(t *testing.T) {
-	got := EmitErrorsESM()
-	// Props assigned before _tag defineProperty so caller _tag cannot overwrite.
-	assignIdx := strings.Index(got, "Object.assign(this, props)")
-	tagIdx := strings.Index(got, `Object.defineProperty(this, "_tag"`)
-	if assignIdx < 0 || tagIdx < 0 || assignIdx > tagIdx {
-		t.Fatalf("props must be assigned before _tag is defined:\n%s", got)
-	}
+func TestEmitErrorsDTS_reExportsInvokeFailureType(t *testing.T) {
+	got := EmitErrorsDTS(testNpmPackage, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
-		"enumerable: true",
-		"writable: false",
-		"value: tag",
-	})
-}
-
-func TestEmitErrorsESM_taggedErrorPropsCannotOverwriteTag(t *testing.T) {
-	got := EmitErrorsESM()
-	assignIdx := strings.Index(got, "Object.assign(this, props)")
-	defineIdx := strings.Index(got, `Object.defineProperty(this, "_tag"`)
-	if assignIdx < 0 || defineIdx < 0 || assignIdx > defineIdx {
-		t.Fatal("Object.assign must precede defineProperty(_tag) so props cannot win")
-	}
-	if !strings.Contains(got, "writable: false") {
-		t.Fatal("_tag must be non-writable")
-	}
-}
-
-func TestEmitErrorsDTS_emitsInvokeFailureUnionAndGuard(t *testing.T) {
-	got := EmitErrorsDTS()
-	assertContainsAll(t, got, []string{
-		"export type TaggedError<",
-		"export type InvokeFailure =",
-		"export declare function isInvokeFailure(u: unknown): u is InvokeFailure",
+		`from "@forst/errors"`,
+		"export type { InvokeFailure }",
 	})
 	for _, name := range ErrorClassNames() {
-		if !strings.Contains(got, "export declare class "+name) {
-			t.Fatalf("missing DTS class %s:\n%s", name, got)
-		}
-		if !strings.Contains(got, "| "+name) {
-			t.Fatalf("InvokeFailure missing %s:\n%s", name, got)
-		}
-		if !strings.Contains(got, `readonly _tag: "`+name+`"`) {
-			t.Fatalf("missing literal _tag for %s:\n%s", name, got)
-		}
-	}
-	for _, name := range HarnessErrorClassNames() {
-		if !strings.Contains(got, "export declare class "+name) {
-			t.Fatalf("missing harness DTS class %s:\n%s", name, got)
-		}
-		if strings.Contains(got, "| "+name+"\n") || strings.Contains(got, "| "+name+";") {
-			t.Fatalf("InvokeFailure must not include harness class %s:\n%s", name, got)
+		if !strings.Contains(got, name) {
+			t.Fatalf("missing %s in errors re-export:\n%s", name, got)
 		}
 	}
 }
 
-func TestEmitErrorsDTS_emitsInvokeStreamAborted(t *testing.T) {
-	got := EmitErrorsDTS()
+func TestEmitErrorsESM_effectModeUsesEffectSubpath(t *testing.T) {
+	got := EmitErrorsESM(testNpmPackage, []ErrorClass{{
+		Name: "CellTaken",
+		Tag:  "CellTaken",
+		Fields: []ErrorField{
+			{Name: "row", TSType: "number"},
+			{Name: "col", TSType: "number"},
+		},
+	}}, RuntimeEffect)
 	assertContainsAll(t, got, []string{
-		"export declare class InvokeStreamAborted",
-		`readonly _tag: "InvokeStreamAborted"`,
-		"readonly rowIndex: number",
-		"| InvokeStreamAborted",
+		`import { ForstUnknownFailure } from "@forst/errors/effect"`,
+		`extends Data.TaggedError("@forst/gen/CellTaken")`,
+		`from "@forst/errors/effect"`,
+	})
+	assertContainsNone(t, got, []string{"const tagged =", "./invoke-errors.js"})
+}
+
+func TestEmitErrorsESM_generatesDomainClassesAndReExports(t *testing.T) {
+	cellTaken := ErrorClass{
+		Name: "CellTaken",
+		Tag:  "CellTaken",
+		Fields: []ErrorField{
+			{Name: "row", TSType: "number"},
+			{Name: "col", TSType: "number"},
+		},
+	}
+	got := EmitErrorsESM(testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
+	if strings.Count(got, "export {") != 1 {
+		t.Fatalf("expected one shared re-export block:\n%s", got)
+	}
+	assertContainsAll(t, got, []string{
+		`import { ForstUnknownFailure } from "@forst/errors"`,
+		`extends tagged("@forst/gen/CellTaken")`,
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
+		`ForstUnknownFailure`,
+		"ForstTestServerFailed",
+		"InvokeRejected",
+	})
+	assertContainsNone(t, got, []string{
+		`extends tagged("ForstUnknownFailure")`,
 	})
 }
 
-func TestEmitErrorsDTS_extendsErrorAndKeepsInstanceofContract(t *testing.T) {
-	got := EmitErrorsDTS()
-	for _, name := range ErrorClassNames() {
-		frag := "export declare class " + name + " extends Error"
-		if !strings.Contains(got, frag) {
-			t.Fatalf("expected %q to extend Error", name)
+func TestEmitErrorsDTS_exportsForstErrorUnion(t *testing.T) {
+	cellTaken := ErrorClass{
+		Name: "CellTaken",
+		Tag:  "CellTaken",
+		Fields: []ErrorField{
+			{Name: "row", TSType: "number"},
+			{Name: "col", TSType: "number"},
+		},
+	}
+	got := EmitErrorsDTS(testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
+	assertContainsAll(t, got, []string{
+		"export type ForstError =",
+		"export declare function decodeDomainError",
+		`from "@forst/errors"`,
+		`ForstUnknownFailure`,
+	})
+	unionIdx := strings.Index(got, "export type ForstError =")
+	if unionIdx < 0 {
+		t.Fatal("missing ForstError type")
+	}
+	rest := got[unionIdx:]
+	end := strings.Index(rest, ";\n\n")
+	if end < 0 {
+		t.Fatalf("malformed ForstError type:\n%s", rest)
+	}
+	forstErrorDecl := rest[:end+1]
+	for _, frag := range []string{"| CellTaken", "| ForstUnknownFailure"} {
+		if !strings.Contains(forstErrorDecl, frag) {
+			t.Fatalf("ForstError union missing %q:\n%s", frag, forstErrorDecl)
 		}
 	}
-	esm := EmitErrorsESM()
-	assertContainsAll(t, esm, []string{
-		"class extends Error",
-		"Object.setPrototypeOf(this, new.target.prototype)",
-		"this.name = tag",
+	assertContainsNone(t, got, []string{
+		"export declare class ForstUnknownFailure",
 	})
 }
 
-func TestEmitErrors_catalogDrivesBothEmits(t *testing.T) {
-	esm := EmitErrorsESM()
-	dts := EmitErrorsDTS()
-	for _, c := range ErrorCatalog {
-		if !strings.Contains(esm, c.Name) || !strings.Contains(dts, c.Name) {
-			t.Fatalf("catalog class %s missing from ESM or DTS", c.Name)
-		}
-		for _, f := range c.Fields {
-			if !strings.Contains(dts, f.Name) {
-				t.Fatalf("field %s.%s missing from DTS", c.Name, f.Name)
+func TestValidateDomainErrors_rejectsReservedNames(t *testing.T) {
+	for _, name := range ReservedClientErrorNames() {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateDomainErrors([]ErrorClass{{Name: name, Tag: name}})
+			if err == nil {
+				t.Fatalf("expected collision error for %q", name)
 			}
-		}
+			want := fmt.Sprintf("domain error %q conflicts with reserved Forst client error name", name)
+			if err.Error() != want {
+				t.Fatalf("error = %q, want %q", err.Error(), want)
+			}
+		})
 	}
+	t.Run("allows non-reserved names", func(t *testing.T) {
+		if err := ValidateDomainErrors([]ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}); err != nil {
+			t.Fatalf("CellTaken should be allowed: %v", err)
+		}
+	})
+}
+
+func TestEmitHarnessErrorESM_reExportsFromSharedPackage(t *testing.T) {
+	got := EmitHarnessErrorESM(testNpmPackage, RuntimePromise)
+	assertContainsAll(t, got, []string{
+		`import { ForstTestServerFailed } from "@forst/errors"`,
+		"export { ForstTestServerFailed }",
+	})
+	assertContainsNone(t, got, []string{"const tagged ="})
+}
+
+func TestEmitErrorsESM_emptyDomainSingleReExportBlock(t *testing.T) {
+	got := EmitErrorsESM(testNpmPackage, nil, RuntimePromise)
+	if strings.Count(got, "export {") != 1 {
+		t.Fatalf("export blocks = %d, want 1:\n%s", strings.Count(got, "export {"), got)
+	}
+}
+
+func TestEmitHarnessErrorESM_effectModeUsesEffectSubpath(t *testing.T) {
+	got := EmitHarnessErrorESM(testNpmPackage, RuntimeEffect)
+	assertContainsAll(t, got, []string{
+		`import { ForstTestServerFailed } from "@forst/errors/effect"`,
+		"export { ForstTestServerFailed }",
+	})
+	assertContainsNone(t, got, []string{"const tagged ="})
+}
+
+func TestEmitHarnessErrorDTS_importsTypeForLocalUse(t *testing.T) {
+	got := EmitHarnessErrorDTS(testNpmPackage, RuntimeEffect)
+	assertContainsAll(t, got, []string{
+		`import type { ForstTestServerFailed } from "@forst/errors/effect"`,
+		`export { ForstTestServerFailed } from "@forst/errors/effect"`,
+	})
 }

@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  InvokeHttpFailure,
+  CellTaken,
   type GameState,
   type MoveRequest,
 } from "@forst/tictactoe";
@@ -83,11 +83,10 @@ describe("tictactoe game (startForstTestServer + flat imports)", () => {
       await PlayMove({ state: r1.state, row: 1, col: 2 });
       expect.unreachable("expected duplicate move to fail");
     } catch (e) {
-      expect(e).toBeInstanceOf(InvokeHttpFailure);
-      const http = e as InvokeHttpFailure;
-      expect(http.responseText).toMatch(
-        /cell already taken|Bool\.True\(\)|assertion failed/
-      );
+      expect(e).toBeInstanceOf(CellTaken);
+      const taken = e as CellTaken;
+      expect(taken.row).toBe(1);
+      expect(taken.col).toBe(2);
     }
   });
 

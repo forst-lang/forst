@@ -164,7 +164,7 @@ trap 'cleanup 130' INT
 trap 'cleanup 143' TERM
 
 echo "=== build monorepo artifacts ==="
-(cd "$REPO" && task build:node-runtime build:client build:sidecar build)
+(cd "$REPO" && task build:node-runtime build:client build:sidecar build:errors build)
 
 if [[ ! -x "$FORST_BINARY" ]]; then
   echo "missing compiler binary: $FORST_BINARY (run: task build)" >&2

@@ -111,11 +111,11 @@ func TestTypecheckForCompileEntry_loadError(t *testing.T) {
 func TestTypecheckForCompile_usesPerPackageWhenPresent(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
-	basic := filepath.Join(moduleRoot, "..", "examples", "in", "basic.ft")
-	if _, err := os.Stat(basic); err != nil {
-		t.Skip("examples/in/basic.ft not available")
+	entry := filepath.Join(moduleRoot, "..", "examples", "in", "rfc", "providers", "cross_pkg", "api", "handle.ft")
+	if _, err := os.Stat(entry); err != nil {
+		t.Skip("cross_pkg handle.ft not available")
 	}
-	c := New(Args{Command: "build", FilePath: basic, LogLevel: "error"}, silentCompilerTestLogger())
+	c := New(Args{Command: "build", FilePath: entry, LogLevel: "error"}, silentCompilerTestLogger())
 	nodes, err := c.lexParseEntryFile()
 	if err != nil {
 		t.Fatal(err)

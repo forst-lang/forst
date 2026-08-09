@@ -33,7 +33,15 @@ func generateClientPackage(
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)
 
-	indexJS := transformerts.EmitIndexESM(packageNames, invokePort)
+	var domainParts [][]transformerts.ErrorClass
+	for _, out := range outputs {
+		if out != nil && len(out.DomainErrors) > 0 {
+			domainParts = append(domainParts, out.DomainErrors)
+		}
+	}
+	domainErrors := transformerts.MergeDomainErrors(domainParts...)
+
+	indexJS := transformerts.EmitIndexESM(packageNames, invokePort, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
 		indexJS += transformerts.EmitIndexEffectESM(packageNames, genCfg.PackageName)
 	}
@@ -43,7 +51,7 @@ func generateClientPackage(
 	}
 	log.Infof("Generated client index: %s", indexJSPath)
 
-	indexDTS := transformerts.EmitIndexDTS(packageNames)
+	indexDTS := transformerts.EmitIndexDTS(packageNames, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
 		indexDTS += transformerts.EmitIndexEffectDTS(packageNames)
 	}
@@ -69,8 +77,8 @@ func generateClientPackage(
 		testingJS = transformerts.EmitTestingEffectESM(modules, genCfg.PackageName)
 		testingDTS = transformerts.EmitTestingEffectDTS(modules, genCfg.PackageName)
 	} else {
-		testingJS = transformerts.EmitTestingESM(modules)
-		testingDTS = transformerts.EmitTestingDTS(modules)
+		testingJS = transformerts.EmitTestingESM(modules, genCfg.PackageName, transformerts.RuntimePromise)
+		testingDTS = transformerts.EmitTestingDTS(modules, genCfg.PackageName, transformerts.RuntimePromise)
 	}
 	testingJSPath := filepath.Join(outDir, "dist", testingKey+".js")
 	if err := writeGeneratedFile(testingJSPath, []byte(testingJS), stats); err != nil {
@@ -145,10 +153,14 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 		testingKey = "testing"
 	}
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
+	appendPackageJSONExport(&b, "./errors", "./dist/errors.d.ts", "./dist/errors.js")
 	if genCfg.Effect {
 		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
 	}
 	b.WriteString("\n  },\n")
+	b.WriteString("  \"dependencies\": {\n")
+	fmt.Fprintf(&b, "    %q: %s\n", transformerts.ErrorsPackageName, jsonString(transformerts.ErrorsDependencyRange))
+	b.WriteString("  },\n")
 	b.WriteString("  \"peerDependencies\": {\n")
 	fmt.Fprintf(&b, "    \"@forst/cli\": %s", jsonString(transformerts.CliPeerDependencyRange))
 	if genCfg.Effect {
@@ -205,6 +217,11 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 	b.WriteString("- `FORST_BASE_URL`\n")
 	b.WriteString("- `FORST_DEV_URL`\n\n")
 	fmt.Fprintf(&b, "Default fallback: `http://127.0.0.1:%s`\n\n", invokePort)
+	b.WriteString("## Errors\n\n")
+	fmt.Fprintf(&b, "- Runtime dependency: `%s` %s (shared invoke/harness/unknown failure classes).\n", transformerts.ErrorsPackageName, transformerts.ErrorsDependencyRange)
+	b.WriteString("- Domain + shared re-exports: `" + name + "/errors`.\n")
+	b.WriteString("- Built-in invoke/harness/unknown failure `_tag` values use the `@forst/errors/` prefix. Domain error tags use your npm package name.\n")
+	b.WriteString("- Prefer matching on `_tag` in Effect code. In Promise code, `instanceof` works for shared invoke failures.\n\n")
 	b.WriteString("## Lifecycle script\n\n")
 	b.WriteString("Ephemeral output under `.forst/` is gitignored. Do not commit this directory. ")
 	b.WriteString("The package `version` stays at `0.0.0` because it is private, regenerated on every `forst generate`, and never published to npm.\n\n")
@@ -222,7 +239,7 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
 		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire.\n")
 		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
-		b.WriteString("- Tagged invoke errors match Promise mode. They carry `_tag` for `Effect.catchTag` but are not `Data.TaggedError`, so `Equal.equals` compares by reference.\n")
+		b.WriteString("- Invoke, domain, and harness errors use `Data.TaggedError` from the effect peer. `Equal.equals` works on error values.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")
 	}
 	return b.String()

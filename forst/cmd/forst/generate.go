@@ -262,6 +262,10 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		log.WithError(err).Error("Type name conflict while merging TypeScript outputs")
 		return fmt.Errorf("merge TypeScript outputs: %w", err)
 	}
+	if err := transformerts.ValidateDomainErrors(merged.DomainErrors); err != nil {
+		log.Error(err.Error())
+		return err
+	}
 
 	outDir := genCfg.EffectiveOutDir(boundaryRoot)
 	distDir := filepath.Join(outDir, "dist")

@@ -36,6 +36,14 @@ func (c *Compiler) typecheckForCompile(nodes []ast.Node) (*typechecker.TypeCheck
 	}
 
 	moduleRoot := c.moduleRootForProvidersPass()
+	if !moduleRootHasGoMod(moduleRoot) {
+		checker := typechecker.New(c.log, c.Args.ReportPhases)
+		checker.ConfigureForForstFile(c.goWorkspaceDirForCheck(), filepath.Dir(c.Args.FilePath), nodes)
+		if err := checker.CheckTypes(nodes); err != nil {
+			return checker, nil, err
+		}
+		return checker, nil, nil
+	}
 	modResult, err := c.checkModuleProvidersWithSession(moduleRoot, modulecheck.Options{ModuleRoot: moduleRoot})
 	if err != nil {
 		return nil, modResult, err

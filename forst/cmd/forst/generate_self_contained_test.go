@@ -129,7 +129,10 @@ func TestGenerateClientPackage_noImportEscapesOutDir(t *testing.T) {
 		for _, m := range importRe.FindAllStringSubmatch(string(data), -1) {
 			spec := m[1]
 			if strings.HasPrefix(spec, "@") {
-				t.Fatalf("%s imports package specifier %q (must stay relative inside outDir)", path, spec)
+				if spec == transformerts.ErrorsPackageName || spec == transformerts.ErrorsPackageName+"/effect" {
+					continue
+				}
+				t.Fatalf("%s imports package specifier %q (must stay relative inside outDir except @forst/errors)", path, spec)
 			}
 			// node: builtins are allowed for the testing module (AsyncLocalStorage).
 			if strings.HasPrefix(spec, "node:") {
@@ -153,14 +156,18 @@ func TestGenerateClientPackage_noImportEscapesOutDir(t *testing.T) {
 	}
 }
 
-func TestGenerateClientPackageJSON_hasNoDependencies(t *testing.T) {
+func TestGenerateClientPackageJSON_hasErrorsDependency(t *testing.T) {
 	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatalf("package.json not valid JSON: %v\n%s", err, j)
 	}
-	if _, ok := pkg["dependencies"]; ok {
-		t.Fatalf("package.json must omit dependencies, got:\n%s", j)
+	deps, ok := pkg["dependencies"].(map[string]any)
+	if !ok {
+		t.Fatalf("package.json must include dependencies:\n%s", j)
+	}
+	if deps[transformerts.ErrorsPackageName] != transformerts.ErrorsDependencyRange {
+		t.Fatalf("dependencies[%s] = %#v, want %s", transformerts.ErrorsPackageName, deps[transformerts.ErrorsPackageName], transformerts.ErrorsDependencyRange)
 	}
 	if _, ok := pkg["devDependencies"]; ok {
 		t.Fatalf("package.json must omit devDependencies, got:\n%s", j)
@@ -263,7 +270,7 @@ func TestGenerate_printsResolvedSpecifierAndExampleImport(t *testing.T) {
 }
 
 func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
-	idx := transformerts.EmitIndexESM([]string{"catalog", "orders"}, "6321")
+	idx := transformerts.EmitIndexESM([]string{"catalog", "orders"}, "6321", nil, transformerts.RuntimePromise)
 	for _, frag := range []string{
 		`from "./transport.js"`,
 		"createInvokeClient",
@@ -277,16 +284,24 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)
 		}
 	}
-	dts := transformerts.EmitIndexDTS([]string{"catalog", "orders"})
+	dts := transformerts.EmitIndexDTS([]string{"catalog", "orders"}, nil, transformerts.RuntimePromise)
 	if !strings.Contains(dts, `export type * from "./types.js"`) {
 		t.Fatalf("index.d.ts must re-export types:\n%s", dts)
 	}
-	for _, frag := range []string{"InvokeRejected", "isInvokeFailure", `from "./errors.js"`} {
+	for _, frag := range []string{"ForstUnknownFailure", `from "./errors.js"`} {
 		if !strings.Contains(idx, frag) {
-			t.Fatalf("index.js must re-export errors (%q missing):\n%s", frag, idx)
+			t.Fatalf("index.js must re-export domain errors (%q missing):\n%s", frag, idx)
 		}
 		if !strings.Contains(dts, frag) {
-			t.Fatalf("index.d.ts must re-export errors (%q missing):\n%s", frag, dts)
+			t.Fatalf("index.d.ts must re-export domain errors (%q missing):\n%s", frag, dts)
+		}
+	}
+	for _, banned := range []string{"InvokeRejected", "isInvokeFailure", "invoke-errors.js"} {
+		if strings.Contains(idx, banned) {
+			t.Fatalf("index.js must not re-export invoke errors (%q present):\n%s", banned, idx)
+		}
+		if strings.Contains(dts, banned) {
+			t.Fatalf("index.d.ts must not re-export invoke errors (%q present):\n%s", banned, dts)
 		}
 	}
 	for _, banned := range []string{"../generated", "@forst/client", ".client", "export { catalog, List }", "from './catalog.js'"} {

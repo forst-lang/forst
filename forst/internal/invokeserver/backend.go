@@ -78,10 +78,11 @@ func (b *DevBackend) Invoke(ctx context.Context, pkg, fn string, args json.RawMe
 		return nil, err
 	}
 	return &invokedispatch.InvokeResult{
-		Success: result.Success,
-		Output:  result.Output,
-		Error:   result.Error,
-		Result:  result.Result,
+		Success:    result.Success,
+		Output:     result.Output,
+		Error:      result.Error,
+		ErrorValue: result.ErrorValue,
+		Result:     result.Result,
 	}, nil
 }
 

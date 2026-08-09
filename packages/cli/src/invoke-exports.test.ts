@@ -10,12 +10,14 @@ describe("@forst/cli/invoke package exports", () => {
       readFileSync(join(pkgRoot, "package.json"), "utf8")
     ) as {
       exports: Record<string, Record<string, string>>;
+      dependencies: Record<string, string>;
     };
     const invoke = pkg.exports["./invoke"];
     expect(invoke.import).toBe("./dist/invoke.js");
     expect(invoke.require).toBe("./dist/invoke.js");
     expect(invoke.types).toBe("./dist/invoke.d.ts");
     expect(pkg.exports["."].require).toBe("./dist/index.js");
+    expect(pkg.dependencies["@forst/errors"]).toBe(">=0.1.0");
   });
 
   test("dist/invoke.js and .d.ts exist after build", () => {

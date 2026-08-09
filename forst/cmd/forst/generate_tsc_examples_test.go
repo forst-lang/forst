@@ -74,6 +74,9 @@ func TestGenerate_exampleManifest(t *testing.T) {
 			if err := copyGenerateExampleSources(srcDir, dir); err != nil {
 				t.Fatalf("copy sources: %v", err)
 			}
+			if err := ensureEffectPeerForGenerateExample(t, dir); err != nil {
+				t.Fatalf("ensure effect peer: %v", err)
+			}
 			args := []string{dir}
 			if ex.AllowStemPackageMismatch {
 				args = append([]string{"-allow-stem-package-mismatch"}, args...)
@@ -123,6 +126,39 @@ func copyGenerateExampleSources(srcRoot, dstRoot string) error {
 		}
 		return os.WriteFile(dst, b, 0644)
 	})
+}
+
+func ensureEffectPeerForGenerateExample(t *testing.T, projectRoot string) error {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(projectRoot, "ftconfig.json"))
+	if err != nil {
+		return err
+	}
+	var cfg struct {
+		Generate struct {
+			Effect bool `json:"effect"`
+		} `json:"generate"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+	if !cfg.Generate.Effect {
+		return nil
+	}
+	repoEffect := findRepoEffectModule()
+	if repoEffect == "" {
+		installEffectFixture(t, projectRoot, "3.21.4")
+		return nil
+	}
+	nodeModules := filepath.Join(projectRoot, "node_modules")
+	if err := os.MkdirAll(nodeModules, 0o755); err != nil {
+		return err
+	}
+	link := filepath.Join(nodeModules, "effect")
+	if err := os.Symlink(repoEffect, link); err != nil && !os.IsExist(err) {
+		return err
+	}
+	return nil
 }
 
 func mustContainInGeneratedTypeScript(t *testing.T, projectRoot string, want []string) {

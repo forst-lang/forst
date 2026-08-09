@@ -3,10 +3,10 @@
  * Generated package must not import effect.
  */
 import { Effect } from "effect";
-import type { InvokeFailure } from "@forst/gen";
+import type { InvokeFailure } from "@forst/gen/errors";
 
 declare const program: Effect.Effect<void, InvokeFailure>;
 const _ = program.pipe(
-  Effect.catchTag("InvokeTimedOut", () => Effect.void)
+  Effect.catchTag("@forst/errors/InvokeTimedOut", () => Effect.void)
 );
 void _;

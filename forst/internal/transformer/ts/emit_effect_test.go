@@ -12,7 +12,7 @@ func TestEmitEffectSupportESM_exportsTransportService(t *testing.T) {
 		"export class ForstTransport",
 		`"@forst/gen/Transport"`,
 		"export const withTransport",
-		"export const layerTransport",
+		"export const ForstTransportLayer",
 		"AbortSignal.any",
 		`from "./transport.js"`,
 	})
@@ -20,7 +20,7 @@ func TestEmitEffectSupportESM_exportsTransportService(t *testing.T) {
 }
 
 func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
-	got := EmitIndexEffectDTS([]string{"auth", "bcrypt"})
+	got := EmitIndexEffectDTS([]string{"auth", "billing"})
 	assertContainsAll(t, got, []string{
 		"ForstClientLive",
 		"ForstClientLayer",
@@ -33,31 +33,51 @@ func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
 }
 
 func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
-	got := EmitIndexEffectESM([]string{"auth", "bcrypt"}, "@forst/gen")
+	got := EmitIndexEffectESM([]string{"auth", "billing"}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"ForstClientLive",
 		"ForstClientLayer",
 		"makeForstClientRuntime",
-		"const transportLayer = layerTransport(config)",
+		"const transportLayer = ForstTransportLayer(config)",
 		"Layer.provide(transportLayer)",
-		"Bcrypt.DefaultWithoutDependencies",
+		"Billing.DefaultWithoutDependencies",
 		"Auth.DefaultWithoutDependencies",
 	})
-	if strings.Count(got, "layerTransport(config)") != 1 {
-		t.Fatalf("expected one layerTransport call:\n%s", got)
+	if strings.Count(got, "ForstTransportLayer(config)") != 1 {
+		t.Fatalf("expected one ForstTransportLayer call:\n%s", got)
 	}
 }
 
+func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
+	m := sampleAuthModule()
+	m.Functions[0].FailureType = "ForstUnknownFailure | InvokeFailure"
+	got := EmitPackageEffectDTS(m, "@forst/gen")
+	assertContainsAll(t, got, []string{
+		`import type { ForstUnknownFailure } from "../errors.js"`,
+		`import type { InvokeFailure } from "../errors.js"`,
+		"export type VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
+		"Effect.Effect<VerifyTokenResponse, VerifyTokenFailure>",
+	})
+	assertContainsNone(t, got, []string{
+		"InvokeRejected",
+		"InvokeHttpFailure",
+	})
+}
+
 func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
-	got := EmitTestingEffectDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingEffectDTS([]ModuleEmit{sampleAuthModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"ForstTestOverrides",
 		"packages?:",
-		"bcrypt?: Partial<BcryptHandlers>",
+		"auth?: Partial<AuthHandlers>",
 		"transport?:",
-		"| ComparePasswordResponse",
-		"| Promise<ComparePasswordResponse>",
-		"| Effect.Effect<ComparePasswordResponse, InvokeFailure>",
+		"| VerifyTokenResponse",
+		"| Promise<VerifyTokenResponse>",
+		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
 		"ForstTestLayer",
+		`import { InvokeRejected } from "@forst/errors/effect"`,
+		`import type { InvokeFailure } from "./errors.js"`,
+		`import type { ForstTestServerFailed } from "@forst/errors/effect"`,
+		`export { ForstTestServerFailed } from "@forst/errors/effect"`,
 	})
 }

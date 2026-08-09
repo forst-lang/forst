@@ -19,6 +19,7 @@ func ensureNodeModulesDir(t *testing.T, projectRoot string) {
 	if err := os.MkdirAll(filepath.Join(projectRoot, "node_modules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	linkErrorsPackage(t, projectRoot)
 }
 
 func TestGenerate_emitsDistFiles(t *testing.T) {
@@ -89,17 +90,17 @@ func TestGenerate_userModulesEmittedUnderDistPkgAndDistCore(t *testing.T) {
 }
 
 func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	entry := exports["./bcrypt"].(map[string]any)
-	if entry["types"] != "./dist/pkg/bcrypt.d.ts" {
+	entry := exports["./auth"].(map[string]any)
+	if entry["types"] != "./dist/pkg/auth.d.ts" {
 		t.Fatalf("types = %#v", entry["types"])
 	}
-	if entry["default"] != "./dist/pkg/bcrypt.js" {
+	if entry["default"] != "./dist/pkg/auth.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 	root := exports["."].(map[string]any)

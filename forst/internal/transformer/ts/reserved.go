@@ -13,6 +13,8 @@ import (
 // GenerateConfig.ReservedSubpaths() so testingSubpath overrides apply without edits here.
 var ReservedClientSubpaths = map[string]string{
 	"testing": "generated test double",
+	"errors":  "errors subpath",
+	"invoke":  "invoke transport errors subpath",
 }
 
 // ValidateReservedSubpaths fails when a Forst package name matches a reserved exports subpath key.

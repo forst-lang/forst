@@ -115,11 +115,20 @@ func MergeTypeScriptOutputs(outputs []*TypeScriptOutput) (*TypeScriptOutput, err
 	}
 	mergedExports = sortDedupeStrings(mergedExports)
 
+	var domainParts [][]ErrorClass
+	for _, o := range outputs {
+		if o == nil || len(o.DomainErrors) == 0 {
+			continue
+		}
+		domainParts = append(domainParts, o.DomainErrors)
+	}
+
 	return &TypeScriptOutput{
 		PackageName:       pkg,
 		Types:             mergedTypes,
 		ExportedTypeNames: mergedExports,
 		Functions:         mergedFuncs,
+		DomainErrors:      MergeDomainErrors(domainParts...),
 	}, nil
 }
 

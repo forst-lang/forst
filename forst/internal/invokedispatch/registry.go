@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"forst/internal/discovery"
+	"forst/internal/forsterr"
 )
 
 // Handler invokes a Forst function from decoded JSON args.
@@ -14,10 +15,11 @@ type Handler func(args json.RawMessage) (any, error)
 
 // InvokeResult mirrors executor.ExecutionResult for HTTP envelope mapping.
 type InvokeResult struct {
-	Success bool            `json:"success"`
-	Output  string          `json:"output,omitempty"`
-	Error   string          `json:"error,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
+	Success    bool              `json:"success"`
+	Output     string            `json:"output,omitempty"`
+	Error      string            `json:"error,omitempty"`
+	ErrorValue *forsterr.WireError `json:"errorValue,omitempty"`
+	Result     json.RawMessage   `json:"result,omitempty"`
 }
 
 // StreamChunk is one NDJSON line for streaming invoke responses.
@@ -103,7 +105,11 @@ func (r *Registry) Invoke(_ context.Context, pkg, fn string, args json.RawMessag
 	}
 	value, err := h(args)
 	if err != nil {
-		return &InvokeResult{Success: false, Error: err.Error()}, nil
+		out := &InvokeResult{Success: false, Error: err.Error()}
+		if wire, ok := forsterr.Encode(err); ok {
+			out.ErrorValue = wire
+		}
+		return out, nil
 	}
 	raw, err := json.Marshal(value)
 	if err != nil {

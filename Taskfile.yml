@@ -54,6 +54,27 @@ tasks:
       - packages/cli/dist/invoke.js
       - packages/cli/dist/invoke.d.ts
 
+  build:errors:
+    desc: Build @forst/errors
+    dir: packages/errors
+    deps: [install:bun]
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/errors/dist/index.js
+      - packages/errors/dist/index.d.ts
+      - packages/errors/dist/effect.js
+      - packages/errors/dist/effect.d.ts
+
+  test:errors:
+    desc: Run Bun tests for @forst/errors
+    dir: packages/errors
+    deps: [install:bun, build:errors]
+    cmds:
+      - bun run test
+
   test:cli:
     desc: Run Bun tests for @forst/cli
     dir: packages/cli
@@ -420,7 +441,7 @@ tasks:
     cmds:
       - UPDATE_EXAMPLES_GOLDENS=1 go test ./cmd/forst -run TestUpdateExamplesGoldens -count=1
       - UPDATE_EXAMPLES_GOLDENS=1 go test ./internal/transformer/go -run TestWriteUnionErrorNarrowingGolden -count=1
-      - go test ./cmd/forst -run 'TestExamples$|TestExampleTictactoeMergedPackage|TestExampleProvidersMergedPackage|TestExampleProvidersCrossPkgGolden|TestExampleNodeInteropPackagesCompileGolden' -count=1
+      - go test ./cmd/forst -run 'TestExamples$|TestExampleTictactoeMergedPackage|TestExampleProvidersMergedPackage|TestExampleProvidersCrossPkgGolden|TestExampleNodeInteropPackagesCompileGolden|TestGenerate_effectMode_matchesCommittedGoldens' -count=1
       - go test ./internal/compiler -run TestCompileFile_map_catalog_golden -count=1
       - git add -f ../examples/out/
 
@@ -502,9 +523,15 @@ tasks:
     cmds:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
 
+  example:generate-effect:generate:
+    desc: Regenerate @forst/generate-effect client (generate.effect true, Data.TaggedError errors)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/generate-effect
+
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (startForstTestServer + client)
-    deps: [build, build:cli, build:client, example:tictactoe:generate]
+    deps: [build, build:cli, build:client, build:errors, example:tictactoe:generate]
     env:
       FORST_BINARY: '{{.TASKFILE_DIR}}/bin/forst'
     cmds:
@@ -693,7 +720,7 @@ tasks:
   example:node-interop-remix-serve:build-remix:
     desc: Build Remix app for remix-serve example (remix vite:build)
     dir: examples/in/rfc/node-interop/remix-serve
-    deps: [build:client, build:sidecar, example:node-interop-remix-serve:generate]
+    deps: [build:client, build:errors, build:sidecar, example:node-interop-remix-serve:generate]
     cmds:
       - task: example:node-interop-remix-serve:install
       - bun run build

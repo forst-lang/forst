@@ -10,7 +10,8 @@ import (
 	"forst/internal/ftconfig"
 )
 
-// TestUpdateExamplesGoldens regenerates committed Go goldens under examples/out/.
+// TestUpdateExamplesGoldens regenerates committed Go goldens under examples/out/ and
+// Effect-mode generate snapshots under testdata/effect/golden/.
 // Formats example .ft inputs (forst fmt) and emits Go via generators.GenerateGoCode (same as the compiler).
 // Run from forst/: UPDATE_EXAMPLES_GOLDENS=1 go test ./cmd/forst -run TestUpdateExamplesGoldens -count=1
 // Or: task examples:update-goldens
@@ -85,6 +86,9 @@ func TestUpdateExamplesGoldens(t *testing.T) {
 			writeEmbeddedInvokePackageGolden(t, tc)
 		})
 	}
+	t.Run("testdata/effect/golden", func(t *testing.T) {
+		updateEffectGenerateGoldens(t)
+	})
 }
 
 func shouldSkipExampleGoldenUpdate(relPath string) bool {

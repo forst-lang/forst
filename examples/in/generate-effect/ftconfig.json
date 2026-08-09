@@ -1,0 +1,7 @@
+{
+  "generate": {
+    "packageName": "@forst/generate-effect",
+    "effect": true,
+    "link": "never"
+  }
+}
