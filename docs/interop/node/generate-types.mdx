@@ -57,6 +57,69 @@ For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`**
 
 Working reference: [`examples/in/rfc/node-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/remix-serve) (`vite.config.ts`, `task example:node-interop-remix-serve:standalone-e2e` in CI).
 
+## Monorepos and multiple Forst projects
+
+### One `.forst` tree per boundary
+
+Every `ftconfig.json` boundary gets **one** compiler-owned `.forst/` directory under that boundary root. The default client output is `.forst/client`. Do not add a second `.forst` tree manually. A second Forst project needs a second boundary (another `ftconfig.json` at its project root).
+
+A Forst **package** named `client` is fine. It emits to `dist/pkg/client.js` and resolves as `@forst/gen/client`. That is separate from the compiler-owned `.forst/client` output directory.
+
+### How the `node_modules` link is placed
+
+`forst generate` walks **up** from the ftconfig boundary root until it finds a `node_modules` directory, then writes:
+
+```text
+node_modules/@forst/gen  →  <boundaryRoot>/.forst/client
+```
+
+The link is a symlink or junction when the OS allows it, with a directory copy fallback that warns it goes stale until the next generate. A `.forst-generated` marker inside the output records which boundary owns the link. If the link already points at the correct output, generate leaves it untouched.
+
+Treat the link like `.forst` itself: **regenerated infrastructure**, not something npm installed. `postinstall: forst generate .` restores it after `npm ci` deletes `node_modules`.
+
+### Single app in a monorepo
+
+When one boundary lives inside a larger repo (for example `apps/remix-serve/`), the link usually lands in that app's nearest `node_modules`. Hoisting to the repo root only changes **where** the link is created, not **what** it points at. Each app's link still targets **that** boundary's `.forst/client`.
+
+### Two Forst boundaries, same repo
+
+If two boundaries both use the default name `@forst/gen` and share a hoisted `node_modules`, the **second** `forst generate` fails with an ownership error naming both boundary paths. That is intentional. Silent overwrite would point both apps at one generated client.
+
+Pick one fix:
+
+| Approach | When to use |
+| --- | --- |
+| **Distinct `generate.packageName`** per boundary (for example `@acme/app-a-gen` and `@acme/app-b-gen`) | Each app keeps ephemeral output and its own link slot under `node_modules` |
+| **Committed mode** per boundary (`outDir` outside `.forst`, `link: "never"`) plus a workspace `file:` dependency | pnpm, Yarn Plug'n'Play, or when you want the client checked in and resolved like any local package |
+
+Committed mode example:
+
+```json
+{
+  "generate": {
+    "outDir": "packages/forst-client",
+    "link": "never"
+  }
+}
+```
+
+Register `packages/forst-client` in the workspace. TypeScript and bundlers resolve it without a symlink. You still run `forst generate` when `.ft` sources change.
+
+### Package managers and environments
+
+| Environment | Ephemeral link mode |
+| --- | --- |
+| npm or bun, single boundary, `postinstall` | Reliable (default path) |
+| `npm ci` without `postinstall` | Link missing until you run generate |
+| Yarn Plug'n'Play | Link skipped; use committed mode |
+| pnpm strict / isolated | Variable; committed mode is the safe path |
+| Windows without Developer Mode | Junction or copy fallback |
+| Docker / CI | Run `forst generate` in the build step, or use committed mode |
+
+### Nested packages without their own `ftconfig.json`
+
+Commands run from a subdirectory still discover the **ancestor** `ftconfig.json`. One boundary, one `.forst` tree, one link. No extra setup.
+
 ## Types from .ft
 
 Define the shape once in Forst:
