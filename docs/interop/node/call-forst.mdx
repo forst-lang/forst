@@ -171,6 +171,9 @@ import { createForstClient } from "@forst/gen";
 
 const forst = createForstClient({
   baseUrl: process.env.FORST_BASE_URL,
+  headers: {
+    Authorization: `Bearer ${process.env.API_TOKEN}`,
+  },
 });
 
 await forst.auth.VerifyPassword({
@@ -186,6 +189,9 @@ import { VerifyPassword } from "@forst/gen/auth";
 
 const ForstLive = layerForstClient({
   baseUrl: process.env.FORST_BASE_URL,
+  headers: {
+    Authorization: `Bearer ${process.env.API_TOKEN}`,
+  },
 });
 
 await Effect.runPromise(
@@ -198,6 +204,45 @@ await Effect.runPromise(
 
 </CodeGroup>
 
+### Custom HTTP headers
+
+Pass default headers on the client config. They merge into every invoke and stream request. Per-call headers in the second argument override defaults for that request only.
+
+<CodeGroup>
+
+```typescript Promise
+import { createForstClient } from "@forst/gen";
+import { VerifyPassword } from "@forst/gen/auth";
+
+const forst = createForstClient({
+  baseUrl: process.env.FORST_BASE_URL,
+  headers: {
+    Authorization: `Bearer ${process.env.API_TOKEN}`,
+    "X-Tenant-Id": process.env.TENANT_ID ?? "",
+  },
+});
+
+await forst.auth.VerifyPassword(input);
+
+await VerifyPassword(input, {
+  headers: { "X-Request-Id": crypto.randomUUID() },
+});
+```
+
+```typescript Effect
+import { layerForstClient } from "@forst/gen";
+import { VerifyPassword } from "@forst/gen/auth";
+
+const ForstLive = layerForstClient({
+  baseUrl: process.env.FORST_BASE_URL,
+  headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
+});
+```
+
+</CodeGroup>
+
+`Content-Type: application/json` is always set. Your headers are merged on top.
+
 ## How the client picks a server
 
 | You run | Set env | Client behavior |
@@ -208,6 +253,8 @@ await Effect.runPromise(
 | Production (`NODE_ENV=production`) with no URL | — | Fails with `InvokeBaseUrlMissing` |
 
 **Production never spawns a server.** Set `FORST_BASE_URL` (or `FORST_INVOKE_URL` / `FORST_DEV_URL`) explicitly. Local spawn of `forst dev` is opt-in for development only.
+
+`allowSpawn: true` and `transport: "dev"` are reserved for a future release. Today the client always connects over HTTP even when those flags are set.
 
 The **`forst dev`** HTTP contract (`/invoke`, `/version`, …) is documented in [Dev server](/workflow/dev-server). Saving a `.ft` file regenerates the client so the editor stays in step. See [Dev server § Generated client](/workflow/dev-server#generated-client).
 
@@ -332,10 +379,31 @@ const program = VerifyPassword(input).pipe(
 | --- | --- |
 | `signal` | Cancel the in-flight request |
 | `timeoutMs` | Fail with `InvokeTimedOut` after this many milliseconds |
-| `retries` | Retry on transient failures (`InvokeTimedOut`, `InvokeUnreachable`, …) |
+| `retries` | Retry on transient failures (`InvokeTimedOut`, `InvokeUnreachable`, …) with exponential backoff and jitter |
 
 In Effect mode, fiber interruption cancels the HTTP request. Use
 `Effect.timeout` and `Effect.retry` for timeouts and retry schedules.
+
+## Runtime support
+
+The generated client targets **Node.js 20.19+** server-side use (SSR, API routes, scripts). It assumes `fetch`, `process.env`, and optional `AbortSignal`.
+
+| Environment | Support |
+| --- | --- |
+| Node SSR (Remix, Vite SSR, Express) | Supported. See [Generate a TypeScript client § Bundlers](/interop/node/generate-types#bundlers-vite-remix-webpack). |
+| Cloudflare Workers / Vercel Edge / Deno | Not supported today. Transport reads `process.env` and defaults assume Node. |
+| Browser bundles | Not supported. Invoke from your backend instead. |
+
+For edge deployments, keep Forst behind a Node or Go invoke server and call it from the edge with `fetch` and your own thin wrapper if needed.
+
+## Known limitations
+
+| Topic | Status |
+| --- | --- |
+| Batch invoke | One HTTP request per generated function. Collapse parallel calls in application code or add your own batch layer. |
+| Binary / multipart payloads | JSON only on the wire. Large or file uploads need a separate upload path. |
+| Stream reconnect | NDJSON streams do not resume after disconnect. Retry the whole stream from the caller. |
+| Generated client semver | Ephemeral `@forst/gen` stays at `version: "0.0.0"`. Regenerate after compiler upgrades and check `GET /version` `contractVersion`. |
 
 ## Multi-package projects
 

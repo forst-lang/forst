@@ -48,9 +48,12 @@ forst generate .
 forst generate ./my-service
 forst generate -config ./ftconfig.json ./my-service
 forst generate --watch .
+forst generate --list --json .
 ```
 
 Uses the same file discovery rules as `forst dev`. Import from `@forst/gen/<package>` after generate (and after `postinstall` on a fresh machine).
+
+`--list` (with optional `--json`) prints a machine-readable manifest of packages and exported functions without writing client output. Use it for IDE plugins, codegen pipelines, or CI introspection.
 
 `--watch` regenerates when `.ft` files change. Use it when the dev server runs separately, or rely on regenerate-on-save from [Dev server](/workflow/dev-server#generated-client).
 

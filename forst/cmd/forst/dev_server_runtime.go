@@ -26,7 +26,7 @@ func (s *DevServer) Start() error {
 		s.log.Warnf("Failed to discover functions on startup: %v", err)
 	}
 
-	s.typesGenerator = NewTypeScriptGenerator(s.log)
+	s.startWatchGenerate()
 
 	mux := http.NewServeMux()
 	s.invoke.RegisterRoutes(mux)
@@ -52,13 +52,14 @@ func (s *DevServer) logStartupInfo() {
 	s.log.Info("Available endpoints:")
 	s.log.Info("  GET  /functions  - Discover available functions")
 	s.log.Info("  POST /invoke     - Invoke a Forst function")
-	s.log.Info("  GET  /types      - Generate TypeScript types for discovered functions")
+	s.log.Info("  GET  /types      - TypeScript types from the generated @forst/gen client")
 	s.log.Info("  GET  /health     - Health check")
 	s.log.Info("  GET  /version    - Compiler and HTTP contract version")
 }
 
 // Stop stops the HTTP server.
 func (s *DevServer) Stop() error {
+	s.stopWatchGenerate()
 	if s.server != nil {
 		return s.server.Close()
 	}
@@ -122,9 +123,9 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 		}
 		log.Infof("forst dev: runtime entry %s", entry)
 		if devserver.RuntimeWatchEnabled(&config.Config) {
-			return watchRuntimeDevFn(log, rootDir, entry, &config.Config)
+			return watchRuntimeDevFn(log, rootDir, entry, config)
 		}
-		if err := runRuntimeDevFn(log, rootDir, entry, &config.Config); err != nil {
+		if err := runRuntimeDevFn(log, rootDir, entry, config); err != nil {
 			log.Error(err)
 			return err
 		}
@@ -151,13 +152,19 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
 // runRuntimeDevFn runs compile+go run for runtime profile; tests may stub.
-var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
-	return devserver.RunRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
+var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
+	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
+		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
+	}
+	return devserver.RunRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 // watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
-var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ftconfig.Config) error {
-	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, cfg, devserver.RuntimeRunDeps{})
+var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
+	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
+		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
+	}
+	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string, rootDir string, exportStructFieldsCLI bool) *ForstConfig {

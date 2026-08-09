@@ -157,6 +157,17 @@ type DevConfig struct {
 	AutoRestart bool   `json:"autoRestart"`
 	LogLevel    string `json:"logLevel"`
 	Verbose     bool   `json:"verbose"`
+	// WatchGenerate runs forst generate after debounced reloads so editor types stay in step.
+	// Defaults to true when unset.
+	WatchGenerate *bool `json:"watchGenerate,omitempty"`
+}
+
+// EffectiveWatchGenerate reports whether forst dev should regenerate the TypeScript client on reload.
+func (d DevConfig) EffectiveWatchGenerate() bool {
+	if d.WatchGenerate != nil {
+		return *d.WatchGenerate
+	}
+	return true
 }
 
 var _ configiface.ForstConfigIface = (*Config)(nil)

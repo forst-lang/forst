@@ -12,8 +12,8 @@ import (
 	"forst/internal/ftconfig"
 )
 
-// TestGenerate_acceptance_omissionReport smoke-checks F-17 (ACCEPTANCE closing step).
-func TestGenerate_acceptance_omissionReport(t *testing.T) {
+// TestGenerate_omissionReport checks provider-gated omission reporting.
+func TestGenerate_omissionReport(t *testing.T) {
 	dir := t.TempDir()
 	writeAuthProviderFixture(t, dir)
 	buf := captureGenerateLogs(t)
@@ -130,8 +130,7 @@ func readGeneratedPackageJSON(t *testing.T, dir string) map[string]any {
 	return pkg
 }
 
-// A-01
-func TestGenerate_acceptance_subpathFunctionImport(t *testing.T) {
+func TestGenerate_subpathFunctionImport(t *testing.T) {
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node not found")
 	}
@@ -176,8 +175,7 @@ export const fn = ComparePassword;
 	}
 }
 
-// A-02
-func TestGenerate_acceptance_subpathTypeImport(t *testing.T) {
+func TestGenerate_subpathTypeImport(t *testing.T) {
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
 	writeAcceptanceBcryptAuth(t, dir)
@@ -243,8 +241,7 @@ func assertTypeScriptCompilesSmoke(t *testing.T, projectRoot, smoke string) {
 	}
 }
 
-// A-03
-func TestGenerate_acceptance_installablePackage(t *testing.T) {
+func TestGenerate_installablePackage(t *testing.T) {
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
 	writeMainFt(t, dir, generateTestMinimalValidForst)
@@ -289,8 +286,7 @@ console.log("ok");
 	}
 }
 
-// A-03b
-func TestGenerate_acceptance_linkRestoredByPostinstall(t *testing.T) {
+func TestGenerate_linkRestoredByPostinstall(t *testing.T) {
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
 	writeMainFt(t, dir, generateTestMinimalValidForst)
@@ -355,8 +351,7 @@ console.log("ok");
 	}
 }
 
-// A-04c
-func TestGenerate_acceptance_packageName(t *testing.T) {
+func TestGenerate_packageName(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		dir := t.TempDir()
 		if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"@acme/web","version":"1.0.0"}`), 0644); err != nil {
@@ -440,13 +435,36 @@ func TestGenerate_acceptance_packageName(t *testing.T) {
 	})
 }
 
-// A-05 (manual / heavy bundler)
-func TestGenerate_acceptance_bundlerBuild(t *testing.T) {
-	t.Skip("A-05 bundler build is manual; Vite/esbuild fixture not wired in Go tests")
+// Bundles a subpath import with esbuild without resolve.alias when esbuild is on PATH.
+func TestGenerate_bundlerBuild(t *testing.T) {
+	if _, err := exec.LookPath("esbuild"); err != nil {
+		t.Skip("esbuild not on PATH")
+	}
+	dir := t.TempDir()
+	ensureNodeModulesDir(t, dir)
+	writeAcceptanceBcryptAuth(t, dir)
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	entry := filepath.Join(dir, "entry.mjs")
+	if err := os.WriteFile(entry, []byte(`import { ComparePassword } from "@forst/gen/bcrypt";
+if (typeof ComparePassword !== "function") process.exit(2);
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	outFile := filepath.Join(dir, "bundle.mjs")
+	cmd := exec.Command("esbuild", entry, "--bundle", "--outfile="+outFile, "--platform=node", "--format=esm")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("esbuild bundle: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(outFile); err != nil {
+		t.Fatalf("bundle output missing: %v", err)
+	}
 }
 
-// A-06 — wraps existing require(esm) coverage plus ESM import and engines floor.
-func TestGenerate_acceptance_esmAndRequireBothResolve(t *testing.T) {
+func TestGenerate_esmAndRequireBothResolve(t *testing.T) {
 	t.Log("alias: also covered by TestGenerate_tsc_requireFromCommonJsResolves and TestGenerate_emitsNoCjsFiles")
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
@@ -504,8 +522,7 @@ console.log("ok");
 	}
 }
 
-// A-07
-func TestGenerate_acceptance_crossPackageNameCollisions(t *testing.T) {
+func TestGenerate_crossPackageNameCollisions(t *testing.T) {
 	t.Run("duplicate_function_name", func(t *testing.T) {
 		dir := t.TempDir()
 		for _, pkg := range []string{"bcrypt", "crypto"} {
@@ -590,8 +607,7 @@ func Ping() {
 	})
 }
 
-// A-07b
-func TestGenerate_acceptance_reservedPackageNames(t *testing.T) {
+func TestGenerate_reservedPackageNames(t *testing.T) {
 	t.Run("near_reserved_names", func(t *testing.T) {
 		dir := t.TempDir()
 		ensureNodeModulesDir(t, dir)
@@ -663,8 +679,7 @@ console.log("ok");
 	})
 }
 
-// A-07c (generate path)
-func TestGenerate_acceptance_forstPackageNamedClient(t *testing.T) {
+func TestGenerate_forstPackageNamedClient(t *testing.T) {
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
 	writePkgFT(t, dir, "client", "package client\n\nfunc Ping() {\n\treturn 1\n}\n")
@@ -699,7 +714,6 @@ console.log("ok");
 	}
 }
 
-// A-08b
 func TestGenerate_defaultAddsNoNewTopLevelDirectory(t *testing.T) {
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
@@ -753,8 +767,7 @@ func TestGenerate_defaultAddsNoNewTopLevelDirectory(t *testing.T) {
 	}
 }
 
-// A-08c
-func TestGenerate_acceptance_legacyDirectoriesUntouched(t *testing.T) {
+func TestGenerate_legacyDirectoriesUntouched(t *testing.T) {
 	dir := t.TempDir()
 	legacyGen := filepath.Join(dir, "generated")
 	legacyClient := filepath.Join(dir, "client")
@@ -815,8 +828,7 @@ func TestGenerate_acceptance_legacyDirectoriesUntouched(t *testing.T) {
 	t.Log("alias: write ownership also covered by TestGenerate_neverWritesLegacyDirectories and TestGenerate_writesOnlyInsideOutDir")
 }
 
-// A-08d — compose byte-stable + second-run zero writes (+ field edit regenerate).
-func TestGenerate_acceptance_editFtSeeTypes(t *testing.T) {
+func TestGenerate_editFtSeeTypes(t *testing.T) {
 	t.Log("alias: byte stability and skip-writes covered by TestGenerate_isByteStableAcrossRuns and TestGenerate_secondRunRewritesNothingWhenSourcesUnchanged")
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
@@ -882,8 +894,7 @@ func Echo(input EchoRequest) {
 	}
 }
 
-// A-12 — consolidated Effect compatibility acceptance gate.
-func TestGenerate_acceptance_effectCompatibility(t *testing.T) {
+func TestGenerate_effectCompatibility(t *testing.T) {
 	t.Run("promise_mode_generated_package_has_no_effect_import", func(t *testing.T) {
 		dir := t.TempDir()
 		generatePromiseProject(t, dir)

@@ -31,11 +31,6 @@ type devFunctionExecutor interface {
 	ExecuteStreamingFunction(ctx context.Context, packageName, functionName string, args json.RawMessage) (<-chan executor.StreamingResult, error)
 }
 
-// devTypesGenerator is implemented by *TypeScriptGenerator; HTTP tests may substitute stubs.
-type devTypesGenerator interface {
-	GenerateTypesForFunctions(functions map[string]map[string]discovery.FunctionInfo, rootDir string) (string, error)
-}
-
 // DevServer handles HTTP communication for Forst applications.
 type DevServer struct {
 	invoke         *invokeserver.Server
@@ -53,7 +48,7 @@ type DevServer struct {
 	typesCache     map[string]string
 	typesCacheMu   sync.RWMutex
 	lastTypesGen   time.Time
-	typesGenerator devTypesGenerator
+	watchStop      chan struct{}
 }
 
 // NewHTTPServer creates a new HTTP server.

@@ -201,16 +201,19 @@ func TestDevServer_Start_respectsExplicitZeroHost(t *testing.T) {
 	}
 }
 
-func TestDevServer_Start_invalidPortReturnsError_andInitializesTypesGenerator(t *testing.T) {
+func TestDevServer_Start_invalidPortReturnsError_andStartsWatchGenerate(t *testing.T) {
 	s := testDevServer(t)
+	trueVal := true
+	s.config.Dev.WatchGenerate = &trueVal
 	s.port = "invalid-port"
 	err := s.Start()
 	if err == nil {
 		t.Fatal("expected start error for invalid port")
 	}
-	if s.typesGenerator == nil {
-		t.Fatal("expected types generator initialization before listen failure")
+	if s.watchStop == nil {
+		t.Fatal("expected watchGenerate goroutine to start before listen failure")
 	}
+	s.stopWatchGenerate()
 }
 
 func TestDevServer_logStartupInfo_includesEndpoints(t *testing.T) {
@@ -320,6 +323,8 @@ func TestDevServer_Start_logsWarningWhenInitialDiscoveryFails(t *testing.T) {
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	s := testDevServer(t)
+	trueVal := true
+	s.config.Dev.WatchGenerate = &trueVal
 	s.log = log
 	s.port = "invalid-port"
 	// nil config in discoverer forces initial discovery failure; Start should warn and continue to listen path.
@@ -329,9 +334,10 @@ func TestDevServer_Start_logsWarningWhenInitialDiscoveryFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected listen error due to invalid port")
 	}
-	if s.typesGenerator == nil {
-		t.Fatal("expected types generator to be initialized even when discovery fails")
+	if s.watchStop == nil {
+		t.Fatal("expected watchGenerate to start even when discovery fails")
 	}
+	s.stopWatchGenerate()
 }
 
 func TestDevServer_discoverFunctions_errorPropagates(t *testing.T) {
@@ -389,7 +395,7 @@ func TestStartDevServer_runtimeProfile_callsRunRuntimeDev(t *testing.T) {
 
 	var gotEntry string
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ftconfig.Config) error {
+	runRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ForstConfig) error {
 		if boundaryRoot != dir {
 			t.Fatalf("boundaryRoot = %q want %q", boundaryRoot, dir)
 		}
@@ -431,7 +437,7 @@ func TestStartDevServer_runtimeProfile_usesWatchWhenHotReload(t *testing.T) {
 
 	var watchCalled bool
 	origWatch := watchRuntimeDevFn
-	watchRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ftconfig.Config) error {
+	watchRuntimeDevFn = func(_ *logrus.Logger, boundaryRoot, entry string, _ *ForstConfig) error {
 		if boundaryRoot != dir {
 			t.Fatalf("boundaryRoot = %q want %q", boundaryRoot, dir)
 		}
@@ -444,7 +450,7 @@ func TestStartDevServer_runtimeProfile_usesWatchWhenHotReload(t *testing.T) {
 	t.Cleanup(func() { watchRuntimeDevFn = origWatch })
 
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ForstConfig) error {
 		t.Fatal("RunRuntimeDev must not run when hotReload is enabled")
 		return nil
 	}
@@ -477,7 +483,7 @@ func TestStartDevServer_runtimeProfile_missingEntry(t *testing.T) {
 
 func TestStartDevServer_executorProfile_unchanged(t *testing.T) {
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ForstConfig) error {
 		t.Fatal("runtime dev must not run in executor profile")
 		return nil
 	}
@@ -512,7 +518,7 @@ func TestStartDevServer_runtimeProfile_setsInvokePort(t *testing.T) {
 	}
 
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error { return nil }
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ForstConfig) error { return nil }
 	t.Cleanup(func() { runRuntimeDevFn = origRun })
 
 	logger := logrus.New()
@@ -536,7 +542,7 @@ func TestStartDevServer_runtimeProfile_usesFtconfigPortWhenNoCliOverride(t *test
 	}
 
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error { return nil }
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ForstConfig) error { return nil }
 	t.Cleanup(func() { runRuntimeDevFn = origRun })
 
 	logger := logrus.New()
@@ -557,7 +563,7 @@ func TestStartDevServer_explicitExecutorOverride(t *testing.T) {
 	}
 
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(*logrus.Logger, string, string, *ftconfig.Config) error {
+	runRuntimeDevFn = func(*logrus.Logger, string, string, *ForstConfig) error {
 		t.Fatal("runtime dev must not run when profile is executor")
 		return nil
 	}
@@ -614,7 +620,7 @@ func TestStartDevServer_discoversFtconfigFromRootDir(t *testing.T) {
 	level := "error"
 
 	origRun := runRuntimeDevFn
-	runRuntimeDevFn = func(_ *logrus.Logger, _, _ string, cfg *ftconfig.Config) error {
+	runRuntimeDevFn = func(_ *logrus.Logger, _, _ string, cfg *ForstConfig) error {
 		if !cfg.Server.Embedded {
 			t.Fatal("expected embedded from ftconfig discovered via -root")
 		}

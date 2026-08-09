@@ -348,6 +348,7 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) sendJSON(w http.ResponseWriter, response Response) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(ContractVersionHTTPHeader, s.version.ContractVersion)
 	if s.cfg.CORS {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")

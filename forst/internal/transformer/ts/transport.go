@@ -1,6 +1,10 @@
 package transformerts
 
-import "strings"
+import (
+	"strings"
+
+	"forst/internal/invokeserver"
+)
 
 // DefaultInvokePort is the embedded invoke listen port used when EmitTransport*
 // is called with an empty port. Matches ftconfig.DefaultEmbeddedInvokePort.
@@ -39,6 +43,9 @@ func functionsNeedStreamingResult(functions []FunctionSignature) bool {
 // transportInvokePortPlaceholder is substituted with the resolved invoke port.
 const transportInvokePortPlaceholder = "{{INVOKE_PORT}}"
 
+// transportContractVersionPlaceholder is substituted with invokeserver.HTTPContractVersion.
+const transportContractVersionPlaceholder = "{{CONTRACT_VERSION}}"
+
 func resolveTransportInvokePort(invokePort string) string {
 	if invokePort == "" {
 		return DefaultInvokePort
@@ -48,6 +55,14 @@ func resolveTransportInvokePort(invokePort string) string {
 
 func substituteInvokePort(src, invokePort string) string {
 	return strings.ReplaceAll(src, transportInvokePortPlaceholder, resolveTransportInvokePort(invokePort))
+}
+
+func substituteContractVersion(src string) string {
+	return strings.ReplaceAll(src, transportContractVersionPlaceholder, invokeserver.HTTPContractVersion)
+}
+
+func substituteTransportPlaceholders(src, invokePort string) string {
+	return substituteContractVersion(substituteInvokePort(src, invokePort))
 }
 
 func transportFileHeader(invokePort string) string {
@@ -68,9 +83,12 @@ func transportErrorsImport() string {
 
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).
 func EmitTransportESM(invokePort string) string {
-	return transportFileHeader(invokePort) +
-		transportErrorsImport() +
-		substituteInvokePort(transportRuntimeESM, invokePort)
+	return substituteTransportPlaceholders(
+		transportFileHeader(invokePort)+
+			transportErrorsImport()+
+			transportRuntimeESM,
+		invokePort,
+	)
 }
 
 // EmitTransportDTS returns dist/transport.d.ts for the inlined transport module.
@@ -94,10 +112,13 @@ func EmitTransportDTS() string {
 // An empty invokePort uses DefaultInvokePort.
 func EmitTransportTypeScript(invokePort string) string {
 	return "// @ts-nocheck\n" +
-		transportFileHeader(invokePort) +
-		transportErrorsImport() +
-		transportTypeDeclarationsTS + "\n" +
-		substituteInvokePort(transportRuntimeESM, invokePort)
+		substituteTransportPlaceholders(
+			transportFileHeader(invokePort)+
+				transportErrorsImport()+
+				transportTypeDeclarationsTS+"\n"+
+				transportRuntimeESM,
+			invokePort,
+		)
 }
 
 // transportTypeDeclarationsTS is the type surface inlined into EmitTransportTypeScript.
@@ -122,6 +143,8 @@ export interface InvokeCallOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   retries?: number;
+  /** Per-call HTTP headers merged over config.headers. */
+  headers?: Record<string, string>;
   /** Internal. Used by Effect mode and the test scope to inject a transport. */
   transport?: ForstInvokeClient;
 }
@@ -155,6 +178,8 @@ export interface ForstInvokeClientConfig {
   transport?: "http" | "dev";
   /** Injectable fetch for tests. */
   fetchFn?: typeof fetch;
+  /** Default HTTP headers merged into every invoke (for example Authorization). */
+  headers?: Record<string, string>;
   /** Observability middleware chain (request start / success / failure). */
   middleware?: ForstInvokeMiddleware[];
 }
@@ -200,6 +225,8 @@ export interface InvokeCallOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   retries?: number;
+  /** Per-call HTTP headers merged over config.headers. */
+  headers?: Record<string, string>;
   /** Internal. Used by Effect mode and the test scope to inject a transport. */
   transport?: ForstInvokeClient;
 }
@@ -233,6 +260,8 @@ export interface ForstInvokeClientConfig {
   transport?: "http" | "dev";
   /** Injectable fetch for tests. */
   fetchFn?: typeof fetch;
+  /** Default HTTP headers merged into every invoke (for example Authorization). */
+  headers?: Record<string, string>;
   /** Observability middleware chain (request start / success / failure). */
   middleware?: ForstInvokeMiddleware[];
 }
@@ -289,6 +318,55 @@ export declare function setActiveTestTransportResolver(
 // Placeholders: {{INVOKE_PORT}}
 // Throws tagged failures from ./errors.js. Never bare Error for invoke failures.
 const transportRuntimeESM = `const defaultInvokeBaseUrl = "http://127.0.0.1:{{INVOKE_PORT}}";
+const EXPECTED_CONTRACT_VERSION = "{{CONTRACT_VERSION}}";
+
+function mergeHeaders(config, options) {
+  const out = { "Content-Type": "application/json" };
+  const cfgHeaders = config?.headers;
+  if (cfgHeaders) {
+    for (const [key, value] of Object.entries(cfgHeaders)) {
+      if (value !== undefined && value !== null) {
+        out[key] = String(value);
+      }
+    }
+  }
+  const callHeaders = options?.headers;
+  if (callHeaders) {
+    for (const [key, value] of Object.entries(callHeaders)) {
+      if (value !== undefined && value !== null) {
+        out[key] = String(value);
+      }
+    }
+  }
+  return out;
+}
+
+function checkContractVersion(response, packageName, functionName) {
+  const got = response.headers.get("X-Forst-Contract-Version");
+  if (got && got !== EXPECTED_CONTRACT_VERSION) {
+    throw new ContractVersionMismatch({
+      expectedContractVersion: EXPECTED_CONTRACT_VERSION,
+      serverContractVersion: got,
+      message:
+        "invoke contract version mismatch for " +
+        packageName +
+        "." +
+        functionName +
+        ": expected " +
+        EXPECTED_CONTRACT_VERSION +
+        ", got " +
+        got,
+    });
+  }
+}
+
+async function retryDelayMs(attempt) {
+  const base = 100;
+  const cap = 2000;
+  const exp = Math.min(cap, base * Math.pow(2, attempt));
+  const jitter = Math.floor(Math.random() * exp * 0.25);
+  await new Promise((resolve) => setTimeout(resolve, exp + jitter));
+}
 
 function resolveEnvBaseUrl() {
   const proc = typeof process !== "undefined" ? process : undefined;
@@ -388,6 +466,7 @@ class HttpInvokeClient {
     this.retries = config?.retries ?? 0;
     this.fetchFn = config?.fetchFn ?? fetch.bind(globalThis);
     this.middleware = config?.middleware ?? [];
+    this.headers = config?.headers ?? {};
   }
 
   async runMiddleware(hook, ctx, arg) {
@@ -426,6 +505,7 @@ class HttpInvokeClient {
           throw err;
         }
         attempt += 1;
+        await retryDelayMs(attempt);
       }
     }
   }
@@ -442,7 +522,7 @@ class HttpInvokeClient {
     try {
       response = await this.fetchFn(this.baseUrl + "/invoke", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: mergeHeaders({ headers: this.headers }, options),
         body,
         signal,
       });
@@ -475,6 +555,7 @@ class HttpInvokeClient {
       });
     }
     const responseText = await response.text();
+    checkContractVersion(response, packageName, functionName);
     if (!response.ok) {
       throw new InvokeHttpFailure({
         packageName,
@@ -568,7 +649,7 @@ class HttpInvokeClient {
     try {
       response = await this.fetchFn(this.baseUrl + "/invoke", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: mergeHeaders({ headers: this.headers }, options),
         body,
         signal,
       });
@@ -609,6 +690,7 @@ class HttpInvokeClient {
           responseText,
       });
     }
+    checkContractVersion(response, packageName, functionName);
     if (!response.body) {
       throw new InvokeStreamAborted({
         packageName,

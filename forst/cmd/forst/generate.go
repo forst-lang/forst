@@ -104,10 +104,11 @@ func discoverForstFilesForGenerate(cfg *ForstConfig, target string, isDir bool) 
 }
 
 type generateOptions struct {
-	configPath         string
-	allowStemMismatch  bool
-	watch              bool
-	target             string
+	configPath        string
+	allowStemMismatch bool
+	watch             bool
+	listJSON          bool
+	target            string
 }
 
 func parseGenerateArgs(args []string) (generateOptions, error) {
@@ -116,6 +117,8 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	configPath := fs.String("config", "", "Path to ftconfig.json")
 	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name")
 	watch := fs.Bool("watch", false, "Regenerate when .ft files change")
+	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
+	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
 	if err := fs.Parse(args); err != nil {
 		return generateOptions{}, err
 	}
@@ -127,6 +130,7 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 		configPath:        *configPath,
 		allowStemMismatch: *allowStemMismatch,
 		watch:             *watch,
+		listJSON:          *list || *listJSON,
 		target:            tail[0],
 	}, nil
 }
@@ -153,7 +157,41 @@ func generateCommand(args []string) error {
 	if opts.watch {
 		return watchGenerate(opts, cfg, fileInfo.IsDir(), log)
 	}
+
+	if opts.listJSON {
+		return runGenerateList(opts, cfg, fileInfo.IsDir(), log)
+	}
 	return runGenerateOnce(opts, cfg, fileInfo.IsDir(), log)
+}
+
+// runGenerateList discovers exports and prints a JSON manifest without writing client output.
+func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	if err != nil {
+		return err
+	}
+	boundaryRoot := outputDir
+	if root, rootErr := ftconfig.BoundaryRootFromDir(outputDir); rootErr == nil {
+		boundaryRoot = root
+	}
+	genCfg := ftconfig.EffectiveGenerateConfig(&cfg.Config, boundaryRoot)
+	if err := genCfg.Validate(); err != nil {
+		return fmt.Errorf("generate config: %w", err)
+	}
+	if len(forstFiles) == 0 {
+		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
+		return printGenerateManifest(boundaryRoot, genCfg, nil, log)
+	}
+	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
+		return err
+	}
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
+		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
+	})
+	if err != nil {
+		return err
+	}
+	return printGenerateManifest(boundaryRoot, genCfg, outputs, log)
 }
 
 // runGenerateOnce performs a single generate pass into outDir/dist/.

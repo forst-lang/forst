@@ -97,6 +97,15 @@ func linkGeneratedClient(boundaryRoot, outDir, packageName string, log *logrus.L
 		return nil
 	}
 
+	pnpmStore := filepath.Join(nodeModules, ".pnpm")
+	if _, err := generateLinkIO.Stat(pnpmStore); err == nil {
+		log.WithFields(logrus.Fields{
+			"boundaryRoot": boundaryRoot,
+			"packageName":  packageName,
+			"pnpmStore":    pnpmStore,
+		}).Warn("pnpm isolated node_modules detected (.pnpm store). Ephemeral linking may not resolve reliably; use committed mode (outDir outside .forst, link \"never\") or ensure postinstall runs forst generate")
+	}
+
 	linkPath := filepath.Join(nodeModules, filepath.FromSlash(packageName))
 	if err := generateLinkIO.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
 		return fmt.Errorf("create scope directory for %s: %w", packageName, err)
@@ -320,16 +329,7 @@ func readForstGeneratedMarker(outDir string) (forstGeneratedMarker, error) {
 	return marker, nil
 }
 
-// createJunction creates a Windows directory junction. On non-Windows it returns an error.
-func createJunction(target, link string) error {
-	if runtime.GOOS != "windows" {
-		return fmt.Errorf("junctions are only supported on windows")
-	}
-	// Prefer os.Symlink for directory links when the process can create them.
-	// Callers on Windows try Junction before copy; using Symlink here keeps the
-	// implementation free of cgo / x/sys while still producing a reparse point.
-	return os.Symlink(target, link)
-}
+// createJunction is implemented in generate_link_windows.go (Windows) and generate_link_unix.go (!Windows).
 
 func copyDirRecursive(src, dst string) error {
 	src = filepath.Clean(src)

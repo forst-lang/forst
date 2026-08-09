@@ -29,7 +29,7 @@ Each Forst package becomes a subpath under `@forst/gen`:
 | Forst package | Import |
 | --- | --- |
 | `package auth` | `@forst/gen/auth` |
-| `package auth` | `@forst/gen/auth` |
+| `package bcrypt` | `@forst/gen/bcrypt` |
 
 Types for that package export from the same subpath. Shared shapes also re-export from `@forst/gen`.
 
@@ -56,6 +56,12 @@ The generated package is a real npm-style module: subpath imports like `@forst/g
 For SSR frameworks (Remix, Nuxt, etc.), add `@forst/gen` to **`ssr.noExternal`** (or your bundler’s equivalent) so server bundles include the generated client. No `tsconfig` **`paths`** entry and no **`resolve.alias`** for `@forst/gen` are required when the `node_modules` link is present.
 
 Working reference: [`examples/in/rfc/node-interop/remix-serve`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/remix-serve) (`vite.config.ts`, `task example:node-interop-remix-serve:standalone-e2e` in CI).
+
+## Runtime targets
+
+Default output is for **Node.js 20.19+** on the server (SSR loaders, API routes, background jobs). The transport uses `fetch`, `process.env`, and Node timing APIs.
+
+Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles are **not** supported by the generated client today. Run `forst generate` in a Node boundary and call Forst from a supported backend. See [Call Forst from Node § Runtime support](/interop/node/call-forst#runtime-support).
 
 ## Monorepos and multiple Forst projects
 
