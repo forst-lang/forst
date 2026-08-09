@@ -164,7 +164,7 @@ func TestGenerate_emitsInvokeStreamAborted(t *testing.T) {
 	if !strings.Contains(invokeJS, "export class InvokeStreamAborted") {
 		t.Fatal("invoke-errors.js must define InvokeStreamAborted")
 	}
-	if !strings.Contains(invokeDTS, `readonly _tag: "@forst/gen/InvokeStreamAborted"`) {
+	if !strings.Contains(invokeDTS, `readonly _tag: "@forst/InvokeStreamAborted"`) {
 		t.Fatal("invoke-errors.d.ts must declare namespaced InvokeStreamAborted tag")
 	}
 	if !strings.Contains(transport, "new InvokeStreamAborted") {
@@ -283,7 +283,7 @@ if (!(rejected instanceof InvokeRejected)) {
   console.error("not InvokeRejected", rejected);
   process.exit(1);
 }
-if (rejected._tag !== "@forst/gen/InvokeRejected") {
+if (rejected._tag !== "@forst/InvokeRejected") {
   console.error("bad tag", rejected._tag);
   process.exit(1);
 }
@@ -306,7 +306,7 @@ try {
   console.error("expected http throw");
   process.exit(1);
 } catch (err) {
-  if (!(err instanceof InvokeHttpFailure) || err._tag !== "@forst/gen/InvokeHttpFailure") {
+  if (!(err instanceof InvokeHttpFailure) || err._tag !== "@forst/InvokeHttpFailure") {
     console.error("not InvokeHttpFailure", err);
     process.exit(1);
   }
@@ -374,7 +374,7 @@ try {
   if (prevDev === undefined) delete process.env.FORST_DEV_URL;
   else process.env.FORST_DEV_URL = prevDev;
 }
-if (!(hit instanceof InvokeBaseUrlMissing) || hit._tag !== "@forst/gen/InvokeBaseUrlMissing") {
+if (!(hit instanceof InvokeBaseUrlMissing) || hit._tag !== "@forst/InvokeBaseUrlMissing") {
   console.error("bad error", hit);
   process.exit(1);
 }

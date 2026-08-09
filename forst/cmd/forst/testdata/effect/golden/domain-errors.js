@@ -4,7 +4,7 @@
 
 import { Data } from "effect";
 
-export class ForstUnknownFailure extends Data.TaggedError("@forst/gen/ForstUnknownFailure") {}
+export class ForstUnknownFailure extends Data.TaggedError("@forst/ForstUnknownFailure") {}
 
 
 export const DOMAIN_ERROR_REGISTRY = {

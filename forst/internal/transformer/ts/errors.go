@@ -20,10 +20,14 @@ type ErrorField struct {
 
 // ErrorClass is one tagged failure class in generated client error modules.
 type ErrorClass struct {
-	Name   string
-	Tag    string
-	Fields []ErrorField
+	Name    string
+	Tag     string // client _tag value
+	WireTag string // wire protocol lookup key; defaults to Name when empty
+	Fields  []ErrorField
 }
+
+// ForstBuiltInTagPrefix is the namespace for generic Forst client errors (invoke, harness, unknown failure).
+const ForstBuiltInTagPrefix = "@forst"
 
 // ErrorCatalog is the single source of truth for invoke transport error classes.
 // Class names never end in "Error" (sidecar condition naming).
@@ -113,25 +117,49 @@ func namespacedClientTag(prefix, shortName string) string {
 	return prefix + "/" + shortName
 }
 
-func invokeCatalogWithTags(npmPackageName string) []ErrorClass {
+func forstBuiltInTag(shortName string) string {
+	return ForstBuiltInTagPrefix + "/" + shortName
+}
+
+func domainWireTag(c ErrorClass) string {
+	if c.WireTag != "" {
+		return c.WireTag
+	}
+	if c.Tag != "" && !strings.HasPrefix(c.Tag, "@") {
+		return c.Tag
+	}
+	return c.Name
+}
+
+func domainErrorsWithClientTags(npmPackageName string, domainErrors []ErrorClass) []ErrorClass {
 	prefix := clientTagPrefix(npmPackageName)
-	out := make([]ErrorClass, len(ErrorCatalog))
-	for i, c := range ErrorCatalog {
+	out := make([]ErrorClass, len(domainErrors))
+	for i, c := range domainErrors {
 		out[i] = c
+		out[i].WireTag = domainWireTag(c)
 		out[i].Tag = namespacedClientTag(prefix, c.Name)
 	}
 	return out
 }
 
-func unknownFailureWithTag(npmPackageName string) ErrorClass {
+func invokeCatalogWithTags(_ string) []ErrorClass {
+	out := make([]ErrorClass, len(ErrorCatalog))
+	for i, c := range ErrorCatalog {
+		out[i] = c
+		out[i].Tag = forstBuiltInTag(c.Name)
+	}
+	return out
+}
+
+func unknownFailureWithTag(_ string) ErrorClass {
 	c := UnknownFailureClass
-	c.Tag = namespacedClientTag(clientTagPrefix(npmPackageName), c.Name)
+	c.Tag = forstBuiltInTag(c.Name)
 	return c
 }
 
-func harnessErrorWithTag(npmPackageName string) ErrorClass {
+func harnessErrorWithTag(_ string) ErrorClass {
 	c := HarnessErrorCatalog[0]
-	c.Tag = namespacedClientTag(clientTagPrefix(npmPackageName), "TestServerFailed")
+	c.Tag = forstBuiltInTag(c.Name)
 	return c
 }
 
@@ -273,7 +301,7 @@ func emitEffectErrorClassDTS(b *strings.Builder, c ErrorClass) {
 
 // EmitDomainErrorsESM returns dist/domain-errors.js.
 func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
-	domainErrors = MergeDomainErrors(domainErrors)
+	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
 	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst domain errors.
@@ -302,7 +330,11 @@ func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runti
 func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
 	b.WriteString("export const DOMAIN_ERROR_REGISTRY = {\n")
 	for _, c := range domainErrors {
-		fmt.Fprintf(b, "  %q: %s,\n", c.Tag, c.Name)
+		wireTag := c.WireTag
+		if wireTag == "" {
+			wireTag = c.Name
+		}
+		fmt.Fprintf(b, "  %q: %s,\n", wireTag, c.Name)
 	}
 	b.WriteString("};\n\n")
 	b.WriteString(`export const decodeDomainError = (errorValue, ctx = {}) => {
@@ -328,7 +360,7 @@ func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
 
 // EmitDomainErrorsDTS returns dist/domain-errors.d.ts.
 func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
-	domainErrors = MergeDomainErrors(domainErrors)
+	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
 	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst domain errors.

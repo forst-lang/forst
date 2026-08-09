@@ -4,14 +4,14 @@
 
 import { Data } from "effect";
 
-export declare class InvokeRejected extends Data.TaggedError("@forst/gen/InvokeRejected")<{
+export declare class InvokeRejected extends Data.TaggedError("@forst/InvokeRejected")<{
   readonly packageName: string;
   readonly functionName: string;
   readonly serverError?: string;
   readonly message?: string;
 }> {}
 
-export declare class InvokeHttpFailure extends Data.TaggedError("@forst/gen/InvokeHttpFailure")<{
+export declare class InvokeHttpFailure extends Data.TaggedError("@forst/InvokeHttpFailure")<{
   readonly packageName: string;
   readonly functionName: string;
   readonly status: number;
@@ -19,34 +19,34 @@ export declare class InvokeHttpFailure extends Data.TaggedError("@forst/gen/Invo
   readonly message?: string;
 }> {}
 
-export declare class InvokeTimedOut extends Data.TaggedError("@forst/gen/InvokeTimedOut")<{
+export declare class InvokeTimedOut extends Data.TaggedError("@forst/InvokeTimedOut")<{
   readonly packageName: string;
   readonly functionName: string;
   readonly timeoutMs?: number;
   readonly message?: string;
 }> {}
 
-export declare class InvokeUnreachable extends Data.TaggedError("@forst/gen/InvokeUnreachable")<{
+export declare class InvokeUnreachable extends Data.TaggedError("@forst/InvokeUnreachable")<{
   readonly packageName: string;
   readonly functionName: string;
   readonly baseUrl: string;
   readonly message?: string;
 }> {}
 
-export declare class InvokeBaseUrlMissing extends Data.TaggedError("@forst/gen/InvokeBaseUrlMissing")<{
+export declare class InvokeBaseUrlMissing extends Data.TaggedError("@forst/InvokeBaseUrlMissing")<{
   readonly envVar: string;
   readonly nodeEnv: string;
   readonly message?: string;
 }> {}
 
-export declare class InvokeStreamAborted extends Data.TaggedError("@forst/gen/InvokeStreamAborted")<{
+export declare class InvokeStreamAborted extends Data.TaggedError("@forst/InvokeStreamAborted")<{
   readonly packageName: string;
   readonly functionName: string;
   readonly rowIndex: number;
   readonly message?: string;
 }> {}
 
-export declare class ContractVersionMismatch extends Data.TaggedError("@forst/gen/ContractVersionMismatch")<{
+export declare class ContractVersionMismatch extends Data.TaggedError("@forst/ContractVersionMismatch")<{
   readonly expectedContractVersion: string;
   readonly serverContractVersion: string;
   readonly message?: string;

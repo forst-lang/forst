@@ -83,10 +83,10 @@ import { Effect } from "effect";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const program = VerifyPassword(input).pipe(
-  Effect.catchTag("@forst/gen/InvokeRejected", (e) =>
+  Effect.catchTag("@forst/InvokeRejected", (e) =>
     Effect.succeed({ valid: false as const, reason: e.serverError })
   ),
-  Effect.catchTag("@forst/gen/InvokeUnreachable", () =>
+  Effect.catchTag("@forst/InvokeUnreachable", () =>
     Effect.fail(new Error("forst server unreachable"))
   )
 );

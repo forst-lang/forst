@@ -11,9 +11,8 @@ const testNpmPackage = "@forst/gen"
 func TestEmitInvokeErrorsESM_emitsTaggedErrorClasses(t *testing.T) {
 	got := EmitInvokeErrorsESM(testNpmPackage, RuntimePromise)
 	assertContainsNone(t, got, []string{"from \"effect\"", "from 'effect'", "require(\"effect\")"})
-	prefix := clientTagPrefix(testNpmPackage)
 	for _, name := range ErrorClassNames() {
-		tag := prefix + "/" + name
+		tag := forstBuiltInTag(name)
 		frag := "export class " + name + " extends tagged(\"" + tag + "\")"
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing class emit for %s:\n%s", name, got)
@@ -33,11 +32,10 @@ func TestEmitInvokeErrorsESM_emitsTaggedErrorClasses(t *testing.T) {
 
 func TestEmitInvokeErrorsESM_namespacesTagsWithPackagePrefix(t *testing.T) {
 	got := EmitInvokeErrorsESM(testNpmPackage, RuntimePromise)
-	prefix := clientTagPrefix(testNpmPackage)
 	for _, name := range ErrorClassNames() {
-		tag := prefix + "/" + name
+		tag := forstBuiltInTag(name)
 		if !strings.Contains(got, `"`+tag+`"`) {
-			t.Fatalf("missing namespaced tag %q:\n%s", tag, got)
+			t.Fatalf("missing built-in tag %q:\n%s", tag, got)
 		}
 	}
 }
@@ -74,9 +72,8 @@ func TestEmitInvokeErrorsDTS_exportsInvokeFailureUnion(t *testing.T) {
 
 func TestEmitInvokeErrorsDTS_extendsErrorAndKeepsInstanceofContract(t *testing.T) {
 	got := EmitInvokeErrorsDTS(testNpmPackage, RuntimePromise)
-	prefix := clientTagPrefix(testNpmPackage)
 	for _, name := range ErrorClassNames() {
-		tag := prefix + "/" + name
+		tag := forstBuiltInTag(name)
 		frag := "export declare class " + name + " extends Error"
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %s:\n%s", frag, got)
@@ -137,9 +134,9 @@ func TestValidateDomainErrors_rejectsReservedNames(t *testing.T) {
 
 func TestEmitHarnessErrorESM_namespacesTestServerFailedTag(t *testing.T) {
 	got := EmitHarnessErrorESM(testNpmPackage, RuntimePromise)
-	tag := clientTagPrefix(testNpmPackage) + "/TestServerFailed"
+	tag := forstBuiltInTag("ForstTestServerFailed")
 	if !strings.Contains(got, `extends tagged("`+tag+`")`) {
-		t.Fatalf("missing namespaced harness tag:\n%s", got)
+		t.Fatalf("missing built-in harness tag:\n%s", got)
 	}
 }
 
@@ -148,7 +145,7 @@ func TestEmitInvokeErrorsESM_effectModeUsesDataTaggedError(t *testing.T) {
 	assertContainsAll(t, got, []string{
 		`import { Data } from "effect"`,
 		"Data.TaggedError",
-		`extends Data.TaggedError("@forst/gen/InvokeRejected")`,
+		`extends Data.TaggedError("@forst/InvokeRejected")`,
 	})
 	assertContainsNone(t, got, []string{"const tagged ="})
 }
@@ -164,7 +161,8 @@ func TestEmitDomainErrorsESM_effectModeUsesDataTaggedError(t *testing.T) {
 	}}, RuntimeEffect)
 	assertContainsAll(t, got, []string{
 		`import { Data } from "effect"`,
-		`extends Data.TaggedError("CellTaken")`,
+		`extends Data.TaggedError("@forst/gen/CellTaken")`,
+		`"CellTaken": CellTaken`,
 		"DOMAIN_ERROR_REGISTRY",
 	})
 	assertContainsNone(t, got, []string{"const tagged ="})
@@ -172,7 +170,7 @@ func TestEmitDomainErrorsESM_effectModeUsesDataTaggedError(t *testing.T) {
 
 func TestEmitHarnessErrorESM_effectModeUsesDataTaggedError(t *testing.T) {
 	got := EmitHarnessErrorESM(testNpmPackage, RuntimeEffect)
-	tag := clientTagPrefix(testNpmPackage) + "/TestServerFailed"
+	tag := forstBuiltInTag("ForstTestServerFailed")
 	assertContainsAll(t, got, []string{
 		`import { Data } from "effect"`,
 		`extends Data.TaggedError("` + tag + `")`,

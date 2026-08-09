@@ -20,11 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **generate (Effect mode):** Renamed layer factories to noun-first names: `layerForstClient` → `ForstClientLayer`, `layerForstTest` → `ForstTestLayer`. Regenerate the client after upgrading.
 
-* **generate:** Split generated client errors into internal `dist/domain-errors.*` and `dist/invoke-errors.*`. Domain errors (`CellTaken`, `ForstUnknownFailure`, …) re-export from the package root. Invoke transport failures import from `@forst/gen/invoke`. Invoke and harness `_tag` strings are namespaced (`@forst/gen/InvokeRejected`). The monolithic `dist/errors.js` and root re-exports of invoke classes are removed.
+* **generate:** Split generated client errors into internal `dist/domain-errors.*` and `dist/invoke-errors.*`. Domain errors (`CellTaken`, `ForstUnknownFailure`, …) re-export from the package root. Invoke transport failures import from `@forst/gen/invoke`. Built-in invoke, harness, and unknown-failure `_tag` strings use `@forst/ErrorName` (for example `@forst/InvokeRejected`). Domain error `_tag` strings are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`). The monolithic `dist/errors.js` and root re-exports of invoke classes are removed.
 
   **Migration**
   1. `import { isInvokeFailure, InvokeRejected } from "@forst/gen/invoke"` (not from the package root).
-  2. Update `switch (error._tag)` and `Effect.catchTag` branches to the namespaced tag (`@forst/gen/InvokeRejected`, or your configured `generate.packageName`).
+  2. Update `switch (error._tag)` and `Effect.catchTag` branches for invoke failures to `@forst/InvokeRejected` (and siblings). Domain errors use `@<packageName>/ErrorName` from `generate.packageName`.
   3. Domain errors stay on the root import (`import { CellTaken } from "@forst/tictactoe"`). Do not import `domain-errors` directly; it is compiler-owned dist plumbing.
 
 ### Features

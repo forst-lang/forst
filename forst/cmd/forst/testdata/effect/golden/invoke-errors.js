@@ -4,29 +4,29 @@
 
 import { Data } from "effect";
 
-export class InvokeRejected extends Data.TaggedError("@forst/gen/InvokeRejected") {}
+export class InvokeRejected extends Data.TaggedError("@forst/InvokeRejected") {}
 
-export class InvokeHttpFailure extends Data.TaggedError("@forst/gen/InvokeHttpFailure") {}
+export class InvokeHttpFailure extends Data.TaggedError("@forst/InvokeHttpFailure") {}
 
-export class InvokeTimedOut extends Data.TaggedError("@forst/gen/InvokeTimedOut") {}
+export class InvokeTimedOut extends Data.TaggedError("@forst/InvokeTimedOut") {}
 
-export class InvokeUnreachable extends Data.TaggedError("@forst/gen/InvokeUnreachable") {}
+export class InvokeUnreachable extends Data.TaggedError("@forst/InvokeUnreachable") {}
 
-export class InvokeBaseUrlMissing extends Data.TaggedError("@forst/gen/InvokeBaseUrlMissing") {}
+export class InvokeBaseUrlMissing extends Data.TaggedError("@forst/InvokeBaseUrlMissing") {}
 
-export class InvokeStreamAborted extends Data.TaggedError("@forst/gen/InvokeStreamAborted") {}
+export class InvokeStreamAborted extends Data.TaggedError("@forst/InvokeStreamAborted") {}
 
-export class ContractVersionMismatch extends Data.TaggedError("@forst/gen/ContractVersionMismatch") {}
+export class ContractVersionMismatch extends Data.TaggedError("@forst/ContractVersionMismatch") {}
 
 
 const INVOKE_FAILURE_TAGS = new Set([
-  "@forst/gen/InvokeRejected",
-  "@forst/gen/InvokeHttpFailure",
-  "@forst/gen/InvokeTimedOut",
-  "@forst/gen/InvokeUnreachable",
-  "@forst/gen/InvokeBaseUrlMissing",
-  "@forst/gen/InvokeStreamAborted",
-  "@forst/gen/ContractVersionMismatch",
+  "@forst/InvokeRejected",
+  "@forst/InvokeHttpFailure",
+  "@forst/InvokeTimedOut",
+  "@forst/InvokeUnreachable",
+  "@forst/InvokeBaseUrlMissing",
+  "@forst/InvokeStreamAborted",
+  "@forst/ContractVersionMismatch",
 ]);
 
 export const isInvokeFailure = (u) =>

@@ -1,4 +1,10 @@
 {
+  "gopls": {
+    "build.env": {
+      "GOOS": "darwin",
+      "GOARCH": "arm64"
+    }
+  },
   "plugins": {
     "mintlify-cursor-plugin": {
       "enabled": true

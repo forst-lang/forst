@@ -4,7 +4,7 @@
 
 import { Data } from "effect";
 
-export declare class ForstUnknownFailure extends Data.TaggedError("@forst/gen/ForstUnknownFailure")<{
+export declare class ForstUnknownFailure extends Data.TaggedError("@forst/ForstUnknownFailure")<{
   readonly serverError?: string;
   readonly tag?: string;
   readonly packageName?: string;

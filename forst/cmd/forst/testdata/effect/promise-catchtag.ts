@@ -7,6 +7,6 @@ import type { InvokeFailure } from "@forst/gen/invoke";
 
 declare const program: Effect.Effect<void, InvokeFailure>;
 const _ = program.pipe(
-  Effect.catchTag("@forst/gen/InvokeTimedOut", () => Effect.void)
+  Effect.catchTag("@forst/InvokeTimedOut", () => Effect.void)
 );
 void _;

@@ -40,6 +40,8 @@ func TestEmitDomainErrorsESM_includesDomainErrorAndRegistry(t *testing.T) {
 	}}, RuntimePromise)
 	for _, want := range []string{
 		"export class CellTaken",
+		`extends tagged("@forst/gen/CellTaken")`,
+		`"CellTaken": CellTaken`,
 		"DOMAIN_ERROR_REGISTRY",
 		"decodeDomainError",
 		"ForstUnknownFailure",

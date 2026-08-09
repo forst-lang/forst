@@ -10,7 +10,7 @@
     },
     {
       "path": "generate-effect",
-      "mustContain": ["Data.TaggedError", "ForstClientLive", "Effect.Effect", "from \"effect\"", "EmptyMessage", "DOMAIN_ERROR_REGISTRY"]
+      "mustContain": ["Data.TaggedError", "ForstClientLive", "Effect.Effect", "from \"effect\"", "EmptyMessage", "DOMAIN_ERROR_REGISTRY", "@forst/generate-effect/EmptyMessage"]
     }
   ]
 }

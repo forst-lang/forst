@@ -274,10 +274,10 @@ try {
 } catch (error) {
   if (!isInvokeFailure(error)) throw error;
   switch (error._tag) {
-    case "@forst/gen/InvokeRejected":
+    case "@forst/InvokeRejected":
       return badRequest(error.serverError);
-    case "@forst/gen/InvokeBaseUrlMissing":
-    case "@forst/gen/InvokeUnreachable":
+    case "@forst/InvokeBaseUrlMissing":
+    case "@forst/InvokeUnreachable":
       return serviceUnavailable();
     default:
       throw error;
@@ -290,10 +290,10 @@ import { Effect } from "effect";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const program = VerifyPassword(input).pipe(
-  Effect.catchTag("@forst/gen/InvokeRejected", (error) =>
+  Effect.catchTag("@forst/InvokeRejected", (error) =>
     Effect.succeed(badRequest(error.serverError))
   ),
-  Effect.catchTag("@forst/gen/InvokeUnreachable", () =>
+  Effect.catchTag("@forst/InvokeUnreachable", () =>
     Effect.succeed(serviceUnavailable())
   )
 );
@@ -303,15 +303,15 @@ const program = VerifyPassword(input).pipe(
 
 | Tag | Meaning | What to do |
 | --- | --- | --- |
-| `@forst/gen/InvokeRejected` | Server returned `success: false` | Map `serverError` to a client response or retry policy |
-| `@forst/gen/InvokeHttpFailure` | Non-2xx HTTP status | Check `status` and `responseText`, fix URL or server |
-| `@forst/gen/InvokeTimedOut` | Exceeded `timeoutMs` or abort signal | Raise timeout, fix slow handler, or surface a 504 |
-| `@forst/gen/InvokeUnreachable` | Connection refused or DNS failure | Confirm the binary or `forst dev` is listening |
-| `@forst/gen/InvokeBaseUrlMissing` | No base URL and spawn is forbidden | Set `FORST_BASE_URL` (required in production) |
-| `@forst/gen/InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
-| `@forst/gen/ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
+| `@forst/InvokeRejected` | Server returned `success: false` | Map `serverError` to a client response or retry policy |
+| `@forst/InvokeHttpFailure` | Non-2xx HTTP status | Check `status` and `responseText`, fix URL or server |
+| `@forst/InvokeTimedOut` | Exceeded `timeoutMs` or abort signal | Raise timeout, fix slow handler, or surface a 504 |
+| `@forst/InvokeUnreachable` | Connection refused or DNS failure | Confirm the binary or `forst dev` is listening |
+| `@forst/InvokeBaseUrlMissing` | No base URL and spawn is forbidden | Set `FORST_BASE_URL` (required in production) |
+| `@forst/InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
+| `@forst/ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
 
-Import invoke helpers from `@forst/gen/invoke` (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short; `_tag` strings are namespaced with your npm package name so they cannot collide with domain errors or Effect service tags.
+Import invoke helpers from `@forst/gen/invoke` (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short. Invoke, harness, and unknown-failure `_tag` strings use the shared `@forst/` prefix. Domain error tags are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`).
 
 ### Domain errors
 
@@ -337,7 +337,7 @@ import { Effect } from "effect";
 import { PlayMove } from "@forst/tictactoe/main";
 
 const program = PlayMove(req).pipe(
-  Effect.catchTag("CellTaken", (e) => Effect.succeed({ row: e.row, col: e.col }))
+  Effect.catchTag("@forst/tictactoe/CellTaken", (e) => Effect.succeed({ row: e.row, col: e.col }))
 );
 ```
 
@@ -361,7 +361,7 @@ import { VerifyPassword } from "@forst/gen/auth";
 const result = await VerifyPassword.safe(input);
 if (!result.ok) {
   switch (result.error._tag) {
-    case "@forst/gen/InvokeRejected":
+    case "@forst/InvokeRejected":
       return badRequest(result.error.serverError);
     default:
       throw result.error;
