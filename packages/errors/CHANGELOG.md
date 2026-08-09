@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/forst-lang/forst/compare/errors-v0.2.0...errors-v0.2.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **errors:** satisfy JSR slow-type rules for publish ([783a010](https://github.com/forst-lang/forst/commit/783a0103141a12fc950fe593aa87b93527e560b3))
+
 ## [0.2.0](https://github.com/forst-lang/forst/compare/errors-v0.1.0...errors-v0.2.0) (2026-08-09)
 
 
