@@ -91,8 +91,8 @@ func TestTypecheckForCompileEntry_shapeGuardRebindsEntryScopes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("typecheckForCompile: %v", err)
 	}
-	if modResult == nil {
-		t.Fatal("expected module result")
+	if modResult != nil {
+		t.Fatal("expected no module result without go.mod boundary")
 	}
 
 	var loggedInNode ast.Node
