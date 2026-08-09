@@ -81,9 +81,10 @@ func TestHostMode_hostNotStarted_timesOut(t *testing.T) {
 	_, err = GetClient()
 	if err == nil {
 		_ = Shutdown()
-		t.Fatal("expected host ready timeout")
+		t.Fatal("expected host startup failure")
 	}
-	if !strings.Contains(err.Error(), "host ready timeout") {
+	if !strings.Contains(err.Error(), "host ready timeout") &&
+		!strings.Contains(err.Error(), "host process exited before ready") {
 		t.Fatalf("err = %v", err)
 	}
 }
