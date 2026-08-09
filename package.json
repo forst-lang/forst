@@ -12,7 +12,8 @@
     "packages/sidecar",
     "packages/client",
     "packages/vscode-forst",
-    "examples/in/rfc/sidecar"
+    "examples/in/rfc/sidecar",
+    "examples/in/tictactoe"
   ],
   "scripts": {
     "vscode-forst:compile": "bun run --filter forst compile"

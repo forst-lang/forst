@@ -531,7 +531,7 @@ tasks:
 
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (startForstTestServer + client)
-    deps: [build, build:cli, build:client, example:tictactoe:generate]
+    deps: [build, build:cli, build:client, build:errors, example:tictactoe:generate]
     env:
       FORST_BINARY: '{{.TASKFILE_DIR}}/bin/forst'
     cmds:
