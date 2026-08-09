@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
 
+## [0.12.0](https://github.com/forst-lang/forst/compare/v0.11.0...v0.12.0) (2026-08-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** emit typed domain errors for nominal failures ([#160](https://github.com/forst-lang/forst/issues/160))
+
+### Features
+
+* **generate:** emit typed domain errors for nominal failures ([#160](https://github.com/forst-lang/forst/issues/160)) ([ba0f837](https://github.com/forst-lang/forst/commit/ba0f8377d67b4d91a35e796925af8b84d5de20db))
+
 ## [0.11.0](https://github.com/forst-lang/forst/compare/v0.10.2...v0.11.0) (2026-08-09)
 
 
