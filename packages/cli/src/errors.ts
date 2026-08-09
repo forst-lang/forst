@@ -124,3 +124,64 @@ export class CompilerBinaryChecksumMismatch extends Error {
     this.artifact = context?.artifact;
   }
 }
+
+/** Context carried by invoke-server lifecycle failures from `@forst/cli/invoke`. */
+export interface ForstInvokeServerErrorContext {
+  mode?: "auto" | "dev" | "embedded";
+  port?: number;
+  argv?: string[];
+  stderrTail?: string;
+  baseUrl?: string;
+  exitCode?: number | null;
+}
+
+/** Timed out waiting for GET /health after spawning an invoke server. */
+export class ForstInvokeServerStartTimeout extends Error {
+  readonly mode?: ForstInvokeServerErrorContext["mode"];
+  readonly port?: number;
+  readonly argv?: string[];
+  readonly stderrTail?: string;
+  readonly baseUrl?: string;
+
+  constructor(message: string, ctx: ForstInvokeServerErrorContext = {}) {
+    super(message);
+    this.name = "ForstInvokeServerStartTimeout";
+    this.mode = ctx.mode;
+    this.port = ctx.port;
+    this.argv = ctx.argv;
+    this.stderrTail = ctx.stderrTail;
+    this.baseUrl = ctx.baseUrl;
+  }
+}
+
+/** Child process exited before the invoke server became healthy. */
+export class ForstInvokeServerExitedEarly extends Error {
+  readonly mode?: ForstInvokeServerErrorContext["mode"];
+  readonly port?: number;
+  readonly argv?: string[];
+  readonly stderrTail?: string;
+  readonly exitCode?: number | null;
+
+  constructor(message: string, ctx: ForstInvokeServerErrorContext = {}) {
+    super(message);
+    this.name = "ForstInvokeServerExitedEarly";
+    this.mode = ctx.mode;
+    this.port = ctx.port;
+    this.argv = ctx.argv;
+    this.stderrTail = ctx.stderrTail;
+    this.exitCode = ctx.exitCode;
+  }
+}
+
+/** Could not reach an existing invoke server on the attach path. */
+export class ForstInvokeServerUnreachable extends Error {
+  readonly baseUrl?: string;
+  readonly port?: number;
+
+  constructor(message: string, ctx: ForstInvokeServerErrorContext = {}) {
+    super(message);
+    this.name = "ForstInvokeServerUnreachable";
+    this.baseUrl = ctx.baseUrl;
+    this.port = ctx.port;
+  }
+}

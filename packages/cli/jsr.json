@@ -3,7 +3,8 @@
   "version": "0.1.2",
   "exports": {
     ".": "./src/index.ts",
-    "./bin": "./src/bin.ts"
+    "./bin": "./src/bin.ts",
+    "./invoke": "./src/invoke.ts"
   },
   "publish": {
     "include": [

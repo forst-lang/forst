@@ -13,6 +13,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./invoke": {
+      "types": "./dist/invoke.d.ts",
+      "import": "./dist/invoke.js",
+      "default": "./dist/invoke.js"
     }
   },
   "files": [

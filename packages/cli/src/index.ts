@@ -51,9 +51,13 @@ export {
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
+  ForstInvokeServerExitedEarly,
+  ForstInvokeServerStartTimeout,
+  ForstInvokeServerUnreachable,
   UnsupportedArchitecture,
   UnsupportedOperatingSystem,
 } from "./errors.js";
+export type { ForstInvokeServerErrorContext } from "./errors.js";
 export { fetchLatestCompilerReleaseVersion } from "./github-release.js";
 export { fetchWithRetry } from "./http.js";
 

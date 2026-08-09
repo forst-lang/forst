@@ -16,14 +16,15 @@ Use it in npm scripts, developer tooling, or as a dependency of libraries such a
 6. [Environment variables](#environment-variables)
 7. [How the wrapper works](#how-the-wrapper-works)
 8. [Programmatic API](#programmatic-api)
-9. [Releases and publishing](#releases-and-publishing)
-10. [Security](#security)
-11. [Upgrading](#upgrading)
-12. [Troubleshooting](#troubleshooting)
-13. [Relationship to `@forst/sidecar`](#relationship-to-forstsidecar)
-14. [Native compiler CLI](#native-compiler-cli)
-15. [Support](#support)
-16. [License](#license)
+9. [`@forst/cli/invoke`](#forstcliinvoke)
+10. [Releases and publishing](#releases-and-publishing)
+11. [Security](#security)
+12. [Upgrading](#upgrading)
+13. [Troubleshooting](#troubleshooting)
+14. [Relationship to `@forst/sidecar`](#relationship-to-forstsidecar)
+15. [Native compiler CLI](#native-compiler-cli)
+16. [Support](#support)
+17. [License](#license)
 
 ---
 
@@ -127,6 +128,26 @@ const bin = await resolveForstBinary();
 ```
 
 See TypeScript definitions under `dist/` after build, or source in [`src/`](./src/).
+
+## `@forst/cli/invoke`
+
+Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/node-runtime`](../node-runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
+
+Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/testing` instead; those helpers call this subpath.
+
+```ts
+import { startForstInvokeServer } from "@forst/cli/invoke";
+
+await using server = await startForstInvokeServer({ root: process.cwd() });
+// server.baseUrl → http://127.0.0.1:<port>
+```
+
+Behaviour in short:
+
+- **Attach before spawn** when `baseUrl`, `FORST_SKIP_SPAWN`, `.forst/invoke.ready`, or `FORST_BASE_URL` / `FORST_INVOKE_URL` / `FORST_DEV_URL` is set. Attach handles never kill the process.
+- **`mode: "auto"`** (default) reads `ftconfig.json` and picks `embedded` when `server.embedded` or `node.hostMode` is true, otherwise `dev`.
+- Readiness is `GET /health`, not log scraping.
+- `stop()` sends `SIGTERM`, then `SIGKILL` after 5s.
 
 ## Releases and publishing
 

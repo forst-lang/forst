@@ -5,6 +5,9 @@ import {
   CompilerBinaryDownloadFailed,
   CompilerBinaryDownloadHttpFailure,
   CompilerBinaryNotFound,
+  ForstInvokeServerExitedEarly,
+  ForstInvokeServerStartTimeout,
+  ForstInvokeServerUnreachable,
   UnsupportedArchitecture,
   UnsupportedOperatingSystem,
 } from "./errors.js";
@@ -85,5 +88,34 @@ describe("CLI error types", () => {
     );
     expect(digestMissing.message).toContain("no sha256");
     expect(digestMissing.message).toContain("FORST_BINARY");
+  });
+
+  test("ForstInvokeServerStartTimeout carries mode and stderrTail", () => {
+    const e = new ForstInvokeServerStartTimeout("slow", {
+      mode: "dev",
+      port: 9,
+      stderrTail: "tail",
+    });
+    expect(e.name).toBe("ForstInvokeServerStartTimeout");
+    expect(e.mode).toBe("dev");
+    expect(e.port).toBe(9);
+    expect(e.stderrTail).toBe("tail");
+  });
+
+  test("ForstInvokeServerExitedEarly carries exitCode", () => {
+    const e = new ForstInvokeServerExitedEarly("gone", {
+      mode: "embedded",
+      exitCode: 1,
+    });
+    expect(e.name).toBe("ForstInvokeServerExitedEarly");
+    expect(e.exitCode).toBe(1);
+  });
+
+  test("ForstInvokeServerUnreachable carries baseUrl", () => {
+    const e = new ForstInvokeServerUnreachable("down", {
+      baseUrl: "http://127.0.0.1:1",
+    });
+    expect(e.name).toBe("ForstInvokeServerUnreachable");
+    expect(e.baseUrl).toBe("http://127.0.0.1:1");
   });
 });
