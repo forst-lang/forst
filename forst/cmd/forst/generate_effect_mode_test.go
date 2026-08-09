@@ -33,6 +33,7 @@ func installEffectFixture(t *testing.T, dir, version string) {
 
 func generateEffectProject(t *testing.T, dir string) string {
 	t.Helper()
+	linkErrorsPackage(t, dir)
 	writeMainFt(t, dir, generateTestMinimalValidForst)
 	writeEffectConfig(t, dir)
 	installEffectFixture(t, dir, "3.21.4")
@@ -44,6 +45,7 @@ func generateEffectProject(t *testing.T, dir string) string {
 
 func generatePromiseProject(t *testing.T, dir string) string {
 	t.Helper()
+	linkErrorsPackage(t, dir)
 	writeMainFt(t, dir, generateTestMinimalValidForst)
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
 		t.Fatal(err)
@@ -186,7 +188,7 @@ func TestGenerate_effectMode_packageJSONHasEffectPeerDependency(t *testing.T) {
 	}
 }
 
-func TestGenerate_effectMode_packageJSONHasNoRuntimeDependencies(t *testing.T) {
+func TestGenerate_effectMode_packageJSONHasErrorsDependency(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
 	cfg.Effect = true
 	j := generateClientPackageJSON(cfg, []string{"main"})
@@ -194,8 +196,12 @@ func TestGenerate_effectMode_packageJSONHasNoRuntimeDependencies(t *testing.T) {
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := pkg["dependencies"]; ok {
-		t.Fatalf("must not have dependencies:\n%s", j)
+	deps, ok := pkg["dependencies"].(map[string]any)
+	if !ok {
+		t.Fatalf("must have dependencies:\n%s", j)
+	}
+	if deps[transformerts.ErrorsPackageName] != transformerts.ErrorsDependencyRange {
+		t.Fatalf("dependencies[%s] = %#v, want %s", transformerts.ErrorsPackageName, deps[transformerts.ErrorsPackageName], transformerts.ErrorsDependencyRange)
 	}
 }
 
@@ -320,29 +326,24 @@ func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
 
-	for _, rel := range []string{"domain-errors.js", "errors.js"} {
+	for _, rel := range []string{"errors.js"} {
 		promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-		if !strings.Contains(promise, "const tagged =") {
-			t.Fatalf("promise %s must use inlined tagged helper", rel)
+		if !strings.Contains(promise, `@forst/errors"`) {
+			t.Fatalf("promise %s must re-export from @forst/errors:\n%s", rel, promise)
 		}
 		if strings.Contains(promise, `from "effect"`) {
 			t.Fatalf("promise %s must not import effect", rel)
 		}
 
 		effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-		for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
-			if !strings.Contains(effect, frag) {
-				t.Fatalf("effect %s missing %q:\n%s", rel, frag, effect)
-			}
-		}
-		if strings.Contains(effect, "const tagged =") {
-			t.Fatalf("effect %s must not use inlined tagged helper", rel)
+		if !strings.Contains(effect, `@forst/errors/effect"`) {
+			t.Fatalf("effect %s must re-export from @forst/errors/effect:\n%s", rel, effect)
 		}
 	}
 
 	effectTesting := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "testing.js"))
-	if !strings.Contains(effectTesting, "Data.TaggedError") {
-		t.Fatal("effect testing.js must use Data.TaggedError for harness error")
+	if !strings.Contains(effectTesting, `@forst/errors/effect"`) {
+		t.Fatal("effect testing.js must re-export harness error from @forst/errors/effect")
 	}
 }
 
@@ -379,10 +380,8 @@ func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 		"dist/effect.d.ts":   {},
 		"dist/transport.js":  {},
 		"dist/transport.d.ts": {},
-		"dist/domain-errors.js":   {},
-		"dist/domain-errors.d.ts": {},
-		"dist/errors.js":   {},
-		"dist/errors.d.ts": {},
+		"dist/errors.js":          {},
+		"dist/errors.d.ts":        {},
 		"package.json":       {},
 		"README.md":          {},
 	}

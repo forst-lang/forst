@@ -265,6 +265,18 @@ func TestShouldLink_neverDisablesLinking(t *testing.T) {
 	}
 }
 
+func TestValidate_rejectsReservedErrorsPackageName(t *testing.T) {
+	g := Default().Generate
+	g.PackageName = ReservedErrorsPackageName
+	err := g.Validate()
+	if err == nil {
+		t.Fatal("expected error for reserved @forst/errors package name")
+	}
+	if !strings.Contains(err.Error(), ReservedErrorsPackageName) {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestReservedSubpaths_followsTestingSubpathConfig(t *testing.T) {
 	g := Default().Generate
 	reserved := g.ReservedSubpaths()
@@ -291,6 +303,9 @@ func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
 	}
 	if _, ok := reserved["effect"]; !ok {
 		t.Fatalf("effect mode must reserve effect subpath: %#v", reserved)
+	}
+	if _, ok := reserved["invoke"]; ok {
+		t.Fatalf("invoke subpath must not be reserved: %#v", reserved)
 	}
 }
 

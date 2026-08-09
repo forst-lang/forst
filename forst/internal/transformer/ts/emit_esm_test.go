@@ -146,7 +146,7 @@ func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
-		`import type { CellTaken, ForstUnknownFailure } from "../domain-errors.js"`,
+		`import type { CellTaken, ForstUnknownFailure } from "../errors.js"`,
 		`import type { InvokeFailure } from "../errors.js"`,
 		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
 		"/** @throws {VerifyTokenFailure} */",
@@ -239,12 +239,12 @@ func TestEmitIndexESM_golden(t *testing.T) {
 		"billing: billing(client)",
 		"http://127.0.0.1:6321",
 		"ForstUnknownFailure",
-		`from "./domain-errors.js"`,
+		`from "./errors.js"`,
 	})
 	assertContainsNone(t, got, []string{
 		"InvokeRejected",
 		"isInvokeFailure",
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 	})
 	assertContainsNone(t, got, []string{
 		"export { VerifyToken",
@@ -289,14 +289,14 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"export type ForstClient = ReturnType<typeof createForstClient>",
 		"TaggedError",
 		"ForstUnknownFailure",
-		`from "./domain-errors.js"`,
+		`from "./errors.js"`,
 		`export type * from "./types.js"`,
 	})
 	assertContainsNone(t, got, []string{
 		"InvokeFailure",
 		"isInvokeFailure",
 		"InvokeRejected",
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 	})
 }
 
@@ -306,8 +306,8 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
 		"export function resetDefaultInvokeClientForTest",
-		`from "./errors.js"`,
-		`from "./domain-errors.js"`,
+		`from "@forst/errors"`,
+		`from "@forst/errors"`,
 		"new InvokeStreamAborted",
 		"new InvokeRejected",
 		"new InvokeHttpFailure",

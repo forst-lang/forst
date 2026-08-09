@@ -153,11 +153,14 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 		testingKey = "testing"
 	}
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
-	appendPackageJSONExport(&b, "./invoke", "./dist/errors.d.ts", "./dist/errors.js")
+	appendPackageJSONExport(&b, "./errors", "./dist/errors.d.ts", "./dist/errors.js")
 	if genCfg.Effect {
 		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
 	}
 	b.WriteString("\n  },\n")
+	b.WriteString("  \"dependencies\": {\n")
+	fmt.Fprintf(&b, "    %q: %s\n", transformerts.ErrorsPackageName, jsonString(transformerts.ErrorsDependencyRange))
+	b.WriteString("  },\n")
 	b.WriteString("  \"peerDependencies\": {\n")
 	fmt.Fprintf(&b, "    \"@forst/cli\": %s", jsonString(transformerts.CliPeerDependencyRange))
 	if genCfg.Effect {
@@ -214,6 +217,11 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 	b.WriteString("- `FORST_BASE_URL`\n")
 	b.WriteString("- `FORST_DEV_URL`\n\n")
 	fmt.Fprintf(&b, "Default fallback: `http://127.0.0.1:%s`\n\n", invokePort)
+	b.WriteString("## Errors\n\n")
+	fmt.Fprintf(&b, "- Runtime dependency: `%s` %s (shared invoke/harness/unknown failure classes).\n", transformerts.ErrorsPackageName, transformerts.ErrorsDependencyRange)
+	b.WriteString("- Domain + shared re-exports: `" + name + "/errors`.\n")
+	b.WriteString("- Built-in invoke/harness/unknown failure `_tag` values use the `@forst/errors/` prefix. Domain error tags use your npm package name.\n")
+	b.WriteString("- Prefer matching on `_tag` in Effect code. In Promise code, `instanceof` works for shared invoke failures.\n\n")
 	b.WriteString("## Lifecycle script\n\n")
 	b.WriteString("Ephemeral output under `.forst/` is gitignored. Do not commit this directory. ")
 	b.WriteString("The package `version` stays at `0.0.0` because it is private, regenerated on every `forst generate`, and never published to npm.\n\n")

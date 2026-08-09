@@ -83,16 +83,16 @@ import { Effect } from "effect";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const program = VerifyPassword(input).pipe(
-  Effect.catchTag("@forst/InvokeRejected", (e) =>
+  Effect.catchTag("@forst/errors/InvokeRejected", (e) =>
     Effect.succeed({ valid: false as const, reason: e.serverError })
   ),
-  Effect.catchTag("@forst/InvokeUnreachable", () =>
+  Effect.catchTag("@forst/errors/InvokeUnreachable", () =>
     Effect.fail(new Error("forst server unreachable"))
   )
 );
 ```
 
-Promise mode uses the same tags with `isInvokeFailure` from `@forst/gen/invoke` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
+Promise mode uses the same tags with `isInvokeFailure` from `@forst/gen/errors` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
 
 ## Wiring
 

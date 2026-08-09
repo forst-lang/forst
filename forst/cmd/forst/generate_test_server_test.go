@@ -18,7 +18,7 @@ import (
 
 func TestGenerate_testServer_emitsPromiseSymbolsAndOptionalPeer(t *testing.T) {
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestGenerate_testServer_missingPeerThrowsForstTestServerFailed(t *testing.T
 		t.Skip("node not found")
 	}
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestGenerate_testServer_stubPeerWiresDefaultClient(t *testing.T) {
 	}
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 	}
 	dir := t.TempDir()
 	ensureNodeModulesDir(t, dir)
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}

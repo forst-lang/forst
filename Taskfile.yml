@@ -54,6 +54,27 @@ tasks:
       - packages/cli/dist/invoke.js
       - packages/cli/dist/invoke.d.ts
 
+  build:errors:
+    desc: Build @forst/errors
+    dir: packages/errors
+    deps: [install:bun]
+    cmds:
+      - bun run build
+    sources:
+      - ./**/*.ts
+    generates:
+      - packages/errors/dist/index.js
+      - packages/errors/dist/index.d.ts
+      - packages/errors/dist/effect.js
+      - packages/errors/dist/effect.d.ts
+
+  test:errors:
+    desc: Run Bun tests for @forst/errors
+    dir: packages/errors
+    deps: [install:bun, build:errors]
+    cmds:
+      - bun run test
+
   test:cli:
     desc: Run Bun tests for @forst/cli
     dir: packages/cli

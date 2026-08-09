@@ -30,9 +30,7 @@ func TestGenerate_typescriptTypechecks_singleFile(t *testing.T) {
 
 func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	ensureNodeModulesDir(t, dir)
 	mainDir := filepath.Join(dir, "main")
 	if err := os.MkdirAll(mainDir, 0o755); err != nil {
 		t.Fatal(err)

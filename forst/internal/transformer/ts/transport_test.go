@@ -64,8 +64,8 @@ func TestEmitTransportTypeScript_inlinesStreamingResultAndInvokeStreamAborted(t 
 		"export interface StreamingResult",
 		"data: any",
 		"status: string",
+		`from "@forst/errors"`,
 		`from "./errors.js"`,
-		`from "./domain-errors.js"`,
 		"InvokeStreamAborted",
 		"rowIndex",
 	} {
@@ -140,27 +140,26 @@ func TestEmitTransportTypeScript_honoursOptionsSignalAbort(t *testing.T) {
 	}
 }
 
-func TestEmitTransportTypeScript_hasZeroRuntimePackageImports(t *testing.T) {
+func TestEmitTransportTypeScript_importsSharedInvokeErrors(t *testing.T) {
 	src := EmitTransportTypeScript("6321", RuntimePromise)
+	if !strings.Contains(src, `from "@forst/errors"`) {
+		t.Fatal("transport must import invoke errors from @forst/errors")
+	}
+	if !strings.Contains(src, `from "./errors.js"`) {
+		t.Fatal("transport must import decodeDomainError from ./errors.js")
+	}
 	for _, banned := range []string{
 		"@forst/client",
 		"@forst/sidecar",
-		"from \"@forst/",
-		"from '@forst/",
+		"from \"@forst/gen",
 		"require(",
 		"import(",
 		"from \"effect\"",
 		"from 'effect'",
 	} {
 		if strings.Contains(src, banned) {
-			t.Fatalf("zero-dependency transport must not contain %q", banned)
+			t.Fatalf("transport must not contain %q", banned)
 		}
-	}
-	if !strings.Contains(src, `from "./errors.js"`) {
-		t.Fatal("transport must import invoke errors from ./errors.js")
-	}
-	if !strings.Contains(src, `from "./domain-errors.js"`) {
-		t.Fatal("transport must import decodeDomainError from ./domain-errors.js")
 	}
 	for _, line := range strings.Split(src, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -168,8 +167,8 @@ func TestEmitTransportTypeScript_hasZeroRuntimePackageImports(t *testing.T) {
 			continue
 		}
 		if strings.Contains(trimmed, " from ") &&
+			!strings.Contains(trimmed, `"@forst/errors"`) &&
 			!strings.Contains(trimmed, `"./errors.js"`) &&
-			!strings.Contains(trimmed, `"./domain-errors.js"`) &&
 			!strings.HasPrefix(trimmed, "import {") {
 			t.Fatalf("transport may only import error modules, got:\n%s", line)
 		}

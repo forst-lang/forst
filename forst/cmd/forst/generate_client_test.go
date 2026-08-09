@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -249,8 +250,9 @@ func TestGenerate_installablePackage(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	pkg := readGeneratedPackageJSON(t, dir)
-	if _, ok := pkg["dependencies"]; ok {
-		t.Fatalf("generated package.json must omit dependencies:\n%v", pkg)
+	deps, _ := pkg["dependencies"].(map[string]any)
+	if deps == nil || deps["@forst/errors"] == nil {
+		t.Fatalf("generated package.json must declare @forst/errors dependency:\n%v", pkg)
 	}
 	if _, ok := pkg["devDependencies"]; ok {
 		t.Fatalf("generated package.json must omit devDependencies:\n%v", pkg)
@@ -623,6 +625,7 @@ func TestGenerate_reservedPackageNames(t *testing.T) {
 	t.Run("near_reserved_names", func(t *testing.T) {
 		dir := t.TempDir()
 		ensureNodeModulesDir(t, dir)
+		linkErrorsPackage(t, dir)
 		for _, pkg := range []string{"types", "index", "transport"} {
 			writePkgFT(t, dir, pkg, "package "+pkg+"\n\nfunc Ping() {\n\treturn 1\n}\n")
 		}
@@ -664,6 +667,21 @@ console.log("ok");
 			}
 		}
 	})
+
+	for _, pkg := range []string{"errors"} {
+		pkg := pkg
+		t.Run("rejected_"+pkg+"_package", func(t *testing.T) {
+			bad := t.TempDir()
+			writePkgFT(t, bad, pkg, fmt.Sprintf("package %s\n\nfunc Ping() {\n\treturn 1\n}\n", pkg))
+			err := generateCommand([]string{bad})
+			if err == nil {
+				t.Fatalf("expected reserved package %q to fail", pkg)
+			}
+			if !strings.Contains(err.Error(), pkg) {
+				t.Fatalf("reserved error should mention %q:\n%s", pkg, err.Error())
+			}
+		})
+	}
 
 	t.Run("testingSubpath_override", func(t *testing.T) {
 		ok := t.TempDir()
@@ -1003,16 +1021,14 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			}
 		}
 
-		for _, rel := range []string{"domain-errors.js", "errors.js"} {
+		for _, rel := range []string{"errors.js"} {
 			promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-			effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-			if !strings.Contains(promise, "const tagged =") {
-				t.Fatalf("promise %s must use inlined tagged helper", rel)
+			if !strings.Contains(promise, `@forst/errors"`) {
+				t.Fatalf("promise %s must re-export from @forst/errors", rel)
 			}
-			for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
-				if !strings.Contains(effect, frag) {
-					t.Fatalf("effect %s missing %q", rel, frag)
-				}
+			effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
+			if !strings.Contains(effect, `@forst/errors/effect"`) {
+				t.Fatalf("effect %s must re-export from @forst/errors/effect", rel)
 			}
 		}
 
@@ -1035,8 +1051,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			"dist/testing.js": {}, "dist/testing.d.ts": {},
 			"dist/effect.js": {}, "dist/effect.d.ts": {},
 			"dist/transport.js": {}, "dist/transport.d.ts": {},
-			"dist/domain-errors.js": {}, "dist/domain-errors.d.ts": {},
-			"dist/errors.js": {}, "dist/errors.d.ts": {},
+			"dist/errors.js":   {}, "dist/errors.d.ts": {},
 			"package.json": {}, "README.md": {},
 		}
 		for path := range changed {

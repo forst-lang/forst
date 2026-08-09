@@ -19,6 +19,7 @@ func ensureNodeModulesDir(t *testing.T, projectRoot string) {
 	if err := os.MkdirAll(filepath.Join(projectRoot, "node_modules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	linkErrorsPackage(t, projectRoot)
 }
 
 func TestGenerate_emitsDistFiles(t *testing.T) {
@@ -31,8 +32,6 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 	for _, rel := range []string{
 		"dist/index.js",
 		"dist/index.d.ts",
-		"dist/domain-errors.js",
-		"dist/domain-errors.d.ts",
 		"dist/errors.js",
 		"dist/errors.d.ts",
 		"dist/transport.js",

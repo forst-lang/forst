@@ -51,7 +51,7 @@ func TestGenerate_testingSubpathHonoursConfig(t *testing.T) {
 
 func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
 
 func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestGenerate_acceptance_testdataExampleRunsWithoutHTTP(t *testing.T) {
 		t.Skip("node not found")
 	}
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
@@ -439,7 +439,7 @@ func runPhase5NodeAcceptance(t *testing.T, name, body string) {
 		t.Skip("node not found")
 	}
 	dir := t.TempDir()
-	writeMainFt(t, dir, generateTestMinimalValidForst)
+	prepareMinimalGenerateProject(t, dir)
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}

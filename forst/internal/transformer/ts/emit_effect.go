@@ -218,13 +218,13 @@ func splitFailureTypeImports(functions []FunctionSignature) (domain []string, in
 	return sortDedupeStrings(domain), sortDedupeStrings(invoke)
 }
 
-func writeFailureTypeImports(b *strings.Builder, functions []FunctionSignature, domainModule, invokeModule string) {
+func writeFailureTypeImports(b *strings.Builder, functions []FunctionSignature, errorsModule string) {
 	domain, invoke := splitFailureTypeImports(functions)
 	if len(domain) > 0 {
-		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(domain, ", "), domainModule)
+		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(domain, ", "), errorsModule)
 	}
 	if len(invoke) > 0 {
-		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(invoke, ", "), invokeModule)
+		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(invoke, ", "), errorsModule)
 	}
 }
 
@@ -267,16 +267,12 @@ func writeTestingErrorsImports(b *strings.Builder, functions []FunctionSignature
 	}
 	domain = filter(domain)
 	invoke = filter(invoke)
-	b.WriteString(`import { InvokeRejected } from "./errors.js";` + "\n")
+	fmt.Fprintf(b, "import { InvokeRejected } from %q;\n", errorsPackageImport(RuntimeEffect))
 	if len(domain) > 0 {
-		fmt.Fprintf(b, `import type { %s } from "./domain-errors.js";`+"\n", strings.Join(domain, ", "))
+		fmt.Fprintf(b, `import type { %s } from "./errors.js";`+"\n", strings.Join(domain, ", "))
 	}
 	if len(invoke) > 0 {
-		typeOnly := make([]string, len(invoke))
-		for i, name := range invoke {
-			typeOnly[i] = "type " + name
-		}
-		fmt.Fprintf(b, `import { %s } from "./errors.js";`+"\n", strings.Join(typeOnly, ", "))
+		fmt.Fprintf(b, `import type { %s } from "./errors.js";`+"\n", strings.Join(invoke, ", "))
 	}
 }
 
@@ -293,7 +289,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	b.WriteString(`import { Context, Effect, Layer } from "effect";` + "\n")
 	b.WriteString(`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js";` + "\n")
 	b.WriteString(`import { ForstTransport } from "../effect.js";` + "\n")
-	writeFailureTypeImports(&b, m.Functions, "../domain-errors.js", "../errors.js")
+writeFailureTypeImports(&b, m.Functions, "../errors.js")
 	typeNames := append([]string(nil), typeImports...)
 	if functionsNeedStreamingResult(m.Functions) {
 		typeNames = append(typeNames, "StreamingResult")
@@ -466,8 +462,8 @@ func EmitTestingEffectESM(modules []ModuleEmit, npmPackageName string) string {
 
 import { Context, Effect, Layer, ManagedRuntime } from "effect";
 import { ForstTransportLayer } from "./effect.js";
-import { InvokeRejected } from "./errors.js";
 `)
+	fmt.Fprintf(&b, "import { InvokeRejected } from %q;\n", errorsPackageImport(RuntimeEffect))
 	b.WriteString(EmitHarnessErrorESM(npmPackageName, RuntimeEffect))
 	b.WriteString("\n")
 	for _, m := range mods {

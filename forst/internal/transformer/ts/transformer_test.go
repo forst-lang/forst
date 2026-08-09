@@ -105,7 +105,7 @@ type EchoResponse = { echo: String, timestamp: Int }
 	}
 	typesFile := out.GenerateTypesFile()
 	if strings.Contains(typesFile, "export interface EmptyMessage") {
-		t.Fatalf("nominal errors belong in domain-errors, not types.d.ts:\n%s", typesFile)
+		t.Fatalf("nominal errors belong in errors.js, not types.d.ts:\n%s", typesFile)
 	}
 	found := false
 	for _, c := range out.DomainErrors {

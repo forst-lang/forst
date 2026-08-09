@@ -18,7 +18,7 @@ func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
 		"export declare function withForstTestScope",
 		"export declare function createTestForstClient",
 		"InvokeRejected",
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 	})
 }
 
@@ -44,7 +44,7 @@ func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
 func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 	got := EmitTestingESM([]ModuleEmit{sampleAuthModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
-		`from "./errors.js"`,
+		`from "@forst/errors"`,
 		"setActiveTestTransportResolver",
 		"export async function withForstTestScope",
 		"export function createTestForstClient",

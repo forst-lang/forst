@@ -78,15 +78,16 @@ func transportFileHeader(invokePort string, runtime ClientRuntime) string {
 	return header
 }
 
-func transportErrorsImport() string {
-	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + InvokeErrorsModuleSpecifier + "\";\nimport { decodeDomainError } from \"" + DomainErrorsModuleSpecifier + "\";\n\n"
+func transportErrorsImport(runtime ClientRuntime) string {
+	pkg := errorsPackageImport(runtime)
+	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + pkg + "\";\nimport { decodeDomainError } from \"" + ErrorsModuleSpecifier + "\";\n\n"
 }
 
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).
 func EmitTransportESM(invokePort string, runtime ClientRuntime) string {
 	return substituteTransportPlaceholders(
 		transportFileHeader(invokePort, runtime)+
-			transportErrorsImport()+
+			transportErrorsImport(runtime)+
 			transportRuntimeESM,
 		invokePort,
 	)
@@ -115,7 +116,7 @@ func EmitTransportTypeScript(invokePort string, runtime ClientRuntime) string {
 	return "// @ts-nocheck\n" +
 		substituteTransportPlaceholders(
 			transportFileHeader(invokePort, runtime)+
-				transportErrorsImport()+
+				transportErrorsImport(runtime)+
 				transportTypeDeclarationsTS+"\n"+
 				transportRuntimeESM,
 			invokePort,

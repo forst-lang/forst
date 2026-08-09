@@ -14,6 +14,9 @@ import (
 // It is never derived from the adopter's package.json or a directory name.
 const DefaultPackageName = "@forst/gen"
 
+// ReservedErrorsPackageName is the npm package name reserved for the shared error catalog.
+const ReservedErrorsPackageName = "@forst/errors"
+
 const defaultGenerateOutDir = ".forst/client"
 
 // npmPackageNamePattern matches a valid npm package name (scoped or unscoped).
@@ -105,7 +108,8 @@ func (g GenerateConfig) ReservedSubpaths() map[string]string {
 		key = "testing"
 	}
 	out := map[string]string{
-		key: "testing subpath",
+		key:     "testing subpath",
+		"errors": "errors subpath",
 	}
 	if g.Effect {
 		out["effect"] = "Effect transport support module"
@@ -169,6 +173,9 @@ func validateNPMPackageName(name string) error {
 	}
 	if !npmPackageNamePattern.MatchString(name) {
 		return fmt.Errorf("generate.packageName %q is not a valid npm package name", name)
+	}
+	if name == ReservedErrorsPackageName {
+		return fmt.Errorf("generate.packageName %q is reserved (%s is the shared invoke/harness error package)", name, name)
 	}
 	return nil
 }

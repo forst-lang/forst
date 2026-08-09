@@ -44,7 +44,8 @@
         "ROADMAP.md",
         "packages/cli/",
         "packages/sidecar/",
-        "packages/node-runtime/"
+        "packages/node-runtime/",
+        "packages/errors/"
       ]
     },
     "packages/cli": {
@@ -67,7 +68,8 @@
         "ROADMAP.md",
         "packages/sidecar/",
         "packages/node-runtime/",
-        "packages/vscode-forst/"
+        "packages/vscode-forst/",
+        "packages/errors/"
       ],
       "extra-files": [
         {
@@ -96,7 +98,8 @@
         "cmd/",
         "ROADMAP.md",
         "packages/node-runtime/",
-        "packages/vscode-forst/"
+        "packages/vscode-forst/",
+        "packages/errors/"
       ],
       "extra-files": [
         {
@@ -126,7 +129,39 @@
         "ROADMAP.md",
         "packages/vscode-forst/",
         "packages/cli/",
-        "packages/sidecar/"
+        "packages/sidecar/",
+        "packages/errors/"
+      ],
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "jsr.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "packages/errors": {
+      "release-type": "node",
+      "package-name": "@forst/errors",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "include-v-in-tag": true,
+      "include-component-in-tag": true,
+      "draft": false,
+      "prerelease": false,
+      "create-pull-request": true,
+      "create-github-release": true,
+      "exclude-paths": [
+        "forst/",
+        "internal/",
+        "examples/",
+        "cmd/",
+        "ROADMAP.md",
+        "packages/vscode-forst/",
+        "packages/cli/",
+        "packages/sidecar/",
+        "packages/node-runtime/"
       ],
       "extra-files": [
         {

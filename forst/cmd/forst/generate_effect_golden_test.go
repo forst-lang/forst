@@ -11,8 +11,6 @@ import (
 var effectGenerateGoldenFiles = []string{
 	"errors.js",
 	"errors.d.ts",
-	"domain-errors.js",
-	"domain-errors.d.ts",
 }
 
 func effectGenerateGoldenDir() string {
@@ -67,10 +65,8 @@ func TestGenerate_effectMode_matchesCommittedGoldens(t *testing.T) {
 				t.Fatalf("golden mismatch for %s (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)\n--- expected ---\n%s\n--- actual ---\n%s",
 					rel, string(expected), string(actual))
 			}
-			for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
-				if !strings.Contains(string(actual), frag) {
-					t.Fatalf("effect golden %s missing %q", rel, frag)
-				}
+			if !strings.Contains(string(actual), `@forst/errors/effect"`) {
+				t.Fatalf("effect golden %s must re-export from @forst/errors/effect", rel)
 			}
 		})
 	}

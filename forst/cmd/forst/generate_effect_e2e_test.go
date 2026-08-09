@@ -28,6 +28,7 @@ func TestGenerate_effectMode_tscFixtureAndRuntime(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "node_modules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	linkErrorsPackage(t, dir)
 	if err := os.Symlink(repoEffect, filepath.Join(dir, "node_modules", "effect")); err != nil {
 		t.Fatalf("symlink effect: %v", err)
 	}
@@ -115,4 +116,53 @@ func findRepoEffectModule() string {
 		}
 	}
 	return ""
+}
+
+func findRepoErrorsModule() string {
+	root := findMonorepoRootWithPackageJSON()
+	if root == "" {
+		return ""
+	}
+	for _, base := range []string{root, filepath.Dir(root)} {
+		for _, rel := range []string{
+			filepath.Join("packages", "errors"),
+			filepath.Join("node_modules", "@forst", "errors"),
+		} {
+			cand := filepath.Join(base, rel)
+			if st, err := os.Stat(filepath.Join(cand, "dist", "index.js")); err == nil && !st.IsDir() {
+				abs, absErr := filepath.Abs(cand)
+				if absErr != nil {
+					return cand
+				}
+				return abs
+			}
+		}
+	}
+	return ""
+}
+
+func linkErrorsPackage(t *testing.T, projectRoot string) {
+	t.Helper()
+	src := findRepoErrorsModule()
+	if src == "" {
+		t.Skip("@forst/errors not built (run task build:errors)")
+	}
+	targetDir := filepath.Join(projectRoot, "node_modules", "@forst")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(targetDir, "errors")
+	_ = os.Remove(target)
+	if err := os.Symlink(src, target); err != nil {
+		t.Fatalf("symlink @forst/errors: %v", err)
+	}
+}
+
+func prepareMinimalGenerateProject(t *testing.T, dir string) {
+	t.Helper()
+	linkErrorsPackage(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	writeMainFt(t, dir, generateTestMinimalValidForst)
 }

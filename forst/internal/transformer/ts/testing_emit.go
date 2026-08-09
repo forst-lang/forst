@@ -18,8 +18,8 @@ func EmitTestingESM(modules []ModuleEmit, npmPackageName string, runtime ClientR
 `)
 	b.WriteString(EmitHarnessErrorESM(npmPackageName, runtime))
 	b.WriteString("\n")
-	b.WriteString(`import { InvokeRejected } from "./errors.js";
-import {
+	fmt.Fprintf(&b, "import { InvokeRejected } from %q;\n", errorsPackageImport(runtime))
+	b.WriteString(`import {
   configureDefaultInvokeClient,
   resetDefaultInvokeClientForTest,
   setActiveTestTransportResolver,
@@ -91,10 +91,8 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
   ForstInvokeClient,
   InvokeCallOptions,
 } from "./transport.js";
-import { InvokeRejected } from "./errors.js";
-
-export { InvokeRejected };
 `)
+	fmt.Fprintf(&b, "import { InvokeRejected } from %q;\n\nexport { InvokeRejected };\n", errorsPackageImport(runtime))
 	if len(typeImports) > 0 {
 		fmt.Fprintf(&b, "import type { %s } from \"./types.js\";\n", strings.Join(typeImports, ", "))
 	}

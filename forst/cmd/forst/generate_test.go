@@ -16,6 +16,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func TestMain(m *testing.M) {
+	// Cursor and some CI runners pin TMPDIR to a reused directory that may already
+	// contain ftconfig.json and .forst/client from an earlier generate test run.
+	// That makes BoundaryRootFromDir resolve outside t.TempDir() subfolders.
+	_ = os.Unsetenv("TMPDIR")
+	os.Exit(m.Run())
+}
+
 // Shared Forst sources for generate tests, dev server tests, and generate_tsc_test.go.
 // Unknown type names in shapes (e.g. Stringd instead of String) fail typechecking, not generate.
 const generateTestMinimalValidForst = `package main

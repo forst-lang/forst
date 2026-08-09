@@ -5,11 +5,17 @@ import (
 	"strings"
 )
 
-// DomainErrorsModuleSpecifier is the relative import path for generated domain errors.
-const DomainErrorsModuleSpecifier = "./domain-errors.js"
+// ErrorsPackageName is the npm package holding shared invoke/harness/unknown failure classes.
+const ErrorsPackageName = "@forst/errors"
 
-// InvokeErrorsModuleSpecifier is the relative import path for generated invoke transport errors.
-const InvokeErrorsModuleSpecifier = "./errors.js"
+// ErrorsDependencyRange is the semver range written to generated client package.json dependencies.
+const ErrorsDependencyRange = ">=0.1.0"
+
+// ErrorsModuleSpecifier is the relative import path for the generated errors aggregator (domain + re-exports).
+const ErrorsModuleSpecifier = "./errors.js"
+
+// ReservedGeneratePackageName is the npm package name reserved for the shared error catalog.
+const ReservedGeneratePackageName = "@forst/errors"
 
 // ErrorField describes one constructor prop on a tagged invoke failure class.
 type ErrorField struct {
@@ -25,9 +31,6 @@ type ErrorClass struct {
 	WireTag string // wire protocol lookup key; defaults to Name when empty
 	Fields  []ErrorField
 }
-
-// ForstBuiltInTagPrefix is the namespace for generic Forst client errors (invoke, harness, unknown failure).
-const ForstBuiltInTagPrefix = "@forst"
 
 // ErrorCatalog is the single source of truth for invoke transport error classes.
 // Class names never end in "Error" (sidecar condition naming).
@@ -96,7 +99,7 @@ var ErrorCatalog = []ErrorClass{
 	},
 }
 
-// HarnessErrorCatalog describes test harness failures (emitted in testing.js, not errors.js).
+// HarnessErrorCatalog describes test harness failures (re-exported from @forst/errors).
 var HarnessErrorCatalog = []ErrorClass{
 	{
 		Name: "ForstTestServerFailed",
@@ -109,16 +112,19 @@ var HarnessErrorCatalog = []ErrorClass{
 	},
 }
 
+func errorsPackageImport(runtime ClientRuntime) string {
+	if runtime == RuntimeEffect {
+		return ErrorsPackageName + "/effect"
+	}
+	return ErrorsPackageName
+}
+
 func clientTagPrefix(npmPackageName string) string {
 	return effectTagPrefix(npmPackageName)
 }
 
 func namespacedClientTag(prefix, shortName string) string {
 	return prefix + "/" + shortName
-}
-
-func forstBuiltInTag(shortName string) string {
-	return ForstBuiltInTagPrefix + "/" + shortName
 }
 
 func domainWireTag(c ErrorClass) string {
@@ -138,30 +144,6 @@ func domainErrorsWithClientTags(npmPackageName string, domainErrors []ErrorClass
 		out[i] = c
 		out[i].WireTag = domainWireTag(c)
 		out[i].Tag = namespacedClientTag(prefix, c.Name)
-	}
-	return out
-}
-
-func invokeCatalogWithTags(_ string) []ErrorClass {
-	out := make([]ErrorClass, len(ErrorCatalog))
-	for i, c := range ErrorCatalog {
-		out[i] = c
-		out[i].Tag = forstBuiltInTag(c.Name)
-	}
-	return out
-}
-
-func unknownFailureWithTag(_ string) ErrorClass {
-	c := UnknownFailureClass
-	c.Tag = forstBuiltInTag(c.Name)
-	return c
-}
-
-func harnessCatalogWithTags() []ErrorClass {
-	out := make([]ErrorClass, len(HarnessErrorCatalog))
-	for i, c := range HarnessErrorCatalog {
-		out[i] = c
-		out[i].Tag = forstBuiltInTag(c.Name)
 	}
 	return out
 }
@@ -302,31 +284,66 @@ func emitEffectErrorClassDTS(b *strings.Builder, c ErrorClass) {
 	b.WriteString(" {}\n\n")
 }
 
-// EmitDomainErrorsESM returns dist/domain-errors.js.
-func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+func writeSharedErrorsImport(b *strings.Builder, runtime ClientRuntime) {
+	fmt.Fprintf(b, "import { ForstUnknownFailure } from %q;\n\n", errorsPackageImport(runtime))
+}
+
+func writeErrorsAggregatorReexports(b *strings.Builder, runtime ClientRuntime) {
+	pkg := errorsPackageImport(runtime)
+	b.WriteString("export {\n")
+	for _, name := range ErrorClassNames() {
+		fmt.Fprintf(b, "  %s,\n", name)
+	}
+	b.WriteString("  isInvokeFailure,\n")
+	b.WriteString("  ForstUnknownFailure,\n")
+	for _, name := range HarnessErrorClassNames() {
+		fmt.Fprintf(b, "  %s,\n", name)
+	}
+	fmt.Fprintf(b, "} from %q;\n\n", pkg)
+}
+
+func writeErrorsAggregatorReexportsDTS(b *strings.Builder, runtime ClientRuntime) {
+	pkg := errorsPackageImport(runtime)
+	b.WriteString("export {\n")
+	for _, name := range ErrorClassNames() {
+		fmt.Fprintf(b, "  %s,\n", name)
+	}
+	b.WriteString("  isInvokeFailure,\n")
+	b.WriteString("  ForstUnknownFailure,\n")
+	for _, name := range HarnessErrorClassNames() {
+		fmt.Fprintf(b, "  %s,\n", name)
+	}
+	fmt.Fprintf(b, "} from %q;\n\n", pkg)
+	fmt.Fprintf(b, "export type { InvokeFailure } from %q;\n", pkg)
+}
+
+// EmitErrorsESM returns dist/errors.js (domain errors + shared re-exports).
+func EmitErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
-	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
-	b.WriteString(`// Auto-generated Forst domain errors.
+	b.WriteString(`// Auto-generated Forst client errors (domain + shared re-exports).
 // Generated by Forst TypeScript Transformer.
 // Do not edit by hand.
 
 `)
+	writeSharedErrorsImport(&b, runtime)
 	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
-		for _, c := range domainErrors {
-			emitEffectErrorClassESM(&b, c)
+		if len(domainErrors) > 0 {
+			writeEffectImport(&b)
+			for _, c := range domainErrors {
+				emitEffectErrorClassESM(&b, c)
+			}
 		}
-		emitEffectErrorClassESM(&b, unknown)
-	} else {
+	} else if len(domainErrors) > 0 {
 		writeTaggedHelperJS(&b)
 		for _, c := range domainErrors {
 			emitErrorClassESM(&b, c)
 		}
-		emitErrorClassESM(&b, unknown)
 	}
 	b.WriteString("\n")
 	emitDomainRegistryJS(&b, domainErrors)
+	b.WriteString("\n")
+	writeErrorsAggregatorReexports(&b, runtime)
 	return b.String()
 }
 
@@ -361,18 +378,20 @@ func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
 `)
 }
 
-// EmitDomainErrorsDTS returns dist/domain-errors.d.ts.
-func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+// EmitErrorsDTS returns dist/errors.d.ts.
+func EmitErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
-	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
-	b.WriteString(`// Auto-generated Forst domain errors.
+	b.WriteString(`// Auto-generated Forst client errors (domain + shared re-exports).
 // Generated by Forst TypeScript Transformer.
 // Do not edit by hand.
 
 `)
+	fmt.Fprintf(&b, "import type { ForstUnknownFailure } from %q;\n\n", errorsPackageImport(runtime))
 	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
+		if len(domainErrors) > 0 {
+			writeEffectImport(&b)
+		}
 	} else {
 		b.WriteString(`export type TaggedError<
   Tag extends string,
@@ -388,17 +407,12 @@ func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runti
 			emitErrorClassDTS(&b, c)
 		}
 	}
-	if runtime == RuntimeEffect {
-		emitEffectErrorClassDTS(&b, unknown)
-	} else {
-		emitErrorClassDTS(&b, unknown)
-	}
 	if len(domainErrors) > 0 {
 		b.WriteString("export type ForstError =\n")
 		for _, c := range domainErrors {
 			fmt.Fprintf(&b, "  | %s\n", c.Name)
 		}
-		fmt.Fprintf(&b, "  | %s\n", unknown.Name)
+		fmt.Fprintf(&b, "  | %s\n", UnknownFailureClass.Name)
 		b.WriteString(";\n\n")
 	} else {
 		b.WriteString("export type ForstError = ForstUnknownFailure;\n\n")
@@ -407,106 +421,49 @@ func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runti
 	b.WriteString("export declare function decodeDomainError(\n")
 	b.WriteString("  errorValue: { tag?: string; payload?: Record<string, unknown>; message?: string } | undefined,\n")
 	b.WriteString("  ctx?: { packageName?: string; functionName?: string; serverError?: string }\n")
-	b.WriteString("): ForstError;\n")
+	b.WriteString("): ForstError;\n\n")
+	writeErrorsAggregatorReexportsDTS(&b, runtime)
 	return b.String()
 }
 
-// EmitInvokeErrorsESM returns dist/errors.js.
-func EmitInvokeErrorsESM(npmPackageName string, runtime ClientRuntime) string {
-	catalog := invokeCatalogWithTags(npmPackageName)
-	var b strings.Builder
-	b.WriteString(`// Auto-generated Forst invoke transport errors.
-// Generated by Forst TypeScript Transformer.
-// Do not edit by hand.
-
-`)
-	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
-		for _, c := range catalog {
-			emitEffectErrorClassESM(&b, c)
-		}
-	} else {
-		writeTaggedHelperJS(&b)
-		for _, c := range catalog {
-			emitErrorClassESM(&b, c)
-		}
-	}
-	b.WriteString("\n")
-	b.WriteString("const INVOKE_FAILURE_TAGS = new Set([\n")
-	for _, c := range catalog {
-		fmt.Fprintf(&b, "  %q,\n", c.Tag)
-	}
-	b.WriteString("]);\n\n")
-	b.WriteString("export const isInvokeFailure = (u) =>\n")
-	b.WriteString("  u instanceof Error && INVOKE_FAILURE_TAGS.has(u._tag);\n")
-	return b.String()
+// EmitDomainErrorsESM is an alias for EmitErrorsESM.
+func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+	return EmitErrorsESM(npmPackageName, domainErrors, runtime)
 }
 
-// EmitInvokeErrorsDTS returns dist/errors.d.ts.
-func EmitInvokeErrorsDTS(npmPackageName string, runtime ClientRuntime) string {
-	catalog := invokeCatalogWithTags(npmPackageName)
-	var b strings.Builder
-	b.WriteString(`// Auto-generated Forst invoke transport errors.
-// Generated by Forst TypeScript Transformer.
-// Do not edit by hand.
-
-`)
-	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
-	}
-	for _, c := range catalog {
-		if runtime == RuntimeEffect {
-			emitEffectErrorClassDTS(&b, c)
-		} else {
-			emitErrorClassDTS(&b, c)
-		}
-	}
-	b.WriteString("export type InvokeFailure =\n")
-	for _, c := range catalog {
-		fmt.Fprintf(&b, "  | %s\n", c.Name)
-	}
-	b.WriteString(";\n\n")
-	b.WriteString("export declare function isInvokeFailure(u: unknown): u is InvokeFailure;\n")
-	return b.String()
+// EmitDomainErrorsDTS is an alias for EmitErrorsDTS.
+func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+	return EmitErrorsDTS(npmPackageName, domainErrors, runtime)
 }
 
-// EmitHarnessErrorESM returns the harness error class definition for testing.js.
+func writeHarnessErrorReexportsESM(b *strings.Builder, runtime ClientRuntime) {
+	pkg := errorsPackageImport(runtime)
+	fmt.Fprintf(b, "import { ForstTestServerFailed } from %q;\n", pkg)
+	b.WriteString("export { ForstTestServerFailed };\n")
+}
+
+func writeHarnessErrorReexportsDTS(b *strings.Builder, runtime ClientRuntime) {
+	pkg := errorsPackageImport(runtime)
+	fmt.Fprintf(b, "import type { ForstTestServerFailed } from %q;\n", pkg)
+	fmt.Fprintf(b, "export { ForstTestServerFailed } from %q;\n", pkg)
+}
+
+// EmitHarnessErrorESM returns harness error re-exports for testing.js.
 func EmitHarnessErrorESM(_ string, runtime ClientRuntime) string {
-	catalog := harnessCatalogWithTags()
-	if len(catalog) == 0 {
+	if len(HarnessErrorCatalog) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
-		for _, c := range catalog {
-			emitEffectErrorClassESM(&b, c)
-		}
-	} else {
-		writeTaggedHelperJS(&b)
-		for _, c := range catalog {
-			emitErrorClassESM(&b, c)
-		}
-	}
+	writeHarnessErrorReexportsESM(&b, runtime)
 	return b.String()
 }
 
-// EmitHarnessErrorDTS returns the harness error class declaration for testing.d.ts.
+// EmitHarnessErrorDTS returns harness error re-export declarations for testing.d.ts.
 func EmitHarnessErrorDTS(_ string, runtime ClientRuntime) string {
-	catalog := harnessCatalogWithTags()
-	if len(catalog) == 0 {
+	if len(HarnessErrorCatalog) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	if runtime == RuntimeEffect {
-		writeEffectImport(&b)
-		for _, c := range catalog {
-			emitEffectErrorClassDTS(&b, c)
-		}
-	} else {
-		for _, c := range catalog {
-			emitErrorClassDTS(&b, c)
-		}
-	}
+	writeHarnessErrorReexportsDTS(&b, runtime)
 	return b.String()
 }

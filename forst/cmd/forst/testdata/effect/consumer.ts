@@ -11,7 +11,7 @@ import type { MainHandlers } from "@forst/gen/testing";
 
 // Happy path: catchTag + retry + provide compiles.
 const happy = Echo({ message: "hi" }).pipe(
-  Effect.catchTag("@forst/InvokeTimedOut", () =>
+  Effect.catchTag("@forst/errors/InvokeTimedOut", () =>
     Effect.succeed({ echo: "x", timestamp: 0 })
   ),
   Effect.retry({ times: 2 }),
