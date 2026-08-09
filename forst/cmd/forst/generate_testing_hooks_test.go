@@ -84,7 +84,7 @@ func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) 
 			ReturnType: "ComparePasswordResponse",
 		}},
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
-	}}, "@forst/gen")
+	}}, "@forst/gen", transformerts.RuntimePromise)
 	if !strings.Contains(got, "packages?:") {
 		t.Fatal("missing packages key")
 	}
@@ -119,7 +119,7 @@ func TestGenerate_transportEmitsMiddlewareTypes(t *testing.T) {
 }
 
 func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
-	got := transformerts.EmitTransportESM("6321")
+	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise)
 	for _, frag := range []string{
 		"packageName",
 		"functionName",

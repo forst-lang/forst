@@ -41,7 +41,7 @@ func generateClientPackage(
 	}
 	domainErrors := transformerts.MergeDomainErrors(domainParts...)
 
-	indexJS := transformerts.EmitIndexESM(packageNames, invokePort, domainErrors)
+	indexJS := transformerts.EmitIndexESM(packageNames, invokePort, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
 		indexJS += transformerts.EmitIndexEffectESM(packageNames, genCfg.PackageName)
 	}
@@ -51,7 +51,7 @@ func generateClientPackage(
 	}
 	log.Infof("Generated client index: %s", indexJSPath)
 
-	indexDTS := transformerts.EmitIndexDTS(packageNames, domainErrors)
+	indexDTS := transformerts.EmitIndexDTS(packageNames, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
 		indexDTS += transformerts.EmitIndexEffectDTS(packageNames)
 	}
@@ -77,8 +77,8 @@ func generateClientPackage(
 		testingJS = transformerts.EmitTestingEffectESM(modules, genCfg.PackageName)
 		testingDTS = transformerts.EmitTestingEffectDTS(modules, genCfg.PackageName)
 	} else {
-		testingJS = transformerts.EmitTestingESM(modules, genCfg.PackageName)
-		testingDTS = transformerts.EmitTestingDTS(modules, genCfg.PackageName)
+		testingJS = transformerts.EmitTestingESM(modules, genCfg.PackageName, transformerts.RuntimePromise)
+		testingDTS = transformerts.EmitTestingDTS(modules, genCfg.PackageName, transformerts.RuntimePromise)
 	}
 	testingJSPath := filepath.Join(outDir, "dist", testingKey+".js")
 	if err := writeGeneratedFile(testingJSPath, []byte(testingJS), stats); err != nil {
@@ -231,7 +231,7 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
 		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire.\n")
 		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
-		b.WriteString("- Tagged invoke errors match Promise mode. They carry `_tag` for `Effect.catchTag` but are not `Data.TaggedError`, so `Equal.equals` compares by reference.\n")
+		b.WriteString("- Invoke, domain, and harness errors use `Data.TaggedError` from the effect peer. `Equal.equals` works on error values.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")
 	}
 	return b.String()

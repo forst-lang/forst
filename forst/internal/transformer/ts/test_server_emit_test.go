@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export interface ForstTestServerOptions",
 		"export interface ForstTestServer",
@@ -17,7 +17,7 @@ func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
 }
 
 func TestEmitTestingESM_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export async function startForstTestServer",
 		`const CLI_INVOKE = "` + CliInvokeModuleSpecifier + `"`,
@@ -59,10 +59,10 @@ func TestEmitTestingEffectESM_includesForstTestServerLayer(t *testing.T) {
 }
 
 func TestEmitHarnessError_harnessOutsideInvokeFailure(t *testing.T) {
-	esm := EmitHarnessErrorESM(testNpmPackage)
-	dts := EmitHarnessErrorDTS(testNpmPackage)
-	invokeESM := EmitInvokeErrorsESM(testNpmPackage)
-	invokeDTS := EmitInvokeErrorsDTS(testNpmPackage)
+	esm := EmitHarnessErrorESM(testNpmPackage, RuntimePromise)
+	dts := EmitHarnessErrorDTS(testNpmPackage, RuntimePromise)
+	invokeESM := EmitInvokeErrorsESM(testNpmPackage, RuntimePromise)
+	invokeDTS := EmitInvokeErrorsDTS(testNpmPackage, RuntimePromise)
 	assertContainsAll(t, esm, []string{"export class ForstTestServerFailed"})
 	assertContainsAll(t, dts, []string{"export declare class ForstTestServerFailed"})
 	unionStart := strings.Index(invokeDTS, "export type InvokeFailure =")

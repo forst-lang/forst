@@ -302,24 +302,36 @@ func TestGenerate_effectMode_coreModuleIsByteIdenticalToPromiseMode(t *testing.T
 	}
 }
 
-func TestGenerate_effectMode_transportAndErrorsAreByteIdenticalToPromiseMode(t *testing.T) {
+func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 	promiseDir := t.TempDir()
 	generatePromiseProject(t, promiseDir)
 
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
 
-	for _, rel := range []string{
-		"transport.js", "transport.d.ts",
-		"domain-errors.js", "domain-errors.d.ts",
-		"invoke-errors.js", "invoke-errors.d.ts",
-		"types.d.ts",
-	} {
-		p := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-		e := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-		if p != e {
-			t.Fatalf("%s must be byte-identical across runtimes", rel)
+	for _, rel := range []string{"domain-errors.js", "invoke-errors.js"} {
+		promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
+		if !strings.Contains(promise, "const tagged =") {
+			t.Fatalf("promise %s must use inlined tagged helper", rel)
 		}
+		if strings.Contains(promise, `from "effect"`) {
+			t.Fatalf("promise %s must not import effect", rel)
+		}
+
+		effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
+		for _, frag := range []string{`from "effect"`, "Data.TaggedError"} {
+			if !strings.Contains(effect, frag) {
+				t.Fatalf("effect %s missing %q:\n%s", rel, frag, effect)
+			}
+		}
+		if strings.Contains(effect, "const tagged =") {
+			t.Fatalf("effect %s must not use inlined tagged helper", rel)
+		}
+	}
+
+	effectTesting := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "testing.js"))
+	if !strings.Contains(effectTesting, "Data.TaggedError") {
+		t.Fatal("effect testing.js must use Data.TaggedError for harness error")
 	}
 }
 
@@ -354,6 +366,12 @@ func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 		"dist/testing.d.ts":  {},
 		"dist/effect.js":     {},
 		"dist/effect.d.ts":   {},
+		"dist/transport.js":  {},
+		"dist/transport.d.ts": {},
+		"dist/domain-errors.js":   {},
+		"dist/domain-errors.d.ts": {},
+		"dist/invoke-errors.js":   {},
+		"dist/invoke-errors.d.ts": {},
 		"package.json":       {},
 		"README.md":          {},
 	}
@@ -560,7 +578,7 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		}},
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
 	}}
-	promiseDTS := transformerts.EmitTestingDTS(mods, "@forst/gen")
+	promiseDTS := transformerts.EmitTestingDTS(mods, "@forst/gen", transformerts.RuntimePromise)
 	effectDTS := transformerts.EmitTestingEffectDTS(mods, "@forst/gen")
 	for _, frag := range []string{
 		"export interface ForstTestOverrides",

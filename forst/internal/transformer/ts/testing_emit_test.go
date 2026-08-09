@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export type BcryptHandlers",
 		"ComparePassword: (",
@@ -23,7 +23,7 @@ func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
 }
 
 func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
 	packagesIdx := strings.Index(got, "packages?:")
 	bcryptIdx := strings.Index(got, "bcrypt?: Partial<BcryptHandlers>")
 	if packagesIdx < 0 || bcryptIdx < 0 || bcryptIdx < packagesIdx {
@@ -42,7 +42,7 @@ func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
 }
 
 func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
-	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
+	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`from "./invoke-errors.js"`,
 		"setActiveTestTransportResolver",

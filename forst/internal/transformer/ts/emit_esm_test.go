@@ -225,7 +225,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 }
 
 func TestEmitIndexESM_golden(t *testing.T) {
-	got := EmitIndexESM([]string{"auth", "bcrypt"}, "6321", nil)
+	got := EmitIndexESM([]string{"auth", "bcrypt"}, "6321", nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport.js"`,
 		`import { auth } from "./pkg/auth.js"`,
@@ -251,7 +251,7 @@ func TestEmitIndexESM_golden(t *testing.T) {
 }
 
 func TestEmitIndexESM_sortsPackages(t *testing.T) {
-	got := EmitIndexESM([]string{"bcrypt", "auth"}, "6321", nil)
+	got := EmitIndexESM([]string{"bcrypt", "auth"}, "6321", nil, RuntimePromise)
 	authImport := strings.Index(got, `import { auth } from "./pkg/auth.js"`)
 	bcryptImport := strings.Index(got, `import { bcrypt } from "./pkg/bcrypt.js"`)
 	if authImport < 0 || bcryptImport < 0 || authImport > bcryptImport {
@@ -261,7 +261,7 @@ func TestEmitIndexESM_sortsPackages(t *testing.T) {
 
 func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
 	domain := []ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}
-	got := EmitIndexDTS([]string{"main"}, domain)
+	got := EmitIndexDTS([]string{"main"}, domain, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"CellTaken",
 		"ForstUnknownFailure",
@@ -270,7 +270,7 @@ func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
 }
 
 func TestEmitIndexDTS_golden(t *testing.T) {
-	got := EmitIndexDTS([]string{"bcrypt"}, nil)
+	got := EmitIndexDTS([]string{"bcrypt"}, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"ForstInvokeClientConfig",
 		"ForstInvokeMiddleware",
@@ -298,7 +298,7 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 }
 
 func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
-	got := EmitTransportESM("6321")
+	got := EmitTransportESM("6321", RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
@@ -334,8 +334,8 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 }
 
 func TestEmitTransportESM_sharesRuntimeWithEmitTransportTypeScript(t *testing.T) {
-	js := EmitTransportESM("6321")
-	ts := EmitTransportTypeScript("6321")
+	js := EmitTransportESM("6321", RuntimePromise)
+	ts := EmitTransportTypeScript("6321", RuntimePromise)
 	for _, frag := range []string{
 		"async invokeFunction(packageName, functionName, args = [], options)",
 		"async *invokeStream(packageName, functionName, args = [], options)",

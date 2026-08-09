@@ -63,30 +63,30 @@ func writeGeneratedDistModules(
 	log.WithFields(logrus.Fields{"path": typesPath}).Info("Generated types declaration file")
 
 	domainErrorsJSPath := filepath.Join(distDir, "domain-errors.js")
-	domainErrorsJS := transformerts.EmitDomainErrorsESM(genCfg.PackageName, merged.DomainErrors)
+	domainErrorsJS := transformerts.EmitDomainErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
 	if err := writeGeneratedFile(domainErrorsJSPath, []byte(domainErrorsJS), stats); err != nil {
 		return fmt.Errorf("failed to write domain-errors.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": domainErrorsJSPath}).Info("Generated domain errors module")
 
 	domainErrorsDTSPath := filepath.Join(distDir, "domain-errors.d.ts")
-	if err := writeGeneratedFile(domainErrorsDTSPath, []byte(transformerts.EmitDomainErrorsDTS(genCfg.PackageName, merged.DomainErrors)), stats); err != nil {
+	if err := writeGeneratedFile(domainErrorsDTSPath, []byte(transformerts.EmitDomainErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)), stats); err != nil {
 		return fmt.Errorf("failed to write domain-errors.d.ts: %w", err)
 	}
 
 	invokeErrorsJSPath := filepath.Join(distDir, "invoke-errors.js")
-	if err := writeGeneratedFile(invokeErrorsJSPath, []byte(transformerts.EmitInvokeErrorsESM(genCfg.PackageName)), stats); err != nil {
+	if err := writeGeneratedFile(invokeErrorsJSPath, []byte(transformerts.EmitInvokeErrorsESM(genCfg.PackageName, runtime)), stats); err != nil {
 		return fmt.Errorf("failed to write invoke-errors.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": invokeErrorsJSPath}).Info("Generated invoke errors module")
 
 	invokeErrorsDTSPath := filepath.Join(distDir, "invoke-errors.d.ts")
-	if err := writeGeneratedFile(invokeErrorsDTSPath, []byte(transformerts.EmitInvokeErrorsDTS(genCfg.PackageName)), stats); err != nil {
+	if err := writeGeneratedFile(invokeErrorsDTSPath, []byte(transformerts.EmitInvokeErrorsDTS(genCfg.PackageName, runtime)), stats); err != nil {
 		return fmt.Errorf("failed to write invoke-errors.d.ts: %w", err)
 	}
 
 	transportJSPath := filepath.Join(distDir, "transport.js")
-	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort)), stats); err != nil {
+	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort, runtime)), stats); err != nil {
 		return fmt.Errorf("failed to write transport.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": transportJSPath}).Info("Generated transport module")

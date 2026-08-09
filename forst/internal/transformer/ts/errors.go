@@ -239,8 +239,40 @@ func emitErrorClassESM(b *strings.Builder, c ErrorClass) {
 	fmt.Fprintf(b, "export class %s extends tagged(%q) {}\n", c.Name, c.Tag)
 }
 
+func writeEffectImport(b *strings.Builder) {
+	b.WriteString(`import { Data } from "effect";
+
+`)
+}
+
+func emitEffectErrorClassFields(b *strings.Builder, c ErrorClass) {
+	b.WriteString("{\n")
+	for _, f := range c.Fields {
+		if f.Name == "message" {
+			continue
+		}
+		optMark := ""
+		if f.Optional {
+			optMark = "?"
+		}
+		fmt.Fprintf(b, "  readonly %s%s: %s;\n", f.Name, optMark, f.TSType)
+	}
+	b.WriteString("  readonly message?: string;\n")
+	b.WriteString("}>")
+}
+
+func emitEffectErrorClassESM(b *strings.Builder, c ErrorClass) {
+	fmt.Fprintf(b, "export class %s extends Data.TaggedError(%q) {}\n\n", c.Name, c.Tag)
+}
+
+func emitEffectErrorClassDTS(b *strings.Builder, c ErrorClass) {
+	fmt.Fprintf(b, "export declare class %s extends Data.TaggedError(%q)<", c.Name, c.Tag)
+	emitEffectErrorClassFields(b, c)
+	b.WriteString(" {}\n\n")
+}
+
 // EmitDomainErrorsESM returns dist/domain-errors.js.
-func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass) string {
+func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	domainErrors = MergeDomainErrors(domainErrors)
 	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
@@ -249,11 +281,19 @@ func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass) strin
 // Do not edit by hand.
 
 `)
-	writeTaggedHelperJS(&b)
-	for _, c := range domainErrors {
-		emitErrorClassESM(&b, c)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+		for _, c := range domainErrors {
+			emitEffectErrorClassESM(&b, c)
+		}
+		emitEffectErrorClassESM(&b, unknown)
+	} else {
+		writeTaggedHelperJS(&b)
+		for _, c := range domainErrors {
+			emitErrorClassESM(&b, c)
+		}
+		emitErrorClassESM(&b, unknown)
 	}
-	emitErrorClassESM(&b, unknown)
 	b.WriteString("\n")
 	emitDomainRegistryJS(&b, domainErrors)
 	return b.String()
@@ -287,7 +327,7 @@ func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
 }
 
 // EmitDomainErrorsDTS returns dist/domain-errors.d.ts.
-func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass) string {
+func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	domainErrors = MergeDomainErrors(domainErrors)
 	unknown := unknownFailureWithTag(npmPackageName)
 	var b strings.Builder
@@ -296,16 +336,28 @@ func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass) strin
 // Do not edit by hand.
 
 `)
-	b.WriteString(`export type TaggedError<
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+	} else {
+		b.WriteString(`export type TaggedError<
   Tag extends string,
   A extends Record<string, unknown> = {}
 > = Error & { readonly _tag: Tag } & Readonly<A>;
 
 `)
-	for _, c := range domainErrors {
-		emitErrorClassDTS(&b, c)
 	}
-	emitErrorClassDTS(&b, unknown)
+	for _, c := range domainErrors {
+		if runtime == RuntimeEffect {
+			emitEffectErrorClassDTS(&b, c)
+		} else {
+			emitErrorClassDTS(&b, c)
+		}
+	}
+	if runtime == RuntimeEffect {
+		emitEffectErrorClassDTS(&b, unknown)
+	} else {
+		emitErrorClassDTS(&b, unknown)
+	}
 	if len(domainErrors) > 0 {
 		b.WriteString("export type ForstError =\n")
 		for _, c := range domainErrors {
@@ -325,7 +377,7 @@ func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass) strin
 }
 
 // EmitInvokeErrorsESM returns dist/invoke-errors.js.
-func EmitInvokeErrorsESM(npmPackageName string) string {
+func EmitInvokeErrorsESM(npmPackageName string, runtime ClientRuntime) string {
 	catalog := invokeCatalogWithTags(npmPackageName)
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst invoke transport errors.
@@ -333,9 +385,16 @@ func EmitInvokeErrorsESM(npmPackageName string) string {
 // Do not edit by hand.
 
 `)
-	writeTaggedHelperJS(&b)
-	for _, c := range catalog {
-		emitErrorClassESM(&b, c)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+		for _, c := range catalog {
+			emitEffectErrorClassESM(&b, c)
+		}
+	} else {
+		writeTaggedHelperJS(&b)
+		for _, c := range catalog {
+			emitErrorClassESM(&b, c)
+		}
 	}
 	b.WriteString("\n")
 	b.WriteString("const INVOKE_FAILURE_TAGS = new Set([\n")
@@ -349,7 +408,7 @@ func EmitInvokeErrorsESM(npmPackageName string) string {
 }
 
 // EmitInvokeErrorsDTS returns dist/invoke-errors.d.ts.
-func EmitInvokeErrorsDTS(npmPackageName string) string {
+func EmitInvokeErrorsDTS(npmPackageName string, runtime ClientRuntime) string {
 	catalog := invokeCatalogWithTags(npmPackageName)
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst invoke transport errors.
@@ -357,8 +416,15 @@ func EmitInvokeErrorsDTS(npmPackageName string) string {
 // Do not edit by hand.
 
 `)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+	}
 	for _, c := range catalog {
-		emitErrorClassDTS(&b, c)
+		if runtime == RuntimeEffect {
+			emitEffectErrorClassDTS(&b, c)
+		} else {
+			emitErrorClassDTS(&b, c)
+		}
 	}
 	b.WriteString("export type InvokeFailure =\n")
 	for _, c := range catalog {
@@ -370,18 +436,28 @@ func EmitInvokeErrorsDTS(npmPackageName string) string {
 }
 
 // EmitHarnessErrorESM returns the harness error class definition for testing.js.
-func EmitHarnessErrorESM(npmPackageName string) string {
+func EmitHarnessErrorESM(npmPackageName string, runtime ClientRuntime) string {
 	c := harnessErrorWithTag(npmPackageName)
 	var b strings.Builder
-	writeTaggedHelperJS(&b)
-	emitErrorClassESM(&b, c)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+		emitEffectErrorClassESM(&b, c)
+	} else {
+		writeTaggedHelperJS(&b)
+		emitErrorClassESM(&b, c)
+	}
 	return b.String()
 }
 
 // EmitHarnessErrorDTS returns the harness error class declaration for testing.d.ts.
-func EmitHarnessErrorDTS(npmPackageName string) string {
+func EmitHarnessErrorDTS(npmPackageName string, runtime ClientRuntime) string {
 	c := harnessErrorWithTag(npmPackageName)
 	var b strings.Builder
-	emitErrorClassDTS(&b, c)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+		emitEffectErrorClassDTS(&b, c)
+	} else {
+		emitErrorClassDTS(&b, c)
+	}
 	return b.String()
 }

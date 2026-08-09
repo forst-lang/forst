@@ -37,7 +37,7 @@ func TestEmitDomainErrorsESM_includesDomainErrorAndRegistry(t *testing.T) {
 			{Name: "row", TSType: "number"},
 			{Name: "col", TSType: "number"},
 		},
-	}})
+	}}, RuntimePromise)
 	for _, want := range []string{
 		"export class CellTaken",
 		"DOMAIN_ERROR_REGISTRY",

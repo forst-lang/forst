@@ -11,7 +11,7 @@ const EffectPeerDependencyRange = ">=3.17.0"
 
 // EffectModuleStem is the compiler-owned dist file holding ForstTransport.
 // Kept out of transport.js so Promise mode transport stays free of an effect import
-// and byte-identical across modes.
+// Effect and Promise modes share core invoke logic; error modules differ by runtime.
 const EffectModuleStem = "effect"
 
 // EmitEffectSupportESM returns dist/effect.js (ForstTransport + withTransport + layerTransport).
@@ -446,7 +446,7 @@ import { Context, Effect, Layer, ManagedRuntime } from "effect";
 import { layerTransport } from "./effect.js";
 import { InvokeRejected } from "./invoke-errors.js";
 `)
-	b.WriteString(EmitHarnessErrorESM(npmPackageName))
+	b.WriteString(EmitHarnessErrorESM(npmPackageName, RuntimeEffect))
 	b.WriteString("\n")
 	for _, m := range mods {
 		pkg := m.PackageName
@@ -547,7 +547,7 @@ func EmitTestingEffectDTS(modules []ModuleEmit, npmPackageName string) string {
 // Do not edit by hand.
 
 `)
-	b.WriteString(EmitHarnessErrorDTS(npmPackageName))
+	b.WriteString(EmitHarnessErrorDTS(npmPackageName, RuntimeEffect))
 	b.WriteString("\n")
 	b.WriteString(`import { Context, Effect, Layer, ManagedRuntime } from "effect";
 import type {

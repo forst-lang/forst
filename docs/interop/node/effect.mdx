@@ -56,14 +56,15 @@ Full `generate` fields live on the [CLI reference](/workflow/cli#generate-config
 
 ## Two separate points
 
-**Everyone gets tagged errors.** Every invoke failure carries a readonly `_tag` that matches the `Data.TaggedError` contract. `Effect.catchTag` works on a client generated in the default Promise mode. No flag, no `generate.effect`, and no `effect` dependency inside the generated package.
+**Promise mode keeps structural compatibility.** Default clients inline a small tagged-error helper. Every invoke failure carries a readonly `_tag` that matches the `Data.TaggedError` contract, so `Effect.catchTag` works without adding `effect` as a runtime dependency.
 
-**`generate.effect: true` is optional.** It makes every generated function return an `Effect`, with a typed error channel and one `Effect.Service` per Forst package.
+**Effect mode uses real Effect errors.** With `generate.effect: true`, invoke, domain, and harness errors extend `Data.TaggedError` from the `effect` peer. `Equal.equals` and other Effect APIs work on error values. Function returns become `Effect` values with a typed error channel.
 
 ## What changes
 
 | Aspect | Promise mode (default) | Effect mode (`generate.effect: true`) |
 | --- | --- | --- |
+| Error classes | Inlined tagged helper (structural `_tag`) | `Data.TaggedError` from `effect` peer |
 | Function return | `Promise<Response>` | `Effect.Effect<Response, InvokeFailure, Pkg>` |
 | Failure encoding | Thrown tagged error, plus `.safe()` | Typed `E` channel. No `.safe()`. |
 | Retries | `options.retries` | `Effect.retry` with a `Schedule` |

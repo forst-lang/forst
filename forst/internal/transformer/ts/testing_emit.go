@@ -8,7 +8,7 @@ import (
 )
 
 // EmitTestingESM returns dist/testing.js (AsyncLocalStorage test scope + createTestForstClient + startForstTestServer).
-func EmitTestingESM(modules []ModuleEmit, npmPackageName string) string {
+func EmitTestingESM(modules []ModuleEmit, npmPackageName string, runtime ClientRuntime) string {
 	mods := sortModulesByPackage(modules)
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst test scope.
@@ -16,7 +16,7 @@ func EmitTestingESM(modules []ModuleEmit, npmPackageName string) string {
 // Do not edit by hand.
 
 `)
-	b.WriteString(EmitHarnessErrorESM(npmPackageName))
+	b.WriteString(EmitHarnessErrorESM(npmPackageName, runtime))
 	b.WriteString("\n")
 	b.WriteString(`import { InvokeRejected } from "./invoke-errors.js";
 import {
@@ -76,7 +76,7 @@ export { InvokeRejected };
 }
 
 // EmitTestingDTS returns dist/testing.d.ts with per-package handler maps under packages.
-func EmitTestingDTS(modules []ModuleEmit, npmPackageName string) string {
+func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientRuntime) string {
 	mods := sortModulesByPackage(modules)
 	typeImports := collectTestingTypeImports(mods)
 	var b strings.Builder
@@ -85,7 +85,7 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string) string {
 // Do not edit by hand.
 
 `)
-	b.WriteString(EmitHarnessErrorDTS(npmPackageName))
+	b.WriteString(EmitHarnessErrorDTS(npmPackageName, runtime))
 	b.WriteString("\n")
 	b.WriteString(`import type {
   ForstInvokeClient,

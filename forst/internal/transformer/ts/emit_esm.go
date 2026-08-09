@@ -273,7 +273,7 @@ func appendOmitStubs(b *strings.Builder, omitted []OmittedFunction) {
 }
 
 // EmitIndexESM returns dist/index.js (createForstClient factory + error re-exports).
-func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClass) string {
+func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	pkgs := sortDedupeStrings(packages)
 	var b strings.Builder
 	b.WriteString("// Auto-generated Forst Client\n")
@@ -304,7 +304,7 @@ func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClas
 }
 
 // EmitIndexDTS returns dist/index.d.ts.
-func EmitIndexDTS(packages []string, domainErrors []ErrorClass) string {
+func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRuntime) string {
 	domainErrors = MergeDomainErrors(domainErrors)
 	pkgs := sortDedupeStrings(packages)
 	var b strings.Builder
@@ -348,7 +348,9 @@ func EmitIndexDTS(packages []string, domainErrors []ErrorClass) string {
 	b.WriteString("  InvokeContext,\n")
 	b.WriteString("};\n")
 	b.WriteString("export type {\n")
-	b.WriteString("  TaggedError,\n")
+	if runtime != RuntimeEffect {
+		b.WriteString("  TaggedError,\n")
+	}
 	if len(domainErrors) > 0 {
 		b.WriteString("  ForstError,\n")
 	}
