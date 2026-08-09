@@ -1,12 +1,12 @@
 package main
-
+// Config: TypeDefShapeExpr({host: String, port: Int, plain: Int})
 type Config struct {
-	Host  string `json:"host"`
-	Port  int    `json:"port,omitempty"`
+	host  string
 	plain int
+	port  int
 }
 
 func main() {
-	c := Config{Host: "localhost", Port: 8080, plain: 1}
-	println(c.Host, c.Port, c.plain)
+	c := Config{host: "localhost", port: 8080, plain: 1}
+	println(c.host, c.port, c.plain)
 }
