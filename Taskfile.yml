@@ -420,7 +420,7 @@ tasks:
     cmds:
       - UPDATE_EXAMPLES_GOLDENS=1 go test ./cmd/forst -run TestUpdateExamplesGoldens -count=1
       - UPDATE_EXAMPLES_GOLDENS=1 go test ./internal/transformer/go -run TestWriteUnionErrorNarrowingGolden -count=1
-      - go test ./cmd/forst -run 'TestExamples$|TestExampleTictactoeMergedPackage|TestExampleProvidersMergedPackage|TestExampleProvidersCrossPkgGolden|TestExampleNodeInteropPackagesCompileGolden' -count=1
+      - go test ./cmd/forst -run 'TestExamples$|TestExampleTictactoeMergedPackage|TestExampleProvidersMergedPackage|TestExampleProvidersCrossPkgGolden|TestExampleNodeInteropPackagesCompileGolden|TestGenerate_effectMode_matchesCommittedGoldens' -count=1
       - go test ./internal/compiler -run TestCompileFile_map_catalog_golden -count=1
       - git add -f ../examples/out/
 
@@ -501,6 +501,12 @@ tasks:
     dir: forst
     cmds:
       - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/tictactoe
+
+  example:generate-effect:generate:
+    desc: Regenerate @forst/generate-effect client (generate.effect true, Data.TaggedError errors)
+    dir: forst
+    cmds:
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/generate-effect
 
   test:tictactoe:
     desc: Generate TypeScript for tictactoe and run bun integration tests (startForstTestServer + client)
