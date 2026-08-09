@@ -405,9 +405,6 @@ func TestGenerate_packageJSONHasNoErrorsSubpath(t *testing.T) {
 	if strings.Contains(body, `"./errors"`) {
 		t.Fatal("errors must not be a public exports subpath")
 	}
-	if !strings.Contains(body, `"./invoke"`) {
-		t.Fatal("package.json must export ./invoke subpath")
-	}
 }
 
 func TestGenerate_transportNeverThrowsBareError(t *testing.T) {

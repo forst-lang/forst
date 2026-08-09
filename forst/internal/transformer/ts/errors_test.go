@@ -1,6 +1,7 @@
 package transformerts
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -126,17 +127,32 @@ func TestEmitInvokeErrorsESM_doesNotExportHarnessError(t *testing.T) {
 }
 
 func TestValidateDomainErrors_rejectsReservedNames(t *testing.T) {
-	err := ValidateDomainErrors([]ErrorClass{{Name: "InvokeRejected", Tag: "InvokeRejected"}})
-	if err == nil {
-		t.Fatal("expected collision error for InvokeRejected")
+	for _, name := range ReservedClientErrorNames() {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateDomainErrors([]ErrorClass{{Name: name, Tag: name}})
+			if err == nil {
+				t.Fatalf("expected collision error for %q", name)
+			}
+			want := fmt.Sprintf("domain error %q conflicts with reserved Forst client error name", name)
+			if err.Error() != want {
+				t.Fatalf("error = %q, want %q", err.Error(), want)
+			}
+		})
 	}
+	t.Run("allows non-reserved names", func(t *testing.T) {
+		if err := ValidateDomainErrors([]ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}); err != nil {
+			t.Fatalf("CellTaken should be allowed: %v", err)
+		}
+	})
 }
 
-func TestEmitHarnessErrorESM_namespacesTestServerFailedTag(t *testing.T) {
+func TestEmitHarnessErrorESM_namespacesHarnessTags(t *testing.T) {
 	got := EmitHarnessErrorESM(testNpmPackage, RuntimePromise)
-	tag := forstBuiltInTag("ForstTestServerFailed")
-	if !strings.Contains(got, `extends tagged("`+tag+`")`) {
-		t.Fatalf("missing built-in harness tag:\n%s", got)
+	for _, name := range HarnessErrorClassNames() {
+		tag := forstBuiltInTag(name)
+		if !strings.Contains(got, `extends tagged("`+tag+`")`) {
+			t.Fatalf("missing built-in harness tag %q:\n%s", tag, got)
+		}
 	}
 }
 

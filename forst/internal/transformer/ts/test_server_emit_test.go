@@ -76,14 +76,17 @@ func TestEmitHarnessError_harnessOutsideInvokeFailure(t *testing.T) {
 	if strings.Contains(union, "ForstTestServerFailed") {
 		t.Fatalf("InvokeFailure must not include ForstTestServerFailed:\n%s", union)
 	}
-	if strings.Contains(invokeESM, `"ForstTestServerFailed"`) && strings.Contains(invokeESM, "INVOKE_FAILURE_TAGS") {
-		tagBlockStart := strings.Index(invokeESM, "const INVOKE_FAILURE_TAGS")
+	tagBlockStart := strings.Index(invokeESM, "const INVOKE_FAILURE_TAGS")
+	if tagBlockStart >= 0 {
 		tagBlock := invokeESM[tagBlockStart:]
 		if end := strings.Index(tagBlock, "export const isInvokeFailure"); end > 0 {
 			tagBlock = tagBlock[:end]
 		}
-		if strings.Contains(tagBlock, "ForstTestServerFailed") {
-			t.Fatalf("INVOKE_FAILURE_TAGS must not include harness tag:\n%s", tagBlock)
+		for _, name := range HarnessErrorClassNames() {
+			tag := forstBuiltInTag(name)
+			if strings.Contains(tagBlock, `"`+tag+`"`) {
+				t.Fatalf("INVOKE_FAILURE_TAGS must not include harness tag %q:\n%s", tag, tagBlock)
+			}
 		}
 	}
 }

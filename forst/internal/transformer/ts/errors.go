@@ -157,10 +157,13 @@ func unknownFailureWithTag(_ string) ErrorClass {
 	return c
 }
 
-func harnessErrorWithTag(_ string) ErrorClass {
-	c := HarnessErrorCatalog[0]
-	c.Tag = forstBuiltInTag(c.Name)
-	return c
+func harnessCatalogWithTags() []ErrorClass {
+	out := make([]ErrorClass, len(HarnessErrorCatalog))
+	for i, c := range HarnessErrorCatalog {
+		out[i] = c
+		out[i].Tag = forstBuiltInTag(c.Name)
+	}
+	return out
 }
 
 // ErrorClassNames returns every invoke failure class name from ErrorCatalog in catalog order.
@@ -468,28 +471,42 @@ func EmitInvokeErrorsDTS(npmPackageName string, runtime ClientRuntime) string {
 }
 
 // EmitHarnessErrorESM returns the harness error class definition for testing.js.
-func EmitHarnessErrorESM(npmPackageName string, runtime ClientRuntime) string {
-	c := harnessErrorWithTag(npmPackageName)
+func EmitHarnessErrorESM(_ string, runtime ClientRuntime) string {
+	catalog := harnessCatalogWithTags()
+	if len(catalog) == 0 {
+		return ""
+	}
 	var b strings.Builder
 	if runtime == RuntimeEffect {
 		writeEffectImport(&b)
-		emitEffectErrorClassESM(&b, c)
+		for _, c := range catalog {
+			emitEffectErrorClassESM(&b, c)
+		}
 	} else {
 		writeTaggedHelperJS(&b)
-		emitErrorClassESM(&b, c)
+		for _, c := range catalog {
+			emitErrorClassESM(&b, c)
+		}
 	}
 	return b.String()
 }
 
 // EmitHarnessErrorDTS returns the harness error class declaration for testing.d.ts.
-func EmitHarnessErrorDTS(npmPackageName string, runtime ClientRuntime) string {
-	c := harnessErrorWithTag(npmPackageName)
+func EmitHarnessErrorDTS(_ string, runtime ClientRuntime) string {
+	catalog := harnessCatalogWithTags()
+	if len(catalog) == 0 {
+		return ""
+	}
 	var b strings.Builder
 	if runtime == RuntimeEffect {
 		writeEffectImport(&b)
-		emitEffectErrorClassDTS(&b, c)
+		for _, c := range catalog {
+			emitEffectErrorClassDTS(&b, c)
+		}
 	} else {
-		emitErrorClassDTS(&b, c)
+		for _, c := range catalog {
+			emitErrorClassDTS(&b, c)
+		}
 	}
 	return b.String()
 }

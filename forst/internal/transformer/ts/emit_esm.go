@@ -185,9 +185,7 @@ func EmitCoreDTS(m ModuleEmit) string {
 
 	for _, fn := range m.Functions {
 		params := emitParamListDTS(fn.Parameters, true)
-		if fn.FailureType != "" {
-			b.WriteString(fmt.Sprintf("/** @throws {%s} */\n", fn.FailureType))
-		}
+		b.WriteString(fmt.Sprintf("/** @throws {%s} */\n", effectFailureType(fn)))
 		b.WriteString(fmt.Sprintf("export declare function %s(\n", fn.Name))
 		b.WriteString(fmt.Sprintf("  %s\n", params))
 		b.WriteString(fmt.Sprintf("): Promise<%s>;\n\n", fn.ReturnType))

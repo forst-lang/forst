@@ -123,6 +123,7 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 		`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js"`,
 		`import type { ComparePasswordRequest, ComparePasswordResponse } from "../types.js"`,
 		"export declare const bcrypt:",
+		"/** @throws {InvokeFailure} */",
 		"export declare function ComparePassword(",
 		"options?: InvokeCallOptions",
 		"Promise<ComparePasswordResponse>",

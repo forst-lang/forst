@@ -48,6 +48,11 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 			t.Fatalf("expected %s: %v", rel, err)
 		}
 	}
+	for _, rel := range []string{"dist/errors.js", "dist/errors.d.ts"} {
+		if _, err := os.Stat(filepath.Join(outDir, rel)); !os.IsNotExist(err) {
+			t.Fatalf("legacy %s must not be generated: %v", rel, err)
+		}
+	}
 	if _, err := os.Stat(filepath.Join(outDir, "src")); !os.IsNotExist(err) {
 		t.Fatalf("src/ must not be written, stat err=%v", err)
 	}

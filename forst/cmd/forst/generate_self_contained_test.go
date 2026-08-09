@@ -293,6 +293,9 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 		if strings.Contains(idx, banned) {
 			t.Fatalf("index.js must not re-export invoke errors (%q present):\n%s", banned, idx)
 		}
+		if strings.Contains(dts, banned) {
+			t.Fatalf("index.d.ts must not re-export invoke errors (%q present):\n%s", banned, dts)
+		}
 	}
 	for _, banned := range []string{"../generated", "@forst/client", ".client", "export { catalog, List }", "from './catalog.js'"} {
 		if strings.Contains(idx, banned) {

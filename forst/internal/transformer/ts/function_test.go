@@ -116,6 +116,20 @@ func TestTypeScriptTransformer_transformFunction_table(t *testing.T) {
 			wantStreamable: false,
 		},
 		{
+			name: "unwraps Result success type from typechecker return",
+			fn:   makeFn("FromTcResult", ast.NewBuiltinType(ast.TypeString)),
+			tcReturnType: ptrType(ast.TypeNode{
+				Ident:    ast.TypeResult,
+				TypeKind: ast.TypeKindBuiltin,
+				TypeParams: []ast.TypeNode{
+					ast.NewBuiltinType(ast.TypeInt),
+					ast.NewBuiltinType(ast.TypeError),
+				},
+			}),
+			wantReturnType: "number",
+			wantStreamable: false,
+		},
+		{
 			name:                   "sets streaming row type for chan returns",
 			fn:                     makeFn("StreamRows", ast.NewChannelType(ast.NewBuiltinType(ast.TypeString))),
 			enableStreamingClients: true,

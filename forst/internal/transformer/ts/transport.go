@@ -15,9 +15,6 @@ const DefaultInvokePort = "6321"
 // ESM resolution. The .js extension is required for Node when importing the inlined transport module.
 const TransportModuleSpecifier = "./transport.js"
 
-// ErrorsModuleSpecifier is the relative ESM import path for tagged invoke failures.
-const ErrorsModuleSpecifier = InvokeErrorsModuleSpecifier
-
 // EmitStreamingResultTypeDeclaration returns the StreamingResult interface copied into
 // generated types.d.ts when any exported function uses streaming. Kept in sync with
 // the interface inside EmitTransportDTS / EmitTransportTypeScript.
