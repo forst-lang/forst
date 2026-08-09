@@ -84,7 +84,7 @@ func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) 
 			ReturnType: "ComparePasswordResponse",
 		}},
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
-	}})
+	}}, "@forst/gen")
 	if !strings.Contains(got, "packages?:") {
 		t.Fatal("missing packages key")
 	}

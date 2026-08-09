@@ -64,7 +64,8 @@ func TestEmitTransportTypeScript_inlinesStreamingResultAndInvokeStreamAborted(t 
 		"export interface StreamingResult",
 		"data: any",
 		"status: string",
-		`from "./errors.js"`,
+		`from "./invoke-errors.js"`,
+		`from "./domain-errors.js"`,
 		"InvokeStreamAborted",
 		"rowIndex",
 	} {
@@ -73,7 +74,7 @@ func TestEmitTransportTypeScript_inlinesStreamingResultAndInvokeStreamAborted(t 
 		}
 	}
 	if strings.Contains(src, "export class InvokeStreamAborted") {
-		t.Fatal("InvokeStreamAborted must live in errors.js, not be redefined in transport")
+		t.Fatal("InvokeStreamAborted must live in invoke-errors.js, not be redefined in transport")
 	}
 }
 
@@ -155,19 +156,22 @@ func TestEmitTransportTypeScript_hasZeroRuntimePackageImports(t *testing.T) {
 			t.Fatalf("zero-dependency transport must not contain %q", banned)
 		}
 	}
-	if !strings.Contains(src, `from "./errors.js"`) {
-		t.Fatal("transport must import tagged errors from ./errors.js")
+	if !strings.Contains(src, `from "./invoke-errors.js"`) {
+		t.Fatal("transport must import invoke errors from ./invoke-errors.js")
+	}
+	if !strings.Contains(src, `from "./domain-errors.js"`) {
+		t.Fatal("transport must import decodeDomainError from ./domain-errors.js")
 	}
 	for _, line := range strings.Split(src, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "import ") {
 			continue
 		}
-		if !strings.Contains(trimmed, `from "./errors.js"`) && !strings.HasPrefix(trimmed, "import {") {
-			// Multi-line import from errors.js is OK; any other module is not.
-			if strings.Contains(trimmed, " from ") && !strings.Contains(trimmed, `"./errors.js"`) {
-				t.Fatalf("transport may only import ./errors.js, got:\n%s", line)
-			}
+		if strings.Contains(trimmed, " from ") &&
+			!strings.Contains(trimmed, `"./invoke-errors.js"`) &&
+			!strings.Contains(trimmed, `"./domain-errors.js"`) &&
+			!strings.HasPrefix(trimmed, "import {") {
+			t.Fatalf("transport may only import error modules, got:\n%s", line)
 		}
 	}
 }

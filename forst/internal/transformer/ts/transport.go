@@ -16,7 +16,7 @@ const DefaultInvokePort = "6321"
 const TransportModuleSpecifier = "./transport.js"
 
 // ErrorsModuleSpecifier is the relative ESM import path for tagged invoke failures.
-const ErrorsModuleSpecifier = "./errors.js"
+const ErrorsModuleSpecifier = InvokeErrorsModuleSpecifier
 
 // EmitStreamingResultTypeDeclaration returns the StreamingResult interface copied into
 // generated types.d.ts when any exported function uses streaming. Kept in sync with
@@ -78,7 +78,7 @@ func transportFileHeader(invokePort string) string {
 }
 
 func transportErrorsImport() string {
-	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n  decodeDomainError,\n} from \"./errors.js\";\n\n"
+	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + InvokeErrorsModuleSpecifier + "\";\nimport { decodeDomainError } from \"" + DomainErrorsModuleSpecifier + "\";\n\n"
 }
 
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).

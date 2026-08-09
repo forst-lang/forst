@@ -35,22 +35,22 @@ func readDistFile(t *testing.T, distDir, rel string) string {
 
 func TestGenerate_emitsTaggedErrorClasses(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
 	for _, name := range transformerts.ErrorClassNames() {
-		if !strings.Contains(errorsJS, "export class "+name) {
-			t.Fatalf("errors.js missing class %s:\n%s", name, errorsJS)
+		if !strings.Contains(invokeJS, "export class "+name) {
+			t.Fatalf("invoke-errors.js missing class %s:\n%s", name, invokeJS)
 		}
 	}
-	assertNoEffectImport(t, errorsJS)
+	assertNoEffectImport(t, invokeJS)
 	assertNoEffectImport(t, readDistFile(t, dist, "transport.js"))
 }
 
 func TestGenerate_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
 	re := regexp.MustCompile(`Error$`)
 	classRe := regexp.MustCompile(`export class (\w+)`)
-	for _, m := range classRe.FindAllStringSubmatch(errorsJS, -1) {
+	for _, m := range classRe.FindAllStringSubmatch(invokeJS, -1) {
 		if re.MatchString(m[1]) {
 			t.Fatalf("emitted class %q ends in Error", m[1])
 		}
@@ -64,14 +64,14 @@ func TestGenerate_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 
 func TestGenerate_taggedErrorCarriesLiteralTag(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
 	for _, frag := range []string{
 		`Object.defineProperty(this, "_tag"`,
 		"enumerable: true",
 		"writable: false",
 		"value: tag",
 	} {
-		if !strings.Contains(errorsJS, frag) {
+		if !strings.Contains(invokeJS, frag) {
 			t.Fatalf("missing _tag contract fragment %q", frag)
 		}
 	}
@@ -79,19 +79,19 @@ func TestGenerate_taggedErrorCarriesLiteralTag(t *testing.T) {
 
 func TestGenerate_taggedErrorExtendsErrorAndKeepsInstanceof(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
 	for _, frag := range []string{
 		"class extends Error",
 		"Object.setPrototypeOf(this, new.target.prototype)",
 		"this.name = tag",
 	} {
-		if !strings.Contains(errorsJS, frag) {
+		if !strings.Contains(invokeJS, frag) {
 			t.Fatalf("missing instanceof contract fragment %q", frag)
 		}
 	}
-	errorsDTS := readDistFile(t, dist, "errors.d.ts")
+	invokeDTS := readDistFile(t, dist, "invoke-errors.d.ts")
 	for _, name := range transformerts.ErrorClassNames() {
-		if !strings.Contains(errorsDTS, "export declare class "+name+" extends Error") {
+		if !strings.Contains(invokeDTS, "export declare class "+name+" extends Error") {
 			t.Fatalf("%s must extend Error in DTS", name)
 		}
 	}
@@ -99,60 +99,73 @@ func TestGenerate_taggedErrorExtendsErrorAndKeepsInstanceof(t *testing.T) {
 
 func TestGenerate_taggedErrorAssignsPropsAsOwnProperties(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
-	if !strings.Contains(errorsJS, "Object.assign(this, props)") {
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
+	if !strings.Contains(invokeJS, "Object.assign(this, props)") {
 		t.Fatal("tagged ctor must assign props as own properties")
 	}
 }
 
 func TestGenerate_taggedErrorPropsCannotOverwriteTag(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
-	assignIdx := strings.Index(errorsJS, "Object.assign(this, props)")
-	defineIdx := strings.Index(errorsJS, `Object.defineProperty(this, "_tag"`)
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
+	assignIdx := strings.Index(invokeJS, "Object.assign(this, props)")
+	defineIdx := strings.Index(invokeJS, `Object.defineProperty(this, "_tag"`)
 	if assignIdx < 0 || defineIdx < 0 || assignIdx > defineIdx {
 		t.Fatal("Object.assign must precede defineProperty(_tag)")
 	}
 }
 
 func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
-	_, dist := generatePhase4Project(t)
-	errorsDTS := readDistFile(t, dist, "errors.d.ts")
-	errorsJS := readDistFile(t, dist, "errors.js")
+	dir, dist := generatePhase4Project(t)
+	invokeDTS := readDistFile(t, dist, "invoke-errors.d.ts")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
 	indexJS := readDistFile(t, dist, "index.js")
 	indexDTS := readDistFile(t, dist, "index.d.ts")
-	if !strings.Contains(errorsDTS, "export type InvokeFailure =") {
-		t.Fatalf("missing InvokeFailure union:\n%s", errorsDTS)
+	if !strings.Contains(invokeDTS, "export type InvokeFailure =") {
+		t.Fatalf("missing InvokeFailure union:\n%s", invokeDTS)
 	}
-	if !strings.Contains(errorsJS, "export const isInvokeFailure") {
-		t.Fatalf("missing isInvokeFailure:\n%s", errorsJS)
+	if !strings.Contains(invokeJS, "export const isInvokeFailure") {
+		t.Fatalf("missing isInvokeFailure:\n%s", invokeJS)
 	}
-	for _, name := range transformerts.AllExportedErrorClassNames() {
+	for _, name := range transformerts.RootReexportedDomainErrorNames(nil) {
 		if !strings.Contains(indexJS, name) {
-			t.Fatalf("index.js must re-export %s", name)
+			t.Fatalf("index.js must re-export domain error %s", name)
 		}
 		if !strings.Contains(indexDTS, name) {
-			t.Fatalf("index.d.ts must re-export %s", name)
+			t.Fatalf("index.d.ts must re-export domain error %s", name)
 		}
 	}
-	if !strings.Contains(indexJS, "isInvokeFailure") || !strings.Contains(indexDTS, "isInvokeFailure") {
-		t.Fatal("root must re-export isInvokeFailure")
+	for _, name := range transformerts.ErrorClassNames() {
+		if strings.Contains(indexJS, name) {
+			t.Fatalf("index.js must not re-export invoke error %s", name)
+		}
 	}
-	if !strings.Contains(indexDTS, "InvokeFailure") {
-		t.Fatal("root must re-export InvokeFailure")
+	if strings.Contains(indexJS, "isInvokeFailure") || strings.Contains(indexDTS, "isInvokeFailure") {
+		t.Fatal("root must not re-export isInvokeFailure")
+	}
+	if strings.Contains(indexDTS, "InvokeFailure") {
+		t.Fatal("root must not re-export InvokeFailure")
+	}
+	raw, err := os.ReadFile(filepath.Join(defaultClientOutDir(dir), "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgJSON := string(raw)
+	if !strings.Contains(pkgJSON, `"./invoke"`) {
+		t.Fatal("package.json must export ./invoke subpath")
 	}
 }
 
 func TestGenerate_emitsInvokeStreamAborted(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
-	errorsDTS := readDistFile(t, dist, "errors.d.ts")
+	invokeJS := readDistFile(t, dist, "invoke-errors.js")
+	invokeDTS := readDistFile(t, dist, "invoke-errors.d.ts")
 	transport := readDistFile(t, dist, "transport.js")
-	if !strings.Contains(errorsJS, "export class InvokeStreamAborted") {
-		t.Fatal("errors.js must define InvokeStreamAborted")
+	if !strings.Contains(invokeJS, "export class InvokeStreamAborted") {
+		t.Fatal("invoke-errors.js must define InvokeStreamAborted")
 	}
-	if !strings.Contains(errorsDTS, `readonly _tag: "InvokeStreamAborted"`) {
-		t.Fatal("errors.d.ts must declare InvokeStreamAborted tag")
+	if !strings.Contains(invokeDTS, `readonly _tag: "@forst/gen/InvokeStreamAborted"`) {
+		t.Fatal("invoke-errors.d.ts must declare namespaced InvokeStreamAborted tag")
 	}
 	if !strings.Contains(transport, "new InvokeStreamAborted") {
 		t.Fatal("transport must throw InvokeStreamAborted")
@@ -246,7 +259,7 @@ import {
   InvokeRejected,
   InvokeHttpFailure,
   isInvokeFailure,
-} from "./errors.js";
+} from "./invoke-errors.js";
 
 resetDefaultInvokeClientForTest();
 const client = createInvokeClient({
@@ -270,7 +283,7 @@ if (!(rejected instanceof InvokeRejected)) {
   console.error("not InvokeRejected", rejected);
   process.exit(1);
 }
-if (rejected._tag !== "InvokeRejected") {
+if (rejected._tag !== "@forst/gen/InvokeRejected") {
   console.error("bad tag", rejected._tag);
   process.exit(1);
 }
@@ -293,7 +306,7 @@ try {
   console.error("expected http throw");
   process.exit(1);
 } catch (err) {
-  if (!(err instanceof InvokeHttpFailure) || err._tag !== "InvokeHttpFailure") {
+  if (!(err instanceof InvokeHttpFailure) || err._tag !== "@forst/gen/InvokeHttpFailure") {
     console.error("not InvokeHttpFailure", err);
     process.exit(1);
   }
@@ -333,7 +346,7 @@ func TestGenerate_acceptance_noSpawnInProduction(t *testing.T) {
 	script := filepath.Join(dist, "_phase4_no_spawn_prod.mjs")
 	body := `
 import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
-import { InvokeBaseUrlMissing, isInvokeFailure } from "./errors.js";
+import { InvokeBaseUrlMissing, isInvokeFailure } from "./invoke-errors.js";
 
 const prev = process.env.NODE_ENV;
 const prevBase = process.env.FORST_BASE_URL;
@@ -361,7 +374,7 @@ try {
   if (prevDev === undefined) delete process.env.FORST_DEV_URL;
   else process.env.FORST_DEV_URL = prevDev;
 }
-if (!(hit instanceof InvokeBaseUrlMissing) || hit._tag !== "InvokeBaseUrlMissing") {
+if (!(hit instanceof InvokeBaseUrlMissing) || hit._tag !== "@forst/gen/InvokeBaseUrlMissing") {
   console.error("bad error", hit);
   process.exit(1);
 }
@@ -388,8 +401,12 @@ func TestGenerate_packageJSONHasNoErrorsSubpath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), `"./errors"`) {
+	body := string(raw)
+	if strings.Contains(body, `"./errors"`) {
 		t.Fatal("errors must not be a public exports subpath")
+	}
+	if !strings.Contains(body, `"./invoke"`) {
+		t.Fatal("package.json must export ./invoke subpath")
 	}
 }
 

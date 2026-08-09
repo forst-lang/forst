@@ -281,12 +281,17 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 	if !strings.Contains(dts, `export type * from "./types.js"`) {
 		t.Fatalf("index.d.ts must re-export types:\n%s", dts)
 	}
-	for _, frag := range []string{"InvokeRejected", "isInvokeFailure", `from "./errors.js"`} {
+	for _, frag := range []string{"ForstUnknownFailure", `from "./domain-errors.js"`} {
 		if !strings.Contains(idx, frag) {
-			t.Fatalf("index.js must re-export errors (%q missing):\n%s", frag, idx)
+			t.Fatalf("index.js must re-export domain errors (%q missing):\n%s", frag, idx)
 		}
 		if !strings.Contains(dts, frag) {
-			t.Fatalf("index.d.ts must re-export errors (%q missing):\n%s", frag, dts)
+			t.Fatalf("index.d.ts must re-export domain errors (%q missing):\n%s", frag, dts)
+		}
+	}
+	for _, banned := range []string{"InvokeRejected", "isInvokeFailure", `from "./errors.js"`} {
+		if strings.Contains(idx, banned) {
+			t.Fatalf("index.js must not re-export invoke errors (%q present):\n%s", banned, idx)
 		}
 	}
 	for _, banned := range []string{"../generated", "@forst/client", ".client", "export { catalog, List }", "from './catalog.js'"} {

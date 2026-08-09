@@ -53,7 +53,8 @@ func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "ForstUnknownFailure | InvokeRejected | InvokeTimedOut"
 	got := EmitPackageEffectDTS(m, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`import type { ForstUnknownFailure, InvokeRejected, InvokeTimedOut } from "../errors.js"`,
+		`import type { ForstUnknownFailure } from "../domain-errors.js"`,
+		`import type { InvokeRejected, InvokeTimedOut } from "../invoke-errors.js"`,
 		"Effect.Effect<ComparePasswordResponse, ForstUnknownFailure | InvokeRejected | InvokeTimedOut>",
 	})
 }
@@ -69,9 +70,11 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"| Promise<ComparePasswordResponse>",
 		"| Effect.Effect<ComparePasswordResponse, InvokeFailure>",
 		"ForstTestLayer",
-		`import { ForstTestServerFailed, InvokeRejected, type InvokeFailure } from "./errors.js"`,
+		`import { InvokeRejected } from "./invoke-errors.js"`,
+		"type InvokeFailure",
+		"export declare class ForstTestServerFailed",
 	})
-	if strings.Contains(got, `import type { InvokeFailure } from "./errors.js"`) {
-		t.Fatalf("InvokeFailure must share the value import line:\n%s", got)
-	}
+	assertContainsNone(t, got, []string{
+		`from "./errors.js"`,
+	})
 }

@@ -101,6 +101,21 @@ func TestTypeScriptTransformer_transformFunction_table(t *testing.T) {
 			wantStreamingRowType: "",
 		},
 		{
+			name: "unwraps Result success type for invoke client return",
+			fn: makeFn("PlayMove",
+				ast.TypeNode{
+					Ident:    ast.TypeResult,
+					TypeKind: ast.TypeKindBuiltin,
+					TypeParams: []ast.TypeNode{
+						ast.NewBuiltinType(ast.TypeInt),
+						ast.NewBuiltinType(ast.TypeError),
+					},
+				},
+			),
+			wantReturnType: "number",
+			wantStreamable: false,
+		},
+		{
 			name:                   "sets streaming row type for chan returns",
 			fn:                     makeFn("StreamRows", ast.NewChannelType(ast.NewBuiltinType(ast.TypeString))),
 			enableStreamingClients: true,

@@ -29,8 +29,8 @@ func TestDomainErrorClassFromTypeDef(t *testing.T) {
 	}
 }
 
-func TestEmitErrorsESM_includesDomainErrorAndRegistry(t *testing.T) {
-	out := EmitErrorsESM([]ErrorClass{{
+func TestEmitDomainErrorsESM_includesDomainErrorAndRegistry(t *testing.T) {
+	out := EmitDomainErrorsESM(testNpmPackage, []ErrorClass{{
 		Name: "CellTaken",
 		Tag:  "CellTaken",
 		Fields: []ErrorField{

@@ -31,8 +31,10 @@ func TestGenerate_emitsDistFiles(t *testing.T) {
 	for _, rel := range []string{
 		"dist/index.js",
 		"dist/index.d.ts",
-		"dist/errors.js",
-		"dist/errors.d.ts",
+		"dist/domain-errors.js",
+		"dist/domain-errors.d.ts",
+		"dist/invoke-errors.js",
+		"dist/invoke-errors.d.ts",
 		"dist/transport.js",
 		"dist/transport.d.ts",
 		"dist/types.d.ts",

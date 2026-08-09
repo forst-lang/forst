@@ -41,6 +41,15 @@ func domainErrorsByName(list []ErrorClass) map[string]ErrorClass {
 	return out
 }
 
+// clientInvokeReturnType maps a Forst return type to the TS value returned by generated invoke clients.
+// Result(S, F) becomes S because transport throws domain and invoke failures instead of returning Err.
+func clientInvokeReturnType(tm forstTypeMapper, returnTypeNode *ast.TypeNode) (string, error) {
+	if returnTypeNode != nil && returnTypeNode.Ident == ast.TypeResult && len(returnTypeNode.TypeParams) >= 1 {
+		return tm.GetTypeScriptType(&returnTypeNode.TypeParams[0])
+	}
+	return tm.GetTypeScriptType(returnTypeNode)
+}
+
 // transformFunction converts a Forst function to TypeScript declaration and definition
 func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*FunctionTransformResult, error) {
 	// Generate TypeScript function signature
@@ -64,14 +73,14 @@ func (t *TypeScriptTransformer) transformFunction(fn ast.FunctionNode) (*Functio
 
 	if sig, exists := t.TypeChecker.Functions[fn.Ident.ID]; exists && len(sig.ReturnTypes) > 0 {
 		returnTypeNode := &sig.ReturnTypes[0]
-		tsType, err := t.typeMapping.GetTypeScriptType(returnTypeNode)
+		tsType, err := clientInvokeReturnType(t.typeMapping, returnTypeNode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get TypeScript type for function return type %s: %w", returnTypeNode.Ident, err)
 		}
 		returnType = tsType
 	} else if len(fn.ReturnTypes) > 0 {
 		returnTypeNode := &fn.ReturnTypes[0]
-		tsType, err := t.typeMapping.GetTypeScriptType(returnTypeNode)
+		tsType, err := clientInvokeReturnType(t.typeMapping, returnTypeNode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get TypeScript type for function return type %s: %w", returnTypeNode.Ident, err)
 		}

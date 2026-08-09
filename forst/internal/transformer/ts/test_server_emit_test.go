@@ -6,7 +6,7 @@ import (
 )
 
 func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"export interface ForstTestServerOptions",
 		"export interface ForstTestServer",
@@ -17,7 +17,7 @@ func TestEmitTestingDTS_includesStartForstTestServer(t *testing.T) {
 }
 
 func TestEmitTestingESM_includesStartForstTestServer(t *testing.T) {
-	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()})
+	got := EmitTestingESM([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		"export async function startForstTestServer",
 		`const CLI_INVOKE = "` + CliInvokeModuleSpecifier + `"`,
@@ -58,25 +58,27 @@ func TestEmitTestingEffectESM_includesForstTestServerLayer(t *testing.T) {
 	})
 }
 
-func TestEmitErrors_harnessOutsideInvokeFailure(t *testing.T) {
-	esm := EmitErrorsESM(nil)
-	dts := EmitErrorsDTS(nil)
+func TestEmitHarnessError_harnessOutsideInvokeFailure(t *testing.T) {
+	esm := EmitHarnessErrorESM(testNpmPackage)
+	dts := EmitHarnessErrorDTS(testNpmPackage)
+	invokeESM := EmitInvokeErrorsESM(testNpmPackage)
+	invokeDTS := EmitInvokeErrorsDTS(testNpmPackage)
 	assertContainsAll(t, esm, []string{"export class ForstTestServerFailed"})
 	assertContainsAll(t, dts, []string{"export declare class ForstTestServerFailed"})
-	unionStart := strings.Index(dts, "export type InvokeFailure =")
+	unionStart := strings.Index(invokeDTS, "export type InvokeFailure =")
 	if unionStart < 0 {
 		t.Fatal("missing InvokeFailure")
 	}
-	union := dts[unionStart:]
+	union := invokeDTS[unionStart:]
 	if end := strings.Index(union, "export declare function isInvokeFailure"); end > 0 {
 		union = union[:end]
 	}
 	if strings.Contains(union, "ForstTestServerFailed") {
 		t.Fatalf("InvokeFailure must not include ForstTestServerFailed:\n%s", union)
 	}
-	if strings.Contains(esm, `"ForstTestServerFailed"`) && strings.Contains(esm, "INVOKE_FAILURE_TAGS") {
-		tagBlockStart := strings.Index(esm, "const INVOKE_FAILURE_TAGS")
-		tagBlock := esm[tagBlockStart:]
+	if strings.Contains(invokeESM, `"ForstTestServerFailed"`) && strings.Contains(invokeESM, "INVOKE_FAILURE_TAGS") {
+		tagBlockStart := strings.Index(invokeESM, "const INVOKE_FAILURE_TAGS")
+		tagBlock := invokeESM[tagBlockStart:]
 		if end := strings.Index(tagBlock, "export const isInvokeFailure"); end > 0 {
 			tagBlock = tagBlock[:end]
 		}

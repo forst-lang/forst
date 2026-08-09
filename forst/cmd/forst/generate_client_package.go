@@ -77,8 +77,8 @@ func generateClientPackage(
 		testingJS = transformerts.EmitTestingEffectESM(modules, genCfg.PackageName)
 		testingDTS = transformerts.EmitTestingEffectDTS(modules, genCfg.PackageName)
 	} else {
-		testingJS = transformerts.EmitTestingESM(modules)
-		testingDTS = transformerts.EmitTestingDTS(modules)
+		testingJS = transformerts.EmitTestingESM(modules, genCfg.PackageName)
+		testingDTS = transformerts.EmitTestingDTS(modules, genCfg.PackageName)
 	}
 	testingJSPath := filepath.Join(outDir, "dist", testingKey+".js")
 	if err := writeGeneratedFile(testingJSPath, []byte(testingJS), stats); err != nil {
@@ -153,6 +153,7 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 		testingKey = "testing"
 	}
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
+	appendPackageJSONExport(&b, "./invoke", "./dist/invoke-errors.d.ts", "./dist/invoke-errors.js")
 	if genCfg.Effect {
 		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
 	}

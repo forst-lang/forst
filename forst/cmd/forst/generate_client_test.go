@@ -998,7 +998,8 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 		for _, rel := range []string{
 			"core/main.js", "core/main.d.ts",
 			"transport.js", "transport.d.ts",
-			"errors.js", "errors.d.ts",
+			"domain-errors.js", "domain-errors.d.ts",
+			"invoke-errors.js", "invoke-errors.d.ts",
 			"types.d.ts",
 		} {
 			p := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))

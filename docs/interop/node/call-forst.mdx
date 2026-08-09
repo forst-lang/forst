@@ -266,7 +266,7 @@ Effect mode exposes the same tags through its typed error channel:
 <CodeGroup>
 
 ```typescript Promise
-import { isInvokeFailure } from "@forst/gen";
+import { isInvokeFailure } from "@forst/gen/invoke";
 import { VerifyPassword } from "@forst/gen/auth";
 
 try {
@@ -274,10 +274,10 @@ try {
 } catch (error) {
   if (!isInvokeFailure(error)) throw error;
   switch (error._tag) {
-    case "InvokeRejected":
+    case "@forst/gen/InvokeRejected":
       return badRequest(error.serverError);
-    case "InvokeBaseUrlMissing":
-    case "InvokeUnreachable":
+    case "@forst/gen/InvokeBaseUrlMissing":
+    case "@forst/gen/InvokeUnreachable":
       return serviceUnavailable();
     default:
       throw error;
@@ -290,10 +290,10 @@ import { Effect } from "effect";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const program = VerifyPassword(input).pipe(
-  Effect.catchTag("InvokeRejected", (error) =>
+  Effect.catchTag("@forst/gen/InvokeRejected", (error) =>
     Effect.succeed(badRequest(error.serverError))
   ),
-  Effect.catchTag("InvokeUnreachable", () =>
+  Effect.catchTag("@forst/gen/InvokeUnreachable", () =>
     Effect.succeed(serviceUnavailable())
   )
 );
@@ -303,13 +303,15 @@ const program = VerifyPassword(input).pipe(
 
 | Tag | Meaning | What to do |
 | --- | --- | --- |
-| `InvokeRejected` | Server returned `success: false` | Map `serverError` to a client response or retry policy |
-| `InvokeHttpFailure` | Non-2xx HTTP status | Check `status` and `responseText`, fix URL or server |
-| `InvokeTimedOut` | Exceeded `timeoutMs` or abort signal | Raise timeout, fix slow handler, or surface a 504 |
-| `InvokeUnreachable` | Connection refused or DNS failure | Confirm the binary or `forst dev` is listening |
-| `InvokeBaseUrlMissing` | No base URL and spawn is forbidden | Set `FORST_BASE_URL` (required in production) |
-| `InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
-| `ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
+| `@forst/gen/InvokeRejected` | Server returned `success: false` | Map `serverError` to a client response or retry policy |
+| `@forst/gen/InvokeHttpFailure` | Non-2xx HTTP status | Check `status` and `responseText`, fix URL or server |
+| `@forst/gen/InvokeTimedOut` | Exceeded `timeoutMs` or abort signal | Raise timeout, fix slow handler, or surface a 504 |
+| `@forst/gen/InvokeUnreachable` | Connection refused or DNS failure | Confirm the binary or `forst dev` is listening |
+| `@forst/gen/InvokeBaseUrlMissing` | No base URL and spawn is forbidden | Set `FORST_BASE_URL` (required in production) |
+| `@forst/gen/InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
+| `@forst/gen/ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
+
+Import invoke helpers from `@forst/gen/invoke` (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short; `_tag` strings are namespaced with your npm package name so they cannot collide with domain errors or Effect service tags.
 
 ### Domain errors
 
@@ -353,12 +355,13 @@ Promise mode offers `.safe()`. Effect mode can move the typed failure into an
 <CodeGroup>
 
 ```typescript Promise
+import { InvokeRejected } from "@forst/gen/invoke";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const result = await VerifyPassword.safe(input);
 if (!result.ok) {
   switch (result.error._tag) {
-    case "InvokeRejected":
+    case "@forst/gen/InvokeRejected":
       return badRequest(result.error.serverError);
     default:
       throw result.error;

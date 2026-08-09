@@ -130,7 +130,7 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 		"function safe(",
 		"{ ok: true; value: ComparePasswordResponse }",
 		"{ ok: false; error: InvokeFailure }",
-		`import type { InvokeFailure } from "../errors.js"`,
+		`import type { InvokeFailure } from "../invoke-errors.js"`,
 	})
 	// TypeImports are sorted.
 	reqIdx := strings.Index(got, "ComparePasswordRequest")
@@ -145,7 +145,8 @@ func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
-		`import type { CellTaken, ForstUnknownFailure, InvokeHttpFailure, InvokeRejected } from "../errors.js"`,
+		`import type { CellTaken, ForstUnknownFailure } from "../domain-errors.js"`,
+		`import type { InvokeHttpFailure, InvokeRejected } from "../invoke-errors.js"`,
 		"{ ok: false; error: CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure }",
 	})
 }
@@ -234,6 +235,10 @@ func TestEmitIndexESM_golden(t *testing.T) {
 		"auth: auth(client)",
 		"bcrypt: bcrypt(client)",
 		"http://127.0.0.1:6321",
+		"ForstUnknownFailure",
+		`from "./domain-errors.js"`,
+	})
+	assertContainsNone(t, got, []string{
 		"InvokeRejected",
 		"isInvokeFailure",
 		`from "./errors.js"`,
@@ -279,12 +284,16 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"export declare function configureDefaultInvokeClient(",
 		"readonly bcrypt: ReturnType<typeof bcrypt>",
 		"export type ForstClient = ReturnType<typeof createForstClient>",
-		"InvokeFailure",
 		"TaggedError",
+		"ForstUnknownFailure",
+		`from "./domain-errors.js"`,
+		`export type * from "./types.js"`,
+	})
+	assertContainsNone(t, got, []string{
+		"InvokeFailure",
 		"isInvokeFailure",
 		"InvokeRejected",
 		`from "./errors.js"`,
-		`export type * from "./types.js"`,
 	})
 }
 
@@ -294,7 +303,8 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
 		"export function resetDefaultInvokeClientForTest",
-		`from "./errors.js"`,
+		`from "./invoke-errors.js"`,
+		`from "./domain-errors.js"`,
 		"new InvokeStreamAborted",
 		"new InvokeRejected",
 		"new InvokeHttpFailure",

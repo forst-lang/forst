@@ -309,7 +309,12 @@ func TestGenerate_effectMode_transportAndErrorsAreByteIdenticalToPromiseMode(t *
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
 
-	for _, rel := range []string{"transport.js", "transport.d.ts", "errors.js", "errors.d.ts", "types.d.ts"} {
+	for _, rel := range []string{
+		"transport.js", "transport.d.ts",
+		"domain-errors.js", "domain-errors.d.ts",
+		"invoke-errors.js", "invoke-errors.d.ts",
+		"types.d.ts",
+	} {
 		p := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
 		e := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
 		if p != e {
@@ -555,7 +560,7 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		}},
 		TypeImports: []string{"ComparePasswordRequest", "ComparePasswordResponse"},
 	}}
-	promiseDTS := transformerts.EmitTestingDTS(mods)
+	promiseDTS := transformerts.EmitTestingDTS(mods, "@forst/gen")
 	effectDTS := transformerts.EmitTestingEffectDTS(mods, "@forst/gen")
 	for _, frag := range []string{
 		"export interface ForstTestOverrides",
