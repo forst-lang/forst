@@ -123,6 +123,20 @@ func AllExportedErrorClassNames() []string {
 	return append(ErrorClassNames(), HarnessErrorClassNames()...)
 }
 
+// RootReexportedErrorClassNames returns every error class re-exported from dist/index.*
+func RootReexportedErrorClassNames(domainErrors []ErrorClass) []string {
+	domainErrors = MergeDomainErrors(domainErrors)
+	names := make([]string, 0, len(domainErrors)+len(AllExportedErrorClassNames())+1)
+	for _, c := range domainErrors {
+		names = append(names, c.Name)
+	}
+	if len(domainErrors) > 0 {
+		names = append(names, UnknownFailureClass.Name)
+	}
+	names = append(names, AllExportedErrorClassNames()...)
+	return sortDedupeStrings(names)
+}
+
 // EmitErrorsESM returns dist/errors.js (tagged failures, no Effect dependency).
 func EmitErrorsESM(domainErrors []ErrorClass) string {
 	domainErrors = MergeDomainErrors(domainErrors)
@@ -219,6 +233,9 @@ func EmitErrorsDTS(domainErrors []ErrorClass) string {
 		fmt.Fprintf(&b, "export declare class %s extends Error {\n", c.Name)
 		fmt.Fprintf(&b, "  readonly _tag: %q;\n", c.Tag)
 		for _, f := range c.Fields {
+			if f.Name == "message" {
+				continue
+			}
 			opt := ""
 			if f.Optional {
 				opt = " | undefined"
@@ -227,6 +244,9 @@ func EmitErrorsDTS(domainErrors []ErrorClass) string {
 		}
 		b.WriteString("  constructor(props: {\n")
 		for _, f := range c.Fields {
+			if f.Name == "message" {
+				continue
+			}
 			optMark := ""
 			if f.Optional {
 				optMark = "?"

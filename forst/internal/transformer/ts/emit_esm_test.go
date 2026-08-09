@@ -140,6 +140,16 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 	}
 }
 
+func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
+	m := sampleBcryptModule()
+	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure"
+	got := EmitCoreDTS(m)
+	assertContainsAll(t, got, []string{
+		`import type { CellTaken, ForstUnknownFailure, InvokeHttpFailure, InvokeRejected } from "../errors.js"`,
+		"{ ok: false; error: CellTaken | ForstUnknownFailure | InvokeRejected | InvokeHttpFailure }",
+	})
+}
+
 func TestEmitCoreDTS_importsStreamingResultWhenNeeded(t *testing.T) {
 	got := EmitCoreDTS(sampleStreamModule())
 	assertContainsAll(t, got, []string{
@@ -214,7 +224,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 }
 
 func TestEmitIndexESM_golden(t *testing.T) {
-	got := EmitIndexESM([]string{"auth", "bcrypt"}, "6321")
+	got := EmitIndexESM([]string{"auth", "bcrypt"}, "6321", nil)
 	assertContainsAll(t, got, []string{
 		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport.js"`,
 		`import { auth } from "./pkg/auth.js"`,
@@ -236,7 +246,7 @@ func TestEmitIndexESM_golden(t *testing.T) {
 }
 
 func TestEmitIndexESM_sortsPackages(t *testing.T) {
-	got := EmitIndexESM([]string{"bcrypt", "auth"}, "6321")
+	got := EmitIndexESM([]string{"bcrypt", "auth"}, "6321", nil)
 	authImport := strings.Index(got, `import { auth } from "./pkg/auth.js"`)
 	bcryptImport := strings.Index(got, `import { bcrypt } from "./pkg/bcrypt.js"`)
 	if authImport < 0 || bcryptImport < 0 || authImport > bcryptImport {
@@ -244,8 +254,18 @@ func TestEmitIndexESM_sortsPackages(t *testing.T) {
 	}
 }
 
+func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
+	domain := []ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}
+	got := EmitIndexDTS([]string{"main"}, domain)
+	assertContainsAll(t, got, []string{
+		"CellTaken",
+		"ForstUnknownFailure",
+		"ForstError",
+	})
+}
+
 func TestEmitIndexDTS_golden(t *testing.T) {
-	got := EmitIndexDTS([]string{"bcrypt"})
+	got := EmitIndexDTS([]string{"bcrypt"}, nil)
 	assertContainsAll(t, got, []string{
 		"ForstInvokeClientConfig",
 		"ForstInvokeMiddleware",

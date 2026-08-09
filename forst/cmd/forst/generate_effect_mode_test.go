@@ -85,7 +85,7 @@ func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
 	got := string(dts)
 	for _, frag := range []string{
 		"Effect.Effect<",
-		"InvokeFailure",
+		"InvokeRejected",
 		"Main",
 		"export declare const Echo:",
 	} {
@@ -103,14 +103,22 @@ func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
 	}
 }
 
-func TestGenerate_effectMode_errorChannelIsInvokeFailure(t *testing.T) {
+func TestGenerate_effectMode_errorChannelIncludesTransportFailures(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	dts, err := os.ReadFile(filepath.Join(dist, "pkg", "main.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(dts), "Effect.Effect<") || !strings.Contains(string(dts), "InvokeFailure") {
-		t.Fatalf("error channel must be InvokeFailure:\n%s", dts)
+	got := string(dts)
+	for _, frag := range []string{
+		"Effect.Effect<",
+		"InvokeRejected",
+		"InvokeHttpFailure",
+		"ContractVersionMismatch",
+	} {
+		if !strings.Contains(got, frag) {
+			t.Fatalf("error channel missing %q:\n%s", frag, got)
+		}
 	}
 }
 

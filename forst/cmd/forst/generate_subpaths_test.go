@@ -203,7 +203,7 @@ func TestGenerate_rootIndexDoesNotFlatReExportFunctions(t *testing.T) {
 }
 
 func TestGenerate_rootReExportsShapeTypes(t *testing.T) {
-	idx := transformerts.EmitIndexDTS([]string{"main"})
+	idx := transformerts.EmitIndexDTS([]string{"main"}, nil)
 	if !strings.Contains(idx, `export type * from "./types.js"`) {
 		t.Fatalf("root must re-export shape types:\n%s", idx)
 	}

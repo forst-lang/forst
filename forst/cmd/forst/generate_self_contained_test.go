@@ -263,7 +263,7 @@ func TestGenerate_printsResolvedSpecifierAndExampleImport(t *testing.T) {
 }
 
 func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
-	idx := transformerts.EmitIndexESM([]string{"catalog", "orders"}, "6321")
+	idx := transformerts.EmitIndexESM([]string{"catalog", "orders"}, "6321", nil)
 	for _, frag := range []string{
 		`from "./transport.js"`,
 		"createInvokeClient",
@@ -277,7 +277,7 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)
 		}
 	}
-	dts := transformerts.EmitIndexDTS([]string{"catalog", "orders"})
+	dts := transformerts.EmitIndexDTS([]string{"catalog", "orders"}, nil)
 	if !strings.Contains(dts, `export type * from "./types.js"`) {
 		t.Fatalf("index.d.ts must re-export types:\n%s", dts)
 	}

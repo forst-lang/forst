@@ -124,6 +124,22 @@ func TestEmitErrorsDTS_extendsErrorAndKeepsInstanceofContract(t *testing.T) {
 	})
 }
 
+func TestEmitErrorsDTS_forstUnknownFailureDoesNotRedeclareMessage(t *testing.T) {
+	got := EmitErrorsDTS(nil)
+	start := strings.Index(got, "export declare class ForstUnknownFailure")
+	if start < 0 {
+		t.Fatal("missing ForstUnknownFailure class")
+	}
+	end := strings.Index(got[start:], "}\n\nexport declare class InvokeRejected")
+	if end < 0 {
+		t.Fatal("missing end of ForstUnknownFailure class")
+	}
+	block := got[start : start+end]
+	if strings.Count(block, "readonly message") != 1 {
+		t.Fatalf("ForstUnknownFailure must declare message only in constructor, got:\n%s", block)
+	}
+}
+
 func TestEmitErrors_catalogDrivesBothEmits(t *testing.T) {
 	esm := EmitErrorsESM(nil)
 	dts := EmitErrorsDTS(nil)

@@ -989,7 +989,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(effectDTS)
-		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "Main", "export declare const Echo:"} {
+		for _, frag := range []string{"Effect.Effect<", "InvokeRejected", "Main", "export declare const Echo:"} {
 			if !strings.Contains(got, frag) {
 				t.Fatalf("missing %q in effect pkg d.ts:\n%s", frag, got)
 			}

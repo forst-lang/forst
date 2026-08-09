@@ -48,6 +48,16 @@ func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 	}
 }
 
+func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
+	m := sampleBcryptModule()
+	m.Functions[0].FailureType = "ForstUnknownFailure | InvokeRejected | InvokeTimedOut"
+	got := EmitPackageEffectDTS(m, "@forst/gen")
+	assertContainsAll(t, got, []string{
+		`import type { ForstUnknownFailure, InvokeRejected, InvokeTimedOut } from "../errors.js"`,
+		"Effect.Effect<ComparePasswordResponse, ForstUnknownFailure | InvokeRejected | InvokeTimedOut>",
+	})
+}
+
 func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 	got := EmitTestingEffectDTS([]ModuleEmit{sampleBcryptModule()}, "@forst/gen")
 	assertContainsAll(t, got, []string{
@@ -59,5 +69,9 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"| Promise<ComparePasswordResponse>",
 		"| Effect.Effect<ComparePasswordResponse, InvokeFailure>",
 		"ForstTestLayer",
+		`import { ForstTestServerFailed, InvokeRejected, type InvokeFailure } from "./errors.js"`,
 	})
+	if strings.Contains(got, `import type { InvokeFailure } from "./errors.js"`) {
+		t.Fatalf("InvokeFailure must share the value import line:\n%s", got)
+	}
 }

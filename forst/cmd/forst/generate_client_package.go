@@ -33,7 +33,15 @@ func generateClientPackage(
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)
 
-	indexJS := transformerts.EmitIndexESM(packageNames, invokePort)
+	var domainParts [][]transformerts.ErrorClass
+	for _, out := range outputs {
+		if out != nil && len(out.DomainErrors) > 0 {
+			domainParts = append(domainParts, out.DomainErrors)
+		}
+	}
+	domainErrors := transformerts.MergeDomainErrors(domainParts...)
+
+	indexJS := transformerts.EmitIndexESM(packageNames, invokePort, domainErrors)
 	if runtime == transformerts.RuntimeEffect {
 		indexJS += transformerts.EmitIndexEffectESM(packageNames, genCfg.PackageName)
 	}
@@ -43,7 +51,7 @@ func generateClientPackage(
 	}
 	log.Infof("Generated client index: %s", indexJSPath)
 
-	indexDTS := transformerts.EmitIndexDTS(packageNames)
+	indexDTS := transformerts.EmitIndexDTS(packageNames, domainErrors)
 	if runtime == transformerts.RuntimeEffect {
 		indexDTS += transformerts.EmitIndexEffectDTS(packageNames)
 	}
