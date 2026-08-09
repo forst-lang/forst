@@ -18,7 +18,7 @@ const packagesDir = resolve(repoRoot, "packages");
 const pkgPath = join(projectDir, "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
-const names = ["cli", "client", "node-runtime", "sidecar"];
+const names = ["cli", "client", "errors", "node-runtime", "sidecar"];
 const specs = new Map();
 
 for (const field of ["dependencies", "devDependencies", "overrides"]) {

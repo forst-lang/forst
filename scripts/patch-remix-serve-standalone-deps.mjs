@@ -16,7 +16,7 @@ if (!projectDir || !repoRoot) {
 const pkgPath = join(projectDir, "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 
-const forstNames = ["cli", "client", "node-runtime", "sidecar"];
+const forstNames = ["cli", "client", "errors", "node-runtime", "sidecar"];
 const fileDeps = Object.fromEntries(
   forstNames.map((name) => [
     `@forst/${name}`,
@@ -35,6 +35,7 @@ pkg.dependencies["@forst/cli"] = fileDeps["@forst/cli"];
 pkg.dependencies["@forst/client"] = fileDeps["@forst/client"];
 pkg.dependencies["@forst/node-runtime"] = fileDeps["@forst/node-runtime"];
 pkg.dependencies["@forst/sidecar"] = fileDeps["@forst/sidecar"];
+pkg.dependencies["@forst/errors"] = fileDeps["@forst/errors"];
 
 pkg.devDependencies = pkg.devDependencies ?? {};
 if (!pkg.devDependencies.tsx) {

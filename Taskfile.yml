@@ -720,7 +720,7 @@ tasks:
   example:node-interop-remix-serve:build-remix:
     desc: Build Remix app for remix-serve example (remix vite:build)
     dir: examples/in/rfc/node-interop/remix-serve
-    deps: [build:client, build:sidecar, example:node-interop-remix-serve:generate]
+    deps: [build:client, build:errors, build:sidecar, example:node-interop-remix-serve:generate]
     cmds:
       - task: example:node-interop-remix-serve:install
       - bun run build
