@@ -110,14 +110,24 @@ func TestGenerate_effectMode_errorChannelIncludesTransportFailures(t *testing.T)
 		t.Fatal(err)
 	}
 	got := string(dts)
+	echoIdx := strings.Index(got, "export declare const Echo:")
+	if echoIdx < 0 {
+		t.Fatal("missing Echo declaration")
+	}
+	rest := got[echoIdx:]
+	end := strings.Index(rest, ";\n\n")
+	if end < 0 {
+		t.Fatalf("malformed Echo declaration:\n%s", rest)
+	}
+	echoDecl := rest[:end+1]
 	for _, frag := range []string{
 		"Effect.Effect<",
 		"InvokeRejected",
 		"InvokeHttpFailure",
 		"ContractVersionMismatch",
 	} {
-		if !strings.Contains(got, frag) {
-			t.Fatalf("error channel missing %q:\n%s", frag, got)
+		if !strings.Contains(echoDecl, frag) {
+			t.Fatalf("Echo error channel missing %q:\n%s", frag, echoDecl)
 		}
 	}
 }
