@@ -41,6 +41,16 @@ func removeStaleSocket(path string, isOwnerAlive func(pid int) bool, readMarkerP
 		}
 		return err
 	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if info.Mode()&os.ModeSocket == 0 {
+		return nil
+	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("invoke unix socket: remove stale: %w", err)
 	}

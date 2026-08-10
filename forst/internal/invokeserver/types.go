@@ -112,6 +112,17 @@ func (c Config) listenHost() string {
 	return host
 }
 
+// downgradedListenHost reports whether listenHost() replaced a configured non-loopback host.
+func (c Config) downgradedListenHost() (requested, effective string, downgraded bool) {
+	requested = strings.TrimSpace(c.Host)
+	effective = c.listenHost()
+	if requested == "" || c.AllowNonLoopback {
+		return requested, effective, false
+	}
+	downgraded = !strings.EqualFold(requested, effective) && !isLoopbackHost(requested)
+	return requested, effective, downgraded
+}
+
 func isLoopbackHost(host string) bool {
 	host = strings.Trim(strings.ToLower(strings.TrimSpace(host)), "[]")
 	if host == "localhost" {
@@ -130,10 +141,12 @@ func (c Config) listenPort() string {
 }
 
 func (c Config) network() string {
-	if c.Transport == transportUnix {
+	switch strings.ToLower(strings.TrimSpace(c.Transport)) {
+	case transportUnix:
 		return transportUnix
+	default:
+		return transportTCP
 	}
-	return transportTCP
 }
 
 // ListenTarget returns the socket path or host:port for net.Listen.

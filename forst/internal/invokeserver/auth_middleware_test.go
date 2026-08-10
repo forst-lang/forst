@@ -1,12 +1,14 @@
 package invokeserver
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"forst/internal/discovery"
 )
@@ -53,6 +55,24 @@ func TestServer_handleChallenge_returnsNonceAndExpiry(t *testing.T) {
 	s.HandleChallenge(rr, httptest.NewRequest(http.MethodGet, "/invoke/challenge", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	var envelope Response
+	if err := json.Unmarshal(rr.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	var challenge ChallengeResponse
+	if err := json.Unmarshal(envelope.Result, &challenge); err != nil {
+		t.Fatal(err)
+	}
+	if challenge.Nonce == "" {
+		t.Fatal("expected non-empty nonce")
+	}
+	expiresAt, err := time.Parse(time.RFC3339, challenge.ExpiresAt)
+	if err != nil {
+		t.Fatalf("expiresAt parse: %v", err)
+	}
+	if !expiresAt.After(time.Now().UTC().Add(-time.Second)) {
+		t.Fatalf("expiresAt = %v", expiresAt)
 	}
 }
 

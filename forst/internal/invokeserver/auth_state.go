@@ -41,6 +41,22 @@ func (a *authState) initToken() error {
 	return nil
 }
 
+// install replaces the live token and sets generation. When generation is zero,
+// generation is incremented like rotate; otherwise generation is pinned.
+func (a *authState) install(generation uint64, newToken []byte) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := range a.token {
+		a.token[i] = 0
+	}
+	a.token = append([]byte(nil), newToken...)
+	if generation == 0 {
+		a.generation++
+	} else {
+		a.generation = generation
+	}
+}
+
 // rotate wipes the previous token buffer, installs newToken, increments generation,
 // and returns the new generation.
 func (a *authState) rotate(newToken []byte) uint64 {

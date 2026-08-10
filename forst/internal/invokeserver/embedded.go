@@ -72,7 +72,7 @@ type InvokeReadyPayload struct {
 }
 
 func writeInvokeReady(workDir string, cfg Config, generation uint64) error {
-	readyPath := filepath.Join(workDir, ".forst", "invoke.ready")
+	readyPath := invokeReadyPath(workDir)
 	if strings.Contains(readyPath, "..") {
 		return fmt.Errorf("invoke server: invalid ready path")
 	}
@@ -81,7 +81,6 @@ func writeInvokeReady(workDir string, cfg Config, generation uint64) error {
 	}
 	payload := InvokeReadyPayload{
 		URL:             cfg.BaseURL(),
-		SocketPath:      cfg.SocketPath,
 		Generation:      generation,
 		PID:             os.Getpid(),
 		ContractVersion: HTTPContractVersion,
@@ -89,6 +88,7 @@ func writeInvokeReady(workDir string, cfg Config, generation uint64) error {
 	}
 	if cfg.network() == transportUnix {
 		payload.URL = ""
+		payload.SocketPath = cfg.SocketPath
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

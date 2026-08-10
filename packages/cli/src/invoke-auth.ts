@@ -121,11 +121,17 @@ export function parseInvokeChallengeResult(payload: {
   result?: InvokeChallenge | string;
 }): InvokeChallenge | undefined {
   const raw = payload.result;
-  const parsed =
-    typeof raw === "string"
-      ? (JSON.parse(raw) as InvokeChallenge)
-      : (raw as InvokeChallenge | undefined);
-  if (!parsed?.nonce) {
+  let parsed: InvokeChallenge | undefined;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw) as InvokeChallenge;
+    } catch {
+      return undefined;
+    }
+  } else {
+    parsed = raw;
+  }
+  if (typeof parsed?.nonce !== "string" || parsed.nonce.trim() === "") {
     return undefined;
   }
   return parsed;

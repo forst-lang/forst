@@ -9,7 +9,7 @@ import {
   stripReservedHeaders,
 } from "./invoke-auth";
 import { fetchInvokeChallenge } from "./invoke-challenge";
-import { readInvokeReadyAuth } from "./invoke-ready";
+import { readInvokeReadyAuth, readInvokeReadySocketPath } from "./invoke-ready";
 import { isUnixSocketSupported, requestOverUnixSocket } from "./unix-transport";
 
 /** Callable fetch shape for injection and tests. */
@@ -152,8 +152,7 @@ export function createHttpInvokeTransport(
     if ("socketPath" in config && config.socketPath) {
       return config.socketPath;
     }
-    const auth = readInvokeReadyAuth(config.boundaryRoot);
-    return auth?.socketPath;
+    return readInvokeReadySocketPath(config.boundaryRoot);
   };
 
   const resolveAuthState = ():

@@ -53,7 +53,7 @@ func openAuthHandoffWriter(fdEnv string) (io.WriteCloser, bool) {
 		return nil, false
 	}
 	fd, err := strconv.Atoi(raw)
-	if err != nil || fd < 0 {
+	if err != nil || fd < 3 {
 		return nil, false
 	}
 	f := os.NewFile(uintptr(fd), "invoke-auth-handoff")

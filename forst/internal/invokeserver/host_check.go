@@ -2,6 +2,8 @@
 package invokeserver
 
 import (
+	"mime"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -15,10 +17,8 @@ func isAllowedInvokeHost(hostHeader string, allowed []string) bool {
 	if host == "" {
 		return true
 	}
-	if i := strings.LastIndex(host, ":"); i >= 0 && !strings.HasPrefix(host, "[") {
-		if strings.Count(host, ":") == 1 {
-			host = host[:i]
-		}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
 	}
 	host = strings.Trim(host, "[]")
 	host = strings.ToLower(host)
@@ -35,9 +35,13 @@ func isAllowedInvokeHost(hostHeader string, allowed []string) bool {
 
 // requireJSONContentType reports whether r declares an application/json Content-Type.
 func requireJSONContentType(r *http.Request) bool {
-	ct := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	ct := strings.TrimSpace(r.Header.Get("Content-Type"))
 	if ct == "" {
 		return false
 	}
-	return strings.HasPrefix(ct, "application/json")
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(mediaType, "application/json")
 }

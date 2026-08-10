@@ -15,6 +15,7 @@ export type UnixRequestInit = {
   method?: string;
   headers?: InvokeHeadersInit;
   body?: string | Uint8Array;
+  signal?: AbortSignal;
 };
 
 /**
@@ -34,6 +35,7 @@ export function requestOverUnixSocket(
         path,
         method: init.method ?? "GET",
         headers,
+        signal: init.signal,
       },
       (res: IncomingMessage) => {
         const chunks: Buffer[] = [];
@@ -52,6 +54,19 @@ export function requestOverUnixSocket(
       }
     );
     req.on("error", reject);
+    if (init.signal?.aborted) {
+      req.destroy();
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    init.signal?.addEventListener(
+      "abort",
+      () => {
+        req.destroy();
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true }
+    );
     if (typeof body === "string") {
       req.write(body);
     } else if (body instanceof Uint8Array) {

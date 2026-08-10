@@ -12,12 +12,13 @@ var invokeProofTestVector = struct {
 	token:      []byte("01234567890123456789012345678901"),
 	generation: 7,
 	nonce:      "nonce-for-cross-language-vector",
+	proof:      "-Lb6p0ULEFekjdrV0KI-4jv-7HRVsQJknWEGqRfAHT0",
 }
 
 func TestComputeInvokeProof_matchesCrossLanguageVector(t *testing.T) {
 	got := ComputeInvokeProofForTest(invokeProofTestVector.token, invokeProofTestVector.generation, invokeProofTestVector.nonce)
-	if got != ComputeInvokeProofForTest(invokeProofTestVector.token, invokeProofTestVector.generation, invokeProofTestVector.nonce) {
-		t.Fatal("expected deterministic proof")
+	if got != invokeProofTestVector.proof {
+		t.Fatalf("proof = %q, want %q", got, invokeProofTestVector.proof)
 	}
 }
 

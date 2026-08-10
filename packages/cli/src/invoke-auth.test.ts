@@ -15,9 +15,7 @@ describe("computeInvokeProof", () => {
       7,
       "nonce-for-cross-language-vector"
     );
-    expect(proof).toBe(
-      computeInvokeProof(token, 7, "nonce-for-cross-language-vector")
-    );
+    expect(proof).toBe("-Lb6p0ULEFekjdrV0KI-4jv-7HRVsQJknWEGqRfAHT0");
     expect(proof.length).toBeGreaterThan(10);
     expect(invokeProofMessage(7, "nonce-for-cross-language-vector")).toBe(
       "forst-invoke-v1|7|nonce-for-cross-language-vector"

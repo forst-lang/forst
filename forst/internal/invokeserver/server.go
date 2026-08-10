@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +57,18 @@ func New(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *
 			cfg.Transport = transportTCP
 		}
 	}
+	switch strings.ToLower(strings.TrimSpace(cfg.Transport)) {
+	case transportTCP, "http":
+		cfg.Transport = transportTCP
+	case transportUnix:
+		cfg.Transport = transportUnix
+	default:
+		if cfg.SocketPath != "" {
+			cfg.Transport = transportUnix
+		} else {
+			cfg.Transport = transportTCP
+		}
+	}
 	s := &Server{
 		cfg:        cfg,
 		backend:    backend,
@@ -72,6 +85,9 @@ func New(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *
 		}
 		s.nonces = newNonceStore(30 * time.Second)
 	}
+	if requested, effective, downgraded := cfg.downgradedListenHost(); downgraded && log != nil {
+		log.Debugf("invoke listen host %q downgraded to loopback %q", requested, effective)
+	}
 	return s
 }
 
@@ -81,34 +97,34 @@ func (s *Server) AuthEnabled() bool {
 }
 
 func (s *Server) authEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.auth != nil && s.nonces != nil
 }
 
 // CurrentAuth returns a copy of the live token and generation.
 func (s *Server) CurrentAuth() (token []byte, generation uint64) {
-	if s.auth == nil {
+	s.mu.RLock()
+	auth := s.auth
+	s.mu.RUnlock()
+	if auth == nil {
 		return nil, 0
 	}
-	generation, token = s.auth.snapshot()
-	return token, generation
+	gen, tok := auth.snapshot()
+	return tok, gen
 }
 
 // InstallAuth replaces the live auth secret (reload / handoff).
 func (s *Server) InstallAuth(generation uint64, token []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.auth == nil {
 		s.auth = newAuthState()
 	}
-	if generation == 0 {
-		s.auth.rotate(token)
-		return
+	if s.nonces == nil && s.cfg.authEnabled() {
+		s.nonces = newNonceStore(30 * time.Second)
 	}
-	s.auth.mu.Lock()
-	for i := range s.auth.token {
-		s.auth.token[i] = 0
-	}
-	s.auth.token = append([]byte(nil), token...)
-	s.auth.generation = generation
-	s.auth.mu.Unlock()
+	s.auth.install(generation, token)
 }
 
 // SetMaxRequestSize updates the invoke request body limit (tests).
@@ -328,17 +344,25 @@ func (s *Server) handleChallenge(w http.ResponseWriter, r *http.Request) {
 		s.sendError(w, r, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.authEnabled() || s.auth == nil || s.nonces == nil {
+	if !s.authEnabled() {
+		s.sendError(w, r, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	s.mu.RLock()
+	auth := s.auth
+	nonces := s.nonces
+	s.mu.RUnlock()
+	if auth == nil || nonces == nil {
 		s.sendError(w, r, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	now := time.Now()
-	nonce, expiresAt, err := s.nonces.issue(now)
+	nonce, expiresAt, err := nonces.issue(now)
 	if err != nil {
 		s.sendError(w, r, safeErrorMessage(err.Error()), http.StatusInternalServerError)
 		return
 	}
-	generation := s.auth.currentGeneration()
+	generation := auth.currentGeneration()
 	payload, err := json.Marshal(ChallengeResponse{
 		Nonce:      nonce,
 		ExpiresAt:  expiresAt.UTC().Format(time.RFC3339),
@@ -492,6 +516,10 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) sendJSON(w http.ResponseWriter, r *http.Request, response Response) {
+	s.writeJSON(w, r, http.StatusOK, response)
+}
+
+func (s *Server) writeJSON(w http.ResponseWriter, r *http.Request, statusCode int, response Response) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set(ContractVersionHTTPHeader, s.version.ContractVersion)
 	if s.cfg.CORS {
@@ -501,6 +529,7 @@ func (s *Server) sendJSON(w http.ResponseWriter, r *http.Request, response Respo
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, "+HeaderInvokeProof+", "+HeaderInvokeGeneration+", "+HeaderInvokeNonce)
 		}
 	}
+	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(response)
 }
 
@@ -524,14 +553,12 @@ func (s *Server) corsOriginFor(r *http.Request) (string, bool) {
 }
 
 func (s *Server) sendError(w http.ResponseWriter, r *http.Request, errorMsg string, statusCode int) {
-	w.WriteHeader(statusCode)
-	s.sendJSON(w, r, Response{Success: false, Error: safeErrorMessage(errorMsg)})
+	s.writeJSON(w, r, statusCode, Response{Success: false, Error: safeErrorMessage(errorMsg)})
 }
 
 func (s *Server) sendReloading(w http.ResponseWriter, r *http.Request, generation uint64) {
 	w.Header().Set("Retry-After", "1")
-	w.WriteHeader(http.StatusServiceUnavailable)
-	s.sendJSON(w, r, Response{
+	s.writeJSON(w, r, http.StatusServiceUnavailable, Response{
 		Success:    false,
 		Error:      "reloading",
 		Reloading:  true,
@@ -553,28 +580,30 @@ func (s *Server) rejectInvokeIfReloading(w http.ResponseWriter, r *http.Request)
 
 // WriteAuthArtifacts writes invoke.ready metadata and optional invoke.token secret file.
 func (s *Server) WriteAuthArtifacts(workDir string, cfg Config) error {
-	if err := writeInvokeReady(workDir, cfg, s.authGeneration()); err != nil {
+	token, generation := s.CurrentAuth()
+	if err := writeInvokeReady(workDir, cfg, generation); err != nil {
 		return err
 	}
 	if !s.authEnabled() {
 		return nil
 	}
-	token, _ := s.CurrentAuth()
 	if len(token) == 0 {
 		return nil
 	}
 	if w, ok := openAuthHandoffWriter(EnvInvokeAuthFD); ok {
-		gen := s.authGeneration()
-		return writeAuthHandoff(w, gen, token)
+		return writeAuthHandoff(w, generation, token)
 	}
 	return writeTokenFile(invokeTokenPath(workDir), token)
 }
 
 func (s *Server) authGeneration() uint64 {
-	if s.auth == nil {
+	s.mu.RLock()
+	auth := s.auth
+	s.mu.RUnlock()
+	if auth == nil {
 		return 0
 	}
-	return s.auth.currentGeneration()
+	return auth.currentGeneration()
 }
 
 // RemoveAuthArtifacts deletes invoke.ready and invoke.token under workDir.

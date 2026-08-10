@@ -5,6 +5,13 @@ import {
 } from "@forst/cli/invoke";
 import type { InvokeTransport } from "./transport";
 
+function parseChallengePayload(payload: {
+  success?: boolean;
+  result?: InvokeChallenge | string;
+}): InvokeChallenge | undefined {
+  return parseInvokeChallengeResult(payload);
+}
+
 export function fetchInvokeChallenge(
   transport: InvokeTransport
 ): Effect.Effect<InvokeChallenge, Error> {
@@ -25,7 +32,7 @@ export function fetchInvokeChallenge(
       success?: boolean;
       result?: InvokeChallenge | string;
     };
-    const parsed = parseInvokeChallengeResult(payload);
+    const parsed = parseChallengePayload(payload);
     if (!parsed) {
       return yield* Effect.fail(new Error("invoke challenge missing nonce"));
     }

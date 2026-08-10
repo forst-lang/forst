@@ -1,4 +1,5 @@
-import { spawn, type ChildProcess, type Readable } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
+import type { Readable } from "node:stream";
 import {
   DevServerChildProcessNotResponding,
   DevServerChildShutdownTimeout,
@@ -48,7 +49,20 @@ export class ProcessSupervisor {
   }
 
   get auth(): AuthHandoff | null {
-    return this.authHandoff;
+    if (!this.authHandoff) {
+      return null;
+    }
+    return {
+      generation: this.authHandoff.generation,
+      token: Uint8Array.from(this.authHandoff.token),
+    };
+  }
+
+  private clearAuthHandoff(): void {
+    if (this.authHandoff) {
+      this.authHandoff.token.fill(0);
+      this.authHandoff = null;
+    }
   }
 
   setProcessStatus(status: ProcessSupervisorStatus): void {
@@ -67,7 +81,7 @@ export class ProcessSupervisor {
       `Starting Forst server with: ${this.forstPath} ${args.join(" ")}`
     );
 
-    this.authHandoff = null;
+    this.clearAuthHandoff();
     this.process = spawn(this.forstPath, args, {
       stdio: ["pipe", "pipe", "pipe", "pipe"],
       cwd,
@@ -98,6 +112,7 @@ export class ProcessSupervisor {
       serverLogger.info(
         `Forst server process exited with code ${code}, signal ${signal}`
       );
+      this.clearAuthHandoff();
       this.status = "stopped";
     });
 
@@ -177,6 +192,7 @@ export class ProcessSupervisor {
         serverLogger.error("Failed to force kill process:", killError);
       }
     } finally {
+      this.clearAuthHandoff();
       this.status = "stopped";
     }
   }

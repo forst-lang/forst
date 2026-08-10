@@ -9,9 +9,7 @@ describe("computeInvokeProof", () => {
   it("matches a fixed cross-language test vector shared with invoke_proof_test.go", () => {
     const token = new TextEncoder().encode("01234567890123456789012345678901");
     const proof = computeInvokeProof(token, 7, "nonce-for-cross-language-vector");
-    expect(proof).toBe(
-      computeInvokeProof(token, 7, "nonce-for-cross-language-vector")
-    );
+    expect(proof).toBe("-Lb6p0ULEFekjdrV0KI-4jv-7HRVsQJknWEGqRfAHT0");
     expect(proof.length).toBeGreaterThan(10);
   });
 

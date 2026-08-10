@@ -31,4 +31,12 @@ describe("readInvokeReadyUrl", () => {
     });
     expect(got).toBeUndefined();
   });
+
+  test("returns undefined when url field has wrong type", () => {
+    const got = readInvokeReadyUrl("/proj", {
+      existsSync: () => true,
+      readFileSync: () => JSON.stringify({ url: 6321 }),
+    });
+    expect(got).toBeUndefined();
+  });
 });

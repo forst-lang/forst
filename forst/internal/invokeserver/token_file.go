@@ -21,12 +21,34 @@ func writeTokenFile(path string, token []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	encoded := base64.RawURLEncoding.EncodeToString(token)
-	if err := os.WriteFile(tmp, []byte(encoded), 0o600); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".invoke.token.*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmpPath := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	encoded := base64.RawURLEncoding.EncodeToString(token)
+	if _, err := tmp.Write([]byte(encoded)); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }
 
 // readTokenFile loads and base64url-decodes the token at path.

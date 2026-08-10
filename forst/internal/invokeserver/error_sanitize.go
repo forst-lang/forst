@@ -6,19 +6,40 @@ import (
 	"strings"
 )
 
+func looksLikePathToken(part string) bool {
+	return filepath.IsAbs(part) || strings.ContainsAny(part, `/\`)
+}
+
 // safeErrorMessage replaces absolute or slash-containing path fragments with [path].
 func safeErrorMessage(msg string) string {
 	if msg == "" {
 		return msg
 	}
-	if strings.Contains(msg, string(filepath.Separator)) {
-		parts := strings.Fields(msg)
-		for i, part := range parts {
-			if filepath.IsAbs(part) || strings.Contains(part, "/") || strings.Contains(part, `\`) {
-				parts[i] = "[path]"
-			}
-		}
-		return strings.Join(parts, " ")
+	if !strings.ContainsAny(msg, `/\`) && !strings.Contains(msg, string(filepath.Separator)) {
+		return msg
 	}
-	return msg
+	var b strings.Builder
+	word := strings.Builder{}
+	flushWord := func() {
+		part := word.String()
+		word.Reset()
+		if part == "" {
+			return
+		}
+		if looksLikePathToken(part) {
+			b.WriteString("[path]")
+		} else {
+			b.WriteString(part)
+		}
+	}
+	for _, r := range msg {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			flushWord()
+			b.WriteRune(r)
+		} else {
+			word.WriteRune(r)
+		}
+	}
+	flushWord()
+	return b.String()
 }

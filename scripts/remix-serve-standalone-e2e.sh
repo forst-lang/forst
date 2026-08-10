@@ -207,6 +207,7 @@ echo "=== forst run ==="
 echo "expected: invoke http://${EXPECTED_HOST}:${INVOKE_PORT}/health remix http://${EXPECTED_HOST}:${REMIX_PORT}/ (HOST=${EXPECTED_HOST} PORT=${REMIX_PORT} for remix-serve)"
 export FORST_BOUNDARY_ROOT="$TMP"
 export FORST_GOMOD_ROOT
+export FORST_INVOKE_TRANSPORT=tcp
 
 if [[ "$DEV_MODE" == true ]]; then
   (

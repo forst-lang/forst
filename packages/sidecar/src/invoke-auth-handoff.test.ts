@@ -21,4 +21,18 @@ describe("readAuthHandoffFromStream", () => {
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toMatch(/missing generation or token/);
   });
+
+  it("rejects negative generation values", async () => {
+    const stream = Readable.from(['{"generation":-1,"token":"abc"}\n']);
+    await expect(readAuthHandoffFromStream(stream)).rejects.toThrow(
+      /missing generation or token/
+    );
+  });
+
+  it("rejects fractional generation values", async () => {
+    const stream = Readable.from(['{"generation":1.5,"token":"abc"}\n']);
+    await expect(readAuthHandoffFromStream(stream)).rejects.toThrow(
+      /missing generation or token/
+    );
+  });
 });

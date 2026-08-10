@@ -28,6 +28,35 @@ export interface ReadInvokeReadyUrlFs {
   readFileSync: typeof readFileSync;
 }
 
+function isValidReadyPayload(value: unknown): value is InvokeReadyPayload {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.url !== undefined && typeof record.url !== "string") {
+    return false;
+  }
+  if (record.socketPath !== undefined && typeof record.socketPath !== "string") {
+    return false;
+  }
+  if (
+    record.generation !== undefined &&
+    typeof record.generation !== "number"
+  ) {
+    return false;
+  }
+  if (
+    record.contractVersion !== undefined &&
+    typeof record.contractVersion !== "string"
+  ) {
+    return false;
+  }
+  if (record.runtime !== undefined && typeof record.runtime !== "string") {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Parses `.forst/invoke.ready` under `boundaryRoot`, or returns `undefined`
  * when the file is missing or invalid JSON.
@@ -42,7 +71,11 @@ function readInvokeReadyPayload(
     return undefined;
   }
   try {
-    return JSON.parse(fs.readFileSync(readyPath, "utf8")) as InvokeReadyPayload;
+    const parsed: unknown = JSON.parse(fs.readFileSync(readyPath, "utf8"));
+    if (!isValidReadyPayload(parsed)) {
+      return undefined;
+    }
+    return parsed;
   } catch {
     return undefined;
   }
@@ -115,7 +148,14 @@ export function readInvokeTokenFile(
   }
   try {
     const raw = fs.readFileSync(tokenPath, "utf8").trim();
-    return Uint8Array.from(Buffer.from(raw, "base64url"));
+    if (raw === "") {
+      return undefined;
+    }
+    const decoded = Uint8Array.from(Buffer.from(raw, "base64url"));
+    if (decoded.length === 0) {
+      return undefined;
+    }
+    return decoded;
   } catch {
     return undefined;
   }
@@ -137,15 +177,24 @@ export function readInvokeReadyAuth(
 ):
   | { token: Uint8Array; generation: number; url?: string; socketPath?: string }
   | undefined {
-  const payload = readInvokeReadyPayload(boundaryRoot, fs);
-  const token = readInvokeTokenFile(boundaryRoot, fs);
-  if (!payload || !token || payload.generation === undefined) {
-    return undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const payload = readInvokeReadyPayload(boundaryRoot, fs);
+    const token = readInvokeTokenFile(boundaryRoot, fs);
+    if (!payload || !token || payload.generation === undefined) {
+      return undefined;
+    }
+    const verify = readInvokeReadyPayload(boundaryRoot, fs);
+    if (verify?.generation !== payload.generation) {
+      continue;
+    }
+    const url = payload.url?.trim().replace(/\/$/, "") || undefined;
+    const socketPath = payload.socketPath?.trim() || undefined;
+    return {
+      token,
+      generation: payload.generation,
+      url,
+      socketPath,
+    };
   }
-  return {
-    token,
-    generation: payload.generation,
-    url: readInvokeReadyUrl(boundaryRoot, fs),
-    socketPath: readInvokeReadySocketPath(boundaryRoot, fs),
-  };
+  return undefined;
 }

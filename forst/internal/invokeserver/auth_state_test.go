@@ -36,12 +36,12 @@ func TestAuthState_rotate_wipesPreviousTokenBuffer(t *testing.T) {
 	state := newAuthState()
 	first := []byte("secret-token-value")
 	state.rotate(first)
-	for i := range first {
-		first[i] = 0
-	}
-	_, token := state.snapshot()
-	if string(token) == string(first) {
-		t.Fatal("expected rotated token")
+	prev := state.token
+	state.rotate([]byte("second-token"))
+	for i := range prev {
+		if prev[i] != 0 {
+			t.Fatalf("byte %d = %d, want 0", i, prev[i])
+		}
 	}
 }
 

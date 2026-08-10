@@ -94,6 +94,15 @@ func TestWriteInvokeReady(t *testing.T) {
 	if payload.URL != "http://127.0.0.1:8081" || payload.Runtime != "embedded" {
 		t.Fatalf("payload = %+v", payload)
 	}
+	if payload.Generation != 1 {
+		t.Fatalf("generation = %d", payload.Generation)
+	}
+	if payload.PID != os.Getpid() {
+		t.Fatalf("pid = %d, want %d", payload.PID, os.Getpid())
+	}
+	if payload.SocketPath != "" {
+		t.Fatalf("tcp ready socketPath = %q, want empty", payload.SocketPath)
+	}
 }
 
 func TestWriteInvokeReady_invalidPath(t *testing.T) {
@@ -162,6 +171,20 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 	}
 	if payload.URL != "" {
 		t.Fatalf("unix ready URL should be empty, got %q", payload.URL)
+	}
+	tokenRaw, err := os.ReadFile(filepath.Join(workDir, ".forst", "invoke.token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := decodeTokenFromHandoff(string(tokenRaw)); err != nil {
+		t.Fatalf("decode token file: %v", err)
+	}
+	tokenInfo, err := os.Stat(filepath.Join(workDir, ".forst", "invoke.token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tokenInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("token mode = %o", tokenInfo.Mode().Perm())
 	}
 }
 

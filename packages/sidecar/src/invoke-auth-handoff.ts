@@ -24,6 +24,9 @@ export async function readAuthHandoffFromStream(
   }
   if (
     payload.generation === undefined ||
+    typeof payload.generation !== "number" ||
+    !Number.isSafeInteger(payload.generation) ||
+    payload.generation < 0 ||
     typeof payload.token !== "string" ||
     payload.token.trim() === ""
   ) {

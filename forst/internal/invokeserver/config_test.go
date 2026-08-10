@@ -22,7 +22,7 @@ func TestConfig_Addr_allowNonLoopbackOptInHonorsHost(t *testing.T) {
 	}
 }
 
-func TestConfig_Addr_devRuntimeDefaultsLoopbackEvenWithHostSet(t *testing.T) {
+func TestConfig_Addr_emptyHostDefaultsLoopback(t *testing.T) {
 	cfg := Config{Runtime: "dev", Host: ""}
 	if got := cfg.Addr(); !strings.HasPrefix(got, embeddedListenHost+":") {
 		t.Fatalf("empty host Addr() = %q", got)

@@ -37,4 +37,39 @@ describe("fetchInvokeChallenge", () => {
       Effect.runPromise(fetchInvokeChallenge(transport))
     ).rejects.toThrow("network down");
   });
+
+  it("rejects malformed serialized challenge payloads", async () => {
+    const transport: InvokeTransport = {
+      request() {
+        return Effect.succeed(
+          new Response(
+            JSON.stringify({ success: true, result: "{not-json" }),
+            { status: 200 }
+          )
+        );
+      },
+    };
+    await expect(
+      Effect.runPromise(fetchInvokeChallenge(transport))
+    ).rejects.toThrow("invoke challenge missing nonce");
+  });
+
+  it("rejects non-string nonce values", async () => {
+    const transport: InvokeTransport = {
+      request() {
+        return Effect.succeed(
+          new Response(
+            JSON.stringify({
+              success: true,
+              result: { nonce: 123, generation: 1, expiresAt: "t" },
+            }),
+            { status: 200 }
+          )
+        );
+      },
+    };
+    await expect(
+      Effect.runPromise(fetchInvokeChallenge(transport))
+    ).rejects.toThrow("invoke challenge missing nonce");
+  });
 });

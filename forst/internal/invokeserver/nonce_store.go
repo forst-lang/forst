@@ -12,6 +12,9 @@ import (
 // invokeNonceBytes is the entropy length for each issued challenge nonce.
 const invokeNonceBytes = 32
 
+// maxOutstandingNonces bounds live challenge nonces before new issues are rejected.
+const maxOutstandingNonces = 1024
+
 // nonceStore maps issued nonces to expiry times; consume deletes on successful use.
 type nonceStore struct {
 	mu      sync.Mutex
@@ -35,6 +38,9 @@ func (s *nonceStore) issue(now time.Time) (nonce string, expiresAt time.Time, er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sweepExpiredLocked(now)
+	if len(s.entries) >= maxOutstandingNonces {
+		return "", time.Time{}, fmt.Errorf("too many outstanding invoke nonces")
+	}
 	buf := make([]byte, invokeNonceBytes)
 	if _, err := rand.Read(buf); err != nil {
 		return "", time.Time{}, fmt.Errorf("issue invoke nonce: %w", err)
