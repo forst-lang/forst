@@ -7,6 +7,7 @@ import {
   computeInvokeProof,
   normalizeHeaders,
   stripReservedHeaders,
+  type InvokeHeadersInit,
 } from "./invoke-auth";
 import { fetchInvokeChallenge } from "./invoke-challenge";
 import { readInvokeReadyAuth, readInvokeReadySocketPath } from "./invoke-ready";
@@ -183,7 +184,7 @@ export function createHttpInvokeTransport(
     init?: RequestInit
   ): Promise<Response> {
     const userHeaders = stripReservedHeaders({
-      ...normalizeHeaders(init?.headers),
+      ...normalizeHeaders(init?.headers as InvokeHeadersInit | undefined),
       ...normalizeHeaders(config.extraHeaders),
     });
     const headers: Record<string, string> = {
@@ -215,9 +216,16 @@ export function createHttpInvokeTransport(
 
     const socketPath = resolveSocketPath();
     if (socketPath && isUnixSocketSupported()) {
+      const body =
+        typeof init?.body === "string"
+          ? init.body
+          : init?.body instanceof Uint8Array
+            ? init.body
+            : undefined;
       return requestOverUnixSocket(socketPath, endpoint, {
-        ...init,
+        method: init?.method,
         headers,
+        body,
         signal: init?.signal ?? AbortSignal.timeout(timeoutMs),
       });
     }

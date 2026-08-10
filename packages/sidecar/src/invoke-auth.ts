@@ -11,6 +11,7 @@ export {
   stripReservedHeaders,
   type InvokeAuthState,
   type InvokeChallenge,
+  type InvokeHeadersInit,
 } from "@forst/cli/invoke";
 
 /** Ready-file metadata shape (no token). Alias kept for sidecar call sites. */
