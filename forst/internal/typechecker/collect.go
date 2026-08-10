@@ -179,6 +179,7 @@ func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
 			return err
 		}
 	}
+	tc.popScope()
 
 	for i := range n.ElseIfs {
 		if err := tc.collectExplicitTypes(&n.ElseIfs[i]); err != nil {
@@ -192,7 +193,6 @@ func (tc *TypeChecker) collectIfNode(n *ast.IfNode) error {
 		}
 	}
 
-	tc.popScope()
 	return nil
 }
 
