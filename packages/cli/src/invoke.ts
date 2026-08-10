@@ -13,7 +13,20 @@ export {
   type StartForstInvokeServerOptions,
   type SpawnFn,
 } from "./test-server.js";
-export { readInvokeReadyUrl, type InvokeReadyPayload } from "./invoke-ready.js";
+export {
+  readInvokeReadyAuth,
+  readInvokeReadyUrl,
+  readInvokeTokenFile,
+  type InvokeReadyPayload,
+} from "./invoke-ready.js";
+export {
+  buildInvokeAuthHeaders,
+  computeInvokeProof,
+  fetchAuthenticatedInvoke,
+  fetchInvokeChallenge,
+  type InvokeAuthState,
+  type InvokeChallenge,
+} from "./invoke-auth.js";
 export {
   ForstInvokeServerExitedEarly,
   ForstInvokeServerStartTimeout,

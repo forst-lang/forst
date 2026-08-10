@@ -29,5 +29,7 @@ describe("@forst/cli/invoke package exports", () => {
     const mod = await import("./invoke.js");
     expect(typeof mod.startForstInvokeServer).toBe("function");
     expect(typeof mod.readInvokeReadyUrl).toBe("function");
+    expect(typeof mod.fetchAuthenticatedInvoke).toBe("function");
+    expect(typeof mod.readInvokeReadyAuth).toBe("function");
   });
 });
