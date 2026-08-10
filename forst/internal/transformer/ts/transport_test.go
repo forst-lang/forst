@@ -97,6 +97,7 @@ func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
 		"fetchWithAuth",
 		"computeInvokeProof",
 		"readInvokeReadyAuth",
+		"readInvokeReadySocketPath",
 		"requestOverUnixSocket",
 		"forst-invoke-v1",
 		`node:crypto`,

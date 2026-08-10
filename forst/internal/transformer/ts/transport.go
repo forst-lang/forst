@@ -378,6 +378,22 @@ function computeInvokeProof(token, generation, nonce) {
     .digest("base64url");
 }
 
+function readInvokeReadySocketPath(boundaryRoot) {
+  const root = boundaryRoot || process.cwd();
+  const readyPath = join(root, ".forst", "invoke.ready");
+  if (!existsSync(readyPath)) {
+    return undefined;
+  }
+  try {
+    const ready = JSON.parse(readFileSync(readyPath, "utf8"));
+    const socketPath =
+      typeof ready.socketPath === "string" ? ready.socketPath.trim() : "";
+    return socketPath || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function readInvokeReadyAuth(boundaryRoot) {
   const root = boundaryRoot || process.cwd();
   const readyPath = join(root, ".forst", "invoke.ready");
@@ -587,8 +603,7 @@ class HttpInvokeClient {
   }
 
   resolveSocketPath() {
-    const auth = readInvokeReadyAuth(this.boundaryRoot);
-    return auth?.socketPath;
+    return readInvokeReadySocketPath(this.boundaryRoot);
   }
 
   async dial(path, init) {
