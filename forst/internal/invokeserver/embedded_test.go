@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -146,15 +147,26 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.URL == "" || strings.HasSuffix(payload.URL, ":0") || strings.Contains(payload.URL, "://127.0.0.1:0") {
-		t.Fatalf("ready URL must use bound port, got %q", payload.URL)
+	if runtime.GOOS == "windows" {
+		if payload.URL == "" || strings.HasSuffix(payload.URL, ":0") || strings.Contains(payload.URL, "://127.0.0.1:0") {
+			t.Fatalf("ready URL must use bound port, got %q", payload.URL)
+		}
+		if !strings.HasPrefix(payload.URL, "http://127.0.0.1:") {
+			t.Fatalf("ready URL = %q", payload.URL)
+		}
+		return
 	}
-	if !strings.HasPrefix(payload.URL, "http://127.0.0.1:") {
-		t.Fatalf("ready URL = %q", payload.URL)
+	wantSock := DefaultInvokeSocketPath(workDir)
+	if payload.SocketPath != wantSock {
+		t.Fatalf("socketPath = %q, want %q", payload.SocketPath, wantSock)
+	}
+	if payload.URL != "" {
+		t.Fatalf("unix ready URL should be empty, got %q", payload.URL)
 	}
 }
 
 func TestEmbeddedRuntime_start_listenError(t *testing.T) {
+	t.Setenv(envInvokeTransport, "tcp")
 	rt := newEmbeddedRuntime(embeddedDeps{
 		resolveRoot: func() (string, error) { return t.TempDir(), nil },
 		loadConfig: func(string) (*ftconfig.Config, error) {

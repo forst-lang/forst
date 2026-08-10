@@ -15,18 +15,34 @@ export {
 } from "./test-server.js";
 export {
   readInvokeReadyAuth,
+  readInvokeReadyGeneration,
+  readInvokeReadySocketPath,
   readInvokeReadyUrl,
   readInvokeTokenFile,
   type InvokeReadyPayload,
+  type ReadInvokeReadyUrlFs,
 } from "./invoke-ready.js";
 export {
+  INVOKE_PROOF_VERSION,
+  RESERVED_INVOKE_HEADERS,
   buildInvokeAuthHeaders,
   computeInvokeProof,
   fetchAuthenticatedInvoke,
   fetchInvokeChallenge,
+  invokeProofMessage,
+  normalizeHeaders,
+  parseInvokeChallengeResult,
+  stripReservedHeaders,
   type InvokeAuthState,
   type InvokeChallenge,
+  type InvokeDialTarget,
+  type InvokeHeadersInit,
 } from "./invoke-auth.js";
+export {
+  isUnixSocketSupported,
+  requestOverUnixSocket,
+  type UnixRequestInit,
+} from "./unix-transport.js";
 export {
   ForstInvokeServerExitedEarly,
   ForstInvokeServerStartTimeout,

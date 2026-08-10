@@ -1,4 +1,15 @@
 import { createHmac } from "node:crypto";
+import {
+  isUnixSocketSupported,
+  requestOverUnixSocket,
+} from "./unix-transport.js";
+
+export {
+  RESERVED_INVOKE_HEADERS,
+  normalizeHeaders,
+  stripReservedHeaders,
+  type InvokeHeadersInit,
+} from "./invoke-headers.js";
 
 /**
  * Domain separator baked into every invoke HMAC message.
@@ -59,21 +70,82 @@ type FetchLike = (
   init?: RequestInit
 ) => Promise<Response>;
 
+/** TCP base URL and/or Unix socket dial target for authenticated invoke helpers. */
+export type InvokeDialTarget = {
+  /** Loopback HTTP base URL when the server advertises TCP. */
+  baseUrl?: string;
+  /** Absolute Unix socket path when the server advertises UDS. */
+  socketPath?: string;
+};
+
+type DialRequestInit = {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+};
+
+function resolveDialFetch(
+  target: string | InvokeDialTarget,
+  fetchFn: FetchLike
+): { request: (path: string, init?: DialRequestInit) => Promise<Response> } {
+  if (typeof target === "string") {
+    const base = target.replace(/\/$/, "");
+    return {
+      request: (path, init) => fetchFn(`${base}${path}`, init),
+    };
+  }
+  const socketPath = target.socketPath?.trim();
+  if (socketPath && isUnixSocketSupported()) {
+    return {
+      request: (path, init) => requestOverUnixSocket(socketPath, path, init),
+    };
+  }
+  const base = target.baseUrl?.replace(/\/$/, "");
+  if (!base) {
+    throw new Error("invoke dial target missing baseUrl or socketPath");
+  }
+  return {
+    request: (path, init) => fetchFn(`${base}${path}`, init),
+  };
+}
+
+/**
+ * Parses the JSON envelope from `GET /invoke/challenge`.
+ * Shared by Promise (CLI) and Effect (sidecar) challenge fetchers.
+ *
+ * @param payload Parsed response body (`{ success, result }`).
+ * @returns Challenge when `result` contains a nonce, otherwise `undefined`.
+ */
+export function parseInvokeChallengeResult(payload: {
+  success?: boolean;
+  result?: InvokeChallenge | string;
+}): InvokeChallenge | undefined {
+  const raw = payload.result;
+  const parsed =
+    typeof raw === "string"
+      ? (JSON.parse(raw) as InvokeChallenge)
+      : (raw as InvokeChallenge | undefined);
+  if (!parsed?.nonce) {
+    return undefined;
+  }
+  return parsed;
+}
+
 /**
  * Fetches a single-use nonce from `GET /invoke/challenge`.
  * The challenge endpoint does not require a proof header (peer/backoff still apply).
  *
- * @param baseUrl Invoke server base URL (trailing slash optional).
+ * @param target Base URL string or `{ baseUrl?, socketPath? }` dial target.
  * @param fetchFn Optional fetch implementation (defaults to global `fetch`).
  * @returns Parsed challenge with `nonce`, `generation`, and `expiresAt`.
  * @throws When the HTTP status is not OK or the body lacks a nonce.
  */
 export async function fetchInvokeChallenge(
-  baseUrl: string,
+  target: string | InvokeDialTarget,
   fetchFn: FetchLike = fetch
 ): Promise<InvokeChallenge> {
-  const url = `${baseUrl.replace(/\/$/, "")}/invoke/challenge`;
-  const response = await fetchFn(url, { method: "GET" });
+  const dial = resolveDialFetch(target, fetchFn);
+  const response = await dial.request("/invoke/challenge", { method: "GET" });
   if (!response.ok) {
     throw new Error(`invoke challenge failed: HTTP ${response.status}`);
   }
@@ -81,12 +153,8 @@ export async function fetchInvokeChallenge(
     success?: boolean;
     result?: InvokeChallenge | string;
   };
-  const raw = payload.result;
-  const parsed =
-    typeof raw === "string"
-      ? (JSON.parse(raw) as InvokeChallenge)
-      : (raw as InvokeChallenge | undefined);
-  if (!parsed?.nonce) {
+  const parsed = parseInvokeChallengeResult(payload);
+  if (!parsed) {
     throw new Error("invoke challenge missing nonce");
   }
   return parsed;
@@ -121,20 +189,21 @@ export function buildInvokeAuthHeaders(
  * (`FORST_INVOKE_AUTH` is not `off`). Pair with `readInvokeReadyAuth`
  * to load the token from `.forst/invoke.token`.
  *
- * @param baseUrl Invoke server base URL.
+ * @param target Base URL string or `{ baseUrl?, socketPath? }` dial target.
  * @param body JSON-serializable invoke request body.
  * @param auth Live token and generation.
- * @param fetchFn Optional fetch implementation.
+ * @param fetchFn Optional fetch implementation (TCP only; ignored for UDS).
  * @returns The raw `Response` from `POST /invoke`.
  */
 export async function fetchAuthenticatedInvoke(
-  baseUrl: string,
+  target: string | InvokeDialTarget,
   body: unknown,
   auth: InvokeAuthState,
   fetchFn: FetchLike = fetch
 ): Promise<Response> {
-  const challenge = await fetchInvokeChallenge(baseUrl, fetchFn);
-  return fetchFn(`${baseUrl.replace(/\/$/, "")}/invoke`, {
+  const dial = resolveDialFetch(target, fetchFn);
+  const challenge = await fetchInvokeChallenge(target, fetchFn);
+  return dial.request("/invoke", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

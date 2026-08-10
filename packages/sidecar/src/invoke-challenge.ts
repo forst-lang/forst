@@ -1,6 +1,9 @@
 import { Effect } from "effect";
+import {
+  parseInvokeChallengeResult,
+  type InvokeChallenge,
+} from "@forst/cli/invoke";
 import type { InvokeTransport } from "./transport";
-import type { InvokeChallenge } from "./invoke-auth";
 
 export function fetchInvokeChallenge(
   transport: InvokeTransport
@@ -22,12 +25,8 @@ export function fetchInvokeChallenge(
       success?: boolean;
       result?: InvokeChallenge | string;
     };
-    const raw = payload.result;
-    const parsed =
-      typeof raw === "string"
-        ? (JSON.parse(raw) as InvokeChallenge)
-        : (raw as InvokeChallenge | undefined);
-    if (!parsed?.nonce) {
+    const parsed = parseInvokeChallengeResult(payload);
+    if (!parsed) {
       return yield* Effect.fail(new Error("invoke challenge missing nonce"));
     }
     return parsed;

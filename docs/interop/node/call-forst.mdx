@@ -466,7 +466,9 @@ Repository example: [`examples/in/rfc/node-interop/multi-package-dev`](https://g
 
 ## Built-in HTTP server
 
-Your compiled Go binary can listen on localhost (default `:6321`) and run Forst functions when Node sends `POST /invoke`.
+Your compiled Go binary starts a local invoke server. On Unix it defaults to a
+Unix domain socket at `.forst/invoke.sock`. On Windows, or with
+`FORST_INVOKE_TRANSPORT=tcp`, it uses loopback TCP (default port `6321`).
 
 Enable with `server.embedded` in `ftconfig.json`:
 
@@ -481,13 +483,12 @@ Enable with `server.embedded` in `ftconfig.json`:
 ```
 
 Then `forst build` emits the invoke companion. It writes `.forst/invoke.ready`
-and a separate local token file when authentication is enabled. Use the Forst
-client or sidecar for `POST /invoke`, because authenticated RPC requests require
-a fresh challenge and HMAC proof. For a manual smoke test, call the
-unauthenticated health endpoint:
+and a separate local token file. HMAC auth is on by default. Use the Forst
+client, sidecar, or CLI helpers for `POST /invoke`, because authenticated RPC
+needs a fresh challenge and HMAC proof. For a manual smoke test over TCP:
 
 ```bash
-curl -s http://127.0.0.1:6321/health
+FORST_INVOKE_TRANSPORT=tcp curl -s http://127.0.0.1:6321/health
 ```
 
 See [Invoke security](/interop/node/invoke-security) for the local transport,
@@ -500,11 +501,14 @@ token storage, reserved headers, and the test-only auth escape hatch.
 | `FORST_BASE_URL` / `FORST_DEV_URL` | Invoke server URL (aliases) |
 | `FORST_INVOKE_URL` | Explicit URL override |
 | `FORST_INVOKE_ENABLED` | Enable built-in server at runtime without ftconfig |
-| `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address in deployed binaries |
+| `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address for TCP mode |
+| `FORST_INVOKE_TRANSPORT` | Set to `tcp` to force loopback TCP instead of Unix sockets |
+| `FORST_INVOKE_AUTH` | Set to `off` to disable HMAC auth (local debugging only) |
 | `FORST_BOUNDARY_ROOT` | Project root for `.forst/invoke.ready` |
 | `FORST_SKIP_SPAWN` | Force HTTP connect (never spawn `forst dev`) |
 
-When the built-in server starts, Forst writes `.forst/invoke.ready` with the server URL for tooling auto-discovery.
+When the built-in server starts, Forst writes `.forst/invoke.ready` with
+`socketPath` (Unix default) or `url` (TCP) for tooling auto-discovery.
 
 ## Host mode (Remix and similar)
 

@@ -50,7 +50,11 @@ func New(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *
 		version.ContractVersion = HTTPContractVersion
 	}
 	if cfg.Transport == "" {
-		cfg.Transport = transportTCP
+		if cfg.SocketPath != "" {
+			cfg.Transport = transportUnix
+		} else {
+			cfg.Transport = transportTCP
+		}
 	}
 	s := &Server{
 		cfg:        cfg,
@@ -177,14 +181,9 @@ func (s *Server) StartOnMux(mux *http.ServeMux) error {
 		return err
 	}
 
-	s.mu.Lock()
-	s.server = s.buildHTTPServer(mux)
-	s.server.Addr = ln.Addr().String()
-	s.started = true
-	s.mu.Unlock()
-
-	if s.log != nil {
-		s.log.Infof("invoke HTTP server listening on %s (runtime=%s transport=%s)", s.server.Addr, s.cfg.Runtime, s.cfg.network())
+	if err := s.afterListen(ln, mux); err != nil {
+		_ = ln.Close()
+		return err
 	}
 	return s.server.Serve(ln)
 }
@@ -209,20 +208,39 @@ func (s *Server) StartAsync() error {
 		return fmt.Errorf("invoke server: listen %s: %w", s.cfg.ListenTarget(), err)
 	}
 
-	s.mu.Lock()
-	s.server = s.buildHTTPServer(mux)
-	s.server.Addr = ln.Addr().String()
-	s.started = true
-	s.mu.Unlock()
-
-	if s.log != nil {
-		s.log.Infof("invoke HTTP server listening on %s (runtime=%s transport=%s)", s.server.Addr, s.cfg.Runtime, s.cfg.network())
+	if err := s.afterListen(ln, mux); err != nil {
+		_ = ln.Close()
+		return err
 	}
 	go func() {
 		if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed && s.log != nil {
 			s.log.Errorf("invoke server stopped: %v", err)
 		}
 	}()
+	return nil
+}
+
+// afterListen records the bound address, optionally writes auth artifacts, and builds the HTTP server.
+func (s *Server) afterListen(ln net.Listener, mux *http.ServeMux) error {
+	s.mu.Lock()
+	s.server = s.buildHTTPServer(mux)
+	s.server.Addr = ln.Addr().String()
+	s.started = true
+	if s.cfg.network() == transportTCP {
+		if _, port, err := net.SplitHostPort(s.server.Addr); err == nil && port != "" {
+			s.cfg.Port = port
+		}
+	}
+	s.mu.Unlock()
+
+	if s.log != nil {
+		s.log.Infof("invoke HTTP server listening on %s (runtime=%s transport=%s)", s.server.Addr, s.cfg.Runtime, s.cfg.network())
+	}
+	if s.cfg.BoundaryRoot != "" {
+		if err := s.WriteAuthArtifacts(s.cfg.BoundaryRoot, s.cfg); err != nil {
+			return fmt.Errorf("invoke server: write auth artifacts: %w", err)
+		}
+	}
 	return nil
 }
 

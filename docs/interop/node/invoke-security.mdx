@@ -10,10 +10,14 @@ public network.
 
 ## Default protections
 
-The invoke server binds to a loopback address unless its Go configuration
-explicitly allows a non-loopback host. It also checks the request `Host` header,
-requires JSON for `POST /invoke`, limits concurrent invoke work, and returns
-sanitized errors.
+On Unix, the invoke server listens on a mode `0600` Unix domain socket at
+`.forst/invoke.sock` by default. Windows and `FORST_INVOKE_TRANSPORT=tcp` use
+HTTP over loopback TCP instead. The server also checks the request `Host`
+header, requires JSON for `POST /invoke`, limits concurrent invoke work, and
+returns sanitized errors.
+
+HMAC challenge-response auth is on by default. Set `FORST_INVOKE_AUTH=off` only
+for local debugging.
 
 When Forst writes `.forst/invoke.ready`, it uses mode `0600`. The file contains
 server metadata such as the URL, socket path, and auth generation. It does not
@@ -28,17 +32,18 @@ contain the token.
 ## Local transports
 
 <Tabs>
-  <Tab title="Unix">
-    A configured Unix domain socket is the preferred local transport. The
-    socket has mode `0600`, and Linux verifies that the connecting peer has the
-    same UID as the Forst process.
+  <Tab title="Unix (default)">
+    A Unix domain socket at `.forst/invoke.sock` is the default local transport
+    on non-Windows hosts. The socket has mode `0600`, and Linux verifies that
+    the connecting peer has the same UID as the Forst process.
 
-    `invoke.ready` advertises this transport through `socketPath`. The sidecar
-    reads that path and sends requests through the socket.
+    `invoke.ready` advertises this transport through `socketPath`. The sidecar,
+    `@forst/client`, CLI helpers, and generated `@forst/gen` transport read that
+    path and dial the socket.
   </Tab>
   <Tab title="TCP fallback">
-    Windows and configurations without a Unix socket use HTTP over loopback
-    TCP. The invoke server rejects non-loopback remote addresses.
+    Windows and `FORST_INVOKE_TRANSPORT=tcp` use HTTP over loopback TCP. The
+    invoke server rejects non-loopback remote addresses.
   </Tab>
 </Tabs>
 

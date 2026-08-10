@@ -1,27 +1,20 @@
 package nodert
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"forst/internal/unixpath"
 )
 
-// maxUnixSocketPathLen stays under the macOS AF_UNIX path limit (104 bytes).
-const maxUnixSocketPathLen = 100
+const nodeSocketTmpPrefix = "forst-bs-"
 
 func ensureUnixSocketPathLength(abs string) string {
-	if runtime.GOOS == "windows" || abs == "" {
-		return abs
-	}
-	if len(abs) <= maxUnixSocketPathLen {
-		return abs
-	}
-	sum := sha256.Sum256([]byte(abs))
-	return filepath.Join("/tmp", fmt.Sprintf("forst-bs-%x.sock", sum[:8]))
+	return unixpath.EnsureLength(abs, nodeSocketTmpPrefix)
 }
 
 func readyPathForSocket(socketPath string) string {

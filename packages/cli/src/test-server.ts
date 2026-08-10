@@ -11,9 +11,16 @@ import {
   ForstInvokeServerStartTimeout,
   ForstInvokeServerUnreachable,
 } from "./errors.js";
-import { readInvokeReadyUrl } from "./invoke-ready.js";
+import {
+  readInvokeReadySocketPath,
+  readInvokeReadyUrl,
+} from "./invoke-ready.js";
 import { buildForstSpawnEnv } from "./spawn-env.js";
 import type { ResolveForstBinaryOptions } from "./resolve.js";
+import {
+  isUnixSocketSupported,
+  requestOverUnixSocket,
+} from "./unix-transport.js";
 
 export type ForstInvokeServerMode = "auto" | "dev" | "embedded";
 
@@ -37,8 +44,11 @@ export interface StartForstInvokeServerOptions {
 }
 
 export interface ForstInvokeServerHandle {
+  /** Loopback HTTP base URL when the server advertises TCP; empty for UDS-only. */
   readonly baseUrl: string;
   readonly port: number;
+  /** Absolute Unix socket path when the server advertises UDS. */
+  readonly socketPath?: string;
   readonly pid?: number;
   readonly connection: "spawn" | "connect";
   stop(): Promise<void>;
@@ -200,6 +210,64 @@ async function waitForHealth(
   throw new ForstInvokeServerStartTimeout(
     `timed out waiting for ${healthUrl} (${detail})`,
     { baseUrl, stderrTail: detail }
+  );
+}
+
+async function waitForInvokeReady(
+  root: string,
+  fallbackBaseUrl: string,
+  timeoutMs: number,
+  deps: {
+    fetch: typeof fetch;
+    now: () => number;
+    sleep: (ms: number) => Promise<void>;
+    existsSync: typeof existsSync;
+    readFileSync: typeof readFileSync;
+    isAlive?: () => boolean;
+    onDead?: () => Error;
+  }
+): Promise<{ baseUrl: string; socketPath?: string }> {
+  const deadline = deps.now() + timeoutMs;
+  let lastErr: unknown;
+  while (deps.now() < deadline) {
+    if (deps.isAlive && !deps.isAlive()) {
+      throw deps.onDead?.() ?? new Error("invoke server process exited");
+    }
+    const socketPath = readInvokeReadySocketPath(root, {
+      existsSync: deps.existsSync,
+      readFileSync: deps.readFileSync,
+    });
+    const readyUrl = readInvokeReadyUrl(root, {
+      existsSync: deps.existsSync,
+      readFileSync: deps.readFileSync,
+    });
+    try {
+      if (socketPath && isUnixSocketSupported()) {
+        const res = await requestOverUnixSocket(socketPath, "/health", {
+          method: "GET",
+        });
+        if (res.ok) {
+          return { baseUrl: readyUrl ?? "", socketPath };
+        }
+        lastErr = new Error(`unix health status ${res.status}`);
+      } else {
+        const baseUrl = readyUrl ?? fallbackBaseUrl;
+        const res = await deps.fetch(`${stripTrailingSlash(baseUrl)}/health`);
+        if (res.ok) {
+          return { baseUrl: stripTrailingSlash(baseUrl), socketPath };
+        }
+        lastErr = new Error(`health status ${res.status}`);
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+    await deps.sleep(HEALTH_POLL_MS);
+  }
+  const detail =
+    lastErr instanceof Error ? lastErr.message : String(lastErr ?? "unknown");
+  throw new ForstInvokeServerStartTimeout(
+    `timed out waiting for invoke ready under ${root} (${detail})`,
+    { baseUrl: fallbackBaseUrl, stderrTail: detail }
   );
 }
 
@@ -367,17 +435,21 @@ export async function startForstInvokeServer(
   });
 
   let lastBindFailure: string | undefined;
+  const preferUnix = isUnixSocketSupported() && options.port === undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     const port = options.port ?? (await pickFreePort(createServer));
     const argv = buildSpawnArgs(mode, options, root, port);
-    const baseUrl = `http://127.0.0.1:${port}`;
+    const fallbackBaseUrl = `http://127.0.0.1:${port}`;
     const childEnv: NodeJS.ProcessEnv = {
       ...spawnEnvBase,
       ...options.env,
       FORST_BOUNDARY_ROOT: root,
     };
-    if (mode === "embedded") {
+    // Unix is the default local transport. Only force a TCP port when the
+    // caller asked for one or the platform has no AF_UNIX support.
+    if (mode === "embedded" && !preferUnix) {
       childEnv.FORST_INVOKE_PORT = String(port);
+      childEnv.FORST_INVOKE_TRANSPORT = "tcp";
     }
 
     const sink = { stdout: "", stderr: "" };
@@ -403,11 +475,14 @@ export async function startForstInvokeServer(
       exitCode = child.exitCode;
     }
 
+    let ready: { baseUrl: string; socketPath?: string };
     try {
-      await waitForHealth(baseUrl, timeoutMs, {
+      ready = await waitForInvokeReady(root, fallbackBaseUrl, timeoutMs, {
         fetch: fetchFn,
         now,
         sleep,
+        existsSync: exists,
+        readFileSync: readFile,
         isAlive: () => !exitedEarly && !childAlreadyExited(child),
         onDead: () =>
           new ForstInvokeServerExitedEarly(
@@ -443,7 +518,7 @@ export async function startForstInvokeServer(
           mode,
           port,
           argv,
-          baseUrl,
+          baseUrl: fallbackBaseUrl,
           stderrTail: stderrTail || lastBindFailure,
         });
       }
@@ -457,8 +532,9 @@ export async function startForstInvokeServer(
       await stopChild(child, stopGraceMs);
     };
     return {
-      baseUrl,
+      baseUrl: ready.baseUrl || fallbackBaseUrl,
       port,
+      socketPath: ready.socketPath,
       pid: child.pid,
       connection: "spawn",
       stop,

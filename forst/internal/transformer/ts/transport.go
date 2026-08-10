@@ -83,11 +83,21 @@ func transportErrorsImport(runtime ClientRuntime) string {
 	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + pkg + "\";\nimport { decodeDomainError } from \"" + ErrorsModuleSpecifier + "\";\n\n"
 }
 
+func transportNodeImports() string {
+	return `import { createHmac } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as http from "node:http";
+
+`
+}
+
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).
 func EmitTransportESM(invokePort string, runtime ClientRuntime) string {
 	return substituteTransportPlaceholders(
 		transportFileHeader(invokePort, runtime)+
 			transportErrorsImport(runtime)+
+			transportNodeImports()+
 			transportRuntimeESM,
 		invokePort,
 	)
@@ -117,6 +127,7 @@ func EmitTransportTypeScript(invokePort string, runtime ClientRuntime) string {
 		substituteTransportPlaceholders(
 			transportFileHeader(invokePort, runtime)+
 				transportErrorsImport(runtime)+
+				transportNodeImports()+
 				transportTypeDeclarationsTS+"\n"+
 				transportRuntimeESM,
 			invokePort,
@@ -172,6 +183,8 @@ export interface ForstInvokeClientConfig {
   baseUrl?: string;
   /** Alias accepted for parity with older clients. */
   devServerUrl?: string;
+  /** Project root for .forst/invoke.ready and .forst/invoke.token discovery. */
+  rootDir?: string;
   timeout?: number;
   retries?: number;
   /** Opt-in spawn of forst dev (ignored when NODE_ENV=production). Off by default. */
@@ -254,6 +267,8 @@ export interface ForstInvokeClientConfig {
   baseUrl?: string;
   /** Alias accepted for parity with older clients. */
   devServerUrl?: string;
+  /** Project root for .forst/invoke.ready and .forst/invoke.token discovery. */
+  rootDir?: string;
   timeout?: number;
   retries?: number;
   /** Opt-in spawn of forst dev (ignored when NODE_ENV=production). Off by default. */
@@ -322,25 +337,116 @@ export declare function setActiveTestTransportResolver(
 const transportRuntimeESM = `const defaultInvokeBaseUrl = "http://127.0.0.1:{{INVOKE_PORT}}";
 const EXPECTED_CONTRACT_VERSION = "{{CONTRACT_VERSION}}";
 
-function mergeHeaders(config, options) {
-  const out = { "Content-Type": "application/json" };
-  const cfgHeaders = config?.headers;
-  if (cfgHeaders) {
-    for (const [key, value] of Object.entries(cfgHeaders)) {
-      if (value !== undefined && value !== null) {
-        out[key] = String(value);
-      }
-    }
-  }
-  const callHeaders = options?.headers;
-  if (callHeaders) {
-    for (const [key, value] of Object.entries(callHeaders)) {
-      if (value !== undefined && value !== null) {
-        out[key] = String(value);
-      }
+const RESERVED_INVOKE_HEADERS = new Set([
+  "x-forst-invoke-proof",
+  "x-forst-invoke-generation",
+  "x-forst-invoke-nonce",
+  "x-forst-invoke-token",
+]);
+const INVOKE_PROOF_VERSION = "forst-invoke-v1";
+
+function stripReservedHeaders(headers) {
+  const out = {};
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (!RESERVED_INVOKE_HEADERS.has(String(key).toLowerCase())) {
+      out[key] = value;
     }
   }
   return out;
+}
+
+function mergeHeaders(config, options) {
+  const out = { "Content-Type": "application/json" };
+  const cfgHeaders = stripReservedHeaders(config?.headers);
+  for (const [key, value] of Object.entries(cfgHeaders)) {
+    if (value !== undefined && value !== null) {
+      out[key] = String(value);
+    }
+  }
+  const callHeaders = stripReservedHeaders(options?.headers);
+  for (const [key, value] of Object.entries(callHeaders)) {
+    if (value !== undefined && value !== null) {
+      out[key] = String(value);
+    }
+  }
+  return out;
+}
+
+function computeInvokeProof(token, generation, nonce) {
+  return createHmac("sha256", token)
+    .update(INVOKE_PROOF_VERSION + "|" + generation + "|" + nonce)
+    .digest("base64url");
+}
+
+function readInvokeReadyAuth(boundaryRoot) {
+  const root = boundaryRoot || process.cwd();
+  const readyPath = join(root, ".forst", "invoke.ready");
+  const tokenPath = join(root, ".forst", "invoke.token");
+  if (!existsSync(readyPath) || !existsSync(tokenPath)) {
+    return undefined;
+  }
+  try {
+    const ready = JSON.parse(readFileSync(readyPath, "utf8"));
+    const tokenB64 = String(readFileSync(tokenPath, "utf8")).trim();
+    const token = Buffer.from(tokenB64, "base64url");
+    const generation = Number(ready.generation ?? 0);
+    if (!token.length || !Number.isFinite(generation) || generation <= 0) {
+      return undefined;
+    }
+    return {
+      token,
+      generation,
+      url: typeof ready.url === "string" ? ready.url : undefined,
+      socketPath:
+        typeof ready.socketPath === "string" ? ready.socketPath : undefined,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function isUnixSocketSupported() {
+  return process.platform !== "win32";
+}
+
+function requestOverUnixSocket(socketPath, path, init = {}) {
+  return new Promise((resolve, reject) => {
+    const headers = { ...(init.headers ?? {}) };
+    const req = http.request(
+      {
+        socketPath,
+        path,
+        method: init.method ?? "GET",
+        headers,
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        res.on("end", () => {
+          resolve(
+            new Response(Buffer.concat(chunks), {
+              status: res.statusCode ?? 500,
+              headers: res.headers,
+            })
+          );
+        });
+      }
+    );
+    req.on("error", reject);
+    if (typeof init.body === "string") {
+      req.write(init.body);
+    }
+    req.end();
+  });
+}
+
+function authDisabledByEnv() {
+  const v = String(process.env.FORST_INVOKE_AUTH ?? "")
+    .trim()
+    .toLowerCase();
+  return v === "off" || v === "0" || v === "false";
 }
 
 function checkContractVersion(response, packageName, functionName) {
@@ -463,12 +569,76 @@ function shouldRetryInvokeFailure(err) {
 class HttpInvokeClient {
   constructor(config) {
     resolveTransportMode(config);
+    this.config = config ?? {};
+    this.boundaryRoot = config?.rootDir ?? process.cwd();
     this.baseUrl = resolveBaseUrl(config);
     this.timeoutMs = config?.timeout ?? 30_000;
     this.retries = config?.retries ?? 0;
     this.fetchFn = config?.fetchFn ?? fetch.bind(globalThis);
     this.middleware = config?.middleware ?? [];
     this.headers = config?.headers ?? {};
+  }
+
+  resolveAuthState() {
+    if (authDisabledByEnv()) {
+      return undefined;
+    }
+    return readInvokeReadyAuth(this.boundaryRoot);
+  }
+
+  resolveSocketPath() {
+    const auth = readInvokeReadyAuth(this.boundaryRoot);
+    return auth?.socketPath;
+  }
+
+  async dial(path, init) {
+    const socketPath = this.resolveSocketPath();
+    if (socketPath && isUnixSocketSupported()) {
+      return requestOverUnixSocket(socketPath, path, init);
+    }
+    return this.fetchFn(this.baseUrl + path, init);
+  }
+
+  async fetchWithAuth(path, init, options) {
+    const headers = mergeHeaders({ headers: this.headers }, options);
+    const auth = this.resolveAuthState();
+    if (auth && path !== "/invoke/challenge" && path !== "/health") {
+      const challengeRes = await this.dial("/invoke/challenge", {
+        method: "GET",
+        signal: init?.signal,
+      });
+      if (!challengeRes.ok) {
+        const responseText = await challengeRes.text();
+        throw new InvokeHttpFailure({
+          packageName: "",
+          functionName: "challenge",
+          status: challengeRes.status,
+          responseText,
+          message:
+            "invoke challenge failed: HTTP " + String(challengeRes.status),
+        });
+      }
+      const payload = await challengeRes.json();
+      const raw = payload?.result;
+      const challenge =
+        typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (!challenge?.nonce) {
+        throw new InvokeRejected({
+          packageName: "",
+          functionName: "challenge",
+          serverError: "invoke challenge missing nonce",
+          message: "invoke challenge missing nonce",
+        });
+      }
+      headers["X-Forst-Invoke-Nonce"] = challenge.nonce;
+      headers["X-Forst-Invoke-Generation"] = String(auth.generation);
+      headers["X-Forst-Invoke-Proof"] = computeInvokeProof(
+        auth.token,
+        auth.generation,
+        challenge.nonce
+      );
+    }
+    return this.dial(path, { ...init, headers });
   }
 
   async runMiddleware(hook, ctx, arg) {
@@ -522,12 +692,15 @@ class HttpInvokeClient {
     });
     let response;
     try {
-      response = await this.fetchFn(this.baseUrl + "/invoke", {
-        method: "POST",
-        headers: mergeHeaders({ headers: this.headers }, options),
-        body,
-        signal,
-      });
+      response = await this.fetchWithAuth(
+        "/invoke",
+        {
+          method: "POST",
+          body,
+          signal,
+        },
+        options
+      );
     } catch (err) {
       if (isAbortError(err)) {
         throw new InvokeTimedOut({
@@ -656,12 +829,15 @@ class HttpInvokeClient {
     });
     let response;
     try {
-      response = await this.fetchFn(this.baseUrl + "/invoke", {
-        method: "POST",
-        headers: mergeHeaders({ headers: this.headers }, options),
-        body,
-        signal,
-      });
+      response = await this.fetchWithAuth(
+        "/invoke",
+        {
+          method: "POST",
+          body,
+          signal,
+        },
+        options
+      );
     } catch (err) {
       if (isAbortError(err)) {
         return;

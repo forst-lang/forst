@@ -42,9 +42,10 @@ describe("startForstInvokeServer e2e (opt-in)", () => {
     "spawns embedded-invoke, POST /invoke Echo, then stops with no orphan",
     async () => {
       expect(existsSync(join(exampleRoot, "main.ft"))).toBe(true);
-      // Stale ready/token files force the attach path. Remove so this test always spawns.
+      // Stale ready/token/socket files force the attach path. Remove so this test always spawns.
       rmSync(join(exampleRoot, ".forst", "invoke.ready"), { force: true });
       rmSync(join(exampleRoot, ".forst", "invoke.token"), { force: true });
+      rmSync(join(exampleRoot, ".forst", "invoke.sock"), { force: true });
       const bin = resolveForstBinary();
       const cleanEnv: NodeJS.ProcessEnv = {
         PATH: process.env.PATH,
@@ -73,7 +74,10 @@ describe("startForstInvokeServer e2e (opt-in)", () => {
         const auth = readInvokeReadyAuth(exampleRoot);
         expect(auth).toBeDefined();
         const res = await fetchAuthenticatedInvoke(
-          handle.baseUrl,
+          {
+            baseUrl: handle.baseUrl,
+            socketPath: handle.socketPath ?? auth?.socketPath,
+          },
           {
             package: "main",
             function: "Echo",

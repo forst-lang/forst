@@ -75,6 +75,8 @@ type Config struct {
 	Port                string
 	SocketPath          string
 	Transport           string
+	// BoundaryRoot is the project root used for ready/token files and default socket paths.
+	BoundaryRoot        string
 	CORS                bool
 	CORSAllowedOrigins  []string
 	AllowedHosts        []string

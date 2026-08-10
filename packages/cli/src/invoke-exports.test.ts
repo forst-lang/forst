@@ -31,5 +31,8 @@ describe("@forst/cli/invoke package exports", () => {
     expect(typeof mod.readInvokeReadyUrl).toBe("function");
     expect(typeof mod.fetchAuthenticatedInvoke).toBe("function");
     expect(typeof mod.readInvokeReadyAuth).toBe("function");
+    expect(typeof mod.requestOverUnixSocket).toBe("function");
+    expect(typeof mod.stripReservedHeaders).toBe("function");
+    expect(typeof mod.parseInvokeChallengeResult).toBe("function");
   });
 });
