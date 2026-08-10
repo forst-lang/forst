@@ -280,6 +280,7 @@ func TestStartDevServer_exitsOnConfigLoadFailure(t *testing.T) {
 }
 
 func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	level := "info"
