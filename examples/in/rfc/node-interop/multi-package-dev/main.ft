@@ -1,9 +1,14 @@
 package main
 
+import "os"
 import node host "./host"
 
 func main() {
-	ready := host.hostPing()
-	ensure ready is Ok()
-	println("multipackage-dev ready: " + ready)
+	if os.Getenv("FORST_INVOKE_ONLY") == "1" {
+		println("multipackage-dev invoke-only")
+	} else {
+		ready := host.hostPing()
+		ensure ready is Ok()
+		println("multipackage-dev ready: " + ready)
+	}
 }
