@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
 
+## [0.12.1](https://github.com/forst-lang/forst/compare/v0.12.0...v0.12.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **typechecker:** pop if-scope before collecting else/else-if branches ([#164](https://github.com/forst-lang/forst/issues/164)) ([db0afc0](https://github.com/forst-lang/forst/commit/db0afc002b77f2fbd7b007891f07e1123b4dcfd9))
+
 ## [0.12.0](https://github.com/forst-lang/forst/compare/v0.11.0...v0.12.0) (2026-08-09)
 
 
