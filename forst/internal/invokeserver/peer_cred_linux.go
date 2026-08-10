@@ -1,5 +1,6 @@
 //go:build linux
 
+// peer_cred_linux reads SO_PEERCRED on Linux Unix sockets for invoke auth.
 package invokeserver
 
 import (
@@ -8,12 +9,15 @@ import (
 	"syscall"
 )
 
+// unixPeerCredentialReader implements peerCredentialReader via SO_PEERCRED.
 type unixPeerCredentialReader struct{}
 
+// defaultPeerCredentialReader returns the Linux peercred reader.
 func defaultPeerCredentialReader() peerCredentialReader {
 	return unixPeerCredentialReader{}
 }
 
+// PeerCredentials reads UID and PID from conn using getsockopt SO_PEERCRED.
 func (unixPeerCredentialReader) PeerCredentials(conn net.Conn) (peerCredentials, bool) {
 	uc, ok := conn.(*net.UnixConn)
 	if !ok {
@@ -40,6 +44,7 @@ func (unixPeerCredentialReader) PeerCredentials(conn net.Conn) (peerCredentials,
 	return cred, true
 }
 
+// currentUID returns the effective UID of this process.
 func currentUID() int {
 	return os.Getuid()
 }

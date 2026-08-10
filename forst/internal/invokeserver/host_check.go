@@ -1,3 +1,4 @@
+// host_check validates Host and Content-Type on invoke HTTP requests.
 package invokeserver
 
 import (
@@ -5,8 +6,10 @@ import (
 	"strings"
 )
 
+// defaultAllowedInvokeHosts is used when Config.AllowedHosts is nil.
 var defaultAllowedInvokeHosts = []string{"localhost", "127.0.0.1", "::1"}
 
+// isAllowedInvokeHost reports whether hostHeader matches allowed (case-insensitive, port stripped).
 func isAllowedInvokeHost(hostHeader string, allowed []string) bool {
 	host := strings.TrimSpace(hostHeader)
 	if host == "" {
@@ -30,6 +33,7 @@ func isAllowedInvokeHost(hostHeader string, allowed []string) bool {
 	return false
 }
 
+// requireJSONContentType reports whether r declares an application/json Content-Type.
 func requireJSONContentType(r *http.Request) bool {
 	ct := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
 	if ct == "" {

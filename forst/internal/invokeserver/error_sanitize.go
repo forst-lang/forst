@@ -1,3 +1,4 @@
+// error_sanitize strips filesystem paths from user-visible invoke error strings.
 package invokeserver
 
 import (
@@ -5,6 +6,7 @@ import (
 	"strings"
 )
 
+// safeErrorMessage replaces absolute or slash-containing path fragments with [path].
 func safeErrorMessage(msg string) string {
 	if msg == "" {
 		return msg

@@ -1,3 +1,4 @@
+// unix_listener binds invoke RPC on a mode-0600 Unix domain socket with stale-socket cleanup.
 package invokeserver
 
 import (
@@ -8,6 +9,7 @@ import (
 	"syscall"
 )
 
+// listenUnixSocket creates path's parent dir, removes stale sockets, listens, and chmods 0600.
 func listenUnixSocket(path string) (net.Listener, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, fmt.Errorf("invoke unix socket: mkdir: %w", err)
@@ -26,6 +28,7 @@ func listenUnixSocket(path string) (net.Listener, error) {
 	return ln, nil
 }
 
+// removeStaleSocket unlinks path when no live owner is reported by readMarkerPID.
 func removeStaleSocket(path string, isOwnerAlive func(pid int) bool, readMarkerPID func() (int, bool)) error {
 	if readMarkerPID != nil {
 		if pid, ok := readMarkerPID(); ok && isOwnerAlive(pid) {
@@ -44,6 +47,7 @@ func removeStaleSocket(path string, isOwnerAlive func(pid int) bool, readMarkerP
 	return nil
 }
 
+// processAlive reports whether pid is running (signal 0 probe).
 func processAlive(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -55,6 +59,7 @@ func processAlive(pid int) bool {
 	return proc.Signal(syscall.Signal(0)) == nil
 }
 
+// readReadyMarkerPID is a hook for tests; production returns no owner pid.
 func readReadyMarkerPID() (int, bool) {
 	return 0, false
 }

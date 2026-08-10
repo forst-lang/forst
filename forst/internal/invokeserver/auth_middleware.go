@@ -1,3 +1,4 @@
+// auth_middleware enforces peer checks, failed-auth backoff, and HMAC proof verification.
 package invokeserver
 
 import (
@@ -9,6 +10,7 @@ import (
 	"time"
 )
 
+// authMiddleware wraps next with invoke auth: loopback or UDS peercred, then HMAC proof on RPC paths.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.authEnabled() {
@@ -54,6 +56,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// verifyProof validates nonce consumption, generation match, and HMAC proof headers on r.
 func (s *Server) verifyProof(r *http.Request, peerKey string, now time.Time) bool {
 	if s.auth == nil || s.nonces == nil {
 		return false
@@ -95,17 +98,20 @@ func (s *Server) verifyProof(r *http.Request, peerKey string, now time.Time) boo
 	return true
 }
 
+// recordAuthFailure notifies the backoff limiter after a failed auth attempt.
 func (s *Server) recordAuthFailure(peerKey string, now time.Time) {
 	if s.backoff != nil {
 		s.backoff.RecordFailure(peerKey, now)
 	}
 }
 
+// sendAuthError responds with 401 and a generic unauthorized JSON envelope.
 func (s *Server) sendAuthError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusUnauthorized)
 	s.sendJSON(w, r, Response{Success: false, Error: "unauthorized"})
 }
 
+// peerKey identifies the remote peer for backoff (uds:pid or tcp:host).
 func (s *Server) peerKey(r *http.Request) string {
 	if s.cfg.network() == transportUnix {
 		if conn := connFromContext(r.Context()); conn != nil {
@@ -121,6 +127,7 @@ func (s *Server) peerKey(r *http.Request) string {
 	return "tcp:" + host
 }
 
+// isLoopbackRemoteAddr reports whether remote is a loopback host:port.
 func isLoopbackRemoteAddr(remote string) bool {
 	host, _, err := net.SplitHostPort(remote)
 	if err != nil {
@@ -129,8 +136,10 @@ func isLoopbackRemoteAddr(remote string) bool {
 	return isLoopbackHost(host)
 }
 
+// connContextKey stores the accepted net.Conn on request context for UDS peercred checks.
 type connContextKey struct{}
 
+// connFromContext returns the connection attached by the Unix listener, if any.
 func connFromContext(ctx context.Context) net.Conn {
 	conn, _ := ctx.Value(connContextKey{}).(net.Conn)
 	return conn
