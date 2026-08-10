@@ -6,7 +6,12 @@ import { ForstUtils } from "./utils";
 import { serverLogger, forstLogger } from "./logger";
 import { ProcessSupervisor } from "./process-supervisor";
 
-/** Project root passed to `forst dev -root` and used as the child process cwd. */
+/**
+ * Resolves the project root directory for `forst dev -root` and the supervised child cwd.
+ *
+ * @param cfg Sidecar configuration; prefers `rootDir`, then `forstDir`, else `./forst`.
+ * @returns Absolute project root path.
+ */
 export function effectiveProjectRootDir(cfg: ForstConfig): string {
   return resolve(cfg.rootDir ?? cfg.forstDir ?? "./forst");
 }
@@ -14,6 +19,9 @@ export function effectiveProjectRootDir(cfg: ForstConfig): string {
 /**
  * Default directory used for `.ft` watch when {@link ForstConfig.watchRoots} is not set.
  * Prefers `forstDir`, then `rootDir`, then {@link effectiveProjectRootDir}.
+ *
+ * @param cfg Sidecar configuration whose directory fields define the watch root.
+ * @returns Absolute path to the primary watch directory.
  */
 export function effectiveWatchDirForConfig(cfg: ForstConfig): string {
   return resolve(
@@ -24,6 +32,9 @@ export function effectiveWatchDirForConfig(cfg: ForstConfig): string {
 /**
  * Absolute watch roots: either explicit `watchRoots` or a single {@link effectiveWatchDirForConfig}.
  * Skips paths that do not exist on disk.
+ *
+ * @param cfg Sidecar configuration; uses {@link ForstConfig.watchRoots} when set.
+ * @returns Existing directories to pass to the file watcher (may be empty).
  */
 export function buildForstWatchRoots(cfg: ForstConfig): string[] {
   if (cfg.watchRoots && cfg.watchRoots.length > 0) {
@@ -39,6 +50,10 @@ export function buildForstWatchRoots(cfg: ForstConfig): string[] {
 /**
  * Arguments and cwd for `spawn(forst, args, { cwd })` to run `forst dev`.
  * Exposed for unit tests and advanced integrations.
+ *
+ * @param cfg Sidecar configuration (root, log level, optional `ftconfig.json`).
+ * @param port TCP port passed to `forst dev -port`.
+ * @returns argv for the dev subcommand and cwd for the child process.
  */
 export function buildForstDevSpawnArgs(
   cfg: ForstConfig,
@@ -62,6 +77,10 @@ export function buildForstDevSpawnArgs(
 
 /**
  * Arguments for `forst generate`, aligned with {@link buildForstDevSpawnArgs}: optional `-config`, then project root.
+ *
+ * @param cfg Sidecar configuration supplying an optional config file path.
+ * @param root Project root directory passed as the final generate argument.
+ * @returns argv for the generate subcommand.
  */
 export function buildForstGenerateArgs(
   cfg: ForstConfig,
@@ -76,7 +95,8 @@ export function buildForstGenerateArgs(
 }
 
 /**
- * Spawns and supervises `forst dev`, exposes the listen URL via `getServerUrl()`, and watches `.ft` files for reload.
+ * Spawns and supervises `forst dev`, exposes the listen URL via {@link ForstServer.getServerUrl},
+ * watches `.ft` files for reload, and captures invoke auth from the child when available.
  */
 export class ForstServer {
   private supervisor: ProcessSupervisor;
@@ -88,6 +108,10 @@ export class ForstServer {
   private fileWatchers: Array<() => Promise<void>> = [];
   private shutdownHandler: () => void;
 
+  /**
+   * @param config Sidecar configuration (port, host, watch roots, `ftconfig.json`, etc.).
+   * @param forstPath Absolute path to the `forst` binary used for `forst dev` and `forst generate`.
+   */
   constructor(config: ForstConfig, forstPath: string) {
     this.config = config;
     this.forstPath = forstPath;
@@ -116,7 +140,14 @@ export class ForstServer {
   }
 
   /**
-   * Start the Forst development server
+   * Spawns the supervised `forst dev` child, waits until it responds to health checks,
+   * and starts `.ft` file watching when watch roots exist.
+   *
+   * Registers SIGINT/SIGTERM handlers that call {@link stop} before exit.
+   * Idempotent while already running (returns current {@link ServerInfo}).
+   *
+   * @returns Snapshot of pid, listen address, and lifecycle status after startup.
+   * @throws When the child fails to start or never becomes healthy within the supervisor timeout.
    */
   async start(): Promise<ServerInfo> {
     if (this.status === "running") {
@@ -149,7 +180,10 @@ export class ForstServer {
   }
 
   /**
-   * Stop the Forst development server
+   * Stops file watchers, sends SIGTERM to the supervised child (SIGKILL on timeout),
+   * and removes signal handlers registered by {@link start}.
+   *
+   * No-op when already stopped.
    */
   async stop(): Promise<void> {
     if (this.status === "stopped") {
@@ -179,7 +213,9 @@ export class ForstServer {
   }
 
   /**
-   * Restart the server
+   * {@link stop} followed by {@link start}. Used after debounced `.ft` file changes.
+   *
+   * @returns Fresh {@link ServerInfo} from the new child process.
    */
   async restart(): Promise<ServerInfo> {
     serverLogger.info("🔄 Restarting Forst development server...");
@@ -188,7 +224,10 @@ export class ForstServer {
   }
 
   /**
-   * Get server information
+   * Current embedded dev-server snapshot for logging and sidecar status APIs.
+   *
+   * @returns pid of the supervised child (0 if not running), configured host/port,
+   *   coarse lifecycle status, and `connection: "spawn"`.
    */
   getServerInfo(): ServerInfo {
     return {
@@ -304,14 +343,38 @@ export class ForstServer {
   private fileChangeTimeout: NodeJS.Timeout | null = null;
 
   /**
-   * Get the server URL
+   * HTTP base URL of the embedded invoke server (`http://host:port`).
+   *
+   * Uses the configured {@link ForstConfig.host} and {@link ForstConfig.port}
+   * (defaults `localhost:6320`). Does not read `.forst/invoke.ready`; callers
+   * that need post-reload discovery should read that file instead.
    */
   getServerUrl(): string {
     return `http://${this.host}:${this.port}`;
   }
 
   /**
-   * Check if server is running
+   * Invoke auth secret delivered by the child over `FORST_INVOKE_AUTH_FD` after spawn.
+   *
+   * Populated asynchronously once the child writes its handoff line during startup.
+   * Returns `null` before handoff completes, when handoff failed, or after {@link stop}.
+   *
+   * Prefer this over reading `.forst/invoke.token` in spawn mode so the token never
+   * hits disk. Pair with {@link getServerUrl} or ready-file metadata for RPC transport setup.
+   *
+   * @returns Live token bytes and generation for HMAC invoke proofs, or `null` when unavailable.
+   */
+  getAuthHandoff(): { token: Uint8Array; generation: number } | null {
+    const handoff = this.supervisor.auth;
+    return handoff
+      ? { token: handoff.token, generation: handoff.generation }
+      : null;
+  }
+
+  /**
+   * Whether the sidecar considers the dev server running and the child handle is present.
+   *
+   * True only when internal status is `"running"` and the supervised process has not exited.
    */
   isRunning(): boolean {
     return this.status === "running" && this.supervisor.child !== null;

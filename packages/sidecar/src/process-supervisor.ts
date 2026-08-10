@@ -1,10 +1,15 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess, type Readable } from "node:child_process";
 import {
   DevServerChildProcessNotResponding,
   DevServerChildShutdownTimeout,
   DevServerHealthCheckHttpFailure,
   DevServerStartupTimeout,
 } from "./errors";
+import {
+  envInvokeAuthFd,
+  readAuthHandoffFromStream,
+  type AuthHandoff,
+} from "./invoke-auth-handoff";
 import { serverLogger, forstLogger } from "./logger";
 
 /** argv/cwd passed to `spawn` when the sidecar starts an embedded `forst dev` process. */
@@ -26,6 +31,7 @@ export type ProcessSupervisorStatus =
 export class ProcessSupervisor {
   private process: ChildProcess | null = null;
   private status: ProcessSupervisorStatus = "stopped";
+  private authHandoff: AuthHandoff | null = null;
 
   constructor(
     private readonly forstPath: string,
@@ -39,6 +45,10 @@ export class ProcessSupervisor {
 
   get processStatus(): ProcessSupervisorStatus {
     return this.status;
+  }
+
+  get auth(): AuthHandoff | null {
+    return this.authHandoff;
   }
 
   setProcessStatus(status: ProcessSupervisorStatus): void {
@@ -57,10 +67,27 @@ export class ProcessSupervisor {
       `Starting Forst server with: ${this.forstPath} ${args.join(" ")}`
     );
 
+    this.authHandoff = null;
     this.process = spawn(this.forstPath, args, {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe", "pipe"],
       cwd,
+      env: {
+        ...process.env,
+        [envInvokeAuthFd]: "3",
+      },
     });
+
+    const authStream = this.process.stdio[3];
+    if (authStream && typeof authStream !== "number") {
+      void readAuthHandoffFromStream(authStream as Readable)
+        .then((handoff) => {
+          this.authHandoff = handoff;
+          serverLogger.debug("Captured invoke auth handoff from child process");
+        })
+        .catch((error) => {
+          serverLogger.warn("Failed to read invoke auth handoff:", error);
+        });
+    }
 
     this.process.on("error", (error) => {
       serverLogger.error("Forst server process error:", error);

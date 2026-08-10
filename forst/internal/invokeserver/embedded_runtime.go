@@ -12,7 +12,6 @@ import (
 type embeddedDeps struct {
 	resolveRoot func() (string, error)
 	loadConfig  func(dir string) (*ftconfig.Config, error)
-	writeReady  func(workDir string, cfg Config) error
 	newServer   func(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *Server
 }
 
@@ -20,7 +19,6 @@ func defaultEmbeddedDeps() embeddedDeps {
 	return embeddedDeps{
 		resolveRoot: resolveBoundaryRoot,
 		loadConfig:  ftconfig.LoadFromDir,
-		writeReady:  writeInvokeReady,
 		newServer:   New,
 	}
 }
@@ -79,7 +77,7 @@ func (r *EmbeddedRuntime) Start() error {
 	if _, port, err := net.SplitHostPort(r.server.BoundAddr()); err == nil && port != "" {
 		serverCfg.Port = port
 	}
-	return r.deps.writeReady(workDir, serverCfg)
+	return r.server.WriteAuthArtifacts(workDir, serverCfg)
 }
 
 func (r *EmbeddedRuntime) startOnce() {

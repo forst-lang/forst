@@ -60,13 +60,9 @@ func MarkReloading(boundaryRoot string, reloading bool, generation uint64) error
 	return os.WriteFile(path, raw, 0o644)
 }
 
-// RemoveInvokeReady deletes invoke.ready so clients do not treat a stale server as ready.
+// RemoveInvokeReady deletes invoke.ready and invoke.token so clients do not treat a stale server as ready.
 func RemoveInvokeReady(boundaryRoot string) error {
-	err := os.Remove(invokeReadyPath(boundaryRoot))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return invokeserver.RemoveAuthArtifacts(boundaryRoot)
 }
 
 // InvokeListenAddr returns host:port for the embedded invoke server.

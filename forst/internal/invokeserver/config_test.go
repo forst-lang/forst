@@ -8,6 +8,27 @@ import (
 	"forst/internal/discovery"
 )
 
+func TestConfig_Addr_nonLoopbackRequiresExplicitOptIn(t *testing.T) {
+	cfg := Config{Runtime: "dev", Host: "0.0.0.0", Port: "9090"}
+	if got := cfg.Addr(); got != "127.0.0.1:9090" {
+		t.Fatalf("Addr() = %q, want loopback without AllowNonLoopback", got)
+	}
+}
+
+func TestConfig_Addr_allowNonLoopbackOptInHonorsHost(t *testing.T) {
+	cfg := Config{Runtime: "dev", Host: "0.0.0.0", Port: "9090", AllowNonLoopback: true}
+	if got := cfg.Addr(); got != "0.0.0.0:9090" {
+		t.Fatalf("Addr() = %q", got)
+	}
+}
+
+func TestConfig_Addr_devRuntimeDefaultsLoopbackEvenWithHostSet(t *testing.T) {
+	cfg := Config{Runtime: "dev", Host: ""}
+	if got := cfg.Addr(); !strings.HasPrefix(got, embeddedListenHost+":") {
+		t.Fatalf("empty host Addr() = %q", got)
+	}
+}
+
 func TestConfig_Addr_embeddedForcesLocalhost(t *testing.T) {
 	tests := []struct {
 		name string
@@ -44,17 +65,6 @@ func TestConfig_BaseURL_embeddedForcesLocalhost(t *testing.T) {
 	}
 }
 
-func TestConfig_listenHost_devRuntime(t *testing.T) {
-	cfg := Config{Runtime: "dev", Host: ""}
-	if got := cfg.Addr(); !strings.HasPrefix(got, embeddedListenHost+":") {
-		t.Fatalf("empty host Addr() = %q", got)
-	}
-	cfg = Config{Runtime: "dev", Host: "0.0.0.0", Port: "9090"}
-	if got := cfg.Addr(); got != "0.0.0.0:9090" {
-		t.Fatalf("explicit host Addr() = %q", got)
-	}
-}
-
 func TestConfig_listenPort_defaults(t *testing.T) {
 	cfg := Config{Host: "127.0.0.1", Port: "", Runtime: "dev"}
 	if got := cfg.Addr(); got != "127.0.0.1:8081" {
@@ -66,7 +76,7 @@ func TestStartAsync_embeddedBindsLoopbackOnly(t *testing.T) {
 	backend := &stubBackend{
 		functions: map[string]map[string]discovery.FunctionInfo{},
 	}
-	s := New(Config{Host: "0.0.0.0", Port: "0", Runtime: "embedded"}, backend, DefaultEmbeddedVersion(), nil)
+	s := New(Config{Host: "0.0.0.0", Port: "0", Runtime: "embedded", AuthDisabled: true}, backend, DefaultEmbeddedVersion(), nil)
 	if err := s.StartAsync(); err != nil {
 		t.Fatal(err)
 	}

@@ -79,7 +79,7 @@ func TestResolveBoundaryRoot_walksAncestor(t *testing.T) {
 func TestWriteInvokeReady(t *testing.T) {
 	dir := t.TempDir()
 	cfg := Config{Host: "127.0.0.1", Port: "8081", Runtime: "embedded"}
-	if err := writeInvokeReady(dir, cfg); err != nil {
+	if err := writeInvokeReady(dir, cfg, 1); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".forst", "invoke.ready"))
@@ -96,7 +96,7 @@ func TestWriteInvokeReady(t *testing.T) {
 }
 
 func TestWriteInvokeReady_invalidPath(t *testing.T) {
-	err := writeInvokeReady("../evil", Config{})
+	err := writeInvokeReady("../evil", Config{}, 0)
 	if err == nil || !strings.Contains(err.Error(), "invalid ready path") {
 		t.Fatalf("err = %v", err)
 	}
@@ -108,8 +108,7 @@ func TestEmbeddedRuntime_start_disabled(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{}, nil
 		},
-		writeReady: func(string, Config) error { t.Fatal("should not write"); return nil },
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)
@@ -126,8 +125,7 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "0"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)
@@ -162,8 +160,7 @@ func TestEmbeddedRuntime_start_listenError(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "invalid-port"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	err := rt.Start()
 	if err == nil {
@@ -224,8 +221,7 @@ func TestWaitForShutdown_stopsServer(t *testing.T) {
 		loadConfig: func(string) (*ftconfig.Config, error) {
 			return &ftconfig.Config{Server: ftconfig.ServerConfig{Embedded: true, Port: "0"}}, nil
 		},
-		writeReady: writeInvokeReady,
-		newServer:  New,
+		newServer: New,
 	})
 	if err := rt.Start(); err != nil {
 		t.Fatal(err)

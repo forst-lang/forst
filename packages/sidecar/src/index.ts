@@ -22,8 +22,15 @@ export {
   normalizeDevServerBaseUrl,
   parseDevServerUrlParts,
 } from "./config-merge";
-export { readInvokeReadyUrl } from "./invoke-ready";
+export {
+  readInvokeReadyUrl,
+  readInvokeReadySocketPath,
+  readInvokeReadyGeneration,
+  readInvokeTokenFile,
+  readInvokeReadyAuth,
+} from "./invoke-ready";
 export type { InvokeReadyPayload } from "./invoke-ready";
+export { computeInvokeProof, RESERVED_INVOKE_HEADERS } from "./invoke-auth";
 export * from "./types";
 export * from "./errors";
 

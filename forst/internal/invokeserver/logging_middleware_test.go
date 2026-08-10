@@ -63,7 +63,7 @@ func TestHandleInvoke_logsFunctionCall(t *testing.T) {
 	rr := httptest.NewRecorder()
 	body := strings.NewReader(`{"package":"mypkg","function":"Fn","args":[]}`)
 	handler := s.loggingMiddleware(http.HandlerFunc(s.handleInvoke))
-	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/invoke", body))
+	handler.ServeHTTP(rr, newInvokeHTTPRequest(http.MethodPost, "/invoke", body))
 
 	if len(log.debugs) < 2 {
 		t.Fatalf("debugs = %v", log.debugs)

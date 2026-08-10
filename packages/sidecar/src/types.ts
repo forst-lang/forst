@@ -64,12 +64,8 @@ export interface StreamingResult {
   error?: string;
 }
 
-/** HTTP client options for `ForstSidecarClient`. */
-export interface ForstClientConfig {
-  /** Base URL of the Forst dev server (e.g. `http://localhost:6320`). */
-  baseUrl?: string;
-  /** Re-resolve base URL per request (e.g. from `.forst/invoke.ready` after dev reload). */
-  resolveBaseUrl?: () => string | undefined;
+/** Shared HTTP client options for {@link ForstSidecarClient}. */
+export type ForstClientSharedConfig = {
   /** Per-request timeout in ms. */
   timeout?: number;
   /** Retries after transient failures (exponential backoff). Reload 503s are parked separately. */
@@ -78,7 +74,41 @@ export interface ForstClientConfig {
   reloadAware?: boolean;
   /** Injectable fetch for tests. */
   fetchFn?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
-}
+  /**
+   * Project root for `.forst/invoke.ready` metadata and `.forst/invoke.token`
+   * when auth uses the token-file profile.
+   */
+  boundaryRoot?: string;
+};
+
+/** Mutually exclusive invoke auth profiles (mirrors {@link HttpInvokeTransportAuthConfig}). */
+export type ForstClientAuthConfig =
+  | { authDisabled: true; resolveAuth?: never }
+  | {
+      authDisabled?: false;
+      resolveAuth: () => { token: Uint8Array; generation: number } | undefined;
+    }
+  | {
+      authDisabled?: false;
+      resolveAuth?: never;
+    };
+
+/** Mutually exclusive TCP URL resolution (mirrors {@link HttpInvokeTransportUrlConfig}). */
+export type ForstClientUrlConfig =
+  | { baseUrl: string; resolveBaseUrl?: never }
+  | { resolveBaseUrl: () => string | undefined; baseUrl?: string }
+  | { baseUrl?: never; resolveBaseUrl?: never };
+
+/** Explicit Unix socket path overrides ready-file discovery (mirrors transport config). */
+export type ForstClientSocketConfig =
+  | { socketPath: string }
+  | { socketPath?: never };
+
+/** HTTP client options for `ForstSidecarClient`. */
+export type ForstClientConfig = ForstClientSharedConfig &
+  ForstClientAuthConfig &
+  ForstClientUrlConfig &
+  ForstClientSocketConfig;
 
 /** How the sidecar attaches to `forst dev`: spawn a child process or connect to an existing server. */
 export type SidecarRuntime = "spawn" | "connect";

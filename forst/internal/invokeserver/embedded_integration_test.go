@@ -23,9 +23,10 @@ func TestEmbeddedInvoke_e2e(t *testing.T) {
 
 	backend := invokeserver.NewRegistryBackend(reg)
 	srv := invokeserver.New(invokeserver.Config{
-		Host:    "127.0.0.1",
-		Port:    "18081",
-		Runtime: "embedded",
+		Host:         "127.0.0.1",
+		Port:         "18081",
+		Runtime:      "embedded",
+		AuthDisabled: true,
 	}, backend, invokeserver.DefaultEmbeddedVersion(), nil)
 	if err := srv.StartAsync(); err != nil {
 		t.Fatal(err)

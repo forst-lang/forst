@@ -56,7 +56,7 @@ func (l *stubLogger) Errorf(format string, args ...any) {
 
 func newTestServer(t *testing.T, backend DispatchBackend, opts ...func(*Config)) *Server {
 	t.Helper()
-	cfg := Config{Host: "127.0.0.1", Port: "0", Runtime: "embedded"}
+	cfg := Config{Host: "127.0.0.1", Port: "0", Runtime: "embedded", AuthDisabled: true}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -147,7 +147,7 @@ func TestServer_handleHealthAndInvoke(t *testing.T) {
 
 	body := bytes.NewBufferString(`{"package":"main","function":"Echo","args":[{"message":"hi"}]}`)
 	rr2 := httptest.NewRecorder()
-	s.HandleInvoke(rr2, httptest.NewRequest(http.MethodPost, "/invoke", body))
+	s.HandleInvoke(rr2, newInvokeHTTPRequest(http.MethodPost, "/invoke", body))
 	if rr2.Code != http.StatusOK {
 		t.Fatalf("invoke: %d %s", rr2.Code, rr2.Body.String())
 	}
