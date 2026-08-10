@@ -1,0 +1,105 @@
+---
+title: "Invoke security"
+description: "Local transport, authentication, and header rules for calling Forst from Node."
+keywords: ["invoke", "security", "Node", "Unix socket", "HMAC"]
+---
+
+Forst invoke is a local process boundary. It is designed for a Node application
+and its local Forst server. Do not expose the invoke listener directly to the
+public network.
+
+## Default protections
+
+The invoke server binds to a loopback address unless its Go configuration
+explicitly allows a non-loopback host. It also checks the request `Host` header,
+requires JSON for `POST /invoke`, limits concurrent invoke work, and returns
+sanitized errors.
+
+When Forst writes `.forst/invoke.ready`, it uses mode `0600`. The file contains
+server metadata such as the URL, socket path, and auth generation. It does not
+contain the token.
+
+<Warning>
+  `AllowNonLoopback` is an explicit opt-in for trusted deployments. It does not
+  turn the local invoke protocol into a public API. Place a separately
+  authenticated application API in front of Forst instead.
+</Warning>
+
+## Local transports
+
+<Tabs>
+  <Tab title="Unix">
+    A configured Unix domain socket is the preferred local transport. The
+    socket has mode `0600`, and Linux verifies that the connecting peer has the
+    same UID as the Forst process.
+
+    `invoke.ready` advertises this transport through `socketPath`. The sidecar
+    reads that path and sends requests through the socket.
+  </Tab>
+  <Tab title="TCP fallback">
+    Windows and configurations without a Unix socket use HTTP over loopback
+    TCP. The invoke server rejects non-loopback remote addresses.
+  </Tab>
+</Tabs>
+
+## Authentication flow
+
+Invoke RPC requests use a single-use challenge and an HMAC proof. The client
+first requests `GET /invoke/challenge`. It then sends the nonce, current
+generation, and an HMAC-SHA256 proof on the RPC request.
+
+The proof binds the protocol version, generation, and nonce. A replayed nonce,
+wrong generation, malformed proof, or proof from another token is rejected.
+The server applies an exponential backoff for repeated failures from the same
+peer.
+
+The secret is a 32-byte token. In connect mode it is stored separately at
+`.forst/invoke.token` with mode `0600`. In sidecar spawn mode, the child can
+send it through an inherited `FORST_INVOKE_AUTH_FD` file descriptor instead.
+This keeps the secret out of the ready file and avoids writing it to disk for
+that path.
+
+<Note>
+  Use the Forst sidecar transport for authenticated invoke requests. Do not
+  build a raw `curl` request to `POST /invoke`: it cannot complete the
+  challenge-response flow without the local secret.
+</Note>
+
+## Reserved request headers
+
+The client owns these headers:
+
+- `X-Forst-Invoke-Nonce`
+- `X-Forst-Invoke-Generation`
+- `X-Forst-Invoke-Proof`
+- `X-Forst-Invoke-Token`
+
+Forst removes caller-provided values for these names before it merges default
+or per-request headers. This prevents application configuration from replacing
+the authenticated proof. You may still send application headers such as
+`Authorization`, `X-Request-Id`, and `X-Tenant-Id`.
+
+## TLS and the local threat model
+
+TLS is intentionally not used for the local invoke transport. A mode-`0600`
+Unix socket plus same-user peer checks and proof authentication covers the
+normal local development threat model. Loopback TCP still uses proof
+authentication. Revisit TLS if invoke must bind beyond localhost or a
+deployment requires encryption on loopback traffic.
+
+## Test-only escape hatch
+
+Set `FORST_INVOKE_AUTH=off` only for isolated tests or controlled CI fixtures.
+It disables proof verification. Do not set it in development or production
+application environments.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Call Forst from Node" icon="/icons/typescript.svg" href="/interop/node/call-forst">
+    Configure generated clients and invoke functions.
+  </Card>
+  <Card title="Dev server" icon="server" href="/workflow/dev-server">
+    Run `forst dev` during local development.
+  </Card>
+</CardGroup>
