@@ -1003,6 +1003,7 @@ func TestMain_devBadPort_exitsNonZero(t *testing.T) {
 	cmd.Env = append(os.Environ(),
 		"FORST_MAIN_HELPER_CASE=dev-bad-port",
 		"FORST_MAIN_HELPER_TMP="+tmp,
+		"FORST_INVOKE_TRANSPORT=tcp",
 	)
 	err := cmd.Run()
 	if err == nil {

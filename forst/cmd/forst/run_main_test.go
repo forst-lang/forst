@@ -18,6 +18,7 @@ func TestRunMain_version(t *testing.T) {
 }
 
 func TestRunMain_dev_invalidPort(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	tmp := t.TempDir()
 	if code := runMain([]string{"forst", "dev", "-port", "notaport", "-root", tmp}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
