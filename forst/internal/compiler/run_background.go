@@ -70,9 +70,11 @@ func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
 		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(binPath), needsCompiler)
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
-	if handoff, ok := nodert.PrepareActiveGoInvokeAuthHandoff(); ok {
-		cmd.ExtraFiles = []*os.File{handoff}
-		env = appendRunEnvVar(env, "FORST_INVOKE_AUTH_FD", "3")
+	if nodert.SupportsInvokeAuthFDHandoff() {
+		if handoff, ok := nodert.PrepareActiveGoInvokeAuthHandoff(); ok {
+			cmd.ExtraFiles = []*os.File{handoff}
+			env = appendRunEnvVar(env, "FORST_INVOKE_AUTH_FD", "3")
+		}
 	}
 	cmd.Env = env
 	proc := &GoProgramProcess{

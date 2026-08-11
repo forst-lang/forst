@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 )
 
@@ -16,6 +17,12 @@ const (
 	hostInvokeAuthFDNum = 3
 )
 
+// SupportsInvokeAuthFDHandoff reports whether auth can be delivered via inherited
+// ExtraFiles descriptors. Windows has no ExtraFiles support; use env token delivery there.
+func SupportsInvokeAuthFDHandoff() bool {
+	return runtime.GOOS != "windows" && runtime.GOOS != "js"
+}
+
 type hostAuthHandoffPayload struct {
 	Generation uint64 `json:"generation"`
 	Token      string `json:"token"`
@@ -25,6 +32,7 @@ type hostAuthHandoffPayload struct {
 // over inherited pipe fds (no disk token).
 type HostInvokeAuthRelay struct {
 	mu        sync.Mutex
+	closed    bool
 	hostWrite *os.File
 	hostRead  *os.File
 	goWrite   *os.File
@@ -68,6 +76,9 @@ func (r *HostInvokeAuthRelay) PrepareGoChild() (*os.File, error) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closed {
+		return nil, fmt.Errorf("node runtime: invoke auth relay is closed")
+	}
 	if r.goRead != nil {
 		_ = r.goRead.Close()
 		r.goRead = nil
@@ -137,6 +148,7 @@ func (r *HostInvokeAuthRelay) Close() error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.closed = true
 	var first error
 	for _, f := range []*os.File{r.hostRead, r.hostWrite, r.goRead, r.goWrite} {
 		if f == nil {

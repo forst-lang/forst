@@ -30,6 +30,7 @@ describe("consumeHostInvokeAuthStreamForTest", () => {
     const done = consumeHostInvokeAuthStreamForTest(stream);
 
     stream.write("not-json\n");
+    stream.write("null\n");
     stream.write(JSON.stringify({ generation: 0, token: "AQID" }) + "\n");
     const token = Buffer.from([1, 2, 3]).toString("base64url");
     stream.write(JSON.stringify({ generation: 7, token }) + "\n");

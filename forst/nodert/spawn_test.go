@@ -125,6 +125,9 @@ func TestBuildHostSpawnCommand_requiresArgs(t *testing.T) {
 }
 
 func TestBuildHostSpawnCommand_attachesAuthRelayRecvFD(t *testing.T) {
+	if !SupportsInvokeAuthFDHandoff() {
+		t.Skip("invoke auth fd handoff not supported on this platform")
+	}
 	root := t.TempDir()
 	nodePath := filepath.Join(root, "shim")
 	if err := os.WriteFile(nodePath, []byte("#!/bin/sh\n"), 0o755); err != nil {

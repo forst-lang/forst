@@ -13,6 +13,10 @@ func attachHostInvokeAuthRelay(hostOrch *HostOrchestrator, boundaryRoot string) 
 	if hostOrch == nil || !hostModeEnabled(boundaryRoot) || hostInvokeAuthDisabled() {
 		return nil
 	}
+	if !nodert.SupportsInvokeAuthFDHandoff() {
+		// Windows has no ExtraFiles inheritance; connect/env token delivery covers auth there.
+		return nil
+	}
 	if hostOrch.authRelay != nil {
 		nodert.SetActiveHostInvokeAuthRelay(hostOrch.authRelay)
 		return nil

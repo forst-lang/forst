@@ -11,36 +11,41 @@ import {
 
 export const envInvokeAuthRecvFd = "FORST_INVOKE_AUTH_RECV_FD";
 
-interface AuthHandoffPayload {
-  generation?: number;
-  token?: string;
-}
-
 let hostInvokeAuth: InvokeAuthState | undefined;
 let hostInvokeAuthListenerStarted = false;
 
+/**
+ * Parses one newline-delimited JSON handoff line into {@link AuthHandoff}.
+ * Validates the JSON root as a non-null object before reading fields so values
+ * such as `null` become handoff errors instead of TypeErrors.
+ */
 function parseHandoffLine(line: string): AuthHandoff {
-  let payload: AuthHandoffPayload;
+  let parsed: unknown;
   try {
-    payload = JSON.parse(line) as AuthHandoffPayload;
+    parsed = JSON.parse(line) as unknown;
   } catch {
     throw new Error("invoke auth handoff: invalid JSON");
   }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("invoke auth handoff: missing generation or token");
+  }
+  const record = parsed as Record<string, unknown>;
+  const generation = record.generation;
+  const tokenRaw = record.token;
   if (
-    payload.generation === undefined ||
-    typeof payload.generation !== "number" ||
-    !Number.isSafeInteger(payload.generation) ||
-    payload.generation < 0 ||
-    typeof payload.token !== "string" ||
-    payload.token.trim() === ""
+    typeof generation !== "number" ||
+    !Number.isSafeInteger(generation) ||
+    generation < 0 ||
+    typeof tokenRaw !== "string" ||
+    tokenRaw.trim() === ""
   ) {
     throw new Error("invoke auth handoff: missing generation or token");
   }
-  const token = Uint8Array.from(Buffer.from(payload.token, "base64url"));
+  const token = Uint8Array.from(Buffer.from(tokenRaw, "base64url"));
   if (!token.length) {
     throw new Error("invoke auth handoff: empty token");
   }
-  return { generation: payload.generation, token };
+  return { generation, token };
 }
 
 function storeHostInvokeAuth(handoff: AuthHandoff): void {
@@ -104,6 +109,7 @@ export function startHostInvokeAuthRecvListener(): void {
 export function resolveHostInvokeAuthHandoff():
   | InvokeAuthState
   | undefined {
+  startHostInvokeAuthRecvListener();
   return hostInvokeAuth;
 }
 
@@ -123,8 +129,10 @@ export async function consumeHostInvokeAuthStreamForTest(
 
 /**
  * Sets connect-mode env for embedded invoke: skip spawn, boundary root, prefer UDS.
+ * Starts the host auth recv listener when `FORST_INVOKE_AUTH_RECV_FD` is set.
  */
 export function prepareConnectInvokeEnv(boundaryRoot?: string): string {
+  startHostInvokeAuthRecvListener();
   const root = boundaryRoot?.trim() || process.cwd();
   process.env.FORST_SKIP_SPAWN = "1";
   process.env.FORST_BOUNDARY_ROOT = root;
@@ -142,3 +150,6 @@ export function prepareConnectInvokeEnv(boundaryRoot?: string): string {
   }
   return root;
 }
+
+// Consume an inherited recv fd as soon as this module loads in a host process.
+startHostInvokeAuthRecvListener();

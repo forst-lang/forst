@@ -112,6 +112,19 @@ func TestPrepareActiveGoInvokeAuthHandoff_activeRelay(t *testing.T) {
 	_ = f.Close()
 }
 
+func TestHostInvokeAuthRelay_PrepareGoChild_afterClose(t *testing.T) {
+	relay, err := NewHostInvokeAuthRelay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := relay.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := relay.PrepareGoChild(); err == nil {
+		t.Fatal("expected error after Close")
+	}
+}
+
 func TestRelayHostInvokeAuthLine_rejectsInvalid(t *testing.T) {
 	hostRead, hostWrite, err := os.Pipe()
 	if err != nil {

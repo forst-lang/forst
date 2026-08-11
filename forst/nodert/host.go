@@ -149,7 +149,7 @@ func spawnHostProcess(cmd HostSpawnCommand, workDir string, log *logrus.Logger) 
 	}
 	execCmd.Env = cmd.Env
 	execCmd.SysProcAttr = hostSessionAttrs()
-	if len(cmd.ExtraFiles) > 0 {
+	if SupportsInvokeAuthFDHandoff() && len(cmd.ExtraFiles) > 0 {
 		execCmd.ExtraFiles = append([]*os.File(nil), cmd.ExtraFiles...)
 	}
 
