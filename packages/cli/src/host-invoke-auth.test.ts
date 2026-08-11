@@ -6,17 +6,17 @@ import { PassThrough } from "node:stream";
 
 import {
   consumeHostInvokeAuthStreamForTest,
-  envInvokeAuthRecvFd,
-  prepareConnectInvokeEnv,
+  getInvokeAuthHandoff,
+  prepareInvokeConnect,
   resetHostInvokeAuthHandoffForTest,
-  resolveHostInvokeAuthHandoff,
-  startHostInvokeAuthRecvListener,
 } from "./host-invoke-auth.js";
 import { DEFAULT_EMBEDDED_INVOKE_BASE_URL } from "./constants.js";
 
+const recvFdEnv = "FORST_INVOKE_AUTH_RECV_FD";
+
 afterEach(() => {
   resetHostInvokeAuthHandoffForTest();
-  delete process.env[envInvokeAuthRecvFd];
+  delete process.env[recvFdEnv];
   delete process.env.FORST_SKIP_SPAWN;
   delete process.env.FORST_BOUNDARY_ROOT;
   delete process.env.FORST_BASE_URL;
@@ -37,29 +37,26 @@ describe("consumeHostInvokeAuthStreamForTest", () => {
     stream.end();
     await done;
 
-    const got = resolveHostInvokeAuthHandoff();
+    const got = getInvokeAuthHandoff();
     expect(got?.generation).toBe(7);
     expect(Buffer.from(got!.token)).toEqual(Buffer.from([1, 2, 3]));
   });
 });
 
-describe("startHostInvokeAuthRecvListener", () => {
-  test("is a no-op without recv fd env", () => {
-    startHostInvokeAuthRecvListener();
-    startHostInvokeAuthRecvListener();
-    expect(resolveHostInvokeAuthHandoff()).toBeUndefined();
+describe("getInvokeAuthHandoff", () => {
+  test("returns undefined without recv fd env", () => {
+    expect(getInvokeAuthHandoff()).toBeUndefined();
   });
 
-  test("is a no-op for invalid recv fd values", () => {
-    process.env[envInvokeAuthRecvFd] = "1";
-    startHostInvokeAuthRecvListener();
-    expect(resolveHostInvokeAuthHandoff()).toBeUndefined();
+  test("returns undefined for invalid recv fd values", () => {
+    process.env[recvFdEnv] = "1";
+    expect(getInvokeAuthHandoff()).toBeUndefined();
   });
 });
 
-describe("prepareConnectInvokeEnv", () => {
+describe("prepareInvokeConnect", () => {
   test("sets skip-spawn and default base url when ready file is absent", () => {
-    const root = prepareConnectInvokeEnv("/tmp/forst-boundary");
+    const root = prepareInvokeConnect("/tmp/forst-boundary");
     expect(root).toBe("/tmp/forst-boundary");
     expect(process.env.FORST_SKIP_SPAWN).toBe("1");
     expect(process.env.FORST_BOUNDARY_ROOT).toBe("/tmp/forst-boundary");
@@ -74,7 +71,7 @@ describe("prepareConnectInvokeEnv", () => {
       JSON.stringify({ url: "http://127.0.0.1:9999/" })
     );
     try {
-      prepareConnectInvokeEnv(root);
+      prepareInvokeConnect(root);
       expect(process.env.FORST_BASE_URL).toBe("http://127.0.0.1:9999");
     } finally {
       rmSync(root, { recursive: true, force: true });

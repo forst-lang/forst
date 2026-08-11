@@ -463,9 +463,12 @@ function parseHostInvokeAuthHandoffLine(line) {
   try {
     payload = JSON.parse(line);
   } catch {
-    throw new Error("invoke auth handoff: invalid JSON");
+    return undefined;
   }
   if (
+    payload === null ||
+    typeof payload !== "object" ||
+    Array.isArray(payload) ||
     payload.generation === undefined ||
     typeof payload.generation !== "number" ||
     !Number.isSafeInteger(payload.generation) ||
@@ -473,11 +476,11 @@ function parseHostInvokeAuthHandoffLine(line) {
     typeof payload.token !== "string" ||
     payload.token.trim() === ""
   ) {
-    throw new Error("invoke auth handoff: missing generation or token");
+    return undefined;
   }
   const token = Buffer.from(payload.token, "base64url");
   if (!token.length) {
-    throw new Error("invoke auth handoff: empty token");
+    return undefined;
   }
   return { generation: payload.generation, token };
 }
@@ -503,10 +506,9 @@ async function consumeHostInvokeAuthStream(stream) {
       if (line === "") {
         continue;
       }
-      try {
-        storeHostInvokeAuthHandoff(parseHostInvokeAuthHandoffLine(line));
-      } catch {
-        // ignore malformed handoff lines
+      const handoff = parseHostInvokeAuthHandoffLine(line);
+      if (handoff) {
+        storeHostInvokeAuthHandoff(handoff);
       }
     }
   }
