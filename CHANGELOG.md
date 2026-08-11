@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
 
+## [0.13.0](https://github.com/forst-lang/forst/compare/v0.12.1...v0.13.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166))
+
+### Features
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166)) ([cf593cb](https://github.com/forst-lang/forst/commit/cf593cb82f6aac4ee6fccd0ed0562cc5176c6fc0))
+
 ## [0.12.1](https://github.com/forst-lang/forst/compare/v0.12.0...v0.12.1) (2026-08-10)
 
 
