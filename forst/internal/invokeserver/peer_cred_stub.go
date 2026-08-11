@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build !linux && !darwin && !windows
 
 // peer_cred_stub provides a no-op peercred reader on platforms without SO_PEERCRED.
 package invokeserver
@@ -22,3 +22,6 @@ func (noopPeerCredentialReader) PeerCredentials(net.Conn) (peerCredentials, bool
 func currentUID() int {
 	return 0
 }
+
+// peerCredEnforced reports whether Unix peer UID checks are mandatory.
+const peerCredEnforced = false

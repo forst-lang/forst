@@ -183,7 +183,7 @@ export interface ForstInvokeClientConfig {
   baseUrl?: string;
   /** Alias accepted for parity with older clients. */
   devServerUrl?: string;
-  /** Project root for .forst/invoke.ready and .forst/invoke.token discovery. */
+  /** Project root for .forst/invoke.ready and FORST_INVOKE_TOKEN discovery. */
   rootDir?: string;
   timeout?: number;
   retries?: number;
@@ -267,7 +267,7 @@ export interface ForstInvokeClientConfig {
   baseUrl?: string;
   /** Alias accepted for parity with older clients. */
   devServerUrl?: string;
-  /** Project root for .forst/invoke.ready and .forst/invoke.token discovery. */
+  /** Project root for .forst/invoke.ready and FORST_INVOKE_TOKEN discovery. */
   rootDir?: string;
   timeout?: number;
   retries?: number;
@@ -394,19 +394,46 @@ function readInvokeReadySocketPath(boundaryRoot) {
   }
 }
 
+function readInvokeTokenFromEnv() {
+  const raw = String(process.env.FORST_INVOKE_TOKEN ?? "").trim();
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const token = Buffer.from(raw, "base64url");
+    if (!token.length) {
+      return undefined;
+    }
+    return token;
+  } catch {
+    return undefined;
+  }
+}
+
 function readInvokeReadyAuth(boundaryRoot) {
   const root = boundaryRoot || process.cwd();
   const readyPath = join(root, ".forst", "invoke.ready");
-  const tokenPath = join(root, ".forst", "invoke.token");
-  if (!existsSync(readyPath) || !existsSync(tokenPath)) {
+  if (!existsSync(readyPath)) {
     return undefined;
   }
   try {
     const ready = JSON.parse(readFileSync(readyPath, "utf8"));
-    const tokenB64 = String(readFileSync(tokenPath, "utf8")).trim();
-    const token = Buffer.from(tokenB64, "base64url");
+    if (ready?.tokenDelivery === "handoff") {
+      return undefined;
+    }
     const generation = Number(ready.generation ?? 0);
-    if (!token.length || !Number.isFinite(generation) || generation <= 0) {
+    if (!Number.isFinite(generation) || generation <= 0) {
+      return undefined;
+    }
+    let token = readInvokeTokenFromEnv();
+    if (!token && ready?.tokenDelivery !== "env") {
+      const tokenPath = join(root, ".forst", "invoke.token");
+      if (existsSync(tokenPath)) {
+        const tokenB64 = String(readFileSync(tokenPath, "utf8")).trim();
+        token = Buffer.from(tokenB64, "base64url");
+      }
+    }
+    if (!token || !token.length) {
       return undefined;
     }
     return {
@@ -463,6 +490,18 @@ function authDisabledByEnv() {
     .trim()
     .toLowerCase();
   return v === "off" || v === "0" || v === "false";
+}
+
+let invokeAuthDisabledWarningLogged = false;
+
+function warnIfInvokeAuthDisabled() {
+  if (invokeAuthDisabledWarningLogged || !authDisabledByEnv()) {
+    return;
+  }
+  invokeAuthDisabledWarningLogged = true;
+  console.warn(
+    "forst invoke: authentication disabled via FORST_INVOKE_AUTH; invoke RPC accepts requests without HMAC proof (local debugging / tests only)"
+  );
 }
 
 function checkContractVersion(response, packageName, functionName) {
@@ -585,6 +624,9 @@ function shouldRetryInvokeFailure(err) {
 class HttpInvokeClient {
   constructor(config) {
     resolveTransportMode(config);
+    if (authDisabledByEnv()) {
+      warnIfInvokeAuthDisabled();
+    }
     this.config = config ?? {};
     this.boundaryRoot = config?.rootDir ?? process.cwd();
     this.baseUrl = resolveBaseUrl(config);

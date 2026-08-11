@@ -226,6 +226,9 @@ try {
 	}
 	cmd := exec.Command("node", script)
 	cmd.Dir = dist
+	if token := os.Getenv("FORST_INVOKE_TOKEN"); token != "" {
+		cmd.Env = append(os.Environ(), "FORST_INVOKE_TOKEN="+token)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("attach e2e failed: %v\n%s", err, out)
@@ -235,10 +238,9 @@ try {
 func waitForInvokeAuthArtifacts(t *testing.T, boundaryRoot string) {
 	t.Helper()
 	readyPath := filepath.Join(boundaryRoot, ".forst", "invoke.ready")
-	tokenPath := filepath.Join(boundaryRoot, ".forst", "invoke.token")
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if fileExists(readyPath) && fileExists(tokenPath) {
+		if fileExists(readyPath) && os.Getenv("FORST_INVOKE_TOKEN") != "" {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)

@@ -66,12 +66,13 @@ type InvokeReadyPayload struct {
 	URL             string `json:"url"`
 	SocketPath      string `json:"socketPath,omitempty"`
 	Generation      uint64 `json:"generation,omitempty"`
+	TokenDelivery   string `json:"tokenDelivery,omitempty"`
 	PID             int    `json:"pid,omitempty"`
 	ContractVersion string `json:"contractVersion"`
 	Runtime         string `json:"runtime"`
 }
 
-func writeInvokeReady(workDir string, cfg Config, generation uint64) error {
+func writeInvokeReady(workDir string, cfg Config, generation uint64, tokenDelivery string) error {
 	readyPath := invokeReadyPath(workDir)
 	if strings.Contains(readyPath, "..") {
 		return fmt.Errorf("invoke server: invalid ready path")
@@ -82,6 +83,7 @@ func writeInvokeReady(workDir string, cfg Config, generation uint64) error {
 	payload := InvokeReadyPayload{
 		URL:             cfg.BaseURL(),
 		Generation:      generation,
+		TokenDelivery:   tokenDelivery,
 		PID:             os.Getpid(),
 		ContractVersion: HTTPContractVersion,
 		Runtime:         cfg.Runtime,

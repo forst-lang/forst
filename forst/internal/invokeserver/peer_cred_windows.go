@@ -22,3 +22,6 @@ func (noopPeerCredentialReader) PeerCredentials(net.Conn) (peerCredentials, bool
 func currentUID() int {
 	return 0
 }
+
+// peerCredEnforced reports whether Unix peer UID checks are mandatory.
+const peerCredEnforced = false

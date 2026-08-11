@@ -14,9 +14,29 @@ type peerCredentialReader interface {
 	PeerCredentials(conn net.Conn) (peerCredentials, bool)
 }
 
-// verifyPeerUID reports whether conn's peer UID matches wantUID.
-// When the reader cannot supply credentials, verification is skipped (returns true).
-func verifyPeerUID(reader peerCredentialReader, conn net.Conn, wantUID int) bool {
+// PeerCredEnforced reports whether Unix transport requires a successful peer UID check.
+func PeerCredEnforced() bool {
+	return peerCredEnforced
+}
+
+// verifyPeerAccess reports whether conn's peer UID matches wantUID on enforced platforms.
+// When peerCredEnforced is false, missing credentials are ignored (legacy permissive path).
+func verifyPeerAccess(reader peerCredentialReader, conn net.Conn, wantUID int) bool {
+	if !peerCredEnforced {
+		return verifyPeerUIDPermissive(reader, conn, wantUID)
+	}
+	if reader == nil || conn == nil {
+		return false
+	}
+	creds, ok := reader.PeerCredentials(conn)
+	if !ok {
+		return false
+	}
+	return creds.UID == wantUID
+}
+
+// verifyPeerUIDPermissive is the legacy check used when peercred is not enforced.
+func verifyPeerUIDPermissive(reader peerCredentialReader, conn net.Conn, wantUID int) bool {
 	if reader == nil || conn == nil {
 		return true
 	}

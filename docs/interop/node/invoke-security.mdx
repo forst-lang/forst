@@ -17,7 +17,8 @@ header, requires JSON for `POST /invoke`, limits concurrent invoke work, and
 returns sanitized errors.
 
 HMAC challenge-response auth is on by default. Set `FORST_INVOKE_AUTH=off` only
-for local debugging.
+for local debugging. The server and Node clients log a startup warning every time
+auth is disabled.
 
 When Forst writes `.forst/invoke.ready`, it uses mode `0600`. The file contains
 server metadata such as the URL, socket path, and auth generation. It does not
@@ -34,7 +35,7 @@ contain the token.
 <Tabs>
   <Tab title="Unix (default)">
     A Unix domain socket at `.forst/invoke.sock` is the default local transport
-    on non-Windows hosts. The socket has mode `0600`, and Linux verifies that
+    on non-Windows hosts. The socket has mode `0600`. Linux and macOS verify that
     the connecting peer has the same UID as the Forst process.
 
     `invoke.ready` advertises this transport through `socketPath`. The sidecar,
@@ -58,11 +59,18 @@ wrong generation, malformed proof, or proof from another token is rejected.
 The server applies an exponential backoff for repeated failures from the same
 peer.
 
-The secret is a 32-byte token. In connect mode it is stored separately at
-`.forst/invoke.token` with mode `0600`. In sidecar spawn mode, the child can
-send it through an inherited `FORST_INVOKE_AUTH_FD` file descriptor instead.
-This keeps the secret out of the ready file and avoids writing it to disk for
-that path.
+The secret is a 32-byte token. Connect mode delivers it through the
+`FORST_INVOKE_TOKEN` environment variable (base64url). The server sets this on
+the `forst dev` process when it starts. Worker processes that attach to an
+existing dev server must inherit `FORST_INVOKE_TOKEN` from the parent or receive
+it explicitly.
+
+In sidecar spawn mode, the child sends the secret through an inherited
+`FORST_INVOKE_AUTH_FD` file descriptor instead. This keeps the secret out of the
+ready file and avoids writing it to disk.
+
+`.forst/invoke.ready` includes `tokenDelivery` (`env` or `handoff`) so clients
+know which channel to use.
 
 <Note>
   Use the Forst sidecar transport for authenticated invoke requests. Do not
@@ -95,8 +103,9 @@ deployment requires encryption on loopback traffic.
 ## Test-only escape hatch
 
 Set `FORST_INVOKE_AUTH=off` only for isolated tests or controlled CI fixtures.
-It disables proof verification. Do not set it in development or production
-application environments.
+It disables proof verification. The invoke server and Node transport log a
+warning on startup whenever auth is off. Do not set it in development or
+production application environments.
 
 ## Related
 

@@ -245,6 +245,11 @@ const ForstLive = ForstClientLayer({
 headers are reserved and cannot be replaced by your defaults or per-call
 headers. See [Invoke security](/interop/node/invoke-security#reserved-request-headers).
 
+Connect-mode workers need the invoke HMAC secret from `FORST_INVOKE_TOKEN`
+(base64url). The `forst dev` process sets this when it starts. Sidecar spawn
+mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See
+[Invoke security](/interop/node/invoke-security#authentication-flow).
+
 ## How the client picks a server
 
 | You run | Set env | Client behavior |

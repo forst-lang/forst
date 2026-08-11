@@ -19,12 +19,14 @@ export {
   readInvokeReadySocketPath,
   readInvokeReadyUrl,
   readInvokeTokenFile,
+  readInvokeTokenFromEnv,
   type InvokeReadyPayload,
   type ReadInvokeReadyUrlFs,
 } from "./invoke-ready.js";
 export {
   INVOKE_PROOF_VERSION,
   RESERVED_INVOKE_HEADERS,
+  authDisabledByEnv,
   buildInvokeAuthHeaders,
   computeInvokeProof,
   fetchAuthenticatedInvoke,
@@ -33,6 +35,7 @@ export {
   normalizeHeaders,
   parseInvokeChallengeResult,
   stripReservedHeaders,
+  warnIfInvokeAuthDisabled,
   type InvokeAuthState,
   type InvokeChallenge,
   type InvokeDialTarget,

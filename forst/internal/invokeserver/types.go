@@ -24,8 +24,14 @@ const (
 
 const (
 	envInvokeAuthDisabled = "FORST_INVOKE_AUTH"
+	envInvokeToken        = "FORST_INVOKE_TOKEN"
 	transportTCP          = "tcp"
 	transportUnix         = "unix"
+)
+
+const (
+	tokenDeliveryHandoff = "handoff"
+	tokenDeliveryEnv     = "env"
 )
 
 // InvokeRequest is the POST /invoke body.

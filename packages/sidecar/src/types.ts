@@ -75,8 +75,8 @@ export type ForstClientSharedConfig = {
   /** Injectable fetch for tests. */
   fetchFn?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   /**
-   * Project root for `.forst/invoke.ready` metadata and `.forst/invoke.token`
-   * when auth uses the token-file profile.
+   * Project root for `.forst/invoke.ready` metadata and `FORST_INVOKE_TOKEN`
+   * when auth uses env-based secret delivery.
    */
   boundaryRoot?: string;
 };

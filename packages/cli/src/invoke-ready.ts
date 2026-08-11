@@ -13,6 +13,8 @@ export interface InvokeReadyPayload {
   socketPath?: string;
   /** Live auth generation; required for proof headers. */
   generation?: number;
+  /** How clients obtain the invoke secret: `handoff`, `env`, or omitted when auth is off. */
+  tokenDelivery?: "handoff" | "env";
   /** Invoke HTTP contract revision string. */
   contractVersion?: string;
   /** Server runtime label (`embedded`, `dev`, …). */
@@ -42,6 +44,13 @@ function isValidReadyPayload(value: unknown): value is InvokeReadyPayload {
   if (
     record.generation !== undefined &&
     typeof record.generation !== "number"
+  ) {
+    return false;
+  }
+  if (
+    record.tokenDelivery !== undefined &&
+    record.tokenDelivery !== "handoff" &&
+    record.tokenDelivery !== "env"
   ) {
     return false;
   }
@@ -128,10 +137,30 @@ export function readInvokeReadyGeneration(
 }
 
 /**
+ * Reads the invoke HMAC secret from `FORST_INVOKE_TOKEN` (base64url).
+ *
+ * @returns Raw token bytes, or `undefined` when unset or undecodable.
+ */
+export function readInvokeTokenFromEnv(): Uint8Array | undefined {
+  const raw = process.env.FORST_INVOKE_TOKEN?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const decoded = Uint8Array.from(Buffer.from(raw, "base64url"));
+    if (decoded.length === 0) {
+      return undefined;
+    }
+    return decoded;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Reads and base64url-decodes `.forst/invoke.token` under `boundaryRoot`.
  *
- * The token file is written when auth is enabled and memory handoff is not used.
- * Returns `undefined` when the file is missing or undecodable.
+ * Legacy migration path only. New servers deliver secrets via handoff or env.
  *
  * @param boundaryRoot Project root containing `.forst/`.
  * @param fs Optional filesystem overrides for tests.
@@ -161,11 +190,29 @@ export function readInvokeTokenFile(
   }
 }
 
+function resolveInvokeToken(
+  payload: InvokeReadyPayload | undefined,
+  boundaryRoot: string | undefined,
+  fs: ReadInvokeReadyUrlFs
+): Uint8Array | undefined {
+  if (payload?.tokenDelivery === "handoff") {
+    return undefined;
+  }
+  const fromEnv = readInvokeTokenFromEnv();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  if (payload?.tokenDelivery === "env") {
+    return undefined;
+  }
+  return readInvokeTokenFile(boundaryRoot, fs);
+}
+
 /**
  * Loads token + generation (and optional URL / socket) for authenticated invoke.
  *
- * Requires both `invoke.ready` (with `generation`) and `invoke.token`.
- * Use with `fetchAuthenticatedInvoke` after the server is healthy.
+ * Requires `invoke.ready` with `generation` and a token from env (or legacy file).
+ * Spawn mode should use `resolveAuth` handoff instead when `tokenDelivery` is `handoff`.
  *
  * @param boundaryRoot Project root containing `.forst/`.
  * @param fs Optional filesystem overrides for tests.
@@ -179,7 +226,7 @@ export function readInvokeReadyAuth(
   | undefined {
   for (let attempt = 0; attempt < 3; attempt++) {
     const payload = readInvokeReadyPayload(boundaryRoot, fs);
-    const token = readInvokeTokenFile(boundaryRoot, fs);
+    const token = resolveInvokeToken(payload, boundaryRoot, fs);
     if (!payload || !token || payload.generation === undefined) {
       return undefined;
     }

@@ -20,6 +20,10 @@ func (l *captureLogger) Infof(format string, args ...any) {
 	l.infos = append(l.infos, fmt.Sprintf(format, args...))
 }
 
+func (l *captureLogger) Warnf(format string, args ...any) {
+	l.infos = append(l.infos, fmt.Sprintf(format, args...))
+}
+
 func (l *captureLogger) Debugf(format string, args ...any) {
 	l.debugs = append(l.debugs, fmt.Sprintf(format, args...))
 }

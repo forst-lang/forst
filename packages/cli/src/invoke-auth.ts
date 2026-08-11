@@ -17,6 +17,30 @@ export {
  */
 export const INVOKE_PROOF_VERSION = "forst-invoke-v1";
 
+let invokeAuthDisabledWarningLogged = false;
+
+/** Returns true when `FORST_INVOKE_AUTH` disables HMAC proof verification. */
+export function authDisabledByEnv(): boolean {
+  const v = String(process.env.FORST_INVOKE_AUTH ?? "")
+    .trim()
+    .toLowerCase();
+  return v === "off" || v === "0" || v === "false";
+}
+
+/**
+ * Logs a one-time warning when invoke authentication is disabled via env.
+ * Auth off still works; this surfaces the risk in dev and test logs.
+ */
+export function warnIfInvokeAuthDisabled(): void {
+  if (invokeAuthDisabledWarningLogged || !authDisabledByEnv()) {
+    return;
+  }
+  invokeAuthDisabledWarningLogged = true;
+  console.warn(
+    "forst invoke: authentication disabled via FORST_INVOKE_AUTH; invoke RPC accepts requests without HMAC proof (local debugging / tests only)"
+  );
+}
+
 /**
  * Formats the MAC input string: `version|generation|nonce`.
  *
@@ -31,7 +55,7 @@ export function invokeProofMessage(generation: number, nonce: string): string {
  * Computes the HMAC-SHA256 invoke proof as unpadded base64url.
  * Matches Go `computeInvokeProof` / `encodeInvokeProof`.
  *
- * @param token Raw 32-byte invoke secret (from handoff or `invoke.token`).
+ * @param token Raw 32-byte invoke secret (from handoff or `FORST_INVOKE_TOKEN`).
  * @param generation Live auth generation bound into the MAC.
  * @param nonce Single-use challenge nonce.
  * @returns Proof string for the `X-Forst-Invoke-Proof` header.
@@ -193,7 +217,7 @@ export function buildInvokeAuthHeaders(
  *
  * Use after `startForstInvokeServer` when auth is enabled
  * (`FORST_INVOKE_AUTH` is not `off`). Pair with `readInvokeReadyAuth`
- * to load the token from `.forst/invoke.token`.
+ * to load the token from `FORST_INVOKE_TOKEN` or `resolveAuth` handoff.
  *
  * @param target Base URL string or `{ baseUrl?, socketPath? }` dial target.
  * @param body JSON-serializable invoke request body.

@@ -4,11 +4,13 @@
 export {
   INVOKE_PROOF_VERSION,
   RESERVED_INVOKE_HEADERS,
+  authDisabledByEnv,
   computeInvokeProof,
   invokeProofMessage,
   normalizeHeaders,
   parseInvokeChallengeResult,
   stripReservedHeaders,
+  warnIfInvokeAuthDisabled,
   type InvokeAuthState,
   type InvokeChallenge,
   type InvokeHeadersInit,

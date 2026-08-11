@@ -41,6 +41,7 @@ type Server struct {
 // Logger is the minimal logging surface for the invoke server.
 type Logger interface {
 	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
 	Errorf(format string, args ...any)
 	Debugf(format string, args ...any)
 }
@@ -252,6 +253,7 @@ func (s *Server) afterListen(ln net.Listener, mux *http.ServeMux) error {
 	if s.log != nil {
 		s.log.Infof("invoke HTTP server listening on %s (runtime=%s transport=%s)", s.server.Addr, s.cfg.Runtime, s.cfg.network())
 	}
+	s.logAuthDisabledWarning()
 	if s.cfg.BoundaryRoot != "" {
 		if err := s.WriteAuthArtifacts(s.cfg.BoundaryRoot, s.cfg); err != nil {
 			return fmt.Errorf("invoke server: write auth artifacts: %w", err)
@@ -417,7 +419,7 @@ func (s *Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 		s.sendError(w, r, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAllowedInvokeHost(r.Host, s.cfg.AllowedHosts) {
+	if s.cfg.network() != transportUnix && !isAllowedInvokeHost(r.Host, s.cfg.AllowedHosts) {
 		s.sendError(w, r, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -578,22 +580,37 @@ func (s *Server) rejectInvokeIfReloading(w http.ResponseWriter, r *http.Request)
 	return false
 }
 
-// WriteAuthArtifacts writes invoke.ready metadata and optional invoke.token secret file.
+// WriteAuthArtifacts writes invoke.ready metadata and delivers the invoke secret via handoff or env.
 func (s *Server) WriteAuthArtifacts(workDir string, cfg Config) error {
 	token, generation := s.CurrentAuth()
-	if err := writeInvokeReady(workDir, cfg, generation); err != nil {
+	tokenDelivery := ""
+	if s.authEnabled() {
+		if w, ok := openAuthHandoffWriter(EnvInvokeAuthFD); ok {
+			tokenDelivery = tokenDeliveryHandoff
+			if err := writeInvokeReady(workDir, cfg, generation, tokenDelivery); err != nil {
+				return err
+			}
+			if len(token) == 0 {
+				return nil
+			}
+			return writeAuthHandoff(w, generation, token)
+		}
+		tokenDelivery = tokenDeliveryEnv
+	}
+	if err := writeInvokeReady(workDir, cfg, generation, tokenDelivery); err != nil {
 		return err
 	}
-	if !s.authEnabled() {
+	if !s.authEnabled() || len(token) == 0 {
 		return nil
 	}
-	if len(token) == 0 {
-		return nil
+	return os.Setenv(envInvokeToken, encodeTokenForHandoff(token))
+}
+
+func (s *Server) logAuthDisabledWarning() {
+	if s.authEnabled() || s.log == nil {
+		return
 	}
-	if w, ok := openAuthHandoffWriter(EnvInvokeAuthFD); ok {
-		return writeAuthHandoff(w, generation, token)
-	}
-	return writeTokenFile(invokeTokenPath(workDir), token)
+	s.log.Warnf("invoke server: authentication disabled; invoke RPC accepts requests without HMAC proof (local debugging / tests only)")
 }
 
 func (s *Server) authGeneration() uint64 {

@@ -80,7 +80,7 @@ func TestResolveBoundaryRoot_walksAncestor(t *testing.T) {
 func TestWriteInvokeReady(t *testing.T) {
 	dir := t.TempDir()
 	cfg := Config{Host: "127.0.0.1", Port: "8081", Runtime: "embedded"}
-	if err := writeInvokeReady(dir, cfg, 1); err != nil {
+	if err := writeInvokeReady(dir, cfg, 1, ""); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ".forst", "invoke.ready"))
@@ -106,7 +106,7 @@ func TestWriteInvokeReady(t *testing.T) {
 }
 
 func TestWriteInvokeReady_invalidPath(t *testing.T) {
-	err := writeInvokeReady("../evil", Config{}, 0)
+	err := writeInvokeReady("../evil", Config{}, 0, "")
 	if err == nil || !strings.Contains(err.Error(), "invalid ready path") {
 		t.Fatalf("err = %v", err)
 	}
@@ -172,19 +172,18 @@ func TestEmbeddedRuntime_start_enabled(t *testing.T) {
 	if payload.URL != "" {
 		t.Fatalf("unix ready URL should be empty, got %q", payload.URL)
 	}
-	tokenRaw, err := os.ReadFile(filepath.Join(workDir, ".forst", "invoke.token"))
-	if err != nil {
-		t.Fatal(err)
+	if payload.TokenDelivery != tokenDeliveryEnv {
+		t.Fatalf("tokenDelivery = %q, want %q", payload.TokenDelivery, tokenDeliveryEnv)
 	}
-	if _, err := decodeTokenFromHandoff(string(tokenRaw)); err != nil {
-		t.Fatalf("decode token file: %v", err)
+	tokenEnv := os.Getenv(envInvokeToken)
+	if tokenEnv == "" {
+		t.Fatal("expected FORST_INVOKE_TOKEN in environment")
 	}
-	tokenInfo, err := os.Stat(filepath.Join(workDir, ".forst", "invoke.token"))
-	if err != nil {
-		t.Fatal(err)
+	if _, err := decodeTokenFromHandoff(tokenEnv); err != nil {
+		t.Fatalf("decode env token: %v", err)
 	}
-	if tokenInfo.Mode().Perm() != 0o600 {
-		t.Fatalf("token mode = %o", tokenInfo.Mode().Perm())
+	if _, err := os.Stat(filepath.Join(workDir, ".forst", "invoke.token")); !os.IsNotExist(err) {
+		t.Fatalf("invoke.token should not exist on disk, err=%v", err)
 	}
 }
 

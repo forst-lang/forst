@@ -37,21 +37,55 @@ describe("readInvokeReadyUrl", () => {
     expect(readInvokeReadySocketPath(dir)).toBe("/tmp/forst.sock");
   });
 
-  it("returns auth bundle when ready and token file exist", () => {
+  it("returns undefined when tokenDelivery is env but env token is missing", () => {
+    const dir = join(tmpdir(), `forst-invoke-auth-missing-${Date.now()}`);
+    mkdirSync(join(dir, ".forst"), { recursive: true });
+    const prev = process.env.FORST_INVOKE_TOKEN;
+    delete process.env.FORST_INVOKE_TOKEN;
+    try {
+      writeFileSync(
+        join(dir, ".forst", "invoke.ready"),
+        JSON.stringify({
+          url: "http://127.0.0.1:6323",
+          generation: 3,
+          tokenDelivery: "env",
+        })
+      );
+      expect(readInvokeReadyAuth(dir)).toBeUndefined();
+    } finally {
+      if (prev === undefined) {
+        delete process.env.FORST_INVOKE_TOKEN;
+      } else {
+        process.env.FORST_INVOKE_TOKEN = prev;
+      }
+    }
+  });
+
+  it("returns auth bundle when ready and FORST_INVOKE_TOKEN are set", () => {
     const dir = join(tmpdir(), `forst-invoke-auth-${Date.now()}`);
     mkdirSync(join(dir, ".forst"), { recursive: true });
     const token = Buffer.from("secret-token", "utf8");
-    writeFileSync(
-      join(dir, ".forst", "invoke.ready"),
-      JSON.stringify({ url: "http://127.0.0.1:6323", generation: 3 })
-    );
-    writeFileSync(
-      join(dir, ".forst", "invoke.token"),
-      token.toString("base64url")
-    );
-    const auth = readInvokeReadyAuth(dir);
-    expect(auth?.generation).toBe(3);
-    expect(Buffer.from(auth!.token).toString("utf8")).toBe("secret-token");
+    const prev = process.env.FORST_INVOKE_TOKEN;
+    process.env.FORST_INVOKE_TOKEN = token.toString("base64url");
+    try {
+      writeFileSync(
+        join(dir, ".forst", "invoke.ready"),
+        JSON.stringify({
+          url: "http://127.0.0.1:6323",
+          generation: 3,
+          tokenDelivery: "env",
+        })
+      );
+      const auth = readInvokeReadyAuth(dir);
+      expect(auth?.generation).toBe(3);
+      expect(Buffer.from(auth!.token).toString("utf8")).toBe("secret-token");
+    } finally {
+      if (prev === undefined) {
+        delete process.env.FORST_INVOKE_TOKEN;
+      } else {
+        process.env.FORST_INVOKE_TOKEN = prev;
+      }
+    }
   });
 
   it("returns undefined when file is missing", () => {

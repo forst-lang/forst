@@ -29,12 +29,11 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		if s.cfg.network() == transportUnix {
-			if conn := connFromContext(r.Context()); conn != nil {
-				if !verifyPeerUID(s.peerReader, conn, currentUID()) {
-					s.recordAuthFailure(peerKey, now)
-					s.sendAuthError(w, r)
-					return
-				}
+			conn := connFromContext(r.Context())
+			if !verifyPeerAccess(s.peerReader, conn, currentUID()) {
+				s.recordAuthFailure(peerKey, now)
+				s.sendAuthError(w, r)
+				return
 			}
 		} else if !isLoopbackRemoteAddr(r.RemoteAddr) {
 			s.recordAuthFailure(peerKey, now)

@@ -49,6 +49,7 @@ type stubLogger struct {
 }
 
 func (l *stubLogger) Infof(string, ...any)  {}
+func (l *stubLogger) Warnf(string, ...any)  {}
 func (l *stubLogger) Debugf(string, ...any) {}
 func (l *stubLogger) Errorf(format string, args ...any) {
 	l.errors = append(l.errors, fmt.Sprintf(format, args...))

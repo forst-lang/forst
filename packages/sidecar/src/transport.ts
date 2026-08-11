@@ -7,6 +7,7 @@ import {
   computeInvokeProof,
   normalizeHeaders,
   stripReservedHeaders,
+  warnIfInvokeAuthDisabled,
   type InvokeHeadersInit,
 } from "./invoke-auth";
 import { fetchInvokeChallenge } from "./invoke-challenge";
@@ -25,8 +26,8 @@ export type HttpInvokeTransportShared = {
   fetchFn?: FetchImpl;
   extraHeaders?: Record<string, string>;
   /**
-   * Project root for `.forst/invoke.ready` metadata (URL, socketPath, generation)
-   * and `.forst/invoke.token` when auth uses the token-file profile.
+   * Project root for `.forst/invoke.ready` metadata (URL, socketPath, generation).
+   * Auth secrets come from spawn handoff, `FORST_INVOKE_TOKEN`, or legacy token file.
    */
   boundaryRoot?: string;
 };
@@ -34,9 +35,9 @@ export type HttpInvokeTransportShared = {
 /**
  * Invoke RPC auth profile. Modes are mutually exclusive.
  *
- * - `authDisabled`: legacy escape hatch (`FORST_INVOKE_AUTH=off`, tests)
- * - `resolveAuth`: memory handoff after spawn (Strong profile)
- * - token file via `boundaryRoot`: connect / TCP fallback (Standard profile)
+ * - `authDisabled`: escape hatch (`FORST_INVOKE_AUTH=off`, tests)
+ * - `resolveAuth`: memory handoff after spawn
+ * - `FORST_INVOKE_TOKEN` env (+ ready file) for connect mode
  */
 export type HttpInvokeTransportAuthConfig =
   | { authDisabled: true; resolveAuth?: never }
@@ -129,6 +130,9 @@ const defaultFetch: FetchImpl = (input, init) => fetch(input, init);
 export function createHttpInvokeTransport(
   config: HttpInvokeTransportConfig
 ): InvokeTransport {
+  if ("authDisabled" in config && config.authDisabled) {
+    warnIfInvokeAuthDisabled();
+  }
   const timeoutMs = config.timeout ?? 30_000;
   const fetchFn = config.fetchFn ?? defaultFetch;
   const transportHeaders: Record<string, string> = {

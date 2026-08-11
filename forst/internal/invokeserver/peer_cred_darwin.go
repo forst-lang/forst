@@ -1,23 +1,24 @@
-//go:build linux
+//go:build darwin
 
-// peer_cred_linux reads SO_PEERCRED on Linux Unix sockets for invoke auth.
+// peer_cred_darwin reads LOCAL_PEERCRED on Darwin Unix sockets for invoke auth.
 package invokeserver
 
 import (
 	"net"
 	"os"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
-// unixPeerCredentialReader implements peerCredentialReader via SO_PEERCRED.
+// unixPeerCredentialReader implements peerCredentialReader via LOCAL_PEERCRED.
 type unixPeerCredentialReader struct{}
 
-// defaultPeerCredentialReader returns the Linux peercred reader.
+// defaultPeerCredentialReader returns the Darwin peercred reader.
 func defaultPeerCredentialReader() peerCredentialReader {
 	return unixPeerCredentialReader{}
 }
 
-// PeerCredentials reads UID and PID from conn using getsockopt SO_PEERCRED.
+// PeerCredentials reads UID and PID from conn using getsockopt LOCAL_PEERCRED.
 func (unixPeerCredentialReader) PeerCredentials(conn net.Conn) (peerCredentials, bool) {
 	uc, ok := conn.(*net.UnixConn)
 	if !ok {
@@ -30,13 +31,16 @@ func (unixPeerCredentialReader) PeerCredentials(conn net.Conn) (peerCredentials,
 	var cred peerCredentials
 	var credErr error
 	err = raw.Control(func(fd uintptr) {
-		u, e := syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
+		x, e := unix.GetsockoptXucred(int(fd), unix.SOL_LOCAL, unix.LOCAL_PEERCRED)
 		if e != nil {
 			credErr = e
 			return
 		}
-		cred.UID = int(u.Uid)
-		cred.PID = int(u.Pid)
+		cred.UID = int(x.Uid)
+		pid, e := unix.GetsockoptInt(int(fd), unix.SOL_LOCAL, unix.LOCAL_PEERPID)
+		if e == nil {
+			cred.PID = pid
+		}
 	})
 	if err != nil || credErr != nil {
 		return peerCredentials{}, false
