@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/forst-lang/forst/compare/cli-v0.3.0...cli-v0.4.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166))
+
+### Features
+
+* **invokeserver:** harden local invoke with UDS and HMAC auth ([#166](https://github.com/forst-lang/forst/issues/166)) ([cf593cb](https://github.com/forst-lang/forst/commit/cf593cb82f6aac4ee6fccd0ed0562cc5176c6fc0))
+
 ## [0.3.0](https://github.com/forst-lang/forst/compare/cli-v0.2.0...cli-v0.3.0) (2026-08-09)
 
 
