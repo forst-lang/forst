@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/forst-lang/forst/compare/cli-v0.4.1...cli-v0.5.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** @forst/cli/invoke no longer exports prepareConnectInvokeEnv, resolveHostInvokeAuthHandoff, startHostInvokeAuthRecvListener, or envInvokeAuthRecvFd. Use prepareInvokeConnect and getInvokeAuthHandoff instead.
+
+### Features
+
+* **cli:** shrink host invoke connect API ([#171](https://github.com/forst-lang/forst/issues/171)) ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+
+### Bug Fixes
+
+* **cli:** add explicit type for DEFAULT_EMBEDDED_INVOKE_BASE_URL ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+* **generate:** skip throw in emitted invoke auth handoff parsing ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
 ## [0.4.1](https://github.com/forst-lang/forst/compare/cli-v0.4.0...cli-v0.4.1) (2026-08-11)
 
 

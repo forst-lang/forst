@@ -44,6 +44,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **nodert:** Restart a live Node host when an invoke auth relay is active so the host inherits `FORST_INVOKE_AUTH_RECV_FD`.
 * **nodert:** Reject auth-relay `PrepareGoChild` after `Close`, and skip `ExtraFiles` auth handoff on Windows and js (use env token delivery there).
 
+## [0.14.0](https://github.com/forst-lang/forst/compare/v0.13.1...v0.14.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** @forst/cli/invoke no longer exports prepareConnectInvokeEnv, resolveHostInvokeAuthHandoff, startHostInvokeAuthRecvListener, or envInvokeAuthRecvFd. Use prepareInvokeConnect and getInvokeAuthHandoff instead.
+
+### Features
+
+* **cli:** shrink host invoke connect API ([#171](https://github.com/forst-lang/forst/issues/171)) ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
+
+### Bug Fixes
+
+* **cli:** add explicit type for DEFAULT_EMBEDDED_INVOKE_BASE_URL ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+* **generate:** skip throw in emitted invoke auth handoff parsing ([7e6fdc7](https://github.com/forst-lang/forst/commit/7e6fdc7ccd31329ae91cecd8405e75b1d9ae68b3))
+
 ## [0.13.1](https://github.com/forst-lang/forst/compare/v0.13.0...v0.13.1) (2026-08-11)
 
 
