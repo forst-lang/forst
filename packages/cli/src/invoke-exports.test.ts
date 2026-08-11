@@ -34,5 +34,11 @@ describe("@forst/cli/invoke package exports", () => {
     expect(typeof mod.requestOverUnixSocket).toBe("function");
     expect(typeof mod.stripReservedHeaders).toBe("function");
     expect(typeof mod.parseInvokeChallengeResult).toBe("function");
+    expect(typeof mod.prepareInvokeConnect).toBe("function");
+    expect(typeof mod.getInvokeAuthHandoff).toBe("function");
+    expect(mod.consumeHostInvokeAuthStreamForTest).toBeUndefined();
+    expect(mod.resetHostInvokeAuthHandoffForTest).toBeUndefined();
+    expect(mod.startHostInvokeAuthRecvListener).toBeUndefined();
+    expect(mod.envInvokeAuthRecvFd).toBeUndefined();
   });
 });

@@ -80,6 +80,11 @@ end. That way the host never reads a token file.
 `.forst/invoke.ready` includes `tokenDelivery` (`env` or `handoff`) so clients
 know which channel to use.
 
+In a Node host process, call `prepareInvokeConnect()` from `@forst/cli/invoke`
+at startup. It sets connect-mode env and listens on `FORST_INVOKE_AUTH_RECV_FD`.
+Use `getInvokeAuthHandoff()` with your generated client's `resolveAuth` option
+when auth arrives over the pipe.
+
 <Note>
   Use the Forst sidecar transport for authenticated invoke requests. Do not
   build a raw `curl` request to `POST /invoke`: it cannot complete the

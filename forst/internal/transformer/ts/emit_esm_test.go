@@ -322,6 +322,8 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"http://127.0.0.1:6321",
 		"Never spawns",
 		"resolveTransportMode",
+		"FORST_INVOKE_AUTH_RECV_FD",
+		"startHostInvokeAuthRecvListener",
 	})
 	assertContainsNone(t, got, []string{
 		"@forst/client",

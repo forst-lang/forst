@@ -9,7 +9,7 @@ export const COMPILER_RELEASES_BASE =
 export const DEFAULT_EMBEDDED_INVOKE_PORT = "6321";
 
 /** Loopback HTTP base URL for {@link DEFAULT_EMBEDDED_INVOKE_PORT}. */
-export const DEFAULT_EMBEDDED_INVOKE_BASE_URL =
+export const DEFAULT_EMBEDDED_INVOKE_BASE_URL: string =
   `http://127.0.0.1:${DEFAULT_EMBEDDED_INVOKE_PORT}`;
 
 /**
