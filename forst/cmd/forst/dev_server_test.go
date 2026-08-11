@@ -14,6 +14,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func writeBlockingInvokeSocket(t *testing.T, root string) {
+	t.Helper()
+	dir := filepath.Join(root, ".forst")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	sock := filepath.Join(dir, "invoke.sock")
+	if err := os.WriteFile(sock, []byte("blocking"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testDevServer(t *testing.T) *DevServer {
 	t.Helper()
 	log := logrus.New()

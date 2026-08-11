@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -287,6 +288,22 @@ func TestStartDevServer_returnsErrorOnServerStartFailure(t *testing.T) {
 	err := StartDevServer("invalid-port", logger, "", t.TempDir(), &level, false, "")
 	if err == nil {
 		t.Fatal("expected error when listen address is invalid")
+	}
+}
+
+func TestStartDevServer_returnsErrorOnUnixSocketConflict(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix invoke is not the default on Windows")
+	}
+	t.Setenv("FORST_INVOKE_TRANSPORT", "unix")
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	level := "info"
+	root := t.TempDir()
+	writeBlockingInvokeSocket(t, root)
+	err := StartDevServer("", logger, "", root, &level, false, "")
+	if err == nil {
+		t.Fatal("expected error when unix socket path is blocked")
 	}
 }
 
