@@ -69,6 +69,14 @@ In sidecar spawn mode, the child sends the secret through an inherited
 `FORST_INVOKE_AUTH_FD` file descriptor instead. This keeps the secret out of the
 ready file and avoids writing it to disk.
 
+When `node.hostMode` is enabled, the Node app process (the host) may start
+before the embedded invoke server inside the compiled Go program is ready. The
+`forst dev` parent process opens a pipe, passes the read end into the Node host
+as an inherited file descriptor (an open pipe handle the child receives at
+startup), and relays auth lines from the Go program’s
+`FORST_INVOKE_AUTH_FD` write end to the host’s `FORST_INVOKE_AUTH_RECV_FD` read
+end. That way the host never reads a token file.
+
 `.forst/invoke.ready` includes `tokenDelivery` (`env` or `handoff`) so clients
 know which channel to use.
 

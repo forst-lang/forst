@@ -508,6 +508,7 @@ type HostSpawnInput struct {
 	Env                []string
 	HostAutoRegister   bool
 	HostAppReadyModule string
+	AuthRelay          *HostInvokeAuthRelay
 }
 
 // HostSpawnCommand is the resolved host-mode spawn invocation.
@@ -517,6 +518,7 @@ type HostSpawnCommand struct {
 	Env        []string
 	SocketPath string
 	ReadyPath  string
+	ExtraFiles []*os.File
 }
 
 type spawnEnvInput struct {
@@ -624,11 +626,20 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		return HostSpawnCommand{}, err
 	}
 
+	var extraFiles []*os.File
+	if in.AuthRelay != nil && SupportsInvokeAuthFDHandoff() {
+		env = setEnvVar(env, EnvInvokeAuthRecvFD, fmt.Sprintf("%d", in.AuthRelay.HostRecvFD()))
+		if f := in.AuthRelay.HostExtraFile(); f != nil {
+			extraFiles = append(extraFiles, f)
+		}
+	}
+
 	return HostSpawnCommand{
 		Executable: executable,
 		Args:       args,
 		Env:        env,
 		SocketPath: socketPath,
 		ReadyPath:  readyPath,
+		ExtraFiles: extraFiles,
 	}, nil
 }

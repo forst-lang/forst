@@ -15,6 +15,7 @@ type HostOrchestrator struct {
 	cfg          *ftconfig.Config
 	log          *logrus.Logger
 	spawnedProc  *nodert.SpawnedHostProcess
+	authRelay    *nodert.HostInvokeAuthRelay
 }
 
 // NewHostOrchestrator creates a parent-owned node host orchestrator.
@@ -31,10 +32,14 @@ func (o *HostOrchestrator) EnsureRunning() error {
 	if o == nil || o.cfg == nil || !o.cfg.Node.HostMode {
 		return nil
 	}
+	if err := attachHostInvokeAuthRelay(o, o.boundaryRoot); err != nil {
+		return err
+	}
 	hostCfg, err := nodert.HostProcessConfigFromFTConfig(o.cfg, o.boundaryRoot, o.log)
 	if err != nil {
 		return err
 	}
+	hostCfg.AuthRelay = o.authRelay
 	spawned, proc, err := nodert.EnsureHostProcessRunning(hostCfg)
 	if err != nil {
 		return err
@@ -59,6 +64,13 @@ func (o *HostOrchestrator) Shutdown() error {
 		return nil
 	}
 	defer o.deactivateAttachOnly()
+	defer func() {
+		if o.authRelay != nil {
+			_ = o.authRelay.Close()
+			o.authRelay = nil
+			nodert.SetActiveHostInvokeAuthRelay(nil)
+		}
+	}()
 	if o.spawnedProc != nil {
 		return o.spawnedProc.Terminate()
 	}

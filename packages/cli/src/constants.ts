@@ -3,6 +3,16 @@ export const COMPILER_RELEASES_BASE =
   "https://github.com/forst-lang/forst/releases";
 
 /**
+ * Default TCP port for embedded invoke (`ftconfig` `DefaultEmbeddedInvokePort`).
+ * Distinct from forst dev executor (`6320`) and app host (`6322`).
+ */
+export const DEFAULT_EMBEDDED_INVOKE_PORT = "6321";
+
+/** Loopback HTTP base URL for {@link DEFAULT_EMBEDDED_INVOKE_PORT}. */
+export const DEFAULT_EMBEDDED_INVOKE_BASE_URL =
+  `http://127.0.0.1:${DEFAULT_EMBEDDED_INVOKE_PORT}`;
+
+/**
  * Pass as the only argument to the npm `forst` shim (`npx forst --forst-cli-info`) to print
  * wrapper semver, resolved binary path, and `forst version` — without forwarding to other subcommands.
  */

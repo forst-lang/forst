@@ -52,3 +52,11 @@ export {
   ForstInvokeServerUnreachable,
   type ForstInvokeServerErrorContext,
 } from "./errors.js";
+export {
+  consumeHostInvokeAuthStreamForTest,
+  envInvokeAuthRecvFd,
+  prepareConnectInvokeEnv,
+  resetHostInvokeAuthHandoffForTest,
+  resolveHostInvokeAuthHandoff,
+  startHostInvokeAuthRecvListener,
+} from "./host-invoke-auth.js";

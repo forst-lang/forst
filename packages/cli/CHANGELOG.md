@@ -39,6 +39,11 @@
 
 * **cli:** Add `@forst/cli/invoke` with `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle (attach, spawn `dev`/`embedded`, `/health` readiness, SIGTERM then SIGKILL). Orthogonal to `@forst/node-runtime`.
 * **cli:** Declare `@forst/errors` as a runtime dependency so apps with `@forst/cli` can import shared invoke failure classes without adding Effect.
+* **cli:** Host-mode invoke auth handoff via `FORST_INVOKE_AUTH_RECV_FD` (`startHostInvokeAuthRecvListener` / `resolveHostInvokeAuthHandoff` / `prepareConnectInvokeEnv`), plus shared `DEFAULT_EMBEDDED_INVOKE_PORT` and `DEFAULT_EMBEDDED_INVOKE_BASE_URL`.
+
+### Bug Fixes
+
+* **cli:** Parse host auth handoff JSON as `unknown` and reject non-object roots (including `null`) instead of throwing a TypeError.
 
 ## [0.1.2](https://github.com/forst-lang/forst/compare/cli-v0.1.1...cli-v0.1.2) (2026-07-20)
 

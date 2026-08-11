@@ -100,6 +100,11 @@ func authDisabledByEnv() bool {
 	return v == "off" || v == "0" || v == "false"
 }
 
+// AuthDisabledByEnv reports whether invoke HMAC auth is disabled via FORST_INVOKE_AUTH.
+func AuthDisabledByEnv() bool {
+	return authDisabledByEnv()
+}
+
 func envOrEmpty(key string) string {
 	// small helper kept inline in types to avoid importing os in every test
 	return lookupEnv(key)

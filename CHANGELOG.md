@@ -36,10 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **generate (Effect mode):** Invoke, domain, and harness errors use `Data.TaggedError` from the `effect` peer instead of the inlined tagged helper. Promise mode is unchanged. Regenerate Effect-mode clients after upgrading.
 * **generate:** Real-server testing helpers on `@forst/gen/testing`: Promise mode `startForstTestServer`, Effect mode `ForstTestServer` / `ForstTestServerLayer` / `makeForstTestServer`. Optional peer `@forst/cli` (`peerDependenciesMeta.optional`) lazy-imports `@forst/cli/invoke`. Harness failures use `ForstTestServerFailed` outside `InvokeFailure`.
 * **generate:** Warn when public functions are omitted from the TypeScript client because Providers are unsatisfied (package, function, and reason).
+* **invoke:** In `node.hostMode`, relay invoke auth from the embedded Go process to the Node host over inherited pipe fds (`FORST_INVOKE_AUTH_FD` → `FORST_INVOKE_AUTH_RECV_FD`) so the host never reads a token file. Generated transport prefers the relayed handoff before `invoke.ready` disk auth.
 
 ### Bug Fixes
 
 * **invokeserver:** Write `.forst/invoke.ready` with the bound port after `StartAsync` when `FORST_INVOKE_PORT=0`.
+* **nodert:** Restart a live Node host when an invoke auth relay is active so the host inherits `FORST_INVOKE_AUTH_RECV_FD`.
+* **nodert:** Reject auth-relay `PrepareGoChild` after `Close`, and skip `ExtraFiles` auth handoff on Windows and js (use env token delivery there).
 
 ## [0.13.0](https://github.com/forst-lang/forst/compare/v0.12.1...v0.13.0) (2026-08-11)
 
