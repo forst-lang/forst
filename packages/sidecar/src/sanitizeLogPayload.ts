@@ -43,7 +43,17 @@ function isSensitiveKey(key: string): boolean {
   return lower.includes("authorization") || lower.includes("password");
 }
 
+const RESERVED_INVOKE_LOG_HEADERS = new Set([
+  "x-forst-invoke-proof",
+  "x-forst-invoke-token",
+  "x-forst-invoke-nonce",
+  "x-forst-invoke-generation",
+]);
+
 function shouldRedactHeaderName(name: string): boolean {
+  if (RESERVED_INVOKE_LOG_HEADERS.has(name.toLowerCase())) {
+    return true;
+  }
   return isSensitiveKey(name) || /auth|token|cookie|secret/i.test(name);
 }
 

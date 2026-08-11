@@ -74,6 +74,7 @@ cp "$FT_ROOT/main.ft" "$MAIN_FT_BACKUP"
 
 export FORST_REPO_ROOT="$REPO"
 export FORST_BOUNDARY_ROOT="$FT_ROOT"
+export FORST_INVOKE_TRANSPORT=tcp
 "$FORST_BINARY" dev \
   -export-struct-fields \
   -root "$FT_ROOT" \

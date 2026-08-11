@@ -50,7 +50,7 @@ func TestHandleInvoke_returns503WhenReloadMarkerSet(t *testing.T) {
 	s := newTestServer(t, &stubBackend{})
 	body := `{"package":"main","function":"Echo","args":{}}`
 	rr := httptest.NewRecorder()
-	s.HandleInvoke(rr, httptest.NewRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
+	s.HandleInvoke(rr, newInvokeHTTPRequest(http.MethodPost, "/invoke", strings.NewReader(body)))
 	if rr.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status: %d body=%s", rr.Code, rr.Body.String())
 	}

@@ -18,8 +18,22 @@ class FakeChild extends EventEmitter {
   signalCode: NodeJS.Signals | null = null;
   stdout = new EventEmitter();
   stderr = new EventEmitter();
+  authStream = new EventEmitter();
+  stdio = [null, this.stdout, this.stderr, this.authStream];
   killed = false;
   killSignal: NodeJS.Signals | null = null;
+
+  constructor() {
+    super();
+    setImmediate(() => {
+      const token = Buffer.alloc(32, 1).toString("base64url");
+      this.authStream.emit(
+        "data",
+        `${JSON.stringify({ generation: 1, token })}\n`
+      );
+      this.authStream.emit("end");
+    });
+  }
 
   kill(signal?: NodeJS.Signals): boolean {
     this.killed = true;
@@ -255,6 +269,8 @@ describe("startForstInvokeServer", () => {
     expect(handle.connection).toBe("spawn");
     expect(handle.port).toBe(19001);
     expect(handle.pid).toBe(4242);
+    expect(handle.auth?.generation).toBe(1);
+    expect(handle.auth?.token.length).toBeGreaterThan(0);
     expect(spawnArgs[0]?.[0]).toBe("/bin/forst");
     expect(spawnArgs[0]).toContain("dev");
     expect(calls.n).toBeGreaterThan(2);

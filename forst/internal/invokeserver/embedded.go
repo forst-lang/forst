@@ -64,28 +64,43 @@ func resolveBoundaryRoot() (string, error) {
 // InvokeReadyPayload is written to boundaryRoot/.forst/invoke.ready when embedded invoke starts.
 type InvokeReadyPayload struct {
 	URL             string `json:"url"`
+	SocketPath      string `json:"socketPath,omitempty"`
+	Generation      uint64 `json:"generation,omitempty"`
+	TokenDelivery   string `json:"tokenDelivery,omitempty"`
+	PID             int    `json:"pid,omitempty"`
 	ContractVersion string `json:"contractVersion"`
 	Runtime         string `json:"runtime"`
 }
 
-func writeInvokeReady(workDir string, cfg Config) error {
-	readyPath := filepath.Join(workDir, ".forst", "invoke.ready")
+func writeInvokeReady(workDir string, cfg Config, generation uint64, tokenDelivery string) error {
+	readyPath := invokeReadyPath(workDir)
 	if strings.Contains(readyPath, "..") {
 		return fmt.Errorf("invoke server: invalid ready path")
 	}
-	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(readyPath), 0o750); err != nil {
 		return err
 	}
 	payload := InvokeReadyPayload{
 		URL:             cfg.BaseURL(),
+		Generation:      generation,
+		TokenDelivery:   tokenDelivery,
+		PID:             os.Getpid(),
 		ContractVersion: HTTPContractVersion,
-		Runtime:         "embedded",
+		Runtime:         cfg.Runtime,
+	}
+	if cfg.network() == transportUnix {
+		payload.URL = ""
+		payload.SocketPath = cfg.SocketPath
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(readyPath, raw, 0o644)
+	tmp := readyPath + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, readyPath)
 }
 
 // DefaultEmbeddedVersion returns version metadata for embedded invoke /version.

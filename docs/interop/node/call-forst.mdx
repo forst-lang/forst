@@ -241,7 +241,14 @@ const ForstLive = ForstClientLayer({
 
 </CodeGroup>
 
-`Content-Type: application/json` is always set. Your headers are merged on top.
+`Content-Type: application/json` is always set. The invoke authentication
+headers are reserved and cannot be replaced by your defaults or per-call
+headers. See [Invoke security](/interop/node/invoke-security#reserved-request-headers).
+
+Connect-mode workers need the invoke HMAC secret from `FORST_INVOKE_TOKEN`
+(base64url). The `forst dev` process sets this when it starts. Sidecar spawn
+mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See
+[Invoke security](/interop/node/invoke-security#authentication-flow).
 
 ## How the client picks a server
 
@@ -464,7 +471,9 @@ Repository example: [`examples/in/rfc/node-interop/multi-package-dev`](https://g
 
 ## Built-in HTTP server
 
-Your compiled Go binary can listen on localhost (default `:6321`) and run Forst functions when Node sends `POST /invoke`.
+Your compiled Go binary starts a local invoke server. On Unix it defaults to a
+Unix domain socket at `.forst/invoke.sock`. On Windows, or with
+`FORST_INVOKE_TRANSPORT=tcp`, it uses loopback TCP (default port `6321`).
 
 Enable with `server.embedded` in `ftconfig.json`:
 
@@ -478,13 +487,17 @@ Enable with `server.embedded` in `ftconfig.json`:
 }
 ```
 
-Then `forst build` emits the invoke companion. Same JSON contract as `forst dev`. Smoke test:
+Then `forst build` emits the invoke companion. It writes `.forst/invoke.ready`
+and a separate local token file. HMAC auth is on by default. Use the Forst
+client, sidecar, or CLI helpers for `POST /invoke`, because authenticated RPC
+needs a fresh challenge and HMAC proof. For a manual smoke test over TCP:
 
 ```bash
-curl -s -X POST http://127.0.0.1:6321/invoke \
-  -H 'Content-Type: application/json' \
-  -d '{"package":"auth","function":"VerifyPassword","args":[{"plainPassword":"x","passwordHash":"y"}]}'
+FORST_INVOKE_TRANSPORT=tcp curl -s http://127.0.0.1:6321/health
 ```
+
+See [Invoke security](/interop/node/invoke-security) for the local transport,
+token storage, reserved headers, and the test-only auth escape hatch.
 
 ### Environment variables
 
@@ -493,11 +506,14 @@ curl -s -X POST http://127.0.0.1:6321/invoke \
 | `FORST_BASE_URL` / `FORST_DEV_URL` | Invoke server URL (aliases) |
 | `FORST_INVOKE_URL` | Explicit URL override |
 | `FORST_INVOKE_ENABLED` | Enable built-in server at runtime without ftconfig |
-| `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address in deployed binaries |
+| `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address for TCP mode |
+| `FORST_INVOKE_TRANSPORT` | Set to `tcp` to force loopback TCP instead of Unix sockets |
+| `FORST_INVOKE_AUTH` | Set to `off` to disable HMAC auth (local debugging only) |
 | `FORST_BOUNDARY_ROOT` | Project root for `.forst/invoke.ready` |
 | `FORST_SKIP_SPAWN` | Force HTTP connect (never spawn `forst dev`) |
 
-When the built-in server starts, Forst writes `.forst/invoke.ready` with the server URL for tooling auto-discovery.
+When the built-in server starts, Forst writes `.forst/invoke.ready` with
+`socketPath` (Unix default) or `url` (TCP) for tooling auto-discovery.
 
 ## Host mode (Remix and similar)
 

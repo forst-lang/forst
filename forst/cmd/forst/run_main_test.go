@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -18,8 +19,21 @@ func TestRunMain_version(t *testing.T) {
 }
 
 func TestRunMain_dev_invalidPort(t *testing.T) {
+	t.Setenv("FORST_INVOKE_TRANSPORT", "tcp")
 	tmp := t.TempDir()
 	if code := runMain([]string{"forst", "dev", "-port", "notaport", "-root", tmp}); code != 1 {
+		t.Fatalf("want exit 1, got %d", code)
+	}
+}
+
+func TestRunMain_dev_unixSocketConflict_exitsNonZero(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix invoke is not the default on Windows")
+	}
+	t.Setenv("FORST_INVOKE_TRANSPORT", "unix")
+	tmp := t.TempDir()
+	writeBlockingInvokeSocket(t, tmp)
+	if code := runMain([]string{"forst", "dev", "-root", tmp}); code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
 }

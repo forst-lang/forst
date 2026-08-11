@@ -1,11 +1,21 @@
-import { afterEach, describe, expect, it, jest } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { ForstSidecar } from "./sidecar";
 
 describe("ForstSidecar connect mode", () => {
   const originalFetch = global.fetch;
+  const originalAuthEnv = process.env.FORST_INVOKE_AUTH;
 
   afterEach(() => {
     global.fetch = originalFetch;
+    if (originalAuthEnv === undefined) {
+      delete process.env.FORST_INVOKE_AUTH;
+    } else {
+      process.env.FORST_INVOKE_AUTH = originalAuthEnv;
+    }
+  });
+
+  beforeEach(() => {
+    process.env.FORST_INVOKE_AUTH = "off";
   });
 
   it("attaches HTTP client without spawning when dev server responds to health", async () => {

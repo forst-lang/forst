@@ -30,6 +30,7 @@ import {
 } from "./config-merge";
 import { ForstUtils } from "./utils";
 import { ForstSidecarClient } from "./client";
+import { readInvokeReadyAuth, readInvokeReadyUrl } from "./invoke-ready";
 import {
   ForstServer,
   buildForstGenerateArgs,
@@ -88,8 +89,16 @@ export class ForstSidecar {
       }
       const baseUrl = normalizeDevServerBaseUrl(raw);
       this.connectBaseUrl = baseUrl;
+      const boundaryRoot = effectiveProjectRootDir(this.config);
       this.client = new ForstSidecarClient({
         baseUrl,
+        boundaryRoot,
+        resolveAuth: () => {
+          const auth = readInvokeReadyAuth(boundaryRoot);
+          return auth
+            ? { token: auth.token, generation: auth.generation }
+            : undefined;
+        },
         timeout: 30000,
         reloadAware: true,
       });
@@ -132,8 +141,22 @@ export class ForstSidecar {
     await this.server.start();
 
     // Initialize the client
+    const boundaryRoot = effectiveProjectRootDir(this.config);
     this.client = new ForstSidecarClient({
       baseUrl: this.server.getServerUrl(),
+      resolveBaseUrl: () =>
+        readInvokeReadyUrl(boundaryRoot) ?? this.server!.getServerUrl(),
+      boundaryRoot,
+      resolveAuth: () => {
+        const handoff = this.server!.getAuthHandoff();
+        if (handoff) {
+          return handoff;
+        }
+        const auth = readInvokeReadyAuth(boundaryRoot);
+        return auth
+          ? { token: auth.token, generation: auth.generation }
+          : undefined;
+      },
       timeout: 30000,
       reloadAware: true,
     });

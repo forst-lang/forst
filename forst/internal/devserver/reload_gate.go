@@ -1,6 +1,7 @@
 package devserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,13 +61,9 @@ func MarkReloading(boundaryRoot string, reloading bool, generation uint64) error
 	return os.WriteFile(path, raw, 0o644)
 }
 
-// RemoveInvokeReady deletes invoke.ready so clients do not treat a stale server as ready.
+// RemoveInvokeReady deletes invoke.ready and invoke.token so clients do not treat a stale server as ready.
 func RemoveInvokeReady(boundaryRoot string) error {
-	err := os.Remove(invokeReadyPath(boundaryRoot))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return invokeserver.RemoveAuthArtifacts(boundaryRoot)
 }
 
 // InvokeListenAddr returns host:port for the embedded invoke server.
@@ -154,19 +151,41 @@ func portCanListen(host, port string) bool {
 }
 
 // ReadInvokeReadyURL returns the invoke base URL from boundaryRoot/.forst/invoke.ready.
+// When the server listens on a Unix socket only, URL may be empty.
 func ReadInvokeReadyURL(boundaryRoot string) (string, error) {
-	raw, err := os.ReadFile(invokeReadyPath(boundaryRoot))
+	payload, err := readInvokeReadyPayload(boundaryRoot)
 	if err != nil {
 		return "", err
-	}
-	var payload invokeserver.InvokeReadyPayload
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return "", fmt.Errorf("parse invoke.ready: %w", err)
 	}
 	if payload.URL == "" {
 		return "", fmt.Errorf("invoke.ready missing url")
 	}
 	return strings.TrimRight(payload.URL, "/"), nil
+}
+
+// ReadInvokeReadySocketPath returns the Unix socket path from invoke.ready when present.
+func ReadInvokeReadySocketPath(boundaryRoot string) (string, error) {
+	payload, err := readInvokeReadyPayload(boundaryRoot)
+	if err != nil {
+		return "", err
+	}
+	path := strings.TrimSpace(payload.SocketPath)
+	if path == "" {
+		return "", fmt.Errorf("invoke.ready missing socketPath")
+	}
+	return path, nil
+}
+
+func readInvokeReadyPayload(boundaryRoot string) (invokeserver.InvokeReadyPayload, error) {
+	raw, err := os.ReadFile(invokeReadyPath(boundaryRoot))
+	if err != nil {
+		return invokeserver.InvokeReadyPayload{}, err
+	}
+	var payload invokeserver.InvokeReadyPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return invokeserver.InvokeReadyPayload{}, fmt.Errorf("parse invoke.ready: %w", err)
+	}
+	return payload, nil
 }
 
 // WaitPortFree blocks until nothing accepts TCP connections on addr.
@@ -206,14 +225,15 @@ func isConnRefused(err error) bool {
 }
 
 // WaitForInvokeReady polls invoke.ready and /health until the new child is serving.
+// Prefers Unix socket health checks when invoke.ready advertises socketPath.
 func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, timeout time.Duration) error {
 	if timeout <= 0 {
 		timeout = defaultInvokeReadyWait
 	}
 	deadline := time.Now().Add(timeout)
-	client := &http.Client{Timeout: 2 * time.Second}
+	tcpClient := &http.Client{Timeout: 2 * time.Second}
 	readyPath := invokeReadyPath(boundaryRoot)
-	lastHealthURL := healthURL
+	lastTarget := healthURL
 
 	for time.Now().Before(deadline) {
 		select {
@@ -230,11 +250,20 @@ func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, tim
 			continue
 		}
 
-		if url, err := ReadInvokeReadyURL(boundaryRoot); err == nil && url != "" {
-			lastHealthURL = strings.TrimRight(url, "/") + "/health"
+		if sock, err := ReadInvokeReadySocketPath(boundaryRoot); err == nil && sock != "" {
+			lastTarget = sock
+			if invokeHealthOKUnix(sock) {
+				return nil
+			}
+			time.Sleep(invokeReadyPollInterval)
+			continue
 		}
 
-		resp, err := client.Get(lastHealthURL)
+		if url, err := ReadInvokeReadyURL(boundaryRoot); err == nil && url != "" {
+			lastTarget = strings.TrimRight(url, "/") + "/health"
+		}
+
+		resp, err := tcpClient.Get(lastTarget)
 		if err != nil {
 			time.Sleep(invokeReadyPollInterval)
 			continue
@@ -255,5 +284,33 @@ func WaitForInvokeReady(boundaryRoot, healthURL string, exited <-chan error, tim
 		}
 		return nil
 	}
-	return fmt.Errorf("invoke server not ready at %s within %v", lastHealthURL, timeout)
+	return fmt.Errorf("invoke server not ready at %s within %v", lastTarget, timeout)
+}
+
+func invokeHealthOKUnix(socketPath string) bool {
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", socketPath)
+			},
+		},
+	}
+	resp, err := client.Get("http://localhost/health")
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false
+	}
+	var health struct {
+		Success bool `json:"success"`
+	}
+	return json.Unmarshal(body, &health) == nil && health.Success
 }

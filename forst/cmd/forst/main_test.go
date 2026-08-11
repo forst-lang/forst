@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -933,6 +934,12 @@ func TestMain_helperProcess(t *testing.T) {
 			t.Fatal("FORST_MAIN_HELPER_TMP required")
 		}
 		os.Args = []string{"forst", "dev", "-port", "notaport", "-root", tmp}
+	case "dev-unix-socket-conflict":
+		tmp := os.Getenv("FORST_MAIN_HELPER_TMP")
+		if tmp == "" {
+			t.Fatal("FORST_MAIN_HELPER_TMP required")
+		}
+		os.Args = []string{"forst", "dev", "-root", tmp}
 	case "lsp-bad-port":
 		os.Args = []string{"forst", "lsp", "-port", "notaport"}
 	case "fmt-list":
@@ -1003,10 +1010,29 @@ func TestMain_devBadPort_exitsNonZero(t *testing.T) {
 	cmd.Env = append(os.Environ(),
 		"FORST_MAIN_HELPER_CASE=dev-bad-port",
 		"FORST_MAIN_HELPER_TMP="+tmp,
+		"FORST_INVOKE_TRANSPORT=tcp",
 	)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected dev with invalid port to exit non-zero")
+	}
+}
+
+func TestMain_devUnixSocketConflict_exitsNonZero(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix invoke is not the default on Windows")
+	}
+	tmp := t.TempDir()
+	writeBlockingInvokeSocket(t, tmp)
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_helperProcess")
+	cmd.Env = append(os.Environ(),
+		"FORST_MAIN_HELPER_CASE=dev-unix-socket-conflict",
+		"FORST_MAIN_HELPER_TMP="+tmp,
+		"FORST_INVOKE_TRANSPORT=unix",
+	)
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected dev with blocked unix socket to exit non-zero")
 	}
 }
 

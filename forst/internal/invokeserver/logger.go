@@ -12,6 +12,10 @@ func (StderrLogger) Infof(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "invoke: "+format+"\n", args...)
 }
 
+func (StderrLogger) Warnf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "invoke: "+format+"\n", args...)
+}
+
 func (StderrLogger) Errorf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "invoke: "+format+"\n", args...)
 }

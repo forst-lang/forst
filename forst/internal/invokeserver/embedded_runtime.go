@@ -2,7 +2,6 @@ package invokeserver
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"forst/internal/ftconfig"
@@ -12,7 +11,6 @@ import (
 type embeddedDeps struct {
 	resolveRoot func() (string, error)
 	loadConfig  func(dir string) (*ftconfig.Config, error)
-	writeReady  func(workDir string, cfg Config) error
 	newServer   func(cfg Config, backend DispatchBackend, version VersionInfo, log Logger) *Server
 }
 
@@ -20,7 +18,6 @@ func defaultEmbeddedDeps() embeddedDeps {
 	return embeddedDeps{
 		resolveRoot: resolveBoundaryRoot,
 		loadConfig:  ftconfig.LoadFromDir,
-		writeReady:  writeInvokeReady,
 		newServer:   New,
 	}
 }
@@ -69,17 +66,15 @@ func (r *EmbeddedRuntime) Start() error {
 		WriteTimeout:   cfg.Server.WriteTimeout,
 		MaxRequestSize: cfg.Server.MaxRequestSize,
 		Runtime:        "embedded",
+		BoundaryRoot:   workDir,
 	}
+	ApplyListenDefaults(&serverCfg, workDir)
 	backend := NewRegistryBackend(r.registryOrNew())
 	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), StderrLogger{})
 	if err := r.server.StartAsync(); err != nil {
 		return fmt.Errorf("invoke server: start: %w", err)
 	}
-	// StartAsync binds synchronously; record the real port when FORST_INVOKE_PORT=0.
-	if _, port, err := net.SplitHostPort(r.server.BoundAddr()); err == nil && port != "" {
-		serverCfg.Port = port
-	}
-	return r.deps.writeReady(workDir, serverCfg)
+	return nil
 }
 
 func (r *EmbeddedRuntime) startOnce() {

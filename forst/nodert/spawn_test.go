@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"forst/internal/unixpath"
 )
 
 func TestMergeNodeOptions(t *testing.T) {
@@ -496,7 +498,7 @@ func TestEnsureUnixSocketPathLength_truncatesLongPaths(t *testing.T) {
 		t.Skip("unix socket path shortening")
 	}
 	long := filepath.Join("/tmp", strings.Repeat("a", 120), "node-bootstrap.sock")
-	if len(long) <= maxUnixSocketPathLen {
+	if len(long) <= unixpath.MaxLen {
 		t.Fatalf("test path too short: len=%d", len(long))
 	}
 
@@ -505,7 +507,7 @@ func TestEnsureUnixSocketPathLength_truncatesLongPaths(t *testing.T) {
 	if !strings.HasPrefix(got, wantPrefix) || !strings.HasSuffix(got, ".sock") {
 		t.Fatalf("got %q want prefix %q and .sock suffix", got, wantPrefix)
 	}
-	if len(got) > maxUnixSocketPathLen {
+	if len(got) > unixpath.MaxLen {
 		t.Fatalf("truncated path still too long: len=%d path=%q", len(got), got)
 	}
 	if ensureUnixSocketPathLength(long) != got {

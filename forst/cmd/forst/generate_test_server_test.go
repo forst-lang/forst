@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"forst/internal/discovery"
 	"forst/internal/invokedispatch"
@@ -161,8 +163,15 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 	})
 
 	backend := invokeserver.NewRegistryBackend(reg)
+	cfg := invokeserver.Config{
+		Host:         "127.0.0.1",
+		Port:         "0",
+		Runtime:      "embedded",
+		BoundaryRoot: dir,
+	}
+	invokeserver.ApplyListenDefaults(&cfg, dir)
 	srv := invokeserver.New(
-		invokeserver.Config{Host: "127.0.0.1", Port: "0", Runtime: "embedded"},
+		cfg,
 		backend,
 		invokeserver.DefaultEmbeddedVersion(),
 		nil,
@@ -171,25 +180,29 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = srv.Stop() })
-	baseURL := "http://" + srv.BoundAddr()
 
-	// Wait for health.
-	deadline := 50
-	for i := 0; i < deadline; i++ {
-		resp, err := http.Get(baseURL + "/health")
-		if err == nil && resp.StatusCode == 200 {
-			_ = resp.Body.Close()
-			break
-		}
-		if resp != nil {
-			_ = resp.Body.Close()
-		}
-		if i == deadline-1 {
-			t.Fatalf("health not ready: %v", err)
+	waitForInvokeAuthArtifacts(t, dir)
+
+	attachBaseURL := ""
+	if srv.Config().Transport != "unix" || runtime.GOOS == "windows" {
+		attachBaseURL = "http://" + srv.BoundAddr()
+		for i := 0; i < 50; i++ {
+			resp, err := http.Get(attachBaseURL + "/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				_ = resp.Body.Close()
+				break
+			}
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			if i == 49 {
+				t.Fatalf("health not ready: %v", err)
+			}
+			time.Sleep(20 * time.Millisecond)
 		}
 	}
 
-	writeStubForstCliInvoke(t, dir, baseURL)
+	writeStubForstCliInvoke(t, dir, attachBaseURL)
 
 	dist := defaultClientDistDir(dir)
 	script := filepath.Join(dist, "attach-e2e.mjs")
@@ -197,7 +210,7 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 import { startForstTestServer } from "./testing.js";
 import { Echo } from "./pkg/main.js";
 
-const server = await startForstTestServer({ baseUrl: %q });
+const server = await startForstTestServer({ baseUrl: %q, root: %q });
 try {
   const result = await Echo({ message: "hi" });
   if (result.echo !== "hi" || result.timestamp !== 42) {
@@ -207,17 +220,37 @@ try {
 } finally {
   await server.stop();
 }
-`, baseURL)
+`, attachBaseURL, filepath.ToSlash(dir))
 	if err := os.WriteFile(script, []byte(body), 0644); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("node", script)
 	cmd.Dir = dist
-	cmd.Env = append(os.Environ(), "FORST_BASE_URL="+baseURL, "FORST_SKIP_SPAWN=1")
+	if token := os.Getenv("FORST_INVOKE_TOKEN"); token != "" {
+		cmd.Env = append(os.Environ(), "FORST_INVOKE_TOKEN="+token)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("attach e2e failed: %v\n%s", err, out)
 	}
+}
+
+func waitForInvokeAuthArtifacts(t *testing.T, boundaryRoot string) {
+	t.Helper()
+	readyPath := filepath.Join(boundaryRoot, ".forst", "invoke.ready")
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if fileExists(readyPath) && os.Getenv("FORST_INVOKE_TOKEN") != "" {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for invoke auth artifacts under %s", boundaryRoot)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func writeStubForstCliInvoke(t *testing.T, projectRoot, baseURL string) {
@@ -244,11 +277,12 @@ func writeStubForstCliInvoke(t *testing.T, projectRoot, baseURL string) {
 	}
 	js := fmt.Sprintf(`
 export async function startForstInvokeServer(options = {}) {
-  const baseUrl = (options.baseUrl || %q).replace(/\/$/, "");
-  const url = new URL(baseUrl);
+  const raw = options.baseUrl ?? %q;
+  const baseUrl = raw ? String(raw).replace(/\/$/, "") : "";
+  const port = baseUrl ? Number(new URL(baseUrl).port || 80) : 0;
   return {
     baseUrl,
-    port: Number(url.port || 80),
+    port,
     connection: "connect",
     async stop() {},
     async [Symbol.asyncDispose]() {},

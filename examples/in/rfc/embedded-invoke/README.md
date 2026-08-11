@@ -14,9 +14,10 @@ task example:embedded-invoke
 task example:embedded-invoke:run
 ```
 
-In another terminal:
+In another terminal (the task sets `FORST_INVOKE_TRANSPORT=tcp` and `FORST_INVOKE_AUTH=off` for this curl smoke test; production defaults use Unix sockets and HMAC):
 
 ```bash
+FORST_INVOKE_TRANSPORT=tcp FORST_INVOKE_AUTH=off \
 curl -s -X POST http://127.0.0.1:6321/invoke \
   -H 'Content-Type: application/json' \
   -d '{"package":"main","function":"Echo","args":[{"message":"hello"}]}'

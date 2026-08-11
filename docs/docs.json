@@ -65,6 +65,7 @@
                 "pages": [
                   "interop/node/generate-types",
                   "interop/node/call-forst",
+                  "interop/node/invoke-security",
                   "interop/node/testing",
                   "interop/node/effect",
                   "interop/node/call-javascript"

@@ -94,6 +94,17 @@ func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
 		"resolveTransportMode",
 		`NODE_ENV`,
 		"allowSpawn",
+		"fetchWithAuth",
+		"computeInvokeProof",
+		"readInvokeReadyAuth",
+		"readInvokeTokenFromEnv",
+		"resolveAuth",
+		"readInvokeReadySocketPath",
+		"warnIfInvokeAuthDisabled",
+		"FORST_INVOKE_TOKEN",
+		"requestOverUnixSocket",
+		"forst-invoke-v1",
+		`node:crypto`,
 	} {
 		if !strings.Contains(src, frag) {
 			t.Fatalf("missing HTTP contract fragment %q in emitted transport", frag)
@@ -169,8 +180,9 @@ func TestEmitTransportTypeScript_importsSharedInvokeErrors(t *testing.T) {
 		if strings.Contains(trimmed, " from ") &&
 			!strings.Contains(trimmed, `"@forst/errors"`) &&
 			!strings.Contains(trimmed, `"./errors.js"`) &&
+			!strings.Contains(trimmed, `"node:`) &&
 			!strings.HasPrefix(trimmed, "import {") {
-			t.Fatalf("transport may only import error modules, got:\n%s", line)
+			t.Fatalf("transport may only import error or node built-ins, got:\n%s", line)
 		}
 	}
 }
