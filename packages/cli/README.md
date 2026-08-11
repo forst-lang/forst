@@ -154,6 +154,8 @@ Behaviour in short:
 - Readiness is `GET /health`, not log scraping.
 - `stop()` sends `SIGTERM`, then `SIGKILL` after 5s.
 
+For **host mode** (`node.hostMode` in `ftconfig.json`), call `prepareInvokeConnect()` at process startup so connect-mode env and the `FORST_INVOKE_AUTH_RECV_FD` listener are ready. Use `getInvokeAuthHandoff()` with a generated client's `resolveAuth` when auth arrives over the host pipe instead of `FORST_INVOKE_TOKEN`.
+
 Opt-in real spawn test (needs a local `forst` binary and Go for embedded compile):
 
 ```bash

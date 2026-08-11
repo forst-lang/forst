@@ -106,6 +106,9 @@ func TestHostOrchestrator_shutdownTerminatesSpawnedHost(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("unix signals")
 	}
+	// Auth relay restarts a live marker host and spawns Node (needs tsx). This test
+	// uses a sleep stand-in and asserts Shutdown terminates the marker pid.
+	t.Setenv("FORST_INVOKE_AUTH", "off")
 
 	dir := t.TempDir()
 	_, readyPath, err := nodert.ResolveHostSocketPath(dir, "")
