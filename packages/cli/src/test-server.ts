@@ -6,11 +6,17 @@ import {
 import { existsSync, readFileSync } from "node:fs";
 import { createServer as nodeCreateServer } from "node:net";
 import { join, resolve } from "node:path";
+import type { Readable } from "node:stream";
 import {
   ForstInvokeServerExitedEarly,
   ForstInvokeServerStartTimeout,
   ForstInvokeServerUnreachable,
 } from "./errors.js";
+import { authDisabledByEnv, type InvokeAuthState } from "./invoke-auth.js";
+import {
+  envInvokeAuthFd,
+  readAuthHandoffFromStream,
+} from "./invoke-auth-handoff.js";
 import {
   readInvokeReadySocketPath,
   readInvokeReadyUrl,
@@ -51,6 +57,8 @@ export interface ForstInvokeServerHandle {
   readonly socketPath?: string;
   readonly pid?: number;
   readonly connection: "spawn" | "connect";
+  /** Live invoke auth after spawn (FD handoff). Undefined for connect or when auth is off. */
+  readonly auth?: InvokeAuthState;
   stop(): Promise<void>;
   [Symbol.asyncDispose](): Promise<void>;
 }
@@ -445,6 +453,13 @@ export async function startForstInvokeServer(
       ...options.env,
       FORST_BOUNDARY_ROOT: root,
     };
+    const authDisabled = authDisabledByEnv(childEnv);
+    const stdio: SpawnOptions["stdio"] = authDisabled
+      ? ["ignore", "pipe", "pipe"]
+      : ["ignore", "pipe", "pipe", "pipe"];
+    if (!authDisabled) {
+      childEnv[envInvokeAuthFd] = "3";
+    }
     // Unix is the default local transport. Only force a TCP port when the
     // caller asked for one or the platform has no AF_UNIX support.
     if (mode === "embedded" && !preferUnix) {
@@ -456,9 +471,22 @@ export async function startForstInvokeServer(
     const child = spawnFn(bin, argv, {
       cwd: root,
       env: childEnv,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio,
     });
     captureStream(child, options.onLog, sink);
+
+    let authHandoffPromise: Promise<InvokeAuthState | undefined> | undefined;
+    if (!authDisabled) {
+      const authStream = child.stdio[3];
+      if (authStream && typeof authStream !== "number") {
+        authHandoffPromise = readAuthHandoffFromStream(
+          authStream as Readable
+        ).then((handoff) => ({
+          token: handoff.token,
+          generation: handoff.generation,
+        }));
+      }
+    }
 
     let exitedEarly = childAlreadyExited(child);
     let exitCode: number | null = child.exitCode;
@@ -526,9 +554,19 @@ export async function startForstInvokeServer(
     }
 
     let stopped = false;
+    let auth: InvokeAuthState | undefined;
+    if (authHandoffPromise) {
+      try {
+        auth = await authHandoffPromise;
+      } catch {
+        auth = undefined;
+      }
+    }
     const stop = async () => {
       if (stopped) return;
       stopped = true;
+      auth?.token.fill(0);
+      auth = undefined;
       await stopChild(child, stopGraceMs);
     };
     return {
@@ -537,6 +575,7 @@ export async function startForstInvokeServer(
       socketPath: ready.socketPath,
       pid: child.pid,
       connection: "spawn",
+      auth,
       stop,
       [Symbol.asyncDispose]: stop,
     };

@@ -20,8 +20,10 @@ export const INVOKE_PROOF_VERSION = "forst-invoke-v1";
 let invokeAuthDisabledWarningLogged = false;
 
 /** Returns true when `FORST_INVOKE_AUTH` disables HMAC proof verification. */
-export function authDisabledByEnv(): boolean {
-  const v = String(process.env.FORST_INVOKE_AUTH ?? "")
+export function authDisabledByEnv(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const v = String(env.FORST_INVOKE_AUTH ?? "")
     .trim()
     .toLowerCase();
   return v === "off" || v === "0" || v === "false";
@@ -216,8 +218,8 @@ export function buildInvokeAuthHeaders(
  * Sends `POST /invoke` with a fresh challenge-response proof.
  *
  * Use after `startForstInvokeServer` when auth is enabled
- * (`FORST_INVOKE_AUTH` is not `off`). Pair with `readInvokeReadyAuth`
- * to load the token from `FORST_INVOKE_TOKEN` or `resolveAuth` handoff.
+ * (`FORST_INVOKE_AUTH` is not `off`). Use `handle.auth` after spawn, or
+ * `readInvokeReadyAuth` for connect mode with `FORST_INVOKE_TOKEN`.
  *
  * @param target Base URL string or `{ baseUrl?, socketPath? }` dial target.
  * @param body JSON-serializable invoke request body.

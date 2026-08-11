@@ -10,7 +10,6 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fetchAuthenticatedInvoke } from "./invoke-auth.js";
-import { readInvokeReadyAuth } from "./invoke-ready.js";
 import { startForstInvokeServer } from "./test-server.js";
 
 
@@ -71,19 +70,19 @@ describe("startForstInvokeServer e2e (opt-in)", () => {
       expect(processAlive(pid)).toBe(true);
 
       try {
-        const auth = readInvokeReadyAuth(exampleRoot);
+        const auth = handle.auth;
         expect(auth).toBeDefined();
         const res = await fetchAuthenticatedInvoke(
           {
             baseUrl: handle.baseUrl,
-            socketPath: handle.socketPath ?? auth?.socketPath,
+            socketPath: handle.socketPath ?? undefined,
           },
           {
             package: "main",
             function: "Echo",
             args: [{ message: "hello" }],
           },
-          { token: auth!.token, generation: auth!.generation }
+          auth!
         );
         expect(res.ok).toBe(true);
         const body = (await res.json()) as {
