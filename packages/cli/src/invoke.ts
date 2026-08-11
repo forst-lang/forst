@@ -53,6 +53,7 @@ export {
   type ForstInvokeServerErrorContext,
 } from "./errors.js";
 export {
+  consumeHostInvokeAuthStreamForTest,
   envInvokeAuthRecvFd,
   prepareConnectInvokeEnv,
   resetHostInvokeAuthHandoffForTest,

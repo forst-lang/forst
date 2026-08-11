@@ -54,6 +54,90 @@ func TestEnsureHostProcessRunning_idempotentWhenMarkerLive(t *testing.T) {
 	}
 }
 
+func TestEnsureHostProcessRunning_restartsLiveHostWhenAuthRelaySet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix signals")
+	}
+
+	dir := t.TempDir()
+	socketPath := filepath.Join(dir, ".forst", "node.sock")
+	readyPath := filepath.Join(dir, ".forst", "node.sock.ready")
+	if err := os.MkdirAll(filepath.Dir(readyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldHost := exec.Command("sleep", "60")
+	if err := oldHost.Start(); err != nil {
+		t.Fatal(err)
+	}
+	oldPID := oldHost.Process.Pid
+	oldDone := make(chan error, 1)
+	go func() { oldDone <- oldHost.Wait() }()
+	t.Cleanup(func() {
+		_ = oldHost.Process.Kill()
+		select {
+		case <-oldDone:
+		case <-time.After(2 * time.Second):
+		}
+	})
+
+	payload, err := json.Marshal(map[string]any{
+		"pid":    oldPID,
+		"socket": socketPath,
+		"phase":  "app",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(readyPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ReattachSkipReason(readyPath) != "" {
+		t.Fatalf("expected live marker, skip=%q", ReattachSkipReason(readyPath))
+	}
+
+	relay, err := NewHostInvokeAuthRelay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = relay.Close() })
+
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+	spawned, proc, err := EnsureHostProcessRunning(HostProcessConfig{
+		BoundaryRoot: dir,
+		WorkDir:      dir,
+		NodePath:     "node",
+		ShimArgs:     []string{"missing.mjs"},
+		SocketPath:   socketPath,
+		ReadyPath:    readyPath,
+		AuthRelay:    relay,
+		ReadyTimeout: time.Second,
+		Log:          log,
+	})
+	if spawned {
+		t.Fatal("expected spawned=false when replacement host cannot become ready")
+	}
+	if proc != nil {
+		t.Fatal("expected nil proc when replacement host fails")
+	}
+	if err == nil {
+		t.Fatal("expected error after restarting for auth handoff")
+	}
+
+	select {
+	case waitErr := <-oldDone:
+		if waitErr == nil {
+			t.Fatal("expected old host wait error after terminate")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("old host pid=%d still running after AuthRelay restart", oldPID)
+	}
+	if _, statErr := os.Stat(readyPath); !os.IsNotExist(statErr) {
+		t.Fatalf("ready marker should be cleaned after failed restart, stat=%v", statErr)
+	}
+}
+
 func TestHostProcessConfigFromFTConfig_requiresHostModeArgs(t *testing.T) {
 	_, err := HostProcessConfigFromFTConfig(&ftconfig.Config{
 		Node: ftconfig.NodeConfig{HostMode: true},

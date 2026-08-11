@@ -124,6 +124,48 @@ func TestBuildHostSpawnCommand_requiresArgs(t *testing.T) {
 	}
 }
 
+func TestBuildHostSpawnCommand_attachesAuthRelayRecvFD(t *testing.T) {
+	root := t.TempDir()
+	nodePath := filepath.Join(root, "shim")
+	if err := os.WriteFile(nodePath, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tsxDir := filepath.Join(root, "node_modules", "tsx", "dist")
+	if err := os.MkdirAll(tsxDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tsxDir, "loader.mjs"), []byte("//"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	relay, err := NewHostInvokeAuthRelay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = relay.Close() })
+
+	cmd, err := BuildHostSpawnCommand(HostSpawnInput{
+		BoundaryRoot: root,
+		Executable:   nodePath,
+		ShimArgs:     []string{"server.js"},
+		WorkDir:      root,
+		Loader:       "tsx",
+		AuthRelay:    relay,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := lookupEnvValue(cmd.Env, EnvInvokeAuthRecvFD); got != "3" {
+		t.Fatalf("%s = %q want 3", EnvInvokeAuthRecvFD, got)
+	}
+	if len(cmd.ExtraFiles) != 1 || cmd.ExtraFiles[0] == nil {
+		t.Fatalf("ExtraFiles = %#v want host recv pipe", cmd.ExtraFiles)
+	}
+	if cmd.ExtraFiles[0] != relay.HostExtraFile() {
+		t.Fatal("ExtraFiles[0] should be AuthRelay host read end")
+	}
+}
+
 func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 	root := t.TempDir()
 	nodePath := filepath.Join(root, "shim")

@@ -83,3 +83,52 @@ func TestHostInvokeAuthRelay_PrepareGoChild(t *testing.T) {
 		t.Fatal("expected go write end")
 	}
 }
+
+func TestPrepareActiveGoInvokeAuthHandoff_nilRelay(t *testing.T) {
+	SetActiveHostInvokeAuthRelay(nil)
+	t.Cleanup(func() { SetActiveHostInvokeAuthRelay(nil) })
+
+	f, ok := PrepareActiveGoInvokeAuthHandoff()
+	if ok || f != nil {
+		t.Fatalf("got file=%v ok=%v want nil,false", f, ok)
+	}
+}
+
+func TestPrepareActiveGoInvokeAuthHandoff_activeRelay(t *testing.T) {
+	relay, err := NewHostInvokeAuthRelay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		SetActiveHostInvokeAuthRelay(nil)
+		_ = relay.Close()
+	})
+	SetActiveHostInvokeAuthRelay(relay)
+
+	f, ok := PrepareActiveGoInvokeAuthHandoff()
+	if !ok || f == nil {
+		t.Fatalf("got file=%v ok=%v want write end,true", f, ok)
+	}
+	_ = f.Close()
+}
+
+func TestRelayHostInvokeAuthLine_rejectsInvalid(t *testing.T) {
+	hostRead, hostWrite, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = hostRead.Close()
+		_ = hostWrite.Close()
+	})
+
+	if err := relayHostInvokeAuthLine(hostWrite, []byte(`not-json`)); err == nil {
+		t.Fatal("expected JSON error")
+	}
+	if err := relayHostInvokeAuthLine(hostWrite, []byte(`{"generation":0,"token":"AQID"}`)); err == nil {
+		t.Fatal("expected generation validation error")
+	}
+	if err := relayHostInvokeAuthLine(hostWrite, []byte(`{"generation":1,"token":""}`)); err == nil {
+		t.Fatal("expected token validation error")
+	}
+}

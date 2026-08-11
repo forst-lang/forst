@@ -129,8 +129,17 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 		}
 	}
 
-	if ReattachSkipReason(readyPath) == "" {
-		return false, nil, nil
+	if skip := ReattachSkipReason(readyPath); skip == "" {
+		if cfg.AuthRelay == nil {
+			return false, nil, nil
+		}
+		if marker, ok := readHostReadyMarker(readyPath); ok && marker.PID > 0 {
+			if log != nil {
+				log.Infof("Restarting node host for invoke auth handoff (pid=%d)", marker.PID)
+			}
+			_ = TerminateHostPID(marker.PID, DefaultHostShutdownGrace())
+		}
+		cleanupHostSocketFiles(socketPath, readyPath)
 	}
 
 	if err := PrepareHostSocket(socketPath, readyPath); err != nil {

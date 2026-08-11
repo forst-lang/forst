@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import type { Readable } from "node:stream";
 
+import { DEFAULT_EMBEDDED_INVOKE_BASE_URL } from "./constants.js";
 import type { InvokeAuthState } from "./invoke-auth.js";
 import { type AuthHandoff } from "./invoke-auth-handoff.js";
 import {
@@ -113,6 +114,13 @@ export function resetHostInvokeAuthHandoffForTest(): void {
   hostInvokeAuthListenerStarted = false;
 }
 
+/** Ingests handoff lines into the host auth cache (tests). */
+export async function consumeHostInvokeAuthStreamForTest(
+  stream: Readable
+): Promise<void> {
+  await consumeHostInvokeAuthStream(stream);
+}
+
 /**
  * Sets connect-mode env for embedded invoke: skip spawn, boundary root, prefer UDS.
  */
@@ -130,7 +138,7 @@ export function prepareConnectInvokeEnv(boundaryRoot?: string): string {
     delete process.env.FORST_INVOKE_URL;
     delete process.env.FORST_DEV_URL;
   } else if (!process.env.FORST_BASE_URL) {
-    process.env.FORST_BASE_URL = "http://127.0.0.1:6321";
+    process.env.FORST_BASE_URL = DEFAULT_EMBEDDED_INVOKE_BASE_URL;
   }
   return root;
 }

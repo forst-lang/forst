@@ -85,7 +85,7 @@ func transportErrorsImport(runtime ClientRuntime) string {
 
 func transportNodeImports() string {
 	return `import { createHmac } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as http from "node:http";
 
@@ -452,6 +452,98 @@ function readInvokeReadyAuth(boundaryRoot) {
   }
 }
 
+const envInvokeAuthRecvFd = "FORST_INVOKE_AUTH_RECV_FD";
+
+/** @type {{ generation: number; token: Buffer } | undefined} */
+let hostInvokeAuth;
+let hostInvokeAuthListenerStarted = false;
+
+function parseHostInvokeAuthHandoffLine(line) {
+  let payload;
+  try {
+    payload = JSON.parse(line);
+  } catch {
+    throw new Error("invoke auth handoff: invalid JSON");
+  }
+  if (
+    payload.generation === undefined ||
+    typeof payload.generation !== "number" ||
+    !Number.isSafeInteger(payload.generation) ||
+    payload.generation < 0 ||
+    typeof payload.token !== "string" ||
+    payload.token.trim() === ""
+  ) {
+    throw new Error("invoke auth handoff: missing generation or token");
+  }
+  const token = Buffer.from(payload.token, "base64url");
+  if (!token.length) {
+    throw new Error("invoke auth handoff: empty token");
+  }
+  return { generation: payload.generation, token };
+}
+
+function storeHostInvokeAuthHandoff(handoff) {
+  if (hostInvokeAuth?.token) {
+    hostInvokeAuth.token.fill(0);
+  }
+  hostInvokeAuth = handoff;
+}
+
+async function consumeHostInvokeAuthStream(stream) {
+  let buffer = "";
+  for await (const chunk of stream) {
+    buffer += chunk.toString();
+    for (;;) {
+      const newline = buffer.indexOf("\n");
+      if (newline < 0) {
+        break;
+      }
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (line === "") {
+        continue;
+      }
+      try {
+        storeHostInvokeAuthHandoff(parseHostInvokeAuthHandoffLine(line));
+      } catch {
+        // ignore malformed handoff lines
+      }
+    }
+  }
+}
+
+function startHostInvokeAuthRecvListener() {
+  if (hostInvokeAuthListenerStarted) {
+    return;
+  }
+  hostInvokeAuthListenerStarted = true;
+  const raw = process.env[envInvokeAuthRecvFd]?.trim();
+  if (!raw) {
+    return;
+  }
+  const fd = Number(raw);
+  if (!Number.isInteger(fd) || fd < 3) {
+    return;
+  }
+  const stream = createReadStream(null, { fd, autoClose: false });
+  stream.on("error", () => {
+    // host relay closed or fd invalid
+  });
+  void consumeHostInvokeAuthStream(stream).catch(() => {
+    // host relay closed
+  });
+}
+
+function resolveHostInvokeAuthHandoff() {
+  if (!hostInvokeAuth) {
+    return undefined;
+  }
+  return {
+    generation: hostInvokeAuth.generation,
+    token: hostInvokeAuth.token,
+  };
+}
+
 function isUnixSocketSupported() {
   return process.platform !== "win32";
 }
@@ -647,6 +739,10 @@ class HttpInvokeClient {
     }
     if (typeof this.config.resolveAuth === "function") {
       return this.config.resolveAuth();
+    }
+    const handoff = resolveHostInvokeAuthHandoff();
+    if (handoff) {
+      return handoff;
     }
     return readInvokeReadyAuth(this.boundaryRoot);
   }
@@ -1073,6 +1169,7 @@ export function setActiveTestTransportResolver(resolve) {
  * Resets the cached client so the next call picks up middleware and base URL.
  */
 export function configureDefaultInvokeClient(config) {
+  startHostInvokeAuthRecvListener();
   defaultConfig = { ...defaultConfig, ...(config ?? {}) };
   defaultClient = undefined;
 }
@@ -1095,4 +1192,6 @@ export function getDefaultInvokeClient() {
 export function resetDefaultInvokeClientForTest() {
   defaultClient = undefined;
 }
+
+startHostInvokeAuthRecvListener();
 `
