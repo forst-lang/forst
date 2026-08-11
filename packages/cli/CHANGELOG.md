@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1](https://github.com/forst-lang/forst/compare/cli-v0.4.0...cli-v0.4.1) (2026-08-11)
+
+
+### Features
+
+* **generate:** prefer host auth handoff in emitted transport ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+* **invoke:** relay host-mode auth over inherited fds ([#168](https://github.com/forst-lang/forst/issues/168)) ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+
+### Bug Fixes
+
+* **cli:** safe host auth handoff parse and early recv listen ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
 ## [0.4.0](https://github.com/forst-lang/forst/compare/cli-v0.3.0...cli-v0.4.0) (2026-08-11)
 
 

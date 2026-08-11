@@ -1,6 +1,6 @@
 {
   "name": "@forst/cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Forst compiler CLI: install the native `forst` binary. Linux, macOS, Windows.",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,7 +28,7 @@
     "LICENSE"
   ],
   "forst": {
-    "compilerRelease": "0.13.0"
+    "compilerRelease": "0.13.1"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

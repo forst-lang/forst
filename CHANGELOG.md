@@ -44,6 +44,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **nodert:** Restart a live Node host when an invoke auth relay is active so the host inherits `FORST_INVOKE_AUTH_RECV_FD`.
 * **nodert:** Reject auth-relay `PrepareGoChild` after `Close`, and skip `ExtraFiles` auth handoff on Windows and js (use env token delivery there).
 
+## [0.13.1](https://github.com/forst-lang/forst/compare/v0.13.0...v0.13.1) (2026-08-11)
+
+
+### Features
+
+* **generate:** prefer host auth handoff in emitted transport ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+* **invoke:** relay host-mode auth over inherited fds ([#168](https://github.com/forst-lang/forst/issues/168)) ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
+
+### Bug Fixes
+
+* **cli:** safe host auth handoff parse and early recv listen ([85c08aa](https://github.com/forst-lang/forst/commit/85c08aa7f2bf82946916085d026057cd1424e855))
+
 ## [0.13.0](https://github.com/forst-lang/forst/compare/v0.12.1...v0.13.0) (2026-08-11)
 
 
