@@ -98,6 +98,7 @@ func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
 		"computeInvokeProof",
 		"readInvokeReadyAuth",
 		"readInvokeTokenFromEnv",
+		"resolveAuth",
 		"readInvokeReadySocketPath",
 		"warnIfInvokeAuthDisabled",
 		"FORST_INVOKE_TOKEN",

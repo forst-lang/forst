@@ -52,6 +52,7 @@ func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 		"AsyncLocalStorage",
 		"createScopeTransport",
 		"mergeOverrides",
+		"resolveAuth",
 		`import { auth } from "./pkg/auth.js"`,
 		"auth: auth(transport)",
 		"new InvokeRejected",

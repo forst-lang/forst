@@ -54,7 +54,19 @@ export { InvokeRejected };
 	b.WriteString(`export async function startForstTestServer(options) {
   const handle = await startInvokeServerHandle(options);
   resetDefaultInvokeClientForTest();
-  configureDefaultInvokeClient({ baseUrl: handle.baseUrl, rootDir: options?.root ?? process.cwd() });
+  const spawnAuth = handle.auth;
+  configureDefaultInvokeClient({
+    baseUrl: handle.baseUrl,
+    rootDir: options?.root ?? process.cwd(),
+    ...(spawnAuth
+      ? {
+          resolveAuth: () => ({
+            token: spawnAuth.token,
+            generation: spawnAuth.generation,
+          }),
+        }
+      : {}),
+  });
   const stop = async () => {
     try {
       await handle.stop();

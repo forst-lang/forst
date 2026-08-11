@@ -197,6 +197,8 @@ export interface ForstInvokeClientConfig {
   headers?: Record<string, string>;
   /** Observability middleware chain (request start / success / failure). */
   middleware?: ForstInvokeMiddleware[];
+  /** Override auth discovery (for example spawn handoff from startForstTestServer). */
+  resolveAuth?: () => { token: Uint8Array; generation: number } | undefined;
 }
 
 /**
@@ -281,6 +283,8 @@ export interface ForstInvokeClientConfig {
   headers?: Record<string, string>;
   /** Observability middleware chain (request start / success / failure). */
   middleware?: ForstInvokeMiddleware[];
+  /** Override auth discovery (for example spawn handoff from startForstTestServer). */
+  resolveAuth?: () => { token: Uint8Array; generation: number } | undefined;
 }
 
 /**
@@ -640,6 +644,9 @@ class HttpInvokeClient {
   resolveAuthState() {
     if (authDisabledByEnv()) {
       return undefined;
+    }
+    if (typeof this.config.resolveAuth === "function") {
+      return this.config.resolveAuth();
     }
     return readInvokeReadyAuth(this.boundaryRoot);
   }
