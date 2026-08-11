@@ -21,6 +21,7 @@ type HostProcessConfig struct {
 	HostAutoRegister       bool
 	HostAppReadyModule     string
 	FilesExclude, ExtraEnv []string
+	AuthRelay              *HostInvokeAuthRelay
 	ReadyTimeout           time.Duration
 	Log                    *logrus.Logger
 }
@@ -148,6 +149,7 @@ func EnsureHostProcessRunning(cfg HostProcessConfig) (spawned bool, proc *Spawne
 		Env:                cfg.ExtraEnv,
 		HostAutoRegister:   cfg.HostAutoRegister,
 		HostAppReadyModule: cfg.HostAppReadyModule,
+		AuthRelay:          cfg.AuthRelay,
 	})
 	if err != nil {
 		return false, nil, err

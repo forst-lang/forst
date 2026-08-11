@@ -69,6 +69,11 @@ In sidecar spawn mode, the child sends the secret through an inherited
 `FORST_INVOKE_AUTH_FD` file descriptor instead. This keeps the secret out of the
 ready file and avoids writing it to disk.
 
+When `node.hostMode` is enabled, the node host may start before the embedded
+invoke server is ready. The dev parent relays auth from the go child
+(`FORST_INVOKE_AUTH_FD`) to the host shim over `FORST_INVOKE_AUTH_RECV_FD` so
+the host never reads a disk token file.
+
 `.forst/invoke.ready` includes `tokenDelivery` (`env` or `handoff`) so clients
 know which channel to use.
 
