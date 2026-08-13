@@ -279,10 +279,8 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 	// Guards run before any emit so a failing project leaves no partial output.
 	packageNames := transformerts.PackageNames(outputs)
-	if err := transformerts.ValidateReservedSubpaths(packageNames, genCfg.ReservedSubpaths()); err != nil {
-		log.WithFields(logrus.Fields{
-			"reserved": transformerts.FormatReservedSubpathKeys(genCfg.ReservedSubpaths()),
-		}).Error(err.Error())
+	if err := transformerts.ValidateForstPackageNames(packageNames); err != nil {
+		log.Error(err.Error())
 		return err
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)

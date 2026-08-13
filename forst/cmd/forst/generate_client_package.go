@@ -167,12 +167,22 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainE
 	}
 	testingKey := genCfg.TestingSubpath
 	if testingKey == "" {
-		testingKey = "testing"
+		testingKey = transformerts.DefaultInfraTestingSubpath
 	}
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
-	appendPackageJSONExport(&b, "./errors", "./dist/errors.d.ts", "./dist/errors.js")
+	appendPackageJSONExport(
+		&b,
+		"./"+transformerts.InfraErrorsSubpath,
+		"./dist/"+transformerts.InfraErrorsSubpath+".d.ts",
+		"./dist/"+transformerts.InfraErrorsSubpath+".js",
+	)
 	if genCfg.Effect {
-		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
+		appendPackageJSONExport(
+			&b,
+			"./"+transformerts.InfraEffectSubpath,
+			"./dist/"+transformerts.InfraEffectSubpath+".d.ts",
+			"./dist/"+transformerts.InfraEffectSubpath+".js",
+		)
 	}
 	b.WriteString("\n  },\n")
 	b.WriteString("  \"dependencies\": {\n")
@@ -247,8 +257,9 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 	fmt.Fprintf(&b, "Default fallback: `http://127.0.0.1:%s`\n\n", invokePort)
 	b.WriteString("## Errors\n\n")
 	fmt.Fprintf(&b, "- Runtime dependency: `%s` %s (shared invoke/harness/unknown failure classes).\n", transformerts.ErrorsPackageName, transformerts.ErrorsDependencyRange)
-	b.WriteString("- Domain + shared re-exports: `" + name + "/errors`.\n")
+	b.WriteString("- Shared invoke re-exports: `" + name + "/" + transformerts.InfraErrorsSubpath + "`.\n")
 	b.WriteString("- Per-package domain errors: `" + name + "/<forstPackage>/errors`.\n")
+	b.WriteString("- Forst package names must be Go-safe identifiers (letters, digits, underscores). Names containing `$` are rejected (`$` prefixes are reserved for compiler infra subpaths like `" + transformerts.DefaultInfraTestingSubpath + "`).\n")
 	b.WriteString("- Built-in invoke/harness/unknown failure `_tag` values use the `@forst/errors/` prefix. Domain error tags use `@<npmPackage>/<forstPackage>/<ErrorName>`.\n")
 	b.WriteString("- Prefer matching on `_tag` in Effect code. In Promise code, `instanceof` works for shared invoke failures.\n\n")
 	b.WriteString("## Lifecycle script\n\n")

@@ -73,8 +73,8 @@ func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 	if strings.Contains(string(pkg), "Effect.tryPromise") {
 		t.Fatal("default generate must not emit Effect wrappers")
 	}
-	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "effect.js")); !os.IsNotExist(err) {
-		t.Fatal("promise mode must not write dist/effect.js")
+	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "$effect.js")); !os.IsNotExist(err) {
+		t.Fatal("promise mode must not write dist/$effect.js")
 	}
 }
 
@@ -289,7 +289,7 @@ func TestGenerate_effectMode_serviceUsesTryPromiseWithSuppliedSignal(t *testing.
 
 func TestGenerate_effectMode_emitsNoHandWrittenAbortController(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
-	for _, rel := range []string{"pkg/main.js", "effect.js", "index.js"} {
+	for _, rel := range []string{"pkg/main.js", "$effect.js", "index.js"} {
 		data, err := os.ReadFile(filepath.Join(dist, rel))
 		if err != nil {
 			t.Fatal(err)
@@ -326,7 +326,7 @@ func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 	effectDir := t.TempDir()
 	generateEffectProject(t, effectDir)
 
-	for _, rel := range []string{"errors.js"} {
+	for _, rel := range []string{"$errors.js"} {
 		promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
 		if !strings.Contains(promise, `@forst/errors"`) {
 			t.Fatalf("promise %s must re-export from @forst/errors:\n%s", rel, promise)
@@ -341,7 +341,7 @@ func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 		}
 	}
 
-	effectTesting := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "testing.js"))
+	effectTesting := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "$testing.js"))
 	if !strings.Contains(effectTesting, `@forst/errors/effect"`) {
 		t.Fatal("effect testing.js must re-export harness error from @forst/errors/effect")
 	}
@@ -374,14 +374,14 @@ func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 		"dist/pkg/main.d.ts": {},
 		"dist/index.js":      {},
 		"dist/index.d.ts":    {},
-		"dist/testing.js":    {},
-		"dist/testing.d.ts":  {},
-		"dist/effect.js":     {},
-		"dist/effect.d.ts":   {},
+		"dist/$testing.js":    {},
+		"dist/$testing.d.ts":  {},
+		"dist/$effect.js":     {},
+		"dist/$effect.d.ts":   {},
 		"dist/transport.js":  {},
 		"dist/transport.d.ts": {},
-		"dist/errors.js":          {},
-		"dist/errors.d.ts":        {},
+		"dist/$errors.js":          {},
+		"dist/$errors.d.ts":        {},
 		"package.json":       {},
 		"README.md":          {},
 	}
@@ -462,7 +462,7 @@ func TestGenerate_effectMode_tagStringIncludesPackageName(t *testing.T) {
 	if !strings.Contains(js, `"@forst/gen/Main"`) {
 		t.Fatalf("tag must include packageName:\n%s", js)
 	}
-	effectJS := mustRead(t, filepath.Join(dist, "effect.js"))
+	effectJS := mustRead(t, filepath.Join(dist, "$effect.js"))
 	if !strings.Contains(effectJS, `"@forst/gen/Transport"`) {
 		t.Fatalf("transport tag missing:\n%s", effectJS)
 	}
@@ -564,7 +564,7 @@ func TestGenerate_effectMode_layerSharesOneTransportAcrossPackages(t *testing.T)
 
 func TestGenerate_effectMode_testingModuleEmitsPartialOverrides(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
-	dts := mustRead(t, filepath.Join(dist, "testing.d.ts"))
+	dts := mustRead(t, filepath.Join(dist, "$testing.d.ts"))
 	for _, frag := range []string{
 		"export interface ForstTestOverrides",
 		"packages?:",
@@ -706,7 +706,7 @@ func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
 			t.Fatalf("missing %q in transport.js:\n%s", frag, transportJS)
 		}
 	}
-	errorsJS := mustRead(t, filepath.Join(dist, "errors.js"))
+	errorsJS := mustRead(t, filepath.Join(dist, "$errors.js"))
 	for _, banned := range []string{
 		"DOMAIN_ERROR_REGISTRY",
 		"decodeDomainError",

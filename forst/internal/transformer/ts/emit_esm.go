@@ -270,8 +270,8 @@ func appendOmitStubs(b *strings.Builder, omitted []OmittedFunction) {
 	}
 }
 
-// EmitIndexESM returns dist/index.js (createForstClient factory + error re-exports).
-func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClass, _ ClientRuntime) string {
+// EmitIndexESM returns dist/index.js (createForstClient factory only).
+func EmitIndexESM(packages []string, invokePort string, _ []ErrorClass, _ ClientRuntime) string {
 	pkgs := sortDedupeStrings(packages)
 	var b strings.Builder
 	b.WriteString("// Auto-generated Forst Client\n")
@@ -292,21 +292,12 @@ func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClas
 	}
 	b.WriteString("  };\n")
 	b.WriteString("}\n\n")
-	b.WriteString("export { configureDefaultInvokeClient };\n\n")
-	b.WriteString("export {\n")
-	for _, name := range RootReexportedDomainErrorNames(domainErrors) {
-		fmt.Fprintf(&b, "  %s,\n", name)
-	}
-	b.WriteString(`} from "./errors.js";` + "\n")
+	b.WriteString("export { configureDefaultInvokeClient };\n")
 	return b.String()
 }
 
 // EmitIndexDTS returns dist/index.d.ts.
-func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRuntime) string {
-	merged, err := MergeDomainErrors(domainErrors)
-	if err != nil {
-		merged = nil
-	}
+func EmitIndexDTS(packages []string, _ []ErrorClass, runtime ClientRuntime) string {
 	pkgs := sortDedupeStrings(packages)
 	var b strings.Builder
 	b.WriteString("// Auto-generated Forst Client\n")
@@ -352,12 +343,7 @@ func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRu
 	if runtime != RuntimeEffect {
 		b.WriteString("  TaggedError,\n")
 	}
-	b.WriteString(`} from "./errors.js";` + "\n")
-	b.WriteString("export {\n")
-	for _, name := range RootReexportedDomainErrorNames(merged) {
-		fmt.Fprintf(&b, "  %s,\n", name)
-	}
-	b.WriteString(`} from "./errors.js";` + "\n")
+	b.WriteString(`} from "` + ErrorsModuleSpecifier + `";` + "\n")
 	b.WriteString(`export type * from "./types.js";` + "\n")
 	return b.String()
 }

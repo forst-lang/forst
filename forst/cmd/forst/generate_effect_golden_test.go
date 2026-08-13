@@ -9,8 +9,8 @@ import (
 
 // effectGenerateGoldenFiles are dist modules whose Effect-mode emit is snapshotted under testdata/effect/golden/.
 var effectGenerateGoldenFiles = []string{
-	"errors.js",
-	"errors.d.ts",
+	"$errors.js",
+	"$errors.d.ts",
 }
 
 func effectGenerateGoldenDir() string {

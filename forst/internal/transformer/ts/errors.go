@@ -12,8 +12,17 @@ const ErrorsPackageName = "@forst/errors"
 // ErrorsDependencyRange is the semver range written to generated client package.json dependencies.
 const ErrorsDependencyRange = ">=0.1.0"
 
+// InfraErrorsSubpath is the compiler-owned package.json export key for shared invoke/harness re-exports.
+const InfraErrorsSubpath = "$errors"
+
+// InfraEffectSubpath is the compiler-owned package.json export key for Effect transport support.
+const InfraEffectSubpath = "$effect"
+
+// DefaultInfraTestingSubpath is the default compiler-owned export key for test doubles.
+const DefaultInfraTestingSubpath = "$testing"
+
 // ErrorsModuleSpecifier is the relative import path for the generated errors aggregator (shared re-exports).
-const ErrorsModuleSpecifier = "./errors.js"
+const ErrorsModuleSpecifier = "./" + InfraErrorsSubpath + ".js"
 
 // ReservedGeneratePackageName is the npm package name reserved for the shared error catalog.
 const ReservedGeneratePackageName = "@forst/errors"
@@ -220,27 +229,6 @@ func ValidateDomainErrors(domainErrors []ErrorClass) error {
 		}
 	}
 	return nil
-}
-
-// RootReexportedDomainErrorNames returns domain error classes re-exported from dist/index.*
-// Only bare names unique across Forst packages are re-exported from the package root.
-func RootReexportedDomainErrorNames(domainErrors []ErrorClass) []string {
-	merged, err := MergeDomainErrors(domainErrors)
-	if err != nil {
-		return []string{UnknownFailureClass.Name}
-	}
-	counts := make(map[string]int, len(merged))
-	for _, c := range merged {
-		counts[c.Name]++
-	}
-	names := make([]string, 0, len(merged)+1)
-	for _, c := range merged {
-		if counts[c.Name] == 1 {
-			names = append(names, c.Name)
-		}
-	}
-	names = append(names, UnknownFailureClass.Name)
-	return sortDedupeStrings(names)
 }
 
 func writeTaggedHelperJS(b *strings.Builder) {

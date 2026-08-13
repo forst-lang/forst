@@ -53,8 +53,8 @@ func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "ForstUnknownFailure | InvokeFailure"
 	got := EmitPackageEffectDTS(m, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`import type { ForstUnknownFailure } from "../errors.js"`,
-		`import type { InvokeFailure } from "../errors.js"`,
+		`import type { ForstUnknownFailure } from "../$errors.js"`,
+		`import type { InvokeFailure } from "../$errors.js"`,
 		"export type VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
 		"Effect.Effect<VerifyTokenResponse, VerifyTokenFailure>",
 	})
@@ -76,7 +76,7 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
 		"ForstTestLayer",
 		`import { InvokeRejected } from "@forst/errors/effect"`,
-		`import type { InvokeFailure } from "./errors.js"`,
+		`import type { InvokeFailure } from "./$errors.js"`,
 		`import type { ForstTestServerFailed } from "@forst/errors/effect"`,
 		`export { ForstTestServerFailed } from "@forst/errors/effect"`,
 	})

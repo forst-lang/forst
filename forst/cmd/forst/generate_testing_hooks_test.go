@@ -19,32 +19,32 @@ func TestGenerate_testingSubpathInExportsMap(t *testing.T) {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	entry, ok := exports["./testing"].(map[string]any)
+	entry, ok := exports["./$testing"].(map[string]any)
 	if !ok {
-		t.Fatalf("missing ./testing export:\n%s", j)
+		t.Fatalf("missing ./$testing export:\n%s", j)
 	}
-	if entry["types"] != "./dist/testing.d.ts" {
+	if entry["types"] != "./dist/$testing.d.ts" {
 		t.Fatalf("types = %#v", entry["types"])
 	}
-	if entry["default"] != "./dist/testing.js" {
+	if entry["default"] != "./dist/$testing.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 }
 
 func TestGenerate_testingSubpathHonoursConfig(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	cfg.TestingSubpath = "test-double"
+	cfg.TestingSubpath = "$test-double"
 	j := generateClientPackageJSON(cfg, []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	if _, ok := exports["./testing"]; ok {
-		t.Fatal("default ./testing must not appear when testingSubpath overridden")
+	if _, ok := exports["./$testing"]; ok {
+		t.Fatal("default ./$testing must not appear when testingSubpath overridden")
 	}
-	entry := exports["./test-double"].(map[string]any)
-	if entry["default"] != "./dist/test-double.js" {
+	entry := exports["./$test-double"].(map[string]any)
+	if entry["default"] != "./dist/$test-double.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 }
@@ -55,7 +55,7 @@ func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
-	dts, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "testing.d.ts"))
+	dts, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "$testing.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	dist := defaultClientDistDir(dir)
-	for _, rel := range []string{"testing.js", "testing.d.ts"} {
+	for _, rel := range []string{"$testing.js", "$testing.d.ts"} {
 		if _, err := os.Stat(filepath.Join(dist, rel)); err != nil {
 			t.Fatalf("expected %s: %v", rel, err)
 		}
@@ -153,7 +153,7 @@ func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 
 func TestGenerate_acceptance_scopedFunctionOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-function.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 const result = await withForstTestScope(
@@ -175,7 +175,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopedPackageOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-package.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 const result = await withForstTestScope(
@@ -197,7 +197,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopedTransportOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-transport.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 let seen;
@@ -225,7 +225,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopeRestoresAfterThrow(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scope-restore.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import {
   configureDefaultInvokeClient,
   resetDefaultInvokeClientForTest,
@@ -276,7 +276,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_nestedScopesInnermostWins(t *testing.T) {
 	runPhase5NodeAcceptance(t, "nested-scopes.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 await withForstTestScope(
@@ -311,7 +311,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_concurrentScopesDoNotLeak(t *testing.T) {
 	runPhase5NodeAcceptance(t, "concurrent-scopes.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -348,7 +348,7 @@ console.log("ok");
 
 func TestGenerate_acceptance_unhandledCallThrowsInvokeRejected(t *testing.T) {
 	runPhase5NodeAcceptance(t, "unhandled.mjs", `
-import { withForstTestScope, InvokeRejected } from "./testing.js";
+import { withForstTestScope, InvokeRejected } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 let caught;

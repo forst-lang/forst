@@ -2,7 +2,7 @@
  * Example test double: same production import specifier, no HTTP.
  * Copied next to generated dist/ by TestGenerate_acceptance_testdataExampleRunsWithoutHTTP.
  */
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import { Echo } from "./pkg/main.js";
 
 const result = await withForstTestScope(

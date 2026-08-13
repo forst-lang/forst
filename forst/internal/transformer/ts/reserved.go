@@ -2,26 +2,38 @@ package transformerts
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
-// ReservedClientSubpaths lists compiler-owned package.json exports keys that must not
-// collide with Forst package names. Generate reads the live set from
-// GenerateConfig.ReservedSubpaths() so testingSubpath overrides apply without edits here.
-var ReservedClientSubpaths = map[string]string{
-	"testing": "generated test double",
-	"errors":  "errors subpath",
-	"invoke":  "invoke transport errors subpath",
+// forstPackageNamePattern matches names valid as Go package identifiers.
+var forstPackageNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// ValidateForstPackageName rejects package names that cannot transpile to Go or collide with infra subpaths.
+func ValidateForstPackageName(name string) error {
+	if name == "" {
+		return fmt.Errorf("generate: Forst package name must not be empty")
+	}
+	if strings.Contains(name, "$") {
+		return fmt.Errorf(
+			"generate: Forst package %q must not contain '$' (reserved for compiler infra subpaths like %s)",
+			name, DefaultInfraTestingSubpath,
+		)
+	}
+	if !forstPackageNamePattern.MatchString(name) {
+		return fmt.Errorf(
+			"generate: Forst package %q is not a valid Go package name (use letters, digits, and underscores only)",
+			name,
+		)
+	}
+	return nil
 }
 
-// ValidateReservedSubpaths fails when a Forst package name matches a reserved exports subpath key.
-func ValidateReservedSubpaths(packages []string, reserved map[string]string) error {
-	if len(reserved) == 0 {
-		return nil
-	}
+// ValidateForstPackageNames validates every unique non-empty package name in outputs.
+func ValidateForstPackageNames(packages []string) error {
 	seen := make(map[string]struct{}, len(packages))
 	var names []string
 	for _, pkg := range packages {
@@ -36,16 +48,8 @@ func ValidateReservedSubpaths(packages []string, reserved map[string]string) err
 	}
 	sort.Strings(names)
 	for _, pkg := range names {
-		for key, reason := range reserved {
-			if !strings.EqualFold(pkg, key) {
-				continue
-			}
-			return fmt.Errorf(
-				"generate: Forst package %q collides with the reserved client subpath \"./%s\" (%s)\n"+
-					"  the generated package exports a test double at <packageName>/%s\n"+
-					"  rename the Forst package, or set generate.testingSubpath to a different key",
-				pkg, key, reason, key,
-			)
+		if err := ValidateForstPackageName(pkg); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -67,16 +71,6 @@ func PackageNames(outputs []*TypeScriptOutput) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-// FormatReservedSubpathKeys returns a stable comma-separated list for logs.
-func FormatReservedSubpathKeys(reserved map[string]string) string {
-	keys := make([]string, 0, len(reserved))
-	for k := range reserved {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return strings.Join(keys, ", ")
 }
 
 // ServiceClassName returns the PascalCase Effect.Service class name for a Forst package.

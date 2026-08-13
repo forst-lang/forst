@@ -159,7 +159,7 @@ func TestEmitTransportTypeScript_importsSharedInvokeErrors(t *testing.T) {
 		t.Fatal("transport must define internal decodeWireDomainError")
 	}
 	assertContainsNone(t, src, []string{
-		`from "./errors.js"`,
+		`from "./$errors.js"`,
 		"decodeDomainError",
 		"DOMAIN_ERROR_REGISTRY",
 	})

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"forst/internal/ftconfig"
+	transformerts "forst/internal/transformer/ts"
 )
 
 // TestGenerate_omissionReport checks provider-gated omission reporting.
@@ -653,47 +653,40 @@ console.log("ok");
 		}
 	})
 
-	t.Run("rejected_testing_package", func(t *testing.T) {
-		bad := t.TempDir()
-		writePkgFT(t, bad, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
-		err := generateCommand([]string{bad})
-		if err == nil {
-			t.Fatal("expected reserved package testing to fail")
+	t.Run("allows_package_named_testing", func(t *testing.T) {
+		ok := t.TempDir()
+		writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{ok}); err != nil {
+			t.Fatalf("package testing should be allowed with $ infra prefix: %v", err)
 		}
-		msg := err.Error()
-		for _, frag := range []string{"testing", "testingSubpath"} {
-			if !strings.Contains(msg, frag) {
-				t.Fatalf("reserved error missing %q:\n%s", frag, msg)
-			}
+		if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), "pkg", "testing.js")); err != nil {
+			t.Fatalf("missing pkg/testing.js: %v", err)
 		}
 	})
 
-	for _, pkg := range []string{"errors"} {
-		pkg := pkg
-		t.Run("rejected_"+pkg+"_package", func(t *testing.T) {
-			bad := t.TempDir()
-			writePkgFT(t, bad, pkg, fmt.Sprintf("package %s\n\nfunc Ping() {\n\treturn 1\n}\n", pkg))
-			err := generateCommand([]string{bad})
-			if err == nil {
-				t.Fatalf("expected reserved package %q to fail", pkg)
-			}
-			if !strings.Contains(err.Error(), pkg) {
-				t.Fatalf("reserved error should mention %q:\n%s", pkg, err.Error())
-			}
-		})
-	}
+	t.Run("rejected_dollar_in_package_name", func(t *testing.T) {
+		bad := t.TempDir()
+		writePkgFT(t, bad, "bad", "package $testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		err := generateCommand([]string{bad})
+		if err == nil {
+			t.Fatal("expected package name containing $ to fail")
+		}
+		if !strings.Contains(err.Error(), "$") {
+			t.Fatalf("error should mention $:\n%s", err.Error())
+		}
+	})
 
 	t.Run("testingSubpath_override", func(t *testing.T) {
 		ok := t.TempDir()
 		ensureNodeModulesDir(t, ok)
-		if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"test-double"}}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"$test-double"}}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
 		if err := generateCommand([]string{ok}); err != nil {
 			t.Fatalf("testing allowed when testingSubpath overridden: %v", err)
 		}
-		for _, rel := range []string{"pkg/testing.js", "test-double.js"} {
+		for _, rel := range []string{"pkg/testing.js", "$test-double.js"} {
 			if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), rel)); err != nil {
 				t.Fatalf("missing %s: %v", rel, err)
 			}
@@ -703,8 +696,8 @@ console.log("ok");
 		if _, ok := exports["./testing"]; !ok {
 			t.Fatalf("exports missing ./testing:\n%v", exports)
 		}
-		if _, ok := exports["./test-double"]; !ok {
-			t.Fatalf("exports missing ./test-double:\n%v", exports)
+		if _, ok := exports["./$test-double"]; !ok {
+			t.Fatalf("exports missing ./$test-double:\n%v", exports)
 		}
 	})
 }
@@ -1021,7 +1014,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			}
 		}
 
-		for _, rel := range []string{"errors.js"} {
+		for _, rel := range []string{transformerts.InfraErrorsSubpath + ".js"} {
 			promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
 			if !strings.Contains(promise, `@forst/errors"`) {
 				t.Fatalf("promise %s must re-export from @forst/errors", rel)
@@ -1048,10 +1041,10 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 		allowed := map[string]struct{}{
 			"dist/pkg/main.js": {}, "dist/pkg/main.d.ts": {},
 			"dist/index.js": {}, "dist/index.d.ts": {},
-			"dist/testing.js": {}, "dist/testing.d.ts": {},
-			"dist/effect.js": {}, "dist/effect.d.ts": {},
+			"dist/$testing.js": {}, "dist/$testing.d.ts": {},
+			"dist/$effect.js": {}, "dist/$effect.d.ts": {},
 			"dist/transport.js": {}, "dist/transport.d.ts": {},
-			"dist/errors.js":   {}, "dist/errors.d.ts": {},
+			"dist/$errors.js":   {}, "dist/$errors.d.ts": {},
 			"package.json": {}, "README.md": {},
 		}
 		for path := range changed {

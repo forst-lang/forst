@@ -14,17 +14,17 @@ import (
 
 // reservedDistFiles are never pruned as stale package modules under outDir/dist/.
 var reservedDistFiles = map[string]struct{}{
-	"index.js":       {},
-	"index.d.ts":     {},
-	"transport.js":   {},
-	"transport.d.ts": {},
-	"types.d.ts":     {},
-	"errors.js":      {},
-	"errors.d.ts":    {},
-	"effect.js":      {},
-	"effect.d.ts":    {},
-	"testing.js":     {},
-	"testing.d.ts":   {},
+	"index.js":        {},
+	"index.d.ts":      {},
+	"transport.js":    {},
+	"transport.d.ts":  {},
+	"types.d.ts":      {},
+	"$errors.js":      {},
+	"$errors.d.ts":    {},
+	"$effect.js":      {},
+	"$effect.d.ts":    {},
+	"$testing.js":     {},
+	"$testing.d.ts":   {},
 }
 
 // reservedDistFileSet returns compiler-owned dist root files, including the configured testing subpath.
@@ -35,7 +35,7 @@ func reservedDistFileSet(testingSubpath string) map[string]struct{} {
 	}
 	key := testingSubpath
 	if key == "" {
-		key = "testing"
+		key = transformerts.DefaultInfraTestingSubpath
 	}
 	out[key+".js"] = struct{}{}
 	out[key+".d.ts"] = struct{}{}
@@ -60,7 +60,7 @@ func writeGeneratedDistModules(
 	}
 	log.WithFields(logrus.Fields{"path": typesPath}).Debug("Generated types declaration file")
 
-	errorsJSPath := filepath.Join(distDir, "errors.js")
+	errorsJSPath := filepath.Join(distDir, transformerts.InfraErrorsSubpath+".js")
 	errorsJS, err := transformerts.EmitErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
 	if err != nil {
 		return fmt.Errorf("failed to emit errors.js: %w", err)
@@ -70,7 +70,7 @@ func writeGeneratedDistModules(
 	}
 	log.WithFields(logrus.Fields{"path": errorsJSPath}).Debug("Generated errors module")
 
-	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
+	errorsDTSPath := filepath.Join(distDir, transformerts.InfraErrorsSubpath+".d.ts")
 	errorsDTS, err := transformerts.EmitErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)
 	if err != nil {
 		return fmt.Errorf("failed to emit errors.d.ts: %w", err)

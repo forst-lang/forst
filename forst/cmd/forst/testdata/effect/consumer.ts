@@ -5,9 +5,9 @@
 import { Effect, Layer } from "effect";
 import { ForstClientLive } from "@forst/gen";
 import { Echo, Main } from "@forst/gen/main";
-import { ForstTransport } from "@forst/gen/effect";
-import { ForstTestLayer } from "@forst/gen/testing";
-import type { MainHandlers } from "@forst/gen/testing";
+import { ForstTransport } from "@forst/gen/$effect";
+import { ForstTestLayer } from "@forst/gen/$testing";
+import type { MainHandlers } from "@forst/gen/$testing";
 
 // Happy path: catchTag + retry + provide compiles.
 const happy = Echo({ message: "hi" }).pipe(

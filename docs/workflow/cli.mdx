@@ -77,7 +77,7 @@ Set these under `"generate"` in `ftconfig.json`:
     "outDir": ".forst/client",
     "link": "auto",
     "emit": "js",
-    "testingSubpath": "testing",
+    "testingSubpath": "$testing",
     "effect": false,
     "ssrModule": ""
   }
@@ -90,7 +90,7 @@ Set these under `"generate"` in `ftconfig.json`:
 | `outDir` | `string` | `.forst/client` | Single output directory relative to the ftconfig boundary root |
 | `link` | `"auto"` \| `"always"` \| `"never"` | `"auto"` | Whether to write the `node_modules` link. `auto` links when `outDir` is inside `.forst` |
 | `emit` | `"js"` | `"js"` | Always emit built JS. `"ts"` is rejected |
-| `testingSubpath` | `string` | `"testing"` | Subpath key for the test scope (`@forst/gen/testing`). Change it when a Forst package is named `testing` |
+| `testingSubpath` | `string` | `"$testing"` | Subpath key for the test scope (`@forst/gen/$testing`). Must start with `$` so it cannot collide with Forst package names |
 | `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
 | `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
 

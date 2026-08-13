@@ -31,7 +31,7 @@ func readDistFile(t *testing.T, distDir, rel string) string {
 
 func TestGenerate_emitsTaggedErrorClasses(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
 	for _, name := range transformerts.ErrorClassNames() {
 		if !strings.Contains(errorsJS, name) {
 			t.Fatalf("errors.js missing re-export %s:\n%s", name, errorsJS)
@@ -57,8 +57,8 @@ func TestGenerate_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 
 func TestGenerate_errorsReExportsSharedPackage(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
-	errorsDTS := readDistFile(t, dist, "errors.d.ts")
+	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
+	errorsDTS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".d.ts")
 	for _, frag := range []string{
 		`from "@forst/errors"`,
 		"isInvokeFailure",
@@ -84,8 +84,8 @@ func assertContainsNoneGenerate(t *testing.T, got string, frags []string) {
 
 func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 	dir, dist := generatePhase4Project(t)
-	errorsDTS := readDistFile(t, dist, "errors.d.ts")
-	errorsJS := readDistFile(t, dist, "errors.js")
+	errorsDTS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".d.ts")
+	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
 	indexJS := readDistFile(t, dist, "index.js")
 	indexDTS := readDistFile(t, dist, "index.d.ts")
 	if !strings.Contains(errorsDTS, "export type { InvokeFailure }") {
@@ -94,12 +94,12 @@ func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 	if !strings.Contains(errorsJS, "isInvokeFailure") {
 		t.Fatalf("missing isInvokeFailure re-export:\n%s", errorsJS)
 	}
-	for _, name := range transformerts.RootReexportedDomainErrorNames(nil) {
-		if !strings.Contains(indexJS, name) {
-			t.Fatalf("index.js must re-export domain error %s", name)
+	for _, name := range []string{"ForstUnknownFailure", "BcryptGenerateFailed"} {
+		if strings.Contains(indexJS, name) {
+			t.Fatalf("index.js must not re-export error %s", name)
 		}
-		if !strings.Contains(indexDTS, name) {
-			t.Fatalf("index.d.ts must re-export domain error %s", name)
+		if strings.Contains(indexDTS, name) {
+			t.Fatalf("index.d.ts must not re-export error %s", name)
 		}
 	}
 	for _, name := range transformerts.ErrorClassNames() {
@@ -118,7 +118,7 @@ func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 		t.Fatal(err)
 	}
 	pkgJSON := string(raw)
-	for _, subpath := range []string{`"./errors"`, transformerts.ErrorsPackageName} {
+	for _, subpath := range []string{`"./` + transformerts.InfraErrorsSubpath + `"`, transformerts.ErrorsPackageName} {
 		if !strings.Contains(pkgJSON, subpath) {
 			t.Fatalf("package.json must mention %s:\n%s", subpath, pkgJSON)
 		}
@@ -130,7 +130,7 @@ func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 
 func TestGenerate_emitsInvokeStreamAborted(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	errorsJS := readDistFile(t, dist, "errors.js")
+	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
 	transport := readDistFile(t, dist, "transport.js")
 	if !strings.Contains(errorsJS, "InvokeStreamAborted") {
 		t.Fatal("errors.js must re-export InvokeStreamAborted")
@@ -227,7 +227,7 @@ import {
   InvokeRejected,
   InvokeHttpFailure,
   isInvokeFailure,
-} from "./errors.js";
+} from "./$errors.js";
 
 resetDefaultInvokeClientForTest();
 const client = createInvokeClient({
@@ -314,7 +314,7 @@ func TestGenerate_acceptance_noSpawnInProduction(t *testing.T) {
 	script := filepath.Join(dist, "_phase4_no_spawn_prod.mjs")
 	body := `
 import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
-import { InvokeBaseUrlMissing, isInvokeFailure } from "./errors.js";
+import { InvokeBaseUrlMissing, isInvokeFailure } from "./` + transformerts.InfraErrorsSubpath + `.js";
 
 const prev = process.env.NODE_ENV;
 const prevBase = process.env.FORST_BASE_URL;
@@ -370,7 +370,7 @@ func TestGenerate_packageJSONExportsErrorsSubpath(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(raw)
-	if !strings.Contains(body, `"./errors"`) {
+	if !strings.Contains(body, `"./`+transformerts.InfraErrorsSubpath+`"`) {
 		t.Fatal("package.json must export ./errors subpath")
 	}
 }

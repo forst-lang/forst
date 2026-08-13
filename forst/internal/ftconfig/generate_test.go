@@ -18,8 +18,8 @@ func TestDefaultGenerateConfig_hasExpectedDefaults(t *testing.T) {
 	if g.Emit != "js" {
 		t.Fatalf("Emit: got %q, want js", g.Emit)
 	}
-	if g.TestingSubpath != "testing" {
-		t.Fatalf("TestingSubpath: got %q, want testing", g.TestingSubpath)
+	if g.TestingSubpath != "$testing" {
+		t.Fatalf("TestingSubpath: got %q, want $testing", g.TestingSubpath)
 	}
 	if g.SSRModule != "" {
 		t.Fatalf("SSRModule: got %q, want empty", g.SSRModule)
@@ -77,7 +77,7 @@ func TestEffectiveGenerateConfig_overridesFromJSON(t *testing.T) {
     "outDir": "packages/forst-client",
     "link": "never",
     "emit": "js",
-    "testingSubpath": "test-double",
+    "testingSubpath": "$test-double",
     "effect": true,
     "ssrModule": "src/ssr.ts",
     "omitStubs": true
@@ -103,7 +103,7 @@ func TestEffectiveGenerateConfig_overridesFromJSON(t *testing.T) {
 	if g.Emit != "js" {
 		t.Fatalf("Emit: %q", g.Emit)
 	}
-	if g.TestingSubpath != "test-double" {
+	if g.TestingSubpath != "$test-double" {
 		t.Fatalf("TestingSubpath: %q", g.TestingSubpath)
 	}
 	if !g.Effect {
@@ -280,17 +280,17 @@ func TestValidate_rejectsReservedErrorsPackageName(t *testing.T) {
 func TestReservedSubpaths_followsTestingSubpathConfig(t *testing.T) {
 	g := Default().Generate
 	reserved := g.ReservedSubpaths()
-	if _, ok := reserved["testing"]; !ok {
-		t.Fatalf("default reserved map missing testing: %#v", reserved)
+	if _, ok := reserved["$testing"]; !ok {
+		t.Fatalf("default reserved map missing $testing: %#v", reserved)
 	}
 
-	g.TestingSubpath = "test-double"
+	g.TestingSubpath = "$test-double"
 	reserved = g.ReservedSubpaths()
-	if _, ok := reserved["test-double"]; !ok {
+	if _, ok := reserved["$test-double"]; !ok {
 		t.Fatalf("reserved map should follow testingSubpath: %#v", reserved)
 	}
-	if _, ok := reserved["testing"]; ok {
-		t.Fatalf("old testing key should not remain: %#v", reserved)
+	if _, ok := reserved["$testing"]; ok {
+		t.Fatalf("old $testing key should not remain: %#v", reserved)
 	}
 }
 
@@ -298,26 +298,26 @@ func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
 	g := Default().Generate
 	g.Effect = true
 	reserved := g.ReservedSubpaths()
-	if _, ok := reserved["testing"]; !ok {
-		t.Fatalf("effect mode must reserve testing: %#v", reserved)
+	if _, ok := reserved["$testing"]; !ok {
+		t.Fatalf("effect mode must reserve $testing: %#v", reserved)
 	}
-	if _, ok := reserved["effect"]; !ok {
-		t.Fatalf("effect mode must reserve effect subpath: %#v", reserved)
+	if _, ok := reserved["$effect"]; !ok {
+		t.Fatalf("effect mode must reserve $effect subpath: %#v", reserved)
 	}
-	if _, ok := reserved["invoke"]; ok {
-		t.Fatalf("invoke subpath must not be reserved: %#v", reserved)
+	if _, ok := reserved["$errors"]; !ok {
+		t.Fatalf("effect mode must reserve $errors: %#v", reserved)
 	}
 }
 
 func TestGenerateConfig_Validate_rejectsEffectWithTestingSubpathEffect(t *testing.T) {
 	g := Default().Generate
 	g.Effect = true
-	g.TestingSubpath = "effect"
+	g.TestingSubpath = "$effect"
 	err := g.Validate()
 	if err == nil {
-		t.Fatal("expected validation error for testingSubpath effect with generate.effect")
+		t.Fatal("expected validation error for testingSubpath $effect with generate.effect")
 	}
-	if !strings.Contains(err.Error(), "effect") {
-		t.Fatalf("error must mention effect conflict: %v", err)
+	if !strings.Contains(err.Error(), "$effect") {
+		t.Fatalf("error must mention $effect conflict: %v", err)
 	}
 }

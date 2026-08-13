@@ -120,28 +120,6 @@ func TestMergeDomainErrors_conflictingFieldsFail(t *testing.T) {
 	}
 }
 
-func TestRootReexportedDomainErrorNames_skipsCollidingBareNames(t *testing.T) {
-	names := RootReexportedDomainErrorNames([]ErrorClass{
-		{Name: "NotFound", ForstPackage: "alpha"},
-		{Name: "NotFound", ForstPackage: "beta"},
-		{Name: "Unique", ForstPackage: "alpha"},
-	})
-	for _, name := range names {
-		if name == "NotFound" {
-			t.Fatalf("colliding bare name must not be root re-exported: %v", names)
-		}
-	}
-	foundUnique := false
-	for _, name := range names {
-		if name == "Unique" {
-			foundUnique = true
-		}
-	}
-	if !foundUnique {
-		t.Fatalf("expected Unique in root re-exports: %v", names)
-	}
-}
-
 func stringsContains(s, sub string) bool {
 	return len(s) >= len(sub) && (s == sub || len(sub) == 0 || indexOf(s, sub) >= 0)
 }

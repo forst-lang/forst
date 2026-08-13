@@ -17,7 +17,7 @@ This is the usual choice for a unit test. Supply the result you need, then run
 the code that depends on it.
 
 ```typescript
-import { withForstTestScope } from "@forst/gen/testing";
+import { withForstTestScope } from "@forst/gen/$testing";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const input = {
@@ -74,7 +74,7 @@ Place related replacements under the same package name. Any function you call
 inside the scope must have a replacement.
 
 ```typescript
-import { withForstTestScope } from "@forst/gen/testing";
+import { withForstTestScope } from "@forst/gen/$testing";
 import { Hash, VerifyPassword } from "@forst/gen/auth";
 
 await withForstTestScope(
@@ -107,8 +107,8 @@ Use a connection replacement when the request itself matters. It is also useful
 for failures that happen before Forst returns a business result.
 
 ```typescript
-import { InvokeTimedOut } from "@forst/gen";
-import { withForstTestScope } from "@forst/gen/testing";
+import { InvokeTimedOut } from "@forst/gen/$errors";
+import { withForstTestScope } from "@forst/gen/$testing";
 import { VerifyPassword } from "@forst/gen/auth";
 
 await withForstTestScope(
@@ -143,7 +143,7 @@ If your application uses `createForstClient`, create a test client with the
 same package and function shape.
 
 ```typescript
-import { createTestForstClient } from "@forst/gen/testing";
+import { createTestForstClient } from "@forst/gen/$testing";
 
 const forst = createTestForstClient({
   auth: {
@@ -175,7 +175,7 @@ npm i -D @forst/cli
 ```
 
 ```typescript
-import { startForstTestServer } from "@forst/gen/testing";
+import { startForstTestServer } from "@forst/gen/$testing";
 import { Echo } from "@forst/gen/main";
 
 await using _ = await startForstTestServer();

@@ -131,7 +131,7 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 		"function safe(",
 		"{ ok: true; value: VerifyTokenResponse }",
 		"{ ok: false; error: InvokeFailure }",
-		`import type { InvokeFailure } from "../errors.js"`,
+		`import type { InvokeFailure } from "../$errors.js"`,
 	})
 	// TypeImports are sorted.
 	reqIdx := strings.Index(got, "VerifyTokenRequest")
@@ -148,7 +148,7 @@ func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
 		`import type { CellTaken, ForstUnknownFailure } from "../pkg/auth.errors.js"`,
-		`import type { InvokeFailure } from "../errors.js"`,
+		`import type { InvokeFailure } from "../$errors.js"`,
 		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
 		"/** @throws {VerifyTokenFailure} */",
 		"{ ok: false; error: VerifyTokenFailure }",
@@ -212,7 +212,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimeEffect, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import { Effect } from "effect"`,
-		`import { ForstTransport, withTransport } from "../effect.js"`,
+		`import { ForstTransport, withTransport } from "../$effect.js"`,
 		`import * as core from "../core/auth.js"`,
 		`export class Auth extends Effect.Service()`,
 		`"@forst/gen/Auth"`,
@@ -239,10 +239,10 @@ func TestEmitIndexESM_golden(t *testing.T) {
 		"auth: auth(client)",
 		"billing: billing(client)",
 		"http://127.0.0.1:6321",
-		"ForstUnknownFailure",
-		`from "./errors.js"`,
 	})
 	assertContainsNone(t, got, []string{
+		"ForstUnknownFailure",
+		`from "./$errors.js"`,
 		"InvokeRejected",
 		"isInvokeFailure",
 		`from "@forst/errors"`,
@@ -263,14 +263,15 @@ func TestEmitIndexESM_sortsPackages(t *testing.T) {
 	}
 }
 
-func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
+func TestEmitIndexDTS_doesNotReexportDomainErrors(t *testing.T) {
 	domain := []ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}
 	got := EmitIndexDTS([]string{"main"}, domain, RuntimePromise)
-	assertContainsAll(t, got, []string{
+	assertContainsNone(t, got, []string{
 		"CellTaken",
 		"ForstUnknownFailure",
+		"ForstError",
 	})
-	assertContainsNone(t, got, []string{"ForstError"})
+	assertContainsAll(t, got, []string{"TaggedError"})
 }
 
 func TestEmitIndexDTS_golden(t *testing.T) {
@@ -289,8 +290,7 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"readonly auth: ReturnType<typeof auth>",
 		"export type ForstClient = ReturnType<typeof createForstClient>",
 		"TaggedError",
-		"ForstUnknownFailure",
-		`from "./errors.js"`,
+		`from "./$errors.js"`,
 		`export type * from "./types.js"`,
 	})
 	assertContainsNone(t, got, []string{

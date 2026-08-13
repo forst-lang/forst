@@ -5,48 +5,41 @@ import (
 	"testing"
 )
 
-func TestValidateReservedSubpaths_rejectsPackageNamedTesting(t *testing.T) {
-	err := ValidateReservedSubpaths([]string{"auth", "testing"}, ReservedClientSubpaths)
+func TestValidateForstPackageName_rejectsDollarSign(t *testing.T) {
+	err := ValidateForstPackageName("$testing")
 	if err == nil {
-		t.Fatal("expected error for package named testing")
+		t.Fatal("expected error for package containing $")
 	}
-	msg := err.Error()
-	for _, frag := range []string{
-		`Forst package "testing"`,
-		`"./testing"`,
-		"testingSubpath",
-	} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("error missing %q:\n%s", frag, msg)
-		}
-	}
-}
-
-func TestValidateReservedSubpaths_allowsPackageNamedTypes(t *testing.T) {
-	if err := ValidateReservedSubpaths([]string{"types"}, ReservedClientSubpaths); err != nil {
-		t.Fatalf("types must be allowed: %v", err)
-	}
-}
-
-func TestValidateReservedSubpaths_allowsPackageNamedIndexOrTransportOrCore(t *testing.T) {
-	for _, pkg := range []string{"index", "transport", "core"} {
-		if err := ValidateReservedSubpaths([]string{pkg}, ReservedClientSubpaths); err != nil {
-			t.Fatalf("%s must be allowed: %v", pkg, err)
-		}
-	}
-}
-
-func TestValidateReservedSubpaths_respectsTestingSubpathOverride(t *testing.T) {
-	reserved := map[string]string{"test-double": "testing subpath"}
-	if err := ValidateReservedSubpaths([]string{"testing"}, reserved); err != nil {
-		t.Fatalf("testing allowed when testingSubpath overridden: %v", err)
-	}
-	err := ValidateReservedSubpaths([]string{"test-double"}, reserved)
-	if err == nil {
-		t.Fatal("expected error for configured testingSubpath key")
-	}
-	if !strings.Contains(err.Error(), "test-double") {
+	if !strings.Contains(err.Error(), "$") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateForstPackageName_rejectsHyphenatedName(t *testing.T) {
+	err := ValidateForstPackageName("user-auth")
+	if err == nil {
+		t.Fatal("expected error for hyphenated package name")
+	}
+	if !strings.Contains(err.Error(), "Go package name") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateForstPackageName_allowsTestingErrorsEffect(t *testing.T) {
+	for _, pkg := range []string{"testing", "errors", "effect", "auth", "main", "_internal"} {
+		if err := ValidateForstPackageName(pkg); err != nil {
+			t.Fatalf("%q should be allowed: %v", pkg, err)
+		}
+	}
+}
+
+func TestValidateForstPackageNames_dedupes(t *testing.T) {
+	if err := ValidateForstPackageNames([]string{"auth", "auth", "billing"}); err != nil {
+		t.Fatal(err)
+	}
+	err := ValidateForstPackageNames([]string{"auth", "$auth"})
+	if err == nil {
+		t.Fatal("expected error for $ in one package")
 	}
 }
 
@@ -119,18 +112,6 @@ func TestValidateServiceClassNames_collidesWhenBothProduceEmptyClass(t *testing.
 	for _, frag := range []string{"___", "...", "empty Effect service class"} {
 		if !strings.Contains(msg, frag) {
 			t.Fatalf("missing %q in %s", frag, msg)
-		}
-	}
-}
-
-func TestValidateReservedSubpaths_rejectsCaseVariantOfTesting(t *testing.T) {
-	for _, pkg := range []string{"Testing", "TESTING", "tEsTiNg"} {
-		err := ValidateReservedSubpaths([]string{pkg}, ReservedClientSubpaths)
-		if err == nil {
-			t.Fatalf("expected error for case variant %q of reserved testing subpath", pkg)
-		}
-		if !strings.Contains(err.Error(), pkg) {
-			t.Fatalf("error should name package %q: %v", pkg, err)
 		}
 	}
 }

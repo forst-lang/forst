@@ -92,7 +92,7 @@ const program = VerifyPassword(input).pipe(
 );
 ```
 
-Promise mode uses the same tags with `isInvokeFailure` from `@forst/gen/errors` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
+Promise mode uses the same tags with `isInvokeFailure` from `@forst/gen/$errors` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
 
 ## Wiring
 
@@ -150,7 +150,7 @@ An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode
 
 ```typescript
 import { Effect } from "effect";
-import { ForstTestLayer } from "@forst/gen/testing";
+import { ForstTestLayer } from "@forst/gen/$testing";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const Test = ForstTestLayer({
@@ -174,7 +174,7 @@ Handlers may return a value, a `Promise`, or an `Effect`.
 
 ```typescript
 import { Effect } from "effect";
-import { ForstTestServerLayer } from "@forst/gen/testing";
+import { ForstTestServerLayer } from "@forst/gen/$testing";
 import { Echo } from "@forst/gen/main";
 
 await Effect.runPromise(
