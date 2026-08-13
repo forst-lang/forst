@@ -1,10 +1,12 @@
 package ftconfig
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefault_saneDefaults(t *testing.T) {
@@ -338,6 +340,74 @@ func TestBoundaryRootFromDir_notFound(t *testing.T) {
 	_, err := BoundaryRootFromDir(dir)
 	if err == nil {
 		t.Fatal("expected error when ftconfig.json missing")
+	}
+}
+
+func TestConfig_FindForstFiles_skipsExcludedDirectoryTrees(t *testing.T) {
+	root := t.TempDir()
+	keep := filepath.Join(root, "keep.ft")
+	if err := os.WriteFile(keep, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skipRoot := filepath.Join(root, "skipme")
+	deep := skipRoot
+	for i := 0; i < 100; i++ {
+		deep = filepath.Join(deep, fmt.Sprintf("level%d", i))
+		if err := os.MkdirAll(deep, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hidden := filepath.Join(deep, "hidden.ft")
+	if err := os.WriteFile(hidden, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Default()
+	cfg.Files.Exclude = []string{"**/skipme/**"}
+
+	start := time.Now()
+	files, err := cfg.FindForstFiles(root)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || filepath.Base(files[0]) != "keep.ft" {
+		t.Fatalf("want only keep.ft, got %v", files)
+	}
+	if elapsed > time.Second {
+		t.Fatalf("discovery took %v; excluded tree was likely descended into", elapsed)
+	}
+}
+
+func TestDefault_excludesBuildAndForstDirectories(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src")
+	build := filepath.Join(root, "build")
+	forstDir := filepath.Join(root, ".forst")
+	for _, d := range []string{src, build, forstDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ok := filepath.Join(src, "ok.ft")
+	for _, p := range []string{
+		ok,
+		filepath.Join(build, "skip.ft"),
+		filepath.Join(forstDir, "skip.ft"),
+	} {
+		if err := os.WriteFile(p, []byte("package main\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg := Default()
+	files, err := cfg.FindForstFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || filepath.Base(files[0]) != "ok.ft" {
+		t.Fatalf("want only src/ok.ft, got %v", files)
 	}
 }
 

@@ -49,7 +49,7 @@ func generateClientPackage(
 	if err := writeGeneratedFile(indexJSPath, []byte(indexJS), stats); err != nil {
 		return fmt.Errorf("failed to write client index.js: %w", err)
 	}
-	log.Infof("Generated client index: %s", indexJSPath)
+	log.Debugf("Generated client index: %s", indexJSPath)
 
 	indexDTS := transformerts.EmitIndexDTS(packageNames, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
@@ -84,7 +84,7 @@ func generateClientPackage(
 	if err := writeGeneratedFile(testingJSPath, []byte(testingJS), stats); err != nil {
 		return fmt.Errorf("failed to write testing.js: %w", err)
 	}
-	log.Infof("Generated testing module: %s", testingJSPath)
+	log.Debugf("Generated testing module: %s", testingJSPath)
 
 	testingDTSPath := filepath.Join(outDir, "dist", testingKey+".d.ts")
 	if err := writeGeneratedFile(testingDTSPath, []byte(testingDTS), stats); err != nil {
@@ -96,14 +96,14 @@ func generateClientPackage(
 	if err := writeGeneratedFile(packagePath, []byte(packageContent), stats); err != nil {
 		return fmt.Errorf("failed to write client package.json: %w", err)
 	}
-	log.Infof("Generated client package.json: %s", packagePath)
+	log.Debugf("Generated client package.json: %s", packagePath)
 
 	readme := generateClientREADME(genCfg, invokePort, outputs)
 	readmePath := filepath.Join(outDir, "README.md")
 	if err := writeGeneratedFile(readmePath, []byte(readme), stats); err != nil {
 		return fmt.Errorf("failed to write client README: %w", err)
 	}
-	log.Infof("Generated client README: %s", readmePath)
+	log.Debugf("Generated client README: %s", readmePath)
 
 	return nil
 }

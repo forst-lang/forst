@@ -67,7 +67,7 @@ func writeSSRModule(
 	log.WithFields(logrus.Fields{
 		"ssrModule": ssrRelPath,
 		"path":      modulePath,
-	}).Info("Generated SSR invoke module")
+	}).Debug("Generated SSR invoke module")
 	return nil
 }
 
