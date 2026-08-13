@@ -275,7 +275,7 @@ func appendOmitStubs(b *strings.Builder, omitted []OmittedFunction) {
 }
 
 // EmitIndexESM returns dist/index.js (createForstClient factory + error re-exports).
-func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClass, _ ClientRuntime) string {
 	pkgs := sortDedupeStrings(packages)
 	var b strings.Builder
 	b.WriteString("// Auto-generated Forst Client\n")

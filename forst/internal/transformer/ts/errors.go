@@ -368,14 +368,6 @@ type domainErrorImportBinding struct {
 	WireTag    string
 }
 
-func domainErrorsGroupedByPackage(domainErrors []ErrorClass) map[string][]ErrorClass {
-	byPkg := make(map[string][]ErrorClass)
-	for _, c := range domainErrors {
-		byPkg[c.ForstPackage] = append(byPkg[c.ForstPackage], c)
-	}
-	return byPkg
-}
-
 func domainErrorImportBindings(domainErrors []ErrorClass, modulePathFor func(forpstPkg string) string) []domainErrorImportBinding {
 	nameCounts := make(map[string]int, len(domainErrors))
 	for _, c := range domainErrors {
@@ -573,18 +565,6 @@ func emitDomainRegistryJSWithBindings(b *strings.Builder, bindings []domainError
   return new Ctor({ ...payload, ...base });
 };
 `)
-}
-
-func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
-	bindings := make([]domainErrorImportBinding, 0, len(domainErrors))
-	for _, c := range domainErrors {
-		bindings = append(bindings, domainErrorImportBinding{
-			ClassName:  c.Name,
-			ImportName: c.Name,
-			WireTag:      domainWireTag(c),
-		})
-	}
-	emitDomainRegistryJSWithBindings(b, bindings)
 }
 
 // EmitErrorsDTS returns dist/errors.d.ts.
