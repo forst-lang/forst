@@ -58,14 +58,14 @@ func writeGeneratedDistModules(
 	if err := writeGeneratedFile(typesPath, []byte(typesCode), stats); err != nil {
 		return fmt.Errorf("failed to write types declaration file: %w", err)
 	}
-	log.WithFields(logrus.Fields{"path": typesPath}).Info("Generated types declaration file")
+	log.WithFields(logrus.Fields{"path": typesPath}).Debug("Generated types declaration file")
 
 	errorsJSPath := filepath.Join(distDir, "errors.js")
 	errorsJS := transformerts.EmitErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
 	if err := writeGeneratedFile(errorsJSPath, []byte(errorsJS), stats); err != nil {
 		return fmt.Errorf("failed to write errors.js: %w", err)
 	}
-	log.WithFields(logrus.Fields{"path": errorsJSPath}).Info("Generated errors module")
+	log.WithFields(logrus.Fields{"path": errorsJSPath}).Debug("Generated errors module")
 
 	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
 	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)), stats); err != nil {
@@ -76,7 +76,7 @@ func writeGeneratedDistModules(
 	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort, runtime)), stats); err != nil {
 		return fmt.Errorf("failed to write transport.js: %w", err)
 	}
-	log.WithFields(logrus.Fields{"path": transportJSPath}).Info("Generated transport module")
+	log.WithFields(logrus.Fields{"path": transportJSPath}).Debug("Generated transport module")
 
 	transportDTSPath := filepath.Join(distDir, "transport.d.ts")
 	if err := writeGeneratedFile(transportDTSPath, []byte(transformerts.EmitTransportDTS()), stats); err != nil {
@@ -92,7 +92,7 @@ func writeGeneratedDistModules(
 		if err := writeGeneratedFile(effectDTSPath, []byte(transformerts.EmitEffectSupportDTS(genCfg.PackageName)), stats); err != nil {
 			return fmt.Errorf("failed to write effect.d.ts: %w", err)
 		}
-		log.WithFields(logrus.Fields{"path": effectJSPath}).Info("Generated Effect transport support module")
+		log.WithFields(logrus.Fields{"path": effectJSPath}).Debug("Generated Effect transport support module")
 	}
 
 	activePackages := make(map[string]struct{}, len(clientOutputs))
@@ -113,7 +113,7 @@ func writeGeneratedDistModules(
 			"forstPackage":  pkg,
 			"functionCount": len(out.Functions),
 			"path":          coreJS,
-		}).Info("Generated core module")
+		}).Debug("Generated core module")
 
 		pkgJS := filepath.Join(pkgDir, pkg+".js")
 		if err := writeGeneratedFile(pkgJS, []byte(transformerts.EmitPackageESM(mod, runtime, genCfg.PackageName)), stats); err != nil {
@@ -128,7 +128,7 @@ func writeGeneratedDistModules(
 			"functionCount": len(out.Functions),
 			"path":          pkgJS,
 			"runtime":       runtime.String(),
-		}).Info("Generated package module")
+		}).Debug("Generated package module")
 	}
 
 	return nil
@@ -218,7 +218,7 @@ func pruneStaleClientModules(distDir string, activePackages map[string]struct{},
 			if err := generateIO.Remove(path); err != nil {
 				return err
 			}
-			log.Infof("Pruned stale client module: %s", path)
+			log.Debugf("Pruned stale client module: %s", path)
 		}
 	}
 	return nil
@@ -255,7 +255,7 @@ func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log 
 		if err := generateIO.Remove(path); err != nil {
 			return err
 		}
-		log.Infof("Pruned stale client module: %s", path)
+		log.Debugf("Pruned stale client module: %s", path)
 	}
 	return nil
 }

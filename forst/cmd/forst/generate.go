@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -108,6 +109,7 @@ type generateOptions struct {
 	allowStemMismatch bool
 	watch             bool
 	listJSON          bool
+	logLevel          string
 	target            string
 }
 
@@ -119,6 +121,7 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	watch := fs.Bool("watch", false, "Regenerate when .ft files change")
 	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
 	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
+	logLevel := fs.String("log-level", "", "Log level (trace, debug, info, warn, error)")
 	if err := fs.Parse(args); err != nil {
 		return generateOptions{}, err
 	}
@@ -131,8 +134,36 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 		allowStemMismatch: *allowStemMismatch,
 		watch:             *watch,
 		listJSON:          *list || *listJSON,
+		logLevel:          *logLevel,
 		target:            tail[0],
 	}, nil
+}
+
+func configureGenerateLogger(log *logrus.Logger, opts generateOptions, cfg *ForstConfig) {
+	logLevel := opts.logLevel
+	if logLevel == "" {
+		logLevel = cfg.Dev.LogLevel
+	}
+	setLogLevel(log, logLevel)
+}
+
+func generateTSOptions(cfg *ForstConfig) *transformerts.GenerateTSOptions {
+	return &transformerts.GenerateTSOptions{
+		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
+		ReportPhases:             cfg.Compiler.ReportPhases,
+	}
+}
+
+func logGeneratePhase(log *logrus.Logger, reportPhases bool, phase string, start time.Time) {
+	fields := logrus.Fields{
+		"phase":      phase,
+		"durationMs": time.Since(start).Milliseconds(),
+	}
+	if reportPhases {
+		log.WithFields(fields).Info("generate phase")
+	} else {
+		log.WithFields(fields).Debug("generate phase")
+	}
 }
 
 // generateCommand handles the "forst generate" command
@@ -153,6 +184,7 @@ func generateCommand(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+	configureGenerateLogger(log, opts, cfg)
 
 	if opts.watch {
 		return watchGenerate(opts, cfg, fileInfo.IsDir(), log)
@@ -166,7 +198,11 @@ func generateCommand(args []string) error {
 
 // runGenerateList discovers exports and prints a JSON manifest without writing client output.
 func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	reportPhases := cfg.Compiler.ReportPhases
+
+	discoverStart := time.Now()
 	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	logGeneratePhase(log, reportPhases, "discover", discoverStart)
 	if err != nil {
 		return err
 	}
@@ -185,9 +221,9 @@ func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
-	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
-		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
-	})
+	typecheckStart := time.Now()
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, generateTSOptions(cfg))
+	logGeneratePhase(log, reportPhases, "typecheck_emit", typecheckStart)
 	if err != nil {
 		return err
 	}
@@ -196,7 +232,11 @@ func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 // runGenerateOnce performs a single generate pass into outDir/dist/.
 func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *logrus.Logger) error {
+	reportPhases := cfg.Compiler.ReportPhases
+
+	discoverStart := time.Now()
 	forstFiles, outputDir, err := discoverForstFilesForGenerate(cfg, opts.target, isDir)
+	logGeneratePhase(log, reportPhases, "discover", discoverStart)
 	if err != nil {
 		return err
 	}
@@ -216,22 +256,22 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		"link":        genCfg.ShouldLink(boundaryRoot),
 		"emit":        genCfg.Emit,
 		"effect":      genCfg.Effect,
-	}).Info("Resolved generate config")
+	}).Debug("Resolved generate config")
 
 	if len(forstFiles) == 0 {
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
 		return nil
 	}
 
-	log.Infof("Found %d Forst files", len(forstFiles))
+	log.Debugf("Found %d Forst files", len(forstFiles))
 
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
 
-	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, &transformerts.GenerateTSOptions{
-		GenerateStreamingClients: cfg.Compiler.GenerateStreamingClients,
-	})
+	typecheckStart := time.Now()
+	outputs, err := generateTSOutputsByPackageHook(forstFiles, log, generateTSOptions(cfg))
+	logGeneratePhase(log, reportPhases, "typecheck_emit", typecheckStart)
 	if err != nil {
 		return err
 	}
@@ -282,6 +322,7 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 	var stats generateWriteStats
 
+	writeStart := time.Now()
 	clientOutputs := runnableClientOutputs(outputs)
 	if err := writeGeneratedDistModules(distDir, coreDir, pkgDir, merged, clientOutputs, genCfg, runtime, invokePort, log, &stats); err != nil {
 		return err
@@ -308,10 +349,13 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err := writeForstGeneratedMarker(outDir, boundaryRoot, genCfg.PackageName, &stats); err != nil {
 		return err
 	}
+	logGeneratePhase(log, reportPhases, "write", writeStart)
 
+	linkStart := time.Now()
 	if err := maybeLinkGeneratedClient(boundaryRoot, outDir, genCfg, log); err != nil {
 		return err
 	}
+	logGeneratePhase(log, reportPhases, "link", linkStart)
 	warnMissingLifecycleScript(boundaryRoot, genCfg, log)
 
 	printGenerateSummary(genCfg, clientOutputs)
@@ -319,12 +363,8 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	log.WithFields(logrus.Fields{
 		"filesWritten": stats.Written,
 		"filesSkipped": stats.Skipped,
-	}).Info("Generate write summary")
-	log.WithFields(logrus.Fields{
-		"filesWritten": stats.Written,
-		"filesSkipped": stats.Skipped,
-	}).Debug("Generate write summary (debug)")
+	}).Debug("Generate write summary")
 
-	log.Info("TypeScript client generation completed")
+	log.Debug("TypeScript client generation completed")
 	return nil
 }

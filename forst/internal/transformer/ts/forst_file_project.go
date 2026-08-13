@@ -58,6 +58,7 @@ func ParseMergedTypecheckProject(filePaths []string, log *logrus.Logger) ([]Fors
 // GenerateTSOptions configures per-run TypeScript emission (forst generate).
 type GenerateTSOptions struct {
 	GenerateStreamingClients bool
+	ReportPhases             bool
 }
 
 // ForstFileStem returns the basename of path without the .ft extension.
@@ -149,7 +150,7 @@ func GenerateTypeScriptOutputsByPackage(filePaths []string, log *logrus.Logger, 
 			return nil, fmt.Errorf("package %q missing merged AST", pkgName)
 		}
 
-		tc := typechecker.New(log, false)
+		tc := typechecker.New(log, opts.ReportPhases)
 		tc.ConfigureForForstFile(moduleRoot, filepath.Dir(pkgPaths[0]), nodes)
 		tc.SetModuleResult(modResult)
 		if err := tc.CheckTypes(nodes); err != nil {

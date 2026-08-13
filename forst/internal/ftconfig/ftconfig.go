@@ -193,7 +193,7 @@ func Default() *Config {
 		},
 		Files: FilesConfig{
 			Include:  []string{"**/*.ft"},
-			Exclude:  []string{"**/node_modules/**", "**/.git/**"},
+			Exclude:  []string{"**/node_modules/**", "**/.git/**", "**/build/**", "**/.forst/**"},
 			MaxDepth: 10,
 		},
 		Output: OutputConfig{
@@ -379,6 +379,12 @@ func (c *Config) FindForstFiles(rootDir string) ([]string, error) {
 			return walkErr
 		}
 		if d.IsDir() {
+			if path != "." {
+				absPath := root.AbsPath(path)
+				if c.matchesExcludePatterns(absPath) {
+					return fs.SkipDir
+				}
+			}
 			return nil
 		}
 		absPath := root.AbsPath(path)

@@ -183,13 +183,13 @@ func TestGenerateCommand_logsResolvedGenerateConfig(t *testing.T) {
 	t.Cleanup(func() { newGenerateLogger = prev })
 	newGenerateLogger = func() *logrus.Logger {
 		log := logrus.New()
-		log.SetLevel(logrus.InfoLevel)
+		log.SetLevel(logrus.DebugLevel)
 		log.SetOutput(&buf)
 		log.SetFormatter(&logrus.TextFormatter{DisableColors: true, DisableTimestamp: true})
 		return log
 	}
 
-	if err := generateCommand([]string{dir}); err != nil {
+	if err := generateCommand([]string{"-log-level", "debug", dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	out := buf.String()
@@ -674,6 +674,41 @@ func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
 	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "package.json") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestParseGenerateArgs_logLevelFlag(t *testing.T) {
+	opts, err := parseGenerateArgs([]string{"-log-level", "debug", "."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.logLevel != "debug" {
+		t.Fatalf("logLevel = %q, want debug", opts.logLevel)
+	}
+	if opts.target != "." {
+		t.Fatalf("target = %q, want .", opts.target)
+	}
+}
+
+func TestGenerateTSOptions_passesReportPhases(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Compiler.ReportPhases = true
+	opts := generateTSOptions(cfg)
+	if !opts.ReportPhases {
+		t.Fatal("expected ReportPhases true")
+	}
+	if opts.GenerateStreamingClients != cfg.Compiler.GenerateStreamingClients {
+		t.Fatal("expected GenerateStreamingClients to match config")
+	}
+}
+
+func TestConfigureGenerateLogger_flagOverridesConfig(t *testing.T) {
+	log := logrus.New()
+	cfg := DefaultConfig()
+	cfg.Dev.LogLevel = "warn"
+	configureGenerateLogger(log, generateOptions{logLevel: "debug"}, cfg)
+	if log.GetLevel() != logrus.DebugLevel {
+		t.Fatalf("level = %v, want debug", log.GetLevel())
 	}
 }
 
