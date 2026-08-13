@@ -50,25 +50,72 @@ func DomainErrorClassFromTypeDef(def ast.TypeDefNode, tc *typechecker.TypeChecke
 	return ErrorClass{Name: name, Tag: name, Fields: fields}, nil
 }
 
-// MergeDomainErrors deduplicates domain error classes by name.
-func MergeDomainErrors(list ...[]ErrorClass) []ErrorClass {
+// MergeDomainErrors deduplicates domain error classes by ForstPackage/Name.
+func MergeDomainErrors(list ...[]ErrorClass) ([]ErrorClass, error) {
 	seen := make(map[string]ErrorClass)
 	var order []string
 	for _, batch := range list {
 		for _, c := range batch {
-			if _, ok := seen[c.Name]; ok {
+			key := domainErrorMergeKey(c)
+			if key == "" {
+				return nil, fmt.Errorf("domain error %q missing Forst package name", c.Name)
+			}
+			if prev, ok := seen[key]; ok {
+				if !errorClassesEqual(prev, c) {
+					return nil, conflictingDomainErrorError(c.Name, prev.ForstPackage, c.ForstPackage)
+				}
 				continue
 			}
-			seen[c.Name] = c
-			order = append(order, c.Name)
+			seen[key] = c
+			order = append(order, key)
 		}
 	}
 	sort.Strings(order)
 	out := make([]ErrorClass, 0, len(order))
-	for _, name := range order {
-		out = append(out, seen[name])
+	for _, key := range order {
+		out = append(out, seen[key])
 	}
-	return out
+	return out, nil
+}
+
+func domainErrorMergeKey(c ErrorClass) string {
+	if c.ForstPackage != "" {
+		return c.ForstPackage + "/" + c.Name
+	}
+	return c.Name
+}
+
+func errorClassesEqual(a, b ErrorClass) bool {
+	if a.Name != b.Name || a.ForstPackage != b.ForstPackage {
+		return false
+	}
+	if len(a.Fields) != len(b.Fields) {
+		return false
+	}
+	for i := range a.Fields {
+		af, bf := a.Fields[i], b.Fields[i]
+		if af.Name != bf.Name || af.TSType != bf.TSType || af.Optional != bf.Optional {
+			return false
+		}
+	}
+	return true
+}
+
+func conflictingDomainErrorError(errorName, pkgA, pkgB string) error {
+	if pkgA == pkgB {
+		return fmt.Errorf(
+			"generate: conflicting domain error %q in package %q\n"+
+				"  the same error is defined with different fields\n"+
+				"  unify the error payload or rename one definition",
+			errorName, pkgA,
+		)
+	}
+	return fmt.Errorf(
+		"generate: conflicting domain error %q defined in packages %q and %q\n"+
+			"  the same package/name pair has different fields\n"+
+			"  unify the error payload or rename one definition",
+		errorName, pkgA, pkgB,
+	)
 }
 
 // CollectDomainErrorsFromTypeChecker returns ErrorClass entries for every nominal error typedef.

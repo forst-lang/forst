@@ -2,6 +2,7 @@ package transformerts
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -26,10 +27,11 @@ type ErrorField struct {
 
 // ErrorClass is one tagged failure class in generated client error modules.
 type ErrorClass struct {
-	Name    string
-	Tag     string // client _tag value
-	WireTag string // wire protocol lookup key; defaults to Name when empty
-	Fields  []ErrorField
+	Name         string
+	ForstPackage string // Forst package that owns this nominal error
+	Tag          string // client _tag value
+	WireTag      string // wire protocol lookup key; defaults to ForstPackage/Name when empty
+	Fields       []ErrorField
 }
 
 // ErrorCatalog is the single source of truth for invoke transport error classes.
@@ -123,7 +125,10 @@ func clientTagPrefix(npmPackageName string) string {
 	return effectTagPrefix(npmPackageName)
 }
 
-func namespacedClientTag(prefix, shortName string) string {
+func namespacedClientTag(prefix, forstPkg, shortName string) string {
+	if forstPkg != "" {
+		return prefix + "/" + forstPkg + "/" + shortName
+	}
 	return prefix + "/" + shortName
 }
 
@@ -131,21 +136,50 @@ func domainWireTag(c ErrorClass) string {
 	if c.WireTag != "" {
 		return c.WireTag
 	}
+	if c.ForstPackage != "" {
+		return c.ForstPackage + "/" + c.Name
+	}
 	if c.Tag != "" && !strings.HasPrefix(c.Tag, "@") {
 		return c.Tag
 	}
 	return c.Name
 }
 
-func domainErrorsWithClientTags(npmPackageName string, domainErrors []ErrorClass) []ErrorClass {
+func domainErrorsWithClientTags(npmPackageName string, domainErrors []ErrorClass) ([]ErrorClass, error) {
 	prefix := clientTagPrefix(npmPackageName)
 	out := make([]ErrorClass, len(domainErrors))
 	for i, c := range domainErrors {
+		if c.ForstPackage == "" {
+			return nil, fmt.Errorf("domain error %q missing Forst package name", c.Name)
+		}
 		out[i] = c
 		out[i].WireTag = domainWireTag(c)
-		out[i].Tag = namespacedClientTag(prefix, c.Name)
+		out[i].Tag = namespacedClientTag(prefix, c.ForstPackage, c.Name)
 	}
-	return out
+	return out, nil
+}
+
+// PackageDomainErrorsFileStem returns the dist/pkg module stem for one package's domain errors.
+func PackageDomainErrorsFileStem(forpstPkg string) string {
+	return forpstPkg + ".errors"
+}
+
+// StampDomainErrorPackages sets ForstPackage on every domain error in out.
+func StampDomainErrorPackages(out *TypeScriptOutput) error {
+	if out == nil || len(out.DomainErrors) == 0 {
+		return nil
+	}
+	pkg := out.PackageName
+	if pkg == "" {
+		pkg = out.SourceFileStem
+	}
+	if pkg == "" {
+		return fmt.Errorf("domain errors require a Forst package name")
+	}
+	for i := range out.DomainErrors {
+		out.DomainErrors[i].ForstPackage = pkg
+	}
+	return nil
 }
 
 // ErrorClassNames returns every invoke failure class name from ErrorCatalog in catalog order.
@@ -189,11 +223,21 @@ func ValidateDomainErrors(domainErrors []ErrorClass) error {
 }
 
 // RootReexportedDomainErrorNames returns domain error classes re-exported from dist/index.*
+// Only bare names unique across Forst packages are re-exported from the package root.
 func RootReexportedDomainErrorNames(domainErrors []ErrorClass) []string {
-	domainErrors = MergeDomainErrors(domainErrors)
-	names := make([]string, 0, len(domainErrors)+1)
-	for _, c := range domainErrors {
-		names = append(names, c.Name)
+	merged, err := MergeDomainErrors(domainErrors)
+	if err != nil {
+		return []string{UnknownFailureClass.Name}
+	}
+	counts := make(map[string]int, len(merged))
+	for _, c := range merged {
+		counts[c.Name]++
+	}
+	names := make([]string, 0, len(merged)+1)
+	for _, c := range merged {
+		if counts[c.Name] == 1 {
+			names = append(names, c.Name)
+		}
 	}
 	names = append(names, UnknownFailureClass.Name)
 	return sortDedupeStrings(names)
@@ -317,9 +361,172 @@ func writeErrorsAggregatorReexportsDTS(b *strings.Builder, runtime ClientRuntime
 	fmt.Fprintf(b, "export type { InvokeFailure } from %q;\n", pkg)
 }
 
+type domainErrorImportBinding struct {
+	ClassName  string
+	ImportName string
+	ModulePath string
+	WireTag    string
+}
+
+func domainErrorsGroupedByPackage(domainErrors []ErrorClass) map[string][]ErrorClass {
+	byPkg := make(map[string][]ErrorClass)
+	for _, c := range domainErrors {
+		byPkg[c.ForstPackage] = append(byPkg[c.ForstPackage], c)
+	}
+	return byPkg
+}
+
+func domainErrorImportBindings(domainErrors []ErrorClass, modulePathFor func(forpstPkg string) string) []domainErrorImportBinding {
+	nameCounts := make(map[string]int, len(domainErrors))
+	for _, c := range domainErrors {
+		nameCounts[c.Name]++
+	}
+	out := make([]domainErrorImportBinding, 0, len(domainErrors))
+	for _, c := range domainErrors {
+		importName := c.Name
+		if nameCounts[c.Name] > 1 {
+			importName = ServiceClassName(c.ForstPackage) + c.Name
+		}
+		out = append(out, domainErrorImportBinding{
+			ClassName:  c.Name,
+			ImportName: importName,
+			ModulePath: modulePathFor(c.ForstPackage),
+			WireTag:    domainWireTag(c),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].WireTag != out[j].WireTag {
+			return out[i].WireTag < out[j].WireTag
+		}
+		return out[i].ImportName < out[j].ImportName
+	})
+	return out
+}
+
+func writeDomainErrorImports(b *strings.Builder, bindings []domainErrorImportBinding) {
+	byModule := make(map[string][]domainErrorImportBinding)
+	for _, binding := range bindings {
+		byModule[binding.ModulePath] = append(byModule[binding.ModulePath], binding)
+	}
+	modules := make([]string, 0, len(byModule))
+	for module := range byModule {
+		modules = append(modules, module)
+	}
+	sort.Strings(modules)
+	for _, module := range modules {
+		parts := byModule[module]
+		sort.Slice(parts, func(i, j int) bool {
+			return parts[i].ImportName < parts[j].ImportName
+		})
+		specs := make([]string, 0, len(parts))
+		for _, binding := range parts {
+			if binding.ImportName == binding.ClassName {
+				specs = append(specs, binding.ClassName)
+			} else {
+				specs = append(specs, binding.ClassName+" as "+binding.ImportName)
+			}
+		}
+		fmt.Fprintf(b, "import { %s } from %q;\n", strings.Join(specs, ", "), module)
+	}
+}
+
+func writeDomainErrorReexports(b *strings.Builder, bindings []domainErrorImportBinding) {
+	if len(bindings) == 0 {
+		return
+	}
+	b.WriteString("export {\n")
+	for _, binding := range bindings {
+		if binding.ImportName == binding.ClassName {
+			fmt.Fprintf(b, "  %s,\n", binding.ClassName)
+		} else {
+			fmt.Fprintf(b, "  %s as %s,\n", binding.ImportName, binding.ClassName)
+		}
+	}
+	b.WriteString("};\n\n")
+}
+
+func emitDomainErrorClasses(b *strings.Builder, domainErrors []ErrorClass, runtime ClientRuntime) {
+	if len(domainErrors) == 0 {
+		return
+	}
+	if runtime == RuntimeEffect {
+		writeEffectImport(b)
+		for _, c := range domainErrors {
+			emitEffectErrorClassESM(b, c)
+		}
+		return
+	}
+	writeTaggedHelperJS(b)
+	for _, c := range domainErrors {
+		emitErrorClassESM(b, c)
+	}
+}
+
+func emitDomainErrorClassDeclarations(b *strings.Builder, domainErrors []ErrorClass, runtime ClientRuntime) {
+	for _, c := range domainErrors {
+		if runtime == RuntimeEffect {
+			emitEffectErrorClassDTS(b, c)
+		} else {
+			emitErrorClassDTS(b, c)
+		}
+	}
+}
+
+// EmitPackageDomainErrorsESM returns dist/pkg/<pkg>.errors.js for one Forst package.
+func EmitPackageDomainErrorsESM(npmPackageName, forstPkg string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
+	tagged, err := domainErrorsWithClientTags(npmPackageName, domainErrors)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString(`// Auto-generated Forst domain errors for package ` + forstPkg + `.
+// Generated by Forst TypeScript Transformer.
+// Do not edit by hand.
+
+`)
+	emitDomainErrorClasses(&b, tagged, runtime)
+	return b.String(), nil
+}
+
+// EmitPackageDomainErrorsDTS returns dist/pkg/<pkg>.errors.d.ts for one Forst package.
+func EmitPackageDomainErrorsDTS(npmPackageName, forstPkg string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
+	tagged, err := domainErrorsWithClientTags(npmPackageName, domainErrors)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString(`// Auto-generated Forst domain errors for package ` + forstPkg + `.
+// Generated by Forst TypeScript Transformer.
+// Do not edit by hand.
+
+`)
+	if runtime == RuntimeEffect {
+		writeEffectImport(&b)
+	} else {
+		b.WriteString(`export type TaggedError<
+  Tag extends string,
+  A extends Record<string, unknown> = {}
+> = Error & { readonly _tag: Tag } & Readonly<A>;
+
+`)
+	}
+	emitDomainErrorClassDeclarations(&b, tagged, runtime)
+	return b.String(), nil
+}
+
 // EmitErrorsESM returns dist/errors.js (domain errors + shared re-exports).
-func EmitErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
-	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
+func EmitErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
+	merged, err := MergeDomainErrors(domainErrors)
+	if err != nil {
+		return "", err
+	}
+	tagged, err := domainErrorsWithClientTags(npmPackageName, merged)
+	if err != nil {
+		return "", err
+	}
+	bindings := domainErrorImportBindings(tagged, func(forpstPkg string) string {
+		return "./pkg/" + PackageDomainErrorsFileStem(forpstPkg) + ".js"
+	})
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst client errors (domain + shared re-exports).
 // Generated by Forst TypeScript Transformer.
@@ -327,34 +534,24 @@ func EmitErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime Cli
 
 `)
 	writeSharedErrorsImport(&b, runtime)
-	if runtime == RuntimeEffect {
-		if len(domainErrors) > 0 {
-			writeEffectImport(&b)
-			for _, c := range domainErrors {
-				emitEffectErrorClassESM(&b, c)
-			}
-		}
-	} else if len(domainErrors) > 0 {
-		writeTaggedHelperJS(&b)
-		for _, c := range domainErrors {
-			emitErrorClassESM(&b, c)
-		}
+	if len(bindings) > 0 {
+		b.WriteString("\n")
+		writeDomainErrorImports(&b, bindings)
+		b.WriteString("\n")
 	}
+	emitDomainRegistryJSWithBindings(&b, bindings)
 	b.WriteString("\n")
-	emitDomainRegistryJS(&b, domainErrors)
-	b.WriteString("\n")
+	if len(bindings) > 0 {
+		writeDomainErrorReexports(&b, bindings)
+	}
 	writeErrorsAggregatorReexports(&b, runtime)
-	return b.String()
+	return b.String(), nil
 }
 
-func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
+func emitDomainRegistryJSWithBindings(b *strings.Builder, bindings []domainErrorImportBinding) {
 	b.WriteString("export const DOMAIN_ERROR_REGISTRY = {\n")
-	for _, c := range domainErrors {
-		wireTag := c.WireTag
-		if wireTag == "" {
-			wireTag = c.Name
-		}
-		fmt.Fprintf(b, "  %q: %s,\n", wireTag, c.Name)
+	for _, binding := range bindings {
+		fmt.Fprintf(b, "  %q: %s,\n", binding.WireTag, binding.ImportName)
 	}
 	b.WriteString("};\n\n")
 	b.WriteString(`export const decodeDomainError = (errorValue, ctx = {}) => {
@@ -378,39 +575,47 @@ func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
 `)
 }
 
+func emitDomainRegistryJS(b *strings.Builder, domainErrors []ErrorClass) {
+	bindings := make([]domainErrorImportBinding, 0, len(domainErrors))
+	for _, c := range domainErrors {
+		bindings = append(bindings, domainErrorImportBinding{
+			ClassName:  c.Name,
+			ImportName: c.Name,
+			WireTag:      domainWireTag(c),
+		})
+	}
+	emitDomainRegistryJSWithBindings(b, bindings)
+}
+
 // EmitErrorsDTS returns dist/errors.d.ts.
-func EmitErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
-	domainErrors = domainErrorsWithClientTags(npmPackageName, MergeDomainErrors(domainErrors))
+func EmitErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
+	merged, err := MergeDomainErrors(domainErrors)
+	if err != nil {
+		return "", err
+	}
+	tagged, err := domainErrorsWithClientTags(npmPackageName, merged)
+	if err != nil {
+		return "", err
+	}
+	bindings := domainErrorImportBindings(tagged, func(forpstPkg string) string {
+		return "./pkg/" + PackageDomainErrorsFileStem(forpstPkg) + ".js"
+	})
 	var b strings.Builder
 	b.WriteString(`// Auto-generated Forst client errors (domain + shared re-exports).
 // Generated by Forst TypeScript Transformer.
 // Do not edit by hand.
 
 `)
-	fmt.Fprintf(&b, "import type { ForstUnknownFailure } from %q;\n\n", errorsPackageImport(runtime))
-	if runtime == RuntimeEffect {
-		if len(domainErrors) > 0 {
-			writeEffectImport(&b)
-		}
-	} else {
-		b.WriteString(`export type TaggedError<
-  Tag extends string,
-  A extends Record<string, unknown> = {}
-> = Error & { readonly _tag: Tag } & Readonly<A>;
-
-`)
+	fmt.Fprintf(&b, "import type { ForstUnknownFailure } from %q;\n", errorsPackageImport(runtime))
+	if len(bindings) > 0 {
+		b.WriteString("\n")
+		writeDomainErrorImports(&b, bindings)
+		b.WriteString("\n")
 	}
-	for _, c := range domainErrors {
-		if runtime == RuntimeEffect {
-			emitEffectErrorClassDTS(&b, c)
-		} else {
-			emitErrorClassDTS(&b, c)
-		}
-	}
-	if len(domainErrors) > 0 {
+	if len(bindings) > 0 {
 		b.WriteString("export type ForstError =\n")
-		for _, c := range domainErrors {
-			fmt.Fprintf(&b, "  | %s\n", c.Name)
+		for _, binding := range bindings {
+			fmt.Fprintf(&b, "  | %s\n", binding.ImportName)
 		}
 		fmt.Fprintf(&b, "  | %s\n", UnknownFailureClass.Name)
 		b.WriteString(";\n\n")
@@ -422,17 +627,20 @@ func EmitErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime Cli
 	b.WriteString("  errorValue: { tag?: string; payload?: Record<string, unknown>; message?: string } | undefined,\n")
 	b.WriteString("  ctx?: { packageName?: string; functionName?: string; serverError?: string }\n")
 	b.WriteString("): ForstError;\n\n")
+	if len(bindings) > 0 {
+		writeDomainErrorReexports(&b, bindings)
+	}
 	writeErrorsAggregatorReexportsDTS(&b, runtime)
-	return b.String()
+	return b.String(), nil
 }
 
 // EmitDomainErrorsESM is an alias for EmitErrorsESM.
-func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+func EmitDomainErrorsESM(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
 	return EmitErrorsESM(npmPackageName, domainErrors, runtime)
 }
 
 // EmitDomainErrorsDTS is an alias for EmitErrorsDTS.
-func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) string {
+func EmitDomainErrorsDTS(npmPackageName string, domainErrors []ErrorClass, runtime ClientRuntime) (string, error) {
 	return EmitErrorsDTS(npmPackageName, domainErrors, runtime)
 }
 

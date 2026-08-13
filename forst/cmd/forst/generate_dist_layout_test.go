@@ -90,7 +90,7 @@ func TestGenerate_userModulesEmittedUnderDistPkgAndDistCore(t *testing.T) {
 }
 
 func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestGenerate_packageJSONExportsPointToDistPkg(t *testing.T) {
 }
 
 func TestGenerate_packageJSONDeclaresNodeEnginesFloor(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), nil)
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), nil, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)

@@ -4,7 +4,6 @@
 
 import { ForstUnknownFailure } from "@forst/errors/effect";
 
-
 export const DOMAIN_ERROR_REGISTRY = {
 };
 

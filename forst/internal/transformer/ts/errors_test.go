@@ -8,8 +8,26 @@ import (
 
 const testNpmPackage = "@forst/gen"
 
+func mustEmitErrorsESM(t *testing.T, npm string, domain []ErrorClass, runtime ClientRuntime) string {
+	t.Helper()
+	got, err := EmitErrorsESM(npm, domain, runtime)
+	if err != nil {
+		t.Fatalf("EmitErrorsESM: %v", err)
+	}
+	return got
+}
+
+func mustEmitErrorsDTS(t *testing.T, npm string, domain []ErrorClass, runtime ClientRuntime) string {
+	t.Helper()
+	got, err := EmitErrorsDTS(npm, domain, runtime)
+	if err != nil {
+		t.Fatalf("EmitErrorsDTS: %v", err)
+	}
+	return got
+}
+
 func TestEmitErrorsESM_reExportsInvokeFromSharedPackage(t *testing.T) {
-	got := EmitErrorsESM(testNpmPackage, nil, RuntimePromise)
+	got := mustEmitErrorsESM(t, testNpmPackage, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`from "@forst/errors"`,
 		"InvokeRejected",
@@ -25,7 +43,7 @@ func TestEmitErrorsESM_reExportsInvokeFromSharedPackage(t *testing.T) {
 }
 
 func TestEmitErrorsDTS_reExportsInvokeFailureType(t *testing.T) {
-	got := EmitErrorsDTS(testNpmPackage, nil, RuntimePromise)
+	got := mustEmitErrorsDTS(t, testNpmPackage, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`from "@forst/errors"`,
 		"export type { InvokeFailure }",
@@ -37,64 +55,68 @@ func TestEmitErrorsDTS_reExportsInvokeFailureType(t *testing.T) {
 	}
 }
 
-func TestEmitErrorsESM_effectModeUsesEffectSubpath(t *testing.T) {
-	got := EmitErrorsESM(testNpmPackage, []ErrorClass{{
-		Name: "CellTaken",
-		Tag:  "CellTaken",
+func TestEmitPackageDomainErrorsESM_effectModeUsesPackageScopedTag(t *testing.T) {
+	got, err := EmitPackageDomainErrorsESM(testNpmPackage, "auth", []ErrorClass{{
+		Name:         "CellTaken",
+		ForstPackage: "auth",
 		Fields: []ErrorField{
 			{Name: "row", TSType: "number"},
 			{Name: "col", TSType: "number"},
 		},
 	}}, RuntimeEffect)
+	if err != nil {
+		t.Fatal(err)
+	}
 	assertContainsAll(t, got, []string{
-		`import { ForstUnknownFailure } from "@forst/errors/effect"`,
-		`extends Data.TaggedError("@forst/gen/CellTaken")`,
-		`from "@forst/errors/effect"`,
+		`extends Data.TaggedError("@forst/gen/auth/CellTaken")`,
 	})
 	assertContainsNone(t, got, []string{"const tagged =", "./invoke-errors.js"})
 }
 
-func TestEmitErrorsESM_generatesDomainClassesAndReExports(t *testing.T) {
+func TestEmitErrorsESM_generatesRegistryAndReExports(t *testing.T) {
 	cellTaken := ErrorClass{
-		Name: "CellTaken",
-		Tag:  "CellTaken",
+		Name:         "CellTaken",
+		ForstPackage: "main",
 		Fields: []ErrorField{
 			{Name: "row", TSType: "number"},
 			{Name: "col", TSType: "number"},
 		},
 	}
-	got := EmitErrorsESM(testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
-	if strings.Count(got, "export {") != 1 {
-		t.Fatalf("expected one shared re-export block:\n%s", got)
+	got := mustEmitErrorsESM(t, testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
+	if strings.Count(got, "export {") != 2 {
+		t.Fatalf("expected domain + shared re-export blocks:\n%s", got)
 	}
 	assertContainsAll(t, got, []string{
 		`import { ForstUnknownFailure } from "@forst/errors"`,
-		`extends tagged("@forst/gen/CellTaken")`,
+		`import { CellTaken } from "./pkg/main.errors.js"`,
+		`"main/CellTaken": CellTaken`,
 		"DOMAIN_ERROR_REGISTRY",
 		"decodeDomainError",
-		`ForstUnknownFailure`,
+		"export {\n  CellTaken,\n};",
 		"ForstTestServerFailed",
 		"InvokeRejected",
 	})
 	assertContainsNone(t, got, []string{
 		`extends tagged("ForstUnknownFailure")`,
+		"const tagged =",
 	})
 }
 
 func TestEmitErrorsDTS_exportsForstErrorUnion(t *testing.T) {
 	cellTaken := ErrorClass{
-		Name: "CellTaken",
-		Tag:  "CellTaken",
+		Name:         "CellTaken",
+		ForstPackage: "main",
 		Fields: []ErrorField{
 			{Name: "row", TSType: "number"},
 			{Name: "col", TSType: "number"},
 		},
 	}
-	got := EmitErrorsDTS(testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
+	got := mustEmitErrorsDTS(t, testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		"export type ForstError =",
 		"export declare function decodeDomainError",
 		`from "@forst/errors"`,
+		`import { CellTaken } from "./pkg/main.errors.js"`,
 		`ForstUnknownFailure`,
 	})
 	unionIdx := strings.Index(got, "export type ForstError =")
@@ -131,7 +153,7 @@ func TestValidateDomainErrors_rejectsReservedNames(t *testing.T) {
 		})
 	}
 	t.Run("allows non-reserved names", func(t *testing.T) {
-		if err := ValidateDomainErrors([]ErrorClass{{Name: "CellTaken", Tag: "CellTaken"}}); err != nil {
+		if err := ValidateDomainErrors([]ErrorClass{{Name: "CellTaken", Tag: "CellTaken", ForstPackage: "main"}}); err != nil {
 			t.Fatalf("CellTaken should be allowed: %v", err)
 		}
 	})
@@ -147,7 +169,7 @@ func TestEmitHarnessErrorESM_reExportsFromSharedPackage(t *testing.T) {
 }
 
 func TestEmitErrorsESM_emptyDomainSingleReExportBlock(t *testing.T) {
-	got := EmitErrorsESM(testNpmPackage, nil, RuntimePromise)
+	got := mustEmitErrorsESM(t, testNpmPackage, nil, RuntimePromise)
 	if strings.Count(got, "export {") != 1 {
 		t.Fatalf("export blocks = %d, want 1:\n%s", strings.Count(got, "export {"), got)
 	}

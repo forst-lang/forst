@@ -143,10 +143,11 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 
 func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m := sampleAuthModule()
+	m.DomainErrors = []ErrorClass{{Name: "CellTaken", ForstPackage: "auth"}}
 	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
-		`import type { CellTaken, ForstUnknownFailure } from "../errors.js"`,
+		`import type { CellTaken, ForstUnknownFailure } from "../pkg/auth.errors.js"`,
 		`import type { InvokeFailure } from "../errors.js"`,
 		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
 		"/** @throws {VerifyTokenFailure} */",

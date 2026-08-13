@@ -110,6 +110,10 @@ func (t *Transformer) emitNominalErrorErrorMethod(typeName ast.TypeIdent) {
 // emitNominalErrorForstErrorTagMethod emits `func (e T) ForstErrorTag() string` for wire encoding.
 func (t *Transformer) emitNominalErrorForstErrorTagMethod(typeName ast.TypeIdent) {
 	name := string(typeName)
+	tag := name
+	if pkg := t.Output.PackageName(); pkg != "" {
+		tag = pkg + "/" + name
+	}
 	fn := &goast.FuncDecl{
 		Recv: &goast.FieldList{List: []*goast.Field{{
 			Names: []*goast.Ident{goast.NewIdent("e")},
@@ -120,7 +124,7 @@ func (t *Transformer) emitNominalErrorForstErrorTagMethod(typeName ast.TypeIdent
 			Results: &goast.FieldList{List: []*goast.Field{{Type: goast.NewIdent("string")}}},
 		},
 		Body: &goast.BlockStmt{List: []goast.Stmt{
-			&goast.ReturnStmt{Results: []goast.Expr{goQuotedStringLit(name)}},
+			&goast.ReturnStmt{Results: []goast.Expr{goQuotedStringLit(tag)}},
 		}},
 	}
 	t.Output.AddFunction(fn)

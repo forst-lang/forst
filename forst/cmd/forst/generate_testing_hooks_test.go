@@ -13,7 +13,7 @@ import (
 )
 
 func TestGenerate_testingSubpathInExportsMap(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func TestGenerate_testingSubpathInExportsMap(t *testing.T) {
 func TestGenerate_testingSubpathHonoursConfig(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
 	cfg.TestingSubpath = "test-double"
-	j := generateClientPackageJSON(cfg, []string{"main"})
+	j := generateClientPackageJSON(cfg, []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)

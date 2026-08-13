@@ -157,7 +157,7 @@ func TestGenerateClientPackage_noImportEscapesOutDir(t *testing.T) {
 }
 
 func TestGenerateClientPackageJSON_hasErrorsDependency(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatalf("package.json not valid JSON: %v\n%s", err, j)
@@ -196,7 +196,7 @@ func TestGenerateClientPackageJSON_hasErrorsDependency(t *testing.T) {
 
 func TestGenerateClientPackageJSON_usesConfigPackageName(t *testing.T) {
 	cfg := ftconfig.GenerateConfig{PackageName: "@acme/api-client"}
-	j := generateClientPackageJSON(cfg, nil)
+	j := generateClientPackageJSON(cfg, nil, nil)
 	if !strings.Contains(j, `"name": "@acme/api-client"`) {
 		t.Fatalf("expected configured package name, got:\n%s", j)
 	}

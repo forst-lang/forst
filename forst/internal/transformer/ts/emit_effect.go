@@ -224,8 +224,22 @@ func writeFailureTypeImports(b *strings.Builder, functions []FunctionSignature, 
 		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(domain, ", "), errorsModule)
 	}
 	if len(invoke) > 0 {
-		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(invoke, ", "), errorsModule)
+		fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(invoke, ", "), "../errors.js")
 	}
+}
+
+func domainErrorsModuleForCore(m ModuleEmit) string {
+	if len(m.DomainErrors) == 0 {
+		return "../errors.js"
+	}
+	return "../pkg/" + PackageDomainErrorsFileStem(m.PackageName) + ".js"
+}
+
+func domainErrorsModuleForPkg(m ModuleEmit) string {
+	if len(m.DomainErrors) == 0 {
+		return "../errors.js"
+	}
+	return "./" + PackageDomainErrorsFileStem(m.PackageName) + ".js"
 }
 
 func writeErrorsTypeImport(b *strings.Builder, functions []FunctionSignature, module string) {
@@ -289,7 +303,7 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	b.WriteString(`import { Context, Effect, Layer } from "effect";` + "\n")
 	b.WriteString(`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js";` + "\n")
 	b.WriteString(`import { ForstTransport } from "../effect.js";` + "\n")
-writeFailureTypeImports(&b, m.Functions, "../errors.js")
+writeFailureTypeImports(&b, m.Functions, domainErrorsModuleForPkg(m))
 	typeNames := append([]string(nil), typeImports...)
 	if functionsNeedStreamingResult(m.Functions) {
 		typeNames = append(typeNames, "StreamingResult")

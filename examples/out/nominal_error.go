@@ -18,7 +18,7 @@ func (e NotPositive) Error() string {
 	return "error"
 }
 func (e NotPositive) ForstErrorTag() string {
-	return "NotPositive"
+	return "main/NotPositive"
 }
 func Test() error {
 	n := 0

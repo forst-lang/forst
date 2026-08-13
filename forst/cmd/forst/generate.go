@@ -329,10 +329,14 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	}
 
 	activePackages := make(map[string]struct{}, len(clientOutputs))
+	activePackageErrors := make(map[string]struct{}, len(clientOutputs))
 	for _, out := range clientOutputs {
 		activePackages[out.PackageName] = struct{}{}
+		if len(out.DomainErrors) > 0 {
+			activePackageErrors[out.PackageName] = struct{}{}
+		}
 	}
-	if err := pruneStaleClientModulesHook(distDir, activePackages, genCfg.TestingSubpath, log); err != nil {
+	if err := pruneStaleClientModulesHook(distDir, activePackages, activePackageErrors, genCfg.TestingSubpath, log); err != nil {
 		return fmt.Errorf("prune stale client modules: %w", err)
 	}
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestGenerateClientPackageJSON_hasExportsMap(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt", "auth"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt", "auth"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatalf("package.json not valid JSON: %v\n%s", err, j)
@@ -33,7 +33,7 @@ func TestGenerateClientPackageJSON_hasExportsMap(t *testing.T) {
 }
 
 func TestGenerateClientPackageJSON_exportEntriesHaveTypesAndDefaultOnly(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -63,14 +63,14 @@ func TestGenerateClientPackageJSON_exportEntriesHaveTypesAndDefaultOnly(t *testi
 }
 
 func TestGenerateClientPackageJSON_hasNoTypesVersionsMap(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt"}, nil)
 	if strings.Contains(j, "typesVersions") {
 		t.Fatalf("package.json must omit typesVersions:\n%s", j)
 	}
 }
 
 func TestGenerateClientPackageJSON_sideEffectsFalse(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestGenerateClientPackageJSON_sideEffectsFalse(t *testing.T) {
 }
 
 func TestGenerateClientPackageJSON_hasNoPublicTypesSubpath(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"types", "main"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"types", "main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestGenerateClientPackageJSON_hasNoPublicTypesSubpath(t *testing.T) {
 }
 
 func TestGenerateClientPackageJSON_doesNotExportCoreDirectory(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt", "core"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"bcrypt", "core"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)

@@ -171,7 +171,7 @@ func TestGenerate_effectMode_omitsRetriesOption(t *testing.T) {
 func TestGenerate_effectMode_packageJSONHasEffectPeerDependency(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
 	cfg.Effect = true
-	j := generateClientPackageJSON(cfg, []string{"main"})
+	j := generateClientPackageJSON(cfg, []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -191,7 +191,7 @@ func TestGenerate_effectMode_packageJSONHasEffectPeerDependency(t *testing.T) {
 func TestGenerate_effectMode_packageJSONHasErrorsDependency(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
 	cfg.Effect = true
-	j := generateClientPackageJSON(cfg, []string{"main"})
+	j := generateClientPackageJSON(cfg, []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -206,7 +206,7 @@ func TestGenerate_effectMode_packageJSONHasErrorsDependency(t *testing.T) {
 }
 
 func TestGenerate_promiseMode_packageJSONHasOptionalCliPeerOnly(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
@@ -660,6 +660,65 @@ func mustRead(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func writeTwoPackageDomainErrorsProject(t *testing.T, dir string) {
+	t.Helper()
+	for _, spec := range []struct {
+		pkg   string
+		field string
+	}{
+		{pkg: "alpha", field: "message"},
+		{pkg: "beta", field: "code"},
+	} {
+		pkgDir := filepath.Join(dir, spec.pkg)
+		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		src := "package " + spec.pkg + "\n\nerror NotFound {\n\t" + spec.field + ": String\n}\n\nfunc Fail() {\n\treturn NotFound{" + spec.field + `: "x"}` + "\n}\n"
+		if err := os.WriteFile(filepath.Join(pkgDir, spec.pkg+".ft"), []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
+	dir := t.TempDir()
+	linkErrorsPackage(t, dir)
+	writeTwoPackageDomainErrorsProject(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"generate":{"link":"never"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	dist := defaultClientDistDir(dir)
+	errorsJS := mustRead(t, filepath.Join(dist, "errors.js"))
+	for _, frag := range []string{
+		`"alpha/NotFound": AlphaNotFound`,
+		`"beta/NotFound": BetaNotFound`,
+		`NotFound as AlphaNotFound`,
+		`NotFound as BetaNotFound`,
+		`from "./pkg/alpha.errors.js"`,
+		`from "./pkg/beta.errors.js"`,
+	} {
+		if !strings.Contains(errorsJS, frag) {
+			t.Fatalf("missing %q in errors.js:\n%s", frag, errorsJS)
+		}
+	}
+	alphaErrors := mustRead(t, filepath.Join(dist, "pkg", "alpha.errors.js"))
+	if !strings.Contains(alphaErrors, `extends tagged("@forst/gen/alpha/NotFound")`) {
+		t.Fatalf("alpha package error tag missing:\n%s", alphaErrors)
+	}
+	pkgJSON, err := os.ReadFile(filepath.Join(dir, ".forst", "client", "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, subpath := range []string{`"./alpha/errors"`, `"./beta/errors"`} {
+		if !strings.Contains(string(pkgJSON), subpath) {
+			t.Fatalf("package.json missing export %s:\n%s", subpath, pkgJSON)
+		}
+	}
 }
 
 func keysOf(m map[string]struct{}) []string {

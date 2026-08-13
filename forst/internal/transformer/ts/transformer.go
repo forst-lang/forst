@@ -111,6 +111,10 @@ func (t *TypeScriptTransformer) TransformForstFileToTypeScript(nodes []ast.Node,
 	// Generate the new client structure
 	t.generateClientStructure()
 
+	if err := StampDomainErrorPackages(t.Output); err != nil {
+		return nil, err
+	}
+
 	t.log.WithFields(logrus.Fields{
 		"function": "TransformForstFileToTypeScript",
 		"types":    len(t.Output.Types),

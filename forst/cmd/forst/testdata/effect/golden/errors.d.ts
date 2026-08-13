@@ -3,7 +3,6 @@
 // Do not edit by hand.
 
 import type { ForstUnknownFailure } from "@forst/errors/effect";
-
 export type ForstError = ForstUnknownFailure;
 
 export declare const DOMAIN_ERROR_REGISTRY: Record<string, new (props: Record<string, unknown>) => Error>;

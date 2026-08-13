@@ -122,13 +122,17 @@ func MergeTypeScriptOutputs(outputs []*TypeScriptOutput) (*TypeScriptOutput, err
 		}
 		domainParts = append(domainParts, o.DomainErrors)
 	}
+	mergedDomainErrors, err := MergeDomainErrors(domainParts...)
+	if err != nil {
+		return nil, err
+	}
 
 	return &TypeScriptOutput{
 		PackageName:       pkg,
 		Types:             mergedTypes,
 		ExportedTypeNames: mergedExports,
 		Functions:         mergedFuncs,
-		DomainErrors:      MergeDomainErrors(domainParts...),
+		DomainErrors:      mergedDomainErrors,
 	}, nil
 }
 

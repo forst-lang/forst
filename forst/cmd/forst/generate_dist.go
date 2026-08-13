@@ -61,14 +61,21 @@ func writeGeneratedDistModules(
 	log.WithFields(logrus.Fields{"path": typesPath}).Debug("Generated types declaration file")
 
 	errorsJSPath := filepath.Join(distDir, "errors.js")
-	errorsJS := transformerts.EmitErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
+	errorsJS, err := transformerts.EmitErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
+	if err != nil {
+		return fmt.Errorf("failed to emit errors.js: %w", err)
+	}
 	if err := writeGeneratedFile(errorsJSPath, []byte(errorsJS), stats); err != nil {
 		return fmt.Errorf("failed to write errors.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": errorsJSPath}).Debug("Generated errors module")
 
 	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
-	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)), stats); err != nil {
+	errorsDTS, err := transformerts.EmitErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)
+	if err != nil {
+		return fmt.Errorf("failed to emit errors.d.ts: %w", err)
+	}
+	if err := writeGeneratedFile(errorsDTSPath, []byte(errorsDTS), stats); err != nil {
 		return fmt.Errorf("failed to write errors.d.ts: %w", err)
 	}
 
@@ -99,6 +106,29 @@ func writeGeneratedDistModules(
 	for _, out := range clientOutputs {
 		pkg := out.PackageName
 		activePackages[pkg] = struct{}{}
+		if len(out.DomainErrors) > 0 {
+			pkgErrorsJS, err := transformerts.EmitPackageDomainErrorsESM(genCfg.PackageName, pkg, out.DomainErrors, runtime)
+			if err != nil {
+				return fmt.Errorf("failed to emit domain errors for package %s: %w", pkg, err)
+			}
+			pkgErrorsJSPath := filepath.Join(pkgDir, transformerts.PackageDomainErrorsFileStem(pkg)+".js")
+			if err := writeGeneratedFile(pkgErrorsJSPath, []byte(pkgErrorsJS), stats); err != nil {
+				return fmt.Errorf("failed to write package domain errors %s: %w", pkgErrorsJSPath, err)
+			}
+			pkgErrorsDTS, err := transformerts.EmitPackageDomainErrorsDTS(genCfg.PackageName, pkg, out.DomainErrors, runtime)
+			if err != nil {
+				return fmt.Errorf("failed to emit domain error declarations for package %s: %w", pkg, err)
+			}
+			pkgErrorsDTSPath := filepath.Join(pkgDir, transformerts.PackageDomainErrorsFileStem(pkg)+".d.ts")
+			if err := writeGeneratedFile(pkgErrorsDTSPath, []byte(pkgErrorsDTS), stats); err != nil {
+				return fmt.Errorf("failed to write package domain error declarations %s: %w", pkgErrorsDTSPath, err)
+			}
+			log.WithFields(logrus.Fields{
+				"forstPackage": pkg,
+				"path":         pkgErrorsJSPath,
+			}).Debug("Generated package domain errors module")
+		}
+
 		mod := transformerts.ModuleEmitFromOutput(out, genCfg.OmitStubs)
 
 		coreJS := filepath.Join(coreDir, pkg+".js")
@@ -188,9 +218,9 @@ func runnableClientOutputs(outputs []*transformerts.TypeScriptOutput) []*transfo
 }
 
 // pruneStaleClientModules removes stale modules under dist/pkg/ and dist/core/.
-func pruneStaleClientModules(distDir string, activePackages map[string]struct{}, testingSubpath string, log *logrus.Logger) error {
+func pruneStaleClientModules(distDir string, activePackages, activePackageErrors map[string]struct{}, testingSubpath string, log *logrus.Logger) error {
 	for _, sub := range []string{"pkg", "core"} {
-		if err := pruneStaleModulesInDir(filepath.Join(distDir, sub), activePackages, log); err != nil {
+		if err := pruneStaleModulesInDir(filepath.Join(distDir, sub), activePackages, activePackageErrors, log); err != nil {
 			return err
 		}
 	}
@@ -224,7 +254,7 @@ func pruneStaleClientModules(distDir string, activePackages map[string]struct{},
 	return nil
 }
 
-func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log *logrus.Logger) error {
+func pruneStaleModulesInDir(dir string, activePackages, activePackageErrors map[string]struct{}, log *logrus.Logger) error {
 	entries, err := generateIO.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -238,7 +268,14 @@ func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log 
 		}
 		name := entry.Name()
 		var pkg string
+		var isDomainErrorsModule bool
 		switch {
+		case strings.HasSuffix(name, ".errors.d.ts"):
+			pkg = strings.TrimSuffix(name, ".errors.d.ts")
+			isDomainErrorsModule = true
+		case strings.HasSuffix(name, ".errors.js"):
+			pkg = strings.TrimSuffix(name, ".errors.js")
+			isDomainErrorsModule = true
 		case strings.HasSuffix(name, ".d.ts"):
 			pkg = strings.TrimSuffix(name, ".d.ts")
 		case strings.HasSuffix(name, ".js"):
@@ -248,7 +285,11 @@ func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log 
 		default:
 			continue
 		}
-		if _, ok := activePackages[pkg]; ok {
+		active := activePackages
+		if isDomainErrorsModule {
+			active = activePackageErrors
+		}
+		if _, ok := active[pkg]; ok {
 			continue
 		}
 		path := filepath.Join(dir, name)
