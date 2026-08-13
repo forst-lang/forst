@@ -80,16 +80,17 @@ func TestEmitPackageDomainErrorsESM_includesDomainErrorClass(t *testing.T) {
 	}
 }
 
-func TestEmitErrorsESM_registryUsesPackageScopedWireTag(t *testing.T) {
-	got, err := EmitErrorsESM(testNpmPackage, []ErrorClass{{
-		Name:         "CellTaken",
+func TestTransportDecode_usesPackageScopedWireTag(t *testing.T) {
+	block := transportDomainErrorDecodeBlock([]PackageDomainErrorEmit{{
 		ForstPackage: "main",
+		Errors: []ErrorClass{{
+			Name:         "CellTaken",
+			ForstPackage: "main",
+			WireTag:      "main/CellTaken",
+		}},
 	}}, RuntimePromise)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !stringsContains(got, `"main/CellTaken": CellTaken`) {
-		t.Fatalf("missing package-scoped registry key:\n%s", got)
+	if !stringsContains(block, `"main/CellTaken": CellTaken`) {
+		t.Fatalf("missing package-scoped registry key:\n%s", block)
 	}
 }
 

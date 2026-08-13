@@ -1,6 +1,8 @@
 package transformerts
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"forst/internal/invokeserver"
@@ -80,7 +82,62 @@ func transportFileHeader(invokePort string, runtime ClientRuntime) string {
 
 func transportErrorsImport(runtime ClientRuntime) string {
 	pkg := errorsPackageImport(runtime)
-	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + pkg + "\";\nimport { decodeDomainError } from \"" + ErrorsModuleSpecifier + "\";\n\n"
+	return "import {\n  " + strings.Join(ErrorClassNames(), ",\n  ") + ",\n} from \"" + pkg + "\";\n\n"
+}
+
+func transportDomainErrorDecodeBlock(domainPackages []PackageDomainErrorEmit, runtime ClientRuntime) string {
+	pkg := errorsPackageImport(runtime)
+	var b strings.Builder
+	fmt.Fprintf(&b, "import { ForstUnknownFailure as %s } from %q;\n", unknownFailureDecodeImport, pkg)
+	for _, emit := range domainPackages {
+		if len(emit.Errors) == 0 {
+			continue
+		}
+		names := make([]string, len(emit.Errors))
+		for i, c := range emit.Errors {
+			names[i] = c.Name
+		}
+		sort.Strings(names)
+		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", strings.Join(names, ", "), PackageDomainErrorsFileStem(emit.ForstPackage))
+	}
+	b.WriteString("\nconst packageDomainErrorRegistries = {\n")
+	for _, emit := range domainPackages {
+		if len(emit.Errors) == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "  %q: {\n", emit.ForstPackage)
+		sorted := append([]ErrorClass(nil), emit.Errors...)
+		sort.Slice(sorted, func(i, j int) bool {
+			return domainWireTag(sorted[i]) < domainWireTag(sorted[j])
+		})
+		for _, c := range sorted {
+			fmt.Fprintf(&b, "    %q: %s,\n", domainWireTag(c), c.Name)
+		}
+		b.WriteString("  },\n")
+	}
+	b.WriteString("};\n\n")
+	b.WriteString(`function decodeWireDomainError(errorValue, ctx = {}) {
+  const registry = ctx?.packageName ? packageDomainErrorRegistries[ctx.packageName] : undefined;
+  const tag = errorValue?.tag;
+  const Ctor = registry && tag ? registry[tag] : undefined;
+  const payload =
+    errorValue?.payload && typeof errorValue.payload === "object"
+      ? errorValue.payload
+      : {};
+  const base = {
+    message: errorValue?.message ?? ctx.serverError ?? tag ?? "ForstUnknownFailure",
+    serverError: ctx.serverError,
+    packageName: ctx.packageName,
+    functionName: ctx.functionName,
+  };
+  if (!Ctor) {
+    return new ` + unknownFailureDecodeImport + `({ ...base, tag });
+  }
+  return new Ctor({ ...payload, ...base });
+};
+
+`)
+	return b.String()
 }
 
 func transportNodeImports() string {
@@ -93,10 +150,11 @@ import * as http from "node:http";
 }
 
 // EmitTransportESM returns dist/transport.js (connect-only HTTP invoke + NDJSON stream).
-func EmitTransportESM(invokePort string, runtime ClientRuntime) string {
+func EmitTransportESM(invokePort string, runtime ClientRuntime, domainPackages []PackageDomainErrorEmit) string {
 	return substituteTransportPlaceholders(
 		transportFileHeader(invokePort, runtime)+
 			transportErrorsImport(runtime)+
+			transportDomainErrorDecodeBlock(domainPackages, runtime)+
 			transportNodeImports()+
 			transportRuntimeESM,
 		invokePort,
@@ -122,11 +180,12 @@ func EmitTransportDTS() string {
 // invokePort is the default listen port embedded in the fallback base URL
 // (http://127.0.0.1:<port>). Pass cfg.Server.EffectiveInvokePort() from generate.
 // An empty invokePort uses DefaultInvokePort.
-func EmitTransportTypeScript(invokePort string, runtime ClientRuntime) string {
+func EmitTransportTypeScript(invokePort string, runtime ClientRuntime, domainPackages []PackageDomainErrorEmit) string {
 	return "// @ts-nocheck\n" +
 		substituteTransportPlaceholders(
 			transportFileHeader(invokePort, runtime)+
 				transportErrorsImport(runtime)+
+				transportDomainErrorDecodeBlock(domainPackages, runtime)+
 				transportNodeImports()+
 				transportTypeDeclarationsTS+"\n"+
 				transportRuntimeESM,
@@ -337,7 +396,7 @@ export declare function setActiveTestTransportResolver(
 // transportRuntimeESM is the shared connect-only HTTP + NDJSON implementation.
 // Used by EmitTransportESM and EmitTransportTypeScript (valid as both .js and .ts).
 // Placeholders: {{INVOKE_PORT}}
-// Throws tagged failures from ./errors.js. Never bare Error for invoke failures.
+// Throws tagged failures from @forst/errors. Domain wire errors decode via decodeWireDomainError.
 const transportRuntimeESM = `const defaultInvokeBaseUrl = "http://127.0.0.1:{{INVOKE_PORT}}";
 const EXPECTED_CONTRACT_VERSION = "{{CONTRACT_VERSION}}";
 
@@ -927,7 +986,7 @@ class HttpInvokeClient {
     }
     if (!envelope.success) {
       if (envelope.errorValue) {
-        throw decodeDomainError(envelope.errorValue, {
+        throw decodeWireDomainError(envelope.errorValue, {
           packageName,
           functionName,
           serverError: envelope.error,

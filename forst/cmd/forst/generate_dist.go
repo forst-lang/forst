@@ -79,8 +79,13 @@ func writeGeneratedDistModules(
 		return fmt.Errorf("failed to write errors.d.ts: %w", err)
 	}
 
+	domainPackages, err := transformerts.BuildPackageDomainErrorEmits(genCfg.PackageName, clientOutputs)
+	if err != nil {
+		return fmt.Errorf("failed to build domain error decode metadata: %w", err)
+	}
+
 	transportJSPath := filepath.Join(distDir, "transport.js")
-	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort, runtime)), stats); err != nil {
+	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort, runtime, domainPackages)), stats); err != nil {
 		return fmt.Errorf("failed to write transport.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": transportJSPath}).Debug("Generated transport module")

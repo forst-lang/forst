@@ -352,9 +352,6 @@ func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRu
 	if runtime != RuntimeEffect {
 		b.WriteString("  TaggedError,\n")
 	}
-	if len(domainErrors) > 0 {
-		b.WriteString("  ForstError,\n")
-	}
 	b.WriteString(`} from "./errors.js";` + "\n")
 	b.WriteString("export {\n")
 	for _, name := range RootReexportedDomainErrorNames(merged) {

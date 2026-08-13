@@ -119,7 +119,7 @@ func TestGenerate_transportEmitsMiddlewareTypes(t *testing.T) {
 }
 
 func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
-	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise)
+	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise, nil)
 	for _, frag := range []string{
 		"packageName",
 		"functionName",

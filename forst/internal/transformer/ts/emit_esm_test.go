@@ -269,8 +269,8 @@ func TestEmitIndexDTS_reexportsDomainErrors(t *testing.T) {
 	assertContainsAll(t, got, []string{
 		"CellTaken",
 		"ForstUnknownFailure",
-		"ForstError",
 	})
+	assertContainsNone(t, got, []string{"ForstError"})
 }
 
 func TestEmitIndexDTS_golden(t *testing.T) {
@@ -302,7 +302,7 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 }
 
 func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
-	got := EmitTransportESM("6321", RuntimePromise)
+	got := EmitTransportESM("6321", RuntimePromise, nil)
 	assertContainsAll(t, got, []string{
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
@@ -340,8 +340,8 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 }
 
 func TestEmitTransportESM_sharesRuntimeWithEmitTransportTypeScript(t *testing.T) {
-	js := EmitTransportESM("6321", RuntimePromise)
-	ts := EmitTransportTypeScript("6321", RuntimePromise)
+	js := EmitTransportESM("6321", RuntimePromise, nil)
+	ts := EmitTransportTypeScript("6321", RuntimePromise, nil)
 	for _, frag := range []string{
 		"async invokeFunction(packageName, functionName, args = [], options)",
 		"async *invokeStream(packageName, functionName, args = [], options)",

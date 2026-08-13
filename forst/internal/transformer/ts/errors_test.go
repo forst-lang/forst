@@ -39,6 +39,9 @@ func TestEmitErrorsESM_reExportsInvokeFromSharedPackage(t *testing.T) {
 		"const tagged =",
 		`from "./invoke-errors.js"`,
 		"export class InvokeRejected",
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
+		`from "./pkg/`,
 	})
 }
 
@@ -47,6 +50,10 @@ func TestEmitErrorsDTS_reExportsInvokeFailureType(t *testing.T) {
 	assertContainsAll(t, got, []string{
 		`from "@forst/errors"`,
 		"export type { InvokeFailure }",
+	})
+	assertContainsNone(t, got, []string{
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
 	})
 	for _, name := range ErrorClassNames() {
 		if !strings.Contains(got, name) {
@@ -70,72 +77,65 @@ func TestEmitPackageDomainErrorsESM_effectModeUsesPackageScopedTag(t *testing.T)
 	assertContainsAll(t, got, []string{
 		`extends Data.TaggedError("@forst/gen/auth/CellTaken")`,
 	})
-	assertContainsNone(t, got, []string{"const tagged =", "./invoke-errors.js"})
-}
-
-func TestEmitErrorsESM_generatesRegistryAndReExports(t *testing.T) {
-	cellTaken := ErrorClass{
-		Name:         "CellTaken",
-		ForstPackage: "main",
-		Fields: []ErrorField{
-			{Name: "row", TSType: "number"},
-			{Name: "col", TSType: "number"},
-		},
-	}
-	got := mustEmitErrorsESM(t, testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
-	if strings.Count(got, "export {") != 2 {
-		t.Fatalf("expected domain + shared re-export blocks:\n%s", got)
-	}
-	assertContainsAll(t, got, []string{
-		`import { ForstUnknownFailure } from "@forst/errors"`,
-		`import { CellTaken } from "./pkg/main.errors.js"`,
-		`"main/CellTaken": CellTaken`,
+	assertContainsNone(t, got, []string{
+		"const tagged =",
+		"./invoke-errors.js",
 		"DOMAIN_ERROR_REGISTRY",
 		"decodeDomainError",
-		"export {\n  CellTaken,\n};",
-		"ForstTestServerFailed",
-		"InvokeRejected",
-	})
-	assertContainsNone(t, got, []string{
-		`extends tagged("ForstUnknownFailure")`,
-		"const tagged =",
 	})
 }
 
-func TestEmitErrorsDTS_exportsForstErrorUnion(t *testing.T) {
+func TestEmitPackageDomainErrorsESM_classesOnly(t *testing.T) {
+	got, err := EmitPackageDomainErrorsESM(testNpmPackage, "main", []ErrorClass{{
+		Name:         "CellTaken",
+		ForstPackage: "main",
+		Fields:       []ErrorField{{Name: "row", TSType: "number"}},
+	}}, RuntimePromise)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertContainsAll(t, got, []string{
+		"export class CellTaken",
+		`extends tagged("@forst/gen/main/CellTaken")`,
+	})
+	assertContainsNone(t, got, []string{
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
+	})
+}
+
+func TestEmitErrorsESM_ignoresDomainErrors(t *testing.T) {
 	cellTaken := ErrorClass{
 		Name:         "CellTaken",
 		ForstPackage: "main",
-		Fields: []ErrorField{
-			{Name: "row", TSType: "number"},
-			{Name: "col", TSType: "number"},
-		},
 	}
-	got := mustEmitErrorsDTS(t, testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
-	assertContainsAll(t, got, []string{
-		"export type ForstError =",
-		"export declare function decodeDomainError",
-		`from "@forst/errors"`,
-		`import { CellTaken } from "./pkg/main.errors.js"`,
-		`ForstUnknownFailure`,
-	})
-	unionIdx := strings.Index(got, "export type ForstError =")
-	if unionIdx < 0 {
-		t.Fatal("missing ForstError type")
-	}
-	rest := got[unionIdx:]
-	end := strings.Index(rest, ";\n\n")
-	if end < 0 {
-		t.Fatalf("malformed ForstError type:\n%s", rest)
-	}
-	forstErrorDecl := rest[:end+1]
-	for _, frag := range []string{"| CellTaken", "| ForstUnknownFailure"} {
-		if !strings.Contains(forstErrorDecl, frag) {
-			t.Fatalf("ForstError union missing %q:\n%s", frag, forstErrorDecl)
-		}
+	got := mustEmitErrorsESM(t, testNpmPackage, []ErrorClass{cellTaken}, RuntimePromise)
+	if strings.Count(got, "export {") != 1 {
+		t.Fatalf("expected single re-export block:\n%s", got)
 	}
 	assertContainsNone(t, got, []string{
-		"export declare class ForstUnknownFailure",
+		"CellTaken",
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
+		`from "./pkg/`,
+	})
+}
+
+func TestEmitTransportDomainErrorDecode_includesPackageRegistry(t *testing.T) {
+	block := transportDomainErrorDecodeBlock([]PackageDomainErrorEmit{{
+		ForstPackage: "main",
+		Errors: []ErrorClass{{
+			Name:         "CellTaken",
+			ForstPackage: "main",
+			WireTag:      "main/CellTaken",
+		}},
+	}}, RuntimePromise)
+	assertContainsAll(t, block, []string{
+		`import { CellTaken } from "./pkg/main.errors.js"`,
+		`"main/CellTaken": CellTaken`,
+		"packageDomainErrorRegistries",
+		"decodeWireDomainError",
+		"UnknownFailureCtor",
 	})
 }
 

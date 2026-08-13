@@ -693,17 +693,27 @@ func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	dist := defaultClientDistDir(dir)
-	errorsJS := mustRead(t, filepath.Join(dist, "errors.js"))
+	transportJS := mustRead(t, filepath.Join(dist, "transport.js"))
 	for _, frag := range []string{
-		`"alpha/NotFound": AlphaNotFound`,
-		`"beta/NotFound": BetaNotFound`,
-		`NotFound as AlphaNotFound`,
-		`NotFound as BetaNotFound`,
+		`"alpha/NotFound": NotFound`,
+		`"beta/NotFound": NotFound`,
 		`from "./pkg/alpha.errors.js"`,
 		`from "./pkg/beta.errors.js"`,
+		"decodeWireDomainError",
+		"packageDomainErrorRegistries",
 	} {
-		if !strings.Contains(errorsJS, frag) {
-			t.Fatalf("missing %q in errors.js:\n%s", frag, errorsJS)
+		if !strings.Contains(transportJS, frag) {
+			t.Fatalf("missing %q in transport.js:\n%s", frag, transportJS)
+		}
+	}
+	errorsJS := mustRead(t, filepath.Join(dist, "errors.js"))
+	for _, banned := range []string{
+		"DOMAIN_ERROR_REGISTRY",
+		"decodeDomainError",
+		`from "./pkg/alpha.errors.js"`,
+	} {
+		if strings.Contains(errorsJS, banned) {
+			t.Fatalf("errors.js must not contain %q:\n%s", banned, errorsJS)
 		}
 	}
 	alphaErrors := mustRead(t, filepath.Join(dist, "pkg", "alpha.errors.js"))
