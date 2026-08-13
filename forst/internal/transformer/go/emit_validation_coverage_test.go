@@ -338,6 +338,24 @@ func main() {
 	assertGoParses(t, out)
 }
 
+func TestEmitValidation_stringBuiltinByteSlice(t *testing.T) {
+	src := `package main
+
+func main() {
+	b := []byte("hi")
+	println(string(b))
+}
+`
+	out := compileForstPipeline(t, src)
+	if !strings.Contains(out, `string(b)`) {
+		t.Fatalf("expected Go string(b) for string([]byte):\n%s", out)
+	}
+	if strings.Contains(out, `strconv.Itoa`) {
+		t.Fatalf("expected no Itoa for string([]byte):\n%s", out)
+	}
+	assertGoParses(t, out)
+}
+
 func TestEmitValidation_providersCrossFunctionCall(t *testing.T) {
 	src := `package main
 

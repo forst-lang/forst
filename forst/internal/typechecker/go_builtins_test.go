@@ -175,6 +175,56 @@ func TestCheckBuiltinFunctionCall_stringRejectsNonInt(t *testing.T) {
 	}
 }
 
+func TestCheckBuiltinFunctionCall_stringAcceptsByteSlice(t *testing.T) {
+	tc := New(logrus.New(), false)
+	fn := BuiltinFunctions["string"]
+	byteSlice := ast.NewArrayType(ast.TypeNode{Ident: ast.TypeIdent("byte")})
+
+	t.Run("Array(byte) variable", func(t *testing.T) {
+		tc2 := New(logrus.New(), false)
+		tc2.CurrentScope().RegisterSymbol(ast.Identifier("b"), []ast.TypeNode{byteSlice}, SymbolVariable)
+		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.SourceSpan{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(types) != 1 || types[0].Ident != ast.TypeString {
+			t.Fatalf("got %+v", types)
+		}
+	})
+
+	t.Run("TypeBytes variable", func(t *testing.T) {
+		tc2 := New(logrus.New(), false)
+		tc2.CurrentScope().RegisterSymbol(ast.Identifier("b"), []ast.TypeNode{ast.NewBuiltinType(ast.TypeBytes)}, SymbolVariable)
+		types, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "b"}}}, nil, ast.SourceSpan{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(types) != 1 || types[0].Ident != ast.TypeString {
+			t.Fatalf("got %+v", types)
+		}
+	})
+
+	t.Run("rejects Array(String)", func(t *testing.T) {
+		tc2 := New(logrus.New(), false)
+		tc2.CurrentScope().RegisterSymbol(ast.Identifier("xs"), []ast.TypeNode{ast.NewArrayType(ast.NewBuiltinType(ast.TypeString))}, SymbolVariable)
+		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.SourceSpan{})
+		if err == nil {
+			t.Fatal("expected error for string() of Array(String)")
+		}
+	})
+
+	t.Run("rejects Array(Int)", func(t *testing.T) {
+		tc2 := New(logrus.New(), false)
+		tc2.CurrentScope().RegisterSymbol(ast.Identifier("xs"), []ast.TypeNode{ast.NewArrayType(ast.NewBuiltinType(ast.TypeInt))}, SymbolVariable)
+		_, err := tc2.checkBuiltinFunctionCall(fn, []ast.ExpressionNode{ast.VariableNode{Ident: ast.Ident{ID: "xs"}}}, nil, ast.SourceSpan{})
+		if err == nil {
+			t.Fatal("expected error for string() of Array(Int)")
+		}
+	})
+
+	_ = tc
+}
+
 func TestCheckBuiltinFunctionCall_goPredeclared(t *testing.T) {
 	tc := New(logrus.New(), false)
 	tc.CurrentScope().RegisterSymbol(ast.Identifier("m"), []ast.TypeNode{
