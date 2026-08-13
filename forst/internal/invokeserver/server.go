@@ -613,16 +613,6 @@ func (s *Server) logAuthDisabledWarning() {
 	s.log.Warnf("invoke server: authentication disabled; invoke RPC accepts requests without HMAC proof (local debugging / tests only)")
 }
 
-func (s *Server) authGeneration() uint64 {
-	s.mu.RLock()
-	auth := s.auth
-	s.mu.RUnlock()
-	if auth == nil {
-		return 0
-	}
-	return auth.currentGeneration()
-}
-
 // RemoveAuthArtifacts deletes invoke.ready and invoke.token under workDir.
 func RemoveAuthArtifacts(workDir string) error {
 	if err := os.Remove(invokeReadyPath(workDir)); err != nil && !os.IsNotExist(err) {

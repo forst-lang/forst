@@ -698,7 +698,7 @@ func deepestScopeInFuncLitsOfBody(body []ast.Node, tokens []ast.Token, tokIdx in
 // functionLiteralTokenRanges locates `func (…)` / body braces for a function literal via param spans.
 func functionLiteralTokenRanges(tokens []ast.Token, lit ast.FunctionLiteralNode) (funcIdx, pOpen, pClose, lb, rb int) {
 	funcIdx = -1
-	pOpen, pClose, lb, rb = -1, -1, -1, -1
+	lb, rb = -1, -1
 	for _, p := range lit.Params {
 		sp, ok := p.(ast.SimpleParamNode)
 		if !ok || !sp.Ident.Span.IsSet() {

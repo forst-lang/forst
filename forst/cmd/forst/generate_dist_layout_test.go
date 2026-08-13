@@ -167,7 +167,7 @@ func TestWriteFileAtomic_neverLeavesPartialFile(t *testing.T) {
 	path := filepath.Join(dir, "out.js")
 	origRename := generateIO.Rename
 	t.Cleanup(func() { generateIO.Rename = origRename })
-	generateIO.Rename = func(oldpath, newpath string) error {
+	generateIO.Rename = func(_, _ string) error {
 		return os.ErrPermission
 	}
 	_, err := writeFileAtomic(path, []byte("partial\n"))
@@ -255,7 +255,7 @@ func TestGenerate_watchRegeneratesOnFtChange(t *testing.T) {
 	generateWatchDebounce = 5 * time.Millisecond
 	stopHook := make(chan struct{})
 	generateWatchStopHook = stopHook
-	watchPackageRootFn = func(log *logrus.Logger, boundaryRoot string, cfg *ftconfig.Config, debounce time.Duration, onChange func(changedPath string), stop <-chan struct{}) error {
+	watchPackageRootFn = func(_ *logrus.Logger, _ string, _ *ftconfig.Config, _ time.Duration, onChange func(changedPath string), stop <-chan struct{}) error {
 		select {
 		case <-kick:
 			onChange(ftPath)

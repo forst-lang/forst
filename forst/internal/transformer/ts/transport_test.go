@@ -238,12 +238,3 @@ func TestTransport_ndjsonFixtureDocumentsStreamingWireFormat(t *testing.T) {
 		t.Fatalf("emitted transport must reject mid-row EOF (partial fixture case)")
 	}
 }
-
-func firstImportLine(src string) string {
-	for _, line := range strings.Split(src, "\n") {
-		if strings.Contains(line, "import ") {
-			return line
-		}
-	}
-	return ""
-}

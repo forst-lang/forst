@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -26,12 +25,4 @@ func createJunction(target, link string) error {
 		return fmt.Errorf("mklink /J %q %q: %w (%s)", link, target, err, string(out))
 	}
 	return nil
-}
-
-// ensureJunctionTargetAbsent removes a stale link path before mklink when needed.
-func ensureJunctionTargetAbsent(link string) error {
-	if _, err := os.Lstat(link); os.IsNotExist(err) {
-		return nil
-	}
-	return os.RemoveAll(link)
 }

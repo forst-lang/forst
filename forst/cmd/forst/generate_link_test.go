@@ -76,11 +76,11 @@ func TestGenerateLink_leavesCorrectLinkUntouched(t *testing.T) {
 		writeCalls++
 		return origWrite(name, data, perm)
 	}
-	generateLinkIO.Junction = func(target, link string) error {
+	generateLinkIO.Junction = func(_, _ string) error {
 		symlinkCalls++
 		return errors.New("junction unused on this test host")
 	}
-	generateLinkIO.CopyDir = func(src, dst string) error {
+	generateLinkIO.CopyDir = func(_, _ string) error {
 		t.Fatal("CopyDir must not run when link is already correct")
 		return nil
 	}
@@ -106,7 +106,6 @@ func TestGenerateLink_leavesCorrectLinkUntouched(t *testing.T) {
 
 func TestGenerateLink_replacesLinkPointingElsewhere(t *testing.T) {
 	boundary, outDir, nodeModules := setupLinkFixture(t)
-	log := discardLinkLog()
 	packageName := "@forst/gen"
 
 	otherOut := filepath.Join(boundary, ".forst", "other-client")
@@ -123,7 +122,7 @@ func TestGenerateLink_replacesLinkPointingElsewhere(t *testing.T) {
 	linkFixtureTarget(t, otherOut, linkPath)
 
 	var buf bytes.Buffer
-	log = logrus.New()
+	log := logrus.New()
 	log.SetOutput(&buf)
 	log.SetLevel(logrus.DebugLevel)
 
@@ -272,10 +271,10 @@ func TestGenerateLink_fallsBackToCopyWhenSymlinkDenied(t *testing.T) {
 		generateLinkIO.GOOS = origGOOS
 	})
 	generateLinkIO.GOOS = "linux"
-	generateLinkIO.Symlink = func(target, link string) error {
+	generateLinkIO.Symlink = func(_, _ string) error {
 		return fmt.Errorf("operation not permitted")
 	}
-	generateLinkIO.Junction = func(target, link string) error {
+	generateLinkIO.Junction = func(_, _ string) error {
 		return fmt.Errorf("junction unused")
 	}
 

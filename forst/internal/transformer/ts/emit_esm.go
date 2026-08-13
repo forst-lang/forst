@@ -110,17 +110,17 @@ func EmitCoreESM(m ModuleEmit, invokePort string) string {
 	b.WriteString(`import { getDefaultInvokeClient } from "../transport.js";` + "\n\n")
 
 	// Namespace factory for createForstClient (root index binds client once).
-	b.WriteString(fmt.Sprintf("export const %s = (client) => ({\n", pkg))
+	fmt.Fprintf(&b, "export const %s = (client) => ({\n", pkg)
 	for _, fn := range m.Functions {
 		argExpr := emitArgExpr(fn.Parameters)
 		params := emitParamListJS(fn.Parameters, true)
-		b.WriteString(fmt.Sprintf("  %s: async (%s) => {\n", fn.Name, params))
-		b.WriteString(fmt.Sprintf("    const response = await %s;\n", emitInvokeCall(pkg, fn.Name, argExpr)))
+		fmt.Fprintf(&b, "  %s: async (%s) => {\n", fn.Name, params)
+		fmt.Fprintf(&b, "    const response = await %s;\n", emitInvokeCall(pkg, fn.Name, argExpr))
 		b.WriteString("    return response.result;\n")
 		b.WriteString("  },\n")
 		if fn.StreamingRowType != "" {
-			b.WriteString(fmt.Sprintf("  %sStream: (%s) =>\n", fn.Name, params))
-			b.WriteString(fmt.Sprintf("    %s,\n", emitInvokeStreamCall(pkg, fn.Name, argExpr)))
+			fmt.Fprintf(&b, "  %sStream: (%s) =>\n", fn.Name, params)
+			fmt.Fprintf(&b, "    %s,\n", emitInvokeStreamCall(pkg, fn.Name, argExpr))
 		}
 	}
 	b.WriteString("});\n\n")
@@ -129,22 +129,22 @@ func EmitCoreESM(m ModuleEmit, invokePort string) string {
 	for _, fn := range m.Functions {
 		argExpr := emitArgExpr(fn.Parameters)
 		params := emitParamListJS(fn.Parameters, true)
-		b.WriteString(fmt.Sprintf("export async function %s(%s) {\n", fn.Name, params))
+		fmt.Fprintf(&b, "export async function %s(%s) {\n", fn.Name, params)
 		b.WriteString("  const client = options?.transport ?? getDefaultInvokeClient();\n")
-		b.WriteString(fmt.Sprintf("  const response = await %s;\n", emitInvokeCall(pkg, fn.Name, argExpr)))
+		fmt.Fprintf(&b, "  const response = await %s;\n", emitInvokeCall(pkg, fn.Name, argExpr))
 		b.WriteString("  return response.result;\n")
 		b.WriteString("}\n\n")
-		b.WriteString(fmt.Sprintf("%s.safe = async (%s) => {\n", fn.Name, params))
+		fmt.Fprintf(&b, "%s.safe = async (%s) => {\n", fn.Name, params)
 		b.WriteString("  try {\n")
-		b.WriteString(fmt.Sprintf("    return { ok: true, value: await %s(%s) };\n", fn.Name, params))
+		fmt.Fprintf(&b, "    return { ok: true, value: await %s(%s) };\n", fn.Name, params)
 		b.WriteString("  } catch (error) {\n")
 		b.WriteString("    return { ok: false, error };\n")
 		b.WriteString("  }\n")
 		b.WriteString("};\n\n")
 		if fn.StreamingRowType != "" {
-			b.WriteString(fmt.Sprintf("export function %sStream(%s) {\n", fn.Name, params))
+			fmt.Fprintf(&b, "export function %sStream(%s) {\n", fn.Name, params)
 			b.WriteString("  const client = options?.transport ?? getDefaultInvokeClient();\n")
-			b.WriteString(fmt.Sprintf("  return %s;\n", emitInvokeStreamCall(pkg, fn.Name, argExpr)))
+			fmt.Fprintf(&b, "  return %s;\n", emitInvokeStreamCall(pkg, fn.Name, argExpr))
 			b.WriteString("}\n\n")
 		}
 	}
@@ -168,19 +168,17 @@ func EmitCoreDTS(m ModuleEmit) string {
 		typeNames = sortDedupeStrings(typeNames)
 	}
 	if len(typeNames) > 0 {
-		b.WriteString(fmt.Sprintf("import type { %s } from \"../types.js\";\n", strings.Join(typeNames, ", ")))
+		fmt.Fprintf(&b, "import type { %s } from \"../types.js\";\n", strings.Join(typeNames, ", "))
 	}
 	b.WriteString("\n")
 
-	b.WriteString(fmt.Sprintf("export declare const %s: (client: ForstInvokeClient) => {\n", pkg))
+	fmt.Fprintf(&b, "export declare const %s: (client: ForstInvokeClient) => {\n", pkg)
 	for _, fn := range m.Functions {
 		params := emitParamListDTS(fn.Parameters, true)
-		b.WriteString(fmt.Sprintf("  %s: (%s) => Promise<%s>;\n", fn.Name, params, fn.ReturnType))
+		fmt.Fprintf(&b, "  %s: (%s) => Promise<%s>;\n", fn.Name, params, fn.ReturnType)
 		if fn.StreamingRowType != "" {
-			b.WriteString(fmt.Sprintf(
-				"  %sStream: (%s) => AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n",
-				fn.Name, params, fn.StreamingRowType,
-			))
+			fmt.Fprintf(&b, "  %sStream: (%s) => AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n",
+				fn.Name, params, fn.StreamingRowType)
 		}
 	}
 	b.WriteString("};\n\n")
@@ -189,25 +187,23 @@ func EmitCoreDTS(m ModuleEmit) string {
 
 	for _, fn := range m.Functions {
 		params := emitParamListDTS(fn.Parameters, true)
-		b.WriteString(fmt.Sprintf("/** @throws {%s} */\n", functionFailureTypeAlias(fn)))
-		b.WriteString(fmt.Sprintf("export declare function %s(\n", fn.Name))
-		b.WriteString(fmt.Sprintf("  %s\n", params))
-		b.WriteString(fmt.Sprintf("): Promise<%s>;\n\n", fn.ReturnType))
-		b.WriteString(fmt.Sprintf("export declare namespace %s {\n", fn.Name))
+		fmt.Fprintf(&b, "/** @throws {%s} */\n", functionFailureTypeAlias(fn))
+		fmt.Fprintf(&b, "export declare function %s(\n", fn.Name)
+		fmt.Fprintf(&b, "  %s\n", params)
+		fmt.Fprintf(&b, "): Promise<%s>;\n\n", fn.ReturnType)
+		fmt.Fprintf(&b, "export declare namespace %s {\n", fn.Name)
 		b.WriteString("  function safe(\n")
-		b.WriteString(fmt.Sprintf("    %s\n", params))
+		fmt.Fprintf(&b, "    %s\n", params)
 		b.WriteString("  ): Promise<\n")
-		b.WriteString(fmt.Sprintf("    | { ok: true; value: %s }\n", fn.ReturnType))
+		fmt.Fprintf(&b, "    | { ok: true; value: %s }\n", fn.ReturnType)
 		b.WriteString("    | { ok: false; error: " + functionFailureTypeAlias(fn) + " }\n")
 		b.WriteString("  >;\n")
 		b.WriteString("}\n\n")
 		if fn.StreamingRowType != "" {
-			b.WriteString(fmt.Sprintf("export declare function %sStream(\n", fn.Name))
-			b.WriteString(fmt.Sprintf("  %s\n", params))
-			b.WriteString(fmt.Sprintf(
-				"): AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n\n",
-				fn.StreamingRowType,
-			))
+			fmt.Fprintf(&b, "export declare function %sStream(\n", fn.Name)
+			fmt.Fprintf(&b, "  %s\n", params)
+			fmt.Fprintf(&b, "): AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n\n",
+				fn.StreamingRowType)
 		}
 	}
 
@@ -226,7 +222,7 @@ func EmitPackageESM(m ModuleEmit, runtime ClientRuntime, npmPackageName string) 
 	b.WriteString("// Auto-generated public module for " + pkg + " package\n")
 	b.WriteString("// Generated by Forst TypeScript Transformer\n")
 	b.WriteString(packageModuleRuntimeComment)
-	b.WriteString(fmt.Sprintf("export * from \"../core/%s.js\";\n", pkg))
+	fmt.Fprintf(&b, "export * from \"../core/%s.js\";\n", pkg)
 	appendOmitStubs(&b, m.Omitted)
 	return b.String()
 }
@@ -243,9 +239,9 @@ func EmitPackageDTS(m ModuleEmit, runtime ClientRuntime, npmPackageName string) 
 	b.WriteString("// Auto-generated public module for " + pkg + " package\n")
 	b.WriteString("// Generated by Forst TypeScript Transformer\n")
 	b.WriteString(packageModuleRuntimeComment)
-	b.WriteString(fmt.Sprintf("export * from \"../core/%s.js\";\n", pkg))
+	fmt.Fprintf(&b, "export * from \"../core/%s.js\";\n", pkg)
 	if len(typeImports) > 0 {
-		b.WriteString(fmt.Sprintf("export type { %s } from \"../types.js\";\n", strings.Join(typeImports, ", ")))
+		fmt.Fprintf(&b, "export type { %s } from \"../types.js\";\n", strings.Join(typeImports, ", "))
 	}
 	appendOmitStubs(&b, m.Omitted)
 	return b.String()
@@ -285,14 +281,14 @@ func EmitIndexESM(packages []string, invokePort string, domainErrors []ErrorClas
 	b.WriteString("\n")
 	b.WriteString(`import { createInvokeClient, configureDefaultInvokeClient } from "./transport.js";` + "\n")
 	for _, pkg := range pkgs {
-		b.WriteString(fmt.Sprintf("import { %s } from \"./pkg/%s.js\";\n", pkg, pkg))
+		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", pkg, pkg)
 	}
 	b.WriteString("\n")
 	b.WriteString("export function createForstClient(config) {\n")
 	b.WriteString("  const client = createInvokeClient(config);\n")
 	b.WriteString("  return {\n")
 	for _, pkg := range pkgs {
-		b.WriteString(fmt.Sprintf("    %s: %s(client),\n", pkg, pkg))
+		fmt.Fprintf(&b, "    %s: %s(client),\n", pkg, pkg)
 	}
 	b.WriteString("  };\n")
 	b.WriteString("}\n\n")
@@ -324,7 +320,7 @@ func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRu
 } from "./transport.js";
 ` + "\n")
 	for _, pkg := range pkgs {
-		b.WriteString(fmt.Sprintf("import { %s } from \"./pkg/%s.js\";\n", pkg, pkg))
+		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", pkg, pkg)
 	}
 	b.WriteString("\n")
 	b.WriteString("export interface ForstClientConfig {\n")
@@ -339,7 +335,7 @@ func EmitIndexDTS(packages []string, domainErrors []ErrorClass, runtime ClientRu
 	b.WriteString("  config?: ForstClientConfig | ForstInvokeClientConfig\n")
 	b.WriteString("): {\n")
 	for _, pkg := range pkgs {
-		b.WriteString(fmt.Sprintf("  readonly %s: ReturnType<typeof %s>;\n", pkg, pkg))
+		fmt.Fprintf(&b, "  readonly %s: ReturnType<typeof %s>;\n", pkg, pkg)
 	}
 	b.WriteString("};\n\n")
 	b.WriteString("export type ForstClient = ReturnType<typeof createForstClient>;\n\n")

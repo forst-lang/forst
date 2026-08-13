@@ -104,12 +104,12 @@ func EmitPackageEffectESM(m ModuleEmit, npmPackageName string) string {
 	b.WriteString("// Effect mode: wraps identical core Promise implementation.\n\n")
 	b.WriteString(`import { Effect } from "effect";` + "\n")
 	b.WriteString(`import { ForstTransport, withTransport } from "../effect.js";` + "\n")
-	b.WriteString(fmt.Sprintf("import * as core from \"../core/%s.js\";\n\n", pkg))
+	fmt.Fprintf(&b, "import * as core from \"../core/%s.js\";\n\n", pkg)
 
 	// Namespace factory for createForstClient (Promise escape hatch).
-	b.WriteString(fmt.Sprintf("export { %s } from \"../core/%s.js\";\n\n", pkg, pkg))
+	fmt.Fprintf(&b, "export { %s } from \"../core/%s.js\";\n\n", pkg, pkg)
 
-	b.WriteString(fmt.Sprintf("export class %s extends Effect.Service()(%q, {\n", className, tag))
+	fmt.Fprintf(&b, "export class %s extends Effect.Service()(%q, {\n", className, tag)
 	b.WriteString("  effect: Effect.gen(function* () {\n")
 	b.WriteString("    const { client } = yield* ForstTransport;\n")
 	b.WriteString("    return {\n")
@@ -119,12 +119,12 @@ func EmitPackageEffectESM(m ModuleEmit, npmPackageName string) string {
 		if coreArgs != "" {
 			coreArgs += ", "
 		}
-		b.WriteString(fmt.Sprintf("      %s: (%s) =>\n", fn.Name, params))
+		fmt.Fprintf(&b, "      %s: (%s) =>\n", fn.Name, params)
 		b.WriteString("        Effect.tryPromise({\n")
-		b.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&b,
 			"          try: (signal) => core.%s(%swithTransport(client, options, signal)),\n",
 			fn.Name, coreArgs,
-		))
+		)
 		b.WriteString("          catch: (error) => error,\n")
 		b.WriteString("        }),\n")
 	}
@@ -139,14 +139,14 @@ func EmitPackageEffectESM(m ModuleEmit, npmPackageName string) string {
 		for _, fn := range m.Functions {
 			names = append(names, fn.Name)
 		}
-		b.WriteString(fmt.Sprintf("export const { %s } = %s;\n\n", strings.Join(names, ", "), className))
+		fmt.Fprintf(&b, "export const { %s } = %s;\n\n", strings.Join(names, ", "), className)
 	}
 
 	for _, fn := range m.Functions {
 		if fn.StreamingRowType == "" {
 			continue
 		}
-		b.WriteString(fmt.Sprintf("export { %sStream } from \"../core/%s.js\";\n", fn.Name, pkg))
+		fmt.Fprintf(&b, "export { %sStream } from \"../core/%s.js\";\n", fn.Name, pkg)
 	}
 
 	appendOmitStubs(&b, m.Omitted)
@@ -242,27 +242,6 @@ func domainErrorsModuleForPkg(m ModuleEmit) string {
 	return "./" + PackageDomainErrorsFileStem(m.PackageName) + ".js"
 }
 
-func writeErrorsTypeImport(b *strings.Builder, functions []FunctionSignature, module string) {
-	writeErrorsTypeImportExcluding(b, functions, module, nil)
-}
-
-func writeErrorsTypeImportExcluding(b *strings.Builder, functions []FunctionSignature, module string, exclude map[string]struct{}) {
-	names := collectFailureTypeImports(functions)
-	filtered := make([]string, 0, len(names))
-	for _, name := range names {
-		if exclude != nil {
-			if _, skip := exclude[name]; skip {
-				continue
-			}
-		}
-		filtered = append(filtered, name)
-	}
-	if len(filtered) == 0 {
-		return
-	}
-	fmt.Fprintf(b, `import type { %s } from %q;`+"\n", strings.Join(filtered, ", "), module)
-}
-
 func writeTestingErrorsImports(b *strings.Builder, functions []FunctionSignature) {
 	exclude := map[string]struct{}{
 		"ForstTestServerFailed": {},
@@ -303,14 +282,14 @@ func EmitPackageEffectDTS(m ModuleEmit, npmPackageName string) string {
 	b.WriteString(`import { Context, Effect, Layer } from "effect";` + "\n")
 	b.WriteString(`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js";` + "\n")
 	b.WriteString(`import { ForstTransport } from "../effect.js";` + "\n")
-writeFailureTypeImports(&b, m.Functions, domainErrorsModuleForPkg(m))
+	writeFailureTypeImports(&b, m.Functions, domainErrorsModuleForPkg(m))
 	typeNames := append([]string(nil), typeImports...)
 	if functionsNeedStreamingResult(m.Functions) {
 		typeNames = append(typeNames, "StreamingResult")
 		typeNames = sortDedupeStrings(typeNames)
 	}
 	if len(typeNames) > 0 {
-		b.WriteString(fmt.Sprintf("import type { %s } from \"../types.js\";\n", strings.Join(typeNames, ", ")))
+		fmt.Fprintf(&b, "import type { %s } from \"../types.js\";\n", strings.Join(typeNames, ", "))
 	}
 	b.WriteString("\n")
 
@@ -320,68 +299,56 @@ writeFailureTypeImports(&b, m.Functions, domainErrorsModuleForPkg(m))
 	emitFunctionFailureAliases(&b, m.Functions)
 
 	// Namespace factory type from core (createForstClient).
-	b.WriteString(fmt.Sprintf("export declare const %s: (client: ForstInvokeClient) => {\n", pkg))
+	fmt.Fprintf(&b, "export declare const %s: (client: ForstInvokeClient) => {\n", pkg)
 	for _, fn := range m.Functions {
 		params := emitParamListDTS(fn.Parameters, true)
-		b.WriteString(fmt.Sprintf("  %s: (%s) => Promise<%s>;\n", fn.Name, params, fn.ReturnType))
+		fmt.Fprintf(&b, "  %s: (%s) => Promise<%s>;\n", fn.Name, params, fn.ReturnType)
 		if fn.StreamingRowType != "" {
-			b.WriteString(fmt.Sprintf(
-				"  %sStream: (%s) => AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n",
-				fn.Name, params, fn.StreamingRowType,
-			))
+			fmt.Fprintf(&b, "  %sStream: (%s) => AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n",
+				fn.Name, params, fn.StreamingRowType)
 		}
 	}
 	b.WriteString("};\n\n")
 
 	// Ambient Tag form avoids TS1005 from type args inside Effect.Service() value args.
 	// Runtime JS still emits Effect.Service with accessors and dependencies.
-	b.WriteString(fmt.Sprintf("export declare class %s extends Context.Tag(%q)<\n", className, tag))
-	b.WriteString(fmt.Sprintf("  %s,\n", className))
+	fmt.Fprintf(&b, "export declare class %s extends Context.Tag(%q)<\n", className, tag)
+	fmt.Fprintf(&b, "  %s,\n", className)
 	b.WriteString("  {\n")
 	for _, fn := range m.Functions {
 		params := emitEffectParamListDTS(fn.Parameters)
-		b.WriteString(fmt.Sprintf(
-			"    readonly %s: (%s) => Effect.Effect<%s, %s>;\n",
-			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn),
-		))
+		fmt.Fprintf(&b, "    readonly %s: (%s) => Effect.Effect<%s, %s>;\n",
+			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn))
 	}
 	b.WriteString("  }\n")
 	b.WriteString(">() {\n")
-	b.WriteString(fmt.Sprintf("  static readonly Default: Layer.Layer<%s>;\n", className))
-	b.WriteString(fmt.Sprintf(
-		"  static readonly DefaultWithoutDependencies: Layer.Layer<%s, never, ForstTransport>;\n",
-		className,
-	))
+	fmt.Fprintf(&b, "  static readonly Default: Layer.Layer<%s>;\n", className)
+	fmt.Fprintf(&b, "  static readonly DefaultWithoutDependencies: Layer.Layer<%s, never, ForstTransport>;\n",
+		className)
 	for _, fn := range m.Functions {
 		params := emitEffectParamListDTS(fn.Parameters)
-		b.WriteString(fmt.Sprintf(
-			"  static readonly %s: (%s) => Effect.Effect<%s, %s, %s>;\n",
-			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn), className,
-		))
+		fmt.Fprintf(&b, "  static readonly %s: (%s) => Effect.Effect<%s, %s, %s>;\n",
+			fn.Name, params, fn.ReturnType, functionFailureTypeAlias(fn), className)
 	}
 	b.WriteString("}\n\n")
 
 	for _, fn := range m.Functions {
 		params := emitEffectParamListDTS(fn.Parameters)
-		b.WriteString(fmt.Sprintf("export declare const %s: (\n", fn.Name))
-		b.WriteString(fmt.Sprintf("  %s\n", params))
-		b.WriteString(fmt.Sprintf(
-			") => Effect.Effect<%s, %s, %s>;\n\n",
-			fn.ReturnType, functionFailureTypeAlias(fn), className,
-		))
+		fmt.Fprintf(&b, "export declare const %s: (\n", fn.Name)
+		fmt.Fprintf(&b, "  %s\n", params)
+		fmt.Fprintf(&b, ") => Effect.Effect<%s, %s, %s>;\n\n",
+			fn.ReturnType, functionFailureTypeAlias(fn), className)
 		if fn.StreamingRowType != "" {
 			streamParams := emitParamListDTS(fn.Parameters, true)
-			b.WriteString(fmt.Sprintf("export declare function %sStream(\n", fn.Name))
-			b.WriteString(fmt.Sprintf("  %s\n", streamParams))
-			b.WriteString(fmt.Sprintf(
-				"): AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n\n",
-				fn.StreamingRowType,
-			))
+			fmt.Fprintf(&b, "export declare function %sStream(\n", fn.Name)
+			fmt.Fprintf(&b, "  %s\n", streamParams)
+			fmt.Fprintf(&b, "): AsyncGenerator<StreamingResult & { data?: %s }, void, undefined>;\n\n",
+				fn.StreamingRowType)
 		}
 	}
 
 	if len(typeImports) > 0 {
-		b.WriteString(fmt.Sprintf("export type { %s } from \"../types.js\";\n", strings.Join(typeImports, ", ")))
+		fmt.Fprintf(&b, "export type { %s } from \"../types.js\";\n", strings.Join(typeImports, ", "))
 	}
 	appendOmitStubs(&b, m.Omitted)
 	return b.String()
@@ -405,7 +372,7 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 	b.WriteString(`import { ForstTransportLayer } from "./effect.js";` + "\n")
 	for _, pkg := range pkgs {
 		className := ServiceClassName(pkg)
-		b.WriteString(fmt.Sprintf("import { %s } from \"./pkg/%s.js\";\n", className, pkg))
+		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", className, pkg)
 	}
 	b.WriteString("\n")
 
@@ -425,10 +392,10 @@ func EmitIndexEffectESM(packages []string, npmPackageName string) string {
 		defaults[i] = className + ".Default"
 		withoutDeps[i] = className + ".DefaultWithoutDependencies"
 	}
-	b.WriteString(fmt.Sprintf("export const ForstClientLive = Layer.mergeAll(%s);\n\n", strings.Join(defaults, ", ")))
+	fmt.Fprintf(&b, "export const ForstClientLive = Layer.mergeAll(%s);\n\n", strings.Join(defaults, ", "))
 	b.WriteString("export const ForstClientLayer = (config) => {\n")
 	b.WriteString("  const transportLayer = ForstTransportLayer(config);\n")
-	b.WriteString(fmt.Sprintf("  return Layer.mergeAll(%s).pipe(\n", strings.Join(withoutDeps, ", ")))
+	fmt.Fprintf(&b, "  return Layer.mergeAll(%s).pipe(\n", strings.Join(withoutDeps, ", "))
 	b.WriteString("    Layer.provide(transportLayer)\n")
 	b.WriteString("  );\n")
 	b.WriteString("};\n\n")
@@ -447,7 +414,7 @@ func EmitIndexEffectDTS(packages []string) string {
 	serviceTypes := make([]string, 0, len(pkgs))
 	for _, pkg := range pkgs {
 		className := ServiceClassName(pkg)
-		b.WriteString(fmt.Sprintf("import { %s } from \"./pkg/%s.js\";\n", className, pkg))
+		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", className, pkg)
 		serviceTypes = append(serviceTypes, className)
 	}
 	b.WriteString("\n")
@@ -455,13 +422,13 @@ func EmitIndexEffectDTS(packages []string) string {
 	if len(serviceTypes) > 0 {
 		req = strings.Join(serviceTypes, " | ")
 	}
-	b.WriteString(fmt.Sprintf("export declare const ForstClientLive: Layer.Layer<%s>;\n\n", req))
+	fmt.Fprintf(&b, "export declare const ForstClientLive: Layer.Layer<%s>;\n\n", req)
 	b.WriteString("export declare const ForstClientLayer: (\n")
 	b.WriteString("  config?: ForstInvokeClientConfig\n")
-	b.WriteString(fmt.Sprintf(") => Layer.Layer<%s>;\n\n", req))
+	fmt.Fprintf(&b, ") => Layer.Layer<%s>;\n\n", req)
 	b.WriteString("export declare const makeForstClientRuntime: (\n")
 	b.WriteString("  config?: ForstInvokeClientConfig\n")
-	b.WriteString(fmt.Sprintf(") => ManagedRuntime.ManagedRuntime<%s, never>;\n", req))
+	fmt.Fprintf(&b, ") => ManagedRuntime.ManagedRuntime<%s, never>;\n", req)
 	return b.String()
 }
 
@@ -568,7 +535,7 @@ import { ForstTransportLayer } from "./effect.js";
 	if len(withoutDeps) == 0 {
 		b.WriteString("  return Layer.mergeAll(transport, base);\n")
 	} else {
-		b.WriteString(fmt.Sprintf("  return Layer.mergeAll(%s)\n", strings.Join(withoutDeps, ", ")))
+		fmt.Fprintf(&b, "  return Layer.mergeAll(%s)\n", strings.Join(withoutDeps, ", "))
 		b.WriteString("    .pipe(Layer.provide(transport), Layer.merge(base));\n")
 	}
 	b.WriteString("}\n\n")
@@ -663,7 +630,7 @@ export { InvokeRejected };
 	}
 	b.WriteString("export declare const ForstTestLayer: (\n")
 	b.WriteString("  overrides: ForstTestOverrides\n")
-	b.WriteString(fmt.Sprintf(") => Layer.Layer<%s>;\n\n", req))
+	fmt.Fprintf(&b, ") => Layer.Layer<%s>;\n\n", req)
 
 	emitForstTestServerOptionsDTS(&b)
 	fmt.Fprintf(&b, "export declare class ForstTestServer extends Context.Tag(%q)<\n", tagPrefix+"/TestServer")
@@ -682,10 +649,10 @@ export { InvokeRejected };
 	}
 	b.WriteString("export declare const ForstTestServerLayer: (\n")
 	b.WriteString("  options?: ForstTestServerOptions\n")
-	b.WriteString(fmt.Sprintf(") => Layer.Layer<%s, ForstTestServerFailed>;\n\n", serverReq))
+	fmt.Fprintf(&b, ") => Layer.Layer<%s, ForstTestServerFailed>;\n\n", serverReq)
 	b.WriteString("export declare const makeForstTestServer: (\n")
 	b.WriteString("  options?: ForstTestServerOptions\n")
-	b.WriteString(fmt.Sprintf(") => ManagedRuntime.ManagedRuntime<%s, ForstTestServerFailed>;\n", serverReq))
+	fmt.Fprintf(&b, ") => ManagedRuntime.ManagedRuntime<%s, ForstTestServerFailed>;\n", serverReq)
 	return b.String()
 }
 
