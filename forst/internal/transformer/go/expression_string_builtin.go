@@ -17,9 +17,9 @@ func (t *Transformer) transformStringBuiltinCall(arg ast.ExpressionNode) (goast.
 	if err != nil {
 		return nil, true, err
 	}
-	t.Output.EnsureImport("strconv")
 	switch ts[0].Ident {
 	case ast.TypeInt:
+		t.Output.EnsureImport("strconv")
 		return &goast.CallExpr{
 			Fun: &goast.SelectorExpr{
 				X:   goast.NewIdent("strconv"),
@@ -28,6 +28,7 @@ func (t *Transformer) transformStringBuiltinCall(arg ast.ExpressionNode) (goast.
 			Args: []goast.Expr{argExpr},
 		}, true, nil
 	case ast.TypeBool:
+		t.Output.EnsureImport("strconv")
 		return &goast.CallExpr{
 			Fun: &goast.SelectorExpr{
 				X:   goast.NewIdent("strconv"),
