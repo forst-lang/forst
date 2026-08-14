@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { GetDashboard, ListTodos } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 
 describe("remix-serve generated client", () => {
   test("ListTodos and GetDashboard over embedded invoke", async () => {
@@ -7,10 +7,10 @@ describe("remix-serve generated client", () => {
     process.env.FORST_BASE_URL =
       process.env.FORST_BASE_URL ?? "http://127.0.0.1:6321";
 
-    const list = await ListTodos();
+    const list = await $main.ListTodos();
     expect(list.open).toBeGreaterThanOrEqual(0);
 
-    const dashboard = await GetDashboard();
+    const dashboard = await $main.GetDashboard();
     expect(dashboard.savedAt).toBe("ok");
   });
 });

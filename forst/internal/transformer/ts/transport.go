@@ -237,7 +237,7 @@ func EmitTransportDTS() string {
 // invokePort is the default listen port embedded in the fallback base URL
 // (http://127.0.0.1:<port>). Pass cfg.Server.EffectiveInvokePort() from generate.
 // An empty invokePort uses DefaultInvokePort.
-func EmitTransportTypeScript(invokePort string, runtime ClientRuntime, domainPackages []PackageDomainErrorEmit) string {
+func EmitTransportTypeScript(invokePort string, runtime ClientRuntime, _ []PackageDomainErrorEmit) string {
 	return "// @ts-nocheck\n" +
 		substituteTransportPlaceholders(
 			transportFileHeader(invokePort, runtime)+
