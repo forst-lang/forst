@@ -1,6 +1,6 @@
 {
   "name": "@forst/errors",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Shared tagged error classes for Forst generated clients (invoke transport, harness, unknown failure).",
   "type": "module",
   "main": "./dist/index.js",

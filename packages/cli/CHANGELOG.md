@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/forst-lang/forst/compare/cli-v0.5.0...cli-v0.6.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176))
+
+### Features
+
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176)) ([f053420](https://github.com/forst-lang/forst/commit/f053420bcfe8810a71ac55f037908230ed0c009e))
+
 ## [0.5.0](https://github.com/forst-lang/forst/compare/cli-v0.4.1...cli-v0.5.0) (2026-08-11)
 
 
