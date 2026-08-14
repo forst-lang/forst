@@ -243,8 +243,11 @@ func TestGenerate_writesSSRModuleWhenConfigured(t *testing.T) {
 	if !strings.Contains(text, "transport/runtime.js") {
 		t.Fatalf("SSR module should import inlined transport:\n%s", text)
 	}
-	if !strings.Contains(text, "export async function Echo") {
-		t.Fatalf("SSR module missing Echo export:\n%s", text)
+	if !strings.Contains(text, "export const $main = {") {
+		t.Fatalf("SSR module missing bound $main namespace:\n%s", text)
+	}
+	if !strings.Contains(text, "$main.Echo") && !strings.Contains(text, "Echo: async") {
+		t.Fatalf("SSR module missing Echo member:\n%s", text)
 	}
 }
 
@@ -264,7 +267,7 @@ func TestGenerate_printsResolvedSpecifierAndExampleImport(t *testing.T) {
 	if !strings.Contains(out, "generate: wrote "+ftconfig.DefaultPackageName+" -> .forst/client") {
 		t.Fatalf("missing resolved specifier line, got:\n%s", out)
 	}
-	if !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
+	if !strings.Contains(out, `import { $main } from "@forst/gen/main"`) {
 		t.Fatalf("missing example import, got:\n%s", out)
 	}
 }
@@ -274,11 +277,11 @@ func TestGenerateClientIndex_importsPackagesFromDist(t *testing.T) {
 	for _, frag := range []string{
 		`from "./transport/runtime.js"`,
 		"createInvokeClient",
-		`import { catalog } from "./pkg/catalog.js"`,
-		`import { orders } from "./pkg/orders.js"`,
+		`import { $catalog as $catalogCore } from "./core/catalog.js"`,
+		`import { $orders as $ordersCore } from "./core/orders.js"`,
 		"createForstClient",
-		"catalog: catalog(client)",
-		"orders: orders(client)",
+		"catalog: $catalogCore(client)",
+		"orders: $ordersCore(client)",
 	} {
 		if !strings.Contains(idx, frag) {
 			t.Fatalf("missing %q in index:\n%s", frag, idx)

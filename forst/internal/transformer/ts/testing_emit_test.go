@@ -10,7 +10,7 @@ func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
 	assertContainsAll(t, got, []string{
 		"export type AuthHandlers",
 		"VerifyToken: (",
-		"Promise<VerifyTokenResponse>",
+		"Promise<$VerifyTokenResponse>",
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
@@ -53,8 +53,8 @@ func TestEmitTestingESM_emitsScopeRuntime(t *testing.T) {
 		"createScopeTransport",
 		"mergeOverrides",
 		"resolveAuth",
-		`import { auth } from "./pkg/auth.js"`,
-		"auth: auth(transport)",
+		`import { $auth } from "./core/auth.js"`,
+		"auth: $auth(transport)",
 		"new InvokeRejected",
 	})
 	assertContainsNone(t, got, []string{

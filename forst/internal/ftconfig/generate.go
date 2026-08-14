@@ -78,6 +78,14 @@ func (g GenerateConfig) EffectiveOutDir(boundaryRoot string) string {
 	return filepath.Join(filepath.Clean(boundaryRoot), filepath.Clean(outDir))
 }
 
+// EffectiveTestingSubpath returns the package.json export key for the testing module.
+func (g GenerateConfig) EffectiveTestingSubpath() string {
+	if g.TestingSubpath != "" {
+		return g.TestingSubpath
+	}
+	return "$testing"
+}
+
 // IsEphemeral reports whether the resolved outDir sits under <boundaryRoot>/.forst.
 func (g GenerateConfig) IsEphemeral(boundaryRoot string) bool {
 	out := g.EffectiveOutDir(boundaryRoot)
@@ -146,9 +154,6 @@ func (g GenerateConfig) Validate() error {
 	}
 	if key == "$transport" {
 		return fmt.Errorf("generate: testingSubpath %q conflicts with infra transport subpath %q", g.TestingSubpath, "$transport")
-	}
-	if key == "$effect" {
-		return fmt.Errorf("generate: testingSubpath %q conflicts with reserved infra subpath %q", g.TestingSubpath, "$effect")
 	}
 	return nil
 }

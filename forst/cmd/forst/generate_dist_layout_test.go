@@ -381,7 +381,7 @@ func TestGenerate_tsc_requireFromCommonJsResolves(t *testing.T) {
 	body := `
 const path = require("node:path");
 const mod = require("@forst/gen/main");
-if (typeof mod.Echo !== "function") {
+if (typeof mod.$main?.Echo !== "function") {
   console.error("Echo missing", Object.keys(mod));
   process.exit(1);
 }

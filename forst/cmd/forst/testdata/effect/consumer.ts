@@ -4,13 +4,12 @@
  */
 import { Effect, Layer } from "effect";
 import { ForstClientLive } from "@forst/gen";
-import { Echo, Main } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 import { ForstTransport } from "@forst/gen/$transport";
 import { ForstTestLayer } from "@forst/gen/$testing";
-import type { MainHandlers } from "@forst/gen/$testing";
 
 // Happy path: catchTag + retry + provide compiles.
-const happy = Echo({ message: "hi" }).pipe(
+const happy = $main.Echo({ message: "hi" }).pipe(
   Effect.catchTag("@forst/errors/InvokeTimedOut", () =>
     Effect.succeed({ echo: "x", timestamp: 0 })
   ),
@@ -20,11 +19,10 @@ const happy = Echo({ message: "hi" }).pipe(
 void happy;
 
 // @ts-expect-error runPromise without providing the package service
-Effect.runPromise(Echo({ message: "hi" }));
+Effect.runPromise($main.Echo({ message: "hi" }));
 
-// @ts-expect-error handler returning the wrong response shape
-const _badHandler: MainHandlers["Echo"] = () => ({ wrong: true });
-void _badHandler;
+// @ts-expect-error Echo input must be $EchoRequest
+void $main.Echo({ notMessage: true });
 
 // DefaultWithoutDependencies requires ForstTransport and accepts a mock of it.
 const transportMock = Layer.mock(ForstTransport, {
@@ -37,8 +35,8 @@ const transportMock = Layer.mock(ForstTransport, {
     async *invokeStream() {},
   },
 });
-const withFakeTransport = Echo({ message: "hi" }).pipe(
-  Effect.provide(Main.DefaultWithoutDependencies),
+const withFakeTransport = $main.Echo({ message: "hi" }).pipe(
+  Effect.provide($main.DefaultWithoutDependencies),
   Effect.provide(transportMock)
 );
 void withFakeTransport;

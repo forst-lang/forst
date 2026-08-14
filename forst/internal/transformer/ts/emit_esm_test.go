@@ -12,12 +12,12 @@ func sampleAuthModule() ModuleEmit {
 			{
 				Name: "VerifyToken",
 				Parameters: []Parameter{
-					{Name: "input", Type: "VerifyTokenRequest"},
+					{Name: "input", Type: "$VerifyTokenRequest"},
 				},
-				ReturnType: "VerifyTokenResponse",
+				ReturnType: "$VerifyTokenResponse",
 			},
 		},
-		TypeImports: []string{"VerifyTokenResponse", "VerifyTokenRequest"},
+		TypeImports: []string{"$VerifyTokenResponse", "$VerifyTokenRequest"},
 	}
 }
 
@@ -27,12 +27,12 @@ func sampleStreamModule() ModuleEmit {
 		Functions: []FunctionSignature{
 			{
 				Name:             "Watch",
-				Parameters:       []Parameter{{Name: "query", Type: "WatchRequest"}},
-				ReturnType:       "AsyncIterable<WatchRow>",
-				StreamingRowType: "WatchRow",
+				Parameters:       []Parameter{{Name: "query", Type: "$WatchRequest"}},
+				ReturnType:       "AsyncIterable<$WatchRow>",
+				StreamingRowType: "$WatchRow",
 			},
 		},
-		TypeImports: []string{"WatchRequest", "WatchRow"},
+		TypeImports: []string{"$WatchRequest", "$WatchRow"},
 	}
 }
 
@@ -57,17 +57,13 @@ func assertContainsNone(t *testing.T, got string, banned []string) {
 func TestEmitCoreESM_golden(t *testing.T) {
 	got := EmitCoreESM(sampleAuthModule(), "6321")
 	assertContainsAll(t, got, []string{
-		`import { getDefaultInvokeClient } from "../transport/runtime.js"`,
-		"export const auth = (client) => ({",
-		"export async function VerifyToken(input, options)",
-		`options?.transport ?? getDefaultInvokeClient()`,
+		"export const $auth = (client) => ({",
 		`client.invokeFunction("auth", "VerifyToken", [input], options)`,
-		"VerifyToken.safe = async (input, options)",
-		`{ ok: true, value: await VerifyToken(input, options) }`,
-		`{ ok: false, error }`,
 		"http://127.0.0.1:6321",
 	})
 	assertContainsNone(t, got, []string{
+		"export async function VerifyToken",
+		"getDefaultInvokeClient",
 		"@forst/client",
 		"@forst/sidecar",
 		"8081",
@@ -98,8 +94,10 @@ func TestEmitCoreESM_emitsStreamHelperWhenStreamingRowType(t *testing.T) {
 	got := EmitCoreESM(sampleStreamModule(), "6321")
 	assertContainsAll(t, got, []string{
 		"WatchStream:",
-		"export function WatchStream(query, options)",
 		`client.invokeStream("events", "Watch", [query], options)`,
+	})
+	assertContainsNone(t, got, []string{
+		"export function WatchStream",
 	})
 }
 
@@ -112,8 +110,46 @@ func TestEmitCoreESM_zeroArityUsesEmptyArgsArray(t *testing.T) {
 	}
 	got := EmitCoreESM(m, "6321")
 	assertContainsAll(t, got, []string{
-		"export async function Ping(options)",
 		`client.invokeFunction("main", "Ping", [], options)`,
+	})
+	assertContainsNone(t, got, []string{
+		"export async function Ping",
+	})
+}
+
+func TestEmitCoreESM_jsReservedPackageNameUsesDollarNamespace(t *testing.T) {
+	m := ModuleEmit{
+		PackageName: "function",
+		Functions: []FunctionSignature{
+			{Name: "Ping", ReturnType: "number"},
+		},
+	}
+	got := EmitCoreESM(m, "6321")
+	assertContainsAll(t, got, []string{
+		"export const $function = (client) => ({",
+		`client.invokeFunction("function", "Ping", [], options)`,
+	})
+	assertContainsNone(t, got, []string{
+		"export const function =",
+		"export async function Ping",
+	})
+}
+
+func TestEmitPackageESM_jsReservedFunctionNameUsesBoundNamespace(t *testing.T) {
+	m := ModuleEmit{
+		PackageName: "main",
+		Functions: []FunctionSignature{
+			{Name: "class", ReturnType: "string"},
+		},
+	}
+	got := EmitPackageESM(m, RuntimePromise, "@forst/gen")
+	assertContainsAll(t, got, []string{
+		"export const $main = {",
+		"class: Object.assign(",
+	})
+	assertContainsNone(t, got, []string{
+		"export async function class",
+		"export function class",
 	})
 }
 
@@ -121,21 +157,17 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 	got := EmitCoreDTS(sampleAuthModule())
 	assertContainsAll(t, got, []string{
 		`import type { ForstInvokeClient, InvokeCallOptions } from "../transport/runtime.js"`,
-		`import type { VerifyTokenRequest, VerifyTokenResponse } from "../types.js"`,
-		"export declare const auth:",
-		"/** @throws {InvokeFailure} */",
-		"export declare function VerifyToken(",
-		"options?: InvokeCallOptions",
-		"Promise<VerifyTokenResponse>",
-		"export declare namespace VerifyToken",
-		"function safe(",
-		"{ ok: true; value: VerifyTokenResponse }",
-		"{ ok: false; error: InvokeFailure }",
+		`import type { $VerifyTokenRequest, $VerifyTokenResponse } from "../types.js"`,
+		"export declare const $auth:",
+		"VerifyToken: (input: $VerifyTokenRequest, options?: InvokeCallOptions) => Promise<$VerifyTokenResponse>",
 		`import type { InvokeFailure } from "@forst/errors"`,
 	})
-	// TypeImports are sorted.
-	reqIdx := strings.Index(got, "VerifyTokenRequest")
-	respIdx := strings.Index(got, "VerifyTokenResponse")
+	assertContainsNone(t, got, []string{
+		"export declare function VerifyToken",
+		"export declare namespace VerifyToken",
+	})
+	reqIdx := strings.Index(got, "$VerifyTokenRequest")
+	respIdx := strings.Index(got, "$VerifyTokenResponse")
 	if reqIdx < 0 || respIdx < 0 || reqIdx > respIdx {
 		t.Fatalf("TypeImports should be sorted Request before Response:\n%s", got)
 	}
@@ -144,14 +176,15 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m := sampleAuthModule()
 	m.DomainErrors = []ErrorClass{{Name: "CellTaken", ForstPackage: "auth"}}
-	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeFailure"
+	m.Functions[0].FailureType = "$CellTaken | ForstUnknownFailure | InvokeFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
-		`import type { CellTaken } from "../pkg/auth.errors.js"`,
+		`import type { $CellTaken } from "../pkg/auth.errors.js"`,
 		`import type { ForstUnknownFailure, InvokeFailure } from "@forst/errors"`,
-		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
-		"/** @throws {VerifyTokenFailure} */",
-		"{ ok: false; error: VerifyTokenFailure }",
+	})
+	assertContainsNone(t, got, []string{
+		"export type VerifyTokenFailure",
+		"export declare function VerifyToken",
 	})
 }
 
@@ -189,22 +222,32 @@ func TestEmitPackageESM_omitStubsAppendCommentedLines(t *testing.T) {
 func TestEmitPackageESM_golden(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimePromise, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`export * from "../core/auth.js"`,
-		"Promise mode re-exports core",
+		`import { $auth as $authCore } from "../core/auth.js"`,
+		"export const $auth = {",
+		"VerifyToken: Object.assign(",
+		"resolveClient(options)",
+		"Promise mode exports bound $pkg namespace",
 	})
 	assertContainsNone(t, got, []string{
+		`export * from "../core/auth.js"`,
+		"export async function VerifyToken",
 		"@forst/client",
 		"effect",
-		"invokeFunction",
 	})
 }
 
 func TestEmitPackageDTS_golden(t *testing.T) {
 	got := EmitPackageDTS(sampleAuthModule(), RuntimePromise, "@forst/gen")
 	assertContainsAll(t, got, []string{
-		`export * from "../core/auth.js"`,
-		"export type { VerifyTokenRequest, VerifyTokenResponse }",
+		"export declare const $auth:",
+		"readonly VerifyToken:",
+		"safe(",
+		"export type { $VerifyTokenRequest, $VerifyTokenResponse }",
 		`from "../types.js"`,
+	})
+	assertContainsNone(t, got, []string{
+		`export * from "../core/auth.js"`,
+		"export declare function VerifyToken",
 	})
 }
 
@@ -214,17 +257,18 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 		`import { Effect } from "effect"`,
 		`import { ForstTransport, withTransport } from "../$transport.js"`,
 		`import * as core from "../core/auth.js"`,
-		`export class Auth extends Effect.Service()`,
-		`"@forst/gen/Auth"`,
+		`export class $auth extends Effect.Service()`,
+		`"@forst/gen/auth"`,
 		"Effect.tryPromise",
 		"accessors: true",
 		"dependencies: [ForstTransport.Default]",
-		"export const { VerifyToken } = Auth",
-		`export { auth } from "../core/auth.js"`,
 	})
 	assertContainsNone(t, got, []string{
 		".safe",
 		"AbortController",
+		"export const { VerifyToken }",
+		`export { $auth } from "../core/auth.js"`,
+		"export async function VerifyToken",
 	})
 }
 
@@ -232,12 +276,12 @@ func TestEmitIndexESM_golden(t *testing.T) {
 	got := EmitIndexESM([]string{"auth", "billing"}, "6321", nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport/runtime.js"`,
-		`import { auth } from "./pkg/auth.js"`,
-		`import { billing } from "./pkg/billing.js"`,
+		`import { $auth as $authCore } from "./core/auth.js"`,
+		`import { $billing as $billingCore } from "./core/billing.js"`,
 		"export function createForstClient(config)",
 		"export { configureDefaultInvokeClient }",
-		"auth: auth(client)",
-		"billing: billing(client)",
+		"auth: $authCore(client)",
+		"billing: $billingCore(client)",
 		"http://127.0.0.1:6321",
 	})
 	assertContainsNone(t, got, []string{
@@ -246,8 +290,6 @@ func TestEmitIndexESM_golden(t *testing.T) {
 		"InvokeRejected",
 		"isInvokeFailure",
 		`from "@forst/errors"`,
-	})
-	assertContainsNone(t, got, []string{
 		"export { VerifyToken",
 		"@forst/client",
 		".cjs",
@@ -256,8 +298,8 @@ func TestEmitIndexESM_golden(t *testing.T) {
 
 func TestEmitIndexESM_sortsPackages(t *testing.T) {
 	got := EmitIndexESM([]string{"billing", "auth"}, "6321", nil, RuntimePromise)
-	authImport := strings.Index(got, `import { auth } from "./pkg/auth.js"`)
-	billingImport := strings.Index(got, `import { billing } from "./pkg/billing.js"`)
+	authImport := strings.Index(got, `import { $auth as $authCore } from "./core/auth.js"`)
+	billingImport := strings.Index(got, `import { $billing as $billingCore } from "./core/billing.js"`)
 	if authImport < 0 || billingImport < 0 || authImport > billingImport {
 		t.Fatalf("packages should be sorted alphabetically:\n%s", got)
 	}
@@ -282,12 +324,12 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"InvokeCallOptions",
 		"InvokeContext",
 		`from "./transport/runtime.js"`,
-		`import { auth } from "./pkg/auth.js"`,
+		`import { $auth as $authCore } from "./core/auth.js"`,
 		"export interface ForstClientConfig",
 		"middleware?: ForstInvokeMiddleware[]",
 		"export declare function createForstClient(",
 		"export declare function configureDefaultInvokeClient(",
-		"readonly auth: ReturnType<typeof auth>",
+		"readonly auth: ReturnType<typeof $authCore>",
 		"export type ForstClient = ReturnType<typeof createForstClient>",
 		"TaggedError",
 		`from "@forst/errors"`,
@@ -307,7 +349,6 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"export function createInvokeClient",
 		"export function getDefaultInvokeClient",
 		"export function resetDefaultInvokeClientForTest",
-		`from "@forst/errors"`,
 		`from "@forst/errors"`,
 		"new InvokeStreamAborted",
 		"new InvokeRejected",
@@ -383,14 +424,14 @@ func TestEmitTransportDTS_declaresPublicSurface(t *testing.T) {
 
 func TestEmitTypesDTS_golden(t *testing.T) {
 	shapes := []string{
-		"export interface VerifyTokenRequest {\n  token: string;\n}",
-		"export interface VerifyTokenResponse {\n  valid: boolean;\n}",
+		"export interface $VerifyTokenRequest {\n  token: string;\n}",
+		"export interface $VerifyTokenResponse {\n  valid: boolean;\n}",
 	}
 	got := EmitTypesDTS(shapes)
 	assertContainsAll(t, got, []string{
 		"// Auto-generated types for Forst client",
-		"export interface VerifyTokenRequest",
-		"export interface VerifyTokenResponse",
+		"export interface $VerifyTokenRequest",
+		"export interface $VerifyTokenResponse",
 		"token: string",
 		"valid: boolean",
 	})
@@ -424,7 +465,6 @@ func TestEmitInvokeCall_formatsArgsAndOptions(t *testing.T) {
 }
 
 func TestEmitCoreESM_isByteStableForSameModuleEmit(t *testing.T) {
-	// EmitCoreESM has no mode parameter; Promise and Effect share this emit.
 	a := EmitCoreESM(sampleAuthModule(), "6321")
 	b := EmitCoreESM(sampleAuthModule(), "6321")
 	if a != b {

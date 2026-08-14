@@ -29,7 +29,7 @@ func mustEmitErrorsDTS(t *testing.T, domain []PackageDomainErrorEmit, runtime Cl
 func TestEmitErrorsESM_domainOnlyStubWhenEmpty(t *testing.T) {
 	got := mustEmitErrorsESM(t, nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
-		`Invoke/harness failures: import from "@forst/errors"`,
+		`Invoke/harness failures: use @forst/errors directly`,
 		"export {};",
 	})
 	assertContainsNone(t, got, []string{
@@ -45,7 +45,7 @@ func TestEmitErrorsESM_domainOnlyStubWhenEmpty(t *testing.T) {
 func TestEmitErrorsDTS_domainOnlyStubWhenEmpty(t *testing.T) {
 	got := mustEmitErrorsDTS(t, nil, RuntimeEffect)
 	assertContainsAll(t, got, []string{
-		`Invoke/harness failures: import from "@forst/errors/effect"`,
+		`Invoke/harness failures: use @forst/errors/effect directly`,
 		"export {};",
 	})
 	assertContainsNone(t, got, []string{
@@ -88,7 +88,7 @@ func TestEmitPackageDomainErrorsESM_classesOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertContainsAll(t, got, []string{
-		"export class CellTaken",
+		"export class $CellTaken",
 		`extends tagged("@forst/gen/main/CellTaken")`,
 	})
 	assertContainsNone(t, got, []string{
@@ -157,7 +157,7 @@ func TestEmitTransportDomainErrorDecode_includesPackageRegistry(t *testing.T) {
 	}}, RuntimePromise)
 	assertContainsAll(t, block, []string{
 		`import * as $main from "../pkg/main.errors.js"`,
-		`"main/CellTaken": $main.CellTaken`,
+		`"main/CellTaken": $main.$CellTaken`,
 		"packageDomainErrorRegistries",
 		"decodeDomainError",
 		"UnknownFailureCtor",
@@ -176,7 +176,7 @@ func TestEmitTransportErrorsESM_httpPackageUsesDollarPrefix(t *testing.T) {
 	}}, RuntimePromise)
 	assertContainsAll(t, got, []string{
 		`import * as $http from "../pkg/http.errors.js"`,
-		`"http/ServiceUnavailable": $http.ServiceUnavailable`,
+		`"http/ServiceUnavailable": $http.$ServiceUnavailable`,
 	})
 	assertContainsNone(t, got, []string{
 		`import * as http from`,

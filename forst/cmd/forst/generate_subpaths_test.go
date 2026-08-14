@@ -164,7 +164,7 @@ func TestGenerate_userModulesLiveUnderPkgDirectory(t *testing.T) {
 	}
 }
 
-func TestGenerate_promiseModePkgModuleReExportsCore(t *testing.T) {
+func TestGenerate_promiseModePkgModuleExportsBoundNamespace(t *testing.T) {
 	dir := t.TempDir()
 	writeMainFt(t, dir, generateTestMinimalValidForst)
 	if err := generateCommand([]string{dir}); err != nil {
@@ -175,8 +175,17 @@ func TestGenerate_promiseModePkgModuleReExportsCore(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(got)
-	if !strings.Contains(text, `export * from "../core/main.js"`) {
-		t.Fatalf("pkg module must re-export core:\n%s", text)
+	for _, frag := range []string{
+		`import { $main as $mainCore } from "../core/main.js"`,
+		"export const $main = {",
+		"Echo: Object.assign(",
+	} {
+		if !strings.Contains(text, frag) {
+			t.Fatalf("pkg module must export bound $main namespace, missing %q:\n%s", frag, text)
+		}
+	}
+	if strings.Contains(text, `export * from "../core/main.js"`) {
+		t.Fatalf("pkg module must not re-export core wholesale:\n%s", text)
 	}
 }
 
@@ -220,7 +229,7 @@ func TestGenerate_typesFileHasShapesOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(types)
-	if !strings.Contains(text, "export interface EchoRequest") {
+	if !strings.Contains(text, "export interface $EchoRequest") {
 		t.Fatalf("types must include shapes:\n%s", text)
 	}
 	if strings.Contains(text, "export function Echo(") || strings.Contains(text, "Function signatures") {
@@ -249,8 +258,8 @@ func TestGenerate_sameFunctionNameInTwoPackagesSucceeds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), `export * from "../core/`) {
-			t.Fatalf("%s must re-export core:\n%s", rel, data)
+		if !strings.Contains(string(data), "export const $") {
+			t.Fatalf("%s must export bound namespace:\n%s", rel, data)
 		}
 	}
 }
@@ -266,7 +275,7 @@ func TestGenerate_packageSubpathReExportsTypes(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(pkgMod)
-	if !strings.Contains(text, "export type {") || !strings.Contains(text, "EchoRequest") {
+	if !strings.Contains(text, "export type {") || !strings.Contains(text, "$EchoRequest") {
 		t.Fatalf("pkg declarations must re-export shape types:\n%s", text)
 	}
 	if !strings.Contains(text, `from "../types.js"`) {

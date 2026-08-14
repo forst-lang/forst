@@ -285,10 +285,6 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)
 	if runtime == transformerts.RuntimeEffect {
-		if err := transformerts.ValidateServiceClassNames(packageNames); err != nil {
-			log.Error(err.Error())
-			return err
-		}
 		if err := requireEffectRuntime(boundaryRoot); err != nil {
 			log.Error(err.Error())
 			return err

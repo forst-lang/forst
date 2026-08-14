@@ -152,7 +152,7 @@ func FormatFunctionErrorUnion(sig typechecker.FunctionSignature, domainByName ma
 	for _, id := range sig.ErrorSet.NominalErrors {
 		name := string(id)
 		if _, ok := domainByName[name]; ok {
-			parts = append(parts, name)
+			parts = append(parts, GeneratedTypeExport(name))
 		}
 	}
 	if sig.ErrorSet.UnknownPossible {

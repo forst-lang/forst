@@ -32,7 +32,8 @@ export { InvokeRejected };
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", pkg, pkg)
+		nsExport := PackageNamespaceExport(pkg)
+		fmt.Fprintf(&b, "import { %s } from \"./core/%s.js\";\n", nsExport, pkg)
 	}
 	b.WriteString("\n")
 	b.WriteString(testingRuntimeESM)
@@ -46,7 +47,8 @@ export { InvokeRejected };
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "    %s: %s(transport),\n", pkg, pkg)
+		nsExport := PackageNamespaceExport(pkg)
+		fmt.Fprintf(&b, "    %s: %s(transport),\n", pkg, nsExport)
 	}
 	b.WriteString("  };\n")
 	b.WriteString("}\n\n")
@@ -163,7 +165,7 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "  readonly %s: ReturnType<typeof import(\"./pkg/%s.js\").%s>;\n", pkg, pkg, pkg)
+		fmt.Fprintf(&b, "  readonly %s: ReturnType<typeof import(\"./pkg/%s.js\").%s>;\n", pkg, pkg, PackageNamespaceExport(pkg))
 	}
 	b.WriteString("};\n\n")
 	emitForstTestServerOptionsDTS(&b)
@@ -248,7 +250,8 @@ func isImportableGeneratedTypeName(name string) bool {
 	if strings.HasPrefix(name, "Promise") || strings.HasPrefix(name, "Async") {
 		return false
 	}
-	r, _ := utf8.DecodeRuneInString(name)
+	ident := strings.TrimPrefix(name, "$")
+	r, _ := utf8.DecodeRuneInString(ident)
 	return unicode.IsUpper(r)
 }
 

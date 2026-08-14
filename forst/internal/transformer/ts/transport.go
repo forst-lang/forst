@@ -109,7 +109,7 @@ func transportDomainErrorDecodeBlock(domainPackages []PackageDomainErrorEmit, ru
 			return domainWireTag(sorted[i]) < domainWireTag(sorted[j])
 		})
 		for _, c := range sorted {
-			fmt.Fprintf(&b, "    %q: $%s.%s,\n", domainWireTag(c), emit.ForstPackage, c.Name)
+			fmt.Fprintf(&b, "    %q: $%s.%s,\n", domainWireTag(c), emit.ForstPackage, GeneratedTypeExport(c.Name))
 		}
 		b.WriteString("  },\n")
 	}

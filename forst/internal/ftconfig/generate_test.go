@@ -294,7 +294,7 @@ func TestReservedSubpaths_followsTestingSubpathConfig(t *testing.T) {
 	}
 }
 
-func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
+func TestReservedSubpaths_reservesInfraSubpathsWithoutEffectModule(t *testing.T) {
 	g := Default().Generate
 	g.Effect = true
 	reserved := g.ReservedSubpaths()
@@ -312,41 +312,35 @@ func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestGenerateConfig_Validate_rejectsTestingSubpathErrorsWithoutEffect(t *testing.T) {
-	g := Default().Generate
-	g.Effect = false
-	g.TestingSubpath = "$errors"
-	err := g.Validate()
-	if err == nil {
-		t.Fatal("expected validation error for testingSubpath $errors")
+func TestGenerateConfig_Validate_rejectsInfraTestingSubpathCollisions(t *testing.T) {
+	tests := []struct {
+		name    string
+		subpath string
+		wantErr string
+	}{
+		{name: "errors", subpath: "$errors", wantErr: "$errors"},
+		{name: "transport", subpath: "$transport", wantErr: "$transport"},
 	}
-	if !strings.Contains(err.Error(), "$errors") {
-		t.Fatalf("error must mention $errors conflict: %v", err)
-	}
-}
-
-func TestGenerateConfig_Validate_rejectsTestingSubpathTransport(t *testing.T) {
-	g := Default().Generate
-	g.Effect = false
-	g.TestingSubpath = "$transport"
-	err := g.Validate()
-	if err == nil {
-		t.Fatal("expected validation error for testingSubpath $transport")
-	}
-	if !strings.Contains(err.Error(), "$transport") {
-		t.Fatalf("error must mention $transport conflict: %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := Default().Generate
+			g.TestingSubpath = tc.subpath
+			err := g.Validate()
+			if err == nil {
+				t.Fatalf("expected validation error for testingSubpath %q", tc.subpath)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error must mention %q conflict: %v", tc.wantErr, err)
+			}
+		})
 	}
 }
 
-func TestGenerateConfig_Validate_rejectsEffectWithTestingSubpathEffect(t *testing.T) {
+func TestGenerateConfig_Validate_acceptsTestingSubpathEffect(t *testing.T) {
 	g := Default().Generate
 	g.Effect = true
 	g.TestingSubpath = "$effect"
-	err := g.Validate()
-	if err == nil {
-		t.Fatal("expected validation error for testingSubpath $effect with generate.effect")
-	}
-	if !strings.Contains(err.Error(), "$effect") {
-		t.Fatalf("error must mention $effect conflict: %v", err)
+	if err := g.Validate(); err != nil {
+		t.Fatalf("testingSubpath $effect should be accepted: %v", err)
 	}
 }

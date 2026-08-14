@@ -248,17 +248,18 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "../transport/runtime.js") {
-		t.Fatalf("core module should import ../transport/runtime.js; got:\n%s", client)
-	}
 	if strings.Contains(string(client), "@forst/client") {
 		t.Fatalf("client module must not import @forst/client; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "export const main") {
-		t.Fatalf("client export should match package name main; got:\n%s", client)
+	if !strings.Contains(string(client), "export const $main") {
+		t.Fatalf("client export should use $-prefixed namespace for package main; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "getDefaultInvokeClient") || !strings.Contains(string(client), "../transport/runtime.js") {
-		t.Fatalf("generated core should import transport, got:\n%s", client)
+	pkg, err := os.ReadFile(filepath.Join(outDir, "dist", "pkg", "main.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(pkg), "getDefaultInvokeClient") {
+		t.Fatalf("pkg module should import getDefaultInvokeClient, got:\n%s", pkg)
 	}
 	dts, err := os.ReadFile(filepath.Join(outDir, "dist", "core", "main.d.ts"))
 	if err != nil {
@@ -267,7 +268,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(dts), "EchoRequest") || !strings.Contains(string(dts), `from "../types.js"`) {
 		t.Fatalf("core.d.ts should import types from ../types.js, got:\n%s", dts)
 	}
-	if strings.Contains(string(client), "export interface EchoRequest") {
+	if strings.Contains(string(client), "export interface $EchoRequest") {
 		t.Fatalf("generated client should not duplicate interfaces from types.d.ts, got:\n%s", client)
 	}
 }

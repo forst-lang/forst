@@ -52,12 +52,12 @@ func TestGenerate_typescriptTypechecks_mergedDirectory(t *testing.T) {
 // Shape-level correctness is enforced by the typechecker (unknown types are rejected); these
 // are smoke checks that generate emitted expected declarations.
 var minimalEchoFixtureTypeScriptChecks = []string{
-	"export interface EchoRequest",
+	"export interface $EchoRequest",
 }
 
 var mergedDirectoryFixtureTypeScriptChecks = []string{
-	"export interface EchoRequest",
-	"export interface Ping",
+	"export interface $EchoRequest",
+	"export interface $Ping",
 }
 
 // requireGenerateOutputForTSC fails if forst generate produced no usable output.
@@ -140,9 +140,9 @@ type tsCompilerOptions struct {
 
 func writeTSConfigWithModuleResolution(projectRoot, moduleResolution string) error {
 	smoke := `import { createForstClient } from "@forst/gen";
-import { Echo } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 export const client = createForstClient();
-export const echo = Echo;
+export const echo = $main.Echo;
 `
 	if err := os.WriteFile(filepath.Join(projectRoot, "app-smoke.ts"), []byte(smoke), 0644); err != nil {
 		return err
@@ -178,9 +178,9 @@ export const echo = Echo;
 func writeTSConfig(projectRoot string) error {
 	// Consumer smoke file resolves @forst/gen through the node_modules link from generate (no paths).
 	smoke := `import { createForstClient } from "@forst/gen";
-import { Echo } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 export const client = createForstClient();
-export const echo = Echo;
+export const echo = $main.Echo;
 `
 	if err := os.WriteFile(filepath.Join(projectRoot, "app-smoke.ts"), []byte(smoke), 0644); err != nil {
 		return err

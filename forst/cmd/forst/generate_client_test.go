@@ -148,15 +148,15 @@ func TestGenerate_subpathFunctionImport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "ComparePassword") && !strings.Contains(string(data), `export * from "../core/bcrypt.js"`) {
-		t.Fatalf("pkg/bcrypt.js missing ComparePassword re-export:\n%s", data)
+	if !strings.Contains(string(data), "ComparePassword") || !strings.Contains(string(data), "export const $bcrypt = {") {
+		t.Fatalf("pkg/bcrypt.js missing bound $bcrypt namespace:\n%s", data)
 	}
 
 	script := filepath.Join(dir, "a01-smoke.mjs")
 	body := `
-import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") {
-  console.error("ComparePassword missing", ComparePassword);
+import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") {
+  console.error("ComparePassword missing", $bcrypt.ComparePassword);
   process.exit(1);
 }
 console.log("ok");
@@ -170,8 +170,8 @@ console.log("ok");
 	}
 
 	if os.Getenv("FORST_SKIP_TS_E2E") != "1" {
-		assertTypeScriptCompilesSmoke(t, dir, `import { ComparePassword } from "@forst/gen/bcrypt";
-export const fn = ComparePassword;
+		assertTypeScriptCompilesSmoke(t, dir, `import { $bcrypt } from "@forst/gen/bcrypt";
+export const fn = $bcrypt.ComparePassword;
 `)
 	}
 }
@@ -188,16 +188,16 @@ func TestGenerate_subpathTypeImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(dts)
-	if !strings.Contains(text, "ComparePasswordRequest") || !strings.Contains(text, `from "../types.js"`) {
-		t.Fatalf("pkg/bcrypt.d.ts must re-export ComparePasswordRequest:\n%s", text)
+	if !strings.Contains(text, "$ComparePasswordRequest") || !strings.Contains(text, `from "../types.js"`) {
+		t.Fatalf("pkg/bcrypt.d.ts must re-export $ComparePasswordRequest:\n%s", text)
 	}
 
 	if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
 		t.Log("alias: structure asserted; tsc skipped (FORST_SKIP_TS_E2E=1)")
 		return
 	}
-	assertTypeScriptCompilesSmoke(t, dir, `import type { ComparePasswordRequest } from "@forst/gen/bcrypt";
-const _check: ComparePasswordRequest = { password: "x", hash: "y" };
+	assertTypeScriptCompilesSmoke(t, dir, `import type { $ComparePasswordRequest } from "@forst/gen/bcrypt";
+const _check: $ComparePasswordRequest = { password: "x", hash: "y" };
 export type Req = typeof _check;
 `)
 }
@@ -284,9 +284,9 @@ func TestGenerate_installablePackage(t *testing.T) {
 	script := filepath.Join(dir, "a03-resolve.mjs")
 	body := `
 import { createForstClient } from "@forst/gen";
-import { Echo } from "@forst/gen/main";
-if (typeof createForstClient !== "function" || typeof Echo !== "function") {
-  console.error("exports missing", { createForstClient, Echo });
+import { $main } from "@forst/gen/main";
+if (typeof createForstClient !== "function" || typeof $main.Echo !== "function") {
+  console.error("exports missing", { createForstClient, echo: $main.Echo });
   process.exit(1);
 }
 console.log("ok");
@@ -352,8 +352,8 @@ func TestGenerate_linkRestoredByPostinstall(t *testing.T) {
 	}
 	script := filepath.Join(dir, "a03b-restored.mjs")
 	body := `
-import { Echo } from "@forst/gen/main";
-if (typeof Echo !== "function") process.exit(1);
+import { $main } from "@forst/gen/main";
+if (typeof $main.Echo !== "function") process.exit(1);
 console.log("ok");
 `
 	if err := os.WriteFile(script, []byte(body), 0644); err != nil {
@@ -386,7 +386,7 @@ func TestGenerate_packageName(t *testing.T) {
 			t.Fatalf("name=%v, want %s", pkg["name"], ftconfig.DefaultPackageName)
 		}
 		out := buf.String()
-		if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
+		if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { $main } from "@forst/gen/main"`) {
 			t.Fatalf("stdout must name specifier and example import:\n%s", out)
 		}
 	})
@@ -461,8 +461,8 @@ func TestGenerate_bundlerBuild(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	entry := filepath.Join(dir, "entry.mjs")
-	if err := os.WriteFile(entry, []byte(`import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") process.exit(2);
+	if err := os.WriteFile(entry, []byte(`import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(2);
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -508,8 +508,8 @@ func TestGenerate_esmAndRequireBothResolve(t *testing.T) {
 	}
 	esm := filepath.Join(dir, "a06-esm.mjs")
 	if err := os.WriteFile(esm, []byte(`
-import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") process.exit(1);
+import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -520,8 +520,8 @@ console.log("ok");
 	}
 	cjs := filepath.Join(dir, "a06-cjs.cjs")
 	if err := os.WriteFile(cjs, []byte(`
-const { ComparePassword } = require("@forst/gen/bcrypt");
-if (typeof ComparePassword !== "function") process.exit(1);
+const { $bcrypt } = require("@forst/gen/bcrypt");
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -615,8 +615,8 @@ func Ping() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c := strings.Count(string(types), "export interface Address"); c != 1 {
-			t.Fatalf("want exactly one Address declaration, got %d:\n%s", c, types)
+		if c := strings.Count(string(types), "export interface $Address"); c != 1 {
+			t.Fatalf("want exactly one $Address declaration, got %d:\n%s", c, types)
 		}
 	})
 }
@@ -640,8 +640,8 @@ func TestGenerate_reservedPackageNames(t *testing.T) {
 		if _, err := exec.LookPath("node"); err == nil {
 			script := filepath.Join(dir, "a07b-types.mjs")
 			if err := os.WriteFile(script, []byte(`
-import { Ping } from "@forst/gen/types";
-if (typeof Ping !== "function") process.exit(1);
+import { $types } from "@forst/gen/types";
+if (typeof $types.Ping !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 				t.Fatal(err)
@@ -661,6 +661,33 @@ console.log("ok");
 		}
 		if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), "pkg", "testing.js")); err != nil {
 			t.Fatalf("missing pkg/testing.js: %v", err)
+		}
+	})
+
+	t.Run("js_reserved_package_name", func(t *testing.T) {
+		dir := t.TempDir()
+		writePkgFT(t, dir, "function", "package function\n\nfunc Ping() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("JS reserved package name should succeed with $ namespace aliasing: %v", err)
+		}
+		corePath := filepath.Join(defaultClientDistDir(dir), "core", "function.js")
+		core, err := os.ReadFile(corePath)
+		if err != nil {
+			t.Fatalf("read core: %v", err)
+		}
+		if !strings.Contains(string(core), "export const $function = (client) => ({") {
+			t.Fatalf("core should $-prefix namespace export:\n%s", core)
+		}
+		pkgPath := filepath.Join(defaultClientDistDir(dir), "pkg", "function.js")
+		pkg, err := os.ReadFile(pkgPath)
+		if err != nil {
+			t.Fatalf("read pkg: %v", err)
+		}
+		if !strings.Contains(string(pkg), "export const $function = {") {
+			t.Fatalf("pkg should export bound namespace:\n%s", pkg)
+		}
+		if strings.Contains(string(pkg), "export async function Ping(") {
+			t.Fatalf("pkg must not flat-export Ping:\n%s", pkg)
 		}
 	})
 
@@ -725,8 +752,8 @@ func TestGenerate_forstPackageNamedClient(t *testing.T) {
 	}
 	script := filepath.Join(dir, "a07c-client.mjs")
 	if err := os.WriteFile(script, []byte(`
-import { Ping } from "@forst/gen/client";
-if (typeof Ping !== "function") process.exit(1);
+import { $client } from "@forst/gen/client";
+if (typeof $client.Ping !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -1000,7 +1027,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(effectDTS)
-		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "Main", "export declare const Echo:"} {
+		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "$main", "export declare class $main"} {
 			if !strings.Contains(got, frag) {
 				t.Fatalf("missing %q in effect pkg d.ts:\n%s", frag, got)
 			}
@@ -1014,15 +1041,33 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			}
 		}
 
-		for _, rel := range []string{transformerts.InfraErrorsSubpath + ".js"} {
+		for _, rel := range []string{transformerts.InfraErrorsSubpath + ".js", transformerts.InfraErrorsSubpath + ".d.ts"} {
 			promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-			if !strings.Contains(promise, `@forst/errors"`) {
-				t.Fatalf("promise %s must re-export from @forst/errors", rel)
+			if !strings.Contains(promise, "export {};") {
+				t.Fatalf("promise %s must be a domain-only stub:\n%s", rel, promise)
+			}
+			if strings.Contains(promise, `from "@forst/errors"`) {
+				t.Fatalf("promise %s must not re-export invoke errors from @forst/errors", rel)
 			}
 			effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-			if !strings.Contains(effect, `@forst/errors/effect"`) {
-				t.Fatalf("effect %s must re-export from @forst/errors/effect", rel)
+			if !strings.Contains(effect, "export {};") {
+				t.Fatalf("effect %s must be a domain-only stub:\n%s", rel, effect)
 			}
+			if strings.Contains(effect, `from "@forst/errors/effect"`) {
+				t.Fatalf("effect %s must not re-export invoke errors from @forst/errors/effect", rel)
+			}
+		}
+
+		promiseCore := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), "core/main.d.ts"))
+		if !strings.Contains(promiseCore, `@forst/errors"`) {
+			t.Fatalf("promise core/main.d.ts must import invoke failures from @forst/errors")
+		}
+		effectCore := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "core/main.d.ts"))
+		if effectCore != promiseCore {
+			t.Fatalf("effect core/main.d.ts must match promise core (shared module)")
+		}
+		if !strings.Contains(effectCore, `@forst/errors"`) {
+			t.Fatalf("shared core/main.d.ts must import invoke failures from @forst/errors")
 		}
 
 		promiseTree := readDistTree(t, defaultClientOutDir(promiseDir))

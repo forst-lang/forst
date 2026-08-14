@@ -208,11 +208,11 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 	script := filepath.Join(dist, "attach-e2e.mjs")
 	body := fmt.Sprintf(`
 import { startForstTestServer } from "./$testing.js";
-import { Echo } from "./pkg/main.js";
+import { $main } from "./pkg/main.js";
 
 const server = await startForstTestServer({ baseUrl: %q, root: %q });
 try {
-  const result = await Echo({ message: "hi" });
+  const result = await $main.Echo({ message: "hi" });
   if (result.echo !== "hi" || result.timestamp !== 42) {
     throw new Error("bad result " + JSON.stringify(result));
   }

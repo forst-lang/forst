@@ -31,8 +31,8 @@ func TestGeneratePackageClient_emitsStreamWhenStreamingRowType(t *testing.T) {
 	if !strings.Contains(out, "invokeStream<string>") {
 		t.Fatalf("expected typed invokeStream, got:\n%s", out)
 	}
-	if !strings.Contains(out, "export async function Process") {
-		t.Fatalf("expected direct named export, got:\n%s", out)
+	if !strings.Contains(out, "export const $main = (client") {
+		t.Fatalf("expected namespace factory, got:\n%s", out)
 	}
 	// Direct delegation: no extra async generator wrapper (better perf than for-await re-yield).
 	if strings.Contains(out, "async function*") {

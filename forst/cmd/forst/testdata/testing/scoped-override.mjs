@@ -3,7 +3,7 @@
  * Copied next to generated dist/ by TestGenerate_acceptance_testdataExampleRunsWithoutHTTP.
  */
 import { withForstTestScope } from "./$testing.js";
-import { Echo } from "./pkg/main.js";
+import { $main } from "./pkg/main.js";
 
 const result = await withForstTestScope(
   {
@@ -16,7 +16,7 @@ const result = await withForstTestScope(
       },
     },
   },
-  async () => Echo({ message: "hello" })
+  async () => $main.Echo({ message: "hello" })
 );
 
 if (result.echo !== "test:hello" || result.timestamp !== 42) {

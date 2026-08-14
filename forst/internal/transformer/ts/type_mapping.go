@@ -248,7 +248,7 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 	// Named type that exists in the typechecker (user-defined, stable name)
 	if tm.typeChecker != nil && forstType.TypeKind == ast.TypeKindUserDefined && forstType.Ident != "" {
 		if _, ok := tm.typeChecker.Defs[forstType.Ident].(ast.TypeDefNode); ok {
-			return string(forstType.Ident), nil
+			return GeneratedTypeExport(string(forstType.Ident)), nil
 		}
 	}
 
@@ -259,8 +259,12 @@ func (tm *TypeMapping) GetTypeScriptType(forstType *ast.TypeNode) (string, error
 			AllowStructuralAlias: true,
 		})
 		if err == nil && aliasedName != "" {
-			// If we found an aliased name, use it
-			return aliasedName, nil
+			return GeneratedTypeExport(aliasedName), nil
+		}
+		if string(forstType.Ident) != "" {
+			if _, ok := tm.typeChecker.Defs[forstType.Ident].(ast.TypeDefNode); ok {
+				return GeneratedTypeExport(string(forstType.Ident)), nil
+			}
 		}
 
 		// If no aliased name found, try to resolve the underlying struct definition

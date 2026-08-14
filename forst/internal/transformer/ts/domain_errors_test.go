@@ -40,7 +40,7 @@ func TestFormatFunctionErrorUnion_compactsInvokeCatalog(t *testing.T) {
 		},
 	}
 	got := FormatFunctionErrorUnion(sig, domain)
-	want := "EmptyMessage | InvokeFailure"
+	want := "$EmptyMessage | InvokeFailure"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -71,7 +71,7 @@ func TestEmitPackageDomainErrorsESM_includesDomainErrorClass(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"export class CellTaken",
+		"export class $CellTaken",
 		`extends tagged("@forst/gen/main/CellTaken")`,
 	} {
 		if !stringsContains(out, want) {
@@ -89,7 +89,7 @@ func TestTransportDecode_usesPackageScopedWireTag(t *testing.T) {
 			WireTag:      "main/CellTaken",
 		}},
 	}}, RuntimePromise)
-	if !stringsContains(block, `"main/CellTaken": $main.CellTaken`) {
+	if !stringsContains(block, `"main/CellTaken": $main.$CellTaken`) {
 		t.Fatalf("missing package-scoped registry key:\n%s", block)
 	}
 }

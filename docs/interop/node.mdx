@@ -10,9 +10,9 @@ Node backends often need three things at once during migration: **a typed client
 <NodeClientSetupNote />
 
 ```typescript
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
-const { valid } = await VerifyPassword({
+const { valid } = await $auth.VerifyPassword({
   plainPassword: "secret",
   passwordHash: "$2a$...",
 });

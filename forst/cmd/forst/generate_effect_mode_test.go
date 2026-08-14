@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,16 +92,17 @@ func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
 	for _, frag := range []string{
 		"Effect.Effect<",
 		"InvokeFailure",
-		"Main",
-		"export declare const Echo:",
+		"$main",
+		"export declare class $main",
+		"readonly Echo:",
 	} {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q in pkg d.ts:\n%s", frag, got)
 		}
 	}
-	echoIdx := strings.Index(got, "export declare const Echo:")
+	echoIdx := strings.Index(got, "readonly Echo:")
 	if echoIdx < 0 {
-		t.Fatal("missing Echo const")
+		t.Fatal("missing Echo service member")
 	}
 	snippet := got[echoIdx:]
 	if !strings.Contains(snippet, "Effect.Effect<") {
@@ -115,12 +117,12 @@ func TestGenerate_effectMode_errorChannelIncludesTransportFailures(t *testing.T)
 		t.Fatal(err)
 	}
 	got := string(dts)
-	echoIdx := strings.Index(got, "export declare const Echo:")
+	echoIdx := strings.Index(got, "readonly Echo:")
 	if echoIdx < 0 {
-		t.Fatal("missing Echo declaration")
+		t.Fatal("missing Echo service member")
 	}
 	rest := got[echoIdx:]
-	end := strings.Index(rest, ";\n\n")
+	end := strings.Index(rest, ";\n")
 	if end < 0 {
 		t.Fatalf("malformed Echo declaration:\n%s", rest)
 	}
@@ -331,16 +333,22 @@ func TestGenerate_effectMode_errorsUseDataTaggedError(t *testing.T) {
 
 	for _, rel := range []string{"$errors.js"} {
 		promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-		if !strings.Contains(promise, `@forst/errors"`) {
-			t.Fatalf("promise %s must re-export from @forst/errors:\n%s", rel, promise)
+		if !strings.Contains(promise, `use @forst/errors directly`) {
+			t.Fatalf("promise %s must document @forst/errors import path:\n%s", rel, promise)
+		}
+		if strings.Contains(promise, `from "@forst/errors"`) {
+			t.Fatalf("promise %s must not re-export from @forst/errors:\n%s", rel, promise)
 		}
 		if strings.Contains(promise, `from "effect"`) {
 			t.Fatalf("promise %s must not import effect", rel)
 		}
 
 		effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-		if !strings.Contains(effect, `@forst/errors/effect"`) {
-			t.Fatalf("effect %s must re-export from @forst/errors/effect:\n%s", rel, effect)
+		if !strings.Contains(effect, `use @forst/errors/effect directly`) {
+			t.Fatalf("effect %s must document @forst/errors/effect import path:\n%s", rel, effect)
+		}
+		if strings.Contains(effect, `from "@forst/errors/effect"`) {
+			t.Fatalf("effect %s must not re-export from @forst/errors/effect:\n%s", rel, effect)
 		}
 	}
 
@@ -439,7 +447,7 @@ func TestGenerate_effectMode_coreModulesContainNoEffectImport(t *testing.T) {
 func TestGenerate_effectMode_emitsServiceClassPerPackage(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	js := mustRead(t, filepath.Join(dist, "pkg", "main.js"))
-	if !strings.Contains(js, "export class Main extends Effect.Service()") {
+	if !strings.Contains(js, "export class $main extends Effect.Service()") {
 		t.Fatalf("missing service class:\n%s", js)
 	}
 }
@@ -463,7 +471,7 @@ func TestGenerate_effectMode_serviceDeclaresTransportDependency(t *testing.T) {
 func TestGenerate_effectMode_tagStringIncludesPackageName(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	js := mustRead(t, filepath.Join(dist, "pkg", "main.js"))
-	if !strings.Contains(js, `"@forst/gen/Main"`) {
+	if !strings.Contains(js, `"@forst/gen/main"`) {
 		t.Fatalf("tag must include packageName:\n%s", js)
 	}
 	transportJS := mustRead(t, filepath.Join(dist, "$transport.js"))
@@ -483,23 +491,29 @@ func TestGenerate_effectMode_serviceLivesInItsOwnSubpathModule(t *testing.T) {
 	dist := defaultClientDistDir(dir)
 	alpha := mustRead(t, filepath.Join(dist, "pkg", "alpha.js"))
 	beta := mustRead(t, filepath.Join(dist, "pkg", "beta.js"))
-	if !strings.Contains(alpha, "export class Alpha") || strings.Contains(alpha, "export class Beta") {
-		t.Fatalf("alpha module should only host Alpha:\n%s", alpha)
+	if !strings.Contains(alpha, "export class $alpha") || strings.Contains(alpha, "export class $beta") {
+		t.Fatalf("alpha module should only host $alpha:\n%s", alpha)
 	}
-	if !strings.Contains(beta, "export class Beta") || strings.Contains(beta, "export class Alpha") {
-		t.Fatalf("beta module should only host Beta:\n%s", beta)
+	if !strings.Contains(beta, "export class $beta") || strings.Contains(beta, "export class $alpha") {
+		t.Fatalf("beta module should only host $beta:\n%s", beta)
 	}
 }
 
-func TestGenerate_effectMode_subpathReExportsServiceAccessors(t *testing.T) {
+func TestGenerate_effectMode_pkgModuleHasNoFlatFunctionExports(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	js := mustRead(t, filepath.Join(dist, "pkg", "main.js"))
-	if !strings.Contains(js, "export const { Echo } = Main") {
-		t.Fatalf("missing accessor re-export:\n%s", js)
+	if strings.Contains(js, "export const { Echo }") {
+		t.Fatalf("effect pkg must not re-export flat accessors:\n%s", js)
+	}
+	if strings.Contains(js, "export async function Echo") {
+		t.Fatalf("effect pkg must not export promise flat functions:\n%s", js)
+	}
+	if strings.Contains(js, `export { $main } from "../core/main.js"`) {
+		t.Fatalf("effect pkg must not re-export promise namespace:\n%s", js)
 	}
 }
 
-func TestGenerate_effectMode_failsOnServiceClassNameCollision(t *testing.T) {
+func TestGenerate_effectMode_allowsSimilarPackageNames(t *testing.T) {
 	dir := t.TempDir()
 	for _, pkg := range []string{"user_auth", "userAuth"} {
 		pkgDir := filepath.Join(dir, pkg)
@@ -513,14 +527,15 @@ func TestGenerate_effectMode_failsOnServiceClassNameCollision(t *testing.T) {
 	}
 	writeEffectConfig(t, dir)
 	installEffectFixture(t, dir, "3.21.4")
-	err := generateCommand([]string{dir})
-	if err == nil {
-		t.Fatal("expected service class collision error")
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("similar package names should succeed with $-prefixed services: %v", err)
 	}
-	msg := err.Error()
-	for _, frag := range []string{"user_auth", "userAuth", "UserAuth"} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("missing %q in:\n%s", frag, msg)
+	dist := defaultClientDistDir(dir)
+	for _, pkg := range []string{"user_auth", "userAuth"} {
+		js := mustRead(t, filepath.Join(dist, "pkg", pkg+".js"))
+		want := fmt.Sprintf("export class $%s extends Effect.Service()", pkg)
+		if !strings.Contains(js, want) {
+			t.Fatalf("missing %q in:\n%s", want, js)
 		}
 	}
 }
@@ -587,10 +602,10 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
 			Name:       "VerifyToken",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
-			ReturnType: "VerifyTokenResponse",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "$VerifyTokenRequest"}},
+			ReturnType: "$VerifyTokenResponse",
 		}},
-		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
+		TypeImports: []string{"$VerifyTokenRequest", "$VerifyTokenResponse"},
 	}}
 	promiseDTS := transformerts.EmitTestingDTS(mods, "@forst/gen", transformerts.RuntimePromise)
 	effectDTS := transformerts.EmitTestingEffectDTS(mods, "@forst/gen")
@@ -611,15 +626,15 @@ func TestGenerate_effectMode_testHandlerAcceptsValuePromiseOrEffect(t *testing.T
 		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
 			Name:       "VerifyToken",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
-			ReturnType: "VerifyTokenResponse",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "$VerifyTokenRequest"}},
+			ReturnType: "$VerifyTokenResponse",
 		}},
-		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
+		TypeImports: []string{"$VerifyTokenRequest", "$VerifyTokenResponse"},
 	}}, "@forst/gen")
 	for _, frag := range []string{
-		"| VerifyTokenResponse",
-		"| Promise<VerifyTokenResponse>",
-		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
+		"| $VerifyTokenResponse",
+		"| Promise<$VerifyTokenResponse>",
+		"| Effect.Effect<$VerifyTokenResponse, InvokeFailure>",
 	} {
 		if !strings.Contains(dts, frag) {
 			t.Fatalf("missing %q:\n%s", frag, dts)
@@ -632,8 +647,8 @@ func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
 			Name:       "VerifyToken",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
-			ReturnType: "VerifyTokenResponse",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "$VerifyTokenRequest"}},
+			ReturnType: "$VerifyTokenResponse",
 		}},
 	}}, "@forst/gen")
 	if !strings.Contains(js, "export function ForstTestLayer") {
@@ -699,8 +714,8 @@ func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
 	dist := defaultClientDistDir(dir)
 	errorsJS := mustRead(t, filepath.Join(dist, "transport", "errors.js"))
 	for _, frag := range []string{
-		`"alpha/NotFound": $alpha.NotFound`,
-		`"beta/NotFound": $beta.NotFound`,
+		`"alpha/NotFound": $alpha.$NotFound`,
+		`"beta/NotFound": $beta.$NotFound`,
 		`import * as $alpha from "../pkg/alpha.errors.js"`,
 		`import * as $beta from "../pkg/beta.errors.js"`,
 		"export function decodeDomainError",
@@ -758,7 +773,7 @@ func Fail() {
 	errorsJS := mustRead(t, filepath.Join(dist, "transport", "errors.js"))
 	for _, frag := range []string{
 		`import * as $http from "../pkg/http.errors.js"`,
-		`"http/ServiceUnavailable": $http.ServiceUnavailable`,
+		`"http/ServiceUnavailable": $http.$ServiceUnavailable`,
 	} {
 		if !strings.Contains(errorsJS, frag) {
 			t.Fatalf("missing %q in transport/errors.js:\n%s", frag, errorsJS)
@@ -788,16 +803,16 @@ func TestGenerate_domainErrorsTypecheck(t *testing.T) {
 	if _, err := os.Lstat(link); err != nil {
 		t.Fatalf("expected node_modules/@forst/gen link: %v", err)
 	}
-	assertTypeScriptCompilesSmoke(t, dir, `import { NotFound as AlphaNotFound } from "@forst/gen/alpha/errors";
-import { NotFound as BetaNotFound } from "@forst/gen/beta/errors";
+	assertTypeScriptCompilesSmoke(t, dir, `import { $NotFound as AlphaNotFound } from "@forst/gen/alpha/errors";
+import { $NotFound as BetaNotFound } from "@forst/gen/beta/errors";
 import * as alpha from "@forst/gen/alpha/errors";
 import * as beta from "@forst/gen/beta/errors";
 import * as errors from "@forst/gen/$errors";
 
-const a: typeof AlphaNotFound = alpha.NotFound;
-const b: typeof BetaNotFound = beta.NotFound;
-const nsA: typeof errors.alpha.NotFound = errors.alpha.NotFound;
-const nsB: typeof errors.beta.NotFound = errors.beta.NotFound;
+const a: typeof AlphaNotFound = alpha.$NotFound;
+const b: typeof BetaNotFound = beta.$NotFound;
+const nsA: typeof errors.alpha.$NotFound = errors.alpha.$NotFound;
+const nsB: typeof errors.beta.$NotFound = errors.beta.$NotFound;
 `)
 }
 

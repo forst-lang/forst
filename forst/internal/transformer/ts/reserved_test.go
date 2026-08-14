@@ -49,6 +49,47 @@ func TestValidateForstPackageName_rejectsGoKeyword(t *testing.T) {
 	}
 }
 
+func TestValidateForstPackageName_allowsJSReservedWords(t *testing.T) {
+	for _, name := range []string{"function", "class", "enum", "await", "yield", "export"} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateForstPackageName(name); err != nil {
+				t.Fatalf("%q should be allowed with $ namespace aliasing: %v", name, err)
+			}
+		})
+	}
+}
+
+func TestPackageNamespaceExport_prefixesDollar(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"auth", "$auth"},
+		{"main", "$main"},
+		{"function", "$function"},
+		{"user_auth", "$user_auth"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := PackageNamespaceExport(tc.in); got != tc.want {
+				t.Fatalf("PackageNamespaceExport(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGeneratedTypeExport_prefixesDollar(t *testing.T) {
+	if got := GeneratedTypeExport("ComparePasswordRequest"); got != "$ComparePasswordRequest" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestGeneratedFailureAliasExport_prefixesDollar(t *testing.T) {
+	if got := GeneratedFailureAliasExport("ComparePassword"); got != "$ComparePasswordFailure" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestValidateForstPackageName_allowsInvokeCatalogNames(t *testing.T) {
 	for _, pkg := range []string{"InvokeRejected", "InvokeFailure"} {
 		t.Run(pkg, func(t *testing.T) {
@@ -82,62 +123,8 @@ func TestPackageNames_dedupesAndSorts(t *testing.T) {
 	}
 }
 
-func TestServiceClassName_pascalCase(t *testing.T) {
-	cases := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"bcrypt", "bcrypt", "Bcrypt"},
-		{"user_auth", "user_auth", "UserAuth"},
-		{"userAuth", "userAuth", "UserAuth"},
-		{"main", "main", "Main"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := ServiceClassName(tc.in); got != tc.want {
-				t.Fatalf("ServiceClassName(%q) = %q, want %q", tc.in, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestValidateServiceClassNames_rejectsCollision(t *testing.T) {
-	err := ValidateServiceClassNames([]string{"user_auth", "userAuth"})
-	if err == nil {
-		t.Fatal("expected collision error")
-	}
-	msg := err.Error()
-	for _, frag := range []string{"user_auth", "userAuth", "UserAuth"} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("missing %q in %s", frag, msg)
-		}
-	}
-}
-
-func TestValidateServiceClassNames_allowsDistinct(t *testing.T) {
-	if err := ValidateServiceClassNames([]string{"bcrypt", "auth"}); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestServiceClassName_symbolOnlyNameProducesEmptyString(t *testing.T) {
-	for _, name := range []string{"___", "...", "---"} {
-		if got := ServiceClassName(name); got != "" {
-			t.Fatalf("ServiceClassName(%q) = %q, want empty", name, got)
-		}
-	}
-}
-
-func TestValidateServiceClassNames_collidesWhenBothProduceEmptyClass(t *testing.T) {
-	err := ValidateServiceClassNames([]string{"___", "..."})
-	if err == nil {
-		t.Fatal("expected collision error for symbol-only package names")
-	}
-	msg := err.Error()
-	for _, frag := range []string{"___", "...", "empty Effect service class"} {
-		if !strings.Contains(msg, frag) {
-			t.Fatalf("missing %q in %s", frag, msg)
-		}
+func TestValidateForstPackageNames_allowsDistinctSimilarNames(t *testing.T) {
+	if err := ValidateForstPackageNames([]string{"user_auth", "userAuth"}); err != nil {
+		t.Fatalf("distinct package names should be allowed: %v", err)
 	}
 }

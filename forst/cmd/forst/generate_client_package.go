@@ -71,10 +71,7 @@ func generateClientPackage(
 		}
 		modules = append(modules, transformerts.ModuleEmitFromOutput(out, false))
 	}
-	testingKey := genCfg.TestingSubpath
-	if testingKey == "" {
-		testingKey = "testing"
-	}
+	testingKey := genCfg.EffectiveTestingSubpath()
 	var testingJS string
 	var testingDTS string
 	if runtime == transformerts.RuntimeEffect {
@@ -144,10 +141,7 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainE
 		stem := transformerts.PackageDomainErrorsFileStem(pkg)
 		appendPackageJSONExport(&b, "./"+pkg+"/errors", "./dist/pkg/"+stem+".d.ts", "./dist/pkg/"+stem+".js")
 	}
-	testingKey := genCfg.TestingSubpath
-	if testingKey == "" {
-		testingKey = transformerts.DefaultInfraTestingSubpath
-	}
+	testingKey := genCfg.EffectiveTestingSubpath()
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
 	appendPackageJSONExport(
 		&b,
@@ -273,7 +267,7 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 		b.WriteString("This package was generated with `generate.effect: true`.\n\n")
 		fmt.Fprintf(&b, "- Peer dependency: `effect` %s (required for `Layer.mock`).\n", transformerts.EffectPeerDependencyRange)
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
-		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire (`@forst/gen/$transport`).\n")
+		b.WriteString("- Mocking: `Layer.mock($pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire (`@forst/gen/$transport`).\n")
 		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
 		b.WriteString("- Invoke, domain, and harness errors use `Data.TaggedError` from the effect peer. `Equal.equals` works on error values.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")

@@ -37,10 +37,10 @@ npx forst generate .
 ```typescript
 import { Effect } from "effect";
 import { ForstClientLive } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const program = Effect.gen(function* () {
-  const { valid } = yield* VerifyPassword({
+  const { valid } = yield* $auth.VerifyPassword({
     plainPassword: "secret",
     passwordHash: "$2a$...",
   });
@@ -65,14 +65,14 @@ Full `generate` fields live on the [CLI reference](/workflow/cli#generate-config
 | Aspect | Promise mode (default) | Effect mode (`generate.effect: true`) |
 | --- | --- | --- |
 | Error classes | Inlined tagged helper (structural `_tag`) | `Data.TaggedError` from `effect` peer |
-| Function return | `Promise<Response>` | `Effect.Effect<Response, InvokeFailure, Pkg>` |
+| Function return | `Promise<Response>` | `$pkg.Method(...)` returns `Effect.Effect<Response, Failure, $pkg>` |
 | Failure encoding | Thrown tagged error, plus `.safe()` | Typed `E` channel. No `.safe()`. |
 | Retries | `options.retries` | `Effect.retry` with a `Schedule` |
 | Dependencies | None | Peer dependency `effect` `>=3.17.0` |
 | Wiring | `createForstClient(config)` | `ForstClientLive` / `ForstClientLayer(config)` |
 | Mocking | `withForstTestScope` | `Layer.mock` / `ForstTestLayer` |
 
-Imports stay the same. `import { VerifyPassword } from "@forst/gen/auth"` works in both modes.
+Both modes import the package handle (for example `$auth` from `@forst/gen/auth`) and call `$auth.VerifyPassword(...)`.
 
 ## Errors
 
@@ -82,10 +82,10 @@ Catch by tag in either mode:
 
 ```typescript Promise
 import { isInvokeFailure } from "@forst/errors";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 try {
-  await VerifyPassword(input);
+  await $auth.VerifyPassword(input);
 } catch (error) {
   if (!isInvokeFailure(error)) throw error;
   switch (error._tag) {
@@ -101,9 +101,9 @@ try {
 
 ```typescript Effect
 import { Effect } from "effect";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
-const program = VerifyPassword(input).pipe(
+const program = $auth.VerifyPassword(input).pipe(
   Effect.catchTag("@forst/errors/InvokeRejected", (e) =>
     Effect.succeed({ valid: false as const, reason: e.serverError })
   ),
@@ -128,7 +128,7 @@ See [Call Forst from Node](/interop/node/call-forst#failures) for the full failu
 ```typescript
 import { Effect } from "effect";
 import { ForstClientLayer, makeForstClientRuntime } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const layer = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
@@ -136,14 +136,14 @@ const layer = ForstClientLayer({
 
 // Effect call sites
 Effect.runPromise(
-  VerifyPassword(input).pipe(Effect.provide(layer))
+  $auth.VerifyPassword(input).pipe(Effect.provide(layer))
 );
 
 // Non-Effect call sites
 const runtime = makeForstClientRuntime({
   baseUrl: process.env.FORST_BASE_URL,
 });
-const result = await runtime.runPromise(VerifyPassword(input));
+const result = await runtime.runPromise($auth.VerifyPassword(input));
 ```
 
 Set **`FORST_BASE_URL`** in production. The client never spawns a server when `NODE_ENV` is `production`.
@@ -156,14 +156,14 @@ Same three levels as [Testing](/interop/node/testing), expressed as layers.
 
 ```typescript
 import { Effect, Layer } from "effect";
-import { Auth, VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
-const AuthTest = Layer.mock(Auth, {
+const AuthTest = Layer.mock($auth, {
   VerifyPassword: () => Effect.succeed({ valid: true }),
 });
 
 await Effect.runPromise(
-  VerifyPassword(input).pipe(Effect.provide(AuthTest))
+  $auth.VerifyPassword(input).pipe(Effect.provide(AuthTest))
 );
 ```
 
@@ -174,7 +174,7 @@ An unstubbed method fails loudly (`UnimplementedError`). That is why Effect mode
 ```typescript
 import { Effect } from "effect";
 import { ForstTestLayer } from "@forst/gen/$testing";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const Test = ForstTestLayer({
   packages: {
@@ -185,7 +185,7 @@ const Test = ForstTestLayer({
 });
 
 await Effect.runPromise(
-  VerifyPassword(input).pipe(Effect.provide(Test))
+  $auth.VerifyPassword(input).pipe(Effect.provide(Test))
 );
 ```
 
@@ -198,10 +198,10 @@ Handlers may return a value, a `Promise`, or an `Effect`.
 ```typescript
 import { Effect } from "effect";
 import { ForstTestServerLayer } from "@forst/gen/$testing";
-import { Echo } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 
 await Effect.runPromise(
-  Echo({ message: "hi" }).pipe(Effect.provide(ForstTestServerLayer()))
+  $main.Echo({ message: "hi" }).pipe(Effect.provide(ForstTestServerLayer()))
 );
 ```
 

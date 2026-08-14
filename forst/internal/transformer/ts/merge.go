@@ -7,7 +7,7 @@ import (
 )
 
 // exportedTypeNamePattern extracts the identifier from an export interface/type/enum/class block.
-var exportedTypeNamePattern = regexp.MustCompile(`(?m)^export\s+(?:interface|type|enum|class)\s+([A-Za-z_][A-Za-z0-9_]*)`)
+var exportedTypeNamePattern = regexp.MustCompile(`(?m)^export\s+(?:interface|type|enum|class)\s+(\$?[A-Za-z_][A-Za-z0-9_]*)`)
 
 // MergeTypeScriptOutputs combines per-file TypeScript outputs into one declaration bundle suitable
 // for a shared types.d.ts. Type blocks are keyed by exported name: identical bodies merge once,

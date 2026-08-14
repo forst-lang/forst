@@ -26,7 +26,12 @@ func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {
 		"ForstClientLayer",
 		"makeForstClientRuntime",
 		"config?: ForstInvokeClientConfig",
+		`import("./pkg/auth.js").$auth`,
+		`import("./pkg/billing.js").$billing`,
 	})
+	if strings.Contains(got, `import { $auth } from "./pkg/auth.js"`) {
+		t.Fatalf("EmitIndexEffectDTS must not duplicate pkg namespace imports when appended to index.d.ts:\n%s", got)
+	}
 	if strings.Contains(got, `import type { ForstInvokeClientConfig`) {
 		t.Fatalf("EmitIndexEffectDTS must not duplicate transport import when appended to index.d.ts:\n%s", got)
 	}
@@ -40,8 +45,8 @@ func TestEmitIndexEffectESM_sharesTransport(t *testing.T) {
 		"makeForstClientRuntime",
 		"const transportLayer = ForstTransportLayer(config)",
 		"Layer.provide(transportLayer)",
-		"Billing.DefaultWithoutDependencies",
-		"Auth.DefaultWithoutDependencies",
+		"$billing.DefaultWithoutDependencies",
+		"$auth.DefaultWithoutDependencies",
 	})
 	if strings.Count(got, "ForstTransportLayer(config)") != 1 {
 		t.Fatalf("expected one ForstTransportLayer call:\n%s", got)
@@ -54,8 +59,8 @@ func TestEmitPackageEffectDTS_importsFailureTypesFromUnion(t *testing.T) {
 	got := EmitPackageEffectDTS(m, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import type { ForstUnknownFailure, InvokeFailure } from "@forst/errors/effect"`,
-		"export type VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
-		"Effect.Effect<VerifyTokenResponse, VerifyTokenFailure>",
+		"export type $VerifyTokenFailure = ForstUnknownFailure | InvokeFailure",
+		"Effect.Effect<$VerifyTokenResponse, $VerifyTokenFailure>",
 	})
 	assertContainsNone(t, got, []string{
 		"InvokeRejected",
@@ -70,9 +75,9 @@ func TestEmitTestingEffectDTS_partialOverrides(t *testing.T) {
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
 		"transport?:",
-		"| VerifyTokenResponse",
-		"| Promise<VerifyTokenResponse>",
-		"| Effect.Effect<VerifyTokenResponse, InvokeFailure>",
+		"| $VerifyTokenResponse",
+		"| Promise<$VerifyTokenResponse>",
+		"| Effect.Effect<$VerifyTokenResponse, InvokeFailure>",
 		"ForstTestLayer",
 		`import { InvokeRejected } from "@forst/errors/effect"`,
 		`import type { InvokeFailure } from "@forst/errors/effect"`,

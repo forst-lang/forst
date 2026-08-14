@@ -200,14 +200,18 @@ func printGenerateSummary(genCfg ftconfig.GenerateConfig, outputs []*transformer
 	}
 }
 
-// exampleImportLine returns a sample named import from the first package with functions.
+// exampleImportLine returns a sample namespace import from the first package with functions.
 func exampleImportLine(packageName string, outputs []*transformerts.TypeScriptOutput) (string, bool) {
 	for _, out := range outputs {
 		if len(out.Functions) == 0 {
 			continue
 		}
-		fn := out.Functions[0].Name
-		return fmt.Sprintf(`import { %s } from "%s/%s"`, fn, packageName, out.PackageName), true
+		pkg := out.PackageName
+		if pkg == "" {
+			pkg = out.SourceFileStem
+		}
+		ns := transformerts.PackageNamespaceExport(pkg)
+		return fmt.Sprintf(`import { %s } from "%s/%s"`, ns, packageName, pkg), true
 	}
 	return "", false
 }
