@@ -76,7 +76,7 @@ async function handleRequest(
   req.on("end", async () => {
     try {
       const request: SidecarRequest = JSON.parse(body);
-      const testFile = resolve(__dirname, `${request.test}.ft`);
+      const testFile = resolve(__dirname, `../${request.test}/${request.test}.ft`);
 
       const result = await handleForstRequest(
         testFile,
