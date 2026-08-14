@@ -229,7 +229,7 @@ import { withForstTestScope } from "./$testing.js";
 import {
   configureDefaultInvokeClient,
   resetDefaultInvokeClientForTest,
-} from "./transport.js";
+} from "./transport/runtime.js";
 import { Echo } from "./pkg/main.js";
 
 resetDefaultInvokeClientForTest();

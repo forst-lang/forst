@@ -2,15 +2,12 @@ package transformerts
 
 import (
 	"fmt"
-	"regexp"
+	"go/token"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
-
-// forstPackageNamePattern matches names valid as Go package identifiers.
-var forstPackageNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // ValidateForstPackageName rejects package names that cannot transpile to Go or collide with infra subpaths.
 func ValidateForstPackageName(name string) error {
@@ -23,9 +20,23 @@ func ValidateForstPackageName(name string) error {
 			name, DefaultInfraTestingSubpath,
 		)
 	}
-	if !forstPackageNamePattern.MatchString(name) {
+	// Efficient manual validation: first rune alpha/_; all runes alnum/_
+	r, w := utf8.DecodeRuneInString(name)
+	if !unicode.IsLetter(r) && r != '_' {
 		return fmt.Errorf(
-			"generate: Forst package %q is not a valid Go package name (use letters, digits, and underscores only)",
+			"generate: Forst package %q is not a valid Go package name (must start with a letter or underscore)", name,
+		)
+	}
+	for _, r := range name[w:] {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' {
+			return fmt.Errorf(
+				"generate: Forst package %q is not a valid Go package name (use letters, digits, and underscores only)", name,
+			)
+		}
+	}
+	if token.IsKeyword(name) {
+		return fmt.Errorf(
+			"generate: Forst package %q is a reserved Go keyword and cannot be used as a package name",
 			name,
 		)
 	}

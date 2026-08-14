@@ -33,7 +33,7 @@ func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
 
 func TestDirectInvokeClientImportLine_usesInlinedTransport(t *testing.T) {
 	got := DirectInvokeClientImportLine()
-	want := "import { getDefaultInvokeClient } from './transport.js';"
+	want := "import { getDefaultInvokeClient } from './transport/runtime.js';"
 	if got != want {
 		t.Fatalf("DirectInvokeClientImportLine() = %q, want %q", got, want)
 	}

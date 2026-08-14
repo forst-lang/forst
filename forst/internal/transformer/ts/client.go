@@ -7,7 +7,7 @@ import (
 
 // Relative imports from src/core/ and src/pkg/ up to compiler-owned modules in src/.
 const (
-	coreTransportModuleSpecifier = "../transport.js"
+	coreTransportModuleSpecifier = "../transport/runtime.js"
 	coreTypesModuleSpecifier     = "../types.js"
 )
 

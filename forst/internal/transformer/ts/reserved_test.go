@@ -27,9 +27,35 @@ func TestValidateForstPackageName_rejectsHyphenatedName(t *testing.T) {
 
 func TestValidateForstPackageName_allowsTestingErrorsEffect(t *testing.T) {
 	for _, pkg := range []string{"testing", "errors", "effect", "auth", "main", "_internal"} {
-		if err := ValidateForstPackageName(pkg); err != nil {
-			t.Fatalf("%q should be allowed: %v", pkg, err)
-		}
+		t.Run(pkg, func(t *testing.T) {
+			if err := ValidateForstPackageName(pkg); err != nil {
+				t.Fatalf("%q should be allowed: %v", pkg, err)
+			}
+		})
+	}
+}
+
+func TestValidateForstPackageName_rejectsGoKeyword(t *testing.T) {
+	for _, kw := range []string{"type", "func", "var"} {
+		t.Run(kw, func(t *testing.T) {
+			err := ValidateForstPackageName(kw)
+			if err == nil {
+				t.Fatalf("expected error for Go keyword %q", kw)
+			}
+			if !strings.Contains(err.Error(), "keyword") {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateForstPackageName_allowsInvokeCatalogNames(t *testing.T) {
+	for _, pkg := range []string{"InvokeRejected", "InvokeFailure"} {
+		t.Run(pkg, func(t *testing.T) {
+			if err := ValidateForstPackageName(pkg); err != nil {
+				t.Fatalf("%q should be allowed as a Forst package name: %v", pkg, err)
+			}
+		})
 	}
 }
 

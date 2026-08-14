@@ -89,7 +89,7 @@ func TestTransportDecode_usesPackageScopedWireTag(t *testing.T) {
 			WireTag:      "main/CellTaken",
 		}},
 	}}, RuntimePromise)
-	if !stringsContains(block, `"main/CellTaken": CellTaken`) {
+	if !stringsContains(block, `"main/CellTaken": $main.CellTaken`) {
 		t.Fatalf("missing package-scoped registry key:\n%s", block)
 	}
 }
@@ -104,6 +104,28 @@ func TestMergeDomainErrors_keepsSameNameAcrossPackages(t *testing.T) {
 	}
 	if len(merged) != 2 {
 		t.Fatalf("got %d errors, want 2: %+v", len(merged), merged)
+	}
+	want := map[string]string{
+		"alpha/NotFound": "alpha",
+		"beta/NotFound":  "beta",
+	}
+	for _, c := range merged {
+		key := c.ForstPackage + "/" + c.Name
+		if wantPkg, ok := want[key]; !ok {
+			t.Fatalf("unexpected merged entry %+v", c)
+		} else if c.ForstPackage != wantPkg || c.Name != "NotFound" {
+			t.Fatalf("merged entry = %+v, want package %q name NotFound", c, wantPkg)
+		}
+	}
+}
+
+func TestMergeDomainErrors_rejectsMissingForstPackage(t *testing.T) {
+	_, err := MergeDomainErrors([]ErrorClass{{Name: "NotFound"}})
+	if err == nil {
+		t.Fatal("expected error for missing Forst package")
+	}
+	if !strings.Contains(err.Error(), "NotFound") || !strings.Contains(err.Error(), "missing Forst package") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

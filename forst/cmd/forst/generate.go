@@ -338,7 +338,7 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		return fmt.Errorf("prune stale client modules: %w", err)
 	}
 
-	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, invokePort, log, &stats); err != nil {
+	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, activePackageErrors, invokePort, log, &stats); err != nil {
 		return fmt.Errorf("generate client package: %w", err)
 	}
 

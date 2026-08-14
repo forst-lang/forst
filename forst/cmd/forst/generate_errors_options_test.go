@@ -32,19 +32,28 @@ func readDistFile(t *testing.T, distDir, rel string) string {
 func TestGenerate_emitsTaggedErrorClasses(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
+	if !strings.Contains(errorsJS, "export {};") {
+		t.Fatalf("$errors.js should be a domain-only stub:\n%s", errorsJS)
+	}
 	for _, name := range transformerts.ErrorClassNames() {
-		if !strings.Contains(errorsJS, name) {
-			t.Fatalf("errors.js missing re-export %s:\n%s", name, errorsJS)
+		if strings.Contains(errorsJS, name) {
+			t.Fatalf("$errors.js must not re-export invoke error %s:\n%s", name, errorsJS)
 		}
 	}
-	if !strings.Contains(errorsJS, `from "@forst/errors"`) {
-		t.Fatalf("errors.js must re-export from @forst/errors:\n%s", errorsJS)
+	transport := readDistFile(t, dist, "transport/runtime.js")
+	for _, name := range transformerts.ErrorClassNames() {
+		if !strings.Contains(transport, name) {
+			t.Fatalf("transport/runtime.js missing invoke error %s:\n%s", name, transport)
+		}
+	}
+	if !strings.Contains(transport, `from "@forst/errors"`) {
+		t.Fatalf("transport must import invoke errors from @forst/errors:\n%s", transport)
 	}
 	if _, err := os.Stat(filepath.Join(dist, "invoke-errors.js")); !os.IsNotExist(err) {
 		t.Fatal("invoke-errors.js must not be generated")
 	}
 	assertNoEffectImport(t, errorsJS)
-	assertNoEffectImport(t, readDistFile(t, dist, "transport.js"))
+	assertNoEffectImport(t, transport)
 }
 
 func TestGenerate_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
@@ -55,22 +64,22 @@ func TestGenerate_errorClassNamesHaveNoErrorSuffix(t *testing.T) {
 	}
 }
 
-func TestGenerate_errorsReExportsSharedPackage(t *testing.T) {
+func TestGenerate_errorsModuleIsDomainOnlyStub(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
 	errorsDTS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".d.ts")
-	for _, frag := range []string{
-		`from "@forst/errors"`,
+	if !strings.Contains(errorsJS, "export {};") {
+		t.Fatalf("$errors.js missing export stub:\n%s", errorsJS)
+	}
+	if !strings.Contains(errorsDTS, "export {};") {
+		t.Fatalf("$errors.d.ts missing export stub:\n%s", errorsDTS)
+	}
+	assertContainsNoneGenerate(t, errorsJS, []string{
 		"isInvokeFailure",
-	} {
-		if !strings.Contains(errorsJS, frag) {
-			t.Fatalf("errors.js missing %q", frag)
-		}
-	}
-	if !strings.Contains(errorsDTS, "export type { InvokeFailure }") {
-		t.Fatalf("errors.d.ts missing InvokeFailure type re-export:\n%s", errorsDTS)
-	}
-	assertContainsNoneGenerate(t, errorsJS, []string{"export class InvokeRejected", "const tagged ="})
+		"export class InvokeRejected",
+		"const tagged =",
+		`from "@forst/errors";`,
+	})
 }
 
 func assertContainsNoneGenerate(t *testing.T, got string, frags []string) {
@@ -84,15 +93,18 @@ func assertContainsNoneGenerate(t *testing.T, got string, frags []string) {
 
 func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 	dir, dist := generatePhase4Project(t)
-	errorsDTS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".d.ts")
 	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
 	indexJS := readDistFile(t, dist, "index.js")
 	indexDTS := readDistFile(t, dist, "index.d.ts")
-	if !strings.Contains(errorsDTS, "export type { InvokeFailure }") {
-		t.Fatalf("missing InvokeFailure re-export:\n%s", errorsDTS)
+	coreDTS := readDistFile(t, dist, "core/main.d.ts")
+	if !strings.Contains(coreDTS, `from "@forst/errors"`) {
+		t.Fatalf("core/main.d.ts should import invoke failure types from @forst/errors:\n%s", coreDTS)
 	}
-	if !strings.Contains(errorsJS, "isInvokeFailure") {
-		t.Fatalf("missing isInvokeFailure re-export:\n%s", errorsJS)
+	if !strings.Contains(coreDTS, "InvokeFailure") {
+		t.Fatalf("core/main.d.ts missing InvokeFailure:\n%s", coreDTS)
+	}
+	if strings.Contains(errorsJS, "isInvokeFailure") {
+		t.Fatalf("$errors.js must not re-export isInvokeFailure:\n%s", errorsJS)
 	}
 	for _, name := range []string{"ForstUnknownFailure", "BcryptGenerateFailed"} {
 		if strings.Contains(indexJS, name) {
@@ -131,9 +143,9 @@ func TestGenerate_emitsInvokeFailureUnionAndGuard(t *testing.T) {
 func TestGenerate_emitsInvokeStreamAborted(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	errorsJS := readDistFile(t, dist, transformerts.InfraErrorsSubpath+".js")
-	transport := readDistFile(t, dist, "transport.js")
-	if !strings.Contains(errorsJS, "InvokeStreamAborted") {
-		t.Fatal("errors.js must re-export InvokeStreamAborted")
+	transport := readDistFile(t, dist, "transport/runtime.js")
+	if strings.Contains(errorsJS, "InvokeStreamAborted") {
+		t.Fatalf("$errors.js must not re-export InvokeStreamAborted:\n%s", errorsJS)
 	}
 	if !strings.Contains(transport, "new InvokeStreamAborted") {
 		t.Fatal("transport must throw InvokeStreamAborted")
@@ -172,7 +184,7 @@ func TestGenerate_functionAcceptsInvokeCallOptions(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	core := readDistFile(t, dist, "core/main.js")
 	dts := readDistFile(t, dist, "core/main.d.ts")
-	transportDTS := readDistFile(t, dist, "transport.d.ts")
+	transportDTS := readDistFile(t, dist, "transport/runtime.d.ts")
 	for _, frag := range []string{
 		"export async function Echo(input, options)",
 		`client.invokeFunction("main", "Echo", [input], options)`,
@@ -207,7 +219,7 @@ func TestGenerate_coreUsesOptionsTransportWhenProvided(t *testing.T) {
 func TestGenerate_coreFallsBackToDefaultClientWhenNoTransport(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	core := readDistFile(t, dist, "core/main.js")
-	if !strings.Contains(core, `import { getDefaultInvokeClient } from "../transport.js"`) {
+	if !strings.Contains(core, `import { getDefaultInvokeClient } from "../transport/runtime.js"`) {
 		t.Fatal("core must import getDefaultInvokeClient")
 	}
 	if !strings.Contains(core, "options?.transport ?? getDefaultInvokeClient()") {
@@ -222,12 +234,12 @@ func TestGenerate_acceptance_typedInvokeError(t *testing.T) {
 	_, dist := generatePhase4Project(t)
 	script := filepath.Join(dist, "_phase4_typed_error.mjs")
 	body := `
-import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
+import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport/runtime.js";
 import {
   InvokeRejected,
   InvokeHttpFailure,
   isInvokeFailure,
-} from "./$errors.js";
+} from "@forst/errors";
 
 resetDefaultInvokeClientForTest();
 const client = createInvokeClient({
@@ -301,7 +313,7 @@ func TestGenerate_acceptance_noSpawnInProduction(t *testing.T) {
 		t.Skip("node not found")
 	}
 	_, dist := generatePhase4Project(t)
-	transport := readDistFile(t, dist, "transport.js")
+	transport := readDistFile(t, dist, "transport/runtime.js")
 	for _, banned := range []string{"child_process", "spawn(", "fork("} {
 		if strings.Contains(transport, banned) {
 			t.Fatalf("transport must not spawn (%q present)", banned)
@@ -313,8 +325,8 @@ func TestGenerate_acceptance_noSpawnInProduction(t *testing.T) {
 
 	script := filepath.Join(dist, "_phase4_no_spawn_prod.mjs")
 	body := `
-import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
-import { InvokeBaseUrlMissing, isInvokeFailure } from "./` + transformerts.InfraErrorsSubpath + `.js";
+import { createInvokeClient, resetDefaultInvokeClientForTest } from "./transport/runtime.js";
+import { InvokeBaseUrlMissing, isInvokeFailure } from "@forst/errors";
 
 const prev = process.env.NODE_ENV;
 const prevBase = process.env.FORST_BASE_URL;
@@ -377,7 +389,7 @@ func TestGenerate_packageJSONExportsErrorsSubpath(t *testing.T) {
 
 func TestGenerate_transportNeverThrowsBareError(t *testing.T) {
 	_, dist := generatePhase4Project(t)
-	transport := readDistFile(t, dist, "transport.js")
+	transport := readDistFile(t, dist, "transport/runtime.js")
 	if strings.Contains(transport, "throw new Error(") {
 		t.Fatal("transport must not throw bare Error for invoke failures")
 	}

@@ -17,6 +17,7 @@ func generateClientPackage(
 	outDir string,
 	genCfg ftconfig.GenerateConfig,
 	outputs []*transformerts.TypeScriptOutput,
+	activePackageErrors map[string]struct{},
 	invokePort string,
 	log *logrus.Logger,
 	stats *generateWriteStats,
@@ -94,7 +95,7 @@ func generateClientPackage(
 		return fmt.Errorf("failed to write testing.d.ts: %w", err)
 	}
 
-	packageContent := generateClientPackageJSON(genCfg, packageNames, domainErrorPackageNames(outputs))
+	packageContent := generateClientPackageJSON(genCfg, packageNames, sortedMapKeys(activePackageErrors))
 	packagePath := filepath.Join(outDir, "package.json")
 	if err := writeGeneratedFile(packagePath, []byte(packageContent), stats); err != nil {
 		return fmt.Errorf("failed to write client package.json: %w", err)
@@ -117,20 +118,7 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainE
 	if name == "" {
 		name = ftconfig.DefaultPackageName
 	}
-	sorted := append([]string(nil), packages...)
-	sort.Strings(sorted)
-	seen := make(map[string]struct{}, len(sorted))
-	var unique []string
-	for _, pkg := range sorted {
-		if pkg == "" {
-			continue
-		}
-		if _, ok := seen[pkg]; ok {
-			continue
-		}
-		seen[pkg] = struct{}{}
-		unique = append(unique, pkg)
-	}
+	unique := sortedUniqueNonEmpty(packages)
 
 	var b strings.Builder
 	b.WriteString("{\n")
@@ -151,17 +139,8 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainE
 	for _, pkg := range unique {
 		appendPackageJSONExport(&b, "./"+pkg, "./dist/pkg/"+pkg+".d.ts", "./dist/pkg/"+pkg+".js")
 	}
-	domainErrPkgs := append([]string(nil), domainErrorPackages...)
-	sort.Strings(domainErrPkgs)
-	seenDomainErr := make(map[string]struct{}, len(domainErrPkgs))
+	domainErrPkgs := sortedUniqueNonEmpty(domainErrorPackages)
 	for _, pkg := range domainErrPkgs {
-		if pkg == "" {
-			continue
-		}
-		if _, ok := seenDomainErr[pkg]; ok {
-			continue
-		}
-		seenDomainErr[pkg] = struct{}{}
 		stem := transformerts.PackageDomainErrorsFileStem(pkg)
 		appendPackageJSONExport(&b, "./"+pkg+"/errors", "./dist/pkg/"+stem+".d.ts", "./dist/pkg/"+stem+".js")
 	}
@@ -176,14 +155,12 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainE
 		"./dist/"+transformerts.InfraErrorsSubpath+".d.ts",
 		"./dist/"+transformerts.InfraErrorsSubpath+".js",
 	)
-	if genCfg.Effect {
-		appendPackageJSONExport(
-			&b,
-			"./"+transformerts.InfraEffectSubpath,
-			"./dist/"+transformerts.InfraEffectSubpath+".d.ts",
-			"./dist/"+transformerts.InfraEffectSubpath+".js",
-		)
-	}
+	appendPackageJSONExport(
+		&b,
+		"./"+transformerts.InfraTransportSubpath,
+		"./dist/"+transformerts.InfraTransportSubpath+".d.ts",
+		"./dist/"+transformerts.InfraTransportSubpath+".js",
+	)
 	b.WriteString("\n  },\n")
 	b.WriteString("  \"dependencies\": {\n")
 	fmt.Fprintf(&b, "    %q: %s\n", transformerts.ErrorsPackageName, jsonString(transformerts.ErrorsDependencyRange))
@@ -219,16 +196,35 @@ func jsonString(s string) string {
 	return strconv.Quote(s)
 }
 
-func domainErrorPackageNames(outputs []*transformerts.TypeScriptOutput) []string {
-	var names []string
-	for _, out := range outputs {
-		if out != nil && out.PackageName != "" && len(out.DomainErrors) > 0 {
-			names = append(names, out.PackageName)
+func sortedUniqueNonEmpty(in []string) []string {
+	sorted := append([]string(nil), in...)
+	sort.Strings(sorted)
+	seen := make(map[string]struct{}, len(sorted))
+	var unique []string
+	for _, s := range sorted {
+		if s == "" {
+			continue
 		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		unique = append(unique, s)
 	}
-	sort.Strings(names)
-	return names
+	return unique
 }
+
+func sortedMapKeys(m map[string]struct{}) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return sortedUniqueNonEmpty(keys)
+}
+
 
 // generateClientREADME documents the resolved specifier, invoke env, and postinstall line.
 func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, outputs []*transformerts.TypeScriptOutput) string {
@@ -277,7 +273,7 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 		b.WriteString("This package was generated with `generate.effect: true`.\n\n")
 		fmt.Fprintf(&b, "- Peer dependency: `effect` %s (required for `Layer.mock`).\n", transformerts.EffectPeerDependencyRange)
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
-		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire.\n")
+		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire (`@forst/gen/$transport`).\n")
 		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
 		b.WriteString("- Invoke, domain, and harness errors use `Data.TaggedError` from the effect peer. `Equal.equals` works on error values.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")

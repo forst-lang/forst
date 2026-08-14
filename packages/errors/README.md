@@ -13,14 +13,14 @@ Invoke transport failures (`InvokeRejected`, `InvokeHttpFailure`, …), test har
 
 Built-in `_tag` values are namespaced under `@forst/errors/` (for example `@forst/errors/InvokeRejected`).
 
-Generated clients re-export these from `@forst/gen/$errors` instead of emitting duplicate class definitions per project.
+Shared invoke, harness, and unknown-failure classes live in this package. Import them directly (`@forst/errors` in Promise mode, `@forst/errors/effect` in Effect mode). Generated clients expose optional domain error namespaces from `@forst/gen/$errors`.
 
 ## Usage
 
 Prefer matching on `_tag` in Effect code (`Effect.catchTag`). In Promise code, `instanceof` works because every generated client shares the same class definitions from this package.
 
 ```typescript
-import { isInvokeFailure, InvokeRejected } from "@forst/gen/$errors";
+import { isInvokeFailure, InvokeRejected } from "@forst/errors";
 import { CellTaken } from "@forst/tictactoe";
 
 try {

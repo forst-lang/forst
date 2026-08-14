@@ -155,13 +155,15 @@ func TestEmitTransportTypeScript_importsSharedInvokeErrors(t *testing.T) {
 	if !strings.Contains(src, `from "@forst/errors"`) {
 		t.Fatal("transport must import invoke errors from @forst/errors")
 	}
-	if !strings.Contains(src, "decodeWireDomainError") {
-		t.Fatal("transport must define internal decodeWireDomainError")
+	if !strings.Contains(src, `from "./errors.js"`) {
+		t.Fatal("transport must import decode from ./errors.js")
 	}
 	assertContainsNone(t, src, []string{
 		`from "./$errors.js"`,
-		"decodeDomainError",
 		"DOMAIN_ERROR_REGISTRY",
+	})
+	assertContainsAll(t, src, []string{
+		`import { decodeDomainError } from "./errors.js"`,
 	})
 	for _, banned := range []string{
 		"@forst/client",
@@ -228,4 +230,22 @@ func TestTransport_ndjsonFixtureDocumentsStreamingWireFormat(t *testing.T) {
 	if !strings.Contains(src, "ended mid-row") {
 		t.Fatalf("emitted transport must reject mid-row EOF (partial fixture case)")
 	}
+}
+
+func TestEmitTransportPublicESM_onlyPublicSurface(t *testing.T) {
+	got := EmitTransportPublicESM("@forst/gen", RuntimePromise)
+	assertContainsAll(t, got, []string{"configureDefaultInvokeClient"})
+	assertContainsNone(t, got, []string{
+		"getDefaultInvokeClient",
+		"setActiveTestTransportResolver",
+		"resetDefaultInvokeClientForTest",
+		"decodeDomainError",
+		"export type",
+	})
+	gotEffect := EmitTransportPublicESM("@forst/gen", RuntimeEffect)
+	assertContainsAll(t, gotEffect, []string{
+		"ForstTransport",
+		"withTransport",
+		"ForstTransportLayer",
+	})
 }

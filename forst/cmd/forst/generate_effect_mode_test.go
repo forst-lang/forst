@@ -76,6 +76,9 @@ func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "$effect.js")); !os.IsNotExist(err) {
 		t.Fatal("promise mode must not write dist/$effect.js")
 	}
+	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "$transport.js")); err != nil {
+		t.Fatalf("promise mode must write dist/$transport.js: %v", err)
+	}
 }
 
 func TestGenerate_effectMode_functionsReturnEffectType(t *testing.T) {
@@ -289,7 +292,7 @@ func TestGenerate_effectMode_serviceUsesTryPromiseWithSuppliedSignal(t *testing.
 
 func TestGenerate_effectMode_emitsNoHandWrittenAbortController(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
-	for _, rel := range []string{"pkg/main.js", "$effect.js", "index.js"} {
+	for _, rel := range []string{"pkg/main.js", "$transport.js", "index.js"} {
 		data, err := os.ReadFile(filepath.Join(dist, rel))
 		if err != nil {
 			t.Fatal(err)
@@ -370,20 +373,21 @@ func TestGenerate_effectMode_onlyPkgModulesDifferFromPromiseMode(t *testing.T) {
 	}
 
 	allowed := map[string]struct{}{
-		"dist/pkg/main.js":   {},
-		"dist/pkg/main.d.ts": {},
-		"dist/index.js":      {},
-		"dist/index.d.ts":    {},
-		"dist/$testing.js":    {},
-		"dist/$testing.d.ts":  {},
-		"dist/$effect.js":     {},
-		"dist/$effect.d.ts":   {},
-		"dist/transport.js":  {},
-		"dist/transport.d.ts": {},
-		"dist/$errors.js":          {},
-		"dist/$errors.d.ts":        {},
-		"package.json":       {},
-		"README.md":          {},
+		"dist/pkg/main.js":            {},
+		"dist/pkg/main.d.ts":          {},
+		"dist/index.js":               {},
+		"dist/index.d.ts":             {},
+		"dist/$testing.js":            {},
+		"dist/$testing.d.ts":          {},
+		"dist/$transport.js":          {},
+		"dist/$transport.d.ts":        {},
+		"dist/transport/runtime.js":   {},
+		"dist/transport/runtime.d.ts": {},
+		"dist/transport/errors.js":    {},
+		"dist/$errors.js":             {},
+		"dist/$errors.d.ts":           {},
+		"package.json":                {},
+		"README.md":                   {},
 	}
 	for path := range changed {
 		if _, ok := allowed[path]; !ok {
@@ -462,9 +466,9 @@ func TestGenerate_effectMode_tagStringIncludesPackageName(t *testing.T) {
 	if !strings.Contains(js, `"@forst/gen/Main"`) {
 		t.Fatalf("tag must include packageName:\n%s", js)
 	}
-	effectJS := mustRead(t, filepath.Join(dist, "$effect.js"))
-	if !strings.Contains(effectJS, `"@forst/gen/Transport"`) {
-		t.Fatalf("transport tag missing:\n%s", effectJS)
+	transportJS := mustRead(t, filepath.Join(dist, "$transport.js"))
+	if !strings.Contains(transportJS, `"@forst/gen/Transport"`) {
+		t.Fatalf("transport tag missing:\n%s", transportJS)
 	}
 }
 
@@ -637,14 +641,14 @@ func TestGenerate_effectMode_ForstTestLayerNeedsNoTransport(t *testing.T) {
 	}
 	// ForstTestLayer body must stay mock-only; ForstTestServerLayer may use ForstTransportLayer.
 	layerIdx := strings.Index(js, "export function ForstTestLayer")
-	serverIdx := strings.Index(js, "export function ForstTestServerLayer")
 	if layerIdx < 0 {
 		t.Fatal("missing ForstTestLayer")
 	}
-	layerBody := js[layerIdx:]
-	if serverIdx > layerIdx {
-		layerBody = js[layerIdx:serverIdx]
+	scopedIdx := strings.Index(js, "const forstTestServerScopedLayer")
+	if scopedIdx < 0 {
+		t.Fatal("missing forstTestServerScopedLayer helper")
 	}
+	layerBody := js[layerIdx:scopedIdx]
 	if strings.Contains(layerBody, "ForstTransport") || strings.Contains(layerBody, "FORST_BASE_URL") || strings.Contains(layerBody, "ForstTransportLayer") {
 		t.Fatalf("ForstTestLayer must not require transport:\n%s", layerBody)
 	}
@@ -693,24 +697,27 @@ func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	dist := defaultClientDistDir(dir)
-	transportJS := mustRead(t, filepath.Join(dist, "transport.js"))
+	errorsJS := mustRead(t, filepath.Join(dist, "transport", "errors.js"))
 	for _, frag := range []string{
-		`"alpha/NotFound": NotFound`,
-		`"beta/NotFound": NotFound`,
-		`from "./pkg/alpha.errors.js"`,
-		`from "./pkg/beta.errors.js"`,
-		"decodeWireDomainError",
+		`"alpha/NotFound": $alpha.NotFound`,
+		`"beta/NotFound": $beta.NotFound`,
+		`import * as $alpha from "../pkg/alpha.errors.js"`,
+		`import * as $beta from "../pkg/beta.errors.js"`,
+		"export function decodeDomainError",
 		"packageDomainErrorRegistries",
 	} {
-		if !strings.Contains(transportJS, frag) {
-			t.Fatalf("missing %q in transport.js:\n%s", frag, transportJS)
+		if !strings.Contains(errorsJS, frag) {
+			t.Fatalf("missing %q in transport/errors.js:\n%s", frag, errorsJS)
 		}
 	}
-	errorsJS := mustRead(t, filepath.Join(dist, "$errors.js"))
+	aggregatorJS := mustRead(t, filepath.Join(dist, "$errors.js"))
+	if !strings.Contains(aggregatorJS, `export * as alpha from "./pkg/alpha.errors.js"`) {
+		t.Fatalf("missing alpha namespace in $errors.js:\n%s", aggregatorJS)
+	}
+	errorsJS = aggregatorJS
 	for _, banned := range []string{
 		"DOMAIN_ERROR_REGISTRY",
 		"decodeDomainError",
-		`from "./pkg/alpha.errors.js"`,
 	} {
 		if strings.Contains(errorsJS, banned) {
 			t.Fatalf("errors.js must not contain %q:\n%s", banned, errorsJS)
@@ -729,6 +736,69 @@ func TestGenerate_domainErrorsArePackageScoped(t *testing.T) {
 			t.Fatalf("package.json missing export %s:\n%s", subpath, pkgJSON)
 		}
 	}
+}
+
+func TestGenerate_httpPackageNameDoesNotClashWithRuntimeImports(t *testing.T) {
+	dir := t.TempDir()
+	linkErrorsPackage(t, dir)
+	writePkgFT(t, dir, "http", `package http
+
+error ServiceUnavailable {
+	message: String
+}
+
+func Fail() {
+	return ServiceUnavailable{message: "down"}
+}
+`)
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	dist := defaultClientDistDir(dir)
+	errorsJS := mustRead(t, filepath.Join(dist, "transport", "errors.js"))
+	for _, frag := range []string{
+		`import * as $http from "../pkg/http.errors.js"`,
+		`"http/ServiceUnavailable": $http.ServiceUnavailable`,
+	} {
+		if !strings.Contains(errorsJS, frag) {
+			t.Fatalf("missing %q in transport/errors.js:\n%s", frag, errorsJS)
+		}
+	}
+	runtimeJS := mustRead(t, filepath.Join(dist, "transport", "runtime.js"))
+	if strings.Contains(runtimeJS, `import * as $http`) {
+		t.Fatalf("runtime must not import domain error stars:\n%s", runtimeJS)
+	}
+	if !strings.Contains(runtimeJS, `import * as http from "node:http"`) {
+		t.Fatalf("runtime should still import node:http:\n%s", runtimeJS)
+	}
+}
+
+func TestGenerate_domainErrorsTypecheck(t *testing.T) {
+	if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
+		t.Skip("FORST_SKIP_TS_E2E=1")
+	}
+	dir := t.TempDir()
+	ensureNodeModulesDir(t, dir)
+	linkErrorsPackage(t, dir)
+	writeTwoPackageDomainErrorsProject(t, dir)
+	if err := generateCommand([]string{dir}); err != nil {
+		t.Fatalf("generateCommand: %v", err)
+	}
+	link := filepath.Join(dir, "node_modules", "@forst", "gen")
+	if _, err := os.Lstat(link); err != nil {
+		t.Fatalf("expected node_modules/@forst/gen link: %v", err)
+	}
+	assertTypeScriptCompilesSmoke(t, dir, `import { NotFound as AlphaNotFound } from "@forst/gen/alpha/errors";
+import { NotFound as BetaNotFound } from "@forst/gen/beta/errors";
+import * as alpha from "@forst/gen/alpha/errors";
+import * as beta from "@forst/gen/beta/errors";
+import * as errors from "@forst/gen/$errors";
+
+const a: typeof AlphaNotFound = alpha.NotFound;
+const b: typeof BetaNotFound = beta.NotFound;
+const nsA: typeof errors.alpha.NotFound = errors.alpha.NotFound;
+const nsB: typeof errors.beta.NotFound = errors.beta.NotFound;
+`)
 }
 
 func keysOf(m map[string]struct{}) []string {

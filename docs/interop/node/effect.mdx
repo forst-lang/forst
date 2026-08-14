@@ -78,7 +78,28 @@ Imports stay the same. `import { VerifyPassword } from "@forst/gen/auth"` works 
 
 Catch by tag in either mode:
 
-```typescript
+<CodeGroup>
+
+```typescript Promise
+import { isInvokeFailure } from "@forst/errors";
+import { VerifyPassword } from "@forst/gen/auth";
+
+try {
+  await VerifyPassword(input);
+} catch (error) {
+  if (!isInvokeFailure(error)) throw error;
+  switch (error._tag) {
+    case "@forst/errors/InvokeRejected":
+      return { valid: false as const, reason: error.serverError };
+    case "@forst/errors/InvokeUnreachable":
+      throw new Error("forst server unreachable");
+    default:
+      throw error;
+  }
+}
+```
+
+```typescript Effect
 import { Effect } from "effect";
 import { VerifyPassword } from "@forst/gen/auth";
 
@@ -92,7 +113,9 @@ const program = VerifyPassword(input).pipe(
 );
 ```
 
-Promise mode uses the same tags with `isInvokeFailure` from `@forst/gen/$errors` and a `switch` on `_tag`. See [Call Forst from Node](/interop/node/call-forst#failures).
+</CodeGroup>
+
+See [Call Forst from Node](/interop/node/call-forst#failures) for the full failure guide.
 
 ## Wiring
 

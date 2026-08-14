@@ -666,13 +666,13 @@ console.log("ok");
 
 	t.Run("rejected_dollar_in_package_name", func(t *testing.T) {
 		bad := t.TempDir()
-		writePkgFT(t, bad, "bad", "package $testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		writePkgFT(t, bad, "$testing", "package $testing\n\nfunc Ping() {\n\treturn 1\n}\n")
 		err := generateCommand([]string{bad})
 		if err == nil {
 			t.Fatal("expected package name containing $ to fail")
 		}
-		if !strings.Contains(err.Error(), "$") {
-			t.Fatalf("error should mention $:\n%s", err.Error())
+		if !strings.Contains(err.Error(), "must not contain '$'") {
+			t.Fatalf("error should mention package name validation:\n%s", err.Error())
 		}
 	})
 
@@ -717,8 +717,8 @@ func TestGenerate_forstPackageNamedClient(t *testing.T) {
 		t.Fatalf("expected dist/pkg/client.js: %v", err)
 	}
 	// User package must not replace .forst/client contents with only pkg output.
-	if _, err := os.Stat(filepath.Join(outDir, "dist", "transport.js")); err != nil {
-		t.Fatalf(".forst/client must still contain transport: %v", err)
+	if _, err := os.Stat(filepath.Join(outDir, "dist", "transport", "runtime.js")); err != nil {
+		t.Fatalf(".forst/client must still contain transport runtime: %v", err)
 	}
 	if _, err := exec.LookPath("node"); err != nil {
 		return
@@ -1042,8 +1042,8 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			"dist/pkg/main.js": {}, "dist/pkg/main.d.ts": {},
 			"dist/index.js": {}, "dist/index.d.ts": {},
 			"dist/$testing.js": {}, "dist/$testing.d.ts": {},
-			"dist/$effect.js": {}, "dist/$effect.d.ts": {},
-			"dist/transport.js": {}, "dist/transport.d.ts": {},
+			"dist/$transport.js": {}, "dist/$transport.d.ts": {},
+			"dist/transport/runtime.js": {}, "dist/transport/runtime.d.ts": {}, "dist/transport/errors.js": {},
 			"dist/$errors.js":   {}, "dist/$errors.d.ts": {},
 			"package.json": {}, "README.md": {},
 		}

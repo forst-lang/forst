@@ -57,7 +57,7 @@ func assertContainsNone(t *testing.T, got string, banned []string) {
 func TestEmitCoreESM_golden(t *testing.T) {
 	got := EmitCoreESM(sampleAuthModule(), "6321")
 	assertContainsAll(t, got, []string{
-		`import { getDefaultInvokeClient } from "../transport.js"`,
+		`import { getDefaultInvokeClient } from "../transport/runtime.js"`,
 		"export const auth = (client) => ({",
 		"export async function VerifyToken(input, options)",
 		`options?.transport ?? getDefaultInvokeClient()`,
@@ -120,7 +120,7 @@ func TestEmitCoreESM_zeroArityUsesEmptyArgsArray(t *testing.T) {
 func TestEmitCoreDTS_golden(t *testing.T) {
 	got := EmitCoreDTS(sampleAuthModule())
 	assertContainsAll(t, got, []string{
-		`import type { ForstInvokeClient, InvokeCallOptions } from "../transport.js"`,
+		`import type { ForstInvokeClient, InvokeCallOptions } from "../transport/runtime.js"`,
 		`import type { VerifyTokenRequest, VerifyTokenResponse } from "../types.js"`,
 		"export declare const auth:",
 		"/** @throws {InvokeFailure} */",
@@ -131,7 +131,7 @@ func TestEmitCoreDTS_golden(t *testing.T) {
 		"function safe(",
 		"{ ok: true; value: VerifyTokenResponse }",
 		"{ ok: false; error: InvokeFailure }",
-		`import type { InvokeFailure } from "../$errors.js"`,
+		`import type { InvokeFailure } from "@forst/errors"`,
 	})
 	// TypeImports are sorted.
 	reqIdx := strings.Index(got, "VerifyTokenRequest")
@@ -147,8 +147,8 @@ func TestEmitCoreDTS_importsFailureTypesFromUnion(t *testing.T) {
 	m.Functions[0].FailureType = "CellTaken | ForstUnknownFailure | InvokeFailure"
 	got := EmitCoreDTS(m)
 	assertContainsAll(t, got, []string{
-		`import type { CellTaken, ForstUnknownFailure } from "../pkg/auth.errors.js"`,
-		`import type { InvokeFailure } from "../$errors.js"`,
+		`import type { CellTaken } from "../pkg/auth.errors.js"`,
+		`import type { ForstUnknownFailure, InvokeFailure } from "@forst/errors"`,
 		"export type VerifyTokenFailure = CellTaken | ForstUnknownFailure | InvokeFailure",
 		"/** @throws {VerifyTokenFailure} */",
 		"{ ok: false; error: VerifyTokenFailure }",
@@ -212,7 +212,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimeEffect, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import { Effect } from "effect"`,
-		`import { ForstTransport, withTransport } from "../$effect.js"`,
+		`import { ForstTransport, withTransport } from "../$transport.js"`,
 		`import * as core from "../core/auth.js"`,
 		`export class Auth extends Effect.Service()`,
 		`"@forst/gen/Auth"`,
@@ -231,7 +231,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 func TestEmitIndexESM_golden(t *testing.T) {
 	got := EmitIndexESM([]string{"auth", "billing"}, "6321", nil, RuntimePromise)
 	assertContainsAll(t, got, []string{
-		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport.js"`,
+		`import { createInvokeClient, configureDefaultInvokeClient } from "./transport/runtime.js"`,
 		`import { auth } from "./pkg/auth.js"`,
 		`import { billing } from "./pkg/billing.js"`,
 		"export function createForstClient(config)",
@@ -281,7 +281,7 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"ForstInvokeMiddleware",
 		"InvokeCallOptions",
 		"InvokeContext",
-		`from "./transport.js"`,
+		`from "./transport/runtime.js"`,
 		`import { auth } from "./pkg/auth.js"`,
 		"export interface ForstClientConfig",
 		"middleware?: ForstInvokeMiddleware[]",
@@ -290,14 +290,14 @@ func TestEmitIndexDTS_golden(t *testing.T) {
 		"readonly auth: ReturnType<typeof auth>",
 		"export type ForstClient = ReturnType<typeof createForstClient>",
 		"TaggedError",
-		`from "./$errors.js"`,
+		`from "@forst/errors"`,
 		`export type * from "./types.js"`,
 	})
 	assertContainsNone(t, got, []string{
 		"InvokeFailure",
 		"isInvokeFailure",
 		"InvokeRejected",
-		`from "@forst/errors"`,
+		`from "./$errors.js"`,
 	})
 }
 

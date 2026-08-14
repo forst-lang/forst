@@ -107,7 +107,7 @@ func TestGenerate_testServer_stubPeerWiresDefaultClient(t *testing.T) {
 	script := filepath.Join(dist, "stub-peer.mjs")
 	body := `
 import { startForstTestServer } from "./$testing.js";
-import { getDefaultInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
+import { getDefaultInvokeClient, resetDefaultInvokeClientForTest } from "./transport/runtime.js";
 
 resetDefaultInvokeClientForTest();
 const server = await startForstTestServer({ root: "/tmp/fixture" });

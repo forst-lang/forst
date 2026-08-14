@@ -1,6 +1,6 @@
 import { Effect, Layer, Exit } from "effect";
 import { Echo, Main } from "@forst/gen/main";
-import { ForstTransport } from "@forst/gen/$effect";
+import { ForstTransport } from "@forst/gen/$transport";
 import { ForstTestLayer } from "@forst/gen/$testing";
 
 function assert(cond, msg) {

@@ -301,11 +301,40 @@ func TestReservedSubpaths_includesEffectWhenEnabled(t *testing.T) {
 	if _, ok := reserved["$testing"]; !ok {
 		t.Fatalf("effect mode must reserve $testing: %#v", reserved)
 	}
-	if _, ok := reserved["$effect"]; !ok {
-		t.Fatalf("effect mode must reserve $effect subpath: %#v", reserved)
+	if _, ok := reserved["$transport"]; !ok {
+		t.Fatalf("effect mode must reserve $transport: %#v", reserved)
 	}
 	if _, ok := reserved["$errors"]; !ok {
 		t.Fatalf("effect mode must reserve $errors: %#v", reserved)
+	}
+	if _, ok := reserved["$effect"]; ok {
+		t.Fatalf("$effect should not be reserved: %#v", reserved)
+	}
+}
+
+func TestGenerateConfig_Validate_rejectsTestingSubpathErrorsWithoutEffect(t *testing.T) {
+	g := Default().Generate
+	g.Effect = false
+	g.TestingSubpath = "$errors"
+	err := g.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for testingSubpath $errors")
+	}
+	if !strings.Contains(err.Error(), "$errors") {
+		t.Fatalf("error must mention $errors conflict: %v", err)
+	}
+}
+
+func TestGenerateConfig_Validate_rejectsTestingSubpathTransport(t *testing.T) {
+	g := Default().Generate
+	g.Effect = false
+	g.TestingSubpath = "$transport"
+	err := g.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for testingSubpath $transport")
+	}
+	if !strings.Contains(err.Error(), "$transport") {
+		t.Fatalf("error must mention $transport conflict: %v", err)
 	}
 }
 

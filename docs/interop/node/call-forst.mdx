@@ -273,7 +273,7 @@ Effect mode exposes the same tags through its typed error channel:
 <CodeGroup>
 
 ```typescript Promise
-import { isInvokeFailure } from "@forst/gen/$errors";
+import { isInvokeFailure } from "@forst/errors";
 import { VerifyPassword } from "@forst/gen/auth";
 
 try {
@@ -318,7 +318,7 @@ const program = VerifyPassword(input).pipe(
 | `@forst/errors/InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
 | `@forst/errors/ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
 
-Import invoke helpers from `@forst/gen/$errors` (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short. Built-in invoke, harness, and unknown-failure `_tag` strings use the `@forst/errors/` prefix. Domain error tags are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`).
+Import invoke helpers from `@forst/errors` in Promise mode or `@forst/errors/effect` in Effect mode (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short. Built-in invoke, harness, and unknown-failure `_tag` strings use the `@forst/errors/` prefix. Domain error tags are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`). Optional domain namespaces are also available from `@forst/gen/$errors` (for example `errors.auth.NotFound`).
 
 ### Domain errors
 
@@ -362,7 +362,7 @@ Promise mode offers `.safe()`. Effect mode can move the typed failure into an
 <CodeGroup>
 
 ```typescript Promise
-import { InvokeRejected } from "@forst/gen/$errors";
+import { InvokeRejected } from "@forst/errors";
 import { VerifyPassword } from "@forst/gen/auth";
 
 const result = await VerifyPassword.safe(input);

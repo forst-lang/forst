@@ -111,11 +111,9 @@ func (g GenerateConfig) ReservedSubpaths() map[string]string {
 		key = "$testing"
 	}
 	out := map[string]string{
-		key:      "testing subpath",
-		"$errors": "errors subpath",
-	}
-	if g.Effect {
-		out["$effect"] = "Effect transport support module"
+		key:          "testing subpath",
+		"$errors":     "errors subpath",
+		"$transport": "transport subpath",
 	}
 	return out
 }
@@ -139,17 +137,18 @@ func (g GenerateConfig) Validate() error {
 	if err := validateTestingSubpath(g.TestingSubpath); err != nil {
 		return err
 	}
-	if g.Effect {
-		key := g.TestingSubpath
-		if key == "" {
-			key = "$testing"
-		}
-		if key == "$effect" {
-			return fmt.Errorf("generate: testingSubpath %q conflicts with generate.effect infra subpath %q", g.TestingSubpath, "$effect")
-		}
-		if key == "$errors" {
-			return fmt.Errorf("generate: testingSubpath %q conflicts with infra errors subpath %q", g.TestingSubpath, "$errors")
-		}
+	key := g.TestingSubpath
+	if key == "" {
+		key = "$testing"
+	}
+	if key == "$errors" {
+		return fmt.Errorf("generate: testingSubpath %q conflicts with infra errors subpath %q", g.TestingSubpath, "$errors")
+	}
+	if key == "$transport" {
+		return fmt.Errorf("generate: testingSubpath %q conflicts with infra transport subpath %q", g.TestingSubpath, "$transport")
+	}
+	if key == "$effect" {
+		return fmt.Errorf("generate: testingSubpath %q conflicts with reserved infra subpath %q", g.TestingSubpath, "$effect")
 	}
 	return nil
 }

@@ -65,7 +65,7 @@ func TestGeneratePackageClient_importsInlinedTransportNotForstClient(t *testing.
 
 func assertInlinedTransportImports(t *testing.T, src string) {
 	t.Helper()
-	// Core modules import transport one level up; root index still uses ./transport.js.
+	// Core modules import transport/runtime one level up; root index uses ./transport/runtime.js.
 	hasCore := strings.Contains(src, "from '"+coreTransportModuleSpecifier+"'")
 	hasRoot := strings.Contains(src, "from '"+TransportModuleSpecifier+"'")
 	if !hasCore && !hasRoot {

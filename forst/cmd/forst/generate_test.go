@@ -220,7 +220,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 		"dist/core/main.js",
 		"dist/pkg/main.js",
 		"dist/index.js",
-		"dist/transport.js",
+		"dist/transport/runtime.js",
 		"package.json",
 		"README.md",
 	} {
@@ -248,8 +248,8 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "../transport.js") {
-		t.Fatalf("core module should import ../transport.js; got:\n%s", client)
+	if !strings.Contains(string(client), "../transport/runtime.js") {
+		t.Fatalf("core module should import ../transport/runtime.js; got:\n%s", client)
 	}
 	if strings.Contains(string(client), "@forst/client") {
 		t.Fatalf("client module must not import @forst/client; got:\n%s", client)
@@ -257,7 +257,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(client), "export const main") {
 		t.Fatalf("client export should match package name main; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "getDefaultInvokeClient") || !strings.Contains(string(client), "../transport.js") {
+	if !strings.Contains(string(client), "getDefaultInvokeClient") || !strings.Contains(string(client), "../transport/runtime.js") {
 		t.Fatalf("generated core should import transport, got:\n%s", client)
 	}
 	dts, err := os.ReadFile(filepath.Join(outDir, "dist", "core", "main.d.ts"))
@@ -633,7 +633,7 @@ func TestGenerateClientPackage_mkdirFails(t *testing.T) {
 	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
 	t.Cleanup(func() { generateIO.MkdirAll = orig })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "dist directory") {
 		t.Fatalf("got %v", err)
 	}
@@ -652,7 +652,7 @@ func TestGenerateClientPackage_writeIndexFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "client index") {
 		t.Fatalf("got %v", err)
 	}
@@ -671,7 +671,7 @@ func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "package.json") {
 		t.Fatalf("got %v", err)
 	}
@@ -764,7 +764,7 @@ func TestGenerateCommand_generateClientPackageReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	ft := writeMainFt(t, dir, generateTestMinimalValidForst)
 	orig := generateClientPackageHook
-	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, string, *logrus.Logger, *generateWriteStats) error {
+	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, map[string]struct{}, string, *logrus.Logger, *generateWriteStats) error {
 		return fmt.Errorf("client")
 	}
 	t.Cleanup(func() { generateClientPackageHook = orig })

@@ -79,10 +79,10 @@ func MergeDomainErrors(list ...[]ErrorClass) ([]ErrorClass, error) {
 }
 
 func domainErrorMergeKey(c ErrorClass) string {
-	if c.ForstPackage != "" {
-		return c.ForstPackage + "/" + c.Name
+	if c.ForstPackage == "" {
+		return ""
 	}
-	return c.Name
+	return c.ForstPackage + "/" + c.Name
 }
 
 func errorClassesEqual(a, b ErrorClass) bool {

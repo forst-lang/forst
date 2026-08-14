@@ -5,7 +5,7 @@
 import { Effect, Layer } from "effect";
 import { ForstClientLive } from "@forst/gen";
 import { Echo, Main } from "@forst/gen/main";
-import { ForstTransport } from "@forst/gen/$effect";
+import { ForstTransport } from "@forst/gen/$transport";
 import { ForstTestLayer } from "@forst/gen/$testing";
 import type { MainHandlers } from "@forst/gen/$testing";
 
