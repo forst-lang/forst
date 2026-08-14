@@ -65,7 +65,9 @@ func runTestCommand(args []string, log *logrus.Logger) int {
 				return 2
 			}
 			if rel == "." {
-				paths = []string{"."}
+				// Strict layout puts packages in subdirectories. A module-root
+				// path is "run every package", same as `forst test` with no args.
+				paths = nil
 			} else {
 				paths = []string{filepath.ToSlash(rel)}
 			}

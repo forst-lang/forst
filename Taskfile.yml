@@ -381,7 +381,7 @@ tasks:
     deps: [build, ensure:providers-gomod]
     dir: forst
     cmds:
-      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/providers_demo
 
   test:providers-cross_pkg:
     desc: Run cross-package Providers forst test (session sandbox under .forst/gen)
