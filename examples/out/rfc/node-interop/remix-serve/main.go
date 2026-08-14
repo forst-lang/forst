@@ -69,13 +69,13 @@ func AddTodo(input AddTodoRequest) AddTodoResponse {
 	}
 	return AddTodoResponse{Id: created.Id, Title: created.Title, Status: created.Status}
 }
-func CompleteTodo(input CompleteTodoRequest) CompleteTodoResponse {
+func CompleteTodo(input CompleteTodoRequest) AddTodoResponse {
 	println("api:CompleteTodo:" + input.Id)
 	updated, updatedErr := forst_node_callsync_legacy_todos_ts_toggleTodo(input.Id)
 	if !(updatedErr == nil) {
-		return CompleteTodoResponse{Id: "", Title: "", Status: ""}
+		return AddTodoResponse{Id: "", Title: "", Status: ""}
 	}
-	return CompleteTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
+	return AddTodoResponse{Id: updated.Id, Title: updated.Title, Status: updated.Status}
 }
 func GetDashboard() T_7nWLvcjQ76D {
 	println("api:GetDashboard")
@@ -85,7 +85,7 @@ func GetDashboard() T_7nWLvcjQ76D {
 	}
 	snap, snapErr := forst_node_callasync_legacy_todos_ts_persistSnapshot()
 	if !(snapErr == nil) {
-		return T_7nWLvcjQ76D{SavedAt: "", Open: 0.0, RecentTitles: "", ActivityKinds: ""}
+		return T_7nWLvcjQ76D{RecentTitles: "", ActivityKinds: "", SavedAt: "", Open: 0.0}
 	}
 	return T_7nWLvcjQ76D{Open: open, RecentTitles: "", ActivityKinds: "ready", SavedAt: snap.SavedAt}
 }
@@ -93,7 +93,7 @@ func ListTodos() T_D415raHQ7uQ {
 	println("api:ListTodos")
 	encoded, encodedErr := forst_node_callsync_legacy_todos_ts_formatTodoList()
 	if !(encodedErr == nil) {
-		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
+		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
 	}
 	open, openErr := forst_node_callsync_legacy_todos_ts_openCount()
 	if !(openErr == nil) {
@@ -101,7 +101,7 @@ func ListTodos() T_D415raHQ7uQ {
 	}
 	total, totalErr := forst_node_callsync_legacy_todos_ts_todoCount()
 	if !(totalErr == nil) {
-		return T_D415raHQ7uQ{Encoded: "", Open: 0.0, Done: 0.0}
+		return T_D415raHQ7uQ{Open: 0.0, Done: 0.0, Encoded: ""}
 	}
 	done := total - open
 	return T_D415raHQ7uQ{Open: open, Done: done, Encoded: encoded}

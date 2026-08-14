@@ -4,7 +4,7 @@ package transformerts
 // User-defined package exports keep their existing comments.
 //
 // Use {@link Symbol} for generated and global types. Use {@link URL | label} for Effect
-// APIs and other external docs so VS Code hover shows clickable references.
+// APIs and other external docs so IDE hover shows clickable references.
 
 const jsdocLinkEffectRetry = `{@link https://effect.website/docs/error-management/retrying/ | Effect.retry}`
 
