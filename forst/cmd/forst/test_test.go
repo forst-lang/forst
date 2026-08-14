@@ -221,8 +221,18 @@ func TestRunTestCommand_relDotNormalizesPaths(t *testing.T) {
 	if code != testrunner.ExitSuccess.Int() {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if len(captured) != 1 || captured[0] != "." {
-		t.Fatalf("paths = %v, want [\".\"]", captured)
+	if len(captured) != 0 {
+		t.Fatalf("paths = %v, want empty (walk module)", captured)
+	}
+}
+
+func TestRunTestCommand_moduleRootPathFindsNestedTests(t *testing.T) {
+	dir := t.TempDir()
+	writeForstTestFixture(t, dir)
+
+	code := runTestCommand([]string{dir}, testCmdLogger())
+	if code != testrunner.ExitSuccess.Int() {
+		t.Fatalf("exit code = %d, want 0 for module root with nested *_test.ft", code)
 	}
 }
 

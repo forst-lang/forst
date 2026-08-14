@@ -46,14 +46,14 @@ Common project tree for a Forst backend:
 ```text
 my-service/
 ├── go.mod
-├── handlers/orders.ft
+├── handlers/orders/orders.ft
 ├── internal/legacy.go
 ├── ftconfig.json          # optional: generate / dev discovery
 ├── package.json           # scripts.postinstall: forst generate .
 └── .forst/client/         # gitignored, linked as @forst/gen
 ```
 
-Same-package `.ft` files merge when you pass `-root`. Go files and Forst files can live in one module.
+Each directory holds one Forst package name. Same-package `.ft` files in **one directory** merge when you pass `-root`. The same package name in sibling directories is rejected. Go files and Forst files can live in one module.
 
 ## Syntax you must use
 

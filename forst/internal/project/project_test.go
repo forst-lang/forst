@@ -14,11 +14,19 @@ func writeMinimalProject(t *testing.T, dir string, extraFiles map[string]string)
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module projecttest\n\ngo 1.26.0\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+	mainDir := filepath.Join(dir, "main")
+	if err := os.MkdirAll(mainDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for name, content := range extraFiles {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -27,7 +35,7 @@ func writeMinimalProject(t *testing.T, dir string, extraFiles map[string]string)
 func TestProject_Package_returnsMergedNodes(t *testing.T) {
 	dir := t.TempDir()
 	writeMinimalProject(t, dir, map[string]string{
-		"api.ft": "package api\n\nfunc Ping() { return {ok: true} }\n",
+		"api/api.ft": "package api\n\nfunc Ping() { return {ok: true} }\n",
 	})
 
 	proj, err := Open(nil, OpenOpts{BoundaryRoot: dir})

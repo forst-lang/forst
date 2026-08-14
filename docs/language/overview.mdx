@@ -43,6 +43,8 @@ Forst steers away from exceptions and implicit jumps. Errors are **values**. Val
 
 Forst uses Go style **packages** and **`import`** paths. You can also **import Go packages** and call qualified functions (`fmt.Println`, etc.). See [Go interop](/interop/go) for current limits.
 
+For the Go target, **one directory holds one Forst package**, and **one package name lives in one directory**. You may split a package across **multiple `.ft` files in that directory** (for example `auth/auth.ft` and `auth/bcrypt.ft`, both `package auth`). The same `package` name in **sibling directories** is a compile error. Different package names in the same folder (for example `main.ft` and `auth.ft` together) are also rejected, matching Go.
+
 ## File layout in a typical backend
 
 A mixed Forst and Go service often looks like this:
@@ -51,8 +53,13 @@ A mixed Forst and Go service often looks like this:
 my-service/
 ├── go.mod
 ├── handlers/
-│   ├── orders.ft      # validated API handlers
-│   └── catalog.ft
+│   ├── orders/
+│   │   └── orders.ft      # package orders
+│   └── catalog/
+│       └── catalog.ft     # package catalog
+├── auth/
+│   ├── auth.ft        # package auth
+│   └── bcrypt.ft      # package auth (multi-file, one directory)
 ├── internal/
 │   └── legacy.go      # existing Go code
 ├── ftconfig.json      # generate / dev discovery

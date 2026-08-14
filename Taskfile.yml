@@ -364,7 +364,7 @@ tasks:
     desc: Compile Providers showcase (use/with, golden examples/out/rfc/providers/)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers.ft
+      - go run ./{{.BUILD_DIR}} build -root {{.EXAMPLES_DIR}}/rfc/providers -loglevel trace -report-phases -- {{.EXAMPLES_DIR}}/rfc/providers/providers_demo/providers.ft
 
   ensure:providers-gomod:
     internal: true
@@ -381,7 +381,7 @@ tasks:
     deps: [build, ensure:providers-gomod]
     dir: forst
     cmds:
-      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers
+      - ../bin/{{.BINARY_NAME}} test {{.EXAMPLES_DIR}}/rfc/providers/providers_demo
 
   test:providers-cross_pkg:
     desc: Run cross-package Providers forst test (session sandbox under .forst/gen)
@@ -620,14 +620,14 @@ tasks:
     deps: [build]
     cmds:
       - mkdir -p {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main.ft
+      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main/main.ft
 
   example:multipackage-dev:run:
     desc: Run multi-package-dev via forst dev (embedded invoke + hostMode)
     dir: forst
     deps: [build:node-runtime, build]
     cmds:
-      - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -entry main.ft -log-level error
+      - FORST_BINARY=../bin/forst ../bin/forst dev -export-struct-fields -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -entry main/main.ft -log-level error
 
   example:multipackage-dev:reload-e2e:
     desc: E2E — multipackage-dev forst dev reload keeps Node host pid alive

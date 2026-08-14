@@ -17,7 +17,7 @@ Shape fields lower to unexported Go identifiers by default. For JSON marshaling 
 Compile a `.ft` file to Go:
 
 ```bash
-npx forst build handlers/orders.ft
+npx forst build handlers/orders/orders.ft
 ```
 
 Run the result with the standard toolchain:
@@ -112,17 +112,20 @@ Place `.ft` files alongside `.go` in the same module:
 my-service/
 ├── go.mod
 ├── handlers/
-│   ├── orders.ft
+│   ├── orders/
+│   │   └── orders.ft
 │   └── legacy.go
 └── internal/
     └── db.go
 ```
 
-Use **`-root`** to merge all same-package sources under a tree, matching discovery for `forst run`, `forst build`, and the dev server:
+Use **`-root`** to merge same-package `.ft` files that share **one directory** under a tree, matching discovery for `forst run`, `forst build`, and the dev server:
 
 ```bash
-npx forst run -root ./handlers handlers/orders.ft
+npx forst run -root ./handlers handlers/orders/orders.ft
 ```
+
+Each directory holds one Forst package name, matching Go. The same `package` name in sibling directories is rejected. Put every Forst package in its own directory when you split files.
 
 The typechecker walks up from your `.ft` file to find **`go.mod`** (`GoWorkspaceDir`). Exported funcs from co-located **`.go`** files resolve **without** an import line (same package). Example: `examples/in/go_interop/helpers.go` called from `custom.ft` / `cli.ft`.
 

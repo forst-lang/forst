@@ -117,7 +117,7 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	configPath := fs.String("config", "", "Path to ftconfig.json")
-	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name")
+	allowStemMismatch := fs.Bool("allow-stem-package-mismatch", false, "Allow .ft file stems that differ from declared package name (does not relax one-directory-one-package layout)")
 	watch := fs.Bool("watch", false, "Regenerate when .ft files change")
 	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
 	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
@@ -218,6 +218,7 @@ func runGenerateList(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
 		return printGenerateManifest(boundaryRoot, genCfg, nil, log)
 	}
+	// Pipeline: discover → stem validation → typecheck (modulecheck enforces Go package layout) → manifest.
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
@@ -265,6 +266,7 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 	log.Debugf("Found %d Forst files", len(forstFiles))
 
+	// Pipeline: discover → stem validation → typecheck (modulecheck enforces Go package layout) → emit.
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}

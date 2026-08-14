@@ -53,6 +53,19 @@ forst generate --list --json .
 
 Uses the same file discovery rules as `forst dev`. Import from `@forst/gen/<package>` after generate (and after `postinstall` on a fresh machine).
 
+Each directory holds one Forst package name, matching Go. You may put many `.ft` files in that directory when they share the same `package` line. `files.include` globs select which `.ft` files are discovered. They do not allow multiple package names in one folder or the same package name in sibling folders.
+
+### `--allow-stem-package-mismatch`
+
+By default, `forst generate` expects the file stem or parent folder name to match the `package` line. Use this flag when legacy files break that rule and you cannot rename or move them yet.
+
+| Allows | Does not allow |
+| --- | --- |
+| `legacy_login.ft` with `package auth` when neither stem nor folder matches | Multiple package names in one directory |
+| Skipping stem checks for the whole boundary | The same package name in sibling directories |
+
+Normal colocation does not need the flag. Put files under a folder named for the package (for example `auth/login.ft` with `package auth`). See [Call Forst from Node § Colocate Forst with TypeScript](/interop/node/call-forst#colocate-forst-with-typescript).
+
 `--list` (with optional `--json`) prints a machine-readable manifest of packages and exported functions without writing client output. Use it for IDE plugins, codegen pipelines, or CI introspection.
 
 `--watch` regenerates when `.ft` files change. Use it when the dev server runs separately, or rely on regenerate-on-save from [Dev server](/workflow/dev-server#generated-client).

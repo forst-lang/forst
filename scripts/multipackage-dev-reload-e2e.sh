@@ -50,7 +50,7 @@ cleanup() {
     wait "$FORST_PID" 2>/dev/null || true
   fi
   if [[ -n "$MAIN_FT_BACKUP" && -f "$MAIN_FT_BACKUP" ]]; then
-    cp "$MAIN_FT_BACKUP" "$FT_ROOT/main.ft"
+    cp "$MAIN_FT_BACKUP" "$FT_ROOT/main/main.ft"
     rm -f "$MAIN_FT_BACKUP"
   fi
   free_port
@@ -70,7 +70,7 @@ fi
 free_port
 rm -rf "$FT_ROOT/.forst"
 MAIN_FT_BACKUP="$(mktemp)"
-cp "$FT_ROOT/main.ft" "$MAIN_FT_BACKUP"
+cp "$FT_ROOT/main/main.ft" "$MAIN_FT_BACKUP"
 
 export FORST_REPO_ROOT="$REPO"
 export FORST_BOUNDARY_ROOT="$FT_ROOT"
@@ -78,7 +78,7 @@ export FORST_INVOKE_TRANSPORT=tcp
 "$FORST_BINARY" dev \
   -export-struct-fields \
   -root "$FT_ROOT" \
-  -entry main.ft \
+  -entry main/main.ft \
   -log-level error &
 FORST_PID=$!
 
@@ -103,7 +103,7 @@ if ! kill -0 "$pid0" 2>/dev/null; then
   exit 1
 fi
 
-printf '\n// reload-e2e-trigger\n' >> "$FT_ROOT/main.ft"
+printf '\n// reload-e2e-trigger\n' >> "$FT_ROOT/main/main.ft"
 
 gen=0
 for _ in $(seq 1 90); do

@@ -39,6 +39,14 @@ func DiscoverPackages(moduleRoot string, paths []string) ([]PackageUnderTest, er
 				if strings.HasPrefix(d.Name(), ".") && path != moduleRoot {
 					return filepath.SkipDir
 				}
+				if path != moduleRoot {
+					if _, statErr := os.Stat(filepath.Join(path, "go.mod")); statErr == nil {
+						return filepath.SkipDir
+					}
+					if _, statErr := os.Stat(filepath.Join(path, "ftconfig.json")); statErr == nil {
+						return filepath.SkipDir
+					}
+				}
 				return nil
 			}
 			if !IsTestForstFile(path) {

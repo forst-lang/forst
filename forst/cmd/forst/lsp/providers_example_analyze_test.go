@@ -13,7 +13,7 @@ import (
 // Regression: Providers contract typedefs use method signatures in shapes (`info(msg String)`).
 func TestAnalyzeForstDocument_providersExample_methodContractParses(t *testing.T) {
 	t.Parallel()
-	fixture, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft"))
+	fixture, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "examples", "in", "rfc", "providers", "providers_demo", "providers.ft"))
 	if err != nil {
 		t.Fatal(err)
 	}

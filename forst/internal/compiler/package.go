@@ -90,6 +90,9 @@ func collectSamePackageFtPaths(log *logrus.Logger, rootDir, entryPath string) ([
 		return nil, fmt.Errorf("no .ft files for package %q under %s", pkg, rootDir)
 	}
 	sort.Strings(out)
+	if err := forstpkg.ValidateGoPackageLayout(map[string][]string{pkg: out}); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 

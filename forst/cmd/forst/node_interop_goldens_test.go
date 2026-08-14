@@ -8,13 +8,14 @@ import (
 
 	"forst/internal/codegen/layout"
 	"forst/internal/compiler"
+	"forst/internal/ftconfig"
 )
 
 type nodeInteropGoldenCase struct {
 	name               string
 	entryRel           string // under examples/in
 	goldenRel          string // under examples/out
-	packageRootRel     string // optional; defaults to dirname(entryRel)
+	packageRootRel     string // optional; defaults to ftconfig boundary from entry, else dirname(entryRel)
 	exportStructFields bool
 	mainMarkers        []string
 	runtimeMarkers     []string
@@ -164,7 +165,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 		},
 		{
 			name:               "multi-package-dev",
-			entryRel:           "rfc/node-interop/multi-package-dev/main.ft",
+			entryRel:           "rfc/node-interop/multi-package-dev/main/main.ft",
 			goldenRel:          "rfc/node-interop/multi-package-dev/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{
@@ -210,7 +211,42 @@ func nodeInteropPackageRoot(t *testing.T, inDir string, tc nodeInteropGoldenCase
 	if tc.packageRootRel != "" {
 		return filepath.Join(inDir, tc.packageRootRel)
 	}
-	return filepath.Dir(filepath.Join(inDir, tc.entryRel))
+	entryDir := filepath.Dir(filepath.Join(inDir, tc.entryRel))
+	// After Go-aligned package layout, entry files live in package subdirs
+	// (e.g. main/main.ft). Sandbox linking needs the ftconfig project root.
+	if root, err := ftconfig.BoundaryRootFromDir(entryDir); err == nil && root != "" {
+		return root
+	}
+	return entryDir
+}
+
+func TestNodeInteropPackageRoot_nestedMainUsesFtconfigBoundary(t *testing.T) {
+	inDir := examplesInDir(t)
+	cases := []struct {
+		name     string
+		entryRel string
+		wantRel  string
+	}{
+		{
+			name:     "multi-package-dev",
+			entryRel: "rfc/node-interop/multi-package-dev/main/main.ft",
+			wantRel:  "rfc/node-interop/multi-package-dev",
+		},
+		{
+			name:     "remix-serve",
+			entryRel: "rfc/node-interop/remix-serve/main/main.ft",
+			wantRel:  "rfc/node-interop/remix-serve",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := nodeInteropPackageRoot(t, inDir, nodeInteropGoldenCase{entryRel: tc.entryRel})
+			want := filepath.Join(inDir, tc.wantRel)
+			if got != want {
+				t.Fatalf("package root = %q, want %q (not entry package dir)", got, want)
+			}
+		})
+	}
 }
 
 func compileNodeInteropPackageForGolden(t *testing.T, entry, packageRoot string, exportStructFields bool) nodeInteropCompileOutput {

@@ -8,7 +8,7 @@ async function runDownloadedBinaryExample() {
     port: 8084, // Use different port to avoid conflicts
     host: "localhost",
     logLevel: "info",
-    rootDir: resolve(__dirname, "."),
+    rootDir: resolve(__dirname, ".."),
     title: "🚀 Starting Downloaded Binary Example",
   });
 

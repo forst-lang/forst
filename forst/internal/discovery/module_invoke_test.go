@@ -9,19 +9,31 @@ import (
 	"forst/internal/modulecheck"
 )
 
+func writeGoLayoutMainBcrypt(t *testing.T, dir string) {
+	t.Helper()
+	mainDir := filepath.Join(dir, "main")
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(`package bcrypt
+func Hash() { return {h: "x"} }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCollectInvokeFunctionsFromModuleResult_matchesFullScan(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module modtest\n\ngo 1.26.0\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
-func Hash() { return {h: "x"} }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeGoLayoutMainBcrypt(t, dir)
 	full, err := CollectInvokeFunctionsFromModule(nil, dir)
 	if err != nil {
 		t.Fatal(err)
@@ -57,14 +69,7 @@ func TestCollectInvokeFunctionsFromModule_crossPackage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module modtest\n\ngo 1.26.0\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
-func Hash() { return {h: "x"} }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeGoLayoutMainBcrypt(t, dir)
 	fns, err := CollectInvokeFunctionsFromModule(nil, dir)
 	if err != nil {
 		t.Fatal(err)
@@ -88,13 +93,17 @@ func TestCollectInvokeFunctionsFromModule_forstGomodSubdirLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	forstDir := filepath.Join(dir, "forst")
-	if err := os.MkdirAll(forstDir, 0o755); err != nil {
+	mainDir := filepath.Join(forstDir, "main")
+	helperDir := filepath.Join(forstDir, "helper")
+	for _, d := range []string{mainDir, helperDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(forstDir, "helper.ft"), []byte(`package helper
+	if err := os.WriteFile(filepath.Join(helperDir, "helper.ft"), []byte(`package helper
 
 func Ping() {
   return {ok: "yes"}

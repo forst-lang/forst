@@ -74,5 +74,5 @@ func BenchmarkCompile_tictactoe(b *testing.B) {
 }
 
 func BenchmarkCompile_providers(b *testing.B) {
-	benchmarkCompileMerged(b, filepath.Join("rfc", "providers"), "main_wiring.ft")
+	benchmarkCompileMerged(b, filepath.Join("rfc", "providers"), filepath.Join("providers_demo", "main_wiring.ft"))
 }

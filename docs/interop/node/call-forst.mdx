@@ -449,15 +449,18 @@ For edge deployments, keep Forst behind a Node or Go invoke server and call it f
 
 ## Multi-package projects
 
-Forst packages are independent compilation units under one `go.mod`:
+Put each Forst package in its own directory under one `go.mod`:
 
 ```text
 myapp/
   ftconfig.json
   go.mod
-  main.ft          # package main
-  auth.ft          # package auth — invoke exports
-  types.ft         # package types — shared shapes
+  main/
+    main.ft          # package main
+  auth/
+    auth.ft          # package auth — invoke exports
+  types/
+    types.ft         # package types — shared shapes
 ```
 
 | Command | Multi-package behavior |
@@ -467,7 +470,23 @@ myapp/
 | `forst generate .` | Emits **one module per Forst package** (`@forst/gen/auth`, …) |
 | `forst test -root .` | Same module graph as run/dev |
 
-File stems should match package names (`auth.ft` → `package auth`). `forst generate` errors on mismatch unless you pass `--allow-stem-package-mismatch`.
+### Colocate Forst with TypeScript
+
+When Forst lives beside TypeScript, use a folder per package. The folder name can match the package so filenames stay flexible:
+
+```text
+features/authentication/
+  auth/
+    login.ft         # package auth
+    bcrypt.ft        # package auth
+  routes.ts
+```
+
+Here `login.ft` works because the parent folder is `auth`. You do not need `--allow-stem-package-mismatch` for this pattern.
+
+File stems should match package names when the folder name does not (`auth.ft` → `package auth`). `forst generate` errors on mismatch unless you pass [`--allow-stem-package-mismatch`](/workflow/cli#forst-generate). That flag does **not** relax the one-folder-per-package rule.
+
+Each Forst package name must live in **one directory** for the Go target. Split helpers by adding files under the package directory (for example `auth/auth.ft` and `auth/bcrypt.ft`), not in sibling folders with the same `package` name.
 
 Repository example: [`examples/in/rfc/node-interop/multi-package-dev`](https://github.com/forst-lang/forst/tree/main/examples/in/rfc/node-interop/multi-package-dev).
 

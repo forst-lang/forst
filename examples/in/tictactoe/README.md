@@ -1,6 +1,6 @@
 # Tic-tac-toe example
 
-Stateless game rules in `main/engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `main/server.ft` (same `package main`, under `main/` so stems match the package). For `encoding/json`, use **`forst run -export-struct-fields`** / **`forst build -export-struct-fields`** (or `compiler.exportStructFields` in `ftconfig.json`, used by `forst dev`) so emitted struct fields are exported and tagged for JSON—matching the field names `forst generate` produces for TypeScript.
+Stateless game rules in `main/engine.ft`, shared shapes in `types.ft`, and a small `fmt` demo in `main/server.ft` (same `package main`, under `main/` so stems match the package). Multiple `.ft` files under `main/` with the same package is the supported multi-file pattern (Strict layout: one package name, one directory). For `encoding/json`, use **`forst run -export-struct-fields`** / **`forst build -export-struct-fields`** (or `compiler.exportStructFields` in `ftconfig.json`, used by `forst dev`) so emitted struct fields are exported and tagged for JSON—matching the field names `forst generate` produces for TypeScript.
 
 ## Run
 

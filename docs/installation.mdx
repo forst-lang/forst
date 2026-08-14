@@ -80,6 +80,8 @@ Optional scripts for local workflows:
 
 Import shape, subpaths, and layout: [Generate a TypeScript client](/interop/node/generate-types). Calling functions at runtime: [Call Forst from Node](/interop/node/call-forst).
 
+**Monorepos:** put `postinstall` on the workspace package that owns `ftconfig.json`, not the repo root unless that root is the boundary. See [Generate a TypeScript client § Monorepos](/interop/node/generate-types#monorepos-and-multiple-forst-projects).
+
 ## Native binary
 
 Download the release artifact for your OS/arch from [GitHub Releases](https://github.com/forst-lang/forst/releases), extract it, and add it to your `PATH`.
