@@ -40,13 +40,8 @@ func ForstImportPathRoot(boundaryRoot, moduleRoot string) string {
 	return moduleRoot
 }
 
-// BuildForstPackageImportPaths maps Go import paths to Forst package names for packages
-// discovered under moduleRoot (modulePath is the go.mod module path, e.g. "example.com/app").
-// forstPkgToFiles maps Forst package name -> absolute .ft file paths (one dir per package).
-//
-// When a package lives in parent/{pkg}.ft (directory name differs from package name), both
-// the directory import path and parent/{pkg} are registered so imports like
-// "example.com/app/internal/version" resolve to package version in internal/version.ft.
+// forstPkgToFiles maps Forst package name -> absolute .ft file paths.
+// Call ValidateGoPackageLayout before use; layout must match Go (one directory per package).
 func BuildForstPackageImportPaths(moduleRoot, modulePath string, forstPkgToFiles map[string][]string) map[string]string {
 	out := make(map[string]string)
 	moduleRoot = filepath.Clean(moduleRoot)

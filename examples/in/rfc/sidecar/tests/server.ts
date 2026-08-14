@@ -97,7 +97,7 @@ const port = 3001;
 
 server.listen(port, () => {
   console.log(`Sidecar test server running on http://localhost:${port}`);
-  console.log("Available tests: echo, error_handling, type_safety");
+  console.log("Available tests: echo, error_handling, typesafety");
 });
 
 export { handleForstRequest };

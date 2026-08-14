@@ -164,7 +164,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 		},
 		{
 			name:               "multi-package-dev",
-			entryRel:           "rfc/node-interop/multi-package-dev/main.ft",
+			entryRel:           "rfc/node-interop/multi-package-dev/main/main.ft",
 			goldenRel:          "rfc/node-interop/multi-package-dev/main.go",
 			exportStructFields: true,
 			mainMarkers: []string{

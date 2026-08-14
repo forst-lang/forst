@@ -61,6 +61,10 @@ func ScanModule(log *logrus.Logger, opts Options) (*ModuleScan, error) {
 		byPackage[pkg] = append(byPackage[pkg], path)
 	}
 
+	if err := forstpkg.ValidateGoPackageLayout(byPackage); err != nil {
+		return nil, err
+	}
+
 	result := &ModuleScan{
 		scanRoot:        scanRoot,
 		ModuleRoot:      moduleRoot,

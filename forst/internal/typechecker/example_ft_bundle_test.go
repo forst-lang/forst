@@ -33,7 +33,7 @@ func TestCheckTypes_examplesBundle(t *testing.T) {
 		"tictactoe/main/engine.ft",
 		"rfc/guard/basic_guard.ft",
 		"rfc/guard/shape_guard.ft",
-		"rfc/providers/providers.ft",
+		"rfc/providers/providers_demo/providers.ft",
 	}
 	for _, name := range rel {
 		t.Run(name, func(t *testing.T) {

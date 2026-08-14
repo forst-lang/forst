@@ -71,6 +71,8 @@ Share discovery rules with **`forst generate`** via **`ftconfig.json`**:
 }
 ```
 
+`files.include` and `exclude` control which `.ft` files are watched and compiled. Globs resolve from the **ftconfig boundary root**. Each directory holds one Forst package name, matching Go layout rules.
+
 ### Runtime profile (embedded / host mode)
 
 When `server.embedded` or `node.hostMode` is true, `forst dev` compiles and runs your entry `.ft` (same pipeline as `forst run`) instead of the per-invoke HTTP executor.

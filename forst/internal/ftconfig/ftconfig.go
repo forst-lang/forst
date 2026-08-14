@@ -134,6 +134,8 @@ func (s ServerConfig) EffectiveInvokePort() string {
 }
 
 // FilesConfig represents file discovery settings.
+// Include/exclude globs are resolved from the ftconfig boundary root. Package layout still
+// requires one directory per Forst package name for the Go target (see forstpkg.ValidateOneDirectoryPerPackage).
 type FilesConfig struct {
 	Include  []string `json:"include"`
 	Exclude  []string `json:"exclude"`

@@ -84,6 +84,18 @@ Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) and browser bundles
 
 ## Monorepos and multiple Forst projects
 
+### When to run `forst generate .` vs `forst generate app`
+
+| Target | When |
+| --- | --- |
+| `forst generate .` | Your shell cwd **is** the Forst boundary (the directory that owns `ftconfig.json` and `.forst`). Typical single-package app. |
+| `forst generate app` (or `apps/web`, `packages/api`, …) | Your cwd is the **monorepo root** (or another parent). Pass the boundary path so discovery, `.forst`, and the `@forst/gen` link bind to that app. |
+
+Running `forst generate .` from the monorepo root when `ftconfig.json` lives under `app/` picks the wrong discovery root and places `.forst` in the wrong tree. Preferred patterns:
+
+- From the app package: `"postinstall": "forst generate ."` in that workspace package’s `package.json`.
+- From the monorepo root: `pnpm --filter @acme/app exec forst generate .` (filter sets cwd to the boundary), **or** `forst generate app` when `app/` is the boundary path.
+
 ### One `.forst` tree per boundary
 
 Every `ftconfig.json` boundary gets **one** compiler-owned `.forst/` directory under that boundary root. The default client output is `.forst/client`. Do not add a second `.forst` tree manually. A second Forst project needs a second boundary (another `ftconfig.json` at its project root).
@@ -130,6 +142,14 @@ Committed mode example:
 
 Register `packages/forst-client` in the workspace. TypeScript and bundlers resolve it without a symlink. You still run `forst generate` when `.ft` sources change.
 
+### Recommended pnpm monorepo hooks
+
+1. Put `ftconfig.json` and `.ft` sources in the workspace package that owns the Forst boundary (for example `app/` or `apps/api/`).
+2. In that package’s `package.json`: `"postinstall": "forst generate ."`.
+3. Optional `"predev"` / `"prebuild"`: same command when generate must run before local servers or builds without relying on install alone.
+4. Root scripts may call `pnpm --filter <boundary-package> run postinstall` (or a named `generate` script) so CI from the repo root still targets the correct boundary.
+5. For pnpm strict / isolated linking issues, use committed mode (`outDir` + `link: "never"`) below. Do not add a second ephemeral link strategy.
+
 ### Package managers and environments
 
 | Environment | Ephemeral link mode |
@@ -168,6 +188,8 @@ Only **exported** functions (capitalized names) appear in the client. Provider g
   }
 }
 ```
+
+Globs resolve from the **ftconfig boundary root**, not from the shell cwd alone. `files.include` selects which `.ft` files enter generate and dev. It does **not** override Go package layout. Each directory holds one Forst package name. Broad includes like `**/*.ft` at a monorepo-root boundary pull every nested package under that boundary. Prefer placing the boundary at the app that owns the `.ft` tree.
 
 Pass **`-config`** explicitly or let the CLI search upward from your target directory.
 

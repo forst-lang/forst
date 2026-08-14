@@ -857,7 +857,14 @@ func Hash(input HashRequest) {
 
 func TestGenerateCommand_multiPackage_bcryptAndMain(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+	mainDir := filepath.Join(dir, "main")
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -870,10 +877,10 @@ func Hash(input HashRequest) {
 	return { digest: input.password }
 }
 `
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	srcDir := defaultClientDistDir(dir)
@@ -891,6 +898,28 @@ func Hash(input HashRequest) {
 	}
 	if !strings.Contains(string(idx), "bcrypt") || !strings.Contains(string(idx), "main") {
 		t.Fatalf("client index should reference both packages:\n%s", idx)
+	}
+}
+
+func TestGenerateCommand_flatMultiPackageSameDir_errors(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
+
+func Hash(input { password: String }) {
+	return { digest: input.password }
+}
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := generateCommand([]string{dir})
+	if err == nil {
+		t.Fatal("expected Go layout error for flat multi-package directory")
+	}
+	if !strings.Contains(err.Error(), "contains 2 packages") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -947,16 +976,20 @@ func Login(input Session) {
 
 func TestGenerateCommand_prunesStaleClientWhenPackageRemoved(t *testing.T) {
 	dir := t.TempDir()
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	if err := os.MkdirAll(bcryptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	bcryptSrc := `package bcrypt
 
 func Hash(input { password: String }) {
 	return { digest: input.password }
 }
 `
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("first generate: %v", err)
 	}
 	srcDir := defaultClientDistDir(dir)
@@ -968,7 +1001,7 @@ func Hash(input { password: String }) {
 			t.Fatal(err)
 		}
 	}
-	if err := generateCommand([]string{"-allow-stem-package-mismatch", dir}); err != nil {
+	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("second generate: %v", err)
 	}
 	for _, stale := range []string{staleFlat, stalePkg, staleCore} {
@@ -980,7 +1013,14 @@ func Hash(input { password: String }) {
 
 func TestGenerateCommand_skipsTypeOnlyPackageClient(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "models.ft"), []byte(`package models
+	modelsDir := filepath.Join(dir, "models")
+	mainDir := filepath.Join(dir, "main")
+	for _, d := range []string{modelsDir, mainDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(modelsDir, "models.ft"), []byte(`package models
 
 type Item = {
 	id: Int
@@ -988,7 +1028,7 @@ type Item = {
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(generateTestMinimalValidForst), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generateCommand([]string{dir}); err != nil {

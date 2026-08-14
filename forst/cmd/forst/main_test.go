@@ -622,7 +622,7 @@ func TestExampleTictactoeMergedPackage(t *testing.T) {
 // Regenerate: UPDATE_PROVIDERS_GOLDEN=1 go test ./cmd/forst -run TestExampleProvidersMergedPackage -count=1
 func TestExampleProvidersMergedPackage(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers")
-	entry := filepath.Join(root, "providers.ft")
+	entry := filepath.Join(root, "providers_demo", "providers.ft")
 	goldenPath := filepath.Join("..", "..", "..", "examples", "out", "rfc", "providers", "providers.go")
 
 	actual := compileExampleForGolden(t, entry, exampleGoldenCompileOpts{packageRoot: root})

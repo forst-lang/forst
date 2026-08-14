@@ -138,7 +138,11 @@ func main() {
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "bcrypt.ft"), []byte(`package bcrypt
+	bcryptDir := filepath.Join(dir, "bcrypt")
+	if err := os.MkdirAll(bcryptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(`package bcrypt
 
 type HashInput = {password: String}
 
@@ -205,9 +209,16 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodHostMode(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import node host "../host"
 
 func main() {
 	ready := host.hostPing()
@@ -215,7 +226,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -233,7 +244,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(nil, dir)
@@ -249,7 +260,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	c := New(Args{
 		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		ExportStructFields: true,
 		LogLevel:           "error",
@@ -314,13 +325,20 @@ func TestCompile_embeddedInvoke_devSession_crossPackageExports(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(ftconfig), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
 func main() {
 	println("ready")
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -338,12 +356,12 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	session := devcompile.NewSession(dir)
-	mainPath := filepath.Join(forstDir, "main.ft")
+	mainPath := filepath.Join(mainDir, "main.ft")
 	if _, err := session.ParseFile(nil, mainPath); err != nil {
 		t.Fatalf("prime session cache with entry file: %v", err)
 	}
@@ -409,9 +427,16 @@ func TestCompile_embeddedInvoke_crossPackage_forstGomodGoFFI(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import node host "../host"
 
 func main() {
 	ready := host.hostPing()
@@ -419,7 +444,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -440,7 +465,7 @@ func ComparePassword(input {
 	return { valid: false }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	moduleFns, err := discovery.CollectInvokeFunctionsFromModule(nil, dir)
@@ -456,7 +481,7 @@ func ComparePassword(input {
 	}
 	c := New(Args{
 		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		ExportStructFields: true,
 		LogLevel:           "error",
@@ -626,9 +651,16 @@ func TestCompileFile_writesExtraPackagesBesideOutputPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(forstDir, "host.ts"), []byte(`export function hostPing(): string { return "ready" }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	mainDir := filepath.Join(forstDir, "main")
+	bcryptDir := filepath.Join(forstDir, "bcrypt")
+	for _, d := range []string{mainDir, bcryptDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	mainSrc := `package main
 
-import node host "./host"
+import node host "../host"
 
 func main() {
 	ready := host.hostPing()
@@ -636,7 +668,7 @@ func main() {
 	println("forst:app ready: " + ready)
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, "main.ft"), []byte(mainSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	bcryptSrc := `package bcrypt
@@ -654,7 +686,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	return { valid: true }
 }
 `
-	if err := os.WriteFile(filepath.Join(forstDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(bcryptDir, "bcrypt.ft"), []byte(bcryptSrc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -665,7 +697,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	outPath := filepath.Join(outDir, "main.go")
 	c := New(Args{
 		Command:            "build",
-		FilePath:           filepath.Join(forstDir, "main.ft"),
+		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		OutputPath:         outPath,
 		ExportStructFields: true,

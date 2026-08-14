@@ -8,7 +8,7 @@ import (
 
 func TestParseFile_providersExample(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "providers.ft")
+	path := filepath.Join("..", "..", "..", "examples", "in", "rfc", "providers", "providers_demo", "providers.ft")
 	src, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read: %v", err)

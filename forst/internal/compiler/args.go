@@ -33,7 +33,7 @@ type Args struct {
 	ReportPhases      bool
 	// ExportStructFields, when true, emits exported struct field names and json tags so encoding/json can marshal shapes (forst dev / ftconfig: compiler.exportStructFields).
 	ExportStructFields bool
-	// PackageRoot, if non-empty, enables merging all same-package .ft files under this directory with the entry file (aligned with sidecar / discovery).
+	// PackageRoot, if non-empty, enables merging all same-package .ft files that share one directory under this tree with the entry file (aligned with sidecar / discovery).
 	PackageRoot string
 	// RequireNoNode, when true, fails the build if the program needs the Node runtime (opted-in TS imports).
 	RequireNoNode bool
@@ -87,7 +87,7 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	reportMemoryUsage := flags.Bool("report-memory-usage", false, "Report memory usage")
 	reportPhases := flags.Bool("report-phases", false, "Report when phases start")
 	exportStructFields := flags.Bool("export-struct-fields", false, "Emit exported struct fields with json tags (for encoding/json and TS-aligned wire shapes)")
-	packageRoot := flags.String("root", "", "Root directory: merge all .ft files under it that share the entry file's package (optional)")
+	packageRoot := flags.String("root", "", "Root directory: merge same-package .ft files that share one directory with the entry file (optional)")
 	requireNoNode := flags.Bool("require-no-node", false, "Fail if the program requires the Node runtime (opted-in TypeScript imports)")
 	help := flags.Bool("help", false, "Show help message")
 

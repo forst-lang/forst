@@ -3,7 +3,7 @@
 
 import { ForstSidecarClient as SidecarClient } from '@forst/sidecar';
 import { echo } from '../generated/echo.client';
-import { type_safety } from '../generated/type_safety.client';
+import { typesafety } from '../generated/typesafety.client';
 import { user } from '../generated/user.client';
 
 export interface ForstClientConfig {
@@ -15,7 +15,7 @@ export interface ForstClientConfig {
 export class ForstClient {
   private client: SidecarClient;
   public echo: ReturnType<typeof echo>;
-  public type_safety: ReturnType<typeof type_safety>;
+  public typesafety: ReturnType<typeof typesafety>;
   public user: ReturnType<typeof user>;
 
   constructor(config?: ForstClientConfig) {
@@ -28,7 +28,7 @@ export class ForstClient {
 
     this.client = new SidecarClient(defaultConfig);
     this.echo = echo(this.client);
-    this.type_safety = type_safety(this.client);
+    this.typesafety = typesafety(this.client);
     this.user = user(this.client);
   }
 }

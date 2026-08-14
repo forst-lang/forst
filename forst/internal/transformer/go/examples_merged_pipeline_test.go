@@ -16,9 +16,9 @@ func TestPipeline_mergedProvidersDemo(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join(examplesInRoot(t), "rfc", "providers")
 	paths := []string{
-		filepath.Join(root, "providers.ft"),
-		filepath.Join(root, "providers_test.ft"),
-		filepath.Join(root, "main_wiring.ft"),
+		filepath.Join(root, "providers_demo", "providers.ft"),
+		filepath.Join(root, "providers_demo", "providers_test.ft"),
+		filepath.Join(root, "providers_demo", "main_wiring.ft"),
 	}
 	out := compileMergedForstFilesPipeline(t, paths, pipelineOpts{goWorkspaceDir: moduleRootFromWD(t)})
 	for _, sub := range []string{

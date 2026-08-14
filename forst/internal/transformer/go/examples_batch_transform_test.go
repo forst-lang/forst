@@ -18,7 +18,7 @@ var examplesTransformSmokeFiles = []string{
 	"ensure.ft",
 	"nominal_error.ft",
 	"rfc/guard/shape_guard.ft",
-	"rfc/providers/providers.ft",
+	"rfc/providers/providers_demo/providers.ft",
 }
 
 // TestTransformForstFileToGo_examplesSmoke runs parse → typecheck → emit on a small representative set.

@@ -78,6 +78,38 @@ func TestDemo(t *testing.T) {}
 	}
 }
 
+func TestCollectSamePackageFtPaths_multiDirSamePackageErrors(t *testing.T) {
+	root := t.TempDir()
+	logger := silentCompilerTestLogger()
+
+	authDir := filepath.Join(root, "auth")
+	cryptoDir := filepath.Join(root, "auth", "crypto")
+	if err := os.MkdirAll(cryptoDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	entryPath := filepath.Join(authDir, "a.ft")
+	if err := os.WriteFile(entryPath, []byte(`package auth
+
+func A(): String { return "a" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cryptoDir, "b.ft"), []byte(`package auth
+
+func B(): String { return "b" }
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := collectSamePackageFtPaths(logger, root, entryPath)
+	if err == nil {
+		t.Fatal("expected error when same package spans sibling directories")
+	}
+	if !strings.Contains(err.Error(), `package "auth" spans 2 directories`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestCollectSamePackageFtPaths_parseEntryError(t *testing.T) {
 	root := t.TempDir()
 	logger := silentCompilerTestLogger()

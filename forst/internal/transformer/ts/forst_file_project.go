@@ -73,7 +73,8 @@ func ForstFileStem(path string) string {
 
 // StemMatchesPackage reports whether a .ft file path aligns with its declared package name.
 // The file stem may equal the package, or the parent directory name may equal the package
-// (e.g. auth/login.ft with package auth).
+// (e.g. auth/login.ft with package auth). This is separate from ValidateOneDirectoryPerPackage,
+// which rejects the same package name in sibling directories.
 func StemMatchesPackage(filePath, pkg string) bool {
 	if ForstFileStem(filePath) == pkg {
 		return true
@@ -83,7 +84,8 @@ func StemMatchesPackage(filePath, pkg string) bool {
 }
 
 // ValidateDiscoveredFileStems returns an error when any discovered file stem and parent
-// directory disagree with its declared package (forst generate default).
+// directory disagree with its declared package (forst generate default). Runs before
+// modulecheck layout validation. --allow-stem-package-mismatch skips this pass only.
 func ValidateDiscoveredFileStems(filePaths []string, allowMismatch bool, log *logrus.Logger) error {
 	if allowMismatch {
 		return nil

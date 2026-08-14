@@ -269,11 +269,15 @@ func TestCheckModuleProviders_forstGomodSubdirLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	forstDir := filepath.Join(dir, "forst")
-	if err := os.MkdirAll(forstDir, 0o755); err != nil {
-		t.Fatal(err)
+	mainDir := filepath.Join(forstDir, "main")
+	helperDir := filepath.Join(forstDir, "helper")
+	for _, d := range []string{mainDir, helperDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	writeModuleFile(t, filepath.Join(forstDir, "main.ft"), "package main\nfunc main() {}\n")
-	writeModuleFile(t, filepath.Join(forstDir, "helper.ft"), `package helper
+	writeModuleFile(t, filepath.Join(mainDir, "main.ft"), "package main\nfunc main() {}\n")
+	writeModuleFile(t, filepath.Join(helperDir, "helper.ft"), `package helper
 
 func Ping() {
   return {ok: "yes"}
