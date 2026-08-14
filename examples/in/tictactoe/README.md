@@ -32,7 +32,7 @@ Equivalent:
 cd forst && go run ./cmd/forst generate ../examples/in/tictactoe
 ```
 
-Import with `import { createForstClient } from "@forst/tictactoe"` or `import { PlayMove } from "@forst/tictactoe/main"`. For tests, prefer `startForstTestServer` from `@forst/tictactoe/testing` (needs optional peer `@forst/cli`). Or point `FORST_BASE_URL` at a running invoke server.
+Import with `import { createForstClient } from "@forst/tictactoe"` or `import { PlayMove } from "@forst/tictactoe/main"`. For tests, prefer `startForstTestServer` from `@forst/tictactoe/$testing` (needs optional peer `@forst/cli`). Or point `FORST_BASE_URL` at a running invoke server.
 
 ### Tests (bun)
 

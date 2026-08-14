@@ -9,8 +9,8 @@ import (
 
 // effectGenerateGoldenFiles are dist modules whose Effect-mode emit is snapshotted under testdata/effect/golden/.
 var effectGenerateGoldenFiles = []string{
-	"errors.js",
-	"errors.d.ts",
+	"$errors.js",
+	"$errors.d.ts",
 }
 
 func effectGenerateGoldenDir() string {
@@ -65,8 +65,8 @@ func TestGenerate_effectMode_matchesCommittedGoldens(t *testing.T) {
 				t.Fatalf("golden mismatch for %s (set UPDATE_EXAMPLES_GOLDENS=1 and run TestUpdateExamplesGoldens)\n--- expected ---\n%s\n--- actual ---\n%s",
 					rel, string(expected), string(actual))
 			}
-			if !strings.Contains(string(actual), `@forst/errors/effect"`) {
-				t.Fatalf("effect golden %s must re-export from @forst/errors/effect", rel)
+			if !strings.Contains(string(actual), "export {};") {
+				t.Fatalf("effect golden %s must be a domain-only stub with export {}", rel)
 			}
 		})
 	}

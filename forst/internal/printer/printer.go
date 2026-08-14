@@ -1170,9 +1170,20 @@ func (p *printer) printShapeFieldRHS(field ast.ShapeFieldNode, fieldIndent int) 
 }
 
 // printShapeFieldEntry prints one shape member: method signatures omit the colon (`info(msg String)`).
+// Embedded fields print as a type-only member (`Inner`), matching Go-style anonymous embedding.
 func (p *printer) printShapeFieldEntry(name string, field ast.ShapeFieldNode, fieldIndent int) (string, error) {
 	if field.IsMethod {
 		return ast.FormatShapeMemberName(name, field), nil
+	}
+	if field.Embedded {
+		rhs, err := p.printShapeFieldRHS(field, fieldIndent)
+		if err != nil {
+			return "", err
+		}
+		if rhs == "" {
+			return name, nil
+		}
+		return rhs, nil
 	}
 	rhs, err := p.printShapeFieldRHS(field, fieldIndent)
 	if err != nil {

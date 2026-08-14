@@ -1,9 +1,11 @@
 package transformerts
 
-import "strings"
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
+func TestDirectInvokeExportLines_emitsBoundNamespace(t *testing.T) {
 	lines := DirectInvokeExportLines("main", []FunctionSignature{
 		{Name: "ListTodos", ReturnType: "ListTodosResponse"},
 		{
@@ -14,8 +16,9 @@ func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
 	})
 	text := strings.Join(lines, "\n")
 	for _, frag := range []string{
-		"export async function ListTodos",
-		"export async function AddTodo",
+		"export const $main = {",
+		"ListTodos: async ()",
+		"AddTodo: async (input: AddTodoRequest)",
 		"getDefaultInvokeClient",
 		"'main', 'ListTodos', []",
 		"'main', 'AddTodo', [input]",
@@ -24,7 +27,7 @@ func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
 			t.Fatalf("missing %q in:\n%s", frag, text)
 		}
 	}
-	for _, banned := range []string{"@forst/client", "@forst/sidecar"} {
+	for _, banned := range []string{"@forst/client", "@forst/sidecar", "export async function ListTodos"} {
 		if strings.Contains(text, banned) {
 			t.Fatalf("direct invoke exports must not contain %q:\n%s", banned, text)
 		}
@@ -33,7 +36,7 @@ func TestDirectInvokeExportLines_emitsLazyNamedExports(t *testing.T) {
 
 func TestDirectInvokeClientImportLine_usesInlinedTransport(t *testing.T) {
 	got := DirectInvokeClientImportLine()
-	want := "import { getDefaultInvokeClient } from './transport.js';"
+	want := "import { getDefaultInvokeClient } from './transport/runtime.js';"
 	if got != want {
 		t.Fatalf("DirectInvokeClientImportLine() = %q, want %q", got, want)
 	}

@@ -46,7 +46,7 @@ func Echo(input EchoRequest) {
 
 	typesFile := out.GenerateTypesFile()
 	for _, fragment := range []string{
-		"export interface EchoRequest",
+		"export interface $EchoRequest",
 	} {
 		if !strings.Contains(typesFile, fragment) {
 			t.Fatalf("types file missing %q:\n%s", fragment, typesFile)
@@ -62,14 +62,14 @@ func Echo(input EchoRequest) {
 		"'main'",
 		"Echo",
 		"import type {",
-		"EchoRequest",
+		"$EchoRequest",
 		"from '../types.js'",
 	} {
 		if !strings.Contains(clientFile, fragment) {
 			t.Fatalf("client file missing %q:\n%s", fragment, clientFile)
 		}
 	}
-	if strings.Contains(clientFile, "export interface EchoRequest") {
+	if strings.Contains(clientFile, "export interface $EchoRequest") {
 		t.Fatalf("client file should not duplicate types.d.ts interfaces; got:\n%s", clientFile)
 	}
 }
@@ -156,7 +156,7 @@ func Ping() {
 	}
 }
 
-func TestTransformForstFileToTypeScript_sourceFileStemNamesExportNotPackage(t *testing.T) {
+func TestTransformForstFileToTypeScript_namespaceExportUsesPackageName(t *testing.T) {
 	const src = `package main
 
 func F() { return 1 }
@@ -177,8 +177,8 @@ func F() { return 1 }
 		t.Fatalf("transform: %v", err)
 	}
 	client := out.GenerateClientFile()
-	if !strings.Contains(client, "export const api") {
-		t.Fatalf("want export const api, got:\n%s", client)
+	if !strings.Contains(client, "export const $main") {
+		t.Fatalf("want $-prefixed package namespace export, got:\n%s", client)
 	}
 	if !strings.Contains(client, "'main'") {
 		t.Fatalf("invokeFunction should still use Forst package main, got:\n%s", client)
@@ -268,7 +268,7 @@ func Touch() {
 	}
 
 	typesFile := out.GenerateTypesFile()
-	if !strings.Contains(typesFile, "export interface Outer") {
+	if !strings.Contains(typesFile, "export interface $Outer") {
 		t.Fatalf("missing Outer interface:\n%s", typesFile)
 	}
 	if !strings.Contains(typesFile, "label: string") || !strings.Contains(typesFile, "version: number") {

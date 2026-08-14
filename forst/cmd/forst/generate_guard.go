@@ -35,22 +35,6 @@ func warnMissingLifecycleScript(boundaryRoot string, genCfg ftconfig.GenerateCon
 	log.Warn(`    { "scripts": { "postinstall": "forst generate ." } }`)
 }
 
-func findNearestPackageJSON(start string) (string, bool) {
-	dir := filepath.Clean(start)
-	for {
-		candidate := filepath.Join(dir, "package.json")
-		st, err := os.Stat(candidate)
-		if err == nil && !st.IsDir() {
-			return candidate, true
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", false
-		}
-		dir = parent
-	}
-}
-
 func anyAncestorRunsForstGenerate(start string) (bool, error) {
 	dir := filepath.Clean(start)
 	for {

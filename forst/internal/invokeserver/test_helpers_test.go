@@ -35,7 +35,3 @@ func authenticatedRequest(t *testing.T, s *Server, method, target string, body i
 	req.Header.Set(HeaderInvokeProof, encodeInvokeProof(computeInvokeProof(token, generation, nonce)))
 	return req
 }
-
-func withAuthDisabled(cfg *Config) {
-	cfg.AuthDisabled = true
-}

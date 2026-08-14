@@ -113,23 +113,6 @@ func (tc *TypeChecker) checkFunctionTypeCall(
 	return nil
 }
 
-func functionSignatureFromFuncType(fnType ast.TypeNode) FunctionSignature {
-	params := make([]ParameterSignature, 0, len(fnType.FuncParams))
-	for _, p := range fnType.FuncParams {
-		if sp, ok := p.(ast.SimpleParamNode); ok {
-			params = append(params, ParameterSignature{
-				Ident:    sp.Ident,
-				Type:     sp.Type,
-				Variadic: sp.Variadic,
-			})
-		}
-	}
-	return FunctionSignature{
-		Parameters:  params,
-		ReturnTypes: append([]ast.TypeNode(nil), fnType.FuncReturns...),
-	}
-}
-
 func (tc *TypeChecker) checkFunctionTypeCompatible(actual, expected ast.TypeNode) bool {
 	if !actual.IsFunctionType() || !expected.IsFunctionType() {
 		return false

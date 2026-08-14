@@ -19,10 +19,10 @@ func (e ParseError) Error() string {
 	return "error"
 }
 func (e IoError) ForstErrorTag() string {
-	return "IoError"
+	return "main/IoError"
 }
 func (e ParseError) ForstErrorTag() string {
-	return "ParseError"
+	return "main/ParseError"
 }
 func demo() {
 	x, xErr := mk()

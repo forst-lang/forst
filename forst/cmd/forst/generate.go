@@ -279,18 +279,12 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 
 	// Guards run before any emit so a failing project leaves no partial output.
 	packageNames := transformerts.PackageNames(outputs)
-	if err := transformerts.ValidateReservedSubpaths(packageNames, genCfg.ReservedSubpaths()); err != nil {
-		log.WithFields(logrus.Fields{
-			"reserved": transformerts.FormatReservedSubpathKeys(genCfg.ReservedSubpaths()),
-		}).Error(err.Error())
+	if err := transformerts.ValidateForstPackageNames(packageNames); err != nil {
+		log.Error(err.Error())
 		return err
 	}
 	runtime := transformerts.RuntimeFromConfig(genCfg)
 	if runtime == transformerts.RuntimeEffect {
-		if err := transformerts.ValidateServiceClassNames(packageNames); err != nil {
-			log.Error(err.Error())
-			return err
-		}
 		if err := requireEffectRuntime(boundaryRoot); err != nil {
 			log.Error(err.Error())
 			return err
@@ -329,14 +323,18 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	}
 
 	activePackages := make(map[string]struct{}, len(clientOutputs))
+	activePackageErrors := make(map[string]struct{}, len(clientOutputs))
 	for _, out := range clientOutputs {
 		activePackages[out.PackageName] = struct{}{}
+		if len(out.DomainErrors) > 0 {
+			activePackageErrors[out.PackageName] = struct{}{}
+		}
 	}
-	if err := pruneStaleClientModulesHook(distDir, activePackages, genCfg.TestingSubpath, log); err != nil {
+	if err := pruneStaleClientModulesHook(distDir, activePackages, activePackageErrors, genCfg.TestingSubpath, log); err != nil {
 		return fmt.Errorf("prune stale client modules: %w", err)
 	}
 
-	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, invokePort, log, &stats); err != nil {
+	if err := generateClientPackageHook(outDir, genCfg, clientOutputs, activePackageErrors, invokePort, log, &stats); err != nil {
 		return fmt.Errorf("generate client package: %w", err)
 	}
 

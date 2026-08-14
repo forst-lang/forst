@@ -138,7 +138,7 @@ See TypeScript definitions under `dist/` after build, or source in [`src/`](./sr
 
 Starts, attaches to, and stops a Forst **HTTP invoke** server (`POST /invoke`). This is the Node→Forst direction. It is orthogonal to [`@forst/node-runtime`](../node-runtime/README.md), which is Forst→Node RPC (`startForstNodeHost`).
 
-Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/testing` instead; those helpers call this subpath.
+Typical use is integration tests and `globalSetup`. Application code that uses a generated client usually imports helpers from `@forst/gen/$testing` instead; those helpers call this subpath.
 
 ```ts
 import { startForstInvokeServer } from "@forst/cli/invoke";

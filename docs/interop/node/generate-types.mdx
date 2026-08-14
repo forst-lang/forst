@@ -9,18 +9,35 @@ import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 <NodeClientSetupNote />
 
 ```typescript
-import { VerifyPassword } from "@forst/gen/auth";
-import type { VerifyPasswordRequest } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
+import type { $VerifyPasswordRequest } from "@forst/gen/auth";
 
-const input: VerifyPasswordRequest = {
+const input: $VerifyPasswordRequest = {
   plainPassword: "secret",
   passwordHash: "$2a$...",
 };
 
-const { valid } = await VerifyPassword(input);
+const { valid } = await $auth.VerifyPassword(input);
 ```
 
 To call functions at runtime, see [Call Forst from Node](/interop/node/call-forst). To call legacy JavaScript from compiled Forst, see [Call JavaScript from Forst](/interop/node/call-javascript).
+
+## Compiler-owned `$` names
+
+`forst generate` prefixes **Forst-domain** exports with `$` so generated JavaScript stays valid even when Forst names collide with JS reserved words (`class`, `export`, …).
+
+| Export kind | Example |
+| --- | --- |
+| Package handle | `$auth` on `@forst/gen/auth` |
+| Shape or hash type from `.ft` | `$VerifyPasswordRequest`, `$T_abc123` |
+| Domain error class | `$CellTaken` from `@forst/gen/<package>/errors` |
+| Per-function failure alias | `$VerifyPasswordFailure` |
+
+Call functions through the package handle: `$auth.VerifyPassword(input)`.
+
+Runtime `_tag` strings and Effect service tags keep normal package paths without `$`, for example `@forst/gen/auth/BcryptGenerateFailed` and `@forst/gen/auth`.
+
+Transport and index infrastructure (`InvokeCallOptions`, `ForstClientConfig`, `@forst/errors` catalog classes) is **not** prefixed.
 
 ## What you get
 
@@ -34,9 +51,9 @@ Each Forst package becomes a subpath under `@forst/gen`:
 Types for that package export from the same subpath. Shared shapes also re-export from `@forst/gen`.
 
 ```typescript
-import type { VerifyPasswordRequest } from "@forst/gen/auth";
+import type { $VerifyPasswordRequest } from "@forst/gen/auth";
 // or
-import type { VerifyPasswordRequest } from "@forst/gen";
+import type { $VerifyPasswordRequest } from "@forst/gen";
 ```
 
 Output on disk (default):
@@ -51,7 +68,7 @@ Output on disk (default):
 
 The generated package is a real npm-style module: subpath imports like `@forst/gen/auth` resolve through `package.json` **`exports`** to files under `dist/pkg/`. TypeScript and Node resolve it from `node_modules/@forst/gen` after `forst generate` creates the link.
 
-The generated `package.json` declares an optional peer on `@forst/cli` so real-server helpers under `@forst/gen/testing` can load `@forst/cli/invoke`. Install it only when those helpers are used.
+The generated `package.json` declares an optional peer on `@forst/cli` so real-server helpers under `@forst/gen/$testing` can load `@forst/cli/invoke`. Install it only when those helpers are used.
 
 **Do not** add a bundler `resolve.alias` that maps `@forst/gen` to `.forst/client`. Plain directory aliases skip the exports map, so `@forst/gen/main` incorrectly becomes `.forst/client/main` (which does not exist). Let normal package resolution handle `@forst/gen`.
 

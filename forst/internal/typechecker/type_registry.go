@@ -3,6 +3,7 @@ package typechecker
 
 import (
 	"forst/internal/ast"
+	"sort"
 	"strings"
 )
 
@@ -54,7 +55,8 @@ func (tc *TypeChecker) FindStructurallyIdenticalNamedType(typeNode ast.TypeNode)
 		return ""
 	}
 	hashShape := hashShapeExpr.Shape
-	for _, def := range tc.Defs {
+	var matches []ast.TypeIdent
+	for typeIdent, def := range tc.Defs {
 		userDef, ok := def.(ast.TypeDefNode)
 		if !ok || userDef.Ident == "" || strings.HasPrefix(string(userDef.Ident), "T_") {
 			continue
@@ -65,16 +67,20 @@ func (tc *TypeChecker) FindStructurallyIdenticalNamedType(typeNode ast.TypeNode)
 		}
 		userShape := *userPayload
 		if tc.shapesAreStructurallyIdentical(hashShape, userShape) {
-			return userDef.Ident
+			matches = append(matches, typeIdent)
 		}
 	}
-	return ""
+	if len(matches) == 0 {
+		return ""
+	}
+	sort.Slice(matches, func(i, j int) bool { return matches[i] < matches[j] })
+	return matches[0]
 }
 
 // FindAnyStructurallyIdenticalNamedType returns the first user-defined named type that is structurally identical to the given shape, or "" if none.
 // This function works for any shape, not just hash-based types.
 func (tc *TypeChecker) FindAnyStructurallyIdenticalNamedType(shape ast.ShapeNode) ast.TypeIdent {
-	// Check all user-defined types for structural identity
+	var matches []ast.TypeIdent
 	for typeIdent, def := range tc.Defs {
 		// Skip hash-based types
 		if strings.HasPrefix(string(typeIdent), "T_") {
@@ -94,9 +100,32 @@ func (tc *TypeChecker) FindAnyStructurallyIdenticalNamedType(shape ast.ShapeNode
 
 		// Check if the shapes are structurally identical
 		if tc.shapesAreStructurallyIdentical(shape, *payload) {
-			return typeIdent
+			matches = append(matches, typeIdent)
 		}
 	}
+	if len(matches) == 0 {
+		return ""
+	}
+	sort.Slice(matches, func(i, j int) bool { return matches[i] < matches[j] })
+	return matches[0]
+}
 
-	return ""
+// UserNamedTypeMatchesShape reports whether ident names a user type whose shape is structurally identical to shape.
+func (tc *TypeChecker) UserNamedTypeMatchesShape(ident ast.TypeIdent, shape ast.ShapeNode) bool {
+	if ident == "" || strings.HasPrefix(string(ident), "T_") {
+		return false
+	}
+	def, ok := tc.Defs[ident]
+	if !ok {
+		return false
+	}
+	typeDef, ok := def.(ast.TypeDefNode)
+	if !ok {
+		return false
+	}
+	payload, ok := ast.PayloadShape(typeDef.Expr)
+	if !ok {
+		return false
+	}
+	return tc.shapesAreStructurallyIdentical(shape, *payload)
 }

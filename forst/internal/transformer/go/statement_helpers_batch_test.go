@@ -6,6 +6,34 @@ import (
 	"forst/internal/ast"
 )
 
+func TestFindBestNamedTypeForReturnStructLiteral_prefersExpectedNamedTypeOverAlphabeticalMatch(t *testing.T) {
+	t.Parallel()
+	log := setupTestLogger(nil)
+	tc := setupTypeChecker(log)
+	shapeFields := map[string]ast.ShapeFieldNode{
+		"id":     {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		"title":  {Type: &ast.TypeNode{Ident: ast.TypeString}},
+		"status": {Type: &ast.TypeNode{Ident: ast.TypeString}},
+	}
+	tc.Defs["AddTodoResponse"] = ast.TypeDefNode{
+		Ident: "AddTodoResponse",
+		Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: shapeFields}},
+	}
+	tc.Defs["CompleteTodoResponse"] = ast.TypeDefNode{
+		Ident: "CompleteTodoResponse",
+		Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: shapeFields}},
+	}
+	tr := setupTransformer(tc, log)
+	expected := ast.NewUserDefinedType("CompleteTodoResponse")
+	got := tr.findBestNamedTypeForReturnStructLiteral(
+		ast.ShapeNode{Fields: shapeFields},
+		&expected,
+	)
+	if got == nil || got.Ident != "CompleteTodoResponse" {
+		t.Fatalf("expected CompleteTodoResponse, got %+v", got)
+	}
+}
+
 func TestFindBestNamedTypeForReturnStructLiteral_prefersStructuralNamedType(t *testing.T) {
 	t.Parallel()
 	log := setupTestLogger(nil)

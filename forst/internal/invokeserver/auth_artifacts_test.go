@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -41,12 +43,26 @@ func TestWriteAuthArtifacts_envDeliveryNoTokenFile(t *testing.T) {
 }
 
 func TestWriteAuthArtifacts_handoffDelivery(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FORST_INVOKE_AUTH_FD uses inherited Unix file descriptors")
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = r.Close() })
-	t.Setenv(EnvInvokeAuthFD, strconv.Itoa(int(w.Fd())))
+	t.Cleanup(func() {
+		_ = r.Close()
+		_ = w.Close()
+	})
+	// Dup so openAuthHandoffWriter's os.NewFile owns a distinct fd. Passing w.Fd()
+	// directly double-owns the descriptor; Close + w's finalizer can EBADF a reused
+	// fd (including Go coverage counter files under -cover).
+	writeFD, err := syscall.Dup(int(w.Fd()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.KeepAlive(w)
+	t.Setenv(EnvInvokeAuthFD, strconv.Itoa(writeFD))
 	t.Setenv(envInvokeToken, "")
 
 	workDir := t.TempDir()
@@ -54,6 +70,7 @@ func TestWriteAuthArtifacts_handoffDelivery(t *testing.T) {
 	ApplyListenDefaults(&cfg, workDir)
 	s := New(cfg, &stubBackend{}, DefaultEmbeddedVersion(), nil)
 
+	runtime.GC()
 	if err := s.WriteAuthArtifacts(workDir, cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -209,7 +209,7 @@ func TestGenerateWrite_cleansTempWhenRenameFails(t *testing.T) {
 
 	origRename := generateIO.Rename
 	t.Cleanup(func() { generateIO.Rename = origRename })
-	generateIO.Rename = func(oldpath, newpath string) error {
+	generateIO.Rename = func(_, _ string) error {
 		return fmt.Errorf("rename blocked")
 	}
 

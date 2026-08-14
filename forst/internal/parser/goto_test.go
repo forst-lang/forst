@@ -89,9 +89,6 @@ func main() {
 	if !ok {
 		t.Fatalf("body[0] = %T, want AssignmentNode", mainFn.Body[0])
 	}
-	if !as.IsShort && (len(as.ExplicitTypes) == 0 || as.ExplicitTypes[0] == nil) {
-		// typed form uses ExplicitTypes; IsShort is for :=
-	}
 	if len(as.ExplicitTypes) == 0 || as.ExplicitTypes[0] == nil || as.ExplicitTypes[0].Ident != ast.TypeInt {
 		t.Fatalf("expected typed Int assignment, got %#v", as)
 	}

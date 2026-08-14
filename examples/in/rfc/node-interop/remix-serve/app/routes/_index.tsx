@@ -1,11 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import {
-  AddTodo,
-  CompleteTodo,
-  GetDashboard,
-  ListTodos,
-} from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 import { logServer } from "../lib/log.server";
 
 /** Tab-separated todo row from ListTodos.encoded; fields widened to string with no runtime validation. */
@@ -28,8 +23,8 @@ function parseTodos(encoded: string): TodoRow[] {
 export async function loader(_args: LoaderFunctionArgs) {
   logServer("route/_index", "loader");
   forstEnv();
-  const list = await ListTodos();
-  const dashboard = await GetDashboard();
+  const list = await $main.ListTodos();
+  const dashboard = await $main.GetDashboard();
   return {
     todos: parseTodos(list.encoded),
     open: list.open,
@@ -48,7 +43,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const title = String(form.get("title") ?? "").trim();
     if (title) {
       logServer("route/_index", "AddTodo", { title });
-      await AddTodo({ title });
+      await $main.AddTodo({ title });
     }
   }
 
@@ -56,7 +51,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const id = String(form.get("id") ?? "");
     if (id) {
       logServer("route/_index", "CompleteTodo", { id });
-      await CompleteTodo({ id });
+      await $main.CompleteTodo({ id });
     }
   }
 

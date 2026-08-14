@@ -14,17 +14,15 @@ import (
 
 // reservedDistFiles are never pruned as stale package modules under outDir/dist/.
 var reservedDistFiles = map[string]struct{}{
-	"index.js":       {},
-	"index.d.ts":     {},
-	"transport.js":   {},
-	"transport.d.ts": {},
-	"types.d.ts":     {},
-	"errors.js":      {},
-	"errors.d.ts":    {},
-	"effect.js":      {},
-	"effect.d.ts":    {},
-	"testing.js":     {},
-	"testing.d.ts":   {},
+	"index.js":         {},
+	"index.d.ts":       {},
+	"$transport.js":    {},
+	"$transport.d.ts":  {},
+	"types.d.ts":       {},
+	"$errors.js":       {},
+	"$errors.d.ts":     {},
+	"$testing.js":      {},
+	"$testing.d.ts":    {},
 }
 
 // reservedDistFileSet returns compiler-owned dist root files, including the configured testing subpath.
@@ -35,7 +33,7 @@ func reservedDistFileSet(testingSubpath string) map[string]struct{} {
 	}
 	key := testingSubpath
 	if key == "" {
-		key = "testing"
+		key = transformerts.DefaultInfraTestingSubpath
 	}
 	out[key+".js"] = struct{}{}
 	out[key+".d.ts"] = struct{}{}
@@ -60,45 +58,86 @@ func writeGeneratedDistModules(
 	}
 	log.WithFields(logrus.Fields{"path": typesPath}).Debug("Generated types declaration file")
 
-	errorsJSPath := filepath.Join(distDir, "errors.js")
-	errorsJS := transformerts.EmitErrorsESM(genCfg.PackageName, merged.DomainErrors, runtime)
+	domainPackages, err := transformerts.BuildPackageDomainErrorEmits(genCfg.PackageName, clientOutputs)
+	if err != nil {
+		return fmt.Errorf("failed to build domain error decode metadata: %w", err)
+	}
+
+	transportDir := filepath.Join(distDir, "transport")
+	if err := generateIO.MkdirAll(transportDir, 0755); err != nil {
+		return fmt.Errorf("failed to create dist/transport directory: %w", err)
+	}
+
+	errorsJSPath := filepath.Join(distDir, transformerts.InfraErrorsSubpath+".js")
+	errorsJS, err := transformerts.EmitErrorsESM(genCfg.PackageName, domainPackages, runtime)
+	if err != nil {
+		return fmt.Errorf("failed to emit errors.js: %w", err)
+	}
 	if err := writeGeneratedFile(errorsJSPath, []byte(errorsJS), stats); err != nil {
 		return fmt.Errorf("failed to write errors.js: %w", err)
 	}
 	log.WithFields(logrus.Fields{"path": errorsJSPath}).Debug("Generated errors module")
 
-	errorsDTSPath := filepath.Join(distDir, "errors.d.ts")
-	if err := writeGeneratedFile(errorsDTSPath, []byte(transformerts.EmitErrorsDTS(genCfg.PackageName, merged.DomainErrors, runtime)), stats); err != nil {
+	errorsDTSPath := filepath.Join(distDir, transformerts.InfraErrorsSubpath+".d.ts")
+	errorsDTS, err := transformerts.EmitErrorsDTS(genCfg.PackageName, domainPackages, runtime)
+	if err != nil {
+		return fmt.Errorf("failed to emit errors.d.ts: %w", err)
+	}
+	if err := writeGeneratedFile(errorsDTSPath, []byte(errorsDTS), stats); err != nil {
 		return fmt.Errorf("failed to write errors.d.ts: %w", err)
 	}
 
-	transportJSPath := filepath.Join(distDir, "transport.js")
-	if err := writeGeneratedFile(transportJSPath, []byte(transformerts.EmitTransportESM(invokePort, runtime)), stats); err != nil {
-		return fmt.Errorf("failed to write transport.js: %w", err)
-	}
-	log.WithFields(logrus.Fields{"path": transportJSPath}).Debug("Generated transport module")
-
-	transportDTSPath := filepath.Join(distDir, "transport.d.ts")
-	if err := writeGeneratedFile(transportDTSPath, []byte(transformerts.EmitTransportDTS()), stats); err != nil {
-		return fmt.Errorf("failed to write transport.d.ts: %w", err)
+	transportErrorsJSPath := filepath.Join(transportDir, "errors.js")
+	if err := writeGeneratedFile(transportErrorsJSPath, []byte(transformerts.EmitTransportErrorsESM(domainPackages, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write transport/errors.js: %w", err)
 	}
 
-	if runtime == transformerts.RuntimeEffect {
-		effectJSPath := filepath.Join(distDir, transformerts.EffectModuleStem+".js")
-		if err := writeGeneratedFile(effectJSPath, []byte(transformerts.EmitEffectSupportESM(genCfg.PackageName)), stats); err != nil {
-			return fmt.Errorf("failed to write effect.js: %w", err)
-		}
-		effectDTSPath := filepath.Join(distDir, transformerts.EffectModuleStem+".d.ts")
-		if err := writeGeneratedFile(effectDTSPath, []byte(transformerts.EmitEffectSupportDTS(genCfg.PackageName)), stats); err != nil {
-			return fmt.Errorf("failed to write effect.d.ts: %w", err)
-		}
-		log.WithFields(logrus.Fields{"path": effectJSPath}).Debug("Generated Effect transport support module")
+	transportRuntimeJSPath := filepath.Join(transportDir, "runtime.js")
+	if err := writeGeneratedFile(transportRuntimeJSPath, []byte(transformerts.EmitTransportRuntimeESM(invokePort, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write transport/runtime.js: %w", err)
+	}
+	log.WithFields(logrus.Fields{"path": transportRuntimeJSPath}).Debug("Generated transport runtime module")
+
+	transportRuntimeDTSPath := filepath.Join(transportDir, "runtime.d.ts")
+	if err := writeGeneratedFile(transportRuntimeDTSPath, []byte(transformerts.EmitTransportRuntimeDTS()), stats); err != nil {
+		return fmt.Errorf("failed to write transport/runtime.d.ts: %w", err)
 	}
 
-	activePackages := make(map[string]struct{}, len(clientOutputs))
+	publicTransportJSPath := filepath.Join(distDir, transformerts.InfraTransportSubpath+".js")
+	if err := writeGeneratedFile(publicTransportJSPath, []byte(transformerts.EmitTransportPublicESM(genCfg.PackageName, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write $transport.js: %w", err)
+	}
+	publicTransportDTSPath := filepath.Join(distDir, transformerts.InfraTransportSubpath+".d.ts")
+	if err := writeGeneratedFile(publicTransportDTSPath, []byte(transformerts.EmitTransportPublicDTS(genCfg.PackageName, runtime)), stats); err != nil {
+		return fmt.Errorf("failed to write $transport.d.ts: %w", err)
+	}
+	log.WithFields(logrus.Fields{"path": publicTransportJSPath}).Debug("Generated public transport module")
+
 	for _, out := range clientOutputs {
 		pkg := out.PackageName
-		activePackages[pkg] = struct{}{}
+		if len(out.DomainErrors) > 0 {
+			pkgErrorsJS, err := transformerts.EmitPackageDomainErrorsESM(genCfg.PackageName, pkg, out.DomainErrors, runtime)
+			if err != nil {
+				return fmt.Errorf("failed to emit domain errors for package %s: %w", pkg, err)
+			}
+			pkgErrorsJSPath := filepath.Join(pkgDir, transformerts.PackageDomainErrorsFileStem(pkg)+".js")
+			if err := writeGeneratedFile(pkgErrorsJSPath, []byte(pkgErrorsJS), stats); err != nil {
+				return fmt.Errorf("failed to write package domain errors %s: %w", pkgErrorsJSPath, err)
+			}
+			pkgErrorsDTS, err := transformerts.EmitPackageDomainErrorsDTS(genCfg.PackageName, pkg, out.DomainErrors, runtime)
+			if err != nil {
+				return fmt.Errorf("failed to emit domain error declarations for package %s: %w", pkg, err)
+			}
+			pkgErrorsDTSPath := filepath.Join(pkgDir, transformerts.PackageDomainErrorsFileStem(pkg)+".d.ts")
+			if err := writeGeneratedFile(pkgErrorsDTSPath, []byte(pkgErrorsDTS), stats); err != nil {
+				return fmt.Errorf("failed to write package domain error declarations %s: %w", pkgErrorsDTSPath, err)
+			}
+			log.WithFields(logrus.Fields{
+				"forstPackage": pkg,
+				"path":         pkgErrorsJSPath,
+			}).Debug("Generated package domain errors module")
+		}
+
 		mod := transformerts.ModuleEmitFromOutput(out, genCfg.OmitStubs)
 
 		coreJS := filepath.Join(coreDir, pkg+".js")
@@ -161,14 +200,18 @@ func printGenerateSummary(genCfg ftconfig.GenerateConfig, outputs []*transformer
 	}
 }
 
-// exampleImportLine returns a sample named import from the first package with functions.
+// exampleImportLine returns a sample namespace import from the first package with functions.
 func exampleImportLine(packageName string, outputs []*transformerts.TypeScriptOutput) (string, bool) {
 	for _, out := range outputs {
 		if len(out.Functions) == 0 {
 			continue
 		}
-		fn := out.Functions[0].Name
-		return fmt.Sprintf(`import { %s } from "%s/%s"`, fn, packageName, out.PackageName), true
+		pkg := out.PackageName
+		if pkg == "" {
+			pkg = out.SourceFileStem
+		}
+		ns := transformerts.PackageNamespaceExport(pkg)
+		return fmt.Sprintf(`import { %s } from "%s/%s"`, ns, packageName, pkg), true
 	}
 	return "", false
 }
@@ -188,9 +231,9 @@ func runnableClientOutputs(outputs []*transformerts.TypeScriptOutput) []*transfo
 }
 
 // pruneStaleClientModules removes stale modules under dist/pkg/ and dist/core/.
-func pruneStaleClientModules(distDir string, activePackages map[string]struct{}, testingSubpath string, log *logrus.Logger) error {
+func pruneStaleClientModules(distDir string, activePackages, activePackageErrors map[string]struct{}, testingSubpath string, log *logrus.Logger) error {
 	for _, sub := range []string{"pkg", "core"} {
-		if err := pruneStaleModulesInDir(filepath.Join(distDir, sub), activePackages, log); err != nil {
+		if err := pruneStaleModulesInDir(filepath.Join(distDir, sub), activePackages, activePackageErrors, log); err != nil {
 			return err
 		}
 	}
@@ -224,7 +267,7 @@ func pruneStaleClientModules(distDir string, activePackages map[string]struct{},
 	return nil
 }
 
-func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log *logrus.Logger) error {
+func pruneStaleModulesInDir(dir string, activePackages, activePackageErrors map[string]struct{}, log *logrus.Logger) error {
 	entries, err := generateIO.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -238,7 +281,14 @@ func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log 
 		}
 		name := entry.Name()
 		var pkg string
+		var isDomainErrorsModule bool
 		switch {
+		case strings.HasSuffix(name, ".errors.d.ts"):
+			pkg = strings.TrimSuffix(name, ".errors.d.ts")
+			isDomainErrorsModule = true
+		case strings.HasSuffix(name, ".errors.js"):
+			pkg = strings.TrimSuffix(name, ".errors.js")
+			isDomainErrorsModule = true
 		case strings.HasSuffix(name, ".d.ts"):
 			pkg = strings.TrimSuffix(name, ".d.ts")
 		case strings.HasSuffix(name, ".js"):
@@ -248,7 +298,11 @@ func pruneStaleModulesInDir(dir string, activePackages map[string]struct{}, log 
 		default:
 			continue
 		}
-		if _, ok := activePackages[pkg]; ok {
+		active := activePackages
+		if isDomainErrorsModule {
+			active = activePackageErrors
+		}
+		if _, ok := active[pkg]; ok {
 			continue
 		}
 		path := filepath.Join(dir, name)

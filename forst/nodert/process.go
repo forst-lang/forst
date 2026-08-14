@@ -47,18 +47,18 @@ type stderrRingBuffer interface {
 }
 
 type outputRing struct {
-	mu  sync.Mutex
-	buf []byte
-	cap int
+	mu      sync.Mutex
+	buf     []byte
+	ringCap int
 }
 
 var _ stderrRingBuffer = (*outputRing)(nil)
 
-func newOutputRing(cap int) *outputRing {
-	if cap <= 0 {
-		cap = childStderrRingCap
+func newOutputRing(ringCap int) *outputRing {
+	if ringCap <= 0 {
+		ringCap = childStderrRingCap
 	}
-	return &outputRing{cap: cap}
+	return &outputRing{ringCap: ringCap}
 }
 
 func (r *outputRing) Write(p []byte) (int, error) {
@@ -68,8 +68,8 @@ func (r *outputRing) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.buf = append(r.buf, p...)
-	if len(r.buf) > r.cap {
-		r.buf = r.buf[len(r.buf)-r.cap:]
+	if len(r.buf) > r.ringCap {
+		r.buf = r.buf[len(r.buf)-r.ringCap:]
 	}
 	return len(p), nil
 }

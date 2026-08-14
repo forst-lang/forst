@@ -220,7 +220,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 		"dist/core/main.js",
 		"dist/pkg/main.js",
 		"dist/index.js",
-		"dist/transport.js",
+		"dist/transport/runtime.js",
 		"package.json",
 		"README.md",
 	} {
@@ -248,17 +248,18 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(client), "invokeFunction") {
 		t.Fatalf("client module should use invokeFunction; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "../transport.js") {
-		t.Fatalf("core module should import ../transport.js; got:\n%s", client)
-	}
 	if strings.Contains(string(client), "@forst/client") {
 		t.Fatalf("client module must not import @forst/client; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "export const main") {
-		t.Fatalf("client export should match package name main; got:\n%s", client)
+	if !strings.Contains(string(client), "export const $main") {
+		t.Fatalf("client export should use $-prefixed namespace for package main; got:\n%s", client)
 	}
-	if !strings.Contains(string(client), "getDefaultInvokeClient") || !strings.Contains(string(client), "../transport.js") {
-		t.Fatalf("generated core should import transport, got:\n%s", client)
+	pkg, err := os.ReadFile(filepath.Join(outDir, "dist", "pkg", "main.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(pkg), "getDefaultInvokeClient") {
+		t.Fatalf("pkg module should import getDefaultInvokeClient, got:\n%s", pkg)
 	}
 	dts, err := os.ReadFile(filepath.Join(outDir, "dist", "core", "main.d.ts"))
 	if err != nil {
@@ -267,7 +268,7 @@ func TestGenerateCommand_singleFtFileWritesSelfContainedClient(t *testing.T) {
 	if !strings.Contains(string(dts), "EchoRequest") || !strings.Contains(string(dts), `from "../types.js"`) {
 		t.Fatalf("core.d.ts should import types from ../types.js, got:\n%s", dts)
 	}
-	if strings.Contains(string(client), "export interface EchoRequest") {
+	if strings.Contains(string(client), "export interface $EchoRequest") {
 		t.Fatalf("generated client should not duplicate interfaces from types.d.ts, got:\n%s", client)
 	}
 }
@@ -633,7 +634,7 @@ func TestGenerateClientPackage_mkdirFails(t *testing.T) {
 	generateIO.MkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir") }
 	t.Cleanup(func() { generateIO.MkdirAll = orig })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(t.TempDir(), genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "dist directory") {
 		t.Fatalf("got %v", err)
 	}
@@ -652,7 +653,7 @@ func TestGenerateClientPackage_writeIndexFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "client index") {
 		t.Fatalf("got %v", err)
 	}
@@ -671,7 +672,7 @@ func TestGenerateClientPackage_writePackageJSONFails(t *testing.T) {
 	}
 	t.Cleanup(func() { generateIO.WriteFile = origW })
 	genCfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), "6321", log, nil)
+	err := generateClientPackage(dir, genCfg, testClientPackageOutputs("a"), nil, "6321", log, nil)
 	if err == nil || !strings.Contains(err.Error(), "package.json") {
 		t.Fatalf("got %v", err)
 	}
@@ -764,7 +765,7 @@ func TestGenerateCommand_generateClientPackageReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	ft := writeMainFt(t, dir, generateTestMinimalValidForst)
 	orig := generateClientPackageHook
-	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, string, *logrus.Logger, *generateWriteStats) error {
+	generateClientPackageHook = func(string, ftconfig.GenerateConfig, []*transformerts.TypeScriptOutput, map[string]struct{}, string, *logrus.Logger, *generateWriteStats) error {
 		return fmt.Errorf("client")
 	}
 	t.Cleanup(func() { generateClientPackageHook = orig })

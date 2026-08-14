@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -64,9 +65,22 @@ type RuntimeRunDeps struct {
 }
 
 type devReloadState struct {
-	session      *devcompile.Session
-	modTidyCache *compiler.SandboxModCache
-	lastChanged  string
+	session       *devcompile.Session
+	modTidyCache  *compiler.SandboxModCache
+	lastChangedMu sync.Mutex
+	lastChanged   string
+}
+
+func (s *devReloadState) setLastChanged(path string) {
+	s.lastChangedMu.Lock()
+	s.lastChanged = path
+	s.lastChangedMu.Unlock()
+}
+
+func (s *devReloadState) getLastChanged() string {
+	s.lastChangedMu.Lock()
+	defer s.lastChangedMu.Unlock()
+	return s.lastChanged
 }
 
 var defaultRuntimeRunDeps = RuntimeRunDeps{
@@ -164,7 +178,7 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 	runReload := func(changedPath string) {
 		if changedPath != "" {
 			state.session.NoteChange(changedPath)
-			state.lastChanged = changedPath
+			state.setLastChanged(changedPath)
 		}
 		gen := atomic.AddUint64(&generation, 1)
 		next := performDevReload(reloadParams{
@@ -183,7 +197,7 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 		child.Store(next)
 	}
 
-	coalescer := newReloadCoalescer(func() { runReload(state.lastChanged) })
+	coalescer := newReloadCoalescer(func() { runReload(state.getLastChanged()) })
 
 	stopCh := make(chan struct{})
 	sigCh := make(chan os.Signal, 1)
@@ -209,7 +223,7 @@ func WatchRuntimeDev(log *logrus.Logger, boundaryRoot, entryPath string, cfg *ft
 	watchDone := make(chan error, 1)
 	go func() {
 		watchDone <- WatchPackageRoot(log, boundaryRoot, cfg, defaultWatchDebounce, func(changedPath string) {
-			state.lastChanged = changedPath
+			state.setLastChanged(changedPath)
 			if state.session != nil && changedPath != "" {
 				state.session.NoteChange(changedPath)
 			}

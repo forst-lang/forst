@@ -107,9 +107,16 @@ func (t *Transformer) findBestNamedTypeForReturnType(hashType ast.TypeNode) stri
 }
 
 // findBestNamedTypeForReturnStructLiteral finds the best named type for a struct literal in a return statement.
-// It always attempts to find a structurally identical named type, even if the expected type is not hash-based.
+// When expectedType is a user-named type whose shape matches the literal, that name wins over other structural matches.
 func (t *Transformer) findBestNamedTypeForReturnStructLiteral(shapeNode ast.ShapeNode, expectedType *ast.TypeNode) *ast.TypeNode {
-	// Always try to find a structurally identical named type for the shape
+	// Prefer the expected name whenever it resolves to a matching Defs entry.
+	// Do not require TypeKindUserDefined: callers sometimes pass Ident-only TypeNodes.
+	if expectedType != nil && !expectedType.IsHashBased() && !expectedType.IsGoBuiltin() {
+		if t.TypeChecker.UserNamedTypeMatchesShape(expectedType.Ident, shapeNode) {
+			return &ast.TypeNode{Ident: expectedType.Ident, TypeKind: ast.TypeKindUserDefined}
+		}
+	}
+
 	if namedType := t.TypeChecker.FindAnyStructurallyIdenticalNamedType(shapeNode); namedType != "" {
 		return &ast.TypeNode{Ident: namedType}
 	}

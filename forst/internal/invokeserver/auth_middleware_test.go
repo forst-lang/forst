@@ -120,7 +120,7 @@ func TestAuthMiddleware_unixPeerCredAllowsAuthenticatedInvoke(t *testing.T) {
 	socketPath := s.BoundAddr()
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
 			},
 		},

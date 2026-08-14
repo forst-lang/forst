@@ -64,13 +64,6 @@ func (s *nonceStore) consume(nonce string, now time.Time) bool {
 	return !now.After(expiresAt)
 }
 
-// sweepExpired deletes all entries past expiry (public wrapper for tests).
-func (s *nonceStore) sweepExpired(now time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.sweepExpiredLocked(now)
-}
-
 // sweepExpiredLocked removes expired entries; caller must hold s.mu.
 func (s *nonceStore) sweepExpiredLocked(now time.Time) {
 	for nonce, expiresAt := range s.entries {

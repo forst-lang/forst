@@ -8,17 +8,18 @@ func DirectInvokeClientImportLine() string {
 	return fmt.Sprintf("import { getDefaultInvokeClient } from '%s';", TransportModuleSpecifier)
 }
 
-// DirectInvokeExportLines emits SSR-safe named invoke helpers with lazy client init.
+// DirectInvokeExportLines emits SSR-safe bound namespace invoke helpers with lazy client init.
 // Call sites must also emit DirectInvokeClientImportLine() (or an equivalent import
 // from TransportModuleSpecifier).
 func DirectInvokeExportLines(packageName string, functions []FunctionSignature) []string {
-	lines := make([]string, 0, len(functions))
-	for _, function := range functions {
+	ns := PackageNamespaceExport(packageName)
+	lines := []string{fmt.Sprintf("export const %s = {", ns)}
+	for i, function := range functions {
 		paramsSig := make([]string, len(function.Parameters))
 		paramNames := make([]string, len(function.Parameters))
-		for i, param := range function.Parameters {
-			paramsSig[i] = fmt.Sprintf("%s: %s", param.Name, param.Type)
-			paramNames[i] = param.Name
+		for j, param := range function.Parameters {
+			paramsSig[j] = fmt.Sprintf("%s: %s", param.Name, param.Type)
+			paramNames[j] = param.Name
 		}
 		paramsSigStr := joinComma(paramsSig)
 		paramNamesStr := joinComma(paramNames)
@@ -33,10 +34,15 @@ func DirectInvokeExportLines(packageName string, functions []FunctionSignature) 
 			argsList = "[" + paramNamesStr + "]"
 		}
 
-		lines = append(lines, fmt.Sprintf(`export async function %s(%s): Promise<%s> {
-  return (await getDefaultInvokeClient().invokeFunction<%s>('%s', '%s', %s)).result;
-}`, function.Name, paramsSigStr, function.ReturnType, function.ReturnType, packageName, function.Name, argsList))
+		entry := fmt.Sprintf(`  %s: async (%s): Promise<%s> => {
+    return (await getDefaultInvokeClient().invokeFunction<%s>('%s', '%s', %s)).result;
+  }`, function.Name, paramsSigStr, function.ReturnType, function.ReturnType, packageName, function.Name, argsList)
+		if i < len(functions)-1 {
+			entry += ","
+		}
+		lines = append(lines, entry)
 	}
+	lines = append(lines, "};")
 	return lines
 }
 

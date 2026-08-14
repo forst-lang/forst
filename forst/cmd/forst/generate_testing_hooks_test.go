@@ -13,38 +13,38 @@ import (
 )
 
 func TestGenerate_testingSubpathInExportsMap(t *testing.T) {
-	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"})
+	j := generateClientPackageJSON(ftconfig.EffectiveGenerateConfig(nil, ""), []string{"auth"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	entry, ok := exports["./testing"].(map[string]any)
+	entry, ok := exports["./$testing"].(map[string]any)
 	if !ok {
-		t.Fatalf("missing ./testing export:\n%s", j)
+		t.Fatalf("missing ./$testing export:\n%s", j)
 	}
-	if entry["types"] != "./dist/testing.d.ts" {
+	if entry["types"] != "./dist/$testing.d.ts" {
 		t.Fatalf("types = %#v", entry["types"])
 	}
-	if entry["default"] != "./dist/testing.js" {
+	if entry["default"] != "./dist/$testing.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 }
 
 func TestGenerate_testingSubpathHonoursConfig(t *testing.T) {
 	cfg := ftconfig.EffectiveGenerateConfig(nil, "")
-	cfg.TestingSubpath = "test-double"
-	j := generateClientPackageJSON(cfg, []string{"main"})
+	cfg.TestingSubpath = "$test-double"
+	j := generateClientPackageJSON(cfg, []string{"main"}, nil)
 	var pkg map[string]any
 	if err := json.Unmarshal([]byte(j), &pkg); err != nil {
 		t.Fatal(err)
 	}
 	exports := pkg["exports"].(map[string]any)
-	if _, ok := exports["./testing"]; ok {
-		t.Fatal("default ./testing must not appear when testingSubpath overridden")
+	if _, ok := exports["./$testing"]; ok {
+		t.Fatal("default ./$testing must not appear when testingSubpath overridden")
 	}
-	entry := exports["./test-double"].(map[string]any)
-	if entry["default"] != "./dist/test-double.js" {
+	entry := exports["./$test-double"].(map[string]any)
+	if entry["default"] != "./dist/$test-double.js" {
 		t.Fatalf("default = %#v", entry["default"])
 	}
 }
@@ -55,7 +55,7 @@ func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 	if err := generateCommand([]string{dir}); err != nil {
 		t.Fatalf("generateCommand: %v", err)
 	}
-	dts, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "testing.d.ts"))
+	dts, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), "$testing.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,10 +80,10 @@ func TestGenerate_testingOverridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) 
 		PackageName: "auth",
 		Functions: []transformerts.FunctionSignature{{
 			Name:       "VerifyToken",
-			Parameters: []transformerts.Parameter{{Name: "input", Type: "VerifyTokenRequest"}},
-			ReturnType: "VerifyTokenResponse",
+			Parameters: []transformerts.Parameter{{Name: "input", Type: "$VerifyTokenRequest"}},
+			ReturnType: "$VerifyTokenResponse",
 		}},
-		TypeImports: []string{"VerifyTokenRequest", "VerifyTokenResponse"},
+		TypeImports: []string{"$VerifyTokenRequest", "$VerifyTokenResponse"},
 	}}, "@forst/gen", transformerts.RuntimePromise)
 	if !strings.Contains(got, "packages?:") {
 		t.Fatal("missing packages key")
@@ -119,7 +119,7 @@ func TestGenerate_transportEmitsMiddlewareTypes(t *testing.T) {
 }
 
 func TestGenerate_middlewareContextIncludesPackageAndFunction(t *testing.T) {
-	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise)
+	got := transformerts.EmitTransportESM("6321", transformerts.RuntimePromise, nil)
 	for _, frag := range []string{
 		"packageName",
 		"functionName",
@@ -144,7 +144,7 @@ func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	dist := defaultClientDistDir(dir)
-	for _, rel := range []string{"testing.js", "testing.d.ts"} {
+	for _, rel := range []string{"$testing.js", "$testing.d.ts"} {
 		if _, err := os.Stat(filepath.Join(dist, rel)); err != nil {
 			t.Fatalf("expected %s: %v", rel, err)
 		}
@@ -153,8 +153,8 @@ func TestGenerate_emitsTestingModuleFiles(t *testing.T) {
 
 func TestGenerate_acceptance_scopedFunctionOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-function.mjs", `
-import { withForstTestScope } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 const result = await withForstTestScope(
   {
@@ -164,7 +164,7 @@ const result = await withForstTestScope(
       },
     },
   },
-  async () => Echo({ message: "prod-import" })
+  async () => $main.Echo({ message: "prod-import" })
 );
 if (result.echo !== "fake") {
   throw new Error("expected fake override, got " + JSON.stringify(result));
@@ -175,8 +175,8 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopedPackageOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-package.mjs", `
-import { withForstTestScope } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 const result = await withForstTestScope(
   {
@@ -186,7 +186,7 @@ const result = await withForstTestScope(
       },
     },
   },
-  async () => Echo({ message: "hi" })
+  async () => $main.Echo({ message: "hi" })
 );
 if (result.echo !== "pkg:hi") {
   throw new Error("package override failed: " + JSON.stringify(result));
@@ -197,8 +197,8 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopedTransportOverride(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scoped-transport.mjs", `
-import { withForstTestScope } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 let seen;
 const result = await withForstTestScope(
@@ -210,7 +210,7 @@ const result = await withForstTestScope(
       },
     },
   },
-  async () => Echo({ message: "payload" })
+  async () => $main.Echo({ message: "payload" })
 );
 if (result.echo !== "wire") throw new Error("transport override result");
 if (seen.packageName !== "main" || seen.functionName !== "Echo") {
@@ -225,12 +225,12 @@ console.log("ok");
 
 func TestGenerate_acceptance_scopeRestoresAfterThrow(t *testing.T) {
 	runPhase5NodeAcceptance(t, "scope-restore.mjs", `
-import { withForstTestScope } from "./testing.js";
+import { withForstTestScope } from "./$testing.js";
 import {
   configureDefaultInvokeClient,
   resetDefaultInvokeClientForTest,
-} from "./transport.js";
-import { Echo } from "./pkg/main.js";
+} from "./transport/runtime.js";
+import { $main } from "./pkg/main.js";
 
 resetDefaultInvokeClientForTest();
 let fetchCalls = 0;
@@ -255,7 +255,7 @@ try {
       },
     },
     async () => {
-      const r = await Echo({ message: "x" });
+      const r = await $main.Echo({ message: "x" });
       if (r.echo !== "scoped") throw new Error("scope failed");
       throw new Error("boom");
     }
@@ -264,7 +264,7 @@ try {
   if (err.message !== "boom") throw err;
 }
 
-const after = await Echo({ message: "x" });
+const after = await $main.Echo({ message: "x" });
 if (after.echo !== "http" || fetchCalls !== 1) {
   throw new Error(
     "scope leaked after throw: " + JSON.stringify({ after, fetchCalls })
@@ -276,8 +276,8 @@ console.log("ok");
 
 func TestGenerate_acceptance_nestedScopesInnermostWins(t *testing.T) {
 	runPhase5NodeAcceptance(t, "nested-scopes.mjs", `
-import { withForstTestScope } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 await withForstTestScope(
   {
@@ -293,13 +293,13 @@ await withForstTestScope(
         },
       },
       async () => {
-        const inner = await Echo({ message: "x" });
+        const inner = await $main.Echo({ message: "x" });
         if (inner.echo !== "inner") {
           throw new Error("innermost should win: " + JSON.stringify(inner));
         }
       }
     );
-    const outer = await Echo({ message: "x" });
+    const outer = await $main.Echo({ message: "x" });
     if (outer.echo !== "outer") {
       throw new Error("outer should restore: " + JSON.stringify(outer));
     }
@@ -311,8 +311,8 @@ console.log("ok");
 
 func TestGenerate_acceptance_concurrentScopesDoNotLeak(t *testing.T) {
 	runPhase5NodeAcceptance(t, "concurrent-scopes.mjs", `
-import { withForstTestScope } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -325,7 +325,7 @@ await Promise.all([
     },
     async () => {
       await delay(30);
-      const r = await Echo({ message: "x" });
+      const r = await $main.Echo({ message: "x" });
       if (r.echo !== "a") throw new Error("leaked into a: " + JSON.stringify(r));
     }
   ),
@@ -337,7 +337,7 @@ await Promise.all([
     },
     async () => {
       await delay(5);
-      const r = await Echo({ message: "x" });
+      const r = await $main.Echo({ message: "x" });
       if (r.echo !== "b") throw new Error("leaked into b: " + JSON.stringify(r));
     }
   ),
@@ -348,13 +348,13 @@ console.log("ok");
 
 func TestGenerate_acceptance_unhandledCallThrowsInvokeRejected(t *testing.T) {
 	runPhase5NodeAcceptance(t, "unhandled.mjs", `
-import { withForstTestScope, InvokeRejected } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { withForstTestScope, InvokeRejected } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 let caught;
 try {
   await withForstTestScope({}, async () => {
-    await Echo({ message: "x" });
+    await $main.Echo({ message: "x" });
   });
 } catch (err) {
   caught = err;

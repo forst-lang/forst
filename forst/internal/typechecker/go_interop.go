@@ -26,10 +26,6 @@ func goTypeToForstType(t types.Type) (ast.TypeNode, bool) {
 	return gointerop.TypeToForstType(t)
 }
 
-func goStructFieldTypeForForstName(recv types.Type, forstName string) (types.Type, bool) {
-	return gointerop.StructFieldTypeForForstName(recv, forstName)
-}
-
 func goTypeAtFieldPath(recv types.Type, fieldPath []string) (types.Type, error) {
 	return gointerop.TypeAtFieldPath(recv, fieldPath)
 }

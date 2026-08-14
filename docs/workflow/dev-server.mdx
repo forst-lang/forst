@@ -16,9 +16,9 @@ export FORST_BASE_URL=http://localhost:6320
 ```
 
 ```typescript
-import { Echo } from "@forst/gen/main";
+import { $main } from "@forst/gen/main";
 
-await Echo({ message: "hello" });
+await $main.Echo({ message: "hello" });
 ```
 
 **`forst dev`** watches your `.ft` tree, recompiles on change, and exposes a stable HTTP contract for tooling and Node clients. Full call and failure docs: [Call Forst from Node](/interop/node/call-forst).

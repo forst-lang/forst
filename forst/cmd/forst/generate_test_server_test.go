@@ -25,7 +25,7 @@ func TestGenerate_testServer_emitsPromiseSymbolsAndOptionalPeer(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	dist := defaultClientDistDir(dir)
-	testingDTS := readDistFile(t, dist, "testing.d.ts")
+	testingDTS := readDistFile(t, dist, "$testing.d.ts")
 	for _, frag := range []string{
 		"startForstTestServer",
 		"ForstTestServerOptions",
@@ -59,7 +59,7 @@ func TestGenerate_testServer_missingPeerThrowsForstTestServerFailed(t *testing.T
 	dist := defaultClientDistDir(dir)
 	script := filepath.Join(dist, "missing-cli.mjs")
 	body := `
-import { startForstTestServer, ForstTestServerFailed } from "./testing.js";
+import { startForstTestServer, ForstTestServerFailed } from "./$testing.js";
 try {
   await startForstTestServer();
   console.error("expected throw");
@@ -106,8 +106,8 @@ func TestGenerate_testServer_stubPeerWiresDefaultClient(t *testing.T) {
 	dist := defaultClientDistDir(dir)
 	script := filepath.Join(dist, "stub-peer.mjs")
 	body := `
-import { startForstTestServer } from "./testing.js";
-import { getDefaultInvokeClient, resetDefaultInvokeClientForTest } from "./transport.js";
+import { startForstTestServer } from "./$testing.js";
+import { getDefaultInvokeClient, resetDefaultInvokeClientForTest } from "./transport/runtime.js";
 
 resetDefaultInvokeClientForTest();
 const server = await startForstTestServer({ root: "/tmp/fixture" });
@@ -207,12 +207,12 @@ func TestGenerate_testServer_attachPathAgainstInProcessInvoke(t *testing.T) {
 	dist := defaultClientDistDir(dir)
 	script := filepath.Join(dist, "attach-e2e.mjs")
 	body := fmt.Sprintf(`
-import { startForstTestServer } from "./testing.js";
-import { Echo } from "./pkg/main.js";
+import { startForstTestServer } from "./$testing.js";
+import { $main } from "./pkg/main.js";
 
 const server = await startForstTestServer({ baseUrl: %q, root: %q });
 try {
-  const result = await Echo({ message: "hi" });
+  const result = await $main.Echo({ message: "hi" });
   if (result.echo !== "hi" || result.timestamp !== 42) {
     throw new Error("bad result " + JSON.stringify(result));
   }

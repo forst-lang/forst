@@ -182,8 +182,8 @@ func TestTypeMapping_GetTypeScriptType_hashBased_usesTypecheckerAliasWhenInDefs(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != string(hashID) {
-		t.Fatalf("got %q, want %q", out, hashID)
+	if out != GeneratedTypeExport(string(hashID)) {
+		t.Fatalf("got %q, want %q", out, GeneratedTypeExport(string(hashID)))
 	}
 }
 
@@ -269,8 +269,8 @@ func TestTypeMapping_GetTypeScriptType_userDefined_whenInDefs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "Widget" {
-		t.Fatalf("got %q, want Widget", got)
+	if got != GeneratedTypeExport("Widget") {
+		t.Fatalf("got %q, want %s", got, GeneratedTypeExport("Widget"))
 	}
 }
 
@@ -306,7 +306,7 @@ func TestTypeMapping_GetTypeScriptType_unionAndIntersection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got2 != "string & Tag" {
+	if got2 != "string & $Tag" {
 		t.Fatalf("got %q", got2)
 	}
 }
@@ -566,8 +566,8 @@ func TestTypeMapping_GetTypeScriptType_hashBasedWithoutDefinitionsUsesStableAlia
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got == "" || !strings.HasPrefix(got, "T_") {
-		t.Fatalf("got %q, want generated T_* alias", got)
+	if got == "" || !strings.HasPrefix(got, "$T_") {
+		t.Fatalf("got %q, want generated $T_* alias", got)
 	}
 }
 

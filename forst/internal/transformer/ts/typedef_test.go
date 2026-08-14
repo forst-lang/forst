@@ -26,7 +26,7 @@ func TestTransformTypeDef_errorNominalEmitsInterface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "export interface NotPositive") {
+	if !strings.Contains(out, "export interface $NotPositive") {
 		t.Fatalf("expected interface, got:\n%s", out)
 	}
 	if !strings.Contains(out, "field") || !strings.Contains(out, "string") {
@@ -48,7 +48,7 @@ func TestTransformTypeDef_assertionAlias_emitsExtendsBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "export interface Label extends string") {
+	if !strings.Contains(out, "export interface $Label extends string") {
 		t.Fatalf("expected assertion typedef to extend base TS type, got:\n%s", out)
 	}
 }
@@ -107,7 +107,7 @@ type ErrKind = ParseError | IoError
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "export type ErrKind") || !strings.Contains(out, "|") {
+	if !strings.Contains(out, "export type $ErrKind") || !strings.Contains(out, "|") {
 		t.Fatalf("expected union export type, got:\n%s", out)
 	}
 }
@@ -125,11 +125,11 @@ func TestTransformTypeDef_unsupportedExpr_errors(t *testing.T) {
 
 func TestTransformAssertionToTypeScript_defaultsToAnyWithoutBaseType(t *testing.T) {
 	tr := New(typechecker.New(logrus.New(), false), nil)
-	out, err := tr.transformAssertionToTypeScript(&ast.AssertionNode{}, "NoBase")
+	out, err := tr.transformAssertionToTypeScript(&ast.AssertionNode{}, GeneratedTypeExport("NoBase"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != "export interface NoBase extends any {}" {
+	if out != "export interface $NoBase extends any {}" {
 		t.Fatalf("got %q", out)
 	}
 }

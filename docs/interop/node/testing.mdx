@@ -17,8 +17,8 @@ This is the usual choice for a unit test. Supply the result you need, then run
 the code that depends on it.
 
 ```typescript
-import { withForstTestScope } from "@forst/gen/testing";
-import { VerifyPassword } from "@forst/gen/auth";
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
 
 const input = {
   plainPassword: "secret",
@@ -34,12 +34,12 @@ await withForstTestScope(
     },
   },
   async () => {
-    expect(await VerifyPassword(input)).toEqual({ valid: true });
+    expect(await $auth.VerifyPassword(input)).toEqual({ valid: true });
   }
 );
 ```
 
-`VerifyPassword` still comes from `@forst/gen/auth`. The replacement only
+`$auth.VerifyPassword` still comes from `@forst/gen/auth`. The replacement only
 applies inside the callback passed to `withForstTestScope`.
 
 The generated handler type matches the real function. TypeScript reports an
@@ -74,8 +74,8 @@ Place related replacements under the same package name. Any function you call
 inside the scope must have a replacement.
 
 ```typescript
-import { withForstTestScope } from "@forst/gen/testing";
-import { Hash, VerifyPassword } from "@forst/gen/auth";
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
 
 await withForstTestScope(
   {
@@ -88,13 +88,13 @@ await withForstTestScope(
   },
   async () => {
     await expect(
-      VerifyPassword({
+      $auth.VerifyPassword({
         plainPassword: "secret",
         passwordHash: "$2a$...",
       })
     ).resolves.toEqual({ valid: true });
 
-    await expect(Hash({ password: "secret" })).resolves.toEqual({
+    await expect($auth.Hash({ password: "secret" })).resolves.toEqual({
       hash: "stub",
     });
   }
@@ -107,9 +107,9 @@ Use a connection replacement when the request itself matters. It is also useful
 for failures that happen before Forst returns a business result.
 
 ```typescript
-import { InvokeTimedOut } from "@forst/gen";
-import { withForstTestScope } from "@forst/gen/testing";
-import { VerifyPassword } from "@forst/gen/auth";
+import { InvokeTimedOut } from "@forst/errors";
+import { withForstTestScope } from "@forst/gen/$testing";
+import { $auth } from "@forst/gen/auth";
 
 await withForstTestScope(
   {
@@ -125,11 +125,11 @@ await withForstTestScope(
   },
   async () => {
     await expect(
-      VerifyPassword({
+      $auth.VerifyPassword({
         plainPassword: "secret",
         passwordHash: "$2a$...",
       })
-    ).rejects.toMatchObject({ _tag: "InvokeTimedOut" });
+    ).rejects.toMatchObject({ _tag: "@forst/errors/InvokeTimedOut" });
   }
 );
 ```
@@ -143,7 +143,7 @@ If your application uses `createForstClient`, create a test client with the
 same package and function shape.
 
 ```typescript
-import { createTestForstClient } from "@forst/gen/testing";
+import { createTestForstClient } from "@forst/gen/$testing";
 
 const forst = createTestForstClient({
   auth: {
@@ -175,18 +175,18 @@ npm i -D @forst/cli
 ```
 
 ```typescript
-import { startForstTestServer } from "@forst/gen/testing";
-import { Echo } from "@forst/gen/main";
+import { startForstTestServer } from "@forst/gen/$testing";
+import { $main } from "@forst/gen/main";
 
 await using _ = await startForstTestServer();
-expect(await Echo({ message: "hi" })).toEqual({
+expect(await $main.Echo({ message: "hi" })).toEqual({
   echo: "hi",
   timestamp: 42,
 });
 ```
 
 `startForstTestServer` lazy-loads `@forst/cli/invoke`, starts or attaches to the
-invoke server, and points the default client at it. Flat imports keep working.
+invoke server, and points the default client at it. Package handles keep working.
 
 If a server is already running (CI, Docker, or a `globalSetup`), set
 `FORST_BASE_URL` or `FORST_SKIP_SPAWN=1`. The same call attaches instead of

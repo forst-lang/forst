@@ -18,7 +18,8 @@ const CliInstallCommand = "npm i -D @forst/cli"
 // emitForstTestServerOptionsDTS writes ForstTestServerOptions (structural copy of
 // @forst/cli/invoke StartForstInvokeServerOptions so tsc works without the peer).
 func emitForstTestServerOptionsDTS(b *strings.Builder) {
-	b.WriteString("export interface ForstTestServerOptions {\n")
+	b.WriteString(jsdocForstTestServerOptions)
+	b.WriteString("\nexport interface ForstTestServerOptions {\n")
 	b.WriteString("  root?: string;\n")
 	b.WriteString("  mode?: \"auto\" | \"dev\" | \"embedded\";\n")
 	b.WriteString("  entry?: string;\n")
@@ -33,7 +34,8 @@ func emitForstTestServerOptionsDTS(b *strings.Builder) {
 
 // emitForstTestServerHandleDTS writes the Promise-mode handle interface.
 func emitForstTestServerHandleDTS(b *strings.Builder) {
-	b.WriteString("export interface ForstTestServer {\n")
+	b.WriteString(jsdocForstTestServerHandle)
+	b.WriteString("\nexport interface ForstTestServer {\n")
 	b.WriteString("  readonly baseUrl: string;\n")
 	b.WriteString("  readonly port: number;\n")
 	b.WriteString("  readonly pid?: number;\n")

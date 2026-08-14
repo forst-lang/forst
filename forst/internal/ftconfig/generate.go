@@ -23,8 +23,11 @@ const defaultGenerateOutDir = ".forst/client"
 // Lowercase only; scoped form is @scope/name.
 var npmPackageNamePattern = regexp.MustCompile(`^(@[a-z0-9][~a-z0-9._-]*/)?[a-z0-9][~a-z0-9._-]*$`)
 
-// subpathKeyPattern matches a single-segment package.json exports subpath key.
-var subpathKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+// infraSubpathKeyPattern matches compiler-owned single-segment export keys ($ prefix allowed).
+var infraSubpathKeyPattern = regexp.MustCompile(`^\$[a-zA-Z][a-zA-Z0-9._-]*$`)
+
+// subpathKeyPattern matches a single-segment package.json exports subpath key for domain packages.
+var subpathKeyPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // EffectiveGenerateConfig merges generate defaults with cfg.Generate.
 // packageName is never read from an adopter package.json.
@@ -59,7 +62,7 @@ func defaultGenerateConfig() GenerateConfig {
 		OutDir:         defaultGenerateOutDir,
 		Link:           "auto",
 		Emit:           "js",
-		TestingSubpath: "testing",
+		TestingSubpath: "$testing",
 		Effect:         false,
 		SSRModule:      "",
 	}
@@ -73,6 +76,14 @@ func (g GenerateConfig) EffectiveOutDir(boundaryRoot string) string {
 		return layout.NewRoot(boundaryRoot).ClientDir()
 	}
 	return filepath.Join(filepath.Clean(boundaryRoot), filepath.Clean(outDir))
+}
+
+// EffectiveTestingSubpath returns the package.json export key for the testing module.
+func (g GenerateConfig) EffectiveTestingSubpath() string {
+	if g.TestingSubpath != "" {
+		return g.TestingSubpath
+	}
+	return "$testing"
 }
 
 // IsEphemeral reports whether the resolved outDir sits under <boundaryRoot>/.forst.
@@ -101,18 +112,16 @@ func (g GenerateConfig) ShouldLink(boundaryRoot string) bool {
 	}
 }
 
-// ReservedSubpaths maps reserved exports subpath keys to a human-readable owner.
+// ReservedSubpaths maps compiler-owned exports subpath keys to a human-readable owner.
 func (g GenerateConfig) ReservedSubpaths() map[string]string {
 	key := g.TestingSubpath
 	if key == "" {
-		key = "testing"
+		key = "$testing"
 	}
 	out := map[string]string{
-		key:     "testing subpath",
-		"errors": "errors subpath",
-	}
-	if g.Effect {
-		out["effect"] = "Effect transport support module"
+		key:          "testing subpath",
+		"$errors":     "errors subpath",
+		"$transport": "transport subpath",
 	}
 	return out
 }
@@ -136,14 +145,15 @@ func (g GenerateConfig) Validate() error {
 	if err := validateTestingSubpath(g.TestingSubpath); err != nil {
 		return err
 	}
-	if g.Effect {
-		key := g.TestingSubpath
-		if key == "" {
-			key = "testing"
-		}
-		if key == "effect" {
-			return fmt.Errorf("generate: testingSubpath %q conflicts with generate.effect reserved subpath \"effect\"", g.TestingSubpath)
-		}
+	key := g.TestingSubpath
+	if key == "" {
+		key = "$testing"
+	}
+	if key == "$errors" {
+		return fmt.Errorf("generate: testingSubpath %q conflicts with infra errors subpath %q", g.TestingSubpath, "$errors")
+	}
+	if key == "$transport" {
+		return fmt.Errorf("generate: testingSubpath %q conflicts with infra transport subpath %q", g.TestingSubpath, "$transport")
 	}
 	return nil
 }
@@ -190,8 +200,14 @@ func validateTestingSubpath(key string) error {
 	if key == "." || key == ".." {
 		return fmt.Errorf("generate.testingSubpath %q is not a valid subpath key", key)
 	}
-	if !subpathKeyPattern.MatchString(key) {
-		return fmt.Errorf("generate.testingSubpath %q is not a valid subpath key", key)
+	if infraSubpathKeyPattern.MatchString(key) {
+		return nil
 	}
-	return nil
+	if subpathKeyPattern.MatchString(key) {
+		return fmt.Errorf(
+			"generate.testingSubpath %q must use a $ prefix (for example %q) so it cannot collide with Forst package names",
+			key, "$testing",
+		)
+	}
+	return fmt.Errorf("generate.testingSubpath %q is not a valid subpath key", key)
 }

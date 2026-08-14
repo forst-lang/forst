@@ -10,23 +10,19 @@ import (
 func (t *TypeScriptTransformer) transformTypeDef(def ast.TypeDefNode) (string, error) {
 	typeName := string(def.Ident)
 
+	exportName := GeneratedTypeExport(typeName)
 	switch expr := def.Expr.(type) {
 	case ast.TypeDefShapeExpr:
-		// Add user type mapping - use clean name without I prefix for better UX
-		tsType := typeName
-		t.typeMapping.AddUserType(typeName, tsType)
+		t.typeMapping.AddUserType(typeName, exportName)
 
-		return t.transformShapeToTypeScript(&expr.Shape, typeName)
+		return t.transformShapeToTypeScript(&expr.Shape, exportName)
 	case ast.TypeDefErrorExpr:
-		tsType := typeName
-		t.typeMapping.AddUserType(typeName, tsType)
-		return t.transformShapeToTypeScript(&expr.Payload, typeName)
+		t.typeMapping.AddUserType(typeName, exportName)
+		return t.transformShapeToTypeScript(&expr.Payload, exportName)
 	case ast.TypeDefAssertionExpr:
-		// Add user type mapping
-		tsType := typeName
-		t.typeMapping.AddUserType(typeName, tsType)
+		t.typeMapping.AddUserType(typeName, exportName)
 
-		return t.transformAssertionToTypeScript(expr.Assertion, typeName)
+		return t.transformAssertionToTypeScript(expr.Assertion, exportName)
 	case ast.TypeDefBinaryExpr:
 		canon, err := t.TypeChecker.TypeDefExprToTypeNode(expr)
 		if err != nil {
@@ -37,7 +33,7 @@ func (t *TypeScriptTransformer) transformTypeDef(def ast.TypeDefNode) (string, e
 			return "", err
 		}
 		t.typeMapping.AddUserType(typeName, ts)
-		return fmt.Sprintf("export type %s = %s", typeName, ts), nil
+		return fmt.Sprintf("export type %s = %s", exportName, ts), nil
 	default:
 		return "", fmt.Errorf("unsupported type definition expression: %T", expr)
 	}

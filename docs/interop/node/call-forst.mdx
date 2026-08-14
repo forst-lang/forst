@@ -6,7 +6,7 @@ description: "Call Forst functions from Node applications."
 import NodeClientSetupNote from "/snippets/node-client-setup-note.mdx";
 
 Forst generates either Promise-based calls or Effect values. Both modes use the
-same package subpaths and function names.
+same package subpaths and `$`-prefixed handles.
 
 <NodeClientSetupNote />
 
@@ -43,9 +43,9 @@ Call the same generated function in either style:
 <CodeGroup>
 
 ```typescript Promise
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
-const { valid } = await VerifyPassword({
+const { valid } = await $auth.VerifyPassword({
   plainPassword: "secret",
   passwordHash: "$2a$...",
 });
@@ -54,10 +54,10 @@ const { valid } = await VerifyPassword({
 ```typescript Effect
 import { Effect } from "effect";
 import { ForstClientLive } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const program = Effect.gen(function* () {
-  const { valid } = yield* VerifyPassword({
+  const { valid } = yield* $auth.VerifyPassword({
     plainPassword: "secret",
     passwordHash: "$2a$...",
   });
@@ -71,8 +71,9 @@ const valid = await Effect.runPromise(
 
 </CodeGroup>
 
-Named imports from `@forst/gen/<package>` are the recommended style in both
-modes. See [Generate a TypeScript client](/interop/node/generate-types) and
+Import the package handle from `@forst/gen/<package>` (for example `$auth` from
+`@forst/gen/auth`) and call through it in both modes. See
+[Generate a TypeScript client](/interop/node/generate-types) and
 [Effect mode](/interop/node/effect).
 
 ## Quick start
@@ -132,9 +133,9 @@ modes. See [Generate a TypeScript client](/interop/node/generate-types) and
     <CodeGroup>
 
     ```typescript Promise
-    import { VerifyPassword } from "@forst/gen/auth";
+    import { $auth } from "@forst/gen/auth";
 
-    const result = await VerifyPassword({
+    const result = await $auth.VerifyPassword({
       plainPassword: "secret",
       passwordHash: "$2a$...",
     });
@@ -143,10 +144,10 @@ modes. See [Generate a TypeScript client](/interop/node/generate-types) and
     ```typescript Effect
     import { Effect } from "effect";
     import { ForstClientLive } from "@forst/gen";
-    import { VerifyPassword } from "@forst/gen/auth";
+    import { $auth } from "@forst/gen/auth";
 
     const result = await Effect.runPromise(
-      VerifyPassword({
+      $auth.VerifyPassword({
         plainPassword: "secret",
         passwordHash: "$2a$...",
       }).pipe(Effect.provide(ForstClientLive))
@@ -185,7 +186,7 @@ await forst.auth.VerifyPassword({
 ```typescript Effect
 import { Effect } from "effect";
 import { ForstClientLayer } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const ForstLive = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
@@ -195,7 +196,7 @@ const ForstLive = ForstClientLayer({
 });
 
 await Effect.runPromise(
-  VerifyPassword({
+  $auth.VerifyPassword({
     plainPassword: "secret",
     passwordHash: "$2a$...",
   }).pipe(Effect.provide(ForstLive))
@@ -212,7 +213,7 @@ Pass default headers on the client config. They merge into every invoke and stre
 
 ```typescript Promise
 import { createForstClient } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const forst = createForstClient({
   baseUrl: process.env.FORST_BASE_URL,
@@ -224,14 +225,14 @@ const forst = createForstClient({
 
 await forst.auth.VerifyPassword(input);
 
-await VerifyPassword(input, {
+await $auth.VerifyPassword(input, {
   headers: { "X-Request-Id": crypto.randomUUID() },
 });
 ```
 
 ```typescript Effect
 import { ForstClientLayer } from "@forst/gen";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const ForstLive = ForstClientLayer({
   baseUrl: process.env.FORST_BASE_URL,
@@ -273,11 +274,11 @@ Effect mode exposes the same tags through its typed error channel:
 <CodeGroup>
 
 ```typescript Promise
-import { isInvokeFailure } from "@forst/gen/errors";
-import { VerifyPassword } from "@forst/gen/auth";
+import { isInvokeFailure } from "@forst/errors";
+import { $auth } from "@forst/gen/auth";
 
 try {
-  await VerifyPassword(input);
+  await $auth.VerifyPassword(input);
 } catch (error) {
   if (!isInvokeFailure(error)) throw error;
   switch (error._tag) {
@@ -294,9 +295,9 @@ try {
 
 ```typescript Effect
 import { Effect } from "effect";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
-const program = VerifyPassword(input).pipe(
+const program = $auth.VerifyPassword(input).pipe(
   Effect.catchTag("@forst/errors/InvokeRejected", (error) =>
     Effect.succeed(badRequest(error.serverError))
   ),
@@ -318,20 +319,20 @@ const program = VerifyPassword(input).pipe(
 | `@forst/errors/InvokeStreamAborted` | NDJSON stream ended early or a row failed to parse | Retry stream, or fix the streaming handler |
 | `@forst/errors/ContractVersionMismatch` | Client and server contract versions disagree | Upgrade client and server together |
 
-Import invoke helpers from `@forst/gen/errors` (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short. Built-in invoke, harness, and unknown-failure `_tag` strings use the `@forst/errors/` prefix. Domain error tags are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`).
+Import invoke helpers from `@forst/errors` in Promise mode or `@forst/errors/effect` in Effect mode (`InvokeRejected`, `isInvokeFailure`, …). Class names stay short. Built-in invoke, harness, and unknown-failure `_tag` strings use the `@forst/errors/` prefix. Domain error tags are namespaced with your npm package name (for example `@forst/tictactoe/CellTaken`). Optional domain namespaces are also available from `@forst/gen/$errors` (for example `errors.auth.NotFound`).
 
 ### Domain errors
 
 When a Forst function raises a nominal `error X { ... }`, the server includes structured `errorValue` on the invoke envelope (HTTP contract version `"2"`). The generated client decodes it into a tagged class with the same name as the Forst error type.
 
 ```typescript
-import { CellTaken } from "@forst/tictactoe";
-import { PlayMove } from "@forst/tictactoe/main";
+import { $main } from "@forst/tictactoe/main";
+import { $CellTaken } from "@forst/tictactoe/main/errors";
 
 try {
-  await PlayMove({ state, row: 1, col: 2 });
+  await $main.PlayMove({ state, row: 1, col: 2 });
 } catch (error) {
-  if (error instanceof CellTaken) {
+  if (error instanceof $CellTaken) {
     console.log(error.row, error.col);
   }
 }
@@ -341,9 +342,9 @@ In Effect mode the function error channel includes each inferred domain error, `
 
 ```typescript
 import { Effect } from "effect";
-import { PlayMove } from "@forst/tictactoe/main";
+import { $main } from "@forst/tictactoe/main";
 
-const program = PlayMove(req).pipe(
+const program = $main.PlayMove(req).pipe(
   Effect.catchTag("@forst/tictactoe/CellTaken", (e) => Effect.succeed({ row: e.row, col: e.col }))
 );
 ```
@@ -362,10 +363,10 @@ Promise mode offers `.safe()`. Effect mode can move the typed failure into an
 <CodeGroup>
 
 ```typescript Promise
-import { InvokeRejected } from "@forst/gen/errors";
-import { VerifyPassword } from "@forst/gen/auth";
+import { InvokeRejected } from "@forst/errors";
+import { $auth } from "@forst/gen/auth";
 
-const result = await VerifyPassword.safe(input);
+const result = await $auth.VerifyPassword.safe(input);
 if (!result.ok) {
   switch (result.error._tag) {
     case "@forst/errors/InvokeRejected":
@@ -379,10 +380,10 @@ const { valid } = result.value;
 
 ```typescript Effect
 import { Effect } from "effect";
-import { VerifyPassword } from "@forst/gen/auth";
+import { $auth } from "@forst/gen/auth";
 
 const program = Effect.gen(function* () {
-  const result = yield* Effect.either(VerifyPassword(input));
+  const result = yield* Effect.either($auth.VerifyPassword(input));
   if (result._tag === "Left") {
     return handleFailure(result.left);
   }
@@ -397,7 +398,7 @@ const program = Effect.gen(function* () {
 <CodeGroup>
 
 ```typescript Promise
-await VerifyPassword(input, {
+await $auth.VerifyPassword(input, {
   signal: AbortSignal.timeout(2_000),
   timeoutMs: 2_000,
   retries: 2,
@@ -406,8 +407,9 @@ await VerifyPassword(input, {
 
 ```typescript Effect
 import { Effect, Schedule } from "effect";
+import { $auth } from "@forst/gen/auth";
 
-const program = VerifyPassword(input).pipe(
+const program = $auth.VerifyPassword(input).pipe(
   Effect.timeout("2 seconds"),
   Effect.retry(Schedule.recurs(2))
 );

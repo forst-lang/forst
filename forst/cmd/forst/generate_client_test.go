@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"forst/internal/ftconfig"
+	transformerts "forst/internal/transformer/ts"
 )
 
 // TestGenerate_omissionReport checks provider-gated omission reporting.
@@ -148,15 +148,15 @@ func TestGenerate_subpathFunctionImport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "ComparePassword") && !strings.Contains(string(data), `export * from "../core/bcrypt.js"`) {
-		t.Fatalf("pkg/bcrypt.js missing ComparePassword re-export:\n%s", data)
+	if !strings.Contains(string(data), "ComparePassword") || !strings.Contains(string(data), "export const $bcrypt = {") {
+		t.Fatalf("pkg/bcrypt.js missing bound $bcrypt namespace:\n%s", data)
 	}
 
 	script := filepath.Join(dir, "a01-smoke.mjs")
 	body := `
-import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") {
-  console.error("ComparePassword missing", ComparePassword);
+import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") {
+  console.error("ComparePassword missing", $bcrypt.ComparePassword);
   process.exit(1);
 }
 console.log("ok");
@@ -170,8 +170,8 @@ console.log("ok");
 	}
 
 	if os.Getenv("FORST_SKIP_TS_E2E") != "1" {
-		assertTypeScriptCompilesSmoke(t, dir, `import { ComparePassword } from "@forst/gen/bcrypt";
-export const fn = ComparePassword;
+		assertTypeScriptCompilesSmoke(t, dir, `import { $bcrypt } from "@forst/gen/bcrypt";
+export const fn = $bcrypt.ComparePassword;
 `)
 	}
 }
@@ -188,16 +188,16 @@ func TestGenerate_subpathTypeImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(dts)
-	if !strings.Contains(text, "ComparePasswordRequest") || !strings.Contains(text, `from "../types.js"`) {
-		t.Fatalf("pkg/bcrypt.d.ts must re-export ComparePasswordRequest:\n%s", text)
+	if !strings.Contains(text, "$ComparePasswordRequest") || !strings.Contains(text, `from "../types.js"`) {
+		t.Fatalf("pkg/bcrypt.d.ts must re-export $ComparePasswordRequest:\n%s", text)
 	}
 
 	if os.Getenv("FORST_SKIP_TS_E2E") == "1" {
 		t.Log("alias: structure asserted; tsc skipped (FORST_SKIP_TS_E2E=1)")
 		return
 	}
-	assertTypeScriptCompilesSmoke(t, dir, `import type { ComparePasswordRequest } from "@forst/gen/bcrypt";
-const _check: ComparePasswordRequest = { password: "x", hash: "y" };
+	assertTypeScriptCompilesSmoke(t, dir, `import type { $ComparePasswordRequest } from "@forst/gen/bcrypt";
+const _check: $ComparePasswordRequest = { password: "x", hash: "y" };
 export type Req = typeof _check;
 `)
 }
@@ -284,9 +284,9 @@ func TestGenerate_installablePackage(t *testing.T) {
 	script := filepath.Join(dir, "a03-resolve.mjs")
 	body := `
 import { createForstClient } from "@forst/gen";
-import { Echo } from "@forst/gen/main";
-if (typeof createForstClient !== "function" || typeof Echo !== "function") {
-  console.error("exports missing", { createForstClient, Echo });
+import { $main } from "@forst/gen/main";
+if (typeof createForstClient !== "function" || typeof $main.Echo !== "function") {
+  console.error("exports missing", { createForstClient, echo: $main.Echo });
   process.exit(1);
 }
 console.log("ok");
@@ -352,8 +352,8 @@ func TestGenerate_linkRestoredByPostinstall(t *testing.T) {
 	}
 	script := filepath.Join(dir, "a03b-restored.mjs")
 	body := `
-import { Echo } from "@forst/gen/main";
-if (typeof Echo !== "function") process.exit(1);
+import { $main } from "@forst/gen/main";
+if (typeof $main.Echo !== "function") process.exit(1);
 console.log("ok");
 `
 	if err := os.WriteFile(script, []byte(body), 0644); err != nil {
@@ -386,7 +386,7 @@ func TestGenerate_packageName(t *testing.T) {
 			t.Fatalf("name=%v, want %s", pkg["name"], ftconfig.DefaultPackageName)
 		}
 		out := buf.String()
-		if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { Echo } from "@forst/gen/main"`) {
+		if !strings.Contains(out, "@forst/gen") || !strings.Contains(out, `import { $main } from "@forst/gen/main"`) {
 			t.Fatalf("stdout must name specifier and example import:\n%s", out)
 		}
 	})
@@ -461,8 +461,8 @@ func TestGenerate_bundlerBuild(t *testing.T) {
 		t.Fatalf("generateCommand: %v", err)
 	}
 	entry := filepath.Join(dir, "entry.mjs")
-	if err := os.WriteFile(entry, []byte(`import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") process.exit(2);
+	if err := os.WriteFile(entry, []byte(`import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(2);
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -508,8 +508,8 @@ func TestGenerate_esmAndRequireBothResolve(t *testing.T) {
 	}
 	esm := filepath.Join(dir, "a06-esm.mjs")
 	if err := os.WriteFile(esm, []byte(`
-import { ComparePassword } from "@forst/gen/bcrypt";
-if (typeof ComparePassword !== "function") process.exit(1);
+import { $bcrypt } from "@forst/gen/bcrypt";
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -520,8 +520,8 @@ console.log("ok");
 	}
 	cjs := filepath.Join(dir, "a06-cjs.cjs")
 	if err := os.WriteFile(cjs, []byte(`
-const { ComparePassword } = require("@forst/gen/bcrypt");
-if (typeof ComparePassword !== "function") process.exit(1);
+const { $bcrypt } = require("@forst/gen/bcrypt");
+if (typeof $bcrypt.ComparePassword !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -615,8 +615,8 @@ func Ping() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c := strings.Count(string(types), "export interface Address"); c != 1 {
-			t.Fatalf("want exactly one Address declaration, got %d:\n%s", c, types)
+		if c := strings.Count(string(types), "export interface $Address"); c != 1 {
+			t.Fatalf("want exactly one $Address declaration, got %d:\n%s", c, types)
 		}
 	})
 }
@@ -640,8 +640,8 @@ func TestGenerate_reservedPackageNames(t *testing.T) {
 		if _, err := exec.LookPath("node"); err == nil {
 			script := filepath.Join(dir, "a07b-types.mjs")
 			if err := os.WriteFile(script, []byte(`
-import { Ping } from "@forst/gen/types";
-if (typeof Ping !== "function") process.exit(1);
+import { $types } from "@forst/gen/types";
+if (typeof $types.Ping !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 				t.Fatal(err)
@@ -653,47 +653,67 @@ console.log("ok");
 		}
 	})
 
-	t.Run("rejected_testing_package", func(t *testing.T) {
-		bad := t.TempDir()
-		writePkgFT(t, bad, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
-		err := generateCommand([]string{bad})
-		if err == nil {
-			t.Fatal("expected reserved package testing to fail")
+	t.Run("allows_package_named_testing", func(t *testing.T) {
+		ok := t.TempDir()
+		writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{ok}); err != nil {
+			t.Fatalf("package testing should be allowed with $ infra prefix: %v", err)
 		}
-		msg := err.Error()
-		for _, frag := range []string{"testing", "testingSubpath"} {
-			if !strings.Contains(msg, frag) {
-				t.Fatalf("reserved error missing %q:\n%s", frag, msg)
-			}
+		if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), "pkg", "testing.js")); err != nil {
+			t.Fatalf("missing pkg/testing.js: %v", err)
 		}
 	})
 
-	for _, pkg := range []string{"errors"} {
-		pkg := pkg
-		t.Run("rejected_"+pkg+"_package", func(t *testing.T) {
-			bad := t.TempDir()
-			writePkgFT(t, bad, pkg, fmt.Sprintf("package %s\n\nfunc Ping() {\n\treturn 1\n}\n", pkg))
-			err := generateCommand([]string{bad})
-			if err == nil {
-				t.Fatalf("expected reserved package %q to fail", pkg)
-			}
-			if !strings.Contains(err.Error(), pkg) {
-				t.Fatalf("reserved error should mention %q:\n%s", pkg, err.Error())
-			}
-		})
-	}
+	t.Run("js_reserved_package_name", func(t *testing.T) {
+		dir := t.TempDir()
+		writePkgFT(t, dir, "function", "package function\n\nfunc Ping() {\n\treturn 1\n}\n")
+		if err := generateCommand([]string{dir}); err != nil {
+			t.Fatalf("JS reserved package name should succeed with $ namespace aliasing: %v", err)
+		}
+		corePath := filepath.Join(defaultClientDistDir(dir), "core", "function.js")
+		core, err := os.ReadFile(corePath)
+		if err != nil {
+			t.Fatalf("read core: %v", err)
+		}
+		if !strings.Contains(string(core), "export const $function = (client) => ({") {
+			t.Fatalf("core should $-prefix namespace export:\n%s", core)
+		}
+		pkgPath := filepath.Join(defaultClientDistDir(dir), "pkg", "function.js")
+		pkg, err := os.ReadFile(pkgPath)
+		if err != nil {
+			t.Fatalf("read pkg: %v", err)
+		}
+		if !strings.Contains(string(pkg), "export const $function = {") {
+			t.Fatalf("pkg should export bound namespace:\n%s", pkg)
+		}
+		if strings.Contains(string(pkg), "export async function Ping(") {
+			t.Fatalf("pkg must not flat-export Ping:\n%s", pkg)
+		}
+	})
+
+	t.Run("rejected_dollar_in_package_name", func(t *testing.T) {
+		bad := t.TempDir()
+		writePkgFT(t, bad, "$testing", "package $testing\n\nfunc Ping() {\n\treturn 1\n}\n")
+		err := generateCommand([]string{bad})
+		if err == nil {
+			t.Fatal("expected package name containing $ to fail")
+		}
+		if !strings.Contains(err.Error(), "must not contain '$'") {
+			t.Fatalf("error should mention package name validation:\n%s", err.Error())
+		}
+	})
 
 	t.Run("testingSubpath_override", func(t *testing.T) {
 		ok := t.TempDir()
 		ensureNodeModulesDir(t, ok)
-		if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"test-double"}}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(ok, "ftconfig.json"), []byte(`{"generate":{"testingSubpath":"$test-double"}}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		writePkgFT(t, ok, "testing", "package testing\n\nfunc Ping() {\n\treturn 1\n}\n")
 		if err := generateCommand([]string{ok}); err != nil {
 			t.Fatalf("testing allowed when testingSubpath overridden: %v", err)
 		}
-		for _, rel := range []string{"pkg/testing.js", "test-double.js"} {
+		for _, rel := range []string{"pkg/testing.js", "$test-double.js"} {
 			if _, err := os.Stat(filepath.Join(defaultClientDistDir(ok), rel)); err != nil {
 				t.Fatalf("missing %s: %v", rel, err)
 			}
@@ -703,8 +723,8 @@ console.log("ok");
 		if _, ok := exports["./testing"]; !ok {
 			t.Fatalf("exports missing ./testing:\n%v", exports)
 		}
-		if _, ok := exports["./test-double"]; !ok {
-			t.Fatalf("exports missing ./test-double:\n%v", exports)
+		if _, ok := exports["./$test-double"]; !ok {
+			t.Fatalf("exports missing ./$test-double:\n%v", exports)
 		}
 	})
 }
@@ -724,16 +744,16 @@ func TestGenerate_forstPackageNamedClient(t *testing.T) {
 		t.Fatalf("expected dist/pkg/client.js: %v", err)
 	}
 	// User package must not replace .forst/client contents with only pkg output.
-	if _, err := os.Stat(filepath.Join(outDir, "dist", "transport.js")); err != nil {
-		t.Fatalf(".forst/client must still contain transport: %v", err)
+	if _, err := os.Stat(filepath.Join(outDir, "dist", "transport", "runtime.js")); err != nil {
+		t.Fatalf(".forst/client must still contain transport runtime: %v", err)
 	}
 	if _, err := exec.LookPath("node"); err != nil {
 		return
 	}
 	script := filepath.Join(dir, "a07c-client.mjs")
 	if err := os.WriteFile(script, []byte(`
-import { Ping } from "@forst/gen/client";
-if (typeof Ping !== "function") process.exit(1);
+import { $client } from "@forst/gen/client";
+if (typeof $client.Ping !== "function") process.exit(1);
 console.log("ok");
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -1007,7 +1027,7 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := string(effectDTS)
-		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "Main", "export declare const Echo:"} {
+		for _, frag := range []string{"Effect.Effect<", "InvokeFailure", "$main", "export declare class $main"} {
 			if !strings.Contains(got, frag) {
 				t.Fatalf("missing %q in effect pkg d.ts:\n%s", frag, got)
 			}
@@ -1021,15 +1041,33 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 			}
 		}
 
-		for _, rel := range []string{"errors.js"} {
+		for _, rel := range []string{transformerts.InfraErrorsSubpath + ".js", transformerts.InfraErrorsSubpath + ".d.ts"} {
 			promise := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), rel))
-			if !strings.Contains(promise, `@forst/errors"`) {
-				t.Fatalf("promise %s must re-export from @forst/errors", rel)
+			if !strings.Contains(promise, "export {};") {
+				t.Fatalf("promise %s must be a domain-only stub:\n%s", rel, promise)
+			}
+			if strings.Contains(promise, `from "@forst/errors"`) {
+				t.Fatalf("promise %s must not re-export invoke errors from @forst/errors", rel)
 			}
 			effect := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), rel))
-			if !strings.Contains(effect, `@forst/errors/effect"`) {
-				t.Fatalf("effect %s must re-export from @forst/errors/effect", rel)
+			if !strings.Contains(effect, "export {};") {
+				t.Fatalf("effect %s must be a domain-only stub:\n%s", rel, effect)
 			}
+			if strings.Contains(effect, `from "@forst/errors/effect"`) {
+				t.Fatalf("effect %s must not re-export invoke errors from @forst/errors/effect", rel)
+			}
+		}
+
+		promiseCore := mustRead(t, filepath.Join(defaultClientDistDir(promiseDir), "core/main.d.ts"))
+		if !strings.Contains(promiseCore, `@forst/errors"`) {
+			t.Fatalf("promise core/main.d.ts must import invoke failures from @forst/errors")
+		}
+		effectCore := mustRead(t, filepath.Join(defaultClientDistDir(effectDir), "core/main.d.ts"))
+		if effectCore != promiseCore {
+			t.Fatalf("effect core/main.d.ts must match promise core (shared module)")
+		}
+		if !strings.Contains(effectCore, `@forst/errors"`) {
+			t.Fatalf("shared core/main.d.ts must import invoke failures from @forst/errors")
 		}
 
 		promiseTree := readDistTree(t, defaultClientOutDir(promiseDir))
@@ -1048,10 +1086,10 @@ func TestGenerate_effectCompatibility(t *testing.T) {
 		allowed := map[string]struct{}{
 			"dist/pkg/main.js": {}, "dist/pkg/main.d.ts": {},
 			"dist/index.js": {}, "dist/index.d.ts": {},
-			"dist/testing.js": {}, "dist/testing.d.ts": {},
-			"dist/effect.js": {}, "dist/effect.d.ts": {},
-			"dist/transport.js": {}, "dist/transport.d.ts": {},
-			"dist/errors.js":   {}, "dist/errors.d.ts": {},
+			"dist/$testing.js": {}, "dist/$testing.d.ts": {},
+			"dist/$transport.js": {}, "dist/$transport.d.ts": {},
+			"dist/transport/runtime.js": {}, "dist/transport/runtime.d.ts": {}, "dist/transport/errors.js": {},
+			"dist/$errors.js":   {}, "dist/$errors.d.ts": {},
 			"package.json": {}, "README.md": {},
 		}
 		for path := range changed {

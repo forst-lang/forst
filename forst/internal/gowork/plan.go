@@ -128,7 +128,7 @@ func isRunSandboxSession(sessionDir string) bool {
 }
 
 // WorkspaceUseDirs returns module directories for a Mode B go.work file.
-func WorkspaceUseDirs(boundaryRoot, sessionDir string, link ForstRuntimeLink) ([]string, error) {
+func WorkspaceUseDirs(_ string, sessionDir string, link ForstRuntimeLink) ([]string, error) {
 	if link.ReplaceDir == "" {
 		return nil, fmt.Errorf("workspace mode requires local forst runtime module")
 	}

@@ -23,7 +23,7 @@ func EmitTestingESM(modules []ModuleEmit, npmPackageName string, runtime ClientR
   configureDefaultInvokeClient,
   resetDefaultInvokeClientForTest,
   setActiveTestTransportResolver,
-} from "./transport.js";
+} from "./transport/runtime.js";
 
 export { InvokeRejected };
 `)
@@ -32,12 +32,14 @@ export { InvokeRejected };
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "import { %s } from \"./pkg/%s.js\";\n", pkg, pkg)
+		nsExport := PackageNamespaceExport(pkg)
+		fmt.Fprintf(&b, "import { %s } from \"./core/%s.js\";\n", nsExport, pkg)
 	}
 	b.WriteString("\n")
 	b.WriteString(testingRuntimeESM)
 	b.WriteString("\n")
-	b.WriteString("export function createTestForstClient(handlers) {\n")
+	b.WriteString(jsdocCreateTestForstClient)
+	b.WriteString("\nexport function createTestForstClient(handlers) {\n")
 	b.WriteString("  const transport = createScopeTransport({ packages: handlers ?? {} }, undefined);\n")
 	b.WriteString("  return {\n")
 	for _, m := range mods {
@@ -45,11 +47,14 @@ export { InvokeRejected };
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "    %s: %s(transport),\n", pkg, pkg)
+		nsExport := PackageNamespaceExport(pkg)
+		fmt.Fprintf(&b, "    %s: %s(transport),\n", pkg, nsExport)
 	}
 	b.WriteString("  };\n")
 	b.WriteString("}\n\n")
 	emitTestServerStartHelperESM(&b)
+	b.WriteString("\n")
+	b.WriteString(jsdocStartForstTestServer)
 	b.WriteString("\n")
 	b.WriteString(`export async function startForstTestServer(options) {
   const handle = await startInvokeServerHandle(options);
@@ -102,7 +107,7 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 	b.WriteString(`import type {
   ForstInvokeClient,
   InvokeCallOptions,
-} from "./transport.js";
+} from "./transport/runtime.js";
 `)
 	fmt.Fprintf(&b, "import { InvokeRejected } from %q;\n\nexport { InvokeRejected };\n", errorsPackageImport(runtime))
 	if len(typeImports) > 0 {
@@ -121,7 +126,7 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 			fmt.Fprintf(&b, "  %s: (%s) => Promise<%s>;\n", fn.Name, params, fn.ReturnType)
 			if fn.StreamingRowType != "" {
 				fmt.Fprintf(&b,
-					"  %sStream: (%s) => AsyncGenerator<import(\"./transport.js\").StreamingResult & { data?: %s }, void, undefined>;\n",
+					"  %sStream: (%s) => AsyncGenerator<import(\"./transport/runtime.js\").StreamingResult & { data?: %s }, void, undefined>;\n",
 					fn.Name, params, fn.StreamingRowType,
 				)
 			}
@@ -129,7 +134,8 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 		b.WriteString("};\n\n")
 	}
 
-	b.WriteString("export interface ForstTestOverrides {\n")
+	b.WriteString(jsdocForstTestOverrides)
+	b.WriteString("\nexport interface ForstTestOverrides {\n")
 	b.WriteString("  /** Replace whole packages or single functions. Both levels use this map. */\n")
 	b.WriteString("  packages?: {\n")
 	for _, m := range mods {
@@ -144,12 +150,14 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 	b.WriteString("  transport?: Partial<ForstInvokeClient>;\n")
 	b.WriteString("}\n\n")
 
-	b.WriteString("export declare function withForstTestScope<T>(\n")
+	b.WriteString(jsdocWithForstTestScope)
+	b.WriteString("\nexport declare function withForstTestScope<T>(\n")
 	b.WriteString("  overrides: ForstTestOverrides,\n")
 	b.WriteString("  run: () => Promise<T>\n")
 	b.WriteString("): Promise<T>;\n\n")
 
-	b.WriteString("export declare function createTestForstClient(\n")
+	b.WriteString(jsdocCreateTestForstClient)
+	b.WriteString("\nexport declare function createTestForstClient(\n")
 	b.WriteString("  handlers?: ForstTestOverrides[\"packages\"]\n")
 	b.WriteString("): {\n")
 	for _, m := range mods {
@@ -157,12 +165,13 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 		if pkg == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "  readonly %s: ReturnType<typeof import(\"./pkg/%s.js\").%s>;\n", pkg, pkg, pkg)
+		fmt.Fprintf(&b, "  readonly %s: ReturnType<typeof import(\"./pkg/%s.js\").%s>;\n", pkg, pkg, PackageNamespaceExport(pkg))
 	}
 	b.WriteString("};\n\n")
 	emitForstTestServerOptionsDTS(&b)
 	emitForstTestServerHandleDTS(&b)
-	b.WriteString("export declare function startForstTestServer(\n")
+	b.WriteString(jsdocStartForstTestServer)
+	b.WriteString("\nexport declare function startForstTestServer(\n")
 	b.WriteString("  options?: ForstTestServerOptions\n")
 	b.WriteString("): Promise<ForstTestServer>;\n")
 	return b.String()
@@ -241,7 +250,8 @@ func isImportableGeneratedTypeName(name string) bool {
 	if strings.HasPrefix(name, "Promise") || strings.HasPrefix(name, "Async") {
 		return false
 	}
-	r, _ := utf8.DecodeRuneInString(name)
+	ident := strings.TrimPrefix(name, "$")
+	r, _ := utf8.DecodeRuneInString(ident)
 	return unicode.IsUpper(r)
 }
 
@@ -357,10 +367,7 @@ function createScopeTransport(scope, parentTransport) {
 
 setActiveTestTransportResolver(() => getActiveScope()?.transport);
 
-/**
- * Installs package/function/transport overrides for the duration of run.
- * Nested scopes merge; the innermost override wins. Restores in finally.
- */
+` + jsdocWithForstTestScope + `
 export async function withForstTestScope(overrides, run) {
   const parent = getActiveScope();
   const merged = mergeOverrides(parent?.overrides, overrides ?? {});

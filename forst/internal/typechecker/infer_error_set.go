@@ -220,13 +220,6 @@ func errorSetsEqual(a, b FunctionErrorSet) bool {
 	return true
 }
 
-func mergeFunctionErrorSets(a, b FunctionErrorSet) FunctionErrorSet {
-	acc := newErrorSetAcc()
-	acc.merge(a)
-	acc.merge(b)
-	return acc.finish()
-}
-
 // inferAllFunctionErrorSets computes transitive error sets for every registered function.
 func (tc *TypeChecker) inferAllFunctionErrorSets(nodes []ast.Node) {
 	fnBodies := make(map[ast.Identifier]ast.FunctionNode)

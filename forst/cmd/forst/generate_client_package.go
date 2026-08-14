@@ -17,6 +17,7 @@ func generateClientPackage(
 	outDir string,
 	genCfg ftconfig.GenerateConfig,
 	outputs []*transformerts.TypeScriptOutput,
+	activePackageErrors map[string]struct{},
 	invokePort string,
 	log *logrus.Logger,
 	stats *generateWriteStats,
@@ -39,7 +40,10 @@ func generateClientPackage(
 			domainParts = append(domainParts, out.DomainErrors)
 		}
 	}
-	domainErrors := transformerts.MergeDomainErrors(domainParts...)
+	domainErrors, err := transformerts.MergeDomainErrors(domainParts...)
+	if err != nil {
+		return err
+	}
 
 	indexJS := transformerts.EmitIndexESM(packageNames, invokePort, domainErrors, runtime)
 	if runtime == transformerts.RuntimeEffect {
@@ -67,10 +71,7 @@ func generateClientPackage(
 		}
 		modules = append(modules, transformerts.ModuleEmitFromOutput(out, false))
 	}
-	testingKey := genCfg.TestingSubpath
-	if testingKey == "" {
-		testingKey = "testing"
-	}
+	testingKey := genCfg.EffectiveTestingSubpath()
 	var testingJS string
 	var testingDTS string
 	if runtime == transformerts.RuntimeEffect {
@@ -91,7 +92,7 @@ func generateClientPackage(
 		return fmt.Errorf("failed to write testing.d.ts: %w", err)
 	}
 
-	packageContent := generateClientPackageJSON(genCfg, packageNames)
+	packageContent := generateClientPackageJSON(genCfg, packageNames, sortedMapKeys(activePackageErrors))
 	packagePath := filepath.Join(outDir, "package.json")
 	if err := writeGeneratedFile(packagePath, []byte(packageContent), stats); err != nil {
 		return fmt.Errorf("failed to write client package.json: %w", err)
@@ -109,25 +110,12 @@ func generateClientPackage(
 }
 
 // generateClientPackageJSON creates package.json with an exports map pointing at dist/.
-func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string) string {
+func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages, domainErrorPackages []string) string {
 	name := genCfg.PackageName
 	if name == "" {
 		name = ftconfig.DefaultPackageName
 	}
-	sorted := append([]string(nil), packages...)
-	sort.Strings(sorted)
-	seen := make(map[string]struct{}, len(sorted))
-	var unique []string
-	for _, pkg := range sorted {
-		if pkg == "" {
-			continue
-		}
-		if _, ok := seen[pkg]; ok {
-			continue
-		}
-		seen[pkg] = struct{}{}
-		unique = append(unique, pkg)
-	}
+	unique := sortedUniqueNonEmpty(packages)
 
 	var b strings.Builder
 	b.WriteString("{\n")
@@ -148,15 +136,25 @@ func generateClientPackageJSON(genCfg ftconfig.GenerateConfig, packages []string
 	for _, pkg := range unique {
 		appendPackageJSONExport(&b, "./"+pkg, "./dist/pkg/"+pkg+".d.ts", "./dist/pkg/"+pkg+".js")
 	}
-	testingKey := genCfg.TestingSubpath
-	if testingKey == "" {
-		testingKey = "testing"
+	domainErrPkgs := sortedUniqueNonEmpty(domainErrorPackages)
+	for _, pkg := range domainErrPkgs {
+		stem := transformerts.PackageDomainErrorsFileStem(pkg)
+		appendPackageJSONExport(&b, "./"+pkg+"/errors", "./dist/pkg/"+stem+".d.ts", "./dist/pkg/"+stem+".js")
 	}
+	testingKey := genCfg.EffectiveTestingSubpath()
 	appendPackageJSONExport(&b, "./"+testingKey, "./dist/"+testingKey+".d.ts", "./dist/"+testingKey+".js")
-	appendPackageJSONExport(&b, "./errors", "./dist/errors.d.ts", "./dist/errors.js")
-	if genCfg.Effect {
-		appendPackageJSONExport(&b, "./effect", "./dist/effect.d.ts", "./dist/effect.js")
-	}
+	appendPackageJSONExport(
+		&b,
+		"./"+transformerts.InfraErrorsSubpath,
+		"./dist/"+transformerts.InfraErrorsSubpath+".d.ts",
+		"./dist/"+transformerts.InfraErrorsSubpath+".js",
+	)
+	appendPackageJSONExport(
+		&b,
+		"./"+transformerts.InfraTransportSubpath,
+		"./dist/"+transformerts.InfraTransportSubpath+".d.ts",
+		"./dist/"+transformerts.InfraTransportSubpath+".js",
+	)
 	b.WriteString("\n  },\n")
 	b.WriteString("  \"dependencies\": {\n")
 	fmt.Fprintf(&b, "    %q: %s\n", transformerts.ErrorsPackageName, jsonString(transformerts.ErrorsDependencyRange))
@@ -192,6 +190,36 @@ func jsonString(s string) string {
 	return strconv.Quote(s)
 }
 
+func sortedUniqueNonEmpty(in []string) []string {
+	sorted := append([]string(nil), in...)
+	sort.Strings(sorted)
+	seen := make(map[string]struct{}, len(sorted))
+	var unique []string
+	for _, s := range sorted {
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		unique = append(unique, s)
+	}
+	return unique
+}
+
+func sortedMapKeys(m map[string]struct{}) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return sortedUniqueNonEmpty(keys)
+}
+
+
 // generateClientREADME documents the resolved specifier, invoke env, and postinstall line.
 func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, outputs []*transformerts.TypeScriptOutput) string {
 	name := genCfg.PackageName
@@ -219,8 +247,10 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 	fmt.Fprintf(&b, "Default fallback: `http://127.0.0.1:%s`\n\n", invokePort)
 	b.WriteString("## Errors\n\n")
 	fmt.Fprintf(&b, "- Runtime dependency: `%s` %s (shared invoke/harness/unknown failure classes).\n", transformerts.ErrorsPackageName, transformerts.ErrorsDependencyRange)
-	b.WriteString("- Domain + shared re-exports: `" + name + "/errors`.\n")
-	b.WriteString("- Built-in invoke/harness/unknown failure `_tag` values use the `@forst/errors/` prefix. Domain error tags use your npm package name.\n")
+	b.WriteString("- Shared invoke re-exports: `" + name + "/" + transformerts.InfraErrorsSubpath + "`.\n")
+	b.WriteString("- Per-package domain errors: `" + name + "/<forstPackage>/errors`.\n")
+	b.WriteString("- Forst package names must be Go-safe identifiers (letters, digits, underscores). Names containing `$` are rejected (`$` prefixes are reserved for compiler infra subpaths like `" + transformerts.DefaultInfraTestingSubpath + "`).\n")
+	b.WriteString("- Built-in invoke/harness/unknown failure `_tag` values use the `@forst/errors/` prefix. Domain error tags use `@<npmPackage>/<forstPackage>/<ErrorName>`.\n")
 	b.WriteString("- Prefer matching on `_tag` in Effect code. In Promise code, `instanceof` works for shared invoke failures.\n\n")
 	b.WriteString("## Lifecycle script\n\n")
 	b.WriteString("Ephemeral output under `.forst/` is gitignored. Do not commit this directory. ")
@@ -237,7 +267,7 @@ func generateClientREADME(genCfg ftconfig.GenerateConfig, invokePort string, out
 		b.WriteString("This package was generated with `generate.effect: true`.\n\n")
 		fmt.Fprintf(&b, "- Peer dependency: `effect` %s (required for `Layer.mock`).\n", transformerts.EffectPeerDependencyRange)
 		b.WriteString("- Call sites return `Effect.Effect<Response, InvokeFailure, PkgService>` and need `Effect.provide(ForstClientLive)` (or `ForstClientLayer`).\n")
-		b.WriteString("- Mocking: `Layer.mock(Pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire.\n")
+		b.WriteString("- Mocking: `Layer.mock($pkg, { ... })` for one service, `ForstTestLayer(overrides)` for the whole client, or `Layer.mock(ForstTransport, { client })` for the wire (`@forst/gen/$transport`).\n")
 		b.WriteString("- Real server: `ForstTestServerLayer` / `makeForstTestServer` (needs optional `@forst/cli` peer).\n")
 		b.WriteString("- Invoke, domain, and harness errors use `Data.TaggedError` from the effect peer. `Equal.equals` works on error values.\n")
 		b.WriteString("- Prefer `Effect.retry` over `options.retries` (omitted in Effect mode).\n")

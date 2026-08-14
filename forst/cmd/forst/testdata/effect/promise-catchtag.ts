@@ -3,7 +3,7 @@
  * Generated package must not import effect.
  */
 import { Effect } from "effect";
-import type { InvokeFailure } from "@forst/gen/errors";
+import type { InvokeFailure } from "@forst/errors";
 
 declare const program: Effect.Effect<void, InvokeFailure>;
 const _ = program.pipe(
