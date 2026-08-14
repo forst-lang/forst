@@ -21,7 +21,7 @@ Prefer matching on `_tag` in Effect code (`Effect.catchTag`). In Promise code, `
 
 ```typescript
 import { isInvokeFailure, InvokeRejected } from "@forst/errors";
-import { CellTaken } from "@forst/tictactoe";
+import { $CellTaken } from "@forst/tictactoe/main/errors";
 
 try {
   await client.main.Move({ row: 0, col: 0 });
@@ -29,13 +29,13 @@ try {
   if (error instanceof InvokeRejected) {
     // transport failure
   }
-  if (error instanceof CellTaken) {
+  if (error instanceof $CellTaken) {
     // domain error
   }
 }
 ```
 
-Domain errors (`error CellTaken { … }`) live in `@forst/gen/<forstPackage>/errors` for each project.
+Domain errors (`error CellTaken { … }`) live in `@forst/gen/<forstPackage>/errors` for each project (also under `@forst/gen/$errors` as package namespaces).
 
 ## Development
 

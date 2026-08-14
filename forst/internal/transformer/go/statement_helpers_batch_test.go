@@ -24,9 +24,10 @@ func TestFindBestNamedTypeForReturnStructLiteral_prefersExpectedNamedTypeOverAlp
 		Expr:  ast.TypeDefShapeExpr{Shape: ast.ShapeNode{Fields: shapeFields}},
 	}
 	tr := setupTransformer(tc, log)
+	expected := ast.NewUserDefinedType("CompleteTodoResponse")
 	got := tr.findBestNamedTypeForReturnStructLiteral(
 		ast.ShapeNode{Fields: shapeFields},
-		&ast.TypeNode{Ident: "CompleteTodoResponse"},
+		&expected,
 	)
 	if got == nil || got.Ident != "CompleteTodoResponse" {
 		t.Fatalf("expected CompleteTodoResponse, got %+v", got)

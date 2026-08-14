@@ -30,7 +30,7 @@ To call functions at runtime, see [Call Forst from Node](/interop/node/call-fors
 | --- | --- |
 | Package handle | `$auth` on `@forst/gen/auth` |
 | Shape or hash type from `.ft` | `$VerifyPasswordRequest`, `$T_abc123` |
-| Domain error class | `$CellTaken` |
+| Domain error class | `$CellTaken` from `@forst/gen/<package>/errors` |
 | Per-function failure alias | `$VerifyPasswordFailure` |
 
 Call functions through the package handle: `$auth.VerifyPassword(input)`.

@@ -326,8 +326,8 @@ Import invoke helpers from `@forst/errors` in Promise mode or `@forst/errors/eff
 When a Forst function raises a nominal `error X { ... }`, the server includes structured `errorValue` on the invoke envelope (HTTP contract version `"2"`). The generated client decodes it into a tagged class with the same name as the Forst error type.
 
 ```typescript
-import { $CellTaken } from "@forst/tictactoe";
 import { $main } from "@forst/tictactoe/main";
+import { $CellTaken } from "@forst/tictactoe/main/errors";
 
 try {
   await $main.PlayMove({ state, row: 1, col: 2 });

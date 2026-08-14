@@ -7,12 +7,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import {
-  $CellTaken,
-  type $GameState,
-  type $MoveRequest,
-} from "@forst/tictactoe";
+import type { $GameState, $MoveRequest } from "@forst/tictactoe";
 import { $main } from "@forst/tictactoe/main";
+import { $CellTaken } from "@forst/tictactoe/main/errors";
 import {
   startForstTestServer,
   type ForstTestServer,
