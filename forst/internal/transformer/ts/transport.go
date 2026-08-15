@@ -275,8 +275,8 @@ export interface InvokeCallOptions {
   retries?: number;
   /** Per-call HTTP headers merged over config.headers. */
   headers?: Record<string, string>;
-  /** Internal. Used by Promise-mode wrappers and {@link withForstTestScope} to inject a transport. */
-  transport?: ForstInvokeClient;
+  /** Internal. Per-call invoke client override for Promise-mode wrappers and {@link withForstTestScope}. */
+  client?: ForstInvokeClient;
 }
 
 ` + jsdocInvokeContext + `
@@ -307,7 +307,7 @@ export interface ForstInvokeClientConfig {
   /** Opt-in spawn of forst dev (ignored when NODE_ENV=production). Off by default. */
   allowSpawn?: boolean;
   /** "dev" opts into spawn path (same as allowSpawn). Off by default. */
-  transport?: "http" | "dev";
+  connectionMode?: "http" | "dev";
   /** Injectable fetch for tests. */
   fetchFn?: typeof fetch;
   /** Default HTTP headers merged into every invoke (for example Authorization). */
@@ -682,10 +682,10 @@ function nodeEnv() {
 }
 
 /**
- * Resolve transport mode. Spawn is opt-in and forbidden in production (F-12).
+ * Resolve connection mode. Spawn is opt-in and forbidden in production (F-12).
  * Full forst dev spawn is deferred; "dev" still connects over HTTP for now.
  */
-function resolveTransportMode(config) {
+function resolveConnectionMode(config) {
   const env = nodeEnv();
   const proc = typeof process !== "undefined" ? process : undefined;
   if (proc?.env?.FORST_SKIP_SPAWN === "1") {
@@ -706,10 +706,11 @@ function resolveTransportMode(config) {
         message: "FORST_BASE_URL is required when NODE_ENV=production",
       });
     }
-    // Never spawn in production, even if allowSpawn / transport: "dev" is set.
+    // Never spawn in production, even if allowSpawn / connectionMode: "dev" is set.
     return "http";
   }
-  if (config?.transport === "dev" || config?.allowSpawn === true) {
+  const mode = config?.connectionMode ?? config?.transport;
+  if (mode === "dev" || config?.allowSpawn === true) {
     return "dev";
   }
   return "http";
@@ -747,7 +748,7 @@ function shouldRetryInvokeFailure(err) {
 
 class HttpInvokeClient {
   constructor(config) {
-    resolveTransportMode(config);
+    resolveConnectionMode(config);
     if (authDisabledByEnv()) {
       warnIfInvokeAuthDisabled();
     }
@@ -1175,7 +1176,7 @@ class HttpInvokeClient {
 }
 ` + jsdocCreateInvokeClient + `
 export function createInvokeClient(config) {
-  // resolveTransportMode runs in the constructor; spawn is never started here.
+  // resolveConnectionMode runs in the constructor; spawn is never started here.
   return new HttpInvokeClient(config);
 }
 
@@ -1185,7 +1186,7 @@ let activeTestTransportResolver;
 
 /**
  * Internal. Registered by dist/testing.js so withForstTestScope reaches flat exports
- * through getDefaultInvokeClient (options.transport seam).
+ * through getDefaultInvokeClient (options.client seam).
  */
 export function setActiveTestTransportResolver(resolve) {
   activeTestTransportResolver = resolve;

@@ -90,7 +90,7 @@ func TestEmitTransportTypeScript_isConnectOnlyHttpPostInvoke(t *testing.T) {
 		`FORST_BASE_URL`,
 		`FORST_DEV_URL`,
 		`http://127.0.0.1:6321`,
-		"resolveTransportMode",
+		"resolveConnectionMode",
 		`NODE_ENV`,
 		"allowSpawn",
 		"fetchWithAuth",
@@ -241,14 +241,14 @@ func TestEmitTransportPublicESM_onlyPublicSurface(t *testing.T) {
 		"resetDefaultInvokeClientForTest",
 		"decodeDomainError",
 		"export type",
-		"invokeOptions",
+		"mergeOptions",
 		"ForstTransport",
 		`from "effect"`,
 	})
 	gotEffect := EmitTransportPublicESM("@forst/gen", RuntimeEffect)
 	assertContainsAll(t, gotEffect, []string{
 		"ForstTransport",
-		"invokeOptions",
+		"mergeOptions",
 		"ForstTransportLayer",
 	})
 	assertContainsNone(t, gotEffect, []string{

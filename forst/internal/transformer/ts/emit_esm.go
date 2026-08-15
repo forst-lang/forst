@@ -169,7 +169,7 @@ func emitBoundPackageNamespaceESM(b *strings.Builder, m ModuleEmit) {
 	coreAlias := coreNamespaceIndexAlias(pkg)
 	fmt.Fprintf(b, "import { %s as %s } from \"../core/%s.js\";\n", nsExport, coreAlias, pkg)
 	b.WriteString(`import { getDefaultInvokeClient } from "../transport/runtime.js";` + "\n\n")
-	b.WriteString("const resolveClient = (options) => options?.transport ?? getDefaultInvokeClient();\n\n")
+	b.WriteString("const resolveClient = (options) => options?.client ?? getDefaultInvokeClient();\n\n")
 	fmt.Fprintf(b, "export const %s = {\n", nsExport)
 	for i, fn := range m.Functions {
 		if i > 0 {

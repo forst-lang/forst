@@ -33,6 +33,7 @@ const jsdocInvokeCallOptions = `/**
  * Per-call options for {@link ForstInvokeClient.invokeFunction} and {@link ForstInvokeClient.invokeStream}.
  *
  * Merges over defaults from {@link createInvokeClient} or {@link configureDefaultInvokeClient}.
+ * Effect mode ignores retries on this type (use ` + jsdocLinkEffectRetry + `); {@link mergeOptions} strips retries at runtime.
  */`
 
 const jsdocInvokeContext = `/**
@@ -102,8 +103,8 @@ const jsdocForstClientType = `/**
  * Keys match generated package names and values are the bound namespace objects.
  */`
 
-const jsdocInvokeOptions = `/**
- * Merges {@link AbortSignal} into per-call invoke options for generated Effect functions.
+const jsdocMergeOptions = `/**
+ * Merges {@link AbortSignal} into per-call {@link InvokeCallOptions} for generated Effect functions.
  *
  * Effect mode passes retries through ` + jsdocLinkEffectRetry + `, so this helper strips retries from the options object.
  */`
@@ -197,11 +198,5 @@ const jsdocForstTestServerOptions = `/**
 const jsdocForstTestServerHandle = `/**
  * Handle for a running invoke test server in Promise-mode tests.
  *
- * Call stop or await ` + jsdocLinkSymbolAsyncDispose + ` to tear down the child process and reset the default transport.
- */`
-
-const jsdocEffectInvokeCallOptions = `/**
- * Per-call options for generated Effect package functions.
- *
- * Omits retries from {@link InvokeCallOptions} because Effect mode expects callers to wrap the program with ` + jsdocLinkEffectRetry + `.
+ * Call stop or await ` + jsdocLinkSymbolAsyncDispose + ` to tear down the child process and reset the default invoke client.
  */`

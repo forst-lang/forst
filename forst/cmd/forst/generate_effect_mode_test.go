@@ -81,6 +81,7 @@ func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 		}
 		text := string(data)
 		for _, frag := range []string{
+			"mergeOptions",
 			"invokeOptions",
 			"withTransport",
 			"ForstTransport",
@@ -175,18 +176,18 @@ func TestGenerate_effectMode_omitsSafeNamespace(t *testing.T) {
 	}
 }
 
-func TestGenerate_effectMode_omitsRetriesOption(t *testing.T) {
+func TestGenerate_effectMode_usesInvokeCallOptions(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	dts, err := os.ReadFile(filepath.Join(dist, "pkg", "main.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(dts)
-	if !strings.Contains(got, "EffectInvokeCallOptions") {
-		t.Fatal("expected EffectInvokeCallOptions")
+	if !strings.Contains(got, "options?: InvokeCallOptions") {
+		t.Fatalf("Effect pkg must use InvokeCallOptions:\n%s", got)
 	}
-	if !strings.Contains(got, `Omit<InvokeCallOptions, "retries">`) {
-		t.Fatalf("retries must be omitted from Effect options:\n%s", got)
+	if strings.Contains(got, "EffectInvokeCallOptions") {
+		t.Fatalf("Effect pkg must not export EffectInvokeCallOptions:\n%s", got)
 	}
 }
 
@@ -301,7 +302,7 @@ func TestGenerate_effectMode_serviceUsesTryPromiseWithSuppliedSignal(t *testing.
 	for _, frag := range []string{
 		"Effect.tryPromise",
 		"try: (signal) =>",
-		"core.$main(client).Echo(input, invokeOptions(options, signal))",
+		"core.$main(client).Echo(input, mergeOptions(options, signal))",
 	} {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q:\n%s", frag, got)
@@ -608,7 +609,7 @@ func TestGenerate_effectMode_testingModuleEmitsPartialOverrides(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"main?: Partial<MainHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 		"ForstTestLayer",
 	} {
 		if !strings.Contains(dts, frag) {
@@ -633,7 +634,7 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 	} {
 		if !strings.Contains(promiseDTS, frag) || !strings.Contains(effectDTS, frag) {
 			t.Fatalf("both modes need %q", frag)

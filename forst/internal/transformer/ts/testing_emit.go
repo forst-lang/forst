@@ -147,7 +147,7 @@ func EmitTestingDTS(modules []ModuleEmit, npmPackageName string, runtime ClientR
 	}
 	b.WriteString("  };\n")
 	b.WriteString("  /** Replace the raw invoke calls, to assert on the wire or simulate failures. */\n")
-	b.WriteString("  transport?: Partial<ForstInvokeClient>;\n")
+	b.WriteString("  client?: Partial<ForstInvokeClient>;\n")
 	b.WriteString("}\n\n")
 
 	b.WriteString(jsdocWithForstTestScope)
@@ -288,23 +288,23 @@ function mergePackageMaps(parent, child) {
 }
 
 function mergeOverrides(parent, child) {
-  const parentTransport = parent?.transport ?? {};
-  const childTransport = child?.transport ?? {};
+  const parentClient = parent?.client ?? {};
+  const childClient = child?.client ?? {};
   return {
     packages: mergePackageMaps(parent?.packages, child?.packages),
-    transport: {
+    client: {
       invokeFunction:
-        childTransport.invokeFunction ?? parentTransport.invokeFunction,
-      invokeStream: childTransport.invokeStream ?? parentTransport.invokeStream,
+        childClient.invokeFunction ?? parentClient.invokeFunction,
+      invokeStream: childClient.invokeStream ?? parentClient.invokeStream,
     },
   };
 }
 
-function createScopeTransport(scope, parentTransport) {
+function createScopeTransport(scope, parentClient) {
   return {
     async invokeFunction(packageName, functionName, args = [], options) {
-      if (typeof scope.transport?.invokeFunction === "function") {
-        return scope.transport.invokeFunction(
+      if (typeof scope.client?.invokeFunction === "function") {
+        return scope.client.invokeFunction(
           packageName,
           functionName,
           args,
@@ -316,8 +316,8 @@ function createScopeTransport(scope, parentTransport) {
         const result = await handler(...args, options);
         return { success: true, result };
       }
-      if (parentTransport && typeof parentTransport.invokeFunction === "function") {
-        return parentTransport.invokeFunction(
+      if (parentClient && typeof parentClient.invokeFunction === "function") {
+        return parentClient.invokeFunction(
           packageName,
           functionName,
           args,
@@ -332,8 +332,8 @@ function createScopeTransport(scope, parentTransport) {
       });
     },
     async *invokeStream(packageName, functionName, args = [], options) {
-      if (typeof scope.transport?.invokeStream === "function") {
-        yield* scope.transport.invokeStream(
+      if (typeof scope.client?.invokeStream === "function") {
+        yield* scope.client.invokeStream(
           packageName,
           functionName,
           args,
@@ -346,8 +346,8 @@ function createScopeTransport(scope, parentTransport) {
         yield* handler(...args, options);
         return;
       }
-      if (parentTransport && typeof parentTransport.invokeStream === "function") {
-        yield* parentTransport.invokeStream(
+      if (parentClient && typeof parentClient.invokeStream === "function") {
+        yield* parentClient.invokeStream(
           packageName,
           functionName,
           args,
@@ -365,15 +365,15 @@ function createScopeTransport(scope, parentTransport) {
   };
 }
 
-setActiveTestTransportResolver(() => getActiveScope()?.transport);
+setActiveTestTransportResolver(() => getActiveScope()?.client);
 
 ` + jsdocWithForstTestScope + `
 export async function withForstTestScope(overrides, run) {
   const parent = getActiveScope();
   const merged = mergeOverrides(parent?.overrides, overrides ?? {});
-  const parentTransport = parent?.transport;
-  const transport = createScopeTransport(merged, parentTransport);
-  const store = { overrides: merged, transport };
+  const parentClient = parent?.client;
+  const client = createScopeTransport(merged, parentClient);
+  const store = { overrides: merged, client };
 
   if (scopeStorage) {
     return scopeStorage.run(store, run);

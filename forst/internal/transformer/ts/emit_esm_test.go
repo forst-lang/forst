@@ -256,18 +256,19 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimeEffect, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import { Effect } from "effect"`,
-		`import { ForstTransport, invokeOptions } from "../$transport.js"`,
+		`import { ForstTransport, mergeOptions } from "../$transport.js"`,
 		`import * as core from "../core/auth.js"`,
 		`export class $auth extends Effect.Service()`,
 		`"@forst/gen/auth"`,
 		"Effect.tryPromise",
-		"core.$auth(client).VerifyToken(input, invokeOptions(options, signal))",
+		"core.$auth(client).VerifyToken(input, mergeOptions(options, signal))",
 		"accessors: true",
 		"dependencies: [ForstTransport.Default]",
 	})
 	assertContainsNone(t, got, []string{
 		"withTransport",
-		"invokeOptions(client",
+		"invokeOptions",
+		"mergeOptions(client",
 		".safe",
 		"AbortController",
 		"export const { VerifyToken }",
@@ -279,6 +280,7 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 func TestEmitPackageESM_promiseMode_hasNoEffectInvokeHelpers(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimePromise, "@forst/gen")
 	assertContainsNone(t, got, []string{
+		"mergeOptions",
 		"invokeOptions",
 		"withTransport",
 		"ForstTransport",
@@ -378,7 +380,7 @@ func TestEmitTransportESM_isConnectOnlyHttpWithNdjson(t *testing.T) {
 		"ended mid-row",
 		"http://127.0.0.1:6321",
 		"Never spawns",
-		"resolveTransportMode",
+		"resolveConnectionMode",
 		"FORST_INVOKE_AUTH_RECV_FD",
 		"startHostInvokeAuthRecvListener",
 	})
@@ -419,7 +421,7 @@ func TestEmitTransportDTS_declaresPublicSurface(t *testing.T) {
 		"export interface StreamingResult",
 		"export interface InvokeSuccess",
 		"export interface InvokeCallOptions",
-		"transport?: ForstInvokeClient",
+		"client?: ForstInvokeClient",
 		"export interface ForstInvokeClientConfig",
 		"allowSpawn?: boolean",
 		"export interface ForstInvokeClient",
