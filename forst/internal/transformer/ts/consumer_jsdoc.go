@@ -102,8 +102,8 @@ const jsdocForstClientType = `/**
  * Keys match generated package names and values are the bound namespace objects.
  */`
 
-const jsdocWithTransport = `/**
- * Merges an invoke client and {@link AbortSignal} into {@link EffectInvokeCallOptions} for generated Effect functions.
+const jsdocInvokeOptions = `/**
+ * Merges {@link AbortSignal} into per-call invoke options for generated Effect functions.
  *
  * Effect mode passes retries through ` + jsdocLinkEffectRetry + `, so this helper strips retries from the options object.
  */`
@@ -111,6 +111,7 @@ const jsdocWithTransport = `/**
 const jsdocForstTransport = `/**
  * Effect service tag that holds the shared HTTP invoke client for generated package modules.
  *
+ * Default resolves through {@link getDefaultInvokeClient} and honors {@link configureDefaultInvokeClient}.
  * Provide {@link ForstTransportLayer} before calling generated Effect functions in a custom runtime.
  */`
 

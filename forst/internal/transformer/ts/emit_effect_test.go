@@ -11,12 +11,20 @@ func TestEmitEffectSupportESM_exportsTransportService(t *testing.T) {
 		`from "effect"`,
 		"export class ForstTransport",
 		`"@forst/gen/Transport"`,
-		"export const withTransport",
+		"export const invokeOptions",
 		"export const ForstTransportLayer",
 		"AbortSignal.any",
 		`from "./transport/runtime.js"`,
+		"getDefaultInvokeClient",
+		"client: getDefaultInvokeClient()",
+		"client: createInvokeClient(config)",
 	})
-	assertContainsNone(t, got, []string{"AbortController"})
+	assertContainsNone(t, got, []string{
+		"AbortController",
+		"export const withTransport",
+		"transport: client",
+		"client: createInvokeClient()",
+	})
 }
 
 func TestEmitIndexEffectDTS_referencesTransportConfigType(t *testing.T) {

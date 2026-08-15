@@ -275,7 +275,7 @@ export interface InvokeCallOptions {
   retries?: number;
   /** Per-call HTTP headers merged over config.headers. */
   headers?: Record<string, string>;
-  /** Internal. Used by Effect mode and {@link withForstTestScope} to inject a transport. */
+  /** Internal. Used by Promise-mode wrappers and {@link withForstTestScope} to inject a transport. */
   transport?: ForstInvokeClient;
 }
 

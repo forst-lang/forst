@@ -74,6 +74,23 @@ func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 	if strings.Contains(string(pkg), "Effect.tryPromise") {
 		t.Fatal("default generate must not emit Effect wrappers")
 	}
+	for _, rel := range []string{"pkg/main.js", "pkg/main.d.ts", "$transport.js"} {
+		data, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(data)
+		for _, frag := range []string{
+			"invokeOptions",
+			"withTransport",
+			"ForstTransport",
+			"EffectInvokeCallOptions",
+		} {
+			if strings.Contains(text, frag) {
+				t.Fatalf("promise mode %s must not contain %q", rel, frag)
+			}
+		}
+	}
 	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "$effect.js")); !os.IsNotExist(err) {
 		t.Fatal("promise mode must not write dist/$effect.js")
 	}
@@ -284,11 +301,14 @@ func TestGenerate_effectMode_serviceUsesTryPromiseWithSuppliedSignal(t *testing.
 	for _, frag := range []string{
 		"Effect.tryPromise",
 		"try: (signal) =>",
-		"withTransport(client, options, signal)",
+		"core.$main(client).Echo(input, invokeOptions(options, signal))",
 	} {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q:\n%s", frag, got)
 		}
+	}
+	if strings.Contains(got, "withTransport") {
+		t.Fatalf("must not emit withTransport:\n%s", got)
 	}
 }
 

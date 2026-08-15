@@ -248,6 +248,7 @@ func TestEmitPackageDTS_golden(t *testing.T) {
 	assertContainsNone(t, got, []string{
 		`export * from "../core/auth.js"`,
 		"export declare function VerifyToken",
+		"EffectInvokeCallOptions",
 	})
 }
 
@@ -255,20 +256,34 @@ func TestEmitPackageESM_effectMode_wrapsCore(t *testing.T) {
 	got := EmitPackageESM(sampleAuthModule(), RuntimeEffect, "@forst/gen")
 	assertContainsAll(t, got, []string{
 		`import { Effect } from "effect"`,
-		`import { ForstTransport, withTransport } from "../$transport.js"`,
+		`import { ForstTransport, invokeOptions } from "../$transport.js"`,
 		`import * as core from "../core/auth.js"`,
 		`export class $auth extends Effect.Service()`,
 		`"@forst/gen/auth"`,
 		"Effect.tryPromise",
+		"core.$auth(client).VerifyToken(input, invokeOptions(options, signal))",
 		"accessors: true",
 		"dependencies: [ForstTransport.Default]",
 	})
 	assertContainsNone(t, got, []string{
+		"withTransport",
+		"invokeOptions(client",
 		".safe",
 		"AbortController",
 		"export const { VerifyToken }",
 		`export { $auth } from "../core/auth.js"`,
 		"export async function VerifyToken",
+	})
+}
+
+func TestEmitPackageESM_promiseMode_hasNoEffectInvokeHelpers(t *testing.T) {
+	got := EmitPackageESM(sampleAuthModule(), RuntimePromise, "@forst/gen")
+	assertContainsNone(t, got, []string{
+		"invokeOptions",
+		"withTransport",
+		"ForstTransport",
+		"EffectInvokeCallOptions",
+		"Effect.tryPromise",
 	})
 }
 

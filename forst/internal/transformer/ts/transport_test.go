@@ -241,11 +241,17 @@ func TestEmitTransportPublicESM_onlyPublicSurface(t *testing.T) {
 		"resetDefaultInvokeClientForTest",
 		"decodeDomainError",
 		"export type",
+		"invokeOptions",
+		"ForstTransport",
+		`from "effect"`,
 	})
 	gotEffect := EmitTransportPublicESM("@forst/gen", RuntimeEffect)
 	assertContainsAll(t, gotEffect, []string{
 		"ForstTransport",
-		"withTransport",
+		"invokeOptions",
 		"ForstTransportLayer",
+	})
+	assertContainsNone(t, gotEffect, []string{
+		"withTransport",
 	})
 }
