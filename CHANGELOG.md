@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/forst-lang/forst/compare/v0.14.0...v0.15.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compiler:** Multiple Forst package names in one directory are no longer allowed. Each package must live in its own directory. The --allow-stem-package-mismatch flag applies to filename vs package name only and does not bypass layout rules.
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176))
+
+### Features
+
+* **compiler:** enforce Go-aligned package layout ([#177](https://github.com/forst-lang/forst/issues/177)) ([f0b1366](https://github.com/forst-lang/forst/commit/f0b1366e46b11bc43be02bedeb8f2739b84d86d8))
+* **generate:** add log-level flag and phase timing ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+* **generate:** scope domain error tags to Forst packages ([#176](https://github.com/forst-lang/forst/issues/176)) ([f053420](https://github.com/forst-lang/forst/commit/f053420bcfe8810a71ac55f037908230ed0c009e))
+
+
+### Bug Fixes
+
+* **builtins:** accept `string([]byte)` like Go ([#175](https://github.com/forst-lang/forst/issues/175)) ([e3e02bc](https://github.com/forst-lang/forst/commit/e3e02bc0cdfb177e0cee9469be922e15ca34dfe8))
+* **examples:** point sidecar tests at package root ([f0b1366](https://github.com/forst-lang/forst/commit/f0b1366e46b11bc43be02bedeb8f2739b84d86d8))
+* **generate:** demote verbose default output to debug ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+
+
+### Performance Improvements
+
+* **generate:** skip excluded directories during discovery ([#173](https://github.com/forst-lang/forst/issues/173)) ([bffa6d5](https://github.com/forst-lang/forst/commit/bffa6d5c41e725637577babf522b147a309742b9))
+
 ## [0.14.0](https://github.com/forst-lang/forst/compare/v0.13.1...v0.14.0) (2026-08-11)
 
 
