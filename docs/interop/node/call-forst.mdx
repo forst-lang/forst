@@ -262,7 +262,7 @@ mode uses an inherited `FORST_INVOKE_AUTH_FD` handoff instead. See
 
 **Production never spawns a server.** Set `FORST_BASE_URL` (or `FORST_INVOKE_URL` / `FORST_DEV_URL`) explicitly. Local spawn of `forst dev` is opt-in for development only.
 
-`allowSpawn: true` and `transport: "dev"` are reserved for a future release. Today the client always connects over HTTP even when those flags are set.
+`allowSpawn: true` and `connectionMode: "dev"` are reserved for a future release. Today the client always connects over HTTP even when those flags are set.
 
 The **`forst dev`** HTTP contract (`/invoke`, `/version`, …) is documented in [Dev server](/workflow/dev-server). Saving a `.ft` file regenerates the client so the editor stays in step. See [Dev server § Generated client](/workflow/dev-server#generated-client).
 

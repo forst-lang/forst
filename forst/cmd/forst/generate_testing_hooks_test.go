@@ -66,7 +66,7 @@ func TestGenerate_testingModuleEmitsOverrideTypesPerPackage(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"main?: Partial<MainHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 		"withForstTestScope",
 	} {
 		if !strings.Contains(got, frag) {
@@ -203,7 +203,7 @@ import { $main } from "./pkg/main.js";
 let seen;
 const result = await withForstTestScope(
   {
-    transport: {
+    client: {
       async invokeFunction(packageName, functionName, args) {
         seen = { packageName, functionName, args };
         return { success: true, result: { echo: "wire", timestamp: 3 } };

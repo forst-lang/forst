@@ -14,7 +14,7 @@ func TestEmitTestingDTS_emitsOverrideTypesPerPackage(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 		"export declare function withForstTestScope",
 		"export declare function createTestForstClient",
 		"InvokeRejected",
@@ -29,7 +29,7 @@ func TestEmitTestingDTS_overridesKeyedUnderPackagesNotAtTopLevel(t *testing.T) {
 	if packagesIdx < 0 || authIdx < 0 || authIdx < packagesIdx {
 		t.Fatalf("auth override must sit under packages?:\n%s", got)
 	}
-	// Top-level ForstTestOverrides must not list auth beside packages/transport.
+	// Top-level ForstTestOverrides must not list auth beside packages/client.
 	iface := got[strings.Index(got, "export interface ForstTestOverrides"):]
 	end := strings.Index(iface, "export declare function withForstTestScope")
 	if end < 0 {

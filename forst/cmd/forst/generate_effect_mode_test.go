@@ -74,6 +74,24 @@ func TestGenerate_effectDefaultsToPromiseRuntime(t *testing.T) {
 	if strings.Contains(string(pkg), "Effect.tryPromise") {
 		t.Fatal("default generate must not emit Effect wrappers")
 	}
+	for _, rel := range []string{"pkg/main.js", "pkg/main.d.ts", "$transport.js"} {
+		data, err := os.ReadFile(filepath.Join(defaultClientDistDir(dir), rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(data)
+		for _, frag := range []string{
+			"mergeOptions",
+			"invokeOptions",
+			"withTransport",
+			"ForstTransport",
+			"EffectInvokeCallOptions",
+		} {
+			if strings.Contains(text, frag) {
+				t.Fatalf("promise mode %s must not contain %q", rel, frag)
+			}
+		}
+	}
 	if _, err := os.Stat(filepath.Join(defaultClientDistDir(dir), "$effect.js")); !os.IsNotExist(err) {
 		t.Fatal("promise mode must not write dist/$effect.js")
 	}
@@ -158,18 +176,18 @@ func TestGenerate_effectMode_omitsSafeNamespace(t *testing.T) {
 	}
 }
 
-func TestGenerate_effectMode_omitsRetriesOption(t *testing.T) {
+func TestGenerate_effectMode_usesInvokeCallOptions(t *testing.T) {
 	dist := generateEffectProject(t, t.TempDir())
 	dts, err := os.ReadFile(filepath.Join(dist, "pkg", "main.d.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(dts)
-	if !strings.Contains(got, "EffectInvokeCallOptions") {
-		t.Fatal("expected EffectInvokeCallOptions")
+	if !strings.Contains(got, "options?: InvokeCallOptions") {
+		t.Fatalf("Effect pkg must use InvokeCallOptions:\n%s", got)
 	}
-	if !strings.Contains(got, `Omit<InvokeCallOptions, "retries">`) {
-		t.Fatalf("retries must be omitted from Effect options:\n%s", got)
+	if strings.Contains(got, "EffectInvokeCallOptions") {
+		t.Fatalf("Effect pkg must not export EffectInvokeCallOptions:\n%s", got)
 	}
 }
 
@@ -284,11 +302,14 @@ func TestGenerate_effectMode_serviceUsesTryPromiseWithSuppliedSignal(t *testing.
 	for _, frag := range []string{
 		"Effect.tryPromise",
 		"try: (signal) =>",
-		"withTransport(client, options, signal)",
+		"core.$main(client).Echo(input, mergeOptions(options, signal))",
 	} {
 		if !strings.Contains(got, frag) {
 			t.Fatalf("missing %q:\n%s", frag, got)
 		}
+	}
+	if strings.Contains(got, "withTransport") {
+		t.Fatalf("must not emit withTransport:\n%s", got)
 	}
 }
 
@@ -588,7 +609,7 @@ func TestGenerate_effectMode_testingModuleEmitsPartialOverrides(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"main?: Partial<MainHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 		"ForstTestLayer",
 	} {
 		if !strings.Contains(dts, frag) {
@@ -613,7 +634,7 @@ func TestGenerate_effectMode_overridesShapeMatchesPromiseMode(t *testing.T) {
 		"export interface ForstTestOverrides",
 		"packages?:",
 		"auth?: Partial<AuthHandlers>",
-		"transport?: Partial<ForstInvokeClient>",
+		"client?: Partial<ForstInvokeClient>",
 	} {
 		if !strings.Contains(promiseDTS, frag) || !strings.Contains(effectDTS, frag) {
 			t.Fatalf("both modes need %q", frag)

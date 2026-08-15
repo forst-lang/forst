@@ -222,7 +222,7 @@ func TestGenerate_functionAcceptsInvokeCallOptions(t *testing.T) {
 		"signal?: AbortSignal",
 		"timeoutMs?: number",
 		"retries?: number",
-		"transport?: ForstInvokeClient",
+		"client?: ForstInvokeClient",
 	} {
 		if !strings.Contains(transportDTS, frag) {
 			t.Fatalf("InvokeCallOptions missing %q", frag)
@@ -244,8 +244,8 @@ func TestGenerate_coreFallsBackToDefaultClientWhenNoTransport(t *testing.T) {
 	if !strings.Contains(pkg, `import { getDefaultInvokeClient } from "../transport/runtime.js"`) {
 		t.Fatal("pkg must import getDefaultInvokeClient")
 	}
-	if !strings.Contains(pkg, "options?.transport ?? getDefaultInvokeClient()") {
-		t.Fatal("pkg must fall back to getDefaultInvokeClient")
+	if !strings.Contains(pkg, "options?.client ?? getDefaultInvokeClient()") {
+		t.Fatal("pkg must fall back to getDefaultInvokeClient via options.client")
 	}
 }
 
@@ -361,7 +361,7 @@ process.env.NODE_ENV = "production";
 resetDefaultInvokeClientForTest();
 let hit;
 try {
-  createInvokeClient({ allowSpawn: true, transport: "dev" });
+  createInvokeClient({ allowSpawn: true, connectionMode: "dev" });
   console.error("expected InvokeBaseUrlMissing");
   process.exit(1);
 } catch (err) {
