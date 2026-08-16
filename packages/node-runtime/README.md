@@ -74,6 +74,46 @@ await Effect.runPromise(
 
 Use the same `layer` for `Effect.provide` and the matching `runtime` for async RPC dispatch sites (`bootstrapMain`, host connection forks).
 
+### OpenTelemetry (optional)
+
+Install peer packages when you want RPC spans exported to OTLP or the console:
+
+```bash
+npm install @effect/opentelemetry @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/sdk-trace-node @opentelemetry/exporter-trace-otlp-http
+```
+
+**Bootstrap auto-export:** the bootstrap child calls `resolveForstNodeRuntimeLayer()` at startup. When `OTEL_EXPORTER_OTLP_ENDPOINT` or `FORST_NODE_OTEL=1` is set and the peers above are installed, Effect spans (`Rpc.dispatch`, `Runtime.handleSyncCall`, …) export through OpenTelemetry automatically.
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces \
+OTEL_SERVICE_NAME=my-app \
+FORST_NODE_LOG_LEVEL=debug \
+npx forst run -root ./my-service ./main.ft
+```
+
+If OTEL env is set but peers are missing, bootstrap logs a warning and continues with stderr-only spans.
+
+**Host / embedded apps:** merge OpenTelemetry at your app boundary so you do not duplicate exporters:
+
+```typescript
+import { Layer } from "effect";
+import { createNodeRuntimeSetup } from "@forst/node-runtime";
+import {
+  mergeForstNodeRuntimeWithOpenTelemetry,
+  openTelemetryLayerFromEnv,
+} from "@forst/node-runtime/opentelemetry";
+
+const layer = mergeForstNodeRuntimeWithOpenTelemetry(
+  openTelemetryLayerFromEnv(),
+  { replaceLogger: false }
+);
+const { layer: runtimeLayer, runtime } = createNodeRuntimeSetup(
+  Layer.merge(appLayer, layer)
+);
+```
+
+Import helpers from `@forst/node-runtime/opentelemetry`. The main `@forst/node-runtime` entry also exports `resolveForstNodeRuntimeLayer` for bootstrap-style resolution without static OTEL imports.
+
 | Piece | Role |
 | --- | --- |
 | `bootstrap.js` | RPC server process Go spawns in bootstrap mode |
@@ -137,6 +177,10 @@ The compiler calls this during type checking. You rarely run it yourself.
 | Variable | Purpose |
 | --- | --- |
 | `FORST_NODE_LOG_LEVEL` | Log verbosity: `trace`, `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC flow uses Effect spans; set `debug` or `trace` to see span annotations (`effect.spanName`, `rpc_method`, …) on log lines. |
+| `FORST_NODE_OTEL` | When `"1"`, enables OpenTelemetry export in bootstrap (console spans when no OTLP endpoint is set). Requires optional OTEL peer packages. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Standard OTLP traces URL (e.g. `http://localhost:4318/v1/traces`). When set, bootstrap exports RPC spans to this endpoint. |
+| `OTEL_SERVICE_NAME` | OpenTelemetry service name (default `forst-node-runtime`). |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Optional OTLP headers (`key=value,key2=value2`). |
 | `FORST_NODE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
 | `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` (bootstrap mode spawn planning) |
 | `FORST_NODE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC. Bootstrap default: `{boundaryRoot}/.forst/node-bootstrap.sock`. Host default: `{boundaryRoot}/.forst/node.sock`. |

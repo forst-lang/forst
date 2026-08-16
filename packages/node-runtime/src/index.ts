@@ -21,6 +21,7 @@ export {
   stderrPrettyLogger,
 } from "./effect/layer.js";
 export type { ForstNodeRuntimeLayerOptions, LogFields } from "./effect/layer.js";
+export { resolveForstNodeRuntimeLayer } from "./effect/resolve_layer.js";
 export {
   createNodeRuntimeSetup,
   defaultNodeRuntimeSetup,
