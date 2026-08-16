@@ -120,10 +120,11 @@ describe("ForstNodeRuntimeLayer logging", () => {
 
     const runSpan = Effect.fn("Runtime.handleSyncCall")(function* () {
       yield* Effect.annotateCurrentSpan("module_id", "legacy/payment");
-      yield* Effect.logInfo("call complete");
+      yield* Effect.logTrace("call complete");
     });
 
     const output = await captureStderr(() => runTestEffect(runSpan()));
+    expect(output).toContain("TRACE");
     expect(output).toContain("call complete");
     expect(output).toContain("effect.spanName: Runtime.handleSyncCall");
     expect(output).toContain("effect.spanId:");

@@ -154,7 +154,8 @@ export function makeForstNodeRuntimeLayer(
   const minLevel = parseEnvLevel(process.env[envLogLevel]);
   const tracing = Layer.mergeAll(
     Layer.setTracerEnabled(true),
-    Logger.minimumLogLevel(minLevel)
+    Logger.minimumLogLevel(minLevel),
+    Logger.remove(Logger.tracerLogger)
   );
 
   if (!replaceLogger) {

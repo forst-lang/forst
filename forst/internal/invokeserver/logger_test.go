@@ -35,3 +35,29 @@ func TestDefaultLogger_usesLogrus(t *testing.T) {
 		t.Fatalf("DefaultLogger should return LogrusLogger, got %T", l)
 	}
 }
+
+func TestSetInvokeLogLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		envLevel string
+		want     logrus.Level
+	}{
+		{name: "trace", envLevel: "trace", want: logrus.TraceLevel},
+		{name: "debug", envLevel: "debug", want: logrus.DebugLevel},
+		{name: "warn", envLevel: "warn", want: logrus.WarnLevel},
+		{name: "warning", envLevel: "warning", want: logrus.WarnLevel},
+		{name: "error", envLevel: "error", want: logrus.ErrorLevel},
+		{name: "invalid", envLevel: "not-a-level", want: logrus.InfoLevel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("FORST_LOG_LEVEL", tt.envLevel)
+			log := logrus.New()
+			setInvokeLogLevel(log, tt.envLevel)
+			if got := log.GetLevel(); got != tt.want {
+				t.Fatalf("GetLevel() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
