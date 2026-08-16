@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3](https://github.com/forst-lang/forst/compare/v0.15.2...v0.15.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **invokeserver:** route invoke logs through logrus ([#181](https://github.com/forst-lang/forst/issues/181)) ([66f5c42](https://github.com/forst-lang/forst/commit/66f5c42accf4c2ed7e872a8d0133966f56a702e4))
+* **nodert:** copy parent HOST into hostMode shim spawn ([75a2429](https://github.com/forst-lang/forst/commit/75a242939c08373e2fe3b498e2d811655b65bd7d))
+
 ## [0.15.2](https://github.com/forst-lang/forst/compare/v0.15.1...v0.15.2) (2026-08-16)
 
 

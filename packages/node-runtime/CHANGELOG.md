@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/forst-lang/forst/compare/node-runtime-v0.4.1...node-runtime-v0.4.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* **invokeserver:** route invoke logs through logrus ([#181](https://github.com/forst-lang/forst/issues/181)) ([66f5c42](https://github.com/forst-lang/forst/commit/66f5c42accf4c2ed7e872a8d0133966f56a702e4))
+
 ## [0.4.1](https://github.com/forst-lang/forst/compare/node-runtime-v0.4.0...node-runtime-v0.4.1) (2026-07-20)
 
 
