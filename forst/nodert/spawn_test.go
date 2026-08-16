@@ -250,6 +250,7 @@ func TestBuildHostSpawnCommand_autoRegisterAndAppReadyModule(t *testing.T) {
 }
 
 func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
+	t.Setenv("HOST", "")
 	root := t.TempDir()
 	nodePath := filepath.Join(root, "shim")
 	if err := os.WriteFile(nodePath, []byte("#!/bin/sh\n"), 0o755); err != nil {
@@ -309,6 +310,7 @@ func TestBuildHostSpawnCommand_setsHostEnv(t *testing.T) {
 }
 
 func TestBuildSpawnEnv_defaultsHostWhenUnset(t *testing.T) {
+	t.Setenv("HOST", "")
 	env := buildSpawnEnv(spawnEnvInput{HostMode: true})
 	if lookupEnvValue(env, "HOST") != "127.0.0.1" {
 		t.Fatalf("HOST = %q want 127.0.0.1", lookupEnvValue(env, "HOST"))
@@ -416,6 +418,7 @@ func TestBuildHostSpawnCommand_directNodeBinary(t *testing.T) {
 }
 
 func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
+	t.Setenv("HOST", "")
 	root := t.TempDir()
 	shim := filepath.Join(root, "node_modules", ".bin", "remix-serve")
 	if err := os.MkdirAll(filepath.Dir(shim), 0o755); err != nil {
@@ -468,8 +471,8 @@ func TestBuildHostSpawnCommand_nonNodeShimUsesNodeInterpreter(t *testing.T) {
 	assertEnvVar(t, cmd.Env, "HOST", "127.0.0.1")
 }
 
-func TestBuildHostSpawnCommand_overridesInheritedHostFromParentEnv(t *testing.T) {
-	t.Setenv("HOST", "runnerspecific")
+func TestBuildHostSpawnCommand_copiesParentHostWhenSet(t *testing.T) {
+	t.Setenv("HOST", "0.0.0.0")
 	root := t.TempDir()
 	shim := filepath.Join(root, "node_modules", ".bin", "remix-serve")
 	if err := os.MkdirAll(filepath.Dir(shim), 0o755); err != nil {
@@ -496,7 +499,7 @@ func TestBuildHostSpawnCommand_overridesInheritedHostFromParentEnv(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertEnvVar(t, cmd.Env, "HOST", "127.0.0.1")
+	assertEnvVar(t, cmd.Env, "HOST", "0.0.0.0")
 	assertEnvVar(t, cmd.Env, "PORT", "6322")
 }
 

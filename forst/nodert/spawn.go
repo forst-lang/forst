@@ -606,10 +606,14 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 	if port := portFromShimArgs(in.ShimArgs); port != "" {
 		childEnv = setEnvVar(childEnv, "PORT", port)
 	}
-	// App shims (e.g. remix-serve) honor HOST for bind address. Force loopback unless
-	// ftconfig/explicit spawn env already set HOST — parent CI env must not leak in.
+	// App shims (e.g. remix-serve) honor HOST for bind address. Use explicit spawn env,
+	// else parent HOST (e.g. HOST=0.0.0.0 for Docker/Fly), else loopback.
 	if lookupEnvValue(childEnv, "HOST") == "" {
-		childEnv = setEnvVar(childEnv, "HOST", "127.0.0.1")
+		if parentHost := os.Getenv("HOST"); parentHost != "" {
+			childEnv = setEnvVar(childEnv, "HOST", parentHost)
+		} else {
+			childEnv = setEnvVar(childEnv, "HOST", "127.0.0.1")
+		}
 	}
 
 	env := buildSpawnEnv(spawnEnvInput{
