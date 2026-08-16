@@ -39,6 +39,9 @@ jobs:
 
       - name: Release Please
         id: release
+        # Compiler + @forst/cli are linked via linked-versions in .release-please-config.json.
+        # On the first linked release PR after this change, confirm the PR bumps both "." and
+        # packages/cli to the same version and sets forst.compilerRelease before merging.
         uses: googleapis/release-please-action@v5
         with:
           config-file: .release-please-config.json
@@ -107,93 +110,6 @@ jobs:
 
       - name: Upload binary to GitHub Release
         run: gh release upload $GIT_TAG ./dist/*
-
-  # When a root compiler release updates forst.compilerRelease but Release Please
-  # did not cut a cli-v* tag, patch-bump @forst/cli and publish in this workflow.
-  sync-cli-for-compiler:
-    needs: [release-please, build]
-    if: ${{ contains(fromJSON(needs.release-please.outputs.paths_released || '[]'), '.') && needs.release-please.outputs.cli_tag_name == '' && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
-    outputs:
-      cli_tag_name: ${{ steps.sync.outputs.cli_tag_name }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Patch-bump CLI for compiler pin and tag release
-        id: sync
-        run: |
-          set -euo pipefail
-
-          PKG_PATH="packages/cli/package.json"
-          OLD_VERSION="$(node -p "require('./${PKG_PATH}').version")"
-          COMPILER_RELEASE="$(node -p "require('./${PKG_PATH}').forst.compilerRelease")"
-          if [ -z "${COMPILER_RELEASE}" ]; then
-            echo "::error::packages/cli/package.json missing forst.compilerRelease"
-            exit 1
-          fi
-
-          NEW_VERSION="$(node -e "
-            const parts = process.argv[1].split('.').map(Number);
-            if (parts.length !== 3 || parts.some(Number.isNaN)) {
-              console.error('Invalid semver:', process.argv[1]);
-              process.exit(1);
-            }
-            parts[2] += 1;
-            console.log(parts.join('.'));
-          " "${OLD_VERSION}")"
-          CLI_TAG="cli-v${NEW_VERSION}"
-          RELEASE_DATE="$(date -u +"%Y-%m-%d")"
-
-          node -e "
-            const fs = require('fs');
-            const pkgPath = process.argv[1];
-            const newVersion = process.argv[2];
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            pkg.version = newVersion;
-            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-          " "${PKG_PATH}" "${NEW_VERSION}"
-
-          node packages/cli/scripts/sync-jsr-version.mjs
-
-          CHANGELOG_PATH="packages/cli/CHANGELOG.md"
-          ENTRY="$(printf '## [%s](https://github.com/forst-lang/forst/compare/cli-v%s...%s) (%s)\n\n### Bug Fixes\n\n* **cli:** publish `forst.compilerRelease` pin for compiler %s\n\n' \
-            "${NEW_VERSION}" "${OLD_VERSION}" "${CLI_TAG}" "${RELEASE_DATE}" "${COMPILER_RELEASE}")"
-          TMP="$(mktemp)"
-          {
-            head -n 1 "${CHANGELOG_PATH}"
-            echo
-            printf '%s\n' "${ENTRY}"
-            tail -n +3 "${CHANGELOG_PATH}"
-          } > "${TMP}"
-          mv "${TMP}" "${CHANGELOG_PATH}"
-
-          node -e "
-            const fs = require('fs');
-            const manifestPath = '.release-please-manifest.json';
-            const newVersion = process.argv[1];
-            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-            manifest['packages/cli'] = newVersion;
-            fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-          " "${NEW_VERSION}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/cli/package.json packages/cli/jsr.json packages/cli/CHANGELOG.md .release-please-manifest.json
-          git commit -m "chore(cli): release ${NEW_VERSION}"
-          git tag "${CLI_TAG}"
-          git push origin HEAD:main
-          git push origin "${CLI_TAG}"
-
-          gh release create "${CLI_TAG}" \
-            --title "@forst/cli ${NEW_VERSION}" \
-            --notes "Publish \`forst.compilerRelease\` pin for compiler ${COMPILER_RELEASE}."
-
-          echo "cli_tag_name=${CLI_TAG}" >> "$GITHUB_OUTPUT"
 
   docker:
     needs: [release-please, build]
@@ -264,13 +180,13 @@ jobs:
             ghcr.io/forst-lang/forst-minimal:latest
 
   publish-packages:
-    needs: [release-please, sync-cli-for-compiler]
+    needs: release-please
     # Prefer non-empty tags over *_release_created == 'true' (output quirks between runs).
-    if: ${{ !cancelled() && needs.release-please.result == 'success' && (needs.sync-cli-for-compiler.result == 'success' || needs.sync-cli-for-compiler.result == 'skipped') && (needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' || needs.sync-cli-for-compiler.outputs.cli_tag_name != '' || needs.release-please.outputs.node_runtime_tag_name != '' || needs.release-please.outputs.errors_tag_name != '') }}
+    if: ${{ needs.release-please.result == 'success' && (needs.release-please.outputs.sidecar_tag_name != '' || needs.release-please.outputs.cli_tag_name != '' || needs.release-please.outputs.node_runtime_tag_name != '' || needs.release-please.outputs.errors_tag_name != '') }}
     uses: ./.github/workflows/publish-packages.yml
     with:
       sidecar_tag: ${{ needs.release-please.outputs.sidecar_tag_name }}
-      cli_tag: ${{ needs.release-please.outputs.cli_tag_name || needs.sync-cli-for-compiler.outputs.cli_tag_name }}
+      cli_tag: ${{ needs.release-please.outputs.cli_tag_name }}
       errors_tag: ${{ needs.release-please.outputs.errors_tag_name }}
       node_runtime_tag: ${{ needs.release-please.outputs.node_runtime_tag_name }}
       # Push to main: verbose npm (true). Manual run: use checkbox (default true).

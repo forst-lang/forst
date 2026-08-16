@@ -1,7 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "compiler-and-cli",
+      "components": ["forst", "cli"]
+    }
+  ],
   "packages": {
     ".": {
+      "component": "forst",
       "release-type": "go",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -49,6 +57,7 @@
       ]
     },
     "packages/cli": {
+      "component": "cli",
       "release-type": "node",
       "package-name": "@forst/cli",
       "changelog-path": "CHANGELOG.md",

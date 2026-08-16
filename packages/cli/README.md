@@ -166,8 +166,8 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 
 | Topic | Details |
 | --- | --- |
-| **Versioning** | [Release Please](https://github.com/googleapis/release-please) manages `packages/cli`; tags like `cli-v*` bump `package.json` and `jsr.json` (see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). |
-| **Compiler pin** | Root compiler releases update `forst.compilerRelease` via Release Please `extra-files`. When that release does not also cut a `cli-v*` tag, [.github/workflows/release.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/release.yml) patch-publishes `@forst/cli` in the same workflow so npm/JSR get the new pin without a manual commit under `packages/cli/`. |
+| **Versioning** | [Release Please](https://github.com/googleapis/release-please) manages `packages/cli` with the Go compiler via the `linked-versions` plugin. Both share the same semver. Tags like `cli-v*` bump `package.json` and `jsr.json` (see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). The first linked release may jump `@forst/cli` from its old line (for example `0.6.x`) to the current compiler line. |
+| **Compiler pin** | Root compiler releases update `forst.compilerRelease` via Release Please `extra-files` in the same release PR that bumps `@forst/cli`. The npm `version` and pin stay aligned because the compiler and CLI release together. |
 | **Automation** | When a GitHub Release is published, [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes **@forst/cli** to npm and JSR. |
 | **npm** | [Package page](https://www.npmjs.com/package/@forst/cli). CI may use [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC); a repository `NPM_TOKEN` can still be used where a classic token fallback is required. |
 | **JSR** | [jsr.io/@forst/cli](https://jsr.io/@forst/cli)—link the repository for OIDC or configure `JSR_TOKEN` as documented by JSR. |
@@ -182,7 +182,7 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 
 ## Upgrading
 
-Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the bundled **`forst.compilerRelease`** pin (not the npm semver alone). Root compiler releases update that pin automatically; [.github/workflows/release.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/release.yml) also patch-publishes `@forst/cli` when needed so npm/JSR pick up the new pin.
+Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the bundled **`forst.compilerRelease`** pin (not the npm semver alone). Compiler and CLI releases share one semver, so upgrading `@forst/cli` also picks up the matching compiler pin.
 
 After upgrading, run:
 
