@@ -58,7 +58,7 @@ error InsufficientStock {
 }
 
 func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
-	ensure in.quantity <= available or InsufficientStock({
+	ensure in.quantity is Max(available) or InsufficientStock({
 		requested: in.quantity,
 		available: available,
 	})
@@ -74,7 +74,7 @@ Call standard Go packages or existing Go functions directly in Forst source.
 import "fmt"
 
 func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
-	ensure in.quantity <= available or InsufficientStock({
+	ensure in.quantity is Max(available) or InsufficientStock({
 		requested: in.quantity,
 		available: available,
 	})
@@ -91,7 +91,7 @@ Import existing JavaScript or TypeScript modules into Forst with `import node` d
 import node "./legacy/payment"
 
 func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
-	ensure in.quantity <= available or InsufficientStock({
+	ensure in.quantity is Max(available) or InsufficientStock({
 		requested: in.quantity,
 		available: available,
 	})
