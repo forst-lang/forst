@@ -30,7 +30,7 @@ Use it in npm scripts, developer tooling, or as a dependency of libraries such a
 
 ## Overview
 
-`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: by default the **npm package version** determines which **native binary** is downloaded (matching that semver on GitHub Releases). Callers may opt into **`preferLatestRelease`** so resolution uses semantic versioning to pick the newer of the bundled semver and GitHub’s latest release. The binary is cached per version so repeat invocations avoid redundant downloads.
+`@forst/cli` bridges JavaScript/TypeScript workflows and the Forst compiler: by default the pinned **`forst.compilerRelease`** in `package.json` (falling back to the npm package semver when unset) determines which **native binary** is downloaded from GitHub Releases. Callers may opt into **`preferLatestRelease`** so resolution uses semantic versioning to pick the newer of the bundled pin and GitHub’s latest release. The binary is cached per version so repeat invocations avoid redundant downloads.
 
 The wrapper is responsible for resolution, verification, and concurrency-safe installation—not for implementing compiler features (those live in the native `forst` executable).
 
@@ -42,7 +42,7 @@ The wrapper is responsible for resolution, verification, and concurrency-safe in
 | **JavaScript API** | `resolveForstBinary`, `spawnForst`, `getCliPackageVersion`, etc., for tools that need to locate or run the binary programmatically. |
 | **`@forst/cli/invoke`** | `startForstInvokeServer` for Node→Forst HTTP invoke lifecycle in tests and `globalSetup`. |
 | **`@forst/errors` (transitive)** | Shared invoke/harness failure classes. Installed with `@forst/cli`; import from `@forst/errors` (Promise mode, no Effect peer). Effect mode stays at `@forst/errors/effect` when you add the `effect` peer. |
-| **Diagnostics** | `npx forst --forst-cli-info` prints package semver, resolved binary path, and `forst version` output—use this in bug reports and CI logs. |
+| **Diagnostics** | `npx forst --forst-cli-info` prints npm semver, pinned `forst.compilerRelease`, resolved compiler version, binary path, and `forst version` output—use this in bug reports and CI logs. |
 
 ## Requirements
 
@@ -167,6 +167,7 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 | Topic | Details |
 | --- | --- |
 | **Versioning** | [Release Please](https://github.com/googleapis/release-please) manages `packages/cli`; tags like `cli-v*` bump `package.json` and `jsr.json` (see [`.release-please-config.json`](https://github.com/forst-lang/forst/blob/main/.release-please-config.json)). |
+| **Compiler pin** | Root compiler releases update `forst.compilerRelease` via Release Please `extra-files`. When that release does not also cut a `cli-v*` tag, [.github/workflows/release.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/release.yml) patch-publishes `@forst/cli` in the same workflow so npm/JSR get the new pin without a manual commit under `packages/cli/`. |
 | **Automation** | When a GitHub Release is published, [.github/workflows/publish-packages.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/publish-packages.yml) publishes **@forst/cli** to npm and JSR. |
 | **npm** | [Package page](https://www.npmjs.com/package/@forst/cli). CI may use [trusted publishing](https://docs.npmjs.com/trusted-publishers/) (OIDC); a repository `NPM_TOKEN` can still be used where a classic token fallback is required. |
 | **JSR** | [jsr.io/@forst/cli](https://jsr.io/@forst/cli)—link the repository for OIDC or configure `JSR_TOKEN` as documented by JSR. |
@@ -181,7 +182,7 @@ FORST_CLI_INVOKE_E2E=1 bun test src/test-server.e2e.test.ts
 
 ## Upgrading
 
-Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the **installed npm semver**, not an implicit “latest” on the registry—stale dependencies mean a stale compiler until you upgrade.
+Change the **`@forst/cli`** version in `package.json` (or your lockfile) when you need a compiler release that shipped after your current dependency. Unless you opt into **`preferLatestRelease`** in code, the wrapper binds to the bundled **`forst.compilerRelease`** pin (not the npm semver alone). Root compiler releases update that pin automatically; [.github/workflows/release.yml](https://github.com/forst-lang/forst/blob/main/.github/workflows/release.yml) also patch-publishes `@forst/cli` when needed so npm/JSR pick up the new pin.
 
 After upgrading, run:
 
@@ -195,7 +196,7 @@ Confirm that the reported package version, binary path, and `forst version` matc
 
 | Symptom | What to check |
 | --- | --- |
-| Download fails or 404 on an asset | A GitHub release must exist for this package version’s artifacts. Unpublished semvers or forks may need `FORST_BINARY` or a published CLI version. |
+| Download fails or 404 on an asset | A GitHub release must exist for the pinned compiler version’s artifacts. When the pinned release is missing but an older release exists, the wrapper may fall back silently—check `npx forst --forst-cli-info` for pinned vs resolved version. Unpublished pins or forks may need `FORST_BINARY` or an upgraded `@forst/cli`. |
 | Wrong OS or architecture | Override with `FORST_BINARY` for custom builds or unsupported matrices. |
 | SHA-256 / verification errors | **Checksum mismatch** (`CompilerBinaryChecksumMismatch`): downloaded bytes differ from GitHub metadata — do not run the binary; clear the cache entry and retry, or use `FORST_BINARY`. May indicate corruption, proxy tampering, or supply-chain attack. **Strict mode, no digest** (`CompilerBinaryDigestUnavailable`): `FORST_CLI_VERIFY=strict` requires a digest but the release tag, asset name, or GitHub digest is missing — check `forst.compilerRelease`. Default (unset) skips verification when no digest is available and still downloads. |
 | Concurrent installs | Locking prevents corruption; different versions use separate cache subdirectories. |

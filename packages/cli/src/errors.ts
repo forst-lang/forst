@@ -16,16 +16,54 @@ export class UnsupportedArchitecture extends Error {
   }
 }
 
+/** Version, artifact, and URL for compiler binary download failures. */
+export interface CompilerBinaryDownloadContext {
+  version: string;
+  artifact: string;
+  url: string;
+}
+
+function compilerBinaryDownloadHttpFailureMessage(
+  status: number,
+  statusText: string,
+  context?: CompilerBinaryDownloadContext
+): string {
+  const base = `Download failed: HTTP ${status} ${statusText}`;
+  if (!context) {
+    return `${base}. Run npx forst --forst-cli-info for diagnostics.`;
+  }
+
+  let message =
+    `${base} for ${context.artifact} (release v${context.version}). ` +
+    `URL: ${context.url}. `;
+  if (status === 404) {
+    message +=
+      "The GitHub release or asset may not exist yet. Upgrade @forst/cli, check forst.compilerRelease, or set FORST_BINARY. ";
+  }
+  message += "Run npx forst --forst-cli-info for diagnostics.";
+  return message;
+}
+
 /** HTTP download failed (non-2xx). */
 export class CompilerBinaryDownloadHttpFailure extends Error {
   readonly status: number;
   readonly statusText: string;
+  readonly version?: string;
+  readonly artifact?: string;
+  readonly url?: string;
 
-  constructor(status: number, statusText: string) {
-    super(`Download failed: HTTP ${status} ${statusText}`);
+  constructor(
+    status: number,
+    statusText: string,
+    context?: CompilerBinaryDownloadContext
+  ) {
+    super(compilerBinaryDownloadHttpFailureMessage(status, statusText, context));
     this.name = "CompilerBinaryDownloadHttpFailure";
     this.status = status;
     this.statusText = statusText;
+    this.version = context?.version;
+    this.artifact = context?.artifact;
+    this.url = context?.url;
   }
 }
 

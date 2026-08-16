@@ -454,7 +454,8 @@ async function downloadCompilerBinaryForVersion(
     if (!response.ok) {
       throw new CompilerBinaryDownloadHttpFailure(
         response.status,
-        response.statusText
+        response.statusText,
+        { version, artifact, url }
       );
     }
 
