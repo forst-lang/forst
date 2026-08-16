@@ -7,25 +7,32 @@
 [coveralls]: https://coveralls.io/github/forst-lang/forst?branch=main
 [License]: https://img.shields.io/github/license/forst-lang/forst
 
-**Forst is a programming language that brings TypeScript's type safety and developer experience to Go.**
+**A programming language that helps you move backend services to Go with seamlessly integrated TypeScript clients.**
 
-Its primary goal is to help you move away from TypeScript on the backend:
+Forst connects your backend and frontend through three key benefits.
 
-- Generate instantly re-usable TypeScript types from backend endpoints – enabling full-stack development without build steps.
-- Strong static typing with aggressive inference and smart narrowing – so you move fast while staying safe.
-- Data schemas acting as guards, automatically validating deeply nested input data through type definitions – to keep untrusted user input out of your application logic.
+| Benefit | How it works |
+| --- | --- |
+| Go ecosystem | Compiles directly to Go. You get full access to the Go package ecosystem, standard library and build tools. |
+| TypeScript integration | Generates native TS definitions and a client directly from your backend source. No need for intermediate languages like GraphQL or Protobuf just for type safety. |
+| Incremental migration | Allows updating one function, route or other part of your code at a time while your existing codebase keeps running. Keep shipping during migration. |
 
-See also [ROADMAP.md](./ROADMAP.md) for planned work and **feature parity**.
+Beyond migration and interop, the language gives you strong daily developer ergonomics.
+
+- **Expressive Type Safety:**
+  Validate data either structurally like in TS or define your own expected conditions using refinement types (guards).
+- **Reliable Execution:**
+  Errors are first-class primitives and even translate over into TypeScript.
+- **Service Oriented Testing:**
+  Dependency swapping is built into the language. You can mock databases and external services easily without external frameworks.
+
+See also [ROADMAP.md](./ROADMAP.md) for planned work and feature parity.
 
 ## Why?
 
-We love TypeScript's efficiency in structuring data.
+Building backend APIs often forces a trade off between runtime performance and developer speed. Maintaining separate schema contracts leads to lots of glue code. Full backend rewrites into more performant languages are often impossible to do safely.
 
-We love Go's efficiency at compile and runtime.
-
-We want the best of both worlds.
-
-We want to be to Go what TypeScript is to JavaScript.
+Forst exists to remove that friction. You can migrate incrementally or write completely new backends with native performance and an ergonomic DX by design.
 
 ## Examples
 

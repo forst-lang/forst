@@ -607,7 +607,7 @@ func BuildHostSpawnCommand(in HostSpawnInput) (HostSpawnCommand, error) {
 		childEnv = setEnvVar(childEnv, "PORT", port)
 	}
 	// App shims (e.g. remix-serve) honor HOST for bind address. Use explicit spawn env,
-	// else parent HOST (e.g. HOST=0.0.0.0 for Docker/Fly), else loopback.
+	// else parent HOST (e.g. HOST=0.0.0.0 for Docker), else loopback.
 	if lookupEnvValue(childEnv, "HOST") == "" {
 		if parentHost := os.Getenv("HOST"); parentHost != "" {
 			childEnv = setEnvVar(childEnv, "HOST", parentHost)
