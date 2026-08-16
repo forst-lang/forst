@@ -100,13 +100,8 @@ export function setHostLeaderOverrideForTest(value: boolean | null): void {
 }
 
 const hostStartNonLeaderNoop = Effect.fn("Host.startNonLeaderNoop")(function* () {
-  yield* Effect.logDebug("host_skip_non_leader").pipe(
-    Effect.annotateLogs({
-      event: "host_skip_non_leader",
-      reason: "FORST_NODE_HOST_LEADER unset",
-      pid: process.pid,
-    })
-  );
+  yield* Effect.annotateCurrentSpan("reason", "FORST_NODE_HOST_LEADER unset");
+  yield* Effect.annotateCurrentSpan("pid", process.pid);
   return {
     socketPath: "",
     close: () => Effect.void,
@@ -114,9 +109,7 @@ const hostStartNonLeaderNoop = Effect.fn("Host.startNonLeaderNoop")(function* ()
 });
 
 const hostStartNoop = Effect.fn("Host.startNoop")(function* () {
-  yield* Effect.logDebug("host_skip").pipe(
-    Effect.annotateLogs({ event: "host_skip", reason: "FORST_NODE_HOST unset" })
-  );
+  yield* Effect.annotateCurrentSpan("reason", "FORST_NODE_HOST unset");
   return {
     socketPath: "",
     close: () => Effect.void,
@@ -158,12 +151,7 @@ export const signalForstAppReady: () => Effect.Effect<
   never
 > = Effect.fn("Host.signalAppReady")(function* () {
   if (!hostEnabled()) {
-    yield* Effect.logDebug("host_app_ready_skip").pipe(
-      Effect.annotateLogs({
-        event: "host_app_ready_skip",
-        reason: "FORST_NODE_HOST unset",
-      })
-    );
+    yield* Effect.annotateCurrentSpan("reason", "FORST_NODE_HOST unset");
     return;
   }
   if (appReadySignaled) {

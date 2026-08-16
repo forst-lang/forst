@@ -10,6 +10,7 @@
 import { NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
 import { ForstNodeRuntimeLayer } from "./effect/layer.js";
+import { resolveForstNodeRuntimeLayer } from "./effect/resolve_layer.js";
 import { createNodeRuntimeSetup } from "./effect/runtime.js";
 import {
   envReadyPath,
@@ -61,7 +62,8 @@ export const bootstrapMain: (
     );
   }
 
-  const setup = createNodeRuntimeSetup(ForstNodeRuntimeLayer);
+  const layer = yield* resolveForstNodeRuntimeLayer();
+  const setup = createNodeRuntimeSetup(layer);
   const runtime = options.runtime ?? setup.runtime;
 
   yield* startSocketRpcServer({
@@ -83,8 +85,12 @@ export function makeBootstrapProgram(
   options: BootstrapOptions = {}
 ): Effect.Effect<void, never, never> {
   return bootstrapMain(options).pipe(
-    Effect.catchAll((err) => bootstrapFatal(err)),
-    Effect.catchAllDefect((cause) => bootstrapFatal(cause))
+    Effect.catchAll((err) =>
+      bootstrapFatal(err).pipe(Effect.provide(ForstNodeRuntimeLayer))
+    ),
+    Effect.catchAllDefect((cause) =>
+      bootstrapFatal(cause).pipe(Effect.provide(ForstNodeRuntimeLayer))
+    )
   );
 }
 
@@ -98,8 +104,5 @@ const isDirectExecution =
     process.argv[1].endsWith("/bootstrap.ts"));
 
 if (isDirectExecution) {
-  NodeRuntime.runMain(
-    bootstrapProgram.pipe(Effect.provide(ForstNodeRuntimeLayer)),
-    { disablePrettyLogger: true }
-  );
+  NodeRuntime.runMain(bootstrapProgram, { disablePrettyLogger: true });
 }

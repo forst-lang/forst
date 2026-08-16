@@ -98,14 +98,6 @@ export function createDispatcher(options: DispatcherOptions = {}): {
     yield* Effect.annotateCurrentSpan("rpc_method", method);
     yield* Effect.annotateCurrentSpan("rpc_id", rpcId);
 
-    yield* Effect.logDebug("rpc_recv").pipe(
-      Effect.annotateLogs({
-        event: "rpc_recv",
-        rpc_method: method,
-        rpc_id: rpcId,
-      })
-    );
-
     if (!isClosedMethod(method)) {
       yield* Effect.annotateCurrentSpan("reason", "unknown_method");
       yield* Effect.logWarning("policy_reject").pipe(
@@ -160,27 +152,10 @@ export function createDispatcher(options: DispatcherOptions = {}): {
       const rpcErr = outcome.left;
       yield* Effect.annotateCurrentSpan("ok", false);
       yield* Effect.annotateCurrentSpan("error_code", rpcErr.code);
-      yield* Effect.logDebug("rpc_send").pipe(
-        Effect.annotateLogs({
-          event: "rpc_send",
-          rpc_method: method,
-          rpc_id: rpcId,
-          ok: false,
-          error_code: rpcErr.code,
-        })
-      );
       return errorResponse(id, rpcErr);
     }
 
     yield* Effect.annotateCurrentSpan("ok", true);
-    yield* Effect.logDebug("rpc_send").pipe(
-      Effect.annotateLogs({
-        event: "rpc_send",
-        rpc_method: method,
-        rpc_id: rpcId,
-        ok: true,
-      })
-    );
     return successResponse(id, outcome.right);
   });
 

@@ -158,16 +158,6 @@ export const handleGenOpen = Effect.fn("Runtime.handleGenOpen")(
     yield* Effect.annotateCurrentSpan("arg_count", args.length);
     yield* Effect.annotateCurrentSpan("async", isAsync);
 
-    yield* Effect.logDebug("gen_open").pipe(
-      Effect.annotateLogs({
-        event: "gen_open",
-        module_id: params.moduleId,
-        export_name: params.exportName,
-        arg_count: args.length,
-        async: isAsync,
-      })
-    );
-
     const iterator = yield* Effect.try({
       try: () => {
         const value = fn(...args);
@@ -213,14 +203,6 @@ export const handleGenNext = Effect.fn("Runtime.handleGenNext")(
     const stream = yield* requireStream(streamId);
 
     yield* Effect.annotateCurrentSpan("async", stream.isAsync);
-
-    yield* Effect.logDebug("gen_next").pipe(
-      Effect.annotateLogs({
-        event: "gen_next",
-        stream_id: streamId,
-        async: stream.isAsync,
-      })
-    );
 
     return yield* Effect.tryPromise({
       try: async () => {
@@ -273,14 +255,6 @@ export const handleGenNextBatch = Effect.fn("Runtime.handleGenNextBatch")(
     yield* Effect.annotateCurrentSpan("stream_id", streamId);
     yield* Effect.annotateCurrentSpan("max_items", maxItems);
 
-    yield* Effect.logDebug("gen_next_batch").pipe(
-      Effect.annotateLogs({
-        event: "gen_next_batch",
-        stream_id: streamId,
-        max_items: maxItems,
-      })
-    );
-
     const steps: GenNextResult[] = [];
     for (let i = 0; i < maxItems; i++) {
       const step = yield* handleGenNext({ streamId });
@@ -319,14 +293,6 @@ export const handleGenClose = Effect.fn("Runtime.handleGenClose")(
 
     yield* Effect.annotateCurrentSpan("stream_id", streamId);
     yield* Effect.annotateCurrentSpan("async", stream.isAsync);
-
-    yield* Effect.logDebug("gen_close").pipe(
-      Effect.annotateLogs({
-        event: "gen_close",
-        stream_id: streamId,
-        async: stream.isAsync,
-      })
-    );
 
     const iterator = stream.iterator as {
       return?: (value?: unknown) => unknown;

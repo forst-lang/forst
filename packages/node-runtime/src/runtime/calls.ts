@@ -81,15 +81,6 @@ export const handleAsyncCall = Effect.fn("Runtime.handleAsyncCall")(
     yield* Effect.annotateCurrentSpan("export_name", exportName);
     yield* Effect.annotateCurrentSpan("arg_count", args.length);
 
-    yield* Effect.logDebug("callAsync").pipe(
-      Effect.annotateLogs({
-        event: "callAsync",
-        module_id: moduleId,
-        export_name: exportName,
-        arg_count: args.length,
-      })
-    );
-
     const value = yield* Effect.tryPromise({
       try: () => Promise.resolve(fn(...args)),
       catch: (cause) => serializeThrownError(cause, moduleId, exportName),
@@ -131,15 +122,6 @@ export const handleSyncCall = Effect.fn("Runtime.handleSyncCall")(
     yield* Effect.annotateCurrentSpan("module_id", moduleId);
     yield* Effect.annotateCurrentSpan("export_name", exportName);
     yield* Effect.annotateCurrentSpan("arg_count", args.length);
-
-    yield* Effect.logDebug("call").pipe(
-      Effect.annotateLogs({
-        event: "call",
-        module_id: moduleId,
-        export_name: exportName,
-        arg_count: args.length,
-      })
-    );
 
     const value = yield* Effect.try({
       try: () => fn(...args),

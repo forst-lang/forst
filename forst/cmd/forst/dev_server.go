@@ -82,7 +82,7 @@ func NewHTTPServer(port string, comp *compiler.Compiler, log *logrus.Logger, con
 		ContractVersion: devHTTPContractVersion,
 		Runtime:         string(profile),
 	}
-	invokeServer := invokeserver.New(invokeCfg, backend, version, log)
+	invokeServer := invokeserver.New(invokeCfg, backend, version, invokeserver.NewLogrusLogger(log))
 
 	return &DevServer{
 		host:       listenHost,

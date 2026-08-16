@@ -527,6 +527,8 @@ Enable debug logging on the Forst side to trace spawn, RPC, and forwarded Node s
 FORST_LOG_LEVEL=debug npx forst run -root ./my-service ./main.ft
 ```
 
+For OpenTelemetry span export from the Node bootstrap child, set `OTEL_EXPORTER_OTLP_ENDPOINT` (or `FORST_NODE_OTEL=1` for console export) and install the optional `@forst/node-runtime` OTEL peers. See [`@forst/node-runtime` README](https://github.com/forst-lang/forst/tree/main/packages/node-runtime#opentelemetry-optional).
+
 ## Migration from `importPolicy: "implicit"`
 
 This section only applies to projects that used an early version of Node

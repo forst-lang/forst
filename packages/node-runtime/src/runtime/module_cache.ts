@@ -15,15 +15,10 @@ export const importModule = Effect.fn("Runtime.importModule")(
     const cached = moduleCache.get(key);
     if (cached) {
       yield* Effect.annotateCurrentSpan("cache_hit", true);
-      yield* Effect.logDebug("module_cache_hit").pipe(
-        Effect.annotateLogs({ event: "module_cache_hit", module_url: key })
-      );
       return cached;
     }
 
-    yield* Effect.logDebug("module_import").pipe(
-      Effect.annotateLogs({ event: "module_import", module_url: key })
-    );
+    yield* Effect.annotateCurrentSpan("cache_hit", false);
     const mod = yield* Effect.tryPromise({
       try: () => import(key) as Promise<Record<string, unknown>>,
       catch: (cause) => causeToError(cause),

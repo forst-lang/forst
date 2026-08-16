@@ -50,6 +50,6 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		s.log.Debugf("http %s %s %d %s", r.Method, r.URL.Path, status, time.Since(start).Round(time.Millisecond))
+		s.log.Infof("http %s %s %d %s", r.Method, r.URL.Path, status, time.Since(start).Round(time.Millisecond))
 	})
 }
