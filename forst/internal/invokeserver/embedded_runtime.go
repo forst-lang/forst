@@ -70,7 +70,7 @@ func (r *EmbeddedRuntime) Start() error {
 	}
 	ApplyListenDefaults(&serverCfg, workDir)
 	backend := NewRegistryBackend(r.registryOrNew())
-	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), StderrLogger{})
+	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), DefaultLogger())
 	if err := r.server.StartAsync(); err != nil {
 		return fmt.Errorf("invoke server: start: %w", err)
 	}

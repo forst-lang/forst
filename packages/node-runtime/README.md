@@ -25,7 +25,9 @@ Requires **Node.js 18+**. When your Forst program uses `import node`, you also n
 
 ## What you get
 
-The runtime is built on [Effect](https://effect.website): structured logs via `Effect.log*` and `Effect.fn` programs, with `ForstNodeRuntimeLayer` (stderr pretty logging + `FORST_NODE_LOG_LEVEL`) provided at process boundaries via `NodeRuntime.runMain` or `Effect.runPromise`.
+The runtime is built on [Effect](https://effect.website): structured logs via `Effect.log*` and `Effect.fn` spans, with `ForstNodeRuntimeLayer` (stderr pretty logging, tracing, and `FORST_NODE_LOG_LEVEL`) provided at process boundaries via `NodeRuntime.runMain` or `Effect.runPromise`.
+
+RPC and runtime hot paths are wrapped in `Effect.fn` spans (`Rpc.dispatch`, `Runtime.handleSyncCall`, …). Span attributes (`rpc_method`, `module_id`, …) appear on log lines when `FORST_NODE_LOG_LEVEL` is `debug` or `trace`.
 
 ### Custom Effect runtime
 
@@ -33,18 +35,25 @@ Default entrypoints (`bootstrap.js`, `@forst/node-runtime/host`) use `ForstNodeR
 
 ```typescript
 import { NodeRuntime } from "@effect/platform-node";
-import { Effect, Layer, Logger } from "effect";
+import { Effect, Layer } from "effect";
 import {
   bootstrapMain,
   bootstrapFatal,
   createNodeRuntimeSetup,
   makeForstNodeRuntimeLayer,
-  startRpcServer,
   startForstNodeHost,
 } from "@forst/node-runtime";
 
+// Standalone child: Forst owns stderr logging and tracing.
 const myLayer = makeForstNodeRuntimeLayer();
 const { layer, runtime } = createNodeRuntimeSetup(myLayer);
+
+// Embedded in an Effect app: keep the parent logger and tracer.
+const embeddedLayer = Layer.merge(
+  appLayer,
+  makeForstNodeRuntimeLayer({ replaceLogger: false })
+);
+const embedded = createNodeRuntimeSetup(embeddedLayer);
 
 // Bootstrap child (local socket RPC). disablePrettyLogger avoids duplicate stdout logging.
 NodeRuntime.runMain(
@@ -57,7 +66,9 @@ NodeRuntime.runMain(
 
 // Host mode: pass runtimeLayer so RPC forks use the same setup
 await Effect.runPromise(
-  startForstNodeHost({ runtimeLayer: layer }).pipe(Effect.provide(layer))
+  startForstNodeHost({ runtimeLayer: embedded.layer }).pipe(
+    Effect.provide(embedded.layer)
+  )
 );
 ```
 
@@ -125,7 +136,7 @@ The compiler calls this during type checking. You rarely run it yourself.
 
 | Variable | Purpose |
 | --- | --- |
-| `FORST_NODE_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC trace (`rpc_recv`, `call`, `module_cache_hit`, …) requires `debug`. |
+| `FORST_NODE_LOG_LEVEL` | Log verbosity: `trace`, `debug`, `info`, `warn`, or `error` (default `info`). Per-RPC flow uses Effect spans; set `debug` or `trace` to see span annotations (`effect.spanName`, `rpc_method`, …) on log lines. |
 | `FORST_NODE_LOG_FORMAT` | Log format: `pretty` (default) or `json` for structured stderr lines. |
 | `FORST_NODE_BOOTSTRAP` | Absolute path to `bootstrap.js` (bootstrap mode spawn planning) |
 | `FORST_NODE_SOCKET` | Absolute Unix socket path (TCP URL on Windows) for Go↔Node RPC. Bootstrap default: `{boundaryRoot}/.forst/node-bootstrap.sock`. Host default: `{boundaryRoot}/.forst/node.sock`. |

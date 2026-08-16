@@ -20,7 +20,7 @@ export {
   stderrJsonLogger,
   stderrPrettyLogger,
 } from "./effect/layer.js";
-export type { LogFields } from "./effect/layer.js";
+export type { ForstNodeRuntimeLayerOptions, LogFields } from "./effect/layer.js";
 export {
   createNodeRuntimeSetup,
   defaultNodeRuntimeSetup,

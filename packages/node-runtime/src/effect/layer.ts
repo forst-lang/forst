@@ -1,11 +1,17 @@
 import * as fs from "node:fs";
-import { HashMap, Layer, Logger, LogLevel } from "effect";
+import { FiberId, HashMap, Layer, Logger, LogLevel } from "effect";
 
 /** Structured log annotation fields written by node-runtime loggers. */
 export type LogFields = Record<
   string,
   string | number | boolean | null | undefined
 >;
+
+/** Options for {@link makeForstNodeRuntimeLayer}. */
+export interface ForstNodeRuntimeLayerOptions {
+  /** When false, skip Logger.replace so a parent layer's logger wins on merge. Default true. */
+  replaceLogger?: boolean;
+}
 
 /** Environment variable name for minimum log level. */
 export const envLogLevel = "FORST_NODE_LOG_LEVEL";
@@ -15,6 +21,8 @@ export const envLogFormat = "FORST_NODE_LOG_FORMAT";
 /** Parses `FORST_NODE_LOG_LEVEL` into an Effect log level. */
 export function parseEnvLevel(raw: string | undefined): LogLevel.LogLevel {
   switch (raw?.trim().toLowerCase()) {
+    case "trace":
+      return LogLevel.Trace;
     case "debug":
       return LogLevel.Debug;
     case "warn":
@@ -51,11 +59,16 @@ function formatPrettyLogLine(
   logLevel: LogLevel.LogLevel,
   message: unknown,
   annotations: HashMap.HashMap<string, unknown>,
-  date: Date
+  date: Date,
+  fiberId?: FiberId.FiberId
 ): string {
   const parts = Array.isArray(message) ? message : [message];
   const headline = parts.map(String).join(" ");
-  const lines = [`[${formatTimestamp(date)}] ${logLevel.label}: ${headline}`];
+  const fiberSuffix =
+    fiberId !== undefined ? ` (${FiberId.threadName(fiberId)})` : "";
+  const lines = [
+    `[${formatTimestamp(date)}] ${logLevel.label}${fiberSuffix}: ${headline}`,
+  ];
 
   for (const [key, value] of HashMap.entries(annotations)) {
     lines.push(`  ${key}: ${annotationValue(value)}`);
@@ -88,8 +101,10 @@ function writeStderr(text: string): void {
  * Writes to fd 2 directly.
  */
 export const stderrPrettyLogger: Logger.Logger<unknown, void> = Logger.make(
-  ({ logLevel, message, annotations, date }) => {
-    writeStderr(formatPrettyLogLine(logLevel, message, annotations, date));
+  ({ logLevel, message, annotations, date, fiberId }) => {
+    writeStderr(
+      formatPrettyLogLine(logLevel, message, annotations, date, fiberId)
+    );
   }
 );
 
@@ -114,21 +129,44 @@ export const stderrJsonLogger: Logger.Logger<unknown, void> = Logger.make(
   }
 );
 
-function resolveDefaultLogger(): Logger.Logger<unknown, void> {
+function resolveBaseLogger(): Logger.Logger<unknown, void> {
   if (process.env[envLogFormat]?.trim().toLowerCase() === "json") {
     return stderrJsonLogger;
   }
   return stderrPrettyLogger;
 }
 
-/** Builds the default Effect layer for node-runtime logging. */
-export function makeForstNodeRuntimeLayer(): Layer.Layer<never> {
+function buildRuntimeLogger(
+  minLevel: LogLevel.LogLevel
+): Logger.Logger<unknown, void> {
+  const withSpans = Logger.withSpanAnnotations(resolveBaseLogger());
+  if (LogLevel.lessThanEqual(minLevel, LogLevel.Debug)) {
+    return Logger.zip(withSpans, Logger.tracerLogger);
+  }
+  return withSpans;
+}
+
+/** Builds the default Effect layer for node-runtime logging and tracing. */
+export function makeForstNodeRuntimeLayer(
+  options: ForstNodeRuntimeLayerOptions = {}
+): Layer.Layer<never> {
+  const replaceLogger = options.replaceLogger ?? true;
+  const minLevel = parseEnvLevel(process.env[envLogLevel]);
+  const tracing = Layer.mergeAll(
+    Layer.setTracerEnabled(true),
+    Logger.minimumLogLevel(minLevel)
+  );
+
+  if (!replaceLogger) {
+    return tracing;
+  }
+
   return Layer.mergeAll(
-    Logger.replace(Logger.defaultLogger, resolveDefaultLogger()),
-    Logger.minimumLogLevel(parseEnvLevel(process.env[envLogLevel]))
+    tracing,
+    Logger.replace(Logger.defaultLogger, buildRuntimeLogger(minLevel))
   );
 }
 
-/** Default Effect layer: stderr logging and `FORST_NODE_LOG_LEVEL`. */
+/** Default Effect layer: stderr logging, tracing, and `FORST_NODE_LOG_LEVEL`. */
 export const ForstNodeRuntimeLayer: Layer.Layer<never, never, never> =
   makeForstNodeRuntimeLayer();
