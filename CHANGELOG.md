@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0](https://github.com/forst-lang/forst/compare/v0.15.3...v0.16.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **release:** @forst/cli will follow the Go compiler semver on the next linked release. The first publish after this change may jump from the old CLI line (for example 0.6.x) to the current compiler line.
+
+### Continuous Integration
+
+* **release:** couple @forst/cli with compiler via linked-versions ([e6d0349](https://github.com/forst-lang/forst/commit/e6d0349ba2423fc42d9d3e3bc887e3ca23281dcc))
+
 ## [0.15.3](https://github.com/forst-lang/forst/compare/v0.15.2...v0.15.3) (2026-08-16)
 
 
