@@ -62,7 +62,7 @@ func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 		requested: in.quantity,
 		available: available,
 	})
-	return Ok("ORDER-123")
+	return "ORDER-123"
 }
 ```
 
@@ -79,7 +79,7 @@ func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 		available: available,
 	})
 	orderID := fmt.Sprintf("ORDER-%d", 123)
-	return Ok(orderID)
+	return orderID
 }
 ```
 
@@ -96,7 +96,7 @@ func PlaceOrder(in: PlaceOrderInput, available: Int) Result(String, Error) {
 		available: available,
 	})
 	receipt := payment.Charge({ amount: in.quantity * 10 })
-	return Ok(receipt.id)
+	return receipt.id
 }
 ```
 
