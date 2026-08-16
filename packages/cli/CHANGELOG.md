@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/forst-lang/forst/compare/cli-v0.6.0...cli-v0.6.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* **cli:** improve pin diagnostics and download errors ([335b3c8](https://github.com/forst-lang/forst/commit/335b3c8454575852061911355a992cd8d4a0edf1))
+
 ## [0.6.0](https://github.com/forst-lang/forst/compare/cli-v0.5.0...cli-v0.6.0) (2026-08-14)
 
 
