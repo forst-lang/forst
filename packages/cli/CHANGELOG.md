@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/forst-lang/forst/compare/cli-v0.6.1...cli-v0.7.0) (2026-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **release:** @forst/cli will follow the Go compiler semver on the next linked release. The first publish after this change may jump from the old CLI line (for example 0.6.x) to the current compiler line.
+
+### Continuous Integration
+
+* **release:** couple @forst/cli with compiler via linked-versions ([e6d0349](https://github.com/forst-lang/forst/commit/e6d0349ba2423fc42d9d3e3bc887e3ca23281dcc))
+
 ## [0.6.1](https://github.com/forst-lang/forst/compare/cli-v0.6.0...cli-v0.6.1) (2026-08-16)
 
 
