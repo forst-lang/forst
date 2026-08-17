@@ -12,6 +12,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.17.0](https://github.com/forst-lang/forst/compare/v0.16.0...v0.17.0) (2026-08-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* `forst build -o` no longer emits Go sources or a fixed `bin/forst-invoke` name. Use `forst generate` for Go output and exec the path in `manifest.binary` with `FORST_BOUNDARY_ROOT` set.
+* **examples:** FORST_INVOKE_ONLY was removed. Set FORST_SKIP_NODE_HOST=1 (or true) when running a hostMode built binary with Node external. manifest.json invokeOnlyDefault is now skipNodeHostDefault.
+
+### Features
+
+* add native program build with hostMode runtime ([#185](https://github.com/forst-lang/forst/issues/185)) ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+
+### Bug Fixes
+
+* **compiler:** remove legacy companions and tighten generate paths ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **examples:** refresh goldens with forst generate after build output change ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **invokeserver:** avoid double WriteHeader on auth errors ([d0d9b9a](https://github.com/forst-lang/forst/commit/d0d9b9a8e6f9e1263886afe4e69e7307937043d6))
+* **invokeserver:** synchronize embedded server lifecycle ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **nodert:** respect invoke-only for hostMode and auth handoff ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
 ## [0.16.0](https://github.com/forst-lang/forst/compare/v0.15.3...v0.16.0) (2026-08-16)
 
 
