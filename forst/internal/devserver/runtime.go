@@ -496,7 +496,7 @@ func performDevReload(p reloadParams) *runningChild {
 	if rt != nil {
 		rt.logComplete(log, gen, true)
 	}
-	if p.cfg != nil && p.cfg.Dev.EffectiveWatchGenerate() && deps.AfterReload != nil {
+	if p.cfg != nil && p.cfg.Dev.EffectiveWatchGenerate() && deps.AfterReload != nil && gen > 1 {
 		if err := deps.AfterReload(boundaryRoot, p.cfg); err != nil {
 			log.Warnf("watchGenerate: forst generate failed: %v", err)
 		}

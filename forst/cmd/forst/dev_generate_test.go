@@ -44,7 +44,7 @@ func TestRunRuntimeDevFn_runsStartupGenerate(t *testing.T) {
 	}
 }
 
-func TestWatchRuntimeDevFn_skipsStartupGenerate(t *testing.T) {
+func TestWatchRuntimeDevFn_runsStartupGenerate(t *testing.T) {
 	dir := t.TempDir()
 	entry := filepath.Join(dir, "main.ft")
 	cfg := DefaultConfig()
@@ -68,7 +68,7 @@ func TestWatchRuntimeDevFn_skipsStartupGenerate(t *testing.T) {
 	if err := watchRuntimeDevFn(log, dir, entry, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 0 {
-		t.Fatalf("watch runtime startup generate calls = %d want 0", calls.Load())
+	if calls.Load() != 1 {
+		t.Fatalf("watch runtime startup generate calls = %d want 1", calls.Load())
 	}
 }

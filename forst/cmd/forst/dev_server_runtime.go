@@ -149,8 +149,8 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 // devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
 var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
-// runtimeDevGenerateFn runs an initial client generate before a one-shot runtime dev session.
-// Watch mode uses AfterReload instead so startup and first reload do not both regenerate.
+// runtimeDevGenerateFn runs an initial client generate before runtime dev starts.
+// Watch mode skips AfterReload on the first compile (generation 1) to avoid a duplicate pass.
 var runtimeDevGenerateFn = runGenerateForDev
 
 // runtimeDevEntrypoints are overridable in tests.
@@ -169,6 +169,9 @@ var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *
 
 // watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
 var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
+	if err := runtimeDevGenerateFn(boundaryRoot, cfg, log); err != nil {
+		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
+	}
 	return watchRuntimeDevEntry(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
