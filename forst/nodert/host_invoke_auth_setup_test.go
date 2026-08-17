@@ -2,7 +2,9 @@ package nodert
 
 import (
 	"os"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	"forst/internal/ftconfig"
@@ -89,6 +91,39 @@ func TestEnsureEmbeddedHostInvokeAuthRelay_earlyReturns(t *testing.T) {
 				t.Fatalf("EnsureEmbeddedHostInvokeAuthRelay() = %v", err)
 			}
 		})
+	}
+}
+
+func TestEnsureEmbeddedHostInvokeAuthRelay_respectsInheritedSpawnHandoff(t *testing.T) {
+	if !SupportsInvokeAuthFDHandoff() {
+		t.Skip("invoke auth fd handoff requires Unix")
+	}
+	SetActiveHostInvokeAuthRelay(nil)
+	t.Cleanup(func() { SetActiveHostInvokeAuthRelay(nil) })
+
+	_, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	writeFD, err := syscall.Dup(int(w.Fd()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envInvokeAuthFD, strconv.Itoa(writeFD))
+
+	cfg := &ftconfig.Config{
+		Node:   ftconfig.NodeConfig{HostMode: true},
+		Server: ftconfig.ServerConfig{Embedded: true},
+	}
+	if err := EnsureEmbeddedHostInvokeAuthRelay(cfg); err != nil {
+		t.Fatalf("EnsureEmbeddedHostInvokeAuthRelay: %v", err)
+	}
+	if got := os.Getenv(envInvokeAuthFD); got != strconv.Itoa(writeFD) {
+		t.Fatalf("FORST_INVOKE_AUTH_FD = %q want inherited %d", got, writeFD)
+	}
+	if ActiveHostInvokeAuthRelay() != nil {
+		t.Fatal("expected no in-process relay when spawn handoff is inherited")
 	}
 }
 

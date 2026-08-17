@@ -620,7 +620,9 @@ tasks:
     deps: [build]
     cmds:
       - mkdir -p {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/main.go -root {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev -- {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main/main.ft
+      - mkdir -p {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/.forst/golden
+      - go run ./{{.BUILD_DIR}} generate --skip-client --go-entry={{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/main/main.ft --go-out=.forst/golden/main.go {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev
+      - cp -R {{.EXAMPLES_DIR}}/rfc/node-interop/multi-package-dev/.forst/golden/. {{.OUTPUT_DIR}}/rfc/node-interop/multi-package-dev/
 
   example:multipackage-dev:run:
     desc: Run multi-package-dev via forst dev (embedded invoke + hostMode)
@@ -641,7 +643,9 @@ tasks:
     deps: [build]
     cmds:
       - mkdir -p {{.OUTPUT_DIR}}/rfc/embedded-invoke
-      - go run ./{{.BUILD_DIR}} build -export-struct-fields -o {{.OUTPUT_DIR}}/rfc/embedded-invoke/main.go -root {{.EXAMPLES_DIR}}/rfc/embedded-invoke -- {{.EXAMPLES_DIR}}/rfc/embedded-invoke/main.ft
+      - mkdir -p {{.EXAMPLES_DIR}}/rfc/embedded-invoke/.forst/golden
+      - go run ./{{.BUILD_DIR}} generate --skip-client --go-entry={{.EXAMPLES_DIR}}/rfc/embedded-invoke/main.ft --go-out=.forst/golden/main.go {{.EXAMPLES_DIR}}/rfc/embedded-invoke
+      - cp -R {{.EXAMPLES_DIR}}/rfc/embedded-invoke/.forst/golden/. {{.OUTPUT_DIR}}/rfc/embedded-invoke/
 
   example:embedded-invoke:run:
     desc: Run embedded-invoke binary and POST /invoke

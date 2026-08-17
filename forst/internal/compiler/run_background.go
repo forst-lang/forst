@@ -46,12 +46,7 @@ func ExecBuiltProgram(binPath, boundaryRoot string) (*GoProgramProcess, error) {
 		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(binPath), needsCompiler)
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
-	if nodert.SupportsInvokeAuthFDHandoff() {
-		if handoff, ok := nodert.PrepareActiveGoInvokeAuthHandoff(); ok {
-			cmd.ExtraFiles = []*os.File{handoff}
-			env = appendRunEnvVar(env, "FORST_INVOKE_AUTH_FD", "3")
-		}
-	}
+	env = attachGoInvokeAuthHandoff(cmd, env)
 	cmd.Env = env
 	proc := &GoProgramProcess{
 		cmd:  cmd,
@@ -165,6 +160,18 @@ func newGoRunCommand(outputPath, boundaryRoot string) (*exec.Cmd, error) {
 		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(outputPath), needsCompiler)
 		env = gowork.ChildEnv(env, plan, boundaryRoot)
 	}
-	cmd.Env = env
+	cmd.Env = attachGoInvokeAuthHandoff(cmd, env)
 	return cmd, nil
+}
+
+func attachGoInvokeAuthHandoff(cmd *exec.Cmd, env []string) []string {
+	if cmd == nil || !nodert.SupportsInvokeAuthFDHandoff() {
+		return env
+	}
+	handoff, ok := nodert.PrepareActiveGoInvokeAuthHandoff()
+	if !ok {
+		return env
+	}
+	cmd.ExtraFiles = []*os.File{handoff}
+	return appendRunEnvVar(env, "FORST_INVOKE_AUTH_FD", "3")
 }

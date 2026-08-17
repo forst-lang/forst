@@ -3,6 +3,8 @@ package nodert
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"forst/internal/ftconfig"
 )
@@ -25,6 +27,9 @@ func EnsureEmbeddedHostInvokeAuthRelay(cfg *ftconfig.Config) error {
 		return nil
 	}
 	if invokeAuthDisabledByEnv() || !SupportsInvokeAuthFDHandoff() {
+		return nil
+	}
+	if spawnAuthHandoffInherited() {
 		return nil
 	}
 	relay := ActiveHostInvokeAuthRelay()
@@ -76,4 +81,18 @@ func setupInProcessInvokeAuthHandoff(relay *HostInvokeAuthRelay) error {
 func invokeAuthDisabledByEnv() bool {
 	v := os.Getenv(envInvokeAuth)
 	return v == "off" || v == "0" || v == "false"
+}
+
+// spawnAuthHandoffInherited reports whether this process received an invoke auth
+// write fd from forst dev / forst run (ExtraFiles + FORST_INVOKE_AUTH_FD).
+func spawnAuthHandoffInherited() bool {
+	if ActiveHostInvokeAuthRelay() != nil {
+		return false
+	}
+	raw := strings.TrimSpace(os.Getenv(envInvokeAuthFD))
+	if raw == "" {
+		return false
+	}
+	fd, err := strconv.Atoi(raw)
+	return err == nil && fd >= 3
 }

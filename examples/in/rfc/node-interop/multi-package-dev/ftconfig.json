@@ -1,4 +1,7 @@
 {
+  "compiler": {
+    "exportStructFields": true
+  },
   "server": {
     "embedded": true,
     "port": "6321"

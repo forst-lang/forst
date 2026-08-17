@@ -10,7 +10,49 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"forst/nodert"
 )
+
+func TestNewGoRunCommand_attachesInvokeAuthHandoff(t *testing.T) {
+	if !nodert.SupportsInvokeAuthFDHandoff() {
+		t.Skip("invoke auth fd handoff not supported on this platform")
+	}
+
+	relay, err := nodert.NewHostInvokeAuthRelay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		nodert.SetActiveHostInvokeAuthRelay(nil)
+		_ = relay.Close()
+	})
+	nodert.SetActiveHostInvokeAuthRelay(relay)
+
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(outPath, []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd, err := newGoRunCommand(outPath, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cmd.ExtraFiles) != 1 || cmd.ExtraFiles[0] == nil {
+		t.Fatalf("ExtraFiles = %#v want one handoff fd", cmd.ExtraFiles)
+	}
+	found := false
+	for _, entry := range cmd.Env {
+		if entry == "FORST_INVOKE_AUTH_FD=3" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("FORST_INVOKE_AUTH_FD not in env: %#v", cmd.Env)
+	}
+}
 
 func TestStartGoProgram_startsAndStops(t *testing.T) {
 	dir := t.TempDir()
