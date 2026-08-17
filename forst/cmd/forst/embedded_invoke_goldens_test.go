@@ -32,6 +32,7 @@ func embeddedInvokeGoldenCases() []embeddedInvokeGoldenCase {
 				"func main()",
 			},
 			invokeMarkers: []string{
+				"invokeembed.MustPrepareEmbeddedHostAuth",
 				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_Echo",
 				"reg.RegisterMeta",
@@ -87,9 +88,9 @@ func invokeServerGoldenPath(mainGoldenPath string) string {
 	ext := filepath.Ext(mainGoldenPath)
 	base := strings.TrimSuffix(mainGoldenPath, ext)
 	if ext == "" {
-		return base + "_forst_invoke_server.gen.go"
+		return base + "_forst_1_invoke_server.gen.go"
 	}
-	return base + "_forst_invoke_server.gen" + ext
+	return base + "_forst_1_invoke_server.gen" + ext
 }
 
 func verifyEmbeddedInvokePackageCompileGolden(t *testing.T, opts embeddedInvokeCompileVerifyOpts) {

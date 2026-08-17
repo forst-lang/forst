@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# E2E or dev: remix-serve from a temp dir with local @forst/* file: deps (no registry Forst downloads).
+# E2E or dev: remix-serve from a temp dir with local @forst/* packed tarballs
+# (no registry Forst downloads, no live packages/* file: links).
 #
 # Usage:
 #   scripts/remix-serve-standalone-e2e.sh           # run checks, then exit (cleans up)
 #   scripts/remix-serve-standalone-e2e.sh --dev       # keep servers until Ctrl+C, then clean up
 #   REMIX_SERVE_STANDALONE_DEV=1 ...                  # same as --dev
+#   BUN_INSTALL_TIMEOUT_SEC=180 ...                   # fail bun install instead of hanging forever
 set -euo pipefail
 set +m
 
@@ -182,19 +184,42 @@ rsync -a \
   --exclude node_modules \
   --exclude .forst \
   --exclude build \
+  --exclude bun.lock \
   "$EXAMPLE_SRC/" "$TMP/"
 
-echo "=== patch @forst/* deps ==="
-node "$SCRIPT_DIR/patch-remix-serve-standalone-deps.mjs" "$TMP" "$REPO"
+# Pack published-shaped tarballs. Linking live packages/* dirs makes bun treat them as
+# workspace members (installs their devDependencies) and can hang at "Resolving dependencies".
+PACK_DIR="$TMP/.forst-packs"
+mkdir -p "$PACK_DIR"
+echo "=== pack local @forst/* into $PACK_DIR ==="
+for name in cli client errors node-runtime sidecar; do
+  (cd "$REPO/packages/$name" && bun pm pack --destination "$PACK_DIR")
+done
+
+echo "=== patch @forst/* deps to packed tarballs ==="
+node "$SCRIPT_DIR/patch-remix-serve-standalone-deps.mjs" "$TMP" "$PACK_DIR"
 
 echo "=== bun install in temp ==="
-(cd "$TMP" && bun install 2>&1 | tee -a "$LOG_FILE")
+BUN_INSTALL_TIMEOUT_SEC="${BUN_INSTALL_TIMEOUT_SEC:-180}"
+# pipefail so bun install failures surface through tee
+bun_install_cmd=(bash -c "set -o pipefail; cd \"$TMP\" && bun install 2>&1 | tee -a \"$LOG_FILE\"")
+if command -v timeout >/dev/null 2>&1; then
+  if ! timeout "${BUN_INSTALL_TIMEOUT_SEC}" "${bun_install_cmd[@]}"; then
+    dump_failure_diagnostics "bun install timed out or failed after ${BUN_INSTALL_TIMEOUT_SEC}s"
+    exit 1
+  fi
+else
+  if ! perl -e "alarm shift; exec @ARGV" "$BUN_INSTALL_TIMEOUT_SEC" "${bun_install_cmd[@]}"; then
+    dump_failure_diagnostics "bun install timed out or failed after ${BUN_INSTALL_TIMEOUT_SEC}s"
+    exit 1
+  fi
+fi
 
 echo "=== assert local @forst packages ==="
-node "$SCRIPT_DIR/assert-local-forst-packages.mjs" "$TMP" "$REPO"
+node "$SCRIPT_DIR/assert-local-forst-packages.mjs" "$TMP" "$PACK_DIR"
 
 echo "=== forst generate ==="
-FORST_BOUNDARY_ROOT="$TMP" "$FORST_BINARY" generate "$TMP"
+FORST_ROOT="$TMP" "$FORST_BINARY" generate "$TMP"
 
 echo "=== remix build ==="
 (cd "$TMP" && bun run build)
@@ -205,7 +230,7 @@ sleep 0.3
 
 echo "=== forst run ==="
 echo "expected: invoke http://${EXPECTED_HOST}:${INVOKE_PORT}/health remix http://${EXPECTED_HOST}:${REMIX_PORT}/ (HOST=${EXPECTED_HOST} PORT=${REMIX_PORT} for remix-serve)"
-export FORST_BOUNDARY_ROOT="$TMP"
+export FORST_ROOT="$TMP"
 export FORST_GOMOD_ROOT
 export FORST_INVOKE_TRANSPORT=tcp
 

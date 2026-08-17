@@ -133,7 +133,7 @@ export async function consumeHostInvokeAuthStreamForTest(
 /**
  * Configures connect-mode env for embedded invoke in a Node host process.
  *
- * Sets `FORST_SKIP_SPAWN=1` and `FORST_BOUNDARY_ROOT` (defaults to `process.cwd()`).
+ * Sets `FORST_SKIP_SPAWN=1` and `FORST_ROOT` (defaults to `process.cwd()`).
  * Resolves the invoke base URL from `.forst/invoke.ready` when present, clears URL
  * env when only a Unix socket is advertised, or falls back to
  * {@link DEFAULT_EMBEDDED_INVOKE_BASE_URL}.
@@ -148,7 +148,7 @@ export function prepareInvokeConnect(boundaryRoot?: string): string {
   startHostInvokeAuthRecvListener();
   const root = boundaryRoot?.trim() || process.cwd();
   process.env.FORST_SKIP_SPAWN = "1";
-  process.env.FORST_BOUNDARY_ROOT = root;
+  process.env.FORST_ROOT = root;
 
   const readyUrl = readInvokeReadyUrl(root);
   const socketPath = readInvokeReadySocketPath(root);

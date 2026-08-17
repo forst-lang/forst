@@ -17,6 +17,15 @@ import (
 
 const configFileName = "ftconfig.json"
 
+// EnvRoot is the ftconfig project root for runtime discovery (.forst/, invoke.ready, nodert).
+// `forst run -root …` sets this on child processes; it may also be set explicitly.
+const EnvRoot = "FORST_ROOT"
+
+// RootFromEnv returns the project root from FORST_ROOT when set.
+func RootFromEnv() string {
+	return strings.TrimSpace(os.Getenv(EnvRoot))
+}
+
 // Config represents the configuration for the Forst dev server (ftconfig.json).
 type Config struct {
 	Compiler CompilerConfig `json:"compiler"`
@@ -30,15 +39,26 @@ type Config struct {
 
 // GenerateConfig controls TypeScript client package generation (forst generate).
 type GenerateConfig struct {
-	PackageName    string `json:"packageName"`
-	OutDir         string `json:"outDir"`
-	Link           string `json:"link"`
-	Emit           string `json:"emit"`
-	TestingSubpath string `json:"testingSubpath"`
-	Effect         bool   `json:"effect"`
-	SSRModule      string `json:"ssrModule"`
+	PackageName    string           `json:"packageName"`
+	OutDir         string           `json:"outDir"`
+	Link           string           `json:"link"`
+	Emit           string           `json:"emit"`
+	TestingSubpath string           `json:"testingSubpath"`
+	Effect         bool             `json:"effect"`
+	SSRModule      string           `json:"ssrModule"`
+	Go             GenerateGoConfig `json:"go"`
+	// SkipClient skips TypeScript client generation (Go-only or custom pipelines).
+	SkipClient bool `json:"skipClient"`
 	// OmitStubs emits commented stubs for provider-gated omissions in package modules (SPEC §12).
 	OmitStubs bool `json:"omitStubs"`
+}
+
+// GenerateGoConfig controls optional Go source emission from forst generate.
+// Go emission is active when both entry and out are set.
+type GenerateGoConfig struct {
+	Entry string `json:"entry"`
+	Out   string `json:"out"`
+	Root  string `json:"root"`
 }
 
 // NodeRPCConfig represents Node stdio RPC limits.

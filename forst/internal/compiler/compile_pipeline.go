@@ -130,18 +130,24 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("code generation", memBefore, memAfter)
 
-	if c.Args.OutputPath != "" {
+	if c.Args.OutputPath != "" && c.Args.Command != "build" {
 		if err := os.WriteFile(c.Args.OutputPath, []byte(out.Main), 0644); err != nil {
 			return compileGoOutput{}, fmt.Errorf("error writing output file: %v", err)
 		}
 		if out.NodeRuntime != "" {
 			runtimePath := nodeRuntimeOutputPath(c.Args.OutputPath)
+			if err := removeLegacyCompanionFile(legacyNodeRuntimeOutputPath(c.Args.OutputPath)); err != nil {
+				return compileGoOutput{}, err
+			}
 			if err := os.WriteFile(runtimePath, []byte(out.NodeRuntime), 0644); err != nil {
 				return compileGoOutput{}, fmt.Errorf("error writing node runtime file: %v", err)
 			}
 		}
 		if out.InvokeServer != "" {
 			invokePath := invokeServerOutputPath(c.Args.OutputPath)
+			if err := removeLegacyCompanionFile(legacyInvokeServerOutputPath(c.Args.OutputPath)); err != nil {
+				return compileGoOutput{}, err
+			}
 			if err := os.WriteFile(invokePath, []byte(out.InvokeServer), 0644); err != nil {
 				return compileGoOutput{}, fmt.Errorf("error writing invoke server file: %v", err)
 			}
@@ -400,18 +406,44 @@ func nodeRuntimeOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
-		return base + "_forst_node_runtime.gen.go"
+		return base + "_forst_0_node_runtime.gen.go"
 	}
-	return base + "_forst_node_runtime.gen" + ext
+	return base + "_forst_0_node_runtime.gen" + ext
 }
 
 func invokeServerOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
+		return base + "_forst_1_invoke_server.gen.go"
+	}
+	return base + "_forst_1_invoke_server.gen" + ext
+}
+
+func legacyNodeRuntimeOutputPath(outputPath string) string {
+	ext := filepath.Ext(outputPath)
+	base := strings.TrimSuffix(outputPath, ext)
+	if ext == "" {
+		return base + "_forst_node_runtime.gen.go"
+	}
+	return base + "_forst_node_runtime.gen" + ext
+}
+
+func legacyInvokeServerOutputPath(outputPath string) string {
+	ext := filepath.Ext(outputPath)
+	base := strings.TrimSuffix(outputPath, ext)
+	if ext == "" {
 		return base + "_forst_invoke_server.gen.go"
 	}
 	return base + "_forst_invoke_server.gen" + ext
+}
+
+func removeLegacyCompanionFile(path string) error {
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove legacy companion %s: %w", path, err)
+	}
+	return nil
 }
 
 // WriteExtraPackagesForOutput writes cross-package invoke Go sources beside a -o main output path.

@@ -47,7 +47,7 @@ func TestEffectivePort(t *testing.T) {
 
 func TestResolveBoundaryRoot_env(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv(envBoundaryRoot, dir)
+	t.Setenv(ftconfig.EnvRoot, dir)
 	got, err := resolveBoundaryRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestResolveBoundaryRoot_walksAncestor(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "ftconfig.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(envBoundaryRoot, "")
+	t.Setenv(ftconfig.EnvRoot, "")
 	t.Chdir(sub)
 	got, err := resolveBoundaryRoot()
 	if err != nil {
@@ -212,7 +212,7 @@ func TestGlobalRegistry_singleton(t *testing.T) {
 
 func TestMustStartEmbedded_idempotent(t *testing.T) {
 	workDir := t.TempDir()
-	t.Setenv(envBoundaryRoot, workDir)
+	t.Setenv(ftconfig.EnvRoot, workDir)
 	if err := os.WriteFile(filepath.Join(workDir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"0"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

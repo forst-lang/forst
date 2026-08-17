@@ -7,8 +7,8 @@ import (
 
 const (
 	SuffixGen        = ".gen.go"
-	FileInvokeServer = "forst_invoke_server.gen.go"
-	FileNodeRuntime  = "forst_node_runtime.gen.go"
+	FileInvokeServer = "forst_1_invoke_server.gen.go"
+	FileNodeRuntime  = "forst_0_node_runtime.gen.go"
 	FileTestWrapper  = "forst_gen_test.go"
 	FileLibShim      = "forst_lib.gen.go"
 )

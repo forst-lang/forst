@@ -17,7 +17,7 @@ Shape fields lower to unexported Go identifiers by default. For JSON marshaling 
 Compile a `.ft` file to Go:
 
 ```bash
-npx forst build handlers/orders/orders.ft
+npx forst generate --go-entry=handlers/orders/orders.ft --go-out=handlers/orders/orders.gen.go --skip-client .
 ```
 
 Run the result with the standard toolchain:
@@ -135,11 +135,11 @@ Forst supports three common Go module layouts. Pick one and stay consistent with
 
 | Profile | `go.mod` location | `.ft` location | Typical workflow |
 | --- | --- | --- | --- |
-| **Go-native** | project root | mixed with `.go` | `forst build` + `go run .` / `go test ./...` |
+| **Go-native** | project root | mixed with `.go` | `forst generate` with `generate.go` or `--go-*` + `go run .` / `go test ./...` |
 | **Node-primary** | `.forst-gomod/` | project root (`main/`, `forst/`) | `forst generate` + `forst run`; `replace` paths in `.forst-gomod/go.mod` are relative to the **project boundary**, not to `.forst-gomod/` |
 | **Compiler dev** | either | either | `FORST_GOMOD_ROOT=<path-to-forst-module>` when the `forst` binary is not adjacent to `module forst` |
 
-**`forst run`** writes a temp sandbox under `.forst/run/` with its own `go.mod` and links the `forst` runtime module. **Go-native** projects (root `go.mod`, not only `.forst-gomod/`) use **Mode B**: an auto-managed `.forst/go.work` workspace instead of a fragile `replace` in the sandbox. **Node-primary** projects keep **Mode A** (`replace forst => …` in the sandbox `go.mod`). For mixed `.ft` + hand-written `.go`, prefer **`forst build`** and the normal Go toolchain — `forst run` emits transpiled `.go` only.
+**`forst run`** transpiles your entry, writes a temp sandbox under `.forst/run/` with its own `go.mod`, and executes via `go run`. **Go-native** projects (root `go.mod`, not only `.forst-gomod/`) use **Mode B**: an auto-managed `.forst/go.work` workspace instead of a fragile `replace` in the sandbox. **Node-primary** projects keep **Mode A** (`replace forst => …` in the sandbox `go.mod`). For mixed `.ft` + hand-written `.go` you want to commit or inspect, use **`forst generate`** with `generate.go.entry` / `generate.go.out` (or `--go-entry` / `--go-out`) and the normal Go toolchain.
 
 Examples: **`examples/in/go_interop/`** (Go-native), **`examples/in/rfc/node-interop/remix-serve/`** (Node-primary with `.forst-gomod/go.mod`).
 

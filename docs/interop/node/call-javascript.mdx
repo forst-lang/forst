@@ -103,9 +103,23 @@ the `create` export. Your TypeScript files need no Forst annotations.
 Use `build` when you want Go output for deployment. Use `run` when you want to
 compile and start the program in one step.
 
+Enable embedded invoke in `ftconfig.json` before a production build:
+
+```json
+{
+  "server": { "embedded": true }
+}
+```
+
 ```bash
-npx forst build -root ./my-service ./cmd/api/main.ft
+npx forst build -root ./my-service -o .forst/build -- ./cmd/api/main.ft
 npx forst run -root ./my-service ./cmd/api/main.ft
+```
+
+Production exec (read `binary` from `manifest.json`, for example `bin/main`):
+
+```bash
+FORST_ROOT=/app /app/.forst/build/bin/main
 ```
 
 Your deployed app needs Node, `tsx`, and `@forst/node-runtime` when any reachable
@@ -235,6 +249,17 @@ With `node.hostMode` and `forst dev`:
 - **`forst dev` exit always stops the host** (whether the parent spawned it or reattached to an existing marker).
 
 One-shot `forst run` with `hostMode` is unchanged: the compiled binary may spawn the host on first `GetClient()` when attach-only is unset.
+
+**Production (`forst build -o <dir>`)** with `server.embedded` + `node.hostMode`: one linked program binary is the parent. It runs embedded invoke and spawns the Node host as a child (same process tree as `forst run`, without `go` at runtime):
+
+```text
+bin/main
+  ├─ embedded invoke
+  └─ Node host child (node.binary + node.args)
+       └─ legacy JS via nodert socket RPC
+```
+
+Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
 
 Typical spawn layout:
 
@@ -460,7 +485,7 @@ result is tracked as `needsNodeRuntime`.
 | `true` | Node bridge and embedded allowlist | Node, `tsx`, and `@forst/node-runtime` are required |
 
 When Node is needed, the compiler emits your normal Go output and a companion
-`*_forst_node_runtime.gen.go` file. The companion contains the allowed calls and
+`*_forst_0_node_runtime.gen.go` file. The companion contains the allowed calls and
 the RPC wrappers. It imports
 [`forst/nodert`](https://github.com/forst-lang/forst/tree/main/forst/nodert), so
 your `go.mod` must resolve the `forst` Go module.

@@ -12,7 +12,7 @@ import (
 
 func TestHandleHealth_reportsReloadingMarker(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", dir)
+	t.Setenv("FORST_ROOT", dir)
 	markerPath := filepath.Join(dir, ".forst", "reloading")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o755); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestHandleHealth_reportsReloadingMarker(t *testing.T) {
 
 func TestHandleInvoke_returns503WhenReloadMarkerSet(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", dir)
+	t.Setenv("FORST_ROOT", dir)
 	markerPath := filepath.Join(dir, ".forst", "reloading")
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o755); err != nil {
 		t.Fatal(err)

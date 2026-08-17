@@ -41,9 +41,9 @@ task example:node-interop-remix-serve:build-remix
 
 Run the same example from a copy outside the monorepo tree (or use `task example:node-interop-remix-serve:standalone-e2e` in CI — local `@forst/*` only, no registry downloads). For interactive debugging with automatic teardown on Ctrl+C: `task example:node-interop-remix-serve:standalone-dev`.
 
-1. Copy this directory (exclude `node_modules`, `build`, `.forst`)
+1. Copy this directory (exclude `node_modules`, `build`, `.forst`, and prefer excluding `bun.lock` so install does not reuse monorepo-relative `file:` entries)
 2. Repoint `@forst/*`:
-   - **Monorepo / CI:** absolute `file:` paths to `$REPO/packages/*` — see [`scripts/patch-remix-serve-standalone-deps.mjs`](../../../../../scripts/patch-remix-serve-standalone-deps.mjs)
+   - **Monorepo / CI:** `bun pm pack` each needed package into a pack dir, then absolute `file:` paths to those `.tgz` files — see [`scripts/patch-remix-serve-standalone-deps.mjs`](../../../../../scripts/patch-remix-serve-standalone-deps.mjs) and [`scripts/remix-serve-standalone-e2e.sh`](../../../../../scripts/remix-serve-standalone-e2e.sh). Do not `file:`-link live `packages/*` dirs (bun treats them as workspace members and can hang resolving their `devDependencies`).
    - **External:** published npm versions (`@forst/cli`, `@forst/client`, `@forst/node-runtime`; `@forst/sidecar` via client)
 3. `bun install` (requires `tsx` in `devDependencies` for nodert host spawn)
 4. `forst generate <project-dir>` — merged `package main` under `main/`; no `-root` (`generate` takes the project path only)
@@ -52,7 +52,7 @@ Run the same example from a copy outside the monorepo tree (or use `task example
 
 ```bash
 export FORST_BINARY=<repo>/bin/forst
-export FORST_BOUNDARY_ROOT=<project-dir>
+export FORST_ROOT=<project-dir>
 export FORST_GOMOD_ROOT=<repo>/forst   # when binary is not adjacent to the Go module
 "$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main/main.ft
 ```

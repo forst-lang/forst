@@ -12,7 +12,7 @@ Shows two ways Forst calls Go:
 
 ## CLI
 
-`forst run` emits transpiled Go into a temp sandbox (`.forst/run/`); **hand-written `.go` is not included**. For same-package Go stubs, use `forst build` and the standard Go toolchain:
+`forst run` emits transpiled Go into a temp sandbox (`.forst/run/`); **hand-written `.go` is not included**. For same-package Go stubs, configure `generate.go` in `ftconfig.json` (see `ftconfig.json` in this directory) or pass matching CLI flags:
 
 ```bash
 task example:go-interop
@@ -21,8 +21,14 @@ task example:go-interop
 Or manually from `forst/`:
 
 ```bash
-go run ./cmd/forst build -o ../examples/in/go_interop/main.gen.go -- ../examples/in/go_interop/cli.ft
+go run ./cmd/forst generate ../examples/in/go_interop
 cd ../examples/in/go_interop && go run .
+```
+
+Or with explicit CLI overrides (mirrors `ftconfig` field names):
+
+```bash
+go run ./cmd/forst generate --go-entry=../examples/in/go_interop/cli.ft --go-out=../examples/in/go_interop/main.gen.go --skip-client ../examples/in/go_interop
 ```
 
 Golden: `examples/out/go_interop/cli.go` (`task examples:update-goldens` from repo root).

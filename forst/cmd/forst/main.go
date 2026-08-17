@@ -56,6 +56,8 @@ func runMain(argv []string) int {
 		return 0
 	}
 
+	compiler.SetBuildMetadata(Version, Commit, Date)
+
 	log := newLogger()
 
 	// Check if we should start dev server
@@ -212,6 +214,11 @@ func runMain(argv []string) int {
 
 	if args.Watch {
 		if err := p.WatchFile(); err != nil {
+			log.Error(err)
+			return 1
+		}
+	} else if args.Command == "build" {
+		if err := p.BuildNativeProgram(args.OutputPath, args.GoOS, args.GoARCH); err != nil {
 			log.Error(err)
 			return 1
 		}

@@ -6,31 +6,32 @@ import (
 	"path/filepath"
 
 	"forst/internal/devcompile"
+	"forst/internal/programbuild"
 
 	logrus "github.com/sirupsen/logrus"
 )
 
 var (
-	osExit              = os.Exit
-	filepathAbsForArgs  = filepath.Abs
-)
-
-// Import version variables from main package
-var (
-	version = "dev"
-	commit  = "unknown"
-	date    = "unknown"
+	osExit             = os.Exit
+	filepathAbsForArgs = filepath.Abs
 )
 
 // Args represents the arguments for the Forst compiler.
 type Args struct {
-	Command           string
-	FilePath          string
-	OutputPath        string
-	LogLevel          string
-	Watch             bool
+	// Command is the command to run (run, build, generate).
+	Command string
+	// FilePath is the path to the file to run.
+	FilePath string
+	// OutputPath is the path to the output file or directory.
+	OutputPath string
+	// LogLevel is the log level to use (debug, info, warn, error, trace).
+	LogLevel string
+	// Watch is true if the file should be watched for changes.
+	Watch bool
+	// ReportMemoryUsage is true if the memory usage should be reported.
 	ReportMemoryUsage bool
-	ReportPhases      bool
+	// ReportPhases is true if the phases should be reported.
+	ReportPhases bool
 	// ExportStructFields, when true, emits exported struct field names and json tags so encoding/json can marshal shapes (forst dev / ftconfig: compiler.exportStructFields).
 	ExportStructFields bool
 	// PackageRoot, if non-empty, enables merging all same-package .ft files that share one directory under this tree with the entry file (aligned with sidecar / discovery).
@@ -45,6 +46,10 @@ type Args struct {
 	DevModTidyCache *SandboxModCache
 	// DevSession holds incremental parse/module caches for dev reload (optional).
 	DevSession *devcompile.Session
+	// GoOS selects the target operating system for forst build (native program binary).
+	GoOS string
+	// GoARCH selects the target architecture for forst build (native program binary).
+	GoARCH string
 }
 
 // ParseArgs parses os.Args for the run/build CLI path.
@@ -89,6 +94,8 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	exportStructFields := flags.Bool("export-struct-fields", false, "Emit exported struct fields with json tags (for encoding/json and TS-aligned wire shapes)")
 	packageRoot := flags.String("root", "", "Root directory: merge same-package .ft files that share one directory with the entry file (optional)")
 	requireNoNode := flags.Bool("require-no-node", false, "Fail if the program requires the Node runtime (opted-in TypeScript imports)")
+	goos := flags.String("goos", "", "Target GOOS for forst build (default: host)")
+	goarch := flags.String("goarch", "", "Target GOARCH for forst build (default: host)")
 	help := flags.Bool("help", false, "Show help message")
 
 	if err := flags.Parse(argv[2:]); err != nil {
@@ -109,6 +116,27 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 	// Fail if watch flag is provided with build command
 	if command == "build" && *watch {
 		log.Errorf("Error: -watch flag is not supported with build command")
+		return Args{}
+	}
+
+	if command == "build" {
+		if *output == "" {
+			log.Errorf("Error: forst build requires -o <dir> (output directory for bin/<name> and manifest.json)")
+			return Args{}
+		}
+		if err := programbuild.ValidateOutputPath(*output); err != nil {
+			log.Errorf("%v", err)
+			return Args{}
+		}
+	}
+
+	if *goos != "" && command != "build" {
+		log.Errorf("Error: --goos is only supported with forst build")
+		return Args{}
+	}
+
+	if *goarch != "" && command != "build" {
+		log.Errorf("Error: --goarch is only supported with forst build")
 		return Args{}
 	}
 
@@ -152,6 +180,8 @@ func ParseArgsFrom(argv []string, log *logrus.Logger) Args {
 		ExportStructFields: *exportStructFields,
 		PackageRoot:        pkgRoot,
 		RequireNoNode:      *requireNoNode,
+		GoOS:               *goos,
+		GoARCH:             *goarch,
 	}
 }
 
@@ -162,12 +192,14 @@ func printUsage(log *logrus.Logger) {
 	log.Infof("  dev     Start the Forst development server")
 	log.Infof("  lsp     Start the Forst LSP server")
 	log.Infof("  run     Compile and run a Forst program")
-	log.Infof("  build   Compile a Forst program without running")
-	log.Infof("  generate Generate TypeScript client code")
+	log.Infof("  build   Build a native program binary and manifest under -o <dir>")
+	log.Infof("  generate Generate TypeScript client code (optional Go sources with --go)")
 	log.Infof("\nFlags:")
 	log.Infof("  -loglevel <level>       Log level (debug, info, warn, error, trace)")
 	log.Infof("  -watch                  Watch file for changes (run only)")
-	log.Infof("  -o <path>               Output file path")
+	log.Infof("  -o <path>               Output path (build: directory; run watch: file)")
+	log.Infof("  --goos <os>             Target GOOS for forst build (default: host)")
+	log.Infof("  --goarch <arch>         Target GOARCH for forst build (default: host)")
 	log.Infof("  -report-memory-usage    Report memory usage")
 	log.Infof("  -report-phases          Report when phases start")
 	log.Infof("  -export-struct-fields   Emit exported struct fields with json tags for JSON marshaling")

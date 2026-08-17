@@ -13,13 +13,12 @@ import (
 )
 
 const (
-	envNodeBootstrap = "FORST_NODE_BOOTSTRAP"
-	envNodeBinary    = "FORST_NODE_BINARY"
-	envNodeAppReadyModule = "FORST_NODE_APP_READY_MODULE"
+	envNodeBootstrap       = "FORST_NODE_BOOTSTRAP"
+	envNodeBinary          = "FORST_NODE_BINARY"
+	envNodeAppReadyModule  = "FORST_NODE_APP_READY_MODULE"
 	envNodeProtocolDefault = WireProtocolProtoV1
-	// EnvBoundaryRoot is the ftconfig project root for Node interop.
-	// `forst run -root …` sets this on the child Go process; it may also be set explicitly.
-	EnvBoundaryRoot = "FORST_BOUNDARY_ROOT"
+	// EnvRoot is the ftconfig project root for Node interop.
+	EnvRoot = ftconfig.EnvRoot
 )
 
 var (
@@ -52,7 +51,7 @@ func configureFromManifest(manifestJSON string) error {
 
 	workDir := strings.TrimSpace(manifest.BoundaryRoot)
 	if workDir == "" {
-		if root := strings.TrimSpace(os.Getenv(EnvBoundaryRoot)); root != "" {
+		if root := ftconfig.RootFromEnv(); root != "" {
 			workDir = root
 		}
 	}
@@ -94,17 +93,18 @@ func configureFromManifest(manifestJSON string) error {
 		return fmt.Errorf("node runtime: manifest: %w", err)
 	}
 
-	if cfg.Node.HostMode && len(cfg.Node.Args) == 0 {
+	effectiveHostMode := cfg.Node.HostMode && !SkipNodeHostEnabled()
+	if effectiveHostMode && len(cfg.Node.Args) == 0 {
 		return fmt.Errorf("node runtime: hostMode requires non-empty node.args in ftconfig.json")
 	}
 
 	hostProcessCfg, err := HostProcessConfigFromFTConfig(cfg, boundaryRoot, nil)
-	if err != nil && cfg.Node.HostMode {
+	if err != nil && effectiveHostMode {
 		return err
 	}
 
 	ConfigureSupervisor(SupervisorConfig{
-		HostMode: cfg.Node.HostMode,
+		HostMode: effectiveHostMode,
 		HostSocketPath: hostProcessCfg.SocketPath,
 		HostReadyPath:  hostProcessCfg.ReadyPath,
 		HostReadyTimeout: hostProcessCfg.ReadyTimeout,

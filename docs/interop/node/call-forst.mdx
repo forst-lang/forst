@@ -115,12 +115,27 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
     npx forst dev -root . -port 6320
     ```
 
-    **Production** — built-in HTTP server in your compiled binary (see [Built-in HTTP server](#built-in-http-server)):
+    **Production** — linked program binary for slim container images. Enable embedded invoke in `ftconfig.json` before building:
+
+    ```json
+    {
+      "server": { "embedded": true }
+    }
+    ```
 
     ```bash
-    npx forst build -root . -o ./out/main.go -- ./main.ft
+    npx forst generate .
+    npx forst build -root . -o .forst/build -- ./main.ft
+    FORST_ROOT=/app /app/.forst/build/bin/main
+    ```
+
+    With `node.hostMode`, the same binary runs your Forst entry and starts the Node app as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
+
+    For Go source inspection or hand `go build`, emit sources with `generate.go` flags:
+
+    ```bash
+    npx forst generate --go-entry=./main.ft --go-out=./out/main.go --skip-client .
     go build -o ./bin/api ./out/*.go
-    ./bin/api
     ```
   </Step>
   <Step title="Set the URL and call">
@@ -508,7 +523,7 @@ Enable with `server.embedded` in `ftconfig.json`:
 }
 ```
 
-Then `forst build` emits the invoke companion. It writes `.forst/invoke.ready`
+Then `forst build -o <dir>` links a native invoke binary (requires `server.embedded`). It writes `.forst/invoke.ready`
 and a separate local token file. HMAC auth is on by default. Use the Forst
 client, sidecar, or CLI helpers for `POST /invoke`, because authenticated RPC
 needs a fresh challenge and HMAC proof. For a manual smoke test over TCP:
@@ -530,7 +545,7 @@ token storage, reserved headers, and the test-only auth escape hatch.
 | `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address for TCP mode |
 | `FORST_INVOKE_TRANSPORT` | Set to `tcp` to force loopback TCP instead of Unix sockets |
 | `FORST_INVOKE_AUTH` | Set to `off` to disable HMAC auth (local debugging only) |
-| `FORST_BOUNDARY_ROOT` | Project root for `.forst/invoke.ready` |
+| `FORST_ROOT` | Project root for `.forst/invoke.ready` |
 | `FORST_SKIP_SPAWN` | Force HTTP connect (never spawn `forst dev`) |
 
 When the built-in server starts, Forst writes `.forst/invoke.ready` with

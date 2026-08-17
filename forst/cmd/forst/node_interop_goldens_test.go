@@ -142,6 +142,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"legacy/todos.ts",
 			},
 			invokeMarkers: []string{
+				"invokeembed.MustPrepareEmbeddedHostAuth",
 				"invokeembed.MustStartEmbedded",
 				"forst_invoke_main_ListTodos",
 				"ForstInvokeWaitForShutdown",
@@ -180,6 +181,7 @@ func nodeInteropGoldenCases() []nodeInteropGoldenCase {
 				"hostPing",
 			},
 			invokeMarkers: []string{
+				"invokeembed.MustPrepareEmbeddedHostAuth",
 				"invokeembed.MustStartEmbedded",
 				"forst_invoke_auth_Hash",
 				"forst.run.temp/auth",
@@ -277,9 +279,9 @@ func nodeRuntimeGoldenPath(mainGoldenPath string) string {
 	ext := filepath.Ext(mainGoldenPath)
 	base := strings.TrimSuffix(mainGoldenPath, ext)
 	if ext == "" {
-		return base + "_forst_node_runtime.gen.go"
+		return base + "_forst_0_node_runtime.gen.go"
 	}
-	return base + "_forst_node_runtime.gen" + ext
+	return base + "_forst_0_node_runtime.gen" + ext
 }
 
 func verifyNodeInteropPackageCompileGolden(t *testing.T, expected, actual, goldenPath string, markers []string) {

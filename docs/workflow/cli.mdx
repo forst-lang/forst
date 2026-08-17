@@ -25,10 +25,19 @@ With no subcommand, `forst` compiles a single `.ft` file. Given `hello.ft`:
 Run it with:
 
 ```bash
-forst path/to/file.ft          # compile
-forst run path/to/file.ft      # compile, build, and run
-forst build path/to/file.ft    # compile and build only
+forst path/to/file.ft          # compile (same as run without executing)
+forst run path/to/file.ft      # compile and run (go run)
+forst build -o <dir> path/to/file.ft   # native program binary + manifest.json
 ```
+
+Each command below writes a different artifact. Use this table to pick the workflow that matches what you need in your repo or container image.
+
+| Command | Output |
+| --- | --- |
+| `forst generate` | `@forst/gen` TypeScript client (default). Optional Go sources with `--go` |
+| `forst build -o <dir>` | `bin/<entryStem>` + `manifest.json` (linked program binary) |
+| `forst run` | Execute via `go run` (development / hostMode) |
+| `forst dev` / `@forst/sidecar` | Live HTTP invoke with reload (development only) |
 
 Common flags (see `forst --help`):
 
@@ -106,6 +115,113 @@ Set these under `"generate"` in `ftconfig.json`:
 | `testingSubpath` | `string` | `"$testing"` | Subpath key for the test scope (`@forst/gen/$testing`). Must start with `$` so it cannot collide with Forst package names |
 | `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
 | `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
+| `go.entry` | `string` | `""` | Entry `.ft` for Go source emission (requires `go.out`) |
+| `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
+| `go.root` | `string` | `""` | Optional package root for Go source emission |
+| `skipClient` | `bool` | `false` | Skip TypeScript client generation |
+
+### Optional Go sources (`generate.go`)
+
+By default, `forst generate` writes only the TypeScript client (`postinstall` safe). Go sources run when **`generate.go.entry` and `generate.go.out`** are set in `ftconfig.json`, or when you override on the CLI with matching flag names.
+
+**TS client + Go sources (default):**
+
+```bash
+forst generate --go-entry=./main.ft --go-out=./out/main.go .
+```
+
+Writes `@forst/gen` and transpiled `.go` beside the output path.
+
+**Go sources only:**
+
+```bash
+forst generate --go-out=./out/main.go --go-entry=./main.ft --skip-client .
+```
+
+Skips TypeScript client generation. Use when you only want inspectable Go for `go build` or review.
+
+CLI flags mirror `ftconfig` fields (`--go-entry`, `--go-out`, `--go-root`, `--skip-client`). Unset flags fall back to `ftconfig.json`.
+
+Or configure in `ftconfig.json`:
+
+```json
+{
+  "generate": {
+    "skipClient": true,
+    "go": {
+      "entry": "./main.ft",
+      "out": "./out/main.go",
+      "root": "."
+    }
+  }
+}
+```
+
+Go source emission does **not** link a native binary. Use `forst build` for production linked programs.
+
+### Native program build (`forst build`)
+
+Build a linked program binary and `manifest.json` for slim container images (similar to `go build -o bin/main`).
+
+**Local build** (writes under `.forst/`, removed by `forst clean`):
+
+```bash
+forst build -root . -o .forst/build -- ./app/main.ft
+```
+
+**Cross-compile for Linux containers** (writes to a path you copy into the image):
+
+```bash
+forst build -root . -o dist --goos linux --goarch amd64 -- ./app/main.ft
+```
+
+`-o` is the output directory. Forst writes `manifest.json` and `bin/<entryStem>` directly inside it. No extra subfolder is required.
+
+Output layout (entry `./app/main.ft` → `bin/main`):
+
+```text
+.forst/build/
+  manifest.json
+  bin/main
+```
+
+Requires `server.embedded: true` in `ftconfig.json`. At runtime, run the linked binary with `FORST_ROOT` set to your project root (read `binary` from `manifest.json`):
+
+```bash
+FORST_ROOT=/app /app/.forst/build/bin/main
+```
+
+#### How the binary fits with Node
+
+When `node.hostMode` is enabled, the built binary can run Forst and talk to Node in one of two layouts.
+
+**All-in-one (default):** One process runs your Forst entry point, starts the small HTTP server that `@forst/gen` uses to call Forst functions, and starts your Node app (for example remix-serve) as a **child process**:
+
+```text
+bin/main
+  ├─ HTTP server for @forst/gen (.forst/invoke.ready)
+  └─ Node app child (node.binary + node.args)
+       └─ @forst/gen calls Forst over HTTP
+```
+
+**Split layout (`FORST_SKIP_NODE_HOST=1`):** Use the **same** binary when Node already runs somewhere else (another container, systemd unit, or local dev process). Set `FORST_SKIP_NODE_HOST=1` so the binary runs embedded invoke and your entry point but **does not spawn the Node host**. Your Node app runs on its own and connects using `@forst/gen` and the URL in `.forst/invoke.ready`.
+
+`forst build` does not wait for the Node HTTP app to finish starting.
+
+#### `manifest.json` (build output)
+
+`manifest.json` sits beside the linked binary under your `-o` directory. Use these fields to verify how the program was built and which executable to run in production.
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `"program"` — embedded program binary, not a separate invoke daemon |
+| `binary` | Relative path to the linked executable (from entry stem) |
+| `hostMode` | `node.hostMode` from `ftconfig.json` at build time |
+| `embeddedInvoke` | Always `true` for `forst build` |
+| `boundaryRoot` | Project root used at build time |
+| `contractVersion` | Invoke HTTP contract version |
+
+Older manifests may show `"kind": "invoke"` and `"binary": "bin/forst-invoke"`.
 
 Task pages link here instead of repeating this table.
 
@@ -159,7 +275,7 @@ Useful when reporting compiler bugs.
 
 ## `forst clean`
 
-Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
+Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, native build output under `.forst/build/`, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
 
 ```bash
 forst clean

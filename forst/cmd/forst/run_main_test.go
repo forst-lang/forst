@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"forst/internal/programbuild"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -106,13 +108,25 @@ func TestRunMain_clean_dryRun_preservesDotForst(t *testing.T) {
 	}
 }
 
-func TestRunMain_build_compilesExampleEcho(t *testing.T) {
-	echoPath := filepath.Join("..", "..", "..", "examples", "in", "echo.ft")
-	if _, err := os.Stat(echoPath); err != nil {
+func TestRunMain_build_writesProgramManifest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping native build in short mode")
+	}
+	entry := filepath.Join("..", "..", "..", "examples", "in", "rfc", "embedded-invoke", "main.ft")
+	if _, err := os.Stat(entry); err != nil {
 		t.Skip("examples not present:", err)
 	}
-	if code := runMain([]string{"forst", "build", echoPath}); code != 0 {
+	outDir := filepath.Join(t.TempDir(), "out")
+	boundary := filepath.Dir(entry)
+	if code := runMain([]string{"forst", "build", "-root", boundary, "-o", outDir, entry}); code != 0 {
 		t.Fatalf("want exit 0, got %d", code)
+	}
+	manifest, err := programbuild.Load(outDir)
+	if err != nil {
+		t.Fatalf("programbuild.Load: %v", err)
+	}
+	if manifest.Kind != programbuild.KindProgram {
+		t.Fatalf("manifest kind = %q", manifest.Kind)
 	}
 }
 

@@ -201,13 +201,13 @@ const envInvokePort = "FORST_INVOKE_PORT"
 
 func setRunEnvBoundaryRoot(env []string, boundaryRoot string) []string {
 	filtered := make([]string, 0, len(env)+1)
-	prefix := nodert.EnvBoundaryRoot + "="
+	rootPrefix := nodert.EnvRoot + "="
 	for _, entry := range env {
-		if !strings.HasPrefix(entry, prefix) {
+		if !strings.HasPrefix(entry, rootPrefix) {
 			filtered = append(filtered, entry)
 		}
 	}
-	filtered = append(filtered, prefix+boundaryRoot)
+	filtered = append(filtered, rootPrefix+boundaryRoot)
 	if v := os.Getenv(nodert.EnvNodeAttachOnly); v != "" {
 		filtered = appendRunEnvVar(filtered, nodert.EnvNodeAttachOnly, v)
 	}

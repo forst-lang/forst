@@ -119,7 +119,7 @@ func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 		FilesExclude: []string{"**/node_modules/**", "**/.git/**"},
 	})
 
-	assertEnvVar(t, env, "FORST_BOUNDARY_ROOT", "/tmp/project")
+	assertEnvVar(t, env, "FORST_ROOT", "/tmp/project")
 	assertEnvVar(t, env, "FORST_NODE_PROTOCOL", envNodeProtocolDefault)
 
 	raw := envValue(t, env, "FORST_FILES_EXCLUDE")
@@ -134,10 +134,10 @@ func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 
 func TestBuildNodeChildEnv_overridesExistingKeys(t *testing.T) {
 	env := buildNodeChildEnv(ProcessOptions{
-		Env:          []string{"FORST_BOUNDARY_ROOT=old", "PATH=/bin"},
+		Env:          []string{"FORST_ROOT=old", "PATH=/bin"},
 		BoundaryRoot: "/new/root",
 	})
-	assertEnvVar(t, env, "FORST_BOUNDARY_ROOT", "/new/root")
+	assertEnvVar(t, env, "FORST_ROOT", "/new/root")
 	assertEnvVar(t, env, "PATH", "/bin")
 }
 
@@ -199,7 +199,7 @@ func TestConfigureFromManifest_usesBoundaryRootEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv(EnvBoundaryRoot, root)
+	t.Setenv(EnvRoot, root)
 	manifestJSON := `{"version":1,"exports":[{"moduleId":"legacy/payment.ts","name":"create","kind":"function"}]}`
 
 	resetSupervisorForTest()
@@ -422,5 +422,43 @@ func TestConfigureFromManifest_hostModeRequiresArgs(t *testing.T) {
 		t.Fatal("expected error")
 	} else if !strings.Contains(err.Error(), "hostMode requires non-empty node.args") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestConfigureFromManifest_skipNodeHostDisablesEffectiveHostMode(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := filepath.Join(root, "ftconfig.json")
+	cfgJSON := `{
+  "server": {"embedded": true},
+  "node": {
+    "hostMode": true,
+    "args": ["scripts/host.mjs"]
+  }
+}`
+	if err := os.WriteFile(cfgPath, []byte(cfgJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := Manifest{
+		Version:      ManifestVersion,
+		BoundaryRoot: root,
+		Exports: []ExportEntry{
+			{ModuleID: "legacy/payment.ts", Name: "create", Kind: ExportKindFunction},
+		},
+	}
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(EnvSkipNodeHost, "1")
+	t.Cleanup(func() { t.Setenv(EnvSkipNodeHost, "") })
+
+	resetSupervisorForTest()
+	if err := configureFromManifest(string(manifestJSON)); err != nil {
+		t.Fatalf("configureFromManifest: %v", err)
+	}
+	if supervisorCfg.HostMode {
+		t.Fatal("expected effective hostMode false when FORST_SKIP_NODE_HOST=1")
 	}
 }

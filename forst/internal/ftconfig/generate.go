@@ -145,6 +145,9 @@ func (g GenerateConfig) Validate() error {
 	if err := validateTestingSubpath(g.TestingSubpath); err != nil {
 		return err
 	}
+	if err := g.Go.Validate(); err != nil {
+		return err
+	}
 	key := g.TestingSubpath
 	if key == "" {
 		key = "$testing"
@@ -210,4 +213,54 @@ func validateTestingSubpath(key string) error {
 		)
 	}
 	return fmt.Errorf("generate.testingSubpath %q is not a valid subpath key", key)
+}
+
+// Validate checks generate.go fields when Go source emission is configured.
+func (g GenerateGoConfig) Validate() error {
+	hasEntry := strings.TrimSpace(g.Entry) != ""
+	hasOut := strings.TrimSpace(g.Out) != ""
+	if !hasEntry && !hasOut && g.Root == "" {
+		return nil
+	}
+	if hasEntry != hasOut {
+		if !hasEntry {
+			return fmt.Errorf("generate.go.entry is required when generate.go.out is set")
+		}
+		return fmt.Errorf("generate.go.out is required when generate.go.entry is set")
+	}
+	if g.Root != "" && !g.IsConfigured() {
+		return fmt.Errorf("generate.go.root requires generate.go.entry and generate.go.out")
+	}
+	if filepath.IsAbs(g.Out) {
+		return fmt.Errorf("generate.go.out must be relative to the boundary root, got absolute path %q", g.Out)
+	}
+	cleaned := filepath.Clean(g.Out)
+	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("generate.go.out %q escapes the boundary root", g.Out)
+	}
+	if g.Root != "" {
+		rootClean := filepath.Clean(g.Root)
+		if rootClean == ".." || strings.HasPrefix(rootClean, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("generate.go.root %q escapes the boundary root", g.Root)
+		}
+	}
+	return nil
+}
+
+// IsConfigured reports whether Go source emission is configured (entry and out both set).
+func (g GenerateGoConfig) IsConfigured() bool {
+	return strings.TrimSpace(g.Entry) != "" && strings.TrimSpace(g.Out) != ""
+}
+
+// EffectiveGoRoot resolves generate.go.root against boundaryRoot.
+func (g GenerateGoConfig) EffectiveGoRoot(boundaryRoot string) string {
+	if g.Root == "" {
+		return boundaryRoot
+	}
+	return filepath.Join(filepath.Clean(boundaryRoot), filepath.Clean(g.Root))
+}
+
+// EffectiveGoOut resolves generate.go.out against boundaryRoot.
+func (g GenerateGoConfig) EffectiveGoOut(boundaryRoot string) string {
+	return filepath.Join(filepath.Clean(boundaryRoot), filepath.Clean(g.Out))
 }

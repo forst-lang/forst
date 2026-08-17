@@ -36,6 +36,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		t.Fatalf("main should call ForstInvokeWaitForShutdown when companion emitted:\n%s", mainCode)
 	}
 	for _, want := range []string{
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_Echo",
 		"ForstInvokeWaitForShutdown",
@@ -283,6 +284,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -507,6 +509,7 @@ func ComparePassword(input {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -608,6 +611,7 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 	for _, want := range []string{
 		"forstNodeManifestJSON",
 		"nodert.CallSync",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_ListTodos",
 	} {
@@ -696,7 +700,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	outPath := filepath.Join(outDir, "main.go")
 	c := New(Args{
-		Command:            "build",
+		Command:            "run",
 		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		OutputPath:         outPath,
@@ -720,5 +724,50 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	if err := BuildGoProgram(mainCode, nodeRuntime, invokeCode, extraPkgs, dir); err != nil {
 		t.Fatalf("BuildGoProgram with extras: %v", err)
+	}
+}
+
+func TestCompile_removesLegacyCompanionFilesOnWrite(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+	return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "out", "main.go")
+	legacyInvoke := legacyInvokeServerOutputPath(outPath)
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyInvoke, []byte("// legacy invoke companion"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := New(Args{
+		Command:     "run",
+		FilePath:    filepath.Join(dir, "main.ft"),
+		PackageRoot: dir,
+		OutputPath:  outPath,
+		LogLevel:    "error",
+	}, nil)
+	if _, err := c.CompileFile(); err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if _, err := os.Stat(legacyInvoke); !os.IsNotExist(err) {
+		t.Fatal("legacy invoke companion should be removed")
+	}
+	newInvoke := invokeServerOutputPath(outPath)
+	if _, err := os.Stat(newInvoke); err != nil {
+		t.Fatalf("new invoke companion missing at %s: %v", newInvoke, err)
 	}
 }
