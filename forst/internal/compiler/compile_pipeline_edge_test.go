@@ -116,7 +116,7 @@ func main() {
 	}
 
 	c := New(Args{
-		Command:    "build",
+		Command:    "run",
 		FilePath:   srcPath,
 		OutputPath: outPath,
 		LogLevel:   "error",

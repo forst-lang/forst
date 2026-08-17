@@ -130,7 +130,7 @@ func (c *Compiler) compileToGo() (compileGoOutput, error) {
 	memAfter = getMemStats()
 	c.logMemUsage("code generation", memBefore, memAfter)
 
-	if c.Args.OutputPath != "" {
+	if c.Args.OutputPath != "" && c.Args.Command != "build" {
 		if err := os.WriteFile(c.Args.OutputPath, []byte(out.Main), 0644); err != nil {
 			return compileGoOutput{}, fmt.Errorf("error writing output file: %v", err)
 		}
@@ -400,18 +400,18 @@ func nodeRuntimeOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
-		return base + "_forst_node_runtime.gen.go"
+		return base + "_forst_0_node_runtime.gen.go"
 	}
-	return base + "_forst_node_runtime.gen" + ext
+	return base + "_forst_0_node_runtime.gen" + ext
 }
 
 func invokeServerOutputPath(outputPath string) string {
 	ext := filepath.Ext(outputPath)
 	base := strings.TrimSuffix(outputPath, ext)
 	if ext == "" {
-		return base + "_forst_invoke_server.gen.go"
+		return base + "_forst_1_invoke_server.gen.go"
 	}
-	return base + "_forst_invoke_server.gen" + ext
+	return base + "_forst_1_invoke_server.gen" + ext
 }
 
 // WriteExtraPackagesForOutput writes cross-package invoke Go sources beside a -o main output path.

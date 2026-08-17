@@ -87,9 +87,9 @@ Chain with dots. Same names work on type fields and in `ensure`.
 
 | Command | Purpose |
 | --- | --- |
-| `forst run FILE.ft` | Transpile, build, run |
-| `forst build FILE.ft [-root DIR]` | Transpile and build only |
-| `forst generate [DIR\|FILE]` | Emit TypeScript from Forst types |
+| `forst run FILE.ft` | Transpile and run (`go run`) |
+| `forst build -o DIR FILE.ft` | Native program binary + `manifest.json` |
+| `forst generate [DIR\|FILE]` | Emit `@forst/gen` (optional Go sources via `generate.go` / `--go-*`) |
 | `forst dev -root DIR -port N` | HTTP dev server + discovery |
 | `forst test ./...` | Run Forst tests |
 | `forst fmt FILE.ft` | Format source |

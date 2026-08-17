@@ -137,7 +137,28 @@ docker run --rm -p 8080:8080 -v "$PWD:/workspace" -w /workspace \
   ghcr.io/forst-lang/forst:v0.x.y dev --port 8080 --root .
 ```
 
-The default image includes Go for transpile-and-run workflows. Use `forst-minimal` only when you want a smaller image and will not call `forst run` or `forst test`. Generated Go for production deploys still requires `go build` in your own image if you only transpile to `.go` files.
+The default image includes Go for transpile-and-run workflows. Use `forst-minimal` only when you will exec a prebuilt invoke binary and do not need `forst run` or `forst test`.
+
+**Production Node + Forst (multi-stage):**
+
+```dockerfile
+# build stage
+FROM ghcr.io/forst-lang/forst:v0.x.y AS forst-build
+WORKDIR /app
+COPY . .
+RUN forst generate . \
+ && forst build -root . -o .forst/build/invoke --goos linux --goarch amd64 -- ./app/main.ft
+
+# runtime stage
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY --from=forst-build /app/.forst/client /app/.forst/client
+COPY --from=forst-build /app/.forst/build/invoke /app/.forst/build/invoke
+ENV FORST_BOUNDARY_ROOT=/app
+CMD ["/app/.forst/build/invoke/bin/main"]
+```
+
+Adjust paths for your layout. Read `manifest.json` `binary` for the linked executable name. The runtime stage needs Node (for `@forst/gen`) and the built program binary, not the Forst compiler or Go toolchain. With `node.hostMode`, the Go binary is the parent process: it runs embedded invoke and spawns the Node host child.
 
 ## Editor support
 

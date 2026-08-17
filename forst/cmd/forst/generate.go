@@ -111,6 +111,11 @@ type generateOptions struct {
 	listJSON          bool
 	logLevel          string
 	target            string
+	targetIsDir       bool
+	goEntry           string
+	goOut             string
+	goRoot            string
+	skipClient        bool
 }
 
 func parseGenerateArgs(args []string) (generateOptions, error) {
@@ -122,6 +127,10 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	listJSON := fs.Bool("json", false, "With --list, emit a JSON manifest of packages and functions")
 	list := fs.Bool("list", false, "Print a manifest of packages and functions instead of writing output")
 	logLevel := fs.String("log-level", "", "Log level (trace, debug, info, warn, error)")
+	goEntry := fs.String("go-entry", "", "Override generate.go.entry")
+	goOut := fs.String("go-out", "", "Override generate.go.out")
+	goRoot := fs.String("go-root", "", "Override generate.go.root")
+	skipClient := fs.Bool("skip-client", false, "Skip TypeScript client generation (generate.skipClient)")
 	if err := fs.Parse(args); err != nil {
 		return generateOptions{}, err
 	}
@@ -129,13 +138,23 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	if len(tail) < 1 {
 		return generateOptions{}, fmt.Errorf("generate command requires a target file or directory")
 	}
+	target := tail[0]
+	targetIsDir := false
+	if st, err := os.Stat(target); err == nil {
+		targetIsDir = st.IsDir()
+	}
 	return generateOptions{
 		configPath:        *configPath,
 		allowStemMismatch: *allowStemMismatch,
 		watch:             *watch,
 		listJSON:          *list || *listJSON,
 		logLevel:          *logLevel,
-		target:            tail[0],
+		target:            target,
+		targetIsDir:       targetIsDir,
+		goEntry:           *goEntry,
+		goOut:             *goOut,
+		goRoot:            *goRoot,
+		skipClient:        *skipClient,
 	}, nil
 }
 
@@ -250,6 +269,16 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err := genCfg.Validate(); err != nil {
 		return fmt.Errorf("generate config: %w", err)
 	}
+	goPlan, err := resolveGenerateGoPlan(opts, cfg, boundaryRoot)
+	if err != nil {
+		return err
+	}
+	if goPlan.active {
+		log.WithFields(logrus.Fields{
+			"entry": goPlan.entryPath,
+			"out":   goPlan.outPath,
+		}).Debug("Resolved generate Go target")
+	}
 	log.WithFields(logrus.Fields{
 		"packageName": genCfg.PackageName,
 		"outDir":      genCfg.OutDir,
@@ -259,8 +288,23 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 		"effect":      genCfg.Effect,
 	}).Debug("Resolved generate config")
 
-	if len(forstFiles) == 0 {
+	if len(forstFiles) == 0 && !goPlan.active {
 		log.Warn("No .ft files found for generation (check ftconfig include/exclude)")
+		return nil
+	}
+
+	if goPlan.active {
+		if err := runGenerateGoSources(goPlan, cfg, log); err != nil {
+			return err
+		}
+	}
+	if shouldSkipClientGenerate(opts, cfg) {
+		log.Debug("TypeScript client generation skipped (generate.skipClient)")
+		return nil
+	}
+
+	if len(forstFiles) == 0 {
+		log.Warn("No .ft files found for TypeScript generation (check ftconfig include/exclude)")
 		return nil
 	}
 

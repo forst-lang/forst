@@ -393,7 +393,7 @@ func Main() {
 
 	outputPath := filepath.Join(dir, "missing-dir", "out.go")
 	c := New(Args{
-		Command:    "build",
+		Command:    "run",
 		FilePath:   filePath,
 		OutputPath: outputPath,
 		LogLevel:   "error",

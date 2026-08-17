@@ -104,7 +104,7 @@ func configureFromManifest(manifestJSON string) error {
 	}
 
 	ConfigureSupervisor(SupervisorConfig{
-		HostMode: cfg.Node.HostMode,
+		HostMode: cfg.Node.HostMode && !InvokeOnlyEnabled(),
 		HostSocketPath: hostProcessCfg.SocketPath,
 		HostReadyPath:  hostProcessCfg.ReadyPath,
 		HostReadyTimeout: hostProcessCfg.ReadyTimeout,

@@ -30,15 +30,26 @@ type Config struct {
 
 // GenerateConfig controls TypeScript client package generation (forst generate).
 type GenerateConfig struct {
-	PackageName    string `json:"packageName"`
-	OutDir         string `json:"outDir"`
-	Link           string `json:"link"`
-	Emit           string `json:"emit"`
-	TestingSubpath string `json:"testingSubpath"`
-	Effect         bool   `json:"effect"`
-	SSRModule      string `json:"ssrModule"`
+	PackageName    string           `json:"packageName"`
+	OutDir         string           `json:"outDir"`
+	Link           string           `json:"link"`
+	Emit           string           `json:"emit"`
+	TestingSubpath string           `json:"testingSubpath"`
+	Effect         bool             `json:"effect"`
+	SSRModule      string           `json:"ssrModule"`
+	Go             GenerateGoConfig `json:"go"`
+	// SkipClient skips TypeScript client generation (Go-only or custom pipelines).
+	SkipClient bool `json:"skipClient"`
 	// OmitStubs emits commented stubs for provider-gated omissions in package modules (SPEC §12).
 	OmitStubs bool `json:"omitStubs"`
+}
+
+// GenerateGoConfig controls optional Go source emission from forst generate.
+// Go emission is active when both entry and out are set.
+type GenerateGoConfig struct {
+	Entry string `json:"entry"`
+	Out   string `json:"out"`
+	Root  string `json:"root"`
 }
 
 // NodeRPCConfig represents Node stdio RPC limits.

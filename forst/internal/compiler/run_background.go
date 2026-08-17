@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -33,29 +32,6 @@ type GoProgramProcess struct {
 	cmd    *exec.Cmd
 	stderr bytes.Buffer
 	done   chan error
-}
-
-// BuildGoProgramInSandbox compiles generated Go sources to binPath without running.
-func BuildGoProgramInSandbox(mainGoPath, binPath, boundaryRoot string) error {
-	dir, sources, err := runGoSourceFiles(mainGoPath)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command("go", append([]string{"build", "-o", binPath}, sources...)...)
-	cmd.Dir = dir
-	env := os.Environ()
-	if boundaryRoot != "" {
-		env = setRunEnvBoundaryRoot(env, boundaryRoot)
-		needsCompiler := tempDirHasForstCompanionFiles(filepath.Dir(mainGoPath))
-		plan, _ := gowork.PlanForRun(boundaryRoot, filepath.Dir(mainGoPath), needsCompiler)
-		env = gowork.ChildEnv(env, plan, boundaryRoot)
-	}
-	cmd.Env = env
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go build in sandbox: %w\n%s", err, out)
-	}
-	return nil
 }
 
 // ExecBuiltProgram runs a prebuilt binary in the background (non-blocking).

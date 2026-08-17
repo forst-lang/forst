@@ -36,6 +36,7 @@ func TestCompile_embeddedInvoke_emitsCompanion(t *testing.T) {
 		t.Fatalf("main should call ForstInvokeWaitForShutdown when companion emitted:\n%s", mainCode)
 	}
 	for _, want := range []string{
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_Echo",
 		"ForstInvokeWaitForShutdown",
@@ -283,6 +284,7 @@ func ComparePassword(input ComparePasswordRequest) {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -507,6 +509,7 @@ func ComparePassword(input {
 		"forst_invoke_bcrypt_ComparePassword",
 		"bcrypt.ComparePassword",
 		"ForstInvokeWaitForShutdown",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 	} {
 		if !strings.Contains(invokeCode, want) {
@@ -608,6 +611,7 @@ func TestCompile_remixServe_embeddedAndHostMode(t *testing.T) {
 	for _, want := range []string{
 		"forstNodeManifestJSON",
 		"nodert.CallSync",
+		"invokeembed.MustPrepareEmbeddedHostAuth",
 		"invokeembed.MustStartEmbedded",
 		"forst_invoke_main_ListTodos",
 	} {
@@ -696,7 +700,7 @@ func ComparePassword(input ComparePasswordRequest) {
 	}
 	outPath := filepath.Join(outDir, "main.go")
 	c := New(Args{
-		Command:            "build",
+		Command:            "run",
 		FilePath:           filepath.Join(mainDir, "main.ft"),
 		PackageRoot:        dir,
 		OutputPath:         outPath,

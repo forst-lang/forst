@@ -131,3 +131,10 @@ func WaitForShutdown() {
 func NotifyShutdown() {
 	defaultRuntime.NotifyShutdown()
 }
+
+// StopEmbeddedForTest stops the default embedded invoke server (for tests).
+func StopEmbeddedForTest() {
+	if defaultRuntime.server != nil {
+		_ = defaultRuntime.server.Stop()
+	}
+}

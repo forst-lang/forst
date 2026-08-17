@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	forstNodeRuntimeFileStem   = "forst_node_runtime.gen"
+	forstNodeRuntimeFileStem   = "forst_0_node_runtime.gen"
 	forstNodeGenStepDoneIdent  = "forstNodeGenStepDone"
 	forstNodeGenStepErrorIdent = "forstNodeGenStepError"
 	forstNodeGenStepTypePrefix = "forstNodeGenStep"

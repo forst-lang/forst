@@ -184,6 +184,9 @@ func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 }
 
 func newHostSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
+	if InvokeOnlyEnabled() {
+		return nil, fmt.Errorf("node host spawn disabled (%s=1)", EnvInvokeOnly)
+	}
 	log := cfg.ProcessOptions.Log
 	if log == nil {
 		log = logrus.New()
@@ -280,6 +283,7 @@ func hostProcessConfigFromSupervisor(cfg SupervisorConfig, socketPath, readyPath
 		FilesExclude:       append([]string(nil), cfg.ProcessOptions.FilesExclude...),
 		ExtraEnv:           append([]string(nil), cfg.ProcessOptions.Env...),
 		ReadyTimeout:       cfg.HostReadyTimeout,
+		AuthRelay:          ActiveHostInvokeAuthRelay(),
 		Log:                log,
 	}
 }

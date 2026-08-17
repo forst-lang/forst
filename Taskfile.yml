@@ -296,7 +296,7 @@ tasks:
     desc: Run go_interop example (Go FFI + same-package hand-written Go)
     dir: forst
     cmds:
-      - go run ./{{.BUILD_DIR}} build -o {{.EXAMPLES_DIR}}/go_interop/main.gen.go -- {{.EXAMPLES_DIR}}/go_interop/cli.ft
+      - go run ./{{.BUILD_DIR}} generate {{.EXAMPLES_DIR}}/go_interop
       - sh -c 'cd {{.EXAMPLES_DIR}}/go_interop && go run .'
 
   test:errors-compat:

@@ -25,10 +25,17 @@ With no subcommand, `forst` compiles a single `.ft` file. Given `hello.ft`:
 Run it with:
 
 ```bash
-forst path/to/file.ft          # compile
-forst run path/to/file.ft      # compile, build, and run
-forst build path/to/file.ft    # compile and build only
+forst path/to/file.ft          # compile (same as run without executing)
+forst run path/to/file.ft      # compile and run (go run)
+forst build -o <dir> path/to/file.ft   # native program binary + manifest.json
 ```
+
+| Command | Output |
+| --- | --- |
+| `forst generate` | `@forst/gen` TypeScript client (default). Optional Go sources with `--go` |
+| `forst build -o <dir>` | `bin/<entryStem>` + `manifest.json` (linked program binary) |
+| `forst run` | Execute via `go run` (development / hostMode) |
+| `forst dev` / `@forst/sidecar` | Live HTTP invoke with reload (development only) |
 
 Common flags (see `forst --help`):
 
@@ -106,6 +113,89 @@ Set these under `"generate"` in `ftconfig.json`:
 | `testingSubpath` | `string` | `"$testing"` | Subpath key for the test scope (`@forst/gen/$testing`). Must start with `$` so it cannot collide with Forst package names |
 | `effect` | `bool` | `false` | When `true`, every generated function returns an `Effect` instead of a `Promise`. See [Effect mode](/interop/node/effect) |
 | `ssrModule` | `string` | `""` (off) | Optional path for a legacy SSR wrapper module. Empty means do not write one |
+| `go.entry` | `string` | `""` | Entry `.ft` for Go source emission (requires `go.out`) |
+| `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
+| `go.root` | `string` | `""` | Optional package root for Go source emission |
+| `skipClient` | `bool` | `false` | Skip TypeScript client generation |
+
+### Optional Go sources (`generate.go`)
+
+By default, `forst generate` writes only the TypeScript client (`postinstall` safe). Go sources run when **`generate.go.entry` and `generate.go.out`** are set in `ftconfig.json`, or when you override on the CLI with matching flag names:
+
+```bash
+forst generate --go-entry=./main.ft --go-out=./out/main.go .
+forst generate --go-out=./out/main.go --go-entry=./main.ft --skip-client .
+```
+
+CLI flags mirror `ftconfig` fields (`--go-entry`, `--go-out`, `--go-root`, `--skip-client`). Unset flags fall back to `ftconfig.json`.
+
+Or configure in `ftconfig.json`:
+
+```json
+{
+  "generate": {
+    "skipClient": true,
+    "go": {
+      "entry": "./main.ft",
+      "out": "./out/main.go",
+      "root": "."
+    }
+  }
+}
+```
+
+Go source emission does **not** link a native binary. Use `forst build` for production linked programs.
+
+### Native program build (`forst build`)
+
+Build a linked program binary and `manifest.json` for slim container images (Go-like `go build -o bin/main`):
+
+```bash
+forst build -root . -o .forst/build/invoke -- ./app/main.ft
+forst build -root . -o dist/invoke --goos linux --goarch amd64 -- ./app/main.ft
+```
+
+Output layout (entry `./app/main.ft` → `bin/main`):
+
+```text
+.forst/build/invoke/
+  manifest.json
+  bin/main
+```
+
+Requires `server.embedded: true` in `ftconfig.json`. At runtime, exec the linked binary with `FORST_BOUNDARY_ROOT` set to your project root (read `binary` from `manifest.json`):
+
+```bash
+FORST_BOUNDARY_ROOT=/app /app/.forst/build/invoke/bin/main
+```
+
+#### Process trees
+
+**hostMode** (`server.embedded` + `node.hostMode`): one Go program runs your entry, embedded invoke, and spawns the Node host as a **child**:
+
+```text
+bin/main
+  ├─ embedded invoke (.forst/invoke.ready, HMAC handoff)
+  └─ Node host child (node.binary + node.args)
+       └─ @forst/gen in the app dials invoke
+```
+
+**Invoke-only** (same binary, `FORST_INVOKE_ONLY=1`): embedded invoke only; Node runs as a sibling and dials invoke.
+
+Build does **not** wait for the Node HTTP app to listen.
+
+#### `manifest.json` (build output)
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `"program"` — embedded program binary, not a separate invoke daemon |
+| `binary` | Relative path to the linked executable (from entry stem) |
+| `hostMode` | `node.hostMode` from `ftconfig.json` at build time |
+| `embeddedInvoke` | Always `true` for `forst build` |
+| `boundaryRoot` | Project root used at build time |
+| `contractVersion` | Invoke HTTP contract version |
+
+Older manifests may show `"kind": "invoke"` and `"binary": "bin/forst-invoke"`.
 
 Task pages link here instead of repeating this table.
 
@@ -159,7 +249,7 @@ Useful when reporting compiler bugs.
 
 ## `forst clean`
 
-Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
+Remove compiler-generated artifacts under `.forst/` (run sandboxes, the generated client, native build output under `.forst/build/`, test emit dirs, executor temp modules, nodert sockets, invoke ready markers). User config such as `.forst-gomod/` is not removed.
 
 ```bash
 forst clean
