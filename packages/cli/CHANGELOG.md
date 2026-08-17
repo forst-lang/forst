@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/forst-lang/forst/compare/cli-v0.7.0...cli-v0.8.0) (2026-08-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* `forst build -o` no longer emits Go sources or a fixed `bin/forst-invoke` name. Use `forst generate` for Go output and exec the path in `manifest.binary` with `FORST_BOUNDARY_ROOT` set.
+* **examples:** FORST_INVOKE_ONLY was removed. Set FORST_SKIP_NODE_HOST=1 (or true) when running a hostMode built binary with Node external. manifest.json invokeOnlyDefault is now skipNodeHostDefault.
+
+### Features
+
+* add native program build with hostMode runtime ([#185](https://github.com/forst-lang/forst/issues/185)) ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
+
+### Bug Fixes
+
+* **compiler:** remove legacy companions and tighten generate paths ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **examples:** refresh goldens with forst generate after build output change ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **invokeserver:** synchronize embedded server lifecycle ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+* **nodert:** respect invoke-only for hostMode and auth handoff ([5e5717d](https://github.com/forst-lang/forst/commit/5e5717d1b53ce281348e50afa7c3d9d6bdb5eba8))
+
 ## [0.7.0](https://github.com/forst-lang/forst/compare/cli-v0.6.1...cli-v0.7.0) (2026-08-16)
 
 
