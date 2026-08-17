@@ -35,6 +35,52 @@ func TestAuthMiddleware_missingProofRejected401(t *testing.T) {
 	}
 }
 
+// writeHeaderCounter records how many times WriteHeader is called so auth failures
+// cannot regress into a superfluous second status write via sendJSON.
+type writeHeaderCounter struct {
+	http.ResponseWriter
+	headerWrites int
+	status       int
+}
+
+func (w *writeHeaderCounter) WriteHeader(statusCode int) {
+	w.headerWrites++
+	w.status = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func TestAuthMiddleware_missingProofSingleWriteHeader(t *testing.T) {
+	s := New(Config{Host: "127.0.0.1", Port: "0", Runtime: "embedded"}, &stubBackend{
+		functions: map[string]map[string]discovery.FunctionInfo{
+			"main": {"Fn": {}},
+		},
+	}, DefaultEmbeddedVersion(), nil)
+
+	mux := http.NewServeMux()
+	s.RegisterRoutes(mux)
+	handler := s.authMiddleware(mux)
+
+	rr := httptest.NewRecorder()
+	counter := &writeHeaderCounter{ResponseWriter: rr}
+	handler.ServeHTTP(counter, newInvokeHTTPRequest(http.MethodPost, "/invoke", strings.NewReader(`{"package":"main","function":"Fn","args":[]}`)))
+	if counter.headerWrites != 1 {
+		t.Fatalf("WriteHeader calls = %d, want 1", counter.headerWrites)
+	}
+	if counter.status != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", counter.status, http.StatusUnauthorized)
+	}
+	var envelope Response
+	if err := json.Unmarshal(rr.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode body: %v body=%s", err, rr.Body.String())
+	}
+	if envelope.Success {
+		t.Fatal("expected Success=false")
+	}
+	if envelope.Error != "unauthorized" {
+		t.Fatalf("error = %q, want unauthorized", envelope.Error)
+	}
+}
+
 func TestAuthMiddleware_validProofSucceeds(t *testing.T) {
 	s := New(Config{Host: "127.0.0.1", Port: "0", Runtime: "embedded"}, &stubBackend{
 		functions: map[string]map[string]discovery.FunctionInfo{

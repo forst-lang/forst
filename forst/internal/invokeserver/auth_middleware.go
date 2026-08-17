@@ -106,8 +106,7 @@ func (s *Server) recordAuthFailure(peerKey string, now time.Time) {
 
 // sendAuthError responds with 401 and a generic unauthorized JSON envelope.
 func (s *Server) sendAuthError(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusUnauthorized)
-	s.sendJSON(w, r, Response{Success: false, Error: "unauthorized"})
+	s.sendError(w, r, "unauthorized", http.StatusUnauthorized)
 }
 
 // peerKey identifies the remote peer for backoff (uds:pid or tcp:host).
