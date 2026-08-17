@@ -129,7 +129,7 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
     FORST_ROOT=/app /app/.forst/build/bin/main
     ```
 
-    With `node.hostMode`, the same binary runs your Forst entry and starts the Node app as a child. Set `FORST_INVOKE_ONLY=1` on the same binary when Node runs separately and only the HTTP call-server should run in-process.
+    With `node.hostMode`, the same binary runs your Forst entry and starts the Node app as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
 
     For Go source inspection or hand `go build`, emit sources with `generate.go` flags:
 

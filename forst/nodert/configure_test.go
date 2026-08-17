@@ -425,14 +425,14 @@ func TestConfigureFromManifest_hostModeRequiresArgs(t *testing.T) {
 	}
 }
 
-func TestConfigureFromManifest_invokeOnlySkipsHostArgsValidation(t *testing.T) {
+func TestConfigureFromManifest_skipNodeHostDisablesEffectiveHostMode(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := filepath.Join(root, "ftconfig.json")
 	cfgJSON := `{
   "server": {"embedded": true},
   "node": {
     "hostMode": true,
-    "args": []
+    "args": ["scripts/host.mjs"]
   }
 }`
 	if err := os.WriteFile(cfgPath, []byte(cfgJSON), 0o644); err != nil {
@@ -451,14 +451,14 @@ func TestConfigureFromManifest_invokeOnlySkipsHostArgsValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("FORST_INVOKE_ONLY", "1")
-	t.Cleanup(func() { t.Setenv("FORST_INVOKE_ONLY", "") })
+	t.Setenv(EnvSkipNodeHost, "1")
+	t.Cleanup(func() { t.Setenv(EnvSkipNodeHost, "") })
 
 	resetSupervisorForTest()
 	if err := configureFromManifest(string(manifestJSON)); err != nil {
-		t.Fatalf("invoke-only with empty node.args: %v", err)
+		t.Fatalf("configureFromManifest: %v", err)
 	}
 	if supervisorCfg.HostMode {
-		t.Fatal("expected effective hostMode false when FORST_INVOKE_ONLY=1")
+		t.Fatal("expected effective hostMode false when FORST_SKIP_NODE_HOST=1")
 	}
 }

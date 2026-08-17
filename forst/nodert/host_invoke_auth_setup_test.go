@@ -10,23 +10,23 @@ import (
 	"forst/internal/ftconfig"
 )
 
-func TestGetClient_hostMode_invokeOnlyDisabled(t *testing.T) {
+func TestGetClient_hostMode_skipNodeHostDisabled(t *testing.T) {
 	resetSupervisorForTest()
 	t.Cleanup(resetSupervisorForTest)
-	t.Setenv(EnvInvokeOnly, "1")
+	t.Setenv(EnvSkipNodeHost, "1")
 	ConfigureSupervisor(SupervisorConfig{
 		HostMode: true,
 	})
 	_, err := GetClient()
 	if err == nil {
-		t.Fatal("expected error when FORST_INVOKE_ONLY=1")
+		t.Fatal("expected error when FORST_SKIP_NODE_HOST=1")
 	}
-	if got := err.Error(); got == "" || !strings.Contains(got, EnvInvokeOnly) {
+	if got := err.Error(); got == "" || !strings.Contains(got, EnvSkipNodeHost) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestInvokeOnlyEnabled(t *testing.T) {
+func TestSkipNodeHostEnabled(t *testing.T) {
 	tests := []struct {
 		name string
 		env  string
@@ -40,9 +40,9 @@ func TestInvokeOnlyEnabled(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(EnvInvokeOnly, tc.env)
-			if got := InvokeOnlyEnabled(); got != tc.want {
-				t.Fatalf("InvokeOnlyEnabled() = %v want %v", got, tc.want)
+			t.Setenv(EnvSkipNodeHost, tc.env)
+			if got := SkipNodeHostEnabled(); got != tc.want {
+				t.Fatalf("SkipNodeHostEnabled() = %v want %v", got, tc.want)
 			}
 		})
 	}
@@ -77,12 +77,12 @@ func TestEnsureEmbeddedHostInvokeAuthRelay_earlyReturns(t *testing.T) {
 		env  map[string]string
 	}{
 		{name: "nil config", cfg: nil},
-		{name: "invoke only", cfg: &ftconfig.Config{Node: ftconfig.NodeConfig{HostMode: true}, Server: ftconfig.ServerConfig{Embedded: true}}, env: map[string]string{EnvInvokeOnly: "1"}},
+		{name: "skip node host", cfg: &ftconfig.Config{Node: ftconfig.NodeConfig{HostMode: true}, Server: ftconfig.ServerConfig{Embedded: true}}, env: map[string]string{EnvSkipNodeHost: "1"}},
 		{name: "auth off", cfg: &ftconfig.Config{Node: ftconfig.NodeConfig{HostMode: true}, Server: ftconfig.ServerConfig{Embedded: true}}, env: map[string]string{envInvokeAuth: "off"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(EnvInvokeOnly, "")
+			t.Setenv(EnvSkipNodeHost, "")
 			t.Setenv(envInvokeAuth, "")
 			for k, v := range tc.env {
 				t.Setenv(k, v)

@@ -184,8 +184,8 @@ func newBootstrapSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
 }
 
 func newHostSupervisor(cfg SupervisorConfig) (*Supervisor, error) {
-	if InvokeOnlyEnabled() {
-		return nil, fmt.Errorf("node host spawn disabled (%s=1)", EnvInvokeOnly)
+	if SkipNodeHostEnabled() {
+		return nil, fmt.Errorf("node host spawn disabled (%s=1)", EnvSkipNodeHost)
 	}
 	log := cfg.ProcessOptions.Log
 	if log == nil {

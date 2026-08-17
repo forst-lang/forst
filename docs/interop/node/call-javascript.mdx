@@ -259,7 +259,7 @@ bin/main
        └─ legacy JS via nodert socket RPC
 ```
 
-Set `FORST_INVOKE_ONLY=1` on the same binary when only embedded invoke should run in-process.
+Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately and the binary should not spawn the Node host.
 
 Typical spawn layout:
 

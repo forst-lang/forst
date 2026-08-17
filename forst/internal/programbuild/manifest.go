@@ -38,7 +38,7 @@ type ProgramManifest struct {
 	GOARCH            string   `json:"goarch"`
 	EmbeddedInvoke    bool     `json:"embeddedInvoke"`
 	HostMode          bool     `json:"hostMode"`
-	InvokeOnlyDefault bool     `json:"invokeOnlyDefault"`
+	SkipNodeHostDefault bool     `json:"skipNodeHostDefault"`
 	Packages          []string `json:"packages"`
 	Binary            string   `json:"binary"`
 	BuiltAt           string   `json:"builtAt"`

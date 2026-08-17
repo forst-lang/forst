@@ -10,20 +10,20 @@ import (
 )
 
 const (
-	// EnvInvokeOnly disables Node host spawn when set to 1 or true (invoke-only layout).
-	EnvInvokeOnly = "FORST_INVOKE_ONLY"
-	envInvokeAuth = "FORST_INVOKE_AUTH"
+	// EnvSkipNodeHost disables Node host spawn when set to 1 or true (split layout).
+	EnvSkipNodeHost = "FORST_SKIP_NODE_HOST"
+	envInvokeAuth   = "FORST_INVOKE_AUTH"
 )
 
-// InvokeOnlyEnabled reports whether the process should serve embedded invoke only.
-func InvokeOnlyEnabled() bool {
-	v := os.Getenv(EnvInvokeOnly)
+// SkipNodeHostEnabled reports whether Node host spawn/attach should be skipped.
+func SkipNodeHostEnabled() bool {
+	v := os.Getenv(EnvSkipNodeHost)
 	return v == "1" || v == "true"
 }
 
 // EnsureEmbeddedHostInvokeAuthRelay registers invoke auth relay for hostMode + embedded programs.
 func EnsureEmbeddedHostInvokeAuthRelay(cfg *ftconfig.Config) error {
-	if cfg == nil || !cfg.Node.HostMode || !cfg.Server.Embedded || InvokeOnlyEnabled() {
+	if cfg == nil || !cfg.Node.HostMode || !cfg.Server.Embedded || SkipNodeHostEnabled() {
 		return nil
 	}
 	if invokeAuthDisabledByEnv() || !SupportsInvokeAuthFDHandoff() {

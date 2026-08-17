@@ -66,7 +66,7 @@ func (c *Compiler) BuildNativeProgram(outputDir, goos, goarch string) error {
 		GOARCH:            goarch,
 		EmbeddedInvoke:    true,
 		HostMode:          c.nodeHostModeEnabled(),
-		InvokeOnlyDefault: false,
+		SkipNodeHostDefault: false,
 		Packages:          manifestPackages(c, extraPkgs),
 		Binary:            filepath.ToSlash(binRel),
 		BuiltAt:           time.Now().UTC().Format(time.RFC3339),

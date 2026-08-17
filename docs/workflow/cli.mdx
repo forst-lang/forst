@@ -204,7 +204,7 @@ bin/main
        └─ @forst/gen calls Forst over HTTP
 ```
 
-**Split layout (`FORST_INVOKE_ONLY=1`):** Use the **same** binary when Node already runs somewhere else (another container, systemd unit, or local dev process). Set `FORST_INVOKE_ONLY=1` so the binary **only** starts that HTTP server. It does not start Node. Your Node app runs on its own and connects using `@forst/gen` and the URL in `.forst/invoke.ready`.
+**Split layout (`FORST_SKIP_NODE_HOST=1`):** Use the **same** binary when Node already runs somewhere else (another container, systemd unit, or local dev process). Set `FORST_SKIP_NODE_HOST=1` so the binary runs embedded invoke and your entry point but **does not spawn the Node host**. Your Node app runs on its own and connects using `@forst/gen` and the URL in `.forst/invoke.ready`.
 
 `forst build` does not wait for the Node HTTP app to finish starting.
 

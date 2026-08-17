@@ -93,7 +93,7 @@ func configureFromManifest(manifestJSON string) error {
 		return fmt.Errorf("node runtime: manifest: %w", err)
 	}
 
-	effectiveHostMode := cfg.Node.HostMode && !InvokeOnlyEnabled()
+	effectiveHostMode := cfg.Node.HostMode && !SkipNodeHostEnabled()
 	if effectiveHostMode && len(cfg.Node.Args) == 0 {
 		return fmt.Errorf("node runtime: hostMode requires non-empty node.args in ftconfig.json")
 	}
