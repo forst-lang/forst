@@ -113,3 +113,38 @@ func TestRunMain_buildRejectsGoOutputPath(t *testing.T) {
 		t.Fatal("expected non-zero exit")
 	}
 }
+
+func TestResolveGenerateGoPlan_relativeConfigFromOutsideBoundary(t *testing.T) {
+	boundary := t.TempDir()
+	outside := t.TempDir()
+	entry := filepath.Join(boundary, "main.ft")
+	if err := os.WriteFile(entry, []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	cfg.Generate.Go.Entry = "./main.ft"
+	cfg.Generate.Go.Out = "./out/main.go"
+	opts := generateOptions{target: boundary, targetIsDir: true}
+
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+	if err := os.Chdir(outside); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := resolveGenerateGoPlan(opts, cfg, boundary)
+	if err != nil {
+		t.Fatalf("resolveGenerateGoPlan: %v", err)
+	}
+	wantEntry := filepath.Join(boundary, "main.ft")
+	wantOut := filepath.Join(boundary, "out", "main.go")
+	if plan.entryPath != wantEntry {
+		t.Fatalf("entryPath = %q want %q", plan.entryPath, wantEntry)
+	}
+	if plan.outPath != wantOut {
+		t.Fatalf("outPath = %q want %q", plan.outPath, wantOut)
+	}
+}

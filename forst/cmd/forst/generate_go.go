@@ -22,17 +22,20 @@ func mergeGenerateGoConfig(opts generateOptions, cfg *ForstConfig, boundaryRoot 
 	merged := cfg.Generate.Go
 	if opts.goEntry != "" {
 		merged.Entry = opts.goEntry
+	} else if merged.Entry != "" && boundaryRoot != "" && !filepath.IsAbs(merged.Entry) {
+		merged.Entry = filepath.Join(boundaryRoot, merged.Entry)
 	}
 	if opts.goOut != "" {
 		merged.Out = opts.goOut
 	}
 	if opts.goRoot != "" {
 		merged.Root = opts.goRoot
+	} else if merged.Root != "" && boundaryRoot != "" && !filepath.IsAbs(merged.Root) {
+		merged.Root = filepath.Join(boundaryRoot, merged.Root)
 	}
 	if !targetIsDir && merged.Entry == "" && merged.Out != "" && strings.HasSuffix(strings.ToLower(target), ".ft") {
 		merged.Entry = target
 	}
-	_ = boundaryRoot
 	return merged
 }
 

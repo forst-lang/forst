@@ -3,6 +3,7 @@ package compiler
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -93,8 +94,16 @@ func main() {
 	if err != nil {
 		t.Fatalf("programbuild.Load: %v", err)
 	}
-	if manifest.Kind != programbuild.KindProgram || manifest.Binary != "bin/main" {
-		t.Fatalf("manifest = %+v", manifest)
+	if manifest.Kind != programbuild.KindProgram {
+		t.Fatalf("manifest kind = %q", manifest.Kind)
+	}
+	wantBin, err := programbuild.BinaryFileName(ft, runtime.GOOS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRel := filepath.ToSlash(filepath.Join(programbuild.BinDir, wantBin))
+	if manifest.Binary != wantRel {
+		t.Fatalf("manifest binary = %q want %q", manifest.Binary, wantRel)
 	}
 	binPath := filepath.Join(outDir, manifest.Binary)
 	if _, err := os.Stat(binPath); err != nil {

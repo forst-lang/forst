@@ -33,9 +33,6 @@ func EmitGoSources(args Args, log *logrus.Logger) error {
 }
 
 func ensureGoSourceOutputPath(outputPath string) error {
-	if filepath.IsAbs(outputPath) {
-		return nil
-	}
 	if !stringsHasGoExt(outputPath) {
 		return fmt.Errorf("Go source output path %q must end with .go", outputPath)
 	}

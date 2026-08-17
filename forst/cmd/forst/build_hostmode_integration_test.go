@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -72,13 +75,22 @@ await signalForstAppReady();
 		t.Skip("node not on PATH")
 	}
 
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("pick invoke port: %v", err)
+	}
+	invokePort := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+	portStr := strconv.Itoa(invokePort)
+	healthURL := "http://127.0.0.1:" + portStr + "/health"
+
 	socketDir := filepath.Join(dir, ".forst")
 	if err := os.MkdirAll(socketDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 
 	ftconfig := `{
-  "server": {"embedded": true, "port": "6397"},
+  "server": {"embedded": true, "port": "` + portStr + `"},
   "files": {"include": ["**/*.ft", "**/*.ts"], "exclude": ["**/node_modules/**"]},
   "node": {
     "enabled": true,
@@ -162,17 +174,23 @@ func main() {
 		"FORST_ROOT=" + dir,
 		"FORST_NODE_BINARY=" + nodeBin,
 		"FORST_INVOKE_TRANSPORT=tcp",
-		"FORST_INVOKE_PORT=6397",
+		"FORST_INVOKE_PORT=" + portStr,
 		"PATH=/usr/bin:/bin:" + filepath.Join(dir, "node_modules", ".bin"),
 		"HOME=" + os.Getenv("HOME"),
 	}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = os.Stderr
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start built program: %v", err)
 	}
 	t.Cleanup(func() {
 		cancel()
+		if cmd.Process != nil && runtime.GOOS != "windows" {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		}
 		_ = cmd.Wait()
 	})
 
@@ -198,7 +216,8 @@ func main() {
 	}
 
 	hostReady := filepath.Join(dir, ".forst", "node.sock.ready")
-	for time.Now().Before(deadline) {
+	hostDeadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(hostDeadline) {
 		if _, err := os.Stat(hostReady); err == nil {
 			break
 		}
@@ -208,7 +227,8 @@ func main() {
 		t.Fatalf("host ready marker missing at %s: %v", hostReady, err)
 	}
 
-	resp, err := http.Get("http://127.0.0.1:6397/health")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(healthURL)
 	if err != nil {
 		t.Fatalf("GET /health: %v", err)
 	}

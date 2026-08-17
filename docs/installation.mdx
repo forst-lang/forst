@@ -147,7 +147,7 @@ FROM ghcr.io/forst-lang/forst:v0.x.y AS forst-build
 WORKDIR /app
 COPY . .
 RUN forst generate . \
- && forst build -root . -o .forst/build --goos linux --goarch amd64 -- ./app/main.ft
+ && forst build -root . -o .forst/build --goos=$TARGETOS --goarch=$TARGETARCH -- ./app/main.ft
 
 # runtime stage
 FROM node:22-bookworm-slim
@@ -158,7 +158,11 @@ ENV FORST_ROOT=/app
 CMD ["/app/.forst/build/bin/main"]
 ```
 
-Adjust paths for your layout. Read `manifest.json` `binary` for the linked executable name. The runtime stage needs Node (for `@forst/gen`) and the built program binary, not the Forst compiler or Go toolchain. With `node.hostMode`, the Go binary is the parent process: it runs embedded invoke and spawns the Node host child.
+Adjust paths for your layout. Read `manifest.json` `binary` for the linked executable name.
+
+**Invoke-only / no Node imports:** The runtime image needs only the linked binary and `FORST_ROOT`. You do not need Node in the image when the program does not import TypeScript and you are not using `node.hostMode`.
+
+**`node.hostMode`:** Copy the Node host entry files referenced in `node.args`, install production dependencies (`tsx`, `@forst/node-runtime`), and run the linked binary as the parent process. `@forst/gen` is a build-time TypeScript artifact from `forst generate`. It is not a runtime Node requirement for the Go binary alone when Node is not spawned.
 
 ## Editor support
 

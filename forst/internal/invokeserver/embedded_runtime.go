@@ -26,6 +26,7 @@ func defaultEmbeddedDeps() embeddedDeps {
 type EmbeddedRuntime struct {
 	registry   *invokedispatch.Registry
 	server     *Server
+	serverMu   sync.Mutex
 	shutdown   chan struct{}
 	shutdownMu sync.Mutex
 	deps       embeddedDeps
@@ -70,11 +71,25 @@ func (r *EmbeddedRuntime) Start() error {
 	}
 	ApplyListenDefaults(&serverCfg, workDir)
 	backend := NewRegistryBackend(r.registryOrNew())
-	r.server = r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), DefaultLogger())
-	if err := r.server.StartAsync(); err != nil {
+	srv := r.deps.newServer(serverCfg, backend, DefaultEmbeddedVersion(), DefaultLogger())
+	if err := srv.StartAsync(); err != nil {
 		return fmt.Errorf("invoke server: start: %w", err)
 	}
+	r.serverMu.Lock()
+	r.server = srv
+	r.serverMu.Unlock()
 	return nil
+}
+
+// Stop shuts down the embedded invoke server when running.
+func (r *EmbeddedRuntime) Stop() {
+	r.serverMu.Lock()
+	srv := r.server
+	r.server = nil
+	r.serverMu.Unlock()
+	if srv != nil {
+		_ = srv.Stop()
+	}
 }
 
 func (r *EmbeddedRuntime) startOnce() {
@@ -95,9 +110,7 @@ func (r *EmbeddedRuntime) shutdownCh() <-chan struct{} {
 // WaitForShutdown blocks until a signal or NotifyShutdown.
 func (r *EmbeddedRuntime) WaitForShutdown(wait func(<-chan struct{})) {
 	wait(r.shutdownCh())
-	if r.server != nil {
-		_ = r.server.Stop()
-	}
+	r.Stop()
 }
 
 // NotifyShutdown unblocks WaitForShutdown.

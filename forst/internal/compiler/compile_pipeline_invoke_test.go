@@ -726,3 +726,48 @@ func ComparePassword(input ComparePasswordRequest) {
 		t.Fatalf("BuildGoProgram with extras: %v", err)
 	}
 }
+
+func TestCompile_removesLegacyCompanionFilesOnWrite(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.ft"), []byte(`package main
+
+type EchoRequest = { message: String }
+type EchoResponse = { echo: String }
+
+func Echo(input EchoRequest) {
+	return { echo: input.message }
+}
+
+func main() {}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outPath := filepath.Join(dir, "out", "main.go")
+	legacyInvoke := legacyInvokeServerOutputPath(outPath)
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyInvoke, []byte("// legacy invoke companion"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := New(Args{
+		Command:     "run",
+		FilePath:    filepath.Join(dir, "main.ft"),
+		PackageRoot: dir,
+		OutputPath:  outPath,
+		LogLevel:    "error",
+	}, nil)
+	if _, err := c.CompileFile(); err != nil {
+		t.Fatalf("CompileFile: %v", err)
+	}
+	if _, err := os.Stat(legacyInvoke); !os.IsNotExist(err) {
+		t.Fatal("legacy invoke companion should be removed")
+	}
+	newInvoke := invokeServerOutputPath(outPath)
+	if _, err := os.Stat(newInvoke); err != nil {
+		t.Fatalf("new invoke companion missing at %s: %v", newInvoke, err)
+	}
+}

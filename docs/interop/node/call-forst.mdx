@@ -115,7 +115,13 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
     npx forst dev -root . -port 6320
     ```
 
-    **Production** — linked program binary for slim container images:
+    **Production** — linked program binary for slim container images. Enable embedded invoke in `ftconfig.json` before building:
+
+    ```json
+    {
+      "server": { "embedded": true }
+    }
+    ```
 
     ```bash
     npx forst generate .

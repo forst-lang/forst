@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"forst/internal/invokeserver"
 	"forst/internal/programbuild"
 )
 
@@ -105,5 +107,25 @@ func main() {
 	if invokeResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(invokeResp.Body)
 		t.Fatalf("POST /invoke status = %d body = %s", invokeResp.StatusCode, body)
+	}
+	var envelope invokeserver.Response
+	if err := json.NewDecoder(invokeResp.Body).Decode(&envelope); err != nil {
+		t.Fatalf("decode invoke response: %v", err)
+	}
+	if !envelope.Success {
+		t.Fatalf("invoke success = false error = %q", envelope.Error)
+	}
+	var result struct {
+		Echo      string `json:"echo"`
+		Timestamp int    `json:"timestamp"`
+	}
+	if err := json.Unmarshal(envelope.Result, &result); err != nil {
+		t.Fatalf("decode invoke result: %v", err)
+	}
+	if result.Echo != "hello" {
+		t.Fatalf("echo = %q want hello", result.Echo)
+	}
+	if result.Timestamp != 42 {
+		t.Fatalf("timestamp = %d want 42", result.Timestamp)
 	}
 }

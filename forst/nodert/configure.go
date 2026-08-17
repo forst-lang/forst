@@ -93,17 +93,18 @@ func configureFromManifest(manifestJSON string) error {
 		return fmt.Errorf("node runtime: manifest: %w", err)
 	}
 
-	if cfg.Node.HostMode && len(cfg.Node.Args) == 0 {
+	effectiveHostMode := cfg.Node.HostMode && !InvokeOnlyEnabled()
+	if effectiveHostMode && len(cfg.Node.Args) == 0 {
 		return fmt.Errorf("node runtime: hostMode requires non-empty node.args in ftconfig.json")
 	}
 
 	hostProcessCfg, err := HostProcessConfigFromFTConfig(cfg, boundaryRoot, nil)
-	if err != nil && cfg.Node.HostMode {
+	if err != nil && effectiveHostMode {
 		return err
 	}
 
 	ConfigureSupervisor(SupervisorConfig{
-		HostMode: cfg.Node.HostMode && !InvokeOnlyEnabled(),
+		HostMode: effectiveHostMode,
 		HostSocketPath: hostProcessCfg.SocketPath,
 		HostReadyPath:  hostProcessCfg.ReadyPath,
 		HostReadyTimeout: hostProcessCfg.ReadyTimeout,

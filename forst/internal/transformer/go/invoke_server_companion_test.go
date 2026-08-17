@@ -49,6 +49,11 @@ func Echo(input EchoRequest) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
 	}
+	prepareIdx := strings.Index(out, "MustPrepareEmbeddedHostAuth")
+	startIdx := strings.Index(out, "MustStartEmbedded")
+	if prepareIdx < 0 || startIdx < 0 || prepareIdx >= startIdx {
+		t.Fatalf("expected MustPrepareEmbeddedHostAuth before MustStartEmbedded in:\n%s", out)
+	}
 }
 
 func TestInvokeServerSource_disabledReturnsEmpty(t *testing.T) {

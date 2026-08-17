@@ -31,12 +31,13 @@ type hostAuthHandoffPayload struct {
 // HostInvokeAuthRelay forwards invoke auth from the embedded go child to the node host
 // over inherited pipe fds (no disk token).
 type HostInvokeAuthRelay struct {
-	mu        sync.Mutex
-	closed    bool
-	hostWrite *os.File
-	hostRead  *os.File
-	goWrite   *os.File
-	goRead    *os.File
+	mu                         sync.Mutex
+	closed                     bool
+	inProcessHandoffConfigured bool
+	hostWrite                  *os.File
+	hostRead                   *os.File
+	goWrite                    *os.File
+	goRead                     *os.File
 }
 
 // NewHostInvokeAuthRelay creates the host recv pipe and initial go handoff pipe.
@@ -93,6 +94,7 @@ func (r *HostInvokeAuthRelay) PrepareGoChild() (*os.File, error) {
 	}
 	r.goRead = goRead
 	r.goWrite = goWrite
+	r.inProcessHandoffConfigured = false
 	go relayGoInvokeAuthToHost(goRead, r.hostWrite)
 	return goWrite, nil
 }
@@ -149,6 +151,7 @@ func (r *HostInvokeAuthRelay) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.closed = true
+	r.inProcessHandoffConfigured = false
 	var first error
 	for _, f := range []*os.File{r.hostRead, r.hostWrite, r.goRead, r.goWrite} {
 		if f == nil {

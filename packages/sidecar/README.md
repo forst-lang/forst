@@ -48,7 +48,7 @@ Two runtime modes matter in practice:
 
 **Compiler dependency:** [`@forst/cli`](https://www.npmjs.com/package/@forst/cli) supplies the native `forst` binary (download/cache). Shared environment variables: [`FORST_BINARY`, `FORST_CACHE_DIR`, `FORST_CLI_VERIFY`](../cli/README.md#environment-variables). Published `@forst/sidecar` packages declare `@forst/cli` with a **caret** range (`^x.y.z`) fixed at release time—bump **sidecar** for API changes, adjust **`@forst/cli`** when you only need a newer compiler.
 
-**Production packaging:** `@forst/sidecar` is for **development** (`forst dev`). Production images use `forst generate` for `@forst/gen` and `forst build -o <dir>` for a linked program binary (exec `manifest.binary` with `FORST_ROOT`, like `./bin/app` after `go build`). See [CLI reference — native program build](https://forst-lang.org/docs/workflow/cli#native-program-build-forst-build).
+**Production packaging:** `@forst/sidecar` is for **development** (`forst dev`). Production images use `forst generate` for `@forst/gen` and `forst build -o <dir>` for a linked program binary. Run the executable named in `manifest.json` `binary` relative to the `-o` directory (for example `.forst/build/bin/main`) with `FORST_ROOT` set to the project root. See [CLI reference — native program build](https://forst-lang.org/docs/workflow/cli#native-program-build-forst-build).
 
 **Peer dependency:** [`express`](https://www.npmjs.com/package/express) **^4.20.0 or ^5** (optional)—install Express in the host application when using `createExpressMiddleware`; it is not bundled here.
 

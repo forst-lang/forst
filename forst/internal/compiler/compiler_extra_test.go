@@ -250,3 +250,13 @@ func main() {
 		t.Fatalf("expected recompile on write, runs=%d", runs.Load())
 	}
 }
+
+func TestEnsureGoSourceOutputPath_rejectsNonGoExtension(t *testing.T) {
+	abs := filepath.Join(t.TempDir(), "out")
+	if err := ensureGoSourceOutputPath(abs); err == nil {
+		t.Fatal("expected error for absolute path without .go extension")
+	}
+	if err := ensureGoSourceOutputPath(filepath.Join(t.TempDir(), "main.go")); err != nil {
+		t.Fatalf("unexpected error for .go path: %v", err)
+	}
+}

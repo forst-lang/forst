@@ -424,3 +424,41 @@ func TestConfigureFromManifest_hostModeRequiresArgs(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestConfigureFromManifest_invokeOnlySkipsHostArgsValidation(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := filepath.Join(root, "ftconfig.json")
+	cfgJSON := `{
+  "server": {"embedded": true},
+  "node": {
+    "hostMode": true,
+    "args": []
+  }
+}`
+	if err := os.WriteFile(cfgPath, []byte(cfgJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := Manifest{
+		Version:      ManifestVersion,
+		BoundaryRoot: root,
+		Exports: []ExportEntry{
+			{ModuleID: "legacy/payment.ts", Name: "create", Kind: ExportKindFunction},
+		},
+	}
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("FORST_INVOKE_ONLY", "1")
+	t.Cleanup(func() { t.Setenv("FORST_INVOKE_ONLY", "") })
+
+	resetSupervisorForTest()
+	if err := configureFromManifest(string(manifestJSON)); err != nil {
+		t.Fatalf("invoke-only with empty node.args: %v", err)
+	}
+	if supervisorCfg.HostMode {
+		t.Fatal("expected effective hostMode false when FORST_INVOKE_ONLY=1")
+	}
+}

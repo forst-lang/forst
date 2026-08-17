@@ -149,20 +149,27 @@ func StartDevServer(port string, log *logrus.Logger, configPath string, rootDir 
 // devServerStartFn runs the HTTP server loop; tests may replace with a no-op.
 var devServerStartFn = func(s *DevServer) error { return s.Start() }
 
+// runtimeDevGenerateFn runs an initial client generate before a one-shot runtime dev session.
+// Watch mode uses AfterReload instead so startup and first reload do not both regenerate.
+var runtimeDevGenerateFn = runGenerateForDev
+
+// runtimeDevEntrypoints are overridable in tests.
+var (
+	runRuntimeDevEntry  = devserver.RunRuntimeDev
+	watchRuntimeDevEntry = devserver.WatchRuntimeDev
+)
+
 // runRuntimeDevFn runs compile+go run for runtime profile; tests may stub.
 var runRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
-	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
+	if err := runtimeDevGenerateFn(boundaryRoot, cfg, log); err != nil {
 		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
 	}
-	return devserver.RunRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
+	return runRuntimeDevEntry(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 // watchRuntimeDevFn runs compile+watch loop for runtime profile; tests may stub.
 var watchRuntimeDevFn = func(log *logrus.Logger, boundaryRoot, entry string, cfg *ForstConfig) error {
-	if err := runGenerateForDev(boundaryRoot, cfg, log); err != nil {
-		log.Warnf("watchGenerate: initial forst generate failed: %v", err)
-	}
-	return devserver.WatchRuntimeDev(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
+	return watchRuntimeDevEntry(log, boundaryRoot, entry, &cfg.Config, devRuntimeRunDeps(cfg, log))
 }
 
 func loadAndValidateConfig(configPath string, log *logrus.Logger, port string, logLevel *string, rootDir string, exportStructFieldsCLI bool) *ForstConfig {

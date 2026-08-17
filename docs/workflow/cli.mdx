@@ -30,6 +30,8 @@ forst run path/to/file.ft      # compile and run (go run)
 forst build -o <dir> path/to/file.ft   # native program binary + manifest.json
 ```
 
+Each command below writes a different artifact. Use this table to pick the workflow that matches what you need in your repo or container image.
+
 | Command | Output |
 | --- | --- |
 | `forst generate` | `@forst/gen` TypeScript client (default). Optional Go sources with `--go` |
@@ -120,12 +122,23 @@ Set these under `"generate"` in `ftconfig.json`:
 
 ### Optional Go sources (`generate.go`)
 
-By default, `forst generate` writes only the TypeScript client (`postinstall` safe). Go sources run when **`generate.go.entry` and `generate.go.out`** are set in `ftconfig.json`, or when you override on the CLI with matching flag names:
+By default, `forst generate` writes only the TypeScript client (`postinstall` safe). Go sources run when **`generate.go.entry` and `generate.go.out`** are set in `ftconfig.json`, or when you override on the CLI with matching flag names.
+
+**TS client + Go sources (default):**
 
 ```bash
 forst generate --go-entry=./main.ft --go-out=./out/main.go .
+```
+
+Writes `@forst/gen` and transpiled `.go` beside the output path.
+
+**Go sources only:**
+
+```bash
 forst generate --go-out=./out/main.go --go-entry=./main.ft --skip-client .
 ```
+
+Skips TypeScript client generation. Use when you only want inspectable Go for `go build` or review.
 
 CLI flags mirror `ftconfig` fields (`--go-entry`, `--go-out`, `--go-root`, `--skip-client`). Unset flags fall back to `ftconfig.json`.
 
@@ -196,6 +209,8 @@ bin/main
 `forst build` does not wait for the Node HTTP app to finish starting.
 
 #### `manifest.json` (build output)
+
+`manifest.json` sits beside the linked binary under your `-o` directory. Use these fields to verify how the program was built and which executable to run in production.
 
 | Field | Meaning |
 | --- | --- |

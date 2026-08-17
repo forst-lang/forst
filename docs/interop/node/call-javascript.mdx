@@ -103,6 +103,14 @@ the `create` export. Your TypeScript files need no Forst annotations.
 Use `build` when you want Go output for deployment. Use `run` when you want to
 compile and start the program in one step.
 
+Enable embedded invoke in `ftconfig.json` before a production build:
+
+```json
+{
+  "server": { "embedded": true }
+}
+```
+
 ```bash
 npx forst build -root ./my-service -o .forst/build -- ./cmd/api/main.ft
 npx forst run -root ./my-service ./cmd/api/main.ft

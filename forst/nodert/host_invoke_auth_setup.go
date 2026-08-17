@@ -36,12 +36,26 @@ func EnsureEmbeddedHostInvokeAuthRelay(cfg *ftconfig.Config) error {
 		}
 		SetActiveHostInvokeAuthRelay(relay)
 	}
-	return setupInProcessInvokeAuthHandoff(relay)
+	return relay.ensureInProcessHandoff()
 }
 
-func invokeAuthDisabledByEnv() bool {
-	v := os.Getenv(envInvokeAuth)
-	return v == "off" || v == "0" || v == "false"
+func (r *HostInvokeAuthRelay) ensureInProcessHandoff() error {
+	if r == nil {
+		return fmt.Errorf("node runtime: invoke auth relay is nil")
+	}
+	r.mu.Lock()
+	if r.inProcessHandoffConfigured {
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+	if err := setupInProcessInvokeAuthHandoff(r); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	r.inProcessHandoffConfigured = true
+	r.mu.Unlock()
+	return nil
 }
 
 func setupInProcessInvokeAuthHandoff(relay *HostInvokeAuthRelay) error {
@@ -57,4 +71,9 @@ func setupInProcessInvokeAuthHandoff(relay *HostInvokeAuthRelay) error {
 		return err
 	}
 	return os.Setenv(envInvokeAuthFD, fmt.Sprintf("%d", fd))
+}
+
+func invokeAuthDisabledByEnv() bool {
+	v := os.Getenv(envInvokeAuth)
+	return v == "off" || v == "0" || v == "false"
 }
