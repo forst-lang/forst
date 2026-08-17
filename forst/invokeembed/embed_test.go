@@ -23,7 +23,7 @@ func TestGlobalRegistry_sameInstance(t *testing.T) {
 
 func TestMustStartEmbedded_idempotent(t *testing.T) {
 	workDir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", workDir)
+	t.Setenv("FORST_ROOT", workDir)
 	if err := os.WriteFile(filepath.Join(workDir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"0"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestMustStartEmbedded_idempotent(t *testing.T) {
 
 func TestMustPrepareEmbeddedHostAuth_ok(t *testing.T) {
 	workDir := t.TempDir()
-	t.Setenv(nodert.EnvBoundaryRoot, workDir)
+	t.Setenv(nodert.EnvRoot, workDir)
 	if err := os.WriteFile(filepath.Join(workDir, "ftconfig.json"), []byte(`{"server":{"embedded":true}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestMustPrepareEmbeddedHostAuth_ok(t *testing.T) {
 
 func TestMustPrepareEmbeddedHostAuth_panicsOnBadBoundary(t *testing.T) {
 	badDir := t.TempDir()
-	t.Setenv(nodert.EnvBoundaryRoot, badDir)
+	t.Setenv(nodert.EnvRoot, badDir)
 	if err := os.WriteFile(filepath.Join(badDir, "ftconfig.json"), []byte("{not-json"), 0o644); err != nil {
 		t.Fatal(err)
 	}

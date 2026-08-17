@@ -233,7 +233,7 @@ func buildNodeChildEnv(opts ProcessOptions) []string {
 		}
 	}
 	if opts.BoundaryRoot != "" {
-		env = setEnvVar(env, EnvBoundaryRoot, opts.BoundaryRoot)
+		env = setEnvVar(env, EnvRoot, opts.BoundaryRoot)
 	}
 	env = setEnvVar(env, "FORST_NODE_PROTOCOL", envNodeProtocolDefault)
 	if len(opts.FilesExclude) > 0 {

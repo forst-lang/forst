@@ -653,7 +653,7 @@ tasks:
         bash ../scripts/kill-forst-tcp-listeners.sh 6321
         FT_ROOT="{{.EXAMPLES_DIR}}/rfc/embedded-invoke"
         FORST_INVOKE_TRANSPORT=tcp FORST_INVOKE_AUTH=off \
-          FORST_BOUNDARY_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
+          FORST_ROOT="$FT_ROOT" ../bin/forst run -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main.ft" &
         PID=$!
         trap 'kill -TERM $PID 2>/dev/null || true; bash ../scripts/kill-forst-tcp-listeners.sh 6321' EXIT
         bash ../scripts/wait-for-url.sh http://127.0.0.1:6321/health invoke 30
@@ -756,7 +756,7 @@ tasks:
         pkill -f 'remix-serve build/server/index.js' 2>/dev/null || true
         sleep 0.3
 
-        FORST_INVOKE_TRANSPORT=tcp FORST_BOUNDARY_ROOT="$FT_ROOT" "$FORST_BIN" run \
+        FORST_INVOKE_TRANSPORT=tcp FORST_ROOT="$FT_ROOT" "$FORST_BIN" run \
           -export-struct-fields -root "$FT_ROOT" -- "$FT_ROOT/main/main.ft" &
         FORST_PID=$!
         cleanup() {

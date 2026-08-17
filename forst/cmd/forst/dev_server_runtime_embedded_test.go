@@ -93,7 +93,7 @@ func main() {
 
 func TestDevRuntime_embeddedInvokeReady_inProcess(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("FORST_BOUNDARY_ROOT", dir)
+	t.Setenv("FORST_ROOT", dir)
 	if err := os.WriteFile(filepath.Join(dir, "ftconfig.json"), []byte(`{"server":{"embedded":true,"port":"0"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

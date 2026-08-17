@@ -17,6 +17,15 @@ import (
 
 const configFileName = "ftconfig.json"
 
+// EnvRoot is the ftconfig project root for runtime discovery (.forst/, invoke.ready, nodert).
+// `forst run -root …` sets this on child processes; it may also be set explicitly.
+const EnvRoot = "FORST_ROOT"
+
+// RootFromEnv returns the project root from FORST_ROOT when set.
+func RootFromEnv() string {
+	return strings.TrimSpace(os.Getenv(EnvRoot))
+}
+
 // Config represents the configuration for the Forst dev server (ftconfig.json).
 type Config struct {
 	Compiler CompilerConfig `json:"compiler"`

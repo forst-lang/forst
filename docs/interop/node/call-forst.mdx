@@ -119,11 +119,11 @@ Import the package handle from `@forst/gen/<package>` (for example `$auth` from
 
     ```bash
     npx forst generate .
-    npx forst build -root . -o .forst/build/invoke -- ./main.ft
-    FORST_BOUNDARY_ROOT=/app /app/.forst/build/invoke/bin/main
+    npx forst build -root . -o .forst/build -- ./main.ft
+    FORST_ROOT=/app /app/.forst/build/bin/main
     ```
 
-    With `node.hostMode`, the same binary runs embedded invoke and spawns the Node host as a child. Set `FORST_INVOKE_ONLY=1` on the same binary when Node runs separately and only invoke is needed in-process.
+    With `node.hostMode`, the same binary runs your Forst entry and starts the Node app as a child. Set `FORST_INVOKE_ONLY=1` on the same binary when Node runs separately and only the HTTP call-server should run in-process.
 
     For Go source inspection or hand `go build`, emit sources with `generate.go` flags:
 
@@ -539,7 +539,7 @@ token storage, reserved headers, and the test-only auth escape hatch.
 | `FORST_INVOKE_HOST` / `FORST_INVOKE_PORT` | Override bind address for TCP mode |
 | `FORST_INVOKE_TRANSPORT` | Set to `tcp` to force loopback TCP instead of Unix sockets |
 | `FORST_INVOKE_AUTH` | Set to `off` to disable HMAC auth (local debugging only) |
-| `FORST_BOUNDARY_ROOT` | Project root for `.forst/invoke.ready` |
+| `FORST_ROOT` | Project root for `.forst/invoke.ready` |
 | `FORST_SKIP_SPAWN` | Force HTTP connect (never spawn `forst dev`) |
 
 When the built-in server starts, Forst writes `.forst/invoke.ready` with

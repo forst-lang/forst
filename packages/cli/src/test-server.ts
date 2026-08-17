@@ -451,7 +451,7 @@ export async function startForstInvokeServer(
     const childEnv: NodeJS.ProcessEnv = {
       ...spawnEnvBase,
       ...options.env,
-      FORST_BOUNDARY_ROOT: root,
+      FORST_ROOT: root,
     };
     const authDisabled = authDisabledByEnv(childEnv);
     const stdio: SpawnOptions["stdio"] = authDisabled

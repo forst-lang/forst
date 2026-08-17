@@ -3,14 +3,13 @@ package nodert
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"forst/internal/ftconfig"
 )
 
 // PrepareEmbeddedHostInvokeAuthRelay loads ftconfig from the boundary root and wires invoke auth relay.
 func PrepareEmbeddedHostInvokeAuthRelay() error {
-	root := strings.TrimSpace(os.Getenv(EnvBoundaryRoot))
+	root := ftconfig.RootFromEnv()
 	if root == "" {
 		cwd, err := os.Getwd()
 		if err != nil {

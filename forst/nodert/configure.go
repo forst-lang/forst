@@ -13,13 +13,12 @@ import (
 )
 
 const (
-	envNodeBootstrap = "FORST_NODE_BOOTSTRAP"
-	envNodeBinary    = "FORST_NODE_BINARY"
-	envNodeAppReadyModule = "FORST_NODE_APP_READY_MODULE"
+	envNodeBootstrap       = "FORST_NODE_BOOTSTRAP"
+	envNodeBinary          = "FORST_NODE_BINARY"
+	envNodeAppReadyModule  = "FORST_NODE_APP_READY_MODULE"
 	envNodeProtocolDefault = WireProtocolProtoV1
-	// EnvBoundaryRoot is the ftconfig project root for Node interop.
-	// `forst run -root …` sets this on the child Go process; it may also be set explicitly.
-	EnvBoundaryRoot = "FORST_BOUNDARY_ROOT"
+	// EnvRoot is the ftconfig project root for Node interop.
+	EnvRoot = ftconfig.EnvRoot
 )
 
 var (
@@ -52,7 +51,7 @@ func configureFromManifest(manifestJSON string) error {
 
 	workDir := strings.TrimSpace(manifest.BoundaryRoot)
 	if workDir == "" {
-		if root := strings.TrimSpace(os.Getenv(EnvBoundaryRoot)); root != "" {
+		if root := ftconfig.RootFromEnv(); root != "" {
 			workDir = root
 		}
 	}

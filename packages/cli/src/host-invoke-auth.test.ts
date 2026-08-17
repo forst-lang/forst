@@ -18,7 +18,7 @@ afterEach(() => {
   resetHostInvokeAuthHandoffForTest();
   delete process.env[recvFdEnv];
   delete process.env.FORST_SKIP_SPAWN;
-  delete process.env.FORST_BOUNDARY_ROOT;
+  delete process.env.FORST_ROOT;
   delete process.env.FORST_BASE_URL;
   delete process.env.FORST_INVOKE_URL;
   delete process.env.FORST_DEV_URL;
@@ -59,7 +59,7 @@ describe("prepareInvokeConnect", () => {
     const root = prepareInvokeConnect("/tmp/forst-boundary");
     expect(root).toBe("/tmp/forst-boundary");
     expect(process.env.FORST_SKIP_SPAWN).toBe("1");
-    expect(process.env.FORST_BOUNDARY_ROOT).toBe("/tmp/forst-boundary");
+    expect(process.env.FORST_ROOT).toBe("/tmp/forst-boundary");
     expect(process.env.FORST_BASE_URL).toBe(DEFAULT_EMBEDDED_INVOKE_BASE_URL);
   });
 

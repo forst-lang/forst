@@ -148,41 +148,52 @@ Go source emission does **not** link a native binary. Use `forst build` for prod
 
 ### Native program build (`forst build`)
 
-Build a linked program binary and `manifest.json` for slim container images (Go-like `go build -o bin/main`):
+Build a linked program binary and `manifest.json` for slim container images (similar to `go build -o bin/main`).
+
+**Local build** (writes under `.forst/`, removed by `forst clean`):
 
 ```bash
-forst build -root . -o .forst/build/invoke -- ./app/main.ft
-forst build -root . -o dist/invoke --goos linux --goarch amd64 -- ./app/main.ft
+forst build -root . -o .forst/build -- ./app/main.ft
 ```
+
+**Cross-compile for Linux containers** (writes to a path you copy into the image):
+
+```bash
+forst build -root . -o dist --goos linux --goarch amd64 -- ./app/main.ft
+```
+
+`-o` is the output directory. Forst writes `manifest.json` and `bin/<entryStem>` directly inside it. No extra subfolder is required.
 
 Output layout (entry `./app/main.ft` → `bin/main`):
 
 ```text
-.forst/build/invoke/
+.forst/build/
   manifest.json
   bin/main
 ```
 
-Requires `server.embedded: true` in `ftconfig.json`. At runtime, exec the linked binary with `FORST_BOUNDARY_ROOT` set to your project root (read `binary` from `manifest.json`):
+Requires `server.embedded: true` in `ftconfig.json`. At runtime, run the linked binary with `FORST_ROOT` set to your project root (read `binary` from `manifest.json`):
 
 ```bash
-FORST_BOUNDARY_ROOT=/app /app/.forst/build/invoke/bin/main
+FORST_ROOT=/app /app/.forst/build/bin/main
 ```
 
-#### Process trees
+#### How the binary fits with Node
 
-**hostMode** (`server.embedded` + `node.hostMode`): one Go program runs your entry, embedded invoke, and spawns the Node host as a **child**:
+When `node.hostMode` is enabled, the built binary can run Forst and talk to Node in one of two layouts.
+
+**All-in-one (default):** One process runs your Forst entry point, starts the small HTTP server that `@forst/gen` uses to call Forst functions, and starts your Node app (for example remix-serve) as a **child process**:
 
 ```text
 bin/main
-  ├─ embedded invoke (.forst/invoke.ready, HMAC handoff)
-  └─ Node host child (node.binary + node.args)
-       └─ @forst/gen in the app dials invoke
+  ├─ HTTP server for @forst/gen (.forst/invoke.ready)
+  └─ Node app child (node.binary + node.args)
+       └─ @forst/gen calls Forst over HTTP
 ```
 
-**Invoke-only** (same binary, `FORST_INVOKE_ONLY=1`): embedded invoke only; Node runs as a sibling and dials invoke.
+**Split layout (`FORST_INVOKE_ONLY=1`):** Use the **same** binary when Node already runs somewhere else (another container, systemd unit, or local dev process). Set `FORST_INVOKE_ONLY=1` so the binary **only** starts that HTTP server. It does not start Node. Your Node app runs on its own and connects using `@forst/gen` and the URL in `.forst/invoke.ready`.
 
-Build does **not** wait for the Node HTTP app to listen.
+`forst build` does not wait for the Node HTTP app to finish starting.
 
 #### `manifest.json` (build output)
 

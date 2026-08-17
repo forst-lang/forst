@@ -343,6 +343,18 @@ func TestBoundaryRootFromDir_notFound(t *testing.T) {
 	}
 }
 
+func TestRootFromEnv(t *testing.T) {
+	t.Setenv(EnvRoot, "/project/root")
+	if got := RootFromEnv(); got != "/project/root" {
+		t.Fatalf("RootFromEnv() = %q want /project/root", got)
+	}
+
+	t.Setenv(EnvRoot, "")
+	if got := RootFromEnv(); got != "" {
+		t.Fatalf("RootFromEnv() = %q want empty", got)
+	}
+}
+
 func TestConfig_FindForstFiles_skipsExcludedDirectoryTrees(t *testing.T) {
 	root := t.TempDir()
 	keep := filepath.Join(root, "keep.ft")

@@ -58,7 +58,7 @@ func main() {
 	cmd := exec.CommandContext(ctx, binPath)
 	cmd.Dir = fixture.dir
 	cmd.Env = []string{
-		"FORST_BOUNDARY_ROOT=" + fixture.dir,
+		"FORST_ROOT=" + fixture.dir,
 		"FORST_INVOKE_TRANSPORT=tcp",
 		"FORST_INVOKE_AUTH=off",
 		"FORST_INVOKE_PORT=6399",

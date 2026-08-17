@@ -52,7 +52,7 @@ Run the same example from a copy outside the monorepo tree (or use `task example
 
 ```bash
 export FORST_BINARY=<repo>/bin/forst
-export FORST_BOUNDARY_ROOT=<project-dir>
+export FORST_ROOT=<project-dir>
 export FORST_GOMOD_ROOT=<repo>/forst   # when binary is not adjacent to the Go module
 "$FORST_BINARY" run -export-struct-fields -root <project-dir> -- <project-dir>/main/main.ft
 ```

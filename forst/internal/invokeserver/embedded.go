@@ -16,9 +16,8 @@ import (
 const (
 	envInvokeEnabled = "FORST_INVOKE_ENABLED"
 	// EnvInvokePort overrides the embedded invoke listen port (dev reload port pick).
-	EnvInvokePort   = "FORST_INVOKE_PORT"
-	envInvokePort   = EnvInvokePort
-	envBoundaryRoot = "FORST_BOUNDARY_ROOT"
+	EnvInvokePort = "FORST_INVOKE_PORT"
+	envInvokePort = EnvInvokePort
 )
 
 // GlobalRegistry returns the registry populated by generated init code.
@@ -51,7 +50,7 @@ func effectivePort(s ftconfig.ServerConfig) string {
 }
 
 func resolveBoundaryRoot() (string, error) {
-	if root := os.Getenv(envBoundaryRoot); root != "" {
+	if root := ftconfig.RootFromEnv(); root != "" {
 		return filepath.Clean(root), nil
 	}
 	cwd, err := os.Getwd()

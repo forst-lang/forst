@@ -159,7 +159,7 @@ func main() {
 	cmd := exec.CommandContext(ctx, binPath)
 	cmd.Dir = dir
 	cmd.Env = []string{
-		"FORST_BOUNDARY_ROOT=" + dir,
+		"FORST_ROOT=" + dir,
 		"FORST_NODE_BINARY=" + nodeBin,
 		"FORST_INVOKE_TRANSPORT=tcp",
 		"FORST_INVOKE_PORT=6397",

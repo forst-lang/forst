@@ -67,5 +67,5 @@ cleanup_stale_unix_socket() {
 }
 
 if [[ "${FORST_CLEANUP_INVOKE_SOCKET:-}" == "1" ]]; then
-  cleanup_stale_unix_socket "${FORST_BOUNDARY_ROOT:-.}"
+  cleanup_stale_unix_socket "${FORST_ROOT:-.}"
 fi

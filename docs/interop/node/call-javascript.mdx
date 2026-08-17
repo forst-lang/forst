@@ -104,14 +104,14 @@ Use `build` when you want Go output for deployment. Use `run` when you want to
 compile and start the program in one step.
 
 ```bash
-npx forst build -root ./my-service -o .forst/build/program -- ./cmd/api/main.ft
+npx forst build -root ./my-service -o .forst/build -- ./cmd/api/main.ft
 npx forst run -root ./my-service ./cmd/api/main.ft
 ```
 
 Production exec (read `binary` from `manifest.json`, for example `bin/main`):
 
 ```bash
-FORST_BOUNDARY_ROOT=/app /app/.forst/build/program/bin/main
+FORST_ROOT=/app /app/.forst/build/bin/main
 ```
 
 Your deployed app needs Node, `tsx`, and `@forst/node-runtime` when any reachable

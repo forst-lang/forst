@@ -119,7 +119,7 @@ func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 		FilesExclude: []string{"**/node_modules/**", "**/.git/**"},
 	})
 
-	assertEnvVar(t, env, "FORST_BOUNDARY_ROOT", "/tmp/project")
+	assertEnvVar(t, env, "FORST_ROOT", "/tmp/project")
 	assertEnvVar(t, env, "FORST_NODE_PROTOCOL", envNodeProtocolDefault)
 
 	raw := envValue(t, env, "FORST_FILES_EXCLUDE")
@@ -134,10 +134,10 @@ func TestBuildNodeChildEnv_setsBoundaryProtocolAndExclude(t *testing.T) {
 
 func TestBuildNodeChildEnv_overridesExistingKeys(t *testing.T) {
 	env := buildNodeChildEnv(ProcessOptions{
-		Env:          []string{"FORST_BOUNDARY_ROOT=old", "PATH=/bin"},
+		Env:          []string{"FORST_ROOT=old", "PATH=/bin"},
 		BoundaryRoot: "/new/root",
 	})
-	assertEnvVar(t, env, "FORST_BOUNDARY_ROOT", "/new/root")
+	assertEnvVar(t, env, "FORST_ROOT", "/new/root")
 	assertEnvVar(t, env, "PATH", "/bin")
 }
 
@@ -199,7 +199,7 @@ func TestConfigureFromManifest_usesBoundaryRootEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv(EnvBoundaryRoot, root)
+	t.Setenv(EnvRoot, root)
 	manifestJSON := `{"version":1,"exports":[{"moduleId":"legacy/payment.ts","name":"create","kind":"function"}]}`
 
 	resetSupervisorForTest()
