@@ -210,7 +210,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					return nil, fmt.Errorf("slice expression: high bound must be Int")
 				}
 			}
-			ft, ok := goTypeToForstType(types.NewSlice(elem))
+			ft, ok := tc.mapGoType(types.NewSlice(elem))
 			if !ok {
 				return nil, fmt.Errorf("slice expression: cannot map Go slice element type")
 			}
@@ -274,7 +274,7 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 			if obj == nil {
 				return nil, diagnosticf(e.Field.Span, "go-field", "%s has no field %s", goRecv.String(), e.Field.ID)
 			}
-			ft, ok := goTypeToForstType(obj.Type())
+			ft, ok := tc.mapGoType(obj.Type())
 			if !ok {
 				return nil, diagnosticf(e.Field.Span, "go-field", "cannot map Go field type %s", obj.Type().String())
 			}
@@ -484,6 +484,9 @@ func (tc *TypeChecker) inferExpressionType(expr ast.Node) ([]ast.TypeNode, error
 					if p, ok := tc.importPathByLocal[pkgName]; ok && p != "" {
 						importPath = p
 					}
+				}
+				if loadErr := tc.goImportLoadErrorForPath(importPath); loadErr != nil {
+					return nil, diagnosticf(callSpan, "go-import", "failed to load Go package %q: %v", importPath, loadErr)
 				}
 				tc.log.WithFields(logrus.Fields{
 					"function":           "inferExpressionType",

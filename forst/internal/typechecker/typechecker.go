@@ -64,6 +64,8 @@ type TypeChecker struct {
 	goPkgsByLocal map[string]*types.Package
 	// dotImportPkgs lists packages imported with Go dot-import (import . "path"). Used to resolve unqualified calls like NewReader.
 	dotImportPkgs []*types.Package
+	// goImportLoadErrors records go/packages load failures keyed by import path.
+	goImportLoadErrors map[string]error
 	// importPathByLocal maps import local identifier -> Go import path (for hover even when go/packages failed).
 	importPathByLocal map[string]string
 	// Logger for the type checker

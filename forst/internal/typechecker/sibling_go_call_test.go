@@ -73,7 +73,7 @@ func TestForstTypeForGoType_inModuleNamedMapsToQualifiedForstType(t *testing.T) 
 	}
 }
 
-func TestForstTypeForGoType_stdlibNamedReturnsFalse(t *testing.T) {
+func TestForstTypeForGoType_stdlibNamedMapsWhenImportLoaded(t *testing.T) {
 	t.Parallel()
 	dir := moduleRootFromWD(t)
 	loaded, err := goload.LoadByPkgPath(dir, []string{"strings"})
@@ -93,8 +93,10 @@ func TestForstTypeForGoType_stdlibNamedReturnsFalse(t *testing.T) {
 	tc := New(log, false)
 	tc.GoWorkspaceDir = dir
 	tc.importPathByLocal = map[string]string{"strings": "strings"}
-	if _, ok := tc.forstTypeForGoType(obj.Type()); ok {
-		t.Fatal("expected stdlib named type not to map to Forst sibling type")
+	tc.goPkgsByLocal = map[string]*types.Package{"strings": pkg.Types}
+	got, ok := tc.forstTypeForGoType(obj.Type())
+	if !ok || got.Ident != ast.TypeIdent("strings.Reader") {
+		t.Fatalf("want strings.Reader, got ok=%v %#v", ok, got)
 	}
 }
 

@@ -64,6 +64,10 @@ func (stubHost) IsTypeCompatible(_, _ ast.TypeNode) bool {
 	return false
 }
 
+func (stubHost) GoTypeForForstType(_ ast.TypeNode) types.Type {
+	return nil
+}
+
 func (stubHost) InferExpressionType(_ ast.ExpressionNode) ([]ast.TypeNode, error) {
 	return nil, nil
 }

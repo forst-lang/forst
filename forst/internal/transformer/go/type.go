@@ -27,6 +27,26 @@ func (t *Transformer) transformForstSiblingQualifiedType(typeIdent ast.TypeIdent
 	}, true
 }
 
+func (t *Transformer) transformGoImportQualifiedType(typeIdent ast.TypeIdent) (goast.Expr, bool) {
+	if t.TypeChecker == nil {
+		return nil, false
+	}
+	importLocal, typeName, ok := typechecker.ParseForstSiblingTypeRef(typeIdent)
+	if !ok {
+		return nil, false
+	}
+	if _, ok := t.TypeChecker.ResolveForstSiblingTypeDef(typeIdent); ok {
+		return nil, false
+	}
+	if t.TypeChecker.GoPackageForImportLocal(importLocal) == nil {
+		return nil, false
+	}
+	return &goast.SelectorExpr{
+		X:   goast.NewIdent(importLocal),
+		Sel: goast.NewIdent(typeName),
+	}, true
+}
+
 // transformType converts a Forst type node to a Go type declaration
 func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	if n.Ident == "" {
@@ -127,6 +147,9 @@ func (t *Transformer) transformType(n ast.TypeNode) (goast.Expr, error) {
 	case ast.TypeFunc:
 		return t.transformFunctionType(n)
 	default:
+		if sel, ok := t.transformGoImportQualifiedType(n.Ident); ok {
+			return sel, nil
+		}
 		if sel, ok := t.transformForstSiblingQualifiedType(n.Ident); ok {
 			return sel, nil
 		}
@@ -220,6 +243,28 @@ func transformTypeIdent(ident ast.TypeIdent) (*goast.Ident, error) {
 		return &goast.Ident{Name: "complex128"}, nil
 	case ast.TypeIdent("byte"):
 		return &goast.Ident{Name: "byte"}, nil
+	case ast.TypeIdent("float32"):
+		return &goast.Ident{Name: "float32"}, nil
+	case ast.TypeIdent("int8"):
+		return &goast.Ident{Name: "int8"}, nil
+	case ast.TypeIdent("int16"):
+		return &goast.Ident{Name: "int16"}, nil
+	case ast.TypeIdent("int32"):
+		return &goast.Ident{Name: "int32"}, nil
+	case ast.TypeIdent("int64"):
+		return &goast.Ident{Name: "int64"}, nil
+	case ast.TypeIdent("uint"):
+		return &goast.Ident{Name: "uint"}, nil
+	case ast.TypeIdent("uint8"):
+		return &goast.Ident{Name: "uint8"}, nil
+	case ast.TypeIdent("uint16"):
+		return &goast.Ident{Name: "uint16"}, nil
+	case ast.TypeIdent("uint32"):
+		return &goast.Ident{Name: "uint32"}, nil
+	case ast.TypeIdent("uint64"):
+		return &goast.Ident{Name: "uint64"}, nil
+	case ast.TypeIdent("uintptr"):
+		return &goast.Ident{Name: "uintptr"}, nil
 	case ast.TypeIdent("rune"):
 		return &goast.Ident{Name: "rune"}, nil
 	case ast.TypeBool:

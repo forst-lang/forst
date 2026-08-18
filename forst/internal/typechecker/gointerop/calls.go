@@ -35,6 +35,13 @@ func CheckFuncCall(host Host, diag Diagnose, c FuncCall) ([]ast.TypeNode, error)
 	if !ok {
 		return nil, diag(c.Call.CallSpan, "go-call", "%s: invalid signature", qual)
 	}
+	if sig.TypeParams() != nil && sig.TypeParams().Len() > 0 {
+		sp := c.Call.Function.Span
+		if !sp.IsSet() {
+			sp = c.Call.CallSpan
+		}
+		return nil, diag(sp, "go-call", "%s: generic Go API requires type arguments (not yet supported)", qual)
+	}
 	return CheckSignature(host, diag, SignatureCheck{
 		Sig:             sig,
 		Qual:            qual,
@@ -140,7 +147,7 @@ func CheckSignature(host Host, diag Diagnose, c SignatureCheck) ([]ast.TypeNode,
 	}
 	out := make([]ast.TypeNode, res.Len())
 	for i := 0; i < res.Len(); i++ {
-		gt, ok := TypeToForstType(res.At(i).Type())
+		gt, ok := MapGoType(host, res.At(i).Type())
 		if !ok {
 			sp := c.Call.Function.Span
 			if !sp.IsSet() {
