@@ -24,7 +24,7 @@ const argv = process.argv.slice(2);
 
 /** Spawns the resolved native `forst` binary with the current argv, forwarding SIGINT/SIGTERM and exit status. */
 export async function runForstCli(): Promise<number> {
-  const { bin, env } = await buildForstSpawnEnv();
+  const { bin, env } = await buildForstSpawnEnv({ argv: process.argv.slice(2) });
   const child = spawn(bin, process.argv.slice(2), { stdio: "inherit", env });
   const forward = (sig: NodeJS.Signals) => {
     child.kill(sig);

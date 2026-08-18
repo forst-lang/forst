@@ -103,6 +103,53 @@ describe("buildForstSpawnEnv", () => {
     }
   });
 
+  test("does not download plugins for non-generate commands", async () => {
+    let pluginFetch = false;
+    const fetchFn = async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("forst-plugins-")) {
+        pluginFetch = true;
+      }
+      return new Response(new Uint8Array(), { status: 404 });
+    };
+
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-spawn-env-no-plugins-"));
+    try {
+      const version = "9.9.7";
+      const versionDir = join(cacheRoot, version);
+      mkdirSync(versionDir, { recursive: true });
+      const binaryPath = join(
+        versionDir,
+        getCompilerArtifactName(process.platform, process.arch)
+      );
+      writeFileSync(binaryPath, "fake-binary");
+
+      await buildForstSpawnEnv({
+        argv: ["version"],
+        version,
+        allowDownload: false,
+        env: { FORST_CACHE_DIR: cacheRoot, PATH: "/usr/bin" },
+        fetchFn,
+        fs: {
+          existsSync,
+          mkdirSync,
+          readFileSync: () => {
+            throw new Error("unexpected read");
+          },
+          writeFileSync,
+          chmodSync: () => {},
+          renameSync: () => {},
+          unlinkSync: () => {},
+          statSync: () => ({ mtimeMs: Date.now() } as never),
+        },
+      });
+
+      expect(pluginFetch).toBe(false);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
   test("does not override user FORST_GOMOD_ROOT", async () => {
     const userRoot = "/custom/forst/module";
     const env: NodeJS.ProcessEnv = {

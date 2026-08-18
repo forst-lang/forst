@@ -54,7 +54,7 @@ Each `generate.plugins[].cmd` value resolves as follows:
 | `./bin/forst-gen-jsonschema` | Relative to the ftconfig boundary root |
 | `/usr/local/bin/forst-gen-jsonschema` | Used as-is (absolute path) |
 
-When you invoke `forst` through `@forst/cli`, the CLI downloads official plugin binaries into the same version cache directory as the compiler and prepends that directory to `PATH` before spawning `forst generate`.
+When you invoke `forst` through `@forst/cli`, the CLI downloads official plugin binaries into the same version cache directory as the compiler only when `forst generate` runs against an `ftconfig.json` that lists bare official plugin names in `generate.plugins`, then prepends that directory to `PATH` before spawning.
 
 Plugin `out` directories are owned exclusively by the plugin. On each run, `forst generate` removes stale files under `out` that the plugin did not emit. Diagnostics with `severity: "error"` fail the generate command; warnings are logged only.
 

@@ -1,7 +1,8 @@
 import { dirname } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCompilerModuleDirForVersion } from "./compiler-module.js";
+import { shouldDownloadPluginsForSpawn } from "./ftconfig-plugins.js";
 import {
   ensurePluginsForVersion,
   pluginsReady,
@@ -12,16 +13,29 @@ import {
   type ResolveForstBinaryOptions,
 } from "./resolve.js";
 
+export interface BuildForstSpawnEnvOptions extends ResolveForstBinaryOptions {
+  /** Forst argv slice after the binary name (default: empty). */
+  argv?: string[];
+  /** Working directory for ftconfig discovery (default: process.cwd()). */
+  cwd?: string;
+}
+
 function compilerModuleReady(moduleDir: string): boolean {
   return existsSync(join(moduleDir, "cmd", "forst"));
 }
 
 /** Resolves binary path and env for spawning forst (sets FORST_GOMOD_ROOT when using CLI cache). */
 export async function buildForstSpawnEnv(
-  options: ResolveForstBinaryOptions = {}
+  options: BuildForstSpawnEnvOptions = {}
 ): Promise<{ bin: string; env: NodeJS.ProcessEnv }> {
   const baseEnv = options.env ?? process.env;
   const allowDownload = options.allowDownload !== false;
+  const argv = options.argv ?? [];
+  const cwd = options.cwd ?? process.cwd();
+  const fs = {
+    existsSync: options.fs?.existsSync ?? existsSync,
+    readFileSync: options.fs?.readFileSync ?? readFileSync,
+  };
   const { binaryPath, version } = await resolveForstBinaryDetailed(options);
   let env: NodeJS.ProcessEnv = { ...baseEnv };
   if (!env.FORST_GOMOD_ROOT?.trim() && version) {
@@ -34,7 +48,12 @@ export async function buildForstSpawnEnv(
     }
   }
 
-  if (version && allowDownload) {
+  const downloadPlugins =
+    version &&
+    allowDownload &&
+    shouldDownloadPluginsForSpawn({ argv, cwd, fs });
+
+  if (downloadPlugins) {
     await ensurePluginsForVersion({
       version,
       env,
