@@ -1,19 +1,30 @@
 <Tabs>
   <Tab title="Forst">
     ```ft
-    func mustNotExceedSpeedLimit(speed Int) {
-    	ensure speed is LessThan(100)
-    		or TooFast("Speed must not exceed 100 km/h")
+    error TooFast {}
+
+    var position = 0
+
+    func drive(speed Int) {
+    	ensure speed is LessThan(100) or TooFast()
+    	position += speed
     }
     ```
   </Tab>
   <Tab title="Generated Go">
     ```go
     // forst build
-    func mustNotExceedSpeedLimit(speed int) error {
+    type TooFast struct{}
+
+    func (e TooFast) Error() string { return "TooFast" }
+
+    var position = 0
+
+    func drive(speed int) error {
     	if !(speed < 100) {
-    		return TooFast{Message: "Speed must not exceed 100 km/h"}
+    		return TooFast{}
     	}
+    	position += speed
     	return nil
     }
     ```

@@ -168,7 +168,19 @@ Forst supports **gradual adoption**. You can migrate route by route without a bi
 
 ## Caveats
 
-**Go import loading** is **experimental**. Unmapped Go types report diagnostics. This is not a full Go loader yet.
+**Go import loading** is **experimental**. The compiler loads packages via **`go/packages`** and type-checks calls when imports resolve. Common stdlib paths work; full parity with arbitrary Go packages is still maturing.
+
+**Known mapper gaps:**
+
+- **Generic Go APIs** (`slices.Contains`, `maps.Clone`, …) — no type-argument syntax or inference yet.
+- **`unsafe`** — not wired end-to-end; use hand-written **`.go`**.
+- **Unnamed struct types** at the FFI boundary — prefer named Go types or shapes in Forst.
+- **Numeric kind precision** — Forst `Int`/`Float` may not match every Go width at the boundary; explicit conversions may be required.
+- **Interface assignability** — non-empty Go interfaces are checked conservatively; edge cases remain.
+
+`switch` / `case` / `fallthrough` are **language** features (Go-faithful), not interop gaps. Type switches (`switch v := x.(type)`) are deliberately unsupported; use **`is`** narrowing instead.
+
+Failed **`go/packages`** loads surface as **`go-import`** diagnostics when the import path is referenced.
 
 ### `unsafe` not end to end
 

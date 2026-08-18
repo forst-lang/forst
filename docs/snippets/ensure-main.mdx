@@ -1,0 +1,53 @@
+<Tabs>
+  <Tab title="Forst">
+    ```ft
+    import "fmt"
+
+    error AlreadyStopped {}
+
+    func stop() {
+    	ensure position is GreaterThan(0) or AlreadyStopped()
+    	position = 0
+    }
+
+    func main() {
+    	err := drive(80)
+    	ensure !err
+    	err = stop()
+    	ensure !err {
+    		fmt.Println("failed to stop:", err)
+    	}
+    }
+    ```
+  </Tab>
+  <Tab title="Generated Go">
+    ```go
+    // forst build
+    type AlreadyStopped struct{}
+
+    func (e AlreadyStopped) Error() string { return "AlreadyStopped" }
+
+    func stop() error {
+    	if !(position > 0) {
+    		return AlreadyStopped{}
+    	}
+    	position = 0
+    	return nil
+    }
+
+    func main() {
+    	err := drive(80)
+    	if err != nil {
+    		fmt.Fprintf(os.Stderr, "ensure failed: %v\n", err)
+    		os.Exit(1)
+    	}
+    	err = stop()
+    	if err != nil {
+    		fmt.Println("failed to stop:", err)
+    		fmt.Fprintf(os.Stderr, "ensure failed: %v\n", err)
+    		os.Exit(1)
+    	}
+    }
+    ```
+  </Tab>
+</Tabs>

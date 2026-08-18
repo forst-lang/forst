@@ -4,8 +4,8 @@ description: "Validate values before your program continues."
 ---
 
 import EnsureSpeed from "/snippets/ensure-speed.mdx";
+import EnsureMain from "/snippets/ensure-main.mdx";
 import EnsureNil from "/snippets/ensure-nil.mdx";
-import EnsureNotErr from "/snippets/ensure-not-err.mdx";
 import EnsureCatalog from "/snippets/ensure-catalog.mdx";
 import EnsurePlaceOrderOk from "/snippets/ensure-place-order-ok.mdx";
 import EnsureIfOk from "/snippets/ensure-if-ok.mdx";
@@ -19,13 +19,14 @@ when you want to choose a branch instead of returning early.
 
 ## Stop when a check fails
 
-Write `ensure value is Condition` to check a value. Add `or` when you want to
-return a specific error.
+Write `ensure value is Condition()` to check a value. Add `or` when you want to
+return a specific error. This `drive` function rejects a speed that is too
+high, then updates a shared `position`.
 
 <EnsureSpeed />
 
-The function returns `TooFast` when `speed` fails the check. Code after the
-`ensure` only runs for a valid speed.
+When the check fails, `drive` returns `TooFast`. `position` stays unchanged.
+`position += speed` runs only after the speed passes.
 
 <Note>
   See [Errors and Result](/language/errors-and-result) for how to define named
@@ -34,6 +35,25 @@ The function returns `TooFast` when `speed` fails the check. Code after the
 
 Forst provides conditions such as `LessThan`, `Min`, `Present`, and `Ok`. The
 `is` operator runs the condition and refines the value's type after success.
+See the [full list of constraints](/language/shapes-and-constraints#reference).
+
+## Exiting from `main`
+
+`main` starts the process. A failed `ensure` there ends the process with exit
+status 1. There is no caller to return an error to, so `or` is not allowed.
+
+Write `ensure !err` when you only need that exit. Add a `{ ... }` block when
+you want to log or clean up first. The block runs on failure. The process
+still exits afterward.
+
+This example calls `drive`, then `stop`. The first check has no block. The
+second prints a line if `stop` fails.
+
+<EnsureMain />
+
+If `drive` fails, the program writes to stderr and exits. `stop` never runs.
+If `stop` fails, the program prints `failed to stop:` and the error, then
+exits. Nothing after that `ensure` in `main` runs.
 
 ## Check for missing values
 
@@ -42,10 +62,9 @@ pointers, `Map`, `Array`, and `Error`.
 
 <EnsureNil />
 
-The example returns `err` when it contains an error. You can write the same
-check in its shorter negated form.
-
-<EnsureNotErr />
+`claim` continues only when `slot` is nil. `open` then uses
+`ensure !err or err`, the short form of `ensure err is Nil() or err`. Both
+lower to the same Go `if err != nil` check.
 
 Pointer fields also support
 [`.Present()` and `.Nil()`](/language/shapes-and-constraints). Full optional
@@ -100,7 +119,7 @@ reassignment or field changes may invalidate what the earlier check proved.
 See [Type guards](/language/type-guards#checks-run-once) for a concrete example.
 
 <Warning>
-  Narrowing reflects a single check at compile time. It does not lock the value at runtime.
+  Narrowing reflects a single check at compile time. It does **not lock or freeze** the value at runtime.
 </Warning>
 
 ### Prefer simple variables
@@ -133,7 +152,8 @@ pointer fields.
 ## Generated Go
 
 Generated Go uses ordinary conditionals and error returns for `ensure`.
-A custom failure after `or` becomes a named Go error type.
+A custom failure after `or` becomes a named Go error type. In `main`, a
+failed check exits the process instead of returning.
 
 ## Run the examples
 

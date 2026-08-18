@@ -61,7 +61,7 @@ Each directory holds one Forst package name. Same-package `.ft` files in **one d
 | --- | --- |
 | **Packages** | Go style: `package handlers`, `import "fmt"`, module paths from `go.mod`. |
 | **Types** | `type Name = { field: String, count: Int }`. Use `String`, `Int`, `Float`, `Bool`, `Array(T)`, `*T`, not `string`/`int` in Forst type positions. |
-| **Parameters** | Always annotated: `func f(x: OrderInput): Result(String, Error)`. |
+| **Parameters** | Always annotated: `func f(x OrderInput): Result(String, Error)`. |
 | **Records at call sites** | `placeOrder({ stockKeepingUnit: "A", quantity: 2 })`. |
 | **Constraints on fields** | `String.Min(1).Max(64)`, `Int.Min(1).Max(99)`, `Array(String).NotEmpty()`. Compiler emits boundary checks. |
 | **Runtime checks** | `ensure speed is LessThan(100) or TooFast({ ... })`. |

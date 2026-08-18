@@ -1,15 +1,34 @@
 <Tabs>
   <Tab title="Forst">
     ```ft
-    ensure err is Nil()
-    	or err
+    func claim(slot *Int) {
+    	ensure slot is Nil()
+    }
+
+    func open() {
+    	var slot: *Int = nil
+    	err := claim(slot)
+    	ensure !err or err
+    }
     ```
   </Tab>
   <Tab title="Generated Go">
     ```go
     // forst build
-    if err != nil {
-    	return err
+    func claim(slot *int) error {
+    	if slot != nil {
+    		return /* expected nil */
+    	}
+    	return nil
+    }
+
+    func open() error {
+    	var slot *int = nil
+    	err := claim(slot)
+    	if err != nil {
+    		return err
+    	}
+    	return nil
     }
     ```
   </Tab>

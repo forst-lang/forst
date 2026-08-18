@@ -37,7 +37,11 @@ Forst embraces inference in clear cases (return types, obvious locals) but requi
 
 ## Control flow you can trace
 
-Forst steers away from exceptions and implicit jumps. Errors are **values**. Validation uses **`ensure`** and **`is`**. Success and failure paths stay explicit. See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
+Forst has no exceptions. Failures do not jump out of the call stack, so you can read a function top to bottom and see every way it can fail.
+
+Expected failures are values you declare with the **`error`** keyword. Callers handle a named type instead of parsing a message. Checks use **`ensure`** and **`is`**, so validation sits next to the code that depends on it.
+
+See [Ensure and narrowing](/language/ensure-and-narrowing) and [Errors and Result](/language/errors-and-result).
 
 ## Packages and imports
 

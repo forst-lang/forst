@@ -15,7 +15,9 @@
         "dark": "dark-plus"
       },
       "languages": {
-        "custom": ["/languages/forst.json"]
+        "custom": [
+          "/languages/forst.json"
+        ]
       }
     }
   },
@@ -29,7 +31,13 @@
             "pages": [
               "index",
               "why",
-              "language/overview"
+              {
+                "group": "Language overview",
+                "root": "language/overview",
+                "pages": [
+                  "resources/roadmap"
+                ]
+              }
             ]
           },
           {
@@ -56,7 +64,7 @@
             ]
           },
           {
-            "group": "Interop",
+            "group": "Interoperability",
             "pages": [
               "interop/go",
               {

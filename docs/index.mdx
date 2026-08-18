@@ -1,20 +1,25 @@
 ---
 title: "Introduction"
-description: "Move TypeScript backends to Go with integrated client generation."
 ---
 
 import CatalogOrder from "/snippets/catalog-order.mdx";
 
-Forst is a programming language that helps you move TypeScript backends to Go with seamlessly integrated TypeScript clients.
+**Forst is a programming language that helps you move TypeScript backends to Golang.**
 
-Forst supports you in four key ways.
+To accomplish this, it supports you in four key ways:
 
 | Benefit | How it works |
 | --- | --- |
-| Go ecosystem | Compiles directly to Go. You get full access to the Go package ecosystem, standard library and build tools. |
-| TypeScript integration | Generates native TS definitions and a client directly from your backend source. No need for intermediate languages like GraphQL or Protobuf just for type safety. |
-| Node.js interop | Call existing Node.js code directly from Forst to keep your existing tools and libraries during migration. |
-| Incremental migration | Allows you to move small parts of your code at a time while your existing codebase keeps running, so you can keep shipping during migration. |
+| Go ecosystem | **Compiles directly to Go.** You get full access to the Go package ecosystem, standard library and build tools. |
+| TypeScript integration | **Generates native TS definitions and a client** directly from your backend source. No need for intermediate languages like GraphQL or Protobuf just for type safety. |
+| Node.js interop | **Call existing Node.js code** directly from Forst to keep your existing tools and libraries during migration. |
+| Incremental migration | Allows you to **move small parts of your code at a time** while your existing codebase keeps running, so you can keep shipping during migration. |
+
+## Why?
+
+Building backend APIs often forces a trade off between runtime performance and developer speed. Maintaining separate schema contracts leads to lots of glue code. Full backend rewrites into more performant languages are often impossible to do safely.
+
+Forst exists to remove that friction. You can migrate incrementally or write completely new backends with native performance and an ergonomic DX by design.
 
 ## Validation and errors
 
