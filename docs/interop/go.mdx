@@ -39,7 +39,7 @@ Call into the standard library and third-party modules with qualified names:
 
 <InteropFmtHello />
 
-The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, and `interface{}` (including variadic calls).
+The compiler loads Go packages via **`go/packages`** and type-checks Forst↔Go calls when imports resolve. Supported mappings include primitives, slices, pointers, `error`, `interface{}` (including variadic calls), and Forst **`func`** literals at Go **`func`** parameters.
 
 Calls with several return values become a `Tuple` when captured in one
 variable. Split the values and use `ensure !err or err` when your function
@@ -86,6 +86,10 @@ After a Go call or a local binding typed from Go, use **field access** and **met
 - `cmd.ProcessState.ExitCode()` — field then method
 
 Qualified import calls such as `exec.Command(...)` are checked when the stdlib package loads from your module workspace (`go.mod` walk-up sets `GoWorkspaceDir`).
+
+## Go function callbacks
+
+Pass a Forst function literal where Go expects a concrete **`func`** type—for example **`http.HandleFunc`**. See **`examples/in/go_interop/http_handle.ft`**.
 
 ## Forst packages in the same module
 
@@ -172,16 +176,10 @@ Forst supports **gradual adoption**. You can migrate route by route without a bi
 
 **Known mapper gaps:**
 
-- **Generic Go APIs** (`slices.Contains`, `maps.Clone`, …) — no type-argument syntax or inference yet; the compiler reports a clear **`go-call`** diagnostic.
+- **Generic Go APIs** (`slices.Contains`, `maps.Clone`, …) — not supported yet; clear **`go-call`** diagnostic.
 - **`unsafe`** — not wired end-to-end; use hand-written **`.go`**.
-- **Non-empty Go interfaces** — named interface types from imports work when the value carries a tracked Go type; Forst shapes do not automatically satisfy interfaces such as **`io.Reader`**.
-- **Unnamed struct types** — exported-field anonymous structs map to Forst **shapes** (field access via **`variableGoTypes`**); structs with unexported or embedded fields stay opaque.
-
-**What works today for typical backend libraries:**
-
-- Qualified stdlib calls (`context`, `encoding/json`, `database/sql`, `log/slog`, `net/http`, …) when **`go/packages`** loads the import.
-- Named Go types, methods, maps, slices, pointers, and **`error`** at the boundary.
-- **Function callbacks** — pass a Forst **`func(...) { ... }`** literal where Go expects a concrete **`func`** type (for example **`http.HandleFunc`**). See **`examples/in/go_interop/http_handle.ft`**.
+- **Non-empty Go interfaces** — Forst shapes do not automatically satisfy interfaces such as **`io.Reader`**.
+- **Anonymous structs** — exported fields map to Forst shapes; embedded or unexported fields stay opaque.
 
 `switch` / `case` / `fallthrough` are **language** features (Go-faithful), not interop gaps. Type switches (`switch v := x.(type)`) are deliberately unsupported; use **`is`** narrowing instead.
 
