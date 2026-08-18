@@ -16,3 +16,8 @@ func AddInts(a, b int) int {
 func StringCounts() map[string]int {
 	return map[string]int{"forst": 1}
 }
+
+// CountPair returns an unnamed struct for Forst FFI shape-mapping demos.
+func CountPair() struct{ N int } {
+	return struct{ N int }{N: 1}
+}

@@ -55,6 +55,47 @@ func TestMapGoType_distinctNumericKinds(t *testing.T) {
 	}
 }
 
+func TestMapGoType_unnamedStruct_mapsToShape(t *testing.T) {
+	t.Parallel()
+	st := types.NewStruct([]*types.Var{
+		types.NewField(0, nil, "N", types.Typ[types.Int], false),
+	}, nil)
+	got, ok := gointerop.TypeToForstType(st)
+	if !ok || got.Ident != ast.TypeShape || got.Assertion == nil {
+		t.Fatalf("want shape, got ok=%v %#v", ok, got)
+	}
+	fields, ok := shapeFieldsFromMappedType(got)
+	if !ok || len(fields) != 1 {
+		t.Fatalf("fields: ok=%v len=%d", ok, len(fields))
+	}
+	if ft, ok := fields["n"]; !ok || ft.Type == nil || ft.Type.Ident != ast.TypeInt {
+		t.Fatalf("field n: %#v ok=%v", fields["n"], ok)
+	}
+}
+
+func TestMapGoType_unexportedStructField_staysImplicit(t *testing.T) {
+	t.Parallel()
+	st := types.NewStruct([]*types.Var{
+		types.NewField(0, nil, "n", types.Typ[types.Int], false),
+	}, nil)
+	got, ok := gointerop.TypeToForstType(st)
+	if !ok || got.Ident != ast.TypeImplicit {
+		t.Fatalf("want implicit, got ok=%v %#v", ok, got)
+	}
+}
+
+func shapeFieldsFromMappedType(tn ast.TypeNode) (map[string]ast.ShapeFieldNode, bool) {
+	if tn.Assertion == nil {
+		return nil, false
+	}
+	for _, c := range tn.Assertion.Constraints {
+		if c.Name == "Match" && len(c.Args) > 0 && c.Args[0].Shape != nil {
+			return c.Args[0].Shape.Fields, true
+		}
+	}
+	return nil, false
+}
+
 func TestForstAssignableToGoType_uintRejectsNegativeInt(t *testing.T) {
 	t.Parallel()
 	host := numericHost{}

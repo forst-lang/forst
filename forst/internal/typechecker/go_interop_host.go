@@ -1,6 +1,9 @@
 package typechecker
 
 import (
+	"sort"
+	"strconv"
+
 	"go/types"
 
 	"forst/internal/ast"
@@ -123,7 +126,80 @@ func (tc *TypeChecker) goTypeForForstType(f ast.TypeNode) types.Type {
 			return nil
 		}
 		return types.NewChan(types.SendRecv, elem)
+	case ast.TypeFunc:
+		return tc.goSignatureFromForstFunctionType(f)
+	case ast.TypeShape:
+		return tc.goTypeFromForstShapeType(f)
 	default:
 		return nil
 	}
+}
+
+func (tc *TypeChecker) goSignatureFromForstFunctionType(f ast.TypeNode) types.Type {
+	if !f.IsFunctionType() {
+		return nil
+	}
+	params := make([]*types.Var, 0, len(f.FuncParams))
+	for i, p := range f.FuncParams {
+		sp, ok := p.(ast.SimpleParamNode)
+		if !ok {
+			return nil
+		}
+		pt := tc.goTypeForForstType(sp.Type)
+		if pt == nil {
+			return nil
+		}
+		name := string(sp.Ident.ID)
+		if name == "" {
+			name = "arg" + strconv.Itoa(i)
+		}
+		params = append(params, types.NewParam(0, nil, name, pt))
+	}
+	paramTuple := types.NewTuple(params...)
+
+	var resultVars []*types.Var
+	for _, rt := range f.FuncReturns {
+		if rt.Ident == ast.TypeVoid {
+			continue
+		}
+		gt := tc.goTypeForForstType(rt)
+		if gt == nil {
+			return nil
+		}
+		resultVars = append(resultVars, types.NewParam(0, nil, "", gt))
+	}
+	var resultTuple *types.Tuple
+	if len(resultVars) == 0 {
+		resultTuple = types.NewTuple()
+	} else {
+		resultTuple = types.NewTuple(resultVars...)
+	}
+	return types.NewSignatureType(nil, nil, nil, paramTuple, resultTuple, false)
+}
+
+func (tc *TypeChecker) goTypeFromForstShapeType(f ast.TypeNode) types.Type {
+	fields, ok := tc.ShapeFieldsFromParamType(f)
+	if !ok || len(fields) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	vars := make([]*types.Var, 0, len(names))
+	for _, name := range names {
+		sf := fields[name]
+		tn, ok := ShapeFieldTypeNode(sf)
+		if !ok {
+			return nil
+		}
+		gt := tc.goTypeForForstType(tn)
+		if gt == nil {
+			return nil
+		}
+		goName := gointerop.ExportedFieldName(name)
+		vars = append(vars, types.NewField(0, nil, goName, gt, false))
+	}
+	return types.NewStruct(vars, nil)
 }

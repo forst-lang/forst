@@ -9,6 +9,7 @@ Shows two ways Forst calls Go:
 | **`custom.ft`** | Same-package calls into `helpers.go`. |
 | **`main.ft`** | Entry that runs both demos. Relies on merged same-package analysis (LSP / `-root`). |
 | **`cli.ft`** | Single-file compile target for `task example:go-interop` and golden tests. |
+| **`http_handle.ft`** | `net/http.HandleFunc` with a Forst function literal (callback FFI). |
 
 ## CLI
 
