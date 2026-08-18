@@ -1,6 +1,12 @@
+import { dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { getCompilerModuleDirForVersion } from "./compiler-module.js";
+import {
+  ensurePluginsForVersion,
+  pluginsReady,
+  prependPluginDirsToPath,
+} from "./plugins-module.js";
 import {
   resolveForstBinaryDetailed,
   type ResolveForstBinaryOptions,
@@ -15,8 +21,9 @@ export async function buildForstSpawnEnv(
   options: ResolveForstBinaryOptions = {}
 ): Promise<{ bin: string; env: NodeJS.ProcessEnv }> {
   const baseEnv = options.env ?? process.env;
+  const allowDownload = options.allowDownload !== false;
   const { binaryPath, version } = await resolveForstBinaryDetailed(options);
-  const env: NodeJS.ProcessEnv = { ...baseEnv };
+  let env: NodeJS.ProcessEnv = { ...baseEnv };
   if (!env.FORST_GOMOD_ROOT?.trim() && version) {
     const moduleDir = getCompilerModuleDirForVersion(version, {
       env,
@@ -25,6 +32,21 @@ export async function buildForstSpawnEnv(
     if (compilerModuleReady(moduleDir)) {
       env.FORST_GOMOD_ROOT = moduleDir;
     }
+  }
+
+  if (version && allowDownload) {
+    await ensurePluginsForVersion({
+      version,
+      env,
+      fetchFn: options.fetchImpl,
+      fs: options.fs,
+      homedirFn: options.homedirFn,
+    });
+  }
+
+  const binDir = dirname(binaryPath);
+  if (pluginsReady(binDir, options.fs)) {
+    env = prependPluginDirsToPath(env, binDir);
   }
   return { bin: binaryPath, env };
 }

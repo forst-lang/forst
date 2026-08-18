@@ -55,6 +55,54 @@ describe("buildForstSpawnEnv", () => {
     }
   });
 
+  test("prepends plugin dir to PATH when plugins sit next to compiler", async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), "forst-spawn-env-plugins-"));
+    try {
+      const version = "9.9.8";
+      const versionDir = join(cacheRoot, version);
+      mkdirSync(versionDir, { recursive: true });
+
+      const binaryPath = join(
+        versionDir,
+        getCompilerArtifactName(process.platform, process.arch)
+      );
+      writeFileSync(binaryPath, "fake-binary");
+      const pluginPath = join(versionDir, "forst-gen-echo");
+      writeFileSync(pluginPath, "fake-plugin", { mode: 0o755 });
+
+      const env: NodeJS.ProcessEnv = {
+        FORST_CACHE_DIR: cacheRoot,
+        PATH: "/usr/bin",
+      };
+
+      const fetchFn = async () =>
+        new Response(new Uint8Array(), { status: 404 });
+
+      const { env: spawnEnv } = await buildForstSpawnEnv({
+        version,
+        allowDownload: false,
+        env,
+        fetchFn,
+        fs: {
+          existsSync,
+          mkdirSync,
+          readFileSync: () => {
+            throw new Error("unexpected read");
+          },
+          writeFileSync,
+          chmodSync: () => {},
+          renameSync: () => {},
+          unlinkSync: () => {},
+          statSync: () => ({ mtimeMs: Date.now() } as never),
+        },
+      });
+
+      expect(spawnEnv.PATH?.startsWith(versionDir)).toBe(true);
+    } finally {
+      rmSync(cacheRoot, { recursive: true, force: true });
+    }
+  });
+
   test("does not override user FORST_GOMOD_ROOT", async () => {
     const userRoot = "/custom/forst/module";
     const env: NodeJS.ProcessEnv = {

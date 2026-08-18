@@ -38,7 +38,7 @@ forst generate ./my-service
 
 This creates `generated/jsonschema/schema.json` alongside your generated TypeScript client. You can now import `schema.json` directly into your API gateway, validation pipeline, or external documentation tools.
 
-Build official plugin binaries from the Forst repo (`task build:plugins`) and ensure the install directory is on your `PATH`, or reference a project-local binary with a relative path.
+Build official plugin binaries from the Forst repo with `task build` (compiler + plugins land in `bin/`). GitHub Releases and `@forst/cli` ship the same plugin binaries next to the compiler; bare `cmd` names resolve automatically.
 
 ## Example project
 
@@ -50,9 +50,11 @@ Each `generate.plugins[].cmd` value resolves as follows:
 
 | Form | Resolution |
 | --- | --- |
-| `forst-gen-jsonschema` | Looked up on `PATH` (after `task build:plugins` or `go build`) |
+| `forst-gen-jsonschema` | Directory of the running `forst` binary, then `FORST_PLUGIN_DIR`, then `PATH` |
 | `./bin/forst-gen-jsonschema` | Relative to the ftconfig boundary root |
 | `/usr/local/bin/forst-gen-jsonschema` | Used as-is (absolute path) |
+
+When you invoke `forst` through `@forst/cli`, the CLI downloads official plugin binaries into the same version cache directory as the compiler and prepends that directory to `PATH` before spawning `forst generate`.
 
 Plugin `out` directories are owned exclusively by the plugin. On each run, `forst generate` removes stale files under `out` that the plugin did not emit. Diagnostics with `severity: "error"` fail the generate command; warnings are logged only.
 
