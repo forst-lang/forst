@@ -1,8 +1,10 @@
 # Forst semantic plugins
 
+> **Work in progress.** Protocol v1, official emitters, and CLI integration are evolving. Pin the compiler version; plugin binaries do not have independent release semver yet.
+
 Official [`forst generate`](https://forst-lang.org/docs/workflow/cli#forst-generate) plugins read the **semantic snapshot** (JSON on stdin) and write sealed artifacts under `generate.plugins[].out`. User code imports those outputs; never edit them by hand.
 
-These plugins ship in the [Forst repository](https://github.com/forst-lang/forst) and are versioned with the compiler. They are **not** embedded in the compiler — configure them in `ftconfig.json`.
+These plugins ship in the [Forst repository](https://github.com/forst-lang/forst) and are built with the compiler release. They are **not** embedded in the compiler — configure them in `ftconfig.json`.
 
 ## Install
 
@@ -102,4 +104,13 @@ See [PROTOCOL.md](./PROTOCOL.md) for the v1 stdin/stdout contract. Snapshot gold
 
 ## Versioning
 
-Each plugin embeds a `0.1.0` generator version in `meta.json` / file headers. Breaking snapshot changes bump `protocolVersion` in the compiler, not individual plugin semver — until these plugins publish on their own release cadence.
+**Not stable yet.**
+
+| What | Today |
+| --- | --- |
+| Compiler ↔ plugin bundle | Official plugin binaries ship in the same GitHub release tarball as `forst`. `@forst/cli` downloads the whole bundle when `ftconfig.json` lists bare official `cmd` names. |
+| Per-plugin semver | None. Each plugin embeds a placeholder generator version (`0.1.0`) in `meta.json` / file headers. `ftconfig.json` has no `version` field per plugin entry. |
+| Snapshot contract | `protocolVersion: 1` in the compiler. Breaking snapshot changes bump that number—not individual plugin semver. |
+| Custom plugins | You own versioning and deployment (local `cmd` path or your own release process). |
+
+Until plugins publish on their own cadence, treat compiler pin + regenerate + committed outputs as your compatibility strategy.

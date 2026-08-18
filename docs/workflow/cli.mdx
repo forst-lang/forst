@@ -88,7 +88,7 @@ Normal colocation does not need the flag. Put files under a folder named for the
 
 Ephemeral output is removed by `forst clean` and restored by the next generate. Committed mode is a normal workspace package you check in.
 
-See [Plugins](/workflow/plugins) to configure JSON Schema, RPC contracts, file routes, or custom generators during `forst generate`.
+See [Plugins](/workflow/plugins) to configure JSON Schema, RPC contracts, file routes, or custom generators during `forst generate`. **Plugins are work in progress**—see that page for versioning and coverage limits.
 
 ### Generate configuration
 
@@ -121,7 +121,7 @@ Set these under `"generate"` in `ftconfig.json`:
 | `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
 | `go.root` | `string` | `""` | Optional package root for Go source emission |
 | `skipClient` | `bool` | `false` | Skip TypeScript client generation |
-| `plugins` | `array` | `[]` | Semantic plugin executables run after typecheck. See [Plugins](/workflow/plugins) |
+| `plugins` | `array` | `[]` | Semantic plugin executables run after typecheck (work in progress). See [Plugins](/workflow/plugins) |
 
 Each plugin entry:
 

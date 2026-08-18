@@ -1,6 +1,6 @@
 ---
 title: "Plugins"
-description: "Extend `forst generate` to output custom files from typechecked Forst code."
+description: "Extend `forst generate` with semantic plugins (work in progress)."
 ---
 
 Forst plugins generate integration files directly from your typechecked backend services.
@@ -8,6 +8,26 @@ Forst plugins generate integration files directly from your typechecked backend 
 When you run `forst generate`, the compiler typechecks your Forst code and projects the resulting type definitions and function signatures into an in-memory snapshot. The compiler then executes your configured plugin binaries and passes this snapshot to them over standard input.
 
 Plugins emit generated code—such as JSON Schema files, RPC contract definitions, or framework route handlers—into dedicated output folders. Your application imports these generated outputs, ensuring external contracts and routers stay synchronized with your backend code without manual duplication. Because generated files are written exclusively to designated output directories, running `forst generate` updates your generated code without overwriting hand-written source files.
+
+<Warning>
+  **Generate plugins are work in progress.** The stdin/stdout protocol, official emitters, resolver behavior, and CLI download path are usable for experimentation and early adoption, but they may change without independent plugin semver. Pin your compiler and `@forst/cli` version; re-run `forst generate` and read plugin diagnostics after every upgrade.
+</Warning>
+
+## Work in progress and known limitations
+
+Semantic plugins and the official emitters are under active development. The table below lists current constraints—not a promise of future design.
+
+| Area | Status |
+| --- | --- |
+| **Plugin versioning** | No independent semver yet. Official binaries ship in the same GitHub release as the compiler. `@forst/cli` downloads one plugins bundle per compiler version—you cannot pin `forst-gen-orpc` separately from `forst`, and `ftconfig.json` has no per-plugin version field. |
+| **Protocol stability** | Snapshot contract is **protocol v1** (`protocolVersion: 1`). Breaking snapshot changes bump that number in the compiler; there is no automated migration tooling for custom plugins yet. |
+| **`ftconfig` validation** | `generate.plugins[].opt` is opaque JSON. Invalid options fail at plugin runtime with a parse or logic error, not when `ftconfig.json` is loaded. |
+| **Type and constraint coverage** | Emitters map a subset of Forst types and builtin constraints. Unknown kinds, type guards, channels, function types, and Go interop types often become warnings or empty schemas instead of full-fidelity output. |
+| **Official emitters** | jsonschema, oRPC, file-routes, and react-router plugins target specific conventions (`.Router()`, file layout under `routesRoot`). They are not yet general-purpose generators for every framework or deployment shape. |
+| **Distribution** | No plugin registry or npm packages for official plugins. Custom plugins are executables you build locally and reference via `cmd`. |
+| **Host behavior** | Each plugin run has a 30s timeout. Plugins receive resolved semantics only—no source tokens, AST, or function bodies. |
+
+If you rely on generated artifacts in CI or production, pin the compiler, regenerate in CI or commit outputs, and treat plugin warnings as signals to fix before shipping.
 
 ## Quickstart
 
@@ -75,7 +95,7 @@ Plugins bridge Forst's type system with any external system or toolchain. Becaus
 
 ## Official plugin packages
 
-Official plugins are shipped alongside the compiler as standalone binaries.
+Official plugins are shipped alongside the compiler as standalone binaries. Each emitter is early-stage; output file names, `opt` fields, and generated APIs may change while plugin versioning matures.
 
 ### `forst-gen-jsonschema`
 

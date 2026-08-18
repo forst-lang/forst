@@ -84,4 +84,6 @@ The compiler maintains fixture snapshots under [`internal/semantic/testdata/`](.
 
 ## Versioning
 
-Breaking snapshot changes bump **`protocolVersion`** in the compiler. Individual plugin binaries embed their own generator version in `meta.json` / file headers (`0.1.0` today).
+**Work in progress — not stable yet.**
+
+Breaking snapshot changes bump **`protocolVersion`** in the compiler. Individual plugin binaries embed a placeholder generator version in `meta.json` / file headers (`0.1.0` today). There is no per-plugin semver in `ftconfig.json` and no independent plugin release line yet; official binaries ship in the same GitHub release as `forst`.

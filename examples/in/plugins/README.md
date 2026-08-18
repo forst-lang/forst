@@ -1,5 +1,7 @@
 # Generate plugins example
 
+> **Work in progress.** Official semantic plugins ship with the compiler but have no independent semver yet. Pin the compiler, expect output and `opt` shapes to evolve, and read [Plugins](https://forst-lang.org/docs/workflow/plugins) for known limitations.
+
 Single Forst boundary that exercises every official `forst generate` semantic plugin from real `.ft` sources.
 
 ## Layout
