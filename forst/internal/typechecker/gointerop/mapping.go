@@ -1,6 +1,10 @@
 package gointerop
 
 import (
+	"sort"
+	"unicode"
+	"unicode/utf8"
+
 	"go/types"
 
 	"forst/internal/ast"
@@ -94,7 +98,7 @@ func MapGoType(host AssignabilityHost, t types.Type) (ast.TypeNode, bool) {
 	case *types.Interface:
 		return ast.TypeNode{Ident: ast.TypeImplicit}, true
 	case *types.Struct:
-		return ast.TypeNode{Ident: ast.TypeImplicit}, true
+		return mapGoStructType(host, u)
 	case *types.Signature:
 		return mapGoSignature(host, u)
 	default:
@@ -267,4 +271,81 @@ func isGoIntegerBasic(b *types.Basic) bool {
 	default:
 		return false
 	}
+}
+
+const shapeMatchConstraint = "Match"
+
+func mapGoStructType(host AssignabilityHost, st *types.Struct) (ast.TypeNode, bool) {
+	if st == nil {
+		return ast.TypeNode{}, false
+	}
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if f == nil || f.Anonymous() || !f.Exported() {
+			return ast.TypeNode{Ident: ast.TypeImplicit}, true
+		}
+	}
+	if st.NumFields() == 0 {
+		return ast.TypeNode{Ident: ast.TypeImplicit}, true
+	}
+
+	type fieldEntry struct {
+		name string
+		node ast.ShapeFieldNode
+	}
+	entries := make([]fieldEntry, 0, st.NumFields())
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		ft, ok := MapGoType(host, f.Type())
+		if !ok {
+			return ast.TypeNode{}, false
+		}
+		forstName := forstFieldNameFromGoField(f, st.Tag(i))
+		if forstName == "" {
+			return ast.TypeNode{Ident: ast.TypeImplicit}, true
+		}
+		ftCopy := ft
+		entries = append(entries, fieldEntry{
+			name: forstName,
+			node: ast.ShapeFieldNode{Type: &ftCopy},
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].name < entries[j].name })
+
+	fields := make(map[string]ast.ShapeFieldNode, len(entries))
+	for _, e := range entries {
+		fields[e.name] = e.node
+	}
+	shape := &ast.ShapeNode{Fields: fields}
+	baseType := ast.TypeIdent(ast.TypeShape)
+	return ast.TypeNode{
+		Ident: ast.TypeShape,
+		Assertion: &ast.AssertionNode{
+			BaseType: &baseType,
+			Constraints: []ast.ConstraintNode{{
+				Name: shapeMatchConstraint,
+				Args: []ast.ConstraintArgumentNode{{
+					Shape: shape,
+				}},
+			}},
+		},
+	}, true
+}
+
+func forstFieldNameFromGoField(f *types.Var, tag string) string {
+	if f == nil {
+		return ""
+	}
+	if jsonName := jsonFieldNameFromStructTag(tag); jsonName != "" {
+		return jsonName
+	}
+	goName := f.Name()
+	if goName == "" {
+		return ""
+	}
+	r, sz := utf8.DecodeRuneInString(goName)
+	if r == utf8.RuneError && sz == 0 {
+		return goName
+	}
+	return string(unicode.ToLower(r)) + goName[sz:]
 }
