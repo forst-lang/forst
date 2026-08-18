@@ -1,0 +1,7 @@
+package main
+
+// runMapsDemo calls a same-package Go helper returning map[string]int.
+func runMapsDemo() {
+	counts := StringCounts()
+	println(len(counts))
+}

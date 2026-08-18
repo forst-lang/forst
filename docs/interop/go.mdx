@@ -175,8 +175,6 @@ Forst supports **gradual adoption**. You can migrate route by route without a bi
 - **Generic Go APIs** (`slices.Contains`, `maps.Clone`, …) — no type-argument syntax or inference yet.
 - **`unsafe`** — not wired end-to-end; use hand-written **`.go`**.
 - **Unnamed struct types** at the FFI boundary — prefer named Go types or shapes in Forst.
-- **Numeric kind precision** — Forst `Int`/`Float` may not match every Go width at the boundary; explicit conversions may be required.
-- **Interface assignability** — non-empty Go interfaces are checked conservatively; edge cases remain.
 
 `switch` / `case` / `fallthrough` are **language** features (Go-faithful), not interop gaps. Type switches (`switch v := x.(type)`) are deliberately unsupported; use **`is`** narrowing instead.
 

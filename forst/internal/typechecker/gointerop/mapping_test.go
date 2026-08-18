@@ -8,45 +8,72 @@ import (
 	"forst/internal/typechecker/gointerop"
 )
 
-func TestTypeToForstType_complex64(t *testing.T) {
+func TestMapGoType_mapArrayChan(t *testing.T) {
 	t.Parallel()
-	got, ok := gointerop.TypeToForstType(types.Typ[types.Complex64])
-	if !ok || got.Ident != ast.TypeComplex64 {
-		t.Fatalf("want Complex64, got ok=%v %#v", ok, got)
+	m := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+	got, ok := gointerop.TypeToForstType(m)
+	if !ok || got.Ident != ast.TypeMap || len(got.TypeParams) != 2 {
+		t.Fatalf("map: got ok=%v %#v", ok, got)
+	}
+
+	arr := types.NewArray(types.Typ[types.Int], 4)
+	got, ok = gointerop.TypeToForstType(arr)
+	if !ok || got.Ident != ast.TypeArray || got.ArrayLen == nil || *got.ArrayLen != 4 {
+		t.Fatalf("array: got ok=%v %#v", ok, got)
+	}
+
+	ch := types.NewChan(types.SendRecv, types.Typ[types.String])
+	got, ok = gointerop.TypeToForstType(ch)
+	if !ok || got.Ident != ast.TypeChannel {
+		t.Fatalf("chan: got ok=%v %#v", ok, got)
 	}
 }
 
-func TestTypeToForstType_complex128(t *testing.T) {
+func TestMapGoType_typeAliasToMap(t *testing.T) {
 	t.Parallel()
-	got, ok := gointerop.TypeToForstType(types.Typ[types.Complex128])
-	if !ok || got.Ident != ast.TypeComplex128 {
-		t.Fatalf("want Complex128, got ok=%v %#v", ok, got)
+	obj := types.NewTypeName(0, nil, "M", nil)
+	underlying := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+	alias := types.NewAlias(obj, underlying)
+	got, ok := gointerop.TypeToForstType(alias)
+	if !ok || got.Ident != ast.TypeMap {
+		t.Fatalf("alias to map: got ok=%v %#v", ok, got)
 	}
 }
 
-func TestTypeToForstType_complex64And128AreDistinct(t *testing.T) {
+func TestMapGoType_distinctNumericKinds(t *testing.T) {
 	t.Parallel()
-	c64, ok := gointerop.TypeToForstType(types.Typ[types.Complex64])
-	if !ok {
-		t.Fatal("complex64 should map")
+	u64, ok := gointerop.TypeToForstType(types.Typ[types.Uint64])
+	if !ok || u64.Ident != ast.TypeIdent("uint64") {
+		t.Fatalf("uint64: got ok=%v %#v", ok, u64)
 	}
-	c128, ok := gointerop.TypeToForstType(types.Typ[types.Complex128])
-	if !ok {
-		t.Fatal("complex128 should map")
+	i64, ok := gointerop.TypeToForstType(types.Typ[types.Int64])
+	if !ok || i64.Ident != ast.TypeIdent("int64") {
+		t.Fatalf("int64: got ok=%v %#v", ok, i64)
 	}
-	if c64.Ident == c128.Ident {
-		t.Fatal("complex64 and complex128 must map to distinct Forst types")
+	if u64.Ident == ast.TypeInt || i64.Ident == ast.TypeInt {
+		t.Fatal("fixed-width ints must not collapse to TYPE_INT without host")
 	}
 }
 
-func TestTypeToForstType_byteAndRuneSpellings(t *testing.T) {
+func TestForstAssignableToGoType_uintRejectsNegativeInt(t *testing.T) {
 	t.Parallel()
-	byteT, ok := gointerop.TypeToForstType(types.Typ[types.Byte])
-	if !ok || byteT.Ident != ast.TypeIdent("byte") {
-		t.Fatalf("want byte ident, got ok=%v %#v", ok, byteT)
+	host := numericHost{}
+	f := ast.TypeNode{Ident: ast.TypeIdent("int64")}
+	if gointerop.ForstAssignableToGoType(host, f, types.Typ[types.Uint]) {
+		t.Fatal("Forst int64 must not assign to Go uint without conversion")
 	}
-	runeT, ok := gointerop.TypeToForstType(types.Typ[types.Rune])
-	if !ok || runeT.Ident != ast.TypeIdent("rune") {
-		t.Fatalf("want rune ident, got ok=%v %#v", ok, runeT)
+}
+
+type numericHost struct{}
+
+func (numericHost) ForstTypeForGoType(_ types.Type) (ast.TypeNode, bool) { return ast.TypeNode{}, false }
+func (numericHost) IsTypeCompatible(_, _ ast.TypeNode) bool               { return false }
+func (numericHost) GoTypeForForstType(f ast.TypeNode) types.Type {
+	switch f.Ident {
+	case ast.TypeInt:
+		return types.Typ[types.Int]
+	case ast.TypeIdent("int64"):
+		return types.Typ[types.Int64]
 	}
+	return nil
 }

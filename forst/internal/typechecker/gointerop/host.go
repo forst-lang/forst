@@ -9,6 +9,8 @@ import (
 type AssignabilityHost interface {
 	ForstTypeForGoType(g types.Type) (ast.TypeNode, bool)
 	IsTypeCompatible(a, b ast.TypeNode) bool
+	// GoTypeForForstType reconstructs a go/types value for a Forst type at the FFI boundary.
+	GoTypeForForstType(f ast.TypeNode) types.Type
 }
 
 // Host supplies typechecker callbacks needed for Go FFI call checking.
