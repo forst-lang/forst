@@ -1,0 +1,19 @@
+package catalog
+
+type Username = String.Min(3).Max(30).HasPrefix("u_")
+
+type Catalog = {
+  PlaceOrder(sku Username, qty Int): Result(String, OutOfStock)
+}.Router()
+
+error OutOfStock {
+  sku: String
+}
+
+func PlaceOrder(sku Username, qty Int): Result(String, OutOfStock) {
+  return "order-1"
+}
+
+func helperInternal(): String {
+  return "x"
+}

@@ -3,6 +3,40 @@ import {
   UnsupportedOperatingSystem,
 } from "./errors.js";
 
+/** Official semantic plugin binaries shipped with compiler releases. */
+export const OFFICIAL_PLUGIN_COMMANDS = [
+  "forst-gen-jsonschema",
+  "forst-gen-orpc",
+  "forst-gen-file-routes",
+  "forst-gen-react-router",
+  "forst-gen-echo",
+] as const;
+
+/**
+ * Release plugins tarball filename for the given Node-style platform/arch,
+ * e.g. `forst-plugins-darwin-arm64.tar.gz` or `forst-plugins-windows-amd64.zip`.
+ */
+export function getPluginsArtifactName(
+  nodePlatform: NodeJS.Platform,
+  nodeArch: string
+): string {
+  if (!["darwin", "linux", "win32"].includes(nodePlatform)) {
+    throw new UnsupportedOperatingSystem(
+      `Unsupported OS for prebuilt Forst plugins: ${nodePlatform}`
+    );
+  }
+  if (!["arm64", "x64"].includes(nodeArch)) {
+    throw new UnsupportedArchitecture(
+      `Unsupported architecture for prebuilt Forst plugins: ${nodeArch}`
+    );
+  }
+
+  const platformName = nodePlatform === "win32" ? "windows" : nodePlatform;
+  const archString = nodeArch === "x64" ? "amd64" : nodeArch;
+  const ext = nodePlatform === "win32" ? ".zip" : ".tar.gz";
+  return `forst-plugins-${platformName}-${archString}${ext}`;
+}
+
 /**
  * Release asset filename for the given Node-style platform/arch,
  * e.g. `forst-darwin-arm64` or `forst-windows-amd64.exe`.

@@ -78,6 +78,7 @@
             "pages": [
               "workflow/cli",
               "workflow/dev-server",
+              "workflow/plugins",
               "workflow/editor"
             ]
           }

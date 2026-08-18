@@ -51,6 +51,16 @@ type GenerateConfig struct {
 	SkipClient bool `json:"skipClient"`
 	// OmitStubs emits commented stubs for provider-gated omissions in package modules (SPEC §12).
 	OmitStubs bool `json:"omitStubs"`
+	// Plugins lists local semantic plugin executables run after typecheck (forst generate only).
+	Plugins []GeneratePluginConfig `json:"plugins"`
+}
+
+// GeneratePluginConfig configures one semantic plugin runner entry.
+type GeneratePluginConfig struct {
+	Name string          `json:"name"`
+	Cmd  string          `json:"cmd"`
+	Out  string          `json:"out"`
+	Opt  json.RawMessage `json:"opt,omitempty"`
 }
 
 // GenerateGoConfig controls optional Go source emission from forst generate.

@@ -11,8 +11,10 @@ vars:
 tasks:
   # Build tasks
   build:
-    desc: Build the Forst compiler
+    desc: Build the Forst compiler and official generate plugins
     dir: forst
+    deps:
+      - build:plugins
     cmds:
       - go build -o ../bin/{{.BINARY_NAME}} ./{{.BUILD_DIR}}
     sources:
@@ -141,6 +143,37 @@ tasks:
     generates:
       - packages/client/dist/index.js
       - packages/client/dist/index.d.ts
+
+  build:plugins:
+    desc: Build forst generate semantic plugins to ../bin/
+    dir: forst
+    cmds:
+      - mkdir -p ../bin
+      - |
+        set -euo pipefail
+        go build -o ../bin/forst-gen-jsonschema ./plugins/forst-gen-jsonschema &
+        go build -o ../bin/forst-gen-orpc ./plugins/forst-gen-orpc &
+        go build -o ../bin/forst-gen-file-routes ./plugins/forst-gen-file-routes &
+        go build -o ../bin/forst-gen-react-router ./plugins/forst-gen-react-router &
+        go build -o ../bin/forst-gen-echo ./plugins/forst-gen-echo &
+        wait
+    sources:
+      - ./plugins/**/*.go
+      - ./internal/genplugin/**/*.go
+      - ./internal/semantic/**/*.go
+    generates:
+      - ../bin/forst-gen-jsonschema
+      - ../bin/forst-gen-orpc
+      - ../bin/forst-gen-file-routes
+      - ../bin/forst-gen-react-router
+      - ../bin/forst-gen-echo
+
+  test:plugins:
+    desc: Run Go tests for semantic plugins and genplugin
+    dir: forst
+    cmds:
+      - go test ./internal/genplugin/... ./plugins/...
+      - go test ./cmd/forst -run 'TestGenerate_plugins|TestRunSemanticPlugins'
 
   build:vscode:
     desc: Compile the VS Code extension (TypeScript)
@@ -939,12 +972,40 @@ tasks:
         GOOS=darwin GOARCH=arm64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-darwin-arm64 ./${BUILD_DIR}
         GOOS=windows GOARCH=amd64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-windows-amd64.exe ./${BUILD_DIR}
         GOOS=windows GOARCH=arm64 go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o ../dist/${BINARY}-windows-arm64.exe ./${BUILD_DIR}
+        PLUGINS=(
+          "forst-gen-jsonschema:./plugins/forst-gen-jsonschema"
+          "forst-gen-orpc:./plugins/forst-gen-orpc"
+          "forst-gen-file-routes:./plugins/forst-gen-file-routes"
+          "forst-gen-react-router:./plugins/forst-gen-react-router"
+          "forst-gen-echo:./plugins/forst-gen-echo"
+        )
+        build_release_plugins() {
+          local goos="$1" goarch="$2" suffix="$3" outdir="$4"
+          mkdir -p "$outdir"
+          for entry in "${PLUGINS[@]}"; do
+            local name="${entry%%:*}"
+            local pkg="${entry#*:}"
+            GOOS="$goos" GOARCH="$goarch" go build ${PGO_FLAG} -ldflags="${LDFLAGS}" -o "${outdir}/${name}${suffix}" "$pkg"
+          done
+        }
+        build_release_plugins linux amd64 "" ../dist/plugins-linux-amd64
+        build_release_plugins linux arm64 "" ../dist/plugins-linux-arm64
+        build_release_plugins darwin amd64 "" ../dist/plugins-darwin-amd64
+        build_release_plugins darwin arm64 "" ../dist/plugins-darwin-arm64
+        build_release_plugins windows amd64 .exe ../dist/plugins-windows-amd64
+        build_release_plugins windows arm64 .exe ../dist/plugins-windows-arm64
       - tar -czf ../dist/{{.BINARY_NAME}}-linux-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-amd64
       - tar -czf ../dist/{{.BINARY_NAME}}-linux-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-linux-arm64
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-amd64
       - tar -czf ../dist/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C ../dist {{.BINARY_NAME}}-darwin-arm64
       - cd ../dist && zip {{.BINARY_NAME}}-windows-amd64.zip {{.BINARY_NAME}}-windows-amd64.exe
       - cd ../dist && zip {{.BINARY_NAME}}-windows-arm64.zip {{.BINARY_NAME}}-windows-arm64.exe
+      - tar -czf ../dist/forst-plugins-linux-amd64.tar.gz -C ../dist/plugins-linux-amd64 .
+      - tar -czf ../dist/forst-plugins-linux-arm64.tar.gz -C ../dist/plugins-linux-arm64 .
+      - tar -czf ../dist/forst-plugins-darwin-amd64.tar.gz -C ../dist/plugins-darwin-amd64 .
+      - tar -czf ../dist/forst-plugins-darwin-arm64.tar.gz -C ../dist/plugins-darwin-arm64 .
+      - cd ../dist/plugins-windows-amd64 && zip ../forst-plugins-windows-amd64.zip *.exe
+      - cd ../dist/plugins-windows-arm64 && zip ../forst-plugins-windows-arm64.zip *.exe
       - |
         set -euo pipefail
         VERSION="{{.VERSION | default "dev"}}"
@@ -983,14 +1044,17 @@ tasks:
       - |
         set -euo pipefail
         VERSION="{{.VERSION | default "dev"}}"
-        for pair in "amd64:dist/forst-linux-amd64" "arm64:dist/forst-linux-arm64"; do
-          ARCH="${pair%%:*}"
-          GO_BINARY="${pair#*:}"
+        for pair in "amd64:dist/forst-linux-amd64:dist/plugins-linux-amd64" "arm64:dist/forst-linux-arm64:dist/plugins-linux-arm64"; do
+          IFS=: read -r ARCH GO_BINARY GO_PLUGINS_DIR <<< "${pair}"
           if [ ! -f "$GO_BINARY" ]; then
             echo "missing binary: $GO_BINARY (run task build:release first)" >&2
             exit 1
           fi
-          export VERSION ARCH GO_BINARY
+          if [ ! -d "$GO_PLUGINS_DIR" ]; then
+            echo "missing plugins dir: $GO_PLUGINS_DIR (run task build:release first)" >&2
+            exit 1
+          fi
+          export VERSION ARCH GO_BINARY GO_PLUGINS_DIR
           nfpm package --packager deb --config nfpm.yaml --target dist/
         done
         ls -la dist/forst_*.deb
@@ -1027,7 +1091,7 @@ tasks:
           export PATH="/tmp:${PATH}"
         fi
         rm -f dist/forst_*_amd64.deb
-        export VERSION ARCH=amd64 GO_BINARY="$BINARY"
+        export VERSION ARCH=amd64 GO_BINARY="$BINARY" GO_PLUGINS_DIR="dist/plugins-linux-amd64"
         nfpm package --packager deb --config nfpm.yaml --target dist/
         DEB="$(ls -1t dist/forst_*_amd64.deb | head -1)"
         if [ -z "$DEB" ] || [ ! -f "$DEB" ]; then

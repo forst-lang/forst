@@ -1,0 +1,213 @@
+{
+  "protocolVersion": 1,
+  "compilerVersion": "test",
+  "module": {
+    "goModule": "forst",
+    "root": "testdata/router"
+  },
+  "packages": [
+    {
+      "name": "catalog",
+      "dir": "catalog",
+      "files": [
+        "api.ft"
+      ],
+      "typeIds": [
+        "catalog.Catalog",
+        "catalog.OutOfStock",
+        "catalog.Username"
+      ],
+      "functionIds": [
+        "catalog.PlaceOrder",
+        "catalog.helperInternal"
+      ]
+    }
+  ],
+  "types": {
+    "catalog.Catalog": {
+      "id": "catalog.Catalog",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "PlaceOrder",
+          "type": "t:catalog.shape.1.PlaceOrder.sig",
+          "method": true,
+          "function": "catalog.PlaceOrder"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "catalog.OutOfStock": {
+      "id": "catalog.OutOfStock",
+      "kind": "nominalError",
+      "payload": "t:catalog.catalog.OutOfStock.payload.2",
+      "visibility": "exported"
+    },
+    "catalog.PlaceOrder.input": {
+      "id": "catalog.PlaceOrder.input",
+      "kind": "shape",
+      "fields": [
+        {
+          "name": "sku",
+          "type": "catalog.Username"
+        },
+        {
+          "name": "qty",
+          "type": "catalog.PlaceOrder.qty"
+        }
+      ]
+    },
+    "catalog.PlaceOrder.qty": {
+      "id": "catalog.PlaceOrder.qty",
+      "kind": "int"
+    },
+    "catalog.Username": {
+      "id": "catalog.Username",
+      "kind": "string",
+      "constraints": [
+        {
+          "name": "Min",
+          "args": [
+            3
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        },
+        {
+          "name": "Max",
+          "args": [
+            30
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        },
+        {
+          "name": "HasPrefix",
+          "args": [
+            "u_"
+          ],
+          "origin": "builtin"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "t:catalog.catalog.OutOfStock.payload.2": {
+      "id": "t:catalog.catalog.OutOfStock.payload.2",
+      "kind": "shape",
+      "fields": [
+        {
+          "name": "sku",
+          "type": "string"
+        }
+      ]
+    },
+    "t:catalog.result.3": {
+      "id": "t:catalog.result.3",
+      "kind": "result",
+      "success": "string",
+      "failure": "nominalError"
+    },
+    "t:catalog.shape.1": {
+      "id": "t:catalog.shape.1",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "PlaceOrder",
+          "type": "t:catalog.shape.1.PlaceOrder.sig",
+          "method": true,
+          "function": "catalog.PlaceOrder"
+        }
+      ]
+    },
+    "t:catalog.shape.1.PlaceOrder.sig": {
+      "id": "t:catalog.shape.1.PlaceOrder.sig",
+      "kind": "func",
+      "params": [
+        {
+          "name": "sku",
+          "type": "catalog.Username"
+        },
+        {
+          "name": "qty",
+          "type": ""
+        }
+      ],
+      "returns": [
+        "result"
+      ]
+    }
+  },
+  "functions": {
+    "catalog.PlaceOrder": {
+      "id": "catalog.PlaceOrder",
+      "name": "PlaceOrder",
+      "package": "catalog",
+      "visibility": "exported",
+      "role": "function",
+      "runnable": true,
+      "receiver": null,
+      "params": [
+        {
+          "name": "sku",
+          "type": "catalog.Username"
+        },
+        {
+          "name": "qty",
+          "type": "catalog.PlaceOrder.qty"
+        }
+      ],
+      "input": "catalog.PlaceOrder.input",
+      "returns": [
+        "result"
+      ],
+      "errorSet": {
+        "unknownPossible": false
+      },
+      "providers": null,
+      "span": {
+        "file": "catalog/api.ft",
+        "startLine": 13,
+        "startCol": 6,
+        "endLine": 13,
+        "endCol": 16
+      }
+    },
+    "catalog.helperInternal": {
+      "id": "catalog.helperInternal",
+      "name": "helperInternal",
+      "package": "catalog",
+      "visibility": "internal",
+      "role": "internal",
+      "runnable": false,
+      "receiver": null,
+      "params": null,
+      "input": "void",
+      "returns": [
+        "string"
+      ],
+      "errorSet": {
+        "unknownPossible": false
+      },
+      "providers": null,
+      "span": {
+        "file": "catalog/api.ft",
+        "startLine": 17,
+        "startCol": 6,
+        "endLine": 17,
+        "endCol": 20
+      }
+    }
+  }
+}

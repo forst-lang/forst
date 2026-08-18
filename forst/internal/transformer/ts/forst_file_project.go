@@ -105,14 +105,18 @@ func ValidateDiscoveredFileStems(filePaths []string, allowMismatch bool, log *lo
 	return nil
 }
 
-// GenerateTypeScriptOutputsByPackage typechecks discovered files per Forst package via
-// modulecheck and emits one TypeScriptOutput per package (merged AST, package-keyed client stem).
-func GenerateTypeScriptOutputsByPackage(filePaths []string, log *logrus.Logger, opts *GenerateTSOptions) ([]*TypeScriptOutput, error) {
+// PackageTypecheck holds one typechecked Forst package from generate discovery.
+type PackageTypecheck struct {
+	Name  string
+	Paths []string
+	Nodes []ast.Node
+	TC    *typechecker.TypeChecker
+}
+
+// TypecheckDiscoveredPackages parses and typechecks discovered files per Forst package via modulecheck.
+func TypecheckDiscoveredPackages(filePaths []string, log *logrus.Logger, reportPhases bool) (*modulecheck.ModuleResult, []PackageTypecheck, error) {
 	if len(filePaths) == 0 {
-		return nil, fmt.Errorf("no Forst files to parse")
-	}
-	if opts == nil {
-		opts = &GenerateTSOptions{}
+		return nil, nil, fmt.Errorf("no Forst files to parse")
 	}
 
 	paths := append([]string(nil), filePaths...)
@@ -122,7 +126,7 @@ func GenerateTypeScriptOutputsByPackage(filePaths []string, log *logrus.Logger, 
 	for _, p := range paths {
 		nodes, err := forstpkg.ParseForstFile(log, p)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", p, err)
+			return nil, nil, fmt.Errorf("%s: %w", p, err)
 		}
 		parsed[p] = nodes
 	}
@@ -139,31 +143,62 @@ func GenerateTypeScriptOutputsByPackage(filePaths []string, log *logrus.Logger, 
 		SkipValidate: true,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	modResult := scan.Result()
 
 	packageNames := packagesWithDiscoveredFiles(modResult.ForstPkgToFiles, paths)
-	outputs := make([]*TypeScriptOutput, 0, len(packageNames))
+	out := make([]PackageTypecheck, 0, len(packageNames))
 	for _, pkgName := range packageNames {
 		pkgPaths := packageDiscoveredPaths(modResult.ForstPkgToFiles[pkgName], paths)
 		nodes := modResult.PerPackageNodes[pkgName]
 		if nodes == nil {
-			return nil, fmt.Errorf("package %q missing merged AST", pkgName)
+			return nil, nil, fmt.Errorf("package %q missing merged AST", pkgName)
 		}
 
-		tc := typechecker.New(log, opts.ReportPhases)
+		tc := typechecker.New(log, reportPhases)
 		tc.ConfigureForForstFile(moduleRoot, filepath.Dir(pkgPaths[0]), nodes)
 		tc.SetModuleResult(modResult)
 		if err := tc.CheckTypes(nodes); err != nil {
-			return nil, fmt.Errorf("package %s: %w", pkgName, err)
+			return nil, nil, fmt.Errorf("package %s: %w", pkgName, err)
 		}
+		out = append(out, PackageTypecheck{
+			Name:  pkgName,
+			Paths: pkgPaths,
+			Nodes: nodes,
+			TC:    tc,
+		})
+	}
+	return modResult, out, nil
+}
 
-		tr := New(tc, log)
+// ParseFileTopLevelNodes parses a single .ft file for per-file top-level declaration walks.
+func ParseFileTopLevelNodes(path string) ([]ast.Node, error) {
+	return forstpkg.ParseForstFile(nil, path)
+}
+
+// GenerateTypeScriptOutputsByPackage typechecks discovered files per Forst package via
+// modulecheck and emits one TypeScriptOutput per package (merged AST, package-keyed client stem).
+func GenerateTypeScriptOutputsByPackage(filePaths []string, log *logrus.Logger, opts *GenerateTSOptions) ([]*TypeScriptOutput, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("no Forst files to parse")
+	}
+	if opts == nil {
+		opts = &GenerateTSOptions{}
+	}
+
+	_, packages, err := TypecheckDiscoveredPackages(filePaths, log, opts.ReportPhases)
+	if err != nil {
+		return nil, err
+	}
+
+	outputs := make([]*TypeScriptOutput, 0, len(packages))
+	for _, pkg := range packages {
+		tr := New(pkg.TC, log)
 		tr.GenerateStreamingClients = opts.GenerateStreamingClients
-		out, err := tr.TransformForstFileToTypeScript(nodes, pkgName)
+		out, err := tr.TransformForstFileToTypeScript(pkg.Nodes, pkg.Name)
 		if err != nil {
-			return nil, fmt.Errorf("package %s: %w", pkgName, err)
+			return nil, fmt.Errorf("package %s: %w", pkg.Name, err)
 		}
 		outputs = append(outputs, out)
 	}

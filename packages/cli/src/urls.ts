@@ -12,3 +12,11 @@ export function buildCompilerArtifactDownloadUrl(
 export function buildCompilerModuleDownloadUrl(version: string): string {
   return buildCompilerArtifactDownloadUrl(version, `forst-module-${version}.tar.gz`);
 }
+
+/** Download URL for the official semantic plugins bundle for one platform. */
+export function buildPluginsArtifactDownloadUrl(
+  version: string,
+  artifactName: string
+): string {
+  return buildCompilerArtifactDownloadUrl(version, artifactName);
+}

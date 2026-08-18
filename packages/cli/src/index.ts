@@ -76,7 +76,11 @@ export async function spawnForst(
   spawnOptions: SpawnOptions = {},
   resolveOptions?: ResolveForstBinaryOptions
 ): Promise<ReturnType<typeof spawn>> {
-  const { bin, env } = await buildForstSpawnEnv(resolveOptions);
+  const { bin, env } = await buildForstSpawnEnv({
+    ...resolveOptions,
+    argv: args,
+    cwd: spawnOptions.cwd?.toString() ?? process.cwd(),
+  });
   return spawn(bin, args, {
     stdio: "inherit",
     ...spawnOptions,
