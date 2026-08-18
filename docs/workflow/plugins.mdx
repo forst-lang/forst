@@ -1,0 +1,229 @@
+---
+title: "Plugins"
+description: "Extend `forst generate` to output custom files from typechecked Forst code."
+---
+
+Forst plugins generate integration files directly from your typechecked backend services.
+
+When you run `forst generate`, the compiler typechecks your Forst code and projects the resulting type definitions and function signatures into an in-memory snapshot. The compiler then executes your configured plugin binaries and passes this snapshot to them over standard input.
+
+Plugins emit generated code—such as JSON Schema files, RPC contract definitions, or framework route handlers—into dedicated output folders. Your application imports these generated outputs, ensuring external contracts and routers stay synchronized with your backend code without manual duplication. Because generated files are written exclusively to designated output directories, running `forst generate` updates your generated code without overwriting hand-written source files.
+
+## Quickstart
+
+Add a plugin to the `generate.plugins` array in `ftconfig.json`:
+
+```jsonc
+{
+  "generate": {
+    "plugins": [
+      {
+        "name": "jsonschema",
+        "cmd": "forst-gen-jsonschema",
+        "out": "generated/jsonschema",
+        "opt": {
+          "draft": "2020-12"
+        }
+      }
+    ]
+  }
+}
+```
+
+Run `forst generate` from your terminal:
+
+```bash
+forst generate ./my-service
+```
+
+This creates `generated/jsonschema/schema.json` alongside your generated TypeScript client. You can now import `schema.json` directly into your API gateway, validation pipeline, or external documentation tools.
+
+## What you can build with plugins
+
+Plugins bridge Forst's type system with any external system or toolchain. Because plugins receive fully resolved types, constraint chains, and function signatures, you can automate any downstream output that derives from backend service definitions:
+
+- **Validation and data schemas.** Convert type constraint chains into JSON Schema, Zod, Effect Schema, or custom validation rules for external clients, API gateways, and message queues.
+- **API contracts and specifications.** Derive end-to-end typed contract trees, OpenAPI specs, AsyncAPI definitions, GraphQL schemas, or client SDKs for RPC frameworks, REST endpoints, and message brokers.
+- **Framework and HTTP routing.** Generate route tables, parameter mappers, middleware hooks, and request dispatchers for web servers and full-stack frameworks.
+- **Full-stack data integration.** Produce server-side data loaders, resource route handlers, or form actions so UI frameworks can fetch Forst data without modifying your frontend source code.
+- **Persistence and database definitions.** Translate shape types and constraints into database schema migrations, SQL constraint assertions, ORM model mappings, or seed fixtures.
+- **Infrastructure and cloud topology.** Generate IaC definitions (Terraform, Pulumi, AWS CDK, Kubernetes CRDs) or API gateway policies directly from backend service declarations and provider dependencies.
+- **CI/CD and pipeline validation.** Produce GitHub Actions workflows, contract compatibility matrices, or breaking-change checkers between git revisions.
+- **Automated testing and mock suites.** Build deterministic test fixtures, fake service implementations, property-based test generators, or contract-testing suites automatically from service shapes.
+
+## Official plugin packages
+
+Official plugins are shipped alongside the compiler as standalone binaries.
+
+### `forst-gen-jsonschema`
+
+Generates standard JSON Schema files from Forst shapes and constraint chains.
+
+- **Use case:** Share strict type validation with external services, API gateways, or OpenAPI documentation.
+- **Key behavior:** Maps built-in constraints (`Min`, `Max`, `HasPrefix`, `Contains`) to schema properties. Emits a warning for runtime type-guard functions like `Email()` rather than guessing a format string.
+
+```jsonc
+{
+  "name": "jsonschema",
+  "cmd": "forst-gen-jsonschema",
+  "out": "generated/jsonschema",
+  "opt": {
+    "draft": "2020-12"
+  }
+}
+```
+
+### `forst-gen-orpc`
+
+Generates Zod schemas and procedure contracts for oRPC or tRPC applications.
+
+- **Use case:** Connect frontend web apps to Forst backend services using end-to-end typed RPC.
+- **Key behavior:** Reads contract types marked with `.Router()`. Generates `zod.ts`, `contract.ts`, and `invoke.ts`. Supports stream returns as subscriptions and maps optional query or mutation hints.
+
+```jsonc
+{
+  "name": "orpc",
+  "cmd": "forst-gen-orpc",
+  "out": "generated/orpc",
+  "opt": {
+    "markers": ["Router"],
+    "style": "orpc",
+    "queries": ["catalog.Catalog.GetOrder"]
+  }
+}
+```
+
+### `forst-gen-file-routes`
+
+Generates a sealed HTTP route registry from file paths under a target directory.
+
+- **Use case:** Build RESTful HTTP APIs where file layout determines URL structure.
+- **Key behavior:** Converts paths like `app/api/orders/$id.ft` into route pattern `/api/orders/:id`. Generates handler wrappers, path parameter bindings, and a central `dispatch()` function.
+
+```jsonc
+{
+  "name": "file-routes",
+  "cmd": "forst-gen-file-routes",
+  "out": "generated/api",
+  "opt": {
+    "routesRoot": "app/api",
+    "paramStyle": "$id"
+  }
+}
+```
+
+### `forst-gen-react-router`
+
+Generates React Router and Remix resource routes and server loaders.
+
+- **Use case:** Integrate Forst data fetching into React Router v7 or Remix full-stack applications.
+- **Key behavior:** Generates `forstApiRoutes` arrays, resource handler modules (`loader` and `action`), and helper functions for page modules. Never writes into your `app/` UI source folder.
+
+```jsonc
+{
+  "name": "rr-ssr",
+  "cmd": "forst-gen-react-router",
+  "out": "generated/rr",
+  "opt": {
+    "routesRoot": "app/api",
+    "invoke": "package"
+  }
+}
+```
+
+## How to write a custom plugin
+
+You can write a custom plugin in Go or any language that can read standard input and write standard output.
+
+### Why write a custom plugin?
+
+Write a custom plugin when you need to transform Forst type metadata into custom project files. Examples include:
+
+- Generating database migration scripts or SQL `CHECK` constraints from type assertions.
+- Emitting GraphQL schema definitions (`.graphql`) from exported shape types.
+- Producing custom SDKs for internal SDK clients or language runtimes.
+- Generating infrastructure config (Terraform, AWS CDK, Kubernetes manifests) based on service definitions.
+
+### Under the hood: The semantic snapshot model
+
+Plugins do not receive raw source tokens or abstract syntax trees (AST). Instead, `forst generate` typechecks your code once and emits a structured JSON payload called the **semantic snapshot**.
+
+The snapshot contains resolved, fully-qualified facts about your codebase:
+
+- **Packages:** Module layout, directories, files, and exported type/function IDs.
+- **Types:** Resolved primitives, shapes, field names, optionality, tags, and ordered constraint chains.
+- **Functions:** Exported declarations, parameters, synthesized input shapes, return types, and nominal error sets.
+
+Because plugins consume resolved type semantics rather than syntax, your plugin logic remains clean and predictable regardless of how the source code was formatted.
+
+### Step 1: Implement the JSON protocol
+
+Plugins read a single JSON request from `stdin` and write a single JSON response to `stdout`.
+
+Here is a minimal Go plugin using the official `forst/internal/genplugin` helper package:
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"forst/internal/genplugin"
+	"forst/internal/semantic"
+)
+
+func main() {
+	genplugin.Run(emitCustomManifest)
+}
+
+func emitCustomManifest(req *semantic.GenerateRequest) (semantic.GenerateResponse, error) {
+	var builder strings.Builder
+	builder.WriteString("# Exported Service Types\n\n")
+
+	for _, id := range genplugin.ExportedPackageTypeIDs(req) {
+		t := req.Types[id]
+		fmt.Fprintf(&builder, "- %s (kind: %s)\n", id, t.Kind)
+	}
+
+	return semantic.GenerateResponse{
+		ProtocolVersion: semantic.ProtocolVersion,
+		Files: []semantic.OutputFile{
+			{
+				Path:    "SUMMARY.md",
+				Content: builder.String(),
+			},
+		},
+	}, nil
+}
+```
+
+### Step 2: Register your plugin executable
+
+Build your executable and reference it in your `ftconfig.json`:
+
+```jsonc
+{
+  "generate": {
+    "plugins": [
+      {
+        "name": "custom-summary",
+        "cmd": "./bin/my-custom-plugin",
+        "out": "generated/summary"
+      }
+    ]
+  }
+}
+```
+
+When you run `forst generate`, the compiler executes `./bin/my-custom-plugin`, passes the snapshot, and writes `generated/summary/SUMMARY.md`.
+
+## Inspecting snapshots for debugging
+
+You can inspect the exact JSON snapshot emitted by the compiler without executing any plugins by using the `--dump-semantic` flag:
+
+```bash
+forst generate --dump-semantic ./my-service
+```
+
+This prints the complete `GenerateRequest` payload to standard output, making it easy to test and debug custom plugin transformations.

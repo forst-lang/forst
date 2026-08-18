@@ -1,6 +1,6 @@
 ---
 title: "CLI reference"
-description: "forst run, build, generate, dev, lsp, and other commands."
+description: "`forst run`, `build`, `generate`, `dev`, `lsp`, and other commands."
 ---
 
 import HelloFt from "/snippets/hello.ft.mdx";
@@ -87,6 +87,8 @@ Normal colocation does not need the flag. Put files under a folder named for the
 | Committed | for example `packages/forst-client` | Yes | No (`link: "auto"` skips linking outside `.forst`) |
 
 Ephemeral output is removed by `forst clean` and restored by the next generate. Committed mode is a normal workspace package you check in.
+
+See [Plugins](/workflow/plugins) to configure JSON Schema, RPC contracts, file routes, or custom generators during `forst generate`.
 
 ### Generate configuration
 
