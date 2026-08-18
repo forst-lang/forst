@@ -1,0 +1,9 @@
+package catalog
+
+is (s String) Email {
+  ensure s is Contains("@")
+}
+
+type Username = String.Min(3).Max(30).HasPrefix("u_")
+
+type EmailLine = String.Min(1).Email().Max(64)

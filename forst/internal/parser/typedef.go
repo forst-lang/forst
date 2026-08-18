@@ -87,6 +87,21 @@ func (p *Parser) parseTypeDefExpr() ast.TypeDefExpr {
 
 	if p.current().Type == ast.TokenLBrace {
 		shape := p.parseShapeTypeAllowEmpty()
+		if p.current().Type == ast.TokenDot {
+			base := ast.TypeShape
+			assertion := ast.AssertionNode{
+				BaseType: &base,
+				Constraints: []ast.ConstraintNode{{
+					Name: "Match",
+					Args: []ast.ConstraintArgumentNode{{Shape: &shape}},
+				}},
+			}
+			for p.current().Type == ast.TokenDot {
+				p.advance()
+				assertion.Constraints = append(assertion.Constraints, p.parseConstraint())
+			}
+			return ast.TypeDefAssertionExpr{Assertion: &assertion}
+		}
 		return ast.TypeDefShapeExpr{Shape: shape}
 	}
 

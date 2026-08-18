@@ -142,6 +142,33 @@ tasks:
       - packages/client/dist/index.js
       - packages/client/dist/index.d.ts
 
+  build:plugins:
+    desc: Build forst generate semantic plugins to ../bin/
+    dir: forst
+    cmds:
+      - mkdir -p ../bin
+      - go build -o ../bin/forst-gen-jsonschema ./plugins/forst-gen-jsonschema
+      - go build -o ../bin/forst-gen-orpc ./plugins/forst-gen-orpc
+      - go build -o ../bin/forst-gen-file-routes ./plugins/forst-gen-file-routes
+      - go build -o ../bin/forst-gen-react-router ./plugins/forst-gen-react-router
+      - go build -o ../bin/forst-gen-echo ./plugins/forst-gen-echo
+    sources:
+      - ./plugins/**/*.go
+      - ./internal/genplugin/**/*.go
+      - ./internal/semantic/**/*.go
+    generates:
+      - ../bin/forst-gen-jsonschema
+      - ../bin/forst-gen-orpc
+      - ../bin/forst-gen-file-routes
+      - ../bin/forst-gen-react-router
+      - ../bin/forst-gen-echo
+
+  test:plugins:
+    desc: Run Go tests for semantic plugins and genplugin
+    dir: forst
+    cmds:
+      - go test ./internal/genplugin/... ./plugins/...
+
   build:vscode:
     desc: Compile the VS Code extension (TypeScript)
     dir: packages/vscode-forst

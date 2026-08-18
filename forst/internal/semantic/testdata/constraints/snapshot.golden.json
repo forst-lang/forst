@@ -1,0 +1,87 @@
+{
+  "protocolVersion": 1,
+  "compilerVersion": "test",
+  "module": {
+    "goModule": "forst",
+    "root": "testdata/constraints"
+  },
+  "packages": [
+    {
+      "name": "catalog",
+      "dir": "catalog",
+      "files": [
+        "types.ft"
+      ],
+      "typeIds": [
+        "catalog.EmailLine",
+        "catalog.Username"
+      ],
+      "functionIds": []
+    }
+  ],
+  "types": {
+    "catalog.EmailLine": {
+      "id": "catalog.EmailLine",
+      "kind": "string",
+      "constraints": [
+        {
+          "name": "Min",
+          "args": [
+            1
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        },
+        {
+          "name": "Email",
+          "origin": "typeGuard"
+        },
+        {
+          "name": "Max",
+          "args": [
+            64
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "catalog.Username": {
+      "id": "catalog.Username",
+      "kind": "string",
+      "constraints": [
+        {
+          "name": "Min",
+          "args": [
+            3
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        },
+        {
+          "name": "Max",
+          "args": [
+            30
+          ],
+          "origin": "builtin",
+          "applies": "length"
+        },
+        {
+          "name": "HasPrefix",
+          "args": [
+            "u_"
+          ],
+          "origin": "builtin"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "structural:MoSvoViRHTr": {
+      "id": "structural:MoSvoViRHTr",
+      "kind": "shape",
+      "visibility": "exported"
+    }
+  },
+  "functions": {}
+}

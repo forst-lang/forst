@@ -148,6 +148,11 @@ func (g GenerateConfig) Validate() error {
 	if err := g.Go.Validate(); err != nil {
 		return err
 	}
+	for i, p := range g.Plugins {
+		if err := p.Validate(); err != nil {
+			return fmt.Errorf("generate.plugins[%d]: %w", i, err)
+		}
+	}
 	key := g.TestingSubpath
 	if key == "" {
 		key = "$testing"

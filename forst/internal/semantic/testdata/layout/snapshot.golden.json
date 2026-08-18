@@ -1,0 +1,192 @@
+{
+  "protocolVersion": 1,
+  "compilerVersion": "test",
+  "module": {
+    "goModule": "forst",
+    "root": "testdata/layout"
+  },
+  "packages": [
+    {
+      "name": "api",
+      "dir": "app/api",
+      "files": [
+        "handlers.ft",
+        "routes.ft"
+      ],
+      "typeIds": [
+        "api.Handlers",
+        "api.Health",
+        "api.PingResponse",
+        "api.Routes"
+      ],
+      "functionIds": [
+        "api.GET",
+        "api.POST"
+      ]
+    }
+  ],
+  "types": {
+    "api.Handlers": {
+      "id": "api.Handlers",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "POST",
+          "type": "t:api.shape.1.POST.sig",
+          "method": true,
+          "function": "api.POST"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "api.Health": {
+      "id": "api.Health",
+      "kind": "shape",
+      "fields": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "api.PingResponse": {
+      "id": "api.PingResponse",
+      "kind": "shape",
+      "fields": [
+        {
+          "name": "ok",
+          "type": "bool"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "api.Routes": {
+      "id": "api.Routes",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "GET",
+          "type": "t:api.shape.2.GET.sig",
+          "method": true,
+          "function": "api.GET"
+        }
+      ],
+      "visibility": "exported"
+    },
+    "t:api.shape.1": {
+      "id": "t:api.shape.1",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "POST",
+          "type": "t:api.shape.1.POST.sig",
+          "method": true,
+          "function": "api.POST"
+        }
+      ]
+    },
+    "t:api.shape.1.POST.sig": {
+      "id": "t:api.shape.1.POST.sig",
+      "kind": "func",
+      "returns": [
+        "shape"
+      ]
+    },
+    "t:api.shape.2": {
+      "id": "t:api.shape.2",
+      "kind": "shape",
+      "constraints": [
+        {
+          "name": "Router",
+          "origin": "builtin"
+        }
+      ],
+      "fields": [
+        {
+          "name": "GET",
+          "type": "t:api.shape.2.GET.sig",
+          "method": true,
+          "function": "api.GET"
+        }
+      ]
+    },
+    "t:api.shape.2.GET.sig": {
+      "id": "t:api.shape.2.GET.sig",
+      "kind": "func",
+      "returns": [
+        "shape"
+      ]
+    }
+  },
+  "functions": {
+    "api.GET": {
+      "id": "api.GET",
+      "name": "GET",
+      "package": "api",
+      "visibility": "exported",
+      "role": "function",
+      "runnable": true,
+      "receiver": null,
+      "params": null,
+      "input": "void",
+      "returns": [
+        "shape"
+      ],
+      "errorSet": {
+        "unknownPossible": false
+      },
+      "providers": null,
+      "span": {
+        "file": "app/api/routes.ft",
+        "startLine": 11,
+        "startCol": 6,
+        "endLine": 11,
+        "endCol": 9
+      }
+    },
+    "api.POST": {
+      "id": "api.POST",
+      "name": "POST",
+      "package": "api",
+      "visibility": "exported",
+      "role": "function",
+      "runnable": true,
+      "receiver": null,
+      "params": null,
+      "input": "void",
+      "returns": [
+        "shape"
+      ],
+      "errorSet": {
+        "unknownPossible": false
+      },
+      "providers": null,
+      "span": {
+        "file": "app/api/handlers.ft",
+        "startLine": 11,
+        "startCol": 6,
+        "endLine": 11,
+        "endCol": 10
+      }
+    }
+  }
+}

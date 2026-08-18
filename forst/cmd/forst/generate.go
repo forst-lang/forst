@@ -37,6 +37,8 @@ var (
 	absPathForGenerate              = filepath.Abs
 	mergeTypeScriptOutputsHook      = transformerts.MergeTypeScriptOutputs
 	generateTSOutputsByPackageHook  = transformerts.GenerateTypeScriptOutputsByPackage
+	buildSemanticSnapshotHook       = buildSemanticSnapshot
+	runSemanticPluginsHook          = runSemanticPlugins
 	validateDiscoveredFileStemsHook = transformerts.ValidateDiscoveredFileStems
 	generateClientPackageHook       = generateClientPackage
 	pruneStaleClientModulesHook     = pruneStaleClientModules
@@ -116,6 +118,7 @@ type generateOptions struct {
 	goOut             string
 	goRoot            string
 	skipClient        bool
+	dumpSemantic      bool
 }
 
 func parseGenerateArgs(args []string) (generateOptions, error) {
@@ -131,6 +134,7 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 	goOut := fs.String("go-out", "", "Override generate.go.out")
 	goRoot := fs.String("go-root", "", "Override generate.go.root")
 	skipClient := fs.Bool("skip-client", false, "Skip TypeScript client generation (generate.skipClient)")
+	dumpSemantic := fs.Bool("dump-semantic", false, "Print semantic snapshot JSON to stdout and exit")
 	if err := fs.Parse(args); err != nil {
 		return generateOptions{}, err
 	}
@@ -155,6 +159,7 @@ func parseGenerateArgs(args []string) (generateOptions, error) {
 		goOut:             *goOut,
 		goRoot:            *goRoot,
 		skipClient:        *skipClient,
+		dumpSemantic:      *dumpSemantic,
 	}, nil
 }
 
@@ -298,19 +303,21 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 			return err
 		}
 	}
-	if shouldSkipClientGenerate(opts, cfg) {
+	if shouldSkipClientGenerate(opts, cfg) && len(forstFiles) == 0 && !goPlan.active {
 		log.Debug("TypeScript client generation skipped (generate.skipClient)")
 		return nil
 	}
 
 	if len(forstFiles) == 0 {
+		if goPlan.active {
+			return nil
+		}
 		log.Warn("No .ft files found for TypeScript generation (check ftconfig include/exclude)")
 		return nil
 	}
 
 	log.Debugf("Found %d Forst files", len(forstFiles))
 
-	// Pipeline: discover → stem validation → typecheck (modulecheck enforces Go package layout) → emit.
 	if err := validateDiscoveredFileStemsHook(forstFiles, opts.allowStemMismatch, log); err != nil {
 		return err
 	}
@@ -321,6 +328,34 @@ func runGenerateOnce(opts generateOptions, cfg *ForstConfig, isDir bool, log *lo
 	if err != nil {
 		return err
 	}
+
+	snapshotStart := time.Now()
+	snapshot, err := buildSemanticSnapshotHook(forstFiles, boundaryRoot, log)
+	logGeneratePhase(log, reportPhases, "semantic_snapshot", snapshotStart)
+	if err != nil {
+		return fmt.Errorf("semantic snapshot: %w", err)
+	}
+	if opts.dumpSemantic {
+		return dumpSemanticSnapshot(snapshot)
+	}
+	if len(genCfg.Plugins) > 0 {
+		pluginStart := time.Now()
+		var pluginStats generateWriteStats
+		if err := runSemanticPluginsHook(boundaryRoot, snapshot, genCfg.Plugins, log, &pluginStats); err != nil {
+			return err
+		}
+		logGeneratePhase(log, reportPhases, "semantic_plugins", pluginStart)
+		log.WithFields(logrus.Fields{
+			"filesWritten": pluginStats.Written,
+			"filesSkipped": pluginStats.Skipped,
+		}).Debug("Semantic plugin write summary")
+	}
+
+	if shouldSkipClientGenerate(opts, cfg) {
+		log.Debug("TypeScript client generation skipped (generate.skipClient)")
+		return nil
+	}
+
 	reportProviderOmissions(outputs, log)
 
 	// Guards run before any emit so a failing project leaves no partial output.
