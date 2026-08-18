@@ -110,6 +110,37 @@ func TestEmitJSONSchema_unknownKindWarning(t *testing.T) {
 	}
 }
 
+func TestEmitJSONSchema_mapMinMaxProperties(t *testing.T) {
+	req := &semantic.GenerateRequest{
+		Packages: []semantic.SemanticPackage{{Name: "p", TypeIDs: []string{"p.Tags"}}},
+		Types: map[string]semantic.Type{
+			"p.Tags": {
+				ID: "p.Tags", Kind: "map", Value: "string", Visibility: "exported",
+				Constraints: []semantic.Constraint{
+					{Name: "Min", Args: []any{1}, Origin: "builtin", Applies: "value"},
+					{Name: "Max", Args: []any{10}, Origin: "builtin", Applies: "value"},
+				},
+			},
+		},
+	}
+	resp, err := emitJSONSchema(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := resp.Files[0].Content
+	if strings.Contains(raw, `"minimum"`) || strings.Contains(raw, `"maximum"`) {
+		t.Fatalf("map Min/Max must not become numeric bounds:\n%s", raw)
+	}
+	if !strings.Contains(raw, `"minProperties": 1`) || !strings.Contains(raw, `"maxProperties": 10`) {
+		t.Fatalf("expected minProperties/maxProperties:\n%s", raw)
+	}
+	for _, d := range resp.Diagnostics {
+		if strings.Contains(d.Message, "Min") || strings.Contains(d.Message, "Max") {
+			t.Fatalf("unexpected Min/Max warning: %#v", d)
+		}
+	}
+}
+
 func loadConstraintsSnapshot(t *testing.T) *semantic.GenerateRequest {
 	t.Helper()
 	return loadSnapshot(t, "constraints")

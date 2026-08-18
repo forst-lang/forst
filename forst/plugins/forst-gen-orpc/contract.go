@@ -168,5 +168,5 @@ func implementExpr(p proc) string {
 	if p.kind == "subscription" {
 		return fmt.Sprintf("() => invokeStream(%q, %q, [%s])", pkg, fn, args)
 	}
-	return fmt.Sprintf("(input) => invokePositional(%q, %q, [%s])", pkg, fn, args)
+	return fmt.Sprintf("(input: any) => invokePositional(%q, %q, [%s])", pkg, fn, args)
 }

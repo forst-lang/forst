@@ -121,6 +121,16 @@ Set these under `"generate"` in `ftconfig.json`:
 | `go.out` | `string` | `""` | Output `.go` path relative to the boundary root (requires `go.entry`) |
 | `go.root` | `string` | `""` | Optional package root for Go source emission |
 | `skipClient` | `bool` | `false` | Skip TypeScript client generation |
+| `plugins` | `array` | `[]` | Semantic plugin executables run after typecheck. See [Plugins](/workflow/plugins) |
+
+Each plugin entry:
+
+| Field | Type | Required | Purpose |
+| --- | --- | --- | --- |
+| `name` | `string` | yes | Identifier passed to the plugin in the snapshot |
+| `cmd` | `string` | yes | Executable name (`PATH`) or path (`./bin/...` relative to boundary root) |
+| `out` | `string` | yes | Output directory relative to the boundary root |
+| `opt` | `object` | no | Plugin-specific JSON options |
 
 ### Optional Go sources (`generate.go`)
 

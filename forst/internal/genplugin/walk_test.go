@@ -38,6 +38,64 @@ func TestFileRouterSurfaces_layoutGolden(t *testing.T) {
 	}
 }
 
+func TestFileRouterSurfaces_skipsRouterOutsideRoutesRoot(t *testing.T) {
+	req := loadGolden(t, "router")
+	surfaces, diags := FileRouterSurfaces(req, FileRouteOptions{RoutesRoot: "app/api", Markers: []string{"Router"}})
+	if len(diags) != 0 {
+		t.Fatalf("expected no diags for out-of-tree RPC router, got %#v", diags)
+	}
+	if len(surfaces) != 0 {
+		t.Fatalf("surfaces = %#v", surfaces)
+	}
+}
+
+func TestHasMarker_followsAliasChain(t *testing.T) {
+	types := map[string]semantic.Type{
+		"catalog.RouterAlias": {
+			ID: "catalog.RouterAlias", Kind: "alias", Underlying: "catalog.CatalogShape",
+		},
+		"catalog.CatalogShape": {
+			ID: "catalog.CatalogShape", Kind: "shape",
+			Constraints: []semantic.Constraint{{Name: "Router", Origin: "builtin"}},
+		},
+	}
+	if !HasMarker(types, types["catalog.RouterAlias"], []string{"Router"}) {
+		t.Fatal("expected Router marker via alias chain")
+	}
+}
+
+func TestRouterSurfaces_aliasRouterType(t *testing.T) {
+	req := &semantic.GenerateRequest{
+		Packages: []semantic.SemanticPackage{{
+			Name: "catalog", Dir: "catalog", TypeIDs: []string{"catalog.CatalogAlias"},
+			FunctionIDs: []string{"catalog.PlaceOrder"},
+		}},
+		Types: map[string]semantic.Type{
+			"catalog.CatalogAlias": {
+				ID: "catalog.CatalogAlias", Kind: "alias", Visibility: "exported",
+				Underlying: "catalog.CatalogShape",
+			},
+			"catalog.CatalogShape": {
+				ID: "catalog.CatalogShape", Kind: "shape", Visibility: "exported",
+				Constraints: []semantic.Constraint{{Name: "Router", Origin: "builtin"}},
+				Fields: []semantic.ShapeField{{
+					Name: "PlaceOrder", Method: true, Function: "catalog.PlaceOrder",
+				}},
+			},
+		},
+		Functions: map[string]semantic.Function{
+			"catalog.PlaceOrder": {
+				ID: "catalog.PlaceOrder", Name: "PlaceOrder", Package: "catalog",
+				Visibility: "exported", Runnable: true,
+			},
+		},
+	}
+	surfaces := RouterSurfaces(req, []string{"Router"})
+	if len(surfaces) != 1 || surfaces[0].TypeID != "catalog.CatalogAlias" {
+		t.Fatalf("surfaces = %#v", surfaces)
+	}
+}
+
 func loadGolden(t *testing.T, name string) *semantic.GenerateRequest {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

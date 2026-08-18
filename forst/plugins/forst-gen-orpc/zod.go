@@ -13,6 +13,8 @@ type zodEnc struct {
 	types   map[string]semantic.Type
 	needIDs map[string]struct{}
 	emitted map[string]string // type id → TS const name
+	byName  map[string]string // TS const name → type id
+	used    map[string]int
 	order   []string
 	cycle   map[string]bool
 }
@@ -22,6 +24,8 @@ func newZodEnc(types map[string]semantic.Type) *zodEnc {
 		types:   types,
 		needIDs: map[string]struct{}{},
 		emitted: map[string]string{},
+		byName:  map[string]string{},
+		used:    map[string]int{},
 		cycle:   map[string]bool{},
 	}
 }
@@ -55,12 +59,19 @@ func (z *zodEnc) nameOf(id string) string {
 	if n, ok := z.emitted[id]; ok {
 		return n
 	}
-	base := genplugin.TSIdentifier(genplugin.TypeShortName(id))
+	var base string
 	if strings.HasSuffix(id, ".input") {
 		base = genplugin.TSIdentifier(strings.ReplaceAll(strings.TrimSuffix(id, ".input"), ".", "_")) + "Input"
+	} else {
+		base = genplugin.TSIdentifier(genplugin.UniqueTypeName(id, z.used))
 	}
 	name := base + "Schema"
+	if prev, ok := z.byName[name]; ok && prev != id {
+		base = genplugin.TSIdentifier(strings.ReplaceAll(id, ".", "_"))
+		name = base + "Schema"
+	}
 	z.emitted[id] = name
+	z.byName[name] = id
 	return name
 }
 
@@ -77,11 +88,7 @@ func (z *zodEnc) expr(id string) string {
 }
 
 func (z *zodEnc) emit() string {
-	ids := make([]string, 0, len(z.needIDs))
-	for id := range z.needIDs {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
+	ids := z.sortedNeedIDs()
 	var b strings.Builder
 	b.WriteString(genplugin.TSGeneratedHeader)
 	fmt.Fprintf(&b, "// Generator: forst-gen-orpc %s\n\n", version)
@@ -97,6 +104,65 @@ func (z *zodEnc) emit() string {
 		b.WriteString("export {};\n")
 	}
 	return b.String()
+}
+
+func (z *zodEnc) sortedNeedIDs() []string {
+	ids := make([]string, 0, len(z.needIDs))
+	for id := range z.needIDs {
+		ids = append(ids, id)
+	}
+	deps := map[string][]string{}
+	for _, id := range ids {
+		t, ok := z.types[id]
+		if !ok {
+			continue
+		}
+		deps[id] = z.typeRefs(t)
+	}
+	var order []string
+	seen := map[string]struct{}{}
+	var visit func(string)
+	visit = func(id string) {
+		if _, ok := seen[id]; ok {
+			return
+		}
+		seen[id] = struct{}{}
+		for _, dep := range deps[id] {
+			visit(dep)
+		}
+		order = append(order, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		visit(id)
+	}
+	return order
+}
+
+func (z *zodEnc) typeRefs(t semantic.Type) []string {
+	var refs []string
+	add := func(id string) {
+		if id == "" || id == "void" {
+			return
+		}
+		if _, ok := z.needIDs[id]; ok {
+			refs = append(refs, id)
+		}
+	}
+	add(t.Element)
+	add(t.Value)
+	add(t.Inner)
+	add(t.Underlying)
+	add(t.Success)
+	add(t.Failure)
+	add(t.Payload)
+	for _, id := range t.Members {
+		add(id)
+	}
+	for _, f := range t.Fields {
+		add(f.Type)
+	}
+	return refs
 }
 
 func (z *zodEnc) inline(t semantic.Type) string {
@@ -200,38 +266,85 @@ func applyZodConstraints(expr, kind string, chain []semantic.Constraint) string 
 		}
 		switch c.Name {
 		case "Min":
-			if n, ok := numericArg(c.Args); ok {
+			if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
 				expr += fmt.Sprintf(".min(%v)", intOrFloat(n, kind, c.Applies))
 			}
 		case "Max":
-			if n, ok := numericArg(c.Args); ok {
+			if n, ok := numericArg(c.Args); ok && zodBoundApplies(kind, c.Applies) {
 				expr += fmt.Sprintf(".max(%v)", intOrFloat(n, kind, c.Applies))
 			}
 		case "LessThan":
-			if n, ok := numericArg(c.Args); ok {
-				expr += fmt.Sprintf(".lt(%v)", n)
+			if (kind == "int" || kind == "float") {
+				if n, ok := numericArg(c.Args); ok {
+					expr += fmt.Sprintf(".lt(%v)", n)
+				}
 			}
 		case "GreaterThan":
-			if n, ok := numericArg(c.Args); ok {
-				expr += fmt.Sprintf(".gt(%v)", n)
+			if kind == "int" || kind == "float" {
+				if n, ok := numericArg(c.Args); ok {
+					expr += fmt.Sprintf(".gt(%v)", n)
+				}
 			}
 		case "HasPrefix":
-			if prefix, ok := stringArg(c.Args); ok {
+			if prefix, ok := stringArg(c.Args); ok && kind == "string" {
 				expr += fmt.Sprintf(".regex(/^%s/)", quoteMeta(prefix))
 			}
 		case "Contains":
-			if sub, ok := stringArg(c.Args); ok {
+			if sub, ok := stringArg(c.Args); ok && kind == "string" {
 				expr += fmt.Sprintf(".regex(/.*%s.*/)", quoteMeta(sub))
 			}
 		case "NotEmpty":
-			expr += ".min(1)"
+			if kind == "string" || kind == "array" {
+				expr += ".min(1)"
+			}
 		case "True":
 			expr = "z.literal(true)"
 		case "False":
 			expr = "z.literal(false)"
+		case "Nil":
+			expr = expr + ".nullable()"
+		case "Present":
+			expr = expr + ".refine((v) => v != null)"
+		case "Value":
+			if len(c.Args) >= 1 {
+				expr = fmt.Sprintf("z.literal(%v)", zodLiteral(c.Args[0]))
+			}
 		}
 	}
 	return expr
+}
+
+func zodBoundApplies(kind, applies string) bool {
+	target := applies
+	if target == "" {
+		switch kind {
+		case "string", "array", "int", "float":
+			return true
+		default:
+			return false
+		}
+	}
+	switch target {
+	case "length":
+		return kind == "string"
+	case "items":
+		return kind == "array"
+	case "value":
+		return kind == "int" || kind == "float"
+	default:
+		return false
+	}
+}
+
+func zodLiteral(v any) string {
+	switch x := v.(type) {
+	case string:
+		return fmt.Sprintf("%q", x)
+	case bool:
+		return fmt.Sprintf("%t", x)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func intOrFloat(n float64, kind, applies string) any {

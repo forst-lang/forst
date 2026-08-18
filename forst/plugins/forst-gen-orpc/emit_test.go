@@ -34,6 +34,29 @@ func TestEmitORPC_routerFixture(t *testing.T) {
 	}
 }
 
+func TestEmitORPC_zodUniqueSchemaNames(t *testing.T) {
+	req := &semantic.GenerateRequest{
+		Packages: []semantic.SemanticPackage{{Name: "catalog", TypeIDs: []string{"catalog.Id", "orders.Id"}}},
+		Types: map[string]semantic.Type{
+			"catalog.Id": {ID: "catalog.Id", Kind: "string", Visibility: "exported"},
+			"orders.Id":  {ID: "orders.Id", Kind: "string", Visibility: "exported"},
+		},
+	}
+	z := newZodEnc(req.Types)
+	z.need("catalog.Id")
+	z.need("orders.Id")
+	out := z.emit()
+	if !strings.Contains(out, "export const IdSchema") {
+		t.Fatalf("expected first id schema:\n%s", out)
+	}
+	if !strings.Contains(out, "export const orders_IdSchema") {
+		t.Fatalf("expected disambiguated orders id schema:\n%s", out)
+	}
+	if strings.Count(out, "export const IdSchema") > 1 {
+		t.Fatalf("duplicate IdSchema exports:\n%s", out)
+	}
+}
+
 func TestEmitORPC_trpcAndSubscription(t *testing.T) {
 	req := loadSnapshot(t, "router")
 	req.Plugin = &semantic.PluginRef{Name: "orpc", Opt: json.RawMessage(`{"style":"trpc"}`)}
@@ -84,6 +107,21 @@ func TestEmitORPC_optQueriesAndHTTP(t *testing.T) {
 func withMethod(t semantic.Type, field semantic.ShapeField) semantic.Type {
 	t.Fields = append(append([]semantic.ShapeField{}, t.Fields...), field)
 	return t
+}
+
+func TestZodEnc_valueConstraint(t *testing.T) {
+	types := map[string]semantic.Type{
+		"p.Status": {
+			ID: "p.Status", Kind: "string",
+			Constraints: []semantic.Constraint{{Name: "Value", Args: []any{"active"}, Origin: "builtin"}},
+		},
+	}
+	z := newZodEnc(types)
+	z.need("p.Status")
+	out := z.emit()
+	if !strings.Contains(out, `z.literal("active")`) {
+		t.Fatalf("expected Value literal:\n%s", out)
+	}
 }
 
 func loadSnapshot(t *testing.T, name string) *semantic.GenerateRequest {

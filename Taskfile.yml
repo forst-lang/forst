@@ -147,11 +147,14 @@ tasks:
     dir: forst
     cmds:
       - mkdir -p ../bin
-      - go build -o ../bin/forst-gen-jsonschema ./plugins/forst-gen-jsonschema
-      - go build -o ../bin/forst-gen-orpc ./plugins/forst-gen-orpc
-      - go build -o ../bin/forst-gen-file-routes ./plugins/forst-gen-file-routes
-      - go build -o ../bin/forst-gen-react-router ./plugins/forst-gen-react-router
-      - go build -o ../bin/forst-gen-echo ./plugins/forst-gen-echo
+      - |
+        set -euo pipefail
+        go build -o ../bin/forst-gen-jsonschema ./plugins/forst-gen-jsonschema &
+        go build -o ../bin/forst-gen-orpc ./plugins/forst-gen-orpc &
+        go build -o ../bin/forst-gen-file-routes ./plugins/forst-gen-file-routes &
+        go build -o ../bin/forst-gen-react-router ./plugins/forst-gen-react-router &
+        go build -o ../bin/forst-gen-echo ./plugins/forst-gen-echo &
+        wait
     sources:
       - ./plugins/**/*.go
       - ./internal/genplugin/**/*.go
@@ -168,6 +171,7 @@ tasks:
     dir: forst
     cmds:
       - go test ./internal/genplugin/... ./plugins/...
+      - go test ./cmd/forst -run 'TestGenerate_plugins|TestRunSemanticPlugins'
 
   build:vscode:
     desc: Compile the VS Code extension (TypeScript)

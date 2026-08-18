@@ -55,6 +55,34 @@ func TestEmitFileRoutes_pathParams(t *testing.T) {
 	}
 }
 
+func TestEmitFileRoutes_skipsUnrunnable(t *testing.T) {
+	req := paramSnapshot()
+	fn := req.Functions["ordersid.GET"]
+	fn.Runnable = false
+	req.Functions["ordersid.GET"] = fn
+	resp, err := emitFileRoutes(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, d := range resp.Diagnostics {
+		if strings.Contains(d.Message, "not runnable") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected runnable diagnostic: %#v", resp.Diagnostics)
+	}
+	registry := fileContent(resp, "registry.ts")
+	if strings.Contains(registry, `"GET": {`) {
+		t.Fatalf("registry should not emit GET for unrunnable handler:\n%s", registry)
+	}
+	h := fileContent(resp, "handlers/orders.$id.ts")
+	if strings.Contains(h, "export async function GET") {
+		t.Fatal("should not emit GET handler for unrunnable function")
+	}
+}
+
 func TestEmitFileRoutes_paramMismatchDiagnostic(t *testing.T) {
 	req := paramSnapshot()
 	fn := req.Functions["ordersid.GET"]

@@ -70,12 +70,12 @@ func TypeShortName(id string) string {
 	return id
 }
 
-// HasMarker reports whether any constraint on t matches one of markers.
-func HasMarker(t semantic.Type, markers []string) bool {
+// HasMarker reports whether t's constraint chain (including aliases) includes a marker name.
+func HasMarker(types map[string]semantic.Type, t semantic.Type, markers []string) bool {
 	if len(markers) == 0 {
 		markers = []string{"Router"}
 	}
-	for _, c := range t.Constraints {
+	for _, c := range ConstraintChain(types, t) {
 		for _, m := range markers {
 			if c.Name == m {
 				return true
@@ -110,15 +110,22 @@ func RouterSurfaces(req *semantic.GenerateRequest, markers []string) []RouterSur
 	var out []RouterSurface
 	for _, id := range ExportedPackageTypeIDs(req) {
 		t, ok := req.Types[id]
-		if !ok || t.Kind != "shape" || !HasMarker(t, markers) {
+		if !ok || !HasMarker(req.Types, t, markers) {
 			continue
 		}
-		surface := RouterSurface{TypeID: id, Type: t}
+		shape := FollowAlias(req.Types, t)
+		if shape.Kind != "shape" {
+			continue
+		}
+		surface := RouterSurface{TypeID: id, Type: shape}
 		if t.Span != nil {
 			surface.File = t.Span.File
 		}
+		if surface.File == "" && shape.Span != nil {
+			surface.File = shape.Span.File
+		}
 		pkg := PackageOfTypeID(id)
-		for _, field := range t.Fields {
+		for _, field := range shape.Fields {
 			m, ok := routerMethodFromField(req, pkg, field)
 			if !ok {
 				continue
@@ -219,6 +226,9 @@ func FileRouterSurfaces(req *semantic.GenerateRequest, opts FileRouteOptions) ([
 			})
 			continue
 		}
+		if !fileUnderRoutesRoot(s.File, routesRoot) {
+			continue
+		}
 		path, err := RoutePath(s.File, routesRoot, opts.ParamStyle)
 		if err != nil {
 			diags = append(diags, semantic.Diagnostic{
@@ -255,4 +265,14 @@ func FileRouterSurfaces(req *semantic.GenerateRequest, opts FileRouteOptions) ([
 		return out[i].TypeID < out[j].TypeID
 	})
 	return out, diags
+}
+
+func fileUnderRoutesRoot(spanFile, routesRoot string) bool {
+	spanFile = toSlash(spanFile)
+	routesRoot = strings.Trim(toSlash(routesRoot), "/")
+	if spanFile == "" || routesRoot == "" {
+		return false
+	}
+	prefix := routesRoot + "/"
+	return strings.HasPrefix(spanFile, prefix) || spanFile == routesRoot || spanFile == routesRoot+".ft"
 }

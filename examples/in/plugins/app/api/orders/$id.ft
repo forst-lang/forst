@@ -1,0 +1,17 @@
+package orders
+
+type OrderView = {
+  id: String
+}
+
+type ById = {
+  GET(id String): OrderView
+  DELETE(id String)
+}.Router()
+
+func GET(id String): OrderView {
+  return { id: id }
+}
+
+func DELETE(id String) {
+}

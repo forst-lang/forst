@@ -176,6 +176,78 @@ func TestRunSemanticPlugins_reactRouter(t *testing.T) {
 	}
 }
 
+func TestRunSemanticPlugins_errorDiagnosticFailsGenerate(t *testing.T) {
+	root := t.TempDir()
+	pluginBin := buildFileRoutesPlugin(t)
+	req := paramMismatchSnapshot(t)
+	plugin := ftconfig.GeneratePluginConfig{
+		Name: "file-routes",
+		Cmd:  pluginBin,
+		Out:  "generated/api",
+	}
+	var stats generateWriteStats
+	err := runOneSemanticPlugin(root, req, plugin, newGenerateLogger(), &stats)
+	if err == nil || !strings.Contains(err.Error(), "error diagnostic") {
+		t.Fatalf("expected error diagnostic failure, got %v", err)
+	}
+}
+
+func TestRunSemanticPlugins_prunesStaleOutputFiles(t *testing.T) {
+	root := t.TempDir()
+	echoBin := buildEchoPlugin(t)
+	outDir := filepath.Join(root, "generated/echo")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(outDir, "stale.txt")
+	if err := os.WriteFile(stale, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := &semantic.GenerateRequest{
+		ProtocolVersion: semantic.ProtocolVersion,
+		Types:           map[string]semantic.Type{},
+		Functions:       map[string]semantic.Function{},
+	}
+	plugin := ftconfig.GeneratePluginConfig{Name: "echo", Cmd: echoBin, Out: "generated/echo"}
+	var stats generateWriteStats
+	if err := runOneSemanticPlugin(root, snapshot, plugin, newGenerateLogger(), &stats); err != nil {
+		t.Fatalf("runOneSemanticPlugin: %v", err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatalf("stale file should be removed, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "manifest.txt")); err != nil {
+		t.Fatalf("manifest missing: %v", err)
+	}
+}
+
+func paramMismatchSnapshot(t *testing.T) *semantic.GenerateRequest {
+	t.Helper()
+	return &semantic.GenerateRequest{
+		ProtocolVersion: semantic.ProtocolVersion,
+		Packages: []semantic.SemanticPackage{{
+			Name: "ordersid", Dir: "app/api/orders", TypeIDs: []string{"ordersid.OrdersId"},
+			FunctionIDs: []string{"ordersid.GET"},
+		}},
+		Types: map[string]semantic.Type{
+			"ordersid.OrdersId": {
+				ID: "ordersid.OrdersId", Kind: "shape", Visibility: "exported",
+				Constraints: []semantic.Constraint{{Name: "Router", Origin: "builtin"}},
+				Fields:      []semantic.ShapeField{{Name: "GET", Method: true, Function: "ordersid.GET"}},
+				Span:        &semantic.SourceSpan{File: "app/api/orders/$id.ft"},
+			},
+		},
+		Functions: map[string]semantic.Function{
+			"ordersid.GET": {
+				ID: "ordersid.GET", Name: "GET", Package: "ordersid",
+				Visibility: "exported", Runnable: true,
+				Span: &semantic.SourceSpan{File: "app/api/orders/$id.ft"},
+			},
+		},
+	}
+}
+
 func buildEchoPlugin(t *testing.T) string {
 	t.Helper()
 	return buildPlugin(t, "./plugins/forst-gen-echo")

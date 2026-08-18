@@ -38,6 +38,26 @@ forst generate ./my-service
 
 This creates `generated/jsonschema/schema.json` alongside your generated TypeScript client. You can now import `schema.json` directly into your API gateway, validation pipeline, or external documentation tools.
 
+Build official plugin binaries from the Forst repo (`task build:plugins`) and ensure the install directory is on your `PATH`, or reference a project-local binary with a relative path.
+
+## Example project
+
+The repo ships a runnable boundary at `examples/in/plugins/` that exercises every official plugin from real `.ft` sources (RPC catalog, file routes, and React Router handlers). See that directory's README for commands.
+
+## Resolving plugin executables (`cmd`)
+
+Each `generate.plugins[].cmd` value resolves as follows:
+
+| Form | Resolution |
+| --- | --- |
+| `forst-gen-jsonschema` | Looked up on `PATH` (after `task build:plugins` or `go build`) |
+| `./bin/forst-gen-jsonschema` | Relative to the ftconfig boundary root |
+| `/usr/local/bin/forst-gen-jsonschema` | Used as-is (absolute path) |
+
+Plugin `out` directories are owned exclusively by the plugin. On each run, `forst generate` removes stale files under `out` that the plugin did not emit. Diagnostics with `severity: "error"` fail the generate command; warnings are logged only.
+
+Invalid `opt` JSON in `ftconfig.json` fails the plugin at runtime with a parse error.
+
 ## What you can build with plugins
 
 Plugins bridge Forst's type system with any external system or toolchain. Because plugins receive fully resolved types, constraint chains, and function signatures, you can automate any downstream output that derives from backend service definitions:
@@ -60,7 +80,7 @@ Official plugins are shipped alongside the compiler as standalone binaries.
 Generates standard JSON Schema files from Forst shapes and constraint chains.
 
 - **Use case:** Share strict type validation with external services, API gateways, or OpenAPI documentation.
-- **Key behavior:** Maps built-in constraints (`Min`, `Max`, `HasPrefix`, `Contains`) to schema properties. Emits a warning for runtime type-guard functions like `Email()` rather than guessing a format string.
+- **Key behavior:** Maps built-in constraints (`Min`, `Max`, `HasPrefix`, `Contains`) to schema properties. On maps, `Min`/`Max` become `minProperties`/`maxProperties`. Emits a warning for runtime type-guard functions like `Email()` rather than guessing a format string.
 
 ```jsonc
 {
@@ -98,7 +118,7 @@ Generates Zod schemas and procedure contracts for oRPC or tRPC applications.
 Generates a sealed HTTP route registry from file paths under a target directory.
 
 - **Use case:** Build RESTful HTTP APIs where file layout determines URL structure.
-- **Key behavior:** Converts paths like `app/api/orders/$id.ft` into route pattern `/api/orders/:id`. Generates handler wrappers, path parameter bindings, and a central `dispatch()` function.
+- **Key behavior:** Converts paths like `app/api/orders/$id.ft` into route pattern `/api/orders/:id`. Generates handler wrappers, path parameter bindings, and a central `dispatch()` function. Skips `.Router()` types declared outside `opt.routesRoot` (for example RPC catalogs in `catalog/`). Skips HTTP members whose bound function is not runnable (same as the React Router plugin) and emits an error diagnostic.
 
 ```jsonc
 {
@@ -131,6 +151,18 @@ Generates React Router and Remix resource routes and server loaders.
 }
 ```
 
+### `forst-gen-echo`
+
+Development-only manifest of type and function ids in the semantic snapshot. Use it to verify `generate.plugins[]` wiring — not for production artifacts.
+
+```jsonc
+{
+  "name": "echo",
+  "cmd": "forst-gen-echo",
+  "out": "generated/echo"
+}
+```
+
 ## How to write a custom plugin
 
 You can write a custom plugin in Go or any language that can read standard input and write standard output.
@@ -146,7 +178,7 @@ Write a custom plugin when you need to transform Forst type metadata into custom
 
 ### Under the hood: The semantic snapshot model
 
-Plugins do not receive raw source tokens or abstract syntax trees (AST). Instead, `forst generate` typechecks your code once and emits a structured JSON payload called the **semantic snapshot**.
+Plugins do not receive raw source tokens or abstract syntax trees (AST). Instead, `forst generate` typechecks your Forst code and projects a structured JSON payload called the **semantic snapshot** (the same typecheck also feeds the TypeScript client).
 
 The snapshot contains resolved, fully-qualified facts about your codebase:
 

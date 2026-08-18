@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -23,8 +22,8 @@ func emitFileRoutes(req *semantic.GenerateRequest) (semantic.GenerateResponse, e
 		ParamStyle: "$id",
 		Client:     "@forst/client",
 	}
-	if req.Plugin != nil && len(req.Plugin.Opt) > 0 {
-		_ = json.Unmarshal(req.Plugin.Opt, &opt)
+	if err := genplugin.UnmarshalPluginOpt(req, &opt); err != nil {
+		return semantic.GenerateResponse{}, err
 	}
 	if len(opt.Markers) == 0 {
 		opt.Markers = []string{"Router"}
@@ -198,6 +197,15 @@ func collectHTTPMethods(s genplugin.FileRouterSurface, diags *[]semantic.Diagnos
 				Severity: "error",
 				Message:  fmt.Sprintf("HTTP member %q has no bound function", m.FieldName),
 				TypeID:   s.TypeID,
+			})
+			continue
+		}
+		if !m.Function.Runnable {
+			*diags = append(*diags, semantic.Diagnostic{
+				Severity: "error",
+				Message:  fmt.Sprintf("HTTP member %q is not runnable (unsatisfied providers); skipped", m.FieldName),
+				TypeID:   s.TypeID,
+				Span:     m.Function.Span,
 			})
 			continue
 		}

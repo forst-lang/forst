@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -34,8 +33,8 @@ type proc struct {
 
 func emitORPC(req *semantic.GenerateRequest) (semantic.GenerateResponse, error) {
 	opt := orpcOpt{Markers: []string{"Router"}, Style: "orpc", Client: "@forst/client"}
-	if req.Plugin != nil && len(req.Plugin.Opt) > 0 {
-		_ = json.Unmarshal(req.Plugin.Opt, &opt)
+	if err := genplugin.UnmarshalPluginOpt(req, &opt); err != nil {
+		return semantic.GenerateResponse{}, err
 	}
 	if len(opt.Markers) == 0 {
 		opt.Markers = []string{"Router"}

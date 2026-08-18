@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,7 +48,10 @@ func runOneSemanticPlugin(boundaryRoot string, snapshot *semantic.GenerateReques
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	cmdPath := plugin.ResolveCmd(boundaryRoot)
+	cmdPath, err := plugin.ResolveCmd(boundaryRoot)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), pluginTimeout)
 	defer cancel()
 
@@ -90,19 +94,26 @@ func runOneSemanticPlugin(boundaryRoot string, snapshot *semantic.GenerateReques
 	}
 
 	outDir := plugin.EffectiveOutDir(boundaryRoot)
+	emitted := make(map[string]struct{}, len(resp.Files))
 	for _, f := range resp.Files {
 		if err := validatePluginOutputPath(f.Path); err != nil {
 			return fmt.Errorf("invalid output path %q: %w", f.Path, err)
 		}
+		emitted[f.Path] = struct{}{}
 		target := filepath.Join(outDir, filepath.FromSlash(f.Path))
 		if err := writeGeneratedFile(target, []byte(f.Content), stats); err != nil {
 			return fmt.Errorf("write %q: %w", f.Path, err)
 		}
 	}
+	if err := prunePluginOutDir(outDir, emitted); err != nil {
+		return fmt.Errorf("prune output dir: %w", err)
+	}
+	var errCount int
 	for _, d := range resp.Diagnostics {
 		level := logrus.WarnLevel
 		if d.Severity == "error" {
 			level = logrus.ErrorLevel
+			errCount++
 		}
 		log.WithFields(logrus.Fields{
 			"plugin":  plugin.Name,
@@ -110,7 +121,35 @@ func runOneSemanticPlugin(boundaryRoot string, snapshot *semantic.GenerateReques
 			"message": d.Message,
 		}).Log(level, "semantic plugin diagnostic")
 	}
+	if errCount > 0 {
+		return fmt.Errorf("%d error diagnostic(s)", errCount)
+	}
 	return nil
+}
+
+func prunePluginOutDir(outDir string, keep map[string]struct{}) error {
+	if len(keep) == 0 {
+		return nil
+	}
+	return filepath.WalkDir(outDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(outDir, path)
+		if err != nil {
+			return err
+		}
+		if _, ok := keep[filepath.ToSlash(rel)]; ok {
+			return nil
+		}
+		return os.Remove(path)
+	})
 }
 
 func validatePluginOutputPath(path string) error {

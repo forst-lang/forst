@@ -29,8 +29,8 @@ type schemaEnc struct {
 
 func emitJSONSchema(req *semantic.GenerateRequest) (semantic.GenerateResponse, error) {
 	opt := pluginOpt{Draft: "2020-12"}
-	if req.Plugin != nil && len(req.Plugin.Opt) > 0 {
-		_ = json.Unmarshal(req.Plugin.Opt, &opt)
+	if err := genplugin.UnmarshalPluginOpt(req, &opt); err != nil {
+		return semantic.GenerateResponse{}, err
 	}
 	if opt.Draft == "" {
 		opt.Draft = "2020-12"
@@ -40,7 +40,7 @@ func emitJSONSchema(req *semantic.GenerateRequest) (semantic.GenerateResponse, e
 	if len(opt.Markers) > 0 {
 		filtered := typeIDs[:0]
 		for _, id := range typeIDs {
-			if genplugin.HasMarker(req.Types[id], opt.Markers) {
+			if genplugin.HasMarker(req.Types, req.Types[id], opt.Markers) {
 				filtered = append(filtered, id)
 			}
 		}
@@ -116,16 +116,7 @@ func emitJSONSchema(req *semantic.GenerateRequest) (semantic.GenerateResponse, e
 }
 
 func uniqueDefName(id string, used map[string]int) string {
-	base := genplugin.TypeShortName(id)
-	if base == "" {
-		base = "Type"
-	}
-	n := used[base]
-	used[base] = n + 1
-	if n == 0 {
-		return base
-	}
-	return fmt.Sprintf("%s_%s", genplugin.PackageOfTypeID(id), base)
+	return genplugin.UniqueTypeName(id, used)
 }
 
 func schemaDraftURL(draft string) string {
@@ -311,30 +302,43 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 		if c.Origin != "builtin" {
 			continue
 		}
+		handled := true
 		switch c.Name {
 		case "Min":
-			applyBound(schema, kind, c, true)
+			handled = applyBound(e, schema, kind, c, true)
 		case "Max":
-			applyBound(schema, kind, c, false)
+			handled = applyBound(e, schema, kind, c, false)
 		case "LessThan":
-			if n, ok := numericArg(c.Args); ok {
-				schema["exclusiveMaximum"] = n
+			if kind == "int" || kind == "float" {
+				if n, ok := numericArg(c.Args); ok {
+					schema["exclusiveMaximum"] = n
+				}
+			} else {
+				handled = false
 			}
 		case "GreaterThan":
-			if n, ok := numericArg(c.Args); ok {
-				schema["exclusiveMinimum"] = n
+			if kind == "int" || kind == "float" {
+				if n, ok := numericArg(c.Args); ok {
+					schema["exclusiveMinimum"] = n
+				}
+			} else {
+				handled = false
 			}
 		case "HasPrefix":
 			if kind == "string" {
 				if prefix, ok := stringArg(c.Args); ok {
 					extra = append(extra, map[string]any{"pattern": "^" + quoteMeta(prefix)})
 				}
+			} else {
+				handled = false
 			}
 		case "Contains":
 			if kind == "string" {
 				if sub, ok := stringArg(c.Args); ok {
 					extra = append(extra, map[string]any{"pattern": ".*" + quoteMeta(sub) + ".*"})
 				}
+			} else {
+				handled = false
 			}
 		case "NotEmpty":
 			switch kind {
@@ -342,6 +346,8 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 				schema["minLength"] = 1
 			case "array":
 				schema["minItems"] = 1
+			default:
+				handled = false
 			}
 		case "True":
 			schema["const"] = true
@@ -355,6 +361,11 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 			if len(c.Args) >= 1 {
 				schema["const"] = c.Args[0]
 			}
+		default:
+			handled = false
+		}
+		if !handled {
+			e.warn(fmt.Sprintf("constraint %q is not mapped to JSON Schema for kind %q", c.Name, kind))
 		}
 	}
 	mergePatterns(schema, extra)
@@ -362,10 +373,10 @@ func (e *schemaEnc) applyConstraints(schema map[string]any, kind string, chain [
 
 const astValue = "Value"
 
-func applyBound(schema map[string]any, kind string, c semantic.Constraint, min bool) {
+func applyBound(e *schemaEnc, schema map[string]any, kind string, c semantic.Constraint, min bool) bool {
 	n, ok := numericArg(c.Args)
 	if !ok {
-		return
+		return false
 	}
 	target := c.Applies
 	if target == "" {
@@ -376,27 +387,51 @@ func applyBound(schema map[string]any, kind string, c semantic.Constraint, min b
 			target = "items"
 		case "int", "float":
 			target = "value"
+		default:
+			return false
 		}
 	}
 	switch target {
 	case "length":
+		if kind != "string" {
+			return false
+		}
 		if min {
 			schema["minLength"] = n
 		} else {
 			schema["maxLength"] = n
 		}
+		return true
 	case "items":
+		if kind != "array" {
+			return false
+		}
 		if min {
 			schema["minItems"] = n
 		} else {
 			schema["maxItems"] = n
 		}
+		return true
 	case "value":
+		if kind == "map" {
+			if min {
+				schema["minProperties"] = n
+			} else {
+				schema["maxProperties"] = n
+			}
+			return true
+		}
+		if kind != "int" && kind != "float" {
+			return false
+		}
 		if min {
 			schema["minimum"] = n
 		} else {
 			schema["maximum"] = n
 		}
+		return true
+	default:
+		return false
 	}
 }
 
