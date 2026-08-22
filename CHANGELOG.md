@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **cli:** `forst build` now produces a native program binary under `-o <dir>` (`manifest.json` with `kind: "program"`). The linked executable name comes from the entry `.ft` stem (for example `main.ft` → `bin/main`), replacing the fixed `bin/forst-invoke` name. Go source emission uses `generate.go.entry` / `generate.go.out` in `ftconfig.json` or CLI flags `--go-entry`, `--go-out`, `--go-root`, `--skip-client`. `forst build -o file.go` is rejected with a migration hint.
 * **cli:** With `server.embedded` + `node.hostMode`, one built program binary runs entry, embedded invoke, and spawns the Node host as a child. Set `FORST_SKIP_NODE_HOST=1` on the same binary when Node runs separately (split layout). `FORST_INVOKE_ONLY` was renamed to `FORST_SKIP_NODE_HOST`.
 
+## [0.17.1](https://github.com/forst-lang/forst/compare/v0.17.0...v0.17.1) (2026-08-18)
+
+
+### Features
+
+* **ftconfig:** resolve bare plugin cmds beside the compiler ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **generate:** project a semantic snapshot and run local plugins ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* Generator plugins ([#186](https://github.com/forst-lang/forst/issues/186)) ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **go-interop:** type-check Go callbacks & unnamed structs (FFI) ([#189](https://github.com/forst-lang/forst/issues/189)) ([33de156](https://github.com/forst-lang/forst/commit/33de156430fa60412f8260280213b9e515b90086))
+* **gointerop:** map Go types faithfully at the FFI boundary ([#188](https://github.com/forst-lang/forst/issues/188)) ([6d89177](https://github.com/forst-lang/forst/commit/6d891774be8d834e3d8e0872ebbbfebf9c7ab20f))
+
 ## [0.17.0](https://github.com/forst-lang/forst/compare/v0.16.0...v0.17.0) (2026-08-17)
 
 

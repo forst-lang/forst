@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1](https://github.com/forst-lang/forst/compare/cli-v0.8.0...cli-v0.8.1) (2026-08-18)
+
+
+### Features
+
+* **ftconfig:** resolve bare plugin cmds beside the compiler ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* **generate:** project a semantic snapshot and run local plugins ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+* Generator plugins ([#186](https://github.com/forst-lang/forst/issues/186)) ([4b77fb9](https://github.com/forst-lang/forst/commit/4b77fb9c94ca768900bc2b30dd90f5c8d584f0f3))
+
 ## [0.8.0](https://github.com/forst-lang/forst/compare/cli-v0.7.0...cli-v0.8.0) (2026-08-17)
 
 
